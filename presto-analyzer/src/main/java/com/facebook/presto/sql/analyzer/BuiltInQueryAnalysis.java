@@ -13,8 +13,13 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.spi.analyzer.QueryAnalysis;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.sql.tree.Explain;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
 import java.util.Optional;
@@ -51,5 +56,34 @@ public class BuiltInQueryAnalysis
     public Map<FunctionKind, Set<String>> getInvokedFunctions()
     {
         return analysis.getInvokedFunctions();
+    }
+
+    @Override
+    public AccessControlReferences getAccessControlReferences()
+    {
+        return analysis.getAccessControlReferences();
+    }
+
+    @Override
+    public boolean isExplainAnalyzeQuery()
+    {
+        return analysis.getStatement() instanceof Explain && ((Explain) analysis.getStatement()).isAnalyze();
+    }
+
+    @Override
+    public Set<ConnectorId> extractConnectors()
+    {
+        ImmutableSet.Builder<ConnectorId> connectors = ImmutableSet.builder();
+
+        for (TableHandle tableHandle : analysis.getTables()) {
+            connectors.add(tableHandle.getConnectorId());
+        }
+
+        if (analysis.getInsert().isPresent()) {
+            TableHandle target = analysis.getInsert().get().getTarget();
+            connectors.add(target.getConnectorId());
+        }
+
+        return connectors.build();
     }
 }

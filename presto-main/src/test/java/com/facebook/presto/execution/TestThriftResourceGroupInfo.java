@@ -385,6 +385,7 @@ public class TestThriftResourceGroupInfo
                 FAKE_RUNNING_QUERIES,
                 FAKE_ELIGIBLE_SUB_GROUPS,
                 subGroups,
-                runningQueries);
+                runningQueries,
+                0);
     }
 }

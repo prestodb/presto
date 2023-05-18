@@ -26,6 +26,7 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TopNNode;
@@ -45,7 +46,6 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
@@ -222,9 +222,19 @@ public final class PlanMatchPattern
             Step step,
             PlanMatchPattern source)
     {
-        PlanMatchPattern result = node(AggregationNode.class, source).with(new AggregationMatcher(groupingSets, preGroupedSymbols, masks, groupId, step));
+        PlanMatchPattern result = node(AggregationNode.class, source);
         aggregations.entrySet().forEach(
-                aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
+                aggregation ->
+                {
+                    if (aggregation.getKey().isPresent() && masks.containsKey(new Symbol(aggregation.getKey().get()))) {
+                        result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue(), masks.get(new Symbol(aggregation.getKey().get()))));
+                    }
+                    else {
+                        result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue()));
+                    }
+                });
+        // Put the AggregationMatcher at the end as the mask mapping will use the output mapping from aggregation function calls above
+        result.with(new AggregationMatcher(groupingSets, preGroupedSymbols, masks, groupId, step));
         return result;
     }
 
@@ -453,6 +463,11 @@ public final class PlanMatchPattern
         return node(UnnestNode.class, source);
     }
 
+    public static PlanMatchPattern unnest(Map<String, List<String>> unnestVariables, PlanMatchPattern source)
+    {
+        return node(UnnestNode.class, source).with(new UnnestMatcher(unnestVariables));
+    }
+
     public static PlanMatchPattern exchange(PlanMatchPattern... sources)
     {
         return node(ExchangeNode.class, sources);
@@ -528,6 +543,14 @@ public final class PlanMatchPattern
     public static PlanMatchPattern groupingSet(List<List<String>> groups, Map<String, String> identityMappings, String groupIdAlias, PlanMatchPattern source)
     {
         return node(GroupIdNode.class, source).with(new GroupIdMatcher(groups, identityMappings, groupIdAlias));
+    }
+
+    public static PlanMatchPattern groupingSet(List<List<String>> groups, Map<String, String> identityMappings, String groupIdAlias, Map<String, ExpressionMatcher> groupingColumns, PlanMatchPattern source)
+    {
+        PlanMatchPattern result = node(GroupIdNode.class, source).with(new GroupIdMatcher(groups, identityMappings, groupIdAlias));
+        groupingColumns.entrySet().forEach(
+                groupingColumn -> result.withAlias(groupingColumn.getKey(), groupingColumn.getValue()));
+        return result;
     }
 
     private static PlanMatchPattern values(
@@ -631,7 +654,13 @@ public final class PlanMatchPattern
         SymbolAliases.Builder newAliases = SymbolAliases.builder();
 
         for (Matcher matcher : matchers) {
-            MatchResult matchResult = matcher.detailMatches(node, stats, session, metadata, symbolAliases);
+            MatchResult matchResult;
+            if (matcher instanceof AggregationMatcher) {
+                matchResult = matcher.detailMatches(node, stats, session, metadata, symbolAliases.withNewAliases(newAliases.build()));
+            }
+            else {
+                matchResult = matcher.detailMatches(node, stats, session, metadata, symbolAliases);
+            }
             if (!matchResult.isMatch()) {
                 return NO_MATCH;
             }
@@ -912,7 +941,7 @@ public final class PlanMatchPattern
         private final int groupingSetCount;
         private final Set<Integer> globalGroupingSets;
 
-        private GroupingSetDescriptor(List<String> groupingKeys, int groupingSetCount, Set<Integer> globalGroupingSets)
+        public GroupingSetDescriptor(List<String> groupingKeys, int groupingSetCount, Set<Integer> globalGroupingSets)
         {
             this.groupingKeys = groupingKeys;
             this.groupingSetCount = groupingSetCount;

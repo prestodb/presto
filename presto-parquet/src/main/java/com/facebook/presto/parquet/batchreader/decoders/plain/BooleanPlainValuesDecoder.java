@@ -15,12 +15,16 @@ package com.facebook.presto.parquet.batchreader.decoders.plain;
 
 import com.facebook.presto.parquet.batchreader.BytesUtils;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BooleanValuesDecoder;
+import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.sizeOf;
 
 public class BooleanPlainValuesDecoder
         implements BooleanValuesDecoder
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BooleanPlainValuesDecoder.class).instanceSize();
+
     private final byte[] byteBuffer;
     private final int bufferEnd;
 
@@ -98,5 +102,11 @@ public class BooleanPlainValuesDecoder
             currentByte = byteBuffer[bufferOffset++];
             currentByteOffset = length;
         }
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + sizeOf(byteBuffer);
     }
 }

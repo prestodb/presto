@@ -28,15 +28,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 message("Appending CMAKE_CXX_FLAGS with ${SCRIPT_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SCRIPT_CXX_FLAGS}")
 if("${TREAT_WARNINGS_AS_ERRORS}")
-  set(KNOWN_WARNINGS "-Wno-nullability-completeness")
-
-  # known warnings for MacOS
-  if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    set(KNOWN_WARNINGS "${KNOWN_WARNINGS} -Wno-deprecated-declarations")
-  endif()
-
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror ${KNOWN_WARNINGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 endif()
+
+set(KNOWN_WARNINGS "-Wno-nullability-completeness")
+
+# known warnings for MacOS
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  set(KNOWN_WARNINGS "${KNOWN_WARNINGS} -Wno-deprecated-declarations")
+endif()
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${KNOWN_WARNINGS}")
 
 # Add all Presto options below
 option(PRESTO_ENABLE_S3 "Build S3 connector" OFF)
@@ -45,6 +47,8 @@ option(PRESTO_ENABLE_PARQUET "Enable Parquet support" OFF)
 option(PRESTO_ENABLE_TESTING "Enable tests" ON)
 
 # Set all Velox options below
+add_compile_definitions(FOLLY_HAVE_INT128_T=1)
+
 if(PRESTO_ENABLE_S3)
   set(VELOX_ENABLE_S3
       ON
@@ -171,11 +175,14 @@ include_directories(velox/velox/external/xxhash)
 include_directories(${VELOX_ROOT})
 include_directories(${CMAKE_BINARY_DIR})
 
+# set this for backwards compatibility, will be overwritten in velox/
+set(VELOX_GTEST_INCUDE_DIR "velox/third_party/googletest/googletest/include")
+
 add_subdirectory(velox)
 
 if(PRESTO_ENABLE_TESTING)
   include(CTest) # include after project() but before add_subdirectory()
-  include_directories(velox/third_party/googletest/googletest/include)
+  include_directories(${VELOX_GTEST_INCUDE_DIR})
 else()
   add_definitions(-DVELOX_DISABLE_GOOGLETEST)
 endif()

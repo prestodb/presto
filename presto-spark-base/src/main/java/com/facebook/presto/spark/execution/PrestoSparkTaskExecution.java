@@ -32,10 +32,12 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -55,6 +57,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getInitialSplitsPerNode;
 import static com.facebook.presto.SystemSessionProperties.getMaxDriversPerTask;
@@ -65,6 +68,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -224,10 +228,16 @@ public class PrestoSparkTaskExecution
 
         // Enqueue driver runners with split lifecycle for this plan node and driver life cycle combination.
         ImmutableList.Builder<DriverSplitRunner> runners = ImmutableList.builder();
-        for (ScheduledSplit scheduledSplit : splits) {
-            // create a new driver for the split
-            runners.add(factory.createDriverRunner(scheduledSplit));
+        // For native execution, process all splits in a single driver.
+        if (isNativeExecutionEnabled(this.taskContext.getSession())) {
+            runners.add(factory.createDriverRunner(splits));
         }
+        else { // For Java execution, process each split in a separate driver.
+            for (ScheduledSplit scheduledSplit : splits) {
+                runners.add(factory.createDriverRunner(ImmutableList.of(scheduledSplit)));
+            }
+        }
+
         enqueueDriverSplitRunner(false, runners.build());
 
         factory.noMoreDriverRunner();
@@ -339,25 +349,29 @@ public class PrestoSparkTaskExecution
             this.pipelineContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), partitioned);
         }
 
-        public DriverSplitRunner createDriverRunner(@Nullable ScheduledSplit partitionedSplit)
+        public DriverSplitRunner createDriverRunner(@Nullable List<ScheduledSplit> scheduledSplits)
         {
             checkState(!noMoreDriverRunner.get(), "Cannot create driver for pipeline: %s", pipelineContext.getPipelineId());
             pendingCreation.incrementAndGet();
             // create driver context immediately so the driver existence is recorded in the stats
-            // the number of drivers is used to balance work across nodes
-            long splitWeight = partitionedSplit == null ? 0 : partitionedSplit.getSplit().getSplitWeight().getRawValue();
-            DriverContext driverContext = pipelineContext.addDriverContext(splitWeight, Lifespan.taskWide(), driverFactory.getFragmentResultCacheContext());
-            return new DriverSplitRunner(this, driverContext, partitionedSplit);
+            // splitWeight can be 0 as we don't load balance the executor based on their load average
+            DriverContext driverContext = pipelineContext.addDriverContext(0, Lifespan.taskWide(), driverFactory.getFragmentResultCacheContext());
+            return new DriverSplitRunner(this, driverContext, scheduledSplits);
         }
 
-        public Driver createDriver(DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
+        public Driver createDriver(DriverContext driverContext, @Nullable List<ScheduledSplit> scheduledSplits)
         {
             Driver driver = driverFactory.createDriver(driverContext);
-            if (partitionedSplit != null) {
+            if (scheduledSplits != null && scheduledSplits.size() > 0) {
                 boolean isNativeExecutionEnabled = isNativeExecutionEnabled(driver.getDriverContext().getSession());
-                PlanNodeId sourceNodeId = isNativeExecutionEnabled ? driver.getSourceId().get() : partitionedSplit.getPlanNodeId();
+                if (!isNativeExecutionEnabled && scheduledSplits.size() != 1) {
+                    throw new IllegalArgumentException(format("non-native (java) execution requires only one scheduledSplits but [%d] were found [%s]",
+                            scheduledSplits.size(),
+                            Joiner.on(",").join(scheduledSplits.stream().map(ScheduledSplit::toString).collect(Collectors.toList()))));
+                }
+                PlanNodeId sourceNodeId = isNativeExecutionEnabled ? driver.getSourceId().get() : Iterables.getOnlyElement(scheduledSplits).getPlanNodeId();
                 // TableScanOperator requires partitioned split to be added before the first call to process
-                driver.updateSource(new TaskSource(sourceNodeId, ImmutableSet.of(partitionedSplit), true));
+                driver.updateSource(new TaskSource(sourceNodeId, ImmutableSet.copyOf(scheduledSplits), true));
             }
 
             verify(pendingCreation.get() > 0, "pendingCreation is expected to be greater than zero");
@@ -418,16 +432,16 @@ public class PrestoSparkTaskExecution
         private boolean closed;
 
         @Nullable
-        private final ScheduledSplit partitionedSplit;
+        private List<ScheduledSplit> scheduledSplits;
 
         @GuardedBy("this")
         private Driver driver;
 
-        private DriverSplitRunner(DriverSplitRunnerFactory driverSplitRunnerFactory, DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
+        private DriverSplitRunner(DriverSplitRunnerFactory driverSplitRunnerFactory, DriverContext driverContext, @Nullable List<ScheduledSplit> scheduledSplits)
         {
             this.driverSplitRunnerFactory = requireNonNull(driverSplitRunnerFactory, "driverFactory is null");
             this.driverContext = requireNonNull(driverContext, "driverContext is null");
-            this.partitionedSplit = partitionedSplit;
+            this.scheduledSplits = scheduledSplits;
         }
 
         public synchronized DriverContext getDriverContext()
@@ -459,7 +473,7 @@ public class PrestoSparkTaskExecution
                 }
 
                 if (this.driver == null) {
-                    this.driver = driverSplitRunnerFactory.createDriver(driverContext, partitionedSplit);
+                    this.driver = driverSplitRunnerFactory.createDriver(driverContext, scheduledSplits);
                 }
 
                 driver = this.driver;
@@ -471,7 +485,11 @@ public class PrestoSparkTaskExecution
         @Override
         public String getInfo()
         {
-            return (partitionedSplit == null) ? "" : partitionedSplit.getSplit().getInfo().toString();
+            return scheduledSplits == null || scheduledSplits.isEmpty() ? "" :
+                    format("DriverRunner splitCount=%d [%s]",
+                            scheduledSplits.size(),
+                            Joiner.on(",").join(scheduledSplits.stream().map(
+                                    split -> split.getSplit().getConnectorSplit()).collect(Collectors.toList())));
         }
 
         @Override

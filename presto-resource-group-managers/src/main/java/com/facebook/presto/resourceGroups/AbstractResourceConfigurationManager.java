@@ -100,6 +100,7 @@ public abstract class AbstractResourceConfigurationManager
                     spec.getResourceEstimate(),
                     spec.getQueryType(),
                     spec.getClientInfoRegex(),
+                    spec.getSchema(),
                     spec.getGroup()));
         }
         return selectors.build();
@@ -212,6 +213,7 @@ public abstract class AbstractResourceConfigurationManager
         match.getJmxExport().filter(isEqual(group.getJmxExport()).negate()).ifPresent(group::setJmxExport);
         match.getSoftCpuLimit().ifPresent(group::setSoftCpuLimit);
         match.getHardCpuLimit().ifPresent(group::setHardCpuLimit);
+        match.getWorkersPerQueryLimit().ifPresent(group::setWorkersPerQueryLimit);
         if (match.getSoftCpuLimit().isPresent() || match.getHardCpuLimit().isPresent()) {
             // This will never throw an exception if the validateRootGroups method succeeds
             checkState(getCpuQuotaPeriod().isPresent(), "Must specify hard CPU limit in addition to soft limit");

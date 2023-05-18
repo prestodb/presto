@@ -17,7 +17,6 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.airlift.discovery.server.EmbeddedDiscoveryModule;
 import com.facebook.presto.client.QueryResults;
-import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
@@ -33,6 +32,7 @@ import com.facebook.presto.dispatcher.LocalDispatchQueryFactory;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.event.QueryMonitorConfig;
 import com.facebook.presto.execution.ClusterSizeMonitor;
+import com.facebook.presto.execution.ExecutionFactoriesManager;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.ForTimeoutThread;
@@ -91,7 +91,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
 import io.airlift.units.Duration;
 
@@ -100,7 +99,6 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -114,11 +112,10 @@ import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder
 import static com.facebook.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.presto.execution.AccessControlCheckerExecution.AccessControlCheckerExecutionFactory;
 import static com.facebook.presto.execution.DDLDefinitionExecution.DDLDefinitionExecutionFactory;
-import static com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import static com.facebook.presto.execution.SessionDefinitionExecution.SessionDefinitionExecutionFactory;
 import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
-import static com.facebook.presto.sql.analyzer.utils.StatementUtils.getAllQueryTypes;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -261,30 +258,16 @@ public class CoordinatorModule
         binder.bind(QueryExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryExecutionMBean.class).as(generatedNameOf(QueryExecution.class));
 
-        MapBinder<QueryType, QueryExecutionFactory<?>> executionBinder = newMapBinder(binder,
-                new TypeLiteral<QueryType>() {}, new TypeLiteral<QueryExecution.QueryExecutionFactory<?>>() {});
-
         binder.bind(SplitSchedulerStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SplitSchedulerStats.class).withGeneratedName();
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         binder.bind(SectionExecutionFactory.class).in(Scopes.SINGLETON);
 
-        Set<QueryType> queryTypes = getAllQueryTypes();
-
-        // bind sql query type to SqlQueryExecutionFactory
-        queryTypes.stream().filter(queryType -> queryType != QueryType.DATA_DEFINITION && queryType != QueryType.CONTROL)
-                .forEach(queryType -> executionBinder.addBinding(queryType).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON));
         binder.bind(PartialResultQueryManager.class).in(Scopes.SINGLETON);
-
-        // bind data definition type to DataDefinitionExecutionFactory
-        queryTypes.stream().filter(queryType -> queryType == QueryType.DATA_DEFINITION)
-                .forEach(queryType -> executionBinder.addBinding(queryType).to(DDLDefinitionExecutionFactory.class).in(Scopes.SINGLETON));
         binder.bind(DDLDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
-
-        // bind session Control types to SessionTransactionExecutionFactory
-        queryTypes.stream().filter(queryType -> queryType == QueryType.CONTROL)
-                .forEach(queryType -> executionBinder.addBinding(queryType).to(SessionDefinitionExecutionFactory.class).in(Scopes.SINGLETON));
         binder.bind(SessionDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
+        binder.bind(AccessControlCheckerExecutionFactory.class).in(Scopes.SINGLETON);
+        binder.bind(ExecutionFactoriesManager.class).in(Scopes.SINGLETON);
 
         // helper class binding data definition tasks and statements
         PrestoDataDefBindingHelper.bindDDLDefinitionTasks(binder);

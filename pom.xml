@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.281-SNAPSHOT</version>
+    <version>0.282-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -48,7 +48,7 @@
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
-        <dep.aws-sdk.version>1.11.697</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.261</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
@@ -119,7 +119,6 @@
         <module>presto-local-file</module>
         <module>presto-tpch</module>
         <module>presto-tpcds</module>
-        <module>presto-raptor</module>
         <module>presto-base-jdbc</module>
         <module>presto-testing-docker</module>
         <module>presto-mysql</module>
@@ -542,12 +541,6 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-geospatial-toolkit</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-raptor</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1642,7 +1635,7 @@
             <dependency>
                 <groupId>commons-codec</groupId>
                 <artifactId>commons-codec</artifactId>
-                <version>1.10</version>
+                <version>1.15</version>
             </dependency>
 
             <dependency>
@@ -2239,6 +2232,8 @@
                                     <exclude>org.codehaus.plexus:plexus-utils</exclude>
                                     <exclude>com.google.guava:guava</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
+                                    <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
+                                    <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
                                 </excludes>
                             </requireUpperBoundDeps>
                         </rules>
@@ -2447,6 +2442,26 @@
                     <plugin>
                         <groupId>org.sonatype.plugins</groupId>
                         <artifactId>nexus-staging-maven-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>1.6</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                                <configuration>
+                                    <gpgArguments>
+                                        <arg>--pinentry-mode</arg>
+                                        <arg>loopback</arg>
+                                    </gpgArguments>
+                                </configuration>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>

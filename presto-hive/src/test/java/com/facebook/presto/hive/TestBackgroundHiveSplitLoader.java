@@ -452,12 +452,13 @@ public class TestBackgroundHiveSplitLoader
             assertEquals(future.get().size(), TEST_FILES.size());
         }
 
-        assertEquals(cachingDirectoryLister.getRequestCount(), totalCount);
         if (fileStatusCacheTables.length() == 0) {
+            assertEquals(cachingDirectoryLister.getRequestCount(), 0);
             assertEquals(cachingDirectoryLister.getHitCount(), 0);
-            assertEquals(cachingDirectoryLister.getMissCount(), totalCount);
+            assertEquals(cachingDirectoryLister.getMissCount(), 0);
         }
         else {
+            assertEquals(cachingDirectoryLister.getRequestCount(), totalCount);
             assertEquals(cachingDirectoryLister.getHitCount(), totalCount - 1);
             assertEquals(cachingDirectoryLister.getMissCount(), 1);
         }

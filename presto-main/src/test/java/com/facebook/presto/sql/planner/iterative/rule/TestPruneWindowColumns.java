@@ -47,7 +47,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strict
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.windowFrame;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.CURRENT_ROW;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.FOLLOWING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.PRECEDING;
@@ -275,7 +275,7 @@ public class TestPruneWindowColumns
         List<VariableReferenceExpression> filteredInputs = inputs.stream().filter(sourceFilter).collect(toImmutableList());
 
         return p.project(
-                identityAssignmentsAsSymbolReferences(
+                identityAssignments(
                         outputs.stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),

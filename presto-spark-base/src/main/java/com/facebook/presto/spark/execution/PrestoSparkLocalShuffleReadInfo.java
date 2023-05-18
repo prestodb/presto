@@ -16,6 +16,8 @@ package com.facebook.presto.spark.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -30,14 +32,22 @@ public class PrestoSparkLocalShuffleReadInfo
         implements PrestoSparkShuffleReadInfo
 {
     private final int numPartitions;
+    // Presto queryId which is unique to each query.
+    private final String queryId;
+    // Partition ids which are supposed to be read by given shuffle read.
+    private final List<String> partitionIds;
     private final String rootPath;
 
     @JsonCreator
     public PrestoSparkLocalShuffleReadInfo(
             @JsonProperty("numPartitions") int numPartitions,
+            @JsonProperty("queryId") String queryId,
+            @JsonProperty("partitionIds") List<String> partitionIds,
             @JsonProperty("rootPath") String rootPath)
     {
         this.numPartitions = numPartitions;
+        this.queryId = requireNonNull(queryId, "queryId is null");
+        this.partitionIds = requireNonNull(partitionIds, "partitionIds is null");
         this.rootPath = requireNonNull(rootPath, "rootPath is null");
     }
 
@@ -48,9 +58,21 @@ public class PrestoSparkLocalShuffleReadInfo
     }
 
     @JsonProperty
+    public String getQueryId()
+    {
+        return queryId;
+    }
+
+    @JsonProperty
     public String getRootPath()
     {
         return rootPath;
+    }
+
+    @JsonProperty
+    public List<String> getPartitionIds()
+    {
+        return partitionIds;
     }
 
     @Override
@@ -58,6 +80,8 @@ public class PrestoSparkLocalShuffleReadInfo
     {
         return toStringHelper(this)
                 .add("numPartitions", numPartitions)
+                .add("queryId", queryId)
+                .add("partitionIds", String.join(", ", partitionIds))
                 .add("rootPath", rootPath)
                 .toString();
     }

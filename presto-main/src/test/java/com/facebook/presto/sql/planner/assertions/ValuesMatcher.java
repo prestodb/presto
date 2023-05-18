@@ -14,12 +14,14 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.ShortDecimalType;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.GenericLiteral;
@@ -38,8 +40,6 @@ import java.util.Set;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -80,15 +80,18 @@ public class ValuesMatcher
                 .stream()
                 .map(rowExpressions -> rowExpressions.stream()
                         .map(rowExpression -> {
-                            if (isExpression(rowExpression)) {
-                                return castToExpression(rowExpression);
-                            }
                             ConstantExpression expression = (ConstantExpression) rowExpression;
                             if (expression.getType().getJavaType() == boolean.class) {
                                 return new BooleanLiteral(String.valueOf(expression.getValue()));
                             }
+                            if (expression.getType() instanceof ShortDecimalType) {
+                                return new DecimalLiteral(String.valueOf(expression.getValue()));
+                            }
                             if (expression.getType().getJavaType() == long.class) {
                                 return new LongLiteral(String.valueOf(expression.getValue()));
+                            }
+                            if (expression.getType().getJavaType() == double.class) {
+                                return new DoubleLiteral(String.valueOf(expression.getValue()));
                             }
                             if (expression.getType().getJavaType() == double.class) {
                                 return new DoubleLiteral(String.valueOf(expression.getValue()));

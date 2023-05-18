@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.planPrinter;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.HashCollisionsInfo;
+import com.facebook.presto.operator.NativeExecutionInfo;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PipelineStats;
 import com.facebook.presto.operator.TaskStats;
@@ -84,6 +85,8 @@ public class PlanNodeStatsSummarizer
         Map<PlanNodeId, Map<String, OperatorInputStats>> operatorInputStats = new HashMap<>();
         Map<PlanNodeId, Map<String, OperatorHashCollisionsStats>> operatorHashCollisionsStats = new HashMap<>();
         Map<PlanNodeId, WindowOperatorStats> windowNodeStats = new HashMap<>();
+        List<TaskStats> nativeTaskStats = new ArrayList<>();
+        Set<PlanNodeId> nativePlanNodeIds = new HashSet<>();
 
         for (PipelineStats pipelineStats : taskStats.getPipelines()) {
             // Due to eventual consistently collected stats, these could be empty
@@ -141,6 +144,12 @@ public class PlanNodeStatsSummarizer
                     windowNodeStats.merge(planNodeId, WindowOperatorStats.create(windowInfo), (left, right) -> left.mergeWith(right));
                 }
 
+                if (operatorStats.getInfo() instanceof NativeExecutionInfo) {
+                    NativeExecutionInfo info = (NativeExecutionInfo) operatorStats.getInfo();
+                    nativeTaskStats.addAll(info.getTaskStats());
+                    nativePlanNodeIds.add(planNodeId);
+                }
+
                 planNodeInputPositions.merge(planNodeId, operatorStats.getInputPositions(), Long::sum);
                 planNodeInputBytes.merge(planNodeId, operatorStats.getInputDataSize().toBytes(), Long::sum);
 
@@ -169,7 +178,15 @@ public class PlanNodeStatsSummarizer
             }
         }
 
+        // Convert native statistics.
+        // Remove statistics for the 'output' plan node to avoid double counting.
+        List<PlanNodeStats> nativePlanNodeStats = nativeTaskStats.stream()
+                .flatMap(stats -> getPlanNodeStats(stats).stream())
+                .filter(stats -> !nativePlanNodeIds.contains(stats.getPlanNodeId()))
+                .collect(toList());
+
         List<PlanNodeStats> stats = new ArrayList<>();
+        stats.addAll(nativePlanNodeStats);
         for (PlanNodeId planNodeId : planNodeIds) {
             if (!planNodeInputPositions.containsKey(planNodeId)) {
                 continue;

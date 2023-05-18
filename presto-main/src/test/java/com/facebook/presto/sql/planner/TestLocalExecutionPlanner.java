@@ -15,26 +15,16 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
-import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.execution.StateMachine;
-import com.facebook.presto.execution.buffer.BufferResult;
-import com.facebook.presto.execution.buffer.BufferState;
-import com.facebook.presto.execution.buffer.OutputBuffer;
-import com.facebook.presto.execution.buffer.OutputBufferInfo;
-import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.SourceOperator;
-import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.operator.TableScanOperator;
 import com.facebook.presto.operator.TaskOutputOperator;
@@ -44,7 +34,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -61,8 +50,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -72,7 +59,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Consumer;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
@@ -231,162 +217,6 @@ public class TestLocalExecutionPlanner
                 new TestingOutputBuffer(),
                 new TestingRemoteSourceFactory(),
                 new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
-    }
-
-    private static class TestingOutputBuffer
-            implements OutputBuffer
-    {
-        @Override
-        public OutputBufferInfo getInfo()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public boolean isFinished()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public double getUtilization()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public boolean isOverutilized()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void addStateChangeListener(StateMachine.StateChangeListener<BufferState> stateChangeListener)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void setOutputBuffers(OutputBuffers newOutputBuffers)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public ListenableFuture<BufferResult> get(OutputBuffers.OutputBufferId bufferId, long token, DataSize maxSize)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void acknowledge(OutputBuffers.OutputBufferId bufferId, long token)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void abort(OutputBuffers.OutputBufferId bufferId)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public ListenableFuture<?> isFull()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void enqueue(Lifespan lifespan, List<SerializedPage> pages)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void enqueue(Lifespan lifespan, int partition, List<SerializedPage> pages)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void setNoMorePages()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void destroy()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void fail()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void setNoMorePagesForLifespan(Lifespan lifespan)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void registerLifespanCompletionCallback(Consumer<Lifespan> callback)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public boolean isFinishedForLifespan(Lifespan lifespan)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public long getPeakMemoryUsage()
-        {
-            throw new UnsupportedOperationException();
-        }
-    }
-
-    private static class TestingRemoteSourceFactory
-            implements RemoteSourceFactory
-    {
-        @Override
-        public SourceOperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types)
-        {
-            return new TestingSourceOperatorFactory();
-        }
-
-        @Override
-        public SourceOperatorFactory createMergeRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types, List<Integer> outputChannels, List<Integer> sortChannels, List<SortOrder> sortOrder)
-        {
-            throw new UnsupportedOperationException();
-        }
-    }
-
-    private static class TestingSourceOperatorFactory
-            implements SourceOperatorFactory
-    {
-        @Override
-        public PlanNodeId getSourceId()
-        {
-            return new PlanNodeId("test");
-        }
-
-        @Override
-        public SourceOperator createOperator(DriverContext driverContext)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void noMoreOperators()
-        {
-            throw new UnsupportedOperationException();
-        }
     }
 
     private static class CustomNodeA

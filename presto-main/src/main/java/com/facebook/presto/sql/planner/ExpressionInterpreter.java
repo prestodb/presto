@@ -48,7 +48,6 @@ import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Interpreters.LambdaVariableResolver;
-import com.facebook.presto.sql.planner.iterative.rule.DesugarCurrentUser;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -1195,7 +1194,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCurrentUser(CurrentUser node, Object context)
         {
-            FunctionCall functionCall = DesugarCurrentUser.getCall(node);
+            FunctionCall functionCall = new FunctionCall(QualifiedName.of("$current_user"), ImmutableList.of());
             addGeneratedExpressionType(functionCall, type(node));
             return visitFunctionCall(functionCall, context);
         }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.ArrayType;
@@ -25,48 +24,37 @@ import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.VariableAllocator;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.sql.TestingRowExpressionTranslator;
+import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.testing.TestingSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.BeforeTest;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Map;
-import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.function.FunctionImplementationType.THRIFT;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
-import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static com.facebook.presto.sql.planner.TypeProvider.viewOf;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static org.testng.Assert.assertEquals;
 
 public class TestInlineSqlFunctions
+        extends BaseRuleTest
 {
     private static final RoutineCharacteristics.Language JAVA = new RoutineCharacteristics.Language("java");
     private static final SqlInvokedFunction SQL_FUNCTION_SQUARE = new SqlInvokedFunction(
@@ -117,12 +105,10 @@ public class TestInlineSqlFunctions
             "RETURN transform(x, x -> x + 1)",
             notVersioned());
 
-    private RuleTester tester;
-
-    @BeforeTest
-    public void setup()
+    @BeforeClass
+    public final void setup()
     {
-        RuleTester tester = new RuleTester();
+        tester = new RuleTester();
         FunctionAndTypeManager functionAndTypeManager = tester.getMetadata().getFunctionAndTypeManager();
         functionAndTypeManager.addFunctionNamespace(
                 "unittest",
@@ -138,103 +124,86 @@ public class TestInlineSqlFunctions
         functionAndTypeManager.createFunction(THRIFT_FUNCTION_FOO, true);
         functionAndTypeManager.createFunction(SQL_FUNCTION_ADD_1_TO_INT_ARRAY, true);
         functionAndTypeManager.createFunction(SQL_FUNCTION_ADD_1_TO_BIGINT_ARRAY, true);
-        this.tester = tester;
     }
 
     @Test
     public void testInlineFunction()
     {
-        assertInlined(tester, "unittest.memory.square(x)", "x * x", ImmutableMap.of("x", IntegerType.INTEGER));
+        assertInlined("unittest.memory.square(x)", "x * x", "x", IntegerType.INTEGER);
     }
 
     @Test
     public void testInlineFunctionInsideFunction()
     {
-        assertInlined(tester, "abs(unittest.memory.square(x))", "abs(x * x)", ImmutableMap.of("x", IntegerType.INTEGER));
+        assertInlined("abs(unittest.memory.square(x))", "abs(x * x)", "x", IntegerType.INTEGER);
     }
 
     @Test
     public void testInlineFunctionContainingLambda()
     {
-        assertInlined(tester, "unittest.memory.add_1_int(x)", "transform(x, \"x$lambda\" -> \"x$lambda\" + 1)", ImmutableMap.of("x", new ArrayType(IntegerType.INTEGER)));
+        assertInlined(
+                "unittest.memory.add_1_int(x)",
+                "transform(x, \"x$lambda\" -> \"x$lambda\" + 1)",
+                "x",
+                new ArrayType(IntegerType.INTEGER));
     }
 
     @Test
     public void testInlineSqlFunctionCoercesConstantWithCast()
     {
-        assertInlined(tester,
+        assertInlined(
                 "unittest.memory.add_1_bigint(x)",
                 "transform(x, \"x$lambda\" -> \"x$lambda\" + CAST(1 AS bigint))",
-                ImmutableMap.of("x", new ArrayType(BigintType.BIGINT)));
+                "x",
+                new ArrayType(BigintType.BIGINT));
     }
 
     @Test
     public void testInlineBuiltinSqlFunction()
     {
-        assertInlined(tester,
+        assertInlined(
                 "array_sum(x)",
                 "reduce(x, BIGINT '0', (\"s$lambda\", \"x$lambda\") -> \"s$lambda\" + COALESCE(\"x$lambda\", BIGINT '0'), \"s$lambda_0\" -> \"s$lambda_0\")",
-                ImmutableMap.of("x", new ArrayType(IntegerType.INTEGER)));
+                "x",
+                new ArrayType(IntegerType.INTEGER));
     }
 
     @Test
     public void testNoInlineThriftFunction()
     {
-        assertInlined(tester, "unittest.memory.foo(x)", "unittest.memory.foo(x)", ImmutableMap.of("x", IntegerType.INTEGER));
-    }
-
-    @Test
-    public void testInlineFunctionIntoPlan()
-    {
-        tester.assertThat(new InlineSqlFunctions(tester.getMetadata(), tester.getSqlParser()).projectExpressionRewrite())
-                .on(p -> p.project(
-                        assignment(
-                                p.variable("squared"),
-                                new FunctionCall(QualifiedName.of("unittest", "memory", "square"), ImmutableList.of(new SymbolReference("a")))),
-                        p.values(p.variable("a", IntegerType.INTEGER))))
-                .matches(project(
-                        ImmutableMap.of("squared", expression("x * x")),
-                        values(ImmutableMap.of("x", 0))));
+        assertNotInlined("unittest.memory.foo(x)", "x", IntegerType.INTEGER);
     }
 
     @Test
     public void testNoInlineIntoPlanWhenInlineIsDisabled()
     {
-        tester.assertThat(new InlineSqlFunctions(tester.getMetadata(), tester.getSqlParser()).projectExpressionRewrite())
-                .setSystemProperty("inline_sql_functions", "false")
-                .on(p -> p.project(
-                        assignment(
-                                p.variable("squared"),
-                                new FunctionCall(QualifiedName.of("unittest", "memory", "square"), ImmutableList.of(new SymbolReference("a")))),
-                        p.values(p.variable("a", IntegerType.INTEGER))))
-                .doesNotFire();
+        assertNotInlined("unittest.memory.square(x)",
+                ImmutableMap.of("inline_sql_functions", "false"),
+                "x",
+                IntegerType.INTEGER);
     }
 
-    private void assertInlined(RuleTester tester, String inputSql, String expected, Map<String, Type> variableTypes)
+    private void assertInlined(String inputExpressionStr, String expectedExpressionStr, String variable, Type type)
     {
-        Session session = TestingSession.testSessionBuilder()
-                .setSystemProperty("inline_sql_functions", "true")
-                .build();
-        Metadata metadata = tester.getMetadata();
-        Expression inputSqlExpression = PlanBuilder.expression(inputSql);
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
-                session,
-                metadata,
-                tester.getSqlParser(),
-                viewOf(variableTypes),
-                inputSqlExpression,
-                ImmutableMap.of(),
-                WarningCollector.NOOP);
-        Expression inlinedExpression = InlineSqlFunctions.InlineSqlFunctionsRewriter.rewrite(
-                inputSqlExpression,
-                session,
-                metadata,
-                new VariableAllocator(variableTypes.entrySet().stream()
-                        .map(entry -> new VariableReferenceExpression(Optional.empty(), entry.getKey(), entry.getValue()))
-                        .collect(toImmutableList())),
-                expressionTypes);
-        inlinedExpression = ExpressionUtils.rewriteIdentifiersToSymbolReferences(inlinedExpression);
-        Expression expectedExpression = PlanBuilder.expression(expected);
-        assertEquals(inlinedExpression, expectedExpression);
+        RowExpression inputExpression = new TestingRowExpressionTranslator(tester.getMetadata()).translate(inputExpressionStr, ImmutableMap.of(variable, type));
+
+        tester().assertThat(new InlineSqlFunctions(tester.getMetadata(), tester.getSqlParser()).projectRowExpressionRewriteRule())
+                .on(p -> p.project(assignment(p.variable("var"), inputExpression), p.values(p.variable(variable, type))))
+                .matches(project(ImmutableMap.of("var", expression(expectedExpressionStr)), values(variable)));
+    }
+
+    private void assertNotInlined(String expression, String variable, Type type)
+    {
+        assertNotInlined(expression, ImmutableMap.of(), variable, type);
+    }
+
+    private void assertNotInlined(String expression, Map<String, String> sessionValues, String variable, Type type)
+    {
+        RowExpression inputExpression = new TestingRowExpressionTranslator(tester.getMetadata()).translate(expression, ImmutableMap.of(variable, type));
+        RuleAssert ruleAssert = tester.assertThat(new SimplifyCardinalityMap(createTestFunctionAndTypeManager()).projectRowExpressionRewriteRule());
+        sessionValues.forEach((k, v) -> ruleAssert.setSystemProperty(k, v));
+        ruleAssert
+                .on(p -> p.project(assignment(p.variable("var"), inputExpression), p.values(p.variable(variable, type))))
+                .doesNotFire();
     }
 }

@@ -30,6 +30,7 @@ import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -46,7 +47,6 @@ import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -666,7 +666,7 @@ public class CanonicalPlanGenerator
                 node.getMaxRowCountPerPartition(),
                 node.isPartial(),
                 Optional.empty());
-        context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
+        context.addLimitingNodePlan(node, new CanonicalPlan(canonicalPlan, strategy));
         return Optional.of(canonicalPlan);
     }
 
@@ -696,7 +696,7 @@ public class CanonicalPlanGenerator
                 distinctVariables,
                 Optional.empty(),
                 0);
-        context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
+        context.addLimitingNodePlan(node, new CanonicalPlan(canonicalPlan, strategy));
         return Optional.of(canonicalPlan);
     }
 

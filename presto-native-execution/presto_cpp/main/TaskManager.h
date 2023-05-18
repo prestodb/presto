@@ -30,12 +30,14 @@ struct DriverCountStats {
 
 class TaskManager {
  public:
-  explicit TaskManager(
-      std::unordered_map<std::string, std::string> properties = {},
-      std::unordered_map<std::string, std::string> nodeProperties = {});
+  TaskManager();
 
   void setBaseUri(const std::string& baseUri) {
     baseUri_ = baseUri;
+  }
+
+  void setNodeId(const std::string& nodeId) {
+    nodeId_ = nodeId;
   }
 
   TaskMap tasks() const {
@@ -81,6 +83,9 @@ class TaskManager {
   /// Remove old Finished, Cancelled, Failed and Aborted tasks.
   /// Old is being defined by the lifetime of the task.
   size_t cleanOldTasks();
+
+  /// Invoked by Presto server shutdown to wait for all the tasks to complete.
+  void waitForTasksToComplete();
 
   folly::Future<std::unique_ptr<protocol::TaskInfo>> getTaskInfo(
       const protocol::TaskId& taskId,
@@ -150,11 +155,10 @@ class TaskManager {
       const protocol::TaskId& taskId);
 
   std::string baseUri_;
+  std::string nodeId_;
   std::shared_ptr<velox::exec::PartitionedOutputBufferManager> bufferManager_;
   folly::Synchronized<TaskMap> taskMap_;
   QueryContextManager queryContextManager_;
-  int32_t maxDriversPerTask_;
-  int32_t concurrentLifespansPerTask_;
 };
 
 } // namespace facebook::presto

@@ -37,6 +37,7 @@
 #include "velox/type/Type.h"
 
 DECLARE_int32(old_task_ms);
+DECLARE_bool(velox_memory_leak_check_enabled);
 
 using namespace ::testing;
 using namespace facebook::velox;
@@ -136,6 +137,7 @@ static const uint64_t kGB = 1024 * 1024 * 1024ULL;
 class TaskManagerTest : public testing::Test {
  protected:
   void SetUp() override {
+    FLAGS_velox_memory_leak_check_enabled = true;
     functions::prestosql::registerAllScalarFunctions();
     aggregate::prestosql::registerAllAggregateFunctions();
     parse::registerTypeResolver();
@@ -154,14 +156,17 @@ class TaskManagerTest : public testing::Test {
     connector::registerConnector(hiveConnector);
     dwrf::registerDwrfReaderFactory();
 
-    pool_ = memory::getDefaultMemoryPool();
+    rootPool_ =
+        memory::defaultMemoryManager().addRootPool("TaskManagerTest.root");
+    leafPool_ = memory::addDefaultLeafMemoryPool("TaskManagerTest.leaf");
     rowType_ = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});
 
     taskManager_ = std::make_unique<TaskManager>();
     taskResource_ = std::make_unique<TaskResource>(*taskManager_.get());
 
-    auto httpServer = std::make_unique<http::HttpServer>(
-        folly::SocketAddress("127.0.0.1", 0));
+    auto httpServer =
+        std::make_unique<http::HttpServer>(std::make_unique<http::HttpConfig>(
+            folly::SocketAddress("127.0.0.1", 0)));
     taskResource_->registerUris(*httpServer.get());
 
     httpServerWrapper_ =
@@ -189,7 +194,7 @@ class TaskManagerTest : public testing::Test {
     for (int i = 0; i < count; ++i) {
       auto vector = std::dynamic_pointer_cast<RowVector>(
           facebook::velox::test::BatchMaker::createBatch(
-              rowType_, rowsPerVector, *pool_));
+              rowType_, rowsPerVector, *leafPool_));
       vectors.emplace_back(vector);
     }
     return vectors;
@@ -207,7 +212,7 @@ class TaskManagerTest : public testing::Test {
     options.schema = rowType_;
     auto sink = std::make_unique<dwio::common::LocalFileSink>(
         filePath, dwio::common::MetricsLog::voidLog());
-    dwrf::Writer writer{options, std::move(sink), *pool_};
+    dwrf::Writer writer{options, std::move(sink), *rootPool_};
 
     for (size_t i = 0; i < vectors.size(); ++i) {
       writer.write(vectors[i]);
@@ -269,7 +274,7 @@ class TaskManagerTest : public testing::Test {
       const protocol::TaskId& taskId,
       const RowTypePtr& resultType,
       const std::vector<std::string>& allTaskIds) {
-    Cursor cursor(taskManager_.get(), taskId, resultType, pool_.get());
+    Cursor cursor(taskManager_.get(), taskId, resultType, leafPool_.get());
     std::vector<RowVectorPtr> vectors;
     for (;;) {
       auto moreVectors = cursor.next();
@@ -518,12 +523,6 @@ class TaskManagerTest : public testing::Test {
         taskInfo->stats.peakTotalMemoryInBytes);
   }
 
-  void setMemoryLimits(uint64_t maxMemory) {
-    taskManager_->getQueryContextManager()->overrideProperties(
-        QueryContextManager::kQueryMaxMemoryPerNode,
-        fmt::format("{}B", maxMemory));
-  }
-
   // Setup the temporary spilling directory and initialize the system config
   // file (in the same temporary directory) to contain the spilling path
   // setting.
@@ -540,17 +539,31 @@ class TaskManagerTest : public testing::Test {
     return spillDirectory;
   }
 
+  static void setupMutableSystemConfig() {
+    auto dir = exec::test::TempDirectoryPath::create();
+    auto sysConfigFilePath = fmt::format("{}/config.properties", dir->path);
+    auto fileSystem = filesystems::getFileSystem(sysConfigFilePath, nullptr);
+    auto sysConfigFile = fileSystem->openFileForWrite(sysConfigFilePath);
+    sysConfigFile->append(
+        fmt::format("{}=true\n", SystemConfig::kMutableConfig));
+    sysConfigFile->append(
+        fmt::format("{}=4GB\n", SystemConfig::kQueryMaxMemoryPerNode));
+    sysConfigFile->close();
+    SystemConfig::instance()->initialize(sysConfigFilePath);
+  }
+
   std::shared_ptr<exec::Task> createDummyExecTask(
       const std::string& taskId,
       const core::PlanFragment& planFragment) {
     auto queryCtx =
         taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
             taskId, {}, {});
-    return std::make_shared<exec::Task>(
+    return exec::Task::create(
         taskId, planFragment, 0, std::move(queryCtx));
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> rootPool_;
+  std::shared_ptr<memory::MemoryPool> leafPool_;
   RowTypePtr rowType_;
   exec::test::DuckDbQueryRunner duckDbQueryRunner_;
   std::unique_ptr<TaskManager> taskManager_;
@@ -755,9 +768,10 @@ TEST_F(TaskManagerTest, countAggregation) {
 }
 
 TEST_F(TaskManagerTest, outOfQueryUserMemory) {
+  setupMutableSystemConfig();
   auto filePaths = makeFilePaths(5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
-  for (int i = 0; i < filePaths.size(); i++) {
+  for (auto i = 0; i < filePaths.size(); i++) {
     writeToFile(filePaths[i]->path, vectors[i]);
   }
   duckDbQueryRunner_.createTable("tmp", vectors);
@@ -765,12 +779,14 @@ TEST_F(TaskManagerTest, outOfQueryUserMemory) {
   testCountAggregation("cold", filePaths);
 
   auto [peakUser, peakTotal] = testCountAggregation("initial", filePaths);
-
-  setMemoryLimits(peakUser - 1);
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kQueryMaxMemoryPerNode),
+      fmt::format("{}B", peakUser - 1));
   testCountAggregation("max-memory", filePaths, {}, true);
 
   // Verify the query is successful with some limits.
-  setMemoryLimits(20 * kGB);
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kQueryMaxMemoryPerNode), "20GB");
   testCountAggregation("test-count-aggr", filePaths);
 
   // Wait a little to allow for futures to complete.
@@ -929,14 +945,14 @@ TEST_F(TaskManagerTest, getDataOnAbortedTask) {
   int token = 123;
   auto scanTaskId = "scan.0.0.1";
   bool promiseFulfilled = false;
-  auto prestoTask = std::make_shared<PrestoTask>(scanTaskId);
+  auto prestoTask = std::make_shared<PrestoTask>(scanTaskId, "1");
   auto [promise, f] = folly::makePromiseContract<std::unique_ptr<Result>>();
   folly::ThreadedExecutor executor;
   folly::Future<std::unique_ptr<Result>> semiFuture =
       std::move(f).via(&executor);
   // Future is invoked when a value is set on the promise.
   auto future =
-      move(semiFuture)
+      std::move(semiFuture)
           .thenValue([&promiseFulfilled,
                       token](std::unique_ptr<Result> result) {
             ASSERT_EQ(result->complete, false);
@@ -957,6 +973,7 @@ TEST_F(TaskManagerTest, getDataOnAbortedTask) {
   prestoTask->task = createDummyExecTask(scanTaskId, planFragment);
   taskManager_->getDataForResultRequests(prestoTask->resultRequests);
   std::move(future).get();
+  ASSERT_EQ(prestoTask->info.nodeId, "1");
   ASSERT_TRUE(promiseFulfilled);
 }
 
@@ -977,6 +994,43 @@ TEST_F(TaskManagerTest, getResultsErrorPropagation) {
               http::CallbackRequestHandlerState::create())
           .get(),
       VeloxException);
+}
+
+TEST_F(TaskManagerTest, testCumulativeMemory) {
+  auto filePaths = makeFilePaths(10);
+  auto vectors = makeVectors(10, 1'000);
+  for (int i = 0; i < 10; ++i) {
+    writeToFile(filePaths[i]->path, vectors[i]);
+  }
+  duckDbQueryRunner_.createTable("tmp", vectors);
+  const protocol::TaskId taskId = "scan.0.0.0";
+  long splitSequenceId{0};
+  auto source = makeSource("0", filePaths, true, splitSequenceId);
+  auto planFragment = exec::test::PlanBuilder()
+                          .tableScan(rowType_)
+                          .partitionedOutput({}, 1, {"c0", "c1"})
+                          .planFragment();
+  auto taskInfo = taskManager_->createOrUpdateTask(
+      taskId, planFragment, {source}, {}, {}, {});
+  std::vector<std::string> tasks;
+  tasks.emplace_back(taskInfo->taskStatus.self);
+  // Wait for the input task to produce data to cause memory allocation.
+  while (taskInfo->stats.cumulativeUserMemory == 0) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    auto cbState = std::make_shared<http::CallbackRequestHandlerState>();
+    taskInfo =
+        taskManager_
+            ->getTaskInfo(taskId, false, std::nullopt, std::nullopt, cbState)
+            .get();
+  }
+  ASSERT_GT(taskInfo->stats.cumulativeUserMemory, 0);
+  // Presto native doesn't differentiate user and system memory.
+  ASSERT_EQ(
+      taskInfo->stats.cumulativeTotalMemory,
+      taskInfo->stats.cumulativeUserMemory);
+  auto outputTaskInfo = createOutputTask(
+      tasks, planFragment.planNode->outputType(), splitSequenceId);
+  assertResults(outputTaskInfo->taskId, rowType_, "SELECT * FROM tmp");
 }
 
 // TODO: add disk spilling test for order by and hash join later.

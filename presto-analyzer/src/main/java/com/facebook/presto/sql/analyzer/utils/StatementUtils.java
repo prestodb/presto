@@ -129,9 +129,9 @@ public final class StatementUtils
         builder.put(DropView.class, QueryType.DATA_DEFINITION);
         builder.put(CreateMaterializedView.class, QueryType.DATA_DEFINITION);
         builder.put(DropMaterializedView.class, QueryType.DATA_DEFINITION);
-        builder.put(CreateFunction.class, QueryType.DATA_DEFINITION);
+        builder.put(CreateFunction.class, QueryType.CONTROL);
         builder.put(AlterFunction.class, QueryType.DATA_DEFINITION);
-        builder.put(DropFunction.class, QueryType.DATA_DEFINITION);
+        builder.put(DropFunction.class, QueryType.CONTROL);
         builder.put(Use.class, QueryType.CONTROL);
         builder.put(SetSession.class, QueryType.CONTROL);
         builder.put(ResetSession.class, QueryType.CONTROL);

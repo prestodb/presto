@@ -118,7 +118,7 @@ public final class QuantifiedComparisonExpression
     @Override
     public <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context)
     {
-        return visitor.visitIntermediateFormExpression(this, context);
+        return visitor.visitQuantifiedComparisonExpression(this, context);
     }
 
     @Override

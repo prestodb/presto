@@ -16,10 +16,8 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
@@ -38,6 +36,10 @@ public class PruneJoinChildrenColumns
     private static final Pattern<JoinNode> PATTERN = join()
             .matching(not(JoinNode::isCrossJoin));
 
+    public PruneJoinChildrenColumns()
+    {
+    }
+
     @Override
     public Pattern<JoinNode> getPattern()
     {
@@ -51,8 +53,7 @@ public class PruneJoinChildrenColumns
                 .addAll(joinNode.getOutputVariables())
                 .addAll(
                         joinNode.getFilter()
-                                .map(OriginalExpressionUtils::castToExpression)
-                                .map(expression -> extractUnique(expression, TypeProvider.viewOf(context.getVariableAllocator().getVariables())))
+                                .map(expression -> extractUnique(expression))
                                 .orElse(ImmutableSet.of()))
                 .build();
 

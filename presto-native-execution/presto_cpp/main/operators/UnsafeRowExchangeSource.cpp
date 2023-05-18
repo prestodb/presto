@@ -23,11 +23,16 @@ void UnsafeRowExchangeSource::request() {
   std::vector<velox::ContinuePromise> promises;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
+    if (atEnd_) {
+      return;
+    }
+
     if (!shuffle_->hasNext()) {
       atEnd_ = true;
       queue_->enqueueLocked(nullptr, promises);
     } else {
       auto buffer = shuffle_->next(true);
+      ++numBatches_;
 
       auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
       // NOTE: SerializedPage's onDestructionCb_ captures one reference on
@@ -37,13 +42,17 @@ void UnsafeRowExchangeSource::request() {
       // 'ioBuf' attached to SerializedPage on destruction.
       queue_->enqueueLocked(
           std::make_unique<velox::exec::SerializedPage>(
-              std::move(ioBuf), pool_, [buffer](auto&) {}),
+              std::move(ioBuf), [buffer](auto& /*unused*/) {}),
           promises);
     }
   }
   for (auto& promise : promises) {
     promise.setValue();
   }
+}
+
+folly::F14FastMap<std::string, int64_t> UnsafeRowExchangeSource::stats() const {
+  return shuffle_->stats();
 }
 
 namespace {

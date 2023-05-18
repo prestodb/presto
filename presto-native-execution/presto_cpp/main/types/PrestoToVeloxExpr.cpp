@@ -32,39 +32,30 @@ std::string toJsonString(const T& value) {
   return ((json)value).dump();
 }
 
-std::optional<std::string> mapDefaultFunctionName(
-    const std::string& lowerCaseName) {
-  static const char* kPrestoDefaultPrefix = "presto.default.";
-  static const uint32_t kPrestoDefaultPrefixLength =
-      strlen(kPrestoDefaultPrefix);
-
-  if (lowerCaseName.compare(
-          0, kPrestoDefaultPrefixLength, kPrestoDefaultPrefix) == 0) {
-    return lowerCaseName.substr(kPrestoDefaultPrefixLength);
-  }
-
-  return std::nullopt;
-}
-
 std::string mapScalarFunction(const std::string& name) {
   static const std::unordered_map<std::string, std::string> kFunctionNames = {
-      // see com.facebook.presto.common.function.OperatorType
-      {"presto.default.$operator$add", "plus"},
-      {"presto.default.$operator$between", "between"},
-      {"presto.default.$operator$divide", "divide"},
-      {"presto.default.$operator$equal", "eq"},
-      {"presto.default.$operator$greater_than", "gt"},
-      {"presto.default.$operator$greater_than_or_equal", "gte"},
-      {"presto.default.$operator$is_distinct_from", "distinct_from"},
-      {"presto.default.$operator$less_than", "lt"},
-      {"presto.default.$operator$less_than_or_equal", "lte"},
-      {"presto.default.$operator$modulus", "mod"},
-      {"presto.default.$operator$multiply", "multiply"},
-      {"presto.default.$operator$negation", "negate"},
-      {"presto.default.$operator$not_equal", "neq"},
-      {"presto.default.$operator$subtract", "minus"},
-      {"presto.default.$operator$subscript", "subscript"},
-      {"presto.default.random", "rand"}};
+      // Operator overrides: com.facebook.presto.common.function.OperatorType
+      {"presto.default.$operator$add", "presto.default.plus"},
+      {"presto.default.$operator$between", "presto.default.between"},
+      {"presto.default.$operator$divide", "presto.default.divide"},
+      {"presto.default.$operator$equal", "presto.default.eq"},
+      {"presto.default.$operator$greater_than", "presto.default.gt"},
+      {"presto.default.$operator$greater_than_or_equal", "presto.default.gte"},
+      {"presto.default.$operator$is_distinct_from",
+       "presto.default.distinct_from"},
+      {"presto.default.$operator$less_than", "presto.default.lt"},
+      {"presto.default.$operator$less_than_or_equal", "presto.default.lte"},
+      {"presto.default.$operator$modulus", "presto.default.mod"},
+      {"presto.default.$operator$multiply", "presto.default.multiply"},
+      {"presto.default.$operator$negation", "presto.default.negate"},
+      {"presto.default.$operator$not_equal", "presto.default.neq"},
+      {"presto.default.$operator$subtract", "presto.default.minus"},
+      {"presto.default.$operator$subscript", "presto.default.subscript"},
+      // Special form function overrides.
+      {"presto.default.in", "in"},
+      {"presto.default.row_constructor", "in"},
+      {"presto.default.in", "is_null"},
+  };
 
   std::string lowerCaseName = boost::to_lower_copy(name);
 
@@ -73,23 +64,11 @@ std::string mapScalarFunction(const std::string& name) {
     return it->second;
   }
 
-  auto mappedName = mapDefaultFunctionName(lowerCaseName);
-  if (mappedName.has_value()) {
-    return mappedName.value();
-  }
-
   return lowerCaseName;
 }
 
 std::string mapAggregateOrWindowFunction(const std::string& name) {
-  std::string lowerCaseName = boost::to_lower_copy(name);
-
-  auto mappedName = mapDefaultFunctionName(lowerCaseName);
-  if (mappedName.has_value()) {
-    return mappedName.value();
-  }
-
-  return lowerCaseName;
+  return boost::to_lower_copy(name);
 }
 
 std::string getFunctionName(const protocol::Signature& signature) {
@@ -102,6 +81,14 @@ std::string getFunctionName(const protocol::Signature& signature) {
     default:
       return signature.name;
   }
+}
+
+std::string getFunctionName(const protocol::SqlFunctionId& functionId) {
+  // Example: "json.x4.eq;INTEGER;INTEGER".
+  const auto nameEnd = functionId.find(';');
+  // Assuming the possibility of missing ';' if there are no function arguments.
+  return nameEnd != std::string::npos ? functionId.substr(0, nameEnd)
+                                      : functionId;
 }
 
 } // namespace
@@ -117,6 +104,9 @@ velox::variant VeloxExprConverter::getConstantValue(
   }
 
   switch (typeKind) {
+    case TypeKind::HUGEINT:
+      return valueVector->as<velox::SimpleVector<velox::int128_t>>()->valueAt(
+          0);
     case TypeKind::BIGINT:
       return valueVector->as<velox::SimpleVector<int64_t>>()->valueAt(0);
     case TypeKind::INTEGER:
@@ -130,9 +120,6 @@ velox::variant VeloxExprConverter::getConstantValue(
           0);
     case TypeKind::DATE:
       return valueVector->as<velox::SimpleVector<velox::Date>>()->valueAt(0);
-    case TypeKind::INTERVAL_DAY_TIME:
-      return valueVector->as<velox::SimpleVector<velox::IntervalDayTime>>()
-          ->valueAt(0);
     case TypeKind::BOOLEAN:
       return valueVector->as<velox::SimpleVector<bool>>()->valueAt(0);
     case TypeKind::DOUBLE:
@@ -231,7 +218,7 @@ std::optional<TypedExprPtr> tryConvertLiteralArray(
     const std::vector<TypedExprPtr>& args,
     velox::memory::MemoryPool* pool) {
   static const char* kLiteralArray = "presto.default.$literal$array";
-  static const char* kFromBase64 = "from_base64";
+  static const char* kFromBase64 = "presto.default.from_base64";
 
   if (signature.kind != protocol::FunctionKind::SCALAR) {
     return std::nullopt;
@@ -344,49 +331,54 @@ std::optional<TypedExprPtr> VeloxExprConverter::tryConvertLike(
 
 TypedExprPtr VeloxExprConverter::toVeloxExpr(
     const protocol::CallExpression& pexpr) const {
-  auto handle = pexpr.functionHandle;
-  VELOX_CHECK_EQ(
-      handle->_type,
-      "$static",
-      "Unsupported function handle: {}",
-      handle->_type);
+  if (auto builtin = std::dynamic_pointer_cast<protocol::BuiltInFunctionHandle>(
+          pexpr.functionHandle)) {
+    // Handle some special parsing needed for 'like' operator signatures.
+    auto like = tryConvertLike(pexpr);
+    if (like.has_value()) {
+      return like.value();
+    }
 
-  // Handle some special parsing needed for 'like' operator signatures.
-  auto like = tryConvertLike(pexpr);
-  if (like.has_value()) {
-    return like.value();
+    // 'date' operators need to be converted to a cast expression for date.
+    auto date = tryConvertDate(pexpr);
+    if (date.has_value()) {
+      return date.value();
+    }
+
+    auto args = toVeloxExpr(pexpr.arguments);
+    auto signature = builtin->signature;
+
+    auto cast = tryConvertCast(signature, pexpr.returnType, args);
+    if (cast.has_value()) {
+      return cast.value();
+    }
+
+    auto tryExpr = tryConvertTry(signature, pexpr.returnType, args);
+    if (tryExpr.has_value()) {
+      return tryExpr.value();
+    }
+
+    auto literal =
+        tryConvertLiteralArray(signature, pexpr.returnType, args, pool_);
+    if (literal.has_value()) {
+      return literal.value();
+    }
+
+    auto returnType = parseTypeSignature(pexpr.returnType);
+    return std::make_shared<CallTypedExpr>(
+        returnType, args, getFunctionName(signature));
+
+  } else if (
+      auto sqlFunctionHandle =
+          std::dynamic_pointer_cast<protocol::SqlFunctionHandle>(
+              pexpr.functionHandle)) {
+    auto args = toVeloxExpr(pexpr.arguments);
+    auto returnType = parseTypeSignature(pexpr.returnType);
+    return std::make_shared<CallTypedExpr>(
+        returnType, args, getFunctionName(sqlFunctionHandle->functionId));
   }
 
-  // 'date' operators need to be converted to a cast expression for date.
-  auto date = tryConvertDate(pexpr);
-  if (date.has_value()) {
-    return date.value();
-  }
-
-  auto args = toVeloxExpr(pexpr.arguments);
-  auto builtin =
-      std::static_pointer_cast<protocol::BuiltInFunctionHandle>(handle);
-  auto signature = builtin->signature;
-
-  auto cast = tryConvertCast(signature, pexpr.returnType, args);
-  if (cast.has_value()) {
-    return cast.value();
-  }
-
-  auto tryExpr = tryConvertTry(signature, pexpr.returnType, args);
-  if (tryExpr.has_value()) {
-    return tryExpr.value();
-  }
-
-  auto literal =
-      tryConvertLiteralArray(signature, pexpr.returnType, args, pool_);
-  if (literal.has_value()) {
-    return literal.value();
-  }
-
-  auto returnType = parseTypeSignature(pexpr.returnType);
-  return std::make_shared<CallTypedExpr>(
-      returnType, args, getFunctionName(signature));
+  VELOX_FAIL("Unsupported function handle: {}", pexpr.functionHandle->_type);
 }
 
 std::shared_ptr<const ConstantTypedExpr> VeloxExprConverter::toVeloxExpr(
@@ -403,14 +395,6 @@ std::shared_ptr<const ConstantTypedExpr> VeloxExprConverter::toVeloxExpr(
       return std::make_shared<ConstantTypedExpr>(
           std::make_shared<velox::ConstantVector<velox::ComplexType>>(
               pool_, 1, 0, valueVector));
-    }
-    case TypeKind::SHORT_DECIMAL:
-    case TypeKind::LONG_DECIMAL: {
-      auto valueVector =
-          protocol::readBlock(type, pexpr->valueBlock.data, pool_);
-      return std::make_shared<ConstantTypedExpr>(
-          velox::BaseVector::wrapInConstant(
-              1 /*length*/, 0 /*index*/, valueVector));
     }
     default: {
       const auto value = getConstantValue(type, pexpr->valueBlock);
@@ -435,7 +419,7 @@ std::shared_ptr<const CallTypedExpr> makeEqualsExpr(
     const TypedExprPtr& b) {
   std::vector<TypedExprPtr> inputs{a, b};
   return std::make_shared<CallTypedExpr>(
-      velox::BOOLEAN(), std::move(inputs), "eq");
+      velox::BOOLEAN(), std::move(inputs), "presto.default.eq");
 }
 
 std::shared_ptr<const CastTypedExpr> makeCastExpr(
@@ -609,6 +593,22 @@ TypedExprPtr convertDereferenceExpr(
 
   return std::make_shared<FieldAccessTypedExpr>(returnType, input, childName);
 }
+
+TypedExprPtr convertNullIfExpr(
+    const velox::TypePtr& returnType,
+    const std::vector<TypedExprPtr>& args) {
+  VELOX_CHECK_EQ(args.size(), 2);
+
+  // Convert nullif(a, b) to if(a = b, null, a).
+
+  std::vector<TypedExprPtr> newArgs = {
+      std::make_shared<CallTypedExpr>(
+          velox::BOOLEAN(), args, "presto.default.eq"),
+      std::make_shared<ConstantTypedExpr>(
+          returnType, velox::variant::null(returnType->kind())),
+      args[0]};
+  return std::make_shared<CallTypedExpr>(returnType, newArgs, "if");
+}
 } // namespace
 
 TypedExprPtr VeloxExprConverter::toVeloxExpr(
@@ -636,6 +636,10 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
   if (pexpr->form == protocol::Form::ROW_CONSTRUCTOR) {
     return std::make_shared<CallTypedExpr>(
         returnType, std::move(args), "row_constructor");
+  }
+
+  if (pexpr->form == protocol::Form::NULL_IF) {
+    return convertNullIfExpr(returnType, args);
   }
 
   auto form = std::string(json(pexpr->form));

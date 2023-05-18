@@ -1,0 +1,67 @@
+{
+  "udfSignatureMap": {
+    "scalar_function_2": [
+      {
+        "docString": "DUPLICATE IN FILES - transforms inputs into the output ",
+        "functionKind": "SCALAR",
+        "outputType": "ARRAY<map<BIGINT, DOUBLE>>",
+        "paramTypes": [
+          "ARRAY<map<BIGINT, DOUBLE>>",
+          "ARRAY<varchar>"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        }
+      },
+      {
+        "docString": "DUPLICATE IN FILES - transforms inputs into the output \"",
+        "functionKind": "SCALAR",
+        "outputType": "ARRAY<map<BIGINT, DOUBLE>>",
+        "paramTypes": [
+          "ARRAY<map<BIGINT, DOUBLE>>",
+          "ARRAY<ARRAY<BOOLEAN>>",
+          "ARRAY<varchar>"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        }
+      }
+    ],
+    "scalar_function_3": [
+      {
+        "docString": "transforms int input to output",
+        "functionKind": "SCALAR",
+        "outputType": "INT",
+        "paramTypes": [
+          "INT"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        }
+      },
+      {
+        "docString": "transforms double input to output",
+        "functionKind": "SCALAR",
+        "outputType": "DOUBLE",
+        "paramTypes": [
+          "DOUBLE"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        }
+      }
+    ]
+  }
+}

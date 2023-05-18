@@ -15,11 +15,15 @@ package com.facebook.presto.expressions;
 
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.ExistsExpression;
+import com.facebook.presto.spi.relation.InSubqueryExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.QuantifiedComparisonExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.spi.relation.UnresolvedSymbolExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 
 import java.util.ArrayList;
@@ -167,6 +171,80 @@ public final class RowExpressionTreeRewriter<C>
                 return new SpecialFormExpression(specialForm.getForm(), specialForm.getType(), arguments);
             }
             return specialForm;
+        }
+
+        @Override
+        public RowExpression visitInSubqueryExpression(InSubqueryExpression inSubqueryExpression, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                RowExpression result = rewriter.rewriteRowExpression(inSubqueryExpression, context.get(), RowExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            VariableReferenceExpression value = rewrite(inSubqueryExpression.getValue(), context.get());
+            VariableReferenceExpression subquery = rewrite(inSubqueryExpression.getSubquery(), context.get());
+
+            if (inSubqueryExpression.getValue() != value || inSubqueryExpression.getSubquery() != subquery) {
+                return new InSubqueryExpression(inSubqueryExpression.getSourceLocation(), value, subquery);
+            }
+            return inSubqueryExpression;
+        }
+
+        @Override
+        public RowExpression visitQuantifiedComparisonExpression(QuantifiedComparisonExpression quantifiedComparisonExpression, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                RowExpression result = rewriter.rewriteRowExpression(quantifiedComparisonExpression, context.get(), RowExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            RowExpression value = rewrite(quantifiedComparisonExpression.getValue(), context.get());
+            RowExpression subquery = rewrite(quantifiedComparisonExpression.getSubquery(), context.get());
+
+            if (quantifiedComparisonExpression.getValue() != value || quantifiedComparisonExpression.getSubquery() != subquery) {
+                return new QuantifiedComparisonExpression(
+                        quantifiedComparisonExpression.getSourceLocation(),
+                        quantifiedComparisonExpression.getOperator(),
+                        quantifiedComparisonExpression.getQuantifier(),
+                        value,
+                        subquery);
+            }
+            return quantifiedComparisonExpression;
+        }
+
+        @Override
+        public RowExpression visitExistsExpression(ExistsExpression existsExpression, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                RowExpression result = rewriter.rewriteRowExpression(existsExpression, context.get(), RowExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            RowExpression subquery = rewrite(existsExpression.getSubquery(), context.get());
+
+            if (existsExpression.getSubquery() != subquery) {
+                return new ExistsExpression(existsExpression.getSourceLocation(), subquery);
+            }
+            return existsExpression;
+        }
+
+        @Override
+        public RowExpression visitUnresolvedSymbolExpression(UnresolvedSymbolExpression unresolvedSymbolExpression, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                RowExpression result = rewriter.rewriteRowExpression(unresolvedSymbolExpression, context.get(), RowExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            return unresolvedSymbolExpression;
         }
     }
 

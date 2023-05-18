@@ -14,8 +14,11 @@
 #include <gtest/gtest.h>
 #include "presto_cpp/main/QueryContextManager.h"
 
-using namespace facebook::velox;
-using namespace facebook::presto;
+DECLARE_bool(velox_memory_leak_check_enabled);
+
+namespace facebook::presto {
+
+using namespace velox;
 
 namespace {
 void verifyQueryCtxCache(
@@ -31,7 +34,13 @@ void verifyQueryCtxCache(
 }
 } // namespace
 
-TEST(QueryContextCacheTest, basic) {
+class QueryContextCacheTest : public testing::Test {
+  void SetUp() override {
+    FLAGS_velox_memory_leak_check_enabled = true;
+  }
+};
+
+TEST_F(QueryContextCacheTest, basic) {
   QueryContextCache queryContextCache;
 
   // Insert 16 query contexts.
@@ -40,7 +49,9 @@ TEST(QueryContextCacheTest, basic) {
 
   for (int i = 0; i < 16; ++i) {
     auto queryId = fmt::format("query-{}", i);
-    auto queryCtx = std::make_shared<core::QueryCtx>();
+    auto queryCtx = std::make_shared<core::QueryCtx>(
+        (folly::Executor*)nullptr,
+        std::unordered_map<std::string, std::string>{});
     queryCtxs[queryId] = queryCtx;
     queryContextCache.insert(queryId, queryCtx);
   }
@@ -60,7 +71,7 @@ TEST(QueryContextCacheTest, basic) {
   EXPECT_EQ(queryContextCache.size(), 0);
 }
 
-TEST(QueryContextCacheTest, eviction) {
+TEST_F(QueryContextCacheTest, eviction) {
   QueryContextCache queryContextCache(8);
 
   // Insert 8 query contexts.
@@ -69,7 +80,9 @@ TEST(QueryContextCacheTest, eviction) {
 
   for (int i = 0; i < 8; ++i) {
     auto queryId = fmt::format("query-{}", i);
-    auto queryCtx = std::make_shared<core::QueryCtx>();
+    auto queryCtx = std::make_shared<core::QueryCtx>(
+        (folly::Executor*)nullptr,
+        std::unordered_map<std::string, std::string>{});
     queryCtxs[queryId] = queryCtx;
     queryContextCache.insert(queryId, queryCtx);
   }
@@ -88,7 +101,9 @@ TEST(QueryContextCacheTest, eviction) {
   // Insert 4 more query ctxs
   for (int i = 8; i < 12; ++i) {
     auto queryId = fmt::format("query-{}", i);
-    auto queryCtx = std::make_shared<core::QueryCtx>();
+    auto queryCtx = std::make_shared<core::QueryCtx>(
+        (folly::Executor*)nullptr,
+        std::unordered_map<std::string, std::string>{});
     queryCtxs[queryId] = queryCtx;
     queryContextCache.insert(queryId, queryCtx);
   }
@@ -101,7 +116,9 @@ TEST(QueryContextCacheTest, eviction) {
   // Ensure that cache expands if all the queries in cache are alive.
   for (int i = 12; i < 20; ++i) {
     auto queryId = fmt::format("query-{}", i);
-    auto queryCtx = std::make_shared<core::QueryCtx>();
+    auto queryCtx = std::make_shared<core::QueryCtx>(
+        (folly::Executor*)nullptr,
+        std::unordered_map<std::string, std::string>{});
     queryCtxs[queryId] = queryCtx;
     queryContextCache.insert(queryId, queryCtx);
   }
@@ -117,3 +134,4 @@ TEST(QueryContextCacheTest, eviction) {
   verifyQueryCtxCache(queryContextCache, queryCtxs, 0, 20);
   EXPECT_EQ(queryContextCache.size(), 0);
 }
+} // namespace facebook::presto

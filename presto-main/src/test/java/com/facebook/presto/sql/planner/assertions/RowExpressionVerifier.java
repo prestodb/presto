@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -44,6 +45,7 @@ import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -58,8 +60,10 @@ import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import io.airlift.slice.Slice;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.function.OperatorType.ADD;
@@ -104,6 +108,7 @@ final class RowExpressionVerifier
     private final Metadata metadata;
     private final Session session;
     private final FunctionResolution functionResolution;
+    private final Set<String> lambdaArguments;
 
     RowExpressionVerifier(SymbolAliases symbolAliases, Metadata metadata, Session session)
     {
@@ -111,6 +116,7 @@ final class RowExpressionVerifier
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.session = requireNonNull(session, "session is null");
         this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
+        this.lambdaArguments = new HashSet<>();
     }
 
     @Override
@@ -123,7 +129,7 @@ final class RowExpressionVerifier
     protected Boolean visitArrayConstructor(ArrayConstructor node, RowExpression context)
     {
         if (context instanceof CallExpression) {
-            if (!((CallExpression) context).getDisplayName().equals("array_constructor")) {
+            if (!((CallExpression) context).getFunctionHandle().getName().equals("presto.default.array_constructor")) {
                 return false;
             }
             for (int i = 0; i < node.getValues().size(); ++i) {
@@ -155,7 +161,8 @@ final class RowExpressionVerifier
             return false;
         }
 
-        return process(expected.getInnerExpression(), ((CallExpression) actual).getArguments().get(0));
+        LambdaDefinitionExpression lambdaExpression = (LambdaDefinitionExpression) ((CallExpression) actual).getArguments().get(0);
+        return process(expected.getInnerExpression(), lambdaExpression.getBody());
     }
 
     @Override
@@ -170,9 +177,6 @@ final class RowExpressionVerifier
                 return ((StringLiteral) literal).getValue().equals(actualString);
             }
             return getValueFromLiteral(literal).equals(String.valueOf(LiteralInterpreter.evaluate(TEST_SESSION.toConnectorSession(), (ConstantExpression) actual)));
-        }
-        if (actual instanceof VariableReferenceExpression && expected.getExpression() instanceof SymbolReference && expected.getType().equals(actual.getType().toString())) {
-            return visitSymbolReference((SymbolReference) expected.getExpression(), actual);
         }
         if (!(actual instanceof CallExpression) || !functionResolution.isCastFunction(((CallExpression) actual).getFunctionHandle())) {
             return false;
@@ -259,6 +263,27 @@ final class RowExpressionVerifier
             }
         }
         return false;
+    }
+
+    @Override
+    protected Boolean visitLambdaExpression(LambdaExpression expected, RowExpression actual)
+    {
+        if (!(actual instanceof LambdaDefinitionExpression)) {
+            return false;
+        }
+        LambdaDefinitionExpression lambda = (LambdaDefinitionExpression) actual;
+        if (lambda.getArguments().size() != expected.getArguments().size()) {
+            return false;
+        }
+        for (int i = 0; i < lambda.getArguments().size(); ++i) {
+            lambdaArguments.add(lambda.getArguments().get(i));
+            if (!lambda.getArguments().get(i).equals(expected.getArguments().get(i).getName().getValue())) {
+                return false;
+            }
+        }
+        Boolean value = process(expected.getBody(), lambda.getBody());
+        lambda.getArguments().forEach(argument -> lambdaArguments.remove(argument));
+        return value;
     }
 
     @Override
@@ -497,6 +522,9 @@ final class RowExpressionVerifier
     {
         if (!(actual instanceof VariableReferenceExpression)) {
             return false;
+        }
+        if (lambdaArguments.contains(expected.getName())) {
+            return ((VariableReferenceExpression) actual).getName().equals(expected.getName());
         }
         return symbolAliases.get((expected).getName()).getName().equals(((VariableReferenceExpression) actual).getName());
     }

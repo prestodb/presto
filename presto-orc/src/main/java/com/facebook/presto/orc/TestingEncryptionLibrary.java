@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Base64;
@@ -63,7 +64,7 @@ public class TestingEncryptionLibrary
         ByteBuffer output = ByteBuffer.allocate(keyMetadata.length + encoded.remaining());
         output.put(keyMetadata);
         output.put(encoded);
-        output.flip();
+        ((Buffer) output).flip();
         byte[] encrypted = new byte[output.remaining()];
         output.get(encrypted);
         return encrypted;
@@ -79,7 +80,7 @@ public class TestingEncryptionLibrary
 
         ByteBuffer encoded = ByteBuffer.allocate(inputBuffer.remaining());
         encoded.put(inputBuffer);
-        encoded.flip();
+        ((Buffer) encoded).flip();
         ByteBuffer decodedByteBuffer = DECODER.decode(encoded);
         byte[] decoded = new byte[decodedByteBuffer.remaining()];
         decodedByteBuffer.get(decoded);

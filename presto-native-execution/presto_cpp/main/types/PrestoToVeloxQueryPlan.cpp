@@ -26,11 +26,16 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
+#include "presto_cpp/presto_protocol/presto_protocol.h"
+#include <velox/core/Expressions.h>
 // clang-format on
 
 #include <folly/container/F14Set.h>
+#include "presto_cpp/main/operators/PartitionAndSerialize.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::exec;
+using namespace facebook::velox::connector::hive;
 
 namespace facebook::presto {
 
@@ -90,6 +95,16 @@ connector::hive::HiveColumnHandle::ColumnType toHiveColumnType(
   }
 }
 
+std::vector<common::Subfield> toRequiredSubfields(
+    const protocol::List<protocol::Subfield>& subfields) {
+  std::vector<common::Subfield> result;
+  result.reserve(subfields.size());
+  for (auto& subfield : subfields) {
+    result.emplace_back(subfield);
+  }
+  return result;
+}
+
 std::shared_ptr<connector::ColumnHandle> toColumnHandle(
     const protocol::ColumnHandle* column) {
   if (auto hiveColumn =
@@ -97,7 +112,8 @@ std::shared_ptr<connector::ColumnHandle> toColumnHandle(
     return std::make_shared<connector::hive::HiveColumnHandle>(
         hiveColumn->name,
         toHiveColumnType(hiveColumn->columnType),
-        stringToType(hiveColumn->typeSignature));
+        stringToType(hiveColumn->typeSignature),
+        toRequiredSubfields(hiveColumn->requiredSubfields));
   }
 
   if (auto tpchColumn =
@@ -765,6 +781,10 @@ void setCellFromVariant(
     columnVector->setNull(row, true);
     return;
   }
+  if (columnVector->typeKind() == TypeKind::HUGEINT) {
+    setCellFromVariantByKind<TypeKind::HUGEINT>(columnVector, row, value);
+    return;
+  }
   VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
       setCellFromVariantByKind,
       columnVector->typeKind(),
@@ -934,29 +954,6 @@ struct PartitionedOutputChannels {
   std::vector<VectorPtr> constValues;
 };
 
-PartitionedOutputChannels toChannels(
-    const RowTypePtr& rowType,
-    const std::vector<core::TypedExprPtr>& exprs,
-    memory::MemoryPool* pool) {
-  PartitionedOutputChannels output;
-  output.channels.reserve(exprs.size());
-  for (const auto& expr : exprs) {
-    auto channel = exprToChannel(expr.get(), rowType);
-    output.channels.push_back(channel);
-
-    // For constant channels create a base vector, add single value to it from
-    // our variant and add it to the list of constant expressions.
-    if (channel == kConstantChannel) {
-      output.constValues.emplace_back(
-          velox::BaseVector::create(expr->type(), 1, pool));
-      auto constExpr =
-          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(expr);
-      setCellFromVariant(output.constValues.back(), 0, constExpr->value());
-    }
-  }
-  return output;
-}
-
 core::LocalPartitionNode::Type toLocalExchangeType(
     protocol::ExchangeNodeType type) {
   switch (type) {
@@ -1009,7 +1006,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     std::vector<core::TypedExprPtr> projections;
     projections.reserve(outputType->size());
 
-    auto desiredSourceOutput = toRowType(node->inputs[i]);
+    const auto desiredSourceOutput = toRowType(node->inputs[i]);
 
     for (auto j = 0; j < outputType->size(); j++) {
       projections.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
@@ -1027,24 +1024,19 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     auto partitionKeys = toFieldExprs(
         node->partitioningScheme.partitioning.arguments, exprConverter_);
     auto keyChannels = toChannels(outputType, partitionKeys);
-    auto partitionFunctionFactory = [outputType,
-                                     keyChannels](auto numPartitions) {
-      return std::make_unique<velox::exec::HashPartitionFunction>(
-          numPartitions, outputType, keyChannels);
-    };
-
     return std::make_shared<core::LocalPartitionNode>(
-        node->id, type, partitionFunctionFactory, std::move(sourceNodes));
+        node->id,
+        type,
+        std::make_shared<HashPartitionFunctionSpec>(outputType, keyChannels),
+        std::move(sourceNodes));
   }
 
   if (isRoundRobinPartition(node)) {
-    auto partitionFunctionFactory = [](auto numPartitions) {
-      return std::make_unique<velox::exec::RoundRobinPartitionFunction>(
-          numPartitions);
-    };
-
     return std::make_shared<core::LocalPartitionNode>(
-        node->id, type, partitionFunctionFactory, std::move(sourceNodes));
+        node->id,
+        type,
+        std::make_shared<RoundRobinPartitionFunctionSpec>(),
+        std::move(sourceNodes));
   }
 
   if (type == core::LocalPartitionNode::Type::kGather) {
@@ -1571,7 +1563,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   auto joinType = toJoinType(node->type);
 
   if (node->criteria.empty() && core::isInnerJoin(joinType) && !node->filter) {
-    return std::make_shared<core::CrossJoinNode>(
+    return std::make_shared<core::NestedLoopJoinNode>(
         node->id,
         toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
         toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
@@ -2007,8 +1999,22 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   auto sourceNode = toVeloxQueryPlan(fragment.root, tableWriteInfo, taskId);
   auto inputType = sourceNode->outputType();
 
-  PartitionedOutputChannels keyChannels =
-      toChannels(inputType, partitioningKeys, pool_);
+  std::vector<column_index_t> keyChannels;
+  std::vector<VectorPtr> constValues;
+  keyChannels.reserve(partitioningKeys.size());
+  for (const auto& expr : partitioningKeys) {
+    auto channel = exprToChannel(expr.get(), inputType);
+    keyChannels.push_back(channel);
+    // For constant channels create a base vector, add single value to it from
+    // our variant and add it to the list of constant expressions.
+    if (channel == kConstantChannel) {
+      constValues.emplace_back(
+          velox::BaseVector::create(expr->type(), 1, pool_));
+      auto constExpr =
+          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(expr);
+      setCellFromVariant(constValues.back(), 0, constExpr->value());
+    }
+  }
   auto outputType = toRowType(partitioningScheme.outputLayout);
 
   if (auto systemPartitioningHandle =
@@ -2034,12 +2040,6 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                   "root", outputType, sourceNode);
               return planFragment;
             }
-
-            auto partitionFunctionFactory = [](auto numPartitions) {
-              return std::make_unique<velox::exec::RoundRobinPartitionFunction>(
-                  numPartitions);
-            };
-
             planFragment.planNode =
                 std::make_shared<core::PartitionedOutputNode>(
                     "root",
@@ -2047,7 +2047,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                     numPartitions,
                     false, // broadcast
                     partitioningScheme.replicateNullsAndAny,
-                    partitionFunctionFactory,
+                    std::make_shared<RoundRobinPartitionFunctionSpec>(),
                     outputType,
                     sourceNode);
             return planFragment;
@@ -2060,16 +2060,6 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                   "root", outputType, sourceNode);
               return planFragment;
             }
-
-            auto partitionFunctionFactory = [inputType,
-                                             keyChannels](auto numPartitions) {
-              return std::make_unique<velox::exec::HashPartitionFunction>(
-                  numPartitions,
-                  inputType,
-                  keyChannels.channels,
-                  keyChannels.constValues);
-            };
-
             planFragment.planNode =
                 std::make_shared<core::PartitionedOutputNode>(
                     "root",
@@ -2077,7 +2067,8 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                     numPartitions,
                     false, // broadcast
                     partitioningScheme.replicateNullsAndAny,
-                    partitionFunctionFactory,
+                    std::make_shared<HashPartitionFunctionSpec>(
+                        inputType, keyChannels, constValues),
                     outputType,
                     sourceNode);
             return planFragment;
@@ -2117,24 +2108,17 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         "Unsupported Hive bucket function type: {}",
         toJsonString(hivePartitioningHandle->bucketFunctionType))
 
-    auto partitionFunctionFactory = [numBuckets =
-                                         hivePartitioningHandle->bucketCount,
-                                     bucketToPartition,
-                                     keyChannels](auto /* numPartitions */) {
-      return std::make_unique<velox::connector::hive::HivePartitionFunction>(
-          numBuckets,
-          bucketToPartition,
-          keyChannels.channels,
-          keyChannels.constValues);
-    };
-
     planFragment.planNode = std::make_shared<core::PartitionedOutputNode>(
         "root",
         partitioningKeys,
         numPartitions,
         false, // broadcast
         partitioningScheme.replicateNullsAndAny,
-        partitionFunctionFactory,
+        std::make_shared<HivePartitionFunctionSpec>(
+            hivePartitioningHandle->bucketCount,
+            bucketToPartition,
+            keyChannels,
+            constValues),
         toRowType(partitioningScheme.outputLayout),
         sourceNode);
     return planFragment;
@@ -2184,6 +2168,21 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
   auto planFragment = VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       fragment, tableWriteInfo, taskId);
 
+  auto partitionedOutputNode =
+      std::dynamic_pointer_cast<const core::PartitionedOutputNode>(
+          planFragment.planNode);
+
+  VELOX_USER_CHECK_NOT_NULL(
+      partitionedOutputNode, "PartitionedOutputNode is required");
+
+  VELOX_USER_CHECK(
+      !partitionedOutputNode->isBroadcast(),
+      "Broadcast shuffle is not supported");
+
+  VELOX_USER_CHECK(
+      !partitionedOutputNode->isReplicateNullsAndAny(),
+      "Replicate-nulls-and-any shuffle mode is not supported.");
+
   // If the serializedShuffleWriteInfo is not nullptr, it means this fragment
   // ends with a shuffle stage. We convert the PartitionedOutputNode to a
   // chain of following nodes:
@@ -2196,52 +2195,26 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
   // TableWriteNode can also have PartitionedOutputNode to distribute the
   // metadata to coordinator.
   if (serializedShuffleWriteInfo_ == nullptr) {
+    VELOX_USER_CHECK_EQ(1, partitionedOutputNode->numPartitions());
     return planFragment;
   }
 
-  auto partitionedOutputNode =
-      std::dynamic_pointer_cast<const core::PartitionedOutputNode>(
-          planFragment.planNode);
-  VELOX_CHECK(
-      partitionedOutputNode != nullptr, "PartitionedOutputNode is required");
-  if (partitionedOutputNode->isBroadcast()) {
-    VELOX_UNSUPPORTED(
-        "Broadcast partitioned output node in batch is currently not "
-        "supported.");
-  }
+  auto partitionAndSerializeNode =
+      std::make_shared<operators::PartitionAndSerializeNode>(
+          "shuffle-partition-serialize",
+          partitionedOutputNode->keys(),
+          partitionedOutputNode->numPartitions(),
+          partitionedOutputNode->outputType(),
+          partitionedOutputNode->sources()[0],
+          partitionedOutputNode->partitionFunctionSpecPtr());
 
-  auto partitionAndSerializeNode = std::make_shared<
-      operators::PartitionAndSerializeNode>(
-      "shuffle-partition-serialize",
-      partitionedOutputNode->keys(),
-      partitionedOutputNode->numPartitions(),
-      ROW({std::string(operators::PartitionAndSerializeNode::
-                           kPartitionColumnNameDefault),
-           std::string(
-               operators::PartitionAndSerializeNode::kDataColumnNameDefault)},
-          {INTEGER(), VARBINARY()}),
-      partitionedOutputNode->sources().back(),
-      partitionedOutputNode->partitionFunctionFactory());
-
-  auto localPartitionNode = std::make_shared<core::LocalPartitionNode>(
-      "shuffle-gather",
-      core::LocalPartitionNode::Type::kGather,
-      nullptr,
-      std::vector<core::PlanNodePtr>{partitionAndSerializeNode});
-
-  auto shuffleWriteNode = std::make_shared<operators::ShuffleWriteNode>(
+  planFragment.planNode = std::make_shared<operators::ShuffleWriteNode>(
       "root",
       shuffleName_,
       std::move(*serializedShuffleWriteInfo_),
-      std::move(localPartitionNode));
-
-  // For presto_cpp, the last node must be the PartitionedOutputNode in order to
-  // get the output (e.g actual data or metadata) and send back to coordinator.
-  auto finalPartitionedOutputNode = core::PartitionedOutputNode::single(
-      "final-partitioned-output",
-      shuffleWriteNode->outputType(),
-      {shuffleWriteNode});
-  planFragment.planNode = finalPartitionedOutputNode;
+      core::LocalPartitionNode::gather(
+          "shuffle-gather",
+          std::vector<core::PlanNodePtr>{partitionAndSerializeNode}));
   return planFragment;
 }
 
@@ -2253,4 +2226,15 @@ velox::core::PlanNodePtr VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
   return std::make_shared<operators::ShuffleReadNode>(node->id, rowType);
 }
 
+void registerPrestoPlanNodeSerDe() {
+  auto& registry = DeserializationWithContextRegistryForSharedPtr();
+
+  registry.Register(
+      "PartitionAndSerializeNode",
+      presto::operators::PartitionAndSerializeNode::create);
+  registry.Register(
+      "ShuffleReadNode", presto::operators::ShuffleReadNode::create);
+  registry.Register(
+      "ShuffleWriteNode", presto::operators::ShuffleWriteNode::create);
+}
 } // namespace facebook::presto

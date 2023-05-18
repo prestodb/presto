@@ -15,7 +15,7 @@
 #include "presto_cpp/main/common/ConfigReader.h"
 #include <fstream>
 #include "velox/common/base/Exceptions.h"
-#include "velox/core/Context.h"
+#include "velox/core/Config.h"
 
 namespace facebook::presto::util {
 

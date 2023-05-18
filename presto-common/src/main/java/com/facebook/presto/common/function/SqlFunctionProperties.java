@@ -27,7 +27,6 @@ public class SqlFunctionProperties
 {
     private final boolean parseDecimalLiteralAsDouble;
     private final boolean legacyRowFieldOrdinalAccessEnabled;
-    private final boolean legacyTypeCoercionWarningEnabled;
     private final TimeZoneKey timeZoneKey;
     private final boolean legacyTimestamp;
     private final boolean legacyMapSubscript;
@@ -39,7 +38,6 @@ public class SqlFunctionProperties
     private SqlFunctionProperties(
             boolean parseDecimalLiteralAsDouble,
             boolean legacyRowFieldOrdinalAccessEnabled,
-            boolean legacyTypeCoercionWarningEnabled,
             TimeZoneKey timeZoneKey,
             boolean legacyTimestamp,
             boolean legacyMapSubscript,
@@ -50,7 +48,6 @@ public class SqlFunctionProperties
     {
         this.parseDecimalLiteralAsDouble = parseDecimalLiteralAsDouble;
         this.legacyRowFieldOrdinalAccessEnabled = legacyRowFieldOrdinalAccessEnabled;
-        this.legacyTypeCoercionWarningEnabled = legacyTypeCoercionWarningEnabled;
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.legacyTimestamp = legacyTimestamp;
         this.legacyMapSubscript = legacyMapSubscript;
@@ -68,11 +65,6 @@ public class SqlFunctionProperties
     public boolean isLegacyRowFieldOrdinalAccessEnabled()
     {
         return legacyRowFieldOrdinalAccessEnabled;
-    }
-
-    public boolean isLegacyTypeCoercionWarningEnabled()
-    {
-        return legacyTypeCoercionWarningEnabled;
     }
 
     public TimeZoneKey getTimeZoneKey()
@@ -147,7 +139,6 @@ public class SqlFunctionProperties
     {
         private boolean parseDecimalLiteralAsDouble;
         private boolean legacyRowFieldOrdinalAccessEnabled;
-        private boolean legacyTypeCoercionWarningEnabled;
         private TimeZoneKey timeZoneKey;
         private boolean legacyTimestamp;
         private boolean legacyMapSubscript;
@@ -167,12 +158,6 @@ public class SqlFunctionProperties
         public Builder setLegacyRowFieldOrdinalAccessEnabled(boolean legacyRowFieldOrdinalAccessEnabled)
         {
             this.legacyRowFieldOrdinalAccessEnabled = legacyRowFieldOrdinalAccessEnabled;
-            return this;
-        }
-
-        public Builder setLegacyTypeCoercionWarningEnabled(boolean legacyTypeCoercionWarningEnabled)
-        {
-            this.legacyTypeCoercionWarningEnabled = legacyTypeCoercionWarningEnabled;
             return this;
         }
 
@@ -220,7 +205,7 @@ public class SqlFunctionProperties
 
         public SqlFunctionProperties build()
         {
-            return new SqlFunctionProperties(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, legacyTypeCoercionWarningEnabled, timeZoneKey, legacyTimestamp, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser, extraCredentials);
+            return new SqlFunctionProperties(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey, legacyTimestamp, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser, extraCredentials);
         }
     }
 }

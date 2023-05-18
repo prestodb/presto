@@ -35,6 +35,7 @@ import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.QuantifiedComparisonExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
+import com.facebook.presto.spi.relation.UnresolvedSymbolExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
@@ -44,6 +45,7 @@ import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.AtTimeZone;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BindExpression;
@@ -52,6 +54,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -59,6 +62,7 @@ import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.EnumLiteral;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
@@ -74,6 +78,7 @@ import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
@@ -89,9 +94,8 @@ import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slices;
 
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -108,7 +112,10 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.isEnumType;
@@ -140,6 +147,7 @@ import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.sql.relational.Expressions.inSubquery;
 import static com.facebook.presto.sql.relational.Expressions.quantifiedComparison;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
+import static com.facebook.presto.sql.tree.DereferenceExpression.getQualifiedName;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
@@ -171,10 +179,28 @@ public final class SqlToRowExpressionTranslator
                 types,
                 layout,
                 functionAndTypeResolver,
+                session,
+                new Context());
+    }
+
+    public static RowExpression translate(
+            Expression expression,
+            Map<NodeRef<Expression>, Type> types,
+            Map<VariableReferenceExpression, Integer> layout,
+            FunctionAndTypeResolver functionAndTypeResolver,
+            Session session,
+            Context context)
+    {
+        return translate(
+                expression,
+                types,
+                layout,
+                functionAndTypeResolver,
                 Optional.of(session.getUser()),
                 session.getTransactionId(),
                 session.getSqlFunctionProperties(),
-                session.getSessionFunctions());
+                session.getSessionFunctions(),
+                context);
     }
 
     public static RowExpression translate(
@@ -185,7 +211,8 @@ public final class SqlToRowExpressionTranslator
             Optional<String> user,
             Optional<TransactionId> transactionId,
             SqlFunctionProperties sqlFunctionProperties,
-            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+            Context context)
     {
         Visitor visitor = new Visitor(
                 types,
@@ -195,13 +222,37 @@ public final class SqlToRowExpressionTranslator
                 transactionId,
                 sqlFunctionProperties,
                 sessionFunctions);
-        RowExpression result = visitor.process(expression, null);
+        RowExpression result = visitor.process(expression, context);
         requireNonNull(result, "translated expression is null");
         return result;
     }
 
+    public static class Context
+    {
+        private final Map<Expression, RowExpression> rowExpressionMap = new IdentityHashMap<>();
+        private final Map<RowExpression, Expression> expressionMap = new IdentityHashMap<>();
+
+        public Context() {}
+
+        public Map<Expression, RowExpression> getRowExpressionMap()
+        {
+            return rowExpressionMap;
+        }
+
+        public Map<RowExpression, Expression> getExpressionMap()
+        {
+            return expressionMap;
+        }
+
+        public void put(Expression expression, RowExpression rowExpression)
+        {
+            rowExpressionMap.put(expression, rowExpression);
+            expressionMap.put(rowExpression, expression);
+        }
+    }
+
     private static class Visitor
-            extends AstVisitor<RowExpression, Void>
+            extends AstVisitor<RowExpression, Context>
     {
         private final Map<NodeRef<Expression>, Type> types;
         private final Map<VariableReferenceExpression, Integer> layout;
@@ -221,7 +272,7 @@ public final class SqlToRowExpressionTranslator
                 SqlFunctionProperties sqlFunctionProperties,
                 Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
         {
-            this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
+            this.types = requireNonNull(types, "types is null");
             this.layout = layout;
             this.functionAndTypeResolver = functionAndTypeResolver;
             this.user = user;
@@ -237,44 +288,54 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitExpression(Expression node, Void context)
+        public RowExpression process(Node node, Context context)
+        {
+            if (!(node instanceof Expression)) {
+                throw new UnsupportedOperationException("not yet implemented: expression translator for " + node.getClass().getName());
+            }
+            Expression expression = (Expression) node;
+            if (context.getRowExpressionMap().containsKey(expression)) {
+                return context.getRowExpressionMap().get(expression);
+            }
+
+            RowExpression rowExpression = super.process(expression, context);
+            context.put(expression, rowExpression);
+            return rowExpression;
+        }
+
+        @Override
+        protected RowExpression visitExpression(Expression node, Context context)
         {
             throw new UnsupportedOperationException("not yet implemented: expression translator for " + node.getClass().getName());
         }
 
         @Override
-        protected RowExpression visitIdentifier(Identifier node, Void context)
+        protected RowExpression visitIdentifier(Identifier node, Context context)
         {
             // identifier should never be reachable with the exception of lambda within VALUES (#9711)
             return new VariableReferenceExpression(getSourceLocation(node), node.getValue(), getType(node));
         }
 
         @Override
-        protected RowExpression visitCurrentUser(CurrentUser node, Void context)
-        {
-            return user.map(user -> constant(Slices.utf8Slice(user), VARCHAR)).orElseThrow(() -> new UnsupportedOperationException("Do not have current user"));
-        }
-
-        @Override
-        protected RowExpression visitFieldReference(FieldReference node, Void context)
+        protected RowExpression visitFieldReference(FieldReference node, Context context)
         {
             return field(getSourceLocation(node), node.getFieldIndex(), getType(node));
         }
 
         @Override
-        protected RowExpression visitNullLiteral(NullLiteral node, Void context)
+        protected RowExpression visitNullLiteral(NullLiteral node, Context context)
         {
             return constantNull(getSourceLocation(node), UnknownType.UNKNOWN);
         }
 
         @Override
-        protected RowExpression visitBooleanLiteral(BooleanLiteral node, Void context)
+        protected RowExpression visitBooleanLiteral(BooleanLiteral node, Context context)
         {
             return constant(node.getValue(), BOOLEAN);
         }
 
         @Override
-        protected RowExpression visitLongLiteral(LongLiteral node, Void context)
+        protected RowExpression visitLongLiteral(LongLiteral node, Context context)
         {
             if (node.getValue() >= Integer.MIN_VALUE && node.getValue() <= Integer.MAX_VALUE) {
                 return constant(node.getValue(), INTEGER);
@@ -283,38 +344,38 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitDoubleLiteral(DoubleLiteral node, Void context)
+        protected RowExpression visitDoubleLiteral(DoubleLiteral node, Context context)
         {
             return constant(node.getValue(), DOUBLE);
         }
 
         @Override
-        protected RowExpression visitDecimalLiteral(DecimalLiteral node, Void context)
+        protected RowExpression visitDecimalLiteral(DecimalLiteral node, Context context)
         {
             DecimalParseResult parseResult = Decimals.parse(node.getValue());
             return constant(parseResult.getObject(), parseResult.getType());
         }
 
         @Override
-        protected RowExpression visitStringLiteral(StringLiteral node, Void context)
+        protected RowExpression visitStringLiteral(StringLiteral node, Context context)
         {
             return constant(node.getSlice(), createVarcharType(countCodePoints(node.getSlice())));
         }
 
         @Override
-        protected RowExpression visitCharLiteral(CharLiteral node, Void context)
+        protected RowExpression visitCharLiteral(CharLiteral node, Context context)
         {
             return constant(node.getSlice(), createCharType(node.getValue().length()));
         }
 
         @Override
-        protected RowExpression visitBinaryLiteral(BinaryLiteral node, Void context)
+        protected RowExpression visitBinaryLiteral(BinaryLiteral node, Context context)
         {
             return constant(node.getValue(), VARBINARY);
         }
 
         @Override
-        protected RowExpression visitEnumLiteral(EnumLiteral node, Void context)
+        protected RowExpression visitEnumLiteral(EnumLiteral node, Context context)
         {
             Type type;
             try {
@@ -328,7 +389,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitGenericLiteral(GenericLiteral node, Void context)
+        protected RowExpression visitGenericLiteral(GenericLiteral node, Context context)
         {
             Type type;
             try {
@@ -371,7 +432,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitTimeLiteral(TimeLiteral node, Void context)
+        protected RowExpression visitTimeLiteral(TimeLiteral node, Context context)
         {
             long value;
             if (getType(node).equals(TIME_WITH_TIME_ZONE)) {
@@ -390,7 +451,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitTimestampLiteral(TimestampLiteral node, Void context)
+        protected RowExpression visitTimestampLiteral(TimestampLiteral node, Context context)
         {
             long value;
             if (sqlFunctionProperties.isLegacyTimestamp()) {
@@ -403,7 +464,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitIntervalLiteral(IntervalLiteral node, Void context)
+        protected RowExpression visitIntervalLiteral(IntervalLiteral node, Context context)
         {
             long value;
             if (node.isYearToMonth()) {
@@ -416,7 +477,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitComparisonExpression(ComparisonExpression node, Void context)
+        protected RowExpression visitComparisonExpression(ComparisonExpression node, Context context)
         {
             RowExpression left = process(node.getLeft(), context);
             RowExpression right = process(node.getRight(), context);
@@ -431,7 +492,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitFunctionCall(FunctionCall node, Void context)
+        protected RowExpression visitFunctionCall(FunctionCall node, Context context)
         {
             List<RowExpression> arguments = node.getArguments().stream()
                     .map(value -> process(value, context))
@@ -454,7 +515,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitSymbolReference(SymbolReference node, Void context)
+        protected RowExpression visitSymbolReference(SymbolReference node, Context context)
         {
             VariableReferenceExpression variable = new VariableReferenceExpression(getSourceLocation(node), node.getName(), getType(node));
             Integer channel = layout.get(variable);
@@ -466,7 +527,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitLambdaExpression(LambdaExpression node, Void context)
+        protected RowExpression visitLambdaExpression(LambdaExpression node, Context context)
         {
             RowExpression body = process(node.getBody(), context);
 
@@ -482,7 +543,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitBindExpression(BindExpression node, Void context)
+        protected RowExpression visitBindExpression(BindExpression node, Context context)
         {
             ImmutableList.Builder<Type> valueTypesBuilder = ImmutableList.builder();
             ImmutableList.Builder<RowExpression> argumentsBuilder = ImmutableList.builder();
@@ -498,7 +559,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
+        protected RowExpression visitArithmeticBinary(ArithmeticBinaryExpression node, Context context)
         {
             RowExpression left = process(node.getLeft(), context);
             RowExpression right = process(node.getRight(), context);
@@ -513,7 +574,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitArithmeticUnary(ArithmeticUnaryExpression node, Void context)
+        protected RowExpression visitArithmeticUnary(ArithmeticUnaryExpression node, Context context)
         {
             RowExpression expression = process(node.getValue(), context);
 
@@ -533,7 +594,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
+        protected RowExpression visitLogicalBinaryExpression(LogicalBinaryExpression node, Context context)
         {
             Form form;
             switch (node.getOperator()) {
@@ -550,7 +611,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitCast(Cast node, Void context)
+        protected RowExpression visitCast(Cast node, Context context)
         {
             RowExpression value = process(node.getExpression(), context);
 
@@ -562,7 +623,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitCoalesceExpression(CoalesceExpression node, Void context)
+        protected RowExpression visitCoalesceExpression(CoalesceExpression node, Context context)
         {
             List<RowExpression> arguments = node.getOperands().stream()
                     .map(value -> process(value, context))
@@ -572,19 +633,19 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
+        protected RowExpression visitSimpleCaseExpression(SimpleCaseExpression node, Context context)
         {
             return buildSwitch(process(node.getOperand(), context), node.getWhenClauses(), node.getDefaultValue(), getType(node), context);
         }
 
         @Override
-        protected RowExpression visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
+        protected RowExpression visitSearchedCaseExpression(SearchedCaseExpression node, Context context)
         {
             // We rewrite this as - CASE true WHEN p1 THEN v1 WHEN p2 THEN v2 .. ELSE v END
             return buildSwitch(new ConstantExpression(getSourceLocation(node), true, BOOLEAN), node.getWhenClauses(), node.getDefaultValue(), getType(node), context);
         }
 
-        private RowExpression buildSwitch(RowExpression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue, Type returnType, Void context)
+        private RowExpression buildSwitch(RowExpression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue, Type returnType, Context context)
         {
             ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
 
@@ -607,10 +668,14 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitDereferenceExpression(DereferenceExpression node, Void context)
+        protected RowExpression visitDereferenceExpression(DereferenceExpression node, Context context)
         {
             Type returnType = getType(node);
             Type baseType = getType(node.getBase());
+
+            if (baseType == null) {
+                return new UnresolvedSymbolExpression(getSourceLocation(node), returnType, getQualifiedName(node).getParts());
+            }
 
             if (isEnumType(baseType) && isEnumType(returnType)) {
                 return constant(resolveEnumLiteral(node, baseType), returnType);
@@ -647,7 +712,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitIfExpression(IfExpression node, Void context)
+        protected RowExpression visitIfExpression(IfExpression node, Context context)
         {
             ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
 
@@ -665,9 +730,19 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitTryExpression(TryExpression node, Void context)
+        protected RowExpression visitTryExpression(TryExpression node, Context context)
         {
-            throw new UnsupportedOperationException("Must desugar TryExpression before translate it into RowExpression");
+            RowExpression body = process(node.getInnerExpression(), context);
+
+            return call(
+                    functionAndTypeResolver,
+                    "$internal$try",
+                    getType(node),
+                    new LambdaDefinitionExpression(
+                            getSourceLocation(node),
+                            ImmutableList.of(),
+                            ImmutableList.of(),
+                            body));
         }
 
         private RowExpression buildEquals(RowExpression lhs, RowExpression rhs)
@@ -681,14 +756,14 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitExists(ExistsPredicate existsPredicate, Void context)
+        protected RowExpression visitExists(ExistsPredicate existsPredicate, Context context)
         {
             RowExpression subquery = process(existsPredicate.getSubquery(), context);
             return new ExistsExpression(subquery.getSourceLocation(), subquery);
         }
 
         @Override
-        protected RowExpression visitQuantifiedComparisonExpression(com.facebook.presto.sql.tree.QuantifiedComparisonExpression expression, Void context)
+        protected RowExpression visitQuantifiedComparisonExpression(com.facebook.presto.sql.tree.QuantifiedComparisonExpression expression, Context context)
         {
             return quantifiedComparison(
                     OperatorType.valueOf(expression.getOperator().name()),
@@ -698,7 +773,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitInPredicate(InPredicate node, Void context)
+        protected RowExpression visitInPredicate(InPredicate node, Context context)
         {
             ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
             RowExpression value = process(node.getValue(), context);
@@ -723,7 +798,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitIsNotNullPredicate(IsNotNullPredicate node, Void context)
+        protected RowExpression visitIsNotNullPredicate(IsNotNullPredicate node, Context context)
         {
             RowExpression expression = process(node.getValue(), context);
 
@@ -736,7 +811,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitIsNullPredicate(IsNullPredicate node, Void context)
+        protected RowExpression visitIsNullPredicate(IsNullPredicate node, Context context)
         {
             RowExpression expression = process(node.getValue(), context);
 
@@ -744,13 +819,13 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitNotExpression(NotExpression node, Void context)
+        protected RowExpression visitNotExpression(NotExpression node, Context context)
         {
             return call(getSourceLocation(node), "not", functionResolution.notFunction(), BOOLEAN, process(node.getValue(), context));
         }
 
         @Override
-        protected RowExpression visitNullIfExpression(NullIfExpression node, Void context)
+        protected RowExpression visitNullIfExpression(NullIfExpression node, Context context)
         {
             RowExpression first = process(node.getFirst(), context);
             RowExpression second = process(node.getSecond(), context);
@@ -759,7 +834,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitBetweenPredicate(BetweenPredicate node, Void context)
+        protected RowExpression visitBetweenPredicate(BetweenPredicate node, Context context)
         {
             RowExpression value = process(node.getValue(), context);
             RowExpression min = process(node.getMin(), context);
@@ -776,7 +851,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitLikePredicate(LikePredicate node, Void context)
+        protected RowExpression visitLikePredicate(LikePredicate node, Context context)
         {
             RowExpression value = process(node.getValue(), context);
             RowExpression pattern = process(node.getPattern(), context);
@@ -800,7 +875,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitSubscriptExpression(SubscriptExpression node, Void context)
+        protected RowExpression visitSubscriptExpression(SubscriptExpression node, Context context)
         {
             RowExpression base = process(node.getBase(), context);
             RowExpression index = process(node.getIndex(), context);
@@ -828,7 +903,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitArrayConstructor(ArrayConstructor node, Void context)
+        protected RowExpression visitArrayConstructor(ArrayConstructor node, Context context)
         {
             List<RowExpression> arguments = node.getValues().stream()
                     .map(value -> process(value, context))
@@ -840,13 +915,108 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitRow(Row node, Void context)
+        protected RowExpression visitRow(Row node, Context context)
         {
             List<RowExpression> arguments = node.getItems().stream()
                     .map(value -> process(value, context))
                     .collect(toImmutableList());
             Type returnType = getType(node);
             return specialForm(ROW_CONSTRUCTOR, returnType, arguments);
+        }
+
+        @Override
+        protected RowExpression visitCurrentTime(CurrentTime node, Context context)
+        {
+            if (node.getPrecision() != null) {
+                throw new UnsupportedOperationException("not yet implemented: non-default precision");
+            }
+
+            switch (node.getFunction()) {
+                case DATE:
+                    return call(functionAndTypeResolver, "current_date", getType(node));
+                case TIME:
+                    return call(functionAndTypeResolver, "current_time", getType(node));
+                case LOCALTIME:
+                    return call(functionAndTypeResolver, "localtime", getType(node));
+                case TIMESTAMP:
+                    return call(functionAndTypeResolver, "current_timestamp", getType(node));
+                case LOCALTIMESTAMP:
+                    return call(functionAndTypeResolver, "localtimestamp", getType(node));
+                default:
+                    throw new UnsupportedOperationException("not yet implemented: " + node.getFunction());
+            }
+        }
+
+        @Override
+        protected RowExpression visitExtract(Extract node, Context context)
+        {
+            RowExpression value = process(node.getExpression(), context);
+            switch (node.getField()) {
+                case YEAR:
+                    return call(functionAndTypeResolver, "year", getType(node), value);
+                case QUARTER:
+                    return call(functionAndTypeResolver, "quarter", getType(node), value);
+                case MONTH:
+                    return call(functionAndTypeResolver, "month", getType(node), value);
+                case WEEK:
+                    return call(functionAndTypeResolver, "week", getType(node), value);
+                case DAY:
+                case DAY_OF_MONTH:
+                    return call(functionAndTypeResolver, "day", getType(node), value);
+                case DAY_OF_WEEK:
+                case DOW:
+                    return call(functionAndTypeResolver, "day_of_week", getType(node), value);
+                case DAY_OF_YEAR:
+                case DOY:
+                    return call(functionAndTypeResolver, "day_of_year", getType(node), value);
+                case YEAR_OF_WEEK:
+                case YOW:
+                    return call(functionAndTypeResolver, "year_of_week", getType(node), value);
+                case HOUR:
+                    return call(functionAndTypeResolver, "hour", getType(node), value);
+                case MINUTE:
+                    return call(functionAndTypeResolver, "minute", getType(node), value);
+                case SECOND:
+                    return call(functionAndTypeResolver, "second", getType(node), value);
+                case TIMEZONE_MINUTE:
+                    return call(functionAndTypeResolver, "timezone_minute", getType(node), value);
+                case TIMEZONE_HOUR:
+                    return call(functionAndTypeResolver, "timezone_hour", getType(node), value);
+            }
+
+            throw new UnsupportedOperationException("not yet implemented: " + node.getField());
+        }
+
+        @Override
+        protected RowExpression visitAtTimeZone(AtTimeZone node, Context context)
+        {
+            RowExpression value = process(node.getValue(), context);
+            RowExpression timeZone = process(node.getTimeZone(), context);
+            Type valueType = value.getType();
+            if (valueType.equals(TIME)) {
+                value = call(
+                        getSourceLocation(node),
+                        CAST.name(),
+                        functionAndTypeResolver.lookupCast("CAST", valueType, TIME_WITH_TIME_ZONE),
+                        TIME_WITH_TIME_ZONE,
+                        value);
+            }
+            else if (valueType.equals(TIMESTAMP)) {
+                value = call(
+                        getSourceLocation(node),
+                        CAST.name(),
+                        functionAndTypeResolver.lookupCast("CAST", valueType, TIMESTAMP_WITH_TIME_ZONE),
+                        TIMESTAMP_WITH_TIME_ZONE,
+                        value);
+            }
+
+            return call(functionAndTypeResolver, "at_timezone", getType(node), value, timeZone);
+        }
+
+        @Override
+        protected RowExpression visitCurrentUser(CurrentUser node, Context context)
+        {
+            return call(functionAndTypeResolver, "$current_user", getType(node));
         }
     }
 }

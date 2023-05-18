@@ -11,8 +11,11 @@
 # limitations under the License.
 add_library(presto_http HttpClient.cpp HttpServer.cpp)
 
+add_subdirectory(filters)
+
 target_link_libraries(
   presto_http
+  http_filters
   presto_common
   velox_memory
   velox_exception

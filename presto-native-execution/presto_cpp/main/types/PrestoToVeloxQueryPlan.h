@@ -35,6 +35,8 @@ class VeloxQueryPlanConverterBase {
   explicit VeloxQueryPlanConverterBase(velox::memory::MemoryPool* pool)
       : pool_(pool), exprConverter_(pool) {}
 
+  virtual ~VeloxQueryPlanConverterBase() = default;
+
   virtual velox::core::PlanFragment toVeloxQueryPlan(
       const protocol::PlanFragment& fragment,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
@@ -204,4 +206,5 @@ class VeloxBatchQueryPlanConverter : public VeloxQueryPlanConverterBase {
   const std::shared_ptr<std::string> serializedShuffleWriteInfo_;
 };
 
+void registerPrestoPlanNodeSerDe();
 } // namespace facebook::presto

@@ -23,37 +23,41 @@ import org.apache.parquet.crypto.ModuleCipherFactory;
 import org.apache.parquet.format.BlockCipher;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Optional;
 
 import static com.facebook.presto.parquet.ParquetCompressionUtils.decompress;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.toIntExact;
 
 public class PageReader
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PageReader.class).instanceSize();
+
     private final long valueCountInColumnChunk;
     private final Iterator<DataPage> dataPageIterator;
+    private final CompressionCodecName codec;
     private final DictionaryPage compressedDictionaryPage;
     private final OffsetIndex offsetIndex;
     private final Optional<BlockCipher.Decryptor> blockDecryptor;
+
     private int pageIndex;
     private byte[] dataPageAdditionalAuthenticationData;
     private byte[] dictionaryPageAdditionalAuthenticationData;
 
-    protected final CompressionCodecName codec;
-
     public PageReader(CompressionCodecName codec,
-                      Iterator<DataPage> dataPageIterator,
-                      long valueCountInColumnChunk,
-                      DictionaryPage compressedDictionaryPage,
-                      OffsetIndex offsetIndex,
-                      Optional<BlockCipher.Decryptor> blockDecryptor,
-                      byte[] fileAdditionalAuthenticationData,
-                      int rowGroupOrdinal,
-                      int columnOrdinal)
+            Iterator<DataPage> dataPageIterator,
+            long valueCountInColumnChunk,
+            DictionaryPage compressedDictionaryPage,
+            OffsetIndex offsetIndex,
+            Optional<BlockCipher.Decryptor> blockDecryptor,
+            byte[] fileAdditionalAuthenticationData,
+            int rowGroupOrdinal,
+            int columnOrdinal)
     {
         this.codec = codec;
         this.dataPageIterator = dataPageIterator;
@@ -62,10 +66,16 @@ public class PageReader
         this.offsetIndex = offsetIndex;
         this.pageIndex = 0;
         this.blockDecryptor = blockDecryptor;
+
         if (blockDecryptor.isPresent()) {
             dataPageAdditionalAuthenticationData = AesCipher.createModuleAAD(fileAdditionalAuthenticationData, ModuleCipherFactory.ModuleType.DataPage, rowGroupOrdinal, columnOrdinal, 0);
             dictionaryPageAdditionalAuthenticationData = AesCipher.createModuleAAD(fileAdditionalAuthenticationData, ModuleCipherFactory.ModuleType.DictionaryPage, rowGroupOrdinal, columnOrdinal, -1);
         }
+    }
+
+    public static long getFirstRowIndex(int pageIndex, OffsetIndex offsetIndex)
+    {
+        return offsetIndex == null ? -1 : offsetIndex.getFirstRowIndex(pageIndex);
     }
 
     public long getValueCountInColumnChunk()
@@ -144,9 +154,12 @@ public class PageReader
         }
     }
 
-    public static long getFirstRowIndex(int pageIndex, OffsetIndex offsetIndex)
+    public long getRetainedSizeInBytes()
     {
-        return offsetIndex == null ? -1 : offsetIndex.getFirstRowIndex(pageIndex);
+        return INSTANCE_SIZE +
+                (compressedDictionaryPage == null ? 0 : compressedDictionaryPage.getRetainedSizeInBytes()) +
+                sizeOf(dataPageAdditionalAuthenticationData) +
+                sizeOf(dictionaryPageAdditionalAuthenticationData);
     }
 
     // additional authenticated data for AES cipher

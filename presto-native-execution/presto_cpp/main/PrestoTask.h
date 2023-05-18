@@ -77,6 +77,8 @@ struct PrestoTask {
   bool taskStarted{false};
 
   uint64_t lastHeartbeatMs{0};
+  uint64_t lastTaskStatsUpdateMs = {0};
+  uint64_t lastMemoryReservation = {0};
   mutable std::mutex mutex;
 
   /// Error before task is created or when task is being created.
@@ -96,7 +98,7 @@ struct PrestoTask {
   /// Info request. May arrive before there is a Task.
   PromiseHolderWeakPtr<std::unique_ptr<protocol::TaskInfo>> infoRequest;
 
-  explicit PrestoTask(const std::string& taskId);
+  explicit PrestoTask(const std::string& taskId, const std::string& nodeId);
 
   /// Updates when this task was touched last time.
   void updateHeartbeatLocked();

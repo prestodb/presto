@@ -44,6 +44,7 @@ import com.facebook.presto.hive.parquet.write.SingleLevelArrayMapKeyValuesSchema
 import com.facebook.presto.hive.parquet.write.SingleLevelArraySchemaConverter;
 import com.facebook.presto.hive.parquet.write.TestMapredParquetOutputFormat;
 import com.facebook.presto.parquet.cache.ParquetMetadataSource;
+import com.facebook.presto.parquet.writer.ParquetSchemaConverter;
 import com.facebook.presto.parquet.writer.ParquetWriter;
 import com.facebook.presto.parquet.writer.ParquetWriterOptions;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -393,7 +394,7 @@ public class ParquetTester
                 try (TempFile tempFile = new TempFile("test", "parquet")) {
                     OptionalInt min = stream(writeValues).mapToInt(Iterables::size).min();
                     checkState(min.isPresent());
-                    writeParquetFileFromPresto(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.getAsInt(), compressionCodecName);
+                    writeParquetFileFromPresto(tempFile.getFile(), columnTypes, columnNames, readValues, min.getAsInt(), compressionCodecName);
                     assertFileContents(
                             session,
                             tempFile.getFile(),
@@ -824,12 +825,17 @@ public class ParquetTester
         return type.getObjectValue(SESSION.getSqlFunctionProperties(), block, position);
     }
 
-    public static void writeParquetFileFromPresto(File outputFile, List<Type> types, List<String> columnNames, Iterator<?>[] values, int size, CompressionCodecName compressionCodecName)
+    public static void writeParquetFileFromPresto(File outputFile, List<Type> types, List<String> columnNames, Iterable<?>[] values, int size, CompressionCodecName compressionCodecName)
             throws Exception
     {
         checkArgument(types.size() == columnNames.size() && types.size() == values.length);
+        ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
+                types,
+                columnNames);
         ParquetWriter writer = new ParquetWriter(
                 new FileOutputStream(outputFile),
+                schemaConverter.getMessageType(),
+                schemaConverter.getPrimitiveTypes(),
                 columnNames,
                 types,
                 ParquetWriterOptions.builder()
@@ -841,7 +847,7 @@ public class ParquetTester
         PageBuilder pageBuilder = new PageBuilder(types);
         for (int i = 0; i < types.size(); ++i) {
             Type type = types.get(i);
-            Iterator<?> iterator = values[i];
+            Iterator<?> iterator = values[i].iterator();
             BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
 
             for (int j = 0; j < size; ++j) {

@@ -41,6 +41,7 @@ import com.facebook.presto.sql.tree.Join;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -188,7 +189,7 @@ public class PrefilterForLimitingAggregation
             }
 
             PlanNode originalSource = aggregationNode.getSource();
-            PlanNode keySource = clonePlanNode(originalSource, session, metadata, idAllocator, keys, ImmutableMap.of());
+            PlanNode keySource = clonePlanNode(originalSource, session, metadata, idAllocator, keys, new HashMap<>());
             // TODO(kaikalur): See if timetout can be done in a cleaner way in the middle tier
             DistinctLimitNode timedDistinctLimitNode = new DistinctLimitNode(
                     Optional.empty(),
@@ -209,7 +210,7 @@ public class PrefilterForLimitingAggregation
 
             VariableReferenceExpression mapAggVariable = variableAllocator.newVariable("expr", mapType);
             PlanNode crossJoinRhs = addAggregation(rightProjectNode, functionAndTypeManager, idAllocator, variableAllocator, "MAP_AGG", mapType, ImmutableList.of(), mapAggVariable, rightProjectNode.getOutputVariables().get(0), rightProjectNode.getOutputVariables().get(1));
-            PlanNode crossJoinLhs = addProjections(originalSource, idAllocator, variableAllocator, ImmutableList.of(leftHashExpression));
+            PlanNode crossJoinLhs = addProjections(originalSource, idAllocator, variableAllocator, ImmutableList.of(leftHashExpression), ImmutableList.of());
             ImmutableList.Builder<VariableReferenceExpression> crossJoinOutput = ImmutableList.builder();
 
             crossJoinOutput.addAll(crossJoinLhs.getOutputVariables());

@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
-import static com.facebook.presto.SystemSessionProperties.PREFER_MERGE_JOIN;
+import static com.facebook.presto.SystemSessionProperties.PREFER_MERGE_JOIN_FOR_SORTED_INPUTS;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveSessionProperties.ORDER_BASED_EXECUTION_ENABLED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -301,7 +301,7 @@ public class TestMergeJoinPlan
     private Session groupedExecutionDisabled()
     {
         return Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(PREFER_MERGE_JOIN, "true")
+                .setSystemProperty(PREFER_MERGE_JOIN_FOR_SORTED_INPUTS, "true")
                 .setSystemProperty(GROUPED_EXECUTION, "false")
                 .setCatalogSessionProperty(HIVE_CATALOG, ORDER_BASED_EXECUTION_ENABLED, "true")
                 .build();
@@ -310,7 +310,7 @@ public class TestMergeJoinPlan
     private Session mergeJoinEnabled()
     {
         return Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(PREFER_MERGE_JOIN, "true")
+                .setSystemProperty(PREFER_MERGE_JOIN_FOR_SORTED_INPUTS, "true")
                 .setSystemProperty(GROUPED_EXECUTION, "true")
                 .setCatalogSessionProperty(HIVE_CATALOG, ORDER_BASED_EXECUTION_ENABLED, "true")
                 .build();
