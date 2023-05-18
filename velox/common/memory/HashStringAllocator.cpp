@@ -147,14 +147,26 @@ HashStringAllocator::Position HashStringAllocator::finishWrite(
 }
 
 void HashStringAllocator::newSlab(int32_t size) {
+  char* run = nullptr;
+  uint64_t available = 0;
   int32_t needed = std::max<int32_t>(
       bits::roundUp(
           size + 2 * sizeof(Header), memory::AllocationTraits::kPageSize),
       kUnitSize);
-  pool_.newRun(needed);
-  auto run = pool_.firstFreeInRun();
-  auto available = pool_.availableInRun() - sizeof(Header);
-
+  auto pagesNeeded = memory::AllocationTraits::numPages(needed);
+  if (pagesNeeded > pool()->largestSizeClass()) {
+    LOG(WARNING) << "Unusually large allocation request received of bytes: "
+                 << size;
+    run = pool_.allocateFixed(needed);
+    available =
+        memory::AllocationTraits::pageBytes(pagesNeeded) - sizeof(Header);
+  } else {
+    pool_.newRun(needed);
+    run = pool_.firstFreeInRun();
+    available = pool_.availableInRun() - sizeof(Header);
+  }
+  VELOX_CHECK_NOT_NULL(run);
+  VELOX_CHECK_GT(available, 0);
   // Write end  marker.
   *reinterpret_cast<uint32_t*>(run + available) = Header::kArenaEnd;
   cumulativeBytes_ += available;

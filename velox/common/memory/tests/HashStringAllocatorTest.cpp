@@ -109,6 +109,17 @@ TEST_F(HashStringAllocatorTest, allocate) {
   EXPECT_LE(instance_->retainedSize() - instance_->freeSpace(), 200);
 }
 
+TEST_F(HashStringAllocatorTest, allocateLarge) {
+  // Verify that allocate() can handle sizes larger than the largest class size
+  // supported by memory allocators, that is, 256 pages.
+  auto size =
+      memory::AllocationTraits::pageBytes(pool_->largestSizeClass() + 1);
+  auto header = allocate(size);
+  instance_->free(header);
+  // We allow for some free overhead for free lists after all is freed.
+  EXPECT_LE(instance_->retainedSize() - instance_->freeSpace(), 200);
+}
+
 TEST_F(HashStringAllocatorTest, multipart) {
   constexpr int32_t kNumSamples = 10'000;
   std::vector<Multipart> data(kNumSamples);
