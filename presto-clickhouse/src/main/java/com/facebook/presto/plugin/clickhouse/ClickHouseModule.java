@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
+import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseQueryGenerator;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.inject.Binder;
@@ -51,6 +52,7 @@ public class ClickHouseModule
         binder.bind(ClickHouseSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ClickHouseRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(ClickHousePageSinkProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ClickHouseQueryGenerator.class).in(Scopes.SINGLETON);
         binder.bind(ClickHouseConnector.class).in(Scopes.SINGLETON);
         bindTablePropertiesProvider(binder, ClickHouseTableProperties.class);
         configBinder(binder).bindConfig(ClickHouseConfig.class);
