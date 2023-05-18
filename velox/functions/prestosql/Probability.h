@@ -16,6 +16,8 @@
 #pragma once
 
 #include "boost/math/distributions/beta.hpp"
+#include "velox/common/base/Exceptions.h"
+#include "velox/functions/Macros.h"
 
 namespace facebook::velox::functions {
 
@@ -40,6 +42,22 @@ struct BetaCDFFunction {
       boost::math::beta_distribution<> dist(a, b);
       result = boost::math::cdf(dist, value);
     }
+  }
+};
+
+template <typename T>
+struct NormalCDFFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  // Normal cumulative distribution is computed as per the reference at
+  // https://mathworld.wolfram.com/NormalDistribution.html.
+
+  FOLLY_ALWAYS_INLINE void
+  call(double& result, double m, double sd, double value) {
+    VELOX_USER_CHECK_GT(sd, 0, "standardDeviation must be > 0");
+
+    static const double kSqrtOfTwo = sqrt(2);
+    result = 0.5 * (1 + erf((value - m) / (sd * kSqrtOfTwo)));
   }
 };
 

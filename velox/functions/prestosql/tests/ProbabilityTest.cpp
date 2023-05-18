@@ -69,5 +69,44 @@ TEST_F(ProbabilityTest, betaCDF) {
       betaCDF(3, 3, kNan), "value must be in the interval [0, 1]");
 }
 
+TEST_F(ProbabilityTest, normalCDF) {
+  const auto normal_cdf = [&](std::optional<double> mean,
+                              std::optional<double> sd,
+                              std::optional<double> value) {
+    return evaluateOnce<double>("normal_cdf(c0, c1, c2)", mean, sd, value);
+  };
+
+  EXPECT_EQ(0.97500210485177963, normal_cdf(0, 1, 1.96));
+  EXPECT_EQ(0.5, normal_cdf(10, 9, 10));
+  EXPECT_EQ(0.0013498980316301035, normal_cdf(-1.5, 2.1, -7.8));
+  EXPECT_EQ(1.0, normal_cdf(0, 1, kInf));
+  EXPECT_EQ(0.0, normal_cdf(0, 1, -kInf));
+  EXPECT_EQ(0.0, normal_cdf(kInf, 1, 0));
+  EXPECT_EQ(1.0, normal_cdf(-kInf, 1, 0));
+  EXPECT_EQ(0.5, normal_cdf(0, kInf, 0));
+  EXPECT_THAT(normal_cdf(kNan, 1, 0), IsNan());
+  EXPECT_THAT(normal_cdf(0, 1, kNan), IsNan());
+  EXPECT_EQ(normal_cdf(0, 1, kDoubleMax), 1);
+  EXPECT_EQ(normal_cdf(0, kDoubleMax, 0), 0.5);
+  EXPECT_EQ(0.0, normal_cdf(kDoubleMax, 1, 0));
+  EXPECT_EQ(0.5, normal_cdf(0, 1, kDoubleMin));
+  EXPECT_EQ(0.5, normal_cdf(kDoubleMin, 1, 0));
+  EXPECT_EQ(0, normal_cdf(1, kDoubleMin, 0));
+  EXPECT_THAT(normal_cdf(kDoubleMax, kDoubleMax, kInf), IsNan());
+  EXPECT_EQ(0.5, normal_cdf(kDoubleMax, kDoubleMax, kDoubleMax));
+  EXPECT_EQ(0.5, normal_cdf(kDoubleMin, kDoubleMin, kDoubleMin));
+  EXPECT_EQ(0.5, normal_cdf(kDoubleMax, 1, kDoubleMax));
+  EXPECT_EQ(0.5, normal_cdf(10, kDoubleMax, kDoubleMax));
+  EXPECT_EQ(0.5, normal_cdf(kDoubleMax, kDoubleMax, 1.96));
+  EXPECT_EQ(std::nullopt, normal_cdf(std::nullopt, 1, 1.96));
+  EXPECT_EQ(std::nullopt, normal_cdf(1, 1, std::nullopt));
+  EXPECT_EQ(std::nullopt, normal_cdf(std::nullopt, 1, std::nullopt));
+  EXPECT_EQ(std::nullopt, normal_cdf(std::nullopt, std::nullopt, std::nullopt));
+
+  VELOX_ASSERT_THROW(normal_cdf(0, 0, 0.1985), "standardDeviation must be > 0");
+  VELOX_ASSERT_THROW(
+      normal_cdf(0, kNan, 0.1985), "standardDeviation must be > 0");
+}
+
 } // namespace
 } // namespace facebook::velox
