@@ -23,6 +23,7 @@ add_executable(
   MemoryCapExceededTest.cpp
   MemoryManagerTest.cpp
   MemoryPoolTest.cpp
+  MockSharedArbitratorTest.cpp
   SharedArbitratorTest.cpp)
 
 target_link_libraries(
