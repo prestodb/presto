@@ -334,10 +334,11 @@ struct FromBase64UrlFunction {
       const arg_type<Varchar>& input) {
     auto inputData = input.data();
     auto inputSize = input.size();
-    const bool hasPad =
-        (*(input.end()) == encoding::Base64::kBase64Pad) ? true : false;
+    bool hasPad =
+        inputSize > 0 && (*(input.end() - 1) == encoding::Base64::kBase64Pad);
     result.resize(
         encoding::Base64::calculateDecodedSize(inputData, inputSize, hasPad));
+    hasPad = false; // calculateDecodedSize() updated inputSize to exclude pad.
     encoding::Base64::decodeUrl(
         inputData, inputSize, result.data(), result.size(), hasPad);
   }
