@@ -20,6 +20,7 @@ import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -182,6 +183,22 @@ public class PlanFragment
     public boolean isLeaf()
     {
         return remoteSourceNodes.isEmpty();
+    }
+
+    public static boolean containLocalExchange(PlanNode node)
+    {
+        if ((node instanceof ExchangeNode) && ((ExchangeNode) node).getScope() == ExchangeNode.Scope.LOCAL) {
+            return true;
+        }
+        return node.getSources().stream().anyMatch(PlanFragment::containsLocalExchangeNode);
+    }
+
+    private static boolean containsLocalExchangeNode(PlanNode node)
+    {
+        if ((node instanceof ExchangeNode) && ((ExchangeNode) node).getScope() == ExchangeNode.Scope.LOCAL) {
+            return true;
+        }
+        return node.getSources().stream().anyMatch(PlanFragment::containsLocalExchangeNode);
     }
 
     public List<RemoteSourceNode> getRemoteSourceNodes()
