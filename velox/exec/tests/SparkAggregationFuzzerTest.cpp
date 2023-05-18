@@ -55,13 +55,17 @@ int main(int argc, char** argv) {
   // doesn't depend on the order of inputs. If such transformation exists, it
   // can be specified to be used for results verification. If no transformation
   // is specified, results are not verified.
-  std::unordered_map<std::string, std::string> orderDependentFunctions = {
+  std::unordered_map<std::string, std::string> customVerificationFunctions = {
       {"last", ""},
       {"last_ignore_null", ""},
       {"first", ""},
       {"first_ignore_null", ""}};
 
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
-  return AggregationFuzzerRunner::run(
-      FLAGS_only, initialSeed, skipFunctions, orderDependentFunctions);
+  return facebook::velox::exec::test::AggregationFuzzerRunner::runFuzzer(
+      FLAGS_only,
+      initialSeed,
+      std::nullopt,
+      skipFunctions,
+      customVerificationFunctions);
 }
