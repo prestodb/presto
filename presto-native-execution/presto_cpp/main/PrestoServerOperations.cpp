@@ -80,6 +80,10 @@ void PrestoServerOperations::runOperation(
       case ServerOperation::Target::kSystemConfig:
         http::sendOkResponse(downstream, systemConfigOperation(op, message));
         break;
+      case ServerOperation::Target::kVeloxQueryConfig:
+        http::sendOkResponse(
+            downstream, veloxQueryConfigOperation(op, message));
+        break;
     }
   } catch (const velox::VeloxUserError& ex) {
     http::sendErrorResponse(downstream, ex.what());
@@ -118,7 +122,9 @@ std::string PrestoServerOperations::systemConfigOperation(
           "Have set system property value '{}' to '{}'. Old value was '{}'.\n",
           name,
           value,
-          SystemConfig::instance()->setValue(name, value).value_or(""));
+          SystemConfig::instance()
+              ->setValue(name, value)
+              .value_or("<default>"));
     }
     case ServerOperation::Action::kGetProperty: {
       const auto name = message->getQueryParam("name");
@@ -129,7 +135,46 @@ std::string PrestoServerOperations::systemConfigOperation(
           ServerOperation::actionString(op.action));
       return fmt::format(
           "{}\n",
-          SystemConfig::instance()->optionalProperty(name).value_or(""));
+          SystemConfig::instance()->optionalProperty(name).value_or(
+              "<default>"));
+    }
+    default:
+      break;
+  }
+  return unsupportedAction(op);
+}
+
+std::string PrestoServerOperations::veloxQueryConfigOperation(
+    const ServerOperation& op,
+    proxygen::HTTPMessage* message) {
+  switch (op.action) {
+    case ServerOperation::Action::kSetProperty: {
+      const auto name = message->getQueryParam("name");
+      const auto value = message->getQueryParam("value");
+      VELOX_USER_CHECK(
+          !name.empty() && !value.empty(),
+          "Missing 'name' or 'value' parameter for '{}.{}' operation",
+          ServerOperation::targetString(op.target),
+          ServerOperation::actionString(op.action));
+      return fmt::format(
+          "Have set system property value '{}' to '{}'. Old value was '{}'.\n",
+          name,
+          value,
+          BaseVeloxQueryConfig::instance()
+              ->setValue(name, value)
+              .value_or("<default>"));
+    }
+    case ServerOperation::Action::kGetProperty: {
+      const auto name = message->getQueryParam("name");
+      VELOX_USER_CHECK(
+          !name.empty(),
+          "Missing 'name' parameter for '{}.{}' operation",
+          ServerOperation::targetString(op.target),
+          ServerOperation::actionString(op.action));
+      return fmt::format(
+          "{}\n",
+          BaseVeloxQueryConfig::instance()->getValue(name).value_or(
+              "<default>"));
     }
     default:
       break;
