@@ -14,6 +14,8 @@
 #include <gtest/gtest.h>
 #include "presto_cpp/main/QueryContextManager.h"
 
+DECLARE_bool(velox_memory_leak_check_enabled);
+
 namespace facebook::presto {
 
 using namespace velox;
@@ -32,7 +34,13 @@ void verifyQueryCtxCache(
 }
 } // namespace
 
-TEST(QueryContextCacheTest, basic) {
+class QueryContextCacheTest : public testing::Test {
+  void SetUp() override {
+    FLAGS_velox_memory_leak_check_enabled = true;
+  }
+};
+
+TEST_F(QueryContextCacheTest, basic) {
   QueryContextCache queryContextCache;
 
   // Insert 16 query contexts.
@@ -63,7 +71,7 @@ TEST(QueryContextCacheTest, basic) {
   EXPECT_EQ(queryContextCache.size(), 0);
 }
 
-TEST(QueryContextCacheTest, eviction) {
+TEST_F(QueryContextCacheTest, eviction) {
   QueryContextCache queryContextCache(8);
 
   // Insert 8 query contexts.
