@@ -223,3 +223,71 @@ TEST(TestBufferedInput, WontMerge) {
   ASSERT_TRUE(next2.has_value());
   EXPECT_EQ(next2.value(), "world");
 }
+
+TEST(TestBufferedInput, ReadSorting) {
+  std::string content = "aaabbbcccdddeeefffggghhhiiijjjkkklllmmmnnnooopppqqq";
+  std::vector<Region> regions = {{6, 3}, {24, 3}, {3, 3}, {0, 3}, {29, 3}};
+
+  auto readFileMock = std::make_shared<ReadFileMock>();
+  expectPreads(*readFileMock, content, {{0, 9}, {24, 3}, {29, 3}});
+  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
+  BufferedInput input(
+      readFileMock,
+      *pool,
+      MetricsLog::voidLog(),
+      nullptr,
+      1, // Will merge if distance <= 1
+      /* wsVRLoad = */ false);
+
+  std::vector<std::pair<std::unique_ptr<SeekableInputStream>, std::string>>
+      result;
+  result.reserve(regions.size());
+  for (auto& region : regions) {
+    auto ret = input.enqueue(region);
+    ASSERT_NE(ret, nullptr);
+    result.push_back(
+        {std::move(ret), content.substr(region.offset, region.length)});
+  }
+
+  input.load(LogType::TEST);
+
+  for (auto& r : result) {
+    auto next = getNext(*r.first);
+    ASSERT_TRUE(next.has_value());
+    EXPECT_EQ(next.value(), r.second);
+  }
+}
+
+TEST(TestBufferedInput, VReadSorting) {
+  std::string content = "aaabbbcccdddeeefffggghhhiiijjjkkklllmmmnnnooopppqqq";
+  std::vector<Region> regions = {{6, 3}, {24, 3}, {3, 3}, {0, 3}, {29, 3}};
+
+  auto readFileMock = std::make_shared<ReadFileMock>();
+  expectPreadvs(*readFileMock, content, {{0, 9}, {24, 3}, {29, 3}});
+  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
+  BufferedInput input(
+      readFileMock,
+      *pool,
+      MetricsLog::voidLog(),
+      nullptr,
+      1, // Will merge if distance <= 1
+      /* wsVRLoad = */ true);
+
+  std::vector<std::pair<std::unique_ptr<SeekableInputStream>, std::string>>
+      result;
+  result.reserve(regions.size());
+  for (auto& region : regions) {
+    auto ret = input.enqueue(region);
+    ASSERT_NE(ret, nullptr);
+    result.push_back(
+        {std::move(ret), content.substr(region.offset, region.length)});
+  }
+
+  input.load(LogType::TEST);
+
+  for (auto& r : result) {
+    auto next = getNext(*r.first);
+    ASSERT_TRUE(next.has_value());
+    EXPECT_EQ(next.value(), r.second);
+  }
+}
