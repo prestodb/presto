@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/common/hyperloglog/HllUtils.h"
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/lib/aggregates/tests/AggregationTestBase.h"
 
@@ -315,6 +316,31 @@ TEST_F(ApproxDistinctTest, streaming) {
   result = testStreaming("approx_distinct", false, {rawInput1}, {rawInput2});
   ASSERT_EQ(result->size(), 1);
   ASSERT_EQ(result->asFlatVector<int64_t>()->valueAt(0), 1008);
+}
+
+// Ensure that we convert to dense HLL during merge when necessary.
+TEST_F(ApproxDistinctTest, memoryLeakInMerge) {
+  constexpr int kSize = 500;
+  auto nodeIdGen = std::make_shared<core::PlanNodeIdGenerator>();
+  std::vector<core::PlanNodePtr> sources;
+  for (int i = 0; i < 100; ++i) {
+    auto c0 =
+        makeFlatVector<int32_t>(kSize, [i](auto j) { return j + i * kSize; });
+    sources.push_back(PlanBuilder(nodeIdGen)
+                          .values({makeRowVector({c0})})
+                          .partialAggregation({}, {"approx_distinct(c0, 0.01)"})
+                          .planNode());
+  }
+  core::PlanNodeId finalAgg;
+  auto op = PlanBuilder(nodeIdGen)
+                .localMerge({}, std::move(sources))
+                .finalAggregation()
+                .capturePlanNodeId(finalAgg)
+                .planNode();
+  auto expected = makeFlatVector(std::vector<int64_t>({50311}));
+  auto task = assertQuery(op, {makeRowVector({expected})});
+  ASSERT_LT(
+      toPlanStats(task->taskStats()).at(finalAgg).peakMemoryBytes, 150'000);
 }
 
 } // namespace

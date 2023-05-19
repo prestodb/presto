@@ -85,7 +85,7 @@ bool SparseHll::insertHash(uint64_t hash) {
     entries_.insert(entries_.begin() + insertionPosition, entry);
   }
 
-  return entries_.size() >= softNumEntriesLimit_;
+  return overLimit();
 }
 
 int64_t SparseHll::cardinality() const {

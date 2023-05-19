@@ -63,6 +63,12 @@ struct HllAccumulator {
     if (SparseHll::canDeserialize(input)) {
       if (isSparse_) {
         sparseHll_.mergeWith(input);
+        if (indexBitLength_ < 0) {
+          setIndexBitLength(DenseHll::deserializeIndexBitLength(input));
+        }
+        if (sparseHll_.overLimit()) {
+          toDense();
+        }
       } else {
         SparseHll other{input, allocator};
         other.toDense(denseHll_);
@@ -84,11 +90,12 @@ struct HllAccumulator {
     return isSparse_ ? sparseHll_.serializedSize() : denseHll_.serializedSize();
   }
 
-  void serialize(int8_t indexBitLength, char* outputBuffer) {
-    return isSparse_ ? sparseHll_.serialize(indexBitLength, outputBuffer)
+  void serialize(char* outputBuffer) {
+    return isSparse_ ? sparseHll_.serialize(indexBitLength_, outputBuffer)
                      : denseHll_.serialize(outputBuffer);
   }
 
+ private:
   void toDense() {
     isSparse_ = false;
     denseHll_.initialize(indexBitLength_);
@@ -181,12 +188,12 @@ class ApproxDistinctAggregate : public exec::Aggregate {
           StringView serialized;
           if (StringView::isInline(size)) {
             std::string buffer(size, '\0');
-            accumulator->serialize(indexBitLength_, buffer.data());
+            accumulator->serialize(buffer.data());
             serialized = StringView::makeInline(buffer);
           } else {
             Buffer* buffer = flatResult->getBufferWithSpace(size);
             char* ptr = buffer->asMutable<char>() + buffer->size();
-            accumulator->serialize(indexBitLength_, ptr);
+            accumulator->serialize(ptr);
             buffer->setSize(buffer->size() + size);
             serialized = StringView(ptr, size);
           }

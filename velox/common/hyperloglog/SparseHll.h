@@ -32,6 +32,11 @@ class SparseHll {
     softNumEntriesLimit_ = softMemoryLimit / 4;
   }
 
+  /// Return whether soft memory limit has been reached.
+  bool overLimit() const {
+    return entries_.size() >= softNumEntriesLimit_;
+  }
+
   /// Returns true if soft memory limit has been reached. False, otherwise.
   bool insertHash(uint64_t hash);
 
