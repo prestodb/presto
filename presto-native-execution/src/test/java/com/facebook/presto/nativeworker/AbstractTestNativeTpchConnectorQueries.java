@@ -20,26 +20,29 @@ import org.testng.annotations.Test;
 public abstract class AbstractTestNativeTpchConnectorQueries
         extends AbstractTestQueryFramework
 {
-    private Session tpchStandardTiny()
+    @Override
+    public Session getSession()
     {
-        return Session.builder(getSession()).setCatalog("tpchstandard").setSchema("tiny").build();
+        return Session.builder(super.getSession()).setCatalog("tpchstandard").setSchema("tiny").build();
     }
 
     @Test
-    public void testMissingTpchConnector()
+    public abstract void testMissingTpchConnector();
+
+    protected void testMissingTpchConnector(String expectedErrorMessageRegExp)
     {
         Session session = Session.builder(getSession())
                 .setCatalog("tpch")
                 .setSchema("tiny")
                 .build();
         // No tpch catalog exists in the native worker.
-        assertQueryFails(session, "SELECT * FROM nation", "No nodes available to run query");
+        assertQueryFails(session, "SELECT * FROM nation", expectedErrorMessageRegExp);
     }
 
     @Test
     public void testTpchTinyTables()
     {
-        Session session = tpchStandardTiny();
+        Session session = getSession();
 
         assertQuery(session, "SELECT count(*) FROM customer");
         assertQuery(session, "SELECT count(*) FROM lineitem");
@@ -68,9 +71,7 @@ public abstract class AbstractTestNativeTpchConnectorQueries
     @Test
     public void testTpchDateFilter()
     {
-        Session session = tpchStandardTiny();
-
-        assertQuery(session, "select count(*) as l_count from lineitem where " +
+        assertQuery("select count(*) as l_count from lineitem where " +
                 "l_shipdate >= date '1994-01-01' and l_shipdate < date '1994-01-01' + interval '1' year");
     }
 }
