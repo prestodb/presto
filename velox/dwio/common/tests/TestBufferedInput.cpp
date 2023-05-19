@@ -123,8 +123,14 @@ TEST(TestBufferedInput, UseRead) {
   auto readFileMock = std::make_shared<ReadFileMock>();
   expectPreads(*readFileMock, content, {{0, 5}});
   auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
-  // Use read: by default
-  BufferedInput input(readFileMock, *pool);
+  // Use read
+  BufferedInput input(
+      readFileMock,
+      *pool,
+      MetricsLog::voidLog(),
+      nullptr,
+      10,
+      /* wsVRLoad = */ false);
   auto ret = input.enqueue({0, 5});
   ASSERT_NE(ret, nullptr);
 
