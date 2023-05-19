@@ -265,6 +265,28 @@ public final class FunctionAssertions
         assertEquals(actual.doubleValue(), expected, delta);
     }
 
+    public void assertFunctionDoubleArrayWithError(String projection, Type expectedType, List<Double> expected, double delta)
+    {
+        Object actual = selectSingleValue(projection, expectedType, compiler);
+        assertTrue(actual instanceof ArrayList);
+        ArrayList<Object> arrayList = (ArrayList) actual;
+        assertTrue(arrayList.size() == expected.size());
+        for (int i = 0; i < arrayList.size(); ++i) {
+            assertEquals((double) arrayList.get(i), expected.get(i), delta);
+        }
+    }
+
+    public void assertFunctionFloatArrayWithError(String projection, Type expectedType, List<Float> expected, float delta)
+    {
+        Object actual = selectSingleValue(projection, expectedType, compiler);
+        assertTrue(actual instanceof ArrayList);
+        ArrayList<Object> arrayList = (ArrayList) actual;
+        assertTrue(arrayList.size() == expected.size());
+        for (int i = 0; i < arrayList.size(); ++i) {
+            assertEquals((float) arrayList.get(i), expected.get(i), delta);
+        }
+    }
+
     public void assertFunctionString(String projection, Type expectedType, String expected)
     {
         Object actual = selectSingleValue(projection, expectedType, compiler);
