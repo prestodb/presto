@@ -110,6 +110,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
+import static com.facebook.presto.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkState;
@@ -265,16 +266,6 @@ public class PrestoSparkQueryRunner
         log.info("Imported %s rows for %s in %s", rows, tableName, nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
-    public PrestoSparkQueryRunner(String defaultCatalog, Map<String, String> additionalConfigProperties, Optional<Path> dataDirectory)
-    {
-        this(defaultCatalog, additionalConfigProperties, ImmutableMap.of(), dataDirectory);
-    }
-
-    public PrestoSparkQueryRunner(String defaultCatalog, Map<String, String> additionalConfigProperties, Map<String, String> hiveProperties, Optional<Path> dataDirectory)
-    {
-        this(defaultCatalog, additionalConfigProperties, hiveProperties, ImmutableMap.of(), dataDirectory, ImmutableList.of(new NativeExecutionModule()), DEFAULT_AVAILABLE_CPU_COUNT);
-    }
-
     public PrestoSparkQueryRunner(
             String defaultCatalog,
             Map<String, String> additionalConfigProperties,
@@ -338,7 +329,17 @@ public class PrestoSparkQueryRunner
 
         // Install tpch Plugin
         pluginManager.installPlugin(new TpchPlugin());
-        connectorManager.createConnection("tpch", "tpch", ImmutableMap.of());
+        // TPCH-Standard uses tpch column naming
+        // See: https://github.com/prestodb/presto/issues/1771
+        Map<String, String> tpchProperties = ImmutableMap.<String, String>builder()
+                .put(TPCH_COLUMN_NAMING_PROPERTY, "standard")
+                .build();
+        if ("tpchstandard".equalsIgnoreCase(defaultCatalog)) {
+            connectorManager.createConnection(defaultCatalog, "tpch", tpchProperties);
+        }
+        else {
+            connectorManager.createConnection("tpch", "tpch", ImmutableMap.of());
+        }
 
         // Install Hive Plugin
         Path baseDir;
