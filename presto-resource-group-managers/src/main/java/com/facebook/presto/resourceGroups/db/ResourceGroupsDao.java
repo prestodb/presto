@@ -40,6 +40,7 @@ public interface ResourceGroupsDao
             "  max_queued INT NOT NULL,\n" +
             "  soft_concurrency_limit INT NULL,\n" +
             "  hard_concurrency_limit INT NOT NULL,\n" +
+            "  workers_per_query_limit INT NULL,\n" +
             "  scheduling_policy VARCHAR(128) NULL,\n" +
             "  scheduling_weight INT NULL,\n" +
             "  jmx_export BOOLEAN NULL,\n" +
@@ -56,14 +57,14 @@ public interface ResourceGroupsDao
     void createResourceGroupsTable();
 
     @SqlQuery("SELECT resource_group_id, name, soft_memory_limit, max_queued, soft_concurrency_limit, " +
-            "  hard_concurrency_limit, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, " +
+            "  hard_concurrency_limit, workers_per_query_limit, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, " +
             "  hard_cpu_limit, per_query_execution_time_limit, per_query_total_memory_limit, per_query_cpu_time_limit, parent\n" +
             "FROM resource_groups\n" +
             "WHERE environment = :environment\n")
     @UseRowMapper(ResourceGroupSpecBuilder.Mapper.class)
     List<ResourceGroupSpecBuilder> getResourceGroups(@Bind("environment") String environment);
 
-    @SqlQuery("SELECT S.resource_group_id, S.priority, S.user_regex, S.source_regex, S.query_type, S.client_tags, S.selector_resource_estimate, S.client_info_regex\n" +
+    @SqlQuery("SELECT S.resource_group_id, S.priority, S.user_regex, S.source_regex, S.query_type, S.client_tags, S.selector_resource_estimate, S.client_info_regex, S.schema\n" +
             "FROM selectors S\n" +
             "JOIN resource_groups R ON (S.resource_group_id = R.resource_group_id)\n" +
             "WHERE R.environment = :environment\n" +
@@ -80,6 +81,7 @@ public interface ResourceGroupsDao
             "  client_tags VARCHAR(512),\n" +
             "  selector_resource_estimate VARCHAR(1024),\n" +
             "  client_info_regex VARCHAR(1024),\n" +
+            "  schema VARCHAR(1024),\n" +
             "  id BIGINT NOT NULL AUTO_INCREMENT,\n" +
             "  PRIMARY KEY (id),\n" +
             "  FOREIGN KEY (resource_group_id) REFERENCES resource_groups (resource_group_id)\n" +

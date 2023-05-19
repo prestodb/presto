@@ -19,8 +19,11 @@
 #include <sstream>
 
 #include "presto_cpp/main/QueryContextManager.h"
+#include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/StatsReporter.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/Operator.h"
 
 using namespace facebook::velox;
@@ -54,15 +57,28 @@ PrestoExchangeSource::PrestoExchangeSource(
     const folly::Uri& baseUri,
     int destination,
     std::shared_ptr<exec::ExchangeQueue> queue,
-    memory::MemoryPool* pool)
+    memory::MemoryPool* pool,
+    const std::string& clientCertAndKeyPath,
+    const std::string& ciphers)
     : ExchangeSource(extractTaskId(baseUri.path()), destination, queue, pool),
       basePath_(baseUri.path()),
       host_(baseUri.host()),
-      port_(baseUri.port()) {
+      port_(baseUri.port()),
+      clientCertAndKeyPath_(clientCertAndKeyPath),
+      ciphers_(ciphers) {
   folly::SocketAddress address(folly::IPAddress(host_).str(), port_, true);
   auto* eventBase = folly::getUnsafeMutableGlobalEventBase();
   httpClient_ = std::make_unique<http::HttpClient>(
-      eventBase, address, std::chrono::milliseconds(10'000));
+      eventBase,
+      address,
+      std::chrono::milliseconds(10'000),
+      clientCertAndKeyPath_,
+      ciphers_,
+      [](size_t bufferBytes) {
+        REPORT_ADD_STAT_VALUE(kCounterHttpClientPrestoExchangeNumOnBody);
+        REPORT_ADD_HISTOGRAM_VALUE(
+            kCounterHttpClientPrestoExchangeOnBodyBytes, bufferBytes);
+      });
 }
 
 bool PrestoExchangeSource::shouldRequestLocked() {
@@ -91,9 +107,11 @@ void PrestoExchangeSource::doRequest() {
       .method(proxygen::HTTPMethod::GET)
       .url(path)
       .header(protocol::PRESTO_MAX_SIZE_HTTP_HEADER, "32MB")
-      .send(httpClient_.get())
+      .send(httpClient_.get(), pool_.get())
       .via(driverCPUExecutor())
       .thenValue([path, self](std::unique_ptr<http::HttpResponse> response) {
+        velox::common::testutil::TestValue::adjust(
+            "facebook::presto::PrestoExchangeSource::doRequest", self.get());
         auto* headers = response->headers();
         if (headers->getStatusCode() != http::kHttpOk &&
             headers->getStatusCode() != http::kHttpNoContent) {
@@ -103,6 +121,8 @@ void PrestoExchangeSource::doRequest() {
                   "Received HTTP {} {}",
                   headers->getStatusCode(),
                   headers->getStatusMessage()));
+        } else if (response->hasError()) {
+          self->processDataError(path, response->error(), false);
         } else {
           self->processDataResponse(std::move(response));
         }
@@ -116,6 +136,13 @@ void PrestoExchangeSource::doRequest() {
 
 void PrestoExchangeSource::processDataResponse(
     std::unique_ptr<http::HttpResponse> response) {
+  if (closed_.load()) {
+    // If PrestoExchangeSource is already closed, just free all buffers
+    // allocated without doing any processing. This can happen when a super slow
+    // response comes back after its owning 'Task' gets destroyed.
+    response->freeBuffers();
+    return;
+  }
   auto* headers = response->headers();
   VELOX_CHECK(
       !headers->getIsChunked(),
@@ -142,29 +169,37 @@ void PrestoExchangeSource::processDataResponse(
 
   std::unique_ptr<exec::SerializedPage> page;
   std::unique_ptr<folly::IOBuf> singleChain;
-  bool empty = response->empty();
+  const bool empty = response->empty();
+  int64_t totalBytes{0};
   if (!empty) {
     auto iobufs = response->consumeBody();
     for (auto& buf : iobufs) {
+      totalBytes += buf->capacity();
       if (!singleChain) {
         singleChain = std::move(buf);
       } else {
         singleChain->prev()->appendChain(std::move(buf));
       }
     }
+    PrestoExchangeSource::updateMemoryUsage(totalBytes);
+
     page = std::make_unique<exec::SerializedPage>(
-        std::move(singleChain),
-        pool_,
-        [allocator = response->allocator()](folly::IOBuf& iobuf) {
+        std::move(singleChain), [pool = pool_](folly::IOBuf& iobuf) {
+          int64_t freedBytes{0};
           // Free the backed memory from MemoryAllocator on page dtor
           folly::IOBuf* start = &iobuf;
           auto curr = start;
           do {
-            allocator->freeBytes(curr->writableData(), curr->length());
+            freedBytes += curr->capacity();
+            pool->free(curr->writableData(), curr->capacity());
             curr = curr->next();
           } while (curr != start);
+          PrestoExchangeSource::updateMemoryUsage(-freedBytes);
         });
   }
+
+  REPORT_ADD_HISTOGRAM_VALUE(
+      kCounterPrestoExchangeSerializedPageSize, page ? page->size() : 0);
 
   {
     std::vector<ContinuePromise> promises;
@@ -173,6 +208,7 @@ void PrestoExchangeSource::processDataResponse(
       if (page) {
         VLOG(1) << "Enqueuing page for " << basePath_ << "/" << sequence_
                 << ": " << page->size() << " bytes";
+        ++numPages_;
         queue_->enqueueLocked(std::move(page), promises);
       }
       if (complete) {
@@ -208,9 +244,10 @@ void PrestoExchangeSource::processDataResponse(
 
 void PrestoExchangeSource::processDataError(
     const std::string& path,
-    const std::string& error) {
-  failedAttempts_++;
-  if (failedAttempts_ < 3) {
+    const std::string& error,
+    bool retry) {
+  ++failedAttempts_;
+  if (retry && failedAttempts_ < 3) {
     VLOG(1) << "Failed to fetch data from " << host_ << ":" << port_ << " "
             << path << " - Retrying: " << error;
 
@@ -236,7 +273,7 @@ void PrestoExchangeSource::acknowledgeResults(int64_t ackSequence) {
   http::RequestBuilder()
       .method(proxygen::HTTPMethod::GET)
       .url(ackPath)
-      .send(httpClient_.get())
+      .send(httpClient_.get(), pool_.get())
       .via(driverCPUExecutor())
       .thenValue([self](std::unique_ptr<http::HttpResponse> response) {
         VLOG(1) << "Ack " << response->headers()->getStatusCode();
@@ -255,7 +292,7 @@ void PrestoExchangeSource::abortResults() {
   http::RequestBuilder()
       .method(proxygen::HTTPMethod::DELETE)
       .url(basePath_)
-      .send(httpClient_.get())
+      .send(httpClient_.get(), pool_.get())
       .via(driverCPUExecutor())
       .thenValue([queue, self](std::unique_ptr<http::HttpResponse> response) {
         auto statusCode = response->headers()->getStatusCode();
@@ -302,8 +339,42 @@ PrestoExchangeSource::createExchangeSource(
   if (strncmp(url.c_str(), "http://", 7) == 0) {
     return std::make_unique<PrestoExchangeSource>(
         folly::Uri(url), destination, queue, pool);
+  } else if (strncmp(url.c_str(), "https://", 8) == 0) {
+    const auto systemConfig = SystemConfig::instance();
+    const auto clientCertAndKeyPath =
+        systemConfig->httpsClientCertAndKeyPath().value_or("");
+    const auto ciphers = systemConfig->httpsSupportedCiphers();
+    return std::make_unique<PrestoExchangeSource>(
+        folly::Uri(url),
+        destination,
+        queue,
+        pool,
+        clientCertAndKeyPath,
+        ciphers);
   }
   return nullptr;
 }
 
+void PrestoExchangeSource::updateMemoryUsage(int64_t updateBytes) {
+  const int64_t newMemoryBytes =
+      currQueuedMemoryBytes().fetch_add(updateBytes) + updateBytes;
+  if (updateBytes > 0) {
+    peakQueuedMemoryBytes() =
+        std::max<int64_t>(peakQueuedMemoryBytes(), newMemoryBytes);
+  } else {
+    VELOX_CHECK_GE(currQueuedMemoryBytes(), 0);
+  }
+}
+
+void PrestoExchangeSource::getMemoryUsage(
+    int64_t& currentBytes,
+    int64_t& peakBytes) {
+  currentBytes = currQueuedMemoryBytes();
+  peakBytes = peakQueuedMemoryBytes();
+}
+
+void PrestoExchangeSource::testingClearMemoryUsage() {
+  currQueuedMemoryBytes() = 0;
+  peakQueuedMemoryBytes() = 0;
+}
 } // namespace facebook::presto

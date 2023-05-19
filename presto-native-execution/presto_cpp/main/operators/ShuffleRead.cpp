@@ -19,6 +19,10 @@ using namespace facebook::velox::exec;
 using namespace facebook::velox;
 
 namespace facebook::presto::operators {
+velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
+  return obj["id"].asString();
+}
+
 namespace {
 class ShuffleReadOperator : public Exchange {
  public:
@@ -46,6 +50,20 @@ class ShuffleReadOperator : public Exchange {
   std::unique_ptr<serializer::spark::UnsafeRowVectorSerde> serde_;
 };
 } // namespace
+
+folly::dynamic ShuffleReadNode::serialize() const {
+  auto obj = PlanNode::serialize();
+  obj["outputType"] = outputType_->serialize();
+  return obj;
+}
+
+velox::core::PlanNodePtr ShuffleReadNode::create(
+    const folly::dynamic& obj,
+    void* context) {
+  return std::make_shared<ShuffleReadNode>(
+      deserializePlanNodeId(obj),
+      ISerializable::deserialize<RowType>(obj["outputType"], context));
+}
 
 std::unique_ptr<Operator> ShuffleReadTranslator::toOperator(
     DriverCtx* ctx,

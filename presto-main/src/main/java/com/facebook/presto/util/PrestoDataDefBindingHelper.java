@@ -46,6 +46,7 @@ import com.facebook.presto.execution.RollbackTask;
 import com.facebook.presto.execution.SetRoleTask;
 import com.facebook.presto.execution.SetSessionTask;
 import com.facebook.presto.execution.StartTransactionTask;
+import com.facebook.presto.execution.TruncateTableTask;
 import com.facebook.presto.execution.UseTask;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AlterFunction;
@@ -80,6 +81,7 @@ import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.Use;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
@@ -96,7 +98,7 @@ import static com.google.inject.multibindings.MapBinder.newMapBinder;
  */
 public class PrestoDataDefBindingHelper
 {
-    private PrestoDataDefBindingHelper(){}
+    private PrestoDataDefBindingHelper() {}
 
     private static final Map<Class<? extends Statement>, Class<? extends DataDefinitionTask<?>>> STATEMENT_TASK_TYPES;
     private static final Map<Class<? extends Statement>, Class<? extends DataDefinitionTask<?>>> TRANSACTION_CONTROL_TYPES;
@@ -114,13 +116,12 @@ public class PrestoDataDefBindingHelper
         dataDefBuilder.put(RenameColumn.class, RenameColumnTask.class);
         dataDefBuilder.put(DropColumn.class, DropColumnTask.class);
         dataDefBuilder.put(DropTable.class, DropTableTask.class);
+        dataDefBuilder.put(TruncateTable.class, TruncateTableTask.class);
         dataDefBuilder.put(CreateView.class, CreateViewTask.class);
         dataDefBuilder.put(DropView.class, DropViewTask.class);
         dataDefBuilder.put(CreateMaterializedView.class, CreateMaterializedViewTask.class);
         dataDefBuilder.put(DropMaterializedView.class, DropMaterializedViewTask.class);
-        dataDefBuilder.put(CreateFunction.class, CreateFunctionTask.class);
         dataDefBuilder.put(AlterFunction.class, AlterFunctionTask.class);
-        dataDefBuilder.put(DropFunction.class, DropFunctionTask.class);
         dataDefBuilder.put(Call.class, CallTask.class);
         dataDefBuilder.put(CreateRole.class, CreateRoleTask.class);
         dataDefBuilder.put(DropRole.class, DropRoleTask.class);
@@ -138,6 +139,8 @@ public class PrestoDataDefBindingHelper
         transactionDefBuilder.put(SetRole.class, SetRoleTask.class);
         transactionDefBuilder.put(Prepare.class, PrepareTask.class);
         transactionDefBuilder.put(Deallocate.class, DeallocateTask.class);
+        transactionDefBuilder.put(CreateFunction.class, CreateFunctionTask.class);
+        transactionDefBuilder.put(DropFunction.class, DropFunctionTask.class);
 
         STATEMENT_TASK_TYPES = dataDefBuilder.build();
         TRANSACTION_CONTROL_TYPES = transactionDefBuilder.build();
@@ -154,10 +157,10 @@ public class PrestoDataDefBindingHelper
 
     public static void bindTransactionControlDefinitionTasks(Binder binder)
     {
-        MapBinder<Class<? extends Statement>, DataDefinitionTask<?>> taskBinder = newMapBinder(binder,
-                new TypeLiteral<Class<? extends Statement>>() {
-                }, new TypeLiteral<DataDefinitionTask<?>>() {
-                });
+        MapBinder<Class<? extends Statement>, DataDefinitionTask<?>> taskBinder = newMapBinder(
+                binder,
+                new TypeLiteral<Class<? extends Statement>>() {},
+                new TypeLiteral<DataDefinitionTask<?>>() {});
 
         TRANSACTION_CONTROL_TYPES.entrySet().stream()
                 .forEach(entry -> taskBinder.addBinding(entry.getKey()).to(entry.getValue()).in(Scopes.SINGLETON));

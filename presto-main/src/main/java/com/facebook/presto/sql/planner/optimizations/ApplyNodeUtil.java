@@ -18,12 +18,7 @@ import com.facebook.presto.spi.relation.ExistsExpression;
 import com.facebook.presto.spi.relation.InSubqueryExpression;
 import com.facebook.presto.spi.relation.QuantifiedComparisonExpression;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.sql.tree.ExistsPredicate;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.InPredicate;
 
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class ApplyNodeUtil
@@ -34,24 +29,13 @@ public final class ApplyNodeUtil
     {
         checkArgument(
                 assignments.getExpressions().stream().allMatch(ApplyNodeUtil::isSupportedSubqueryExpression),
-                "Unexpected expression used for subquery expression");
+                "Unexpected expression used for subquery expression: %s", assignments.getExpressions());
     }
 
     private static boolean isSupportedSubqueryExpression(RowExpression expression)
     {
-        if (isExpression(expression)) {
-            return isSupportedSubqueryExpression(castToExpression(expression));
-        }
         return expression instanceof InSubqueryExpression ||
                 expression instanceof QuantifiedComparisonExpression ||
                 expression instanceof ExistsExpression;
-    }
-
-    private static boolean isSupportedSubqueryExpression(Expression expression)
-    {
-        // TODO: add RowExpression support
-        return expression instanceof InPredicate ||
-                expression instanceof ExistsPredicate ||
-                expression instanceof com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
     }
 }

@@ -28,7 +28,6 @@ import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
-import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeUtils;
@@ -244,6 +243,9 @@ public class ExpressionAnalyzer
     private final SqlFunctionProperties sqlFunctionProperties;
     private final Map<NodeRef<Parameter>, Expression> parameters;
     private final WarningCollector warningCollector;
+    // Map to resolved type of any symbols that ExpressionAnalyzer cannot resolved within current scope.
+    // This contains types of variables referenced from outer scopes.
+    private final Map<NodeRef<Expression>, Type> outerScopeSymbolTypes;
 
     private ExpressionAnalyzer(
             FunctionAndTypeResolver functionAndTypeResolver,
@@ -254,7 +256,8 @@ public class ExpressionAnalyzer
             TypeProvider symbolTypes,
             Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
-            boolean isDescribe)
+            boolean isDescribe,
+            Map<NodeRef<Expression>, Type> outerScopeSymbolTypes)
     {
         this.functionAndTypeResolver = requireNonNull(functionAndTypeResolver, "functionAndTypeResolver is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
@@ -265,6 +268,7 @@ public class ExpressionAnalyzer
         this.parameters = requireNonNull(parameters, "parameterMap is null");
         this.isDescribe = isDescribe;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.outerScopeSymbolTypes = requireNonNull(outerScopeSymbolTypes, "outerScopeSymbolTypes is null");
     }
 
     public Map<NodeRef<FunctionCall>, FunctionHandle> getResolvedFunctions()
@@ -462,8 +466,12 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitIdentifier(Identifier node, StackableAstVisitorContext<Context> context)
         {
-            ResolvedField resolvedField = context.getContext().getScope().resolveField(node, QualifiedName.of(node.getValue()));
-            return handleResolvedField(node, resolvedField, context);
+            QualifiedName name = QualifiedName.of(node.getValue());
+            Optional<ResolvedField> resolvedField = context.getContext().getScope().tryResolveField(node, name);
+            if (!resolvedField.isPresent() && outerScopeSymbolTypes.containsKey(NodeRef.of(node))) {
+                return setExpressionType(node, outerScopeSymbolTypes.get(NodeRef.of(node)));
+            }
+            return handleResolvedField(node, resolvedField.orElseThrow(() -> missingAttributeException(node, name)), context);
         }
 
         private Type handleResolvedField(Expression node, ResolvedField resolvedField, StackableAstVisitorContext<Context> context)
@@ -526,6 +534,9 @@ public class ExpressionAnalyzer
                         setExpressionType(node.getBase(), enumType.get());
                         return setExpressionType(node, enumType.get());
                     }
+                    if (outerScopeSymbolTypes.containsKey(NodeRef.of(node))) {
+                        return setExpressionType(node, outerScopeSymbolTypes.get(NodeRef.of(node)));
+                    }
                     throw missingAttributeException(node, qualifiedName);
                 }
             }
@@ -562,7 +573,8 @@ public class ExpressionAnalyzer
             }
 
             if (rowFieldType == null) {
-                throw missingAttributeException(node);
+                qualifiedName = qualifiedName == null ? QualifiedName.of(node.toString()) : qualifiedName;
+                throw missingAttributeException(node, qualifiedName);
             }
 
             return setExpressionType(node, rowFieldType);
@@ -1041,7 +1053,8 @@ public class ExpressionAnalyzer
                                         symbolTypes,
                                         parameters,
                                         warningCollector,
-                                        isDescribe);
+                                        isDescribe,
+                                        outerScopeSymbolTypes);
                                 if (context.getContext().isInLambda()) {
                                     for (LambdaArgumentDeclaration argument : context.getContext().getFieldToLambdaArgumentDeclaration().values()) {
                                         innerExpressionAnalyzer.setExpressionType(argument, getExpressionType(argument));
@@ -1655,11 +1668,6 @@ public class ExpressionAnalyzer
 
         private void addOrReplaceExpressionCoercion(Expression expression, Type type, Type superType)
         {
-            if (sqlFunctionProperties.isLegacyTypeCoercionWarningEnabled()) {
-                if ((type.getTypeSignature().getBase().equals(StandardTypes.DATE) || type.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP)) && superType.getTypeSignature().getBase().equals(StandardTypes.VARCHAR)) {
-                    warningCollector.add(new PrestoWarning(SEMANTIC_WARNING, format("This query relies on legacy semantic behavior that coerces date/timestamp to varchar. Expression: %s", expression)));
-                }
-            }
             NodeRef<Expression> ref = NodeRef.of(expression);
             expressionCoercions.put(ref, superType);
             if (functionAndTypeResolver.isTypeOnlyCoercion(type, superType)) {
@@ -1878,7 +1886,22 @@ public class ExpressionAnalyzer
             Expression expression,
             WarningCollector warningCollector)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, TypeProvider.empty(), warningCollector);
+        return analyzeExpression(session, metadata, accessControl, sqlParser, scope, TypeProvider.empty(), analysis, expression, warningCollector, ImmutableMap.of());
+    }
+
+    public static ExpressionAnalysis analyzeExpression(
+            Session session,
+            Metadata metadata,
+            AccessControl accessControl,
+            SqlParser sqlParser,
+            Scope scope,
+            TypeProvider types,
+            Analysis analysis,
+            Expression expression,
+            WarningCollector warningCollector,
+            Map<NodeRef<Expression>, Type> outerScopeSymbolTypes)
+    {
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, types, warningCollector, outerScopeSymbolTypes);
         analyzer.analyze(expression, scope);
 
         Map<NodeRef<Expression>, Type> expressionTypes = analyzer.getExpressionTypes();
@@ -1895,7 +1918,13 @@ public class ExpressionAnalyzer
         analysis.addFunctionHandles(resolvedFunctions);
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
-        analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), analyzer.getTableColumnAndSubfieldReferences(), analyzer.getTableColumnAndSubfieldReferencesForAccessControl());
+        analysis.addTableColumnAndSubfieldReferences(
+                accessControl,
+                session.getIdentity(),
+                session.getTransactionId(),
+                session.getAccessControlContext(),
+                analyzer.getTableColumnAndSubfieldReferences(),
+                analyzer.getTableColumnAndSubfieldReferencesForAccessControl());
 
         return new ExpressionAnalysis(
                 expressionTypes,
@@ -1966,7 +1995,31 @@ public class ExpressionAnalyzer
                 types,
                 analysis.getParameters(),
                 warningCollector,
-                analysis.isDescribe());
+                analysis.isDescribe(),
+                ImmutableMap.of());
+    }
+
+    private static ExpressionAnalyzer create(
+            Analysis analysis,
+            Session session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            AccessControl accessControl,
+            TypeProvider types,
+            WarningCollector warningCollector,
+            Map<NodeRef<Expression>, Type> outerScopeSymbolTypes)
+    {
+        return new ExpressionAnalyzer(
+                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
+                node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector),
+                Optional.of(session.getSessionFunctions()),
+                session.getTransactionId(),
+                session.getSqlFunctionProperties(),
+                types,
+                analysis.getParameters(),
+                warningCollector,
+                analysis.isDescribe(),
+                outerScopeSymbolTypes);
     }
 
     public static ExpressionAnalyzer createConstantAnalyzer(FunctionAndTypeResolver functionAndTypeResolver, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector)
@@ -2055,7 +2108,8 @@ public class ExpressionAnalyzer
                 symbolTypes,
                 parameters,
                 warningCollector,
-                isDescribe);
+                isDescribe,
+                ImmutableMap.of());
     }
 
     public static boolean isNumericType(Type type)

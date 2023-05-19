@@ -23,8 +23,10 @@ add_library(
   PeriodicTaskManager.cpp
   PrestoExchangeSource.cpp
   PrestoServer.cpp
+  PrestoServerOperations.cpp
   PrestoTask.cpp
   QueryContextManager.cpp
+  ServerOperation.cpp
   SignalHandler.cpp
   TaskManager.cpp
   TaskResource.cpp)

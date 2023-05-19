@@ -32,7 +32,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestPushPartialAggregationThroughJoin
@@ -54,7 +53,7 @@ public class TestPushPartialAggregationThroughJoin
                                         Optional.of(p.rowExpression("LEFT_NON_EQUI <= RIGHT_NON_EQUI")),
                                         Optional.of(p.variable("LEFT_HASH")),
                                         Optional.of(p.variable("RIGHT_HASH"))))
-                        .addAggregation(p.variable("AVG", DOUBLE), expression("AVG(LEFT_AGGR)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.variable("AVG", DOUBLE), p.rowExpression("AVG(LEFT_AGGR)"))
                         .singleGroupingSet(p.variable("LEFT_GROUP_BY"), p.variable("RIGHT_GROUP_BY"))
                         .step(PARTIAL)))
                 .matches(project(ImmutableMap.of(

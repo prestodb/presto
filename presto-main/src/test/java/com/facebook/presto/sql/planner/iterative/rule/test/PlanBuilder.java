@@ -39,6 +39,7 @@ import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -51,7 +52,6 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning;
@@ -71,7 +71,6 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -83,10 +82,8 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingTransactionHandle;
@@ -110,11 +107,8 @@ import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
-import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
@@ -145,19 +139,9 @@ public class PlanBuilder
         this.metadata = metadata;
     }
 
-    public static Assignments assignment(VariableReferenceExpression variable, Expression expression)
-    {
-        return Assignments.builder().put(variable, OriginalExpressionUtils.castToRowExpression(expression)).build();
-    }
-
     public static Assignments assignment(VariableReferenceExpression variable, RowExpression expression)
     {
         return Assignments.builder().put(variable, expression).build();
-    }
-
-    public static Assignments assignment(VariableReferenceExpression variable1, Expression expression1, VariableReferenceExpression variable2, Expression expression2)
-    {
-        return Assignments.builder().put(variable1, OriginalExpressionUtils.castToRowExpression(expression1)).put(variable2, OriginalExpressionUtils.castToRowExpression(expression2)).build();
     }
 
     public static Assignments assignment(VariableReferenceExpression variable1, RowExpression expression1, VariableReferenceExpression variable2, RowExpression expression2)
@@ -300,6 +284,11 @@ public class PlanBuilder
         return new SampleNode(source.getSourceLocation(), idAllocator.getNextId(), source, sampleRatio, type);
     }
 
+    public ProjectNode project(PlanNode source, Assignments assignments)
+    {
+        return new ProjectNode(idAllocator.getNextId(), source, assignments);
+    }
+
     public ProjectNode project(Assignments assignments, PlanNode source)
     {
         return new ProjectNode(idAllocator.getNextId(), source, assignments);
@@ -313,11 +302,6 @@ public class PlanBuilder
     public MarkDistinctNode markDistinct(VariableReferenceExpression markerVariable, List<VariableReferenceExpression> distinctVariables, VariableReferenceExpression hashVariable, PlanNode source)
     {
         return new MarkDistinctNode(source.getSourceLocation(), idAllocator.getNextId(), source, markerVariable, distinctVariables, Optional.of(hashVariable));
-    }
-
-    public FilterNode filter(Expression predicate, PlanNode source)
-    {
-        return new FilterNode(source.getSourceLocation(), idAllocator.getNextId(), source, OriginalExpressionUtils.castToRowExpression(predicate));
     }
 
     public FilterNode filter(RowExpression predicate, PlanNode source)
@@ -380,41 +364,14 @@ public class PlanBuilder
             return this;
         }
 
-        public AggregationBuilder addAggregation(VariableReferenceExpression output, Expression expression, List<Type> inputTypes)
-        {
-            return addAggregation(output, expression, inputTypes, Optional.empty());
-        }
-
-        public AggregationBuilder addAggregation(VariableReferenceExpression output, Expression expression, List<Type> inputTypes, VariableReferenceExpression mask)
-        {
-            return addAggregation(output, expression, inputTypes, Optional.of(mask));
-        }
-
-        private AggregationBuilder addAggregation(VariableReferenceExpression output, Expression expression, List<Type> inputTypes, Optional<VariableReferenceExpression> mask)
-        {
-            checkArgument(expression instanceof FunctionCall);
-            FunctionCall call = (FunctionCall) expression;
-            FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().resolveFunction(
-                    Optional.of(session.getSessionFunctions()),
-                    session.getTransactionId(),
-                    qualifyObjectName(call.getName()),
-                    TypeSignatureProvider.fromTypes(inputTypes));
-            return addAggregation(output, new Aggregation(
-                    new CallExpression(
-                            getSourceLocation(call),
-                            call.getName().getSuffix(),
-                            functionHandle,
-                            metadata.getType(metadata.getFunctionAndTypeManager().getFunctionMetadata(functionHandle).getReturnType()),
-                            call.getArguments().stream().map(OriginalExpressionUtils::castToRowExpression).collect(toImmutableList())),
-                    call.getFilter().map(OriginalExpressionUtils::castToRowExpression),
-                    call.getOrderBy().map(orderBy -> toOrderingScheme(orderBy, types)),
-                    call.isDistinct(),
-                    mask));
-        }
-
         public AggregationBuilder addAggregation(VariableReferenceExpression output, RowExpression expression)
         {
-            return addAggregation(output, expression, Optional.empty(), Optional.empty(), false, Optional.empty());
+            return addAggregation(output, expression, false);
+        }
+
+        public AggregationBuilder addAggregation(VariableReferenceExpression output, RowExpression expression, boolean isDistinct)
+        {
+            return addAggregation(output, expression, Optional.empty(), Optional.empty(), isDistinct, Optional.empty());
         }
 
         public AggregationBuilder addAggregation(
@@ -922,6 +879,12 @@ public class PlanBuilder
         return new VariableReferenceExpression(Optional.empty(), name, type);
     }
 
+    public PlanBuilder registerVariable(VariableReferenceExpression expression)
+    {
+        variable(expression);
+        return this;
+    }
+
     public WindowNode window(WindowNode.Specification specification, Map<VariableReferenceExpression, WindowNode.Function> functions, PlanNode source)
     {
         return new WindowNode(
@@ -973,10 +936,7 @@ public class PlanBuilder
 
     public NativeExecutionNode nativeExecution(PlanNode subPlan)
     {
-        return new NativeExecutionNode(
-                Optional.empty(),
-                idAllocator.getNextId(),
-                subPlan);
+        return new NativeExecutionNode(subPlan);
     }
 
     public static Expression expression(String sql)
@@ -993,26 +953,16 @@ public class PlanBuilder
 
     public RowExpression rowExpression(String sql)
     {
-        Expression expression = expression(sql);
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
-                session,
-                metadata,
-                new SqlParser(),
-                getTypes(),
-                expression,
-                ImmutableMap.of(),
-                WarningCollector.NOOP);
-        return SqlToRowExpressionTranslator.translate(
-                expression,
-                expressionTypes,
-                ImmutableMap.of(),
-                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
-                session);
+        return rowExpression(expression(sql));
     }
 
     public RowExpression rowExpression(String sql, ParsingOptions.DecimalLiteralTreatment decimalLiteralTreatment)
     {
-        Expression expression = expression(sql, decimalLiteralTreatment);
+        return rowExpression(expression(sql, decimalLiteralTreatment));
+    }
+
+    private RowExpression rowExpression(Expression expression)
+    {
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
                 session,
                 metadata,
@@ -1027,11 +977,6 @@ public class PlanBuilder
                 ImmutableMap.of(),
                 metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
                 session);
-    }
-
-    public static RowExpression castToRowExpression(String sql)
-    {
-        return OriginalExpressionUtils.castToRowExpression(ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql)));
     }
 
     public static Expression expression(String sql, ParsingOptions options)

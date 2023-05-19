@@ -187,7 +187,11 @@ public class ManifestPartitionLoader
             throws IOException
     {
         ExtendedFileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, path);
-        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, false, buildDirectoryContextProperties(session));
+        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(
+                recursiveDirWalkerEnabled ? RECURSE : IGNORED,
+                false,
+                hdfsContext.getIdentity(),
+                buildDirectoryContextProperties(session));
 
         Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fileSystem, table, path, partition.getPartition(), namenodeStats, hiveDirectoryContext);
         int fileCount = 0;

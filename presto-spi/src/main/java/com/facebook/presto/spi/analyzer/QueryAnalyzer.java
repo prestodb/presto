@@ -14,10 +14,7 @@
 package com.facebook.presto.spi.analyzer;
 
 import com.facebook.presto.common.analyzer.PreparedQuery;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.plan.PlanNode;
-
-import java.util.Set;
 
 /**
  * The QueryAnalyzer interface should be implemented by respective analyzer to provide various analyzer related functionalities.
@@ -34,14 +31,6 @@ public interface QueryAnalyzer
     QueryAnalysis analyze(AnalyzerContext analyzerContext, PreparedQuery preparedQuery);
 
     /**
-     * Check access permission for the various tables and columns used in the query.
-     *
-     * @param analyzerContext analyzerContext analyzer context which stores various information used by analyzer
-     * @param queryAnalysis query analysis on which the access permissions needs to be checked
-     */
-    void checkAccessPermissions(AnalyzerContext analyzerContext, QueryAnalysis queryAnalysis);
-
-    /**
      * Create logical plan for a given query analysis.
      *
      * @param analyzerContext analyzerContext analyzer context which stores various information used by analyzer
@@ -49,14 +38,4 @@ public interface QueryAnalyzer
      * @return root logical plan node created from the given query analysis
      */
     PlanNode plan(AnalyzerContext analyzerContext, QueryAnalysis queryAnalysis);
-
-    /**
-     * Returns whether the given QueryAnalysis represents an "EXPLAIN ANALYZE" query.
-     */
-    boolean isExplainAnalyzeQuery(QueryAnalysis queryAnalysis);
-
-    /**
-     * Extracts the set of ConnectorIds used in the given QueryAnalysis.
-     */
-    Set<ConnectorId> extractConnectors(QueryAnalysis queryAnalysis);
 }

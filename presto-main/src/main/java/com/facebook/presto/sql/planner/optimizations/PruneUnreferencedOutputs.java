@@ -26,6 +26,7 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -49,7 +50,6 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -85,8 +85,6 @@ import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils
 import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.fromListMultimap;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -197,18 +195,10 @@ public class PruneUnreferencedOutputs
         {
             Set<VariableReferenceExpression> expectedFilterInputs = new HashSet<>();
             if (node.getFilter().isPresent()) {
-                if (isExpression(node.getFilter().get())) {
-                    expectedFilterInputs = ImmutableSet.<VariableReferenceExpression>builder()
-                            .addAll(VariablesExtractor.extractUnique(castToExpression(node.getFilter().get()), TypeProvider.viewOf(variableAllocator.getVariables())))
-                            .addAll(context.get())
-                            .build();
-                }
-                else {
-                    expectedFilterInputs = ImmutableSet.<VariableReferenceExpression>builder()
-                            .addAll(VariablesExtractor.extractUnique(node.getFilter().get()))
-                            .addAll(context.get())
-                            .build();
-                }
+                expectedFilterInputs = ImmutableSet.<VariableReferenceExpression>builder()
+                        .addAll(VariablesExtractor.extractUnique(node.getFilter().get()))
+                        .addAll(context.get())
+                        .build();
             }
 
             ImmutableSet.Builder<VariableReferenceExpression> leftInputsBuilder = ImmutableSet.builder();
@@ -298,13 +288,7 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitSpatialJoin(SpatialJoinNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            Set<VariableReferenceExpression> filterSymbols;
-            if (isExpression(node.getFilter())) {
-                filterSymbols = VariablesExtractor.extractUnique(castToExpression(node.getFilter()), TypeProvider.viewOf(variableAllocator.getVariables()));
-            }
-            else {
-                filterSymbols = VariablesExtractor.extractUnique(node.getFilter());
-            }
+            Set<VariableReferenceExpression> filterSymbols = VariablesExtractor.extractUnique(node.getFilter());
             Set<VariableReferenceExpression> requiredInputs = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(filterSymbols)
                     .addAll(context.get())
@@ -486,19 +470,10 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            Set<VariableReferenceExpression> expectedInputs;
-            if (isExpression(node.getPredicate())) {
-                expectedInputs = ImmutableSet.<VariableReferenceExpression>builder()
-                        .addAll(VariablesExtractor.extractUnique(castToExpression(node.getPredicate()), TypeProvider.viewOf(variableAllocator.getVariables())))
-                        .addAll(context.get())
-                        .build();
-            }
-            else {
-                expectedInputs = ImmutableSet.<VariableReferenceExpression>builder()
-                        .addAll(VariablesExtractor.extractUnique(node.getPredicate()))
-                        .addAll(context.get())
-                        .build();
-            }
+            Set<VariableReferenceExpression> expectedInputs = ImmutableSet.<VariableReferenceExpression>builder()
+                    .addAll(VariablesExtractor.extractUnique(node.getPredicate()))
+                    .addAll(context.get())
+                    .build();
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
 
@@ -584,12 +559,7 @@ public class PruneUnreferencedOutputs
             Assignments.Builder builder = Assignments.builder();
             node.getAssignments().forEach((variable, expression) -> {
                 if (context.get().contains(variable)) {
-                    if (isExpression(expression)) {
-                        expectedInputs.addAll(VariablesExtractor.extractUnique(castToExpression(expression), TypeProvider.viewOf(variableAllocator.getVariables())));
-                    }
-                    else {
-                        expectedInputs.addAll(VariablesExtractor.extractUnique(expression));
-                    }
+                    expectedInputs.addAll(VariablesExtractor.extractUnique(expression));
                     builder.put(variable, expression);
                 }
             });
@@ -874,12 +844,7 @@ public class PruneUnreferencedOutputs
                 VariableReferenceExpression output = entry.getKey();
                 RowExpression expression = entry.getValue();
                 if (context.get().contains(output)) {
-                    if (isExpression(expression)) {
-                        subqueryAssignmentsVariablesBuilder.addAll(VariablesExtractor.extractUnique(castToExpression(expression), TypeProvider.viewOf(variableAllocator.getVariables())));
-                    }
-                    else {
-                        subqueryAssignmentsVariablesBuilder.addAll(VariablesExtractor.extractUnique(expression));
-                    }
+                    subqueryAssignmentsVariablesBuilder.addAll(VariablesExtractor.extractUnique(expression));
                     subqueryAssignments.put(output, expression);
                 }
             }

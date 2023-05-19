@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.281-SNAPSHOT</version>
+        <version>0.282-SNAPSHOT</version>
     </parent>
     <artifactId>presto-iceberg</artifactId>
     <description>Presto - Iceberg Connector</description>
@@ -12,8 +12,8 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.iceberg.version>1.1.0</dep.iceberg.version>
-        <dep.nessie.version>0.44.0</dep.nessie.version>
+        <dep.iceberg.version>1.2.1</dep.iceberg.version>
+        <dep.nessie.version>0.51.1</dep.nessie.version>
     </properties>
 
     <dependencies>
@@ -350,7 +350,7 @@
         </dependency>
 
         <dependency>
-            <groupId>org.projectnessie</groupId>
+            <groupId>org.projectnessie.nessie</groupId>
             <artifactId>nessie-model</artifactId>
             <version>${dep.nessie.version}</version>
             <exclusions>
@@ -374,7 +374,7 @@
         </dependency>
 
         <dependency>
-            <groupId>org.projectnessie</groupId>
+            <groupId>org.projectnessie.nessie</groupId>
             <artifactId>nessie-client</artifactId>
             <version>${dep.nessie.version}</version>
             <exclusions>

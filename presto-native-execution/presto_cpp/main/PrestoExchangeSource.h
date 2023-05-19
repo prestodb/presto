@@ -15,6 +15,7 @@
 
 #include <folly/Uri.h>
 
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/http/HttpClient.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/exec/Exchange.h"
@@ -26,7 +27,9 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       const folly::Uri& baseUri,
       int destination,
       std::shared_ptr<velox::exec::ExchangeQueue> queue,
-      velox::memory::MemoryPool* pool);
+      velox::memory::MemoryPool* pool,
+      const std::string& clientCertAndKeyPath_ = "",
+      const std::string& ciphers_ = "");
 
   bool shouldRequestLocked() override;
 
@@ -38,6 +41,26 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
 
   void close() override;
 
+  folly::F14FastMap<std::string, int64_t> stats() const override {
+    return {{"prestoExchangeSource.numPages", numPages_}};
+  }
+
+  int testingFailedAttempts() const {
+    return failedAttempts_;
+  }
+
+  /// Invoked to track the node-wise memory usage queued in
+  /// PrestoExchangeSource. If 'updateBytes' > 0, then increment the usage,
+  /// otherwise decrement the usage.
+  static void updateMemoryUsage(int64_t updateBytes);
+
+  /// Invoked to get the node-wise queued memory usage from
+  /// PrestoExchangeSource.
+  static void getMemoryUsage(int64_t& currentBytes, int64_t& peakBytes);
+
+  /// Used by test to clear the node-wise memory usage tracking.
+  static void testingClearMemoryUsage();
+
  private:
   void request() override;
 
@@ -45,7 +68,14 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
 
   void processDataResponse(std::unique_ptr<http::HttpResponse> response);
 
-  void processDataError(const std::string& path, const std::string& error);
+  // If 'retry' is true, then retry the http request failure until reaches the
+  // retry limit, otherwise just set exchange source error without retry. As
+  // for now, we don't retry on the request failure which is caused by the
+  // memory allocation failure for the http response data.
+  void processDataError(
+      const std::string& path,
+      const std::string& error,
+      bool retry = true);
 
   void acknowledgeResults(int64_t ackSequence);
 
@@ -54,11 +84,29 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   // Returns a shared ptr owning the current object.
   std::shared_ptr<PrestoExchangeSource> getSelfPtr();
 
+  // Tracks the currently node-wide queued memory usage in bytes.
+  static std::atomic<int64_t>& currQueuedMemoryBytes() {
+    static std::atomic<int64_t> currQueuedMemoryBytes{0};
+    return currQueuedMemoryBytes;
+  }
+
+  // Records the node-wide peak queued memory usage in bytes.
+  // Tracks the currently node-wide queued memory usage in bytes.
+  static std::atomic<int64_t>& peakQueuedMemoryBytes() {
+    static std::atomic<int64_t> peakQueuedMemoryBytes{0};
+    return peakQueuedMemoryBytes;
+  }
+
   const std::string basePath_;
   const std::string host_;
   const uint16_t port_;
+  const std::string clientCertAndKeyPath_;
+  const std::string ciphers_;
+
   std::unique_ptr<http::HttpClient> httpClient_;
   int failedAttempts_;
+  // The number of pages received from this presto exchange source.
+  uint64_t numPages_{0};
   std::atomic_bool closed_{false};
   // A boolean indicating whether abortResults() call was issued and was
   // successfully processed by the remote server.

@@ -16,8 +16,6 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.analyzer.AnalyzerContext;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
@@ -28,15 +26,10 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LogicalPlanner;
-import com.facebook.presto.sql.tree.Explain;
-import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 
 import java.util.Optional;
-import java.util.Set;
 
-import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
-import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlWithSubfields;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -92,48 +85,6 @@ public class BuiltInQueryAnalyzer
     public PlanNode plan(AnalyzerContext analyzerContext, QueryAnalysis queryAnalysis)
     {
         checkState(analyzerContext instanceof BuiltInAnalyzerContext, "analyzerContext should be an instance of BuiltInAnalyzerContext");
-        return new LogicalPlanner(((BuiltInAnalyzerContext) analyzerContext).getSession(), analyzerContext.getIdAllocator(), metadata, analyzerContext.getVariableAllocator()).plan(((BuiltInQueryAnalysis) queryAnalysis).getAnalysis());
-    }
-
-    @Override
-    public void checkAccessPermissions(AnalyzerContext analyzerContext, QueryAnalysis queryAnalysis)
-    {
-        checkState(analyzerContext instanceof BuiltInAnalyzerContext, "analyzerContext should be an instance of BuiltInAnalyzerContext");
-        Session session = ((BuiltInAnalyzerContext) analyzerContext).getSession();
-        BuiltInQueryAnalysis builtInQueryAnalysis = (BuiltInQueryAnalysis) queryAnalysis;
-        builtInQueryAnalysis.getAnalysis().getTableColumnAndSubfieldReferencesForAccessControl(isCheckAccessControlOnUtilizedColumnsOnly(session), isCheckAccessControlWithSubfields(session))
-                .forEach((accessControlInfo, tableColumnReferences) ->
-                        tableColumnReferences.forEach((tableName, columns) ->
-                                accessControlInfo.getAccessControl().checkCanSelectFromColumns(
-                                        session.getRequiredTransactionId(),
-                                        accessControlInfo.getIdentity(),
-                                        session.getAccessControlContext(),
-                                        tableName,
-                                        columns)));
-    }
-
-    @Override
-    public boolean isExplainAnalyzeQuery(QueryAnalysis queryAnalysis)
-    {
-        Analysis analysis = ((BuiltInQueryAnalysis) queryAnalysis).getAnalysis();
-        return analysis.getStatement() instanceof Explain && ((Explain) analysis.getStatement()).isAnalyze();
-    }
-
-    @Override
-    public Set<ConnectorId> extractConnectors(QueryAnalysis queryAnalysis)
-    {
-        Analysis analysis = ((BuiltInQueryAnalysis) queryAnalysis).getAnalysis();
-        ImmutableSet.Builder<ConnectorId> connectors = ImmutableSet.builder();
-
-        for (TableHandle tableHandle : analysis.getTables()) {
-            connectors.add(tableHandle.getConnectorId());
-        }
-
-        if (analysis.getInsert().isPresent()) {
-            TableHandle target = analysis.getInsert().get().getTarget();
-            connectors.add(target.getConnectorId());
-        }
-
-        return connectors.build();
+        return new LogicalPlanner(((BuiltInAnalyzerContext) analyzerContext).getSession(), analyzerContext.getIdAllocator(), metadata, analyzerContext.getVariableAllocator(), sqlParser).plan(((BuiltInQueryAnalysis) queryAnalysis).getAnalysis());
     }
 }

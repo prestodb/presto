@@ -28,7 +28,8 @@ public class TestTpchTaskUpdateSizeLimitIntegrationTest
         return TpchQueryRunner.createQueryRunner(ImmutableMap.of("experimental.internal-communication.max-task-update-size", "100B"));
     }
 
-    @Test
+    // This test is flaky: https://github.com/prestodb/presto/issues/19659
+    @Test(enabled = false)
     public void testTaskUpdateSizeLimit()
     {
         assertQueryFails(

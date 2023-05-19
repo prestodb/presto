@@ -15,6 +15,7 @@
 #include "presto_cpp/main/TaskManager.h"
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
+#include <folly/container/F14Set.h>
 #include <velox/core/PlanNode.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
@@ -24,6 +25,7 @@
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Exchange.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 DEFINE_int32(
     old_task_ms,
@@ -93,15 +95,9 @@ void keepPromiseAlive(
 }
 } // namespace
 
-TaskManager::TaskManager(
-    std::unordered_map<std::string, std::string> properties,
-    std::unordered_map<std::string, std::string> nodeProperties)
+TaskManager::TaskManager()
     : bufferManager_(
-          velox::exec::PartitionedOutputBufferManager::getInstance().lock()),
-      queryContextManager_(properties, nodeProperties),
-      maxDriversPerTask_(SystemConfig::instance()->maxDriversPerTask()),
-      concurrentLifespansPerTask_(
-          SystemConfig::instance()->concurrentLifespansPerTask()) {
+          velox::exec::PartitionedOutputBufferManager::getInstance().lock()) {
   VELOX_CHECK_NOT_NULL(
       bufferManager_, "invalid PartitionedOutputBufferManager");
 }
@@ -143,12 +139,13 @@ void getData(
     return;
   }
 
+  int64_t startMs = getCurrentTimeMs();
   auto bufferFound = bufferManager.getData(
       taskId,
       bufferId,
       maxSize.getValue(protocol::DataUnit::BYTE),
       token,
-      [taskId = taskId, bufferId = bufferId, promiseHolder](
+      [taskId = taskId, bufferId = bufferId, promiseHolder, startMs](
           std::vector<std::unique_ptr<folly::IOBuf>> pages,
           int64_t sequence) mutable {
         bool complete = pages.empty();
@@ -184,6 +181,10 @@ void getData(
         result->data = std::move(iobuf);
 
         promiseHolder->promise.setValue(std::move(result));
+
+        REPORT_ADD_STAT_VALUE(
+            kCounterPartitionedOutputBufferGetDataLatencyMs,
+            getCurrentTimeMs() - startMs);
       });
 
   if (!bufferFound) {
@@ -256,9 +257,105 @@ void TaskManager::getDataForResultRequests(
   }
 }
 
+namespace {
+std::unordered_map<std::string, std::string> toConfigs(
+    const protocol::SessionRepresentation& session) {
+  auto configs = std::unordered_map<std::string, std::string>(
+      session.systemProperties.begin(), session.systemProperties.end());
+
+  // If there's a timeZoneKey, convert to timezone name and add to the
+  // configs. Throws if timeZoneKey can't be resolved.
+  if (session.timeZoneKey != 0) {
+    configs.emplace(
+        velox::core::QueryConfig::kSessionTimezone,
+        velox::util::getTimeZoneName(session.timeZoneKey));
+  }
+  return configs;
+}
+
+std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
+toConnectorConfigs(const protocol::SessionRepresentation& session) {
+  std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
+      connectorConfigs;
+  for (const auto& entry : session.catalogProperties) {
+    connectorConfigs.insert(
+        {entry.first,
+         std::unordered_map<std::string, std::string>(
+             entry.second.begin(), entry.second.end())});
+  }
+
+  return connectorConfigs;
+}
+
+/// Presto-on-Spark is expected to specify all splits at once along with
+/// no-more-splits flag. Verify that all plan nodes that require splits
+/// have received splits and no-more-splits flag. This check helps
+/// prevent hard-to-debug query hangs caused by Velox Task waiting for
+/// splits that never arrive.
+void checkSplitsForBatchTask(
+    const velox::core::PlanNodePtr& planNode,
+    const std::vector<protocol::TaskSource>& sources) {
+  std::unordered_set<velox::core::PlanNodeId> splitNodeIds;
+  velox::core::PlanNode::findFirstNode(
+      planNode.get(), [&](const velox::core::PlanNode* node) {
+        if (node->requiresSplits()) {
+          splitNodeIds.insert(node->id());
+        }
+        return false;
+      });
+
+  for (const auto& source : sources) {
+    VELOX_USER_CHECK(
+        source.noMoreSplits,
+        "Expected no-more-splits message for plan node {}",
+        source.planNodeId);
+    splitNodeIds.erase(source.planNodeId);
+  }
+
+  VELOX_USER_CHECK(
+      splitNodeIds.empty(),
+      "Expected all splits and no-more-splits message for all plan nodes: {}",
+      folly::join(", ", splitNodeIds));
+}
+} // namespace
+
+std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
+    const protocol::TaskId& taskId,
+    const protocol::TaskUpdateRequest& updateRequest,
+    const velox::core::PlanFragment& planFragment) {
+  const auto& session = updateRequest.session;
+
+  return createOrUpdateTask(
+      taskId,
+      planFragment,
+      updateRequest.sources,
+      updateRequest.outputIds,
+      toConfigs(session),
+      toConnectorConfigs(session));
+}
+
+std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
+    const protocol::TaskId& taskId,
+    const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
+    const velox::core::PlanFragment& planFragment) {
+  auto updateRequest = batchUpdateRequest.taskUpdateRequest;
+
+  checkSplitsForBatchTask(planFragment.planNode, updateRequest.sources);
+
+  const auto& session = updateRequest.session;
+
+  return createOrUpdateTask(
+      taskId,
+      planFragment,
+      updateRequest.sources,
+      updateRequest.outputIds,
+      toConfigs(session),
+      toConnectorConfigs(session));
+}
+
 std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
     const TaskId& taskId,
-    velox::core::PlanFragment planFragment,
+    const velox::core::PlanFragment& planFragment,
     const std::vector<protocol::TaskSource>& sources,
     const protocol::OutputBuffers& outputBuffers,
     std::unordered_map<std::string, std::string>&& configStrings,
@@ -269,8 +366,6 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
   std::shared_ptr<exec::Task> execTask;
   bool startTask = false;
   auto prestoTask = findOrCreateTask(taskId);
-  uint32_t maxDrivers;
-  uint32_t concurrentLifespans;
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
     if (not prestoTask->task && planFragment.planNode) {
@@ -282,18 +377,9 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
 
       auto queryCtx = queryContextManager_.findOrCreateQueryCtx(
           taskId, std::move(configStrings), std::move(connectorConfigStrings));
-      maxDrivers =
-          queryCtx->get<int32_t>(kMaxDriversPerTask.data(), maxDriversPerTask_);
-      concurrentLifespans = queryCtx->get<int32_t>(
-          kConcurrentLifespansPerTask.data(), concurrentLifespansPerTask_);
-      // Zero concurrent lifespans means 'unlimited', but we still limit the
-      // number to some reasonable one.
-      if (concurrentLifespans == 0) {
-        concurrentLifespans = kMaxConcurrentLifespans;
-      }
 
-      execTask = std::make_shared<exec::Task>(
-          taskId, planFragment, 0, std::move(queryCtx));
+      execTask = exec::Task::create(
+          taskId, planFragment, prestoTask->id.id(), std::move(queryCtx));
       maybeSetupTaskSpillDirectory(planFragment, *execTask);
 
       prestoTask->task = execTask;
@@ -319,6 +405,20 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
   std::lock_guard<std::mutex> l(prestoTask->mutex);
 
   if (startTask) {
+    const uint32_t maxDrivers =
+        execTask->queryCtx()->queryConfig().get<int32_t>(
+            kMaxDriversPerTask.data(),
+            SystemConfig::instance()->maxDriversPerTask());
+    uint32_t concurrentLifespans =
+        execTask->queryCtx()->queryConfig().get<int32_t>(
+            kConcurrentLifespansPerTask.data(),
+            SystemConfig::instance()->concurrentLifespansPerTask());
+    // Zero concurrent lifespans means 'unlimited', but we still limit the
+    // number to some reasonable one.
+    if (concurrentLifespans == 0) {
+      concurrentLifespans = kMaxConcurrentLifespans;
+    }
+
     if (execTask->isGroupedExecution()) {
       LOG(INFO) << "Starting task " << taskId << " with " << maxDrivers
                 << " max drivers and " << concurrentLifespans
@@ -476,20 +576,6 @@ struct ZombieTaskCounts {
   }
 
   void logZombieTaskStatus(const std::string& hangingClassName) {
-    auto length = 0;
-    for (auto& id : taskIds) {
-      length += id.length() + 2; // for comma and space
-    }
-    std::string taskIdsStr;
-    taskIdsStr.reserve(length);
-    for (auto i = 0; i < taskIds.size(); i++) {
-      if (i == taskIds.size() - 1) {
-        taskIdsStr.append(taskIds[i]);
-      } else {
-        taskIdsStr.append(taskIds[i]).append(", ");
-      }
-    }
-
     LOG(ERROR) << "There are " << numTotal << " zombie " << hangingClassName
                << " that satisfy cleanup conditions but could not be "
                   "cleaned up, because the "
@@ -498,7 +584,8 @@ struct ZombieTaskCounts {
                << numRunning << "] FINISHED[" << numFinished << "] CANCELED["
                << numCanceled << "] ABORTED[" << numAborted << "] FAILED["
                << numFailed << "]  Sample task IDs (shows only "
-               << numSampleTaskId << " IDs): {" << taskIdsStr << "}";
+               << numSampleTaskId << " IDs): {" << folly::join(',', taskIds)
+               << "}";
   }
 };
 
@@ -510,7 +597,7 @@ size_t TaskManager::cleanOldTasks() {
   // We copy task map locally to avoid locking task map for a potentially long
   // time. We also lock for 'read'.
   TaskMap taskMap;
-  std::unordered_set<protocol::TaskId> taskIdsToClean;
+  folly::F14FastSet<protocol::TaskId> taskIdsToClean;
   { taskMap = *(taskMap_.rlock()); }
 
   ZombieTaskCounts zombieTaskCounts;
@@ -841,7 +928,7 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTaskLocked(
     return prestoTask;
   }
 
-  auto prestoTask = std::make_shared<PrestoTask>(taskId);
+  auto prestoTask = std::make_shared<PrestoTask>(taskId, nodeId_);
   prestoTask->info.stats.createTime =
       util::toISOTimestamp(velox::getCurrentTimeMs());
   prestoTask->info.needsPlan = true;
@@ -915,6 +1002,21 @@ std::array<size_t, 5> TaskManager::getTaskNumbers(size_t& numTasks) const {
     }
   }
   return res;
+}
+
+void TaskManager::waitForTasksToComplete() {
+  size_t numTasks;
+  auto taskNumbers = getTaskNumbers(numTasks);
+  size_t seconds = 0;
+  while (taskNumbers[velox::exec::TaskState::kRunning] > 0) {
+    LOG(INFO) << "Waiting (" << seconds
+              << " seconds so far) for 'Running' tasks to complete. "
+              << numTasks << " tasks left: "
+              << PrestoTask::taskNumbersToString(taskNumbers);
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    taskNumbers = getTaskNumbers(numTasks);
+    ++seconds;
+  }
 }
 
 } // namespace facebook::presto

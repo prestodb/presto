@@ -40,6 +40,8 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
+import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupingOperation;
@@ -58,7 +60,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -70,6 +74,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.forEachPair;
+import static java.util.Arrays.asList;
 
 public class PlannerUtils
 {
@@ -157,6 +162,22 @@ public class PlannerUtils
         return Optional.of(result);
     }
 
+    public static PlanNode addProjections(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, Map<VariableReferenceExpression, RowExpression> variableMap)
+    {
+        Assignments.Builder assignments = Assignments.builder();
+        for (VariableReferenceExpression variableReferenceExpression : source.getOutputVariables()) {
+            assignments.put(variableReferenceExpression, variableReferenceExpression);
+        }
+        variableMap.forEach(assignments::put);
+
+        return new ProjectNode(
+                source.getSourceLocation(),
+                planNodeIdAllocator.getNextId(),
+                source,
+                assignments.build(),
+                LOCAL);
+    }
+
     public static PlanNode projectExpressions(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator variableAllocator, List<? extends RowExpression> expressions, List<VariableReferenceExpression> variableMap)
     {
         Assignments.Builder assignments = Assignments.builder();
@@ -175,15 +196,19 @@ public class PlannerUtils
                 LOCAL);
     }
 
-    public static PlanNode addProjections(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator variableAllocator, List<RowExpression> expressions)
+    public static PlanNode addProjections(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator variableAllocator, List<RowExpression> expressions,
+            List<VariableReferenceExpression> variablesToUse)
     {
         Assignments.Builder assignments = Assignments.builder();
         for (VariableReferenceExpression variableReferenceExpression : source.getOutputVariables()) {
             assignments.put(variableReferenceExpression, variableReferenceExpression);
         }
 
-        for (RowExpression expression : expressions) {
-            assignments.put(variableAllocator.newVariable("expr", expression.getType()), expression);
+        checkState(variablesToUse.isEmpty() || variablesToUse.size() == expressions.size());
+        for (int i = 0; i < expressions.size(); i++) {
+            RowExpression expression = expressions.get(i);
+            VariableReferenceExpression variable = variablesToUse.isEmpty() ? variableAllocator.newVariable(expression) : variablesToUse.get(i);
+            assignments.put(variable, expression);
         }
 
         return new ProjectNode(
@@ -231,30 +256,56 @@ public class PlannerUtils
                 filterNode.getSourceLocation(),
                 idAllocator.getNextId(),
                 newSource,
-                filterNode.getPredicate());
+                RowExpressionVariableInliner.inlineVariables(varMap, filterNode.getPredicate()));
     }
 
     private static PlanNode cloneProjectNode(ProjectNode projectNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, PlanNodeIdAllocator idAllocator)
     {
         PlanNode newSource = clonePlanNode(projectNode.getSource(), session, metadata, planNodeIdAllocator, fieldsToKeep, varMap);
+
+        Assignments.Builder newAssignments = Assignments.builder();
+
+        for (Map.Entry<VariableReferenceExpression, RowExpression> entry : projectNode.getAssignments().entrySet()) {
+            VariableReferenceExpression var = entry.getKey();
+            if (!varMap.containsKey(var)) {
+                varMap.put(var, var);
+            }
+            newAssignments.put(varMap.getOrDefault(var, var), RowExpressionVariableInliner.inlineVariables(varMap, entry.getValue()));
+        }
+
         return new ProjectNode(
                 idAllocator.getNextId(),
                 newSource,
-                projectNode.getAssignments());
+                newAssignments.build());
     }
 
     private static TableScanNode cloneTableScan(TableScanNode scanNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap)
     {
         Map<VariableReferenceExpression, ColumnHandle> assignments = scanNode.getAssignments();
         TableLayout scanLayout = metadata.getLayout(session, scanNode.getTable());
+
+        ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
+
+        ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> assignmentsBuilder = ImmutableMap.builder();
+
+        for (VariableReferenceExpression var : scanNode.getOutputVariables()) {
+            VariableReferenceExpression newVar = varMap.getOrDefault(var, var);
+            outputVariablesBuilder.add(newVar);
+            assignmentsBuilder.put(newVar, assignments.get(var));
+            varMap.putIfAbsent(var, newVar);
+        }
+
+        List<VariableReferenceExpression> newOutputVariables = outputVariablesBuilder.build();
+        ImmutableMap<VariableReferenceExpression, ColumnHandle> newAssignments = assignmentsBuilder.build();
+
         return new TableScanNode(
                 scanNode.getSourceLocation(),
                 planNodeIdAllocator.getNextId(),
                 scanLayout.getNewTableHandle(),
-                scanNode.getOutputVariables(),
-                scanNode.getAssignments(),
+                newOutputVariables,
+                newAssignments,
                 scanNode.getTableConstraints(),
-                scanNode.getCurrentConstraint(),
+                scanLayout.getPredicate(),
                 scanNode.getEnforcedConstraint());
     }
 
@@ -338,5 +389,35 @@ public class PlannerUtils
         }
 
         return Optional.empty();
+    }
+
+    public static boolean isFilterAboveTableScan(PlanNode node)
+    {
+        return node instanceof FilterNode && ((FilterNode) node).getSource() instanceof TableScanNode;
+    }
+
+    public static boolean isProjectAboveTableScan(PlanNode node)
+    {
+        return node instanceof ProjectNode && ((ProjectNode) node).getSource() instanceof TableScanNode;
+    }
+
+    public static boolean isScanFilterProject(PlanNode node)
+    {
+        return node instanceof TableScanNode ||
+            node instanceof ProjectNode && isScanFilterProject(((ProjectNode) node).getSource()) ||
+                node instanceof FilterNode && isScanFilterProject(((FilterNode) node).getSource());
+    }
+
+    public static CallExpression equalityPredicate(FunctionResolution functionResolution, RowExpression leftExpr, RowExpression rightExpr)
+    {
+        return new CallExpression(EQUAL.name(),
+                functionResolution.comparisonFunction(ComparisonExpression.Operator.EQUAL, BOOLEAN, BOOLEAN),
+                BOOLEAN,
+                asList(leftExpr, rightExpr));
+    }
+
+    public static RowExpression coalesce(List<RowExpression> expressions)
+    {
+        return new SpecialFormExpression(SpecialFormExpression.Form.COALESCE, expressions.get(0).getType(), expressions);
     }
 }

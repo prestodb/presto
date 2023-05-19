@@ -23,11 +23,11 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.metadata.AbstractMockMetadata.dummyMetadata;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.stream.Collectors.toSet;
@@ -53,7 +53,7 @@ public class TestRuleIndex
                 .build();
 
         ProjectNode projectNode = planBuilder.project(Assignments.of(), planBuilder.values());
-        FilterNode filterNode = planBuilder.filter(BooleanLiteral.TRUE_LITERAL, planBuilder.values());
+        FilterNode filterNode = planBuilder.filter(TRUE_CONSTANT, planBuilder.values());
         ValuesNode valuesNode = planBuilder.values();
 
         assertEquals(

@@ -24,6 +24,7 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.SetOperationNode;
@@ -52,7 +53,6 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -79,8 +79,6 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractAggregationUniqueVariables;
 import static com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -254,16 +252,7 @@ public final class ValidateDependenciesChecker
             Set<VariableReferenceExpression> inputs = createInputs(source, boundVariables);
             checkDependencies(inputs, node.getOutputVariables(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputVariables(), node.getSource().getOutputVariables());
 
-            // Only verify names here as filter expression would contain type cast, which will be translated to an non-existent variable in
-            // SqlToRowExpressionTranslator
-            // TODO https://github.com/prestodb/presto/issues/12892
-            Set<String> dependencies;
-            if (isExpression(node.getPredicate())) {
-                dependencies = VariablesExtractor.extractUnique(castToExpression(node.getPredicate()), types).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
-            }
-            else {
-                dependencies = VariablesExtractor.extractUnique(node.getPredicate()).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
-            }
+            Set<String> dependencies = VariablesExtractor.extractUnique(node.getPredicate()).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
             checkArgument(
                     inputs.stream().map(VariableReferenceExpression::getName).collect(toImmutableSet()).containsAll(dependencies),
                     "Symbol from filter (%s) not in sources (%s)",
@@ -290,13 +279,7 @@ public final class ValidateDependenciesChecker
 
             Set<VariableReferenceExpression> inputs = createInputs(source, boundVariables);
             for (RowExpression expression : node.getAssignments().getExpressions()) {
-                Set<VariableReferenceExpression> dependencies;
-                if (isExpression(expression)) {
-                    dependencies = VariablesExtractor.extractUnique(castToExpression(expression), types);
-                }
-                else {
-                    dependencies = VariablesExtractor.extractUnique(expression);
-                }
+                Set<VariableReferenceExpression> dependencies = VariablesExtractor.extractUnique(expression);
                 checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
             }
 
@@ -400,13 +383,7 @@ public final class ValidateDependenciesChecker
                 // Only verify names here as filter expression would contain type cast, which will be translated to an non-existent variable in
                 // SqlToRowExpressionTranslator
                 // TODO https://github.com/prestodb/presto/issues/12892
-                Set<String> predicateVariables;
-                if (isExpression(predicate)) {
-                    predicateVariables = VariablesExtractor.extractUnique(castToExpression(predicate), types).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
-                }
-                else {
-                    predicateVariables = VariablesExtractor.extractUnique(predicate).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
-                }
+                Set<String> predicateVariables = VariablesExtractor.extractUnique(predicate).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
                 checkArgument(
                         allInputs.stream().map(VariableReferenceExpression::getName).collect(toImmutableSet()).containsAll(predicateVariables),
                         "Symbol from filter (%s) not in sources (%s)",
@@ -450,13 +427,7 @@ public final class ValidateDependenciesChecker
                     .addAll(rightInputs)
                     .build();
 
-            Set<VariableReferenceExpression> predicateVariables;
-            if (isExpression(node.getFilter())) {
-                predicateVariables = VariablesExtractor.extractUnique(castToExpression(node.getFilter()), types);
-            }
-            else {
-                predicateVariables = VariablesExtractor.extractUnique(node.getFilter());
-            }
+            Set<VariableReferenceExpression> predicateVariables = VariablesExtractor.extractUnique(node.getFilter());
 
             checkArgument(
                     allInputs.containsAll(predicateVariables),
@@ -731,13 +702,7 @@ public final class ValidateDependenciesChecker
                     .build();
 
             for (RowExpression expression : node.getSubqueryAssignments().getExpressions()) {
-                Set<VariableReferenceExpression> dependencies;
-                if (isExpression(expression)) {
-                    dependencies = VariablesExtractor.extractUnique(castToExpression(expression), types);
-                }
-                else {
-                    dependencies = VariablesExtractor.extractUnique(expression);
-                }
+                Set<VariableReferenceExpression> dependencies = VariablesExtractor.extractUnique(expression);
                 checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
             }
 

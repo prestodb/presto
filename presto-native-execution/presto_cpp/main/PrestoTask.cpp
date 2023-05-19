@@ -93,7 +93,7 @@ void setTiming(
 static protocol::RuntimeMetric createProtocolRuntimeMetric(
     const std::string& name,
     int64_t value,
-    protocol::RuntimeUnit unit) {
+    protocol::RuntimeUnit unit = protocol::RuntimeUnit::NONE) {
   return protocol::RuntimeMetric{name, unit, value, 1, value, value};
 }
 
@@ -129,10 +129,41 @@ static void addRuntimeMetricIfNotZero(
   }
 }
 
+// Add 'spilling' metrics from Velox operator stats to Presto operator stats.
+static void addSpillingOperatorMetrics(
+    protocol::OperatorStats& opOut,
+    protocol::TaskStats& prestoTaskStats,
+    const exec::OperatorStats& op) {
+  std::string statName =
+      fmt::format("{}.{}.spilledBytes", op.operatorType, op.planNodeId);
+  auto prestoMetric = createProtocolRuntimeMetric(
+      statName, op.spilledBytes, protocol::RuntimeUnit::BYTE);
+  opOut.runtimeStats.emplace(statName, prestoMetric);
+  prestoTaskStats.runtimeStats[statName] = prestoMetric;
+
+  statName = fmt::format("{}.{}.spilledRows", op.operatorType, op.planNodeId);
+  prestoMetric = createProtocolRuntimeMetric(statName, op.spilledRows);
+  opOut.runtimeStats.emplace(statName, prestoMetric);
+  prestoTaskStats.runtimeStats[statName] = prestoMetric;
+
+  statName =
+      fmt::format("{}.{}.spilledPartitions", op.operatorType, op.planNodeId);
+  prestoMetric = createProtocolRuntimeMetric(statName, op.spilledPartitions);
+  opOut.runtimeStats.emplace(statName, prestoMetric);
+  prestoTaskStats.runtimeStats[statName] = prestoMetric;
+
+  statName = fmt::format("{}.{}.spilledFiles", op.operatorType, op.planNodeId);
+  prestoMetric = createProtocolRuntimeMetric(statName, op.spilledFiles);
+  opOut.runtimeStats.emplace(statName, prestoMetric);
+  prestoTaskStats.runtimeStats[statName] = prestoMetric;
+}
+
 } // namespace
 
-PrestoTask::PrestoTask(const std::string& taskId) : id(taskId) {
+PrestoTask::PrestoTask(const std::string& taskId, const std::string& nodeId)
+    : id(taskId) {
   info.taskId = taskId;
+  info.nodeId = nodeId;
 }
 
 void PrestoTask::updateHeartbeatLocked() {
@@ -182,12 +213,10 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
   }
   info.taskStatus.state = toPrestoTaskState(task->state());
 
-  auto tracker = task->pool()->getMemoryUsageTracker();
-  info.taskStatus.memoryReservationInBytes = tracker->currentBytes();
+  const auto stats = task->pool()->stats();
+  info.taskStatus.memoryReservationInBytes = stats.currentBytes;
   info.taskStatus.systemMemoryReservationInBytes = 0;
-  info.taskStatus.peakNodeTotalMemoryReservationInBytes =
-      task->queryCtx()->pool()->getMemoryUsageTracker()->peakBytes();
-  ;
+  info.taskStatus.peakNodeTotalMemoryReservationInBytes = stats.peakBytes;
 
   if (task->error() && info.taskStatus.failures.empty()) {
     info.taskStatus.failures.emplace_back(toPrestoError(task->error()));
@@ -228,18 +257,38 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
         1'000'000;
   }
 
-  auto tracker = task->pool()->getMemoryUsageTracker();
-  prestoTaskStats.userMemoryReservationInBytes = tracker->currentBytes();
+  const auto stats = task->pool()->stats();
+  prestoTaskStats.userMemoryReservationInBytes = stats.currentBytes;
   prestoTaskStats.systemMemoryReservationInBytes = 0;
-  prestoTaskStats.peakUserMemoryInBytes = tracker->peakBytes();
-  prestoTaskStats.peakTotalMemoryInBytes = tracker->peakBytes();
+  prestoTaskStats.peakUserMemoryInBytes = stats.peakBytes;
+  prestoTaskStats.peakTotalMemoryInBytes = stats.peakBytes;
 
   // TODO(venkatra): Populate these memory stats as well.
   prestoTaskStats.revocableMemoryReservationInBytes = {};
-  prestoTaskStats.cumulativeUserMemory = {};
+
+  // Set the lastTaskStatsUpdateMs to execution start time if it is 0.
+  if (lastTaskStatsUpdateMs == 0) {
+    lastTaskStatsUpdateMs = taskStats.executionStartTimeMs;
+  }
+
+  const uint64_t currentTimeMs = velox::getCurrentTimeMs();
+  const uint64_t sinceLastPeriodMs = currentTimeMs - lastTaskStatsUpdateMs;
+
+  const int64_t currentBytes = stats.currentBytes;
+
+  int64_t averageMemoryForLastPeriod =
+      (currentBytes + lastMemoryReservation) / 2;
+
+  prestoTaskStats.cumulativeUserMemory +=
+      (averageMemoryForLastPeriod * sinceLastPeriodMs) / 1000;
+
+  prestoTaskStats.cumulativeTotalMemory = prestoTaskStats.cumulativeUserMemory;
+
+  lastTaskStatsUpdateMs = currentTimeMs;
+  lastMemoryReservation = currentBytes;
 
   prestoTaskStats.peakNodeTotalMemoryInBytes =
-      task->queryCtx()->pool()->getMemoryUsageTracker()->peakBytes();
+      task->queryCtx()->pool()->peakBytes();
 
   prestoTaskStats.rawInputPositions = 0;
   prestoTaskStats.rawInputDataSizeInBytes = 0;
@@ -392,50 +441,30 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
           taskRuntimeStats[statName] = stat.second;
         }
       }
+
       if (op.numSplits != 0) {
-        const auto statName = fmt::format(
-            "{}.{}.{}", op.operatorType, op.planNodeId, "numSplits");
+        const auto statName =
+            fmt::format("{}.{}.numSplits", op.operatorType, op.planNodeId);
         opOut.runtimeStats.emplace(
-            statName,
-            protocol::RuntimeMetric{
-                statName,
-                protocol::RuntimeUnit::NONE,
-                op.numSplits,
-                1,
-                op.numSplits,
-                op.numSplits});
+            statName, createProtocolRuntimeMetric(statName, op.numSplits));
+      }
+      if (op.inputVectors != 0) {
+        auto statName = fmt::format(
+            "{}.{}.{}", op.operatorType, op.planNodeId, "inputBatches");
+        opOut.runtimeStats.emplace(
+            statName, createProtocolRuntimeMetric(statName, op.inputVectors));
+      }
+      if (op.outputVectors != 0) {
+        auto statName = fmt::format(
+            "{}.{}.{}", op.operatorType, op.planNodeId, "outputBatches");
+        opOut.runtimeStats.emplace(
+            statName, createProtocolRuntimeMetric(statName, op.outputVectors));
       }
 
-      // If Velox's operator has spilling stats, then add them to the protocol
+      // If Velox operator has spilling stats, then add them to the Presto
       // operator stats and the task stats as runtime stats.
       if (op.spilledBytes > 0) {
-        std::string statName =
-            fmt::format("{}.{}.spilledBytes", op.operatorType, op.planNodeId);
-        auto protocolMetric = createProtocolRuntimeMetric(
-            statName, op.spilledBytes, protocol::RuntimeUnit::BYTE);
-        opOut.runtimeStats.emplace(statName, protocolMetric);
-        prestoTaskStats.runtimeStats[statName] = protocolMetric;
-
-        statName =
-            fmt::format("{}.{}.spilledRows", op.operatorType, op.planNodeId);
-        protocolMetric = createProtocolRuntimeMetric(
-            statName, op.spilledRows, protocol::RuntimeUnit::NONE);
-        opOut.runtimeStats.emplace(statName, protocolMetric);
-        prestoTaskStats.runtimeStats[statName] = protocolMetric;
-
-        statName = fmt::format(
-            "{}.{}.spilledPartitions", op.operatorType, op.planNodeId);
-        protocolMetric = createProtocolRuntimeMetric(
-            statName, op.spilledPartitions, protocol::RuntimeUnit::NONE);
-        opOut.runtimeStats.emplace(statName, protocolMetric);
-        prestoTaskStats.runtimeStats[statName] = protocolMetric;
-
-        statName =
-            fmt::format("{}.{}.spilledFiles", op.operatorType, op.planNodeId);
-        protocolMetric = createProtocolRuntimeMetric(
-            statName, op.spilledFiles, protocol::RuntimeUnit::NONE);
-        opOut.runtimeStats.emplace(statName, protocolMetric);
-        prestoTaskStats.runtimeStats[statName] = protocolMetric;
+        addSpillingOperatorMetrics(opOut, prestoTaskStats, op);
       }
 
       auto wallNanos = op.addInputTiming.wallNanos +

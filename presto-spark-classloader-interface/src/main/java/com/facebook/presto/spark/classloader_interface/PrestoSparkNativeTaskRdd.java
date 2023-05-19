@@ -152,6 +152,7 @@ public class PrestoSparkNativeTaskRdd<T extends PrestoSparkTaskOutput>
                             handle,
                             shuffleRdd.getNumPartitions(),
                             getBlockIds(((ShuffledRDDPartition) partition), handle),
+                            getPartitionIds(((ShuffledRDDPartition) partition), handle),
                             getPartitionSize(((ShuffledRDDPartition) partition), handle)));
         }
         return shuffleReadDescriptors.build();
@@ -175,6 +176,18 @@ public class PrestoSparkNativeTaskRdd<T extends PrestoSparkTaskOutput>
         Collection<Tuple2<BlockManagerId, Seq<Tuple2<BlockId, Object>>>> mapSizes = asJavaCollection(mapOutputTracker.getMapSizesByExecutorId(
                 shuffleHandle.shuffleId(), partition.idx(), partition.idx() + 1));
         return mapSizes.stream().map(item -> item._1.executorId()).collect(Collectors.toList());
+    }
+
+    private List<String> getPartitionIds(ShuffledRDDPartition partition, ShuffleHandle shuffleHandle)
+    {
+        MapOutputTracker mapOutputTracker = SparkEnv.get().mapOutputTracker();
+        Collection<Tuple2<BlockManagerId, Seq<Tuple2<BlockId, Object>>>> mapSizes = asJavaCollection(mapOutputTracker.getMapSizesByExecutorId(
+                shuffleHandle.shuffleId(), partition.idx(), partition.idx() + 1));
+        return mapSizes.stream()
+                .map(item -> asJavaCollection(item._2))
+                .flatMap(Collection::stream)
+                .map(i -> i._1.toString())
+                .collect(Collectors.toList());
     }
 
     private List<Long> getPartitionSize(ShuffledRDDPartition partition, ShuffleHandle shuffleHandle)

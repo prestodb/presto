@@ -12,9 +12,11 @@
  * limitations under the License.
  */
 #include "Announcer.h"
+
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <velox/common/memory/Memory.h>
 #include "presto_cpp/external/json/json.hpp"
 #include "presto_cpp/main/http/HttpClient.h"
 
@@ -23,6 +25,7 @@ namespace {
 
 std::string announcementBody(
     const std::string& address,
+    bool useHttps,
     int port,
     const std::string& nodeVersion,
     const std::string& environment,
@@ -31,13 +34,7 @@ std::string announcementBody(
   std::string id =
       boost::lexical_cast<std::string>(boost::uuids::random_generator()());
 
-  std::ostringstream connectors;
-  for (int i = 0; i < connectorIds.size(); i++) {
-    if (i > 0) {
-      connectors << ",";
-    }
-    connectors << connectorIds[i];
-  }
+  const auto uriScheme = useHttps ? "https" : "http";
 
   nlohmann::json body = {
       {"environment", environment},
@@ -49,8 +46,9 @@ std::string announcementBody(
          {"properties",
           {{"node_version", nodeVersion},
            {"coordinator", false},
-           {"connectorIds", connectors.str()},
-           {"http", fmt::format("http://{}:{}", address, port)}}}}}}};
+           {"connectorIds", folly::join(',', connectorIds)},
+           {uriScheme,
+            fmt::format("{}://{}:{}", uriScheme, address, port)}}}}}}};
   return body.dump();
 }
 
@@ -74,6 +72,7 @@ proxygen::HTTPMessage announcementRequest(
 
 Announcer::Announcer(
     const std::string& address,
+    bool useHttps,
     int port,
     std::function<folly::SocketAddress()> discoveryAddressLookup,
     const std::string& nodeVersion,
@@ -81,11 +80,14 @@ Announcer::Announcer(
     const std::string& nodeId,
     const std::string& nodeLocation,
     const std::vector<std::string>& connectorIds,
-    int frequencyMs)
+    uint64_t frequencyMs,
+    const std::string& clientCertAndKeyPath,
+    const std::string& ciphers)
     : discoveryAddressLookup_(std::move(discoveryAddressLookup)),
       frequencyMs_(frequencyMs),
       announcementBody_(announcementBody(
           address,
+          useHttps,
           port,
           nodeVersion,
           environment,
@@ -93,7 +95,10 @@ Announcer::Announcer(
           connectorIds)),
       announcementRequest_(
           announcementRequest(address, port, nodeId, announcementBody_)),
-      eventBaseThread_(false /*autostart*/) {}
+      pool_(velox::memory::addDefaultLeafMemoryPool("Announcer")),
+      eventBaseThread_(false /*autostart*/),
+      clientCertAndKeyPath_(clientCertAndKeyPath),
+      ciphers_(ciphers) {}
 
 Announcer::~Announcer() {
   stop();
@@ -128,7 +133,9 @@ void Announcer::makeAnnouncement() {
       client_ = std::make_unique<http::HttpClient>(
           eventBaseThread_.getEventBase(),
           address_,
-          std::chrono::milliseconds(10'000));
+          std::chrono::milliseconds(10'000),
+          clientCertAndKeyPath_,
+          ciphers_);
     }
   } catch (const std::exception& ex) {
     LOG(WARNING) << "Error occurred during announcement run: " << ex.what();
@@ -136,7 +143,7 @@ void Announcer::makeAnnouncement() {
     return;
   }
 
-  client_->sendRequest(announcementRequest_, announcementBody_)
+  client_->sendRequest(announcementRequest_, pool_.get(), announcementBody_)
       .via(eventBaseThread_.getEventBase())
       .thenValue([](auto response) {
         auto message = response->headers();
@@ -144,6 +151,8 @@ void Announcer::makeAnnouncement() {
           LOG(WARNING) << "Announcement failed: HTTP "
                        << message->getStatusCode() << " - "
                        << response->dumpBodyChain();
+        } else if (response->hasError()) {
+          LOG(ERROR) << "Announcement failed: " << response->error();
         } else {
           LOG(INFO) << "Announcement succeeded: " << message->getStatusCode();
         }

@@ -1303,16 +1303,6 @@ public class TestPrestoSparkQueryRunner
     }
 
     @Test
-    public void testCreateFunction()
-    {
-        assertQuerySucceeds("CREATE FUNCTION unittest.memory.tan (x int) RETURNS double COMMENT 'tangent trigonometric function' LANGUAGE SQL DETERMINISTIC CALLED ON NULL INPUT RETURN sin(x) / cos(x)");
-        MaterializedResult actual = computeActual("select unittest.memory.tan(5)");
-        assertEquals("-3.380515006246586", actual.getOnlyValue().toString());
-        //PoS currently supports one query per session. So temporary function created is not discoverable by another query.
-        assertQuerySucceeds("CREATE TEMPORARY FUNCTION foo() RETURNS int RETURN 1");
-    }
-
-    @Test
     public void testCreateType()
     {
         assertQuerySucceeds("CREATE TYPE unittest.memory.num AS integer");

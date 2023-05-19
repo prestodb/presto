@@ -16,6 +16,7 @@ package com.facebook.presto.functionNamespace.json;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.functionNamespace.AbstractSqlInvokedFunctionNamespaceManager;
@@ -23,7 +24,9 @@ import com.facebook.presto.functionNamespace.ServingCatalog;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
@@ -40,7 +43,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
@@ -62,6 +64,7 @@ public class JsonFileBasedFunctionNamespaceManager
     private final Map<QualifiedObjectName, UserDefinedType> userDefinedTypes = new ConcurrentHashMap<>();
     private final JsonFileBasedFunctionNamespaceManagerConfig managerConfig;
     private final FunctionDefinitionProvider functionDefinitionProvider;
+    private final Map<SqlFunctionHandle, AggregationFunctionImplementation> aggregationImplementationByHandle = new ConcurrentHashMap<>();
 
     @Inject
     public JsonFileBasedFunctionNamespaceManager(
@@ -77,6 +80,29 @@ public class JsonFileBasedFunctionNamespaceManager
         bootstrapNamespaceFromFile();
     }
 
+    @Override
+    public final AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle, TypeManager typeManager)
+    {
+        checkCatalog(functionHandle);
+        checkArgument(functionHandle instanceof SqlFunctionHandle, "Unsupported FunctionHandle type '%s'", functionHandle.getClass().getSimpleName());
+
+        SqlFunctionHandle sqlFunctionHandle = (SqlFunctionHandle) functionHandle;
+
+        // Cache results if applicable
+        if (!aggregationImplementationByHandle.containsKey(sqlFunctionHandle)) {
+            SqlFunctionId functionId = sqlFunctionHandle.getFunctionId();
+            if (!latestFunctions.containsKey(functionId)) {
+                throw new PrestoException(GENERIC_USER_ERROR, format("Function '%s' is missing from cache", functionId.getId()));
+            }
+
+            aggregationImplementationByHandle.put(
+                    sqlFunctionHandle,
+                    sqlInvokedFunctionToAggregationImplementation(latestFunctions.get(functionId), typeManager));
+        }
+
+        return aggregationImplementationByHandle.get(sqlFunctionHandle);
+    }
+
     private static SqlInvokedFunction copyFunction(SqlInvokedFunction function)
     {
         return new SqlInvokedFunction(
@@ -86,12 +112,14 @@ public class JsonFileBasedFunctionNamespaceManager
                 function.getDescription(),
                 function.getRoutineCharacteristics(),
                 function.getBody(),
-                function.getVersion());
+                function.getVersion(),
+                function.getSignature().getKind(),
+                function.getAggregationMetadata());
     }
 
     private void bootstrapNamespaceFromFile()
     {
-        UdfFunctionSignatureMap udfFunctionSignatureMap = functionDefinitionProvider.getUdfDefinition(managerConfig.getFunctionDefinitionFile());
+        UdfFunctionSignatureMap udfFunctionSignatureMap = functionDefinitionProvider.getUdfDefinition(managerConfig.getFunctionDefinitionPath());
         if (udfFunctionSignatureMap == null || udfFunctionSignatureMap.isEmpty()) {
             return;
         }
@@ -109,24 +137,26 @@ public class JsonFileBasedFunctionNamespaceManager
 
     private SqlInvokedFunction createSqlInvokedFunction(String functionName, JsonBasedUdfFunctionMetadata jsonBasedUdfFunctionMetaData)
     {
-        checkState(jsonBasedUdfFunctionMetaData.getRoutineCharacteristics().getLanguage().equals(CPP), "JsonFileBasedInMemoryFunctionNameSpaceManager only supports CPP UDF");
+        checkState(jsonBasedUdfFunctionMetaData.getRoutineCharacteristics().getLanguage().equals(CPP), "JsonFileBasedFunctionNamespaceManager only supports CPP UDF");
         QualifiedObjectName qualifiedFunctionName = QualifiedObjectName.valueOf(new CatalogSchemaName(getCatalogName(), jsonBasedUdfFunctionMetaData.getSchema()), functionName);
         List<String> parameterNameList = jsonBasedUdfFunctionMetaData.getParamNames();
-        List<String> parameterTypeList = jsonBasedUdfFunctionMetaData.getParamTypes();
+        List<TypeSignature> parameterTypeList = jsonBasedUdfFunctionMetaData.getParamTypes();
 
         ImmutableList.Builder<Parameter> parameterBuilder = ImmutableList.builder();
         for (int i = 0; i < parameterNameList.size(); i++) {
-            parameterBuilder.add(new Parameter(parameterNameList.get(i), parseTypeSignature(parameterTypeList.get(i))));
+            parameterBuilder.add(new Parameter(parameterNameList.get(i), parameterTypeList.get(i)));
         }
 
         return new SqlInvokedFunction(
                 qualifiedFunctionName,
                 parameterBuilder.build(),
-                parseTypeSignature(jsonBasedUdfFunctionMetaData.getOutputType()),
+                jsonBasedUdfFunctionMetaData.getOutputType(),
                 jsonBasedUdfFunctionMetaData.getDocString(),
                 jsonBasedUdfFunctionMetaData.getRoutineCharacteristics(),
                 "",
-                notVersioned());
+                notVersioned(),
+                jsonBasedUdfFunctionMetaData.getFunctionKind(),
+                jsonBasedUdfFunctionMetaData.getAggregateMetadata());
     }
 
     @Override
@@ -182,13 +212,13 @@ public class JsonFileBasedFunctionNamespaceManager
     @Override
     public void alterFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics)
     {
-        throw new PrestoException(NOT_SUPPORTED, "Drop Function is not supported in JsonFileBasedInMemoryFunctionNameSpaceManager");
+        throw new PrestoException(NOT_SUPPORTED, "Alter Function is not supported in JsonFileBasedFunctionNamespaceManager");
     }
 
     @Override
     public void dropFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
     {
-        throw new PrestoException(NOT_SUPPORTED, "Drop Function is not supported in JsonFileBasedInMemoryFunctionNameSpaceManager");
+        throw new PrestoException(NOT_SUPPORTED, "Drop Function is not supported in JsonFileBasedFunctionNamespaceManager");
     }
 
     @Override

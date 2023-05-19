@@ -36,6 +36,7 @@ public class TestingResourceGroup
     private int schedulingWeight;
     private SchedulingPolicy policy;
     private boolean jmxExport;
+    private int workersPerQueryLimit;
     private ResourceGroupQueryLimits resourceGroupQueryLimits;
 
     public TestingResourceGroup(ResourceGroupId id)
@@ -173,6 +174,18 @@ public class TestingResourceGroup
     public ResourceGroupQueryLimits getPerQueryLimits()
     {
         return resourceGroupQueryLimits;
+    }
+
+    @Override
+    public int getWorkersPerQueryLimit()
+    {
+        return workersPerQueryLimit;
+    }
+
+    @Override
+    public void setWorkersPerQueryLimit(int limit)
+    {
+        workersPerQueryLimit = limit;
     }
 
     @Override

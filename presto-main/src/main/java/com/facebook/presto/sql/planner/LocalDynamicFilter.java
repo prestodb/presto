@@ -19,7 +19,6 @@ import com.facebook.presto.expressions.DynamicFilters.DynamicFilterExtractResult
 import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholder;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.AbstractJoinNode;
@@ -108,7 +107,7 @@ public class LocalDynamicFilter
         Set<String> joinDynamicFilters = planNode.getDynamicFilters().keySet();
         List<FilterNode> filterNodes = PlanNodeSearcher
                 .searchFrom(planNode.getProbe())
-                .where(LocalDynamicFilter::isFilterAboveTableScan)
+                .where(PlannerUtils::isFilterAboveTableScan)
                 .findAll();
 
         // Mapping from probe-side dynamic filters' IDs to their matching probe variables.
@@ -145,11 +144,6 @@ public class LocalDynamicFilter
             return Optional.empty();
         }
         return Optional.of(new LocalDynamicFilter(probeVariables, buildChannels, partitionCount));
-    }
-
-    private static boolean isFilterAboveTableScan(PlanNode node)
-    {
-        return node instanceof FilterNode && ((FilterNode) node).getSource() instanceof TableScanNode;
     }
 
     public Map<String, Integer> getBuildChannels()

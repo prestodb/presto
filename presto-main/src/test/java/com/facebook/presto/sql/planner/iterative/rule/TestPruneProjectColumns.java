@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 
 public class TestPruneProjectColumns
         extends BaseRuleTest
@@ -34,9 +34,9 @@ public class TestPruneProjectColumns
                     VariableReferenceExpression a = p.variable("a");
                     VariableReferenceExpression b = p.variable("b");
                     return p.project(
-                            identityAssignmentsAsSymbolReferences(b),
+                            identityAssignments(b),
                             p.project(
-                                    identityAssignmentsAsSymbolReferences(a, b),
+                                    identityAssignments(a, b),
                                     p.values(a, b)));
                 })
                 .matches(
@@ -55,9 +55,9 @@ public class TestPruneProjectColumns
                     VariableReferenceExpression a = p.variable("a");
                     VariableReferenceExpression b = p.variable("b");
                     return p.project(
-                            identityAssignmentsAsSymbolReferences(b),
+                            identityAssignments(b),
                             p.project(
-                                    identityAssignmentsAsSymbolReferences(b),
+                                    identityAssignments(b),
                                     p.values(a, b)));
                 })
                 .doesNotFire();

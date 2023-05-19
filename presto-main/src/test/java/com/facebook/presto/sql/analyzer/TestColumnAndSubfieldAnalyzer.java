@@ -28,8 +28,6 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY;
 import static com.facebook.presto.SystemSessionProperties.CHECK_ACCESS_CONTROL_WITH_SUBFIELDS;
-import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
-import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlWithSubfields;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -198,7 +196,7 @@ public class TestColumnAndSubfieldAnalyzer
                     Statement statement = SQL_PARSER.createStatement(query);
                     Analysis analysis = analyzer.analyze(statement);
                     assertEquals(
-                            analysis.getTableColumnAndSubfieldReferencesForAccessControl(isCheckAccessControlOnUtilizedColumnsOnly(session), isCheckAccessControlWithSubfields(session))
+                            analysis.getAccessControlReferences().getTableColumnAndSubfieldReferencesForAccessControl()
                                     .values().stream().findFirst().get().entrySet().stream()
                                     .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().stream().map(Subfield::toString).collect(toImmutableSet()))),
                             expected);

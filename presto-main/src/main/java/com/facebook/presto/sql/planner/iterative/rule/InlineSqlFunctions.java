@@ -14,45 +14,36 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.expressions.RowExpressionRewriter;
+import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isInlineSqlFunctions;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
-import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.facebook.presto.sql.relational.SqlFunctionUtils.getSqlFunctionExpression;
-import static java.util.Collections.emptyMap;
+import static com.facebook.presto.sql.relational.SqlFunctionUtils.getSqlFunctionRowExpression;
 import static java.util.Objects.requireNonNull;
 
 public class InlineSqlFunctions
-        extends ExpressionRewriteRuleSet
+        extends RowExpressionRewriteRuleSet
 {
     public InlineSqlFunctions(Metadata metadata, SqlParser sqlParser)
     {
         super(createRewrite(metadata, sqlParser));
     }
 
-    private static ExpressionRewriter createRewrite(Metadata metadata, SqlParser sqlParser)
+    private static PlanRowExpressionRewriter createRewrite(Metadata metadata, SqlParser sqlParser)
     {
         requireNonNull(metadata, "metadata is null");
         requireNonNull(sqlParser, "sqlParser is null");
@@ -60,16 +51,7 @@ public class InlineSqlFunctions
         return (expression, context) -> InlineSqlFunctionsRewriter.rewrite(
                 expression,
                 context.getSession(),
-                metadata,
-                context.getVariableAllocator(),
-                getExpressionTypes(
-                        context.getSession(),
-                        metadata,
-                        sqlParser,
-                        TypeProvider.viewOf(context.getVariableAllocator().getVariables()),
-                        expression,
-                        emptyMap(),
-                        context.getWarningCollector()));
+                metadata);
     }
 
     @Override
@@ -77,66 +59,56 @@ public class InlineSqlFunctions
     {
         // Aggregations are not rewritten because they cannot have SQL functions
         return ImmutableSet.of(
-                projectExpressionRewrite(),
-                filterExpressionRewrite(),
-                joinExpressionRewrite(),
-                valuesExpressionRewrite());
+                projectRowExpressionRewriteRule(),
+                filterRowExpressionRewriteRule(),
+                joinRowExpressionRewriteRule(),
+                valueRowExpressionRewriteRule());
     }
 
     public static class InlineSqlFunctionsRewriter
     {
         private InlineSqlFunctionsRewriter() {}
 
-        public static Expression rewrite(Expression expression, Session session, Metadata metadata, VariableAllocator variableAllocator, Map<NodeRef<Expression>, Type> expressionTypes)
+        public static RowExpression rewrite(RowExpression expression, Session session, Metadata metadata)
         {
             if (isInlineSqlFunctions(session)) {
-                return ExpressionTreeRewriter.rewriteWith(new Visitor(session, metadata, variableAllocator, expressionTypes), expression);
+                return RowExpressionTreeRewriter.rewriteWith(new Visitor(session, metadata), expression);
             }
             return expression;
         }
 
         private static class Visitor
-                extends com.facebook.presto.sql.tree.ExpressionRewriter<Void>
+                extends RowExpressionRewriter<Void>
         {
             private final Session session;
             private final Metadata metadata;
-            private final VariableAllocator variableAllocator;
-            private final Map<NodeRef<Expression>, Type> expressionTypes;
 
-            public Visitor(Session session, Metadata metadata, VariableAllocator variableAllocator, Map<NodeRef<Expression>, Type> expressionTypes)
+            public Visitor(Session session, Metadata metadata)
             {
                 this.session = requireNonNull(session, "session is null");
                 this.metadata = requireNonNull(metadata, "metadata is null");
-                this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
-                this.expressionTypes = expressionTypes;
             }
 
             @Override
-            public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public RowExpression rewriteCall(CallExpression expression, Void context, RowExpressionTreeRewriter<Void> treeRewriter)
             {
-                List<Type> argumentTypes = new ArrayList<>();
-                List<Expression> rewrittenArguments = new ArrayList<>();
-                for (Expression argument : node.getArguments()) {
-                    argumentTypes.add(expressionTypes.get(NodeRef.of(argument)));
+                List<RowExpression> rewrittenArguments = new ArrayList<>();
+                for (RowExpression argument : expression.getArguments()) {
                     rewrittenArguments.add(treeRewriter.rewrite(argument, context));
                 }
 
-                FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().resolveFunction(
-                        Optional.of(session.getSessionFunctions()),
-                        session.getTransactionId(),
-                        qualifyObjectName(node.getName()),
-                        fromTypes(argumentTypes));
+                FunctionHandle functionHandle = expression.getFunctionHandle();
                 FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(functionHandle);
 
                 if (functionMetadata.getImplementationType() != FunctionImplementationType.SQL) {
-                    return new FunctionCall(node.getName(), rewrittenArguments);
+                    return new CallExpression(expression.getSourceLocation(), expression.getDisplayName(), functionHandle, expression.getType(), rewrittenArguments);
                 }
-                return getSqlFunctionExpression(
+                return getSqlFunctionRowExpression(
                         functionMetadata,
                         (SqlInvokedScalarFunctionImplementation) metadata.getFunctionAndTypeManager().getScalarFunctionImplementation(functionHandle),
                         metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
-                        variableAllocator,
                         session.getSqlFunctionProperties(),
+                        session.getSessionFunctions(),
                         rewrittenArguments);
             }
         }

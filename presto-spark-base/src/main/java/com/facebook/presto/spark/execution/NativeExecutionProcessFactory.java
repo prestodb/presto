@@ -31,6 +31,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionProcessReuseEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -47,6 +48,8 @@ public class NativeExecutionProcessFactory
     private final JsonCodec<ServerInfo> serverInfoCodec;
     private final TaskManagerConfig taskManagerConfig;
     private final WorkerProperty<?, ?, ?> workerProperty;
+
+    private static NativeExecutionProcess process;
 
     @Inject
     public NativeExecutionProcessFactory(
@@ -66,11 +69,14 @@ public class NativeExecutionProcessFactory
         this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
     }
 
-    public NativeExecutionProcess createNativeExecutionProcess(
+    public synchronized NativeExecutionProcess getNativeExecutionProcess(
             Session session,
             URI location)
     {
-        return createNativeExecutionProcess(session, location, MAX_ERROR_DURATION);
+        if (!isNativeExecutionProcessReuseEnabled(session) || process == null) {
+            process = createNativeExecutionProcess(session, location, MAX_ERROR_DURATION);
+        }
+        return process;
     }
 
     public NativeExecutionProcess createNativeExecutionProcess(
@@ -99,5 +105,8 @@ public class NativeExecutionProcessFactory
     {
         coreExecutor.shutdownNow();
         errorRetryScheduledExecutor.shutdownNow();
+        if (process != null) {
+            process.close();
+        }
     }
 }

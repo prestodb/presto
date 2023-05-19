@@ -48,6 +48,46 @@ public class TestSqlToRowExpressionTranslator
     }
 
     @Test
+    public void testRewriteIsNotNullPredicate()
+    {
+        assertEquals(
+                translator.translate("x is NOT NULL", ImmutableMap.of("x", BIGINT)),
+                translator.translate("NOT(x IS NULL)", ImmutableMap.of("x", BIGINT)));
+    }
+
+    @Test
+    public void testRewriteCurrentTime()
+    {
+        assertEquals(
+                translator.translate("CURRENT_TIME", ImmutableMap.of()),
+                translator.translate("\"current_time\"()", ImmutableMap.of()));
+    }
+
+    @Test
+    public void testRewriteCurrentUser()
+    {
+        assertEquals(
+                translator.translate("CURRENT_USER", ImmutableMap.of()),
+                translator.translate("\"$current_user\"()", ImmutableMap.of()));
+    }
+
+    @Test
+    public void testRewriteYearExtract()
+    {
+        assertEquals(
+                translator.translate("EXTRACT(YEAR FROM CURRENT_DATE)", ImmutableMap.of()),
+                translator.translate("year(\"current_date\"())", ImmutableMap.of()));
+    }
+
+    @Test
+    public void testTry()
+    {
+        assertEquals(
+                translator.translate("1 + try(2)", ImmutableMap.of()),
+                translator.translate("1 + \"$internal$try\"(() -> 2)", ImmutableMap.of()));
+    }
+
+    @Test
     public void testOptimizeDecimalLiteral()
     {
         // Short decimal

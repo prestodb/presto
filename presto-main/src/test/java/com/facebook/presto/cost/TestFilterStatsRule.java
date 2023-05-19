@@ -22,7 +22,6 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class TestFilterStatsRule
@@ -50,7 +49,8 @@ public class TestFilterStatsRule
     public void testEstimableFilter()
     {
         tester().assertStatsFor(pb -> pb
-                .filter(expression("i1 = 5"),
+                .registerVariable(pb.variable("i1"))
+                .filter(pb.rowExpression("i1 = 5"),
                         pb.values(pb.variable("i1", BIGINT), pb.variable("i2", BIGINT), pb.variable("i3", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
@@ -95,7 +95,8 @@ public class TestFilterStatsRule
                                 .nullsFraction(0.05)));
 
         defaultFilterTester.assertStatsFor(pb -> pb
-                .filter(expression("i1 = 5"),
+                .registerVariable(pb.variable("i1"))
+                .filter(pb.rowExpression("i1 = 5"),
                         pb.values(pb.variable("i1", BIGINT), pb.variable("i2", BIGINT), pb.variable("i3", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
@@ -146,7 +147,8 @@ public class TestFilterStatsRule
         // can't estimate function and default filter factor is turned off
         tester()
                 .assertStatsFor(pb -> pb
-                        .filter(expression("sin(i1) = 1"),
+                        .registerVariable(pb.variable("i1"))
+                        .filter(pb.rowExpression("sin(i1) = 1"),
                                 pb.values(pb.variable("i1", BIGINT), pb.variable("i2", BIGINT), pb.variable("i3", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
@@ -173,7 +175,8 @@ public class TestFilterStatsRule
 
         // can't estimate function, but default filter factor is turned on
         defaultFilterTester.assertStatsFor(pb -> pb
-                .filter(expression("sin(i1) = 1"),
+                .registerVariable(pb.variable("i1"))
+                .filter(pb.rowExpression("sin(i1) = 1"),
                         pb.values(pb.variable("i1", BIGINT), pb.variable("i2", BIGINT), pb.variable("i3", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)

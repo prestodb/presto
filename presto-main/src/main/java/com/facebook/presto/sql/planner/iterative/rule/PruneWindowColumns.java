@@ -70,7 +70,7 @@ public class PruneWindowColumns
         PlanNode prunedWindowNode = new WindowNode(
                 windowNode.getSourceLocation(),
                 windowNode.getId(),
-                restrictOutputs(idAllocator, windowNode.getSource(), referencedInputs.build(), false)
+                restrictOutputs(idAllocator, windowNode.getSource(), referencedInputs.build())
                         .orElse(windowNode.getSource()),
                 windowNode.getSpecification(),
                 referencedFunctions,

@@ -26,4 +26,6 @@ public interface ColumnReader
     void prepareNextRead(int batchSize);
 
     ColumnChunk readNext();
+
+    long getRetainedSizeInBytes();
 }

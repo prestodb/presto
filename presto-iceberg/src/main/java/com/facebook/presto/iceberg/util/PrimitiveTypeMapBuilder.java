@@ -71,7 +71,7 @@ public class PrimitiveTypeMapBuilder
 
     private void visitMapType(MapType type, String name, List<String> parent)
     {
-        parent = ImmutableList.<String>builder().addAll(parent).add(name).add("map").build();
+        parent = ImmutableList.<String>builder().addAll(parent).add(name).add("key_value").build();
         visitType(type.getKeyType(), "key", parent);
         visitType(type.getValueType(), "value", parent);
     }

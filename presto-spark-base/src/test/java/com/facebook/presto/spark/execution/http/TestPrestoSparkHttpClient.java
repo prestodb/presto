@@ -76,7 +76,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
@@ -708,43 +707,22 @@ public class TestPrestoSparkHttpClient
             assertFalse(task.getTaskInfo().isPresent());
             assertFalse(task.pollResult().isPresent());
 
-            List<SerializedPage> resultPages = new ArrayList<>();
-            // Start polling results
-            ScheduledFuture scheduledFuture = scheduler.scheduleAtFixedRate(() ->
-            {
-                try {
-                    Optional<SerializedPage> page = task.pollResult();
-                    page.ifPresent(resultPages::add);
-                }
-                catch (InterruptedException e) {
-                    e.printStackTrace();
-                    fail();
-                }
-            }, 0, 200, TimeUnit.MILLISECONDS);
-
             // Start task
-            task.start().handle((v, t) ->
-            {
-                if (t != null) {
-                    t.getCause().printStackTrace();
-                    fail();
-                }
-                try {
-                    // Wait for a bit to allow enough time to consume results completely.
-                    Thread.sleep(400);
-                    assertFalse(task.pollResult().isPresent());
-                    assertEquals(resultPages.size(), 10);
-                    task.stop();
-                    scheduledFuture.cancel(false);
-                }
-                catch (InterruptedException e) {
-                    e.printStackTrace();
-                    fail();
-                }
-                return null;
-            }).get();
+            TaskInfo taskInfo = task.start();
+            assertFalse(taskInfo.getTaskStatus().getState().isDone());
+
+            List<SerializedPage> resultPages = new ArrayList<>();
+            for (int i = 0; i < 100 && resultPages.size() < 10; ++i) {
+                Optional<SerializedPage> page = task.pollResult();
+                page.ifPresent(resultPages::add);
+            }
+            assertFalse(task.pollResult().isPresent());
+            assertEquals(10, resultPages.size());
+            assertTrue(task.getTaskInfo().isPresent());
+
+            task.stop();
         }
-        catch (InterruptedException | ExecutionException e) {
+        catch (InterruptedException e) {
             e.printStackTrace();
             fail();
         }
@@ -893,6 +871,18 @@ public class TestPrestoSparkHttpClient
                         }
                         else if (method.equalsIgnoreCase("DELETE")) {
                             // DELETE /v1/task/{taskId}
+                            if (Pattern.compile("\\/v1\\/task\\/[a-zA-Z0-9]+.[0-9]+.[0-9]+.[0-9]+\\/results\\/[0-9]+\\z").matcher(path).find()) {
+                                try {
+                                    future.complete(responseHandler.handle(request, responseManager.createDummyResultResponse()));
+                                }
+                                catch (Exception e) {
+                                    e.printStackTrace();
+                                    future.completeExceptionally(e);
+                                }
+                            }
+                        }
+                        else if (method.equalsIgnoreCase("DELETE")) {
+                            // DELETE /v1/task/{taskId}/results/{bufferId}
                             if (Pattern.compile("\\/v1\\/task\\/[a-zA-Z0-9]+.[0-9]+.[0-9]+.[0-9]+\\z").matcher(path).find()) {
                                 try {
                                     future.complete(responseHandler.handle(request, responseManager.createDummyResultResponse()));

@@ -14,14 +14,12 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestAggregationStatsRule
         extends BaseStatsCalculatorTest
@@ -89,10 +87,11 @@ public class TestAggregationStatsRule
     private StatsCalculatorAssertion testAggregation(VariableStatsEstimate zStats)
     {
         return tester().assertStatsFor(pb -> pb
+                .registerVariable(pb.variable("x"))
                 .aggregation(ab -> ab
-                        .addAggregation(pb.variable("sum", BIGINT), expression("sum(x)"), ImmutableList.of(BIGINT))
-                        .addAggregation(pb.variable("count", BIGINT), expression("count()"), ImmutableList.of())
-                        .addAggregation(pb.variable("count_on_x", BIGINT), expression("count(x)"), ImmutableList.of(BIGINT))
+                        .addAggregation(pb.variable("sum", BIGINT), pb.rowExpression("sum(x)"))
+                        .addAggregation(pb.variable("count", BIGINT), pb.rowExpression("count()"))
+                        .addAggregation(pb.variable("count_on_x", BIGINT), pb.rowExpression("count(x)"))
                         .singleGroupingSet(pb.variable("y", BIGINT), pb.variable("z", BIGINT))
                         .source(pb.values(pb.variable("x", BIGINT), pb.variable("y", BIGINT), pb.variable("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.builder()
@@ -138,8 +137,9 @@ public class TestAggregationStatsRule
     public void testAggregationStatsCappedToInputRows()
     {
         tester().assertStatsFor(pb -> pb
+                .registerVariable(pb.variable("x"))
                 .aggregation(ab -> ab
-                        .addAggregation(pb.variable("count_on_x", BIGINT), expression("count(x)"), ImmutableList.of(BIGINT))
+                        .addAggregation(pb.variable("count_on_x", BIGINT), pb.rowExpression("count(x)"))
                         .singleGroupingSet(pb.variable("y", BIGINT), pb.variable("z", BIGINT))
                         .source(pb.values(pb.variable("x", BIGINT), pb.variable("y", BIGINT), pb.variable("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.builder()
