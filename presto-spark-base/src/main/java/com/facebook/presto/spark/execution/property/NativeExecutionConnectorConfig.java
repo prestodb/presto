@@ -21,6 +21,7 @@ import java.util.Map;
 
 /**
  * This config class corresponds to catalog/<catalog-name>.properties for native execution process. Properties inside will be used in PrestoServer.cpp
+ * Currently, presto-on-spark native only supports querying 1 catalog in a single spark session.
  */
 public class NativeExecutionConnectorConfig
 {

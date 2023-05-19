@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spark.execution;
 
+import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
+import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
+import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
 import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleInfoTranslator;
@@ -22,6 +25,9 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.units.Duration;
+import org.jheaps.annotations.VisibleForTesting;
+
+import java.util.Optional;
 
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -30,6 +36,22 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class NativeExecutionModule
         implements Module
 {
+    private Optional<NativeExecutionConnectorConfig> connectorConfig;
+
+    // For use by production system where the configurations can only be tuned via configurations.
+    public NativeExecutionModule()
+    {
+        this.connectorConfig = Optional.empty();
+    }
+
+    // In the future, we would make more bindings injected into NativeExecutionModule
+    // to be able to test various configuration parameters
+    @VisibleForTesting
+    public NativeExecutionModule(Optional<NativeExecutionConnectorConfig> connectorConfig)
+    {
+        this.connectorConfig = connectorConfig;
+    }
+
     @Override
     public void configure(Binder binder)
     {
@@ -43,7 +65,13 @@ public class NativeExecutionModule
                     config.setRequestTimeout(new Duration(10, SECONDS));
                     config.setMaxConnectionsPerServer(250);
                 });
-        binder.bind(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
+        if (connectorConfig.isPresent()) {
+            binder.bind(PrestoSparkWorkerProperty.class).toInstance(new PrestoSparkWorkerProperty(new NativeExecutionSystemConfig(), connectorConfig.get(), new NativeExecutionNodeConfig()));
+        }
+        else {
+            binder.bind(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
+        }
+
         if (System.getProperty("NATIVE_PORT") != null) {
             binder.bind(NativeExecutionProcessFactory.class).to(DetachedNativeExecutionProcessFactory.class).in(Scopes.SINGLETON);
         }
