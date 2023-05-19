@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.DEFAULT_JOIN_SELECTIVITY_COEFFICIENT;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
@@ -211,6 +213,7 @@ public class TestRemoveRedundantDistinctAggregation
     public void testJoinWithGroupByOnDifferentKey()
     {
         assertPlan("select distinct orderstatus, orderkey from (select orderstatus, max_by(orderkey, totalprice) orderkey from orders group by orderstatus) as t1 join lineitem using(orderkey)",
+                useDefaultJoinSelectivity(false), // disable default join selectivity
                 output(
                         project(
                                 aggregation(
@@ -233,6 +236,45 @@ public class TestRemoveRedundantDistinctAggregation
                                                                 project(
                                                                         ImmutableMap.of(),
                                                                         tableScan("lineitem", ImmutableMap.of("orderkey_10", "orderkey"))))))))));
+    }
+
+    // Trigger when using default join selectivity
+    @Test
+    public void testJoinWithGroupByOnDifferentKeyUsingDefaultJoinSelectivityEnabled()
+    {
+        assertPlan("select distinct orderstatus, orderkey from (select orderstatus, max_by(orderkey, totalprice) orderkey from orders group by orderstatus) as t1 join lineitem using(orderkey)",
+                useDefaultJoinSelectivity(true), // enable join selectivity
+                output(
+                        project(
+                                aggregation(
+                                        ImmutableMap.of(),
+                                        anyTree(
+                                                join(
+                                                        INNER,
+                                                        ImmutableList.of(equiJoinClause("orderkey_10", "max_by")),
+                                                        project(
+                                                                ImmutableMap.of(),
+                                                                tableScan("lineitem", ImmutableMap.of("orderkey_10", "orderkey"))),
+                                                        project(
+                                                                aggregation(
+                                                                        ImmutableMap.of("max_by", functionCall("max_by", ImmutableList.of("max_by_24"))),
+                                                                        FINAL,
+                                                                        anyTree(
+                                                                                aggregation(
+                                                                                        ImmutableMap.of("max_by_24", functionCall("max_by", ImmutableList.of("orderkey", "totalprice"))),
+                                                                                        PARTIAL,
+                                                                                        project(
+                                                                                                tableScan("orders", ImmutableMap.of("totalprice", "totalprice", "orderkey", "orderkey")))))))))))));
+    }
+
+    private Session useDefaultJoinSelectivity(boolean useJoinSelectivity)
+    {
+        if (useJoinSelectivity) {
+            return Session.builder(this.getQueryRunner().getDefaultSession())
+                    .setSystemProperty(DEFAULT_JOIN_SELECTIVITY_COEFFICIENT, "0.1")
+                    .build();
+        }
+        return this.getQueryRunner().getDefaultSession();
     }
 
     @Test
