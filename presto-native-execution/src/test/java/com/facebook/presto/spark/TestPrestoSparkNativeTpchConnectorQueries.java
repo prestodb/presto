@@ -16,7 +16,6 @@ package com.facebook.presto.spark;
 import com.facebook.presto.nativeworker.AbstractTestNativeTpchConnectorQueries;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
-import org.testng.annotations.Ignore;
 
 public class TestPrestoSparkNativeTpchConnectorQueries
         extends AbstractTestNativeTpchConnectorQueries
@@ -24,7 +23,7 @@ public class TestPrestoSparkNativeTpchConnectorQueries
     @Override
     protected QueryRunner createQueryRunner()
     {
-        return PrestoSparkNativeQueryRunnerUtils.createPrestoSparkNativeQueryRunner();
+        return PrestoSparkNativeQueryRunnerUtils.createTpchRunner();
     }
 
     @Override
@@ -41,16 +40,9 @@ public class TestPrestoSparkNativeTpchConnectorQueries
         PrestoSparkNativeQueryRunnerUtils.assertShuffleMetadata();
     }
 
-    // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
     @Override
-    @Ignore
-    public void testMissingTpchConnector() {}
-
-    @Override
-    @Ignore
-    public void testTpchDateFilter() {}
-
-    @Override
-    @Ignore
-    public void testTpchTinyTables() {}
+    public void testMissingTpchConnector()
+    {
+        super.testMissingTpchConnector(".*Catalog tpch does not exist*");
+    }
 }
