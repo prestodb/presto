@@ -95,7 +95,7 @@ public class PinotConfig
     private int nonAggregateLimitForBrokerQueries = DEFAULT_NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES;
     private boolean pushdownTopNBrokerQueries = true;
     private boolean pushdownProjectExpressions = true;
-    private boolean pushdownDynamicFilter;
+    private boolean pushdownDynamicFilter = true;
     private int maxPushdownDynamicFilterSize = DEFAULT_MAX_PUSHDOWN_DYNAMIC_FILTER_SIZE;
     private String grpcHost;
     private int grpcPort = DEFAULT_PROXY_GRPC_PORT;
