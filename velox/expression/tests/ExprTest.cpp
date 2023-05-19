@@ -54,6 +54,18 @@ class ExprTest : public testing::Test, public VectorTestBase {
     return core::Expressions::inferTypes(untyped, rowType, execCtx_->pool());
   }
 
+  std::vector<core::TypedExprPtr> parseMultipleExpression(
+      const std::string& text,
+      const RowTypePtr& rowType) {
+    auto untyped = parse::parseMultipleExpressions(text, options_);
+    std::vector<core::TypedExprPtr> parsed;
+    for (auto& iExpr : untyped) {
+      parsed.push_back(
+          core::Expressions::inferTypes(iExpr, rowType, execCtx_->pool()));
+    }
+    return parsed;
+  }
+
   template <typename T = exec::ExprSet>
   std::unique_ptr<T> compileExpression(
       const std::string& expr,
@@ -71,6 +83,17 @@ class ExprTest : public testing::Test, public VectorTestBase {
     for (const auto& text : texts) {
       expressions.emplace_back(parseExpression(text, rowType));
     }
+    return std::make_unique<exec::ExprSet>(
+        std::move(expressions), execCtx_.get());
+  }
+
+  // Utility method to compile multiple expressions expected in a single sql
+  // text.
+  std::unique_ptr<exec::ExprSet> compileMultipleExprs(
+      const std::string& text,
+      const RowTypePtr& rowType) {
+    std::vector<core::TypedExprPtr> expressions =
+        parseMultipleExpression(text, rowType);
     return std::make_unique<exec::ExprSet>(
         std::move(expressions), execCtx_.get());
   }
@@ -197,19 +220,36 @@ class ExprTest : public testing::Test, public VectorTestBase {
     if (pos == std::string::npos) {
       return context;
     }
-
     return context.substr(0, pos);
   }
 
-  /// Extract input path from the 'context':
-  ///     "<expression>. Input data: <input path>."
-  std::string extractInputPath(const std::string& context) {
-    auto startPos = context.find(". Input data: ");
+  std::string extractFromErrorContext(
+      const std::string& context,
+      const char* key) {
+    auto startPos = context.find(key);
     VELOX_CHECK(startPos != std::string::npos);
-    startPos += strlen(". Input data: ");
+    startPos += strlen(key);
     auto endPos = context.find(".", startPos);
     VELOX_CHECK(endPos != std::string::npos);
     return context.substr(startPos, endPos - startPos);
+  }
+
+  /// Extract input path from the 'context':
+  ///     "<expression>. Input data: <input path>. ..."
+  std::string extractInputPath(const std::string& context) {
+    return extractFromErrorContext(context, ". Input data: ");
+  }
+
+  /// Extract expression sql's path from the 'context':
+  ///     "... <input path>. SQL expression: <sql path>"
+  std::string extractSqlPath(const std::string& context) {
+    return extractFromErrorContext(context, ". SQL expression: ");
+  }
+
+  /// Extract all expressions sqls' path from the 'context':
+  ///     "... <sql path>.  All SQL expressions: <all sql path>"
+  std::string extractAllExprSqlPath(const std::string& context) {
+    return extractFromErrorContext(context, ". All SQL expressions: ");
   }
 
   VectorPtr restoreVector(const std::string& path) {
@@ -220,15 +260,6 @@ class ExprTest : public testing::Test, public VectorTestBase {
     return copy;
   }
 
-  std::string extractSqlPath(const std::string& context) {
-    auto startPos = context.find(". SQL expression: ");
-    VELOX_CHECK(startPos != std::string::npos);
-    startPos += strlen(". SQL expression: ");
-    auto endPos = context.find(".", startPos);
-    VELOX_CHECK(endPos != std::string::npos);
-    return context.substr(startPos, endPos - startPos);
-  }
-
   void verifyDataAndSqlPaths(const VeloxException& e, const VectorPtr& data) {
     auto inputPath = extractInputPath(e.topLevelContext());
     auto copy = restoreVector(inputPath);
@@ -237,6 +268,10 @@ class ExprTest : public testing::Test, public VectorTestBase {
     auto sqlPath = extractSqlPath(e.topLevelContext());
     auto sql = readSqlFromFile(sqlPath);
     ASSERT_NO_THROW(compileExpression(sql, asRowType(data->type())));
+
+    auto allSqlsPath = extractAllExprSqlPath(e.topLevelContext());
+    auto allSqls = readSqlFromFile(allSqlsPath);
+    ASSERT_NO_THROW(compileMultipleExprs(allSqls, asRowType(data->type())));
   }
 
   std::string readSqlFromFile(const std::string& path) {
@@ -2313,6 +2348,17 @@ TEST_F(ExprTest, exceptionContext) {
 
   try {
     evaluate("c0 + (c1 % 0)", data);
+    FAIL() << "Expected an exception";
+  } catch (const VeloxException& e) {
+    ASSERT_EQ("mod(cast((c1) as BIGINT), 0:BIGINT)", e.context());
+    ASSERT_EQ(
+        "plus(cast((c0) as BIGINT), mod(cast((c1) as BIGINT), 0:BIGINT))",
+        trimInputPath(e.topLevelContext()));
+    verifyDataAndSqlPaths(e, data);
+  }
+
+  try {
+    evaluateMultiple({"c0 + (c1 % 0)", "c0 + c1"}, data);
     FAIL() << "Expected an exception";
   } catch (const VeloxException& e) {
     ASSERT_EQ("mod(cast((c1) as BIGINT), 0:BIGINT)", e.context());

@@ -172,13 +172,15 @@ class Expr {
 
   /// Evaluates the expression for the specified 'rows'.
   ///
-  /// @param topLevel Boolean indicating whether this is a top-level expression
-  /// or one of the sub-expressions. Used to setup exception context.
+  /// @param parentExprSet pointer to the parent ExprSet which is calling
+  /// evaluate on this expression. Should only be set for top level expressions
+  /// and not passed on to child expressions as it is ssed to setup exception
+  /// context.
   void eval(
       const SelectivityVector& rows,
       EvalCtx& context,
       VectorPtr& result,
-      bool topLevel = false);
+      const ExprSet* FOLLY_NULLABLE parentExprSet = nullptr);
 
   /// Evaluates the expression using fast path that assumes all inputs and
   /// intermediate results are flat or constant and have no nulls.
@@ -189,19 +191,21 @@ class Expr {
   /// path is enabled only for batch sizes less than 1'000 and expressions where
   /// all input and intermediate types are primitive and not strings.
   ///
-  /// @param topLevel Boolean indicating whether this is a top-level expression
-  /// or one of the sub-expressions. Used to setup exception context.
+  /// @param parentExprSet pointer to the parent ExprSet which is calling
+  /// evaluate on this expression. Should only be set for top level expressions
+  /// and not passed on to child expressions as it is ssed to setup exception
+  /// context.
   void evalFlatNoNulls(
       const SelectivityVector& rows,
       EvalCtx& context,
       VectorPtr& result,
-      bool topLevel = false);
+      const ExprSet* FOLLY_NULLABLE parentExprSet = nullptr);
 
   void evalFlatNoNullsImpl(
       const SelectivityVector& rows,
       EvalCtx& context,
       VectorPtr& result,
-      bool topLevel);
+      const ExprSet* FOLLY_NULLABLE parentExprSet);
 
   // Simplified path for expression evaluation (flattens all vectors).
   void evalSimplified(
