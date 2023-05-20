@@ -139,6 +139,8 @@ void PrestoServer::run() {
         fmt::format("{}/config.properties", configDirectoryPath_));
     nodeConfig->initialize(
         fmt::format("{}/node.properties", configDirectoryPath_));
+    // Create velox query config after we initialized system config.
+    BaseVeloxQueryConfig::instance();
 
     httpPort = systemConfig->httpServerHttpPort();
     if (systemConfig->httpServerHttpsEnabled()) {
@@ -558,8 +560,8 @@ PrestoServer::getHttpServerFilters() {
   }
 
   if (SystemConfig::instance()->enableHttpStatsFilter()) {
-    auto filter = getHttpStatsFilter();
-    if (filter != nullptr) {
+    auto additionalFilters = getAdditionalHttpServerFilters();
+    for (auto& filter : additionalFilters) {
       filters.push_back(std::move(filter));
     }
   }
@@ -567,9 +569,11 @@ PrestoServer::getHttpServerFilters() {
   return filters;
 }
 
-std::unique_ptr<proxygen::RequestHandlerFactory>
-PrestoServer::getHttpStatsFilter() {
-  return std::make_unique<http::filters::StatsFilterFactory>();
+std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
+PrestoServer::getAdditionalHttpServerFilters() {
+  std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters;
+  filters.emplace_back(std::make_unique<http::filters::StatsFilterFactory>());
+  return filters;
 }
 
 std::vector<std::string> PrestoServer::registerConnectors(
