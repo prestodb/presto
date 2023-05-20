@@ -72,7 +72,7 @@ void PeriodicTaskManager::start() {
   }
   addPrestoExchangeSourceMemoryStatsTask();
   if (asyncDataCache_) {
-    addAsyncDataCacheStatsTask();
+    addCacheStatsUpdateTask();
   }
   addConnectorStatsTask();
   addOperatingSystemStatsUpdateTask();
@@ -200,138 +200,128 @@ void PeriodicTaskManager::addPrestoExchangeSourceMemoryStatsTask() {
       "exchange_source_counters");
 }
 
-void PeriodicTaskManager::addAsyncDataCacheStatsTask() {
+void PeriodicTaskManager::updateCacheStats() {
+  const auto memoryCacheStats = asyncDataCache_->refreshStats();
+
+  // Snapshots.
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheNumEntries, memoryCacheStats.numEntries);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheNumEmptyEntries, memoryCacheStats.numEmptyEntries);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheNumSharedEntries, memoryCacheStats.numShared);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheNumExclusiveEntries, memoryCacheStats.numExclusive);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheNumPrefetchedEntries, memoryCacheStats.numPrefetch);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheTotalTinyBytes, memoryCacheStats.tinySize);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheTotalLargeBytes, memoryCacheStats.largeSize);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheTotalTinyPaddingBytes, memoryCacheStats.tinyPadding);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheTotalLargePaddingBytes, memoryCacheStats.largePadding);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheTotalPrefetchBytes, memoryCacheStats.prefetchBytes);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheSumEvictScore, memoryCacheStats.sumEvictScore);
+
+  // Interval cumulatives.
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheNumHit,
+      memoryCacheStats.numHit - lastMemoryCacheHits_);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheNumNew,
+      memoryCacheStats.numNew - lastMemoryCacheInserts_);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheNumEvict,
+      memoryCacheStats.numEvict - lastMemoryCacheEvictions_);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheNumEvictChecks,
+      memoryCacheStats.numEvictChecks - lastMemoryCacheEvictionChecks_);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheNumWaitExclusive,
+      memoryCacheStats.numWaitExclusive - lastMemoryCacheStalls_);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheNumAllocClocks,
+      memoryCacheStats.allocClocks - lastMemoryCacheAllocClocks_);
+
+  lastMemoryCacheHits_ = memoryCacheStats.numHit;
+  lastMemoryCacheInserts_ = memoryCacheStats.numNew;
+  lastMemoryCacheEvictions_ = memoryCacheStats.numEvict;
+  lastMemoryCacheEvictionChecks_ = memoryCacheStats.numEvictChecks;
+  lastMemoryCacheStalls_ = memoryCacheStats.numWaitExclusive;
+  lastMemoryCacheAllocClocks_ = memoryCacheStats.allocClocks;
+
+  // All time cumulatives.
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheNumCumulativeHit, memoryCacheStats.numHit);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheNumCumulativeNew, memoryCacheStats.numNew);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheNumCumulativeEvict, memoryCacheStats.numEvict);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheNumCumulativeEvictChecks,
+      memoryCacheStats.numEvictChecks);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheNumCumulativeWaitExclusive,
+      memoryCacheStats.numWaitExclusive);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheNumCumulativeAllocClocks,
+      memoryCacheStats.allocClocks);
+  if (memoryCacheStats.ssdStats != nullptr) {
+    REPORT_ADD_STAT_VALUE(
+        kCounterSsdCacheCumulativeReadEntries,
+        memoryCacheStats.ssdStats->entriesRead)
+    REPORT_ADD_STAT_VALUE(
+        kCounterSsdCacheCumulativeReadBytes,
+        memoryCacheStats.ssdStats->bytesRead);
+    REPORT_ADD_STAT_VALUE(
+        kCounterSsdCacheCumulativeWrittenEntries,
+        memoryCacheStats.ssdStats->entriesWritten);
+    REPORT_ADD_STAT_VALUE(
+        kCounterSsdCacheCumulativeWrittenBytes,
+        memoryCacheStats.ssdStats->bytesWritten);
+    REPORT_ADD_STAT_VALUE(
+        kCounterSsdCacheCumulativeCachedEntries,
+        memoryCacheStats.ssdStats->entriesCached);
+    REPORT_ADD_STAT_VALUE(
+        kCounterSsdCacheCumulativeCachedBytes,
+        memoryCacheStats.ssdStats->bytesCached);
+    REPORT_ADD_STAT_VALUE(
+        kCounterSsdCacheCumulativeOpenSsdErrors,
+        memoryCacheStats.ssdStats->openFileErrors);
+    REPORT_ADD_STAT_VALUE(
+        kCounterSsdCacheCumulativeOpenCheckpointErrors,
+        memoryCacheStats.ssdStats->openCheckpointErrors);
+    REPORT_ADD_STAT_VALUE(
+        kCounterSsdCacheCumulativeOpenLogErrors,
+        memoryCacheStats.ssdStats->openLogErrors);
+    REPORT_ADD_STAT_VALUE(
+        kCounterSsdCacheCumulativeDeleteCheckpointErrors,
+        memoryCacheStats.ssdStats->deleteCheckpointErrors);
+    REPORT_ADD_STAT_VALUE(
+        kCounterSsdCacheCumulativeGrowFileErrors,
+        memoryCacheStats.ssdStats->growFileErrors);
+    REPORT_ADD_STAT_VALUE(
+        kCounterSsdCacheCumulativeWriteSsdErrors,
+        memoryCacheStats.ssdStats->writeSsdErrors);
+    REPORT_ADD_STAT_VALUE(
+        kCounterSsdCacheCumulativeWriteCheckpointErrors,
+        memoryCacheStats.ssdStats->writeCheckpointErrors);
+    REPORT_ADD_STAT_VALUE(
+        kCounterSsdCacheCumulativeReadSsdErrors,
+        memoryCacheStats.ssdStats->readSsdErrors);
+    REPORT_ADD_STAT_VALUE(
+        kCounterSsdCacheCumulativeReadCheckpointErrors,
+        memoryCacheStats.ssdStats->readCheckpointErrors);
+  }
+}
+
+void PeriodicTaskManager::addCacheStatsUpdateTask() {
   scheduler_.addFunction(
-      [asyncDataCache = asyncDataCache_]() {
-        const auto memoryCacheStats = asyncDataCache->refreshStats();
-
-        // Snapshots.
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheNumEntries, memoryCacheStats.numEntries);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheNumEmptyEntries,
-            memoryCacheStats.numEmptyEntries);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheNumSharedEntries, memoryCacheStats.numShared);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheNumExclusiveEntries,
-            memoryCacheStats.numExclusive);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheNumPrefetchedEntries,
-            memoryCacheStats.numPrefetch);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheTotalTinyBytes, memoryCacheStats.tinySize);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheTotalLargeBytes, memoryCacheStats.largeSize);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheTotalTinyPaddingBytes,
-            memoryCacheStats.tinyPadding);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheTotalLargePaddingBytes,
-            memoryCacheStats.largePadding);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheTotalPrefetchBytes,
-            memoryCacheStats.prefetchBytes);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheSumEvictScore, memoryCacheStats.sumEvictScore);
-
-        // Interval cumulatives.
-        static int64_t memoryNumHitOld{0};
-        static int64_t memoryNumNewOld{0};
-        static int64_t memoryNumEvictOld{0};
-        static int64_t memoryNumEvictChecksOld{0};
-        static int64_t memoryNumWaitExclusiveOld{0};
-        static int64_t memoryNumAllocClocksOld{0};
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheNumHit,
-            memoryCacheStats.numHit - memoryNumHitOld);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheNumNew,
-            memoryCacheStats.numNew - memoryNumNewOld);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheNumEvict,
-            memoryCacheStats.numEvict - memoryNumEvictOld);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheNumEvictChecks,
-            memoryCacheStats.numEvictChecks - memoryNumEvictChecksOld);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheNumWaitExclusive,
-            memoryCacheStats.numWaitExclusive - memoryNumWaitExclusiveOld);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheNumAllocClocks,
-            memoryCacheStats.allocClocks - memoryNumAllocClocksOld);
-
-        memoryNumHitOld = memoryCacheStats.numHit;
-        memoryNumNewOld = memoryCacheStats.numNew;
-        memoryNumEvictOld = memoryCacheStats.numEvict;
-        memoryNumEvictChecksOld = memoryCacheStats.numEvictChecks;
-        memoryNumWaitExclusiveOld = memoryCacheStats.numWaitExclusive;
-        memoryNumAllocClocksOld = memoryCacheStats.allocClocks;
-
-        // All time cumulatives.
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheNumCumulativeHit, memoryCacheStats.numHit);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheNumCumulativeNew, memoryCacheStats.numNew);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheNumCumulativeEvict, memoryCacheStats.numEvict);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheNumCumulativeEvictChecks,
-            memoryCacheStats.numEvictChecks);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheNumCumulativeWaitExclusive,
-            memoryCacheStats.numWaitExclusive);
-        REPORT_ADD_STAT_VALUE(
-            kCounterMemoryCacheNumCumulativeAllocClocks,
-            memoryCacheStats.allocClocks);
-        if (memoryCacheStats.ssdStats) {
-          REPORT_ADD_STAT_VALUE(
-              kCounterSsdCacheCumulativeReadEntries,
-              memoryCacheStats.ssdStats->entriesRead)
-          REPORT_ADD_STAT_VALUE(
-              kCounterSsdCacheCumulativeReadBytes,
-              memoryCacheStats.ssdStats->bytesRead);
-          REPORT_ADD_STAT_VALUE(
-              kCounterSsdCacheCumulativeWrittenEntries,
-              memoryCacheStats.ssdStats->entriesWritten);
-          REPORT_ADD_STAT_VALUE(
-              kCounterSsdCacheCumulativeWrittenBytes,
-              memoryCacheStats.ssdStats->bytesWritten);
-          REPORT_ADD_STAT_VALUE(
-              kCounterSsdCacheCumulativeCachedEntries,
-              memoryCacheStats.ssdStats->entriesCached);
-          REPORT_ADD_STAT_VALUE(
-              kCounterSsdCacheCumulativeCachedBytes,
-              memoryCacheStats.ssdStats->bytesCached);
-          REPORT_ADD_STAT_VALUE(
-              kCounterSsdCacheCumulativeOpenSsdErrors,
-              memoryCacheStats.ssdStats->openFileErrors);
-          REPORT_ADD_STAT_VALUE(
-              kCounterSsdCacheCumulativeOpenCheckpointErrors,
-              memoryCacheStats.ssdStats->openCheckpointErrors);
-          REPORT_ADD_STAT_VALUE(
-              kCounterSsdCacheCumulativeOpenLogErrors,
-              memoryCacheStats.ssdStats->openLogErrors);
-          REPORT_ADD_STAT_VALUE(
-              kCounterSsdCacheCumulativeDeleteCheckpointErrors,
-              memoryCacheStats.ssdStats->deleteCheckpointErrors);
-          REPORT_ADD_STAT_VALUE(
-              kCounterSsdCacheCumulativeGrowFileErrors,
-              memoryCacheStats.ssdStats->growFileErrors);
-          REPORT_ADD_STAT_VALUE(
-              kCounterSsdCacheCumulativeWriteSsdErrors,
-              memoryCacheStats.ssdStats->writeSsdErrors);
-          REPORT_ADD_STAT_VALUE(
-              kCounterSsdCacheCumulativeWriteCheckpointErrors,
-              memoryCacheStats.ssdStats->writeCheckpointErrors);
-          REPORT_ADD_STAT_VALUE(
-              kCounterSsdCacheCumulativeReadSsdErrors,
-              memoryCacheStats.ssdStats->readSsdErrors);
-          REPORT_ADD_STAT_VALUE(
-              kCounterSsdCacheCumulativeReadCheckpointErrors,
-              memoryCacheStats.ssdStats->readCheckpointErrors);
-        }
-      },
+      [this]() { updateCacheStats(); },
       std::chrono::microseconds{kCachePeriodGlobalCounters},
       "cache_counters");
 }

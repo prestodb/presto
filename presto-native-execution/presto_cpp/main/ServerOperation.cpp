@@ -36,12 +36,14 @@ const folly::F14FastMap<std::string, ServerOperation::Target>
     ServerOperation::kTargetLookup{
         {"connector", ServerOperation::Target::kConnector},
         {"systemConfig", ServerOperation::Target::kSystemConfig},
+        {"veloxQueryConfig", ServerOperation::Target::kVeloxQueryConfig},
     };
 
 const folly::F14FastMap<ServerOperation::Target, std::string>
     ServerOperation::kReverseTargetLookup{
         {ServerOperation::Target::kConnector, "connector"},
         {ServerOperation::Target::kSystemConfig, "systemConfig"},
+        {ServerOperation::Target::kVeloxQueryConfig, "veloxQueryConfig"},
     };
 
 ServerOperation::Target ServerOperation::targetFromString(
