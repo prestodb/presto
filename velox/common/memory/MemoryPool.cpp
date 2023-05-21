@@ -621,7 +621,8 @@ std::shared_ptr<MemoryPool> MemoryPoolImpl::genChild(
       Options{
           .alignment = alignment_,
           .trackUsage = trackUsage_,
-          .threadSafe = threadSafe});
+          .threadSafe = threadSafe,
+          .checkUsageLeak = checkUsageLeak_});
 }
 
 bool MemoryPoolImpl::maybeReserve(uint64_t increment) {

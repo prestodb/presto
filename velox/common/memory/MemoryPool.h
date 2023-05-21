@@ -192,6 +192,12 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
     return threadSafe_;
   }
 
+  /// Returns true if this memory pool checks memory leak on destruction.
+  /// Used only for test purposes.
+  virtual bool testingCheckUsageLeak() const {
+    return checkUsageLeak_;
+  }
+
   /// Invoked to traverse the memory pool subtree rooted at this, and calls
   /// 'visitor' on each visited child memory pool with the parent pool's
   /// 'poolMutex_' reader lock held. The 'visitor' must not access the
