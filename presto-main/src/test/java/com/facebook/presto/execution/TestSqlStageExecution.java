@@ -340,7 +340,8 @@ public class TestSqlStageExecution
         assertFalse(stage.getStageExecutionInfo().getTasks().isEmpty());
         assertFalse(stage.noMoreRetry());
 
-        while (!recoveryIsRun.get());
+        while (!recoveryIsRun.get()) {
+        }
 
         MockRemoteTaskFactory.MockRemoteTask secondTask = (MockRemoteTaskFactory.MockRemoteTask) allTasks.get(1);
         secondTask.markAllSplitsRun();
