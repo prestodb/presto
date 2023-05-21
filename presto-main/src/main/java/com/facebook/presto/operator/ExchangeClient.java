@@ -85,6 +85,7 @@ public class ExchangeClient
     private static final SerializedPage NO_MORE_PAGES = new SerializedPage(EMPTY_SLICE, PageCodecMarker.none(), 0, 0, 0);
     private static final ListenableFuture<?> NOT_BLOCKED = immediateFuture(null);
 
+    private DataSize sinkMaxBufferSize;
     private final long bufferCapacity;
     private final DataSize maxResponseSize;
     private final int concurrentRequestMultiplier;
@@ -131,6 +132,7 @@ public class ExchangeClient
     // ExchangeClientStatus.mergeWith assumes all clients have the same bufferCapacity.
     // Please change that method accordingly when this assumption becomes not true.
     public ExchangeClient(
+            DataSize sinkMaxBufferSize,
             DataSize bufferCapacity,
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
@@ -145,6 +147,7 @@ public class ExchangeClient
             Executor pageBufferClientCallbackExecutor)
     {
         checkArgument(responseSizeExponentialMovingAverageDecayingAlpha >= 0.0 && responseSizeExponentialMovingAverageDecayingAlpha <= 1.0, "responseSizeExponentialMovingAverageDecayingAlpha must be between 0 and 1: %s", responseSizeExponentialMovingAverageDecayingAlpha);
+        this.sinkMaxBufferSize = sinkMaxBufferSize;
         this.bufferCapacity = bufferCapacity.toBytes();
         this.maxResponseSize = maxResponseSize;
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
@@ -370,7 +373,7 @@ public class ExchangeClient
             return;
         }
         long averageResponseSize = max(1, responseSizeExponentialMovingAverage.get());
-        handleWorkerShuttingdown(averageResponseSize);
+        handleWorkerShuttingdown();
         long neededBytes = bufferCapacity - bufferRetainedSizeInBytes;
         if (neededBytes <= 0) {
             return;
@@ -403,13 +406,13 @@ public class ExchangeClient
             }
 
             DataSize max = new DataSize(min(averageResponseSize * 2, maxResponseSize.toBytes()), BYTE);
-            client.scheduleRequest(max);
+            client.scheduleRequest(max, false);
             i++;
         }
     }
 
     //FIXME this is a hack, we need to add some guard to make sure we don't end up consuming more memory, have some capacity limit for this
-    private void handleWorkerShuttingdown(long averageResponseSize)
+    private void handleWorkerShuttingdown()
     {
         for (int i = 0; i < shuttingdownClients.size(); ) {
             PageBufferClient client = shuttingdownClients.poll();
@@ -422,9 +425,8 @@ public class ExchangeClient
                 continue;
             }
 
-            DataSize max = new DataSize(min(averageResponseSize * 2, maxResponseSize.toBytes()), BYTE);
             log.warn("Handling shutting down node, client: %s", i);
-            client.scheduleRequest(max);
+            client.scheduleRequest(sinkMaxBufferSize, true);
             i++;
         }
     }

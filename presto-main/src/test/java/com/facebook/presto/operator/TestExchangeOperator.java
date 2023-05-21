@@ -86,6 +86,7 @@ public class TestExchangeOperator
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), scheduler);
 
         exchangeClientSupplier = (systemMemoryUsageListener) -> new ExchangeClient(
+                new DataSize(204, MEGABYTE),
                 new DataSize(32, MEGABYTE),
                 new DataSize(10, MEGABYTE),
                 3,

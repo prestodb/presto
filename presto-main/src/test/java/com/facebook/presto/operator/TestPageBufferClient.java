@@ -117,7 +117,7 @@ public class TestPageBufferClient
         // fetch a page and verify
         processor.addPage(location, expectedPage);
         callback.resetStats();
-        client.scheduleRequest(expectedMaxSize);
+        client.scheduleRequest(expectedMaxSize, false);
         requestComplete.await(10, TimeUnit.SECONDS);
 
         assertEquals(callback.getPages().size(), 1);
@@ -128,7 +128,7 @@ public class TestPageBufferClient
 
         // fetch no data and verify
         callback.resetStats();
-        client.scheduleRequest(expectedMaxSize);
+        client.scheduleRequest(expectedMaxSize, false);
         requestComplete.await(10, TimeUnit.SECONDS);
 
         assertEquals(callback.getPages().size(), 0);
@@ -140,7 +140,7 @@ public class TestPageBufferClient
         processor.addPage(location, expectedPage);
         processor.addPage(location, expectedPage);
         callback.resetStats();
-        client.scheduleRequest(expectedMaxSize);
+        client.scheduleRequest(expectedMaxSize, false);
         requestComplete.await(10, TimeUnit.SECONDS);
 
         assertEquals(callback.getPages().size(), 2);
@@ -155,7 +155,7 @@ public class TestPageBufferClient
         // finish and verify
         callback.resetStats();
         processor.setComplete(location);
-        client.scheduleRequest(expectedMaxSize);
+        client.scheduleRequest(expectedMaxSize, false);
         requestComplete.await(10, TimeUnit.SECONDS);
 
         // get the buffer complete signal
@@ -164,7 +164,7 @@ public class TestPageBufferClient
 
         // schedule the delete call to the buffer
         callback.resetStats();
-        client.scheduleRequest(expectedMaxSize);
+        client.scheduleRequest(expectedMaxSize, false);
         requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getFinishedBuffers(), 1);
 
@@ -201,7 +201,7 @@ public class TestPageBufferClient
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
-        client.scheduleRequest(expectedMaxSize);
+        client.scheduleRequest(expectedMaxSize, false);
         beforeRequest.await(10, TimeUnit.SECONDS);
         assertStatus(client, location, "running", 0, 1, 0, 0, "processing request");
         assertEquals(client.isRunning(), true);
@@ -245,7 +245,7 @@ public class TestPageBufferClient
 
         // send not found response and verify response was ignored
         processor.setResponse(new TestingResponse(HttpStatus.NOT_FOUND, ImmutableListMultimap.of(CONTENT_TYPE, PRESTO_PAGES), new byte[0]));
-        client.scheduleRequest(expectedMaxSize);
+        client.scheduleRequest(expectedMaxSize, false);
         requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
@@ -258,7 +258,7 @@ public class TestPageBufferClient
         // send invalid content type response and verify response was ignored
         callback.resetStats();
         processor.setResponse(new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(CONTENT_TYPE, "INVALID_TYPE"), new byte[0]));
-        client.scheduleRequest(expectedMaxSize);
+        client.scheduleRequest(expectedMaxSize, false);
         requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
@@ -271,7 +271,7 @@ public class TestPageBufferClient
         // send unexpected content type response and verify response was ignored
         callback.resetStats();
         processor.setResponse(new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(CONTENT_TYPE, "text/plain"), new byte[0]));
-        client.scheduleRequest(expectedMaxSize);
+        client.scheduleRequest(expectedMaxSize, false);
         requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
@@ -314,7 +314,7 @@ public class TestPageBufferClient
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
         // send request
-        client.scheduleRequest(expectedMaxSize);
+        client.scheduleRequest(expectedMaxSize, false);
         beforeRequest.await(10, TimeUnit.SECONDS);
         assertStatus(client, location, "running", 0, 1, 0, 0, "processing request");
         assertEquals(client.isRunning(), true);
@@ -372,7 +372,7 @@ public class TestPageBufferClient
 
         // request processor will throw exception, verify the request is marked a completed
         // this starts the error stopwatch
-        client.scheduleRequest(expectedMaxSize);
+        client.scheduleRequest(expectedMaxSize, false);
         requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
@@ -384,7 +384,7 @@ public class TestPageBufferClient
         tickerIncrement.set(new Duration(30, TimeUnit.SECONDS));
 
         // verify that the client has not failed
-        client.scheduleRequest(expectedMaxSize);
+        client.scheduleRequest(expectedMaxSize, false);
         requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 2);
@@ -396,7 +396,7 @@ public class TestPageBufferClient
         tickerIncrement.set(new Duration(31, TimeUnit.SECONDS));
 
         // verify that the client has failed
-        client.scheduleRequest(expectedMaxSize);
+        client.scheduleRequest(expectedMaxSize, false);
         requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 3);
