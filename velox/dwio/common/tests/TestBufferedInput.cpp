@@ -48,12 +48,12 @@ class ReadFileMock : public ::facebook::velox::ReadFile {
 void expectPreads(
     ReadFileMock& file,
     std::string_view content,
-    std::vector<std::pair<int, int>> reads) {
+    std::vector<Region> reads) {
   EXPECT_CALL(file, getName()).WillRepeatedly(Return("mock_name"));
   EXPECT_CALL(file, size()).WillRepeatedly(Return(content.size()));
-  for (auto [offset, size] : reads) {
-    ASSERT_GE(content.size(), offset + size);
-    EXPECT_CALL(file, pread(offset, size, _))
+  for (auto& read : reads) {
+    ASSERT_GE(content.size(), read.offset + read.length);
+    EXPECT_CALL(file, pread(read.offset, read.length, _))
         .Times(1)
         .WillOnce(
             [content](uint64_t offset, uint64_t length, void* buf)
@@ -67,7 +67,7 @@ void expectPreads(
 void expectPreadvs(
     ReadFileMock& file,
     std::string_view content,
-    std::vector<std::pair<int, int>> reads) {
+    std::vector<Region> reads) {
   EXPECT_CALL(file, getName()).WillRepeatedly(Return("mock_name"));
   EXPECT_CALL(file, size()).WillRepeatedly(Return(content.size()));
   EXPECT_CALL(file, preadv(_))
@@ -79,11 +79,12 @@ void expectPreadvs(
         for (size_t i = 0; i < reads.size(); ++i) {
           const auto& segment = segments[i];
           const auto& read = reads[i];
-          ASSERT_EQ(segment.offset, read.first);
-          ASSERT_EQ(segment.buffer.size(), read.second);
+          ASSERT_EQ(segment.offset, read.offset);
+          ASSERT_EQ(segment.buffer.size(), read.length);
+          if (!read.label.empty()) {
+            EXPECT_EQ(read.label, segment.label);
+          }
           ASSERT_LE(segment.offset + segment.buffer.size(), content.size());
-          ASSERT_EQ(segment.offset, read.first);
-          ASSERT_EQ(segment.buffer.size(), read.second);
           memcpy(
               segment.buffer.data(),
               content.data() + segment.offset,
@@ -278,6 +279,45 @@ TEST(TestBufferedInput, VReadSorting) {
   auto readFileMock = std::make_shared<ReadFileMock>();
   expectPreadvs(
       *readFileMock, content, {{0, 3}, {3, 3}, {6, 3}, {24, 3}, {29, 3}});
+  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
+  BufferedInput input(
+      readFileMock,
+      *pool,
+      MetricsLog::voidLog(),
+      nullptr,
+      1, // Will merge if distance <= 1
+      /* wsVRLoad = */ true);
+
+  std::vector<std::pair<std::unique_ptr<SeekableInputStream>, std::string>>
+      result;
+  result.reserve(regions.size());
+  for (auto& region : regions) {
+    auto ret = input.enqueue(region);
+    ASSERT_NE(ret, nullptr);
+    result.push_back(
+        {std::move(ret), content.substr(region.offset, region.length)});
+  }
+
+  input.load(LogType::TEST);
+
+  for (auto& r : result) {
+    auto next = getNext(*r.first);
+    ASSERT_TRUE(next.has_value());
+    EXPECT_EQ(next.value(), r.second);
+  }
+}
+
+TEST(TestBufferedInput, VReadSortingWithLabels) {
+  std::string content = "aaabbbcccdddeeefffggghhhiiijjjkkklllmmmnnnooopppqqq";
+  std::vector<std::string> l = {"a", "b", "c", "d", "e"};
+  std::vector<Region> regions = {
+      {6, 3, l[2]}, {24, 3, l[3]}, {3, 3, l[1]}, {0, 3, l[0]}, {29, 3, l[4]}};
+
+  auto readFileMock = std::make_shared<ReadFileMock>();
+  expectPreadvs(
+      *readFileMock,
+      content,
+      {{0, 3, l[0]}, {3, 3, l[1]}, {6, 3, l[2]}, {24, 3, l[3]}, {29, 3, l[4]}});
   auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
   BufferedInput input(
       readFileMock,

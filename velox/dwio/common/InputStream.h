@@ -43,9 +43,11 @@ constexpr uint64_t DEFAULT_AUTO_PRELOAD_SIZE =
 struct Region {
   uint64_t offset;
   uint64_t length;
+  // Optional label used by lower layers for cache warm up
+  std::string_view label;
 
-  Region(uint64_t offset = 0, uint64_t length = 0)
-      : offset{offset}, length{length} {}
+  Region(uint64_t offset = 0, uint64_t length = 0, std::string_view label = {})
+      : offset{offset}, length{length}, label{label} {}
 
   bool operator<(const Region& other) const;
 };

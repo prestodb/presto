@@ -143,7 +143,7 @@ void ReadFileInputStream::vread(
     segments.push_back(
         {r.offset,
          folly::Range<char*>(static_cast<char*>(buffers[i]), r.length),
-         {}});
+         r.label});
     length += r.length;
   }
 
