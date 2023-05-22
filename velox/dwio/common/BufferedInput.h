@@ -146,23 +146,36 @@ class BufferedInput {
  private:
   uint64_t maxMergeDistance_;
   bool wsVRLoad_;
-  std::vector<uint64_t> offsets_;
-  std::vector<folly::Range<char*>> buffers_;
   std::unique_ptr<AllocationPool> allocPool_;
+
+  // Regions enqueued for reading
   std::vector<Region> regions_;
+
+  // Offsets in the file to which the corresponding Region belongs
+  std::vector<uint64_t> offsets_;
+
+  // Buffers allocated for reading each Region.
+  std::vector<folly::Range<char*>> buffers_;
+
+  // Maps the position in which the Region was originally enqueued to the
+  // position that it went to after sorting and merging. Thus this maps from the
+  // enqueued position to its corresponding buffer offset.
+  std::vector<size_t> enqueuedToBufferOffset_;
 
   std::unique_ptr<SeekableInputStream> readBuffer(
       uint64_t offset,
       uint64_t length) const;
   std::tuple<const char*, uint64_t> readInternal(
       uint64_t offset,
-      uint64_t length) const;
+      uint64_t length,
+      std::optional<size_t> i = std::nullopt) const;
 
   void readRegion(
       const Region& region,
       const LogType logType,
       std::function<void(void* FOLLY_NONNULL, uint64_t, uint64_t, LogType)>
           action) {
+    // Save the file offset and the buffer to which we'll read it
     offsets_.push_back(region.offset);
     buffers_.emplace_back(
         allocPool_->allocateFixed(region.length), region.length);
@@ -172,6 +185,7 @@ class BufferedInput {
     action(buffers_.back().data(), region.length, region.offset, logType);
   }
 
+  void sortRegions();
   void mergeRegions();
 
   // we either load data parallelly or sequentially according to flag

@@ -32,11 +32,10 @@ void BufferedInput::load(const LogType logType) {
   buffers_.clear();
   allocPool_->clear();
 
-  // sorting the regions from low to high
-  std::sort(regions_.begin(), regions_.end());
-
+  sortRegions();
   mergeRegions();
 
+  // After sorting and merging we have the accurate sizes
   offsets_.reserve(regions_.size());
   buffers_.reserve(regions_.size());
 
@@ -84,23 +83,64 @@ std::unique_ptr<SeekableInputStream> BufferedInput::enqueue(
   // push to region pool and give the caller the callback
   regions_.push_back(region);
   return std::make_unique<SeekableArrayInputStream>(
-      [region, this]() { return readInternal(region.offset, region.length); });
+      // Save "i", the position in which this region was enqueued. This will
+      // help faster lookup using enqueuedToBufferOffset_ later.
+      [region, this, i = regions_.size() - 1]() {
+        return readInternal(region.offset, region.length, i);
+      });
+}
+
+// Sort regions and enqueuedToOffset in the same way
+void BufferedInput::sortRegions() {
+  auto& r = regions_;
+  auto& e = enqueuedToBufferOffset_;
+
+  e.resize(r.size());
+  std::iota(e.begin(), e.end(), 0);
+
+  // Sort indices from low to high regions
+  // "e" will contain the positions to which each region should be sorted to
+  std::sort(
+      e.begin(), e.end(), [&](size_t a, size_t b) { return r[a] < r[b]; });
+
+  // Now actually sort. This way we sorted and saved the mapping of the sort
+  std::vector<Region> regions;
+  regions.reserve(r.size());
+  for (auto i : e) {
+    regions.push_back(r[i]);
+  }
+  std::swap(r, regions);
 }
 
 void BufferedInput::mergeRegions() {
   auto& r = regions_;
+  auto& e = enqueuedToBufferOffset_;
   size_t ia = 0;
+  // We want to map here where each region ended in the final merged regions
+  // vector.
+  // For example, if this is the regions vector: {{6, 3}, {24, 3}, {3, 3}, {0,
+  // 3}, {29, 3}} After sorting, "e" would look like this: [3,2,0,1,4]. Because
+  // region in position number 3 ended up in position 0 and so on.
+  // For a maxMergeDistance of 1, "te" will look like: [0,1,0,0,2], because
+  // original regions 3, 2 and 0 were merged into a larger region, now in
+  // position 0. The original region 1, became region 1, and original region 4
+  // became region 2
+  std::vector<size_t> te(e.size());
 
   DWIO_ENSURE(!r.empty(), "Assumes that there's at least one region");
   DWIO_ENSURE_GT(r[ia].length, 0, "invalid region");
 
+  te[e[0]] = 0;
   for (size_t ib = 1; ib < r.size(); ++ib) {
     DWIO_ENSURE_GT(r[ib].length, 0, "invalid region");
     if (!tryMerge(r[ia], r[ib])) {
       r[++ia] = r[ib];
     }
+    te[e[ib]] = ia;
   }
+  // After merging, remove what's left.
   r.resize(ia + 1);
+  std::swap(e, te);
 }
 
 void BufferedInput::loadWithAction(
@@ -149,21 +189,40 @@ std::unique_ptr<SeekableInputStream> BufferedInput::readBuffer(
 
 std::tuple<const char*, uint64_t> BufferedInput::readInternal(
     uint64_t offset,
-    uint64_t length) const {
+    uint64_t length,
+    std::optional<size_t> i) const {
   // return dummy one for zero length stream
   if (length == 0) {
     return std::make_tuple(nullptr, 0);
   }
 
-  // Binary search to get the first fileOffset for which: offset < fileOffset
-  auto it = std::upper_bound(offsets_.cbegin(), offsets_.cend(), offset);
+  std::optional<size_t> index;
+  if (i.has_value()) {
+    auto vi = i.value();
+    // There's a possibility that our user enqueued, then tried to read before
+    // calling load(). In that case, enqueuedToBufferOffset_ will be empty or
+    // have the values from a previous load. So I want to make sure that he ends
+    // up in a valid offset, and that this offset is <= offset. Otherwise we
+    // just go for the binary search.
+    if (vi < enqueuedToBufferOffset_.size() &&
+        enqueuedToBufferOffset_[vi] < offsets_.size() &&
+        offsets_[enqueuedToBufferOffset_[vi]] <= offset) {
+      index = enqueuedToBufferOffset_[i.value()];
+    }
+  }
+  if (!index.has_value()) {
+    // Binary search to get the first fileOffset for which: offset < fileOffset
+    auto it = std::upper_bound(offsets_.cbegin(), offsets_.cend(), offset);
+    // If the first element was already greater than the target offset we don't
+    // have it
+    if (it != offsets_.cbegin()) {
+      index = std::distance(offsets_.cbegin(), it) - 1;
+    }
+  }
 
-  // If the first element was already greater than the target offset we don't
-  // have it
-  if (it != offsets_.cbegin()) {
-    const uint64_t index = std::distance(offsets_.cbegin(), it) - 1;
-    const uint64_t bufferOffset = offsets_[index];
-    const auto& buffer = buffers_[index];
+  if (index.has_value()) {
+    const uint64_t bufferOffset = offsets_[index.value()];
+    const auto& buffer = buffers_[index.value()];
     if (bufferOffset + buffer.size() >= offset + length) {
       DWIO_ENSURE_LE(bufferOffset, offset, "Invalid offset for readInternal");
       DWIO_ENSURE_LE(
