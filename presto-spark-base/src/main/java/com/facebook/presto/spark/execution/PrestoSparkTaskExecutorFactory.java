@@ -112,6 +112,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import org.apache.spark.broadcast.Broadcast;
+import org.apache.spark.executor.TaskMetrics;
 import org.apache.spark.util.CollectionAccumulator;
 import org.joda.time.DateTime;
 import scala.Tuple2;
@@ -918,6 +919,22 @@ public class PrestoSparkTaskExecutorFactory
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.tempStorage = requireNonNull(tempStorage, "tempStorage is null");
             this.tempDataOperationContext = requireNonNull(tempDataOperationContext, "tempDataOperationContext is null");
+            log.info("Adding generic accumulator to taskcontext");
+            org.apache.spark.TaskContext.get().registerAccumulator(genericShuffleStatsCollector);
+            log.info("Checking if accumulator can be found");
+            if (org.apache.spark.TaskContext.get().taskMetrics() != null) {
+                log.info("TaskMetrics is different from null looking for accumulator");
+                boolean accumulatorIsFoundByName = org.apache.spark
+                        .TaskContext.get().taskMetrics()
+                        .lookForAccumulatorByName("genericShuffleStatsCollector").isDefined();
+                log.info("Is accumulator found by name " + accumulatorIsFoundByName);
+            }
+            else {
+                log.info("Failed to find any instance of Taskmetrics");
+            }
+            TaskMetrics taskMetrics = org.apache.spark.TaskContext.get().taskMetrics();
+            boolean foundAcc = taskMetrics.lookForAccumulatorByName("cosco.writerMaxRecordRawBytes").isDefined();
+            log.info("Spark internal accumulators included in this instance of TaskMetrics: " + foundAcc);
         }
 
         @Override
@@ -972,7 +989,6 @@ public class PrestoSparkTaskExecutorFactory
                 processedBytes += output._2.getSize();
                 return output;
             }
-
             // task finished
             TaskState taskState = taskStateMachine.getState();
             checkState(taskState.isDone(), "task is expected to be done");

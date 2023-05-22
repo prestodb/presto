@@ -531,7 +531,9 @@ public class PrestoSparkQueryExecutionFactory
             Optional<RetryExecutionStrategy> retryExecutionStrategy)
     {
         PrestoSparkConfInitializer.checkInitialized(sparkContext);
-
+        log.info("Adding genericShuffleStatsCollector to SparkContext");
+        CollectionAccumulator<List<Map<String, String>>> genericShuffleStatsCollector = new CollectionAccumulator<>();
+        genericShuffleStatsCollector.register(sparkContext, Option.apply(PRESTO_SPARK_SHUFFLE_STATS_GENERIC_COLLECTOR), false);
         String sql;
         if (sqlText.isPresent()) {
             checkArgument(!sqlLocation.isPresent(), "sqlText and sqlLocation should not be set at the same time");
@@ -653,12 +655,10 @@ public class PrestoSparkQueryExecutionFactory
             else {
                 planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector);
                 JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);
-                CollectionAccumulator<List<Map<String, String>>> genericShuffleStatsCollector = new CollectionAccumulator<>();
-                genericShuffleStatsCollector.register(sparkContext, Option.apply(PRESTO_SPARK_SHUFFLE_STATS_GENERIC_COLLECTOR), false);
                 CollectionAccumulator<SerializedTaskInfo> taskInfoCollector = new CollectionAccumulator<>();
                 taskInfoCollector.register(sparkContext, Option.empty(), false);
                 CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector = new CollectionAccumulator<>();
-                shuffleStatsCollector.register(sparkContext, Option.apply(PRESTO_SPARK_SHUFFLE_STATS_COLLECTOR), false);
+                shuffleStatsCollector.register(sparkContext, Option.apply(PRESTO_SPARK_SHUFFLE_STATS_COLLECTOR), true);
                 TempStorage tempStorage = tempStorageManager.getTempStorage(storageBasedBroadcastJoinStorage);
                 queryStateTimer.endAnalysis();
 
