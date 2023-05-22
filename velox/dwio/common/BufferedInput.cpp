@@ -148,13 +148,14 @@ std::tuple<const char*, uint64_t> BufferedInput::readInternal(
     return std::make_tuple(nullptr, 0);
   }
 
-  uint64_t index = 0;
-  while (index < offsets_.size() && offsets_[index] <= offset) {
-    ++index;
-  }
-  if (index >= 1) {
-    index -= 1;
-    uint64_t bufferOffset = offsets_[index];
+  // Binary search to get the first fileOffset for which: offset < fileOffset
+  auto it = std::upper_bound(offsets_.cbegin(), offsets_.cend(), offset);
+
+  // If the first element was already greater than the target offset we don't
+  // have it
+  if (it != offsets_.cbegin()) {
+    const uint64_t index = std::distance(offsets_.cbegin(), it) - 1;
+    const uint64_t bufferOffset = offsets_[index];
     const auto& buffer = buffers_[index];
     if (bufferOffset + buffer.size() >= offset + length) {
       DWIO_ENSURE_LE(bufferOffset, offset, "Invalid offset for readInternal");
