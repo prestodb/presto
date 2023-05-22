@@ -32,6 +32,7 @@ void BufferedInput::load(const LogType logType) {
   offsets_.reserve(regions_.size());
   buffers_.clear();
   buffers_.reserve(regions_.size());
+  allocPool_->clear();
 
   // sorting the regions from low to high
   std::sort(regions_.begin(), regions_.end());

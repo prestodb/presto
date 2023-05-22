@@ -105,6 +105,13 @@ std::optional<std::string> getNext(SeekableInputStream& input) {
 
 } // namespace
 
+TEST(TestBufferedInput, AllowMoveConstructor) {
+  auto readFileMock = std::make_shared<ReadFileMock>();
+  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
+  BufferedInput a(readFileMock, *pool);
+  BufferedInput b(std::move(a));
+}
+
 TEST(TestBufferedInput, ZeroLengthStream) {
   auto readFile =
       std::make_shared<facebook::velox::InMemoryReadFile>(std::string());

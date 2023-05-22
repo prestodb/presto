@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "velox/dwio/common/DataBuffer.h"
+#include "velox/common/memory/AllocationPool.h"
 #include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/common/StreamIdentifier.h"
 
@@ -42,7 +42,8 @@ class BufferedInput {
             stats)},
         pool_{pool},
         maxMergeDistance_{maxMergeDistance},
-        wsVRLoad_{wsVRLoad} {}
+        wsVRLoad_{wsVRLoad},
+        allocPool_{std::make_unique<AllocationPool>(&pool)} {}
 
   BufferedInput(
       std::shared_ptr<ReadFileInputStream> input,
@@ -52,7 +53,8 @@ class BufferedInput {
       : input_(std::move(input)),
         pool_(pool),
         maxMergeDistance_{maxMergeDistance},
-        wsVRLoad_{wsVRLoad} {}
+        wsVRLoad_{wsVRLoad},
+        allocPool_{std::make_unique<AllocationPool>(&pool)} {}
 
   BufferedInput(BufferedInput&&) = default;
   virtual ~BufferedInput() = default;
@@ -145,7 +147,8 @@ class BufferedInput {
   uint64_t maxMergeDistance_;
   bool wsVRLoad_;
   std::vector<uint64_t> offsets_;
-  std::vector<DataBuffer<char>> buffers_;
+  std::vector<folly::Range<char*>> buffers_;
+  std::unique_ptr<AllocationPool> allocPool_;
   std::vector<Region> regions_;
 
   std::unique_ptr<SeekableInputStream> readBuffer(
@@ -161,13 +164,12 @@ class BufferedInput {
       std::function<void(void* FOLLY_NONNULL, uint64_t, uint64_t, LogType)>
           action) {
     offsets_.push_back(region.offset);
-    DataBuffer<char> buffer(pool_, region.length);
+    buffers_.emplace_back(
+        allocPool_->allocateFixed(region.length), region.length);
 
     // action is required
     DWIO_ENSURE_NOT_NULL(action);
-    action(buffer.data(), region.length, region.offset, logType);
-
-    buffers_.push_back(std::move(buffer));
+    action(buffers_.back().data(), region.length, region.offset, logType);
   }
 
   // we either load data parallelly or sequentially according to flag
