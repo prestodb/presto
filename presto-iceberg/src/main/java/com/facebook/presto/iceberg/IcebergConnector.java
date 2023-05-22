@@ -63,7 +63,7 @@ public class IcebergConnector
     private final List<PropertyMetadata<?>> tableProperties;
     private final ConnectorAccessControl accessControl;
     private final Set<Procedure> procedures;
-    private final ConnectorPlanOptimizer planOptimizer;
+    private final Set<ConnectorPlanOptimizer> planOptimizers;
 
     public IcebergConnector(
             LifeCycleManager lifeCycleManager,
@@ -79,7 +79,7 @@ public class IcebergConnector
             List<PropertyMetadata<?>> tableProperties,
             ConnectorAccessControl accessControl,
             Set<Procedure> procedures,
-            ConnectorPlanOptimizer planOptimizer)
+            Set<ConnectorPlanOptimizer> planOptimizers)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -94,7 +94,7 @@ public class IcebergConnector
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.procedures = requireNonNull(procedures, "procedures is null");
-        this.planOptimizer = requireNonNull(planOptimizer, "planOptimizer is null");
+        this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
     }
 
     @Override
@@ -209,6 +209,6 @@ public class IcebergConnector
     @Override
     public ConnectorPlanOptimizerProvider getConnectorPlanOptimizerProvider()
     {
-        return new IcebergPlanOptimizerProvider(planOptimizer);
+        return new IcebergPlanOptimizerProvider(planOptimizers);
     }
 }
