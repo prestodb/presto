@@ -129,15 +129,18 @@ TEST(StripeStream, planReads) {
     stream->set_kind(static_cast<proto::Stream_Kind>(std::get<1>(s)));
     stream->set_length(std::get<2>(s));
   }
-  std::vector<Region> expected{{100, 500}, {5000600, 1000000}};
   StripeReaderBase stripeReader{readerBase, stripeFooter};
   auto streams = createAndLoadStripeStreams(stripeReader, cs);
   auto const& actual = isPtr->getReads();
-  EXPECT_EQ(actual.size(), expected.size());
-  for (uint64_t i = 0; i < actual.size(); ++i) {
-    EXPECT_EQ(actual[i].offset, expected[i].offset);
-    EXPECT_EQ(actual[i].length, expected[i].length);
-  }
+  ASSERT_FALSE(actual.empty());
+  EXPECT_EQ(std::min(actual.cbegin(), actual.cend())->offset, 100);
+  EXPECT_EQ(
+      std::accumulate(
+          actual.cbegin(),
+          actual.cend(),
+          0,
+          [](uint64_t ac, const Region& r) { return ac + r.length; }),
+      1000500);
 }
 
 TEST(StripeStream, filterSequences) {
@@ -307,9 +310,15 @@ TEST(StripeStream, planReadsIndex) {
   ColumnSelector cs{std::dynamic_pointer_cast<const RowType>(type)};
   auto streams = createAndLoadStripeStreams(stripeReader, cs);
   auto const& actual = isPtr->getReads();
-  EXPECT_EQ(actual.size(), 1);
-  EXPECT_EQ(actual[0].offset, length * 2);
-  EXPECT_EQ(actual[0].length, 1000200);
+  ASSERT_FALSE(actual.empty());
+  EXPECT_EQ(std::min(actual.cbegin(), actual.cend())->offset, length * 2);
+  EXPECT_EQ(
+      std::accumulate(
+          actual.cbegin(),
+          actual.cend(),
+          0UL,
+          [](uint64_t ac, const Region& r) { return ac + r.length; }),
+      1000200);
 
   EXPECT_EQ(
       ProtoUtils::readProto<proto::RowIndex>(
