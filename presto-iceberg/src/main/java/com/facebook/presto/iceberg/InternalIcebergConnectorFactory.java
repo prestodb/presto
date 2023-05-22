@@ -24,6 +24,7 @@ import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastoreModule;
 import com.facebook.presto.hive.s3.HiveS3Module;
+import com.facebook.presto.iceberg.optimizer.IcebergParquetDereferencePushDown;
 import com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizer;
 import com.facebook.presto.plugin.base.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
@@ -96,6 +97,7 @@ public final class InternalIcebergConnectorFactory
             IcebergTableProperties icebergTableProperties = injector.getInstance(IcebergTableProperties.class);
             Set<Procedure> procedures = injector.getInstance((Key<Set<Procedure>>) Key.get(Types.setOf(Procedure.class)));
             ConnectorPlanOptimizer planOptimizer = injector.getInstance(IcebergPlanOptimizer.class);
+            ConnectorPlanOptimizer parquetDereferencePushDown = injector.getInstance(IcebergParquetDereferencePushDown.class);
 
             return new IcebergConnector(
                     lifeCycleManager,
@@ -111,7 +113,7 @@ public final class InternalIcebergConnectorFactory
                     icebergTableProperties.getTableProperties(),
                     new AllowAllAccessControl(),
                     procedures,
-                    planOptimizer);
+                    ImmutableSet.of(planOptimizer, parquetDereferencePushDown));
         }
     }
 }
