@@ -18,6 +18,7 @@
 #include "velox/functions/lib/IsNull.h"
 #include "velox/functions/lib/Re2Functions.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
+#include "velox/functions/prestosql/ArrayConstructor.h"
 #include "velox/functions/prestosql/JsonFunctions.h"
 #include "velox/functions/prestosql/Rand.h"
 #include "velox/functions/prestosql/StringFunctions.h"
@@ -48,7 +49,7 @@ static void workAroundRegistrationMacro(const std::string& prefix) {
   //   function expression corresponds to body, arguments to signature
   VELOX_REGISTER_VECTOR_FUNCTION(udf_map_filter, prefix + "map_filter");
   // Complex types.
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_constructor, prefix + "array");
+  registerArrayConstructor(prefix + "array");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_contains, prefix + "array_contains");
   VELOX_REGISTER_VECTOR_FUNCTION(
       udf_array_intersect, prefix + "array_intersect");

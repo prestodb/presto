@@ -31,12 +31,24 @@ class ArrayConstructor : public exec::VectorFunction {
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
       exec::EvalCtx& context,
-      VectorPtr& result) const override {
+      VectorPtr& finalResults) const override {
     auto numArgs = args.size();
+    VectorPtr localResult;
+    if (!resultCached_ && rows.end() < kReuseThreshold) {
+      BaseVector::ensureWritable(
+          rows, outputType, context.pool(), resultCached_);
+      localResult = resultCached_;
+    } else if (resultCached_.unique() && rows.end() < kReuseThreshold) {
+      resultCached_->prepareForReuse();
+      resultCached_->resize(rows.end());
+      localResult = resultCached_;
+    } else {
+      context.ensureWritable(rows, outputType, finalResults);
+      localResult = finalResults;
+    }
 
-    context.ensureWritable(rows, outputType, result);
-    result->clearNulls(rows);
-    auto arrayResult = result->as<ArrayVector>();
+    localResult->clearNulls(rows);
+    auto arrayResult = localResult->as<ArrayVector>();
     auto sizes = arrayResult->mutableSizes(rows.end());
     auto rawSizes = sizes->asMutable<int32_t>();
     auto offsets = arrayResult->mutableOffsets(rows.end());
@@ -64,6 +76,9 @@ class ArrayConstructor : public exec::VectorFunction {
         }
       });
     }
+    if (localResult != finalResults) {
+      context.moveOrCopyResult(localResult, rows, finalResults);
+    }
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
@@ -79,16 +94,18 @@ class ArrayConstructor : public exec::VectorFunction {
             .build(),
     };
   }
+
+ private:
+  mutable VectorPtr resultCached_;
+  static constexpr vector_size_t kReuseThreshold = 100;
 };
 } // namespace
 
-VELOX_DECLARE_VECTOR_FUNCTION(
-    udf_array_constructor,
-    ArrayConstructor::signatures(),
-    std::make_unique<ArrayConstructor>());
-
 void registerArrayConstructor(const std::string& name) {
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_constructor, name);
+  exec::registerStatefulVectorFunction(
+      name, ArrayConstructor::signatures(), [](const auto&, const auto&) {
+        return std::make_shared<ArrayConstructor>();
+      });
 }
 
 } // namespace facebook::velox::functions
