@@ -354,6 +354,7 @@ public class UnaliasSymbolReferences
             return new RemoteSourceNode(
                     node.getSourceLocation(),
                     node.getId(),
+                    node.getStatsEquivalentPlanNode(),
                     node.getSourceFragmentIds(),
                     canonicalizeAndDistinct(node.getOutputVariables()),
                     node.isEnsureSourceOrdering(),
