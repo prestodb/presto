@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Marker;
 import com.facebook.presto.common.predicate.Range;
@@ -44,6 +45,9 @@ import java.util.Map;
 import static com.facebook.presto.common.predicate.Marker.Bound.ABOVE;
 import static com.facebook.presto.common.predicate.Marker.Bound.BELOW;
 import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.getPushedDownSubfield;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.isPushedDownSubfield;
+import static com.facebook.presto.parquet.ParquetTypeUtils.columnPathFromSubfield;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Float.intBitsToFloat;
@@ -79,9 +83,20 @@ public final class ExpressionConverter
         for (Map.Entry<IcebergColumnHandle, Domain> entry : domainMap.entrySet()) {
             IcebergColumnHandle columnHandle = entry.getKey();
             Domain domain = entry.getValue();
-            expression = and(expression, toIcebergExpression(columnHandle.getName(), columnHandle.getType(), domain));
+            String columnName = columnHandle.getName();
+
+            if (isPushedDownSubfield(columnHandle)) {
+                Subfield pushedDownSubfield = getPushedDownSubfield(columnHandle);
+                columnName = pushdownColumnNameForSubfield(pushedDownSubfield);
+            }
+            expression = and(expression, toIcebergExpression(columnName, columnHandle.getType(), domain));
         }
         return expression;
+    }
+
+    public static String pushdownColumnNameForSubfield(Subfield subfield)
+    {
+        return String.join(".", columnPathFromSubfield(subfield));
     }
 
     private static Expression toIcebergExpression(String columnName, Type type, Domain domain)

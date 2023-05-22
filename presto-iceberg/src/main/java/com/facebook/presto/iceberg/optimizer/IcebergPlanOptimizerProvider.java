@@ -25,19 +25,19 @@ import static java.util.Objects.requireNonNull;
 public class IcebergPlanOptimizerProvider
         implements ConnectorPlanOptimizerProvider
 {
-    private final ConnectorPlanOptimizer planOptimizer;
+    private final Set<ConnectorPlanOptimizer> planOptimizers;
 
     @Inject
     public IcebergPlanOptimizerProvider(
-            ConnectorPlanOptimizer planOptimizer)
+            Set<ConnectorPlanOptimizer> planOptimizers)
     {
-        this.planOptimizer = requireNonNull(planOptimizer, "planOptimizer is null");
+        this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
     }
 
     @Override
     public Set<ConnectorPlanOptimizer> getLogicalPlanOptimizers()
     {
-        return ImmutableSet.of(planOptimizer);
+        return planOptimizers;
     }
 
     @Override
