@@ -172,6 +172,8 @@ class BufferedInput {
     action(buffers_.back().data(), region.length, region.offset, logType);
   }
 
+  void mergeRegions();
+
   // we either load data parallelly or sequentially according to flag
   void loadWithAction(
       const LogType logType,

@@ -29,13 +29,16 @@ void BufferedInput::load(const LogType logType) {
   }
 
   offsets_.clear();
-  offsets_.reserve(regions_.size());
   buffers_.clear();
-  buffers_.reserve(regions_.size());
   allocPool_->clear();
 
   // sorting the regions from low to high
   std::sort(regions_.begin(), regions_.end());
+
+  mergeRegions();
+
+  offsets_.reserve(regions_.size());
+  buffers_.reserve(regions_.size());
 
   if (wsVRLoad_) {
     std::vector<void*> buffers;
@@ -84,25 +87,28 @@ std::unique_ptr<SeekableInputStream> BufferedInput::enqueue(
       [region, this]() { return readInternal(region.offset, region.length); });
 }
 
+void BufferedInput::mergeRegions() {
+  auto& r = regions_;
+  size_t ia = 0;
+
+  DWIO_ENSURE(!r.empty(), "Assumes that there's at least one region");
+  DWIO_ENSURE_GT(r[ia].length, 0, "invalid region");
+
+  for (size_t ib = 1; ib < r.size(); ++ib) {
+    DWIO_ENSURE_GT(r[ib].length, 0, "invalid region");
+    if (!tryMerge(r[ia], r[ib])) {
+      r[++ia] = r[ib];
+    }
+  }
+  r.resize(ia + 1);
+}
+
 void BufferedInput::loadWithAction(
     const LogType logType,
     std::function<void(void*, uint64_t, uint64_t, LogType)> action) {
-  Region last;
   for (const auto& region : regions_) {
-    DWIO_ENSURE_GT(region.length, 0, "invalid region");
-    if (last.length == 0) {
-      // first region
-      last = region;
-    } else {
-      if (!tryMerge(last, region)) {
-        readRegion(last, logType, action);
-        last = region;
-      }
-    }
+    readRegion(region, logType, action);
   }
-
-  // handle last region
-  readRegion(last, logType, action);
 }
 
 bool BufferedInput::tryMerge(Region& first, const Region& second) {
