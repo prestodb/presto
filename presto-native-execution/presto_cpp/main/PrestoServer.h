@@ -95,6 +95,9 @@ class PrestoServer {
   virtual std::vector<std::string> registerConnectors(
       const fs::path& configDirectoryPath);
 
+  /// Invoked by presto shutdown procedure to unregister connectors.
+  virtual void unregisterConnectors();
+
   virtual void registerShuffleInterfaceFactories();
 
   virtual void registerCustomOperators();
