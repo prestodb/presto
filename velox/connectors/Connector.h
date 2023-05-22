@@ -41,7 +41,7 @@ class DataSource;
 struct ConnectorSplit {
   const std::string connectorId;
 
-  std::shared_ptr<AsyncSource<std::shared_ptr<DataSource>>> dataSource;
+  std::unique_ptr<AsyncSource<DataSource>> dataSource;
 
   explicit ConnectorSplit(const std::string& _connectorId)
       : connectorId(_connectorId) {}
@@ -162,7 +162,7 @@ class DataSource {
   // into 'this' Adaptation like dynamic filters stay in effect but
   // the parts dealing with open files, prefetched data etc. are moved. 'source'
   // is freed after the move.
-  virtual void setFromDataSource(std::shared_ptr<DataSource> /*source*/) {
+  virtual void setFromDataSource(std::unique_ptr<DataSource> /*source*/) {
     VELOX_UNSUPPORTED("setFromDataSource");
   }
 
@@ -278,9 +278,9 @@ class Connector {
     return false;
   }
 
-  virtual std::shared_ptr<DataSource> createDataSource(
+  virtual std::unique_ptr<DataSource> createDataSource(
       const RowTypePtr& outputType,
-      const std::shared_ptr<connector::ConnectorTableHandle>& tableHandle,
+      const std::shared_ptr<ConnectorTableHandle>& tableHandle,
       const std::unordered_map<
           std::string,
           std::shared_ptr<connector::ColumnHandle>>& columnHandles,
@@ -294,7 +294,7 @@ class Connector {
     return false;
   }
 
-  virtual std::shared_ptr<DataSink> createDataSink(
+  virtual std::unique_ptr<DataSink> createDataSink(
       RowTypePtr inputType,
       std::shared_ptr<ConnectorInsertTableHandle> connectorInsertTableHandle,
       ConnectorQueryCtx* connectorQueryCtx,

@@ -136,17 +136,17 @@ class TestConnector : public connector::Connector {
   TestConnector(const std::string& id, std::shared_ptr<const Config> properties)
       : connector::Connector(id, std::move(properties)) {}
 
-  std::shared_ptr<connector::DataSource> createDataSource(
+  std::unique_ptr<connector::DataSource> createDataSource(
       const RowTypePtr& /* outputType */,
-      const std::shared_ptr<connector::ConnectorTableHandle>& /* tableHandle */,
+      const std::shared_ptr<ConnectorTableHandle>& /* tableHandle */,
       const std::unordered_map<
           std::string,
           std::shared_ptr<connector::ColumnHandle>>& /* columnHandles */,
       connector::ConnectorQueryCtx* connectorQueryCtx) override {
-    return std::make_shared<TestDataSource>(connectorQueryCtx->memoryPool());
+    return std::make_unique<TestDataSource>(connectorQueryCtx->memoryPool());
   }
 
-  std::shared_ptr<connector::DataSink> createDataSink(
+  std::unique_ptr<connector::DataSink> createDataSink(
       RowTypePtr /*inputType*/,
       std::shared_ptr<
           ConnectorInsertTableHandle> /*connectorInsertTableHandle*/,

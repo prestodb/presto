@@ -27,9 +27,9 @@ class TestConnector : public connector::Connector {
  public:
   TestConnector(const std::string& id) : connector::Connector(id, nullptr) {}
 
-  std::shared_ptr<connector::DataSource> createDataSource(
+  std::unique_ptr<connector::DataSource> createDataSource(
       const RowTypePtr& /* outputType */,
-      const std::shared_ptr<connector::ConnectorTableHandle>& /* tableHandle */,
+      const std::shared_ptr<ConnectorTableHandle>& /* tableHandle */,
       const std::unordered_map<
           std::string,
           std::shared_ptr<connector::ColumnHandle>>& /* columnHandles */,
@@ -37,7 +37,7 @@ class TestConnector : public connector::Connector {
     VELOX_NYI();
   }
 
-  std::shared_ptr<connector::DataSink> createDataSink(
+  std::unique_ptr<connector::DataSink> createDataSink(
       RowTypePtr /*inputType*/,
       std::shared_ptr<
           ConnectorInsertTableHandle> /*connectorInsertTableHandle*/,

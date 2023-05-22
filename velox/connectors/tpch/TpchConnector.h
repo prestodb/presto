@@ -134,21 +134,21 @@ class TpchConnector final : public Connector {
       folly::Executor* FOLLY_NULLABLE /*executor*/)
       : Connector(id, properties) {}
 
-  std::shared_ptr<DataSource> createDataSource(
+  std::unique_ptr<DataSource> createDataSource(
       const std::shared_ptr<const RowType>& outputType,
-      const std::shared_ptr<connector::ConnectorTableHandle>& tableHandle,
+      const std::shared_ptr<ConnectorTableHandle>& tableHandle,
       const std::unordered_map<
           std::string,
           std::shared_ptr<connector::ColumnHandle>>& columnHandles,
       ConnectorQueryCtx* FOLLY_NONNULL connectorQueryCtx) override final {
-    return std::make_shared<TpchDataSource>(
+    return std::make_unique<TpchDataSource>(
         outputType,
         tableHandle,
         columnHandles,
         connectorQueryCtx->memoryPool());
   }
 
-  std::shared_ptr<DataSink> createDataSink(
+  std::unique_ptr<DataSink> createDataSink(
       RowTypePtr /*inputType*/,
       std::shared_ptr<
           ConnectorInsertTableHandle> /*connectorInsertTableHandle*/,

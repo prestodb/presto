@@ -71,7 +71,7 @@ class TableWriter : public Operator {
   const connector::CommitStrategy commitStrategy_;
   std::shared_ptr<connector::Connector> connector_;
   std::shared_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;
-  std::shared_ptr<connector::DataSink> dataSink_;
+  std::unique_ptr<connector::DataSink> dataSink_;
   std::vector<column_index_t> inputMapping_;
   std::shared_ptr<const RowType> mappedType_;
 

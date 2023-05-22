@@ -129,13 +129,12 @@ RowVectorPtr TableScan::getOutput() {
         // The AsyncSource returns a unique_ptr to a shared_ptr. The
         // unique_ptr will be nullptr if there was a cancellation.
         numReadyPreloadedSplits_ += connectorSplit->dataSource->hasValue();
-        auto preparedPtr = connectorSplit->dataSource->move();
-        if (!preparedPtr) {
+        auto preparedDataSource = connectorSplit->dataSource->move();
+        if (!preparedDataSource) {
           // There must be a cancellation.
           VELOX_CHECK(operatorCtx_->task()->isCancelled());
           return nullptr;
         }
-        auto preparedDataSource = std::move(*preparedPtr);
         dataSource_->setFromDataSource(std::move(preparedDataSource));
       } else {
         dataSource_->addSplit(connectorSplit);
@@ -214,8 +213,7 @@ void TableScan::preload(std::shared_ptr<connector::ConnectorSplit> split) {
   // a shared_ptr to it. This is required to keep memory pools live
   // for the duration. The callback checks for task cancellation to
   // avoid needless work.
-  using DataSourcePtr = std::shared_ptr<connector::DataSource>;
-  split->dataSource = std::make_shared<AsyncSource<DataSourcePtr>>(
+  split->dataSource = std::make_unique<AsyncSource<connector::DataSource>>(
       [type = outputType_,
        table = tableHandle_,
        columns = columnHandles_,
@@ -223,11 +221,10 @@ void TableScan::preload(std::shared_ptr<connector::ConnectorSplit> split) {
        ctx = operatorCtx_->createConnectorQueryCtx(
            split->connectorId, planNodeId(), connectorPool_),
        task = operatorCtx_->task(),
-       split]() -> std::unique_ptr<DataSourcePtr> {
+       split]() -> std::unique_ptr<connector::DataSource> {
         if (task->isCancelled()) {
           return nullptr;
         }
-        auto ptr = std::make_unique<DataSourcePtr>();
         auto debugString =
             fmt::format("Split {} Task {}", split->toString(), task->taskId());
         ExceptionContextSetter exceptionContext(
@@ -236,11 +233,11 @@ void TableScan::preload(std::shared_ptr<connector::ConnectorSplit> split) {
              },
              &debugString});
 
-        *ptr = connector->createDataSource(type, table, columns, ctx.get());
+        auto ptr = connector->createDataSource(type, table, columns, ctx.get());
         if (task->isCancelled()) {
           return nullptr;
         }
-        (*ptr)->addSplit(split);
+        ptr->addSplit(split);
         return ptr;
       });
 }
