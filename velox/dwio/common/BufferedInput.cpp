@@ -98,6 +98,10 @@ void BufferedInput::sortRegions() {
   e.resize(r.size());
   std::iota(e.begin(), e.end(), 0);
 
+  if (std::is_sorted(r.cbegin(), r.cend())) {
+    return;
+  }
+
   // Sort indices from low to high regions
   // "e" will contain the positions to which each region should be sorted to
   std::sort(
