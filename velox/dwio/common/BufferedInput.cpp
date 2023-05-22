@@ -41,19 +41,16 @@ void BufferedInput::load(const LogType logType) {
 
   if (wsVRLoad_) {
     std::vector<void*> buffers;
-    std::vector<Region> regions;
-    uint64_t sizeToRead = 0;
+    buffers.reserve(regions_.size());
     loadWithAction(
         logType,
-        [&buffers, &regions, &sizeToRead](
-            void* buf, uint64_t length, uint64_t offset, LogType) {
+        [&buffers](
+            void* buf, uint64_t /* length */, uint64_t /* offset */, LogType) {
           buffers.push_back(buf);
-          regions.emplace_back(offset, length);
-          sizeToRead += length;
         });
 
     // Now we have all buffers and regions, load it in parallel
-    input_->vread(buffers, regions, logType);
+    input_->vread(buffers, regions_, logType);
   } else {
     loadWithAction(
         logType,
@@ -137,7 +134,7 @@ void BufferedInput::mergeRegions() {
   te[e[0]] = 0;
   for (size_t ib = 1; ib < r.size(); ++ib) {
     DWIO_ENSURE_GT(r[ib].length, 0, "invalid region");
-    if (!tryMerge(r[ia], r[ib])) {
+    if (wsVRLoad_ || !tryMerge(r[ia], r[ib])) {
       r[++ia] = r[ib];
     }
     te[e[ib]] = ia;

@@ -276,7 +276,8 @@ TEST(TestBufferedInput, VReadSorting) {
   std::vector<Region> regions = {{6, 3}, {24, 3}, {3, 3}, {0, 3}, {29, 3}};
 
   auto readFileMock = std::make_shared<ReadFileMock>();
-  expectPreadvs(*readFileMock, content, {{0, 9}, {24, 3}, {29, 3}});
+  expectPreadvs(
+      *readFileMock, content, {{0, 3}, {3, 3}, {6, 3}, {24, 3}, {29, 3}});
   auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
   BufferedInput input(
       readFileMock,
