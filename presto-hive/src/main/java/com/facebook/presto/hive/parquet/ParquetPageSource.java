@@ -156,7 +156,7 @@ public class ParquetPageSource
                 else {
                     Optional<Field> field = fields.get(fieldId);
                     if (field.isPresent()) {
-                        blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(field.get()));
+                        blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(field.get(), types.get(fieldId)));
                     }
                     else {
                         blocks[fieldId] = RunLengthEncodedBlock.create(types.get(fieldId), null, batchSize);
@@ -210,11 +210,13 @@ public class ParquetPageSource
     {
         private final int expectedBatchId = batchId;
         private final Field field;
+        private final Type type;
         private boolean loaded;
 
-        public ParquetBlockLoader(Field field)
+        public ParquetBlockLoader(Field field, Type type)
         {
             this.field = requireNonNull(field, "field is null");
+            this.type = requireNonNull(type, "type is null");
         }
 
         @Override
@@ -227,7 +229,13 @@ public class ParquetPageSource
             checkState(batchId == expectedBatchId);
 
             try {
-                Block block = parquetReader.readBlock(field);
+                Block block;
+                if (field.isPushedDownSubfield()) {
+                    block = parquetReader.readPushedDownSubfieldBlock(field, type);
+                }
+                else {
+                    block = parquetReader.readBlock(field);
+                }
                 lazyBlock.setBlock(block);
             }
             catch (ParquetCorruptionException e) {

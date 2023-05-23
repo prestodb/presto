@@ -41,6 +41,7 @@ public class TestParquetDistributedQueries
                 .put("hive.enable-parquet-dereference-pushdown", "true")
                 .put("hive.partial_aggregation_pushdown_enabled", "true")
                 .put("hive.partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true")
+                //.put("hive.parquet-batch-read-optimization-enabled", "true")
                 .build();
         return HiveQueryRunner.createQueryRunner(
                 getTables(),
@@ -68,6 +69,29 @@ public class TestParquetDistributedQueries
         }
         finally {
             getQueryRunner().execute("DROP TABLE test_subfield_pruning");
+        }
+    }
+
+    @Test
+    public void testSubfieldAllNulls()
+    {
+        String path = this.getClass().getClassLoader().getResource("all_nulls_parquet").getPath();
+        getQueryRunner().execute("CREATE TABLE parquet_subfield_allnulls( " +
+                "msg ROW(flowid varchar, cityid bigint, " +
+                "   docscanfailuredata ROW(" +
+                "       reason varchar," +
+                "       message varchar," +
+                "       retryquotaleft bigint," +
+                "       fallbackcheckpoint varchar)," +
+                "   countryid bigint))" +
+                " WITH (external_location = 'file://" + path + "')");
+
+        try {
+            getQueryRunner().execute("select msg.flowid from parquet_subfield_allnulls " +
+                    "where msg.docscanfailuredata.reason IS NOT NULL and msg.countryid = 61");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE parquet_subfield_allnulls");
         }
     }
 

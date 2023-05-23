@@ -26,9 +26,9 @@ public class GroupField
 {
     private final ImmutableList<Optional<Field>> children;
 
-    public GroupField(Type type, int repetitionLevel, int definitionLevel, boolean required, ImmutableList<Optional<Field>> children)
+    public GroupField(Type type, int repetitionLevel, int definitionLevel, boolean required, boolean pushedDownSubfield, ImmutableList<Optional<Field>> children)
     {
-        super(type, repetitionLevel, definitionLevel, required);
+        super(type, repetitionLevel, definitionLevel, required, pushedDownSubfield);
         this.children = requireNonNull(children, "children is required");
     }
 

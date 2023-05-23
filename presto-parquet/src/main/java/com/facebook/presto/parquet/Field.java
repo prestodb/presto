@@ -23,13 +23,15 @@ public abstract class Field
     private final int repetitionLevel;
     private final int definitionLevel;
     private final boolean required;
+    private final boolean pushedDownSubfield;
 
-    protected Field(Type type, int repetitionLevel, int definitionLevel, boolean required)
+    protected Field(Type type, int repetitionLevel, int definitionLevel, boolean required, boolean pushedDownSubfield)
     {
         this.type = requireNonNull(type, "type is required");
         this.repetitionLevel = repetitionLevel;
         this.definitionLevel = definitionLevel;
         this.required = required;
+        this.pushedDownSubfield = pushedDownSubfield;
     }
 
     public Type getType()
@@ -50,5 +52,10 @@ public abstract class Field
     public boolean isRequired()
     {
         return required;
+    }
+
+    public boolean isPushedDownSubfield()
+    {
+        return pushedDownSubfield;
     }
 }
