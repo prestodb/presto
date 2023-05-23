@@ -232,7 +232,8 @@ public class TestFeaturesConfig
                 .setSimplifyPlanWithEmptyInput(true)
                 .setPushDownFilterExpressionEvaluationThroughCrossJoin(PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN)
                 .setDefaultJoinSelectivityCoefficient(0)
-                .setRewriteCrossJoinWithOrFilterToInnerJoin(true));
+                .setRewriteCrossJoinWithOrFilterToInnerJoin(true)
+                .setRewriteCrossJoinWithArrayContainsFilterToInnerJoin(true));
     }
 
     @Test
@@ -412,6 +413,7 @@ public class TestFeaturesConfig
                 .put("optimizer.simplify-plan-with-empty-input", "false")
                 .put("optimizer.push-down-filter-expression-evaluation-through-cross-join", "DISABLED")
                 .put("optimizer.rewrite-cross-join-with-or-filter-to-inner-join", "false")
+                .put("optimizer.rewrite-cross-join-with-array-contains-filter-to-inner-join", "false")
                 .put("optimizer.default-join-selectivity-coefficient", "0.5")
                 .build();
 
@@ -590,7 +592,8 @@ public class TestFeaturesConfig
                 .setSimplifyPlanWithEmptyInput(false)
                 .setDefaultJoinSelectivityCoefficient(0.5)
                 .setPushDownFilterExpressionEvaluationThroughCrossJoin(PushDownFilterThroughCrossJoinStrategy.DISABLED)
-                .setRewriteCrossJoinWithOrFilterToInnerJoin(false);
+                .setRewriteCrossJoinWithOrFilterToInnerJoin(false)
+                .setRewriteCrossJoinWithArrayContainsFilterToInnerJoin(false);
         assertFullMapping(properties, expected);
     }
 
