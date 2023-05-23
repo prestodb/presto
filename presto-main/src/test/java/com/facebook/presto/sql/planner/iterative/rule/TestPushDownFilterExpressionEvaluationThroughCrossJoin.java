@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
@@ -60,6 +61,24 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                                                 project(
                                                         ImmutableMap.of("add_0", expression("right_k1+right_k2")),
                                                         values("right_k1", "right_k2"))))));
+    }
+
+    @Test
+    public void testNotTriggerWithAddition()
+    {
+        tester().assertThat(new PushDownFilterExpressionEvaluationThroughCrossJoin(getMetadata().getFunctionAndTypeManager()))
+                .on(p ->
+                {
+                    p.variable("left_k1", BIGINT);
+                    p.variable("left_k2", BIGINT);
+                    p.variable("right_k1", BIGINT);
+                    p.variable("right_k2", BIGINT);
+                    return p.filter(
+                            p.rowExpression("left_k1+right_k1 = left_k2+right_k2"),
+                            p.join(JoinNode.Type.INNER,
+                                    p.values(p.variable("left_k1"), p.variable("left_k2")),
+                                    p.values(p.variable("right_k1"), p.variable("right_k2"))));
+                }).doesNotFire();
     }
 
     @Test
@@ -149,5 +168,91 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                                                 project(
                                                         ImmutableMap.of("expr", expression("COALESCE(right_k2, right_k3)")),
                                                         values("right_k1", "right_k2", "right_k3"))))));
+    }
+
+    @Test
+    public void testTriggerWithArrayContains()
+    {
+        tester().assertThat(new PushDownFilterExpressionEvaluationThroughCrossJoin(getMetadata().getFunctionAndTypeManager()))
+                .on(p ->
+                {
+                    p.variable("left_k1", VARCHAR);
+                    p.variable("right_array_k1", new ArrayType(BIGINT));
+                    return p.filter(
+                            p.rowExpression("contains(right_array_k1, cast(left_k1 as BIGINT))"),
+                            p.join(JoinNode.Type.INNER,
+                                    p.values(p.variable("left_k1", VARCHAR)),
+                                    p.values(p.variable("right_array_k1", new ArrayType(BIGINT)))));
+                })
+                .matches(
+                        project(
+                                filter(
+                                        "contains(right_array_k1, cast_l)",
+                                        join(
+                                                JoinNode.Type.INNER,
+                                                ImmutableList.of(),
+                                                project(
+                                                        ImmutableMap.of("cast_l", expression("CAST(left_k1 AS bigint)")),
+                                                        values("left_k1")),
+                                                values("right_array_k1")))));
+    }
+
+    @Test
+    public void testTriggerWithArrayContains2()
+    {
+        tester().assertThat(new PushDownFilterExpressionEvaluationThroughCrossJoin(getMetadata().getFunctionAndTypeManager()))
+                .on(p ->
+                {
+                    p.variable("left_k1", VARCHAR);
+                    p.variable("right_array_k1", new ArrayType(BIGINT));
+                    return p.filter(
+                            p.rowExpression("contains(cast(right_array_k1 as array<varchar>), left_k1)"),
+                            p.join(JoinNode.Type.INNER,
+                                    p.values(p.variable("left_k1", VARCHAR)),
+                                    p.values(p.variable("right_array_k1", new ArrayType(BIGINT)))));
+                })
+                .matches(
+                        project(
+                                filter(
+                                        "contains(cast_arr, left_k1)",
+                                        join(
+                                                JoinNode.Type.INNER,
+                                                ImmutableList.of(),
+                                                values("left_k1"),
+                                                project(
+                                                        ImmutableMap.of("cast_arr", expression("cast(right_array_k1 as array<varchar>)")),
+                                                        values("right_array_k1"))))));
+    }
+
+    @Test
+    public void testNotTriggerWithArrayContains()
+    {
+        tester().assertThat(new PushDownFilterExpressionEvaluationThroughCrossJoin(getMetadata().getFunctionAndTypeManager()))
+                .on(p ->
+                {
+                    p.variable("left_k1", VARCHAR);
+                    p.variable("right_array_k1", new ArrayType(BIGINT));
+                    return p.filter(
+                            p.rowExpression("contains(right_array_k1, cast(left_k1 as BIGINT)) or cast(left_k1 as BIGINT) > 2"),
+                            p.join(JoinNode.Type.INNER,
+                                    p.values(p.variable("left_k1", VARCHAR)),
+                                    p.values(p.variable("right_array_k1", new ArrayType(BIGINT)))));
+                }).doesNotFire();
+    }
+
+    @Test
+    public void testNotTriggerWithArrayContains2()
+    {
+        tester().assertThat(new PushDownFilterExpressionEvaluationThroughCrossJoin(getMetadata().getFunctionAndTypeManager()))
+                .on(p ->
+                {
+                    p.variable("left_k1", DOUBLE);
+                    p.variable("right_array_k1", new ArrayType(BIGINT));
+                    return p.filter(
+                            p.rowExpression("contains(cast(right_array_k1 as array<DOUBLE>), left_k1)"),
+                            p.join(JoinNode.Type.INNER,
+                                    p.values(p.variable("left_k1", DOUBLE)),
+                                    p.values(p.variable("right_array_k1", new ArrayType(BIGINT)))));
+                }).doesNotFire();
     }
 }
