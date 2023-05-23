@@ -263,6 +263,7 @@ public class FeaturesConfig
     private boolean simplifyPlanWithEmptyInput = true;
     private PushDownFilterThroughCrossJoinStrategy pushDownFilterExpressionEvaluationThroughCrossJoin = PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN;
     private boolean rewriteCrossJoinWithOrFilterToInnerJoin = true;
+    private boolean rewriteCrossJoinWithArrayContainsFilterToInnerJoin = true;
     private JoinNotNullInferenceStrategy joinNotNullInferenceStrategy = NONE;
 
     private boolean preProcessMetadataCalls;
@@ -2592,6 +2593,19 @@ public class FeaturesConfig
     public FeaturesConfig setRewriteCrossJoinWithOrFilterToInnerJoin(boolean rewriteCrossJoinWithOrFilterToInnerJoin)
     {
         this.rewriteCrossJoinWithOrFilterToInnerJoin = rewriteCrossJoinWithOrFilterToInnerJoin;
+        return this;
+    }
+
+    public boolean isRewriteCrossJoinWithArrayContainsFilterToInnerJoin()
+    {
+        return this.rewriteCrossJoinWithArrayContainsFilterToInnerJoin;
+    }
+
+    @Config("optimizer.rewrite-cross-join-with-array-contains-filter-to-inner-join")
+    @ConfigDescription("Enable optimization to rewrite cross join with array contains filter to inner join")
+    public FeaturesConfig setRewriteCrossJoinWithArrayContainsFilterToInnerJoin(boolean rewriteCrossJoinWithArrayContainsFilterToInnerJoin)
+    {
+        this.rewriteCrossJoinWithArrayContainsFilterToInnerJoin = rewriteCrossJoinWithArrayContainsFilterToInnerJoin;
         return this;
     }
 }
