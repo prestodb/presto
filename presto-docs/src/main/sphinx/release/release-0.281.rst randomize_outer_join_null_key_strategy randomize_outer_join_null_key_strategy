@@ -9,10 +9,10 @@ General Changes
 _______________
 * Fix timeout for optimization rules by adding interrupt check between each optimizer rule, and throw meaningful exception.
 * Improve memory accounting for rehashing for values by keeping both the new table and the old table, before this chage we account for the only size difference between the new table and the old table.
-* Improve outer join where the join key is from the output of another outer join which can have many null values. The optimization is controlled by session property ``randomize_outer_join_null_key_strategy`` and the default value is ``DISABLED``
+* Improve outer join where the join key is from the output of another outer join which can have many null values. The optimization is controlled by session property ``randomize_outer_join_null_key_strategy`` and the default value is ``DISABLED``.
+* Improve performance for queries with multiple similar aggregations when there are multiple duplicate aggregations in the aggregation node. The optimization is controlled by session property ``merge_duplicate_aggregations`` and default value is ``true``.
 * Add ability to express concurrency levels as a function of number of available workers.
 * Add an optimization rule for queries which have multiple similar aggregations, with and without filters. The optimization is controlled by session parameter ``merge_aggs_with_and_without_filter`` and by default it is set to ``false``.
-* Add an optimization rule to merge aggregations when there are multiple duplicate aggregations in the aggregation node. The optimization is controlled by session property ``merge_duplicate_aggregations`` and default value is ``true``.
 * Add :func:`f_cdf()` and :func:`inverse_f_cdf()` functions.
 * Add :func:`gamma_cdf()`` and :func:`inverse_gamma_cdf()` functions.
 * Add groups support to :doc:`/functions/window`.
