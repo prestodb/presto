@@ -271,6 +271,7 @@ public final class SystemSessionProperties
     public static final String SIMPLIFY_PLAN_WITH_EMPTY_INPUT = "simplify_plan_with_empty_input";
     public static final String PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN = "push_down_filter_expression_evaluation_through_cross_join";
     public static final String REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN = "rewrite_cross_join_or_to_inner_join";
+    public static final String REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN = "rewrite_cross_join_array_contains_to_inner_join";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1562,6 +1563,11 @@ public final class SystemSessionProperties
                         "Rewrite cross join with or filter to inner join",
                         featuresConfig.isRewriteCrossJoinWithOrFilterToInnerJoin(),
                         false),
+                booleanProperty(
+                        REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN,
+                        "Rewrite cross join with array contains filter to inner join",
+                        featuresConfig.isRewriteCrossJoinWithArrayContainsFilterToInnerJoin(),
+                        false),
                 new PropertyMetadata<>(
                         JOINS_NOT_NULL_INFERENCE_STRATEGY,
                         format("Set the strategy used NOT NULL filter inference on Join Nodes. Options are: %s",
@@ -2640,5 +2646,10 @@ public final class SystemSessionProperties
     public static boolean isRewriteCrossJoinOrToInnerJoinEnabled(Session session)
     {
         return session.getSystemProperty(REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN, Boolean.class);
+    }
+
+    public static boolean isRewriteCrossJoinArrayContainsToInnerJoinEnabled(Session session)
+    {
+        return session.getSystemProperty(REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN, Boolean.class);
     }
 }
