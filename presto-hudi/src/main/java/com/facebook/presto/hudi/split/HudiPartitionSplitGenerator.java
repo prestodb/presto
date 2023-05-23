@@ -107,7 +107,7 @@ public class HudiPartitionSplitGenerator
         HudiPartition hudiPartition = getHudiPartition(metastore, metastoreContext, layout, partitionName);
         Path partitionPath = new Path(hudiPartition.getStorage().getLocation());
         String relativePartitionPath = FSUtils.getRelativePartitionPath(tablePath, partitionPath);
-        fsView.getLatestFileSlicesBeforeOrOn(relativePartitionPath, latestInstant, false)
+        fsView.getLatestFileSlicesBeforeOrOn(relativePartitionPath, latestInstant, true)
                 .map(fileSlice -> createHudiSplit(table, fileSlice, latestInstant, hudiPartition, splitWeightProvider))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
