@@ -57,13 +57,13 @@ public class OptimizerAssert
 {
     private final Metadata metadata;
     private final TestingStatsCalculator statsCalculator;
-    private final Session session;
     private final PlanOptimizer optimizer;
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final LocalQueryRunner queryRunner;
 
+    private Session session;
     private TypeProvider types;
     private PlanNode plan;
 
@@ -76,6 +76,19 @@ public class OptimizerAssert
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "access control is null");
         this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
+    }
+
+    public OptimizerAssert setSystemProperty(String key, String value)
+    {
+        return withSession(Session.builder(session)
+                .setSystemProperty(key, value)
+                .build());
+    }
+
+    public OptimizerAssert withSession(Session session)
+    {
+        this.session = session;
+        return this;
     }
 
     public OptimizerAssert on(Function<PlanBuilder, PlanNode> planProvider)
