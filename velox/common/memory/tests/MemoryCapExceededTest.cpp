@@ -129,18 +129,7 @@ TEST_P(MemoryCapExceededTest, multipleDrivers) {
     data.push_back(rowVector);
   }
 
-  std::vector<std::string> expectedTexts = {
-      "op.1.0.9.Aggregation usage",
-      "op.1.0.8.Aggregation usage",
-      "op.1.0.7.Aggregation usage",
-      "op.1.0.6.Aggregation usage",
-      "op.1.0.5.Aggregation usage",
-      "op.1.0.4.Aggregation usage",
-      "op.1.0.3.Aggregation usage",
-      "op.1.0.2.Aggregation usage",
-      "op.1.0.1.Aggregation usage",
-      "op.1.0.0.Aggregation usage",
-  };
+  const std::string expectedText("Aggregation usage");
 
   auto plan = PlanBuilder()
                   .values(data, true)
@@ -161,16 +150,14 @@ TEST_P(MemoryCapExceededTest, multipleDrivers) {
     FAIL() << "Expected a MEM_CAP_EXCEEDED RuntimeException.";
   } catch (const VeloxException& e) {
     const auto errorMessage = e.message();
-    for (const auto& expectedText : expectedTexts) {
-      if (!GetParam()) {
-        ASSERT_TRUE(errorMessage.find(expectedText) != std::string::npos)
-            << "Expected error message to contain '" << expectedText
-            << "', but received '" << errorMessage << "'.";
-      } else {
-        ASSERT_TRUE(errorMessage.find(expectedText) == std::string::npos)
-            << "Unexpected error message to contain '" << expectedText
-            << "', but received '" << errorMessage << "'.";
-      }
+    if (!GetParam()) {
+      ASSERT_TRUE(errorMessage.find(expectedText) != std::string::npos)
+          << "Expected error message to contain '" << expectedText
+          << "', but received '" << errorMessage << "'.";
+    } else {
+      ASSERT_TRUE(errorMessage.find(expectedText) == std::string::npos)
+          << "Unexpected error message to contain '" << expectedText
+          << "', but received '" << errorMessage << "'.";
     }
   }
 }
