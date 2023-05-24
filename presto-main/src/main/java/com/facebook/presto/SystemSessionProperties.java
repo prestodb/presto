@@ -30,6 +30,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinNotNullInferenceStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
@@ -52,6 +53,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
@@ -180,6 +182,7 @@ public final class SystemSessionProperties
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
     public static final String MAX_TASKS_PER_STAGE = "max_tasks_per_stage";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
+    public static final String DEFAULT_JOIN_SELECTIVITY_COEFFICIENT = "default_join_selectivity_coefficient";
     public static final String PUSH_LIMIT_THROUGH_OUTER_JOIN = "push_limit_through_outer_join";
     public static final String OPTIMIZE_CONSTANT_GROUPING_KEYS = "optimize_constant_grouping_keys";
     public static final String MAX_CONCURRENT_MATERIALIZATIONS = "max_concurrent_materializations";
@@ -228,6 +231,7 @@ public final class SystemSessionProperties
     public static final String CONSIDER_QUERY_FILTERS_FOR_MATERIALIZED_VIEW_PARTITIONS = "consider-query-filters-for-materialized-view-partitions";
     public static final String QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED = "query_optimization_with_materialized_view_enabled";
     public static final String AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY = "aggregation_if_to_filter_rewrite_strategy";
+    public static final String JOINS_NOT_NULL_INFERENCE_STRATEGY = "joins_not_null_inference_strategy";
     public static final String RESOURCE_AWARE_SCHEDULING_STRATEGY = "resource_aware_scheduling_strategy";
     public static final String HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED = "heap_dump_on_exceeded_memory_limit_enabled";
     public static final String EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY = "exceeded_memory_limit_heap_dump_file_directory";
@@ -256,6 +260,7 @@ public final class SystemSessionProperties
     public static final String QUICK_DISTINCT_LIMIT_ENABLED = "quick_distinct_limit_enabled";
     public static final String OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED = "optimize_conditional_aggregation_enabled";
     public static final String ANALYZER_TYPE = "analyzer_type";
+    public static final String PRE_PROCESS_METADATA_CALLS = "pre_process_metadata_calls";
     public static final String REMOVE_REDUNDANT_DISTINCT_AGGREGATION_ENABLED = "remove_redundant_distinct_aggregation_enabled";
     public static final String PREFILTER_FOR_GROUPBY_LIMIT = "prefilter_for_groupby_limit";
     public static final String PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS = "prefilter_for_groupby_limit_timeout_ms";
@@ -986,6 +991,15 @@ public final class SystemSessionProperties
                         "use a default filter factor for unknown filters in a filter node",
                         featuresConfig.isDefaultFilterFactorEnabled(),
                         false),
+                new PropertyMetadata<>(
+                        DEFAULT_JOIN_SELECTIVITY_COEFFICIENT,
+                        "use a default join selectivity coefficient factor when column statistics are not available in a join node",
+                        DOUBLE,
+                        Double.class,
+                        featuresConfig.getDefaultJoinSelectivityCoefficient(),
+                        false,
+                        value -> validateDoubleValueWithinSelectivityRange(value, DEFAULT_JOIN_SELECTIVITY_COEFFICIENT),
+                        object -> object),
                 booleanProperty(
                         PUSH_LIMIT_THROUGH_OUTER_JOIN,
                         "push limits to the outer side of an outer join",
@@ -1093,8 +1107,8 @@ public final class SystemSessionProperties
                         WarningHandlingLevel::name),
                 booleanProperty(
                         OPTIMIZE_NULLS_IN_JOINS,
-                        "Filter nulls from inner side of join",
-                        featuresConfig.isOptimizeNullsInJoin(),
+                        "(DEPRECATED) Filter nulls from inner side of join. If this is set, joins_not_null_inference_strategy = 'INFER_FROM_STANDARD_OPERATORS' is assumed",
+                        false,
                         false),
                 booleanProperty(
                         OPTIMIZE_PAYLOAD_JOINS,
@@ -1319,8 +1333,13 @@ public final class SystemSessionProperties
                 stringProperty(
                         ANALYZER_TYPE,
                         "Analyzer type to use.",
-                        "BUILTIN",
+                        featuresConfig.getAnalyzerType(),
                         true),
+                booleanProperty(
+                        PRE_PROCESS_METADATA_CALLS,
+                        "Pre-process metadata calls before analyzer invocation.",
+                        featuresConfig.isPreProcessMetadataCalls(),
+                        false),
                 booleanProperty(
                         HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED,
                         "Trigger heap dump to `EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_PATH` on exceeded memory limit exceptions",
@@ -1542,7 +1561,19 @@ public final class SystemSessionProperties
                         REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN,
                         "Rewrite cross join with or filter to inner join",
                         featuresConfig.isRewriteCrossJoinWithOrFilterToInnerJoin(),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        JOINS_NOT_NULL_INFERENCE_STRATEGY,
+                        format("Set the strategy used NOT NULL filter inference on Join Nodes. Options are: %s",
+                                Stream.of(JoinNotNullInferenceStrategy.values())
+                                        .map(JoinNotNullInferenceStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        JoinNotNullInferenceStrategy.class,
+                        featuresConfig.getJoinsNotNullInferenceStrategy(),
+                        false,
+                        value -> JoinNotNullInferenceStrategy.valueOf(((String) value).toUpperCase()),
+                        JoinNotNullInferenceStrategy::name));
     }
 
     public static boolean isSpoolingOutputBufferEnabled(Session session)
@@ -2143,6 +2174,20 @@ public final class SystemSessionProperties
         }
         return intValue;
     }
+    private static Double validateDoubleValueWithinSelectivityRange(Object value, String property)
+    {
+        Double number = (Double) value;
+        if (number == null) {
+            return null;
+        }
+        double doubleValue = number.doubleValue();
+        if (doubleValue < 0 || doubleValue > 1) {
+            throw new PrestoException(
+                    INVALID_SESSION_PROPERTY,
+                    format("%s must be within the range of 0 and 1.0: %s", property, doubleValue));
+        }
+        return doubleValue;
+    }
 
     public static boolean isStatisticsCpuTimerEnabled(Session session)
     {
@@ -2172,6 +2217,11 @@ public final class SystemSessionProperties
     public static boolean isDefaultFilterFactorEnabled(Session session)
     {
         return session.getSystemProperty(DEFAULT_FILTER_FACTOR_ENABLED, Boolean.class);
+    }
+
+    public static double getDefaultJoinSelectivityCoefficient(Session session)
+    {
+        return session.getSystemProperty(DEFAULT_JOIN_SELECTIVITY_COEFFICIENT, Double.class);
     }
 
     public static boolean isPushLimitThroughOuterJoin(Session session)
@@ -2255,14 +2305,17 @@ public final class SystemSessionProperties
         return session.getSystemProperty(WARNING_HANDLING, WarningHandlingLevel.class);
     }
 
-    public static boolean isOptimizeNullsInJoin(Session session)
-    {
-        return session.getSystemProperty(OPTIMIZE_NULLS_IN_JOINS, Boolean.class);
-    }
-
     public static boolean isOptimizePayloadJoins(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_PAYLOAD_JOINS, Boolean.class);
+    }
+
+    public static JoinNotNullInferenceStrategy getNotNullInferenceStrategy(Session session)
+    {
+        if (session.getSystemProperty(OPTIMIZE_NULLS_IN_JOINS, Boolean.class)) {
+            return JoinNotNullInferenceStrategy.INFER_FROM_STANDARD_OPERATORS;
+        }
+        return session.getSystemProperty(JOINS_NOT_NULL_INFERENCE_STRATEGY, JoinNotNullInferenceStrategy.class);
     }
 
     public static Optional<DataSize> getTargetResultSize(Session session)
@@ -2438,6 +2491,11 @@ public final class SystemSessionProperties
     public static String getAnalyzerType(Session session)
     {
         return session.getSystemProperty(ANALYZER_TYPE, String.class);
+    }
+
+    public static Boolean isPreProcessMetadataCalls(Session session)
+    {
+        return session.getSystemProperty(PRE_PROCESS_METADATA_CALLS, Boolean.class);
     }
 
     public static Boolean isHeapDumpOnExceededMemoryLimitEnabled(Session session)

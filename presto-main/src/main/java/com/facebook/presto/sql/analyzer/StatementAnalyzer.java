@@ -16,7 +16,6 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.function.OperatorType;
@@ -183,10 +182,6 @@ import static com.facebook.presto.SystemSessionProperties.getMaxGroupingSets;
 import static com.facebook.presto.SystemSessionProperties.isAllowWindowOrderByLiterals;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewPartitionFilteringEnabled;
-import static com.facebook.presto.common.RuntimeMetricName.GET_COLUMN_METADATA_TIME_NANOS;
-import static com.facebook.presto.common.RuntimeMetricName.GET_MATERIALIZED_VIEW_TIME_NANOS;
-import static com.facebook.presto.common.RuntimeMetricName.GET_TABLE_HANDLE_TIME_NANOS;
-import static com.facebook.presto.common.RuntimeMetricName.GET_VIEW_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.SKIP_READING_FROM_MATERIALIZED_VIEW_COUNT;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -243,7 +238,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MATERIALIZED_VI
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_MATERIALIZED_VIEW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
@@ -273,6 +267,9 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
+import static com.facebook.presto.util.MetadataUtils.getMaterializedViewDefinition;
+import static com.facebook.presto.util.MetadataUtils.getTableColumnsMetadata;
+import static com.facebook.presto.util.MetadataUtils.getViewDefinition;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -372,11 +369,12 @@ class StatementAnalyzer
         {
             QualifiedObjectName targetTable = createQualifiedObjectName(session, insert, insert.getTarget());
 
-            if (metadataResolver.getView(targetTable).isPresent()) {
+            MetadataHandle metadataHandle = analysis.getMetadataHandle();
+            if (getViewDefinition(session, metadataResolver, metadataHandle, targetTable).isPresent()) {
                 throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into views is not supported");
             }
 
-            if (metadataResolver.getMaterializedView(targetTable).isPresent()) {
+            if (getMaterializedViewDefinition(session, metadataResolver, metadataHandle, targetTable).isPresent()) {
                 throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into materialized views is not supported");
             }
 
@@ -385,15 +383,12 @@ class StatementAnalyzer
 
             analysis.setUpdateType("INSERT");
 
+            TableColumnMetadata tableColumnsMetadata = getTableColumnsMetadata(session, metadataResolver, metadataHandle, targetTable);
             // verify the insert destination columns match the query
-            Optional<TableHandle> targetTableHandle = metadataResolver.getTableHandle(targetTable);
-            if (!targetTableHandle.isPresent()) {
-                throw new SemanticException(MISSING_TABLE, insert, "Table '%s' does not exist", targetTable);
-            }
 
             analysis.addAccessControlCheckForTable(TABLE_INSERT, new AccessControlInfoForTable(accessControl, session.getIdentity(), session.getTransactionId(), session.getAccessControlContext(), targetTable));
 
-            List<ColumnMetadata> columnsMetadata = metadataResolver.getColumns(targetTableHandle.get());
+            List<ColumnMetadata> columnsMetadata = tableColumnsMetadata.getColumnsMetadata();
             List<String> tableColumns = columnsMetadata.stream()
                     .filter(column -> !column.isHidden())
                     .map(ColumnMetadata::getName)
@@ -426,9 +421,9 @@ class StatementAnalyzer
 
             checkTypesMatchForInsert(insert, queryScope, expectedColumns);
 
-            Map<String, ColumnHandle> columnHandles = metadataResolver.getColumnHandles(targetTableHandle.get());
+            Map<String, ColumnHandle> columnHandles = tableColumnsMetadata.getColumnHandles();
             analysis.setInsert(new Analysis.Insert(
-                    targetTableHandle.get(),
+                    tableColumnsMetadata.getTableHandle().get(),
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
 
             return createAndAssignScope(insert, scope, Field.newUnqualified(insert.getLocation(), "rows", BIGINT));
@@ -554,12 +549,13 @@ class StatementAnalyzer
         {
             Table table = node.getTable();
             QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+            MetadataHandle metadataHandle = analysis.getMetadataHandle();
 
-            if (metadataResolver.getView(tableName).isPresent()) {
+            if (getViewDefinition(session, metadataResolver, metadataHandle, tableName).isPresent()) {
                 throw new SemanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
             }
 
-            if (metadataResolver.getMaterializedView(tableName).isPresent()) {
+            if (getMaterializedViewDefinition(session, metadataResolver, metadataHandle, tableName).isPresent()) {
                 throw new SemanticException(NOT_SUPPORTED, node, "Deleting from materialized views is not supported");
             }
 
@@ -588,9 +584,10 @@ class StatementAnalyzer
         {
             analysis.setUpdateType("ANALYZE");
             QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName());
+            MetadataHandle metadataHandle = analysis.getMetadataHandle();
 
             // verify the target table exists, and it's not a view
-            if (metadataResolver.getView(tableName).isPresent()) {
+            if (getViewDefinition(session, metadataResolver, metadataHandle, tableName).isPresent()) {
                 throw new SemanticException(NOT_SUPPORTED, node, "Analyzing views is not supported");
             }
 
@@ -725,7 +722,7 @@ class StatementAnalyzer
 
             QualifiedObjectName viewName = createQualifiedObjectName(session, node.getTarget(), node.getTarget().getName());
 
-            MaterializedViewDefinition view = metadataResolver.getMaterializedView(viewName)
+            MaterializedViewDefinition view = getMaterializedViewDefinition(session, metadataResolver, analysis.getMetadataHandle(), viewName)
                     .orElseThrow(() -> new SemanticException(MISSING_MATERIALIZED_VIEW, node, "Materialized view '%s' does not exist", viewName));
 
             // the original refresh statement will always be one line
@@ -761,10 +758,12 @@ class StatementAnalyzer
                     warningCollector);
             queryAnalyzer.analyze(refreshQuery, Scope.create());
 
-            TableHandle tableHandle = metadataResolver.getTableHandle(viewName)
+            TableColumnMetadata tableColumnsMetadata = getTableColumnsMetadata(session, metadataResolver, analysis.getMetadataHandle(), viewName);
+            TableHandle tableHandle = tableColumnsMetadata.getTableHandle()
                     .orElseThrow(() -> new SemanticException(MISSING_MATERIALIZED_VIEW, node, "Materialized view '%s' does not exist", viewName));
-            Map<String, ColumnHandle> columnHandles = metadataResolver.getColumnHandles(tableHandle);
-            List<ColumnHandle> targetColumnHandles = metadataResolver.getColumns(tableHandle).stream()
+
+            Map<String, ColumnHandle> columnHandles = tableColumnsMetadata.getColumnHandles();
+            List<ColumnHandle> targetColumnHandles = tableColumnsMetadata.getColumnsMetadata().stream()
                     .filter(column -> !column.isHidden())
                     .map(column -> columnHandles.get(column.getName()))
                     .collect(toImmutableList());
@@ -1084,7 +1083,7 @@ class StatementAnalyzer
             for (Table baseTable : baseTables) {
                 QualifiedObjectName baseName = createQualifiedObjectName(session, baseTable, baseTable.getName());
 
-                Optional<MaterializedViewDefinition> optionalMaterializedView = metadataResolver.getMaterializedView(baseName);
+                Optional<MaterializedViewDefinition> optionalMaterializedView = getMaterializedViewDefinition(session, metadataResolver, analysis.getMetadataHandle(), baseName);
                 if (optionalMaterializedView.isPresent()) {
                     throw new SemanticException(
                             NOT_SUPPORTED,
@@ -1249,16 +1248,12 @@ class StatementAnalyzer
             }
             analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), session.getTransactionId(), session.getAccessControlContext(), name);
 
-            Optional<ViewDefinition> optionalView = session.getRuntimeStats().profileNanos(
-                    GET_VIEW_TIME_NANOS,
-                    () -> metadataResolver.getView(name));
+            Optional<ViewDefinition> optionalView = getViewDefinition(session, metadataResolver, analysis.getMetadataHandle(), name);
             if (optionalView.isPresent()) {
                 return processView(table, scope, name, optionalView);
             }
 
-            Optional<MaterializedViewDefinition> optionalMaterializedView = session.getRuntimeStats().profileNanos(
-                    GET_MATERIALIZED_VIEW_TIME_NANOS,
-                    () -> metadataResolver.getMaterializedView(name));
+            Optional<MaterializedViewDefinition> optionalMaterializedView = getMaterializedViewDefinition(session, metadataResolver, analysis.getMetadataHandle(), name);
             // Prevent INSERT and CREATE TABLE when selecting from a materialized view.
             if (optionalMaterializedView.isPresent()
                     && (analysis.getStatement() instanceof Insert || analysis.getStatement() instanceof CreateTableAsSelect)) {
@@ -1282,22 +1277,15 @@ class StatementAnalyzer
                 }
             }
 
-            Optional<TableHandle> tableHandle = session.getRuntimeStats().profileNanos(GET_TABLE_HANDLE_TIME_NANOS, () -> metadataResolver.getTableHandle(name));
-            if (!tableHandle.isPresent()) {
-                if (!metadataResolver.catalogExists(name.getCatalogName())) {
-                    throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());
-                }
-                if (!metadataResolver.schemaExists(new CatalogSchemaName(name.getCatalogName(), name.getSchemaName()))) {
-                    throw new SemanticException(MISSING_SCHEMA, table, "Schema %s does not exist", name.getSchemaName());
-                }
-                throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
-            }
+            TableColumnMetadata tableColumnsMetadata = getTableColumnsMetadata(session, metadataResolver, analysis.getMetadataHandle(), name);
+            Optional<TableHandle> tableHandle = tableColumnsMetadata.getTableHandle();
 
-            Map<String, ColumnHandle> columnHandles = metadataResolver.getColumnHandles(tableHandle.get());
+            Map<String, ColumnHandle> columnHandles = tableColumnsMetadata.getColumnHandles();
 
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
-            for (ColumnMetadata column : metadataResolver.getColumns(tableHandle.get())) {
+
+            for (ColumnMetadata column : tableColumnsMetadata.getColumnsMetadata()) {
                 Field field = Field.newQualified(
                         Optional.empty(),
                         table.getName(),
@@ -1334,24 +1322,12 @@ class StatementAnalyzer
         private Scope getScopeFromTable(Table table, Optional<Scope> scope)
         {
             QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
-
-            Optional<TableHandle> tableHandle = session.getRuntimeStats().profileNanos(GET_TABLE_HANDLE_TIME_NANOS, () -> metadataResolver.getTableHandle(tableName));
-            if (!tableHandle.isPresent()) {
-                if (!metadataResolver.catalogExists(tableName.getCatalogName())) {
-                    throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", tableName.getCatalogName());
-                }
-                if (!metadataResolver.schemaExists(new CatalogSchemaName(tableName.getCatalogName(), tableName.getSchemaName()))) {
-                    throw new SemanticException(MISSING_SCHEMA, table, "Schema %s does not exist", tableName.getSchemaName());
-                }
-                throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", tableName);
-            }
+            TableColumnMetadata tableColumnsMetadata = getTableColumnsMetadata(session, metadataResolver, analysis.getMetadataHandle(), tableName);
 
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
 
-            List<ColumnMetadata> columnsMetadata = session.getRuntimeStats().profileNanos(
-                    GET_COLUMN_METADATA_TIME_NANOS,
-                    () -> metadataResolver.getColumns(tableHandle.get()));
+            List<ColumnMetadata> columnsMetadata = tableColumnsMetadata.getColumnsMetadata();
 
             for (ColumnMetadata columnMetadata : columnsMetadata) {
                 Field field = Field.newQualified(
@@ -1501,7 +1477,7 @@ class StatementAnalyzer
             QuerySpecification currentSubquery = analysis.getCurrentQuerySpecification().get();
 
             if (currentSubquery.getWhere().isPresent() && isMaterializedViewPartitionFilteringEnabled(session)) {
-                Optional<MaterializedViewDefinition> materializedViewDefinition = metadataResolver.getMaterializedView(materializedViewName);
+                Optional<MaterializedViewDefinition> materializedViewDefinition = getMaterializedViewDefinition(session, metadataResolver, analysis.getMetadataHandle(), materializedViewName);
                 if (!materializedViewDefinition.isPresent()) {
                     log.warn("Materialized view definition not present as expected when fetching materialized view status");
                     return metadataResolver.getMaterializedViewStatus(materializedViewName, baseQueryDomain);

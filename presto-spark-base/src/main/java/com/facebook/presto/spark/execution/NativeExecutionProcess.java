@@ -269,7 +269,8 @@ public class NativeExecutionProcess
         return absolutePath.getAbsolutePath();
     }
 
-    private List<String> getLaunchCommand() throws IOException
+    private List<String> getLaunchCommand()
+            throws IOException
     {
         String executablePath = getProcessWorkingPath(SystemSessionProperties.getNativeExecutionExecutablePath(session));
         String programArgs = SystemSessionProperties.getNativeExecutionProgramArguments(session);

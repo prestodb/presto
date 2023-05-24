@@ -20,14 +20,22 @@ public class TestPrestoNativeTpchConnectorQueries
         extends AbstractTestNativeTpchConnectorQueries
 {
     @Override
-    protected QueryRunner createQueryRunner() throws Exception
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
         return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(true);
     }
 
     @Override
-    protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
+    protected ExpectedQueryRunner createExpectedQueryRunner()
+            throws Exception
     {
         return PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
+    }
+
+    @Override
+    public void testMissingTpchConnector()
+    {
+        super.testMissingTpchConnector("No nodes available to run query");
     }
 }

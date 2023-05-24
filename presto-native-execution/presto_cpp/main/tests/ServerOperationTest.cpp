@@ -15,9 +15,15 @@
 #include <gtest/gtest.h>
 #include "velox/common/base/Exceptions.h"
 
+DECLARE_bool(velox_memory_leak_check_enabled);
+
 namespace facebook::presto {
 
-class ServerOperationTest : public testing::Test {};
+class ServerOperationTest : public testing::Test {
+  void SetUp() override {
+    FLAGS_velox_memory_leak_check_enabled = true;
+  }
+};
 
 TEST_F(ServerOperationTest, targetActionLookup) {
   {

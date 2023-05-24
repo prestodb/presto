@@ -1116,7 +1116,7 @@ public class TestPrestoSparkQueryRunner
                         "FROM orders", 15000);
         assertQuery("select count(*) from hive.hive_test.hive_orders1", "select 15000");
         assertQuerySucceeds("DROP TABLE hive.hive_test.hive_orders1");
-        assertQueryFails("select count(*) from hive.hive_test.hive_orders1", ".* Table hive.hive_test.hive_orders1 does not exist");
+        assertQueryFails("select count(*) from hive.hive_test.hive_orders1", ".*Table hive.hive_test.hive_orders1 does not exist");
     }
 
     @Test

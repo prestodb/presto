@@ -20,13 +20,15 @@ public class TestPrestoNativeGeneralQueriesThrift
         extends AbstractTestNativeGeneralQueries
 {
     @Override
-    protected QueryRunner createQueryRunner() throws Exception
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
         return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(true);
     }
 
     @Override
-    protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
+    protected ExpectedQueryRunner createExpectedQueryRunner()
+            throws Exception
     {
         return PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
     }

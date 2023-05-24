@@ -21,6 +21,7 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager;
 import com.facebook.presto.spark.execution.NativeExecutionModule;
+import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
@@ -76,6 +77,7 @@ public class PrestoSparkNativeQueryRunnerUtils
     private static final int AVAILABLE_CPU_COUNT = 4;
     private static final String SPARK_SHUFFLE_MANAGER = "spark.shuffle.manager";
     private static final String FALLBACK_SPARK_SHUFFLE_MANAGER = "spark.fallback.shuffle.manager";
+    private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
     private static Optional<Path> dataDirectory = Optional.empty();
 
     private PrestoSparkNativeQueryRunnerUtils() {}
@@ -101,31 +103,46 @@ public class PrestoSparkNativeQueryRunnerUtils
         return builder.build();
     }
 
-    public static PrestoSparkQueryRunner createPrestoSparkNativeQueryRunner()
+    public static PrestoSparkQueryRunner createHiveRunner()
     {
-        PrestoSparkQueryRunner queryRunner = createPrestoSparkNativeQueryRunner(
-                Optional.of(getBaseDataPath()),
-                getNativeExecutionSessionConfigs(),
-                getNativeExecutionShuffleConfigs(),
-                ImmutableList.of(new NativeExecutionModule()));
+        PrestoSparkQueryRunner queryRunner = createRunner("hive", new NativeExecutionModule());
         setupJsonFunctionNamespaceManager(queryRunner);
 
-        // Increases log level to reduce log spamming while running test.
-        customizeLogging();
         return queryRunner;
     }
 
-    public static PrestoSparkQueryRunner createPrestoSparkNativeQueryRunner(Optional<Path> baseDir, Map<String, String> additionalConfigProperties, Map<String, String> additionalSparkProperties, ImmutableList<Module> nativeModules)
+    private static PrestoSparkQueryRunner createRunner(String defaultCatalog, NativeExecutionModule nativeExecutionModule)
+    {
+        // Increases log level to reduce log spamming while running test.
+        customizeLogging();
+        return createRunner(
+                defaultCatalog,
+                Optional.of(getBaseDataPath()),
+                getNativeExecutionSessionConfigs(),
+                getNativeExecutionShuffleConfigs(),
+                ImmutableList.of(nativeExecutionModule));
+    }
+
+    // Similar to createPrestoSparkNativeQueryRunner, but with custom connector config and without jsonFunctionNamespaceManager
+    public static PrestoSparkQueryRunner createTpchRunner()
+    {
+        return createRunner(
+                "tpchstandard",
+                new NativeExecutionModule(
+                        Optional.of(new NativeExecutionConnectorConfig().setConnectorName("tpch"))));
+    }
+
+    public static PrestoSparkQueryRunner createRunner(String defaultCatalog, Optional<Path> baseDir, Map<String, String> additionalConfigProperties, Map<String, String> additionalSparkProperties, ImmutableList<Module> nativeModules)
     {
         ImmutableMap.Builder<String, String> configBuilder = ImmutableMap.builder();
         configBuilder.putAll(getNativeWorkerSystemProperties()).putAll(additionalConfigProperties);
-
+        Optional<Path> dataDir = baseDir.map(path -> Paths.get(path.toString() + '/' + DEFAULT_STORAGE_FORMAT));
         PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner(
-                "hive",
+                defaultCatalog,
                 configBuilder.build(),
-                getNativeWorkerHiveProperties(),
+                getNativeWorkerHiveProperties(DEFAULT_STORAGE_FORMAT),
                 additionalSparkProperties,
-                baseDir,
+                dataDir,
                 nativeModules,
                 AVAILABLE_CPU_COUNT);
 
@@ -139,7 +156,7 @@ public class PrestoSparkNativeQueryRunnerUtils
     public static QueryRunner createJavaQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner(Optional.of(getBaseDataPath()), "legacy");
+        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner(Optional.of(getBaseDataPath()), "legacy", DEFAULT_STORAGE_FORMAT);
     }
 
     public static void assertShuffleMetadata()

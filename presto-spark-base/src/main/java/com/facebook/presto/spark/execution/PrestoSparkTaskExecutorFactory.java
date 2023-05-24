@@ -413,8 +413,7 @@ public class PrestoSparkTaskExecutorFactory
         // We will only cache 1 HT at any time. If the stageId changes, we will drop the old cached HT
         prestoSparkBroadcastTableCacheManager.removeCachedTablesForStagesOtherThan(stageId);
 
-        // TODO: include attemptId in taskId
-        TaskId taskId = new TaskId(new StageExecutionId(stageId, 0), partitionId);
+        TaskId taskId = new TaskId(new StageExecutionId(stageId, 0), partitionId, attemptNumber);
 
         // TODO: Remove this once we can display the plan on Spark UI.
         // Currently, `textPlanFragment` throws an exception if json-based UDFs are used in the query, which can only
