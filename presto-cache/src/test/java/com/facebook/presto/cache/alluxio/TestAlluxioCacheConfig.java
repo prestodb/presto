@@ -39,6 +39,7 @@ public class TestAlluxioCacheConfig
                 .setEvictionRetries(10)
                 .setEvictionPolicy(EvictionPolicy.LRU)
                 .setJmxClass("alluxio.metrics.sink.JmxSink")
+                .setCacheFilterClass("alluxio.client.file.cache.filter.DefaultCacheFilter")
                 .setMaxCacheSize(new DataSize(2, GIGABYTE))
                 .setMetricsCollectionEnabled(true)
                 .setMetricsDomain("com.facebook.alluxio")
