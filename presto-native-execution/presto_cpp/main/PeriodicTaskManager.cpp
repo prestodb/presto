@@ -65,7 +65,7 @@ void PeriodicTaskManager::start() {
   }
   if (taskManager_ != nullptr) {
     addTaskStatsTask();
-    addTaskCleanupTask();
+    addOldTaskCleanupTask();
   }
   if (memoryAllocator_ != nullptr) {
     addMemoryAllocatorStatsTask();
@@ -154,15 +154,15 @@ void PeriodicTaskManager::addTaskStatsTask() {
       "task_counters");
 }
 
-void PeriodicTaskManager::updateTaskCleanUp() {
+void PeriodicTaskManager::cleanupOldTask() {
   // Report the number of tasks and drivers in the system.
   if (taskManager_ != nullptr) {
     taskManager_->cleanOldTasks();
   }
 }
-void PeriodicTaskManager::addTaskCleanupTask() {
+void PeriodicTaskManager::addOldTaskCleanupTask() {
   scheduler_.addFunction(
-      [this]() { updateTaskCleanUp(); },
+      [this]() { cleanupOldTask(); },
       std::chrono::microseconds{kTaskPeriodCleanOldTasks},
       "clean_old_tasks");
 }
@@ -194,9 +194,8 @@ void PeriodicTaskManager::updatePrestoExchangeSourceMemoryStats() {
   int64_t peakQueuedMemoryBytes{0};
   PrestoExchangeSource::getMemoryUsage(
       currQueuedMemoryBytes, peakQueuedMemoryBytes);
-  REPORT_ADD_STAT_VALUE(
-      kCounterExchangeSourceQueuedBytes, currQueuedMemoryBytes);
-  REPORT_ADD_STAT_VALUE(
+  PrestoExchangeSource::resetPeakMemoryUsage();
+  REPORT_ADD_HISTOGRAM_VALUE(
       kCounterExchangeSourcePeakQueuedBytes, peakQueuedMemoryBytes);
 }
 

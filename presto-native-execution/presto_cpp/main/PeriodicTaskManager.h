@@ -77,8 +77,8 @@ class PeriodicTaskManager {
   void addTaskStatsTask();
   void updateTaskStats();
 
-  void addTaskCleanupTask();
-  void updateTaskCleanUp();
+  void addOldTaskCleanupTask();
+  void cleanupOldTask();
 
   void addMemoryAllocatorStatsTask();
   void updateMemoryAllocatorStats();
