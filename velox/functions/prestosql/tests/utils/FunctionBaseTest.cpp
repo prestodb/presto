@@ -41,15 +41,20 @@ std::unordered_set<std::string> FunctionBaseTest::getSignatureStrings(
 std::pair<VectorPtr, std::unordered_map<std::string, exec::ExprStats>>
 FunctionBaseTest::evaluateWithStats(
     const std::string& expression,
-    const RowVectorPtr& data) {
+    const RowVectorPtr& data,
+    const std::optional<SelectivityVector>& rows) {
   auto typedExpr = makeTypedExpr(expression, asRowType(data->type()));
 
-  SelectivityVector rows(data->size());
   std::vector<VectorPtr> results(1);
 
   exec::ExprSet exprSet({typedExpr}, &execCtx_);
   exec::EvalCtx evalCtx(&execCtx_, &exprSet, data.get());
-  exprSet.eval(rows, evalCtx, results);
+  if (rows.has_value()) {
+    exprSet.eval(*rows, evalCtx, results);
+  } else {
+    SelectivityVector defaultRows(data->size());
+    exprSet.eval(defaultRows, evalCtx, results);
+  }
 
   return {results[0], exprSet.stats()};
 }

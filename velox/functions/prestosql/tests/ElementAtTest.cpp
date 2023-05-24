@@ -135,7 +135,8 @@ TEST_F(ElementAtTest, mapWithDictionaryKeys) {
   {
     auto result = evaluateOnce<int64_t>(
         "element_at(map(array_constructor(85,22,79,76,10,80,57,31),array_constructor(14,10,16,15,12,11,17,13)),85)",
-        makeRowVector({}));
+        makeRowVector({}),
+        SelectivityVector{1});
     ASSERT_EQ(result, 14);
   }
 }
@@ -159,7 +160,8 @@ TEST_F(ElementAtTest, arrayWithDictionaryElements) {
   {
     auto result = evaluateOnce<int64_t>(
         "element_at(array_constructor(14,10,16,15,12,11,17,13), -3)",
-        makeRowVector({}));
+        makeRowVector({}),
+        SelectivityVector{1});
     ASSERT_EQ(result, 11);
   }
 }
