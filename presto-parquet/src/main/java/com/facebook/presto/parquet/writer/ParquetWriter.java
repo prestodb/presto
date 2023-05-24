@@ -35,6 +35,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.parquet.writer.ParquetDataOutput.createDataOutput;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -81,7 +82,13 @@ public class ParquetWriter
 
     public static final Slice MAGIC = wrappedBuffer("PAR1".getBytes(US_ASCII));
 
-    public ParquetWriter(OutputStream outputStream, List<String> columnNames, List<Type> types, ParquetWriterOptions writerOption, String compressionCodecClass)
+    public ParquetWriter(OutputStream outputStream,
+                         MessageType messageType,
+                         Map<List<String>, Type> primitiveTypes,
+                         List<String> columnNames,
+                         List<Type> types,
+                         ParquetWriterOptions writerOption,
+                         String compressionCodecClass)
     {
         this.outputStream = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputstream is null"));
         this.names = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
@@ -90,15 +97,14 @@ public class ParquetWriter
 
         checkArgument(types.size() == columnNames.size(), "type size %s is not equal to name size %s", types.size(), columnNames.size());
 
-        ParquetSchemaConverter parquetSchemaConverter = new ParquetSchemaConverter(types, columnNames);
-        this.messageType = parquetSchemaConverter.getMessageType();
+        this.messageType = requireNonNull(messageType, "messageType is null");
 
         ParquetProperties parquetProperties = ParquetProperties.builder()
                 .withWriterVersion(PARQUET_2_0)
                 .withPageSize(writerOption.getMaxPageSize())
                 .build();
         CompressionCodecName compressionCodecName = getCompressionCodecName(compressionCodecClass);
-        this.columnWriters = ParquetWriters.getColumnWriters(messageType, parquetSchemaConverter.getPrimitiveTypes(), parquetProperties, compressionCodecName);
+        this.columnWriters = ParquetWriters.getColumnWriters(messageType, primitiveTypes, parquetProperties, compressionCodecName);
 
         this.chunkMaxLogicalBytes = max(1, CHUNK_MAX_BYTES / 2);
     }

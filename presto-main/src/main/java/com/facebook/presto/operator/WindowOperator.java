@@ -924,17 +924,19 @@ public class WindowOperator
         checkArgument(startPosition < endPosition, "startPosition (%s) must be less than endPosition (%s)", startPosition, endPosition);
 
         int left = startPosition;
-        int right = endPosition;
+        int right = left + 1;
 
-        while (left + 1 < right) {
-            int middle = (left + right) >>> 1;
-
-            if (comparator.test(startPosition, middle)) {
-                left = middle;
+        while (right < endPosition) {
+            int distance = 1;
+            for (; distance < endPosition - left; distance *= 2) {
+                right = left + distance;
+                if (!comparator.test(startPosition, right)) {
+                    endPosition = right;
+                    break;
+                }
             }
-            else {
-                right = middle;
-            }
+            left = left + distance / 2;
+            right = left + 1;
         }
 
         return right;

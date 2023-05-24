@@ -111,6 +111,16 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertFunction(format("\"%s\"(%s)", operator.getFunctionName().getObjectName(), value), expectedType, expected);
     }
 
+    protected void assertFunctionDoubleArrayWithError(String projection, Type expectedType, List<Double> expected, double delta)
+    {
+        functionAssertions.assertFunctionDoubleArrayWithError(projection, expectedType, expected, delta);
+    }
+
+    protected void assertFunctionFloatArrayWithError(String projection, Type expectedType, List<Float> expected, float delta)
+    {
+        functionAssertions.assertFunctionFloatArrayWithError(projection, expectedType, expected, delta);
+    }
+
     protected void assertDecimalFunction(String statement, SqlDecimal expectedResult)
     {
         assertFunction(

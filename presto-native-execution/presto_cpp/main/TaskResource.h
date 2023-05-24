@@ -21,15 +21,12 @@ namespace facebook::presto {
 
 class TaskResource {
  public:
-  explicit TaskResource(TaskManager& taskManager)
-      : taskManager_(taskManager),
-        pool_(velox::memory::addDefaultLeafMemoryPool()) {}
+  explicit TaskResource(
+      TaskManager& taskManager,
+      velox::memory::MemoryPool* pool)
+      : taskManager_(taskManager), pool_{pool} {}
 
   void registerUris(http::HttpServer& server);
-
-  velox::memory::MemoryPool* getPool() const {
-    return pool_.get();
-  }
 
  private:
   proxygen::RequestHandler* abortResults(
@@ -69,11 +66,9 @@ class TaskResource {
   proxygen::RequestHandler* createOrUpdateTaskImpl(
       proxygen::HTTPMessage* message,
       const std::vector<std::string>& pathMatch,
-      const std::function<void(
+      const std::function<std::unique_ptr<protocol::TaskInfo>(
           const protocol::TaskId&,
-          const std::string&,
-          protocol::TaskUpdateRequest&,
-          velox::core::PlanFragment&)>& parseFunc);
+          const std::string&)>& createOrUpdateFunc);
 
   proxygen::RequestHandler* deleteTask(
       proxygen::HTTPMessage* message,
@@ -96,7 +91,7 @@ class TaskResource {
       const std::vector<std::string>& pathMatch);
 
   TaskManager& taskManager_;
-  std::shared_ptr<velox::memory::MemoryPool> pool_;
+  velox::memory::MemoryPool* pool_;
 };
 
 } // namespace facebook::presto

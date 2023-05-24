@@ -74,22 +74,18 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
         core::QueryConfig::kAdjustTimestampToTimezone, "true");
   }
 
-  std::shared_ptr<Config> config =
-      std::make_shared<core::MemConfig>(configStrings);
   std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs;
   for (auto& entry : connectorConfigStrings) {
     connectorConfigs.insert(
         {entry.first, std::make_shared<core::MemConfig>(entry.second)});
   }
 
-  const int64_t maxQueryMemoryPerNode =
-      getMaxMemoryPerNode(kQueryMaxMemoryPerNode, kDefaultMaxMemoryPerNode);
   auto pool = memory::defaultMemoryManager().addRootPool(
-      queryId, maxQueryMemoryPerNode);
+      queryId, SystemConfig::instance()->queryMaxMemoryPerNode());
 
   auto queryCtx = std::make_shared<core::QueryCtx>(
       executor().get(),
-      config,
+      std::move(configStrings),
       connectorConfigs,
       memory::MemoryAllocator::getInstance(),
       std::move(pool),

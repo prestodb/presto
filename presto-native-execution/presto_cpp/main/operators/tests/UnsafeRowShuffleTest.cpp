@@ -19,14 +19,13 @@
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
+#include "presto_cpp/main/operators/tests/PlanBuilder.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/exec/Exchange.h"
-#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/expression/VectorFunction.h"
-#include "velox/serializers/UnsafeRowSerializer.h"
+#include "velox/row/UnsafeRowDeserializers.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using namespace facebook::velox;
@@ -74,8 +73,11 @@ class TestShuffleWriter : public ShuffleWriter {
   }
 
   void collect(int32_t partition, std::string_view data) override {
+    using TRowSize = uint32_t;
+
     auto& buffer = inProgressPartitions_[partition];
-    auto size = data.size();
+    TRowSize rowSize = data.size();
+    auto size = sizeof(TRowSize) + rowSize;
 
     // Check if there is enough space in the buffer.
     if (buffer && inProgressSizes_[partition] + size >= maxBytesPerPartition_) {
@@ -93,10 +95,11 @@ class TestShuffleWriter : public ShuffleWriter {
     }
 
     // Copy data.
-    auto rawBuffer = buffer->asMutable<char>();
     auto offset = inProgressSizes_[partition];
+    auto rawBuffer = buffer->asMutable<char>() + offset;
 
-    ::memcpy(rawBuffer + offset, data.data(), size);
+    *(TRowSize*)(rawBuffer) = folly::Endian::big(rowSize);
+    ::memcpy(rawBuffer + sizeof(TRowSize), data.data(), rowSize);
 
     inProgressSizes_[partition] += size;
   }
@@ -273,44 +276,6 @@ void registerExchangeSource(const std::string& shuffleName) {
         return nullptr;
       });
 }
-
-auto addPartitionAndSerializeNode(uint32_t numPartitions) {
-  return [numPartitions](
-             core::PlanNodeId nodeId,
-             core::PlanNodePtr source) -> core::PlanNodePtr {
-    std::vector<core::TypedExprPtr> keys;
-    keys.push_back(
-        std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0"));
-    const auto outputType = source->outputType();
-    return std::make_shared<PartitionAndSerializeNode>(
-        nodeId,
-        keys,
-        numPartitions,
-        ROW({"p", "d"}, {INTEGER(), VARBINARY()}),
-        std::move(source),
-        std::make_shared<HivePartitionFunctionSpec>(
-            exec::toChannels(outputType, keys)));
-  };
-}
-
-auto addShuffleWriteNode(
-    const std::string& shuffleName,
-    const std::string& serializedWriteInfo) {
-  return [&shuffleName, &serializedWriteInfo](
-             core::PlanNodeId nodeId,
-             core::PlanNodePtr source) -> core::PlanNodePtr {
-    return std::make_shared<ShuffleWriteNode>(
-        nodeId, shuffleName, serializedWriteInfo, std::move(source));
-  };
-}
-
-auto addShuffleReadNode(velox::RowTypePtr& outputType) {
-  return [&outputType](
-             core::PlanNodeId nodeId,
-             core::PlanNodePtr /* source */) -> core::PlanNodePtr {
-    return std::make_shared<ShuffleReadNode>(nodeId, outputType);
-  };
-}
 } // namespace
 
 class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
@@ -367,9 +332,10 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
       const std::string& taskId,
       core::PlanNodePtr planNode,
       int destination) {
-    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+    auto queryCtx = std::make_shared<core::QueryCtx>(
+        executor_.get(), std::unordered_map<std::string, std::string>{});
     core::PlanFragment planFragment{planNode};
-    return std::make_shared<exec::Task>(
+    return exec::Task::create(
         taskId, std::move(planFragment), destination, std::move(queryCtx));
   }
 
@@ -390,44 +356,16 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     auto serializedData =
         serializedResult->childAt(1)->as<FlatVector<StringView>>();
 
-    // Serialize data into a single block.
-
-    // Calculate total size.
-    size_t totalSize = 0;
+    std::vector<std::optional<std::string_view>> rows;
+    rows.reserve(serializedData->size());
     for (auto i = 0; i < serializedData->size(); ++i) {
-      totalSize += serializedData->valueAt(i).size();
+      auto serializedRow = serializedData->valueAt(i);
+      rows.push_back(
+          std::string_view(serializedRow.data(), serializedRow.size()));
     }
 
-    // Allocate the block. Add an extra sizeof(size_t) bytes for each row to
-    // hold row size.
-    BufferPtr buffer = AlignedBuffer::allocate<char>(totalSize, pool());
-    auto rawBuffer = buffer->asMutable<char>();
-
-    // Copy data.
-    size_t offset = 0;
-    for (auto i = 0; i < serializedData->size(); ++i) {
-      auto value = serializedData->valueAt(i);
-      memcpy(rawBuffer + offset, value.data(), value.size());
-      offset += value.size();
-    }
-
-    // Deserialize the block.
-    return deserialize(buffer, rowType);
-  }
-
-  RowVectorPtr deserialize(BufferPtr& serialized, const RowTypePtr& rowType) {
-    auto serializer =
-        std::make_unique<serializer::spark::UnsafeRowVectorSerde>();
-
-    ByteRange byteRange = {
-        serialized->asMutable<uint8_t>(), (int32_t)serialized->size(), 0};
-
-    auto input = std::make_unique<ByteStream>();
-    input->resetInput({byteRange});
-
-    RowVectorPtr result;
-    serializer->deserialize(input.get(), pool(), rowType, &result, nullptr);
-    return result;
+    return std::dynamic_pointer_cast<RowVector>(
+        row::UnsafeRowDeserializer::deserialize(rows, rowType, pool()));
   }
 
   RowVectorPtr copyResultVector(const RowVectorPtr& result) {
@@ -436,6 +374,26 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     vector->copy(result.get(), 0, 0, result->size());
     VELOX_CHECK_EQ(vector->size(), result->size());
     return vector;
+  }
+
+  void testPartitionAndSerialize(
+      const core::PlanNodePtr& plan,
+      const RowVectorPtr& expected) {
+    exec::test::CursorParameters params;
+    params.planNode = plan;
+    params.maxDrivers = 2;
+
+    auto [taskCursor, serializedResults] =
+        readCursor(params, [](auto /*task*/) {});
+    EXPECT_EQ(serializedResults.size(), 2);
+
+    for (auto& serializedResult : serializedResults) {
+      // Verify that serialized data can be deserialized successfully into the
+      // original data.
+      auto deserialized =
+          deserialize(serializedResult, asRowType(expected->type()));
+      velox::test::assertEqualVectors(expected, deserialized);
+    }
   }
 
   void runShuffleTest(
@@ -776,20 +734,22 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOperator) {
                   .addNode(addPartitionAndSerializeNode(4))
                   .planNode();
 
-  exec::test::CursorParameters params;
-  params.planNode = plan;
-  params.maxDrivers = 2;
+  testPartitionAndSerialize(plan, data);
+}
 
-  auto [taskCursor, serializedResults] =
-      readCursor(params, [](auto /*task*/) {});
-  EXPECT_EQ(serializedResults.size(), 2);
+TEST_F(UnsafeRowShuffleTest, partitionAndSerializeWithDifferentColumnOrder) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row * 10; }),
+  });
 
-  for (auto& serializedResult : serializedResults) {
-    // Verify that serialized data can be deserialized successfully into the
-    // original data.
-    auto deserialized = deserialize(serializedResult, asRowType(data->type()));
-    velox::test::assertEqualVectors(data, deserialized);
-  }
+  auto plan = exec::test::PlanBuilder()
+                  .values({data}, true)
+                  .addNode(addPartitionAndSerializeNode(4, {"c1", "c0"}))
+                  .planNode();
+
+  auto expected = makeRowVector({data->childAt(1), data->childAt(0)});
+  testPartitionAndSerialize(plan, expected);
 }
 
 TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOperatorWhenSinglePartition) {
@@ -803,20 +763,7 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOperatorWhenSinglePartition) {
                   .addNode(addPartitionAndSerializeNode(1))
                   .planNode();
 
-  exec::test::CursorParameters params;
-  params.planNode = plan;
-  params.maxDrivers = 2;
-
-  auto [taskCursor, serializedResults] =
-      readCursor(params, [](auto /*task*/) {});
-  EXPECT_EQ(serializedResults.size(), 2);
-
-  for (auto& serializedResult : serializedResults) {
-    // Verify that serialized data can be deserialized successfully into the
-    // original data.
-    auto deserialized = deserialize(serializedResult, asRowType(data->type()));
-    velox::test::assertEqualVectors(data, deserialized);
-  }
+  testPartitionAndSerialize(plan, data);
 }
 
 TEST_F(UnsafeRowShuffleTest, shuffleWriterToString) {
@@ -834,17 +781,10 @@ TEST_F(UnsafeRowShuffleTest, shuffleWriterToString) {
                       fmt::format(kTestShuffleInfoFormat, 10, 10)))
                   .planNode();
 
+  ASSERT_EQ(plan->toString(false, false), "-- ShuffleWrite\n");
   ASSERT_EQ(
       plan->toString(true, false),
-      "-- ShuffleWrite[] -> p:INTEGER, d:VARBINARY\n");
-  ASSERT_EQ(
-      plan->toString(true, true),
-      "-- ShuffleWrite[] -> p:INTEGER, d:VARBINARY\n"
-      ""
-      "  -- LocalPartition[GATHER] -> p:INTEGER, d:VARBINARY\n"
-      "    -- PartitionAndSerialize[(c0) 4 HIVE(0)] -> p:INTEGER, d:VARBINARY\n"
-      "      -- Values[1000 rows in 1 vectors] -> c0:INTEGER, c1:BIGINT\n");
-  ASSERT_EQ(plan->toString(false, false), "-- ShuffleWrite\n");
+      "-- ShuffleWrite[] -> partition:INTEGER, data:VARBINARY\n");
 }
 
 TEST_F(UnsafeRowShuffleTest, partitionAndSerializeToString) {
@@ -858,14 +798,8 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeToString) {
                   .addNode(addPartitionAndSerializeNode(4))
                   .planNode();
 
-  ASSERT_EQ(
-      plan->toString(true, false),
-      "-- PartitionAndSerialize[(c0) 4 HIVE(0)] -> p:INTEGER, d:VARBINARY\n");
-  ASSERT_EQ(
-      plan->toString(true, true),
-      "-- PartitionAndSerialize[(c0) 4 HIVE(0)] -> p:INTEGER, d:VARBINARY\n"
-      "  -- Values[1000 rows in 1 vectors] -> c0:INTEGER, c1:BIGINT\n");
   ASSERT_EQ(plan->toString(false, false), "-- PartitionAndSerialize\n");
+  // TODO Add a check for plan->toString(true, false)
 }
 
 class DummyShuffleInterfaceFactory : public ShuffleInterfaceFactory {

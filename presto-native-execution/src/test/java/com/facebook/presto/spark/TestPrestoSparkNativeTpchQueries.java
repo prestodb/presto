@@ -24,7 +24,7 @@ public class TestPrestoSparkNativeTpchQueries
     @Override
     protected QueryRunner createQueryRunner()
     {
-        return PrestoSparkNativeQueryRunnerUtils.createPrestoSparkNativeQueryRunner();
+        return PrestoSparkNativeQueryRunnerUtils.createHiveRunner();
     }
 
     @Override
@@ -57,6 +57,11 @@ public class TestPrestoSparkNativeTpchQueries
     @Override
     @Ignore
     public void testTpchQ15() {}
+
+    // Requires support for replicate-nulls-and-any shuffle mode.
+    @Override
+    @Ignore
+    public void testTpchQ16() {}
 
     @Override
     @Ignore

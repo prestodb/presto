@@ -43,7 +43,6 @@ class HttpServer;
 }
 
 namespace proxygen {
-class HTTPMessage;
 class ResponseHandler;
 } // namespace proxygen
 
@@ -56,7 +55,6 @@ namespace facebook::presto {
 // Three states our server can be in.
 enum class NodeState { ACTIVE, INACTIVE, SHUTTING_DOWN };
 
-struct ServerOperation;
 class SignalHandler;
 class TaskManager;
 class TaskResource;
@@ -91,15 +89,23 @@ class PrestoServer {
 
   virtual std::shared_ptr<velox::exec::ExprSetListener> getExprSetListener();
 
-  /// Returns statistics based http filter.
-  virtual std::unique_ptr<proxygen::RequestHandlerFactory> getHttpStatsFilter();
+  /// Returns any additional http filters.
+  virtual std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
+  getAdditionalHttpServerFilters();
 
   virtual std::vector<std::string> registerConnectors(
       const fs::path& configDirectoryPath);
 
+  /// Invoked by presto shutdown procedure to unregister connectors.
+  virtual void unregisterConnectors();
+
   virtual void registerShuffleInterfaceFactories();
 
   virtual void registerCustomOperators();
+
+  virtual void registerFunctions();
+
+  virtual void registerRemoteFunctions();
 
   virtual void registerVectorSerdes();
 
@@ -122,15 +128,6 @@ class PrestoServer {
 
   void populateMemAndCPUInfo();
 
-  /// Invoked to run operation on this server per http request.
-  void runOperation(
-      proxygen::HTTPMessage* message,
-      proxygen::ResponseHandler* downstream);
-
-  std::string connectorOperation(
-      const ServerOperation& op,
-      proxygen::HTTPMessage* message);
-
   const std::string configDirectoryPath_;
 
   // Executor for background writing into SSD cache.
@@ -144,6 +141,7 @@ class PrestoServer {
 
   std::unique_ptr<http::HttpServer> httpServer_;
   std::unique_ptr<SignalHandler> signalHandler_;
+  std::shared_ptr<velox::memory::MemoryPool> pool_;
   std::unique_ptr<TaskManager> taskManager_;
   std::unique_ptr<TaskResource> taskResource_;
   std::atomic<NodeState> nodeState_{NodeState::ACTIVE};

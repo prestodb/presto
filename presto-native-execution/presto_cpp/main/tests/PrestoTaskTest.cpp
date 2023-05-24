@@ -13,28 +13,37 @@
  */
 #include "presto_cpp/main/PrestoTask.h"
 #include <gtest/gtest.h>
+#include "velox/common/base/tests/GTestUtils.h"
+
+DECLARE_bool(velox_memory_leak_check_enabled);
 
 using namespace facebook::velox;
 using namespace facebook::presto;
 
 using facebook::presto::PrestoTaskId;
 
-class PrestoTaskTest : public testing::Test {};
+class PrestoTaskTest : public testing::Test {
+  void SetUp() override {
+    FLAGS_velox_memory_leak_check_enabled = true;
+  }
+};
 
 TEST_F(PrestoTaskTest, basicTaskId) {
-  PrestoTaskId id("20201107_130540_00011_wrpkw.1.2.3");
+  PrestoTaskId id("20201107_130540_00011_wrpkw.1.2.3.4");
 
   EXPECT_EQ(id.queryId(), "20201107_130540_00011_wrpkw");
   EXPECT_EQ(id.stageId(), 1);
   EXPECT_EQ(id.stageExecutionId(), 2);
   EXPECT_EQ(id.id(), 3);
+  EXPECT_EQ(id.attemptNumber(), 4);
 }
 
 TEST_F(PrestoTaskTest, malformedTaskId) {
-  ASSERT_THROW(PrestoTaskId(""), std::invalid_argument);
-  ASSERT_THROW(
-      PrestoTaskId("20201107_130540_00011_wrpkw."), std::invalid_argument);
-  ASSERT_THROW(PrestoTaskId("q.1.2"), std::invalid_argument);
+  VELOX_ASSERT_THROW(PrestoTaskId(""), "Malformed task ID: ");
+  VELOX_ASSERT_THROW(
+      PrestoTaskId("20201107_130540_00011_wrpkw."),
+      "Malformed task ID: 20201107_130540_00011_wrpkw.");
+  VELOX_ASSERT_THROW(PrestoTaskId("q.1.2"), "Malformed task ID: q.1.2");
 }
 
 TEST_F(PrestoTaskTest, runtimeMetricConversion) {

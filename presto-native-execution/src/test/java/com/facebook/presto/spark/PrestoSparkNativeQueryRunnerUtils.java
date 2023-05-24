@@ -21,10 +21,12 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager;
 import com.facebook.presto.spark.execution.NativeExecutionModule;
+import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import com.google.inject.Module;
 import org.apache.spark.SparkEnv;
 import org.apache.spark.shuffle.ShuffleHandle;
@@ -75,11 +77,12 @@ public class PrestoSparkNativeQueryRunnerUtils
     private static final int AVAILABLE_CPU_COUNT = 4;
     private static final String SPARK_SHUFFLE_MANAGER = "spark.shuffle.manager";
     private static final String FALLBACK_SPARK_SHUFFLE_MANAGER = "spark.fallback.shuffle.manager";
+    private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
     private static Optional<Path> dataDirectory = Optional.empty();
 
     private PrestoSparkNativeQueryRunnerUtils() {}
 
-    public static PrestoSparkQueryRunner createPrestoSparkNativeQueryRunner()
+    public static Map<String, String> getNativeExecutionSessionConfigs()
     {
         ImmutableMap.Builder<String, String> builder = new ImmutableMap.Builder<String, String>()
                 // Do not use default Prestissimo config files. Presto-Spark will generate the configs on-the-fly.
@@ -97,29 +100,49 @@ public class PrestoSparkNativeQueryRunnerUtils
             builder.put("native-execution-executable-path", path);
         }
 
-        PrestoSparkQueryRunner queryRunner = createPrestoSparkNativeQueryRunner(
-                Optional.of(getBaseDataPath()),
-                builder.build(),
-                getNativeExecutionShuffleConfigs(),
-                ImmutableList.of(new NativeExecutionModule()));
+        return builder.build();
+    }
+
+    public static PrestoSparkQueryRunner createHiveRunner()
+    {
+        PrestoSparkQueryRunner queryRunner = createRunner("hive", new NativeExecutionModule());
         setupJsonFunctionNamespaceManager(queryRunner);
 
-        // Increases log level to reduce log spamming while running test.
-        customizeLogging();
         return queryRunner;
     }
 
-    public static PrestoSparkQueryRunner createPrestoSparkNativeQueryRunner(Optional<Path> baseDir, Map<String, String> additionalConfigProperties, Map<String, String> additionalSparkProperties, ImmutableList<Module> nativeModules)
+    private static PrestoSparkQueryRunner createRunner(String defaultCatalog, NativeExecutionModule nativeExecutionModule)
+    {
+        // Increases log level to reduce log spamming while running test.
+        customizeLogging();
+        return createRunner(
+                defaultCatalog,
+                Optional.of(getBaseDataPath()),
+                getNativeExecutionSessionConfigs(),
+                getNativeExecutionShuffleConfigs(),
+                ImmutableList.of(nativeExecutionModule));
+    }
+
+    // Similar to createPrestoSparkNativeQueryRunner, but with custom connector config and without jsonFunctionNamespaceManager
+    public static PrestoSparkQueryRunner createTpchRunner()
+    {
+        return createRunner(
+                "tpchstandard",
+                new NativeExecutionModule(
+                        Optional.of(new NativeExecutionConnectorConfig().setConnectorName("tpch"))));
+    }
+
+    public static PrestoSparkQueryRunner createRunner(String defaultCatalog, Optional<Path> baseDir, Map<String, String> additionalConfigProperties, Map<String, String> additionalSparkProperties, ImmutableList<Module> nativeModules)
     {
         ImmutableMap.Builder<String, String> configBuilder = ImmutableMap.builder();
         configBuilder.putAll(getNativeWorkerSystemProperties()).putAll(additionalConfigProperties);
-
+        Optional<Path> dataDir = baseDir.map(path -> Paths.get(path.toString() + '/' + DEFAULT_STORAGE_FORMAT));
         PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner(
-                "hive",
+                defaultCatalog,
                 configBuilder.build(),
-                getNativeWorkerHiveProperties(),
+                getNativeWorkerHiveProperties(DEFAULT_STORAGE_FORMAT),
                 additionalSparkProperties,
-                baseDir,
+                dataDir,
                 nativeModules,
                 AVAILABLE_CPU_COUNT);
 
@@ -133,7 +156,7 @@ public class PrestoSparkNativeQueryRunnerUtils
     public static QueryRunner createJavaQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner(Optional.of(getBaseDataPath()), "legacy");
+        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner(Optional.of(getBaseDataPath()), "legacy", DEFAULT_STORAGE_FORMAT);
     }
 
     public static void assertShuffleMetadata()
@@ -150,7 +173,7 @@ public class PrestoSparkNativeQueryRunnerUtils
         }
     }
 
-    private static void customizeLogging()
+    public static void customizeLogging()
     {
         Logging logging = Logging.initialize();
         logging.setLevel("org.apache.spark", WARN);
@@ -176,6 +199,7 @@ public class PrestoSparkNativeQueryRunnerUtils
 
     public static void setupJsonFunctionNamespaceManager(QueryRunner queryRunner)
     {
+        String jsonDefinitionPath = Resources.getResource("external_functions.json").getFile();
         queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
         queryRunner.loadFunctionNamespaceManager(
                 JsonFileBasedFunctionNamespaceManagerFactory.NAME,
@@ -183,7 +207,7 @@ public class PrestoSparkNativeQueryRunnerUtils
                 ImmutableMap.of(
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP",
-                        "json-based-function-manager.path-to-function-definition", "src/test/resources/external_functions.json"));
+                        "json-based-function-manager.path-to-function-definition", jsonDefinitionPath));
     }
 
     public static synchronized Path getBaseDataPath()

@@ -9,7 +9,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_executable(presto_common_test CommonTest.cpp)
+add_executable(presto_common_test CommonTest.cpp SystemConfigTest.cpp
+        BaseVeloxQueryConfigTest.cpp)
 
 add_test(presto_common_test presto_common_test)
 
@@ -18,6 +19,7 @@ target_link_libraries(
   presto_common
   presto_exception
   velox_exception
+  velox_file
   ${RE2}
   gtest
   gtest_main)

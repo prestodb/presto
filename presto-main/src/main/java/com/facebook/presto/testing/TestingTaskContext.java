@@ -67,7 +67,7 @@ public final class TestingTaskContext
         return createTaskContext(
                 queryContext,
                 session,
-                new TaskStateMachine(new TaskId("query", 0, 0, 0), executor),
+                new TaskStateMachine(new TaskId("query", 0, 0, 0, 0), executor),
                 Optional.empty());
     }
 
@@ -113,7 +113,7 @@ public final class TestingTaskContext
             this.notificationExecutor = notificationExecutor;
             this.yieldExecutor = yieldExecutor;
             this.session = session;
-            this.taskStateMachine = new TaskStateMachine(new TaskId("query", 0, 0, 0), notificationExecutor);
+            this.taskStateMachine = new TaskStateMachine(new TaskId("query", 0, 0, 0, 0), notificationExecutor);
         }
 
         public Builder setTaskStateMachine(TaskStateMachine taskStateMachine)

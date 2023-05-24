@@ -96,6 +96,7 @@ import com.facebook.presto.operator.scalar.ArrayAnyMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayCardinalityFunction;
 import com.facebook.presto.operator.scalar.ArrayCombinationsFunction;
 import com.facebook.presto.operator.scalar.ArrayContains;
+import com.facebook.presto.operator.scalar.ArrayCumSum;
 import com.facebook.presto.operator.scalar.ArrayDistinctFromOperator;
 import com.facebook.presto.operator.scalar.ArrayDistinctFunction;
 import com.facebook.presto.operator.scalar.ArrayElementAtFunction;
@@ -682,6 +683,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregates(ClassificationPrecisionAggregation.class)
                 .aggregates(ClassificationRecallAggregation.class)
                 .aggregates(ClassificationThresholdsAggregation.class)
+                .scalar(ArrayCumSum.class)
                 .scalar(RepeatFunction.class)
                 .scalars(SequenceFunction.class)
                 .scalars(SessionFunctions.class)

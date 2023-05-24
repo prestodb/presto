@@ -13,10 +13,11 @@
  */
 #pragma once
 
+#include <folly/SocketAddress.h>
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include "velox/core/Context.h"
+#include "velox/core/Config.h"
 
 namespace facebook::presto {
 
@@ -26,6 +27,18 @@ class ConfigBase {
   /// before calling any of the getters below.
   /// @param filePath Path to configuration file.
   void initialize(const std::string& filePath);
+
+  /// Uses a config object already materialized.
+  void initialize(std::unique_ptr<velox::Config>&& config) {
+    config_ = std::move(config);
+  }
+
+  /// Adds or replaces value at the given key. Can be used by debugging or
+  /// testing code.
+  /// Returns previous value if there was any.
+  folly::Optional<std::string> setValue(
+      const std::string& propertyName,
+      const std::string& value);
 
   template <typename T>
   T requiredProperty(const std::string& propertyName) const {
@@ -58,8 +71,9 @@ class ConfigBase {
     return config_->get(propertyName);
   }
 
-  const std::unordered_map<std::string, std::string>& values() const {
-    return config_->values();
+  /// Returns copy of the config values map.
+  std::unordered_map<std::string, std::string> values() const {
+    return config_->valuesCopy();
   }
 
  protected:
@@ -72,13 +86,15 @@ class ConfigBase {
 /// Provides access to system properties defined in config.properties file.
 class SystemConfig : public ConfigBase {
  public:
+  static constexpr std::string_view kMutableConfig{"mutable-config"};
   static constexpr std::string_view kPrestoVersion{"presto.version"};
   static constexpr std::string_view kHttpServerHttpPort{
       "http-server.http.port"};
-  // This option allows a port closed in TIME_WAIT state to be reused
-  // immediately upon worker startup. This property is mainly used by batch
-  // processing. For interactive query, the worker uses a dynamic port upon
-  // startup.
+
+  /// This option allows a port closed in TIME_WAIT state to be reused
+  /// immediately upon worker startup. This property is mainly used by batch
+  /// processing. For interactive query, the worker uses a dynamic port upon
+  /// startup.
   static constexpr std::string_view kHttpServerReusePort{
       "http-server.reuse-port"};
   static constexpr std::string_view kDiscoveryUri{"discovery.uri"};
@@ -97,17 +113,22 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kHttpsKeyPath{"https-key-path"};
   static constexpr std::string_view kHttpsClientCertAndKeyPath{
       "https-client-cert-key-path"};
+
+  /// Number of threads for async io. Disabled if zero.
   static constexpr std::string_view kNumIoThreads{"num-io-threads"};
+  static constexpr std::string_view kNumConnectorIoThreads{
+      "num-connector-io-threads"};
   static constexpr std::string_view kNumQueryThreads{"num-query-threads"};
   static constexpr std::string_view kNumSpillThreads{"num-spill-threads"};
-  static constexpr std::string_view kSpillerSpillPath =
-      "experimental.spiller-spill-path";
+  static constexpr std::string_view kSpillerSpillPath{
+      "experimental.spiller-spill-path"};
   static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
   static constexpr std::string_view kSystemMemoryGb{"system-memory-gb"};
   static constexpr std::string_view kAsyncCacheSsdGb{"async-cache-ssd-gb"};
   static constexpr std::string_view kAsyncCacheSsdCheckpointGb{
       "async-cache-ssd-checkpoint-gb"};
   static constexpr std::string_view kAsyncCacheSsdPath{"async-cache-ssd-path"};
+
   /// In file systems, such as btrfs, supporting cow (copy on write), the ssd
   /// cache can use all ssd space and stop working. To prevent that, use this
   /// option to disable cow for cache files.
@@ -128,17 +149,30 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kShuffleName{"shuffle.name"};
   static constexpr std::string_view kHttpEnableAccessLog{
       "http-server.enable-access-log"};
-  static constexpr std::string_view kHttpEnableStatFilter{
+  static constexpr std::string_view kHttpEnableStatsFilter{
       "http-server.enable-stats-filter"};
   static constexpr std::string_view kRegisterTestFunctions{
       "register-test-functions"};
+
   /// The options to configure the max quantized memory allocation size to store
   /// the received http response data.
   static constexpr std::string_view kHttpMaxAllocateBytes{
       "http-server.max-response-allocate-bytes"};
-  // Most server nodes today (May 2022) have at least 16 cores.
-  // Setting the default maximum drivers per task to this value will
-  // provide a better off-shelf experience.
+  static constexpr std::string_view kQueryMaxMemoryPerNode{
+      "query.max-memory-per-node"};
+
+  /// This system property is added for not crashing the cluster when memory
+  /// leak is detected. The check should be disabled in production cluster.
+  static constexpr std::string_view kEnableMemoryLeakCheck{
+      "enable-memory-leak-check"};
+
+  /// Port used by the remote function thrift server.
+  static constexpr std::string_view kRemoteFunctionServerThriftPort{
+      "remote-function-server.thrift.port"};
+
+  /// Most server nodes today (May 2022) have at least 16 cores.
+  /// Setting the default maximum drivers per task to this value will
+  /// provide a better off-shelf experience.
   static constexpr int32_t kMaxDriversPerTaskDefault = 16;
   static constexpr bool kHttpServerReusePortDefault = false;
   static constexpr int32_t kConcurrentLifespansPerTaskDefault = 1;
@@ -147,6 +181,7 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kHttpsSupportedCiphersDefault{
       "ECDHE-ECDSA-AES256-GCM-SHA384,AES256-GCM-SHA384"};
   static constexpr int32_t kNumIoThreadsDefault = 30;
+  static constexpr int32_t kNumConnectorIoThreadsDefault = 30;
   static constexpr int32_t kShutdownOnsetSecDefault = 10;
   static constexpr int32_t kSystemMemoryGbDefault = 40;
   static constexpr int32_t kMmapArenaCapacityRatioDefault = 10;
@@ -166,6 +201,9 @@ class SystemConfig : public ConfigBase {
   static constexpr bool kHttpEnableStatsFilterDefault = false;
   static constexpr bool kRegisterTestFunctionsDefault = false;
   static constexpr uint64_t kHttpMaxAllocateBytesDefault = 64 << 10;
+  /// 1/10 of kSystemMemoryGbDefault.
+  static constexpr uint64_t kQueryMaxMemoryPerNodeDefault = 4UL << 30;
+  static constexpr bool kEnableMemoryLeakCheckDefault = true;
 
   static SystemConfig* instance();
 
@@ -173,7 +211,7 @@ class SystemConfig : public ConfigBase {
 
   bool httpServerReusePort() const;
 
-  bool enableHttps() const;
+  bool httpServerHttpsEnabled() const;
 
   int httpServerHttpsPort() const;
 
@@ -200,9 +238,13 @@ class SystemConfig : public ConfigBase {
   // required, break this down to 3 configs one for cert,key and password later.
   std::optional<std::string> httpsClientCertAndKeyPath() const;
 
+  bool mutableConfig() const;
+
   std::string prestoVersion() const;
 
   std::optional<std::string> discoveryUri() const;
+
+  std::optional<folly::SocketAddress> remoteFunctionServerLocation() const;
 
   int32_t maxDriversPerTask() const;
 
@@ -210,8 +252,11 @@ class SystemConfig : public ConfigBase {
 
   int32_t httpExecThreads() const;
 
-  // Process-wide number of query execution threads
+  /// Size of global IO executor.
   int32_t numIoThreads() const;
+
+  /// Size of IO executor for connectors to do preload/prefetch
+  int32_t numConnectorIoThreads() const;
 
   int32_t numQueryThreads() const;
 
@@ -254,6 +299,10 @@ class SystemConfig : public ConfigBase {
   bool registerTestFunctions() const;
 
   uint64_t httpMaxAllocateBytes() const;
+
+  uint64_t queryMaxMemoryPerNode() const;
+
+  bool enableMemoryLeakCheck() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
@@ -278,6 +327,43 @@ class NodeConfig : public ConfigBase {
 
   uint64_t nodeMemoryGb(
       const std::function<uint64_t()>& defaultNodeMemoryGb = nullptr) const;
+};
+
+/// Used only in the single instance as the source of the initial properties for
+/// velox::QueryConfig. Not designed for actual property access during a query
+/// run.
+/// Values can be modified via Server Operation command if the SystemConfig has
+/// kMutableConfig option set to true (so this config must be created after the
+/// SystemConfig has been initialized).
+class BaseVeloxQueryConfig {
+ public:
+  BaseVeloxQueryConfig();
+
+  static BaseVeloxQueryConfig* instance();
+
+  /// If this config is mutable.
+  bool isMutable() const {
+    return mutable_;
+  }
+
+  /// Returns copy of the config values map.
+  std::unordered_map<std::string, std::string> values() const {
+    return *(values_.rlock());
+  }
+
+  /// Adds or replaces value at the given key. Can be used by debugging or
+  /// testing code.
+  /// Returns previous value if there was any.
+  folly::Optional<std::string> setValue(
+      const std::string& propertyName,
+      const std::string& value);
+
+  /// Returns the current value of the property.
+  folly::Optional<std::string> getValue(const std::string& propertyName) const;
+
+ private:
+  const bool mutable_;
+  folly::Synchronized<std::unordered_map<std::string, std::string>> values_;
 };
 
 } // namespace facebook::presto

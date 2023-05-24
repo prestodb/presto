@@ -16,7 +16,6 @@ package com.facebook.presto.spark;
 import com.facebook.presto.nativeworker.AbstractTestNativeAggregations;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
-import org.testng.annotations.Ignore;
 
 public class TestPrestoSparkNativeAggregations
         extends AbstractTestNativeAggregations
@@ -24,7 +23,7 @@ public class TestPrestoSparkNativeAggregations
     @Override
     protected QueryRunner createQueryRunner()
     {
-        return PrestoSparkNativeQueryRunnerUtils.createPrestoSparkNativeQueryRunner();
+        return PrestoSparkNativeQueryRunnerUtils.createHiveRunner();
     }
 
     @Override
@@ -40,9 +39,4 @@ public class TestPrestoSparkNativeAggregations
         super.assertQuery(sql);
         PrestoSparkNativeQueryRunnerUtils.assertShuffleMetadata();
     }
-
-    // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
-    @Override
-    @Ignore
-    public void testMinMax() {}
 }

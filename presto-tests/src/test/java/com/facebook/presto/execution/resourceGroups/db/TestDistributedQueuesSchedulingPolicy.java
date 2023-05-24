@@ -82,7 +82,8 @@ public class TestDistributedQueuesSchedulingPolicy
         queryRunner = null;
     }
 
-    @Test(timeOut = 60_000, groups = "weightedFairScheduling")
+    // This test is flaky: https://github.com/prestodb/presto/issues/19658
+    @Test(timeOut = 60_000, groups = "weightedFairScheduling", enabled = false)
     public void testWeightedFairScheduling()
             throws Exception
     {
@@ -136,7 +137,8 @@ public class TestDistributedQueuesSchedulingPolicy
         waitForQueryState(queryRunner, 1, thirdAdhocQuery, RUNNING);
     }
 
-    @Test(timeOut = 60_000, groups = "weightedScheduling")
+    //Test is flaky https://github.com/prestodb/presto/issues/19691
+    @Test(timeOut = 60_000, groups = "weightedScheduling", enabled = false)
     public void testWeightedScheduling()
             throws Exception
     {

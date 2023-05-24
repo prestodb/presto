@@ -32,6 +32,8 @@ public class SelectorSpec
     private final Optional<List<String>> clientTags;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
     private final Optional<Pattern> clientInfoRegex;
+
+    private final Optional<String> schema;
     private final ResourceGroupIdTemplate group;
 
     @JsonCreator
@@ -42,6 +44,7 @@ public class SelectorSpec
             @JsonProperty("clientTags") Optional<List<String>> clientTags,
             @JsonProperty("selectorResourceEstimate") Optional<SelectorResourceEstimate> selectorResourceEstimate,
             @JsonProperty("clientInfo") Optional<Pattern> clientInfoRegex,
+            @JsonProperty("schema") Optional<String> schema,
             @JsonProperty("group") ResourceGroupIdTemplate group)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
@@ -51,6 +54,7 @@ public class SelectorSpec
         this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
         this.group = requireNonNull(group, "group is null");
         this.clientInfoRegex = requireNonNull(clientInfoRegex, "clientInfoRegex is null");
+        this.schema = requireNonNull(schema, "schema is null");
     }
 
     public Optional<Pattern> getUserRegex()
@@ -88,6 +92,11 @@ public class SelectorSpec
         return clientInfoRegex;
     }
 
+    public Optional<String> getSchema()
+    {
+        return schema;
+    }
+
     @Override
     public boolean equals(Object other)
     {
@@ -106,7 +115,8 @@ public class SelectorSpec
                 queryType.equals(that.queryType) &&
                 clientTags.equals(that.clientTags) &&
                 clientInfoRegex.map(Pattern::pattern).equals(that.clientInfoRegex.map(Pattern::pattern)) &&
-                clientInfoRegex.map(Pattern::flags).equals(that.clientInfoRegex.map(Pattern::flags));
+                clientInfoRegex.map(Pattern::flags).equals(that.clientInfoRegex.map(Pattern::flags)) &&
+                schema.equals(that.schema);
     }
 
     @Override

@@ -16,9 +16,11 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.DefunctConfig;
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -37,6 +39,7 @@ import java.nio.file.Paths;
 import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinNotNullInferenceStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -154,6 +157,9 @@ public class FeaturesConfig
     private boolean ignoreStatsCalculatorFailures = true;
     private boolean printStatsForNonJoinQuery;
     private boolean defaultFilterFactorEnabled;
+    // Give a default 10% selectivity coefficient factor to avoid hitting unknown stats in join stats estimates
+    // which could result in syntactic join order. Set it to 0 to disable this feature
+    private double defaultJoinSelectivityCoefficient;
     private boolean pushAggregationThroughJoin = true;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
@@ -257,6 +263,11 @@ public class FeaturesConfig
     private boolean mergeDuplicateAggregationsEnabled = true;
     private boolean mergeAggregationsWithAndWithoutFilter;
     private boolean simplifyPlanWithEmptyInput = true;
+    private PushDownFilterThroughCrossJoinStrategy pushDownFilterExpressionEvaluationThroughCrossJoin = PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN;
+    private boolean rewriteCrossJoinWithOrFilterToInnerJoin = true;
+    private JoinNotNullInferenceStrategy joinNotNullInferenceStrategy = NONE;
+
+    private boolean preProcessMetadataCalls;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -346,6 +357,40 @@ public class FeaturesConfig
         DISABLED,
         KEY_FROM_OUTER_JOIN, // Enabled only when join keys are from output of outer joins
         ALWAYS
+    }
+
+    public enum PushDownFilterThroughCrossJoinStrategy
+    {
+        DISABLED,
+        REWRITTEN_TO_INNER_JOIN, // Enabled only when the change can enable rewriting cross join to inner join
+        ALWAYS
+    }
+
+    /**
+     * Strategy used in {@link com.facebook.presto.sql.planner.iterative.rule.AddNotNullFiltersToJoinNode.ExtractInferredNotNullVariablesVisitor}
+     * to infer NOT NULL predicates
+     */
+    public enum JoinNotNullInferenceStrategy
+    {
+        /**
+         * No NOT NULL predicates are inferred
+         */
+        NONE,
+
+        /**
+         * Use the equi-join condition and the join filter for inferring NOT NULL predicates.
+         * For the join filter, try to map functions to a standard operator in {@link OperatorType}.
+         * If this mapping is successful, use {@link OperatorType#isCalledOnNullInput()}
+         * to check if this function can operate on NULL inputs.
+         */
+        INFER_FROM_STANDARD_OPERATORS,
+
+        /**
+         * Use the equi-join condition and the join filter for inferring NOT NULL predicates.
+         * For the join filter, use the function's  {@link FunctionMetadata#isCalledOnNullInput()} value
+         * to check if this function can operate on NULL inputs
+         */
+        USE_FUNCTION_METADATA
     }
 
     public double getCpuCostWeight()
@@ -1324,6 +1369,21 @@ public class FeaturesConfig
         return defaultFilterFactorEnabled;
     }
 
+    @Config("optimizer.default-join-selectivity-coefficient")
+    @ConfigDescription("Used when join selectivity estimation is unknown. Default 0 to disable the use of join selectivity, this will allow planner to fall back to FROM-clause join order when the join cardinality is unknown")
+    public FeaturesConfig setDefaultJoinSelectivityCoefficient(double defaultJoinSelectivityCoefficient)
+    {
+        this.defaultJoinSelectivityCoefficient = defaultJoinSelectivityCoefficient;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getDefaultJoinSelectivityCoefficient()
+    {
+        return defaultJoinSelectivityCoefficient;
+    }
+
     public DataSize getTopNOperatorUnspillMemoryLimit()
     {
         return topNOperatorUnspillMemoryLimit;
@@ -2173,6 +2233,19 @@ public class FeaturesConfig
         return this;
     }
 
+    @Config("optimizer.joins-not-null-inference-strategy")
+    @ConfigDescription("Set the strategy used NOT NULL filter inference on Join Nodes")
+    public FeaturesConfig setJoinsNotNullInferenceStrategy(JoinNotNullInferenceStrategy strategy)
+    {
+        this.joinNotNullInferenceStrategy = strategy;
+        return this;
+    }
+
+    public JoinNotNullInferenceStrategy getJoinsNotNullInferenceStrategy()
+    {
+        return joinNotNullInferenceStrategy;
+    }
+
     public String getAnalyzerType()
     {
         return analyzerType;
@@ -2184,6 +2257,19 @@ public class FeaturesConfig
     {
         this.analyzerType = analyzerType;
         return this;
+    }
+
+    @Config("pre-process-metadata-calls")
+    @ConfigDescription("Pre process metadata calls before analyzer invocation")
+    public FeaturesConfig setPreProcessMetadataCalls(boolean preProcessMetadataCalls)
+    {
+        this.preProcessMetadataCalls = preProcessMetadataCalls;
+        return this;
+    }
+
+    public boolean isPreProcessMetadataCalls()
+    {
+        return preProcessMetadataCalls;
     }
 
     public boolean isStreamingForPartialAggregationEnabled()
@@ -2494,6 +2580,32 @@ public class FeaturesConfig
     public FeaturesConfig setSimplifyPlanWithEmptyInput(boolean simplifyPlanWithEmptyInput)
     {
         this.simplifyPlanWithEmptyInput = simplifyPlanWithEmptyInput;
+        return this;
+    }
+
+    public PushDownFilterThroughCrossJoinStrategy getPushDownFilterExpressionEvaluationThroughCrossJoin()
+    {
+        return this.pushDownFilterExpressionEvaluationThroughCrossJoin;
+    }
+
+    @Config("optimizer.push-down-filter-expression-evaluation-through-cross-join")
+    @ConfigDescription("Push down expression evaluation in filter through cross join")
+    public FeaturesConfig setPushDownFilterExpressionEvaluationThroughCrossJoin(PushDownFilterThroughCrossJoinStrategy strategy)
+    {
+        this.pushDownFilterExpressionEvaluationThroughCrossJoin = strategy;
+        return this;
+    }
+
+    public boolean isRewriteCrossJoinWithOrFilterToInnerJoin()
+    {
+        return this.rewriteCrossJoinWithOrFilterToInnerJoin;
+    }
+
+    @Config("optimizer.rewrite-cross-join-with-or-filter-to-inner-join")
+    @ConfigDescription("Enable optimization to rewrite cross join with or filter to inner join")
+    public FeaturesConfig setRewriteCrossJoinWithOrFilterToInnerJoin(boolean rewriteCrossJoinWithOrFilterToInnerJoin)
+    {
+        this.rewriteCrossJoinWithOrFilterToInnerJoin = rewriteCrossJoinWithOrFilterToInnerJoin;
         return this;
     }
 }

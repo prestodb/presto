@@ -14,13 +14,39 @@
 package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedCustomer;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedLineitemAndOrders;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createCustomer;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPartitionedNation;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
+
 public abstract class AbstractTestNativeJoinQueries
         extends AbstractTestQueryFramework
 {
+    @Override
+    protected void createTables()
+    {
+        QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
+        createLineitem(queryRunner);
+        createOrders(queryRunner);
+        createBucketedLineitemAndOrders(queryRunner);
+        createOrdersEx(queryRunner);
+        createNation(queryRunner);
+        createPartitionedNation(queryRunner);
+        createRegion(queryRunner);
+        createCustomer(queryRunner);
+        createBucketedCustomer(queryRunner);
+    }
+
     @Test(dataProvider = "joinTypeProvider")
     public void testInnerJoin(Session joinTypeSession)
     {
@@ -33,6 +59,12 @@ public abstract class AbstractTestNativeJoinQueries
     public void testBucketedInnerJoin(Session joinTypeSession)
     {
         assertQuery(joinTypeSession, "SELECT b.name, c.name FROM customer_bucketed b, customer c WHERE b.name=c.name");
+        assertQuery(joinTypeSession, "SELECT b.name, c.custkey FROM customer_bucketed b, customer c " +
+                "WHERE b.name=c.name AND \"$bucket\" = 7");
+        assertQuery(joinTypeSession, "SELECT b.* FROM customer_bucketed b, customer c " +
+                "WHERE b.name=c.name AND \"$bucket\" IN (2, 5, 8)");
+        assertQuery(joinTypeSession, "SELECT * FROM customer_bucketed b, customer c " +
+                "WHERE b.name=c.name AND \"$bucket\" = 5");
     }
 
     @Test(dataProvider = "joinTypeProvider")

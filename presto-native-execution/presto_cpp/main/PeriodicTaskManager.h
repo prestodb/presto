@@ -72,13 +72,27 @@ class PeriodicTaskManager {
 
  private:
   void addExecutorStatsTask();
+  void updateExecutorStats();
+
   void addTaskStatsTask();
+  void updateTaskStats();
+
   void addTaskCleanupTask();
+  void updateTaskCleanUp();
+
   void addMemoryAllocatorStatsTask();
+  void updateMemoryAllocatorStats();
+
   void addPrestoExchangeSourceMemoryStatsTask();
-  void addAsyncDataCacheStatsTask();
+  void updatePrestoExchangeSourceMemoryStats();
+
+  void addCacheStatsUpdateTask();
+  void updateCacheStats();
+
   void addConnectorStatsTask();
-  void addOperatingSystemStatsTask();
+
+  void addOperatingSystemStatsUpdateTask();
+  void updateOperatingSystemStats();
 
   folly::FunctionScheduler scheduler_;
   folly::CPUThreadPoolExecutor* const driverCPUExecutor_;
@@ -89,6 +103,22 @@ class PeriodicTaskManager {
   const std::unordered_map<
       std::string,
       std::shared_ptr<velox::connector::Connector>>& connectors_;
+
+  // Cache related stats
+  int64_t lastMemoryCacheHits_{0};
+  int64_t lastMemoryCacheInserts_{0};
+  int64_t lastMemoryCacheEvictions_{0};
+  int64_t lastMemoryCacheEvictionChecks_{0};
+  int64_t lastMemoryCacheStalls_{0};
+  int64_t lastMemoryCacheAllocClocks_{0};
+
+  // Operating system related stats.
+  int64_t lastUserCpuTimeUs_{0};
+  int64_t lastSystemCpuTimeUs_{0};
+  int64_t lastSoftPageFaults_{0};
+  int64_t lastHardPageFaults_{0};
+  int64_t lastVoluntaryContextSwitches_{0};
+  int64_t lastForcedContextSwitches_{0};
 };
 
 } // namespace facebook::presto

@@ -48,6 +48,7 @@ import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 
 import static com.facebook.presto.parquet.ParquetEncoding.DELTA_BINARY_PACKED;
@@ -315,7 +316,7 @@ public class Decoders
 
         final int bufferSize = readIntLittleEndian(bufferInputStream);
         FlatDefinitionLevelDecoder definitionLevelDecoder = new FlatDefinitionLevelDecoder(valueCount, bufferInputStream.sliceStream(bufferSize));
-        buffer.position(buffer.position() + bufferSize + 4);
+        ((Buffer) buffer).position(buffer.position() + bufferSize + 4);
         return definitionLevelDecoder;
     }
 
@@ -332,7 +333,7 @@ public class Decoders
 
         final int bufferSize = readIntLittleEndian(bufferInputStream);
         RepetitionLevelDecoder repetitionLevelDecoder = new RepetitionLevelDecoder(valueCount, bitWidth, bufferInputStream.sliceStream(bufferSize));
-        buffer.position(buffer.position() + bufferSize + 4);
+        ((Buffer) buffer).position(buffer.position() + bufferSize + 4);
         return repetitionLevelDecoder;
     }
 
@@ -349,7 +350,7 @@ public class Decoders
 
         final int bufferSize = readIntLittleEndian(bufferInputStream);
         DefinitionLevelDecoder definitionLevelDecoder = new DefinitionLevelDecoder(valueCount, bitWidth, bufferInputStream.sliceStream(bufferSize));
-        buffer.position(buffer.position() + bufferSize + 4);
+        ((Buffer) buffer).position(buffer.position() + bufferSize + 4);
         return definitionLevelDecoder;
     }
 

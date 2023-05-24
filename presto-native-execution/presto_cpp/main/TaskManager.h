@@ -30,9 +30,7 @@ struct DriverCountStats {
 
 class TaskManager {
  public:
-  explicit TaskManager(
-      std::unordered_map<std::string, std::string> properties = {},
-      std::unordered_map<std::string, std::string> nodeProperties = {});
+  TaskManager();
 
   void setBaseUri(const std::string& baseUri) {
     baseUri_ = baseUri;
@@ -59,14 +57,13 @@ class TaskManager {
 
   std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
       const protocol::TaskId& taskId,
-      velox::core::PlanFragment planFragment,
-      const std::vector<protocol::TaskSource>& sources,
-      const protocol::OutputBuffers& outputBuffers,
-      std::unordered_map<std::string, std::string>&& configStrings,
-      std::unordered_map<
-          std::string,
-          std::unordered_map<std::string, std::string>>&&
-          connectorConfigStrings);
+      const protocol::TaskUpdateRequest& updateRequest,
+      const velox::core::PlanFragment& planFragment);
+
+  std::unique_ptr<protocol::TaskInfo> createOrUpdateBatchTask(
+      const protocol::TaskId& taskId,
+      const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
+      const velox::core::PlanFragment& planFragment);
 
   // Iterates through a map of resultRequests and fetches data from
   // buffer manager. This method uses the getData() global call to fetch
@@ -150,6 +147,17 @@ class TaskManager {
   static constexpr folly::StringPiece kSessionTimezone{"session_timezone"};
 
  private:
+  std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
+      const protocol::TaskId& taskId,
+      const velox::core::PlanFragment& planFragment,
+      const std::vector<protocol::TaskSource>& sources,
+      const protocol::OutputBuffers& outputBuffers,
+      std::unordered_map<std::string, std::string>&& configStrings,
+      std::unordered_map<
+          std::string,
+          std::unordered_map<std::string, std::string>>&&
+          connectorConfigStrings);
+
   std::shared_ptr<PrestoTask> findOrCreateTask(const protocol::TaskId& taskId);
 
   std::shared_ptr<PrestoTask> findOrCreateTaskLocked(
@@ -161,8 +169,6 @@ class TaskManager {
   std::shared_ptr<velox::exec::PartitionedOutputBufferManager> bufferManager_;
   folly::Synchronized<TaskMap> taskMap_;
   QueryContextManager queryContextManager_;
-  int32_t maxDriversPerTask_;
-  int32_t concurrentLifespansPerTask_;
 };
 
 } // namespace facebook::presto

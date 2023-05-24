@@ -19,31 +19,39 @@ import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespace
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerModule;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import com.google.inject.Injector;
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.Collection;
 import java.util.Optional;
 
 import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.TEST_CATALOG;
-import static org.assertj.core.util.Files.newTemporaryFile;
 import static org.testng.Assert.assertEquals;
 
 public class TestJsonFileBasedFunctionNamespaceManager
 {
     @Test
-    public void testLoadFunctions() throws IOException
+    public void testLoadFunctions()
     {
-        JsonFileBasedFunctionNamespaceManager jsonFileBasedFunctionNameSpaceManager = createFunctionNamespaceManager();
+        // 1. Test loading of a single json file
+        final String jsonFileName = "json_udf_function_definition.json";
+        final int fileFunctionCount = 9;
+
+        JsonFileBasedFunctionNamespaceManager jsonFileBasedFunctionNameSpaceManager = createFunctionNamespaceManager(jsonFileName);
         Collection<SqlInvokedFunction> functionList = jsonFileBasedFunctionNameSpaceManager.listFunctions(Optional.empty(), Optional.empty());
-        assertEquals(functionList.size(), 9);
+        assertEquals(functionList.size(), fileFunctionCount);
+
+        // 2. Test loading of json files in a directory
+        final String jsonDirName = "json_udf_function_definition_dir";
+        final int dirFunctionCount = 7;
+
+        jsonFileBasedFunctionNameSpaceManager = createFunctionNamespaceManager(jsonDirName);
+        functionList = jsonFileBasedFunctionNameSpaceManager.listFunctions(Optional.empty(), Optional.empty());
+        assertEquals(functionList.size(), dirFunctionCount);
     }
 
-    private JsonFileBasedFunctionNamespaceManager createFunctionNamespaceManager() throws IOException
+    private JsonFileBasedFunctionNamespaceManager createFunctionNamespaceManager(String filePath)
     {
         Bootstrap app = new Bootstrap(
                 new JsonFileBasedFunctionNamespaceManagerModule(TEST_CATALOG),
@@ -51,18 +59,16 @@ public class TestJsonFileBasedFunctionNamespaceManager
 
         Injector injector = app
                 .doNotInitializeLogging()
-                .setRequiredConfigurationProperties(ImmutableMap.of("json-based-function-manager.path-to-function-definition", getResourceFilePath("json_udf_function_definition.json"), "supported-function-languages", "CPP"))
+                .setRequiredConfigurationProperties(
+                        ImmutableMap.of(
+                                "json-based-function-manager.path-to-function-definition", getResourceFilePath(filePath),
+                                "supported-function-languages", "CPP"))
                 .initialize();
         return injector.getInstance(JsonFileBasedFunctionNamespaceManager.class);
     }
 
     private static String getResourceFilePath(String resourceName)
-            throws IOException
     {
-        File resourceFile = newTemporaryFile();
-        resourceFile.deleteOnExit();
-        Files.copy(TestJsonFileBasedFunctionNamespaceManager.class.getClassLoader().getResourceAsStream(resourceName), resourceFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-
-        return resourceFile.getPath();
+        return Resources.getResource(resourceName).getFile();
     }
 }
