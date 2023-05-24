@@ -211,6 +211,7 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kSpillerSpillPath),
           NUM_PROP(kShutdownOnsetSec, 10),
           NUM_PROP(kSystemMemoryGb, 40),
+          STR_PROP(kAsyncDataCacheEnabled, "true"),
           NUM_PROP(kAsyncCacheSsdGb, 0),
           NUM_PROP(kAsyncCacheSsdCheckpointGb, 0),
           STR_PROP(kAsyncCacheSsdPath, "/mnt/flash/async_cache."),
@@ -335,6 +336,10 @@ int32_t SystemConfig::systemMemoryGb() const {
 
 uint64_t SystemConfig::asyncCacheSsdGb() const {
   return optionalProperty<uint64_t>(kAsyncCacheSsdGb).value();
+}
+
+bool SystemConfig::asyncDataCacheEnabled() const {
+  return optionalProperty<bool>(kAsyncDataCacheEnabled).value();
 }
 
 uint64_t SystemConfig::asyncCacheSsdCheckpointGb() const {

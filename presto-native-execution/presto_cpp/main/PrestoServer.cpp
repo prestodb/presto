@@ -446,42 +446,52 @@ void PrestoServer::initializeVeloxMemory() {
   uint64_t memoryGb = nodeConfig->nodeMemoryGb(
       [&]() { return systemConfig->systemMemoryGb(); });
   PRESTO_STARTUP_LOG(INFO) << "Starting with node memory " << memoryGb << "GB";
-  std::unique_ptr<cache::SsdCache> ssd;
-  const auto asyncCacheSsdGb = systemConfig->asyncCacheSsdGb();
-  if (asyncCacheSsdGb) {
-    constexpr int32_t kNumSsdShards = 16;
-    cacheExecutor_ =
-        std::make_unique<folly::IOThreadPoolExecutor>(kNumSsdShards);
-    auto asyncCacheSsdCheckpointGb = systemConfig->asyncCacheSsdCheckpointGb();
-    auto asyncCacheSsdDisableFileCow =
-        systemConfig->asyncCacheSsdDisableFileCow();
-    PRESTO_STARTUP_LOG(INFO)
-        << "Initializing SSD cache with capacity " << asyncCacheSsdGb
-        << "GB, checkpoint size " << asyncCacheSsdCheckpointGb
-        << "GB, file cow "
-        << (asyncCacheSsdDisableFileCow ? "DISABLED" : "ENABLED");
-    ssd = std::make_unique<cache::SsdCache>(
-        systemConfig->asyncCacheSsdPath(),
-        asyncCacheSsdGb << 30,
-        kNumSsdShards,
-        cacheExecutor_.get(),
-        asyncCacheSsdCheckpointGb << 30,
-        asyncCacheSsdDisableFileCow);
-  }
+
   const int64_t memoryBytes = memoryGb << 30;
-  std::shared_ptr<memory::MemoryAllocator> allocator;
   if (systemConfig->useMmapAllocator()) {
     memory::MmapAllocator::Options options;
     options.capacity = memoryBytes;
     options.useMmapArena = systemConfig->useMmapArena();
     options.mmapArenaCapacityRatio = systemConfig->mmapArenaCapacityRatio();
-    allocator = std::make_shared<memory::MmapAllocator>(options);
+    allocator_ = std::make_shared<memory::MmapAllocator>(options);
   } else {
-    allocator = memory::MemoryAllocator::createDefaultInstance();
+    allocator_ = memory::MemoryAllocator::createDefaultInstance();
   }
-  cache_ = std::make_shared<cache::AsyncDataCache>(
-      allocator, memoryBytes, std::move(ssd));
-  memory::MemoryAllocator::setDefaultInstance(cache_.get());
+  if (systemConfig->asyncDataCacheEnabled()) {
+    std::unique_ptr<cache::SsdCache> ssd;
+    const auto asyncCacheSsdGb = systemConfig->asyncCacheSsdGb();
+    if (asyncCacheSsdGb > 0) {
+      constexpr int32_t kNumSsdShards = 16;
+      cacheExecutor_ =
+          std::make_unique<folly::IOThreadPoolExecutor>(kNumSsdShards);
+      auto asyncCacheSsdCheckpointGb =
+          systemConfig->asyncCacheSsdCheckpointGb();
+      auto asyncCacheSsdDisableFileCow =
+          systemConfig->asyncCacheSsdDisableFileCow();
+      PRESTO_STARTUP_LOG(INFO)
+          << "STARTUP: Initializing SSD cache with capacity " << asyncCacheSsdGb
+          << "GB, checkpoint size " << asyncCacheSsdCheckpointGb
+          << "GB, file cow "
+          << (asyncCacheSsdDisableFileCow ? "DISABLED" : "ENABLED");
+      ssd = std::make_unique<cache::SsdCache>(
+          systemConfig->asyncCacheSsdPath(),
+          asyncCacheSsdGb << 30,
+          kNumSsdShards,
+          cacheExecutor_.get(),
+          asyncCacheSsdCheckpointGb << 30,
+          asyncCacheSsdDisableFileCow);
+    }
+    cache_ = std::make_shared<cache::AsyncDataCache>(
+        allocator_, memoryBytes, std::move(ssd));
+    allocator_ = cache_;
+  } else {
+    VELOX_CHECK_EQ(
+        systemConfig->asyncCacheSsdGb(),
+        0,
+        "Async data cache cannot be disabled if ssd cache is enabled");
+  }
+
+  memory::MemoryAllocator::setDefaultInstance(allocator_.get());
   // Set up velox memory manager.
   memory::MemoryManager::getInstance(
       memory::MemoryManager::Options{
