@@ -17,6 +17,7 @@
 
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/Utils.h"
 
 #if __has_include("filesystem")
 #include <filesystem>
@@ -30,94 +31,12 @@ namespace facebook::presto {
 
 namespace {
 
-void checkIncomingSystemProperties(
-    const std::unordered_map<std::string, std::string>& values) {
-  static const std::unordered_set<std::string_view> kSupportedSystemProperties{
-      SystemConfig::kMutableConfig,
-      SystemConfig::kPrestoVersion,
-      SystemConfig::kHttpServerHttpPort,
-      SystemConfig::kHttpServerReusePort,
-      SystemConfig::kDiscoveryUri,
-      SystemConfig::kMaxDriversPerTask,
-      SystemConfig::kConcurrentLifespansPerTask,
-      SystemConfig::kHttpExecThreads,
-      SystemConfig::kHttpServerHttpsPort,
-      SystemConfig::kHttpServerHttpsEnabled,
-      SystemConfig::kHttpsSupportedCiphers,
-      SystemConfig::kHttpsCertPath,
-      SystemConfig::kHttpsKeyPath,
-      SystemConfig::kHttpsClientCertAndKeyPath,
-      SystemConfig::kNumIoThreads,
-      SystemConfig::kNumConnectorIoThreads,
-      SystemConfig::kNumQueryThreads,
-      SystemConfig::kNumSpillThreads,
-      SystemConfig::kSpillerSpillPath,
-      SystemConfig::kShutdownOnsetSec,
-      SystemConfig::kSystemMemoryGb,
-      SystemConfig::kAsyncCacheSsdGb,
-      SystemConfig::kAsyncCacheSsdCheckpointGb,
-      SystemConfig::kAsyncCacheSsdPath,
-      SystemConfig::kAsyncCacheSsdDisableFileCow,
-      SystemConfig::kEnableSerializedPageChecksum,
-      SystemConfig::kUseMmapArena,
-      SystemConfig::kMmapArenaCapacityRatio,
-      SystemConfig::kUseMmapAllocator,
-      SystemConfig::kEnableVeloxTaskLogging,
-      SystemConfig::kEnableVeloxExprSetLogging,
-      SystemConfig::kLocalShuffleMaxPartitionBytes,
-      SystemConfig::kShuffleName,
-      SystemConfig::kHttpEnableAccessLog,
-      SystemConfig::kHttpEnableStatsFilter,
-      SystemConfig::kRegisterTestFunctions,
-      SystemConfig::kHttpMaxAllocateBytes,
-      SystemConfig::kQueryMaxMemoryPerNode,
-      SystemConfig::kEnableMemoryLeakCheck,
-      SystemConfig::kRemoteFunctionServerThriftPort,
-  };
-
-  std::stringstream supported;
-  std::stringstream unsupported;
-  for (const auto& pair : values) {
-    ((kSupportedSystemProperties.count(pair.first) != 0) ? supported
-                                                         : unsupported)
-        << "  " << pair.first << "=" << pair.second << "\n";
-  }
-  auto str = supported.str();
-  if (!str.empty()) {
-    LOG(INFO) << "STARTUP: Supported system properties:\n" << str;
-  }
-  str = unsupported.str();
-  if (!str.empty()) {
-    LOG(WARNING) << "STARTUP: Unsupported system properties:\n" << str;
-  }
-}
-
-void checkIncomingNodeProperties(
-    const std::unordered_map<std::string, std::string>& values) {
-  static const std::unordered_set<std::string_view> kSupportedNodeProperties{
-      NodeConfig::kNodeEnvironment,
-      NodeConfig::kNodeId,
-      NodeConfig::kNodeIp,
-      NodeConfig::kNodeLocation,
-      NodeConfig::kNodeMemoryGb,
-  };
-
-  std::stringstream supported;
-  std::stringstream unsupported;
-  for (const auto& pair : values) {
-    ((kSupportedNodeProperties.count(pair.first) != 0) ? supported
-                                                       : unsupported)
-        << "  " << pair.first << "=" << pair.second << "\n";
-  }
-  auto str = supported.str();
-  if (!str.empty()) {
-    LOG(INFO) << "STARTUP: Supported node properties:\n" << str;
-  }
-  str = unsupported.str();
-  if (!str.empty()) {
-    LOG(WARNING) << "STARTUP: Unsupported node properties:\n" << str;
-  }
-}
+#define STR_PROP(_key_, _val_) \
+  { std::string(_key_), std::string(_val_) }
+#define NUM_PROP(_key_, _val_) \
+  { std::string(_key_), folly::to<std::string>(_val_) }
+#define NONE_PROP(_key_) \
+  { std::string(_key_), folly::none }
 
 enum class CapacityUnit {
   BYTE,
@@ -192,11 +111,9 @@ ConfigBase::ConfigBase()
 void ConfigBase::initialize(const std::string& filePath) {
   // See if we want to create a mutable config.
   auto values = util::readConfig(fs::path(filePath));
-  if (filePath.find("config.properties") != std::string::npos) {
-    checkIncomingSystemProperties(values);
-  } else if (filePath.find("node.properties") != std::string::npos) {
-    checkIncomingNodeProperties(values);
-  }
+  filePath_ = filePath;
+  checkRegisteredProperties(values);
+
   bool mutableConfig{false};
   auto it = values.find(std::string(SystemConfig::kMutableConfig));
   if (it != values.end()) {
@@ -208,22 +125,112 @@ void ConfigBase::initialize(const std::string& filePath) {
   } else {
     config_ = std::make_unique<velox::core::MemConfig>(values);
   };
+}
 
-  filePath_ = filePath;
+bool ConfigBase::registerProperty(
+    const std::string& propertyName,
+    const folly::Optional<std::string>& defaultValue) {
+  if (registeredProps_.count(propertyName) != 0) {
+    PRESTO_STARTUP_LOG(WARNING)
+        << "Property '" << propertyName
+        << "' is already registered with default value '"
+        << registeredProps_[propertyName].value_or("<none>") << "'.";
+    return false;
+  }
+
+  registeredProps_[propertyName] = defaultValue;
+  return true;
 }
 
 folly::Optional<std::string> ConfigBase::setValue(
     const std::string& propertyName,
     const std::string& value) {
+  VELOX_USER_CHECK_EQ(
+      1,
+      registeredProps_.count(propertyName),
+      "Property '{}' is not registered in the config.",
+      propertyName);
   if (auto* memConfig =
           dynamic_cast<velox::core::MemConfigMutable*>(config_.get())) {
     auto oldValue = config_->get(propertyName);
     memConfig->setValue(propertyName, value);
-    return oldValue;
+    if (oldValue.hasValue()) {
+      return oldValue;
+    }
+    return registeredProps_[propertyName];
   }
   VELOX_USER_FAIL(
       "Config is not mutable. Consider setting '{}' to 'true'.",
       SystemConfig::kMutableConfig);
+}
+
+void ConfigBase::checkRegisteredProperties(
+    const std::unordered_map<std::string, std::string>& values) {
+  std::stringstream supported;
+  std::stringstream unsupported;
+  for (const auto& pair : values) {
+    ((registeredProps_.count(pair.first) != 0) ? supported : unsupported)
+        << "  " << pair.first << "=" << pair.second << "\n";
+  }
+  auto str = supported.str();
+  if (!str.empty()) {
+    PRESTO_STARTUP_LOG(INFO) << "Registered '" << filePath_ << "' properties:\n"
+                             << str;
+  }
+  str = unsupported.str();
+  if (!str.empty()) {
+    PRESTO_STARTUP_LOG(WARNING)
+        << "Unregistered '" << filePath_ << "' properties:\n"
+        << str;
+  }
+}
+
+SystemConfig::SystemConfig() {
+  registeredProps_ =
+      std::unordered_map<std::string, folly::Optional<std::string>>{
+          STR_PROP(kMutableConfig, "false"),
+          NONE_PROP(kPrestoVersion),
+          NONE_PROP(kHttpServerHttpPort),
+          STR_PROP(kHttpServerReusePort, "false"),
+          NONE_PROP(kDiscoveryUri),
+          NUM_PROP(kMaxDriversPerTask, 16),
+          NUM_PROP(kConcurrentLifespansPerTask, 1),
+          NUM_PROP(kHttpExecThreads, 8),
+          NONE_PROP(kHttpServerHttpsPort),
+          STR_PROP(kHttpServerHttpsEnabled, "false"),
+          STR_PROP(
+              kHttpsSupportedCiphers,
+              "ECDHE-ECDSA-AES256-GCM-SHA384,AES256-GCM-SHA384"),
+          NONE_PROP(kHttpsCertPath),
+          NONE_PROP(kHttpsKeyPath),
+          NONE_PROP(kHttpsClientCertAndKeyPath),
+          NUM_PROP(kNumIoThreads, 30),
+          NUM_PROP(kNumConnectorIoThreads, 30),
+          NUM_PROP(kNumQueryThreads, std::thread::hardware_concurrency() * 4),
+          NUM_PROP(kNumSpillThreads, std::thread::hardware_concurrency()),
+          NONE_PROP(kSpillerSpillPath),
+          NUM_PROP(kShutdownOnsetSec, 10),
+          NUM_PROP(kSystemMemoryGb, 40),
+          NUM_PROP(kAsyncCacheSsdGb, 0),
+          NUM_PROP(kAsyncCacheSsdCheckpointGb, 0),
+          STR_PROP(kAsyncCacheSsdPath, "/mnt/flash/async_cache."),
+          STR_PROP(kAsyncCacheSsdDisableFileCow, "false"),
+          STR_PROP(kEnableSerializedPageChecksum, "true"),
+          STR_PROP(kUseMmapArena, "false"),
+          NUM_PROP(kMmapArenaCapacityRatio, 10),
+          STR_PROP(kUseMmapAllocator, "true"),
+          STR_PROP(kEnableVeloxTaskLogging, "false"),
+          STR_PROP(kEnableVeloxExprSetLogging, "false"),
+          NUM_PROP(kLocalShuffleMaxPartitionBytes, 268435456),
+          STR_PROP(kShuffleName, ""),
+          STR_PROP(kHttpEnableAccessLog, "false"),
+          STR_PROP(kHttpEnableStatsFilter, "false"),
+          STR_PROP(kRegisterTestFunctions, "false"),
+          NUM_PROP(kHttpMaxAllocateBytes, 65536),
+          NUM_PROP(kQueryMaxMemoryPerNode, "4GB"),
+          STR_PROP(kEnableMemoryLeakCheck, "true"),
+          NONE_PROP(kRemoteFunctionServerThriftPort),
+      };
 }
 
 SystemConfig* SystemConfig::instance() {
@@ -233,41 +240,35 @@ SystemConfig* SystemConfig::instance() {
 }
 
 int SystemConfig::httpServerHttpPort() const {
-  return requiredProperty<int>(std::string(kHttpServerHttpPort));
+  return requiredProperty<int>(kHttpServerHttpPort);
 }
 
 bool SystemConfig::httpServerReusePort() const {
-  auto opt = optionalProperty<bool>(std::string(kHttpServerReusePort));
-  return opt.value_or(kHttpServerReusePortDefault);
+  return optionalProperty<bool>(kHttpServerReusePort).value();
 }
 
 int SystemConfig::httpServerHttpsPort() const {
-  return requiredProperty<int>(std::string(kHttpServerHttpsPort));
+  return requiredProperty<int>(kHttpServerHttpsPort);
 }
 
 bool SystemConfig::httpServerHttpsEnabled() const {
-  auto opt = optionalProperty<bool>(std::string(kHttpServerHttpsEnabled));
-  return opt.value_or(kHttpServerHttpsEnabledDefault);
+  return optionalProperty<bool>(kHttpServerHttpsEnabled).value();
 }
 
 std::string SystemConfig::httpsSupportedCiphers() const {
-  auto opt = optionalProperty<std::string>(std::string(kHttpsSupportedCiphers));
-  return opt.value_or(std::string(kHttpsSupportedCiphersDefault));
+  return optionalProperty(kHttpsSupportedCiphers).value();
 }
 
-std::optional<std::string> SystemConfig::httpsCertPath() const {
-  return static_cast<std::optional<std::string>>(
-      optionalProperty<std::string>(std::string(kHttpsCertPath)));
+folly::Optional<std::string> SystemConfig::httpsCertPath() const {
+  return optionalProperty(kHttpsCertPath);
 }
 
-std::optional<std::string> SystemConfig::httpsKeyPath() const {
-  return static_cast<std::optional<std::string>>(
-      optionalProperty<std::string>(std::string(kHttpsKeyPath)));
+folly::Optional<std::string> SystemConfig::httpsKeyPath() const {
+  return optionalProperty(kHttpsKeyPath);
 }
 
-std::optional<std::string> SystemConfig::httpsClientCertAndKeyPath() const {
-  return static_cast<std::optional<std::string>>(
-      optionalProperty<std::string>(std::string(kHttpsClientCertAndKeyPath)));
+folly::Optional<std::string> SystemConfig::httpsClientCertAndKeyPath() const {
+  return optionalProperty(kHttpsClientCertAndKeyPath);
 }
 
 std::string SystemConfig::prestoVersion() const {
@@ -275,168 +276,145 @@ std::string SystemConfig::prestoVersion() const {
 }
 
 bool SystemConfig::mutableConfig() const {
-  return optionalProperty<bool>(std::string(kMutableConfig)).value_or(false);
+  return optionalProperty<bool>(kMutableConfig).value();
 }
 
-std::optional<std::string> SystemConfig::discoveryUri() const {
-  return static_cast<std::optional<std::string>>(
-      optionalProperty<std::string>(std::string(kDiscoveryUri)));
+folly::Optional<std::string> SystemConfig::discoveryUri() const {
+  return optionalProperty(kDiscoveryUri);
 }
 
-std::optional<folly::SocketAddress> SystemConfig::remoteFunctionServerLocation()
-    const {
+folly::Optional<folly::SocketAddress>
+SystemConfig::remoteFunctionServerLocation() const {
   auto remoteServerPort =
-      optionalProperty<uint16_t>(std::string(kRemoteFunctionServerThriftPort));
-  if (remoteServerPort) {
+      optionalProperty<uint16_t>(kRemoteFunctionServerThriftPort);
+  if (remoteServerPort.hasValue()) {
     return folly::SocketAddress{"::1", remoteServerPort.value()};
   }
-  return std::nullopt;
+  return folly::none;
 }
 
 int32_t SystemConfig::maxDriversPerTask() const {
-  auto opt = optionalProperty<int32_t>(std::string(kMaxDriversPerTask));
-  return opt.value_or(kMaxDriversPerTaskDefault);
+  return optionalProperty<int32_t>(kMaxDriversPerTask).value();
 }
 
 int32_t SystemConfig::concurrentLifespansPerTask() const {
-  auto opt =
-      optionalProperty<int32_t>(std::string(kConcurrentLifespansPerTask));
-  return opt.value_or(kConcurrentLifespansPerTaskDefault);
+  return optionalProperty<int32_t>(kConcurrentLifespansPerTask).value();
 }
 
 int32_t SystemConfig::httpExecThreads() const {
-  auto opt = optionalProperty<int32_t>(std::string(kHttpExecThreads));
-  return opt.value_or(kHttpExecThreadsDefault);
+  return optionalProperty<int32_t>(kHttpExecThreads).value();
 }
 
 int32_t SystemConfig::numIoThreads() const {
-  auto opt = optionalProperty<int32_t>(std::string(kNumIoThreads));
-  return opt.value_or(kNumIoThreadsDefault);
+  return optionalProperty<int32_t>(kNumIoThreads).value();
 }
 
 int32_t SystemConfig::numConnectorIoThreads() const {
-  auto opt = optionalProperty<int32_t>(std::string(kNumConnectorIoThreads));
-  return opt.value_or(kNumConnectorIoThreadsDefault);
+  return optionalProperty<int32_t>(kNumConnectorIoThreads).value();
 }
 
 int32_t SystemConfig::numQueryThreads() const {
-  auto opt = optionalProperty<int32_t>(std::string(kNumQueryThreads));
-  return opt.value_or(std::thread::hardware_concurrency() * 4);
+  return optionalProperty<int32_t>(kNumQueryThreads).value();
 }
 
 int32_t SystemConfig::numSpillThreads() const {
-  auto opt = optionalProperty<int32_t>(std::string(kNumSpillThreads));
-  return opt.hasValue() ? opt.value() : std::thread::hardware_concurrency();
+  return optionalProperty<int32_t>(kNumSpillThreads).value();
 }
 
-std::string SystemConfig::spillerSpillPath() const {
-  auto opt = optionalProperty<std::string>(std::string(kSpillerSpillPath));
-  return opt.hasValue() ? opt.value() : "";
+folly::Optional<std::string> SystemConfig::spillerSpillPath() const {
+  return optionalProperty(kSpillerSpillPath);
 }
 
 int32_t SystemConfig::shutdownOnsetSec() const {
-  auto opt = optionalProperty<int32_t>(std::string(kShutdownOnsetSec));
-  return opt.value_or(kShutdownOnsetSecDefault);
+  return optionalProperty<int32_t>(kShutdownOnsetSec).value();
 }
 
 int32_t SystemConfig::systemMemoryGb() const {
-  auto opt = optionalProperty<int32_t>(std::string(kSystemMemoryGb));
-  return opt.value_or(kSystemMemoryGbDefault);
+  return optionalProperty<int32_t>(kSystemMemoryGb).value();
 }
 
 uint64_t SystemConfig::asyncCacheSsdGb() const {
-  auto opt = optionalProperty<uint64_t>(std::string(kAsyncCacheSsdGb));
-  return opt.value_or(kAsyncCacheSsdGbDefault);
+  return optionalProperty<uint64_t>(kAsyncCacheSsdGb).value();
 }
 
 uint64_t SystemConfig::asyncCacheSsdCheckpointGb() const {
-  auto opt =
-      optionalProperty<uint64_t>(std::string(kAsyncCacheSsdCheckpointGb));
-  return opt.value_or(kAsyncCacheSsdCheckpointGbDefault);
+  return optionalProperty<uint64_t>(kAsyncCacheSsdCheckpointGb).value();
 }
 
 uint64_t SystemConfig::localShuffleMaxPartitionBytes() const {
-  auto opt =
-      optionalProperty<uint32_t>(std::string(kLocalShuffleMaxPartitionBytes));
-  return opt.value_or(kLocalShuffleMaxPartitionBytesDefault);
+  return optionalProperty<uint32_t>(kLocalShuffleMaxPartitionBytes).value();
 }
 
 std::string SystemConfig::asyncCacheSsdPath() const {
-  auto opt = optionalProperty<std::string>(std::string(kAsyncCacheSsdPath));
-  return opt.hasValue() ? opt.value() : std::string(kAsyncCacheSsdPathDefault);
+  return optionalProperty(kAsyncCacheSsdPath).value();
 }
 
 bool SystemConfig::asyncCacheSsdDisableFileCow() const {
-  auto opt = optionalProperty<bool>(std::string(kAsyncCacheSsdDisableFileCow));
-  return opt.value_or(kAsyncCacheSsdDisableFileCowDefault);
+  return optionalProperty<bool>(kAsyncCacheSsdDisableFileCow).value();
 }
 
 std::string SystemConfig::shuffleName() const {
-  auto opt = optionalProperty<std::string>(std::string(kShuffleName));
-  return opt.hasValue() ? opt.value() : std::string(kShuffleNameDefault);
+  return optionalProperty(kShuffleName).value();
 }
 
 bool SystemConfig::enableSerializedPageChecksum() const {
-  auto opt = optionalProperty<bool>(std::string(kEnableSerializedPageChecksum));
-  return opt.value_or(kEnableSerializedPageChecksumDefault);
+  return optionalProperty<bool>(kEnableSerializedPageChecksum).value();
 }
 
 bool SystemConfig::enableVeloxTaskLogging() const {
-  auto opt = optionalProperty<bool>(std::string(kEnableVeloxTaskLogging));
-  return opt.value_or(kEnableVeloxTaskLoggingDefault);
+  return optionalProperty<bool>(kEnableVeloxTaskLogging).value();
 }
 
 bool SystemConfig::enableVeloxExprSetLogging() const {
-  auto opt = optionalProperty<bool>(std::string(kEnableVeloxExprSetLogging));
-  return opt.value_or(kEnableVeloxExprSetLoggingDefault);
+  return optionalProperty<bool>(kEnableVeloxExprSetLogging).value();
 }
 
 bool SystemConfig::useMmapArena() const {
-  auto opt = optionalProperty<bool>(std::string(kUseMmapArena));
-  return opt.value_or(kUseMmapArenaDefault);
+  return optionalProperty<bool>(kUseMmapArena).value();
 }
 
 int32_t SystemConfig::mmapArenaCapacityRatio() const {
-  auto opt = optionalProperty<int32_t>(std::string(kMmapArenaCapacityRatio));
-  return opt.hasValue() ? opt.value() : kMmapArenaCapacityRatioDefault;
+  return optionalProperty<int32_t>(kMmapArenaCapacityRatio).value();
 }
 
 bool SystemConfig::useMmapAllocator() const {
-  auto opt = optionalProperty<bool>(std::string(kUseMmapAllocator));
-  return opt.value_or(kUseMmapAllocatorDefault);
+  return optionalProperty<bool>(kUseMmapAllocator).value();
 }
 
 bool SystemConfig::enableHttpAccessLog() const {
-  auto opt = optionalProperty<bool>(std::string(kHttpEnableAccessLog));
-  return opt.value_or(kHttpEnableAccessLogDefault);
+  return optionalProperty<bool>(kHttpEnableAccessLog).value();
 }
 
 bool SystemConfig::enableHttpStatsFilter() const {
-  auto opt = optionalProperty<bool>(std::string(kHttpEnableStatsFilter));
-  return opt.value_or(kHttpEnableStatsFilterDefault);
+  return optionalProperty<bool>(kHttpEnableStatsFilter).value();
 }
 
 bool SystemConfig::registerTestFunctions() const {
-  auto opt = optionalProperty<bool>(std::string(kRegisterTestFunctions));
-  return opt.value_or(kRegisterTestFunctionsDefault);
+  return optionalProperty<bool>(kRegisterTestFunctions).value();
 }
 
 uint64_t SystemConfig::httpMaxAllocateBytes() const {
-  auto opt = optionalProperty<uint64_t>(std::string(kHttpMaxAllocateBytes));
-  return opt.value_or(kHttpMaxAllocateBytesDefault);
+  return optionalProperty<uint64_t>(kHttpMaxAllocateBytes).value();
 }
 
 uint64_t SystemConfig::queryMaxMemoryPerNode() const {
-  auto opt = optionalProperty(std::string(kQueryMaxMemoryPerNode));
-  if (opt.hasValue()) {
-    return toCapacity(opt.value(), CapacityUnit::BYTE);
-  }
-  return kQueryMaxMemoryPerNodeDefault;
+  return toCapacity(
+      optionalProperty(kQueryMaxMemoryPerNode).value(), CapacityUnit::BYTE);
 }
 
 bool SystemConfig::enableMemoryLeakCheck() const {
-  auto opt = optionalProperty<bool>(std::string(kEnableMemoryLeakCheck));
-  return opt.value_or(kEnableMemoryLeakCheckDefault);
+  return optionalProperty<bool>(kEnableMemoryLeakCheck).value();
+}
+
+NodeConfig::NodeConfig() {
+  registeredProps_ =
+      std::unordered_map<std::string, folly::Optional<std::string>>{
+          NONE_PROP(kNodeEnvironment),
+          NONE_PROP(kNodeId),
+          NONE_PROP(kNodeIp),
+          NONE_PROP(kNodeLocation),
+          NONE_PROP(kNodeMemoryGb),
+      };
 }
 
 NodeConfig* NodeConfig::instance() {
@@ -445,20 +423,20 @@ NodeConfig* NodeConfig::instance() {
 }
 
 std::string NodeConfig::nodeEnvironment() const {
-  return requiredProperty(std::string(kNodeEnvironment));
+  return requiredProperty(kNodeEnvironment);
 }
 
 std::string NodeConfig::nodeId() const {
-  return requiredProperty(std::string(kNodeId));
+  return requiredProperty(kNodeId);
 }
 
 std::string NodeConfig::nodeLocation() const {
-  return requiredProperty(std::string(kNodeLocation));
+  return requiredProperty(kNodeLocation);
 }
 
 std::string NodeConfig::nodeIp(
     const std::function<std::string()>& defaultIp) const {
-  auto resultOpt = optionalProperty(std::string(kNodeIp));
+  auto resultOpt = optionalProperty(kNodeIp);
   if (resultOpt.has_value()) {
     return resultOpt.value();
   } else if (defaultIp != nullptr) {
@@ -472,7 +450,7 @@ std::string NodeConfig::nodeIp(
 
 uint64_t NodeConfig::nodeMemoryGb(
     const std::function<uint64_t()>& defaultNodeMemoryGb) const {
-  auto resultOpt = optionalProperty<uint64_t>(std::string(kNodeMemoryGb));
+  auto resultOpt = optionalProperty<uint64_t>(kNodeMemoryGb);
   uint64_t result = 0;
   if (resultOpt.has_value()) {
     result = resultOpt.value();
