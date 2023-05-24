@@ -113,6 +113,11 @@ class PrestoServer {
 
   virtual void registerStatsCounters();
 
+  /// Invoked after creating global (singleton) config objects (SystemConfig and
+  /// NodeConfig) and before loading their properties from the file.
+  /// In the implementation any extra config properties can be registered.
+  virtual void registerExtraConfigProperties() {}
+
   /// Invoked to get the list of filters passed to the http server.
   std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
   getHttpServerFilters();

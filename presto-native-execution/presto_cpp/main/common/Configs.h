@@ -33,6 +33,13 @@ class ConfigBase {
     config_ = std::move(config);
   }
 
+  /// Registers an extra property in the config.
+  /// Returns true if succeeded, false if failed (due to the property already
+  /// registered).
+  bool registerProperty(
+      const std::string& propertyName,
+      const folly::Optional<std::string>& defaultValue = {});
+
   /// Adds or replaces value at the given key. Can be used by debugging or
   /// testing code.
   /// Returns previous value if there was any.
@@ -40,6 +47,7 @@ class ConfigBase {
       const std::string& propertyName,
       const std::string& value);
 
+  /// Returns a required value of the requested type. Fails if no value found.
   template <typename T>
   T requiredProperty(const std::string& propertyName) const {
     auto propertyValue = config_->get<T>(propertyName);
@@ -51,6 +59,13 @@ class ConfigBase {
     }
   }
 
+  /// Returns a required value of the requested type. Fails if no value found.
+  template <typename T>
+  T requiredProperty(std::string_view propertyName) const {
+    return requiredProperty<T>(std::string{propertyName});
+  }
+
+  /// Returns a required value of the string type. Fails if no value found.
   std::string requiredProperty(const std::string& propertyName) const {
     auto propertyValue = config_->get(propertyName);
     if (propertyValue.has_value()) {
@@ -61,14 +76,50 @@ class ConfigBase {
     }
   }
 
-  template <typename T>
-  folly::Optional<T> optionalProperty(const std::string& propertyName) const {
-    return config_->get<T>(propertyName);
+  /// Returns a required value of the requested type. Fails if no value found.
+  std::string requiredProperty(std::string_view propertyName) const {
+    return requiredProperty(std::string{propertyName});
   }
 
+  /// Returns optional value of the requested type. Can return folly::none.
+  template <typename T>
+  folly::Optional<T> optionalProperty(const std::string& propertyName) const {
+    auto val = config_->get(propertyName);
+    if (!val.hasValue()) {
+      const auto it = registeredProps_.find(propertyName);
+      if (it != registeredProps_.end()) {
+        val = it->second;
+      }
+    }
+    if (val.hasValue()) {
+      return folly::to<T>(val.value());
+    }
+    return folly::none;
+  }
+
+  /// Returns optional value of the requested type. Can return folly::none.
+  template <typename T>
+  folly::Optional<T> optionalProperty(std::string_view propertyName) const {
+    return optionalProperty<T>(std::string{propertyName});
+  }
+
+  /// Returns optional value of the string type. Can return folly::none.
   folly::Optional<std::string> optionalProperty(
       const std::string& propertyName) const {
-    return config_->get(propertyName);
+    auto val = config_->get(propertyName);
+    if (!val.hasValue()) {
+      const auto it = registeredProps_.find(propertyName);
+      if (it != registeredProps_.end()) {
+        return it->second;
+      }
+    }
+    return val;
+  }
+
+  /// Returns optional value of the string type. Can return folly::none.
+  folly::Optional<std::string> optionalProperty(
+      std::string_view propertyName) const {
+    return optionalProperty(std::string{propertyName});
   }
 
   /// Returns copy of the config values map.
@@ -79,8 +130,15 @@ class ConfigBase {
  protected:
   ConfigBase();
 
+  // Check if all properties are registered.
+  void checkRegisteredProperties(
+      const std::unordered_map<std::string, std::string>& values);
+
   std::unique_ptr<velox::Config> config_;
   std::string filePath_;
+  // Map of registered properties with their default values.
+  std::unordered_map<std::string, folly::Optional<std::string>>
+      registeredProps_;
 };
 
 /// Provides access to system properties defined in config.properties file.
@@ -170,40 +228,7 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kRemoteFunctionServerThriftPort{
       "remote-function-server.thrift.port"};
 
-  /// Most server nodes today (May 2022) have at least 16 cores.
-  /// Setting the default maximum drivers per task to this value will
-  /// provide a better off-shelf experience.
-  static constexpr int32_t kMaxDriversPerTaskDefault = 16;
-  static constexpr bool kHttpServerReusePortDefault = false;
-  static constexpr int32_t kConcurrentLifespansPerTaskDefault = 1;
-  static constexpr int32_t kHttpExecThreadsDefault = 8;
-  static constexpr bool kHttpServerHttpsEnabledDefault = false;
-  static constexpr std::string_view kHttpsSupportedCiphersDefault{
-      "ECDHE-ECDSA-AES256-GCM-SHA384,AES256-GCM-SHA384"};
-  static constexpr int32_t kNumIoThreadsDefault = 30;
-  static constexpr int32_t kNumConnectorIoThreadsDefault = 30;
-  static constexpr int32_t kShutdownOnsetSecDefault = 10;
-  static constexpr int32_t kSystemMemoryGbDefault = 40;
-  static constexpr int32_t kMmapArenaCapacityRatioDefault = 10;
-  static constexpr uint64_t kLocalShuffleMaxPartitionBytesDefault = 1 << 28;
-  static constexpr uint64_t kAsyncCacheSsdGbDefault = 0;
-  static constexpr uint64_t kAsyncCacheSsdCheckpointGbDefault = 0;
-  static constexpr std::string_view kAsyncCacheSsdPathDefault{
-      "/mnt/flash/async_cache."};
-  static constexpr bool kAsyncCacheSsdDisableFileCowDefault{false};
-  static constexpr std::string_view kShuffleNameDefault{""};
-  static constexpr bool kEnableSerializedPageChecksumDefault = true;
-  static constexpr bool kEnableVeloxTaskLoggingDefault = false;
-  static constexpr bool kEnableVeloxExprSetLoggingDefault = false;
-  static constexpr bool kUseMmapArenaDefault = false;
-  static constexpr bool kUseMmapAllocatorDefault{true};
-  static constexpr bool kHttpEnableAccessLogDefault = false;
-  static constexpr bool kHttpEnableStatsFilterDefault = false;
-  static constexpr bool kRegisterTestFunctionsDefault = false;
-  static constexpr uint64_t kHttpMaxAllocateBytesDefault = 64 << 10;
-  /// 1/10 of kSystemMemoryGbDefault.
-  static constexpr uint64_t kQueryMaxMemoryPerNodeDefault = 4UL << 30;
-  static constexpr bool kEnableMemoryLeakCheckDefault = true;
+  SystemConfig();
 
   static SystemConfig* instance();
 
@@ -229,22 +254,22 @@ class SystemConfig : public ConfigBase {
   // them separately. The HTTPS provides integrity and not
   // security(authentication/authorization). But the HTTPS will protect against
   // data corruption by bad router and man in middle attacks.
-  std::optional<std::string> httpsCertPath() const;
+  folly::Optional<std::string> httpsCertPath() const;
 
-  std::optional<std::string> httpsKeyPath() const;
+  folly::Optional<std::string> httpsKeyPath() const;
 
   // Http client expects the cert and key file to be packed into a single file
   // (most commonly .pem format) The file should not be password protected. If
   // required, break this down to 3 configs one for cert,key and password later.
-  std::optional<std::string> httpsClientCertAndKeyPath() const;
+  folly::Optional<std::string> httpsClientCertAndKeyPath() const;
 
   bool mutableConfig() const;
 
   std::string prestoVersion() const;
 
-  std::optional<std::string> discoveryUri() const;
+  folly::Optional<std::string> discoveryUri() const;
 
-  std::optional<folly::SocketAddress> remoteFunctionServerLocation() const;
+  folly::Optional<folly::SocketAddress> remoteFunctionServerLocation() const;
 
   int32_t maxDriversPerTask() const;
 
@@ -262,7 +287,7 @@ class SystemConfig : public ConfigBase {
 
   int32_t numSpillThreads() const;
 
-  std::string spillerSpillPath() const;
+  folly::Optional<std::string> spillerSpillPath() const;
 
   int32_t shutdownOnsetSec() const;
 
@@ -313,6 +338,8 @@ class NodeConfig : public ConfigBase {
   static constexpr std::string_view kNodeIp{"node.ip"};
   static constexpr std::string_view kNodeLocation{"node.location"};
   static constexpr std::string_view kNodeMemoryGb{"node.memory_gb"};
+
+  NodeConfig();
 
   static NodeConfig* instance();
 
