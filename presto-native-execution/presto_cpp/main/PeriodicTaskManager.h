@@ -72,10 +72,19 @@ class PeriodicTaskManager {
 
  private:
   void addExecutorStatsTask();
+  void updateExecutorStats();
+
   void addTaskStatsTask();
+  void updateTaskStats();
+
   void addTaskCleanupTask();
+  void updateTaskCleanUp();
+
   void addMemoryAllocatorStatsTask();
+  void updateMemoryAllocatorStats();
+
   void addPrestoExchangeSourceMemoryStatsTask();
+  void updatePrestoExchangeSourceMemoryStats();
 
   void addCacheStatsUpdateTask();
   void updateCacheStats();

@@ -16,9 +16,11 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.DefunctConfig;
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -37,6 +39,7 @@ import java.nio.file.Paths;
 import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinNotNullInferenceStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -260,6 +263,7 @@ public class FeaturesConfig
     private boolean simplifyPlanWithEmptyInput = true;
     private PushDownFilterThroughCrossJoinStrategy pushDownFilterExpressionEvaluationThroughCrossJoin = PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN;
     private boolean rewriteCrossJoinWithOrFilterToInnerJoin = true;
+    private JoinNotNullInferenceStrategy joinNotNullInferenceStrategy = NONE;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -356,6 +360,33 @@ public class FeaturesConfig
         DISABLED,
         REWRITTEN_TO_INNER_JOIN, // Enabled only when the change can enable rewriting cross join to inner join
         ALWAYS
+    }
+
+    /**
+     * Strategy used in {@link com.facebook.presto.sql.planner.iterative.rule.AddNotNullFiltersToJoinNode.ExtractInferredNotNullVariablesVisitor}
+     * to infer NOT NULL predicates
+     */
+    public enum JoinNotNullInferenceStrategy
+    {
+        /**
+         * No NOT NULL predicates are inferred
+         */
+        NONE,
+
+        /**
+         * Use the equi-join condition and the join filter for inferring NOT NULL predicates.
+         * For the join filter, try to map functions to a standard operator in {@link OperatorType}.
+         * If this mapping is successful, use {@link OperatorType#isCalledOnNullInput()}
+         * to check if this function can operate on NULL inputs.
+         */
+        INFER_FROM_STANDARD_OPERATORS,
+
+        /**
+         * Use the equi-join condition and the join filter for inferring NOT NULL predicates.
+         * For the join filter, use the function's  {@link FunctionMetadata#isCalledOnNullInput()} value
+         * to check if this function can operate on NULL inputs
+         */
+        USE_FUNCTION_METADATA
     }
 
     public double getCpuCostWeight()
@@ -2184,6 +2215,19 @@ public class FeaturesConfig
     {
         this.aggregationIfToFilterRewriteStrategy = strategy;
         return this;
+    }
+
+    @Config("optimizer.joins-not-null-inference-strategy")
+    @ConfigDescription("Set the strategy used NOT NULL filter inference on Join Nodes")
+    public FeaturesConfig setJoinsNotNullInferenceStrategy(JoinNotNullInferenceStrategy strategy)
+    {
+        this.joinNotNullInferenceStrategy = strategy;
+        return this;
+    }
+
+    public JoinNotNullInferenceStrategy getJoinsNotNullInferenceStrategy()
+    {
+        return joinNotNullInferenceStrategy;
     }
 
     public String getAnalyzerType()

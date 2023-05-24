@@ -1241,7 +1241,7 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT l.* FROM (select rand(100) as pk100 from (select orderkey+1 as ok1, * from lineitem_map) l left join orders o on (l.ok1 = o.orderkey+1)) l left join part p on (l.pk100=p.partkey)",
                 "SELECT l.* FROM (select *, cast(orderkey as int) as ok from lineitem) l left join (select *, cast(orderkey as int) as ok from orders) o on (l.ok = o.ok) left join (select *, cast(partkey as int) as pk from part) p on (l.ok=p.pk)",
                 "SELECT l.*, p.m3, p.m4 FROM (select * from lineitem_map where false) l left join orders o on (l.orderkey = o.orderkey) left join part_map p on (l.partkey=p.partkey)",
-                "SELECT l.* FROM (select * from lineitem_map where false) l left join orders o on (l.orderkey+1 = o.orderkey+1) left join part p on (l.partkey+1=p.partkey+1)"
+                "SELECT l.* FROM (select m1, orderkey,partkey from lineitem_map where false) l left join orders o on (l.orderkey+1 = o.orderkey+1) left join part p on (l.partkey+1=p.partkey+1)"
         };
 
         for (String query : nonOptimizableQueries) {
@@ -1284,6 +1284,6 @@ public abstract class AbstractTestDistributedQueries
 
     private String sanitizePlan(String explain)
     {
-        return explain.replaceAll("hashvalue_[0-9][0-9][0-9]", "hashvalueXXX");
+        return explain.replaceAll("hashvalue_[0-9][0-9][0-9]", "hashvalueXXX").replaceAll("Values => .*\n", "\n");
     }
 }

@@ -60,18 +60,18 @@ PeriodicTaskManager::PeriodicTaskManager(
 
 void PeriodicTaskManager::start() {
   // If executors are null, don't bother starting this task.
-  if (driverCPUExecutor_ or httpExecutor_) {
+  if ((driverCPUExecutor_ != nullptr) || (httpExecutor_ != nullptr)) {
     addExecutorStatsTask();
   }
-  if (taskManager_) {
+  if (taskManager_ != nullptr) {
     addTaskStatsTask();
     addTaskCleanupTask();
   }
-  if (memoryAllocator_) {
+  if (memoryAllocator_ != nullptr) {
     addMemoryAllocatorStatsTask();
   }
   addPrestoExchangeSourceMemoryStatsTask();
-  if (asyncDataCache_) {
+  if (asyncDataCache_ != nullptr) {
     addCacheStatsUpdateTask();
   }
   addConnectorStatsTask();
@@ -86,116 +86,123 @@ void PeriodicTaskManager::stop() {
   scheduler_.shutdown();
 }
 
+void PeriodicTaskManager::updateExecutorStats() {
+  if (driverCPUExecutor_ != nullptr) {
+    // Report the current queue size of the thread pool.
+    REPORT_ADD_STAT_VALUE(
+        kCounterDriverCPUExecutorQueueSize,
+        driverCPUExecutor_->getTaskQueueSize());
+
+    // Report driver execution latency.
+    folly::stop_watch<std::chrono::milliseconds> timer;
+    driverCPUExecutor_->add([timer = timer]() {
+      REPORT_ADD_STAT_VALUE(
+          kCounterDriverCPUExecutorLatencyMs, timer.elapsed().count());
+    });
+  }
+
+  if (httpExecutor_ != nullptr) {
+    // Report the latency between scheduling the task and its execution.
+    folly::stop_watch<std::chrono::milliseconds> timer;
+    httpExecutor_->add([timer = timer]() {
+      REPORT_ADD_STAT_VALUE(
+          kCounterHTTPExecutorLatencyMs, timer.elapsed().count());
+    });
+  }
+}
+
 void PeriodicTaskManager::addExecutorStatsTask() {
   scheduler_.addFunction(
-      [driverCPUExecutor = driverCPUExecutor_, httpExecutor = httpExecutor_]() {
-        if (driverCPUExecutor) {
-          // Report the current queue size of the thread pool.
-          REPORT_ADD_STAT_VALUE(
-              kCounterDriverCPUExecutorQueueSize,
-              driverCPUExecutor->getTaskQueueSize());
-
-          // Report driver execution latency.
-          folly::stop_watch<std::chrono::milliseconds> timer;
-          driverCPUExecutor->add([timer = timer]() {
-            REPORT_ADD_STAT_VALUE(
-                kCounterDriverCPUExecutorLatencyMs, timer.elapsed().count());
-          });
-        }
-
-        if (httpExecutor) {
-          // Report the latency between scheduling the task and its execution.
-          folly::stop_watch<std::chrono::milliseconds> timer;
-          httpExecutor->add([timer = timer]() {
-            REPORT_ADD_STAT_VALUE(
-                kCounterHTTPExecutorLatencyMs, timer.elapsed().count());
-          });
-        }
-      },
+      [this]() { updateExecutorStats(); },
       std::chrono::microseconds{kTaskPeriodGlobalCounters},
       "executor_counters");
 }
 
+void PeriodicTaskManager::updateTaskStats() {
+  // Report the number of tasks and drivers in the system.
+  size_t numTasks{0};
+  auto taskNumbers = taskManager_->getTaskNumbers(numTasks);
+  REPORT_ADD_STAT_VALUE(kCounterNumTasks, taskManager_->getNumTasks());
+  REPORT_ADD_STAT_VALUE(
+      kCounterNumTasksRunning, taskNumbers[velox::exec::TaskState::kRunning]);
+  REPORT_ADD_STAT_VALUE(
+      kCounterNumTasksFinished, taskNumbers[velox::exec::TaskState::kFinished]);
+  REPORT_ADD_STAT_VALUE(
+      kCounterNumTasksCancelled,
+      taskNumbers[velox::exec::TaskState::kCanceled]);
+  REPORT_ADD_STAT_VALUE(
+      kCounterNumTasksAborted, taskNumbers[velox::exec::TaskState::kAborted]);
+  REPORT_ADD_STAT_VALUE(
+      kCounterNumTasksFailed, taskNumbers[velox::exec::TaskState::kFailed]);
+
+  auto driverCountStats = taskManager_->getDriverCountStats();
+  REPORT_ADD_STAT_VALUE(
+      kCounterNumRunningDrivers, driverCountStats.numRunningDrivers);
+  REPORT_ADD_STAT_VALUE(
+      kCounterNumBlockedDrivers, driverCountStats.numBlockedDrivers);
+  REPORT_ADD_STAT_VALUE(
+      kCounterTotalPartitionedOutputBuffer,
+      velox::exec::PartitionedOutputBufferManager::getInstance()
+          .lock()
+          ->numBuffers());
+}
+
 void PeriodicTaskManager::addTaskStatsTask() {
   scheduler_.addFunction(
-      [taskManager = taskManager_]() {
-        // Report the number of tasks and drivers in the system.
-        size_t numTasks{0};
-        auto taskNumbers = taskManager->getTaskNumbers(numTasks);
-        REPORT_ADD_STAT_VALUE(kCounterNumTasks, taskManager->getNumTasks());
-        REPORT_ADD_STAT_VALUE(
-            kCounterNumTasksRunning,
-            taskNumbers[velox::exec::TaskState::kRunning]);
-        REPORT_ADD_STAT_VALUE(
-            kCounterNumTasksFinished,
-            taskNumbers[velox::exec::TaskState::kFinished]);
-        REPORT_ADD_STAT_VALUE(
-            kCounterNumTasksCancelled,
-            taskNumbers[velox::exec::TaskState::kCanceled]);
-        REPORT_ADD_STAT_VALUE(
-            kCounterNumTasksAborted,
-            taskNumbers[velox::exec::TaskState::kAborted]);
-        REPORT_ADD_STAT_VALUE(
-            kCounterNumTasksFailed,
-            taskNumbers[velox::exec::TaskState::kFailed]);
-
-        auto driverCountStats = taskManager->getDriverCountStats();
-        REPORT_ADD_STAT_VALUE(
-            kCounterNumRunningDrivers, driverCountStats.numRunningDrivers);
-        REPORT_ADD_STAT_VALUE(
-            kCounterNumBlockedDrivers, driverCountStats.numBlockedDrivers);
-        REPORT_ADD_STAT_VALUE(
-            kCounterTotalPartitionedOutputBuffer,
-            velox::exec::PartitionedOutputBufferManager::getInstance()
-                .lock()
-                ->numBuffers());
-      },
+      [this]() { updateTaskStats(); },
       std::chrono::microseconds{kTaskPeriodGlobalCounters},
       "task_counters");
 }
 
+void PeriodicTaskManager::updateTaskCleanUp() {
+  // Report the number of tasks and drivers in the system.
+  if (taskManager_ != nullptr) {
+    taskManager_->cleanOldTasks();
+  }
+}
 void PeriodicTaskManager::addTaskCleanupTask() {
   scheduler_.addFunction(
-      [taskManager = taskManager_]() {
-        // Report the number of tasks and drivers in the system.
-        taskManager->cleanOldTasks();
-      },
+      [this]() { updateTaskCleanUp(); },
       std::chrono::microseconds{kTaskPeriodCleanOldTasks},
       "clean_old_tasks");
 }
 
+void PeriodicTaskManager::updateMemoryAllocatorStats() {
+  REPORT_ADD_STAT_VALUE(
+      kCounterMappedMemoryBytes, (memoryAllocator_->numMapped() * 4096l));
+  REPORT_ADD_STAT_VALUE(
+      kCounterAllocatedMemoryBytes, (memoryAllocator_->numAllocated() * 4096l));
+  // TODO(jtan6): Remove condition after T150019700 is done
+  if (auto* mmapAllocator =
+          dynamic_cast<const velox::memory::MmapAllocator*>(memoryAllocator_)) {
+    REPORT_ADD_STAT_VALUE(
+        kCounterMappedMemoryRawAllocBytesSmall,
+        (mmapAllocator->numMallocBytes()))
+  }
+  // TODO(xiaoxmeng): add memory allocation size stats.
+}
+
 void PeriodicTaskManager::addMemoryAllocatorStatsTask() {
   scheduler_.addFunction(
-      [allocator = memoryAllocator_]() {
-        REPORT_ADD_STAT_VALUE(
-            kCounterMappedMemoryBytes, (allocator->numMapped() * 4096l));
-        REPORT_ADD_STAT_VALUE(
-            kCounterAllocatedMemoryBytes, (allocator->numAllocated() * 4096l));
-        // TODO(jtan6): Remove condition after T150019700 is done
-        if (auto* mmapAllocator =
-                dynamic_cast<const velox::memory::MmapAllocator*>(allocator)) {
-          REPORT_ADD_STAT_VALUE(
-              kCounterMappedMemoryRawAllocBytesSmall,
-              (mmapAllocator->numMallocBytes()))
-        }
-        // TODO(xiaoxmeng): add memory allocation size stats.
-      },
+      [this]() { updateMemoryAllocatorStats(); },
       std::chrono::microseconds{kMemoryPeriodGlobalCounters},
       "mmap_memory_counters");
 }
 
+void PeriodicTaskManager::updatePrestoExchangeSourceMemoryStats() {
+  int64_t currQueuedMemoryBytes{0};
+  int64_t peakQueuedMemoryBytes{0};
+  PrestoExchangeSource::getMemoryUsage(
+      currQueuedMemoryBytes, peakQueuedMemoryBytes);
+  REPORT_ADD_STAT_VALUE(
+      kCounterExchangeSourceQueuedBytes, currQueuedMemoryBytes);
+  REPORT_ADD_STAT_VALUE(
+      kCounterExchangeSourcePeakQueuedBytes, peakQueuedMemoryBytes);
+}
+
 void PeriodicTaskManager::addPrestoExchangeSourceMemoryStatsTask() {
   scheduler_.addFunction(
-      []() {
-        int64_t currQueuedMemoryBytes{0};
-        int64_t peakQueuedMemoryBytes{0};
-        PrestoExchangeSource::getMemoryUsage(
-            currQueuedMemoryBytes, peakQueuedMemoryBytes);
-        REPORT_ADD_STAT_VALUE(
-            kCounterExchangeSourceQueuedBytes, currQueuedMemoryBytes);
-        REPORT_ADD_STAT_VALUE(
-            kCounterExchangeSourcePeakQueuedBytes, peakQueuedMemoryBytes);
-      },
+      [this]() { updatePrestoExchangeSourceMemoryStats(); },
       std::chrono::microseconds{kExchangeSourcePeriodGlobalCounters},
       "exchange_source_counters");
 }
