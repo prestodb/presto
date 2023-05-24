@@ -78,8 +78,15 @@ class SubscriptImpl : public exec::VectorFunction {
     }
 
     // map(K,V), K -> V
-    for (const auto& keyType :
-         {"tinyint", "smallint", "integer", "bigint", "varchar"}) {
+    const auto keyTypes = {
+        "tinyint",
+        "smallint",
+        "integer",
+        "bigint",
+        "real",
+        "double",
+        "varchar"};
+    for (const auto& keyType : keyTypes) {
       signatures.push_back(exec::FunctionSignatureBuilder()
                                .typeVariable("V")
                                .returnType("V")
@@ -136,6 +143,10 @@ class SubscriptImpl : public exec::VectorFunction {
         return applyMapTyped<int16_t>(rows, mapArg, indexArg, context);
       case TypeKind::TINYINT:
         return applyMapTyped<int8_t>(rows, mapArg, indexArg, context);
+      case TypeKind::REAL:
+        return applyMapTyped<float>(rows, mapArg, indexArg, context);
+      case TypeKind::DOUBLE:
+        return applyMapTyped<double>(rows, mapArg, indexArg, context);
       case TypeKind::VARCHAR:
         return applyMapTyped<StringView>(rows, mapArg, indexArg, context);
       default:
