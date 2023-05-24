@@ -51,10 +51,12 @@ static void maybeSetupTaskSpillDirectory(
     const core::PlanFragment& planFragment,
     exec::Task& execTask) {
   const auto baseSpillPath = SystemConfig::instance()->spillerSpillPath();
-  if (!baseSpillPath.empty() &&
+  if (baseSpillPath.hasValue() &&
       planFragment.canSpill(execTask.queryCtx()->queryConfig())) {
     const auto taskSpillDirPath = TaskManager::buildTaskSpillDirectoryPath(
-        baseSpillPath, execTask.queryCtx()->queryId(), execTask.taskId());
+        baseSpillPath.value(),
+        execTask.queryCtx()->queryId(),
+        execTask.taskId());
     execTask.setSpillDirectory(taskSpillDirPath);
     // Create folder for the task spilling.
     auto fileSystem =

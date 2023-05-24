@@ -12,9 +12,11 @@
  * limitations under the License.
  */
 
-#include "presto_cpp/main/http/HttpServer.h"
 #include <algorithm>
+
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/http/HttpServer.h"
 
 namespace facebook::presto::http {
 
@@ -255,7 +257,7 @@ void HttpServer::start(
 
   server_->bind(ipConfigs);
 
-  LOG(INFO) << "STARTUP: proxygen::HTTPServer::start()";
+  PRESTO_STARTUP_LOG(INFO) << "proxygen::HTTPServer::start()";
   server_->start(
       [&]() {
         if (onSuccess) {
