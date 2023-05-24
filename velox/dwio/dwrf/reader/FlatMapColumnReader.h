@@ -157,8 +157,6 @@ class FlatMapColumnReader : public ColumnReader {
 
  private:
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
-  facebook::velox::dwio::common::flatmap::FlatMapKeySelectionStats
-      keySelectionStats_;
   std::vector<std::unique_ptr<KeyNode<T>>> keyNodes_;
   std::unique_ptr<StringKeyBuffer> stringKeyBuffer_;
   bool returnFlatVector_;
@@ -187,8 +185,6 @@ class FlatMapStructEncodingColumnReader : public ColumnReader {
 
  private:
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
-  facebook::velox::dwio::common::flatmap::FlatMapKeySelectionStats
-      keySelectionStats_;
   std::vector<std::unique_ptr<KeyNode<T>>> keyNodes_;
   std::unique_ptr<NullColumnReader> nullColumnReader_;
   BufferPtr mergedNulls_;
