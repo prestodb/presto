@@ -74,9 +74,18 @@ void Merge::initializeTreeOfLosers() {
 }
 
 BlockingReason Merge::isBlocked(ContinueFuture* future) {
+  TestValue::adjust("facebook::velox::exec::Merge::isBlocked", this);
+
   auto reason = addMergeSources(future);
   if (reason != BlockingReason::kNotBlocked) {
     return reason;
+  }
+
+  // NOTE: the task might terminate early which leaves empty sources. Once it
+  // happens, we shall simply mark the merge operator as finished.
+  if (sources_.empty()) {
+    finished_ = true;
+    return BlockingReason::kNotBlocked;
   }
 
   // No merging is needed if there is only one source.

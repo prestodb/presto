@@ -34,6 +34,7 @@ using namespace facebook::velox::connector::hive;
 using namespace facebook::velox::common::testutil;
 using namespace facebook::velox::memory;
 
+using facebook::velox::common::testutil::TestValue;
 using facebook::velox::test::BatchMaker;
 
 class MultiFragmentTest : public HiveConnectorTestBase {
@@ -1287,4 +1288,60 @@ TEST_F(MultiFragmentTest, taskTerminateWithPendingOutputBuffers) {
   receivedIobufs.clear();
   ASSERT_EQ(task.use_count(), 1);
   task.reset();
+}
+
+DEBUG_ONLY_TEST_F(MultiFragmentTest, mergeWithEarlyTermination) {
+  setupSources(10, 1000);
+
+  std::vector<std::shared_ptr<TempFilePath>> filePaths(
+      filePaths_.begin(), filePaths_.begin());
+
+  std::vector<std::string> partialSortTaskIds;
+  auto sortTaskId = makeTaskId("orderby", 0);
+  partialSortTaskIds.push_back(sortTaskId);
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto partialSortPlan = PlanBuilder(planNodeIdGenerator)
+                             .localMerge(
+                                 {"c0"},
+                                 {PlanBuilder(planNodeIdGenerator)
+                                      .tableScan(rowType_)
+                                      .orderBy({"c0"}, true)
+                                      .planNode()})
+                             .partitionedOutput({}, 1)
+                             .planNode();
+
+  auto partialSortTask = makeTask(sortTaskId, partialSortPlan, 1);
+  Task::start(partialSortTask, 1);
+  addHiveSplits(partialSortTask, filePaths);
+
+  std::atomic<bool> blockMergeOnce{true};
+  folly::EventCount mergeIsBlockedWait;
+  auto mergeIsBlockedWaitKet = mergeIsBlockedWait.prepareWait();
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Merge::isBlocked",
+      std::function<void(const Operator*)>([&](const Operator* op) {
+        if (op->operatorType() != "MergeExchange") {
+          return;
+        }
+        if (!blockMergeOnce.exchange(false)) {
+          return;
+        }
+        mergeIsBlockedWait.wait(mergeIsBlockedWaitKet);
+        // Trigger early termination.
+        op->testingOperatorCtx()->task()->requestAbort();
+      }));
+
+  auto finalSortTaskId = makeTaskId("orderby", 1);
+  auto finalSortPlan = PlanBuilder()
+                           .mergeExchange(partialSortPlan->outputType(), {"c0"})
+                           .partitionedOutput({}, 1)
+                           .planNode();
+  auto finalSortTask = makeTask(finalSortTaskId, finalSortPlan, 0);
+  Task::start(finalSortTask, 1);
+  addRemoteSplits(finalSortTask, partialSortTaskIds);
+
+  mergeIsBlockedWait.notify();
+
+  ASSERT_TRUE(waitForTaskCompletion(partialSortTask.get(), 1'000'000'000));
+  ASSERT_TRUE(waitForTaskAborted(finalSortTask.get(), 1'000'000'000));
 }
