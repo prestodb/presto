@@ -182,6 +182,8 @@ class SystemConfig : public ConfigBase {
       "experimental.spiller-spill-path"};
   static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
   static constexpr std::string_view kSystemMemoryGb{"system-memory-gb"};
+  static constexpr std::string_view kAsyncDataCacheEnabled{
+      "async-data-cache-enabled"};
   static constexpr std::string_view kAsyncCacheSsdGb{"async-cache-ssd-gb"};
   static constexpr std::string_view kAsyncCacheSsdCheckpointGb{
       "async-cache-ssd-checkpoint-gb"};
@@ -292,6 +294,8 @@ class SystemConfig : public ConfigBase {
   int32_t shutdownOnsetSec() const;
 
   int32_t systemMemoryGb() const;
+
+  bool asyncDataCacheEnabled() const;
 
   uint64_t asyncCacheSsdGb() const;
 
