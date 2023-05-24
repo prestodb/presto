@@ -370,7 +370,11 @@ void PrestoExchangeSource::getMemoryUsage(
     int64_t& currentBytes,
     int64_t& peakBytes) {
   currentBytes = currQueuedMemoryBytes();
-  peakBytes = peakQueuedMemoryBytes();
+  peakBytes = std::max<int64_t>(currentBytes, peakQueuedMemoryBytes());
+}
+
+void PrestoExchangeSource::resetPeakMemoryUsage() {
+  peakQueuedMemoryBytes() = currQueuedMemoryBytes().load();
 }
 
 void PrestoExchangeSource::testingClearMemoryUsage() {
