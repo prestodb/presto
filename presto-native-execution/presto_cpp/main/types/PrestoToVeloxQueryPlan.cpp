@@ -155,6 +155,14 @@ int64_t toInt64(
       .value<int64_t>();
 }
 
+int128_t toInt128(
+    const std::shared_ptr<protocol::Block>& block,
+    const VeloxExprConverter& exprConverter,
+    const TypePtr& type) {
+  auto value = exprConverter.getConstantValue(type, *block);
+  return value.value<velox::TypeKind::HUGEINT>();
+}
+
 std::unique_ptr<common::BigintRange> bigintRangeToFilter(
     const protocol::Range& range,
     bool nullAllowed,
@@ -175,6 +183,28 @@ std::unique_ptr<common::BigintRange> bigintRangeToFilter(
     high--;
   }
   return std::make_unique<common::BigintRange>(low, high, nullAllowed);
+}
+
+std::unique_ptr<common::HugeintRange> hugeintRangeToFilter(
+    const protocol::Range& range,
+    bool nullAllowed,
+    const VeloxExprConverter& exprConverter,
+    const TypePtr& type) {
+  bool lowUnbounded = range.low.valueBlock == nullptr;
+  auto low = lowUnbounded ? std::numeric_limits<int128_t>::min()
+                          : toInt128(range.low.valueBlock, exprConverter, type);
+  if (!lowUnbounded && range.low.bound == protocol::Bound::ABOVE) {
+    low++;
+  }
+
+  bool highUnbounded = range.high.valueBlock == nullptr;
+  auto high = highUnbounded
+      ? std::numeric_limits<int128_t>::max()
+      : toInt128(range.high.valueBlock, exprConverter, type);
+  if (!highUnbounded && range.high.bound == protocol::Bound::BELOW) {
+    high--;
+  }
+  return std::make_unique<common::HugeintRange>(low, high, nullAllowed);
 }
 
 int64_t dateToInt64(
@@ -548,6 +578,8 @@ std::unique_ptr<common::Filter> toFilter(
     case TypeKind::INTEGER:
     case TypeKind::BIGINT:
       return bigintRangeToFilter(range, nullAllowed, exprConverter, type);
+    case TypeKind::HUGEINT:
+      return hugeintRangeToFilter(range, nullAllowed, exprConverter, type);
     case TypeKind::DOUBLE:
       return doubleRangeToFilter(range, nullAllowed, exprConverter, type);
     case TypeKind::VARCHAR:
