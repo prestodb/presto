@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.spi.SplitWeight;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 
@@ -29,4 +30,9 @@ public interface SplitRunner
 
     @Override
     void close();
+
+    default long getSplitWeight()
+    {
+        return SplitWeight.standard().getRawValue();
+    }
 }

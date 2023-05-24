@@ -14,6 +14,7 @@
 package com.facebook.presto.resourcemanager;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.execution.PartitionedSplitsInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupSpecInfo;
@@ -510,6 +511,24 @@ public class TestResourceManagerClusterStateProvider
     }
 
     @Test(timeOut = 15_000)
+    public void testNodeTaskMap()
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        nodeManager.addNode(new ConnectorId("x"), new InternalNode("node1", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
+        nodeManager.addNode(new ConnectorId("x"), new InternalNode("node2", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
+
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("0s"), Duration.valueOf("4s"), true, newSingleThreadScheduledExecutor());
+
+        NodeTaskState node1State = new NodeTaskState(PartitionedSplitsInfo.forSplitCountAndWeightSum(1, 100), 200, 0.5);
+        NodeTaskState node2State = new NodeTaskState(PartitionedSplitsInfo.forSplitCountAndWeightSum(5, 500), 500, 0.9);
+
+        provider.registerNodeHeartbeat(createNodeStatusForNodeTaskMap("node1", node1State));
+        provider.registerNodeHeartbeat(createNodeStatusForNodeTaskMap("node2", node2State));
+
+        assertEquals(provider.getNodeTaskStates(), ImmutableMap.of("node1", node1State, "node2", node2State));
+    }
+
+    @Test(timeOut = 15_000)
     public void testShuttingDownCoordinatorHeartbeat()
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
@@ -625,7 +644,28 @@ public class TestResourceManagerClusterStateProvider
                 2.0,
                 1,
                 2,
-                3);
+                3,
+                PartitionedSplitsInfo.forZeroSplits());
+    }
+
+    private NodeStatus createNodeStatusForNodeTaskMap(String nodeId, NodeTaskState nodeTaskState)
+    {
+        return new NodeStatus(
+                nodeId,
+                new NodeVersion("1"),
+                "environment",
+                false,
+                new Duration(1, SECONDS),
+                "http://externalAddress",
+                "http://internalAddress",
+                new MemoryInfo(new DataSize(1, MEGABYTE), ImmutableMap.of(GENERAL_POOL, createMemoryPoolInfo(100, 2, 1))),
+                1,
+                nodeTaskState.getCpuUtilizationPercentage(),
+                2.0,
+                nodeTaskState.getTotalMemoryUsageInBytes(),
+                2,
+                3,
+                nodeTaskState.getPartitionedSplitsInfo());
     }
 
     private NodeStatus createCoordinatorNodeStatus(String nodeId)
@@ -644,7 +684,8 @@ public class TestResourceManagerClusterStateProvider
                 2.0,
                 1,
                 2,
-                3);
+                3,
+                PartitionedSplitsInfo.forZeroSplits());
     }
 
     private MemoryPoolInfo createMemoryPoolInfo(int maxBytes, int reservedBytes, int reservedRevocableBytes)

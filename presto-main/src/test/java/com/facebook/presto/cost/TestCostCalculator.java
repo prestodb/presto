@@ -17,7 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.dispatcher.NoOpQueryManager;
-import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.LocalNodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
@@ -136,7 +136,7 @@ public class TestCostCalculator
                 new InMemoryNodeManager(),
                 new NodeSelectionStats(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
-                new NodeTaskMap(finalizerService),
+                new LocalNodeTaskMap(finalizerService),
                 new ThrowingNodeTtlFetcherManager(),
                 new NoOpQueryManager(),
                 new SimpleTtlNodeSelectorConfig());

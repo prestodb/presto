@@ -15,6 +15,7 @@ package com.facebook.presto.resourcemanager;
 
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.execution.MockManagedQueryExecution;
+import com.facebook.presto.execution.PartitionedSplitsInfo;
 import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
 import com.facebook.presto.memory.MemoryInfo;
 import com.facebook.presto.metadata.InMemoryNodeManager;
@@ -56,7 +57,8 @@ public class TestResourceManagerClusterStatusSender
             2.0,
             1,
             2,
-            3);
+            3,
+            PartitionedSplitsInfo.forZeroSplits());
     private static final int HEARTBEAT_INTERVAL = 100;
     private static final int SLEEP_DURATION = 1000;
     private static final int TARGET_HEARTBEATS = SLEEP_DURATION / HEARTBEAT_INTERVAL;

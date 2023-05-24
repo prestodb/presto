@@ -110,7 +110,7 @@ public class TestNodeScheduler
 {
     private static final ConnectorId CONNECTOR_ID = new ConnectorId("connector_id");
     private FinalizerService finalizerService;
-    private NodeTaskMap nodeTaskMap;
+    private LocalNodeTaskMap nodeTaskMap;
     private InMemoryNodeManager nodeManager;
     private NodeSchedulerConfig nodeSchedulerConfig;
     private NodeScheduler nodeScheduler;
@@ -125,7 +125,7 @@ public class TestNodeScheduler
     {
         session = TestingSession.testSessionBuilder().build();
         finalizerService = new FinalizerService();
-        nodeTaskMap = new NodeTaskMap(finalizerService);
+        nodeTaskMap = new LocalNodeTaskMap(finalizerService);
         nodeManager = new InMemoryNodeManager();
 
         ImmutableList.Builder<InternalNode> nodeBuilder = ImmutableList.builder();
@@ -255,7 +255,7 @@ public class TestNodeScheduler
             throws Exception
     {
         TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        LocalNodeTaskMap nodeTaskMap = new LocalNodeTaskMap(finalizerService);
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
 
         ImmutableList.Builder<InternalNode> nodeBuilder = ImmutableList.builder();
@@ -564,7 +564,7 @@ public class TestNodeScheduler
     @Test
     public void testAffinityAssignmentNotSupported()
     {
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        LocalNodeTaskMap nodeTaskMap = new LocalNodeTaskMap(finalizerService);
         TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setMaxSplitsPerNode(20)
@@ -588,7 +588,7 @@ public class TestNodeScheduler
     @Test
     public void testAffinityAssignmentWithModularHashing()
     {
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        LocalNodeTaskMap nodeTaskMap = new LocalNodeTaskMap(finalizerService);
         TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setMaxSplitsPerNode(20)
@@ -626,7 +626,7 @@ public class TestNodeScheduler
     @Test
     public void testAffinityAssignmentWithConsistentHashing()
     {
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        LocalNodeTaskMap nodeTaskMap = new LocalNodeTaskMap(finalizerService);
         TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setNodeSelectionHashStrategy(CONSISTENT_HASHING)
@@ -677,7 +677,7 @@ public class TestNodeScheduler
     @Test
     public void testAffinityAssignmentWithConsistentHashingWithVirtualNodes()
     {
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        LocalNodeTaskMap nodeTaskMap = new LocalNodeTaskMap(finalizerService);
         TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setNodeSelectionHashStrategy(CONSISTENT_HASHING)
@@ -765,7 +765,7 @@ public class TestNodeScheduler
     @Test
     public void testHardAffinityAssignment()
     {
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        LocalNodeTaskMap nodeTaskMap = new LocalNodeTaskMap(finalizerService);
         TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setMaxSplitsPerNode(20)
@@ -1127,7 +1127,7 @@ public class TestNodeScheduler
     @Test
     public void testMaxTasksPerStageWittLimit()
     {
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        LocalNodeTaskMap nodeTaskMap = new LocalNodeTaskMap(finalizerService);
         TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setMaxSplitsPerNode(20)
@@ -1163,7 +1163,7 @@ public class TestNodeScheduler
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
 
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        LocalNodeTaskMap nodeTaskMap = new LocalNodeTaskMap(finalizerService);
         TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setMaxSplitsPerNode(20)

@@ -95,7 +95,7 @@ public class TestSqlStageExecution
     private void testFinalStageInfoInternal()
             throws Exception
     {
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(new FinalizerService());
+        LocalNodeTaskMap nodeTaskMap = new LocalNodeTaskMap(new FinalizerService());
 
         StageId stageId = new StageId(new QueryId("query"), 0);
         SqlStageExecution stage = createSqlStageExecution(

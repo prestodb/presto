@@ -13,8 +13,13 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 
+@ThriftStruct
 public final class PartitionedSplitsInfo
 {
     private static final PartitionedSplitsInfo NO_SPLITS_INFO = new PartitionedSplitsInfo(0, 0);
@@ -22,17 +27,23 @@ public final class PartitionedSplitsInfo
     private final int count;
     private final long weightSum;
 
-    private PartitionedSplitsInfo(int splitCount, long splitsWeightSum)
+    /**
+     * Prefer to use the {@link #forSplitCountAndWeightSum(int, long)} factory
+     */
+    @ThriftConstructor
+    public PartitionedSplitsInfo(int count, long weightSum)
     {
-        this.count = splitCount;
-        this.weightSum = splitsWeightSum;
+        this.count = count;
+        this.weightSum = weightSum;
     }
 
+    @ThriftField(1)
     public int getCount()
     {
         return count;
     }
 
+    @ThriftField(2)
     public long getWeightSum()
     {
         return weightSum;

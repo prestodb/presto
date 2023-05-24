@@ -16,8 +16,8 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.cost.StatsAndCosts;
+import com.facebook.presto.execution.LocalNodeTaskMap;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
-import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageExecutionId;
@@ -136,7 +136,7 @@ public class TestAdaptivePhasedExecutionPolicy
                 new MockRemoteTaskFactory(directExecutor(), scheduledExecutor),
                 TEST_SESSION,
                 true,
-                new NodeTaskMap(new FinalizerService()),
+                new LocalNodeTaskMap(new FinalizerService()),
                 newDirectExecutorService(),
                 new NoOpFailureDetector(),
                 new SplitSchedulerStats(),

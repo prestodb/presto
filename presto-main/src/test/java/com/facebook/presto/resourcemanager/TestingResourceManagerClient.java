@@ -104,4 +104,10 @@ public class TestingResourceManagerClient
     {
         return runningTaskCount;
     }
+
+    @Override
+    public Map<String, NodeTaskState> getNodeTaskStates()
+    {
+        return null;
+    }
 }

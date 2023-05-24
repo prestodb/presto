@@ -64,7 +64,7 @@ import com.facebook.presto.execution.DropMaterializedViewTask;
 import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.LocalNodeTaskMap;
 import com.facebook.presto.execution.PrepareTask;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RenameColumnTask;
@@ -381,7 +381,7 @@ public class LocalQueryRunner
                 nodeManager,
                 new NodeSelectionStats(),
                 nodeSchedulerConfig,
-                new NodeTaskMap(finalizerService),
+                new LocalNodeTaskMap(finalizerService),
                 new ThrowingNodeTtlFetcherManager(),
                 new NoOpQueryManager(),
                 new SimpleTtlNodeSelectorConfig());

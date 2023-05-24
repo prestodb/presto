@@ -16,6 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
 import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.PartitionedSplitsInfo;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.InternalNode;
@@ -63,7 +64,7 @@ public class TestFixedCountScheduler
                 (node, partition) -> Optional.of(taskFactory.createTableScanTask(
                         new TaskId("test", 1, 0, 1),
                         node, ImmutableList.of(),
-                        new NodeTaskMap.NodeStatsTracker(delta -> {}, delta -> {}, (age, delta) -> {}))),
+                        NOOP_NODE_STATS_TRACKER)),
                 generateRandomNodes(1));
 
         ScheduleResult result = nodeScheduler.schedule();
@@ -80,7 +81,7 @@ public class TestFixedCountScheduler
                 (node, partition) -> Optional.of(taskFactory.createTableScanTask(
                         new TaskId("test", 1, 0, 1),
                         node, ImmutableList.of(),
-                        new NodeTaskMap.NodeStatsTracker(delta -> {}, delta -> {}, (age, delta) -> {}))),
+                        NOOP_NODE_STATS_TRACKER)),
                 generateRandomNodes(5));
 
         ScheduleResult result = nodeScheduler.schedule();
@@ -96,4 +97,16 @@ public class TestFixedCountScheduler
                 .mapToObj(i -> new InternalNode("other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false))
                 .collect(toImmutableList());
     }
+
+    public static final NodeTaskMap.NodeStatsTracker NOOP_NODE_STATS_TRACKER = new NodeTaskMap.NodeStatsTracker()
+    {
+        @Override
+        public void setPartitionedSplits(PartitionedSplitsInfo partitionedSplits) {}
+
+        @Override
+        public void setMemoryUsage(long memoryUsage) {}
+
+        @Override
+        public void setCpuUsage(long age, long cpuUsage) {}
+    };
 }

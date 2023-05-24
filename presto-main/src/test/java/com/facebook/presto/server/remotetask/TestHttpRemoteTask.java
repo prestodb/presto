@@ -34,6 +34,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.PartitionedSplitsInfo;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.TaskId;
@@ -263,7 +264,16 @@ public class TestHttpRemoteTask
                 createPlanFragment(),
                 ImmutableMultimap.of(),
                 createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
-                new NodeTaskMap.NodeStatsTracker(i -> {}, i -> {}, (age, i) -> {}),
+                new NodeTaskMap.NodeStatsTracker() {
+                    @Override
+                    public void setPartitionedSplits(PartitionedSplitsInfo partitionedSplits) {}
+
+                    @Override
+                    public void setMemoryUsage(long memoryUsage) {}
+
+                    @Override
+                    public void setCpuUsage(long age, long cpuUsage) {}
+                },
                 true,
                 new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
     }

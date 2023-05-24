@@ -15,6 +15,8 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.execution.PartitionedSplitsInfo;
+import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.sun.management.OperatingSystemMXBean;
 
@@ -46,17 +48,19 @@ public class StatusResource
     private final int logicalCores;
     private final LocalMemoryManager memoryManager;
     private final MemoryMXBean memoryMXBean;
+    private final TaskExecutor taskExecutor;
 
     private OperatingSystemMXBean operatingSystemMXBean;
 
     @Inject
-    public StatusResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, LocalMemoryManager memoryManager)
+    public StatusResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, LocalMemoryManager memoryManager, TaskExecutor taskExecutor)
     {
         this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.coordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
+        this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
         this.memoryMXBean = ManagementFactory.getMemoryMXBean();
         this.logicalCores = Runtime.getRuntime().availableProcessors();
 
@@ -91,6 +95,7 @@ public class StatusResource
                 operatingSystemMXBean == null ? 0 : operatingSystemMXBean.getSystemCpuLoad(),
                 memoryMXBean.getHeapMemoryUsage().getUsed(),
                 memoryMXBean.getHeapMemoryUsage().getMax(),
-                memoryMXBean.getNonHeapMemoryUsage().getUsed());
+                memoryMXBean.getNonHeapMemoryUsage().getUsed(),
+                PartitionedSplitsInfo.forSplitCountAndWeightSum(taskExecutor.getLeafSplitCount(), taskExecutor.getLeafSplitWeight()));
     }
 }

@@ -16,7 +16,7 @@ package com.facebook.presto.spark.node;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
 import com.facebook.presto.dispatcher.NoOpQueryManager;
-import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.LocalNodeTaskMap;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkLocationCache;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
@@ -48,7 +48,7 @@ public class PrestoSparkNodeScheduler
                 new InMemoryNodeManager(),
                 new NodeSelectionStats(),
                 new NodeSchedulerConfig(),
-                new NodeTaskMap(new FinalizerService()),
+                new LocalNodeTaskMap(new FinalizerService()),
                 new Duration(5, SECONDS),
                 new ThrowingNodeTtlFetcherManager(),
                 new NoOpQueryManager(),

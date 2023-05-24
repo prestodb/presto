@@ -63,6 +63,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.DoubleSupplier;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -177,6 +178,9 @@ public class TaskExecutor
 
     private final TimeStat blockedQuantaWallTime = new TimeStat(MICROSECONDS);
     private final TimeStat unblockedQuantaWallTime = new TimeStat(MICROSECONDS);
+
+    private final LongAdder leafSplitCount = new LongAdder();
+    private final LongAdder leafSplitWeight = new LongAdder();
 
     private volatile boolean closed;
 
@@ -433,6 +437,8 @@ public class TaskExecutor
                         scheduleTaskIfNecessary(taskHandle);
                         // if globally we have more resources, start more
                         addNewEntrants();
+                        leafSplitCount.increment();
+                        leafSplitWeight.add(prioritizedSplitRunner.getSplitWeight());
                     }
                     else {
                         splitsToDestroy.add(prioritizedSplitRunner);
@@ -468,6 +474,8 @@ public class TaskExecutor
                 leafSplitScheduledTime.add(split.getScheduledNanos());
                 leafSplitWaitTime.add(split.getWaitNanos());
                 leafSplitCpuTime.add(split.getCpuTimeNanos());
+                leafSplitCount.decrement();
+                leafSplitWeight.add(-1 * split.getSplitWeight());
             }
 
             TaskHandle taskHandle = split.getTaskHandle();
@@ -902,6 +910,18 @@ public class TaskExecutor
     public CounterStat getGlobalCpuTimeMicros()
     {
         return globalCpuTimeMicros;
+    }
+
+    @Managed
+    public int getLeafSplitCount()
+    {
+        return leafSplitCount.intValue();
+    }
+
+    @Managed
+    public long getLeafSplitWeight()
+    {
+        return leafSplitWeight.longValue();
     }
 
     private synchronized int getRunningTasksForLevel(int level)

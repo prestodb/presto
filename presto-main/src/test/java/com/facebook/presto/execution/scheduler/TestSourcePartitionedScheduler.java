@@ -17,10 +17,10 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.dispatcher.NoOpQueryManager;
+import com.facebook.presto.execution.LocalNodeTaskMap;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
 import com.facebook.presto.execution.MockRemoteTaskFactory.MockRemoteTask;
-import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.PartitionedSplitsInfo;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
@@ -139,7 +139,7 @@ public class TestSourcePartitionedScheduler
     public void testScheduleNoSplits()
     {
         SubPlan plan = createPlan();
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        LocalNodeTaskMap nodeTaskMap = new LocalNodeTaskMap(finalizerService);
         SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
 
         StageScheduler scheduler = getSourcePartitionedScheduler(createFixedSplitSource(0, TestingSplit::createRemoteSplit), stage, nodeManager, nodeTaskMap, 1);
@@ -156,7 +156,7 @@ public class TestSourcePartitionedScheduler
     public void testScheduleSplitsOneAtATime()
     {
         SubPlan plan = createPlan();
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        LocalNodeTaskMap nodeTaskMap = new LocalNodeTaskMap(finalizerService);
         SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
 
         StageScheduler scheduler = getSourcePartitionedScheduler(createFixedSplitSource(60, TestingSplit::createRemoteSplit), stage, nodeManager, nodeTaskMap, 1);
@@ -194,7 +194,7 @@ public class TestSourcePartitionedScheduler
     public void testScheduleSplitsBatched()
     {
         SubPlan plan = createPlan();
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        LocalNodeTaskMap nodeTaskMap = new LocalNodeTaskMap(finalizerService);
         SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
 
         StageScheduler scheduler = getSourcePartitionedScheduler(createFixedSplitSource(60, TestingSplit::createRemoteSplit), stage, nodeManager, nodeTaskMap, 7);
@@ -232,7 +232,7 @@ public class TestSourcePartitionedScheduler
     public void testScheduleSplitsBlock()
     {
         SubPlan plan = createPlan();
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        LocalNodeTaskMap nodeTaskMap = new LocalNodeTaskMap(finalizerService);
         SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
 
         StageScheduler scheduler = getSourcePartitionedScheduler(createFixedSplitSource(80, TestingSplit::createRemoteSplit), stage, nodeManager, nodeTaskMap, 1);
@@ -299,7 +299,7 @@ public class TestSourcePartitionedScheduler
     {
         QueuedSplitSource queuedSplitSource = new QueuedSplitSource(TestingSplit::createRemoteSplit);
         SubPlan plan = createPlan();
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        LocalNodeTaskMap nodeTaskMap = new LocalNodeTaskMap(finalizerService);
         SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
 
         StageScheduler scheduler = getSourcePartitionedScheduler(queuedSplitSource, stage, nodeManager, nodeTaskMap, 1);
@@ -319,7 +319,7 @@ public class TestSourcePartitionedScheduler
     public void testNoNodes()
     {
         try {
-            NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+            LocalNodeTaskMap nodeTaskMap = new LocalNodeTaskMap(finalizerService);
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
             NodeScheduler nodeScheduler = new NodeScheduler(
                     new LegacyNetworkTopology(),
@@ -358,7 +358,7 @@ public class TestSourcePartitionedScheduler
                 new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        LocalNodeTaskMap nodeTaskMap = new LocalNodeTaskMap(finalizerService);
 
         // Schedule 15 splits - there are 3 nodes, each node should get 5 splits
         SubPlan firstPlan = createPlan();
@@ -399,7 +399,7 @@ public class TestSourcePartitionedScheduler
     @Test
     public void testBlockCausesFullSchedule()
     {
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        LocalNodeTaskMap nodeTaskMap = new LocalNodeTaskMap(finalizerService);
 
         // Schedule 60 splits - filling up all nodes
         SubPlan firstPlan = createPlan();
@@ -459,7 +459,7 @@ public class TestSourcePartitionedScheduler
             ConnectorSplitSource connectorSplitSource,
             SqlStageExecution stage,
             InternalNodeManager nodeManager,
-            NodeTaskMap nodeTaskMap,
+            LocalNodeTaskMap nodeTaskMap,
             int splitBatchSize)
     {
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
@@ -535,7 +535,7 @@ public class TestSourcePartitionedScheduler
         return new FixedSplitSource(splits.build());
     }
 
-    private SqlStageExecution createSqlStageExecution(SubPlan tableScanPlan, NodeTaskMap nodeTaskMap)
+    private SqlStageExecution createSqlStageExecution(SubPlan tableScanPlan, LocalNodeTaskMap nodeTaskMap)
     {
         StageId stageId = new StageId(new QueryId("query"), 0);
         SqlStageExecution stage = SqlStageExecution.createSqlStageExecution(
