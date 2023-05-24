@@ -479,9 +479,10 @@ TEST(TestReader, testStatsCallbackFiredWithFiltering) {
 
   rowReaderOpts.setKeySelectionCallback(
       [&totalKeyStreamsAggregate, &selectedKeyStreamsAggregate](
-          uint64_t totalKeyStreams, uint64_t selectedKeyStreams) {
-        totalKeyStreamsAggregate += totalKeyStreams;
-        selectedKeyStreamsAggregate += selectedKeyStreams;
+          facebook::velox::dwio::common::flatmap::FlatMapKeySelectionStats
+              keySelectionStats) {
+        totalKeyStreamsAggregate += keySelectionStats.totalKeys;
+        selectedKeyStreamsAggregate += keySelectionStats.selectedKeys;
       });
 
   ReaderOptions readerOpts{defaultPool.get()};
@@ -528,9 +529,10 @@ TEST(TestReader, testStatsCallbackFiredWithoutFiltering) {
 
   rowReaderOpts.setKeySelectionCallback(
       [&totalKeyStreamsAggregate, &selectedKeyStreamsAggregate](
-          uint64_t totalKeyStreams, uint64_t selectedKeyStreams) {
-        totalKeyStreamsAggregate += totalKeyStreams;
-        selectedKeyStreamsAggregate += selectedKeyStreams;
+          facebook::velox::dwio::common::flatmap::FlatMapKeySelectionStats
+              keySelectionStats) {
+        totalKeyStreamsAggregate += keySelectionStats.totalKeys;
+        selectedKeyStreamsAggregate += keySelectionStats.selectedKeys;
       });
 
   ReaderOptions readerOpts{defaultPool.get()};

@@ -23,6 +23,7 @@
 #include "velox/common/memory/Memory.h"
 #include "velox/dwio/common/ColumnSelector.h"
 #include "velox/dwio/common/ErrorTolerance.h"
+#include "velox/dwio/common/FlatMapHelper.h"
 #include "velox/dwio/common/InputStream.h"
 #include "velox/dwio/common/ScanSpec.h"
 #include "velox/dwio/common/encryption/Encryption.h"
@@ -106,7 +107,8 @@ class RowReaderOptions {
   // in Koski. This gets fired in FlatMapColumnReader.
   // This is a bit of a hack as there is (by design) no good way
   // To propogate information from column reader to Koski
-  std::function<void(uint64_t numTotalKeys, uint64_t numSelectedKeys)>
+  std::function<void(
+      facebook::velox::dwio::common::flatmap::FlatMapKeySelectionStats)>
       keySelectionCallback_;
 
  public:
@@ -284,12 +286,14 @@ class RowReaderOptions {
   }
 
   void setKeySelectionCallback(
-      std::function<void(uint64_t totalKeys, uint64_t selectedKeys)>
+      std::function<void(
+          facebook::velox::dwio::common::flatmap::FlatMapKeySelectionStats)>
           keySelectionCallback) {
     keySelectionCallback_ = std::move(keySelectionCallback);
   }
 
-  const std::function<void(uint64_t totalKeys, uint64_t selectedKeys)>
+  const std::function<
+      void(facebook::velox::dwio::common::flatmap::FlatMapKeySelectionStats)>
   getKeySelectionCallback() const {
     return keySelectionCallback_;
   }

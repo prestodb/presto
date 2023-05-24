@@ -26,13 +26,6 @@
 
 namespace facebook::velox::dwrf {
 
-// Stats used by callback passed from Koski layer
-// to give visibility into flatmap efficiency
-struct KeySelectionStats {
-  size_t totalKeyStreams{0};
-  size_t selectedKeyStreams{0};
-};
-
 class StringKeyBuffer;
 
 // represent a branch of a value node in a flat map
@@ -164,7 +157,8 @@ class FlatMapColumnReader : public ColumnReader {
 
  private:
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
-  KeySelectionStats keySelectionStats_;
+  facebook::velox::dwio::common::flatmap::FlatMapKeySelectionStats
+      keySelectionStats_;
   std::vector<std::unique_ptr<KeyNode<T>>> keyNodes_;
   std::unique_ptr<StringKeyBuffer> stringKeyBuffer_;
   bool returnFlatVector_;
@@ -193,7 +187,8 @@ class FlatMapStructEncodingColumnReader : public ColumnReader {
 
  private:
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
-  KeySelectionStats keySelectionStats_;
+  facebook::velox::dwio::common::flatmap::FlatMapKeySelectionStats
+      keySelectionStats_;
   std::vector<std::unique_ptr<KeyNode<T>>> keyNodes_;
   std::unique_ptr<NullColumnReader> nullColumnReader_;
   BufferPtr mergedNulls_;

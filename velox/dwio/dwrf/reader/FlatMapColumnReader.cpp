@@ -17,6 +17,7 @@
 #include "velox/dwio/dwrf/reader/FlatMapColumnReader.h"
 #include <folly/json.h>
 #include "velox/common/base/BitUtil.h"
+#include "velox/dwio/common/FlatMapHelper.h"
 
 namespace facebook::velox::dwrf {
 
@@ -102,7 +103,8 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesFiltered(
     const std::shared_ptr<const TypeWithId>& dataType,
     StripeStreams& stripe,
     memory::MemoryPool& memoryPool,
-    KeySelectionStats& keySelectionStats) {
+    facebook::velox::dwio::common::flatmap::FlatMapKeySelectionStats&
+        keySelectionStats) {
   std::vector<std::unique_ptr<KeyNode<T>>> keyNodes;
 
   const auto requestedValueType = requestedType->childAt(1);
@@ -156,8 +158,8 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesFiltered(
             memoryPool));
       });
 
-  keySelectionStats.selectedKeyStreams = keyNodes.size();
-  keySelectionStats.totalKeyStreams = processed.size();
+  keySelectionStats.selectedKeys = keyNodes.size();
+  keySelectionStats.totalKeys = processed.size();
 
   VLOG(1) << "[Flat-Map] Initialized a flat-map column reader for node "
           << dataType->id << ", keys=" << keyNodes.size()
@@ -190,12 +192,12 @@ std::vector<std::unique_ptr<KeyNode<T>>> rearrangeKeyNodesAsProjectedOrder(
 
 void triggerKeySelectionNotification(
     FlatMapContext& context,
-    KeySelectionStats& keySelectionStats) {
+    facebook::velox::dwio::common::flatmap::FlatMapKeySelectionStats&
+        keySelectionStats) {
   if (!context.keySelectionCallback) {
     return;
   }
-  context.keySelectionCallback(
-      keySelectionStats.totalKeyStreams, keySelectionStats.selectedKeyStreams);
+  context.keySelectionCallback(keySelectionStats);
 }
 
 template <typename T>
@@ -537,7 +539,8 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesForStructEncoding(
     const std::shared_ptr<const TypeWithId>& dataType,
     StripeStreams& stripe,
     memory::MemoryPool& memoryPool,
-    KeySelectionStats& keySelectionStats) {
+    facebook::velox::dwio::common::flatmap::FlatMapKeySelectionStats&
+        keySelectionStats) {
   // `KeyNode` is ordered based on the projection. So if [3, 2, 1] is
   // projected, the vector of key node will be created [3, 2, 1].
   // If the key is not found in the stripe, the key node will be nullptr.

@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/dwio/common/FlatMapHelper.h"
 #include "velox/dwio/dwrf/common/ByteRLE.h"
 
 namespace facebook::velox::dwrf {
@@ -29,7 +30,8 @@ struct FlatMapContext {
   // Kept alive by key nodes
   BooleanRleDecoder* inMapDecoder{nullptr};
 
-  std::function<void(uint64_t totalKeys, uint64_t selectedKeys)>
+  std::function<void(
+      facebook::velox::dwio::common::flatmap::FlatMapKeySelectionStats)>
       keySelectionCallback{nullptr};
 };
 

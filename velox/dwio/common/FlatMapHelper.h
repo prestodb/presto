@@ -47,6 +47,13 @@ void initializeStringVector(
 
 } // namespace detail
 
+// Struct for keeping track flatmap key stream metrics.
+// Used by keySelectionCallback_ in FlatMapColumnReader
+struct FlatMapKeySelectionStats {
+  uint64_t totalKeys = 0;
+  uint64_t selectedKeys = 0;
+};
+
 // Initialize flat vector
 template <typename T>
 void initializeFlatVector(
