@@ -219,7 +219,6 @@ public class QueryMonitor
                 ImmutableList.of(),
                 ImmutableList.of(),
                 ImmutableList.of(),
-                ImmutableList.of(),
                 Optional.empty(),
                 ImmutableList.of(),
                 ImmutableSet.of(),

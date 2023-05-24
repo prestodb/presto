@@ -230,7 +230,7 @@ public class TestFeaturesConfig
                 .setMergeDuplicateAggregationsEnabled(true)
                 .setMergeAggregationsWithAndWithoutFilter(false)
                 .setSimplifyPlanWithEmptyInput(true)
-                .setPlanAnalyticsEnabled(false));
+                .setPlanAnalyticsEnabled(false)
                 .setPushDownFilterExpressionEvaluationThroughCrossJoin(PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN)
                 .setDefaultJoinSelectivityCoefficient(0)
                 .setRewriteCrossJoinWithOrFilterToInnerJoin(true));
@@ -590,7 +590,7 @@ public class TestFeaturesConfig
                 .setMergeDuplicateAggregationsEnabled(false)
                 .setMergeAggregationsWithAndWithoutFilter(true)
                 .setSimplifyPlanWithEmptyInput(false)
-                .setPlanAnalyticsEnabled(true);
+                .setPlanAnalyticsEnabled(true)
                 .setDefaultJoinSelectivityCoefficient(0.5)
                 .setPushDownFilterExpressionEvaluationThroughCrossJoin(PushDownFilterThroughCrossJoinStrategy.DISABLED)
                 .setRewriteCrossJoinWithOrFilterToInnerJoin(false);

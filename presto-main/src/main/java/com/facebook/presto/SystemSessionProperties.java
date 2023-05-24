@@ -1392,11 +1392,6 @@ public final class SystemSessionProperties
                         featuresConfig.isPlanAnalyticsEnabled(),
                         false),
                 booleanProperty(
-                        PLAN_ANALYTICS_ENABLED,
-                        "Use plan analytics service to compute execution time per hash",
-                        featuresConfig.isPlanAnalyticsEnabled(),
-                        false),
-                booleanProperty(
                         TRACK_HISTORY_BASED_PLAN_STATISTICS,
                         "Track history based plan statistics service in query optimizer",
                         featuresConfig.isTrackHistoryBasedPlanStatistics(),
