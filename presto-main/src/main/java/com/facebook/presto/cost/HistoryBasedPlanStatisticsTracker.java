@@ -34,11 +34,13 @@ import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import com.facebook.presto.sql.planner.CanonicalPlan;
 import com.facebook.presto.sql.planner.PlanNodeCanonicalInfo;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.planPrinter.PlanNodeStats;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -210,16 +212,16 @@ public class HistoryBasedPlanStatisticsTracker
         }
 
         StageInfo outputStage = queryInfo.getOutputStage().get();
-        List<StageInfo> allStages = outputStage.getAllStages();
+        List<StageInfo> allStages = new ArrayList<>(outputStage.getAllStages());
 
         Map<PlanNodeId, PlanNodeStats> planNodeStatsMap = aggregateStageStats(allStages);
-        Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> planStatistics = new HashMap<>();
+        Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> intermediatePlanStatisticMap = new HashMap<>();
         Map<CanonicalPlan, PlanNodeCanonicalInfo> canonicalInfoMap = new HashMap<>();
         queryInfo.getPlanAnalyticsCanonicalInfo().forEach(canonicalPlanWithInfo -> {
             // We can have duplicate stats equivalent plan nodes. It's ok to use any stats in this case
             canonicalInfoMap.putIfAbsent(canonicalPlanWithInfo.getCanonicalPlan(), canonicalPlanWithInfo.getInfo());
         });
-
+        Map<PlanNodeWithHash, Long> cpuTimeMap = new HashMap<>();
         for (StageInfo stageInfo : allStages) {
             if (!stageInfo.getPlan().isPresent()) {
                 continue;
@@ -237,17 +239,70 @@ public class HistoryBasedPlanStatisticsTracker
                 Optional<PlanNodeCanonicalInfo> planNodeCanonicalInfo = Optional.ofNullable(canonicalInfoMap.get(new CanonicalPlan(statsEquivalentPlanNode, EXACT)));
                 if (planNodeCanonicalInfo.isPresent()) {
                     String hash = planNodeCanonicalInfo.get().getHash();
-
                     long execTime = planNodeStats.getPlanNodeCpuTime().toMillis();
                     double outputPositions = planNodeStats.getPlanNodeOutputPositions();
                     double outputBytes = adjustedOutputBytes(planNode, planNodeStats);
-                    planStatistics.putIfAbsent(new PlanNodeWithHash(statsEquivalentPlanNode, Optional.of(hash)), new PlanStatisticsWithSourceInfo(planNode.getId(),
-                            new PlanStatistics(Estimate.of(outputPositions), Double.isNaN(outputBytes) ? Estimate.unknown() : Estimate.of(outputBytes), 1.0, Estimate.of(execTime)),
-                            new PlanAnalyticsSourceInfo(Optional.of(hash))));
+                    cpuTimeMap.put(new PlanNodeWithHash(statsEquivalentPlanNode, Optional.of(hash)), execTime);
+                    intermediatePlanStatisticMap.putIfAbsent(
+                            new PlanNodeWithHash(statsEquivalentPlanNode, Optional.of(hash)),
+                            new PlanStatisticsWithSourceInfo(planNode.getId(),
+                                    new PlanStatistics(Estimate.of(outputPositions), Double.isNaN(outputBytes) ? Estimate.unknown() : Estimate.of(outputBytes),
+                                            1.0, Estimate.unknown()),
+                                    new PlanAnalyticsSourceInfo(Optional.of(hash))));
                 }
             }
         }
-        return ImmutableMap.copyOf(planStatistics);
+        PlanNode planNode = outputStage.getPlan().get().getRoot();
+
+        Map<PlanNodeWithHash, Long> cumulativeCpuTimeMap = new HashMap<>();
+
+        // get Cumulative Cpu Time
+        planNode.accept(new InternalPlanVisitor<Long, Void>()
+        {
+            @Override
+            public Long visitPlan(PlanNode node, Void context)
+            {
+                Long sumCpu = 0L;
+                if (!node.getStatsEquivalentPlanNode().isPresent()) {
+                    // No Stats equivalent node present for this node (likely an exchange)
+                    for (PlanNode source : node.getSources()) {
+                        sumCpu += source.accept(this, context);
+                    }
+                    return sumCpu;
+                }
+                PlanNode statsEquivalentPlanNode = node.getStatsEquivalentPlanNode().get();
+                Optional<PlanNodeCanonicalInfo> planNodeCanonicalInfo = Optional.ofNullable(canonicalInfoMap.get(new CanonicalPlan(statsEquivalentPlanNode, EXACT)));
+                if (!planNodeCanonicalInfo.isPresent()) {
+                    // No Stats present for this node ( can happen when all work is done by a single operator in a stage)
+                    for (PlanNode source : statsEquivalentPlanNode.getSources()) {
+                        sumCpu += source.accept(this, context);
+                    }
+                    return sumCpu;
+                }
+                // Stats Present
+                PlanNodeWithHash planNodeWithHash = new PlanNodeWithHash(statsEquivalentPlanNode, Optional.ofNullable(planNodeCanonicalInfo.get().getHash()));
+                sumCpu = cpuTimeMap.getOrDefault(planNodeWithHash, 0L);
+                for (PlanNode source : statsEquivalentPlanNode.getSources()) {
+                    sumCpu += source.accept(this, context);
+                }
+                cumulativeCpuTimeMap.put(planNodeWithHash, sumCpu);
+                return sumCpu;
+            }
+        }, null);
+
+        Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> finalPlanStatisticMap = new HashMap<>();
+        // Update previously stored statistics with cumulative statistic info
+        for (Map.Entry<PlanNodeWithHash, PlanStatisticsWithSourceInfo> ent : intermediatePlanStatisticMap.entrySet()) {
+            PlanStatistics prevStats = ent.getValue().getPlanStatistics();
+            finalPlanStatisticMap.put(ent.getKey(),
+                    new PlanStatisticsWithSourceInfo(
+                            ent.getValue().getId(),
+                            new PlanStatistics(prevStats.getRowCount(),
+                                    prevStats.getOutputSize(), prevStats.getConfidence(),
+                                    Estimate.of(cumulativeCpuTimeMap.getOrDefault(ent.getKey(), 0L))),
+                            ent.getValue().getSourceInfo()));
+        }
+        return ImmutableMap.copyOf(finalPlanStatisticMap);
     }
 
     public void updateStatistics(QueryInfo queryInfo)

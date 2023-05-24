@@ -32,27 +32,23 @@ public enum PlanCanonicalizationStrategy
      * This is used in context of fragment result caching
      */
     DEFAULT,
-    /**
-     * CONNECTOR strategy will canonicalize plan according to DEFAULT strategy, and additionally
-     * canoncialize `TableScanNode` by giving a connector specific implementation. Unlike DEFAULT strategy,
-     * it supports all Plan nodes(like union, join etc.)
-     *
+    /*
+     * EXACT strategy will canonicalize plan according to DEFAULT strategy, but supports all plan nodes and additionally
+     * canonicalizes `TableScanNode` by giving a connector specific implementation.
+     * <p>
      * With this approach, we call ConnectorTableLayoutHandle.getIdentifier() for all `TableScanNode`.
      * Each connector can have a specific implementation to canonicalize table layout handles however they want.
-     *
-     * For example, Hive connector removes constants from constraints on partition keys:
+     * <p>
+     */
+    EXACT,
+    /**
+     * CONNECTOR strategy will canonicalize plan according to EXACT strategy, and additionally removes constants from constraints on partition keys:
      * `SELECT * FROM table WHERE ds = '2020-01-01'` will be equivalent to `SELECT * FROM table WHERE ds = '2020-01-02'`
      * where `ds` is a partition column in `table`
-     *
+     * <p>
      * This is used in context of history based optimizations.
      */
     CONNECTOR,
-
-    /*
-     * EXACT strategy will canonicalize plan according to CONNECTOR strategy, keep the table filters as is
-     *
-     */
-    EXACT,
     /**
      * REMOVE_SAFE_CONSTANTS strategy is used to canonicalize plan with
      * CONNECTOR strategy and will additionally remove constants from plan

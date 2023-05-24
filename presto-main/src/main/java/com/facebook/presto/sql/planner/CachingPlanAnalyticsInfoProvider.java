@@ -77,6 +77,11 @@ public class CachingPlanAnalyticsInfoProvider
         return Optional.empty();
     }
 
+    public void invalidateCache()
+    {
+        cache.invalidateAll();
+    }
+
     private String hashCanonicalPlan(CanonicalPlan plan, ObjectMapper objectMapper)
     {
         return sha256().hashString(plan.toString(objectMapper), UTF_8).toString();

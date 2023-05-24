@@ -33,7 +33,7 @@ public class PlanStatistics
     // A number ranging between 0 and 1, reflecting our confidence in the statistics
     private final double confidence;
 
-    private Estimate cpuTime;
+    private final Estimate cumulativeCpuTime;
 
     public static PlanStatistics empty()
     {
@@ -42,11 +42,14 @@ public class PlanStatistics
 
     @JsonCreator
     @ThriftConstructor
-    public PlanStatistics(@JsonProperty("rowCount") Estimate rowCount, @JsonProperty("outputSize") Estimate outputSize, @JsonProperty("confidence") double confidence,
-            @JsonProperty("cpuTime") Estimate cpuTime)
+    public PlanStatistics(@JsonProperty("rowCount") Estimate rowCount,
+            @JsonProperty("outputSize") Estimate outputSize,
+            @JsonProperty("confidence") double confidence,
+            @JsonProperty("cumulativeCpuTime") Estimate cpuTime)
     {
         this.rowCount = requireNonNull(rowCount, "rowCount is null");
         this.outputSize = requireNonNull(outputSize, "outputSize is null");
+        this.cumulativeCpuTime = cpuTime;
         checkArgument(confidence >= 0 && confidence <= 1, "confidence should be between 0 and 1");
         this.confidence = confidence;
     }
@@ -76,7 +79,7 @@ public class PlanStatistics
     @ThriftField(4)
     public Estimate getCpuTime()
     {
-        return cpuTime;
+        return cumulativeCpuTime;
     }
 
     private static void checkArgument(boolean condition, String message)
@@ -112,7 +115,7 @@ public class PlanStatistics
                 "rowCount=" + rowCount +
                 ", outputSize=" + outputSize +
                 ", confidence=" + confidence +
-                ", cpuTime=" + cpuTime +
+                ", cpuTime=" + cumulativeCpuTime +
                 '}';
     }
 }

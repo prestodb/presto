@@ -105,12 +105,20 @@ public class PlanNodeCanonicalInfo
             if (!node.getStatsEquivalentPlanNode().isPresent()) {
                 continue;
             }
+            /* We currently use the Stats Equivalent Node for plan analytics however ize of canonical plan node increases a lot when limit queries are present.
+             * For this simple hashing using physical plan as is without canonicalization could be considered
+             * ref Property history_canonical_plan_node_limit
+             */
             PlanNode statsEquivalentPlanNode = node.getStatsEquivalentPlanNode().get();
             Optional<String> hash = planCanonicalInfoProvider.hash(session, statsEquivalentPlanNode, PlanCanonicalizationStrategy.EXACT);
             if (hash.isPresent()) {
                 result.add(new CanonicalPlanWithInfo(new CanonicalPlan(statsEquivalentPlanNode, PlanCanonicalizationStrategy.EXACT),
                         new PlanNodeCanonicalInfo(hash.get(), Collections.emptyList())));
             }
+        }
+        if (planCanonicalInfoProvider instanceof CachingPlanAnalyticsInfoProvider) {
+            // invalidate cache after the query
+            ((CachingPlanAnalyticsInfoProvider) planCanonicalInfoProvider).invalidateCache();
         }
         return result.build();
     }
