@@ -63,10 +63,7 @@ TEST_F(SystemConfigTest, defaultConfig) {
   auto systemConfig = SystemConfig::instance();
   systemConfig->initialize(configFilePath);
 
-  ASSERT_FALSE(
-      systemConfig
-          ->optionalProperty<bool>(std::string{SystemConfig::kMutableConfig})
-          .has_value());
+  ASSERT_FALSE(systemConfig->mutableConfig());
   ASSERT_EQ(prestoVersion, systemConfig->prestoVersion());
   ASSERT_EQ(11 << 10, systemConfig->queryMaxMemoryPerNode());
   ASSERT_THROW(
@@ -80,10 +77,7 @@ TEST_F(SystemConfigTest, mutableConfig) {
   auto systemConfig = SystemConfig::instance();
   systemConfig->initialize(configFilePath);
 
-  ASSERT_TRUE(
-      systemConfig
-          ->optionalProperty<bool>(std::string{SystemConfig::kMutableConfig})
-          .value());
+  ASSERT_TRUE(systemConfig->mutableConfig());
   ASSERT_EQ(prestoVersion, systemConfig->prestoVersion());
   ASSERT_EQ(
       prestoVersion,
@@ -97,6 +91,8 @@ TEST_F(SystemConfigTest, mutableConfig) {
           ->setValue(std::string(SystemConfig::kQueryMaxMemoryPerNode), "5GB")
           .value());
   ASSERT_EQ(5UL << 30, systemConfig->queryMaxMemoryPerNode());
+  ASSERT_THROW(
+      systemConfig->setValue("unregisteredProp1", "x"), VeloxException);
 }
 
 TEST_F(SystemConfigTest, requiredConfigs) {
@@ -118,7 +114,7 @@ TEST_F(SystemConfigTest, requiredConfigs) {
 TEST_F(SystemConfigTest, optionalConfigs) {
   SystemConfig config;
   init(config, {});
-  ASSERT_EQ(std::nullopt, config.discoveryUri());
+  ASSERT_EQ(folly::none, config.discoveryUri());
 
   init(config, {{std::string(SystemConfig::kDiscoveryUri), "my uri"}});
   ASSERT_EQ(config.discoveryUri(), "my uri");
@@ -127,9 +123,7 @@ TEST_F(SystemConfigTest, optionalConfigs) {
 TEST_F(SystemConfigTest, optionalWithDefault) {
   SystemConfig config;
   init(config, {});
-  ASSERT_EQ(
-      SystemConfig::kMaxDriversPerTaskDefault, config.maxDriversPerTask());
-
+  ASSERT_EQ(config.maxDriversPerTask(), 16);
   init(config, {{std::string(SystemConfig::kMaxDriversPerTask), "1024"}});
   ASSERT_EQ(config.maxDriversPerTask(), 1024);
 }
@@ -137,7 +131,7 @@ TEST_F(SystemConfigTest, optionalWithDefault) {
 TEST_F(SystemConfigTest, remoteFunctionServer) {
   SystemConfig config;
   init(config, {});
-  ASSERT_EQ(std::nullopt, config.remoteFunctionServerLocation());
+  ASSERT_EQ(folly::none, config.remoteFunctionServerLocation());
 
   init(
       config,
