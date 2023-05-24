@@ -46,6 +46,7 @@ executors:
 jobs:
   linux-build:
     executor: build
+    parallelism: 5
     steps:
       - checkout
       - run:
@@ -75,13 +76,35 @@ jobs:
           command: |
             export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
             export TEMP_PATH="/tmp"
-            mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -DPRESTO_SERVER=${PRESTO_SERVER_PATH} -DDATA_DIR=${TEMP_PATH} -Duser.timezone=America/Bahia_Banderas -T1C -Dtest=TestPrestoNative*
+            TESTFILES=$(circleci tests glob "presto-native-execution/src/test/**/Test*.java" | circleci tests split --split-by=timings)
+            # Convert file paths to comma separated class names
+            export TESTCLASSES=
+            export SPARKTESTS=
+            for test_file in $TESTFILES
+            do
+              tmp=${test_file##*/}
+              test_class=${tmp%%\.*}
+              if [[ $test_class == TestPrestoSpark* ]]; then
+                export SPARKTESTS="${SPARKTESTS},$test_class"
+              else
+                export TESTCLASSES="${TESTCLASSES},$test_class"
+              fi
+            done
+            export TESTCLASSES=${TESTCLASSES#,}
+            export SPARKTESTS=${SPARKTESTS#,}
+            if [ ! -z $TESTCLASSES ]; then
+              mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -Dtest="${TESTCLASSES}" -DPRESTO_SERVER=${PRESTO_SERVER_PATH} -DDATA_DIR=${TEMP_PATH} -Duser.timezone=America/Bahia_Banderas -T1C
+            fi
+            # set Spark tests as an environment variable
+            echo "export SPARKTESTS=$SPARKTESTS" >> "$BASH_ENV"
       - run:
           name: 'Run spark-native e2e tests'
           command: |
             export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
             export TEMP_PATH="/tmp"
-            mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -DPRESTO_SERVER=${PRESTO_SERVER_PATH} -DDATA_DIR=${TEMP_PATH} -Duser.timezone=America/Bahia_Banderas -T1C -Dtest=TestPrestoSparkNative*
+            if [ ! -z $SPARKTESTS ]; then
+              mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -Dtest="${SPARKTESTS}" -DPRESTO_SERVER=${PRESTO_SERVER_PATH} -DDATA_DIR=${TEMP_PATH} -Duser.timezone=America/Bahia_Banderas -T1C || true
+            fi
 
   linux-parquet-S3-build:
     executor: build
