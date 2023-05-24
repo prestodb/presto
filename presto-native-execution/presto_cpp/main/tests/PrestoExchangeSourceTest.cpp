@@ -651,88 +651,143 @@ TEST_P(PrestoExchangeSourceTestSuite, exceedingMemoryCapacityForHttpResponse) {
 }
 
 TEST_P(PrestoExchangeSourceTestSuite, memoryAllocationAndUsageCheck) {
-  PrestoExchangeSource::testingClearMemoryUsage();
-  auto rootPool = defaultMemoryManager().addRootPool();
-  auto leafPool = rootPool->addLeafChild("memoryAllocationAndUsageCheck");
+  std::vector<bool> resetPeaks = {false, true};
+  for (const auto resetPeak : resetPeaks) {
+    SCOPED_TRACE(fmt::format("resetPeak {}", resetPeak));
 
-  const bool useHttps = GetParam();
+    PrestoExchangeSource::testingClearMemoryUsage();
+    auto rootPool = defaultMemoryManager().addRootPool();
+    auto leafPool = rootPool->addLeafChild("memoryAllocationAndUsageCheck");
 
-  auto producer = std::make_unique<Producer>();
+    const bool useHttps = GetParam();
 
-  auto producerServer = createHttpServer(useHttps);
-  producer->registerEndpoints(producerServer.get());
+    auto producer = std::make_unique<Producer>();
 
-  test::HttpServerWrapper serverWrapper(std::move(producerServer));
-  auto producerAddress = serverWrapper.start().get();
+    auto producerServer = createHttpServer(useHttps);
+    producer->registerEndpoints(producerServer.get());
 
-  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
-  queue->addSourceLocked();
-  queue->noMoreSources();
-  auto exchangeSource = std::make_shared<PrestoExchangeSource>(
-      makeProducerUri(producerAddress, useHttps),
-      3,
-      queue,
-      leafPool.get(),
-      getClientCa(useHttps),
-      getCiphers(useHttps));
+    test::HttpServerWrapper serverWrapper(std::move(producerServer));
+    auto producerAddress = serverWrapper.start().get();
 
-  const std::string smallPayload(7 << 10, 'L');
-  producer->enqueue(smallPayload);
-  requestNextPage(queue, exchangeSource);
-  auto smallPage = waitForNextPage(queue);
-  ASSERT_EQ(leafPool->stats().numAllocs, 2);
-  int64_t currMemoryBytes;
-  int64_t peakMemoryBytes;
-  PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
-  ASSERT_EQ(
-      memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-          (1 + 2),
-      currMemoryBytes);
+    auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+    queue->addSourceLocked();
+    queue->noMoreSources();
+    auto exchangeSource = std::make_shared<PrestoExchangeSource>(
+        makeProducerUri(producerAddress, useHttps),
+        3,
+        queue,
+        leafPool.get(),
+        getClientCa(useHttps),
+        getCiphers(useHttps));
 
-  ASSERT_EQ(
-      memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-          (1 + 2),
-      peakMemoryBytes);
+    const std::string smallPayload(7 << 10, 'L');
+    producer->enqueue(smallPayload);
+    requestNextPage(queue, exchangeSource);
+    auto smallPage = waitForNextPage(queue);
+    ASSERT_EQ(leafPool->stats().numAllocs, 2);
+    int64_t currMemoryBytes;
+    int64_t peakMemoryBytes;
+    PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
+    ASSERT_EQ(
+        memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+            (1 + 2),
+        currMemoryBytes);
 
-  smallPage.reset();
-  PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
-  ASSERT_EQ(0, currMemoryBytes);
+    ASSERT_EQ(
+        memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+            (1 + 2),
+        peakMemoryBytes);
+    int64_t oldCurrMemoryBytes = currMemoryBytes;
 
-  ASSERT_EQ(
-      memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-          (1 + 2),
-      peakMemoryBytes);
+    if (resetPeak) {
+      PrestoExchangeSource::resetPeakMemoryUsage();
+      PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
+      ASSERT_EQ(oldCurrMemoryBytes, currMemoryBytes);
+      ASSERT_EQ(oldCurrMemoryBytes, peakMemoryBytes);
+    }
 
-  const std::string largePayload(128 << 10, 'L');
-  producer->enqueue(largePayload);
-  requestNextPage(queue, exchangeSource);
-  auto largePage = waitForNextPage(queue);
-  producer->noMoreData();
+    smallPage.reset();
+    PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
+    ASSERT_EQ(0, currMemoryBytes);
 
-  PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
+    if (!resetPeak) {
+      ASSERT_EQ(
+          memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+              (1 + 2),
+          peakMemoryBytes);
+    } else {
+      ASSERT_EQ(peakMemoryBytes, oldCurrMemoryBytes);
+      oldCurrMemoryBytes = currMemoryBytes;
+      PrestoExchangeSource::resetPeakMemoryUsage();
+      PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
+      ASSERT_EQ(oldCurrMemoryBytes, currMemoryBytes);
+      ASSERT_EQ(oldCurrMemoryBytes, peakMemoryBytes);
+    }
 
-  ASSERT_EQ(
-      memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-          (1 + 2 + 4 + 8 + 16 + 16),
-      currMemoryBytes);
-  ASSERT_EQ(
-      memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-          (1 + 2 + 4 + 8 + 16 + 16),
-      peakMemoryBytes);
-  largePage.reset();
-  PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
-  ASSERT_EQ(0, currMemoryBytes);
-  ASSERT_EQ(
-      memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-          (1 + 2 + 4 + 8 + 16 + 16),
-      peakMemoryBytes);
+    const std::string largePayload(128 << 10, 'L');
+    producer->enqueue(largePayload);
+    requestNextPage(queue, exchangeSource);
+    auto largePage = waitForNextPage(queue);
+    producer->noMoreData();
 
-  requestNextPage(queue, exchangeSource);
-  waitForEndMarker(queue);
-  serverWrapper.stop();
-  PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
-  ASSERT_EQ(0, currMemoryBytes);
-  ASSERT_EQ(192512, peakMemoryBytes);
+    PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
+
+    ASSERT_EQ(
+        memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+            (1 + 2 + 4 + 8 + 16 + 16),
+        currMemoryBytes);
+    ASSERT_EQ(
+        memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+            (1 + 2 + 4 + 8 + 16 + 16),
+        peakMemoryBytes);
+    oldCurrMemoryBytes = currMemoryBytes;
+
+    if (resetPeak) {
+      PrestoExchangeSource::resetPeakMemoryUsage();
+      PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
+      ASSERT_EQ(oldCurrMemoryBytes, currMemoryBytes);
+      ASSERT_EQ(oldCurrMemoryBytes, peakMemoryBytes);
+    }
+
+    largePage.reset();
+    PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
+    ASSERT_EQ(0, currMemoryBytes);
+    ASSERT_EQ(
+        memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+            (1 + 2 + 4 + 8 + 16 + 16),
+        peakMemoryBytes);
+
+    if (!resetPeak) {
+      ASSERT_EQ(
+          memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+              (1 + 2 + 4 + 8 + 16 + 16),
+          peakMemoryBytes);
+    } else {
+      ASSERT_EQ(peakMemoryBytes, oldCurrMemoryBytes);
+      oldCurrMemoryBytes = currMemoryBytes;
+      PrestoExchangeSource::resetPeakMemoryUsage();
+      PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
+      ASSERT_EQ(oldCurrMemoryBytes, currMemoryBytes);
+      ASSERT_EQ(oldCurrMemoryBytes, peakMemoryBytes);
+    }
+
+    requestNextPage(queue, exchangeSource);
+    waitForEndMarker(queue);
+    serverWrapper.stop();
+    PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
+    ASSERT_EQ(0, currMemoryBytes);
+    if (!resetPeak) {
+      ASSERT_EQ(192512, peakMemoryBytes);
+    } else {
+      ASSERT_EQ(peakMemoryBytes, oldCurrMemoryBytes);
+      oldCurrMemoryBytes = currMemoryBytes;
+      PrestoExchangeSource::resetPeakMemoryUsage();
+      PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
+      ASSERT_EQ(oldCurrMemoryBytes, currMemoryBytes);
+      ASSERT_EQ(oldCurrMemoryBytes, peakMemoryBytes);
+      ASSERT_EQ(peakMemoryBytes, 0);
+    }
+  }
 }
 
 INSTANTIATE_TEST_CASE_P(
