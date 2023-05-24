@@ -257,7 +257,6 @@ public class Driver
 
         // determine new splits to add
         Set<ScheduledSplit> newSplits = Sets.difference(newSource.getSplits(), currentTaskSource.getSplits());
-
         // add new splits
         SourceOperator sourceOperator = this.sourceOperator.orElseThrow(VerifyException::new);
         for (ScheduledSplit newSplit : newSplits) {

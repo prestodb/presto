@@ -13,20 +13,22 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
-import com.google.inject.Binder;
-import com.google.inject.Scopes;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import it.unimi.dsi.fastutil.longs.LongSet;
 
-import static org.weakref.jmx.guice.ExportBinder.newExporter;
+import java.io.IOException;
 
-public class GracefulShutdownModule
-        extends AbstractConfigurationAwareModule
+public class LongSetDeserializer
+        extends JsonDeserializer<LongSet>
 {
     @Override
-    protected void setup(Binder binder)
+    public LongSet deserialize(JsonParser jsonParser, DeserializationContext context)
+            throws IOException, JsonProcessingException
     {
-        binder.bind(ShutdownAction.class).to(DefaultShutdownAction.class).in(Scopes.SINGLETON);
-        binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(GracefulShutdownHandler.class).withGeneratedName();
+        long[] longs = jsonParser.readValueAs(long[].class);
+        return LongSet.of(longs);
     }
 }

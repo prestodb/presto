@@ -108,6 +108,11 @@ class ClientBuffer
         return destroyed;
     }
 
+    public boolean isEmptyPages()
+    {
+        return pages.isEmpty();
+    }
+
     public void destroy()
     {
         List<SerializedPageReference> removedPages;
@@ -342,13 +347,13 @@ class ClientBuffer
 
         // if request is for pages before the current position, just return an empty result
         if (sequenceId < currentSequenceId.get()) {
-            return emptyResults(taskInstanceId, sequenceId, false);
+            return emptyResults(taskInstanceId, sequenceId, false, false);
         }
 
         // if this buffer is finished, notify the client of this, so the client
         // will destroy this buffer
         if (pages.isEmpty() && noMorePages) {
-            return emptyResults(taskInstanceId, currentSequenceId.get(), true);
+            return emptyResults(taskInstanceId, currentSequenceId.get(), true, false);
         }
 
         // if request is for pages after the current position, there is a bug somewhere
@@ -371,7 +376,7 @@ class ClientBuffer
             }
             result.add(page.getSerializedPage());
         }
-        return new BufferResult(taskInstanceId, sequenceId, sequenceId + result.size(), false, result);
+        return new BufferResult(taskInstanceId, sequenceId, sequenceId + result.size(), false, false, result);
     }
 
     /**
@@ -466,7 +471,7 @@ class ClientBuffer
 
         public void completeResultFutureWithEmpty()
         {
-            resultFuture.set(emptyResults(taskInstanceId, sequenceId, false));
+            resultFuture.set(emptyResults(taskInstanceId, sequenceId, false, false));
         }
     }
 

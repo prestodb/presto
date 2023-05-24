@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -29,6 +30,7 @@ import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -67,6 +69,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_RECOVERY_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE_INTERMEDIATE;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
@@ -74,22 +77,26 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.stream.Collectors.toList;
 
 @ThreadSafe
 public final class SqlStageExecution
 {
-    public static final Set<ErrorCode> RECOVERABLE_ERROR_CODES = ImmutableSet.of(
+    private static final Logger log = Logger.get(SqlStageExecution.class);
+    public static final Set<ErrorCode> DEFAULT_RECOVERABLE_ERROR_CODES = ImmutableSet.of(
             TOO_MANY_REQUESTS_FAILED.toErrorCode(),
             PAGE_TRANSPORT_ERROR.toErrorCode(),
             PAGE_TRANSPORT_TIMEOUT.toErrorCode(),
             REMOTE_TASK_MISMATCH.toErrorCode(),
             REMOTE_TASK_ERROR.toErrorCode());
-
+    private Optional<Set<ErrorCode>> recoveryErrorCodes = Optional.empty();
+    private static final int DELAY_NO_MORE_RETRY = 10_000;
     private final Session session;
     private final StageExecutionStateMachine stateMachine;
     private final PlanFragment planFragment;
@@ -136,6 +143,10 @@ public final class SqlStageExecution
 
     @GuardedBy("this")
     private Optional<StageTaskRecoveryCallback> stageTaskRecoveryCallback = Optional.empty();
+    @GuardedBy("this")
+    private final AtomicInteger totalRetries = new AtomicInteger();
+    private ThreadLocal<Boolean> noMoreRetries = ThreadLocal.withInitial(() -> false);
+    private ThreadLocal<Long> firstNoMoreRetries = ThreadLocal.withInitial(() -> 0L);
 
     public static SqlStageExecution createSqlStageExecution(
             StageExecutionId stageExecutionId,
@@ -253,6 +264,14 @@ public final class SqlStageExecution
     {
         checkState(!this.stageTaskRecoveryCallback.isPresent(), "stageTaskRecoveryCallback should be registered only once");
         this.stageTaskRecoveryCallback = Optional.of(requireNonNull(stageTaskRecoveryCallback, "stageTaskRecoveryCallback is null"));
+    }
+
+    public synchronized void registerStageTaskRecoveryCallback(StageTaskRecoveryCallback stageTaskRecoveryCallback, Set<ErrorCode> recoveryErrorCodes)
+    {
+        checkState(!this.stageTaskRecoveryCallback.isPresent(), "stageTaskRecoveryCallback should be registered only once");
+        checkState(!this.recoveryErrorCodes.isPresent(), "errorCodes should be registered only once");
+        this.stageTaskRecoveryCallback = Optional.of(requireNonNull(stageTaskRecoveryCallback, "stageTaskRecoveryCallback is null"));
+        this.recoveryErrorCodes = Optional.of(requireNonNull(recoveryErrorCodes, "recoveryErrorCodes is null"));
     }
 
     public PlanFragment getFragment()
@@ -431,6 +450,20 @@ public final class SqlStageExecution
                 .collect(toImmutableList());
     }
 
+    @VisibleForTesting
+    public int failedTasksCount()
+    {
+        return failedTasks.size();
+    }
+
+    public List<URI> getAllRemoteURI()
+    {
+        return tasks.values().stream()
+                .flatMap(Set::stream)
+                .map(x -> x.getTaskStatus().getSelf())
+                .collect(toImmutableList());
+    }
+
     // We only support removeRemoteSource for single task stage because stages with many tasks introduce coordinator to worker HTTP requests in bursty manner.
     // See https://github.com/prestodb/presto/pull/11065 for a similar issue.
     public void removeRemoteSourceIfSingleTaskStage(TaskId remoteSourceTaskId)
@@ -464,6 +497,7 @@ public final class SqlStageExecution
         splitsScheduled.set(true);
 
         checkArgument(planFragment.getTableScanSchedulingOrder().containsAll(splits.keySet()), "Invalid splits");
+        checkArgument(!planFragment.getStageExecutionDescriptor().isStageGroupedExecution(), "Unsupported Grouped Execution");
 
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
         Collection<RemoteTask> tasks = this.tasks.get(node);
@@ -569,21 +603,31 @@ public final class SqlStageExecution
                 // no matter if it is possible to recover - the task is failed
                 failedTasks.add(taskId);
 
-                RuntimeException failure = taskStatus.getFailures().stream()
+                boolean isLeaf = planFragment.isLeaf();
+                List<ExecutionFailureInfo> rewrittenFailures = taskStatus.getFailures().stream().map(x -> rewriteTransportFailure(x, isLeaf)).collect(toImmutableList());
+                RuntimeException failure = rewrittenFailures.stream()
                         .findFirst()
-                        .map(this::rewriteTransportFailure)
                         .map(ExecutionFailureInfo::toException)
                         .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
-                if (isRecoverable(taskStatus.getFailures())) {
+                if (isRecoverable(rewrittenFailures)) {
                     try {
-                        stageTaskRecoveryCallback.get().recover(taskId);
+                        stageTaskRecoveryCallback.get().recover(taskId, rewrittenFailures);
+                        totalRetries.incrementAndGet();
+
+                        RemoteTask failedTask = getAllTasks().stream()
+                                .filter(task -> task.getTaskId().equals(taskId))
+                                .collect(onlyElement());
+                        failedTask.setIsRetried();
+
                         finishedTasks.add(taskId);
                     }
                     catch (Throwable t) {
                         // In an ideal world, this exception is not supposed to happen.
                         // However, it could happen, for example, if connector throws exception.
                         // We need to handle the exception in order to fail the query properly, otherwise the failed task will hang in RUNNING/SCHEDULING state.
-                        failure.addSuppressed(new PrestoException(GENERIC_RECOVERY_ERROR, format("Encountered error when trying to recover task %s", taskId), t));
+                        failure.addSuppressed(new PrestoException(GENERIC_RECOVERY_ERROR, format("Encountered error when trying to recover task %s, #tasks: %s, #retries: %s", taskId, allTasks.size(), totalRetries.get()), t));
+                        List<URI> uris = getAllRemoteURI();
+                        log.info(format("All Leaf Tasks URIs: %s", uris.toString()));
                         stateMachine.transitionToFailed(failure);
                     }
                 }
@@ -619,12 +663,60 @@ public final class SqlStageExecution
     private boolean isRecoverable(List<ExecutionFailureInfo> failures)
     {
         for (ExecutionFailureInfo failure : failures) {
-            if (!RECOVERABLE_ERROR_CODES.contains(failure.getErrorCode())) {
+            if (!getRecoverableErrorCodes().contains(failure.getErrorCode())) {
                 return false;
             }
         }
-        return stageTaskRecoveryCallback.isPresent() &&
-                failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
+        boolean isRecoverable = stageTaskRecoveryCallback.isPresent() && isFailedTasksExceedThreshold();
+        log.info("Failure recovery error check , isRecoverable = %s, failure error codes = %s", isRecoverable, failures.stream().map(failure -> failure.getErrorCode()).collect(toImmutableList()));
+        return isRecoverable;
+    }
+
+    public Set<ErrorCode> getRecoverableErrorCodes()
+    {
+        if (recoveryErrorCodes.isPresent()) {
+            return recoveryErrorCodes.get();
+        }
+        return DEFAULT_RECOVERABLE_ERROR_CODES;
+    }
+
+    //hack, remove it once we transition to draining state of tasks
+    //there is a corner case where noMoreRetryWithFailedTasks returns true before failed splits are added to the task
+    public synchronized boolean noMoreRetry()
+    {
+        if (failedTasks.isEmpty()) {
+            List<RemoteTask> idleRunningHttpRemoteTasks = getAllTasks().stream()
+                    .filter(RemoteTask::isAllSplitsRun)
+                    .collect(toList());
+            return idleRunningHttpRemoteTasks.size() == allTasks.size();
+        }
+
+        return noMoreRetryWithFailedTasks();
+    }
+
+    private boolean noMoreRetryWithFailedTasks()
+    {
+        List<RemoteTask> idleRunningHttpRemoteTasks = getAllTasks().stream()
+                .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING)
+                .filter(RemoteTask::isAllSplitsRun)
+                .collect(toList());
+
+        long retriedFailedTaskCount = getAllTasks().stream()
+                .filter(task -> task.getTaskStatus().getState() == TaskState.FAILED)
+                .filter(RemoteTask::isRetried)
+                .count();
+
+        boolean isAllTasksEitherIdlingOrFailedTasksHaveBeenRetriedOrTooManyFailedTasks;
+        synchronized (this) {
+            isAllTasksEitherIdlingOrFailedTasksHaveBeenRetriedOrTooManyFailedTasks = (idleRunningHttpRemoteTasks.size() == allTasks.size() - failedTasks.size() && retriedFailedTaskCount == failedTasks.size());
+        }
+
+        return isAllTasksEitherIdlingOrFailedTasksHaveBeenRetriedOrTooManyFailedTasks || !isFailedTasksExceedThreshold();
+    }
+    private synchronized boolean isFailedTasksExceedThreshold()
+    {
+        // Even though failedTasks and allTasks are marked as Guard, the whole expression need to be evaluated synchronously to avoid failedTasks and allTasks are updated from the callback thread in the middle of the expression evaluation.
+        return failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
     }
 
     private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)
@@ -652,7 +744,7 @@ public final class SqlStageExecution
         }
     }
 
-    private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)
+    private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo, boolean isLeaf)
     {
         if (executionFailureInfo.getRemoteHost() == null || failureDetector.getState(executionFailureInfo.getRemoteHost()) != GONE) {
             return executionFailureInfo;
@@ -665,9 +757,10 @@ public final class SqlStageExecution
                 executionFailureInfo.getSuppressed(),
                 executionFailureInfo.getStack(),
                 executionFailureInfo.getErrorLocation(),
-                REMOTE_HOST_GONE.toErrorCode(),
+                isLeaf ? REMOTE_HOST_GONE.toErrorCode() : REMOTE_HOST_GONE_INTERMEDIATE.toErrorCode(),
                 executionFailureInfo.getRemoteHost(),
-                executionFailureInfo.getErrorCause());
+                executionFailureInfo.getErrorCause(),
+                executionFailureInfo.getFailureDetectionTimeInNanos());
     }
 
     @Override
@@ -733,7 +826,7 @@ public final class SqlStageExecution
     @FunctionalInterface
     public interface StageTaskRecoveryCallback
     {
-        void recover(TaskId taskId);
+        void recover(TaskId taskId, List<ExecutionFailureInfo> executionFailureInfos);
     }
 
     private static class ListenerManager<T>

@@ -78,7 +78,8 @@ public class TestQueryManagerConfig
                 .setGlobalQueryRetryFailureWindow(new Duration(5, MINUTES))
                 .setRateLimiterBucketMaxSize(100)
                 .setRateLimiterCacheLimit(1000)
-                .setRateLimiterCacheWindowMinutes(5));
+                .setRateLimiterCacheWindowMinutes(5)
+                .setEnableRetryForFailedSplits(true));
     }
 
     @Test
@@ -128,6 +129,7 @@ public class TestQueryManagerConfig
                 .put("query-manager.rate-limiter-bucket-max-size", "200")
                 .put("query-manager.rate-limiter-cache-limit", "10000")
                 .put("query-manager.rate-limiter-cache-window-minutes", "60")
+                .put("query-manager.enable-retry-of-failed-splits", "false")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -173,7 +175,8 @@ public class TestQueryManagerConfig
                 .setGlobalQueryRetryFailureWindow(new Duration(1, HOURS))
                 .setRateLimiterBucketMaxSize(200)
                 .setRateLimiterCacheLimit(10000)
-                .setRateLimiterCacheWindowMinutes(60);
+                .setRateLimiterCacheWindowMinutes(60)
+                .setEnableRetryForFailedSplits(false);
         ConfigAssertions.assertFullMapping(properties, expected);
     }
 }

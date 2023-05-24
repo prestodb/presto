@@ -16,6 +16,7 @@ package com.facebook.presto.execution.executor;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TimeStat;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.SplitRunner;
 import com.google.common.base.Ticker;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -53,7 +54,7 @@ public class PrioritizedSplitRunner
 
     private final Ticker ticker;
 
-    private final SettableFuture<?> finishedFuture = SettableFuture.create();
+    private final SettableFuture<Long> finishedFuture = SettableFuture.create();
 
     private final AtomicBoolean destroyed = new AtomicBoolean();
 
@@ -101,7 +102,7 @@ public class PrioritizedSplitRunner
         return taskHandle;
     }
 
-    public ListenableFuture<?> getFinishedFuture()
+    public ListenableFuture<Long> getFinishedFuture()
     {
         return finishedFuture;
     }
@@ -127,11 +128,22 @@ public class PrioritizedSplitRunner
         return createdNanos;
     }
 
+    public long getStartNanos()
+    {
+        return start.get();
+    }
+
     public boolean isFinished()
     {
         boolean finished = split.isFinished();
         if (finished) {
-            finishedFuture.set(null);
+            ScheduledSplit scheduledSplit = split.getScheduledSplit();
+            if (scheduledSplit != null) {
+                finishedFuture.set(scheduledSplit.getSequenceId());
+            }
+            else {
+                finishedFuture.set(null);
+            }
         }
         return finished || destroyed.get() || taskHandle.isDestroyed();
     }

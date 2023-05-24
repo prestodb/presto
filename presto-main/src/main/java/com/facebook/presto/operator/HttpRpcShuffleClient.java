@@ -51,6 +51,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_WORKER_SHUTTING_DOWN;
 import static com.facebook.presto.operator.PageBufferClient.PagesResponse.createEmptyPagesResponse;
 import static com.facebook.presto.operator.PageBufferClient.PagesResponse.createPagesResponse;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.readSerializedPages;
@@ -152,7 +153,8 @@ public final class HttpRpcShuffleClient
                             getTaskInstanceId(request, response),
                             getToken(request, response),
                             getNextToken(request, response),
-                            getComplete(request, response));
+                            getComplete(request, response),
+                            isNodeShuttingDown(request, response));
                 }
 
                 // otherwise we must have gotten an OK response, everything else is considered fatal
@@ -197,10 +199,11 @@ public final class HttpRpcShuffleClient
                 long token = getToken(request, response);
                 long nextToken = getNextToken(request, response);
                 boolean complete = getComplete(request, response);
+                boolean isNodeShuttingdown = isNodeShuttingDown(request, response);
 
                 try (SliceInput input = new InputStreamSliceInput(response.getInputStream())) {
                     List<SerializedPage> pages = ImmutableList.copyOf(readSerializedPages(input));
-                    return createPagesResponse(taskInstanceId, token, nextToken, pages, complete);
+                    return createPagesResponse(taskInstanceId, token, nextToken, pages, complete, isNodeShuttingdown);
                 }
                 catch (IOException e) {
                     throw new RuntimeException(e);
@@ -248,6 +251,15 @@ public final class HttpRpcShuffleClient
                 throw new PageTransportErrorException(HostAddress.fromUri(request.getUri()), format("Expected %s header", PRESTO_BUFFER_COMPLETE));
             }
             return Boolean.parseBoolean(bufferComplete);
+        }
+
+        private static boolean isNodeShuttingDown(Request request, Response response)
+        {
+            String isNodeShuttingDown = response.getHeader(PRESTO_WORKER_SHUTTING_DOWN);
+            if (isNodeShuttingDown == null) {
+                throw new PageTransportErrorException(HostAddress.fromUri(request.getUri()), format("Expected %s header", PRESTO_BUFFER_COMPLETE));
+            }
+            return Boolean.parseBoolean(isNodeShuttingDown);
         }
 
         private static boolean mediaTypeMatches(String value, MediaType range)

@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.server.remotetask.Backoff;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
@@ -27,6 +28,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -105,6 +108,10 @@ public final class PageBufferClient
     @GuardedBy("this")
     private boolean completed;
     @GuardedBy("this")
+    private boolean isNodeShuttingdown;
+    @GuardedBy("this")
+    private DataSize shuttingDownSlurpSize;
+    @GuardedBy("this")
     private String taskInstanceId;
 
     private final AtomicLong rowsReceived = new AtomicLong();
@@ -118,6 +125,14 @@ public final class PageBufferClient
     private final AtomicInteger requestsFailed = new AtomicInteger();
 
     private final Executor pageBufferClientCallbackExecutor;
+    private final TimeStat shutdownFetchTime = new TimeStat(NANOSECONDS);
+
+    @Managed
+    @Nested
+    public TimeStat getShutdownFetchTime()
+    {
+        return shutdownFetchTime;
+    }
 
     public PageBufferClient(
             RpcShuffleClient resultClient,
@@ -196,6 +211,11 @@ public final class PageBufferClient
         return future != null;
     }
 
+    public synchronized boolean isNodeShuttingdown()
+    {
+        return isNodeShuttingdown;
+    }
+
     @Override
     public void close()
     {
@@ -224,7 +244,7 @@ public final class PageBufferClient
         }
     }
 
-    public synchronized void scheduleRequest(DataSize maxResponseSize)
+    public synchronized void scheduleRequest(DataSize maxResponseSize, boolean trackShutdownDrainTime)
     {
         if (closed || (future != null) || scheduled) {
             return;
@@ -237,7 +257,7 @@ public final class PageBufferClient
         long delayNanos = backoff.getBackoffDelayNanos();
         scheduler.schedule(() -> {
             try {
-                initiateRequest(maxResponseSize);
+                initiateRequest(maxResponseSize, trackShutdownDrainTime);
             }
             catch (Throwable t) {
                 // should not happen, but be safe and fail the operator
@@ -249,7 +269,7 @@ public final class PageBufferClient
         requestsScheduled.incrementAndGet();
     }
 
-    private synchronized void initiateRequest(DataSize maxResponseSize)
+    private synchronized void initiateRequest(DataSize maxResponseSize, boolean trackShutdownDrainTime)
     {
         scheduled = false;
         if (closed || (future != null)) {
@@ -260,17 +280,18 @@ public final class PageBufferClient
             sendDelete();
         }
         else {
-            sendGetResults(maxResponseSize);
+            sendGetResults(maxResponseSize, trackShutdownDrainTime);
         }
 
         lastUpdate = DateTime.now();
     }
 
-    private synchronized void sendGetResults(DataSize maxResponseSize)
+    private synchronized void sendGetResults(DataSize maxResponseSize, boolean trackShutdownDrainTime)
     {
         URI uriBase = asyncPageTransportLocation.orElse(location);
         URI uri = HttpUriBuilder.uriBuilderFrom(uriBase).appendPath(String.valueOf(token)).build();
 
+        long startTime = System.nanoTime();
         ListenableFuture<PagesResponse> resultFuture = resultClient.getResults(token, maxResponseSize);
 
         future = resultFuture;
@@ -280,6 +301,10 @@ public final class PageBufferClient
             public void onSuccess(PagesResponse result)
             {
                 checkNotHoldsLock(this);
+
+                if (trackShutdownDrainTime) {
+                    shutdownFetchTime.add(Duration.nanosSince(startTime));
+                }
 
                 backoff.success();
 
@@ -351,6 +376,9 @@ public final class PageBufferClient
                     // client is complete, acknowledge it by sending it a delete in the next request
                     if (result.isClientComplete()) {
                         completed = true;
+                    }
+                    if (result.isNodeShuttingdown()) {
+                        isNodeShuttingdown = true;
                     }
                     if (future == resultFuture) {
                         future = null;
@@ -496,14 +524,14 @@ public final class PageBufferClient
 
     public static class PagesResponse
     {
-        public static PagesResponse createPagesResponse(String taskInstanceId, long token, long nextToken, Iterable<SerializedPage> pages, boolean complete)
+        public static PagesResponse createPagesResponse(String taskInstanceId, long token, long nextToken, Iterable<SerializedPage> pages, boolean complete, boolean isNodeShuttingdown)
         {
-            return new PagesResponse(taskInstanceId, token, nextToken, pages, complete);
+            return new PagesResponse(taskInstanceId, token, nextToken, pages, complete, isNodeShuttingdown);
         }
 
-        public static PagesResponse createEmptyPagesResponse(String taskInstanceId, long token, long nextToken, boolean complete)
+        public static PagesResponse createEmptyPagesResponse(String taskInstanceId, long token, long nextToken, boolean complete, boolean isNodeShuttingdown)
         {
-            return new PagesResponse(taskInstanceId, token, nextToken, ImmutableList.of(), complete);
+            return new PagesResponse(taskInstanceId, token, nextToken, ImmutableList.of(), complete, isNodeShuttingdown);
         }
 
         private final String taskInstanceId;
@@ -511,14 +539,16 @@ public final class PageBufferClient
         private final long nextToken;
         private final List<SerializedPage> pages;
         private final boolean clientComplete;
+        private final boolean isNodeShuttingdown;
 
-        private PagesResponse(String taskInstanceId, long token, long nextToken, Iterable<SerializedPage> pages, boolean clientComplete)
+        private PagesResponse(String taskInstanceId, long token, long nextToken, Iterable<SerializedPage> pages, boolean clientComplete, boolean isNodeShuttingdown)
         {
             this.taskInstanceId = taskInstanceId;
             this.token = token;
             this.nextToken = nextToken;
             this.pages = ImmutableList.copyOf(pages);
             this.clientComplete = clientComplete;
+            this.isNodeShuttingdown = isNodeShuttingdown;
         }
 
         public long getToken()
@@ -544,6 +574,11 @@ public final class PageBufferClient
         public String getTaskInstanceId()
         {
             return taskInstanceId;
+        }
+
+        public boolean isNodeShuttingdown()
+        {
+            return isNodeShuttingdown;
         }
 
         @Override

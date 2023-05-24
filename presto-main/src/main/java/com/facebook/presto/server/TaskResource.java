@@ -21,6 +21,7 @@ import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
+import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
@@ -82,6 +83,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_WORKER_SHUTTING_DOWN;
 import static com.facebook.presto.server.TaskResourceUtils.convertToThriftTaskInfo;
 import static com.facebook.presto.server.TaskResourceUtils.isThriftRequest;
 import static com.facebook.presto.server.security.RoleType.INTERNAL;
@@ -112,6 +114,7 @@ public class TaskResource
     private final Codec<PlanFragment> planFragmentCodec;
     private final HandleResolver handleResolver;
     private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
+    private final GracefulShutdownHandler gracefulShutdownHandler;
 
     @Inject
     public TaskResource(
@@ -123,7 +126,8 @@ public class TaskResource
             SmileCodec<PlanFragment> planFragmentSmileCodec,
             InternalCommunicationConfig communicationConfig,
             HandleResolver handleResolver,
-            ConnectorTypeSerdeManager connectorTypeSerdeManager)
+            ConnectorTypeSerdeManager connectorTypeSerdeManager,
+            GracefulShutdownHandler gracefulShutdownHandler)
     {
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -132,6 +136,7 @@ public class TaskResource
         this.planFragmentCodec = planFragmentJsonCodec;
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.connectorTypeSerdeManager = requireNonNull(connectorTypeSerdeManager, "connectorTypeSerdeManager is null");
+        this.gracefulShutdownHandler = gracefulShutdownHandler;
     }
 
     @GET
@@ -257,6 +262,20 @@ public class TaskResource
                 .withTimeout(timeout);
     }
 
+    @GET
+    @Path("{taskId}/fail")
+    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
+    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
+    public Response failTask(
+            @PathParam("taskId") TaskId taskId)
+    {
+        requireNonNull(taskId, "taskId is null");
+
+        ((SqlTaskManager) taskManager).failTask(taskId);
+
+        return Response.ok().build();
+    }
+
     @POST
     @Path("{taskId}/metadataresults")
     @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
@@ -339,6 +358,7 @@ public class TaskResource
                     .header(PRESTO_PAGE_TOKEN, result.getToken())
                     .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
                     .header(PRESTO_BUFFER_COMPLETE, result.isBufferComplete())
+                    .header(PRESTO_WORKER_SHUTTING_DOWN, gracefulShutdownHandler.isShutdownRequested())
                     .build();
         }, directExecutor());
 
@@ -351,6 +371,7 @@ public class TaskResource
                                 .header(PRESTO_PAGE_TOKEN, token)
                                 .header(PRESTO_PAGE_NEXT_TOKEN, token)
                                 .header(PRESTO_BUFFER_COMPLETE, false)
+                                .header(PRESTO_WORKER_SHUTTING_DOWN, gracefulShutdownHandler.isShutdownRequested())
                                 .build());
 
         responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());

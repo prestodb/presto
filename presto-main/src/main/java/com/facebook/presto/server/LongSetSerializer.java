@@ -13,20 +13,21 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
-import com.google.inject.Binder;
-import com.google.inject.Scopes;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import it.unimi.dsi.fastutil.longs.LongSet;
 
-import static org.weakref.jmx.guice.ExportBinder.newExporter;
+import java.io.IOException;
 
-public class GracefulShutdownModule
-        extends AbstractConfigurationAwareModule
+public class LongSetSerializer
+        extends JsonSerializer<LongSet>
 {
     @Override
-    protected void setup(Binder binder)
+    public void serialize(LongSet longSet, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
+            throws IOException
     {
-        binder.bind(ShutdownAction.class).to(DefaultShutdownAction.class).in(Scopes.SINGLETON);
-        binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(GracefulShutdownHandler.class).withGeneratedName();
+        long[] longs = longSet.toLongArray();
+        jsonGenerator.writeArray(longs, 0, longs.length);
     }
 }

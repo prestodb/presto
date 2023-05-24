@@ -51,6 +51,7 @@ public class QueryManagerConfig
     private String partitioningProviderCatalog = GlobalSystemConnector.NAME;
     private ExchangeMaterializationStrategy exchangeMaterializationStrategy = ExchangeMaterializationStrategy.NONE;
     private boolean useStreamingExchangeForMarkDistinct;
+    private boolean enableRetryForFailedSplits = true;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
@@ -676,6 +677,18 @@ public class QueryManagerConfig
     public QueryManagerConfig setRateLimiterCacheWindowMinutes(int rateLimiterCacheWindowMinutes)
     {
         this.rateLimiterCacheWindowMinutes = rateLimiterCacheWindowMinutes;
+        return this;
+    }
+
+    public boolean isEnableRetryForFailedSplits()
+    {
+        return enableRetryForFailedSplits;
+    }
+
+    @Config("query-manager.enable-retry-of-failed-splits")
+    public QueryManagerConfig setEnableRetryForFailedSplits(boolean enableRetryForFailedSplits)
+    {
+        this.enableRetryForFailedSplits = enableRetryForFailedSplits;
         return this;
     }
 

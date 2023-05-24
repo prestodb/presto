@@ -24,6 +24,7 @@ import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.DriverStats;
+import com.facebook.presto.operator.HostShuttingDownException;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.operator.StageExecutionDescriptor;
@@ -264,7 +265,10 @@ public class SqlTaskExecution
                 outputBuffer::getUtilization,
                 getInitialSplitsPerNode(taskContext.getSession()),
                 getSplitConcurrencyAdjustmentInterval(taskContext.getSession()),
-                getMaxDriversPerTask(taskContext.getSession()));
+                getMaxDriversPerTask(taskContext.getSession()),
+                Optional.of(
+                        taskID -> taskStateMachine.failed(new HostShuttingDownException("killing pending tasks due to host being shutting down", System.nanoTime()))),
+                Optional.of(outputBuffer));
         taskStateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
                 taskExecutor.removeTask(taskHandle);
@@ -548,27 +552,31 @@ public class SqlTaskExecution
     private synchronized void enqueueDriverSplitRunner(boolean forceRunSplit, List<DriverSplitRunner> runners)
     {
         // schedule driver to be executed
-        List<ListenableFuture<?>> finishedFutures = taskExecutor.enqueueSplits(taskHandle, forceRunSplit, runners);
+        List<ListenableFuture<Long>> finishedFutures = taskExecutor.enqueueSplits(taskHandle, forceRunSplit, runners);
         checkState(finishedFutures.size() == runners.size(), "Expected %s futures but got %s", runners.size(), finishedFutures.size());
 
         // when driver completes, update state and fire events
         for (int i = 0; i < finishedFutures.size(); i++) {
-            ListenableFuture<?> finishedFuture = finishedFutures.get(i);
+            ListenableFuture<Long> finishedFuture = finishedFutures.get(i);
             final DriverSplitRunner splitRunner = runners.get(i);
 
             // record new driver
             status.incrementRemainingDriver(splitRunner.getLifespan());
 
-            Futures.addCallback(finishedFuture, new FutureCallback<Object>()
+            Futures.addCallback(finishedFuture, new FutureCallback<Long>()
             {
                 @Override
-                public void onSuccess(Object result)
+                public void onSuccess(Long result)
                 {
                     try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
                         // record driver is finished
                         status.decrementRemainingDriver(splitRunner.getLifespan());
 
                         checkTaskCompletion();
+
+                        if (result != null) {
+                            taskContext.addCompletedSplit(result);
+                        }
 
                         splitMonitor.splitCompletedEvent(taskId, getDriverStats());
                     }
@@ -1097,6 +1105,12 @@ public class SqlTaskExecution
             if (driver != null) {
                 driver.close();
             }
+        }
+
+        @Override
+        public ScheduledSplit getScheduledSplit()
+        {
+            return partitionedSplit;
         }
     }
 

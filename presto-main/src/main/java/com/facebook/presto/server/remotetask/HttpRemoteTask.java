@@ -74,6 +74,9 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -98,6 +101,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongConsumer;
 import java.util.stream.Stream;
 
 import static com.facebook.airlift.http.client.HttpStatus.NO_CONTENT;
@@ -170,6 +174,8 @@ public final class HttpRemoteTask
     @GuardedBy("this")
     private final SetMultimap<PlanNodeId, ScheduledSplit> pendingSplits = HashMultimap.create();
     @GuardedBy("this")
+    private final Map<PlanNodeId, Long2ObjectMap<ScheduledSplit>> unprocessedSplits = new HashMap<>();
+    @GuardedBy("this")
     private volatile int pendingSourceSplitCount;
     @GuardedBy("this")
     private volatile long pendingSourceSplitsWeight;
@@ -188,6 +194,7 @@ public final class HttpRemoteTask
     private OptionalLong whenSplitQueueHasSpaceThreshold = OptionalLong.empty();
 
     private final boolean summarizeTaskInfo;
+    private boolean isRetriedOnFailure;
 
     private final HttpClient httpClient;
     private final Executor executor;
@@ -301,7 +308,7 @@ public final class HttpRemoteTask
             this.taskInfoJsonCodec = taskInfoJsonCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
             this.planFragmentCodec = planFragmentCodec;
-            this.updateErrorTracker = taskRequestErrorTracker(taskId, location, maxErrorDuration, errorScheduledExecutor, "updating task");
+            this.updateErrorTracker = taskRequestErrorTracker(taskId, location, maxErrorDuration, errorScheduledExecutor, "updating task", planFragment.isLeaf());
             this.nodeStatsTracker = requireNonNull(nodeStatsTracker, "nodeStatsTracker is null");
             this.maxErrorDuration = maxErrorDuration;
             this.stats = stats;
@@ -325,6 +332,11 @@ public final class HttpRemoteTask
             for (Entry<PlanNodeId, Split> entry : requireNonNull(initialSplits, "initialSplits is null").entries()) {
                 ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getKey(), entry.getValue());
                 pendingSplits.put(entry.getKey(), scheduledSplit);
+                if (tableScanPlanNodeIds.contains(entry.getKey())) {
+                    unprocessedSplits
+                            .computeIfAbsent(entry.getKey(), (k) -> new Long2ObjectOpenHashMap<>())
+                            .put(scheduledSplit.getSequenceId(), scheduledSplit);
+                }
             }
             int pendingSourceSplitCount = 0;
             long pendingSourceSplitsWeight = 0;
@@ -358,7 +370,8 @@ public final class HttpRemoteTask
                     stats,
                     binaryTransportEnabled,
                     thriftTransportEnabled,
-                    thriftProtocol);
+                    thriftProtocol,
+                    planFragment.isLeaf());
 
             this.taskInfoFetcher = new TaskInfoFetcher(
                     this::failTask,
@@ -443,6 +456,12 @@ public final class HttpRemoteTask
     }
 
     @Override
+    public synchronized boolean isNoMoreSplits(PlanNodeId sourceId)
+    {
+        return noMoreSplits.containsKey(sourceId);
+    }
+
+    @Override
     public synchronized void addSplits(Multimap<PlanNodeId, Split> splitsBySource)
     {
         requireNonNull(splitsBySource, "splitsBySource is null");
@@ -462,8 +481,12 @@ public final class HttpRemoteTask
             int added = 0;
             long addedWeight = 0;
             for (Split split : splits) {
-                if (pendingSplits.put(sourceId, new ScheduledSplit(nextSplitId.getAndIncrement(), sourceId, split))) {
+                ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), sourceId, split);
+                if (pendingSplits.put(sourceId, scheduledSplit)) {
                     if (isTableScanSource) {
+                        unprocessedSplits
+                                .computeIfAbsent(entry.getKey(), (k) -> new Long2ObjectOpenHashMap<>())
+                                .put(scheduledSplit.getSequenceId(), scheduledSplit);
                         added++;
                         addedWeight = addExact(addedWeight, split.getSplitWeight().getRawValue());
                     }
@@ -535,7 +558,8 @@ public final class HttpRemoteTask
                 remoteSourceUri,
                 maxErrorDuration,
                 errorScheduledExecutor,
-                "Remove exchange remote source");
+                "Remove exchange remote source",
+                planFragment.isLeaf());
 
         SettableFuture<?> future = SettableFuture.create();
         doRemoveRemoteSource(errorTracker, request, future);
@@ -637,6 +661,32 @@ public final class HttpRemoteTask
         return pendingSourceSplitCount;
     }
 
+    public synchronized boolean isAllSplitsRun()
+    {
+        return unprocessedSplits.values().stream().allMatch(Map::isEmpty);
+    }
+
+    public synchronized void setIsRetried()
+    {
+        isRetriedOnFailure = true;
+    }
+
+    public synchronized boolean isRetried()
+    {
+        return isRetriedOnFailure;
+    }
+
+    public synchronized boolean isOnlyOneSplitLeft(PlanNodeId planNodeId)
+    {
+        return unprocessedSplits.keySet().size() == 1
+                && unprocessedSplits.keySet().iterator().next().equals(planNodeId);
+    }
+
+    public synchronized Collection<ScheduledSplit> getAllSplits(PlanNodeId planNodeId)
+    {
+        return unprocessedSplits.get(planNodeId).values();
+    }
+
     private long getQueuedPartitionedSplitsWeight()
     {
         TaskStatus taskStatus = getTaskStatus();
@@ -693,7 +743,7 @@ public final class HttpRemoteTask
         }
     }
 
-    private void updateTaskStats()
+    private synchronized void updateTaskStats()
     {
         TaskStatus taskStatus = getTaskStatus();
         if (taskStatus.getState().isDone()) {
@@ -706,6 +756,8 @@ public final class HttpRemoteTask
             nodeStatsTracker.setMemoryUsage(taskStatus.getMemoryReservationInBytes() + taskStatus.getSystemMemoryReservationInBytes());
             nodeStatsTracker.setCpuUsage(taskStatus.getTaskAgeInMillis(), taskStatus.getTotalCpuTimeInNanos());
         }
+        LongSet sequenceIds = taskStatus.getCompletedSplitSequenceIds();
+        unprocessedSplits.forEach((planNodeId, splits) -> sequenceIds.forEach((LongConsumer) splits::remove));
     }
 
     private synchronized void processTaskUpdate(TaskInfo newValue, List<TaskSource> sources)

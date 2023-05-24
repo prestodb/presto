@@ -28,7 +28,6 @@ import com.facebook.airlift.jaxrs.JaxrsModule;
 import com.facebook.airlift.jmx.testing.TestingJmxModule;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.json.smile.SmileModule;
-import com.facebook.airlift.node.testing.TestingNodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
 import com.facebook.drift.server.DriftServer;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
@@ -278,7 +277,7 @@ public class TestingPrestoServer
         Map<String, String> serverProperties = getServerProperties(resourceManagerEnabled, catalogServerEnabled, properties, environment, discoveryUri);
 
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
-                .add(new TestingNodeModule(Optional.ofNullable(environment)))
+                .add(new TestPrestoServerNodeModule(Optional.ofNullable(environment)))
                 .add(new TestingHttpServerModule(parseInt(coordinator ? coordinatorPort : "0")))
                 .add(new JsonModule())
                 .add(installModuleIf(

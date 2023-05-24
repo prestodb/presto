@@ -77,7 +77,7 @@ public class FeaturesConfig
     private boolean colocatedJoinsEnabled = true;
     private boolean groupedExecutionEnabled = true;
     private boolean recoverableGroupedExecutionEnabled;
-    private double maxFailedTaskPercentage = 0.3;
+    private double maxFailedTaskPercentage = 1.0;
     private int maxStageRetries;
     private int concurrentLifespansPerTask;
     private boolean spatialJoinsEnabled = true;

@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.HttpUriBuilder;
+import com.facebook.airlift.log.Logger;
 import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -80,9 +81,11 @@ import static java.util.Objects.requireNonNull;
 public class ExchangeClient
         implements Closeable
 {
+    private static final Logger log = Logger.get(ExchangeClient.class);
     private static final SerializedPage NO_MORE_PAGES = new SerializedPage(EMPTY_SLICE, PageCodecMarker.none(), 0, 0, 0);
     private static final ListenableFuture<?> NOT_BLOCKED = immediateFuture(null);
 
+    private DataSize sinkMaxBufferSize;
     private final long bufferCapacity;
     private final DataSize maxResponseSize;
     private final int concurrentRequestMultiplier;
@@ -102,6 +105,7 @@ public class ExchangeClient
 
     @GuardedBy("this")
     private final Deque<PageBufferClient> queuedClients = new LinkedList<>();
+    private final Deque<PageBufferClient> shuttingdownClients = new LinkedList<>();
 
     private final Set<PageBufferClient> completedClients = newConcurrentHashSet();
     private final Set<PageBufferClient> removedClients = newConcurrentHashSet();
@@ -128,6 +132,7 @@ public class ExchangeClient
     // ExchangeClientStatus.mergeWith assumes all clients have the same bufferCapacity.
     // Please change that method accordingly when this assumption becomes not true.
     public ExchangeClient(
+            DataSize sinkMaxBufferSize,
             DataSize bufferCapacity,
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
@@ -142,6 +147,7 @@ public class ExchangeClient
             Executor pageBufferClientCallbackExecutor)
     {
         checkArgument(responseSizeExponentialMovingAverageDecayingAlpha >= 0.0 && responseSizeExponentialMovingAverageDecayingAlpha <= 1.0, "responseSizeExponentialMovingAverageDecayingAlpha must be between 0 and 1: %s", responseSizeExponentialMovingAverageDecayingAlpha);
+        this.sinkMaxBufferSize = sinkMaxBufferSize;
         this.bufferCapacity = bufferCapacity.toBytes();
         this.maxResponseSize = maxResponseSize;
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
@@ -366,15 +372,25 @@ public class ExchangeClient
             notifyBlockedCallers();
             return;
         }
-
+        long averageResponseSize = max(1, responseSizeExponentialMovingAverage.get());
+        handleWorkerShuttingdown();
         long neededBytes = bufferCapacity - bufferRetainedSizeInBytes;
         if (neededBytes <= 0) {
             return;
         }
-        long averageResponseSize = max(1, responseSizeExponentialMovingAverage.get());
+        /**
+         * Multiplier determining the number of concurrent requests relative to available buffer memory.
+         * The maximum number of requests is determined using a heuristic of the number of clients that can
+         * fit into available buffer space, based on average buffer usage per request times this multiplier.
+         * For example, with an exchange.max-buffer-size of 32 MB and 20 MB already used and average size
+         * per request being 2MB, the maximum number of clients is multiplier * ((32MB - 20MB) / 2MB) = multiplier * 6.
+         * Tuning this value adjusts the heuristic, which may increase concurrency and improve network utilization.
+         */
+
+        //estimated number of clients that can concurrently process a request based on amount of data that needs to be transferred and avg response size
         int clientCount = (int) ((1.0 * neededBytes / averageResponseSize) * concurrentRequestMultiplier);
         clientCount = max(clientCount, 1);
-
+        //pendingClients = Number of clients that have not yet received a response and are waiting to do so.
         int pendingClients = allClients.size() - queuedClients.size() - completedClients.size();
         clientCount -= pendingClients;
 
@@ -390,7 +406,27 @@ public class ExchangeClient
             }
 
             DataSize max = new DataSize(min(averageResponseSize * 2, maxResponseSize.toBytes()), BYTE);
-            client.scheduleRequest(max);
+            client.scheduleRequest(max, false);
+            i++;
+        }
+    }
+
+    //FIXME this is a hack, we need to add some guard to make sure we don't end up consuming more memory, have some capacity limit for this
+    private void handleWorkerShuttingdown()
+    {
+        for (int i = 0; i < shuttingdownClients.size(); ) {
+            PageBufferClient client = shuttingdownClients.poll();
+            if (client == null) {
+                // no more clients available
+                return;
+            }
+
+            if (removedClients.contains(client)) {
+                continue;
+            }
+
+            log.warn("Handling shutting down node, client: %s", i);
+            client.scheduleRequest(sinkMaxBufferSize, true);
             i++;
         }
     }
@@ -470,7 +506,12 @@ public class ExchangeClient
     private synchronized void requestComplete(PageBufferClient client)
     {
         if (!queuedClients.contains(client)) {
-            queuedClients.add(client);
+            if (client.isNodeShuttingdown()) {
+                shuttingdownClients.add(client);
+            }
+            else {
+                queuedClients.add(client);
+            }
         }
         scheduleRequestIfNecessary();
     }
@@ -492,7 +533,7 @@ public class ExchangeClient
         // TODO: properly handle the failed vs closed state
         // it is important not to treat failures as a successful close
         if (!isClosed()) {
-            failure.compareAndSet(null, cause);
+            //failure.compareAndSet(null, cause);
             notifyBlockedCallers();
         }
     }
@@ -541,7 +582,8 @@ public class ExchangeClient
             requireNonNull(client, "client is null");
             requireNonNull(cause, "cause is null");
 
-            ExchangeClient.this.clientFailed(client, cause);
+            ExchangeClient.this.clientFinished(client);
+//            ExchangeClient.this.clientFailed(client, cause);
         }
     }
 

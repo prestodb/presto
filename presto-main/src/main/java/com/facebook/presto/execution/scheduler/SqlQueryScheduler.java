@@ -89,7 +89,6 @@ import static com.facebook.presto.SystemSessionProperties.getPartialResultsMaxEx
 import static com.facebook.presto.SystemSessionProperties.isPartialResultsEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRuntimeOptimizerEnabled;
 import static com.facebook.presto.execution.BasicStageExecutionStats.aggregateBasicStageStats;
-import static com.facebook.presto.execution.SqlStageExecution.RECOVERABLE_ERROR_CODES;
 import static com.facebook.presto.execution.StageExecutionInfo.unscheduledExecutionInfo;
 import static com.facebook.presto.execution.StageExecutionState.CANCELED;
 import static com.facebook.presto.execution.StageExecutionState.FAILED;
@@ -699,7 +698,7 @@ public class SqlQueryScheduler
                         return;
                     }
 
-                    if (!RECOVERABLE_ERROR_CODES.contains(failureInfo.getErrorCode())) {
+                    if (!stageExecution.getRecoverableErrorCodes().contains(failureInfo.getErrorCode())) {
                         queryStateMachine.transitionToFailed(failureException);
                         return;
                     }

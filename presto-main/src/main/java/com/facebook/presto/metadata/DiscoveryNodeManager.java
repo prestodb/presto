@@ -167,6 +167,8 @@ public final class DiscoveryNodeManager
             NodeVersion nodeVersion = getNodeVersion(service);
             OptionalInt raftPort = getRaftPort(service);
             if (uri != null && nodeVersion != null) {
+                Optional<String> poolType = getPoolType(service);
+                log.info("DiscoveryNodeManager:: service.id = %s, poolType= %s", service.getNodeId(), poolType.orElse(""));
                 InternalNode node = new InternalNode(
                         service.getNodeId(),
                         uri,
@@ -176,7 +178,8 @@ public final class DiscoveryNodeManager
                         isResourceManager(service),
                         isCatalogServer(service),
                         ALIVE,
-                        raftPort);
+                        raftPort,
+                        poolType);
 
                 if (node.getNodeIdentifier().equals(currentNodeId)) {
                     checkState(
@@ -191,6 +194,12 @@ public final class DiscoveryNodeManager
         throw new IllegalStateException("INVARIANT: current node not returned from service selector");
     }
 
+    private static Optional<String> getPoolType(ServiceDescriptor service)
+    {
+        //log.info("Discovery:pool_type = %s", service.getProperties().getOrDefault("pool_type", "not_available"));
+        return Optional.ofNullable(service.getProperties().get("pool_type"));
+    }
+
     @PostConstruct
     public void startPollingNodeStates()
     {
@@ -201,7 +210,7 @@ public final class DiscoveryNodeManager
             catch (Exception e) {
                 log.error(e, "Error polling state of nodes");
             }
-        }, 5, 5, TimeUnit.SECONDS);
+        }, 5, 1, TimeUnit.SECONDS);
         pollWorkers();
     }
 
@@ -288,7 +297,7 @@ public final class DiscoveryNodeManager
         if (isMemoizeDeadNodesEnabled && this.connectorIdsByNodeId != null) {
             connectorIdsByNodeId.putAll(this.connectorIdsByNodeId);
         }
-
+        Map<String, String> activePools = new HashMap<>();
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service, httpsRequired);
             OptionalInt thriftPort = getThriftServerPort(service);
@@ -300,7 +309,8 @@ public final class DiscoveryNodeManager
             boolean catalogServer = isCatalogServer(service);
             OptionalInt raftPort = getRaftPort(service);
             if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, coordinator, resourceManager, catalogServer, ALIVE, raftPort);
+                Optional<String> poolType = getPoolType(service);
+                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, coordinator, resourceManager, catalogServer, ALIVE, raftPort, poolType);
                 NodeState nodeState = getNodeState(node);
 
                 switch (nodeState) {
@@ -315,7 +325,9 @@ public final class DiscoveryNodeManager
                         if (catalogServer) {
                             catalogServersBuilder.add(node);
                         }
-
+                        if (poolType.isPresent()) {
+                            activePools.put(service.getNodeId(), poolType.get());
+                        }
                         nodes.put(node.getNodeIdentifier(), node);
 
                         // record available active nodes organized by connector id
@@ -337,6 +349,7 @@ public final class DiscoveryNodeManager
                         break;
                     case SHUTTING_DOWN:
                         shuttingDownNodesBuilder.add(node);
+                        //TODO Tell CTF to be more aggresive for shutting down nodes?
                         break;
                     default:
                         log.error("Unknown state %s for node %s", nodeState, node);
@@ -367,7 +380,7 @@ public final class DiscoveryNodeManager
                 InternalNode deadNode = nodes.get(nodeId);
                 Set<ConnectorId> deadNodeConnectorIds = connectorIdsByNodeId.get(nodeId);
                 for (ConnectorId id : deadNodeConnectorIds) {
-                    byConnectorIdBuilder.put(id, new InternalNode(deadNode.getNodeIdentifier(), deadNode.getInternalUri(), deadNode.getThriftPort(), deadNode.getNodeVersion(), deadNode.isCoordinator(), deadNode.isResourceManager(), deadNode.isCatalogServer(), DEAD, deadNode.getRaftPort()));
+                    byConnectorIdBuilder.put(id, new InternalNode(deadNode.getNodeIdentifier(), deadNode.getInternalUri(), deadNode.getThriftPort(), deadNode.getNodeVersion(), deadNode.isCoordinator(), deadNode.isResourceManager(), deadNode.isCatalogServer(), DEAD, deadNode.getRaftPort(), deadNode.getPoolType()));
                 }
             }
         }
