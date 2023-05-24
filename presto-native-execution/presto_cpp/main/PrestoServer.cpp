@@ -26,6 +26,7 @@
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/connectors/hive/storage_adapters/FileSystems.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
@@ -106,12 +107,6 @@ void enableChecksum() {
       });
 }
 
-#define PRESTO_STARTUP_LOG_PREFIX "[PRESTO_STARTUP] "
-#define PRESTO_STARTUP_LOG(severity) LOG(severity) << PRESTO_STARTUP_LOG_PREFIX
-
-#define PRESTO_SHUTDOWN_LOG_PREFIX "[PRESTO_SHUTDOWN] "
-#define PRESTO_SHUTDOWN_LOG(severity) \
-  LOG(severity) << PRESTO_SHUTDOWN_LOG_PREFIX
 } // namespace
 
 PrestoServer::PrestoServer(const std::string& configDirectoryPath)
@@ -135,6 +130,8 @@ void PrestoServer::run() {
   std::optional<int> httpsPort;
 
   try {
+    // Allow registering extra config properties before we load them from files.
+    registerExtraConfigProperties();
     systemConfig->initialize(
         fmt::format("{}/config.properties", configDirectoryPath_));
     nodeConfig->initialize(
