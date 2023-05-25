@@ -270,6 +270,8 @@ public final class SystemSessionProperties
     public static final String SIMPLIFY_PLAN_WITH_EMPTY_INPUT = "simplify_plan_with_empty_input";
     public static final String PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN = "push_down_filter_expression_evaluation_through_cross_join";
     public static final String REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN = "rewrite_cross_join_or_to_inner_join";
+    public static final String PUSHDOWN_SEMIJOIN_THROUGH_CROSS_JOIN = "pushdown_semijoin_through_cross_join";
+    public static final String PUSHDOWN_SEMIJOIN_THROUGH_UNNEST = "pushdown_semijoin_through_unnest";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1567,7 +1569,17 @@ public final class SystemSessionProperties
                         featuresConfig.getJoinsNotNullInferenceStrategy(),
                         false,
                         value -> JoinNotNullInferenceStrategy.valueOf(((String) value).toUpperCase()),
-                        JoinNotNullInferenceStrategy::name));
+                        JoinNotNullInferenceStrategy::name),
+                booleanProperty(
+                        PUSHDOWN_SEMIJOIN_THROUGH_CROSS_JOIN,
+                        "Rewrite cross join with or filter to inner join",
+                        true,
+                        false),
+                booleanProperty(
+                        PUSHDOWN_SEMIJOIN_THROUGH_UNNEST,
+                        "Rewrite cross join with or filter to inner join",
+                        true,
+                        false));
     }
 
     public static boolean isSpoolingOutputBufferEnabled(Session session)
@@ -2629,5 +2641,15 @@ public final class SystemSessionProperties
     public static boolean isRewriteCrossJoinOrToInnerJoinEnabled(Session session)
     {
         return session.getSystemProperty(REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN, Boolean.class);
+    }
+
+    public static boolean isPushDownSemiJoinThroughCrossJoinEnabled(Session session)
+    {
+        return session.getSystemProperty(PUSHDOWN_SEMIJOIN_THROUGH_CROSS_JOIN, Boolean.class);
+    }
+
+    public static boolean isPushDownSemiJoinThroughUnnestEnabled(Session session)
+    {
+        return session.getSystemProperty(PUSHDOWN_SEMIJOIN_THROUGH_UNNEST, Boolean.class);
     }
 }

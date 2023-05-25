@@ -76,6 +76,10 @@ import com.facebook.presto.sql.planner.iterative.rule.PullConstantsAboveGroupBy;
 import com.facebook.presto.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushDownDereferences;
 import com.facebook.presto.sql.planner.iterative.rule.PushDownFilterExpressionEvaluationThroughCrossJoin;
+import com.facebook.presto.sql.planner.iterative.rule.PushDownSemiJoinThroughCrossJoin;
+import com.facebook.presto.sql.planner.iterative.rule.PushDownSemiJoinThroughProjectCrossJoin;
+import com.facebook.presto.sql.planner.iterative.rule.PushDownSemiJoinThroughProjectUnnest;
+import com.facebook.presto.sql.planner.iterative.rule.PushDownSemiJoinThroughUnnest;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughOffset;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughOuterJoin;
@@ -439,6 +443,14 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RewriteAggregationIfToFilter(metadata.getFunctionAndTypeManager()))),
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new PushDownSemiJoinThroughUnnest(),
+                                new PushDownSemiJoinThroughProjectUnnest(metadata),
+                                new PushDownSemiJoinThroughCrossJoin(),
+                                new PushDownSemiJoinThroughProjectCrossJoin(metadata))),
                 predicatePushDown,
                 new IterativeOptimizer(
                         ruleStats,

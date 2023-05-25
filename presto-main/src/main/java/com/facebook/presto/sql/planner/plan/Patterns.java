@@ -208,6 +208,13 @@ public class Patterns
                 Optional.empty());
     }
 
+    public static Property<PlanNode, PlanNode> semiJoinSource()
+    {
+        return optionalProperty("source", node -> node.getSources().size() == 2 ?
+                Optional.of(node.getSources().get(0)) :
+                Optional.empty());
+    }
+
     public static Property<PlanNode, List<PlanNode>> sources()
     {
         return property("sources", PlanNode::getSources);
