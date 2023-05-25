@@ -36,7 +36,6 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -139,7 +138,7 @@ public class TestExchangeClient
 
         ExchangeClient exchangeClient = createExchangeClient(processor, bufferCapacity, maxResponseSize);
 
-        exchangeClient.addLocation(location, TaskId.valueOf("queryid.0.0.0.0"));
+        exchangeClient.addLocation(location, TaskId.valueOf("queryid.0.0.0"));
         exchangeClient.noMoreLocations();
 
         assertFalse(exchangeClient.isClosed());
@@ -149,7 +148,7 @@ public class TestExchangeClient
         assertFalse(exchangeClient.isClosed());
         assertPageEquals(getNextPage(exchangeClient), createPage(3));
         assertNull(getNextPage(exchangeClient));
-        assertTrue(exchangeClient.isClosed());
+        assertEquals(exchangeClient.isClosed(), true);
 
         ExchangeClientStatus status = exchangeClient.getStatus();
         assertEquals(status.getBufferedPages(), 0);
@@ -174,7 +173,7 @@ public class TestExchangeClient
         processor.addPage(location1, createPage(2));
         processor.addPage(location1, createPage(3));
         processor.setComplete(location1);
-        exchangeClient.addLocation(location1, TaskId.valueOf("foo.0.0.0.0"));
+        exchangeClient.addLocation(location1, TaskId.valueOf("foo.0.0.0"));
 
         assertFalse(exchangeClient.isClosed());
         assertPageEquals(getNextPage(exchangeClient), createPage(1));
@@ -191,7 +190,7 @@ public class TestExchangeClient
         processor.addPage(location2, createPage(5));
         processor.addPage(location2, createPage(6));
         processor.setComplete(location2);
-        exchangeClient.addLocation(location2, TaskId.valueOf("bar.0.0.0.0"));
+        exchangeClient.addLocation(location2, TaskId.valueOf("bar.0.0.0"));
 
         assertFalse(exchangeClient.isClosed());
         assertPageEquals(getNextPage(exchangeClient), createPage(4));
@@ -232,7 +231,7 @@ public class TestExchangeClient
 
         ExchangeClient exchangeClient = createExchangeClient(processor, bufferCapacity, maxResponseSize);
 
-        exchangeClient.addLocation(location, TaskId.valueOf("taskid.0.0.0.0"));
+        exchangeClient.addLocation(location, TaskId.valueOf("taskid.0.0.0"));
         exchangeClient.noMoreLocations();
         assertFalse(exchangeClient.isClosed());
 
@@ -286,7 +285,7 @@ public class TestExchangeClient
         assertNull(getNextPage(exchangeClient));
         assertEquals(exchangeClient.getStatus().getBufferedPages(), 0);
         assertTrue(exchangeClient.getStatus().getBufferedBytes() == 0);
-        assertTrue(exchangeClient.isClosed());
+        assertEquals(exchangeClient.isClosed(), true);
         assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "closed", 3, 5, 5, "not scheduled");
     }
 
@@ -305,7 +304,7 @@ public class TestExchangeClient
 
         ExchangeClient exchangeClient = createExchangeClient(processor, bufferCapacity, maxResponseSize);
 
-        exchangeClient.addLocation(location, TaskId.valueOf("taskid.0.0.0.0"));
+        exchangeClient.addLocation(location, TaskId.valueOf("taskid.0.0.0"));
         exchangeClient.noMoreLocations();
 
         // fetch a page
@@ -315,15 +314,14 @@ public class TestExchangeClient
         // close client while pages are still available
         exchangeClient.close();
         waitUntilEquals(exchangeClient::isFinished, true, new Duration(5, SECONDS));
-        assertTrue(exchangeClient.isClosed());
+        assertEquals(exchangeClient.isClosed(), true);
         assertNull(exchangeClient.pollPage());
         assertEquals(exchangeClient.getStatus().getBufferedPages(), 0);
         assertEquals(exchangeClient.getStatus().getBufferedBytes(), 0);
 
         // client should have sent only 2 requests: one to get all pages and once to get the done signal
-        Optional<PageBufferClientStatus> clientStatusOptional = exchangeClient.getStatus().getPageBufferClientStatuses().stream().filter(pageBufferClientStatus -> pageBufferClientStatus.getUri().equals(location)).findFirst();
-        assertTrue(clientStatusOptional.isPresent());
-        assertStatus(clientStatusOptional.get(), "closed", "not scheduled");
+        PageBufferClientStatus clientStatus = exchangeClient.getStatus().getPageBufferClientStatuses().get(0);
+        assertStatus(clientStatus, location, "closed", "not scheduled");
     }
 
     @Test
@@ -363,7 +361,7 @@ public class TestExchangeClient
 
         try (ExchangeClient exchangeClient = createExchangeClient(processor, bufferCapacity, maxResponseSize)) {
             for (int i = 0; i < numLocations; i++) {
-                exchangeClient.addLocation(locations.get(i), TaskId.valueOf("taskid.0.0." + i + ".0"));
+                exchangeClient.addLocation(locations.get(i), TaskId.valueOf("taskid.0.0." + i));
             }
             exchangeClient.noMoreLocations();
             assertFalse(exchangeClient.isClosed());
@@ -419,10 +417,10 @@ public class TestExchangeClient
         DataSize maxResponseSize = new DataSize(1, BYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
-        URI location1 = URI.create("http://localhost:8081/foo.0.0.0.0");
-        TaskId taskId1 = TaskId.valueOf("foo.0.0.0.0");
-        URI location2 = URI.create("http://localhost:8082/bar.0.0.0.0");
-        TaskId taskId2 = TaskId.valueOf("bar.0.0.0.0");
+        URI location1 = URI.create("http://localhost:8081/foo.0.0.0");
+        TaskId taskId1 = TaskId.valueOf("foo.0.0.0");
+        URI location2 = URI.create("http://localhost:8082/bar.0.0.0");
+        TaskId taskId2 = TaskId.valueOf("bar.0.0.0");
 
         processor.addPage(location1, createPage(1));
         processor.addPage(location1, createPage(2));
@@ -433,7 +431,7 @@ public class TestExchangeClient
         exchangeClient.addLocation(location1, taskId1);
         exchangeClient.addLocation(location2, taskId2);
 
-        assertFalse(exchangeClient.isClosed());
+        assertEquals(exchangeClient.isClosed(), false);
 
         // Wait until exactly one page is buffered:
         //  * We cannot call ExchangeClient#pollPage() directly, since it will schedule the next request to buffer data,
@@ -458,15 +456,15 @@ public class TestExchangeClient
         processor.addPage(location2, createPage(6));
         processor.setComplete(location2);
 
-        assertFalse(exchangeClient.isClosed());
+        assertEquals(exchangeClient.isClosed(), false);
         assertPageEquals(getNextPage(exchangeClient), createPage(4));
-        assertFalse(exchangeClient.isClosed());
+        assertEquals(exchangeClient.isClosed(), false);
         assertPageEquals(getNextPage(exchangeClient), createPage(5));
-        assertFalse(exchangeClient.isClosed());
+        assertEquals(exchangeClient.isClosed(), false);
         assertPageEquals(getNextPage(exchangeClient), createPage(6));
 
         assertFalse(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent());
-        assertFalse(exchangeClient.isClosed());
+        assertEquals(exchangeClient.isClosed(), false);
 
         exchangeClient.noMoreLocations();
         // The transition to closed may happen asynchronously, since it requires that all the HTTP clients
@@ -475,18 +473,11 @@ public class TestExchangeClient
             Thread.sleep(1);
         }
 
-        ExchangeClientStatus exchangeClientStatus = exchangeClient.getStatus();
-        Optional<PageBufferClientStatus> clientStatusOptional1 = exchangeClientStatus.getPageBufferClientStatuses()
-                .stream()
-                .filter(pageBufferClientStatus -> pageBufferClientStatus.getUri().equals(location1)).findFirst();
-        assertTrue(clientStatusOptional1.isPresent());
-        assertStatus(clientStatusOptional1.get(), "closed", "not scheduled");
+        PageBufferClientStatus clientStatus1 = exchangeClient.getStatus().getPageBufferClientStatuses().get(0);
+        assertStatus(clientStatus1, location1, "closed", "not scheduled");
 
-        Optional<PageBufferClientStatus> clientStatusOptional2 = exchangeClientStatus.getPageBufferClientStatuses()
-                .stream()
-                .filter(pageBufferClientStatus -> pageBufferClientStatus.getUri().equals(location2)).findFirst();
-        assertTrue(clientStatusOptional2.isPresent());
-        assertStatus(clientStatusOptional2.get(), "closed", "not scheduled");
+        PageBufferClientStatus clientStatus2 = exchangeClient.getStatus().getPageBufferClientStatuses().get(1);
+        assertStatus(clientStatus2, location2, "closed", "not scheduled");
     }
 
     private static Page createPage(int size)
@@ -509,9 +500,11 @@ public class TestExchangeClient
 
     private static void assertStatus(
             PageBufferClientStatus clientStatus,
+            URI location,
             String status,
             String httpRequestState)
     {
+        assertEquals(clientStatus.getUri(), location);
         assertEquals(clientStatus.getState(), status, "status");
         assertEquals(clientStatus.getHttpRequestState(), httpRequestState, "httpRequestState");
     }

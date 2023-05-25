@@ -61,7 +61,7 @@ public class TestTaskExecutor
         ticker.increment(20, MILLISECONDS);
 
         try {
-            TaskId taskId = new TaskId("test", 0, 0, 0, 0);
+            TaskId taskId = new TaskId("test", 0, 0, 0);
             TaskHandle taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
 
             Phaser beginPhase = new Phaser();
@@ -155,8 +155,8 @@ public class TestTaskExecutor
         ticker.increment(20, MILLISECONDS);
 
         try {
-            TaskHandle shortQuantaTaskHandle = taskExecutor.addTask(new TaskId("short_quanta", 0, 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
-            TaskHandle longQuantaTaskHandle = taskExecutor.addTask(new TaskId("long_quanta", 0, 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskHandle shortQuantaTaskHandle = taskExecutor.addTask(new TaskId("short_quanta", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskHandle longQuantaTaskHandle = taskExecutor.addTask(new TaskId("long_quanta", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
 
             Phaser globalPhaser = new Phaser();
 
@@ -189,7 +189,7 @@ public class TestTaskExecutor
         ticker.increment(20, MILLISECONDS);
 
         try {
-            TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId("test", 0, 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId("test", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
 
             Phaser globalPhaser = new Phaser();
             globalPhaser.bulkRegister(3);
@@ -230,9 +230,9 @@ public class TestTaskExecutor
         try {
             for (int i = 0; i < (LEVEL_THRESHOLD_SECONDS.length - 1); i++) {
                 TaskHandle[] taskHandles = {
-                        taskExecutor.addTask(new TaskId("test1", 0, 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty()),
-                        taskExecutor.addTask(new TaskId("test2", 0, 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty()),
-                        taskExecutor.addTask(new TaskId("test3", 0, 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty())
+                        taskExecutor.addTask(new TaskId("test1", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty()),
+                        taskExecutor.addTask(new TaskId("test2", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty()),
+                        taskExecutor.addTask(new TaskId("test3", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty())
                 };
 
                 // move task 0 to next level
@@ -311,7 +311,7 @@ public class TestTaskExecutor
         taskExecutor.start();
 
         try {
-            TaskId taskId = new TaskId("test", 0, 0, 0, 0);
+            TaskId taskId = new TaskId("test", 0, 0, 0);
             TaskHandle taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
 
             Phaser beginPhase = new Phaser();
@@ -343,8 +343,8 @@ public class TestTaskExecutor
     public void testLevelContributionCap()
     {
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
-        TaskHandle handle0 = new TaskHandle(new TaskId("test0", 0, 0, 0, 0), new TaskPriorityTracker(splitQueue), () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
-        TaskHandle handle1 = new TaskHandle(new TaskId("test1", 0, 0, 0, 0), new TaskPriorityTracker(splitQueue), () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
+        TaskHandle handle0 = new TaskHandle(new TaskId("test0", 0, 0, 0), new TaskPriorityTracker(splitQueue), () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
+        TaskHandle handle1 = new TaskHandle(new TaskId("test1", 0, 0, 0), new TaskPriorityTracker(splitQueue), () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
 
         for (int i = 0; i < (LEVEL_THRESHOLD_SECONDS.length - 1); i++) {
             long levelAdvanceTime = SECONDS.toNanos(LEVEL_THRESHOLD_SECONDS[i + 1] - LEVEL_THRESHOLD_SECONDS[i]);
@@ -363,7 +363,7 @@ public class TestTaskExecutor
     public void testUpdateLevelWithCap()
     {
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
-        TaskHandle handle0 = new TaskHandle(new TaskId("test0", 0, 0, 0, 0), new TaskPriorityTracker(splitQueue), () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
+        TaskHandle handle0 = new TaskHandle(new TaskId("test0", 0, 0, 0), new TaskPriorityTracker(splitQueue), () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
 
         long quantaNanos = MINUTES.toNanos(10);
         handle0.addScheduledNanos(quantaNanos);
@@ -385,7 +385,7 @@ public class TestTaskExecutor
         TaskExecutor taskExecutor = new TaskExecutor(4, 16, 1, maxDriversPerTask, QUERY_FAIR, splitQueue, ticker);
         taskExecutor.start();
         try {
-            TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId("test", 0, 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId("test", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
 
             // enqueue all batches of splits
             int batchCount = 4;
@@ -426,7 +426,7 @@ public class TestTaskExecutor
         taskExecutor.start();
         try {
             // overwrite the max drivers per task to be 1
-            TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId("test", 0, 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.of(1));
+            TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId("test", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.of(1));
 
             // enqueue all batches of splits
             int batchCount = 4;
@@ -475,7 +475,7 @@ public class TestTaskExecutor
         taskExecutor.start();
 
         try {
-            TaskId taskId = new TaskId("foo", 0, 0, 0, 0);
+            TaskId taskId = new TaskId("foo", 0, 0, 0);
             TaskHandle taskHandle = taskExecutor.addTask(
                     taskId, () -> 1.0,
                     1,

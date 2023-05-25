@@ -64,9 +64,9 @@ public class TestExchangeOperator
     private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
     private static final PagesSerdeFactory SERDE_FACTORY = new TestingPagesSerdeFactory();
 
-    private static final String TASK_1_ID = "task1.0.0.0.0";
-    private static final String TASK_2_ID = "task2.0.0.0.0";
-    private static final String TASK_3_ID = "task3.0.0.0.0";
+    private static final String TASK_1_ID = "task1.0.0.0";
+    private static final String TASK_2_ID = "task2.0.0.0";
+    private static final String TASK_3_ID = "task3.0.0.0";
 
     private final LoadingCache<String, TestingTaskBuffer> taskBuffers = CacheBuilder.newBuilder().build(CacheLoader.from(TestingTaskBuffer::new));
 

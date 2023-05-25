@@ -33,11 +33,7 @@ class PrestoTaskId {
     stageExecutionId_ = parseInt(taskId, start, pos);
 
     start = pos + 1;
-    pos = nextDot(taskId, start);
-    id_ = parseInt(taskId, start, pos);
-
-    start = pos + 1;
-    attemptNumber_ = parseInt(taskId, start, taskId.length());
+    id_ = parseInt(taskId, start, taskId.length());
   }
 
   const std::string& queryId() const {
@@ -54,10 +50,6 @@ class PrestoTaskId {
 
   int32_t id() const {
     return id_;
-  }
-
-  int32_t attemptNumber() const {
-    return attemptNumber_;
   }
 
  private:
@@ -77,6 +69,5 @@ class PrestoTaskId {
   int32_t stageId_;
   int32_t stageExecutionId_;
   int32_t id_;
-  int32_t attemptNumber_;
 };
 } // namespace facebook::presto

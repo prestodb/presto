@@ -33,25 +33,23 @@ public class TaskId
 {
     private final StageExecutionId stageExecutionId;
     private final int id;
-    private final int attemptNumber;
 
     @JsonCreator
     public static TaskId valueOf(String taskId)
     {
-        List<String> parts = parseDottedId(taskId, 5, "taskId");
-        return new TaskId(parts.get(0), parseInt(parts.get(1)), parseInt(parts.get(2)), parseInt(parts.get(3)), parseInt(parts.get(4)));
+        List<String> parts = parseDottedId(taskId, 4, "taskId");
+        return new TaskId(parts.get(0), parseInt(parts.get(1)), parseInt(parts.get(2)), parseInt(parts.get(3)));
     }
 
-    public TaskId(String queryId, int stageId, int stageExecutionId, int id, int attemptNumber)
+    public TaskId(String queryId, int stageId, int stageExecutionId, int id)
     {
-        this(new StageExecutionId(new StageId(new QueryId(queryId), stageId), stageExecutionId), id, attemptNumber);
+        this(new StageExecutionId(new StageId(new QueryId(queryId), stageId), stageExecutionId), id);
     }
 
     @ThriftConstructor
-    public TaskId(StageExecutionId stageExecutionId, int id, int attemptNumber)
+    public TaskId(StageExecutionId stageExecutionId, int id)
     {
         this.stageExecutionId = requireNonNull(stageExecutionId, "stageExecutionId");
-        this.attemptNumber = attemptNumber;
         checkArgument(id >= 0, "id is negative");
         this.id = id;
     }
@@ -68,12 +66,6 @@ public class TaskId
         return id;
     }
 
-    @ThriftField(3)
-    public int getAttemptNumber()
-    {
-        return attemptNumber;
-    }
-
     public QueryId getQueryId()
     {
         return stageExecutionId.getStageId().getQueryId();
@@ -83,7 +75,7 @@ public class TaskId
     @JsonValue
     public String toString()
     {
-        return stageExecutionId + "." + id + "." + attemptNumber;
+        return stageExecutionId + "." + id;
     }
 
     @Override
@@ -96,14 +88,13 @@ public class TaskId
             return false;
         }
         TaskId taskId = (TaskId) o;
-        return attemptNumber == taskId.attemptNumber &&
-                id == taskId.id &&
+        return id == taskId.id &&
                 Objects.equals(stageExecutionId, taskId.stageExecutionId);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(stageExecutionId, id, attemptNumber);
+        return Objects.hash(stageExecutionId, id);
     }
 }

@@ -277,7 +277,7 @@ public class TestTableFinishOperator
         return TABLE_COMMIT_CONTEXT_CODEC.toJsonBytes(
                 new TableCommitContext(
                         lifespan,
-                        new TaskId("query", stageId, 0, taskId, 0),
+                        new TaskId("query", stageId, 0, taskId),
                         pageSinkCommitStrategy,
                         lastPage));
     }

@@ -287,7 +287,7 @@ public abstract class AbstractOperatorBenchmark
                 spillSpaceTracker,
                 listJsonCodec(TaskMemoryReservationSummary.class))
                 .addTaskContext(
-                        new TaskStateMachine(new TaskId("query", 0, 0, 0, 0), localQueryRunner.getExecutor()),
+                        new TaskStateMachine(new TaskId("query", 0, 0, 0), localQueryRunner.getExecutor()),
                         session,
                         Optional.empty(),
                         false,

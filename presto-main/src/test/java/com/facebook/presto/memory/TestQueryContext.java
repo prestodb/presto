@@ -178,7 +178,7 @@ public class TestQueryContext
         MemoryPool reservedPool = new MemoryPool(RESERVED_POOL, new DataSize(10_000, BYTE));
         QueryId queryId = new QueryId("query");
         QueryContext queryContext = createQueryContext(queryId, generalPool);
-        TaskStateMachine taskStateMachine = new TaskStateMachine(TaskId.valueOf("queryid.0.0.0.0"), TEST_EXECUTOR);
+        TaskStateMachine taskStateMachine = new TaskStateMachine(TaskId.valueOf("queryid.0.0.0"), TEST_EXECUTOR);
         TaskContext taskContext = queryContext.addTaskContext(
                 taskStateMachine,
                 TEST_SESSION,

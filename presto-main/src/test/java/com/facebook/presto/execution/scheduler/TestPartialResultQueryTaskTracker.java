@@ -80,8 +80,8 @@ public class TestPartialResultQueryTaskTracker
                 false,
                 false,
                 false);
-        TaskId taskId1 = new TaskId("test1", 1, 0, 1, 0);
-        TaskId taskId2 = new TaskId("test2", 2, 0, 1, 0);
+        TaskId taskId1 = new TaskId("test1", 1, 0, 1);
+        TaskId taskId2 = new TaskId("test2", 2, 0, 1);
         RemoteTask task1 = taskFactory.createTableScanTask(taskId1, node1, ImmutableList.of(), new NodeTaskMap.NodeStatsTracker(delta -> {}, delta -> {}, (age, delta) -> {}));
         RemoteTask task2 = taskFactory.createTableScanTask(taskId2, node2, ImmutableList.of(), new NodeTaskMap.NodeStatsTracker(delta -> {}, delta -> {}, (age, delta) -> {}));
 

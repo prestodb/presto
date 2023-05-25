@@ -62,9 +62,9 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestMergeOperator
 {
-    private static final String TASK_1_ID = "task1.0.0.0.0";
-    private static final String TASK_2_ID = "task2.0.0.0.0";
-    private static final String TASK_3_ID = "task3.0.0.0.0";
+    private static final String TASK_1_ID = "task1.0.0.0";
+    private static final String TASK_2_ID = "task2.0.0.0";
+    private static final String TASK_3_ID = "task3.0.0.0";
 
     private AtomicInteger operatorId = new AtomicInteger();
 
