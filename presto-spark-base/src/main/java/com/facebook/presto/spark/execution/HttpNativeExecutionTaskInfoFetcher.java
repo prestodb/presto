@@ -14,8 +14,10 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.server.RequestErrorTracker;
+import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.facebook.presto.spi.PrestoException;
@@ -27,6 +29,7 @@ import io.airlift.units.Duration;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -36,6 +39,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_TASK_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -132,6 +136,52 @@ public class HttpNativeExecutionTaskInfoFetcher
                 throw t;
             }
         }, 0, (long) infoFetchInterval.getValue(), infoFetchInterval.getUnit());
+    }
+
+    public CompletableFuture<TaskInfo> newStart()
+    {
+        CompletableFuture<TaskInfo> taskCompletionFuture = new CompletableFuture<>();
+        scheduledFuture = updateScheduledExecutor.scheduleWithFixedDelay(() ->
+        {
+            try {
+                ListenableFuture<BaseResponse<TaskInfo>> future = workerClient.getTaskInfo();
+
+                BaseResponse<TaskInfo> result = future.get();
+
+                taskInfo.set(result.getValue());
+
+                if (!taskInfo.get().getTaskStatus().getState().isDone()) {
+                    log.info("Task %s not done yet. taskState=%s", taskInfo.get().getTaskId(), taskInfo.get().getTaskStatus().getState());
+                    return;
+                }
+
+                if (taskInfo.get().getTaskStatus().getState() != TaskState.FINISHED) {
+                    // task failed with errors
+                    RuntimeException failure = taskInfo.get().getTaskStatus().getFailures().stream()
+                                   .findFirst()
+                                   .map(ExecutionFailureInfo::toException)
+                                   .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "Native task failed for an unknown reason"));
+                    taskCompletionFuture.completeExceptionally(failure);
+                    return;
+                }
+
+                taskCompletionFuture.complete(taskInfo.get());
+            }
+            catch (InterruptedException | ExecutionException ex) {
+                // We don't complete future here because
+                // we want to assume that task might still be running
+                // and that we will get a successfull response on
+                // next call.
+                // If the task has really aborted/died, the error tracker will
+                // catch that and propagate
+                log.error("Error getting task Info..", ex);
+            }
+            catch (Throwable t) {
+                throw t;
+            }
+        }, 0, (long) infoFetchInterval.getValue(), infoFetchInterval.getUnit());
+
+        return taskCompletionFuture;
     }
 
     public void stop()

@@ -34,6 +34,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -165,6 +166,43 @@ public class NativeExecutionTask
         }
 
         return taskInfo;
+    }
+
+    public CompletableFuture<TaskInfo> newStart()
+    {
+        TaskInfo taskInfo = sendUpdateRequest();
+        CompletableFuture<TaskInfo> taskFinishedFuture = new CompletableFuture<>();
+
+        if (taskInfo.getTaskStatus().getState().isDone()) {
+            CompletableFuture.completedFuture(taskInfo);
+        }
+        log.info("[%s] Starting created task and it is not yet complete.. caller can wait. taskInfo=%s", taskInfo.getTaskId(), taskInfo);
+
+        // this keep polling for taskInfo
+        taskInfoFetcher.newStart().handle((TaskInfo taskInfoFinal, Throwable throwable) ->
+        {
+            if (throwable != null) {
+                log.error("[%s] Task completed Unsuccessfully", taskInfoFinal, throwable);
+                workerClient.abortResults();
+            }
+            else {
+                log.info("[%s] Task completed Successfully", taskInfoFinal);
+                taskFinishedFuture.complete(taskInfoFinal);
+            }
+            log.info("[%s] Stopping taskInfoFetcher as task is completed", taskInfoFinal);
+            taskInfoFetcher.stop();
+            taskResultFetcher.ifPresent(HttpNativeExecutionTaskResultFetcher::stop);
+
+            return null;
+        });
+
+        // this keep polling for results and collects them
+        // into an internal buffer
+        // Only once the results are collected will the task
+        // state change to FINISHED.
+        taskResultFetcher.ifPresent(HttpNativeExecutionTaskResultFetcher::start);
+
+        return taskFinishedFuture;
     }
 
     /**

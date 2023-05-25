@@ -129,6 +129,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -486,8 +487,15 @@ public class PrestoSparkTaskExecutorFactory
                     ImmutableList.copyOf(taskSources),
                     taskDescriptor.getTableWriteInfo(),
                     shuffleWriteInfo.map(shuffleInfoTranslator::createSerializedWriteInfo));
-            TaskInfo nativeTaskInfo = task.start();
+            CompletableFuture<TaskInfo> taskInfoCompletableFuture = task.newStart();
             log.info("Got TaskInfo. Created task successfully.. ");
+            try {
+                taskInfoCompletableFuture.get();
+            }
+            catch (Exception ex) {
+                log.error("Error executing native task", ex);
+            }
+
             // 5. return dummy output to spark RDD layer
             return new PrestoSparkNativeTaskExecutor<>(task, taskInfoCollector, shuffleStatsCollector, taskInfoCodec);
         }
