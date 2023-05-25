@@ -283,6 +283,13 @@ Spilling Properties
     this property defines the threshold at which to trigger spilling for a task.  This property
     is ignored for any other spilling strategy.
 
+``experimental.max-revocable-memory-per-node``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    * **Type:** ``data size``
+    * **Default value:** ``16GB``
+
+    This property defines the amount of revocable memory a query can use on each node
+
 ``experimental.spiller-spill-path``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -338,6 +345,7 @@ Spilling Properties
     * **Default value:** ``4 MB``
 
     Limit for memory used for unspilling a single aggregation operator instance.
+    This config property can be overridden by the ``aggregation_operator_unspill_memory_limit`` session property
 
 ``experimental.spill-compression-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -356,6 +364,30 @@ Spilling Properties
     Enables using a randomly generated secret key (per spill file) to encrypt and decrypt
     data spilled to disk
 
+``experimental.spiller.single-stream-spiller-choice``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``String``
+    * **Default value:** ``LOCAL_FILE``
+
+    The Single Stream Spiller to be used when spilling is enabled. There are two options
+    LOCAL_FILE (default) and TEMP_STORAGE.
+
+``experimental.spiller.spiller-temp-storage``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``String``
+    * **Default value:** ``local``
+
+    Temp storage used by spiller when ``experimental.spiller.single-stream-spiller-choice`` is set to TEMP_STORAGE
+
+``experimental.temp-storage-buffer-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``Data Size``
+    * **Default value:** ``4KB``
+
+    Size of buffer when ``experimental.spiller.single-stream-spiller-choice`` is set to TEMP_STORAGE
 
 Exchange Properties
 -------------------
