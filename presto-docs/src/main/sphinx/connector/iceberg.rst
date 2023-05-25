@@ -282,6 +282,79 @@ original state.
      comment   | varchar |       |
     (4 rows)
 
+Extra Hidden Metadata Tables
+----------------------------
+
+The Iceberg connector exposes extra hidden metadata tables. You can query these
+as a part of SQL query by appending name with the table.
+
+* ``$properties`` : General properties of the given table
+.. code-block:: sql
+
+    SELECT * FROM "ctas_nation$properties";
+
+.. code-block:: text
+
+             key           |  value
+     ----------------------+---------
+      write.format.default | PARQUET
+
+* ``$history`` : History of table state changes
+.. code-block:: sql
+
+    SELECT * FROM "ctas_nation$history";
+
+.. code-block:: text
+
+               made_current_at            |     snapshot_id     | parent_id | is_current_ancestor
+    --------------------------------------+---------------------+-----------+---------------------
+    2022-11-25 20:56:31.784 Asia/Kolkata  | 7606232158543069775 | NULL      | true
+
+* ``$snapshots`` : Details about the table snapshots, see the details `here <https://iceberg.apache.org/spec/#snapshots>`_.
+.. code-block:: sql
+
+    SELECT * FROM "ctas_nation$snapshots";
+
+.. code-block:: text
+
+                 committed_at             |     snapshot_id     | parent_id | operation |                                                  manifest_list                                           |                                                                                 summary
+    --------------------------------------+---------------------+-----------+-----------+----------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    2022-11-25 20:56:31.784 Asia/Kolkata  | 7606232158543069775 | NULL      | append    | s3://my-bucket/ctas_nation/metadata/snap-7606232158543069775-1-395a2cad-b244-409b-b030-cc44949e5a4e.avro | {changed-partition-count=1, added-data-files=1, total-equality-deletes=0, added-records=25, total-position-deletes=0, added-files-size=1648, total-delete-files=0, total-files-size=1648, total-records=25, total-data-files=1}
+
+* ``$manifests`` : Details about the manifests of different table snapshots, see the details `here <https://iceberg.apache.org/spec/#manifests>`_.
+.. code-block:: sql
+
+    SELECT * FROM "ctas_nation$manifests";
+
+.. code-block:: text
+
+                                               path                                  | length | partition_spec_id |  added_snapshot_id  | added_data_files_count | existing_data_files_count | deleted_data_files_count | partitions
+    ---------------------------------------------------------------------------------+--------+-------------------+---------------------+------------------------+---------------------------+--------------------------+-----------
+    s3://my-bucket/ctas_nation/metadata/395a2cad-b244-409b-b030-cc44949e5a4e-m0.avro |   5957 |                 0 | 7606232158543069775 |                      1 |                         0 |                    0     |    []
+
+
+* ``$partitions`` : Detailed partition information of the table
+.. code-block:: sql
+
+    SELECT * FROM "ctas_nation$partitions";
+
+.. code-block:: text
+
+     row_count | file_count | total_size |           nationkey           |                   name                   |          regionkey           |                          comment
+    -----------+------------+------------+-------------------------------+------------------------------------------+------------------------------+------------------------------------------------------------
+        25     |          1 |       1648 | {min=0, max=24, null_count=0} | {min=ALGERIA, max=VIETNAM, null_count=0} | {min=0, max=4, null_count=0} | {min= haggle. careful, max=y final packaget, null_count=0}
+
+
+* ``$files`` : Overview of data files in current snapshot of the table
+.. code-block:: sql
+
+    SELECT * FROM "ctas_nation$files";
+
+.. code-block:: text
+
+     content |                                      file_path                               | file_format | record_count | file_size_in_bytes |        column_sizes         |       value_counts       |  null_value_counts   | nan_value_counts |          lower_bounds                     |             upper_bounds                   | key_metadata | split_offsets | equality_ids
+    ---------+------------------------------------------------------------------------------+-------------+--------------+--------------------+-----------------------------+--------------------------+----------------------+------------------+-------------------------------------------+--------------------------------------------+--------------+---------------+-------------
+       0     | s3://my-bucket/ctas_nation/data/9f889274-6f74-4d28-8164-275eef99f660.parquet | PARQUET     |           25 |               1648 | {1=52, 2=222, 3=105, 4=757} | {1=25, 2=25, 3=25, 4=25} | {1=0, 2=0, 3=0, 4=0} |  NULL            | {1=0, 2=ALGERIA, 3=0, 4= haggle. careful} | {1=24, 2=VIETNAM, 3=4, 4=y final packaget} | NULL         | NULL          | NULL
 
 Time Travel
 ------------------------
