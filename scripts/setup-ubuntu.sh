@@ -39,6 +39,8 @@ sudo --preserve-env apt update && sudo --preserve-env apt install -y libunwind-d
   ninja-build \
   checkinstall \
   git \
+  libc-ares-dev \
+  libcurl4-openssl-dev \
   libssl-dev \
   libboost-all-dev \
   libicu-dev \

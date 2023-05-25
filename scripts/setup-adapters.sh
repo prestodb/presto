@@ -31,6 +31,36 @@ function install_aws-sdk-cpp {
   cmake_install -DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS:BOOL=OFF -DMINIMIZE_SIZE:BOOL=ON -DENABLE_TESTING:BOOL=OFF -DBUILD_ONLY:STRING="s3;identity-management" -DCMAKE_INSTALL_PREFIX="${DEPENDENCY_DIR}/install"
 }
 
+function install_gcs-sdk-cpp {
+  # Install gcs dependencies
+  # https://github.com/googleapis/google-cloud-cpp/blob/main/doc/packaging.md#required-libraries
+
+  # abseil-cpp
+  github_checkout abseil/abseil-cpp 20230125.3 --depth 1
+  sed -i 's/^#define ABSL_OPTION_USE_\(.*\) 2/#define ABSL_OPTION_USE_\1 0/' "absl/base/options.h"
+  cmake_install -DBUILD_SHARED_LIBS=OFF \
+    -DABSL_BUILD_TESTING=OFF
+
+  # crc32
+  github_checkout google/crc32c 1.1.2 --depth 1
+  cmake_install -DBUILD_SHARED_LIBS=OFF \
+    -DCRC32C_BUILD_TESTS=OFF \
+    -DCRC32C_BUILD_BENCHMARKS=OFF \
+    -DCRC32C_USE_GLOG=OFF
+
+  # nlohmann json
+  github_checkout nlohmann/json v3.11.2 --depth 1
+  cmake_install -DBUILD_SHARED_LIBS=OFF \
+    -DJSON_BuildTests=OFF
+
+  # google-cloud-cpp
+  github_checkout googleapis/google-cloud-cpp v2.10.1 --depth 1
+  cmake_install -DBUILD_SHARED_LIBS=OFF \
+    -DCMAKE_INSTALL_MESSAGE=NEVER \
+    -DGOOGLE_CLOUD_CPP_ENABLE_EXAMPLES=OFF \
+    -DGOOGLE_CLOUD_CPP_ENABLE=storage
+}
+
 function install_libhdfs3 {
   github_checkout apache/hawq master
   cd $DEPENDENCY_DIR/hawq/depends/libhdfs3
@@ -55,17 +85,61 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
    # information and is available everywhere
    LINUX_DISTRIBUTION=$(. /etc/os-release && echo ${ID})
    if [[ "$LINUX_DISTRIBUTION" == "ubuntu" ]]; then
-      apt install -y --no-install-recommends libxml2-dev libgsasl-dev uuid-dev
+      apt install -y --no-install-recommends libxml2-dev libgsasl7-dev uuid-dev
+      # Dependencies of GCS, probably a workaround until the docker image is rebuilt
+      apt install -y --no-install-recommends libc-ares-dev libcurl4-openssl-dev
    else # Assume Fedora/CentOS
       yum -y install libxml2-devel libgsasl-devel libuuid-devel
+      # Dependencies of GCS, probably a workaround until the docker image is rebuilt
+      yum -y install curl-devel c-ares-devel
    fi
 fi
 
 if [[ "$OSTYPE" == darwin* ]]; then
    brew install libxml2 gsasl
 fi
-install_aws-sdk-cpp
-install_libhdfs3
+
+install_aws=0
+install_gcs=0
+install_hdfs=0
+
+if [ "$#" -eq 0 ]; then
+    # Install all adapters by default
+    install_aws=1
+    install_gcs=1
+    install_hdfs=1
+fi
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    gcs)
+      install_gcs=1
+      shift # past argument
+      ;;
+    aws)
+      install_aws=1
+      shift # past argument
+      ;;
+    hdfs)
+      install_hdfs=1
+      shift # past argument
+      ;;
+    *)
+      echo "ERROR: Unknown option $1! will be ignored!"
+      shift
+      ;;
+  esac
+done
+
+if [ $install_gcs -eq 1 ]; then
+  install_gcs-sdk-cpp
+fi
+if [ $install_aws -eq 1 ]; then
+  install_aws-sdk-cpp
+fi
+if [ $install_hdfs -eq 1 ]; then
+  install_libhdfs3
+fi
 
 _ret=$?
 if [ $_ret -eq 0 ] ; then
