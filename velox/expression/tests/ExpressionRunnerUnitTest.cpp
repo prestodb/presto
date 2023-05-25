@@ -106,8 +106,8 @@ TEST_F(ExpressionRunnerUnitTest, persistAndReproComplexSql) {
   auto reproExprs = ExpressionRunner::parseSql(
       reproSql, nullptr, pool_.get(), reproComplexConstants);
   ASSERT_EQ(reproExprs.size(), 1);
-  ASSERT_EQ(
-      reproExprs[0]->toString(),
-      "4 elements starting at 0 {[0->2] 3, [1->4] 5, [2->0] 1, [3->1] 2}");
+  // Note that ConstantExpr makes a copy of sharedConstantValue_ to guard
+  // against race conditions, which in effect falttens the array.
+  ASSERT_EQ(reproExprs[0]->toString(), "4 elements starting at 0 {3, 5, 1, 2}");
 }
 } // namespace facebook::velox::test

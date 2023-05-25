@@ -21,15 +21,6 @@ void ConstantExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx& context,
     VectorPtr& result) {
-  if (needToSetIsAscii_) {
-    auto* vector =
-        sharedConstantValue_->asUnchecked<SimpleVector<StringView>>();
-    LocalSingleRow singleRow(context, 0);
-    bool isAscii = vector->computeAndSetIsAscii(*singleRow);
-    vector->setAllIsAscii(isAscii);
-    needToSetIsAscii_ = false;
-  }
-
   if (sharedConstantValue_.unique()) {
     sharedConstantValue_->resize(rows.end());
   } else {
@@ -37,6 +28,18 @@ void ConstantExpr::evalSpecialForm(
     // be unique the next time this expression is evaluated.
     sharedConstantValue_ =
         BaseVector::wrapInConstant(rows.end(), 0, sharedConstantValue_);
+  }
+
+  if (needToSetIsAscii_) {
+    // sharedConstantValue_ must be unique because computeAndSetIsAscii may
+    // modify it.
+    VELOX_CHECK(sharedConstantValue_.unique());
+    auto* vector =
+        sharedConstantValue_->asUnchecked<SimpleVector<StringView>>();
+    LocalSingleRow singleRow(context, 0);
+    bool isAscii = vector->computeAndSetIsAscii(*singleRow);
+    vector->setAllIsAscii(isAscii);
+    needToSetIsAscii_ = false;
   }
 
   context.moveOrCopyResult(sharedConstantValue_, rows, result);

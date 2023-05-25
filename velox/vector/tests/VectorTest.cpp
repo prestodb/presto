@@ -1198,6 +1198,105 @@ TEST_F(VectorTest, wrapInConstant) {
   for (auto i = 0; i < size; i++) {
     ASSERT_TRUE(constVector->isNullAt(i));
   }
+
+  // Wrap constant with valueVector.
+  auto arrayVector = makeArrayVector<int32_t>(
+      size, [](auto) { return 10; }, [](auto i) { return i; }, nullEvery(7));
+  auto constBaseVector = std::make_shared<ConstantVector<ComplexType>>(
+      pool_.get(), size, 3, arrayVector);
+  auto constArrayVector =
+      std::dynamic_pointer_cast<ConstantVector<ComplexType>>(
+          BaseVector::wrapInConstant(size, 22, constBaseVector));
+  EXPECT_NE(constArrayVector->valueVector(), nullptr);
+  EXPECT_EQ(constArrayVector->valueVector(), arrayVector);
+  for (auto i = 0; i < size; i++) {
+    ASSERT_FALSE(constArrayVector->isNullAt(i));
+    ASSERT_TRUE(constArrayVector->equalValueAt(arrayVector.get(), i, 3));
+  }
+
+  // Wrap constant with valueVector and null value.
+  constBaseVector = std::make_shared<ConstantVector<ComplexType>>(
+      pool_.get(), size, 7, arrayVector);
+  constArrayVector = std::dynamic_pointer_cast<ConstantVector<ComplexType>>(
+      BaseVector::wrapInConstant(size, 22, constBaseVector, true));
+  EXPECT_NE(constArrayVector->valueVector(), nullptr);
+  for (auto i = 0; i < size; i++) {
+    ASSERT_TRUE(constArrayVector->isNullAt(i));
+  }
+}
+
+TEST_F(VectorTest, wrapInConstantWithCopy) {
+  // Wrap flat vector.
+  const vector_size_t size = 1'000;
+  auto flatVector = makeFlatVector<int32_t>(
+      size, [](auto row) { return row; }, nullEvery(7));
+
+  auto constVector = std::dynamic_pointer_cast<ConstantVector<int32_t>>(
+      BaseVector::wrapInConstant(size, 5, flatVector, true));
+  EXPECT_EQ(constVector->valueVector(), nullptr);
+  for (auto i = 0; i < size; i++) {
+    ASSERT_FALSE(constVector->isNullAt(i));
+    ASSERT_EQ(5, constVector->valueAt(i));
+  }
+
+  constVector = std::dynamic_pointer_cast<ConstantVector<int32_t>>(
+      BaseVector::wrapInConstant(size, 7, flatVector, true));
+  EXPECT_EQ(constVector->valueVector(), nullptr);
+  for (auto i = 0; i < size; i++) {
+    ASSERT_TRUE(constVector->isNullAt(i));
+  }
+
+  // Wrap dictionary vector.
+  BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(size, pool_.get());
+  auto rawIndices = indices->asMutable<vector_size_t>();
+  for (auto i = 0; i < size; i++) {
+    rawIndices[i] = 2 * i % size;
+  }
+
+  BufferPtr nulls = AlignedBuffer::allocate<bool>(size, pool_.get());
+  auto rawNulls = nulls->asMutable<uint64_t>();
+  for (auto i = 0; i < size; i++) {
+    bits::setNull(rawNulls, i, i % 11 == 0);
+  }
+
+  auto dictVector =
+      BaseVector::wrapInDictionary(nulls, indices, size, flatVector);
+
+  constVector = std::dynamic_pointer_cast<ConstantVector<int32_t>>(
+      BaseVector::wrapInConstant(size, 5, dictVector, true));
+  EXPECT_EQ(constVector->valueVector(), nullptr);
+  for (auto i = 0; i < size; i++) {
+    ASSERT_FALSE(constVector->isNullAt(i));
+    ASSERT_EQ(10, constVector->valueAt(i));
+  }
+
+  // Wrap constant with valueVector.
+  auto arrayVector = makeArrayVector<int32_t>(
+      size, [](auto) { return 10; }, [](auto i) { return i; }, nullEvery(7));
+  auto constBaseVector = std::make_shared<ConstantVector<ComplexType>>(
+      pool_.get(), size, 3, arrayVector);
+  auto constArrayVector =
+      std::dynamic_pointer_cast<ConstantVector<ComplexType>>(
+          BaseVector::wrapInConstant(size, 22, constBaseVector, true));
+  EXPECT_NE(constArrayVector->valueVector(), nullptr);
+  // This is 2 because valueVector() doesn't return a reference.
+  EXPECT_EQ(constArrayVector->valueVector().use_count(), 2);
+  for (auto i = 0; i < size; i++) {
+    ASSERT_FALSE(constArrayVector->isNullAt(i));
+    ASSERT_TRUE(constArrayVector->equalValueAt(arrayVector.get(), i, 3));
+  }
+
+  // Wrap constant with valueVector and null value.
+  constBaseVector = std::make_shared<ConstantVector<ComplexType>>(
+      pool_.get(), size, 7, arrayVector);
+  constArrayVector = std::dynamic_pointer_cast<ConstantVector<ComplexType>>(
+      BaseVector::wrapInConstant(size, 22, constBaseVector, true));
+  EXPECT_NE(constArrayVector->valueVector(), nullptr);
+  // This is 2 because valueVector() doesn't return a reference.
+  EXPECT_EQ(constArrayVector->valueVector().use_count(), 2);
+  for (auto i = 0; i < size; i++) {
+    ASSERT_TRUE(constArrayVector->isNullAt(i));
+  }
 }
 
 TEST_F(VectorTest, wrapConstantInDictionary) {

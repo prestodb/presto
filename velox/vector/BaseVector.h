@@ -469,9 +469,14 @@ class BaseVector {
   // before making a new ConstantVector. The result vector is either a
   // ConstantVector holding a scalar value or a ConstantVector wrapping flat or
   // lazy vector. The result cannot be a wrapping over another constant or
-  // dictionary vector.
-  static VectorPtr
-  wrapInConstant(vector_size_t length, vector_size_t index, VectorPtr vector);
+  // dictionary vector. If copyBase is true and the result vector wraps a
+  // vector, the wrapped vector is newly constructed by copying the value from
+  // the original, guaranteeing no Vectors are shared with 'vector'.
+  static VectorPtr wrapInConstant(
+      vector_size_t length,
+      vector_size_t index,
+      VectorPtr vector,
+      bool copyBase = false);
 
   // Makes 'result' writable for 'rows'. A wrapper (e.g. dictionary, constant,
   // sequence) is flattened and a multiply referenced flat vector is copied.
