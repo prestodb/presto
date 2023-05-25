@@ -308,17 +308,6 @@ message("FINAL CMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
-  if(ON_APPLE_M1)
-    set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/icu4c" ${CMAKE_PREFIX_PATH})
-  else()
-    set(CMAKE_PREFIX_PATH "/usr/local/opt/icu4c" ${CMAKE_PREFIX_PATH})
-  endif()
-endif()
-
-set_source(ICU)
-resolve_dependency(ICU)
-
 set(BOOST_INCLUDE_LIBRARIES
     headers
     atomic
