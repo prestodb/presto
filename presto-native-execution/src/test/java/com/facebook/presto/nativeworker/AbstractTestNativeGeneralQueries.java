@@ -925,6 +925,7 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT ln(totalprice) FROM orders");
         assertQuery("SELECT sqrt(totalprice) FROM orders");
         assertQuery("SELECT radians(totalprice) FROM orders");
+        assertQuery("SELECT beta_cdf(nationkey, 0.2, 0.2) from nation where nationkey > 0");
     }
 
     @Test
