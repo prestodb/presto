@@ -260,6 +260,7 @@ public final class SystemSessionProperties
     public static final String QUICK_DISTINCT_LIMIT_ENABLED = "quick_distinct_limit_enabled";
     public static final String OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED = "optimize_conditional_aggregation_enabled";
     public static final String ANALYZER_TYPE = "analyzer_type";
+    public static final String PRE_PROCESS_METADATA_CALLS = "pre_process_metadata_calls";
     public static final String REMOVE_REDUNDANT_DISTINCT_AGGREGATION_ENABLED = "remove_redundant_distinct_aggregation_enabled";
     public static final String PREFILTER_FOR_GROUPBY_LIMIT = "prefilter_for_groupby_limit";
     public static final String PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS = "prefilter_for_groupby_limit_timeout_ms";
@@ -1332,8 +1333,13 @@ public final class SystemSessionProperties
                 stringProperty(
                         ANALYZER_TYPE,
                         "Analyzer type to use.",
-                        "BUILTIN",
+                        featuresConfig.getAnalyzerType(),
                         true),
+                booleanProperty(
+                        PRE_PROCESS_METADATA_CALLS,
+                        "Pre-process metadata calls before analyzer invocation.",
+                        featuresConfig.isPreProcessMetadataCalls(),
+                        false),
                 booleanProperty(
                         HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED,
                         "Trigger heap dump to `EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_PATH` on exceeded memory limit exceptions",
@@ -2485,6 +2491,11 @@ public final class SystemSessionProperties
     public static String getAnalyzerType(Session session)
     {
         return session.getSystemProperty(ANALYZER_TYPE, String.class);
+    }
+
+    public static Boolean isPreProcessMetadataCalls(Session session)
+    {
+        return session.getSystemProperty(PRE_PROCESS_METADATA_CALLS, Boolean.class);
     }
 
     public static Boolean isHeapDumpOnExceededMemoryLimitEnabled(Session session)

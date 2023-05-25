@@ -156,6 +156,9 @@ import com.facebook.presto.sql.analyzer.BuiltInAnalyzerProvider;
 import com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.ForMetadataExtractor;
+import com.facebook.presto.sql.analyzer.MetadataExtractor;
+import com.facebook.presto.sql.analyzer.MetadataExtractorMBean;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -204,6 +207,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -214,6 +218,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class PrestoSparkModule
@@ -365,6 +370,12 @@ public class PrestoSparkModule
 
         // partitioning provider manager
         binder.bind(PartitioningProviderManager.class).in(Scopes.SINGLETON);
+
+        // Metadata Extractor
+        binder.bind(ExecutorService.class).annotatedWith(ForMetadataExtractor.class)
+                .toInstance(newCachedThreadPool(threadsNamed("metadata-extractor-%s")));
+        binder.bind(MetadataExtractorMBean.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(MetadataExtractorMBean.class).as(generatedNameOf(MetadataExtractor.class));
 
         // executors
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("presto-spark-executor-%s"));
