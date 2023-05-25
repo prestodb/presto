@@ -201,8 +201,16 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
         } catch (const velox::VeloxException& e) {
           // Creating an empty task, putting errors inside so that next status
           // fetch from coordinator will catch the error and well categorize it.
-          taskInfo = taskManager_.createOrUpdateErrorTask(
-              taskId, std::current_exception());
+          try {
+            taskInfo = taskManager_.createOrUpdateErrorTask(
+                taskId, std::current_exception());
+          } catch (const velox::VeloxUserError& e) {
+            http::sendErrorResponse(downstream, e.what());
+            return;
+          } catch (const std::exception& e) {
+            http::sendErrorResponse(downstream, e.what());
+            return;
+          }
         } catch (const std::exception& e) {
           http::sendErrorResponse(downstream, e.what());
           return;
