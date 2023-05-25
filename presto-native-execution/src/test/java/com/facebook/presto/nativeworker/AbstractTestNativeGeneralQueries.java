@@ -910,6 +910,7 @@ public abstract class AbstractTestNativeGeneralQueries
     public void testRow()
     {
         assertQuery("SELECT cast(row(nationkey, regionkey) as row(a bigint, b bigint)) FROM nation");
+        assertQuery("SELECT row(name, null, cast(row(nationkey, regionkey) as row(a bigint, b bigint))) FROM nation");
     }
 
     private void assertQueryResultCount(String sql, int expectedResultCount)

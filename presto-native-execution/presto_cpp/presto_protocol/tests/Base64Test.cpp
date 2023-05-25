@@ -429,3 +429,79 @@ TEST_F(Base64Test, timestampWithTimezone) {
           ->valueAt(0),
       1825);
 }
+
+TEST_F(Base64Test, rowOfNull) {
+  // SELECT CAST(NULL AS ROW(c1 VARCHAR, c2 DOUBLE))
+  const std::string data =
+      "AwAAAFJPVwIAAAAOAAAAVkFSSUFCTEVfV0lEVEgAAAAAAAAAAAADAAAAUkxFAAAAAAoAAAB"
+      "MT05HX0FSUkFZAQAAAAGAAQAAAAAAAAAAAAAAAYA=";
+  auto resultVector =
+      readBlock(ROW({"c1", "c2"}, {VARCHAR(), DOUBLE()}), data, pool_.get());
+  ASSERT_EQ(resultVector->as<RowVector>()->childrenSize(), 2);
+  ASSERT_EQ(resultVector->isNullAt(0), true);
+}
+
+TEST_F(Base64Test, rowWithNullChild) {
+  // SELECT CAST(ROW(1, 'b', null, 4.0) AS ROW(c1 BIGINT, c2 VARCHAR, c3 BIGINT,
+  // c4 DOUBLE))
+  const std::string data =
+      "AwAAAFJPVwQAAAAKAAAATE9OR19BUlJBWQEAAAAAAQAAAAAAAAAOAAAAVkFSSUFCTEVfV0l"
+      "EVEgBAAAAAQAAAAABAAAAYgMAAABSTEUBAAAACgAAAExPTkdfQVJSQVkBAAAAAYAKAAAATE"
+      "9OR19BUlJBWQEAAAAAAAAAAAAAEEABAAAAAAAAAAEAAAAA";
+  auto resultVector = readBlock(
+      ROW({"c1", "c2", "c3", "c4"}, {BIGINT(), VARCHAR(), BIGINT(), DOUBLE()}),
+      data,
+      pool_.get());
+  ASSERT_EQ(resultVector->as<RowVector>()->childrenSize(), 4);
+  ASSERT_EQ(
+      resultVector->as<RowVector>()
+          ->childAt(0)
+          ->asFlatVector<int64_t>()
+          ->valueAt(0),
+      1);
+  ASSERT_EQ(
+      resultVector->as<RowVector>()
+          ->childAt(1)
+          ->asFlatVector<StringView>()
+          ->valueAt(0)
+          .str(),
+      "b");
+  ASSERT_EQ(
+      resultVector->as<RowVector>()
+          ->childAt(2)
+          ->as<ConstantVector<int64_t>>()
+          ->isNullAt(0),
+      true);
+  ASSERT_EQ(
+      resultVector->as<RowVector>()
+          ->childAt(3)
+          ->asFlatVector<double>()
+          ->valueAt(0),
+      4.0);
+}
+
+TEST_F(Base64Test, rowWithNestedRow) {
+  // SELECT ROW(ROW(1, 'a'), ROW(2.0, TRUE, null))
+  const std::string data =
+      "AwAAAFJPVwIAAAADAAAAUk9XAgAAAAkAAABJTlRfQVJSQVkBAAAAAAEAAAAOAAAAVkFSSUF"
+      "CTEVfV0lEVEgBAAAAAQAAAAABAAAAYQEAAAAAAAAAAQAAAAADAAAAUk9XAwAAAAoAAABMT0"
+      "5HX0FSUkFZAQAAAAAAAAAAAAAAQAoAAABCWVRFX0FSUkFZAQAAAAABAwAAAFJMRQEAAAAKA"
+      "AAAQllURV9BUlJBWQEAAAABgAEAAAAAAAAAAQAAAAABAAAAAAAAAAEAAAAA";
+  auto resultVector = readBlock(
+      ROW({"", ""},
+          {ROW({"", ""}, {INTEGER(), VARCHAR()}),
+           ROW({"", "", ""}, {DOUBLE(), BOOLEAN(), UNKNOWN()})}),
+      data,
+      pool_.get());
+  ASSERT_EQ(resultVector->as<RowVector>()->childrenSize(), 2);
+  auto rowVector1 = resultVector->as<RowVector>()->childAt(0)->as<RowVector>();
+  auto rowVector2 = resultVector->as<RowVector>()->childAt(1)->as<RowVector>();
+  ASSERT_EQ(rowVector1->childAt(0)->asFlatVector<int32_t>()->valueAt(0), 1);
+  ASSERT_EQ(
+      rowVector1->childAt(1)->asFlatVector<StringView>()->valueAt(0), "a");
+  ASSERT_EQ(rowVector2->childAt(0)->asFlatVector<double>()->valueAt(0), 2.0);
+  ASSERT_EQ(rowVector2->childAt(1)->asFlatVector<bool>()->valueAt(0), true);
+  ASSERT_EQ(
+      rowVector2->childAt(2)->as<SimpleVector<UnknownValue>>()->isNullAt(0),
+      true);
+}
