@@ -28,6 +28,7 @@ workflows:
       - format-check
       - header-check
       - linux-parquet-S3-build
+      - native-specific-macos
 
 executors:
   build:
@@ -42,6 +43,10 @@ executors:
   check:
     docker:
       - image: prestocpp/velox-check:mikesh-20210609
+  macos-intel:
+    macos:
+      xcode: "14.3.0"
+    resource_class: macos.x86.medium.gen2
 
 jobs:
   linux-build:
@@ -160,3 +165,31 @@ jobs:
           command: |
             cd presto-native-execution
             make header-check
+
+  native-specific-macos:
+    executor: macos-intel
+    steps:
+      - checkout
+      - run:
+          name: "Update submodules"
+          command: |
+            cd presto-native-execution
+            make submodules
+      - run:
+          name: "Setup MacOS"
+          command: |
+            set -xu
+            mkdir ~/deps ~/deps-src
+            git clone --depth 1 https://github.com/Homebrew/brew ~/deps
+            PATH=~/deps/bin:${PATH} DEPENDENCY_DIR=~/deps-src INSTALL_PREFIX=~/deps PROMPT_ALWAYS_RESPOND=n ./presto-native-execution/scripts/setup-macos.sh
+            # Calculate the prefix path before we delete brew's repos and taps.
+            echo "$(pwd)/deps;$(brew --prefix openssl@1.1);$(brew --prefix icu4c)" > ~/deps/PREFIX_PATH
+            rm -rf ~/deps/.git ~/deps/Library/Taps/  # Reduce cache size by 70%.
+            rm -rf ~/deps-src
+      - run:
+          name: "Build presto_cpp on MacOS"
+          command: |
+            export PATH=~/deps/bin:${PATH}
+            cd presto-native-execution
+            cmake -B _build/debug -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=$(cat ~/deps/PREFIX_PATH) -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            ninja -C _build/debug
