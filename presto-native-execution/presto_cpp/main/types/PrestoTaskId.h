@@ -21,23 +21,28 @@ class PrestoTaskId {
  public:
   explicit PrestoTaskId(const std::string& taskId) {
     int start = 0;
-    auto pos = nextDot(taskId, start);
+    auto pos = nextDot(taskId, start, false);
     queryId_ = taskId.substr(0, pos);
 
     start = pos + 1;
-    pos = nextDot(taskId, start);
+    pos = nextDot(taskId, start, false);
     stageId_ = parseInt(taskId, start, pos);
 
     start = pos + 1;
-    pos = nextDot(taskId, start);
+    pos = nextDot(taskId, start, false);
     stageExecutionId_ = parseInt(taskId, start, pos);
 
     start = pos + 1;
-    pos = nextDot(taskId, start);
-    id_ = parseInt(taskId, start, pos);
+    pos = nextDot(taskId, start, true);
+    if (pos == -1) {
+      id_ = parseInt(taskId, start, taskId.length());
+      attemptNumber_ = 0;
+    } else {
+      id_ = parseInt(taskId, start, pos);
 
-    start = pos + 1;
-    attemptNumber_ = parseInt(taskId, start, taskId.length());
+      start = pos + 1;
+      attemptNumber_ = parseInt(taskId, start, taskId.length());
+    }
   }
 
   const std::string& queryId() const {
@@ -61,10 +66,14 @@ class PrestoTaskId {
   }
 
  private:
-  int nextDot(const std::string& taskId, int start) {
+  int nextDot(const std::string& taskId, int start, bool allowEnd) {
     auto pos = taskId.find(".", start);
     if (pos == std::string::npos) {
-      VELOX_USER_FAIL("Malformed task ID: {}", taskId);
+      if (allowEnd) {
+        return -1;
+      } else {
+        VELOX_USER_FAIL("Malformed task ID: {}", taskId);
+      }
     }
     return pos;
   }
