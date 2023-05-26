@@ -71,11 +71,17 @@ jobs:
             export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
             ./mvnw clean install ${MAVEN_FAST_INSTALL} -pl 'presto-native-execution' -am
       - run:
-          name: 'Run e2e tests'
+          name: 'Run presto-native e2e tests'
           command: |
             export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
             export TEMP_PATH="/tmp"
-            mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -DPRESTO_SERVER=${PRESTO_SERVER_PATH} -DDATA_DIR=${TEMP_PATH} -Duser.timezone=America/Bahia_Banderas -T1C
+            mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -DPRESTO_SERVER=${PRESTO_SERVER_PATH} -DDATA_DIR=${TEMP_PATH} -Duser.timezone=America/Bahia_Banderas -T1C -Dtest=TestPrestoNative*
+      - run:
+          name: 'Run spark-native e2e tests'
+          command: |
+            export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
+            export TEMP_PATH="/tmp"
+            mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -DPRESTO_SERVER=${PRESTO_SERVER_PATH} -DDATA_DIR=${TEMP_PATH} -Duser.timezone=America/Bahia_Banderas -T1C -Dtest=TestPrestoSparkNative*
 
   linux-parquet-S3-build:
     executor: build
