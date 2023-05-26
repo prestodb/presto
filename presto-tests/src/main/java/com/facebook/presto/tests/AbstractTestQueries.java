@@ -69,6 +69,7 @@ import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_N
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN;
+import static com.facebook.presto.SystemSessionProperties.REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.SystemSessionProperties.USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -6898,5 +6899,68 @@ public abstract class AbstractTestQueries
         sql = "with t1 as (select * from (values (array[cast(1 as integer), 2, 3], 10), (array[4, 5, 6], 11)) t(arr, k)), t2 as (select * from (values (cast(1 as bigint), 'a'), (4, 'b')) t(k, v)) " +
                 "select t1.k, t2.k, t2.v from t1 join t2 on contains(t1.arr, t2.k)";
         assertQuery(enableOptimization, sql, "values (11, 4, 'b'), (10, 1, 'a')");
+    }
+
+    @Test
+    public void testLeftJoinNullFilterToSemiJoin()
+    {
+        Session enableOptimization = Session.builder(getSession())
+                .setSystemProperty(REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN, "true")
+                .build();
+
+        String sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3) t(k)), t2 as (select * from (values 1, 1, 2, 2) t(k)) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";
+        assertQuery(enableOptimization, sql, "values 3, 3");
+
+        // null in both sides
+        sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3, null) t(k)), t2 as (select * from (values 1, 1, 2, 2, null) t(k)) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";
+        assertQuery(enableOptimization, sql, "values 3, 3, null");
+
+        // null in right side
+        sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3) t(k)), t2 as (select * from (values 1, 1, 2, 2, null) t(k)) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";
+        assertQuery(enableOptimization, sql, "values 3, 3");
+
+        // null in left side
+        sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3, null) t(k)), t2 as (select * from (values 1, 1, 2, 2) t(k)) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";
+        assertQuery(enableOptimization, sql, "values 3, 3, null");
+
+        // right key also in output
+        sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3) t(k)), t2 as (select * from (values 1, 1, 2, 2) t(k)) select t1.*, t2.k from t1 left join t2 on t1.k=t2.k where t2.k is null";
+        assertQuery(enableOptimization, sql, "values (3, null), (3, null)");
+        sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3, null) t(k)), t2 as (select * from (values 1, 1, 2, 2, null) t(k)) select t1.*, t2.k from t1 left join t2 on t1.k=t2.k where t2.k is null";
+        assertQuery(enableOptimization, sql, "values (3, null), (3, null), (null, null)");
+        sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3) t(k)), t2 as (select * from (values 1, 1, 2, 2, null) t(k)) select t1.*, t2.k from t1 left join t2 on t1.k=t2.k where t2.k is null";
+        assertQuery(enableOptimization, sql, "values (3, null), (3, null)");
+        sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3, null) t(k)), t2 as (select * from (values 1, 1, 2, 2) t(k)) select t1.*, t2.k from t1 left join t2 on t1.k=t2.k where t2.k is null";
+        assertQuery(enableOptimization, sql, "values (3, null), (3, null), (null, null)");
+
+        // Empty right input
+        sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3) t(k)), t2 as (select * from (values 1, 1, 2, 2) t(k) where k > 3) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";
+        assertQuery(enableOptimization, sql, "values 1, 1, 2, 2, 3, 3");
+        sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3, null) t(k)), t2 as (select * from (values 1, 1, 2, 2, null) t(k) where k > 3) select t1.* from t1 left join t2 on t1.k=t2.k where t2.k is null";
+        assertQuery(enableOptimization, sql, "values 1, 1, 2, 2, 3, 3, null");
+
+        // join filter on left side
+        sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3) t(k)), t2 as (select * from (values 1, 1, 2, 2) t(k)) select t1.* from t1 left join t2 on t1.k=t2.k and t1.k < 2 where t2.k is null";
+        assertQuery(enableOptimization, sql, "values 2, 2, 3, 3");
+
+        // join filter on right side
+        sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3) t(k)), t2 as (select * from (values 1, 1, 2, 2) t(k)) select t1.* from t1 left join t2 on t1.k=t2.k and t2.k < 2 where t2.k is null";
+        assertQuery(enableOptimization, sql, "values 3, 3, 2, 2");
+
+        // join filter on both side
+        sql = "with t1 as (select * from (values 1, 1, 2, 2, 3, 3) t(k)), t2 as (select * from (values 1, 1, 2, 2) t(k)) select t1.* from t1 left join t2 on t1.k=t2.k and t1.k+t2.k > 2 where t2.k is null";
+        assertQuery(enableOptimization, sql, "values 1, 1, 3, 3");
+
+        // rewrite with tpch dataset
+        sql = "with t as (select orderkey from orders where custkey%5=1) select l.orderkey, l.partkey, l.quantity from lineitem l left join t on l.orderkey = t.orderkey where t.orderkey is null";
+        assertQuery(enableOptimization, sql);
+
+        // filter in where
+        sql = "with t as (select orderkey from orders where custkey%5=1) select l.orderkey, l.partkey, l.quantity from lineitem l left join t on l.orderkey = t.orderkey where t.orderkey is null and l.suppkey%5=1";
+        assertQuery(enableOptimization, sql);
+
+        // filter in on condition
+        sql = "with t as (select orderkey from orders where custkey%5=1) select l.orderkey, l.partkey, l.quantity from lineitem l left join t on l.orderkey = t.orderkey and l.suppkey%5=1 where t.orderkey is null";
+        assertQuery(enableOptimization, sql);
     }
 }
