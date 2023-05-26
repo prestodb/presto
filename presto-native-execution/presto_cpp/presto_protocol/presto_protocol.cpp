@@ -3332,6 +3332,42 @@ void from_json(const json& j, Aggregation& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+void to_json(json& j, const StatisticAggregations& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "aggregations",
+      p.aggregations,
+      "StatisticAggregations",
+      "Map<VariableReferenceExpression, Aggregation>",
+      "aggregations");
+  to_json_key(
+      j,
+      "groupingVariables",
+      p.groupingVariables,
+      "StatisticAggregations",
+      "std::vector<VariableReferenceExpression>",
+      "groupingVariables");
+}
+
+void from_json(const json& j, StatisticAggregations& p) {
+  from_json_key(
+      j,
+      "aggregations",
+      p.aggregations,
+      "StatisticAggregations",
+      "Map<VariableReferenceExpression, Aggregation>",
+      "aggregations");
+  from_json_key(
+      j,
+      "groupingVariables",
+      p.groupingVariables,
+      "StatisticAggregations",
+      "std::vector<VariableReferenceExpression>",
+      "groupingVariables");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 // Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
@@ -11235,6 +11271,13 @@ void to_json(json& j, const TableWriterNode& p) {
       "TableWriterNode",
       "PartitioningScheme",
       "preferredShufflePartitioningScheme");
+  to_json_key(
+      j,
+      "statisticsAggregation",
+      p.statisticsAggregation,
+      "TableWriterNode",
+      "StatisticAggregations",
+      "statisticsAggregation");
 }
 
 void from_json(const json& j, TableWriterNode& p) {
@@ -11297,6 +11340,13 @@ void from_json(const json& j, TableWriterNode& p) {
       "TableWriterNode",
       "PartitioningScheme",
       "preferredShufflePartitioningScheme");
+  from_json_key(
+      j,
+      "statisticsAggregation",
+      p.statisticsAggregation,
+      "TableWriterNode",
+      "StatisticAggregations",
+      "statisticsAggregation");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
