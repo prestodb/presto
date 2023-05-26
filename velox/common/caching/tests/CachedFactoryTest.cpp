@@ -18,6 +18,7 @@
 
 #include "folly/executors/EDFThreadPoolExecutor.h"
 #include "folly/executors/thread_factory/NamedThreadFactory.h"
+#include "folly/synchronization/Latch.h"
 #include "gtest/gtest.h"
 
 using namespace facebook::velox;
@@ -146,41 +147,6 @@ TEST(CachedFactoryTest, basicExceptionHandling) {
   EXPECT_EQ(*generated, 2);
 }
 
-namespace {
-
-// TODO: Folly probably already has something like this. Perhaps
-// LifoSem, but its not clear to me how to use it. Replace this later, or
-// make it into a proper header if its actually unique/useful.
-class BlockingCounter {
- public:
-  explicit BlockingCounter(int64_t count) : count_(count) {}
-
-  // Blocks until decrement has been called the number of times *this was
-  // constructed with. Exactly 1 thread should call wait().
-  void wait() {
-    std::unique_lock<std::mutex> l(mu_);
-    if (count_ > 0) {
-      cv_.wait(l, [&]() { return count_ <= 0; });
-    }
-  }
-
-  // Threadsafe.
-  void decrement() {
-    std::unique_lock<std::mutex> l(mu_);
-    --count_;
-    if (count_ == 0) {
-      cv_.notify_one();
-    }
-  }
-
- private:
-  int64_t count_;
-  std::mutex mu_;
-  std::condition_variable cv_;
-};
-
-} // namespace
-
 TEST(CachedFactoryTest, multiThreadedGeneration) {
   auto generator = std::make_unique<DoublerGenerator>();
   auto* generated = &generator->generated_;
@@ -190,17 +156,17 @@ TEST(CachedFactoryTest, multiThreadedGeneration) {
       100, std::make_shared<folly::NamedThreadFactory>("test_pool"));
   const int numValues = 5;
   const int requestsPerValue = 10;
-  BlockingCounter counter(numValues * requestsPerValue);
+  folly::Latch latch(numValues * requestsPerValue);
   for (int i = 0; i < requestsPerValue; i++) {
     for (int j = 0; j < numValues; j++) {
       pool.add([&, j]() {
         auto value = factory.generate(j);
         EXPECT_EQ(getCachedValue(value), 2 * j);
-        counter.decrement();
+        latch.count_down();
       });
     }
   }
-  counter.wait();
+  latch.wait();
   EXPECT_EQ(*generated, numValues);
 }
 
@@ -216,16 +182,16 @@ TEST(CachedFactoryTest, multiThreadedGenerationAgain) {
   const int numValues = 5;
   const int requestsPerValue = 10;
   std::vector<std::pair<bool, int>> cachedValues(numValues * requestsPerValue);
-  BlockingCounter counter(numValues * requestsPerValue);
+  folly::Latch latch(numValues * requestsPerValue);
   for (int i = 0; i < requestsPerValue; i++) {
     for (int j = 0; j < numValues; j++) {
-      pool.add([&factory, &counter, &cachedValues, i, j]() {
+      pool.add([&factory, &latch, &cachedValues, i, j]() {
         cachedValues[i * numValues + j] = factory.generate(j);
-        counter.decrement();
+        latch.count_down();
       });
     }
   }
-  counter.wait();
+  latch.wait();
   ASSERT_EQ(*generated, numValues);
   for (int i = 0; i < requestsPerValue; i++) {
     for (int j = 0; j < numValues; j++) {
