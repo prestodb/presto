@@ -1203,6 +1203,14 @@ void to_json(json& j, const Aggregation& p);
 void from_json(const json& j, Aggregation& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct StatisticAggregations {
+  Map<VariableReferenceExpression, Aggregation> aggregations = {};
+  std::vector<VariableReferenceExpression> groupingVariables = {};
+};
+void to_json(json& j, const StatisticAggregations& p);
+void from_json(const json& j, StatisticAggregations& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 enum class ColumnType { PARTITION_KEY, REGULAR, SYNTHESIZED, AGGREGATED };
 extern void to_json(json& j, const ColumnType& e);
 extern void from_json(const json& j, ColumnType& e);
@@ -2701,7 +2709,7 @@ struct TableWriterNode : public PlanNode {
   List<VariableReferenceExpression> notNullColumnVariables = {};
   std::shared_ptr<PartitioningScheme> partitioningScheme = {};
   std::shared_ptr<PartitioningScheme> preferredShufflePartitioningScheme = {};
-  // TODO Add statisticsAggregation
+  std::shared_ptr<StatisticAggregations> statisticsAggregation = {};
 
   TableWriterNode() noexcept;
 };
