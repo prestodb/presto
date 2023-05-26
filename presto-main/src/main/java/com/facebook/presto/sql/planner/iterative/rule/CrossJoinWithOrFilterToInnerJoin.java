@@ -53,13 +53,13 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractDisjuncts;
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.Expressions.coalesceNullToFalse;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.sql.relational.Expressions.not;
@@ -301,11 +301,6 @@ public class CrossJoinWithOrFilterToInnerJoin
         identity.putAll(filterNode.getOutputVariables().stream().collect(toImmutableMap(x -> x, x -> x)));
         ProjectNode projectUnusedOutput = new ProjectNode(context.getIdAllocator().getNextId(), newFilterNode, identity.build());
         return Result.ofPlanNode(projectUnusedOutput);
-    }
-
-    private SpecialFormExpression coalesceNullToFalse(RowExpression rowExpression)
-    {
-        return new SpecialFormExpression(rowExpression.getSourceLocation(), COALESCE, BOOLEAN, rowExpression, constant(false, BOOLEAN));
     }
 
     private static class RewrittenJoinInput

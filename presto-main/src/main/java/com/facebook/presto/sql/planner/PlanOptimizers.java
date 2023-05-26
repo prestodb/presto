@@ -44,6 +44,7 @@ import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregati
 import com.facebook.presto.sql.planner.iterative.rule.ImplementOffset;
 import com.facebook.presto.sql.planner.iterative.rule.InlineProjections;
 import com.facebook.presto.sql.planner.iterative.rule.InlineSqlFunctions;
+import com.facebook.presto.sql.planner.iterative.rule.LeftJoinNullFilterToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.MergeDuplicateAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.MergeFilters;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithDistinct;
@@ -449,6 +450,11 @@ public class PlanOptimizers
                                 new PushDownFilterExpressionEvaluationThroughCrossJoin(metadata.getFunctionAndTypeManager()),
                                 new CrossJoinWithOrFilterToInnerJoin(metadata.getFunctionAndTypeManager()),
                                 new CrossJoinWithArrayContainsToInnerJoin(metadata.getFunctionAndTypeManager()))),
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new LeftJoinNullFilterToSemiJoin(metadata.getFunctionAndTypeManager()))),
                 new KeyBasedSampler(metadata, sqlParser),
                 new IterativeOptimizer(
                         ruleStats,
