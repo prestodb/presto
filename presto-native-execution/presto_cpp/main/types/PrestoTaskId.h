@@ -20,28 +20,21 @@ namespace facebook::presto {
 class PrestoTaskId {
  public:
   explicit PrestoTaskId(const std::string& taskId) {
-    int start = 0;
-    auto pos = nextDot(taskId, start, false);
-    queryId_ = taskId.substr(0, pos);
+    std::vector<std::string> taskIdParts;
+    folly::split('.', taskId, taskIdParts);
 
-    start = pos + 1;
-    pos = nextDot(taskId, start, false);
-    stageId_ = parseInt(taskId, start, pos);
+    // TODO (adutta): Remove taskIdParts.size() < 4 after presto
+    // release with new taskid format.
+    if (taskIdParts.size() < 4 || taskIdParts.size() > 5) {
+      VELOX_USER_FAIL("Malformed task ID: {}", taskId);
+    }
 
-    start = pos + 1;
-    pos = nextDot(taskId, start, false);
-    stageExecutionId_ = parseInt(taskId, start, pos);
-
-    start = pos + 1;
-    pos = nextDot(taskId, start, true);
-    if (pos == -1) {
-      id_ = parseInt(taskId, start, taskId.length());
-      attemptNumber_ = 0;
-    } else {
-      id_ = parseInt(taskId, start, pos);
-
-      start = pos + 1;
-      attemptNumber_ = parseInt(taskId, start, taskId.length());
+    queryId_ = taskIdParts[0];
+    stageId_ = folly::to<int32_t>(taskIdParts[1]);
+    stageExecutionId_ = folly::to<int32_t>(taskIdParts[2]);
+    id_ = folly::to<int32_t>(taskIdParts[3]);
+    if (taskIdParts.size() == 5) {
+      attemptNumber_ = folly::to<int32_t>(taskIdParts[4]);
     }
   }
 
@@ -66,26 +59,10 @@ class PrestoTaskId {
   }
 
  private:
-  int nextDot(const std::string& taskId, int start, bool allowEnd) {
-    auto pos = taskId.find(".", start);
-    if (pos == std::string::npos) {
-      if (allowEnd) {
-        return -1;
-      } else {
-        VELOX_USER_FAIL("Malformed task ID: {}", taskId);
-      }
-    }
-    return pos;
-  }
-
-  int parseInt(const std::string& taskId, int start, int end) {
-    return folly::to<int>(taskId.substr(start, end - start));
-  }
-
   std::string queryId_;
-  int32_t stageId_;
-  int32_t stageExecutionId_;
-  int32_t id_;
-  int32_t attemptNumber_;
+  int32_t stageId_{0};
+  int32_t stageExecutionId_{0};
+  int32_t id_{0};
+  int32_t attemptNumber_{0};
 };
 } // namespace facebook::presto
