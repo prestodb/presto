@@ -15,7 +15,6 @@
  */
 
 #include "velox/vector/BaseVector.h"
-#include "BaseVector.h"
 #include "velox/type/StringView.h"
 #include "velox/type/Type.h"
 #include "velox/type/Variant.h"
