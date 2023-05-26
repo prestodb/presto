@@ -265,6 +265,7 @@ public class FeaturesConfig
     private boolean rewriteCrossJoinWithOrFilterToInnerJoin = true;
     private boolean rewriteCrossJoinWithArrayContainsFilterToInnerJoin = true;
     private JoinNotNullInferenceStrategy joinNotNullInferenceStrategy = NONE;
+    private boolean leftJoinNullFilterToSemiJoin = true;
 
     private boolean preProcessMetadataCalls;
 
@@ -2606,6 +2607,19 @@ public class FeaturesConfig
     public FeaturesConfig setRewriteCrossJoinWithArrayContainsFilterToInnerJoin(boolean rewriteCrossJoinWithArrayContainsFilterToInnerJoin)
     {
         this.rewriteCrossJoinWithArrayContainsFilterToInnerJoin = rewriteCrossJoinWithArrayContainsFilterToInnerJoin;
+        return this;
+    }
+
+    public boolean isLeftJoinNullFilterToSemiJoin()
+    {
+        return this.leftJoinNullFilterToSemiJoin;
+    }
+
+    @Config("optimizer.rewrite-left-join-with-null-filter-to-semi-join")
+    @ConfigDescription("Rewrite left join with is null check to semi join")
+    public FeaturesConfig setLeftJoinNullFilterToSemiJoin(boolean leftJoinNullFilterToSemiJoin)
+    {
+        this.leftJoinNullFilterToSemiJoin = leftJoinNullFilterToSemiJoin;
         return this;
     }
 }
