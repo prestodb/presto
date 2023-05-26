@@ -17,6 +17,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/lexical_cast.hpp>
 #include <glog/logging.h>
+#include "CoordinatorDiscoverer.h"
 #include "presto_cpp/main/Announcer.h"
 #include "presto_cpp/main/PeriodicTaskManager.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
@@ -211,13 +212,15 @@ void PrestoServer::run() {
       httpPort,
       address_);
 
+  initializeCoordinatorDiscoverer();
   std::unique_ptr<Announcer> announcer;
-  if (auto discoveryAddressLookupFunc = discoveryAddressLookup()) {
+  if (coordinatorDiscoverer_ != nullptr &&
+      !coordinatorDiscoverer_->updateAddress().empty()) {
     announcer = std::make_unique<Announcer>(
         address_,
         httpsPort.has_value(),
         httpsPort.has_value() ? httpsPort.value() : httpPort,
-        discoveryAddressLookupFunc,
+        coordinatorDiscoverer_,
         nodeVersion_,
         environment_,
         nodeId_,
@@ -514,26 +517,8 @@ void PrestoServer::stop() {
   }
 }
 
-std::function<folly::SocketAddress()> PrestoServer::discoveryAddressLookup() {
-  // Check if discovery URI is specified. Presto-on-Spark doesn't specify it.
-  auto discoveryUri = SystemConfig::instance()->discoveryUri();
-  if (!discoveryUri.has_value()) {
-    PRESTO_STARTUP_LOG(INFO)
-        << "Discovery URI is not specified - will not run Announcer.";
-    return nullptr;
-  }
-
-  try {
-    auto uri = folly::Uri(discoveryUri.value());
-
-    return [uri]() {
-      return folly::SocketAddress(uri.hostname(), uri.port(), true);
-    };
-  } catch (const VeloxUserError& e) {
-    // VeloxUserError is always logged as an error.
-    // Avoid logging again.
-    exit(EXIT_FAILURE);
-  }
+void PrestoServer::initializeCoordinatorDiscoverer() {
+  coordinatorDiscoverer_ = std::make_shared<CoordinatorDiscoverer>();
 }
 
 void PrestoServer::addAdditionalPeriodicTasks() {}
