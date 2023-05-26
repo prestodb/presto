@@ -1125,17 +1125,17 @@ public final class SystemSessionProperties
                         value -> value != null ? value.toString() : null),
                 booleanProperty(
                         ENABLE_DYNAMIC_FILTERING,
-                        "Experimental: Enable dynamic filtering",
+                        "Enable dynamic filtering",
                         featuresConfig.isEnableDynamicFiltering(),
                         false),
                 integerProperty(
                         DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT,
-                        "Experimental: maximum number of build-side rows to be collected for dynamic filtering per-driver",
+                        "Maximum number of build-side rows to be collected for dynamic filtering per-driver",
                         featuresConfig.getDynamicFilteringMaxPerDriverRowCount(),
                         false),
                 new PropertyMetadata<>(
                         DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE,
-                        "Experimental: maximum number of bytes to be collected for dynamic filtering per-driver",
+                        "Maximum number of bytes to be collected for dynamic filtering per-driver",
                         VARCHAR,
                         DataSize.class,
                         featuresConfig.getDynamicFilteringMaxPerDriverSize(),

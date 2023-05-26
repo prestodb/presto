@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.DefunctConfig;
+import com.facebook.airlift.configuration.LegacyConfig;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
@@ -1471,7 +1472,8 @@ public class FeaturesConfig
         return enableDynamicFiltering;
     }
 
-    @Config("experimental.enable-dynamic-filtering")
+    @Config("enable-dynamic-filtering")
+    @LegacyConfig("experimental.enable-dynamic-filtering")
     public FeaturesConfig setEnableDynamicFiltering(boolean value)
     {
         this.enableDynamicFiltering = value;
@@ -1483,7 +1485,8 @@ public class FeaturesConfig
         return dynamicFilteringMaxPerDriverRowCount;
     }
 
-    @Config("experimental.dynamic-filtering-max-per-driver-row-count")
+    @Config("dynamic-filtering-max-per-driver-row-count")
+    @LegacyConfig("experimental.dynamic-filtering-max-per-driver-row-count")
     public FeaturesConfig setDynamicFilteringMaxPerDriverRowCount(int dynamicFilteringMaxPerDriverRowCount)
     {
         this.dynamicFilteringMaxPerDriverRowCount = dynamicFilteringMaxPerDriverRowCount;
@@ -1496,7 +1499,8 @@ public class FeaturesConfig
         return dynamicFilteringMaxPerDriverSize;
     }
 
-    @Config("experimental.dynamic-filtering-max-per-driver-size")
+    @Config("dynamic-filtering-max-per-driver-size")
+    @LegacyConfig("experimental.dynamic-filtering-max-per-driver-size")
     public FeaturesConfig setDynamicFilteringMaxPerDriverSize(DataSize dynamicFilteringMaxPerDriverSize)
     {
         this.dynamicFilteringMaxPerDriverSize = dynamicFilteringMaxPerDriverSize;
@@ -1508,7 +1512,8 @@ public class FeaturesConfig
         return dynamicFilteringRangeRowLimitPerDriver;
     }
 
-    @Config("experimental.dynamic-filtering-range-row-limit-per-driver")
+    @Config("dynamic-filtering-range-row-limit-per-driver")
+    @LegacyConfig("experimental.dynamic-filtering-range-row-limit-per-driver")
     @ConfigDescription("Maximum number of build-side rows per driver up to which min and max values will be collected for dynamic filtering")
     public FeaturesConfig setDynamicFilteringRangeRowLimitPerDriver(int dynamicFilteringRangeRowLimitPerDriver)
     {
