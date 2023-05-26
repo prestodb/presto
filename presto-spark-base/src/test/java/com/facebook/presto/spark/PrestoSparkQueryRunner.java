@@ -712,6 +712,12 @@ public class PrestoSparkQueryRunner
         {
             return instances.get(instanceId).getPrestoSparkService().getTaskExecutorFactory();
         }
+
+        @Override
+        public IPrestoSparkTaskExecutorFactory getNative()
+        {
+            return get();
+        }
     }
 
     private static Database createDatabaseMetastoreObject(String name)

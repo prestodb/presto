@@ -33,6 +33,7 @@ import com.facebook.presto.spark.PrestoSparkQueryStatusInfo;
 import com.facebook.presto.spark.PrestoSparkServiceWaitTimeMetrics;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.RddAndMore;
+import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
@@ -128,7 +129,6 @@ public class PrestoSparkAdaptiveQueryExecution
             QueryMonitor queryMonitor,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
-            PrestoSparkTaskExecutorFactory taskExecutorFactory,
             PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider,
             QueryStateTimer queryStateTimer,
             WarningCollector warningCollector,
@@ -165,7 +165,6 @@ public class PrestoSparkAdaptiveQueryExecution
                 queryMonitor,
                 taskInfoCollector,
                 shuffleStatsCollector,
-                taskExecutorFactory,
                 taskExecutorFactoryProvider,
                 queryStateTimer,
                 warningCollector,

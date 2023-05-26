@@ -1412,26 +1412,20 @@ public class PrestoSparkTaskExecutorFactory
                 }
 
                 Optional<TaskInfo> taskInfo = nativeExecutionTask.getTaskInfo();
-                if (taskInfo.isPresent()) {
-                    // task is not yet complete, keep going
-                    TaskStatus taskStatus = taskInfo.get().getTaskStatus();
-                    if (!taskStatus.getState().isDone()) {
-                        log.info("Task is not done yet");
-                        return Optional.empty();
-                    }
+                if (!taskInfo.isPresent() || !taskInfo.get().getTaskStatus().getState().isDone()) {
+                    throw new IllegalStateException();
+                }
 
-                    // task is complete, update stats and check for failures
-                    SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(serializeZstdCompressed(taskInfoCodec, taskInfo.get()));
-                    taskInfoCollector.add(serializedTaskInfo);
+                // task is complete, update stats and check for failures
+                SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(serializeZstdCompressed(taskInfoCodec, taskInfo.get()));
+                taskInfoCollector.add(serializedTaskInfo);
 
-                    if (taskStatus.getState() != TaskState.FINISHED) {
-                        RuntimeException failure = taskStatus.getFailures().stream()
-                                .findFirst()
-                                .map(ExecutionFailureInfo::toException)
-                                .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "Native task failed for an unknown reason"));
-                        throw failure;
-                    }
-                    return Optional.empty();
+                TaskStatus status = taskInfo.get().getTaskStatus();
+                if (status.getState() != TaskState.FINISHED) {
+                    throw status.getFailures().stream()
+                            .findFirst()
+                            .map(ExecutionFailureInfo::toException)
+                            .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "Native task failed for an unknown reason"));
                 }
 
                 return Optional.empty();

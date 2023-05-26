@@ -16,6 +16,15 @@ package com.facebook.presto.spark.classloader_interface;
 public enum SparkProcessType
 {
     DRIVER,
+    // --- backward-compatibility START
+    // these 2 options are retained for backward compatibility
+    // with presto-facebook repo
+    // will delete them once presto-facebook change
+    // to use the new values is rolled out
     EXECUTOR,
     LOCAL_EXECUTOR,
+    // --- backward-compatibility END
+    REMOTE_JAVA_EXECUTOR,
+    LOCAL_THREAD_JAVA_EXECUTOR,
+    REMOTE_CPP_EXECUTOR
 }

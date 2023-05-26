@@ -66,7 +66,6 @@ import com.facebook.presto.spark.execution.PrestoSparkAdaptiveQueryExecution;
 import com.facebook.presto.spark.execution.PrestoSparkDataDefinitionExecution;
 import com.facebook.presto.spark.execution.PrestoSparkExecutionExceptionFactory;
 import com.facebook.presto.spark.execution.PrestoSparkStaticQueryExecution;
-import com.facebook.presto.spark.execution.PrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.planner.PrestoSparkPlanFragmenter;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner.PlanAndMore;
@@ -177,7 +176,6 @@ public class PrestoSparkQueryExecutionFactory
     private final BlockEncodingManager blockEncodingManager;
     private final PrestoSparkSettingsRequirements settingsRequirements;
     private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
-    private final PrestoSparkTaskExecutorFactory prestoSparkTaskExecutorFactory;
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final WarningCollectorFactory warningCollectorFactory;
     private final PartitioningProviderManager partitioningProviderManager;
@@ -216,7 +214,6 @@ public class PrestoSparkQueryExecutionFactory
             BlockEncodingManager blockEncodingManager,
             PrestoSparkSettingsRequirements settingsRequirements,
             PrestoSparkExecutionExceptionFactory executionExceptionFactory,
-            PrestoSparkTaskExecutorFactory prestoSparkTaskExecutorFactory,
             SessionPropertyDefaults sessionPropertyDefaults,
             WarningCollectorFactory warningCollectorFactory,
             PartitioningProviderManager partitioningProviderManager,
@@ -252,7 +249,6 @@ public class PrestoSparkQueryExecutionFactory
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.settingsRequirements = requireNonNull(settingsRequirements, "settingsRequirements is null");
         this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
-        this.prestoSparkTaskExecutorFactory = requireNonNull(prestoSparkTaskExecutorFactory, "prestoSparkTaskExecutorFactory is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
         this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
@@ -665,7 +661,6 @@ public class PrestoSparkQueryExecutionFactory
                             queryMonitor,
                             taskInfoCollector,
                             shuffleStatsCollector,
-                            prestoSparkTaskExecutorFactory,
                             executorFactoryProvider,
                             queryStateTimer,
                             warningCollector,
@@ -703,7 +698,6 @@ public class PrestoSparkQueryExecutionFactory
                             queryMonitor,
                             taskInfoCollector,
                             shuffleStatsCollector,
-                            prestoSparkTaskExecutorFactory,
                             executorFactoryProvider,
                             queryStateTimer,
                             warningCollector,

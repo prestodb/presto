@@ -47,6 +47,7 @@ import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.RddAndMore;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutor;
+import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkExecutionException;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkJavaExecutionTaskInputs;
@@ -170,8 +171,6 @@ public abstract class AbstractPrestoSparkQueryExecution
     protected final QueryMonitor queryMonitor;
     protected final CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
     protected final CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector;
-    // used to create tasks on the Driver
-    protected final PrestoSparkTaskExecutorFactory taskExecutorFactory;
     // used to create tasks on executor, serializable
     protected final PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider;
     protected final QueryStateTimer queryStateTimer;
@@ -213,7 +212,6 @@ public abstract class AbstractPrestoSparkQueryExecution
             QueryMonitor queryMonitor,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
-            PrestoSparkTaskExecutorFactory taskExecutorFactory,
             PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider,
             QueryStateTimer queryStateTimer,
             WarningCollector warningCollector,
@@ -249,7 +247,6 @@ public abstract class AbstractPrestoSparkQueryExecution
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.taskInfoCollector = requireNonNull(taskInfoCollector, "taskInfoCollector is null");
         this.shuffleStatsCollector = requireNonNull(shuffleStatsCollector, "shuffleStatsCollector is null");
-        this.taskExecutorFactory = requireNonNull(taskExecutorFactory, "taskExecutorFactory is null");
         this.taskExecutorFactoryProvider = requireNonNull(taskExecutorFactoryProvider, "taskExecutorFactoryProvider is null");
         this.queryStateTimer = requireNonNull(queryStateTimer, "queryStateTimer is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -508,7 +505,7 @@ public abstract class AbstractPrestoSparkQueryExecution
                 DataSize.succinctBytes(totalCompressedSizeInBytes),
                 DataSize.succinctBytes(totalUncompressedSizeInBytes));
 
-        IPrestoSparkTaskExecutor<PrestoSparkSerializedPage> prestoSparkTaskExecutor = taskExecutorFactory.create(
+        IPrestoSparkTaskExecutor<PrestoSparkSerializedPage> prestoSparkTaskExecutor = taskExecutorFactoryProvider.get().create(
                 0,
                 0,
                 serializedTaskDescriptor,

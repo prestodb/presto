@@ -250,7 +250,7 @@ public class PrestoSparkRunner
         private final Map<String, String> sessionPropertyConfigurationProperties;
         private final Map<String, Map<String, String>> functionNamespaceProperties;
         private final Map<String, Map<String, String>> tempStorageProperties;
-        private final boolean isLocal;
+        private final SparkProcessType sparkProcessType;
 
         public DistributionBasedPrestoSparkTaskExecutorFactoryProvider(PrestoSparkDistribution distribution)
         {
@@ -265,7 +265,20 @@ public class PrestoSparkRunner
             this.sessionPropertyConfigurationProperties = distribution.getSessionPropertyConfigurationProperties().orElse(null);
             this.functionNamespaceProperties = distribution.getFunctionNamespaceProperties().orElse(null);
             this.tempStorageProperties = distribution.getTempStorageProperties().orElse(null);
-            this.isLocal = distribution.getSparkContext().isLocal();
+            this.sparkProcessType = computeSparkProcessType(distribution);
+        }
+
+        private SparkProcessType computeSparkProcessType(PrestoSparkDistribution distribution)
+        {
+            if (distribution.getSparkContext().isLocal()) {
+                return SparkProcessType.LOCAL_THREAD_JAVA_EXECUTOR;
+            }
+
+            if (distribution.isNativeExecutor()) {
+                return SparkProcessType.REMOTE_CPP_EXECUTOR;
+            }
+
+            return SparkProcessType.REMOTE_JAVA_EXECUTOR;
         }
 
         @Override
@@ -275,6 +288,15 @@ public class PrestoSparkRunner
             IPrestoSparkService prestoSparkService = getOrCreatePrestoSparkService();
             return prestoSparkService.getTaskExecutorFactory();
         }
+
+        @Override
+        public IPrestoSparkTaskExecutorFactory getNative()
+        {
+            checkState(TaskContext.get() != null, "this method is expected to be called only from the main task thread on the spark executor");
+            IPrestoSparkService prestoSparkService = getOrCreatePrestoSparkService();
+            return prestoSparkService.getNativeTaskExecutorFactory();
+        }
+
 
         private static IPrestoSparkService service;
         private static String currentPackagePath;
@@ -292,7 +314,7 @@ public class PrestoSparkRunner
             synchronized (DistributionBasedPrestoSparkTaskExecutorFactoryProvider.class) {
                 if (service == null) {
                     service = createService(
-                            isLocal ? SparkProcessType.LOCAL_EXECUTOR : SparkProcessType.EXECUTOR,
+                            sparkProcessType,
                             packageSupplier,
                             configProperties,
                             catalogProperties,
