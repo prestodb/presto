@@ -48,22 +48,22 @@ NestedLoopJoinProbe::NestedLoopJoinProbe(
 }
 
 BlockingReason NestedLoopJoinProbe::isBlocked(ContinueFuture* future) {
-  if (buildData_.has_value()) {
+  if (buildVectors_.has_value()) {
     return BlockingReason::kNotBlocked;
   }
 
-  auto buildData =
+  auto buildVectors =
       operatorCtx_->task()
           ->getNestedLoopJoinBridge(
               operatorCtx_->driverCtx()->splitGroupId, planNodeId())
           ->dataOrFuture(future);
-  if (!buildData.has_value()) {
+  if (!buildVectors.has_value()) {
     return BlockingReason::kWaitForJoinBuild;
   }
 
-  buildData_ = std::move(buildData);
+  buildVectors_ = std::move(buildVectors);
 
-  if (buildData_->empty()) {
+  if (buildVectors_->empty()) {
     // Build side is empty. Return empty set of rows and  terminate the pipeline
     // early.
     buildSideEmpty_ = true;
@@ -83,61 +83,61 @@ void NestedLoopJoinProbe::addInput(RowVectorPtr input) {
 }
 
 RowVectorPtr NestedLoopJoinProbe::getOutput() {
-  if (!input_) {
+  if (input_ == nullptr) {
     return nullptr;
   }
 
   const auto inputSize = input_->size();
 
-  auto buildSize = buildData_.value()[buildIndex_]->size();
-  vector_size_t probeCnt;
-  if (buildSize > outputBatchSize_) {
-    probeCnt = 1;
+  auto numBuildRows = buildVectors_.value()[buildIndex_]->size();
+  vector_size_t numProbeRows;
+  if (numBuildRows > outputBatchSize_) {
+    numProbeRows = 1;
   } else {
-    probeCnt = std::min(
-        (vector_size_t)outputBatchSize_ / buildSize, inputSize - probeRow_);
+    numProbeRows = std::min(
+        (vector_size_t)outputBatchSize_ / numBuildRows, inputSize - probeRow_);
   }
 
-  auto size = probeCnt * buildSize;
-  BufferPtr indices = allocateIndices(size, pool());
+  auto numOutputRows = numProbeRows * numBuildRows;
+  BufferPtr indices = allocateIndices(numOutputRows, pool());
   auto* rawIndices = indices->asMutable<vector_size_t>();
-  for (auto i = 0; i < probeCnt; ++i) {
+  for (auto i = 0; i < numProbeRows; ++i) {
     std::fill(
-        rawIndices + i * buildSize,
-        rawIndices + (i + 1) * buildSize,
+        rawIndices + i * numBuildRows,
+        rawIndices + (i + 1) * numBuildRows,
         probeRow_ + i);
   }
-  auto output = fillOutput(size, indices);
+  auto output = fillOutput(numOutputRows, indices);
 
   BufferPtr buildIndices = nullptr;
-  if (probeCnt > 1) {
-    buildIndices = allocateIndices(size, pool());
+  if (numProbeRows > 1) {
+    buildIndices = allocateIndices(numOutputRows, pool());
     auto* rawBuildIndices = buildIndices->asMutable<vector_size_t>();
-    for (auto i = 0; i < probeCnt; ++i) {
+    for (auto i = 0; i < numProbeRows; ++i) {
       std::iota(
-          rawBuildIndices + i * buildSize,
-          rawBuildIndices + (i + 1) * buildSize,
+          rawBuildIndices + i * numBuildRows,
+          rawBuildIndices + (i + 1) * numBuildRows,
           0);
     }
   }
 
-  auto buildRowVector =
-      buildData_.value()[buildIndex_]->asUnchecked<RowVector>();
+  auto buildVector =
+      buildVectors_.value()[buildIndex_]->asUnchecked<RowVector>();
   for (const auto& projection : buildProjections_) {
-    VectorPtr buildVector = buildRowVector->childAt(projection.inputChannel);
+    VectorPtr childVector = buildVector->childAt(projection.inputChannel);
 
-    if (buildIndices) {
-      buildVector = BaseVector::wrapInDictionary(
-          BufferPtr(nullptr), buildIndices, size, buildVector);
+    if (buildIndices != nullptr) {
+      childVector = BaseVector::wrapInDictionary(
+          BufferPtr(nullptr), buildIndices, numOutputRows, childVector);
     }
-    output->childAt(projection.outputChannel) = buildVector;
+    output->childAt(projection.outputChannel) = childVector;
   }
 
-  probeRow_ += probeCnt;
+  probeRow_ += numProbeRows;
   if (probeRow_ == inputSize) {
     probeRow_ = 0;
     ++buildIndex_;
-    if (buildIndex_ == buildData_->size()) {
+    if (buildIndex_ == buildVectors_->size()) {
       buildIndex_ = 0;
       input_.reset();
     }
@@ -150,7 +150,7 @@ bool NestedLoopJoinProbe::isFinished() {
 }
 
 void NestedLoopJoinProbe::close() {
-  buildData_.reset();
+  buildVectors_.reset();
   Operator::close();
 }
 } // namespace facebook::velox::exec

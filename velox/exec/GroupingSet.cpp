@@ -737,6 +737,7 @@ void GroupingSet::updateRow(SpillMergeStream& input, char* FOLLY_NONNULL row) {
   }
   mergeSelection_.setValid(input.currentIndex(), false);
 }
+
 void GroupingSet::abandonPartialAggregation() {
   abandonedPartialAggregation_ = true;
   allSupportToIntermediate_ = true;
