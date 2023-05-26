@@ -20,6 +20,7 @@
 #include <velox/exec/Task.h>
 #include <velox/expression/Expr.h>
 #include "presto_cpp/main/CPUMon.h"
+#include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #if __has_include("filesystem")
@@ -83,7 +84,7 @@ class PrestoServer {
   /// tasks.
   virtual void addAdditionalPeriodicTasks();
 
-  virtual std::function<folly::SocketAddress()> discoveryAddressLookup();
+  virtual void initializeCoordinatorDiscoverer();
 
   virtual std::shared_ptr<velox::exec::TaskListener> getTaskListener();
 
@@ -134,6 +135,8 @@ class PrestoServer {
   void populateMemAndCPUInfo();
 
   const std::string configDirectoryPath_;
+
+  std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer_;
 
   // Executor for background writing into SSD cache.
   std::unique_ptr<folly::IOThreadPoolExecutor> cacheExecutor_;
