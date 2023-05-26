@@ -97,8 +97,8 @@ uint32_t visitUniqueStreamsOfNode(
 }
 
 void triggerKeySelectionNotification(
-    FlatMapContext& context,
-    facebook::velox::dwio::common::flatmap::FlatMapKeySelectionStats&
+    const FlatMapContext& context,
+    const facebook::velox::dwio::common::flatmap::FlatMapKeySelectionStats&
         keySelectionStats) {
   if (!context.keySelectionCallback) {
     return;
