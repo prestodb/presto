@@ -1374,7 +1374,8 @@ public class PrestoSparkTaskExecutorFactory
         private final CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
         private final CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector;
         private final Codec<TaskInfo> taskInfoCodec;
-        private boolean completed;
+
+        private Optional<SerializedPage> next = Optional.empty();
 
         public PrestoSparkNativeTaskExecutor(
                 NativeExecutionTask nativeExecutionTask,
@@ -1391,17 +1392,23 @@ public class PrestoSparkTaskExecutorFactory
         @Override
         public boolean hasNext()
         {
-            return !completed;
+            next = computeNext();
+            return next.isPresent();
         }
 
         @Override
         public Tuple2<MutablePartitionId, T> next()
         {
+            return new Tuple2<>(new MutablePartitionId(), (T) toPrestoSparkSerializedPage(next.get()));
+        }
+
+        private Optional<SerializedPage> computeNext()
+        {
             try {
                 Optional<SerializedPage> page = nativeExecutionTask.pollResult();
                 if (page.isPresent()) {
                     log.info("Page is present but returning null");
-                    return new Tuple2<>(new MutablePartitionId(), (T) toPrestoSparkSerializedPage(page.get()));
+                    return page;
                 }
 
                 Optional<TaskInfo> taskInfo = nativeExecutionTask.getTaskInfo();
@@ -1410,7 +1417,7 @@ public class PrestoSparkTaskExecutorFactory
                     TaskStatus taskStatus = taskInfo.get().getTaskStatus();
                     if (!taskStatus.getState().isDone()) {
                         log.info("Task is not done yet");
-                        return null;
+                        return Optional.empty();
                     }
 
                     // task is complete, update stats and check for failures
@@ -1424,11 +1431,10 @@ public class PrestoSparkTaskExecutorFactory
                                 .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "Native task failed for an unknown reason"));
                         throw failure;
                     }
-                    completed = true;
-                    return null;
+                    return Optional.empty();
                 }
 
-                return null;
+                return Optional.empty();
             }
             catch (InterruptedException e) {
                 log.error(e);
