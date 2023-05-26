@@ -33,13 +33,11 @@
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
-using facebook::velox::core::QueryConfig;
-using facebook::velox::exec::Aggregate;
-using facebook::velox::test::BatchMaker;
-using namespace facebook::velox::common::testutil;
-
 namespace facebook::velox::exec::test {
-namespace {
+
+using core::QueryConfig;
+using facebook::velox::test::BatchMaker;
+using namespace common::testutil;
 
 /// No-op implementation of Aggregate. Provides public access to following
 /// base class methods: setNull, clearNull and isNull.
@@ -746,6 +744,52 @@ TEST_F(AggregationTest, partialAggregationMemoryLimit) {
       toPlanStats(task->taskStats())
           .at(aggNodeId)
           .customStats.count("flushRowCount"));
+}
+
+TEST_F(AggregationTest, partialDistinctWithAbandon) {
+  auto vectors = {
+      // 1st batch will produce 100 distinct groups from 10 rows.
+      makeRowVector(
+          {makeFlatVector<int32_t>(100, [](auto row) { return row; })}),
+      // 2st batch will trigger abandon partial aggregation event with no new
+      // distinct values.
+      makeRowVector({makeFlatVector<int32_t>(1, [](auto row) { return row; })}),
+      // 3rd batch will not produce any new distinct values.
+      makeRowVector(
+          {makeFlatVector<int32_t>(50, [](auto row) { return row; })}),
+      // 4th batch will not produce 10 new distinct values.
+      makeRowVector(
+          {makeFlatVector<int32_t>(200, [](auto row) { return row % 110; })}),
+  };
+
+  createDuckDbTable(vectors);
+
+  // We are setting abandon partial aggregation config properties to low values,
+  // so they are triggered on the second batch.
+
+  // Distinct aggregation.
+  auto task = AssertQueryBuilder(duckDbQueryRunner_)
+                  .config(QueryConfig::kAbandonPartialAggregationMinRows, "100")
+                  .config(QueryConfig::kAbandonPartialAggregationMinPct, "50")
+                  .config("max_drivers_per_task", "1")
+                  .plan(PlanBuilder()
+                            .values(vectors)
+                            .partialAggregation({"c0"}, {})
+                            .finalAggregation()
+                            .planNode())
+                  .assertResults("SELECT distinct c0 FROM tmp");
+
+  // with aggregation, just in case.
+  task = AssertQueryBuilder(duckDbQueryRunner_)
+             .config(QueryConfig::kAbandonPartialAggregationMinRows, "100")
+             .config(QueryConfig::kAbandonPartialAggregationMinPct, "50")
+             .config("max_drivers_per_task", "1")
+             .plan(PlanBuilder()
+                       .values(vectors)
+                       .partialAggregation({"c0"}, {"sum(c0)"})
+                       .finalAggregation()
+                       .planNode())
+             .assertResults("SELECT distinct c0, sum(c0) FROM tmp group by c0");
 }
 
 TEST_F(AggregationTest, largeValueRangeArray) {
@@ -2214,5 +2258,4 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimWithEmptyAggregationTable) {
   }
 }
 
-} // namespace
 } // namespace facebook::velox::exec::test

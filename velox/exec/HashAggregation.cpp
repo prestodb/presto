@@ -194,8 +194,10 @@ void HashAggregation::addInput(RowVectorPtr input) {
   // NOTE: we should not trigger partial output flush in case of global
   // aggregation as the final aggregator will handle it the same way as the
   // partial aggregator. Hence, we have to use more memory anyway.
+  const bool abandonPartialEarly =
+      abandonPartialAggregationEarly(groupingSet_->numDistinct());
   if (isPartialOutput_ && !isGlobal_ &&
-      (abandonPartialAggregationEarly(groupingSet_->numDistinct()) ||
+      (abandonPartialEarly ||
        groupingSet_->isPartialFull(maxPartialAggregationMemoryUsage_))) {
     partialFull_ = true;
   }
@@ -206,6 +208,15 @@ void HashAggregation::addInput(RowVectorPtr input) {
     if (newDistincts_) {
       // Save input to use for output in getOutput().
       input_ = input;
+    } else {
+      // In case of 'no new distinct groups' the only reason we can have
+      // 'partial full' true is due to 'abandoning partial aggregation early'
+      // being true. If that's not the case, then it is a bug.
+      VELOX_CHECK_EQ(partialFull_, abandonPartialEarly);
+      // If no new distinct groups (meaning we don't have anything to output)
+      // and we are abandoning the partial aggregation, then we need to ensure
+      // we 'need input'. For that we need to reset the 'partial full' flag.
+      partialFull_ = false;
     }
   }
 }
