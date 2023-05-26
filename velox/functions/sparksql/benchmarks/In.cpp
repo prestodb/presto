@@ -23,7 +23,6 @@
 
 #include "velox/functions/lib/Re2Functions.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
-#include "velox/functions/prestosql/ArrayConstructor.h"
 #include "velox/functions/sparksql/In.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
@@ -32,7 +31,7 @@ void registerPrestoIn() {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_in, "presto");
 }
 void registerArrayConstructor() {
-  registerArrayConstructor("array_constructor");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_constructor, "array_constructor");
 }
 } // namespace facebook::velox::functions
 
