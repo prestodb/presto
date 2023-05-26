@@ -83,10 +83,18 @@ jobs:
           # build all dependent components of presto-native-execution
           ./mvnw clean install ${MAVEN_FAST_INSTALL} -pl 'presto-native-execution' -am
 
-      - name: Run e2e tests
+      - name: Run presto-native e2e tests
         run: |
           rm -rf /tmp/hive_data/tpch/
           
-          for test in $(find ${GITHUB_WORKSPACE}/presto-native-execution/src/test -name 'Test*.java' | grep -o "Test[a-zA-Z]*"); do
+          for test in $(find ${GITHUB_WORKSPACE}/presto-native-execution/src/test -name 'TestPrestoNative*.java' | grep -o "Test[a-zA-Z]*"); do
+            ./mvnw test ${MAVEN_TEST} -pl 'presto-native-execution' -Dtest=${test} -DPRESTO_SERVER=${GITHUB_WORKSPACE}/presto-native-execution/_build/debug/presto_cpp/main/presto_server -DDATA_DIR=/tmp/ -Duser.timezone=America/Bahia_Banderas
+          done
+
+      - name: Run spark-native e2e tests
+        run: |
+          rm -rf /tmp/hive_data/tpch/
+
+          for test in $(find ${GITHUB_WORKSPACE}/presto-native-execution/src/test -name 'TestPrestoSparkNative*.java' | grep -o "Test[a-zA-Z]*"); do
             ./mvnw test ${MAVEN_TEST} -pl 'presto-native-execution' -Dtest=${test} -DPRESTO_SERVER=${GITHUB_WORKSPACE}/presto-native-execution/_build/debug/presto_cpp/main/presto_server -DDATA_DIR=/tmp/ -Duser.timezone=America/Bahia_Banderas
           done
