@@ -98,24 +98,24 @@ class AnnouncerTestSuite : public ::testing::TestWithParam<bool> {
   }
 };
 
-TEST_P(AnnouncerTestSuite, basic) {
-  const bool useHttps = GetParam();
-  auto [promise, future] = folly::makePromiseContract<bool>();
+class TestCoordinatorDiscoverer : public CoordinatorDiscoverer {
+ public:
+  TestCoordinatorDiscoverer(
+      folly::Promise<bool> announcementPromise,
+      bool useHttps)
+      : announcementCnt(0), addressLookupCnt(0), useHttps(useHttps) {
+    onAnnouncement = [this,
+                      promiseHolder = std::make_shared<PromiseHolder<bool>>(
+                          std::move(announcementPromise))]() {
+      if (++announcementCnt == 5) {
+        promiseHolder->get().setValue(true);
+      }
+    };
+    discoveryServer = makeDiscoveryServer(onAnnouncement, useHttps);
+    serverAddress = discoveryServer->start().get();
+  }
 
-  std::atomic_int announcementCnt(0);
-  auto onAnnouncement = [&announcementCnt,
-                         promiseHolder = std::make_shared<PromiseHolder<bool>>(
-                             std::move(promise))]() {
-    if (++announcementCnt == 5) {
-      promiseHolder->get().setValue(true);
-    }
-  };
-
-  auto discoveryServer = makeDiscoveryServer(onAnnouncement, useHttps);
-  auto serverAddress = discoveryServer->start().get();
-
-  std::atomic_int addressLookupCnt(0);
-  auto addressLookup = [&]() mutable {
+  folly::SocketAddress updateAddress() override {
     auto prevCnt = addressLookupCnt++;
     if (prevCnt < 3) {
       return serverAddress;
@@ -134,7 +134,22 @@ TEST_P(AnnouncerTestSuite, basic) {
       serverAddress = discoveryServer->start().get();
     }
     return serverAddress;
-  };
+  }
+
+  std::unique_ptr<test::HttpServerWrapper> discoveryServer;
+  folly::SocketAddress serverAddress;
+  std::function<void()> onAnnouncement;
+  std::atomic_int announcementCnt;
+  std::atomic_int addressLookupCnt;
+  bool useHttps;
+};
+
+TEST_P(AnnouncerTestSuite, basic) {
+  const bool useHttps = GetParam();
+  auto [promise, future] = folly::makePromiseContract<bool>();
+
+  auto coordinatorDiscoverer =
+      std::make_shared<TestCoordinatorDiscoverer>(std::move(promise), useHttps);
 
   std::string keyPath = useHttps ? getCertsPath("client_ca.pem") : "";
   std::string ciphers =
@@ -144,7 +159,7 @@ TEST_P(AnnouncerTestSuite, basic) {
       "127.0.0.1",
       useHttps,
       1234,
-      addressLookup,
+      coordinatorDiscoverer,
       "testversion",
       "testing",
       "test-node",
@@ -156,7 +171,7 @@ TEST_P(AnnouncerTestSuite, basic) {
 
   announcer.start();
   ASSERT_TRUE(std::move(future).getTry().hasValue());
-  ASSERT_GE(addressLookupCnt, 8);
+  ASSERT_GE(coordinatorDiscoverer->addressLookupCnt, 8);
   announcer.stop();
 }
 

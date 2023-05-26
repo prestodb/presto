@@ -74,7 +74,7 @@ Announcer::Announcer(
     const std::string& address,
     bool useHttps,
     int port,
-    std::function<folly::SocketAddress()> discoveryAddressLookup,
+    const std::shared_ptr<CoordinatorDiscoverer>& coordinatorDiscoverer,
     const std::string& nodeVersion,
     const std::string& environment,
     const std::string& nodeId,
@@ -83,7 +83,7 @@ Announcer::Announcer(
     uint64_t frequencyMs,
     const std::string& clientCertAndKeyPath,
     const std::string& ciphers)
-    : discoveryAddressLookup_(std::move(discoveryAddressLookup)),
+    : coordinatorDiscoverer_(coordinatorDiscoverer),
       frequencyMs_(frequencyMs),
       announcementBody_(announcementBody(
           address,
@@ -125,7 +125,7 @@ void Announcer::makeAnnouncement() {
   }
 
   try {
-    auto newAddress = discoveryAddressLookup_();
+    auto newAddress = coordinatorDiscoverer_->updateAddress();
     if (newAddress != address_) {
       LOG(INFO) << "Discovery service changed to " << newAddress.getAddressStr()
                 << ":" << newAddress.getPort();
