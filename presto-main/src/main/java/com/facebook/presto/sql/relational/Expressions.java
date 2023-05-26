@@ -40,6 +40,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -93,6 +94,11 @@ public final class Expressions
     public static boolean isComparison(CallExpression callExpression)
     {
         return COMPARISON_FUNCTIONS.contains(callExpression.getFunctionHandle().getName());
+    }
+
+    public static SpecialFormExpression coalesceNullToFalse(RowExpression rowExpression)
+    {
+        return new SpecialFormExpression(rowExpression.getSourceLocation(), COALESCE, BOOLEAN, rowExpression, constant(false, BOOLEAN));
     }
 
     public static CallExpression not(FunctionAndTypeManager functionAndTypeManager, RowExpression rowExpression)
