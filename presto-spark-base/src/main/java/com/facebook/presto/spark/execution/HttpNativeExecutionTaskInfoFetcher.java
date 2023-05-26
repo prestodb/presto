@@ -174,10 +174,7 @@ public class HttpNativeExecutionTaskInfoFetcher
                 // next call.
                 // If the task has really aborted/died, the error tracker will
                 // catch that and propagate
-                log.error("Error getting task Info..", ex);
-            }
-            catch (Throwable t) {
-                throw t;
+                throw new RuntimeException("Error getting task Info..", ex);
             }
         }, 0, (long) infoFetchInterval.getValue(), infoFetchInterval.getUnit());
 

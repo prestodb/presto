@@ -171,7 +171,6 @@ public class NativeExecutionTask
     public CompletableFuture<TaskInfo> newStart()
     {
         TaskInfo taskInfo = sendUpdateRequest();
-        CompletableFuture<TaskInfo> taskFinishedFuture = new CompletableFuture<>();
 
         if (taskInfo.getTaskStatus().getState().isDone()) {
             CompletableFuture.completedFuture(taskInfo);
@@ -179,28 +178,28 @@ public class NativeExecutionTask
         log.info("[%s] Starting created task and it is not yet complete.. caller can wait. taskInfo=%s", taskInfo.getTaskId(), taskInfo);
 
         // this keep polling for taskInfo
-        taskInfoFetcher.newStart().handle((TaskInfo taskInfoFinal, Throwable throwable) ->
-        {
-            if (throwable != null) {
-                log.error("[%s] Task completed Unsuccessfully", taskInfoFinal, throwable);
-                workerClient.abortResults();
-            }
-            else {
-                log.info("[%s] Task completed Successfully", taskInfoFinal);
-                taskFinishedFuture.complete(taskInfoFinal);
-            }
-            log.info("[%s] Stopping taskInfoFetcher as task is completed", taskInfoFinal);
-            taskInfoFetcher.stop();
-            taskResultFetcher.ifPresent(HttpNativeExecutionTaskResultFetcher::stop);
-
-            return null;
-        });
+        CompletableFuture<TaskInfo> taskFinishedFuture = taskInfoFetcher.newStart();
 
         // this keep polling for results and collects them
         // into an internal buffer
         // Only once the results are collected will the task
         // state change to FINISHED.
         taskResultFetcher.ifPresent(HttpNativeExecutionTaskResultFetcher::start);
+
+        // Setup handlers to kill polling once task is terminal state
+        taskFinishedFuture.handle((TaskInfo taskInfoFinal, Throwable throwable) ->
+        {
+            if (throwable != null) {
+                log.error("[%s] Task completed Unsuccessfully. Aborting results", taskInfoFinal, throwable);
+                workerClient.abortResults();
+            }
+
+            log.info("[%s] Stopping taskInfoFetcher as task is in terminal state", taskInfoFinal);
+            taskInfoFetcher.stop();
+            taskResultFetcher.ifPresent(HttpNativeExecutionTaskResultFetcher::stop);
+
+            return null;
+        });
 
         return taskFinishedFuture;
     }

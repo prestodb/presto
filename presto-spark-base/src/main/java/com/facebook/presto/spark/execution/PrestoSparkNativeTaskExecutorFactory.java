@@ -17,7 +17,6 @@ import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.Location;
 import com.facebook.presto.execution.ScheduledSplit;
@@ -26,8 +25,6 @@ import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskSource;
-import com.facebook.presto.execution.TaskState;
-import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -46,7 +43,6 @@ import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTask
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskSource;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleInfoTranslator;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -83,7 +79,6 @@ import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -239,12 +234,27 @@ public class PrestoSparkNativeTaskExecutorFactory
             try {
                 taskInfoCompletableFuture.get();
             }
-            catch (Exception ex) {
+            catch (InterruptedException | ExecutionException ex) {
+                throw new RuntimeException("Error while waiting for task completion");
+            }
+            catch (RuntimeException ex) {
                 log.error("Error executing native task", ex);
+                throw ex;
+            }
+            finally {
+                Optional<TaskInfo> taskInfo = task.getTaskInfo();
+                // Update TaskInfo
+                if (taskInfo.isPresent()) {
+                    SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(serializeZstdCompressed(taskInfoCodec, taskInfo.get()));
+                    taskInfoCollector.add(serializedTaskInfo);
+                }
+                else {
+                    log.error("Missing taskInfo. Statistics might be inaccurate");
+                }
             }
 
             // 5. return output to spark RDD layer
-            return new PrestoSparkNativeTaskExecutor<>(task, taskInfoCollector, shuffleStatsCollector, taskInfoCodec);
+            return new PrestoSparkNativeTaskExecutor<>(task);
         }
 
         return null;
@@ -328,22 +338,11 @@ public class PrestoSparkNativeTaskExecutorFactory
             implements IPrestoSparkTaskExecutor<T>
     {
         private final NativeExecutionTask nativeExecutionTask;
-        private final CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
-        private final CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector;
-        private final Codec<TaskInfo> taskInfoCodec;
-
         private Optional<SerializedPage> next = Optional.empty();
 
-        public PrestoSparkNativeTaskExecutor(
-                NativeExecutionTask nativeExecutionTask,
-                CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
-                CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
-                Codec<TaskInfo> taskInfoCodec)
+        public PrestoSparkNativeTaskExecutor(NativeExecutionTask nativeExecutionTask)
         {
             this.nativeExecutionTask = nativeExecutionTask;
-            this.taskInfoCollector = taskInfoCollector;
-            this.shuffleStatsCollector = shuffleStatsCollector;
-            this.taskInfoCodec = taskInfoCodec;
         }
 
         @Override
@@ -370,21 +369,6 @@ public class PrestoSparkNativeTaskExecutorFactory
                 Optional<TaskInfo> taskInfo = nativeExecutionTask.getTaskInfo();
                 if (!taskInfo.isPresent() || !taskInfo.get().getTaskStatus().getState().isDone()) {
                     throw new IllegalStateException();
-                }
-
-                // Update TaskInfo
-                SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(serializeZstdCompressed(taskInfoCodec, taskInfo.get()));
-                taskInfoCollector.add(serializedTaskInfo);
-
-                // Task might have finished but failed
-                // Process any errors here and throw exception
-                // so that it is propagated to Spark
-                TaskStatus status = taskInfo.get().getTaskStatus();
-                if (status.getState() != TaskState.FINISHED) {
-                    throw status.getFailures().stream()
-                            .findFirst()
-                            .map(ExecutionFailureInfo::toException)
-                            .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "Native task failed for an unknown reason"));
                 }
 
                 // This marks the end of processing.
