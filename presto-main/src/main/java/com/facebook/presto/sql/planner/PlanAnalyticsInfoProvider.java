@@ -15,48 +15,39 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.Weigher;
-import io.airlift.units.DataSize;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.type.encoding.StringUtils.UTF_8;
 import static com.google.common.hash.Hashing.sha256;
 
-public class CachingPlanAnalyticsInfoProvider
+public class PlanAnalyticsInfoProvider
         implements PlanCanonicalInfoProvider
 {
-    private static final DataSize CACHE_SIZE_BYTES = new DataSize(2, DataSize.Unit.MEGABYTE);
-    private final Cache<PlanNode, String> cache =
-            CacheBuilder.newBuilder()
-                    .maximumWeight(CACHE_SIZE_BYTES.toBytes())
-                    .weigher((Weigher<PlanNode, String>) (key, value) -> value.length() + 20)
-                    .expireAfterWrite(5, TimeUnit.MINUTES)
-                    .build();
-
     private final ObjectMapper objectMapper;
-    private final Metadata metadata;
 
-    public CachingPlanAnalyticsInfoProvider(ObjectMapper objectMapper, Metadata metadata)
+    public PlanAnalyticsInfoProvider(ObjectMapper objectMapper)
     {
         this.objectMapper = objectMapper;
-        this.metadata = metadata;
     }
 
     @Override
     public Optional<String> hash(Session session, PlanNode planNode, PlanCanonicalizationStrategy strategy)
     {
-        String result = cache.getIfPresent(planNode);
-        if (result != null) {
-            return Optional.of(result);
+        return hash(session, planNode, strategy, new PlanAnalyticsInfoContext());
+    }
+
+    public Optional<String> hash(Session session, PlanNode planNode, PlanCanonicalizationStrategy strategy, PlanAnalyticsInfoContext planAnalyticsInfoContext)
+    {
+        Map<PlanNode, String> perQueryCacheMap = planAnalyticsInfoContext.getPerQueryPlanNodeMap();
+        if (perQueryCacheMap.containsKey(planNode)) {
+            return Optional.of(perQueryCacheMap.get(planNode));
         }
         CanonicalPlanGenerator.Context context = new CanonicalPlanGenerator.Context();
         planNode.accept(
@@ -66,9 +57,9 @@ public class CachingPlanAnalyticsInfoProvider
                 .getCanonicalPlans()
                 .forEach(
                         (p, canonicalPlan) -> {
-                            cache.put(p, hashCanonicalPlan(canonicalPlan, objectMapper));
+                            perQueryCacheMap.put(p, hashCanonicalPlan(canonicalPlan, objectMapper));
                         });
-        return Optional.ofNullable(cache.getIfPresent(planNode));
+        return Optional.ofNullable(perQueryCacheMap.getOrDefault(planNode, null));
     }
 
     @Override
@@ -77,13 +68,23 @@ public class CachingPlanAnalyticsInfoProvider
         return Optional.empty();
     }
 
-    public void invalidateCache()
-    {
-        cache.invalidateAll();
-    }
-
     private String hashCanonicalPlan(CanonicalPlan plan, ObjectMapper objectMapper)
     {
         return sha256().hashString(plan.toString(objectMapper), UTF_8).toString();
+    }
+
+    public static class PlanAnalyticsInfoContext
+    {
+        private final Map<PlanNode, String> perQueryPlanNodeMap;
+
+        public PlanAnalyticsInfoContext()
+        {
+            this.perQueryPlanNodeMap = new HashMap<>();
+        }
+
+        public Map<PlanNode, String> getPerQueryPlanNodeMap()
+        {
+            return perQueryPlanNodeMap;
+        }
     }
 }

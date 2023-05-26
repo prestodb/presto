@@ -55,6 +55,7 @@ import com.facebook.presto.sql.planner.InputExtractor;
 import com.facebook.presto.sql.planner.OutputExtractor;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.PlanAnalyticsInfoProvider;
 import com.facebook.presto.sql.planner.PlanCanonicalInfoProvider;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
@@ -140,9 +141,9 @@ public class SqlQueryExecution
     private final PartialResultQueryManager partialResultQueryManager;
     private final AtomicReference<Optional<ResourceGroupQueryLimits>> resourceGroupQueryLimits = new AtomicReference<>(Optional.empty());
     private final PlanCanonicalInfoProvider planCanonicalInfoProvider;
-    private final PlanCanonicalInfoProvider planAnalyticsInfoProvider;
     private final QueryAnalysis queryAnalysis;
     private final AnalyzerContext analyzerContext;
+    private final PlanAnalyticsInfoProvider planAnalyticsInfoProvider;
 
     private SqlQueryExecution(
             QueryAnalyzer queryAnalyzer,
@@ -169,7 +170,7 @@ public class SqlQueryExecution
             PlanChecker planChecker,
             PartialResultQueryManager partialResultQueryManager,
             PlanCanonicalInfoProvider planCanonicalInfoProvider,
-            PlanCanonicalInfoProvider planAnalyticsInfoProvider)
+            PlanAnalyticsInfoProvider planAnalyticsInfoProvider)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.queryAnalyzer = requireNonNull(queryAnalyzer, "queryAnalyzer is null");

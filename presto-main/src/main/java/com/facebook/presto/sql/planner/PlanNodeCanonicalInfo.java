@@ -98,8 +98,9 @@ public class PlanNodeCanonicalInfo
     public static List<CanonicalPlanWithInfo> getPlanAnalyticsCanonicalInfo(
             Session session,
             PlanNode root,
-            PlanCanonicalInfoProvider planCanonicalInfoProvider)
+            PlanAnalyticsInfoProvider planCanonicalInfoProvider)
     {
+        PlanAnalyticsInfoProvider.PlanAnalyticsInfoContext context = new PlanAnalyticsInfoProvider.PlanAnalyticsInfoContext();
         ImmutableList.Builder<CanonicalPlanWithInfo> result = ImmutableList.builder();
         for (PlanNode node : forTree(PlanNode::getSources).depthFirstPreOrder(root)) {
             if (!node.getStatsEquivalentPlanNode().isPresent()) {
@@ -110,15 +111,11 @@ public class PlanNodeCanonicalInfo
              * ref Property history_canonical_plan_node_limit
              */
             PlanNode statsEquivalentPlanNode = node.getStatsEquivalentPlanNode().get();
-            Optional<String> hash = planCanonicalInfoProvider.hash(session, statsEquivalentPlanNode, PlanCanonicalizationStrategy.EXACT);
+            Optional<String> hash = planCanonicalInfoProvider.hash(session, statsEquivalentPlanNode, PlanCanonicalizationStrategy.EXACT, context);
             if (hash.isPresent()) {
                 result.add(new CanonicalPlanWithInfo(new CanonicalPlan(statsEquivalentPlanNode, PlanCanonicalizationStrategy.EXACT),
                         new PlanNodeCanonicalInfo(hash.get(), Collections.emptyList())));
             }
-        }
-        if (planCanonicalInfoProvider instanceof CachingPlanAnalyticsInfoProvider) {
-            // invalidate cache after the query
-            ((CachingPlanAnalyticsInfoProvider) planCanonicalInfoProvider).invalidateCache();
         }
         return result.build();
     }
