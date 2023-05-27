@@ -93,14 +93,44 @@ TEST_F(GreatestLeastTest, greatestDouble) {
       {100, 1.1, 1});
 }
 
-TEST_F(GreatestLeastTest, leastBigInt) {
+TEST_F(GreatestLeastTest, leastInteger) {
+  // TinyInt
+  runTest<int8_t>("least(c0)", {{0, 1, -1}}, {0, 1, -1});
+  runTest<int8_t>("least(c0, c1)", {{0, 1, -1}, {100, -100, 0}}, {0, -100, -1});
+  // SmallInt
+  runTest<int16_t>("least(c0)", {{0, 1, -1}}, {0, 1, -1});
+  runTest<int16_t>(
+      "least(c0, c1)", {{0, 1, -1}, {100, -100, 0}}, {0, -100, -1});
+  // Integer
+  runTest<int32_t>("least(c0)", {{0, 1, -1}}, {0, 1, -1});
+  runTest<int32_t>(
+      "least(c0, c1)", {{0, 1, -1}, {100, -100, 0}}, {0, -100, -1});
+  // BigInt
   runTest<int64_t>("least(c0)", {{0, 1, -1}}, {0, 1, -1});
+  runTest<int64_t>("least(c0)", {{0, 1, -1}}, {0, 1, -1});
+  runTest<int64_t>(
+      "least(c0, c1)", {{0, 1, -1}, {100, -100, 0}}, {0, -100, -1});
   runTest<int64_t>("least(c0, 1)", {{0, 1, -1}}, {0, 1, -1});
   runTest<int64_t>(
       "least(c0, 1 , c1)", {{0, 1, -1}, {100, -100, 0}}, {0, -100, -1});
 }
 
-TEST_F(GreatestLeastTest, greatestBigInt) {
+TEST_F(GreatestLeastTest, greatestInteger) {
+  // TinyInt
+  runTest<int8_t>("greatest(c0)", {{0, 1, -1}}, {0, 1, -1});
+  runTest<int8_t>(
+      "greatest(c0, c1)", {{0, 1, -1}, {100, -100, 0}}, {100, 1, 0});
+  // SmallInt
+  runTest<int16_t>("greatest(c0)", {{0, 1, -1}}, {0, 1, -1});
+  runTest<int16_t>(
+      "greatest(c0, c1)", {{0, 1, -1}, {100, -100, 0}}, {100, 1, 0});
+  // Integer
+  runTest<int32_t>("greatest(c0)", {{0, 1, -1}}, {0, 1, -1});
+  runTest<int32_t>(
+      "greatest(c0, c1)", {{0, 1, -1}, {100, -100, 0}}, {100, 1, 0});
+  // BigInt
+  runTest<int64_t>("greatest(c0)", {{0, 1, -1}}, {0, 1, -1});
+  runTest<int64_t>("greatest(c0)", {{0, 1, -1}}, {0, 1, -1});
   runTest<int64_t>("greatest(c0)", {{0, 1, -1}}, {0, 1, -1});
   runTest<int64_t>("greatest(c0, 1)", {{0, 1, -1}}, {1, 1, 1});
   runTest<int64_t>(

@@ -112,6 +112,18 @@ class ExtremeValueFunction : public exec::VectorFunction {
       exec::EvalCtx& context,
       VectorPtr& result) const override {
     switch (outputType.get()->kind()) {
+      case TypeKind::TINYINT:
+        applyTyped<TypeTraits<TypeKind::TINYINT>::NativeType>(
+            rows, args, outputType, context, result);
+        return;
+      case TypeKind::SMALLINT:
+        applyTyped<TypeTraits<TypeKind::SMALLINT>::NativeType>(
+            rows, args, outputType, context, result);
+        return;
+      case TypeKind::INTEGER:
+        applyTyped<TypeTraits<TypeKind::INTEGER>::NativeType>(
+            rows, args, outputType, context, result);
+        return;
       case TypeKind::BIGINT:
         applyTyped<TypeTraits<TypeKind::BIGINT>::NativeType>(
             rows, args, outputType, context, result);
@@ -146,7 +158,14 @@ class ExtremeValueFunction : public exec::VectorFunction {
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
     std::vector<std::string> types = {
-        "bigint", "double", "varchar", "timestamp", "date"};
+        "tinyint",
+        "smallint",
+        "integer",
+        "bigint",
+        "double",
+        "varchar",
+        "timestamp",
+        "date"};
     std::vector<std::shared_ptr<exec::FunctionSignature>> signatures;
     for (const auto& type : types) {
       signatures.emplace_back(exec::FunctionSignatureBuilder()
