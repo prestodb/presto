@@ -64,6 +64,8 @@ class HashProbe : public Operator {
     return false;
   }
 
+  void close() override;
+
   void clearDynamicFilters() override;
 
  private:
@@ -243,9 +245,9 @@ class HashProbe : public Operator {
 
   const bool nullAware_;
 
-  const std::shared_ptr<HashJoinBridge> joinBridge_;
-
   const RowTypePtr probeType_;
+
+  std::shared_ptr<HashJoinBridge> joinBridge_;
 
   ProbeOperatorState state_{ProbeOperatorState::kWaitForBuild};
 

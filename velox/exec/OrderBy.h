@@ -58,6 +58,8 @@ class OrderBy : public Operator {
 
   void reclaim(uint64_t targetBytes) override;
 
+  void close() override;
+
  private:
   // Checks if input will fit in the existing memory and increases
   // reservation if not. If reservation cannot be increased, spills enough to

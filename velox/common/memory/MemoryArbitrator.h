@@ -20,6 +20,7 @@
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/SuccinctPrinter.h"
+#include "velox/common/future/VeloxPromise.h"
 
 namespace facebook::velox::memory {
 
@@ -121,6 +122,8 @@ class MemoryArbitrator {
   struct Stats {
     /// The number of arbitration requests.
     uint64_t numRequests{0};
+    /// The number of aborted arbitration requests.
+    uint64_t numAborted{0};
     /// The number of arbitration request failures.
     uint64_t numFailures{0};
     /// The sum of all the arbitration request queue times in microseconds.
@@ -216,6 +219,13 @@ class MemoryReclaimer {
   /// reclaims all the reclaimable memory from the memory 'pool'. The function
   /// returns the actual reclaimed memory bytes.
   virtual uint64_t reclaim(MemoryPool* pool, uint64_t targetBytes);
+
+  /// Invoked by the memory arbitrator to abort memory 'pool' and the associated
+  /// query execution when encounters non-recoverable memory reclaim error or
+  /// fails to reclaim enough free capacity. The abort is a synchronous
+  /// operation and we expect most of used memory to be freed after the abort
+  /// completes.
+  virtual void abort(MemoryPool* pool);
 
  protected:
   MemoryReclaimer() = default;

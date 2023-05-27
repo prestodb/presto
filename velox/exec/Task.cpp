@@ -1992,26 +1992,46 @@ StopReason Task::enterForTerminateLocked(ThreadState& state) {
   return StopReason::kTerminate;
 }
 
-StopReason Task::leave(ThreadState& state) {
+void Task::leave(
+    ThreadState& state,
+    const std::function<void(StopReason)>& driverCb) {
   std::vector<ContinuePromise> threadFinishPromises;
   auto guard = folly::makeGuard([&]() {
     for (auto& promise : threadFinishPromises) {
       promise.setValue();
     }
   });
+  StopReason reason;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    if (!state.isTerminated) {
+      reason = shouldStopLocked();
+      if (reason == StopReason::kTerminate) {
+        state.isTerminated = true;
+      }
+    } else {
+      reason = StopReason::kTerminate;
+    }
+    if ((reason != StopReason::kTerminate) || (driverCb == nullptr)) {
+      if (--numThreads_ == 0) {
+        threadFinishPromises = allThreadsFinishedLocked();
+      }
+      state.clearThread();
+      return;
+    }
+  }
+
+  VELOX_CHECK_EQ(reason, StopReason::kTerminate);
+  VELOX_CHECK_NOT_NULL(driverCb);
+  // Call 'driverCb' before goes off the driver thread. 'driverCb' will close
+  // the driver and remove it from the task.
+  driverCb(reason);
+
   std::lock_guard<std::mutex> l(mutex_);
   if (--numThreads_ == 0) {
     threadFinishPromises = allThreadsFinishedLocked();
   }
   state.clearThread();
-  if (state.isTerminated) {
-    return StopReason::kTerminate;
-  }
-  const auto reason = shouldStopLocked();
-  if (reason == StopReason::kTerminate) {
-    state.isTerminated = true;
-  }
-  return reason;
 }
 
 StopReason Task::enterSuspended(ThreadState& state) {
@@ -2264,12 +2284,21 @@ uint64_t Task::MemoryReclaimer::reclaim(
                    << " after memory reclamation: " << exception.message();
     }
   });
-  // NOTE: we can't reclaim from a cancelled task as there might be race between
-  // memory reclamation and the driver close.
+  // Don't reclaim from a cancelled task as it will terminate soon.
   if (task->isCancelled()) {
     return 0;
   }
   return memory::MemoryReclaimer::reclaim(pool, targetBytes);
+}
+
+void Task::MemoryReclaimer::abort(memory::MemoryPool* pool) {
+  auto task = ensureTask();
+  if (FOLLY_UNLIKELY(task == nullptr)) {
+    return;
+  }
+  VELOX_CHECK_EQ(task->pool()->name(), pool->name());
+  task->requestAbort().wait();
+  memory::MemoryReclaimer::abort(pool);
 }
 
 } // namespace facebook::velox::exec

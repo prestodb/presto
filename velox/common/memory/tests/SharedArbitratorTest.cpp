@@ -80,6 +80,8 @@ class FakeMemoryNode : public core::PlanNode {
 };
 
 using AllocationCallback = std::function<Allocation(Operator* op)>;
+using ReclaimInjectionCallback =
+    std::function<void(MemoryPool* pool, uint64_t targetByte)>;
 
 // Custom operator for the custom factory.
 class FakeMemoryOperator : public Operator {
@@ -89,10 +91,12 @@ class FakeMemoryOperator : public Operator {
       int32_t id,
       core::PlanNodePtr node,
       bool canReclaim,
-      AllocationCallback allocationCb)
+      AllocationCallback allocationCb,
+      ReclaimInjectionCallback reclaimCb)
       : Operator(ctx, node->outputType(), id, node->id(), "FakeMemoryNode"),
         canReclaim_(canReclaim),
-        allocationCb_(std::move(allocationCb)) {}
+        allocationCb_(std::move(allocationCb)),
+        reclaimCb_(std::move(reclaimCb)) {}
 
   ~FakeMemoryOperator() override {
     clear();
@@ -146,6 +150,10 @@ class FakeMemoryOperator : public Operator {
     VELOX_CHECK(driver->task()->pauseRequested());
     VELOX_CHECK_GT(targetBytes, 0);
 
+    if (reclaimCb_ != nullptr) {
+      reclaimCb_(pool(), targetBytes);
+    }
+
     uint64_t bytesReclaimed{0};
     auto allocIt = allocations_.begin();
     while (allocIt != allocations_.end() &&
@@ -171,6 +179,7 @@ class FakeMemoryOperator : public Operator {
 
   const bool canReclaim_;
   const AllocationCallback allocationCb_;
+  const ReclaimInjectionCallback reclaimCb_;
 
   std::atomic<size_t> totalBytes_{0};
   std::vector<Allocation> allocations_;
@@ -187,7 +196,7 @@ class FakeMemoryOperatorFactory : public Operator::PlanNodeTranslator {
       const core::PlanNodePtr& node) override {
     if (std::dynamic_pointer_cast<const FakeMemoryNode>(node)) {
       return std::make_unique<FakeMemoryOperator>(
-          ctx, id, node, canReclaim_, allocationCallback_);
+          ctx, id, node, canReclaim_, allocationCallback_, reclaimCallback_);
     }
     return nullptr;
   }
@@ -211,9 +220,14 @@ class FakeMemoryOperatorFactory : public Operator::PlanNodeTranslator {
     allocationCallback_ = std::move(allocCb);
   }
 
+  void setReclaimCallback(ReclaimInjectionCallback reclaimCb) {
+    reclaimCallback_ = std::move(reclaimCb);
+  }
+
  private:
   bool canReclaim_{true};
   AllocationCallback allocationCallback_{nullptr};
+  ReclaimInjectionCallback reclaimCallback_{nullptr};
   uint32_t maxDrivers_{1};
 };
 
@@ -1599,6 +1613,13 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
     return Allocation{buffer, allocationSize};
   });
   fakeOperatorFactory_->setMaxDrivers(numDrivers);
+  const std::string injectReclaimErrorMessage("Inject reclaim failure");
+  fakeOperatorFactory_->setReclaimCallback(
+      [&](MemoryPool* /*unused*/, uint64_t /*unused*/) {
+        if (folly::Random::oneIn(10)) {
+          VELOX_FAIL(injectReclaimErrorMessage);
+        }
+      });
 
   const int numThreads = 30;
   const int maxNumZombieTasks = 128;

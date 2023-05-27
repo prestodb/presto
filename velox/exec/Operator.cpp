@@ -448,7 +448,23 @@ uint64_t Operator::MemoryReclaimer::reclaim(
     return 0;
   }
   VELOX_CHECK_EQ(pool->name(), op_->pool()->name());
+  VELOX_CHECK(!driver->state().isOnThread() || driver->state().isSuspended);
+  VELOX_CHECK(driver->task()->pauseRequested());
+
   op_->reclaim(targetBytes);
   return pool->shrink(targetBytes);
+}
+
+void Operator::MemoryReclaimer::abort(memory::MemoryPool* pool) {
+  std::shared_ptr<Driver> driver = ensureDriver();
+  if (FOLLY_UNLIKELY(driver == nullptr)) {
+    return;
+  }
+  VELOX_CHECK_EQ(pool->name(), op_->pool()->name());
+  VELOX_CHECK(!driver->state().isOnThread() || driver->state().isSuspended);
+  VELOX_CHECK(driver->task()->isCancelled());
+
+  // Calls operator close to free up major memory usage.
+  op_->close();
 }
 } // namespace facebook::velox::exec

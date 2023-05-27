@@ -1236,6 +1236,10 @@ bool waitForTaskAborted(exec::Task* task, uint64_t maxWaitMicros) {
   return waitForTaskFinish(task, TaskState::kAborted, maxWaitMicros);
 }
 
+bool waitForTaskCancelled(exec::Task* task, uint64_t maxWaitMicros) {
+  return waitForTaskFinish(task, TaskState::kCanceled, maxWaitMicros);
+}
+
 bool waitForTaskStateChange(
     exec::Task* task,
     TaskState state,

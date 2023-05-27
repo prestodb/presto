@@ -96,6 +96,12 @@ std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
     const std::string& name,
     int64_t capacity,
     std::unique_ptr<MemoryReclaimer> reclaimer) {
+  if (arbitrator_ != nullptr) {
+    VELOX_CHECK_NOT_NULL(
+        reclaimer,
+        "Memory reclaimer must be set when configured with memory arbitrator");
+  }
+
   std::string poolName = name;
   if (poolName.empty()) {
     static std::atomic<int64_t> poolId{0};

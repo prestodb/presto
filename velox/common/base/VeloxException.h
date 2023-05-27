@@ -86,8 +86,11 @@ inline constexpr auto kUnreachableCode = "UNREACHABLE_CODE"_fs;
 // An error raised when a requested operation is not yet supported.
 inline constexpr auto kNotImplemented = "NOT_IMPLEMENTED"_fs;
 
-// An error raised when memory exceeded limits.
+// An error raised when memory pool exceeds limits.
 inline constexpr auto kMemCapExceeded = "MEM_CAP_EXCEEDED"_fs;
+
+// An error raised when memory pool is aborted.
+inline constexpr auto kMemAborted = "MEM_ABORTED"_fs;
 
 // Error caused by memory allocation failure.
 inline constexpr auto kMemAllocError = "MEM_ALLOC_ERROR"_fs;

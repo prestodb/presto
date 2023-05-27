@@ -463,13 +463,18 @@ class Task : public std::enable_shared_from_this<Task> {
   StopReason enterForTerminateLocked(ThreadState& state);
 
   /// Marks that the Driver is not on thread. If no more Drivers in the
-  /// CancelPool are on thread, this realizes
-  /// threadFinishFutures_. These allow syncing with pause or
-  /// termination. The Driver may go off thread because of
+  /// CancelPool are on thread, this realizes threadFinishFutures_. These allow
+  /// syncing with pause or termination. The Driver may go off thread because of
   /// hasBlockingFuture or pause requested or terminate requested. The
   /// return value indicates the reason. If kTerminate is returned, the
-  /// isTerminated flag is set.
-  StopReason leave(ThreadState& state);
+  /// isTerminated flag is set. 'driverCb' is called to close the driver before
+  /// it goes off thread if the task has been terminated. It ensures that the
+  /// driver close operation is always executed on driver thread. This helps to
+  /// avoid the race condition between driver close and operator abort
+  /// operations.
+  void leave(
+      ThreadState& state,
+      const std::function<void(StopReason)>& driverCb);
 
   /// Enters a suspended section where the caller stays on thread but
   /// is not accounted as being on the thread.  Returns kNone if no
@@ -631,6 +636,8 @@ class Task : public std::enable_shared_from_this<Task> {
         const std::shared_ptr<Task>& task);
 
     uint64_t reclaim(memory::MemoryPool* pool, uint64_t targetBytes) override;
+
+    void abort(memory::MemoryPool* pool) override;
 
    private:
     explicit MemoryReclaimer(const std::shared_ptr<Task>& task) : task_(task) {

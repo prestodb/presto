@@ -993,8 +993,6 @@ bool HashBuild::testingTriggerSpill() {
 void HashBuild::reclaim(uint64_t /*unused*/) {
   VELOX_CHECK(canReclaim());
   auto* driver = operatorCtx_->driver();
-  VELOX_CHECK(!driver->state().isOnThread() || driver->state().isSuspended);
-  VELOX_CHECK(driver->task()->pauseRequested());
 
   TestValue::adjust("facebook::velox::exec::HashBuild::reclaim", this);
 
@@ -1043,5 +1041,14 @@ void HashBuild::reclaim(uint64_t /*unused*/) {
     // Release the minimum reserved memory.
     op->pool()->release();
   }
+}
+
+void HashBuild::close() {
+  Operator::close();
+
+  // Free up major memory usage.
+  joinBridge_.reset();
+  spiller_.reset();
+  table_.reset();
 }
 } // namespace facebook::velox::exec

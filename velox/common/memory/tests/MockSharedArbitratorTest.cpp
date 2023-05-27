@@ -19,6 +19,7 @@
 #include <deque>
 
 #include "folly/experimental/EventCount.h"
+#include "folly/futures/Barrier.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MemoryArbitrator.h"
@@ -194,6 +195,24 @@ class MockMemoryOperator {
     return pool_->shrink(targetBytes);
   }
 
+  void abort(MemoryPool* pool) {
+    std::vector<Allocation> allocationsToFree;
+    {
+      std::lock_guard<std::mutex> l(mu_);
+      VELOX_CHECK_NOT_NULL(pool_);
+      VELOX_CHECK_EQ(pool->name(), pool_->name());
+      for (auto allocEntry : allocations_) {
+        allocationsToFree.push_back(
+            Allocation{allocEntry.first, allocEntry.second});
+        totalBytes_ -= allocEntry.second;
+      }
+      allocations_.clear();
+    }
+    for (const auto& allocation : allocationsToFree) {
+      pool_->free(allocation.buffer, allocation.size);
+    }
+  }
+
   void setPool(MemoryPool* pool) {
     std::lock_guard<std::mutex> l(mu_);
     VELOX_CHECK_NOT_NULL(pool);
@@ -201,7 +220,7 @@ class MockMemoryOperator {
     pool_ = pool;
   }
 
-  MemoryPool* pool() {
+  MemoryPool* pool() const {
     return pool_;
   }
 
@@ -209,7 +228,7 @@ class MockMemoryOperator {
     return pool_->capacity();
   }
 
-  MockMemoryReclaimer* reclaimer();
+  MockMemoryReclaimer* reclaimer() const;
 
  private:
   mutable std::mutex mu_;
@@ -238,13 +257,13 @@ class MockMemoryReclaimer : public MemoryReclaimer {
     return op_->reclaimableBytes(pool, reclaimableBytes);
   }
 
-  uint64_t reclaim(MemoryPool* pool, uint64_t targetBytes) noexcept override {
+  uint64_t reclaim(MemoryPool* pool, uint64_t targetBytes) override {
     ++numReclaims_;
-    if (reclaimInjectCb_ != nullptr) {
-      reclaimInjectCb_(pool, targetBytes);
-    }
     if (!reclaimable_) {
       return 0;
+    }
+    if (reclaimInjectCb_ != nullptr) {
+      reclaimInjectCb_(pool, targetBytes);
     }
     reclaimTargetBytes_.push_back(targetBytes);
     return op_->reclaim(pool, targetBytes);
@@ -261,10 +280,16 @@ class MockMemoryReclaimer : public MemoryReclaimer {
     ++numLeaveArbitrations_;
   }
 
+  void abort(MemoryPool* pool) override {
+    ++numAborts_;
+    op_->abort(pool);
+  }
+
   struct Stats {
     uint64_t numEnterArbitrations;
     uint64_t numLeaveArbitrations;
     uint64_t numReclaims;
+    uint64_t numAborts;
     std::vector<uint64_t> reclaimTargetBytes;
   };
 
@@ -274,6 +299,7 @@ class MockMemoryReclaimer : public MemoryReclaimer {
     stats.numLeaveArbitrations = numLeaveArbitrations_;
     stats.numReclaims = numReclaims_;
     stats.reclaimTargetBytes = reclaimTargetBytes_;
+    stats.numAborts = numAborts_;
     return stats;
   }
 
@@ -286,10 +312,11 @@ class MockMemoryReclaimer : public MemoryReclaimer {
   std::atomic<uint64_t> numEnterArbitrations_{0};
   std::atomic<uint64_t> numLeaveArbitrations_{0};
   std::atomic<uint64_t> numReclaims_{0};
+  std::atomic<uint64_t> numAborts_{0};
   std::vector<uint64_t> reclaimTargetBytes_;
 };
 
-MockMemoryReclaimer* MockMemoryOperator::reclaimer() {
+MockMemoryReclaimer* MockMemoryOperator::reclaimer() const {
   return static_cast<MockMemoryReclaimer*>(pool_->reclaimer());
 }
 
@@ -840,6 +867,499 @@ TEST_F(MockSharedArbitrationTest, enterArbitrationException) {
   ASSERT_EQ(arbitrator_->stats().numFailures, 0);
 }
 
+TEST_F(MockSharedArbitrationTest, noArbitratiognFromAbortedPool) {
+  auto* reclaimedOp = addMemoryOp();
+  ASSERT_EQ(reclaimedOp->capacity(), kInitMemoryPoolCapacity);
+  reclaimedOp->allocate(128);
+  reclaimedOp->pool()->abort();
+  ASSERT_TRUE(reclaimedOp->pool()->aborted());
+  ASSERT_TRUE(reclaimedOp->pool()->aborted());
+  const int largeAllocationSize = 2 * kInitMemoryPoolCapacity;
+  VELOX_ASSERT_THROW(reclaimedOp->allocate(largeAllocationSize), "");
+  ASSERT_EQ(arbitrator_->stats().numRequests, 0);
+  ASSERT_EQ(arbitrator_->stats().numAborted, 0);
+  ASSERT_EQ(arbitrator_->stats().numFailures, 0);
+  // Check we don't allow memory reservation increase or trigger memory
+  // arbitration at root memory pool.
+  ASSERT_EQ(reclaimedOp->pool()->capacity(), kInitMemoryPoolCapacity);
+  ASSERT_EQ(reclaimedOp->pool()->currentBytes(), 0);
+  VELOX_ASSERT_THROW(reclaimedOp->allocate(128), "");
+  ASSERT_EQ(reclaimedOp->pool()->currentBytes(), 0);
+  ASSERT_EQ(reclaimedOp->pool()->capacity(), kInitMemoryPoolCapacity);
+  VELOX_ASSERT_THROW(reclaimedOp->allocate(kInitMemoryPoolCapacity * 2), "");
+  ASSERT_EQ(reclaimedOp->pool()->capacity(), kInitMemoryPoolCapacity);
+  ASSERT_EQ(reclaimedOp->pool()->currentBytes(), 0);
+  ASSERT_EQ(arbitrator_->stats().numRequests, 0);
+  ASSERT_EQ(arbitrator_->stats().numAborted, 0);
+  ASSERT_EQ(arbitrator_->stats().numFailures, 0);
+}
+
+DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, failedToReclaimFromRequestor) {
+  const int numOtherQueries = 4;
+  const int otherQueryMemoryCapacity = kMemoryCapacity / 8;
+  const int failedQueryMemoryCapacity = kMemoryCapacity / 2;
+  struct {
+    bool hasAllocationFromFailedQueryAfterAbort;
+    bool hasAllocationFromOtherQueryAfterAbort;
+    int64_t expectedFailedQueryMemoryCapacity;
+    int64_t expectedFailedQueryMemoryUsage;
+    int64_t expectedOtherQueryMemoryCapacity;
+    int64_t expectedOtherQueryMemoryUsage;
+    int64_t expectedFreeCapacity;
+
+    std::string debugString() const {
+      return fmt::format(
+          "hasAllocationFromFailedQueryAfterAbort {}, hasAllocationFromOtherQueryAfterAbort {} expectedFailedQueryMemoryCapacity {} expectedFailedQueryMemoryUsage {} expectedOtherQueryMemoryCapacity {} expectedOtherQueryMemoryUsage {} expectedFreeCapacity{}",
+          hasAllocationFromFailedQueryAfterAbort,
+          hasAllocationFromOtherQueryAfterAbort,
+          expectedFailedQueryMemoryCapacity,
+          expectedFailedQueryMemoryUsage,
+          expectedOtherQueryMemoryCapacity,
+          expectedOtherQueryMemoryUsage,
+          expectedFreeCapacity);
+    }
+  } testSettings[] = {
+      {false,
+       false,
+       0,
+       0,
+       otherQueryMemoryCapacity,
+       otherQueryMemoryCapacity,
+       failedQueryMemoryCapacity},
+      {true,
+       false,
+       0,
+       0,
+       otherQueryMemoryCapacity,
+       otherQueryMemoryCapacity,
+       failedQueryMemoryCapacity},
+      {true,
+       true,
+       0,
+       0,
+       otherQueryMemoryCapacity * 2,
+       otherQueryMemoryCapacity * 2,
+       0},
+      {false,
+       true,
+       0,
+       0,
+       otherQueryMemoryCapacity * 2,
+       otherQueryMemoryCapacity * 2,
+       0}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    setupMemory();
+
+    std::vector<std::shared_ptr<MockQuery>> otherQueries;
+    std::vector<MockMemoryOperator*> otherQueryOps;
+    for (int i = 0; i < numOtherQueries; ++i) {
+      otherQueries.push_back(addQuery(otherQueryMemoryCapacity));
+      otherQueryOps.push_back(addMemoryOp(otherQueries.back(), false));
+      otherQueryOps.back()->allocate(otherQueryMemoryCapacity);
+      ASSERT_EQ(
+          otherQueries.back()->pool()->currentBytes(),
+          otherQueryMemoryCapacity);
+    }
+    std::shared_ptr<MockQuery> failedQuery =
+        addQuery(failedQueryMemoryCapacity);
+    MockMemoryOperator* failedQueryOp = addMemoryOp(
+        failedQuery, true, [&](MemoryPool* /*unsed*/, uint64_t /*unsed*/) {
+          VELOX_FAIL("throw reclaim exception");
+        });
+    failedQueryOp->allocate(failedQueryMemoryCapacity);
+    for (int i = 0; i < numOtherQueries; ++i) {
+      ASSERT_EQ(otherQueryOps[0]->pool()->capacity(), otherQueryMemoryCapacity);
+    }
+    ASSERT_EQ(failedQueryOp->capacity(), failedQueryMemoryCapacity);
+
+    const auto oldStats = arbitrator_->stats();
+    ASSERT_EQ(oldStats.numFailures, 0);
+    ASSERT_EQ(oldStats.numAborted, 0);
+
+    const int numFailedQueryAllocationsAfterAbort =
+        testData.hasAllocationFromFailedQueryAfterAbort ? 3 : 0;
+    // If 'hasAllocationFromOtherQueryAfterAbort' is true, then one allocation
+    // from each of the other queries.
+    const int numOtherAllocationsAfterAbort =
+        testData.hasAllocationFromOtherQueryAfterAbort ? numOtherQueries : 0;
+
+    // One barrier count is for the initial allocation from the failed query to
+    // trigger memory arbitration.
+    folly::futures::Barrier arbitrationStartBarrier(
+        numFailedQueryAllocationsAfterAbort + numOtherAllocationsAfterAbort +
+        1);
+    folly::futures::Barrier arbitrationBarrier(
+        numFailedQueryAllocationsAfterAbort + numOtherAllocationsAfterAbort +
+        1);
+    std::atomic<int> testInjectionCount{0};
+    std::atomic<bool> arbitrationStarted{false};
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::memory::SharedArbitrator::startArbitration",
+        std::function<void(const MemoryPool*)>(
+            ([&](const MemoryPool* /*unsed*/) {
+              if (!arbitrationStarted) {
+                return;
+              }
+              if (++testInjectionCount <= numFailedQueryAllocationsAfterAbort +
+                      numOtherAllocationsAfterAbort + 1) {
+                arbitrationBarrier.wait().wait();
+              }
+            })));
+
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::memory::SharedArbitrator::sortCandidatesByFreeCapacity",
+        std::function<void(const std::vector<SharedArbitrator::Candidate>*)>(
+            ([&](const std::vector<SharedArbitrator::Candidate>* /*unused*/) {
+              if (!arbitrationStarted.exchange(true)) {
+                arbitrationStartBarrier.wait().wait();
+              }
+              if (++testInjectionCount <= numFailedQueryAllocationsAfterAbort +
+                      numOtherAllocationsAfterAbort + 1) {
+                arbitrationBarrier.wait().wait();
+              }
+            })));
+
+    std::vector<std::thread> allocationThreadsAfterAbort;
+    for (int i = 0; i <
+         numFailedQueryAllocationsAfterAbort + numOtherAllocationsAfterAbort;
+         ++i) {
+      allocationThreadsAfterAbort.emplace_back([&, i]() {
+        arbitrationStartBarrier.wait().wait();
+        if (i < numFailedQueryAllocationsAfterAbort) {
+          VELOX_ASSERT_THROW(
+              failedQueryOp->allocate(failedQueryMemoryCapacity), "");
+        } else {
+          otherQueryOps[i - numFailedQueryAllocationsAfterAbort]->allocate(
+              otherQueryMemoryCapacity);
+        }
+      });
+    }
+
+    // Trigger memory arbitration to reclaim from itself which throws.
+    VELOX_ASSERT_THROW(failedQueryOp->allocate(failedQueryMemoryCapacity), "");
+    // Wait for all the allocation threads to complete.
+    for (auto& allocationThread : allocationThreadsAfterAbort) {
+      allocationThread.join();
+    }
+    ASSERT_TRUE(failedQueryOp->pool()->aborted());
+    ASSERT_EQ(
+        failedQueryOp->pool()->currentBytes(),
+        testData.expectedFailedQueryMemoryCapacity);
+    ASSERT_EQ(
+        failedQueryOp->pool()->capacity(),
+        testData.expectedFailedQueryMemoryUsage);
+    ASSERT_EQ(failedQueryOp->reclaimer()->stats().numAborts, 1);
+    ASSERT_EQ(failedQueryOp->reclaimer()->stats().numReclaims, 1);
+
+    const auto newStats = arbitrator_->stats();
+    ASSERT_EQ(
+        newStats.numRequests,
+        oldStats.numRequests + 1 + numFailedQueryAllocationsAfterAbort +
+            numOtherAllocationsAfterAbort);
+    ASSERT_EQ(newStats.numAborted, 1);
+    ASSERT_EQ(newStats.freeCapacityBytes, testData.expectedFreeCapacity);
+    ASSERT_EQ(newStats.numFailures, numFailedQueryAllocationsAfterAbort + 1);
+    ASSERT_EQ(newStats.maxCapacityBytes, kMemoryCapacity);
+    // Check if memory pools have been aborted or not as expected.
+    for (const auto* queryOp : otherQueryOps) {
+      ASSERT_FALSE(queryOp->pool()->aborted());
+      ASSERT_EQ(queryOp->reclaimer()->stats().numAborts, 0);
+      ASSERT_EQ(queryOp->reclaimer()->stats().numReclaims, 0);
+      ASSERT_EQ(
+          queryOp->pool()->capacity(),
+          testData.expectedOtherQueryMemoryCapacity);
+      ASSERT_EQ(
+          queryOp->pool()->currentBytes(),
+          testData.expectedOtherQueryMemoryUsage);
+    }
+
+    VELOX_ASSERT_THROW(failedQueryOp->allocate(failedQueryMemoryCapacity), "");
+    ASSERT_EQ(arbitrator_->stats().numRequests, newStats.numRequests);
+    ASSERT_EQ(arbitrator_->stats().numAborted, 1);
+  }
+}
+
+DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, failedToReclaimFromOtherQuery) {
+  const int numNonFailedQueries = 3;
+  const int nonFailQueryMemoryCapacity = kMemoryCapacity / 8;
+  const int failedQueryMemoryCapacity =
+      kMemoryCapacity / 2 + nonFailQueryMemoryCapacity;
+  struct {
+    bool hasAllocationFromFailedQueryAfterAbort;
+    bool hasAllocationFromNonFailedQueryAfterAbort;
+    int64_t expectedFailedQueryMemoryCapacity;
+    int64_t expectedFailedQueryMemoryUsage;
+    int64_t expectedNonFailedQueryMemoryCapacity;
+    int64_t expectedNonFailedQueryMemoryUsage;
+    int64_t expectedFreeCapacity;
+
+    std::string debugString() const {
+      return fmt::format(
+          "hasAllocationFromFailedQueryAfterAbort {}, hasAllocationFromNonFailedQueryAfterAbort {} expectedFailedQueryMemoryCapacity {} expectedFailedQueryMemoryUsage {} expectedNonFailedQueryMemoryCapacity {} expectedNonFailedQueryMemoryUsage {} expectedFreeCapacity {}",
+          hasAllocationFromFailedQueryAfterAbort,
+          hasAllocationFromNonFailedQueryAfterAbort,
+          expectedFailedQueryMemoryCapacity,
+          expectedFailedQueryMemoryUsage,
+          expectedNonFailedQueryMemoryCapacity,
+          expectedNonFailedQueryMemoryUsage,
+          expectedFreeCapacity);
+    }
+  } testSettings[] = {
+      {false,
+       false,
+       0,
+       0,
+       nonFailQueryMemoryCapacity,
+       nonFailQueryMemoryCapacity,
+       failedQueryMemoryCapacity - nonFailQueryMemoryCapacity},
+      {true,
+       false,
+       0,
+       0,
+       nonFailQueryMemoryCapacity,
+       nonFailQueryMemoryCapacity,
+       failedQueryMemoryCapacity - nonFailQueryMemoryCapacity},
+      {true,
+       true,
+       0,
+       0,
+       nonFailQueryMemoryCapacity * 2,
+       nonFailQueryMemoryCapacity * 2,
+       nonFailQueryMemoryCapacity},
+      {false,
+       true,
+       0,
+       0,
+       nonFailQueryMemoryCapacity * 2,
+       nonFailQueryMemoryCapacity * 2,
+       nonFailQueryMemoryCapacity}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    setupMemory();
+
+    std::vector<std::shared_ptr<MockQuery>> nonFailedQueries;
+    std::vector<MockMemoryOperator*> nonFailedQueryOps;
+    for (int i = 0; i < numNonFailedQueries; ++i) {
+      nonFailedQueries.push_back(addQuery(nonFailQueryMemoryCapacity));
+      nonFailedQueryOps.push_back(addMemoryOp(nonFailedQueries.back(), false));
+      nonFailedQueryOps.back()->allocate(nonFailQueryMemoryCapacity);
+      ASSERT_EQ(
+          nonFailedQueries.back()->pool()->currentBytes(),
+          nonFailQueryMemoryCapacity);
+    }
+    std::shared_ptr<MockQuery> failedQuery =
+        addQuery(failedQueryMemoryCapacity);
+    MockMemoryOperator* failedQueryOp = addMemoryOp(
+        failedQuery, true, [&](MemoryPool* /*unsed*/, uint64_t /*unsed*/) {
+          VELOX_FAIL("throw reclaim exception");
+        });
+    failedQueryOp->allocate(failedQueryMemoryCapacity);
+    for (int i = 0; i < numNonFailedQueries; ++i) {
+      ASSERT_EQ(
+          nonFailedQueries[0]->pool()->capacity(), nonFailQueryMemoryCapacity)
+          << i;
+    }
+    ASSERT_EQ(failedQueryOp->capacity(), failedQueryMemoryCapacity);
+
+    const auto oldStats = arbitrator_->stats();
+    ASSERT_EQ(oldStats.numFailures, 0);
+    ASSERT_EQ(oldStats.numAborted, 0);
+
+    const int numFailedQueryAllocationsAfterAbort =
+        testData.hasAllocationFromFailedQueryAfterAbort ? 3 : 0;
+    // If 'hasAllocationFromOtherQueryAfterAbort' is true, then one allocation
+    // from each of the other queries.
+    const int numNonFailedAllocationsAfterAbort =
+        testData.hasAllocationFromNonFailedQueryAfterAbort ? numNonFailedQueries
+                                                           : 0;
+    // One barrier count is for the initial allocation from the failed query to
+    // trigger memory arbitration.
+    folly::futures::Barrier arbitrationStartBarrier(
+        numFailedQueryAllocationsAfterAbort +
+        numNonFailedAllocationsAfterAbort + 1);
+    folly::futures::Barrier arbitrationBarrier(
+        numFailedQueryAllocationsAfterAbort +
+        numNonFailedAllocationsAfterAbort + 1);
+    std::atomic<int> testInjectionCount{0};
+    std::atomic<bool> arbitrationStarted{false};
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::memory::SharedArbitrator::startArbitration",
+        std::function<void(const MemoryPool*)>(
+            ([&](const MemoryPool* /*unsed*/) {
+              if (!arbitrationStarted) {
+                return;
+              }
+              if (++testInjectionCount <= numFailedQueryAllocationsAfterAbort +
+                      numNonFailedAllocationsAfterAbort + 1) {
+                arbitrationBarrier.wait().wait();
+              }
+            })));
+
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::memory::SharedArbitrator::sortCandidatesByFreeCapacity",
+        std::function<void(const std::vector<SharedArbitrator::Candidate>*)>(
+            ([&](const std::vector<SharedArbitrator::Candidate>* /*unused*/) {
+              if (!arbitrationStarted.exchange(true)) {
+                arbitrationStartBarrier.wait().wait();
+              }
+              if (++testInjectionCount <= numFailedQueryAllocationsAfterAbort +
+                      numNonFailedAllocationsAfterAbort + 1) {
+                arbitrationBarrier.wait().wait();
+              }
+            })));
+
+    std::vector<std::thread> allocationThreadsAfterAbort;
+    for (int i = 0; i < numFailedQueryAllocationsAfterAbort +
+             numNonFailedAllocationsAfterAbort;
+         ++i) {
+      allocationThreadsAfterAbort.emplace_back([&, i]() {
+        arbitrationStartBarrier.wait().wait();
+        if (i < numFailedQueryAllocationsAfterAbort) {
+          VELOX_ASSERT_THROW(
+              failedQueryOp->allocate(failedQueryMemoryCapacity), "");
+        } else {
+          nonFailedQueryOps[i - numFailedQueryAllocationsAfterAbort]->allocate(
+              nonFailQueryMemoryCapacity);
+        }
+      });
+    }
+
+    // Trigger memory arbitration to reclaim from failedQuery which throws.
+    nonFailedQueryOps[0]->allocate(nonFailQueryMemoryCapacity);
+    // Wait for all the allocation threads to complete.
+    for (auto& allocationThread : allocationThreadsAfterAbort) {
+      allocationThread.join();
+    }
+    ASSERT_TRUE(failedQueryOp->pool()->aborted());
+    ASSERT_EQ(
+        failedQueryOp->pool()->currentBytes(),
+        testData.expectedFailedQueryMemoryCapacity);
+    ASSERT_EQ(
+        failedQueryOp->pool()->capacity(),
+        testData.expectedFailedQueryMemoryUsage);
+    ASSERT_EQ(failedQueryOp->reclaimer()->stats().numAborts, 1);
+    ASSERT_EQ(failedQueryOp->reclaimer()->stats().numReclaims, 1);
+
+    const auto newStats = arbitrator_->stats();
+    ASSERT_EQ(
+        newStats.numRequests,
+        oldStats.numRequests + 1 + numFailedQueryAllocationsAfterAbort +
+            numNonFailedAllocationsAfterAbort);
+    ASSERT_EQ(newStats.numAborted, 1);
+    ASSERT_EQ(newStats.freeCapacityBytes, testData.expectedFreeCapacity);
+    ASSERT_EQ(newStats.numFailures, numFailedQueryAllocationsAfterAbort);
+    ASSERT_EQ(newStats.maxCapacityBytes, kMemoryCapacity);
+    // Check if memory pools have been aborted or not as expected.
+    for (int i = 0; i < nonFailedQueryOps.size(); ++i) {
+      auto* queryOp = nonFailedQueryOps[i];
+      ASSERT_FALSE(queryOp->pool()->aborted());
+      ASSERT_EQ(queryOp->reclaimer()->stats().numAborts, 0);
+      ASSERT_EQ(queryOp->reclaimer()->stats().numReclaims, 0);
+      if (i == 0) {
+        ASSERT_EQ(
+            queryOp->pool()->capacity(),
+            testData.expectedNonFailedQueryMemoryCapacity +
+                nonFailQueryMemoryCapacity);
+        ASSERT_EQ(
+            queryOp->pool()->currentBytes(),
+            testData.expectedNonFailedQueryMemoryUsage +
+                nonFailQueryMemoryCapacity);
+      } else {
+        ASSERT_EQ(
+            queryOp->pool()->capacity(),
+            testData.expectedNonFailedQueryMemoryCapacity);
+        ASSERT_EQ(
+            queryOp->pool()->currentBytes(),
+            testData.expectedNonFailedQueryMemoryUsage);
+      }
+    }
+
+    VELOX_ASSERT_THROW(failedQueryOp->allocate(failedQueryMemoryCapacity), "");
+    ASSERT_EQ(arbitrator_->stats().numRequests, newStats.numRequests);
+    ASSERT_EQ(arbitrator_->stats().numAborted, 1);
+  }
+}
+
+TEST_F(MockSharedArbitrationTest, memoryPoolAbortThrow) {
+  const int numQueries = 4;
+  const int smallQueryMemoryCapacity = kMemoryCapacity / 8;
+  const int largeQueryMemoryCapacity = kMemoryCapacity / 2;
+  std::vector<std::shared_ptr<MockQuery>> smallQueries;
+  std::vector<MockMemoryOperator*> smallQueryOps;
+  for (int i = 0; i < numQueries; ++i) {
+    smallQueries.push_back(addQuery(smallQueryMemoryCapacity));
+    smallQueryOps.push_back(addMemoryOp(smallQueries.back(), false));
+    smallQueryOps.back()->allocate(smallQueryMemoryCapacity);
+  }
+  std::shared_ptr<MockQuery> largeQuery = addQuery(largeQueryMemoryCapacity);
+  MockMemoryOperator* largeQueryOp = addMemoryOp(
+      largeQuery, true, [&](MemoryPool* /*unsed*/, uint64_t /*unsed*/) {
+        VELOX_FAIL("throw reclaim exception");
+      });
+  largeQueryOp->allocate(largeQueryMemoryCapacity);
+  const auto oldStats = arbitrator_->stats();
+  ASSERT_EQ(oldStats.numFailures, 0);
+  ASSERT_EQ(oldStats.numAborted, 0);
+
+  // Trigger memory arbitration to reclaim from itself which throws.
+  VELOX_ASSERT_THROW(largeQueryOp->allocate(largeQueryMemoryCapacity), "");
+  const auto newStats = arbitrator_->stats();
+  ASSERT_EQ(newStats.numRequests, oldStats.numRequests + 1);
+  ASSERT_EQ(newStats.numAborted, 1);
+  ASSERT_EQ(newStats.freeCapacityBytes, largeQueryMemoryCapacity);
+  ASSERT_EQ(newStats.maxCapacityBytes, kMemoryCapacity);
+  // Check if memory pools have been aborted or not as expected.
+  for (const auto* queryOp : smallQueryOps) {
+    ASSERT_FALSE(queryOp->pool()->aborted());
+    ASSERT_EQ(queryOp->reclaimer()->stats().numAborts, 0);
+    ASSERT_EQ(queryOp->reclaimer()->stats().numReclaims, 0);
+  }
+  ASSERT_TRUE(largeQueryOp->pool()->aborted());
+  ASSERT_EQ(largeQueryOp->reclaimer()->stats().numAborts, 1);
+  ASSERT_EQ(largeQueryOp->reclaimer()->stats().numReclaims, 1);
+  VELOX_ASSERT_THROW(largeQueryOp->allocate(largeQueryMemoryCapacity), "");
+  ASSERT_EQ(arbitrator_->stats().numRequests, newStats.numRequests);
+  ASSERT_EQ(arbitrator_->stats().numAborted, 1);
+}
+
+DEBUG_ONLY_TEST_F(
+    MockSharedArbitrationTest,
+    raceBetweenInitialReservationAndArbitration) {
+  std::shared_ptr<MockQuery> arbitrationQuery = addQuery(kMemoryCapacity);
+  MockMemoryOperator* arbitrationQueryOp = addMemoryOp(arbitrationQuery);
+  ASSERT_EQ(arbitrationQuery->pool()->capacity(), kInitMemoryPoolCapacity);
+
+  folly::EventCount arbitrationRun;
+  auto arbitrationRunKey = arbitrationRun.prepareWait();
+  folly::EventCount arbitrationBlock;
+  auto arbitrationBlockKey = arbitrationBlock.prepareWait();
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::memory::SharedArbitrator::startArbitration",
+      std::function<void(const MemoryPool*)>(([&](const MemoryPool* /*unsed*/) {
+        arbitrationRun.notify();
+        arbitrationBlock.wait(arbitrationBlockKey);
+      })));
+
+  std::thread allocThread([&]() {
+    // Allocate more than its capacity to trigger arbitration which is blocked
+    // by the arbitration testvalue injection above.
+    arbitrationQueryOp->allocate(2 * kInitMemoryPoolCapacity);
+  });
+
+  arbitrationRun.wait(arbitrationRunKey);
+
+  // Allocate a new root memory pool and check its initial memory reservation is
+  // zero.
+  std::shared_ptr<MockQuery> skipQuery = addQuery(kMemoryCapacity);
+  MockMemoryOperator* skipQueryOp = addMemoryOp(skipQuery);
+  ASSERT_EQ(skipQueryOp->pool()->capacity(), 0);
+
+  arbitrationBlock.notify();
+  allocThread.join();
+}
+
 TEST_F(MockSharedArbitrationTest, concurrentArbitrations) {
   const int numQueries = 10;
   const int numOpsPerQuery = 5;
@@ -847,10 +1367,25 @@ TEST_F(MockSharedArbitrationTest, concurrentArbitrations) {
   queries.reserve(numQueries);
   std::vector<MockMemoryOperator*> memOps;
   memOps.reserve(numQueries * numOpsPerQuery);
+  const std::string injectReclaimErrorMessage("Inject reclaim failure");
+  const std::string injectArbitrationErrorMessage(
+      "Inject enter arbitration failure");
   for (int i = 0; i < numQueries; ++i) {
     queries.push_back(addQuery());
     for (int j = 0; j < numOpsPerQuery; ++j) {
-      memOps.push_back(addMemoryOp(queries.back(), (j % 3) != 0));
+      memOps.push_back(addMemoryOp(
+          queries.back(),
+          (j % 3) != 0,
+          [&](MemoryPool* /*unused*/, uint64_t /*unused*/) {
+            if (folly::Random::oneIn(10)) {
+              VELOX_FAIL(injectReclaimErrorMessage);
+            }
+          },
+          [&]() {
+            if (folly::Random::oneIn(10)) {
+              VELOX_FAIL(injectArbitrationErrorMessage);
+            }
+          }));
     }
   }
 
@@ -874,9 +1409,15 @@ TEST_F(MockSharedArbitrationTest, concurrentArbitrations) {
           try {
             memOp->allocate(AllocationTraits::pageBytes(allocationPages));
           } catch (VeloxException& e) {
-            // Ignore memory limit exception.
-            ASSERT_TRUE(
-                e.message().find("Exceeded memory") != std::string::npos);
+            // Ignore memory limit exception and injected error exceptions.
+            if ((e.message().find("Exceeded memory") == std::string::npos) &&
+                (e.message().find(injectArbitrationErrorMessage) ==
+                 std::string::npos) &&
+                (e.message().find(injectReclaimErrorMessage) ==
+                 std::string::npos) &&
+                (e.message().find("aborted") == std::string::npos)) {
+              ASSERT_FALSE(true) << "Unexpected exception " << e.message();
+            }
           }
         }
       }
@@ -901,6 +1442,9 @@ TEST_F(MockSharedArbitrationTest, concurrentArbitrationWithTransientRoots) {
   std::atomic<bool> stopped{false};
 
   const int numMemThreads = 20;
+  const std::string injectReclaimErrorMessage("Inject reclaim failure");
+  const std::string injectArbitrationErrorMessage(
+      "Inject enter arbitration failure");
   std::vector<std::thread> memThreads;
   for (int i = 0; i < numMemThreads; ++i) {
     memThreads.emplace_back([&, i]() {
@@ -926,9 +1470,15 @@ TEST_F(MockSharedArbitrationTest, concurrentArbitrationWithTransientRoots) {
             query->memoryOp()->allocate(
                 AllocationTraits::pageBytes(allocationPages));
           } catch (VeloxException& e) {
-            // Ignore the memory capacity limit exception.
-            ASSERT_TRUE(
-                e.message().find("Exceeded memory") != std::string::npos);
+            // Ignore memory limit exception and injected error exceptions.
+            if ((e.message().find("Exceeded memory") == std::string::npos) &&
+                (e.message().find(injectArbitrationErrorMessage) ==
+                 std::string::npos) &&
+                (e.message().find(injectReclaimErrorMessage) ==
+                 std::string::npos) &&
+                (e.message().find("aborted") == std::string::npos)) {
+              ASSERT_FALSE(true) << "Unexpected exception " << e.message();
+            }
           }
         }
         std::this_thread::sleep_for(std::chrono::microseconds(1));
@@ -946,7 +1496,18 @@ TEST_F(MockSharedArbitrationTest, concurrentArbitrationWithTransientRoots) {
         if ((queries.size() == 1) ||
             (queries.size() < maxNumQueries && folly::Random::oneIn(4, rng))) {
           queries.push_back(addQuery());
-          queries.back()->addMemoryOp(!folly::Random::oneIn(3, rng));
+          queries.back()->addMemoryOp(
+              !folly::Random::oneIn(3, rng),
+              [&](MemoryPool* /*unused*/, uint64_t /*unused*/) {
+                if (folly::Random::oneIn(10)) {
+                  VELOX_FAIL(injectReclaimErrorMessage);
+                }
+              },
+              [&]() {
+                if (folly::Random::oneIn(10)) {
+                  VELOX_FAIL(injectArbitrationErrorMessage);
+                }
+              });
         } else {
           const int deleteIndex = folly::Random::rand32(rng) % queries.size();
           queries.erase(queries.begin() + deleteIndex);

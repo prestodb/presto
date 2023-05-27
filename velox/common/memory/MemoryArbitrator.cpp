@@ -93,10 +93,27 @@ uint64_t MemoryReclaimer::reclaim(MemoryPool* pool, uint64_t targetBytes) {
   return reclaimedBytes;
 }
 
+void MemoryReclaimer::abort(MemoryPool* pool) {
+  if (pool->kind() == MemoryPool::Kind::kLeaf) {
+    VELOX_UNSUPPORTED(
+        "Don't support to abort a leaf memory pool {}", pool->name());
+  }
+  pool->visitChildren([&](MemoryPool* child) {
+    // NOTE: we issue abort request through the child pool's reclaimer directly
+    // instead of the child pool as the latter always forwards the abort to its
+    // root first.
+    auto* reclaimer = child->reclaimer();
+    VELOX_CHECK_NOT_NULL(reclaimer);
+    reclaimer->abort(child);
+    return true;
+  });
+}
+
 std::string MemoryArbitrator::Stats::toString() const {
   return fmt::format(
-      "STATS[numRequests {} numFailures {} queueTime {} arbitrationTime {} shrunkMemory {} reclaimedMemory {} maxCapacity {} freeCapacity {}]",
+      "STATS[numRequests {} numAborted {} numFailures {} queueTime {} arbitrationTime {} shrunkMemory {} reclaimedMemory {} maxCapacity {} freeCapacity {}]",
       numRequests,
+      numAborted,
       numFailures,
       succinctMicros(queueTimeUs),
       succinctMicros(arbitrationTimeUs),

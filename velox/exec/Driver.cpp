@@ -150,16 +150,7 @@ class CancelGuard {
       onTerminate_(StopReason::kNone);
       onTerminateCalled = true;
     }
-    auto reason = task_->leave(*state_);
-    if (reason == StopReason::kTerminate) {
-      // Terminate requested via Task. The Driver is not on
-      // thread but 'terminated_' is set, hence no other threads will
-      // enter. onTerminateCalled will be true if both runtime error and
-      // terminate requested via Task.
-      if (!onTerminateCalled) {
-        onTerminate_(reason);
-      }
-    }
+    task_->leave(*state_, onTerminateCalled ? nullptr : onTerminate_);
   }
 
  private:

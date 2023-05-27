@@ -79,6 +79,8 @@ class HashBuild final : public Operator {
 
   void reclaim(uint64_t targetBytes) override;
 
+  void close() override;
+
  private:
   void setState(State state);
   void checkStateTransition(State state);
@@ -233,7 +235,7 @@ class HashBuild final : public Operator {
 
   const bool nullAware_;
 
-  const std::shared_ptr<HashJoinBridge> joinBridge_;
+  std::shared_ptr<HashJoinBridge> joinBridge_;
 
   std::shared_ptr<SpillOperatorGroup> spillGroup_;
 

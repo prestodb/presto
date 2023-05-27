@@ -206,8 +206,6 @@ void OrderBy::ensureInputFits(const RowVectorPtr& input) {
 void OrderBy::reclaim(uint64_t targetBytes) {
   VELOX_CHECK(canReclaim());
   auto* driver = operatorCtx_->driver();
-  VELOX_CHECK(!driver->state().isOnThread() || driver->state().isSuspended);
-  VELOX_CHECK(driver->task()->pauseRequested());
 
   // NOTE: an order by operator is reclaimable if it hasn't started output
   // processing and is not under non-reclaimable execution section.
@@ -409,5 +407,13 @@ void OrderBy::prepareOutput() {
   for (auto& child : output_->children()) {
     child->resize(batchSize);
   }
+}
+
+void OrderBy::close() {
+  Operator::close();
+
+  output_ = nullptr;
+  spiller_.reset();
+  data_.reset();
 }
 } // namespace facebook::velox::exec

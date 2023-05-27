@@ -163,21 +163,29 @@ class MockMemoryPool : public velox::memory::MemoryPool {
   MOCK_CONST_METHOD0(alignment, uint16_t());
 
   uint64_t freeBytes() const override {
-    VELOX_NYI("{} unsupported", __FUNCTION__);
+    VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
   }
 
   uint64_t shrink(uint64_t /*unused*/) override {
-    VELOX_NYI("{} unsupported", __FUNCTION__);
+    VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
   }
 
-  uint64_t grow(uint64_t /*unused*/) override {
-    VELOX_NYI("{} unsupported", __FUNCTION__);
+  uint64_t grow(uint64_t /*unused*/) noexcept override {
+    VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
   }
 
   std::string toString() const override {
     return fmt::format(
         "Mock Memory Pool[{}]",
         velox::memory::MemoryAllocator::kindString(allocator_->kind()));
+  }
+
+  void abort() override {
+    VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
+  }
+
+  bool aborted() const override {
+    VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
   }
 
  private:

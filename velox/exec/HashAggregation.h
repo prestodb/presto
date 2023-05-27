@@ -43,12 +43,9 @@ class HashAggregation : public Operator {
 
   bool isFinished() override;
 
-  void close() override {
-    Operator::close();
-    groupingSet_.reset();
-  }
-
   void reclaim(uint64_t targetBytes) override;
+
+  void close() override;
 
  private:
   void prepareOutput(vector_size_t size);

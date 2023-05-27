@@ -390,8 +390,6 @@ bool HashAggregation::isFinished() {
 void HashAggregation::reclaim(uint64_t targetBytes) {
   VELOX_CHECK(canReclaim());
   auto* driver = operatorCtx_->driver();
-  VELOX_CHECK(!driver->state().isOnThread() || driver->state().isSuspended);
-  VELOX_CHECK(driver->task()->pauseRequested());
 
   /// NOTE: an aggregation operator is reclaimable if it hasn't started output
   /// processing and is not under non-reclaimable execution section.
@@ -411,5 +409,12 @@ void HashAggregation::reclaim(uint64_t targetBytes) {
   VELOX_CHECK_EQ(groupingSet_->numDistinct(), 0);
   // Release the minimum reserved memory.
   pool()->release();
+}
+
+void HashAggregation::close() {
+  Operator::close();
+
+  output_ = nullptr;
+  groupingSet_.reset();
 }
 } // namespace facebook::velox::exec

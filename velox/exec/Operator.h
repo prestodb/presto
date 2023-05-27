@@ -495,12 +495,16 @@ class Operator : public BaseRuntimeStatWriter {
         Operator* op);
 
     void enterArbitration() override;
+
     void leaveArbitration() noexcept override;
 
     bool reclaimableBytes(
         const memory::MemoryPool& pool,
         uint64_t& reclaimableBytes) const override;
+
     uint64_t reclaim(memory::MemoryPool* pool, uint64_t targetBytes) override;
+
+    void abort(memory::MemoryPool* pool) override;
 
    private:
     MemoryReclaimer(const std::shared_ptr<Driver>& driver, Operator* op)

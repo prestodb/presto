@@ -36,6 +36,7 @@ class MemoryArbitrationTest : public testing::Test {};
 TEST_F(MemoryArbitrationTest, stats) {
   MemoryArbitrator::Stats stats;
   stats.numRequests = 2;
+  stats.numAborted = 3;
   stats.numFailures = 100;
   stats.queueTimeUs = 230'000;
   stats.arbitrationTimeUs = 1020;
@@ -43,7 +44,7 @@ TEST_F(MemoryArbitrationTest, stats) {
   stats.numReclaimedBytes = 10'000;
   ASSERT_EQ(
       stats.toString(),
-      "STATS[numRequests 2 numFailures 100 queueTime 230.00ms arbitrationTime 1.02ms shrunkMemory 95.37MB reclaimedMemory 9.77KB maxCapacity 0B freeCapacity 0B]");
+      "STATS[numRequests 2 numAborted 3 numFailures 100 queueTime 230.00ms arbitrationTime 1.02ms shrunkMemory 95.37MB reclaimedMemory 9.77KB maxCapacity 0B freeCapacity 0B]");
 }
 
 TEST_F(MemoryArbitrationTest, kind) {

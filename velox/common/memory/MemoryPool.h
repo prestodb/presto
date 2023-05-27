@@ -25,6 +25,7 @@
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Portability.h"
+#include "velox/common/future/VeloxPromise.h"
 #include "velox/common/memory/Allocation.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/MemoryArbitrator.h"
@@ -32,8 +33,7 @@
 DECLARE_bool(velox_memory_leak_check_enabled);
 
 namespace facebook::velox::memory {
-
-#define VELOX_MEM_CAP_EXCEEDED(errorMessage)                        \
+#define VELOX_MEM_POOL_CAP_EXCEEDED(errorMessage)                   \
   _VELOX_THROW(                                                     \
       ::facebook::velox::VeloxRuntimeError,                         \
       ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
@@ -41,6 +41,15 @@ namespace facebook::velox::memory {
       /* isRetriable */ true,                                       \
       "{}",                                                         \
       errorMessage);
+
+#define VELOX_MEM_POOL_ABORTED(pool)                                \
+  _VELOX_THROW(                                                     \
+      ::facebook::velox::VeloxRuntimeError,                         \
+      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
+      ::facebook::velox::error_code::kMemAborted.c_str(),           \
+      /* isRetriable */ true,                                       \
+      "{}",                                                         \
+      fmt::format("Memory pool {} aborted", (pool)->name()));
 
 class MemoryManager;
 
@@ -334,7 +343,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
 
   /// Invoked to increase the memory pool's capacity by 'bytes'. The function
   /// returns the memory pool's capacity after the growth.
-  virtual uint64_t grow(uint64_t bytes) = 0;
+  virtual uint64_t grow(uint64_t bytes) noexcept = 0;
 
   /// Sets the memory reclaimer for this memory pool.
   ///
@@ -369,6 +378,17 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// corresponding method. The function returns the actually freed capacity
   /// from the root of this memory pool.
   virtual uint64_t reclaim(uint64_t targetBytes);
+
+  /// Invoked by the memory arbitrator to abort a root memory pool. The function
+  /// forwards the request to the corresponding query object to abort its
+  /// execution through the reclaimer. The function throws if the reclaimer is
+  /// not set, otherwise returns a future to wait for the abort processing to
+  /// completion. We expect the query object to release its used memory soon
+  /// after the abort completes.
+  virtual void abort() = 0;
+
+  /// Returns true if this memory pool has been aborted.
+  virtual bool aborted() const = 0;
 
   /// The memory pool's execution stats.
   struct Stats {
@@ -465,6 +485,13 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   const bool threadSafe_;
   const bool checkUsageLeak_;
 
+  /// Indicates if the memory pool has been aborted by the memory arbitrator or
+  /// not.
+  ///
+  /// NOTE: this flag is only set for a root memory pool if it has memory
+  /// reclaimer. We process a query abort request from the root memory pool.
+  std::atomic<bool> aborted_{false};
+
   mutable folly::SharedMutex poolMutex_;
   /// Used by memory arbitration to reclaim memory from the associated query
   /// object if not null. For example, a memory pool can reclaim the used memory
@@ -550,7 +577,11 @@ class MemoryPoolImpl : public MemoryPool {
 
   uint64_t shrink(uint64_t targetBytes = 0) override;
 
-  uint64_t grow(uint64_t bytes) override;
+  uint64_t grow(uint64_t bytes) noexcept override;
+
+  void abort() override;
+
+  bool aborted() const override;
 
   std::string toString() const override {
     std::lock_guard<std::mutex> l(mutex_);
@@ -782,7 +813,7 @@ class MemoryPoolImpl : public MemoryPool {
         << (trackUsage_ ? " track-usage" : " no-usage-track")
         << (threadSafe_ ? " thread-safe" : " non-thread-safe") << "]<";
     if (capacityLocked() != kMaxMemory) {
-      out << "capacity " << succinctBytes(capacity()) << " ";
+      out << "capacity " << succinctBytes(capacityLocked()) << " ";
     } else {
       out << "unlimited capacity ";
     }

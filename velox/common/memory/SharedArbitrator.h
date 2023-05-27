@@ -63,7 +63,6 @@ class SharedArbitrator : public MemoryArbitrator {
     MemoryPool* const requestor_;
     SharedArbitrator* const arbitrator_;
     const std::chrono::steady_clock::time_point startTime_;
-    bool started_{false};
   };
 
   // Invoked to capture the candidate memory pools stats for arbitration.
@@ -102,8 +101,16 @@ class SharedArbitrator : public MemoryArbitrator {
   // NOTE: the function might sort 'candidates' based on each candidate's
   // reclaimable memory internally.
   uint64_t reclaimUsedMemoryFromCandidates(
+      MemoryPool* requestor,
       std::vector<Candidate>& candidates,
       uint64_t targetBytes);
+
+  // Invoked to reclaim used memory from 'pool' with specified 'targetBytes'.
+  // The function returns the actually freed capacity.
+  uint64_t reclaim(MemoryPool* pool, uint64_t targetBytes) noexcept;
+
+  // Invoked to abort memory 'pool'.
+  void abort(MemoryPool* pool);
 
   // Decrement free capacity from the arbitrator with up to 'bytes'. The
   // arbitrator might have less free available capacity. The function returns
@@ -119,20 +126,18 @@ class SharedArbitrator : public MemoryArbitrator {
 
   Stats statsLocked() const;
 
-  // Invoked to check if the memory capacity plus the freed capacity match the
-  // total capacity in the arbitrator.
-  // void debugCapacityCheckLocked(const std::vector<Candidate>& pools) const;
-
   mutable std::mutex mutex_;
   uint64_t freeCapacity_{0};
   // Indicates if there is a running arbitration request or not.
   bool running_{false};
+
   // The promises of the arbitration requests waiting for the serialized
   // execution.
   std::vector<ContinuePromise> waitPromises_;
 
   tsan_atomic<uint64_t> numRequests_{0};
-  tsan_atomic<uint64_t> numFailures_{0};
+  tsan_atomic<uint64_t> numAborted_{0};
+  std::atomic<uint64_t> numFailures_{0};
   tsan_atomic<uint64_t> queueTimeUs_{0};
   tsan_atomic<uint64_t> arbitrationTimeUs_{0};
   tsan_atomic<uint64_t> numShrunkBytes_{0};
