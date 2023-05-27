@@ -70,7 +70,7 @@ static void workAroundRegistrationMacro(const std::string& prefix) {
 namespace sparksql {
 
 void registerFunctions(const std::string& prefix) {
-  registerFunction<RandFunction, double>({"rand"});
+  registerFunction<RandFunction, double>({prefix + "rand"});
 
   // Register size functions
   registerSize(prefix + "size");
@@ -90,9 +90,10 @@ void registerFunctions(const std::string& prefix) {
       Varchar,
       int32_t,
       int32_t>({prefix + "substring"});
-  exec::registerStatefulVectorFunction("instr", instrSignatures(), makeInstr);
   exec::registerStatefulVectorFunction(
-      "length", lengthSignatures(), makeLength);
+      prefix + "instr", instrSignatures(), makeInstr);
+  exec::registerStatefulVectorFunction(
+      prefix + "length", lengthSignatures(), makeLength);
 
   registerFunction<Md5Function, Varchar, Varbinary>({prefix + "md5"});
   registerFunction<Sha1HexStringFunction, Varchar, Varbinary>(

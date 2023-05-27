@@ -24,6 +24,6 @@ extern void registerFirstLastAggregates(const std::string& prefix);
 
 void registerAggregateFunctions(const std::string& prefix) {
   registerFirstLastAggregates(prefix);
-  registerBitwiseXorAggregate(prefix + "bit_xor");
+  registerBitwiseXorAggregate(prefix);
 }
 } // namespace facebook::velox::functions::aggregate::sparksql
