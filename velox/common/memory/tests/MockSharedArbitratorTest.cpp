@@ -1325,6 +1325,55 @@ TEST_F(MockSharedArbitrationTest, memoryPoolAbortThrow) {
 
 DEBUG_ONLY_TEST_F(
     MockSharedArbitrationTest,
+    freeUnusedCapacityWhenReclaimMemoryPool) {
+  const int allocationSize = kMemoryCapacity / 4;
+  const int reclaimedMemoryCapacity = kMemoryCapacity;
+  std::shared_ptr<MockQuery> reclaimedQuery = addQuery(kMemoryCapacity);
+  MockMemoryOperator* reclaimedQueryOp = addMemoryOp(reclaimedQuery);
+  // The buffer to free later.
+  void* bufferToFree = reclaimedQueryOp->allocate(allocationSize);
+  reclaimedQueryOp->allocate(kMemoryCapacity - allocationSize);
+
+  std::shared_ptr<MockQuery> arbitrationQuery = addQuery(kMemoryCapacity);
+  MockMemoryOperator* arbitrationQueryOp = addMemoryOp(arbitrationQuery);
+
+  folly::EventCount reclaimWait;
+  auto reclaimWaitKey = reclaimWait.prepareWait();
+  folly::EventCount reclaimBlock;
+  auto reclaimBlockKey = reclaimBlock.prepareWait();
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::memory::SharedArbitrator::sortCandidatesByReclaimableMemory",
+      std::function<void(const MemoryPool*)>(([&](const MemoryPool* /*unsed*/) {
+        reclaimWait.notify();
+        reclaimBlock.wait(reclaimBlockKey);
+      })));
+
+  const auto oldStats = arbitrator_->stats();
+
+  std::thread allocThread([&]() {
+    // Allocate to trigger arbitration.
+    arbitrationQueryOp->allocate(allocationSize);
+  });
+
+  reclaimWait.wait(reclaimWaitKey);
+  reclaimedQueryOp->free(bufferToFree);
+  reclaimBlock.notify();
+
+  allocThread.join();
+
+  const auto stats = arbitrator_->stats();
+  ASSERT_EQ(stats.numFailures, 0);
+  ASSERT_EQ(stats.numAborted, 0);
+  ASSERT_EQ(stats.numRequests, oldStats.numRequests + 1);
+  // We count the freed capacity in reclaimed bytes.
+  ASSERT_EQ(stats.numShrunkBytes, oldStats.numShrunkBytes + allocationSize);
+  ASSERT_EQ(stats.numReclaimedBytes, 0);
+  ASSERT_EQ(reclaimedQueryOp->capacity(), kMemoryCapacity - allocationSize);
+  ASSERT_EQ(arbitrationQueryOp->capacity(), allocationSize);
+}
+
+DEBUG_ONLY_TEST_F(
+    MockSharedArbitrationTest,
     raceBetweenInitialReservationAndArbitration) {
   std::shared_ptr<MockQuery> arbitrationQuery = addQuery(kMemoryCapacity);
   MockMemoryOperator* arbitrationQueryOp = addMemoryOp(arbitrationQuery);

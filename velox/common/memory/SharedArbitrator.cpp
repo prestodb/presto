@@ -215,7 +215,6 @@ uint64_t SharedArbitrator::reclaimUsedMemoryFromCandidates(
       break;
     }
   }
-  numReclaimedBytes_ += freedBytes;
   return freedBytes;
 }
 
@@ -223,8 +222,12 @@ uint64_t SharedArbitrator::reclaim(
     MemoryPool* pool,
     uint64_t targetBytes) noexcept {
   const uint64_t oldCapacity = pool->capacity();
+  uint64_t freedBytes{0};
   try {
-    pool->reclaim(targetBytes);
+    freedBytes = pool->shrink(targetBytes);
+    if (freedBytes < targetBytes) {
+      pool->reclaim(targetBytes - freedBytes);
+    }
   } catch (const std::exception& e) {
     VELOX_MEM_LOG(ERROR) << "Failed to reclaim from memory pool "
                          << pool->name() << ", aborting it!";
@@ -235,7 +238,10 @@ uint64_t SharedArbitrator::reclaim(
   }
   const uint64_t newCapacity = pool->capacity();
   VELOX_CHECK_GE(oldCapacity, newCapacity);
-  return oldCapacity - newCapacity;
+  const uint64_t reclaimedbytes = oldCapacity - newCapacity;
+  numShrunkBytes_ += freedBytes;
+  numReclaimedBytes_ += reclaimedbytes - freedBytes;
+  return reclaimedbytes;
 }
 
 void SharedArbitrator::abort(MemoryPool* pool) {
