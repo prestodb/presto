@@ -171,6 +171,8 @@ void registerFunctions(const std::string& prefix) {
       int64_t,
       Varchar,
       Varchar>({prefix + "unix_timestamp", prefix + "to_unix_timestamp"});
+  registerFunction<MakeDateFunction, Date, int32_t, int32_t, int32_t>(
+      {prefix + "make_date"});
 
   // Register bloom filter function
   registerFunction<BloomFilterMightContainFunction, bool, Varbinary, int64_t>(
