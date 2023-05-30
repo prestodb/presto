@@ -214,8 +214,7 @@ void PrestoServer::run() {
 
   initializeCoordinatorDiscoverer();
   std::unique_ptr<Announcer> announcer;
-  if (coordinatorDiscoverer_ != nullptr &&
-      !coordinatorDiscoverer_->updateAddress().empty()) {
+  if (coordinatorDiscoverer_ != nullptr) {
     announcer = std::make_unique<Announcer>(
         address_,
         httpsPort.has_value(),
