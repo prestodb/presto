@@ -388,6 +388,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testTableSampleWithFraction()
+    {
+        assertQuerySucceeds("SELECT count(*) FROM orders TABLESAMPLE BERNOULLI (0.000000000000000000001)");
+        assertQuerySucceeds("SELECT count(*) FROM orders TABLESAMPLE BERNOULLI (0.02)");
+    }
+
+    @Test
     public void testRowSubscript()
     {
         // Subscript on Row with unnamed fields

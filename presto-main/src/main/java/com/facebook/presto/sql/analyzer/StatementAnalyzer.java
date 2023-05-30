@@ -191,6 +191,7 @@ import static com.facebook.presto.common.RuntimeMetricName.SKIP_READING_FROM_MAT
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -265,6 +266,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOU
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_FUNCTION_ORDERBY_LITERAL;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator.isDeterministic;
+import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static com.facebook.presto.sql.tree.FrameBound.Type.CURRENT_ROW;
@@ -1594,12 +1596,18 @@ class StatementAnalyzer
             Object samplePercentageObject = samplePercentageEval.optimize(symbol -> {
                 throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
             });
-
-            if (!(samplePercentageObject instanceof Number)) {
-                throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage should evaluate to a numeric expression");
+            try {
+                samplePercentageObject = evaluateConstantExpression(relation.getSamplePercentage(), DOUBLE, metadata, session,
+                        analysis.getParameters());
+            }
+            catch (SemanticException e) {
+                if (e.getCode() == TYPE_MISMATCH) {
+                    throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage should evaluate to a double");
+                }
+                throw e;
             }
 
-            double samplePercentageValue = ((Number) samplePercentageObject).doubleValue();
+            double samplePercentageValue = (Double) samplePercentageObject;
 
             if (samplePercentageValue < 0.0) {
                 throw new SemanticException(SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be greater than or equal to 0");
