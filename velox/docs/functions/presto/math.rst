@@ -245,8 +245,15 @@ Probability Functions
     The a, b parameters must be positive real numbers and value must be a real value (all of type DOUBLE).
     The value must lie on the interval [0, 1].
 
+.. function:: binomial_cdf(numberOfTrials, successProbability, value) -> double
+
+    Compute the Binomial cdf with given numberOfTrials and successProbability (for a single trial):  P(N < value).
+    The successProbability must be real value in [0, 1], numberOfTrials and value must be
+    positive integers with numberOfTrials greater or equal to value
+
 .. function:: normal_cdf(mean, sd, value) -> double
 
     Compute the Normal cdf with given mean and standard deviation (sd): P(N < value; mean, sd).
     The mean and value must be real values and the standard deviation must be a real and
     positive value (all of type DOUBLE).
+

@@ -105,6 +105,8 @@ void registerSimpleFunctions(const std::string& prefix) {
       {prefix + "beta_cdf"});
   registerFunction<NormalCDFFunction, double, double, double, double>(
       {prefix + "normal_cdf"});
+  registerFunction<BinomialCDFFunction, double, int64_t, double, int64_t>(
+      {prefix + "binomial_cdf"});
 }
 
 } // namespace
