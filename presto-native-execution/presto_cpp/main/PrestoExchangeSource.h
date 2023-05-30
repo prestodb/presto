@@ -58,6 +58,12 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   /// PrestoExchangeSource.
   static void getMemoryUsage(int64_t& currentBytes, int64_t& peakBytes);
 
+  /// Invoked to reset the node-wise peak memory usage back to the current
+  /// memory usage in PrestoExchangeSource. Instead of getting all time peak,
+  /// this can be useful when tracking the peak within some fixed time
+  /// intervals.
+  static void resetPeakMemoryUsage();
+
   /// Used by test to clear the node-wise memory usage tracking.
   static void testingClearMemoryUsage();
 

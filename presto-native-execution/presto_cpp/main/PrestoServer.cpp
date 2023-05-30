@@ -17,6 +17,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/lexical_cast.hpp>
 #include <glog/logging.h>
+#include "CoordinatorDiscoverer.h"
 #include "presto_cpp/main/Announcer.h"
 #include "presto_cpp/main/PeriodicTaskManager.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
@@ -26,6 +27,7 @@
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/connectors/hive/storage_adapters/FileSystems.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
@@ -106,12 +108,6 @@ void enableChecksum() {
       });
 }
 
-#define PRESTO_STARTUP_LOG_PREFIX "[PRESTO_STARTUP] "
-#define PRESTO_STARTUP_LOG(severity) LOG(severity) << PRESTO_STARTUP_LOG_PREFIX
-
-#define PRESTO_SHUTDOWN_LOG_PREFIX "[PRESTO_SHUTDOWN] "
-#define PRESTO_SHUTDOWN_LOG(severity) \
-  LOG(severity) << PRESTO_SHUTDOWN_LOG_PREFIX
 } // namespace
 
 PrestoServer::PrestoServer(const std::string& configDirectoryPath)
@@ -135,6 +131,8 @@ void PrestoServer::run() {
   std::optional<int> httpsPort;
 
   try {
+    // Allow registering extra config properties before we load them from files.
+    registerExtraConfigProperties();
     systemConfig->initialize(
         fmt::format("{}/config.properties", configDirectoryPath_));
     nodeConfig->initialize(
@@ -214,13 +212,15 @@ void PrestoServer::run() {
       httpPort,
       address_);
 
+  initializeCoordinatorDiscoverer();
   std::unique_ptr<Announcer> announcer;
-  if (auto discoveryAddressLookupFunc = discoveryAddressLookup()) {
+  if (coordinatorDiscoverer_ != nullptr &&
+      !coordinatorDiscoverer_->updateAddress().empty()) {
     announcer = std::make_unique<Announcer>(
         address_,
         httpsPort.has_value(),
         httpsPort.has_value() ? httpsPort.value() : httpPort,
-        discoveryAddressLookupFunc,
+        coordinatorDiscoverer_,
         nodeVersion_,
         environment_,
         nodeId_,
@@ -446,42 +446,52 @@ void PrestoServer::initializeVeloxMemory() {
   uint64_t memoryGb = nodeConfig->nodeMemoryGb(
       [&]() { return systemConfig->systemMemoryGb(); });
   PRESTO_STARTUP_LOG(INFO) << "Starting with node memory " << memoryGb << "GB";
-  std::unique_ptr<cache::SsdCache> ssd;
-  const auto asyncCacheSsdGb = systemConfig->asyncCacheSsdGb();
-  if (asyncCacheSsdGb) {
-    constexpr int32_t kNumSsdShards = 16;
-    cacheExecutor_ =
-        std::make_unique<folly::IOThreadPoolExecutor>(kNumSsdShards);
-    auto asyncCacheSsdCheckpointGb = systemConfig->asyncCacheSsdCheckpointGb();
-    auto asyncCacheSsdDisableFileCow =
-        systemConfig->asyncCacheSsdDisableFileCow();
-    PRESTO_STARTUP_LOG(INFO)
-        << "Initializing SSD cache with capacity " << asyncCacheSsdGb
-        << "GB, checkpoint size " << asyncCacheSsdCheckpointGb
-        << "GB, file cow "
-        << (asyncCacheSsdDisableFileCow ? "DISABLED" : "ENABLED");
-    ssd = std::make_unique<cache::SsdCache>(
-        systemConfig->asyncCacheSsdPath(),
-        asyncCacheSsdGb << 30,
-        kNumSsdShards,
-        cacheExecutor_.get(),
-        asyncCacheSsdCheckpointGb << 30,
-        asyncCacheSsdDisableFileCow);
-  }
+
   const int64_t memoryBytes = memoryGb << 30;
-  std::shared_ptr<memory::MemoryAllocator> allocator;
   if (systemConfig->useMmapAllocator()) {
     memory::MmapAllocator::Options options;
     options.capacity = memoryBytes;
     options.useMmapArena = systemConfig->useMmapArena();
     options.mmapArenaCapacityRatio = systemConfig->mmapArenaCapacityRatio();
-    allocator = std::make_shared<memory::MmapAllocator>(options);
+    allocator_ = std::make_shared<memory::MmapAllocator>(options);
   } else {
-    allocator = memory::MemoryAllocator::createDefaultInstance();
+    allocator_ = memory::MemoryAllocator::createDefaultInstance();
   }
-  cache_ = std::make_shared<cache::AsyncDataCache>(
-      allocator, memoryBytes, std::move(ssd));
-  memory::MemoryAllocator::setDefaultInstance(cache_.get());
+  if (systemConfig->asyncDataCacheEnabled()) {
+    std::unique_ptr<cache::SsdCache> ssd;
+    const auto asyncCacheSsdGb = systemConfig->asyncCacheSsdGb();
+    if (asyncCacheSsdGb > 0) {
+      constexpr int32_t kNumSsdShards = 16;
+      cacheExecutor_ =
+          std::make_unique<folly::IOThreadPoolExecutor>(kNumSsdShards);
+      auto asyncCacheSsdCheckpointGb =
+          systemConfig->asyncCacheSsdCheckpointGb();
+      auto asyncCacheSsdDisableFileCow =
+          systemConfig->asyncCacheSsdDisableFileCow();
+      PRESTO_STARTUP_LOG(INFO)
+          << "STARTUP: Initializing SSD cache with capacity " << asyncCacheSsdGb
+          << "GB, checkpoint size " << asyncCacheSsdCheckpointGb
+          << "GB, file cow "
+          << (asyncCacheSsdDisableFileCow ? "DISABLED" : "ENABLED");
+      ssd = std::make_unique<cache::SsdCache>(
+          systemConfig->asyncCacheSsdPath(),
+          asyncCacheSsdGb << 30,
+          kNumSsdShards,
+          cacheExecutor_.get(),
+          asyncCacheSsdCheckpointGb << 30,
+          asyncCacheSsdDisableFileCow);
+    }
+    cache_ = std::make_shared<cache::AsyncDataCache>(
+        allocator_, memoryBytes, std::move(ssd));
+    allocator_ = cache_;
+  } else {
+    VELOX_CHECK_EQ(
+        systemConfig->asyncCacheSsdGb(),
+        0,
+        "Async data cache cannot be disabled if ssd cache is enabled");
+  }
+
+  memory::MemoryAllocator::setDefaultInstance(allocator_.get());
   // Set up velox memory manager.
   memory::MemoryManager::getInstance(
       memory::MemoryManager::Options{
@@ -517,26 +527,8 @@ void PrestoServer::stop() {
   }
 }
 
-std::function<folly::SocketAddress()> PrestoServer::discoveryAddressLookup() {
-  // Check if discovery URI is specified. Presto-on-Spark doesn't specify it.
-  auto discoveryUri = SystemConfig::instance()->discoveryUri();
-  if (!discoveryUri.has_value()) {
-    PRESTO_STARTUP_LOG(INFO)
-        << "Discovery URI is not specified - will not run Announcer.";
-    return nullptr;
-  }
-
-  try {
-    auto uri = folly::Uri(discoveryUri.value());
-
-    return [uri]() {
-      return folly::SocketAddress(uri.hostname(), uri.port(), true);
-    };
-  } catch (const VeloxUserError& e) {
-    // VeloxUserError is always logged as an error.
-    // Avoid logging again.
-    exit(EXIT_FAILURE);
-  }
+void PrestoServer::initializeCoordinatorDiscoverer() {
+  coordinatorDiscoverer_ = std::make_shared<CoordinatorDiscoverer>();
 }
 
 void PrestoServer::addAdditionalPeriodicTasks() {}

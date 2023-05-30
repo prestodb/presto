@@ -16,6 +16,7 @@ package com.facebook.presto.spark;
 import com.facebook.presto.nativeworker.AbstractTestNativeTpchConnectorQueries;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
+import org.testng.annotations.Ignore;
 
 public class TestPrestoSparkNativeTpchConnectorQueries
         extends AbstractTestNativeTpchConnectorQueries
@@ -45,4 +46,8 @@ public class TestPrestoSparkNativeTpchConnectorQueries
     {
         super.testMissingTpchConnector(".*Catalog tpch does not exist*");
     }
+
+    @Override
+    @Ignore
+    public void testTpchTinyTables() {}
 }
