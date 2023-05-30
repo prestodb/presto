@@ -214,8 +214,7 @@ void PrestoServer::run() {
 
   initializeCoordinatorDiscoverer();
   std::unique_ptr<Announcer> announcer;
-  if (coordinatorDiscoverer_ != nullptr &&
-      !coordinatorDiscoverer_->updateAddress().empty()) {
+  if (coordinatorDiscoverer_ != nullptr) {
     announcer = std::make_unique<Announcer>(
         address_,
         httpsPort.has_value(),
@@ -528,7 +527,10 @@ void PrestoServer::stop() {
 }
 
 void PrestoServer::initializeCoordinatorDiscoverer() {
-  coordinatorDiscoverer_ = std::make_shared<CoordinatorDiscoverer>();
+  // Do not create CoordinatorDiscoverer if we don't have discovery uri.
+  if (SystemConfig::instance()->discoveryUri().has_value()) {
+    coordinatorDiscoverer_ = std::make_shared<CoordinatorDiscoverer>();
+  }
 }
 
 void PrestoServer::addAdditionalPeriodicTasks() {}
