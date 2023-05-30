@@ -506,6 +506,46 @@ TEST(TestReader, testStatsCallbackFiredWithFiltering) {
   EXPECT_EQ(selectedKeyStreamsAggregate, 4);
 }
 
+TEST(TestReader, testEstimatedSize) {
+  const std::string fmSmall(getExampleFilePath("fm_small.orc"));
+
+  auto requestedType =
+      asRowType(HiveTypeParser().parse("struct<\
+          id:int,\
+      map1:map<int, array<float>>,\
+      map2:map<string, map<smallint,bigint>>,\
+      map3:map<int,int>,\
+      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
+      memo:string>"));
+
+  ReaderOptions readerOpts{defaultPool.get()};
+
+  {
+    auto reader = DwrfReader::create(
+        createFileBufferedInput(fmSmall, readerOpts.getMemoryPool()),
+        readerOpts);
+    auto cs = std::make_shared<ColumnSelector>(
+        requestedType, std::vector<std::string>{"map2"});
+    RowReaderOptions rowReaderOpts;
+    rowReaderOpts.select(cs);
+
+    auto rowReader = reader->createRowReader(rowReaderOpts);
+    ASSERT_EQ(rowReader->estimatedRowSize(), 79);
+  }
+
+  {
+    auto reader = DwrfReader::create(
+        createFileBufferedInput(fmSmall, readerOpts.getMemoryPool()),
+        readerOpts);
+    auto cs = std::make_shared<ColumnSelector>(
+        requestedType, std::vector<std::string>{"id"});
+    RowReaderOptions rowReaderOpts;
+    rowReaderOpts.select(cs);
+    auto rowReader = reader->createRowReader(rowReaderOpts);
+    ASSERT_EQ(rowReader->estimatedRowSize(), 13);
+  }
+}
+
 TEST(TestReader, testStatsCallbackFiredWithoutFiltering) {
   const std::string fmSmall(getExampleFilePath("fm_small.orc"));
 
