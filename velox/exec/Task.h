@@ -996,8 +996,8 @@ class Task : public std::enable_shared_from_this<Task> {
 
   std::weak_ptr<PartitionedOutputBufferManager> bufferManager_;
 
-  /// Boolean indicating that we have already recieved no-more-broadcast-buffers
-  /// message. Subsequent messagees will be ignored.
+  /// Boolean indicating that we have already received no-more-broadcast-buffers
+  /// message. Subsequent messages will be ignored.
   bool noMoreBroadcastBuffers_{false};
 
   // Thread counts and cancellation -related state.

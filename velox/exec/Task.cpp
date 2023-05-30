@@ -365,12 +365,11 @@ velox::memory::MemoryPool* Task::addExchangeClientPool(
 }
 
 bool Task::supportsSingleThreadedExecution() const {
-  std::vector<std::unique_ptr<DriverFactory>> driverFactories;
-
   if (consumerSupplier_) {
     return false;
   }
 
+  std::vector<std::unique_ptr<DriverFactory>> driverFactories;
   LocalPlanner::plan(planFragment_, nullptr, &driverFactories, 1);
 
   for (const auto& factory : driverFactories) {
@@ -473,9 +472,7 @@ RowVectorPtr Task::next(ContinueFuture* future) {
     if (runnableDrivers == 0) {
       if (blockedDrivers > 0) {
         if (!future) {
-          VELOX_CHECK_EQ(
-              0,
-              blockedDrivers,
+          VELOX_FAIL(
               "Cannot make progress as all remaining drivers are blocked and user are not expected to wait.");
         } else {
           std::vector<ContinueFuture> notReadyFutures;
@@ -492,7 +489,7 @@ RowVectorPtr Task::next(ContinueFuture* future) {
   }
 }
 
-/*static*/
+// static
 void Task::start(
     std::shared_ptr<Task> self,
     uint32_t maxDrivers,
@@ -617,7 +614,7 @@ void Task::start(
     self->createDriversLocked(self, kUngroupedGroupId, drivers);
 
     // Prevent the connecting structures from being cleaned up before all split
-    // groups are finished during the grouped exeution mode.
+    // groups are finished during the grouped execution mode.
     if (self->isGroupedExecution()) {
       self->splitGroupStates_[kUngroupedGroupId].mixedExecutionMode = true;
     }
@@ -771,7 +768,7 @@ void Task::createDriversLocked(
       continue;
     }
 
-    // In each pipleine we start drivers id from zero or, in case of grouped
+    // In each pipeline we start drivers id from zero or, in case of grouped
     // execution, from the split group id.
     const uint32_t driverIdOffset =
         factory->numDrivers * (groupedExecutionDrivers ? splitGroupId : 0);
