@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.getDefaultAggregateSelectivityCoefficient;
 import static com.facebook.presto.cost.PlanNodeStatsEstimate.DEFAULT_DATA_SIZE_PER_COLUMN;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
@@ -67,16 +68,20 @@ public class AggregationStatsRule
         // The aggregate stats can be derived for SINGLE or FINAL stage of aggregation, but for a distributed
         // aggregate using PARTIAL or INTERMEDIATE, the aggregate stats can be derived by propagate the estimate from the source stats.
         if (!(node.getStep() == SINGLE || node.getStep() == FINAL)) {
-            return Optional.of(sourceStats);
+            PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
+            result.setOutputRowCount(sourceStats.getOutputRowCount() * getDefaultAggregateSelectivityCoefficient(session));
+            result.addVariableStatistics(sourceStats.getVariableStatistics());
+            return Optional.of(result.build());
         }
 
         return Optional.of(groupBy(
                 statsProvider.getStats(node.getSource()),
                 node.getGroupingKeys(),
-                node.getAggregations()));
+                node.getAggregations(),
+                session));
     }
 
-    public static PlanNodeStatsEstimate groupBy(PlanNodeStatsEstimate sourceStats, Collection<VariableReferenceExpression> groupByVariables, Map<VariableReferenceExpression, Aggregation> aggregations)
+    public static PlanNodeStatsEstimate groupBy(PlanNodeStatsEstimate sourceStats, Collection<VariableReferenceExpression> groupByVariables, Map<VariableReferenceExpression, Aggregation> aggregations, Session session)
     {
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
         for (VariableReferenceExpression groupByVariable : groupByVariables) {
@@ -89,7 +94,7 @@ public class AggregationStatsRule
             }));
         }
 
-        double rowsCount = 1;
+        double rowsCount = getDefaultAggregateSelectivityCoefficient(session);
         double totalSize = 0;
         for (VariableReferenceExpression groupByVariable : groupByVariables) {
             VariableStatsEstimate symbolStatistics = sourceStats.getVariableStatistics(groupByVariable);
@@ -104,13 +109,14 @@ public class AggregationStatsRule
         // Aggregation node cannot return output row count more than estimated row count of source node.
         // So if source stats is present, use the output row count from the source stats as the estimated output row
         // count as the upper bound limit to avoid returning an unknown output potentially breaks the join search space
+        double outputRowCountFromSource = getDefaultAggregateSelectivityCoefficient(session) * sourceStats.getOutputRowCount();
         if (!isNaN(rowsCount)) {
-            result.setOutputRowCount(min(rowsCount, sourceStats.getOutputRowCount()));
+            result.setOutputRowCount(min(rowsCount, outputRowCountFromSource));
         }
         else {
             // groupBy key may be a derived expression which may not have associated stats hence return NaN.
             // In such case, use source stats to bound the output row count
-            result.setOutputRowCount(sourceStats.getOutputRowCount());
+            result.setOutputRowCount(outputRowCountFromSource);
         }
 
         for (Map.Entry<VariableReferenceExpression, Aggregation> aggregationEntry : aggregations.entrySet()) {

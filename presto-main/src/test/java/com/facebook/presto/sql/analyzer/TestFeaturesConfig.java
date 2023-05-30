@@ -232,6 +232,7 @@ public class TestFeaturesConfig
                 .setSimplifyPlanWithEmptyInput(true)
                 .setPushDownFilterExpressionEvaluationThroughCrossJoin(PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN)
                 .setDefaultJoinSelectivityCoefficient(0)
+                .setDefaultAggregateSelectivityCoefficient(1)
                 .setRewriteCrossJoinWithOrFilterToInnerJoin(true)
                 .setRewriteCrossJoinWithArrayContainsFilterToInnerJoin(true)
                 .setLeftJoinNullFilterToSemiJoin(true));
@@ -416,6 +417,7 @@ public class TestFeaturesConfig
                 .put("optimizer.rewrite-cross-join-with-or-filter-to-inner-join", "false")
                 .put("optimizer.rewrite-cross-join-with-array-contains-filter-to-inner-join", "false")
                 .put("optimizer.default-join-selectivity-coefficient", "0.5")
+                .put("optimizer.default-aggregate-selectivity-coefficient", "0")
                 .put("optimizer.rewrite-left-join-with-null-filter-to-semi-join", "false")
                 .build();
 
@@ -593,6 +595,7 @@ public class TestFeaturesConfig
                 .setMergeAggregationsWithAndWithoutFilter(true)
                 .setSimplifyPlanWithEmptyInput(false)
                 .setDefaultJoinSelectivityCoefficient(0.5)
+                .setDefaultAggregateSelectivityCoefficient(0)
                 .setPushDownFilterExpressionEvaluationThroughCrossJoin(PushDownFilterThroughCrossJoinStrategy.DISABLED)
                 .setRewriteCrossJoinWithOrFilterToInnerJoin(false)
                 .setRewriteCrossJoinWithArrayContainsFilterToInnerJoin(false)
