@@ -1327,7 +1327,6 @@ DEBUG_ONLY_TEST_F(
     MockSharedArbitrationTest,
     freeUnusedCapacityWhenReclaimMemoryPool) {
   const int allocationSize = kMemoryCapacity / 4;
-  const int reclaimedMemoryCapacity = kMemoryCapacity;
   std::shared_ptr<MockQuery> reclaimedQuery = addQuery(kMemoryCapacity);
   MockMemoryOperator* reclaimedQueryOp = addMemoryOp(reclaimedQuery);
   // The buffer to free later.

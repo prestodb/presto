@@ -162,6 +162,7 @@ HashAggregation::HashAggregation(
 }
 
 bool HashAggregation::abandonPartialAggregationEarly(int64_t numOutput) const {
+  VELOX_CHECK(isPartialOutput_ && !isGlobal_);
   return numInputRows_ > abandonPartialAggregationMinRows_ &&
       100 * numOutput / numInputRows_ >= abandonPartialAggregationMinPct_;
 }
@@ -194,7 +195,7 @@ void HashAggregation::addInput(RowVectorPtr input) {
   // NOTE: we should not trigger partial output flush in case of global
   // aggregation as the final aggregator will handle it the same way as the
   // partial aggregator. Hence, we have to use more memory anyway.
-  const bool abandonPartialEarly =
+  const bool abandonPartialEarly = isPartialOutput_ && !isGlobal_ &&
       abandonPartialAggregationEarly(groupingSet_->numDistinct());
   if (isPartialOutput_ && !isGlobal_ &&
       (abandonPartialEarly ||
