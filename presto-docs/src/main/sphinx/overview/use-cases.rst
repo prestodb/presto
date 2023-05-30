@@ -40,7 +40,8 @@ are often classified as Online Analytical Processing (OLAP).
 Who uses Presto?
 ----------------
 
-Presto is an open source project that operates under the auspices of
-Facebook. It was invented at Facebook and the project continues to
-be developed by both Facebook internal developers and a number of
-third-party developers in the community.
+Presto is an open source project that operates under the governance of the
+Presto Foundation, which is part of the
+`Linux Foundation <https://www.linuxfoundation.org>`_.
+Presto was invented at Meta, and continues to be developed by internal
+developers at Meta and by third-party developers in the community.
