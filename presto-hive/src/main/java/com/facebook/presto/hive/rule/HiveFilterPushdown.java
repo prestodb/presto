@@ -410,8 +410,8 @@ public class HiveFilterPushdown
                     tableScan.getOutputVariables(),
                     tableScan.getAssignments(),
                     tableScan.getTableConstraints(),
-                    layout.getPredicate(),
-                    TupleDomain.all());
+                    TupleDomain.all(),
+                    layout.getPredicate());
 
             RowExpression unenforcedFilter = pushdownFilterResult.getUnenforcedConstraint();
             if (!TRUE_CONSTANT.equals(unenforcedFilter)) {
@@ -447,8 +447,8 @@ public class HiveFilterPushdown
                     tableScan.getOutputVariables(),
                     tableScan.getAssignments(),
                     tableScan.getTableConstraints(),
-                    pushdownFilterResult.getLayout().getPredicate(),
-                    TupleDomain.all());
+                    TupleDomain.all(),
+                    pushdownFilterResult.getLayout().getPredicate());
 
             RowExpression unenforcedFilter = pushdownFilterResult.getUnenforcedConstraint();
             if (!TRUE_CONSTANT.equals(unenforcedFilter)) {
