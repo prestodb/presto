@@ -1392,6 +1392,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       if (auto constantExpr =
               std::dynamic_pointer_cast<const core::ConstantTypedExpr>(expr)) {
         if (!constantExpr->hasValueVector()) {
+          //
           setCellFromVariant(rowVector, row, column, constantExpr->value());
         } else {
           auto columnVector = rowVector->childAt(column);
@@ -1757,11 +1758,57 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   auto insertTableHandle =
       std::make_shared<core::InsertTableHandle>(connectorId, hiveTableHandle);
 
-  auto outputType = toRowType(
-      {node->rowCountVariable,
-       node->fragmentVariable,
-       node->tableCommitContextVariable});
+  std::vector<protocol::VariableReferenceExpression> variables{
+      node->rowCountVariable,
+      node->fragmentVariable,
+      node->tableCommitContextVariable};
+  //  statisticsAggregation.ifPresent(aggregation -> {
+  //    outputs.addAll(aggregation.getGroupingVariables());
+  //    outputs.addAll(aggregation.getAggregations().keySet());
+  //  });
 
+  std::shared_ptr<core::AggregationNode> aggregationNode;
+  if (node->statisticsAggregation) {
+    variables.insert(
+        variables.end(),
+        node->statisticsAggregation->groupingVariables.begin(),
+        node->statisticsAggregation->groupingVariables.end());
+    for (auto const& aggregation : node->statisticsAggregation->aggregations) {
+      variables.push_back(aggregation.first);
+    }
+
+    std::vector<std::string> aggregateNames;
+    std::vector<core::CallTypedExprPtr> aggregates;
+    std::vector<core::FieldAccessTypedExprPtr> aggrMasks;
+    aggregateNames.reserve(node->statisticsAggregation->aggregations.size());
+    aggregates.reserve(node->statisticsAggregation->aggregations.size());
+    aggrMasks.reserve(node->statisticsAggregation->aggregations.size());
+    for (const auto& entry : node->statisticsAggregation->aggregations) {
+      aggregateNames.emplace_back(entry.first.name);
+      aggregates.emplace_back(
+          std::dynamic_pointer_cast<const core::CallTypedExpr>(
+              exprConverter_.toVeloxExpr(entry.second.call)));
+      if (entry.second.mask == nullptr) {
+        aggrMasks.emplace_back(nullptr);
+      } else {
+        aggrMasks.emplace_back(exprConverter_.toVeloxExpr(entry.second.mask));
+      }
+    }
+
+    aggregationNode = std::make_shared<core::AggregationNode>(
+        // Use the ID of the DistinctLimit plan node here to propagate the
+        // stats.
+        node->id,
+        core::AggregationNode::Step::kSingle,
+        toVeloxExprs(node->statisticsAggregation->groupingVariables),
+        std::vector<core::FieldAccessTypedExprPtr>{},
+        aggregateNames,
+        aggregates,
+        aggrMasks,
+        false, // ignoreNullKeys
+        toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+  }
+  auto outputType = toRowType(variables);
   return std::make_shared<core::TableWriteNode>(
       node->id,
       toRowType(node->columns),
@@ -1769,6 +1816,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       insertTableHandle,
       outputType,
       connector::CommitStrategy::kNoCommit,
+      aggregationNode,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
@@ -2190,6 +2238,7 @@ velox::core::PlanNodePtr VeloxInteractiveQueryPlanConverter::toVeloxQueryPlan(
     return std::make_shared<core::MergeExchangeNode>(
         node->id, rowType, sortingKeys, sortingOrders);
   }
+  // RemoteSourceNode to ExchangeNode
   return std::make_shared<core::ExchangeNode>(node->id, rowType);
 }
 

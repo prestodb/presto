@@ -876,17 +876,17 @@ public class MetastoreUtil
         }
         if (isNumericType(type) || type.equals(DATE) || type.equals(TIMESTAMP)) {
             // TODO #7122 support non-legacy TIMESTAMP
-            return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
+            return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_NON_NULL_VALUES);
         }
         if (isVarcharType(type) || isCharType(type)) {
             // TODO Collect MIN,MAX once it is used by the optimizer
-            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, NUMBER_OF_DISTINCT_VALUES, TOTAL_SIZE_IN_BYTES, MAX_VALUE_SIZE_IN_BYTES);
+            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES);
         }
         if (type.equals(VARBINARY)) {
-            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, TOTAL_SIZE_IN_BYTES, MAX_VALUE_SIZE_IN_BYTES);
+            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES);
         }
         if (type instanceof ArrayType || type instanceof RowType || type instanceof MapType) {
-            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, TOTAL_SIZE_IN_BYTES);
+            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES);
         }
         if (type instanceof TypeWithName) {
             return getSupportedColumnStatistics(((TypeWithName) type).getType());
