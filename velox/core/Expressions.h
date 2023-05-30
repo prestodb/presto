@@ -21,22 +21,6 @@
 
 namespace facebook::velox::core {
 
-namespace {
-inline RowTypePtr rewriteNames(
-    const RowTypePtr& rowType,
-    const std::unordered_map<std::string, std::string>& mapping) {
-  std::vector<std::string> newNames;
-  newNames.reserve(rowType->size());
-  for (const auto& name : rowType->names()) {
-    auto it = mapping.find(name);
-    auto newName = it == mapping.end() ? name : it->second;
-    newNames.emplace_back(newName);
-  }
-  auto newTypes = rowType->children();
-  return ROW(std::move(newNames), std::move(newTypes));
-}
-} // namespace
-
 class InputTypedExpr : public ITypedExpr {
  public:
   InputTypedExpr(std::shared_ptr<const Type> type)
@@ -57,13 +41,8 @@ class InputTypedExpr : public ITypedExpr {
   }
 
   TypedExprPtr rewriteInputNames(
-      const std::unordered_map<std::string, std::string>& mapping)
+      const std::unordered_map<std::string, TypedExprPtr>& /*mapping*/)
       const override {
-    if (type()->isRow()) {
-      auto rowType = std::dynamic_pointer_cast<const RowType>(type());
-      return std::make_shared<InputTypedExpr>(rewriteNames(rowType, mapping));
-    }
-
     return std::make_shared<InputTypedExpr>(type());
   }
 
@@ -134,7 +113,7 @@ class ConstantTypedExpr : public ITypedExpr {
   }
 
   TypedExprPtr rewriteInputNames(
-      const std::unordered_map<std::string, std::string>& /*mapping*/)
+      const std::unordered_map<std::string, TypedExprPtr>& /*mapping*/)
       const override {
     if (hasValueVector()) {
       return std::make_shared<ConstantTypedExpr>(valueVector_);
@@ -195,7 +174,7 @@ class CallTypedExpr : public ITypedExpr {
   }
 
   TypedExprPtr rewriteInputNames(
-      const std::unordered_map<std::string, std::string>& mapping)
+      const std::unordered_map<std::string, TypedExprPtr>& mapping)
       const override {
     return std::make_shared<CallTypedExpr>(
         type(), rewriteInputsRecursive(mapping), name_);
@@ -271,18 +250,33 @@ class FieldAccessTypedExpr : public ITypedExpr {
   }
 
   TypedExprPtr rewriteInputNames(
-      const std::unordered_map<std::string, std::string>& mapping)
+      const std::unordered_map<std::string, TypedExprPtr>& mapping)
       const override {
-    auto it = mapping.find(name_);
-    auto newName = it == mapping.end() ? name_ : it->second;
     if (inputs().empty()) {
-      return std::make_shared<FieldAccessTypedExpr>(type(), std::move(newName));
+      auto it = mapping.find(name_);
+      return it != mapping.end()
+          ? it->second
+          : std::make_shared<FieldAccessTypedExpr>(type(), name_);
     }
 
     auto newInputs = rewriteInputsRecursive(mapping);
     VELOX_CHECK_EQ(1, newInputs.size());
+    // Only rewrite name if input in InputTypedExpr. Rewrite in other
+    // cases(like dereference) is unsound.
+    if (!std::dynamic_pointer_cast<const InputTypedExpr>(newInputs[0])) {
+      return std::make_shared<FieldAccessTypedExpr>(
+          type(), newInputs[0], name_);
+    }
+    auto it = mapping.find(name_);
+    auto newName = name_;
+    if (it != mapping.end()) {
+      if (auto name = std::dynamic_pointer_cast<const FieldAccessTypedExpr>(
+              it->second)) {
+        newName = name->name();
+      }
+    }
     return std::make_shared<FieldAccessTypedExpr>(
-        type(), newInputs[0], std::move(newName));
+        type(), newInputs[0], newName);
   }
 
   std::string toString() const override {
@@ -343,7 +337,7 @@ class ConcatTypedExpr : public ITypedExpr {
       : ITypedExpr{toType(names, inputs), inputs} {}
 
   TypedExprPtr rewriteInputNames(
-      const std::unordered_map<std::string, std::string>& mapping)
+      const std::unordered_map<std::string, TypedExprPtr>& mapping)
       const override {
     return std::make_shared<ConcatTypedExpr>(
         type()->asRow().names(), rewriteInputsRecursive(mapping));
@@ -417,10 +411,15 @@ class LambdaTypedExpr : public ITypedExpr {
   }
 
   TypedExprPtr rewriteInputNames(
-      const std::unordered_map<std::string, std::string>& mapping)
+      const std::unordered_map<std::string, TypedExprPtr>& mapping)
       const override {
+    for (const auto& name : signature_->names()) {
+      if (mapping.count(name)) {
+        VELOX_USER_FAIL("Ambiguous variable: {}", name);
+      }
+    }
     return std::make_shared<LambdaTypedExpr>(
-        rewriteNames(signature_, mapping), body_->rewriteInputNames(mapping));
+        signature_, body_->rewriteInputNames(mapping));
   }
 
   std::string toString() const override {
@@ -459,7 +458,7 @@ class CastTypedExpr : public ITypedExpr {
       : ITypedExpr{type, inputs}, nullOnFailure_(nullOnFailure) {}
 
   TypedExprPtr rewriteInputNames(
-      const std::unordered_map<std::string, std::string>& mapping)
+      const std::unordered_map<std::string, TypedExprPtr>& mapping)
       const override {
     return std::make_shared<CastTypedExpr>(
         type(), rewriteInputsRecursive(mapping), nullOnFailure_);

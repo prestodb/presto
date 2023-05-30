@@ -54,6 +54,15 @@ class ExprTest : public testing::Test, public VectorTestBase {
     return core::Expressions::inferTypes(untyped, rowType, execCtx_->pool());
   }
 
+  core::TypedExprPtr parseExpression(
+      const std::string& text,
+      const RowTypePtr& rowType,
+      const std::vector<TypePtr>& lambdaInputTypes) {
+    auto untyped = parse::parseExpr(text, options_);
+    return core::Expressions::inferTypes(
+        untyped, rowType, lambdaInputTypes, execCtx_->pool(), nullptr);
+  }
+
   std::vector<core::TypedExprPtr> parseMultipleExpression(
       const std::string& text,
       const RowTypePtr& rowType) {
@@ -1967,9 +1976,11 @@ TEST_F(ExprTest, complexNullOutput) {
 TEST_F(ExprTest, rewriteInputs) {
   // rewrite one field
   {
+    auto alpha =
+        std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "alpha");
     auto expr = parseExpression(
         "(a + b) * 2.1", ROW({"a", "b"}, {INTEGER(), DOUBLE()}));
-    expr = expr->rewriteInputNames({{"a", "alpha"}});
+    expr = expr->rewriteInputNames({{"a", alpha}});
 
     auto expectedExpr = parseExpression(
         "(alpha + b) * 2.1", ROW({"alpha", "b"}, {INTEGER(), DOUBLE()}));
@@ -1978,13 +1989,42 @@ TEST_F(ExprTest, rewriteInputs) {
 
   // rewrite 2 fields
   {
+    auto alpha =
+        std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "alpha");
+    auto beta = std::make_shared<core::FieldAccessTypedExpr>(DOUBLE(), "beta");
     auto expr = parseExpression(
         "a + b * c", ROW({"a", "b", "c"}, {INTEGER(), DOUBLE(), DOUBLE()}));
-    expr = expr->rewriteInputNames({{"a", "alpha"}, {"b", "beta"}});
+    expr = expr->rewriteInputNames({{"a", alpha}, {"b", beta}});
 
     auto expectedExpr = parseExpression(
         "alpha + beta * c",
         ROW({"alpha", "beta", "c"}, {INTEGER(), DOUBLE(), DOUBLE()}));
+    ASSERT_EQ(*expectedExpr, *expr);
+  }
+
+  // rewrite with lambda
+  {
+    auto alpha =
+        std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "alpha");
+    auto expr =
+        parseExpression("i -> i * a", ROW({"a"}, {INTEGER()}), {INTEGER()});
+    expr = expr->rewriteInputNames({{"a", alpha}});
+
+    auto expectedExpr = parseExpression(
+        "i -> i * alpha", ROW({"alpha"}, {INTEGER()}), {INTEGER()});
+    ASSERT_EQ(*expectedExpr, *expr);
+  }
+
+  // no rewrite with dereference
+  {
+    auto alpha =
+        std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "alpha");
+    auto expr = parseExpression(
+        "i -> i * b.a", ROW({"b"}, {ROW({"a"}, {INTEGER()})}), {INTEGER()});
+    expr = expr->rewriteInputNames({{"a", alpha}});
+
+    auto expectedExpr = parseExpression(
+        "i -> i * b.a", ROW({"b"}, {ROW({"a"}, {INTEGER()})}), {INTEGER()});
     ASSERT_EQ(*expectedExpr, *expr);
   }
 }
