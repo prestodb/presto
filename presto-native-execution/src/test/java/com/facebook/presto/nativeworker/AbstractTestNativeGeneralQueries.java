@@ -837,6 +837,24 @@ public abstract class AbstractTestNativeGeneralQueries
         }
     }
 
+    @Test
+    public void testArbitrary()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty("table_writer_merge_operator_enabled", "false")
+                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
+                .build();
+        String tmpTableName = generateRandomTableName();
+        dropTableIfExists(tmpTableName);
+        try {
+            getQueryRunner().execute(session, String.format("CREATE TABLE %s as SELECT * FROM (values row(cast(row(1, '1') as row(i bigint, j varchar)))) t(x)", tmpTableName));
+            assertQuery(String.format("SELECT arbitrary(x) FROM %s", tmpTableName));
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+
     private void dropTableIfExists(String tableName)
     {
         // An ugly workaround for the lack of getExpectedQueryRunner()
