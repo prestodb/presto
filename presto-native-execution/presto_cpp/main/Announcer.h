@@ -35,7 +35,7 @@ class Announcer {
       const std::string& clientCertAndKeyPath = "",
       const std::string& ciphers = "");
 
-  ~Announcer();
+  ~Announcer() = default;
 
   void start();
 
