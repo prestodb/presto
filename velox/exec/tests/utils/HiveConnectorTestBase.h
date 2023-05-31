@@ -85,6 +85,14 @@ class HiveConnectorTestBase : public OperatorTestBase {
         remainingFilter);
   }
 
+  /// @param name Column name.
+  /// @param type Column type.
+  /// @param Required subfields of this column.
+  static std::shared_ptr<connector::hive::HiveColumnHandle> makeColumnHandle(
+      const std::string& name,
+      const TypePtr& type,
+      const std::vector<std::string>& requiredSubfields);
+
   /// @param targetDirectory Final directory of the target table after commit.
   /// @param writeDirectory Write directory of the target table before commit.
   /// @param tableType Whether to create a new table, insert into an existing

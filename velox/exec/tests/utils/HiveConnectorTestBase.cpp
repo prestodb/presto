@@ -127,6 +127,24 @@ HiveConnectorTestBase::makeHiveConnectorSplits(
   return splits;
 }
 
+std::shared_ptr<connector::hive::HiveColumnHandle>
+HiveConnectorTestBase::makeColumnHandle(
+    const std::string& name,
+    const TypePtr& type,
+    const std::vector<std::string>& requiredSubfields) {
+  std::vector<common::Subfield> subfields;
+  subfields.reserve(requiredSubfields.size());
+  for (auto& path : requiredSubfields) {
+    subfields.emplace_back(path);
+  }
+
+  return std::make_shared<connector::hive::HiveColumnHandle>(
+      name,
+      connector::hive::HiveColumnHandle::ColumnType::kRegular,
+      type,
+      std::move(subfields));
+}
+
 std::vector<std::shared_ptr<connector::ConnectorSplit>>
 HiveConnectorTestBase::makeHiveConnectorSplits(
     const std::vector<std::shared_ptr<TempFilePath>>& filePaths) {

@@ -53,32 +53,48 @@ struct ConnectorSplit {
   }
 };
 
-class ColumnHandle {
+class ColumnHandle : public ISerializable {
  public:
   virtual ~ColumnHandle() = default;
+
+  folly::dynamic serialize() const override;
+
+ protected:
+  static folly::dynamic serializeBase(std::string_view name);
 };
 
-class ConnectorTableHandle {
+using ColumnHandlePtr = std::shared_ptr<const ColumnHandle>;
+
+class ConnectorTableHandle : public ISerializable {
  public:
   explicit ConnectorTableHandle(std::string connectorId)
       : connectorId_(std::move(connectorId)) {}
 
   virtual ~ConnectorTableHandle() = default;
 
-  virtual std::string toString() const = 0;
+  virtual std::string toString() const {
+    VELOX_NYI();
+  }
 
   const std::string& connectorId() const {
     return connectorId_;
   }
 
+  virtual folly::dynamic serialize() const override;
+
+ protected:
+  folly::dynamic serializeBase(std::string_view name) const;
+
  private:
   const std::string connectorId_;
 };
 
+using ConnectorTableHandlePtr = std::shared_ptr<const ConnectorTableHandle>;
+
 /**
  * Represents a request for writing to connector
  */
-class ConnectorInsertTableHandle {
+class ConnectorInsertTableHandle : public ISerializable {
  public:
   virtual ~ConnectorInsertTableHandle() {}
 
@@ -86,6 +102,10 @@ class ConnectorInsertTableHandle {
   // this flag to determine number of drivers.
   virtual bool supportsMultiThreading() const {
     return false;
+  }
+
+  folly::dynamic serialize() const override {
+    VELOX_NYI();
   }
 };
 
