@@ -52,7 +52,7 @@ std::string makePartitionDirectory(
     const std::string& tableDirectory,
     const std::optional<std::string>& partitionSubdirectory) {
   if (partitionSubdirectory.has_value()) {
-    return (fs::path(tableDirectory) / partitionSubdirectory.value()).string();
+    return fs::path(tableDirectory) / partitionSubdirectory.value();
   }
   return tableDirectory;
 }
@@ -97,7 +97,7 @@ void HiveDataSink::appendData(RowVectorPtr input) {
 
   ensurePartitionWriters();
 
-  for (column_index_t i = 0; i < input->childrenSize(); i++) {
+  for (column_index_t i = 0; i < input->childrenSize(); ++i) {
     input->childAt(i)->loadedVector();
   }
 
@@ -113,7 +113,7 @@ void HiveDataSink::appendData(RowVectorPtr input) {
   computePartitionRowCountsAndIndices();
 
   for (auto id = 0; id < numPartitions; id++) {
-    vector_size_t partitionSize = partitionSizes_[id];
+    const vector_size_t partitionSize = partitionSizes_[id];
     if (partitionSize == 0) {
       continue;
     }
@@ -131,7 +131,7 @@ std::vector<std::string> HiveDataSink::finish() const {
   partitionUpdates.reserve(writerInfo_.size());
 
   for (const auto& info : writerInfo_) {
-    if (info) {
+    if (info != nullptr) {
       // clang-format off
       auto partitionUpdateJson = folly::toJson(
        folly::dynamic::object
@@ -180,7 +180,7 @@ void HiveDataSink::ensurePartitionWriters() {
   if (numWriters < numPartitions) {
     writers_.reserve(numPartitions);
     writerInfo_.reserve(numPartitions);
-    for (auto id = numWriters; id < numPartitions; id++) {
+    for (auto id = numWriters; id < numPartitions; ++id) {
       appendWriter(partitionIdGenerator_->partitionName(id));
     }
   }
@@ -188,22 +188,21 @@ void HiveDataSink::ensurePartitionWriters() {
 
 void HiveDataSink::appendWriter(
     const std::optional<std::string>& partitionName) {
-  auto config = std::make_shared<WriterConfig>();
   // TODO: Wire up serde properties to writer configs.
-
   facebook::velox::dwrf::WriterOptions options;
-  options.config = config;
+  options.config = std::make_shared<WriterConfig>();
   options.schema = inputType_;
   // Without explicitly setting flush policy, the default memory based flush
   // policy is used.
   auto writerParameters = getWriterParameters(partitionName);
-  auto writePath = fs::path(writerParameters->writeDirectory()) /
-      writerParameters->writeFileName();
+  const auto writePath = fs::path(writerParameters.writeDirectory()) /
+      writerParameters.writeFileName();
 
   auto sink = dwio::common::DataSink::create(writePath);
   writers_.push_back(std::make_unique<Writer>(
       options, std::move(sink), *connectorQueryCtx_->connectorMemoryPool()));
-  writerInfo_.push_back(std::make_shared<HiveWriterInfo>(*writerParameters));
+  writerInfo_.push_back(
+      std::make_shared<HiveWriterInfo>(std::move(writerParameters)));
 }
 
 void HiveDataSink::computePartitionRowCountsAndIndices() {
@@ -215,27 +214,27 @@ void HiveDataSink::computePartitionRowCountsAndIndices() {
 
   partitionRows_.resize(numPartitions, nullptr);
   rawPartitionRows_.resize(numPartitions);
-  for (auto id = 0; id < numPartitions; id++) {
-    if (partitionRows_[id] == nullptr ||
-        partitionRows_[id]->capacity() < numRows * sizeof(vector_size_t)) {
+  for (auto id = 0; id < numPartitions; ++id) {
+    if ((partitionRows_[id] == nullptr) ||
+        (partitionRows_[id]->capacity() < numRows * sizeof(vector_size_t))) {
       partitionRows_[id] =
           allocateIndices(numRows, connectorQueryCtx_->memoryPool());
       rawPartitionRows_[id] = partitionRows_[id]->asMutable<vector_size_t>();
     }
   }
 
-  for (auto row = 0; row < numRows; row++) {
-    uint64_t id = partitionIds_[row];
+  for (auto row = 0; row < numRows; ++row) {
+    const uint64_t id = partitionIds_[row];
     rawPartitionRows_[id][partitionSizes_[id]] = row;
-    partitionSizes_[id]++;
+    ++partitionSizes_[id];
   }
 
-  for (auto id = 0; id < numPartitions; id++) {
+  for (auto id = 0; id < numPartitions; ++id) {
     partitionRows_[id]->setSize(partitionSizes_[id] * sizeof(vector_size_t));
   }
 }
 
-std::shared_ptr<const HiveWriterParameters> HiveDataSink::getWriterParameters(
+HiveWriterParameters HiveDataSink::getWriterParameters(
     const std::optional<std::string>& partition) const {
   auto updateMode = getUpdateMode();
 
@@ -262,10 +261,10 @@ std::shared_ptr<const HiveWriterParameters> HiveDataSink::getWriterParameters(
       break;
     }
     default:
-      VELOX_UNREACHABLE();
+      VELOX_UNREACHABLE(commitStrategyToString(commitStrategy_));
   }
 
-  return std::make_shared<HiveWriterParameters>(
+  return HiveWriterParameters{
       updateMode,
       partition,
       targetFileName,
@@ -273,22 +272,24 @@ std::shared_ptr<const HiveWriterParameters> HiveDataSink::getWriterParameters(
           insertTableHandle_->locationHandle()->targetPath(), partition),
       writeFileName,
       makePartitionDirectory(
-          insertTableHandle_->locationHandle()->writePath(), partition));
+          insertTableHandle_->locationHandle()->writePath(), partition)};
 }
 
 HiveWriterParameters::UpdateMode HiveDataSink::getUpdateMode() const {
   if (insertTableHandle_->isInsertTable()) {
     if (insertTableHandle_->isPartitioned()) {
-      auto insertBehavior = HiveConfig::insertExistingPartitionsBehavior(
+      const auto insertBehavior = HiveConfig::insertExistingPartitionsBehavior(
           connectorQueryCtx_->config());
       switch (insertBehavior) {
         case HiveConfig::InsertExistingPartitionsBehavior::kOverwrite:
           return HiveWriterParameters::UpdateMode::kOverwrite;
-
         case HiveConfig::InsertExistingPartitionsBehavior::kError:
           return HiveWriterParameters::UpdateMode::kNew;
         default:
-          VELOX_UNSUPPORTED("Unsupported insert existing partitions behavior.");
+          VELOX_UNSUPPORTED(
+              "Unsupported insert existing partitions behavior: {}",
+              HiveConfig::insertExistingPartitionsBehaviorString(
+                  insertBehavior));
       }
     } else {
       if (HiveConfig::immutablePartitions(connectorQueryCtx_->config())) {

@@ -124,7 +124,7 @@ class DataSink : public Closeable {
       size += callback(buf);
     }
     size_ += size;
-    if (stats_) {
+    if (stats_ != nullptr) {
       stats_->incRawBytesWritten(size);
     }
     // Writing buffer is treated as transferring ownership. So clearing the

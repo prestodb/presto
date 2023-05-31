@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-#include "velox/connectors/hive/HiveConnector.h"
 #include <gtest/gtest.h>
+
+#include "velox/connectors/hive/HiveConfig.h"
+#include "velox/connectors/hive/HiveConnector.h"
 
 namespace facebook::velox::connector::hive {
 namespace {
@@ -46,6 +48,21 @@ void validateNullConstant(const ScanSpec& spec, const Type& type) {
   ASSERT_TRUE(constant->isConstantEncoding());
   ASSERT_EQ(*constant->type(), type);
   ASSERT_TRUE(constant->isNullAt(0));
+}
+
+TEST_F(HiveConnectorTest, hiveConfig) {
+  ASSERT_EQ(
+      HiveConfig::insertExistingPartitionsBehaviorString(
+          HiveConfig::InsertExistingPartitionsBehavior::kError),
+      "ERROR");
+  ASSERT_EQ(
+      HiveConfig::insertExistingPartitionsBehaviorString(
+          HiveConfig::InsertExistingPartitionsBehavior::kOverwrite),
+      "OVERWRITE");
+  ASSERT_EQ(
+      HiveConfig::insertExistingPartitionsBehaviorString(
+          static_cast<HiveConfig::InsertExistingPartitionsBehavior>(100)),
+      "UNKNOWN BEHAVIOR 100");
 }
 
 TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_multilevel) {

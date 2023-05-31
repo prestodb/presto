@@ -186,7 +186,7 @@ struct HiveWriterInfo {
 
 class HiveDataSink : public DataSink {
  public:
-  explicit HiveDataSink(
+  HiveDataSink(
       RowTypePtr inputType,
       std::shared_ptr<const HiveInsertTableHandle> insertTableHandle,
       const ConnectorQueryCtx* connectorQueryCtx,
@@ -213,7 +213,7 @@ class HiveDataSink : public DataSink {
   // to every partition ID, based on the ID labeling of partitionIds_.
   void computePartitionRowCountsAndIndices();
 
-  std::shared_ptr<const HiveWriterParameters> getWriterParameters(
+  HiveWriterParameters getWriterParameters(
       const std::optional<std::string>& partition) const;
 
   HiveWriterParameters::UpdateMode getUpdateMode() const;

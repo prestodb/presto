@@ -116,7 +116,8 @@ std::string commitStrategyToString(CommitStrategy commitStrategy) {
     case CommitStrategy::kTaskCommit:
       return "TASK_COMMIT";
     default:
-      VELOX_UNREACHABLE();
+      VELOX_UNREACHABLE(
+          "UNKOWN COMMIT STRATEGY: {}", static_cast<int>(commitStrategy));
   }
 }
 

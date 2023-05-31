@@ -130,7 +130,7 @@ RowVectorPtr TableWriter::getOutput() {
       BaseVector::create<FlatVector<StringView>>(
           VARBINARY(), numOutputRows, pool());
   fragmentsVector->setNull(0, true);
-  for (int i = 1; i < numOutputRows; i++) {
+  for (int i = 1; i < numOutputRows; ++i) {
     fragmentsVector->set(i, StringView(fragments[i - 1]));
   }
 

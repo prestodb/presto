@@ -53,7 +53,7 @@ PartitionIdGenerator::PartitionIdGenerator(
 void PartitionIdGenerator::run(
     const RowVectorPtr& input,
     raw_vector<uint64_t>& result) {
-  auto numRows = input->size();
+  const auto numRows = input->size();
   result.resize(numRows);
 
   // TODO Check that there are no nulls in the partition keys.
@@ -134,7 +134,7 @@ void PartitionIdGenerator::updateValueToPartitionIdMapping() {
     return;
   }
 
-  auto numPartitions = partitionIds_.size();
+  const auto numPartitions = partitionIds_.size();
 
   partitionIds_.clear();
 

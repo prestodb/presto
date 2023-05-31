@@ -180,7 +180,7 @@ class PlanNode : public ISerializable {
   }
 
  private:
-  /// The details of the plan node in textual format.
+  // The details of the plan node in textual format.
   virtual void addDetails(std::stringstream& stream) const = 0;
 
   // Format when detailed and recursive are enabled is:

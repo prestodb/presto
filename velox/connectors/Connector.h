@@ -103,7 +103,7 @@ class DataSink {
   virtual ~DataSink() = default;
 
   /// Add the next data (vector) to be written. This call is blocking.
-  // TODO maybe at some point we want to make it async.
+  /// TODO maybe at some point we want to make it async.
   virtual void appendData(RowVectorPtr input) = 0;
 
   /// Called once after all data has been added via possibly multiple calls to

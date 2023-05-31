@@ -32,6 +32,9 @@ class HiveConfig {
     kOverwrite,
   };
 
+  static std::string insertExistingPartitionsBehaviorString(
+      InsertExistingPartitionsBehavior behavior);
+
   /// Behavior on insert into existing partitions.
   static constexpr const char* kInsertExistingPartitionsBehavior =
       "insert_existing_partitions_behavior";
