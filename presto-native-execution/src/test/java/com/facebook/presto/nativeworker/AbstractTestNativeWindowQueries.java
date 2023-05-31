@@ -110,9 +110,7 @@ public abstract class AbstractTestNativeWindowQueries
     @Test
     public void testRowNumberWithFilter()
     {
-        assertQueryFails("SELECT * FROM (SELECT row_number() over() rn, * from orders) WHERE rn = 1",
-                " Unknown plan node type com.facebook.presto.sql.planner.plan.RowNumberNode");
-        assertQueryFails("SELECT * FROM (SELECT row_number() over(partition by orderstatus order by orderkey) rn, * from orders) WHERE rn = 1",
-                " Unknown plan node type com.facebook.presto.sql.planner.plan.TopNRowNumberNode");
+        assertQuery("SELECT sum(rn) FROM (SELECT row_number() over() rn, * from orders) WHERE rn = 10");
+        assertQuery("SELECT * FROM (SELECT row_number() over(partition by orderstatus order by orderkey) rn, * from orders) WHERE rn = 1");
     }
 }
