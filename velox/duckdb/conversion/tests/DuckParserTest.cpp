@@ -515,6 +515,16 @@ TEST(DuckParserTest, window) {
       parseWindow(
           "row_number() over (partition by a order by b desc nulls first "
           "rows between a + 10 preceding and 10 following)"));
+
+  EXPECT_EQ(
+      "lead(\"x\",\"y\",\"z\") OVER (  "
+      "RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
+      parseWindow("lead(x, y, z) over ()"));
+
+  EXPECT_EQ(
+      "lag(\"x\",3,\"z\") OVER (  "
+      "RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
+      parseWindow("lag(x, 3, z) over ()"));
 }
 
 TEST(DuckParserTest, invalidExpression) {
