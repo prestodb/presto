@@ -1045,4 +1045,32 @@ public class TestStringFunctions
 
         assertFunction("concat(cast(null as char(1)), cast(' ' as char(1)))", createCharType(2), null);
     }
+
+    @Test
+    public void testStartsWith()
+    {
+        assertFunction("starts_with('abcd', 'ab')", BOOLEAN, true);
+        assertFunction("starts_with('abcd', '')", BOOLEAN, true);
+        assertFunction("starts_with('abcd', 'ba')", BOOLEAN, false);
+        assertFunction("starts_with('', 'ba')", BOOLEAN, false);
+        assertFunction("starts_with(NULL, 'ba')", BOOLEAN, null);
+        assertFunction("starts_with('abcd', NULL)", BOOLEAN, null);
+        assertFunction("starts_with('', NULL)", BOOLEAN, null);
+        assertFunction("starts_with(NULL, '')", BOOLEAN, null);
+        assertFunction("starts_with(NULL, NULL)", BOOLEAN, null);
+    }
+
+    @Test
+    public void testEndsWith()
+    {
+        assertFunction("ends_with('abcd', 'cd')", BOOLEAN, true);
+        assertFunction("ends_with('abcd', '')", BOOLEAN, true);
+        assertFunction("ends_with('abcd', 'zs')", BOOLEAN, false);
+        assertFunction("ends_with('', 'zs')", BOOLEAN, false);
+        assertFunction("ends_with(NULL, 'ba')", BOOLEAN, null);
+        assertFunction("ends_with('abcd', NULL)", BOOLEAN, null);
+        assertFunction("ends_with('', NULL)", BOOLEAN, null);
+        assertFunction("ends_with(NULL, '')", BOOLEAN, null);
+        assertFunction("ends_with(NULL, NULL)", BOOLEAN, null);
+    }
 }
