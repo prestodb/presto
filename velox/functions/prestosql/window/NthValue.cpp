@@ -138,7 +138,7 @@ class NthValueFunction : public exec::WindowFunction {
   }
 
   inline void setRowNumber(
-      column_index_t i,
+      vector_size_t i,
       const vector_size_t* frameStarts,
       const vector_size_t* frameEnds,
       vector_size_t offset) {
