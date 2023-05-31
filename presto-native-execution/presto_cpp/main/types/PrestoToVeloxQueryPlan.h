@@ -149,6 +149,16 @@ class VeloxQueryPlanConverterBase {
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
+  std::shared_ptr<const velox::core::WindowNode> toVeloxQueryPlan(
+      const std::shared_ptr<const protocol::RowNumberNode>& node,
+      const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+      const protocol::TaskId& taskId);
+
+  std::shared_ptr<const velox::core::WindowNode> toVeloxQueryPlan(
+      const std::shared_ptr<const protocol::TopNRowNumberNode>& node,
+      const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+      const protocol::TaskId& taskId);
+
   std::vector<velox::core::FieldAccessTypedExprPtr> toVeloxExprs(
       const std::vector<protocol::VariableReferenceExpression>& variables);
 
