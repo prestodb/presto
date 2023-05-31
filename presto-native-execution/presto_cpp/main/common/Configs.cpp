@@ -231,6 +231,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kQueryMaxMemoryPerNode, "4GB"),
           STR_PROP(kEnableMemoryLeakCheck, "true"),
           NONE_PROP(kRemoteFunctionServerThriftPort),
+          STR_PROP(kSkipRuntimeStatsInRunningTaskInfo, "true"),
       };
 }
 
@@ -409,6 +410,10 @@ uint64_t SystemConfig::queryMaxMemoryPerNode() const {
 
 bool SystemConfig::enableMemoryLeakCheck() const {
   return optionalProperty<bool>(kEnableMemoryLeakCheck).value();
+}
+
+bool SystemConfig::skipRuntimeStatsInRunningTaskInfo() const {
+  return optionalProperty<bool>(kSkipRuntimeStatsInRunningTaskInfo).value();
 }
 
 NodeConfig::NodeConfig() {

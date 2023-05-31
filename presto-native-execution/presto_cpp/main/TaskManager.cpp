@@ -66,18 +66,6 @@ static void maybeSetupTaskSpillDirectory(
   }
 }
 
-bool isFinalState(protocol::TaskState state) {
-  switch (state) {
-    case protocol::TaskState::FINISHED:
-    case protocol::TaskState::FAILED:
-    case protocol::TaskState::ABORTED:
-    case protocol::TaskState::CANCELED:
-      return true;
-    default:
-      return false;
-  }
-}
-
 // Keep outstanding Promises in RequestHandler's state itself.
 //
 // If the promise is not fulfilled yet, resetting promiseHolder will
