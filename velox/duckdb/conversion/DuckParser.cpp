@@ -720,8 +720,9 @@ BoundType parseBoundType(WindowBoundary boundary) {
 
 } // namespace
 
-const IExprWindowFunction parseWindowExpr(const std::string& windowString) {
-  ParseOptions options;
+const IExprWindowFunction parseWindowExpr(
+    const std::string& windowString,
+    const ParseOptions& options) {
   auto parsedExpressions = parseExpression(windowString);
   if (parsedExpressions.size() != 1) {
     throw std::invalid_argument(folly::sformat(

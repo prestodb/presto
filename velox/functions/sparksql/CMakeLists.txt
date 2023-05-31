@@ -44,6 +44,8 @@ target_link_libraries(
 set_property(TARGET velox_functions_spark PROPERTY JOB_POOL_COMPILE
                                                    high_memory_pool)
 
+add_subdirectory(window)
+
 if(${VELOX_ENABLE_AGGREGATES})
   add_subdirectory(aggregates)
 endif()

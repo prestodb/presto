@@ -16,7 +16,6 @@
 #pragma once
 
 #include "velox/exec/tests/utils/OperatorTestBase.h"
-#include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
 
 namespace facebook::velox::window::test {
 
@@ -117,7 +116,6 @@ class WindowTestBase : public exec::test::OperatorTestBase {
  protected:
   void SetUp() override {
     exec::test::OperatorTestBase::SetUp();
-    velox::window::prestosql::registerAllWindowFunctions();
   }
 
   /// The below 4 functions are used to generate input data vectors for window
@@ -175,5 +173,10 @@ class WindowTestBase : public exec::test::OperatorTestBase {
       const std::string& overClause,
       const std::string& frameClause,
       const std::string& errorMessage);
+
+  /// ParseOptions for the DuckDB Parser. nth_value in Spark expects to parse
+  /// integer as bigint vs bigint in Presto. The default is to parse integer
+  /// as bigint (Presto behavior).
+  parse::ParseOptions options_;
 };
 }; // namespace facebook::velox::window::test

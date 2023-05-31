@@ -35,6 +35,7 @@ target_link_libraries(velox_functions_lib velox_vector re2::re2 Folly::folly)
 
 add_subdirectory(aggregates)
 add_subdirectory(string)
+add_subdirectory(window)
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
 endif()

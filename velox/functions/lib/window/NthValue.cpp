@@ -19,10 +19,9 @@
 #include "velox/expression/FunctionSignature.h"
 #include "velox/vector/FlatVector.h"
 
-namespace facebook::velox::window::prestosql {
+namespace facebook::velox::functions::window {
 
 namespace {
-
 class NthValueFunction : public exec::WindowFunction {
  public:
   explicit NthValueFunction(
@@ -33,21 +32,37 @@ class NthValueFunction : public exec::WindowFunction {
     VELOX_CHECK_EQ(args.size(), 2);
     VELOX_CHECK_NULL(args[0].constantValue);
     valueIndex_ = args[0].index.value();
-    if (args[1].constantValue) {
+    if (args[1].type->isInteger()) {
+      VELOX_USER_CHECK(
+          args[1].constantValue, "Offset must be literal for spark");
       if (args[1].constantValue->isNullAt(0)) {
         isConstantOffsetNull_ = true;
         return;
       }
       constantOffset_ =
           args[1]
-              .constantValue->template as<ConstantVector<int64_t>>()
+              .constantValue->template as<ConstantVector<int32_t>>()
               ->valueAt(0);
       VELOX_USER_CHECK_GE(
           constantOffset_.value(), 1, "Offset must be at least 1");
-      return;
+    } else {
+      if (args[1].constantValue) {
+        if (args[1].constantValue->isNullAt(0)) {
+          isConstantOffsetNull_ = true;
+          return;
+        }
+        constantOffset_ =
+            args[1]
+                .constantValue->template as<ConstantVector<int64_t>>()
+                ->valueAt(0);
+        VELOX_USER_CHECK_GE(
+            constantOffset_.value(), 1, "Offset must be at least 1");
+        return;
+      }
+
+      offsetIndex_ = args[1].index.value();
+      offsets_ = BaseVector::create<FlatVector<int64_t>>(BIGINT(), 0, pool);
     }
-    offsetIndex_ = args[1].index.value();
-    offsets_ = BaseVector::create<FlatVector<int64_t>>(BIGINT(), 0, pool);
   }
 
   void resetPartition(const exec::WindowPartition* partition) override {
@@ -96,7 +111,8 @@ class NthValueFunction : public exec::WindowFunction {
       return;
     }
 
-    auto constantOffsetValue = constantOffset_.value();
+    vector_size_t constantOffsetValue =
+        static_cast<vector_size_t>(constantOffset_.value());
     validRows.applyToSelected([&](auto i) {
       setRowNumber(i, frameStarts, frameEnds, constantOffsetValue);
     });
@@ -180,14 +196,13 @@ class NthValueFunction : public exec::WindowFunction {
 };
 } // namespace
 
-void registerNthValue(const std::string& name) {
+void registerNthValue(const std::string& name, const TypeKind& offsetTypeKind) {
   std::vector<exec::FunctionSignaturePtr> signatures{
-      // (T, bigint) -> T.
       exec::FunctionSignatureBuilder()
           .typeVariable("T")
           .returnType("T")
           .argumentType("T")
-          .argumentType("bigint")
+          .argumentType(mapTypeKindToName(offsetTypeKind))
           .build(),
   };
 
@@ -198,9 +213,17 @@ void registerNthValue(const std::string& name) {
           const std::vector<exec::WindowFunctionArg>& args,
           const TypePtr& resultType,
           velox::memory::MemoryPool* pool,
-          HashStringAllocator* /*stringAllocator*/)
-          -> std::unique_ptr<exec::WindowFunction> {
+          HashStringAllocator*
+          /*stringAllocator*/) -> std::unique_ptr<exec::WindowFunction> {
         return std::make_unique<NthValueFunction>(args, resultType, pool);
       });
 }
-} // namespace facebook::velox::window::prestosql
+
+void registerIntegerNthValue(const std::string& name) {
+  registerNthValue(name, TypeKind::INTEGER);
+}
+
+void registerBigintNthValue(const std::string& name) {
+  registerNthValue(name, TypeKind::BIGINT);
+}
+} // namespace facebook::velox::functions::window

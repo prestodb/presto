@@ -13,7 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/prestosql/window/tests/WindowTestBase.h"
+#include "velox/functions/lib/window/tests/WindowTestBase.h"
+#include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
 
 using namespace facebook::velox::exec::test;
 
@@ -29,6 +30,11 @@ class NtileTest : public WindowTestBase {
     // Tests ntile with a column.
     WindowTestBase::testWindowFunction(
         vectors, "ntile(c2)", kOverClauses, kFrameClauses);
+  }
+
+  void SetUp() override {
+    WindowTestBase::SetUp();
+    window::prestosql::registerAllWindowFunctions();
   }
 
  private:

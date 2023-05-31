@@ -15,14 +15,8 @@ if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
 endif()
 
-add_library(
-  velox_window
-  CumeDist.cpp
-  FirstLastValue.cpp
-  NthValue.cpp
-  Ntile.cpp
-  Rank.cpp
-  RowNumber.cpp
-  WindowFunctionsRegistration.cpp)
+add_library(velox_window CumeDist.cpp FirstLastValue.cpp Ntile.cpp Rank.cpp
+                         RowNumber.cpp WindowFunctionsRegistration.cpp)
 
-target_link_libraries(velox_window velox_buffer velox_exec Folly::folly)
+target_link_libraries(velox_window velox_buffer velox_exec
+                      velox_functions_window Folly::folly)

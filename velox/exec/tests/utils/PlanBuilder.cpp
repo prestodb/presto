@@ -1231,8 +1231,10 @@ PlanBuilder& PlanBuilder::window(
   };
 
   WindowTypeResolver windowResolver;
+  facebook::velox::duckdb::ParseOptions options;
+  options.parseIntegerAsBigint = options_.parseIntegerAsBigint;
   for (const auto& windowString : windowFunctions) {
-    const auto& windowExpr = duckdb::parseWindowExpr(windowString);
+    const auto& windowExpr = duckdb::parseWindowExpr(windowString, options);
     // All window function SQL strings in the list are expected to have the same
     // PARTITION BY and ORDER BY clauses. Validate this assumption.
     if (first) {

@@ -20,6 +20,7 @@
 #include <iomanip>
 #include <iostream>
 #include "velox/exec/Aggregate.h"
+#include "velox/exec/WindowFunction.h"
 #include "velox/functions/FunctionRegistry.h"
 
 namespace facebook::velox::functions {
@@ -42,17 +43,18 @@ class TablePrinter {
     for (int i = 1; i < numScalarColumns_; i++) {
       out_ << "  " << line;
     }
-    out_ << "  ==  " << line << std::endl;
+    out_ << "  ==  " << line << "  ==  " << line << std::endl;
 
     auto scalarFunctionsColumnWidth =
         columnSize_ * numScalarColumns_ + 2 * (numScalarColumns_ - 1);
 
     out_ << indent_ << std::left << std::setw(scalarFunctionsColumnWidth)
          << "Scalar Functions"
+         << "      " << std::setw(columnSize_) << "Aggregate Functions"
          << "      "
-         << "Aggregate Functions" << std::endl;
+         << "Window Functions" << std::endl;
     out_ << indent_ << std::string(scalarFunctionsColumnWidth, '=')
-         << "  ==  " << line << std::endl;
+         << "  ==  " << line << "  ==  " << line << std::endl;
   }
 
   void startRow() {
@@ -65,7 +67,10 @@ class TablePrinter {
   }
 
   void addEmptyColumn() {
-    if (currentColumn_ == numScalarColumns_) {
+    if (currentColumn_ == numScalarColumns_ ||
+        currentColumn_ == numScalarColumns_ + 2) {
+      // If the current column is after the Scalar Functions columns or
+      // the column next to Aggregate Functions column.
       addColumn("", 2);
     } else {
       addColumn("", columnSize_);
@@ -82,7 +87,7 @@ class TablePrinter {
     for (int i = 1; i < numScalarColumns_; i++) {
       out_ << "  " << line;
     }
-    out_ << "  ==  " << line << std::endl;
+    out_ << "  ==  " << line << "  ==  " << line << std::endl;
   }
 
  private:
@@ -164,6 +169,9 @@ void printTableCss(
   out << "    table.coverage "
       << "td:nth-child(" << numScalarColumns + 1 << ") "
       << "{background-color: lightblue;}" << std::endl;
+  out << "    table.coverage "
+      << "td:nth-child(" << numScalarColumns + 3 << ") "
+      << "{background-color: lightblue;}" << std::endl;
 
   for (const auto& entry : cellTracker.cells()) {
     out << "    table.coverage "
@@ -176,15 +184,21 @@ void printTableCss(
 void printCoverageMap(
     const std::vector<std::string>& scalarNames,
     const std::vector<std::string>& aggNames,
+    const std::vector<std::string>& windowNames,
     const std::unordered_set<std::string>& veloxNames,
     const std::unordered_set<std::string>& veloxAggNames,
+    const std::unordered_set<std::string>& veloxWindowNames,
     const std::string& domain) {
   const auto scalarCnt = scalarNames.size();
   const auto aggCnt = aggNames.size();
+  const auto windowCnt = windowNames.size();
 
   // Make sure there is enough space for the longest function name + :func:
   // syntax that turns function name into a link to function's description.
-  const int columnSize = std::max(maxLength(scalarNames), maxLength(aggNames)) +
+  const int columnSize = std::max(
+                             {maxLength(scalarNames),
+                              maxLength(aggNames),
+                              maxLength(windowNames)}) +
       toFuncLink("", domain).size();
 
   const std::string indent(4, ' ');
@@ -193,8 +207,10 @@ void printCoverageMap(
 
   // Split scalar functions into 'numScalarColumns' columns. Put all aggregate
   // functions into one column.
-  auto numRows =
-      std::max((size_t)std::ceil((double)scalarCnt / numScalarColumns), aggCnt);
+  auto numRows = std::max(
+      {(size_t)std::ceil((double)scalarCnt / numScalarColumns),
+       aggCnt,
+       windowCnt});
 
   // Keep track of cells which contain functions available in Velox. These cells
   // need to be highlighted using CSS rules.
@@ -233,6 +249,15 @@ void printCoverageMap(
     i < aggCnt ? printer.addColumn(printName(
                      i, numScalarColumns + 1, aggNames[i], veloxAggNames))
                : printer.addEmptyColumn();
+
+    // 1 empty column.
+    printer.addEmptyColumn();
+
+    // 1 column of window functions.
+    i < windowCnt
+        ? printer.addColumn(printName(
+              i, numScalarColumns + 3, windowNames[i], veloxWindowNames))
+        : printer.addEmptyColumn();
 
     printer.endRow();
   }
@@ -282,11 +307,28 @@ std::vector<std::string> getSortedAggregateNames() {
   return names;
 }
 
+/// Returns alphabetically sorted list of window functions available in Velox.
+std::vector<std::string> getSortedWindowNames() {
+  const auto& aggregateFunctions = exec::aggregateFunctions();
+  const auto& functions = exec::windowFunctions();
+
+  std::vector<std::string> names;
+  names.reserve(functions.size());
+  for (const auto& entry : functions) {
+    if (aggregateFunctions.count(entry.first) == 0) {
+      names.emplace_back(entry.first);
+    }
+  }
+  std::sort(names.begin(), names.end());
+  return names;
+}
+
 /// Takes a super-set of simple, vector and aggregate function names and prints
 /// coverage map showing which of these functions are available in Velox.
 void printCoverageMap(
     const std::vector<std::string>& scalarNames,
     const std::vector<std::string>& aggNames,
+    const std::vector<std::string>& windowNames,
     const std::string& domain = "") {
   auto veloxFunctions = getFunctionSignatures();
 
@@ -303,7 +345,22 @@ void printCoverageMap(
     veloxAggNames.emplace(entry.first);
   }
 
-  printCoverageMap(scalarNames, aggNames, veloxNames, veloxAggNames, domain);
+  std::unordered_set<std::string> veloxWindowNames;
+  const auto& veloxWindowFunctions = exec::windowFunctions();
+  for (const auto& entry : veloxWindowFunctions) {
+    if (veloxAggregateFunctions.count(entry.first) == 0) {
+      veloxWindowNames.emplace(entry.first);
+    }
+  }
+
+  printCoverageMap(
+      scalarNames,
+      aggNames,
+      windowNames,
+      veloxNames,
+      veloxAggNames,
+      veloxWindowNames,
+      domain);
 }
 
 void printCoverageMapForAll(const std::string& domain) {
@@ -313,7 +370,10 @@ void printCoverageMapForAll(const std::string& domain) {
   auto aggNames = readFunctionNamesFromFile("all_aggregate_functions.txt");
   std::sort(aggNames.begin(), aggNames.end());
 
-  printCoverageMap(scalarNames, aggNames, domain);
+  auto windowNames = readFunctionNamesFromFile("all_window_functions.txt");
+  std::sort(windowNames.begin(), windowNames.end());
+
+  printCoverageMap(scalarNames, aggNames, windowNames, domain);
 }
 
 void printVeloxFunctions(
@@ -321,15 +381,21 @@ void printVeloxFunctions(
     const std::string& domain) {
   auto scalarNames = getSortedScalarNames();
   auto aggNames = getSortedAggregateNames();
+  auto windowNames = getSortedWindowNames();
 
-  const int columnSize = std::max(maxLength(scalarNames), maxLength(aggNames)) +
+  const int columnSize = std::max(
+                             {maxLength(scalarNames),
+                              maxLength(aggNames),
+                              maxLength(windowNames)}) +
       toFuncLink("", domain).size();
 
   const std::string indent(4, ' ');
 
   auto scalarCnt = scalarNames.size();
   auto aggCnt = aggNames.size();
-  auto numRows = std::max((size_t)std::ceil(scalarCnt / 3.0), aggCnt);
+  auto windowCnt = windowNames.size();
+  auto numRows =
+      std::max({(size_t)std::ceil(scalarCnt / 3.0), aggCnt, windowCnt});
 
   auto printName = [&](const std::string& name) {
     return linkBlockList.count(name) == 0 ? toFuncLink(name, domain) : name;
@@ -354,6 +420,13 @@ void printVeloxFunctions(
     i < aggCnt ? printer.addColumn(printName(aggNames[i]))
                : printer.addEmptyColumn();
 
+    // 1 empty column.
+    printer.addEmptyColumn();
+
+    // 1 column of window functions.
+    i < windowCnt ? printer.addColumn(printName(windowNames[i]))
+                  : printer.addEmptyColumn();
+
     printer.endRow();
   }
   printer.footer();
@@ -367,6 +440,10 @@ void printCoverageMapForMostUsed(const std::string& domain) {
   auto aggNameList = readFunctionNamesFromFile("all_aggregate_functions.txt");
   std::unordered_set<std::string> aggNames(
       aggNameList.begin(), aggNameList.end());
+
+  auto windowNameList = readFunctionNamesFromFile("all_window_functions.txt");
+  std::unordered_set<std::string> windowNames(
+      windowNameList.begin(), windowNameList.end());
 
   auto allMostUsed = readFunctionNamesFromFile("most_used_functions.txt");
   std::vector<std::string> scalarMostUsed;
@@ -383,7 +460,14 @@ void printCoverageMapForMostUsed(const std::string& domain) {
       std::back_inserter(aggMostUsed),
       [&](auto name) { return aggNames.count(name) > 0; });
 
-  printCoverageMap(scalarMostUsed, aggMostUsed, domain);
+  std::vector<std::string> windowMostUsed;
+  std::copy_if(
+      allMostUsed.begin(),
+      allMostUsed.end(),
+      std::back_inserter(windowMostUsed),
+      [&](auto name) { return windowNames.count(name) > 0; });
+
+  printCoverageMap(scalarMostUsed, aggMostUsed, windowMostUsed, domain);
 }
 
 } // namespace facebook::velox::functions

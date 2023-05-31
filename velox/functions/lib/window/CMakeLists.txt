@@ -11,9 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_executable(velox_sparksql_coverage Coverage.cpp)
 
-target_link_libraries(
-  velox_sparksql_coverage velox_functions_spark velox_function_registry
-  velox_functions_spark_aggregates velox_functions_spark_window
-  velox_coverage_util)
+add_library(velox_functions_window NthValue.cpp)
+
+target_link_libraries(velox_functions_window velox_buffer velox_exec
+                      Folly::folly)
+
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+endif()

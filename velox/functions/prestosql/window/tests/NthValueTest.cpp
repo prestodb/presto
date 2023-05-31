@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/functions/prestosql/window/tests/WindowTestBase.h"
+#include "velox/functions/lib/window/tests/WindowTestBase.h"
+#include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using namespace facebook::velox::exec::test;
@@ -32,6 +33,11 @@ class NthValueTest : public WindowTestBase {
 
   explicit NthValueTest(const std::string& overClause)
       : overClause_(overClause) {}
+
+  void SetUp() override {
+    WindowTestBase::SetUp();
+    window::prestosql::registerAllWindowFunctions();
+  }
 
   // These tests have all important variations of the (nth|first|last)_value
   // function invocations to be tested per (dataset, partition, frame) clause

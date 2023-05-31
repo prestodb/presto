@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/functions/prestosql/window/tests/WindowTestBase.h"
+#include "velox/functions/lib/window/tests/WindowTestBase.h"
+#include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
 
 using namespace facebook::velox::exec::test;
 
@@ -48,6 +49,11 @@ class RankTestBase : public WindowTestBase {
   void testWindowFunction(const std::vector<RowVectorPtr>& vectors) {
     WindowTestBase::testWindowFunction(
         vectors, function_, {overClause_}, kFrameClauses);
+  }
+
+  void SetUp() override {
+    WindowTestBase::SetUp();
+    window::prestosql::registerAllWindowFunctions();
   }
 
   const std::string function_;
