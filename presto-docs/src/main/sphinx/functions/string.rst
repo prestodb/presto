@@ -42,6 +42,10 @@ String Functions
     This function provides the same functionality as the
     SQL-standard concatenation operator (``||``).
 
+.. function:: ends_with(string, substring) -> boolean
+
+    Returns whether ``string`` ends_with with ``substring``.
+
 .. function:: hamming_distance(string1, string2) -> bigint
 
     Returns the Hamming distance of ``string1`` and ``string2``,
@@ -146,6 +150,10 @@ String Functions
 
     Returns the starting position of the first instance of ``substring`` in
     ``string``. Positions start with ``1``. If not found, ``0`` is returned.
+
+.. function:: starts_with(string, substring) -> boolean
+
+    Returns whether ``string`` starts with ``substring``.
 
 .. function:: strpos(string, substring, instance) -> bigint
 
