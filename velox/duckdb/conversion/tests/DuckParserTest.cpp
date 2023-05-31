@@ -46,6 +46,7 @@ TEST(DuckParserTest, constants) {
 
   // Nulls
   EXPECT_EQ("null", parseExpr("NULL")->toString());
+  EXPECT_EQ("null", parseExpr("NULL::double")->toString());
 
   // Booleans
   EXPECT_EQ("true", parseExpr("TRUE")->toString());

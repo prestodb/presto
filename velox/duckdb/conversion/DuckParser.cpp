@@ -168,7 +168,7 @@ std::shared_ptr<const core::ConstantExpr> tryParseInterval(
     std::optional<std::string> alias) {
   std::optional<int64_t> value;
   if (auto constInput = dynamic_cast<const core::ConstantExpr*>(input.get())) {
-    if (constInput->type()->isBigint()) {
+    if (constInput->type()->isBigint() && !constInput->value().isNull()) {
       value = constInput->value().value<int64_t>();
     }
   } else if (
@@ -176,7 +176,7 @@ std::shared_ptr<const core::ConstantExpr> tryParseInterval(
     if (castInput->type()->isBigint()) {
       if (auto constInput = dynamic_cast<const core::ConstantExpr*>(
               castInput->getInput().get())) {
-        if (constInput->type()->isBigint()) {
+        if (constInput->type()->isBigint() && !constInput->value().isNull()) {
           value = constInput->value().value<int64_t>();
         }
       }
@@ -477,31 +477,37 @@ std::shared_ptr<const core::IExpr> parseCastExpr(
   // Map and Array and Struct properly.
   auto targetType = toVeloxType(castExpr.cast_type);
   VELOX_CHECK(!params.empty());
-  if (targetType->isBoolean()) {
+
+  // Convert cast(NULL as <type>) into a constant NULL.
+  if (auto* constant =
+          dynamic_cast<const core::ConstantExpr*>(params[0].get())) {
+    if (constant->value().isNull()) {
+      return std::make_shared<const core::ConstantExpr>(
+          targetType, variant::null(targetType->kind()), getAlias(expr));
+    }
+
     // DuckDB parses BOOLEAN literal as cast expression.  Try to restore it back
     // to constant expression here.
-    if (auto* constant =
-            dynamic_cast<const core::ConstantExpr*>(params[0].get())) {
-      if (constant->type()->isVarchar()) {
-        auto& value = constant->value();
-        if (!value.isNull() && value.kind() == TypeKind::VARCHAR) {
-          auto& s = value.value<TypeKind::VARCHAR>();
-          if (s == "t") {
-            return std::make_shared<const core::ConstantExpr>(
-                BOOLEAN(),
-                variant::create<TypeKind::BOOLEAN>(true),
-                getAlias(expr));
-          }
-          if (s == "f") {
-            return std::make_shared<const core::ConstantExpr>(
-                BOOLEAN(),
-                variant::create<TypeKind::BOOLEAN>(false),
-                getAlias(expr));
-          }
-        }
+    if (targetType->isBoolean() && constant->type()->isVarchar()) {
+      const auto& value = constant->value();
+      const auto& s = value.value<TypeKind::VARCHAR>();
+
+      if (s == "t") {
+        return std::make_shared<const core::ConstantExpr>(
+            BOOLEAN(),
+            variant::create<TypeKind::BOOLEAN>(true),
+            getAlias(expr));
+      }
+
+      if (s == "f") {
+        return std::make_shared<const core::ConstantExpr>(
+            BOOLEAN(),
+            variant::create<TypeKind::BOOLEAN>(false),
+            getAlias(expr));
       }
     }
   }
+
   const bool nullOnFailure = castExpr.try_cast;
   return std::make_shared<const core::CastExpr>(
       targetType, params[0], nullOnFailure, getAlias(expr));
