@@ -127,6 +127,7 @@ AbstractClasses:
         - { name: TableScanNode,            key: .TableScanNode }
         - { name: TableWriterNode,          key: com.facebook.presto.sql.planner.plan.TableWriterNode }
         - { name: TopNNode,                 key: .TopNNode }
+        - { name: TopNRowNumberNode,        key: com.facebook.presto.sql.planner.plan.TopNRowNumberNode }
         - { name: UnnestNode,               key: com.facebook.presto.sql.planner.plan.UnnestNode }
         - { name: ValuesNode,               key: .ValuesNode }
         - { name: AssignUniqueId,           key: com.facebook.presto.sql.planner.plan.AssignUniqueId }
@@ -197,6 +198,7 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/ExchangeNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/GroupIdNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/RowNumberNode.java
+  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TopNRowNumberNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TableWriterNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/UnnestNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/WindowNode.java
