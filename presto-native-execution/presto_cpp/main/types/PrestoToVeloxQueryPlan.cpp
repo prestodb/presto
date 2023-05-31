@@ -1851,6 +1851,29 @@ core::WindowNode::Function VeloxQueryPlanConverterBase::toVeloxWindowFunction(
   return windowFunc;
 }
 
+namespace {
+
+std::pair<
+    std::vector<core::FieldAccessTypedExprPtr>,
+    std::vector<core::SortOrder>>
+toSortFieldsAndOrders(
+    const protocol::OrderingScheme* orderingScheme,
+    VeloxExprConverter& exprConverter) {
+  std::vector<core::FieldAccessTypedExprPtr> sortFields;
+  std::vector<core::SortOrder> sortOrders;
+  if (orderingScheme != nullptr) {
+    auto nodeSpecOrdering = orderingScheme->orderBy;
+    sortFields.reserve(nodeSpecOrdering.size());
+    sortOrders.reserve(nodeSpecOrdering.size());
+    for (const auto& spec : nodeSpecOrdering) {
+      sortFields.emplace_back(exprConverter.toVeloxExpr(spec.variable));
+      sortOrders.emplace_back(toVeloxSortOrder(spec.sortOrder));
+    }
+  }
+  return {sortFields, sortOrders};
+}
+} // namespace
+
 std::shared_ptr<const velox::core::WindowNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::WindowNode>& node,
@@ -1862,17 +1885,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     partitionFields.emplace_back(exprConverter_.toVeloxExpr(entry));
   }
 
-  std::vector<core::FieldAccessTypedExprPtr> sortFields;
-  std::vector<core::SortOrder> sortOrders;
-  if (node->specification.orderingScheme) {
-    auto nodeSpecOrdering = node->specification.orderingScheme->orderBy;
-    sortFields.reserve(nodeSpecOrdering.size());
-    sortOrders.reserve(nodeSpecOrdering.size());
-    for (const auto& spec : nodeSpecOrdering) {
-      sortFields.emplace_back(exprConverter_.toVeloxExpr(spec.variable));
-      sortOrders.emplace_back(toVeloxSortOrder(spec.sortOrder));
-    }
-  }
+  auto [sortFields, sortOrders] = toSortFieldsAndOrders(
+      node->specification.orderingScheme.get(), exprConverter_);
 
   std::vector<std::string> windowNames;
   std::vector<core::WindowNode::Function> windowFunctions;
@@ -1890,6 +1904,77 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       sortOrders,
       windowNames,
       windowFunctions,
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+}
+
+namespace {
+
+core::WindowNode::Function makeRowNumberFunction(
+    const protocol::VariableReferenceExpression& rowNumberVariable) {
+  core::WindowNode::Function function;
+  function.functionCall = std::make_shared<core::CallTypedExpr>(
+      stringToType(rowNumberVariable.type),
+      std::vector<core::TypedExprPtr>{},
+      "presto.default.row_number");
+
+  function.frame.type = core::WindowNode::WindowType::kRows;
+  function.frame.startType = core::WindowNode::BoundType::kUnboundedPreceding;
+  function.frame.endType = core::WindowNode::BoundType::kCurrentRow;
+
+  return function;
+}
+} // namespace
+
+std::shared_ptr<const velox::core::WindowNode>
+VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::RowNumberNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  // Velox currently doesn't support RowNumberNode. Convert it to WindowNode.
+  // This is less efficient, but correct.
+  std::vector<core::FieldAccessTypedExprPtr> partitionFields;
+  partitionFields.reserve(node->partitionBy.size());
+  for (const auto& entry : node->partitionBy) {
+    partitionFields.emplace_back(exprConverter_.toVeloxExpr(entry));
+  }
+
+  auto rowNumberFunc = makeRowNumberFunction(node->rowNumberVariable);
+
+  return std::make_shared<core::WindowNode>(
+      node->id,
+      partitionFields,
+      std::vector<core::FieldAccessTypedExprPtr>{},
+      std::vector<core::SortOrder>{},
+      std::vector<std::string>{node->rowNumberVariable.name},
+      std::vector<core::WindowNode::Function>{rowNumberFunc},
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+}
+
+std::shared_ptr<const velox::core::WindowNode>
+VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::TopNRowNumberNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  // Velox currently doesn't support TopNRowNumberNode. Convert it to
+  // WindowNode. This is less efficient, but correct.
+  std::vector<core::FieldAccessTypedExprPtr> partitionFields;
+  partitionFields.reserve(node->specification.partitionBy.size());
+  for (const auto& entry : node->specification.partitionBy) {
+    partitionFields.emplace_back(exprConverter_.toVeloxExpr(entry));
+  }
+
+  auto [sortFields, sortOrders] = toSortFieldsAndOrders(
+      node->specification.orderingScheme.get(), exprConverter_);
+
+  auto rowNumberFunc = makeRowNumberFunction(node->rowNumberVariable);
+
+  return std::make_shared<core::WindowNode>(
+      node->id,
+      partitionFields,
+      sortFields,
+      sortOrders,
+      std::vector<std::string>{node->rowNumberVariable.name},
+      std::vector<core::WindowNode::Function>{rowNumberFunc},
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
@@ -1969,6 +2054,14 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   if (auto window =
           std::dynamic_pointer_cast<const protocol::WindowNode>(node)) {
     return toVeloxQueryPlan(window, tableWriteInfo, taskId);
+  }
+  if (auto rowNumber =
+          std::dynamic_pointer_cast<const protocol::RowNumberNode>(node)) {
+    return toVeloxQueryPlan(rowNumber, tableWriteInfo, taskId);
+  }
+  if (auto topNRowNumber =
+          std::dynamic_pointer_cast<const protocol::TopNRowNumberNode>(node)) {
+    return toVeloxQueryPlan(topNRowNumber, tableWriteInfo, taskId);
   }
   VELOX_UNSUPPORTED("Unknown plan node type {}", node->_type);
 }
