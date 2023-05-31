@@ -13,6 +13,7 @@
  */
 
 #include "PrestoTask.h"
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/common/base/Exceptions.h"
@@ -158,6 +159,55 @@ static void addSpillingOperatorMetrics(
   prestoTaskStats.runtimeStats[statName] = prestoMetric;
 }
 
+// Process the runtime stats of individual protocol::OperatorStats. Do not add
+// runtime stats to protocol unless it is for one of the final task states.
+static void processOperatorStats(
+    protocol::TaskStats& prestoTaskStats,
+    protocol::TaskState state) {
+  if (SystemConfig::instance()->skipRuntimeStatsInRunningTaskInfo() &&
+      !isFinalState(state)) {
+    for (auto& pipelineOut : prestoTaskStats.pipelines) {
+      for (auto& opOut : pipelineOut.operatorSummaries) {
+        opOut.runtimeStats.clear();
+      }
+    }
+  } else {
+    const std::vector<std::string> prefixToExclude{"running", "blocked"};
+    for (auto& pipelineOut : prestoTaskStats.pipelines) {
+      for (auto& opOut : pipelineOut.operatorSummaries) {
+        for (const auto& prefix : prefixToExclude) {
+          for (auto it = opOut.runtimeStats.begin();
+               it != opOut.runtimeStats.end();) {
+            if (it->first.find(prefix) != std::string::npos) {
+              it = opOut.runtimeStats.erase(it);
+            } else {
+              ++it;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// Process the runtime stats of protocol::TaskStats. Copy taskRuntimeMetrics to
+// protocol::TaskStats if it is one of the final task states. Otherwise set the
+// runtime stats to empty.
+static void processTaskStats(
+    protocol::TaskStats& prestoTaskStats,
+    const std::unordered_map<std::string, RuntimeMetric>& taskRuntimeMetrics,
+    protocol::TaskState state) {
+  if (!SystemConfig::instance()->skipRuntimeStatsInRunningTaskInfo() ||
+      isFinalState(state)) {
+    for (const auto& stat : taskRuntimeMetrics) {
+      prestoTaskStats.runtimeStats[stat.first] =
+          toRuntimeMetric(stat.first, stat.second);
+    }
+  } else {
+    prestoTaskStats.runtimeStats.clear();
+  }
+}
+
 } // namespace
 
 PrestoTask::PrestoTask(const std::string& taskId, const std::string& nodeId)
@@ -225,7 +275,7 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
 }
 
 protocol::TaskInfo PrestoTask::updateInfoLocked() {
-  updateStatusLocked();
+  protocol::TaskStatus taskStatus = updateStatusLocked();
 
   // Return limited info if there is no exec task.
   if (!task) {
@@ -489,25 +539,25 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
   } // task's pipelines loop
 
   // Task runtime metrics for driver counters.
-  addRuntimeMetricIfNotZero(
-      taskRuntimeStats, "drivers.total", taskStats.numTotalDrivers);
-  addRuntimeMetricIfNotZero(
-      taskRuntimeStats, "drivers.running", taskStats.numRunningDrivers);
-  addRuntimeMetricIfNotZero(
-      taskRuntimeStats, "drivers.completed", taskStats.numCompletedDrivers);
-  addRuntimeMetricIfNotZero(
-      taskRuntimeStats, "drivers.terminated", taskStats.numTerminatedDrivers);
-  for (const auto it : taskStats.numBlockedDrivers) {
+  if (!isFinalState(taskStatus.state)) {
     addRuntimeMetricIfNotZero(
-        taskRuntimeStats,
-        fmt::format("drivers.{}", exec::blockingReasonToString(it.first)),
-        it.second);
+        taskRuntimeStats, "drivers.total", taskStats.numTotalDrivers);
+    addRuntimeMetricIfNotZero(
+        taskRuntimeStats, "drivers.running", taskStats.numRunningDrivers);
+    addRuntimeMetricIfNotZero(
+        taskRuntimeStats, "drivers.completed", taskStats.numCompletedDrivers);
+    addRuntimeMetricIfNotZero(
+        taskRuntimeStats, "drivers.terminated", taskStats.numTerminatedDrivers);
+    for (const auto it : taskStats.numBlockedDrivers) {
+      addRuntimeMetricIfNotZero(
+          taskRuntimeStats,
+          fmt::format("drivers.{}", exec::blockingReasonToString(it.first)),
+          it.second);
+    }
   }
 
-  for (const auto& stat : taskRuntimeStats) {
-    prestoTaskStats.runtimeStats[stat.first] =
-        toRuntimeMetric(stat.first, stat.second);
-  }
+  processOperatorStats(prestoTaskStats, taskStatus.state);
+  processTaskStats(prestoTaskStats, taskRuntimeStats, taskStatus.state);
 
   return info;
 }
@@ -543,6 +593,18 @@ protocol::RuntimeMetric toRuntimeMetric(
       metric.count,
       metric.max,
       metric.min};
+}
+
+bool isFinalState(protocol::TaskState state) {
+  switch (state) {
+    case protocol::TaskState::FINISHED:
+    case protocol::TaskState::FAILED:
+    case protocol::TaskState::ABORTED:
+    case protocol::TaskState::CANCELED:
+      return true;
+    default:
+      return false;
+  }
 }
 
 } // namespace facebook::presto

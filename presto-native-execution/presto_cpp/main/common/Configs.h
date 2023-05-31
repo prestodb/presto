@@ -230,6 +230,9 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kRemoteFunctionServerThriftPort{
       "remote-function-server.thrift.port"};
 
+  static constexpr std::string_view kSkipRuntimeStatsInRunningTaskInfo{
+      "skip-runtime-stats-in-running-task-info"};
+
   SystemConfig();
 
   static SystemConfig* instance();
@@ -332,6 +335,8 @@ class SystemConfig : public ConfigBase {
   uint64_t queryMaxMemoryPerNode() const;
 
   bool enableMemoryLeakCheck() const;
+
+  bool skipRuntimeStatsInRunningTaskInfo() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
