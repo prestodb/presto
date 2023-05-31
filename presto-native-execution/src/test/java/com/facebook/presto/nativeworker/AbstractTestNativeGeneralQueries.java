@@ -1010,6 +1010,16 @@ public abstract class AbstractTestNativeGeneralQueries
         }
     }
 
+    @Test
+    public void testLambda()
+    {
+        assertQuery("select transform(x, i->i*y) from (select x, y*y as y from (values row(array[1], 2)) t(x, y))");
+
+        // test nested lambda
+        assertQuery("select transform(transform(x, i->i*z), i->i*y) from (select x, y*y as y, z*z as z from (values row(array[1], 2, 3)) t(x, y, z))");
+        assertQuery("select transform(x, i->transform(i, j->j*y)) from (select x, y*y as y from (values row(array[array[1]], 2)) t(x, y))");
+    }
+
     private void assertQueryResultCount(String sql, int expectedResultCount)
     {
         assertEquals(getQueryRunner().execute(sql).getRowCount(), expectedResultCount);
