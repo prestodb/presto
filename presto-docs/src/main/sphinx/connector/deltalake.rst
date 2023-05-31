@@ -80,7 +80,7 @@ table location in an S3 bucket named ``db-sa-datasets`` using Delta Lake connect
 .. code-block:: sql
 
     CREATE TABLE sales.apac.sales_data_new (dummyColumn INT)
-    WITH (external_location = 's3://db-sa-datasets/presto/sales_data_new');
+    WITH (external_location = 's3://db-sa-datasets/presto/sales_data_new', format = 'parquet');
 
 To register a partition Delta table in Hive metastore, use the ``CREATE TABLE`` same as above.
 Only ``external_location`` is required in the properties, no need to specify ``partitioned_by`` in
