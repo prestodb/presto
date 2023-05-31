@@ -106,4 +106,13 @@ public abstract class AbstractTestNativeWindowQueries
         // `row_number() over (partition by key1)` will use `RowNumberNode` which hasn't been implemented yet.
         testRankingFunction("row_number()", true);
     }
+
+    @Test
+    public void testRowNumberWithFilter()
+    {
+        assertQueryFails("SELECT * FROM (SELECT row_number() over() rn, * from orders) WHERE rn = 1",
+                " Unknown plan node type com.facebook.presto.sql.planner.plan.RowNumberNode");
+        assertQueryFails("SELECT * FROM (SELECT row_number() over(partition by orderstatus order by orderkey) rn, * from orders) WHERE rn = 1",
+                " Unknown plan node type com.facebook.presto.sql.planner.plan.TopNRowNumberNode");
+    }
 }
