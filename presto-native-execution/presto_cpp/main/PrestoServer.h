@@ -56,6 +56,7 @@ namespace facebook::presto {
 // Three states our server can be in.
 enum class NodeState { ACTIVE, INACTIVE, SHUTTING_DOWN };
 
+class Announcer;
 class SignalHandler;
 class TaskManager;
 class TaskResource;
@@ -157,6 +158,7 @@ class PrestoServer {
 
   std::unique_ptr<http::HttpServer> httpServer_;
   std::unique_ptr<SignalHandler> signalHandler_;
+  std::unique_ptr<Announcer> announcer_;
   std::shared_ptr<velox::memory::MemoryPool> pool_;
   std::unique_ptr<TaskManager> taskManager_;
   std::unique_ptr<TaskResource> taskResource_;

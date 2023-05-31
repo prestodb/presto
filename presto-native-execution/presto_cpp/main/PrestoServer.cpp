@@ -213,9 +213,8 @@ void PrestoServer::run() {
       address_);
 
   initializeCoordinatorDiscoverer();
-  std::unique_ptr<Announcer> announcer;
   if (coordinatorDiscoverer_ != nullptr) {
-    announcer = std::make_unique<Announcer>(
+    announcer_ = std::make_unique<Announcer>(
         address_,
         httpsPort.has_value(),
         httpsPort.has_value() ? httpsPort.value() : httpPort,
@@ -228,7 +227,7 @@ void PrestoServer::run() {
         30'000 /*milliseconds*/,
         clientCertAndKeyPath,
         ciphers);
-    announcer->start();
+    announcer_->start();
   }
 
   const bool reusePort = SystemConfig::instance()->httpServerReusePort();
@@ -387,6 +386,10 @@ void PrestoServer::run() {
   // down.
   httpServer_->start(getHttpServerFilters());
 
+  if (announcer_ != nullptr) {
+    PRESTO_SHUTDOWN_LOG(INFO) << "Stopping announcer";
+    announcer_->stop();
+  }
   PRESTO_SHUTDOWN_LOG(INFO) << "Stopping all periodic tasks...";
   periodicTaskManager_->stop();
 

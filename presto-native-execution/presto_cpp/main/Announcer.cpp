@@ -100,10 +100,6 @@ Announcer::Announcer(
       clientCertAndKeyPath_(clientCertAndKeyPath),
       ciphers_(ciphers) {}
 
-Announcer::~Announcer() {
-  stop();
-}
-
 void Announcer::start() {
   eventBaseThread_.start("Announcer");
   stopped_ = false;
