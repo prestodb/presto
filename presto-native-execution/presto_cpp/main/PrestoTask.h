@@ -132,4 +132,6 @@ protocol::RuntimeMetric toRuntimeMetric(
     const std::string& name,
     const facebook::velox::RuntimeMetric& metric);
 
+bool isFinalState(protocol::TaskState state);
+
 } // namespace facebook::presto
