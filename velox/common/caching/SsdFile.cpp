@@ -393,7 +393,7 @@ void SsdFile::write(std::vector<CachePin>& pins) {
     VELOX_CHECK_GE(fileSize_, offset + bytes);
     auto rc = folly::pwritev(fd_, iovecs.data(), iovecs.size(), offset);
     if (rc != bytes) {
-      LOG(ERROR) << "Failed to write to SSD " << errno;
+      LOG(ERROR) << "Failed to write to SSD: " << folly::errnoStr(errno);
       ++stats_.writeSsdErrors;
       // If the write fails we return without adding the pins to the cache. The
       // entries are unchanged.
