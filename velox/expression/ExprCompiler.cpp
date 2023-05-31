@@ -369,7 +369,7 @@ ExprPtr compileExpression(
   auto compiledInputs = compileInputs(
       expr, scope, config, pool, flatteningCandidates, enableConstantFolding);
   auto inputTypes = getTypes(compiledInputs);
-
+  bool isConstantExpr = false;
   if (dynamic_cast<const core::ConcatTypedExpr*>(expr.get())) {
     result = getRowConstructorExpr(
         resultType, std::move(compiledInputs), trackCpuUsage);
@@ -465,6 +465,7 @@ ExprPtr compileExpression(
       auto constant =
           dynamic_cast<const core::ConstantTypedExpr*>(expr.get())) {
     result = std::make_shared<ConstantExpr>(constant->toConstantVector(pool));
+    isConstantExpr = true;
   } else if (
       auto lambda = dynamic_cast<const core::LambdaTypedExpr*>(expr.get())) {
     result = compileLambda(
@@ -480,8 +481,10 @@ ExprPtr compileExpression(
 
   result->computeMetadata();
 
-  auto folded =
-      enableConstantFolding ? tryFoldIfConstant(result, scope) : result;
+  // If the expression is constant folding it is redundant.
+  auto folded = enableConstantFolding && !isConstantExpr
+      ? tryFoldIfConstant(result, scope)
+      : result;
   scope->visited[expr.get()] = folded;
   return folded;
 }
