@@ -42,6 +42,10 @@ class WindowFunction {
 
   virtual ~WindowFunction() = default;
 
+  // Row number to use in WindowPartition::extractColumn to request a NULL
+  // value.
+  static constexpr vector_size_t kNullRow = -1;
+
   const TypePtr& resultType() const {
     return resultType_;
   }
