@@ -79,6 +79,10 @@ void registerPrestoCppCounters() {
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterAllocatedMemoryBytes, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMmapRawAllocBytesSmall, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMmapExternalMappedBytes, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterTotalPartitionedOutputBuffer, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterPartitionedOutputBufferGetDataLatencyMs,
@@ -95,13 +99,6 @@ void registerPrestoCppCounters() {
       kCounterOsNumVoluntaryContextSwitches, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterOsNumForcedContextSwitches, facebook::velox::StatType::AVG);
-  REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterMappedMemoryRawAllocBytesSmall, facebook::velox::StatType::AVG);
-  REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterMappedMemoryRawAllocBytesSizeClass,
-      facebook::velox::StatType::AVG);
-  REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterMappedMemoryRawAllocBytesLarge, facebook::velox::StatType::AVG);
   REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE(
       kCounterExchangeSourcePeakQueuedBytes,
       (1024 * 1024), // bucket unit: 1MB
