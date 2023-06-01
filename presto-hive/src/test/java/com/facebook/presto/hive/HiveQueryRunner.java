@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.jmx.JmxPlugin;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.hive.TestHiveEventListenerPlugin.TestingHiveEventListenerPlugin;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
@@ -150,6 +151,34 @@ public final class HiveQueryRunner
             Optional<ExtendedHiveMetastore> externalMetastore)
             throws Exception
     {
+        return createQueryRunner(
+                tpchTables,
+                tpcdsTableNames,
+                extraProperties,
+                extraCoordinatorProperties,
+                security,
+                extraHiveProperties,
+                workerCount,
+                dataDirectory,
+                externalWorkerLauncher,
+                externalMetastore,
+                false);
+    }
+
+    public static DistributedQueryRunner createQueryRunner(
+            Iterable<TpchTable<?>> tpchTables,
+            Iterable<String> tpcdsTableNames,
+            Map<String, String> extraProperties,
+            Map<String, String> extraCoordinatorProperties,
+            String security,
+            Map<String, String> extraHiveProperties,
+            Optional<Integer> workerCount,
+            Optional<Path> dataDirectory,
+            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
+            Optional<ExtendedHiveMetastore> externalMetastore,
+            boolean addJmxPlugin)
+            throws Exception
+    {
         assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
         setupLogging();
 
@@ -184,6 +213,11 @@ public final class HiveQueryRunner
             metastore = externalMetastore.orElse(getFileHiveMetastore(queryRunner));
 
             queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, Optional.of(metastore)));
+
+            if (addJmxPlugin) {
+                queryRunner.installPlugin(new JmxPlugin());
+                queryRunner.createCatalog("jmx", "jmx");
+            }
 
             Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                     .putAll(extraHiveProperties)
