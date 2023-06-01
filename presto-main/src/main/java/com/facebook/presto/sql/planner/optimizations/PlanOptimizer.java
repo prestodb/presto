@@ -28,4 +28,35 @@ public interface PlanOptimizer
             VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector);
+
+    default boolean isEnabled(Session session)
+    {
+        return true;
+    }
+
+    default void setEnabledForTesting(boolean isSet)
+    {
+        return;
+    }
+
+    default boolean isApplicable(PlanNode plan,
+            Session session,
+            TypeProvider types,
+            VariableAllocator variableAllocator,
+            PlanNodeIdAllocator idAllocator,
+            WarningCollector warningCollector)
+    {
+        setEnabledForTesting(true);
+
+        boolean isApplicable = false;
+        try {
+            // wrap in try/catch block in case optimization throws an error
+            PlanNode newPlan = optimize(plan, session, types, variableAllocator, idAllocator, warningCollector);
+            isApplicable = !plan.equals(newPlan);
+        }
+        finally {
+            setEnabledForTesting(false);
+            return isApplicable;
+        }
+    }
 }
