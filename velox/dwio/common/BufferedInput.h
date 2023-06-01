@@ -35,7 +35,7 @@ class BufferedInput {
       const MetricsLogPtr& metricsLog = MetricsLog::voidLog(),
       IoStatistics* FOLLY_NULLABLE stats = nullptr,
       uint64_t maxMergeDistance = kMaxMergeDistance,
-      bool wsVRLoad = FLAGS_wsVRLoad)
+      std::optional<bool> wsVRLoad = std::nullopt)
       : input_{std::make_shared<ReadFileInputStream>(
             std::move(readFile),
             metricsLog,
@@ -49,7 +49,7 @@ class BufferedInput {
       std::shared_ptr<ReadFileInputStream> input,
       memory::MemoryPool& pool,
       uint64_t maxMergeDistance = kMaxMergeDistance,
-      bool wsVRLoad = FLAGS_wsVRLoad)
+      std::optional<bool> wsVRLoad = std::nullopt)
       : input_(std::move(input)),
         pool_(pool),
         maxMergeDistance_{maxMergeDistance},
@@ -145,7 +145,7 @@ class BufferedInput {
 
  private:
   uint64_t maxMergeDistance_;
-  bool wsVRLoad_;
+  std::optional<bool> wsVRLoad_;
   std::unique_ptr<AllocationPool> allocPool_;
 
   // Regions enqueued for reading
@@ -185,6 +185,7 @@ class BufferedInput {
     action(buffers_.back().data(), region.length, region.offset, logType);
   }
 
+  bool useVRead() const;
   void sortRegions();
   void mergeRegions();
 

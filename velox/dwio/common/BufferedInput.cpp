@@ -39,7 +39,7 @@ void BufferedInput::load(const LogType logType) {
   offsets_.reserve(regions_.size());
   buffers_.reserve(regions_.size());
 
-  if (wsVRLoad_) {
+  if (useVRead()) {
     std::vector<void*> buffers;
     buffers.reserve(regions_.size());
     loadWithAction(
@@ -85,6 +85,15 @@ std::unique_ptr<SeekableInputStream> BufferedInput::enqueue(
       [region, this, i = regions_.size() - 1]() {
         return readInternal(region.offset, region.length, i);
       });
+}
+
+bool BufferedInput::useVRead() const {
+  // Use value explicitly set by the user if any, otherwise use the GFLAG
+  // We want to update this on every use for now because during the onboarding
+  // to wsVRLoad=true we may change the value of this GFLAG programatically from
+  // a config update so we can rollback fast from config without the need of a
+  // deployment
+  return wsVRLoad_.value_or(FLAGS_wsVRLoad);
 }
 
 // Sort regions and enqueuedToOffset in the same way
@@ -157,9 +166,9 @@ bool BufferedInput::tryMerge(Region& first, const Region& second) {
   const int64_t gap = second.offset - first.offset - first.length;
 
   // Duplicate regions (extension==0) is the only case allowed to merge for
-  // wsVRLoad_
+  // useVRead()
   const int64_t extension = gap + second.length;
-  if (wsVRLoad_) {
+  if (useVRead()) {
     return extension == 0;
   }
 
