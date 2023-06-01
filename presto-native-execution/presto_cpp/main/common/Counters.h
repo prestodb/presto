@@ -107,31 +107,29 @@ constexpr folly::StringPiece kCounterOsNumForcedContextSwitches{
 
 /// ================== Memory Counters =================
 
-/// Number of bytes of memory MappedMemory currently maps (RSS). It also
-/// includes memory that was freed and currently not in use.
+/// Number of bytes currently mapped in MemoryAllocator. These bytes represent
+/// the bytes that are either currently being allocated or were in the past
+/// allocated, not yet been returned back to the operating system, in the
+/// form of 'Allocation' or 'ContiguousAllocation'.
 constexpr folly::StringPiece kCounterMappedMemoryBytes{
     "presto_cpp.mapped_memory_bytes"};
-/// Number of bytes of memory MappedMemory currently allocates. Memories in use
+/// Number of bytes currently allocated (used) from MemoryAllocator in the form
+/// of 'Allocation' or 'ContiguousAllocation'.
 constexpr folly::StringPiece kCounterAllocatedMemoryBytes{
     "presto_cpp.allocated_memory_bytes"};
-/// Number of bytes currently allocated from MappedMemory directly from raw
+/// Number of bytes currently mapped in MmapAllocator, in the form of
+/// 'ContiguousAllocation'.
+///
+/// NOTE: This applies only to MmapAllocator
+constexpr folly::StringPiece kCounterMmapExternalMappedBytes{
+    "presto_cpp.mmap_external_mapped_bytes"};
+/// Number of bytes currently allocated from MmapAllocator directly from raw
 /// allocateBytes() interface, and internally allocated by malloc. Only small
 /// chunks of memory are delegated to malloc
-constexpr folly::StringPiece kCounterMappedMemoryRawAllocBytesSmall{
-    "presto_cpp.mapped_memory_raw_alloc_bytes_small"};
-/// Number of bytes currently allocated from MappedMemory directly from raw
-/// allocateBytes() interface, and internally allocated using SizeClass that are
-/// managed by MappedMemory. Only chunks of memory that are large enough to be
-/// efficiently fitted in the smallest SizeClass and not too large that even
-/// largest SizeClass cannot accommodate, are counted towards this counter.
-constexpr folly::StringPiece kCounterMappedMemoryRawAllocBytesSizeClass{
-    "presto_cpp.mapped_memory_raw_alloc_bytes_size_class"};
-/// Number of bytes currently allocated from MappedMemory directly from raw
-/// allocateBytes() interface, and internally allocated using SizeClass that are
-/// managed by MappedMemory. Only chunks of memory that are too large that even
-/// largest SizeClass cannot accommodate, are counted towards this counter.
-constexpr folly::StringPiece kCounterMappedMemoryRawAllocBytesLarge{
-    "presto_cpp.mapped_memory_raw_alloc_bytes_large"};
+///
+/// NOTE: This applies only to MmapAllocator
+constexpr folly::StringPiece kCounterMmapRawAllocBytesSmall{
+    "presto_cpp.mmap_raw_alloc_bytes_small"};
 
 /// Peak number of bytes queued in PrestoExchangeSource waiting for consume.
 constexpr folly::StringPiece kCounterExchangeSourcePeakQueuedBytes{

@@ -160,6 +160,7 @@ void PeriodicTaskManager::cleanupOldTask() {
     taskManager_->cleanOldTasks();
   }
 }
+
 void PeriodicTaskManager::addOldTaskCleanupTask() {
   scheduler_.addFunction(
       [this]() { cleanupOldTask(); },
@@ -169,15 +170,22 @@ void PeriodicTaskManager::addOldTaskCleanupTask() {
 
 void PeriodicTaskManager::updateMemoryAllocatorStats() {
   REPORT_ADD_STAT_VALUE(
-      kCounterMappedMemoryBytes, (memoryAllocator_->numMapped() * 4096l));
+      kCounterMappedMemoryBytes,
+      (velox::memory::AllocationTraits::pageBytes(
+          memoryAllocator_->numMapped())));
   REPORT_ADD_STAT_VALUE(
-      kCounterAllocatedMemoryBytes, (memoryAllocator_->numAllocated() * 4096l));
+      kCounterAllocatedMemoryBytes,
+      (velox::memory::AllocationTraits::pageBytes(
+          memoryAllocator_->numAllocated())));
   // TODO(jtan6): Remove condition after T150019700 is done
   if (auto* mmapAllocator =
           dynamic_cast<const velox::memory::MmapAllocator*>(memoryAllocator_)) {
     REPORT_ADD_STAT_VALUE(
-        kCounterMappedMemoryRawAllocBytesSmall,
-        (mmapAllocator->numMallocBytes()))
+        kCounterMmapRawAllocBytesSmall, (mmapAllocator->numMallocBytes()));
+    REPORT_ADD_STAT_VALUE(
+        kCounterMmapExternalMappedBytes,
+        velox::memory::AllocationTraits::pageBytes(
+            (mmapAllocator->numExternalMapped())));
   }
   // TODO(xiaoxmeng): add memory allocation size stats.
 }
