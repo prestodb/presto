@@ -50,6 +50,7 @@ add_library(
   PlanNodeStats.cpp
   ProbeOperatorState.cpp
   RowContainer.cpp
+  RowNumber.cpp
   Spill.cpp
   SpillOperatorGroup.cpp
   Spiller.cpp
