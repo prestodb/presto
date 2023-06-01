@@ -756,4 +756,53 @@ void RowPartitions::appendPartitions(folly::Range<const uint8_t*> partitions) {
   }
 }
 
+RowComparator::RowComparator(
+    const RowTypePtr& rowType,
+    const std::vector<core::FieldAccessTypedExprPtr>& sortingKeys,
+    const std::vector<core::SortOrder>& sortingOrders,
+    RowContainer* rowContainer)
+    : rowContainer_(rowContainer) {
+  const auto numKeys = sortingKeys.size();
+  for (auto i = 0; i < numKeys; ++i) {
+    const auto channel = exprToChannel(sortingKeys[i].get(), rowType);
+    VELOX_USER_CHECK_NE(
+        channel,
+        kConstantChannel,
+        "RowComparator doesn't allow constant comparison keys");
+    keyInfo_.push_back(std::make_pair(channel, sortingOrders[i]));
+  }
+}
+
+bool RowComparator::operator()(const char* lhs, const char* rhs) {
+  if (lhs == rhs) {
+    return false;
+  }
+  for (auto& key : keyInfo_) {
+    if (auto result = rowContainer_->compare(
+            lhs,
+            rhs,
+            key.first,
+            {key.second.isNullsFirst(), key.second.isAscending(), false})) {
+      return result < 0;
+    }
+  }
+  return false;
+}
+
+bool RowComparator::operator()(
+    const std::vector<DecodedVector>& decodedVectors,
+    vector_size_t index,
+    const char* rhs) {
+  for (auto& key : keyInfo_) {
+    if (auto result = rowContainer_->compare(
+            rhs,
+            rowContainer_->columnAt(key.first),
+            decodedVectors[key.first],
+            index,
+            {key.second.isNullsFirst(), key.second.isAscending(), false})) {
+      return result > 0;
+    }
+  }
+  return false;
+}
 } // namespace facebook::velox::exec

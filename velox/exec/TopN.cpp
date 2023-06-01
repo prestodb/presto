@@ -38,24 +38,6 @@ TopN::TopN(
       topRows_(comparator_),
       decodedVectors_(outputType_->children().size()) {}
 
-TopN::Comparator::Comparator(
-    const RowTypePtr& type,
-    const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
-        sortingKeys,
-    const std::vector<core::SortOrder>& sortingOrders,
-    RowContainer* rowContainer)
-    : rowContainer_(rowContainer) {
-  const auto numKeys = sortingKeys.size();
-  for (auto i = 0; i < numKeys; ++i) {
-    const auto channel = exprToChannel(sortingKeys[i].get(), type);
-    VELOX_USER_CHECK_NE(
-        channel,
-        kConstantChannel,
-        "TopN doesn't allow constant comparison keys");
-    keyInfo_.push_back(std::make_pair(channel, sortingOrders[i]));
-  }
-}
-
 void TopN::addInput(RowVectorPtr input) {
   // TODO Decode keys first, then decode the rest only for passing positions
   for (auto col = 0; col < input->childrenSize(); ++col) {

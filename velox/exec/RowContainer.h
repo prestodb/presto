@@ -1279,4 +1279,29 @@ inline int RowContainer::compare(
       compare, type->kind(), left, right, type, columnAt(columnIndex), flags);
 }
 
+/// A comparator of rows stored in the RowContainer compatible with
+/// std::priority_queue. Uses specified columns and sorting orders for
+/// comparison.
+class RowComparator {
+ public:
+  RowComparator(
+      const RowTypePtr& rowType,
+      const std::vector<core::FieldAccessTypedExprPtr>& sortingKeys,
+      const std::vector<core::SortOrder>& sortingOrders,
+      RowContainer* rowContainer);
+
+  /// Returns true if lhs < rhs, false otherwise.
+  bool operator()(const char* lhs, const char* rhs);
+
+  /// Returns true if decodeVectors[index] < rhs, false otherwise.
+  bool operator()(
+      const std::vector<DecodedVector>& decodedVectors,
+      vector_size_t index,
+      const char* rhs);
+
+ private:
+  std::vector<std::pair<column_index_t, core::SortOrder>> keyInfo_;
+  RowContainer* rowContainer_;
+};
+
 } // namespace facebook::velox::exec

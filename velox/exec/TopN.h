@@ -44,55 +44,6 @@ class TopN : public Operator {
   bool isFinished() override;
 
  private:
-  class Comparator {
-   public:
-    Comparator(
-        const RowTypePtr& outputType,
-        const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
-            sortingKeys,
-        const std::vector<core::SortOrder>& sortingOrders,
-        RowContainer* rowContainer);
-
-    // Returns true if lhs < rhs, false otherwise.
-    bool operator()(const char* lhs, const char* rhs) {
-      if (lhs == rhs) {
-        return false;
-      }
-      for (auto& key : keyInfo_) {
-        if (auto result = rowContainer_->compare(
-                lhs,
-                rhs,
-                key.first,
-                {key.second.isNullsFirst(), key.second.isAscending(), false})) {
-          return result < 0;
-        }
-      }
-      return false;
-    }
-
-    // Returns true if decodeVectors[index] < rhs, false otherwise.
-    bool operator()(
-        const std::vector<DecodedVector>& decodedVectors,
-        vector_size_t index,
-        const char* rhs) {
-      for (auto& key : keyInfo_) {
-        if (auto result = rowContainer_->compare(
-                rhs,
-                rowContainer_->columnAt(key.first),
-                decodedVectors[key.first],
-                index,
-                {key.second.isNullsFirst(), key.second.isAscending(), false})) {
-          return result > 0;
-        }
-      }
-      return false;
-    }
-
-   private:
-    std::vector<std::pair<column_index_t, core::SortOrder>> keyInfo_;
-    RowContainer* rowContainer_;
-  };
-
   const int32_t count_;
 
   bool finished_ = false;
@@ -108,8 +59,8 @@ class TopN : public Operator {
   // vector (rows_) in correct order. We use this vector along with the
   // RowContainer to generate the TopN's output.
   std::unique_ptr<RowContainer> data_;
-  Comparator comparator_;
-  std::priority_queue<char*, std::vector<char*>, Comparator> topRows_;
+  RowComparator comparator_;
+  std::priority_queue<char*, std::vector<char*>, RowComparator> topRows_;
   std::vector<char*> rows_;
 
   std::vector<DecodedVector> decodedVectors_;
