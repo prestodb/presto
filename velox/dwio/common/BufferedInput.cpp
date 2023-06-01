@@ -134,7 +134,7 @@ void BufferedInput::mergeRegions() {
   te[e[0]] = 0;
   for (size_t ib = 1; ib < r.size(); ++ib) {
     DWIO_ENSURE_GT(r[ib].length, 0, "invalid region");
-    if (wsVRLoad_ || !tryMerge(r[ia], r[ib])) {
+    if (!tryMerge(r[ia], r[ib])) {
       r[++ia] = r[ib];
     }
     te[e[ib]] = ia;
@@ -154,13 +154,17 @@ void BufferedInput::loadWithAction(
 
 bool BufferedInput::tryMerge(Region& first, const Region& second) {
   DWIO_ENSURE_GE(second.offset, first.offset, "regions should be sorted.");
-  int64_t gap = second.offset - first.offset - first.length;
+  const int64_t gap = second.offset - first.offset - first.length;
+
+  // Duplicate regions (extension==0) is the only case allowed to merge for
+  // wsVRLoad_
+  const int64_t extension = gap + second.length;
+  if (wsVRLoad_) {
+    return extension == 0;
+  }
 
   // compare with 0 since it's comparison in different types
   if (gap < 0 || gap <= maxMergeDistance_) {
-    // ensure try merge will handle duplicate regions (extension==0)
-    int64_t extension = gap + second.length;
-
     // the second region is inside first one if extension is negative
     if (extension > 0) {
       first.length += extension;
