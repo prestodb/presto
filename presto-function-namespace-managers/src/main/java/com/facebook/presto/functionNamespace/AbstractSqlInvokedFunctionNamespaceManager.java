@@ -42,6 +42,7 @@ import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import javax.annotation.concurrent.GuardedBy;
@@ -54,6 +55,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
@@ -176,11 +178,16 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
         try {
             return Optional.of(userDefinedTypes.getUnchecked(typeName));
         }
-        catch (PrestoException e) {
-            if (e.getErrorCode().equals(NOT_FOUND.toErrorCode())) {
-                return Optional.empty();
+        catch (UncheckedExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof PrestoException) {
+                PrestoException prestoException = (PrestoException) cause;
+                if (prestoException.getErrorCode().equals(NOT_FOUND.toErrorCode())) {
+                    return Optional.empty();
+                }
+                throw prestoException;
             }
-            throw e;
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Error getting UserDefinedType: %s", typeName), cause);
         }
     }
 
@@ -203,7 +210,12 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     {
         checkCatalog(functionHandle);
         checkArgument(functionHandle instanceof SqlFunctionHandle, "Unsupported FunctionHandle type '%s'", functionHandle.getClass().getSimpleName());
-        return metadataByHandle.getUnchecked((SqlFunctionHandle) functionHandle);
+        try {
+            return metadataByHandle.getUnchecked((SqlFunctionHandle) functionHandle);
+        }
+        catch (UncheckedExecutionException e) {
+            throw convertToPrestoException(e, format("Error getting FunctionMetadata for handle: %s", functionHandle));
+        }
     }
 
     @Override
@@ -211,7 +223,12 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     {
         checkCatalog(functionHandle);
         checkArgument(functionHandle instanceof SqlFunctionHandle, "Unsupported FunctionHandle type '%s'", functionHandle.getClass().getSimpleName());
-        return implementationByHandle.getUnchecked((SqlFunctionHandle) functionHandle);
+        try {
+            return implementationByHandle.getUnchecked((SqlFunctionHandle) functionHandle);
+        }
+        catch (UncheckedExecutionException e) {
+            throw convertToPrestoException(e, format("Error getting ScalarFunctionImplementation for handle: %s", functionHandle));
+        }
     }
 
     @Override
@@ -226,6 +243,15 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                 channels,
                 functionMetadata.getArgumentTypes().stream().map(typeManager::getType).collect(toImmutableList()),
                 typeManager.getType(functionMetadata.getReturnType()));
+    }
+
+    private static PrestoException convertToPrestoException(UncheckedExecutionException exception, String failureMessage)
+    {
+        Throwable cause = exception.getCause();
+        if (cause instanceof PrestoException) {
+            return (PrestoException) cause;
+        }
+        return new PrestoException(GENERIC_INTERNAL_ERROR, failureMessage, cause);
     }
 
     protected String getCatalogName()
@@ -347,7 +373,12 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
 
     private Collection<SqlInvokedFunction> fetchFunctions(QualifiedObjectName functionName)
     {
-        return functions.getUnchecked(functionName);
+        try {
+            return functions.getUnchecked(functionName);
+        }
+        catch (UncheckedExecutionException e) {
+            throw convertToPrestoException(e, format("Error fetching functions: %s", functionName));
+        }
     }
 
     private class FunctionCollection

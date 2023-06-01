@@ -183,7 +183,7 @@ public class TestSqlFunctions
         assertEquals(rows.getTypes().get(0).getDisplayName(), "testing.enum.mood");
         assertEquals(rows.getMaterializedRows().get(0).getFields().get(0), -2L);
 
-        assertQueryFails("CREATE FUNCTION testing.test.invalid(e testing.enum.not_exist) RETURNS boolean RETURN e IS NOT NULL", ".*Type testing.enum.not_exist not found");
+        assertQueryFails("CREATE FUNCTION testing.test.invalid(e testing.enum.not_exist) RETURNS boolean RETURN e IS NOT NULL", ".*Unknown type testing.enum.not_exist");
         assertQueryFails("CREATE FUNCTION testing.test.is_uk(country testing.enum.country) RETURNS boolean RETURN country = testing.enum.country.UK", ".*'testing.enum.country.uk' cannot be resolved");
     }
 
