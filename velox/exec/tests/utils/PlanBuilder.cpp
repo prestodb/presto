@@ -1298,6 +1298,28 @@ PlanBuilder& PlanBuilder::rowNumber(
   return *this;
 }
 
+PlanBuilder& PlanBuilder::topNRowNumber(
+    const std::vector<std::string>& partitionKeys,
+    const std::vector<std::string>& sortingKeys,
+    int32_t limit,
+    bool generateRowNumber) {
+  auto [sortingFields, sortingOrders] =
+      parseOrderByClauses(sortingKeys, planNode_->outputType(), pool_);
+  std::optional<std::string> rowNumberColumnName;
+  if (generateRowNumber) {
+    rowNumberColumnName = "row_number";
+  }
+  planNode_ = std::make_shared<core::TopNRowNumberNode>(
+      nextPlanNodeId(),
+      fields(partitionKeys),
+      sortingFields,
+      sortingOrders,
+      rowNumberColumnName,
+      limit,
+      planNode_);
+  return *this;
+}
+
 core::PlanNodeId PlanBuilder::nextPlanNodeId() {
   return planNodeIdGenerator_->next();
 }

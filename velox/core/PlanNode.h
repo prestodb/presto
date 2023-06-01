@@ -1990,4 +1990,77 @@ class RowNumberNode : public PlanNode {
   const RowTypePtr outputType_;
 };
 
+/// Optimized version of a WindowNode for a single row_number function with a
+/// limit over sorted partitions.
+/// The output of this node contains all input columns followed by an optional
+/// 'rowNumberColumnName' BIGINT column.
+class TopNRowNumberNode : public PlanNode {
+ public:
+  /// @param partitionKeys Partitioning keys. May be empty.
+  /// @param rowNumberColumnName Optional name of the column containing row
+  /// numbers. If not specified, the output doesn't include 'row number' column.
+  /// This is used when computing partial results.
+  /// @param limit Per-partition limit. The number of
+  /// rows produced by this node will not exceed this value for any given
+  /// partition. Extra rows will be dropped.
+  TopNRowNumberNode(
+      PlanNodeId id,
+      std::vector<FieldAccessTypedExprPtr> partitionKeys,
+      std::vector<FieldAccessTypedExprPtr> sortingKeys,
+      std::vector<SortOrder> sortingOrders,
+      const std::optional<std::string>& rowNumberColumnName,
+      int32_t limit,
+      PlanNodePtr source);
+
+  const std::vector<PlanNodePtr>& sources() const override {
+    return sources_;
+  }
+
+  const RowTypePtr& outputType() const override {
+    return outputType_;
+  }
+
+  const std::vector<FieldAccessTypedExprPtr>& partitionKeys() const {
+    return partitionKeys_;
+  }
+
+  const std::vector<FieldAccessTypedExprPtr>& sortingKeys() const {
+    return sortingKeys_;
+  }
+
+  const std::vector<SortOrder>& sortingOrders() const {
+    return sortingOrders_;
+  }
+
+  int32_t limit() const {
+    return limit_;
+  }
+
+  bool generateRowNumber() const {
+    return outputType_->size() > sources_[0]->outputType()->size();
+  }
+
+  std::string_view name() const override {
+    return "TopNRowNumber";
+  }
+
+  folly::dynamic serialize() const override;
+
+  static PlanNodePtr create(const folly::dynamic& obj, void* context);
+
+ private:
+  void addDetails(std::stringstream& stream) const override;
+
+  const std::vector<FieldAccessTypedExprPtr> partitionKeys_;
+
+  const std::vector<FieldAccessTypedExprPtr> sortingKeys_;
+  const std::vector<SortOrder> sortingOrders_;
+
+  const int32_t limit_;
+
+  const std::vector<PlanNodePtr> sources_;
+
+  const RowTypePtr outputType_;
+};
+
 } // namespace facebook::velox::core

@@ -709,3 +709,36 @@ TEST_F(PlanNodeToStringTest, rowNumber) {
       "-- RowNumber[partition by (b) limit 10] -> a:BIGINT, b:VARCHAR, row_number:BIGINT\n",
       plan->toString(true, false));
 }
+
+TEST_F(PlanNodeToStringTest, topNRowNumber) {
+  auto rowType = ROW({"a", "b"}, {BIGINT(), VARCHAR()});
+  auto plan = PlanBuilder()
+                  .tableScan(rowType)
+                  .topNRowNumber({}, {"a DESC"}, 10, false)
+                  .planNode();
+
+  ASSERT_EQ("-- TopNRowNumber\n", plan->toString());
+  ASSERT_EQ(
+      "-- TopNRowNumber[order by (a DESC NULLS LAST) limit 10] -> a:BIGINT, b:VARCHAR\n",
+      plan->toString(true, false));
+
+  plan = PlanBuilder()
+             .tableScan(rowType)
+             .topNRowNumber({}, {"a DESC"}, 10, true)
+             .planNode();
+
+  ASSERT_EQ("-- TopNRowNumber\n", plan->toString());
+  ASSERT_EQ(
+      "-- TopNRowNumber[order by (a DESC NULLS LAST) limit 10] -> a:BIGINT, b:VARCHAR, row_number:BIGINT\n",
+      plan->toString(true, false));
+
+  plan = PlanBuilder()
+             .tableScan(rowType)
+             .topNRowNumber({"a"}, {"b"}, 10, false)
+             .planNode();
+
+  ASSERT_EQ("-- TopNRowNumber\n", plan->toString());
+  ASSERT_EQ(
+      "-- TopNRowNumber[partition by (a) order by (b ASC NULLS LAST) limit 10] -> a:BIGINT, b:VARCHAR\n",
+      plan->toString(true, false));
+}

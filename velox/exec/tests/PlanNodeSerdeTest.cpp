@@ -378,4 +378,24 @@ TEST_F(PlanNodeSerdeTest, rowNumber) {
   testSerde(plan);
 }
 
+TEST_F(PlanNodeSerdeTest, topNRowNumber) {
+  auto plan = PlanBuilder()
+                  .values({data_})
+                  .topNRowNumber({}, {"c0", "c2"}, 10, false)
+                  .planNode();
+  testSerde(plan);
+
+  plan = PlanBuilder()
+             .values({data_})
+             .topNRowNumber({}, {"c0", "c2"}, 10, true)
+             .planNode();
+  testSerde(plan);
+
+  plan = PlanBuilder()
+             .values({data_})
+             .topNRowNumber({"c0"}, {"c1", "c2"}, 10, false)
+             .planNode();
+  testSerde(plan);
+}
+
 } // namespace facebook::velox::exec::test
