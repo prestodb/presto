@@ -109,7 +109,13 @@ TEST(StripeStream, planReads) {
   auto isPtr = is.get();
   auto readerBase = std::make_shared<ReaderBase>(
       *pool,
-      std::make_unique<BufferedInput>(std::move(is), *pool),
+      std::make_unique<BufferedInput>(
+          std::move(is),
+          *pool,
+          MetricsLog::voidLog(),
+          nullptr,
+          BufferedInput::kMaxMergeDistance,
+          true),
       std::make_unique<PostScript>(proto::PostScript{}),
       footer,
       nullptr);
@@ -140,7 +146,7 @@ TEST(StripeStream, planReads) {
           actual.cend(),
           0,
           [](uint64_t ac, const Region& r) { return ac + r.length; }),
-      1000500);
+      1000300);
 }
 
 TEST(StripeStream, filterSequences) {
