@@ -440,7 +440,8 @@ const std::string boundTypeString(BoundType b) {
 }
 
 const std::string parseWindow(const std::string& expr) {
-  auto windowExpr = parseWindowExpr(expr);
+  ParseOptions options;
+  auto windowExpr = parseWindowExpr(expr, options);
   std::string concatPartitions = "";
   int i = 0;
   for (const auto& partition : windowExpr.partitionBy) {
@@ -526,6 +527,26 @@ TEST(DuckParserTest, window) {
       "lag(\"x\",3,\"z\") OVER (  "
       "RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
       parseWindow("lag(x, 3, z) over ()"));
+
+  EXPECT_EQ(
+      "nth_value(\"x\",3) OVER (  "
+      "RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
+      parseWindow("nth_value(x, 3) over ()"));
+}
+
+TEST(DuckParserTest, windowWithIntegerConstant) {
+  ParseOptions options;
+  options.parseIntegerAsBigint = false;
+  auto windowExpr = parseWindowExpr("nth_value(x, 3) over ()", options);
+  auto func =
+      std::dynamic_pointer_cast<const core::CallExpr>(windowExpr.functionCall);
+  ASSERT_TRUE(func != nullptr)
+      << windowExpr.functionCall->toString() << " is not a call expr";
+  EXPECT_EQ(func->getInputs().size(), 2);
+  auto param = func->getInputs()[1];
+  auto constant = std::dynamic_pointer_cast<const core::ConstantExpr>(param);
+  ASSERT_TRUE(constant != nullptr) << param->toString() << " is not a constant";
+  EXPECT_EQ(*constant->type(), *INTEGER());
 }
 
 TEST(DuckParserTest, invalidExpression) {

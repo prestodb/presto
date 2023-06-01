@@ -88,6 +88,6 @@ struct IExprWindowFunction {
 
 const IExprWindowFunction parseWindowExpr(
     const std::string& windowString,
-    const ParseOptions& options = {});
+    const ParseOptions& options);
 
 } // namespace facebook::velox::duckdb
