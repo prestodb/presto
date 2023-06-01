@@ -351,6 +351,20 @@ TEST_F(DecimalArithmeticTest, decimalDivTest) {
       "Decimal overflow: 99999999999999999999999999999999999999 * 10000");
 }
 
+TEST_F(DecimalArithmeticTest, decimalDivDifferentTypes) {
+  testDecimalExpr<TypeKind::BIGINT>(
+      {makeShortDecimalFlatVector({1, 1, -1, 1}, DECIMAL(12, 2))},
+      "cast(c0 as decimal(12,2)) / c1",
+      {makeShortDecimalFlatVector({100, 200, -300, 400}, DECIMAL(12, 2)),
+       makeLongDecimalFlatVector({100, 200, 300, 400}, DECIMAL(19, 0))});
+
+  testDecimalExpr<TypeKind::BIGINT>(
+      {makeShortDecimalFlatVector({100, 100, -100, 100}, DECIMAL(14, 2))},
+      "cast(c0 as decimal(12,2)) / c1",
+      {makeLongDecimalFlatVector({1, 2, 3, 4}, DECIMAL(19, 0)),
+       makeShortDecimalFlatVector({100, 200, -300, 400}, DECIMAL(12, 2))});
+}
+
 TEST_F(DecimalArithmeticTest, round) {
   // Round short decimals.
   testDecimalExpr<TypeKind::BIGINT>(

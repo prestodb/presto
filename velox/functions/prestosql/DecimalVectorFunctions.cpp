@@ -538,12 +538,23 @@ std::shared_ptr<exec::VectorFunction> createDecimalFunction(
             Operation>>(aRescale, bRescale);
       }
     } else {
-      // LHS is short decimal and rhs is a long decimal, result is long decimal.
-      return std::make_shared<DecimalBaseFunction<
-          int128_t /*result*/,
-          int64_t,
-          int128_t,
-          Operation>>(aRescale, bRescale);
+      if (rPrecision > ShortDecimalType::kMaxPrecision) {
+        // LHS is short decimal and rhs is a long decimal, result is long
+        // decimal.
+        return std::make_shared<DecimalBaseFunction<
+            int128_t /*result*/,
+            int64_t,
+            int128_t,
+            Operation>>(aRescale, bRescale);
+      } else {
+        // In some cases such as division, the result type can still be a short
+        // decimal even though RHS is a long decimal.
+        return std::make_shared<DecimalBaseFunction<
+            int64_t /*result*/,
+            int64_t,
+            int128_t,
+            Operation>>(aRescale, bRescale);
+      }
     }
   } else {
     if (bType->isShortDecimal()) {
