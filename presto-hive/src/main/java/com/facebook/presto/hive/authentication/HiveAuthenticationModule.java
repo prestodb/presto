@@ -24,6 +24,7 @@ import com.google.inject.Module;
 import java.util.function.Predicate;
 
 import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
+import static com.facebook.presto.hive.authentication.AuthenticationModules.customHiveMetastoreAuthenticationModule;
 import static com.facebook.presto.hive.authentication.AuthenticationModules.kerberosHdfsAuthenticationModule;
 import static com.facebook.presto.hive.authentication.AuthenticationModules.kerberosHiveMetastoreAuthenticationModule;
 import static com.facebook.presto.hive.authentication.AuthenticationModules.kerberosImpersonatingHdfsAuthenticationModule;
@@ -40,6 +41,10 @@ public class HiveAuthenticationModule
         bindMetastoreAuthenticationModule(
                 config -> config.getHiveMetastoreAuthenticationType() == HiveMetastoreAuthenticationType.NONE,
                 noHiveMetastoreAuthenticationModule());
+
+        bindMetastoreAuthenticationModule(
+                config -> config.getHiveMetastoreAuthenticationType() == HiveMetastoreAuthenticationType.PLAIN,
+                customHiveMetastoreAuthenticationModule());
 
         bindMetastoreAuthenticationModule(
                 config -> config.getHiveMetastoreAuthenticationType() == HiveMetastoreAuthenticationType.KERBEROS,

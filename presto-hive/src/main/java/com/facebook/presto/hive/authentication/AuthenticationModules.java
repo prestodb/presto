@@ -39,6 +39,20 @@ public final class AuthenticationModules
                 .in(SINGLETON);
     }
 
+    public static Module customHiveMetastoreAuthenticationModule()
+    {
+        return new Module() {
+            @Override
+            public void configure(Binder binder)
+            {
+                binder.bind(HiveMetastoreAuthentication.class)
+                        .to(CustomHiveMetastoreAuthentication.class)
+                        .in(SINGLETON);
+                configBinder(binder).bindConfig(MetastoreCustomAuthConfig.class);
+            }
+        };
+    }
+
     public static Module kerberosHiveMetastoreAuthenticationModule()
     {
         return new Module()
