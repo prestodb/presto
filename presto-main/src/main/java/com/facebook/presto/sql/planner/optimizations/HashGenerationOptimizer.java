@@ -93,10 +93,23 @@ public class HashGenerationOptimizer
         implements PlanOptimizer
 {
     private final FunctionAndTypeManager functionAndTypeManager;
+    private boolean isEnabledForTesting;
 
     public HashGenerationOptimizer(FunctionAndTypeManager functionAndTypeManager)
     {
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
+    }
+
+    @Override
+    public void setEnabledForTesting(boolean isSet)
+    {
+        isEnabledForTesting = isSet;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isEnabledForTesting || SystemSessionProperties.isOptimizeHashGenerationEnabled(session);
     }
 
     @Override
@@ -107,7 +120,7 @@ public class HashGenerationOptimizer
         requireNonNull(types, "types is null");
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
-        if (SystemSessionProperties.isOptimizeHashGenerationEnabled(session)) {
+        if (isEnabled(session)) {
             PlanWithProperties result = new Rewriter(idAllocator, variableAllocator, functionAndTypeManager).accept(plan, new HashComputationSet());
             return result.getNode();
         }
