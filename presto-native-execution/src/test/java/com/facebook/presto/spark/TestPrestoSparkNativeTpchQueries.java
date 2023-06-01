@@ -42,6 +42,7 @@ public class TestPrestoSparkNativeTpchQueries
     }
 
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
+    // Following tests require broadcast join
     @Override
     @Ignore
     public void testTpchQ7() {}
@@ -57,11 +58,6 @@ public class TestPrestoSparkNativeTpchQueries
     @Override
     @Ignore
     public void testTpchQ15() {}
-
-    // Requires support for replicate-nulls-and-any shuffle mode.
-    @Override
-    @Ignore
-    public void testTpchQ16() {}
 
     @Override
     @Ignore
