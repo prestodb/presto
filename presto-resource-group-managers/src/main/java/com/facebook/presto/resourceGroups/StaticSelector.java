@@ -75,7 +75,7 @@ public class StaticSelector
         this.schema = requireNonNull(schema, "schema is null");
         this.group = requireNonNull(group, "group is null");
 
-        HashSet<String> variableNames = new HashSet<>(ImmutableList.of(USER_VARIABLE, SOURCE_VARIABLE));
+        HashSet<String> variableNames = new HashSet<>(ImmutableList.of(USER_VARIABLE, SOURCE_VARIABLE, SCHEMA_VARIABLE));
         userRegex.ifPresent(u -> addNamedGroups(u, variableNames));
         sourceRegex.ifPresent(s -> addNamedGroups(s, variableNames));
         this.variableNames = ImmutableSet.copyOf(variableNames);
