@@ -367,4 +367,15 @@ TEST_F(PlanNodeSerdeTest, window) {
   testSerde(plan);
 }
 
+TEST_F(PlanNodeSerdeTest, rowNumber) {
+  auto plan = PlanBuilder().values({data_}).rowNumber({}).planNode();
+  testSerde(plan);
+
+  plan = PlanBuilder().values({data_}).rowNumber({"c2", "c0"}).planNode();
+  testSerde(plan);
+
+  plan = PlanBuilder().values({data_}).rowNumber({"c1", "c2"}, 10).planNode();
+  testSerde(plan);
+}
+
 } // namespace facebook::velox::exec::test

@@ -1214,6 +1214,78 @@ PlanNodePtr WindowNode::create(const folly::dynamic& obj, void* context) {
 }
 
 namespace {
+RowTypePtr getRowNumberOutputType(
+    const RowTypePtr& inputType,
+    const std::string& rowNumberColumnName) {
+  std::vector<std::string> names = inputType->names();
+  std::vector<TypePtr> types = inputType->children();
+
+  names.push_back(rowNumberColumnName);
+  types.push_back(BIGINT());
+
+  return ROW(std::move(names), std::move(types));
+}
+} // namespace
+
+RowNumberNode::RowNumberNode(
+    PlanNodeId id,
+    std::vector<FieldAccessTypedExprPtr> partitionKeys,
+    const std::string& rowNumberColumnName,
+    std::optional<int32_t> limit,
+    PlanNodePtr source)
+    : PlanNode(std::move(id)),
+      partitionKeys_{std::move(partitionKeys)},
+      limit_{limit},
+      sources_{std::move(source)},
+      outputType_(getRowNumberOutputType(
+          sources_[0]->outputType(),
+          rowNumberColumnName)) {}
+
+void RowNumberNode::addDetails(std::stringstream& stream) const {
+  if (!partitionKeys_.empty()) {
+    stream << "partition by (";
+    addFields(stream, partitionKeys_);
+    stream << ")";
+  }
+
+  if (limit_) {
+    if (!partitionKeys_.empty()) {
+      stream << " ";
+    }
+    stream << "limit " << limit_.value();
+  }
+}
+
+folly::dynamic RowNumberNode::serialize() const {
+  auto obj = PlanNode::serialize();
+  obj["partitionKeys"] = ISerializable::serialize(partitionKeys_);
+  obj["rowNumberColumnName"] = outputType_->names().back();
+  if (limit_) {
+    obj["limit"] = limit_.value();
+  }
+
+  return obj;
+}
+
+// static
+PlanNodePtr RowNumberNode::create(const folly::dynamic& obj, void* context) {
+  auto source = deserializeSingleSource(obj, context);
+  auto partitionKeys = deserializeFields(obj["partitionKeys"], context);
+
+  std::optional<int32_t> limit;
+  if (obj.count("limit")) {
+    limit = obj["limit"].asInt();
+  }
+
+  return std::make_shared<RowNumberNode>(
+      deserializePlanNodeId(obj),
+      partitionKeys,
+      obj["rowNumberColumnName"].asString(),
+      limit,
+      source);
+}
+
+namespace {
 void addSortingKeys(
     std::stringstream& stream,
     const std::vector<FieldAccessTypedExprPtr>& sortingKeys,
@@ -1592,6 +1664,7 @@ void PlanNode::registerSerDe() {
   registry.Register("OrderByNode", OrderByNode::create);
   registry.Register("PartitionedOutputNode", PartitionedOutputNode::create);
   registry.Register("ProjectNode", ProjectNode::create);
+  registry.Register("RowNumberNode", RowNumberNode::create);
   registry.Register("TableScanNode", TableScanNode::create);
   registry.Register("TableWriteNode", TableWriteNode::create);
   registry.Register("TopNNode", TopNNode::create);

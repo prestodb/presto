@@ -1936,4 +1936,58 @@ class WindowNode : public PlanNode {
   const RowTypePtr outputType_;
 };
 
+/// Optimized version of a WindowNode for a single row_number function with an
+/// optional limit and no sorting.
+/// The output of this node contains all input columns followed by a
+/// 'rowNumberColumnName' BIGINT column.
+class RowNumberNode : public PlanNode {
+ public:
+  /// @param partitionKeys Partitioning keys. May be empty.
+  /// @param rowNumberColumnName Name of the column containing row numbers.
+  /// @param limit Optional per-partition limit. If specified, the number of
+  /// rows produced by this node will not exceed this value for any given
+  /// partition. Extra rows will be dropped.
+  RowNumberNode(
+      PlanNodeId id,
+      std::vector<FieldAccessTypedExprPtr> partitionKeys,
+      const std::string& rowNumberColumnName,
+      std::optional<int32_t> limit,
+      PlanNodePtr source);
+
+  const std::vector<PlanNodePtr>& sources() const override {
+    return sources_;
+  }
+
+  const RowTypePtr& outputType() const override {
+    return outputType_;
+  }
+
+  const std::vector<FieldAccessTypedExprPtr>& partitionKeys() const {
+    return partitionKeys_;
+  }
+
+  std::optional<int32_t> limit() const {
+    return limit_;
+  }
+
+  std::string_view name() const override {
+    return "RowNumber";
+  }
+
+  folly::dynamic serialize() const override;
+
+  static PlanNodePtr create(const folly::dynamic& obj, void* context);
+
+ private:
+  void addDetails(std::stringstream& stream) const override;
+
+  const std::vector<FieldAccessTypedExprPtr> partitionKeys_;
+
+  const std::optional<int32_t> limit_;
+
+  const std::vector<PlanNodePtr> sources_;
+
+  const RowTypePtr outputType_;
+};
+
 } // namespace facebook::velox::core

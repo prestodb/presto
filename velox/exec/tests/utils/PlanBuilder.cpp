@@ -1290,6 +1290,14 @@ PlanBuilder& PlanBuilder::window(
   return *this;
 }
 
+PlanBuilder& PlanBuilder::rowNumber(
+    const std::vector<std::string>& partitionKeys,
+    std::optional<int32_t> limit) {
+  planNode_ = std::make_shared<core::RowNumberNode>(
+      nextPlanNodeId(), fields(partitionKeys), "row_number", limit, planNode_);
+  return *this;
+}
+
 core::PlanNodeId PlanBuilder::nextPlanNodeId() {
   return planNodeIdGenerator_->next();
 }
