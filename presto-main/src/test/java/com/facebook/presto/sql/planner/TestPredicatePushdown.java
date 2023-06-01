@@ -461,17 +461,13 @@ public class TestPredicatePushdown
                                 Optional.of(PARTITIONED),
                                 ImmutableMap.of()))
                 .matches(
-                        project(
-                                join(
-                                        INNER,
-                                        ImmutableList.of(),
-                                        Optional.empty(),
-                                        Optional.of(REPLICATED),
-                                        project(
-                                                filter("a1=1",
-                                                        values("a1"))),
-                                        project(
-                                                filter("1=b1",
-                                                        values("b1"))))));
-    }
+                                join(INNER,
+                                    ImmutableList.of(),
+                                    Optional.empty(),
+                                    Optional.of(REPLICATED),
+                                            filter("a1=1",
+                                                    values("a1")),
+                                            filter("1=b1",
+                                                    values("b1"))));
+}
 }

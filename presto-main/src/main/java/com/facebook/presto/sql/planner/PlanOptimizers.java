@@ -27,6 +27,7 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesProviderImpl;
 import com.facebook.presto.sql.planner.iterative.rule.AddIntermediateAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.AddNotNullFiltersToJoinNode;
+import com.facebook.presto.sql.planner.iterative.rule.AddProjectAboveCrossJoin;
 import com.facebook.presto.sql.planner.iterative.rule.CombineApproxPercentileFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.CreatePartialTopN;
 import com.facebook.presto.sql.planner.iterative.rule.CrossJoinWithArrayContainsToInnerJoin;
@@ -758,6 +759,14 @@ public class PlanOptimizers
         builder.add(new HashGenerationOptimizer(metadata.getFunctionAndTypeManager()));
 
         builder.add(new MetadataDeleteOptimizer(metadata));
+
+        // CrossJoin operator cannot perform output pruning, so we use a ProjectNode, if needed
+        // to constrain it's output. We do this after join-reordering
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(new AddProjectAboveCrossJoin())));
 
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point

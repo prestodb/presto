@@ -45,6 +45,7 @@ import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.AssignmentUtils;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -95,6 +96,7 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.extractConju
 import static com.facebook.presto.spi.plan.ProjectNode.Locality;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.UNKNOWN;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
@@ -533,8 +535,8 @@ public class PredicatePushDown
             boolean equiJoinClausesUnmodified = ImmutableSet.copyOf(equiJoinClauses).equals(ImmutableSet.copyOf(node.getCriteria()));
 
             if (dynamicFilterEnabled && !equiJoinClausesUnmodified) {
-                leftSource = context.rewrite(new ProjectNode(idAllocator.getNextId(), node.getLeft(), leftProjections.build()), leftPredicate);
-                rightSource = context.rewrite(new ProjectNode(idAllocator.getNextId(), node.getRight(), rightProjections.build()), rightPredicate);
+                leftSource = context.rewrite(wrapInProjectNodeIfNeeded(node.getLeft(), leftProjections), leftPredicate);
+                rightSource = context.rewrite(wrapInProjectNodeIfNeeded(node.getRight(), rightProjections), rightPredicate);
             }
             else {
                 leftSource = context.rewrite(node.getLeft(), leftPredicate);
@@ -565,8 +567,8 @@ public class PredicatePushDown
                     !filtersEquivalent ||
                     (dynamicFilterEnabled && !dynamicFilters.equals(node.getDynamicFilters())) ||
                     !equiJoinClausesUnmodified) {
-                leftSource = new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), leftSource, leftProjections.build(), leftLocality);
-                rightSource = new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), rightSource, rightProjections.build(), rightLocality);
+                leftSource = wrapInProjectNodeIfNeeded(leftSource, leftProjections, leftLocality);
+                rightSource = wrapInProjectNodeIfNeeded(rightSource, rightProjections, rightLocality);
 
                 // if the distribution type is already set, make sure that changes from PredicatePushDown
                 // don't make the join node invalid.
@@ -580,6 +582,12 @@ public class PredicatePushDown
                     }
                 }
 
+                checkState(ImmutableSet.<VariableReferenceExpression>builder()
+                                .addAll(leftSource.getOutputVariables())
+                                .addAll(rightSource.getOutputVariables())
+                                .build().containsAll(node.getOutputVariables()),
+                        "JoinNode predicate pushdown incorrect : Left and right source are not producing original JoinNode output variables");
+
                 output = new JoinNode(
                         node.getSourceLocation(),
                         node.getId(),
@@ -587,10 +595,7 @@ public class PredicatePushDown
                         leftSource,
                         rightSource,
                         equiJoinClauses,
-                        ImmutableList.<VariableReferenceExpression>builder()
-                                .addAll(leftSource.getOutputVariables())
-                                .addAll(rightSource.getOutputVariables())
-                                .build(),
+                        node.getOutputVariables(),
                         newJoinFilter,
                         node.getLeftHashVariable(),
                         node.getRightHashVariable(),
@@ -602,11 +607,23 @@ public class PredicatePushDown
                 output = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), output, postJoinPredicate);
             }
 
-            if (!node.getOutputVariables().equals(output.getOutputVariables())) {
-                output = new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), output, identityAssignments(node.getOutputVariables()), LOCAL);
-            }
-
             return output;
+        }
+
+        private PlanNode wrapInProjectNodeIfNeeded(PlanNode node, Assignments.Builder builder)
+        {
+            return wrapInProjectNodeIfNeeded(node, builder, UNKNOWN);
+        }
+
+        private PlanNode wrapInProjectNodeIfNeeded(PlanNode node, Assignments.Builder builder, Locality locality)
+        {
+            Assignments assignments = builder.build();
+            if (AssignmentUtils.isIdentity(assignments)) {
+                return node;
+            }
+            else {
+                return new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), node, assignments, locality);
+            }
         }
 
         private static DynamicFiltersResult createDynamicFilters(

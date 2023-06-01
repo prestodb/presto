@@ -41,12 +41,6 @@ public class AssignmentUtils
         return identityAssignments(asList(variables));
     }
 
-    public static boolean isIdentity(Assignments assignments, VariableReferenceExpression output)
-    {
-        RowExpression value = assignments.get(output);
-        return value instanceof VariableReferenceExpression && ((VariableReferenceExpression) value).getName().equals(output.getName());
-    }
-
     public static Assignments rewrite(Assignments assignments, Function<RowExpression, RowExpression> rewrite)
     {
         return assignments.entrySet().stream()
@@ -64,5 +58,21 @@ public class AssignmentUtils
                     return left;
                 },
                 Assignments.Builder::build);
+    }
+
+    public static boolean isIdentity(Assignments assignments)
+    {
+        for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.entrySet()) {
+            if (!assignment.getKey().equals(assignment.getValue())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static boolean isIdentity(Assignments assignments, VariableReferenceExpression output)
+    {
+        RowExpression value = assignments.get(output);
+        return value instanceof VariableReferenceExpression && ((VariableReferenceExpression) value).getName().equals(output.getName());
     }
 }
