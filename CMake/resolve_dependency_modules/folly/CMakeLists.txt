@@ -42,6 +42,8 @@ if(ON_APPLE_M1)
 endif()
 # Suppress all warnings
 set(FOLLY_CXX_FLAGS -w)
+# Enable INT128 support
+set(FOLLY_HAVE_INT128_T ON)
 FetchContent_MakeAvailable(folly)
 
 # Folly::folly is not valid for FC but we want to match FindFolly

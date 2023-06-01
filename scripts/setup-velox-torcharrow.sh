@@ -99,4 +99,4 @@ wait
 
 cmake_install gflags -DBUILD_SHARED_LIBS=ON
 cmake_install fmt -DFMT_TEST=OFF
-cmake_install folly
+cmake_install folly -DFOLLY_HAVE_INT128_T=ON
