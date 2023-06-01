@@ -2179,10 +2179,6 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
       !partitionedOutputNode->isBroadcast(),
       "Broadcast shuffle is not supported");
 
-  VELOX_USER_CHECK(
-      !partitionedOutputNode->isReplicateNullsAndAny(),
-      "Replicate-nulls-and-any shuffle mode is not supported.");
-
   // If the serializedShuffleWriteInfo is not nullptr, it means this fragment
   // ends with a shuffle stage. We convert the PartitionedOutputNode to a
   // chain of following nodes:
@@ -2206,6 +2202,7 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
           partitionedOutputNode->numPartitions(),
           partitionedOutputNode->outputType(),
           partitionedOutputNode->sources()[0],
+          partitionedOutputNode->isReplicateNullsAndAny(),
           partitionedOutputNode->partitionFunctionSpecPtr());
 
   planFragment.planNode = std::make_shared<operators::ShuffleWriteNode>(

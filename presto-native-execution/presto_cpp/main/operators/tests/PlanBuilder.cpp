@@ -25,8 +25,9 @@ namespace facebook::presto::operators {
 std::function<PlanNodePtr(std::string nodeId, PlanNodePtr)>
 addPartitionAndSerializeNode(
     uint32_t numPartitions,
+    bool replicateNullsAndAny,
     const std::vector<std::string>& serializedColumns) {
-  return [numPartitions, &serializedColumns](
+  return [numPartitions, &serializedColumns, replicateNullsAndAny](
              core::PlanNodeId nodeId,
              core::PlanNodePtr source) -> core::PlanNodePtr {
     std::vector<core::TypedExprPtr> keys{
@@ -49,6 +50,7 @@ addPartitionAndSerializeNode(
         numPartitions,
         serializedType,
         std::move(source),
+        replicateNullsAndAny,
         std::make_shared<exec::HashPartitionFunctionSpec>(
             inputType, exec::toChannels(inputType, keys)));
   };
