@@ -44,7 +44,6 @@ class TopN : public Operator {
   bool isFinished() override;
 
  private:
-  static constexpr size_t kMaxNumRowsToReturn = 1024;
   class Comparator {
    public:
     Comparator(
@@ -114,5 +113,6 @@ class TopN : public Operator {
   std::vector<char*> rows_;
 
   std::vector<DecodedVector> decodedVectors_;
+  vector_size_t outputBatchSize_;
 };
 } // namespace facebook::velox::exec

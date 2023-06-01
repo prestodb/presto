@@ -45,25 +45,24 @@ TopN::Comparator::Comparator(
     const std::vector<core::SortOrder>& sortingOrders,
     RowContainer* rowContainer)
     : rowContainer_(rowContainer) {
-  auto numKeys = sortingKeys.size();
-  for (int i = 0; i < numKeys; ++i) {
-    auto channel = exprToChannel(sortingKeys[i].get(), type);
-    VELOX_CHECK(
-        channel != kConstantChannel,
+  const auto numKeys = sortingKeys.size();
+  for (auto i = 0; i < numKeys; ++i) {
+    const auto channel = exprToChannel(sortingKeys[i].get(), type);
+    VELOX_USER_CHECK_NE(
+        channel,
+        kConstantChannel,
         "TopN doesn't allow constant comparison keys");
     keyInfo_.push_back(std::make_pair(channel, sortingOrders[i]));
   }
 }
 
 void TopN::addInput(RowVectorPtr input) {
-  SelectivityVector allRows(input->size());
-
   // TODO Decode keys first, then decode the rest only for passing positions
-  for (int col = 0; col < input->childrenSize(); ++col) {
-    decodedVectors_[col].decode(*input->childAt(col), allRows);
+  for (auto col = 0; col < input->childrenSize(); ++col) {
+    decodedVectors_[col].decode(*input->childAt(col));
   }
 
-  for (int row = 0; row < input->size(); ++row) {
+  for (auto row = 0; row < input->size(); ++row) {
     char* newRow = nullptr;
     if (topRows_.size() < count_) {
       newRow = data_->newRow();
@@ -78,7 +77,7 @@ void TopN::addInput(RowVectorPtr input) {
       newRow = data_->initializeRow(topRow, true /* reuse */);
     }
 
-    for (int col = 0; col < input->childrenSize(); ++col) {
+    for (auto col = 0; col < input->childrenSize(); ++col) {
       data_->store(decodedVectors_[col], row, newRow, col);
     }
 
@@ -91,14 +90,14 @@ RowVectorPtr TopN::getOutput() {
     return nullptr;
   }
 
-  uint32_t numRowsToReturn =
-      std::min(kMaxNumRowsToReturn, rows_.size() - numRowsReturned_);
-  VELOX_CHECK(numRowsToReturn > 0);
+  const auto numRowsToReturn = std::min<vector_size_t>(
+      outputBatchSize_, rows_.size() - numRowsReturned_);
+  VELOX_CHECK_GT(numRowsToReturn, 0);
 
-  auto result = std::dynamic_pointer_cast<RowVector>(
-      BaseVector::create(outputType_, numRowsToReturn, operatorCtx_->pool()));
+  auto result = BaseVector::create<RowVector>(
+      outputType_, numRowsToReturn, operatorCtx_->pool());
 
-  for (int i = 0; i < outputType_->size(); ++i) {
+  for (auto i = 0; i < outputType_->size(); ++i) {
     data_->extractColumn(
         rows_.data() + numRowsReturned_,
         numRowsToReturn,
@@ -117,10 +116,12 @@ void TopN::noMoreInput() {
     return;
   }
   rows_.resize(topRows_.size());
-  for (int i = rows_.size(); i > 0; --i) {
+  for (auto i = rows_.size(); i > 0; --i) {
     rows_[i - 1] = topRows_.top();
     topRows_.pop();
   }
+
+  outputBatchSize_ = outputBatchRows(data_->estimateRowSize());
 }
 
 bool TopN::isFinished() {
