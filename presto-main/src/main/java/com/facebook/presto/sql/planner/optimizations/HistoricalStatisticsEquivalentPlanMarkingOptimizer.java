@@ -44,10 +44,23 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
     private static final Set<Class<? extends PlanNode>> LIMITING_NODES =
             ImmutableSet.of(TopNNode.class, LimitNode.class, DistinctLimitNode.class, TopNRowNumberNode.class);
     private final StatsCalculator statsCalculator;
+    private boolean isEnabledForTesting;
 
     public HistoricalStatisticsEquivalentPlanMarkingOptimizer(StatsCalculator statsCalculator)
     {
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+    }
+
+    @Override
+    public void setEnabledForTesting(boolean isSet)
+    {
+        isEnabledForTesting = isSet;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isEnabledForTesting || useHistoryBasedPlanStatisticsEnabled(session) || trackHistoryBasedPlanStatisticsEnabled(session);
     }
 
     @Override
@@ -59,7 +72,7 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        if (!useHistoryBasedPlanStatisticsEnabled(session) && !trackHistoryBasedPlanStatisticsEnabled(session)) {
+        if (!isEnabled(session)) {
             return plan;
         }
 

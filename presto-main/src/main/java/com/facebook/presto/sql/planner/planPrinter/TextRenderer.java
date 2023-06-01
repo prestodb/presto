@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 
@@ -38,18 +39,26 @@ public class TextRenderer
 {
     private final boolean verbose;
     private final int level;
+    private final boolean verboseOptimizerInfo;
 
-    public TextRenderer(boolean verbose, int level)
+    public TextRenderer(boolean verbose, int level, boolean verboseOptimizerInfo)
     {
         this.verbose = verbose;
         this.level = level;
+        this.verboseOptimizerInfo = verboseOptimizerInfo;
     }
 
     @Override
     public String render(PlanRepresentation plan)
     {
         StringBuilder output = new StringBuilder();
-        return writeTextOutput(output, plan, level, plan.getRoot());
+        String result = writeTextOutput(output, plan, level, plan.getRoot());
+
+        if (verboseOptimizerInfo) {
+            String optimizerInfo = optimizerInfoToText(plan.getPlanOptimizerInfo());
+            result += optimizerInfo;
+        }
+        return result;
     }
 
     private String writeTextOutput(StringBuilder output, PlanRepresentation plan, int level, NodeRepresentation node)
@@ -272,5 +281,21 @@ public class TextRenderer
     private static String indentMultilineString(String string, int level)
     {
         return string.replaceAll("(?m)^", indentString(level));
+    }
+
+    private String optimizerInfoToText(List<PlanOptimizerInformation> planOptimizerInfo)
+    {
+        List<String> applicableOptimizers = planOptimizerInfo.stream()
+                .filter(x -> !x.getOptimizerTriggered() && x.getOptimizerApplicable().isPresent() && x.getOptimizerApplicable().get())
+                .map(x -> x.getOptimizerName()).collect(toList());
+        List<String> triggeredOptimizers = planOptimizerInfo.stream()
+                .filter(x -> x.getOptimizerTriggered())
+                .map(x -> x.getOptimizerName()).collect(toList());
+
+        String triggered = "Triggered optimizers: [" +
+                String.join(", ", triggeredOptimizers) + "]\n";
+        String applicable = "Applicable optimizers: [" +
+                String.join(", ", applicableOptimizers) + "]\n";
+        return triggered + applicable;
     }
 }

@@ -87,7 +87,8 @@ public class TestJsonRenderer
                 root,
                 TypeProvider.viewOf(VARIABLE_ALLOCATOR.getVariables()),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableList.of());
     }
 
     private NodeRepresentation getNodeRepresentation(PlanNode root, List<PlanNodeId> planNodeIds)
