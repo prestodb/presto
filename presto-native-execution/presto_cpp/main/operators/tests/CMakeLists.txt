@@ -34,6 +34,7 @@ target_link_libraries(
   velox_exec
   velox_memory
   velox_exec
+  gmock
   gtest
   ${ANTLR4_RUNTIME}
   gtest_main)

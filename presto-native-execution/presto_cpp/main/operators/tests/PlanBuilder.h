@@ -21,8 +21,10 @@ namespace facebook::presto::operators {
 
 std::function<
     velox::core::PlanNodePtr(std::string nodeId, velox::core::PlanNodePtr)>
+
 addPartitionAndSerializeNode(
     uint32_t numPartitions,
+    bool replicateNullsAndAny,
     const std::vector<std::string>& serializedColumns = {});
 
 std::function<
