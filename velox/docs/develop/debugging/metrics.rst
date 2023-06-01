@@ -1,4 +1,8 @@
-Velox emits several metrics during query execution which are useful to analyze the details of the underlying system and query processing. Some of these include: 
+=======
+Metrics
+=======
+
+Velox emits several metrics during query execution which are useful to analyze the details of the underlying system and query processing. Some of these include:
 
 queryThreadIoLatency: Time spent by a query processing thread waiting for synchronously issued IO or for an in-progress read-ahead to finish.
 

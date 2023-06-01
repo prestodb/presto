@@ -13,6 +13,7 @@ Map Functions
         SELECT map(); -- {}
 
 .. spark:function:: map(array(K), array(V)) -> map(K,V)
+   :noindex:
 
     Returns a map created using the given key/value arrays. Duplicate map key will cause exception. ::
 
@@ -32,6 +33,7 @@ Map Functions
         SELECT map_from_arrays(array(1.0, 3.0), array('2', '4')); -- {1.0 -> 2, 3.0 -> 4}
 
 .. spark:function:: size(map(K,V)) -> bigint
+   :noindex:
 
     Returns the size of the input map. Returns null for null input
     if :doc:`spark.legacy_size_of_null <../../configs>` is set to false.

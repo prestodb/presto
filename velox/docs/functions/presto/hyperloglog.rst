@@ -40,6 +40,7 @@ Functions
     used later by calling ``cardinality()``.
 
 .. function:: approx_set(x, e) -> HyperLogLog
+   :noindex:
 
     Returns the ``HyperLogLog`` sketch of the input data set of ``x``, with
     a maximum standard error of ``e``. The current implementation of this
@@ -59,6 +60,7 @@ Functions
     The value of the maximum standard error is defaulted to ``0.01625``.
 
 .. function:: empty_approx_set(e) -> HyperLogLog
+   :noindex:
 
     Returns an empty ``HyperLogLog`` with a maximum standard error of ``e``.
     The current implementation of this function requires that ``e`` be in

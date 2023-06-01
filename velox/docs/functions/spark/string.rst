@@ -51,6 +51,7 @@ Unless specified otherwise, all functions return NULL if at least one of the arg
         SELECT ltrim('  data  '); -- "data  "
 
 .. spark:function:: ltrim(trimCharacters, string) -> varchar
+   :noindex:
 
     Removes specified leading characters from ``string``. The specified character
     is any character contained in ``trimCharacters``.
@@ -71,6 +72,7 @@ Unless specified otherwise, all functions return NULL if at least one of the arg
         SELECT rtrim('  data  '); -- "  data"
 
 .. spark:function:: rtrim(trimCharacters, string) -> varchar
+   :noindex:
 
     Removes specified trailing characters from ``string``. The specified character
     is any character contained in ``trimCharacters``.
@@ -87,6 +89,7 @@ Unless specified otherwise, all functions return NULL if at least one of the arg
         SELECT split('one', '1'); -- ["one"]
 
 .. spark:function:: split(string, delimiter, limit) -> array(string)
+   :noindex:
 
     Splits ``string`` on ``delimiter`` and returns an array of size at most ``limit``. ::
 
@@ -110,6 +113,7 @@ Unless specified otherwise, all functions return NULL if at least one of the arg
     the meaning is to refer to the first character.Type of 'start' must be an INTEGER. 
 
 .. spark:function:: substring(string, start, length) -> varchar
+   :noindex:
 
     Returns a substring from ``string`` of length ``length`` from the starting
     position ``start``. Positions start with ``1``. A negative starting
@@ -133,6 +137,7 @@ Unless specified otherwise, all functions return NULL if at least one of the arg
         SELECT trim('  data  '); -- "data"
 
 .. spark:function:: trim(trimCharacters, string) -> varchar
+   :noindex:
 
     Removes specified leading and trailing characters from ``string``.
     The specified character is any character contained in ``trimCharacters``.

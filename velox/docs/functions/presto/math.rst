@@ -115,6 +115,7 @@ Mathematical Functions
     Returns a pseudo-random value in the range 0.0 <= x < 1.0.
 
 .. function:: random(n) -> [same as n]
+   :noindex:
 
     Returns a pseudo-random value in the range 0.0 <= x < n.
 
@@ -123,6 +124,7 @@ Mathematical Functions
     Returns ``x`` rounded to the nearest integer.
 
 .. function:: round(x, d) -> [same as x]
+   :noindex:
 
     Returns ``x`` rounded to ``d`` decimal places.
 
@@ -151,6 +153,7 @@ Mathematical Functions
     Returns x rounded to integer by dropping digits after decimal point.
 
 .. function:: truncate(x, n) -> double
+   :noindex:
 
     Returns x truncated to n decimal places. n can be negative to truncate n digits left of the decimal point.
 
@@ -160,6 +163,7 @@ Mathematical Functions
     specified ``bound1`` and ``bound2`` bounds and ``n`` number of buckets.
 
 .. function:: width_bucket(x, bins) -> bigint
+   :noindex:
 
     Returns the zero-based bin number of ``x`` according to the bins specified
     by the array ``bins``. The ``bins`` parameter must be an array of doubles and

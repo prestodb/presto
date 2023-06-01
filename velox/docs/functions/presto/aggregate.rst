@@ -48,6 +48,7 @@ General Aggregate Functions
     Returns the number of input rows.
 
 .. function:: count(x) -> bigint
+    :noindex:
 
     Returns the number of non-null input values.
 
@@ -130,6 +131,7 @@ Approximate Aggregate Functions
     any specific input set.
 
 .. function:: approx_distinct(x, e) -> bigint
+   :noindex:
 
     Returns the approximate number of distinct input values.
     This function provides an approximation of ``count(DISTINCT x)``.
@@ -170,6 +172,7 @@ __ https://www.cse.ust.hk/~raywong/comp5331/References/EfficientComputationOfFre
     one and must be constant for all input rows.
 
 .. function:: approx_percentile(x, percentage, accuracy) -> [same as x]
+   :noindex:
 
     As ``approx_percentile(x, percentage)``, but with a maximum rank
     error of ``accuracy``. The value of ``accuracy`` must be between
@@ -180,17 +183,20 @@ __ https://www.cse.ust.hk/~raywong/comp5331/References/EfficientComputationOfFre
     guarantee for accuracy than T-Digest.
 
 .. function:: approx_percentile(x, percentages) -> array<[same as x]>
+   :noindex:
 
     Returns the approximate percentile for all input values of ``x`` at each of
     the specified percentages. Each element of the ``percentages`` array must be
     between zero and one, and the array must be constant for all input rows.
 
 .. function:: approx_percentile(x, percentages, accuracy) -> array<[same as x]>
+   :noindex:
 
     As ``approx_percentile(x, percentages)``, but with a maximum rank error of
     ``accuracy``.
 
 .. function:: approx_percentile(x, w, percentage) -> [same as x]
+   :noindex:
 
     Returns the approximate weighed percentile for all input values of ``x``
     using the per-item weight ``w`` at the percentage ``p``. The weight must be
@@ -199,11 +205,13 @@ __ https://www.cse.ust.hk/~raywong/comp5331/References/EfficientComputationOfFre
     zero and one and must be constant for all input rows.
 
 .. function:: approx_percentile(x, w, percentage, accuracy) -> [same as x]
+   :noindex:
 
     As ``approx_percentile(x, w, percentage)``, but with a maximum
     rank error of ``accuracy``.
 
 .. function:: approx_percentile(x, w, percentages) -> array<[same as x]>
+   :noindex:
 
     Returns the approximate weighed percentile for all input values of ``x``
     using the per-item weight ``w`` at each of the given percentages specified
@@ -213,6 +221,7 @@ __ https://www.cse.ust.hk/~raywong/comp5331/References/EfficientComputationOfFre
     must be constant for all input rows.
 
 .. function:: approx_percentile(x, w, percentages, accuracy) -> array<[same as x]>
+   :noindex:
 
     As ``approx_percentile(x, w, percentages)``, but with a maximum rank error
     of ``accuracy``.

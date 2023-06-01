@@ -9,7 +9,6 @@ Spark Functions
     functions/spark/bitwise
     functions/spark/comparison
     functions/spark/string
-    functions/spark/struct
     functions/spark/datetime
     functions/spark/array
     functions/spark/map

@@ -220,6 +220,7 @@ Array Functions
     otherwise -1.
 
 .. function:: sequence(start, stop, step) -> array
+   :noindex:
 
     Generate a sequence of integers from start to stop, incrementing by step.
 

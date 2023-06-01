@@ -71,7 +71,7 @@ Generic Configuration
        The Drivers are resumed when the buffered size goes below PartitionedOutputBufferManager::kContinuePct (90)% of this.
 
 Expression Evaluation Configuration
----------------------
+-----------------------------------
 .. list-table::
    :widths: 20 10 10 70
    :header-rows: 1

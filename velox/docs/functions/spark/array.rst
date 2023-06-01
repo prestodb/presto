@@ -72,6 +72,7 @@ Array Functions
         SELECT sort_array(ARRAY [NULL, 2, 1]); -- [NULL, 1, 2]
 
 .. spark:function:: sort_array(array(E), ascendingOrder) -> array(E)
+   :noindex:
 
     Returns an array which has the sorted order of the input array. The elements of array must
     be orderable. Null elements will be placed at the beginning of the returned array in ascending

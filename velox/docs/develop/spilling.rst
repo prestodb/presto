@@ -517,7 +517,7 @@ Some hash probe optimizations are disabled if the spilling has been triggered
 by the hash build. For example, dynamic filtering is disabled because the
 complete set of join keys is not known.
 
-Spilling not supported for `null-aware anti-join type with filter because it
+Spilling not supported for null-aware anti-join type with filter because it
 requires to cross join null-key probe rows with all build-side rows for filter
 evaluation to check if the null-key probe rows can be added to output or not.
 

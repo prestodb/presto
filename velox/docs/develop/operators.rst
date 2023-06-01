@@ -162,6 +162,7 @@ each measure for each combination of the grouping keys.
      - A boolean flag indicating whether the aggregation should drop rows with nulls in any of the grouping keys. Used to avoid unnecessary processing for an aggregation followed by an inner join on the grouping keys.
 
 .. _group-id-node:
+
 GroupIdNode
 ~~~~~~~~~~~
 
@@ -511,6 +512,7 @@ the nodes executing the same query stage in a distributed query execution.
      - A 24-bit integer to uniquely identify the task id across all the nodes.
 
 .. _window-node:
+
 WindowNode
 ~~~~~~~~~~
 

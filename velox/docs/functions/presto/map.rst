@@ -19,6 +19,7 @@ Map Functions
         SELECT map(); -- {}
 
 .. function:: map(array(K), array(V)) -> map(K,V)
+   :noindex:
 
     Returns a map created using the given key/value arrays. ::
 
@@ -54,6 +55,7 @@ Map Functions
     Returns all the values in the map ``x``.
 
 .. function:: subscript(map(K, V), key) -> V
+   :noindex:
 
     Returns value for given ``key``. Throws if the key is not contained in the map.
     Corresponds to SQL subscript operator [].
