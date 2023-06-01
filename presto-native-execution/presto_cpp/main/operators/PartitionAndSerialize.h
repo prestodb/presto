@@ -29,12 +29,14 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
       uint32_t numPartitions,
       velox::RowTypePtr serializedRowType,
       velox::core::PlanNodePtr source,
+      bool replicateNullsAndAny,
       velox::core::PartitionFunctionSpecPtr partitionFunctionFactory)
       : velox::core::PlanNode(id),
         keys_(std::move(keys)),
         numPartitions_(numPartitions),
         serializedRowType_{std::move(serializedRowType)},
         sources_({std::move(source)}),
+        replicateNullsAndAny_(replicateNullsAndAny),
         partitionFunctionSpec_(std::move(partitionFunctionFactory)) {
     VELOX_USER_CHECK_NOT_NULL(
         partitionFunctionSpec_, "Partition function factory cannot be null.");
@@ -69,6 +71,14 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
     return serializedRowType_;
   }
 
+  /// Returns true if an arbitrary row and all rows with null keys must be
+  /// replicated to all destinations. This is used to ensure correct results for
+  /// anti-join which requires all nodes to know whether combined build side is
+  /// empty and whether it has any entry with null join key.
+  bool isReplicateNullsAndAny() const {
+    return replicateNullsAndAny_;
+  }
+
   const velox::core::PartitionFunctionSpecPtr& partitionFunctionFactory()
       const {
     return partitionFunctionSpec_;
@@ -85,6 +95,7 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
   const uint32_t numPartitions_;
   const velox::RowTypePtr serializedRowType_;
   const std::vector<velox::core::PlanNodePtr> sources_;
+  const bool replicateNullsAndAny_;
   const velox::core::PartitionFunctionSpecPtr partitionFunctionSpec_;
 };
 
