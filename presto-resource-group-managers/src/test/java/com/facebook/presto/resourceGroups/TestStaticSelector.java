@@ -102,7 +102,7 @@ public class TestStaticSelector
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of("schema1"),
-                new ResourceGroupIdTemplate("global.schema1"));
+                new ResourceGroupIdTemplate("global.${SCHEMA}"));
         assertEquals(selector.match(newSelectionCriteria("userA", null, "schema1", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
         assertEquals(selector.match(newSelectionCriteria("userB", "source", "schema2", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
         assertEquals(selector.match(newSelectionCriteria("userA", null, "schema1", ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
