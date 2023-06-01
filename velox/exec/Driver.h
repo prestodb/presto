@@ -284,8 +284,6 @@ class Driver : public std::enable_shared_from_this<Driver> {
   // Returns a list of all operators.
   std::vector<Operator*> operators() const;
 
-  void setError(std::exception_ptr exception);
-
   std::string toString();
 
   DriverCtx* driverCtx() const {

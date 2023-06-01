@@ -84,21 +84,25 @@ void NestedLoopJoinBuild::noMoreInput() {
     return;
   }
 
-  for (auto& peer : peers) {
-    auto op = peer->findOperator(planNodeId());
-    auto* build = dynamic_cast<NestedLoopJoinBuild*>(op);
-    VELOX_CHECK_NOT_NULL(build);
-    dataVectors_.insert(
-        dataVectors_.begin(),
-        build->dataVectors_.begin(),
-        build->dataVectors_.end());
-  }
+  {
+    auto promisesGuard = folly::makeGuard([&]() {
+      // Realize the promises so that the other Drivers (which were not
+      // the last to finish) can continue from the barrier and finish.
+      peers.clear();
+      for (auto& promise : promises) {
+        promise.setValue();
+      }
+    });
 
-  // Realize the promises so that the other Drivers (which were not
-  // the last to finish) can continue from the barrier and finish.
-  peers.clear();
-  for (auto& promise : promises) {
-    promise.setValue();
+    for (auto& peer : peers) {
+      auto op = peer->findOperator(planNodeId());
+      auto* build = dynamic_cast<NestedLoopJoinBuild*>(op);
+      VELOX_CHECK_NOT_NULL(build);
+      dataVectors_.insert(
+          dataVectors_.begin(),
+          build->dataVectors_.begin(),
+          build->dataVectors_.end());
+    }
   }
 
   operatorCtx_->task()

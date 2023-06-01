@@ -389,7 +389,11 @@ class Task : public std::enable_shared_from_this<Task> {
   /// NOTE: if 'future' is null, then the caller doesn't intend to wait for the
   /// other peers to finish. The function won't set its promise and record it in
   /// peers. This is used in scenario that the caller only needs to know whether
-  /// it is the last one to reach the barrier.g
+  /// it is the last one to reach the barrier.
+  ///
+  /// NOTE: The last peer (the one that got 'true' returned and a bunch of
+  /// promises) is responsible for promises' fulfillment even in case of an
+  /// exception!
   bool allPeersFinished(
       const core::PlanNodeId& planNodeId,
       Driver* caller,

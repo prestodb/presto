@@ -120,10 +120,14 @@ void BlockingState::setResume(std::shared_ptr<BlockingState> state) {
       })
       .thenError(
           folly::tag_t<std::exception>{}, [state](std::exception const& e) {
-            LOG(ERROR) << "A ContinueFuture for task "
-                       << state->driver_->task()->taskId()
-                       << " should not be realized with an error: " << e.what();
-            state->driver_->setError(std::make_exception_ptr(e));
+            try {
+              VELOX_FAIL(
+                  "A ContinueFuture for task {} was realized with error: {}",
+                  state->driver_->task()->taskId(),
+                  e.what())
+            } catch (const VeloxException& eNew) {
+              state->driver_->task()->setError(std::current_exception());
+            }
           });
 }
 
@@ -687,10 +691,6 @@ std::vector<Operator*> Driver::operators() const {
     operators.push_back(op.get());
   }
   return operators;
-}
-
-void Driver::setError(std::exception_ptr exception) {
-  task()->setError(exception);
 }
 
 std::string Driver::toString() {

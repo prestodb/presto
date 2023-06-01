@@ -1378,7 +1378,7 @@ bool Task::allPeersFinished(
   const auto numPeers = numDrivers(caller->driverCtx()->pipelineId);
   if (++state.numRequested == numPeers) {
     peers = std::move(state.drivers);
-    promises = std::move(state.promises);
+    promises = std::move(state.allPeersFinishedPromises);
     barriers.erase(planNodeId);
     return true;
   }
@@ -1395,9 +1395,9 @@ bool Task::allPeersFinished(
   // the peers to finish.
   if (future != nullptr) {
     state.drivers.push_back(callerShared);
-    state.promises.emplace_back(
+    state.allPeersFinishedPromises.emplace_back(
         fmt::format("Task::allPeersFinished {}", taskId_));
-    *future = state.promises.back().getSemiFuture();
+    *future = state.allPeersFinishedPromises.back().getSemiFuture();
   }
   return false;
 }
