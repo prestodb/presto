@@ -43,6 +43,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.isVerboseOptimizerInfoEnabled;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -167,6 +168,9 @@ public class IterativeOptimizer
                 Rule<?> rule = possiblyMatchingRules.next();
 
                 if (!rule.isEnabled(context.session)) {
+                    if (isVerboseOptimizerInfoEnabled(context.session) && isApplicable(node, rule, matcher, context)) {
+                        context.addRulesApplicable(rule.getClass().getSimpleName());
+                    }
                     continue;
                 }
 
@@ -222,6 +226,17 @@ public class IterativeOptimizer
         }
 
         return result;
+    }
+
+    private <T> boolean isApplicable(PlanNode node, Rule<T> rule, Matcher matcher, Context context)
+    {
+        Match<T> match = matcher.match(rule.getPattern(), node);
+        if (match.isEmpty()) {
+            return false;
+        }
+
+        Rule.Result result = rule.apply(match.value(), match.captures(), ruleContext(context));
+        return !result.isEmpty();
     }
 
     private boolean exploreChildren(int group, Context context, Matcher matcher)
@@ -313,6 +328,7 @@ public class IterativeOptimizer
         private final CostProvider costProvider;
         private final StatsProvider statsProvider;
         private final Set<String> rulesTriggered;
+        private final Set<String> rulesApplicable;
 
         public Context(
                 Memo memo,
@@ -339,6 +355,7 @@ public class IterativeOptimizer
             this.costProvider = costProvider;
             this.statsProvider = statsProvider;
             this.rulesTriggered = new HashSet<>();
+            this.rulesApplicable = new HashSet<>();
         }
 
         public void checkTimeoutNotExhausted()
@@ -353,9 +370,15 @@ public class IterativeOptimizer
             rulesTriggered.add(rule);
         }
 
+        public void addRulesApplicable(String rule)
+        {
+            rulesApplicable.add(rule);
+        }
+
         public void collectOptimizerInformation()
         {
             rulesTriggered.forEach(x -> session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(x, true, Optional.empty())));
+            rulesApplicable.forEach(x -> session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(x, false, Optional.of(true))));
         }
     }
 }

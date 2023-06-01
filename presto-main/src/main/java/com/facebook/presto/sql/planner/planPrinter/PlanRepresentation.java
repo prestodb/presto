@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.sql.planner.planPrinter;
 
+import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.TypeProvider;
 import io.airlift.units.Duration;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -32,13 +34,15 @@ class PlanRepresentation
     private final TypeProvider types;
 
     private final Map<PlanNodeId, NodeRepresentation> nodeInfo = new HashMap<>();
+    private final List<PlanOptimizerInformation> planOptimizerInfo;
 
-    public PlanRepresentation(PlanNode root, TypeProvider types, Optional<Duration> totalCpuTime, Optional<Duration> totalScheduledTime)
+    public PlanRepresentation(PlanNode root, TypeProvider types, Optional<Duration> totalCpuTime, Optional<Duration> totalScheduledTime, List<PlanOptimizerInformation> planOptimizerInfo)
     {
         this.root = requireNonNull(root, "root is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
         this.types = requireNonNull(types, "types is null");
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
+        this.planOptimizerInfo = requireNonNull(planOptimizerInfo, "planOptimizerInfo is null");
     }
 
     public NodeRepresentation getRoot()
@@ -77,5 +81,10 @@ class PlanRepresentation
         if (previous != null) {
             throw new IllegalStateException(String.format("Duplicate node ID %s: %s vs. %s", node.getId(), previous.getName(), node.getName()));
         }
+    }
+
+    public List<PlanOptimizerInformation> getPlanOptimizerInfo()
+    {
+        return planOptimizerInfo;
     }
 }

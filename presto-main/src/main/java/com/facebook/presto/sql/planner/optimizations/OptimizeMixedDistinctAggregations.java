@@ -83,6 +83,7 @@ public class OptimizeMixedDistinctAggregations
 {
     private final Metadata metadata;
     private final StandardFunctionResolution functionResolution;
+    private boolean isEnabledForTesting;
 
     public OptimizeMixedDistinctAggregations(Metadata metadata)
     {
@@ -91,9 +92,21 @@ public class OptimizeMixedDistinctAggregations
     }
 
     @Override
+    public void setEnabledForTesting(boolean isSet)
+    {
+        isEnabledForTesting = isSet;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isEnabledForTesting || isOptimizeDistinctAggregationEnabled(session);
+    }
+
+    @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        if (isOptimizeDistinctAggregationEnabled(session)) {
+        if (isEnabled(session)) {
             return SimplePlanRewriter.rewriteWith(new Optimizer(idAllocator, variableAllocator, metadata, functionResolution), plan, Optional.empty());
         }
 
