@@ -42,6 +42,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.apache.iceberg.AppendFiles;
+import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -63,6 +64,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
 import static com.facebook.presto.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
+import static com.facebook.presto.iceberg.IcebergTableProperties.FORMAT_VERSION;
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
@@ -282,6 +284,10 @@ public abstract class IcebergAbstractMetadata
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         properties.put(FILE_FORMAT_PROPERTY, getFileFormat(icebergTable));
+
+        int formatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
+        properties.put(FORMAT_VERSION, String.valueOf(formatVersion));
+
         if (!icebergTable.spec().fields().isEmpty()) {
             properties.put(PARTITIONING_PROPERTY, toPartitionFields(icebergTable.spec()));
         }
