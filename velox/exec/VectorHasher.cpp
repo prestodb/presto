@@ -837,4 +837,19 @@ std::string VectorHasher::toString() const {
   return out.str();
 }
 
+std::vector<std::unique_ptr<VectorHasher>> createVectorHashers(
+    const RowTypePtr& rowType,
+    const std::vector<core::FieldAccessTypedExprPtr>& keys) {
+  const auto numKeys = keys.size();
+
+  std::vector<std::unique_ptr<VectorHasher>> hashers;
+  hashers.reserve(numKeys);
+  for (const auto& key : keys) {
+    const auto channel = exprToChannel(key.get(), rowType);
+    hashers.push_back(VectorHasher::create(key->type(), channel));
+  }
+
+  return hashers;
+}
+
 } // namespace facebook::velox::exec

@@ -51,17 +51,9 @@ HashAggregation::HashAggregation(
 
   auto inputType = aggregationNode->sources()[0]->outputType();
 
-  auto numHashers = aggregationNode->groupingKeys().size();
-  std::vector<std::unique_ptr<VectorHasher>> hashers;
-  hashers.reserve(numHashers);
-  for (const auto& key : aggregationNode->groupingKeys()) {
-    auto channel = exprToChannel(key.get(), inputType);
-    VELOX_CHECK_NE(
-        channel,
-        kConstantChannel,
-        "Aggregation doesn't allow constant grouping keys");
-    hashers.push_back(VectorHasher::create(key->type(), channel));
-  }
+  auto hashers =
+      createVectorHashers(inputType, aggregationNode->groupingKeys());
+  auto numHashers = hashers.size();
 
   std::vector<column_index_t> preGroupedChannels;
   preGroupedChannels.reserve(aggregationNode->preGroupedKeys().size());

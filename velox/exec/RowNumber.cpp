@@ -34,19 +34,8 @@ RowNumber::RowNumber(
   const auto numKeys = keys.size();
 
   if (numKeys > 0) {
-    std::vector<std::unique_ptr<VectorHasher>> hashers;
-    hashers.reserve(numKeys);
-    for (const auto& key : keys) {
-      const auto channel = exprToChannel(key.get(), inputType);
-      VELOX_USER_CHECK_NE(
-          channel,
-          kConstantChannel,
-          "RowNumber operator doesn't allow constant partition keys");
-      hashers.push_back(VectorHasher::create(key->type(), channel));
-    }
-
     table_ = std::make_unique<HashTable<false>>(
-        std::move(hashers),
+        createVectorHashers(inputType, keys),
         std::vector<std::unique_ptr<Aggregate>>{},
         std::vector<TypePtr>{BIGINT()},
         false, // allowDuplicates

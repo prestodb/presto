@@ -702,6 +702,11 @@ bool VectorHasher::makeValueIdsDecoded<bool, false>(
     const SelectivityVector& rows,
     uint64_t* result);
 
+/// Creates VectorHasher instances for specified columns.
+std::vector<std::unique_ptr<VectorHasher>> createVectorHashers(
+    const RowTypePtr& rowType,
+    const std::vector<core::FieldAccessTypedExprPtr>& keys);
+
 } // namespace facebook::velox::exec
 
 #include "velox/exec/VectorHasher-inl.h"
