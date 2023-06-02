@@ -435,12 +435,12 @@ ExprPtr compileExpression(
       }
 
       if (signatures.empty()) {
-        VELOX_FAIL(
+        VELOX_USER_FAIL(
             "Scalar function name not registered: {}, called with arguments: ({}).",
             call->name(),
             folly::join(", ", inputTypes));
       } else {
-        VELOX_FAIL(
+        VELOX_USER_FAIL(
             "Scalar function {} not registered with arguments: ({}). "
             "Found function registered with the following signatures:\n{}",
             call->name(),
