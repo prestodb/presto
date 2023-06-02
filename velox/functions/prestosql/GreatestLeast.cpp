@@ -132,6 +132,10 @@ class ExtremeValueFunction : public exec::VectorFunction {
         applyTyped<TypeTraits<TypeKind::HUGEINT>::NativeType>(
             rows, args, outputType, context, result);
         return;
+      case TypeKind::REAL:
+        applyTyped<TypeTraits<TypeKind::REAL>::NativeType>(
+            rows, args, outputType, context, result);
+        return;
       case TypeKind::DOUBLE:
         applyTyped<TypeTraits<TypeKind::DOUBLE>::NativeType>(
             rows, args, outputType, context, result);
@@ -163,6 +167,7 @@ class ExtremeValueFunction : public exec::VectorFunction {
         "integer",
         "bigint",
         "double",
+        "real",
         "varchar",
         "timestamp",
         "date"};
@@ -193,7 +198,7 @@ VELOX_DECLARE_VECTOR_FUNCTION(
 
 VELOX_DECLARE_VECTOR_FUNCTION(
     udf_greatest,
-    GreatestFunction ::signatures(),
+    GreatestFunction::signatures(),
     std::make_unique<GreatestFunction>());
 
 } // namespace facebook::velox::functions
