@@ -67,7 +67,7 @@ void registerPrestoCppCounters() {
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterNumTasksFailed, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterNumZombieTasks, facebook::velox::StatType::AVG);
+      kCounterNumZombieVeloxTasks, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterNumZombiePrestoTasks, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
