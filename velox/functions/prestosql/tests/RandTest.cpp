@@ -31,8 +31,18 @@ class RandTest : public functions::test::FunctionBaseTest {
   }
 
   template <typename T>
+  std::optional<T> rand(T n) {
+    return evaluateOnce<T>("rand(c0)", std::make_optional(n));
+  }
+
+  template <typename T>
   std::optional<T> randomWithTry(T n) {
     return evaluateOnce<T>("try(random(c0))", std::make_optional(n));
+  }
+
+  template <typename T>
+  std::optional<T> randWithTry(T n) {
+    return evaluateOnce<T>("try(rand(c0))", std::make_optional(n));
   }
 };
 
@@ -40,21 +50,28 @@ TEST_F(RandTest, zeroArg) {
   auto result = evaluateOnce<double>("random()", makeRowVector(ROW({}), 1));
   EXPECT_LT(result, 1.0);
   EXPECT_GE(result, 0.0);
+
+  result = evaluateOnce<double>("rand()", makeRowVector(ROW({}), 1));
+  EXPECT_LT(result, 1.0);
+  EXPECT_GE(result, 0.0);
 }
 
 TEST_F(RandTest, negativeInt32) {
   VELOX_ASSERT_THROW(random(-5), "bound must be positive");
   ASSERT_EQ(randomWithTry(-5), std::nullopt);
+
+  VELOX_ASSERT_THROW(rand(-5), "bound must be positive");
+  ASSERT_EQ(randWithTry(-5), std::nullopt);
 }
 
 TEST_F(RandTest, nonNullInt64) {
-  auto result = random(346);
-  EXPECT_LT(result, 346);
+  EXPECT_LT(random(346), 346);
+  EXPECT_LT(rand(346), 346);
 }
 
 TEST_F(RandTest, nonNullInt8) {
-  auto result = random(4);
-  EXPECT_LT(result, 4);
+  EXPECT_LT(random(4), 4);
+  EXPECT_LT(rand(4), 4);
 }
 
 } // namespace
