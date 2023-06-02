@@ -1833,11 +1833,18 @@ TEST_F(DateTimeFunctionsTest, dateDiffDate) {
   EXPECT_EQ(std::nullopt, dateDiff("month", std::nullopt, Date(0)));
 
   // Check invalid units
-  EXPECT_THROW(dateDiff("millisecond", Date(1), Date(0)), VeloxUserError);
-  EXPECT_THROW(dateDiff("second", Date(1), Date(0)), VeloxUserError);
-  EXPECT_THROW(dateDiff("minute", Date(1), Date(0)), VeloxUserError);
-  EXPECT_THROW(dateDiff("hour", Date(1), Date(0)), VeloxUserError);
-  EXPECT_THROW(dateDiff("invalid_unit", Date(1), Date(0)), VeloxUserError);
+  VELOX_ASSERT_THROW(
+      dateDiff("millisecond", Date(1), Date(0)),
+      "millisecond is not a valid DATE field");
+  VELOX_ASSERT_THROW(
+      dateDiff("second", Date(1), Date(0)), "second is not a valid DATE field");
+  VELOX_ASSERT_THROW(
+      dateDiff("minute", Date(1), Date(0)), "minute is not a valid DATE field");
+  VELOX_ASSERT_THROW(
+      dateDiff("hour", Date(1), Date(0)), "hour is not a valid DATE field");
+  VELOX_ASSERT_THROW(
+      dateDiff("invalid_unit", Date(1), Date(0)),
+      "Unsupported datetime unit: invalid_unit");
 
   // Simple tests
   EXPECT_EQ(
@@ -1848,6 +1855,14 @@ TEST_F(DateTimeFunctionsTest, dateDiffDate) {
       4, dateDiff("quarter", parseDate("2019-02-28"), parseDate("2020-02-28")));
   EXPECT_EQ(
       1, dateDiff("year", parseDate("2019-02-28"), parseDate("2020-02-28")));
+
+  // Verify that units are not case sensitive.
+  EXPECT_EQ(
+      1, dateDiff("DAY", parseDate("2019-02-28"), parseDate("2019-03-01")));
+  EXPECT_EQ(
+      1, dateDiff("dAY", parseDate("2019-02-28"), parseDate("2019-03-01")));
+  EXPECT_EQ(
+      1, dateDiff("Day", parseDate("2019-02-28"), parseDate("2019-03-01")));
 
   // Account for the last day of a year-month
   EXPECT_EQ(

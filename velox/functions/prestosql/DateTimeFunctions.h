@@ -540,28 +540,30 @@ inline std::optional<DateTimeUnit> fromDateTimeUnitString(
   static const StringView kQuarter("quarter");
   static const StringView kYear("year");
 
-  if (unitString == kMillisecond) {
+  const auto unit = boost::algorithm::to_lower_copy(unitString.str());
+
+  if (unit == kMillisecond) {
     return DateTimeUnit::kMillisecond;
   }
-  if (unitString == kSecond) {
+  if (unit == kSecond) {
     return DateTimeUnit::kSecond;
   }
-  if (unitString == kMinute) {
+  if (unit == kMinute) {
     return DateTimeUnit::kMinute;
   }
-  if (unitString == kHour) {
+  if (unit == kHour) {
     return DateTimeUnit::kHour;
   }
-  if (unitString == kDay) {
+  if (unit == kDay) {
     return DateTimeUnit::kDay;
   }
-  if (unitString == kMonth) {
+  if (unit == kMonth) {
     return DateTimeUnit::kMonth;
   }
-  if (unitString == kQuarter) {
+  if (unit == kQuarter) {
     return DateTimeUnit::kQuarter;
   }
-  if (unitString == kYear) {
+  if (unit == kYear) {
     return DateTimeUnit::kYear;
   }
   // TODO Add support for "week".
