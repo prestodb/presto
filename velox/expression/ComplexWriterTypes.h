@@ -27,6 +27,7 @@
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
+#include "velox/core/Metaprogramming.h"
 #include "velox/expression/ComplexViewTypes.h"
 #include "velox/expression/UdfTypeResolver.h"
 #include "velox/type/Type.h"
@@ -224,7 +225,14 @@ class ArrayWriter {
     } else {
       for (const auto& item : data) {
         auto& writer = add_item();
-        writer.copy_from(item);
+        // Handle copy_from for opaque and opaque custom types.
+        using unwrapped_type = typename UnwrapCustomType<V>::type;
+        if constexpr (util::is_shared_ptr<unwrapped_type>::value) {
+          writer =
+              std::make_shared<typename unwrapped_type::element_type>(item);
+        } else {
+          writer.copy_from(item);
+        }
       }
     }
   }

@@ -18,10 +18,12 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 #include <cstdint>
+#include <memory>
 
 #include "velox/expression/VectorWriters.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/type/OpaqueCustomTypes.h"
 #include "velox/type/StringView.h"
 #include "velox/type/Type.h"
 
@@ -871,5 +873,146 @@ TEST_F(ArrayWriterTest, appendToElements) {
   ASSERT_EQ(arrayElements->size(), 6);
   ASSERT_EQ(arrayElements->asFlatVector<int32_t>()->valueAt(3), 4);
 }
+
+struct UDT {
+  bool operator==(const UDT& b) const {
+    return x == b.x;
+  }
+  int x;
+};
+
+TEST_F(ArrayWriterTest, copyFromArrayOfOpaque) {
+  using out_t = Array<std::shared_ptr<UDT>>;
+
+  auto result = prepareResult(CppToType<out_t>::create(), 1);
+  std::vector<UDT> data = {UDT{1}, UDT{2}, UDT{3}};
+
+  {
+    exec::VectorWriter<out_t> vectorWriter;
+    vectorWriter.init(*result->as<ArrayVector>());
+    vectorWriter.setOffset(0);
+
+    auto& arrayWriter = vectorWriter.current();
+    arrayWriter.copy_from(data);
+    vectorWriter.commit();
+    vectorWriter.finish();
+  }
+
+  DecodedVector decoded;
+  SelectivityVector rows(1);
+  decoded.decode(*result, rows);
+  exec::VectorReader<out_t> reader(&decoded);
+  auto arrayView = reader[0];
+
+  ASSERT_EQ(arrayView.size(), 3);
+  ASSERT_TRUE(arrayView[0].has_value());
+  ASSERT_TRUE(arrayView[1].has_value());
+  ASSERT_TRUE(arrayView[2].has_value());
+
+  ASSERT_EQ(*arrayView[0].value().get(), UDT{1});
+  ASSERT_EQ(*arrayView[1].value().get(), UDT{2});
+  ASSERT_EQ(*arrayView[2].value().get(), UDT{3});
+}
+
+struct UDT2 {
+  bool operator==(const UDT2& b) const {
+    return x == b.x;
+  }
+  int x;
+};
+
+constexpr char kName[] = "udt2";
+using UDT2TypeRegistrar = OpaqueCustomTypeRegister<UDT2, kName>;
+
+TEST_F(ArrayWriterTest, copyFromArrayOfOpaqueUDT) {
+  UDT2TypeRegistrar::registerType();
+
+  using out_t = Array<UDT2TypeRegistrar::SimpleType>;
+
+  auto result = prepareResult(CppToType<out_t>::create(), 1);
+  std::vector<UDT2> data = {UDT2{1}, UDT2{2}, UDT2{3}};
+
+  {
+    exec::VectorWriter<out_t> vectorWriter;
+    vectorWriter.init(*result->as<ArrayVector>());
+    vectorWriter.setOffset(0);
+
+    auto& arrayWriter = vectorWriter.current();
+    arrayWriter.copy_from(data);
+    vectorWriter.commit();
+    vectorWriter.finish();
+  }
+
+  DecodedVector decoded;
+  SelectivityVector rows(1);
+  decoded.decode(*result, rows);
+  exec::VectorReader<out_t> reader(&decoded);
+  auto arrayView = reader[0];
+
+  ASSERT_EQ(arrayView.size(), 3);
+  ASSERT_TRUE(arrayView[0].has_value());
+  ASSERT_TRUE(arrayView[1].has_value());
+  ASSERT_TRUE(arrayView[2].has_value());
+
+  ASSERT_EQ(*arrayView[0].value().get(), UDT2{1});
+  ASSERT_EQ(*arrayView[1].value().get(), UDT2{2});
+  ASSERT_EQ(*arrayView[2].value().get(), UDT2{3});
+}
+
+using copy_from_udt_t = Array<Array<UDT2TypeRegistrar::SimpleType>>;
+template <typename T>
+struct CopyFromArrayOfUDTFunc {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  void call(out_type<copy_from_udt_t>& out) {
+    std::vector<std::vector<UDT2>> data = {
+        {UDT2{1}, UDT2{2}, UDT2{3}}, {UDT2{4}}};
+    out.copy_from(data);
+  }
+};
+
+TEST_F(ArrayWriterTest, copyFromNestedArrayOfOpaqueUDT) {
+  UDT2TypeRegistrar::registerType();
+  registerFunction<CopyFromArrayOfUDTFunc, copy_from_udt_t>(
+      {"copy_udt2_array"});
+
+  auto result = evaluate(
+      "copy_udt2_array()",
+      makeRowVector({makeFlatVector<int64_t>({1, 2, 3, 4, 5})}));
+
+  DecodedVector decoded;
+  SelectivityVector rows(1);
+  decoded.decode(*result, rows);
+  exec::VectorReader<copy_from_udt_t> reader(&decoded);
+
+  for (int i = 0; i < 5; i++) {
+    auto arrayView = reader[i];
+    ASSERT_EQ(arrayView.size(), 2);
+    ASSERT_TRUE(arrayView[0].has_value());
+    ASSERT_TRUE(arrayView[1].has_value());
+
+    {
+      auto arrayViewInner = arrayView[0].value();
+      ASSERT_EQ(arrayViewInner.size(), 3);
+
+      ASSERT_TRUE(arrayViewInner[0].has_value());
+      ASSERT_TRUE(arrayViewInner[1].has_value());
+      ASSERT_TRUE(arrayViewInner[2].has_value());
+
+      ASSERT_EQ(*arrayViewInner[0].value().get(), UDT2{1});
+      ASSERT_EQ(*arrayViewInner[1].value().get(), UDT2{2});
+      ASSERT_EQ(*arrayViewInner[2].value().get(), UDT2{3});
+    }
+
+    {
+      auto arrayViewInner = arrayView[1].value();
+      ASSERT_EQ(arrayViewInner.size(), 1);
+
+      ASSERT_TRUE(arrayViewInner[0].has_value());
+      ASSERT_EQ(*arrayViewInner[0].value().get(), UDT2{4});
+    }
+  }
+}
+
 } // namespace
 } // namespace facebook::velox
