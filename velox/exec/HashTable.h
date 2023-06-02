@@ -123,6 +123,12 @@ class BaseHashTable {
 
   virtual HashStringAllocator* FOLLY_NULLABLE stringAllocator() = 0;
 
+  void prepareForProbe(
+      HashLookup& lookup,
+      const RowVectorPtr& input,
+      SelectivityVector& rows,
+      bool ignoreNullKeys);
+
   /// Finds or creates a group for each key in 'lookup'. The keys are
   /// returned in 'lookup.hits'.
   virtual void groupProbe(HashLookup& lookup) = 0;

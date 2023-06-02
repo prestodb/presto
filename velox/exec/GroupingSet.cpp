@@ -161,14 +161,9 @@ void GroupingSet::addInputForActiveRows(
     const RowVectorPtr& input,
     bool mayPushdown) {
   VELOX_CHECK(!isGlobal_);
-  bool rehash = false;
   if (!table_) {
-    rehash = true;
     createHashTable();
   }
-  auto& hashers = lookup_->hashers;
-  lookup_->reset(activeRows_.end());
-  auto mode = table_->hashMode();
   ensureInputFits(input);
 
   // Prevents the memory arbitrator to reclaim memory from this grouping set
@@ -179,42 +174,7 @@ void GroupingSet::addInputForActiveRows(
   auto guard = folly::makeGuard([this]() { *nonReclaimableSection_ = false; });
   *nonReclaimableSection_ = true;
 
-  for (auto i = 0; i < hashers.size(); ++i) {
-    auto key = input->childAt(hashers[i]->channel())->loadedVector();
-    hashers[i]->decode(*key, activeRows_);
-  }
-
-  if (ignoreNullKeys_) {
-    // A null in any of the keys disables the row.
-    deselectRowsWithNulls(hashers, activeRows_);
-  }
-
-  for (int32_t i = 0; i < hashers.size(); ++i) {
-    if (mode != BaseHashTable::HashMode::kHash) {
-      if (!hashers[i]->computeValueIds(activeRows_, lookup_->hashes)) {
-        rehash = true;
-      }
-    } else {
-      hashers[i]->hash(activeRows_, i > 0, lookup_->hashes);
-    }
-  }
-
-  if (rehash) {
-    if (table_->hashMode() != BaseHashTable::HashMode::kHash) {
-      table_->decideHashMode(input->size());
-    }
-    addInputForActiveRows(input, mayPushdown);
-    return;
-  }
-
-  if (activeRows_.isAllSelected()) {
-    std::iota(lookup_->rows.begin(), lookup_->rows.end(), 0);
-  } else {
-    lookup_->rows.clear();
-    activeRows_.applyToSelected(
-        [&](auto row) { lookup_->rows.push_back(row); });
-  }
-
+  table_->prepareForProbe(*lookup_, input, activeRows_, ignoreNullKeys_);
   table_->groupProbe(*lookup_);
   masks_.addInput(input, activeRows_);
 

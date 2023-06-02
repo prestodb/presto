@@ -21,6 +21,7 @@
 #include "velox/common/process/ProcessBase.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/exec/ContainerRowSerde.h"
+#include "velox/exec/OperatorUtils.h"
 #include "velox/vector/VectorTypeUtils.h"
 
 using facebook::velox::common::testutil::TestValue;
@@ -1735,5 +1736,55 @@ void HashTable<ignoreNullKeys>::checkConsistency() const {
 
 template class HashTable<true>;
 template class HashTable<false>;
+
+void BaseHashTable::prepareForProbe(
+    HashLookup& lookup,
+    const RowVectorPtr& input,
+    SelectivityVector& rows,
+    bool ignoreNullKeys) {
+  auto& hashers = lookup.hashers;
+
+  for (auto& hasher : hashers) {
+    auto key = input->childAt(hasher->channel())->loadedVector();
+    hasher->decode(*key, rows);
+  }
+
+  if (ignoreNullKeys) {
+    // A null in any of the keys disables the row.
+    deselectRowsWithNulls(hashers, rows);
+  }
+
+  lookup.reset(rows.end());
+
+  bool rehash = false;
+  const auto mode = hashMode();
+  for (auto i = 0; i < hashers.size(); ++i) {
+    auto& hasher = hashers[i];
+    if (mode != BaseHashTable::HashMode::kHash) {
+      if (!hasher->computeValueIds(rows, lookup.hashes)) {
+        rehash = true;
+      }
+    } else {
+      hasher->hash(rows, i > 0, lookup.hashes);
+    }
+  }
+
+  if (rehash || capacity() == 0) {
+    if (mode != BaseHashTable::HashMode::kHash) {
+      decideHashMode(input->size());
+      // Do not forward 'ignoreNullKeys' to avoid redundant evaluation of
+      // deselectRowsWithNulls.
+      prepareForProbe(lookup, input, rows, false);
+      return;
+    }
+  }
+
+  if (rows.isAllSelected()) {
+    std::iota(lookup.rows.begin(), lookup.rows.end(), 0);
+  } else {
+    lookup.rows.clear();
+    rows.applyToSelected([&](auto row) { lookup.rows.push_back(row); });
+  }
+}
 
 } // namespace facebook::velox::exec

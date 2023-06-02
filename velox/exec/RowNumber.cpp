@@ -72,37 +72,8 @@ void RowNumber::addInput(RowVectorPtr input) {
   const auto numInput = input->size();
 
   if (table_) {
-    auto& hashers = lookup_->hashers;
-    lookup_->reset(numInput);
-
     SelectivityVector rows(numInput);
-
-    for (auto i = 0; i < hashers.size(); ++i) {
-      auto key = input->childAt(hashers[i]->channel())->loadedVector();
-      hashers[i]->decode(*key, rows);
-    }
-
-    const auto mode = table_->hashMode();
-    bool rehash = false;
-    for (auto i = 0; i < hashers.size(); ++i) {
-      if (mode != BaseHashTable::HashMode::kHash) {
-        if (!hashers[i]->computeValueIds(rows, lookup_->hashes)) {
-          rehash = true;
-        }
-      } else {
-        hashers[i]->hash(rows, i > 0, lookup_->hashes);
-      }
-    }
-
-    if (rehash) {
-      if (table_->hashMode() != BaseHashTable::HashMode::kHash) {
-        table_->decideHashMode(input->size());
-      }
-      addInput(input);
-      return;
-    }
-
-    std::iota(lookup_->rows.begin(), lookup_->rows.end(), 0);
+    table_->prepareForProbe(*lookup_, input, rows, false);
     table_->groupProbe(*lookup_);
 
     // Initialize new partitions with zeros.
