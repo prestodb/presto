@@ -21,29 +21,36 @@
 
 namespace facebook::velox::aggregate::test {
 
-class AggregationFunctionRegTest : public testing::Test {};
+class AggregationFunctionRegTest : public testing::Test {
+ protected:
+  void clearAndCheckRegistry() {
+    exec::aggregateFunctions().withWLock([&](auto& functionsMap) {
+      functionsMap.clear();
+      EXPECT_EQ(0, functionsMap.size());
+    });
+  }
+};
 
 TEST_F(AggregationFunctionRegTest, prefix) {
   // Remove all functions and check for no entries.
-  exec::aggregateFunctions().clear();
-  EXPECT_EQ(0, exec::aggregateFunctions().size());
+  clearAndCheckRegistry();
 
   // Register without prefix and memorize function maps.
   aggregate::prestosql::registerAllAggregateFunctions();
-  const auto aggrFuncMapBase = exec::aggregateFunctions();
+  const auto aggrFuncMapBase = exec::aggregateFunctions().copy();
 
   // Remove all functions and check for no entries.
-  exec::aggregateFunctions().clear();
-  EXPECT_EQ(0, exec::aggregateFunctions().size());
+  clearAndCheckRegistry();
 
   // Register with prefix and check all functions have the prefix.
   const std::string prefix{"test.abc_schema."};
   aggregate::prestosql::registerAllAggregateFunctions(prefix);
-  auto& aggrFuncMap = exec::aggregateFunctions();
-  for (const auto& entry : aggrFuncMap) {
-    EXPECT_EQ(prefix, entry.first.substr(0, prefix.size()));
-    EXPECT_EQ(1, aggrFuncMapBase.count(entry.first.substr(prefix.size())));
-  }
+  exec::aggregateFunctions().withRLock([&](const auto& aggrFuncMap) {
+    for (const auto& entry : aggrFuncMap) {
+      EXPECT_EQ(prefix, entry.first.substr(0, prefix.size()));
+      EXPECT_EQ(1, aggrFuncMapBase.count(entry.first.substr(prefix.size())));
+    }
+  });
 }
 
 } // namespace facebook::velox::aggregate::test

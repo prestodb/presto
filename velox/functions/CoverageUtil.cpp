@@ -296,29 +296,30 @@ std::vector<std::string> getSortedScalarNames() {
 /// Returns alphabetically sorted list of aggregate functions available in
 /// Velox.
 std::vector<std::string> getSortedAggregateNames() {
-  const auto& functions = exec::aggregateFunctions();
-
   std::vector<std::string> names;
-  names.reserve(functions.size());
-  for (const auto& entry : functions) {
-    names.push_back(entry.first);
-  }
+  exec::aggregateFunctions().withRLock([&](const auto& functions) {
+    names.reserve(functions.size());
+    for (const auto& entry : functions) {
+      names.push_back(entry.first);
+    }
+  });
   std::sort(names.begin(), names.end());
   return names;
 }
 
 /// Returns alphabetically sorted list of window functions available in Velox.
 std::vector<std::string> getSortedWindowNames() {
-  const auto& aggregateFunctions = exec::aggregateFunctions();
   const auto& functions = exec::windowFunctions();
 
   std::vector<std::string> names;
   names.reserve(functions.size());
-  for (const auto& entry : functions) {
-    if (aggregateFunctions.count(entry.first) == 0) {
-      names.emplace_back(entry.first);
+  exec::aggregateFunctions().withRLock([&](const auto& aggregateFunctions) {
+    for (const auto& entry : functions) {
+      if (aggregateFunctions.count(entry.first) == 0) {
+        names.emplace_back(entry.first);
+      }
     }
-  }
+  });
   std::sort(names.begin(), names.end());
   return names;
 }
@@ -339,19 +340,20 @@ void printCoverageMap(
   }
 
   std::unordered_set<std::string> veloxAggNames;
-
-  const auto& veloxAggregateFunctions = exec::aggregateFunctions();
-  for (const auto& entry : veloxAggregateFunctions) {
-    veloxAggNames.emplace(entry.first);
-  }
-
   std::unordered_set<std::string> veloxWindowNames;
   const auto& veloxWindowFunctions = exec::windowFunctions();
-  for (const auto& entry : veloxWindowFunctions) {
-    if (veloxAggregateFunctions.count(entry.first) == 0) {
-      veloxWindowNames.emplace(entry.first);
-    }
-  }
+
+  exec::aggregateFunctions().withRLock(
+      [&](const auto& veloxAggregateFunctions) {
+        for (const auto& entry : veloxAggregateFunctions) {
+          veloxAggNames.emplace(entry.first);
+        }
+        for (const auto& entry : veloxWindowFunctions) {
+          if (veloxAggregateFunctions.count(entry.first) == 0) {
+            veloxWindowNames.emplace(entry.first);
+          }
+        }
+      });
 
   printCoverageMap(
       scalarNames,

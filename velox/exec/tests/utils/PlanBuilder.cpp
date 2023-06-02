@@ -309,10 +309,12 @@ namespace {
 std::string throwAggregateFunctionDoesntExist(const std::string& name) {
   std::stringstream error;
   error << "Aggregate function doesn't exist: " << name << ".";
-  if (exec::aggregateFunctions().empty()) {
-    error << " Registry of aggregate functions is empty. "
-             "Make sure to register some aggregate functions.";
-  }
+  exec::aggregateFunctions().withRLock([&](const auto& functionsMap) {
+    if (functionsMap.empty()) {
+      error << " Registry of aggregate functions is empty. "
+               "Make sure to register some aggregate functions.";
+    }
+  });
   VELOX_USER_FAIL(error.str());
 }
 

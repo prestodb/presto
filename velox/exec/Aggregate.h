@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include <folly/Synchronized.h>
+
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/core/PlanNode.h"
 #include "velox/expression/FunctionSignature.h"
@@ -365,21 +367,20 @@ bool registerAggregateFunction(
 std::optional<std::vector<std::shared_ptr<AggregateFunctionSignature>>>
 getAggregateFunctionSignatures(const std::string& name);
 
-using AggregateFunctionSignatureMap = std::unordered_map<
-    std::string,
-    std::vector<std::shared_ptr<AggregateFunctionSignature>>>;
+using AggregateFunctionSignatureMap =
+    std::unordered_map<std::string, std::vector<AggregateFunctionSignaturePtr>>;
 
 /// Returns a mapping of all Aggregate functions in registry.
 /// The mapping is function name -> list of function signatures.
 AggregateFunctionSignatureMap getAggregateFunctionSignatures();
 
 struct AggregateFunctionEntry {
-  std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures;
+  std::vector<AggregateFunctionSignaturePtr> signatures;
   AggregateFunctionFactory factory;
 };
 
-using AggregateFunctionMap =
-    std::unordered_map<std::string, AggregateFunctionEntry>;
+using AggregateFunctionMap = folly::Synchronized<
+    std::unordered_map<std::string, AggregateFunctionEntry>>;
 
 AggregateFunctionMap& aggregateFunctions();
 

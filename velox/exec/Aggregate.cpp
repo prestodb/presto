@@ -43,12 +43,14 @@ const AggregateFunctionEntry* FOLLY_NULLABLE
 getAggregateFunctionEntry(const std::string& name) {
   auto sanitizedName = sanitizeName(name);
 
-  auto& functionsMap = aggregateFunctions();
-  auto it = functionsMap.find(sanitizedName);
-  if (it != functionsMap.end()) {
-    return &it->second;
-  }
-  return nullptr;
+  return aggregateFunctions().withRLock(
+      [&](const auto& functionsMap) -> const AggregateFunctionEntry* {
+        auto it = functionsMap.find(sanitizedName);
+        if (it != functionsMap.end()) {
+          return &it->second;
+        }
+        return nullptr;
+      });
 }
 
 bool registerAggregateFunction(
@@ -58,7 +60,9 @@ bool registerAggregateFunction(
     bool registerCompanionFunctions) {
   auto sanitizedName = sanitizeName(name);
 
-  aggregateFunctions()[sanitizedName] = {signatures, std::move(factory)};
+  aggregateFunctions().withWLock([&](auto& aggregationFunctionMap) {
+    aggregationFunctionMap[sanitizedName] = {signatures, std::move(factory)};
+  });
 
   // Register the aggregate as a window function also.
   registerAggregateWindowFunction(sanitizedName);
@@ -81,10 +85,12 @@ getAggregateFunctionSignatures() {
       std::string,
       std::vector<std::shared_ptr<AggregateFunctionSignature>>>
       map;
-  auto aggregateFunctions = exec::aggregateFunctions();
-  for (const auto& aggregateFunction : aggregateFunctions) {
-    map[aggregateFunction.first] = aggregateFunction.second.signatures;
-  }
+  exec::aggregateFunctions().withRLock([&](const auto& aggregateFunctions) {
+    for (const auto& aggregateFunction : aggregateFunctions) {
+      map[aggregateFunction.first] = aggregateFunction.second.signatures;
+    }
+  });
+
   return map;
 }
 
