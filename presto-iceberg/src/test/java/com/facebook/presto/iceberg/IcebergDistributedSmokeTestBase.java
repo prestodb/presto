@@ -84,23 +84,24 @@ public class IcebergDistributedSmokeTestBase
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
         Assert.assertEquals(actualColumns, expectedColumns);
     }
-
+    @Test
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .isEqualTo("CREATE TABLE iceberg.tpch.orders (\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderstatus varchar,\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate date,\n" +
-                        "   orderpriority varchar,\n" +
-                        "   clerk varchar,\n" +
-                        "   shippriority integer,\n" +
-                        "   comment varchar\n" +
+                        "   \"orderkey\" bigint,\n" +
+                        "   \"custkey\" bigint,\n" +
+                        "   \"orderstatus\" varchar,\n" +
+                        "   \"totalprice\" double,\n" +
+                        "   \"orderdate\" date,\n" +
+                        "   \"orderpriority\" varchar,\n" +
+                        "   \"clerk\" varchar,\n" +
+                        "   \"shippriority\" integer,\n" +
+                        "   \"comment\" varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'ORC'\n" +
+                        "   format = 'PARQUET',\n" +
+                        "   format_version = '1'\n" +
                         ")");
     }
 
@@ -348,6 +349,7 @@ public class IcebergDistributedSmokeTestBase
                         ")\n" +
                         "WITH (\n" +
                         "   format = '" + fileFormat + "',\n" +
+                        "   format_version = '1',\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
                         ")",
                 getSession().getCatalog().get(),
@@ -389,7 +391,8 @@ public class IcebergDistributedSmokeTestBase
                 ")\n" +
                 "COMMENT '%s'\n" +
                 "WITH (\n" +
-                "   format = 'ORC'\n" +
+                "   format = 'ORC',\n" +
+                "   format_version = '1'\n" +
                 ")";
         String createTableSql = format(createTableTemplate, "test table comment");
         assertUpdate(createTableSql);
@@ -474,6 +477,7 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, "CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = 'PARQUET', partitioning = ARRAY['aDate'])");
         assertEquals(getTablePropertiesString("test_create_table_like_original"), "WITH (\n" +
                 "   format = 'PARQUET',\n" +
+                "   format_version = '1',\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")");
 
@@ -484,19 +488,22 @@ public class IcebergDistributedSmokeTestBase
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy1 (LIKE test_create_table_like_original)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy1"), "WITH (\n" +
-                "   format = 'PARQUET'\n" +
+                "   format = 'PARQUET',\n" +
+                "   format_version = '1'\n" +
                 ")");
         dropTable(session, "test_create_table_like_copy1");
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy2"), "WITH (\n" +
-                "   format = 'PARQUET'\n" +
+                "   format = 'PARQUET',\n" +
+                "   format_version = '1'\n" +
                 ")");
         dropTable(session, "test_create_table_like_copy2");
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy3"), "WITH (\n" +
                 "   format = 'PARQUET',\n" +
+                "   format_version = '1',\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")");
         dropTable(session, "test_create_table_like_copy3");
@@ -504,11 +511,59 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = 'ORC')");
         assertEquals(getTablePropertiesString("test_create_table_like_copy4"), "WITH (\n" +
                 "   format = 'ORC',\n" +
+                "   format_version = '1',\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")");
         dropTable(session, "test_create_table_like_copy4");
 
         dropTable(session, "test_create_table_like_original");
+    }
+
+    @Test
+    public void testCreateTableWithFormatVersion()
+    {
+        testWithAllFormatVersions(this::testCreateTableWithFormatVersion);
+    }
+
+    private void testCreateTableWithFormatVersion(Session session, String formatVersion)
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_create_table_with_format_version " +
+                "WITH (" +
+                "format = 'PARQUET', " +
+                "format_version = '" + formatVersion + "'" +
+                ") " +
+                "AS " +
+                "SELECT orderkey AS order_key, shippriority AS ship_priority, orderstatus AS order_status " +
+                "FROM tpch.tiny.orders";
+
+        assertUpdate(session, createTable, "SELECT count(*) from orders");
+
+        String createTableSql = format("" +
+                        "CREATE TABLE %s.%s.%s (\n" +
+                        "   \"order_key\" bigint,\n" +
+                        "   \"ship_priority\" integer,\n" +
+                        "   \"order_status\" varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'PARQUET',\n" +
+                        "   format_version = '%s'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                "test_create_table_with_format_version",
+                formatVersion);
+
+        MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_create_table_with_format_version");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+
+        dropTable(session, "test_create_table_with_format_version");
+    }
+
+    private void testWithAllFormatVersions(BiConsumer<Session, String> test)
+    {
+        test.accept(getSession(), "1");
+        test.accept(getSession(), "2");
     }
 
     private String getTablePropertiesString(String tableName)
