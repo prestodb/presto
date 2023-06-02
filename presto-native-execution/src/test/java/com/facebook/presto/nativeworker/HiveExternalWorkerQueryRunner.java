@@ -15,17 +15,25 @@ package com.facebook.presto.nativeworker;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 
 public class HiveExternalWorkerQueryRunner
 {
     private HiveExternalWorkerQueryRunner() {}
+
     public static void main(String[] args)
             throws Exception
     {
-        // You need to add "--user user" to your CLI for your queries to work
+        // You need to add "--user user" to your CLI for your queries to work.
         Logging.initialize();
 
+        // Create tables before launching distributed runner.
+        QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
+        NativeQueryRunnerUtils.createAllTables(javaQueryRunner);
+        javaQueryRunner.close();
+
+        // Launch distributed runner.
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createQueryRunner();
         Thread.sleep(10);
         Logger log = Logger.get(DistributedQueryRunner.class);

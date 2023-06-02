@@ -45,6 +45,28 @@ public class NativeQueryRunnerUtils
                 .build();
     }
 
+    /**
+     * Creates all tables for local testing, except for bench tables.
+     * @param queryRunner
+     */
+    public static void createAllTables(QueryRunner queryRunner)
+    {
+        createLineitem(queryRunner);
+        createOrders(queryRunner);
+        createOrdersEx(queryRunner);
+        createOrdersHll(queryRunner);
+        createNation(queryRunner);
+        createPartitionedNation(queryRunner);
+        createBucketedCustomer(queryRunner);
+        createCustomer(queryRunner);
+        createPart(queryRunner);
+        createPartSupp(queryRunner);
+        createRegion(queryRunner);
+        createSupplier(queryRunner);
+        createEmptyTable(queryRunner);
+        createBucketedLineitemAndOrders(queryRunner);
+    }
+
     public static void createLineitem(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "lineitem")) {
