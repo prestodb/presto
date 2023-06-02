@@ -15,10 +15,8 @@
  */
 
 #include <gflags/gflags.h>
-#include "velox/exec/Aggregate.h"
-#include "velox/exec/WindowFunction.h"
+
 #include "velox/functions/CoverageUtil.h"
-#include "velox/functions/FunctionRegistry.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"

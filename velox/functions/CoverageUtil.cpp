@@ -156,8 +156,8 @@ int maxLength(const std::vector<std::string>& names) {
 
 /// Prints out CSS rules to
 /// - add lightblue background to table header;
-/// - add lightblue background to an empty column that separates scalar and
-/// aggregate functions;
+/// - add lightblue background to an empty column that separates scalar,
+/// aggregate, and window functions;
 /// - highlight cells identified by TableCellTracker.
 void printTableCss(
     size_t numScalarColumns,
