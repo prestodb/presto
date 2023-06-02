@@ -18,9 +18,47 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedCustomer;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedLineitemAndOrders;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createCustomer;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createEmptyTable;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersHll;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPart;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPartSupp;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPartitionedNation;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPrestoBenchTables;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupplier;
+
 public class TestPrestoSparkNativeSimpleQueries
         extends AbstractTestQueryFramework
 {
+    @Override
+    protected void createTables()
+    {
+        QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
+        createLineitem(queryRunner);
+        createOrders(queryRunner);
+        createOrdersHll(queryRunner);
+        createOrdersEx(queryRunner);
+        createNation(queryRunner);
+        createRegion(queryRunner);
+        createPartitionedNation(queryRunner);
+        createBucketedCustomer(queryRunner);
+        createCustomer(queryRunner);
+        createPart(queryRunner);
+        createPartSupp(queryRunner);
+        createRegion(queryRunner);
+        createSupplier(queryRunner);
+        createEmptyTable(queryRunner);
+        createPrestoBenchTables(queryRunner);
+        createBucketedLineitemAndOrders(queryRunner);
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
     {
