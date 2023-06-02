@@ -1267,6 +1267,10 @@ std::shared_ptr<const OpaqueType> OPAQUE() {
         return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::BIGINT>(    \
             __VA_ARGS__);                                                \
       }                                                                  \
+      case ::facebook::velox::TypeKind::HUGEINT: {                       \
+        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::HUGEINT>(   \
+            __VA_ARGS__);                                                \
+      }                                                                  \
       case ::facebook::velox::TypeKind::REAL: {                          \
         return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::REAL>(      \
             __VA_ARGS__);                                                \
@@ -1754,6 +1758,9 @@ struct SimpleTypeTrait<CustomType<T>>
   // This is different than the physical type name.
   static constexpr char* name = T::typeName;
 };
+
+template <>
+struct SimpleTypeTrait<UnknownValue> : public TypeTraits<TypeKind::UNKNOWN> {};
 
 // TODO: move cppToType testing utilities.
 template <typename T>

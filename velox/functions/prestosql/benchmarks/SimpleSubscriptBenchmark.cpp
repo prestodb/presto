@@ -166,6 +166,9 @@ class SimpleSubscriptBenchmark : public functions::test::FunctionBenchmarkBase {
     testArraySubscript(ARRAY(INTEGER()));
     testArraySubscript(ARRAY(ARRAY(INTEGER())));
     testArraySubscript(MAP(INTEGER(), INTEGER()));
+    testArraySubscript(MAP(VARCHAR(), INTEGER()));
+    testArraySubscript(MAP(INTEGER(), ARRAY(BIGINT())));
+    testArraySubscript(MAP(ARRAY(INTEGER()), BIGINT()));
   }
 
  private:
@@ -260,8 +263,41 @@ BENCHMARK(ArraySubscriptSimple_ArrayString) {
 BENCHMARK(ArraySubscript_NestedArrayString) {
   benchmark->run("subscript(c0, c1)", ARRAY(VARCHAR()));
 }
+
 BENCHMARK(ArraySubscriptSimple_NestedArrayString) {
   benchmark->run("subscript_simple(c0, c1)", ARRAY(VARCHAR()));
+}
+
+BENCHMARK(ArraySubscriptSimple_MapIntInt) {
+  benchmark->run("subscript_simple(c0, c1)", MAP(BIGINT(), BIGINT()));
+}
+
+BENCHMARK(ArraySubscript_MapIntInt) {
+  benchmark->run("subscript(c0, c1)", MAP(BIGINT(), BIGINT()));
+}
+
+BENCHMARK(ArraySubscriptSimple_MapStringInt) {
+  benchmark->run("subscript_simple(c0, c1)", MAP(VARCHAR(), BIGINT()));
+}
+
+BENCHMARK(ArraySubscript_MapStringInt) {
+  benchmark->run("subscript(c0, c1)", MAP(VARCHAR(), BIGINT()));
+}
+
+BENCHMARK(ArraySubscriptSimple_MapIntArray) {
+  benchmark->run("subscript_simple(c0, c1)", MAP(BIGINT(), ARRAY(BIGINT())));
+}
+
+BENCHMARK(ArraySubscript_MapIntArray) {
+  benchmark->run("subscript(c0, c1)", MAP(BIGINT(), ARRAY(BIGINT())));
+}
+
+BENCHMARK(ArraySubscriptSimple_MapArrayInt) {
+  benchmark->run("subscript_simple(c0, c1)", MAP(ARRAY(BIGINT()), BIGINT()));
+}
+
+BENCHMARK(ArraySubscript_MapArrayInt) {
+  benchmark->run("subscript(c0, c1)", MAP(ARRAY(BIGINT()), BIGINT()));
 }
 
 int main(int argc, char** argv) {
