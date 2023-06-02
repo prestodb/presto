@@ -52,7 +52,7 @@ def parse_args() -> Tuple[str, str, str, float]:
         "--merge-commit-message",
         type=str,
         required=True,
-        help="If the condender commit is a merge-commit, its message. If not, an empty "
+        help="If the contender commit is a merge-commit, its message. If not, an empty "
         "string.",
     )
     parser.add_argument(
@@ -109,14 +109,27 @@ def main(
     z_score_threshold: float,
 ):
     log.setLevel("DEBUG")
+
+    if merge_commit_message:
+        # Compare against the parent commit of the merge-commit
+        baseline_run_type = steps.BaselineRunCandidates.parent
+    else:
+        # Compare against the default-branch commit from which the PR was forked
+        baseline_run_type = steps.BaselineRunCandidates.fork_point
+
     pipeline_steps = [
         steps.GetConbenchZComparisonStep(
-            commit_hash=contender_sha, z_score_threshold=z_score_threshold
+            commit_hash=contender_sha,
+            baseline_run_type=baseline_run_type,
+            z_score_threshold=z_score_threshold,
+            step_name="z_comparison",
         ),
-        steps.GitHubCheckStep(repo=repo),
+        steps.GitHubCheckStep(
+            commit_hash=contender_sha, comparison_step_name="z_comparison", repo=repo
+        ),
     ]
 
-    # Only post a comment if this arg is non-empty (i.e. on merge-commits)
+    # Only post a comment on merge-commits
     if merge_commit_message:
         pr_number = _merge_commit_pr_number(merge_commit_message)
         pipeline_steps.append(

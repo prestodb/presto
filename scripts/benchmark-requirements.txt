@@ -12,6 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-benchadapt@git+https://github.com/conbench/conbench.git@16d0243#subdirectory=benchadapt/python
-benchalerts@git+https://github.com/conbench/conbench.git@16d0243#subdirectory=benchalerts
-benchclients@git+https://github.com/conbench/conbench.git@16d0243#subdirectory=benchclients/python
+benchadapt@git+https://github.com/conbench/conbench.git@86b8b12#subdirectory=benchadapt/python
+benchalerts@git+https://github.com/conbench/conbench.git@86b8b12#subdirectory=benchalerts
+benchclients@git+https://github.com/conbench/conbench.git@86b8b12#subdirectory=benchclients/python
