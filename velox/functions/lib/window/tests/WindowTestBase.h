@@ -142,6 +142,18 @@ class WindowTestBase : public exec::test::OperatorTestBase {
       vector_size_t size,
       float nullRatio);
 
+  struct QueryInfo {
+    core::PlanNodePtr planNode;
+    std::string functionSql;
+    std::string querySql;
+  };
+
+  QueryInfo buildWindowQuery(
+      const std::vector<RowVectorPtr>& input,
+      const std::string& function,
+      const std::string& overClause,
+      const std::string& frameClause);
+
   /// This function tests SQL queries for the window function and
   /// the specified overClauses and frameClauses with the input RowVectors.
   /// Note : 'function' should be a full window function invocation string

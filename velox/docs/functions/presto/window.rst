@@ -130,6 +130,20 @@ Returns the value at the specified offset from the beginning of the window. Offs
 can be any scalar expression. If the offset is null or greater than the number of values in the window, null is
 returned. It is an error for the offset to be zero or negative.
 
+.. function:: lag(x[, offset [, default_value]]) -> [same as input]
+
+Returns the value at ``offset`` rows before the current row in the partition. If
+there is no such row, the ``default_value`` is returned, or if it is not
+specified ``null`` is returned. Offsets start at ``0``, which is the current
+row. The default ``offset`` is ``1``.
+
+.. function:: lead(x[, offset [, default_value]]) -> [same as input]
+
+Returns the value at ``offset`` rows after the current row in the partition. If
+there is no such row, the ``default_value`` is returned, or if it is not
+specified ``null`` is returned. Offsets start at ``0``, which is the current
+row. The default ``offset`` is ``1``.
+
 Aggregate functions
 ___________________
 
