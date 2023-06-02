@@ -830,6 +830,13 @@ public final class SqlToRowExpressionTranslator
             RowExpression first = process(node.getFirst(), context);
             RowExpression second = process(node.getSecond(), context);
 
+            if (!second.getType().equals(first.getType())) {
+                second = call(
+                        getSourceLocation(node),
+                        CAST.name(),
+                        functionAndTypeResolver.lookupCast(CAST.name(), second.getType(), first.getType()),
+                        first.getType(), second);
+            }
             return specialForm(getSourceLocation(node), NULL_IF, getType(node), first, second);
         }
 

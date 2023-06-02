@@ -48,10 +48,6 @@ public class TestPrestoSparkNativeGeneralQueries
 
     @Override
     @Ignore
-    public void testCast() {}
-
-    @Override
-    @Ignore
     public void testCatalogWithCacheEnabled() {}
 
     @Override

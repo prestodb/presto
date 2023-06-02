@@ -244,6 +244,11 @@ public abstract class AbstractTestNativeGeneralQueries
     @Test
     public void testCast()
     {
+        assertQuery("SELECT NULLIF(totalprice, 0) FROM (SELECT SUM(extendedprice) AS totalprice FROM lineitem WHERE shipdate >= '1995-09-01')");
+        assertQuery("SELECT NULLIF(totalprice, 0.5) FROM (SELECT SUM(extendedprice) AS totalprice FROM lineitem WHERE shipdate >= '1995-09-01')");
+        assertQuery("SELECT NULLIF(totalprice, 0) FROM (SELECT SUM(extendedprice) AS totalprice FROM lineitem WHERE shipdate >= '9999-99-99')");
+        assertQuery("SELECT NULLIF(totalprice, 0) FROM (SELECT COUNT(1) AS totalprice FROM lineitem WHERE shipdate >= '1995-09-01')");
+        assertQuery("SELECT NULLIF(totalprice, 0.5) FROM (SELECT COUNT(1) AS totalprice FROM lineitem WHERE shipdate >= '9999-99-99')");
         assertQuery("SELECT CAST(linenumber as TINYINT), CAST(linenumber AS SMALLINT), "
                 + "CAST(linenumber AS INTEGER), CAST(linenumber AS BIGINT), CAST(quantity AS REAL), "
                 + "CAST(orderkey AS DOUBLE), CAST(orderkey AS VARCHAR) FROM lineitem");
