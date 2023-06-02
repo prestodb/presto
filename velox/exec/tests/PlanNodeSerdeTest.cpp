@@ -91,14 +91,27 @@ TEST_F(PlanNodeSerdeTest, nestedLoopJoin) {
       });
 
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  auto plan =
-      PlanBuilder(planNodeIdGenerator)
-          .values({left})
-          .nestedLoopJoin(
-              PlanBuilder(planNodeIdGenerator).values({right}).planNode(),
-              {"t0", "u1", "t2", "t1"})
-          .planNode();
-  testSerde(plan);
+  {
+    auto plan =
+        PlanBuilder(planNodeIdGenerator)
+            .values({left})
+            .nestedLoopJoin(
+                PlanBuilder(planNodeIdGenerator).values({right}).planNode(),
+                {"t0", "u1", "t2", "t1"})
+            .planNode();
+    testSerde(plan);
+  }
+  {
+    auto plan =
+        PlanBuilder(planNodeIdGenerator)
+            .values({left})
+            .nestedLoopJoin(
+                PlanBuilder(planNodeIdGenerator).values({right}).planNode(),
+                "t0 < u0",
+                {"t0", "u1", "t2", "t1"})
+            .planNode();
+    testSerde(plan);
+  }
 }
 
 TEST_F(PlanNodeSerdeTest, enforceSingleRow) {

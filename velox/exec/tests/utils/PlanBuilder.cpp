@@ -956,11 +956,29 @@ PlanBuilder& PlanBuilder::mergeJoin(
 PlanBuilder& PlanBuilder::nestedLoopJoin(
     const core::PlanNodePtr& right,
     const std::vector<std::string>& outputLayout) {
+  return nestedLoopJoin(right, "", outputLayout, core::JoinType::kInner);
+}
+
+PlanBuilder& PlanBuilder::nestedLoopJoin(
+    const core::PlanNodePtr& right,
+    const std::string& joinCondition,
+    const std::vector<std::string>& outputLayout,
+    core::JoinType joinType) {
   auto resultType = concat(planNode_->outputType(), right->outputType());
   auto outputType = extract(resultType, outputLayout);
 
+  core::TypedExprPtr joinConditionExpr{};
+  if (!joinCondition.empty()) {
+    joinConditionExpr = parseExpr(joinCondition, resultType, options_, pool_);
+  }
+
   planNode_ = std::make_shared<core::NestedLoopJoinNode>(
-      nextPlanNodeId(), std::move(planNode_), right, outputType);
+      nextPlanNodeId(),
+      joinType,
+      std::move(joinConditionExpr),
+      std::move(planNode_),
+      right,
+      outputType);
   return *this;
 }
 

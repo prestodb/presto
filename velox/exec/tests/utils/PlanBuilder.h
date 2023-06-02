@@ -619,6 +619,23 @@ class PlanBuilder {
       const std::vector<std::string>& outputLayout,
       core::JoinType joinType = core::JoinType::kInner);
 
+  /// Add a NestedLoopJoinNode to join two inputs using filter as join
+  /// condition to perform equal/non-equal join. Only supports inner/outer
+  /// joins.
+  ///
+  /// @param right Right-side input. Typically, to reduce memory usage, the
+  /// smaller input is placed on the right-side.
+  /// @param joinCondition SQL expression as the join condition. Can
+  /// use columns from both probe and build sides of the join.
+  /// @param outputLayout Output layout consisting of columns from probe and
+  /// build sides.
+  /// @param joinType Type of the join: inner, left, right, full.
+  PlanBuilder& nestedLoopJoin(
+      const core::PlanNodePtr& right,
+      const std::string& joinCondition,
+      const std::vector<std::string>& outputLayout,
+      core::JoinType joinType = core::JoinType::kInner);
+
   /// Add a NestedLoopJoinNode to produce a cross product of the inputs. First
   /// input comes from the preceding plan node. Second input is specified in
   /// 'right' parameter.

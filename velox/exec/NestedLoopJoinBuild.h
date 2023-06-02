@@ -22,12 +22,12 @@ namespace facebook::velox::exec {
 
 class NestedLoopJoinBridge : public JoinBridge {
  public:
-  void setData(std::vector<VectorPtr> buildVectors);
+  void setData(std::vector<RowVectorPtr> buildVectors);
 
-  std::optional<std::vector<VectorPtr>> dataOrFuture(ContinueFuture* future);
+  std::optional<std::vector<RowVectorPtr>> dataOrFuture(ContinueFuture* future);
 
  private:
-  std::optional<std::vector<VectorPtr>> buildVectors_;
+  std::optional<std::vector<RowVectorPtr>> buildVectors_;
 };
 
 class NestedLoopJoinBuild : public Operator {
@@ -59,7 +59,7 @@ class NestedLoopJoinBuild : public Operator {
   }
 
  private:
-  std::vector<VectorPtr> dataVectors_;
+  std::vector<RowVectorPtr> dataVectors_;
 
   // Future for synchronizing with other Drivers of the same pipeline. All build
   // Drivers must be completed before making data available for the probe side.

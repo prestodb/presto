@@ -863,9 +863,6 @@ NestedLoopJoinNode::NestedLoopJoinNode(
           core::isRightJoin(joinType_) || core::isFullJoin(joinType_),
       "{} unsupported, NestedLoopJoin only supports inner and outer join",
       joinTypeName(joinType_));
-  if (joinCondition_ != nullptr) {
-    VELOX_NYI("NestedLoopJoin does not support join condition.");
-  }
 
   auto leftType = sources_[0]->outputType();
   auto rightType = sources_[1]->outputType();
