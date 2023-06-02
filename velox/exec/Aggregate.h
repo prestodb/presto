@@ -54,12 +54,6 @@ class Aggregate {
     return 1;
   }
 
-  /// Return an alignment that satisfies both the accumulator alignment
-  /// requirement of this function and the alignment passed in.
-  int32_t combineAlignment(int32_t alignment) const {
-    return combineAlignmentInternal(alignment);
-  }
-
   // Return true if accumulator is allocated from external memory, e.g. memory
   // not managed by Velox.
   virtual bool accumulatorUsesExternalMemory() const {
@@ -246,11 +240,6 @@ class Aggregate {
       const std::vector<TypePtr>& argTypes);
 
  protected:
-  // The following internal function should not be overriden by any user-defined
-  // aggregation function. They shall only be overridden by
-  // AggregateCompanionAdapter.
-  virtual int32_t combineAlignmentInternal(int32_t otherAlignment) const;
-
   virtual void setAllocatorInternal(HashStringAllocator* allocator);
 
   virtual void setOffsetsInternal(

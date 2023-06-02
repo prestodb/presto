@@ -15,12 +15,12 @@
  */
 #pragma once
 
+#include "velox/exec/Aggregate.h"
 #include "velox/exec/AggregationMasks.h"
 #include "velox/exec/Operator.h"
 
 namespace facebook::velox::exec {
 
-class Aggregate;
 class RowContainer;
 
 class StreamingAggregation : public Operator {

@@ -39,11 +39,6 @@ int32_t AggregateCompanionFunctionBase::accumulatorAlignmentSize() const {
   return fn_->accumulatorAlignmentSize();
 }
 
-int32_t AggregateCompanionFunctionBase::combineAlignmentInternal(
-    int32_t otherAlignment) const {
-  return fn_->combineAlignment(otherAlignment);
-}
-
 bool AggregateCompanionFunctionBase::accumulatorUsesExternalMemory() const {
   return fn_->accumulatorUsesExternalMemory();
 }

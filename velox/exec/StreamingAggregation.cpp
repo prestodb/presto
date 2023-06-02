@@ -90,10 +90,16 @@ StreamingAggregation::StreamingAggregation(
 
   masks_ = std::make_unique<AggregationMasks>(std::move(maskChannels));
 
+  std::vector<Accumulator> accumulators;
+  accumulators.reserve(aggregates_.size());
+  for (auto& aggregate : aggregates_) {
+    accumulators.push_back(aggregate.get());
+  }
+
   rows_ = std::make_unique<RowContainer>(
       groupingKeyTypes,
       !aggregationNode->ignoreNullKeys(),
-      aggregates_,
+      accumulators,
       std::vector<TypePtr>{},
       false,
       false,
@@ -101,6 +107,17 @@ StreamingAggregation::StreamingAggregation(
       false,
       pool(),
       ContainerRowSerde::instance());
+
+  for (auto i = 0; i < aggregates_.size(); ++i) {
+    aggregates_[i]->setAllocator(&rows_->stringAllocator());
+
+    const auto rowColumn = rows_->columnAt(numKeys + i);
+    aggregates_[i]->setOffsets(
+        rowColumn.offset(),
+        rowColumn.nullByte(),
+        rowColumn.nullMask(),
+        rows_->rowSizeOffset());
+  }
 }
 
 void StreamingAggregation::close() {

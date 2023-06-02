@@ -57,11 +57,10 @@ class RowContainerTestBase : public testing::Test,
       const std::vector<TypePtr>& keyTypes,
       const std::vector<TypePtr>& dependentTypes,
       bool isJoinBuild = true) {
-    static const std::vector<std::unique_ptr<Aggregate>> kEmptyAggregates;
     return std::make_unique<RowContainer>(
         keyTypes,
         !isJoinBuild,
-        kEmptyAggregates,
+        std::vector<Accumulator>{},
         dependentTypes,
         isJoinBuild,
         isJoinBuild,

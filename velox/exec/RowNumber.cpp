@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include "velox/exec/RowNumber.h"
-#include "velox/exec/OperatorUtils.h"
 
 namespace facebook::velox::exec {
 
@@ -36,7 +35,7 @@ RowNumber::RowNumber(
   if (numKeys > 0) {
     table_ = std::make_unique<HashTable<false>>(
         createVectorHashers(inputType, keys),
-        std::vector<std::unique_ptr<Aggregate>>{},
+        std::vector<Accumulator>{},
         std::vector<TypePtr>{BIGINT()},
         false, // allowDuplicates
         false, // isJoinBuild

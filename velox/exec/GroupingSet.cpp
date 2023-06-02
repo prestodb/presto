@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/GroupingSet.h"
-#include "velox/exec/OperatorUtils.h"
+#include "velox/exec/Aggregate.h"
 #include "velox/exec/Task.h"
 
 namespace facebook::velox::exec {
@@ -217,14 +217,46 @@ void GroupingSet::addRemainingInput() {
   remainingInput_.reset();
 }
 
+namespace {
+std::vector<Accumulator> toAccumulators(
+    const std::vector<std::unique_ptr<Aggregate>>& aggregates) {
+  std::vector<Accumulator> accumulators;
+  accumulators.reserve(aggregates.size());
+  for (auto& aggregate : aggregates) {
+    accumulators.push_back(aggregate.get());
+  }
+
+  return accumulators;
+}
+
+void initializeAggregates(
+    const std::vector<std::unique_ptr<Aggregate>>& aggregates,
+    RowContainer& rows) {
+  const auto numKeys = rows.keyTypes().size();
+  for (auto i = 0; i < aggregates.size(); ++i) {
+    aggregates[i]->setAllocator(&rows.stringAllocator());
+
+    const auto rowColumn = rows.columnAt(numKeys + i);
+    aggregates[i]->setOffsets(
+        rowColumn.offset(),
+        rowColumn.nullByte(),
+        rowColumn.nullMask(),
+        rows.rowSizeOffset());
+  }
+}
+} // namespace
+
 void GroupingSet::createHashTable() {
   if (ignoreNullKeys_) {
     table_ = HashTable<true>::createForAggregation(
-        std::move(hashers_), aggregates_, &pool_);
+        std::move(hashers_), toAccumulators(aggregates_), &pool_);
   } else {
     table_ = HashTable<false>::createForAggregation(
-        std::move(hashers_), aggregates_, &pool_);
+        std::move(hashers_), toAccumulators(aggregates_), &pool_);
   }
+
+  initializeAggregates(aggregates_, *table_->rows());
+
   lookup_ = std::make_unique<HashLookup>(table_->hashers());
   if (!isAdaptive_ && table_->hashMode() != BaseHashTable::HashMode::kHash) {
     table_->forceGenericHashMode();
@@ -263,7 +295,8 @@ void GroupingSet::initializeGlobalAggregation() {
         rowSizeOffset);
     offset += aggregate->accumulatorFixedWidthSize();
     ++nullOffset;
-    alignment = aggregate->combineAlignment(alignment);
+    alignment = RowContainer::combineAlignments(
+        aggregate->accumulatorAlignmentSize(), alignment);
   }
 
   lookup_->hits[0] = rows_.allocateFixed(offset, alignment);
@@ -594,10 +627,11 @@ bool GroupingSet::getOutputWithSpill(
     for (auto& hasher : table_->hashers()) {
       keyTypes.push_back(hasher->type());
     }
+
     mergeRows_ = std::make_unique<RowContainer>(
         keyTypes,
         !ignoreNullKeys_,
-        aggregates_,
+        toAccumulators(aggregates_),
         std::vector<TypePtr>(),
         false,
         false,
@@ -605,6 +639,9 @@ bool GroupingSet::getOutputWithSpill(
         false,
         &pool_,
         ContainerRowSerde::instance());
+
+    initializeAggregates(aggregates_, *mergeRows_);
+
     // Take ownership of the rows and free the hash table. The table will not be
     // needed for producing spill output.
     rowsWhileReadingSpill_ = table_->moveRows();

@@ -19,6 +19,7 @@
 #include <random>
 #include "velox/common/file/FileSystems.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
+#include "velox/exec/Aggregate.h"
 #include "velox/exec/ContainerRowSerde.h"
 #include "velox/exec/VectorHasher.h"
 #include "velox/exec/tests/utils/RowContainerTestBase.h"
@@ -809,12 +810,12 @@ class AggregateWithAlignment : public Aggregate {
 };
 
 TEST_F(RowContainerTest, alignment) {
-  std::vector<std::unique_ptr<Aggregate>> aggregates;
-  aggregates.emplace_back(new AggregateWithAlignment(BIGINT(), 64));
+  AggregateWithAlignment aggregate(BIGINT(), 64);
+  std::vector<Accumulator> accumulators{Accumulator(&aggregate)};
   RowContainer data(
       {SMALLINT()},
       true,
-      aggregates,
+      accumulators,
       {},
       false,
       false,
@@ -923,11 +924,10 @@ TEST_F(RowContainerTest, partition) {
 }
 
 TEST_F(RowContainerTest, probedFlag) {
-  static const std::vector<std::unique_ptr<Aggregate>> kEmptyAggregates;
   auto rowContainer = std::make_unique<RowContainer>(
       std::vector<TypePtr>{BIGINT()}, // keyTypes
       true, // nullableKeys
-      kEmptyAggregates,
+      std::vector<Accumulator>{},
       std::vector<TypePtr>{BIGINT()}, // dependentTypes
       true, // hasNext
       true, // isJoinBuild

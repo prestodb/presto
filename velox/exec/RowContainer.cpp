@@ -16,6 +16,7 @@
 
 #include "velox/exec/RowContainer.h"
 
+#include "velox/exec/Aggregate.h"
 #include "velox/exec/ContainerRowSerde.h"
 #include "velox/exec/Operator.h"
 
@@ -46,10 +47,61 @@ setBit(char* bits, uint32_t idx) {
 }
 } // namespace
 
+Accumulator::Accumulator(Aggregate* aggregate)
+    : isFixedSize_{aggregate->isFixedSize()},
+      fixedSize_{aggregate->accumulatorFixedWidthSize()},
+      usesExternalMemory_{aggregate->accumulatorUsesExternalMemory()},
+      alignment_{aggregate->accumulatorAlignmentSize()},
+      destroyFunction_{[aggregate](folly::Range<char**> groups) {
+        aggregate->destroy(groups);
+      }},
+      aggregate_{aggregate} {
+  VELOX_CHECK_NOT_NULL(aggregate_);
+}
+
+Accumulator::Accumulator(
+    bool isFixedSize,
+    int32_t fixedSize,
+    bool usesExternalMemory,
+    int32_t alignment,
+    std::function<void(folly::Range<char**> groups)> destroyFunction)
+    : isFixedSize_{isFixedSize},
+      fixedSize_{fixedSize},
+      usesExternalMemory_{usesExternalMemory},
+      alignment_{alignment},
+      destroyFunction_{destroyFunction} {}
+
+bool Accumulator::isFixedSize() const {
+  return isFixedSize_;
+}
+
+int32_t Accumulator::fixedWidthSize() const {
+  return fixedSize_;
+}
+
+bool Accumulator::usesExternalMemory() const {
+  return usesExternalMemory_;
+}
+
+int32_t Accumulator::alignment() const {
+  return alignment_;
+}
+
+void Accumulator::destroy(folly::Range<char**> groups) {
+  destroyFunction_(groups);
+}
+
+// static
+int32_t RowContainer::combineAlignments(int32_t a, int32_t b) {
+  VELOX_CHECK_EQ(__builtin_popcount(a), 1, "Alignment can only be power of 2");
+  VELOX_CHECK_EQ(__builtin_popcount(b), 1, "Alignment can only be power of 2");
+  return std::max(a, b);
+}
+
 RowContainer::RowContainer(
     const std::vector<TypePtr>& keyTypes,
     bool nullableKeys,
-    const std::vector<std::unique_ptr<Aggregate>>& aggregates,
+    const std::vector<Accumulator>& accumulators,
     const std::vector<TypePtr>& dependentTypes,
     bool hasNext,
     bool isJoinBuild,
@@ -59,7 +111,7 @@ RowContainer::RowContainer(
     const RowSerde& serde)
     : keyTypes_(keyTypes),
       nullableKeys_(nullableKeys),
-      aggregates_(aggregates),
+      accumulators_(accumulators),
       isJoinBuild_(isJoinBuild),
       hasNormalizedKeys_(hasNormalizedKeys),
       rows_(pool),
@@ -109,13 +161,12 @@ RowContainer::RowContainer(
   offset = std::max<int32_t>(offset, sizeof(void*));
   int32_t firstAggregate = offsets_.size();
   int32_t firstAggregateOffset = offset;
-  for (auto& aggregate : aggregates) {
+  for (const auto& accumulator : accumulators) {
     nullOffsets_.push_back(nullOffset);
     ++nullOffset;
-    isVariableWidth |= !aggregate->isFixedSize();
-    usesExternalMemory_ |= aggregate->accumulatorUsesExternalMemory();
-    alignment_ = aggregate->combineAlignment(alignment_);
-    aggregate->setAllocator(&stringAllocator_);
+    isVariableWidth |= !accumulator.isFixedSize();
+    usesExternalMemory_ |= accumulator.usesExternalMemory();
+    alignment_ = combineAlignments(accumulator.alignment(), alignment_);
   }
   for (auto& type : dependentTypes) {
     types_.push_back(type);
@@ -139,11 +190,11 @@ RowContainer::RowContainer(
   }
   int32_t nullBytes = bits::nbytes(nullOffsets_.size());
   offset += nullBytes;
-  for (auto& aggregate : aggregates) {
+  for (const auto& accumulator : accumulators) {
     // Accumulator offset must be aligned by their alignment size.
-    offset = bits::roundUp(offset, aggregate->accumulatorAlignmentSize());
+    offset = bits::roundUp(offset, accumulator.alignment());
     offsets_.push_back(offset);
-    offset += aggregate->accumulatorFixedWidthSize();
+    offset += accumulator.fixedWidthSize();
   }
   for (auto& type : dependentTypes) {
     offsets_.push_back(offset);
@@ -158,13 +209,8 @@ RowContainer::RowContainer(
     offset += sizeof(void*);
   }
   fixedRowSize_ = bits::roundUp(offset, alignment_);
-  for (int i = 0; i < aggregates_.size(); ++i) {
+  for (int i = 0; i < accumulators_.size(); ++i) {
     nullOffset = nullOffsets_[i + firstAggregate];
-    aggregates_[i]->setOffsets(
-        offsets_[i + firstAggregate],
-        nullByte(nullOffset),
-        nullMask(nullOffset),
-        rowSizeOffset_);
   }
   // A distinct hash table has no aggregates and if the hash table has
   // no nulls, it may be that there are no null flags.
@@ -174,7 +220,7 @@ RowContainer::RowContainer(
     initialNulls_.resize(nullBytes, 0x0);
     // Aggregates are null on a new row.
     auto aggregateNullOffset = nullableKeys ? keyTypes.size() : 0;
-    for (int32_t i = 0; i < aggregates_.size(); ++i) {
+    for (int32_t i = 0; i < accumulators_.size(); ++i) {
       bits::setBit(initialNulls_.data(), i + aggregateNullOffset);
     }
   }
@@ -294,8 +340,8 @@ void RowContainer::checkConsistency() {
 }
 
 void RowContainer::freeAggregates(folly::Range<char**> rows) {
-  for (auto& aggregate : aggregates_) {
-    aggregate->destroy(rows);
+  for (auto& accumulator : accumulators_) {
+    accumulator.destroy(rows);
   }
 }
 
@@ -314,7 +360,7 @@ void RowContainer::store(
         row,
         offsets_[column]);
   } else {
-    VELOX_DCHECK(column < keyTypes_.size() || aggregates_.empty());
+    VELOX_DCHECK(column < keyTypes_.size() || accumulators_.empty());
     auto rowColumn = rowColumns_[column];
     VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
         storeWithNulls,
@@ -587,7 +633,7 @@ int64_t RowContainer::sizeIncrement(
 }
 
 void RowContainer::skip(RowContainerIterator& iter, int32_t numRows) {
-  VELOX_DCHECK(aggregates_.empty(), "Used in join only");
+  VELOX_DCHECK(accumulators_.empty(), "Used in join only");
   VELOX_DCHECK_LE(0, numRows);
   if (!iter.endOfRun) {
     // Set to first row.

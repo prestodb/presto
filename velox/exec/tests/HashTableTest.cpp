@@ -17,6 +17,7 @@
 #include "velox/exec/HashTable.h"
 #include "velox/common/base/SelectivityInfo.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/exec/Aggregate.h"
 #include "velox/exec/VectorHasher.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
@@ -151,9 +152,9 @@ class HashTableTest : public testing::TestWithParam<bool> {
       keyHashers.emplace_back(
           std::make_unique<VectorHasher>(tableType->childAt(channel), channel));
     }
-    static std::vector<std::unique_ptr<Aggregate>> empty;
+
     return HashTable<false>::createForAggregation(
-        std::move(keyHashers), empty, pool_.get());
+        std::move(keyHashers), std::vector<Accumulator>{}, pool_.get());
   }
 
   void insertGroups(
@@ -545,15 +546,16 @@ TEST_P(HashTableTest, mixed6Sparse) {
 TEST_P(HashTableTest, clear) {
   std::vector<std::unique_ptr<VectorHasher>> keyHashers;
   keyHashers.push_back(std::make_unique<VectorHasher>(BIGINT(), 0 /*channel*/));
-  std::vector<std::unique_ptr<Aggregate>> aggregates;
-  aggregates.push_back(Aggregate::create(
+
+  auto aggregate = Aggregate::create(
       "sum",
-      facebook::velox::core::AggregationNode::Step::kPartial,
+      core::AggregationNode::Step::kPartial,
       std::vector<TypePtr>{BIGINT()},
-      BIGINT()));
+      BIGINT());
+
   auto table = HashTable<true>::createForAggregation(
-      std::move(keyHashers), aggregates, pool_.get());
-  table->clear();
+      std::move(keyHashers), {{aggregate.get()}}, pool_.get());
+  ASSERT_NO_THROW(table->clear());
 }
 
 // Test a specific code path in HashTable::decodeHashMode where

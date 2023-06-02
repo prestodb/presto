@@ -18,6 +18,7 @@
 #include <folly/ScopeGuard.h>
 #include "velox/common/base/AsyncSource.h"
 #include "velox/common/testutil/TestValue.h"
+#include "velox/exec/Aggregate.h"
 
 using facebook::velox::common::testutil::TestValue;
 
@@ -132,10 +133,12 @@ void Spiller::extractSpill(folly::Range<char**> rows, RowVectorPtr& resultPtr) {
   for (auto i = 0; i < types.size(); ++i) {
     container_->extractColumn(rows.data(), rows.size(), i, result->childAt(i));
   }
-  auto& aggregates = container_->aggregates();
+
+  auto& accumulators = container_->accumulators();
+
   auto numKeys = types.size();
-  for (auto i = 0; i < aggregates.size(); ++i) {
-    aggregates[i]->extractAccumulators(
+  for (auto i = 0; i < accumulators.size(); ++i) {
+    accumulators[i].aggregateForSpill()->extractAccumulators(
         rows.data(), rows.size(), &result->childAt(i + numKeys));
   }
 }

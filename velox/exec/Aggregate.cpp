@@ -239,17 +239,6 @@ TypePtr Aggregate::intermediateType(
   VELOX_USER_FAIL(error.str());
 }
 
-int32_t Aggregate::combineAlignmentInternal(int32_t otherAlignment) const {
-  auto thisAlignment = accumulatorAlignmentSize();
-  VELOX_CHECK_EQ(
-      __builtin_popcount(thisAlignment), 1, "Alignment can only be power of 2");
-  VELOX_CHECK_EQ(
-      __builtin_popcount(otherAlignment),
-      1,
-      "Alignment can only be power of 2");
-  return std::max(thisAlignment, otherAlignment);
-}
-
 void Aggregate::setAllocatorInternal(HashStringAllocator* allocator) {
   allocator_ = allocator;
 }

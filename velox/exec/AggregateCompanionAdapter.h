@@ -76,8 +76,6 @@ class AggregateCompanionFunctionBase : public Aggregate {
       uint8_t nullMask,
       int32_t rowSizeOffset) override final;
 
-  int32_t combineAlignmentInternal(int32_t otherAlignment) const override final;
-
   void setAllocatorInternal(HashStringAllocator* allocator) override final;
 
   void clearInternal() override final;

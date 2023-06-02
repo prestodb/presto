@@ -17,13 +17,51 @@
 
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/common/memory/MemoryAllocator.h"
-#include "velox/exec/Aggregate.h"
+#include "velox/core/PlanNode.h"
 #include "velox/exec/ContainerRowSerde.h"
 #include "velox/exec/Spill.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/VectorTypeUtils.h"
 
 namespace facebook::velox::exec {
+
+class Aggregate;
+
+class Accumulator {
+ public:
+  Accumulator(
+      bool isFixedSize,
+      int32_t fixedSize,
+      bool usesExternalMemory,
+      int32_t alignment,
+      std::function<void(folly::Range<char**> groups)> destroyFunction);
+
+  Accumulator(Aggregate* aggregate);
+
+  bool isFixedSize() const;
+
+  int32_t fixedWidthSize() const;
+
+  bool usesExternalMemory() const;
+
+  int32_t alignment() const;
+
+  void destroy(folly::Range<char**> groups);
+
+  /// Used only for spilling. Do not introduce other usages.
+  Aggregate* aggregateForSpill() const {
+    VELOX_CHECK_NOT_NULL(aggregate_);
+    return aggregate_;
+  }
+
+ private:
+  const bool isFixedSize_;
+  const int32_t fixedSize_;
+  const bool usesExternalMemory_;
+  const int32_t alignment_;
+  std::function<void(folly::Range<char**> groups)> destroyFunction_;
+  Aggregate* aggregate_{nullptr};
+};
 
 using normalized_key_t = uint64_t;
 
@@ -93,6 +131,7 @@ class RowColumn {
 
   RowColumn(int32_t offset, int32_t nullOffset)
       : packedOffsets_(PackOffsets(offset, nullOffset)) {}
+
   int32_t offset() const {
     return packedOffsets_ >> 32;
   }
@@ -140,7 +179,7 @@ class RowContainer {
       : RowContainer(
             keyTypes,
             true, // nullableKeys
-            emptyAggregates(),
+            std::vector<Accumulator>{},
             dependentTypes,
             false, // hasNext
             false, // isJoinBuild
@@ -148,6 +187,8 @@ class RowContainer {
             false, // hasNormalizedKey
             pool,
             ContainerRowSerde::instance()) {}
+
+  static int32_t combineAlignments(int32_t a, int32_t b);
 
   // 'keyTypes' gives the type of the key of each row. For a group by,
   // order by or right outer join build side these may be
@@ -168,7 +209,7 @@ class RowContainer {
   RowContainer(
       const std::vector<TypePtr>& keyTypes,
       bool nullableKeys,
-      const std::vector<std::unique_ptr<Aggregate>>& aggregates,
+      const std::vector<Accumulator>& accumulators,
       const std::vector<TypePtr>& dependentTypes,
       bool hasNext,
       bool isJoinBuild,
@@ -561,20 +602,6 @@ class RowContainer {
     return 0;
   }
 
-  // Extract column values for 'rows' into 'result'.
-  void extractRows(
-      const std::vector<char * FOLLY_NONNULL>& rows,
-      const RowVectorPtr& result) {
-    VELOX_CHECK_EQ(rows.size(), result->size());
-    if (rows.empty()) {
-      return;
-    }
-    for (int i = 0; i < result->childrenSize(); ++i) {
-      RowContainer::extractColumn(
-          rows.data(), rows.size(), columnAt(i), result->childAt(i));
-    }
-  }
-
   memory::MemoryPool* FOLLY_NONNULL pool() const {
     return stringAllocator_.pool();
   }
@@ -588,12 +615,8 @@ class RowContainer {
     return keyTypes_;
   }
 
-  const auto& aggregates() const {
-    return aggregates_;
-  }
-
-  auto numFreeRows() const {
-    return numFreeRows_;
+  const std::vector<Accumulator>& accumulators() const {
+    return accumulators_;
   }
 
   const HashStringAllocator& stringAllocator() const {
@@ -1032,10 +1055,8 @@ class RowContainer {
   const std::vector<TypePtr> keyTypes_;
   const bool nullableKeys_;
 
-  // Aggregates in payload. TODO: Separate out aggregate metadata
-  // needed to manage memory of accumulators and the executable
-  // aggregates. Store the metadata here.
-  const std::vector<std::unique_ptr<Aggregate>>& aggregates_;
+  std::vector<Accumulator> accumulators_;
+
   bool usesExternalMemory_ = false;
   // Types of non-aggregate columns. Keys first. Corresponds pairwise
   // to 'typeKinds_' and 'rowColumns_'.
@@ -1086,13 +1107,6 @@ class RowContainer {
   std::unique_ptr<RowPartitions> partitions_;
 
   const RowSerde& serde_;
-  // RowContainer requires a valid reference to a vector of aggregates. We use
-  // a static constant to ensure the aggregates_ is valid throughout the
-  // lifetime of the RowContainer.
-  static const std::vector<std::unique_ptr<Aggregate>>& emptyAggregates() {
-    static const std::vector<std::unique_ptr<Aggregate>> kEmptyAggregates;
-    return kEmptyAggregates;
-  }
 
   int alignment_ = 1;
 };

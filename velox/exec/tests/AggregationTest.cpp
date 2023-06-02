@@ -329,11 +329,10 @@ class AggregationTest : public OperatorTestBase {
   std::unique_ptr<RowContainer> makeRowContainer(
       const std::vector<TypePtr>& keyTypes,
       const std::vector<TypePtr>& dependentTypes) {
-    static const std::vector<std::unique_ptr<Aggregate>> kEmptyAggregates;
     return std::make_unique<RowContainer>(
         keyTypes,
         false,
-        kEmptyAggregates,
+        std::vector<Accumulator>{},
         dependentTypes,
         false,
         false,

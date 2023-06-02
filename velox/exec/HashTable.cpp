@@ -49,7 +49,7 @@ std::string BaseHashTable::modeString(HashMode mode) {
 template <bool ignoreNullKeys>
 HashTable<ignoreNullKeys>::HashTable(
     std::vector<std::unique_ptr<VectorHasher>>&& hashers,
-    const std::vector<std::unique_ptr<Aggregate>>& aggregates,
+    const std::vector<Accumulator>& accumulators,
     const std::vector<TypePtr>& dependentTypes,
     bool allowDuplicates,
     bool isJoinBuild,
@@ -63,10 +63,11 @@ HashTable<ignoreNullKeys>::HashTable(
       hashMode_ = HashMode::kHash;
     }
   }
+
   rows_ = std::make_unique<RowContainer>(
       keys,
       !ignoreNullKeys,
-      aggregates,
+      accumulators,
       dependentTypes,
       allowDuplicates,
       isJoinBuild,
