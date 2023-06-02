@@ -16,7 +16,6 @@
 #include "folly/init/Init.h"
 #include "presto_cpp/external/json/json.hpp"
 #include "presto_cpp/main/operators/LocalPersistentShuffle.h"
-#include "presto_cpp/main/operators/PartitionAndSerialize.cpp"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
