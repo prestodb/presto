@@ -146,4 +146,13 @@ void projectChildren(
     int32_t size,
     const BufferPtr& mapping);
 
+/// Overload of the above function that takes reference to const vector of
+/// VectorPtr as 'src' argument, instead of row vector.
+void projectChildren(
+    const RowVectorPtr& dest,
+    const std::vector<VectorPtr>& src,
+    const std::vector<IdentityProjection>& projections,
+    int32_t size,
+    const BufferPtr& mapping);
+
 } // namespace facebook::velox::exec

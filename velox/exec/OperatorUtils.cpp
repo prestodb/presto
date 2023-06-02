@@ -402,9 +402,18 @@ void projectChildren(
     const std::vector<IdentityProjection>& projections,
     int32_t size,
     const BufferPtr& mapping) {
+  projectChildren(dest, src->children(), projections, size, mapping);
+}
+
+void projectChildren(
+    const RowVectorPtr& dest,
+    const std::vector<VectorPtr>& src,
+    const std::vector<IdentityProjection>& projections,
+    int32_t size,
+    const BufferPtr& mapping) {
   for (const auto& projection : projections) {
     dest->childAt(projection.outputChannel) =
-        wrapChild(size, mapping, src->childAt(projection.inputChannel));
+        wrapChild(size, mapping, src[projection.inputChannel]);
   }
 }
 } // namespace facebook::velox::exec

@@ -177,7 +177,9 @@ static bool isSequence(
   return true;
 }
 
-RowVectorPtr Operator::fillOutput(vector_size_t size, BufferPtr mapping) {
+RowVectorPtr Operator::fillOutput(
+    vector_size_t size,
+    const BufferPtr& mapping) {
   bool wrapResults = true;
   if (size == input_->size() &&
       (!mapping || isSequence(mapping->as<vector_size_t>(), 0, size))) {
@@ -187,27 +189,26 @@ RowVectorPtr Operator::fillOutput(vector_size_t size, BufferPtr mapping) {
     wrapResults = false;
   }
 
-  std::vector<VectorPtr> columns(outputType_->size());
-  if (!identityProjections_.empty()) {
-    auto input = input_->children();
-    for (auto& projection : identityProjections_) {
-      columns[projection.outputChannel] = wrapResults
-          ? wrapChild(size, mapping, input[projection.inputChannel])
-          : input[projection.inputChannel];
-    }
-  }
-  for (auto& projection : resultProjections_) {
-    columns[projection.outputChannel] = wrapResults
-        ? wrapChild(size, mapping, results_[projection.inputChannel])
-        : results_[projection.inputChannel];
-  }
-
-  return std::make_shared<RowVector>(
+  auto output{std::make_shared<RowVector>(
       operatorCtx_->pool(),
       outputType_,
-      BufferPtr(nullptr),
+      nullptr,
       size,
-      std::move(columns));
+      std::vector<VectorPtr>(outputType_->size(), nullptr))};
+  output->resize(size);
+  projectChildren(
+      output,
+      input_,
+      identityProjections_,
+      size,
+      wrapResults ? mapping : nullptr);
+  projectChildren(
+      output,
+      results_,
+      resultProjections_,
+      size,
+      wrapResults ? mapping : nullptr);
+  return output;
 }
 
 OperatorStats Operator::stats(bool clear) {
