@@ -43,6 +43,14 @@ class ComparisonsTest : public functions::test::FunctionBaseTest {
       ASSERT_EQ(expected[i], result->valueAt(i));
     }
   }
+
+  void testBetweenExpr(
+      const std::string& exprStr,
+      const std::vector<VectorPtr>& input,
+      const VectorPtr& expectedResult) {
+    auto actual = evaluate<SimpleVector<bool>>(exprStr, makeRowVector(input));
+    test::assertEqualVectors(expectedResult, actual);
+  }
 };
 
 TEST_F(ComparisonsTest, between) {
@@ -130,6 +138,128 @@ TEST_F(ComparisonsTest, betweenDecimal) {
       runAndCompare("c0 between 2.00 and 3.00", longFlat, expectedResult),
       "Scalar function signature is not supported: "
       "between(DECIMAL(20,2), DECIMAL(3,2), DECIMAL(3,2)).");
+}
+
+TEST_F(ComparisonsTest, betweenDecimalNonConstantVectors) {
+  // Short decimal tests.
+
+  // Fast path when c1 vector is constant and c2 is flat.
+  testBetweenExpr(
+      "c0 between c1 and c2",
+      {
+          makeShortDecimalFlatVector({100, 200, 300, 400}, DECIMAL(5, 1)),
+          makeConstant((int64_t)100, 4, DECIMAL(5, 1)),
+          makeShortDecimalFlatVector({500, 200, 500, 110}, DECIMAL(5, 1)),
+      },
+      makeFlatVector<bool>({true, true, true, false}));
+
+  // Fast path when c1 vector is flat and c2 is constant.
+  testBetweenExpr(
+      "c0 between c1 and c2",
+      {
+          makeShortDecimalFlatVector({100, 200, 300, 400}, DECIMAL(5, 1)),
+          makeShortDecimalFlatVector({100, 100, 100, 200}, DECIMAL(5, 1)),
+          makeConstant((int64_t)300, 4, DECIMAL(5, 1)),
+      },
+      makeFlatVector<bool>({true, true, true, false}));
+
+  // Fast path when all three vectors are flat.
+  testBetweenExpr(
+      "c0 between c1 and c2",
+      {
+          makeShortDecimalFlatVector({100, 200, 300, 400}, DECIMAL(5, 1)),
+          makeShortDecimalFlatVector({100, 120, 130, 350}, DECIMAL(5, 1)),
+          makeShortDecimalFlatVector({150, 200, 310, 370}, DECIMAL(5, 1)),
+      },
+      makeFlatVector<bool>({true, true, true, false}));
+
+  // General case when vectors are dictionary-encoded.
+  testBetweenExpr(
+      "c0 between c1 and c2",
+      {
+          wrapInDictionary(
+              makeIndices({0, 1, 2, 3}),
+              makeShortDecimalFlatVector({100, 200, 300, 400}, DECIMAL(5, 1))),
+          wrapInDictionary(
+              makeIndices({0, 1, 2, 3}),
+              makeShortDecimalFlatVector({100, 120, 130, 350}, DECIMAL(5, 1))),
+          wrapInDictionary(
+              makeIndices({0, 1, 2, 3}),
+              makeShortDecimalFlatVector({150, 200, 310, 370}, DECIMAL(5, 1))),
+      },
+      makeFlatVector<bool>({true, true, true, false}));
+
+  // General case of short decimals with nulls.
+  testBetweenExpr(
+      "c0 between c1 and c2",
+      {
+          makeShortDecimalFlatVector({100, 200, 300, 400}, DECIMAL(5, 1)),
+          makeNullableShortDecimalFlatVector(
+              {100, std::nullopt, 130, 350}, DECIMAL(5, 1)),
+          makeNullableShortDecimalFlatVector(
+              {150, 200, std::nullopt, 370}, DECIMAL(5, 1)),
+      },
+      makeNullableFlatVector<bool>({true, std::nullopt, std::nullopt, false}));
+
+  // Long decimal tests.
+
+  // Fast path when c1 vector is constant and c2 is flat.
+  testBetweenExpr(
+      "c0 between c1 and c2",
+      {
+          makeLongDecimalFlatVector({100, 200, 300, 400}, DECIMAL(30, 1)),
+          makeConstant(HugeInt::build(0, 100), 4, DECIMAL(30, 1)),
+          makeLongDecimalFlatVector({500, 200, 500, 110}, DECIMAL(30, 1)),
+      },
+      makeFlatVector<bool>({true, true, true, false}));
+
+  // Fast path when c1 vector is flat and c2 is constant.
+  testBetweenExpr(
+      "c0 between c1 and c2",
+      {
+          makeLongDecimalFlatVector({100, 200, 300, 400}, DECIMAL(30, 1)),
+          makeLongDecimalFlatVector({100, 100, 100, 200}, DECIMAL(30, 1)),
+          makeConstant(HugeInt::build(0, 300), 4, DECIMAL(30, 1)),
+      },
+      makeFlatVector<bool>({true, true, true, false}));
+
+  // Fast path when all three vectors are flat.
+  testBetweenExpr(
+      "c0 between c1 and c2",
+      {
+          makeLongDecimalFlatVector({100, 200, 300, 400}, DECIMAL(30, 1)),
+          makeLongDecimalFlatVector({100, 120, 130, 350}, DECIMAL(30, 1)),
+          makeLongDecimalFlatVector({150, 200, 310, 370}, DECIMAL(30, 1)),
+      },
+      makeFlatVector<bool>({true, true, true, false}));
+
+  // General case when vectors are dictionary-encoded.
+  testBetweenExpr(
+      "c0 between c1 and c2",
+      {
+          wrapInDictionary(
+              makeIndices({0, 1, 2, 3}),
+              makeLongDecimalFlatVector({100, 200, 300, 400}, DECIMAL(30, 1))),
+          wrapInDictionary(
+              makeIndices({0, 1, 2, 3}),
+              makeLongDecimalFlatVector({100, 120, 130, 350}, DECIMAL(30, 1))),
+          wrapInDictionary(
+              makeIndices({0, 1, 2, 3}),
+              makeLongDecimalFlatVector({150, 200, 310, 370}, DECIMAL(30, 1))),
+      },
+      makeFlatVector<bool>({true, true, true, false}));
+
+  // General case of long decimals with nulls.
+  testBetweenExpr(
+      "c0 between c1 and c2",
+      {
+          makeLongDecimalFlatVector({100, 200, 300, 400}, DECIMAL(30, 1)),
+          makeNullableLongDecimalFlatVector(
+              {100, std::nullopt, 130, 350}, DECIMAL(30, 1)),
+          makeNullableLongDecimalFlatVector(
+              {150, 200, std::nullopt, 370}, DECIMAL(30, 1)),
+      },
+      makeNullableFlatVector<bool>({true, std::nullopt, std::nullopt, false}));
 }
 
 TEST_F(ComparisonsTest, eqNeqDecimal) {

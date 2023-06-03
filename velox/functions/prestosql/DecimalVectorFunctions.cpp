@@ -160,28 +160,86 @@ class DecimalBetweenFunction : public exec::VectorFunction {
       exec::EvalCtx& context,
       VectorPtr& result) const override {
     prepareResults(rows, resultType, context, result);
-    // Second and third arguments must always be constant.
-    VELOX_CHECK(args[1]->isConstantEncoding() && args[2]->isConstantEncoding());
-    auto constantB = args[1]->asUnchecked<SimpleVector<A>>()->valueAt(0);
-    auto constantC = args[2]->asUnchecked<SimpleVector<A>>()->valueAt(0);
+
+    // Fast path when the first argument is a flat vector.
     if (args[0]->isFlatEncoding()) {
-      // Fast path if first argument is flat.
-      auto flatA = args[0]->asUnchecked<FlatVector<A>>();
-      auto rawA = flatA->mutableRawValues();
-      context.applyToSelectedNoThrow(rows, [&](auto row) {
-        result->asUnchecked<FlatVector<bool>>()->set(
-            row, rawA[row] >= constantB && rawA[row] <= constantC);
-      });
+      auto rawA = args[0]->asUnchecked<FlatVector<A>>()->mutableRawValues();
+
+      if (args[1]->isConstantEncoding() && args[2]->isConstantEncoding()) {
+        auto constantB = args[1]->asUnchecked<SimpleVector<A>>()->valueAt(0);
+        auto constantC = args[2]->asUnchecked<SimpleVector<A>>()->valueAt(0);
+        context.applyToSelectedNoThrow(rows, [&](auto row) {
+          result->asUnchecked<FlatVector<bool>>()->set(
+              row, rawA[row] >= constantB && rawA[row] <= constantC);
+        });
+        return;
+      }
+
+      if (args[1]->isConstantEncoding() && args[2]->isFlatEncoding()) {
+        auto constantB = args[1]->asUnchecked<SimpleVector<A>>()->valueAt(0);
+        auto rawC = args[2]->asUnchecked<FlatVector<A>>()->mutableRawValues();
+        context.applyToSelectedNoThrow(rows, [&](auto row) {
+          result->asUnchecked<FlatVector<bool>>()->set(
+              row, rawA[row] >= constantB && rawA[row] <= rawC[row]);
+        });
+        return;
+      }
+
+      if (args[1]->isFlatEncoding() && args[2]->isConstantEncoding()) {
+        auto rawB = args[1]->asUnchecked<FlatVector<A>>()->mutableRawValues();
+        auto constantC = args[2]->asUnchecked<SimpleVector<A>>()->valueAt(0);
+        context.applyToSelectedNoThrow(rows, [&](auto row) {
+          result->asUnchecked<FlatVector<bool>>()->set(
+              row, rawA[row] >= rawB[row] && rawA[row] <= constantC);
+        });
+        return;
+      }
+
+      if (args[1]->isFlatEncoding() && args[2]->isFlatEncoding()) {
+        auto rawB = args[1]->asUnchecked<FlatVector<A>>()->mutableRawValues();
+        auto rawC = args[2]->asUnchecked<FlatVector<A>>()->mutableRawValues();
+        context.applyToSelectedNoThrow(rows, [&](auto row) {
+          result->asUnchecked<FlatVector<bool>>()->set(
+              row, rawA[row] >= rawB[row] && rawA[row] <= rawC[row]);
+        });
+        return;
+      }
     } else {
-      // Path if first argument is encoded.
+      // Fast path when the first argument is encoded but the second and third
+      // are constants.
       exec::DecodedArgs decodedArgs(rows, args, context);
-      auto a = decodedArgs.at(0);
-      context.applyToSelectedNoThrow(rows, [&](auto row) {
-        auto value = a->valueAt<A>(row);
-        result->asUnchecked<FlatVector<bool>>()->set(
-            row, value >= constantB && value <= constantC);
-      });
+      auto aDecoded = decodedArgs.at(0);
+      auto aDecodedData = aDecoded->data<A>();
+
+      if (args[1]->isConstantEncoding() && args[2]->isConstantEncoding()) {
+        auto constantB = args[1]->asUnchecked<SimpleVector<A>>()->valueAt(0);
+        auto constantC = args[2]->asUnchecked<SimpleVector<A>>()->valueAt(0);
+        context.applyToSelectedNoThrow(rows, [&](auto row) {
+          auto value = aDecodedData[aDecoded->index(row)];
+          result->asUnchecked<FlatVector<bool>>()->set(
+              row, value >= constantB && value <= constantC);
+        });
+        return;
+      }
     }
+
+    // Decode the input in all other cases.
+    exec::DecodedArgs decodedArgs(rows, args, context);
+    auto aDecoded = decodedArgs.at(0);
+    auto bDecoded = decodedArgs.at(1);
+    auto cDecoded = decodedArgs.at(2);
+
+    auto aDecodedData = aDecoded->data<A>();
+    auto bDecodedData = bDecoded->data<A>();
+    auto cDecodedData = cDecoded->data<A>();
+
+    context.applyToSelectedNoThrow(rows, [&](auto row) {
+      auto aValue = aDecodedData[aDecoded->index(row)];
+      auto bValue = bDecodedData[bDecoded->index(row)];
+      auto cValue = cDecodedData[cDecoded->index(row)];
+      result->asUnchecked<FlatVector<bool>>()->set(
+          row, aValue >= bValue && aValue <= cValue);
+    });
   }
 
  private:
