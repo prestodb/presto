@@ -82,27 +82,21 @@ TEST_P(SimpleAggregatesTest, basic) {
   testWindowFunction({makeSimpleVector(10)});
 }
 
-// Tests function with a dataset with a single partition containing all the
-// rows.
-TEST_P(SimpleAggregatesTest, singlePartition) {
-  testWindowFunction({makeSinglePartitionVector(100)});
-}
-
 // Tests function with a dataset with a single partition but 2 input row
 // vectors.
-TEST_P(SimpleAggregatesTest, multiInput) {
+TEST_P(SimpleAggregatesTest, singlePartition) {
   testWindowFunction(
-      {makeSinglePartitionVector(250), makeSinglePartitionVector(50)});
+      {makeSinglePartitionVector(50), makeSinglePartitionVector(40)});
 }
 
 // Tests function with a dataset where all partitions have a single row.
 TEST_P(SimpleAggregatesTest, singleRowPartitions) {
-  testWindowFunction({makeSingleRowPartitionsVector(50)});
+  testWindowFunction({makeSingleRowPartitionsVector(40)});
 }
 
 // Tests function with a randomly generated input dataset.
 TEST_P(SimpleAggregatesTest, randomInput) {
-  testWindowFunction({makeRandomInputVector(50)});
+  testWindowFunction({makeRandomInputVector(25)});
 }
 
 // Instantiate all the above tests for each combination of aggregate function

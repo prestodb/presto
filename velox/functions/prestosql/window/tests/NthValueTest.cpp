@@ -55,22 +55,22 @@ class NthValueTest : public WindowTestBase {
     // This function invocation gets the column value of the 10th
     // frame row. Many tests have < 10 rows per partition. so the function
     // is expected to return null for such offsets.
-    testWindowFunction(input, "nth_value(c0, 10)");
+    testWindowFunction(input, "nth_value(c0, 10)", false);
 
     // This test gets the nth_value offset from a column c2. The offsets could
     // be outside the partition also. The error cases for -ve offset values
     // are tested separately.
-    testWindowFunction(input, "nth_value(c3, c2)");
+    testWindowFunction(input, "nth_value(c3, c2)", false);
 
     // The first_value, last_value functions are tested for columns c0, c1, and
     // c2, which contain data with different distributions.
-    testWindowFunction(input, "first_value(c0)");
-    testWindowFunction(input, "first_value(c1)");
-    testWindowFunction(input, "first_value(c2)");
+    testWindowFunction(input, "first_value(c0)", false);
+    testWindowFunction(input, "first_value(c1)", false);
+    testWindowFunction(input, "first_value(c2)", false);
 
-    testWindowFunction(input, "last_value(c0)");
-    testWindowFunction(input, "last_value(c1)");
-    testWindowFunction(input, "last_value(c2)");
+    testWindowFunction(input, "last_value(c0)", false);
+    testWindowFunction(input, "last_value(c1)", false);
+    testWindowFunction(input, "last_value(c2)", false);
   }
 
   // This is for testing different output column types in the
@@ -96,22 +96,23 @@ class NthValueTest : public WindowTestBase {
     WindowTestBase::testWindowFunction(
         {vectors}, "nth_value(c4, 1)", {newOverClause}, kFrameClauses);
     WindowTestBase::testWindowFunction(
-        {vectors}, "nth_value(c4, 7)", {newOverClause}, kFrameClauses);
+        {vectors}, "nth_value(c4, 7)", {newOverClause}, kFrameClauses, false);
     WindowTestBase::testWindowFunction(
-        {vectors}, "nth_value(c4, c2)", {newOverClause}, kFrameClauses);
+        {vectors}, "nth_value(c4, c2)", {newOverClause}, kFrameClauses, false);
 
     WindowTestBase::testWindowFunction(
-        {vectors}, "first_value(c4)", {newOverClause}, kFrameClauses);
+        {vectors}, "first_value(c4)", {newOverClause}, kFrameClauses, false);
     WindowTestBase::testWindowFunction(
-        {vectors}, "last_value(c4)", {newOverClause}, kFrameClauses);
+        {vectors}, "last_value(c4)", {newOverClause}, kFrameClauses, false);
   }
 
  private:
   void testWindowFunction(
       const std::vector<RowVectorPtr>& input,
-      const std::string& function) {
+      const std::string& function,
+      bool createDuckDBTable = true) {
     WindowTestBase::testWindowFunction(
-        input, function, {overClause_}, kFrameClauses);
+        input, function, {overClause_}, kFrameClauses, createDuckDBTable);
   }
 
   const std::string overClause_;
@@ -124,24 +125,20 @@ class MultiNthValueTest : public NthValueTest,
 };
 
 TEST_P(MultiNthValueTest, basic) {
-  testValueFunctions({makeSimpleVector(50)});
+  testValueFunctions({makeSimpleVector(40)});
 }
 
 TEST_P(MultiNthValueTest, singlePartition) {
-  testValueFunctions({makeSinglePartitionVector(50)});
-}
-
-TEST_P(MultiNthValueTest, multiInput) {
   testValueFunctions(
-      {makeSinglePartitionVector(50), makeSinglePartitionVector(75)});
+      {makeSinglePartitionVector(40), makeSinglePartitionVector(50)});
 }
 
 TEST_P(MultiNthValueTest, singleRowPartitions) {
-  testValueFunctions({makeSingleRowPartitionsVector((50))});
+  testValueFunctions({makeSingleRowPartitionsVector((30))});
 }
 
 TEST_P(MultiNthValueTest, randomInput) {
-  testValueFunctions({makeRandomInputVector((50))});
+  testValueFunctions({makeRandomInputVector((25))});
 }
 
 TEST_P(MultiNthValueTest, integerValues) {

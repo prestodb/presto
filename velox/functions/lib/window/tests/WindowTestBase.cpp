@@ -107,8 +107,11 @@ void WindowTestBase::testWindowFunction(
     const std::vector<RowVectorPtr>& input,
     const std::string& function,
     const std::vector<std::string>& overClauses,
-    const std::vector<std::string>& frameClauses) {
-  createDuckDbTable(input);
+    const std::vector<std::string>& frameClauses,
+    bool createTable) {
+  if (createTable) {
+    createDuckDbTable(input);
+  }
   for (const auto& overClause : overClauses) {
     for (auto& frameClause : frameClauses) {
       auto queryInfo =

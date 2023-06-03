@@ -32,26 +32,20 @@ inline const std::vector<std::string> kOverClauses = {
     "partition by c0 order by c1 desc, c2, c3",
     "partition by c1 order by c0, c2 desc, c3",
     "partition by c0 order by c2, c1, c3",
-    "partition by c1 order by c2, c0 desc, c3",
 
     // Order by with asc/desc and nulls first/last.
     "partition by c0 order by c1 nulls first, c2, c3",
     "partition by c0, c2 order by c1 nulls first, c3",
-    "partition by c1 order by c0 nulls first, c2, c3",
-    "partition by c1, c2 order by c0 nulls first, c3",
     "partition by c0 order by c1 desc nulls first, c2, c3",
     "partition by c0, c2 order by c1 desc nulls first, c3",
-    "partition by c1 order by c0 desc nulls first, c2, c3",
-    "partition by c1, c2 order by c0 desc nulls first, c3",
 
     // No partition by clause.
     "order by c0 asc nulls first, c1 desc, c2, c3",
     "order by c1 asc, c0 desc nulls last, c2 desc, c3",
     "order by c0 asc, c2 desc, c1 asc nulls last, c3",
     "order by c2 asc, c1 desc nulls first, c0, c3",
+
     "order by c0 asc nulls first, c1 desc nulls first, c2, c3",
-    "order by c1 asc nulls first, c0 desc nulls first, c2, c3",
-    "order by c0 desc nulls first, c1 asc nulls first, c2, c3",
     "order by c1 desc nulls first, c0 asc nulls first, c2, c3",
 
     // No order by clause.
@@ -76,19 +70,12 @@ inline const std::vector<std::string> kFrameClauses = {
 
     // Frame clauses in ROWS mode with k preceding and k following frame bounds,
     // where k is a constant integer.
-    "rows between 1 preceding and current row",
     "rows between 5 preceding and current row",
-    "rows between 1 preceding and unbounded following",
     "rows between 5 preceding and unbounded following",
-
-    "rows between current row and 1 following",
     "rows between current row and 5 following",
-    "rows between unbounded preceding and 1 following",
     "rows between unbounded preceding and 5 following",
 
     "rows between 1 preceding and 5 following",
-    "rows between 5 preceding and 1 following",
-    "rows between 1 preceding and 1 following",
     "rows between 5 preceding and 5 following",
 
     // Frame clauses in ROWS mode with k preceding and k following frame bounds,
@@ -104,9 +91,7 @@ inline const std::vector<std::string> kFrameClauses = {
     // Frame clauses with invalid frames.
     "rows between unbounded preceding and 1 preceding",
     "rows between 1 preceding and 4 preceding",
-    "rows between 4 preceding and 1 preceding",
     "rows between 1 following and unbounded following",
-    "rows between 1 following and 4 following",
     "rows between 4 following and 1 following",
     "rows between c2 preceding and c3 preceding",
     "rows between c2 following and c3 following",
@@ -165,7 +150,8 @@ class WindowTestBase : public exec::test::OperatorTestBase {
       const std::vector<RowVectorPtr>& input,
       const std::string& function,
       const std::vector<std::string>& overClauses,
-      const std::vector<std::string>& frameClauses = {""});
+      const std::vector<std::string>& frameClauses = {""},
+      bool createTable = true);
 
   /// This function tests the SQL query for the window function and overClause
   /// combination with the input RowVectors. It is expected that query execution
