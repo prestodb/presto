@@ -331,13 +331,28 @@ std::shared_ptr<common::ScanSpec> HiveDataSource::makeScanSpec(
     const SubfieldFilters& filters,
     const RowTypePtr& rowType,
     const std::vector<const HiveColumnHandle*>& columnHandles,
+    const std::vector<common::Subfield>& remainingFilterInputs,
     memory::MemoryPool* pool) {
+  // This is to handle subfields that appear only in remaining filter (the root
+  // field is already included in column handles).  Presto planner does not add
+  // them to required subfields so we need to handle them by ourselves.
+  //
+  // TODO: Put only selected subfields instead of the whole root field from
+  // remaining filter in the scan spec.
+  std::unordered_set<std::string> remainingFilterInputNames;
+  for (auto& input : remainingFilterInputs) {
+    VELOX_CHECK_GT(input.path().size(), 0);
+    auto* field = dynamic_cast<const common::Subfield::NestedField*>(
+        input.path()[0].get());
+    VELOX_CHECK(field);
+    remainingFilterInputNames.insert(field->name());
+  }
   auto spec = std::make_shared<common::ScanSpec>("root");
   for (int i = 0; i < columnHandles.size(); ++i) {
     auto& name = rowType->nameOf(i);
     auto& type = rowType->childAt(i);
     auto& subfields = columnHandles[i]->requiredSubfields();
-    if (subfields.empty()) {
+    if (subfields.empty() || remainingFilterInputNames.count(name) > 0) {
       spec->addFieldRecursively(name, *type, i);
       continue;
     }
@@ -428,25 +443,32 @@ HiveDataSource::HiveDataSource(
       hiveTableHandle->isFilterPushdownEnabled(),
       "Filter pushdown must be enabled");
 
+  std::vector<common::Subfield> remainingFilterInputs;
+  const auto& remainingFilter = hiveTableHandle->remainingFilter();
+  if (remainingFilter) {
+    remainingFilterExprSet_ = expressionEvaluator_->compile(remainingFilter);
+    for (auto& input : remainingFilterExprSet_->expr(0)->distinctFields()) {
+      remainingFilterInputs.emplace_back(input->field());
+    }
+  }
+
   auto outputTypes = outputType_->children();
   readerOutputType_ = ROW(std::move(columnNames), std::move(outputTypes));
   scanSpec_ = makeScanSpec(
       hiveTableHandle->subfieldFilters(),
       readerOutputType_,
       hiveColumnHandles,
+      remainingFilterInputs,
       pool_);
 
-  const auto& remainingFilter = hiveTableHandle->remainingFilter();
   if (remainingFilter) {
     metadataFilter_ = std::make_shared<common::MetadataFilter>(
         *scanSpec_, *remainingFilter, expressionEvaluator_);
-    remainingFilterExprSet_ = expressionEvaluator_->compile(remainingFilter);
 
     // Remaining filter may reference columns that are not used otherwise,
     // e.g. are not being projected out and are not used in range filters.
     // Make sure to add these columns to scanSpec_.
-
-    auto filterInputs = remainingFilterExprSet_->expr(0)->distinctFields();
+    auto& filterInputs = remainingFilterExprSet_->expr(0)->distinctFields();
     column_index_t channel = outputType_->size();
     auto names = readerOutputType_->names();
     auto types = readerOutputType_->children();
@@ -456,11 +478,11 @@ HiveDataSource::HiveDataSource(
       }
       names.emplace_back(input->field());
       types.emplace_back(input->type());
-
-      common::Subfield subfield(input->field());
-      auto fieldSpec = scanSpec_->getOrCreateChild(subfield);
-      fieldSpec->setProjectOut(true);
-      fieldSpec->setChannel(channel++);
+      // This is to handle root fields that are not included in output types at
+      // all but used in remaining filter.
+      //
+      // TODO: Put only selected subfields in the scan spec.
+      scanSpec_->addFieldRecursively(input->field(), *input->type(), channel++);
     }
     readerOutputType_ = ROW(std::move(names), std::move(types));
   }

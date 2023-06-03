@@ -388,6 +388,9 @@ std::string ScanSpec::toString() const {
     if (filter_) {
       out << " filter " << filter_->toString();
     }
+    if (isConstant()) {
+      out << " constant";
+    }
   }
   if (!children_.empty()) {
     out << " (";

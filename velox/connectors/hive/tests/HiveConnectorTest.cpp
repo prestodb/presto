@@ -65,7 +65,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_multilevel) {
   auto columnHandle =
       makeColumnHandle("c0", columnType, {"c0.c0c1[3][\"foo\"].c0c1c0"});
   auto scanSpec = HiveDataSource::makeScanSpec(
-      {}, rowType, {columnHandle.get()}, pool_.get());
+      {}, rowType, {columnHandle.get()}, {}, pool_.get());
   auto* c0c0 = scanSpec->childByName("c0")->childByName("c0c0");
   validateNullConstant(*c0c0, *BIGINT());
   auto* c0c1 = scanSpec->childByName("c0")->childByName("c0c1");
@@ -98,7 +98,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeFields) {
       columnType,
       {"c0.c0c0.c0c0c0", "c0.c0c0.c0c0c2", "c0.c0c1", "c0.c0c1.c0c1c0"});
   auto scanSpec = HiveDataSource::makeScanSpec(
-      {}, rowType, {columnHandle.get()}, pool_.get());
+      {}, rowType, {columnHandle.get()}, {}, pool_.get());
   auto* c0c0 = scanSpec->childByName("c0")->childByName("c0c0");
   ASSERT_FALSE(c0c0->childByName("c0c0c0")->isConstant());
   ASSERT_FALSE(c0c0->childByName("c0c0c2")->isConstant());
@@ -117,7 +117,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeArray) {
   auto columnHandle =
       makeColumnHandle("c0", columnType, {"c0[1].c0c0", "c0[2].c0c2"});
   auto scanSpec = HiveDataSource::makeScanSpec(
-      {}, rowType, {columnHandle.get()}, pool_.get());
+      {}, rowType, {columnHandle.get()}, {}, pool_.get());
   auto* c0 = scanSpec->childByName("c0");
   ASSERT_EQ(c0->maxArrayElementsCount(), 2);
   auto* elements = c0->childByName(ScanSpec::kArrayElementsFieldName);
@@ -134,7 +134,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeMap) {
   auto columnHandle =
       makeColumnHandle("c0", columnType, {"c0[10].c0c0", "c0[20].c0c2"});
   auto scanSpec = HiveDataSource::makeScanSpec(
-      {}, rowType, {columnHandle.get()}, pool_.get());
+      {}, rowType, {columnHandle.get()}, {}, pool_.get());
   auto* c0 = scanSpec->childByName("c0");
   auto* keysFilter = c0->childByName(ScanSpec::kMapKeysFieldName)->filter();
   ASSERT_TRUE(keysFilter);
@@ -155,7 +155,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_allSubscripts) {
     SCOPED_TRACE(path);
     auto columnHandle = makeColumnHandle("c0", columnType, {path});
     auto scanSpec = HiveDataSource::makeScanSpec(
-        {}, rowType, {columnHandle.get()}, pool_.get());
+        {}, rowType, {columnHandle.get()}, {}, pool_.get());
     auto* c0 = scanSpec->childByName("c0");
     ASSERT_FALSE(c0->childByName(ScanSpec::kMapKeysFieldName)->filter());
     auto* values = c0->childByName(ScanSpec::kMapValuesFieldName);
@@ -169,7 +169,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_allSubscripts) {
   }
   auto columnHandle = makeColumnHandle("c0", columnType, {"c0[*][*].c0c0"});
   auto scanSpec = HiveDataSource::makeScanSpec(
-      {}, rowType, {columnHandle.get()}, pool_.get());
+      {}, rowType, {columnHandle.get()}, {}, pool_.get());
   auto* c0 = scanSpec->childByName("c0");
   ASSERT_FALSE(c0->childByName(ScanSpec::kMapKeysFieldName)->filter());
   auto* values = c0->childByName(ScanSpec::kMapValuesFieldName);

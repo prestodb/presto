@@ -191,6 +191,7 @@ class HiveDataSource : public DataSource {
       const SubfieldFilters& filters,
       const RowTypePtr& rowType,
       const std::vector<const HiveColumnHandle*>& columnHandles,
+      const std::vector<common::Subfield>& remainingFilterInputs,
       memory::MemoryPool* pool);
 
  protected:
