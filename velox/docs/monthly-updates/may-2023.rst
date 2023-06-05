@@ -1,0 +1,75 @@
+****************
+May 2023 Update
+****************
+
+Documentation
+=============
+
+ * Add `blog post on efficient complex types <https://velox-lib.io/blog/simple-functions-2>`_.
+
+
+Core Library
+============
+
+ * Add support to implement DECIMAL type as logical type.
+ * Add support for retrieving signatures of potential companion functions of a UDAF.
+ * Add better messaging for unsupported aggregation function signatures.
+ * Add support for HivePartitionFunctionSpec.
+ * Add support for a faster implementation of UnsafeRowSerializer.
+ * Add support for mutable and non mutable access of simple functions.
+ * Fix memory leak when merging sparse HLL digests.
+ * Fix to set indices, offsets and sizes to 0 when vectors are resized.
+
+
+
+
+Presto Functions
+================
+
+ * Add :func:`beta_cdf`,   :func:`to_ieee754_64`,  :func:`normal_cdf`,  :func:`binomial_cdf` functions.
+ * Add window function :func:`kNullRow` .
+ * Optimize :func:`map` for constant keys.
+
+
+
+Spark Functions
+===============
+
+ * Add :spark:func:`asinh`, :spark:func:`acosh`, :spark:func:`atanh`, :spark:func:`sec`, :spark:func:`csc`, :spark:func:`make_date` functions.
+ * Add :spark:func:`nth_value` window function.
+
+
+Hive Connector
+==============
+
+ * Add support for DATE Type in Parquet writer.
+ * Optimize lookups for buffered reads. :pr:`5017`
+
+
+Performance and Correctness
+===========================
+
+ * Add support for persisting AggregationFuzzer runs.
+ * Add support for multiple expressions in Expression Fuzzer.
+ * Add support for dereferences in Expression Fuzzer.
+
+
+Build System
+============
+
+ * Add support for Simdjson to build framework.
+ * Add support for GCS to build framework.
+ * Add support for fbthrift.
+ * Add support to turn on performance benchmarking via Conbench alerts.
+
+
+Python Bindings
+===============
+
+ * Add vector serialization and deserialization support.
+
+
+Credits
+=======
+
+ Aaron Feldman, Amit Dutta, Ann Rose Benny, Arun Thirupathi, Austin Dickey, Bikramjeet Vig, Daniel Munoz, Deepak Majeti, GOPU-Krishna-S, Ge Gao, Huameng Jiang, Ivan Sadikov, Jacob Wujciak-Jens, Jake Jung, Jialiang Tan, Jimmy Lu, Karteek Murthy Samba Murthy, Ke, Kevin Wilfong, Krishna Pai, Laith Sakka, Masha Basmanova, Open Source Bot, Orri Erling, PHILO-HE, Patrick Sullivan, Pedro Eugenio Rocha Pedreira, Pedro Pedreira, Pooja Bhandari, Pranjal Shankhdhar, Prasoon Telang, Rong Ma, Sandino Flores, Scott Ramsby, Sergey Pershin, Shivam Mitra, Victor Zverovich, Wei He, Xiaoxuan Meng, Yang Zhang, Zac, Zhenyuan Zhao, ashokku202, duanmeng, joey.ljy, lingbin, usurai, vibhatha, wanweiqiangintel, xiaoxmeng, yangchuan, zhli1142015
