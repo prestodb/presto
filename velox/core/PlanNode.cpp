@@ -501,14 +501,40 @@ void TableScanNode::addDetails(std::stringstream& stream) const {
 }
 
 folly::dynamic TableScanNode::serialize() const {
-  VELOX_NYI();
+  auto obj = PlanNode::serialize();
+  obj["outputType"] = outputType_->serialize();
+  obj["tableHandle"] = tableHandle_->serialize();
+  folly::dynamic assignments = folly::dynamic::array;
+  for (const auto& [assign, columnHandle] : assignments_) {
+    folly::dynamic pair = folly::dynamic::object;
+    pair["assign"] = assign;
+    pair["columnHandle"] = columnHandle->serialize();
+    assignments.push_back(std::move(pair));
+  }
+  obj["assignments"] = std::move(assignments);
+  return obj;
 }
 
 // static
-PlanNodePtr TableScanNode::create(
-    const folly::dynamic& /* obj */,
-    void* /* context */) {
-  VELOX_NYI();
+PlanNodePtr TableScanNode::create(const folly::dynamic& obj, void* context) {
+  auto planNodeId = obj["id"].asString();
+  auto outputType = deserializeRowType(obj["outputType"]);
+  auto tableHandle = std::const_pointer_cast<connector::ConnectorTableHandle>(
+      ISerializable::deserialize<connector::ConnectorTableHandle>(
+          obj["tableHandle"], context));
+
+  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+      assignments;
+  for (const auto& pair : obj["assignments"]) {
+    auto assign = pair["assign"].asString();
+    auto columnHandle = ISerializable::deserialize<connector::ColumnHandle>(
+        pair["columnHandle"]);
+    assignments[assign] =
+        std::const_pointer_cast<connector::ColumnHandle>(columnHandle);
+  }
+
+  return std::make_shared<const TableScanNode>(
+      planNodeId, outputType, tableHandle, assignments);
 }
 
 const std::vector<PlanNodePtr>& ArrowStreamNode::sources() const {

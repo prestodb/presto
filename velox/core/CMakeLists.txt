@@ -18,20 +18,15 @@ endif()
 add_library(velox_config Config.cpp)
 target_link_libraries(velox_config velox_exception Folly::folly)
 
-add_library(
-  velox_core
-  Expressions.cpp
-  PlanFragment.cpp
-  PlanNode.cpp
-  QueryConfig.cpp
-  QueryCtx.cpp
-  SimpleFunctionMetadata.cpp)
+add_library(velox_core Expressions.cpp PlanFragment.cpp PlanNode.cpp
+                       QueryConfig.cpp QueryCtx.cpp SimpleFunctionMetadata.cpp)
 
 target_link_libraries(
   velox_core
   velox_config
   velox_expression_functions
   velox_type
+  velox_connector
   velox_serialization
   velox_vector
   Folly::folly)

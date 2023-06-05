@@ -20,7 +20,6 @@
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
-#include "velox/vector/tests/utils/VectorTestBase.h"
 
 #include <gtest/gtest.h>
 
@@ -35,6 +34,10 @@ class PlanNodeSerdeTest : public testing::Test,
     parse::registerTypeResolver();
 
     Type::registerSerDe();
+    common::Filter::registerSerDe();
+    connector::hive::HiveTableHandle::registerSerDe();
+    connector::hive::LocationHandle::registerSerDe();
+    connector::hive::HiveColumnHandle::registerSerDe();
     core::PlanNode::registerSerDe();
     core::ITypedExpr::registerSerDe();
     registerPartitionFunctionSerDe();
@@ -388,6 +391,16 @@ TEST_F(PlanNodeSerdeTest, rowNumber) {
   testSerde(plan);
 
   plan = PlanBuilder().values({data_}).rowNumber({"c1", "c2"}, 10).planNode();
+}
+
+TEST_F(PlanNodeSerdeTest, scan) {
+  auto plan = PlanBuilder(pool_.get())
+                  .tableScan(
+                      ROW({"a", "b", "c", "d"},
+                          {BIGINT(), BIGINT(), BOOLEAN(), DOUBLE()}),
+                      {"a < 5", "b = 7", "c = true", "d > 0.01"},
+                      "a + b < 100")
+                  .planNode();
   testSerde(plan);
 }
 
