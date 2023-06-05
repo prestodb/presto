@@ -360,9 +360,10 @@ class MockSharedArbitrationTest : public testing::Test {
 
   void setupMemory(
       int64_t memoryCapacity = 0,
-      uint64_t initMemoryPoolCapacity = 0,
-      uint64_t minMemoryPoolCapacityTransferSize = 0) {
-    if (initMemoryPoolCapacity == 0) {
+      uint64_t initMemoryPoolCapacity = kMaxMemory,
+      uint64_t minMemoryPoolCapacityTransferSize = 0,
+      bool retryArbitrationFailure = true) {
+    if (initMemoryPoolCapacity == kMaxMemory) {
       initMemoryPoolCapacity = kInitMemoryPoolCapacity;
     }
     if (minMemoryPoolCapacityTransferSize == 0) {
@@ -374,7 +375,8 @@ class MockSharedArbitrationTest : public testing::Test {
         .kind = MemoryArbitrator::Kind::kShared,
         .capacity = options.capacity,
         .initMemoryPoolCapacity = initMemoryPoolCapacity,
-        .minMemoryPoolCapacityTransferSize = minMemoryPoolCapacityTransferSize};
+        .minMemoryPoolCapacityTransferSize = minMemoryPoolCapacityTransferSize,
+        .retryArbitrationFailure = retryArbitrationFailure};
     options.checkUsageLeak = true;
     manager_ = std::make_unique<MemoryManager>(options);
     ASSERT_EQ(manager_->arbitrator()->kind(), MemoryArbitrator::Kind::kShared);
@@ -527,7 +529,7 @@ TEST_F(MockSharedArbitrationTest, failedArbitration) {
 }
 
 TEST_F(MockSharedArbitrationTest, singlePoolGrowCapacityWithArbitration) {
-  std::vector<bool> isLeafReclaimables = {true}; //{true, false};
+  std::vector<bool> isLeafReclaimables = {true, false};
   for (const auto isLeafReclaimable : isLeafReclaimables) {
     SCOPED_TRACE(fmt::format("isLeafReclaimable {}", isLeafReclaimable));
     setupMemory();
@@ -541,8 +543,9 @@ TEST_F(MockSharedArbitrationTest, singlePoolGrowCapacityWithArbitration) {
 
     if (!isLeafReclaimable) {
       ASSERT_ANY_THROW(op->allocate(allocateSize));
-      verifyArbitratorStats(arbitrator_->stats(), kMemoryCapacity, 0, 75, 1);
-      verifyReclaimerStats(op->reclaimer()->stats(), 1, 75);
+      verifyArbitratorStats(
+          arbitrator_->stats(), kMemoryCapacity, kMemoryCapacity, 63, 1);
+      verifyReclaimerStats(op->reclaimer()->stats(), 0, 63);
       continue;
     }
 
@@ -1406,6 +1409,79 @@ DEBUG_ONLY_TEST_F(
 
   arbitrationBlock.notify();
   allocThread.join();
+}
+
+TEST_F(MockSharedArbitrationTest, arbitrationFailureRetry) {
+  int64_t maxCapacity = 128 * MB;
+  int64_t initialCapacity = 0 * MB;
+  int64_t minTransferCapacity = 1 * MB;
+  struct {
+    bool retryArbitrationFailure;
+    int64_t requestorCapacity;
+    int64_t requestorRequestBytes;
+    int64_t otherCapacity;
+    bool expectedAllocationSuccess;
+    bool expectedRequestorAborted;
+
+    std::string debugString() const {
+      return fmt::format(
+          "retryArbitrationFailure {} requestorCapacity {} requestorRequestBytes {} otherCapacity {} expectedAllocationSuccess {} expectedRequestorAborted {}",
+          retryArbitrationFailure,
+          succinctBytes(requestorCapacity),
+          succinctBytes(requestorRequestBytes),
+          succinctBytes(otherCapacity),
+          expectedAllocationSuccess,
+          expectedRequestorAborted);
+    }
+  } testSettings[] = {
+      {false, 64 * MB, 64 * MB, 32 * MB, false, false},
+      {false, 64 * MB, 48 * MB, 32 * MB, false, false},
+      {false, 32 * MB, 64 * MB, 64 * MB, false, false},
+      {false, 32 * MB, 32 * MB, 96 * MB, false, false},
+      {true, 64 * MB, 64 * MB, 32 * MB, false, true},
+      {true, 64 * MB, 48 * MB, 32 * MB, false, true},
+      {true, 32 * MB, 64 * MB, 64 * MB, false, true},
+      {true, 32 * MB, 32 * MB, 96 * MB, true, false}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    setupMemory(
+        maxCapacity,
+        initialCapacity,
+        minTransferCapacity,
+        testData.retryArbitrationFailure);
+    std::shared_ptr<MockQuery> requestorQuery = addQuery();
+    MockMemoryOperator* requestorOp = addMemoryOp(requestorQuery, false);
+    requestorOp->allocate(testData.requestorCapacity);
+    ASSERT_EQ(requestorOp->capacity(), testData.requestorCapacity);
+    std::shared_ptr<MockQuery> otherQuery = addQuery();
+    MockMemoryOperator* otherOp = addMemoryOp(otherQuery, false);
+    otherOp->allocate(testData.otherCapacity);
+    ASSERT_EQ(otherOp->capacity(), testData.otherCapacity);
+
+    if (testData.expectedRequestorAborted) {
+      VELOX_ASSERT_THROW(
+          requestorOp->allocate(testData.requestorRequestBytes), "");
+      ASSERT_TRUE(requestorOp->pool()->aborted());
+      ASSERT_FALSE(otherOp->pool()->aborted());
+    } else if (testData.expectedAllocationSuccess) {
+      requestorOp->allocate(testData.requestorRequestBytes);
+      ASSERT_FALSE(requestorOp->pool()->aborted());
+      ASSERT_TRUE(otherOp->pool()->aborted());
+    } else {
+      VELOX_ASSERT_THROW(
+          requestorOp->allocate(testData.requestorRequestBytes), "");
+      ASSERT_FALSE(requestorOp->pool()->aborted());
+      ASSERT_FALSE(otherOp->pool()->aborted());
+    }
+    ASSERT_EQ(
+        arbitrator_->stats().numFailures,
+        testData.expectedAllocationSuccess ? 0 : 1);
+    ASSERT_EQ(
+        arbitrator_->stats().numAborted,
+        testData.retryArbitrationFailure ? 1 : 0);
+  }
 }
 
 TEST_F(MockSharedArbitrationTest, concurrentArbitrations) {

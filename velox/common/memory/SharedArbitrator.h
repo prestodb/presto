@@ -69,9 +69,18 @@ class SharedArbitrator : public MemoryArbitrator {
   static std::vector<Candidate> getCandidateStats(
       const std::vector<std::shared_ptr<MemoryPool>>& pools);
 
-  void sortCandidatesByReclaimableMemory(std::vector<Candidate>& candidates);
+  void sortCandidatesByReclaimableMemory(
+      std::vector<Candidate>& candidates) const;
 
-  void sortCandidatesByFreeCapacity(std::vector<Candidate>& candidates);
+  void sortCandidatesByFreeCapacity(std::vector<Candidate>& candidates) const;
+
+  // Finds the candidate with the largest capacity. For 'requestor', the
+  // capacity for comparison including its current capacity and the capacity to
+  // grow.
+  const Candidate& findCandidateWithLargestCapacity(
+      MemoryPool* requestor,
+      uint64_t targetBytes,
+      const std::vector<Candidate>& candidates) const;
 
   bool arbitrateMemory(
       MemoryPool* requestor,
@@ -111,6 +120,13 @@ class SharedArbitrator : public MemoryArbitrator {
 
   // Invoked to abort memory 'pool'.
   void abort(MemoryPool* pool);
+
+  // Invoked to handle the memory arbitration failure to abort the memory pool
+  // with the largest capacity to free up memory.
+  void handleOOM(
+      MemoryPool* requestor,
+      uint64_t targetBytes,
+      std::vector<Candidate>& candidates);
 
   // Decrement free capacity from the arbitrator with up to 'bytes'. The
   // arbitrator might have less free available capacity. The function returns

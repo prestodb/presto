@@ -77,6 +77,14 @@ class MemoryArbitrator {
     /// The minimal memory capacity to transfer out of or into a memory pool
     /// during the memory arbitration.
     uint64_t minMemoryPoolCapacityTransferSize{32 << 20};
+
+    /// If true, handle the memory arbitration failure by aborting the memory
+    /// pool with most capacity and retry the memory arbitration, otherwise we
+    /// simply fails the memory arbitration requestor itself. This helps the
+    /// distributed query execution use case such as Prestissimo that fail the
+    /// same query on all the workers instead of a random victim query which
+    /// happens to trigger the failed memory arbitration.
+    bool retryArbitrationFailure{true};
   };
   static std::unique_ptr<MemoryArbitrator> create(const Config& config);
 
@@ -154,12 +162,14 @@ class MemoryArbitrator {
         capacity_(config.capacity),
         initMemoryPoolCapacity_(config.initMemoryPoolCapacity),
         minMemoryPoolCapacityTransferSize_(
-            config.minMemoryPoolCapacityTransferSize) {}
+            config.minMemoryPoolCapacityTransferSize),
+        retryArbitrationFailure_(config.retryArbitrationFailure) {}
 
   const Kind kind_;
   const uint64_t capacity_;
   const uint64_t initMemoryPoolCapacity_;
   const uint64_t minMemoryPoolCapacityTransferSize_;
+  const bool retryArbitrationFailure_;
 };
 
 std::ostream& operator<<(std::ostream& out, const MemoryArbitrator::Kind& kind);

@@ -35,7 +35,8 @@ MemoryManager::MemoryManager(const Options& options)
               options.arbitratorConfig.initMemoryPoolCapacity,
           .minMemoryPoolCapacityTransferSize =
               options.arbitratorConfig.minMemoryPoolCapacityTransferSize,
-      })),
+          .retryArbitrationFailure =
+              options.arbitratorConfig.retryArbitrationFailure})),
       alignment_(std::max(MemoryAllocator::kMinAlignment, options.alignment)),
       checkUsageLeak_(options.checkUsageLeak),
       poolDestructionCb_([&](MemoryPool* pool) { dropPool(pool); }),

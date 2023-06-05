@@ -23,9 +23,8 @@
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::memory {
-
 void SharedArbitrator::sortCandidatesByFreeCapacity(
-    std::vector<Candidate>& candidates) {
+    std::vector<Candidate>& candidates) const {
   std::sort(
       candidates.begin(),
       candidates.end(),
@@ -39,7 +38,7 @@ void SharedArbitrator::sortCandidatesByFreeCapacity(
 }
 
 void SharedArbitrator::sortCandidatesByReclaimableMemory(
-    std::vector<Candidate>& candidates) {
+    std::vector<Candidate>& candidates) const {
   std::sort(
       candidates.begin(),
       candidates.end(),
@@ -56,6 +55,42 @@ void SharedArbitrator::sortCandidatesByReclaimableMemory(
   TestValue::adjust(
       "facebook::velox::memory::SharedArbitrator::sortCandidatesByReclaimableMemory",
       &candidates);
+}
+
+const SharedArbitrator::Candidate&
+SharedArbitrator::findCandidateWithLargestCapacity(
+    MemoryPool* requestor,
+    uint64_t targetBytes,
+    const std::vector<Candidate>& candidates) const {
+  VELOX_CHECK(!candidates.empty());
+  int32_t candidateIdx{-1};
+  int64_t maxCapacity{-1};
+  for (int32_t i = 0; i < candidates.size(); ++i) {
+    const bool isCandidate = candidates[i].pool == requestor;
+    // For capacity comparison, the requestor's capacity should include both its
+    // current capacity and the capacity growth.
+    const int64_t capacity =
+        candidates[i].pool->capacity() + (isCandidate ? targetBytes : 0);
+    if (i == 0) {
+      candidateIdx = 0;
+      maxCapacity = capacity;
+      continue;
+    }
+    if (maxCapacity > capacity) {
+      continue;
+    }
+    if (capacity < maxCapacity) {
+      candidateIdx = i;
+      continue;
+    }
+    // With the same amount of capacity, we prefer to kill the requestor itself
+    // without affecting the other query.
+    if (isCandidate) {
+      candidateIdx = i;
+    }
+  }
+  VELOX_CHECK_NE(candidateIdx, -1);
+  return candidates[candidateIdx];
 }
 
 SharedArbitrator::~SharedArbitrator() {
@@ -99,16 +134,58 @@ bool SharedArbitrator::growMemory(
     const std::vector<std::shared_ptr<MemoryPool>>& candidatePools,
     uint64_t targetBytes) {
   ScopedArbitration scopedArbitration(pool, this);
-  if (FOLLY_UNLIKELY(pool->aborted())) {
+  MemoryPool* requestor = pool->root();
+  if (FOLLY_UNLIKELY(requestor->aborted())) {
     ++numFailures_;
-    VELOX_MEM_POOL_ABORTED(pool->root());
+    VELOX_MEM_POOL_ABORTED(requestor);
   }
-  std::vector<Candidate> candidates = getCandidateStats(candidatePools);
-  const bool success = arbitrateMemory(pool->root(), candidates, targetBytes);
-  if (!success) {
+
+  std::vector<Candidate> candidates;
+  candidates.reserve(candidatePools.size());
+  int numRetries{0};
+  for (;; ++numRetries) {
+    // Get refreshed stats before the memory arbitration retry.
+    candidates = getCandidateStats(candidatePools);
+    if (arbitrateMemory(requestor, candidates, targetBytes)) {
+      return true;
+    }
+    if (!retryArbitrationFailure_ || numRetries > 0) {
+      break;
+    }
+    VELOX_CHECK(!requestor->aborted());
+    handleOOM(requestor, targetBytes, candidates);
+  }
+  VELOX_MEM_LOG(ERROR)
+      << "Failed to arbitrate sufficient memory for memory pool "
+      << requestor->name() << ", request " << succinctBytes(targetBytes)
+      << " after " << numRetries
+      << " retries, Arbitrator state: " << toString();
+  ++numFailures_;
+  return false;
+}
+
+void SharedArbitrator::handleOOM(
+    MemoryPool* requestor,
+    uint64_t targetBytes,
+    std::vector<Candidate>& candidates) {
+  MemoryPool* victim =
+      findCandidateWithLargestCapacity(requestor, targetBytes, candidates).pool;
+  if (requestor != victim) {
+    VELOX_MEM_LOG(WARNING) << "Aborting victim memory pool " << victim->name()
+                           << " to free up memory for requestor "
+                           << requestor->name();
+  } else {
+    VELOX_MEM_LOG(ERROR) << "Aborting requestor memory pool "
+                         << requestor->name() << " itself to free up memory";
+  }
+  abort(victim);
+  // Free up all the unused capacity from the aborted memory pool and gives back
+  // to the arbitrator.
+  incrementFreeCapacity(victim->shrink());
+  if (requestor == victim) {
     ++numFailures_;
+    VELOX_MEM_POOL_ABORTED(requestor);
   }
-  return success;
 }
 
 bool SharedArbitrator::arbitrateMemory(
@@ -158,7 +235,7 @@ bool SharedArbitrator::arbitrateMemory(
         << "Failed to arbitrate sufficient memory for memory pool "
         << requestor->name() << ", request " << succinctBytes(targetBytes)
         << ", only " << succinctBytes(freedBytes)
-        << " has been freed, Arbitrator state: " << toStringLocked();
+        << " has been freed, Arbitrator state: " << toString();
     return false;
   }
 

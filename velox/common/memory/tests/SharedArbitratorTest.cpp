@@ -268,7 +268,8 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
   void setupMemory(
       int64_t memoryCapacity = 0,
       uint64_t initMemoryPoolCapacity = 0,
-      uint64_t minMemoryPoolCapacityTransferSize = 0) {
+      uint64_t minMemoryPoolCapacityTransferSize = 0,
+      bool retryArbitrationFailure = true) {
     if (initMemoryPoolCapacity == 0) {
       initMemoryPoolCapacity = kInitMemoryPoolCapacity;
     }
@@ -281,7 +282,8 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
         .kind = MemoryArbitrator::Kind::kShared,
         .capacity = options.capacity,
         .initMemoryPoolCapacity = initMemoryPoolCapacity,
-        .minMemoryPoolCapacityTransferSize = minMemoryPoolCapacityTransferSize};
+        .minMemoryPoolCapacityTransferSize = minMemoryPoolCapacityTransferSize,
+        .retryArbitrationFailure = retryArbitrationFailure};
     options.checkUsageLeak = true;
     memoryManager_ = std::make_unique<MemoryManager>(options);
     ASSERT_EQ(
@@ -1249,6 +1251,8 @@ DEBUG_ONLY_TEST_F(
 DEBUG_ONLY_TEST_F(
     SharedArbitrationTest,
     failedToReclaimFromHashJoinBuildersInNonReclaimableSection) {
+  // Disable the memory arbitration failure retry to ease testing.
+  setupMemory(0, 0, 0, false);
   const int numVectors = 32;
   std::vector<RowVectorPtr> vectors;
   fuzzerOpts_.vectorSize = 128;
@@ -1416,6 +1420,8 @@ DEBUG_ONLY_TEST_F(
 DEBUG_ONLY_TEST_F(
     SharedArbitrationTest,
     failedToReclaimFromHashJoinBuildersInNotRunningState) {
+  // Disable the memory arbitration failure retry to ease testing.
+  setupMemory(0, 0, 0, false);
   const int numVectors = 32;
   std::vector<RowVectorPtr> vectors;
   fuzzerOpts_.vectorSize = 128;
