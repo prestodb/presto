@@ -126,7 +126,7 @@ void Announcer::makeAnnouncement() {
       LOG(INFO) << "Discovery service changed to " << newAddress.getAddressStr()
                 << ":" << newAddress.getPort();
       std::swap(address_, newAddress);
-      client_ = std::make_unique<http::HttpClient>(
+      client_ = std::make_shared<http::HttpClient>(
           eventBaseThread_.getEventBase(),
           address_,
           std::chrono::milliseconds(10'000),

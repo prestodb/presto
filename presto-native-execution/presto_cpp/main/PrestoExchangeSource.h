@@ -109,7 +109,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   const std::string clientCertAndKeyPath_;
   const std::string ciphers_;
 
-  std::unique_ptr<http::HttpClient> httpClient_;
+  std::shared_ptr<http::HttpClient> httpClient_;
   int failedAttempts_;
   // The number of pages received from this presto exchange source.
   uint64_t numPages_{0};
