@@ -52,7 +52,7 @@ class Announcer {
   const proxygen::HTTPMessage announcementRequest_;
   const std::shared_ptr<velox::memory::MemoryPool> pool_;
   folly::SocketAddress address_;
-  std::unique_ptr<http::HttpClient> client_;
+  std::shared_ptr<http::HttpClient> client_;
   std::atomic_bool stopped_{true};
   folly::EventBaseThread eventBaseThread_;
   const std::string clientCertAndKeyPath_;
