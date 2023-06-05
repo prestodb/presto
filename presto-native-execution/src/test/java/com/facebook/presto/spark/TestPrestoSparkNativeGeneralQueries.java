@@ -44,14 +44,6 @@ public class TestPrestoSparkNativeGeneralQueries
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
     @Override
     @Ignore
-    public void testBucketedExecution() {}
-
-    @Override
-    @Ignore
-    public void testCast() {}
-
-    @Override
-    @Ignore
     public void testCatalogWithCacheEnabled() {}
 
     @Override
