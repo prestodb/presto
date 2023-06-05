@@ -216,7 +216,7 @@ std::unique_ptr<exec::Aggregate> createMapUnionSumAggregate(
   }
 }
 
-bool registerMapUnionSum(const std::string& name) {
+exec::AggregateRegistrationResult registerMapUnionSum(const std::string& name) {
   // TODO Add support for keys of type VARCHAR.
 
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
@@ -232,7 +232,7 @@ bool registerMapUnionSum(const std::string& name) {
     }
   }
 
-  exec::registerAggregateFunction(
+  return exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](
@@ -261,7 +261,6 @@ bool registerMapUnionSum(const std::string& name) {
             VELOX_UNREACHABLE();
         }
       });
-  return true;
 }
 
 } // namespace

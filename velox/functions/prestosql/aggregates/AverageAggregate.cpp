@@ -381,7 +381,7 @@ class DecimalAverageAggregate : public DecimalAggregate<TUnscaledType> {
   }
 };
 
-bool registerAverage(const std::string& name) {
+exec::AggregateRegistrationResult registerAverage(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
 
   for (const auto& inputType : {"smallint", "integer", "bigint", "double"}) {
@@ -406,7 +406,7 @@ bool registerAverage(const std::string& name) {
                            .returnType("DECIMAL(a_precision, a_scale)")
                            .build());
 
-  exec::registerAggregateFunction(
+  return exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](
@@ -490,7 +490,6 @@ bool registerAverage(const std::string& name) {
         }
       },
       /*registerCompanionFunctions*/ true);
-  return true;
 }
 
 } // namespace

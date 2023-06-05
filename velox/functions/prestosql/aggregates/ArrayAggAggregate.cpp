@@ -169,7 +169,7 @@ class ArrayAggAggregate : public exec::Aggregate {
   DecodedVector decodedIntermediate_;
 };
 
-bool registerArray(const std::string& name) {
+exec::AggregateRegistrationResult registerArray(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .typeVariable("E")
@@ -178,7 +178,7 @@ bool registerArray(const std::string& name) {
           .argumentType("E")
           .build()};
 
-  exec::registerAggregateFunction(
+  return exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](
@@ -189,7 +189,6 @@ bool registerArray(const std::string& name) {
             argTypes.size(), 1, "{} takes at most one argument", name);
         return std::make_unique<ArrayAggAggregate>(resultType);
       });
-  return true;
 }
 
 } // namespace

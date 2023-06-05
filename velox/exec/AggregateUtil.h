@@ -13,16 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
-#include <string>
+namespace facebook::velox::exec {
 
-#include "velox/exec/AggregateUtil.h"
+// The result of aggregation function registration.
+struct AggregateRegistrationResult {
+  bool mainFunction{false};
+  bool partialFunction{false};
+  bool mergeFunction{false};
+  bool extractFunction{false};
+  bool mergeExtractFunction{false};
+};
 
-namespace facebook::velox::functions::aggregate::sparksql {
-
-exec::AggregateRegistrationResult registerBitwiseXorAggregate(
-    const std::string& name);
-
-} // namespace facebook::velox::functions::aggregate::sparksql
+} // namespace facebook::velox::exec

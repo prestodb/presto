@@ -168,7 +168,7 @@ class CountIfAggregate : public exec::Aggregate {
   }
 };
 
-bool registerCountIf(const std::string& name) {
+exec::AggregateRegistrationResult registerCountIf(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .returnType("bigint")
@@ -177,7 +177,7 @@ bool registerCountIf(const std::string& name) {
           .build(),
   };
 
-  exec::registerAggregateFunction(
+  return exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](
@@ -198,7 +198,6 @@ bool registerCountIf(const std::string& name) {
 
         return std::make_unique<CountIfAggregate>();
       });
-  return true;
 }
 
 } // namespace

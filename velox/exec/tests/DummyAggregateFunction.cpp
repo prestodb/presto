@@ -18,10 +18,11 @@
 
 namespace facebook::velox::exec::test {
 
-bool registerDummyAggregateFunction(
+AggregateRegistrationResult registerDummyAggregateFunction(
     const std::string& name,
-    const std::vector<AggregateFunctionSignaturePtr>& signatures) {
-  registerAggregateFunction(
+    const std::vector<AggregateFunctionSignaturePtr>& signatures,
+    bool overwrite) {
+  return registerAggregateFunction(
       name,
       signatures,
       [&](core::AggregationNode::Step step,
@@ -33,9 +34,8 @@ bool registerDummyAggregateFunction(
         }
         return std::make_unique<DummyDicitonaryFunction>(resultType);
       },
-      /*registerCompanionFunctions*/ true);
-
-  return true;
+      /*registerCompanionFunctions*/ true,
+      overwrite);
 }
 
 } // namespace facebook::velox::exec::test

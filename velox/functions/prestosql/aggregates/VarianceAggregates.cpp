@@ -459,7 +459,7 @@ void checkSumCountRowType(
 }
 
 template <template <typename TInput> class TClass>
-bool registerVariance(const std::string& name) {
+exec::AggregateRegistrationResult registerVariance(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   std::vector<std::string> inputTypes = {
       "smallint", "integer", "bigint", "real", "double"};

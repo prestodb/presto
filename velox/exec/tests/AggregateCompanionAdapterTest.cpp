@@ -30,6 +30,14 @@ namespace facebook::velox::exec::test {
 namespace {
 
 class AggregateCompanionRegistryTest : public testing::Test {
+ public:
+  AggregateCompanionRegistryTest() {
+    exec::aggregateFunctions().withWLock([&](auto& functionsMap) {
+      functionsMap.clear();
+      EXPECT_EQ(0, functionsMap.size());
+    });
+  }
+
  protected:
   void checkEqual(const TypePtr& actual, const TypePtr& expected) {
     if (expected) {
@@ -424,6 +432,61 @@ TEST_F(
   checkAggregateSignaturesCount("aggregateFunc6_merge_extract", 0);
 
   checkScalarSignaturesCount("aggregateFunc6_extract", 0);
+}
+
+namespace {
+class DummyVectorFunction : public exec::VectorFunction {
+ public:
+  void apply(
+      const SelectivityVector& /* rows */,
+      std::vector<VectorPtr>& /* args */,
+      const TypePtr& /* outputType */,
+      exec::EvalCtx& /* context */,
+      VectorPtr& /* result */) const override {}
+
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+    return {exec::FunctionSignatureBuilder()
+                .returnType("boolean")
+                .argumentType("integer")
+                .build()};
+  }
+};
+} // namespace
+
+TEST_F(AggregateCompanionRegistryTest, duplicateRegistration) {
+  std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures{
+      AggregateFunctionSignatureBuilder()
+          .returnType("double")
+          .intermediateType("array(double)")
+          .argumentType("double")
+          .build()};
+
+  // Manual registration of a function with the same name as an already
+  // registered companion function.
+  registerDummyAggregateFunction("aggregateFunc7", signatures);
+  EXPECT_FALSE(
+      registerDummyAggregateFunction("aggregateFunc7_partial", signatures)
+          .mainFunction);
+  EXPECT_TRUE(
+      registerDummyAggregateFunction("aggregateFunc7_partial", signatures, true)
+          .mainFunction);
+
+  // Register companion functions with the same name as an already registered
+  // function.
+  registerDummyAggregateFunction("aggregateFunc8_partial", signatures);
+  EXPECT_FALSE(registerDummyAggregateFunction("aggregateFunc8", signatures)
+                   .partialFunction);
+  EXPECT_TRUE(registerDummyAggregateFunction("aggregateFunc8", signatures, true)
+                  .partialFunction);
+
+  exec::registerVectorFunction(
+      "aggregateFunc9_extract",
+      DummyVectorFunction::signatures(),
+      std::make_unique<DummyVectorFunction>());
+  EXPECT_FALSE(registerDummyAggregateFunction("aggregateFunc9", signatures)
+                   .extractFunction);
+  EXPECT_TRUE(registerDummyAggregateFunction("aggregateFunc9", signatures, true)
+                  .extractFunction);
 }
 
 } // namespace

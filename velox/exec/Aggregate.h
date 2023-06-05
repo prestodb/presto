@@ -19,6 +19,7 @@
 
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/core/PlanNode.h"
+#include "velox/exec/AggregateUtil.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/vector/BaseVector.h"
 
@@ -355,12 +356,15 @@ using AggregateFunctionFactory = std::function<std::unique_ptr<Aggregate>(
 
 /// Register an aggregate function with the specified name and signatures. If
 /// registerCompanionFunctions is true, also register companion aggregate and
-/// scalar functions with it.
-bool registerAggregateFunction(
+/// scalar functions with it. When functions with `name` already exist, if
+/// overwrite is true, existing registration will be replaced. Otherwise, return
+/// false without overwriting the registry.
+AggregateRegistrationResult registerAggregateFunction(
     const std::string& name,
     std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures,
     AggregateFunctionFactory factory,
-    bool registerCompanionFunctions = false);
+    bool registerCompanionFunctions = false,
+    bool overwrite = false);
 
 /// Returns signatures of the aggregate function with the specified name.
 /// Returns empty std::optional if function with that name is not found.

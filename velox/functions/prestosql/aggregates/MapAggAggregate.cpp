@@ -68,7 +68,7 @@ class MapAggAggregate : public aggregate::MapAggregateBase {
   }
 };
 
-bool registerMapAgg(const std::string& name) {
+exec::AggregateRegistrationResult registerMapAgg(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .knownTypeVariable("K")
@@ -79,7 +79,7 @@ bool registerMapAgg(const std::string& name) {
           .argumentType("V")
           .build()};
 
-  exec::registerAggregateFunction(
+  return exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](
@@ -94,7 +94,6 @@ bool registerMapAgg(const std::string& name) {
             name);
         return std::make_unique<MapAggAggregate>(resultType);
       });
-  return true;
 }
 
 } // namespace

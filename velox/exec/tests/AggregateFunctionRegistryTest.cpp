@@ -94,25 +94,27 @@ class AggregateFunc : public Aggregate {
   }
 };
 
-bool registerAggregateFunc(const std::string& name) {
+bool registerAggregateFunc(const std::string& name, bool overwrite = false) {
   auto signatures = AggregateFunc::signatures();
 
-  registerAggregateFunction(
-      name,
-      std::move(signatures),
-      [&](core::AggregationNode::Step step,
-          const std::vector<TypePtr>& argTypes,
-          const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
-        if (isPartialOutput(step)) {
-          if (argTypes.empty()) {
-            return std::make_unique<AggregateFunc>(resultType);
-          }
-          return std::make_unique<AggregateFunc>(ARRAY(resultType));
-        }
-        return std::make_unique<AggregateFunc>(resultType);
-      });
-
-  return true;
+  return registerAggregateFunction(
+             name,
+             std::move(signatures),
+             [&](core::AggregationNode::Step step,
+                 const std::vector<TypePtr>& argTypes,
+                 const TypePtr& resultType)
+                 -> std::unique_ptr<exec::Aggregate> {
+               if (isPartialOutput(step)) {
+                 if (argTypes.empty()) {
+                   return std::make_unique<AggregateFunc>(resultType);
+                 }
+                 return std::make_unique<AggregateFunc>(ARRAY(resultType));
+               }
+               return std::make_unique<AggregateFunc>(resultType);
+             },
+             /*registerCompanionFunctions*/ false,
+             overwrite)
+      .mainFunction;
 }
 
 } // namespace
@@ -211,6 +213,11 @@ TEST_F(FunctionRegistryTest, aggregateWindowFunctionSignature) {
       1);
   ASSERT_EQ(functionSignatures.count("() -> date -> date"), 1);
   ASSERT_EQ(functionSignatures.count("(T,T) -> array(T) -> T"), 1);
+}
+
+TEST_F(FunctionRegistryTest, duplicateRegistration) {
+  EXPECT_FALSE(registerAggregateFunc("aggregate_func"));
+  EXPECT_TRUE(registerAggregateFunc("aggregate_func", true));
 }
 
 } // namespace facebook::velox::exec::test

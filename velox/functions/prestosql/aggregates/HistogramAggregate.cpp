@@ -221,7 +221,7 @@ class HistogramAggregate : public exec::Aggregate {
   DecodedVector decodedIntermediate_;
 };
 
-bool registerHistogram(const std::string& name) {
+exec::AggregateRegistrationResult registerHistogram(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .typeVariable("T")
@@ -230,7 +230,7 @@ bool registerHistogram(const std::string& name) {
           .argumentType("T")
           .build()};
 
-  exec::registerAggregateFunction(
+  return exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](
@@ -271,7 +271,6 @@ bool registerHistogram(const std::string& name) {
                 inputType->kindName());
         }
       });
-  return true;
 }
 
 } // namespace

@@ -65,7 +65,8 @@ class BitwiseXorAggregate : public BitwiseAggregateBase<T> {
 
 } // namespace
 
-bool registerBitwiseXorAggregate(const std::string& prefix) {
+exec::AggregateRegistrationResult registerBitwiseXorAggregate(
+    const std::string& prefix) {
   return functions::aggregate::registerBitwise<BitwiseXorAggregate>(
       prefix + "bit_xor");
 }

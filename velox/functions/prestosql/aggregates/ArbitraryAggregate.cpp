@@ -254,7 +254,7 @@ class NonNumericArbitrary : public exec::Aggregate {
   }
 };
 
-bool registerArbitrary(const std::string& name) {
+exec::AggregateRegistrationResult registerArbitrary(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .typeVariable("T")

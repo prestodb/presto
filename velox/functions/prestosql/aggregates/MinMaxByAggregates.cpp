@@ -646,7 +646,7 @@ std::unique_ptr<exec::Aggregate> create(
 }
 
 template <template <typename U, typename V> class Aggregate>
-bool registerMinMaxBy(const std::string& name) {
+exec::AggregateRegistrationResult registerMinMaxBy(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   // TODO Add support for boolean and timestamp 'compare' types.
   for (const auto& compareType :
@@ -668,7 +668,7 @@ bool registerMinMaxBy(const std::string& name) {
             .build());
   }
 
-  exec::registerAggregateFunction(
+  return exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](
@@ -747,7 +747,6 @@ bool registerMinMaxBy(const std::string& name) {
             VELOX_FAIL(errorMessage);
         }
       });
-  return true;
 }
 
 } // namespace

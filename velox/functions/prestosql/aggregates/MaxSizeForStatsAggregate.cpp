@@ -202,7 +202,8 @@ class MaxSizeForStatsAggregate
   }
 };
 
-bool registerMaxSizeForStats(const std::string& name) {
+exec::AggregateRegistrationResult registerMaxSizeForStats(
+    const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
 
   signatures.push_back(exec::AggregateFunctionSignatureBuilder()

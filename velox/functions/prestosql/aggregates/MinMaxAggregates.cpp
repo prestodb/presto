@@ -468,7 +468,7 @@ class NonNumericMinAggregate : public NonNumericMinMaxAggregateBase {
 };
 
 template <template <typename T> class TNumeric, typename TNonNumeric>
-bool registerMinMax(const std::string& name) {
+exec::AggregateRegistrationResult registerMinMax(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   signatures.push_back(exec::AggregateFunctionSignatureBuilder()
                            .typeVariable("T")

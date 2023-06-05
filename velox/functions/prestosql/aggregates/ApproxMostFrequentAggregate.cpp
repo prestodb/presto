@@ -316,7 +316,8 @@ std::unique_ptr<exec::Aggregate> makeApproxMostFrequentAggregate(
   }
 }
 
-bool registerApproxMostFrequent(const std::string& name) {
+exec::AggregateRegistrationResult registerApproxMostFrequent(
+    const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   for (const auto& valueType :
        {"tinyint", "smallint", "integer", "bigint", "varchar"}) {
@@ -330,7 +331,7 @@ bool registerApproxMostFrequent(const std::string& name) {
             .argumentType("bigint")
             .build());
   }
-  exec::registerAggregateFunction(
+  return exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](
@@ -347,7 +348,6 @@ bool registerApproxMostFrequent(const std::string& name) {
             name,
             valueType);
       });
-  return true;
 }
 
 } // namespace

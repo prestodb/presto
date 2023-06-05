@@ -399,7 +399,7 @@ std::unique_ptr<exec::Aggregate> createApproxDistinct(
       resultType, hllAsFinalResult, hllAsRawInput);
 }
 
-bool registerApproxDistinct(
+exec::AggregateRegistrationResult registerApproxDistinct(
     const std::string& name,
     bool hllAsFinalResult,
     bool hllAsRawInput) {
@@ -439,7 +439,7 @@ bool registerApproxDistinct(
     }
   }
 
-  exec::registerAggregateFunction(
+  return exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name, hllAsFinalResult, hllAsRawInput](
@@ -455,7 +455,6 @@ bool registerApproxDistinct(
             hllAsRawInput);
       },
       /*registerCompanionFunctions*/ true);
-  return true;
 }
 
 } // namespace

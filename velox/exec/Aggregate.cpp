@@ -53,28 +53,49 @@ getAggregateFunctionEntry(const std::string& name) {
       });
 }
 
-bool registerAggregateFunction(
+AggregateRegistrationResult registerAggregateFunction(
     const std::string& name,
     std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures,
     AggregateFunctionFactory factory,
-    bool registerCompanionFunctions) {
+    bool registerCompanionFunctions,
+    bool overwrite) {
   auto sanitizedName = sanitizeName(name);
+  AggregateRegistrationResult registered;
 
-  aggregateFunctions().withWLock([&](auto& aggregationFunctionMap) {
-    aggregationFunctionMap[sanitizedName] = {signatures, std::move(factory)};
-  });
+  if (overwrite) {
+    aggregateFunctions().withWLock([&](auto& aggregationFunctionMap) {
+      aggregationFunctionMap[sanitizedName] = {signatures, std::move(factory)};
+    });
+    registered.mainFunction = true;
+  } else {
+    auto inserted =
+        aggregateFunctions().withWLock([&](auto& aggregationFunctionMap) {
+          auto [_, inserted] = aggregationFunctionMap.insert(
+              {sanitizedName, {signatures, factory}});
+          return inserted;
+        });
+    registered.mainFunction = inserted;
+  }
 
   // Register the aggregate as a window function also.
   registerAggregateWindowFunction(sanitizedName);
 
   // Register companion function if needed.
   if (registerCompanionFunctions) {
-    CompanionFunctionsRegistrar::registerPartialFunction(name, signatures);
-    CompanionFunctionsRegistrar::registerMergeFunction(name, signatures);
-    CompanionFunctionsRegistrar::registerExtractFunction(name, signatures);
-    CompanionFunctionsRegistrar::registerMergeExtractFunction(name, signatures);
+    registered.partialFunction =
+        CompanionFunctionsRegistrar::registerPartialFunction(
+            name, signatures, overwrite);
+    registered.mergeFunction =
+        CompanionFunctionsRegistrar::registerMergeFunction(
+            name, signatures, overwrite);
+    registered.extractFunction =
+        CompanionFunctionsRegistrar::registerExtractFunction(
+            name, signatures, overwrite);
+    registered.mergeExtractFunction =
+        CompanionFunctionsRegistrar::registerMergeExtractFunction(
+            name, signatures, overwrite);
   }
-  return true;
+  return registered;
 }
 
 std::unordered_map<

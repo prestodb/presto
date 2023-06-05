@@ -178,7 +178,7 @@ class BoolOrAggregate final : public BoolAndOrAggregate {
 };
 
 template <class T>
-bool registerBool(const std::string& name) {
+exec::AggregateRegistrationResult registerBool(const std::string& name) {
   // TODO Fix signature to match Presto.
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures = {
       exec::AggregateFunctionSignatureBuilder()
@@ -187,7 +187,7 @@ bool registerBool(const std::string& name) {
           .argumentType("boolean")
           .build()};
 
-  exec::registerAggregateFunction(
+  return exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](
@@ -205,7 +205,6 @@ bool registerBool(const std::string& name) {
             inputType->kindName());
         return std::make_unique<T>();
       });
-  return true;
 }
 
 } // namespace

@@ -207,7 +207,7 @@ class ChecksumAggregate : public exec::Aggregate {
   DecodedVector decodedIntermediate_;
 };
 
-bool registerChecksum(const std::string& name) {
+exec::AggregateRegistrationResult registerChecksum(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .typeVariable("T")
@@ -217,7 +217,7 @@ bool registerChecksum(const std::string& name) {
           .build(),
   };
 
-  exec::registerAggregateFunction(
+  return exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [&name](
@@ -232,8 +232,6 @@ bool registerChecksum(const std::string& name) {
 
         return std::make_unique<ChecksumAggregate>(VARBINARY());
       });
-
-  return true;
 }
 
 } // namespace

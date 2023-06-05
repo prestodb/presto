@@ -167,32 +167,49 @@ struct AggregateCompanionAdapter {
 
 class CompanionFunctionsRegistrar {
  public:
+  // Register the partial companion function for an aggregation function of
+  // `name` and `signatures`. When there is already a function of the same name,
+  // if `overwrite` is true, the registration is replaced. Otherwise, return
+  // false without overwriting the registry.
   static bool registerPartialFunction(
       const std::string& name,
-      const std::vector<AggregateFunctionSignaturePtr>& signatures);
+      const std::vector<AggregateFunctionSignaturePtr>& signatures,
+      bool overwrite = false);
 
+  // When there is already a function of the same name as the merge companion
+  // function, if `overwrite` is true, the registration is replaced. Otherwise,
+  // return false without overwriting the registry.
   static bool registerMergeFunction(
       const std::string& name,
-      const std::vector<AggregateFunctionSignaturePtr>& signatures);
+      const std::vector<AggregateFunctionSignaturePtr>& signatures,
+      bool overwrite = false);
 
   // If there are multiple signatures of the original aggregation function
   // with the same intermediate type, register extract functions with suffix
   // of their result types in the function names for each of them. Otherwise,
   // register one extract function of all supported signatures. The result
   // type of the original aggregation function is required to be resolveable
-  // given its intermediate type.
+  // given its intermediate type. When there is already a function of the same
+  // name as the extract companion function, if `overwrite` is true, the
+  // registration is replaced. Otherwise, return false without overwriting the
+  // registry.
   static bool registerExtractFunction(
       const std::string& originalName,
-      const std::vector<AggregateFunctionSignaturePtr>& signatures);
+      const std::vector<AggregateFunctionSignaturePtr>& signatures,
+      bool overwrite = false);
 
   // Similar to registerExtractFunction(), the result type of the original
   // aggregation function is required to be resolveable given its intermediate
   // type. If there are multiple signatures of the original aggregation function
   // with the same intermediate type, register merge-extract functions with
-  // suffix of their result types in the function names for each of them.
+  // suffix of their result types in the function names for each of them. When
+  // there is already a function of the same name as the merge-extract companion
+  // function, if `overwrite` is true, the registration is replaced. Otherwise,
+  // return false without overwriting the registry.
   static bool registerMergeExtractFunction(
       const std::string& name,
-      const std::vector<AggregateFunctionSignaturePtr>& signatures);
+      const std::vector<AggregateFunctionSignaturePtr>& signatures,
+      bool overwrite = false);
 
  private:
   // Register a vector function {originalName}_extract_{suffixOfResultType}
@@ -200,11 +217,13 @@ class CompanionFunctionsRegistrar {
   // the orignal agregate function.
   static bool registerExtractFunctionWithSuffix(
       const std::string& originalName,
-      const std::vector<AggregateFunctionSignaturePtr>& signatures);
+      const std::vector<AggregateFunctionSignaturePtr>& signatures,
+      bool overwrite);
 
   static bool registerMergeExtractFunctionWithSuffix(
       const std::string& name,
-      const std::vector<AggregateFunctionSignaturePtr>& signatures);
+      const std::vector<AggregateFunctionSignaturePtr>& signatures,
+      bool overwrite);
 };
 
 } // namespace facebook::velox::exec

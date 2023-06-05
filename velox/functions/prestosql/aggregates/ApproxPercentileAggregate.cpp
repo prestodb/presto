@@ -755,7 +755,8 @@ void addSignatures(
                            .build());
 }
 
-bool registerApproxPercentile(const std::string& name) {
+exec::AggregateRegistrationResult registerApproxPercentile(
+    const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   for (const auto& inputType :
        {"tinyint", "smallint", "integer", "bigint", "real", "double"}) {
@@ -766,7 +767,7 @@ bool registerApproxPercentile(const std::string& name) {
         fmt::format("array({})", inputType),
         signatures);
   }
-  exec::registerAggregateFunction(
+  return exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](
@@ -853,7 +854,6 @@ bool registerApproxPercentile(const std::string& name) {
         }
       },
       /*registerCompanionFunctions*/ true);
-  return true;
 }
 
 } // namespace
