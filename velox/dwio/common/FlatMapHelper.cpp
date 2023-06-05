@@ -58,8 +58,7 @@ void initializeStringVector(
       }
     } else {
       DWIO_ENSURE(
-          vec->encoding() == VectorEncoding::Simple::CONSTANT &&
-              vec->mayHaveNulls(),
+          vec->isConstantEncoding() && vec->mayHaveNulls(),
           "Unsupported encoding");
     }
   }
@@ -82,8 +81,7 @@ void initializeFlatVector(
   for (auto vec : vectors) {
     if (!dynamic_cast<const FlatVector<NativeType>*>(vec)) {
       DWIO_ENSURE(
-          vec->encoding() == VectorEncoding::Simple::CONSTANT &&
-              vec->mayHaveNulls(),
+          vec->isConstantEncoding() && vec->mayHaveNulls(),
           "Unsupported encoding");
     }
     size += vec->size();
@@ -145,8 +143,7 @@ void initializeVectorImpl<TypeKind::ARRAY>(
       addVector(elements, array->elements().get());
     } else {
       DWIO_ENSURE(
-          vec->encoding() == VectorEncoding::Simple::CONSTANT &&
-              vec->mayHaveNulls(),
+          vec->isConstantEncoding() && vec->mayHaveNulls(),
           "Unsupported encoding");
     }
   }
@@ -206,8 +203,7 @@ void initializeMapVector(
       addVector(values, map->mapValues().get());
     } else {
       DWIO_ENSURE(
-          vec->encoding() == VectorEncoding::Simple::CONSTANT &&
-              vec->mayHaveNulls(),
+          vec->isConstantEncoding() && vec->mayHaveNulls(),
           "Unsupported encoding");
     }
   }
@@ -353,7 +349,7 @@ vector_size_t copyNulls(
   target.resize(targetIndex + count, false);
   if (target.mayHaveNulls()) {
     auto tgtNulls = const_cast<uint64_t*>(target.rawNulls());
-    if (source.encoding() == VectorEncoding::Simple::CONSTANT) {
+    if (source.isConstantEncoding()) {
       for (vector_size_t i = 0; i < count; ++i) {
         bits::setNull(tgtNulls, targetIndex + i);
       }
@@ -456,6 +452,16 @@ void copyImpl<TypeKind::VARBINARY>(
   copyStrings(target, targetIndex, source, sourceIndex, count);
 }
 
+template <typename T>
+vector_size_t nextChildOffset(T& target, vector_size_t index) {
+  if (UNLIKELY(index <= 0)) {
+    return 0;
+  }
+
+  --index;
+  return target.rawOffsets()[index] + target.rawSizes()[index];
+}
+
 // copy offsets/lengths from source vector to target
 template <typename T>
 vector_size_t copyOffsets(
@@ -465,24 +471,21 @@ vector_size_t copyOffsets(
     vector_size_t sourceIndex,
     vector_size_t count,
     vector_size_t& childOffset) {
-  childOffset = 0;
   target.resize(targetIndex + count);
   auto tgtOffsets = const_cast<vector_size_t*>(target.rawOffsets());
   auto tgtSizes = const_cast<vector_size_t*>(target.rawSizes());
-  if (LIKELY(targetIndex > 0)) {
-    auto index = targetIndex - 1;
-    childOffset = tgtOffsets[index] + tgtSizes[index];
-  }
   auto srcSizes = source.rawSizes();
+  childOffset = nextChildOffset(target, targetIndex);
   auto nextChildOffset = childOffset;
-  // If there is null, process one at a time with null checks. In order to make
-  // it easier for computing child offset, we always fill offset/length even if
-  // value is null.
+  // If there is null, process one at a time with null checks.
   if (copyNulls(target, targetIndex, source, sourceIndex, count) > 0) {
     auto tgtNulls = target.rawNulls();
     vector_size_t size;
     for (vector_size_t i = 0; i < count; ++i) {
       auto index = targetIndex + i;
+      // We cannot track the last non-null index efficiently across copy
+      // invocations. In order to make it easier for computing child offset, we
+      // always fill offset/length even if value is null.
       tgtOffsets[index] = nextChildOffset;
       size = bits::isBitNull(tgtNulls, index) ? 0 : srcSizes[sourceIndex + i];
       tgtSizes[index] = size;
@@ -502,6 +505,30 @@ vector_size_t copyOffsets(
   return nextChildOffset;
 }
 
+// Copy offset from source constant vectors. For now this could only be null
+// padded source vector, which are all nulls.
+template <typename T>
+void copyOffsetsFromConstInput(
+    T& target,
+    vector_size_t targetIndex,
+    const BaseVector& source,
+    vector_size_t sourceIndex,
+    vector_size_t count) {
+  auto nullCount = copyNulls(target, targetIndex, source, sourceIndex, count);
+  VELOX_DCHECK_EQ(nullCount, count, "Expecting constant null vector input");
+  // We cannot track the last non-null index efficiently across copy
+  // invocations. In order to make it easier for computing child offset, we
+  // always fill offset/length even if value is null.
+  auto tgtOffsets = const_cast<vector_size_t*>(target.rawOffsets());
+  auto tgtSizes = const_cast<vector_size_t*>(target.rawSizes());
+  auto childOffset = nextChildOffset(target, targetIndex);
+  for (vector_size_t i = 0; i < count; ++i) {
+    auto index = targetIndex + i;
+    tgtOffsets[index] = childOffset;
+    tgtSizes[index] = 0;
+  }
+}
+
 template <>
 void copyImpl<TypeKind::ARRAY>(
     const TypePtr& type,
@@ -511,6 +538,11 @@ void copyImpl<TypeKind::ARRAY>(
     vector_size_t sourceIndex,
     vector_size_t count) {
   auto& tgt = static_cast<ArrayVector&>(target);
+  // Explicitly deal with constant null vectors.
+  if (source.isConstantEncoding()) {
+    copyOffsetsFromConstInput(tgt, targetIndex, source, sourceIndex, count);
+    return;
+  }
   auto& src = static_cast<const ArrayVector&>(source);
   vector_size_t childOffset = 0;
   auto nextChildOffset =
@@ -518,8 +550,8 @@ void copyImpl<TypeKind::ARRAY>(
   auto size = nextChildOffset - childOffset;
   if (size > 0) {
     auto& arrayType = static_cast<const ArrayType&>(*type);
-    // we assume child values are placed continuously in the source vector,
-    // which is the case if it's produced by the column reader
+    // NOTE: We assume child values are placed continuously in the source
+    // vector, which is the case if it's produced by the column reader
     copy(
         arrayType.elementType(),
         *tgt.elements(),
@@ -539,6 +571,11 @@ void copyImpl<TypeKind::MAP>(
     vector_size_t sourceIndex,
     vector_size_t count) {
   auto& tgt = static_cast<MapVector&>(target);
+  // Explicitly deal with constant null vectors.
+  if (source.isConstantEncoding()) {
+    copyOffsetsFromConstInput(tgt, targetIndex, source, sourceIndex, count);
+    return;
+  }
   auto& src = static_cast<const MapVector&>(source);
   vector_size_t childOffset = 0;
   auto nextChildOffset =
@@ -620,7 +657,7 @@ bool copyNull(
   target.resize(targetIndex + 1, false);
   if (target.mayHaveNulls()) {
     bool srcIsNull =
-        (source.encoding() == VectorEncoding::Simple::CONSTANT ||
+        (source.isConstantEncoding() ||
          (source.mayHaveNulls() &&
           bits::isBitNull(source.rawNulls(), sourceIndex)));
     bits::setNull(
@@ -707,21 +744,35 @@ vector_size_t copyOffset(
     const T& source,
     vector_size_t sourceIndex,
     vector_size_t& childOffset) {
-  childOffset = 0;
   target.resize(targetIndex + 1);
   auto tgtSizes = const_cast<vector_size_t*>(target.rawSizes());
-  if (LIKELY(targetIndex > 0)) {
-    auto index = targetIndex - 1;
-    childOffset = target.rawOffsets()[index] + tgtSizes[index];
-  }
+  childOffset = nextChildOffset(target, targetIndex);
   const_cast<vector_size_t*>(target.rawOffsets())[targetIndex] = childOffset;
-  // In order to make it easier for computing child offset, we always fill
-  // offset/length even if value is null.
+  // We cannot track the last non-null index efficiently across copy
+  // invocations. In order to make it easier for computing child offset, we
+  // always fill offset/length even if value is null.
   auto size = copyNull(target, targetIndex, source, sourceIndex)
       ? 0
       : source.rawSizes()[sourceIndex];
   tgtSizes[targetIndex] = size;
   return size;
+}
+
+// Copy offset from source constant vectors. For now this could only be null
+// padded source vector, which are all nulls.
+template <typename T>
+void copyOffsetFromConstInput(
+    T& target,
+    vector_size_t targetIndex,
+    const BaseVector& source,
+    vector_size_t sourceIndex) {
+  copyNull(target, targetIndex, source, sourceIndex);
+  // We cannot track the last non-null index efficiently across copy
+  // invocations. In order to make it easier for computing child offset, we
+  // always fill offset/length even if value is null.
+  const_cast<vector_size_t*>(target.rawOffsets())[targetIndex] =
+      nextChildOffset(target, targetIndex);
+  const_cast<vector_size_t*>(target.rawSizes())[targetIndex] = 0;
 }
 
 template <>
@@ -732,6 +783,12 @@ void copyOneImpl<TypeKind::ARRAY>(
     const BaseVector& source,
     vector_size_t sourceIndex) {
   auto& tgt = static_cast<ArrayVector&>(target);
+  if (source.isConstantEncoding()) {
+    // We already checked in initializeVector that constant source
+    // vectors are constant null vectors.
+    copyOffsetFromConstInput(tgt, targetIndex, source, sourceIndex);
+    return;
+  }
   auto& src = static_cast<const ArrayVector&>(source);
   vector_size_t childOffset = 0;
   auto size = copyOffset(tgt, targetIndex, src, sourceIndex, childOffset);
@@ -757,6 +814,12 @@ void copyOneImpl<TypeKind::MAP>(
     const BaseVector& source,
     vector_size_t sourceIndex) {
   auto& tgt = static_cast<MapVector&>(target);
+  if (source.isConstantEncoding()) {
+    // We already checked in initializeVector that constant source
+    // vectors are constant null vectors.
+    copyOffsetFromConstInput(tgt, targetIndex, source, sourceIndex);
+    return;
+  }
   auto& src = static_cast<const MapVector&>(source);
   vector_size_t childOffset = 0;
   auto size = copyOffset(tgt, targetIndex, src, sourceIndex, childOffset);
