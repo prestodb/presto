@@ -99,7 +99,7 @@ class HttpResponse {
 // EventBase thread. Hence, the destructor of HttpClient must run on the
 // EventBase thread as well. Consider running HttpClient's destructor
 // via EventBase::runOnDestruction.
-class HttpClient {
+class HttpClient : public std::enable_shared_from_this<HttpClient> {
  public:
   HttpClient(
       folly::EventBase* FOLLY_NONNULL eventBase,

@@ -180,7 +180,7 @@ class HttpClientFactory {
     eventBaseThread_->join();
   }
 
-  std::unique_ptr<http::HttpClient> newClient(
+  std::shared_ptr<http::HttpClient> newClient(
       const folly::SocketAddress& address,
       const std::chrono::milliseconds& timeout,
       bool useHttps,
@@ -188,7 +188,7 @@ class HttpClientFactory {
     if (useHttps) {
       std::string clientCaPath = getCertsPath("client_ca.pem");
       std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
-      return std::make_unique<http::HttpClient>(
+      return std::make_shared<http::HttpClient>(
           eventBase_.get(),
           address,
           timeout,
@@ -196,7 +196,7 @@ class HttpClientFactory {
           ciphers,
           std::move(reportOnBodyStatsFunc));
     } else {
-      return std::make_unique<http::HttpClient>(
+      return std::make_shared<http::HttpClient>(
           eventBase_.get(),
           address,
           timeout,
