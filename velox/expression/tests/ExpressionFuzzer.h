@@ -227,7 +227,7 @@ class ExpressionFuzzer {
       std::vector<core::TypedExprPtr> plans,
       const RowVectorPtr& rowVector,
       const VectorPtr& resultVectors,
-      const std::vector<column_index_t>& columnsToWrapInLazy);
+      const std::vector<int>& columnsToWrapInLazy);
 
   /// Return a random signature mapped to functionName in expressionToSignature_
   /// whose return type can match returnType. Return nullptr if no such

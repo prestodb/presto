@@ -75,7 +75,7 @@ ResultOrError ExpressionVerifier::verify(
     const RowVectorPtr& rowVector,
     VectorPtr&& resultVector,
     bool canThrow,
-    std::vector<column_index_t> columnsToWrapInLazy) {
+    std::vector<int> columnsToWrapInLazy) {
   for (int i = 0; i < plans.size(); ++i) {
     LOG(INFO) << "Executing expression " << i << " : " << plans[i]->toString();
   }
@@ -224,7 +224,7 @@ ResultOrError ExpressionVerifier::verify(
 
 void ExpressionVerifier::persistReproInfoIfNeeded(
     const VectorPtr& inputVector,
-    const std::vector<column_index_t>& columnsToWrapInLazy,
+    const std::vector<int>& columnsToWrapInLazy,
     const VectorPtr& resultVector,
     const std::string& sql,
     const std::vector<VectorPtr>& complexConstants) {
@@ -238,7 +238,7 @@ void ExpressionVerifier::persistReproInfoIfNeeded(
 
 void ExpressionVerifier::persistReproInfo(
     const VectorPtr& inputVector,
-    std::vector<column_index_t> columnsToWrapInLazy,
+    std::vector<int> columnsToWrapInLazy,
     const VectorPtr& resultVector,
     const std::string& sql,
     const std::vector<VectorPtr>& complexConstants) {
@@ -272,8 +272,7 @@ void ExpressionVerifier::persistReproInfo(
     lazyListPath =
         fmt::format("{}/{}", dirPath->c_str(), kIndicesOfLazyColumnsFileName);
     try {
-      saveStdVectorToFile<column_index_t>(
-          columnsToWrapInLazy, lazyListPath.c_str());
+      saveStdVectorToFile<int>(columnsToWrapInLazy, lazyListPath.c_str());
     } catch (std::exception& e) {
       lazyListPath = e.what();
     }

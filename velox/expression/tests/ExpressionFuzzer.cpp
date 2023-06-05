@@ -292,15 +292,19 @@ bool isSupportedSignature(const exec::FunctionSignature& signature) {
 }
 
 // Randomly pick columns from the input row vector to wrap in lazy.
-std::vector<column_index_t> generateLazyColumnIds(
+// Negative column indices represent lazy vectors that have been preloaded
+// before feeding them to the evaluator. This list is sorted on the absolute
+// value of the entries.
+std::vector<int> generateLazyColumnIds(
     const RowVectorPtr& rowVector,
     VectorFuzzer& vectorFuzzer) {
-  std::vector<column_index_t> columnsToWrapInLazy;
+  std::vector<int> columnsToWrapInLazy;
   if (FLAGS_lazy_vector_generation_ratio > 0) {
-    for (column_index_t idx = 0; idx < rowVector->childrenSize(); idx++) {
+    for (int idx = 0; idx < rowVector->childrenSize(); idx++) {
       VELOX_CHECK_NOT_NULL(rowVector->childAt(idx));
       if (vectorFuzzer.coinToss(FLAGS_lazy_vector_generation_ratio)) {
-        columnsToWrapInLazy.push_back(idx);
+        columnsToWrapInLazy.push_back(
+            vectorFuzzer.coinToss(0.8) ? idx : -1 * idx);
       }
     }
   }
@@ -1221,7 +1225,7 @@ void ExpressionFuzzer::retryWithTry(
     std::vector<core::TypedExprPtr> plans,
     const RowVectorPtr& rowVector,
     const VectorPtr& resultVector,
-    const std::vector<column_index_t>& columnsToWrapInLazy) {
+    const std::vector<int>& columnsToWrapInLazy) {
   // Wrap each expression tree with 'try'.
   std::vector<core::TypedExprPtr> tryPlans;
   for (auto& plan : plans) {

@@ -135,10 +135,10 @@ void ExpressionRunner::run(
     VELOX_CHECK_GT(inputVector->size(), 0, "Input vector must not be empty.");
   }
 
-  std::vector<column_index_t> columnsToWrapInLazy;
+  std::vector<int> columnsToWrapInLazy;
   if (!lazyColumnListPath.empty()) {
     columnsToWrapInLazy =
-        restoreStdVectorFromFile<column_index_t>(lazyColumnListPath.c_str());
+        restoreStdVectorFromFile<int>(lazyColumnListPath.c_str());
   }
 
   parse::registerTypeResolver();

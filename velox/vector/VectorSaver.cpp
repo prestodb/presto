@@ -729,6 +729,9 @@ void saveStdVectorToFile(const std::vector<T>& list, const char* filePath) {
 template void saveStdVectorToFile<column_index_t>(
     const std::vector<column_index_t>& list,
     const char* filePath);
+template void saveStdVectorToFile<int>(
+    const std::vector<int>& list,
+    const char* filePath);
 
 template <typename T>
 std::vector<T> restoreStdVectorFromFile(const char* filePath) {
@@ -743,6 +746,7 @@ std::vector<T> restoreStdVectorFromFile(const char* filePath) {
 
 template std::vector<column_index_t> restoreStdVectorFromFile<column_index_t>(
     const char* filePath);
+template std::vector<int> restoreStdVectorFromFile<int>(const char* filePath);
 
 void saveSelectivityVector(const SelectivityVector& rows, std::ostream& out) {
   auto range = rows.asRange();

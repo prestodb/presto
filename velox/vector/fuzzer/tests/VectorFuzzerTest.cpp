@@ -658,6 +658,36 @@ TEST_F(VectorFuzzerTest, lazyOverDictionary) {
   });
 }
 
+TEST_F(VectorFuzzerTest, fuzzRowChildrenToLazy) {
+  VectorFuzzer::Options opts;
+  opts.nullRatio = 0.3;
+  VectorFuzzer fuzzer(opts, pool());
+  // Fuzz row with flat children for easy lazy encoding checks.
+  auto children = {
+      fuzzer.fuzzFlat(INTEGER()),
+      fuzzer.fuzzFlat(INTEGER()),
+      fuzzer.fuzzFlat(INTEGER())};
+  auto inputRow = std::make_shared<RowVector>(
+      pool(),
+      ROW({INTEGER(), INTEGER(), INTEGER()}),
+      nullptr,
+      opts.vectorSize,
+      std::move(children));
+  ASSERT_FALSE(inputRow->childAt(0)->isLazy());
+  ASSERT_FALSE(inputRow->childAt(1)->isLazy());
+  ASSERT_FALSE(inputRow->childAt(2)->isLazy());
+  // Child 0: Lazy not loaded
+  // Child 1: Lazy and loaded
+  // Child 2: Not Lazy
+  std::vector<int> columnsToWrapInLazy = {0, -1};
+  auto wrappedRow = fuzzer.fuzzRowChildrenToLazy(inputRow, columnsToWrapInLazy);
+  ASSERT_TRUE(wrappedRow->childAt(0)->isLazy());
+  ASSERT_TRUE(wrappedRow->childAt(1)->isLazy());
+  ASSERT_FALSE(inputRow->childAt(2)->isLazy());
+  ASSERT_FALSE(wrappedRow->childAt(0)->as<LazyVector>()->isLoaded());
+  ASSERT_TRUE(wrappedRow->childAt(1)->as<LazyVector>()->isLoaded());
+}
+
 void VectorFuzzerTest::validateMaxSizes(VectorPtr vector, size_t maxSize) {
   if (vector->typeKind() == TypeKind::ARRAY) {
     validateMaxSizes(vector->template as<ArrayVector>()->elements(), maxSize);

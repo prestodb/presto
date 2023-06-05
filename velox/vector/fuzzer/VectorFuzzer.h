@@ -286,10 +286,12 @@ class VectorFuzzer {
   // Returns a copy of 'rowVector' but with the columns having indices listed in
   // 'columnsToWrapInLazy' wrapped in lazy encoding. Must only be used for input
   // row vectors where all children are non-null and non-lazy.
-  // 'columnsToWrapInLazy' should be a sorted list of column indices.
+  // 'columnsToWrapInLazy' can contain negative column indices that represent
+  // lazy vectors that should be preloaded before being fed to the evaluator.
+  // This list is sorted on the absolute value of the entries.
   static RowVectorPtr fuzzRowChildrenToLazy(
       RowVectorPtr rowVector,
-      const std::vector<column_index_t>& columnsToWrapInLazy);
+      const std::vector<int>& columnsToWrapInLazy);
 
   // Generate a random null buffer.
   BufferPtr fuzzNulls(vector_size_t size);
