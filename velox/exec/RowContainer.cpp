@@ -403,15 +403,12 @@ void RowContainer::extractString(
     values->set(index, value);
     return;
   }
-  BufferPtr buffer = values->getBufferWithSpace(value.size());
-  auto start = buffer->size();
-  buffer->setSize(start + value.size());
+  auto rawBuffer = values->getRawStringBufferWithSpace(value.size());
   ByteStream stream;
   HashStringAllocator::prepareRead(
       HashStringAllocator::headerOf(value.data()), stream);
-  stream.readBytes(buffer->asMutable<char>() + start, value.size());
-  values->setNoCopy(
-      index, StringView(buffer->as<char>() + start, value.size()));
+  stream.readBytes(rawBuffer, value.size());
+  values->setNoCopy(index, StringView(rawBuffer, value.size()));
 }
 
 void RowContainer::storeComplexType(

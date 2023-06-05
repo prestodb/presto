@@ -403,6 +403,18 @@ class FlatVector final : public SimpleVector<T> {
     return nullptr;
   }
 
+  // Finds an existing string buffer that's singly-referenced (not shared) and
+  // have enough unused capacity to fit 'size' bytes. If found, resizes the
+  // buffer to add 'size' bytes and returns a pointer to the start of writable
+  // memory. If not found, allocates new buffer, adds it to 'stringBuffers',
+  // sets buffer size to 'size' and returns a pointer to the start of writable
+  // memory.
+  // The caller needs to make sure not to write more then 'size' bytes.
+
+  char* getRawStringBufferWithSpace(vector_size_t /* size */) {
+    return nullptr;
+  }
+
   void ensureWritable(const SelectivityVector& rows) override;
 
   bool isWritable() const override {
@@ -508,6 +520,9 @@ void FlatVector<bool>::copyValuesAndNulls(
 
 template <>
 Buffer* FlatVector<StringView>::getBufferWithSpace(vector_size_t size);
+
+template <>
+char* FlatVector<StringView>::getRawStringBufferWithSpace(vector_size_t size);
 
 template <>
 void FlatVector<StringView>::prepareForReuse();

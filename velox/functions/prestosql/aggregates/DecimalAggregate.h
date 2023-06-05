@@ -278,9 +278,8 @@ class DecimalAggregate : public exec::Aggregate {
       } else {
         clearNull(rawNulls, i);
         auto size = accumulator->serializedSize();
-        Buffer* buffer = stringViewVector->getBufferWithSpace(size);
-        StringView serialized(buffer->as<char>() + buffer->size(), size);
-        buffer->setSize(buffer->size() + size);
+        char* rawBuffer = stringViewVector->getRawStringBufferWithSpace(size);
+        StringView serialized(rawBuffer, size);
         accumulator->serialize(serialized);
         stringViewVector->setNoCopy(i, serialized);
       }

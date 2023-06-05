@@ -191,11 +191,9 @@ class ApproxDistinctAggregate : public exec::Aggregate {
             accumulator->serialize(buffer.data());
             serialized = StringView::makeInline(buffer);
           } else {
-            Buffer* buffer = flatResult->getBufferWithSpace(size);
-            char* ptr = buffer->asMutable<char>() + buffer->size();
-            accumulator->serialize(ptr);
-            buffer->setSize(buffer->size() + size);
-            serialized = StringView(ptr, size);
+            char* rawBuffer = flatResult->getRawStringBufferWithSpace(size);
+            accumulator->serialize(rawBuffer);
+            serialized = StringView(rawBuffer, size);
           }
           result->setNoCopy(index, serialized);
         });

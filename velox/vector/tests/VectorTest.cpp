@@ -2495,3 +2495,37 @@ TEST_F(VectorTest, resizeArrayAndMapResetOffsets) {
     checkIndices(sizes);
   }
 }
+
+TEST_F(VectorTest, getRawStringBufferWithSpace) {
+  auto vector =
+      makeFlatVector<StringView>({"ee", "rr", "rryy", "12345678901234"});
+  ASSERT_EQ(vector->stringBuffers().size(), 1);
+  auto originalBufferSize = vector->stringBuffers().back()->size();
+  std::string replace = "I'm replace 123456789";
+  char* rawBuffer = vector->getRawStringBufferWithSpace(replace.size());
+  ASSERT_EQ(vector->stringBuffers().size(), 1);
+  memcpy(rawBuffer, replace.data(), replace.size());
+  vector->setNoCopy(1, StringView(rawBuffer, replace.size()));
+
+  auto lastBuffer = vector->stringBuffers().back();
+  ASSERT_EQ(originalBufferSize + replace.size(), lastBuffer->size());
+  auto expected = makeFlatVector<StringView>(
+      {"ee", "I'm replace 123456789", "rryy", "12345678901234"});
+  test::assertEqualVectors(expected, vector);
+}
+
+TEST_F(VectorTest, getRawStringBufferWithSpaceNoExistingBuffer) {
+  auto vector = makeFlatVector<StringView>({"ee", "rr", "rryy", "kk"});
+  ASSERT_EQ(vector->stringBuffers().size(), 0);
+  std::string replace = "I'm replace 123456789";
+  char* rawBuffer = vector->getRawStringBufferWithSpace(replace.size());
+  ASSERT_EQ(vector->stringBuffers().size(), 1);
+  memcpy(rawBuffer, replace.data(), replace.size());
+  vector->setNoCopy(1, StringView(rawBuffer, replace.size()));
+
+  auto lastBuffer = vector->stringBuffers().back();
+  ASSERT_EQ(replace.size(), lastBuffer->size());
+  auto expected =
+      makeFlatVector<StringView>({"ee", "I'm replace 123456789", "rryy", "kk"});
+  test::assertEqualVectors(expected, vector);
+}

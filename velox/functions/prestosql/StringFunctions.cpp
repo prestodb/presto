@@ -232,16 +232,10 @@ class ConcatFunction : public exec::VectorFunction {
     });
 
     // Allocate a string buffer.
-    auto buffer = flatResult->getBufferWithSpace(totalResultBytes);
-    // getBufferWithSpace() may return a buffer that already has content, so we
-    // only use the space after that.
-    auto rawBuffer = buffer->asMutable<char>() + buffer->size();
-    buffer->setSize(buffer->size() + totalResultBytes);
-
+    auto rawBuffer = flatResult->getRawStringBufferWithSpace(totalResultBytes);
     size_t offset = 0;
     rows.applyToSelected([&](int row) {
       const char* start = rawBuffer + offset;
-
       size_t combinedSize = 0;
       for (int i = 0; i < numArgs; i++) {
         StringView value;
