@@ -153,10 +153,6 @@ class PartitionedOutputBuffer {
   /// output buffer type.
   void updateOutputBuffers(int numBuffers, bool noMoreBuffers);
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  void updateBroadcastOutputBuffers(int numBuffers, bool noMoreBuffers);
-#endif
-
   /// When we understand the final number of split groups (for grouped
   /// execution only), we need to update the number of producing drivers here.
   void updateNumDrivers(uint32_t newNumDrivers);

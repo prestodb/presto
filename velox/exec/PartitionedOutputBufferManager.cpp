@@ -283,14 +283,6 @@ void PartitionedOutputBuffer::updateOutputBuffers(
   }
 }
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-void PartitionedOutputBuffer::updateBroadcastOutputBuffers(
-    int numBuffers,
-    bool noMoreBuffers) {
-  updateOutputBuffers(numBuffers, noMoreBuffers);
-}
-#endif
-
 void PartitionedOutputBuffer::updateNumDrivers(uint32_t newNumDrivers) {
   bool isNoMoreDrivers{false};
   {

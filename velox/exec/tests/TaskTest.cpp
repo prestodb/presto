@@ -845,10 +845,10 @@ TEST_F(TaskTest, updateBroadCastOutputBuffers) {
 
     task->start(task, 1, 1);
 
-    ASSERT_TRUE(task->updateBroadcastOutputBuffers(10, true /*noMoreBuffers*/));
+    ASSERT_TRUE(task->updateOutputBuffers(10, true /*noMoreBuffers*/));
 
     // Calls after no-more-buffers are ignored.
-    ASSERT_FALSE(task->updateBroadcastOutputBuffers(11, false));
+    ASSERT_FALSE(task->updateOutputBuffers(11, false));
 
     task->requestCancel();
   }
@@ -859,14 +859,14 @@ TEST_F(TaskTest, updateBroadCastOutputBuffers) {
 
     task->start(task, 1, 1);
 
-    ASSERT_TRUE(task->updateBroadcastOutputBuffers(5, false));
-    ASSERT_TRUE(task->updateBroadcastOutputBuffers(10, false));
+    ASSERT_TRUE(task->updateOutputBuffers(5, false));
+    ASSERT_TRUE(task->updateOutputBuffers(10, false));
 
     task->requestAbort();
 
     // Calls after task has been removed from the buffer manager (via abort) are
     // ignored.
-    ASSERT_FALSE(task->updateBroadcastOutputBuffers(15, true));
+    ASSERT_FALSE(task->updateOutputBuffers(15, true));
   }
 }
 
