@@ -73,7 +73,7 @@ public class NativeExecutionProcessFactory
             Session session,
             URI location)
     {
-        if (!isNativeExecutionProcessReuseEnabled(session) || process == null) {
+        if (!isNativeExecutionProcessReuseEnabled(session) || process == null || !process.isAlive()) {
             process = createNativeExecutionProcess(session, location, MAX_ERROR_DURATION);
         }
         return process;
