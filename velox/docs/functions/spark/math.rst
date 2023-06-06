@@ -23,6 +23,10 @@ Mathematical Functions
     Returns the result of adding x to y. The types of x and y must be the same.
     For integral types, overflow results in an error. Corresponds to sparks's operator ``+``.
 
+.. spark:function:: bin(x) -> varchar
+
+    Returns the string representation of the long value ``x`` represented in binary.
+
 .. spark:function:: ceil(x) -> [same as x]
 
     Returns ``x`` rounded up to the nearest integer.  

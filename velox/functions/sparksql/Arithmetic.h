@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <bitset>
 #include <cmath>
 #include <limits>
 #include <system_error>
@@ -188,6 +189,18 @@ struct CscFunction {
   template <typename TInput>
   FOLLY_ALWAYS_INLINE void call(TInput& result, TInput a) {
     result = 1 / std::sin(a);
+  }
+};
+
+template <typename T>
+struct ToBinaryStringFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE
+  void call(out_type<Varchar>& result, const arg_type<int64_t>& input) {
+    auto str = std::bitset<64>(input).to_string();
+    str.erase(0, std::min(str.find_first_not_of('0'), str.size() - 1));
+    result = str;
   }
 };
 
