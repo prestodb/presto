@@ -165,6 +165,7 @@ std::optional<TypedExprPtr> tryConvertCast(
   static const char* kTryCast = "presto.default.try_cast";
 
   static const char* kRe2JRegExp = "Re2JRegExp";
+  static const char* kJsonPath = "JsonPath";
 
   if (signature.kind != protocol::FunctionKind::SCALAR) {
     return std::nullopt;
@@ -180,6 +181,10 @@ std::optional<TypedExprPtr> tryConvertCast(
   }
 
   if (returnType == kRe2JRegExp) {
+    return args[0];
+  }
+
+  if (returnType == kJsonPath) {
     return args[0];
   }
 
