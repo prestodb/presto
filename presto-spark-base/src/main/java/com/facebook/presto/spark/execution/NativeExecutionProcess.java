@@ -66,6 +66,7 @@ public class NativeExecutionProcess
     private static final String NATIVE_EXECUTION_TASK_ERROR_MESSAGE = "Encountered too many errors talking to native process. The process may have crashed or be under too much load.";
     private static final String WORKER_CONFIG_FILE = "/config.properties";
     private static final String WORKER_NODE_CONFIG_FILE = "/node.properties";
+    private static final String WORKER_VELOX_CONFIG_FILE = "/velox.properties";
     private static final String WORKER_CONNECTOR_CONFIG_FILE = "/catalog/";
 
     private final Session session;
@@ -76,7 +77,7 @@ public class NativeExecutionProcess
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final RequestErrorTracker errorTracker;
     private final HttpClient httpClient;
-    private final WorkerProperty<?, ?, ?> workerProperty;
+    private final WorkerProperty<?, ?, ?, ?> workerProperty;
 
     private Process process;
 
@@ -88,7 +89,7 @@ public class NativeExecutionProcess
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration,
             TaskManagerConfig taskManagerConfig,
-            WorkerProperty<?, ?, ?> workerProperty)
+            WorkerProperty<?, ?, ?, ?> workerProperty)
             throws IOException
     {
         this.port = getAvailableTcpPort();
@@ -212,6 +213,7 @@ public class NativeExecutionProcess
         // the native execution process eventually for process initialization.
         workerProperty.getSystemConfig().setHttpServerPort(port);
         workerProperty.populateAllProperties(
+                Paths.get(configBasePath, WORKER_VELOX_CONFIG_FILE),
                 Paths.get(configBasePath, WORKER_CONFIG_FILE),
                 Paths.get(configBasePath, WORKER_NODE_CONFIG_FILE),
                 Paths.get(configBasePath, format("%s%s.properties", WORKER_CONNECTOR_CONFIG_FILE, getNativeExecutionCatalogName(session))));

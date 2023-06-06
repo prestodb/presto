@@ -40,7 +40,7 @@ public class DetachedNativeExecutionProcessFactory
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final JsonCodec<ServerInfo> serverInfoCodec;
     private final TaskManagerConfig taskManagerConfig;
-    private final WorkerProperty<?, ?, ?> workerProperty;
+    private final WorkerProperty<?, ?, ?, ?> workerProperty;
 
     @Inject
     public DetachedNativeExecutionProcessFactory(
@@ -49,7 +49,7 @@ public class DetachedNativeExecutionProcessFactory
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
             TaskManagerConfig taskManagerConfig,
-            WorkerProperty<?, ?, ?> workerProperty)
+            WorkerProperty<?, ?, ?, ?> workerProperty)
     {
         super(httpClient, coreExecutor, errorRetryScheduledExecutor, serverInfoCodec, taskManagerConfig, workerProperty);
         this.httpClient = requireNonNull(httpClient, "httpClient is null");

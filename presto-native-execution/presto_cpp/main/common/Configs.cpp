@@ -18,6 +18,7 @@
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "velox/core/QueryConfig.h"
 
 #if __has_include("filesystem")
 #include <filesystem>
@@ -31,10 +32,17 @@ namespace facebook::presto {
 
 namespace {
 
+// folly::to<> does not generate 'true' and 'false', so we do it ourselves.
+std::string bool2String(bool value) {
+  return value ? "true" : "false";
+}
+
 #define STR_PROP(_key_, _val_) \
   { std::string(_key_), std::string(_val_) }
 #define NUM_PROP(_key_, _val_) \
   { std::string(_key_), folly::to<std::string>(_val_) }
+#define BOOL_PROP(_key_, _val_) \
+  { std::string(_key_), bool2String(_val_) }
 #define NONE_PROP(_key_) \
   { std::string(_key_), folly::none }
 
@@ -115,7 +123,7 @@ void ConfigBase::initialize(const std::string& filePath) {
   checkRegisteredProperties(values);
 
   bool mutableConfig{false};
-  auto it = values.find(std::string(SystemConfig::kMutableConfig));
+  auto it = values.find(std::string(kMutableConfig));
   if (it != values.end()) {
     mutableConfig = folly::to<bool>(it->second);
   }
@@ -161,7 +169,7 @@ folly::Optional<std::string> ConfigBase::setValue(
   }
   VELOX_USER_FAIL(
       "Config is not mutable. Consider setting '{}' to 'true'.",
-      SystemConfig::kMutableConfig);
+      kMutableConfig);
 }
 
 void ConfigBase::checkRegisteredProperties(
@@ -228,7 +236,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kHttpEnableStatsFilter, "false"),
           STR_PROP(kRegisterTestFunctions, "false"),
           NUM_PROP(kHttpMaxAllocateBytes, 65536),
-          NUM_PROP(kQueryMaxMemoryPerNode, "4GB"),
+          STR_PROP(kQueryMaxMemoryPerNode, "4GB"),
           STR_PROP(kEnableMemoryLeakCheck, "true"),
           NONE_PROP(kRemoteFunctionServerThriftPort),
           STR_PROP(kSkipRuntimeStatsInRunningTaskInfo, "true"),
@@ -478,44 +486,94 @@ uint64_t NodeConfig::nodeMemoryGb(
   return result;
 }
 
-BaseVeloxQueryConfig::BaseVeloxQueryConfig()
-    : mutable_{SystemConfig::instance()->mutableConfig()} {}
+BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
+  // Use empty instance to get default property values.
+  velox::core::QueryConfig c{{}};
+  using namespace velox::core;
+  registeredProps_ =
+      std::unordered_map<std::string, folly::Optional<std::string>>{
+          STR_PROP(kMutableConfig, "false"),
+          BOOL_PROP(QueryConfig::kCodegenEnabled, c.codegenEnabled()),
+          STR_PROP(
+              QueryConfig::kCodegenConfigurationFilePath,
+              c.codegenConfigurationFilePath()),
+          BOOL_PROP(QueryConfig::kCodegenLazyLoading, c.codegenLazyLoading()),
+          STR_PROP(QueryConfig::kSessionTimezone, c.sessionTimezone()),
+          BOOL_PROP(
+              QueryConfig::kAdjustTimestampToTimezone,
+              c.adjustTimestampToTimezone()),
+          BOOL_PROP(QueryConfig::kExprEvalSimplified, c.exprEvalSimplified()),
+          BOOL_PROP(QueryConfig::kExprTrackCpuUsage, c.exprTrackCpuUsage()),
+          BOOL_PROP(
+              QueryConfig::kOperatorTrackCpuUsage, c.operatorTrackCpuUsage()),
+          BOOL_PROP(
+              QueryConfig::kCastMatchStructByName, c.isMatchStructByName()),
+          BOOL_PROP(
+              QueryConfig::kCastToIntByTruncate, c.isCastToIntByTruncate()),
+          NUM_PROP(
+              QueryConfig::kMaxLocalExchangeBufferSize,
+              c.maxLocalExchangeBufferSize()),
+          NUM_PROP(
+              QueryConfig::kMaxPartialAggregationMemory,
+              c.maxPartialAggregationMemoryUsage()),
+          NUM_PROP(
+              QueryConfig::kMaxExtendedPartialAggregationMemory,
+              c.maxExtendedPartialAggregationMemoryUsage()),
+          NUM_PROP(
+              QueryConfig::kAbandonPartialAggregationMinRows,
+              c.abandonPartialAggregationMinRows()),
+          NUM_PROP(
+              QueryConfig::kAbandonPartialAggregationMinPct,
+              c.abandonPartialAggregationMinPct()),
+          NUM_PROP(
+              QueryConfig::kMaxPartitionedOutputBufferSize,
+              c.maxPartitionedOutputBufferSize()),
+          NUM_PROP(
+              QueryConfig::kPreferredOutputBatchBytes,
+              c.preferredOutputBatchBytes()),
+          NUM_PROP(
+              QueryConfig::kPreferredOutputBatchRows,
+              c.preferredOutputBatchRows()),
+          NUM_PROP(QueryConfig::kMaxOutputBatchRows, c.maxOutputBatchRows()),
+          BOOL_PROP(
+              QueryConfig::kHashAdaptivityEnabled, c.hashAdaptivityEnabled()),
+          BOOL_PROP(
+              QueryConfig::kAdaptiveFilterReorderingEnabled,
+              c.adaptiveFilterReorderingEnabled()),
+          BOOL_PROP(QueryConfig::kSpillEnabled, c.spillEnabled()),
+          BOOL_PROP(
+              QueryConfig::kAggregationSpillEnabled,
+              c.aggregationSpillEnabled()),
+          BOOL_PROP(QueryConfig::kJoinSpillEnabled, c.joinSpillEnabled()),
+          BOOL_PROP(QueryConfig::kOrderBySpillEnabled, c.orderBySpillEnabled()),
+          NUM_PROP(
+              QueryConfig::kAggregationSpillMemoryThreshold,
+              c.aggregationSpillMemoryThreshold()),
+          NUM_PROP(
+              QueryConfig::kJoinSpillMemoryThreshold,
+              c.joinSpillMemoryThreshold()),
+          NUM_PROP(
+              QueryConfig::kOrderBySpillMemoryThreshold,
+              c.orderBySpillMemoryThreshold()),
+          NUM_PROP(QueryConfig::kTestingSpillPct, c.testingSpillPct()),
+          NUM_PROP(QueryConfig::kMaxSpillLevel, c.maxSpillLevel()),
+          NUM_PROP(QueryConfig::kMaxSpillFileSize, c.maxSpillFileSize()),
+          NUM_PROP(QueryConfig::kMinSpillRunSize, c.minSpillRunSize()),
+          NUM_PROP(
+              QueryConfig::kSpillStartPartitionBit, c.spillStartPartitionBit()),
+          NUM_PROP(QueryConfig::kSpillPartitionBits, c.spillPartitionBits()),
+          NUM_PROP(
+              QueryConfig::kSpillableReservationGrowthPct,
+              c.spillableReservationGrowthPct()),
+          BOOL_PROP(
+              QueryConfig::kSparkLegacySizeOfNull, c.sparkLegacySizeOfNull()),
+      };
+}
 
 BaseVeloxQueryConfig* BaseVeloxQueryConfig::instance() {
   static std::unique_ptr<BaseVeloxQueryConfig> instance =
       std::make_unique<BaseVeloxQueryConfig>();
   return instance.get();
-}
-
-folly::Optional<std::string> BaseVeloxQueryConfig::setValue(
-    const std::string& propertyName,
-    const std::string& value) {
-  if (!mutable_) {
-    VELOX_USER_FAIL(
-        "Config is not mutable. "
-        "Consider setting System Config's '{}' to 'true'.",
-        SystemConfig::kMutableConfig);
-  }
-
-  folly::Optional<std::string> ret;
-  auto lockedValues = values_.wlock();
-  auto it = lockedValues->find(propertyName);
-  if (it != lockedValues->end()) {
-    ret = it->second;
-  }
-  (*lockedValues)[propertyName] = value;
-  return ret;
-}
-
-folly::Optional<std::string> BaseVeloxQueryConfig::getValue(
-    const std::string& propertyName) const {
-  folly::Optional<std::string> ret;
-  auto lockedValues = values_.rlock();
-  auto it = lockedValues->find(propertyName);
-  if (it != lockedValues->end()) {
-    ret = it->second;
-  }
-  return ret;
 }
 
 } // namespace facebook::presto

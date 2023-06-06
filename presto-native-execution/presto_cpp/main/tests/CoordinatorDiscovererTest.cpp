@@ -38,7 +38,7 @@ class CoordinatorDiscovererTest : public testing::Test {
     auto fileSystem = filesystems::getFileSystem(configFilePath, nullptr);
     auto sysConfigFile = fileSystem->openFileForWrite(configFilePath);
     sysConfigFile->append(
-        fmt::format("{}={}\n", SystemConfig::kMutableConfig, "true"));
+        fmt::format("{}={}\n", ConfigBase::kMutableConfig, "true"));
     sysConfigFile->close();
   }
 
