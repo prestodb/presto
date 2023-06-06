@@ -22,6 +22,7 @@ import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.server.RequestErrorTracker;
 import com.facebook.presto.server.smile.BaseResponse;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkFatalException;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpServerClient;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spi.PrestoException;
@@ -31,6 +32,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
+import org.apache.spark.SparkEnv$;
 import org.apache.spark.SparkFiles;
 
 import javax.annotation.Nullable;
@@ -63,7 +65,7 @@ public class NativeExecutionProcess
         implements AutoCloseable
 {
     private static final Logger log = Logger.get(NativeExecutionProcess.class);
-    private static final String NATIVE_EXECUTION_TASK_ERROR_MESSAGE = "Encountered too many errors talking to native process. The process may have crashed or be under too much load.";
+    private static final String NATIVE_EXECUTION_TASK_ERROR_MESSAGE = "Native process launch failed with multiple retries.";
     private static final String WORKER_CONFIG_FILE = "/config.properties";
     private static final String WORKER_NODE_CONFIG_FILE = "/node.properties";
     private static final String WORKER_VELOX_CONFIG_FILE = "/velox.properties";
@@ -136,7 +138,16 @@ public class NativeExecutionProcess
 
         // getServerInfoWithRetry will return a Future on the getting the ServerInfo from the native process, we intentionally block on the Future till
         // the native process successfully response the ServerInfo to ensure the process has been launched and initialized correctly.
-        getServerInfoWithRetry().get();
+        try {
+            getServerInfoWithRetry().get();
+        }
+        catch (Throwable t) {
+            close();
+            // If the native process launch failed, it usually indicates the current host machine is overloaded, we need to throw a fatal error (PrestoSparkFatalException is a
+            // subclass of fatal error VirtualMachineError)to let Spark shutdown current executor and fail over to another one (Here is the definition of scala fatal error Spark
+            // is relying on: https://www.scala-lang.org/api/2.13.3/scala/util/control/NonFatal$.html)
+            throw new PrestoSparkFatalException(t.getMessage(), t.getCause());
+        }
     }
 
     @VisibleForTesting
@@ -264,7 +275,9 @@ public class NativeExecutionProcess
     private String getProcessWorkingPath(String path)
     {
         File absolutePath = new File(path);
-        File workingDir = new File(SparkFiles.getRootDirectory());
+        // In the case of SparkEnv is not initialed (e.g. unit test), we just use current location instead of calling SparkFiles.getRootDirectory() to avoid error.
+        String rootDirectory = SparkEnv$.MODULE$.get() != null ? SparkFiles.getRootDirectory() : ".";
+        File workingDir = new File(rootDirectory);
         if (!absolutePath.isAbsolute()) {
             absolutePath = new File(workingDir, path);
         }
