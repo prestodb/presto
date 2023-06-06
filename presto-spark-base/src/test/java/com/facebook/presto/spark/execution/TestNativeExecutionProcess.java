@@ -34,6 +34,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotSame;
 
 public class TestNativeExecutionProcess
 {
@@ -53,6 +54,21 @@ public class TestNativeExecutionProcess
         // Simulate the process is closed (crashed)
         process.close();
         assertFalse(process.isAlive());
+    }
+
+    @Test
+    public void testNativeProcessRelaunch()
+    {
+        Session session = testSessionBuilder().build();
+        NativeExecutionProcessFactory factory = createNativeExecutionProcessFactory();
+        NativeExecutionProcess process = factory.getNativeExecutionProcess(session, BASE_URI);
+        // Simulate the process is closed (crashed)
+        process.close();
+        assertFalse(process.isAlive());
+        NativeExecutionProcess process2 = factory.getNativeExecutionProcess(session, BASE_URI);
+        // Expecting the factory re-created a new process object so that the process and process2
+        // should be two different objects
+        assertNotSame(process2, process);
     }
 
     private NativeExecutionProcessFactory createNativeExecutionProcessFactory()
