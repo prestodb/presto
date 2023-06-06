@@ -174,7 +174,7 @@ public class NativeExecutionProcess
 
     public boolean isAlive()
     {
-        return process.isAlive();
+        return process != null && process.isAlive();
     }
 
     public int getPort()
