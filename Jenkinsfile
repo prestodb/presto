@@ -10,6 +10,7 @@ pipeline {
     }
 
     options {
+        disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '500'))
         timeout(time: 2, unit: 'HOURS')
     }
@@ -35,6 +36,44 @@ pipeline {
                     steps {
                         sh 'apt update && apt install -y awscli git tree'
                         sh 'git config --global --add safe.directory ${WORKSPACE}'
+                        script {
+                            env.PRESTO_COMMIT_SHA = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
+                        }
+                        echo "${PRESTO_COMMIT_SHA}"
+                    }
+                }
+
+                stage('PR Update') {
+                    when { changeRequest() }
+                    steps {
+                        echo 'get PR head commit sha'
+                        sh 'git config --global --add safe.directory ${WORKSPACE}/presto-pr-${CHANGE_ID}'
+                        script {
+                            checkout $class: 'GitSCM',
+                                    branches: [[name: 'FETCH_HEAD']],
+                                    doGenerateSubmoduleConfigurations: false,
+                                    extensions: [
+                                        [
+                                            $class: 'RelativeTargetDirectory',
+                                            relativeTargetDir: "presto-pr-${env.CHANGE_ID}"
+                                        ], [
+                                            $class: 'CloneOption',
+                                            shallow: true,
+                                            noTags:  true,
+                                            depth:   1,
+                                            timeout: 100
+                                        ], [
+                                            $class: 'LocalBranch'
+                                        ]
+                                    ],
+                                    submoduleCfg: [],
+                                    userRemoteConfigs: [[
+                                        refspec: "+refs/pull/${env.CHANGE_ID}/head:refs/remotes/origin/PR-${env.CHANGE_ID}",
+                                        url: 'https://github.com/prestodb/presto'
+                                    ]]
+                            env.PRESTO_COMMIT_SHA = sh(script: "cd presto-pr-${env.CHANGE_ID} && git rev-parse HEAD", returnStdout: true).trim()
+                        }
+                        echo "${PRESTO_COMMIT_SHA}"
                     }
                 }
 
@@ -49,10 +88,9 @@ pipeline {
                             env.PRESTO_CLI_JAR = "presto-cli-${PRESTO_VERSION}-executable.jar"
                             env.PRESTO_BUILD_VERSION = env.PRESTO_VERSION + '-' +
                                 sh(script: "git show -s --format=%cd --date=format:'%Y%m%d%H%M%S'", returnStdout: true).trim() + "-" +
-                                env.GIT_COMMIT.substring(0, 7)
+                                env.PRESTO_COMMIT_SHA.substring(0, 7)
                             env.DOCKER_IMAGE = env.AWS_ECR + "/oss-presto/presto:${PRESTO_BUILD_VERSION}"
                             env.DOCKER_NATIVE_IMAGE = env.AWS_ECR + "/oss-presto/presto-native:${PRESTO_BUILD_VERSION}"
-
                         }
                         sh 'printenv | sort'
 
@@ -114,11 +152,29 @@ pipeline {
                     }
                 }
 
+                stage('Docker Native Build') {
+                    steps {
+                        echo "Building ${DOCKER_NATIVE_IMAGE}"
+                        withCredentials([[
+                                $class:            'AmazonWebServicesCredentialsBinding',
+                                credentialsId:     "${AWS_CREDENTIAL_ID}",
+                                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh '''#!/bin/bash -ex
+                                aws ecr get-login-password | docker login --username AWS --password-stdin ${AWS_ECR}
+                                docker buildx build -f Dockerfile-native --load --platform "linux/amd64" -t "${DOCKER_NATIVE_IMAGE}-amd64" \
+                                    --build-arg "PRESTO_VERSION=${PRESTO_VERSION}" .
+                            '''
+                        }
+                    }
+                }
+
                 stage('Publish Docker') {
                     when {
                         anyOf {
                             expression { params.PUBLISH_ARTIFACTS_ON_CURRENT_BRANCH }
                             branch "master"
+                            branch "ahana"
                         }
                         beforeAgent true
                     }
@@ -135,6 +191,7 @@ pipeline {
                                 docker image ls
                                 aws ecr get-login-password | docker login --username AWS --password-stdin ${AWS_ECR}
                                 docker push "${DOCKER_IMAGE}-amd64"
+                                docker push "${DOCKER_NATIVE_IMAGE}-amd64"
                             '''
                         }
                     }
