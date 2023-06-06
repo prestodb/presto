@@ -316,7 +316,7 @@ public class TestPrestoSparkHttpClient
 
         SettableFuture<ServerInfo> future = process.getServerInfoWithRetry();
         Exception exception = expectThrows(ExecutionException.class, future::get);
-        assertTrue(exception.getMessage().contains("Encountered too many errors talking to native process. The process may have crashed or be under too much load"));
+        assertTrue(exception.getMessage().contains("Native process launch failed with multiple retries"));
     }
 
     @Test
@@ -1221,7 +1221,7 @@ public class TestPrestoSparkHttpClient
                 0);
     }
 
-    private static class FailureRetryResponseManager
+    public static class FailureRetryResponseManager
             extends TestingResponseManager.TestingServerResponseManager
     {
         private final int maxRetryCount;
