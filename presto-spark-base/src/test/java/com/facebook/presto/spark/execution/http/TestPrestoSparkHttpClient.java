@@ -829,7 +829,7 @@ public class TestPrestoSparkHttpClient
         }
     }
 
-    private static class TestingHttpClient
+    public static class TestingHttpClient
             implements com.facebook.airlift.http.client.HttpClient
     {
         private static final String TASK_ID_REGEX = "\\/v1\\/task\\/[a-zA-Z0-9]+.[0-9]+.[0-9]+.[0-9]+.[0-9]+";
