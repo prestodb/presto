@@ -1925,28 +1925,27 @@ core::WindowNode::Function makeRowNumberFunction(
 }
 } // namespace
 
-std::shared_ptr<const velox::core::WindowNode>
+std::shared_ptr<const velox::core::RowNumberNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::RowNumberNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
-  // Velox currently doesn't support RowNumberNode. Convert it to WindowNode.
-  // This is less efficient, but correct.
   std::vector<core::FieldAccessTypedExprPtr> partitionFields;
   partitionFields.reserve(node->partitionBy.size());
   for (const auto& entry : node->partitionBy) {
     partitionFields.emplace_back(exprConverter_.toVeloxExpr(entry));
   }
 
-  auto rowNumberFunc = makeRowNumberFunction(node->rowNumberVariable);
+  std::optional<int32_t> limit;
+  if (node->maxRowCountPerPartition) {
+    limit = *node->maxRowCountPerPartition;
+  }
 
-  return std::make_shared<core::WindowNode>(
+  return std::make_shared<core::RowNumberNode>(
       node->id,
       partitionFields,
-      std::vector<core::FieldAccessTypedExprPtr>{},
-      std::vector<core::SortOrder>{},
-      std::vector<std::string>{node->rowNumberVariable.name},
-      std::vector<core::WindowNode::Function>{rowNumberFunc},
+      node->rowNumberVariable.name,
+      limit,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
