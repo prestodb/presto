@@ -68,6 +68,7 @@ add_executable(
   TableWriteTest.cpp
   TaskListenerTest.cpp
   TopNTest.cpp
+  TopNRowNumberTest.cpp
   UnorderedStreamReaderTest.cpp
   UnnestTest.cpp
   VectorHasherTest.cpp

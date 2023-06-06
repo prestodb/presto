@@ -59,6 +59,7 @@ add_library(
   TableWriter.cpp
   Task.cpp
   TopN.cpp
+  TopNRowNumber.cpp
   Unnest.cpp
   Values.cpp
   VectorHasher.cpp
