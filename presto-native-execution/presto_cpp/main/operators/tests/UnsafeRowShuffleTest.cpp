@@ -21,6 +21,8 @@
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
+#include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
@@ -30,6 +32,7 @@
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::common::testutil;
 using namespace facebook::presto;
 using namespace facebook::presto::operators;
 using namespace ::testing;
@@ -76,6 +79,9 @@ class TestShuffleWriter : public ShuffleWriter {
 
   void collect(int32_t partition, std::string_view data) override {
     using TRowSize = uint32_t;
+
+    TestValue::adjust(
+        "facebook::presto::operators::test::TestShuffleWriter::collect", this);
 
     auto& buffer = inProgressPartitions_[partition];
     TRowSize rowSize = data.size();
@@ -210,10 +216,14 @@ class TestShuffleReader : public ShuffleReader {
       : partition_(partition), readyPartitions_(readyPartitions) {}
 
   bool hasNext() override {
+    TestValue::adjust(
+        "facebook::presto::operators::test::TestShuffleReader::hasNext", this);
     return !(*readyPartitions_)[partition_].empty();
   }
 
   BufferPtr next() override {
+    TestValue::adjust(
+        "facebook::presto::operators::test::TestShuffleReader::next", this);
     VELOX_CHECK(!(*readyPartitions_)[partition_].empty());
 
     auto buffer = (*readyPartitions_)[partition_].back();
@@ -344,17 +354,6 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
         taskId, std::move(planFragment), destination, std::move(queryCtx));
   }
 
-  void addRemoteSplits(
-      exec::Task* task,
-      const std::vector<std::string>& remoteTaskIds) {
-    for (auto& taskId : remoteTaskIds) {
-      auto split =
-          exec::Split(std::make_shared<exec::RemoteConnectorSplit>(taskId), -1);
-      task->addSplit("0", std::move(split));
-    }
-    task->noMoreSplits("0");
-  }
-
   RowVectorPtr deserialize(
       const RowVectorPtr& serializedResult,
       const RowTypePtr& rowType) {
@@ -399,6 +398,25 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
           deserialize(serializedResult, asRowType(expected->type()));
       velox::test::assertEqualVectors(expected, deserialized);
     }
+  }
+
+  std::pair<std::unique_ptr<exec::test::TaskCursor>, std::vector<RowVectorPtr>>
+  runShuffleReadTask(
+      const exec::test::CursorParameters& params,
+      const std::string& shuffleInfo) {
+    bool noMoreSplits = false;
+    return readCursor(params, [&](auto* task) {
+      if (noMoreSplits) {
+        return;
+      }
+
+      auto remoteSplit = std::make_shared<exec::RemoteConnectorSplit>(
+          makeTaskId("read", 0, shuffleInfo));
+
+      task->addSplit("0", exec::Split{remoteSplit});
+      task->noMoreSplits("0");
+      noMoreSplits = true;
+    });
   }
 
   void runShuffleTest(
@@ -470,15 +488,8 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
       params.planNode = plan;
       params.destination = i;
 
-      bool noMoreSplits = false;
-      auto [taskCursor, results] = readCursor(params, [&](auto* task) {
-        if (noMoreSplits) {
-          return;
-        }
-        addRemoteSplits(
-            task, {makeTaskId("read", 0, serializedShuffleReadInfo)});
-        noMoreSplits = true;
-      });
+      auto [taskCursor, results] =
+          runShuffleReadTask(params, serializedShuffleReadInfo);
 
       // Verify that shuffle stats got propagated to the Exchange operator.
       auto exchangeStats = taskCursor->task()
@@ -627,6 +638,91 @@ TEST_F(UnsafeRowShuffleTest, operators) {
   TestShuffleWriter::reset();
 }
 
+TEST_F(UnsafeRowShuffleTest, shuffleWriterExceptions) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3, 4}),
+      makeFlatVector<int64_t>({10, 20, 30, 40}),
+  });
+  auto info = fmt::format(kTestShuffleInfoFormat, 4, 1 << 20 /* 1MB */);
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::presto::operators::test::TestShuffleWriter::collect",
+      std::function<void(TestShuffleWriter*)>(
+          [&](TestShuffleWriter* /*writer*/) {
+            // Trigger a std::bad_function_call exception.
+            std::function<bool()> nullFunction = nullptr;
+            VELOX_CHECK(nullFunction());
+          }));
+
+  exec::test::CursorParameters params;
+  params.planNode =
+      exec::test::PlanBuilder()
+          .values({data})
+          .addNode(addPartitionAndSerializeNode(4, false))
+          .addNode(addShuffleWriteNode(
+              std::string(TestShuffleFactory::kShuffleName), info))
+          .planNode();
+
+  VELOX_ASSERT_THROW(
+      readCursor(params, [](auto /*task*/) {}),
+      "ShuffleWriter::collect failed");
+
+  TestShuffleWriter::reset();
+}
+
+TEST_F(UnsafeRowShuffleTest, shuffleReaderExceptions) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3, 4}),
+      makeFlatVector<int64_t>({10, 20, 30, 40}),
+  });
+
+  auto info = fmt::format(kTestShuffleInfoFormat, 4, 1 << 20 /* 1MB */);
+  TestShuffleWriter::createWriter(info, pool());
+
+  exec::test::CursorParameters params;
+  params.planNode =
+      exec::test::PlanBuilder()
+          .values({data})
+          .addNode(addPartitionAndSerializeNode(2, false))
+          .addNode(addShuffleWriteNode(
+              std::string(TestShuffleFactory::kShuffleName), info))
+          .planNode();
+
+  ASSERT_NO_THROW(readCursor(params, [](auto /*task*/) {}));
+
+  std::function<void(TestShuffleReader*)> injectFailure =
+      [&](TestShuffleReader* /*reader*/) {
+        // Trigger a std::bad_function_call exception.
+        std::function<bool()> nullFunction = nullptr;
+        VELOX_CHECK(nullFunction());
+      };
+
+  exec::Operator::registerOperator(std::make_unique<ShuffleReadTranslator>());
+  registerExchangeSource(std::string(TestShuffleFactory::kShuffleName));
+  params.planNode = exec::test::PlanBuilder()
+                        .addNode(addShuffleReadNode(asRowType(data->type())))
+                        .planNode();
+  {
+    SCOPED_TESTVALUE_SET(
+        "facebook::presto::operators::test::TestShuffleReader::hasNext",
+        injectFailure);
+
+    VELOX_ASSERT_THROW(
+        runShuffleReadTask(params, info), "ShuffleReader::hasNext failed");
+  }
+
+  {
+    SCOPED_TESTVALUE_SET(
+        "facebook::presto::operators::test::TestShuffleReader::next",
+        injectFailure);
+
+    VELOX_ASSERT_THROW(
+        runShuffleReadTask(params, info), "ShuffleReader::next failed");
+  }
+
+  TestShuffleWriter::reset();
+}
+
 TEST_F(UnsafeRowShuffleTest, endToEnd) {
   size_t numPartitions = 5;
   size_t numMapDrivers = 2;
@@ -638,14 +734,14 @@ TEST_F(UnsafeRowShuffleTest, endToEnd) {
 
   // Make sure all previously registered exchange factory are gone.
   velox::exec::ExchangeSource::factories().clear();
-  const std::string kShuffleInfo =
+  const std::string shuffleInfo =
       fmt::format(kTestShuffleInfoFormat, numPartitions, 1 << 20);
-  TestShuffleWriter::createWriter(kShuffleInfo, pool());
+  TestShuffleWriter::createWriter(shuffleInfo, pool());
   registerExchangeSource(std::string(TestShuffleFactory::kShuffleName));
   runShuffleTest(
       std::string(TestShuffleFactory::kShuffleName),
-      kShuffleInfo,
-      kShuffleInfo,
+      shuffleInfo,
+      shuffleInfo,
       false,
       numPartitions,
       numMapDrivers,

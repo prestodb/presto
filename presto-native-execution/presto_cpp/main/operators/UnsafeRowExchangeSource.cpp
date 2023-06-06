@@ -19,6 +19,15 @@
 
 namespace facebook::presto::operators {
 
+#define CALL_SHUFFLE(call, methodName)                                \
+  try {                                                               \
+    call;                                                             \
+  } catch (const velox::VeloxException& e) {                          \
+    throw;                                                            \
+  } catch (const std::exception& e) {                                 \
+    VELOX_FAIL("ShuffleReader::{} failed: {}", methodName, e.what()); \
+  }
+
 void UnsafeRowExchangeSource::request() {
   std::vector<velox::ContinuePromise> promises;
   {
@@ -27,11 +36,16 @@ void UnsafeRowExchangeSource::request() {
       return;
     }
 
-    if (!shuffle_->hasNext()) {
+    bool hasNext;
+    CALL_SHUFFLE(hasNext = shuffle_->hasNext(), "hasNext");
+
+    if (!hasNext) {
       atEnd_ = true;
       queue_->enqueueLocked(nullptr, promises);
     } else {
-      auto buffer = shuffle_->next();
+      velox::BufferPtr buffer;
+      CALL_SHUFFLE(buffer = shuffle_->next(), "next");
+
       ++numBatches_;
 
       auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
@@ -54,6 +68,8 @@ void UnsafeRowExchangeSource::request() {
 folly::F14FastMap<std::string, int64_t> UnsafeRowExchangeSource::stats() const {
   return shuffle_->stats();
 }
+
+#undef CALL_SHUFFLE
 
 namespace {
 std::optional<std::string> getSerializedShuffleInfo(folly::Uri& uri) {

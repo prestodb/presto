@@ -22,6 +22,15 @@ velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
   return obj["id"].asString();
 }
 
+#define CALL_SHUFFLE(call, methodName)                                \
+  try {                                                               \
+    call;                                                             \
+  } catch (const VeloxException& e) {                                 \
+    throw;                                                            \
+  } catch (const std::exception& e) {                                 \
+    VELOX_FAIL("ShuffleWriter::{} failed: {}", methodName, e.what()); \
+  }
+
 class ShuffleWriteOperator : public Operator {
  public:
   ShuffleWriteOperator(
@@ -56,13 +65,16 @@ class ShuffleWriteOperator : public Operator {
     for (auto i = 0; i < input->size(); ++i) {
       auto partition = partitions->valueAt(i);
       auto data = serializedRows->valueAt(i);
-      shuffle_->collect(partition, std::string_view(data.data(), data.size()));
+      CALL_SHUFFLE(
+          shuffle_->collect(
+              partition, std::string_view(data.data(), data.size())),
+          "collect");
     }
   }
 
   void noMoreInput() override {
     Operator::noMoreInput();
-    shuffle_->noMoreData(true);
+    CALL_SHUFFLE(shuffle_->noMoreData(true), "noMoreData");
 
     {
       auto lockedStats = stats_.wlock();
@@ -87,6 +99,8 @@ class ShuffleWriteOperator : public Operator {
  private:
   std::shared_ptr<ShuffleWriter> shuffle_;
 };
+
+#undef CALL_SHUFFLE
 } // namespace
 
 folly::dynamic ShuffleWriteNode::serialize() const {
