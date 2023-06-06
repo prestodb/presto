@@ -173,7 +173,7 @@ std::string PrestoServerOperations::veloxQueryConfigOperation(
           ServerOperation::actionString(op.action));
       return fmt::format(
           "{}\n",
-          BaseVeloxQueryConfig::instance()->getValue(name).value_or(
+          BaseVeloxQueryConfig::instance()->optionalProperty(name).value_or(
               "<default>"));
     }
     default:

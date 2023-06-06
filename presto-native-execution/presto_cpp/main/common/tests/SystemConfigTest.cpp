@@ -42,7 +42,7 @@ class SystemConfigTest : public testing::Test {
         fmt::format("{}=11kB\n", SystemConfig::kQueryMaxMemoryPerNode));
     if (isMutable) {
       sysConfigFile->append(
-          fmt::format("{}={}\n", SystemConfig::kMutableConfig, "true"));
+          fmt::format("{}={}\n", ConfigBase::kMutableConfig, "true"));
     }
     sysConfigFile->close();
   }
