@@ -170,6 +170,7 @@ public class NativeExecutionProcess
                 }
             }
         }
+        process = null;
     }
 
     public boolean isAlive()
