@@ -325,6 +325,13 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
+    public void testJsonExtract()
+    {
+        assertQuery("SELECT json_extract_scalar(cast(x as json), '$[1]') " +
+                "FROM (SELECT '[' || array_join(array[nationkey, regionkey], ',') || ']' as x FROM nation)");
+    }
+
+    @Test
     public void testValues()
     {
         assertQuery("SELECT 1, 0.24, ceil(4.5), 'A not too short ASCII string'");
