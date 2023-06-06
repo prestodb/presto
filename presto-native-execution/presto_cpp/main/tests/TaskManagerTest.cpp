@@ -538,8 +538,7 @@ class TaskManagerTest : public testing::Test {
     auto sysConfigFilePath = fmt::format("{}/config.properties", dir->path);
     auto fileSystem = filesystems::getFileSystem(sysConfigFilePath, nullptr);
     auto sysConfigFile = fileSystem->openFileForWrite(sysConfigFilePath);
-    sysConfigFile->append(
-        fmt::format("{}=true\n", SystemConfig::kMutableConfig));
+    sysConfigFile->append(fmt::format("{}=true\n", ConfigBase::kMutableConfig));
     sysConfigFile->append(
         fmt::format("{}=4GB\n", SystemConfig::kQueryMaxMemoryPerNode));
     sysConfigFile->close();

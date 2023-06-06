@@ -47,7 +47,7 @@ public class DetachedNativeExecutionProcess
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration,
             TaskManagerConfig taskManagerConfig,
-            WorkerProperty<?, ?, ?> workerProperty) throws IOException
+            WorkerProperty<?, ?, ?, ?> workerProperty) throws IOException
     {
         super(session,
                 uri,

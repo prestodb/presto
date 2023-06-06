@@ -14,47 +14,83 @@
 #include <gtest/gtest.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/file/File.h"
+#include "velox/common/file/FileSystems.h"
 #include "velox/core/QueryConfig.h"
 
 namespace facebook::presto::test {
 
 using namespace velox;
+using namespace velox::core;
 
 class BaseVeloxQueryConfigTest : public testing::Test {
  protected:
-  void setUpSystemConfig(bool isMutable) {
-    std::unordered_map<std::string, std::string> properties;
-    if (isMutable) {
-      properties[std::string{SystemConfig::kMutableConfig}] = "true";
+  void setUpConfigFile(bool isMutable) {
+    velox::filesystems::registerLocalFileSystem();
+
+    char path[] = "/tmp/base_velox_query_config_test_XXXXXX";
+    const char* tempDirectoryPath = mkdtemp(path);
+    if (tempDirectoryPath == nullptr) {
+      throw std::logic_error("Cannot open temp directory");
     }
+    configFilePath = tempDirectoryPath;
+    configFilePath += "/velox.properties";
 
-    SystemConfig::instance()->initialize(
-        std::make_unique<core::MemConfig>(std::move(properties)));
-
-    propName = std::string{core::QueryConfig::kSessionTimezone};
+    auto fileSystem = filesystems::getFileSystem(configFilePath, nullptr);
+    auto sysConfigFile = fileSystem->openFileForWrite(configFilePath);
+    if (isMutable) {
+      sysConfigFile->append(
+          fmt::format("{}=true\n", QueryConfig::kCodegenEnabled));
+      sysConfigFile->append(
+          fmt::format("{}=100\n", QueryConfig::kMaxOutputBatchRows));
+      sysConfigFile->append(
+          fmt::format("{}=true\n", ConfigBase::kMutableConfig));
+    }
+    sysConfigFile->close();
   }
 
-  std::string propName;
+  std::string configFilePath;
+  const std::string tzPropName{QueryConfig::kSessionTimezone};
 };
 
 TEST_F(BaseVeloxQueryConfigTest, defaultConfig) {
-  setUpSystemConfig(false);
-  auto cfg = std::make_unique<BaseVeloxQueryConfig>();
+  setUpConfigFile(false);
+  auto cfg = BaseVeloxQueryConfig::instance();
+  cfg->initialize(configFilePath);
 
-  ASSERT_FALSE(cfg->isMutable());
-  ASSERT_FALSE(cfg->getValue(propName).has_value());
-  ASSERT_THROW(cfg->setValue(propName, "TZ1"), VeloxException);
+  ASSERT_FALSE(cfg->optionalProperty<bool>(ConfigBase::kMutableConfig).value());
+  ASSERT_FALSE(
+      cfg->optionalProperty<bool>(std::string(QueryConfig::kCodegenEnabled))
+          .value());
+  ASSERT_EQ(
+      10'000,
+      cfg->optionalProperty<uint32_t>(
+             std::string(QueryConfig::kMaxOutputBatchRows))
+          .value());
+  ASSERT_EQ("", cfg->optionalProperty(tzPropName).value());
+  ASSERT_THROW(cfg->setValue(tzPropName, "TZ1"), VeloxException);
 }
 
 TEST_F(BaseVeloxQueryConfigTest, mutableConfig) {
-  setUpSystemConfig(true);
-  auto cfg = std::make_unique<BaseVeloxQueryConfig>();
+  setUpConfigFile(true);
+  auto cfg = BaseVeloxQueryConfig::instance();
+  cfg->initialize(configFilePath);
 
-  ASSERT_TRUE(cfg->isMutable());
-  ASSERT_FALSE(cfg->getValue(propName).has_value());
-  auto ret = cfg->setValue(propName, "TZ1");
-  ASSERT_EQ(folly::Optional<std::string>{}, ret);
-  ASSERT_EQ(folly::Optional<std::string>{"TZ1"}, ret = cfg->getValue(propName));
+  ASSERT_TRUE(cfg->optionalProperty<bool>(ConfigBase::kMutableConfig).value());
+  ASSERT_TRUE(
+      cfg->optionalProperty<bool>(std::string(QueryConfig::kCodegenEnabled))
+          .value());
+  ASSERT_EQ(
+      100,
+      cfg->optionalProperty<uint32_t>(
+             std::string(QueryConfig::kMaxOutputBatchRows))
+          .value());
+  ASSERT_EQ("", cfg->optionalProperty(tzPropName).value());
+  auto ret = cfg->setValue(tzPropName, "TZ1");
+  ASSERT_EQ("", ret.value());
+  ASSERT_EQ(
+      folly::Optional<std::string>{"TZ1"},
+      ret = cfg->optionalProperty(tzPropName));
 }
 
 } // namespace facebook::presto::test

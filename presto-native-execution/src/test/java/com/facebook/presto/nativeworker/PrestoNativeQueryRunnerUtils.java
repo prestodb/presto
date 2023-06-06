@@ -148,6 +148,7 @@ public class PrestoNativeQueryRunnerUtils
                         int port = 1234 + workerIndex;
 
                         // Write config files
+                        Files.write(tempDirectoryPath.resolve("velox.properties"), "".getBytes());
                         Files.write(tempDirectoryPath.resolve("config.properties"),
                                 format("discovery.uri=%s%n" +
                                         "presto.version=testversion%n" +
