@@ -37,6 +37,7 @@ add_library(
   Limit.cpp
   LocalPartition.cpp
   LocalPlanner.cpp
+  MarkDistinct.cpp
   Merge.cpp
   MergeJoin.cpp
   MergeSource.cpp

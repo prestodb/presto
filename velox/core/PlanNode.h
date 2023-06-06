@@ -1990,6 +1990,56 @@ class RowNumberNode : public PlanNode {
   const RowTypePtr outputType_;
 };
 
+/// The MarkDistinct operator marks unique rows based on distinctKeys.
+/// The result is put in a new markerName column alongside the original input.
+/// @param markerName Name of the output mask channel.
+/// @param distinctKeys Names of grouping keys.
+/// column.
+class MarkDistinctNode : public PlanNode {
+ public:
+  MarkDistinctNode(
+      PlanNodeId id,
+      std::string markerName,
+      std::vector<FieldAccessTypedExprPtr> distinctKeys,
+      PlanNodePtr source);
+
+  const std::vector<PlanNodePtr>& sources() const override {
+    return sources_;
+  }
+
+  /// The outputType is the concatenation of the input columns and mask column.
+  const RowTypePtr& outputType() const override {
+    return outputType_;
+  }
+
+  std::string_view name() const override {
+    return "MarkDistinct";
+  }
+
+  const std::string& markerName() const {
+    return markerName_;
+  }
+
+  const std::vector<FieldAccessTypedExprPtr>& distinctKeys() const {
+    return distinctKeys_;
+  }
+
+  folly::dynamic serialize() const override;
+
+  static PlanNodePtr create(const folly::dynamic& obj, void* context);
+
+ private:
+  void addDetails(std::stringstream& stream) const override;
+
+  const std::string markerName_;
+
+  const std::vector<FieldAccessTypedExprPtr> distinctKeys_;
+
+  const std::vector<PlanNodePtr> sources_;
+
+  const RowTypePtr outputType_;
+};
+
 /// Optimized version of a WindowNode for a single row_number function with a
 /// limit over sorted partitions.
 /// The output of this node contains all input columns followed by an optional

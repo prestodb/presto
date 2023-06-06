@@ -742,3 +742,15 @@ TEST_F(PlanNodeToStringTest, topNRowNumber) {
       "-- TopNRowNumber[partition by (a) order by (b ASC NULLS LAST) limit 10] -> a:BIGINT, b:VARCHAR\n",
       plan->toString(true, false));
 }
+
+TEST_F(PlanNodeToStringTest, markDistinct) {
+  auto op =
+      PlanBuilder()
+          .tableScan(ROW({"a", "b", "c"}, {VARCHAR(), BIGINT(), BIGINT()}))
+          .markDistinct("marker", {"a", "b"})
+          .planNode();
+  ASSERT_EQ("-- MarkDistinct\n", op->toString());
+  ASSERT_EQ(
+      "-- MarkDistinct[a, b] -> a:VARCHAR, b:BIGINT, c:BIGINT, marker:BOOLEAN\n",
+      op->toString(true, false));
+}

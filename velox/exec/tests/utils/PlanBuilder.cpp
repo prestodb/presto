@@ -1340,6 +1340,18 @@ PlanBuilder& PlanBuilder::topNRowNumber(
   return *this;
 }
 
+PlanBuilder& PlanBuilder::markDistinct(
+    std::string markerKey,
+    const std::vector<std::string>& distinctKeys) {
+  planNode_ = std::make_shared<core::MarkDistinctNode>(
+      nextPlanNodeId(),
+      std::move(markerKey),
+      fields(planNode_->outputType(), distinctKeys),
+
+      planNode_);
+  return *this;
+}
+
 core::PlanNodeId PlanBuilder::nextPlanNodeId() {
   return planNodeIdGenerator_->next();
 }

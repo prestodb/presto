@@ -38,6 +38,7 @@ FilterNode                  FilterProject
 ProjectNode                 FilterProject
 AggregationNode             HashAggregation or StreamingAggregation
 GroupIdNode                 GroupId
+MarkDistinctNode            MarkDistinct
 HashJoinNode                HashProbe and HashBuild
 MergeJoinNode               MergeJoin
 NestedLoopJoinNode          NestedLoopJoinProbe and NestedLoopJoinBuild
@@ -547,6 +548,24 @@ If no sorting columns are specified then the order of the results is unspecified
     - Output column names for each window function invocation in windowFunctions list below.
   * - windowFunctions
     - Window function calls with the frame clause. e.g row_number(), first_value(name) between range 10 preceding and current row. The default frame is between range unbounded preceding and current row.
+
+MarkDistinctNode
+~~~~~~~~~~~~~~~~
+
+The MarkDistinct operator is used to produce aggregate mask columns for aggregations over distinct values, e.g. agg(DISTINCT a).
+Mask is a boolean column set to true for a subset of input rows that collectively represent a set of unique values of 'distinctKeys'.
+
+.. list-table::
+  :widths: 10 30
+  :align: left
+  :header-rows: 1
+
+  * - Property
+    - Description
+  * - markerName
+    - Name of the output mask column.
+  * - distinctKeys
+    - Names of grouping keys.
 
 Examples
 --------

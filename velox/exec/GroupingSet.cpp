@@ -96,6 +96,26 @@ GroupingSet::~GroupingSet() {
   }
 }
 
+std::unique_ptr<GroupingSet> GroupingSet::createForMarkDistinct(
+    std::vector<std::unique_ptr<VectorHasher>>&& hashers,
+    OperatorCtx* FOLLY_NONNULL operatorCtx,
+    tsan_atomic<bool>* nonReclaimableSection) {
+  return std::make_unique<GroupingSet>(
+      std::move(hashers),
+      /*preGroupedKeys*/ std::vector<column_index_t>{},
+      /*aggregates*/ std::vector<std::unique_ptr<Aggregate>>{},
+      /*aggrMaskChannels*/ std::vector<std::optional<column_index_t>>{},
+      /*channelLists*/ std::vector<std::vector<column_index_t>>{},
+      /*constantLists*/ std::vector<std::vector<VectorPtr>>{},
+      /*intermediateTypes*/ std::vector<TypePtr>{},
+      /*ignoreNullKeys*/ false,
+      /*isPartial*/ false,
+      /*isRawInput*/ false,
+      /*spillConfig*/ nullptr,
+      nonReclaimableSection,
+      operatorCtx);
+};
+
 namespace {
 bool equalKeys(
     const std::vector<column_index_t>& keys,

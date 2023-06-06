@@ -44,6 +44,7 @@ struct HashLookup {
   // Hit for each row of input. nullptr if no hit. Points to the
   // corresponding group row.
   raw_vector<char*> hits;
+  // Indices of newly inserted rows (not found during probe).
   std::vector<vector_size_t> newGroups;
 };
 

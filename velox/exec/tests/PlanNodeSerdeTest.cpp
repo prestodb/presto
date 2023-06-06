@@ -76,6 +76,14 @@ TEST_F(PlanNodeSerdeTest, assignUniqueId) {
   testSerde(plan);
 }
 
+TEST_F(PlanNodeSerdeTest, markDistinct) {
+  auto plan = PlanBuilder()
+                  .values({data_})
+                  .markDistinct("marker", {"c0", "c1", "c2"})
+                  .planNode();
+  testSerde(plan);
+}
+
 TEST_F(PlanNodeSerdeTest, nestedLoopJoin) {
   auto left = makeRowVector(
       {"t0", "t1", "t2"},

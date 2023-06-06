@@ -26,6 +26,7 @@
 #include "velox/exec/HashBuild.h"
 #include "velox/exec/HashProbe.h"
 #include "velox/exec/Limit.h"
+#include "velox/exec/MarkDistinct.h"
 #include "velox/exec/Merge.h"
 #include "velox/exec/MergeJoin.h"
 #include "velox/exec/NestedLoopJoinBuild.h"
@@ -490,6 +491,11 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
                 planNode)) {
       operators.push_back(
           std::make_unique<TopNRowNumber>(id, ctx.get(), topNRowNumberNode));
+    } else if (
+        auto markDistinctNode =
+            std::dynamic_pointer_cast<const core::MarkDistinctNode>(planNode)) {
+      operators.push_back(
+          std::make_unique<MarkDistinct>(id, ctx.get(), markDistinctNode));
     } else if (
         auto localMerge =
             std::dynamic_pointer_cast<const core::LocalMergeNode>(planNode)) {

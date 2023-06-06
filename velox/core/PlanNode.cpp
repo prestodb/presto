@@ -1272,6 +1272,49 @@ PlanNodePtr WindowNode::create(const folly::dynamic& obj, void* context) {
       source);
 }
 
+RowTypePtr getMarkDistinctOutputType(
+    const RowTypePtr& inputType,
+    const std::string& markerName) {
+  std::vector<std::string> names = inputType->names();
+  std::vector<TypePtr> types = inputType->children();
+
+  names.emplace_back(markerName);
+  types.emplace_back(BOOLEAN());
+  return ROW(std::move(names), std::move(types));
+}
+
+MarkDistinctNode::MarkDistinctNode(
+    PlanNodeId id,
+    std::string markerName,
+    std::vector<FieldAccessTypedExprPtr> distinctKeys,
+    PlanNodePtr source)
+    : PlanNode(std::move(id)),
+      markerName_(std::move(markerName)),
+      distinctKeys_(std::move(distinctKeys)),
+      sources_{std::move(source)},
+      outputType_(
+          getMarkDistinctOutputType(sources_[0]->outputType(), markerName_)) {
+  VELOX_USER_CHECK_GT(markerName_.size(), 0)
+  VELOX_USER_CHECK_GT(distinctKeys_.size(), 0);
+}
+
+folly::dynamic MarkDistinctNode::serialize() const {
+  auto obj = PlanNode::serialize();
+  obj["distinctKeys"] = ISerializable::serialize(this->distinctKeys_);
+  obj["markerName"] = this->markerName_;
+  return obj;
+}
+
+// static
+PlanNodePtr MarkDistinctNode::create(const folly::dynamic& obj, void* context) {
+  auto source = deserializeSingleSource(obj, context);
+  auto distinctKeys = deserializeFields(obj["distinctKeys"], context);
+  auto markerName = obj["markerName"].asString();
+
+  return std::make_shared<MarkDistinctNode>(
+      deserializePlanNodeId(obj), markerName, distinctKeys, source);
+}
+
 namespace {
 RowTypePtr getRowNumberOutputType(
     const RowTypePtr& inputType,
@@ -1701,6 +1744,10 @@ PlanNodePtr OrderByNode::create(const folly::dynamic& obj, void* context) {
       std::move(source));
 }
 
+void MarkDistinctNode::addDetails(std::stringstream& stream) const {
+  addFields(stream, distinctKeys_);
+}
+
 void PlanNode::toString(
     std::stringstream& stream,
     bool detailed,
@@ -1786,6 +1833,7 @@ void PlanNode::registerSerDe() {
   registry.Register("UnnestNode", UnnestNode::create);
   registry.Register("ValuesNode", ValuesNode::create);
   registry.Register("WindowNode", WindowNode::create);
+  registry.Register("MarkDistinctNode", MarkDistinctNode::create);
   registry.Register(
       "GatherPartitionFunctionSpec", GatherPartitionFunctionSpec::deserialize);
 }

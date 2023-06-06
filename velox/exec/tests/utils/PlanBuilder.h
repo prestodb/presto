@@ -707,6 +707,13 @@ class PlanBuilder {
       int32_t limit,
       bool generateRowNumber);
 
+  /// Add a MarkDistinctNode to compute aggregate mask channel
+  /// @param markerKey Name of output mask channel
+  /// @param distinctKeys List of columns to be marked distinct.
+  PlanBuilder& markDistinct(
+      std::string markerKey,
+      const std::vector<std::string>& distinctKeys);
+
   /// Stores the latest plan node ID into the specified variable. Useful for
   /// capturing IDs of the leaf plan nodes (table scans, exchanges, etc.) to use
   /// when adding splits at runtime.
