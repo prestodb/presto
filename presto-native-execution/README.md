@@ -45,13 +45,6 @@ The Velox library installs other dependencies not listed below.
 | [fbthrift](https://github.com/facebook/fbthrift) |`2022.11.14.00`|
 
 ### Build Prestissimo
-* After installing the above dependencies, from the
-`presto/presto-native-execution` directory, run `make`
-* For development, use
-`make debug` to build a non-optimized debug version.
-* Use `make unittest` to build
-and run tests.
-
 To enable Parquet and S3 support, set `PRESTO_ENABLE_PARQUET = "ON"`,
 `PRESTO_ENABLE_S3 = "ON"` in the environment.
 
@@ -60,6 +53,13 @@ This dependency can be installed by running the script below from the
 `presto/presto-native-execution` directory.
 
 `./velox/scripts/setup-adapters.sh install_aws-sdk-cpp`
+
+* After installing the above dependencies, from the
+`presto/presto-native-execution` directory, run `make`
+* For development, use
+`make debug` to build a non-optimized debug version.
+* Use `make unittest` to build
+and run tests.
 
 ### Makefile Targets
 A reminder of the available Makefile targets can be obtained using `make help`
@@ -123,6 +123,7 @@ Run CLion:
 * Edit menu CLion->Preferences->Build, Execution, Deployment->CMake
   * CMake options: `-DVELOX_BUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug`
   * Build options: `-- -j 12`
+  * Optional CMake options to enable Parquet and S3: `-DPRESTO_ENABLE_PARQUET=ON -DPRESTO_ENABLE_S3=ON`
 * Edit menu CLion->Preferences->Editor->Code Style->C/C++
   * Scheme: `Project`
 * To enable clang format you need
