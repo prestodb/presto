@@ -28,10 +28,34 @@ public class ScheduleResult
 {
     public enum BlockedReason
     {
+        /**
+         * When using scaled writers, we block after each scheduling call
+         * to introduce a short delay between scheduling iterations. This allows
+         * us to determine whether we need to scale up the number of tasks.
+         */
         WRITER_SCALING,
+        /**
+         * All the lifespans currently scheduled have finished assigning all
+         * their splits. This may mean that all splits have been assigned
+         * and we are done scheduling the source, or it may mean that more lifespans
+         * need to be scheduled. The latter is only applicable for grouped
+         * execution where there are multiple lifespans per task.
+         */
         NO_ACTIVE_DRIVER_GROUP,
+        /**
+         * Some or all splits could not be assigned because none of the candidate
+         * nodes had space in the queue.
+         */
         SPLIT_QUEUES_FULL,
+        /**
+         * Waiting for the source to return the next batch of splits.
+         */
         WAITING_FOR_SOURCE,
+        /**
+         * At least one lifespan is blocked on SPLIT_QUEUES_FULL
+         * and at least one is blocked on WAITING_FOR_SOURCE (only relevant for
+         * grouped execution where there are multiple lifespans per task).
+         */
         MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE,
         /**/;
 
