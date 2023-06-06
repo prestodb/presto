@@ -132,7 +132,9 @@ class LocalPersistentShuffleReader : public ShuffleReader {
 
   bool hasNext() override;
 
-  velox::BufferPtr next(bool success) override;
+  velox::BufferPtr next() override;
+
+  void noMoreData(bool success) override;
 
   folly::F14FastMap<std::string, int64_t> stats() const override {
     // Fake counter for testing only.
