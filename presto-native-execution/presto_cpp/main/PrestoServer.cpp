@@ -121,6 +121,7 @@ PrestoServer::~PrestoServer() {}
 void PrestoServer::run() {
   auto systemConfig = SystemConfig::instance();
   auto nodeConfig = NodeConfig::instance();
+  auto baseVeloxQueryConfig = BaseVeloxQueryConfig::instance();
   int httpPort{0};
   int httpExecThreads{0};
 
@@ -137,8 +138,8 @@ void PrestoServer::run() {
         fmt::format("{}/config.properties", configDirectoryPath_));
     nodeConfig->initialize(
         fmt::format("{}/node.properties", configDirectoryPath_));
-    // Create velox query config after we initialized system config.
-    BaseVeloxQueryConfig::instance();
+    baseVeloxQueryConfig->initialize(
+        fmt::format("{}/velox.properties", configDirectoryPath_));
 
     httpPort = systemConfig->httpServerHttpPort();
     if (systemConfig->httpServerHttpsEnabled()) {
