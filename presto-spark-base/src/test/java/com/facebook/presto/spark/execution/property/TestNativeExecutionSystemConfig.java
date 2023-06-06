@@ -34,6 +34,20 @@ import static org.testng.Assert.fail;
 public class TestNativeExecutionSystemConfig
 {
     @Test
+    public void testNativeExecutionVeloxConfig()
+    {
+        // Test defaults
+        assertRecordedDefaults(ConfigAssertions.recordDefaults(NativeExecutionVeloxConfig.class)
+                .setCodegenEnabled(false));
+
+        // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
+        NativeExecutionVeloxConfig expected = new NativeExecutionVeloxConfig()
+                .setCodegenEnabled(true);
+        Map<String, String> properties = expected.getAllProperties();
+        assertFullMapping(properties, expected);
+    }
+
+    @Test
     public void testNativeExecutionSystemConfig()
     {
         // Test defaults
@@ -133,7 +147,7 @@ public class TestNativeExecutionSystemConfig
     @Test
     public void testFilePropertiesPopulator()
     {
-        PrestoSparkWorkerProperty workerProperty = new PrestoSparkWorkerProperty(new NativeExecutionSystemConfig(), new NativeExecutionConnectorConfig(), new NativeExecutionNodeConfig());
+        PrestoSparkWorkerProperty workerProperty = new PrestoSparkWorkerProperty(new NativeExecutionConnectorConfig(), new NativeExecutionNodeConfig(), new NativeExecutionSystemConfig(), new NativeExecutionVeloxConfig());
         testPropertiesPopulate(workerProperty);
     }
 
@@ -142,10 +156,11 @@ public class TestNativeExecutionSystemConfig
         Path directory = null;
         try {
             directory = Files.createTempDirectory("presto");
+            Path veloxPropertiesPath = Paths.get(directory.toString(), "velox.properties");
             Path configPropertiesPath = Paths.get(directory.toString(), "config.properties");
             Path nodePropertiesPath = Paths.get(directory.toString(), "node.properties");
             Path connectorPropertiesPath = Paths.get(directory.toString(), "catalog/hive.properties");
-            workerProperty.populateAllProperties(configPropertiesPath, nodePropertiesPath, connectorPropertiesPath);
+            workerProperty.populateAllProperties(veloxPropertiesPath, configPropertiesPath, nodePropertiesPath, connectorPropertiesPath);
 
             verifyProperties(workerProperty.getSystemConfig().getAllProperties(), readPropertiesFromDisk(configPropertiesPath));
             verifyProperties(workerProperty.getNodeConfig().getAllProperties(), readPropertiesFromDisk(nodePropertiesPath));

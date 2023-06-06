@@ -23,6 +23,9 @@ namespace facebook::presto {
 
 class ConfigBase {
  public:
+  // Setting this to 'true' makes configs modifiable via server operations.
+  static constexpr std::string_view kMutableConfig{"mutable-config"};
+
   /// Reads configuration properties from the specified file. Must be called
   /// before calling any of the getters below.
   /// @param filePath Path to configuration file.
@@ -144,7 +147,6 @@ class ConfigBase {
 /// Provides access to system properties defined in config.properties file.
 class SystemConfig : public ConfigBase {
  public:
-  static constexpr std::string_view kMutableConfig{"mutable-config"};
   static constexpr std::string_view kPrestoVersion{"presto.version"};
   static constexpr std::string_view kHttpServerHttpPort{
       "http-server.http.port"};
@@ -368,38 +370,11 @@ class NodeConfig : public ConfigBase {
 /// Used only in the single instance as the source of the initial properties for
 /// velox::QueryConfig. Not designed for actual property access during a query
 /// run.
-/// Values can be modified via Server Operation command if the SystemConfig has
-/// kMutableConfig option set to true (so this config must be created after the
-/// SystemConfig has been initialized).
-class BaseVeloxQueryConfig {
+class BaseVeloxQueryConfig : public ConfigBase {
  public:
   BaseVeloxQueryConfig();
 
   static BaseVeloxQueryConfig* instance();
-
-  /// If this config is mutable.
-  bool isMutable() const {
-    return mutable_;
-  }
-
-  /// Returns copy of the config values map.
-  std::unordered_map<std::string, std::string> values() const {
-    return *(values_.rlock());
-  }
-
-  /// Adds or replaces value at the given key. Can be used by debugging or
-  /// testing code.
-  /// Returns previous value if there was any.
-  folly::Optional<std::string> setValue(
-      const std::string& propertyName,
-      const std::string& value);
-
-  /// Returns the current value of the property.
-  folly::Optional<std::string> getValue(const std::string& propertyName) const;
-
- private:
-  const bool mutable_;
-  folly::Synchronized<std::unordered_map<std::string, std::string>> values_;
 };
 
 } // namespace facebook::presto
