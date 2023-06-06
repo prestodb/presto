@@ -87,6 +87,7 @@ public class PrestoSparkNativeQueryRunnerUtils
         ImmutableMap.Builder<String, String> builder = new ImmutableMap.Builder<String, String>()
                 // Do not use default Prestissimo config files. Presto-Spark will generate the configs on-the-fly.
                 .put("catalog.config-dir", "/")
+                .put("task.info-update-interval", "100ms")
                 .put("native-execution-enabled", "true")
                 .put("spark.initial-partition-count", "1")
                 .put("register-test-functions", "true")
