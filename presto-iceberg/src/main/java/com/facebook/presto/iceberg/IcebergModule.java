@@ -62,6 +62,12 @@ import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
+import com.facebook.presto.parquet.ParquetDataSourceId;
+import com.facebook.presto.parquet.cache.CachingParquetMetadataSource;
+import com.facebook.presto.parquet.cache.MetadataReader;
+import com.facebook.presto.parquet.cache.ParquetCacheConfig;
+import com.facebook.presto.parquet.cache.ParquetFileMetadata;
+import com.facebook.presto.parquet.cache.ParquetMetadataSource;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -76,10 +82,8 @@ import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.slice.Slice;
 import org.weakref.jmx.MBeanExporter;
-import org.weakref.jmx.testing.TestingMBeanServer;
 
 import javax.inject.Singleton;
-import javax.management.MBeanServer;
 
 import java.util.List;
 import java.util.Optional;
@@ -121,7 +125,6 @@ public class IcebergModule
         binder.bind(MetastoreCacheStats.class).to(HiveMetastoreCacheStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(MetastoreCacheStats.class).as(generatedNameOf(MetastoreCacheStats.class, connectorId));
         binder.bind(ExtendedHiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
-        binder.bind(MBeanServer.class).toInstance(new TestingMBeanServer());
 
         binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
         newSetBinder(binder, DynamicConfigurationProvider.class);
@@ -166,6 +169,8 @@ public class IcebergModule
 
         configBinder(binder).bindConfig(OrcCacheConfig.class, connectorId);
         configBinder(binder).bindConfig(OrcFileWriterConfig.class);
+
+        configBinder(binder).bindConfig(ParquetCacheConfig.class, connectorId);
 
         binder.bind(IcebergPlanOptimizer.class).in(Scopes.SINGLETON);
         binder.bind(IcebergParquetDereferencePushDown.class).in(Scopes.SINGLETON);
@@ -243,5 +248,24 @@ public class IcebergModule
             factory = new DwrfAwareStripeMetadataSourceFactory(factory);
         }
         return factory;
+    }
+
+    @Singleton
+    @Provides
+    public ParquetMetadataSource createParquetMetadataSource(ParquetCacheConfig parquetCacheConfig, MBeanExporter exporter)
+    {
+        ParquetMetadataSource parquetMetadataSource = new MetadataReader();
+        if (parquetCacheConfig.isMetadataCacheEnabled()) {
+            Cache<ParquetDataSourceId, ParquetFileMetadata> cache = CacheBuilder.newBuilder()
+                    .maximumWeight(parquetCacheConfig.getMetadataCacheSize().toBytes())
+                    .weigher((id, metadata) -> ((ParquetFileMetadata) metadata).getMetadataSize())
+                    .expireAfterAccess(parquetCacheConfig.getMetadataCacheTtlSinceLastAccess().toMillis(), MILLISECONDS)
+                    .recordStats()
+                    .build();
+            CacheStatsMBean cacheStatsMBean = new CacheStatsMBean(cache);
+            parquetMetadataSource = new CachingParquetMetadataSource(cache, parquetMetadataSource);
+            exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_ParquetMetadata"), cacheStatsMBean);
+        }
+        return parquetMetadataSource;
     }
 }

@@ -53,7 +53,7 @@ import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.RichColumnDescriptor;
-import com.facebook.presto.parquet.cache.MetadataReader;
+import com.facebook.presto.parquet.cache.ParquetMetadataSource;
 import com.facebook.presto.parquet.predicate.Predicate;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ColumnHandle;
@@ -157,6 +157,8 @@ public class IcebergPageSourceProvider
     private final DwrfEncryptionProvider dwrfEncryptionProvider;
     private final HiveClientConfig hiveClientConfig;
 
+    private final ParquetMetadataSource parquetMetadataSource;
+
     @Inject
     public IcebergPageSourceProvider(
             HdfsEnvironment hdfsEnvironment,
@@ -165,7 +167,8 @@ public class IcebergPageSourceProvider
             OrcFileTailSource orcFileTailSource,
             StripeMetadataSourceFactory stripeMetadataSourceFactory,
             HiveDwrfEncryptionProvider dwrfEncryptionProvider,
-            HiveClientConfig hiveClientConfig)
+            HiveClientConfig hiveClientConfig,
+            ParquetMetadataSource parquetMetadataSource)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
@@ -174,6 +177,7 @@ public class IcebergPageSourceProvider
         this.stripeMetadataSourceFactory = requireNonNull(stripeMetadataSourceFactory, "stripeMetadataSourceFactory is null");
         this.dwrfEncryptionProvider = requireNonNull(dwrfEncryptionProvider, "DwrfEncryptionProvider is null").toDwrfEncryptionProvider();
         this.hiveClientConfig = requireNonNull(hiveClientConfig, "hiveClientConfig is null");
+        this.parquetMetadataSource = requireNonNull(parquetMetadataSource, "parquetMetadataSource is null");
     }
 
     private static ConnectorPageSource createParquetPageSource(
@@ -186,7 +190,8 @@ public class IcebergPageSourceProvider
             SchemaTableName tableName,
             List<IcebergColumnHandle> regularColumns,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
-            FileFormatDataSourceStats fileFormatDataSourceStats)
+            FileFormatDataSourceStats fileFormatDataSourceStats,
+            ParquetMetadataSource parquetMetadataSource)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
@@ -213,7 +218,13 @@ public class IcebergPageSourceProvider
             final ParquetDataSource parquetDataSource = buildHdfsParquetDataSource(inputStream, path, fileFormatDataSourceStats);
             dataSource = parquetDataSource;
             Optional<InternalFileDecryptor> fileDecryptor = createDecryptor(configuration, path);
-            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> MetadataReader.readFooter(parquetDataSource, fileSize, fileDecryptor, readMaskedValue).getParquetMetadata());
+            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> parquetMetadataSource.getParquetMetadata(
+                    parquetDataSource,
+                    fileSize,
+                    hiveFileContext.isCacheable(),
+                    hiveFileContext.getModificationTime(),
+                    fileDecryptor,
+                    readMaskedValue).getParquetMetadata());
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 
@@ -695,7 +706,8 @@ public class IcebergPageSourceProvider
                         tableName,
                         dataColumns,
                         predicate,
-                        fileFormatDataSourceStats);
+                        fileFormatDataSourceStats,
+                        parquetMetadataSource);
             case ORC:
                 OrcReaderOptions readerOptions = OrcReaderOptions.builder()
                         .withMaxMergeDistance(getOrcMaxMergeDistance(session))

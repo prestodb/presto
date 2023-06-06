@@ -20,6 +20,7 @@ import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.cache.CachingModule;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.NodeVersion;
+import com.facebook.presto.hive.RebindSafeMBeanServer;
 import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastoreModule;
@@ -50,6 +51,9 @@ import com.google.inject.Key;
 import com.google.inject.util.Types;
 import org.weakref.jmx.guice.MBeanModule;
 
+import javax.management.MBeanServer;
+
+import java.lang.management.ManagementFactory;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -73,6 +77,8 @@ public final class InternalIcebergConnectorFactory
                     new HiveMetastoreModule(catalogName, metastore),
                     new CachingModule(),
                     binder -> {
+                        MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
+                        binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
