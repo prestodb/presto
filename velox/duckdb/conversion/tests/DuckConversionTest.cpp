@@ -63,6 +63,21 @@ TEST(DuckConversionTest, duckValueToVariant) {
     EXPECT_NO_THROW(duckValueToVariant(Value::FLOAT(i)));
   }
 
+  // Timestamp.
+  for (const auto ts : {
+           Timestamp::fromMillis(123),
+           Timestamp::fromMillis(-123),
+           Timestamp::fromMillis(0),
+           Timestamp::fromMillis(123'456'789),
+           Timestamp::fromMillis(-123'456'789),
+       }) {
+    SCOPED_TRACE(ts.toString());
+    EXPECT_EQ(
+        variant(ts),
+        duckValueToVariant(
+            Value::TIMESTAMP(::duckdb::Timestamp::FromEpochMs(ts.toMillis()))));
+  }
+
   // Strings.
   std::vector<std::string> vec = {"", "asdf", "aS$!#^*HFD"};
   for (const auto& i : vec) {
@@ -73,7 +88,6 @@ TEST(DuckConversionTest, duckValueToVariant) {
 TEST(DuckConversionTest, duckValueToVariantUnsupported) {
   std::vector<LogicalType> unsupported = {
       LogicalType::TIME,
-      LogicalType::TIMESTAMP,
       LogicalType::INTERVAL,
       LogicalType::LIST({LogicalType::INTEGER}),
       LogicalType::STRUCT(

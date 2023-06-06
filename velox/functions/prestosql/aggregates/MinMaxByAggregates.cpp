@@ -122,6 +122,17 @@ struct MinMaxTrait<Date> {
   }
 };
 
+template <>
+struct MinMaxTrait<Timestamp> {
+  static constexpr Timestamp lowest() {
+    return Timestamp(std::numeric_limits<int64_t>::min(), 0);
+  }
+
+  static constexpr Timestamp max() {
+    return Timestamp(std::numeric_limits<int64_t>::max(), 999'999);
+  }
+};
+
 /// MinMaxByAggregate is the base class for min_by and max_by functions
 /// with numeric value and comparison types. These functions return the value of
 /// X associated with the minimum/maximum value of Y over all input values.
@@ -639,6 +650,8 @@ std::unique_ptr<exec::Aggregate> create(
       return std::make_unique<Aggregate<W, StringView>>(resultType);
     case TypeKind::DATE:
       return std::make_unique<Aggregate<W, Date>>(resultType);
+    case TypeKind::TIMESTAMP:
+      return std::make_unique<Aggregate<W, Timestamp>>(resultType);
     default:
       VELOX_FAIL("{}", errorMessage);
       return nullptr;
@@ -648,7 +661,7 @@ std::unique_ptr<exec::Aggregate> create(
 template <template <typename U, typename V> class Aggregate>
 exec::AggregateRegistrationResult registerMinMaxBy(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
-  // TODO Add support for boolean and timestamp 'compare' types.
+  // TODO Add support for boolean 'compare' types.
   for (const auto& compareType :
        {"tinyint",
         "smallint",
@@ -657,7 +670,8 @@ exec::AggregateRegistrationResult registerMinMaxBy(const std::string& name) {
         "real",
         "double",
         "varchar",
-        "date"}) {
+        "date",
+        "timestamp"}) {
     signatures.push_back(
         exec::AggregateFunctionSignatureBuilder()
             .typeVariable("T")

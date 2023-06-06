@@ -43,7 +43,8 @@ const std::unordered_set<TypeKind> kSupportedTypes = {
     TypeKind::REAL,
     TypeKind::DOUBLE,
     TypeKind::VARCHAR,
-    TypeKind::DATE};
+    TypeKind::DATE,
+    TypeKind::TIMESTAMP};
 
 std::vector<TestParam> getTestParams() {
   std::vector<TestParam> params;
@@ -82,6 +83,9 @@ std::vector<TestParam> getTestParams() {
       case TypeKind::DATE:                                           \
         testFunc<valueType, Date>();                                 \
         break;                                                       \
+      case TypeKind::TIMESTAMP:                                      \
+        testFunc<valueType, Timestamp>();                            \
+        break;                                                       \
       default:                                                       \
         LOG(FATAL) << "Unsupported comparison type of minmax_by(): " \
                    << mapTypeKindToName(GetParam().comparisonType);  \
@@ -114,6 +118,9 @@ std::vector<TestParam> getTestParams() {
         break;                                                  \
       case TypeKind::DATE:                                      \
         EXECUTE_TEST_BY_VALUE_TYPE(testFunc, Date);             \
+        break;                                                  \
+      case TypeKind::TIMESTAMP:                                 \
+        EXECUTE_TEST_BY_VALUE_TYPE(testFunc, Timestamp);        \
         break;                                                  \
       default:                                                  \
         LOG(FATAL) << "Unsupported value type of minmax_by(): " \
@@ -173,15 +180,18 @@ class MinMaxByAggregationTestBase : public AggregationTestBase {
       folly::Range<const int*> values);
 
   const RowTypePtr rowType_{
-      ROW({"c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7"},
-          {TINYINT(),
-           SMALLINT(),
-           INTEGER(),
-           BIGINT(),
-           REAL(),
-           DOUBLE(),
-           VARCHAR(),
-           DATE()})};
+      ROW({"c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"},
+          {
+              TINYINT(),
+              SMALLINT(),
+              INTEGER(),
+              BIGINT(),
+              REAL(),
+              DOUBLE(),
+              VARCHAR(),
+              DATE(),
+              TIMESTAMP(),
+          })};
   // Specify the number of values in each typed data vector in
   // 'dataVectorsByType_'.
   const int numValues_;
@@ -213,6 +223,20 @@ FlatVectorPtr<StringView> MinMaxByAggregationTestBase::buildDataVector(
   }
 }
 
+template <>
+FlatVectorPtr<Timestamp> MinMaxByAggregationTestBase::buildDataVector(
+    vector_size_t size,
+    folly::Range<const int*> values) {
+  if (values.empty()) {
+    return makeFlatVector<Timestamp>(
+        size, [](auto row) { return Timestamp(row - 3, 123'000'000); });
+  } else {
+    VELOX_CHECK_EQ(values.size(), size);
+    return makeFlatVector<Timestamp>(
+        size, [&](auto row) { return Timestamp(values[row], 123'000'000); });
+  }
+}
+
 VectorPtr MinMaxByAggregationTestBase::buildDataVector(
     TypeKind kind,
     vector_size_t size,
@@ -234,10 +258,22 @@ VectorPtr MinMaxByAggregationTestBase::buildDataVector(
       return buildDataVector<StringView>(size, values);
     case TypeKind::DATE:
       return buildDataVector<Date>(size, values);
+    case TypeKind::TIMESTAMP:
+      return buildDataVector<Timestamp>(size, values);
     default:
       LOG(FATAL) << "Unsupported value/comparison type of minmax_by(): "
                  << mapTypeKindToName(kind);
   }
+}
+
+template <typename T>
+std::string asSql(T value) {
+  return fmt::format("'{}'", value);
+}
+
+template <>
+std::string asSql(Timestamp value) {
+  return fmt::format("epoch_ms({})", value.toMillis());
 }
 
 void MinMaxByAggregationTestBase::SetUp() {
@@ -266,6 +302,10 @@ void MinMaxByAggregationTestBase::SetUp() {
         break;
       case TypeKind::DATE:
         dataVectorsByType_.emplace(type, buildDataVector<Date>(numValues_));
+        break;
+      case TypeKind::TIMESTAMP:
+        dataVectorsByType_.emplace(
+            type, buildDataVector<Timestamp>(numValues_));
         break;
       case TypeKind::VARCHAR:
         dataVectorsByType_.emplace(
@@ -324,24 +364,24 @@ class MinMaxByGlobalByAggregationTest
         {makeRowVector(
              {makeConstant(std::optional<T>(dataAt<T>(0)), 5),
               makeConstant(std::optional<U>(dataAt<U>(0)), 5)}),
-         fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(0))},
+         fmt::format("SELECT {}", asSql(dataAt<T>(0)))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {std::nullopt, dataAt<T>(0), dataAt<T>(1), dataAt<T>(2)}),
               makeConstant(std::optional<U>(dataAt<U>(0)), 5)}),
-         "SELECT * FROM (VALUES (NULL)) AS t"},
+         "SELECT NULL"},
 
         // All null cases.
         {makeRowVector(
              {makeConstant(std::optional<T>(dataAt<T>(0)), 10),
               makeNullConstant(GetParam().comparisonType, 10)}),
-         "SELECT null"},
+         "SELECT NULL"},
 
         {makeRowVector(
              {makeNullConstant(GetParam().valueType, 10),
               makeConstant(std::optional<U>(dataAt<U>(0)), 10)}),
-         "SELECT * FROM (VALUES (NULL)) AS t"},
+         "SELECT NULL"},
 
         // Regular cases.
         {makeRowVector(
@@ -349,35 +389,35 @@ class MinMaxByGlobalByAggregationTest
                   {std::nullopt, dataAt<T>(3), std::nullopt, dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(0), std::nullopt, dataAt<U>(1), dataAt<U>(2)})}),
-         "SELECT * FROM (VALUES (NULL)) AS t"},
+         "SELECT NULL"},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {dataAt<T>(0), dataAt<T>(3), std::nullopt, dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(0), std::nullopt, dataAt<U>(1), dataAt<U>(2)})}),
-         fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(0))},
+         fmt::format("SELECT {}", asSql(dataAt<T>(0)))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {dataAt<T>(0), dataAt<T>(3), std::nullopt, dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(2), std::nullopt, dataAt<U>(1), dataAt<U>(0)})}),
-         fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(4))},
+         fmt::format("SELECT {}", asSql(dataAt<T>(4)))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {dataAt<T>(0), dataAt<T>(3), std::nullopt, dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(2), std::nullopt, dataAt<U>(0), dataAt<U>(3)})}),
-         "SELECT * FROM (VALUES (NULL)) AS t"},
+         "SELECT NULL"},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {dataAt<T>(0), std::nullopt, dataAt<T>(3), dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(2), std::nullopt, dataAt<U>(0), dataAt<U>(3)})}),
-         fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(3))}};
+         fmt::format("SELECT {}", asSql(dataAt<T>(3)))}};
     for (const auto& testData : testSettings) {
       SCOPED_TRACE(testData.debugString());
       testAggregations(
@@ -407,24 +447,24 @@ class MinMaxByGlobalByAggregationTest
         {makeRowVector(
              {makeConstant(std::optional<T>(dataAt<T>(0)), 5),
               makeConstant(std::optional<U>(dataAt<U>(0)), 5)}),
-         fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(0))},
+         fmt::format("SELECT {}", asSql(dataAt<T>(0)))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {std::nullopt, dataAt<T>(0), dataAt<T>(1), dataAt<T>(2)}),
               makeConstant(std::optional<U>(dataAt<U>(0)), 5)}),
-         "SELECT * FROM (VALUES (NULL)) AS t"},
+         "SELECT NULL"},
 
         // All null cases.
         {makeRowVector(
              {makeConstant(std::optional<T>(dataAt<T>(0)), 10),
               makeNullConstant(GetParam().comparisonType, 10)}),
-         "SELECT null"},
+         "SELECT NULL"},
 
         {makeRowVector(
              {makeNullConstant(GetParam().valueType, 10),
               makeConstant(std::optional<U>(dataAt<U>(0)), 10)}),
-         "SELECT * FROM (VALUES (NULL)) AS t"},
+         "SELECT NULL"},
 
         // Regular cases.
         {makeRowVector(
@@ -432,35 +472,35 @@ class MinMaxByGlobalByAggregationTest
                   {std::nullopt, dataAt<T>(3), std::nullopt, dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(2), std::nullopt, dataAt<U>(1), dataAt<U>(0)})}),
-         "SELECT * FROM (VALUES (NULL)) AS t"},
+         "SELECT NULL"},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {dataAt<T>(0), dataAt<T>(3), std::nullopt, dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(2), std::nullopt, dataAt<U>(1), dataAt<U>(0)})}),
-         fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(0))},
+         fmt::format("SELECT {}", asSql(dataAt<T>(0)))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {dataAt<T>(0), dataAt<T>(3), std::nullopt, dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(0), std::nullopt, dataAt<U>(1), dataAt<U>(2)})}),
-         fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(4))},
+         fmt::format("SELECT {}", asSql(dataAt<T>(4)))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {dataAt<T>(0), dataAt<T>(3), std::nullopt, dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(2), std::nullopt, dataAt<U>(3), dataAt<U>(0)})}),
-         "SELECT * FROM (VALUES (NULL)) AS t"},
+         "SELECT NULL"},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {dataAt<T>(0), std::nullopt, dataAt<T>(3), dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(2), std::nullopt, dataAt<U>(3), dataAt<U>(0)})}),
-         fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(3))}};
+         fmt::format("SELECT {}", asSql(dataAt<T>(3)))}};
     for (const auto& testData : testSettings) {
       SCOPED_TRACE(testData.debugString());
       testAggregations(
@@ -482,6 +522,18 @@ TEST_P(MinMaxByGlobalByAggregationTest, maxByFinalGlobalBy) {
 }
 
 TEST_P(MinMaxByGlobalByAggregationTest, randomMinByGlobalBy) {
+  // randomXxx tests do not work for timestamp values because makeVectors
+  // generates Timestamps with nanoseconds precision, but DuckDB only support
+  // microseconds precision. We need to update makeVectors to use VectorFuzzer,
+  // which allows to specify timestamp precision, and also update VectorFuzzer
+  // to generate only valid Timestamp values. Currently, VectorFuzzer may
+  // generate values that are too large (and therefore are not supported by
+  // DuckDB).
+  if (GetParam().comparisonType == TypeKind::TIMESTAMP ||
+      GetParam().valueType == TypeKind::TIMESTAMP) {
+    GTEST_SKIP() << "Fuzzer test for timestamps is not supported yet.";
+  }
+
   testGlobalAggregation(
       rowVectors_,
       kMinBy,
@@ -490,6 +542,11 @@ TEST_P(MinMaxByGlobalByAggregationTest, randomMinByGlobalBy) {
 }
 
 TEST_P(MinMaxByGlobalByAggregationTest, randomMaxByGlobalBy) {
+  if (GetParam().comparisonType == TypeKind::TIMESTAMP ||
+      GetParam().valueType == TypeKind::TIMESTAMP) {
+    GTEST_SKIP() << "Fuzzer test for timestamps is not supported yet.";
+  }
+
   testGlobalAggregation(
       rowVectors_,
       kMaxBy,
@@ -500,6 +557,11 @@ TEST_P(MinMaxByGlobalByAggregationTest, randomMaxByGlobalBy) {
 TEST_P(
     MinMaxByGlobalByAggregationTest,
     randomMaxByGlobalByWithDistinctCompareValue) {
+  if (GetParam().comparisonType == TypeKind::TIMESTAMP ||
+      GetParam().valueType == TypeKind::TIMESTAMP) {
+    GTEST_SKIP() << "Fuzzer test for timestamps is not supported yet.";
+  }
+
   // Enable disk spilling test with distinct comparison values.
   AggregationTestBase::allowInputShuffle();
 
@@ -508,10 +570,10 @@ TEST_P(
           {fromKindToScalerType(GetParam().valueType),
            fromKindToScalerType(GetParam().comparisonType)});
 
-  const bool isMallInt = GetParam().comparisonType == TypeKind::TINYINT ||
+  const bool isSmallInt = GetParam().comparisonType == TypeKind::TINYINT ||
       GetParam().comparisonType == TypeKind::SMALLINT;
-  const int kBatchSize = isMallInt ? 1 << 4 : 1 << 10;
-  const int kNumBatches = isMallInt ? 4 : 10;
+  const int kBatchSize = isSmallInt ? 1 << 4 : 1 << 10;
+  const int kNumBatches = isSmallInt ? 4 : 10;
   const int kNumValues = kNumBatches * kBatchSize;
   std::vector<int> values(kNumValues);
   for (int i = 0; i < kNumValues; ++i) {
@@ -539,7 +601,7 @@ TEST_P(
   }
   createDuckDbTable(rowVectors);
 
-  testGlobalAggregation(rowVectors, kMaxBy, "c0", "c1");
+  testGlobalAggregation(rowVectors, kMinBy, "c0", "c1");
 
   testGlobalAggregation(rowVectors, kMaxBy, "c0", "c1");
 }
@@ -598,9 +660,7 @@ class MinMaxByGroupByAggregationTest
               makeConstant(std::optional<U>(dataAt<U>(0)), 6),
               makeConstant(std::optional<int32_t>(dataAt<int32_t>(0)), 6)}),
          fmt::format(
-             "SELECT * FROM( VALUES ('{}', '{}')) AS t",
-             dataAt<int32_t>(0),
-             dataAt<T>(0))},
+             "SELECT {}, {}", asSql(dataAt<int32_t>(0)), asSql(dataAt<T>(0)))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
@@ -612,8 +672,7 @@ class MinMaxByGroupByAggregationTest
                    dataAt<T>(4)}),
               makeConstant(std::optional<U>(dataAt<U>(0)), 6),
               makeConstant(std::optional<int32_t>(dataAt<int32_t>(0)), 6)}),
-         fmt::format(
-             "SELECT * FROM( VALUES ('{}', NULL)) AS t", dataAt<int32_t>(0))},
+         fmt::format("SELECT {}, NULL", asSql(dataAt<int32_t>(0)))},
 
         // All null cases.
         {makeRowVector(
@@ -633,7 +692,7 @@ class MinMaxByGroupByAggregationTest
                    dataAt<int32_t>(2),
                    dataAt<int32_t>(2)})}),
          fmt::format(
-             "SELECT * FROM( VALUES ('{}', NULL), ('{}', NULL), ('{}', NULL)) AS t",
+             "VALUES ({}, NULL), ({}, NULL), ({}, NULL)",
              dataAt<int32_t>(0),
              dataAt<int32_t>(1),
              dataAt<int32_t>(2))},
@@ -655,7 +714,7 @@ class MinMaxByGroupByAggregationTest
                    dataAt<int32_t>(2),
                    dataAt<int32_t>(2)})}),
          fmt::format(
-             "SELECT * FROM( VALUES ('{}', NULL), ('{}', NULL), ('{}', NULL)) AS t",
+             "VALUES ({}, NULL), ({}, NULL), ({}, NULL)",
              dataAt<int32_t>(0),
              dataAt<int32_t>(1),
              dataAt<int32_t>(2))},
@@ -684,12 +743,12 @@ class MinMaxByGroupByAggregationTest
                    dataAt<int32_t>(1),
                    dataAt<int32_t>(0)})}),
          fmt::format(
-             "SELECT * FROM( VALUES ('{}', '{}'), ('{}', NULL), ('{}', '{}')) AS t",
-             dataAt<int32_t>(0),
-             dataAt<T>(0),
-             dataAt<int32_t>(1),
-             dataAt<int32_t>(2),
-             dataAt<T>(1))},
+             "VALUES ({}, {}), ({}, NULL), ({}, {})",
+             asSql(dataAt<int32_t>(0)),
+             asSql(dataAt<T>(0)),
+             asSql(dataAt<int32_t>(1)),
+             asSql(dataAt<int32_t>(2)),
+             asSql(dataAt<T>(1)))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
@@ -714,12 +773,12 @@ class MinMaxByGroupByAggregationTest
                    dataAt<int32_t>(2),
                    dataAt<int32_t>(2)})}),
          fmt::format(
-             "SELECT * FROM( VALUES ('{}', NULL), ('{}', '{}'), ('{}', '{}')) AS t",
-             dataAt<int32_t>(0),
-             dataAt<int32_t>(1),
-             dataAt<T>(1),
-             dataAt<int32_t>(2),
-             dataAt<T>(0))}};
+             "VALUES ({}, NULL), ({}, {}), ({}, {})",
+             asSql(dataAt<int32_t>(0)),
+             asSql(dataAt<int32_t>(1)),
+             asSql(dataAt<T>(1)),
+             asSql(dataAt<int32_t>(2)),
+             asSql(dataAt<T>(0)))}};
     for (const auto& testData : testSettings) {
       SCOPED_TRACE(testData.debugString());
       testAggregations(
@@ -751,9 +810,7 @@ class MinMaxByGroupByAggregationTest
               makeConstant(std::optional<U>(dataAt<U>(0)), 6),
               makeConstant(std::optional<int32_t>(dataAt<int32_t>(0)), 6)}),
          fmt::format(
-             "SELECT * FROM( VALUES ('{}', '{}')) AS t",
-             dataAt<int32_t>(0),
-             dataAt<T>(0))},
+             "SELECT {}, {}", asSql(dataAt<int32_t>(0)), asSql(dataAt<T>(0)))},
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {std::nullopt,
@@ -764,8 +821,7 @@ class MinMaxByGroupByAggregationTest
                    dataAt<T>(4)}),
               makeConstant(std::optional<U>(dataAt<U>(0)), 6),
               makeConstant(std::optional<int32_t>(dataAt<int32_t>(0)), 6)}),
-         fmt::format(
-             "SELECT * FROM( VALUES ('{}', NULL)) AS t", dataAt<int32_t>(0))},
+         fmt::format("SELECT {}, NULL", asSql(dataAt<int32_t>(0)))},
 
         // All null cases.
         {makeRowVector(
@@ -785,10 +841,10 @@ class MinMaxByGroupByAggregationTest
                    dataAt<int32_t>(2),
                    dataAt<int32_t>(2)})}),
          fmt::format(
-             "SELECT * FROM( VALUES ('{}', NULL), ('{}', NULL), ('{}', NULL)) AS t",
-             dataAt<int32_t>(0),
-             dataAt<int32_t>(1),
-             dataAt<int32_t>(2))},
+             "VALUES ({}, NULL), ({}, NULL), ({}, NULL)",
+             asSql(dataAt<int32_t>(0)),
+             asSql(dataAt<int32_t>(1)),
+             asSql(dataAt<int32_t>(2)))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
@@ -807,10 +863,10 @@ class MinMaxByGroupByAggregationTest
                    dataAt<int32_t>(2),
                    dataAt<int32_t>(2)})}),
          fmt::format(
-             "SELECT * FROM( VALUES ('{}', NULL), ('{}', NULL), ('{}', NULL)) AS t",
-             dataAt<int32_t>(0),
-             dataAt<int32_t>(1),
-             dataAt<int32_t>(2))},
+             "VALUES ({}, NULL), ({}, NULL), ({}, NULL)",
+             asSql(dataAt<int32_t>(0)),
+             asSql(dataAt<int32_t>(1)),
+             asSql(dataAt<int32_t>(2)))},
 
         // Regular cases.
         {makeRowVector(
@@ -836,12 +892,12 @@ class MinMaxByGroupByAggregationTest
                    dataAt<int32_t>(1),
                    dataAt<int32_t>(0)})}),
          fmt::format(
-             "SELECT * FROM( VALUES ('{}', NULL), ('{}', '{}'), ('{}', '{}')) AS t",
-             dataAt<int32_t>(0),
-             dataAt<int32_t>(1),
-             dataAt<T>(2),
-             dataAt<int32_t>(2),
-             dataAt<T>(1))},
+             "VALUES ({}, NULL), ({}, {}), ({}, {})",
+             asSql(dataAt<int32_t>(0)),
+             asSql(dataAt<int32_t>(1)),
+             asSql(dataAt<T>(2)),
+             asSql(dataAt<int32_t>(2)),
+             asSql(dataAt<T>(1)))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
@@ -866,12 +922,12 @@ class MinMaxByGroupByAggregationTest
                    dataAt<int32_t>(2),
                    dataAt<int32_t>(2)})}),
          fmt::format(
-             "SELECT * FROM( VALUES ('{}', NULL), ('{}', '{}'), ('{}', '{}')) AS t",
-             dataAt<int32_t>(0),
-             dataAt<int32_t>(1),
-             dataAt<T>(1),
-             dataAt<int32_t>(2),
-             dataAt<T>(0))}};
+             "VALUES ({}, NULL), ({}, {}), ({}, {})",
+             asSql(dataAt<int32_t>(0)),
+             asSql(dataAt<int32_t>(1)),
+             asSql(dataAt<T>(1)),
+             asSql(dataAt<int32_t>(2)),
+             asSql(dataAt<T>(0)))}};
     for (const auto& testData : testSettings) {
       SCOPED_TRACE(testData.debugString());
       testAggregations(
@@ -901,6 +957,11 @@ TEST_P(MinMaxByGroupByAggregationTest, maxByFinalGroupBy) {
 }
 
 TEST_P(MinMaxByGroupByAggregationTest, randomMinByGroupBy) {
+  if (GetParam().comparisonType == TypeKind::TIMESTAMP ||
+      GetParam().valueType == TypeKind::TIMESTAMP) {
+    GTEST_SKIP() << "Fuzzer test for timestamps is not supported yet.";
+  }
+
   testGroupByAggregation(
       rowVectors_,
       kMinBy,
@@ -910,6 +971,11 @@ TEST_P(MinMaxByGroupByAggregationTest, randomMinByGroupBy) {
 }
 
 TEST_P(MinMaxByGroupByAggregationTest, randomMaxByGroupBy) {
+  if (GetParam().comparisonType == TypeKind::TIMESTAMP ||
+      GetParam().valueType == TypeKind::TIMESTAMP) {
+    GTEST_SKIP() << "Fuzzer test for timestamps is not supported yet.";
+  }
+
   testGroupByAggregation(
       rowVectors_,
       kMaxBy,
@@ -921,6 +987,11 @@ TEST_P(MinMaxByGroupByAggregationTest, randomMaxByGroupBy) {
 TEST_P(
     MinMaxByGroupByAggregationTest,
     randomMinMaxByGroupByWithDistinctCompareValue) {
+  if (GetParam().comparisonType == TypeKind::TIMESTAMP ||
+      GetParam().valueType == TypeKind::TIMESTAMP) {
+    GTEST_SKIP() << "Fuzzer test for timestamps is not supported yet.";
+  }
+
   // Enable disk spilling test with distinct comparison values.
   AggregationTestBase::allowInputShuffle();
 
@@ -930,10 +1001,10 @@ TEST_P(
            fromKindToScalerType(GetParam().comparisonType),
            INTEGER()});
 
-  const bool isMallInt = GetParam().comparisonType == TypeKind::TINYINT ||
+  const bool isSmallInt = GetParam().comparisonType == TypeKind::TINYINT ||
       GetParam().comparisonType == TypeKind::SMALLINT;
-  const int kBatchSize = isMallInt ? 1 << 4 : 1 << 10;
-  const int kNumBatches = isMallInt ? 3 : 10;
+  const int kBatchSize = isSmallInt ? 1 << 4 : 1 << 10;
+  const int kNumBatches = isSmallInt ? 3 : 10;
   const int kNumValues = kNumBatches * kBatchSize;
   std::vector<int> values(kNumValues);
   for (int i = 0; i < kNumValues; ++i) {
@@ -963,7 +1034,7 @@ TEST_P(
   }
   createDuckDbTable(rowVectors);
 
-  testGroupByAggregation(rowVectors, kMaxBy, "c0", "c1", "c2");
+  testGroupByAggregation(rowVectors, kMinBy, "c0", "c1", "c2");
 
   testGroupByAggregation(rowVectors, kMaxBy, "c0", "c1", "c2");
 }

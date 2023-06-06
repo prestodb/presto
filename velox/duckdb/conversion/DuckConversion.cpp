@@ -188,6 +188,8 @@ variant duckValueToVariant(const Value& val) {
       return variant(val.GetValue<float>());
     case LogicalTypeId::DOUBLE:
       return variant(val.GetValue<double>());
+    case LogicalTypeId::TIMESTAMP:
+      return variant(duckdbTimestampToVelox(val.GetValue<timestamp_t>()));
     case LogicalTypeId::DECIMAL:
       return decimalVariant(val);
     case LogicalTypeId::VARCHAR:
