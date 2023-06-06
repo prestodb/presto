@@ -150,6 +150,11 @@ void Operator::registerOperator(
   translators().emplace_back(std::move(translator));
 }
 
+// static
+void Operator::unregisterAllOperators() {
+  translators().clear();
+}
+
 std::optional<uint32_t> Operator::maxDrivers(
     const core::PlanNodePtr& planNode) {
   for (auto& translator : translators()) {

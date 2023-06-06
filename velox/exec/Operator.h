@@ -452,6 +452,10 @@ class Operator : public BaseRuntimeStatWriter {
   /// instances to user-defined Operators.
   static void registerOperator(std::unique_ptr<PlanNodeTranslator> translator);
 
+  /// Removes all translators registered earlier via calls to
+  /// 'registerOperator'.
+  static void unregisterAllOperators();
+
   /// Calls all the registered PlanNodeTranslators on 'planNode' and returns the
   /// result of the first one that returns non-nullptr or nullptr if all return
   /// nullptr. exchangeClient is not-null only when

@@ -77,6 +77,7 @@ class DriverTest : public OperatorTestBase {
 
   void SetUp() override {
     OperatorTestBase::SetUp();
+    Operator::unregisterAllOperators();
     rowType_ =
         ROW({"key", "m1", "m2", "m3", "m4", "m5", "m6", "m7"},
             {BIGINT(),
@@ -811,11 +812,24 @@ namespace {
 // Custom node for the custom factory.
 class ThrowNode : public core::PlanNode {
  public:
-  ThrowNode(const core::PlanNodeId& id, core::PlanNodePtr input)
-      : PlanNode(id), sources_{input} {}
+  enum class OperatorMethod {
+    kAddInput,
+    kNoMoreInput,
+    kGetOutput,
+  };
+
+  ThrowNode(
+      const core::PlanNodeId& id,
+      OperatorMethod throwingMethod,
+      core::PlanNodePtr input)
+      : PlanNode(id), throwingMethod_{throwingMethod}, sources_{input} {}
 
   const RowTypePtr& outputType() const override {
     return sources_[0]->outputType();
+  }
+
+  OperatorMethod throwingMethod() const {
+    return throwingMethod_;
   }
 
   const std::vector<std::shared_ptr<const PlanNode>>& sources() const override {
@@ -829,28 +843,59 @@ class ThrowNode : public core::PlanNode {
  private:
   void addDetails(std::stringstream& /* stream */) const override {}
 
+  const OperatorMethod throwingMethod_;
   std::vector<core::PlanNodePtr> sources_;
 };
 
 // Custom operator for the custom factory.
 class ThrowOperator : public Operator {
  public:
-  ThrowOperator(DriverCtx* ctx, int32_t id, core::PlanNodePtr node)
-      : Operator(ctx, node->outputType(), id, node->id(), "Throw") {}
+  ThrowOperator(
+      DriverCtx* ctx,
+      int32_t id,
+      const std::shared_ptr<const ThrowNode>& node)
+      : Operator(ctx, node->outputType(), id, node->id(), "Throw"),
+        throwingMethod_{node->throwingMethod()} {}
 
   bool needsInput() const override {
     return !noMoreInput_ && !input_;
   }
 
   void addInput(RowVectorPtr input) override {
+    if (throwingMethod_ == ThrowNode::OperatorMethod::kAddInput) {
+      // Trigger a std::bad_function_call exception.
+      std::function<bool(vector_size_t)> nullFunction = nullptr;
+
+      if (nullFunction(input->size())) {
+        input_ = std::move(input);
+      }
+    }
+
     input_ = std::move(input);
   }
 
   void noMoreInput() override {
+    if (throwingMethod_ == ThrowNode::OperatorMethod::kNoMoreInput) {
+      // Trigger a std::bad_function_call exception.
+      std::function<bool()> nullFunction = nullptr;
+
+      if (nullFunction()) {
+        Operator::noMoreInput();
+      }
+    }
+
     Operator::noMoreInput();
   }
 
   RowVectorPtr getOutput() override {
+    if (throwingMethod_ == ThrowNode::OperatorMethod::kGetOutput) {
+      // Trigger a std::bad_function_call exception.
+      std::function<bool()> nullFunction = nullptr;
+
+      if (nullFunction()) {
+        return std::move(input_);
+      }
+    }
     return std::move(input_);
   }
 
@@ -861,21 +906,24 @@ class ThrowOperator : public Operator {
   bool isFinished() override {
     return noMoreInput_ && input_ == nullptr;
   }
+
+ private:
+  const ThrowNode::OperatorMethod throwingMethod_;
 };
 
 // Custom factory that throws during driver creation.
 class ThrowNodeFactory : public Operator::PlanNodeTranslator {
  public:
-  ThrowNodeFactory() = default;
+  explicit ThrowNodeFactory(uint32_t maxDrivers) : maxDrivers_{maxDrivers} {}
 
   std::unique_ptr<Operator> toOperator(
       DriverCtx* ctx,
       int32_t id,
       const core::PlanNodePtr& node) override {
-    if (std::dynamic_pointer_cast<const ThrowNode>(node)) {
-      VELOX_CHECK_EQ(driversCreated, 0, "Can only create 1 'throw driver'.");
+    if (auto throwNode = std::dynamic_pointer_cast<const ThrowNode>(node)) {
+      VELOX_CHECK_LT(driversCreated, maxDrivers_, "Too many drivers");
       ++driversCreated;
-      return std::make_unique<ThrowOperator>(ctx, id, node);
+      return std::make_unique<ThrowOperator>(ctx, id, throwNode);
     }
     return nullptr;
   }
@@ -888,6 +936,7 @@ class ThrowNodeFactory : public Operator::PlanNodeTranslator {
   }
 
  private:
+  const uint32_t maxDrivers_;
   uint32_t driversCreated{0};
 };
 
@@ -897,23 +946,53 @@ class ThrowNodeFactory : public Operator::PlanNodeTranslator {
 // This is to test that we do not crash due to early driver destruction and we
 // have a proper error being propagated out.
 TEST_F(DriverTest, driverCreationThrow) {
-  Operator::registerOperator(std::make_unique<ThrowNodeFactory>());
+  Operator::registerOperator(std::make_unique<ThrowNodeFactory>(1));
 
-  auto rows = makeRowVector({"c0"}, {makeFlatVector<int32_t>({1, 2, 3})});
+  auto rows = makeRowVector({makeFlatVector<int32_t>({1, 2, 3})});
 
-  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-
-  auto plan = PlanBuilder(planNodeIdGenerator)
+  auto plan = PlanBuilder()
                   .values({rows}, true)
                   .addNode([](std::string id, core::PlanNodePtr input) {
-                    return std::make_shared<ThrowNode>(id, input);
+                    return std::make_shared<ThrowNode>(
+                        id, ThrowNode::OperatorMethod::kAddInput, input);
                   })
                   .planNode();
 
   // Ensure execution threw correct error.
   VELOX_ASSERT_THROW(
-      AssertQueryBuilder(plan).maxDrivers(5).copyResults(pool()),
-      "Can only create 1 'throw driver'.");
+      AssertQueryBuilder(plan).maxDrivers(2).copyResults(pool()),
+      "Too many drivers");
+}
+
+TEST_F(DriverTest, nonVeloxOperatorException) {
+  Operator::registerOperator(
+      std::make_unique<ThrowNodeFactory>(std::numeric_limits<uint32_t>::max()));
+
+  auto rows = makeRowVector({makeFlatVector<int32_t>({1, 2, 3})});
+
+  auto makePlan = [&](ThrowNode::OperatorMethod throwingMethod) {
+    return PlanBuilder()
+        .values({rows}, true)
+        .addNode([throwingMethod](std::string id, core::PlanNodePtr input) {
+          return std::make_shared<ThrowNode>(id, throwingMethod, input);
+        })
+        .planNode();
+  };
+
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(makePlan(ThrowNode::OperatorMethod::kAddInput))
+          .copyResults(pool()),
+      "Operator::addInput failed for [operator: Throw, plan node ID: 1]");
+
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(makePlan(ThrowNode::OperatorMethod::kNoMoreInput))
+          .copyResults(pool()),
+      "Operator::noMoreInput failed for [operator: Throw, plan node ID: 1]");
+
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(makePlan(ThrowNode::OperatorMethod::kGetOutput))
+          .copyResults(pool()),
+      "Operator::getOutput failed for [operator: Throw, plan node ID: 1]");
 }
 
 DEBUG_ONLY_TEST_F(DriverTest, driverSuspensionRaceWithTaskPause) {

@@ -300,6 +300,20 @@ void Driver::enqueueInternal() {
   queueTimeStartMicros_ = getCurrentTimeMicro();
 }
 
+#define CALL_OPERATOR(call, operator, methodName)                       \
+  try {                                                                 \
+    call;                                                               \
+  } catch (const VeloxException& e) {                                   \
+    throw;                                                              \
+  } catch (const std::exception& e) {                                   \
+    VELOX_FAIL(                                                         \
+        "Operator::{} failed for [operator: {}, plan node ID: {}]: {}", \
+        methodName,                                                     \
+        operator->operatorType(),                                       \
+        operator->planNodeId(),                                         \
+        e.what());                                                      \
+  }
+
 StopReason Driver::runInternal(
     std::shared_ptr<Driver>& self,
     std::shared_ptr<BlockingState>& blockingState,
@@ -396,7 +410,7 @@ StopReason Driver::runInternal(
                     op->stats().wlock()->getOutputTiming.add(deltaTiming);
                   });
               RuntimeStatWriterScopeGuard statsWriterGuard(op);
-              result = op->getOutput();
+              CALL_OPERATOR(result = op->getOutput(), op, "getOutput");
               if (result) {
                 VELOX_CHECK(
                     result->size() > 0,
@@ -424,7 +438,9 @@ StopReason Driver::runInternal(
               TestValue::adjust(
                   "facebook::velox::exec::Driver::runInternal::addInput",
                   nextOp);
-              nextOp->addInput(result);
+
+              CALL_OPERATOR(nextOp->addInput(result), nextOp, "addInput");
+
               // The next iteration will see if operators_[i + 1] has
               // output now that it got input.
               i += 2;
@@ -458,7 +474,7 @@ StopReason Driver::runInternal(
                 TestValue::adjust(
                     "facebook::velox::exec::Driver::runInternal::noMoreInput",
                     nextOp);
-                nextOp->noMoreInput();
+                CALL_OPERATOR(nextOp->noMoreInput(), nextOp, "noMoreInput");
                 break;
               }
             }
@@ -473,7 +489,7 @@ StopReason Driver::runInternal(
                 createDeltaCpuWallTimer([op](const CpuWallTiming& timing) {
                   op->stats().wlock()->getOutputTiming.add(timing);
                 });
-            result = op->getOutput();
+            CALL_OPERATOR(result = op->getOutput(), op, "getOutput");
             if (result) {
               VELOX_CHECK(
                   result->size() > 0,
@@ -512,6 +528,8 @@ StopReason Driver::runInternal(
     return StopReason::kAlreadyTerminated;
   }
 }
+
+#undef CALL_OPERATOR
 
 // static
 void Driver::run(std::shared_ptr<Driver> self) {
