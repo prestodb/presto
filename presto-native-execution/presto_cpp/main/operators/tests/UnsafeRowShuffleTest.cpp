@@ -213,13 +213,16 @@ class TestShuffleReader : public ShuffleReader {
     return !(*readyPartitions_)[partition_].empty();
   }
 
-  BufferPtr next(bool success) override {
-    VELOX_CHECK(success, "Unexpected error")
+  BufferPtr next() override {
     VELOX_CHECK(!(*readyPartitions_)[partition_].empty());
 
     auto buffer = (*readyPartitions_)[partition_].back();
     (*readyPartitions_)[partition_].pop_back();
     return buffer;
+  }
+
+  void noMoreData(bool success) override {
+    VELOX_CHECK(success, "Unexpected error");
   }
 
   folly::F14FastMap<std::string, int64_t> stats() const override {
