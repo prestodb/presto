@@ -19,6 +19,7 @@
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/type/Type.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"
@@ -681,7 +682,7 @@ TEST_F(GenericWriterTest, copyFromGeneric) {
   // Generate input data.
   VectorFuzzer::Options opts;
   opts.vectorSize = 10;
-  opts.nullRatio = 0;
+  opts.nullRatio = 0.2;
   opts.containerLength = 10;
   opts.containerVariableLength = false;
   VectorFuzzer fuzzer(opts, pool());
@@ -699,6 +700,7 @@ TEST_F(GenericWriterTest, copyFromGeneric) {
         evaluate("subscript(c0, c1)", makeRowVector({input, indicesVector}));
     test::assertEqualVectors(result1, result2);
   };
+
   test(INTEGER());
   test(ARRAY(INTEGER()));
   test(VARCHAR());
@@ -707,6 +709,35 @@ TEST_F(GenericWriterTest, copyFromGeneric) {
   test(ROW({INTEGER()}));
   test(ROW({INTEGER(), ARRAY(INTEGER())}));
   test(ROW({}));
+
+  // Unknown.
+  test(UNKNOWN());
+  test(ARRAY(UNKNOWN()));
+
+  // Custom types.
+  test(JSON());
+  test(ARRAY(JSON()));
+
+  // Test Opaque
+  {
+    auto input = makeArrayVector<std::shared_ptr<int>>({});
+    input->resize(3);
+    input->setOffsetAndSize(0, 0, 3);
+    input->setOffsetAndSize(1, 3, 3);
+    input->setOffsetAndSize(2, 6, 3);
+    auto* elementsFlat =
+        input->elements()->asFlatVector<std::shared_ptr<void>>();
+    elementsFlat->resize(9);
+    for (int i = 0; i < 9; i++) {
+      elementsFlat->set(i, std::make_shared<int>(i));
+    }
+    indicesVector->resize(3);
+    auto result1 = evaluate(
+        "subscript_simple(c0, c1)", makeRowVector({input, indicesVector}));
+    auto result2 =
+        evaluate("subscript(c0, c1)", makeRowVector({input, indicesVector}));
+    test::assertEqualVectors(result1, result2);
+  }
 }
 
 } // namespace
