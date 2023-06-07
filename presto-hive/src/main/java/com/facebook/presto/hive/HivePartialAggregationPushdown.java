@@ -51,6 +51,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveSessionProperties.isPartialAggregationPushdownEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isPartialAggregationPushdownForVariableLengthDatatypesEnabled;
+import static com.facebook.presto.hive.HiveStorageFormat.ALPHA;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
@@ -139,7 +140,7 @@ public class HivePartialAggregationPushdown
             }
 
             final HiveStorageFormat hiveStorageFormat = HiveStorageFormat.valueOf(rawFormat.get().toString());
-            if (hiveStorageFormat != ORC && hiveStorageFormat != PARQUET && hiveStorageFormat != DWRF) {
+            if (hiveStorageFormat != ORC && hiveStorageFormat != PARQUET && hiveStorageFormat != DWRF && hiveStorageFormat != ALPHA) {
                 return false;
             }
 
@@ -159,6 +160,10 @@ public class HivePartialAggregationPushdown
                 if (!(standardFunctionResolution.isCountFunction(functionHandle) ||
                         standardFunctionResolution.isMaxFunction(functionHandle) ||
                         standardFunctionResolution.isMinFunction(functionHandle))) {
+                    return false;
+                }
+
+                if (hiveStorageFormat == ALPHA && !standardFunctionResolution.isCountFunction(functionHandle)) {
                     return false;
                 }
 
