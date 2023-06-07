@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
+#include <gtest/gtest.h>
 #include <optional>
-#include "gtest/gtest.h"
+
 #include "velox/expression/VectorReaders.h"
+#include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 namespace {
@@ -204,4 +206,109 @@ TEST_F(NullableRowViewTest, materialize) {
   ASSERT_EQ(reader[0].materialize(), expected);
 }
 
+class DynamicRowViewTest : public functions::test::FunctionBaseTest {};
+
+TEST_F(DynamicRowViewTest, emptyRow) {
+  auto rowVector = vectorMaker_.rowVector({});
+  rowVector->resize(10);
+  DecodedVector decoded;
+  exec::VectorReader<DynamicRow> reader(decode(decoded, *rowVector.get()));
+  ASSERT_FALSE(reader.mayHaveNulls());
+  for (int i = 0; i < 10; i++) {
+    ASSERT_EQ(reader[i].size(), 0);
+    ASSERT_TRUE(reader.isSet(i));
+  }
+}
+
+TEST_F(DynamicRowViewTest, mixedRow) {
+  auto arrayVector =
+      vectorMaker_.arrayVector<int32_t>({{1}, {2, 3}, {3, 4, 5}});
+
+  auto rowVector = vectorMaker_.rowVector(
+      {makeFlatVector<int32_t>({1, 2, 3}),
+       makeFlatVector<bool>({true, false, true}),
+       arrayVector});
+
+  DecodedVector decoded;
+  exec::VectorReader<DynamicRow> reader(decode(decoded, *rowVector.get()));
+  ASSERT_FALSE(reader.mayHaveNulls());
+
+  for (int i = 0; i < 3; i++) {
+    ASSERT_TRUE(reader.isSet(i));
+  }
+  auto dynamicRowView = reader[1];
+  auto nullFreeDynamicRowView = reader.readNullFree(1);
+
+  EXPECT_FALSE(dynamicRowView.at(0)->tryCastTo<int64_t>());
+  EXPECT_FALSE(dynamicRowView.at(0)->tryCastTo<Varchar>());
+  EXPECT_TRUE(dynamicRowView.at(0)->tryCastTo<int32_t>());
+
+  for (int i = 0; i < 3; i++) {
+    ASSERT_EQ(reader[i].at(0)->castTo<int32_t>(), i + 1);
+    ASSERT_EQ(reader.readNullFree(i).at(0).castTo<int32_t>(), i + 1);
+  }
+  EXPECT_FALSE(nullFreeDynamicRowView.at(1).tryCastTo<int64_t>());
+  EXPECT_FALSE(nullFreeDynamicRowView.at(1).tryCastTo<Varchar>());
+  EXPECT_TRUE(nullFreeDynamicRowView.at(1).tryCastTo<bool>());
+
+  for (int i = 0; i < 3; i++) {
+    ASSERT_EQ(reader[i].at(1)->castTo<bool>(), (i % 2 == 0));
+    ASSERT_EQ(reader.readNullFree(i).at(1).castTo<bool>(), (i % 2 == 0));
+  }
+
+  EXPECT_FALSE(nullFreeDynamicRowView.at(2).tryCastTo<Array<Varchar>>());
+  EXPECT_FALSE(nullFreeDynamicRowView.at(2).tryCastTo<Array<int64_t>>());
+  auto arrayView = reader[2].at(2)->castTo<Array<int32_t>>();
+  ASSERT_EQ(arrayView.size(), 3);
+  ASSERT_EQ(arrayView[0], 3);
+  ASSERT_EQ(arrayView[1], 4);
+  ASSERT_EQ(arrayView[2], 5);
+}
+
+TEST_F(DynamicRowViewTest, rowWithNullsInFields) {
+  auto rowVector = vectorMaker_.rowVector(
+      {makeNullableFlatVector<int64_t>({1, std::nullopt, 2})});
+
+  DecodedVector decoded;
+  exec::VectorReader<DynamicRow> reader(decode(decoded, *rowVector.get()));
+  ASSERT_FALSE(reader.mayHaveNulls());
+  ASSERT_TRUE(reader[0].at(0));
+  ASSERT_FALSE(reader[1].at(0));
+  ASSERT_TRUE(reader[2].at(0));
+}
+
+template <typename T>
+struct StructWidthIfRow {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  // TODO: Ideally we would like to use DynamicRow instead of Any and make this
+  // strictly typed. But function signature does not support expressions
+  // row(...).
+  void call(int64_t& out, const arg_type<Any>& input) {
+    if (auto dyanmicRowView = input.template tryCastTo<DynamicRow>()) {
+      out = dyanmicRowView->size();
+    } else {
+      out = 0;
+    }
+  }
+};
+
+TEST_F(DynamicRowViewTest, castToDynamicRowInFunction) {
+  registerFunction<StructWidthIfRow, int64_t, Any>({"struct_width"});
+  {
+    auto flatVector = makeFlatVector<int64_t>({1, 2});
+
+    // Input is not struct.
+    auto result = evaluate("struct_width(c0)", makeRowVector({flatVector}));
+    test::assertEqualVectors(makeFlatVector<int64_t>({0, 0}), result);
+
+    result = evaluate(
+        "struct_width(c0)", makeRowVector({makeRowVector({flatVector})}));
+    test::assertEqualVectors(makeFlatVector<int64_t>({1, 1}), result);
+
+    result = evaluate(
+        "struct_width(c0)",
+        makeRowVector({makeRowVector({flatVector, flatVector})}));
+    test::assertEqualVectors(makeFlatVector<int64_t>({2, 2}), result);
+  }
+}
 } // namespace
