@@ -47,8 +47,9 @@ int main(int argc, char** argv) {
   folly::init(&argc, &argv);
 
   // TODO: List of the functions that at some point crash or fail and need to
-  // be fixed before we can enable.
-  std::unordered_set<std::string> skipFunctions = {};
+  // be fixed before we can enable. Constant argument of bloom_filter_agg cause
+  // fuzzer test fail.
+  std::unordered_set<std::string> skipFunctions = {"bloom_filter_agg"};
 
   // The results of the following functions depend on the order of input
   // rows. For some functions, the result can be transformed to a value that

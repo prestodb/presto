@@ -81,13 +81,13 @@ class BloomFilter {
     bits::orBits(bits_.data(), bitsdata, 0, 64 * size);
   }
 
-  uint32_t serializedSize() {
+  uint32_t serializedSize() const {
     return 1 /* version */
         + 4 /* number of bits */
         + bits_.size() * 8;
   }
 
-  void serialize(char* output) {
+  void serialize(char* output) const {
     common::OutputByteStream stream(output);
     stream.appendOne(kBloomFilterV1);
     stream.appendOne((int32_t)bits_.size());
