@@ -836,7 +836,7 @@ struct DateAddFunction {
 };
 
 template <typename T>
-struct DateDiffFunction {
+struct DateDiffFunction : public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   const date::time_zone* sessionTimeZone_ = nullptr;
@@ -861,6 +861,16 @@ struct DateDiffFunction {
       const arg_type<Date>* /*date2*/) {
     if (unitString != nullptr) {
       unit_ = getDateUnit(*unitString, false);
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const core::QueryConfig& config,
+      const arg_type<Varchar>* unitString,
+      const arg_type<TimestampWithTimezone>* /*timestampWithTimezone1*/,
+      const arg_type<TimestampWithTimezone>* /*timestampWithTimezone2*/) {
+    if (unitString != nullptr) {
+      unit_ = fromDateTimeUnitString(*unitString, false /*throwIfInvalid*/);
     }
   }
 
@@ -907,6 +917,18 @@ struct DateDiffFunction {
 
     result = diffDate(unit, date1, date2);
     return true;
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      int64_t& result,
+      const arg_type<Varchar>& unitString,
+      const arg_type<TimestampWithTimezone>& timestamp1,
+      const arg_type<TimestampWithTimezone>& timestamp2) {
+    return call(
+        result,
+        unitString,
+        this->toTimestamp(timestamp1),
+        this->toTimestamp(timestamp2));
   }
 };
 

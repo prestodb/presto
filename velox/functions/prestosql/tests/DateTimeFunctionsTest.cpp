@@ -2137,6 +2137,62 @@ TEST_F(DateTimeFunctionsTest, dateDiffTimestamp) {
           fromTimestampString("2018-02-28 10:00:00.500")));
 }
 
+TEST_F(DateTimeFunctionsTest, dateDiffTimestampWithTimezone) {
+  const auto dateDiff = [&](const std::string& unit,
+                            std::optional<int64_t> timestamp1,
+                            const std::optional<std::string>& timeZoneName1,
+                            std::optional<int64_t> timestamp2,
+                            const std::optional<std::string>& timeZoneName2) {
+    auto ts1 = (timestamp1.has_value() && timeZoneName1.has_value())
+        ? makeTimestampWithTimeZoneVector(
+              timestamp1.value(), timeZoneName1.value().c_str())
+        : BaseVector::createNullConstant(TIMESTAMP_WITH_TIME_ZONE(), 1, pool());
+    auto ts2 = (timestamp2.has_value() && timeZoneName2.has_value())
+        ? makeTimestampWithTimeZoneVector(
+              timestamp2.value(), timeZoneName2.value().c_str())
+        : BaseVector::createNullConstant(TIMESTAMP_WITH_TIME_ZONE(), 1, pool());
+
+    return evaluateOnce<int64_t>(
+        fmt::format("date_diff('{}', c0, c1)", unit),
+        makeRowVector({ts1, ts2}));
+  };
+
+  // timestamp1: 1970-01-01 00:00:00.000 +00:00 (0)
+  // timestamp2: 2020-08-25 16:30:10.123 -08:00 (1'598'373'010'123)
+  EXPECT_EQ(
+      1598347810123,
+      dateDiff(
+          "millisecond",
+          0,
+          "+00:00",
+          1'598'373'010'123,
+          "America/Los_Angeles"));
+  EXPECT_EQ(
+      1598347810,
+      dateDiff(
+          "second", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
+  EXPECT_EQ(
+      26639130,
+      dateDiff(
+          "minute", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
+  EXPECT_EQ(
+      443985,
+      dateDiff("hour", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
+  EXPECT_EQ(
+      18499,
+      dateDiff("day", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
+  EXPECT_EQ(
+      607,
+      dateDiff("month", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
+  EXPECT_EQ(
+      202,
+      dateDiff(
+          "quarter", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
+  EXPECT_EQ(
+      50,
+      dateDiff("year", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
+}
+
 TEST_F(DateTimeFunctionsTest, parseDatetime) {
   // Check null behavior.
   EXPECT_EQ(std::nullopt, parseDatetime("1970-01-01", std::nullopt));
