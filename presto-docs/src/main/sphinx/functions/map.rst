@@ -18,6 +18,12 @@ Map Functions
 
         SELECT all_keys_match(map(array['a', 'b', 'c'], array[1, 2, 3]), x -> length(x) = 1); -- true
 
+.. function:: any_keys_match(x(K,V), function(K, boolean)) -> boolean
+
+    Returns whether any keys of a map match the given predicate. Returns true if one or more keys match the predicate; false if none of the keys match (a special case is when the map is empty); NULL if the predicate function returns NULL for one or more keys and false for all other keys. ::
+
+        SELECT any_keys_match(map(array['a', 'b', 'c'], array[1, 2, 3]), x -> x = 'a'); -- true
+
 .. function:: cardinality(x) -> bigint
     :noindex:
 
