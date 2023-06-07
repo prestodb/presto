@@ -61,7 +61,7 @@ class E2EFilterTest : public E2EFilterTestBase {
     sinkPtr_ = sink.get();
 
     writer_ = std::make_unique<facebook::velox::parquet::Writer>(
-        std::move(sink), *leafPool_, rowGroupSize_, writerProperties_);
+        std::move(sink), *leafPool_, rowGroupSize_, writerProperties_, 2);
     for (auto& batch : batches) {
       writer_->write(batch);
     }

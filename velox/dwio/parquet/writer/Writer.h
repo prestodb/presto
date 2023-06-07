@@ -28,9 +28,14 @@ namespace facebook::velox::parquet {
 // Utility for capturing Arrow output into a DataBuffer.
 class DataBufferSink : public arrow::io::OutputStream {
  public:
-  explicit DataBufferSink(memory::MemoryPool& pool) : buffer_(pool) {}
+  explicit DataBufferSink(memory::MemoryPool& pool, double growRatio = 1)
+      : buffer_(pool), growRatio_(growRatio) {}
 
   arrow::Status Write(const std::shared_ptr<arrow::Buffer>& data) override {
+    auto requestCapacity = buffer_.size() + data->size();
+    if (requestCapacity > buffer_.capacity()) {
+      buffer_.reserve(growRatio_ * (requestCapacity));
+    }
     buffer_.append(
         buffer_.size(),
         reinterpret_cast<const char*>(data->data()),
@@ -39,6 +44,10 @@ class DataBufferSink : public arrow::io::OutputStream {
   }
 
   arrow::Status Write(const void* data, int64_t nbytes) override {
+    auto requestCapacity = buffer_.size() + nbytes;
+    if (requestCapacity > buffer_.capacity()) {
+      buffer_.reserve(growRatio_ * (requestCapacity));
+    }
     buffer_.append(buffer_.size(), reinterpret_cast<const char*>(data), nbytes);
     return arrow::Status::OK();
   }
@@ -65,6 +74,7 @@ class DataBufferSink : public arrow::io::OutputStream {
 
  private:
   dwio::common::DataBuffer<char> buffer_;
+  double growRatio_ = 1;
 };
 
 // Writes Velox vectors into  a DataSink using Arrow Parquet writer.
@@ -79,11 +89,13 @@ class Writer {
       memory::MemoryPool& pool,
       int32_t rowsInRowGroup,
       std::shared_ptr<::parquet::WriterProperties> properties =
-          ::parquet::WriterProperties::Builder().build())
+          ::parquet::WriterProperties::Builder().build(),
+      double bufferGrowRatio = 1)
       : rowsInRowGroup_(rowsInRowGroup),
         pool_(pool),
         finalSink_(std::move(sink)),
-        properties_(std::move(properties)) {}
+        properties_(std::move(properties)),
+        bufferGrowRatio_(bufferGrowRatio) {}
 
   // Appends 'data' into the writer.
   void write(const RowVectorPtr& data);
@@ -113,6 +125,7 @@ class Writer {
   std::unique_ptr<::parquet::arrow::FileWriter> arrowWriter_;
 
   std::shared_ptr<::parquet::WriterProperties> properties_;
+  double bufferGrowRatio_;
 };
 
 } // namespace facebook::velox::parquet
