@@ -34,38 +34,36 @@ class PrestoSerializerTest : public ::testing::Test {
     vectorMaker_ = std::make_unique<test::VectorMaker>(pool_.get());
   }
 
-  void sanityCheckEstimateSerializedSize(
-      RowVectorPtr rowVector,
-      const folly::Range<const IndexRange*>& ranges) {
-    auto numRows = rowVector->size();
-    std::vector<vector_size_t> rowSizes(numRows, 0);
-    std::vector<vector_size_t*> rawRowSizes(numRows);
-    for (auto i = 0; i < numRows; i++) {
-      rawRowSizes[i] = &rowSizes[i];
-    }
-    serde_->estimateSerializedSize(rowVector, ranges, rawRowSizes.data());
-  }
-
-  void serialize(
-      const RowVectorPtr& rowVector,
-      std::ostream* output,
-      const VectorSerde::Options* serdeOptions) {
-    auto numRows = rowVector->size();
+  void sanityCheckEstimateSerializedSize(const RowVectorPtr& rowVector) {
+    const auto numRows = rowVector->size();
 
     std::vector<IndexRange> rows(numRows);
     for (int i = 0; i < numRows; i++) {
       rows[i] = IndexRange{i, 1};
     }
 
-    sanityCheckEstimateSerializedSize(
-        rowVector, folly::Range(rows.data(), numRows));
+    std::vector<vector_size_t> rowSizes(numRows, 0);
+    std::vector<vector_size_t*> rawRowSizes(numRows);
+    for (auto i = 0; i < numRows; i++) {
+      rawRowSizes[i] = &rowSizes[i];
+    }
+    serde_->estimateSerializedSize(
+        rowVector, folly::Range(rows.data(), numRows), rawRowSizes.data());
+  }
+
+  void serialize(
+      const RowVectorPtr& rowVector,
+      std::ostream* output,
+      const VectorSerde::Options* serdeOptions) {
+    sanityCheckEstimateSerializedSize(rowVector);
 
     auto arena = std::make_unique<StreamArena>(pool_.get());
     auto rowType = asRowType(rowVector->type());
+    auto numRows = rowVector->size();
     auto serializer =
         serde_->createSerializer(rowType, numRows, arena.get(), serdeOptions);
 
-    serializer->append(rowVector, folly::Range(rows.data(), numRows));
+    serializer->append(rowVector);
     facebook::velox::serializer::presto::PrestoOutputStreamListener listener;
     OStreamOutputStream out(output, &listener);
     serializer->flush(&out);
@@ -92,7 +90,7 @@ class PrestoSerializerTest : public ::testing::Test {
   }
 
   RowVectorPtr deserialize(
-      std::shared_ptr<const RowType> rowType,
+      const RowTypePtr& rowType,
       const std::string& input,
       const VectorSerde::Options* serdeOptions) {
     auto byteStream = toByteStream(input);

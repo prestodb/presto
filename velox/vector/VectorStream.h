@@ -35,17 +35,22 @@ class VectorSerializer {
  public:
   virtual ~VectorSerializer() = default;
 
+  /// Serialize a subset of rows in a vector.
   virtual void append(
       const RowVectorPtr& vector,
       const folly::Range<const IndexRange*>& ranges) = 0;
 
-  // Writes the contents to 'stream' in wire format
+  /// Serialize all rows in a vector.
+  void append(const RowVectorPtr& vector);
+
+  /// Write serialized data to 'stream'.
   virtual void flush(OutputStream* stream) = 0;
 };
 
 class VectorSerde {
  public:
   virtual ~VectorSerde() = default;
+
   // Lets the caller pass options to the Serde. This can be extended to add
   // custom options by each of its extended classes.
   struct Options {
@@ -111,8 +116,10 @@ class VectorStreamGroup : public StreamArena {
       vector_size_t** sizes);
 
   void append(
-      RowVectorPtr vector,
+      const RowVectorPtr& vector,
       const folly::Range<const IndexRange*>& ranges);
+
+  void append(const RowVectorPtr& vector);
 
   // Writes the contents to 'stream' in wire format.
   void flush(OutputStream* stream);

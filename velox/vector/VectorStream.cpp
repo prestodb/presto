@@ -17,6 +17,12 @@
 #include <memory>
 
 namespace facebook::velox {
+
+void VectorSerializer::append(const RowVectorPtr& vector) {
+  const IndexRange allRows{0, vector->size()};
+  append(vector, folly::Range(&allRows, 1));
+}
+
 namespace {
 
 std::unique_ptr<VectorSerde>& getVectorSerdeImpl() {
@@ -96,9 +102,13 @@ void VectorStreamGroup::createStreamTree(
 }
 
 void VectorStreamGroup::append(
-    RowVectorPtr vector,
+    const RowVectorPtr& vector,
     const folly::Range<const IndexRange*>& ranges) {
   serializer_->append(vector, ranges);
+}
+
+void VectorStreamGroup::append(const RowVectorPtr& vector) {
+  serializer_->append(vector);
 }
 
 void VectorStreamGroup::flush(OutputStream* out) {
