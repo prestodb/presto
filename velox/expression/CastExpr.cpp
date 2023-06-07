@@ -36,39 +36,31 @@ namespace facebook::velox::exec {
 namespace {
 
 /// The per-row level Kernel
-/// @tparam To The cast target type
-/// @tparam From The expression type
+/// @tparam ToKind The cast target type
+/// @tparam FromKind The expression type
 /// @param row The index of the current row
-/// @param input The input vector (of type From)
-/// @param result The output vector (of type To)
+/// @param input The input vector (of type FromKind)
+/// @param result The output vector (of type ToKind)
 /// @return False if the result is null
-template <typename To, typename From, bool Truncate>
+template <TypeKind ToKind, TypeKind FromKind, bool Truncate>
 void applyCastKernel(
     vector_size_t row,
-    const SimpleVector<From>* input,
-    FlatVector<To>* result,
+    const SimpleVector<typename TypeTraits<FromKind>::NativeType>* input,
+    FlatVector<typename TypeTraits<ToKind>::NativeType>* result,
     bool& nullOutput) {
-  // Special handling for string target type
-  if constexpr (CppToType<To>::typeKind == TypeKind::VARCHAR) {
-    auto output =
-        util::Converter<CppToType<To>::typeKind, void, Truncate>::cast(
-            input->valueAt(row), nullOutput);
-    if (!nullOutput) {
-      // Write the result output to the output vector
-      auto writer = exec::StringWriter<>(result, row);
-      writer.resize(output.size());
-      if (output.size()) {
-        std::memcpy(writer.data(), output.data(), output.size());
-      }
-      writer.finalize();
-    }
+  auto output = util::Converter<ToKind, void, Truncate>::cast(
+      input->valueAt(row), nullOutput);
+  if (nullOutput) {
+    return;
+  }
+
+  if constexpr (ToKind == TypeKind::VARCHAR || ToKind == TypeKind::VARBINARY) {
+    // Write the result output to the output vector
+    auto writer = exec::StringWriter<>(result, row);
+    writer.copy_from(output);
+    writer.finalize();
   } else {
-    auto output =
-        util::Converter<CppToType<To>::typeKind, void, Truncate>::cast(
-            input->valueAt(row), nullOutput);
-    if (!nullOutput) {
-      result->set(row, output);
-    }
+    result->set(row, output);
   }
 }
 
@@ -134,24 +126,26 @@ void applyIntToDecimalCastKernel(
     }
   });
 }
-} // namespace
 
-template <typename To, typename From>
-void CastExpr::applyCastWithTry(
+template <TypeKind ToKind, TypeKind FromKind>
+void applyCastPrimitives(
     const SelectivityVector& rows,
     exec::EvalCtx& context,
     const BaseVector& input,
-    FlatVector<To>* resultFlatVector) {
-  const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
-
+    VectorPtr& result) {
+  using To = typename TypeTraits<ToKind>::NativeType;
+  using From = typename TypeTraits<FromKind>::NativeType;
+  auto* resultFlatVector = result->as<FlatVector<To>>();
   auto* inputSimpleVector = input.as<SimpleVector<From>>();
+
+  const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
 
   if (!queryConfig.isCastToIntByTruncate()) {
     context.applyToSelectedNoThrow(rows, [&](int row) {
       bool nullOutput = false;
       try {
         // Passing a false truncate flag
-        applyCastKernel<To, From, false>(
+        applyCastKernel<ToKind, FromKind, false>(
             row, inputSimpleVector, resultFlatVector, nullOutput);
       } catch (const VeloxRuntimeError& re) {
         VELOX_FAIL(
@@ -176,7 +170,7 @@ void CastExpr::applyCastWithTry(
       bool nullOutput = false;
       try {
         // Passing a true truncate flag
-        applyCastKernel<To, From, true>(
+        applyCastKernel<ToKind, FromKind, true>(
             row, inputSimpleVector, resultFlatVector, nullOutput);
       } catch (const VeloxRuntimeError& re) {
         VELOX_FAIL(
@@ -200,7 +194,7 @@ void CastExpr::applyCastWithTry(
 
   // If we're converting to a TIMESTAMP, check if we need to adjust the current
   // GMT timezone to the user provided session timezone.
-  if constexpr (CppToType<To>::typeKind == TypeKind::TIMESTAMP) {
+  if constexpr (ToKind == TypeKind::TIMESTAMP) {
     // If user explicitly asked us to adjust the timezone.
     if (queryConfig.adjustTimestampToTimezone()) {
       auto sessionTzName = queryConfig.sessionTimezone();
@@ -217,66 +211,27 @@ void CastExpr::applyCastWithTry(
   }
 }
 
-template <TypeKind Kind>
-void CastExpr::applyCast(
+template <TypeKind ToKind>
+void applyCastPrimitivesDispatch(
     const TypePtr& fromType,
     const TypePtr& toType,
     const SelectivityVector& rows,
     exec::EvalCtx& context,
     const BaseVector& input,
     VectorPtr& result) {
-  using To = typename TypeTraits<Kind>::NativeType;
   context.ensureWritable(rows, toType, result);
-  auto* resultFlatVector = result->as<FlatVector<To>>();
 
-  // Unwrapping fromType pointer. VERY IMPORTANT: dynamic type pointer and
-  // static type templates in each cast must match exactly
-  // @TODO Add support for needed complex types in T74045702
-  switch (fromType->kind()) {
-    case TypeKind::TINYINT: {
-      return applyCastWithTry<To, int8_t>(
-          rows, context, input, resultFlatVector);
-    }
-    case TypeKind::SMALLINT: {
-      return applyCastWithTry<To, int16_t>(
-          rows, context, input, resultFlatVector);
-    }
-    case TypeKind::INTEGER: {
-      return applyCastWithTry<To, int32_t>(
-          rows, context, input, resultFlatVector);
-    }
-    case TypeKind::BIGINT: {
-      return applyCastWithTry<To, int64_t>(
-          rows, context, input, resultFlatVector);
-    }
-    case TypeKind::BOOLEAN: {
-      return applyCastWithTry<To, bool>(rows, context, input, resultFlatVector);
-    }
-    case TypeKind::REAL: {
-      return applyCastWithTry<To, float>(
-          rows, context, input, resultFlatVector);
-    }
-    case TypeKind::DOUBLE: {
-      return applyCastWithTry<To, double>(
-          rows, context, input, resultFlatVector);
-    }
-    case TypeKind::VARCHAR:
-    case TypeKind::VARBINARY: {
-      return applyCastWithTry<To, StringView>(
-          rows, context, input, resultFlatVector);
-    }
-    case TypeKind::DATE: {
-      return applyCastWithTry<To, Date>(rows, context, input, resultFlatVector);
-    }
-    case TypeKind::TIMESTAMP: {
-      return applyCastWithTry<To, Timestamp>(
-          rows, context, input, resultFlatVector);
-    }
-    default: {
-      VELOX_UNSUPPORTED("Invalid from type in casting: {}", fromType);
-    }
-  }
+  // This already excludes complex types, hugeint and unknown from type kinds.
+  VELOX_DYNAMIC_SCALAR_TEMPLATE_TYPE_DISPATCH(
+      applyCastPrimitives,
+      ToKind,
+      fromType->kind() /*dispatched*/,
+      rows,
+      context,
+      input,
+      result);
 }
+} // namespace
 
 VectorPtr CastExpr::applyMap(
     const SelectivityVector& rows,
@@ -603,7 +558,7 @@ void CastExpr::applyPeeled(
       default: {
         // Handle primitive type conversions.
         VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-            applyCast,
+            applyCastPrimitivesDispatch,
             toType->kind(),
             fromType,
             toType,

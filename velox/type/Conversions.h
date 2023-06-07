@@ -361,6 +361,15 @@ struct Converter<
 };
 
 template <bool TRUNCATE>
+struct Converter<TypeKind::VARBINARY, void, TRUNCATE> {
+  // Same semantics of TypeKind::VARCHAR converter.
+  template <typename T>
+  static std::string cast(const T& val, bool& nullOutput) {
+    return Converter<TypeKind::VARCHAR, void, TRUNCATE>::cast(val, nullOutput);
+  }
+};
+
+template <bool TRUNCATE>
 struct Converter<TypeKind::VARCHAR, void, TRUNCATE> {
   template <typename T>
   static std::string cast(const T& val, bool& nullOutput) {

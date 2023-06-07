@@ -102,35 +102,6 @@ class CastExpr : public SpecialForm {
   std::string toSql(std::vector<VectorPtr>*) const override;
 
  private:
-  /// @tparam To The cast target type
-  /// @tparam From The expression type
-  /// @param rows The list of rows being processed
-  /// @param context The context
-  /// @param input The input vector (of type From)
-  /// @param resultFlatVector The output vector (of type To)
-  template <typename To, typename From>
-  void applyCastWithTry(
-      const SelectivityVector& rows,
-      exec::EvalCtx& context,
-      const BaseVector& input,
-      FlatVector<To>* resultFlatVector);
-
-  /// @tparam To The target template
-  /// @param fromType The source type pointer
-  /// @param toType The target type pointer
-  /// @param rows The list of rows
-  /// @param context The context
-  /// @param input The input vector (of type From)
-  /// @param result The output vector (of type To)
-  template <TypeKind To>
-  void applyCast(
-      const TypePtr& fromType,
-      const TypePtr& toType,
-      const SelectivityVector& rows,
-      exec::EvalCtx& context,
-      const BaseVector& input,
-      VectorPtr& result);
-
   /// Apply the cast after generating the input vectors
   /// @param rows The list of rows being processed
   /// @param input The input vector to be casted

@@ -139,7 +139,7 @@ class DecimalUtil {
         rescaledValue > DecimalUtil::kPowersOfTen[toPrecision] || isOverflow) {
       VELOX_USER_FAIL(
           "Cannot cast {} '{}' to DECIMAL({},{})",
-          CppToType<TInput>::name,
+          SimpleTypeTrait<TInput>::name,
           inputValue,
           toPrecision,
           toScale);
