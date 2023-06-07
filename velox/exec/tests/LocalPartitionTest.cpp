@@ -73,12 +73,12 @@ class LocalPartitionTest : public HiveConnectorTestBase {
     ASSERT_EQ(expected, task.use_count());
   }
 
-  void waitForTaskState(
+  void waitForTaskCompletion(
       const std::shared_ptr<exec::Task>& task,
       exec::TaskState expected) {
     if (task->state() != expected) {
       auto& executor = folly::QueuedImmediateExecutor::instance();
-      auto future = task->stateChangeFuture(1'000'000).via(&executor);
+      auto future = task->taskCompletionFuture(1'000'000).via(&executor);
       future.wait();
       EXPECT_EQ(expected, task->state());
     }
@@ -475,7 +475,7 @@ TEST_F(LocalPartitionTest, earlyCancelation) {
   }
 
   // Wait for task to transition to final state.
-  waitForTaskState(task, exec::kCanceled);
+  waitForTaskCompletion(task, exec::kCanceled);
 
   // Make sure there is only one reference to Task left, i.e. no Driver is
   // blocked forever.
@@ -512,7 +512,7 @@ TEST_F(LocalPartitionTest, producerError) {
       while (cursor->moveNext()) { ; }, VeloxException);
 
   // Wait for task to transition to failed state.
-  waitForTaskState(task, exec::kFailed);
+  waitForTaskCompletion(task, exec::kFailed);
 
   // Make sure there is only one reference to Task left, i.e. no Driver is
   // blocked forever.

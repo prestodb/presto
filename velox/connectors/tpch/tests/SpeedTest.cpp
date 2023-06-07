@@ -103,7 +103,7 @@ class TpchSpeedTest {
 
     // Wait for the task to finish.
     auto& inlineExecutor = folly::QueuedImmediateExecutor::instance();
-    task->stateChangeFuture(0).via(&inlineExecutor).wait();
+    task->taskCompletionFuture(0).via(&inlineExecutor).wait();
 
     std::chrono::duration<double> elapsed = system_clock::now() - startTime;
     LOG(INFO) << "Summary:";

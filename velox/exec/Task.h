@@ -223,12 +223,20 @@ class Task : public std::enable_shared_from_this<Task> {
     return state_;
   }
 
-  /// Returns a future which is realized when 'this' is no longer in
-  /// running state. If 'this' is not in running state at the time of
-  /// call, the future is immediately realized. The future is realized
-  /// with an exception after maxWaitMicros. A zero max wait means no
-  /// timeout.
+  /// Returns a future which is realized when the task's state has changed and
+  /// the Task is ready to report some progress (such as split group finished or
+  /// task is completed).
+  /// If the task is not in running state at the time of call, the future is
+  /// immediately realized. The future is realized with an exception after
+  /// maxWaitMicros. A zero max wait means no timeout.
   ContinueFuture stateChangeFuture(uint64_t maxWaitMicros);
+
+  /// Returns a future which is realized when the task is no longer in
+  /// running state.
+  /// If the task is not in running state at the time of call, the future is
+  /// immediately realized. The future is realized with an exception after
+  /// maxWaitMicros. A zero max wait means no timeout.
+  ContinueFuture taskCompletionFuture(uint64_t maxWaitMicros);
 
   /// Returns task execution error or nullptr if no error occurred.
   std::exception_ptr error() const {
@@ -824,36 +832,6 @@ class Task : public std::enable_shared_from_this<Task> {
   std::shared_ptr<ExchangeClient> getExchangeClientLocked(
       int32_t pipelineId) const;
 
-  // RAII helper class to satisfy 'stateChangePromises_' and notify listeners
-  // that task is complete outside of the mutex. Inactive on creation. Must be
-  // activated explicitly by calling 'activate'.
-  class TaskCompletionNotifier {
-   public:
-    /// Calls notify() if it hasn't been called yet.
-    ~TaskCompletionNotifier();
-
-    /// Activates the notifier and provides a callback to invoke and promises to
-    /// satisfy on destruction or a call to 'notify'.
-    void activate(
-        std::function<void()> callback,
-        std::vector<ContinuePromise> promises);
-
-    /// Satisfies the promises passed to 'activate' and invokes the callback.
-    /// Does nothing if 'activate' hasn't been called or 'notify' has been
-    /// called already.
-    void notify();
-
-   private:
-    bool active_{false};
-    std::function<void()> callback_;
-    std::vector<ContinuePromise> promises_;
-  };
-
-  void activateTaskCompletionNotifier(TaskCompletionNotifier& notifier) {
-    notifier.activate(
-        [&]() { onTaskCompletion(); }, std::move(stateChangePromises_));
-  }
-
   // The helper class used to maintain 'numCreatedTasks_' and 'numDeletedTasks_'
   // on task construction and destruction.
   class TaskCounter {
@@ -994,6 +972,11 @@ class Task : public std::enable_shared_from_this<Task> {
   /// manage splits of the plan nodes that expect splits.
   std::unordered_map<core::PlanNodeId, SplitsState> splitsStates_;
 
+  // Promises that are fulfilled when the task is completed (terminated).
+  std::vector<ContinuePromise> taskCompletionPromises_;
+
+  // Promises that are fulfilled when the task's state has changed and ready to
+  // report some progress (such as split group finished or task is completed).
   std::vector<ContinuePromise> stateChangePromises_;
 
   TaskStats taskStats_;

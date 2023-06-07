@@ -132,7 +132,7 @@ class SimpleAggregatesBenchmark : public HiveConnectorTestBase {
 
     exec::Task::start(task, 1);
     auto& executor = folly::QueuedImmediateExecutor::instance();
-    auto future = task->stateChangeFuture(60'000'000).via(&executor);
+    auto future = task->taskCompletionFuture(60'000'000).via(&executor);
     future.wait();
 
     folly::doNotOptimizeAway(numResultRows);
