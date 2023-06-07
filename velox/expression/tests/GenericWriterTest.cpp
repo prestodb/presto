@@ -704,8 +704,9 @@ TEST_F(GenericWriterTest, copyFromGeneric) {
   test(VARCHAR());
   test(MAP(INTEGER(), INTEGER()));
   test(MAP(INTEGER(), ARRAY(INTEGER())));
-  // Rows not supported yet.
-  EXPECT_ANY_THROW(test(ROW({INTEGER()})));
+  test(ROW({INTEGER()}));
+  test(ROW({INTEGER(), ARRAY(INTEGER())}));
+  test(ROW({}));
 }
 
 } // namespace

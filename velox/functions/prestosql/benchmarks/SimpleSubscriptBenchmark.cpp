@@ -169,6 +169,10 @@ class SimpleSubscriptBenchmark : public functions::test::FunctionBenchmarkBase {
     testArraySubscript(MAP(VARCHAR(), INTEGER()));
     testArraySubscript(MAP(INTEGER(), ARRAY(BIGINT())));
     testArraySubscript(MAP(ARRAY(INTEGER()), BIGINT()));
+    testArraySubscript(ROW({INTEGER()}));
+    testArraySubscript(ROW({INTEGER(), ARRAY(INTEGER())}));
+    testArraySubscript(ROW({MAP(INTEGER(), INTEGER()), ARRAY(INTEGER())}));
+    testArraySubscript(ARRAY(ROW({INTEGER(), ARRAY(INTEGER())})));
   }
 
  private:
@@ -298,6 +302,53 @@ BENCHMARK(ArraySubscriptSimple_MapArrayInt) {
 
 BENCHMARK(ArraySubscript_MapArrayInt) {
   benchmark->run("subscript(c0, c1)", MAP(ARRAY(BIGINT()), BIGINT()));
+}
+
+BENCHMARK(ArraySubscriptSimple_RowInt) {
+  benchmark->run("subscript_simple(c0, c1)", ROW({INTEGER()}));
+}
+
+BENCHMARK(ArraySubscript_RowInt) {
+  benchmark->run("subscript(c0, c1)", ROW({INTEGER()}));
+}
+
+BENCHMARK(ArraySubscriptSimple_RowIntArray) {
+  benchmark->run(
+      "subscript_simple(c0, c1)", ROW({INTEGER(), ARRAY(INTEGER())}));
+}
+
+BENCHMARK(ArraySubscript_RowIntArray) {
+  benchmark->run("subscript(c0, c1)", ROW({INTEGER(), ARRAY(INTEGER())}));
+}
+
+BENCHMARK(ArraySubscriptSimple_RowMapArray) {
+  benchmark->run(
+      "subscript_simple(c0, c1)",
+      ROW({MAP(INTEGER(), INTEGER()), ARRAY(INTEGER())}));
+}
+
+BENCHMARK(ArraySubscript_RowMapArray) {
+  benchmark->run(
+      "subscript(c0, c1)", ROW({MAP(INTEGER(), INTEGER()), ARRAY(INTEGER())}));
+}
+
+BENCHMARK(ArraySubscriptSimple_ArrayRowIntArray) {
+  benchmark->run(
+      "subscript_simple(c0, c1)", ARRAY(ROW({INTEGER(), ARRAY(INTEGER())})));
+}
+
+BENCHMARK(ArraySubscript_ArrayRowIntArray) {
+  benchmark->run(
+      "subscript(c0, c1)", ARRAY(ROW({INTEGER(), ARRAY(INTEGER())})));
+}
+
+BENCHMARK(ArraySubscriptSimple_ArrayRowIntInt) {
+  benchmark->run(
+      "subscript_simple(c0, c1)", ARRAY(ROW({INTEGER(), INTEGER()})));
+}
+
+BENCHMARK(ArraySubscript_ArrayRowIntInt) {
+  benchmark->run("subscript(c0, c1)", ARRAY(ROW({INTEGER(), INTEGER()})));
 }
 
 int main(int argc, char** argv) {

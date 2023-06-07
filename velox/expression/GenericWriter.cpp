@@ -171,8 +171,25 @@ void copy_from_internal<TypeKind::MAP>(
 }
 
 template <>
-void copy_from_internal<TypeKind::ROW>(GenericWriter&, const GenericView&) {
-  VELOX_UNREACHABLE("not supported yet!");
+void copy_from_internal<TypeKind::ROW>(
+    GenericWriter& out,
+    const GenericView& in) {
+  auto dyanmicRowView = in.castTo<DynamicRow>();
+  auto& dynamicRowWriter = out.castTo<DynamicRow>();
+  for (int i = 0; i < dyanmicRowView.size(); i++) {
+    auto fieldGenericView = dyanmicRowView.at(i);
+
+    if (fieldGenericView.has_value()) {
+      TypeKind kind = fieldGenericView->kind();
+      VELOX_DYNAMIC_TYPE_DISPATCH(
+          copy_from_internal,
+          kind,
+          dynamicRowWriter.get_writer_at(i),
+          fieldGenericView.value());
+    } else {
+      dynamicRowWriter.set_null_at(i);
+    }
+  }
 }
 
 } // namespace
