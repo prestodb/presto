@@ -78,9 +78,6 @@ class RankFunction : public exec::WindowFunction {
       }
       previousPeerCount_ += 1;
     }
-
-    // Set NULL values for rows with empty frames.
-    setNullEmptyFramesResults(validRows, resultOffset, result);
   }
 
  private:

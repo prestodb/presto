@@ -79,9 +79,6 @@ class NtileFunction : public exec::WindowFunction {
     }
 
     partitionOffset_ += numRows;
-
-    // Set NULL values for rows with empty frames.
-    setNullEmptyFramesResults(validRows, resultOffset, result);
   }
 
  private:

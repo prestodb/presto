@@ -26,8 +26,7 @@ class NtileTest : public WindowTestBase {
  protected:
   void testNtile(const std::vector<RowVectorPtr>& vectors) {
     // Tests ntile with a column.
-    WindowTestBase::testWindowFunction(
-        vectors, "ntile(c2)", kOverClauses, kFrameClauses);
+    WindowTestBase::testWindowFunction(vectors, "ntile(c2)", kOverClauses);
     // Tests ntile with constant value arguments.
     testNtileWithConstants(vectors, kOverClauses);
   }
@@ -57,7 +56,7 @@ class NtileTest : public WindowTestBase {
     // Note: The DuckDB table has been previously created.
     for (auto function : kNtileInvocations) {
       WindowTestBase::testWindowFunction(
-          vectors, function, overClauses, kFrameClauses, false);
+          vectors, function, overClauses, {""}, false);
     }
   }
 };

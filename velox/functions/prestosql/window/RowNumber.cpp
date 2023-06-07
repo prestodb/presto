@@ -44,9 +44,6 @@ class RowNumberFunction : public exec::WindowFunction {
     for (int i = 0; i < numRows; i++) {
       rawValues[resultOffset + i] = rowNumber_++;
     }
-
-    // Set NULL values for rows with empty frames.
-    setNullEmptyFramesResults(validRows, resultOffset, result);
   }
 
  private:
