@@ -114,7 +114,8 @@ void ExpressionRunner::run(
     const std::string& mode,
     vector_size_t numRows,
     const std::string& storeResultPath,
-    const std::string& lazyColumnListPath) {
+    const std::string& lazyColumnListPath,
+    bool findMinimalSubExpression) {
   VELOX_CHECK(!sql.empty());
 
   std::shared_ptr<core::QueryCtx> queryCtx{std::make_shared<core::QueryCtx>()};
@@ -183,13 +184,28 @@ void ExpressionRunner::run(
   LOG(INFO) << "Evaluating SQL expression(s): " << sql;
 
   if (mode == "verify") {
-    test::ExpressionVerifier(&execCtx, {false, ""})
-        .verify(
+    auto verifier = test::ExpressionVerifier(&execCtx, {false, ""});
+    try {
+      verifier.verify(
+          typedExprs,
+          inputVector,
+          std::move(resultVector),
+          true,
+          columnsToWrapInLazy);
+    } catch (const std::exception& e) {
+      if (findMinimalSubExpression) {
+        VectorFuzzer::Options options;
+        VectorFuzzer fuzzer(options, pool.get());
+        computeMinimumSubExpression(
+            std::move(verifier),
+            fuzzer,
             typedExprs,
             inputVector,
-            std::move(resultVector),
-            true,
             columnsToWrapInLazy);
+      }
+      throw;
+    }
+
   } else if (mode == "common") {
     if (!columnsToWrapInLazy.empty()) {
       inputVector =

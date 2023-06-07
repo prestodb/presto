@@ -114,6 +114,11 @@ DEFINE_string(
     "expected, please checkout the ExpressionVerifier class. Any file paths "
     "already specified via a startup flag will take precedence.");
 
+DEFINE_bool(
+    find_minimal_subexpression,
+    false,
+    "Automatically seeks minimum failed subexpression on result mismatch");
+
 static std::string checkAndReturnFilePath(
     const std::string_view& fileName,
     const std::string& flagName) {
@@ -187,5 +192,6 @@ int main(int argc, char** argv) {
       FLAGS_mode,
       FLAGS_num_rows,
       FLAGS_store_result_path,
-      FLAGS_lazy_column_list_path);
+      FLAGS_lazy_column_list_path,
+      FLAGS_find_minimal_subexpression);
 }

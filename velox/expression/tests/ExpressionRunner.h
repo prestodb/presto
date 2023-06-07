@@ -60,7 +60,8 @@ class ExpressionRunner {
       const std::string& mode,
       vector_size_t numRows,
       const std::string& storeResultPath,
-      const std::string& lazyColumnListPath);
+      const std::string& lazyColumnListPath,
+      bool findMinimalSubExpression = false);
 
   /// Parse comma-separated SQL expressions. This should be treated as private
   /// except for tests.
