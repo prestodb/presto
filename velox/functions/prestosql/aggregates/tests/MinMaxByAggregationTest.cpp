@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/lib/aggregates/tests/AggregationTestBase.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
@@ -1154,5 +1155,243 @@ TEST_F(MinMaxByComplexTypes, mapGroupBy) {
   testAggregations(
       {data}, {"c0"}, {"min_by(c1, c2)", "max_by(c1, c2)"}, {expected});
 }
+
+class MinMaxByNTest : public AggregationTestBase {
+ protected:
+  void SetUp() override {
+    AggregationTestBase::SetUp();
+    AggregationTestBase::allowInputShuffle();
+  }
+};
+
+TEST_F(MinMaxByNTest, global) {
+  // DuckDB doesn't support 3-argument versions of min_by and max_by.
+
+  // No nulls in values.
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7}),
+      makeFlatVector<int64_t>({77, 66, 55, 44, 33, 22, 11}),
+  });
+
+  auto expected = makeRowVector({
+      makeArrayVector<int32_t>({
+          {7, 6, 5},
+      }),
+      makeArrayVector<int32_t>({
+          {1, 2, 3, 4},
+      }),
+  });
+
+  testAggregations(
+      {data}, {}, {"min_by(c0, c1, 3)", "max_by(c0, c1, 4)"}, {expected});
+
+  // Some nulls in values.
+  data = makeRowVector({
+      makeNullableFlatVector<int32_t>(
+          {1, 2, 3, std::nullopt, 5, std::nullopt, 7}),
+      makeFlatVector<int64_t>({77, 66, 55, 44, 33, 22, 11}),
+  });
+
+  expected = makeRowVector({
+      makeNullableArrayVector<int32_t>({
+          {7, std::nullopt, 5},
+      }),
+      makeNullableArrayVector<int32_t>({
+          {1, 2, 3, std::nullopt},
+      }),
+  });
+
+  testAggregations(
+      {data}, {}, {"min_by(c0, c1, 3)", "max_by(c0, c1, 4)"}, {expected});
+}
+
+TEST_F(MinMaxByNTest, globalWithNullCompare) {
+  // Rows with null 'compare' should be ignored.
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7}),
+      makeNullableFlatVector<int64_t>(
+          {77, std::nullopt, 55, 44, 33, 22, std::nullopt}),
+  });
+
+  auto expected = makeRowVector({
+      makeNullableArrayVector<int32_t>({
+          {6, 5, 4},
+      }),
+      makeNullableArrayVector<int32_t>({
+          {1, 3, 4, 5},
+      }),
+  });
+
+  testAggregations(
+      {data}, {}, {"min_by(c0, c1, 3)", "max_by(c0, c1, 4)"}, {expected});
+
+  // All 'compare' values are null.
+  data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7}),
+      makeNullConstant(TypeKind::BIGINT, 7),
+  });
+
+  expected = makeRowVector({
+      makeAllNullArrayVector(1, INTEGER()),
+      makeAllNullArrayVector(1, INTEGER()),
+  });
+
+  testAggregations(
+      {data}, {}, {"min_by(c0, c1, 3)", "max_by(c0, c1, 4)"}, {expected});
+}
+
+TEST_F(MinMaxByNTest, groupBy) {
+  // No nulls in values.
+  auto data = makeRowVector({
+      makeFlatVector<int16_t>({1, 2, 1, 2, 1, 2, 1}),
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7}),
+      makeFlatVector<int64_t>({77, 66, 55, 44, 33, 22, 11}),
+  });
+
+  auto expected = makeRowVector({
+      makeFlatVector<int16_t>({1, 2}),
+      makeArrayVector<int32_t>({
+          {7, 5, 3},
+          {6, 4, 2},
+      }),
+      makeArrayVector<int32_t>({
+          {1, 3, 5, 7},
+          {2, 4, 6},
+      }),
+  });
+
+  testAggregations(
+      {data}, {"c0"}, {"min_by(c1, c2, 3)", "max_by(c1, c2, 4)"}, {expected});
+
+  // Some nulls in values.
+  data = makeRowVector({
+      makeFlatVector<int16_t>({1, 2, 1, 2, 1, 2, 1}),
+      makeNullableFlatVector<int32_t>(
+          {1, 2, std::nullopt, std::nullopt, 5, std::nullopt, std::nullopt}),
+      makeFlatVector<int64_t>({77, 66, 55, 44, 33, 22, 11}),
+  });
+
+  expected = makeRowVector({
+      makeFlatVector<int16_t>({1, 2}),
+      makeNullableArrayVector<int32_t>({
+          {std::nullopt, 5, std::nullopt},
+          {std::nullopt, std::nullopt, 2},
+      }),
+      makeNullableArrayVector<int32_t>({
+          {1, std::nullopt, 5, std::nullopt},
+          {2, std::nullopt, std::nullopt},
+      }),
+  });
+
+  testAggregations(
+      {data}, {"c0"}, {"min_by(c1, c2, 3)", "max_by(c1, c2, 4)"}, {expected});
+}
+
+TEST_F(MinMaxByNTest, groupByWithNullCompare) {
+  // Rows with null 'compare' should be ignored.
+  auto data = makeRowVector({
+      makeFlatVector<int16_t>({1, 2, 1, 2, 1, 2, 1}),
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7}),
+      makeNullableFlatVector<int64_t>(
+          {77, std::nullopt, 55, 44, std::nullopt, 22, 11}),
+  });
+
+  auto expected = makeRowVector({
+      makeFlatVector<int16_t>({1, 2}),
+      makeArrayVector<int32_t>({
+          {7, 3, 1},
+          {6, 4},
+      }),
+      makeArrayVector<int32_t>({
+          {1, 3, 7},
+          {4, 6},
+      }),
+  });
+
+  testAggregations(
+      {data}, {"c0"}, {"min_by(c1, c2, 3)", "max_by(c1, c2, 4)"}, {expected});
+
+  // All 'compare' values are null for one group.
+  data = makeRowVector({
+      makeFlatVector<int16_t>({1, 2, 1, 2, 1, 2, 1}),
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7}),
+      makeNullableFlatVector<int64_t>(
+          {77, std::nullopt, 55, std::nullopt, std::nullopt, std::nullopt, 11}),
+  });
+
+  expected = makeRowVector({
+      makeFlatVector<int16_t>({1, 2}),
+      makeNullableArrayVector<int32_t>({
+          {{7, 3, 1}},
+          std::nullopt,
+      }),
+      makeNullableArrayVector<int32_t>({
+          {{1, 3, 7}},
+          std::nullopt,
+      }),
+  });
+
+  testAggregations(
+      {data}, {"c0"}, {"min_by(c1, c2, 3)", "max_by(c1, c2, 4)"}, {expected});
+}
+
+TEST_F(MinMaxByNTest, variableN) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7}),
+      makeFlatVector<int64_t>({77, 66, 55, 44, 33, 22, 11}),
+      makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6, 7}),
+  });
+
+  // Global aggregation with variable value of 'n' is not allowed.
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .singleAggregation({}, {"min_by(c0, c1, c2)"})
+                  .planNode();
+
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(plan).copyResults(pool()),
+      "third argument of max_by/min_by must be a constant for all rows in a group");
+
+  // Different groups in a group-by may have different values of 'n'.
+  data = makeRowVector({
+      makeFlatVector<int16_t>({1, 2, 1, 2, 1, 2, 1}),
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7}),
+      makeFlatVector<int64_t>({77, 66, 55, 44, 33, 22, 11}),
+      makeFlatVector<int64_t>({1, 3, 1, 3, 1, 3, 1}),
+  });
+
+  auto expected = makeRowVector({
+      makeFlatVector<int16_t>({1, 2}),
+      makeArrayVector<int32_t>({
+          {7},
+          {6, 4, 2},
+      }),
+      makeArrayVector<int32_t>({
+          {1},
+          {2, 4, 6},
+      }),
+  });
+
+  testAggregations(
+      {data}, {"c0"}, {"min_by(c1, c2, c3)", "max_by(c1, c2, c3)"}, {expected});
+
+  // Variable value of 'n' within a group is not allowed.
+  data = makeRowVector({
+      makeFlatVector<int16_t>({1, 2, 1, 2, 1, 2, 1}),
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7}),
+      makeFlatVector<int64_t>({77, 66, 55, 44, 33, 22, 11}),
+      makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6, 7}),
+  });
+
+  plan = PlanBuilder()
+             .values({data})
+             .singleAggregation({"c0"}, {"min_by(c1, c2, c3)"})
+             .planNode();
+
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(plan).copyResults(pool()),
+      "third argument of max_by/min_by must be a constant for all rows in a group");
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

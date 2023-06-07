@@ -71,9 +71,17 @@ General Aggregate Functions
 
     Returns the value of ``x`` associated with the maximum value of ``y`` over all input values.
 
+.. function:: max_by(x, y, n) -> array([same as x])
+
+    Returns n values of ``x`` associated with the n largest values of ``y`` in descending order of ``y``.
+
 .. function:: min_by(x, y) -> [same as x]
 
     Returns the value of ``x`` associated with the minimum value of ``y`` over all input values.
+
+.. function:: min_by(x, y, n) -> array([same as x])
+
+    Returns n values of ``x`` associated with the n smallest values of ``y`` in ascending order of ``y``.
 
 .. function:: max(x) -> [same as input]
 
