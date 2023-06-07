@@ -187,8 +187,7 @@ SubstraitVeloxExprConverter::toVeloxExpr(
   }
 }
 
-std::shared_ptr<const core::ITypedExpr>
-SubstraitVeloxExprConverter::toVeloxExpr(
+core::TypedExprPtr SubstraitVeloxExprConverter::toVeloxExpr(
     const ::substrait::Expression::ScalarFunction& substraitFunc,
     const RowTypePtr& inputType) {
   std::vector<core::TypedExprPtr> params;
@@ -325,8 +324,7 @@ ArrayVectorPtr SubstraitVeloxExprConverter::literalsToArrayVector(
   }
 }
 
-std::shared_ptr<const core::ITypedExpr>
-SubstraitVeloxExprConverter::toVeloxExpr(
+core::TypedExprPtr SubstraitVeloxExprConverter::toVeloxExpr(
     const ::substrait::Expression::Cast& castExpr,
     const RowTypePtr& inputType) {
   auto substraitType = substraitParser_.parseType(castExpr.type());
@@ -339,11 +337,10 @@ SubstraitVeloxExprConverter::toVeloxExpr(
   return std::make_shared<core::CastTypedExpr>(type, inputs, nullOnFailure);
 }
 
-std::shared_ptr<const core::ITypedExpr>
-SubstraitVeloxExprConverter::toVeloxExpr(
+core::TypedExprPtr SubstraitVeloxExprConverter::toVeloxExpr(
     const ::substrait::Expression& substraitExpr,
     const RowTypePtr& inputType) {
-  std::shared_ptr<const core::ITypedExpr> veloxExpr;
+  core::TypedExprPtr veloxExpr;
   auto typeCase = substraitExpr.rex_type_case();
   switch (typeCase) {
     case ::substrait::Expression::RexTypeCase::kLiteral:
@@ -362,8 +359,7 @@ SubstraitVeloxExprConverter::toVeloxExpr(
   }
 }
 
-std::shared_ptr<const core::ITypedExpr>
-SubstraitVeloxExprConverter::toVeloxExpr(
+core::TypedExprPtr SubstraitVeloxExprConverter::toVeloxExpr(
     const ::substrait::Expression_IfThen& substraitIfThen,
     const RowTypePtr& inputType) {
   std::vector<core::TypedExprPtr> inputs;

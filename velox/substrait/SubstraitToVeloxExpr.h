@@ -40,12 +40,12 @@ class SubstraitVeloxExprConverter {
       const RowTypePtr& inputType);
 
   /// Convert Substrait ScalarFunction into Velox Expression.
-  std::shared_ptr<const core::ITypedExpr> toVeloxExpr(
+  core::TypedExprPtr toVeloxExpr(
       const ::substrait::Expression::ScalarFunction& substraitFunc,
       const RowTypePtr& inputType);
 
   /// Convert Substrait CastExpression to Velox Expression.
-  std::shared_ptr<const core::ITypedExpr> toVeloxExpr(
+  core::TypedExprPtr toVeloxExpr(
       const ::substrait::Expression::Cast& castExpr,
       const RowTypePtr& inputType);
 
@@ -54,12 +54,12 @@ class SubstraitVeloxExprConverter {
       const ::substrait::Expression::Literal& substraitLit);
 
   /// Convert Substrait Expression into Velox Expression.
-  std::shared_ptr<const core::ITypedExpr> toVeloxExpr(
+  core::TypedExprPtr toVeloxExpr(
       const ::substrait::Expression& substraitExpr,
       const RowTypePtr& inputType);
 
   /// Convert Substrait IfThen into Velox Expression.
-  std::shared_ptr<const core::ITypedExpr> toVeloxExpr(
+  core::TypedExprPtr toVeloxExpr(
       const ::substrait::Expression::IfThen& substraitIfThen,
       const RowTypePtr& inputType);
 
