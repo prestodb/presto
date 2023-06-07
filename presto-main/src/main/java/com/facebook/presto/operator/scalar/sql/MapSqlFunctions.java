@@ -100,4 +100,15 @@ public class MapSqlFunctions
     {
         return "RETURN ALL_MATCH(MAP_KEYS(input), f)";
     }
+
+    @SqlInvokedScalarFunction(value = "any_keys_match", deterministic = true, calledOnNullInput = true)
+    @Description("Returns whether any key of a map matches the given predicate.")
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "f", type = "function(K, boolean)")})
+    @SqlType("boolean")
+    public static String anyKeysMatch()
+    {
+        return "RETURN ANY_MATCH(MAP_KEYS(input), f)";
+    }
 }
