@@ -20,7 +20,13 @@ workflows:
   version: 2
   dist-compile:
     jobs:
-      - linux-build
+      - linux-build-and-unit-test
+      - linux-presto-e2e-tests:
+          requires:
+            - linux-build-and-unit-test
+      - linux-spark-e2e-tests:
+          requires:
+            - linux-build-and-unit-test
 
   conditionals:
     when: << pipeline.parameters.run_native_specific_jobs >>
@@ -48,9 +54,8 @@ executors:
     resource_class: macos.x86.medium.gen2
 
 jobs:
-  linux-build:
+  linux-build-and-unit-test:
     executor: build
-    parallelism: 5
     steps:
       - checkout
       - run:
@@ -86,6 +91,18 @@ jobs:
           command: |
             cd presto-native-execution/_build/debug
             ctest -j 8 -VV --output-on-failure --exclude-regex velox.*
+      - persist_to_workspace:
+          root: presto-native-execution
+          paths:
+            - _build/debug/presto_cpp/main/presto_server
+
+  linux-presto-e2e-tests:
+    executor: build
+    parallelism: 5
+    steps:
+      - checkout
+      - attach_workspace:
+          at: presto-native-execution
       - run:
           name: 'Maven Install'
           command: |
@@ -97,34 +114,49 @@ jobs:
           command: |
             export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
             export TEMP_PATH="/tmp"
-            TESTFILES=$(circleci tests glob "presto-native-execution/src/test/**/Test*.java" | circleci tests split --split-by=timings)
+            TESTFILES=$(circleci tests glob "presto-native-execution/src/test/**/TestPrestoNative*.java" | circleci tests split --split-by=timings)
             # Convert file paths to comma separated class names
             export TESTCLASSES=
-            export SPARKTESTS=
             for test_file in $TESTFILES
             do
               tmp=${test_file##*/}
               test_class=${tmp%%\.*}
-              if [[ $test_class == TestPrestoSpark* ]]; then
-                export SPARKTESTS="${SPARKTESTS},$test_class"
-              else
-                export TESTCLASSES="${TESTCLASSES},$test_class"
-              fi
+              export TESTCLASSES="${TESTCLASSES},$test_class"
             done
             export TESTCLASSES=${TESTCLASSES#,}
-            export SPARKTESTS=${SPARKTESTS#,}
             if [ ! -z $TESTCLASSES ]; then
               mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -Dtest="${TESTCLASSES}" -DPRESTO_SERVER=${PRESTO_SERVER_PATH} -DDATA_DIR=${TEMP_PATH} -Duser.timezone=America/Bahia_Banderas -T1C
             fi
-            # set Spark tests as an environment variable
-            echo "export SPARKTESTS=$SPARKTESTS" >> "$BASH_ENV"
+
+  linux-spark-e2e-tests:
+    executor: build
+    parallelism: 5
+    steps:
+      - checkout
+      - attach_workspace:
+          at: presto-native-execution
       - run:
-          name: 'Run spark-native e2e tests'
+          name: 'Maven Install'
+          command: |
+            export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+            ./mvnw clean install ${MAVEN_FAST_INSTALL} -pl 'presto-native-execution' -am
+      - run:
+          name: 'Run spark e2e tests'
           command: |
             export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
             export TEMP_PATH="/tmp"
-            if [ ! -z $SPARKTESTS ]; then
-              mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -Dtest="${SPARKTESTS}" -DPRESTO_SERVER=${PRESTO_SERVER_PATH} -DDATA_DIR=${TEMP_PATH} -Duser.timezone=America/Bahia_Banderas -T1C || true
+            TESTFILES=$(circleci tests glob "presto-native-execution/src/test/**/TestPrestoSpark*.java" | circleci tests split --split-by=timings)
+            # Convert file paths to comma separated class names
+            export TESTCLASSES=
+            for test_file in $TESTFILES
+            do
+              tmp=${test_file##*/}
+              test_class=${tmp%%\.*}
+              export TESTCLASSES="${TESTCLASSES},$test_class"
+            done
+            export TESTCLASSES=${TESTCLASSES#,}
+            if [ ! -z $TESTCLASSES ]; then
+              mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -Dtest="${TESTCLASSES}" -DPRESTO_SERVER=${PRESTO_SERVER_PATH} -DDATA_DIR=${TEMP_PATH} -Duser.timezone=America/Bahia_Banderas -T1C
             fi
 
   linux-parquet-S3-build:
