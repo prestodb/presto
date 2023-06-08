@@ -45,7 +45,6 @@ import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
-import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.ArrayListMultimap;
@@ -364,24 +363,7 @@ public class PrestoSparkRddFactory
         return result;
     }
 
-    /**
-     * If native execution is enabled, the task sources need to be associated with {@link NativeExecutionNode} rather than the original {@link TableScanNode} to allow the
-     * driver dispatching the task sources to the native process. To achieve that, in this method, we'll store the PlanNodeId from {@link NativeExecutionNode}
-     * as task source id when we encountered the {@link NativeExecutionNode}，otherwise the PlanNodeId from {@link TableScanNode} will be used as the task source id.
-     */
     private static List<PrestoSparkSource> findTableScanNodes(PlanNode node)
-    {
-        return node instanceof NativeExecutionNode ? findTableScanNodesInternal((NativeExecutionNode) node) : findTableScanNodesInternal(node);
-    }
-
-    private static List<PrestoSparkSource> findTableScanNodesInternal(NativeExecutionNode node)
-    {
-        return searchFrom(node.getSubPlan())
-                .where(TableScanNode.class::isInstance)
-                .findAll().stream().map(t -> new PrestoSparkSource(node.getId(), t)).collect(Collectors.toList());
-    }
-
-    private static List<PrestoSparkSource> findTableScanNodesInternal(PlanNode node)
     {
         return searchFrom(node)
                 .where(TableScanNode.class::isInstance)
