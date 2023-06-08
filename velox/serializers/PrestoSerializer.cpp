@@ -753,7 +753,8 @@ class VectorStream {
           if (isTimestampWithTimeZoneType(type_)) {
             values_.startWrite(initialNumRows * 4);
             break;
-          } // else fall through
+          }
+          [[fallthrough]];
         case TypeKind::ARRAY:
         case TypeKind::MAP:
           hasLengths_ = true;

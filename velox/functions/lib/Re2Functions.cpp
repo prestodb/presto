@@ -160,9 +160,8 @@ std::string likePatternToRe2(
         case ']':
         case '{':
         case '}':
-          regex.append("\\");
-        // Append the meta character after the escape. Note: The fallthrough is
-        // intentional.
+          regex.append("\\"); // Append the meta character after the escape.
+          [[fallthrough]];
         default:
           regex.append(1, c);
           escaped = false;

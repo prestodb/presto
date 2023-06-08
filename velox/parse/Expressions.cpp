@@ -60,20 +60,20 @@ std::vector<TypePtr> implicitCastTargets(const TypePtr& type) {
       break;
     case TypeKind::TINYINT:
       targetTypes.emplace_back(SMALLINT());
-      FMT_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::SMALLINT:
       targetTypes.emplace_back(INTEGER());
       targetTypes.emplace_back(REAL());
-      FMT_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::INTEGER:
       targetTypes.emplace_back(BIGINT());
       targetTypes.emplace_back(DOUBLE());
-      FMT_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::BIGINT:
       break;
     case TypeKind::REAL:
       targetTypes.emplace_back(DOUBLE());
-      FMT_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::DOUBLE:
       break;
     case TypeKind::ARRAY: {
