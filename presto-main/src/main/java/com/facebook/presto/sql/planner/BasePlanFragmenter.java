@@ -52,7 +52,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
-import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -78,7 +77,6 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
-import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -177,35 +175,6 @@ public abstract class BasePlanFragmenter
                     "outputTableWriterNodeIds %s must include either all or none of tableWriterNodeIds %s",
                     outputTableWriterNodeIds,
                     tableWriterNodeIds);
-        }
-
-        // Only delegate non-coordinatorOnly plan fragment to native engine
-        if (isNativeExecutionEnabled(session) && !properties.getPartitioningHandle().isCoordinatorOnly()) {
-            if (root instanceof OutputNode) {
-                // OutputNode is special in that it can have duplicate output variables since it
-                // does not get converted to a PhysicalOperation for execution.
-                // Regular plan nodes, including NativeExecutionNode, must have unique output variables.
-                // Check if OutputNode has duplicate output variables and remove these.
-                // This is safe because OutputNode variables are not used by the workers.
-                OutputNode outputNode = (OutputNode) root;
-                List<VariableReferenceExpression> outputVariables = outputNode.getOutputVariables();
-                List<VariableReferenceExpression> newOutputVariables = new ArrayList<>();
-                List<String> newColumnNames = new ArrayList<>();
-                Set<VariableReferenceExpression> uniqueOutputVariables = new HashSet<>();
-                for (int i = 0; i < outputVariables.size(); ++i) {
-                    VariableReferenceExpression variable = outputVariables.get(i);
-                    if (uniqueOutputVariables.add(variable)) {
-                        newOutputVariables.add(variable);
-                        newColumnNames.add(outputNode.getColumnNames().get(i));
-                    }
-                }
-
-                if (uniqueOutputVariables.size() < outputVariables.size()) {
-                    root = new OutputNode(outputNode.getSourceLocation(), outputNode.getId(), outputNode.getSource(), newColumnNames, newOutputVariables);
-                }
-            }
-            root = new NativeExecutionNode(root);
-            schedulingOrder = scheduleOrder(root);
         }
 
         PlanFragment fragment = new PlanFragment(
