@@ -112,6 +112,7 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesFiltered(
     const std::shared_ptr<const TypeWithId>& requestedType,
     const std::shared_ptr<const TypeWithId>& dataType,
     StripeStreams& stripe,
+    const StreamLabels& streamLabels,
     memory::MemoryPool& memoryPool,
     FlatMapContext& flatMapContext) {
   std::vector<std::unique_ptr<KeyNode<T>>> keyNodes;
@@ -157,6 +158,7 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesFiltered(
             requestedValueType,
             dataValueType,
             stripe,
+            streamLabels,
             FlatMapContext{
                 .sequence = sequence,
                 .inMapDecoder = inMapDecoder.get(),
@@ -209,8 +211,9 @@ FlatMapColumnReader<T>::FlatMapColumnReader(
     const std::shared_ptr<const TypeWithId>& requestedType,
     const std::shared_ptr<const TypeWithId>& dataType,
     StripeStreams& stripe,
+    const StreamLabels& streamLabels,
     FlatMapContext flatMapContext)
-    : ColumnReader(dataType, stripe, std::move(flatMapContext)),
+    : ColumnReader(dataType, stripe, streamLabels, std::move(flatMapContext)),
       requestedType_{requestedType},
       returnFlatVector_{stripe.getRowReaderOptions().getReturnFlatVector()} {
   DWIO_ENSURE_EQ(nodeType_->id, dataType->id);
@@ -222,6 +225,7 @@ FlatMapColumnReader<T>::FlatMapColumnReader(
       requestedType,
       dataType,
       stripe,
+      streamLabels,
       memoryPool_,
       flatMapContext_);
 
@@ -540,6 +544,7 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesForStructEncoding(
     const std::shared_ptr<const TypeWithId>& requestedType,
     const std::shared_ptr<const TypeWithId>& dataType,
     StripeStreams& stripe,
+    const StreamLabels& streamLabels,
     memory::MemoryPool& memoryPool,
     FlatMapContext& flatMapContext) {
   // `KeyNode` is ordered based on the projection. So if [3, 2, 1] is
@@ -553,6 +558,7 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesForStructEncoding(
       requestedType,
       dataType,
       stripe,
+      streamLabels,
       memoryPool,
       flatMapContext);
 
@@ -569,13 +575,19 @@ FlatMapStructEncodingColumnReader<T>::FlatMapStructEncodingColumnReader(
     const std::shared_ptr<const TypeWithId>& requestedType,
     const std::shared_ptr<const TypeWithId>& dataType,
     StripeStreams& stripe,
+    const StreamLabels& streamLabels,
     FlatMapContext flatMapContext)
-    : ColumnReader(requestedType, stripe, std::move(flatMapContext)),
+    : ColumnReader(
+          requestedType,
+          stripe,
+          streamLabels,
+          std::move(flatMapContext)),
       requestedType_{requestedType},
       keyNodes_{getKeyNodesForStructEncoding<T>(
           requestedType,
           dataType,
           stripe,
+          streamLabels,
           memoryPool_,
           flatMapContext_)},
       nullColumnReader_{std::make_unique<NullColumnReader>(
@@ -670,13 +682,22 @@ std::unique_ptr<ColumnReader> createFlatMapColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
     StripeStreams& stripe,
+    const StreamLabels& streamLabels,
     FlatMapContext flatMapContext) {
   if (isRequiringStructEncoding(requestedType, stripe.getRowReaderOptions())) {
     return std::make_unique<FlatMapStructEncodingColumnReader<T>>(
-        requestedType, dataType, stripe, std::move(flatMapContext));
+        requestedType,
+        dataType,
+        stripe,
+        streamLabels,
+        std::move(flatMapContext));
   } else {
     return std::make_unique<FlatMapColumnReader<T>>(
-        requestedType, dataType, stripe, std::move(flatMapContext));
+        requestedType,
+        dataType,
+        stripe,
+        streamLabels,
+        std::move(flatMapContext));
   }
 }
 
@@ -684,6 +705,7 @@ std::unique_ptr<ColumnReader> createFlatMapColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
     StripeStreams& stripe,
+    const StreamLabels& streamLabels,
     FlatMapContext flatMapContext) {
   // create flat map column reader based on key type
   const auto kind = dataType->childAt(0)->type->kind();
@@ -691,20 +713,40 @@ std::unique_ptr<ColumnReader> createFlatMapColumnReader(
   switch (kind) {
     case TypeKind::TINYINT:
       return createFlatMapColumnReader<int8_t>(
-          requestedType, dataType, stripe, std::move(flatMapContext));
+          requestedType,
+          dataType,
+          stripe,
+          streamLabels,
+          std::move(flatMapContext));
     case TypeKind::SMALLINT:
       return createFlatMapColumnReader<int16_t>(
-          requestedType, dataType, stripe, std::move(flatMapContext));
+          requestedType,
+          dataType,
+          stripe,
+          streamLabels,
+          std::move(flatMapContext));
     case TypeKind::INTEGER:
       return createFlatMapColumnReader<int32_t>(
-          requestedType, dataType, stripe, std::move(flatMapContext));
+          requestedType,
+          dataType,
+          stripe,
+          streamLabels,
+          std::move(flatMapContext));
     case TypeKind::BIGINT:
       return createFlatMapColumnReader<int64_t>(
-          requestedType, dataType, stripe, std::move(flatMapContext));
+          requestedType,
+          dataType,
+          stripe,
+          streamLabels,
+          std::move(flatMapContext));
     case TypeKind::VARBINARY:
     case TypeKind::VARCHAR:
       return createFlatMapColumnReader<StringView>(
-          requestedType, dataType, stripe, std::move(flatMapContext));
+          requestedType,
+          dataType,
+          stripe,
+          streamLabels,
+          std::move(flatMapContext));
     default:
       DWIO_RAISE("Not supported key type: ", kind);
   }

@@ -22,6 +22,7 @@
 #include "velox/dwio/common/TypeWithId.h"
 #include "velox/dwio/dwrf/reader/ColumnReader.h"
 #include "velox/dwio/dwrf/reader/ConstantColumnReader.h"
+#include "velox/dwio/dwrf/reader/StreamLabels.h"
 #include "velox/dwio/dwrf/utils/BitIterator.h"
 
 namespace facebook::velox::dwrf {
@@ -145,6 +146,7 @@ class FlatMapColumnReader : public ColumnReader {
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       StripeStreams& stripe,
+      const StreamLabels& streamLabels,
       FlatMapContext flatMapContext);
   ~FlatMapColumnReader() override = default;
 
@@ -173,6 +175,7 @@ class FlatMapStructEncodingColumnReader : public ColumnReader {
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       StripeStreams& stripe,
+      const StreamLabels& streamLabels,
       FlatMapContext flatMapContext);
   ~FlatMapStructEncodingColumnReader() override = default;
 
@@ -196,6 +199,7 @@ class FlatMapColumnReaderFactory {
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       StripeStreams& stripe,
+      const StreamLabels& streamLabels,
       FlatMapContext flatMapContext);
 };
 

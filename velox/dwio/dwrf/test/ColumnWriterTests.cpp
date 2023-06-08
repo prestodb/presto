@@ -336,10 +336,14 @@ void testDataTypeWriter(
     TestStripeStreams streams(context, sf, rowType, pool.get());
     auto typeWithId = TypeWithId::create(rowType);
     auto reqType = typeWithId->childAt(0);
+
+    AllocationPool allocPool(pool.get());
+    StreamLabels labels(allocPool);
     auto reader = ColumnReader::build(
         reqType,
         reqType,
         streams,
+        labels,
         FlatMapContext{
             .sequence = sequence,
             .inMapDecoder = nullptr,
@@ -932,8 +936,11 @@ void testMapWriter(
     auto validate = [&](bool returnFlatVector = false) {
       TestStripeStreams streams(
           context, sf, rowType, &pool, returnFlatVector, structReaderContext);
+      auto pool = addDefaultLeafMemoryPool();
+      AllocationPool allocPool(pool.get());
+      StreamLabels labels(allocPool);
       const auto reader =
-          ColumnReader::build(dataTypeWithId, dataTypeWithId, streams);
+          ColumnReader::build(dataTypeWithId, dataTypeWithId, streams, labels);
       VectorPtr out;
 
       // Read map/row
@@ -1064,8 +1071,11 @@ void testMapWriterRow(
     auto validate = [&](bool returnFlatVector = false) {
       TestStripeStreams streams(
           context, sf, rowType, &pool, returnFlatVector, structReaderContext);
+      auto pool = addDefaultLeafMemoryPool();
+      AllocationPool allocPool(pool.get());
+      StreamLabels labels(allocPool);
       const auto reader =
-          ColumnReader::build(dataTypeWithId, dataTypeWithId, streams);
+          ColumnReader::build(dataTypeWithId, dataTypeWithId, streams, labels);
       VectorPtr out;
 
       // Read map/row
@@ -2023,7 +2033,10 @@ struct IntegerColumnWriterTypedTestCase {
       }
 
       auto reqType = TypeWithId::create(rowType)->childAt(0);
-      auto columnReader = ColumnReader::build(reqType, reqType, streams);
+      AllocationPool allocPool(pool.get());
+      StreamLabels labels(allocPool);
+      auto columnReader =
+          ColumnReader::build(reqType, reqType, streams, labels);
 
       for (size_t j = 0; j != repetitionCount; ++j) {
         // TODO Make reuse work
@@ -3254,7 +3267,10 @@ struct StringColumnWriterTestCase {
       }
 
       auto reqType = TypeWithId::create(rowType)->childAt(0);
-      auto columnReader = ColumnReader::build(reqType, reqType, streams);
+      AllocationPool allocPool(pool.get());
+      StreamLabels labels(allocPool);
+      auto columnReader =
+          ColumnReader::build(reqType, reqType, streams, labels);
 
       for (size_t j = 0; j != repetitionCount; ++j) {
         if (!writeDirect) {
@@ -4323,7 +4339,9 @@ struct DictColumnWriterTestCase {
         .WillRepeatedly(Return(0));
     auto rowTypeWithId = TypeWithId::create(rowType);
     auto reqType = rowTypeWithId->childAt(0);
-    auto reader = ColumnReader::build(reqType, reqType, streams);
+    AllocationPool allocPool(pool.get());
+    StreamLabels labels(allocPool);
+    auto reader = ColumnReader::build(reqType, reqType, streams, labels);
     VectorPtr out;
     reader->next(batch->size(), out);
     compareResults(batch, out);

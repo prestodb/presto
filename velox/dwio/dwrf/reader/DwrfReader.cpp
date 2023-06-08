@@ -17,6 +17,7 @@
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/common/TypeUtils.h"
 #include "velox/dwio/common/exception/Exception.h"
+#include "velox/dwio/dwrf/reader/StreamLabels.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::dwrf {
@@ -405,6 +406,8 @@ void DwrfRowReader::startNextStripe() {
   auto dataType = getReader().getSchemaWithId();
   FlatMapContext flatMapContext;
   flatMapContext.keySelectionCallback = options_.getKeySelectionCallback();
+  AllocationPool pool(&getReader().getMemoryPool());
+  StreamLabels streamLabels(pool);
 
   if (scanSpec) {
     selectiveColumnReader_ = SelectiveDwrfReader::build(
@@ -412,7 +415,7 @@ void DwrfRowReader::startNextStripe() {
     selectiveColumnReader_->setIsTopLevel();
   } else {
     columnReader_ = ColumnReader::build(
-        requestedType, dataType, stripeStreams, flatMapContext);
+        requestedType, dataType, stripeStreams, streamLabels, flatMapContext);
   }
   DWIO_ENSURE(
       (columnReader_ != nullptr) != (selectiveColumnReader_ != nullptr),

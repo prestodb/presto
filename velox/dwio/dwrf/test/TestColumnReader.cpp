@@ -20,6 +20,7 @@
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 #include "velox/dwio/dwrf/reader/ColumnReader.h"
 #include "velox/dwio/dwrf/reader/SelectiveDwrfReader.h"
+#include "velox/dwio/dwrf/reader/StreamLabels.h"
 #include "velox/dwio/dwrf/test/OrcTest.h"
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 #include "velox/vector/ComplexVector.h"
@@ -108,6 +109,8 @@ std::shared_ptr<T> getChild(std::shared_ptr<F>& batch, size_t index) {
 
 class ColumnReaderTestBase {
  protected:
+  ColumnReaderTestBase() : pool_{&streams_.getMemoryPool()}, labels_{pool_} {}
+
   virtual ~ColumnReaderTestBase() = default;
 
   void buildReader(
@@ -145,8 +148,8 @@ class ColumnReaderTestBase {
       selectiveColumnReader_->setIsTopLevel();
       columnReader_ = nullptr;
     } else {
-      columnReader_ =
-          ColumnReader::build(cs.getSchemaWithId(), dataTypeWithId, streams_);
+      columnReader_ = ColumnReader::build(
+          cs.getSchemaWithId(), dataTypeWithId, streams_, labels_);
       selectiveColumnReader_ = nullptr;
     }
   }
@@ -203,6 +206,8 @@ class ColumnReaderTestBase {
   virtual bool returnFlatVector() const = 0;
 
   MockStripeStreams streams_;
+  AllocationPool pool_;
+  StreamLabels labels_;
   std::unique_ptr<ColumnReader> columnReader_;
   std::unique_ptr<SelectiveColumnReader> selectiveColumnReader_;
 

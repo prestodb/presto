@@ -134,6 +134,7 @@ void ColumnReader::readNulls(
 ColumnReader::ColumnReader(
     std::shared_ptr<const dwio::common::TypeWithId> nodeType,
     StripeStreams& stripe,
+    const StreamLabels& /* streamLabels */,
     FlatMapContext flatMapContext)
     : nodeType_(std::move(nodeType)),
       memoryPool_(stripe.getMemoryPool()),
@@ -201,11 +202,16 @@ class ByteRleColumnReader : public ColumnReader {
       std::shared_ptr<const dwio::common::TypeWithId> nodeType,
       TypePtr requestedType,
       StripeStreams& stripe,
+      const StreamLabels& streamLabels,
       std::function<std::unique_ptr<ByteRleDecoder>(
           std::unique_ptr<dwio::common::SeekableInputStream>,
           const EncodingKey&)> creator,
       FlatMapContext flatMapContext)
-      : ColumnReader(std::move(nodeType), stripe, std::move(flatMapContext)),
+      : ColumnReader(
+            std::move(nodeType),
+            stripe,
+            streamLabels,
+            std::move(flatMapContext)),
         requestedType_{std::move(requestedType)} {
     EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
     rle = creator(
@@ -357,6 +363,7 @@ class IntegerDirectColumnReader : public ColumnReader {
       std::shared_ptr<const dwio::common::TypeWithId> nodeType,
       TypePtr requestedType,
       StripeStreams& stripe,
+      const StreamLabels& streamLabels,
       uint32_t numBytes,
       FlatMapContext flatMapContext = {});
 
@@ -377,9 +384,14 @@ IntegerDirectColumnReader<ReqT>::IntegerDirectColumnReader(
     std::shared_ptr<const dwio::common::TypeWithId> nodeType,
     TypePtr requestedType,
     StripeStreams& stripe,
+    const StreamLabels& streamLabels,
     uint32_t numBytes,
     FlatMapContext flatMapContext)
-    : ColumnReader(std::move(nodeType), stripe, std::move(flatMapContext)),
+    : ColumnReader(
+          std::move(nodeType),
+          stripe,
+          streamLabels,
+          std::move(flatMapContext)),
       requestedType_{std::move(requestedType)} {
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
@@ -442,6 +454,7 @@ class IntegerDictionaryColumnReader : public ColumnReader {
       std::shared_ptr<const dwio::common::TypeWithId> nodeType,
       TypePtr requestedType,
       StripeStreams& stripe,
+      const StreamLabels& streamLabels,
       uint32_t numBytes,
       FlatMapContext flatMapContext = FlatMapContext{});
 
@@ -509,9 +522,14 @@ IntegerDictionaryColumnReader<ReqT>::IntegerDictionaryColumnReader(
     std::shared_ptr<const dwio::common::TypeWithId> nodeType,
     TypePtr requestedType,
     StripeStreams& stripe,
+    const StreamLabels& streamLabels,
     uint32_t numBytes,
     FlatMapContext flatMapContext)
-    : ColumnReader(std::move(nodeType), stripe, std::move(flatMapContext)),
+    : ColumnReader(
+          std::move(nodeType),
+          stripe,
+          streamLabels,
+          std::move(flatMapContext)),
       requestedType_{std::move(requestedType)} {
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
   auto encoding = stripe.getEncoding(encodingKey);
@@ -615,6 +633,7 @@ class TimestampColumnReader : public ColumnReader {
   TimestampColumnReader(
       std::shared_ptr<const dwio::common::TypeWithId> nodeType,
       StripeStreams& stripe,
+      const StreamLabels& streamLabels,
       FlatMapContext flatMapContext);
   ~TimestampColumnReader() override = default;
 
@@ -627,8 +646,13 @@ class TimestampColumnReader : public ColumnReader {
 TimestampColumnReader::TimestampColumnReader(
     std::shared_ptr<const dwio::common::TypeWithId> nodeType,
     StripeStreams& stripe,
+    const StreamLabels& streamLabels,
     FlatMapContext flatMapContext)
-    : ColumnReader(std::move(nodeType), stripe, std::move(flatMapContext)) {
+    : ColumnReader(
+          std::move(nodeType),
+          stripe,
+          streamLabels,
+          std::move(flatMapContext)) {
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
   RleVersion vers = convertRleVersion(stripe.getEncoding(encodingKey).kind());
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
@@ -716,6 +740,7 @@ class FloatingPointColumnReader : public ColumnReader {
       std::shared_ptr<const dwio::common::TypeWithId> nodeType,
       TypePtr requestedType,
       StripeStreams& stripe,
+      const StreamLabels& streamLabels,
       FlatMapContext flatMapContext);
 
   ~FloatingPointColumnReader() override = default;
@@ -769,8 +794,13 @@ FloatingPointColumnReader<DataT, ReqT>::FloatingPointColumnReader(
     std::shared_ptr<const dwio::common::TypeWithId> nodeType,
     TypePtr requestedType,
     StripeStreams& stripe,
+    const StreamLabels& streamLabels,
     FlatMapContext flatMapContext)
-    : ColumnReader(std::move(nodeType), stripe, std::move(flatMapContext)),
+    : ColumnReader(
+          std::move(nodeType),
+          stripe,
+          streamLabels,
+          std::move(flatMapContext)),
       requestedType_{std::move(requestedType)},
       inputStream(stripe.getStream(
           EncodingKey{nodeType_->id, flatMapContext_.sequence}.forKind(
@@ -933,6 +963,7 @@ class StringDictionaryColumnReader : public ColumnReader {
   StringDictionaryColumnReader(
       std::shared_ptr<const dwio::common::TypeWithId> nodeType,
       StripeStreams& stripe,
+      const StreamLabels& streamLabels,
       FlatMapContext flatMapContext = {});
   ~StringDictionaryColumnReader() override = default;
 
@@ -945,8 +976,13 @@ class StringDictionaryColumnReader : public ColumnReader {
 StringDictionaryColumnReader::StringDictionaryColumnReader(
     std::shared_ptr<const dwio::common::TypeWithId> nodeType,
     StripeStreams& stripe,
+    const StreamLabels& streamLabels,
     FlatMapContext flatMapContext)
-    : ColumnReader(std::move(nodeType), stripe, std::move(flatMapContext)),
+    : ColumnReader(
+          std::move(nodeType),
+          stripe,
+          streamLabels,
+          std::move(flatMapContext)),
       lastStrideIndex(-1),
       provider(stripe.getStrideIndexProvider()),
       returnFlatVector_(stripe.getRowReaderOptions().getReturnFlatVector()) {
@@ -1420,6 +1456,7 @@ class StringDirectColumnReader : public ColumnReader {
   StringDirectColumnReader(
       std::shared_ptr<const dwio::common::TypeWithId> nodeType,
       StripeStreams& stripe,
+      const StreamLabels& streamLabels,
       FlatMapContext flatMapContext);
   ~StringDirectColumnReader() override = default;
 
@@ -1432,8 +1469,13 @@ class StringDirectColumnReader : public ColumnReader {
 StringDirectColumnReader::StringDirectColumnReader(
     std::shared_ptr<const dwio::common::TypeWithId> nodeType,
     StripeStreams& stripe,
+    const StreamLabels& streamLabels,
     FlatMapContext flatMapContext)
-    : ColumnReader(std::move(nodeType), stripe, std::move(flatMapContext)) {
+    : ColumnReader(
+          std::move(nodeType),
+          stripe,
+          streamLabels,
+          std::move(flatMapContext)) {
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
   RleVersion rleVersion =
       convertRleVersion(stripe.getEncoding(encodingKey).kind());
@@ -1564,6 +1606,7 @@ class StructColumnReader : public ColumnReader {
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       StripeStreams& stripe,
+      const StreamLabels& streamLabels,
       FlatMapContext flatMapContext);
   ~StructColumnReader() override = default;
 
@@ -1589,8 +1632,9 @@ StructColumnReader::StructColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
     StripeStreams& stripe,
+    const StreamLabels& streamLabels,
     FlatMapContext flatMapContext)
-    : ColumnReader(dataType, stripe, std::move(flatMapContext)),
+    : ColumnReader(dataType, stripe, streamLabels, std::move(flatMapContext)),
       requestedType_{requestedType} {
   DWIO_ENSURE_EQ(nodeType_->id, dataType->id, "working on the same node");
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
@@ -1614,6 +1658,7 @@ StructColumnReader::StructColumnReader(
             child,
             nodeType_->childAt(i),
             stripe,
+            streamLabels,
             makeCopyWithNullDecoder(flatMapContext_)));
       } else {
         children_.push_back(
@@ -1709,6 +1754,7 @@ class ListColumnReader : public ColumnReader {
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       StripeStreams& stripe,
+      const StreamLabels& streamLabels,
       FlatMapContext flatMapContext);
   ~ListColumnReader() override = default;
 
@@ -1722,8 +1768,9 @@ ListColumnReader::ListColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
     StripeStreams& stripe,
+    const StreamLabels& streamLabels,
     FlatMapContext flatMapContext)
-    : ColumnReader(dataType, stripe, std::move(flatMapContext)),
+    : ColumnReader(dataType, stripe, streamLabels, std::move(flatMapContext)),
       requestedType_{requestedType} {
   DWIO_ENSURE_EQ(nodeType_->id, dataType->id, "working on the same node");
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
@@ -1746,6 +1793,7 @@ ListColumnReader::ListColumnReader(
         childType,
         nodeType_->childAt(0),
         stripe,
+        streamLabels,
         makeCopyWithNullDecoder(flatMapContext_));
   }
 }
@@ -1871,6 +1919,7 @@ class MapColumnReader : public ColumnReader {
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       StripeStreams& stripe,
+      const StreamLabels& streamLabels,
       FlatMapContext flatMapContext);
   ~MapColumnReader() override = default;
 
@@ -1884,8 +1933,9 @@ MapColumnReader::MapColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
     StripeStreams& stripe,
+    const StreamLabels& streamLabels,
     FlatMapContext flatMapContext)
-    : ColumnReader(dataType, stripe, std::move(flatMapContext)),
+    : ColumnReader(dataType, stripe, streamLabels, std::move(flatMapContext)),
       requestedType_{requestedType} {
   DWIO_ENSURE_EQ(nodeType_->id, dataType->id, "working on the same node");
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
@@ -1908,6 +1958,7 @@ MapColumnReader::MapColumnReader(
         keyType,
         nodeType_->childAt(0),
         stripe,
+        streamLabels,
         makeCopyWithNullDecoder(flatMapContext_));
   }
 
@@ -1917,6 +1968,7 @@ MapColumnReader::MapColumnReader(
         valueType,
         nodeType_->childAt(1),
         stripe,
+        streamLabels,
         makeCopyWithNullDecoder(flatMapContext_));
   }
 
@@ -2059,6 +2111,7 @@ std::unique_ptr<ColumnReader> buildByteRleColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& nodeType,
     TypePtr requestedType,
     StripeStreams& stripe,
+    const StreamLabels& streamLabels,
     FlatMapContext flatMapContext) {
   switch (requestedType->kind()) {
     case TypeKind::BOOLEAN:
@@ -2066,6 +2119,7 @@ std::unique_ptr<ColumnReader> buildByteRleColumnReader(
           nodeType,
           std::move(requestedType),
           stripe,
+          streamLabels,
           RleDecoderFactory<DataT>::get(),
           std::move(flatMapContext));
     case TypeKind::TINYINT:
@@ -2073,6 +2127,7 @@ std::unique_ptr<ColumnReader> buildByteRleColumnReader(
           nodeType,
           std::move(requestedType),
           stripe,
+          streamLabels,
           RleDecoderFactory<DataT>::get(),
           std::move(flatMapContext));
     case TypeKind::SMALLINT:
@@ -2080,6 +2135,7 @@ std::unique_ptr<ColumnReader> buildByteRleColumnReader(
           nodeType,
           std::move(requestedType),
           stripe,
+          streamLabels,
           RleDecoderFactory<DataT>::get(),
           std::move(flatMapContext));
     case TypeKind::INTEGER:
@@ -2087,6 +2143,7 @@ std::unique_ptr<ColumnReader> buildByteRleColumnReader(
           nodeType,
           std::move(requestedType),
           stripe,
+          streamLabels,
           RleDecoderFactory<DataT>::get(),
           std::move(flatMapContext));
     case TypeKind::BIGINT:
@@ -2094,6 +2151,7 @@ std::unique_ptr<ColumnReader> buildByteRleColumnReader(
           nodeType,
           std::move(requestedType),
           stripe,
+          streamLabels,
           RleDecoderFactory<DataT>::get(),
           std::move(flatMapContext));
     default:
@@ -2108,19 +2166,35 @@ std::unique_ptr<ColumnReader> buildTypedIntegerColumnReader(
     TypePtr requestedType,
     FlatMapContext flatMapContext,
     StripeStreams& stripe,
+    const StreamLabels& streamLabels,
     uint32_t numBytes) {
   // The assumption here is that most downcasting cases won't ever be reached,
   // and would be caught in build method earlier.
   switch (requestedType->kind()) {
     case TypeKind::INTEGER:
       return std::make_unique<IntegerColumnReaderT<int32_t>>(
-          nodeType, requestedType, stripe, numBytes, std::move(flatMapContext));
+          nodeType,
+          requestedType,
+          stripe,
+          streamLabels,
+          numBytes,
+          std::move(flatMapContext));
     case TypeKind::BIGINT:
       return std::make_unique<IntegerColumnReaderT<int64_t>>(
-          nodeType, requestedType, stripe, numBytes, std::move(flatMapContext));
+          nodeType,
+          requestedType,
+          stripe,
+          streamLabels,
+          numBytes,
+          std::move(flatMapContext));
     case TypeKind::SMALLINT:
       return std::make_unique<IntegerColumnReaderT<int16_t>>(
-          nodeType, requestedType, stripe, numBytes, std::move(flatMapContext));
+          nodeType,
+          requestedType,
+          stripe,
+          streamLabels,
+          numBytes,
+          std::move(flatMapContext));
     default:
       DWIO_RAISE(fmt::format(
           "Unsupported requested integral type: {}",
@@ -2133,17 +2207,28 @@ std::unique_ptr<ColumnReader> buildIntegerReader(
     TypePtr requestedType,
     uint32_t numBytes,
     FlatMapContext flatMapContext,
-    StripeStreams& stripe) {
+    StripeStreams& stripe,
+    const StreamLabels& streamLabels) {
   EncodingKey ek{nodeType->id, flatMapContext.sequence};
   switch (static_cast<int64_t>(stripe.getEncoding(ek).kind())) {
     case proto::ColumnEncoding_Kind_DICTIONARY:
     case proto::ColumnEncoding_Kind_DICTIONARY_V2:
       return buildTypedIntegerColumnReader<IntegerDictionaryColumnReader>(
-          nodeType, requestedType, std::move(flatMapContext), stripe, numBytes);
+          nodeType,
+          requestedType,
+          std::move(flatMapContext),
+          stripe,
+          streamLabels,
+          numBytes);
     case proto::ColumnEncoding_Kind_DIRECT:
     case proto::ColumnEncoding_Kind_DIRECT_V2:
       return buildTypedIntegerColumnReader<IntegerDirectColumnReader>(
-          nodeType, requestedType, std::move(flatMapContext), stripe, numBytes);
+          nodeType,
+          requestedType,
+          std::move(flatMapContext),
+          stripe,
+          streamLabels,
+          numBytes);
     default:
       DWIO_RAISE("buildReader unhandled string encoding");
   }
@@ -2153,6 +2238,7 @@ std::unique_ptr<ColumnReader> ColumnReader::build(
     const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
     StripeStreams& stripe,
+    const StreamLabels& streamLabels,
     FlatMapContext flatMapContext) {
   dwio::common::typeutils::checkTypeCompatibility(
       *dataType->type, *requestedType->type);
@@ -2164,74 +2250,114 @@ std::unique_ptr<ColumnReader> ColumnReader::build(
           requestedType->type,
           dwio::common::INT_BYTE_SIZE,
           std::move(flatMapContext),
-          stripe);
+          stripe,
+          streamLabels);
     case TypeKind::BIGINT:
       return buildIntegerReader(
           dataType,
           requestedType->type,
           dwio::common::LONG_BYTE_SIZE,
           std::move(flatMapContext),
-          stripe);
+          stripe,
+          streamLabels);
     case TypeKind::SMALLINT:
       return buildIntegerReader(
           dataType,
           requestedType->type,
           dwio::common::SHORT_BYTE_SIZE,
           std::move(flatMapContext),
-          stripe);
+          stripe,
+          streamLabels);
     case TypeKind::VARBINARY:
     case TypeKind::VARCHAR:
       switch (static_cast<int64_t>(stripe.getEncoding(ek).kind())) {
         case proto::ColumnEncoding_Kind_DICTIONARY:
         case proto::ColumnEncoding_Kind_DICTIONARY_V2:
           return std::make_unique<StringDictionaryColumnReader>(
-              dataType, stripe, std::move(flatMapContext));
+              dataType, stripe, streamLabels, std::move(flatMapContext));
         case proto::ColumnEncoding_Kind_DIRECT:
         case proto::ColumnEncoding_Kind_DIRECT_V2:
           return std::make_unique<StringDirectColumnReader>(
-              dataType, stripe, std::move(flatMapContext));
+              dataType, stripe, streamLabels, std::move(flatMapContext));
         default:
           DWIO_RAISE("buildReader unhandled string encoding");
       }
     case TypeKind::BOOLEAN:
       return buildByteRleColumnReader<bool>(
-          dataType, requestedType->type, stripe, std::move(flatMapContext));
+          dataType,
+          requestedType->type,
+          stripe,
+          streamLabels,
+          std::move(flatMapContext));
     case TypeKind::TINYINT:
       return buildByteRleColumnReader<int8_t>(
-          dataType, requestedType->type, stripe, std::move(flatMapContext));
+          dataType,
+          requestedType->type,
+          stripe,
+          streamLabels,
+          std::move(flatMapContext));
     case TypeKind::ARRAY:
       return std::make_unique<ListColumnReader>(
-          requestedType, dataType, stripe, std::move(flatMapContext));
+          requestedType,
+          dataType,
+          stripe,
+          streamLabels,
+          std::move(flatMapContext));
     case TypeKind::MAP:
       if (stripe.getEncoding(ek).kind() ==
           proto::ColumnEncoding_Kind_MAP_FLAT) {
         return FlatMapColumnReaderFactory::create(
-            requestedType, dataType, stripe, std::move(flatMapContext));
+            requestedType,
+            dataType,
+            stripe,
+            streamLabels,
+            std::move(flatMapContext));
       }
       return std::make_unique<MapColumnReader>(
-          requestedType, dataType, stripe, std::move(flatMapContext));
+          requestedType,
+          dataType,
+          stripe,
+          streamLabels,
+          std::move(flatMapContext));
     case TypeKind::ROW:
       return std::make_unique<StructColumnReader>(
-          requestedType, dataType, stripe, std::move(flatMapContext));
+          requestedType,
+          dataType,
+          stripe,
+          streamLabels,
+          std::move(flatMapContext));
     case TypeKind::REAL:
       if (requestedType->type->kind() == TypeKind::REAL) {
         return std::make_unique<FloatingPointColumnReader<float, float>>(
-            dataType, requestedType->type, stripe, std::move(flatMapContext));
+            dataType,
+            requestedType->type,
+            stripe,
+            streamLabels,
+            std::move(flatMapContext));
       } else {
         return std::make_unique<FloatingPointColumnReader<float, double>>(
-            dataType, requestedType->type, stripe, std::move(flatMapContext));
+            dataType,
+            requestedType->type,
+            stripe,
+            streamLabels,
+            std::move(flatMapContext));
       }
     case TypeKind::DOUBLE:
       return std::make_unique<FloatingPointColumnReader<double, double>>(
-          dataType, requestedType->type, stripe, std::move(flatMapContext));
+          dataType,
+          requestedType->type,
+          stripe,
+          streamLabels,
+          std::move(flatMapContext));
     case TypeKind::TIMESTAMP:
       return std::make_unique<TimestampColumnReader>(
-          dataType, stripe, std::move(flatMapContext));
+          dataType, stripe, streamLabels, std::move(flatMapContext));
     case TypeKind::DATE:
       return std::make_unique<IntegerDirectColumnReader<Date>>(
           dataType,
           requestedType->type,
           stripe,
+          streamLabels,
           dwio::common::INT_BYTE_SIZE,
           std::move(flatMapContext));
     default:
