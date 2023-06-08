@@ -25,37 +25,62 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import javax.annotation.concurrent.Immutable;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticAggregations
 {
+    // Added to preserve the order for serializing and deserializing
+    // map in c++ worker doesn't represent insertion order
+    private final List<VariableAggregation> aggregationList;
     private final Map<VariableReferenceExpression, Aggregation> aggregations;
     private final List<VariableReferenceExpression> groupingVariables;
 
     @JsonCreator
     public StatisticAggregations(
-            @JsonProperty("aggregations") Map<VariableReferenceExpression, Aggregation> aggregations,
+            @JsonProperty("aggregationList") List<VariableAggregation> aggregationList,
             @JsonProperty("groupingVariables") List<VariableReferenceExpression> groupingVariables)
+    {
+        this.aggregationList = ImmutableList.copyOf(requireNonNull(aggregationList, "aggregationList is null"));
+        this.groupingVariables = ImmutableList.copyOf(requireNonNull(groupingVariables, "groupingVariables is null"));
+        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregationMapBuilder = ImmutableMap.builder();
+        for (VariableAggregation aggregation : aggregationList) {
+            aggregationMapBuilder.put(aggregation.variableReferenceExpression, aggregation.aggregation);
+        }
+        aggregations = aggregationMapBuilder.build();
+    }
+
+    public StatisticAggregations(
+            Map<VariableReferenceExpression, Aggregation> aggregations,
+            List<VariableReferenceExpression> groupingVariables)
     {
         this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
         this.groupingVariables = ImmutableList.copyOf(requireNonNull(groupingVariables, "groupingVariables is null"));
+        this.aggregationList = aggregations.entrySet().stream().map(aggregation -> new VariableAggregation(aggregation.getKey(), aggregation.getValue())).collect(Collectors.toList());
     }
 
     @JsonProperty
-    public Map<VariableReferenceExpression, Aggregation> getAggregations()
+    public List<VariableAggregation> getAggregationList()
     {
-        return aggregations;
+        return aggregationList;
     }
 
     @JsonProperty
     public List<VariableReferenceExpression> getGroupingVariables()
     {
         return groupingVariables;
+    }
+
+    public Map<VariableReferenceExpression, Aggregation> getAggregations()
+    {
+        return aggregations;
     }
 
     public Parts splitIntoPartialAndFinal(VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
@@ -145,6 +170,34 @@ public class StatisticAggregations
         public StatisticAggregations getPartialAggregation()
         {
             return partialAggregation;
+        }
+    }
+
+    @Immutable
+    public static class VariableAggregation
+    {
+        private final VariableReferenceExpression variableReferenceExpression;
+        private final Aggregation aggregation;
+
+        @JsonCreator
+        public VariableAggregation(
+                @JsonProperty("variableReferenceExpression") VariableReferenceExpression variableReferenceExpression,
+                @JsonProperty("aggregation") Aggregation aggregation)
+        {
+            this.variableReferenceExpression = requireNonNull(variableReferenceExpression, "variableReferenceExpression is null");
+            this.aggregation = requireNonNull(aggregation, "aggregation is null");
+        }
+
+        @JsonProperty
+        public VariableReferenceExpression getVariableReferenceExpression()
+        {
+            return variableReferenceExpression;
+        }
+
+        @JsonProperty
+        public Aggregation getAggregation()
+        {
+            return aggregation;
         }
     }
 }
