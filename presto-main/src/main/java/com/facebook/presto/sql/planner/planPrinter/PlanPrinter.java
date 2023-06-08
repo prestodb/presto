@@ -78,7 +78,6 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
-import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -1221,15 +1220,6 @@ public class PlanPrinter
             addNode(node, "Lateral", format("[%s]", node.getCorrelation()));
 
             return processChildren(node, context);
-        }
-
-        @Override
-        public Void visitNativeExecution(NativeExecutionNode node, Void context)
-        {
-            // Do not add 'node' as it shares the ID with the root node of the sub-plan.
-            node.getSubPlan().accept(this, context);
-
-            return null;
         }
 
         @Override
