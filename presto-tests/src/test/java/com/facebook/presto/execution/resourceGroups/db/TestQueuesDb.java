@@ -59,8 +59,8 @@ import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.waitFor
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.waitForRunningQueryCount;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
+import static com.facebook.presto.spi.StandardErrorCode.MISSING_RESOURCE_GROUP_SELECTOR;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -206,7 +206,7 @@ public class TestQueuesDb
         QueryId queryId = createQuery(queryRunner, rejectingSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, queryId, FAILED);
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
-        assertEquals(dispatchManager.getQueryInfo(queryId).getErrorCode(), QUERY_REJECTED.toErrorCode());
+        assertEquals(dispatchManager.getQueryInfo(queryId).getErrorCode(), MISSING_RESOURCE_GROUP_SELECTOR.toErrorCode());
         int selectorCount = getSelectors(queryRunner).size();
         dao.insertSelector(4, 100_000, "user.*", "(?i).*reject.*", null, null, null, null);
         reloadingConfigurationManager.load();
