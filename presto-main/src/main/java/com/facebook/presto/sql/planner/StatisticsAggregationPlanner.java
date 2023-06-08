@@ -73,7 +73,7 @@ public class StatisticsAggregationPlanner
             descriptor.addGrouping(groupingColumns.get(i), groupingVariables.get(i));
         }
 
-        ImmutableMap.Builder<VariableReferenceExpression, AggregationNode.Aggregation> aggregations = ImmutableMap.builder();
+        ImmutableList.Builder<StatisticAggregations.VariableAggregation> aggregations = ImmutableList.builder();
         StandardFunctionResolution functionResolution = new FunctionResolution(functionAndTypeResolver);
         for (TableStatisticType type : statisticsMetadata.getTableStatistics()) {
             if (type != ROW_COUNT) {
@@ -90,7 +90,7 @@ public class StatisticsAggregationPlanner
                     false,
                     Optional.empty());
             VariableReferenceExpression variable = variableAllocator.newVariable("rowCount", BIGINT);
-            aggregations.put(variable, aggregation);
+            aggregations.add(new StatisticAggregations.VariableAggregation(variable, aggregation));
             descriptor.addTableStatistic(ROW_COUNT, variable);
         }
 
@@ -101,7 +101,7 @@ public class StatisticsAggregationPlanner
             verify(inputVariable != null, "inputVariable is null");
             ColumnStatisticsAggregation aggregation = createColumnAggregation(statisticType, inputVariable);
             VariableReferenceExpression variable = variableAllocator.newVariable(statisticType + ":" + columnName, aggregation.getOutputType());
-            aggregations.put(variable, aggregation.getAggregation());
+            aggregations.add(new StatisticAggregations.VariableAggregation(variable, aggregation.getAggregation()));
             descriptor.addColumnStatistic(columnStatisticMetadata, variable);
         }
 

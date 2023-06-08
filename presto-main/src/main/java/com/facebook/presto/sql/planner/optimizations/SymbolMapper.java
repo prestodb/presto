@@ -302,9 +302,11 @@ public class SymbolMapper
 
     private StatisticAggregations map(StatisticAggregations statisticAggregations)
     {
-        Map<VariableReferenceExpression, Aggregation> aggregations = statisticAggregations.getAggregations().entrySet().stream()
-                .collect(toImmutableMap(entry -> map(entry.getKey()), entry -> map(entry.getValue())));
-        return new StatisticAggregations(aggregations, mapAndDistinctVariable(statisticAggregations.getGroupingVariables()));
+        ImmutableList.Builder<StatisticAggregations.VariableAggregation> aggregations = ImmutableList.builder();
+        for (StatisticAggregations.VariableAggregation aggregation : statisticAggregations.getAggregationList()) {
+            aggregations.add(new StatisticAggregations.VariableAggregation(map(aggregation.getVariableReferenceExpression()), map(aggregation.getAggregation())));
+        }
+        return new StatisticAggregations(aggregations.build(), mapAndDistinctVariable(statisticAggregations.getGroupingVariables()));
     }
 
     private StatisticAggregationsDescriptor<VariableReferenceExpression> map(StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor)

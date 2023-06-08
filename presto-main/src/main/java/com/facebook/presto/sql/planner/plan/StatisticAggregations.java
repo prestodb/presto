@@ -25,6 +25,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import javax.annotation.concurrent.Immutable;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -35,27 +37,38 @@ import static java.util.Objects.requireNonNull;
 public class StatisticAggregations
 {
     private final Map<VariableReferenceExpression, Aggregation> aggregations;
+    private final List<VariableAggregation> aggregationList;
     private final List<VariableReferenceExpression> groupingVariables;
 
     @JsonCreator
     public StatisticAggregations(
-            @JsonProperty("aggregations") Map<VariableReferenceExpression, Aggregation> aggregations,
+            @JsonProperty("aggregationList") List<VariableAggregation> aggregationList,
             @JsonProperty("groupingVariables") List<VariableReferenceExpression> groupingVariables)
     {
-        this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
+        this.aggregationList = ImmutableList.copyOf(requireNonNull(aggregationList, "aggregationList is null"));
         this.groupingVariables = ImmutableList.copyOf(requireNonNull(groupingVariables, "groupingVariables is null"));
+        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregationMapBuilder = ImmutableMap.builder();
+        for (VariableAggregation aggregation : aggregationList) {
+            aggregationMapBuilder.put(aggregation.variableReferenceExpression, aggregation.aggregation);
+        }
+        aggregations = aggregationMapBuilder.build();
     }
 
     @JsonProperty
-    public Map<VariableReferenceExpression, Aggregation> getAggregations()
+    public List<VariableAggregation> getAggregationList()
     {
-        return aggregations;
+        return aggregationList;
     }
 
     @JsonProperty
     public List<VariableReferenceExpression> getGroupingVariables()
     {
         return groupingVariables;
+    }
+
+    public Map<VariableReferenceExpression, Aggregation> getAggregations()
+    {
+        return aggregations;
     }
 
     public Parts splitIntoPartialAndFinal(VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
@@ -70,16 +83,19 @@ public class StatisticAggregations
 
     private Parts split(VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager, boolean intermediate)
     {
-        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> finalOrIntermediateAggregations = ImmutableMap.builder();
-        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> partialAggregations = ImmutableMap.builder();
-        for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
-            Aggregation originalAggregation = entry.getValue();
+        ImmutableList.Builder<VariableAggregation> finalOrIntermediateAggregations = ImmutableList.builder();
+        ImmutableList.Builder<VariableAggregation> partialAggregations = ImmutableList.builder();
+        for (VariableAggregation entry : aggregationList) {
+            Aggregation originalAggregation = entry.getAggregation();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
             AggregationFunctionImplementation function = functionAndTypeManager.getAggregateFunctionImplementation(functionHandle);
 
             // create partial aggregation
-            VariableReferenceExpression partialVariable = variableAllocator.newVariable(entry.getValue().getCall().getSourceLocation(), functionAndTypeManager.getFunctionMetadata(functionHandle).getName().getObjectName(), function.getIntermediateType());
-            partialAggregations.put(partialVariable, new Aggregation(
+            VariableReferenceExpression partialVariable = variableAllocator.newVariable(
+                    entry.getAggregation().getCall().getSourceLocation(),
+                    functionAndTypeManager.getFunctionMetadata(functionHandle).getName().getObjectName(),
+                    function.getIntermediateType());
+            partialAggregations.add(new VariableAggregation(partialVariable, new Aggregation(
                     new CallExpression(
                             originalAggregation.getCall().getSourceLocation(),
                             originalAggregation.getCall().getDisplayName(),
@@ -89,10 +105,10 @@ public class StatisticAggregations
                     originalAggregation.getFilter(),
                     originalAggregation.getOrderBy(),
                     originalAggregation.isDistinct(),
-                    originalAggregation.getMask()));
+                    originalAggregation.getMask())));
 
             // create final aggregation
-            finalOrIntermediateAggregations.put(entry.getKey(),
+            finalOrIntermediateAggregations.add(new VariableAggregation(entry.getVariableReferenceExpression(),
                     new Aggregation(
                             new CallExpression(
                                     originalAggregation.getCall().getSourceLocation(),
@@ -103,7 +119,7 @@ public class StatisticAggregations
                             Optional.empty(),
                             Optional.empty(),
                             false,
-                            Optional.empty()));
+                            Optional.empty())));
         }
 
         StatisticAggregations finalOrIntermediateAggregation = new StatisticAggregations(finalOrIntermediateAggregations.build(), groupingVariables);
@@ -145,6 +161,34 @@ public class StatisticAggregations
         public StatisticAggregations getPartialAggregation()
         {
             return partialAggregation;
+        }
+    }
+
+    @Immutable
+    public static class VariableAggregation
+    {
+        private final VariableReferenceExpression variableReferenceExpression;
+        private final Aggregation aggregation;
+
+        @JsonCreator
+        public VariableAggregation(
+                @JsonProperty("variableReferenceExpression") VariableReferenceExpression variableReferenceExpression,
+                @JsonProperty("aggregation") Aggregation aggregation)
+        {
+            this.variableReferenceExpression = requireNonNull(variableReferenceExpression, "variableReferenceExpression is null");
+            this.aggregation = requireNonNull(aggregation, "aggregation is null");
+        }
+
+        @JsonProperty
+        public VariableReferenceExpression getVariableReferenceExpression()
+        {
+            return variableReferenceExpression;
+        }
+
+        @JsonProperty
+        public Aggregation getAggregation()
+        {
+            return aggregation;
         }
     }
 }

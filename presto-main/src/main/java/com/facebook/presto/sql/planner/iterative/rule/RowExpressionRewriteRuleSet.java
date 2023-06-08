@@ -520,12 +520,12 @@ public class RowExpressionRewriteRuleSet
 
     private Optional<StatisticAggregations> translateStatisticAggregation(StatisticAggregations statisticAggregations, Rule.Context context)
     {
-        ImmutableMap.Builder<VariableReferenceExpression, AggregationNode.Aggregation> rewrittenAggregation = builder();
+        ImmutableList.Builder<StatisticAggregations.VariableAggregation> rewrittenAggregation = ImmutableList.builder();
         boolean changed = false;
-        for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> entry : statisticAggregations.getAggregations().entrySet()) {
-            AggregationNode.Aggregation rewritten = rewriteAggregation(entry.getValue(), context);
-            rewrittenAggregation.put(entry.getKey(), rewritten);
-            if (!rewritten.equals(entry.getValue())) {
+        for (StatisticAggregations.VariableAggregation entry : statisticAggregations.getAggregationList()) {
+            AggregationNode.Aggregation rewritten = rewriteAggregation(entry.getAggregation(), context);
+            rewrittenAggregation.add(new StatisticAggregations.VariableAggregation(entry.getVariableReferenceExpression(), rewritten));
+            if (!rewritten.equals(entry.getAggregation())) {
                 changed = true;
             }
         }

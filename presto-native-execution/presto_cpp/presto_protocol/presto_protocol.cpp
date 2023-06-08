@@ -2132,6 +2132,43 @@ void from_json(const json& j, VariableReferenceExpression& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+void to_json(json& j, const VariableAggregation& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "variableReferenceExpression",
+      p.variableReferenceExpression,
+      "VariableAggregation",
+      "VariableReferenceExpression",
+      "variableReferenceExpression");
+  to_json_key(
+      j,
+      "aggregation",
+      p.aggregation,
+      "VariableAggregation",
+      "Aggregation",
+      "aggregation");
+
+}
+
+void from_json(const json& j, VariableAggregation& p) {
+  from_json_key(
+      j,
+      "variableReferenceExpression",
+      p.variableReferenceExpression,
+      "VariableAggregation",
+      "VariableReferenceExpression",
+      "variableReferenceExpression");
+  from_json_key(
+      j,
+      "aggregation",
+      p.aggregation,
+      "VariableAggregation",
+      "Aggregation",
+      "aggregation");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 // Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
@@ -9331,11 +9368,11 @@ void to_json(json& j, const StatisticAggregations& p) {
   j = json::object();
   to_json_key(
       j,
-      "aggregations",
+      "aggregationList",
       p.aggregations,
       "StatisticAggregations",
-      "Map<VariableReferenceExpression, Aggregation>",
-      "aggregations");
+      "std::vector<VariableAggregation>",
+      "aggregationList");
   to_json_key(
       j,
       "groupingVariables",
@@ -9348,11 +9385,11 @@ void to_json(json& j, const StatisticAggregations& p) {
 void from_json(const json& j, StatisticAggregations& p) {
   from_json_key(
       j,
-      "aggregations",
+      "aggregationList",
       p.aggregations,
       "StatisticAggregations",
-      "Map<VariableReferenceExpression, Aggregation>",
-      "aggregations");
+      "std::vector<VariableAggregation>",
+      "aggregationList");
   from_json_key(
       j,
       "groupingVariables",

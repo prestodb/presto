@@ -2071,6 +2071,15 @@ void to_json(json& j, const Aggregation& p);
 void from_json(const json& j, Aggregation& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct VariableAggregation {
+  VariableReferenceExpression variableReferenceExpression = {};
+  Aggregation aggregation = {};
+};
+void to_json(json& j, const VariableAggregation& p);
+void from_json(const json& j, VariableAggregation& p);
+
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 enum class ColumnType { PARTITION_KEY, REGULAR, SYNTHESIZED, AGGREGATED };
 extern void to_json(json& j, const ColumnType& e);
 extern void from_json(const json& j, ColumnType& e);
@@ -2293,7 +2302,7 @@ void from_json(const json& j, TopNNode& p);
  */
 namespace facebook::presto::protocol {
 struct StatisticAggregations {
-  Map<VariableReferenceExpression, Aggregation> aggregations = {};
+  std::vector<VariableAggregation> aggregations = {};
   std::vector<VariableReferenceExpression> groupingVariables = {};
 };
 void to_json(json& j, const StatisticAggregations& p);

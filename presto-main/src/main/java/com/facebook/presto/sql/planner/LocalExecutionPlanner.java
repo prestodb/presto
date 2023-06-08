@@ -2698,7 +2698,7 @@ public class LocalExecutionPlanner
                     return createAggregationOperatorFactory(
                             node.getId(),
                             aggregation.getAggregations(),
-                            PARTIAL,
+                            PARTIAL, // partial for column agg
                             STATS_START_CHANNEL,
                             outputMapping,
                             source,
