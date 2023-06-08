@@ -85,6 +85,20 @@ target_link_libraries(
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
 
+add_executable(velox_dwio_dwrf_stream_labels_test StreamLabelsTests.cpp)
+add_test(velox_dwio_dwrf_stream_labels_test velox_dwio_dwrf_stream_labels_test)
+
+target_link_libraries(
+  velox_dwio_dwrf_stream_labels_test
+  velox_link_libs
+  Folly::folly
+  fmt::fmt
+  lz4::lz4
+  lzo2::lzo2
+  zstd::zstd
+  ZLIB::ZLIB
+  ${TEST_LINK_LIBS})
+
 add_executable(velox_dwio_dwrf_stripe_dictionary_cache_test
                TestStripeDictionaryCache.cpp)
 add_test(velox_dwio_dwrf_stripe_dictionary_cache_test
