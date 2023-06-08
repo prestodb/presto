@@ -49,7 +49,6 @@ import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -326,13 +325,6 @@ public final class GraphvizPrinter
         {
             printNode(node, format("MarkDistinct[%s]", node.getMarkerVariable()), format("%s => %s", node.getDistinctVariables(), node.getMarkerVariable()), NODE_COLORS.get(NodeType.MARK_DISTINCT));
             return node.getSource().accept(this, context);
-        }
-
-        @Override
-        public Void visitNativeExecution(NativeExecutionNode node, Void context)
-        {
-            printNode(node, "NativeExecution", NODE_COLORS.get(NodeType.NATIVE_EXECUTION));
-            return null;
         }
 
         @Override
