@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.planPrinter;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.HashCollisionsInfo;
-import com.facebook.presto.operator.NativeExecutionInfo;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PipelineStats;
 import com.facebook.presto.operator.TaskStats;
@@ -142,12 +141,6 @@ public class PlanNodeStatsSummarizer
                 if (operatorStats.getInfo() instanceof WindowInfo) {
                     WindowInfo windowInfo = (WindowInfo) operatorStats.getInfo();
                     windowNodeStats.merge(planNodeId, WindowOperatorStats.create(windowInfo), (left, right) -> left.mergeWith(right));
-                }
-
-                if (operatorStats.getInfo() instanceof NativeExecutionInfo) {
-                    NativeExecutionInfo info = (NativeExecutionInfo) operatorStats.getInfo();
-                    nativeTaskStats.addAll(info.getTaskStats());
-                    nativePlanNodeIds.add(planNodeId);
                 }
 
                 planNodeInputPositions.merge(planNodeId, operatorStats.getInputPositions(), Long::sum);
