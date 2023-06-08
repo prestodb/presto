@@ -57,13 +57,6 @@ void FieldReference::evalSpecialForm(
     VELOX_CHECK(rowType);
     index_ = rowType->getChildIdx(field_);
   }
-  // If we refer to a column of the context row, this may have been
-  // peeled due to peeling off encoding, hence access it via
-  // 'context'.  Check if the child is unique before taking the second
-  // reference. Unique constant vectors can be resized in place, non-unique
-  // must be copied to set the size.
-  bool isUniqueChild = inputs_.empty() ? context.getField(index_).unique()
-                                       : row->childAt(index_).unique();
   VectorPtr child =
       inputs_.empty() ? context.getField(index_) : row->childAt(index_);
   if (result.get()) {
@@ -75,14 +68,9 @@ void FieldReference::evalSpecialForm(
     }
     // The caller relies on vectors having a meaningful size. If we
     // have a constant that is not wrapped in anything we set its size
-    // to correspond to rows.end(). This is in place for unique ones
-    // and a copy otherwise.
+    // to correspond to rows.end().
     if (!useDecode && child->isConstantEncoding()) {
-      if (isUniqueChild) {
-        child->resize(rows.end());
-      } else {
-        child = BaseVector::wrapInConstant(rows.end(), 0, child);
-      }
+      child = BaseVector::wrapInConstant(rows.end(), 0, child);
     }
     result = useDecode ? std::move(decoded.wrap(child, *input, rows.end()))
                        : std::move(child);

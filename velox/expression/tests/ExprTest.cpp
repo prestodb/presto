@@ -3950,3 +3950,13 @@ TEST_F(ExprTest, noSelectedRows) {
         "c0 + c1", input, result, expected);
   }
 }
+
+TEST_F(ExprTest, multiplyReferencedConstantField) {
+  auto data = makeRowVector(
+      {makeFlatVector<bool>({true, false, true, false}),
+       makeConstantArray<int64_t>(4, {1, 2, 3})});
+
+  auto result = evaluate("if(c0, c1, c1)", data);
+  auto expected = makeConstantArray<int64_t>(4, {1, 2, 3});
+  assertEqualVectors(expected, result);
+}
