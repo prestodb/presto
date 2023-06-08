@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/dwrf/reader/SelectiveStructColumnReader.h"
+#include "folly/Conv.h"
 #include "velox/dwio/common/ColumnLoader.h"
 #include "velox/dwio/dwrf/reader/SelectiveDwrfReader.h"
 
@@ -53,9 +54,10 @@ SelectiveStructColumnReader::SelectiveStructColumnReader(
     auto childDataType = nodeType_->childByName(childSpec->fieldName());
     auto childRequestedType =
         requestedType_->childByName(childSpec->fieldName());
+    auto labels = params.streamLabels().append(folly::to<std::string>(i));
     auto childParams = DwrfParams(
         stripe,
-        params.streamLabels(),
+        labels,
         FlatMapContext{
             .sequence = encodingKey.sequence,
             .inMapDecoder = nullptr,

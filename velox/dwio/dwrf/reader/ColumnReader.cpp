@@ -27,6 +27,7 @@
 #include "velox/vector/DictionaryVector.h"
 #include "velox/vector/FlatVector.h"
 
+#include <folly/Conv.h>
 #include <folly/Likely.h>
 #include <folly/Portability.h>
 #include <folly/String.h>
@@ -1659,7 +1660,7 @@ StructColumnReader::StructColumnReader(
             child,
             nodeType_->childAt(i),
             stripe,
-            streamLabels,
+            streamLabels.append(folly::to<std::string>(i)),
             makeCopyWithNullDecoder(flatMapContext_)));
       } else {
         children_.push_back(

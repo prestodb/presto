@@ -15,7 +15,9 @@
  */
 
 #include "velox/dwio/dwrf/reader/FlatMapColumnReader.h"
+#include <folly/Conv.h>
 #include <folly/json.h>
+
 #include "velox/common/base/BitUtil.h"
 #include "velox/dwio/common/FlatMapHelper.h"
 
@@ -148,6 +150,7 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesFiltered(
         }
 
         // fetch reader, in map bitmap and key object.
+        auto labels = streamLabels.append(folly::to<std::string>(key.get()));
         auto inMap =
             stripe.getStream(seqEk.forKind(proto::Stream_Kind_IN_MAP), true);
         DWIO_ENSURE_NOT_NULL(inMap, "In map stream is required");
@@ -158,7 +161,7 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesFiltered(
             requestedValueType,
             dataValueType,
             stripe,
-            streamLabels,
+            labels,
             FlatMapContext{
                 .sequence = sequence,
                 .inMapDecoder = inMapDecoder.get(),
