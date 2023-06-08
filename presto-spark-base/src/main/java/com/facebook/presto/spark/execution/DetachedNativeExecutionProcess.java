@@ -20,6 +20,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
+import com.facebook.presto.sql.planner.PlanFragment;
 import io.airlift.units.Duration;
 
 import java.io.IOException;
@@ -45,6 +46,8 @@ public class DetachedNativeExecutionProcess
             HttpClient httpClient,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
+            JsonCodec<BatchPlanValidationRequest> planValidationRequestJsonCodec,
+            JsonCodec<PlanFragment> planFragmentJsonCodec,
             Duration maxErrorDuration,
             TaskManagerConfig taskManagerConfig,
             WorkerProperty<?, ?, ?, ?> workerProperty) throws IOException
@@ -54,6 +57,8 @@ public class DetachedNativeExecutionProcess
                 httpClient,
                 errorRetryScheduledExecutor,
                 serverInfoCodec,
+                planValidationRequestJsonCodec,
+                planFragmentJsonCodec,
                 maxErrorDuration,
                 taskManagerConfig,
                 workerProperty);
@@ -79,5 +84,11 @@ public class DetachedNativeExecutionProcess
     {
         String configuredPort = requireNonNull(System.getProperty("NATIVE_PORT"), "NATIVE_PORT not set for interactive debugging");
         return Integer.valueOf(configuredPort);
+    }
+
+    @Override
+    public boolean isAlive()
+    {
+        return true;
     }
 }

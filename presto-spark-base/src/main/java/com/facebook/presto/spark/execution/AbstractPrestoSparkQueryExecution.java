@@ -71,6 +71,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.page.PagesSerde;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.storage.StorageCapabilities;
 import com.facebook.presto.spi.storage.TempDataOperationContext;
@@ -104,6 +105,8 @@ import scala.Tuple2;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -113,6 +116,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
@@ -165,6 +169,7 @@ public abstract class AbstractPrestoSparkQueryExecution
         implements IPrestoSparkQueryExecution
 {
     private static final Logger log = Logger.get(AbstractPrestoSparkQueryExecution.class);
+    private static final String NATIVE_EXECUTION_SERVER_URI = "http://127.0.0.1";
 
     protected final Session session;
     protected final QueryMonitor queryMonitor;
@@ -203,6 +208,7 @@ public abstract class AbstractPrestoSparkQueryExecution
     protected final PrestoSparkPlanFragmenter planFragmenter;
     protected final PartitioningProviderManager partitioningProviderManager;
     protected final HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker;
+    protected final NativeExecutionProcessFactory nativeExecutionProcessFactory;
     private AtomicReference<SubPlan> finalFragmentedPlan = new AtomicReference<>();
     @GuardedBy("this")
     private final Map<PlanFragmentId, RddAndMore> fragmentIdToRdd = new HashMap<>();
@@ -244,7 +250,8 @@ public abstract class AbstractPrestoSparkQueryExecution
             Metadata metadata,
             PartitioningProviderManager partitioningProviderManager,
             HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker,
-            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector)
+            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector,
+            NativeExecutionProcessFactory nativeExecutionProcessFactory)
     {
         this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
         this.session = requireNonNull(session, "session is null");
@@ -283,6 +290,7 @@ public abstract class AbstractPrestoSparkQueryExecution
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         this.historyBasedPlanStatisticsTracker = requireNonNull(historyBasedPlanStatisticsTracker, "historyBasedPlanStatisticsTracker is null");
         this.bootstrapMetricsCollector = requireNonNull(bootstrapMetricsCollector, "bootstrapTimeCollector is null");
+        this.nativeExecutionProcessFactory = requireNonNull(nativeExecutionProcessFactory, "nativeExecutionProcessFactory is null");
     }
 
     protected static JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> partitionBy(
@@ -838,6 +846,38 @@ public abstract class AbstractPrestoSparkQueryExecution
     protected Optional<RddAndMore> getRdd(PlanFragmentId planFragmentId)
     {
         return Optional.ofNullable(fragmentIdToRdd.get(planFragmentId));
+    }
+
+    protected void validatePlan(Session session, TableWriteInfo tableWriteInfo, SubPlan rootFragmentedPlan)
+    {
+        try {
+            NativeExecutionProcess process = nativeExecutionProcessFactory.getNativeExecutionProcess(session, URI.create(NATIVE_EXECUTION_SERVER_URI));
+            log.info("Starting native execution process for plan validation.");
+            process.start();
+            checkArgument(process.isAlive(), "native process is not alive.");
+            validatePlanInternal(session, tableWriteInfo, rootFragmentedPlan, process);
+            process.close();
+        }
+        catch (ExecutionException | InterruptedException | IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    protected void validatePlanInternal(Session session, TableWriteInfo tableWriteInfo, SubPlan rootFragmentedPlan, NativeExecutionProcess process)
+    {
+        PlanFragment rootPlan = rootFragmentedPlan.getFragment();
+        if (!isCoordinatorOnly(rootPlan)) {
+            process.isValidQueryPlan(session, rootPlan, Optional.of(tableWriteInfo));
+        }
+
+        for (SubPlan subPlan : rootFragmentedPlan.getChildren()) {
+            validatePlanInternal(session, tableWriteInfo, subPlan, process);
+        }
+    }
+
+    private boolean isCoordinatorOnly(PlanFragment plan)
+    {
+        return plan.getRoot() instanceof OutputNode;
     }
 
     // Returns output type of RDD for a subPlan

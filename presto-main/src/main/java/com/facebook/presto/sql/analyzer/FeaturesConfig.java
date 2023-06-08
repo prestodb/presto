@@ -246,6 +246,8 @@ public class FeaturesConfig
     private boolean pushRemoteExchangeThroughGroupId;
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
     private boolean nativeExecutionEnabled;
+    private boolean nativeExecutionValidationEnabled;
+    private boolean nativeExecutionEnforceValidationFailure = true;
     private String nativeExecutionExecutablePath = "./presto_server";
     private String nativeExecutionProgramArguments = "";
     private boolean nativeExecutionProcessReuseEnabled = true;
@@ -2374,6 +2376,32 @@ public class FeaturesConfig
     public boolean isNativeExecutionEnabled()
     {
         return this.nativeExecutionEnabled;
+    }
+
+    @Config("native-execution-validation-enabled")
+    @ConfigDescription("Enable native execution plan validation")
+    public FeaturesConfig setNativeExecutionValidationEnabled(boolean nativeExecutionValidationEnabled)
+    {
+        this.nativeExecutionValidationEnabled = nativeExecutionValidationEnabled;
+        return this;
+    }
+
+    public boolean isNativeExecutionValidationEnabled()
+    {
+        return this.nativeExecutionValidationEnabled;
+    }
+
+    @Config("native-execution-enforce-validation-failure")
+    @ConfigDescription("Fail the query if the native execution plan validation failed")
+    public FeaturesConfig setNativeExecutionEnforceValidationFailure(boolean nativeExecutionEnforceValidationFailure)
+    {
+        this.nativeExecutionEnforceValidationFailure = nativeExecutionEnforceValidationFailure;
+        return this;
+    }
+
+    public boolean isNativeExecutionEnforceValidationFailure()
+    {
+        return this.nativeExecutionEnforceValidationFailure;
     }
 
     @Config("native-execution-executable-path")

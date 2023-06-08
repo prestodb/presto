@@ -106,6 +106,7 @@ import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
+import com.facebook.presto.spark.execution.BatchPlanValidationRequest;
 import com.facebook.presto.spark.execution.BatchTaskUpdateRequest;
 import com.facebook.presto.spark.execution.PrestoSparkBroadcastTableCacheManager;
 import com.facebook.presto.spark.execution.PrestoSparkExecutionExceptionFactory;
@@ -281,6 +282,7 @@ public class PrestoSparkModule
         jsonCodecBinder(binder).bindJsonCodec(PrestoSparkLocalShuffleReadInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(PrestoSparkLocalShuffleWriteInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(BatchTaskUpdateRequest.class);
+        jsonCodecBinder(binder).bindJsonCodec(BatchPlanValidationRequest.class);
 
         // smile codecs
         smileCodecBinder(binder).bindSmileCodec(TaskSource.class);

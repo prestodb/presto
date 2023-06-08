@@ -14,17 +14,21 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.StringResponseHandler;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.server.RequestErrorTracker;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpServerClient;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
@@ -42,6 +46,7 @@ import java.net.URI;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -49,8 +54,10 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.http.client.HttpStatus.OK;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnforceValidationFailure;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_BINARY_NOT_EXIST;
+import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_PLAN_VALIDATION_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_TASK_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -64,6 +71,7 @@ public class NativeExecutionProcess
 {
     private static final Logger log = Logger.get(NativeExecutionProcess.class);
     private static final String NATIVE_EXECUTION_TASK_ERROR_MESSAGE = "Encountered too many errors talking to native process. The process may have crashed or be under too much load.";
+    private static final String NATIVE_EXECUTION_PLAN_VALIDATION_ERROR_MESSAGE = "Native execution plan validation failed";
     private static final String WORKER_CONFIG_FILE = "/config.properties";
     private static final String WORKER_NODE_CONFIG_FILE = "/node.properties";
     private static final String WORKER_VELOX_CONFIG_FILE = "/velox.properties";
@@ -78,6 +86,7 @@ public class NativeExecutionProcess
     private final RequestErrorTracker errorTracker;
     private final HttpClient httpClient;
     private final WorkerProperty<?, ?, ?, ?> workerProperty;
+    private final JsonCodec<PlanFragment> planFragmentJsonCodec;
 
     private Process process;
 
@@ -87,6 +96,8 @@ public class NativeExecutionProcess
             HttpClient httpClient,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
+            JsonCodec<BatchPlanValidationRequest> planValidationRequestJsonCodec,
+            JsonCodec<PlanFragment> planFragmentJsonCodec,
             Duration maxErrorDuration,
             TaskManagerConfig taskManagerConfig,
             WorkerProperty<?, ?, ?, ?> workerProperty)
@@ -99,7 +110,8 @@ public class NativeExecutionProcess
         this.serverClient = new PrestoSparkHttpServerClient(
                 this.httpClient,
                 location,
-                serverInfoCodec);
+                serverInfoCodec,
+                planValidationRequestJsonCodec);
         this.taskManagerConfig = requireNonNull(taskManagerConfig, "taskManagerConfig is null");
         this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.errorTracker = new RequestErrorTracker(
@@ -111,6 +123,7 @@ public class NativeExecutionProcess
                 errorRetryScheduledExecutor,
                 "getting native process status");
         this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
+        this.planFragmentJsonCodec = requireNonNull(planFragmentJsonCodec, "planFragmentJsonCodec is null");
     }
 
     /**
@@ -145,6 +158,22 @@ public class NativeExecutionProcess
         SettableFuture<ServerInfo> future = SettableFuture.create();
         doGetServerInfo(future);
         return future;
+    }
+
+    public boolean isValidQueryPlan(Session session, PlanFragment plan, Optional<TableWriteInfo> tableWriteInfo)
+    {
+        PlanFragment fragment = plan.getRoot() instanceof NativeExecutionNode ? plan.withSubPlan(((NativeExecutionNode) plan.getRoot()).getSubPlan()) : plan;
+        Optional<byte[]> planBytes = Optional.of(fragment.toBytes(planFragmentJsonCodec));
+        StringResponseHandler.StringResponse response = serverClient.validatePlan(new BatchPlanValidationRequest(session.toSessionRepresentation(), planBytes, tableWriteInfo));
+        if (response.getStatusCode() == OK.code()) {
+            return true;
+        }
+
+        if (isNativeExecutionEnforceValidationFailure(session)) {
+            throw new PrestoException(NATIVE_EXECUTION_PLAN_VALIDATION_ERROR, format("%s:%s", NATIVE_EXECUTION_PLAN_VALIDATION_ERROR_MESSAGE, response.getBody()));
+        }
+        log.error(response.getBody());
+        return false;
     }
 
     @Override
