@@ -67,5 +67,7 @@ public class PrestoSparkService
     public void close()
     {
         lifeCycleManager.stop();
+        prestoSparkNativeTaskExecutorFactory.close();
+        taskExecutorFactory.close();
     }
 }

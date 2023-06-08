@@ -260,6 +260,14 @@ public class PrestoSparkNativeTaskExecutorFactory
         return new PrestoSparkNativeTaskOutputIterator<>(task, outputType, taskInfoCollector, taskInfoCodec, executionExceptionFactory);
     }
 
+    @Override
+    public void close()
+    {
+        if (nativeExecutionProcess != null) {
+            nativeExecutionProcess.close();
+        }
+    }
+
     private static void completeTask(CollectionAccumulator<SerializedTaskInfo> taskInfoCollector, NativeExecutionTask task, Codec<TaskInfo> taskInfoCodec)
     {
         // stop the task

@@ -339,6 +339,9 @@ public class PrestoSparkTaskExecutorFactory
         }
     }
 
+    @Override
+    public void close() {}
+
     public <T extends PrestoSparkTaskOutput> IPrestoSparkTaskExecutor<T> doCreate(
             int partitionId,
             int attemptNumber,
