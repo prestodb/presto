@@ -28,7 +28,6 @@ workflows:
       - format-check
       - header-check
       - linux-parquet-S3-build
-      - native-specific-macos
 
 executors:
   build:
