@@ -22,7 +22,6 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Iterator;
@@ -94,13 +93,6 @@ public class PrestoSparkSourceStatsCollector
                 tableStatisticsBuilder.add(statistics);
             }
 
-            return null;
-        }
-
-        @Override
-        public Void visitNativeExecution(NativeExecutionNode node, Void context)
-        {
-            node.getSubPlan().accept(this, context);
             return null;
         }
 
