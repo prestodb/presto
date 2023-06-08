@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.stats.Distribution.DistributionSnapshot;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.operator.BlockedReason;
-import com.facebook.presto.operator.NativeExecutionInfo;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PipelineStats;
 import com.facebook.presto.operator.TaskStats;
@@ -131,21 +130,7 @@ public class StageExecutionInfo
             }
 
             TaskStats taskStats = taskInfo.getStats();
-
-            boolean isNativeTask = false;
-            for (PipelineStats pipeline : taskStats.getPipelines()) {
-                for (OperatorStats operatorStats : pipeline.getOperatorSummaries()) {
-                    if (operatorStats.getInfo() instanceof NativeExecutionInfo) {
-                        isNativeTask = true;
-                        allTaskStats.addAll(((NativeExecutionInfo) operatorStats.getInfo()).getTaskStats());
-                    }
-                }
-            }
-
-            // Prefer statistics from the native process.
-            if (!isNativeTask) {
-                allTaskStats.add(taskStats);
-            }
+            allTaskStats.add(taskStats);
 
             if (state == FINISHED && taskInfo.getTaskStatus().getState() == TaskState.FAILED) {
                 retriedCpuTime += taskStats.getTotalCpuTimeInNanos();
