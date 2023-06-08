@@ -110,6 +110,15 @@ bool hasConditionals(Expr* expr) {
 
   return false;
 }
+
+void checkOrSetEmptyResult(
+    const TypePtr& type,
+    memory::MemoryPool* pool,
+    VectorPtr& result) {
+  if (!result) {
+    result = BaseVector::createNullConstant(type, 0, pool);
+  }
+}
 } // namespace
 
 Expr::Expr(
@@ -396,8 +405,7 @@ void Expr::evalSimplified(
     EvalCtx& context,
     VectorPtr& result) {
   if (!rows.hasSelections()) {
-    // empty input, return an empty vector of the right type
-    result = BaseVector::createNullConstant(type(), 0, context.pool());
+    checkOrSetEmptyResult(type(), context.pool(), result);
     return;
   }
 
@@ -674,6 +682,11 @@ void Expr::evalFlatNoNullsImpl(
       {parentExprSet ? onTopLevelException : onException,
        parentExprSet ? (void*)&exprExceptionContext : this});
 
+  if (!rows.hasSelections()) {
+    checkOrSetEmptyResult(type(), context.pool(), result);
+    return;
+  }
+
   if (isSpecialForm()) {
     evalSpecialFormWithStats(rows, context, result);
     return;
@@ -722,8 +735,7 @@ void Expr::eval(
        parentExprSet ? (void*)&exprExceptionContext : this});
 
   if (!rows.hasSelections()) {
-    // empty input, return an empty vector of the right type
-    result = BaseVector::createNullConstant(type(), 0, context.pool());
+    checkOrSetEmptyResult(type(), context.pool(), result);
     return;
   }
 
@@ -1063,8 +1075,7 @@ void Expr::evalWithNulls(
     EvalCtx& context,
     VectorPtr& result) {
   if (!rows.hasSelections()) {
-    // empty input, return an empty vector of the right type
-    result = BaseVector::createNullConstant(type(), 0, context.pool());
+    checkOrSetEmptyResult(type(), context.pool(), result);
     return;
   }
 
@@ -1276,8 +1287,7 @@ void Expr::evalAll(
     EvalCtx& context,
     VectorPtr& result) {
   if (!rows.hasSelections()) {
-    // empty input, return an empty vector of the right type
-    result = BaseVector::createNullConstant(type(), 0, context.pool());
+    checkOrSetEmptyResult(type(), context.pool(), result);
     return;
   }
 

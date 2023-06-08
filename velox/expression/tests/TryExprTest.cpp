@@ -397,4 +397,39 @@ TEST_F(TryExprTest, branchingSpecialForm) {
   expected = makeNullableFlatVector<bool>({true, true, std::nullopt});
   assertEqualVectors(expected, result);
 }
+
+TEST_F(TryExprTest, earlyTerminationWithEmptyRows) {
+  registerFunction<TestingAlwaysThrowsFunction, bool, bool>({"always_throws"});
+  auto data = makeRowVector({
+      makeFlatVector<bool>({true, true, true}),
+      makeNullableFlatVector<bool>({true, true, std::nullopt}),
+      makeFlatVector<double>({1.1, 2.2, 3.3}),
+  });
+  auto expected =
+      makeNullableFlatVector<bool>({std::nullopt, std::nullopt, std::nullopt});
+
+  auto result =
+      evaluate("try(switch(always_throws(c0), is_finite(c2), c0))", data);
+  assertEqualVectors(expected, result);
+
+  result = evaluate("try(switch(c0, always_throws(c0), c0))", data);
+  assertEqualVectors(expected, result);
+
+  result = evaluate("try(coalesce(always_throws(c0), is_finite(c2)))", data);
+  assertEqualVectors(expected, result);
+
+  result = evaluate("try(always_throws(c0) and is_finite(c2))", data);
+  assertEqualVectors(expected, result);
+
+  // Test Switch where the first case produces a partial result while the second
+  // case condition throws at all remaining rows. SwitchExpr may still evaluate
+  // the second then clause with an empty selectivity vector. This test case
+  // ensures that the evaluation of the second then clause doesn't overwrite the
+  // existing partial results from the first case.
+  result = evaluate(
+      "try(switch(c1, is_nan(c2), always_throws(c0), is_finite(c2), c0))",
+      data);
+  assertEqualVectors(
+      makeNullableFlatVector<bool>({false, false, std::nullopt}), result);
+}
 } // namespace facebook::velox

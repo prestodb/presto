@@ -90,6 +90,10 @@ void SwitchExpr::evalSpecialForm(
 
     if (context.errors()) {
       context.deselectErrors(*remainingRows);
+      if (!remainingRows->hasSelections()) {
+        context.releaseVector(condition);
+        break;
+      }
     }
 
     const auto booleanMix = getFlatBool(
