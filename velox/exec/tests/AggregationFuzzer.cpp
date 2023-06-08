@@ -555,7 +555,7 @@ void AggregationFuzzer::go() {
               << iteration << " (seed: " << currentSeed_ << ")";
 
     // 10% of times test distinct aggregation.
-    if (vectorFuzzer_.coinToss(0.0)) {
+    if (vectorFuzzer_.coinToss(0.1)) {
       ++stats_.numDistinct;
 
       std::vector<TypePtr> types;
