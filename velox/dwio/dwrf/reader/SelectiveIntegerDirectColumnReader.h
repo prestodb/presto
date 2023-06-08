@@ -43,7 +43,9 @@ class SelectiveIntegerDirectColumnReader
     auto& stripe = params.stripeStreams();
     bool dataVInts = stripe.getUseVInts(data);
     auto decoder = createDirectDecoder</*isSigned*/ true>(
-        stripe.getStream(data, true), dataVInts, numBytes);
+        stripe.getStream(data, params.streamLabels().label(), true),
+        dataVInts,
+        numBytes);
     auto rawDecoder = decoder.release();
     auto directDecoder =
         dynamic_cast<dwio::common::DirectDecoder<true>*>(rawDecoder);

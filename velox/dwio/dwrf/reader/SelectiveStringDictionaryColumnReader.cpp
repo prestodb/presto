@@ -39,7 +39,7 @@ SelectiveStringDictionaryColumnReader::SelectiveStringDictionaryColumnReader(
   const auto dataId = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool dictVInts = stripe.getUseVInts(dataId);
   dictIndex_ = createRleDecoder</*isSigned*/ false>(
-      stripe.getStream(dataId, true),
+      stripe.getStream(dataId, params.streamLabels().label(), true),
       rleVersion,
       memoryPool_,
       dictVInts,
@@ -48,18 +48,22 @@ SelectiveStringDictionaryColumnReader::SelectiveStringDictionaryColumnReader(
   const auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
   bool lenVInts = stripe.getUseVInts(lenId);
   lengthDecoder_ = createRleDecoder</*isSigned*/ false>(
-      stripe.getStream(lenId, false),
+      stripe.getStream(lenId, params.streamLabels().label(), false),
       rleVersion,
       memoryPool_,
       lenVInts,
       dwio::common::INT_BYTE_SIZE);
 
   blobStream_ = stripe.getStream(
-      encodingKey.forKind(proto::Stream_Kind_DICTIONARY_DATA), false);
+      encodingKey.forKind(proto::Stream_Kind_DICTIONARY_DATA),
+      params.streamLabels().label(),
+      false);
 
   // handle in dictionary stream
   std::unique_ptr<SeekableInputStream> inDictStream = stripe.getStream(
-      encodingKey.forKind(proto::Stream_Kind_IN_DICTIONARY), false);
+      encodingKey.forKind(proto::Stream_Kind_IN_DICTIONARY),
+      params.streamLabels().label(),
+      false);
   if (inDictStream) {
     formatData_->as<DwrfData>().ensureRowGroupIndex();
 
@@ -68,14 +72,16 @@ SelectiveStringDictionaryColumnReader::SelectiveStringDictionaryColumnReader(
 
     // stride dictionary only exists if in dictionary exists
     strideDictStream_ = stripe.getStream(
-        encodingKey.forKind(proto::Stream_Kind_STRIDE_DICTIONARY), true);
+        encodingKey.forKind(proto::Stream_Kind_STRIDE_DICTIONARY),
+        params.streamLabels().label(),
+        true);
     DWIO_ENSURE_NOT_NULL(strideDictStream_, "Stride dictionary is missing");
 
     const auto strideDictLenId =
         encodingKey.forKind(proto::Stream_Kind_STRIDE_DICTIONARY_LENGTH);
     bool strideLenVInt = stripe.getUseVInts(strideDictLenId);
     strideDictLengthDecoder_ = createRleDecoder</*isSigned*/ false>(
-        stripe.getStream(strideDictLenId, true),
+        stripe.getStream(strideDictLenId, params.streamLabels().label(), true),
         rleVersion,
         memoryPool_,
         strideLenVInt,

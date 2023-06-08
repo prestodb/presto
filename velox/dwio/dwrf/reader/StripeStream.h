@@ -121,6 +121,7 @@ class StripeStreams {
    */
   virtual std::unique_ptr<dwio::common::SeekableInputStream> getStream(
       const DwrfStreamIdentifier& si,
+      std::string_view label,
       bool throwIfNotFound) const = 0;
 
   /// Get the integer dictionary data for the given node and sequence.
@@ -275,7 +276,8 @@ class StripeStreamsImpl : public StripeStreamsBase {
   void loadReadPlan();
 
   std::unique_ptr<dwio::common::SeekableInputStream> getCompressedStream(
-      const DwrfStreamIdentifier& si) const;
+      const DwrfStreamIdentifier& si,
+      std::string_view label) const;
 
   uint64_t getStreamLength(const DwrfStreamIdentifier& si) const {
     return getStreamInfo(si).getLength();
@@ -288,6 +290,7 @@ class StripeStreamsImpl : public StripeStreamsBase {
 
   std::unique_ptr<dwio::common::SeekableInputStream> getStream(
       const DwrfStreamIdentifier& si,
+      std::string_view label,
       bool throwIfNotFound) const override;
 
   uint32_t visitStreamsOfNode(

@@ -35,14 +35,16 @@ class BinaryStripeStreams {
   std::vector<DwrfStreamIdentifier> getStreamIdentifiers(uint32_t nodeId) const;
 
   std::unique_ptr<proto::RowIndex> getRowGroupIndex(
-      const EncodingKey ek) const {
+      const EncodingKey ek,
+      std::string_view label) const {
     return ProtoUtils::readProto<proto::RowIndex>(stripeStreams_.getStream(
-        ek.forKind(proto::Stream_Kind_ROW_INDEX), false));
+        ek.forKind(proto::Stream_Kind_ROW_INDEX), label, false));
   }
 
   std::unique_ptr<dwio::common::SeekableInputStream> getStream(
-      const DwrfStreamIdentifier& si) const {
-    return stripeStreams_.getCompressedStream(si);
+      const DwrfStreamIdentifier& si,
+      std::string_view label) const {
+    return stripeStreams_.getCompressedStream(si, label);
   }
 
   uint64_t getStreamLength(const DwrfStreamIdentifier& si) const {

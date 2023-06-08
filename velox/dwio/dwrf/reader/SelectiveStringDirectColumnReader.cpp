@@ -32,13 +32,15 @@ SelectiveStringDirectColumnReader::SelectiveStringDirectColumnReader(
   auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
   bool lenVInts = stripe.getUseVInts(lenId);
   lengthDecoder_ = createRleDecoder</*isSigned*/ false>(
-      stripe.getStream(lenId, true),
+      stripe.getStream(lenId, params.streamLabels().label(), true),
       rleVersion,
       memoryPool_,
       lenVInts,
       dwio::common::INT_BYTE_SIZE);
-  blobStream_ =
-      stripe.getStream(encodingKey.forKind(proto::Stream_Kind_DATA), true);
+  blobStream_ = stripe.getStream(
+      encodingKey.forKind(proto::Stream_Kind_DATA),
+      params.streamLabels().label(),
+      true);
 }
 
 uint64_t SelectiveStringDirectColumnReader::skip(uint64_t numValues) {

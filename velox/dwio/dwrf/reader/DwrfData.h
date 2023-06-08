@@ -36,6 +36,7 @@ class DwrfData : public dwio::common::FormatData {
   DwrfData(
       std::shared_ptr<const dwio::common::TypeWithId> nodeType,
       StripeStreams& stripe,
+      const StreamLabels& streamLabels,
       FlatMapContext flatMapContext);
 
   void readNulls(
@@ -127,7 +128,8 @@ class DwrfParams : public dwio::common::FormatParams {
   std::unique_ptr<dwio::common::FormatData> toFormatData(
       const std::shared_ptr<const dwio::common::TypeWithId>& type,
       const common::ScanSpec& /*scanSpec*/) override {
-    return std::make_unique<DwrfData>(type, stripeStreams_, flatMapContext_);
+    return std::make_unique<DwrfData>(
+        type, stripeStreams_, streamLabels_, flatMapContext_);
   }
 
   StripeStreams& stripeStreams() {

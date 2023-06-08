@@ -135,14 +135,16 @@ void ColumnReader::readNulls(
 ColumnReader::ColumnReader(
     std::shared_ptr<const dwio::common::TypeWithId> nodeType,
     StripeStreams& stripe,
-    const StreamLabels& /* streamLabels */,
+    const StreamLabels& streamLabels,
     FlatMapContext flatMapContext)
     : nodeType_(std::move(nodeType)),
       memoryPool_(stripe.getMemoryPool()),
       flatMapContext_(std::move(flatMapContext)) {
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
-  std::unique_ptr<dwio::common::SeekableInputStream> stream =
-      stripe.getStream(encodingKey.forKind(proto::Stream_Kind_PRESENT), false);
+  std::unique_ptr<dwio::common::SeekableInputStream> stream = stripe.getStream(
+      encodingKey.forKind(proto::Stream_Kind_PRESENT),
+      streamLabels.label(),
+      false);
   if (stream) {
     notNullDecoder_ = createBooleanRleDecoder(std::move(stream), encodingKey);
   }
@@ -216,7 +218,10 @@ class ByteRleColumnReader : public ColumnReader {
         requestedType_{std::move(requestedType)} {
     EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
     rle = creator(
-        stripe.getStream(encodingKey.forKind(proto::Stream_Kind_DATA), true),
+        stripe.getStream(
+            encodingKey.forKind(proto::Stream_Kind_DATA),
+            streamLabels.label(),
+            true),
         encodingKey);
   }
   ~ByteRleColumnReader() override = default;
@@ -399,12 +404,18 @@ IntegerDirectColumnReader<ReqT>::IntegerDirectColumnReader(
   bool dataVInts = stripe.getUseVInts(data);
   if (stripe.format() == DwrfFormat::kDwrf) {
     ints = createDirectDecoder</*isSigned*/ true>(
-        stripe.getStream(data, true), dataVInts, numBytes);
+        stripe.getStream(data, streamLabels.label(), true),
+        dataVInts,
+        numBytes);
   } else {
     auto encoding = stripe.getEncoding(encodingKey);
     RleVersion vers = convertRleVersion(encoding.kind());
     ints = createRleDecoder</*isSigned*/ true>(
-        stripe.getStream(data, true), vers, memoryPool_, dataVInts, numBytes);
+        stripe.getStream(data, streamLabels.label(), true),
+        vers,
+        memoryPool_,
+        dataVInts,
+        numBytes);
   }
 }
 
@@ -540,14 +551,20 @@ IntegerDictionaryColumnReader<ReqT>::IntegerDictionaryColumnReader(
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool dataVInts = stripe.getUseVInts(data);
   dataReader = createRleDecoder</* isSigned = */ false>(
-      stripe.getStream(data, true), vers, memoryPool_, dataVInts, numBytes);
+      stripe.getStream(data, streamLabels.label(), true),
+      vers,
+      memoryPool_,
+      dataVInts,
+      numBytes);
 
   // make a lazy dictionary initializer
   dictInit = stripe.getIntDictionaryInitializerForNode(
       encodingKey, numBytes, streamLabels);
 
   auto inDictStream = stripe.getStream(
-      encodingKey.forKind(proto::Stream_Kind_IN_DICTIONARY), false);
+      encodingKey.forKind(proto::Stream_Kind_IN_DICTIONARY),
+      streamLabels.label(),
+      false);
   if (inDictStream) {
     inDictionaryReader =
         createBooleanRleDecoder(std::move(inDictStream), encodingKey);
@@ -660,7 +677,7 @@ TimestampColumnReader::TimestampColumnReader(
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool vints = stripe.getUseVInts(data);
   seconds = createRleDecoder</*isSigned*/ true>(
-      stripe.getStream(data, true),
+      stripe.getStream(data, streamLabels.label(), true),
       vers,
       memoryPool_,
       vints,
@@ -668,7 +685,7 @@ TimestampColumnReader::TimestampColumnReader(
   auto nanoData = encodingKey.forKind(proto::Stream_Kind_NANO_DATA);
   bool nanoVInts = stripe.getUseVInts(nanoData);
   nano = createRleDecoder</*isSigned*/ false>(
-      stripe.getStream(nanoData, true),
+      stripe.getStream(nanoData, streamLabels.label(), true),
       vers,
       memoryPool_,
       nanoVInts,
@@ -807,6 +824,7 @@ FloatingPointColumnReader<DataT, ReqT>::FloatingPointColumnReader(
       inputStream(stripe.getStream(
           EncodingKey{nodeType_->id, flatMapContext_.sequence}.forKind(
               proto::Stream_Kind_DATA),
+          streamLabels.label(),
           true)),
       bufferPointer(nullptr),
       bufferEnd(nullptr) {
@@ -996,7 +1014,7 @@ StringDictionaryColumnReader::StringDictionaryColumnReader(
   const auto dataId = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool dictVInts = stripe.getUseVInts(dataId);
   dictIndex = createRleDecoder</*isSigned*/ false>(
-      stripe.getStream(dataId, true),
+      stripe.getStream(dataId, streamLabels.label(), true),
       rleVersion,
       memoryPool_,
       dictVInts,
@@ -1005,37 +1023,45 @@ StringDictionaryColumnReader::StringDictionaryColumnReader(
   const auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
   bool lenVInts = stripe.getUseVInts(lenId);
   lengthDecoder = createRleDecoder</*isSigned*/ false>(
-      stripe.getStream(lenId, false),
+      stripe.getStream(lenId, streamLabels.label(), false),
       rleVersion,
       memoryPool_,
       lenVInts,
       dwio::common::INT_BYTE_SIZE);
 
   blobStream = stripe.getStream(
-      encodingKey.forKind(proto::Stream_Kind_DICTIONARY_DATA), false);
+      encodingKey.forKind(proto::Stream_Kind_DICTIONARY_DATA),
+      streamLabels.label(),
+      false);
 
   // handle in dictionary stream
   std::unique_ptr<dwio::common::SeekableInputStream> inDictStream =
       stripe.getStream(
-          encodingKey.forKind(proto::Stream_Kind_IN_DICTIONARY), false);
+          encodingKey.forKind(proto::Stream_Kind_IN_DICTIONARY),
+          streamLabels.label(),
+          false);
   if (inDictStream) {
     inDictionaryReader =
         createBooleanRleDecoder(std::move(inDictStream), encodingKey);
 
     // stride dictionary only exists if in dictionary exists
     strideDictStream = stripe.getStream(
-        encodingKey.forKind(proto::Stream_Kind_STRIDE_DICTIONARY), true);
+        encodingKey.forKind(proto::Stream_Kind_STRIDE_DICTIONARY),
+        streamLabels.label(),
+        true);
     DWIO_ENSURE_NOT_NULL(strideDictStream, "Stride dictionary is missing");
 
     indexStream_ = stripe.getStream(
-        encodingKey.forKind(proto::Stream_Kind_ROW_INDEX), true);
+        encodingKey.forKind(proto::Stream_Kind_ROW_INDEX),
+        streamLabels.label(),
+        true);
     DWIO_ENSURE_NOT_NULL(indexStream_, "String index is missing");
 
     const auto strideDictLenId =
         encodingKey.forKind(proto::Stream_Kind_STRIDE_DICTIONARY_LENGTH);
     bool strideLenVInt = stripe.getUseVInts(strideDictLenId);
     strideDictLengthDecoder = createRleDecoder</*isSigned*/ false>(
-        stripe.getStream(strideDictLenId, true),
+        stripe.getStream(strideDictLenId, streamLabels.label(), true),
         rleVersion,
         memoryPool_,
         strideLenVInt,
@@ -1484,13 +1510,13 @@ StringDirectColumnReader::StringDirectColumnReader(
   auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
   bool lenVInts = stripe.getUseVInts(lenId);
   length = createRleDecoder</*isSigned*/ false>(
-      stripe.getStream(lenId, true),
+      stripe.getStream(lenId, streamLabels.label(), true),
       rleVersion,
       memoryPool_,
       lenVInts,
       dwio::common::INT_BYTE_SIZE);
-  blobStream =
-      stripe.getStream(encodingKey.forKind(proto::Stream_Kind_DATA), true);
+  blobStream = stripe.getStream(
+      encodingKey.forKind(proto::Stream_Kind_DATA), streamLabels.label(), true);
 }
 
 uint64_t StringDirectColumnReader::skip(uint64_t numValues) {
@@ -1782,7 +1808,7 @@ ListColumnReader::ListColumnReader(
   auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
   bool vints = stripe.getUseVInts(lenId);
   length = createRleDecoder</*isSigned*/ false>(
-      stripe.getStream(lenId, true),
+      stripe.getStream(lenId, streamLabels.label(), true),
       vers,
       memoryPool_,
       vints,
@@ -1947,7 +1973,7 @@ MapColumnReader::MapColumnReader(
   auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
   bool vints = stripe.getUseVInts(lenId);
   length = createRleDecoder</*isSigned*/ false>(
-      stripe.getStream(lenId, true),
+      stripe.getStream(lenId, streamLabels.label(), true),
       vers,
       memoryPool_,
       vints,

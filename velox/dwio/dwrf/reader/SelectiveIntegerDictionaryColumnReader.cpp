@@ -40,7 +40,7 @@ SelectiveIntegerDictionaryColumnReader::SelectiveIntegerDictionaryColumnReader(
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool dataVInts = stripe.getUseVInts(data);
   dataReader_ = createRleDecoder</* isSigned = */ false>(
-      stripe.getStream(data, true),
+      stripe.getStream(data, params.streamLabels().label(), true),
       rleVersion_,
       memoryPool_,
       dataVInts,
@@ -51,7 +51,9 @@ SelectiveIntegerDictionaryColumnReader::SelectiveIntegerDictionaryColumnReader(
       encodingKey, numBytes, params.streamLabels(), numBytes);
 
   auto inDictStream = stripe.getStream(
-      encodingKey.forKind(proto::Stream_Kind_IN_DICTIONARY), false);
+      encodingKey.forKind(proto::Stream_Kind_IN_DICTIONARY),
+      params.streamLabels().label(),
+      false);
   if (inDictStream) {
     inDictionaryReader_ =
         createBooleanRleDecoder(std::move(inDictStream), encodingKey);

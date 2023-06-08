@@ -33,11 +33,15 @@ SelectiveTimestampColumnReader::SelectiveTimestampColumnReader(
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool vints = stripe.getUseVInts(data);
   seconds_ = createRleDecoder</*isSigned*/ true>(
-      stripe.getStream(data, true), vers, memoryPool_, vints, LONG_BYTE_SIZE);
+      stripe.getStream(data, params.streamLabels().label(), true),
+      vers,
+      memoryPool_,
+      vints,
+      LONG_BYTE_SIZE);
   auto nanoData = encodingKey.forKind(proto::Stream_Kind_NANO_DATA);
   bool nanoVInts = stripe.getUseVInts(nanoData);
   nano_ = createRleDecoder</*isSigned*/ false>(
-      stripe.getStream(nanoData, true),
+      stripe.getStream(nanoData, params.streamLabels().label(), true),
       vers,
       memoryPool_,
       nanoVInts,

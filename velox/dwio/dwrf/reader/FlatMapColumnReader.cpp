@@ -151,8 +151,8 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesFiltered(
 
         // fetch reader, in map bitmap and key object.
         auto labels = streamLabels.append(folly::to<std::string>(key.get()));
-        auto inMap =
-            stripe.getStream(seqEk.forKind(proto::Stream_Kind_IN_MAP), true);
+        auto inMap = stripe.getStream(
+            seqEk.forKind(proto::Stream_Kind_IN_MAP), labels.label(), true);
         DWIO_ENSURE_NOT_NULL(inMap, "In map stream is required");
         // build seekable
         auto inMapDecoder = createBooleanRleDecoder(std::move(inMap), seqEk);

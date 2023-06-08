@@ -96,6 +96,7 @@ class TestStripeStreams : public StripeStreamsBase {
 
   std::unique_ptr<SeekableInputStream> getStream(
       const DwrfStreamIdentifier& si,
+      std::string_view /* label */,
       bool throwIfNotFound) const override {
     const DataBufferHolder* stream = nullptr;
     if (context_.hasStream(si)) {
@@ -4084,7 +4085,7 @@ TEST(ColumnWriterTests, IntDictWriterDirectValueOverflow) {
   // get data stream
   TestStripeStreams streams(context, sf, ROW({"foo"}, {type}), pool.get());
   DwrfStreamIdentifier si{1, 0, 0, proto::Stream_Kind_DATA};
-  auto stream = streams.getStream(si, true);
+  auto stream = streams.getStream(si, {}, true);
 
   // read it as long
   auto decoder = createRleDecoder<false>(
@@ -4129,7 +4130,7 @@ TEST(ColumnWriterTests, ShortDictWriterDictValueOverflow) {
   // get data stream
   TestStripeStreams streams(context, sf, ROW({"foo"}, {type}), pool.get());
   DwrfStreamIdentifier si{1, 0, 0, proto::Stream_Kind_DATA};
-  auto stream = streams.getStream(si, true);
+  auto stream = streams.getStream(si, {}, true);
 
   // read it as long
   auto decoder = createRleDecoder<false>(
@@ -4168,7 +4169,7 @@ TEST(ColumnWriterTests, RemovePresentStream) {
   // get data stream
   TestStripeStreams streams(context, sf, ROW({"foo"}, {type}), pool.get());
   DwrfStreamIdentifier si{1, 0, 0, proto::Stream_Kind_PRESENT};
-  ASSERT_EQ(streams.getStream(si, false), nullptr);
+  ASSERT_EQ(streams.getStream(si, {}, false), nullptr);
 }
 
 TEST(ColumnWriterTests, ColumnIdInStream) {
@@ -4207,7 +4208,7 @@ TEST(ColumnWriterTests, ColumnIdInStream) {
   TestStripeStreams streams(context, sf, ROW({"foo"}, {type}), pool.get());
   DwrfStreamIdentifier si{
       kNodeId, /* sequence */ 0, kColumnId, proto::Stream_Kind_DATA};
-  ASSERT_NE(streams.getStream(si, false), nullptr);
+  ASSERT_NE(streams.getStream(si, {}, false), nullptr);
 }
 
 template <typename T>

@@ -29,7 +29,7 @@ std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> makeLengthDecoder(
   auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
   bool lenVints = stripe.getUseVInts(lenId);
   return createRleDecoder</*isSigned*/ false>(
-      stripe.getStream(lenId, true),
+      stripe.getStream(lenId, params.streamLabels().label(), true),
       rleVersion,
       pool,
       lenVints,

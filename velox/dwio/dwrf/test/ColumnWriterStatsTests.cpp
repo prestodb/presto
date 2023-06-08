@@ -118,7 +118,7 @@ void verifyStats(
   for (auto nodeId = 0; nodeId < strideSize; nodeId++) {
     auto si = EncodingKey(nodeId).forKind(proto::Stream::ROW_INDEX);
     auto rowIndex =
-        ProtoUtils::readProto<proto::RowIndex>(streams.getStream(si, true));
+        ProtoUtils::readProto<proto::RowIndex>(streams.getStream(si, {}, true));
     EXPECT_NE(rowIndex, nullptr);
     EXPECT_EQ(rowIndex->entry_size(), repeat) << " entry size mismatch";
 

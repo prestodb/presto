@@ -40,11 +40,17 @@ class SelectiveByteRleColumnReader
     auto& stripe = params.stripeStreams();
     if (isBool) {
       boolRle_ = createBooleanRleDecoder(
-          stripe.getStream(encodingKey.forKind(proto::Stream_Kind_DATA), true),
+          stripe.getStream(
+              encodingKey.forKind(proto::Stream_Kind_DATA),
+              params.streamLabels().label(),
+              true),
           encodingKey);
     } else {
       byteRle_ = createByteRleDecoder(
-          stripe.getStream(encodingKey.forKind(proto::Stream_Kind_DATA), true),
+          stripe.getStream(
+              encodingKey.forKind(proto::Stream_Kind_DATA),
+              params.streamLabels().label(),
+              true),
           encodingKey);
     }
   }
