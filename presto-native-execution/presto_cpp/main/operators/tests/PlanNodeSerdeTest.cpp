@@ -13,6 +13,7 @@
  */
 #include <gtest/gtest.h>
 
+#include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "velox/core/PlanNode.h"
@@ -62,6 +63,15 @@ class PlanNodeSerdeTest : public testing::Test,
     return names;
   }
 
+  auto addBroadcastWriteNode(const std::string& basePath) {
+    return [&basePath](
+               core::PlanNodeId nodeId,
+               core::PlanNodePtr source) -> core::PlanNodePtr {
+      return std::make_shared<BroadcastWriteNode>(
+          nodeId, basePath, std::move(source));
+    };
+  }
+
   std::vector<RowVectorPtr> data_;
   RowTypePtr type_;
 };
@@ -101,5 +111,15 @@ TEST_F(PlanNodeSerdeTest, shuffleWriteNode) {
                   .addNode(addShuffleWriteNode(shuffleName, shuffleInfo))
                   .planNode();
   testSerde(plan);
+}
+
+TEST_F(PlanNodeSerdeTest, broadcastWriteNode) {
+  const std::string basePath("/tmp/query-20130101-0000-001");
+  auto broadcastWritePlan = exec::test::PlanBuilder()
+                                .values(data_, true)
+                                .addNode(addBroadcastWriteNode(basePath))
+                                .partitionedOutputBroadcast()
+                                .planNode();
+  testSerde(broadcastWritePlan);
 }
 } // namespace facebook::velox::exec::test
