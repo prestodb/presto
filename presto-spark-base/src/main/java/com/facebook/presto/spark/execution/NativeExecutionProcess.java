@@ -183,6 +183,10 @@ public class NativeExecutionProcess
         return port;
     }
 
+    public URI getLocation()
+    {
+        return location;
+    }
     private static URI getBaseUriWithPort(URI baseUri, int port)
     {
         return uriBuilderFrom(baseUri)

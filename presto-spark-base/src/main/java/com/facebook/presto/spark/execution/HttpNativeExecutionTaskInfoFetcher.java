@@ -144,7 +144,7 @@ public class HttpNativeExecutionTaskInfoFetcher
     public Optional<TaskInfo> getTaskInfo()
             throws RuntimeException
     {
-        if (scheduledFuture != null && scheduledFuture.isCancelled()) {
+        if (scheduledFuture != null && scheduledFuture.isCancelled() && lastException.get() != null) {
             throw lastException.get();
         }
         TaskInfo info = taskInfo.get();
