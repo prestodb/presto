@@ -54,6 +54,28 @@ std::optional<protocol::Duration> getMaxWait(proxygen::HTTPMessage* message) {
   return protocol::Duration(
       headers.getSingleOrEmpty(protocol::PRESTO_MAX_WAIT_HTTP_HEADER));
 }
+
+velox::core::PlanFragment createBatchQueryPlan(
+    const std::string& serializedPlan,
+    std::shared_ptr<std::string> serializedShuffleWriteInfo,
+    const protocol::TaskId& taskId,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    velox::memory::MemoryPool* pool) {
+  auto fragment = velox::encoding::Base64::decode(serializedPlan);
+  protocol::PlanFragment prestoPlan = json::parse(fragment);
+
+  auto shuffleName = SystemConfig::instance()->shuffleName();
+  if (serializedShuffleWriteInfo) {
+    VELOX_USER_CHECK(
+        !shuffleName.empty(),
+        "Shuffle name not provided from 'shuffle.name' property in "
+        "config.properties");
+  }
+
+  VeloxBatchQueryPlanConverter converter(
+      shuffleName, std::move(serializedShuffleWriteInfo), pool);
+  return converter.toVeloxQueryPlan(prestoPlan, tableWriteInfo, taskId);
+}
 } // namespace
 
 void TaskResource::registerUris(http::HttpServer& server) {
@@ -69,6 +91,13 @@ void TaskResource::registerUris(http::HttpServer& server) {
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
         return acknowledgeResults(message, pathMatch);
+      });
+
+  server.registerPost(
+      R"(/v1/validation/batch)",
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::string>& pathMatch) {
+        return validateBatchQueryPlan(message, pathMatch);
       });
 
   // task/(.+)/batch must come before the /v1/task/(.+) as it's more specific
@@ -221,6 +250,47 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
       });
 }
 
+proxygen::RequestHandler* TaskResource::validateBatchQueryPlan(
+    proxygen::HTTPMessage* message,
+    const std::vector<std::string>& pathMatch) {
+  return new http::CallbackRequestHandler(
+      [this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        std::ostringstream oss;
+        for (auto& buf : body) {
+          oss << std::string((const char*)buf->data(), buf->length());
+        }
+        std::string request = oss.str();
+        protocol::BatchPlanValidationRequest planValidationRequest =
+            json::parse(request);
+        const protocol::TaskId taskId{"0"};
+
+        try {
+          auto planFragment = createBatchQueryPlan(
+              *planValidationRequest.fragment,
+              std::make_shared<std::string>(/*serializedShuffleWriteInfo=*/""),
+              taskId,
+              planValidationRequest.tableWriteInfo,
+              pool_);
+          http::sendOkResponse(
+              downstream,
+              planFragment.planNode->toString(
+                  /*detailed=*/true, /*recursive=*/true));
+        } catch (const velox::VeloxException& e) {
+          http::sendErrorResponse(downstream, e.what());
+          return;
+        } catch (const velox::VeloxUserError& e) {
+          http::sendErrorResponse(downstream, e.what());
+          return;
+        } catch (const std::exception& e) {
+          http::sendErrorResponse(downstream, e.what());
+          return;
+        }
+      });
+}
+
 proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
     proxygen::HTTPMessage* message,
     const std::vector<std::string>& pathMatch) {
@@ -233,24 +303,12 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
         auto updateRequest = batchUpdateRequest.taskUpdateRequest;
         VELOX_USER_CHECK_NOT_NULL(updateRequest.fragment);
 
-        auto fragment =
-            velox::encoding::Base64::decode(*updateRequest.fragment);
-        protocol::PlanFragment prestoPlan = json::parse(fragment);
-
-        auto serializedShuffleWriteInfo = batchUpdateRequest.shuffleWriteInfo;
-        auto shuffleName = SystemConfig::instance()->shuffleName();
-        if (serializedShuffleWriteInfo) {
-          VELOX_USER_CHECK(
-              !shuffleName.empty(),
-              "Shuffle name not provided from 'shuffle.name' property in "
-              "config.properties");
-        }
-
-        VeloxBatchQueryPlanConverter converter(
-            shuffleName, std::move(serializedShuffleWriteInfo), pool_);
-        auto planFragment = converter.toVeloxQueryPlan(
-            prestoPlan, updateRequest.tableWriteInfo, taskId);
-
+        auto planFragment = createBatchQueryPlan(
+            *updateRequest.fragment,
+            batchUpdateRequest.shuffleWriteInfo,
+            taskId,
+            updateRequest.tableWriteInfo,
+            pool_);
         return taskManager_.createOrUpdateBatchTask(
             taskId, batchUpdateRequest, planFragment);
       });
