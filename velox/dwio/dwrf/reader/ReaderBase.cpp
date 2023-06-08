@@ -110,7 +110,7 @@ ReaderBase::ReaderBase(
       preloadFile ? fileLength_ : std::min(fileLength_, directorySizeGuess_);
   DWIO_ENSURE_GE(readSize, 4, "File size too small");
 
-  input_->enqueue({fileLength_ - readSize, readSize});
+  input_->enqueue({fileLength_ - readSize, readSize, "footer"});
   input_->load(preloadFile ? LogType::FILE : LogType::FOOTER);
 
   // TODO: read footer from spectrum
@@ -159,7 +159,7 @@ ReaderBase::ReaderBase(
       postScript_->compression());
 
   if (tailSize > readSize) {
-    input_->enqueue({fileLength_ - tailSize, tailSize});
+    input_->enqueue({fileLength_ - tailSize, tailSize, "footer"});
     input_->load(LogType::FOOTER);
   }
 
@@ -208,7 +208,8 @@ ReaderBase::ReaderBase(
       const auto stripe = getFooter().stripes(i);
       input_->enqueue(
           {stripe.offset() + stripe.indexLength() + stripe.dataLength(),
-           stripe.footerLength()});
+           stripe.footerLength(),
+           "stripe_footer"});
     }
     if (numStripes) {
       input_->load(LogType::FOOTER);

@@ -52,7 +52,7 @@ StripeInformationWrapper StripeReaderBase::loadStripe(
         }
       }
 
-      stripeInput_->enqueue({offset, length});
+      stripeInput_->enqueue({offset, length, "stripe"});
       stripeInput_->load(LogType::STRIPE);
     }
   }
