@@ -115,10 +115,14 @@ class DwrfData : public dwio::common::FormatData {
 // DWRF specific initialization.
 class DwrfParams : public dwio::common::FormatParams {
  public:
-  explicit DwrfParams(StripeStreams& stripeStreams, FlatMapContext context = {})
+  explicit DwrfParams(
+      StripeStreams& stripeStreams,
+      const StreamLabels& streamLabels,
+      FlatMapContext context = {})
       : FormatParams(stripeStreams.getMemoryPool()),
         stripeStreams_(stripeStreams),
-        flatMapContext_(context) {}
+        flatMapContext_(context),
+        streamLabels_(streamLabels) {}
 
   std::unique_ptr<dwio::common::FormatData> toFormatData(
       const std::shared_ptr<const dwio::common::TypeWithId>& type,
@@ -134,9 +138,14 @@ class DwrfParams : public dwio::common::FormatParams {
     return flatMapContext_;
   }
 
+  const StreamLabels& streamLabels() const {
+    return streamLabels_;
+  }
+
  private:
   StripeStreams& stripeStreams_;
   FlatMapContext flatMapContext_;
+  const StreamLabels& streamLabels_;
 };
 
 inline RleVersion convertRleVersion(proto::ColumnEncoding_Kind kind) {

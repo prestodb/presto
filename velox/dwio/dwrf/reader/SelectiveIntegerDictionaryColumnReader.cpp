@@ -48,7 +48,7 @@ SelectiveIntegerDictionaryColumnReader::SelectiveIntegerDictionaryColumnReader(
 
   // make a lazy dictionary initializer
   dictInit_ = stripe.getIntDictionaryInitializerForNode(
-      encodingKey, numBytes, numBytes);
+      encodingKey, numBytes, params.streamLabels(), numBytes);
 
   auto inDictStream = stripe.getStream(
       encodingKey.forKind(proto::Stream_Kind_IN_DICTIONARY), false);

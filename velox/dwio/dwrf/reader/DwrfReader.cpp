@@ -411,7 +411,12 @@ void DwrfRowReader::startNextStripe() {
 
   if (scanSpec) {
     selectiveColumnReader_ = SelectiveDwrfReader::build(
-        requestedType, dataType, stripeStreams, scanSpec, flatMapContext);
+        requestedType,
+        dataType,
+        stripeStreams,
+        streamLabels,
+        scanSpec,
+        flatMapContext);
     selectiveColumnReader_->setIsTopLevel();
   } else {
     columnReader_ = ColumnReader::build(

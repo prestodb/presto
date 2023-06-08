@@ -542,7 +542,8 @@ IntegerDictionaryColumnReader<ReqT>::IntegerDictionaryColumnReader(
       stripe.getStream(data, true), vers, memoryPool_, dataVInts, numBytes);
 
   // make a lazy dictionary initializer
-  dictInit = stripe.getIntDictionaryInitializerForNode(encodingKey, numBytes);
+  dictInit = stripe.getIntDictionaryInitializerForNode(
+      encodingKey, numBytes, streamLabels);
 
   auto inDictStream = stripe.getStream(
       encodingKey.forKind(proto::Stream_Kind_IN_DICTIONARY), false);

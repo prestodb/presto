@@ -55,6 +55,7 @@ SelectiveStructColumnReader::SelectiveStructColumnReader(
         requestedType_->childByName(childSpec->fieldName());
     auto childParams = DwrfParams(
         stripe,
+        params.streamLabels(),
         FlatMapContext{
             .sequence = encodingKey.sequence,
             .inMapDecoder = nullptr,

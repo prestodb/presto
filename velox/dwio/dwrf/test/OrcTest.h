@@ -54,6 +54,7 @@ class MockStripeStreams : public StripeStreams {
   std::function<BufferPtr()> getIntDictionaryInitializerForNode(
       const EncodingKey& ek,
       uint64_t /* unused */,
+      const StreamLabels& /* streamLabels */,
       uint64_t /* unused */) override {
     return [this, nodeId = ek.node, sequenceId = ek.sequence]() {
       BufferPtr dictionaryData;

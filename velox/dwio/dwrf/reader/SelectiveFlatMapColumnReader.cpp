@@ -159,6 +159,7 @@ std::vector<KeyNode<T>> getKeyNodes(
         auto inMapDecoder = createBooleanRleDecoder(std::move(inMap), seqEk);
         DwrfParams childParams(
             stripe,
+            params.streamLabels(),
             FlatMapContext{
                 .sequence = sequence,
                 .inMapDecoder = inMapDecoder.get(),

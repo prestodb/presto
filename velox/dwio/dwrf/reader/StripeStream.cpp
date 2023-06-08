@@ -107,6 +107,7 @@ std::function<BufferPtr()>
 StripeStreamsBase::getIntDictionaryInitializerForNode(
     const EncodingKey& ek,
     uint64_t elementWidth,
+    const StreamLabels& streamLabels,
     uint64_t dictionaryWidth) {
   // Create local copy for manipulation
   EncodingKey localEk{ek};

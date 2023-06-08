@@ -635,21 +635,23 @@ TEST(StripeStream, shareDictionary) {
       ss, getStreamProxy(2, Not(0), proto::Stream_Kind_DICTIONARY_DATA, _))
       .WillRepeatedly(Return(nullptr));
 
+  facebook::velox::AllocationPool allocPool(pool.get());
+  StreamLabels labels(allocPool);
   std::vector<std::function<facebook::velox::BufferPtr()>> dictInits{};
   dictInits.push_back(
-      ss.getIntDictionaryInitializerForNode(EncodingKey{1, 0}, 8));
+      ss.getIntDictionaryInitializerForNode(EncodingKey{1, 0}, 8, labels));
   dictInits.push_back(
-      ss.getIntDictionaryInitializerForNode(EncodingKey{2, 2}, 16));
+      ss.getIntDictionaryInitializerForNode(EncodingKey{2, 2}, 16, labels));
   dictInits.push_back(
-      ss.getIntDictionaryInitializerForNode(EncodingKey{2, 3}, 4));
+      ss.getIntDictionaryInitializerForNode(EncodingKey{2, 3}, 4, labels));
   dictInits.push_back(
-      ss.getIntDictionaryInitializerForNode(EncodingKey{2, 5}, 16));
+      ss.getIntDictionaryInitializerForNode(EncodingKey{2, 5}, 16, labels));
   dictInits.push_back(
-      ss.getIntDictionaryInitializerForNode(EncodingKey{2, 8}, 8));
+      ss.getIntDictionaryInitializerForNode(EncodingKey{2, 8}, 8, labels));
   dictInits.push_back(
-      ss.getIntDictionaryInitializerForNode(EncodingKey{2, 13}, 4));
+      ss.getIntDictionaryInitializerForNode(EncodingKey{2, 13}, 4, labels));
   dictInits.push_back(
-      ss.getIntDictionaryInitializerForNode(EncodingKey{2, 21}, 16));
+      ss.getIntDictionaryInitializerForNode(EncodingKey{2, 21}, 16, labels));
 
   auto dictCache = ss.getStripeDictionaryCache();
   // Maybe verify range is useful here.

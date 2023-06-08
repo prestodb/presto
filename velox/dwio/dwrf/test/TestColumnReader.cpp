@@ -143,6 +143,7 @@ class ColumnReaderTestBase {
           cs.getSchemaWithId(),
           dataTypeWithId,
           streams_,
+          labels_,
           scanSpec,
           FlatMapContext{});
       selectiveColumnReader_->setIsTopLevel();
