@@ -1446,15 +1446,20 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   aggregateNames.reserve(node->aggregations.size());
   aggregates.reserve(node->aggregations.size());
   aggrMasks.reserve(node->aggregations.size());
-  for (const auto& entry : node->aggregations) {
-    aggregateNames.emplace_back(entry.first.name);
+  for (const auto& [variable, aggregation] : node->aggregations) {
+    VELOX_USER_CHECK_NULL(
+        aggregation.orderBy,
+        "Aggregations with ORDER BY are not supported yet.");
+    VELOX_USER_CHECK_NULL(
+        aggregation.filter, "Aggregations with filters are not supported");
+    aggregateNames.emplace_back(variable.name);
     aggregates.emplace_back(
         std::dynamic_pointer_cast<const core::CallTypedExpr>(
-            exprConverter_.toVeloxExpr(entry.second.call)));
-    if (entry.second.mask == nullptr) {
+            exprConverter_.toVeloxExpr(aggregation.call)));
+    if (aggregation.mask == nullptr) {
       aggrMasks.emplace_back(nullptr);
     } else {
-      aggrMasks.emplace_back(exprConverter_.toVeloxExpr(entry.second.mask));
+      aggrMasks.emplace_back(exprConverter_.toVeloxExpr(aggregation.mask));
     }
   }
 
