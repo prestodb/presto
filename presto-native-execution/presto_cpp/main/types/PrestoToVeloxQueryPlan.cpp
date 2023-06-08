@@ -704,9 +704,9 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
   if (auto hiveLayout =
           std::dynamic_pointer_cast<const protocol::HiveTableLayoutHandle>(
               tableHandle.connectorTableLayout)) {
-    VELOX_CHECK(
-        hiveLayout->pushdownFilterEnabled,
-        "Table scan with filter pushdown disabled is not supported");
+    // Ignore pushdownFilterEnabled flag. This flag is used to switch between
+    // legacy and new version of ORC reader in Java, but Velox has only one
+    // implementation.
 
     for (const auto& entry : hiveLayout->partitionColumns) {
       partitionColumns.emplace(entry.name, toColumnHandle(&entry));
