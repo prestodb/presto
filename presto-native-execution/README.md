@@ -52,7 +52,7 @@ S3 support needs the [AWS SDK C++](https://github.com/aws/aws-sdk-cpp) library.
 This dependency can be installed by running the script below from the
 `presto/presto-native-execution` directory.
 
-`./velox/scripts/setup-adapters.sh install_aws-sdk-cpp`
+`./velox/scripts/setup-adapters.sh aws`
 
 * After installing the above dependencies, from the
 `presto/presto-native-execution` directory, run `make`
