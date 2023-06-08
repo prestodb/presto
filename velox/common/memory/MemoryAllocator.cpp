@@ -127,16 +127,24 @@ void MemoryAllocator::testingDestroyInstance() {
 }
 
 // static
+bool MemoryAllocator::isAlignmentValid(
+    uint64_t allocateBytes,
+    uint16_t alignmentBytes) {
+  return (alignmentBytes == kMinAlignment) ||
+      (alignmentBytes >= kMinAlignment && alignmentBytes <= kMaxAlignment &&
+       allocateBytes % alignmentBytes == 0 &&
+       (alignmentBytes & (alignmentBytes - 1)) == 0);
+}
+
 void MemoryAllocator::alignmentCheck(
     uint64_t allocateBytes,
     uint16_t alignmentBytes) {
-  VELOX_CHECK_GE(alignmentBytes, kMinAlignment);
-  if (alignmentBytes == kMinAlignment) {
-    return;
+  if (FOLLY_UNLIKELY(!isAlignmentValid(allocateBytes, alignmentBytes))) {
+    VELOX_FAIL(
+        "Alignment check failed, allocateBytes {}, alignmentBytes {}",
+        allocateBytes,
+        alignmentBytes);
   }
-  VELOX_CHECK_LE(alignmentBytes, kMaxAlignment);
-  VELOX_CHECK_EQ(allocateBytes % alignmentBytes, 0);
-  VELOX_CHECK_EQ((alignmentBytes & (alignmentBytes - 1)), 0);
 }
 
 // static.
@@ -153,9 +161,6 @@ void* MemoryAllocator::allocateZeroFilled(uint64_t bytes) {
   void* result = allocateBytes(bytes);
   if (result != nullptr) {
     ::memset(result, 0, bytes);
-  } else {
-    VELOX_MEM_LOG(ERROR) << "Failed to allocateZeroFilled " << bytes
-                         << " bytes";
   }
   return result;
 }

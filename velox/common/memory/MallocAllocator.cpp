@@ -20,7 +20,8 @@
 #include <sys/mman.h>
 
 namespace facebook::velox::memory {
-MallocAllocator::MallocAllocator() : kind_(MemoryAllocator::Kind::kMalloc) {}
+MallocAllocator::MallocAllocator(size_t capacity)
+    : kind_(MemoryAllocator::Kind::kMalloc), capacity_(capacity) {}
 
 bool MallocAllocator::allocateNonContiguous(
     MachinePageCount numPages,
@@ -28,18 +29,16 @@ bool MallocAllocator::allocateNonContiguous(
     ReservationCallback reservationCB,
     MachinePageCount minSizeClass) {
   VELOX_CHECK_GT(numPages, 0);
-
-  const SizeMix mix = allocationSize(numPages, minSizeClass);
-
   const uint64_t freedBytes = freeNonContiguous(out);
+  const SizeMix mix = allocationSize(numPages, minSizeClass);
+  const auto totalBytes = AllocationTraits::pageBytes(mix.totalPages);
+  if (!incrementUsage(totalBytes)) {
+    return false;
+  }
+
   uint64_t bytesToAllocate = 0;
   if (reservationCB != nullptr) {
-    for (int32_t i = 0; i < mix.numSizes; ++i) {
-      MachinePageCount numPages =
-          mix.sizeCounts[i] * sizeClassSizes_[mix.sizeIndices[i]];
-      bytesToAllocate += AllocationTraits::pageBytes(numPages);
-    }
-    bytesToAllocate -= freedBytes;
+    bytesToAllocate = AllocationTraits::pageBytes(mix.totalPages) - freedBytes;
     try {
       reservationCB(bytesToAllocate, true);
     } catch (std::exception& e) {
@@ -50,6 +49,7 @@ bool MallocAllocator::allocateNonContiguous(
       // If the new memory reservation fails, we need to release the memory
       // reservation of the freed memory of previously allocation.
       reservationCB(freedBytes, false);
+      decrementUsage(totalBytes);
       std::rethrow_exception(std::current_exception());
     }
   }
@@ -61,21 +61,22 @@ bool MallocAllocator::allocateNonContiguous(
     if (testingHasInjectedFailure(InjectedFailure::kAllocate)) {
       break;
     }
-    MachinePageCount numPages =
+    MachinePageCount numSizeClassPages =
         mix.sizeCounts[i] * sizeClassSizes_[mix.sizeIndices[i]];
     void* ptr;
     stats_.recordAllocate(
         AllocationTraits::pageBytes(sizeClassSizes_[mix.sizeIndices[i]]),
         mix.sizeCounts[i],
         [&]() {
-          ptr = ::malloc(AllocationTraits::pageBytes(numPages)); // NOLINT
+          ptr = ::malloc(
+              AllocationTraits::pageBytes(numSizeClassPages)); // NOLINT
         });
     if (ptr == nullptr) {
       // Failed to allocate memory from memory.
       break;
     }
     pages.emplace_back(ptr);
-    out.append(reinterpret_cast<uint8_t*>(ptr), numPages); // NOLINT
+    out.append(reinterpret_cast<uint8_t*>(ptr), numSizeClassPages); // NOLINT
   }
 
   if (pages.size() != mix.numSizes) {
@@ -92,6 +93,7 @@ bool MallocAllocator::allocateNonContiguous(
           << " bytes of memory reservation including the old gallocation";
       reservationCB(bytesToAllocate + freedBytes, false);
     }
+    decrementUsage(totalBytes);
     return false;
   }
 
@@ -123,10 +125,15 @@ bool MallocAllocator::allocateContiguousImpl(
     }
     numMapped_.fetch_sub(numContiguousCollateralPages);
     numAllocated_.fetch_sub(numContiguousCollateralPages);
+    decrementUsage(AllocationTraits::pageBytes(numContiguousCollateralPages));
     allocation.clear();
   }
+  const auto totalBytes = AllocationTraits::pageBytes(numPages);
+  if (!incrementUsage(totalBytes)) {
+    return false;
+  }
   const int64_t numNeededPages =
-      numPages - numCollateralPages - numContiguousCollateralPages;
+      numPages - (numCollateralPages + numContiguousCollateralPages);
   if (reservationCB != nullptr) {
     try {
       reservationCB(AllocationTraits::pageBytes(numNeededPages), true);
@@ -144,12 +151,12 @@ bool MallocAllocator::allocateContiguousImpl(
           (numCollateralPages + numContiguousCollateralPages) *
               AllocationTraits::kPageSize,
           false);
+      decrementUsage(totalBytes);
       std::rethrow_exception(std::current_exception());
     }
   }
   numAllocated_.fetch_add(numPages);
   numMapped_.fetch_add(numPages);
-
   void* data = ::mmap(
       nullptr,
       AllocationTraits::pageBytes(numPages),
@@ -184,9 +191,12 @@ int64_t MallocAllocator::freeNonContiguous(Allocation& allocation) {
           ::free(ptr); // NOLINT
         });
   }
+
+  const auto freedBytes = AllocationTraits::pageBytes(numFreed);
+  decrementUsage(freedBytes);
   numAllocated_.fetch_sub(numFreed);
   allocation.clear();
-  return AllocationTraits::pageBytes(numFreed);
+  return freedBytes;
 }
 
 void MallocAllocator::freeContiguousImpl(ContiguousAllocation& allocation) {
@@ -194,18 +204,29 @@ void MallocAllocator::freeContiguousImpl(ContiguousAllocation& allocation) {
     return;
   }
 
-  if (::munmap(allocation.data(), allocation.size()) < 0) {
-    VELOX_MEM_LOG(ERROR) << "munmap returned " << folly::errnoStr(errno)
-                         << " for " << allocation.data() << ", "
-                         << allocation.size();
+  const auto bytes = allocation.size();
+  const auto numPages = allocation.numPages();
+  if (::munmap(allocation.data(), bytes) < 0) {
+    VELOX_MEM_LOG(ERROR) << "Error for munmap(" << allocation.data() << ", "
+                         << bytes << "): '" << folly::errnoStr(errno) << "'";
   }
-  numMapped_.fetch_sub(allocation.numPages());
-  numAllocated_.fetch_sub(allocation.numPages());
+  numMapped_.fetch_sub(numPages);
+  numAllocated_.fetch_sub(numPages);
+  decrementUsage(bytes);
   allocation.clear();
 }
 
 void* MallocAllocator::allocateBytes(uint64_t bytes, uint16_t alignment) {
-  alignmentCheck(bytes, alignment);
+  if (!incrementUsage(bytes)) {
+    return nullptr;
+  }
+  if (!isAlignmentValid(bytes, alignment)) {
+    decrementUsage(bytes);
+    VELOX_FAIL(
+        "Alignment check failed, allocateBytes {}, alignmentBytes {}",
+        bytes,
+        alignment);
+  }
   void* result = (alignment > kMinAlignment) ? ::aligned_alloc(alignment, bytes)
                                              : ::malloc(bytes);
   if (FOLLY_UNLIKELY(result == nullptr)) {
@@ -216,6 +237,9 @@ void* MallocAllocator::allocateBytes(uint64_t bytes, uint16_t alignment) {
 }
 
 void* MallocAllocator::allocateZeroFilled(uint64_t bytes) {
+  if (!incrementUsage(bytes)) {
+    return nullptr;
+  }
   void* result = std::calloc(1, bytes);
   if (FOLLY_UNLIKELY(result == nullptr)) {
     VELOX_MEM_LOG(ERROR) << "Failed to allocateZeroFilled " << bytes
@@ -226,14 +250,19 @@ void* MallocAllocator::allocateZeroFilled(uint64_t bytes) {
 
 void MallocAllocator::freeBytes(void* p, uint64_t bytes) noexcept {
   ::free(p); // NOLINT
+  decrementUsage(bytes);
 }
 
 bool MallocAllocator::checkConsistency() const {
-  return true;
+  const auto allocatedBytes = allocatedBytes_.load();
+  return allocatedBytes >= 0 && allocatedBytes <= capacity_;
 }
 
 std::string MallocAllocator::toString() const {
   return fmt::format(
-      "[allocated pages {}, mapped pages {}]", numAllocated_, numMapped_);
+      "[allocated bytes {}, allocated pages {}, mapped pages {}]",
+      allocatedBytes_,
+      numAllocated_,
+      numMapped_);
 }
 } // namespace facebook::velox::memory

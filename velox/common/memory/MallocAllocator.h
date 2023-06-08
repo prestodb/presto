@@ -16,16 +16,25 @@
 
 #pragma once
 
+#include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MemoryAllocator.h"
+
+DECLARE_bool(velox_memory_leak_check_enabled);
 
 namespace facebook::velox::memory {
 /// The implementation of MemoryAllocator using malloc.
 class MallocAllocator : public MemoryAllocator {
  public:
-  MallocAllocator();
+  explicit MallocAllocator(size_t capacity = 0);
 
   ~MallocAllocator() override {
-    VELOX_CHECK((numAllocated_ == 0) && (numMapped_ == 0), "{}", toString());
+    // TODO: Remove the check when memory leak issue is resolved.
+    if (FLAGS_velox_memory_leak_check_enabled) {
+      VELOX_CHECK(
+          (allocatedBytes_ == 0) && (numAllocated_ == 0) && (numMapped_ == 0),
+          "{}",
+          toString());
+    }
   }
 
   Kind kind() const override {
@@ -90,11 +99,54 @@ class MallocAllocator : public MemoryAllocator {
 
   void freeContiguousImpl(ContiguousAllocation& allocation);
 
+  /// Increment current usage and check current allocator consistency to make
+  /// sure current usage does not go above 'capacity_'. If it goes above
+  /// 'capacity_', the increment will not be applied. Returns true if within
+  /// capacity, false otherwise.
+  ///
+  /// NOTE: This method should always be called BEFORE actual allocation.
+  inline bool incrementUsage(int64_t bytes) {
+    const auto originalBytes = allocatedBytes_.fetch_add(bytes);
+    // We don't do the check when capacity_ is 0, meaning unlimited capacity.
+    if (capacity_ != 0 && originalBytes + bytes > capacity_) {
+      allocatedBytes_.fetch_sub(bytes);
+      return false;
+    }
+    return true;
+  }
+
+  /// Decrement current usage and check current allocator consistency to make
+  /// sure current usage does not go below 0. Throws if usage goes below 0.
+  ///
+  /// NOTE: This method should always be called AFTER actual free.
+  inline void decrementUsage(int64_t bytes) {
+    const auto originalBytes = allocatedBytes_.fetch_sub(bytes);
+    if (originalBytes - bytes < 0) {
+      // In case of inconsistency while freeing memory, do not revert in this
+      // case because free is guaranteed to happen.
+      VELOX_MEM_ALLOC_ERROR(fmt::format(
+          "Trying to free {} bytes, which is larger than current allocated "
+          "bytes {}",
+          bytes,
+          originalBytes))
+    }
+  }
+
   const Kind kind_;
 
+  /// Capacity in bytes. Total allocation byte is not allowed to exceed this
+  /// value. Setting this to 0 means no capacity enforcement.
+  const size_t capacity_;
+
+  /// Current total allocated bytes by this 'MallocAllocator'.
+  std::atomic<int64_t> allocatedBytes_{0};
+
+  /// Mutex for 'mallocs_'.
   std::mutex mallocsMutex_;
-  // Tracks malloc'd pointers to detect bad frees.
+
+  /// Tracks malloc'd pointers to detect bad frees.
   std::unordered_set<void*> mallocs_;
+
   Stats stats_;
 };
 } // namespace facebook::velox::memory

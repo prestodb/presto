@@ -170,8 +170,8 @@ class Allocation {
   friend class MmapAllocator;
   friend class MallocAllocator;
 
-  VELOX_FRIEND_TEST(MemoryAllocatorTest, allocationTest);
-  VELOX_FRIEND_TEST(MemoryAllocatorTest, allocation);
+  VELOX_FRIEND_TEST(MemoryAllocatorTest, allocationClass1);
+  VELOX_FRIEND_TEST(MemoryAllocatorTest, allocationClass2);
   VELOX_FRIEND_TEST(AllocationTest, append);
 };
 
