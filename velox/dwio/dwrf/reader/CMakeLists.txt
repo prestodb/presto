@@ -29,6 +29,7 @@ add_library(
   SelectiveTimestampColumnReader.cpp
   SelectiveStructColumnReader.cpp
   SelectiveRepeatedColumnReader.cpp
+  StreamLabels.cpp
   StripeDictionaryCache.cpp
   StripeReaderBase.cpp
   StripeStream.cpp)
