@@ -696,6 +696,8 @@ public class PrestoSparkQueryRunner
         }
 
         if (instanceId != null) {
+            instances.get(instanceId).getPrestoSparkService().getTaskExecutorFactory().close();
+            instances.get(instanceId).getPrestoSparkService().getNativeTaskExecutorFactory().close();
             instances.remove(instanceId);
         }
     }
@@ -714,6 +716,12 @@ public class PrestoSparkQueryRunner
         public IPrestoSparkTaskExecutorFactory get()
         {
             return instances.get(instanceId).getPrestoSparkService().getTaskExecutorFactory();
+        }
+
+        @Override
+        public IPrestoSparkTaskExecutorFactory getNative()
+        {
+            return instances.get(instanceId).getPrestoSparkService().getNativeTaskExecutorFactory();
         }
     }
 

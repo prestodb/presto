@@ -29,6 +29,7 @@ import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.net.URI;
@@ -38,6 +39,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.presto.execution.TaskState.ABORTED;
+import static com.facebook.presto.execution.TaskState.CANCELED;
+import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static java.util.Objects.requireNonNull;
@@ -158,7 +162,8 @@ public class NativeExecutionTask
     {
         TaskInfo taskInfo = sendUpdateRequest();
 
-        if (!taskInfo.getTaskStatus().getState().isDone()) {
+        // We do not start taskInfo fetcher for failed tasks
+        if (!ImmutableList.of(CANCELED, FAILED, ABORTED).contains(taskInfo.getTaskStatus().getState())) {
             log.info("Starting TaskInfoFetcher and TaskResultFetcher.");
             taskResultFetcher.ifPresent(fetcher -> fetcher.start());
             taskInfoFetcher.start();
