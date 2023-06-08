@@ -82,6 +82,65 @@ TEST_F(GenericWriterTest, integer) {
       result);
 }
 
+TEST_F(GenericWriterTest, ArrayOfGeneric) {
+  VectorPtr result;
+  BaseVector::ensureWritable(
+      SelectivityVector(2), ARRAY(BIGINT()), pool(), result);
+
+  VectorWriter<Array<Any>> writer;
+  writer.init(*result->as<ArrayVector>());
+
+  for (int i = 0; i < 2; ++i) {
+    writer.setOffset(i);
+
+    auto& arrayWriter = writer.current();
+    arrayWriter.add_item().castTo<int64_t>() = 100 * i;
+    arrayWriter.add_item().castTo<int64_t>() = 101 * i;
+    arrayWriter.add_null();
+
+    writer.commit(true);
+  }
+  writer.finish();
+  test::assertEqualVectors(
+      makeNullableArrayVector<int64_t>(
+          {{0, 0, std::nullopt}, {100, 101, std::nullopt}}),
+      result);
+}
+
+template <typename T>
+struct ArrayTrimFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Array<Generic<T1>>>& out,
+      const arg_type<Array<Generic<T1>>>& inputArray,
+      const int64_t& n) {
+    int64_t end = inputArray.size() - n;
+    for (int i = 0; i < end; ++i) {
+      if (inputArray[i].has_value()) {
+        auto& newItem = out.add_item();
+        newItem.copy_from(inputArray[i].value());
+      } else {
+        out.add_null();
+      }
+    }
+  }
+};
+
+TEST_F(GenericWriterTest, ArrayTrim) {
+  registerFunction<
+      ArrayTrimFunction,
+      Array<Generic<T1>>,
+      Array<Generic<T1>>,
+      int64_t>({"trim_array"});
+
+  auto input = makeNullableArrayVector<int64_t>(
+      {{1, 2, 3}, {1, std::nullopt, std::nullopt, 5}});
+  auto result = evaluate("trim_array(c0, 2)", makeRowVector({input}));
+  auto expected = makeNullableArrayVector<int64_t>({{1}, {1, std::nullopt}});
+  test::assertEqualVectors(expected, result);
+}
+
 TEST_F(GenericWriterTest, varchar) {
   VectorPtr result;
   BaseVector::ensureWritable(SelectivityVector(6), VARCHAR(), pool(), result);
