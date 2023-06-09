@@ -93,6 +93,8 @@ class AggregationFuzzerRunner {
           {"approx_percentile_merge", ""},
           {"arbitrary", ""},
           {"array_agg", "array_sort({})"},
+          {"set_agg", "array_sort({})"},
+          {"set_union", "array_sort({})"},
           {"map_agg", "array_sort(map_keys({}))"},
           {"map_union", "array_sort(map_keys({}))"},
           {"map_union_sum", "array_sort(map_keys({}))"},

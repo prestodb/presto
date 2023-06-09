@@ -32,6 +32,8 @@ add_executable(
   MinMaxByAggregationTest.cpp
   MinMaxTest.cpp
   PrestoHasherTest.cpp
+  SetAggTest.cpp
+  SetUnionTest.cpp
   SumTest.cpp
   MapAggTest.cpp
   MapUnionAggregationTest.cpp

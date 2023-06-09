@@ -91,6 +91,29 @@ General Aggregate Functions
 
     Returns the minimum value of all input values.
 
+.. function:: set_agg(x) -> array<[same as input]>
+
+    Returns an array created from the distinct input ``x`` elements.
+
+    Supported types of ``x`` are: TINYINT, SMALLINT, INTEGER, BIGINT.
+
+.. function:: set_union(array(T)) -> array(T)
+
+    Returns an array of all the distinct values contained in each array of the input.
+
+    Example::
+
+        SELECT set_union(elements)
+        FROM (
+            VALUES
+                ARRAY[1, 2, 3],
+                ARRAY[2, 3, 4]
+        ) AS t(elements);
+
+    Returns ARRAY[1, 2, 3, 4]
+
+    Supported types are: TINYINT, SMALLINT, INTEGER, BIGINT.
+
 .. function:: sum(x) -> [same as input]
 
     Returns the sum of all input values.

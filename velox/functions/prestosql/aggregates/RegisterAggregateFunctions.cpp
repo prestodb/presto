@@ -36,6 +36,8 @@ extern void registerMapUnionSumAggregate(const std::string& prefix);
 extern void registerMaxSizeForStatsAggregate(const std::string& prefix);
 extern void registerMinMaxAggregates(const std::string& prefix);
 extern void registerMinMaxByAggregates(const std::string& prefix);
+extern void registerSetAggAggregate(const std::string& prefix);
+extern void registerSetUnionAggregate(const std::string& prefix);
 extern void registerSumAggregate(const std::string& prefix);
 extern void registerVarianceAggregates(const std::string& prefix);
 
@@ -59,6 +61,8 @@ void registerAllAggregateFunctions(const std::string& prefix) {
   registerMaxSizeForStatsAggregate(prefix);
   registerMinMaxAggregates(prefix);
   registerMinMaxByAggregates(prefix);
+  registerSetAggAggregate(prefix);
+  registerSetUnionAggregate(prefix);
   registerSumAggregate(prefix);
   registerVarianceAggregates(prefix);
 }
