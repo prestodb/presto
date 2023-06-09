@@ -459,10 +459,6 @@ variant variantAt(const VectorPtr& vector, vector_size_t row) {
     return mapVariantAt(vector, row);
   }
 
-  if (typeKind == TypeKind::HUGEINT) {
-    return variantAt<TypeKind::HUGEINT>(vector, row);
-  }
-
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(variantAt, typeKind, vector, row);
 }
 

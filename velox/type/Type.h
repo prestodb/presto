@@ -1215,6 +1215,10 @@ std::shared_ptr<const OpaqueType> OPAQUE() {
         return TEMPLATE_FUNC<::facebook::velox::TypeKind::BIGINT>(            \
             __VA_ARGS__);                                                     \
       }                                                                       \
+      case ::facebook::velox::TypeKind::HUGEINT: {                            \
+        return TEMPLATE_FUNC<::facebook::velox::TypeKind::HUGEINT>(           \
+            __VA_ARGS__);                                                     \
+      }                                                                       \
       case ::facebook::velox::TypeKind::REAL: {                               \
         return TEMPLATE_FUNC<::facebook::velox::TypeKind::REAL>(__VA_ARGS__); \
       }                                                                       \
@@ -1307,8 +1311,6 @@ std::shared_ptr<const OpaqueType> OPAQUE() {
       return TEMPLATE_FUNC<::facebook::velox::TypeKind::UNKNOWN>(__VA_ARGS__); \
     } else if ((typeKind) == ::facebook::velox::TypeKind::OPAQUE) {            \
       return TEMPLATE_FUNC<::facebook::velox::TypeKind::OPAQUE>(__VA_ARGS__);  \
-    } else if ((typeKind) == ::facebook::velox::TypeKind::HUGEINT) {           \
-      return TEMPLATE_FUNC<::facebook::velox::TypeKind::HUGEINT>(__VA_ARGS__); \
     } else {                                                                   \
       return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(                               \
           TEMPLATE_FUNC, typeKind, __VA_ARGS__);                               \
@@ -1336,6 +1338,10 @@ std::shared_ptr<const OpaqueType> OPAQUE() {
       }                                                                        \
       case ::facebook::velox::TypeKind::BIGINT: {                              \
         return PREFIX<::facebook::velox::TypeKind::BIGINT> SUFFIX(             \
+            __VA_ARGS__);                                                      \
+      }                                                                        \
+      case ::facebook::velox::TypeKind::HUGEINT: {                             \
+        return PREFIX<::facebook::velox::TypeKind::HUGEINT> SUFFIX(            \
             __VA_ARGS__);                                                      \
       }                                                                        \
       case ::facebook::velox::TypeKind::REAL: {                                \
@@ -1368,10 +1374,6 @@ std::shared_ptr<const OpaqueType> OPAQUE() {
       }                                                                        \
       case ::facebook::velox::TypeKind::ROW: {                                 \
         return PREFIX<::facebook::velox::TypeKind::ROW> SUFFIX(__VA_ARGS__);   \
-      }                                                                        \
-      case ::facebook::velox::TypeKind::HUGEINT: {                             \
-        return PREFIX<::facebook::velox::TypeKind::HUGEINT> SUFFIX(            \
-            __VA_ARGS__);                                                      \
       }                                                                        \
       default:                                                                 \
         VELOX_FAIL("not a known type kind: {}", mapTypeKindToName(typeKind));  \
