@@ -15,6 +15,7 @@
  */
 
 #include "velox/functions/lib/aggregates/SingleValueAccumulator.h"
+#include "velox/exec/ContainerRowSerde.h"
 
 namespace facebook::velox::functions::aggregate {
 
@@ -24,46 +25,44 @@ void SingleValueAccumulator::write(
     const BaseVector* vector,
     vector_size_t index,
     HashStringAllocator* allocator) {
-  if (!begin_) {
-    begin_ = allocator->allocate(kInitialBytes);
+  ByteStream stream(allocator);
+  if (start_.header == nullptr) {
+    start_ = allocator->newWrite(stream);
+  } else {
+    allocator->extendWrite(start_, stream);
   }
 
-  ByteStream stream(allocator);
-  allocator->extendWrite({begin_, begin_->begin()}, stream);
   exec::ContainerRowSerde::instance().serialize(*vector, index, stream);
-  allocator->finishWrite(stream, stream.size());
+  allocator->finishWrite(stream, 0);
 }
 
 void SingleValueAccumulator::read(const VectorPtr& vector, vector_size_t index)
     const {
-  VELOX_CHECK(begin_);
+  VELOX_CHECK_NOT_NULL(start_.header);
 
-  ByteStream inStream;
-  HashStringAllocator::prepareRead(begin_, inStream);
-  exec::ContainerRowSerde::instance().deserialize(
-      inStream, index, vector.get());
+  ByteStream stream;
+  HashStringAllocator::prepareRead(start_.header, stream);
+  exec::ContainerRowSerde::instance().deserialize(stream, index, vector.get());
 }
 
 bool SingleValueAccumulator::hasValue() const {
-  return begin_ != nullptr;
+  return start_.header != nullptr;
 }
 
-// Returns 0 if stored and new values are equal; <0 if stored value is less
-// then new value; >0 if stored value is greated than new value
 int32_t SingleValueAccumulator::compare(
     const DecodedVector& decoded,
     vector_size_t index) const {
-  VELOX_CHECK(begin_);
+  VELOX_CHECK_NOT_NULL(start_.header);
 
-  ByteStream inStream;
-  HashStringAllocator::prepareRead(begin_, inStream);
+  ByteStream stream;
+  HashStringAllocator::prepareRead(start_.header, stream);
   return exec::ContainerRowSerde::instance().compare(
-      inStream, decoded, index, {true, true, false});
+      stream, decoded, index, {true, true, false});
 }
 
 void SingleValueAccumulator::destroy(HashStringAllocator* allocator) {
-  if (begin_) {
-    allocator->free(begin_);
+  if (start_.header != nullptr) {
+    allocator->free(start_.header);
   }
 }
 

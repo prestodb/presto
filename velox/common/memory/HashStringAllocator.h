@@ -137,8 +137,8 @@ class HashStringAllocator : public StreamArena {
   };
 
   struct Position {
-    Header* FOLLY_NULLABLE header;
-    char* FOLLY_NULLABLE position;
+    Header* FOLLY_NULLABLE header{nullptr};
+    char* FOLLY_NULLABLE position{nullptr};
   };
 
   explicit HashStringAllocator(memory::MemoryPool* FOLLY_NONNULL pool)
