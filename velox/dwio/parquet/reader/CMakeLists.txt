@@ -31,9 +31,9 @@ target_link_libraries(
   velox_dwio_parquet_thrift
   velox_type
   velox_dwio_common
-  arrow
   fmt::fmt
   parquet
+  arrow
   Snappy::snappy
   thrift
   zstd::zstd)

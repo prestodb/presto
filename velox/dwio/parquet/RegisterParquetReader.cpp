@@ -16,12 +16,15 @@
 
 #include "velox/dwio/parquet/RegisterParquetReader.h"
 
+#ifdef VELOX_ENABLE_PARQUET
 #include "velox/dwio/parquet/duckdb_reader/ParquetReader.h"
 #include "velox/dwio/parquet/reader/ParquetReader.h"
+#endif
 
 namespace facebook::velox::parquet {
 
 void registerParquetReaderFactory(ParquetReaderType parquetReaderType) {
+#ifdef VELOX_ENABLE_PARQUET
   switch (parquetReaderType) {
     case ParquetReaderType::DUCKDB:
       dwio::common::registerReaderFactory(
@@ -35,10 +38,13 @@ void registerParquetReaderFactory(ParquetReaderType parquetReaderType) {
       VELOX_UNSUPPORTED(
           "Velox does not support ParquetReaderType ", parquetReaderType);
   }
+#endif
 }
 
 void unregisterParquetReaderFactory() {
+#ifdef VELOX_ENABLE_PARQUET
   dwio::common::unregisterReaderFactory(dwio::common::FileFormat::PARQUET);
+#endif
 }
 
 } // namespace facebook::velox::parquet

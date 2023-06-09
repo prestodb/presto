@@ -160,7 +160,7 @@ class ColumnWriterStatsTest : public ::testing::Test {
       config->set(Config::FLATTEN_MAP, true);
       config->set(Config::MAP_FLAT_COLS, {folly::to<uint32_t>(flatMapColId)});
     }
-    WriterOptions options;
+    dwrf::WriterOptions options;
     options.config = config;
     options.schema = type;
     options.flushPolicyFactory = [&]() {
@@ -169,7 +169,7 @@ class ColumnWriterStatsTest : public ::testing::Test {
       });
     };
 
-    Writer writer{options, std::move(sink), rootPool_};
+    dwrf::Writer writer{std::move(sink), options, rootPool_};
 
     for (size_t i = 0; i < repeat; ++i) {
       writer.write(batch);

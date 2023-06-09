@@ -24,6 +24,7 @@
 #include "velox/dwio/common/ColumnSelector.h"
 #include "velox/dwio/common/ErrorTolerance.h"
 #include "velox/dwio/common/FlatMapHelper.h"
+#include "velox/dwio/common/FlushPolicy.h"
 #include "velox/dwio/common/InputStream.h"
 #include "velox/dwio/common/ScanSpec.h"
 #include "velox/dwio/common/encryption/Encryption.h"
@@ -558,6 +559,11 @@ class ReaderOptions {
   uint64_t getFilePreloadThreshold() const {
     return filePreloadThreshold;
   }
+};
+
+struct WriterOptions {
+  TypePtr schema;
+  velox::memory::MemoryPool* memoryPool;
 };
 
 } // namespace common

@@ -14,28 +14,24 @@
  * limitations under the License.
  */
 
-#pragma once
+#include "velox/dwio/parquet/RegisterParquetWriter.h"
 
-#include <string>
+#ifdef VELOX_ENABLE_PARQUET
+#include "velox/dwio/parquet/writer/Writer.h"
+#endif
 
-namespace facebook::velox::dwio::common {
+namespace facebook::velox::parquet {
 
-enum CompressionKind {
-  CompressionKind_NONE = 0,
-  CompressionKind_ZLIB = 1,
-  CompressionKind_SNAPPY = 2,
-  CompressionKind_LZO = 3,
-  CompressionKind_ZSTD = 4,
-  CompressionKind_LZ4 = 5,
-  CompressionKind_GZIP = 6,
-  CompressionKind_MAX = INT64_MAX
-};
+void registerParquetWriterFactory() {
+#ifdef VELOX_ENABLE_PARQUET
+  dwio::common::registerWriterFactory(std::make_shared<ParquetWriterFactory>());
+#endif
+}
 
-/**
- * Get the name of the CompressionKind.
- */
-std::string compressionKindToString(CompressionKind kind);
+void unregisterParquetWriterFactory() {
+#ifdef VELOX_ENABLE_PARQUET
+  dwio::common::unregisterWriterFactory(dwio::common::FileFormat::PARQUET);
+#endif
+}
 
-constexpr uint64_t DEFAULT_COMPRESSION_BLOCK_SIZE = 256 * 1024;
-
-} // namespace facebook::velox::dwio::common
+} // namespace facebook::velox::parquet

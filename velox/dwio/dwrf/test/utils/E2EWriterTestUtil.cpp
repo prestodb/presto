@@ -39,16 +39,16 @@ namespace facebook::velox::dwrf {
         layoutPlannerFactory,
     const int64_t writerMemoryCap) {
   // write file to memory
-  WriterOptions options;
+  dwrf::WriterOptions options;
   options.config = config;
   options.schema = type;
   options.memoryBudget = writerMemoryCap;
   options.flushPolicyFactory = flushPolicyFactory;
   options.layoutPlannerFactory = layoutPlannerFactory;
 
-  auto writer = std::make_unique<Writer>(
-      options,
+  auto writer = std::make_unique<dwrf::Writer>(
       std::move(sink),
+      options,
       velox::memory::defaultMemoryManager().addRootPool());
 
   for (size_t i = 0; i < batches.size(); ++i) {

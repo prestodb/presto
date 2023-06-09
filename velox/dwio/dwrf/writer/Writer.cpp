@@ -41,7 +41,7 @@ size_t estimateNextWriteSize(const WriterContext& context, size_t numRows) {
 } // namespace
 
 void Writer::write(const VectorPtr& slice) {
-  auto& context = getContext();
+  auto& context = writerBase_->getContext();
   size_t offset = 0;
   // Calculate length increment based on linear projection of micro batch size.
   // Total length is capped later.
@@ -87,7 +87,7 @@ void Writer::write(const VectorPtr& slice) {
     auto rawSize =
         writer_->write(slice, common::Ranges::of(offset, offset + length));
     offset += length;
-    getContext().incRawSize(rawSize);
+    writerBase_->getContext().incRawSize(rawSize);
 
     if (context.isIndexEnabled &&
         context.indexRowCount >= context.indexStride) {
@@ -182,7 +182,7 @@ bool Writer::shouldFlush(const WriterContext& context, size_t nextWriteLength) {
 }
 
 void Writer::setLowMemoryMode() {
-  getContext().setLowMemoryMode();
+  writerBase_->getContext().setLowMemoryMode();
 }
 
 // Low memory allows for the writer to write the same data with a lower
@@ -192,7 +192,7 @@ void Writer::setLowMemoryMode() {
 // NOTE: switching encoding is not a good mitigation for immediate memory
 // pressure because the switch consumes even more memory than a flush.
 void Writer::enterLowMemoryMode() {
-  auto& context = getContext();
+  auto& context = writerBase_->getContext();
   // Until we have capability to abandon dictionary after the first
   // stripe, do nothing and rely solely on flush to comply with budget.
   if (UNLIKELY(context.checkLowMemoryMode() && context.stripeIndex == 0)) {
@@ -202,7 +202,7 @@ void Writer::enterLowMemoryMode() {
 }
 
 void Writer::flushStripe(bool close) {
-  auto& context = getContext();
+  auto& context = writerBase_->getContext();
   int64_t preFlushStreamMemoryUsage =
       context.getMemoryUsage(MemoryUsageCategory::OUTPUT_STREAM).currentBytes();
   if (context.stripeRowCount == 0) {
@@ -239,7 +239,7 @@ void Writer::flushStripe(bool close) {
 
   auto postFlushMem = context.getTotalMemoryUsage();
 
-  auto& sink = getSink();
+  auto& sink = writerBase_->getSink();
   auto stripeOffset = sink.size();
 
   uint32_t lastIndex = 0;
@@ -261,7 +261,7 @@ void Writer::flushStripe(bool close) {
     lastIndex = currentIndex;
 
     // Jolly/Presto readers can't read streams bigger than 2GB.
-    validateStreamSize(stream, out.size());
+    writerBase_->validateStreamSize(stream, out.size());
 
     s->set_kind(static_cast<proto::Stream_Kind>(stream.kind()));
     s->set_node(nodeId);
@@ -307,7 +307,7 @@ void Writer::flushStripe(bool close) {
     // fill encryption metadata
     for (uint32_t i = 0; i < handler.getEncryptionGroupCount(); ++i) {
       auto group = encodingManager.addEncryptionGroupToFooter();
-      writeProtoAsString(
+      writerBase_->writeProtoAsString(
           *group,
           encodingManager.getEncryptionGroup(i),
           std::addressof(handler.getEncryptionProviderByIndex(i)));
@@ -319,10 +319,10 @@ void Writer::flushStripe(bool close) {
   DWIO_ENSURE_EQ(footerOffset, stripeOffset + dataLength + indexLength);
 
   sink.setMode(WriterSink::Mode::Footer);
-  writeProto(encodingManager.getFooter());
+  writerBase_->writeProto(encodingManager.getFooter());
   sink.setMode(WriterSink::Mode::None);
 
-  auto& stripe = addStripeInfo();
+  auto& stripe = writerBase_->addStripeInfo();
   stripe.set_offset(stripeOffset);
   stripe.set_indexlength(indexLength);
   stripe.set_datalength(dataLength);
@@ -375,9 +375,9 @@ void Writer::flushStripe(bool close) {
 }
 
 void Writer::flushInternal(bool close) {
-  auto& context = getContext();
-  auto& footer = getFooter();
-  auto& sink = getSink();
+  auto& context = writerBase_->getContext();
+  auto& footer = writerBase_->getFooter();
+  auto& sink = writerBase_->getSink();
   {
     CpuWallTimer timer{context.flushTiming};
     flushStripe(close);
@@ -445,7 +445,7 @@ void Writer::flushInternal(bool close) {
           // set stats. No need to set key metadata since it just reused the
           // same key of the first stripe
           for (auto& s : stats.at(i)) {
-            writeProtoAsString(
+            writerBase_->writeProtoAsString(
                 *group->add_statistics(),
                 s,
                 std::addressof(handler.getEncryptionProviderByIndex(i)));
@@ -453,7 +453,7 @@ void Writer::flushInternal(bool close) {
         }
       }
 
-      writeFooter(*schema_->type);
+      writerBase_->writeFooter(*schema_->type);
     }
 
     // flush to sink
@@ -491,7 +491,30 @@ void Writer::flush() {
 void Writer::close() {
   auto exitGuard = folly::makeGuard([this]() { flushPolicy_->onClose(); });
   flushInternal(true);
-  WriterBase::close();
+  writerBase_->close();
+}
+
+dwrf::WriterOptions getDwrfOptions(const dwio::common::WriterOptions& options) {
+  dwrf::WriterOptions dwrfOptions;
+  dwrfOptions.config = std::make_shared<Config>();
+  dwrfOptions.schema = std::move(options.schema);
+  dwrfOptions.memoryPool = options.memoryPool;
+  return dwrfOptions;
+}
+
+std::unique_ptr<dwio::common::Writer> DwrfWriterFactory::createWriter(
+    std::unique_ptr<dwio::common::DataSink> sink,
+    const dwio::common::WriterOptions& options) {
+  auto dwrfOptions = getDwrfOptions(options);
+  return std::make_unique<Writer>(std::move(sink), dwrfOptions);
+}
+
+void registerDwrfWriterFactory() {
+  dwio::common::registerWriterFactory(std::make_shared<DwrfWriterFactory>());
+}
+
+void unregisterDwrfWriterFactory() {
+  dwio::common::unregisterWriterFactory(dwio::common::FileFormat::DWRF);
 }
 
 } // namespace facebook::velox::dwrf

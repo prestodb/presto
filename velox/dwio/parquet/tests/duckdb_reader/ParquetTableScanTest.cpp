@@ -35,6 +35,7 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
 
   void SetUp() override {
     HiveConnectorTestBase::SetUp();
+    unregisterParquetReaderFactory();
     registerParquetReaderFactory();
   }
 

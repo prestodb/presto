@@ -16,26 +16,10 @@
 
 #pragma once
 
-#include <string>
+namespace facebook::velox::parquet {
 
-namespace facebook::velox::dwio::common {
+void registerParquetWriterFactory();
 
-enum CompressionKind {
-  CompressionKind_NONE = 0,
-  CompressionKind_ZLIB = 1,
-  CompressionKind_SNAPPY = 2,
-  CompressionKind_LZO = 3,
-  CompressionKind_ZSTD = 4,
-  CompressionKind_LZ4 = 5,
-  CompressionKind_GZIP = 6,
-  CompressionKind_MAX = INT64_MAX
-};
+void unregisterParquetWriterFactory();
 
-/**
- * Get the name of the CompressionKind.
- */
-std::string compressionKindToString(CompressionKind kind);
-
-constexpr uint64_t DEFAULT_COMPRESSION_BLOCK_SIZE = 256 * 1024;
-
-} // namespace facebook::velox::dwio::common
+} // namespace facebook::velox::parquet

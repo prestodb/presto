@@ -19,6 +19,8 @@
 #include <iterator>
 #include <limits>
 
+#include "velox/dwio/common/Writer.h"
+#include "velox/dwio/common/WriterFactory.h"
 #include "velox/dwio/dwrf/common/Encryption.h"
 #include "velox/dwio/dwrf/writer/ColumnWriter.h"
 #include "velox/dwio/dwrf/writer/FlushPolicy.h"
@@ -30,6 +32,7 @@ namespace facebook::velox::dwrf {
 struct WriterOptions {
   std::shared_ptr<const Config> config = std::make_shared<Config>();
   std::shared_ptr<const Type> schema;
+  velox::memory::MemoryPool* memoryPool;
   // The default factory allows the writer to construct the default flush
   // policy with the configs in its ctor.
   std::function<std::unique_ptr<DWRFFlushPolicy>()> flushPolicyFactory;
@@ -45,13 +48,24 @@ struct WriterOptions {
       columnWriterFactory;
 };
 
-class Writer : public WriterBase {
+class Writer : public dwio::common::Writer {
  public:
   Writer(
       const WriterOptions& options,
       std::unique_ptr<dwio::common::DataSink> sink,
+      memory::MemoryPool& parentPool)
+      : Writer{
+            std::move(sink),
+            options,
+            parentPool.addAggregateChild(fmt::format(
+                "writer_node_{}",
+                folly::to<std::string>(folly::Random::rand64())))} {}
+
+  Writer(
+      std::unique_ptr<dwio::common::DataSink> sink,
+      const WriterOptions& options,
       std::shared_ptr<memory::MemoryPool> pool)
-      : WriterBase{std::move(sink)},
+      : writerBase_(std::make_unique<WriterBase>(std::move(sink))),
         schema_{dwio::common::TypeWithId::create(options.schema)} {
     auto handler =
         (options.encryptionSpec ? encryption::EncryptionHandler::create(
@@ -59,8 +73,9 @@ class Writer : public WriterBase {
                                       *options.encryptionSpec,
                                       options.encrypterFactory.get())
                                 : nullptr);
-    initContext(options.config, std::move(pool), std::move(handler));
-    auto& context = getContext();
+    writerBase_->initContext(
+        options.config, std::move(pool), std::move(handler));
+    auto& context = writerBase_->getContext();
     context.buildPhysicalSizeAggregators(*schema_);
     if (!options.flushPolicyFactory) {
       flushPolicy_ = std::make_unique<DefaultFlushPolicy>(
@@ -77,31 +92,31 @@ class Writer : public WriterBase {
     }
 
     if (!options.columnWriterFactory) {
-      writer_ = BaseColumnWriter::create(getContext(), *schema_);
+      writer_ = BaseColumnWriter::create(writerBase_->getContext(), *schema_);
     } else {
-      writer_ = options.columnWriterFactory(getContext(), *schema_);
+      writer_ =
+          options.columnWriterFactory(writerBase_->getContext(), *schema_);
     }
   }
 
   Writer(
-      const WriterOptions& options,
       std::unique_ptr<dwio::common::DataSink> sink,
-      memory::MemoryPool& parentPool)
+      const WriterOptions& options)
       : Writer{
-            options,
             std::move(sink),
-            parentPool.addAggregateChild(fmt::format(
+            options,
+            options.memoryPool->addAggregateChild(fmt::format(
                 "writer_node_{}",
                 folly::to<std::string>(folly::Random::rand64())))} {}
 
   ~Writer() override = default;
 
-  void write(const VectorPtr& slice);
+  virtual void write(const VectorPtr& slice) override;
 
   // Forces the writer to flush, does not close the writer.
-  void flush();
+  virtual void flush() override;
 
-  void close() override;
+  virtual void close() override;
 
   void setLowMemoryMode();
 
@@ -120,6 +135,21 @@ class Writer : public WriterBase {
     writer_->tryAbandonDictionaries(true);
   }
 
+  void addUserMetadata(const std::string& key, const std::string& value) {
+    writerBase_->addUserMetadata(key, value);
+  }
+
+  WriterContext& getContext() const {
+    return writerBase_->getContext();
+  }
+
+  WriterSink& getSink() {
+    return writerBase_->getSink();
+  }
+
+ protected:
+  std::shared_ptr<WriterBase> writerBase_;
+
  private:
   // Create a new stripe. No-op if there is no data written.
   void flushInternal(bool close = false);
@@ -128,7 +158,7 @@ class Writer : public WriterBase {
 
   void createRowIndexEntry() {
     writer_->createIndexEntry();
-    getContext().indexRowCount = 0;
+    writerBase_->getContext().indexRowCount = 0;
   }
 
   const std::shared_ptr<const dwio::common::TypeWithId> schema_;
@@ -138,5 +168,18 @@ class Writer : public WriterBase {
 
   friend class WriterTestHelper;
 };
+
+class DwrfWriterFactory : public dwio::common::WriterFactory {
+ public:
+  DwrfWriterFactory() : WriterFactory(dwio::common::FileFormat::DWRF) {}
+
+  std::unique_ptr<dwio::common::Writer> createWriter(
+      std::unique_ptr<dwio::common::DataSink> sink,
+      const dwio::common::WriterOptions& options) override;
+};
+
+void registerDwrfWriterFactory();
+
+void unregisterDwrfWriterFactory();
 
 } // namespace facebook::velox::dwrf

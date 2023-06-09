@@ -20,15 +20,10 @@
 #include "velox/common/base/Fs.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnector.h"
-#include "velox/connectors/hive/HivePartitionUtil.h"
-#include "velox/dwio/dwrf/writer/Writer.h"
 
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
-
-using namespace facebook::velox::dwrf;
-using WriterConfig = facebook::velox::dwrf::Config;
 
 namespace facebook::velox::connector::hive {
 
@@ -109,7 +104,10 @@ HiveDataSink::HiveDataSink(
                                             HiveConfig::maxPartitionsPerWriters(
                                                 connectorQueryCtx_->config()),
                                             connectorQueryCtx_->memoryPool())
-                                      : nullptr) {}
+                                      : nullptr) {
+  // TODO: remove this hack after Prestissimo adds to register dwrf writer.
+  facebook::velox::dwrf::registerDwrfWriterFactory();
+}
 
 void HiveDataSink::appendData(RowVectorPtr input) {
   // Write to unpartitioned table.
@@ -217,21 +215,21 @@ void HiveDataSink::ensurePartitionWriters() {
 
 void HiveDataSink::appendWriter(
     const std::optional<std::string>& partitionName) {
-  // TODO: Wire up serde properties to writer configs.
-  facebook::velox::dwrf::WriterOptions options;
-  options.config = std::make_shared<WriterConfig>();
-  options.schema = inputType_;
   // Without explicitly setting flush policy, the default memory based flush
   // policy is used.
   auto writerParameters = getWriterParameters(partitionName);
   const auto writePath = fs::path(writerParameters.writeDirectory()) /
       writerParameters.writeFileName();
-
-  auto sink = dwio::common::DataSink::create(writePath);
-  writers_.push_back(std::make_unique<Writer>(
-      options, std::move(sink), *connectorQueryCtx_->connectorMemoryPool()));
   writerInfo_.push_back(
       std::make_shared<HiveWriterInfo>(std::move(writerParameters)));
+
+  auto writerFactory =
+      dwio::common::getWriterFactory(insertTableHandle_->tableStorageFormat());
+  dwio::common::WriterOptions options;
+  options.schema = inputType_;
+  options.memoryPool = connectorQueryCtx_->connectorMemoryPool();
+  writers_.push_back(writerFactory->createWriter(
+      dwio::common::DataSink::create(writePath), options));
 }
 
 void HiveDataSink::computePartitionRowCountsAndIndices() {

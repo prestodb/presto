@@ -1738,7 +1738,7 @@ void verifyRowNumbers(
   ASSERT_EQ(numRows, expectedNumRows);
 }
 
-std::pair<std::unique_ptr<Writer>, std::unique_ptr<DwrfReader>>
+std::pair<std::unique_ptr<dwrf::Writer>, std::unique_ptr<DwrfReader>>
 createWriterReader(
     const std::vector<VectorPtr>& batches,
     memory::MemoryPool& pool) {

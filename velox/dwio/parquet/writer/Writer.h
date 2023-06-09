@@ -16,89 +16,52 @@
 
 #pragma once
 
+#include "velox/dwio/common/Common.h"
 #include "velox/dwio/common/DataBuffer.h"
 #include "velox/dwio/common/DataSink.h"
-
+#include "velox/dwio/common/Options.h"
+#include "velox/dwio/common/Writer.h"
+#include "velox/dwio/common/WriterFactory.h"
 #include "velox/vector/ComplexVector.h"
-
-#include <parquet/arrow/writer.h> // @manual
 
 namespace facebook::velox::parquet {
 
-// Utility for capturing Arrow output into a DataBuffer.
-class DataBufferSink : public arrow::io::OutputStream {
- public:
-  explicit DataBufferSink(memory::MemoryPool& pool, double growRatio = 1)
-      : buffer_(pool), growRatio_(growRatio) {}
+class ArrowDataBufferSink;
 
-  arrow::Status Write(const std::shared_ptr<arrow::Buffer>& data) override {
-    auto requestCapacity = buffer_.size() + data->size();
-    if (requestCapacity > buffer_.capacity()) {
-      buffer_.reserve(growRatio_ * (requestCapacity));
-    }
-    buffer_.append(
-        buffer_.size(),
-        reinterpret_cast<const char*>(data->data()),
-        data->size());
-    return arrow::Status::OK();
-  }
+struct ArrowContext;
 
-  arrow::Status Write(const void* data, int64_t nbytes) override {
-    auto requestCapacity = buffer_.size() + nbytes;
-    if (requestCapacity > buffer_.capacity()) {
-      buffer_.reserve(growRatio_ * (requestCapacity));
-    }
-    buffer_.append(buffer_.size(), reinterpret_cast<const char*>(data), nbytes);
-    return arrow::Status::OK();
-  }
-
-  arrow::Status Flush() override {
-    return arrow::Status::OK();
-  }
-
-  arrow::Result<int64_t> Tell() const override {
-    return buffer_.size();
-  }
-
-  arrow::Status Close() override {
-    return arrow::Status::OK();
-  }
-
-  bool closed() const override {
-    return false;
-  }
-
-  dwio::common::DataBuffer<char>& dataBuffer() {
-    return buffer_;
-  }
-
- private:
-  dwio::common::DataBuffer<char> buffer_;
-  double growRatio_ = 1;
+struct WriterOptions {
+  bool enableDictionary = true;
+  int64_t dataPageSize = 1'024 * 1'024;
+  int32_t rowsInRowGroup = 10'000;
+  int64_t maxRowGroupLength = 1'024 * 1'024;
+  int64_t dictionaryPageSizeLimit = 1'024 * 1'024;
+  double bufferGrowRatio = 1;
+  dwio::common::CompressionKind compression =
+      dwio::common::CompressionKind_NONE;
+  velox::memory::MemoryPool* memoryPool;
 };
 
 // Writes Velox vectors into  a DataSink using Arrow Parquet writer.
-class Writer {
+class Writer : public dwio::common::Writer {
  public:
-  // Constructts a writer with output to 'sink'. A new row group is
+  // Constructs a writer with output to 'sink'. A new row group is
   // started every 'rowsInRowGroup' top level rows. 'pool' is used for
   // temporary memory. 'properties' specifies Parquet-specific
   // options.
   Writer(
       std::unique_ptr<dwio::common::DataSink> sink,
-      memory::MemoryPool& pool,
-      int32_t rowsInRowGroup,
-      std::shared_ptr<::parquet::WriterProperties> properties =
-          ::parquet::WriterProperties::Builder().build(),
-      double bufferGrowRatio = 1)
-      : rowsInRowGroup_(rowsInRowGroup),
-        pool_(pool),
-        finalSink_(std::move(sink)),
-        properties_(std::move(properties)),
-        bufferGrowRatio_(bufferGrowRatio) {}
+      const WriterOptions& options,
+      std::shared_ptr<memory::MemoryPool> pool);
+
+  Writer(
+      std::unique_ptr<dwio::common::DataSink> sink,
+      const WriterOptions& options);
+
+  static bool isArrowCodecAvailable(dwio::common::CompressionKind compression);
 
   // Appends 'data' into the writer.
-  void write(const RowVectorPtr& data);
+  void write(const VectorPtr& data) override;
 
   void flush();
 
@@ -112,20 +75,28 @@ class Writer {
 
  private:
   const int32_t rowsInRowGroup_;
+  const double bufferGrowRatio_;
 
   // Pool for 'stream_'.
-  memory::MemoryPool& pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> generalPool_;
 
   // Final destination of output.
   std::unique_ptr<dwio::common::DataSink> finalSink_;
 
   // Temporary Arrow stream for capturing the output.
-  std::shared_ptr<DataBufferSink> stream_;
+  std::shared_ptr<ArrowDataBufferSink> stream_;
 
-  std::unique_ptr<::parquet::arrow::FileWriter> arrowWriter_;
+  std::shared_ptr<ArrowContext> arrowContext_;
+};
 
-  std::shared_ptr<::parquet::WriterProperties> properties_;
-  double bufferGrowRatio_;
+class ParquetWriterFactory : public dwio::common::WriterFactory {
+ public:
+  ParquetWriterFactory() : WriterFactory(dwio::common::FileFormat::PARQUET) {}
+
+  std::unique_ptr<dwio::common::Writer> createWriter(
+      std::unique_ptr<dwio::common::DataSink> sink,
+      const dwio::common::WriterOptions& options) override;
 };
 
 } // namespace facebook::velox::parquet

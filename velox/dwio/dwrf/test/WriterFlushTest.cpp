@@ -203,7 +203,7 @@ class DummyWriter : public velox::dwrf::Writer {
       WriterOptions& options,
       std::unique_ptr<dwio::common::DataSink> sink,
       std::shared_ptr<memory::MemoryPool> pool)
-      : Writer{options, std::move(sink), std::move(pool)} {}
+      : Writer{std::move(sink), options, std::move(pool)} {}
 
   MOCK_METHOD1(
       flushImpl,
@@ -331,7 +331,7 @@ class WriterFlushTestHelper {
             memory::MemoryPool::Kind::kAggregate,
             nullptr,
             writerMemoryBudget));
-    auto& context = writer->getContext();
+    auto& context = writer->writerBase_->getContext();
     zeroOutMemoryUsage(context);
     return writer;
   }
@@ -371,7 +371,7 @@ class WriterFlushTestHelper {
       int64_t numStripes,
       const std::vector<SimulatedWrite>& writeSequence,
       std::mt19937& gen) {
-    auto& context = writer->getContext();
+    auto& context = writer->writerBase_->getContext();
     for (const auto& write : writeSequence) {
       if (writer->shouldFlush(context, write.numRows)) {
         ASSERT_EQ(
@@ -438,7 +438,7 @@ TEST(TestWriterFlush, CheckAgainstMemoryBudget) {
   auto pool = MockMemoryPool::create();
   {
     auto writer = WriterFlushTestHelper::prepWriter(pool, 1024);
-    auto& context = writer->getContext();
+    auto& context = writer->writerBase_->getContext();
 
     SimulatedWrite simWrite{10, 500, 300};
     simWrite.apply(context);
@@ -451,7 +451,7 @@ TEST(TestWriterFlush, CheckAgainstMemoryBudget) {
   }
   {
     auto writer = WriterFlushTestHelper::prepWriter(pool, 1024);
-    auto& context = writer->getContext();
+    auto& context = writer->writerBase_->getContext();
 
     SimulatedWrite simWrite{10, 500, 300};
     simWrite.apply(context);
@@ -475,7 +475,7 @@ TEST(TestWriterFlush, CheckAgainstMemoryBudget) {
   }
   {
     auto writer = WriterFlushTestHelper::prepWriter(pool, 1024);
-    auto& context = writer->getContext();
+    auto& context = writer->writerBase_->getContext();
 
     SimulatedWrite{10, 500, 300}.apply(context);
     SimulatedFlush simFlush{
@@ -497,7 +497,7 @@ TEST(TestWriterFlush, CheckAgainstMemoryBudget) {
   }
   {
     auto writer = WriterFlushTestHelper::prepWriter(pool, 1024);
-    auto& context = writer->getContext();
+    auto& context = writer->writerBase_->getContext();
 
     // 0 overhead flush but with raw size per row variance.
     SimulatedWrite{10, 500, 300}.apply(context);
@@ -528,7 +528,7 @@ TEST(TestWriterFlush, CheckAgainstMemoryBudget) {
   }
   {
     auto writer = WriterFlushTestHelper::prepWriter(pool, 1024);
-    auto& context = writer->getContext();
+    auto& context = writer->writerBase_->getContext();
 
     // 0 overhead flush but with raw size per row variance.
     SimulatedWrite{10, 500, 300}.apply(context);
@@ -551,7 +551,7 @@ TEST(TestWriterFlush, CheckAgainstMemoryBudget) {
   }
   {
     auto writer = WriterFlushTestHelper::prepWriter(pool, 1024);
-    auto& context = writer->getContext();
+    auto& context = writer->writerBase_->getContext();
 
     // 0 overhead flush but with flush overhead variance.
     SimulatedWrite{10, 500, 300}.apply(context);

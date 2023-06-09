@@ -83,10 +83,11 @@ class E2EWriterTests : public Test {
     auto sink = std::make_unique<MemorySink>(*leafPool_, 200 * 1024 * 1024);
     auto sinkPtr = sink.get();
 
-    WriterOptions options;
+    dwrf::WriterOptions options;
     options.config = config;
     options.schema = type;
-    Writer writer{options, std::move(sink), *rootPool_};
+    options.memoryPool = rootPool_.get();
+    dwrf::Writer writer{std::move(sink), options};
 
     for (size_t i = 0; i < stripes; ++i) {
       writer.write(BatchMaker::createBatch(type, size, *leafPool_, nullptr, i));
@@ -134,10 +135,11 @@ class E2EWriterTests : public Test {
     auto sink = std::make_unique<MemorySink>(*leafPool_, 400 * 1024 * 1024);
     auto sinkPtr = sink.get();
 
-    WriterOptions options;
+    dwrf::WriterOptions options;
     options.config = config;
     options.schema = type;
-    Writer writer{options, std::move(sink), *rootPool_};
+    options.memoryPool = rootPool_.get();
+    dwrf::Writer writer{std::move(sink), options};
 
     const size_t seed = std::time(nullptr);
     LOG(INFO) << "seed: " << seed;
@@ -753,10 +755,11 @@ TEST_F(E2EWriterTests, PartialStride) {
   auto sink = std::make_unique<MemorySink>(*leafPool_, 2 * 1024 * 1024);
   auto sinkPtr = sink.get();
 
-  WriterOptions options;
+  dwrf::WriterOptions options;
   options.config = config;
   options.schema = type;
-  Writer writer{options, std::move(sink), *rootPool_};
+  options.memoryPool = rootPool_.get();
+  dwrf::Writer writer{std::move(sink), options};
 
   auto nulls = allocateNulls(size, leafPool_.get());
   auto* nullsPtr = nulls->asMutable<uint64_t>();
@@ -964,12 +967,12 @@ class E2EEncryptionTest : public E2EWriterTests {
     config->set(Config::ENTROPY_KEY_STRING_SIZE_THRESHOLD, 0.0f);
     auto sink = std::make_unique<MemorySink>(*leafPool_, 16 * 1024 * 1024);
     sink_ = sink.get();
-    WriterOptions options;
+    dwrf::WriterOptions options;
     options.config = config;
     options.schema = type;
     options.encryptionSpec = spec;
     options.encrypterFactory = std::make_shared<TestEncrypterFactory>();
-    writer_ = std::make_unique<Writer>(options, std::move(sink), rootPool_);
+    writer_ = std::make_unique<Writer>(std::move(sink), options, rootPool_);
 
     for (size_t i = 0; i < batchCount_; ++i) {
       auto batch =

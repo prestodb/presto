@@ -17,8 +17,6 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnector.h"
-#include "velox/connectors/hive/HivePartitionUtil.h"
-#include "velox/dwio/common/DataSink.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -41,17 +39,23 @@ class TableWriteTest : public HiveConnectorTestBase {
 
   std::vector<std::shared_ptr<connector::ConnectorSplit>>
   makeHiveConnectorSplits(
-      const std::shared_ptr<TempDirectoryPath>& directoryPath) {
-    return makeHiveConnectorSplits(directoryPath->path);
+      const std::shared_ptr<TempDirectoryPath>& directoryPath,
+      const dwio::common::FileFormat fileFormat =
+          dwio::common::FileFormat::DWRF) {
+    return makeHiveConnectorSplits(directoryPath->path, fileFormat);
   }
 
   std::vector<std::shared_ptr<connector::ConnectorSplit>>
-  makeHiveConnectorSplits(const std::string& directoryPath) {
+  makeHiveConnectorSplits(
+      const std::string& directoryPath,
+      const dwio::common::FileFormat fileFormat =
+          dwio::common::FileFormat::DWRF) {
     std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
 
     for (auto& path : fs::recursive_directory_iterator(directoryPath)) {
       if (path.is_regular_file()) {
-        splits.push_back(makeHiveConnectorSplit(path.path().string()));
+        splits.push_back(HiveConnectorTestBase::makeHiveConnectorSplits(
+            path.path().string(), 1, fileFormat)[0]);
       }
     }
 
@@ -99,7 +103,8 @@ class TableWriteTest : public HiveConnectorTestBase {
       const RowTypePtr& outputRowType,
       const connector::hive::LocationHandle::TableType& outputTableType,
       const std::string& outputDirectoryPath,
-      const std::vector<std::string>& partitionedBy) {
+      const std::vector<std::string>& partitionedBy,
+      const dwio::common::FileFormat fileFormat) {
     return std::make_shared<core::InsertTableHandle>(
         kHiveConnectorId,
         makeHiveInsertTableHandle(
@@ -107,7 +112,8 @@ class TableWriteTest : public HiveConnectorTestBase {
             outputRowType->children(),
             partitionedBy,
             makeLocationHandle(
-                outputDirectoryPath, std::nullopt, outputTableType)));
+                outputDirectoryPath, std::nullopt, outputTableType),
+            fileFormat));
   }
 
   // Returns a table insert plan node.
@@ -118,7 +124,9 @@ class TableWriteTest : public HiveConnectorTestBase {
       const std::vector<std::string>& partitionedBy = {},
       const connector::hive::LocationHandle::TableType& outputTableType =
           connector::hive::LocationHandle::TableType::kNew,
-      const CommitStrategy& outputCommitStrategy = CommitStrategy::kNoCommit) {
+      const CommitStrategy& outputCommitStrategy = CommitStrategy::kNoCommit,
+      const dwio::common::FileFormat fileFormat =
+          dwio::common::FileFormat::DWRF) {
     return inputPlan
         .tableWrite(
             outputRowType->names(),
@@ -126,7 +134,8 @@ class TableWriteTest : public HiveConnectorTestBase {
                 outputRowType,
                 outputTableType,
                 outputDirectoryPath,
-                partitionedBy),
+                partitionedBy,
+                fileFormat),
             outputCommitStrategy,
             "rows")
         .project({"rows"})
@@ -208,6 +217,7 @@ TEST_F(TableWriteTest, scanFilterProjectWrite) {
   createDuckDbTable(vectors);
 
   auto outputDirectory = TempDirectoryPath::create();
+
   auto planBuilder = PlanBuilder();
   auto project = planBuilder.tableScan(rowType_)
                      .filter("c0 <> 0")
@@ -290,28 +300,40 @@ TEST_F(TableWriteTest, renameAndReorderColumns) {
 
 // Runs a pipeline with read + write.
 TEST_F(TableWriteTest, directReadWrite) {
-  auto filePaths = makeFilePaths(10);
-  auto vectors = makeVectors(rowType_, filePaths.size(), 1000);
-  for (int i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->path, vectors[i]);
+  for (const auto fileFormat :
+       {dwio::common::FileFormat::DWRF, dwio::common::FileFormat::PARQUET}) {
+    if (!dwio::common::hasWriterFactory(fileFormat)) {
+      continue;
+    }
+    auto filePaths = makeFilePaths(10);
+    auto vectors = makeVectors(rowType_, filePaths.size(), 1000);
+    for (int i = 0; i < filePaths.size(); i++) {
+      writeToFile(filePaths[i]->path, vectors[i]);
+    }
+
+    createDuckDbTable(vectors);
+
+    auto outputDirectory = TempDirectoryPath::create();
+    auto plan = createInsertPlan(
+        PlanBuilder().tableScan(rowType_),
+        rowType_,
+        outputDirectory->path,
+        {},
+        connector::hive::LocationHandle::TableType::kNew,
+        CommitStrategy::kNoCommit,
+        fileFormat);
+
+    assertQuery(plan, filePaths, "SELECT count(*) FROM tmp");
+
+    // To test the correctness of the generated output,
+    // We create a new plan that only read that file and then
+    // compare that against a duckDB query that runs the whole query.
+
+    assertQuery(
+        PlanBuilder().tableScan(rowType_).planNode(),
+        makeHiveConnectorSplits(outputDirectory, fileFormat),
+        "SELECT * FROM tmp");
   }
-
-  createDuckDbTable(vectors);
-
-  auto outputDirectory = TempDirectoryPath::create();
-  auto plan = createInsertPlan(
-      PlanBuilder().tableScan(rowType_), rowType_, outputDirectory->path);
-
-  assertQuery(plan, filePaths, "SELECT count(*) FROM tmp");
-
-  // To test the correctness of the generated output,
-  // We create a new plan that only read that file and then
-  // compare that against a duckDB query that runs the whole query.
-
-  assertQuery(
-      PlanBuilder().tableScan(rowType_).planNode(),
-      makeHiveConnectorSplits(outputDirectory),
-      "SELECT * FROM tmp");
 }
 
 // Tests writing constant vectors.

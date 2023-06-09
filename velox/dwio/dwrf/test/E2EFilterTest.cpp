@@ -75,7 +75,8 @@ class E2EFilterTest : public E2EFilterTestBase {
     };
     auto sink = std::make_unique<MemorySink>(*leafPool_, 200 * 1024 * 1024);
     sinkPtr_ = sink.get();
-    writer_ = std::make_unique<Writer>(options, std::move(sink), *rootPool_);
+    options.memoryPool = rootPool_.get();
+    writer_ = std::make_unique<dwrf::Writer>(std::move(sink), options);
     for (auto& batch : batches) {
       writer_->write(batch);
     }
@@ -100,7 +101,7 @@ class E2EFilterTest : public E2EFilterTestBase {
   std::unordered_set<std::string> flatMapColumns_;
 
  private:
-  WriterOptions createWriterOptions(const TypePtr& type) {
+  dwrf::WriterOptions createWriterOptions(const TypePtr& type) {
     auto config = std::make_shared<dwrf::Config>();
     config->set(dwrf::Config::COMPRESSION, CompressionKind_NONE);
     config->set(dwrf::Config::USE_VINTS, useVInts_);
@@ -141,13 +142,13 @@ class E2EFilterTest : public E2EFilterTestBase {
       config->set<const std::vector<std::vector<std::string>>>(
           dwrf::Config::MAP_FLAT_COLS_STRUCT_KEYS, mapFlatColsStructKeys);
     }
-    WriterOptions options;
+    dwrf::WriterOptions options;
     options.config = config;
     options.schema = writerSchema;
     return options;
   }
 
-  std::unique_ptr<Writer> writer_;
+  std::unique_ptr<dwrf::Writer> writer_;
   std::unordered_map<uint32_t, std::vector<std::string>>
       flatmapNodeIdsAsStruct_;
 };
