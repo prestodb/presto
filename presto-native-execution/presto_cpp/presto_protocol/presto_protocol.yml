@@ -118,6 +118,7 @@ AbstractClasses:
         - { name: FilterNode,               key: .FilterNode }
         - { name: JoinNode,                 key: com.facebook.presto.sql.planner.plan.JoinNode }
         - { name: LimitNode,                key: .LimitNode }
+        - { name: MarkDistinctNode,         key: .MarkDistinctNode }
         - { name: SortNode,                 key: com.facebook.presto.sql.planner.plan.SortNode }
         - { name: OutputNode,               key: .OutputNode }
         - { name: ProjectNode,              key: .ProjectNode }
@@ -183,6 +184,7 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/ConnectorTableHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/connector/ConnectorTransactionHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/DistinctLimitNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/MarkDistinctNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/ConstantExpression.java
   - presto-common/src/main/java/com/facebook/presto/common/predicate/Domain.java
   - presto-main/src/main/java/com/facebook/presto/operator/DriverStats.java
