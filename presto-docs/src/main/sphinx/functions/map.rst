@@ -12,6 +12,12 @@ The ``[]`` operator is used to retrieve the value corresponding to a given key f
 Map Functions
 -------------
 
+.. function:: all_keys_match(x(K,V), function(K, boolean)) -> boolean
+
+    Returns whether all keys of a map match the given predicate. Returns true if all the keys match the predicate (a special case is when the map is empty); false if one or more keys don’t match; NULL if the predicate function returns NULL for one or more keys and true for all other keys. ::
+
+        SELECT all_keys_match(map(array['a', 'b', 'c'], array[1, 2, 3]), x -> length(x) = 1); -- true
+
 .. function:: cardinality(x) -> bigint
     :noindex:
 
