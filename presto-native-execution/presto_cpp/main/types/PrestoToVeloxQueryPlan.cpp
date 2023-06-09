@@ -1739,6 +1739,10 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     auto hiveOutputTableHandle =
         std::dynamic_pointer_cast<protocol::HiveOutputTableHandle>(
             createHandle->handle.connectorHandle);
+    VELOX_USER_CHECK_NULL(
+        hiveOutputTableHandle->bucketProperty,
+        "Bucket table write is not supported: {}",
+        toJsonString(*hiveOutputTableHandle->bucketProperty));
 
     for (const auto& columnHandle : hiveOutputTableHandle->inputColumns) {
       inputColumns.emplace_back(
@@ -1756,6 +1760,11 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     auto hiveInsertTableHandle =
         std::dynamic_pointer_cast<protocol::HiveInsertTableHandle>(
             insertHandle->handle.connectorHandle);
+
+    VELOX_USER_CHECK_NULL(
+        hiveInsertTableHandle->bucketProperty,
+        "Bucket table write is not supported: {}",
+        toJsonString(*hiveInsertTableHandle->bucketProperty));
 
     for (const auto& columnHandle : hiveInsertTableHandle->inputColumns) {
       inputColumns.emplace_back(
