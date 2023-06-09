@@ -99,6 +99,7 @@ std::vector<KeyNode<T>> getKeyNodes(
     }
     if (auto values =
             scanSpec.childByName(common::ScanSpec::kMapValuesFieldName)) {
+      VELOX_CHECK(!values->hasFilter());
       valuesSpec = scanSpec.removeChild(values);
     }
   }
@@ -251,11 +252,26 @@ class SelectiveFlatMapReader : public SelectiveStructColumnReaderBase {
     numReads_ = scanSpec_->newRead();
     prepareRead<char>(offset, rows, incomingNulls);
     VELOX_DCHECK(!hasMutation());
+    auto activeRows = rows;
     auto* mapNulls =
         nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
+    if (scanSpec_->filter()) {
+      auto kind = scanSpec_->filter()->kind();
+      VELOX_CHECK(
+          kind == common::FilterKind::kIsNull ||
+          kind == common::FilterKind::kIsNotNull);
+      filterNulls<int32_t>(rows, kind == common::FilterKind::kIsNull, false);
+      if (outputRows_.empty()) {
+        for (auto* reader : children_) {
+          reader->addParentNulls(offset, mapNulls, rows);
+        }
+        return;
+      }
+      activeRows = outputRows_;
+    }
     for (auto* reader : children_) {
       advanceFieldReader(reader, offset);
-      reader->read(offset, rows, mapNulls);
+      reader->read(offset, activeRows, mapNulls);
       reader->addParentNulls(offset, mapNulls, rows);
     }
     lazyVectorReadOffset_ = offset;

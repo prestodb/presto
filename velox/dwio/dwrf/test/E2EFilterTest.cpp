@@ -387,7 +387,12 @@ TEST_F(E2EFilterTest, flatMap) {
 #endif
 #endif
   testWithTypes(
-      kColumns, customize, false, {"long_val"}, numCombinations, true);
+      kColumns,
+      customize,
+      false,
+      {"long_val", "long_vals"},
+      numCombinations,
+      true);
 }
 
 TEST_F(E2EFilterTest, metadataFilter) {
