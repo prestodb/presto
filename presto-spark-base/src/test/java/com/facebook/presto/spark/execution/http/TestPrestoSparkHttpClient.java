@@ -33,6 +33,7 @@ import com.facebook.presto.operator.PageBufferClient;
 import com.facebook.presto.operator.PageTransportErrorException;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.server.smile.BaseResponse;
+import com.facebook.presto.spark.execution.BatchPlanValidationRequest;
 import com.facebook.presto.spark.execution.BatchTaskUpdateRequest;
 import com.facebook.presto.spark.execution.HttpNativeExecutionTaskInfoFetcher;
 import com.facebook.presto.spark.execution.HttpNativeExecutionTaskResultFetcher;
@@ -121,6 +122,7 @@ public class TestPrestoSparkHttpClient
     private static final JsonCodec<PlanFragment> PLAN_FRAGMENT_JSON_CODEC = JsonCodec.jsonCodec(PlanFragment.class);
     private static final JsonCodec<BatchTaskUpdateRequest> TASK_UPDATE_REQUEST_JSON_CODEC = JsonCodec.jsonCodec(BatchTaskUpdateRequest.class);
     private static final JsonCodec<ServerInfo> SERVER_INFO_JSON_CODEC = JsonCodec.jsonCodec(ServerInfo.class);
+    private static final JsonCodec<BatchPlanValidationRequest> PLAN_VALIDATION_REQUEST_JSON_CODEC = JsonCodec.jsonCodec(BatchPlanValidationRequest.class);
     private static final ScheduledExecutorService errorScheduler = newScheduledThreadPool(4);
     private static final ScheduledExecutorService updateScheduledExecutor = newScheduledThreadPool(4);
 
@@ -264,7 +266,8 @@ public class TestPrestoSparkHttpClient
         PrestoSparkHttpServerClient workerClient = new PrestoSparkHttpServerClient(
                 new TestingHttpClient(new TestingResponseManager(taskId.toString())),
                 BASE_URI,
-                SERVER_INFO_JSON_CODEC);
+                SERVER_INFO_JSON_CODEC,
+                PLAN_VALIDATION_REQUEST_JSON_CODEC);
         ListenableFuture<BaseResponse<ServerInfo>> future = workerClient.getServerInfo();
         try {
             ServerInfo serverInfo = future.get().getValue();
@@ -775,6 +778,8 @@ public class TestPrestoSparkHttpClient
                 newSingleThreadExecutor(),
                 errorScheduler,
                 SERVER_INFO_JSON_CODEC,
+                PLAN_VALIDATION_REQUEST_JSON_CODEC,
+                PLAN_FRAGMENT_JSON_CODEC,
                 config,
                 workerProperty);
         List<TaskSource> sources = new ArrayList<>();

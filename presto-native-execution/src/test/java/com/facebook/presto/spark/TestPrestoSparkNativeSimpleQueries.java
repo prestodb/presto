@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.NATIVE_EXECUTION_ENFORCE_VALIDATION_FAILURE;
+import static com.facebook.presto.SystemSessionProperties.NATIVE_EXECUTION_VALIDATION_ENABLED;
+import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedCustomer;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedLineitemAndOrders;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createCustomer;
@@ -115,5 +119,17 @@ public class TestPrestoSparkNativeSimpleQueries
     {
         assertQuery("SELECT json.test_schema.eq(1, linenumber) FROM lineitem", "SELECT 1 = linenumber FROM lineitem");
         assertQuery("SELECT json.test_schema.sum(linenumber) FROM lineitem", "SELECT sum(linenumber) FROM lineitem");
+    }
+
+    @Test
+    public void testPlanValidation()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(NATIVE_EXECUTION_VALIDATION_ENABLED, "true")
+                .setSystemProperty(NATIVE_EXECUTION_ENFORCE_VALIDATION_FAILURE, "true")
+                .setCatalogSessionProperty("hive", PUSHDOWN_FILTER_ENABLED, "false").build();
+        // expecting the plan validation fail since velox doesn't support PUSHDOWN_FILTER_ENABLED=false
+        assertQueryFails(session, "SELECT * FROM orders",
+                "Native execution plan validation failed(?s).*Table scan with filter pushdown disabled is not supported(?s).*");
     }
 }

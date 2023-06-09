@@ -63,6 +63,10 @@ class TaskResource {
       proxygen::HTTPMessage* message,
       const std::vector<std::string>& pathMatch);
 
+  proxygen::RequestHandler* validateBatchQueryPlan(
+      proxygen::HTTPMessage* message,
+      const std::vector<std::string>& pathMatch);
+
   proxygen::RequestHandler* createOrUpdateTaskImpl(
       proxygen::HTTPMessage* message,
       const std::vector<std::string>& pathMatch,

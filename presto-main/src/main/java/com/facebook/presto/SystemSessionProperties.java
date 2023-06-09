@@ -280,6 +280,8 @@ public final class SystemSessionProperties
     public static final String NATIVE_JOIN_SPILL_MEMORY_THRESHOLD = "join_spill_memory_threshold";
     public static final String NATIVE_ORDER_BY_SPILL_MEMORY_THRESHOLD = "order_by_spill_memory_threshold";
     public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
+    public static final String NATIVE_EXECUTION_VALIDATION_ENABLED = "native_execution_validation_enabled";
+    public static final String NATIVE_EXECUTION_ENFORCE_VALIDATION_FAILURE = "native_execution_enforce_validation_failure";
     public static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
     public static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
@@ -1451,6 +1453,16 @@ public final class SystemSessionProperties
                         "Enable execution on native engine",
                         featuresConfig.isNativeExecutionEnabled(),
                         false),
+                booleanProperty(
+                        NATIVE_EXECUTION_VALIDATION_ENABLED,
+                        "Enable native execution plan validation",
+                        featuresConfig.isNativeExecutionValidationEnabled(),
+                        false),
+                booleanProperty(
+                        NATIVE_EXECUTION_ENFORCE_VALIDATION_FAILURE,
+                        "Fail query if the native execution plan validation failed",
+                        featuresConfig.isNativeExecutionEnforceValidationFailure(),
+                        false),
                 stringProperty(
                         NATIVE_EXECUTION_EXECUTABLE_PATH,
                         "The native engine executable file path for native engine execution",
@@ -2563,6 +2575,16 @@ public final class SystemSessionProperties
     public static boolean isNativeExecutionEnabled(Session session)
     {
         return session.getSystemProperty(NATIVE_EXECUTION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isNativeExecutionValidationEnabled(Session session)
+    {
+        return session.getSystemProperty(NATIVE_EXECUTION_VALIDATION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isNativeExecutionEnforceValidationFailure(Session session)
+    {
+        return session.getSystemProperty(NATIVE_EXECUTION_ENFORCE_VALIDATION_FAILURE, Boolean.class);
     }
 
     public static String getNativeExecutionExecutablePath(Session session)

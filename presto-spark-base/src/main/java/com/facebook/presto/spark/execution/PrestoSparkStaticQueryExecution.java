@@ -64,6 +64,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
 
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionValidationEnabled;
 import static com.facebook.presto.execution.QueryState.PLANNING;
 import static com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.createQueryInfo;
 import static com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.createStageInfo;
@@ -114,7 +115,8 @@ public class PrestoSparkStaticQueryExecution
             Metadata metadata,
             PartitioningProviderManager partitioningProviderManager,
             HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker,
-            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector)
+            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector,
+            NativeExecutionProcessFactory nativeExecutionProcessFactory)
     {
         super(
                 sparkContext,
@@ -152,7 +154,8 @@ public class PrestoSparkStaticQueryExecution
                 metadata,
                 partitioningProviderManager,
                 historyBasedPlanStatisticsTracker,
-                bootstrapMetricsCollector);
+                bootstrapMetricsCollector,
+                nativeExecutionProcessFactory);
     }
 
     @Override
@@ -171,6 +174,10 @@ public class PrestoSparkStaticQueryExecution
         setFinalFragmentedPlan(rootFragmentedPlan);
         TableWriteInfo tableWriteInfo = getTableWriteInfo(session, rootFragmentedPlan);
         PlanFragment rootFragment = rootFragmentedPlan.getFragment();
+
+        if (isNativeExecutionValidationEnabled(session)) {
+            validatePlan(session, tableWriteInfo, rootFragmentedPlan);
+        }
 
         queryStateTimer.beginRunning();
         if (rootFragment.getPartitioning().equals(COORDINATOR_DISTRIBUTION)) {

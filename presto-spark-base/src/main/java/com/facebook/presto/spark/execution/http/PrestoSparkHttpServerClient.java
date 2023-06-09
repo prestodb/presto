@@ -15,10 +15,12 @@ package com.facebook.presto.spark.execution.http;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
+import com.facebook.airlift.http.client.StringResponseHandler;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.server.smile.BaseResponse;
+import com.facebook.presto.spark.execution.BatchPlanValidationRequest;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -27,6 +29,9 @@ import java.net.URI;
 
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
+import static com.facebook.airlift.http.client.Request.Builder.preparePost;
+import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
+import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static java.util.Objects.requireNonNull;
@@ -39,21 +44,27 @@ public class PrestoSparkHttpServerClient
 {
     private static final Logger log = Logger.get(PrestoSparkHttpServerClient.class);
     private static final String SERVER_URI = "/v1/info";
+    private static final String PLAN_VALIDATION_URI = "/v1/validation/batch";
 
     private final HttpClient httpClient;
     private final URI location;
     private final URI serverUri;
+    private final URI planValidationUri;
     private final JsonCodec<ServerInfo> serverInfoCodec;
+    private final JsonCodec<BatchPlanValidationRequest> planValidationRequestJsonCodec;
 
     public PrestoSparkHttpServerClient(
             HttpClient httpClient,
             URI location,
-            JsonCodec<ServerInfo> serverInfoCodec)
+            JsonCodec<ServerInfo> serverInfoCodec,
+            JsonCodec<BatchPlanValidationRequest> batchPlanValidationRequestJsonCodec)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.location = requireNonNull(location, "location is null");
         this.serverInfoCodec = requireNonNull(serverInfoCodec, "serverInfoCodec is null");
+        this.planValidationRequestJsonCodec = requireNonNull(batchPlanValidationRequestJsonCodec, "batchPlanValidationRequestJsonCodec is null");
         this.serverUri = getServerUri(location);
+        this.planValidationUri = getPlanValidationUri(location);
     }
 
     public ListenableFuture<BaseResponse<ServerInfo>> getServerInfo()
@@ -62,6 +73,15 @@ public class PrestoSparkHttpServerClient
                 .setUri(serverUri)
                 .build();
         return httpClient.executeAsync(request, createAdaptingJsonResponseHandler(serverInfoCodec));
+    }
+
+    public StringResponseHandler.StringResponse validatePlan(BatchPlanValidationRequest validationRequest)
+    {
+        Request request = setContentTypeHeaders(false, preparePost())
+                .setBodyGenerator(createStaticBodyGenerator(planValidationRequestJsonCodec.toBytes(validationRequest)))
+                .setUri(planValidationUri)
+                .build();
+        return httpClient.execute(request, createStringResponseHandler());
     }
 
     public URI getLocation()
@@ -73,6 +93,13 @@ public class PrestoSparkHttpServerClient
     {
         return uriBuilderFrom(baseUri)
                 .appendPath(SERVER_URI)
+                .build();
+    }
+
+    private URI getPlanValidationUri(URI baseUri)
+    {
+        return uriBuilderFrom(baseUri)
+                .appendPath(PLAN_VALIDATION_URI)
                 .build();
     }
 }

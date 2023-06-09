@@ -62,6 +62,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
+import com.facebook.presto.spark.execution.NativeExecutionProcessFactory;
 import com.facebook.presto.spark.execution.PrestoSparkAdaptiveQueryExecution;
 import com.facebook.presto.spark.execution.PrestoSparkDataDefinitionExecution;
 import com.facebook.presto.spark.execution.PrestoSparkExecutionExceptionFactory;
@@ -194,6 +195,7 @@ public class PrestoSparkQueryExecutionFactory
     private final Map<Class<? extends Statement>, DataDefinitionTask<?>> ddlTasks;
     private final Optional<ErrorClassifier> errorClassifier;
     private final HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker;
+    private final NativeExecutionProcessFactory nativeExecutionProcessFactory;
 
     @Inject
     public PrestoSparkQueryExecutionFactory(
@@ -231,7 +233,8 @@ public class PrestoSparkQueryExecutionFactory
             Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics,
             Map<Class<? extends Statement>, DataDefinitionTask<?>> ddlTasks,
             Optional<ErrorClassifier> errorClassifier,
-            HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager)
+            HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager,
+            NativeExecutionProcessFactory nativeExecutionProcessFactory)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
@@ -268,6 +271,7 @@ public class PrestoSparkQueryExecutionFactory
         this.ddlTasks = ImmutableMap.copyOf(requireNonNull(ddlTasks, "ddlTasks is null"));
         this.errorClassifier = requireNonNull(errorClassifier, "errorClassifier is null");
         this.historyBasedPlanStatisticsTracker = requireNonNull(historyBasedPlanStatisticsManager, "historyBasedPlanStatisticsManager is null").getHistoryBasedPlanStatisticsTracker();
+        this.nativeExecutionProcessFactory = requireNonNull(nativeExecutionProcessFactory, "nativeExecutionProcessFactory is null");
     }
 
     public static QueryInfo createQueryInfo(
@@ -696,7 +700,8 @@ public class PrestoSparkQueryExecutionFactory
                             metadata,
                             partitioningProviderManager,
                             historyBasedPlanStatisticsTracker,
-                            bootstrapMetricsCollector);
+                            bootstrapMetricsCollector,
+                            nativeExecutionProcessFactory);
                 }
                 else {
                     return new PrestoSparkAdaptiveQueryExecution(
@@ -735,7 +740,8 @@ public class PrestoSparkQueryExecutionFactory
                             metadata,
                             partitioningProviderManager,
                             historyBasedPlanStatisticsTracker,
-                            bootstrapMetricsCollector);
+                            bootstrapMetricsCollector,
+                            nativeExecutionProcessFactory);
                 }
             }
         }

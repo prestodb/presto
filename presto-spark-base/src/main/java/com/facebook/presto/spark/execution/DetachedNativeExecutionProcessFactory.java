@@ -20,6 +20,7 @@ import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
 
@@ -39,6 +40,9 @@ public class DetachedNativeExecutionProcessFactory
     private final HttpClient httpClient;
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final JsonCodec<ServerInfo> serverInfoCodec;
+    private final JsonCodec<BatchPlanValidationRequest> planValidationRequestJsonCodec;
+    private final JsonCodec<PlanFragment> planFragmentJsonCodec;
+
     private final TaskManagerConfig taskManagerConfig;
     private final WorkerProperty<?, ?, ?, ?> workerProperty;
 
@@ -48,13 +52,17 @@ public class DetachedNativeExecutionProcessFactory
             ExecutorService coreExecutor,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
+            JsonCodec<BatchPlanValidationRequest> planValidationRequestJsonCodec,
+            JsonCodec<PlanFragment> planFragmentJsonCodec,
             TaskManagerConfig taskManagerConfig,
             WorkerProperty<?, ?, ?, ?> workerProperty)
     {
-        super(httpClient, coreExecutor, errorRetryScheduledExecutor, serverInfoCodec, taskManagerConfig, workerProperty);
+        super(httpClient, coreExecutor, errorRetryScheduledExecutor, serverInfoCodec, planValidationRequestJsonCodec, planFragmentJsonCodec, taskManagerConfig, workerProperty);
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.serverInfoCodec = requireNonNull(serverInfoCodec, "serverInfoCodec is null");
+        this.planValidationRequestJsonCodec = requireNonNull(planValidationRequestJsonCodec, "serverInfoCodec is null");
+        this.planFragmentJsonCodec = requireNonNull(planFragmentJsonCodec, "planFragmentJsonCodec is null");
         this.taskManagerConfig = requireNonNull(taskManagerConfig, "taskManagerConfig is null");
         this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
     }
@@ -80,6 +88,8 @@ public class DetachedNativeExecutionProcessFactory
                     httpClient,
                     errorRetryScheduledExecutor,
                     serverInfoCodec,
+                    planValidationRequestJsonCodec,
+                    planFragmentJsonCodec,
                     maxErrorDuration,
                     taskManagerConfig,
                     workerProperty);
