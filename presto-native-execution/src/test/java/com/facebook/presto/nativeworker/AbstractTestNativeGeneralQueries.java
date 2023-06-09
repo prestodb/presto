@@ -189,6 +189,26 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
+    public void testDateFilter()
+    {
+        String tmpTableName = generateRandomTableName();
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "parquet_pushdown_filter_enabled", "true")
+                .build();
+
+        try {
+            computeExpected(String.format("CREATE TABLE %s (c0 DATE) WITH (format = 'PARQUET')", tmpTableName), ImmutableList.of());
+            computeExpected(String.format("INSERT INTO %s VALUES (DATE '1996-01-02'), (DATE '1996-12-01')", tmpTableName), ImmutableList.of());
+
+            assertQueryResultCount(session, String.format("SELECT * from %s where c0 in (select c0 from %s) ", tmpTableName, tmpTableName), 2);
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+
+    @Test
     public void testOrderBy()
     {
         assertQueryOrdered("SELECT nationkey, regionkey FROM nation ORDER BY nationkey");
@@ -1054,5 +1074,10 @@ public abstract class AbstractTestNativeGeneralQueries
     private void assertQueryResultCount(String sql, int expectedResultCount)
     {
         assertEquals(getQueryRunner().execute(sql).getRowCount(), expectedResultCount);
+    }
+
+    private void assertQueryResultCount(Session session, String sql, int expectedResultCount)
+    {
+        assertEquals(getQueryRunner().execute(session, sql).getRowCount(), expectedResultCount);
     }
 }
