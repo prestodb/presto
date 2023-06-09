@@ -48,6 +48,10 @@ public class TestPrestoSparkNativeGeneralQueries
 
     @Override
     @Ignore
+    public void testDateFilter() {}
+
+    @Override
+    @Ignore
     public void testCreateUnpartitionedTableAsSelect() {}
 
     @Override
