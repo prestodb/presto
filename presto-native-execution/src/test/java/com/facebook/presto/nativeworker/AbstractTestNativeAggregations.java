@@ -280,6 +280,13 @@ public abstract class AbstractTestNativeAggregations
     }
 
     @Test
+    public void testMarkDistinct()
+    {
+        assertQuery("SELECT count(distinct orderkey), count(distinct linenumber) FROM lineitem");
+        assertQuery("SELECT orderkey, count(distinct comment), sum(distinct linenumber) FROM lineitem GROUP BY 1");
+    }
+
+    @Test
     public void testUnsupported()
     {
         assertQueryFails("SELECT array_agg(nationkey ORDER BY name) FROM nation",
