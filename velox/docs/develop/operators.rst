@@ -56,6 +56,8 @@ LocalPartitionNode          LocalPartition and LocalExchange
 EnforceSingleRowNode        EnforceSingleRow
 AssignUniqueIdNode          AssignUniqueId
 WindowNode                  Window
+RowNumberNode               RowNumber
+TopNRowNumberNode           TopNRowNumber
 ==========================  ==============================================   ===========================
 
 Plan Nodes
@@ -548,6 +550,74 @@ If no sorting columns are specified then the order of the results is unspecified
     - Output column names for each window function invocation in windowFunctions list below.
   * - windowFunctions
     - Window function calls with the frame clause. e.g row_number(), first_value(name) between range 10 preceding and current row. The default frame is between range unbounded preceding and current row.
+
+RowNumberNode
+~~~~~~~~~~~~~
+
+An optimized version of a WindowNode with a single row_number function, an
+optional limit, and no sorting.
+
+Partitions the input using specified partitioning keys and assigns row numbers
+within each partition starting from 1. The operator runs in streaming mode. For
+each batch of input it computes and returns the results before accepting the
+next batch of input.
+
+This operator accumulates state: a hash table mapping partition keys to total
+number of rows seen in this partition so far. This operator doesn't support
+spilling yet.
+
+This operator is equivalent to a WindowNode followed by
+FilterNode(row_number <= limit), but it uses less memory and CPU and makes
+results available before seeing all input.
+
+.. list-table::
+  :widths: 10 30
+  :align: left
+  :header-rows: 1
+
+  * - Property
+    - Description
+  * - partitionKeys
+    - Partition by columns.
+  * - rowNumberColumnName
+    - Output column name for the row numbers.
+  * - limit
+    - Optional per-partition limit. If specified, the number of rows produced by this node will not exceed this value for any given partition. Extra rows will be dropped.
+
+TopNRowNumberNode
+~~~~~~~~~~~~~~~~~
+
+An optimized version of a WindowNode with a single row_number function and a
+limit over sorted partitions.
+
+Partitions the input using specified partitioning keys and maintains up to
+a 'limit' number of top rows for each partition. After receiving all input,
+assigns row numbers within each partition starting from 1.
+
+This operator accumulates state: a hash table mapping partition keys to a list
+of top 'limit' rows within that partition. This operator doesn't support
+spilling yet.
+
+This operator is logically equivalent to a WindowNode followed by
+FilterNode(row_number <= limit), but it uses less memory and CPU.
+
+.. list-table::
+  :widths: 10 30
+  :align: left
+  :header-rows: 1
+
+  * - Property
+    - Description
+  * - partitionKeys
+    - Partition by columns for the window functions.
+  * - sortingKeys
+    - Order by columns for the window functions.
+  * - sortingOrders
+    - Sorting order for each sorting key above. The supported sort orders are asc nulls first, asc nulls last, desc nulls first and desc nulls last.
+  * - rowNumberColumnName
+    - Output column name for the row numbers.
+  * - limit
+    - Per-partition limit. If specified, the number of rows produced by this node will not exceed this value for any given partition. Extra rows will be dropped.
 
 MarkDistinctNode
 ~~~~~~~~~~~~~~~~
