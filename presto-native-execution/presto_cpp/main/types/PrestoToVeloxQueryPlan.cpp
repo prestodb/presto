@@ -1631,6 +1631,17 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 }
 
 core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::MarkDistinctNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  return std::make_shared<core::MarkDistinctNode>(
+      node->id,
+      node->markerVariable.name,
+      toVeloxExprs(node->distinctVariables),
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+}
+
+core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::MergeJoinNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
@@ -2067,6 +2078,10 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   if (auto topNRowNumber =
           std::dynamic_pointer_cast<const protocol::TopNRowNumberNode>(node)) {
     return toVeloxQueryPlan(topNRowNumber, tableWriteInfo, taskId);
+  }
+  if (auto markDistinct =
+          std::dynamic_pointer_cast<const protocol::MarkDistinctNode>(node)) {
+    return toVeloxQueryPlan(markDistinct, tableWriteInfo, taskId);
   }
   VELOX_UNSUPPORTED("Unknown plan node type {}", node->_type);
 }
