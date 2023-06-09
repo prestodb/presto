@@ -50,6 +50,7 @@ class HashStringAllocator : public StreamArena {
     static constexpr uint32_t kContinued = 1U << 30;
     static constexpr uint32_t kPreviousFree = 1U << 29;
     static constexpr uint32_t kSizeMask = (1U << 29) - 1;
+    static constexpr uint32_t kContinuedPtrSize = sizeof(void*);
 
     // Marker at end of a PageRun. Distinct from valid headers since
     // all the 3 high bits are set, which is not valid for a header.
@@ -116,10 +117,19 @@ class HashStringAllocator : public StreamArena {
       return begin() + size();
     }
 
-    // Returns Header of the next block or null if at the end of arena.
+    /// Returns the Header of the block that is physically next to this block or
+    /// null if this is the last block of the arena.
     Header* FOLLY_NULLABLE next() {
       auto next = reinterpret_cast<Header*>(end());
       return next->data_ == kArenaEnd ? nullptr : next;
+    }
+
+    /// Returns the header of the next block in a multi-part allocation. The
+    /// caller must ensure that isContinued() returns true before calling this
+    /// method.
+    HashStringAllocator::Header* nextContinued() {
+      VELOX_DCHECK(isContinued());
+      return *reinterpret_cast<Header**>(end() - kContinuedPtrSize);
     }
 
    private:
