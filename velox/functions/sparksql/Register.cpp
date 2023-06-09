@@ -174,6 +174,8 @@ void registerFunctions(const std::string& prefix) {
   registerFunction<MakeDateFunction, Date, int32_t, int32_t, int32_t>(
       {prefix + "make_date"});
 
+  registerFunction<LastDayFunction, Date, Date>({prefix + "last_day"});
+
   // Register bloom filter function
   registerFunction<BloomFilterMightContainFunction, bool, Varbinary, int64_t>(
       {prefix + "might_contain"});

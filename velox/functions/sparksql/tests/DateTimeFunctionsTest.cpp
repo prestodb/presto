@@ -175,5 +175,38 @@ TEST_F(DateTimeFunctionsTest, makeDate) {
   EXPECT_EQ(makeDate(2023, 3, 29), expectedDate);
 }
 
+TEST_F(DateTimeFunctionsTest, lastDay) {
+  const auto lastDayFunc = [&](const std::optional<Date> date) {
+    return evaluateOnce<Date>("last_day(c0)", date);
+  };
+
+  const auto lastDay = [&](const std::string& dateStr) {
+    Date d0;
+    parseTo(dateStr, d0);
+    return lastDayFunc(d0);
+  };
+
+  const auto parseDateStr = [&](const std::string& dateStr) {
+    Date d0;
+    parseTo(dateStr, d0);
+    return d0;
+  };
+
+  EXPECT_EQ(lastDay("2015-02-28"), parseDateStr("2015-02-28"));
+  EXPECT_EQ(lastDay("2015-03-27"), parseDateStr("2015-03-31"));
+  EXPECT_EQ(lastDay("2015-04-26"), parseDateStr("2015-04-30"));
+  EXPECT_EQ(lastDay("2015-05-25"), parseDateStr("2015-05-31"));
+  EXPECT_EQ(lastDay("2015-06-24"), parseDateStr("2015-06-30"));
+  EXPECT_EQ(lastDay("2015-07-23"), parseDateStr("2015-07-31"));
+  EXPECT_EQ(lastDay("2015-08-01"), parseDateStr("2015-08-31"));
+  EXPECT_EQ(lastDay("2015-09-02"), parseDateStr("2015-09-30"));
+  EXPECT_EQ(lastDay("2015-10-03"), parseDateStr("2015-10-31"));
+  EXPECT_EQ(lastDay("2015-11-04"), parseDateStr("2015-11-30"));
+  EXPECT_EQ(lastDay("2015-12-05"), parseDateStr("2015-12-31"));
+  EXPECT_EQ(lastDay("2016-01-06"), parseDateStr("2016-01-31"));
+  EXPECT_EQ(lastDay("2016-02-07"), parseDateStr("2016-02-29"));
+  EXPECT_EQ(lastDayFunc(std::nullopt), std::nullopt);
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

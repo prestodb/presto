@@ -173,4 +173,40 @@ struct MakeDateFunction {
   }
 };
 
+template <typename T>
+struct LastDayFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE int64_t getYear(const std::tm& time) {
+    return 1900 + time.tm_year;
+  }
+
+  FOLLY_ALWAYS_INLINE int64_t getMonth(const std::tm& time) {
+    return 1 + time.tm_mon;
+  }
+
+  FOLLY_ALWAYS_INLINE int64_t getDay(const std::tm& time) {
+    return time.tm_mday;
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Date>& result,
+      const arg_type<Date>& date) {
+    auto dateTime = getDateTime(date);
+    int32_t year = getYear(dateTime);
+    int32_t month = getMonth(dateTime);
+    int32_t day = getMonth(dateTime);
+    auto lastDay = util::getMaxDayOfMonth(year, month);
+    auto daysSinceEpoch = util::daysSinceEpochFromDate(year, month, lastDay);
+    VELOX_CHECK_EQ(
+        daysSinceEpoch,
+        (int32_t)daysSinceEpoch,
+        "Integer overflow in last_day({}-{}-{})",
+        year,
+        month,
+        day);
+    result = Date(daysSinceEpoch);
+  }
+};
+
 } // namespace facebook::velox::functions::sparksql

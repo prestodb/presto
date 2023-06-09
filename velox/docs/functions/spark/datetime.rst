@@ -7,6 +7,10 @@ Convenience Extraction Functions
 
 These functions support TIMESTAMP and DATE input types.
 
+.. spark:function:: last_day(date) -> date
+
+    Returns the last day of the month which the date belongs to.
+
 .. spark:function:: make_date(year, month, day) -> date
 
     Returns the date from year, month and day fields.
