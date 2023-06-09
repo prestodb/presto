@@ -638,6 +638,17 @@ std::unique_ptr<common::Filter> toFilter(
       return combineIntegerRanges(bigintFilters, nullAllowed);
     }
 
+    if (type->kind() == TypeKind::DATE) {
+      std::vector<std::unique_ptr<common::BigintRange>> dateFilters;
+      dateFilters.reserve(ranges.size());
+      for (const auto& range : ranges) {
+        dateFilters.emplace_back(
+            dateRangeToFilter(range, nullAllowed, exprConverter, type));
+      }
+      return std::make_unique<common::BigintMultiRange>(
+          std::move(dateFilters), nullAllowed);
+    }
+
     if (type->kind() == TypeKind::VARCHAR) {
       std::vector<std::unique_ptr<common::BytesRange>> bytesFilters;
       bytesFilters.reserve(ranges.size());
