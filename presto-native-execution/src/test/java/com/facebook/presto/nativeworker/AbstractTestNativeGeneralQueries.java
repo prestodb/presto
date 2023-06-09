@@ -811,10 +811,7 @@ public abstract class AbstractTestNativeGeneralQueries
     @Test
     public void testCreateUnpartitionedTableAsSelect()
     {
-        Session session = Session.builder(getSession())
-                .setSystemProperty("table_writer_merge_operator_enabled", "false")
-                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
-                .build();
+        Session session = buildSessionForTableWrite();
         // Generate temporary table name.
         String tmpTableName = generateRandomTableName();
         // Clean up if temporary table already exists.
@@ -842,6 +839,33 @@ public abstract class AbstractTestNativeGeneralQueries
         finally {
             dropTableIfExists(tmpTableName);
         }
+    }
+
+    @Test
+    public void testCreateBucketTableAsSelect()
+    {
+        Session session = buildSessionForTableWrite();
+        // Generate temporary table name.
+        String tmpTableName = generateRandomTableName();
+        // Clean up if temporary table already exists.
+        dropTableIfExists(tmpTableName);
+
+        // TODO: update this test condition after bucket write is supported by native worker.
+        try {
+            this.assertQueryFails(session, String.format("CREATE TABLE %s WITH (bucketed_by=array['orderkey'], bucket_count=11) AS SELECT * FROM orders_bucketed", tmpTableName), ".*Bucket table write is not supported.*");
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+
+    private Session buildSessionForTableWrite()
+    {
+        // TODO: enable this after column stats collection is enabled.
+        return Session.builder(getSession())
+                .setSystemProperty("table_writer_merge_operator_enabled", "false")
+                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
+                .build();
     }
 
     private void dropTableIfExists(String tableName)
