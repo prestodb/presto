@@ -15,12 +15,15 @@
  */
 #include "velox/exec/Aggregate.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
+#include "velox/functions/prestosql/aggregates/Strings.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::aggregate::prestosql {
 
 namespace {
 
+/// Maintains a set of unique values of fixed-width type (integers). Also
+/// maintains a flag indicating whether there was a null value.
 template <typename T>
 struct Accumulator {
   bool hasNull{false};
@@ -31,7 +34,11 @@ struct Accumulator {
   explicit Accumulator(HashStringAllocator* allocator)
       : uniqueValues{AlignedStlAllocator<T, 16>(allocator)} {}
 
-  void addValue(const DecodedVector& decoded, vector_size_t index) {
+  /// Adds value if new. No-op if the value was added before.
+  void addValue(
+      const DecodedVector& decoded,
+      vector_size_t index,
+      HashStringAllocator* /*allocator*/) {
     if (decoded.isNullAt(index)) {
       hasNull = true;
     } else {
@@ -39,28 +46,28 @@ struct Accumulator {
     }
   }
 
+  /// Adds new values from an array.
   void addValues(
       const ArrayVector& arrayVector,
       vector_size_t index,
-      const DecodedVector& values) {
+      const DecodedVector& values,
+      HashStringAllocator* allocator) {
     const auto size = arrayVector.sizeAt(index);
     const auto offset = arrayVector.offsetAt(index);
 
     for (auto i = 0; i < size; ++i) {
-      if (values.isNullAt(offset + i)) {
-        hasNull = true;
-      } else {
-        uniqueValues.insert(values.valueAt<T>(offset + i));
-      }
+      addValue(values, offset + i, allocator);
     }
   }
 
+  /// Returns number of unique values including null.
   size_t size() const {
     return uniqueValues.size() + (hasNull ? 1 : 0);
   }
 
-  vector_size_t extractValues(FlatVector<T>& values, vector_size_t offset)
-      const {
+  /// Copies the unique values and null into the specified vector starting at
+  /// the specified offset.
+  vector_size_t extractValues(FlatVector<T>& values, vector_size_t offset) {
     vector_size_t index = offset;
     for (auto value : uniqueValues) {
       values.set(index++, value);
@@ -74,16 +81,83 @@ struct Accumulator {
   }
 };
 
+/// Maintains a set of unique strings.
+struct StringViewAccumulator {
+  /// A set of unique StringViews pointing to storage managed by 'strings'.
+  Accumulator<StringView> base;
+
+  /// Stores unique non-null non-inline strings.
+  Strings strings;
+
+  explicit StringViewAccumulator(HashStringAllocator* allocator)
+      : base{allocator} {}
+
+  void addValue(
+      const DecodedVector& decoded,
+      vector_size_t index,
+      HashStringAllocator* allocator) {
+    if (decoded.isNullAt(index)) {
+      base.hasNull = true;
+    } else {
+      auto value = decoded.valueAt<StringView>(index);
+      if (!value.isInline()) {
+        if (base.uniqueValues.contains(value)) {
+          return;
+        }
+        value = strings.append(value, *allocator);
+      }
+      base.uniqueValues.insert(value);
+    }
+  }
+
+  void addValues(
+      const ArrayVector& arrayVector,
+      vector_size_t index,
+      const DecodedVector& values,
+      HashStringAllocator* allocator) {
+    const auto size = arrayVector.sizeAt(index);
+    const auto offset = arrayVector.offsetAt(index);
+
+    for (auto i = 0; i < size; ++i) {
+      addValue(values, offset + i, allocator);
+    }
+  }
+
+  size_t size() const {
+    return base.size();
+  }
+
+  vector_size_t extractValues(
+      FlatVector<StringView>& values,
+      vector_size_t offset) {
+    return base.extractValues(values, offset);
+  }
+};
+
+template <typename T>
+struct AccumulatorTypeTraits {
+  using AccumulatorType = Accumulator<T>;
+};
+
+template <>
+struct AccumulatorTypeTraits<StringView> {
+  using AccumulatorType = StringViewAccumulator;
+};
+
 template <typename T>
 class SetBaseAggregate : public exec::Aggregate {
  public:
   explicit SetBaseAggregate(const TypePtr& resultType)
       : exec::Aggregate(resultType) {}
 
-  using AccumulatorType = Accumulator<T>;
+  using AccumulatorType = typename AccumulatorTypeTraits<T>::AccumulatorType;
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(AccumulatorType);
+  }
+
+  bool isFixedSize() const override {
+    return false;
   }
 
   void initializeNewGroups(
@@ -156,8 +230,11 @@ class SetBaseAggregate : public exec::Aggregate {
       auto* group = groups[i];
       clearNull(group);
 
+      auto tracker = trackRowSize(group);
+
       auto decodedIndex = decoded_.index(i);
-      value(group)->addValues(*baseArray, decodedIndex, decodedElements_);
+      value(group)->addValues(
+          *baseArray, decodedIndex, decodedElements_, allocator_);
     });
   }
 
@@ -174,6 +251,7 @@ class SetBaseAggregate : public exec::Aggregate {
 
     auto* accumulator = value(group);
 
+    auto tracker = trackRowSize(group);
     rows.applyToSelected([&](vector_size_t i) {
       if (decoded_.isNullAt(i)) {
         return;
@@ -182,8 +260,19 @@ class SetBaseAggregate : public exec::Aggregate {
       clearNull(group);
 
       auto decodedIndex = decoded_.index(i);
-      accumulator->addValues(*baseArray, decodedIndex, decodedElements_);
+      accumulator->addValues(
+          *baseArray, decodedIndex, decodedElements_, allocator_);
     });
+  }
+
+  void destroy(folly::Range<char**> groups) override {
+    if constexpr (std::is_same_v<T, StringView>) {
+      for (auto* group : groups) {
+        if (!isNull(group)) {
+          value(group)->strings.free(*allocator_);
+        }
+      }
+    }
   }
 
  protected:
@@ -213,7 +302,9 @@ class SetAggAggregate : public SetBaseAggregate<T> {
     rows.applyToSelected([&](vector_size_t i) {
       auto* group = groups[i];
       Base::clearNull(group);
-      Base::value(group)->addValue(Base::decoded_, i);
+
+      auto tracker = Base::trackRowSize(group);
+      Base::value(group)->addValue(Base::decoded_, i, Base::allocator_);
     });
   }
 
@@ -227,8 +318,10 @@ class SetAggAggregate : public SetBaseAggregate<T> {
     Base::clearNull(group);
     auto* accumulator = Base::value(group);
 
-    rows.applyToSelected(
-        [&](vector_size_t i) { accumulator->addValue(Base::decoded_, i); });
+    auto tracker = Base::trackRowSize(group);
+    rows.applyToSelected([&](vector_size_t i) {
+      accumulator->addValue(Base::decoded_, i, Base::allocator_);
+    });
   }
 };
 
@@ -270,16 +363,20 @@ std::unique_ptr<exec::Aggregate> create(
       return std::make_unique<Aggregate<int32_t>>(resultType);
     case TypeKind::BIGINT:
       return std::make_unique<Aggregate<int64_t>>(resultType);
+    case TypeKind::VARCHAR:
+      return std::make_unique<Aggregate<StringView>>(resultType);
     default:
       VELOX_UNREACHABLE();
   }
 }
 
-exec::AggregateRegistrationResult registerSetAgg(const std::string& name) {
-  // TODO Add support for inputs of type VARCHAR.
+std::vector<std::string> supportedTypes() {
+  return {"tinyint", "smallint", "integer", "bigint", "varchar"};
+}
 
+exec::AggregateRegistrationResult registerSetAgg(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
-  for (auto inputType : {"tinyint", "smallint", "integer", "bigint"}) {
+  for (const auto& inputType : supportedTypes()) {
     const std::string arrayType = fmt::format("array({})", inputType);
     signatures.push_back(exec::AggregateFunctionSignatureBuilder()
                              .returnType(arrayType)
@@ -306,10 +403,8 @@ exec::AggregateRegistrationResult registerSetAgg(const std::string& name) {
 }
 
 exec::AggregateRegistrationResult registerSetUnion(const std::string& name) {
-  // TODO Add support for inputs of type ARRAY(VARCHAR).
-
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
-  for (auto type : {"tinyint", "smallint", "integer", "bigint"}) {
+  for (const auto& type : supportedTypes()) {
     const std::string arrayType = fmt::format("array({})", type);
     signatures.push_back(exec::AggregateFunctionSignatureBuilder()
                              .returnType(arrayType)

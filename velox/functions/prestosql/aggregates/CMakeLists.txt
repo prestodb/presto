@@ -35,6 +35,7 @@ add_library(
   CountAggregate.cpp
   PrestoHasher.cpp
   SetAggregates.cpp
+  Strings.cpp
   SumAggregate.cpp
   ValueList.cpp
   VarianceAggregates.cpp

@@ -403,8 +403,8 @@ class VectorMaker {
       const TypePtr& type,
       const std::vector<std::vector<T>>& data) {
     vector_size_t size = data.size();
-    BufferPtr offsets = AlignedBuffer::allocate<vector_size_t>(size, pool_);
-    BufferPtr sizes = AlignedBuffer::allocate<vector_size_t>(size, pool_);
+    BufferPtr offsets = allocateOffsets(size, pool_);
+    BufferPtr sizes = allocateSizes(size, pool_);
 
     auto rawOffsets = offsets->asMutable<vector_size_t>();
     auto rawSizes = sizes->asMutable<vector_size_t>();
@@ -416,8 +416,8 @@ class VectorMaker {
     }
 
     // Create the underlying flat vector.
-    auto flatVector =
-        BaseVector::create<FlatVector<T>>(type->childAt(0), numElements, pool_);
+    auto flatVector = BaseVector::create<FlatVector<EvalType<T>>>(
+        type->childAt(0), numElements, pool_);
 
     vector_size_t currentIdx = 0;
     for (const auto& arrayValue : data) {
@@ -425,7 +425,7 @@ class VectorMaker {
       *rawOffsets++ = currentIdx;
 
       for (auto arrayElement : arrayValue) {
-        flatVector->set(currentIdx++, arrayElement);
+        flatVector->set(currentIdx++, EvalType<T>(arrayElement));
       }
     }
 

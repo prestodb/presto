@@ -95,7 +95,7 @@ General Aggregate Functions
 
     Returns an array created from the distinct input ``x`` elements.
 
-    Supported types of ``x`` are: TINYINT, SMALLINT, INTEGER, BIGINT.
+    Supported types of ``x`` are: TINYINT, SMALLINT, INTEGER, BIGINT, VARCHAR.
 
 .. function:: set_union(array(T)) -> array(T)
 
@@ -112,7 +112,7 @@ General Aggregate Functions
 
     Returns ARRAY[1, 2, 3, 4]
 
-    Supported types are: TINYINT, SMALLINT, INTEGER, BIGINT.
+    Supported types are: TINYINT, SMALLINT, INTEGER, BIGINT, VARCHAR.
 
 .. function:: sum(x) -> [same as input]
 

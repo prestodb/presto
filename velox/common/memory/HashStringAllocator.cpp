@@ -169,14 +169,17 @@ void HashStringAllocator::newSlab(int32_t size) {
   free(new (run) Header(available - sizeof(Header)));
 }
 
-void HashStringAllocator::newRange(int32_t bytes, ByteRange* range) {
+void HashStringAllocator::newRange(
+    int32_t bytes,
+    ByteRange* range,
+    bool contiguous) {
   // Allocates at least kMinContiguous or to the end of the current
   // run. At the end of the write the unused space will be made
   // free.
   VELOX_CHECK(
       currentHeader_,
       "Must have called newWrite or extendWrite before newRange");
-  auto newHeader = allocate(bytes, false);
+  auto newHeader = allocate(bytes, contiguous);
 
   auto lastWordPtr =
       reinterpret_cast<void**>(currentHeader_->end() - sizeof(void*));
@@ -188,6 +191,14 @@ void HashStringAllocator::newRange(int32_t bytes, ByteRange* range) {
       reinterpret_cast<uint8_t*>(currentHeader_->begin()),
       currentHeader_->size(),
       sizeof(void*)};
+}
+
+void HashStringAllocator::newRange(int32_t bytes, ByteRange* range) {
+  newRange(bytes, range, false);
+}
+
+void HashStringAllocator::newContiguousRange(int32_t bytes, ByteRange* range) {
+  newRange(bytes, range, true);
 }
 
 // static

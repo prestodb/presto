@@ -16,6 +16,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/functions/lib/aggregates/tests/AggregationTestBase.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox::functions::aggregate::test;
@@ -144,5 +145,114 @@ TEST_F(SetAggTest, groupBy) {
       {data}, {"c0"}, {"set_agg(c1)"}, {"c0", "array_sort(a0)"}, {expected});
 }
 
+std::vector<std::optional<std::string>> generateStrings(
+    const std::vector<std::optional<std::string>>& choices,
+    vector_size_t size) {
+  std::vector<int> indices(size);
+  std::iota(indices.begin(), indices.end(), 0); // 0, 1, 2, 3, ...
+
+  std::mt19937 g(std::random_device{}());
+  std::shuffle(indices.begin(), indices.end(), g);
+
+  std::vector<std::optional<std::string>> strings(size);
+  for (auto i = 0; i < size; ++i) {
+    strings[i] = choices[indices[i] % choices.size()];
+  }
+  return strings;
+}
+
+TEST_F(SetAggTest, globalVarchar) {
+  std::vector<std::optional<std::string>> strings = {
+      "grapes",
+      "oranges",
+      "sweet fruits: apple",
+      "sweet fruits: banana",
+      "sweet fruits: papaya",
+  };
+  auto stringVector = makeNullableFlatVector(generateStrings(strings, 25));
+  std::vector<RowVectorPtr> data = {makeRowVector({stringVector})};
+
+  auto expected = makeRowVector({
+      makeNullableArrayVector(
+          std::vector<std::vector<std::optional<std::string>>>{strings}),
+  });
+  testAggregations(data, {}, {"set_agg(c0)"}, {"array_sort(a0)"}, {expected});
+
+  VectorFuzzer::Options options;
+  VectorFuzzer fuzzer(options, pool());
+  data = {
+      makeRowVector({fuzzer.fuzzDictionary(stringVector, 1'000)}),
+      makeRowVector({fuzzer.fuzzDictionary(stringVector, 1'000)}),
+  };
+
+  testAggregations(data, {}, {"set_agg(c0)"}, {"array_sort(a0)"}, {expected});
+
+  // Some nulls.
+  auto stringsAndNull = strings;
+  stringsAndNull.push_back(std::nullopt);
+
+  auto stringVectorWithNulls =
+      makeNullableFlatVector(generateStrings(stringsAndNull, 25));
+
+  data = {makeRowVector({stringVectorWithNulls})};
+
+  expected = makeRowVector({
+      makeNullableArrayVector(
+          std::vector<std::vector<std::optional<std::string>>>{stringsAndNull}),
+  });
+
+  testAggregations(data, {}, {"set_agg(c0)"}, {"array_sort(a0)"}, {expected});
+
+  data = {
+      makeRowVector({fuzzer.fuzzDictionary(stringVector, 1'000)}),
+      makeRowVector({fuzzer.fuzzDictionary(stringVectorWithNulls, 1'000)}),
+  };
+
+  testAggregations(data, {}, {"set_agg(c0)"}, {"array_sort(a0)"}, {expected});
+
+  // All inputs are null.
+  data = {makeRowVector({makeAllNullFlatVector<StringView>(1'000)})};
+  expected = makeRowVector({
+      makeNullableArrayVector(
+          std::vector<std::vector<std::optional<StringView>>>{
+              {std::nullopt},
+          }),
+  });
+  testAggregations(data, {}, {"set_agg(c0)"}, {"array_sort(a0)"}, {expected});
+}
+
+TEST_F(SetAggTest, groupByVarchar) {
+  std::vector<std::string> strings = {
+      "grapes",
+      "oranges",
+      "sweet fruits: apple",
+      "sweet fruits: banana",
+      "sweet fruits: papaya",
+  };
+
+  std::vector<RowVectorPtr> data = {makeRowVector({
+      makeFlatVector<int16_t>({1, 1, 2, 2, 2, 1, 2}),
+      makeFlatVector<std::string>({
+          strings[0],
+          strings[1],
+          strings[2],
+          strings[3],
+          strings[4],
+          strings[0],
+          strings[3],
+      }),
+  })};
+
+  auto expected = makeRowVector({
+      makeFlatVector<int16_t>({1, 2}),
+      makeArrayVector<std::string>({
+          {strings[0], strings[1]},
+          {strings[2], strings[3], strings[4]},
+      }),
+  });
+
+  testAggregations(
+      data, {"c0"}, {"set_agg(c1)"}, {"c0", "array_sort(a0)"}, {expected});
+}
 } // namespace
 } // namespace facebook::velox::aggregate::test

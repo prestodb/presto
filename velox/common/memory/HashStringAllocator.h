@@ -243,10 +243,15 @@ class HashStringAllocator : public StreamArena {
   // position immediately after the last written byte.
   Position finishWrite(ByteStream& stream, int32_t numReserveBytes);
 
-  // Allocates a new range for a stream writing to 'this'. Sets the last word of
-  // the previous range to point to the new range and copies the overwritten
-  // word as the first word of the new range.
+  /// Allocates a new range for a stream writing to 'this'. Sets the last word
+  /// of the previous range to point to the new range and copies the overwritten
+  /// word as the first word of the new range.
+  ///
+  /// May allocate less than 'bytes'.
   void newRange(int32_t bytes, ByteRange* FOLLY_NONNULL range) override;
+
+  /// Allocates a new range of at least 'bytes' size.
+  void newContiguousRange(int32_t bytes, ByteRange* range);
 
   void newTinyRange(int32_t bytes, ByteRange* FOLLY_NONNULL range) override {
     newRange(bytes, range);
@@ -295,6 +300,8 @@ class HashStringAllocator : public StreamArena {
  private:
   static constexpr int32_t kUnitSize = 16 * memory::AllocationTraits::kPageSize;
   static constexpr int32_t kMinContiguous = 48;
+
+  void newRange(int32_t bytes, ByteRange* range, bool contiguous);
 
   // Adds 'bytes' worth of contiguous space to the free list. This
   // grows the footprint in MemoryAllocator but does not allocate
