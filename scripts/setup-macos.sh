@@ -34,7 +34,7 @@ source $SCRIPTDIR/setup-helper-functions.sh
 NPROC=$(getconf _NPROCESSORS_ONLN)
 
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
-MACOS_DEPS="ninja flex bison cmake ccache protobuf icu4c boost gflags glog libevent lz4 lzo snappy xz zstd openssl@1.1"
+MACOS_DEPS="ninja flex bison cmake ccache protobuf@21 icu4c boost gflags glog libevent lz4 lzo snappy xz zstd openssl@1.1"
 
 function run_and_time {
   time "$@" || (echo "Failed to run $* ." ; exit 1 )
