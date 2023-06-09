@@ -125,35 +125,38 @@ class HudiRecordCursors
         // create record reader for split
         try {
             return retry()
-                .exponentialBackoff(BACKOFF_MIN_SLEEP, BACKOFF_MAX_SLEEP, BACKOFF_MAX_SLEEP, 1.2)
-                .stopOnIllegalExceptions()
-                .stopOn(IOException.class, PrestoException.class)
-                .run("hudiGetRecordReaderCursor", () -> {
-                    try {
-                        HudiFile baseFile = getHudiBaseFile(split);
-                        Path path = new Path(baseFile.getPath());
-                        FileSplit fileSplit = new FileSplit(path, baseFile.getStart(), baseFile.getLength(), (String[]) null);
-                        List<HoodieLogFile> logFiles = split.getLogFiles().stream().map(file -> new HoodieLogFile(file.getPath())).collect(toList());
-                        String tablePath = split.getTable().getPath();
-                        FileSplit hudiSplit = new HoodieRealtimeFileSplit(fileSplit, tablePath, logFiles, split.getInstantTime(), false, Option.empty());
-                        return inputFormat.getRecordReader(hudiSplit, jobConf, Reporter.NULL);
-                    } catch (HoodieException e) {
-                        if (!isJsonParseException(e, MAX_RECURSIVE_LEVEL)) {
-                            throw new PrestoException(HUDI_CANNOT_OPEN_SPLIT, "current HoodieException is not JsonParseException, please check the cause exception", e);
+                    .exponentialBackoff(BACKOFF_MIN_SLEEP, BACKOFF_MAX_SLEEP, BACKOFF_MAX_SLEEP, 1.2)
+                    .stopOnIllegalExceptions()
+                    .stopOn(IOException.class, PrestoException.class)
+                    .run("hudiGetRecordReaderCursor", () -> {
+                        try {
+                            HudiFile baseFile = getHudiBaseFile(split);
+                            Path path = new Path(baseFile.getPath());
+                            FileSplit fileSplit = new FileSplit(path, baseFile.getStart(), baseFile.getLength(), (String[]) null);
+                            List<HoodieLogFile> logFiles = split.getLogFiles().stream().map(file -> new HoodieLogFile(file.getPath())).collect(toList());
+                            String tablePath = split.getTable().getPath();
+                            FileSplit hudiSplit = new HoodieRealtimeFileSplit(fileSplit, tablePath, logFiles, split.getInstantTime(), false, Option.empty());
+                            return inputFormat.getRecordReader(hudiSplit, jobConf, Reporter.NULL);
                         }
-                        throw e;
-                    }
-                });
-        } catch (Exception e) {
+                        catch (HoodieException e) {
+                            if (!isJsonParseException(e, MAX_RECURSIVE_LEVEL)) {
+                                throw new PrestoException(HUDI_CANNOT_OPEN_SPLIT, "current HoodieException is not JsonParseException, please check the cause exception", e);
+                            }
+                            throw e;
+                        }
+                    });
+        }
+        catch (Exception e) {
             String msg = format("Error opening Hive split %s using %s: %s",
-                split,
-                inputFormatName,
-                firstNonNull(e.getMessage(), e.getClass().getName()));
+                    split,
+                    inputFormatName,
+                    firstNonNull(e.getMessage(), e.getClass().getName()));
             throw new PrestoException(HUDI_CANNOT_OPEN_SPLIT, msg, e);
         }
     }
 
-    private static boolean isJsonParseException(Throwable e, int level) {
+    private static boolean isJsonParseException(Throwable e, int level)
+    {
         if (level <= 0) {
             return false;
         }
@@ -199,6 +202,7 @@ class HudiRecordCursors
     {
         return column.getColumnType() == HudiColumnHandle.ColumnType.REGULAR;
     }
+
     private static HudiFile getHudiBaseFile(HudiSplit hudiSplit)
     {
         // use first log file as base file for MOR table if it hasn't base file
