@@ -18,8 +18,8 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/exec/Aggregate.h"
-#include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
+#include "velox/functions/prestosql/aggregates/Strings.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::aggregate::prestosql {
@@ -27,28 +27,136 @@ namespace facebook::velox::aggregate::prestosql {
 namespace {
 
 template <typename T>
-using ValueMap = folly::F14FastMap<
-    T,
-    int64_t,
-    std::hash<T>,
-    std::equal_to<T>,
-    AlignedStlAllocator<std::pair<const T, int64_t>, 16>>;
+struct Accumulator {
+  using ValueMap = folly::F14FastMap<
+      T,
+      int64_t,
+      std::hash<T>,
+      std::equal_to<T>,
+      AlignedStlAllocator<std::pair<const T, int64_t>, 16>>;
+  ValueMap values;
+
+  explicit Accumulator(HashStringAllocator* allocator)
+      : values{
+            AlignedStlAllocator<std::pair<const T, int64_t>, 16>(allocator)} {}
+
+  size_t size() const {
+    return values.size();
+  }
+
+  void addValue(
+      DecodedVector& decoded,
+      vector_size_t index,
+      HashStringAllocator* /*allocator*/) {
+    values[decoded.valueAt<T>(index)]++;
+  }
+
+  void addValueWithCount(
+      T value,
+      int64_t count,
+      HashStringAllocator* /*allocator*/) {
+    values[value] += count;
+  }
+
+  void extractValues(
+      FlatVector<T>& keys,
+      FlatVector<int64_t>& counts,
+      vector_size_t offset) {
+    auto index = offset;
+    for (const auto& [value, count] : values) {
+      keys.set(index, value);
+      counts.set(index, count);
+
+      ++index;
+    }
+  }
+};
+
+struct StringViewAccumulator {
+  /// A map of unique StringViews pointing to storage managed by 'strings'.
+  Accumulator<StringView> base;
+
+  /// Stores unique non-null non-inline strings.
+  Strings strings;
+
+  explicit StringViewAccumulator(HashStringAllocator* allocator)
+      : base{allocator} {}
+
+  size_t size() const {
+    return base.size();
+  }
+
+  void addValue(
+      DecodedVector& decoded,
+      vector_size_t index,
+      HashStringAllocator* allocator) {
+    auto value = decoded.valueAt<StringView>(index);
+    if (!value.isInline()) {
+      auto it = base.values.find(value);
+      if (it != base.values.end()) {
+        value = it->first;
+      } else {
+        value = strings.append(value, *allocator);
+      }
+    }
+    base.values[store(value, allocator)]++;
+  }
+
+  void addValueWithCount(
+      StringView value,
+      int64_t count,
+      HashStringAllocator* allocator) {
+    base.values[store(value, allocator)] += count;
+  }
+
+  StringView store(StringView value, HashStringAllocator* allocator) {
+    if (!value.isInline()) {
+      auto it = base.values.find(value);
+      if (it != base.values.end()) {
+        value = it->first;
+      } else {
+        value = strings.append(value, *allocator);
+      }
+    }
+    return value;
+  }
+
+  void extractValues(
+      FlatVector<StringView>& keys,
+      FlatVector<int64_t>& counts,
+      vector_size_t offset) {
+    base.extractValues(keys, counts, offset);
+  }
+};
+
+template <typename T>
+struct AccumulatorTypeTraits {
+  using AccumulatorType = Accumulator<T>;
+};
+
+template <>
+struct AccumulatorTypeTraits<StringView> {
+  using AccumulatorType = StringViewAccumulator;
+};
 
 // Combines a partial aggregation represented by the key-value pair at row in
 // mapKeys and mapValues into groupMap.
-template <typename T>
+template <typename T, typename Accumulator>
 FOLLY_ALWAYS_INLINE void addToFinalAggregation(
     const FlatVector<T>* mapKeys,
     const FlatVector<int64_t>* mapValues,
-    const vector_size_t* indices,
+    vector_size_t index,
     const vector_size_t* rawSizes,
     const vector_size_t* rawOffsets,
-    vector_size_t row,
-    ValueMap<T>* groupMap) {
-  auto size = rawSizes[indices[row]];
-  auto offset = rawOffsets[indices[row]];
+    Accumulator* accumulator,
+    HashStringAllocator* allocator) {
+  auto size = rawSizes[index];
+  auto offset = rawOffsets[index];
   for (int i = 0; i < size; ++i) {
-    (*groupMap)[mapKeys->valueAt(offset + i)] += mapValues->valueAt(offset + i);
+    accumulator->addValueWithCount(
+        mapKeys->valueAt(offset + i),
+        mapValues->valueAt(offset + i),
+        allocator);
   }
 }
 
@@ -58,16 +166,21 @@ class HistogramAggregate : public exec::Aggregate {
   explicit HistogramAggregate(TypePtr resultType)
       : Aggregate(std::move(resultType)) {}
 
+  using AccumulatorType = typename AccumulatorTypeTraits<T>::AccumulatorType;
+
   int32_t accumulatorFixedWidthSize() const override {
-    return sizeof(ValueMap<T>);
+    return sizeof(AccumulatorType);
+  }
+
+  bool isFixedSize() const override {
+    return false;
   }
 
   void initializeNewGroups(
       char** groups,
       folly::Range<const vector_size_t*> indices) override {
     for (auto index : indices) {
-      new (groups[index] + offset_) ValueMap<T>{
-          AlignedStlAllocator<std::pair<const T, int64_t>, 16>(allocator_)};
+      new (groups[index] + offset_) AccumulatorType{allocator_};
     }
   }
 
@@ -87,24 +200,20 @@ class HistogramAggregate : public exec::Aggregate {
     mapValues->resize(numElements);
 
     auto rawNulls = mapVector->mutableRawNulls();
-    vector_size_t index = 0;
+    vector_size_t offset = 0;
     for (auto i = 0; i < numGroups; ++i) {
       char* group = groups[i];
-      auto groupMap = value<ValueMap<T>>(group);
+      auto* accumulator = value<AccumulatorType>(group);
 
-      auto mapSize = groupMap->size();
+      auto mapSize = accumulator->size();
+      mapVector->setOffsetAndSize(i, offset, mapSize);
       if (mapSize == 0) {
         bits::setNull(rawNulls, i, true);
       } else {
         clearNull(rawNulls, i);
-        for (auto it = groupMap->begin(); it != groupMap->end(); ++it) {
-          mapKeys->set(index, it->first);
-          mapValues->set(index, it->second);
-
-          ++index;
-        }
+        accumulator->extractValues(*mapKeys, *mapValues, offset);
+        offset += mapSize;
       }
-      mapVector->setOffsetAndSize(i, index - mapSize, mapSize);
     }
   }
 
@@ -121,13 +230,15 @@ class HistogramAggregate : public exec::Aggregate {
     decodedKeys_.decode(*args[0], rows);
 
     rows.applyToSelected([&](auto row) {
-      // Nulls among the values being aggregated are ignored.
-      if (!decodedKeys_.isNullAt(row)) {
-        auto group = groups[row];
-        auto groupMap = value<ValueMap<T>>(group);
-
-        (*groupMap)[decodedKeys_.valueAt<T>(row)]++;
+      if (decodedKeys_.isNullAt(row)) {
+        // Nulls among the values being aggregated are ignored.
+        return;
       }
+      auto group = groups[row];
+      auto* accumulator = value<AccumulatorType>(group);
+
+      auto tracker = trackRowSize(group);
+      accumulator->addValue(decodedKeys_, row, allocator_);
     });
   }
 
@@ -137,11 +248,13 @@ class HistogramAggregate : public exec::Aggregate {
       const std::vector<VectorPtr>& args,
       bool /* mayPushdown */) override {
     decodedKeys_.decode(*args[0], rows);
-    auto groupMap = value<ValueMap<T>>(group);
+    auto* accumulator = value<AccumulatorType>(group);
+
+    auto tracker = trackRowSize(group);
     rows.applyToSelected([&](auto row) {
       // Nulls among the values being aggregated are ignored.
       if (!decodedKeys_.isNullAt(row)) {
-        (*groupMap)[decodedKeys_.valueAt<T>(row)]++;
+        accumulator->addValue(decodedKeys_, row, allocator_);
       }
     });
   }
@@ -166,10 +279,17 @@ class HistogramAggregate : public exec::Aggregate {
     rows.applyToSelected([&](vector_size_t row) {
       if (!decodedIntermediate_.isNullAt(row)) {
         auto group = groups[row];
-        auto groupMap = value<ValueMap<T>>(group);
+        auto* accumulator = value<AccumulatorType>(group);
 
-        addToFinalAggregation<T>(
-            mapKeys, mapValues, indices, rawSizes, rawOffsets, row, groupMap);
+        auto tracker = trackRowSize(group);
+        addToFinalAggregation<T, AccumulatorType>(
+            mapKeys,
+            mapValues,
+            indices[row],
+            rawSizes,
+            rawOffsets,
+            accumulator,
+            allocator_);
       }
     });
   }
@@ -189,21 +309,29 @@ class HistogramAggregate : public exec::Aggregate {
     VELOX_CHECK_NOT_NULL(mapKeys);
     VELOX_CHECK_NOT_NULL(mapValues);
 
-    auto groupMap = value<ValueMap<T>>(group);
+    auto* accumulator = value<AccumulatorType>(group);
+
+    auto tracker = trackRowSize(group);
 
     auto rawSizes = mapVector->rawSizes();
     auto rawOffsets = mapVector->rawOffsets();
     rows.applyToSelected([&](vector_size_t row) {
       if (!decodedIntermediate_.isNullAt(row)) {
-        addToFinalAggregation<T>(
-            mapKeys, mapValues, indices, rawSizes, rawOffsets, row, groupMap);
+        addToFinalAggregation<T, AccumulatorType>(
+            mapKeys,
+            mapValues,
+            indices[row],
+            rawSizes,
+            rawOffsets,
+            accumulator,
+            allocator_);
       }
     });
   }
 
   void destroy(folly::Range<char**> groups) override {
     for (auto group : groups) {
-      auto groupMap = value<ValueMap<T>>(group);
+      auto groupMap = value<AccumulatorType>(group);
       std::destroy_at(groupMap);
     }
   }
@@ -212,7 +340,7 @@ class HistogramAggregate : public exec::Aggregate {
   vector_size_t countElements(char** groups, int32_t numGroups) const {
     vector_size_t size = 0;
     for (int32_t i = 0; i < numGroups; ++i) {
-      size += value<ValueMap<T>>(groups[i])->size();
+      size += value<AccumulatorType>(groups[i])->size();
     }
     return size;
   }
@@ -233,13 +361,14 @@ exec::AggregateRegistrationResult registerHistogram(const std::string& name) {
         "double",
         "timestamp",
         "date",
-        "interval day to second"}) {
-    signatures.push_back(
-        exec::AggregateFunctionSignatureBuilder()
-            .returnType(fmt::format("map({},bigint)", inputType))
-            .intermediateType(fmt::format("map({},bigint)", inputType))
-            .argumentType(inputType)
-            .build());
+        "interval day to second",
+        "varchar"}) {
+    auto mapType = fmt::format("map({},bigint)", inputType);
+    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                             .returnType(mapType)
+                             .intermediateType(mapType)
+                             .argumentType(inputType)
+                             .build());
   }
 
   return exec::registerAggregateFunction(
@@ -276,6 +405,8 @@ exec::AggregateRegistrationResult registerHistogram(const std::string& name) {
             return std::make_unique<HistogramAggregate<Timestamp>>(resultType);
           case TypeKind::DATE:
             return std::make_unique<HistogramAggregate<Date>>(resultType);
+          case TypeKind::VARCHAR:
+            return std::make_unique<HistogramAggregate<StringView>>(resultType);
           default:
             VELOX_NYI(
                 "Unknown input type for {} aggregation {}",
