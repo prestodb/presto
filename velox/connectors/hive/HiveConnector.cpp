@@ -594,6 +594,9 @@ void HiveDataSource::addDynamicFilter(
   auto& fieldSpec = scanSpec_->getChildByChannel(outputChannel);
   fieldSpec.addFilter(*filter);
   scanSpec_->resetCachedValues(true);
+  if (rowReader_) {
+    rowReader_->resetFilterCaches();
+  }
 }
 
 std::unique_ptr<dwio::common::BufferedInput>

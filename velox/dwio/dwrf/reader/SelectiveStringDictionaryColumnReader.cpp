@@ -154,13 +154,15 @@ void SelectiveStringDictionaryColumnReader::loadStrideDictionary() {
   lastStrideIndex_ = nextStride;
   dictionaryValues_ = nullptr;
 
-  scanState_.filterCache.resize(
-      scanState_.dictionary.numValues + scanState_.dictionary2.numValues);
+  if (scanSpec_->hasFilter()) {
+    scanState_.filterCache.resize(
+        scanState_.dictionary.numValues + scanState_.dictionary2.numValues);
+    simd::memset(
+        scanState_.filterCache.data() + scanState_.dictionary.numValues,
+        FilterResult::kUnknown,
+        scanState_.dictionary2.numValues);
+  }
   scanState_.updateRawState();
-  simd::memset(
-      scanState_.filterCache.data() + scanState_.dictionary.numValues,
-      FilterResult::kUnknown,
-      scanState_.dictionary2.numValues);
 }
 
 void SelectiveStringDictionaryColumnReader::makeDictionaryBaseVector() {
@@ -293,11 +295,13 @@ void SelectiveStringDictionaryColumnReader::ensureInitialized() {
 
   loadDictionary(*blobStream_, *lengthDecoder_, scanState_.dictionary);
 
-  scanState_.filterCache.resize(scanState_.dictionary.numValues);
-  simd::memset(
-      scanState_.filterCache.data(),
-      FilterResult::kUnknown,
-      scanState_.dictionary.numValues);
+  if (scanSpec_->hasFilter()) {
+    scanState_.filterCache.resize(scanState_.dictionary.numValues);
+    simd::memset(
+        scanState_.filterCache.data(),
+        FilterResult::kUnknown,
+        scanState_.dictionary.numValues);
+  }
 
   // handle in dictionary stream
   if (inDictionaryReader_) {
