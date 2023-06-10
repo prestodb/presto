@@ -45,6 +45,8 @@ TEST(MemoryManagerTest, Ctor) {
     ASSERT_EQ(0, manager.getTotalBytes());
     ASSERT_EQ(manager.alignment(), MemoryAllocator::kMaxAlignment);
     ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
+    ASSERT_EQ(manager.testingDefaultRoot().capacity(), kMaxMemory);
+    ASSERT_EQ(manager.testingDefaultRoot().maxCapacity(), kMaxMemory);
     ASSERT_EQ(manager.arbitrator(), nullptr);
   }
   {
@@ -83,10 +85,69 @@ TEST(MemoryManagerTest, addPool) {
   MemoryManager manager{};
 
   auto rootPool = manager.addRootPool("duplicateRootPool", kMaxMemory);
+  ASSERT_EQ(rootPool->capacity(), kMaxMemory);
+  ASSERT_EQ(rootPool->maxCapacity(), kMaxMemory);
   { ASSERT_ANY_THROW(manager.addRootPool("duplicateRootPool", kMaxMemory)); }
   auto threadSafeLeafPool = manager.addLeafPool("leafPool", true);
+  ASSERT_EQ(threadSafeLeafPool->capacity(), kMaxMemory);
+  ASSERT_EQ(threadSafeLeafPool->maxCapacity(), kMaxMemory);
   auto nonThreadSafeLeafPool = manager.addLeafPool("duplicateLeafPool", true);
+  ASSERT_EQ(nonThreadSafeLeafPool->capacity(), kMaxMemory);
+  ASSERT_EQ(nonThreadSafeLeafPool->maxCapacity(), kMaxMemory);
   { ASSERT_ANY_THROW(manager.addLeafPool("duplicateLeafPool")); }
+  const int64_t poolCapacity = 1 << 20;
+  auto rootPoolWithMaxCapacity =
+      manager.addRootPool("rootPoolWithCapacity", poolCapacity);
+  ASSERT_EQ(rootPoolWithMaxCapacity->maxCapacity(), poolCapacity);
+  ASSERT_EQ(rootPoolWithMaxCapacity->capacity(), poolCapacity);
+  auto leafPool = rootPoolWithMaxCapacity->addLeafChild("leaf");
+  ASSERT_EQ(leafPool->maxCapacity(), poolCapacity);
+  ASSERT_EQ(leafPool->capacity(), poolCapacity);
+  auto aggregationPool = rootPoolWithMaxCapacity->addLeafChild("aggregation");
+  ASSERT_EQ(aggregationPool->maxCapacity(), poolCapacity);
+  ASSERT_EQ(aggregationPool->capacity(), poolCapacity);
+}
+
+TEST(MemoryManagerTest, addPoolWithArbitrator) {
+  IMemoryManager::Options options;
+  options.capacity = 32L << 30;
+  options.arbitratorConfig.kind = MemoryArbitrator::Kind::kShared;
+  // The arbitrator capacity will be overridden by the memory manager's
+  // capacity.
+  options.arbitratorConfig.capacity = options.capacity;
+  const uint64_t initialPoolCapacity = options.arbitratorConfig.capacity / 8;
+  options.arbitratorConfig.initMemoryPoolCapacity = initialPoolCapacity;
+  MemoryManager manager{options};
+
+  auto rootPool = manager.addRootPool(
+      "addPoolWithArbitrator", kMaxMemory, MemoryReclaimer::create());
+  ASSERT_EQ(rootPool->capacity(), initialPoolCapacity);
+  ASSERT_EQ(rootPool->maxCapacity(), kMaxMemory);
+  {
+    ASSERT_ANY_THROW(manager.addRootPool(
+        "addPoolWithArbitrator", kMaxMemory, MemoryReclaimer::create()));
+  }
+  {
+    ASSERT_ANY_THROW(manager.addRootPool("addPoolWithArbitrator1", kMaxMemory));
+  }
+  auto threadSafeLeafPool = manager.addLeafPool("leafPool", true);
+  ASSERT_EQ(threadSafeLeafPool->capacity(), kMaxMemory);
+  ASSERT_EQ(threadSafeLeafPool->maxCapacity(), kMaxMemory);
+  auto nonThreadSafeLeafPool = manager.addLeafPool("duplicateLeafPool", true);
+  ASSERT_EQ(nonThreadSafeLeafPool->capacity(), kMaxMemory);
+  ASSERT_EQ(nonThreadSafeLeafPool->maxCapacity(), kMaxMemory);
+  { ASSERT_ANY_THROW(manager.addLeafPool("duplicateLeafPool")); }
+  const int64_t poolCapacity = 1 << 30;
+  auto rootPoolWithMaxCapacity = manager.addRootPool(
+      "rootPoolWithCapacity", poolCapacity, MemoryReclaimer::create());
+  ASSERT_EQ(rootPoolWithMaxCapacity->maxCapacity(), poolCapacity);
+  ASSERT_EQ(rootPoolWithMaxCapacity->capacity(), initialPoolCapacity);
+  auto leafPool = rootPoolWithMaxCapacity->addLeafChild("leaf");
+  ASSERT_EQ(leafPool->maxCapacity(), poolCapacity);
+  ASSERT_EQ(leafPool->capacity(), initialPoolCapacity);
+  auto aggregationPool = rootPoolWithMaxCapacity->addLeafChild("aggregation");
+  ASSERT_EQ(aggregationPool->maxCapacity(), poolCapacity);
+  ASSERT_EQ(aggregationPool->capacity(), initialPoolCapacity);
 }
 
 TEST(MemoryManagerTest, defaultMemoryManager) {

@@ -120,8 +120,8 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   struct Options {
     /// Specifies the memory allocation alignment through this memory pool.
     uint16_t alignment{MemoryAllocator::kMaxAlignment};
-    /// Specifies the memory capacity of this memory pool.
-    int64_t capacity{kMaxMemory};
+    /// Specifies the max memory capacity of this memory pool.
+    int64_t maxCapacity{kMaxMemory};
 
     /// If true, tracks the memory usage from the leaf memory pool and aggregate
     /// up to the root memory pool for capacity enforcement. Otherwise there is
@@ -294,7 +294,17 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// Resource governing methods used to track and limit the memory usage
   /// through this memory pool object.
 
-  /// Returns the capacity from the root memory pool.
+  /// Returns the max capacity of the root memory pool which is a hard limit of
+  /// the memory pool's capacity.
+  virtual int64_t maxCapacity() const {
+    return parent_ != nullptr ? parent_->maxCapacity() : maxCapacity_;
+  }
+
+  /// Returns the current capacity of the root memory pool. The memory
+  /// arbitrator allocates an initial memory capacity for a newly created memory
+  /// pool, and continuously adjusts its capacity during the query execution and
+  /// ensures it is within 'maxCapacity()' limit. Without memory arbitrator,
+  /// 'capacity()' is fixed and set to 'maxCapacity()' on creation.
   virtual int64_t capacity() const = 0;
 
   /// Returns the currently used memory in bytes of this memory pool.
@@ -481,6 +491,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   const Kind kind_;
   const uint16_t alignment_;
   const std::shared_ptr<MemoryPool> parent_;
+  const int64_t maxCapacity_;
   const bool trackUsage_;
   const bool threadSafe_;
   const bool checkUsageLeak_;
@@ -812,6 +823,11 @@ class MemoryPoolImpl : public MemoryPool {
         << MemoryAllocator::kindString(allocator_->kind())
         << (trackUsage_ ? " track-usage" : " no-usage-track")
         << (threadSafe_ ? " thread-safe" : " non-thread-safe") << "]<";
+    if (maxCapacity_ != kMaxMemory) {
+      out << "max capacity " << succinctBytes(maxCapacity_) << " ";
+    } else {
+      out << "unlimited max capacity ";
+    }
     if (capacityLocked() != kMaxMemory) {
       out << "capacity " << succinctBytes(capacityLocked()) << " ";
     } else {

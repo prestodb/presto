@@ -184,7 +184,7 @@ MemoryPool::MemoryPool(
       kind_(kind),
       alignment_(options.alignment),
       parent_(std::move(parent)),
-
+      maxCapacity_(parent_ == nullptr ? options.maxCapacity : kMaxMemory),
       trackUsage_(options.trackUsage),
       threadSafe_(options.threadSafe),
       checkUsageLeak_(options.checkUsageLeak),
@@ -411,7 +411,9 @@ MemoryPoolImpl::MemoryPoolImpl(
       manager_{memoryManager},
       allocator_{&manager_->allocator()},
       destructionCb_(std::move(destructionCb)),
-      capacity_(parent_ == nullptr ? options.capacity : kMaxMemory) {
+      // The memory manager sets the capacity through grow() according to the
+      // actually used memory arbitration policy.
+      capacity_(parent_ != nullptr ? kMaxMemory : 0) {
   VELOX_CHECK(options.threadSafe || isLeaf());
 }
 
@@ -905,6 +907,8 @@ uint64_t MemoryPoolImpl::grow(uint64_t bytes) noexcept {
   if (parent_ != nullptr) {
     return parent_->grow(bytes);
   }
+  // TODO: add to prevent from growing beyond the max capacity and the
+  // corresponding support in memory arbitrator.
   std::lock_guard<std::mutex> l(mutex_);
   // We don't expect to grow a memory pool without capacity limit.
   VELOX_CHECK_NE(capacity_, kMaxMemory);
