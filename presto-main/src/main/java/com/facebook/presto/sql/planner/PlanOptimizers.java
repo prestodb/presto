@@ -95,6 +95,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PushTableWriteThroughUnion
 import com.facebook.presto.sql.planner.iterative.rule.PushTopNThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveEmptyDelete;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveFullSample;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveIdentityProjectionsBelowProjection;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantAggregateDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantDistinctLimit;
@@ -273,7 +274,8 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 ImmutableSet.of(
                         new InlineProjections(metadata.getFunctionAndTypeManager()),
-                        new RemoveRedundantIdentityProjections()));
+                        new RemoveRedundantIdentityProjections(),
+                        new RemoveIdentityProjectionsBelowProjection()));
 
         IterativeOptimizer projectionPushDown = new IterativeOptimizer(
                 ruleStats,
