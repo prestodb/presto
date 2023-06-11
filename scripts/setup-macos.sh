@@ -57,11 +57,12 @@ function prompt {
 }
 
 function update_brew {
-  BREW_PATH=/usr/local/bin/brew
+  DEFAULT_BREW_PATH=/usr/local/bin/brew
   if [ `arch` == "arm64" ] ;
-     then
-       BREW_PATH=/opt/homebrew/bin/brew ;
- fi
+    then
+      DEFAULT_BREW_PATH=$(which brew) ;
+  fi
+  BREW_PATH=${BREW_PATH:-$DEFAULT_BREW_PATH}
   $BREW_PATH update --auto-update --verbose
   $BREW_PATH developer off
 }
