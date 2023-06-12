@@ -11,12 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <boost/algorithm/string/join.hpp>
 #include <folly/Uri.h>
 #include "folly/init/Init.h"
 #include "presto_cpp/external/json/json.hpp"
+#include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
 #include "velox/buffer/Buffer.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -31,17 +34,22 @@ using namespace facebook::presto::operators;
 namespace facebook::presto::operators::test {
 class BroadcastTest : public exec::test::OperatorTestBase {
  public:
+  static constexpr std::string_view kBroadcastFileInfoFormat =
+      "{{\"filePath\": \"{}\"}}";
+
  protected:
   void SetUp() override {
     exec::test::OperatorTestBase::SetUp();
     filesystems::registerLocalFileSystem();
     exec::Operator::registerOperator(
         std::make_unique<BroadcastWriteTranslator>());
-  }
-
-  static std::string makeTaskId(const std::string& prefix, int num) {
-    auto url = fmt::format("batch/{}-{}", prefix, num);
-    return url;
+    // Clear exchange source factories. This avoids conflict with factories
+    // registered by other tests.
+    // For example - UnsafeRowShuffleTest registers custom exchange source
+    // factory which breaks tests execution for BroadcastTest.
+    exec::ExchangeSource::factories().clear();
+    exec::ExchangeSource::registerFactory(
+        BroadcastExchangeSource::createExchangeSource);
   }
 
   std::shared_ptr<exec::Task> makeTask(
@@ -54,13 +62,9 @@ class BroadcastTest : public exec::test::OperatorTestBase {
         taskId, std::move(planFragment), destination, std::move(queryCtx));
   }
 
-  void runBroadcastTest(const std::vector<RowVectorPtr>& data) {
-    exec::Operator::registerOperator(
-        std::make_unique<BroadcastWriteTranslator>());
-
-    auto dataType = asRowType(data[0]->type());
-    auto writerTaskId = makeTaskId("leaf", 0);
-    auto basePath = exec::test::TempDirectoryPath::create()->path;
+  std::vector<std::string> executeBroadcastWrite(
+      const std::vector<RowVectorPtr>& data,
+      const std::string& basePath) {
     auto writerPlan = exec::test::PlanBuilder()
                           .values(data, true)
                           .addNode(addBroadcastWriteNode(basePath))
@@ -70,25 +74,85 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     params.planNode = writerPlan;
     auto [taskCursor, results] = readCursor(params, [](auto /*task*/) {});
 
+    std::vector<std::string> broadcastFilePaths;
+    for (auto result : results) {
+      broadcastFilePaths.emplace_back(
+          result->childAt(0)->as<SimpleVector<StringView>>()->valueAt(0));
+    }
+    return broadcastFilePaths;
+  }
+
+  std::pair<
+      std::unique_ptr<velox::exec::test::TaskCursor>,
+      std::vector<RowVectorPtr>>
+  executeBroadcastRead(
+      RowTypePtr dataType,
+      const std::string& basePath,
+      const std::vector<std::string>& broadcastFilePaths) {
+    // Create plan for read node using file path.
+    auto readerPlan = exec::test::PlanBuilder().exchange(dataType).planNode();
+    exec::test::CursorParameters broadcastReadParams;
+    broadcastReadParams.planNode = readerPlan;
+
+    std::vector<std::string> fileInfos;
+    for (auto broadcastFilePath : broadcastFilePaths) {
+      fileInfos.emplace_back(
+          fmt::format(kBroadcastFileInfoFormat, broadcastFilePath));
+    }
+
+    bool noMoreSplits = false;
+    // Read back result using BroadcastExchangeSource.
+    return readCursor(broadcastReadParams, [&](auto* task) {
+      if (noMoreSplits) {
+        return;
+      }
+
+      auto split = exec::Split(
+          std::make_shared<exec::RemoteConnectorSplit>(fmt::format(
+              "batch://task?broadcastInfo={{\"basePath\": \"{}\", \"fileInfos\":[{}]}}",
+              basePath,
+              boost::algorithm::join(fileInfos, ","))),
+          -1);
+      task->addSplit("0", std::move(split));
+      task->noMoreSplits("0");
+      noMoreSplits = true;
+    });
+  }
+
+  void runBroadcastTest(const std::vector<RowVectorPtr>& data) {
+    exec::Operator::registerOperator(
+        std::make_unique<BroadcastWriteTranslator>());
+
+    auto dataType = asRowType(data[0]->type());
+    auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+    auto broadcastFilePaths =
+        executeBroadcastWrite(data, tempDirectoryPath->path);
+
     // Expect one file for each request.
-    ASSERT_EQ(results.size(), 1);
+    ASSERT_EQ(broadcastFilePaths.size(), 1);
 
     // Validate file path prefix is consistent.
-    auto broadcastFilePath =
-        results.back()->childAt(0)->as<SimpleVector<StringView>>()->valueAt(0);
-    ASSERT_EQ(broadcastFilePath.str().find(basePath), 0);
+    ASSERT_EQ(broadcastFilePaths.back().find(tempDirectoryPath->path), 0);
 
     // Read back broadcast data from broadcast file.
-    auto result = getRowVectorFromFile(broadcastFilePath.str(), dataType);
+    auto result = getRowVectorFromFile(broadcastFilePaths.back(), dataType);
 
     // Assert data from broadcast file matches input.
     velox::exec::test::assertEqualResults(data, {result});
 
-    // Cleanup - remove broadcast files.
-    cleanupDirectory(basePath);
+    std::vector<RowVectorPtr> actualOutputVectors;
+
+    // Read back result.
+    auto [broadcastReadCursor, broadcastReadResults] = executeBroadcastRead(
+        dataType, tempDirectoryPath->path, broadcastFilePaths);
+
+    // Assert its same as data.
+    velox::exec::test::assertEqualResults(data, broadcastReadResults);
   }
 
-  RowVectorPtr getRowVectorFromFile(std::string filePath, RowTypePtr dataType) {
+  RowVectorPtr getRowVectorFromFile(
+      const std::string& filePath,
+      RowTypePtr dataType) {
     auto fs = filesystems::getFileSystem(filePath, nullptr);
     auto readFile = fs->openFileForRead(filePath);
     auto buffer =
@@ -107,24 +171,16 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     VectorStreamGroup::read(&byteStream, pool(), dataType, &result);
     return result;
   }
-
-  void cleanupDirectory(const std::string& rootPath) {
-    auto fileSystem = filesystems::getFileSystem(rootPath, nullptr);
-    auto files = fileSystem->list(rootPath);
-    for (auto& file : files) {
-      fileSystem->remove(file);
-    }
-  }
 };
 
-TEST_F(BroadcastTest, broadcastWrite) {
-  auto data = vectorMaker_.rowVector({
+TEST_F(BroadcastTest, endToEnd) {
+  auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
       makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60}),
   });
   runBroadcastTest({data});
 
-  data = vectorMaker_.rowVector({
+  data = makeRowVector({
       makeFlatVector<std::string>({"1", "2", "3", "4", "abc", "xyz"}),
       makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60}),
   });
@@ -141,6 +197,96 @@ TEST_F(BroadcastTest, broadcastWrite) {
           {{{1, 10}, {2, 20}}, {{3, 30}, {4, 40}, {5, 50}}, {}}),
   });
   runBroadcastTest({data});
+}
+
+TEST_F(BroadcastTest, endToEndWithMultipleWriteNodes) {
+  std::vector<RowVectorPtr> dataVector = {
+      makeRowVector({
+          makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
+          makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60}),
+      }),
+      makeRowVector({
+          makeFlatVector<int32_t>({11, 21, 31, 41, 51, 61}),
+          makeFlatVector<int64_t>({102, 203, 304, 405, 506, 607}),
+      })};
+  auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+  std::vector<std::string> broadcastFilePaths;
+
+  // Execute write.
+  for (auto data : dataVector) {
+    auto results = executeBroadcastWrite({data}, tempDirectoryPath->path);
+    broadcastFilePaths.emplace_back(results[0]);
+  }
+
+  // Read back result.
+  auto [taskCursorReadNode, broadcastReadResults] = executeBroadcastRead(
+      asRowType(dataVector[0]->type()),
+      tempDirectoryPath->path,
+      broadcastFilePaths);
+
+  // Validate BroadcastExchange reads back output of both writes.
+  velox::exec::test::assertEqualResults(dataVector, broadcastReadResults);
+}
+
+TEST_F(BroadcastTest, invalidFileSystem) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
+      makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60}),
+  });
+  auto dataType = asRowType(data->type());
+  std::string basePath = "invalid-prefix:/invalid-path";
+
+  VELOX_ASSERT_THROW(
+      executeBroadcastWrite({data}, basePath),
+      "No registered file system matched with file path 'invalid-prefix:/invalid-path'");
+}
+
+TEST_F(BroadcastTest, invalidBroadcastFilePath) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
+      makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60}),
+  });
+  auto dataType = asRowType(data->type());
+  std::string basePath = "/tmp";
+  std::string invalidBroadcastFilePath =
+      "/tmp/this-should-not-exist/velox--missing-broadcast-file.bin";
+
+  VELOX_ASSERT_THROW(
+      executeBroadcastRead(dataType, basePath, {invalidBroadcastFilePath}),
+      "No such file or directory");
+}
+
+TEST_F(BroadcastTest, malformedBroadcastInfoJson) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
+      makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60}),
+  });
+  auto dataType = asRowType(data->type());
+  std::string basePath = "/tmp";
+  std::string invalidBroadcastFilePath = "/tmp/file.bin";
+
+  auto readerPlan = exec::test::PlanBuilder().exchange(dataType).planNode();
+  exec::test::CursorParameters broadcastReadParams;
+  broadcastReadParams.planNode = readerPlan;
+
+  VELOX_ASSERT_THROW(
+      readCursor(
+          broadcastReadParams,
+          [&](auto* task) {
+            auto fileInfos =
+                fmt::format(kBroadcastFileInfoFormat, invalidBroadcastFilePath);
+            auto split = exec::Split(
+                std::make_shared<exec::RemoteConnectorSplit>(fmt::format(
+                    // basePath value(string) is not enclosed in quotes, making
+                    // it invalid json.
+                    "batch://task?broadcastInfo={{\"basePath\": {}, \"fileInfos\":[{}]}}",
+                    basePath,
+                    fileInfos)),
+                -1);
+            task->addSplit("0", std::move(split));
+            task->noMoreSplits("0");
+          }),
+      "BroadcastInfo deserialization failed");
 }
 
 } // namespace facebook::presto::operators::test
