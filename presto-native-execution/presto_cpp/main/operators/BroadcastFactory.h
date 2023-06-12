@@ -22,6 +22,24 @@ using namespace facebook::velox;
 
 namespace facebook::presto::operators {
 
+/// Struct for single broadcast file info.
+struct BroadcastFileInfo {
+  std::string filePath_;
+  // TODO: Add additional stats including checksum, num rows, size.
+};
+
+/// Struct for broadcastInfo in split location.
+struct BroadcastInfo {
+  /// Deserializes JSON string representing BroadcastInfo.
+  static std::unique_ptr<BroadcastInfo> deserialize(const std::string& info);
+
+  BroadcastInfo(std::string basePath, std::vector<BroadcastFileInfo> fileInfos);
+
+  std::string basePath_;
+  std::vector<BroadcastFileInfo> fileInfos_;
+};
+
+/// Writes broadcast data to a file.
 class BroadcastFileWriter {
  public:
   BroadcastFileWriter(
@@ -53,6 +71,34 @@ class BroadcastFileWriter {
   const velox::RowTypePtr& inputType_;
 };
 
+/// Reads broadcast data back from files.
+class BroadcastFileReader {
+ public:
+  BroadcastFileReader(
+      std::vector<BroadcastFileInfo> broadcastFileInfos,
+      std::shared_ptr<velox::filesystems::FileSystem> fileSystem,
+      velox::memory::MemoryPool* pool);
+
+  ~BroadcastFileReader() = default;
+
+  /// Return true if more data is available.
+  bool hasNext();
+
+  /// Read next block of data.
+  velox::BufferPtr next();
+
+  /// Reader stats - number of files, number of bytes.
+  folly::F14FastMap<std::string, int64_t> stats();
+
+ private:
+  std::vector<BroadcastFileInfo> broadcastFileInfos_;
+  std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
+  int32_t readfileIndex_;
+  int64_t numFiles_;
+  int64_t numBytes_;
+  velox::memory::MemoryPool* pool_;
+};
+
 /// Factory to create Writers & Reader for file based broadcast.
 class BroadcastFactory {
  public:
@@ -64,8 +110,12 @@ class BroadcastFactory {
       memory::MemoryPool* pool,
       const RowTypePtr& inputType);
 
+  std::shared_ptr<BroadcastFileReader> createReader(
+      const std::vector<BroadcastFileInfo> fileInfos,
+      velox::memory::MemoryPool* pool);
+
  private:
+  const std::string basePath_;
   std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
-  const std::string& basePath_;
 };
 } // namespace facebook::presto::operators

@@ -15,6 +15,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include "presto_cpp/external/json/json.hpp"
 #include "velox/common/file/File.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/FlatVector.h"
@@ -48,6 +49,33 @@ std::unique_ptr<BroadcastFileWriter> BroadcastFactory::createWriter(
   return std::make_unique<BroadcastFileWriter>(
       std::move(writeFile), filename, pool, inputType);
 }
+
+std::shared_ptr<BroadcastFileReader> BroadcastFactory::createReader(
+    const std::vector<BroadcastFileInfo> fileInfos,
+    velox::memory::MemoryPool* pool) {
+  auto broadcastFileReader = std::make_shared<BroadcastFileReader>(
+      std::move(fileInfos), fileSystem_, pool);
+  return broadcastFileReader;
+}
+
+// static
+std::unique_ptr<BroadcastInfo> BroadcastInfo::deserialize(
+    const std::string& info) {
+  const auto root = nlohmann::json::parse(info);
+  std::vector<BroadcastFileInfo> broadcastFileInfos;
+
+  for (auto& fileInfo : root["fileInfos"]) {
+    BroadcastFileInfo broadcastFileInfo;
+    fileInfo.at("filePath").get_to(broadcastFileInfo.filePath_);
+    broadcastFileInfos.emplace_back(broadcastFileInfo);
+  }
+  return std::make_unique<BroadcastInfo>(root["basePath"], broadcastFileInfos);
+}
+
+BroadcastInfo::BroadcastInfo(
+    std::string basePath,
+    std::vector<BroadcastFileInfo> fileInfos)
+    : basePath_(basePath), fileInfos_(fileInfos) {}
 
 BroadcastFileWriter::BroadcastFileWriter(
     std::unique_ptr<WriteFile> writeFile,
@@ -94,6 +122,42 @@ void BroadcastFileWriter::serialize(const RowVectorPtr& rowVector) {
         reinterpret_cast<const char*>(range.data()), range.size()));
   }
   writeFile_->flush();
+}
+
+BroadcastFileReader::BroadcastFileReader(
+    std::vector<BroadcastFileInfo> broadcastFileInfos,
+    std::shared_ptr<velox::filesystems::FileSystem> fileSystem,
+    velox::memory::MemoryPool* pool)
+    : broadcastFileInfos_(broadcastFileInfos),
+      fileSystem_(fileSystem),
+      readfileIndex_(0),
+      numFiles_(0),
+      numBytes_(0),
+      pool_(pool) {}
+
+bool BroadcastFileReader::hasNext() {
+  return readfileIndex_ < broadcastFileInfos_.size();
+}
+
+velox::BufferPtr BroadcastFileReader::next() {
+  if (!hasNext()) {
+    return nullptr;
+  }
+
+  auto readFile = fileSystem_->openFileForRead(
+      broadcastFileInfos_[readfileIndex_].filePath_);
+  auto buffer = AlignedBuffer::allocate<char>(readFile->size(), pool_, 0);
+  readFile->pread(0, readFile->size(), buffer->asMutable<char>());
+  ++readfileIndex_;
+  ++numFiles_;
+  numBytes_ += readFile->size();
+  return buffer;
+}
+
+folly::F14FastMap<std::string, int64_t> BroadcastFileReader::stats() {
+  return {
+      {"broadcastExchangeSource.numFiles", numFiles_},
+      {"broadcastExchangeSource.numBytes", numBytes_}};
 }
 
 } // namespace facebook::presto::operators
