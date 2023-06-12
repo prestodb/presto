@@ -21,26 +21,6 @@
 namespace facebook::velox::dwio::common {
 
 template <bool isSigned>
-void IntDecoder<isSigned>::skipLongs(uint64_t numValues) {
-  if (useVInts) {
-    while (numValues > 0) {
-      if (readByte() >= 0) {
-        --numValues;
-      }
-    }
-  } else {
-    uint64_t numBytesToRead = numValues * numBytes;
-    while (numBytesToRead > 0) {
-      readByte();
-      --numBytesToRead;
-    }
-  }
-}
-
-template void IntDecoder<true>::skipLongs(uint64_t numValues);
-template void IntDecoder<false>::skipLongs(uint64_t numValues);
-
-template <bool isSigned>
 FOLLY_ALWAYS_INLINE void IntDecoder<isSigned>::skipVarints(uint64_t items) {
   while (items > 0) {
     items -= skipVarintsInBuffer(items);
