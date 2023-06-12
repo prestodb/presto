@@ -15,6 +15,7 @@
  */
 #include <velox/type/Timestamp.h>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/exec/TableScan.h"
 #include "velox/exec/tests/utils/Cursor.h"

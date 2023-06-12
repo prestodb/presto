@@ -15,11 +15,12 @@
  */
 
 #include "velox/connectors/hive/HiveDataSink.h"
-#include "velox/connectors/hive/HiveConnector.h"
 
+//#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/common/base/Fs.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/dwio/dwrf/writer/Writer.h"
 
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
