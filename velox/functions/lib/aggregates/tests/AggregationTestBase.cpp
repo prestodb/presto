@@ -508,14 +508,17 @@ RowVectorPtr AggregationTestBase::validateStreamingInTestAggregations(
       rawInput1.push_back(column->slice(0, size1));
       rawInput2.push_back(column->slice(size1, size2));
     }
-    velox::test::assertEqualVectors(
-        expected->childAt(i),
-        testStreaming(
-            aggregate->name(), true, rawInput1, size1, rawInput2, size2));
-    velox::test::assertEqualVectors(
-        expected->childAt(i),
-        testStreaming(
-            aggregate->name(), false, rawInput1, size1, rawInput2, size2));
+
+    auto actualResult1 = testStreaming(
+        aggregate->name(), true, rawInput1, size1, rawInput2, size2);
+    velox::exec::test::assertEqualResults(
+        {makeRowVector({expected->childAt(i)})},
+        {makeRowVector({actualResult1})});
+    auto actualResult2 = testStreaming(
+        aggregate->name(), false, rawInput1, size1, rawInput2, size2);
+    velox::exec::test::assertEqualResults(
+        {makeRowVector({expected->childAt(i)})},
+        {makeRowVector({actualResult2})});
   }
   return expected;
 }

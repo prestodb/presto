@@ -625,6 +625,12 @@ bool equalsFloatingPointWithEpsilonTyped(const variant& a, const variant& b) {
   TFloat f1 = a.value<KIND>();
   TFloat f2 = b.value<KIND>();
 
+  // Check if the numbers are all NaN value, we need to treat two NaN values to
+  // be equal as well.
+  if (std::isnan(f1) && std::isnan(f2)) {
+    return true;
+  }
+
   // Check if the numbers are really close -- needed
   // when comparing numbers near zero.
   if (fabs(f1 - f2) < kEpsilon) {

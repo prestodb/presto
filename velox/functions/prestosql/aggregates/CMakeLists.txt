@@ -22,6 +22,7 @@ add_library(
   AverageAggregate.cpp
   BitwiseAggregates.cpp
   BoolAggregates.cpp
+  CentralMomentsAggregates.cpp
   CountIfAggregate.cpp
   CovarianceAggregates.cpp
   ChecksumAggregate.cpp
