@@ -51,28 +51,18 @@ static void maybeSetupTaskSpillDirectory(
     const core::PlanFragment& planFragment,
     exec::Task& execTask) {
   const auto baseSpillPath = SystemConfig::instance()->spillerSpillPath();
-  if (!baseSpillPath.empty() &&
+  if (baseSpillPath.hasValue() &&
       planFragment.canSpill(execTask.queryCtx()->queryConfig())) {
     const auto taskSpillDirPath = TaskManager::buildTaskSpillDirectoryPath(
-        baseSpillPath, execTask.queryCtx()->queryId(), execTask.taskId());
+        baseSpillPath.value(),
+        execTask.queryCtx()->queryId(),
+        execTask.taskId());
     execTask.setSpillDirectory(taskSpillDirPath);
     // Create folder for the task spilling.
     auto fileSystem =
         velox::filesystems::getFileSystem(taskSpillDirPath, nullptr);
     VELOX_CHECK_NOT_NULL(fileSystem, "File System is null!");
     fileSystem->mkdir(taskSpillDirPath);
-  }
-}
-
-bool isFinalState(protocol::TaskState state) {
-  switch (state) {
-    case protocol::TaskState::FINISHED:
-    case protocol::TaskState::FAILED:
-    case protocol::TaskState::ABORTED:
-    case protocol::TaskState::CANCELED:
-      return true;
-    default:
-      return false;
   }
 }
 
@@ -598,56 +588,58 @@ struct ZombieTaskCounts {
 size_t TaskManager::cleanOldTasks() {
   const auto startTimeMs = getCurrentTimeMs();
 
-  // We copy task map locally to avoid locking task map for a potentially long
-  // time. We also lock for 'read'.
-  TaskMap taskMap;
   folly::F14FastSet<protocol::TaskId> taskIdsToClean;
-  { taskMap = *(taskMap_.rlock()); }
 
-  ZombieTaskCounts zombieTaskCounts;
+  ZombieTaskCounts zombieVeloxTaskCounts;
   ZombieTaskCounts zombiePrestoTaskCounts;
-  for (auto it = taskMap.begin(); it != taskMap.end(); ++it) {
-    bool eraseTask{false};
-    if (it->second->task != nullptr) {
-      if (it->second->task->state() != exec::TaskState::kRunning) {
-        if (it->second->task->timeSinceEndMs() >= FLAGS_old_task_ms) {
-          // Not running and old.
+  {
+    // We copy task map locally to avoid locking task map for a potentially long
+    // time. We also lock for 'read'.
+    TaskMap taskMap = *(taskMap_.rlock());
+
+    for (auto it = taskMap.begin(); it != taskMap.end(); ++it) {
+      bool eraseTask{false};
+      if (it->second->task != nullptr) {
+        if (it->second->task->state() != exec::TaskState::kRunning) {
+          if (it->second->task->timeSinceEndMs() >= FLAGS_old_task_ms) {
+            // Not running and old.
+            eraseTask = true;
+          }
+        }
+      } else {
+        // Use heartbeat to determine the task's age.
+        if (it->second->timeSinceLastHeartbeatMs() >= FLAGS_old_task_ms) {
           eraseTask = true;
         }
       }
-    } else {
-      // Use heartbeat to determine the task's age.
-      if (it->second->timeSinceLastHeartbeatMs() >= FLAGS_old_task_ms) {
-        eraseTask = true;
+
+      // We assume 'not erase' is the 'most common' case.
+      if (!eraseTask) {
+        continue;
       }
-    }
 
-    // We assume 'not erase' is the 'most common' case.
-    if (not eraseTask) {
-      continue;
-    }
+      const auto prestoTaskRefCount = it->second.use_count();
+      const auto taskRefCount = it->second->task.use_count();
 
-    auto prestoTaskRefCount = it->second.use_count();
-    auto taskRefCount = it->second->task.use_count();
-
-    // Do not remove 'zombie' tasks (with outstanding references) from the map.
-    // We use it to track the number of tasks.
-    // Note, since we copied the task map, presto tasks should have an extra
-    // reference (2 from two maps).
-    if (prestoTaskRefCount > 2 || taskRefCount > 1) {
-      auto& task = it->second->task;
-      if (prestoTaskRefCount > 2) {
-        ++zombiePrestoTaskCounts.numTotal;
-        if (task != nullptr) {
-          zombiePrestoTaskCounts.updateCounts(task);
+      // Do not remove 'zombie' tasks (with outstanding references) from the
+      // map. We use it to track the number of tasks. Note, since we copied the
+      // task map, presto tasks should have an extra reference (2 from two
+      // maps).
+      if (prestoTaskRefCount > 2 || taskRefCount > 1) {
+        auto& task = it->second->task;
+        if (prestoTaskRefCount > 2) {
+          ++zombiePrestoTaskCounts.numTotal;
+          if (task != nullptr) {
+            zombiePrestoTaskCounts.updateCounts(task);
+          }
         }
+        if (taskRefCount > 1) {
+          ++zombieVeloxTaskCounts.numTotal;
+          zombieVeloxTaskCounts.updateCounts(task);
+        }
+      } else {
+        taskIdsToClean.emplace(it->first);
       }
-      if (taskRefCount > 1) {
-        ++zombieTaskCounts.numTotal;
-        zombieTaskCounts.updateCounts(task);
-      }
-    } else {
-      taskIdsToClean.emplace(it->first);
     }
   }
 
@@ -668,13 +660,14 @@ size_t TaskManager::cleanOldTasks() {
               << elapsedMs << "ms";
   }
 
-  if (zombieTaskCounts.numTotal > 0) {
-    zombieTaskCounts.logZombieTaskStatus("Task");
+  if (zombieVeloxTaskCounts.numTotal > 0) {
+    zombieVeloxTaskCounts.logZombieTaskStatus("Task");
   }
   if (zombiePrestoTaskCounts.numTotal > 0) {
     zombiePrestoTaskCounts.logZombieTaskStatus("PrestoTask");
   }
-  REPORT_ADD_STAT_VALUE(kCounterNumZombieTasks, zombieTaskCounts.numTotal);
+  REPORT_ADD_STAT_VALUE(
+      kCounterNumZombieVeloxTasks, zombieVeloxTaskCounts.numTotal);
   REPORT_ADD_STAT_VALUE(
       kCounterNumZombiePrestoTasks, zombiePrestoTaskCounts.numTotal);
   return taskIdsToClean.size();

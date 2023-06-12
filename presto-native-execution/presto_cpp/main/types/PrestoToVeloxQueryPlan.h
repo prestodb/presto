@@ -105,6 +105,11 @@ class VeloxQueryPlanConverterBase {
       const protocol::TaskId& taskId);
 
   velox::core::PlanNodePtr toVeloxQueryPlan(
+      const std::shared_ptr<const protocol::MarkDistinctNode>& node,
+      const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+      const protocol::TaskId& taskId);
+
+  velox::core::PlanNodePtr toVeloxQueryPlan(
       const std::shared_ptr<const protocol::MergeJoinNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
@@ -146,6 +151,16 @@ class VeloxQueryPlanConverterBase {
 
   std::shared_ptr<const velox::core::WindowNode> toVeloxQueryPlan(
       const std::shared_ptr<const protocol::WindowNode>& node,
+      const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+      const protocol::TaskId& taskId);
+
+  std::shared_ptr<const velox::core::RowNumberNode> toVeloxQueryPlan(
+      const std::shared_ptr<const protocol::RowNumberNode>& node,
+      const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+      const protocol::TaskId& taskId);
+
+  std::shared_ptr<const velox::core::TopNRowNumberNode> toVeloxQueryPlan(
+      const std::shared_ptr<const protocol::TopNRowNumberNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 

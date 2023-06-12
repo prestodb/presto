@@ -47,7 +47,7 @@ public class NativeExecutionProcessFactory
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final JsonCodec<ServerInfo> serverInfoCodec;
     private final TaskManagerConfig taskManagerConfig;
-    private final WorkerProperty<?, ?, ?> workerProperty;
+    private final WorkerProperty<?, ?, ?, ?> workerProperty;
 
     private static NativeExecutionProcess process;
 
@@ -58,7 +58,7 @@ public class NativeExecutionProcessFactory
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
             TaskManagerConfig taskManagerConfig,
-            WorkerProperty<?, ?, ?> workerProperty)
+            WorkerProperty<?, ?, ?, ?> workerProperty)
 
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -73,7 +73,7 @@ public class NativeExecutionProcessFactory
             Session session,
             URI location)
     {
-        if (!isNativeExecutionProcessReuseEnabled(session) || process == null) {
+        if (!isNativeExecutionProcessReuseEnabled(session) || process == null || !process.isAlive()) {
             process = createNativeExecutionProcess(session, location, MAX_ERROR_DURATION);
         }
         return process;

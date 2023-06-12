@@ -68,7 +68,7 @@ PrestoExchangeSource::PrestoExchangeSource(
       ciphers_(ciphers) {
   folly::SocketAddress address(folly::IPAddress(host_).str(), port_, true);
   auto* eventBase = folly::getUnsafeMutableGlobalEventBase();
-  httpClient_ = std::make_unique<http::HttpClient>(
+  httpClient_ = std::make_shared<http::HttpClient>(
       eventBase,
       address,
       std::chrono::milliseconds(10'000),
@@ -370,7 +370,11 @@ void PrestoExchangeSource::getMemoryUsage(
     int64_t& currentBytes,
     int64_t& peakBytes) {
   currentBytes = currQueuedMemoryBytes();
-  peakBytes = peakQueuedMemoryBytes();
+  peakBytes = std::max<int64_t>(currentBytes, peakQueuedMemoryBytes());
+}
+
+void PrestoExchangeSource::resetPeakMemoryUsage() {
+  peakQueuedMemoryBytes() = currQueuedMemoryBytes().load();
 }
 
 void PrestoExchangeSource::testingClearMemoryUsage() {

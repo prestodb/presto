@@ -18,6 +18,7 @@ import com.facebook.airlift.http.client.HttpStatus;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -80,10 +81,12 @@ public class NativeExecutionTask
             Optional<String> shuffleWriteInfo,
             Executor executor,
             ScheduledExecutorService updateScheduledExecutor,
+            ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<PlanFragment> planFragmentCodec,
             JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec,
-            TaskManagerConfig taskManagerConfig)
+            TaskManagerConfig taskManagerConfig,
+            QueryManagerConfig queryManagerConfig)
     {
         this.session = requireNonNull(session, "session is null");
         this.planFragment = requireNonNull(planFragment, "planFragment is null");
@@ -102,11 +105,14 @@ public class NativeExecutionTask
                 taskUpdateRequestCodec,
                 taskManagerConfig.getInfoRefreshMaxWait());
         requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
+        requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.taskInfoFetcher = new HttpNativeExecutionTaskInfoFetcher(
                 updateScheduledExecutor,
+                errorRetryScheduledExecutor,
                 this.workerClient,
                 this.executor,
-                taskManagerConfig.getInfoUpdateInterval());
+                taskManagerConfig.getInfoUpdateInterval(),
+                queryManagerConfig.getRemoteTaskMaxErrorDuration());
         if (!shuffleWriteInfo.isPresent()) {
             this.taskResultFetcher = Optional.of(new HttpNativeExecutionTaskResultFetcher(
                     updateScheduledExecutor,
@@ -124,6 +130,7 @@ public class NativeExecutionTask
      * TaskInfo.
      */
     public Optional<TaskInfo> getTaskInfo()
+            throws RuntimeException
     {
         return taskInfoFetcher.getTaskInfo();
     }
@@ -144,7 +151,7 @@ public class NativeExecutionTask
 
     /**
      * Blocking call to create and start native task.
-     *
+     * <p>
      * Starts background threads to fetch results and updated info.
      */
     public TaskInfo start()

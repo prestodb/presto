@@ -57,6 +57,7 @@ import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutio
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitializer;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkExecutionException;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkFatalException;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
@@ -526,7 +527,8 @@ public class PrestoSparkQueryExecutionFactory
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             Optional<String> queryStatusInfoOutputLocation,
             Optional<String> queryDataOutputLocation,
-            Optional<RetryExecutionStrategy> retryExecutionStrategy)
+            Optional<RetryExecutionStrategy> retryExecutionStrategy,
+            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector)
     {
         PrestoSparkConfInitializer.checkInitialized(sparkContext);
 
@@ -694,7 +696,8 @@ public class PrestoSparkQueryExecutionFactory
                             planFragmenter,
                             metadata,
                             partitioningProviderManager,
-                            historyBasedPlanStatisticsTracker);
+                            historyBasedPlanStatisticsTracker,
+                            bootstrapMetricsCollector);
                 }
                 else {
                     return new PrestoSparkAdaptiveQueryExecution(
@@ -732,7 +735,8 @@ public class PrestoSparkQueryExecutionFactory
                             planFragmenter,
                             metadata,
                             partitioningProviderManager,
-                            historyBasedPlanStatisticsTracker);
+                            historyBasedPlanStatisticsTracker,
+                            bootstrapMetricsCollector);
                 }
             }
         }
@@ -782,7 +786,18 @@ public class PrestoSparkQueryExecutionFactory
                 log.error(eventFailure, "Error publishing query immediate failure event");
             }
 
-            throw toPrestoSparkFailure(session, failureInfo.get());
+            if (isFatalException(executionFailure)) {
+                // Throw fatal error directly to allow spark fail over to other executors.
+                throw executionFailure;
+            }
+            else {
+                throw toPrestoSparkFailure(session, failureInfo.get());
+            }
         }
+    }
+
+    private boolean isFatalException(Throwable t)
+    {
+        return t instanceof PrestoSparkFatalException;
     }
 }

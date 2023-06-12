@@ -206,6 +206,7 @@ public abstract class AbstractPrestoSparkQueryExecution
     private AtomicReference<SubPlan> finalFragmentedPlan = new AtomicReference<>();
     @GuardedBy("this")
     private final Map<PlanFragmentId, RddAndMore> fragmentIdToRdd = new HashMap<>();
+    private final Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector;
 
     public AbstractPrestoSparkQueryExecution(
             JavaSparkContext sparkContext,
@@ -242,7 +243,8 @@ public abstract class AbstractPrestoSparkQueryExecution
             PrestoSparkPlanFragmenter planFragmenter,
             Metadata metadata,
             PartitioningProviderManager partitioningProviderManager,
-            HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker)
+            HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker,
+            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector)
     {
         this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
         this.session = requireNonNull(session, "session is null");
@@ -280,6 +282,7 @@ public abstract class AbstractPrestoSparkQueryExecution
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         this.historyBasedPlanStatisticsTracker = requireNonNull(historyBasedPlanStatisticsTracker, "historyBasedPlanStatisticsTracker is null");
+        this.bootstrapMetricsCollector = requireNonNull(bootstrapMetricsCollector, "bootstrapTimeCollector is null");
     }
 
     protected static JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> partitionBy(
@@ -606,6 +609,7 @@ public abstract class AbstractPrestoSparkQueryExecution
                     queryStatusInfoOutputLocation.get(),
                     queryStatusInfoJsonCodec.toJsonBytes(prestoSparkQueryStatusInfo));
         }
+        processBootstrapStats();
     }
 
     protected final void setFinalFragmentedPlan(SubPlan subPlan)
@@ -971,6 +975,31 @@ public abstract class AbstractPrestoSparkQueryExecution
                     .compare(this.fragmentId, that.fragmentId)
                     .compare(this.operation, that.operation)
                     .result();
+        }
+    }
+
+    private void processBootstrapStats()
+    {
+        if (!this.bootstrapMetricsCollector.isPresent()) {
+            return;
+        }
+        List<Map<String, Long>> bootstrapStats = this.bootstrapMetricsCollector.get().value();
+        int loggedBootstrapCount = bootstrapStats.size();
+        if (loggedBootstrapCount > 0) {
+            Set<String> statsKeySet = bootstrapStats.get(0).keySet();
+            StringBuilder metricsLog = new StringBuilder();
+            metricsLog.append("Average executor bootstrap durations in milliseconds: \n");
+            for (String statsKey : statsKeySet) {
+                double avgDuration = 0.0;
+                for (int i = 0; i < loggedBootstrapCount; i++) {
+                    avgDuration = (avgDuration * i + bootstrapStats.get(i).get(statsKey)) / (i + 1);
+                }
+                metricsLog.append(String.format("%s: %.2f \n", statsKey, avgDuration));
+            }
+            log.info(metricsLog.toString());
+        }
+        else {
+            log.info("No entry found in bootstrapMetricsCollector");
         }
     }
 }

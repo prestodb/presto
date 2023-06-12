@@ -279,6 +279,20 @@ public abstract class AbstractTestNativeAggregations
         assertQuerySucceeds("SELECT orderkey, arbitrary(tax_as_real) FROM lineitem GROUP BY 1");
     }
 
+    @Test
+    public void testMarkDistinct()
+    {
+        assertQuery("SELECT count(distinct orderkey), count(distinct linenumber) FROM lineitem");
+        assertQuery("SELECT orderkey, count(distinct comment), sum(distinct linenumber) FROM lineitem GROUP BY 1");
+    }
+
+    @Test
+    public void testUnsupported()
+    {
+        assertQueryFails("SELECT array_agg(nationkey ORDER BY name) FROM nation",
+                ".* Aggregations with ORDER BY are not supported yet.");
+    }
+
     private void assertQueryResultCount(String sql, int expectedResultCount)
     {
         assertEquals(getQueryRunner().execute(sql).getRowCount(), expectedResultCount);

@@ -65,7 +65,7 @@ void PeriodicTaskManager::start() {
   }
   if (taskManager_ != nullptr) {
     addTaskStatsTask();
-    addTaskCleanupTask();
+    addOldTaskCleanupTask();
   }
   if (memoryAllocator_ != nullptr) {
     addMemoryAllocatorStatsTask();
@@ -154,30 +154,38 @@ void PeriodicTaskManager::addTaskStatsTask() {
       "task_counters");
 }
 
-void PeriodicTaskManager::updateTaskCleanUp() {
+void PeriodicTaskManager::cleanupOldTask() {
   // Report the number of tasks and drivers in the system.
   if (taskManager_ != nullptr) {
     taskManager_->cleanOldTasks();
   }
 }
-void PeriodicTaskManager::addTaskCleanupTask() {
+
+void PeriodicTaskManager::addOldTaskCleanupTask() {
   scheduler_.addFunction(
-      [this]() { updateTaskCleanUp(); },
+      [this]() { cleanupOldTask(); },
       std::chrono::microseconds{kTaskPeriodCleanOldTasks},
       "clean_old_tasks");
 }
 
 void PeriodicTaskManager::updateMemoryAllocatorStats() {
   REPORT_ADD_STAT_VALUE(
-      kCounterMappedMemoryBytes, (memoryAllocator_->numMapped() * 4096l));
+      kCounterMappedMemoryBytes,
+      (velox::memory::AllocationTraits::pageBytes(
+          memoryAllocator_->numMapped())));
   REPORT_ADD_STAT_VALUE(
-      kCounterAllocatedMemoryBytes, (memoryAllocator_->numAllocated() * 4096l));
+      kCounterAllocatedMemoryBytes,
+      (velox::memory::AllocationTraits::pageBytes(
+          memoryAllocator_->numAllocated())));
   // TODO(jtan6): Remove condition after T150019700 is done
   if (auto* mmapAllocator =
           dynamic_cast<const velox::memory::MmapAllocator*>(memoryAllocator_)) {
     REPORT_ADD_STAT_VALUE(
-        kCounterMappedMemoryRawAllocBytesSmall,
-        (mmapAllocator->numMallocBytes()))
+        kCounterMmapRawAllocBytesSmall, (mmapAllocator->numMallocBytes()));
+    REPORT_ADD_STAT_VALUE(
+        kCounterMmapExternalMappedBytes,
+        velox::memory::AllocationTraits::pageBytes(
+            (mmapAllocator->numExternalMapped())));
   }
   // TODO(xiaoxmeng): add memory allocation size stats.
 }
@@ -194,9 +202,8 @@ void PeriodicTaskManager::updatePrestoExchangeSourceMemoryStats() {
   int64_t peakQueuedMemoryBytes{0};
   PrestoExchangeSource::getMemoryUsage(
       currQueuedMemoryBytes, peakQueuedMemoryBytes);
-  REPORT_ADD_STAT_VALUE(
-      kCounterExchangeSourceQueuedBytes, currQueuedMemoryBytes);
-  REPORT_ADD_STAT_VALUE(
+  PrestoExchangeSource::resetPeakMemoryUsage();
+  REPORT_ADD_HISTOGRAM_VALUE(
       kCounterExchangeSourcePeakQueuedBytes, peakQueuedMemoryBytes);
 }
 

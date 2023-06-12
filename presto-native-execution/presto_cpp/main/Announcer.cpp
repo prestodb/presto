@@ -74,7 +74,7 @@ Announcer::Announcer(
     const std::string& address,
     bool useHttps,
     int port,
-    std::function<folly::SocketAddress()> discoveryAddressLookup,
+    const std::shared_ptr<CoordinatorDiscoverer>& coordinatorDiscoverer,
     const std::string& nodeVersion,
     const std::string& environment,
     const std::string& nodeId,
@@ -83,7 +83,7 @@ Announcer::Announcer(
     uint64_t frequencyMs,
     const std::string& clientCertAndKeyPath,
     const std::string& ciphers)
-    : discoveryAddressLookup_(std::move(discoveryAddressLookup)),
+    : coordinatorDiscoverer_(coordinatorDiscoverer),
       frequencyMs_(frequencyMs),
       announcementBody_(announcementBody(
           address,
@@ -99,10 +99,6 @@ Announcer::Announcer(
       eventBaseThread_(false /*autostart*/),
       clientCertAndKeyPath_(clientCertAndKeyPath),
       ciphers_(ciphers) {}
-
-Announcer::~Announcer() {
-  stop();
-}
 
 void Announcer::start() {
   eventBaseThread_.start("Announcer");
@@ -125,12 +121,12 @@ void Announcer::makeAnnouncement() {
   }
 
   try {
-    auto newAddress = discoveryAddressLookup_();
+    auto newAddress = coordinatorDiscoverer_->updateAddress();
     if (newAddress != address_) {
       LOG(INFO) << "Discovery service changed to " << newAddress.getAddressStr()
                 << ":" << newAddress.getPort();
       std::swap(address_, newAddress);
-      client_ = std::make_unique<http::HttpClient>(
+      client_ = std::make_shared<http::HttpClient>(
           eventBaseThread_.getEventBase(),
           address_,
           std::chrono::milliseconds(10'000),

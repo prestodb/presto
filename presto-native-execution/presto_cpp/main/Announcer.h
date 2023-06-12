@@ -15,6 +15,7 @@
 
 #include <folly/io/async/EventBaseThread.h>
 #include <presto_cpp/main/http/HttpClient.h>
+#include "presto_cpp/main/CoordinatorDiscoverer.h"
 
 namespace facebook::presto {
 
@@ -24,7 +25,7 @@ class Announcer {
       const std::string& address,
       bool useHttps,
       int port,
-      std::function<folly::SocketAddress()> discoveryAddressLookup,
+      const std::shared_ptr<CoordinatorDiscoverer>& coordinatorDiscoverer,
       const std::string& nodeVersion,
       const std::string& environment,
       const std::string& nodeId,
@@ -34,7 +35,7 @@ class Announcer {
       const std::string& clientCertAndKeyPath = "",
       const std::string& ciphers = "");
 
-  ~Announcer();
+  ~Announcer() = default;
 
   void start();
 
@@ -45,13 +46,13 @@ class Announcer {
 
   void scheduleNext();
 
-  const std::function<folly::SocketAddress()> discoveryAddressLookup_;
+  const std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer_;
   const uint64_t frequencyMs_;
   const std::string announcementBody_;
   const proxygen::HTTPMessage announcementRequest_;
   const std::shared_ptr<velox::memory::MemoryPool> pool_;
   folly::SocketAddress address_;
-  std::unique_ptr<http::HttpClient> client_;
+  std::shared_ptr<http::HttpClient> client_;
   std::atomic_bool stopped_{true};
   folly::EventBaseThread eventBaseThread_;
   const std::string clientCertAndKeyPath_;

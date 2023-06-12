@@ -263,7 +263,9 @@ public class FeaturesConfig
     private boolean simplifyPlanWithEmptyInput = true;
     private PushDownFilterThroughCrossJoinStrategy pushDownFilterExpressionEvaluationThroughCrossJoin = PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN;
     private boolean rewriteCrossJoinWithOrFilterToInnerJoin = true;
+    private boolean rewriteCrossJoinWithArrayContainsFilterToInnerJoin = true;
     private JoinNotNullInferenceStrategy joinNotNullInferenceStrategy = NONE;
+    private boolean leftJoinNullFilterToSemiJoin = true;
 
     private boolean preProcessMetadataCalls;
 
@@ -2592,6 +2594,32 @@ public class FeaturesConfig
     public FeaturesConfig setRewriteCrossJoinWithOrFilterToInnerJoin(boolean rewriteCrossJoinWithOrFilterToInnerJoin)
     {
         this.rewriteCrossJoinWithOrFilterToInnerJoin = rewriteCrossJoinWithOrFilterToInnerJoin;
+        return this;
+    }
+
+    public boolean isRewriteCrossJoinWithArrayContainsFilterToInnerJoin()
+    {
+        return this.rewriteCrossJoinWithArrayContainsFilterToInnerJoin;
+    }
+
+    @Config("optimizer.rewrite-cross-join-with-array-contains-filter-to-inner-join")
+    @ConfigDescription("Enable optimization to rewrite cross join with array contains filter to inner join")
+    public FeaturesConfig setRewriteCrossJoinWithArrayContainsFilterToInnerJoin(boolean rewriteCrossJoinWithArrayContainsFilterToInnerJoin)
+    {
+        this.rewriteCrossJoinWithArrayContainsFilterToInnerJoin = rewriteCrossJoinWithArrayContainsFilterToInnerJoin;
+        return this;
+    }
+
+    public boolean isLeftJoinNullFilterToSemiJoin()
+    {
+        return this.leftJoinNullFilterToSemiJoin;
+    }
+
+    @Config("optimizer.rewrite-left-join-with-null-filter-to-semi-join")
+    @ConfigDescription("Rewrite left join with is null check to semi join")
+    public FeaturesConfig setLeftJoinNullFilterToSemiJoin(boolean leftJoinNullFilterToSemiJoin)
+    {
+        this.leftJoinNullFilterToSemiJoin = leftJoinNullFilterToSemiJoin;
         return this;
     }
 }

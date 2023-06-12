@@ -77,6 +77,7 @@ import com.facebook.presto.spark.execution.PrestoSparkRowOutputOperator.PreDeter
 import com.facebook.presto.spark.execution.PrestoSparkRowOutputOperator.PrestoSparkRowOutputFactory;
 import com.facebook.presto.spark.execution.operator.NativeExecutionOperator;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleInfoTranslator;
+import com.facebook.presto.spark.util.PrestoSparkStatsCollectionUtils;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.page.PageDataOutput;
@@ -961,20 +962,7 @@ public class PrestoSparkTaskExecutorFactory
             TaskState taskState = taskStateMachine.getState();
             checkState(taskState.isDone(), "task is expected to be done");
 
-            long end = System.currentTimeMillis();
-            PrestoSparkShuffleStats shuffleStats = new PrestoSparkShuffleStats(
-                    taskContext.getTaskId().getStageExecutionId().getStageId().getId(),
-                    taskContext.getTaskId().getId(),
-                    WRITE,
-                    processedRows,
-                    processedRowBatches,
-                    processedBytes,
-                    end - start - outputSupplier.getTimeSpentWaitingForOutputInMillis());
-            shuffleStatsCollector.add(shuffleStats);
-
-            TaskInfo taskInfo = createTaskInfo(taskContext, taskStateMachine, taskInstanceId, outputBufferType, outputBuffer);
-            SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(serializeZstdCompressed(taskInfoCodec, taskInfo));
-            taskInfoCollector.add(serializedTaskInfo);
+            collectTaskStatsOnCompletion();
 
             LinkedBlockingQueue<Throwable> failures = taskStateMachine.getFailureCauses();
             if (failures.isEmpty()) {
@@ -1002,6 +990,26 @@ public class PrestoSparkTaskExecutorFactory
             propagateIfPossible(failure, RuntimeException.class);
             propagateIfPossible(failure, InterruptedException.class);
             throw new RuntimeException(failure);
+        }
+
+        private void collectTaskStatsOnCompletion()
+        {
+            TaskInfo taskInfo = createTaskInfo(taskContext, taskStateMachine, taskInstanceId, outputBufferType, outputBuffer);
+            SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(serializeZstdCompressed(taskInfoCodec, taskInfo));
+            taskInfoCollector.add(serializedTaskInfo);
+
+            PrestoSparkStatsCollectionUtils.collectMetrics(taskInfo);
+
+            long end = System.currentTimeMillis();
+            PrestoSparkShuffleStats shuffleStats = new PrestoSparkShuffleStats(
+                    taskContext.getTaskId().getStageExecutionId().getStageId().getId(),
+                    taskContext.getTaskId().getId(),
+                    WRITE,
+                    processedRows,
+                    processedRowBatches,
+                    processedBytes,
+                    end - start - outputSupplier.getTimeSpentWaitingForOutputInMillis());
+            shuffleStatsCollector.add(shuffleStats);
         }
 
         private static TaskInfo createTaskInfo(

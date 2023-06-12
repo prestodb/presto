@@ -165,6 +165,7 @@ std::optional<TypedExprPtr> tryConvertCast(
   static const char* kTryCast = "presto.default.try_cast";
 
   static const char* kRe2JRegExp = "Re2JRegExp";
+  static const char* kJsonPath = "JsonPath";
 
   if (signature.kind != protocol::FunctionKind::SCALAR) {
     return std::nullopt;
@@ -180,6 +181,10 @@ std::optional<TypedExprPtr> tryConvertCast(
   }
 
   if (returnType == kRe2JRegExp) {
+    return args[0];
+  }
+
+  if (returnType == kJsonPath) {
     return args[0];
   }
 
@@ -475,15 +480,13 @@ TypedExprPtr convertBindExpr(const std::vector<TypedExprPtr>& args) {
   VELOX_CHECK(lambda, "Last argument of a BIND must be a lambda expression");
 
   // replace first N arguments of the lambda with bind variables
-  std::unordered_map<std::string, std::string> mapping;
+  std::unordered_map<std::string, TypedExprPtr> mapping;
   mapping.reserve(args.size() - 1);
 
   const auto& signature = lambda->signature();
 
   for (auto i = 0; i < args.size() - 1; i++) {
-    const auto& field =
-        std::dynamic_pointer_cast<const FieldAccessTypedExpr>(args[i]);
-    mapping.insert({signature->nameOf(i), field->name()});
+    mapping.insert({signature->nameOf(i), args[i]});
   }
 
   auto numArgsLeft = signature->size() - (args.size() - 1);

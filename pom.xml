@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.282-SNAPSHOT</version>
+    <version>0.283-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -55,7 +55,7 @@
         <dep.drift.version>1.33</dep.drift.version>
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
-        <dep.joda.version>2.10.8</dep.joda.version>
+        <dep.joda.version>2.12.2</dep.joda.version>
         <dep.tempto.version>1.53</dep.tempto.version>
         <dep.testng.version>7.5</dep.testng.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
@@ -64,7 +64,7 @@
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
         <dep.asm.version>9.0</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
-        <dep.alluxio.version>2.8.1</dep.alluxio.version>
+        <dep.alluxio.version>2.9.3</dep.alluxio.version>
         <dep.slf4j.version>1.7.32</dep.slf4j.version>
         <dep.kafka.version>2.3.1</dep.kafka.version>
         <dep.pinot.version>0.11.0</dep.pinot.version>
@@ -579,6 +579,12 @@
                 <artifactId>presto-parser</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-jmx</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -1197,7 +1203,7 @@
             <dependency>
                 <groupId>org.fusesource.jansi</groupId>
                 <artifactId>jansi</artifactId>
-                <version>1.8</version>
+                <version>1.18</version>
             </dependency>
 
             <dependency>
@@ -1314,6 +1320,12 @@
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-math3</artifactId>
                 <version>3.6.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-text</artifactId>
+                <version>1.9</version>
             </dependency>
 
             <dependency>

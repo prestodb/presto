@@ -383,7 +383,23 @@ velox::VectorPtr readBlockInt(
         nulls,
         positionCount,
         std::vector<velox::VectorPtr>{timestamps, timezones});
-  };
+  }
+
+  if (type->kind() == velox::TypeKind::ROW) {
+    auto numFields = stream.read<int32_t>();
+    std::vector<velox::VectorPtr> children;
+    children.reserve(numFields);
+    for (auto i = 0; i < numFields; i++) {
+      children.push_back(readBlockInt(type->asRow().childAt(i), stream, pool));
+    }
+    auto positionCount = stream.read<int32_t>();
+    for (int position = 0; position < positionCount + 1; position++) {
+      stream.read<int32_t>();
+    }
+    velox::BufferPtr nulls = readNulls(positionCount, stream, pool);
+    return std::make_shared<velox::RowVector>(
+        pool, type, nulls, positionCount, children);
+  }
 
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
       readScalarBlock, type->kind(), encoding, type, stream, pool);

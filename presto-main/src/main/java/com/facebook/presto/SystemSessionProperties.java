@@ -271,6 +271,8 @@ public final class SystemSessionProperties
     public static final String SIMPLIFY_PLAN_WITH_EMPTY_INPUT = "simplify_plan_with_empty_input";
     public static final String PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN = "push_down_filter_expression_evaluation_through_cross_join";
     public static final String REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN = "rewrite_cross_join_or_to_inner_join";
+    public static final String REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN = "rewrite_cross_join_array_contains_to_inner_join";
+    public static final String REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN = "rewrite_left_join_null_filter_to_semi_join";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1562,6 +1564,11 @@ public final class SystemSessionProperties
                         "Rewrite cross join with or filter to inner join",
                         featuresConfig.isRewriteCrossJoinWithOrFilterToInnerJoin(),
                         false),
+                booleanProperty(
+                        REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN,
+                        "Rewrite cross join with array contains filter to inner join",
+                        featuresConfig.isRewriteCrossJoinWithArrayContainsFilterToInnerJoin(),
+                        false),
                 new PropertyMetadata<>(
                         JOINS_NOT_NULL_INFERENCE_STRATEGY,
                         format("Set the strategy used NOT NULL filter inference on Join Nodes. Options are: %s",
@@ -1573,7 +1580,12 @@ public final class SystemSessionProperties
                         featuresConfig.getJoinsNotNullInferenceStrategy(),
                         false,
                         value -> JoinNotNullInferenceStrategy.valueOf(((String) value).toUpperCase()),
-                        JoinNotNullInferenceStrategy::name));
+                        JoinNotNullInferenceStrategy::name),
+                booleanProperty(
+                        REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN,
+                        "Rewrite left join with is null check to semi join",
+                        featuresConfig.isLeftJoinNullFilterToSemiJoin(),
+                        false));
     }
 
     public static boolean isSpoolingOutputBufferEnabled(Session session)
@@ -2640,5 +2652,15 @@ public final class SystemSessionProperties
     public static boolean isRewriteCrossJoinOrToInnerJoinEnabled(Session session)
     {
         return session.getSystemProperty(REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN, Boolean.class);
+    }
+
+    public static boolean isRewriteCrossJoinArrayContainsToInnerJoinEnabled(Session session)
+    {
+        return session.getSystemProperty(REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN, Boolean.class);
+    }
+
+    public static boolean isRewriteLeftJoinNullFilterToSemiJoinEnabled(Session session)
+    {
+        return session.getSystemProperty(REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN, Boolean.class);
     }
 }

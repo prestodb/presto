@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.HashSet;
 import java.util.List;
@@ -44,6 +45,7 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.PushDownFilterThro
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN;
 import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.rewriteExpressionWithCSE;
 import static com.facebook.presto.sql.planner.VariablesExtractor.extractAll;
+import static com.facebook.presto.sql.planner.iterative.rule.CrossJoinWithArrayContainsToInnerJoin.getCandidateArrayContainsExpression;
 import static com.facebook.presto.sql.planner.iterative.rule.CrossJoinWithOrFilterToInnerJoin.getCandidateOrExpression;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
@@ -74,16 +76,24 @@ import static java.util.stream.Stream.concat;
 public class PushDownFilterExpressionEvaluationThroughCrossJoin
         implements Rule<FilterNode>
 {
+    private static final String CONTAINS_FUNCTION_NAME = "presto.default.contains";
     private static final Capture<JoinNode> CHILD = newCapture();
 
     private static final Pattern<FilterNode> PATTERN = filter()
             .with(source().matching(join().matching(x -> x.getCriteria().isEmpty() && x.getType().equals(JoinNode.Type.INNER)).capturedAs(CHILD)));
 
     private final FunctionAndTypeManager functionAndTypeManager;
+    private final RowExpressionDeterminismEvaluator determinismEvaluator;
 
     public PushDownFilterExpressionEvaluationThroughCrossJoin(FunctionAndTypeManager functionAndTypeManager)
     {
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
+        this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
+    }
+
+    private static boolean canRewrittenToInnerJoin(RowExpression filter, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right)
+    {
+        return getCandidateOrExpression(filter, left, right) != null || getCandidateArrayContainsExpression(filter, left, right) != null;
     }
 
     @Override
@@ -124,7 +134,7 @@ public class PushDownFilterExpressionEvaluationThroughCrossJoin
 
         // Only enable if the cross join can be rewritten to inner join after the rewrite
         if (getPushdownFilterExpressionEvaluationThroughCrossJoinStrategy(context.getSession()).equals(REWRITTEN_TO_INNER_JOIN)
-                && getCandidateOrExpression(rewrittenFilter, leftInput.getOutputVariables(), rightInput.getOutputVariables()) == null) {
+                && !canRewrittenToInnerJoin(rewrittenFilter, leftInput.getOutputVariables(), rightInput.getOutputVariables())) {
             return Result.empty();
         }
 
@@ -156,41 +166,61 @@ public class PushDownFilterExpressionEvaluationThroughCrossJoin
                         identity.build()));
     }
 
-    // TODO: this function only works for filter in form of and(or(exp1 = exp2, exp3 = exp4), or(exp5 = exp6, exp7=exp8)) etc. make it generic to work for all RowExpressions
+    // TODO: this function only works for filter in form of or condition and array contains function etc. make it generic to work for all RowExpressions
     private List<Set<RowExpression>> getRowExpressions(RowExpression filterPredicate, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right)
+    {
+        List<Set<RowExpression>> candidateFromOrCondition = getRowExpressionsFromOrCondition(filterPredicate, left, right);
+        List<Set<RowExpression>> candidateFromArrayContains = getRowExpressionsFromArrayContains(filterPredicate, left, right);
+
+        ImmutableSet.Builder<RowExpression> leftCandidate = ImmutableSet.builder();
+        leftCandidate.addAll(candidateFromOrCondition.get(0));
+        leftCandidate.addAll(candidateFromArrayContains.get(0));
+
+        ImmutableSet.Builder<RowExpression> rightCandidate = ImmutableSet.builder();
+        rightCandidate.addAll(candidateFromOrCondition.get(1));
+        rightCandidate.addAll(candidateFromArrayContains.get(1));
+
+        return ImmutableList.of(leftCandidate.build(), rightCandidate.build());
+    }
+
+    private List<Set<RowExpression>> getRowExpressionsFromOrCondition(RowExpression filterPredicate, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right)
     {
         Set<RowExpression> leftRowExpression = new HashSet<>();
         Set<RowExpression> rightRowExpression = new HashSet<>();
-        RowExpressionDeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
         for (RowExpression conjunct : extractConjuncts(filterPredicate)) {
             for (RowExpression disjunct : extractDisjuncts(conjunct)) {
                 if (disjunct instanceof CallExpression && ((CallExpression) disjunct).getDisplayName().equals("EQUAL")) {
                     CallExpression callExpression = (CallExpression) disjunct;
-                    RowExpression argument0 = callExpression.getArguments().get(0);
-                    RowExpression argument1 = callExpression.getArguments().get(1);
-
-                    List<VariableReferenceExpression> variablesInArgument0 = extractAll(argument0);
-                    if (!variablesInArgument0.isEmpty() && determinismEvaluator.isDeterministic(argument0) && !(argument0 instanceof VariableReferenceExpression)) {
-                        if (left.containsAll(variablesInArgument0)) {
-                            leftRowExpression.add(argument0);
-                        }
-                        else if (right.containsAll(variablesInArgument0)) {
-                            rightRowExpression.add(argument0);
-                        }
-                    }
-
-                    List<VariableReferenceExpression> variablesInArgument1 = extractAll(argument1);
-                    if (!variablesInArgument1.isEmpty() && determinismEvaluator.isDeterministic(argument1) && !(argument1 instanceof VariableReferenceExpression)) {
-                        if (left.containsAll(variablesInArgument1)) {
-                            leftRowExpression.add(argument1);
-                        }
-                        else if (right.containsAll(variablesInArgument1)) {
-                            rightRowExpression.add(argument1);
-                        }
-                    }
+                    addCandidateExpression(callExpression.getArguments().get(0), left, right, leftRowExpression, rightRowExpression);
+                    addCandidateExpression(callExpression.getArguments().get(1), left, right, leftRowExpression, rightRowExpression);
                 }
             }
         }
         return ImmutableList.of(leftRowExpression, rightRowExpression);
+    }
+
+    private List<Set<RowExpression>> getRowExpressionsFromArrayContains(RowExpression filterPredicate, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right)
+    {
+        Set<RowExpression> leftRowExpression = new HashSet<>();
+        Set<RowExpression> rightRowExpression = new HashSet<>();
+        if (filterPredicate instanceof CallExpression && ((CallExpression) filterPredicate).getFunctionHandle().getName().equals(CONTAINS_FUNCTION_NAME)) {
+            CallExpression callExpression = (CallExpression) filterPredicate;
+            addCandidateExpression(callExpression.getArguments().get(0), left, right, leftRowExpression, rightRowExpression);
+            addCandidateExpression(callExpression.getArguments().get(1), left, right, leftRowExpression, rightRowExpression);
+        }
+        return ImmutableList.of(leftRowExpression, rightRowExpression);
+    }
+
+    private void addCandidateExpression(RowExpression candidate, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right, Set<RowExpression> leftRowExpression, Set<RowExpression> rightRowExpression)
+    {
+        List<VariableReferenceExpression> variablesInExpression = extractAll(candidate);
+        if (!variablesInExpression.isEmpty() && determinismEvaluator.isDeterministic(candidate) && !(candidate instanceof VariableReferenceExpression)) {
+            if (left.containsAll(variablesInExpression)) {
+                leftRowExpression.add(candidate);
+            }
+            else if (right.containsAll(variablesInExpression)) {
+                rightRowExpression.add(candidate);
+            }
+        }
     }
 }

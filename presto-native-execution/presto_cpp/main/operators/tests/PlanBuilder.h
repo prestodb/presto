@@ -21,8 +21,10 @@ namespace facebook::presto::operators {
 
 std::function<
     velox::core::PlanNodePtr(std::string nodeId, velox::core::PlanNodePtr)>
+
 addPartitionAndSerializeNode(
     uint32_t numPartitions,
+    bool replicateNullsAndAny,
     const std::vector<std::string>& serializedColumns = {});
 
 std::function<
@@ -35,4 +37,9 @@ addShuffleWriteNode(
     const std::string& shuffleName,
     const std::string& serializedWriteInfo);
 
+std::function<velox::core::PlanNodePtr(std::string, velox::core::PlanNodePtr)>
+
+/// Add BroadcastWriteNode for writing broadcast data to files under
+/// specified basePath
+addBroadcastWriteNode(const std::string& basePath);
 } // namespace facebook::presto::operators

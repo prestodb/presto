@@ -33,7 +33,6 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static com.facebook.presto.hive.HiveUtil.isHudiRealtimeSplit;
 import static java.util.Objects.requireNonNull;
 
 public class GenericHiveRecordCursorProvider
@@ -62,7 +61,7 @@ public class GenericHiveRecordCursorProvider
         // make sure the FileSystem is created with the proper Configuration object
         Path path = new Path(fileSplit.getPath());
         try {
-            if (!fileSplit.getCustomSplitInfo().isEmpty() && isHudiRealtimeSplit(fileSplit.getCustomSplitInfo())) {
+            if (!fileSplit.getCustomSplitInfo().isEmpty()) {
                 if (configuration instanceof HiveCachingHdfsConfiguration.CachingJobConf) {
                     configuration = ((HiveCachingHdfsConfiguration.CachingJobConf) configuration).getConfig();
                 }

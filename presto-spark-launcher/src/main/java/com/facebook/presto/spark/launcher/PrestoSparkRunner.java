@@ -18,12 +18,15 @@ import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutio
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkService;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkServiceFactory;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkBootstrapTimer;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkFailure;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import org.apache.spark.TaskContext;
+import org.apache.spark.util.CollectionAccumulator;
+import scala.Option;
 
 import java.io.File;
 import java.io.UncheckedIOException;
@@ -40,6 +43,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spark.launcher.LauncherUtils.checkDirectory;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Ticker.systemTicker;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Arrays.sort;
@@ -50,10 +54,12 @@ public class PrestoSparkRunner
 {
     private final PrestoSparkDistribution distribution;
     private final IPrestoSparkService driverPrestoSparkService;
+    private static final CollectionAccumulator<Map<String, Long>> bootstrapMetricsCollector = new CollectionAccumulator<>();
 
     public PrestoSparkRunner(PrestoSparkDistribution distribution)
     {
         this.distribution = requireNonNull(distribution, "distribution is null");
+        bootstrapMetricsCollector.register(distribution.getSparkContext(), Option.apply("PrestoOnSparkBootstrapMetrics"), false);
         driverPrestoSparkService = createService(
                 SparkProcessType.DRIVER,
                 distribution.getPackageSupplier(),
@@ -64,7 +70,8 @@ public class PrestoSparkRunner
                 distribution.getAccessControlProperties(),
                 distribution.getSessionPropertyConfigurationProperties(),
                 distribution.getFunctionNamespaceProperties(),
-                distribution.getTempStorageProperties());
+                distribution.getTempStorageProperties(),
+                Optional.empty());
     }
 
     public void run(
@@ -152,10 +159,11 @@ public class PrestoSparkRunner
                 prestoSparkRunnerContext.getSqlFileHexHash(),
                 prestoSparkRunnerContext.getSqlFileSizeInBytes(),
                 prestoSparkRunnerContext.getSparkQueueName(),
-                new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution),
+                new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution, bootstrapMetricsCollector),
                 prestoSparkRunnerContext.getQueryStatusInfoOutputLocation(),
                 prestoSparkRunnerContext.getQueryDataOutputLocation(),
-                prestoSparkRunnerContext.getRetryExecutionStrategy());
+                prestoSparkRunnerContext.getRetryExecutionStrategy(),
+                Optional.of(bootstrapMetricsCollector));
 
         List<List<Object>> results = queryExecution.execute();
 
@@ -215,8 +223,12 @@ public class PrestoSparkRunner
             Optional<Map<String, String>> accessControlProperties,
             Optional<Map<String, String>> sessionPropertyConfigurationProperties,
             Optional<Map<String, Map<String, String>>> functionNamespaceProperties,
-            Optional<Map<String, Map<String, String>>> tempStorageProperties)
+            Optional<Map<String, Map<String, String>>> tempStorageProperties,
+            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector)
     {
+        PrestoSparkBootstrapTimer bootstrapTimer = new PrestoSparkBootstrapTimer(systemTicker(), !sparkProcessType.equals(SparkProcessType.DRIVER));
+        bootstrapTimer.beginRunnerServiceCreation();
+
         String packagePath = getPackagePath(packageSupplier);
         File pluginsDirectory = checkDirectory(new File(packagePath, "plugin"));
         PrestoSparkConfiguration configuration = new PrestoSparkConfiguration(
@@ -230,7 +242,12 @@ public class PrestoSparkRunner
                 functionNamespaceProperties,
                 tempStorageProperties);
         IPrestoSparkServiceFactory serviceFactory = createServiceFactory(checkDirectory(new File(packagePath, "lib")));
-        return serviceFactory.createService(sparkProcessType, configuration);
+        IPrestoSparkService service = serviceFactory.createService(sparkProcessType, configuration, bootstrapTimer);
+        bootstrapTimer.endRunnerServiceCreation();
+        if (bootstrapMetricsCollector.isPresent() && bootstrapTimer.isExecutorBootstrap()) {
+            bootstrapMetricsCollector.get().add(bootstrapTimer.exportBootstrapDurations());
+        }
+        return service;
     }
 
     private static String getPackagePath(PackageSupplier packageSupplier)
@@ -250,15 +267,19 @@ public class PrestoSparkRunner
         private final Map<String, String> sessionPropertyConfigurationProperties;
         private final Map<String, Map<String, String>> functionNamespaceProperties;
         private final Map<String, Map<String, String>> tempStorageProperties;
+        private final CollectionAccumulator<Map<String, Long>> bootstrapMetricsCollector;
         private final boolean isLocal;
 
-        public DistributionBasedPrestoSparkTaskExecutorFactoryProvider(PrestoSparkDistribution distribution)
+        public DistributionBasedPrestoSparkTaskExecutorFactoryProvider(
+                PrestoSparkDistribution distribution,
+                CollectionAccumulator<Map<String, Long>> bootstrapMetricsCollector)
         {
             requireNonNull(distribution, "distribution is null");
             this.packageSupplier = distribution.getPackageSupplier();
             this.configProperties = distribution.getConfigProperties();
             this.catalogProperties = distribution.getCatalogProperties();
             this.prestoSparkProperties = distribution.getPrestoSparkProperties();
+            this.bootstrapMetricsCollector = requireNonNull(bootstrapMetricsCollector);
             // Optional is not Serializable
             this.eventListenerProperties = distribution.getEventListenerProperties().orElse(null);
             this.accessControlProperties = distribution.getAccessControlProperties().orElse(null);
@@ -301,7 +322,8 @@ public class PrestoSparkRunner
                             Optional.ofNullable(accessControlProperties),
                             Optional.ofNullable(sessionPropertyConfigurationProperties),
                             Optional.ofNullable(functionNamespaceProperties),
-                            Optional.ofNullable(tempStorageProperties));
+                            Optional.ofNullable(tempStorageProperties),
+                            Optional.of(bootstrapMetricsCollector));
 
                     currentPackagePath = getPackagePath(packageSupplier);
                     currentConfigProperties = configProperties;

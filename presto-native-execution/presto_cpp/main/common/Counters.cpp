@@ -67,7 +67,7 @@ void registerPrestoCppCounters() {
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterNumTasksFailed, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterNumZombieTasks, facebook::velox::StatType::AVG);
+      kCounterNumZombieVeloxTasks, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterNumZombiePrestoTasks, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
@@ -78,6 +78,10 @@ void registerPrestoCppCounters() {
       kCounterMappedMemoryBytes, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterAllocatedMemoryBytes, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMmapRawAllocBytesSmall, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMmapExternalMappedBytes, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterTotalPartitionedOutputBuffer, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
@@ -95,17 +99,12 @@ void registerPrestoCppCounters() {
       kCounterOsNumVoluntaryContextSwitches, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterOsNumForcedContextSwitches, facebook::velox::StatType::AVG);
-  REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterMappedMemoryRawAllocBytesSmall, facebook::velox::StatType::AVG);
-  REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterMappedMemoryRawAllocBytesSizeClass,
-      facebook::velox::StatType::AVG);
-  REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterMappedMemoryRawAllocBytesLarge, facebook::velox::StatType::AVG);
-  REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterExchangeSourceQueuedBytes, facebook::velox::StatType::AVG);
-  REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterExchangeSourcePeakQueuedBytes, facebook::velox::StatType::AVG);
+  REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE(
+      kCounterExchangeSourcePeakQueuedBytes,
+      (1024 * 1024), // bucket unit: 1MB
+      0,
+      (62l * 1024 * 1024 * 1024), // max bucket size: 62GB
+      100);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterMemoryCacheNumEntries, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(

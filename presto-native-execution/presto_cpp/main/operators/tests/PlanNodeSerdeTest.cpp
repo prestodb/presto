@@ -70,7 +70,7 @@ TEST_F(PlanNodeSerdeTest, partitionAndSerializeNode) {
   auto plan = exec::test::PlanBuilder()
                   .values(data_, true)
                   .addNode(addPartitionAndSerializeNode(
-                      4, reverseColumns(asRowType(data_[0]->type()))))
+                      4, false, reverseColumns(asRowType(data_[0]->type()))))
                   .localPartition({})
                   .planNode();
   testSerde(plan);
@@ -96,10 +96,20 @@ TEST_F(PlanNodeSerdeTest, shuffleWriteNode) {
       fmt::format(kTestShuffleInfoFormat, numPartitions, 1 << 20);
   auto plan = exec::test::PlanBuilder()
                   .values(data_, true)
-                  .addNode(addPartitionAndSerializeNode(numPartitions))
+                  .addNode(addPartitionAndSerializeNode(numPartitions, false))
                   .localPartition({})
                   .addNode(addShuffleWriteNode(shuffleName, shuffleInfo))
                   .planNode();
   testSerde(plan);
+}
+
+TEST_F(PlanNodeSerdeTest, broadcastWriteNode) {
+  const std::string basePath("/tmp/query-20130101-0000-001");
+  auto broadcastWritePlan = exec::test::PlanBuilder()
+                                .values(data_, true)
+                                .addNode(addBroadcastWriteNode(basePath))
+                                .partitionedOutputBroadcast()
+                                .planNode();
+  testSerde(broadcastWritePlan);
 }
 } // namespace facebook::velox::exec::test

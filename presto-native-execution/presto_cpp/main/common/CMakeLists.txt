@@ -14,7 +14,7 @@ add_library(presto_exception Exception.cpp)
 add_library(presto_common Counters.cpp Utils.cpp ConfigReader.cpp Configs.cpp)
 
 target_link_libraries(presto_exception velox_exception)
-target_link_libraries(presto_common velox_exception velox_config)
+target_link_libraries(presto_common velox_config velox_core velox_exception)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)

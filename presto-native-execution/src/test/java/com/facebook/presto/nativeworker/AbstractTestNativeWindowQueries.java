@@ -106,4 +106,11 @@ public abstract class AbstractTestNativeWindowQueries
         // `row_number() over (partition by key1)` will use `RowNumberNode` which hasn't been implemented yet.
         testRankingFunction("row_number()", true);
     }
+
+    @Test
+    public void testRowNumberWithFilter()
+    {
+        assertQuery("SELECT sum(rn) FROM (SELECT row_number() over() rn, * from orders) WHERE rn = 10");
+        assertQuery("SELECT * FROM (SELECT row_number() over(partition by orderstatus order by orderkey) rn, * from orders) WHERE rn = 1");
+    }
 }
