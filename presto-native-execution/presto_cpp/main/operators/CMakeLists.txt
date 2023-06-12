@@ -19,7 +19,8 @@ add_library(
   UnsafeRowExchangeSource.cpp
   LocalPersistentShuffle.cpp
   BroadcastWrite.cpp
-  BroadcastFactory.cpp)
+  BroadcastFactory.cpp
+  BroadcastExchangeSource.cpp)
 
 target_link_libraries(
   presto_operators
