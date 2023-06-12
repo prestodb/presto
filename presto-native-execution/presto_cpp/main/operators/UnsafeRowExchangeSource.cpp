@@ -92,18 +92,20 @@ UnsafeRowExchangeSource::createExchangeSource(
   if (::strncmp(url.c_str(), "batch://", 8) != 0) {
     return nullptr;
   }
+
+  auto uri = folly::Uri(url);
+  auto serializedShuffleInfo = getSerializedShuffleInfo(uri);
+  // Not shuffle exchange source.
+  if (!serializedShuffleInfo.has_value()) {
+    return nullptr;
+  }
+
   auto shuffleName = SystemConfig::instance()->shuffleName();
   VELOX_CHECK(
       !shuffleName.empty(),
       "shuffle.name is not provided in config.properties to create a shuffle "
       "interface.");
   auto shuffleFactory = ShuffleInterfaceFactory::factory(shuffleName);
-  auto uri = folly::Uri(url);
-  auto serializedShuffleInfo = getSerializedShuffleInfo(uri);
-  VELOX_USER_CHECK(
-      serializedShuffleInfo.has_value(),
-      "Cannot find shuffleInfo parameter in split url '{}'",
-      url);
   return std::make_unique<UnsafeRowExchangeSource>(
       uri.host(),
       destination,
