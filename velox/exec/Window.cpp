@@ -122,6 +122,9 @@ void Window::createWindowFunctions(
     const std::shared_ptr<const core::WindowNode>& windowNode,
     const RowTypePtr& inputType) {
   for (const auto& windowNodeFunction : windowNode->windowFunctions()) {
+    VELOX_USER_CHECK(
+        !windowNodeFunction.ignoreNulls,
+        "Ignore nulls for window functions is not supported yet");
     std::vector<WindowFunctionArg> functionArgs;
     functionArgs.reserve(windowNodeFunction.functionCall->inputs().size());
     for (auto& arg : windowNodeFunction.functionCall->inputs()) {
