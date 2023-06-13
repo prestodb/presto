@@ -38,6 +38,7 @@ class PlanNodeSerdeTest : public testing::Test,
     connector::hive::HiveTableHandle::registerSerDe();
     connector::hive::LocationHandle::registerSerDe();
     connector::hive::HiveColumnHandle::registerSerDe();
+    connector::hive::HiveInsertTableHandle::registerSerDe();
     core::PlanNode::registerSerDe();
     core::ITypedExpr::registerSerDe();
     registerPartitionFunctionSerDe();
@@ -429,6 +430,33 @@ TEST_F(PlanNodeSerdeTest, topNRowNumber) {
              .values({data_})
              .topNRowNumber({"c0"}, {"c1", "c2"}, 10, false)
              .planNode();
+  testSerde(plan);
+}
+
+TEST_F(PlanNodeSerdeTest, write) {
+  auto rowTypePtr = ROW({"c0", "c1", "c2"}, {BIGINT(), BOOLEAN(), VARBINARY()});
+  auto planBuilder =
+      PlanBuilder(pool_.get()).tableScan(rowTypePtr, {"c1 = true"}, "c0 < 100");
+  planBuilder.planNode();
+  auto tableColumnNames = std::vector<std::string>{"c0", "c1", "c2"};
+  auto tableColumnTypes =
+      std::vector<TypePtr>{BIGINT(), BOOLEAN(), VARBINARY()};
+  auto locationHandle = exec::test::HiveConnectorTestBase::makeLocationHandle(
+      "targetDirectory",
+      std::optional("writeDirectory"),
+      connector::hive::LocationHandle::TableType::kNew);
+  auto hiveInsertTableHandle =
+      exec::test::HiveConnectorTestBase::makeHiveInsertTableHandle(
+          tableColumnNames, tableColumnTypes, {"c2"}, locationHandle);
+  auto insertHandle =
+      std::make_shared<core::InsertTableHandle>("id", hiveInsertTableHandle);
+  auto plan = planBuilder
+                  .tableWrite(
+                      tableColumnNames,
+                      insertHandle,
+                      connector::CommitStrategy::kTaskCommit,
+                      "rows")
+                  .planNode();
   testSerde(plan);
 }
 

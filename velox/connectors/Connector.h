@@ -118,6 +118,9 @@ enum class CommitStrategy {
 /// Return a string encoding of the given commit strategy.
 std::string commitStrategyToString(CommitStrategy commitStrategy);
 
+/// Return a commit strategy of the given string encoding.
+CommitStrategy stringToCommitStrategy(const std::string& strategy);
+
 class DataSink {
  public:
   virtual ~DataSink() = default;

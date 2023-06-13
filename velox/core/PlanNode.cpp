@@ -1507,14 +1507,42 @@ void TableWriteNode::addDetails(std::stringstream& /* stream */) const {
 }
 
 folly::dynamic TableWriteNode::serialize() const {
-  VELOX_NYI();
+  auto obj = PlanNode::serialize();
+  obj["sources"] = sources_.front()->serialize();
+  obj["columns"] = columns_->serialize();
+  obj["columnNames"] = ISerializable::serialize(columnNames_);
+  obj["connectorId"] = insertTableHandle_->connectorId();
+  obj["connectorInsertTableHandle"] =
+      insertTableHandle_->connectorInsertTableHandle()->serialize();
+  obj["outputType"] = outputType_->serialize();
+  obj["commitStrategy"] = connector::commitStrategyToString(commitStrategy_);
+  return obj;
 }
 
 // static
-PlanNodePtr TableWriteNode::create(
-    const folly::dynamic& /* obj */,
-    void* /* context */) {
-  VELOX_NYI();
+PlanNodePtr TableWriteNode::create(const folly::dynamic& obj, void* context) {
+  auto id = obj["id"].asString();
+  auto columns = deserializeRowType(obj["columns"]);
+  auto columnNames =
+      ISerializable::deserialize<std::vector<std::string>>(obj["columnNames"]);
+  auto connectorId = obj["connectorId"].asString();
+  auto connectorInsertTableHandle =
+      std::const_pointer_cast<connector::ConnectorInsertTableHandle>(
+          ISerializable::deserialize<connector::ConnectorInsertTableHandle>(
+              obj["connectorInsertTableHandle"]));
+  auto outputType = deserializeRowType(obj["outputType"]);
+  auto commitStrategy =
+      connector::stringToCommitStrategy(obj["commitStrategy"].asString());
+  auto source = ISerializable::deserialize<PlanNode>(obj["sources"]);
+  return std::make_shared<TableWriteNode>(
+      id,
+      columns,
+      columnNames,
+      std::make_shared<InsertTableHandle>(
+          connectorId, connectorInsertTableHandle),
+      outputType,
+      commitStrategy,
+      source);
 }
 
 void MergeExchangeNode::addDetails(std::stringstream& stream) const {

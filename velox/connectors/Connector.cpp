@@ -121,6 +121,16 @@ std::string commitStrategyToString(CommitStrategy commitStrategy) {
   }
 }
 
+CommitStrategy stringToCommitStrategy(const std::string& strategy) {
+  if (strategy == "NO_COMMIT") {
+    return CommitStrategy::kNoCommit;
+  } else if (strategy == "TASK_COMMIT") {
+    return CommitStrategy::kTaskCommit;
+  } else {
+    VELOX_UNREACHABLE("UNKOWN COMMIT STRATEGY: {}", strategy);
+  }
+}
+
 folly::dynamic ColumnHandle::serializeBase(std::string_view name) {
   folly::dynamic obj = folly::dynamic::object;
   obj["name"] = name;
