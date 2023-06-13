@@ -21,6 +21,7 @@ workflows:
   dist-compile:
     jobs:
       - linux-build
+      - native-specific-macos
 
   conditionals:
     when: << pipeline.parameters.run_native_specific_jobs >>
