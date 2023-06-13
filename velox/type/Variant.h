@@ -582,12 +582,7 @@ struct VariantConverter {
     if (value.isNull()) {
       return variant{value.kind()};
     }
-    bool nullOutput = false;
-    auto converted =
-        util::Converter<ToKind>::cast(value.value<FromKind>(), nullOutput);
-    if (nullOutput) {
-      throw std::invalid_argument("Velox cast error");
-    }
+    auto converted = util::Converter<ToKind>::cast(value.value<FromKind>());
     return {converted};
   }
 

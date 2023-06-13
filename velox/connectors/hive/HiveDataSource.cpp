@@ -230,11 +230,8 @@ velox::variant convertFromString(const std::optional<std::string>& value) {
     if constexpr (ToKind == TypeKind::VARCHAR) {
       return velox::variant(value.value());
     }
-    bool nullOutput = false;
-    auto result =
-        velox::util::Converter<ToKind>::cast(value.value(), nullOutput);
-    VELOX_CHECK(
-        not nullOutput, "Failed to cast {} to {}", value.value(), ToKind)
+    auto result = velox::util::Converter<ToKind>::cast(value.value());
+
     return velox::variant(result);
   }
   return velox::variant(ToKind);

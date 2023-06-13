@@ -52,9 +52,7 @@ core::TypedExprPtr parseExpr(
 
 template <TypeKind FromKind, TypeKind ToKind>
 typename TypeTraits<ToKind>::NativeType cast(const variant& v) {
-  bool nullOutput;
-  return util::Converter<ToKind, void, false>::cast(
-      v.value<FromKind>(), nullOutput);
+  return util::Converter<ToKind, void, false>::cast(v.value<FromKind>());
 }
 } // namespace
 

@@ -106,23 +106,20 @@ struct DateFunction : public TimestampWithTimezoneSupport<T> {
   FOLLY_ALWAYS_INLINE void call(
       out_type<Date>& result,
       const arg_type<Varchar>& date) {
-    bool nullOutput;
-    result = util::Converter<TypeKind::DATE>::cast(date, nullOutput);
+    result = util::Converter<TypeKind::DATE>::cast(date);
   }
 
   FOLLY_ALWAYS_INLINE void call(
       out_type<Date>& result,
       const arg_type<Timestamp>& timestamp) {
-    bool nullOutput;
-    result = util::Converter<TypeKind::DATE>::cast(timestamp, nullOutput);
+    result = util::Converter<TypeKind::DATE>::cast(timestamp);
   }
 
   FOLLY_ALWAYS_INLINE void call(
       out_type<Date>& result,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
-    bool nullOutput;
     result = util::Converter<TypeKind::DATE>::cast(
-        this->toTimestamp(timestampWithTimezone), nullOutput);
+        this->toTimestamp(timestampWithTimezone));
   }
 };
 

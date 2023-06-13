@@ -101,9 +101,7 @@ struct ArrayJoinFunction {
 
   template <typename C>
   void writeValue(out_type<velox::Varchar>& result, const C& value) {
-    bool nullOutput = false;
-    result += util::Converter<TypeKind::VARCHAR, void, false>::cast(
-        value, nullOutput);
+    result += util::Converter<TypeKind::VARCHAR, void, false>::cast(value);
   }
 
   template <typename C>
