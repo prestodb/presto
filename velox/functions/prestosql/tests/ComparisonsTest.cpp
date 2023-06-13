@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <string>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
@@ -369,22 +370,30 @@ TEST_F(ComparisonsTest, gtLtDecimal) {
   runAndCompare("c1 <= c0", longDecimalsInputs, expectedGteLte);
 };
 
-TEST_F(ComparisonsTest, eqArray) {
+TEST_F(ComparisonsTest, eqNeqArray) {
   auto test =
       [&](const std::optional<std::vector<std::optional<int64_t>>>& array1,
           const std::optional<std::vector<std::optional<int64_t>>>& array2,
           std::optional<bool> expected) {
         auto vector1 = vectorMaker_.arrayVectorNullable<int64_t>({array1});
         auto vector2 = vectorMaker_.arrayVectorNullable<int64_t>({array2});
-        auto result = evaluate<SimpleVector<bool>>(
+        auto eqResult = evaluate<SimpleVector<bool>>(
             "c0 == c1", makeRowVector({vector1, vector2}));
 
-        ASSERT_EQ(expected.has_value(), !result->isNullAt(0));
+        auto neqResult = evaluate<SimpleVector<bool>>(
+            "c0 != c1", makeRowVector({vector1, vector2}));
+
+        ASSERT_EQ(expected.has_value(), !eqResult->isNullAt(0));
+        ASSERT_EQ(expected.has_value(), !neqResult->isNullAt(0));
         if (expected.has_value()) {
-          ASSERT_EQ(expected.value(), result->valueAt(0));
+          // equals check
+          ASSERT_EQ(expected.value(), eqResult->valueAt(0));
+          // not equal check
+          ASSERT_EQ(!expected.value(), neqResult->valueAt(0));
         }
       };
 
+  // eq and neq function test
   test(std::nullopt, std::nullopt, std::nullopt);
   test(std::nullopt, {{1}}, std::nullopt);
   test({{1}}, std::nullopt, std::nullopt);
@@ -414,7 +423,7 @@ TEST_F(ComparisonsTest, eqArray) {
       std::nullopt);
 }
 
-TEST_F(ComparisonsTest, eqMap) {
+TEST_F(ComparisonsTest, eqNeqMap) {
   using map_t =
       std::optional<std::vector<std::pair<int64_t, std::optional<int64_t>>>>;
   auto test =
@@ -422,16 +431,21 @@ TEST_F(ComparisonsTest, eqMap) {
         auto vector1 = makeNullableMapVector<int64_t, int64_t>({map1});
         auto vector2 = makeNullableMapVector<int64_t, int64_t>({map2});
 
-        auto result = evaluate<SimpleVector<bool>>(
+        auto eqResult = evaluate<SimpleVector<bool>>(
             "c0 == c1", makeRowVector({vector1, vector2}));
 
-        ASSERT_EQ(expected.has_value(), !result->isNullAt(0));
+        auto neqResult = evaluate<SimpleVector<bool>>(
+            "c0 != c1", makeRowVector({vector1, vector2}));
 
+        ASSERT_EQ(expected.has_value(), !eqResult->isNullAt(0));
+        ASSERT_EQ(expected.has_value(), !neqResult->isNullAt(0));
         if (expected.has_value()) {
-          ASSERT_EQ(expected.value(), result->valueAt(0));
+          ASSERT_EQ(expected.value(), eqResult->valueAt(0));
+          ASSERT_EQ(!expected.value(), neqResult->valueAt(0));
         }
       };
 
+  // eq and neq function test
   test({{{1, 2}, {3, 4}}}, {{{1, 2}, {3, 4}}}, true);
 
   // Elements checked in sorted order.

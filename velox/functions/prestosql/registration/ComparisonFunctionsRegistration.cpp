@@ -27,6 +27,8 @@ void registerComparisonFunctions(const std::string& prefix) {
 
   registerNonSimdizableScalar<NeqFunction, bool>({prefix + "neq"});
   VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_neq, prefix + "neq");
+  registerFunction<NeqFunction, bool, Generic<T1>, Generic<T1>>(
+      {prefix + "neq"});
 
   registerNonSimdizableScalar<LtFunction, bool>({prefix + "lt"});
   VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_lt, prefix + "lt");
