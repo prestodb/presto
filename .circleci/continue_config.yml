@@ -32,7 +32,7 @@ workflows:
 executors:
   build:
     docker:
-      - image: prestocpp/prestocpp-avx-centos:kpai-20221018
+      - image: prestocpp/prestocpp-avx-centos:mike-20230613
     resource_class: 2xlarge
     environment:
       MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
