@@ -599,18 +599,21 @@ std::vector<std::unique_ptr<::duckdb::ParsedExpression>> parseExpression(
     VELOX_FAIL("Cannot parse expression: {}. {}", exprString, e.what());
   }
 }
+
+std::unique_ptr<::duckdb::ParsedExpression> parseSingleExpression(
+    const std::string& exprString) {
+  auto parsed = parseExpression(exprString);
+  VELOX_CHECK_EQ(
+      1, parsed.size(), "Expected exactly one expression: {}.", exprString);
+  return std::move(parsed.front());
+}
 } // namespace
 
 std::shared_ptr<const core::IExpr> parseExpr(
     const std::string& exprString,
     const ParseOptions& options) {
-  auto parsedExpressions = parseExpression(exprString);
-  if (parsedExpressions.size() != 1) {
-    throw std::invalid_argument(folly::sformat(
-        "Expecting exactly one input expression, found {}.",
-        parsedExpressions.size()));
-  }
-  return parseExpr(*parsedExpressions.front(), options);
+  auto parsed = parseSingleExpression(exprString);
+  return parseExpr(*parsed, options);
 }
 
 std::vector<std::shared_ptr<const core::IExpr>> parseMultipleExpressions(
@@ -668,11 +671,11 @@ std::pair<std::shared_ptr<const core::IExpr>, core::SortOrder> parseOrderByExpr(
   ParseOptions parseOptions;
   options.preserve_identifier_case = false;
   auto orderByNodes = Parser::ParseOrderList(exprString, options);
-  if (orderByNodes.size() != 1) {
-    throw std::invalid_argument(folly::sformat(
-        "Expecting exactly one input expression, found {}.",
-        orderByNodes.size()));
-  }
+  VELOX_CHECK_EQ(
+      1,
+      orderByNodes.size(),
+      "Expected exactly one expression: {}.",
+      exprString);
 
   const auto& orderByNode = orderByNodes[0];
 
@@ -682,6 +685,29 @@ std::pair<std::shared_ptr<const core::IExpr>, core::SortOrder> parseOrderByExpr(
   return {
       parseExpr(*orderByNode.expression, parseOptions),
       core::SortOrder(ascending, nullsFirst)};
+}
+
+AggregateExpr parseAggregateExpr(
+    const std::string& exprString,
+    const ParseOptions& options) {
+  auto parsedExpr = parseSingleExpression(exprString);
+
+  auto& functionExpr = dynamic_cast<FunctionExpression&>(*parsedExpr);
+
+  AggregateExpr aggregateExpr;
+  aggregateExpr.expr = parseExpr(*parsedExpr, options);
+
+  if (functionExpr.order_bys) {
+    for (const auto& orderByNode : functionExpr.order_bys->orders) {
+      const bool ascending = isAscending(orderByNode.type, exprString);
+      const bool nullsFirst = isNullsFirst(orderByNode.null_order, exprString);
+      aggregateExpr.orderBy.emplace_back(
+          parseExpr(*orderByNode.expression, options),
+          core::SortOrder(ascending, nullsFirst));
+    }
+  }
+
+  return aggregateExpr;
 }
 
 namespace {
@@ -726,24 +752,17 @@ BoundType parseBoundType(WindowBoundary boundary) {
 
 } // namespace
 
-const IExprWindowFunction parseWindowExpr(
+IExprWindowFunction parseWindowExpr(
     const std::string& windowString,
     const ParseOptions& options) {
-  auto parsedExpressions = parseExpression(windowString);
-  if (parsedExpressions.size() != 1) {
-    throw std::invalid_argument(folly::sformat(
-        "Expecting exactly one input expression, found {}.",
-        parsedExpressions.size()));
-  }
-
-  ParsedExpression& parsedExpr = *parsedExpressions.front();
-  if (!parsedExpr.IsWindow()) {
-    throw std::invalid_argument(folly::sformat(
-        "Invalid window function expression, found {}.", windowString));
-  }
+  auto parsedExpr = parseSingleExpression(windowString);
+  VELOX_CHECK(
+      parsedExpr->IsWindow(),
+      "Invalid window function expression: {}",
+      windowString);
 
   IExprWindowFunction windowIExpr;
-  auto& windowExpr = dynamic_cast<WindowExpression&>(parsedExpr);
+  auto& windowExpr = dynamic_cast<WindowExpression&>(*parsedExpr);
   for (int i = 0; i < windowExpr.partitions.size(); i++) {
     windowIExpr.partitionBy.push_back(
         parseExpr(*(windowExpr.partitions[i].get()), options));

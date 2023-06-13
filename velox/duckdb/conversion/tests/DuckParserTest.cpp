@@ -98,6 +98,55 @@ TEST(DuckParserTest, functions) {
       "f(100,g(h(3.6)),99)", parseExpr("f(100, g(h(3.6)), 99)")->toString());
 }
 
+namespace {
+std::string toString(
+    const std::vector<
+        std::pair<std::shared_ptr<const core::IExpr>, core::SortOrder>>&
+        orderBy) {
+  std::stringstream out;
+  if (!orderBy.empty()) {
+    out << "ORDER BY ";
+    for (auto i = 0; i < orderBy.size(); ++i) {
+      if (i > 0) {
+        out << ", ";
+      }
+      out << orderBy[i].first->toString() << " "
+          << orderBy[i].second.toString();
+    }
+  }
+
+  return out.str();
+}
+} // namespace
+
+TEST(DuckParserTest, aggregates) {
+  auto parse = [](const auto& expr) {
+    ParseOptions options;
+    auto aggregateExpr = parseAggregateExpr(expr, options);
+    std::stringstream out;
+    out << aggregateExpr.expr->toString();
+    if (!aggregateExpr.orderBy.empty()) {
+      out << " " << toString(aggregateExpr.orderBy);
+    }
+
+    return out.str();
+  };
+
+  EXPECT_EQ("array_agg(\"x\")", parse("array_agg(x)"));
+  EXPECT_EQ(
+      "array_agg(\"x\") ORDER BY \"y\" ASC NULLS LAST",
+      parse("array_agg(x ORDER BY y)"));
+  EXPECT_EQ(
+      "array_agg(\"x\") ORDER BY \"y\" DESC NULLS LAST",
+      parse("array_agg(x ORDER BY y DESC)"));
+  EXPECT_EQ(
+      "array_agg(\"x\") ORDER BY \"y\" ASC NULLS FIRST",
+      parse("array_agg(x ORDER BY y NULLS FIRST)"));
+  EXPECT_EQ(
+      "array_agg(\"x\") ORDER BY \"y\" ASC NULLS LAST, \"z\" ASC NULLS LAST",
+      parse("array_agg(x ORDER BY y, z)"));
+}
+
 TEST(DuckParserTest, subscript) {
   EXPECT_EQ("subscript(\"c\",0)", parseExpr("c[0]")->toString());
   EXPECT_EQ(
@@ -337,8 +386,9 @@ TEST(DuckParserTest, invalid) {
   EXPECT_THROW(parseExpr("f(1"), std::exception);
 
   // Wrong number of expressions.
-  EXPECT_THROW(parseExpr("1, 10"), std::invalid_argument);
-  EXPECT_THROW(parseExpr("a, 99.8, 'c'"), std::invalid_argument);
+  VELOX_ASSERT_THROW(parseExpr("1, 10"), "Expected exactly one expression");
+  VELOX_ASSERT_THROW(
+      parseExpr("a, 99.8, 'c'"), "Expected exactly one expression");
 }
 
 TEST(DuckParserTest, isNull) {
@@ -455,19 +505,7 @@ const std::string parseWindow(const std::string& expr) {
       ? ""
       : fmt::format("PARTITION BY {}", concatPartitions);
 
-  std::string concatOrderBys = "";
-  i = 0;
-  for (const auto& orderBy : windowExpr.orderBy) {
-    concatOrderBys += fmt::format(
-        " {} {}", orderBy.first->toString(), orderBy.second.toString());
-    if (i > 0) {
-      concatOrderBys += " , ";
-    }
-    i++;
-  }
-  auto orderByString = windowExpr.orderBy.empty()
-      ? ""
-      : fmt::format("ORDER BY {}", concatOrderBys);
+  auto orderByString = toString(windowExpr.orderBy);
 
   auto frameString = fmt::format(
       "{} BETWEEN {}{} AND{} {}",
@@ -491,14 +529,14 @@ const std::string parseWindow(const std::string& expr) {
 
 TEST(DuckParserTest, window) {
   EXPECT_EQ(
-      "row_number() AS c OVER (PARTITION BY \"a\" ORDER BY  \"b\" ASC NULLS LAST"
+      "row_number() AS c OVER (PARTITION BY \"a\" ORDER BY \"b\" ASC NULLS LAST"
       " RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
       parseWindow("row_number() over (partition by a order by b) as c"));
   EXPECT_EQ(
       "row_number() AS a OVER (  RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
       parseWindow("row_number() over () as a"));
   EXPECT_EQ(
-      "row_number() AS a OVER ( ORDER BY  \"b\" ASC NULLS LAST "
+      "row_number() AS a OVER ( ORDER BY \"b\" ASC NULLS LAST "
       "RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
       parseWindow("row_number() over (order by b) as a"));
   EXPECT_EQ(
@@ -507,12 +545,12 @@ TEST(DuckParserTest, window) {
       parseWindow(
           "row_number() over (partition by a rows between unbounded preceding and current row)"));
   EXPECT_EQ(
-      "row_number() OVER (PARTITION BY \"a\" ORDER BY  \"b\" ASC NULLS LAST "
+      "row_number() OVER (PARTITION BY \"a\" ORDER BY \"b\" ASC NULLS LAST "
       "ROWS BETWEEN plus(\"a\",10) PRECEDING AND 10 FOLLOWING)",
       parseWindow("row_number() over (partition by a order by b "
                   "rows between a + 10 preceding and 10 following)"));
   EXPECT_EQ(
-      "row_number() OVER (PARTITION BY \"a\" ORDER BY  \"b\" DESC NULLS FIRST "
+      "row_number() OVER (PARTITION BY \"a\" ORDER BY \"b\" DESC NULLS FIRST "
       "ROWS BETWEEN plus(\"a\",10) PRECEDING AND 10 FOLLOWING)",
       parseWindow(
           "row_number() over (partition by a order by b desc nulls first "

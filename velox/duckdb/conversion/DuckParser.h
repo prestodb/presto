@@ -47,6 +47,21 @@ std::vector<std::shared_ptr<const core::IExpr>> parseMultipleExpressions(
     const std::string& exprString,
     const ParseOptions& options);
 
+struct AggregateExpr {
+  std::shared_ptr<const core::IExpr> expr;
+  std::vector<std::pair<std::shared_ptr<const core::IExpr>, core::SortOrder>>
+      orderBy;
+};
+
+/// Parses aggregate function call expression with optional ORDER by clause.
+/// Examples:
+///     sum(a)
+///     sum(a) as s
+///     array_agg(x ORDER BY y DESC)
+AggregateExpr parseAggregateExpr(
+    const std::string& exprString,
+    const ParseOptions& options);
+
 // Parses an ORDER BY clause using DuckDB's internal postgresql-based parser,
 // converting it to a pair of an IExpr tree and a core::SortOrder. Uses ASC
 // NULLS LAST as the default sort order.
@@ -86,7 +101,7 @@ struct IExprWindowFunction {
       orderBy;
 };
 
-const IExprWindowFunction parseWindowExpr(
+IExprWindowFunction parseWindowExpr(
     const std::string& windowString,
     const ParseOptions& options);
 
