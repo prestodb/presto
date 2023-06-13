@@ -61,8 +61,7 @@ function get_cxx_flags {
   MACHINE=$(uname -m)
   ADDITIONAL_FLAGS=""
 
-  if [ -z "$CPU_ARCH" ]; then
-
+  if [[ -z "$CPU_ARCH" ]] || [[ $CPU_ARCH == "unknown" ]]; then
     if [ "$OS" = "Darwin" ]; then
 
       if [ "$MACHINE" = "x86_64" ]; then
@@ -127,7 +126,7 @@ function cmake_install {
     rm -rf "${BINARY_DIR}"
   fi
   mkdir -p "${BINARY_DIR}"
-  CPU_TARGET="${CPU_TARGET:-avx}"
+  CPU_TARGET="${CPU_TARGET:-unknown}"
   COMPILER_FLAGS=$(get_cxx_flags $CPU_TARGET)
 
   # CMAKE_POSITION_INDEPENDENT_CODE is required so that Velox can be built into dynamic libraries \
