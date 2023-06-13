@@ -16,6 +16,7 @@
 
 #include "velox/dwio/common/FlatMapHelper.h"
 #include "velox/dwio/common/exception/Exceptions.h"
+#include "velox/vector/DictionaryVector.h"
 
 namespace facebook::velox::dwio::common::flatmap {
 namespace detail {
@@ -136,11 +137,23 @@ void initializeVectorImpl<TypeKind::ARRAY>(
   vector_size_t size = 0;
   bool hasNulls = false;
   std::vector<const BaseVector*> elements;
+  std::vector<velox::VectorPtr> dummyElements;
   for (auto vec : vectors) {
     size += vec->size();
     hasNulls = hasNulls || vec->mayHaveNulls();
     if (auto array = dynamic_cast<const ArrayVector*>(vec)) {
       addVector(elements, array->elements().get());
+    } else if (
+        auto dict =
+            dynamic_cast<const DictionaryVector<velox::ComplexType>*>(vec)) {
+      // Now add new dummy vectors in elements with the size of the
+      // dictionary vectors.
+      // ASSUMPTION: that there are no nesting of dictionary encoding.
+      auto dummyElement = BaseVector::createNullConstant(
+          type->asArray().elementType(), dict->size(), &pool);
+      addVector(elements, dummyElement.get());
+      // Keep the dummy element vectors alive.
+      dummyElements.emplace_back(std::move(dummyElement));
     } else {
       DWIO_ENSURE(
           vec->isConstantEncoding() && vec->mayHaveNulls(),
@@ -543,6 +556,39 @@ void copyImpl<TypeKind::ARRAY>(
     copyOffsetsFromConstInput(tgt, targetIndex, source, sourceIndex, count);
     return;
   }
+
+  if (source.encoding() == VectorEncoding::Simple::DICTIONARY) {
+    auto dictSrc =
+        static_cast<const DictionaryVector<velox::ComplexType>*>(&source);
+
+    copyNulls(tgt, targetIndex, *dictSrc, sourceIndex, count);
+    // TODO: copying offsets. Do we look up the offsets or do we
+    // just materialize one by one? I think copyOne pattern is correct,
+    // but we need an efficient way to iterate the nulls.
+    auto tgtNulls = const_cast<uint64_t*>(tgt.rawNulls());
+    auto tgtOffsets = const_cast<vector_size_t*>(tgt.rawOffsets());
+    auto tgtSizes = const_cast<vector_size_t*>(tgt.rawSizes());
+    auto childOffset = nextChildOffset(tgt, targetIndex);
+    auto alphabet = dictSrc->valueVector()->as<ArrayVector>();
+    for (auto idx = 0; idx < count; ++idx) {
+      // auto isNull = copyNull(tgt, targetIndex, source, sourceIndex);
+      auto isNull = bits::isBitNull(tgtNulls, sourceIndex + idx);
+      if (isNull) {
+        tgtOffsets[targetIndex + idx] = childOffset;
+        tgtSizes[targetIndex + idx] = 0;
+      } else {
+        auto wrappedIndex = dictSrc->wrappedIndex(sourceIndex + idx);
+        // NOTE: it should not make sense for alphabet to have null rows, so
+        // we don't need to do additional null checks or worry about overrides.
+        copyOne(type, tgt, targetIndex + idx, *alphabet, wrappedIndex);
+        tgtOffsets[targetIndex + idx] = childOffset;
+        tgtSizes[targetIndex + idx] = alphabet->sizeAt(wrappedIndex);
+        childOffset += tgtSizes[targetIndex + idx];
+      }
+    }
+    return;
+  }
+
   auto& src = static_cast<const ArrayVector&>(source);
   vector_size_t childOffset = 0;
   auto nextChildOffset =
@@ -787,6 +833,25 @@ void copyOneImpl<TypeKind::ARRAY>(
     // We already checked in initializeVector that constant source
     // vectors are constant null vectors.
     copyOffsetFromConstInput(tgt, targetIndex, source, sourceIndex);
+    return;
+  }
+
+  if (source.encoding() == VectorEncoding::Simple::DICTIONARY) {
+    auto dictSrc =
+        static_cast<const DictionaryVector<velox::ComplexType>*>(&source);
+
+    auto tgtOffsets = const_cast<vector_size_t*>(tgt.rawOffsets());
+    auto tgtSizes = const_cast<vector_size_t*>(tgt.rawSizes());
+    auto childOffset = nextChildOffset(tgt, targetIndex);
+    auto alphabet = dictSrc->valueVector()->as<ArrayVector>();
+    auto wrappedIndex = dictSrc->wrappedIndex(sourceIndex);
+
+    auto isNull = copyNull(tgt, targetIndex, *dictSrc, sourceIndex);
+    if (!isNull) {
+      copyOne(type, tgt, targetIndex, *alphabet, wrappedIndex);
+    }
+    tgtOffsets[targetIndex] = childOffset;
+    tgtSizes[targetIndex] = isNull ? 0 : alphabet->sizeAt(wrappedIndex);
     return;
   }
   auto& src = static_cast<const ArrayVector&>(source);
