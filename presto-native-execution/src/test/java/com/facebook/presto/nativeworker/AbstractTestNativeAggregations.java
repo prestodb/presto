@@ -62,13 +62,13 @@ public abstract class AbstractTestNativeAggregations
 
         assertQuery("SELECT sum(custkey), clerk FROM orders GROUP BY clerk HAVING sum(custkey) > 10000");
 
-        // TODO results from array_agg() are not deterministic so we just compare cardinality for the time being
-        // We can switch to array_sort() once it becomes available from velox
-        assertQuery("SELECT orderkey, cardinality(array_agg(linenumber)) FROM lineitem GROUP BY 1");
+        assertQuery("SELECT orderkey, array_sort(array_agg(linenumber)) FROM lineitem GROUP BY 1");
         assertQuery("SELECT orderkey, map_agg(linenumber, discount) FROM lineitem GROUP BY 1");
 
-        // TODO results from map_union() are not deterministic so we just compare cardinality for the time being
-        assertQuery("SELECT cardinality(map_union(quantity_by_linenumber)) FROM orders_ex");
+        assertQuery("SELECT array_agg(nationkey ORDER BY name) FROM nation");
+        assertQuery("SELECT orderkey, array_agg(quantity ORDER BY linenumber DESC) FROM lineitem GROUP BY 1");
+
+        assertQuery("SELECT map_keys(map_union(quantity_by_linenumber)) FROM orders_ex");
 
         assertQuery("SELECT orderkey, count_if(linenumber % 2 > 0) FROM lineitem GROUP BY 1");
         assertQuery("SELECT orderkey, bool_and(linenumber % 2 = 1) FROM lineitem GROUP BY 1");
@@ -284,13 +284,6 @@ public abstract class AbstractTestNativeAggregations
     {
         assertQuery("SELECT count(distinct orderkey), count(distinct linenumber) FROM lineitem");
         assertQuery("SELECT orderkey, count(distinct comment), sum(distinct linenumber) FROM lineitem GROUP BY 1");
-    }
-
-    @Test
-    public void testUnsupported()
-    {
-        assertQueryFails("SELECT array_agg(nationkey ORDER BY name) FROM nation",
-                ".* Aggregations with ORDER BY are not supported yet.");
     }
 
     private void assertQueryResultCount(String sql, int expectedResultCount)
