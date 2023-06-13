@@ -114,7 +114,7 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
   // TODO Avoid copy by using IOBuf for body
   folly::SemiFuture<std::unique_ptr<HttpResponse>> sendRequest(
       const proxygen::HTTPMessage& request,
-      velox::memory::MemoryPool* pool,
+      std::shared_ptr<velox::memory::MemoryPool> pool,
       const std::string& body = "");
 
  private:
@@ -163,7 +163,7 @@ class RequestBuilder {
 
   folly::SemiFuture<std::unique_ptr<HttpResponse>> send(
       HttpClient* client,
-      velox::memory::MemoryPool* pool,
+      std::shared_ptr<velox::memory::MemoryPool> pool,
       const std::string& body = "") {
     header(proxygen::HTTP_HEADER_CONTENT_LENGTH, std::to_string(body.size()));
     headers_.ensureHostHeader();

@@ -212,7 +212,7 @@ class HttpClientFactory {
 };
 
 folly::SemiFuture<std::unique_ptr<http::HttpResponse>>
-sendGet(http::HttpClient* client, const std::string& url, MemoryPool* pool) {
+sendGet(http::HttpClient* client, const std::string& url, std::shared_ptr<memory::MemoryPool> pool) {
   return http::RequestBuilder()
       .method(proxygen::HTTPMethod::GET)
       .url(url)
@@ -283,38 +283,38 @@ TEST_P(HttpTestSuite, basic) {
       serverAddress, std::chrono::milliseconds(1'000), useHttps);
 
   {
-    auto response = sendGet(client.get(), "/ping", memoryPool.get()).get();
+    auto response = sendGet(client.get(), "/ping", memoryPool).get();
     ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
 
     response =
-        sendGet(client.get(), "/echo/good-morning", memoryPool.get()).get();
+        sendGet(client.get(), "/echo/good-morning", memoryPool).get();
     ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
     ASSERT_EQ(bodyAsString(*response, memoryPool.get()), "/echo/good-morning");
 
     response = http::RequestBuilder()
                    .method(proxygen::HTTPMethod::POST)
                    .url("/echo")
-                   .send(client.get(), memoryPool.get(), "Good morning!")
+                   .send(client.get(), memoryPool, "Good morning!")
                    .get();
     ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
     ASSERT_EQ(bodyAsString(*response, memoryPool.get()), "Good morning!");
 
-    response = sendGet(client.get(), "/wrong/path", memoryPool.get()).get();
+    response = sendGet(client.get(), "/wrong/path", memoryPool).get();
     ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpNotFound);
 
     auto tryResponse =
-        sendGet(client.get(), "/blackhole", memoryPool.get()).getTry();
+        sendGet(client.get(), "/blackhole", memoryPool).getTry();
     ASSERT_TRUE(tryResponse.hasException());
     auto httpException = dynamic_cast<proxygen::HTTPException*>(
         tryResponse.tryGetExceptionObject());
     ASSERT_EQ(httpException->getProxygenError(), proxygen::kErrorTimeout);
 
-    response = sendGet(client.get(), "/ping", memoryPool.get()).get();
+    response = sendGet(client.get(), "/ping", memoryPool).get();
     ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
   }
   wrapper.stop();
 
-  auto tryResponse = sendGet(client.get(), "/ping", memoryPool.get()).getTry();
+  auto tryResponse = sendGet(client.get(), "/ping", memoryPool).getTry();
   ASSERT_TRUE(tryResponse.hasException());
 
   auto socketException = dynamic_cast<folly::AsyncSocketException*>(
@@ -344,7 +344,7 @@ TEST_P(HttpTestSuite, httpResponseAllocationFailure) {
     const std::string echoMessage(memoryCapBytes * 4, 'C');
     auto response =
         sendGet(
-            client.get(), fmt::format("/echo/{}", echoMessage), leafPool.get())
+            client.get(), fmt::format("/echo/{}", echoMessage), leafPool)
             .get();
     ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
     ASSERT_TRUE(response->hasError());
@@ -368,7 +368,7 @@ TEST_P(HttpTestSuite, serverRestart) {
   auto client = clientFactory.newClient(
       serverAddress, std::chrono::milliseconds(1'000), useHttps);
 
-  auto response = sendGet(client.get(), "/ping", memoryPool.get()).get();
+  auto response = sendGet(client.get(), "/ping", memoryPool).get();
   ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
 
   wrapper->stop();
@@ -382,7 +382,7 @@ TEST_P(HttpTestSuite, serverRestart) {
   serverAddress = wrapper->start().get();
   client = clientFactory.newClient(
       serverAddress, std::chrono::milliseconds(1'000), useHttps);
-  response = sendGet(client.get(), "/ping", memoryPool.get()).get();
+  response = sendGet(client.get(), "/ping", memoryPool).get();
   ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
   wrapper->stop();
 }
@@ -483,7 +483,7 @@ TEST_P(HttpTestSuite, asyncRequests) {
   auto [reqPromise, reqFuture] = folly::makePromiseContract<bool>();
   request->requestPromise = std::move(reqPromise);
 
-  auto responseFuture = sendGet(client.get(), "/async/msg", memoryPool.get());
+  auto responseFuture = sendGet(client.get(), "/async/msg", memoryPool);
 
   // Wait until the request reaches to the server.
   std::move(reqFuture).wait();
@@ -519,7 +519,7 @@ TEST_P(HttpTestSuite, timedOutRequests) {
   auto [reqPromise, reqFuture] = folly::makePromiseContract<bool>();
   request->requestPromise = std::move(reqPromise);
 
-  auto responseFuture = sendGet(client.get(), "/async/msg", memoryPool.get());
+  auto responseFuture = sendGet(client.get(), "/async/msg", memoryPool);
 
   // Wait until the request reaches to the server.
   std::move(reqFuture).wait();
@@ -555,7 +555,7 @@ TEST_P(HttpTestSuite, DISABLED_outstandingRequests) {
   auto [reqPromise, reqFuture] = folly::makePromiseContract<bool>();
   request->requestPromise = std::move(reqPromise);
 
-  auto responseFuture = sendGet(client.get(), "/async/msg", memoryPool.get());
+  auto responseFuture = sendGet(client.get(), "/async/msg", memoryPool);
 
   // Wait until the request reaches to the server.
   std::move(reqFuture).wait();
@@ -590,7 +590,7 @@ TEST_P(HttpTestSuite, testReportOnBodyStatsFunc) {
   auto [reqPromise, reqFuture] = folly::makePromiseContract<bool>();
   request->requestPromise = std::move(reqPromise);
 
-  auto responseFuture = sendGet(client.get(), "/async/msg", memoryPool.get());
+  auto responseFuture = sendGet(client.get(), "/async/msg", memoryPool);
 
   // Wait until the request reaches to the server.
   std::string responseData = "Success";

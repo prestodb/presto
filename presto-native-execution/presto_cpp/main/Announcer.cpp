@@ -139,7 +139,7 @@ void Announcer::makeAnnouncement() {
     return;
   }
 
-  client_->sendRequest(announcementRequest_, pool_.get(), announcementBody_)
+  client_->sendRequest(announcementRequest_, pool_, announcementBody_)
       .via(eventBaseThread_.getEventBase())
       .thenValue([](auto response) {
         auto message = response->headers();
