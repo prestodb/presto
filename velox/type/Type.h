@@ -726,16 +726,24 @@ class LongDecimalType : public DecimalType<TypeKind::HUGEINT> {
 
 TypePtr DECIMAL(uint8_t precision, uint8_t scale);
 
-FOLLY_ALWAYS_INLINE bool isShortDecimalType(const Type& type) {
-  return dynamic_cast<const ShortDecimalType*>(&type) != nullptr;
+FOLLY_ALWAYS_INLINE const ShortDecimalType& Type::asShortDecimal() const {
+  return dynamic_cast<const ShortDecimalType&>(*this);
 }
 
-FOLLY_ALWAYS_INLINE bool isLongDecimalType(const Type& type) {
-  return dynamic_cast<const LongDecimalType*>(&type) != nullptr;
+FOLLY_ALWAYS_INLINE const LongDecimalType& Type::asLongDecimal() const {
+  return dynamic_cast<const LongDecimalType&>(*this);
 }
 
-FOLLY_ALWAYS_INLINE bool isDecimalType(const Type& type) {
-  return isShortDecimalType(type) || isLongDecimalType(type);
+FOLLY_ALWAYS_INLINE bool Type::isShortDecimal() const {
+  return dynamic_cast<const ShortDecimalType*>(this) != nullptr;
+}
+
+FOLLY_ALWAYS_INLINE bool Type::isLongDecimal() const {
+  return dynamic_cast<const LongDecimalType*>(this) != nullptr;
+}
+
+FOLLY_ALWAYS_INLINE bool Type::isDecimal() const {
+  return isShortDecimal() || isLongDecimal();
 }
 
 FOLLY_ALWAYS_INLINE bool isDecimalName(const std::string& name) {

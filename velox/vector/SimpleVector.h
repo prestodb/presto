@@ -153,7 +153,7 @@ class SimpleVector : public BaseVector {
       return "<opaque>";
     } else if constexpr (
         std::is_same_v<T, int64_t> || std::is_same_v<T, int128_t>) {
-      if (isDecimalType(*type())) {
+      if (type()->isDecimal()) {
         return DecimalUtil::toString(value, type());
       } else {
         return velox::to<std::string>(value);
