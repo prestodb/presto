@@ -1072,19 +1072,23 @@ class GenericView {
         index_(index) {}
 
   uint64_t hash() const {
-    return decoded_.base()->hashValueAt(index_);
+    return decoded_.base()->hashValueAt(decodedIndex());
   }
 
   bool operator==(const GenericView& other) const {
     return decoded_.base()->equalValueAt(
-        other.decoded_.base(), index_, other.index_);
+        other.decoded_.base(), decodedIndex(), other.decodedIndex());
+  }
+
+  vector_size_t decodedIndex() const {
+    return decoded_.index(index_);
   }
 
   std::optional<int64_t> compare(
       const GenericView& other,
       const CompareFlags flags) const {
     return decoded_.base()->compare(
-        other.decoded_.base(), index_, other.index_, flags);
+        other.decoded_.base(), decodedIndex(), other.decodedIndex(), flags);
   }
 
   TypeKind kind() const {
@@ -1108,7 +1112,8 @@ class GenericView {
     // TODO: We can distinguish if this is a null-free or not null-free
     // generic. And based on that determine if we want to call operator[] or
     // readNullFree. For now we always return nullable.
-    return ensureReader<ToType>()->operator[](index_);
+    return ensureReader<ToType>()->operator[](
+        index_); // We pass the non-decoded index.
   }
 
   template <typename ToType>
@@ -1117,7 +1122,8 @@ class GenericView {
       return std::nullopt;
     }
 
-    return ensureReader<ToType>()->operator[](index_);
+    return ensureReader<ToType>()->operator[](
+        index_); // We pass the non-decoded index.
   }
 
  private:

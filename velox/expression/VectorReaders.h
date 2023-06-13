@@ -643,13 +643,13 @@ struct VectorReader<Generic<T>> {
 
   VectorReader<Generic<T>>& operator=(const VectorReader<Generic<T>>&) = delete;
 
-  bool isSet(size_t offset) const {
+  bool isSet(vector_size_t offset) const {
     return !decoded_.isNullAt(offset);
   }
 
-  exec_in_t operator[](size_t offset) const {
-    auto index = decoded_.index(offset);
-    return GenericView{decoded_, castReaders_, castType_, index};
+  exec_in_t operator[](vector_size_t offset) const {
+    // We pass the non-decoded index.
+    return GenericView{decoded_, castReaders_, castType_, offset};
   }
 
   exec_null_free_in_t readNullFree(vector_size_t offset) const {

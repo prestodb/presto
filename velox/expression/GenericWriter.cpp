@@ -17,7 +17,6 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/expression/VectorReaders.h"
 #include "velox/expression/VectorWriters.h"
-
 namespace facebook::velox::exec {
 
 namespace {
