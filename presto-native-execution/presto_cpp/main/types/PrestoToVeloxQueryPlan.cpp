@@ -716,9 +716,11 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
   if (auto hiveLayout =
           std::dynamic_pointer_cast<const protocol::HiveTableLayoutHandle>(
               tableHandle.connectorTableLayout)) {
-    VELOX_CHECK(
+    VELOX_USER_CHECK(
         hiveLayout->pushdownFilterEnabled,
-        "Table scan with filter pushdown disabled is not supported");
+        "Table scan with filter pushdown disabled is not supported (or possibly the file type is not supported yet): {}.{}",
+        hiveLayout->schemaTableName.schema,
+        hiveLayout->schemaTableName.table);
 
     for (const auto& entry : hiveLayout->partitionColumns) {
       partitionColumns.emplace(entry.name, toColumnHandle(&entry));
