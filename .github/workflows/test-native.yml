@@ -23,7 +23,7 @@ env:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    container: prestocpp/prestocpp-avx-centos:kpai-20221018
+    container: prestocpp/prestocpp-avx-centos:root-20230613
 
     env:
       CC: /opt/rh/gcc-toolset-9/root/bin/gcc
