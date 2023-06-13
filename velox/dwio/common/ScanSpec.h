@@ -86,21 +86,21 @@ class ScanSpec {
   }
 
   void addMetadataFilter(
-      MetadataFilter::LeafNode* leaf,
-      std::unique_ptr<common::Filter> filter) {
-    metadataFilters_.emplace_back(leaf, std::move(filter));
+      const MetadataFilter::LeafNode* leaf,
+      common::Filter* filter) {
+    metadataFilters_.emplace_back(leaf, filter);
   }
 
   int numMetadataFilters() const {
     return metadataFilters_.size();
   }
 
-  MetadataFilter::LeafNode* metadataFilterNodeAt(int i) const {
+  const MetadataFilter::LeafNode* metadataFilterNodeAt(int i) const {
     return metadataFilters_[i].first;
   }
 
   common::Filter* metadataFilterAt(int i) const {
-    return metadataFilters_[i].second.get();
+    return metadataFilters_[i].second;
   }
 
   // Returns a constant vector if 'this' corresponds to a partitioning
@@ -382,8 +382,7 @@ class ScanSpec {
   // the pointers to LeafNodes are stored here.  We need to keep these pointers
   // so that we can match the leaf node filter results and apply logical
   // conjunctions later properly.
-  std::vector<
-      std::pair<MetadataFilter::LeafNode*, std::shared_ptr<common::Filter>>>
+  std::vector<std::pair<const MetadataFilter::LeafNode*, common::Filter*>>
       metadataFilters_;
 
   SelectivityInfo selectivity_;

@@ -92,7 +92,7 @@ class FormatData {
   struct FilterRowGroupsResult {
     std::vector<uint64_t> filterResult;
     std::vector<std::pair<
-        velox::common::MetadataFilter::LeafNode*,
+        const velox::common::MetadataFilter::LeafNode*,
         std::vector<uint64_t>>>
         metadataFilterResults;
     int totalCount = 0;

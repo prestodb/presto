@@ -78,6 +78,7 @@ std::vector<std::unique_ptr<Subfield::PathElement>> createElements() {
 
 void testRoundTrip(const Subfield& path) {
   auto actual = Subfield(tokenize(path.toString()));
+  ASSERT_TRUE(actual.valid());
   EXPECT_EQ(actual, path) << "at " << path.toString() << ", "
                           << actual.toString();
 }
@@ -113,6 +114,9 @@ TEST(SubfieldTest, basic) {
       }
     }
   }
+
+  ASSERT_FALSE(Subfield().valid());
+  ASSERT_EQ(Subfield().toString(), "");
 }
 
 TEST(SubfieldTest, prefix) {

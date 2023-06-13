@@ -391,6 +391,9 @@ std::string ScanSpec::toString() const {
     if (isConstant()) {
       out << " constant";
     }
+    if (!metadataFilters_.empty()) {
+      out << " metadata_filters(" << metadataFilters_.size() << ")";
+    }
   }
   if (!children_.empty()) {
     out << " (";

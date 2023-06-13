@@ -577,6 +577,25 @@ void E2EFilterTestBase::testMetadataFilter() {
         "not (a = 1 and b.c = 2)",
         [](int64_t a, int64_t c) { return !(a == 1 && c == 2); });
   }
+  {
+    SCOPED_TRACE("Leaf node lifecycle");
+    auto column = vectorMaker.flatVector<int64_t>(batchSize_, folly::identity);
+    batches = {
+        vectorMaker.rowVector({"a", "b", "c"}, {column, column, column})};
+    writeToMemory(batches[0]->type(), batches, false);
+    auto spec = std::make_shared<common::ScanSpec>("<root>");
+    spec->addAllChildFields(*batches[0]->type());
+    auto untypedExpr = parse::parseExpr("a = 1 or b + c = 2", {});
+    auto typedExpr = core::Expressions::inferTypes(
+        untypedExpr, batches[0]->type(), leafPool_.get());
+    auto metadataFilter =
+        std::make_shared<MetadataFilter>(*spec, *typedExpr, &evaluator);
+    // Top level metadata filter is null, so leaf node shoud not be referenced
+    // from ScanSpec.
+    ASSERT_EQ(spec->childByName("a")->numMetadataFilters(), 0);
+    ASSERT_EQ(spec->childByName("b")->numMetadataFilters(), 0);
+    ASSERT_EQ(spec->childByName("c")->numMetadataFilters(), 0);
+  }
 }
 
 void E2EFilterTestBase::testSubfieldsPruning() {

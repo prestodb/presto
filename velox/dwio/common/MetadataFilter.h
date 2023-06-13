@@ -42,8 +42,11 @@ class MetadataFilter {
   /// existing bitmask in `finalResult` will be ANDed with the result we get
   /// from evaluation and stored back.
   void eval(
-      std::vector<std::pair<LeafNode*, std::vector<uint64_t>>>& leafNodeResults,
+      std::vector<std::pair<const LeafNode*, std::vector<uint64_t>>>&
+          leafNodeResults,
       std::vector<uint64_t>& finalResult);
+
+  std::string toString() const;
 
  private:
   class Node;
