@@ -21,12 +21,14 @@ ARG BASE_IMAGE=quay.io/centos/centos:stream8
 FROM ${BASE_IMAGE} AS build-stage
 
 ARG CPU_TARGET=avx
+ARG NUM_THREADS=16
 ARG PRESTODB_REPOSITORY=https://github.com/prestodb/presto
 ARG PRESTODB_CHECKOUT=origin/master
 
 USER root:root
 
 ENV CPU_TARGET=${CPU_TARGET}
+ENV NUM_THREADS=${NUM_THREADS}
 
 ENV CC=/opt/rh/gcc-toolset-9/root/bin/gcc
 ENV CXX=/opt/rh/gcc-toolset-9/root/bin/g++
@@ -97,6 +99,7 @@ RUN --mount=type=ssh \
         PRESTO_ENABLE_S3=${PRESTO_ENABLE_S3} \
         PRESTO_ENABLE_HDFS=${PRESTO_ENABLE_HDFS} \
         PRESTO_ENABLE_TESTING=${PRESTO_ENABLE_TESTING} \
+        NUM_THREADS=${NUM_THREADS} \
         TREAT_WARNINGS_AS_ERRORS=OFF
 
 #-----------------------------------------------------------

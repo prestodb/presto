@@ -26,6 +26,7 @@ if [[ "${DEBUG}" == "0" || "${DEBUG}" == "false" || "${DEBUG}" == "False" ]]; th
 
 HTTP_SERVER_PORT="${HTTP_SERVER_PORT:-"8080"}"
 DISCOVERY_URI="${HTTP_SERVER_PORT:-"http://127.0.0.1:${HTTP_SERVER_PORT}"}"
+NODE_ENVIRONMENT="${NODE_ENVIRONMENT:-"intel-poland"}"
 
 while getopts ':-:' optchar; do
   case "$optchar" in
@@ -34,6 +35,7 @@ while getopts ':-:' optchar; do
         discovery-uri=*) DISCOVERY_URI="${OPTARG#*=}" ;;
         http-server-port=*) HTTP_SERVER_PORT="${OPTARG#*=}" ;;
         node-memory-gb=*) NODE_MEMORY_GB="${OPTARG#*=}" ;;
+        node-environment=*) NODE_ENVIRONMENT="${OPTARG#*=}" ;;
         use-env-params) USE_ENV_PARAMS=1 ;;
         *)
           presto_args+=($optchar)
@@ -53,11 +55,14 @@ function node_command_line_config()
   printf "discovery.uri=${DISCOVERY_URI}\n"            >> "${PRESTO_HOME}/config.properties"
   printf "http-server.http.port=${HTTP_SERVER_PORT}\n" >> "${PRESTO_HOME}/config.properties"
 
-  printf "node.environment=intel-poland\n"    >  "${PRESTO_HOME}/node.properties"
-  printf "node.location=torun-cluster\n"      >> "${PRESTO_HOME}/node.properties"
-  printf "node.id=${NODE_UUID}\n"             >> "${PRESTO_HOME}/node.properties"
-  printf "node.ip=$(hostname -I)\n"           >> "${PRESTO_HOME}/node.properties"
-  printf "node.memory_gb=${NODE_MEMORY_GB}\n" >> "${PRESTO_HOME}/node.properties"
+  printf "node.environment=${NODE_ENVIRONMENT}\n"    >  "${PRESTO_HOME}/node.properties"
+  printf "node.location=torun-cluster\n"             >> "${PRESTO_HOME}/node.properties"
+  [ -z "$NODE_UUID" ] && NODE_UUID=$(uuid) || return -2
+  printf "node.id=${NODE_UUID}\n"                    >> "${PRESTO_HOME}/node.properties"
+  printf "node.ip=$(hostname -I)\n"                  >> "${PRESTO_HOME}/node.properties"
+  printf "node.memory_gb=${NODE_MEMORY_GB}\n"        >> "${PRESTO_HOME}/node.properties"
+
+  printf "mutable-config=true\n" >> "${PRESTO_HOME}/velox.properties"
 }
 
 function node_configuration()

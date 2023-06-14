@@ -89,7 +89,7 @@ to run container build with default tag execute:
 docker run "presto/prestissimo-avx-centos:latest" \
             --use-env-params \
             --discovery-uri=http://localhost:8080 \
-            --http-server-port=8080"
+            --http-server-port=8080
 ```
 
 to run container interactively, not executing entrypoint file:
@@ -109,6 +109,7 @@ export IMAGE_NAME='presto/prestissimo-${CPU_TARGET}-centos'
 export IMAGE_TAG='latest'
 export IMAGE_REGISTRY='some-registry.my-domain.com/'
 export IMAGE_PUSH='0'
+export NUM_THREADS="16"
 export PRESTODB_REPOSITORY=$(git config --get remote.origin.url)
 export PRESTODB_CHECKOUT=$(git show -s --format="%H" HEAD)
 ```
@@ -125,6 +126,7 @@ docker build \
     --build-arg https_proxy \
     --build-arg no_proxy    \
     --build-arg CPU_TARGET  \
+    --build-arg NUM_THREADS  \
     --build-arg PRESTODB_REPOSITORY \
     --build-arg PRESTODB_CHECKOUT \
     --tag "${IMAGE_REGISTRY}${IMAGE_NAME}:${IMAGE_TAG}" .
