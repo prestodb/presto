@@ -383,7 +383,8 @@ StopReason Driver::runInternal(
         curOpIndex_ = i;
         RuntimeStatWriterScopeGuard statsWriterGuard(op);
 
-        blockingReason_ = op->isBlocked(&future);
+        CALL_OPERATOR(
+            blockingReason_ = op->isBlocked(&future), op, "isBlocked");
         if (blockingReason_ != BlockingReason::kNotBlocked) {
           blockingState = std::make_shared<BlockingState>(
               self, std::move(future), op, blockingReason_);
@@ -394,14 +395,21 @@ StopReason Driver::runInternal(
         if (i < operators_.size() - 1) {
           nextOp = operators_[i + 1].get();
           RuntimeStatWriterScopeGuard statsWriterGuard(nextOp);
-          blockingReason_ = nextOp->isBlocked(&future);
+          CALL_OPERATOR(
+              blockingReason_ = nextOp->isBlocked(&future),
+              nextOp,
+              "isBlocked");
           if (blockingReason_ != BlockingReason::kNotBlocked) {
             blockingState = std::make_shared<BlockingState>(
                 self, std::move(future), nextOp, blockingReason_);
             guard.notThrown();
             return StopReason::kBlock;
           }
-          if (nextOp->needsInput()) {
+
+          bool needsInput;
+          CALL_OPERATOR(
+              needsInput = nextOp->needsInput(), nextOp, "needsInput");
+          if (needsInput) {
             uint64_t resultBytes = 0;
             RowVectorPtr result;
             {
@@ -457,7 +465,8 @@ StopReason Driver::runInternal(
               // is not blocked and empty, this is finished. If this is
               // not the source, just try to get output from the one
               // before.
-              blockingReason_ = op->isBlocked(&future);
+              CALL_OPERATOR(
+                  blockingReason_ = op->isBlocked(&future), op, "isBlocked");
               if (blockingReason_ != BlockingReason::kNotBlocked) {
                 blockingState = std::make_shared<BlockingState>(
                     self, std::move(future), op, blockingReason_);
