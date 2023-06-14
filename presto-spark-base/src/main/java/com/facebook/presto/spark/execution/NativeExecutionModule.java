@@ -32,7 +32,7 @@ import java.util.Optional;
 
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class NativeExecutionModule
         implements Module
@@ -63,7 +63,7 @@ public class NativeExecutionModule
         httpClientBinder(binder)
                 .bindHttpClient("nativeExecution", ForNativeExecutionTask.class)
                 .withConfigDefaults(config -> {
-                    config.setRequestTimeout(new Duration(10, SECONDS));
+                    config.setRequestTimeout(new Duration(1, MINUTES));
                     config.setMaxConnectionsPerServer(250);
                 });
         if (connectorConfig.isPresent()) {
