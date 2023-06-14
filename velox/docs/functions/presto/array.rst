@@ -241,6 +241,14 @@ Array Functions
         SELECT transform(ARRAY ['x', 'abc', 'z'], x -> x || '0'); -- ['x0', 'abc0', 'z0']
         SELECT transform(ARRAY [ARRAY [1, NULL, 2], ARRAY[3, NULL]], a -> filter(a, x -> x IS NOT NULL)); -- [[1, 2], [3]]
 
+.. function:: trim_array(x, n) -> array
+
+    Remove n elements from the end of ``array``::
+
+        SELECT trim_array(ARRAY[1, 2, 3, 4], 1); -- [1, 2, 3]
+        SELECT trim_array(ARRAY[1, 2, 3, 4], 2); -- [1, 2]
+        SELECT trim_array(ARRAY[1, 2, 3, 4], 4); -- []
+
 .. function:: zip(array(T), array(U),..) -> array(row(T,U, ...))
 
     Returns the merge of the given arrays, element-wise into a single array of rows.

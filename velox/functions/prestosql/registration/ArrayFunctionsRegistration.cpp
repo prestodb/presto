@@ -76,6 +76,12 @@ inline void registerArrayNormalizeFunctions(const std::string& prefix) {
       T>({prefix + "array_normalize"});
 }
 
+template <typename T>
+inline void registerArrayTrimFunctions(const std::string& prefix) {
+  registerFunction<ArrayTrimFunction, Array<T>, Array<T>, int64_t>(
+      {prefix + "trim_array"});
+}
+
 void registerArrayFunctions(const std::string& prefix) {
   registerArrayConstructor(prefix + "array_constructor");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_all_match, prefix + "all_match");
@@ -128,6 +134,28 @@ void registerArrayFunctions(const std::string& prefix) {
 
   registerFunction<ArrayAverageFunction, double, Array<double>>(
       {prefix + "array_average"});
+
+  registerArrayTrimFunctions<int8_t>(prefix);
+  registerArrayTrimFunctions<int16_t>(prefix);
+  registerArrayTrimFunctions<int32_t>(prefix);
+  registerArrayTrimFunctions<int64_t>(prefix);
+  registerArrayTrimFunctions<int128_t>(prefix);
+  registerArrayTrimFunctions<float>(prefix);
+  registerArrayTrimFunctions<double>(prefix);
+  registerArrayTrimFunctions<bool>(prefix);
+  registerArrayTrimFunctions<Timestamp>(prefix);
+  registerArrayTrimFunctions<Date>(prefix);
+  registerArrayTrimFunctions<Varbinary>(prefix);
+  registerFunction<
+      ArrayTrimFunctionString,
+      Array<Varchar>,
+      Array<Varchar>,
+      int64_t>({prefix + "trim_array"});
+  registerFunction<
+      ArrayTrimFunction,
+      Array<Generic<T1>>,
+      Array<Generic<T1>>,
+      int64_t>({prefix + "trim_array"});
 
   registerArrayCombinationsFunctions<int8_t>(prefix);
   registerArrayCombinationsFunctions<int16_t>(prefix);

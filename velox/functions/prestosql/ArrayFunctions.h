@@ -477,4 +477,81 @@ struct ArrayNormalizeFunction {
   }
 };
 
+inline void checkIndexArrayTrim(int64_t size, int64_t arraySize) {
+  if (size < 0) {
+    VELOX_USER_FAIL("size must not be negative: {}", size);
+  }
+
+  if (size > arraySize) {
+    VELOX_USER_FAIL(
+        "size must not exceed array cardinality. arraySize: {}, size: {}",
+        arraySize,
+        size);
+  }
+}
+
+template <typename T>
+struct ArrayTrimFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  // Fast path for primitives.
+  template <typename Out, typename In>
+  void call(Out& out, const In& inputArray, int64_t size) {
+    checkIndexArrayTrim(size, inputArray.size());
+
+    int64_t end = inputArray.size() - size;
+    for (int i = 0; i < end; ++i) {
+      if (inputArray[i].has_value()) {
+        auto& newItem = out.add_item();
+        newItem = inputArray[i].value();
+      } else {
+        out.add_null();
+      }
+    }
+  }
+
+  // Generic implementation.
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Array<Generic<T1>>>& out,
+      const arg_type<Array<Generic<T1>>>& inputArray,
+      const int64_t& size) {
+    checkIndexArrayTrim(size, inputArray.size());
+
+    int64_t end = inputArray.size() - size;
+    for (int i = 0; i < end; ++i) {
+      if (inputArray[i].has_value()) {
+        auto& newItem = out.add_item();
+        newItem.copy_from(inputArray[i].value());
+      } else {
+        out.add_null();
+      }
+    }
+  }
+};
+
+template <typename T>
+struct ArrayTrimFunctionString {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  static constexpr int32_t reuse_strings_from_arg = 0;
+
+  // String version that avoids copy of strings.
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Array<Varchar>>& out,
+      const arg_type<Array<Varchar>>& inputArray,
+      int64_t size) {
+    checkIndexArrayTrim(size, inputArray.size());
+
+    int64_t end = inputArray.size() - size;
+    for (int i = 0; i < end; ++i) {
+      if (inputArray[i].has_value()) {
+        auto& newItem = out.add_item();
+        newItem.setNoCopy(inputArray[i].value());
+      } else {
+        out.add_null();
+      }
+    }
+  }
+};
+
 } // namespace facebook::velox::functions

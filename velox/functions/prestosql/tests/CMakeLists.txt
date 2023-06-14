@@ -39,6 +39,7 @@ add_executable(
   ArrayShuffleTest.cpp
   ArraysOverlapTest.cpp
   ArraySumTest.cpp
+  ArrayTrimTest.cpp
   BinaryFunctionsTest.cpp
   BitwiseTest.cpp
   CardinalityTest.cpp
