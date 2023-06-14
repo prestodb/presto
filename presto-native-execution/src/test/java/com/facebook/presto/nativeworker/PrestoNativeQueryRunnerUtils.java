@@ -101,6 +101,15 @@ public class PrestoNativeQueryRunnerUtils
     public static QueryRunner createJavaQueryRunner(Optional<Path> baseDataDirectory, String security, String storageFormat)
             throws Exception
     {
+        ImmutableMap.Builder<String, String> hivePropertiesBuilder = new ImmutableMap.Builder<>();
+        hivePropertiesBuilder
+                .put("hive.storage-format", storageFormat)
+                .put("hive.pushdown-filter-enabled", "true");
+
+        if ("legacy".equals(security)) {
+            hivePropertiesBuilder.put("hive.allow-drop-table", "true");
+        }
+
         Optional<Path> dataDirectory = baseDataDirectory.map(path -> Paths.get(path.toString() + '/' + storageFormat));
         DistributedQueryRunner queryRunner =
                 HiveQueryRunner.createQueryRunner(
@@ -110,9 +119,7 @@ public class PrestoNativeQueryRunnerUtils
                                 "regex-library", "RE2J",
                                 "offset-clause-enabled", "true"),
                         security,
-                        ImmutableMap.of(
-                                "hive.storage-format", storageFormat,
-                                "hive.pushdown-filter-enabled", "true"),
+                        hivePropertiesBuilder.build(),
                         dataDirectory);
         return queryRunner;
     }
