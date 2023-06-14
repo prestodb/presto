@@ -114,6 +114,7 @@ void registerArrayFunctions(const std::string& prefix) {
   registerArrayMinMaxFunctions<int16_t>(prefix);
   registerArrayMinMaxFunctions<int32_t>(prefix);
   registerArrayMinMaxFunctions<int64_t>(prefix);
+  registerArrayMinMaxFunctions<int128_t>(prefix);
   registerArrayMinMaxFunctions<float>(prefix);
   registerArrayMinMaxFunctions<double>(prefix);
   registerArrayMinMaxFunctions<bool>(prefix);
@@ -125,6 +126,7 @@ void registerArrayFunctions(const std::string& prefix) {
   registerArrayJoinFunctions<int16_t>(prefix);
   registerArrayJoinFunctions<int32_t>(prefix);
   registerArrayJoinFunctions<int64_t>(prefix);
+  registerArrayJoinFunctions<int128_t>(prefix);
   registerArrayJoinFunctions<float>(prefix);
   registerArrayJoinFunctions<double>(prefix);
   registerArrayJoinFunctions<bool>(prefix);
@@ -161,6 +163,7 @@ void registerArrayFunctions(const std::string& prefix) {
   registerArrayCombinationsFunctions<int16_t>(prefix);
   registerArrayCombinationsFunctions<int32_t>(prefix);
   registerArrayCombinationsFunctions<int64_t>(prefix);
+  registerArrayCombinationsFunctions<int128_t>(prefix);
   registerArrayCombinationsFunctions<float>(prefix);
   registerArrayCombinationsFunctions<double>(prefix);
   registerArrayCombinationsFunctions<bool>(prefix);
@@ -172,9 +175,11 @@ void registerArrayFunctions(const std::string& prefix) {
   registerArrayHasDuplicatesFunctions<int16_t>(prefix);
   registerArrayHasDuplicatesFunctions<int32_t>(prefix);
   registerArrayHasDuplicatesFunctions<int64_t>(prefix);
+  registerArrayHasDuplicatesFunctions<int128_t>(prefix);
   registerArrayHasDuplicatesFunctions<Varchar>(prefix);
 
   registerArrayFrequencyFunctions<int64_t>(prefix);
+  registerArrayFrequencyFunctions<int128_t>(prefix);
   registerArrayFrequencyFunctions<Varchar>(prefix);
 
   registerArrayNormalizeFunctions<float>(prefix);
