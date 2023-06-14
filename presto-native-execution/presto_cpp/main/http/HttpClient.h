@@ -27,7 +27,7 @@ class HttpResponse {
  public:
   HttpResponse(
       std::unique_ptr<proxygen::HTTPMessage> headers,
-      velox::memory::MemoryPool* pool,
+      std::shared_ptr<velox::memory::MemoryPool> pool,
       uint64_t minResponseAllocBytes,
       uint64_t maxResponseAllocBytes);
 
@@ -86,7 +86,7 @@ class HttpResponse {
   FOLLY_ALWAYS_INLINE size_t nextAllocationSize(uint64_t dataLength) const;
 
   const std::unique_ptr<proxygen::HTTPMessage> headers_;
-  velox::memory::MemoryPool* const pool_;
+  const std::shared_ptr<velox::memory::MemoryPool> pool_;
   const uint64_t minResponseAllocBytes_;
   const uint64_t maxResponseAllocBytes_;
 
@@ -105,6 +105,7 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
       folly::EventBase* FOLLY_NONNULL eventBase,
       const folly::SocketAddress& address,
       std::chrono::milliseconds timeout,
+      std::shared_ptr<velox::memory::MemoryPool> pool,
       const std::string& clientCertAndKeyPath = "",
       const std::string& ciphers = "",
       std::function<void(int)>&& reportOnBodyStatsFunc = nullptr);
@@ -114,13 +115,17 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
   // TODO Avoid copy by using IOBuf for body
   folly::SemiFuture<std::unique_ptr<HttpResponse>> sendRequest(
       const proxygen::HTTPMessage& request,
-      velox::memory::MemoryPool* pool,
       const std::string& body = "");
+
+  const std::shared_ptr<velox::memory::MemoryPool>& memoryPool() {
+    return pool_;
+  }
 
  private:
   folly::EventBase* const eventBase_;
   const folly::SocketAddress address_;
   const folly::HHWheelTimer::UniquePtr timer_;
+  const std::shared_ptr<velox::memory::MemoryPool> pool_;
   // clientCertAndKeyPath_ Points to a file (usually with pem extension) which
   // contains certificate and key concatenated together
   const std::string clientCertAndKeyPath_;
@@ -163,11 +168,10 @@ class RequestBuilder {
 
   folly::SemiFuture<std::unique_ptr<HttpResponse>> send(
       HttpClient* client,
-      velox::memory::MemoryPool* pool,
       const std::string& body = "") {
     header(proxygen::HTTP_HEADER_CONTENT_LENGTH, std::to_string(body.size()));
     headers_.ensureHostHeader();
-    return client->sendRequest(headers_, pool, body);
+    return client->sendRequest(headers_, body);
   }
 
  private:
