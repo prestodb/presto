@@ -78,8 +78,4 @@ public class TestPrestoSparkNativeGeneralQueries
     @Override
     @Ignore
     public void testUnionAll() {}
-
-    @Override
-    @Ignore
-    public void testDecimalRangeFilters() {}
 }
