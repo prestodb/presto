@@ -37,6 +37,9 @@ constexpr column_index_t kConstantChannel =
 
 class RowVector : public BaseVector {
  public:
+  RowVector(const RowVector&) = delete;
+  RowVector& operator=(const RowVector&) = delete;
+
   RowVector(
       velox::memory::MemoryPool* pool,
       std::shared_ptr<const Type> type,
@@ -205,6 +208,7 @@ class RowVector : public BaseVector {
 // Common parent class for ARRAY and MAP vectors.  Contains 'offsets' and
 // 'sizes' data and provide manipulations on them.
 struct ArrayVectorBase : BaseVector {
+  ArrayVectorBase(const ArrayVectorBase&) = delete;
   const BufferPtr& offsets() const {
     return offsets_;
   }
@@ -316,6 +320,9 @@ struct ArrayVectorBase : BaseVector {
 
 class ArrayVector : public ArrayVectorBase {
  public:
+  ArrayVector(const ArrayVector&) = delete;
+  ArrayVector& operator=(const ArrayVector&) = delete;
+
   ArrayVector(
       velox::memory::MemoryPool* pool,
       std::shared_ptr<const Type> type,
@@ -420,6 +427,9 @@ class ArrayVector : public ArrayVectorBase {
 
 class MapVector : public ArrayVectorBase {
  public:
+  MapVector(const MapVector&) = delete;
+  MapVector& operator=(const MapVector&) = delete;
+
   MapVector(
       velox::memory::MemoryPool* pool,
       std::shared_ptr<const Type> type,

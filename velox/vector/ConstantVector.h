@@ -36,6 +36,9 @@ struct DummyReleaser {
 template <typename T>
 class ConstantVector final : public SimpleVector<T> {
  public:
+  ConstantVector(const ConstantVector&) = delete;
+  ConstantVector& operator=(const ConstantVector&) = delete;
+
   static constexpr bool can_simd =
       (std::is_same_v<T, int64_t> || std::is_same_v<T, int32_t> ||
        std::is_same_v<T, int16_t> || std::is_same_v<T, int8_t> ||

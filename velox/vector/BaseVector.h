@@ -57,6 +57,9 @@ using VectorPtr = std::shared_ptr<BaseVector>;
  */
 class BaseVector {
  public:
+  BaseVector(const BaseVector&) = delete;
+  BaseVector& operator=(const BaseVector&) = delete;
+
   static constexpr uint64_t kNullHash = 1;
 
   BaseVector(

@@ -57,6 +57,9 @@ struct SimpleVectorStats {
 template <typename T>
 class SimpleVector : public BaseVector {
  public:
+  SimpleVector(const SimpleVector&) = delete;
+  SimpleVector& operator=(const SimpleVector&) = delete;
+
   SimpleVector(
       velox::memory::MemoryPool* pool,
       TypePtr type,

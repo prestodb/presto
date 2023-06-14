@@ -35,6 +35,8 @@ template <typename T>
 class FlatVector final : public SimpleVector<T> {
  public:
   using value_type = T;
+  FlatVector(const FlatVector&) = delete;
+  FlatVector& operator=(const FlatVector&) = delete;
 
   static constexpr bool can_simd =
       (std::is_same_v<T, int64_t> || std::is_same_v<T, int32_t> ||

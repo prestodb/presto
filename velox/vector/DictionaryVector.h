@@ -31,6 +31,9 @@ namespace velox {
 template <typename T>
 class DictionaryVector : public SimpleVector<T> {
  public:
+  DictionaryVector(const DictionaryVector&) = delete;
+  DictionaryVector& operator=(const DictionaryVector&) = delete;
+
   static constexpr bool can_simd = std::is_same_v<T, int64_t>;
 
   // Creates dictionary vector using base vector (dictionaryValues) and a set
