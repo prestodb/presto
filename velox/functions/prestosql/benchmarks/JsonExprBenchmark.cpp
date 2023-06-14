@@ -39,6 +39,14 @@ class JsonBenchmark : public velox::functions::test::FunctionBenchmarkBase {
         {"folly_is_json_scalar"});
     registerFunction<SIMDIsJsonScalarFunction, bool, Json>(
         {"simd_is_json_scalar"});
+    registerFunction<JsonArrayContainsFunction, bool, Json, bool>(
+        {"folly_json_array_contains"});
+    registerFunction<SIMDJsonArrayContainsFunction, bool, Json, bool>(
+        {"simd_json_array_contains"});
+    registerFunction<JsonArrayLengthFunction, int64_t, Json>(
+        {"folly_json_array_length"});
+    registerFunction<SIMDJsonArrayLengthFunction, int64_t, Json>(
+        {"simd_json_array_length"});
   }
 
   std::string prepareData(int jsonSize) {
@@ -75,6 +83,23 @@ class JsonBenchmark : public velox::functions::test::FunctionBenchmarkBase {
     doRun(iter, exprSet, rowVector);
   }
 
+  void runWithJsonContains(
+      int iter,
+      int vectorSize,
+      const std::string& fnName,
+      const std::string& json) {
+    folly::BenchmarkSuspender suspender;
+
+    auto jsonVector = makeJsonData(json, vectorSize);
+    auto boolVector = vectorMaker_.flatVector<bool>({true});
+
+    auto rowVector = vectorMaker_.rowVector({jsonVector, boolVector});
+    auto exprSet =
+        compileExpression(fmt::format("{}(c0, c1)", fnName), rowVector->type());
+    suspender.dismiss();
+    doRun(iter, exprSet, rowVector);
+  }
+
   void doRun(
       const int iter,
       velox::exec::ExprSet& exprSet,
@@ -103,28 +128,156 @@ void SIMDIsJsonScalar(int iter, int vectorSize, int jsonSize) {
   benchmark.runWithJson(iter, vectorSize, "simd_is_json_scalar", json);
 }
 
+void FollyJsonArrayContains(int iter, int vectorSize, int jsonSize) {
+  folly::BenchmarkSuspender suspender;
+  JsonBenchmark benchmark;
+  auto json = benchmark.prepareData(jsonSize);
+  suspender.dismiss();
+  benchmark.runWithJsonContains(
+      iter, vectorSize, "folly_json_array_contains", json);
+}
+
+void SIMDJsonArrayContains(int iter, int vectorSize, int jsonSize) {
+  folly::BenchmarkSuspender suspender;
+  JsonBenchmark benchmark;
+  auto json = benchmark.prepareData(jsonSize);
+  suspender.dismiss();
+  benchmark.runWithJsonContains(
+      iter, vectorSize, "simd_json_array_contains", json);
+}
+
+void FollyJsonArrayLength(int iter, int vectorSize, int jsonSize) {
+  folly::BenchmarkSuspender suspender;
+  JsonBenchmark benchmark;
+  auto json = benchmark.prepareData(jsonSize);
+  suspender.dismiss();
+  benchmark.runWithJson(iter, vectorSize, "folly_json_array_length", json);
+}
+
+void SIMDJsonArrayLength(int iter, int vectorSize, int jsonSize) {
+  folly::BenchmarkSuspender suspender;
+  JsonBenchmark benchmark;
+  auto json = benchmark.prepareData(jsonSize);
+  suspender.dismiss();
+  benchmark.runWithJson(iter, vectorSize, "simd_json_array_length", json);
+}
+
 BENCHMARK_DRAW_LINE();
 
-BENCHMARK_NAMED_PARAM(FollyIsJsonScalar, 100_iters_1k_size, 100, 10);
-BENCHMARK_RELATIVE_NAMED_PARAM(SIMDIsJsonScalar, 100_iters_1k_size, 100, 10);
-BENCHMARK_DRAW_LINE();
-
-BENCHMARK_NAMED_PARAM(FollyIsJsonScalar, 100_iters_10k_size, 100, 100);
-BENCHMARK_RELATIVE_NAMED_PARAM(SIMDIsJsonScalar, 100_iters_10k_size, 100, 100);
-BENCHMARK_DRAW_LINE();
-
-BENCHMARK_NAMED_PARAM(FollyIsJsonScalar, 100_iters_100k_size, 100, 1000);
+BENCHMARK_NAMED_PARAM(FollyIsJsonScalar, 100_iters_10bytes_size, 100, 10);
 BENCHMARK_RELATIVE_NAMED_PARAM(
     SIMDIsJsonScalar,
-    100_iters_100k_size,
+    100_iters_10bytes_size,
+    100,
+    10);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_NAMED_PARAM(FollyIsJsonScalar, 100_iters_100bytes_size, 100, 100);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    SIMDIsJsonScalar,
+    100_iters_100bytes_size,
+    100,
+    100);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_NAMED_PARAM(FollyIsJsonScalar, 100_iters_1000bytes_size, 100, 1000);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    SIMDIsJsonScalar,
+    100_iters_1000bytes_size,
     100,
     1000);
 BENCHMARK_DRAW_LINE();
 
-BENCHMARK_NAMED_PARAM(FollyIsJsonScalar, 100_iters_1000k_size, 100, 10000);
+BENCHMARK_NAMED_PARAM(FollyIsJsonScalar, 100_iters_10000bytes_size, 100, 10000);
 BENCHMARK_RELATIVE_NAMED_PARAM(
     SIMDIsJsonScalar,
-    100_iters_1000k_size,
+    100_iters_10000bytes_size,
+    100,
+    10000);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_DRAW_LINE();
+BENCHMARK_NAMED_PARAM(FollyJsonArrayContains, 100_iters_10bytes_size, 100, 10);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    SIMDJsonArrayContains,
+    100_iters_10bytes_size,
+    100,
+    10);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_NAMED_PARAM(
+    FollyJsonArrayContains,
+    100_iters_100bytes_size,
+    100,
+    100);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    SIMDJsonArrayContains,
+    100_iters_100bytes_size,
+    100,
+    100);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_NAMED_PARAM(
+    FollyJsonArrayContains,
+    100_iters_1000bytes_size,
+    100,
+    1000);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    SIMDJsonArrayContains,
+    100_iters_1000bytes_size,
+    100,
+    1000);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_NAMED_PARAM(
+    FollyJsonArrayContains,
+    100_iters_10000bytes_size,
+    100,
+    10000);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    SIMDJsonArrayContains,
+    100_iters_10000bytes_size,
+    100,
+    10000);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_DRAW_LINE();
+BENCHMARK_NAMED_PARAM(FollyJsonArrayLength, 100_iters_10bytes_size, 100, 10);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    SIMDJsonArrayLength,
+    100_iters_10bytes_size,
+    100,
+    10);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_NAMED_PARAM(FollyJsonArrayLength, 100_iters_100bytes_size, 100, 100);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    SIMDJsonArrayLength,
+    100_iters_100bytes_size,
+    100,
+    100);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_NAMED_PARAM(
+    FollyJsonArrayLength,
+    100_iters_1000bytes_size,
+    100,
+    1000);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    SIMDJsonArrayLength,
+    100_iters_1000bytes_size,
+    100,
+    1000);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_NAMED_PARAM(
+    FollyJsonArrayLength,
+    100_iters_10000bytes_size,
+    100,
+    10000);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    SIMDJsonArrayLength,
+    100_iters_10000bytes_size,
     100,
     10000);
 BENCHMARK_DRAW_LINE();
