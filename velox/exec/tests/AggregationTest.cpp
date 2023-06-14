@@ -410,14 +410,16 @@ TEST_F(AggregationTest, missingFunctionOrSignature) {
     return PlanBuilder()
         .values({data})
         .addNode([&](auto nodeId, auto source) -> core::PlanNodePtr {
+          std::vector<core::AggregationNode::Aggregate> aggregates{
+              {aggExpr, nullptr, {}, {}}};
+
           return std::make_shared<core::AggregationNode>(
               nodeId,
               core::AggregationNode::Step::kSingle,
               std::vector<core::FieldAccessTypedExprPtr>{},
               std::vector<core::FieldAccessTypedExprPtr>{},
               std::vector<std::string>{"agg"},
-              std::vector<core::CallTypedExprPtr>{aggExpr},
-              std::vector<core::FieldAccessTypedExprPtr>{},
+              aggregates,
               false,
               std::move(source));
         })

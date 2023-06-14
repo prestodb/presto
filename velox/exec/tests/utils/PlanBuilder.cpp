@@ -425,26 +425,26 @@ core::PlanNodePtr PlanBuilder::createIntermediateOrFinalAggregation(
   auto numAggregates = partialAggregates.size();
   auto numGroupingKeys = groupingKeys.size();
 
-  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> masks(
-      numAggregates);
-
-  std::vector<std::shared_ptr<const core::CallTypedExpr>> aggregates;
+  std::vector<core::AggregationNode::Aggregate> aggregates;
   aggregates.reserve(numAggregates);
   for (auto i = 0; i < numAggregates; i++) {
     // Resolve final or intermediate aggregation result type using raw input
     // types for the partial aggregation.
-    auto name = partialAggregates[i]->name();
-    auto rawInputs = partialAggregates[i]->inputs();
+    auto name = partialAggregates[i].call->name();
+    auto rawInputs = partialAggregates[i].call->inputs();
 
     std::vector<TypePtr> rawInputTypes;
     for (auto& rawInput : rawInputs) {
       rawInputTypes.push_back(rawInput->type());
     }
 
+    core::AggregationNode::Aggregate aggregate;
+
     auto type = resolveAggregateType(name, step, rawInputTypes, false);
     std::vector<core::TypedExprPtr> inputs = {field(numGroupingKeys + i)};
-    aggregates.emplace_back(
-        std::make_shared<core::CallTypedExpr>(type, std::move(inputs), name));
+    aggregate.call =
+        std::make_shared<core::CallTypedExpr>(type, std::move(inputs), name);
+    aggregates.emplace_back(aggregate);
   }
 
   return std::make_shared<core::AggregationNode>(
@@ -454,7 +454,6 @@ core::PlanNodePtr PlanBuilder::createIntermediateOrFinalAggregation(
       partialAggNode->preGroupedKeys(),
       partialAggNode->aggregateNames(),
       aggregates,
-      masks,
       partialAggNode->ignoreNullKeys(),
       planNode_);
 }
@@ -515,56 +514,66 @@ PlanBuilder& PlanBuilder::finalAggregation() {
   return *this;
 }
 
-PlanBuilder::ExpressionsAndNames
-PlanBuilder::createAggregateExpressionsAndNames(
+PlanBuilder::AggregatesAndNames PlanBuilder::createAggregateExpressionsAndNames(
     const std::vector<std::string>& aggregates,
+    const std::vector<std::string>& masks,
     core::AggregationNode::Step step,
     const std::vector<TypePtr>& resultTypes) {
+  std::vector<core::AggregationNode::Aggregate> aggs;
+
   AggregateTypeResolver resolver(step);
-  std::vector<std::shared_ptr<const core::CallTypedExpr>> exprs;
   std::vector<std::string> names;
-  exprs.reserve(aggregates.size());
+  aggs.reserve(aggregates.size());
   names.reserve(aggregates.size());
+
+  duckdb::ParseOptions options;
+  options.parseIntegerAsBigint = options_.parseIntegerAsBigint;
+
   for (auto i = 0; i < aggregates.size(); i++) {
-    auto& agg = aggregates[i];
+    auto& aggregate = aggregates[i];
     if (i < resultTypes.size()) {
       resolver.setResultType(resultTypes[i]);
     }
 
-    auto untypedExpr = parse::parseExpr(agg, options_);
+    auto untypedExpr = duckdb::parseAggregateExpr(aggregate, options);
 
-    auto expr = std::dynamic_pointer_cast<const core::CallTypedExpr>(
-        inferTypes(untypedExpr));
-    exprs.emplace_back(expr);
+    core::AggregationNode::Aggregate agg;
+    agg.call = std::dynamic_pointer_cast<const core::CallTypedExpr>(
+        inferTypes(untypedExpr.expr));
+    if (i < masks.size() && !masks[i].empty()) {
+      agg.mask = field(masks[i]);
+    }
 
-    if (untypedExpr->alias().has_value()) {
-      names.push_back(untypedExpr->alias().value());
+    if (!untypedExpr.orderBy.empty()) {
+      VELOX_CHECK(
+          step == core::AggregationNode::Step::kSingle,
+          "Aggregations over sorted inputs cannot be split into partial and final: {}.",
+          aggregate)
+    }
+
+    for (const auto& [keyExpr, order] : untypedExpr.orderBy) {
+      auto sortingKey =
+          std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
+              inferTypes(keyExpr));
+      VELOX_CHECK_NOT_NULL(
+          sortingKey,
+          "ORDER BY clause must use a column name, not an expression: {}",
+          aggregate);
+
+      agg.sortingKeys.push_back(sortingKey);
+      agg.sortingOrders.push_back(order);
+    }
+
+    aggs.emplace_back(agg);
+
+    if (untypedExpr.expr->alias().has_value()) {
+      names.push_back(untypedExpr.expr->alias().value());
     } else {
       names.push_back(fmt::format("a{}", i));
     }
   }
 
-  return {exprs, names};
-}
-
-std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>
-PlanBuilder::createAggregateMasks(
-    size_t numAggregates,
-    const std::vector<std::string>& masks) {
-  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> maskExprs(
-      numAggregates);
-  if (masks.empty()) {
-    return maskExprs;
-  }
-
-  VELOX_CHECK_EQ(numAggregates, masks.size());
-  for (auto i = 0; i < numAggregates; ++i) {
-    if (!masks[i].empty()) {
-      maskExprs[i] = field(masks[i]);
-    }
-  }
-
-  return maskExprs;
+  return {aggs, names};
 }
 
 PlanBuilder& PlanBuilder::aggregation(
@@ -575,17 +584,15 @@ PlanBuilder& PlanBuilder::aggregation(
     core::AggregationNode::Step step,
     bool ignoreNullKeys,
     const std::vector<TypePtr>& resultTypes) {
-  auto numAggregates = aggregates.size();
   auto aggregatesAndNames =
-      createAggregateExpressionsAndNames(aggregates, step, resultTypes);
+      createAggregateExpressionsAndNames(aggregates, masks, step, resultTypes);
   planNode_ = std::make_shared<core::AggregationNode>(
       nextPlanNodeId(),
       step,
       fields(groupingKeys),
       fields(preGroupedKeys),
       aggregatesAndNames.names,
-      aggregatesAndNames.expressions,
-      createAggregateMasks(numAggregates, masks),
+      aggregatesAndNames.aggregates,
       ignoreNullKeys,
       planNode_);
   return *this;
@@ -598,17 +605,15 @@ PlanBuilder& PlanBuilder::streamingAggregation(
     core::AggregationNode::Step step,
     bool ignoreNullKeys,
     const std::vector<TypePtr>& resultTypes) {
-  auto numAggregates = aggregates.size();
   auto aggregatesAndNames =
-      createAggregateExpressionsAndNames(aggregates, step, resultTypes);
+      createAggregateExpressionsAndNames(aggregates, masks, step, resultTypes);
   planNode_ = std::make_shared<core::AggregationNode>(
       nextPlanNodeId(),
       step,
       fields(groupingKeys),
       fields(groupingKeys),
       aggregatesAndNames.names,
-      aggregatesAndNames.expressions,
-      createAggregateMasks(numAggregates, masks),
+      aggregatesAndNames.aggregates,
       ignoreNullKeys,
       planNode_);
   return *this;

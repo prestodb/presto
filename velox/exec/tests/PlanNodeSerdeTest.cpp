@@ -70,6 +70,15 @@ TEST_F(PlanNodeSerdeTest, aggregation) {
                   .planNode();
 
   testSerde(plan);
+
+  // Aggregation over sorted inputs.
+  plan = PlanBuilder()
+             .values({data_})
+             .singleAggregation(
+                 {"c0"}, {"array_agg(c1 ORDER BY c2 DESC)", "sum(c1)"})
+             .planNode();
+
+  testSerde(plan);
 }
 
 TEST_F(PlanNodeSerdeTest, assignUniqueId) {

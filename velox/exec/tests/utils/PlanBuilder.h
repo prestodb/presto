@@ -801,20 +801,16 @@ class PlanBuilder {
       core::AggregationNode::Step step,
       const core::AggregationNode* partialAggNode);
 
-  struct ExpressionsAndNames {
-    std::vector<std::shared_ptr<const core::CallTypedExpr>> expressions;
+  struct AggregatesAndNames {
+    std::vector<core::AggregationNode::Aggregate> aggregates;
     std::vector<std::string> names;
   };
 
-  ExpressionsAndNames createAggregateExpressionsAndNames(
+  AggregatesAndNames createAggregateExpressionsAndNames(
       const std::vector<std::string>& aggregates,
+      const std::vector<std::string>& masks,
       core::AggregationNode::Step step,
       const std::vector<TypePtr>& resultTypes);
-
-  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>
-  createAggregateMasks(
-      size_t numAggregates,
-      const std::vector<std::string>& masks);
 
  protected:
   core::PlanNodePtr planNode_;

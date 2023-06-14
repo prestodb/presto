@@ -750,7 +750,7 @@ AggregationFuzzer::computeDuckAggregation(
       projections.empty() ? plan.get() : plan->sources()[0].get());
   VELOX_CHECK_NOT_NULL(aggregationNode);
   for (const auto& agg : aggregationNode->aggregates()) {
-    if (duckFunctionNames_.count(agg->name()) == 0) {
+    if (duckFunctionNames_.count(agg.call->name()) == 0) {
       return std::nullopt;
     }
   }
@@ -1102,13 +1102,12 @@ void AggregationFuzzer::verifyAggregation(
   }
 
   // Get masks.
-  auto masks = node->aggregateMasks();
   std::vector<std::string> maskNames;
-  maskNames.reserve(masks.size());
+  maskNames.reserve(node->aggregates().size());
 
-  for (auto maskName : masks) {
-    if (maskName) {
-      maskNames.push_back(maskName->name());
+  for (auto aggregate : node->aggregates()) {
+    if (aggregate.mask) {
+      maskNames.push_back(aggregate.mask->name());
     }
   }
 
@@ -1138,9 +1137,9 @@ void AggregationFuzzer::verifyAggregation(
 
   bool customVerification = false;
   for (auto aggregate : node->aggregates()) {
-    aggregateStrings.push_back(aggregate->toString());
+    aggregateStrings.push_back(aggregate.call->toString());
     customVerification |=
-        customVerificationFunctions_.count(aggregate->name()) != 0;
+        customVerificationFunctions_.count(aggregate.call->name()) != 0;
   }
 
   const bool verifyResults = !customVerification || !projections.empty();

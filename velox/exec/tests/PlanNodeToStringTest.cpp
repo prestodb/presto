@@ -231,6 +231,17 @@ TEST_F(PlanNodeToStringTest, aggregation) {
   ASSERT_EQ(
       "-- Aggregation[SINGLE [c0] a := sum(ROW[\"c1\"]) mask: m1, b := avg(ROW[\"c2\"]) mask: m2] -> c0:BIGINT, a:BIGINT, b:DOUBLE\n",
       plan->toString(true, false));
+
+  // Aggregation over sorted inputs.
+  plan = PlanBuilder()
+             .values({data})
+             .singleAggregation({"c0"}, {"array_agg(c1 ORDER BY c2 DESC)"})
+             .planNode();
+
+  ASSERT_EQ("-- Aggregation\n", plan->toString());
+  ASSERT_EQ(
+      "-- Aggregation[SINGLE [c0] a0 := array_agg(ROW[\"c1\"]) ORDER BY c2 DESC NULLS LAST] -> c0:BIGINT, a0:ARRAY<INTEGER>\n",
+      plan->toString(true, false));
 }
 
 TEST_F(PlanNodeToStringTest, groupId) {

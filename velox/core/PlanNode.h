@@ -546,6 +546,54 @@ class AggregationNode : public PlanNode {
 
   static Step stepFromName(const std::string& name);
 
+  /// Aggregate function call.
+  struct Aggregate {
+    /// Function name and input column names.
+    CallTypedExprPtr call;
+
+    /// Optional name of input column to use as a mask. Column type must be
+    /// BOOLEAN.
+    FieldAccessTypedExprPtr mask;
+
+    /// Optional list of input columns to sort by before applying aggregate
+    /// function.
+    std::vector<FieldAccessTypedExprPtr> sortingKeys;
+
+    /// A list of sorting orders that goes together with 'sortingKeys'.
+    std::vector<SortOrder> sortingOrders;
+
+    folly::dynamic serialize() const;
+
+    static Aggregate deserialize(const folly::dynamic& obj, void* context);
+  };
+
+  AggregationNode(
+      const PlanNodeId& id,
+      Step step,
+      const std::vector<FieldAccessTypedExprPtr>& groupingKeys,
+      const std::vector<FieldAccessTypedExprPtr>& preGroupedKeys,
+      const std::vector<std::string>& aggregateNames,
+      const std::vector<Aggregate>& aggregates,
+      bool ignoreNullKeys,
+      PlanNodePtr source);
+
+// TODO Remove after Prestissimo is updated.
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  static std::vector<Aggregate> toAggregates(
+      const std::vector<CallTypedExprPtr>& calls,
+      const std::vector<FieldAccessTypedExprPtr>& aggregateMasks) {
+    std::vector<Aggregate> aggregates;
+    aggregates.reserve(calls.size());
+    for (auto i = 0; i < calls.size(); ++i) {
+      if (i < aggregateMasks.size()) {
+        aggregates.push_back({calls[i], aggregateMasks[i], {}, {}});
+      } else {
+        aggregates.push_back({calls[i], nullptr, {}, {}});
+      }
+    }
+    return aggregates;
+  }
+
   /**
    * @param preGroupedKeys A subset of the 'groupingKeys' on which the input is
    * clustered, i.e. identical sets of values for these keys always appear next
@@ -564,7 +612,17 @@ class AggregationNode : public PlanNode {
       const std::vector<CallTypedExprPtr>& aggregates,
       const std::vector<FieldAccessTypedExprPtr>& aggregateMasks,
       bool ignoreNullKeys,
-      PlanNodePtr source);
+      PlanNodePtr source)
+      : AggregationNode(
+            id,
+            step,
+            groupingKeys,
+            preGroupedKeys,
+            aggregateNames,
+            toAggregates(aggregates, aggregateMasks),
+            ignoreNullKeys,
+            source) {}
+#endif
 
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
@@ -590,12 +648,8 @@ class AggregationNode : public PlanNode {
     return aggregateNames_;
   }
 
-  const std::vector<CallTypedExprPtr>& aggregates() const {
+  const std::vector<Aggregate>& aggregates() const {
     return aggregates_;
-  }
-
-  const std::vector<FieldAccessTypedExprPtr>& aggregateMasks() const {
-    return aggregateMasks_;
   }
 
   bool ignoreNullKeys() const {
@@ -634,10 +688,7 @@ class AggregationNode : public PlanNode {
   const std::vector<FieldAccessTypedExprPtr> groupingKeys_;
   const std::vector<FieldAccessTypedExprPtr> preGroupedKeys_;
   const std::vector<std::string> aggregateNames_;
-  const std::vector<CallTypedExprPtr> aggregates_;
-  // Keeps mask/'no mask' for every aggregation. Mask, if given, is a reference
-  // to a boolean projection column, used to mask out rows for the aggregation.
-  const std::vector<FieldAccessTypedExprPtr> aggregateMasks_;
+  const std::vector<Aggregate> aggregates_;
   const bool ignoreNullKeys_;
   const std::vector<PlanNodePtr> sources_;
   const RowTypePtr outputType_;

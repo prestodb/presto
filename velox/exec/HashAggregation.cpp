@@ -67,17 +67,20 @@ HashAggregation::HashAggregation(
   aggregates.reserve(numAggregates);
   std::vector<std::optional<column_index_t>> aggrMaskChannels;
   aggrMaskChannels.reserve(numAggregates);
-  auto numMasks = aggregationNode->aggregateMasks().size();
   std::vector<std::vector<column_index_t>> args;
   std::vector<std::vector<VectorPtr>> constantLists;
   std::vector<TypePtr> intermediateTypes;
   for (auto i = 0; i < numAggregates; i++) {
     const auto& aggregate = aggregationNode->aggregates()[i];
 
+    VELOX_USER_CHECK(
+        aggregate.sortingKeys.empty(),
+        "Aggregations over sorted input is not supported yet");
+
     std::vector<column_index_t> channels;
     std::vector<VectorPtr> constants;
     std::vector<TypePtr> argTypes;
-    for (auto& arg : aggregate->inputs()) {
+    for (const auto& arg : aggregate.call->inputs()) {
       argTypes.push_back(arg->type());
       channels.push_back(exprToChannel(arg.get(), inputType));
       if (channels.back() == kConstantChannel) {
@@ -89,7 +92,7 @@ HashAggregation::HashAggregation(
     }
     if (isRawInput(aggregationNode->step())) {
       intermediateTypes.push_back(
-          Aggregate::intermediateType(aggregate->name(), argTypes));
+          Aggregate::intermediateType(aggregate.call->name(), argTypes));
     } else {
       VELOX_DCHECK(!argTypes.empty());
       intermediateTypes.push_back(argTypes[0]);
@@ -100,21 +103,17 @@ HashAggregation::HashAggregation(
     }
     // Setup aggregation mask: convert the Variable Reference name to the
     // channel (projection) index, if there is a mask.
-    if (i < numMasks) {
-      const auto& aggrMask = aggregationNode->aggregateMasks()[i];
-      if (aggrMask == nullptr) {
-        aggrMaskChannels.emplace_back(std::nullopt);
-      } else {
-        aggrMaskChannels.emplace_back(
-            inputType->asRow().getChildIdx(aggrMask->name()));
-      }
-    } else {
+    const auto& aggrMask = aggregate.mask;
+    if (aggrMask == nullptr) {
       aggrMaskChannels.emplace_back(std::nullopt);
+    } else {
+      aggrMaskChannels.emplace_back(
+          inputType->asRow().getChildIdx(aggrMask->name()));
     }
 
     const auto& resultType = outputType_->childAt(numHashers + i);
     aggregates.push_back(Aggregate::create(
-        aggregate->name(), aggregationNode->step(), argTypes, resultType));
+        aggregate.call->name(), aggregationNode->step(), argTypes, resultType));
     args.push_back(channels);
     constantLists.push_back(constants);
   }

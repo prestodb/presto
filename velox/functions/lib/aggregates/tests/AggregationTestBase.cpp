@@ -493,7 +493,7 @@ RowVectorPtr AggregationTestBase::validateStreamingInTestAggregations(
       static_cast<const core::AggregationNode&>(*builder.planNode());
   EXPECT_EQ(expected->childrenSize(), aggregationNode.aggregates().size());
   for (int i = 0; i < aggregationNode.aggregates().size(); ++i) {
-    auto& aggregate = aggregationNode.aggregates()[i];
+    auto& aggregate = aggregationNode.aggregates()[i].call;
     SCOPED_TRACE(aggregate->name());
     std::vector<VectorPtr> rawInput1, rawInput2;
     for (auto& arg : aggregate->inputs()) {
