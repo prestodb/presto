@@ -35,6 +35,7 @@ add_executable(
   AsyncConnectorTest.cpp
   CustomJoinTest.cpp
   EnforceSingleRowTest.cpp
+  ExchangeClientTest.cpp
   FilterProjectTest.cpp
   FunctionResolutionTest.cpp
   HashJoinBridgeTest.cpp
