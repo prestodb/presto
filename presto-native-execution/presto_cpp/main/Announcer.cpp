@@ -130,6 +130,7 @@ void Announcer::makeAnnouncement() {
           eventBaseThread_.getEventBase(),
           address_,
           std::chrono::milliseconds(10'000),
+          pool_,
           clientCertAndKeyPath_,
           ciphers_);
     }
@@ -139,7 +140,7 @@ void Announcer::makeAnnouncement() {
     return;
   }
 
-  client_->sendRequest(announcementRequest_, pool_.get(), announcementBody_)
+  client_->sendRequest(announcementRequest_, announcementBody_)
       .via(eventBaseThread_.getEventBase())
       .thenValue([](auto response) {
         auto message = response->headers();
