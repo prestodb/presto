@@ -887,6 +887,38 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
+    public void testInsertIntoPartitionedTable()
+    {
+        // Generate temporary table name.
+        String tmpTableName = generateRandomTableName();
+        // Clean up if temporary table already exists.
+        dropTableIfExists(tmpTableName);
+
+        try {
+            getQueryRunner().execute(getSession(), String.format("CREATE TABLE %s (name VARCHAR, regionkey BIGINT, nationkey BIGINT) WITH (partitioned_by = ARRAY['regionkey','nationkey'])", tmpTableName));
+
+            // Test insert into an empty table.
+            Session writeSession = buildSessionForTableWrite();
+            getQueryRunner().execute(writeSession, String.format("INSERT INTO %s SELECT name, regionkey, nationkey FROM nation", tmpTableName));
+            assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT name, regionkey, nationkey FROM nation");
+
+            // Test failure on insert into existing partitions.
+            assertQueryFails(writeSession, String.format("INSERT INTO %s SELECT name, regionkey, nationkey FROM nation", tmpTableName),
+                    ".*Cannot insert into an existing partition of Hive table: regionkey=.*/nationkey=.*");
+
+            // Test insert into existing partitions if insert_existing_partitions_behavior is set to OVERWRITE.
+            Session overwriteSession = Session.builder(writeSession)
+                    .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "OVERWRITE")
+                    .build();
+            getQueryRunner().execute(overwriteSession, String.format("INSERT INTO %s SELECT CONCAT(name, '.test'), regionkey, nationkey FROM nation", tmpTableName));
+            assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT CONCAT(name, '.test'), regionkey, nationkey FROM nation");
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+
+    @Test
     public void testCreateBucketTableAsSelect()
     {
         Session session = buildSessionForTableWrite();
@@ -910,6 +942,7 @@ public abstract class AbstractTestNativeGeneralQueries
         return Session.builder(getSession())
                 .setSystemProperty("table_writer_merge_operator_enabled", "false")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
+                .setCatalogSessionProperty("hive", "optimized_partition_update_serialization_enabled", "false")
                 .build();
     }
 
