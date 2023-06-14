@@ -127,6 +127,7 @@ jobs:
             cp -R /host${{ github.workspace }}/.ccache /output/.ccache &&
             ccache -s
           CIBW_ENVIRONMENT_PASS_LINUX: CCACHE_DIR BUILD_VERSION
+          CIBW_TEST_EXTRAS: "tests"
           CIBW_TEST_COMMAND: "cd {project}/pyvelox && python -m unittest -v"
           CIBW_TEST_SKIP: "*macos*"
           CCACHE_DIR: "${{ matrix.os != 'macos-11' && '/output' || github.workspace }}/.ccache"

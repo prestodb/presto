@@ -172,7 +172,9 @@ setup(
         "typing",
         "tabulate",
         "typing-inspect",
+        "pyarrow",
     ],
+    extras_require={"tests": ["pyarrow"]},
     python_requires=">=3.7",
     classifiers=[
         "Intended Audience :: Developers",

@@ -15,6 +15,7 @@
  */
 
 #include "pyvelox.h"
+#include "conversion.h"
 #include "serde.h"
 #include "signatures.h"
 
@@ -294,6 +295,7 @@ PYBIND11_MODULE(pyvelox, m) {
   addVeloxBindings(m);
   addSignatureBindings(m);
   addSerdeBindings(m);
+  addConversionBindings(m);
   m.attr("__version__") = "dev";
 }
 #endif

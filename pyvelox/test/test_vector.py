@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
-
+import pyarrow as pa
 import pyvelox.pyvelox as pv
+import unittest
 
 
 class TestVeloxVector(unittest.TestCase):
@@ -273,3 +273,51 @@ class TestVeloxVector(unittest.TestCase):
 
         with self.assertRaises(NotImplementedError):
             e = a[3:8:3]
+
+    def test_export_to_arrow(self):
+        test_cases = [
+            ([1, 2, 3], pa.int64()),
+            ([1.1, 2.2, 3.3], pa.float64()),
+            (["ab", "bc", "ca"], pa.string()),
+        ]
+        for data, expected_type in test_cases:
+            with self.subTest(data=data):
+                vector = pv.from_list(data)
+                array = pv.export_to_arrow(vector)
+
+                self.assertEqual(array.type, expected_type)
+                self.assertEqual(len(array), len(data))
+                self.assertListEqual(array.tolist(), data)
+
+    def test_import_from_arrow(self):
+        test_cases = [
+            ([11, 26, 31], pa.int64(), pv.IntegerType()),
+            ([0.1, 2.5, 3.9], pa.float64(), pv.DoubleType()),
+            (["az", "by", "cx"], pa.string(), pv.VarcharType()),
+        ]
+        for data, dtype, expected_type in test_cases:
+            with self.subTest(data=data):
+                array = pa.array(data, type=dtype)
+                velox_vector = pv.import_from_arrow(array)
+
+                self.assertEqual(velox_vector.size(), len(data))
+                self.assertTrue(velox_vector.dtype(), expected_type)
+                for i in range(0, len(data)):
+                    self.assertEqual(velox_vector[i], data[i])
+
+    def test_roundtrip_conversion(self):
+        test_cases = [
+            ([41, 92, 13], pv.IntegerType()),
+            ([17.19, 22.25, 13.3], pv.DoubleType()),
+            (["aa1", "bb2", "cc3"], pv.VarcharType()),
+        ]
+        for data, expected_type in test_cases:
+            with self.subTest(data=data):
+                vector = pv.from_list(data)
+                array = pv.export_to_arrow(vector)
+
+                velox_vector = pv.import_from_arrow(array)
+                self.assertEqual(velox_vector.size(), len(data))
+                self.assertTrue(velox_vector.dtype(), expected_type)
+                for i in range(0, len(data)):
+                    self.assertEqual(velox_vector[i], data[i])
