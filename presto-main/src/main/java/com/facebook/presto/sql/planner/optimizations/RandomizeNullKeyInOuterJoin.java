@@ -304,10 +304,14 @@ public class RandomizeNullKeyInOuterJoin
             rightAssignments.putAll(rightKeyRandomVariableMap);
             rightAssignments.putAll(rewrittenRight.getOutputVariables().stream().collect(toImmutableMap(identity(), identity())));
 
+            ProjectNode newLeft = new ProjectNode(rewrittenLeft.getSourceLocation(), planNodeIdAllocator.getNextId(), rewrittenLeft, leftAssignments.build(), LOCAL);
+            ProjectNode newRight = new ProjectNode(rewrittenRight.getSourceLocation(), planNodeIdAllocator.getNextId(), rewrittenRight, rightAssignments.build(), LOCAL);
             ImmutableList.Builder<VariableReferenceExpression> joinOutputBuilder = ImmutableList.builder();
             joinOutputBuilder.addAll(leftKeyRandomVariableMap.keySet());
+            // Input from left side should be before input from right side in join output
+            joinOutputBuilder.addAll(joinNode.getOutputVariables().stream().filter(x -> newLeft.getOutputVariables().contains(x)).collect(toImmutableList()));
             joinOutputBuilder.addAll(rightKeyRandomVariableMap.keySet());
-            joinOutputBuilder.addAll(joinNode.getOutputVariables());
+            joinOutputBuilder.addAll(joinNode.getOutputVariables().stream().filter(x -> newRight.getOutputVariables().contains(x)).collect(toImmutableList()));
 
             session.getOptimizerInformationCollector().addInformation(
                     new PlanOptimizerInformation(RandomizeNullKeyInOuterJoin.class.getSimpleName(), true, Optional.empty()));
@@ -316,8 +320,8 @@ public class RandomizeNullKeyInOuterJoin
                     joinNode.getId(),
                     joinNode.getStatsEquivalentPlanNode(),
                     joinNode.getType(),
-                    new ProjectNode(rewrittenLeft.getSourceLocation(), planNodeIdAllocator.getNextId(), rewrittenLeft, leftAssignments.build(), LOCAL),
-                    new ProjectNode(rewrittenRight.getSourceLocation(), planNodeIdAllocator.getNextId(), rewrittenRight, rightAssignments.build(), LOCAL),
+                    newLeft,
+                    newRight,
                     joinClauseBuilder.build(),
                     joinOutputBuilder.build(),
                     joinNode.getFilter(),
