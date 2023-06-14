@@ -624,13 +624,27 @@ public class ExpressionAnalyzer
         protected Type visitNullIfExpression(NullIfExpression node, StackableAstVisitorContext<Context> context)
         {
             Type firstType = process(node.getFirst(), context);
-            Type secondType = process(node.getSecond(), context);
+//            Type secondType = process(node.getSecond(), context);
+            Type newType = coerceToSingleType(context, node, "Unable to coerce NULL_IF expression to single type", node.getFirst(), node.getSecond());
+//            Optional<Type> commonType = functionAndTypeResolver.getCommonSuperType(firstType, secondType);
 
-            if (!functionAndTypeResolver.getCommonSuperType(firstType, secondType).isPresent()) {
-                throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", firstType, secondType);
-            }
+//            if (!commonType.isPresent()) {
+//                throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", firstType, secondType);
+//            }
+//            else {
+//                Expression firstCast = node.getFirst();
+//                if (!firstType.equals(commonType.get())) {
+//                    firstCast = new Cast(node.getFirst(), commonType.get().toString());
+//                }
+//                Expression secondCast = node.getSecond();
+//                if (!secondType.equals(commonType.get())) {
+//                    secondCast = new Cast(node.getSecond(), commonType.get().toString());
+//                }
+//                NullIfExpression nativeNode = new NullIfExpression(node.getLocation().get(), firstCast, secondCast);
+//                return setExpressionType(nativeNode, commonType.get());
+//            }
 
-            return setExpressionType(node, firstType);
+            return setExpressionType(node, newType);
         }
 
         @Override

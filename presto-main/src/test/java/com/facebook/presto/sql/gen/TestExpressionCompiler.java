@@ -76,7 +76,6 @@ import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.JsonType.JSON;
-import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
@@ -640,12 +639,12 @@ public class TestExpressionCompiler
         // combination of types in one filter
         assertFilter(
                 ImmutableList.of(
-                        "bound_row.nested_column_0 = 1234", "bound_row.nested_column_7 >= 1234",
-                        "bound_row.nested_column_1 = 34", "bound_row.nested_column_8 >= 33",
-                        "bound_row.nested_column_2 = 'hello'", "bound_row.nested_column_9 >= 'hello'",
-                        "bound_row.nested_column_3 = 12.34", "bound_row.nested_column_10 >= 12.34",
-                        "bound_row.nested_column_4 = true", "NOT (bound_row.nested_column_11 = false)",
-                        "bound_row.nested_column_6.nested_nested_column = 'innerFieldValue'", "bound_row.nested_column_13.nested_nested_column LIKE 'innerFieldValue'")
+                                "bound_row.nested_column_0 = 1234", "bound_row.nested_column_7 >= 1234",
+                                "bound_row.nested_column_1 = 34", "bound_row.nested_column_8 >= 33",
+                                "bound_row.nested_column_2 = 'hello'", "bound_row.nested_column_9 >= 'hello'",
+                                "bound_row.nested_column_3 = 12.34", "bound_row.nested_column_10 >= 12.34",
+                                "bound_row.nested_column_4 = true", "NOT (bound_row.nested_column_11 = false)",
+                                "bound_row.nested_column_6.nested_nested_column = 'innerFieldValue'", "bound_row.nested_column_13.nested_nested_column LIKE 'innerFieldValue'")
                         .stream().collect(joining(" AND ")),
                 true);
     }
@@ -1606,8 +1605,11 @@ public class TestExpressionCompiler
     public void testNullif()
             throws Exception
     {
+        assertExecute("nullif(BIGINT '2', INT '2')", BIGINT, null);
+        assertExecute("nullif(INT '2', BIGINT '2')", BIGINT, null);
+        assertExecute("nullif(INT '2', BIGINT '3')", BIGINT, 2L);
         assertExecute("nullif(NULL, NULL)", UNKNOWN, null);
-        assertExecute("nullif(NULL, 2)", UNKNOWN, null);
+        assertExecute("nullif(NULL, 2)", INTEGER, null);
         assertExecute("nullif(2, NULL)", INTEGER, 2);
         assertExecute("nullif(BIGINT '2', NULL)", BIGINT, 2L);
         assertExecute("nullif(ARRAY[CAST(1 AS BIGINT)], ARRAY[CAST(1 AS BIGINT)])", new ArrayType(BIGINT), null);
@@ -1618,7 +1620,7 @@ public class TestExpressionCompiler
         assertExecute("nullif(" +
                         "map(array[1], array[smallint '1']), " +
                         "map(array[1], array[integer '1']))",
-                mapType(INTEGER, SMALLINT),
+                mapType(INTEGER, INTEGER),
                 null);
 
         Futures.allAsList(futures).get();
