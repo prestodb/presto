@@ -195,8 +195,6 @@ class Window : public Operator {
   // It represents the frame spec for the function computation.
   std::vector<WindowFrame> windowFrames_;
 
-  // This SelectivityVector is used across addInput calls for decoding.
-  SelectivityVector inputRows_;
   // Number of input rows.
   vector_size_t numRows_ = 0;
 

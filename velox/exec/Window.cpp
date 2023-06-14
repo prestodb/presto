@@ -152,10 +152,8 @@ void Window::createWindowFunctions(
 }
 
 void Window::addInput(RowVectorPtr input) {
-  inputRows_.resize(input->size());
-
   for (auto col = 0; col < input->childrenSize(); ++col) {
-    decodedInputVectors_[col].decode(*input->childAt(col), inputRows_);
+    decodedInputVectors_[col].decode(*input->childAt(col));
   }
 
   // Add all the rows into the RowContainer.
@@ -166,7 +164,7 @@ void Window::addInput(RowVectorPtr input) {
       data_->store(decodedInputVectors_[col], row, newRow, col);
     }
   }
-  numRows_ += inputRows_.size();
+  numRows_ += input->size();
 }
 
 inline bool Window::compareRowsWithKeys(
