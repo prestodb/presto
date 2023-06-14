@@ -73,9 +73,4 @@ public class TestPrestoSparkNativeGeneralQueries
     @Override
     @Ignore
     public void testTopN() {}
-
-    // This test is flaky: https://github.com/prestodb/presto/issues/19665
-    @Override
-    @Ignore
-    public void testUnionAll() {}
 }
