@@ -72,6 +72,7 @@ PrestoExchangeSource::PrestoExchangeSource(
       eventBase,
       address,
       std::chrono::milliseconds(10'000),
+      pool_,
       clientCertAndKeyPath_,
       ciphers_,
       [](size_t bufferBytes) {
@@ -107,7 +108,7 @@ void PrestoExchangeSource::doRequest() {
       .method(proxygen::HTTPMethod::GET)
       .url(path)
       .header(protocol::PRESTO_MAX_SIZE_HTTP_HEADER, "32MB")
-      .send(httpClient_.get(), pool_.get())
+      .send(httpClient_.get())
       .via(driverCPUExecutor())
       .thenValue([path, self](std::unique_ptr<http::HttpResponse> response) {
         velox::common::testutil::TestValue::adjust(
@@ -273,7 +274,7 @@ void PrestoExchangeSource::acknowledgeResults(int64_t ackSequence) {
   http::RequestBuilder()
       .method(proxygen::HTTPMethod::GET)
       .url(ackPath)
-      .send(httpClient_.get(), pool_.get())
+      .send(httpClient_.get())
       .via(driverCPUExecutor())
       .thenValue([self](std::unique_ptr<http::HttpResponse> response) {
         VLOG(1) << "Ack " << response->headers()->getStatusCode();
@@ -292,7 +293,7 @@ void PrestoExchangeSource::abortResults() {
   http::RequestBuilder()
       .method(proxygen::HTTPMethod::DELETE)
       .url(basePath_)
-      .send(httpClient_.get(), pool_.get())
+      .send(httpClient_.get())
       .via(driverCPUExecutor())
       .thenValue([queue, self](std::unique_ptr<http::HttpResponse> response) {
         auto statusCode = response->headers()->getStatusCode();
