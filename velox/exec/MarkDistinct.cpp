@@ -44,6 +44,7 @@ MarkDistinct::MarkDistinct(
   resultProjections_.emplace_back(0, inputType->size());
 
   groupingSet_ = GroupingSet::createForMarkDistinct(
+      inputType,
       createVectorHashers(inputType, planNode->distinctKeys()),
       operatorCtx_.get(),
       &nonReclaimableSection_);

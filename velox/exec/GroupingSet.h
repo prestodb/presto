@@ -25,16 +25,42 @@ namespace facebook::velox::exec {
 
 class Aggregate;
 
+/// Information needed to evaluate an aggregate function.
+struct AggregateInfo {
+  /// Instance of the Aggregate class.
+  std::unique_ptr<Aggregate> function;
+
+  /// Indices of the input columns in the input RowVector.
+  std::vector<column_index_t> inputs;
+
+  /// Optional constant inputs. The size of this vector matches the size of
+  /// 'inputs'. Non-constant inputs have null entries.
+  std::vector<VectorPtr> constantInputs;
+
+  /// Optional index of an input boolean column that should be used as a mask.
+  std::optional<column_index_t> mask;
+
+  /// Optional list of input columns that should be used to sort input rows
+  /// before aggregating. Thes column may or may not overlap with 'inputs'.
+  std::vector<column_index_t> sortingKeys;
+
+  /// Optional list of sorting orders that goes with 'sortingKeys'.
+  std::vector<core::SortOrder> sortingOrders;
+
+  /// Index of the result column in the output RowVector.
+  column_index_t output;
+
+  /// Type of intermediate results. Used for spilling.
+  TypePtr intermediateType;
+};
+
 class GroupingSet {
  public:
   GroupingSet(
+      const RowTypePtr& inputType,
       std::vector<std::unique_ptr<VectorHasher>>&& hashers,
       std::vector<column_index_t>&& preGroupedKeys,
-      std::vector<std::unique_ptr<Aggregate>>&& aggregates,
-      std::vector<std::optional<column_index_t>>&& aggrMaskChannels,
-      std::vector<std::vector<column_index_t>>&& channelLists,
-      std::vector<std::vector<VectorPtr>>&& constantLists,
-      std::vector<TypePtr>&& intermediateTypes,
+      std::vector<AggregateInfo>&& aggregates,
       bool ignoreNullKeys,
       bool isPartial,
       bool isRawInput,
@@ -46,6 +72,7 @@ class GroupingSet {
 
   // Used by MarkDistinct operator to identify rows with unique values.
   static std::unique_ptr<GroupingSet> createForMarkDistinct(
+      const RowTypePtr& inputType,
       std::vector<std::unique_ptr<VectorHasher>>&& hashers,
       OperatorCtx* operatorCtx,
       tsan_atomic<bool>* nonReclaimableSection);
@@ -201,17 +228,9 @@ class GroupingSet {
   const bool isGlobal_;
   const bool isPartial_;
   const bool isRawInput_;
-  std::vector<std::unique_ptr<Aggregate>> aggregates_;
-  AggregationMasks masks_;
-  // Argument list for the corresponding element of 'aggregates_'.
-  const std::vector<std::vector<column_index_t>> channelLists_;
-  // Constant arguments to aggregates. Corresponds pairwise to
-  // 'channelLists_'. This is used when channelLists_[i][j] ==
-  // kConstantChannel.
-  const std::vector<std::vector<VectorPtr>> constantLists_;
 
-  // Types for extracting accumulators for spilling.
-  const std::vector<TypePtr> intermediateTypes_;
+  std::vector<AggregateInfo> aggregates_;
+  AggregationMasks masks_;
 
   const bool ignoreNullKeys_;
 

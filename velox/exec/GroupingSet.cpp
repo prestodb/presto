@@ -35,16 +35,23 @@ bool areAllLazyNotLoaded(const std::vector<VectorPtr>& vectors) {
     return isLazyNotLoaded(*vector);
   });
 }
+
+std::vector<std::optional<column_index_t>> maskChannels(
+    const std::vector<AggregateInfo>& aggregates) {
+  std::vector<std::optional<column_index_t>> masks;
+  masks.reserve(aggregates.size());
+  for (const auto& aggregate : aggregates) {
+    masks.push_back(aggregate.mask);
+  }
+  return masks;
+}
 } // namespace
 
 GroupingSet::GroupingSet(
+    const RowTypePtr& inputType,
     std::vector<std::unique_ptr<VectorHasher>>&& hashers,
     std::vector<column_index_t>&& preGroupedKeys,
-    std::vector<std::unique_ptr<Aggregate>>&& aggregates,
-    std::vector<std::optional<column_index_t>>&& aggrMaskChannels,
-    std::vector<std::vector<column_index_t>>&& channelLists,
-    std::vector<std::vector<VectorPtr>>&& constantLists,
-    std::vector<TypePtr>&& intermediateTypes,
+    std::vector<AggregateInfo>&& aggregates,
     bool ignoreNullKeys,
     bool isPartial,
     bool isRawInput,
@@ -57,10 +64,7 @@ GroupingSet::GroupingSet(
       isPartial_(isPartial),
       isRawInput_(isRawInput),
       aggregates_(std::move(aggregates)),
-      masks_{std::move(aggrMaskChannels)},
-      channelLists_(std::move(channelLists)),
-      constantLists_(std::move(constantLists)),
-      intermediateTypes_(std::move(intermediateTypes)),
+      masks_(maskChannels(aggregates_)),
       ignoreNullKeys_(ignoreNullKeys),
       spillMemoryThreshold_(operatorCtx->driverCtx()
                                 ->queryConfig()
@@ -80,13 +84,15 @@ GroupingSet::GroupingSet(
     keyChannels_.push_back(hasher->channel());
   }
   std::unordered_map<column_index_t, int> channelUseCount;
-  for (const std::vector<column_index_t>& argList : channelLists_) {
-    for (column_index_t channel : argList) {
+  for (const auto& aggregate : aggregates_) {
+    for (auto channel : aggregate.inputs) {
       ++channelUseCount[channel];
     }
   }
-  for (const std::vector<column_index_t>& argList : channelLists_) {
-    mayPushdown_.push_back(allAreSinglyReferenced(argList, channelUseCount));
+
+  for (const auto& aggregate : aggregates_) {
+    mayPushdown_.push_back(
+        allAreSinglyReferenced(aggregate.inputs, channelUseCount));
   }
 }
 
@@ -97,17 +103,15 @@ GroupingSet::~GroupingSet() {
 }
 
 std::unique_ptr<GroupingSet> GroupingSet::createForMarkDistinct(
+    const RowTypePtr& inputType,
     std::vector<std::unique_ptr<VectorHasher>>&& hashers,
     OperatorCtx* FOLLY_NONNULL operatorCtx,
     tsan_atomic<bool>* nonReclaimableSection) {
   return std::make_unique<GroupingSet>(
+      inputType,
       std::move(hashers),
       /*preGroupedKeys*/ std::vector<column_index_t>{},
-      /*aggregates*/ std::vector<std::unique_ptr<Aggregate>>{},
-      /*aggrMaskChannels*/ std::vector<std::optional<column_index_t>>{},
-      /*channelLists*/ std::vector<std::vector<column_index_t>>{},
-      /*constantLists*/ std::vector<std::vector<VectorPtr>>{},
-      /*intermediateTypes*/ std::vector<TypePtr>{},
+      /*aggregates*/ std::vector<AggregateInfo>{},
       /*ignoreNullKeys*/ false,
       /*isPartial*/ false,
       /*isRawInput*/ false,
@@ -198,10 +202,12 @@ void GroupingSet::addInputForActiveRows(
   table_->groupProbe(*lookup_);
   masks_.addInput(input, activeRows_);
 
+  auto* groups = lookup_->hits.data();
+
   for (auto i = 0; i < aggregates_.size(); ++i) {
+    auto& function = aggregates_[i].function;
     if (!lookup_->newGroups.empty()) {
-      aggregates_[i]->initializeNewGroups(
-          lookup_->hits.data(), lookup_->newGroups);
+      function->initializeNewGroups(groups, lookup_->newGroups);
     }
 
     const auto& rows = getSelectivityVector(i);
@@ -217,11 +223,9 @@ void GroupingSet::addInputForActiveRows(
     const bool canPushdown = (&rows == &activeRows_) && mayPushdown &&
         mayPushdown_[i] && areAllLazyNotLoaded(tempVectors_);
     if (isRawInput_) {
-      aggregates_[i]->addRawInput(
-          lookup_->hits.data(), rows, tempVectors_, canPushdown);
+      function->addRawInput(groups, rows, tempVectors_, canPushdown);
     } else {
-      aggregates_[i]->addIntermediateResults(
-          lookup_->hits.data(), rows, tempVectors_, canPushdown);
+      function->addIntermediateResults(groups, rows, tempVectors_, canPushdown);
     }
   }
   tempVectors_.clear();
@@ -239,25 +243,25 @@ void GroupingSet::addRemainingInput() {
 
 namespace {
 std::vector<Accumulator> toAccumulators(
-    const std::vector<std::unique_ptr<Aggregate>>& aggregates) {
+    const std::vector<AggregateInfo>& aggregates) {
   std::vector<Accumulator> accumulators;
   accumulators.reserve(aggregates.size());
   for (auto& aggregate : aggregates) {
-    accumulators.push_back(aggregate.get());
+    accumulators.push_back(aggregate.function.get());
   }
-
   return accumulators;
 }
 
 void initializeAggregates(
-    const std::vector<std::unique_ptr<Aggregate>>& aggregates,
+    const std::vector<AggregateInfo>& aggregates,
     RowContainer& rows) {
   const auto numKeys = rows.keyTypes().size();
   for (auto i = 0; i < aggregates.size(); ++i) {
-    aggregates[i]->setAllocator(&rows.stringAllocator());
+    auto& function = aggregates[i].function;
+    function->setAllocator(&rows.stringAllocator());
 
     const auto rowColumn = rows.columnAt(numKeys + i);
-    aggregates[i]->setOffsets(
+    function->setOffsets(
         rowColumn.offset(),
         rowColumn.nullByte(),
         rowColumn.nullMask(),
@@ -275,7 +279,8 @@ void GroupingSet::createHashTable() {
         std::move(hashers_), toAccumulators(aggregates_), &pool_);
   }
 
-  initializeAggregates(aggregates_, *table_->rows());
+  RowContainer& rows = *table_->rows();
+  initializeAggregates(aggregates_, rows);
 
   lookup_ = std::make_unique<HashLookup>(table_->hashers());
   if (!isAdaptive_ && table_->hashMode() != BaseHashTable::HashMode::kHash) {
@@ -305,25 +310,32 @@ void GroupingSet::initializeGlobalAggregation() {
   int32_t alignment = 1;
 
   for (auto& aggregate : aggregates_) {
-    aggregate->setAllocator(&stringAllocator_);
+    auto& function = aggregate.function;
+
+    Accumulator accumulator{aggregate.function.get()};
+
     // Accumulator offset must be aligned by their alignment size.
-    offset = bits::roundUp(offset, aggregate->accumulatorAlignmentSize());
-    aggregate->setOffsets(
+    offset = bits::roundUp(offset, accumulator.alignment());
+
+    function->setAllocator(&stringAllocator_);
+    function->setOffsets(
         offset,
         RowContainer::nullByte(nullOffset),
         RowContainer::nullMask(nullOffset),
         rowSizeOffset);
-    offset += aggregate->accumulatorFixedWidthSize();
+
+    offset += accumulator.fixedWidthSize();
     ++nullOffset;
-    alignment = RowContainer::combineAlignments(
-        aggregate->accumulatorAlignmentSize(), alignment);
+    alignment =
+        RowContainer::combineAlignments(accumulator.alignment(), alignment);
   }
 
   lookup_->hits[0] = rows_.allocateFixed(offset, alignment);
   const auto singleGroup = std::vector<vector_size_t>{0};
   for (auto& aggregate : aggregates_) {
-    aggregate->initializeNewGroups(lookup_->hits.data(), singleGroup);
+    aggregate.function->initializeNewGroups(lookup_->hits.data(), singleGroup);
   }
+
   globalAggregationInitialized_ = true;
 }
 
@@ -337,6 +349,9 @@ void GroupingSet::addGlobalAggregationInput(
   activeRows_.setAll();
 
   masks_.addInput(input, activeRows_);
+
+  auto* group = lookup_->hits[0];
+
   for (auto i = 0; i < aggregates_.size(); ++i) {
     const auto& rows = getSelectivityVector(i);
 
@@ -345,15 +360,16 @@ void GroupingSet::addGlobalAggregationInput(
       continue;
     }
 
+    auto& function = aggregates_[i].function;
+
     populateTempVectors(i, input);
     const bool canPushdown =
         mayPushdown && mayPushdown_[i] && areAllLazyNotLoaded(tempVectors_);
     if (isRawInput_) {
-      aggregates_[i]->addSingleGroupRawInput(
-          lookup_->hits[0], rows, tempVectors_, canPushdown);
+      function->addSingleGroupRawInput(group, rows, tempVectors_, canPushdown);
     } else {
-      aggregates_[i]->addSingleGroupIntermediateResults(
-          lookup_->hits[0], rows, tempVectors_, canPushdown);
+      function->addSingleGroupIntermediateResults(
+          group, rows, tempVectors_, canPushdown);
     }
   }
   tempVectors_.clear();
@@ -373,10 +389,11 @@ bool GroupingSet::getGlobalAggregationOutput(
 
   auto groups = lookup_->hits.data();
   for (int32_t i = 0; i < aggregates_.size(); ++i) {
+    auto& function = aggregates_[i].function;
     if (isPartial) {
-      aggregates_[i]->extractAccumulators(groups, 1, &result->childAt(i));
+      function->extractAccumulators(groups, 1, &result->childAt(i));
     } else {
-      aggregates_[i]->extractValues(groups, 1, &result->childAt(i));
+      function->extractValues(groups, 1, &result->childAt(i));
     }
   }
 
@@ -389,9 +406,10 @@ void GroupingSet::destroyGlobalAggregations() {
     return;
   }
   for (int32_t i = 0; i < aggregates_.size(); ++i) {
-    if (aggregates_[i]->accumulatorUsesExternalMemory()) {
+    auto& function = aggregates_[i].function;
+    if (function->accumulatorUsesExternalMemory()) {
       auto groups = lookup_->hits.data();
-      aggregates_[i]->destroy(folly::Range(groups, 1));
+      function->destroy(folly::Range(groups, 1));
     }
   }
 }
@@ -399,12 +417,13 @@ void GroupingSet::destroyGlobalAggregations() {
 void GroupingSet::populateTempVectors(
     int32_t aggregateIndex,
     const RowVectorPtr& input) {
-  auto& channels = channelLists_[aggregateIndex];
+  const auto& channels = aggregates_[aggregateIndex].inputs;
+  const auto& constants = aggregates_[aggregateIndex].constantInputs;
   tempVectors_.resize(channels.size());
   for (auto i = 0; i < channels.size(); ++i) {
     if (channels[i] == kConstantChannel) {
-      tempVectors_[i] = BaseVector::wrapInConstant(
-          input->size(), 0, constantLists_[aggregateIndex][i]);
+      tempVectors_[i] =
+          BaseVector::wrapInConstant(input->size(), 0, constants[i]);
     } else {
       // No load of lazy vectors; The aggregate may decide to push down.
       tempVectors_[i] = input->childAt(channels[i]);
@@ -466,13 +485,13 @@ void GroupingSet::extractGroups(
     rows.extractColumn(groups.data(), groups.size(), i, keyVector);
   }
   for (int32_t i = 0; i < aggregates_.size(); ++i) {
+    auto& function = aggregates_[i].function;
     auto& aggregateVector = result->childAt(i + totalKeys);
     if (isPartial_) {
-      aggregates_[i]->extractAccumulators(
+      function->extractAccumulators(
           groups.data(), groups.size(), &aggregateVector);
     } else {
-      aggregates_[i]->extractValues(
-          groups.data(), groups.size(), &aggregateVector);
+      function->extractValues(groups.data(), groups.size(), &aggregateVector);
     }
   }
 }
@@ -609,8 +628,9 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
   if (spiller_ == nullptr) {
     auto rows = table_->rows();
     auto types = rows->keyTypes();
-    types.insert(
-        types.end(), intermediateTypes_.begin(), intermediateTypes_.end());
+    for (const auto& aggregate : aggregates_) {
+      types.push_back(aggregate.intermediateType);
+    }
     std::vector<std::string> names;
     for (auto i = 0; i < types.size(); ++i) {
       names.push_back(fmt::format("s{}", i));
@@ -724,7 +744,7 @@ void GroupingSet::initializeRow(
   }
   vector_size_t zero = 0;
   for (auto& aggregate : aggregates_) {
-    aggregate->initializeNewGroups(
+    aggregate.function->initializeNewGroups(
         &row, folly::Range<const vector_size_t*>(&zero, 1));
   }
 }
@@ -749,7 +769,7 @@ void GroupingSet::updateRow(SpillMergeStream& input, char* FOLLY_NONNULL row) {
   mergeSelection_.updateBounds();
   for (auto i = 0; i < aggregates_.size(); ++i) {
     mergeArgs_[0] = input.current().childAt(i + keyChannels_.size());
-    aggregates_[i]->addSingleGroupIntermediateResults(
+    aggregates_[i].function->addSingleGroupIntermediateResults(
         row, mergeSelection_, mergeArgs_, false);
   }
   mergeSelection_.setValid(input.currentIndex(), false);
@@ -759,7 +779,7 @@ void GroupingSet::abandonPartialAggregation() {
   abandonedPartialAggregation_ = true;
   allSupportToIntermediate_ = true;
   for (auto& aggregate : aggregates_) {
-    if (!aggregate->supportsToIntermediate()) {
+    if (!aggregate.function->supportsToIntermediate()) {
       allSupportToIntermediate_ = false;
     }
   }
@@ -801,6 +821,7 @@ void GroupingSet::toIntermediate(
     result->childAt(i) = input->childAt(keyChannels_[i]);
   }
   for (auto i = 0; i < aggregates_.size(); ++i) {
+    auto& function = aggregates_[i].function;
     auto& aggregateVector = result->childAt(i + keyChannels_.size());
     VELOX_CHECK(aggregateVector.unique());
     aggregateVector->resize(input->size());
@@ -812,35 +833,35 @@ void GroupingSet::toIntermediate(
       // element of flat result. This is most often a null but for
       // example count produces a zero, so we use the per-aggregate
       // functions.
-      aggregates_[i]->initializeNewGroups(
+      function->initializeNewGroups(
           intermediateGroups_.data(),
           folly::Range<const vector_size_t*>(
               intermediateRowNumbers_.data(), 1));
       firstGroup_.resize(numRows);
       std::fill(firstGroup_.begin(), firstGroup_.end(), intermediateGroups_[0]);
-      aggregates_[i]->extractAccumulators(
+      function->extractAccumulators(
           firstGroup_.data(), intermediateGroups_.size(), &aggregateVector);
-      aggregates_[i]->clear();
+      function->clear();
       continue;
     }
 
     populateTempVectors(i, input);
 
-    if (aggregates_[i]->supportsToIntermediate()) {
-      aggregates_[i]->toIntermediate(rows, tempVectors_, aggregateVector);
+    if (function->supportsToIntermediate()) {
+      function->toIntermediate(rows, tempVectors_, aggregateVector);
       continue;
     }
-    aggregates_[i]->initializeNewGroups(
+    function->initializeNewGroups(
         intermediateGroups_.data(), intermediateRowNumbers_);
 
-    aggregates_[i]->addRawInput(
+    function->addRawInput(
         intermediateGroups_.data(), rows, tempVectors_, false);
 
-    aggregates_[i]->extractAccumulators(
+    function->extractAccumulators(
         intermediateGroups_.data(),
         intermediateGroups_.size(),
         &aggregateVector);
-    aggregates_[i]->clear();
+    function->clear();
   }
   if (intermediateRows_) {
     intermediateRows_->eraseRows(folly::Range<char**>(
