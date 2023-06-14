@@ -1240,6 +1240,30 @@ TEST_F(MinMaxByNTest, globalWithNullCompare) {
       {data}, {}, {"min_by(c0, c1, 3)", "max_by(c0, c1, 4)"}, {expected});
 }
 
+TEST_F(MinMaxByNTest, sortedGlobal) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7}),
+      makeFlatVector<int32_t>({10, 20, 30, 40, 10, 20, 30}),
+      makeFlatVector<int32_t>({11, 22, 33, 44, 55, 66, 77}),
+  });
+
+  createDuckDbTable({data});
+
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .singleAggregation(
+                      {},
+                      {
+                          "min_by(c0, c1 ORDER BY c2)",
+                          "min_by(c0, c1 ORDER BY c2 DESC)",
+                      })
+                  .planNode();
+
+  assertQuery(
+      plan,
+      "SELECT min_by(c0, c1 ORDER BY c2), min_by(c0, c1 ORDER BY c2 DESC) FROM tmp");
+}
+
 TEST_F(MinMaxByNTest, groupBy) {
   // No nulls in values.
   auto data = makeRowVector({
@@ -1333,6 +1357,31 @@ TEST_F(MinMaxByNTest, groupByWithNullCompare) {
 
   testAggregations(
       {data}, {"c0"}, {"min_by(c1, c2, 3)", "max_by(c1, c2, 4)"}, {expected});
+}
+
+TEST_F(MinMaxByNTest, sortedGroupBy) {
+  auto data = makeRowVector({
+      makeFlatVector<int16_t>({1, 1, 2, 2, 1, 2, 1}),
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7}),
+      makeFlatVector<int32_t>({10, 20, 30, 40, 10, 20, 30}),
+      makeFlatVector<int32_t>({11, 22, 33, 44, 55, 66, 77}),
+  });
+
+  createDuckDbTable({data});
+
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .singleAggregation(
+                      {"c0"},
+                      {
+                          "min_by(c1, c2 ORDER BY c3)",
+                          "min_by(c1, c2 ORDER BY c3 DESC)",
+                      })
+                  .planNode();
+
+  assertQuery(
+      plan,
+      "SELECT c0, min_by(c1, c2 ORDER BY c3), min_by(c1, c2 ORDER BY c3 DESC) FROM tmp GROUP BY 1");
 }
 
 TEST_F(MinMaxByNTest, variableN) {

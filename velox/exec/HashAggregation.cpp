@@ -17,6 +17,7 @@
 #include <optional>
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/OperatorUtils.h"
+#include "velox/exec/SortedAggregations.h"
 #include "velox/exec/Task.h"
 
 namespace facebook::velox::exec {
@@ -71,10 +72,6 @@ HashAggregation::HashAggregation(
   for (auto i = 0; i < numAggregates; i++) {
     const auto& aggregate = aggregationNode->aggregates()[i];
 
-    VELOX_USER_CHECK(
-        aggregate.sortingKeys.empty(),
-        "Aggregations over sorted input is not supported yet");
-
     AggregateInfo info;
 
     auto& channels = info.inputs;
@@ -121,6 +118,12 @@ HashAggregation::HashAggregation(
     info.sortingKeys.reserve(numSortingKeys);
     for (const auto& key : aggregate.sortingKeys) {
       info.sortingKeys.push_back(exprToChannel(key.get(), inputType));
+    }
+
+    if (numSortingKeys > 0) {
+      VELOX_USER_CHECK_NULL(
+          aggregate.mask,
+          "Aggregations over sorted inputs with masks are not supported yet");
     }
 
     aggregateInfos.emplace_back(std::move(info));

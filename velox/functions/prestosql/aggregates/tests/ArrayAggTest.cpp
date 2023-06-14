@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/lib/aggregates/tests/AggregationTestBase.h"
@@ -61,6 +62,69 @@ TEST_F(ArrayAggTest, groupBy) {
       "SELECT c0, array_agg(a) FROM tmp GROUP BY c0");
 }
 
+TEST_F(ArrayAggTest, sortedGroupBy) {
+  auto data = makeRowVector({
+      makeFlatVector<int16_t>({1, 1, 2, 2, 1, 2, 1}),
+      makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6, 7}),
+      makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60, 70}),
+      makeFlatVector<int32_t>({11, 44, 22, 55, 33, 66, 77}),
+  });
+
+  createDuckDbTable({data});
+
+  // Sorted aggregations over same inputs.
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .singleAggregation(
+                      {"c0"},
+                      {
+                          "sum(c1)",
+                          "array_agg(c1 ORDER BY c2 DESC)",
+                          "avg(c1)",
+                          "array_agg(c1 ORDER BY c3)",
+                      })
+                  .planNode();
+
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .assertResults(
+          "SELECT c0, sum(c1), array_agg(c1 ORDER BY c2 DESC), avg(c1), array_agg(c1 ORDER BY c3) "
+          " FROM tmp GROUP BY 1");
+
+  // Sorted aggregations over different inputs.
+  plan = PlanBuilder()
+             .values({data})
+             .singleAggregation(
+                 {"c0"},
+                 {
+                     "array_agg(c1 ORDER BY c2 DESC)",
+                     "avg(c1)",
+                     "array_agg(c2 ORDER BY c3)",
+                     "sum(c1)",
+                 })
+             .planNode();
+
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .assertResults(
+          "SELECT c0, array_agg(c1 ORDER BY c2 DESC), avg(c1), array_agg(c2 ORDER BY c3), sum(c1) "
+          " FROM tmp GROUP BY 1");
+
+  // Sorted aggregation with multiple sorting keys.
+  plan = PlanBuilder()
+             .values({data})
+             .singleAggregation(
+                 {"c0"},
+                 {
+                     "array_agg(c1 ORDER BY c2 DESC, c3)",
+                     "sum(c1)",
+                 })
+             .planNode();
+
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .assertResults(
+          "SELECT c0, array_agg(c1 ORDER BY c2 DESC, c3), sum(c1) "
+          " FROM tmp GROUP BY 1");
+}
+
 TEST_F(ArrayAggTest, global) {
   vector_size_t size = 10;
 
@@ -76,6 +140,64 @@ TEST_F(ArrayAggTest, globalNoData) {
   auto data = makeRowVector(ROW({"c0"}, {INTEGER()}), 0);
 
   testAggregations({data}, {}, {"array_agg(c0)"}, "SELECT null");
+}
+
+TEST_F(ArrayAggTest, sortedGlobal) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6, 7}),
+      makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60, 70}),
+      makeFlatVector<int32_t>({11, 33, 22, 44, 66, 55, 77}),
+  });
+
+  createDuckDbTable({data});
+
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .singleAggregation(
+                      {},
+                      {
+                          "sum(c0)",
+                          "array_agg(c0 ORDER BY c1 DESC)",
+                          "avg(c0)",
+                          "array_agg(c0 ORDER BY c2)",
+                      })
+                  .planNode();
+
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .assertResults(
+          "SELECT sum(c0), array_agg(c0 ORDER BY c1 DESC), avg(c0), array_agg(c0 ORDER BY c2) FROM tmp");
+
+  // Sorted aggregations over different inputs.
+  plan = PlanBuilder()
+             .values({data})
+             .singleAggregation(
+                 {},
+                 {
+                     "sum(c0)",
+                     "array_agg(c0 ORDER BY c1 DESC)",
+                     "avg(c0)",
+                     "array_agg(c1 ORDER BY c2)",
+                 })
+             .planNode();
+
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .assertResults(
+          "SELECT sum(c0), array_agg(c0 ORDER BY c1 DESC), avg(c0), array_agg(c1 ORDER BY c2) FROM tmp");
+
+  // Sorted aggregation with multiple sorting keys.
+  plan = PlanBuilder()
+             .values({data})
+             .singleAggregation(
+                 {},
+                 {
+                     "sum(c0)",
+                     "array_agg(c0 ORDER BY c1 DESC, c2)",
+                 })
+             .planNode();
+
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .assertResults(
+          "SELECT sum(c0), array_agg(c0 ORDER BY c1 DESC, c2) FROM tmp");
 }
 
 TEST_F(ArrayAggTest, mask) {

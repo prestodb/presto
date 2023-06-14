@@ -15,44 +15,15 @@
  */
 #pragma once
 
+#include "velox/exec/AggregateInfo.h"
 #include "velox/exec/AggregationMasks.h"
 #include "velox/exec/HashTable.h"
+#include "velox/exec/SortedAggregations.h"
 #include "velox/exec/Spiller.h"
 #include "velox/exec/TreeOfLosers.h"
 #include "velox/exec/VectorHasher.h"
 
 namespace facebook::velox::exec {
-
-class Aggregate;
-
-/// Information needed to evaluate an aggregate function.
-struct AggregateInfo {
-  /// Instance of the Aggregate class.
-  std::unique_ptr<Aggregate> function;
-
-  /// Indices of the input columns in the input RowVector.
-  std::vector<column_index_t> inputs;
-
-  /// Optional constant inputs. The size of this vector matches the size of
-  /// 'inputs'. Non-constant inputs have null entries.
-  std::vector<VectorPtr> constantInputs;
-
-  /// Optional index of an input boolean column that should be used as a mask.
-  std::optional<column_index_t> mask;
-
-  /// Optional list of input columns that should be used to sort input rows
-  /// before aggregating. Thes column may or may not overlap with 'inputs'.
-  std::vector<column_index_t> sortingKeys;
-
-  /// Optional list of sorting orders that goes with 'sortingKeys'.
-  std::vector<core::SortOrder> sortingOrders;
-
-  /// Index of the result column in the output RowVector.
-  column_index_t output;
-
-  /// Type of intermediate results. Used for spilling.
-  TypePtr intermediateType;
-};
 
 class GroupingSet {
  public:
@@ -219,6 +190,10 @@ class GroupingSet {
   // groups.
   void extractSpillResult(const RowVectorPtr& result);
 
+  // Return a list of accumulators for 'aggregates_' plus one more accumulator
+  // for 'sortedAggregations_'.
+  std::vector<Accumulator> accumulators();
+
   std::vector<column_index_t> keyChannels_;
 
   /// A subset of grouping keys on which the input is clustered.
@@ -231,6 +206,7 @@ class GroupingSet {
 
   std::vector<AggregateInfo> aggregates_;
   AggregationMasks masks_;
+  std::unique_ptr<SortedAggregations> sortedAggregations_;
 
   const bool ignoreNullKeys_;
 
