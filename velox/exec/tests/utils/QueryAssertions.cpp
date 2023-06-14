@@ -371,7 +371,7 @@ std::vector<MaterializedRow> materialize(
         row.push_back(rowVariantAt(dataChunk->GetValue(j, i), type));
       } else if (type->isDecimal()) {
         row.push_back(duckdb::decimalVariant(dataChunk->GetValue(j, i)));
-      } else if (isIntervalDayTimeType(type)) {
+      } else if (type->isIntervalDayTime()) {
         auto value = variant(::duckdb::Interval::GetMicro(
             dataChunk->GetValue(j, i).GetValue<::duckdb::interval_t>()));
         row.push_back(value);
@@ -823,7 +823,7 @@ void DuckDbQueryRunner::createTable(
           appender.Append(duckValueAt<TypeKind::BIGINT>(columnVector, row));
         } else if (rowType.childAt(column)->isLongDecimal()) {
           appender.Append(duckValueAt<TypeKind::HUGEINT>(columnVector, row));
-        } else if (isIntervalDayTimeType(type)) {
+        } else if (type->isIntervalDayTime()) {
           auto value = ::duckdb::Value::INTERVAL(
               0, 0, columnVector->as<SimpleVector<int64_t>>()->valueAt(row));
           appender.Append(value);

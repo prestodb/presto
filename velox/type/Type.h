@@ -552,6 +552,8 @@ class Type : public Tree<const std::shared_ptr<const Type>>,
   bool isLongDecimal() const;
   bool isDecimal() const;
 
+  bool isIntervalDayTime() const;
+
   bool containsUnknown() const;
 
  protected:
@@ -1109,14 +1111,14 @@ class IntervalDayTimeType : public BigintType {
   }
 };
 
-FOLLY_ALWAYS_INLINE bool isIntervalDayTimeType(const TypePtr& type) {
-  // Pointer comparison works since this type is a singleton.
-  return IntervalDayTimeType::get() == type;
-}
-
 FOLLY_ALWAYS_INLINE std::shared_ptr<const IntervalDayTimeType>
 INTERVAL_DAY_TIME() {
   return IntervalDayTimeType::get();
+}
+
+FOLLY_ALWAYS_INLINE bool Type::isIntervalDayTime() const {
+  // Pointer comparison works since this type is a singleton.
+  return (this == INTERVAL_DAY_TIME().get());
 }
 
 /// Used as T for SimpleVector subclasses that wrap another vector when
