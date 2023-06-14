@@ -477,6 +477,51 @@ struct ArrayNormalizeFunction {
   }
 };
 
+/// This class implements the array concat function.
+///
+/// DEFINITION:
+/// concat(array1, array2, ..., arrayN) → array
+/// Concatenates the arrays array1, array2, ..., arrayN. This function
+/// provides the same functionality as the SQL-standard concatenation
+/// operator (||).
+///
+///  Note:
+///   - For compatibility with Presto a maximum arity of 254 is enforced.
+template <typename T>
+struct ArrayConcatFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T)
+
+  static constexpr int32_t kMinArity = 2;
+  static constexpr int32_t kMaxArity = 254;
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Array<Generic<T1>>>& out,
+      const arg_type<Variadic<Array<Generic<T1>>>>& arrays) {
+    VELOX_USER_CHECK_GE(
+        arrays.size(),
+        kMinArity,
+        "There must be {} or more arguments to concat",
+        kMinArity);
+    VELOX_USER_CHECK_LE(
+        arrays.size(), kMaxArity, "Too many arguments for concat function");
+    int64_t elementCount = 0;
+    for (const auto& array : arrays) {
+      elementCount += array.value().size();
+    }
+    out.reserve(elementCount);
+    for (const auto& array : arrays) {
+      for (auto element : array.value()) {
+        if (element.has_value()) {
+          auto& newItem = out.add_item();
+          newItem.copy_from(element.value());
+        } else {
+          out.add_null();
+        }
+      }
+    }
+  }
+};
+
 inline void checkIndexArrayTrim(int64_t size, int64_t arraySize) {
   if (size < 0) {
     VELOX_USER_FAIL("size must not be negative: {}", size);

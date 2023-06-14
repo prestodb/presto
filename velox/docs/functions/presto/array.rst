@@ -155,6 +155,10 @@ Array Functions
         SELECT combinations(ARRAY[1,2,3,4,5],3); --[[1,2,3], [1,2,4], [1,3,4], [2,3,4]]
         SELECT combinations(ARRAY[1,2,2],2); --[[1,2],[1,2],[2,2]]
 
+.. function:: concat(array1, array2, ..., arrayN) -> array
+
+    Concatenates the arrays ``array1``, ``array2``, ..., ``arrayN``. This function provides the same functionality as the SQL-standard concatenation operator (``||``).
+
 .. function:: contains(x, element) -> boolean
 
     Returns true if the array ``x`` contains the ``element``.

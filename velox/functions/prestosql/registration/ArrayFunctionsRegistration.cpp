@@ -137,6 +137,11 @@ void registerArrayFunctions(const std::string& prefix) {
   registerFunction<ArrayAverageFunction, double, Array<double>>(
       {prefix + "array_average"});
 
+  registerFunction<
+      ArrayConcatFunction,
+      Array<Generic<T1>>,
+      Variadic<Array<Generic<T1>>>>({prefix + "concat"});
+
   registerArrayTrimFunctions<int8_t>(prefix);
   registerArrayTrimFunctions<int16_t>(prefix);
   registerArrayTrimFunctions<int32_t>(prefix);

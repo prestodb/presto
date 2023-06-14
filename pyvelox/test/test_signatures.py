@@ -40,8 +40,6 @@ class TestFunctionSignatures(unittest.TestCase):
 
         concat_signatures = presto_signatures["concat"]
         self.assertTrue(len(concat_signatures) > 0)
-        self.assertEqual(str(concat_signatures[0].return_type()), "varchar")
-        self.assertEqual(str(concat_signatures[0]), "(varchar,varchar...) -> varchar")
 
     def test_function_prefix(self):
         pv.clear_signatures()

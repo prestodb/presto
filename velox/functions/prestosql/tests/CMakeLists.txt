@@ -21,6 +21,7 @@ add_executable(
   ArrayAnyMatchTest.cpp
   ArrayAverageTest.cpp
   ArrayCombinationsTest.cpp
+  ArrayConcatTest.cpp
   ArrayConstructorTest.cpp
   ArrayContainsTest.cpp
   ArrayDistinctTest.cpp
