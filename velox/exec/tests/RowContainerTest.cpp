@@ -464,13 +464,13 @@ TEST_F(RowContainerTest, types) {
       ROW(
           {{"bool_val", BOOLEAN()},
            {"tiny_val", TINYINT()},
-           {"long_decimal_val", DECIMAL(20, 3)},
            {"small_val", SMALLINT()},
            {"int_val", INTEGER()},
            {"long_val", BIGINT()},
            {"float_val", REAL()},
-           {"short_decimal_val", DECIMAL(10, 2)},
            {"double_val", DOUBLE()},
+           {"long_decimal_val", DECIMAL(20, 3)},
+           {"short_decimal_val", DECIMAL(10, 2)},
            {"string_val", VARCHAR()},
            {"array_val", ARRAY(VARCHAR())},
            {"struct_val",
@@ -482,13 +482,13 @@ TEST_F(RowContainerTest, types) {
 
            {"bool_val2", BOOLEAN()},
            {"tiny_val2", TINYINT()},
-           {"long_decimal_val2", DECIMAL(20, 0)},
-           {"short_decimal_val2", DECIMAL(3, 3)},
            {"small_val2", SMALLINT()},
            {"int_val2", INTEGER()},
            {"long_val2", BIGINT()},
            {"float_val2", REAL()},
            {"double_val2", DOUBLE()},
+           {"long_decimal_val2", DECIMAL(20, 3)},
+           {"short_decimal_val2", DECIMAL(10, 2)},
            {"string_val2", VARCHAR()},
            {"array_val2", ARRAY(VARCHAR())},
            {"struct_val2",
@@ -574,6 +574,13 @@ TEST_F(RowContainerTest, types) {
         folly::Range<char**>(rows.data(), rows.size()),
         false,
         rowHashes.data());
+
+    // The RowContainer has corresponding key and dependent columns
+    // of each type.
+    // This pairing of columns can be used to test the compare API
+    // of 2 rows with 2 different columns.
+    column_index_t dependantColumn =
+        column < keys.size() ? column + keys.size() : column - keys.size();
     for (auto i = 0; i < kNumRows; ++i) {
       if (column) {
         EXPECT_EQ(hashes[i], rowHashes[i]);
@@ -590,13 +597,23 @@ TEST_F(RowContainerTest, types) {
             data->equals<true>(rows[i], data->columnAt(column), decoded, i));
       }
       if (i > 0) {
-        // We compare the values on consecutive rows
+        // We compare the values on consecutive rows.
         auto result = sign(source->compare(source.get(), i, i - 1));
         EXPECT_EQ(
             result,
             sign(data->compare(
                 rows[i], data->columnAt(column), decoded, i - 1)));
         EXPECT_EQ(result, sign(data->compare(rows[i], rows[i - 1], column)));
+        EXPECT_EQ(
+            result, sign(data->compare(rows[i], rows[i - 1], column, column)));
+
+        // This variation of the API compares the values on consecutive rows
+        // between the same column type (used as a key and as a dependent) in
+        // the row structure.
+        EXPECT_EQ(
+            sign(data->compare(rows[i], rows[i - 1], column, dependantColumn)),
+            -sign(
+                data->compare(rows[i - 1], rows[i], dependantColumn, column)));
       }
     }
   }

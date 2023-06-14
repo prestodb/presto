@@ -521,6 +521,16 @@ class RowContainer {
       int32_t columnIndex,
       CompareFlags flags = CompareFlags());
 
+  // Compares the value between 'left' at 'leftIndex' and 'right' and
+  // 'rightIndex'. Returns 0 for equal, < 0 for left < right, > 0 otherwise.
+  // Both columns should have the same type.
+  int32_t compare(
+      const char* FOLLY_NONNULL left,
+      const char* FOLLY_NONNULL right,
+      int leftColumnIndex,
+      int rightColumnIndex,
+      CompareFlags flags = CompareFlags());
+
   // Allows get/set of the normalized key. If normalized keys are
   // used, they are stored in the word immediately below the hash
   // table row.
@@ -934,34 +944,49 @@ class RowContainer {
       const char* FOLLY_NONNULL left,
       const char* FOLLY_NONNULL right,
       const Type* FOLLY_NONNULL type,
-      RowColumn column,
+      RowColumn leftColumn,
+      RowColumn rightColumn,
       CompareFlags flags) {
     using T = typename KindToFlatVector<Kind>::HashRowType;
-    auto nullByte = column.nullByte();
-    auto nullMask = column.nullMask();
-    bool leftIsNull = isNullAt(left, nullByte, nullMask);
-    bool rightIsNull = isNullAt(right, nullByte, nullMask);
+    bool leftIsNull =
+        isNullAt(left, leftColumn.nullByte(), leftColumn.nullMask());
+    bool rightIsNull =
+        isNullAt(right, rightColumn.nullByte(), rightColumn.nullMask());
     if (leftIsNull) {
       return rightIsNull ? 0 : flags.nullsFirst ? -1 : 1;
     }
     if (rightIsNull) {
       return flags.nullsFirst ? 1 : -1;
     }
-    auto offset = column.offset();
+
+    auto leftOffset = leftColumn.offset();
+    auto rightOffset = rightColumn.offset();
     if (Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
         Kind == TypeKind::MAP) {
-      return compareComplexType(left, right, type, offset, flags);
+      return compareComplexType(
+          left, right, type, leftOffset, rightOffset, flags);
     }
     if (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
-      auto leftValue = valueAt<StringView>(left, offset);
-      auto rightValue = valueAt<StringView>(right, offset);
+      auto leftValue = valueAt<StringView>(left, leftOffset);
+      auto rightValue = valueAt<StringView>(right, rightOffset);
       auto result = compareStringAsc(leftValue, rightValue);
       return flags.ascending ? result : result * -1;
     }
-    auto leftValue = valueAt<T>(left, offset);
-    auto rightValue = valueAt<T>(right, offset);
+
+    auto leftValue = valueAt<T>(left, leftOffset);
+    auto rightValue = valueAt<T>(right, rightOffset);
     auto result = comparePrimitiveAsc(leftValue, rightValue);
     return flags.ascending ? result : result * -1;
+  }
+
+  template <TypeKind Kind>
+  inline int compare(
+      const char* FOLLY_NONNULL left,
+      const char* FOLLY_NONNULL right,
+      const Type* FOLLY_NONNULL type,
+      RowColumn column,
+      CompareFlags flags) {
+    return compare<Kind>(left, right, type, column, column, flags);
   }
 
   template <typename T>
@@ -1045,6 +1070,14 @@ class RowContainer {
       const Type* FOLLY_NONNULL type,
       int32_t offset,
       CompareFlags flags);
+
+  int32_t compareComplexType(
+      const char* FOLLY_NONNULL left,
+      const char* FOLLY_NONNULL right,
+      const Type* FOLLY_NONNULL type,
+      int32_t leftOffset,
+      int32_t rightOffset,
+      CompareFlags flags = CompareFlags());
 
   // Free any variable-width fields associated with the 'rows'.
   void freeVariableWidthFields(folly::Range<char**> rows);
@@ -1291,6 +1324,26 @@ inline int RowContainer::compare(
   auto type = types_[columnIndex].get();
   return VELOX_DYNAMIC_TYPE_DISPATCH(
       compare, type->kind(), left, right, type, columnAt(columnIndex), flags);
+}
+
+inline int RowContainer::compare(
+    const char* FOLLY_NONNULL left,
+    const char* FOLLY_NONNULL right,
+    int leftColumnIndex,
+    int rightColumnIndex,
+    CompareFlags flags) {
+  auto leftType = types_[leftColumnIndex].get();
+  auto rightType = types_[rightColumnIndex].get();
+  VELOX_CHECK(leftType->equivalent(*rightType));
+  return VELOX_DYNAMIC_TYPE_DISPATCH(
+      compare,
+      leftType->kind(),
+      left,
+      right,
+      leftType,
+      columnAt(leftColumnIndex),
+      columnAt(rightColumnIndex),
+      flags);
 }
 
 /// A comparator of rows stored in the RowContainer compatible with
