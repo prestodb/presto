@@ -16,9 +16,12 @@
 #include "velox/common/caching/SsdCache.h"
 #include <folly/Executor.h>
 #include <folly/portability/SysUio.h>
-#include <numeric>
 #include "velox/common/caching/FileIds.h"
+#include "velox/common/file/FileSystems.h"
 #include "velox/common/time/Timer.h"
+
+#include <filesystem>
+#include <numeric>
 
 namespace facebook::velox::cache {
 
@@ -33,6 +36,15 @@ SsdCache::SsdCache(
       numShards_(numShards),
       groupStats_(std::make_unique<FileGroupStats>()),
       executor_(executor) {
+  // Make sure the given path of Ssd files has the prefix for local file system.
+  // Local file system would be derived based on the prefix.
+  VELOX_CHECK(
+      filePrefix_.find("/") == 0,
+      "Ssd path '{}' does not start with '/' that points to local file system.",
+      filePrefix_);
+  filesystems::getFileSystem(filePrefix_, nullptr)
+      ->mkdir(std::filesystem::path(filePrefix).parent_path().string());
+
   files_.reserve(numShards_);
   // Cache size must be a multiple of this so that each shard has the same max
   // size.

@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/caching/SsdCache.h"
+#include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
@@ -66,13 +68,19 @@ class AsyncDataCacheTest : public testing::Test {
  protected:
   static constexpr int32_t kNumFiles = 100;
 
+  void SetUp() override {
+    filesystems::registerLocalFileSystem();
+  }
+
   void TearDown() override {
     if (executor_) {
       executor_->join();
     }
-    auto ssdCache = cache_->ssdCache();
-    if (ssdCache) {
-      ssdCache->deleteFiles();
+    if (cache_) {
+      auto ssdCache = cache_->ssdCache();
+      if (ssdCache) {
+        ssdCache->deleteFiles();
+      }
     }
   }
 
@@ -686,4 +694,14 @@ TEST_F(AsyncDataCacheTest, ssd) {
   // threading. Hitting at least 1/2 of the capacity when 3/4 are available
   // since one of the shards was deliberately corrupted, is a safe bet.
   ASSERT_LT(kSsdBytes / 2, stats2.bytesRead);
+}
+
+TEST_F(AsyncDataCacheTest, invalidSsdPath) {
+  auto testPath = "hdfs:/test/prefix_";
+  uint64_t ssdBytes = 256UL << 20;
+  VELOX_ASSERT_THROW(
+      SsdCache(testPath, ssdBytes, 4, executor(), ssdBytes / 20),
+      fmt::format(
+          "Ssd path '{}' does not start with '/' that points to local file system.",
+          testPath));
 }
