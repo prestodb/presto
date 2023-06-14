@@ -101,6 +101,23 @@ public final class ValidateDependenciesChecker
         plan.accept(new Visitor(types), ImmutableSet.of());
     }
 
+    public static void checkLeftOutputVariablesBeforeRight(List<VariableReferenceExpression> leftVariables, List<VariableReferenceExpression> outputVariables)
+    {
+        int leftMaxPosition = -1;
+        Optional<Integer> rightMinPosition = Optional.empty();
+        Set<VariableReferenceExpression> leftVariablesSet = new HashSet<>(leftVariables);
+        for (int i = 0; i < outputVariables.size(); i++) {
+            VariableReferenceExpression variable = outputVariables.get(i);
+            if (leftVariablesSet.contains(variable)) {
+                leftMaxPosition = i;
+            }
+            else if (!rightMinPosition.isPresent()) {
+                rightMinPosition = Optional.of(i);
+            }
+        }
+        checkState(!rightMinPosition.isPresent() || rightMinPosition.get() > leftMaxPosition, "Not all left output variables are before right output variables");
+    }
+
     private static class Visitor
             extends InternalPlanVisitor<Void, Set<VariableReferenceExpression>>
     {
@@ -458,23 +475,6 @@ public final class ValidateDependenciesChecker
             }
 
             return null;
-        }
-
-        private void checkLeftOutputVariablesBeforeRight(List<VariableReferenceExpression> leftVariables, List<VariableReferenceExpression> outputVariables)
-        {
-            int leftMaxPosition = -1;
-            Optional<Integer> rightMinPosition = Optional.empty();
-            Set<VariableReferenceExpression> leftVariablesSet = new HashSet<>(leftVariables);
-            for (int i = 0; i < outputVariables.size(); i++) {
-                VariableReferenceExpression variable = outputVariables.get(i);
-                if (leftVariablesSet.contains(variable)) {
-                    leftMaxPosition = i;
-                }
-                else if (!rightMinPosition.isPresent()) {
-                    rightMinPosition = Optional.of(i);
-                }
-            }
-            checkState(!rightMinPosition.isPresent() || rightMinPosition.get() > leftMaxPosition, "Not all left output variables are before right output variables");
         }
 
         @Override
