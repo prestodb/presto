@@ -83,7 +83,7 @@ TEST_F(ValuesTest, valuesWithParallelism) {
 TEST_F(ValuesTest, valuesWithRepeat) {
   // Single vectors in with repeat, many vectors out.
   AssertQueryBuilder(PlanBuilder().values({input_}, false, 2).planNode())
-      .assertResults({input_, input_});
+      .assertResults(std::vector<RowVectorPtr>{input_, input_});
 
   AssertQueryBuilder(PlanBuilder().values({input_}, false, 7).planNode())
       .assertResults({input_, input_, input_, input_, input_, input_, input_});
