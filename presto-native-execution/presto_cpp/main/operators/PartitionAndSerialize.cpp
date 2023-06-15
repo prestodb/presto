@@ -13,7 +13,6 @@
  */
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include <folly/lang/Bits.h>
-#include "velox/exec/OperatorUtils.h"
 #include "velox/row/UnsafeRowFast.h"
 
 using namespace facebook::velox::exec;
@@ -24,6 +23,30 @@ namespace {
 velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
   return obj["id"].asString();
 }
+
+/// Various state of execution of a PartitionAndSerializeOperator instance.
+enum class ProcessingState {
+  //  Unknown state and can only be valid during
+  // initialization chain or as an default value. If we get to this state while
+  // execution, we likely throw an
+  // error.
+  kUnknown,
+  // Process only the input elements without
+  // consideration to extraneous states like replicateNullAndAny. This state is
+  // visited once for each input vector.
+  kProcessingInputElements,
+  // Replicate null values until we have filled up the
+  // outputVector_. This state is visited multiple times until we have
+  // replicated all null values.
+  kProcessingNulls,
+  // Replicate 'any' value. This state is visited once in this
+  // operator's lifecycle (at the end), when all the input batches have been
+  // processed.
+  kProcessingAny,
+  //  We have processed the input vector, and can start consuming the
+  // next batch of input.
+  kDone,
+};
 
 /// The output of this operator has 2 columns:
 /// (1) partition number (INTEGER);
@@ -41,7 +64,8 @@ class PartitionAndSerializeOperator : public Operator {
             planNode->id(),
             "PartitionAndSerialize"),
         numPartitions_(planNode->numPartitions()),
-        replicateNullsAndAny_(planNode->isReplicateNullsAndAny()),
+        replicateNullsAndAny_(
+            numPartitions_ > 1 ? planNode->isReplicateNullsAndAny() : false),
         partitionFunction_(
             numPartitions_ == 1 ? nullptr
                                 : planNode->partitionFunctionFactory()->create(
@@ -71,45 +95,82 @@ class PartitionAndSerializeOperator : public Operator {
 
   void addInput(RowVectorPtr input) override {
     input_ = std::move(input);
-  }
-
-  RowVectorPtr getOutput() override {
-    if (!input_) {
-      return nullptr;
+    numInput_ = input_->size();
+    if (replicateNullsAndAny_) {
+      collectNullRows();
     }
-    collectNullRows();
+    // We will be processing the input elements before any other.
+    currentState_ = ProcessingState::kProcessingInputElements;
+    nextPartitionId_ = 0;
 
-    const vector_size_t maxOutputSize = calculateMaxOutputSize();
+    velox::row::UnsafeRowFast unsafeRow(reorderInputsIfNeeded());
+    calculateSerializedRowSize(unsafeRow);
 
-    // TODO Reuse output vector.
-    auto output =
-        BaseVector::create<RowVector>(outputType_, maxOutputSize, pool());
-    auto partitionVector = output->childAt(0)->asFlatVector<int32_t>();
-    partitionVector->resize(maxOutputSize);
-    auto dataVector = output->childAt(1)->asFlatVector<StringView>();
-    dataVector->resize(maxOutputSize);
+    outputVector_ = createOutputRowVector(numInput_);
+    auto partitionVector = outputVector_->childAt(0)->asFlatVector<int32_t>();
+    auto dataVector = outputVector_->childAt(1)->asFlatVector<StringView>();
 
     computePartitions(*partitionVector);
-    serializeRows(*dataVector);
-
-    if (replicateNullsAndAny_ && numPartitions_ > 1) {
-      auto numOutputRows =
-          replicateRowsWithNullPartitionKeys(*dataVector, *partitionVector);
-      // If numOutputRows equal to the input row count, then
-      // 'replicateRowsWithNullPartitionKeys' did not insert any row into the
-      // output vector, thus we need to call into
-      // 'replicateAnyToEmptyPartitions'
-      if (numOutputRows == input_->size()) {
-        numOutputRows = replicateAnyToEmptyPartitions(
-            *partitionVector, *dataVector, numOutputRows);
+    serializeRows(unsafeRow, *dataVector);
+    numOutputRows_ = numInput_;
+    input_ = nullptr;
+    if (replicateNullsAndAny_) {
+      if (numInputNulls_ > 0) {
+        // Since there are null values, set the desired output vector size for
+        // when processing null values in kProcessingNulls stage.
+        decideOutputSize();
+      } else {
+        // Capture the first element of the current input vector, this is used
+        // to replicate to all partitions in kProcessingAny stage.
+        replicateAnyOriginalData_ = dataVector->valueAt(0);
+        replicateAnyOriginalPartition_ = partitionVector->valueAt(0);
       }
-      partitionVector->resize(numOutputRows);
-      dataVector->resize(numOutputRows);
-      output->resize(numOutputRows);
     }
+  }
 
-    input_.reset();
-    return output;
+  // PartitionAndSerialize is a state machine, the state is maintained in
+  // 'currentState_'. 'getOutput' will generate the outputVector_ based on
+  // 'currentState_' and set member variables accordingly.
+  RowVectorPtr getOutput() override {
+    if (input_ == nullptr && currentState_ == ProcessingState::kUnknown) {
+      // Initialization chain, not ready to process any input.
+      return nullptr;
+    }
+    switch (currentState_) {
+      case ProcessingState::kProcessingInputElements:
+        // We don't need to do anything here since all the work is already done
+        // in 'addInput'
+        break;
+      case ProcessingState::kProcessingNulls: {
+        // Begin writing from start index of outputVector_.
+        numOutputRows_ = 0;
+        outputVector_ = createOutputRowVector(desiredOutputSize_);
+        // Keep processing until we have filled up the output vector OR we are
+        // done with all partitions.
+        while (numOutputRows_ + numInputNulls_ <= desiredOutputSize_ &&
+               nextPartitionId_ < numPartitions_) {
+          numOutputRows_ = replicateRowsWithNullPartitionKeys(
+              nextPartitionId_, numOutputRows_);
+          ++nextPartitionId_;
+        }
+        break;
+      }
+      case ProcessingState::kProcessingAny: {
+        outputVector_ = createOutputRowVector(numPartitions_);
+        numOutputRows_ = replicateAnyToEmptyPartitions();
+        break;
+      }
+      case ProcessingState::kDone:
+        return nullptr;
+      case ProcessingState::kUnknown:
+        VELOX_UNREACHABLE("Undefined state reached, not sure what to do.")
+    }
+    currentState_ = getNextState();
+    if (numOutputRows_ != 0) {
+      resizeOutputVector(outputVector_, numOutputRows_);
+      return outputVector_;
+    }
+    return nullptr;
   }
 
   BlockingReason isBlocked(ContinueFuture* future) override {
@@ -120,22 +181,111 @@ class PartitionAndSerializeOperator : public Operator {
     return noMoreInput_;
   }
 
- private:
-  // The function replicates all the input rows with null partition keys to all
-  // the partitions and returns the total number of output rows after the
-  // replication.
-  vector_size_t replicateRowsWithNullPartitionKeys(
-      FlatVector<StringView>& dataVector,
-      FlatVector<int32_t>& partitionVector) {
-    auto numInput = input_->size();
-    auto nextRow = numInput;
+  // The size of the output vector depends on the state we are processing. This
+  // is only used when we are processing 'kProcessingNulls' state since the
+  // output vector can be huge based on 'numInputNulls_' and 'numPartitions_'
+  void decideOutputSize() {
+    // cumulativeRowSizes_ does not include the size of the last element.
+    auto averageRowSize = (cumulativeRowSizes_.back() + rowSizes_.back()) /
+        cumulativeRowSizes_.size();
+    auto desiredOutputBatchRows = Operator::outputBatchRows(averageRowSize);
+    if (desiredOutputBatchRows < numInput_) {
+      desiredOutputBatchRows = numInput_;
+    }
+    desiredOutputSize_ =
+        (desiredOutputBatchRows / numInputNulls_ + 1) * numInputNulls_;
+  }
 
-    for (auto partition = 0; partition < numPartitions_; ++partition) {
-      for (auto row = 0; row < numInput; ++row) {
+ private:
+  // The 'getNextState' function is responsible for determining the next state
+  // based on the current state and various factors.
+  ProcessingState getNextState() const {
+    switch (currentState_) {
+      case ProcessingState::kUnknown:
+        // In an unknown state, the next state is also unknown.
+        return ProcessingState::kUnknown;
+      case ProcessingState::kProcessingInputElements: {
+        if (!replicateNullsAndAny_)
+          // If replicateNullsAndAny_ is false, the processing is complete, and
+          // the next state is the "done" state.
+          return ProcessingState::kDone;
+        else if (numInputNulls_ > 0)
+          // If there are null elements (numInputNulls_ > 0), the next state is
+          // the "processing nulls" state.
+          return ProcessingState::kProcessingNulls;
+        else if (anyNullValue)
+          // If there are no null elements in the current batch but null
+          // elements existed in the past (anyNullValue == true), the next state
+          // is the "done" state, as no further replication is required (we
+          // don't need to 'replicateAny' as none of the partitions can possibly
+          // be empty).
+          return ProcessingState::kDone;
+        else
+          // If there has been no null values in this batch or in the past. The
+          // next state is the "processing any" state.
+          return ProcessingState::kProcessingAny;
+      }
+      case ProcessingState::kProcessingNulls: {
+        // If the next partition ID is less than the total number of partitions,
+        // the next state remains in the "processing nulls" state.
+        if (nextPartitionId_ < numPartitions_)
+          return ProcessingState::kProcessingNulls;
+        // Otherwise, the next state is the "done" state.
+        return ProcessingState::kDone;
+      }
+      case ProcessingState::kProcessingAny:
+        // The next state is always the "done" state, as processing any elements
+        // does not require further replication.
+        return ProcessingState::kDone;
+      default:
+        VELOX_UNREACHABLE("Invalid state");
+    }
+  }
+
+  // Create output vector and resize all it's children appropriately.
+  RowVectorPtr createOutputRowVector(vector_size_t size) {
+    auto output = BaseVector::create<RowVector>(outputType_, size, pool());
+    for (auto& child : output->children()) {
+      child->resize(size);
+    }
+
+    if (serializedDataBuffer_ != nullptr) {
+      auto dataVector = output->childAt(1)->asFlatVector<StringView>();
+      // Hold the reference to serialized string buffer.
+      dataVector->addStringBuffer(serializedDataBuffer_);
+    }
+    return output;
+  }
+
+  // Resize output vector and all of it's children.
+  void resizeOutputVector(const RowVectorPtr& output, vector_size_t size) {
+    output->resize(size);
+    for (auto& child : output->children()) {
+      child->resize(size);
+    }
+  }
+
+  // Replicate input rows with null partition keys to partitions
+  // [partitionId, endPartitionId). Return the total number of output
+  // rows after the replication.
+  vector_size_t replicateRowsWithNullPartitionKeys(
+      vector_size_t partitionId,
+      vector_size_t nextRow) {
+    auto partitionVector = outputVector_->childAt(0)->asFlatVector<int32_t>();
+    auto dataVector = outputVector_->childAt(1)->asFlatVector<StringView>();
+
+    auto rawBuffer =
+        serializedDataBuffer_->as<char>() + serializedDataVectorOffset_;
+
+    for (auto partition = partitionId; partition < partitionId + 1;
+         ++partition) {
+      for (auto row = 0; row < numInput_; ++row) {
         // Replicate a row with null partition key to all the other partitions.
         if (nullRows_.isValid(row) && partitions_[row] != partition) {
-          dataVector.setNoCopy(nextRow, dataVector.valueAt(row));
-          partitionVector.set(nextRow, partition);
+          partitionVector->set(nextRow, partition);
+          dataVector->setNoCopy(
+              nextRow,
+              StringView(rawBuffer + cumulativeRowSizes_[row], rowSizes_[row]));
           ++nextRow;
         }
       }
@@ -144,83 +294,51 @@ class PartitionAndSerializeOperator : public Operator {
   }
 
   // Replicates the first value to all the empty partitions.
-  vector_size_t replicateAnyToEmptyPartitions(
-      FlatVector<int32_t>& partitionsVector,
-      FlatVector<StringView>& dataVector,
-      vector_size_t nextRow) {
-    auto* rawPartitions = partitionsVector.mutableRawValues();
-    const auto numInput = input_->size();
-    std::set<int32_t> nonEmptyPartitions(
-        rawPartitions, rawPartitions + numInput);
-    StringView anyValue = dataVector.valueAt(0);
+  vector_size_t replicateAnyToEmptyPartitions() {
+    auto partitionVector = outputVector_->childAt(0)->asFlatVector<int32_t>();
+    auto dataVector = outputVector_->childAt(1)->asFlatVector<StringView>();
 
-    int32_t outputRow = nextRow;
-    for (auto idx = 0; idx < numPartitions_; ++idx) {
-      // TODO: Optimize so that we don't need the lookup each partitionId
-      if (nonEmptyPartitions.find(idx) == nonEmptyPartitions.end()) {
-        rawPartitions[outputRow] = idx;
-        dataVector.setNoCopy(outputRow, anyValue);
-        ++outputRow;
+    auto* rawPartitions = partitionVector->mutableRawValues();
+
+    vector_size_t index = 0;
+    for (auto i = 0; i < numPartitions_; ++i) {
+      if (i != replicateAnyOriginalPartition_) {
+        rawPartitions[index] = i;
+        dataVector->setNoCopy(index, replicateAnyOriginalData_);
+        ++index;
       }
     }
-    return outputRow;
+    return index;
   }
 
   // A partition key is considered null if any of the partition key column in
   // 'input_' is null. The function records the rows has null partition key in
   // 'nullRows_'.
   void collectNullRows() {
-    // Only calculate null rows when replicateNullsAndAny_ is to be applied
-    if (!replicateNullsAndAny_ || numPartitions_ == 1) {
-      nullRows_.clearAll();
-      return;
-    }
-
-    auto size = input_->size();
-    nullRows_.resize(size);
+    nullRows_.resize(numInput_);
     nullRows_.clearAll();
 
+    // TODO Avoid decoding keys twice: here and when computing partitions.
     decodedVectors_.resize(keyChannels_.size());
 
     for (auto partitionKey : keyChannels_) {
       auto& keyVector = input_->childAt(partitionKey);
       if (keyVector->mayHaveNulls()) {
-        decodedVectors_[partitionKey].decode(*keyVector);
-        if (auto* rawNulls = decodedVectors_[partitionKey].nulls()) {
+        auto& decoded = decodedVectors_[partitionKey];
+        decoded.decode(*keyVector);
+        if (auto* rawNulls = decoded.nulls()) {
           bits::orWithNegatedBits(
-              nullRows_.asMutableRange().bits(), rawNulls, 0, size);
+              nullRows_.asMutableRange().bits(), rawNulls, 0, numInput_);
         }
       }
     }
     nullRows_.updateBounds();
-  }
-
-  // The size of the output vector depends on the value of
-  // 'replicateNullsAndAny_'. If replicateNullsAndAny_ is true, we need to
-  // duplicate all input rows with null partition keys to ALL partition and also
-  // duplicate a non-null value to each empty partition.
-  // If there is no such row, then replicate any chosen input row to each empty
-  // partition. It is ok to over-allocate and then resize to a lower value
-  // instead of paying reallocation(s) cost.
-  vector_size_t calculateMaxOutputSize() const {
-    const vector_size_t numInput = input_->size();
-    vector_size_t maxOutputSize = numInput;
-    if (replicateNullsAndAny_ && numPartitions_ > 1) {
-      const int32_t nullCount = nullRows_.countSelected();
-      // TODO: If numPartitions_ and nullCount is large, we need to yield output
-      // in batch.
-      if (nullCount > 0) {
-        maxOutputSize = numInput + (nullCount * numPartitions_);
-      } else {
-        maxOutputSize = numInput + numPartitions_;
-      }
-    }
-    return maxOutputSize;
+    numInputNulls_ = nullRows_.countSelected();
+    anyNullValue |= numInputNulls_;
   }
 
   void computePartitions(FlatVector<int32_t>& partitionsVector) {
-    auto numInput = input_->size();
-    partitions_.resize(numInput);
+    partitions_.resize(numInput_);
     if (numPartitions_ == 1) {
       std::fill(partitions_.begin(), partitions_.end(), 0);
     } else {
@@ -229,7 +347,7 @@ class PartitionAndSerializeOperator : public Operator {
 
     // TODO Avoid copy.
     auto rawPartitions = partitionsVector.mutableRawValues();
-    ::memcpy(rawPartitions, partitions_.data(), sizeof(int32_t) * numInput);
+    ::memcpy(rawPartitions, partitions_.data(), sizeof(int32_t) * numInput_);
   }
 
   RowVectorPtr reorderInputsIfNeeded() {
@@ -250,41 +368,56 @@ class PartitionAndSerializeOperator : public Operator {
         std::move(columns));
   }
 
-  // The logic of this method is logically identical with
-  // UnsafeRowVectorSerializer::append() and UnsafeRowVectorSerializer::flush().
-  // Rewriting of the serialization logic here to avoid additional copies so
-  // that contents are directly written into passed in vector.
-  void serializeRows(FlatVector<StringView>& dataVector) {
-    const auto numInput = input_->size();
-
+  // Calculate the size of each serialized row
+  void calculateSerializedRowSize(velox::row::UnsafeRowFast& unsafeRow) {
     // Compute row sizes.
-    rowSizes_.resize(numInput);
-
-    velox::row::UnsafeRowFast unsafeRow(reorderInputsIfNeeded());
+    rowSizes_.resize(numInput_);
+    cumulativeRowSizes_.resize(numInput_);
 
     size_t totalSize = 0;
     if (auto fixedRowSize = unsafeRow.fixedRowSize(asRowType(input_->type()))) {
-      totalSize += fixedRowSize.value() * numInput;
+      totalSize += fixedRowSize.value() * numInput_;
       std::fill(rowSizes_.begin(), rowSizes_.end(), fixedRowSize.value());
+      // Calculate the cumulative sum starting from index 0 and finish at n-1
+      // cumulativeRowSizes_ should start with value 0 at index 0.
+      std::partial_sum(
+          rowSizes_.begin(),
+          rowSizes_.end() - 1,
+          cumulativeRowSizes_.begin() + 1);
     } else {
-      for (auto i = 0; i < numInput; ++i) {
+      for (auto i = 0; i < numInput_; ++i) {
         const size_t rowSize = unsafeRow.rowSize(i);
         rowSizes_[i] = rowSize;
+        cumulativeRowSizes_[i] = totalSize;
         totalSize += rowSize;
       }
     }
+  }
+
+  // The logic of this method is logically identical with
+  // UnsafeRowVectorSerializer::append() and
+  // UnsafeRowVectorSerializer::flush(). Rewriting of the serialization logic
+  // here to avoid additional copies so that contents are directly written
+  // into passed in vector.
+  void serializeRows(
+      velox::row::UnsafeRowFast& unsafeRow,
+      FlatVector<StringView>& dataVector) {
+    size_t totalSize = cumulativeRowSizes_[cumulativeRowSizes_.size() - 1] +
+        rowSizes_[rowSizes_.size() - 1];
 
     // Allocate memory.
-    auto buffer = dataVector.getBufferWithSpace(totalSize);
+    serializedDataBuffer_ = dataVector.getBufferWithSpace(totalSize);
     // getBufferWithSpace() may return a buffer that already has content, so we
     // only use the space after that.
-    auto rawBuffer = buffer->asMutable<char>() + buffer->size();
-    buffer->setSize(buffer->size() + totalSize);
+    serializedDataVectorOffset_ = serializedDataBuffer_->size();
+    auto rawBuffer =
+        serializedDataBuffer_->asMutable<char>() + serializedDataVectorOffset_;
+    serializedDataBuffer_->setSize(serializedDataBuffer_->size() + totalSize);
     memset(rawBuffer, 0, totalSize);
 
     // Serialize rows.
     size_t offset = 0;
-    for (auto i = 0; i < numInput; ++i) {
+    for (auto i = 0; i < numInput_; ++i) {
       dataVector.setNoCopy(i, StringView(rawBuffer + offset, rowSizes_[i]));
 
       // Write row data.
@@ -298,8 +431,29 @@ class PartitionAndSerializeOperator : public Operator {
   const RowTypePtr serializedRowType_;
   const std::vector<column_index_t> keyChannels_;
   const std::unique_ptr<core::PartitionFunction> partitionFunction_;
-  bool replicateNullsAndAny_;
+  const bool replicateNullsAndAny_;
   std::vector<column_index_t> serializedColumnIndices_;
+
+  ProcessingState currentState_{ProcessingState::kUnknown};
+  vector_size_t nextPartitionId_{0};
+
+  // Input element which will be used for 'replicateAny'.
+  StringView replicateAnyOriginalData_;
+  // Original partition id of 'replicateAnyOriginalData_'.
+  uint32_t replicateAnyOriginalPartition_;
+
+  // Flag to indicate if we saw any null value in input vector so far.
+  bool anyNullValue{false};
+  // Count of null values in this batch of input.
+  int32_t numInputNulls_{0};
+  // Number of output rows in the output vector.
+  vector_size_t numOutputRows_{0};
+  // Size of the input vector being processed by this batch.
+  vector_size_t numInput_{0};
+  RowVectorPtr outputVector_;
+  // Based on Operator::outputBatchRows, we try as close to the configured value
+  // as possible.
+  vector_size_t desiredOutputSize_;
 
   // Decoded 'keyChannels_' columns.
   std::vector<velox::DecodedVector> decodedVectors_;
@@ -307,8 +461,16 @@ class PartitionAndSerializeOperator : public Operator {
   velox::SelectivityVector nullRows_;
   // Reusable vector for storing partition id for each input row.
   std::vector<uint32_t> partitions_;
-  // Reusable vector for storing serialised row size for each input row.
+  // Reusable vector for storing serialized row size for each input row.
   std::vector<uint32_t> rowSizes_;
+
+  // Keep reference of serialized data vector, this is used when processing
+  // subsequent batches.
+  BufferPtr serializedDataBuffer_;
+  // Offset storing the starting index of serialized data in 'rawBuffer'.
+  size_t serializedDataVectorOffset_;
+  // Reusable vector for storing cumulative row size for each input row.
+  std::vector<uint32_t> cumulativeRowSizes_;
 };
 } // namespace
 
