@@ -235,6 +235,9 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kSkipRuntimeStatsInRunningTaskInfo{
       "skip-runtime-stats-in-running-task-info"};
 
+  static constexpr std::string_view kLogZombieTaskInfo{"log-zombie-task-info"};
+  static constexpr std::string_view kLogNumZombieTasks{"log-num-zombie-tasks"};
+
   SystemConfig();
 
   static SystemConfig* instance();
@@ -339,6 +342,10 @@ class SystemConfig : public ConfigBase {
   bool enableMemoryLeakCheck() const;
 
   bool skipRuntimeStatsInRunningTaskInfo() const;
+
+  bool logZombieTaskInfo() const;
+
+  uint32_t logNumZombieTasks() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
