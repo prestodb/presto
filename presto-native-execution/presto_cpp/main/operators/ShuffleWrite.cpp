@@ -42,17 +42,15 @@ class ShuffleWriteOperator : public Operator {
             planNode->outputType(),
             operatorId,
             planNode->id(),
-            "ShuffleWrite") {
+            "ShuffleWrite"),
+        serializedShuffleWriteInfo_{planNode->serializedShuffleWriteInfo()} {
     const auto& shuffleName = planNode->shuffleName();
-    auto shuffleFactory = ShuffleInterfaceFactory::factory(shuffleName);
-    VELOX_CHECK(
-        shuffleFactory != nullptr,
-        fmt::format(
-            "Failed to create shuffle write interface: Shuffle factory "
-            "with name '{}' is not registered.",
-            shuffleName));
-    shuffle_ = shuffleFactory->createWriter(
-        planNode->serializedShuffleWriteInfo(), operatorCtx_->pool());
+    shuffleFactory_ = ShuffleInterfaceFactory::factory(shuffleName);
+    VELOX_CHECK_NOT_NULL(
+        shuffleFactory_,
+        "Failed to create shuffle write interface: Shuffle factory "
+        "with name '{}' is not registered.",
+        shuffleName);
   }
 
   bool needsInput() const override {
@@ -60,6 +58,7 @@ class ShuffleWriteOperator : public Operator {
   }
 
   void addInput(RowVectorPtr input) override {
+    checkCreateShuffleWriter();
     auto partitions = input->childAt(0)->as<SimpleVector<int32_t>>();
     auto serializedRows = input->childAt(1)->as<SimpleVector<StringView>>();
     for (auto i = 0; i < input->size(); ++i) {
@@ -74,6 +73,8 @@ class ShuffleWriteOperator : public Operator {
 
   void noMoreInput() override {
     Operator::noMoreInput();
+
+    checkCreateShuffleWriter();
     CALL_SHUFFLE(shuffle_->noMoreData(true), "noMoreData");
 
     {
@@ -97,6 +98,15 @@ class ShuffleWriteOperator : public Operator {
   }
 
  private:
+  void checkCreateShuffleWriter() {
+    if (shuffle_ == nullptr) {
+      shuffle_ = shuffleFactory_->createWriter(
+          serializedShuffleWriteInfo_, operatorCtx_->pool());
+    }
+  }
+
+  const std::string serializedShuffleWriteInfo_;
+  ShuffleInterfaceFactory* shuffleFactory_;
   std::shared_ptr<ShuffleWriter> shuffle_;
 };
 
