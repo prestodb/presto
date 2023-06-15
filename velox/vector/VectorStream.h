@@ -136,4 +136,23 @@ class VectorStreamGroup : public StreamArena {
   std::unique_ptr<VectorSerializer> serializer_;
 };
 
+/// Convenience function to serialize a single rowVector into an IOBuf using the
+/// registered serde object.
+folly::IOBuf rowVectorToIOBuf(
+    const RowVectorPtr& rowVector,
+    memory::MemoryPool& pool);
+
+/// Same as above but serializes up until row `rangeEnd`.
+folly::IOBuf rowVectorToIOBuf(
+    const RowVectorPtr& rowVector,
+    vector_size_t rangeEnd,
+    memory::MemoryPool& pool);
+
+/// Convenience function to deserialize an IOBuf into a rowVector using the
+/// registered serde object.
+RowVectorPtr IOBufToRowVector(
+    const folly::IOBuf& ioBuf,
+    const RowTypePtr& outputType,
+    memory::MemoryPool& pool);
+
 } // namespace facebook::velox

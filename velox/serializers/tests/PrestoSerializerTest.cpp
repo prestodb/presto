@@ -21,6 +21,7 @@
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
@@ -377,4 +378,25 @@ TEST_F(PrestoSerializerTest, lazy) {
       kSize,
       std::make_unique<SimpleVectorLoader>([&](auto) { return rowVector; }));
   testRoundTrip(lazyVector);
+}
+
+TEST_F(PrestoSerializerTest, ioBufRoundTrip) {
+  serializer::presto::PrestoVectorSerde::registerVectorSerde();
+
+  VectorFuzzer::Options opts;
+  opts.timestampPrecision =
+      VectorFuzzer::Options::TimestampPrecision::kMilliSeconds;
+  opts.nullRatio = 0.1;
+  VectorFuzzer fuzzer(opts, pool_.get());
+
+  const size_t numRounds = 20;
+
+  for (size_t i = 0; i < numRounds; ++i) {
+    auto rowType = fuzzer.randRowType();
+    auto inputRowVector = fuzzer.fuzzInputRow(rowType);
+    auto outputRowVector = IOBufToRowVector(
+        rowVectorToIOBuf(inputRowVector, *pool_), rowType, *pool_);
+
+    assertEqualVectors(inputRowVector, outputRowVector);
+  }
 }

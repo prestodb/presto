@@ -133,4 +133,44 @@ void VectorStreamGroup::read(
   getVectorSerde()->deserialize(source, pool, type, result, options);
 }
 
+folly::IOBuf rowVectorToIOBuf(
+    const RowVectorPtr& rowVector,
+    memory::MemoryPool& pool) {
+  return rowVectorToIOBuf(rowVector, rowVector->size(), pool);
+}
+
+folly::IOBuf rowVectorToIOBuf(
+    const RowVectorPtr& rowVector,
+    vector_size_t rangeEnd,
+    memory::MemoryPool& pool) {
+  auto streamGroup = std::make_unique<VectorStreamGroup>(&pool);
+  streamGroup->createStreamTree(asRowType(rowVector->type()), rangeEnd);
+
+  IndexRange range{0, rangeEnd};
+  streamGroup->append(rowVector, folly::Range<IndexRange*>(&range, 1));
+
+  IOBufOutputStream stream(pool);
+  streamGroup->flush(&stream);
+  return std::move(*stream.getIOBuf());
+}
+
+RowVectorPtr IOBufToRowVector(
+    const folly::IOBuf& ioBuf,
+    const RowTypePtr& outputType,
+    memory::MemoryPool& pool) {
+  std::vector<ByteRange> ranges;
+  ranges.reserve(4);
+
+  for (const auto& range : ioBuf) {
+    ranges.emplace_back(ByteRange{
+        const_cast<uint8_t*>(range.data()), (int32_t)range.size(), 0});
+  }
+
+  ByteStream byteStream;
+  byteStream.resetInput(std::move(ranges));
+  RowVectorPtr outputVector;
+  VectorStreamGroup::read(&byteStream, &pool, outputType, &outputVector);
+  return outputVector;
+}
+
 } // namespace facebook::velox
