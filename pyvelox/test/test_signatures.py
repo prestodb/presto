@@ -40,6 +40,13 @@ class TestFunctionSignatures(unittest.TestCase):
 
         concat_signatures = presto_signatures["concat"]
         self.assertTrue(len(concat_signatures) > 0)
+        # Array functions are registered first, then string functions.
+        self.assertEqual(str(concat_signatures[0].return_type()), "array(__user_T1)")
+        self.assertEqual(
+            str(concat_signatures[0]), "(array(__user_T1)...) -> array(__user_T1)"
+        )
+        self.assertEqual(str(concat_signatures[-1].return_type()), "varchar")
+        self.assertEqual(str(concat_signatures[-1]), "(varchar,varchar...) -> varchar")
 
     def test_function_prefix(self):
         pv.clear_signatures()
