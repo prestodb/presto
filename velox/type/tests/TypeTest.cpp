@@ -155,6 +155,29 @@ TEST(TypeTest, intervalDayTime) {
   testTypeSerde(interval);
 }
 
+TEST(TypeTest, intervalYearMonth) {
+  auto interval = INTERVAL_YEAR_MONTH();
+  EXPECT_EQ(interval->toString(), "INTERVAL YEAR TO MONTH");
+  EXPECT_EQ(interval->size(), 0);
+  EXPECT_THROW(interval->childAt(0), std::invalid_argument);
+  EXPECT_EQ(interval->kind(), TypeKind::INTEGER);
+  EXPECT_STREQ(interval->kindName(), "INTEGER");
+  EXPECT_EQ(interval->begin(), interval->end());
+
+  EXPECT_TRUE(interval->kindEquals(INTEGER()));
+  EXPECT_NE(*interval, *INTEGER());
+  EXPECT_FALSE(interval->equivalent(*INTEGER()));
+  EXPECT_FALSE(INTEGER()->equivalent(*interval));
+
+  int32_t month = kMonthInYear * 2 + 1;
+  EXPECT_EQ("2-1", INTERVAL_YEAR_MONTH()->valueToString(month));
+
+  month = kMonthInYear * -2 + -1;
+  EXPECT_EQ("-2-1", INTERVAL_YEAR_MONTH()->valueToString(month));
+
+  testTypeSerde(interval);
+}
+
 TEST(TypeTest, shortDecimal) {
   auto shortDecimal = DECIMAL(10, 5);
   EXPECT_EQ(shortDecimal->toString(), "DECIMAL(10,5)");

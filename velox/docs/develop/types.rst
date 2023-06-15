@@ -71,6 +71,7 @@ Logical Type            Physical Type
 ======================  ======================================================
 DECIMAL                 BIGINT if precision <= 18, HUGEINT if precision >= 19
 INTERVAL DAY TO SECOND  BIGINT
+INTERVAL YEAR TO MONTH  INTEGER
 ======================  ======================================================
 
 We are in the process of migrating (:pr:`4744`) DATE type to a logical type backed

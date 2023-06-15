@@ -67,6 +67,9 @@ LogicalType fromVeloxType(const TypePtr& type) {
     case TypeKind::SMALLINT:
       return LogicalType::SMALLINT;
     case TypeKind::INTEGER:
+      if (type->isIntervalYearMonth()) {
+        return LogicalType::INTERVAL;
+      }
       return LogicalType::INTEGER;
     case TypeKind::BIGINT:
       if (type->isIntervalDayTime()) {

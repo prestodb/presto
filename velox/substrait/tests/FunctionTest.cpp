@@ -198,4 +198,10 @@ TEST_F(FunctionTest, setVectorFromVariants) {
   ASSERT_TRUE(resultVec->type()->isIntervalDayTime());
   ASSERT_EQ(9020, resultVec->asFlatVector<int64_t>()->valueAt(0));
   ASSERT_EQ(8875, resultVec->asFlatVector<int64_t>()->valueAt(1));
+
+  resultVec = setVectorFromVariants(
+      INTERVAL_YEAR_MONTH(), {variant(20), variant(30)}, pool_.get());
+  ASSERT_TRUE(resultVec->type()->isIntervalYearMonth());
+  ASSERT_EQ(20, resultVec->asFlatVector<int32_t>()->valueAt(0));
+  ASSERT_EQ(30, resultVec->asFlatVector<int32_t>()->valueAt(1));
 }

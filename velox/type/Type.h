@@ -551,6 +551,7 @@ class Type : public Tree<const std::shared_ptr<const Type>>,
   bool isShortDecimal() const;
   bool isLongDecimal() const;
   bool isDecimal() const;
+  bool isIntervalYearMonth() const;
 
   bool isIntervalDayTime() const;
 
@@ -1121,6 +1122,59 @@ FOLLY_ALWAYS_INLINE bool Type::isIntervalDayTime() const {
   return (this == INTERVAL_DAY_TIME().get());
 }
 
+constexpr long kMonthInYear = 12;
+/// Time interval in months.
+class IntervalYearMonthType : public IntegerType {
+ private:
+  IntervalYearMonthType() = default;
+
+ public:
+  static const std::shared_ptr<const IntervalYearMonthType>& get() {
+    static const std::shared_ptr<const IntervalYearMonthType> kType{
+        new IntervalYearMonthType()};
+    return kType;
+  }
+
+  const char* name() const override {
+    return "INTERVAL YEAR TO MONTH";
+  }
+
+  bool equivalent(const Type& other) const override {
+    // Pointer comparison works since this type is a singleton.
+    return this == &other;
+  }
+
+  std::string toString() const override {
+    return name();
+  }
+
+  /// Returns the interval 'value' (months) formatted as YEARS MONTHS.
+  /// For example, 14 months (INTERVAL '1-2' YEAR TO MONTH) would be represented
+  /// as 1-2; -14 months would be represents as -1-2.
+  std::string valueToString(int32_t value) const;
+
+  folly::dynamic serialize() const override {
+    folly::dynamic obj = folly::dynamic::object;
+    obj["name"] = "IntervalYearMonthType";
+    obj["type"] = name();
+    return obj;
+  }
+
+  static TypePtr deserialize(const folly::dynamic& /*obj*/) {
+    return IntervalYearMonthType::get();
+  }
+};
+
+FOLLY_ALWAYS_INLINE std::shared_ptr<const IntervalYearMonthType>
+INTERVAL_YEAR_MONTH() {
+  return IntervalYearMonthType::get();
+}
+
+FOLLY_ALWAYS_INLINE bool Type::isIntervalYearMonth() const {
+  // Pointer comparison works since this type is a singleton.
+  return (this == INTERVAL_YEAR_MONTH().get());
+}
+
 /// Used as T for SimpleVector subclasses that wrap another vector when
 /// the wrapped vector is of a complex type. Applies to
 /// DictionaryVector, SequenceVector and ConstantVector. This must have
@@ -1681,6 +1735,11 @@ struct IntervalDayTime {
   IntervalDayTime() {}
 };
 
+struct IntervalYearMonth {
+ private:
+  IntervalYearMonth() {}
+};
+
 struct Varbinary {
  private:
   Varbinary() {}
@@ -1733,6 +1792,11 @@ struct SimpleTypeTrait<Date> : public TypeTraits<TypeKind::DATE> {};
 template <>
 struct SimpleTypeTrait<IntervalDayTime> : public SimpleTypeTrait<int64_t> {
   static constexpr const char* name = "INTERVAL DAY TO SECOND";
+};
+
+template <>
+struct SimpleTypeTrait<IntervalYearMonth> : public SimpleTypeTrait<int32_t> {
+  static constexpr const char* name = "INTERVAL YEAR TO MONTH";
 };
 
 template <typename T>

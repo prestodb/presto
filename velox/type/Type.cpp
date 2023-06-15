@@ -214,6 +214,8 @@ void Type::registerSerDe() {
           Type::create));
 
   registry.Register("IntervalDayTimeType", IntervalDayTimeType::deserialize);
+  registry.Register(
+      "IntervalYearMonthType", IntervalYearMonthType::deserialize);
 }
 
 std::string ArrayType::toString() const {
@@ -897,6 +899,17 @@ std::string IntervalDayTimeType::valueToString(int64_t value) const {
   return buf;
 }
 
+std::string IntervalYearMonthType::valueToString(int32_t value) const {
+  std::ostringstream oss;
+  auto sign = "";
+  if (value < 0) {
+    sign = "-";
+    value = -value;
+  }
+  oss << fmt::format("{}{}-{}", sign, value / 12, value % 12);
+  return oss.str();
+}
+
 namespace {
 using SingletonTypeMap = std::unordered_map<std::string, TypePtr>;
 
@@ -914,6 +927,7 @@ const SingletonTypeMap& singletonBuiltInTypes() {
       {"TIMESTAMP", TIMESTAMP()},
       {"DATE", DATE()},
       {"INTERVAL DAY TO SECOND", INTERVAL_DAY_TIME()},
+      {"INTERVAL YEAR TO MONTH", INTERVAL_YEAR_MONTH()},
       {"UNKNOWN", UNKNOWN()},
   };
   return kTypes;
