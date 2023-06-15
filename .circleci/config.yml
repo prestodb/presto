@@ -293,6 +293,7 @@ jobs:
                 --velox_fuzzer_enable_column_reuse \
                 --velox_fuzzer_enable_expression_reuse \
                 --retry_with_try \
+                --enable_dereference \
                 --duration_sec 60 \
                 --logtostderr=1 \
                 --minloglevel=0 \
@@ -482,6 +483,7 @@ jobs:
           --velox_fuzzer_enable_column_reuse \
           --velox_fuzzer_enable_expression_reuse \
           --retry_with_try \
+          --enable_dereference \
           --logtostderr=1 --minloglevel=0 \
           --repro_persist_path=/tmp/fuzzer_repro"
 
@@ -496,7 +498,7 @@ jobs:
           fuzzer_repro: "/tmp/spark_fuzzer_repro"
           fuzzer_name: "Spark"
           fuzzer_exe: "_build/debug/velox/expression/tests/spark_expression_fuzzer_test"
-          fuzzer_args: " --seed ${RANDOM} --duration_sec 600 --logtostderr=1 --minloglevel=0 \ 
+          fuzzer_args: " --seed ${RANDOM} --duration_sec 600 --logtostderr=1 --minloglevel=0 \
           --repro_persist_path=/tmp/spark_fuzzer_repro"
 
   linux-spark-aggregate-fuzzer-run:
@@ -525,7 +527,7 @@ jobs:
           fuzzer_repro: "/tmp/aggregate_fuzzer_repro"
           fuzzer_name: "Aggregate"
           fuzzer_exe: "_build/debug/velox/exec/tests/velox_aggregation_fuzzer_test"
-          fuzzer_args: " --seed ${RANDOM} --duration_sec 3600 --logtostderr=1 --minloglevel=0 \ 
+          fuzzer_args: " --seed ${RANDOM} --duration_sec 3600 --logtostderr=1 --minloglevel=0 \
           --repro_persist_path=/tmp/aggregate_fuzzer_repro"
 
   linux-join-fuzzer-run:
