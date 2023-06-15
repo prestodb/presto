@@ -74,4 +74,14 @@ public abstract class AbstractTestNativeArrayFunctionQueries
         this.assertQuery("SELECT TRY(none_match(quantities, x -> ((10 / x) > 2))) FROM orders_ex");
         this.assertQuery("SELECT none_match(shuffle(quantities), x -> (x > 500.0)) FROM orders_ex");
     }
+
+    @Test
+    public void testArrayTrim()
+    {
+        this.assertQuery("SELECT trim_array(quantities, 0) FROM orders_ex");
+        this.assertQuery("SELECT trim_array(quantities, 1) FROM orders_ex where cardinality(quantities) > 5");
+        this.assertQuery("SELECT trim_array(quantities, 2) FROM orders_ex where cardinality(quantities) > 5");
+        this.assertQuery("SELECT trim_array(quantities, 3) FROM orders_ex where cardinality(quantities) > 5");
+        this.assertQueryFails("SELECT trim_array(quantities, 3) FROM orders_ex where cardinality(quantities) = 2", ".*size must not exceed array cardinality.*");
+    }
 }
