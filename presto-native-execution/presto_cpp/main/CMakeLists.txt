@@ -67,7 +67,8 @@ target_link_libraries(
   pthread)
 
 if(PRESTO_ENABLE_PARQUET)
-  target_link_libraries(presto_server_lib velox_dwio_parquet_reader)
+  target_link_libraries(presto_server_lib velox_dwio_parquet_reader
+                        velox_dwio_parquet_writer)
 endif()
 
 # Enabling Parquet causes build errors with missing symbols on MacOS. This is

@@ -49,6 +49,8 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/core/Config.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
+#include "velox/dwio/dwrf/writer/Writer.h"
+#include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -313,9 +315,11 @@ void PrestoServer::run() {
       operators::UnsafeRowExchangeSource::createExchangeSource);
 
   velox::dwrf::registerDwrfReaderFactory();
+  velox::dwrf::registerDwrfWriterFactory();
 #ifdef PRESTO_ENABLE_PARQUET
   velox::parquet::registerParquetReaderFactory(
       velox::parquet::ParquetReaderType::NATIVE);
+  velox::parquet::registerParquetWriterFactory();
 #endif
 
   pool_ = velox::memory::addDefaultLeafMemoryPool();
