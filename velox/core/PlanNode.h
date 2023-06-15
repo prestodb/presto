@@ -69,6 +69,15 @@ class SortOrder {
     return nullsFirst_;
   }
 
+  bool operator==(const SortOrder& other) const {
+    return std::tie(ascending_, nullsFirst_) ==
+        std::tie(other.ascending_, other.nullsFirst_);
+  }
+
+  bool operator!=(const SortOrder& other) const {
+    return !(*this == other);
+  }
+
   std::string toString() const {
     return fmt::format(
         "{} NULLS {}",
@@ -84,6 +93,13 @@ class SortOrder {
   bool ascending_;
   bool nullsFirst_;
 };
+
+FOLLY_ALWAYS_INLINE std::ostream& operator<<(
+    std::ostream& os,
+    const SortOrder& order) {
+  os << order.toString();
+  return os;
+}
 
 extern const SortOrder kAscNullsFirst;
 extern const SortOrder kAscNullsLast;

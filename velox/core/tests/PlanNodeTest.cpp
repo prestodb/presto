@@ -63,3 +63,37 @@ TEST(TestPlanNode, findFirstNode) {
         return node->name() == "Unknown";
       }));
 }
+
+TEST(TestPlanNode, sortOrder) {
+  struct {
+    SortOrder order1;
+    SortOrder order2;
+    int expectedEqual;
+
+    std::string debugString() const {
+      return fmt::format(
+          "order1 {} order2 {} expectedEqual {}",
+          order1.toString(),
+          order2.toString(),
+          expectedEqual);
+    }
+  } testSettings[] = {
+      {{true, true}, {true, true}, true},
+      {{true, false}, {true, false}, true},
+      {{false, true}, {false, true}, true},
+      {{false, false}, {false, false}, true},
+      {{true, true}, {true, false}, false},
+      {{true, true}, {false, false}, false},
+      {{true, true}, {false, true}, false},
+      {{true, false}, {false, false}, false},
+      {{true, false}, {false, true}, false},
+      {{false, true}, {false, false}, false}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    if (testData.expectedEqual) {
+      ASSERT_EQ(testData.order1, testData.order2);
+    } else {
+      ASSERT_NE(testData.order1, testData.order2);
+    }
+  }
+}

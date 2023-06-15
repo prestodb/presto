@@ -79,6 +79,104 @@ class LocationHandle : public ISerializable {
   const TableType tableType_;
 };
 
+class HiveSortingColumn : public ISerializable {
+ public:
+  HiveSortingColumn(
+      const std::string& sortColumn,
+      const core::SortOrder& sortOrder);
+
+  const std::string& sortColumn() const {
+    return sortColumn_;
+  }
+
+  core::SortOrder sortOrder() const {
+    return sortOrder_;
+  }
+
+  folly::dynamic serialize() const override;
+
+  static std::shared_ptr<HiveSortingColumn> deserialize(
+      const folly::dynamic& obj,
+      void* context);
+
+  std::string toString() const;
+
+  static void registerSerDe();
+
+ private:
+  const std::string sortColumn_;
+  const core::SortOrder sortOrder_;
+};
+
+class HiveBucketProperty : public ISerializable {
+ public:
+  enum class Kind { kHiveCompatible, kPrestoNative };
+
+  HiveBucketProperty(
+      Kind kind,
+      int32_t bucketCount,
+      const std::vector<std::string>& bucketedBy,
+      const std::vector<TypePtr>& bucketedTypes,
+      const std::vector<std::shared_ptr<const HiveSortingColumn>>& sortedBy);
+
+  Kind kind() const {
+    return kind_;
+  }
+
+  static std::string kindString(Kind kind);
+
+  /// Returns the number of bucket count.
+  int32_t bucketCount() const {
+    return bucketCount_;
+  }
+
+  /// Returns the bucketed by column names.
+  const std::vector<std::string>& bucketedBy() const {
+    return bucketedBy_;
+  }
+
+  /// Returns the bucketed by column types.
+  const std::vector<TypePtr>& bucketedTypes() const {
+    return bucketTypes_;
+  }
+
+  /// Returns the hive sorting columns if not empty.
+  const std::vector<std::shared_ptr<const HiveSortingColumn>>& sortedBy()
+      const {
+    return sortedBy_;
+  }
+
+  folly::dynamic serialize() const override;
+
+  static std::shared_ptr<HiveBucketProperty> deserialize(
+      const folly::dynamic& obj,
+      void* context);
+
+  bool operator==(const HiveBucketProperty& other) const {
+    return true;
+  }
+
+  static void registerSerDe();
+
+  std::string toString() const;
+
+ private:
+  void validate() const;
+
+  const Kind kind_;
+  const int32_t bucketCount_;
+  const std::vector<std::string> bucketedBy_;
+  const std::vector<TypePtr> bucketTypes_;
+  const std::vector<std::shared_ptr<const HiveSortingColumn>> sortedBy_;
+};
+
+FOLLY_ALWAYS_INLINE std::ostream& operator<<(
+    std::ostream& os,
+    const HiveBucketProperty::Kind& kind) {
+  os << HiveBucketProperty::kindString(kind);
+  return os;
+}
+
 class HiveInsertTableHandle;
 using HiveInsertTableHandlePtr = std::shared_ptr<HiveInsertTableHandle>;
 
