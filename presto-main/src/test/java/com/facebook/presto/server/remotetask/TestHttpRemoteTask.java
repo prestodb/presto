@@ -72,6 +72,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import io.airlift.units.Duration;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -571,7 +572,7 @@ public class TestHttpRemoteTask
                     taskState,
                     initialTaskStatus.getSelf(),
                     ImmutableSet.of(),
-                    initialTaskStatus.getFailures(),
+                    LongSet.of(), initialTaskStatus.getFailures(),
                     initialTaskStatus.getQueuedPartitionedDrivers(),
                     initialTaskStatus.getRunningPartitionedDrivers(),
                     initialTaskStatus.getOutputBufferUtilization(),

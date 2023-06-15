@@ -21,6 +21,7 @@ import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
+import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
@@ -255,6 +256,20 @@ public class TaskResource
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
         bindAsyncResponse(asyncResponse, futureTaskStatus, responseExecutor)
                 .withTimeout(timeout);
+    }
+
+    @GET
+    @Path("{taskId}/fail")
+    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
+    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
+    public Response failTask(
+            @PathParam("taskId") TaskId taskId)
+    {
+        requireNonNull(taskId, "taskId is null");
+
+        ((SqlTaskManager) taskManager).failTask(taskId);
+
+        return Response.ok().build();
     }
 
     @POST

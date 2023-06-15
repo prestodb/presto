@@ -23,6 +23,7 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 
 import java.net.URI;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.metadata.InternalNode.NodeStatus.ALIVE;
@@ -68,6 +69,7 @@ public class InternalNode
     private final boolean catalogServer;
     private final NodeStatus nodeStatus;
     private final OptionalInt raftPort;
+    private final Optional<String> poolType;
 
     public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
     {
@@ -76,23 +78,23 @@ public class InternalNode
 
     public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator, boolean resourceManager, boolean catalogServer)
     {
-        this(nodeIdentifier, internalUri, OptionalInt.empty(), nodeVersion, coordinator, resourceManager, catalogServer, ALIVE, OptionalInt.empty());
+        this(nodeIdentifier, internalUri, OptionalInt.empty(), nodeVersion, coordinator, resourceManager, catalogServer, ALIVE, OptionalInt.empty(), Optional.empty());
     }
 
     @ThriftConstructor
-    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, String nodeVersion, boolean coordinator, boolean resourceManager, boolean catalogServer)
+    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, String nodeVersion, boolean coordinator, boolean resourceManager, boolean catalogServer, Optional<String> poolType)
     {
-        this(nodeIdentifier, internalUri, thriftPort, new NodeVersion(nodeVersion), coordinator, resourceManager, catalogServer, ALIVE, OptionalInt.empty());
+        this(nodeIdentifier, internalUri, thriftPort, new NodeVersion(nodeVersion), coordinator, resourceManager, catalogServer, ALIVE, OptionalInt.empty(), poolType);
     }
 
-    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, String nodeVersion, boolean coordinator, boolean resourceManager, OptionalInt raftPort)
+    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, String nodeVersion, boolean coordinator, boolean resourceManager, OptionalInt raftPort, Optional<String> poolType)
     {
-        this(nodeIdentifier, internalUri, thriftPort, new NodeVersion(nodeVersion), coordinator, resourceManager, false, ALIVE, raftPort);
+        this(nodeIdentifier, internalUri, thriftPort, new NodeVersion(nodeVersion), coordinator, resourceManager, false, ALIVE, raftPort, poolType);
     }
 
-    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, NodeVersion nodeVersion, boolean coordinator, boolean resourceManager, NodeStatus nodeStatus, OptionalInt raftPort)
+    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, NodeVersion nodeVersion, boolean coordinator, boolean resourceManager, NodeStatus nodeStatus, OptionalInt raftPort, Optional<String> poolType)
     {
-        this(nodeIdentifier, internalUri, thriftPort, nodeVersion, coordinator, resourceManager, false, nodeStatus, raftPort);
+        this(nodeIdentifier, internalUri, thriftPort, nodeVersion, coordinator, resourceManager, false, nodeStatus, raftPort, poolType);
     }
 
     public InternalNode(
@@ -104,7 +106,8 @@ public class InternalNode
             boolean resourceManager,
             boolean catalogServer,
             NodeStatus nodeStatus,
-            OptionalInt raftPort)
+            OptionalInt raftPort,
+            Optional<String> poolType)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
@@ -116,6 +119,7 @@ public class InternalNode
         this.catalogServer = catalogServer;
         this.nodeStatus = nodeStatus;
         this.raftPort = requireNonNull(raftPort, "raftPort is null");
+        this.poolType = requireNonNull(poolType, "poolType is null");
     }
 
     @ThriftField(1)
@@ -200,6 +204,13 @@ public class InternalNode
         return raftPort;
     }
 
+    @ThriftField(9)
+    @Override
+    public Optional<String> getPoolType()
+    {
+        return poolType;
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -231,6 +242,7 @@ public class InternalNode
                 .add("resourceManager", resourceManager)
                 .add("catalogServer", catalogServer)
                 .add("raftPort", raftPort)
+                .add("poolType", poolType)
                 .toString();
     }
 }

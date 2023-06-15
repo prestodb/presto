@@ -88,7 +88,8 @@ public final class SqlStageExecution
             PAGE_TRANSPORT_ERROR.toErrorCode(),
             PAGE_TRANSPORT_TIMEOUT.toErrorCode(),
             REMOTE_TASK_MISMATCH.toErrorCode(),
-            REMOTE_TASK_ERROR.toErrorCode());
+            REMOTE_TASK_ERROR.toErrorCode(),
+            REMOTE_HOST_GONE.toErrorCode());
 
     public static final int DEFAULT_TASK_ATTEMPT_NUMBER = 0;
 

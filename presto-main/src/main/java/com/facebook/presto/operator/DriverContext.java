@@ -85,6 +85,7 @@ public class DriverContext
     private final Lifespan lifespan;
     private final Optional<FragmentResultCacheContext> fragmentResultCacheContext;
     private final long splitWeight;
+    //node type->operatorcontext->operatorstats
 
     public DriverContext(
             PipelineContext pipelineContext,
