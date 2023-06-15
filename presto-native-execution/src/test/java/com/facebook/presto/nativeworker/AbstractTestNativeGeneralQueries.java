@@ -303,6 +303,11 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT try_cast(orderdate as JSON) FROM orders");
         assertQueryFails("SELECT try_cast(map(array[from_unixtime(suppkey)], array[1]) as JSON) from supplier", "Cannot cast .* to JSON");
 
+        // Cast from Json type.
+        assertQuery("SELECT cast(json_parse(json_format(cast(array[nationkey, regionkey] as json))) as array(smallint)) FROM nation");
+        assertQuery("SELECT cast(json_parse(json_format(cast(map(array[1, 2], array[nationkey, regionkey]) as json))) as map(tinyint, smallint)) FROM nation");
+        assertQuery("SELECT cast(json_parse(json_format(cast(row(nationkey, name) as json))) as row(smallint, varchar)) FROM nation");
+
         // Round-trip tests of casts for Json.
         assertQuery("SELECT cast(cast(name as JSON) as VARCHAR), cast(cast(size as JSON) as INTEGER), cast(cast(size + 0.01 as JSON) as DOUBLE), cast(cast(size > 5 as JSON) as BOOLEAN) FROM part");
         assertQuery("SELECT cast(cast(array[suppkey, nationkey] as JSON) as ARRAY(INTEGER)), cast(cast(map(array[name, address, phone], array[1.1, 2.2, 3.3]) as JSON) as MAP(VARCHAR(40), DOUBLE)), cast(cast(map(array[name], array[phone]) as JSON) as MAP(VARCHAR(25), JSON)), cast(cast(array[array[suppkey], array[nationkey]] as JSON) as ARRAY(JSON)) from supplier");
