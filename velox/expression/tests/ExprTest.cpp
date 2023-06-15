@@ -109,14 +109,17 @@ class ExprTest : public testing::Test, public VectorTestBase {
 
   std::vector<VectorPtr> evaluateMultiple(
       const std::vector<std::string>& texts,
-      const RowVectorPtr& input) {
+      const RowVectorPtr& input,
+      const std::optional<SelectivityVector>& rows = std::nullopt) {
     auto exprSet = compileMultiple(texts, asRowType(input->type()));
 
     exec::EvalCtx context(execCtx_.get(), exprSet.get(), input.get());
-
-    SelectivityVector rows(input->size());
     std::vector<VectorPtr> result(texts.size());
-    exprSet->eval(rows, context, result);
+    if (rows.has_value()) {
+      exprSet->eval(*rows, context, result);
+    } else {
+      exprSet->eval(SelectivityVector{input->size()}, context, result);
+    }
     return result;
   }
 
@@ -3958,5 +3961,46 @@ TEST_F(ExprTest, multiplyReferencedConstantField) {
 
   auto result = evaluate("if(c0, c1, c1)", data);
   auto expected = makeConstantArray<int64_t>(4, {1, 2, 3});
+  assertEqualVectors(expected, result);
+}
+
+TEST_F(ExprTest, dereference) {
+  // Make a vector of Row<Row<int64_t>> where the middle-layer has dictionary
+  // over constant encoding. Evaluate nested dereference c0.d0.f0 on it so that
+  // the outer dereference expression (i.e., dereference of f0) receive
+  // dictionary-encoded input without peeling.
+  auto child = makeFlatVector<int64_t>({1, 2});
+  auto d0 = makeRowVector({"f0"}, {child});
+  auto constantD0 = BaseVector::wrapInConstant(6, 0, d0);
+  auto indices = makeIndices({0, 1, 2, 3, 4, 5});
+  auto nulls = makeNulls(6, [](auto row) { return row == 5; });
+  auto dictionaryD0 =
+      BaseVector::wrapInDictionary(nulls, indices, 6, constantD0);
+  auto c0 = makeRowVector({"d0"}, {dictionaryD0});
+  auto input = makeRowVector({"c0"}, {c0});
+
+  // Skip row 4 during evaluation. FieldReference should not have errors dealing
+  // with this situation.
+  SelectivityVector rows(input->size(), true);
+  rows.setValid(4, false);
+  rows.updateBounds();
+
+  auto results = evaluateMultiple({"(c0).d0.f0"}, input, rows);
+  BaseVector::flattenVector(results[0]);
+  auto flatResult = results[0]->asFlatVector<int64_t>();
+  EXPECT_EQ(flatResult->valueAt(0), 1);
+  EXPECT_EQ(flatResult->valueAt(1), 1);
+  EXPECT_EQ(flatResult->valueAt(2), 1);
+  EXPECT_EQ(flatResult->valueAt(3), 1);
+  EXPECT_TRUE(flatResult->isNullAt(5));
+
+  // Test dereferencing a field vector that is shorter than the struct. Evaluate
+  // nested dereference so that the outer dereference expression receives
+  // constant-encoded input.
+  auto rowType = ROW({"f0"}, {BIGINT()});
+  constantD0 = BaseVector::createNullConstant(rowType, 6, pool());
+  c0 = makeRowVector({"d0"}, {constantD0});
+  auto result = evaluate("(c0).d0.f0", makeRowVector({c0}));
+  auto expected = makeNullConstant(TypeKind::BIGINT, 6);
   assertEqualVectors(expected, result);
 }

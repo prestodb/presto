@@ -16,6 +16,8 @@
 
 #include "velox/expression/FieldReference.h"
 
+#include "velox/expression/PeeledEncoding.h"
+
 namespace facebook::velox::exec {
 
 void FieldReference::evalSpecialForm(
@@ -28,6 +30,7 @@ void FieldReference::evalSpecialForm(
   const RowVector* row;
   DecodedVector decoded;
   VectorPtr input;
+  std::shared_ptr<PeeledEncoding> peeledEncoding;
   VectorRecycler inputRecycler(input, context.vectorPool());
   bool useDecode = false;
   if (inputs_.empty()) {
@@ -48,9 +51,18 @@ void FieldReference::evalSpecialForm(
 
     decoded.decode(*input, rows);
     useDecode = !decoded.isIdentityMapping();
-    const BaseVector* base = decoded.base();
-    VELOX_CHECK(base->encoding() == VectorEncoding::Simple::ROW);
-    row = base->as<const RowVector>();
+    if (useDecode) {
+      std::vector<VectorPtr> peeledVectors;
+      LocalDecodedVector localDecoded{context};
+      peeledEncoding = PeeledEncoding::peel(
+          {input}, rows, localDecoded, true, peeledVectors);
+      VELOX_CHECK_NOT_NULL(peeledEncoding);
+      VELOX_CHECK(peeledVectors[0]->encoding() == VectorEncoding::Simple::ROW);
+      row = peeledVectors[0]->as<const RowVector>();
+    } else {
+      VELOX_CHECK(input->encoding() == VectorEncoding::Simple::ROW);
+      row = input->as<const RowVector>();
+    }
   }
   if (index_ == -1) {
     auto rowType = dynamic_cast<const RowType*>(row->type().get());
@@ -59,21 +71,33 @@ void FieldReference::evalSpecialForm(
   }
   VectorPtr child =
       inputs_.empty() ? context.getField(index_) : row->childAt(index_);
+  if (child->encoding() == VectorEncoding::Simple::LAZY) {
+    child = BaseVector::loadedVectorShared(child);
+  }
+  // Children of a RowVector may be shorter than the RowVector itself. Resize
+  // the child so that we can wrap it with the encoding of the RowVector later.
+  // Resizing through ensureWritable in case child is not singly referenced.
+  if (child->size() < row->size()) {
+    SelectivityVector extraRows{row->size(), false};
+    extraRows.setValidRange(child->size(), row->size(), true);
+    extraRows.updateBounds();
+    BaseVector::ensureWritable(extraRows, child->type(), context.pool(), child);
+  }
   if (result.get()) {
-    auto indices = useDecode ? decoded.indices() : nullptr;
-    result->copy(child.get(), rows, indices);
-  } else {
-    if (child->encoding() == VectorEncoding::Simple::LAZY) {
-      child = BaseVector::loadedVectorShared(child);
+    if (useDecode) {
+      child = peeledEncoding->wrap(type_, context.pool(), child, rows);
     }
+    result->copy(child.get(), rows, nullptr);
+  } else {
     // The caller relies on vectors having a meaningful size. If we
     // have a constant that is not wrapped in anything we set its size
     // to correspond to rows.end().
     if (!useDecode && child->isConstantEncoding()) {
       child = BaseVector::wrapInConstant(rows.end(), 0, child);
     }
-    result = useDecode ? std::move(decoded.wrap(child, *input, rows.end()))
-                       : std::move(child);
+    result = useDecode
+        ? std::move(peeledEncoding->wrap(type_, context.pool(), child, rows))
+        : std::move(child);
   }
 
   // Check for nulls in the input struct. Propagate these nulls to 'result'.
