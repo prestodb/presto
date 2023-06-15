@@ -264,7 +264,7 @@ public class CrossJoinWithOrFilterToInnerJoin
         RewrittenJoinInput rightJoinInput = rewriteJoinInput(variablesUsedInOrComparisionFromRight, joinNode.getRight(), joinKeyType, context.getVariableAllocator(), context.getIdAllocator());
 
         ImmutableList.Builder<VariableReferenceExpression> joinOutput = ImmutableList.builder();
-        joinOutput.addAll(joinNode.getOutputVariables()).add(leftJoinInput.getJoinKey()).add(leftJoinInput.getUnnestIndex());
+        joinOutput.add(leftJoinInput.getJoinKey()).add(leftJoinInput.getUnnestIndex()).addAll(joinNode.getOutputVariables());
         JoinNode newJoinNode = new JoinNode(joinNode.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 joinNode.getType(),
