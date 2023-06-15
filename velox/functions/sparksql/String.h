@@ -229,7 +229,7 @@ template <typename T, bool leftTrim, bool rightTrim>
 struct TrimFunctionBase {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  // Results refer to strings in the first argument.
+  // Results refer to strings in the second argument.
   static constexpr int32_t reuse_strings_from_arg = 1;
 
   // ASCII input always produces ASCII result.
@@ -452,6 +452,134 @@ struct SubstrFunction {
     // Generating output string
     result.setNoCopy(StringView(
         input.data() + byteRange.first, byteRange.second - byteRange.first));
+  }
+};
+
+struct OverlayFunctionBase {
+  template <bool isAscii, bool isVarchar>
+  FOLLY_ALWAYS_INLINE void doCall(
+      exec::StringWriter<false>& result,
+      StringView input,
+      StringView replace,
+      int32_t pos,
+      int32_t len) {
+    // Calculate and append first part.
+    auto startAndLength = substring<isAscii, isVarchar>(input, 1, pos - 1);
+    append<isAscii, isVarchar>(result, input, startAndLength);
+
+    // Append second part.
+    result.append(replace);
+
+    // Calculate and append last part.
+    int32_t length = 0;
+    if (len >= 0) {
+      length = len;
+    } else {
+      if constexpr (isVarchar && !isAscii) {
+        length = stringImpl::lengthUnicode(replace.data(), replace.size());
+      } else {
+        length = replace.size();
+      }
+    }
+    int64_t start = (int64_t)pos + (int64_t)length;
+    startAndLength = substring<isAscii, isVarchar>(input, start, INT32_MAX);
+    append<isAscii, isVarchar>(result, input, startAndLength);
+  }
+
+  template <bool isAscii, bool isVarchar>
+  FOLLY_ALWAYS_INLINE void append(
+      exec::StringWriter<false>& result,
+      StringView input,
+      std::pair<int32_t, int32_t> pair) {
+    if constexpr (isVarchar && !isAscii) {
+      auto byteRange = stringCore::getByteRange<false>(
+          input.data(), pair.first + 1, pair.second);
+      result.append(StringView(
+          input.data() + byteRange.first, byteRange.second - byteRange.first));
+    } else {
+      result.append(StringView(input.data() + pair.first, pair.second));
+    }
+  }
+
+  // Information regarding the pos calculation:
+  // Hive and SQL use one-based indexing for SUBSTR arguments but also accept
+  // zero and negative indices for start positions. If a start index i is
+  // greater than 0, it refers to element i-1 in the sequence. If a start index
+  // i is less than 0, it refers to the -ith element before the end of the
+  // sequence. If a start index i is 0, it refers to the first element. Return
+  // pair of first indices and length.
+  template <bool isAscii, bool isVarchar>
+  FOLLY_ALWAYS_INLINE std::pair<int32_t, int32_t>
+  substring(const StringView& input, const int64_t pos, const int64_t length) {
+    int64_t len = 0;
+    if constexpr (isVarchar && !isAscii) {
+      len = stringImpl::lengthUnicode(input.data(), input.size());
+    } else {
+      len = input.size();
+    }
+    int64_t start = (pos > 0) ? pos - 1 : ((pos < 0) ? len + pos : 0);
+    int64_t end = 0;
+    if (start + length > INT32_MAX) {
+      end = INT32_MAX;
+    } else if (start + length < INT32_MIN) {
+      end = INT32_MIN;
+    } else {
+      end = start + length;
+    }
+
+    if (end <= start || start >= len) {
+      return std::make_pair(0, 0);
+    }
+
+    int64_t zero = 0;
+    int32_t i = std::min(len, std::max(zero, start));
+    int32_t j = std::min(len, std::max(zero, end));
+
+    if (j > i) {
+      return std::make_pair(i, j - i);
+    } else {
+      return std::make_pair(0, 0);
+    }
+  }
+};
+
+template <typename T>
+struct OverlayVarcharFunction : public OverlayFunctionBase {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  // ASCII input always produces ASCII result.
+  static constexpr bool is_default_ascii_behavior = true;
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input,
+      const arg_type<Varchar>& replace,
+      const int32_t pos,
+      const int32_t len) {
+    OverlayFunctionBase::doCall<false, true>(result, input, replace, pos, len);
+  }
+
+  FOLLY_ALWAYS_INLINE void callAscii(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input,
+      const arg_type<Varchar>& replace,
+      const int32_t pos,
+      const int32_t len) {
+    OverlayFunctionBase::doCall<true, true>(result, input, replace, pos, len);
+  }
+};
+
+template <typename T>
+struct OverlayVarbinaryFunction : public OverlayFunctionBase {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varbinary>& result,
+      const arg_type<Varbinary>& input,
+      const arg_type<Varbinary>& replace,
+      const int32_t pos,
+      const int32_t len) {
+    OverlayFunctionBase::doCall<false, false>(result, input, replace, pos, len);
   }
 };
 

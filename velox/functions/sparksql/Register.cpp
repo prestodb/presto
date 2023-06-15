@@ -90,6 +90,20 @@ void registerFunctions(const std::string& prefix) {
       Varchar,
       int32_t,
       int32_t>({prefix + "substring"});
+  registerFunction<
+      sparksql::OverlayVarcharFunction,
+      Varchar,
+      Varchar,
+      Varchar,
+      int32_t,
+      int32_t>({prefix + "overlay"});
+  registerFunction<
+      sparksql::OverlayVarbinaryFunction,
+      Varbinary,
+      Varbinary,
+      Varbinary,
+      int32_t,
+      int32_t>({prefix + "overlay"});
   exec::registerStatefulVectorFunction(
       prefix + "instr", instrSignatures(), makeInstr);
   exec::registerStatefulVectorFunction(
