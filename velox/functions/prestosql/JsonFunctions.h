@@ -59,6 +59,30 @@ struct JsonExtractScalarFunction {
 };
 
 template <typename T>
+struct JsonExtractFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Json>& result,
+      const arg_type<Json>& json,
+      const arg_type<Varchar>& jsonPath) {
+    auto extractResult =
+        jsonExtract(folly::StringPiece(json), folly::StringPiece(jsonPath));
+    if (!extractResult.hasValue() || extractResult.value().isNull()) {
+      return false;
+    }
+
+    folly::json::serialization_opts opts;
+    opts.sort_keys = true;
+    folly::json::serialize(*extractResult, opts);
+
+    UDFOutputString::assign(
+        result, folly::json::serialize(*extractResult, opts));
+    return true;
+  }
+};
+
+template <typename T>
 struct JsonArrayLengthFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 

@@ -115,6 +115,17 @@ JSON Functions
 
         SELECT json_array_length('[1, 2, 3]');
 
+.. function:: json_extract(json, json_path) -> json
+
+    Evaluates the `JSONPath`_-like expression ``json_path`` on ``json``
+    (a string containing JSON) and returns the result as a JSON string::
+
+        SELECT json_extract(json, '$.store.book');
+
+    Current implementation supports limited subset of JSONPath syntax.
+
+    .. _JSONPath: http://goessner.net/articles/JsonPath/
+
 .. function:: json_extract_scalar(json, json_path) -> varchar
 
     Evaluates the `JSONPath`_-like expression ``json_path`` on ``json``

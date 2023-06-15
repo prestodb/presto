@@ -22,6 +22,46 @@ namespace facebook::velox::functions::prestosql {
 
 namespace {
 
+const std::string kJson = R"(
+    {
+        "store": {
+            "book": [
+                {
+                    "category": "reference",
+                    "author": "Nigel Rees",
+                    "title": "Sayings of the Century",
+                    "price": 8.95
+                },
+                {
+                    "category": "fiction",
+                    "author": "Evelyn Waugh",
+                    "title": "Sword of Honour",
+                    "price": 12.99
+                },
+                {
+                    "category": "fiction",
+                    "author": "Herman Melville",
+                    "title": "Moby Dick",
+                    "isbn": "0-553-21311-3",
+                    "price": 8.99
+                },
+                {
+                    "category": "fiction",
+                    "author": "J. R. R. Tolkien",
+                    "title": "The Lord of the Rings",
+                    "isbn": "0-395-19395-8",
+                    "price": 22.99
+                }
+            ],
+            "bicycle": {
+                "color": "red",
+                "price": 19.95
+            }
+        },
+        "expensive": 10
+    }
+    )";
+
 class JsonFunctionsTest : public functions::test::FunctionBaseTest {
  protected:
   VectorPtr makeJsonVector(std::optional<std::string> json) {
@@ -443,6 +483,48 @@ TEST_F(JsonFunctionsTest, invalidPath) {
   VELOX_ASSERT_THROW(jsonSize(R"({"k1":"v1"})", "$.k1."), "Invalid JSON path");
   VELOX_ASSERT_THROW(jsonSize(R"({"k1":"v1"})", "$.k1]"), "Invalid JSON path");
   VELOX_ASSERT_THROW(jsonSize(R"({"k1":"v1)", "$.k1]"), "Invalid JSON path");
+}
+
+TEST_F(JsonFunctionsTest, jsonExtract) {
+  auto jsonExtract = [&](std::optional<std::string> json,
+                         const std::string& path) {
+    return evaluateOnce<std::string>(
+        "json_extract(c0, c1)",
+        makeRowVector(
+            {makeJsonVector(json), makeFlatVector<std::string>({path})}));
+  };
+
+  EXPECT_EQ(
+      "{\"x\":{\"a\":1,\"b\":2}}",
+      jsonExtract("{\"x\": {\"a\" : 1, \"b\" : 2} }", "$"));
+  EXPECT_EQ(
+      "{\"a\":1,\"b\":2}",
+      jsonExtract("{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x"));
+  EXPECT_EQ("1", jsonExtract("{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x.a"));
+  EXPECT_EQ(
+      std::nullopt, jsonExtract("{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x.c"));
+  EXPECT_EQ(
+      "3", jsonExtract("{\"x\": {\"a\" : 1, \"b\" : [2, 3]} }", "$.x.b[1]"));
+  EXPECT_EQ("2", jsonExtract("[1,2,3]", "$[1]"));
+  EXPECT_EQ(std::nullopt, jsonExtract("[1,null,3]", "$[1]"));
+  EXPECT_EQ(std::nullopt, jsonExtract("INVALID_JSON", "$"));
+  VELOX_ASSERT_THROW(jsonExtract("{\"\":\"\"}", ""), "Invalid JSON path");
+
+  EXPECT_EQ(
+      "[\"0-553-21311-3\",\"0-395-19395-8\"]",
+      jsonExtract(kJson, "$.store.book[*].isbn"));
+  EXPECT_EQ("\"Evelyn Waugh\"", jsonExtract(kJson, "$.store.book[1].author"));
+
+  // TODO The following paths are supported by Presto via Jayway, but do not
+  // work in Velox yet. Figure out how to add support for these.
+  VELOX_ASSERT_THROW(jsonExtract(kJson, "$..price"), "Invalid JSON path");
+  VELOX_ASSERT_THROW(
+      jsonExtract(kJson, "$.store.book[?(@.price < 10)].title"),
+      "Invalid JSON path");
+  VELOX_ASSERT_THROW(jsonExtract(kJson, "max($..price)"), "Invalid JSON path");
+  VELOX_ASSERT_THROW(
+      jsonExtract(kJson, "concat($..category)"), "Invalid JSON path");
+  VELOX_ASSERT_THROW(jsonExtract(kJson, "$.store.keys()"), "Invalid JSON path");
 }
 
 } // namespace
