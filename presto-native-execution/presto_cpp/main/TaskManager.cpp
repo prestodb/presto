@@ -484,8 +484,20 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
 
 namespace {
 
+struct ZombieTaskStats {
+  const std::string taskId;
+  const std::string taskInfo;
+
+  explicit ZombieTaskStats(const std::shared_ptr<exec::Task>& task)
+      : taskId(task->taskId()), taskInfo(task->toString()) {}
+
+  std::string toString() const {
+    return SystemConfig::instance()->logZombieTaskInfo() ? taskInfo : taskId;
+  }
+};
+
 // Helper structure holding stats for 'zombie' tasks.
-struct ZombieTaskCounts {
+struct ZombieTaskStatsSet {
   size_t numRunning{0};
   size_t numFinished{0};
   size_t numCanceled{0};
@@ -493,11 +505,12 @@ struct ZombieTaskCounts {
   size_t numFailed{0};
   size_t numTotal{0};
 
-  const size_t numSampleTaskId{20};
-  std::vector<std::string> taskIds;
+  const size_t numSampleTasks;
+  std::vector<ZombieTaskStats> tasks;
 
-  ZombieTaskCounts() {
-    taskIds.reserve(numSampleTaskId);
+  ZombieTaskStatsSet()
+      : numSampleTasks(SystemConfig::instance()->logNumZombieTasks()) {
+    tasks.reserve(numSampleTasks);
   }
 
   void updateCounts(std::shared_ptr<exec::Task>& task) {
@@ -520,8 +533,8 @@ struct ZombieTaskCounts {
       default:
         break;
     }
-    if (taskIds.size() < numSampleTaskId) {
-      taskIds.emplace_back(task->taskId());
+    if (tasks.size() < numSampleTasks) {
+      tasks.emplace_back(task);
     }
   }
 
@@ -534,8 +547,11 @@ struct ZombieTaskCounts {
                << numRunning << "] FINISHED[" << numFinished << "] CANCELED["
                << numCanceled << "] ABORTED[" << numAborted << "] FAILED["
                << numFailed << "]  Sample task IDs (shows only "
-               << numSampleTaskId << " IDs): {" << folly::join(',', taskIds)
-               << "}";
+               << numSampleTasks << " IDs): " << std::endl;
+    for (int i = 0; i < tasks.size(); ++i) {
+      LOG(ERROR) << "Zombie Task[" << i + 1 << "/" << tasks.size()
+                 << "]: " << tasks[i].toString() << std::endl;
+    }
   }
 };
 
@@ -546,8 +562,8 @@ size_t TaskManager::cleanOldTasks() {
 
   folly::F14FastSet<protocol::TaskId> taskIdsToClean;
 
-  ZombieTaskCounts zombieVeloxTaskCounts;
-  ZombieTaskCounts zombiePrestoTaskCounts;
+  ZombieTaskStatsSet zombieVeloxTaskCounts;
+  ZombieTaskStatsSet zombiePrestoTaskCounts;
   {
     // We copy task map locally to avoid locking task map for a potentially long
     // time. We also lock for 'read'.
