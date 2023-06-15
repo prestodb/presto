@@ -121,11 +121,19 @@ public class NativeExecutionProcess
     public synchronized void start()
             throws ExecutionException, InterruptedException, IOException
     {
-        if (process != null && process.isAlive()) {
+        start(getLaunchCommand());
+    }
+
+    @VisibleForTesting
+    synchronized void start(List<String> args)
+        throws ExecutionException, InterruptedException, IOException
+    {
+
+            if (process != null && process.isAlive()) {
             return;
         }
 
-        ProcessBuilder processBuilder = new ProcessBuilder(getLaunchCommand());
+        ProcessBuilder processBuilder = new ProcessBuilder(args);
         processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
         processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
         try {

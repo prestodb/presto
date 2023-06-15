@@ -1266,4 +1266,15 @@ public class TestPrestoSparkHttpClient
             return super.createTaskInfoResponse(httpStatus, taskId);
         }
     }
+
+    public static class SuccessServerInfoResponseManager
+            extends TestingResponseManager.TestingServerResponseManager
+    {
+        @Override
+        public Response createServerInfoResponse()
+                throws PrestoException
+        {
+            return super.createServerInfoResponse();
+        }
+    }
 }

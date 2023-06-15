@@ -25,10 +25,13 @@ import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionVeloxConfig;
 import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.net.URI;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -41,6 +44,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
+import static org.testng.Assert.fail;
 
 public class TestNativeExecutionProcess
 {
@@ -55,8 +59,17 @@ public class TestNativeExecutionProcess
     public void testNativeProcessIsAlive()
     {
         Session session = testSessionBuilder().build();
-        NativeExecutionProcessFactory factory = createNativeExecutionProcessFactory();
+        TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
+        TestPrestoSparkHttpClient.TestingHttpClient testingHttpClient = new TestPrestoSparkHttpClient.TestingHttpClient(
+                new TestPrestoSparkHttpClient.TestingResponseManager(taskId.toString(), new TestPrestoSparkHttpClient.SuccessServerInfoResponseManager()));
+        NativeExecutionProcessFactory factory = createNativeExecutionProcessFactory(testingHttpClient);
         NativeExecutionProcess process = factory.getNativeExecutionProcess(session, BASE_URI);
+        try {
+            process.start(ImmutableList.of("/bin/cat"));
+        } catch (ExecutionException | InterruptedException | IOException ex) {
+            fail("Exception occurred when trying to start process");
+        }
+        assertTrue(process.isAlive());
         // Simulate the process is closed (crashed)
         process.close();
         assertFalse(process.isAlive());
@@ -66,11 +79,25 @@ public class TestNativeExecutionProcess
     public void testNativeProcessRelaunch()
     {
         Session session = testSessionBuilder().build();
-        NativeExecutionProcessFactory factory = createNativeExecutionProcessFactory();
+        TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
+        TestPrestoSparkHttpClient.TestingHttpClient testingHttpClient = new TestPrestoSparkHttpClient.TestingHttpClient(
+                new TestPrestoSparkHttpClient.TestingResponseManager(taskId.toString(), new TestPrestoSparkHttpClient.SuccessServerInfoResponseManager()));
+        NativeExecutionProcessFactory factory = createNativeExecutionProcessFactory(testingHttpClient);
         NativeExecutionProcess process = factory.getNativeExecutionProcess(session, BASE_URI);
-        // Simulate the process is closed (crashed)
-        process.close();
         assertFalse(process.isAlive());
+
+        try {
+            process.start(ImmutableList.of("/bin/cat"));
+        } catch (ExecutionException | InterruptedException | IOException ex) {
+            fail("Exception occurred when trying to start process");
+        }
+        assertTrue(process.isAlive());
+
+        // simulate process crashed for some reason
+        process.close();
+
+        assertFalse(process.isAlive());
+
         NativeExecutionProcess process2 = factory.getNativeExecutionProcess(session, BASE_URI);
         // Expecting the factory re-created a new process object so that the process and process2
         // should be two different objects
@@ -81,7 +108,10 @@ public class TestNativeExecutionProcess
     public void testNativeProcessShutdown()
     {
         Session session = testSessionBuilder().setSystemProperty(NATIVE_EXECUTION_EXECUTABLE_PATH, "/bin/echo").build();
-        NativeExecutionProcessFactory factory = createNativeExecutionProcessFactory();
+        TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
+        TestPrestoSparkHttpClient.TestingHttpClient testingHttpClient = new TestPrestoSparkHttpClient.TestingHttpClient(
+                new TestPrestoSparkHttpClient.TestingResponseManager(taskId.toString(), new TestPrestoSparkHttpClient.FailureRetryResponseManager(5)));
+        NativeExecutionProcessFactory factory = createNativeExecutionProcessFactory(testingHttpClient);
         // Set the maxRetryDuration to 0 ms to allow the RequestErrorTracker failing immediately
         NativeExecutionProcess process = factory.createNativeExecutionProcess(session, BASE_URI, new Duration(0, TimeUnit.MILLISECONDS));
         Throwable exception = expectThrows(PrestoSparkFatalException.class, process::start);
@@ -89,23 +119,20 @@ public class TestNativeExecutionProcess
         assertFalse(process.isAlive());
     }
 
-    private NativeExecutionProcessFactory createNativeExecutionProcessFactory()
+    private NativeExecutionProcessFactory createNativeExecutionProcessFactory(TestPrestoSparkHttpClient.TestingHttpClient testingHttpClient)
     {
-        TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
         ScheduledExecutorService errorScheduler = newScheduledThreadPool(4);
         PrestoSparkWorkerProperty workerProperty = new PrestoSparkWorkerProperty(
                 new NativeExecutionConnectorConfig(),
                 new NativeExecutionNodeConfig(),
                 new NativeExecutionSystemConfig(),
                 new NativeExecutionVeloxConfig());
-        NativeExecutionProcessFactory factory = new NativeExecutionProcessFactory(
-                new TestPrestoSparkHttpClient.TestingHttpClient(
-                        new TestPrestoSparkHttpClient.TestingResponseManager(taskId.toString(), new TestPrestoSparkHttpClient.FailureRetryResponseManager(5))),
+        return new NativeExecutionProcessFactory(
+                testingHttpClient,
                 newSingleThreadExecutor(),
                 errorScheduler,
                 SERVER_INFO_JSON_CODEC,
                 new TaskManagerConfig(),
                 workerProperty);
-        return factory;
     }
 }
