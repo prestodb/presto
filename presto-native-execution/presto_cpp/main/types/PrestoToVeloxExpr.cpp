@@ -17,6 +17,7 @@
 #include "presto_cpp/main/types/ParseTypeSignature.h"
 #include "presto_cpp/presto_protocol/Base64Util.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/FlatVector.h"
@@ -53,8 +54,6 @@ std::string mapScalarFunction(const std::string& name) {
       {"presto.default.$operator$subscript", "presto.default.subscript"},
       // Special form function overrides.
       {"presto.default.in", "in"},
-      {"presto.default.row_constructor", "in"},
-      {"presto.default.in", "is_null"},
   };
 
   std::string lowerCaseName = boost::to_lower_copy(name);
@@ -163,6 +162,12 @@ std::optional<TypedExprPtr> tryConvertCast(
     const std::vector<TypedExprPtr>& args) {
   static const char* kCast = "presto.default.$operator$cast";
   static const char* kTryCast = "presto.default.try_cast";
+  static const char* kJsonToArrayCast =
+      "presto.default.$internal$json_string_to_array_cast";
+  static const char* kJsonToMapCast =
+      "presto.default.$internal$json_string_to_map_cast";
+  static const char* kJsonToRowCast =
+      "presto.default.$internal$json_string_to_row_cast";
 
   static const char* kRe2JRegExp = "Re2JRegExp";
   static const char* kJsonPath = "JsonPath";
@@ -176,6 +181,16 @@ std::optional<TypedExprPtr> tryConvertCast(
     nullOnFailure = false;
   } else if (signature.name.compare(kTryCast) == 0) {
     nullOnFailure = true;
+  } else if (
+      signature.name.compare(kJsonToArrayCast) == 0 ||
+      signature.name.compare(kJsonToMapCast) == 0 ||
+      signature.name.compare(kJsonToRowCast) == 0) {
+    auto type = parseTypeSignature(returnType);
+    return std::make_shared<CastTypedExpr>(
+        type,
+        std::vector<TypedExprPtr>{std::make_shared<CallTypedExpr>(
+            velox::JSON(), args, "presto.default.json_parse")},
+        false);
   } else {
     return std::nullopt;
   }
