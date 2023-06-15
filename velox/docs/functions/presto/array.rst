@@ -177,6 +177,10 @@ Array Functions
         SELECT filter(ARRAY [5, -6, NULL, 7], x -> x > 0); -- [5, 7]
         SELECT filter(ARRAY [5, NULL, 7, NULL], x -> x IS NOT NULL); -- [5, 7]
 
+.. function:: flatten(array(array(T))) -> array(T)
+
+    Flattens an ``array(array(T))`` to an ``array(T)`` by concatenating the contained arrays.
+
 .. function:: reduce(array(T), initialState S, inputFunction(S,T,S), outputFunction(S,R)) -> R
 
     Returns a single value reduced from ``array``. ``inputFunction`` will

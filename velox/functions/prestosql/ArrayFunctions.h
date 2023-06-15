@@ -599,4 +599,31 @@ struct ArrayTrimFunctionString {
   }
 };
 
+/// This class implements the array flatten function.
+///
+/// DEFINITION:
+/// flatten(x) → array
+/// Flattens an array(array(T)) to an array(T) by concatenating the contained
+/// arrays.
+template <typename T>
+struct ArrayFlattenFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T)
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Array<Generic<T1>>>& out,
+      const arg_type<Array<Array<Generic<T1>>>>& arrays) {
+    int64_t elementCount = 0;
+    for (const auto& array : arrays) {
+      if (array.has_value()) {
+        elementCount += array.value().size();
+      }
+    }
+    out.reserve(elementCount);
+    for (const auto& array : arrays) {
+      if (array.has_value()) {
+        out.add_items(array.value());
+      }
+    }
+  }
+};
 } // namespace facebook::velox::functions

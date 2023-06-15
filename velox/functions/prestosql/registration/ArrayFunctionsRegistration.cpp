@@ -142,6 +142,11 @@ void registerArrayFunctions(const std::string& prefix) {
       Array<Generic<T1>>,
       Variadic<Array<Generic<T1>>>>({prefix + "concat"});
 
+  registerFunction<
+      ArrayFlattenFunction,
+      Array<Generic<T1>>,
+      Array<Array<Generic<T1>>>>({prefix + "flatten"});
+
   registerArrayTrimFunctions<int8_t>(prefix);
   registerArrayTrimFunctions<int16_t>(prefix);
   registerArrayTrimFunctions<int32_t>(prefix);
