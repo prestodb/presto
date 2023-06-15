@@ -194,9 +194,10 @@ TEST_F(JsonFunctionsTest, jsonArrayLengthSignatures) {
 
 TEST_F(JsonFunctionsTest, jsonExtractScalarSignatures) {
   auto signatures = getSignatureStrings("json_extract_scalar");
-  ASSERT_EQ(1, signatures.size());
+  ASSERT_EQ(2, signatures.size());
 
   ASSERT_EQ(1, signatures.count("(json,varchar) -> varchar"));
+  ASSERT_EQ(1, signatures.count("(varchar,varchar) -> varchar"));
 }
 
 TEST_F(JsonFunctionsTest, jsonArrayContainsSignatures) {

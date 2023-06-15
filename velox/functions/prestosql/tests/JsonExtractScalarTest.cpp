@@ -23,23 +23,31 @@ namespace {
 
 class JsonExtractScalarTest : public functions::test::FunctionBaseTest {
  protected:
-  VectorPtr makeJsonVector(std::optional<std::string> json) {
+  VectorPtr makeVector(std::optional<std::string> json, const TypePtr& type) {
     std::optional<StringView> s = json.has_value()
         ? std::make_optional(StringView(json.value()))
         : std::nullopt;
-    return makeNullableFlatVector<StringView>({s}, JSON());
+    return makeNullableFlatVector<StringView>({s}, type);
   }
 
   std::optional<std::string> jsonExtractScalar(
       std::optional<std::string> json,
       std::optional<std::string> path) {
-    auto jsonVector = makeJsonVector(json);
+    auto jsonVector = makeVector(json, JSON());
     auto pathVector = makeNullableFlatVector<std::string>({path});
-    return evaluateOnce<std::string>(
+    auto jsonResult = evaluateOnce<std::string>(
         "json_extract_scalar(c0, c1)", makeRowVector({jsonVector, pathVector}));
+
+    auto varcharVector = makeVector(json, VARCHAR());
+    auto varcharResult = evaluateOnce<std::string>(
+        "json_extract_scalar(c0, c1)",
+        makeRowVector({varcharVector, pathVector}));
+
+    EXPECT_EQ(jsonResult, varcharResult);
+    return jsonResult;
   }
 
-  void evaluateWithJsonType(
+  void assertResults(
       const std::vector<std::optional<StringView>>& json,
       const std::vector<std::optional<StringView>>& path,
       const std::vector<std::optional<StringView>>& expected) {
@@ -52,6 +60,14 @@ class JsonExtractScalarTest : public functions::test::FunctionBaseTest {
         evaluate<SimpleVector<StringView>>(
             "json_extract_scalar(c0, c1)",
             makeRowVector({jsonVector, pathVector})));
+
+    auto varcharVector = makeNullableFlatVector<StringView>(json, VARCHAR());
+
+    velox::test::assertEqualVectors(
+        expectedVector,
+        evaluate<SimpleVector<StringView>>(
+            "json_extract_scalar(c0, c1)",
+            makeRowVector({varcharVector, pathVector})));
   }
 };
 
@@ -91,7 +107,7 @@ TEST_F(JsonExtractScalarTest, simple) {
 
 TEST_F(JsonExtractScalarTest, jsonType) {
   // Scalars.
-  evaluateWithJsonType(
+  assertResults(
       {R"(1)"_sv,
        R"(123456)"_sv,
        R"("hello")"_sv,
@@ -102,13 +118,13 @@ TEST_F(JsonExtractScalarTest, jsonType) {
       {"1"_sv, "123456"_sv, "hello"_sv, "1.1"_sv, ""_sv, "true"_sv});
 
   // Simple lists.
-  evaluateWithJsonType(
+  assertResults(
       {R"([1,2])"_sv, R"([1,2])"_sv, R"([1,2])"_sv, R"([1,2])"_sv},
       {"$[0]"_sv, "$[1]"_sv, "$[2]"_sv, "$[999]"_sv},
       {"1"_sv, "2"_sv, std::nullopt, std::nullopt});
 
   // Simple maps.
-  evaluateWithJsonType(
+  assertResults(
       {R"({"k1":"v1"})"_sv,
        R"({"k1":"v1"})"_sv,
        R"({"k1":"v1"})"_sv,
@@ -118,7 +134,7 @@ TEST_F(JsonExtractScalarTest, jsonType) {
       {"v1"_sv, std::nullopt, std::nullopt, std::nullopt, ""_sv});
 
   // Nested
-  evaluateWithJsonType(
+  assertResults(
       {R"({"k1":{"k2": 999}})"_sv,
        R"({"k1":[1,2,3]})"_sv,
        R"({"k1":[1,2,3]})"_sv,
