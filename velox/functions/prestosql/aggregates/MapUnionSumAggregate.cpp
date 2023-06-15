@@ -17,6 +17,7 @@
 #include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/CheckedArithmeticImpl.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
+#include "velox/functions/prestosql/aggregates/Strings.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::aggregate::prestosql {
@@ -24,20 +25,143 @@ namespace facebook::velox::aggregate::prestosql {
 namespace {
 
 template <typename K, typename S>
+struct Accumulator {
+  folly::F14FastMap<
+      K,
+      S,
+      std::hash<K>,
+      std::equal_to<K>,
+      AlignedStlAllocator<std::pair<const K, S>, 16>>
+      sums;
+
+  explicit Accumulator(HashStringAllocator* allocator)
+      : sums{AlignedStlAllocator<std::pair<const K, S>, 16>(allocator)} {}
+
+  size_t size() const {
+    return sums.size();
+  }
+
+  void addValues(
+      const MapVector* mapVector,
+      const SimpleVector<K>* mapKeys,
+      const SimpleVector<S>* mapValues,
+      vector_size_t row,
+      HashStringAllocator* allocator) {
+    auto offset = mapVector->offsetAt(row);
+    auto size = mapVector->sizeAt(row);
+
+    for (auto i = 0; i < size; ++i) {
+      // Ignore null map keys.
+      if (!mapKeys->isNullAt(offset + i)) {
+        auto key = mapKeys->valueAt(offset + i);
+        addValue(key, mapValues, offset + i);
+      }
+    }
+  }
+
+  void addValue(K key, const SimpleVector<S>* mapValues, vector_size_t row) {
+    if (mapValues->isNullAt(row)) {
+      sums[key] += 0;
+    } else {
+      auto value = mapValues->valueAt(row);
+
+      if constexpr (std::is_same_v<S, double> || std::is_same_v<S, float>) {
+        sums[key] += value;
+      } else {
+        sums[key] = functions::checkedPlus<S>(sums[key], value);
+      }
+    }
+  }
+
+  vector_size_t extractValues(
+      FlatVector<K>& mapKeys,
+      FlatVector<S>& mapValues,
+      vector_size_t offset) {
+    auto index = offset;
+    for (const auto& [key, sum] : sums) {
+      mapKeys.set(index, key);
+      mapValues.set(index, sum);
+
+      ++index;
+    }
+
+    return sums.size();
+  }
+};
+
+template <typename S>
+struct StringViewAccumulator {
+  Accumulator<StringView, S> base;
+
+  Strings strings;
+
+  explicit StringViewAccumulator(HashStringAllocator* allocator)
+      : base{allocator} {}
+
+  size_t size() const {
+    return base.size();
+  }
+
+  void addValues(
+      const MapVector* mapVector,
+      const SimpleVector<StringView>* mapKeys,
+      const SimpleVector<S>* mapValues,
+      vector_size_t row,
+      HashStringAllocator* allocator) {
+    auto offset = mapVector->offsetAt(row);
+    auto size = mapVector->sizeAt(row);
+
+    for (auto i = 0; i < size; ++i) {
+      // Ignore null map keys.
+      if (!mapKeys->isNullAt(offset + i)) {
+        auto key = mapKeys->valueAt(offset + i);
+
+        if (!key.isInline()) {
+          auto it = base.sums.find(key);
+          if (it != base.sums.end()) {
+            key = it->first;
+          } else {
+            key = strings.append(key, *allocator);
+          }
+        }
+
+        base.addValue(key, mapValues, offset + i);
+      }
+    }
+  }
+
+  vector_size_t extractValues(
+      FlatVector<StringView>& mapKeys,
+      FlatVector<S>& mapValues,
+      vector_size_t offset) {
+    return base.extractValues(mapKeys, mapValues, offset);
+  }
+};
+
+template <typename K, typename S>
+struct AccumulatorTypeTraits {
+  using AccumulatorType = Accumulator<K, S>;
+};
+
+template <typename S>
+struct AccumulatorTypeTraits<StringView, S> {
+  using AccumulatorType = StringViewAccumulator<S>;
+};
+
+template <typename K, typename S>
 class MapUnionSumAggregate : public exec::Aggregate {
  public:
   explicit MapUnionSumAggregate(TypePtr resultType)
       : Aggregate(std::move(resultType)) {}
 
-  using Accumulator = folly::F14FastMap<
-      K,
-      S,
-      std::hash<K>,
-      std::equal_to<K>,
-      AlignedStlAllocator<std::pair<const K, S>, 16>>;
+  using AccumulatorType = typename AccumulatorTypeTraits<K, S>::AccumulatorType;
 
   int32_t accumulatorFixedWidthSize() const override {
-    return sizeof(Accumulator);
+    return sizeof(AccumulatorType);
+  }
+
+  bool isFixedSize() const override {
+    return false;
   }
 
   void initializeNewGroups(
@@ -45,8 +169,7 @@ class MapUnionSumAggregate : public exec::Aggregate {
       folly::Range<const vector_size_t*> indices) override {
     setAllNulls(groups, indices);
     for (auto index : indices) {
-      new (groups[index] + offset_) Accumulator{
-          AlignedStlAllocator<std::pair<const K, S>, 16>(allocator_)};
+      new (groups[index] + offset_) AccumulatorType{allocator_};
     }
   }
 
@@ -64,7 +187,7 @@ class MapUnionSumAggregate : public exec::Aggregate {
     mapValues->resize(numElements);
 
     auto rawNulls = mapVector->mutableRawNulls();
-    vector_size_t index = 0;
+    vector_size_t offset = 0;
     for (auto i = 0; i < numGroups; ++i) {
       char* group = groups[i];
       if (isNull(group)) {
@@ -73,15 +196,10 @@ class MapUnionSumAggregate : public exec::Aggregate {
       } else {
         clearNull(rawNulls, i);
 
-        auto groupMap = value<Accumulator>(group);
-        auto mapSize = groupMap->size();
-        for (auto it = groupMap->begin(); it != groupMap->end(); ++it) {
-          mapKeys->set(index, it->first);
-          mapValues->set(index, it->second);
-
-          ++index;
-        }
-        mapVector->setOffsetAndSize(i, index - mapSize, mapSize);
+        auto mapSize = value<AccumulatorType>(group)->extractValues(
+            *mapKeys, *mapValues, offset);
+        mapVector->setOffsetAndSize(i, offset, mapSize);
+        offset += mapSize;
       }
     }
   }
@@ -103,8 +221,11 @@ class MapUnionSumAggregate : public exec::Aggregate {
 
     rows.applyToSelected([&](auto row) {
       if (!decodedMaps_.isNullAt(row)) {
-        clearNull(groups[row]);
-        auto groupMap = value<Accumulator>(groups[row]);
+        auto* group = groups[row];
+        clearNull(group);
+
+        auto tracker = trackRowSize(group);
+        auto groupMap = value<AccumulatorType>(group);
         addMap(*groupMap, mapVector, mapKeys, mapValues, row);
       }
     });
@@ -120,8 +241,9 @@ class MapUnionSumAggregate : public exec::Aggregate {
     auto mapKeys = mapVector->mapKeys()->template as<SimpleVector<K>>();
     auto mapValues = mapVector->mapValues()->template as<SimpleVector<S>>();
 
-    auto groupMap = value<Accumulator>(group);
+    auto groupMap = value<AccumulatorType>(group);
 
+    auto tracker = trackRowSize(group);
     rows.applyToSelected([&](auto row) {
       if (!decodedMaps_.isNullAt(row)) {
         clearNull(group);
@@ -147,46 +269,30 @@ class MapUnionSumAggregate : public exec::Aggregate {
   }
 
   void destroy(folly::Range<char**> groups) override {
-    for (auto group : groups) {
-      auto groupMap = value<Accumulator>(group);
-      std::destroy_at(groupMap);
-    }
-  }
-
- private:
-  void addMap(
-      Accumulator& groupMap,
-      const MapVector* mapVector,
-      const SimpleVector<K>* mapKeys,
-      const SimpleVector<S>* mapValues,
-      vector_size_t row) const {
-    auto decodedRow = decodedMaps_.index(row);
-    auto offset = mapVector->offsetAt(decodedRow);
-    auto size = mapVector->sizeAt(decodedRow);
-
-    for (auto i = 0; i < size; ++i) {
-      // Ignore null map keys.
-      if (!mapKeys->isNullAt(offset + i)) {
-        auto key = mapKeys->valueAt(offset + i);
-        if (mapValues->isNullAt(offset + i)) {
-          groupMap[key] += 0;
-        } else {
-          auto value = mapValues->valueAt(offset + i);
-
-          if constexpr (std::is_same_v<S, double> || std::is_same_v<S, float>) {
-            groupMap[key] += value;
-          } else {
-            groupMap[key] = functions::checkedPlus<S>(groupMap[key], value);
-          }
+    if constexpr (std::is_same_v<K, StringView>) {
+      for (auto* group : groups) {
+        if (!isNull(group)) {
+          value<AccumulatorType>(group)->strings.free(*allocator_);
         }
       }
     }
   }
 
+ private:
+  void addMap(
+      AccumulatorType& groupMap,
+      const MapVector* mapVector,
+      const SimpleVector<K>* mapKeys,
+      const SimpleVector<S>* mapValues,
+      vector_size_t row) const {
+    auto decodedRow = decodedMaps_.index(row);
+    groupMap.addValues(mapVector, mapKeys, mapValues, decodedRow, allocator_);
+  }
+
   vector_size_t countElements(char** groups, int32_t numGroups) const {
     vector_size_t size = 0;
     for (int32_t i = 0; i < numGroups; ++i) {
-      size += value<Accumulator>(groups[i])->size();
+      size += value<AccumulatorType>(groups[i])->size();
     }
     return size;
   }
@@ -217,10 +323,8 @@ std::unique_ptr<exec::Aggregate> createMapUnionSumAggregate(
 }
 
 exec::AggregateRegistrationResult registerMapUnionSum(const std::string& name) {
-  // TODO Add support for keys of type VARCHAR.
-
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
-  for (auto keyType : {"tinyint", "smallint", "integer", "bigint"}) {
+  for (auto keyType : {"tinyint", "smallint", "integer", "bigint", "varchar"}) {
     for (auto valueType :
          {"tinyint", "smallint", "integer", "bigint", "double", "real"}) {
       auto mapType = fmt::format("map({},{})", keyType, valueType);
@@ -256,6 +360,9 @@ exec::AggregateRegistrationResult registerMapUnionSum(const std::string& name) {
                 valueTypeKind, resultType);
           case TypeKind::BIGINT:
             return createMapUnionSumAggregate<int64_t>(
+                valueTypeKind, resultType);
+          case TypeKind::VARCHAR:
+            return createMapUnionSumAggregate<StringView>(
                 valueTypeKind, resultType);
           default:
             VELOX_UNREACHABLE();
