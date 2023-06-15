@@ -25,6 +25,21 @@
 
 namespace facebook::velox::dwio::common {
 
+void WriteFileDataSink::write(std::vector<DataBuffer<char>>& buffers) {
+  writeImpl(buffers, [&](auto& buffer) {
+    uint64_t size = buffer.size();
+    writeFile_->append({buffer.data(), size});
+    return size;
+  });
+}
+
+void WriteFileDataSink::doClose() {
+  LOG(INFO) << "closing file: " << getName() << ",  total size: " << size_;
+  if (writeFile_) {
+    writeFile_->close();
+  }
+}
+
 LocalFileSink::LocalFileSink(
     const std::string& name,
     const MetricsLogPtr& metricLogger,

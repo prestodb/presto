@@ -18,6 +18,7 @@
 
 #include <chrono>
 
+#include "velox/common/file/File.h"
 #include "velox/dwio/common/Closeable.h"
 #include "velox/dwio/common/DataBuffer.h"
 #include "velox/dwio/common/IoStatistics.h"
@@ -131,6 +132,45 @@ class DataSink : public Closeable {
     // buffers after all buffers are written.
     buffers.clear();
   }
+};
+
+// Wrapper class that delegates calls to the underlying WriteFile
+class WriteFileDataSink final : public DataSink {
+ public:
+  explicit WriteFileDataSink(
+      std::unique_ptr<WriteFile> writeFile,
+      std::string name,
+      MetricsLogPtr metricLogger = MetricsLog::voidLog(),
+      IoStatistics* stats = nullptr)
+      : DataSink(std::move(name), std::move(metricLogger), stats),
+        writeFile_{std::move(writeFile)} {}
+
+  ~WriteFileDataSink() override {
+    destroy();
+  }
+
+  bool isBuffered() const override {
+    return false;
+  }
+
+  static void registerFactory();
+
+  uint64_t size() const override {
+    DWIO_ENSURE_EQ(
+        size_,
+        writeFile_->size(),
+        "Size mismatch between WriteFile and DataSink.");
+    return size_;
+  }
+
+  using DataSink::write;
+
+  void write(std::vector<DataBuffer<char>>& buffers) override;
+
+  void doClose() override;
+
+ private:
+  std::shared_ptr<WriteFile> writeFile_;
 };
 
 class LocalFileSink : public DataSink {
