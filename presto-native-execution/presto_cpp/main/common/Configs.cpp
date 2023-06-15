@@ -240,6 +240,8 @@ SystemConfig::SystemConfig() {
           STR_PROP(kEnableMemoryLeakCheck, "true"),
           NONE_PROP(kRemoteFunctionServerThriftPort),
           STR_PROP(kSkipRuntimeStatsInRunningTaskInfo, "true"),
+          STR_PROP(kLogZombieTaskInfo, "false"),
+          NUM_PROP(kLogNumZombieTasks, 20),
       };
 }
 
@@ -422,6 +424,14 @@ bool SystemConfig::enableMemoryLeakCheck() const {
 
 bool SystemConfig::skipRuntimeStatsInRunningTaskInfo() const {
   return optionalProperty<bool>(kSkipRuntimeStatsInRunningTaskInfo).value();
+}
+
+bool SystemConfig::logZombieTaskInfo() const {
+  return optionalProperty<bool>(kLogZombieTaskInfo).value();
+}
+
+uint32_t SystemConfig::logNumZombieTasks() const {
+  return optionalProperty<uint32_t>(kLogZombieTaskInfo).value();
 }
 
 NodeConfig::NodeConfig() {
