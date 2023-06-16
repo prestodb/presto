@@ -234,7 +234,6 @@ public class FeaturesConfig
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
     private String analyzerType = "BUILTIN";
     private boolean verboseRuntimeStatsEnabled;
-    private boolean verboseOptimizerInfoEnabled;
 
     private boolean streamingForPartialAggregationEnabled;
     private boolean preferMergeJoinForSortedInputs;
@@ -2204,11 +2203,6 @@ public class FeaturesConfig
     public boolean isVerboseRuntimeStatsEnabled()
     {
         return verboseRuntimeStatsEnabled;
-    }
-
-    public boolean isVerboseOptimizerInfoEnabled()
-    {
-        return verboseOptimizerInfoEnabled;
     }
 
     @Config("verbose-runtime-stats-enabled")

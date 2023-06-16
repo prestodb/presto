@@ -89,23 +89,10 @@ public class PushdownSubfields
         implements PlanOptimizer
 {
     private final Metadata metadata;
-    private boolean isEnabledForTesting;
 
     public PushdownSubfields(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-    }
-
-    @Override
-    public void setEnabledForTesting(boolean isSet)
-    {
-        isEnabledForTesting = isSet;
-    }
-
-    @Override
-    public boolean isEnabled(Session session)
-    {
-        return isEnabledForTesting || isPushdownSubfieldsEnabled(session);
     }
 
     @Override
@@ -115,7 +102,7 @@ public class PushdownSubfields
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
 
-        if (!isEnabled(session)) {
+        if (!isPushdownSubfieldsEnabled(session)) {
             return plan;
         }
 
