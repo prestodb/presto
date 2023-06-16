@@ -274,8 +274,8 @@ uint64_t ParquetRowReader::next(
   reader_->Scan(state_, output);
 
   if (output.size() > 0) {
-    std::vector<VectorPtr> columns;
-    columns.resize(output.data.size());
+    VELOX_CHECK(result);
+    std::vector<VectorPtr> columns(result->type()->size());
     for (auto& spec : scanSpec_->children()) {
       if (spec->isConstant()) {
         columns[spec->channel()] =
@@ -292,7 +292,7 @@ uint64_t ParquetRowReader::next(
 
     result = std::make_shared<RowVector>(
         &pool_,
-        rowType_,
+        result->type(),
         BufferPtr(nullptr),
         output.size(),
         columns,

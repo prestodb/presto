@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include "velox/exec/TableScan.h"
-#include <velox/type/Timestamp.h>
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/connectors/hive/HiveConnector.h"
@@ -27,6 +26,7 @@
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
+#include "velox/type/Timestamp.h"
 #include "velox/type/Type.h"
 #include "velox/type/tests/SubfieldFiltersBuilder.h"
 
@@ -2070,6 +2070,20 @@ TEST_F(TableScanTest, remainingFilter) {
           .planNode(),
       filePaths,
       "SELECT c1, c2 FROM tmp WHERE c1 > c0");
+
+  // Remaining filter converted into tuple domain.
+  assertQuery(
+      PlanBuilder(pool_.get())
+          .tableScan(rowType, {}, "not (c0 > 0::INTEGER or c1 > 0::INTEGER)")
+          .planNode(),
+      filePaths,
+      "SELECT * FROM tmp WHERE not (c0 > 0 or c1 > 0)");
+  assertQuery(
+      PlanBuilder(pool_.get())
+          .tableScan(rowType, {}, "not (c0 > 0::INTEGER or c1 > c0)")
+          .planNode(),
+      filePaths,
+      "SELECT * FROM tmp WHERE not (c0 > 0 or c1 > c0)");
 }
 
 TEST_F(TableScanTest, remainingFilterSkippedStrides) {

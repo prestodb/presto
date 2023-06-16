@@ -78,6 +78,14 @@ class HiveDataSource : public DataSource {
       const std::vector<common::Subfield>& remainingFilterInputs,
       memory::MemoryPool* pool);
 
+  // Internal API, made public to be accessible in unit tests.  Do not use in
+  // other places.
+  static core::TypedExprPtr extractFiltersFromRemainingFilter(
+      const core::TypedExprPtr& expr,
+      core::ExpressionEvaluator* evaluator,
+      bool negated,
+      SubfieldFilters& filters);
+
  protected:
   virtual uint64_t readNext(uint64_t size) {
     return rowReader_->next(size, output_);

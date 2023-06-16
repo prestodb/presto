@@ -151,6 +151,8 @@ std::unique_ptr<common::Filter> makeLessThanOrEqualFilter(
       return lessThanOrEqual(singleValue<int32_t>(upper));
     case TypeKind::BIGINT:
       return lessThanOrEqual(singleValue<int64_t>(upper));
+    case TypeKind::HUGEINT:
+      return lessThanOrEqualHugeint(singleValue<int128_t>(upper));
     case TypeKind::DOUBLE:
       return lessThanOrEqualDouble(singleValue<double>(upper));
     case TypeKind::REAL:
@@ -180,6 +182,8 @@ std::unique_ptr<common::Filter> makeLessThanFilter(
       return lessThan(singleValue<int32_t>(upper));
     case TypeKind::BIGINT:
       return lessThan(singleValue<int64_t>(upper));
+    case TypeKind::HUGEINT:
+      return lessThanHugeint(singleValue<int128_t>(upper));
     case TypeKind::DOUBLE:
       return lessThanDouble(singleValue<double>(upper));
     case TypeKind::REAL:
@@ -209,6 +213,8 @@ std::unique_ptr<common::Filter> makeGreaterThanOrEqualFilter(
       return greaterThanOrEqual(singleValue<int32_t>(lower));
     case TypeKind::BIGINT:
       return greaterThanOrEqual(singleValue<int64_t>(lower));
+    case TypeKind::HUGEINT:
+      return greaterThanOrEqualHugeint(singleValue<int128_t>(lower));
     case TypeKind::DOUBLE:
       return greaterThanOrEqualDouble(singleValue<double>(lower));
     case TypeKind::REAL:
@@ -238,6 +244,8 @@ std::unique_ptr<common::Filter> makeGreaterThanFilter(
       return greaterThan(singleValue<int32_t>(lower));
     case TypeKind::BIGINT:
       return greaterThan(singleValue<int64_t>(lower));
+    case TypeKind::HUGEINT:
+      return greaterThanHugeint(singleValue<int128_t>(lower));
     case TypeKind::DOUBLE:
       return greaterThanDouble(singleValue<double>(lower));
     case TypeKind::REAL:
@@ -269,6 +277,8 @@ std::unique_ptr<common::Filter> makeEqualFilter(
       return equal(singleValue<int32_t>(value));
     case TypeKind::BIGINT:
       return equal(singleValue<int64_t>(value));
+    case TypeKind::HUGEINT:
+      return equalHugeint(singleValue<int128_t>(value));
     case TypeKind::VARCHAR:
       return equal(singleValue<StringView>(value));
     case TypeKind::DATE:
@@ -315,6 +325,8 @@ std::unique_ptr<common::Filter> makeNotEqualFilter(
     ranges.emplace_back(std::unique_ptr<common::BigintRange>(greaterRange));
 
     return std::make_unique<common::BigintMultiRange>(std::move(ranges), false);
+  } else if (value->typeKind() == TypeKind::HUGEINT) {
+    VELOX_NYI();
   } else {
     std::vector<std::unique_ptr<common::Filter>> filters;
     filters.emplace_back(std::move(lessThanFilter));

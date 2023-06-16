@@ -24,7 +24,7 @@ StructColumnReader::StructColumnReader(
     ParquetParams& params,
     common::ScanSpec& scanSpec)
     : SelectiveStructColumnReader(dataType, dataType, params, scanSpec) {
-  auto& childSpecs = scanSpec_->children();
+  auto& childSpecs = scanSpec_->stableChildren();
   for (auto i = 0; i < childSpecs.size(); ++i) {
     if (childSpecs[i]->isConstant()) {
       continue;
@@ -116,10 +116,6 @@ void StructColumnReader::seekToRowGroup(uint32_t index) {
   for (auto& child : children_) {
     child->seekToRowGroup(index);
   }
-}
-
-bool StructColumnReader::filterMatches(const thrift::RowGroup& /*rowGroup*/) {
-  return true;
 }
 
 void StructColumnReader::seekToEndOfPresetNulls() {

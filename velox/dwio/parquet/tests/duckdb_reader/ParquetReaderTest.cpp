@@ -93,7 +93,7 @@ TEST_F(ParquetReaderTest, readSampleFull) {
   auto rowReader = reader->createRowReader(rowReaderOpts);
   auto expected = vectorMaker_->rowVector(
       {rangeVector<int64_t>(20, 1), rangeVector<double>(20, 1)});
-  assertReadExpected(*rowReader, expected);
+  assertReadExpected(sampleSchema(), *rowReader, expected, *pool_);
 }
 
 TEST_F(ParquetReaderTest, readSampleRange1) {
@@ -109,7 +109,7 @@ TEST_F(ParquetReaderTest, readSampleRange1) {
   auto rowReader = reader->createRowReader(rowReaderOpts);
   auto expected = vectorMaker_->rowVector(
       {rangeVector<int64_t>(10, 1), rangeVector<double>(10, 1)});
-  assertReadExpected(*rowReader, expected);
+  assertReadExpected(sampleSchema(), *rowReader, expected, *pool_);
 }
 
 TEST_F(ParquetReaderTest, readSampleRange2) {
@@ -125,7 +125,7 @@ TEST_F(ParquetReaderTest, readSampleRange2) {
   auto rowReader = reader->createRowReader(rowReaderOpts);
   auto expected = vectorMaker_->rowVector(
       {rangeVector<int64_t>(10, 11), rangeVector<double>(10, 11)});
-  assertReadExpected(*rowReader, expected);
+  assertReadExpected(sampleSchema(), *rowReader, expected, *pool_);
 }
 
 TEST_F(ParquetReaderTest, readSampleEmptyRange) {
@@ -207,7 +207,7 @@ TEST_F(ParquetReaderTest, dateRead) {
   auto rowReader = reader->createRowReader(rowReaderOpts);
 
   auto expected = vectorMaker_->rowVector({rangeVector<Date>(25, -5)});
-  assertReadExpected(*rowReader, expected);
+  assertReadExpected(dateSchema(), *rowReader, expected, *pool_);
 }
 
 TEST_F(ParquetReaderTest, dateFilter) {
@@ -248,7 +248,7 @@ TEST_F(ParquetReaderTest, intRead) {
 
   auto expected = vectorMaker_->rowVector(
       {rangeVector<int32_t>(10, 100), rangeVector<int64_t>(10, 1000)});
-  assertReadExpected(*rowReader, expected);
+  assertReadExpected(intSchema(), *rowReader, expected, *pool_);
 }
 
 TEST_F(ParquetReaderTest, intMultipleFilters) {

@@ -263,6 +263,8 @@ class Subfield {
     return !path_.empty() && path_[0]->kind() == kNestedField;
   }
 
+  Subfield clone() const;
+
  private:
   std::vector<std::unique_ptr<PathElement>> path_;
 };
