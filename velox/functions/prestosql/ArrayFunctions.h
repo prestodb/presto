@@ -510,14 +510,7 @@ struct ArrayConcatFunction {
     }
     out.reserve(elementCount);
     for (const auto& array : arrays) {
-      for (auto element : array.value()) {
-        if (element.has_value()) {
-          auto& newItem = out.add_item();
-          newItem.copy_from(element.value());
-        } else {
-          out.add_null();
-        }
-      }
+      out.add_items(array.value());
     }
   }
 };
