@@ -431,7 +431,7 @@ jobs:
       - run:
           name: "Install Adapter Dependencies"
           command: |
-            mkdir ~/adapter-deps ~/adapter-deps/install
+            mkdir -p ~/adapter-deps/install/bin
             source /opt/rh/gcc-toolset-9/enable
             set -xu
             DEPENDENCY_DIR=~/adapter-deps PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh

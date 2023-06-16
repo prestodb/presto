@@ -222,6 +222,7 @@ class S3FileSystem::Impl {
   ~Impl() {
     const size_t newCount = --initCounter_;
     if (newCount == 0) {
+      client_.reset();
       Aws::SDKOptions awsOptions;
       awsOptions.loggingOptions.logLevel =
           inferS3LogLevel(HiveConfig::s3GetLogLevel(config_));
