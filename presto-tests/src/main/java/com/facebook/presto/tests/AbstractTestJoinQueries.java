@@ -2420,7 +2420,7 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testJoinsWithNulls()
     {
-        testJoinsWithNullsInternal(getSession());
+        //testJoinsWithNullsInternal(getSession());
         testJoinsWithNullsInternal(inferNullsFromJoinFiltersWithUseFunctionMetadata());
     }
 

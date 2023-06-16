@@ -99,6 +99,9 @@ public class TextRenderer
                 .collect(toList());
 
         for (NodeRepresentation child : children) {
+            if (child.getId().equals(node.getId())) {
+                continue;
+            }
             writeTextOutput(output, plan, level + 1, child);
         }
 

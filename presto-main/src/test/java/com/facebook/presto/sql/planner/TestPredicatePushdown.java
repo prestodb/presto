@@ -461,13 +461,88 @@ public class TestPredicatePushdown
                                 Optional.of(PARTITIONED),
                                 ImmutableMap.of()))
                 .matches(
+                        join(INNER,
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.of(REPLICATED),
+                                filter("a1=1",
+                                        values("a1")),
+                                filter("1=b1",
+                                        values("b1"))));
+    }
+
+    @Test
+    public void testPredicatePushdownOnlyAddsProjectsWhenNeeded()
+    {
+        RuleTester tester = new RuleTester();
+        PredicatePushDown predicatePushDownOptimizer = new PredicatePushDown(tester.getMetadata(), tester.getSqlParser());
+
+        tester.assertThat(predicatePushDownOptimizer)
+                .on("SELECT 1 " +
+                        "FROM supplier s " +
+                        "    INNER JOIN lineitem l on s.suppkey = l.suppkey " +
+                        "    INNER JOIN nation n on s.nationkey = n.nationkey " +
+                        "WHERE s.phone = '424242' " +
+                        "    AND n.name = 'mars' " +
+                        "    AND l.comment = 'lorem ipsum' ")
+                .matches(
+                        anyTree(
                                 join(INNER,
-                                    ImmutableList.of(),
-                                    Optional.empty(),
-                                    Optional.of(REPLICATED),
-                                            filter("a1=1",
-                                                    values("a1")),
-                                            filter("1=b1",
-                                                    values("b1"))));
-}
+                                        ImmutableList.of(equiJoinClause("S_NATIONKEY", "N_NATIONKEY")),
+                                        // No identity projection is added above this JoinNode since it's not needed
+                                        // This JoinNode is 'visible' for join-reordering
+                                        join(INNER,
+                                                ImmutableList.of(equiJoinClause("S_SUPPKEY", "L_SUPPKEY")),
+                                                // No identity projection is added on the left of right source since it's not needed
+                                                filter("S_PHONE = '424242'",
+                                                        tableScan("supplier",
+                                                                ImmutableMap.of(
+                                                                        "S_SUPPKEY", "suppkey",
+                                                                        "S_PHONE", "phone",
+                                                                        "S_NATIONKEY", "nationkey"))),
+                                                filter("L_COMMENT = 'lorem ipsum'",
+                                                        tableScan("lineitem",
+                                                                ImmutableMap.of(
+                                                                        "L_SUPPKEY", "suppkey",
+                                                                        "L_COMMENT", "comment")))),
+                                        filter("N_NAME = 'mars'",
+                                                tableScan("nation",
+                                                        ImmutableMap.of(
+                                                                "N_NATIONKEY", "nationkey",
+                                                                "N_NAME", "name"))))));
+
+        tester.assertThat(predicatePushDownOptimizer)
+                .on("SELECT 1 " +
+                        "FROM supplier s " +
+                        "    INNER JOIN lineitem l on s.suppkey = l.suppkey " +
+                        "    INNER JOIN nation n on s.nationkey + l.partkey = n.nationkey " +
+                        "WHERE s.phone = '424242' " +
+                        "    AND n.name = 'mars' " +
+                        "    AND l.comment = 'lorem ipsum' ")
+                .matches(
+                        anyTree(
+                                join(INNER,
+                                        ImmutableList.of(equiJoinClause("expr", "N_NATIONKEY")),
+                                        // We need this ProjectNode to build a new assignment for use in the JOIN with nation
+                                        project(ImmutableMap.of("expr", expression("S_NATIONKEY + L_PARTKEY")),
+                                                join(INNER,
+                                                        ImmutableList.of(equiJoinClause("S_SUPPKEY", "L_SUPPKEY")),
+                                                        filter("S_PHONE = '424242'",
+                                                                tableScan("supplier",
+                                                                        ImmutableMap.of(
+                                                                                "S_SUPPKEY", "suppkey",
+                                                                                "S_PHONE", "phone",
+                                                                                "S_NATIONKEY", "nationkey"))),
+                                                        filter("L_COMMENT = 'lorem ipsum'",
+                                                                tableScan("lineitem",
+                                                                        ImmutableMap.of(
+                                                                                "L_SUPPKEY", "suppkey",
+                                                                                "L_PARTKEY", "partkey",
+                                                                                "L_COMMENT", "comment"))))),
+                                        filter("N_NAME = 'mars'",
+                                                tableScan("nation",
+                                                        ImmutableMap.of(
+                                                                "N_NATIONKEY", "nationkey",
+                                                                "N_NAME", "name"))))));
+    }
 }
