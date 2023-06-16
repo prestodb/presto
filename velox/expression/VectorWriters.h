@@ -531,7 +531,9 @@ struct VectorWriter<Generic<T>> : public VectorWriterBase {
     if (castType_) {
       castWriter_->ensureSize(size);
     } else {
-      vector_->resize(size, false);
+      if (vector_->size() < size) {
+        vector_->resize(size, false);
+      }
     }
   }
 

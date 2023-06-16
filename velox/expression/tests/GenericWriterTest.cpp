@@ -141,6 +141,16 @@ TEST_F(GenericWriterTest, ArrayTrim) {
   test::assertEqualVectors(expected, result);
 }
 
+TEST_F(GenericWriterTest, ensureSizeDoesNotResize) {
+  VectorPtr result;
+  BaseVector::ensureWritable(SelectivityVector(6), VARCHAR(), pool(), result);
+  EXPECT_EQ(result->size(), 6);
+  VectorWriter<Any> writer;
+  writer.init(*result);
+  writer.ensureSize(1);
+  EXPECT_EQ(result->size(), 6);
+}
+
 TEST_F(GenericWriterTest, varchar) {
   VectorPtr result;
   BaseVector::ensureWritable(SelectivityVector(6), VARCHAR(), pool(), result);
