@@ -59,6 +59,7 @@ add_executable(
   JsonFunctionsTest.cpp
   MapEntriesTest.cpp
   MapFilterTest.cpp
+  MapFromEntriesTest.cpp
   MapKeysAndValuesTest.cpp
   MapTest.cpp
   MapZipWithTest.cpp

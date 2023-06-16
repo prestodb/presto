@@ -244,9 +244,7 @@ class VectorTestBase {
 
   // Create an ArrayVector<ROW> from nested std::vectors of variants.
   // Example:
-  //   auto arrayVector = makeArrayOfRowVector(
-  //     ROW({INTEGER(), VARCHAR()}),
-  //     {
+  //   auto arrayVector = makeArrayOfRowVector({
   //       {variant::row({1, "red"}), variant::row({1, "blue"})},
   //       {},
   //       {variant::row({3, "green"})},
