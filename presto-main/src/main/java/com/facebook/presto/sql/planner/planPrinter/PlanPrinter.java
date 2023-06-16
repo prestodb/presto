@@ -121,7 +121,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.SystemSessionProperties.isVerboseOptimizerInfoEnabled;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.expressions.DynamicFilters.extractDynamicFilters;
@@ -180,7 +179,7 @@ public class PlanPrinter
                 .mapToLong(planNode -> planNode.getPlanNodeScheduledTime().toMillis())
                 .sum(), MILLISECONDS));
 
-        this.representation = new PlanRepresentation(planRoot, types, totalCpuTime, totalScheduledTime, session.getOptimizerInformationCollector().getOptimizationInfo());
+        this.representation = new PlanRepresentation(planRoot, types, totalCpuTime, totalScheduledTime);
 
         RowExpressionFormatter rowExpressionFormatter = new RowExpressionFormatter(functionAndTypeManager);
         ConnectorSession connectorSession = requireNonNull(session, "session is null").toConnectorSession();
@@ -190,9 +189,9 @@ public class PlanPrinter
         planRoot.accept(visitor, null);
     }
 
-    public String toText(boolean verbose, int level, boolean verboseOptimizerInfo)
+    public String toText(boolean verbose, int level)
     {
-        return new TextRenderer(verbose, level, verboseOptimizerInfo).render(representation);
+        return new TextRenderer(verbose, level).render(representation);
     }
 
     public String toJson()
@@ -209,13 +208,7 @@ public class PlanPrinter
 
     public static String textLogicalPlan(PlanNode plan, TypeProvider types, StatsAndCosts estimatedStatsAndCosts, FunctionAndTypeManager functionAndTypeManager, Session session, int level)
     {
-        return new PlanPrinter(plan, types,
-                Optional.empty(),
-                estimatedStatsAndCosts,
-                Optional.empty(),
-                functionAndTypeManager,
-                session)
-                .toText(false, level, isVerboseOptimizerInfoEnabled(session));
+        return new PlanPrinter(plan, types, Optional.empty(), estimatedStatsAndCosts, Optional.empty(), functionAndTypeManager, session).toText(false, level);
     }
 
     public static String textLogicalPlan(
@@ -241,7 +234,7 @@ public class PlanPrinter
             int level,
             boolean verbose)
     {
-        return new PlanPrinter(plan, types, stageExecutionStrategy, estimatedStatsAndCosts, stats, functionAndTypeManager, session).toText(verbose, level, isVerboseOptimizerInfoEnabled(session));
+        return new PlanPrinter(plan, types, stageExecutionStrategy, estimatedStatsAndCosts, stats, functionAndTypeManager, session).toText(verbose, level);
     }
 
     public static String textDistributedPlan(StageInfo outputStageInfo, FunctionAndTypeManager functionAndTypeManager, Session session, boolean verbose)
