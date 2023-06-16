@@ -245,6 +245,56 @@ core::CallTypedExprPtr replaceInputs(
       call->type(), std::move(inputs), call->name());
 }
 
+void checkColumnNameLowerCase(const std::shared_ptr<const Type>& type) {
+  switch (type->kind()) {
+    case TypeKind::ARRAY:
+      checkColumnNameLowerCase(type->asArray().elementType());
+      break;
+    case TypeKind::MAP: {
+      checkColumnNameLowerCase(type->asMap().keyType());
+      checkColumnNameLowerCase(type->asMap().valueType());
+
+    } break;
+    case TypeKind::ROW: {
+      for (auto& outputName : type->asRow().names()) {
+        VELOX_CHECK(
+            !std::any_of(outputName.begin(), outputName.end(), isupper));
+      }
+      for (auto& childType : type->asRow().children()) {
+        checkColumnNameLowerCase(childType);
+      }
+    } break;
+    default:
+      VLOG(1) << "No need to check type lowercase mode" << type->toString();
+  }
+}
+
+void checkColumnNameLowerCase(const SubfieldFilters& filters) {
+  for (auto& pair : filters) {
+    if (pair.first.toString() == kPath || pair.first.toString() == kBucket) {
+      continue;
+    }
+    auto& path = pair.first.path();
+
+    for (int i = 0; i < path.size(); ++i) {
+      auto nestedField =
+          dynamic_cast<const common::Subfield::NestedField*>(path[i].get());
+      if (nestedField == nullptr) {
+        continue;
+      }
+      VELOX_CHECK(!std::any_of(
+          nestedField->name().begin(), nestedField->name().end(), isupper));
+    }
+  }
+}
+
+void checkColumnNameLowerCase(const core::TypedExprPtr& typeExpr) {
+  checkColumnNameLowerCase(typeExpr->type());
+  for (auto& type : typeExpr->inputs()) {
+    checkColumnNameLowerCase(type);
+  }
+}
+
 } // namespace
 
 core::TypedExprPtr HiveDataSource::extractFiltersFromRemainingFilter(
@@ -308,6 +358,7 @@ HiveDataSource::HiveDataSource(
     core::ExpressionEvaluator* expressionEvaluator,
     memory::MemoryAllocator* allocator,
     const std::string& scanId,
+    bool fileColumnNamesReadAsLowerCase,
     folly::Executor* executor)
     : fileHandleFactory_(fileHandleFactory),
       readerOpts_(pool),
@@ -354,6 +405,11 @@ HiveDataSource::HiveDataSource(
   VELOX_CHECK(
       hiveTableHandle->isFilterPushdownEnabled(),
       "Filter pushdown must be enabled");
+  if (fileColumnNamesReadAsLowerCase) {
+    checkColumnNameLowerCase(outputType);
+    checkColumnNameLowerCase(hiveTableHandle->subfieldFilters());
+    checkColumnNameLowerCase(hiveTableHandle->remainingFilter());
+  }
 
   SubfieldFilters filters;
   for (auto& [k, v] : hiveTableHandle->subfieldFilters()) {

@@ -28,7 +28,9 @@ namespace facebook::velox::duckdb {
 ::duckdb::LogicalType fromVeloxType(const TypePtr& type);
 
 /// Converts DuckDB type to Velox type.
-TypePtr toVeloxType(::duckdb::LogicalType type);
+TypePtr toVeloxType(
+    ::duckdb::LogicalType type,
+    bool fileColumnNamesReadAsLowerCase = false);
 
 static ::duckdb::timestamp_t veloxTimestampToDuckDB(
     const Timestamp& timestamp) {

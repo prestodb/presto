@@ -567,7 +567,8 @@ DwrfReader::DwrfReader(
           options.getDirectorySizeGuess(),
           options.getFilePreloadThreshold(),
           options.getFileFormat() == FileFormat::ORC ? FileFormat::ORC
-                                                     : FileFormat::DWRF)),
+                                                     : FileFormat::DWRF,
+          options.isFileColumnNamesReadAsLowerCase())),
       options_(options) {}
 
 std::unique_ptr<StripeInformation> DwrfReader::getStripe(

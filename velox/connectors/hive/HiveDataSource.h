@@ -40,6 +40,7 @@ class HiveDataSource : public DataSource {
       core::ExpressionEvaluator* expressionEvaluator,
       memory::MemoryAllocator* allocator,
       const std::string& scanId,
+      bool fileColumnNamesReadAsLowerCase,
       folly::Executor* executor);
 
   void addSplit(std::shared_ptr<ConnectorSplit> split) override;

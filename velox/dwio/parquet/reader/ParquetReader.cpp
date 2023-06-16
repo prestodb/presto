@@ -120,7 +120,8 @@ void ReaderBase::initializeSchema() {
   uint32_t maxSchemaElementIdx = fileMetaData_->schema.size() - 1;
   schemaWithId_ = getParquetColumnInfo(
       maxSchemaElementIdx, maxRepeat, maxDefine, schemaIdx, columnIdx);
-  schema_ = createRowType(schemaWithId_->getChildren());
+  schema_ = createRowType(
+      schemaWithId_->getChildren(), isFileColumnNamesReadAsLowerCase());
 }
 
 std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
@@ -147,6 +148,10 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
     }
   }
 
+  auto name = schemaElement.name;
+  if (isFileColumnNamesReadAsLowerCase()) {
+    folly::toLowerAscii(name);
+  }
   if (!schemaElement.__isset.type) { // inner node
     VELOX_CHECK(
         schemaElement.__isset.num_children && schemaElement.num_children > 0,
@@ -173,7 +178,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
               curSchemaIdx, // TODO: there are holes in the ids
               maxSchemaElementIdx,
               ParquetTypeWithId::kNonLeaf, // columnIdx,
-              schemaElement.name,
+              std::move(name),
               std::nullopt,
               maxRepeat + 1,
               maxDefine);
@@ -192,7 +197,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
               curSchemaIdx, // TODO: there are holes in the ids
               maxSchemaElementIdx,
               ParquetTypeWithId::kNonLeaf, // columnIdx,
-              schemaElement.name,
+              std::move(name),
               std::nullopt,
               maxRepeat,
               maxDefine);
@@ -216,7 +221,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
               curSchemaIdx,
               maxSchemaElementIdx,
               ParquetTypeWithId::kNonLeaf, // columnIdx,
-              schemaElement.name,
+              std::move(name),
               std::nullopt,
               maxRepeat,
               maxDefine);
@@ -230,7 +235,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
               curSchemaIdx, // TODO: there are holes in the ids
               maxSchemaElementIdx,
               ParquetTypeWithId::kNonLeaf, // columnIdx,
-              schemaElement.name,
+              std::move(name),
               std::nullopt,
               maxRepeat,
               maxDefine);
@@ -239,12 +244,12 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
         // Row type
         auto childrenCopy = children;
         return std::make_shared<const ParquetTypeWithId>(
-            createRowType(children),
+            createRowType(children, isFileColumnNamesReadAsLowerCase()),
             std::move(childrenCopy),
             curSchemaIdx,
             maxSchemaElementIdx,
             ParquetTypeWithId::kNonLeaf, // columnIdx,
-            schemaElement.name,
+            std::move(name),
             std::nullopt,
             maxRepeat,
             maxDefine);
@@ -265,7 +270,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
             curSchemaIdx,
             maxSchemaElementIdx,
             columnIdx++,
-            schemaElement.name,
+            name,
             schemaElement.type,
             maxRepeat,
             maxDefine,
@@ -285,7 +290,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
           curSchemaIdx,
           maxSchemaElementIdx,
           columnIdx++,
-          schemaElement.name,
+          std::move(name),
           std::nullopt,
           maxRepeat,
           maxDefine);
@@ -437,13 +442,17 @@ TypePtr ReaderBase::convertType(
 }
 
 std::shared_ptr<const RowType> ReaderBase::createRowType(
-    std::vector<std::shared_ptr<const ParquetTypeWithId::TypeWithId>>
-        children) {
+    std::vector<std::shared_ptr<const ParquetTypeWithId::TypeWithId>> children,
+    bool fileColumnNamesReadAsLowerCase) {
   std::vector<std::string> childNames;
   std::vector<TypePtr> childTypes;
   for (auto& child : children) {
-    childNames.push_back(
-        std::static_pointer_cast<const ParquetTypeWithId>(child)->name_);
+    auto childName =
+        std::static_pointer_cast<const ParquetTypeWithId>(child)->name_;
+    if (fileColumnNamesReadAsLowerCase) {
+      folly::toLowerAscii(childName);
+    }
+    childNames.push_back(std::move(childName));
     childTypes.push_back(child->type);
   }
   return TypeFactory<TypeKind::ROW>::create(

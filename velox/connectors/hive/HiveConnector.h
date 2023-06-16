@@ -16,6 +16,7 @@
 #pragma once
 
 #include "velox/common/caching/SsdFile.h" // Needed by presto_cpp
+#include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/HiveDataSource.h"
 #include "velox/dwio/common/DataSink.h"
@@ -49,6 +50,8 @@ class HiveConnector : public Connector {
         connectorQueryCtx->expressionEvaluator(),
         connectorQueryCtx->allocator(),
         connectorQueryCtx->scanId(),
+        HiveConfig::isFileColumnNamesReadAsLowerCase(
+            connectorQueryCtx->config()),
         executor_);
   }
 

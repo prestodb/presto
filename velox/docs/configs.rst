@@ -257,6 +257,11 @@ Hive Connector
      - false
      - True if appending data to an existing unpartitioned table is allowed. Currently this configuration does not
        support appending to existing partitions.
+   * - file_column_names_read_as_lower_case
+     - bool
+     - false
+     - True if reading the source file column names as lower case, and planner should guarantee
+     - the input column name and filter is also lower case to achive case-insensitive read..    
 
 ``Amazon S3 Configuration``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

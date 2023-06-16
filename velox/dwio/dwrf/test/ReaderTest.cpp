@@ -1051,6 +1051,59 @@ TEST(TestReader, testMismatchSchemaIncompatible) {
   }
 }
 
+TEST(TestReader, fileColumnNamesReadAsLowerCase) {
+  // upper.orc holds one columns (Bool_Val: BOOLEAN, b: BIGINT)
+  ReaderOptions readerOpts{defaultPool.get()};
+  readerOpts.setFileColumnNamesReadAsLowerCase(true);
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(
+          getExampleFilePath("upper.orc"), readerOpts.getMemoryPool()),
+      readerOpts);
+  auto type = reader->typeWithId();
+  auto col0 = type->childAt(0);
+  EXPECT_EQ(type->childByName("bool_val"), col0);
+}
+
+TEST(TestReader, fileColumnNamesReadAsLowerCaseComplexStruct) {
+  // upper_complex.orc holds type
+  // Cc:struct<CcLong0:bigint,CcMap1:map<string,struct<CcArray2:array<struct<CcInt3:int>>>>>
+  ReaderOptions readerOpts{defaultPool.get()};
+  readerOpts.setFileColumnNamesReadAsLowerCase(true);
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(
+          getExampleFilePath("upper_complex.orc"), readerOpts.getMemoryPool()),
+      readerOpts);
+  auto type = reader->typeWithId();
+
+  auto col0 = type->childAt(0);
+  EXPECT_EQ(col0->type->kind(), TypeKind::ROW);
+  EXPECT_EQ(type->childByName("cc"), col0);
+
+  auto col0_0 = col0->childAt(0);
+  EXPECT_EQ(col0_0->type->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(col0->childByName("cclong0"), col0_0);
+
+  auto col0_1 = col0->childAt(1);
+  EXPECT_EQ(col0_1->type->kind(), TypeKind::MAP);
+  EXPECT_EQ(col0->childByName("ccmap1"), col0_1);
+
+  auto col0_1_0 = col0_1->childAt(0);
+  EXPECT_EQ(col0_1_0->type->kind(), TypeKind::VARCHAR);
+
+  auto col0_1_1 = col0_1->childAt(1);
+  EXPECT_EQ(col0_1_1->type->kind(), TypeKind::ROW);
+
+  auto col0_1_1_0 = col0_1_1->childAt(0);
+  EXPECT_EQ(col0_1_1_0->type->kind(), TypeKind::ARRAY);
+  EXPECT_EQ(col0_1_1->childByName("ccarray2"), col0_1_1_0);
+
+  auto col0_1_1_0_0 = col0_1_1_0->childAt(0);
+  EXPECT_EQ(col0_1_1_0_0->type->kind(), TypeKind::ROW);
+  auto col0_1_1_0_0_0 = col0_1_1_0_0->childAt(0);
+  EXPECT_EQ(col0_1_1_0_0_0->type->kind(), TypeKind::INTEGER);
+  EXPECT_EQ(col0_1_1_0_0->childByName("ccint3"), col0_1_1_0_0_0);
+}
+
 TEST(TestReader, testUpcastBoolean) {
   MockStripeStreams streams;
 

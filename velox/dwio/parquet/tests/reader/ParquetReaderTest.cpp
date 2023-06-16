@@ -58,6 +58,83 @@ TEST_F(ParquetReaderTest, parseSample) {
   EXPECT_EQ(type->childByName("b"), col1);
 }
 
+TEST_F(ParquetReaderTest, parseReadAsLowerCase) {
+  // upper.parquet holds two columns (A: BIGINT, b: BIGINT) and
+  // 2 rows.
+  const std::string upper(getExampleFilePath("upper.parquet"));
+
+  ReaderOptions readerOptions{defaultPool.get()};
+  readerOptions.setFileColumnNamesReadAsLowerCase(true);
+  ParquetReader reader = createReader(upper, readerOptions);
+  EXPECT_EQ(reader.numberOfRows(), 2ULL);
+
+  auto type = reader.typeWithId();
+  EXPECT_EQ(type->size(), 2ULL);
+  auto col0 = type->childAt(0);
+  EXPECT_EQ(col0->type->kind(), TypeKind::BIGINT);
+  auto col1 = type->childAt(1);
+  EXPECT_EQ(col1->type->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(type->childByName("a"), col0);
+  EXPECT_EQ(type->childByName("b"), col1);
+}
+
+TEST_F(ParquetReaderTest, parseRowMapArrayReadAsLowerCase) {
+  // upper_complex.parquet holds one row of type
+  // root
+  //  |-- Cc: struct (nullable = true)
+  //  |    |-- CcLong0: long (nullable = true)
+  //  |    |-- CcMap1: map (nullable = true)
+  //  |    |    |-- key: string
+  //  |    |    |-- value: struct (valueContainsNull = true)
+  //  |    |    |    |-- CcArray2: array (nullable = true)
+  //  |    |    |    |    |-- element: struct (containsNull = true)
+  //  |    |    |    |    |    |-- CcInt3: integer (nullable = true)
+  // data
+  // +-----------------------+
+  // |Cc                     |
+  // +-----------------------+
+  // |{120, {key -> {[{1}]}}}|
+  // +-----------------------+
+  const std::string upper(getExampleFilePath("upper_complex.parquet"));
+
+  ReaderOptions readerOptions{defaultPool.get()};
+  readerOptions.setFileColumnNamesReadAsLowerCase(true);
+  ParquetReader reader = createReader(upper, readerOptions);
+
+  EXPECT_EQ(reader.numberOfRows(), 1ULL);
+
+  auto type = reader.typeWithId();
+  EXPECT_EQ(type->size(), 1ULL);
+
+  auto col0 = type->childAt(0);
+  EXPECT_EQ(col0->type->kind(), TypeKind::ROW);
+  EXPECT_EQ(type->childByName("cc"), col0);
+
+  auto col0_0 = col0->childAt(0);
+  EXPECT_EQ(col0_0->type->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(col0->childByName("cclong0"), col0_0);
+
+  auto col0_1 = col0->childAt(1);
+  EXPECT_EQ(col0_1->type->kind(), TypeKind::MAP);
+  EXPECT_EQ(col0->childByName("ccmap1"), col0_1);
+
+  auto col0_1_0 = col0_1->childAt(0);
+  EXPECT_EQ(col0_1_0->type->kind(), TypeKind::VARCHAR);
+
+  auto col0_1_1 = col0_1->childAt(1);
+  EXPECT_EQ(col0_1_1->type->kind(), TypeKind::ROW);
+
+  auto col0_1_1_0 = col0_1_1->childAt(0);
+  EXPECT_EQ(col0_1_1_0->type->kind(), TypeKind::ARRAY);
+  EXPECT_EQ(col0_1_1->childByName("ccarray2"), col0_1_1_0);
+
+  auto col0_1_1_0_0 = col0_1_1_0->childAt(0);
+  EXPECT_EQ(col0_1_1_0_0->type->kind(), TypeKind::ROW);
+  auto col0_1_1_0_0_0 = col0_1_1_0_0->childAt(0);
+  EXPECT_EQ(col0_1_1_0_0_0->type->kind(), TypeKind::INTEGER);
+  EXPECT_EQ(col0_1_1_0_0->childByName("ccint3"), col0_1_1_0_0_0);
+}
+
 TEST_F(ParquetReaderTest, parseEmpty) {
   // empty.parquet holds two columns (a: BIGINT, b: DOUBLE) and
   // 0 rows.

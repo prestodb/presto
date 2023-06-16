@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include "velox/common/base/VeloxException.h"
 #include "velox/dwio/common/ColumnSelector.h"
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 #include "velox/type/Type.h"
@@ -629,4 +630,20 @@ TEST(ColumnSelectorTests, testNonexistingColFilters) {
           schema,
           std::vector<std::string>{"id", "values", "notexists#[10,20,30,40]"}),
       std::runtime_error);
+}
+
+TEST(TestColumnSelector, fileColumnNamesReadAsLowerCaseDuplicateColFilters) {
+  const auto schema = std::dynamic_pointer_cast<const RowType>(
+      HiveTypeParser().parse("struct<"
+                             "id:bigint"
+                             "id:bigint"
+                             "values:array<float>"
+                             "tags:map<int, string>"
+                             "notes:struct<f1:int, f2:double, f3:string>"
+                             "memo:string"
+                             "extra:string>"));
+
+  EXPECT_THROW(
+      ColumnSelector cs(schema, std::vector<std::string>{"id"}, nullptr, true),
+      facebook::velox::VeloxException);
 }

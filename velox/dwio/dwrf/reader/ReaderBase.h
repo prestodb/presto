@@ -68,7 +68,8 @@ class ReaderBase {
           dwio::common::ReaderOptions::kDefaultDirectorySizeGuess,
       uint64_t filePreloadThreshold =
           dwio::common::ReaderOptions::kDefaultFilePreloadThreshold,
-      dwio::common::FileFormat fileFormat = dwio::common::FileFormat::DWRF);
+      dwio::common::FileFormat fileFormat = dwio::common::FileFormat::DWRF,
+      bool fileColumnNamesReadAsLowerCase = false);
 
   ReaderBase(
       memory::MemoryPool& pool,
@@ -228,7 +229,8 @@ class ReaderBase {
  private:
   static std::shared_ptr<const Type> convertType(
       const FooterWrapper& footer,
-      uint32_t index = 0);
+      uint32_t index = 0,
+      bool fileColumnNamesReadAsLowerCase = false);
 
   memory::MemoryPool& pool_;
   std::unique_ptr<google::protobuf::Arena> arena_;

@@ -108,7 +108,7 @@ LogicalType fromVeloxType(const TypePtr& type) {
 }
 
 //! Type mapping for DuckDB -> velox conversions, we support more types here
-TypePtr toVeloxType(LogicalType type) {
+TypePtr toVeloxType(LogicalType type, bool fileColumnNamesReadAsLowerCase) {
   switch (type.id()) {
     case LogicalTypeId::SQLNULL:
       return UNKNOWN();
@@ -144,12 +144,14 @@ TypePtr toVeloxType(LogicalType type) {
       return VARBINARY();
     case LogicalTypeId::LIST: {
       auto childType = ::duckdb::ListType::GetChildType(type);
-      return ARRAY(toVeloxType(childType));
+      return ARRAY(toVeloxType(childType, fileColumnNamesReadAsLowerCase));
     }
     case LogicalTypeId::MAP: {
       auto keyType = ::duckdb::MapType::KeyType(type);
       auto valueType = ::duckdb::MapType::ValueType(type);
-      return MAP(toVeloxType(keyType), toVeloxType(valueType));
+      return MAP(
+          toVeloxType(keyType, fileColumnNamesReadAsLowerCase),
+          toVeloxType(valueType, fileColumnNamesReadAsLowerCase));
     }
     case LogicalTypeId::STRUCT: {
       std::vector<std::string> names;
@@ -160,9 +162,14 @@ TypePtr toVeloxType(LogicalType type) {
       types.reserve(numChildren);
 
       for (auto i = 0; i < numChildren; ++i) {
-        names.push_back(::duckdb::StructType::GetChildName(type, i));
-        types.push_back(
-            toVeloxType(::duckdb::StructType::GetChildType(type, i)));
+        auto name = ::duckdb::StructType::GetChildName(type, i);
+        if (fileColumnNamesReadAsLowerCase) {
+          folly::toLowerAscii(name);
+        }
+        names.push_back(std::move(name));
+        types.push_back(toVeloxType(
+            ::duckdb::StructType::GetChildType(type, i),
+            fileColumnNamesReadAsLowerCase));
       }
       return ROW(std::move(names), std::move(types));
     }

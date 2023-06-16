@@ -358,6 +358,7 @@ class ReaderOptions {
   std::shared_ptr<encryption::DecrypterFactory> decrypterFactory_;
   uint64_t directorySizeGuess{kDefaultDirectorySizeGuess};
   uint64_t filePreloadThreshold{kDefaultFilePreloadThreshold};
+  bool fileColumnNamesReadAsLowerCase = false;
 
  public:
   static constexpr int32_t kDefaultLoadQuantum = 8 << 20; // 8MB
@@ -366,13 +367,14 @@ class ReaderOptions {
   static constexpr uint64_t kDefaultFilePreloadThreshold =
       1024 * 1024 * 8; // 8MB
 
-  ReaderOptions(velox::memory::MemoryPool* pool)
+  explicit ReaderOptions(velox::memory::MemoryPool* pool)
       : tailLocation(std::numeric_limits<uint64_t>::max()),
         memoryPool(pool),
         fileFormat(FileFormat::UNKNOWN),
         fileSchema(nullptr),
         autoPreloadLength(DEFAULT_AUTO_PRELOAD_SIZE),
-        prefetchMode(PrefetchMode::PREFETCH) {
+        prefetchMode(PrefetchMode::PREFETCH),
+        fileColumnNamesReadAsLowerCase(false) {
     // PASS
   }
 
@@ -391,6 +393,7 @@ class ReaderOptions {
     decrypterFactory_ = other.decrypterFactory_;
     directorySizeGuess = other.directorySizeGuess;
     filePreloadThreshold = other.filePreloadThreshold;
+    fileColumnNamesReadAsLowerCase = other.fileColumnNamesReadAsLowerCase;
     return *this;
   }
 
@@ -494,6 +497,12 @@ class ReaderOptions {
     return *this;
   }
 
+  ReaderOptions& setFileColumnNamesReadAsLowerCase(
+      bool fileColumnNamesReadAsLowerCaseMode) {
+    fileColumnNamesReadAsLowerCase = fileColumnNamesReadAsLowerCaseMode;
+    return *this;
+  }
+
   /**
    * Get the desired tail location.
    * @return if not set, return the maximum long.
@@ -558,6 +567,10 @@ class ReaderOptions {
 
   uint64_t getFilePreloadThreshold() const {
     return filePreloadThreshold;
+  }
+
+  bool isFileColumnNamesReadAsLowerCase() const {
+    return fileColumnNamesReadAsLowerCase;
   }
 };
 

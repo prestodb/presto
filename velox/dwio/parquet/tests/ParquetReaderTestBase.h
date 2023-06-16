@@ -25,11 +25,16 @@ namespace facebook::velox::dwio::parquet {
 
 class ParquetReaderTestBase : public testing::Test {
  protected:
-  dwio::common::RowReaderOptions getReaderOpts(const RowTypePtr& rowType) {
+  dwio::common::RowReaderOptions getReaderOpts(
+      const RowTypePtr& rowType,
+      bool fileColumnNamesReadAsLowerCase = false) {
     dwio::common::RowReaderOptions rowReaderOpts;
     rowReaderOpts.select(
         std::make_shared<facebook::velox::dwio::common::ColumnSelector>(
-            rowType, rowType->names()));
+            rowType,
+            rowType->names(),
+            nullptr,
+            fileColumnNamesReadAsLowerCase));
 
     return rowReaderOpts;
   }
@@ -44,6 +49,10 @@ class ParquetReaderTestBase : public testing::Test {
 
   static RowTypePtr intSchema() {
     return ROW({"int", "bigint"}, {INTEGER(), BIGINT()});
+  }
+
+  static RowTypePtr upperSchemaToLowerCase() {
+    return ROW({"a", "b"}, {BIGINT(), BIGINT()});
   }
 
   template <typename T>
