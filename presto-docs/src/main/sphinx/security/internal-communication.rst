@@ -112,9 +112,54 @@ To enable SSL/TLS for Presto internal communication, do the following:
         internal-communication.https.keystore.path=<keystore path>
         internal-communication.https.keystore.key=<keystore password>
 
+Internal Authentication
+-----------------------
+Internal authentication can be enabled to authenticate all internal communication between nodes of the cluster.
+It is
 
-Internal SSL/TLS communication with Kerberos
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* Optional when configuring only `internal TLS encryption <#internal-ssl-tls-configuration>`_
+  between nodes of the cluster
+* Optional when configuring only :doc:`external authentication </security>` method
+  between clients and the coordinator
+* Mandatory when configuring both the above i.e internal TLS along with external authentication.
+
+There are multiple ways to enable internal authentication described in below sections
+
+1. JWT
+~~~~~~
+
+Enable JWT authentication to authenticate all communication between nodes of the cluster.
+Enable JWT and set the shared secret to the same value in
+:ref:`config.properties <config-properties>` on all nodes of the cluster using below configs:
+
+.. code-block:: text
+
+    internal-communication.jwt.enabled=true
+    internal-communication.shared-secret=<secret>
+
+For shared secret value, a large random key is recommended, and can be generated with the following Linux
+command:
+
+.. code-block:: text
+
+    openssl rand 512 | base64
+
+2. CERTIFICATE
+~~~~~~~~~~~~~~
+
+Setup a CERTIFICATE authentication method which is different than the external authentication method.
+
+For example, if PASSWORD authentication is used between clients and coordinator, then
+CERTIFICATE authentication can be used internally, by specifying this authentication method
+in the same config as given below. The existing keystore configs setup in `internal ssl/tls configuration <#internal-ssl-tls-configuration>`_
+will be used for certificate authentication.
+
+.. code-block:: text
+
+    http-server.authentication.type=PASSWORD,CERTIFICATE
+
+3. KERBEROS
+~~~~~~~~~~~
 
 If :doc:`Kerberos</security/server>` authentication is enabled, specify valid Kerberos
 credentials for the internal communication, in addition to the SSL/TLS properties.
