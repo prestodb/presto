@@ -56,7 +56,7 @@ void Writer::write(const VectorPtr& slice) {
   if (UNLIKELY(
           sliceMemoryEstimate == 0 ||
           sliceMemoryEstimate > context.rawDataSizePerBatch)) {
-    LOG(WARNING) << fmt::format(
+    VLOG(1) << fmt::format(
         "Unpopulated or huge vector memory estimate! Micro batch size {} rows. "
         "Slice memory estimate {} bytes. Batching threshold {} bytes.",
         lengthIncrement,
