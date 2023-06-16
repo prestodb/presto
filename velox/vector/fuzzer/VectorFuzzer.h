@@ -135,10 +135,6 @@ class VectorFuzzer {
     };
     TimestampPrecision timestampPrecision{TimestampPrecision::kNanoSeconds};
 
-    /// TODO: keeping the deprecated option for backwards compatibility. Will be
-    /// removed soon. For new code the option above.
-    bool useMicrosecondPrecisionTimestamp{false};
-
     /// If true, fuzz() will randomly generate lazy vectors and fuzzInputRow()
     /// will generate a raw vector with children that can randomly be lazy
     /// vectors. The generated lazy vectors can also have any number of

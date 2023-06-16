@@ -119,11 +119,7 @@ int128_t rand(FuzzerGenerator& rng) {
 }
 
 Timestamp randTimestamp(FuzzerGenerator& rng, VectorFuzzer::Options opts) {
-  auto precision = opts.useMicrosecondPrecisionTimestamp
-      ? VectorFuzzer::Options::TimestampPrecision::kMicroSeconds
-      : opts.timestampPrecision;
-
-  switch (precision) {
+  switch (opts.timestampPrecision) {
     case VectorFuzzer::Options::TimestampPrecision::kNanoSeconds:
       return Timestamp(rand<int32_t>(rng), (rand<int64_t>(rng) % MAX_NANOS));
     case VectorFuzzer::Options::TimestampPrecision::kMicroSeconds:
