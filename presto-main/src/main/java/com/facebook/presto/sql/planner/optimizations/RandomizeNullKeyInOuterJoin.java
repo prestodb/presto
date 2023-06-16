@@ -142,7 +142,6 @@ public class RandomizeNullKeyInOuterJoin
         implements PlanOptimizer
 {
     private final FunctionAndTypeManager functionAndTypeManager;
-    private boolean isEnabledForTesting;
 
     public RandomizeNullKeyInOuterJoin(FunctionAndTypeManager functionAndTypeManager)
     {
@@ -150,21 +149,9 @@ public class RandomizeNullKeyInOuterJoin
     }
 
     @Override
-    public void setEnabledForTesting(boolean isSet)
-    {
-        isEnabledForTesting = isSet;
-    }
-
-    @Override
-    public boolean isEnabled(Session session)
-    {
-        return isEnabledForTesting || getJoinDistributionType(session).canPartition() && !getRandomizeOuterJoinNullKeyStrategy(session).equals(DISABLED);
-    }
-
-    @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        if (isEnabled(session)) {
+        if (getJoinDistributionType(session).canPartition() && !getRandomizeOuterJoinNullKeyStrategy(session).equals(DISABLED)) {
             return SimplePlanRewriter.rewriteWith(new Rewriter(session, functionAndTypeManager, idAllocator, variableAllocator), plan, new HashSet<>());
         }
 
