@@ -156,7 +156,7 @@ void Writer::write(const VectorPtr& data) {
   PARQUET_THROW_NOT_OK(arrowContext_->writer->WriteTable(*table, 10000));
 }
 
-bool Writer::isArrowCodecAvailable(dwio::common::CompressionKind compression) {
+bool Writer::isCodecAvailable(dwio::common::CompressionKind compression) {
   return arrow::util::Codec::IsAvailable(
       getArrowParquetCompression(compression));
 }

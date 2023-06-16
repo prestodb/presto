@@ -58,12 +58,14 @@ class Writer : public dwio::common::Writer {
       std::unique_ptr<dwio::common::DataSink> sink,
       const WriterOptions& options);
 
-  static bool isArrowCodecAvailable(dwio::common::CompressionKind compression);
+  ~Writer() override = default;
+
+  static bool isCodecAvailable(dwio::common::CompressionKind compression);
 
   // Appends 'data' into the writer.
   void write(const VectorPtr& data) override;
 
-  void flush();
+  void flush() override;
 
   // Forces a row group boundary before the data added by next write().
   void newRowGroup(int32_t numRows);
@@ -71,7 +73,7 @@ class Writer : public dwio::common::Writer {
   // Closes 'this', After close, data can no longer be added and the completed
   // Parquet file is flushed into 'sink' provided at construction. 'sink' stays
   // live until destruction of 'this'.
-  void close();
+  void close() override;
 
  private:
   const int32_t rowsInRowGroup_;
