@@ -89,24 +89,10 @@ public class PrefilterForLimitingAggregation
 {
     private final Metadata metadata;
     private final StatsCalculator statsCalculator;
-    private boolean isEnabledForTesting;
-
     public PrefilterForLimitingAggregation(Metadata metadata, StatsCalculator statsCalculator)
     {
         this.metadata = metadata;
         this.statsCalculator = statsCalculator;
-    }
-
-    @Override
-    public void setEnabledForTesting(boolean isSet)
-    {
-        isEnabledForTesting = isSet;
-    }
-
-    @Override
-    public boolean isEnabled(Session session)
-    {
-        return isEnabledForTesting || SystemSessionProperties.isPrefilterForGroupbyLimit(session);
     }
 
     @Override
@@ -118,7 +104,7 @@ public class PrefilterForLimitingAggregation
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector)
     {
-        if (isEnabled(session)) {
+        if (SystemSessionProperties.isPrefilterForGroupbyLimit(session)) {
             return SimplePlanRewriter.rewriteWith(new Rewriter(session, metadata, types, statsCalculator, idAllocator, variableAllocator), plan);
         }
 

@@ -40,24 +40,11 @@ public class MergeJoinForSortedInputOptimizer
 {
     private final Metadata metadata;
     private final SqlParser parser;
-    private boolean isEnabledForTesting;
 
     public MergeJoinForSortedInputOptimizer(Metadata metadata, SqlParser parser)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.parser = requireNonNull(parser, "parser is null");
-    }
-
-    @Override
-    public void setEnabledForTesting(boolean isSet)
-    {
-        isEnabledForTesting = isSet;
-    }
-
-    @Override
-    public boolean isEnabled(Session session)
-    {
-        return isEnabledForTesting || isGroupedExecutionEnabled(session) && preferMergeJoinForSortedInputs(session);
     }
 
     @Override
@@ -68,7 +55,7 @@ public class MergeJoinForSortedInputOptimizer
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        if (isEnabled(session)) {
+        if (isGroupedExecutionEnabled(session) && preferMergeJoinForSortedInputs(session)) {
             return SimplePlanRewriter.rewriteWith(new MergeJoinForSortedInputOptimizer.Rewriter(variableAllocator, idAllocator, metadata, session), plan, null);
         }
         return plan;

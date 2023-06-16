@@ -90,7 +90,6 @@ public class MergePartialAggregationsWithFilter
         implements PlanOptimizer
 {
     private final FunctionAndTypeManager functionAndTypeManager;
-    private boolean isEnabledForTesting;
 
     public MergePartialAggregationsWithFilter(FunctionAndTypeManager functionAndTypeManager)
     {
@@ -98,21 +97,9 @@ public class MergePartialAggregationsWithFilter
     }
 
     @Override
-    public void setEnabledForTesting(boolean isSet)
-    {
-        isEnabledForTesting = isSet;
-    }
-
-    @Override
-    public boolean isEnabled(Session session)
-    {
-        return isEnabledForTesting || isMergeAggregationsWithAndWithoutFilter(session);
-    }
-
-    @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        if (isEnabled(session)) {
+        if (isMergeAggregationsWithAndWithoutFilter(session)) {
             return SimplePlanRewriter.rewriteWith(new Rewriter(session, variableAllocator, idAllocator, functionAndTypeManager), plan, new Context());
         }
 
