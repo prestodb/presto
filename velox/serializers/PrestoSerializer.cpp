@@ -53,6 +53,7 @@ int64_t computeChecksum(
   auto remainingBytes = uncompressedSize;
   while (remainingBytes > 0) {
     auto data = source->nextView(remainingBytes);
+    VELOX_CHECK_GT(data.size(), 0);
     crc32.process_bytes(data.data(), data.size());
     remainingBytes -= data.size();
   }
