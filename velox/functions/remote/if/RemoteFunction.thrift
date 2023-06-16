@@ -15,6 +15,7 @@
  */
 
 namespace cpp2 facebook.velox.functions.remote
+namespace java.swift com.facebook.spark.remotefunctionserver.api
 
 cpp_include "folly/io/IOBuf.h"
 
