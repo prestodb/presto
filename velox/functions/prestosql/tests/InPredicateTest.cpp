@@ -318,6 +318,33 @@ TEST_F(InPredicateTest, varbinary) {
   assertEqualVectors(makeConstant(true, input->size()), result);
 }
 
+TEST_F(InPredicateTest, date) {
+  auto dateValue = Date();
+  parseTo("2000-01-01", dateValue);
+
+  auto input = makeRowVector({
+      makeNullableFlatVector<Date>({dateValue}, DATE()),
+  });
+
+  assertEqualVectors(
+      makeConstant(true, input->size()),
+      evaluate("c0 IN (DATE '2000-01-01')", input));
+
+  assertEqualVectors(
+      makeConstant(false, input->size()),
+      evaluate("c0 IN (DATE '2000-02-01')", input));
+
+  assertEqualVectors(
+      makeConstant(false, input->size()),
+      evaluate("c0 IN (DATE '2000-02-01', DATE '2000-03-04')", input));
+
+  assertEqualVectors(
+      makeConstant(true, input->size()),
+      evaluate(
+          "c0 IN (DATE '2000-02-01', DATE '2000-03-04', DATE '2000-01-01')",
+          input));
+}
+
 TEST_F(InPredicateTest, reusableResult) {
   std::string predicate = "c0 IN (1, 2)";
   auto input = makeRowVector({makeNullableFlatVector<int32_t>({0, 1, 2, 3})});

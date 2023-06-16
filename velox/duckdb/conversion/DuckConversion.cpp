@@ -199,6 +199,8 @@ variant duckValueToVariant(const Value& val) {
       return variant(val.GetValue<std::string>());
     case LogicalTypeId::BLOB:
       return variant::binary(val.GetValue<std::string>());
+    case LogicalTypeId::DATE:
+      return variant::date(val.GetValue<::duckdb::date_t>().days);
     default:
       throw std::runtime_error(
           "unsupported type for duckdb value -> velox  variant conversion: " +

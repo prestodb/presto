@@ -358,8 +358,21 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(
 
     TypePtr valueType = UNKNOWN();
     for (auto i = 0; i < numValues; i++) {
-      if (auto constantExpr = dynamic_cast<ConstantExpression*>(
-              operExpr.children[i + 1].get())) {
+      auto valueExpr = operExpr.children[i + 1].get();
+      if (const auto castExpr = dynamic_cast<CastExpression*>(valueExpr)) {
+        if (castExpr->child->GetExpressionType() ==
+            ExpressionType::VALUE_CONSTANT) {
+          auto constExpr =
+              dynamic_cast<ConstantExpression*>(castExpr->child.get());
+          auto value =
+              constExpr->value.CastAs(castExpr->cast_type, !castExpr->try_cast);
+          values.emplace_back(duckValueToVariant(value));
+          valueType = toVeloxType(castExpr->cast_type);
+          continue;
+        }
+      }
+
+      if (auto constantExpr = dynamic_cast<ConstantExpression*>(valueExpr)) {
         auto& value = constantExpr->value;
         if (options.parseDecimalAsDouble &&
             value.type().id() == duckdb::LogicalTypeId::DECIMAL) {
@@ -369,9 +382,10 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(
         if (!value.IsNull()) {
           valueType = toVeloxType(value.type());
         }
-      } else {
-        VELOX_UNSUPPORTED("IN list values need to be constant");
+        continue;
       }
+
+      VELOX_UNSUPPORTED("IN list values need to be constant");
     }
 
     std::vector<std::shared_ptr<const core::IExpr>> params;
