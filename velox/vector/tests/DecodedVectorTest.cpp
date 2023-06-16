@@ -1361,4 +1361,39 @@ TEST_F(DecodedVectorTest, dictionaryWrapping) {
   }
 }
 
+TEST_F(DecodedVectorTest, previousIndicesInReUsedDecodedVector) {
+  // Verify that when DecodedVector is re-used with different set of valid rows,
+  // then the unselected indices would still have valid values.
+
+  // Create a Dict(Dict(flat)) where merged indices point to a large index.
+  // 2-layers are created to ensure copiedIndices_ is used.
+  auto indices = makeIndices(3, [](auto /* row */) { return 2; });
+  auto innerindices = makeIndices(3, [](auto /* row */) { return 998; });
+  auto flat = makeFlatVector<int64_t>(1000, [](auto row) { return row; });
+  auto dict = BaseVector::wrapInDictionary(nullptr, innerindices, 3, flat);
+  dict = BaseVector::wrapInDictionary(nullptr, indices, 3, dict);
+
+  // Create another Dict(Dict(flat)) where merged indices point to a small
+  // index.
+  auto indices2 = makeIndices(3, [](auto /* row */) { return 0; });
+  auto innerindices2 = makeIndices(3, [](auto /* row */) { return 0; });
+  auto flat2 = makeNullableFlatVector<int64_t>({1, std::nullopt});
+  auto dict2 = BaseVector::wrapInDictionary(nullptr, innerindices2, 3, flat2);
+  dict2 = BaseVector::wrapInDictionary(nullptr, indices2, 3, dict2);
+
+  // Used the first time with all selected rows.
+  DecodedVector d(*dict);
+
+  // 0, 1 row is not selected and DecodedVector is now re-used with this
+  // selectivity.
+  SelectivityVector rows(3, false);
+  rows.setValid(2, true);
+  rows.updateBounds();
+  d.decode(*dict2, rows);
+  auto wrapping = d.dictionaryWrapping(*d.base(), d.base()->size());
+  auto rawIndices = wrapping.indices->as<vector_size_t>();
+  // Ensure the previous index on the unselected row is reset.
+  EXPECT_EQ(rawIndices[0], 0);
+}
+
 } // namespace facebook::velox::test
