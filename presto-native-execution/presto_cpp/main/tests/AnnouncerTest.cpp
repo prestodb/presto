@@ -166,6 +166,7 @@ TEST_P(AnnouncerTestSuite, basic) {
       "test-node-location",
       {"hive", "tpch"},
       100 /*milliseconds*/,
+      500 /*milliseconds*/,
       keyPath,
       ciphers);
 
