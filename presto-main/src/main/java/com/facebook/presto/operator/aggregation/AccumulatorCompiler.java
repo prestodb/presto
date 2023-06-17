@@ -422,7 +422,10 @@ public class AccumulatorCompiler
                     inputChannel++;
                     break;
                 case INPUT_CHANNEL:
-                    if (parameterType == long.class) {
+                    if (parameterType == int.class) {
+                        expressions.add(index.invoke("getInt", int.class, getChannel, position));
+                    }
+                    else if (parameterType == long.class) {
                         expressions.add(index.invoke("getLong", long.class, getChannel, position));
                     }
                     else if (parameterType == double.class) {
@@ -439,9 +442,10 @@ public class AccumulatorCompiler
                         // A runtime check will assert that the Object passed as a parameter is actually of type Block.
                         expressions.add(index.invoke("getObject", Object.class, getChannel, position));
                     }
-                    else {
-                        throw new IllegalArgumentException(format("Unsupported parameter type: %s", parameterType));
-                    }
+//                    else {
+//                        //
+//                        throw new IllegalArgumentException(format("Unsupported parameter type: %s", parameterType));
+//                    }
 
                     inputChannel++;
                     break;

@@ -17,6 +17,7 @@ import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -25,6 +26,7 @@ import com.facebook.presto.operator.aggregation.state.BlockPositionState;
 import com.facebook.presto.operator.aggregation.state.BlockPositionStateSerializer;
 import com.facebook.presto.operator.aggregation.state.NullableBooleanState;
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
+import com.facebook.presto.operator.aggregation.state.NullableIntState;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.function.AccumulatorState;
@@ -57,17 +59,20 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 public abstract class AbstractMinMaxAggregationFunction
         extends SqlAggregationFunction
 {
+    private static final MethodHandle INT_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", MethodHandle.class, NullableIntState.class, int.class);
     private static final MethodHandle LONG_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", MethodHandle.class, NullableLongState.class, long.class);
     private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", MethodHandle.class, NullableDoubleState.class, double.class);
     private static final MethodHandle BOOLEAN_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", MethodHandle.class, NullableBooleanState.class, boolean.class);
     private static final MethodHandle BLOCK_POSITION_MIN_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "minInput", Type.class, BlockPositionState.class, Block.class, int.class);
     private static final MethodHandle BLOCK_POSITION_MAX_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "maxInput", Type.class, BlockPositionState.class, Block.class, int.class);
 
+    private static final MethodHandle INT_OUTPUT_FUNCTION = methodHandle(NullableIntState.class, "write", Type.class, NullableIntState.class, BlockBuilder.class);
     private static final MethodHandle LONG_OUTPUT_FUNCTION = methodHandle(NullableLongState.class, "write", Type.class, NullableLongState.class, BlockBuilder.class);
     private static final MethodHandle DOUBLE_OUTPUT_FUNCTION = methodHandle(NullableDoubleState.class, "write", Type.class, NullableDoubleState.class, BlockBuilder.class);
     private static final MethodHandle BOOLEAN_OUTPUT_FUNCTION = methodHandle(NullableBooleanState.class, "write", Type.class, NullableBooleanState.class, BlockBuilder.class);
     private static final MethodHandle BLOCK_POSITION_OUTPUT_FUNCTION = methodHandle(BlockPositionState.class, "write", Type.class, BlockPositionState.class, BlockBuilder.class);
 
+    private static final MethodHandle INT_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, NullableIntState.class, NullableIntState.class);
     private static final MethodHandle LONG_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, NullableLongState.class, NullableLongState.class);
     private static final MethodHandle DOUBLE_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, NullableDoubleState.class, NullableDoubleState.class);
     private static final MethodHandle BOOLEAN_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, NullableBooleanState.class, NullableBooleanState.class);
@@ -109,7 +114,14 @@ public abstract class AbstractMinMaxAggregationFunction
         Class<? extends AccumulatorState> stateInterface;
         AccumulatorStateSerializer<?> stateSerializer;
 
-        if (type.getJavaType() == long.class) {
+        if (type.getTypeSignature().getBase().equals(StandardTypes.INTEGER)) {
+            stateInterface = NullableIntState.class;
+            stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
+            inputFunction = INT_INPUT_FUNCTION.bindTo(compareMethodHandle);
+            combineFunction = INT_COMBINE_FUNCTION.bindTo(compareMethodHandle);
+            outputFunction = INT_OUTPUT_FUNCTION.bindTo(type);
+        }
+        else if (type.getJavaType() == long.class) {
             stateInterface = NullableLongState.class;
             stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
             inputFunction = LONG_INPUT_FUNCTION.bindTo(compareMethodHandle);
@@ -191,6 +203,10 @@ public abstract class AbstractMinMaxAggregationFunction
         compareAndUpdateState(methodHandle, state, value);
     }
 
+    public static void input(MethodHandle methodHandle, NullableIntState state, int value)
+    {
+        compareAndUpdateState(methodHandle, state, (long)value);
+    }
     public static void input(MethodHandle methodHandle, NullableLongState state, long value)
     {
         compareAndUpdateState(methodHandle, state, value);
@@ -215,6 +231,11 @@ public abstract class AbstractMinMaxAggregationFunction
             state.setBlock(block);
             state.setPosition(position);
         }
+    }
+
+    public static void combine(MethodHandle methodHandle, NullableIntState state, NullableIntState otherState)
+    {
+        compareAndUpdateState(methodHandle, state, otherState.getInt());
     }
 
     public static void combine(MethodHandle methodHandle, NullableLongState state, NullableLongState otherState)
@@ -245,6 +266,23 @@ public abstract class AbstractMinMaxAggregationFunction
         if (state.getBlock() == null || type.compareTo(otherState.getBlock(), otherState.getPosition(), state.getBlock(), state.getPosition()) > 0) {
             state.setBlock(otherState.getBlock());
             state.setPosition(otherState.getPosition());
+        }
+    }
+
+    private static void compareAndUpdateState(MethodHandle methodHandle, NullableIntState state, long value)
+    {
+        if (state.isNull()) {
+            state.setNull(false);
+            state.setInt((int)value);
+            return;
+        }
+        try {
+            if ((boolean) methodHandle.invokeExact(value, state.getInt())) {
+                state.setInt((int)value);
+            }
+        }
+        catch (Throwable t) {
+            throw internalError(t);
         }
     }
 

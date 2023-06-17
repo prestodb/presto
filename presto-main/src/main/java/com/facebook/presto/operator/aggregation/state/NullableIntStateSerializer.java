@@ -15,18 +15,14 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.block.DictionaryBlock;
-import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.common.type.SmallintType.SMALLINT;
-import static com.facebook.presto.common.type.TinyintType.TINYINT;
 
-public class NullableLongStateSerializer
-        implements AccumulatorStateSerializer<NullableLongState>
+public class NullableIntStateSerializer
+        implements AccumulatorStateSerializer<NullableIntState>
 {
     @Override
     public Type getSerializedType()
@@ -35,30 +31,20 @@ public class NullableLongStateSerializer
     }
 
     @Override
-    public void serialize(NullableLongState state, BlockBuilder out)
+    public void serialize(NullableIntState state, BlockBuilder out)
     {
         if (state.isNull()) {
             out.appendNull();
         }
         else {
-            BIGINT.writeLong(out, state.getLong());
+            BIGINT.writeLong(out, state.getInt());
         }
     }
 
     @Override
-    public void deserialize(Block block, int index, NullableLongState state)
+    public void deserialize(Block block, int index, NullableIntState state)
     {
         state.setNull(false);
-        state.setLong(BIGINT.getLong(block, index));
-//        if (block instanceof DictionaryBlock) {
-//            ((DictionaryBlock) block).
-//        }
-//        try {
-//            state.setLong(BIGINT.getLong(block, index));
-//        } catch (UnsupportedOperationException e) {
-//            state.setLong(INTEGER.getLong(block, index));
-////            state.setLong(TINYINT.getLong(block, index));
-////            state.setLong(SMALLINT.getLong(block, index));
-//        }
+        state.setInt((int)INTEGER.getLong(block, index));
     }
 }

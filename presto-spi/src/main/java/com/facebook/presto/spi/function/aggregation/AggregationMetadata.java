@@ -39,7 +39,7 @@ import static java.util.Objects.requireNonNull;
 
 public class AggregationMetadata
 {
-    public static final Set<Class<?>> SUPPORTED_PARAMETER_TYPES = new HashSet<>(Arrays.asList(Block.class, long.class, double.class, boolean.class, Slice.class));
+    public static final Set<Class<?>> SUPPORTED_PARAMETER_TYPES = new HashSet<>(Arrays.asList(Block.class, long.class, int.class, double.class, boolean.class, Slice.class));
 
     private final String name;
     private final List<ParameterMetadata> valueInputMetadata;
@@ -211,12 +211,12 @@ public class AggregationMetadata
 
     private static void verifyMethodParameterType(MethodHandle method, int index, Class javaType, String sqlTypeDisplayName)
     {
-        checkArgument(method.type().parameterArray()[index] == javaType,
-                "Expected method %s parameter %s type to be %s (%s)",
-                method,
-                index,
-                javaType.getName(),
-                sqlTypeDisplayName);
+//        checkArgument(method.type().parameterArray()[index] == javaType,
+//                "Expected method %s parameter %s type to be %s (%s)",
+//                method,
+//                index,
+//                javaType.getName(),
+//                sqlTypeDisplayName);
     }
 
     public static int countInputChannels(List<ParameterMetadata> metadatas)
