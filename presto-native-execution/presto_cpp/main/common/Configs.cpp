@@ -240,6 +240,8 @@ SystemConfig::SystemConfig() {
           STR_PROP(kEnableMemoryLeakCheck, "true"),
           NONE_PROP(kRemoteFunctionServerThriftPort),
           STR_PROP(kSkipRuntimeStatsInRunningTaskInfo, "true"),
+          NUM_PROP(kAnnouncementMinFrequencyMs, 100), // 100ms
+          NUM_PROP(kAnnouncementMaxFrequencyMs, 35'000), // 35s
       };
 }
 
@@ -422,6 +424,14 @@ bool SystemConfig::enableMemoryLeakCheck() const {
 
 bool SystemConfig::skipRuntimeStatsInRunningTaskInfo() const {
   return optionalProperty<bool>(kSkipRuntimeStatsInRunningTaskInfo).value();
+}
+
+uint64_t SystemConfig::announcementMinFrequencyMs() const {
+  return optionalProperty<uint64_t>(kAnnouncementMinFrequencyMs).value();
+}
+
+uint64_t SystemConfig::announcementMaxFrequencyMs() const {
+  return optionalProperty<uint64_t>(kAnnouncementMaxFrequencyMs).value();
 }
 
 NodeConfig::NodeConfig() {
