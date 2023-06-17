@@ -1,0 +1,95 @@
+version: '3.8'
+
+networks:
+  presto:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.18.0.0/24
+          gateway: 10.18.0.1
+
+services:
+  coordinator:
+    container_name: coordinator
+    image: prestodb/presto:0.282
+    platform: linux/amd64
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    ports:
+      - 8080:8080
+    volumes:
+      - ./coordinator/config.properties:/opt/presto-server/etc/config.properties
+      - ./coordinator/jvm.config:/opt/presto-server/etc/jvm.config
+      - ./coordinator/node.properties:/opt/presto-server/etc/node.properties
+      - ./catalog/jmx.properties:/opt/presto-server/etc/catalog/jmx.properties
+      - ./catalog/tpcds.properties:/opt/presto-server/etc/catalog/tpcds.properties
+      - ./catalog/tpch.properties:/opt/presto-server/etc/catalog/tpch.properties
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://10.18.0.8:8080"]
+      interval: 5m
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      presto:
+        ipv4_address: 10.18.0.8
+
+  worker_1:
+    container_name: worker_1
+    image: prestodb/presto:0.282
+    platform: linux/amd64
+    restart: always
+    depends_on:
+      - coordinator
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    volumes:
+      - ./workers/config.properties:/opt/presto-server/etc/config.properties
+      - ./workers/jvm.config:/opt/presto-server/etc/jvm.config
+      - ./workers/1/node.properties:/opt/presto-server/etc/node.properties
+      - ./catalog/jmx.properties:/opt/presto-server/etc/catalog/jmx.properties
+      - ./catalog/tpcds.properties:/opt/presto-server/etc/catalog/tpcds.properties
+      - ./catalog/tpch.properties:/opt/presto-server/etc/catalog/tpch.properties
+    networks:
+      presto:
+        ipv4_address: 10.18.0.18
+  
+  worker_2:
+    container_name: worker_2
+    image: prestodb/presto:0.282
+    platform: linux/amd64
+    restart: always
+    depends_on:
+      - coordinator
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    volumes:
+      - ./workers/config.properties:/opt/presto-server/etc/config.properties
+      - ./workers/jvm.config:/opt/presto-server/etc/jvm.config
+      - ./workers/2/node.properties:/opt/presto-server/etc/node.properties
+      - ./catalog/jmx.properties:/opt/presto-server/etc/catalog/jmx.properties
+      - ./catalog/tpcds.properties:/opt/presto-server/etc/catalog/tpcds.properties
+      - ./catalog/tpch.properties:/opt/presto-server/etc/catalog/tpch.properties
+    networks:
+      presto:
+        ipv4_address: 10.18.0.28
+
+  cli:
+    container_name: cli
+    image: prestodb/presto:0.282
+    platform: linux/amd64
+    depends_on:
+      - coordinator
+      - worker_1
+      - worker_2
+    entrypoint: "tail -f /dev/null"
+    networks:
+      presto:
+        ipv4_address: 10.18.0.88
