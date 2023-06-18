@@ -513,9 +513,8 @@ TEST_P(MemoryAllocatorTest, allocationClass2) {
   ASSERT_EQ(allocation->pool(), nullptr);
   ASSERT_EQ(allocation->numPages(), 0);
   ASSERT_EQ(allocation->numRuns(), 0);
-  ASSERT_THROW(
-      instance_->allocateNonContiguous(0, *allocation, nullptr, kMinClassSize),
-      VeloxRuntimeError);
+  ASSERT_TRUE(
+      instance_->allocateNonContiguous(0, *allocation, nullptr, kMinClassSize));
   ASSERT_TRUE(instance_->allocateNonContiguous(
       kNumPages, *allocation, nullptr, kMinClassSize));
   ASSERT_TRUE(!allocation->empty());
@@ -1195,9 +1194,7 @@ TEST_P(MemoryAllocatorTest, contiguousAllocation) {
   ASSERT_TRUE(allocation->empty());
   ASSERT_EQ(allocation->pool(), nullptr);
   ASSERT_EQ(allocation->numPages(), 0);
-  ASSERT_THROW(
-      instance_->allocateContiguous(0, nullptr, *allocation),
-      VeloxRuntimeError);
+  ASSERT_TRUE(instance_->allocateContiguous(0, nullptr, *allocation));
   ASSERT_TRUE(instance_->allocateContiguous(kNumPages, nullptr, *allocation));
   ASSERT_TRUE(!allocation->empty());
   ASSERT_EQ(allocation->pool(), nullptr);

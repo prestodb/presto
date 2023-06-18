@@ -39,6 +39,7 @@ MemoryManager::MemoryManager(const Options& options)
               options.arbitratorConfig.retryArbitrationFailure})),
       alignment_(std::max(MemoryAllocator::kMinAlignment, options.alignment)),
       checkUsageLeak_(options.checkUsageLeak),
+      debugMode_(options.debugMode),
       poolDestructionCb_([&](MemoryPool* pool) { dropPool(pool); }),
       defaultRoot_{std::make_shared<MemoryPoolImpl>(
           this,
@@ -54,7 +55,8 @@ MemoryManager::MemoryManager(const Options& options)
               .maxCapacity = kMaxMemory,
               .trackUsage =
                   FLAGS_velox_enable_memory_usage_track_in_default_memory_pool,
-              .checkUsageLeak = options.checkUsageLeak})} {
+              .checkUsageLeak = options.checkUsageLeak,
+              .debugMode = options.debugMode})} {
   VELOX_CHECK_NOT_NULL(allocator_);
   VELOX_USER_CHECK_GE(capacity_, 0);
   MemoryAllocator::alignmentCheck(0, alignment_);
@@ -115,6 +117,7 @@ std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
   options.maxCapacity = capacity;
   options.trackUsage = true;
   options.checkUsageLeak = checkUsageLeak_;
+  options.debugMode = debugMode_;
 
   folly::SharedMutex::WriteHolder guard{mutex_};
   if (pools_.find(poolName) != pools_.end()) {

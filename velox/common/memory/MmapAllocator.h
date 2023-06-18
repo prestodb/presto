@@ -98,7 +98,6 @@ class MmapAllocator : public MemoryAllocator {
       Allocation* collateral,
       ContiguousAllocation& allocation,
       ReservationCallback reservationCB = nullptr) override {
-    VELOX_CHECK_GT(numPages, 0);
     bool result;
     stats_.recordAllocate(numPages * AllocationTraits::kPageSize, 1, [&]() {
       result = allocateContiguousImpl(

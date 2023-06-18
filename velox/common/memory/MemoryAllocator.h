@@ -209,8 +209,11 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   /// returns true if the allocation succeeded. If it returns false, 'out'
   /// references no memory and any partially allocated memory is freed.
   ///
-  /// NOTE: Allocation is not guaranteed even if collateral 'out' is larger than
-  /// 'numPages', because this method is not atomic.
+  /// NOTE:
+  ///  - 'out' is guaranteed to be freed if it's not empty.
+  ///  - Allocation is not guaranteed even if collateral 'out' is larger than
+  ///    'numPages', because this method is not atomic.
+  ///  - Throws if allocation exceeds capacity.
   virtual bool allocateNonContiguous(
       MachinePageCount numPages,
       Allocation& out,
@@ -233,8 +236,9 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   /// does. It may throw and the end state will be consistent, with no new
   /// allocation and 'allocation' and 'collateral' cleared.
   ///
-  /// NOTE: user needs to explicitly release allocation 'out' by calling
-  /// 'freeContiguous' on the same memory allocator object.
+  /// NOTE:
+  /// - 'collateral' and passed in 'allocation' are guaranteed to be freed.
+  /// - Throws if allocation exceeds capacity
   virtual bool allocateContiguous(
       MachinePageCount numPages,
       Allocation* collateral,

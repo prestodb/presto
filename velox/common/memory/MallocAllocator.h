@@ -54,7 +54,6 @@ class MallocAllocator : public MemoryAllocator {
       Allocation* collateral,
       ContiguousAllocation& allocation,
       ReservationCallback reservationCB = nullptr) override {
-    VELOX_CHECK_GT(numPages, 0);
     bool result;
     stats_.recordAllocate(AllocationTraits::pageBytes(numPages), 1, [&]() {
       result = allocateContiguousImpl(

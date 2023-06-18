@@ -56,15 +56,14 @@ bool MmapAllocator::allocateNonContiguous(
     Allocation& out,
     ReservationCallback reservationCB,
     MachinePageCount minSizeClass) {
-  VELOX_CHECK_GT(numPages, 0);
-
-  const SizeMix mix = allocationSize(numPages, minSizeClass);
-
   const int64_t numFreed = freeInternal(out);
   if (numFreed != 0) {
     numAllocated_.fetch_sub(numFreed);
   }
-
+  if (numPages == 0) {
+    return true;
+  }
+  const SizeMix mix = allocationSize(numPages, minSizeClass);
   if (testingHasInjectedFailure(InjectedFailure::kCap)) {
     if ((numFreed != 0) && (reservationCB != nullptr)) {
       reservationCB(AllocationTraits::pageBytes(numFreed), false);
@@ -247,6 +246,9 @@ bool MmapAllocator::allocateContiguousImpl(
       }
     }
     allocation.clear();
+  }
+  if (numPages == 0) {
+    return true;
   }
 
   const auto totalCollateralPages =

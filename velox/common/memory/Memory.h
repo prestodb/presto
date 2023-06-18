@@ -43,6 +43,7 @@
 
 DECLARE_int32(memory_usage_aggregation_interval_millis);
 DECLARE_bool(velox_memory_leak_check_enabled);
+DECLARE_bool(velox_memory_debug_mode_enabled);
 
 namespace facebook::velox::memory {
 #define VELOX_MEM_LOG_PREFIX "[MEM] "
@@ -76,6 +77,10 @@ class IMemoryManager {
     /// TODO: deprecate this flag after all the existing memory leak use cases
     /// have been fixed.
     bool checkUsageLeak{FLAGS_velox_memory_leak_check_enabled};
+
+    /// If true, 'MemoryPool' will be running in debug mode. Debug mode allows
+    /// tracking of allocation sites and free sites.
+    bool debugMode{FLAGS_velox_memory_debug_mode_enabled};
 
     /// Specifies the backing memory allocator.
     MemoryAllocator* allocator{MemoryAllocator::getInstance()};
@@ -229,6 +234,7 @@ class MemoryManager final : public IMemoryManager {
   const std::unique_ptr<MemoryArbitrator> arbitrator_;
   const uint16_t alignment_;
   const bool checkUsageLeak_;
+  const bool debugMode_;
   // The destruction callback set for the allocated  root memory pools which are
   // tracked by 'pools_'. It is invoked on the root pool destruction and removes
   // the pool from 'pools_'.

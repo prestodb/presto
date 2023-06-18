@@ -28,8 +28,10 @@ bool MallocAllocator::allocateNonContiguous(
     Allocation& out,
     ReservationCallback reservationCB,
     MachinePageCount minSizeClass) {
-  VELOX_CHECK_GT(numPages, 0);
   const uint64_t freedBytes = freeNonContiguous(out);
+  if (numPages == 0) {
+    return true;
+  }
   const SizeMix mix = allocationSize(numPages, minSizeClass);
   const auto totalBytes = AllocationTraits::pageBytes(mix.totalPages);
   if (!incrementUsage(totalBytes)) {
@@ -128,6 +130,10 @@ bool MallocAllocator::allocateContiguousImpl(
     decrementUsage(AllocationTraits::pageBytes(numContiguousCollateralPages));
     allocation.clear();
   }
+  if (numPages == 0) {
+    return true;
+  }
+
   const auto totalBytes = AllocationTraits::pageBytes(numPages);
   if (!incrementUsage(totalBytes)) {
     return false;
