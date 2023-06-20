@@ -13,10 +13,6 @@
  */
 namespace facebook::presto::protocol {
 
-void to_json(json& j, const HiveStorageFormat& p) {
-  throw ParseError("Not implemented");
-}
-
 static const std::pair<HiveStorageFormat, json> HiveStorageFormat_enum_table[] =
     { // NOLINT: cert-err58-cpp
         {HiveStorageFormat::ORC, "ORC"},
@@ -30,6 +26,22 @@ static const std::pair<HiveStorageFormat, json> HiveStorageFormat_enum_table[] =
         {HiveStorageFormat::TEXTFILE, "TEXTFILE"},
         {HiveStorageFormat::CSV, "CSV"},
         {HiveStorageFormat::PAGEFILE, "PAGEFILE"}};
+
+void to_json(json& j, const HiveStorageFormat& p) {
+  static_assert(
+      std::is_enum<HiveStorageFormat>::value,
+      "HiveStorageFormat must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(HiveStorageFormat_enum_table),
+      std::end(HiveStorageFormat_enum_table),
+      [&p](const std::pair<HiveStorageFormat, json>& ej_pair) -> bool {
+        return ej_pair.first == p;
+      });
+  j = ((it != std::end(HiveStorageFormat_enum_table))
+           ? it
+           : std::begin(HiveStorageFormat_enum_table))
+          ->second;
+}
 
 void from_json(const json& j, HiveStorageFormat& e) {
   static_assert(
