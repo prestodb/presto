@@ -834,6 +834,20 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
+    public void testCreateTableWithUnsupportedFormats()
+    {
+        Session session = buildSessionForTableWrite();
+        // Generate temporary table name.
+        String tmpTableName = generateRandomTableName();
+        // Clean up if temporary table already exists.
+        dropTableIfExists(tmpTableName);
+        String[] unsupportedTableFormats = {"ORC", "JSON"};
+        for (String unsupportedTableFormat : unsupportedTableFormats) {
+            assertQueryFails(String.format("CREATE TABLE %s WITH (format = '" + unsupportedTableFormat + "') AS SELECT * FROM nation", tmpTableName), " Unsupported file format: \"" + unsupportedTableFormat + "\".");
+        }
+    }
+
+    @Test
     public void testCreateUnpartitionedTableAsSelect()
     {
         Session session = buildSessionForTableWrite();
@@ -841,12 +855,15 @@ public abstract class AbstractTestNativeGeneralQueries
         String tmpTableName = generateRandomTableName();
         // Clean up if temporary table already exists.
         dropTableIfExists(tmpTableName);
-        try {
-            getQueryRunner().execute(session, String.format("CREATE TABLE %s AS SELECT * FROM nation", tmpTableName));
-            assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT * FROM nation");
-        }
-        finally {
-            dropTableIfExists(tmpTableName);
+        String[] tableFormats = {"DWRF", "PARQUET"};
+        for (String tableFormat : tableFormats) {
+            try {
+                getQueryRunner().execute(session, String.format("CREATE TABLE %s WITH (format = '" + tableFormat + "') AS SELECT * FROM nation", tmpTableName));
+                assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT * FROM nation");
+            }
+            finally {
+                dropTableIfExists(tmpTableName);
+            }
         }
 
         try {
