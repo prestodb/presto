@@ -309,7 +309,8 @@ diffDate(const DateTimeUnit unit, const Date& fromDate, const Date& toDate) {
   }
   return diffTimestamp(
       unit,
-      Timestamp(fromDate.days() * util::kSecsPerDay, 0),
-      Timestamp(toDate.days() * util::kSecsPerDay, 0));
+      // prevent overflow
+      Timestamp((int64_t)fromDate.days() * util::kSecsPerDay, 0),
+      Timestamp((int64_t)toDate.days() * util::kSecsPerDay, 0));
 }
 } // namespace facebook::velox::functions

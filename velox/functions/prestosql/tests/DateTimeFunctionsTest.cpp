@@ -1884,6 +1884,19 @@ TEST_F(DateTimeFunctionsTest, dateDiffDate) {
       dateDiff("quarter", parseDate("2020-02-29"), parseDate("2019-02-28")));
   EXPECT_EQ(
       -2, dateDiff("year", parseDate("2020-02-29"), parseDate("2018-02-28")));
+
+  // Check Large date
+  EXPECT_EQ(
+      737790,
+      dateDiff("day", parseDate("2020-02-29"), parseDate("4040-02-29")));
+  EXPECT_EQ(
+      24240,
+      dateDiff("month", parseDate("2020-02-29"), parseDate("4040-02-29")));
+  EXPECT_EQ(
+      8080,
+      dateDiff("quarter", parseDate("2020-02-29"), parseDate("4040-02-29")));
+  EXPECT_EQ(
+      2020, dateDiff("year", parseDate("2020-02-29"), parseDate("4040-02-29")));
 }
 
 TEST_F(DateTimeFunctionsTest, dateDiffTimestamp) {
