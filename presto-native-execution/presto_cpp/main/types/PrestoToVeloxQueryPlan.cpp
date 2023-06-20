@@ -147,6 +147,19 @@ std::shared_ptr<connector::hive::LocationHandle> toLocationHandle(
       toTableType(locationHandle.tableType));
 }
 
+dwio::common::FileFormat toFileFormat(
+    const protocol::HiveStorageFormat storageFormat) {
+  switch (storageFormat) {
+    case protocol::HiveStorageFormat::DWRF:
+      return dwio::common::FileFormat::DWRF;
+    case protocol::HiveStorageFormat::PARQUET:
+      return dwio::common::FileFormat::PARQUET;
+    default:
+      VELOX_UNSUPPORTED(
+          "Unsupported file format: {}.", toJsonString(storageFormat));
+  }
+}
+
 int64_t toInt64(
     const std::shared_ptr<protocol::Block>& block,
     const VeloxExprConverter& exprConverter,
@@ -1766,7 +1779,9 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     }
 
     hiveTableHandle = std::make_shared<connector::hive::HiveInsertTableHandle>(
-        inputColumns, toLocationHandle(hiveOutputTableHandle->locationHandle));
+        inputColumns,
+        toLocationHandle(hiveOutputTableHandle->locationHandle),
+        toFileFormat(hiveOutputTableHandle->tableStorageFormat));
   } else if (
       auto insertHandle = std::dynamic_pointer_cast<protocol::InsertHandle>(
           tableWriteInfo->writerTarget)) {
@@ -1788,7 +1803,9 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     }
 
     hiveTableHandle = std::make_shared<connector::hive::HiveInsertTableHandle>(
-        inputColumns, toLocationHandle(hiveInsertTableHandle->locationHandle));
+        inputColumns,
+        toLocationHandle(hiveInsertTableHandle->locationHandle),
+        toFileFormat(hiveInsertTableHandle->tableStorageFormat));
   } else {
     VELOX_UNSUPPORTED(
         "Unsupported table writer handle: {}",
