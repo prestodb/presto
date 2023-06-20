@@ -1875,6 +1875,8 @@ uint64_t MapColumnWriter::write(
     auto begin = offsets[pos];
     auto end = begin + lengths[pos];
     if (end > begin) {
+      DWIO_ENSURE_LE(end, mapSlice->mapKeys()->size());
+      DWIO_ENSURE_LE(end, mapSlice->mapValues()->size());
       childRanges.add(begin, end);
     }
     nonNullLengths.unsafeAppend(end - begin);
@@ -1936,7 +1938,6 @@ uint64_t MapColumnWriter::write(
 
   uint64_t rawSize = 0;
   if (childRanges.size()) {
-    DWIO_ENSURE_EQ(mapSlice->mapKeys()->size(), mapSlice->mapValues()->size());
     rawSize += children_.at(0)->write(mapSlice->mapKeys(), childRanges);
     rawSize += children_.at(1)->write(mapSlice->mapValues(), childRanges);
   }

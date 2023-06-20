@@ -1473,6 +1473,51 @@ TEST(ColumnWriterTests, TestMapWriterBigBatch) {
       /* useFlatMap */ true);
 }
 
+TEST(ColumnWriterTests, TestMapWriterUnalignedKeyValueCount) {
+  auto pool = addDefaultLeafMemoryPool();
+  VectorMaker maker(pool.get());
+  auto keys = maker.flatVector<int64_t>(11, folly::identity);
+  auto values = maker.flatVector<int64_t>(12, folly::identity);
+  auto offsets = allocateIndices(3, pool.get());
+  auto sizes = allocateIndices(3, pool.get());
+
+  for (int i = 0; i < 3; ++i) {
+    offsets->asMutable<vector_size_t>()[i] = 3 * i;
+    sizes->asMutable<vector_size_t>()[i] = 3;
+  }
+  auto batch = std::make_shared<MapVector>(
+      pool.get(),
+      MAP(BIGINT(), BIGINT()),
+      nullptr,
+      3,
+      offsets,
+      sizes,
+      keys,
+      values);
+  testMapWriter<int64_t, int64_t>(*pool, batch, false);
+  testMapWriter<int64_t, int64_t>(*pool, batch, true);
+
+  for (int i = 0; i < 3; ++i) {
+    offsets->asMutable<vector_size_t>()[i] = 4 * i;
+    sizes->asMutable<vector_size_t>()[i] = 4;
+  }
+  batch = std::make_shared<MapVector>(
+      pool.get(),
+      MAP(BIGINT(), BIGINT()),
+      nullptr,
+      3,
+      offsets,
+      sizes,
+      keys,
+      values);
+  ASSERT_THROW(
+      (testMapWriter<int64_t, int64_t>(*pool, batch, false)),
+      exception::LoggedException);
+  ASSERT_THROW(
+      (testMapWriter<int64_t, int64_t>(*pool, batch, true)),
+      exception::LoggedException);
+}
+
 TEST(ColumnWriterTests, TestStructKeysConfigSerializationDeserialization) {
   const std::vector<std::vector<std::string>> columns{
       {"1.45", "hi, you;", "29102819", "1e-4"},
