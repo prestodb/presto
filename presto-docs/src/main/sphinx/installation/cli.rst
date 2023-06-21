@@ -5,7 +5,7 @@ Command Line Interface
 The Presto CLI is a terminal-based interactive shell for running
 queries. The CLI is a
 `self-executing <http://skife.org/java/unix/2011/06/20/really_executable_jars.html>`_
-JAR file, which means it acts like a normal UNIX executable.
+JAR file that acts like a normal UNIX executable.
 
 Download :maven_download:`cli`
 Rename it to ``presto`` with the following command 
