@@ -35,6 +35,7 @@ public class TestAlluxioCacheConfig
     {
         assertRecordedDefaults(recordDefaults(AlluxioCacheConfig.class)
                 .setAsyncWriteEnabled(false)
+                .setCacheFilterClass("alluxio.client.file.cache.filter.DefaultCacheFilter")
                 .setConfigValidationEnabled(false)
                 .setEvictionRetries(10)
                 .setEvictionPolicy(EvictionPolicy.LRU)
@@ -55,6 +56,7 @@ public class TestAlluxioCacheConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("cache.alluxio.async-write-enabled", "true")
+                .put("cache.alluxio.cache-filter-class", "test.TestCacheFilter")
                 .put("cache.alluxio.config-validation-enabled", "true")
                 .put("cache.alluxio.eviction-retries", "5")
                 .put("cache.alluxio.eviction-policy", "LFU")
@@ -72,6 +74,7 @@ public class TestAlluxioCacheConfig
 
         AlluxioCacheConfig expected = new AlluxioCacheConfig()
                 .setAsyncWriteEnabled(true)
+                .setCacheFilterClass("test.TestCacheFilter")
                 .setEvictionRetries(5)
                 .setEvictionPolicy(EvictionPolicy.LFU)
                 .setMaxCacheSize(new DataSize(42, MEGABYTE))

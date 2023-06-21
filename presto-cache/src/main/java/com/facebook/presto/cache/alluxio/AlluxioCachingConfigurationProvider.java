@@ -63,6 +63,7 @@ public class AlluxioCachingConfigurationProvider
             }
             configuration.set("alluxio.user.client.cache.shadow.enabled", String.valueOf(alluxioCacheConfig.isShadowCacheEnabled()));
             configuration.set("alluxio.user.client.cache.shadow.window", String.valueOf(alluxioCacheConfig.getShadowCacheWindow().toMillis()));
+            configuration.set("alluxio.user.client.cache.filter.class", alluxioCacheConfig.getCacheFilterClass());
         }
     }
 
