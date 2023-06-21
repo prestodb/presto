@@ -73,6 +73,7 @@ public class NativeExecutionTask
     private final HttpNativeExecutionTaskInfoFetcher taskInfoFetcher;
     // Results will be fetched only if not written to shuffle.
     private final Optional<HttpNativeExecutionTaskResultFetcher> taskResultFetcher;
+    private final Object taskFinishedOrHasResult = new Object();
 
     public NativeExecutionTask(
             Session session,
@@ -116,11 +117,13 @@ public class NativeExecutionTask
                 this.workerClient,
                 this.executor,
                 taskManagerConfig.getInfoUpdateInterval(),
-                queryManagerConfig.getRemoteTaskMaxErrorDuration());
+                queryManagerConfig.getRemoteTaskMaxErrorDuration(),
+                taskFinishedOrHasResult);
         if (!shuffleWriteInfo.isPresent()) {
             this.taskResultFetcher = Optional.of(new HttpNativeExecutionTaskResultFetcher(
                     updateScheduledExecutor,
-                    this.workerClient));
+                    this.workerClient,
+                    taskFinishedOrHasResult));
         }
         else {
             this.taskResultFetcher = Optional.empty();
@@ -139,6 +142,17 @@ public class NativeExecutionTask
         return taskInfoFetcher.getTaskInfo();
     }
 
+    public boolean isTaskDone()
+    {
+        Optional<TaskInfo> taskInfo = getTaskInfo();
+        return taskInfo.isPresent() && taskInfo.get().getTaskStatus().getState().isDone();
+    }
+
+    public Object getTaskFinishedOrHasResult()
+    {
+        return taskFinishedOrHasResult;
+    }
+
     /**
      * Blocking call to poll from result fetcher buffer. Blocks until content becomes available in the buffer, or until timeout is hit.
      *
@@ -151,6 +165,11 @@ public class NativeExecutionTask
             return Optional.empty();
         }
         return taskResultFetcher.get().pollPage();
+    }
+
+    public boolean hasResult()
+    {
+        return taskResultFetcher.isPresent() && taskResultFetcher.get().hasPage();
     }
 
     /**
