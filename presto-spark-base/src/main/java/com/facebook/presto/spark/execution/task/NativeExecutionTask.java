@@ -41,7 +41,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.CANCELED;
 import static com.facebook.presto.execution.TaskState.FAILED;
-import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static java.util.Objects.requireNonNull;
 
@@ -67,6 +66,7 @@ public class NativeExecutionTask
     private final PrestoSparkHttpTaskClient workerClient;
     private final TableWriteInfo tableWriteInfo;
     private final Optional<String> shuffleWriteInfo;
+    private final Optional<String> broadcastBasePath;
     private final List<TaskSource> sources;
     private final Executor executor;
     private final HttpNativeExecutionTaskInfoFetcher taskInfoFetcher;
@@ -82,6 +82,7 @@ public class NativeExecutionTask
             List<TaskSource> sources,
             TableWriteInfo tableWriteInfo,
             Optional<String> shuffleWriteInfo,
+            Optional<String> broadcastBasePath,
             Executor executor,
             ScheduledExecutorService updateScheduledExecutor,
             ScheduledExecutorService errorRetryScheduledExecutor,
@@ -92,10 +93,11 @@ public class NativeExecutionTask
         this.planFragment = requireNonNull(planFragment, "planFragment is null");
         this.tableWriteInfo = requireNonNull(tableWriteInfo, "tableWriteInfo is null");
         this.shuffleWriteInfo = requireNonNull(shuffleWriteInfo, "shuffleWriteInfo is null");
+        this.broadcastBasePath = requireNonNull(broadcastBasePath, "broadcastBasePath is null");
         this.sources = requireNonNull(sources, "sources is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.workerClient = requireNonNull(workerClient, "workerClient is null");
-        this.outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED);
+        this.outputBuffers = createInitialEmptyOutputBuffers(planFragment.getPartitioningScheme().getPartitioning().getHandle()).withNoMoreBufferIds();
         requireNonNull(taskManagerConfig, "taskManagerConfig is null");
         requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
         requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
@@ -197,6 +199,7 @@ public class NativeExecutionTask
                     planFragment,
                     tableWriteInfo,
                     shuffleWriteInfo,
+                    broadcastBasePath,
                     session,
                     outputBuffers);
             BaseResponse<TaskInfo> response = future.get();

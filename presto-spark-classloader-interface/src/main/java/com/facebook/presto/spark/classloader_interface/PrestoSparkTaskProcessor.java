@@ -84,7 +84,7 @@ public class PrestoSparkTaskProcessor<T extends PrestoSparkTaskOutput>
                 TaskContext.get().attemptNumber(),
                 serializedTaskDescriptor,
                 serializedTaskSources,
-                new PrestoSparkNativeTaskInputs(shuffleReadDescriptors, shuffleWriteDescriptor),
+                new PrestoSparkNativeTaskInputs(shuffleReadDescriptors, shuffleWriteDescriptor, broadcastInputs),
                 taskInfoCollector,
                 shuffleStatsCollector,
                 outputType);

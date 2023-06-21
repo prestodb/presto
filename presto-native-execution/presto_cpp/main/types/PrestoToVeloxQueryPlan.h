@@ -230,11 +230,13 @@ class VeloxBatchQueryPlanConverter : public VeloxQueryPlanConverterBase {
   VeloxBatchQueryPlanConverter(
       const std::string& shuffleName,
       std::shared_ptr<std::string>&& serializedShuffleWriteInfo,
+      std::shared_ptr<std::string>&& broadcastBasePath,
       velox::core::QueryCtx* queryCtx,
       velox::memory::MemoryPool* pool)
       : VeloxQueryPlanConverterBase(queryCtx, pool),
         shuffleName_(shuffleName),
-        serializedShuffleWriteInfo_(std::move(serializedShuffleWriteInfo)) {}
+        serializedShuffleWriteInfo_(std::move(serializedShuffleWriteInfo)),
+        broadcastBasePath_(std::move(broadcastBasePath)) {}
 
   velox::core::PlanFragment toVeloxQueryPlan(
       const protocol::PlanFragment& fragment,
@@ -252,6 +254,7 @@ class VeloxBatchQueryPlanConverter : public VeloxQueryPlanConverterBase {
  private:
   const std::string shuffleName_;
   const std::shared_ptr<std::string> serializedShuffleWriteInfo_;
+  const std::shared_ptr<std::string> broadcastBasePath_;
 };
 
 void registerPrestoPlanNodeSerDe();
