@@ -3,11 +3,14 @@ Command Line Interface
 ======================
 
 The Presto CLI is a terminal-based interactive shell for running
-queries. The CLI is a
+queries, and is a
 `self-executing <http://skife.org/java/unix/2011/06/20/really_executable_jars.html>`_
 JAR file that acts like a normal UNIX executable.
 
-Download :maven_download:`cli`
+Install the Presto CLI
+======================
+
+Download :maven_download:`cli`.
 
 Rename the JAR file to ``presto`` with the following command: 
 
@@ -16,6 +19,9 @@ Rename the JAR file to ``presto`` with the following command:
 Use ``chmod +x`` to make the file executable:
 
     chmod +x presto
+
+Run the Presto CLI
+==================
 
 Start the Presto CLI using the name you gave it using the ``mv`` command:
 
@@ -29,12 +35,15 @@ Run the CLI with the ``--help`` option to see the available options.
 
     ./presto --help
 
-To connect to a Presto server, run the CLI with the --server option.  
+Connect to a Presto server using the Presto CLI
+===============================================
+
+To connect to a Presto server, run the CLI with the ``--server`` option.  
 
     ./presto --server localhost:8080 --catalog hive --schema default
 
 ``localhost:8080`` is the default for a Presto server, so if you have a Presto server running locally you can 
-leave it off. If you are connecting to a remote Presto server, use the Presto endpoint URL as in 
+leave it off. To connect to a remote Presto server, use the Presto endpoint URL as in 
 the following example command
 
    ./presto --server http://www.example.net:8080
