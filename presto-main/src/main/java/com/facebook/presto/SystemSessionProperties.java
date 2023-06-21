@@ -274,6 +274,7 @@ public final class SystemSessionProperties
     public static final String REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN = "rewrite_cross_join_or_to_inner_join";
     public static final String REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN = "rewrite_cross_join_array_contains_to_inner_join";
     public static final String REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN = "rewrite_left_join_null_filter_to_semi_join";
+    public static final String CALCULATE_CROSS_JOIN_COST = "calculate_cross_join_cost";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1465,16 +1466,16 @@ public final class SystemSessionProperties
                 stringProperty(
                         NATIVE_EXECUTION_PROGRAM_ARGUMENTS,
                         "Program arguments for native engine execution. The main target use case for this " +
-                        "property is to control logging levels using glog flags. E,g, to enable verbose mode, add " +
-                        "'--v 1'. More advanced glog gflags usage can be found at " +
-                        "https://rpg.ifi.uzh.ch/docs/glog.html\n" +
-                        "e.g. --vmodule=mapreduce=2,file=1,gfs*=3 --v=0\n" +
-                        "will:\n" +
-                        "\n" +
-                        "a. Print VLOG(2) and lower messages from mapreduce.{h,cc}\n" +
-                        "b. Print VLOG(1) and lower messages from file.{h,cc}\n" +
-                        "c. Print VLOG(3) and lower messages from files prefixed with \"gfs\"\n" +
-                        "d. Print VLOG(0) and lower messages from elsewhere",
+                                "property is to control logging levels using glog flags. E,g, to enable verbose mode, add " +
+                                "'--v 1'. More advanced glog gflags usage can be found at " +
+                                "https://rpg.ifi.uzh.ch/docs/glog.html\n" +
+                                "e.g. --vmodule=mapreduce=2,file=1,gfs*=3 --v=0\n" +
+                                "will:\n" +
+                                "\n" +
+                                "a. Print VLOG(2) and lower messages from mapreduce.{h,cc}\n" +
+                                "b. Print VLOG(1) and lower messages from file.{h,cc}\n" +
+                                "c. Print VLOG(3) and lower messages from files prefixed with \"gfs\"\n" +
+                                "d. Print VLOG(0) and lower messages from elsewhere",
                         featuresConfig.getNativeExecutionProgramArguments(),
                         false),
                 booleanProperty(
@@ -1591,6 +1592,11 @@ public final class SystemSessionProperties
                         REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN,
                         "Rewrite left join with is null check to semi join",
                         featuresConfig.isLeftJoinNullFilterToSemiJoin(),
+                        false),
+                booleanProperty(
+                        CALCULATE_CROSS_JOIN_COST,
+                        "calculate the cost of cross joins when optimizing the query plan rather than assume infinite cost",
+                        false,
                         false));
     }
 
@@ -2192,6 +2198,7 @@ public final class SystemSessionProperties
         }
         return intValue;
     }
+
     private static Double validateDoubleValueWithinSelectivityRange(Object value, String property)
     {
         Double number = (Double) value;
@@ -2673,5 +2680,10 @@ public final class SystemSessionProperties
     public static boolean isRewriteLeftJoinNullFilterToSemiJoinEnabled(Session session)
     {
         return session.getSystemProperty(REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN, Boolean.class);
+    }
+
+    public static boolean calculateCrossJoinCost(Session session)
+    {
+        return session.getSystemProperty(CALCULATE_CROSS_JOIN_COST, Boolean.class);
     }
 }

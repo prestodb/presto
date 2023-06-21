@@ -63,6 +63,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static com.facebook.presto.SystemSessionProperties.calculateCrossJoinCost;
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.SystemSessionProperties.getJoinReorderingStrategy;
 import static com.facebook.presto.SystemSessionProperties.getMaxReorderedJoins;
@@ -267,7 +268,7 @@ public class ReorderJoins
                     .filter(JoinEnumerator::isJoinEqualityCondition)
                     .map(predicate -> toEquiJoinClause((CallExpression) predicate, leftVariables, context.getVariableAllocator()))
                     .collect(toImmutableList());
-            if (joinConditions.isEmpty()) {
+            if (joinConditions.isEmpty() && !calculateCrossJoinCost(session)) {
                 return INFINITE_COST_RESULT;
             }
             List<RowExpression> joinFilters = joinPredicates.stream()
