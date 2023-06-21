@@ -302,6 +302,23 @@ PlanBuilder& PlanBuilder::tableWrite(
   return *this;
 }
 
+PlanBuilder& PlanBuilder::tableWrite(
+    const RowTypePtr& inputColumns,
+    const std::vector<std::string>& tableColumnNames,
+    const std::shared_ptr<core::InsertTableHandle>& insertHandle,
+    CommitStrategy commitStrategy,
+    RowTypePtr outputType) {
+  planNode_ = std::make_shared<core::TableWriteNode>(
+      nextPlanNodeId(),
+      inputColumns,
+      tableColumnNames,
+      insertHandle,
+      outputType,
+      commitStrategy,
+      planNode_);
+  return *this;
+}
+
 namespace {
 
 std::string throwAggregateFunctionDoesntExist(const std::string& name) {

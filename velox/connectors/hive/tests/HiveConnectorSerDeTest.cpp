@@ -125,6 +125,6 @@ TEST_F(HiveConnectorSerDeTest, hiveInsertTableHandle) {
       LocationHandle::TableType::kNew);
   auto hiveInsertTableHandle =
       exec::test::HiveConnectorTestBase::makeHiveInsertTableHandle(
-          tableColumnNames, tableColumnTypes, {"loca"}, locationHandle);
+          tableColumnNames, tableColumnTypes, {"loc"}, locationHandle);
   testSerde(*hiveInsertTableHandle);
 }

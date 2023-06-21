@@ -29,7 +29,7 @@ target_link_libraries(
 
 add_library(velox_hive_partition_function HivePartitionFunction.cpp)
 
-target_link_libraries(velox_hive_partition_function velox_core)
+target_link_libraries(velox_hive_partition_function velox_core velox_exec)
 
 add_subdirectory(storage_adapters)
 

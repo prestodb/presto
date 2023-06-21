@@ -118,6 +118,13 @@ enum class CommitStrategy {
 /// Return a string encoding of the given commit strategy.
 std::string commitStrategyToString(CommitStrategy commitStrategy);
 
+FOLLY_ALWAYS_INLINE std::ostream& operator<<(
+    std::ostream& os,
+    CommitStrategy strategy) {
+  os << commitStrategyToString(strategy);
+  return os;
+}
+
 /// Return a commit strategy of the given string encoding.
 CommitStrategy stringToCommitStrategy(const std::string& strategy);
 

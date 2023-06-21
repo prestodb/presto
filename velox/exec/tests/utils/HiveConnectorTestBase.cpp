@@ -17,6 +17,7 @@
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 
 #include "velox/common/file/FileSystems.h"
+#include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
@@ -175,13 +176,54 @@ HiveConnectorTestBase::makeHiveInsertTableHandle(
     const std::vector<std::string>& partitionedBy,
     std::shared_ptr<connector::hive::LocationHandle> locationHandle,
     const dwio::common::FileFormat tableStorageFormat) {
+  return makeHiveInsertTableHandle(
+      tableColumnNames,
+      tableColumnTypes,
+      partitionedBy,
+      nullptr,
+      std::move(locationHandle),
+      tableStorageFormat);
+}
+
+// static
+std::shared_ptr<connector::hive::HiveInsertTableHandle>
+HiveConnectorTestBase::makeHiveInsertTableHandle(
+    const std::vector<std::string>& tableColumnNames,
+    const std::vector<TypePtr>& tableColumnTypes,
+    const std::vector<std::string>& partitionedBy,
+    std::shared_ptr<connector::hive::HiveBucketProperty> bucketProperty,
+    std::shared_ptr<connector::hive::LocationHandle> locationHandle,
+    const dwio::common::FileFormat tableStorageFormat) {
   std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>
       columnHandles;
+  std::vector<std::string> bucketedBy;
+  std::vector<TypePtr> bucketedTypes;
+  std::vector<std::shared_ptr<const connector::hive::HiveSortingColumn>>
+      sortedBy;
+  if (bucketProperty != nullptr) {
+    bucketedBy = bucketProperty->bucketedBy();
+    bucketedTypes = bucketProperty->bucketedTypes();
+    sortedBy = bucketProperty->sortedBy();
+  }
+  int32_t numPartitionColumns{0};
+  int32_t numSortingColumns{0};
+  int32_t numBucketColumns{0};
   for (int i = 0; i < tableColumnNames.size(); ++i) {
+    for (int j = 0; j < bucketedBy.size(); ++j) {
+      if (bucketedBy[j] == tableColumnNames[i]) {
+        ++numBucketColumns;
+      }
+    }
+    for (int j = 0; j < sortedBy.size(); ++j) {
+      if (sortedBy[j]->sortColumn() == tableColumnNames[i]) {
+        ++numSortingColumns;
+      }
+    }
     if (std::find(
             partitionedBy.cbegin(),
             partitionedBy.cend(),
             tableColumnNames.at(i)) != partitionedBy.cend()) {
+      ++numPartitionColumns;
       columnHandles.push_back(
           std::make_shared<connector::hive::HiveColumnHandle>(
               tableColumnNames.at(i),
@@ -195,9 +237,11 @@ HiveConnectorTestBase::makeHiveInsertTableHandle(
               tableColumnTypes.at(i)));
     }
   }
-
+  VELOX_CHECK_EQ(numPartitionColumns, partitionedBy.size());
+  VELOX_CHECK_EQ(numBucketColumns, bucketedBy.size());
+  VELOX_CHECK_EQ(numSortingColumns, sortedBy.size());
   return std::make_shared<connector::hive::HiveInsertTableHandle>(
-      columnHandles, locationHandle, tableStorageFormat);
+      columnHandles, locationHandle, tableStorageFormat, bucketProperty);
 }
 
 std::shared_ptr<connector::hive::HiveColumnHandle>

@@ -50,6 +50,13 @@ enum class FileFormat {
 FileFormat toFileFormat(std::string s);
 std::string toString(FileFormat fmt);
 
+FOLLY_ALWAYS_INLINE std::ostream& operator<<(
+    std::ostream& output,
+    const FileFormat& fmt) {
+  output << toString(fmt);
+  return output;
+}
+
 /**
  * Formatting options for serialization.
  */

@@ -39,7 +39,8 @@ class HiveConfig {
   static constexpr const char* kInsertExistingPartitionsBehavior =
       "insert_existing_partitions_behavior";
 
-  /// Maximum number of partitions per a single table writer instance.
+  /// Maximum number of (bucketed) partitions per a single table writer
+  /// instance.
   static constexpr const char* kMaxPartitionsPerWriters =
       "max_partitions_per_writers";
 

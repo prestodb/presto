@@ -244,7 +244,7 @@ Hive Connector
    * - max_partitions_per_writers
      - integer
      - 100
-     - Maximum number of partitions per a single table writer instance.
+     - Maximum number of (bucketed) partitions per a single table writer instance.
    * - insert_existing_partitions_behavior
      - string
      - ERROR
