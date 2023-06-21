@@ -119,6 +119,7 @@ public class WindowFilterPushDown
                         node.getPartitionBy(),
                         getOnlyElement(node.getWindowFunctions().keySet()),
                         Optional.empty(),
+                        false,
                         Optional.empty());
             }
             return replaceChildren(node, ImmutableList.of(rewrittenSource));
@@ -256,7 +257,7 @@ public class WindowFilterPushDown
             if (node.getMaxRowCountPerPartition().isPresent()) {
                 newRowCountPerPartition = Math.min(node.getMaxRowCountPerPartition().get(), newRowCountPerPartition);
             }
-            return new RowNumberNode(node.getSourceLocation(), node.getId(), node.getSource(), node.getPartitionBy(), node.getRowNumberVariable(), Optional.of(newRowCountPerPartition), node.getHashVariable());
+            return new RowNumberNode(node.getSourceLocation(), node.getId(), node.getSource(), node.getPartitionBy(), node.getRowNumberVariable(), Optional.of(newRowCountPerPartition), false, node.getHashVariable());
         }
 
         private TopNRowNumberNode convertToTopNRowNumber(WindowNode windowNode, int limit)

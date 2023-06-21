@@ -632,6 +632,7 @@ public class CanonicalPlanGenerator
                 partitionBy,
                 rowNumberVariable,
                 node.getMaxRowCountPerPartition(),
+                node.getPartial(),
                 Optional.empty());
         context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
         return Optional.of(canonicalPlan);
