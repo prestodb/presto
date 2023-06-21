@@ -191,6 +191,7 @@ void PrestoServer::run() {
   }
 
   registerStatsCounters();
+  registerFileSinks();
   registerFileSystems();
   registerOptionalHiveStorageAdapters();
   registerShuffleInterfaceFactories();
