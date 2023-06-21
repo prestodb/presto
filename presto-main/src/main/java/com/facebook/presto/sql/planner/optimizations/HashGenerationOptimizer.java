@@ -281,6 +281,7 @@ public class HashGenerationOptimizer
                             node.getPartitionBy(),
                             node.getRowNumberVariable(),
                             node.getMaxRowCountPerPartition(),
+                            node.getPartial(),
                             Optional.of(hashVariable)),
                     child.getHashVariables());
         }
