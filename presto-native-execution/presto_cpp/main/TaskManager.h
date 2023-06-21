@@ -58,12 +58,14 @@ class TaskManager {
   std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
       const protocol::TaskId& taskId,
       const protocol::TaskUpdateRequest& updateRequest,
-      const velox::core::PlanFragment& planFragment);
+      const velox::core::PlanFragment& planFragment,
+      std::shared_ptr<velox::core::QueryCtx> queryCtx);
 
   std::unique_ptr<protocol::TaskInfo> createOrUpdateBatchTask(
       const protocol::TaskId& taskId,
       const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
-      const velox::core::PlanFragment& planFragment);
+      const velox::core::PlanFragment& planFragment,
+      std::shared_ptr<velox::core::QueryCtx> queryCtx);
 
   // Iterates through a map of resultRequests and fetches data from
   // buffer manager. This method uses the getData() global call to fetch
@@ -152,11 +154,7 @@ class TaskManager {
       const velox::core::PlanFragment& planFragment,
       const std::vector<protocol::TaskSource>& sources,
       const protocol::OutputBuffers& outputBuffers,
-      std::unordered_map<std::string, std::string>&& configStrings,
-      std::unordered_map<
-          std::string,
-          std::unordered_map<std::string, std::string>>&&
-          connectorConfigStrings);
+      std::shared_ptr<velox::core::QueryCtx> queryCtx);
 
   std::shared_ptr<PrestoTask> findOrCreateTask(const protocol::TaskId& taskId);
 
