@@ -27,7 +27,6 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.TaskState;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.Split;
@@ -97,18 +96,18 @@ import static java.util.Objects.requireNonNull;
  * It will send necessary metadata (e.g, plan fragment, session properties etc.) as a part of
  * BatchTaskUpdateRequest. It will poll the remote CPP task for status and results (pages/data if applicable)
  * and send these back to the Spark's RDD api
- *
+ * <p>
  * PrestoSparkNativeTaskExecutorFactory is singleton instantiated once per executor.
- *
+ * <p>
  * For every task it receives, it does the following
  * 1. Create the Native execution Process (NativeTaskExecutionFactory) ensure that is it created only once.
  * 2. Serialize and pass the planFragment, source-metadata (taskSources), sink-metadata (tableWriteInfo or shuffleWriteInfo)
- *    and submit a nativeExecutionTask.
+ * and submit a nativeExecutionTask.
  * 3. Return Iterator to sparkRDD layer. RDD execution will call the .next() methods, which will
- *    3.a Call {@link NativeExecutionTask}'s pollResult() to retrieve {@link SerializedPage} back from external process.
- *    3.b If no more output is available, then check if task has finished successfully or with exception
- *          If task finished with exception - fail the spark task (throw exception)
- *          IF task finished successfully - collect statistics through taskInfo object and add to accumulator
+ * 3.a Call {@link NativeExecutionTask}'s pollResult() to retrieve {@link SerializedPage} back from external process.
+ * 3.b If no more output is available, then check if task has finished successfully or with exception
+ * If task finished with exception - fail the spark task (throw exception)
+ * IF task finished successfully - collect statistics through taskInfo object and add to accumulator
  */
 public class PrestoSparkNativeTaskExecutorFactory
         implements IPrestoSparkTaskExecutorFactory
@@ -123,7 +122,6 @@ public class PrestoSparkNativeTaskExecutorFactory
     private static final TaskId DUMMY_TASK_ID = TaskId.valueOf("remotesourcetaskid.0.0.0.0");
 
     private final SessionPropertyManager sessionPropertyManager;
-    private final FunctionAndTypeManager functionAndTypeManager;
     private final JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec;
     private final Codec<TaskSource> taskSourceCodec;
     private final Codec<TaskInfo> taskInfoCodec;
@@ -137,7 +135,6 @@ public class PrestoSparkNativeTaskExecutorFactory
     @Inject
     public PrestoSparkNativeTaskExecutorFactory(
             SessionPropertyManager sessionPropertyManager,
-            FunctionAndTypeManager functionAndTypeManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
             Codec<TaskSource> taskSourceCodec,
             Codec<TaskInfo> taskInfoCodec,
@@ -149,7 +146,6 @@ public class PrestoSparkNativeTaskExecutorFactory
             PrestoSparkShuffleInfoTranslator shuffleInfoTranslator)
     {
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
-        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
         this.taskSourceCodec = requireNonNull(taskSourceCodec, "taskSourceCodec is null");
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
@@ -255,7 +251,7 @@ public class PrestoSparkNativeTaskExecutorFactory
         TaskInfo taskInfo = task.start();
 
         // task creation might have failed
-        processTaskInfoForErrors(taskInfo);
+        processTaskInfoForErrorsOrCompletion(taskInfo);
         // 4. return output to spark RDD layer
         return new PrestoSparkNativeTaskOutputIterator<>(task, outputType, taskInfoCollector, taskInfoCodec, executionExceptionFactory);
     }
@@ -286,7 +282,7 @@ public class PrestoSparkNativeTaskExecutorFactory
         PrestoSparkStatsCollectionUtils.collectMetrics(taskInfoOptional.get());
     }
 
-    private static void processTaskInfoForErrors(TaskInfo taskInfo)
+    private static void processTaskInfoForErrorsOrCompletion(TaskInfo taskInfo)
     {
         if (!taskInfo.getTaskStatus().getState().isDone()) {
             log.info("processTaskInfoForErrors: task is not done yet.. %s", taskInfo);
@@ -414,8 +410,9 @@ public class PrestoSparkNativeTaskExecutorFactory
         /**
          * This function is called by Spark's RDD layer to check if there are output pages
          * There are 2 scenarios
-         *  1. ShuffleMap Task - Always returns false. But the internal function calls do all the work needed
-         *  2. Result Task     - True until pages are available. False once all pages have been extracted
+         * 1. ShuffleMap Task - Always returns false. But the internal function calls do all the work needed
+         * 2. Result Task     - True until pages are available. False once all pages have been extracted
+         *
          * @return if output is available
          */
         @Override
@@ -425,74 +422,72 @@ public class PrestoSparkNativeTaskExecutorFactory
             return next.isPresent();
         }
 
-        /** This function returns the next available page fetched from CPP process
-         *
-         *  Has 3 main responsibilities
-         *  1)  Busy-wait-for-pages-or-completion
-         *
-         *      Loop until either of the 3 conditions happen
-         *          *      1. We get a page
-         *          *      2. Task has finished successfully
-         *          *      3. Task has finished with error
-         *
-         *      For ShuffleMap Task, as of now, the CPP process returns no pages.
-         *          So the loop acts as a wait-for-completion loop and returns an Optional.empty()
-         *          once the task has terminated
-         *
-         *      For a Result Task, this function will return all the pages and Optional.empty()
-         *          once all the pages have been read and the task has been terminates
-         *
-         *  2) Exception handling
-         *      when there are no pages available, the function checks if the task has finished
-         *      with exceptions and throws the appropriate exception back to spark's RDD processing
-         *      layer
-         *
-         *  3) Statistics collection
-         *      For both, when the task finished successfully or with exception, it tries to collect
-         *      statistics if TaskInfo object is available
+        /**
+         * This function returns the next available page fetched from CPP process
+         * <p>
+         * Has 3 main responsibilities
+         * 1)  wait-for-pages-or-completion
+         * <p>
+         * The thread running this method will wait until either of the 3 conditions happen
+         * *      1. We get a page
+         * *      2. Task has finished successfully
+         * *      3. Task has finished with error
+         * <p>
+         * For ShuffleMap Task, as of now, the CPP process returns no pages.
+         * So the thread will be in WAITING state till the CPP task is done and returns an Optional.empty()
+         * once the task has terminated
+         * <p>
+         * For a Result Task, this function will return pages retrieved from CPP side once we got them.
+         * Once all the pages have been read and the task has been terminates
+         * <p>
+         * 2) Exception handling
+         * The function also checks if the task has finished
+         * with exceptions and throws the appropriate exception back to spark's RDD processing
+         * layer
+         * <p>
+         * 3) Statistics collection
+         * For both, when the task finished successfully or with exception, it tries to collect
+         * statistics if TaskInfo object is available
          *
          * @return Optional<SerializedPage> outputPage
          */
         private Optional<SerializedPage> computeNext()
         {
-            // A while(true) loop is not desirable, but in this case we cannot avoid
-            // it because of Spark'sRDD contract, which is that this iterator either
-            // returns data or is complete. It CANNOT return null.
-            // While the remote task is still running and there is no output pages,
-            // we need to simulate a busy-loop to avoid returning null.
-            while (true) {
-                try {
-                    // For ShuffleMap Task, this will always return Optional.empty()
-                    Optional<SerializedPage> pageOptional = nativeExecutionTask.pollResult();
-
-                    if (pageOptional.isPresent()) {
-                        return pageOptional;
+            try {
+                Object taskFinishedOrHasResult = nativeExecutionTask.getTaskFinishedOrHasResult();
+                // Blocking wait if task is still running or hasn't produced any output page
+                synchronized (taskFinishedOrHasResult) {
+                    while (!nativeExecutionTask.isTaskDone() && !nativeExecutionTask.hasResult()) {
+                        taskFinishedOrHasResult.wait();
                     }
-
-                    try {
-                        Optional<TaskInfo> taskInfo = nativeExecutionTask.getTaskInfo();
-
-                        // Case1: Task is still running
-                        if (!taskInfo.isPresent() || !taskInfo.get().getTaskStatus().getState().isDone()) {
-                            continue;
-                        }
-
-                        // Case 2: Task finished with errors captured inside taskInfo
-                        processTaskInfoForErrors(taskInfo.get());
-                    }
-                    catch (RuntimeException ex) {
-                        // For a failed task, if taskInfo is present we still want to log the metrics
-                        completeTask(taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec);
-                        throw executionExceptionFactory.toPrestoSparkExecutionException(ex);
-                    }
-
-                    // Case3: Task terminated with success
-                    break;
                 }
-                catch (InterruptedException e) {
-                    log.error(e);
-                    throw new RuntimeException(e);
+
+                // For ShuffleMap Task, this will always return Optional.empty()
+                Optional<SerializedPage> pageOptional = nativeExecutionTask.pollResult();
+
+                if (pageOptional.isPresent()) {
+                    return pageOptional;
                 }
+
+                // Double check if current task's already done (since thread could be awoken by either having output or task is done above)
+                synchronized (taskFinishedOrHasResult) {
+                    while (!nativeExecutionTask.isTaskDone()) {
+                        taskFinishedOrHasResult.wait();
+                    }
+                }
+
+                Optional<TaskInfo> taskInfo = nativeExecutionTask.getTaskInfo();
+
+                processTaskInfoForErrorsOrCompletion(taskInfo.get());
+            }
+            catch (RuntimeException ex) {
+                // For a failed task, if taskInfo is present we still want to log the metrics
+                completeTask(taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec);
+                throw executionExceptionFactory.toPrestoSparkExecutionException(ex);
+            }
+            catch (InterruptedException e) {
+                log.error(e);
+                throw new RuntimeException(e);
             }
 
             // Reaching here marks the end of task processing
