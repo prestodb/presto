@@ -118,6 +118,12 @@ public class NativeQueryRunnerUtils
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "nation")) {
             queryRunner.execute("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         }
+        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "nation_json")) {
+            queryRunner.execute("CREATE TABLE nation_json WITH (FORMAT = 'JSON') AS SELECT * FROM tpch.tiny.nation");
+        }
+        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "nation_text")) {
+            queryRunner.execute("CREATE TABLE nation_text WITH (FORMAT = 'TEXTFILE') AS SELECT * FROM tpch.tiny.nation");
+        }
     }
 
     public static void createPartitionedNation(QueryRunner queryRunner)
