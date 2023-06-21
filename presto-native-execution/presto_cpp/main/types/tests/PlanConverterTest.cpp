@@ -64,7 +64,8 @@ std::shared_ptr<const core::PlanNode> assertToVeloxQueryPlan(
   protocol::PlanFragment prestoPlan = json::parse(fragment);
   auto pool = memory::addDefaultLeafMemoryPool();
 
-  VeloxInteractiveQueryPlanConverter converter(pool.get());
+  auto queryCtx = std::make_shared<core::QueryCtx>();
+  VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
   return converter
       .toVeloxQueryPlan(
           prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3")
@@ -79,8 +80,12 @@ std::shared_ptr<const core::PlanNode> assertToBatchVeloxQueryPlan(
 
   protocol::PlanFragment prestoPlan = json::parse(fragment);
   auto pool = memory::addDefaultLeafMemoryPool();
+  auto queryCtx = std::make_shared<core::QueryCtx>();
   VeloxBatchQueryPlanConverter converter(
-      shuffleName, std::move(serializedShuffleWriteInfo), pool.get());
+      shuffleName,
+      std::move(serializedShuffleWriteInfo),
+      queryCtx.get(),
+      pool.get());
   return converter
       .toVeloxQueryPlan(
           prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3")

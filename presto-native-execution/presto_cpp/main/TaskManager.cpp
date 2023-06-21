@@ -25,7 +25,6 @@
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Exchange.h"
-#include "velox/type/tz/TimeZoneMap.h"
 
 DEFINE_int32(
     old_task_ms,
@@ -248,38 +247,6 @@ void TaskManager::getDataForResultRequests(
 }
 
 namespace {
-std::unordered_map<std::string, std::string> toConfigs(
-    const protocol::SessionRepresentation& session) {
-  // Use base velox query config as the starting point and add Presto session
-  // properties on top of it.
-  auto configs = BaseVeloxQueryConfig::instance()->values();
-  for (const auto& it : session.systemProperties) {
-    configs[it.first] = it.second;
-  }
-
-  // If there's a timeZoneKey, convert to timezone name and add to the
-  // configs. Throws if timeZoneKey can't be resolved.
-  if (session.timeZoneKey != 0) {
-    configs.emplace(
-        velox::core::QueryConfig::kSessionTimezone,
-        velox::util::getTimeZoneName(session.timeZoneKey));
-  }
-  return configs;
-}
-
-std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
-toConnectorConfigs(const protocol::SessionRepresentation& session) {
-  std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
-      connectorConfigs;
-  for (const auto& entry : session.catalogProperties) {
-    connectorConfigs.insert(
-        {entry.first,
-         std::unordered_map<std::string, std::string>(
-             entry.second.begin(), entry.second.end())});
-  }
-
-  return connectorConfigs;
-}
 
 /// Presto-on-Spark is expected to specify all splits at once along with
 /// no-more-splits flag. Verify that all plan nodes that require splits
@@ -316,35 +283,31 @@ void checkSplitsForBatchTask(
 std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
     const protocol::TaskId& taskId,
     const protocol::TaskUpdateRequest& updateRequest,
-    const velox::core::PlanFragment& planFragment) {
-  const auto& session = updateRequest.session;
-
+    const velox::core::PlanFragment& planFragment,
+    std::shared_ptr<velox::core::QueryCtx> queryCtx) {
   return createOrUpdateTask(
       taskId,
       planFragment,
       updateRequest.sources,
       updateRequest.outputIds,
-      toConfigs(session),
-      toConnectorConfigs(session));
+      queryCtx);
 }
 
 std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
     const protocol::TaskId& taskId,
     const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
-    const velox::core::PlanFragment& planFragment) {
+    const velox::core::PlanFragment& planFragment,
+    std::shared_ptr<velox::core::QueryCtx> queryCtx) {
   auto updateRequest = batchUpdateRequest.taskUpdateRequest;
 
   checkSplitsForBatchTask(planFragment.planNode, updateRequest.sources);
-
-  const auto& session = updateRequest.session;
 
   return createOrUpdateTask(
       taskId,
       planFragment,
       updateRequest.sources,
       updateRequest.outputIds,
-      toConfigs(session),
-      toConnectorConfigs(session));
+      std::move(queryCtx));
 }
 
 std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
@@ -352,11 +315,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
     const velox::core::PlanFragment& planFragment,
     const std::vector<protocol::TaskSource>& sources,
     const protocol::OutputBuffers& outputBuffers,
-    std::unordered_map<std::string, std::string>&& configStrings,
-    std::unordered_map<
-        std::string,
-        std::unordered_map<std::string, std::string>>&&
-        connectorConfigStrings) {
+    std::shared_ptr<velox::core::QueryCtx> queryCtx) {
   std::shared_ptr<exec::Task> execTask;
   bool startTask = false;
   auto prestoTask = findOrCreateTask(taskId);
@@ -368,9 +327,6 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
       if (prestoTask->info.taskStatus.state == protocol::TaskState::ABORTED) {
         return std::make_unique<TaskInfo>(prestoTask->updateInfoLocked());
       }
-
-      auto queryCtx = queryContextManager_.findOrCreateQueryCtx(
-          taskId, std::move(configStrings), std::move(connectorConfigStrings));
 
       execTask = exec::Task::create(
           taskId, planFragment, prestoTask->id.id(), std::move(queryCtx));

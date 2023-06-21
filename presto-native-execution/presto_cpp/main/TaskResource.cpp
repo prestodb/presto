@@ -246,13 +246,20 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
               "config.properties");
         }
 
+        auto queryCtx =
+            taskManager_.getQueryContextManager()->findOrCreateQueryCtx(
+                taskId, updateRequest.session);
+
         VeloxBatchQueryPlanConverter converter(
-            shuffleName, std::move(serializedShuffleWriteInfo), pool_);
+            shuffleName,
+            std::move(serializedShuffleWriteInfo),
+            queryCtx.get(),
+            pool_);
         auto planFragment = converter.toVeloxQueryPlan(
             prestoPlan, updateRequest.tableWriteInfo, taskId);
 
         return taskManager_.createOrUpdateBatchTask(
-            taskId, batchUpdateRequest, planFragment);
+            taskId, batchUpdateRequest, planFragment, std::move(queryCtx));
       });
 }
 
@@ -265,18 +272,23 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
       [&](const protocol::TaskId& taskId, const std::string& updateJson) {
         protocol::TaskUpdateRequest updateRequest = json::parse(updateJson);
         velox::core::PlanFragment planFragment;
+        std::shared_ptr<velox::core::QueryCtx> queryCtx;
         if (updateRequest.fragment) {
           auto fragment =
               velox::encoding::Base64::decode(*updateRequest.fragment);
           protocol::PlanFragment prestoPlan = json::parse(fragment);
 
-          auto converter = VeloxInteractiveQueryPlanConverter(pool_);
+          queryCtx =
+              taskManager_.getQueryContextManager()->findOrCreateQueryCtx(
+                  taskId, updateRequest.session);
+
+          VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool_);
           planFragment = converter.toVeloxQueryPlan(
               prestoPlan, updateRequest.tableWriteInfo, taskId);
         }
 
         return taskManager_.createOrUpdateTask(
-            taskId, updateRequest, planFragment);
+            taskId, updateRequest, planFragment, std::move(queryCtx));
       });
 }
 
