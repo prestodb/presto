@@ -867,6 +867,13 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
+    public void testReadTableWithUnsupportedFormats()
+    {
+        assertQueryFails("SELECT * FROM nation_json", ".*ReaderFactory is not registered for format json.*");
+        assertQueryFails("SELECT * FROM nation_text", ".*ReaderFactory is not registered for format text.*");
+    }
+
+    @Test
     public void testCreateUnpartitionedTableAsSelect()
     {
         Session session = buildSessionForTableWrite();

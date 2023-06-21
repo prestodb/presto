@@ -743,12 +743,6 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
   if (auto hiveLayout =
           std::dynamic_pointer_cast<const protocol::HiveTableLayoutHandle>(
               tableHandle.connectorTableLayout)) {
-    VELOX_USER_CHECK(
-        hiveLayout->pushdownFilterEnabled,
-        "Table scan with filter pushdown disabled is not supported (or possibly the file type is not supported yet): {}.{}",
-        hiveLayout->schemaTableName.schema,
-        hiveLayout->schemaTableName.table);
-
     for (const auto& entry : hiveLayout->partitionColumns) {
       partitionColumns.emplace(entry.name, toColumnHandle(&entry));
     }
@@ -773,6 +767,20 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
       remainingFilter = nullptr;
     }
 
+    RowTypePtr dataColumns;
+    if (!hiveLayout->dataColumns.empty()) {
+      std::vector<std::string> names;
+      std::vector<TypePtr> types;
+      velox::type::fbhive::HiveTypeParser typeParser;
+      names.reserve(hiveLayout->dataColumns.size());
+      types.reserve(hiveLayout->dataColumns.size());
+      for (auto& column : hiveLayout->dataColumns) {
+        names.push_back(column.name);
+        types.push_back(typeParser.parse(column.type));
+      }
+      dataColumns = ROW(std::move(names), std::move(types));
+    }
+
     auto hiveTableHandle =
         std::dynamic_pointer_cast<const protocol::HiveTableHandle>(
             tableHandle.connectorHandle);
@@ -787,9 +795,10 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
     return std::make_shared<connector::hive::HiveTableHandle>(
         tableHandle.connectorId,
         tableName,
-        true,
+        hiveLayout->pushdownFilterEnabled,
         std::move(subfieldFilters),
-        remainingFilter);
+        remainingFilter,
+        dataColumns);
   }
 
   if (auto tpchLayout =

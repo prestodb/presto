@@ -45,7 +45,7 @@
               },
               {
                 "name":"complex_type",
-                "type":"array(map(varchar, row(id bigint, description varchar)))"
+                "type":"array<map<string, row<id:bigint, description:string>>>"
               },
               {
                 "name":"comment",
