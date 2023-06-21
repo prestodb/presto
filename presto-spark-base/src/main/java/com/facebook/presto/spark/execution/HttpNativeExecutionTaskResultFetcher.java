@@ -59,17 +59,20 @@ public class HttpNativeExecutionTaskResultFetcher
     private final PrestoSparkHttpTaskClient workerClient;
     private final LinkedBlockingDeque<SerializedPage> pageBuffer = new LinkedBlockingDeque<>();
     private final AtomicLong bufferMemoryBytes;
+    private final Object taskHasResult;
 
     private ScheduledFuture<?> schedulerFuture;
     private boolean started;
 
     public HttpNativeExecutionTaskResultFetcher(
             ScheduledExecutorService scheduler,
-            PrestoSparkHttpTaskClient workerClient)
+            PrestoSparkHttpTaskClient workerClient,
+            Object taskHasResult)
     {
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
         this.workerClient = requireNonNull(workerClient, "workerClient is null");
         this.bufferMemoryBytes = new AtomicLong();
+        this.taskHasResult = requireNonNull(taskHasResult, "taskHasResult is null");
     }
 
     public CompletableFuture<Void> start()
@@ -85,7 +88,8 @@ public class HttpNativeExecutionTaskResultFetcher
                         workerClient,
                         future,
                         pageBuffer,
-                        bufferMemoryBytes),
+                        bufferMemoryBytes,
+                        taskHasResult),
                 0,
                 (long) FETCH_INTERVAL.getValue(),
                 FETCH_INTERVAL.getUnit());
@@ -125,6 +129,11 @@ public class HttpNativeExecutionTaskResultFetcher
         return Optional.empty();
     }
 
+    public boolean hasPage()
+    {
+        return !pageBuffer.isEmpty();
+    }
+
     private static class HttpNativeExecutionTaskResultFetcherRunner
             implements Runnable
     {
@@ -135,6 +144,7 @@ public class HttpNativeExecutionTaskResultFetcher
         private final LinkedBlockingDeque<SerializedPage> pageBuffer;
         private final AtomicLong bufferMemoryBytes;
         private final CompletableFuture<Void> future;
+        private final Object taskFinishedOrHasResult;
 
         private int transportErrorRetries;
         private long token;
@@ -143,7 +153,8 @@ public class HttpNativeExecutionTaskResultFetcher
                 PrestoSparkHttpTaskClient client,
                 CompletableFuture<Void> future,
                 LinkedBlockingDeque<SerializedPage> pageBuffer,
-                AtomicLong bufferMemoryBytes)
+                AtomicLong bufferMemoryBytes,
+                Object taskFinishedOrHasResult)
         {
             this.client = requireNonNull(client, "client is null");
             this.future = requireNonNull(future, "future is null");
@@ -151,6 +162,7 @@ public class HttpNativeExecutionTaskResultFetcher
             this.bufferMemoryBytes = requireNonNull(
                     bufferMemoryBytes,
                     "bufferMemoryBytes is null");
+            this.taskFinishedOrHasResult = requireNonNull(taskFinishedOrHasResult, "taskFinishedOrHasResult is null");
         }
 
         @Override
@@ -183,6 +195,11 @@ public class HttpNativeExecutionTaskResultFetcher
                 if (pagesResponse.isClientComplete()) {
                     client.abortResults();
                     future.complete(null);
+                }
+                if (!pages.isEmpty()) {
+                    synchronized (taskFinishedOrHasResult) {
+                        taskFinishedOrHasResult.notifyAll();
+                    }
                 }
             }
             catch (InterruptedException e) {
