@@ -22,21 +22,18 @@ using namespace facebook::velox;
 
 namespace facebook::presto::operators {
 
-/// Struct for single broadcast file info.
+/// Struct for single broadcast file info.]
+// This struct is a 1:1 strict API mapping to
+// presto-spark-base/src/main/java/com/facebook/presto/spark/execution/BroadcastFileInfo.java
+// Please refrain from making changes to this API class. If any changes have to
+// be made to this struct, one should make sure to make corresponding changes in
+// the above Java classes and its corresponding serde functionalities.
 struct BroadcastFileInfo {
   std::string filePath_;
   // TODO: Add additional stats including checksum, num rows, size.
-};
 
-/// Struct for broadcastInfo in split location.
-struct BroadcastInfo {
-  /// Deserializes JSON string representing BroadcastInfo.
-  static std::unique_ptr<BroadcastInfo> deserialize(const std::string& info);
-
-  BroadcastInfo(std::string basePath, std::vector<BroadcastFileInfo> fileInfos);
-
-  std::string basePath_;
-  std::vector<BroadcastFileInfo> fileInfos_;
+  static std::unique_ptr<BroadcastFileInfo> deserialize(
+      const std::string& info);
 };
 
 /// Writes broadcast data to a file.
@@ -81,7 +78,7 @@ class BroadcastFileWriter {
 class BroadcastFileReader {
  public:
   BroadcastFileReader(
-      std::vector<BroadcastFileInfo> broadcastFileInfos,
+      std::unique_ptr<BroadcastFileInfo>& broadcastFileInfo,
       std::shared_ptr<velox::filesystems::FileSystem> fileSystem,
       velox::memory::MemoryPool* pool);
 
@@ -93,14 +90,13 @@ class BroadcastFileReader {
   /// Read next block of data.
   velox::BufferPtr next();
 
-  /// Reader stats - number of files, number of bytes.
+  /// Reader stats - number of bytes.
   folly::F14FastMap<std::string, int64_t> stats();
 
  private:
-  std::vector<BroadcastFileInfo> broadcastFileInfos_;
+  std::unique_ptr<BroadcastFileInfo> broadcastFileInfo_;
   std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
-  int32_t readfileIndex_;
-  int64_t numFiles_;
+  bool hasData_;
   int64_t numBytes_;
   velox::memory::MemoryPool* pool_;
 };
@@ -117,7 +113,7 @@ class BroadcastFactory {
       const RowTypePtr& inputType);
 
   std::shared_ptr<BroadcastFileReader> createReader(
-      const std::vector<BroadcastFileInfo> fileInfos,
+      const std::unique_ptr<BroadcastFileInfo> fileInfo,
       velox::memory::MemoryPool* pool);
 
  private:
