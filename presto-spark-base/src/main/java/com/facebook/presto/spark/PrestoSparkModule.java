@@ -384,7 +384,8 @@ public class PrestoSparkModule
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("presto-spark-executor-%s"));
         binder.bind(Executor.class).toInstance(executor);
         binder.bind(ExecutorService.class).toInstance(executor);
-        binder.bind(ScheduledExecutorService.class).toInstance(newScheduledThreadPool(0, daemonThreadsNamed("presto-spark-scheduled-executor-%s")));
+        // Set the initial thread pool size to 1 (instead of 0) to avoid the thread pool hogging CPU due to JDK8 bug: https://bugs.openjdk.org/browse/JDK-8129861
+        binder.bind(ScheduledExecutorService.class).toInstance(newScheduledThreadPool(1, daemonThreadsNamed("presto-spark-scheduled-executor-%s")));
 
         // task executor
         binder.bind(EmbedVersion.class).in(Scopes.SINGLETON);
