@@ -415,6 +415,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
         "hive_table",
         filterPushdownEnabled,
         connector::hive::SubfieldFilters{},
+        nullptr,
         nullptr);
   } else {
     connector::hive::SubfieldFilters filters =
@@ -424,6 +425,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
         "hive_table",
         filterPushdownEnabled,
         std::move(filters),
+        nullptr,
         nullptr);
   }
 

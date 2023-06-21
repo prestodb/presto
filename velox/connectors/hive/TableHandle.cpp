@@ -105,14 +105,14 @@ HiveTableHandle::HiveTableHandle(
     const std::string& tableName,
     bool filterPushdownEnabled,
     SubfieldFilters subfieldFilters,
-    const core::TypedExprPtr& remainingFilter)
+    const core::TypedExprPtr& remainingFilter,
+    const RowTypePtr& dataColumns)
     : ConnectorTableHandle(std::move(connectorId)),
       tableName_(tableName),
       filterPushdownEnabled_(filterPushdownEnabled),
       subfieldFilters_(std::move(subfieldFilters)),
-      remainingFilter_(remainingFilter) {}
-
-HiveTableHandle::~HiveTableHandle() {}
+      remainingFilter_(remainingFilter),
+      dataColumns_(dataColumns) {}
 
 std::string HiveTableHandle::toString() const {
   std::stringstream out;
@@ -137,6 +137,9 @@ std::string HiveTableHandle::toString() const {
   if (remainingFilter_) {
     out << ", remaining filter: (" << remainingFilter_->toString() << ")";
   }
+  if (dataColumns_) {
+    out << ", data columns: " << dataColumns_->toString();
+  }
   return out.str();
 }
 
@@ -154,7 +157,13 @@ folly::dynamic HiveTableHandle::serialize() const {
   }
 
   obj["subfieldFilters"] = subfieldFilters;
-  obj["remainingFilter"] = remainingFilter_->serialize();
+  if (remainingFilter_) {
+    obj["remainingFilter"] = remainingFilter_->serialize();
+  }
+  if (dataColumns_) {
+    obj["dataColumns"] = dataColumns_->serialize();
+  }
+
   return obj;
 }
 
@@ -164,8 +173,12 @@ ConnectorTableHandlePtr HiveTableHandle::create(
   auto connectorId = obj["connectorId"].asString();
   auto tableName = obj["tableName"].asString();
   auto filterPushdownEnabled = obj["filterPushdownEnabled"].asBool();
-  auto remainingFilter = ISerializable::deserialize<core::ITypedExpr>(
-      obj["remainingFilter"], context);
+
+  core::TypedExprPtr remainingFilter;
+  if (auto it = obj.find("remainingFilter"); it != obj.items().end()) {
+    remainingFilter =
+        ISerializable::deserialize<core::ITypedExpr>(it->second, context);
+  }
 
   SubfieldFilters subfieldFilters;
   folly::dynamic subfieldFiltersObj = obj["subfieldFilters"];
@@ -177,12 +190,18 @@ ConnectorTableHandlePtr HiveTableHandle::create(
         filter->clone();
   }
 
+  RowTypePtr dataColumns;
+  if (auto it = obj.find("dataColumns"); it != obj.items().end()) {
+    dataColumns = ISerializable::deserialize<RowType>(it->second, context);
+  }
+
   return std::make_shared<const HiveTableHandle>(
       connectorId,
       tableName,
       filterPushdownEnabled,
       std::move(subfieldFilters),
-      remainingFilter);
+      remainingFilter,
+      dataColumns);
 }
 
 void HiveTableHandle::registerSerDe() {

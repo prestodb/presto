@@ -79,13 +79,15 @@ class HiveConnectorTestBase : public OperatorTestBase {
   static std::shared_ptr<connector::hive::HiveTableHandle> makeTableHandle(
       common::test::SubfieldFilters subfieldFilters = {},
       const core::TypedExprPtr& remainingFilter = nullptr,
-      const std::string& tableName = "hive_table") {
+      const std::string& tableName = "hive_table",
+      const RowTypePtr& dataColumns = nullptr) {
     return std::make_shared<connector::hive::HiveTableHandle>(
         kHiveConnectorId,
         tableName,
         true,
         std::move(subfieldFilters),
-        remainingFilter);
+        remainingFilter,
+        dataColumns);
   }
 
   /// @param name Column name.

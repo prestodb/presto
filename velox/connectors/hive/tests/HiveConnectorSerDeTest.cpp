@@ -80,7 +80,9 @@ TEST_F(HiveConnectorSerDeTest, hiveTableHandle) {
               "c5",
               orFilter(between("abc", "efg"), greaterThanOrEqual("dragon")))
           .build(),
-      parseExpr("c1 > c4 and c3 = true", rowType));
+      parseExpr("c1 > c4 and c3 = true", rowType),
+      "hive_table",
+      ROW({"c0", "c1"}, {BIGINT(), VARCHAR()}));
   testSerde(*tableHandle);
 }
 

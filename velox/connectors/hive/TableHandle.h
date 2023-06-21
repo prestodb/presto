@@ -101,9 +101,8 @@ class HiveTableHandle : public ConnectorTableHandle {
       const std::string& tableName,
       bool filterPushdownEnabled,
       SubfieldFilters subfieldFilters,
-      const core::TypedExprPtr& remainingFilter);
-
-  ~HiveTableHandle() override;
+      const core::TypedExprPtr& remainingFilter,
+      const RowTypePtr& dataColumns = nullptr);
 
   bool isFilterPushdownEnabled() const {
     return filterPushdownEnabled_;
@@ -115,6 +114,11 @@ class HiveTableHandle : public ConnectorTableHandle {
 
   const core::TypedExprPtr& remainingFilter() const {
     return remainingFilter_;
+  }
+
+  // Schema of the table.  Need this for reading TEXTFILE.
+  const RowTypePtr& dataColumns() const {
+    return dataColumns_;
   }
 
   std::string toString() const override;
@@ -132,6 +136,7 @@ class HiveTableHandle : public ConnectorTableHandle {
   const bool filterPushdownEnabled_;
   const SubfieldFilters subfieldFilters_;
   const core::TypedExprPtr remainingFilter_;
+  const RowTypePtr dataColumns_;
 };
 
 } // namespace facebook::velox::connector::hive

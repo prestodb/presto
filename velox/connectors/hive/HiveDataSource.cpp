@@ -402,9 +402,6 @@ HiveDataSource::HiveDataSource(
   VELOX_CHECK(
       hiveTableHandle != nullptr,
       "TableHandle must be an instance of HiveTableHandle");
-  VELOX_CHECK(
-      hiveTableHandle->isFilterPushdownEnabled(),
-      "Filter pushdown must be enabled");
   if (fileColumnNamesReadAsLowerCase) {
     checkColumnNameLowerCase(outputType);
     checkColumnNameLowerCase(hiveTableHandle->subfieldFilters());
@@ -412,11 +409,20 @@ HiveDataSource::HiveDataSource(
   }
 
   SubfieldFilters filters;
-  for (auto& [k, v] : hiveTableHandle->subfieldFilters()) {
-    filters.emplace(k.clone(), v->clone());
+  core::TypedExprPtr remainingFilter;
+  if (hiveTableHandle->isFilterPushdownEnabled()) {
+    for (auto& [k, v] : hiveTableHandle->subfieldFilters()) {
+      filters.emplace(k.clone(), v->clone());
+    }
+    remainingFilter = extractFiltersFromRemainingFilter(
+        hiveTableHandle->remainingFilter(),
+        expressionEvaluator_,
+        false,
+        filters);
+  } else {
+    VELOX_CHECK(hiveTableHandle->subfieldFilters().empty());
+    remainingFilter = hiveTableHandle->remainingFilter();
   }
-  auto remainingFilter = extractFiltersFromRemainingFilter(
-      hiveTableHandle->remainingFilter(), expressionEvaluator_, false, filters);
   std::vector<common::Subfield> remainingFilterInputs;
   if (remainingFilter) {
     remainingFilterExprSet_ = expressionEvaluator_->compile(remainingFilter);
@@ -460,6 +466,7 @@ HiveDataSource::HiveDataSource(
     readerOutputType_ = ROW(std::move(names), std::move(types));
   }
 
+  readerOpts_.setFileSchema(hiveTableHandle->dataColumns());
   rowReaderOpts_.setScanSpec(scanSpec_);
   rowReaderOpts_.setMetadataFilter(metadataFilter_);
 

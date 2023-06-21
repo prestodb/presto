@@ -126,7 +126,8 @@ PlanBuilder& PlanBuilder::tableScan(
       tableName,
       true,
       std::move(filters),
-      remainingFilterExpr);
+      remainingFilterExpr,
+      nullptr);
   return tableScan(outputType, tableHandle, assignments);
 }
 
