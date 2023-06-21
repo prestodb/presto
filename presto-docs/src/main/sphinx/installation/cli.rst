@@ -44,5 +44,5 @@ is configured with preset options. To change the pagination of query results, se
 environment variable ``PRESTO_PAGER`` to the name of a different program such as ``more``, 
 or set it to an empty value to disable pagination.
 
-The Presto engine and client communicate over HTTP using a REST API. The documentation for the API is at 
+The Presto engine and client communicate over HTTP using a REST API, documented at 
 :doc:`Presto Client REST API </develop/client-protocol>`.
