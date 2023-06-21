@@ -17,23 +17,69 @@
 
 #include "velox/common/base/CompareFlags.h"
 #include "velox/functions/Macros.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 namespace facebook::velox::functions {
-#define VELOX_GEN_BINARY_EXPR(Name, Expr, TResult)                \
-  template <typename T>                                           \
-  struct Name {                                                   \
-    VELOX_DEFINE_FUNCTION_TYPES(T);                               \
-    template <typename TInput>                                    \
-    FOLLY_ALWAYS_INLINE void                                      \
-    call(TResult& result, const TInput& lhs, const TInput& rhs) { \
-      result = (Expr);                                            \
-    }                                                             \
+
+namespace {
+template <typename T>
+struct TimestampWithTimezoneComparisonSupport {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  // Convert TimestampWithTimezone from original timezone to GMT in milliseconds
+  FOLLY_ALWAYS_INLINE
+  int64_t toGMTMillis(
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    const int64_t milliseconds = *timestampWithTimezone.template at<0>();
+    const int16_t timezone = *timestampWithTimezone.template at<1>();
+    Timestamp inputTimeStamp = Timestamp::fromMillis(milliseconds);
+    inputTimeStamp.toGMT(timezone);
+    return inputTimeStamp.toMillis();
+  }
+};
+
+} // namespace
+
+#define VELOX_GEN_BINARY_EXPR(Name, Expr, tsExpr, TResult)         \
+  template <typename T>                                            \
+  struct Name : public TimestampWithTimezoneComparisonSupport<T> { \
+    VELOX_DEFINE_FUNCTION_TYPES(T);                                \
+    template <typename TInput>                                     \
+    FOLLY_ALWAYS_INLINE void                                       \
+    call(TResult& result, const TInput& lhs, const TInput& rhs) {  \
+      result = (Expr);                                             \
+    }                                                              \
+                                                                   \
+    FOLLY_ALWAYS_INLINE void call(                                 \
+        bool& result,                                              \
+        const arg_type<TimestampWithTimezone>& lhs,                \
+        const arg_type<TimestampWithTimezone>& rhs) {              \
+      result = (tsExpr);                                           \
+    }                                                              \
   };
 
-VELOX_GEN_BINARY_EXPR(LtFunction, lhs < rhs, bool);
-VELOX_GEN_BINARY_EXPR(GtFunction, lhs > rhs, bool);
-VELOX_GEN_BINARY_EXPR(LteFunction, lhs <= rhs, bool);
-VELOX_GEN_BINARY_EXPR(GteFunction, lhs >= rhs, bool);
+VELOX_GEN_BINARY_EXPR(
+    LtFunction,
+    lhs < rhs,
+    this->toGMTMillis(lhs) < this->toGMTMillis(rhs),
+    bool);
+VELOX_GEN_BINARY_EXPR(
+    GtFunction,
+    lhs > rhs,
+    this->toGMTMillis(lhs) > this->toGMTMillis(rhs),
+    bool);
+VELOX_GEN_BINARY_EXPR(
+    LteFunction,
+    lhs <= rhs,
+    this->toGMTMillis(lhs) <= this->toGMTMillis(rhs),
+    bool);
+VELOX_GEN_BINARY_EXPR(
+    GteFunction,
+    lhs >= rhs,
+    this->toGMTMillis(lhs) >= this->toGMTMillis(rhs),
+    bool);
+
+#undef VELOX_GEN_BINARY_EXPR
 
 template <typename T>
 struct DistinctFromFunction {
@@ -57,16 +103,22 @@ struct DistinctFromFunction {
   }
 };
 
-#undef VELOX_GEN_BINARY_EXPR
-
 template <typename T>
-struct EqFunction {
+struct EqFunction : public TimestampWithTimezoneComparisonSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   // Used for primitive inputs.
   template <typename TInput>
   void call(bool& out, const TInput& lhs, const TInput& rhs) {
     out = (lhs == rhs);
+  }
+
+  // For TimestampWithTimezone.
+  void call(
+      bool& result,
+      const arg_type<TimestampWithTimezone>& lhs,
+      const arg_type<TimestampWithTimezone>& rhs) {
+    result = this->toGMTMillis(lhs) == this->toGMTMillis(rhs);
   }
 
   // For arbitrary nested complex types. Can return null.
@@ -86,13 +138,21 @@ struct EqFunction {
 };
 
 template <typename T>
-struct NeqFunction {
+struct NeqFunction : public TimestampWithTimezoneComparisonSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   // Used for primitive inputs.
   template <typename TInput>
   void call(bool& out, const TInput& lhs, const TInput& rhs) {
     out = (lhs != rhs);
+  }
+
+  // For TimestampWithTimezone.
+  void call(
+      bool& result,
+      const arg_type<TimestampWithTimezone>& lhs,
+      const arg_type<TimestampWithTimezone>& rhs) {
+    result = this->toGMTMillis(lhs) != this->toGMTMillis(rhs);
   }
 
   // For arbitrary nested complex types. Can return null.

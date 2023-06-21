@@ -21,6 +21,10 @@
 namespace facebook::velox::functions {
 
 void registerComparisonFunctions(const std::string& prefix) {
+  // Comparison functions also need TimestampWithTimezoneType,
+  // independent of DateTimeFunctions
+  registerTimestampWithTimeZoneType();
+
   registerNonSimdizableScalar<EqFunction, bool>({prefix + "eq"});
   VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_eq, prefix + "eq");
   registerFunction<EqFunction, bool, Generic<T1>, Generic<T1>>({prefix + "eq"});
