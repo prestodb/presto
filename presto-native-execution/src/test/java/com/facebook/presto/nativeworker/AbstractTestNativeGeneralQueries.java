@@ -384,6 +384,9 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT * FROM (VALUES (map(array[1, 2, 3], array[10, 20, 30]))) as t(a)");
 
         assertQuery("SELECT BIGINT '12345', INTEGER '1234', SMALLINT '123', TINYINT '12', TRUE, FALSE, DOUBLE '1.234', REAL '1.23', 'ABC', 'Somewhat longish string', NULL, array[1, 2, 3]");
+
+        // Test ValuesNode with expressions.
+        assertQuery("SELECT * FROM UNNEST(sequence(1, 10000), sequence(5, 10000)) as t(x, y)");
     }
 
     @Test
