@@ -43,10 +43,10 @@ struct BroadcastInfo {
 class BroadcastFileWriter {
  public:
   BroadcastFileWriter(
-      std::unique_ptr<velox::WriteFile> writeFile,
       std::string_view filename,
-      velox::memory::MemoryPool* pool,
-      const velox::RowTypePtr& inputType);
+      const velox::RowTypePtr& inputType,
+      std::shared_ptr<velox::filesystems::FileSystem> fileSystem,
+      velox::memory::MemoryPool* pool);
 
   virtual ~BroadcastFileWriter() = default;
 
@@ -56,16 +56,22 @@ class BroadcastFileWriter {
   /// Flush the data.
   void noMoreData();
 
-  /// Returns file name.
+  /// Returns file name if non zero rows written to file.
+  /// Returns nullptr if there were no rows written.
   velox::RowVectorPtr fileStats();
 
  private:
+  /// Initializes write file.
+  void initializeWriteFile();
+
   /// Serializes input rowVector using PrestoVectorSerde and
   /// writes serialized data to file.
-  void serialize(const velox::RowVectorPtr& rowVector);
+  void write(const velox::RowVectorPtr& rowVector);
 
   std::unique_ptr<velox::WriteFile> writeFile_;
+  std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
   std::string filename_;
+  int64_t numRows_;
   velox::memory::MemoryPool* pool_;
   std::unique_ptr<velox::VectorSerde> serde_;
   const velox::RowTypePtr& inputType_;
