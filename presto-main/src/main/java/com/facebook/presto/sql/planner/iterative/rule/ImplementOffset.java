@@ -91,6 +91,7 @@ public class ImplementOffset
                 ImmutableList.of(),
                 rowNumberSymbol,
                 Optional.empty(),
+                false,
                 Optional.empty());
 
         FilterNode filterNode = new FilterNode(

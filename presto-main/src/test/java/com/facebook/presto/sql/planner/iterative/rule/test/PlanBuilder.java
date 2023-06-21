@@ -936,6 +936,7 @@ public class PlanBuilder
                 partitionBy,
                 rowNumberVariable,
                 maxRowCountPerPartition,
+                false,
                 Optional.empty());
     }
 
