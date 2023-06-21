@@ -77,21 +77,22 @@ BroadcastExchangeSource::createExchangeSource(
     return nullptr;
   }
 
-  std::unique_ptr<BroadcastInfo> broadcastInfo;
+  std::unique_ptr<BroadcastFileInfo> broadcastFileInfo;
   try {
-    broadcastInfo = BroadcastInfo::deserialize(broadcastInfoJson.value());
+    broadcastFileInfo =
+        BroadcastFileInfo::deserialize(broadcastInfoJson.value());
   } catch (const VeloxException& e) {
     throw;
   } catch (const std::exception& e) {
     VELOX_USER_FAIL("BroadcastInfo deserialization failed: {}", e.what());
   }
 
-  auto fileSystemBroadcast = BroadcastFactory(broadcastInfo->basePath_);
+  auto fileSystemBroadcast = BroadcastFactory(broadcastFileInfo->filePath_);
   return std::make_unique<BroadcastExchangeSource>(
       uri.host(),
       destination,
       std::move(queue),
-      fileSystemBroadcast.createReader(broadcastInfo->fileInfos_, pool),
+      fileSystemBroadcast.createReader(std::move(broadcastFileInfo), pool),
       pool);
 }
 }; // namespace facebook::presto::operators

@@ -86,7 +86,8 @@ public class NativeExecutionTaskFactory
             PlanFragment fragment,
             List<TaskSource> sources,
             TableWriteInfo tableWriteInfo,
-            Optional<String> shuffleWriteInfo)
+            Optional<String> shuffleWriteInfo,
+            Optional<String> broadcastBasePath)
     {
         PrestoSparkHttpTaskClient workerClient = new PrestoSparkHttpTaskClient(
                 httpClient,
@@ -104,6 +105,7 @@ public class NativeExecutionTaskFactory
                 sources,
                 tableWriteInfo,
                 shuffleWriteInfo,
+                broadcastBasePath,
                 executor,
                 updateScheduledExecutor,
                 errorRetryScheduledExecutor,
