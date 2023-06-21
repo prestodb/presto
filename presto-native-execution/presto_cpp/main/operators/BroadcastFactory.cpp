@@ -44,10 +44,8 @@ std::unique_ptr<BroadcastFileWriter> BroadcastFactory::createWriter(
   fileSystem_->mkdir(basePath_);
   auto filename =
       fmt::format("{}/file_broadcast_{}.bin", basePath_, makeUuid());
-  LOG(INFO) << "Opening broadcast file for write: " << filename;
-  auto writeFile = fileSystem_->openFileForWrite(filename);
   return std::make_unique<BroadcastFileWriter>(
-      std::move(writeFile), filename, pool, inputType);
+      filename, inputType, fileSystem_, pool);
 }
 
 std::shared_ptr<BroadcastFileReader> BroadcastFactory::createReader(
@@ -78,24 +76,30 @@ BroadcastInfo::BroadcastInfo(
     : basePath_(basePath), fileInfos_(fileInfos) {}
 
 BroadcastFileWriter::BroadcastFileWriter(
-    std::unique_ptr<WriteFile> writeFile,
     std::string_view filename,
-    velox::memory::MemoryPool* pool,
-    const RowTypePtr& inputType)
-    : writeFile_(std::move(writeFile)),
+    const RowTypePtr& inputType,
+    std::shared_ptr<velox::filesystems::FileSystem> fileSystem,
+    velox::memory::MemoryPool* pool)
+    : fileSystem_(std::move(fileSystem)),
       filename_(filename),
+      numRows_(0),
       pool_(pool),
       serde_(std::make_unique<serializer::presto::PrestoVectorSerde>()),
       inputType_(inputType) {}
 
 void BroadcastFileWriter::collect(const RowVectorPtr& input) {
-  serialize(input);
+  write(input);
 }
 
 void BroadcastFileWriter::noMoreData() {}
 
 // TODO: Add file stats - size, checksum, number of rows.
 RowVectorPtr BroadcastFileWriter::fileStats() {
+  // No rows written.
+  if (numRows_ == 0) {
+    return nullptr;
+  }
+
   auto data = BaseVector::create<FlatVector<StringView>>(VARCHAR(), 1, pool_);
   data->set(0, StringView(filename_));
   return std::make_shared<RowVector>(
@@ -106,8 +110,21 @@ RowVectorPtr BroadcastFileWriter::fileStats() {
       std::vector<VectorPtr>({std::move(data)}));
 }
 
-void BroadcastFileWriter::serialize(const RowVectorPtr& rowVector) {
+void BroadcastFileWriter::initializeWriteFile() {
+  if (!writeFile_) {
+    LOG(INFO) << "Opening broadcast file for write: " << filename_;
+    writeFile_ = fileSystem_->openFileForWrite(filename_);
+  }
+}
+
+void BroadcastFileWriter::write(const RowVectorPtr& rowVector) {
   auto numRows = rowVector->size();
+  if (numRows == 0) {
+    return;
+  }
+
+  initializeWriteFile();
+  numRows_ += numRows;
   const IndexRange allRows{0, numRows};
 
   auto arena = std::make_unique<StreamArena>(pool_);
