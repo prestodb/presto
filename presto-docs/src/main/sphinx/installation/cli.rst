@@ -26,7 +26,16 @@ Run the CLI with the ``--help`` option to see the available options.
 
     ./presto --help
 
-To connect to a Presto server, run the CLI with the --server option 
+To connect to a Presto server, run the CLI with the --server option.  
+
+    ./presto --server localhost:8080 --catalog hive --schema default
+
+``localhost:8080`` is the default for a Presto server, so if you have it running locally you can 
+leave it off. If you are connecting to a remote Presto server, use the Presto endpoint URL as in 
+the following example command
+
+   ./presto --server http://www.example.net:8080
+   
 The Presto CLI displays query results as paginated using the ``less`` program, which 
 is configured with preset options. To change the pagination of query results, set the 
 environment variable ``PRESTO_PAGER`` to the name of a different program such as ``more``, 
