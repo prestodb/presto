@@ -328,8 +328,7 @@ class TaskManagerTest : public testing::Test {
     protocol::TaskUpdateRequest updateRequest;
     updateRequest.sources.push_back(
         makeRemoteSource("0", locations, true, splitSequenceId));
-    return taskManager_->createOrUpdateTask(
-        outputTaskId, updateRequest, planFragment);
+    return createOrUpdateTask(outputTaskId, updateRequest, planFragment);
   }
 
   protocol::TaskSource makeSource(
@@ -366,15 +365,6 @@ class TaskManagerTest : public testing::Test {
       const std::vector<std::shared_ptr<exec::test::TempFilePath>>& filePaths,
       bool noMoreSplits) {
     return makeSource(sourceId, filePaths, noMoreSplits, splitSequenceId_);
-  }
-
-  // Version with auto-incremented sequence id.
-  protocol::TaskSource makeRemoteSource(
-      const protocol::PlanNodeId& sourceId,
-      const std::vector<std::string>& locations,
-      bool noMoreSplits) {
-    return makeRemoteSource(
-        sourceId, locations, noMoreSplits, splitSequenceId_);
   }
 
   protocol::ScheduledSplit makeRemoteSplit(
@@ -423,8 +413,8 @@ class TaskManagerTest : public testing::Test {
       updateRequest.sources.push_back(
           makeSource("0", {filePaths[i]}, true, splitSequenceId));
       updateRequest.session.systemProperties = queryConfigStrings;
-      auto taskInfo = taskManager_->createOrUpdateTask(
-          taskId, updateRequest, partialAggPlanFragment);
+      auto taskInfo =
+          createOrUpdateTask(taskId, updateRequest, partialAggPlanFragment);
       partialAggTasks.emplace_back(taskInfo->taskStatus.self);
     }
 
@@ -459,7 +449,7 @@ class TaskManagerTest : public testing::Test {
       updateRequest.sources.push_back(
           makeRemoteSource("0", locations, true, splitSequenceId));
       updateRequest.session.systemProperties = queryConfigStrings;
-      auto taskInfo = taskManager_->createOrUpdateTask(
+      auto taskInfo = createOrUpdateTask(
           finalAggTaskId, updateRequest, finalAggPlanFragment);
 
       finalAggTasks.emplace_back(taskInfo->taskStatus.self);
@@ -550,8 +540,19 @@ class TaskManagerTest : public testing::Test {
       const core::PlanFragment& planFragment) {
     auto queryCtx =
         taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
-            taskId, {}, {});
+            taskId, {});
     return exec::Task::create(taskId, planFragment, 0, std::move(queryCtx));
+  }
+
+  std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
+      const protocol::TaskId& taskId,
+      const protocol::TaskUpdateRequest& updateRequest,
+      const core::PlanFragment& planFragment) {
+    auto queryCtx =
+        taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
+            taskId, updateRequest.session);
+    return taskManager_->createOrUpdateTask(
+        taskId, updateRequest, planFragment, std::move(queryCtx));
   }
 
   std::shared_ptr<memory::MemoryPool> rootPool_;
@@ -587,8 +588,7 @@ TEST_F(TaskManagerTest, tableScanAllSplitsAtOnce) {
   protocol::TaskUpdateRequest updateRequest;
   updateRequest.sources.push_back(
       makeSource("0", filePaths, true, splitSequenceId));
-  auto taskInfo =
-      taskManager_->createOrUpdateTask(taskId, updateRequest, planFragment);
+  auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
 
   assertResults(taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 0");
 }
@@ -614,8 +614,7 @@ TEST_F(TaskManagerTest, taskCleanupWithPendingResultData) {
   const protocol::TaskId taskId = "scan.0.0.1.0";
   protocol::TaskUpdateRequest updateRequest;
   updateRequest.sources.push_back(source);
-  const auto taskInfo =
-      taskManager_->createOrUpdateTask(taskId, updateRequest, planFragment);
+  const auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
 
   const protocol::Duration longWait("300s");
   const auto maxSize = protocol::DataSize("32MB");
@@ -666,7 +665,7 @@ TEST_F(TaskManagerTest, tableScanOneSplitAtATime) {
                           .planFragment();
 
   protocol::TaskId taskId = "scan.0.0.1.0";
-  auto taskInfo = taskManager_->createOrUpdateTask(taskId, {}, planFragment);
+  auto taskInfo = createOrUpdateTask(taskId, {}, planFragment);
 
   long splitSequenceId{0};
   for (auto& filePath : filePaths) {
@@ -674,12 +673,12 @@ TEST_F(TaskManagerTest, tableScanOneSplitAtATime) {
 
     protocol::TaskUpdateRequest updateRequest;
     updateRequest.sources.push_back(source);
-    taskManager_->createOrUpdateTask(taskId, updateRequest, {});
+    taskManager_->createOrUpdateTask(taskId, updateRequest, {}, nullptr);
   }
 
   protocol::TaskUpdateRequest updateRequest;
   updateRequest.sources.push_back(makeSource("0", {}, true, splitSequenceId));
-  taskManager_->createOrUpdateTask(taskId, updateRequest, {});
+  taskManager_->createOrUpdateTask(taskId, updateRequest, {}, nullptr);
 
   assertResults(taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 1");
 }
@@ -706,8 +705,7 @@ TEST_F(TaskManagerTest, tableScanMultipleTasks) {
     auto source = makeSource("0", {filePaths[i]}, true, splitSequenceId);
     protocol::TaskUpdateRequest updateRequest;
     updateRequest.sources.push_back(source);
-    auto taskInfo =
-        taskManager_->createOrUpdateTask(taskId, updateRequest, planFragment);
+    auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
     tasks.emplace_back(taskInfo->taskStatus.self);
   }
 
@@ -731,8 +729,7 @@ TEST_F(TaskManagerTest, emptyFile) {
   protocol::TaskId taskId = "scan.0.0.1.0";
   protocol::TaskUpdateRequest updateRequest;
   updateRequest.sources.push_back(source);
-  auto taskInfo =
-      taskManager_->createOrUpdateTask(taskId, updateRequest, planFragment);
+  auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
 
   protocol::Duration longWait("300s");
   auto statusRequestState = http::CallbackRequestHandlerState::create();
@@ -838,7 +835,7 @@ TEST_F(TaskManagerTest, outOfOrderRequests) {
       taskId, 0, 0, maxSize, longWait, resultRequestState);
 
   // Create the task.
-  taskManager_->createOrUpdateTask(taskId, {}, planFragment);
+  createOrUpdateTask(taskId, {}, planFragment);
 
   EXPECT_NO_THROW(std::move(taskInfo).within(shortWait).getVia(eventBase));
   EXPECT_NO_THROW(std::move(taskStatus).within(shortWait).getVia(eventBase));
@@ -1016,8 +1013,7 @@ TEST_F(TaskManagerTest, testCumulativeMemory) {
   protocol::TaskUpdateRequest updateRequest;
   updateRequest.sources.push_back(
       makeSource("0", filePaths, true, splitSequenceId));
-  auto taskInfo =
-      taskManager_->createOrUpdateTask(taskId, updateRequest, planFragment);
+  auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
   std::vector<std::string> tasks;
   tasks.emplace_back(taskInfo->taskStatus.self);
   // Wait for the input task to produce data to cause memory allocation.
@@ -1063,16 +1059,19 @@ TEST_F(TaskManagerTest, checkBatchSplits) {
                           .planFragment();
 
   // No splits.
-  protocol::BatchTaskUpdateRequest batchRequest;
+  auto queryCtx =
+      taskManager_->getQueryContextManager()->findOrCreateQueryCtx(taskId, {});
   VELOX_ASSERT_THROW(
-      taskManager_->createOrUpdateBatchTask(taskId, batchRequest, planFragment),
+      taskManager_->createOrUpdateBatchTask(taskId, {}, planFragment, queryCtx),
       "Expected all splits and no-more-splits message for all plan nodes");
 
   // Splits for scan node on the probe side.
+  protocol::BatchTaskUpdateRequest batchRequest;
   batchRequest.taskUpdateRequest.sources.push_back(
       makeSource(probeId, {}, true));
   VELOX_ASSERT_THROW(
-      taskManager_->createOrUpdateBatchTask(taskId, batchRequest, planFragment),
+      taskManager_->createOrUpdateBatchTask(
+          taskId, batchRequest, planFragment, queryCtx),
       "Expected all splits and no-more-splits message for all plan nodes: " +
           buildId);
 
@@ -1081,13 +1080,14 @@ TEST_F(TaskManagerTest, checkBatchSplits) {
   batchRequest.taskUpdateRequest.sources.push_back(
       makeSource(buildId, {}, false));
   VELOX_ASSERT_THROW(
-      taskManager_->createOrUpdateBatchTask(taskId, batchRequest, planFragment),
+      taskManager_->createOrUpdateBatchTask(
+          taskId, batchRequest, planFragment, queryCtx),
       "Expected no-more-splits message for plan node " + buildId);
 
   // All splits.
   batchRequest.taskUpdateRequest.sources.back().noMoreSplits = true;
   ASSERT_NO_THROW(taskManager_->createOrUpdateBatchTask(
-      taskId, batchRequest, planFragment));
+      taskId, batchRequest, planFragment, queryCtx));
   auto resultOrFailure = fetchAllResults(taskId, ROW({BIGINT()}), {});
   ASSERT_EQ(resultOrFailure.status, nullptr);
 }

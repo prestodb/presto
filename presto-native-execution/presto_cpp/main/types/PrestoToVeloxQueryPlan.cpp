@@ -1393,6 +1393,19 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
+velox::VectorPtr VeloxQueryPlanConverterBase::evaluateConstantExpression(
+    const velox::core::TypedExprPtr& expression) {
+  auto emptyRowVector = BaseVector::create<RowVector>(ROW({}), 1, pool_);
+  core::ExecCtx execCtx{pool_, queryCtx_};
+  exec::ExprSet exprSet{{expression}, &execCtx};
+  exec::EvalCtx context(&execCtx, &exprSet, emptyRowVector.get());
+
+  SelectivityVector rows{1};
+  std::vector<VectorPtr> result(1);
+  exprSet.eval(rows, context, result);
+  return result[0];
+}
+
 std::shared_ptr<const core::ValuesNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::ValuesNode>& node,
@@ -1421,11 +1434,15 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         if (!constantExpr->hasValueVector()) {
           setCellFromVariant(rowVector, row, column, constantExpr->value());
         } else {
-          auto columnVector = rowVector->childAt(column);
+          auto& columnVector = rowVector->childAt(column);
           columnVector->copy(constantExpr->valueVector().get(), row, 0, 1);
         }
       } else {
-        VELOX_FAIL("Expected constant expression");
+        // Evaluate the expression.
+        auto value = evaluateConstantExpression(expr);
+
+        auto& columnVector = rowVector->childAt(column);
+        columnVector->copy(value.get(), row, 0, 1);
       }
     }
   }
