@@ -22,6 +22,7 @@
 
 using namespace facebook::velox;
 using namespace facebook::velox::dwio::common;
+using facebook::velox::common::Region;
 
 TEST(ReadFileInputStream, SimpleUsage) {
   std::string fileData;

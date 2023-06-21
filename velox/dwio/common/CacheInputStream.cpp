@@ -21,6 +21,8 @@
 #include "velox/dwio/common/CacheInputStream.h"
 #include "velox/dwio/common/CachedBufferedInput.h"
 
+using ::facebook::velox::common::Region;
+
 namespace facebook::velox::dwio::common {
 
 using velox::cache::ScanTracker;

@@ -19,6 +19,7 @@
 #include "velox/dwio/common/BufferedInput.h"
 
 using namespace facebook::velox::dwio::common;
+using facebook::velox::common::Region;
 using namespace ::testing;
 
 namespace {

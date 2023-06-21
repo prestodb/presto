@@ -108,7 +108,7 @@ class CachedBufferedInput : public BufferedInput {
   }
 
   std::unique_ptr<SeekableInputStream> enqueue(
-      Region region,
+      velox::common::Region region,
       const StreamIdentifier* FOLLY_NULLABLE si) override;
 
   void load(const LogType) override;
@@ -120,7 +120,7 @@ class CachedBufferedInput : public BufferedInput {
 
   /// Schedules load of 'region' on 'executor_'. Fails silently if no memory or
   /// if shouldPreload() is false.
-  bool prefetch(Region region);
+  bool prefetch(velox::common::Region region);
 
   bool shouldPreload(int32_t numPages = 0) override;
 

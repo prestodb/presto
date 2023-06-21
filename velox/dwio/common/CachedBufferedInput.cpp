@@ -29,6 +29,8 @@ DEFINE_int64(
     128 << 20,
     "Maximum size of single coalesced IO");
 
+using ::facebook::velox::common::Region;
+
 namespace facebook::velox::dwio::common {
 
 using cache::CachePin;

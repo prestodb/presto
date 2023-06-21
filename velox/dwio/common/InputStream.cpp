@@ -34,6 +34,8 @@
 #include "velox/common/time/Timer.h"
 #include "velox/dwio/common/exception/Exception.h"
 
+using ::facebook::velox::common::Region;
+
 namespace facebook::velox::dwio::common {
 
 folly::SemiFuture<uint64_t> InputStream::readAsync(
@@ -154,11 +156,6 @@ void ReadFileInputStream::vread(
     stats_->incRawBytesRead(length);
     stats_->incTotalScanTime((getCurrentTimeMicro() - readStartMicros) * 1000);
   }
-}
-
-bool Region::operator<(const Region& other) const {
-  return offset < other.offset ||
-      (offset == other.offset && length < other.length);
 }
 
 const std::string& InputStream::getName() const {

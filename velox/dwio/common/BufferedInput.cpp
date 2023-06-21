@@ -20,6 +20,8 @@
 
 DEFINE_bool(wsVRLoad, false, "Use WS VRead API to load");
 
+using ::facebook::velox::common::Region;
+
 namespace facebook::velox::dwio::common {
 
 void BufferedInput::load(const LogType logType) {

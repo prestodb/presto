@@ -30,6 +30,7 @@ using namespace facebook::velox;
 using namespace facebook::velox::dwio;
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::cache;
+using facebook::velox::common::Region;
 
 using memory::MemoryAllocator;
 using IoStatisticsPtr = std::shared_ptr<IoStatistics>;

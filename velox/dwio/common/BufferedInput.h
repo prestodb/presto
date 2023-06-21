@@ -74,7 +74,7 @@ class BufferedInput {
   // read-ahead and caching for BufferedInput implementations supporting
   // these.
   virtual std::unique_ptr<SeekableInputStream> enqueue(
-      Region region,
+      velox::common::Region region,
       const StreamIdentifier* FOLLY_NULLABLE si = nullptr);
 
   // load all regions to be read in an optimized way (IO efficiency)
@@ -149,7 +149,7 @@ class BufferedInput {
   std::unique_ptr<AllocationPool> allocPool_;
 
   // Regions enqueued for reading
-  std::vector<Region> regions_;
+  std::vector<velox::common::Region> regions_;
 
   // Offsets in the file to which the corresponding Region belongs
   std::vector<uint64_t> offsets_;
@@ -171,7 +171,7 @@ class BufferedInput {
       std::optional<size_t> i = std::nullopt) const;
 
   void readRegion(
-      const Region& region,
+      const velox::common::Region& region,
       const LogType logType,
       std::function<void(void* FOLLY_NONNULL, uint64_t, uint64_t, LogType)>
           action) {
@@ -196,7 +196,9 @@ class BufferedInput {
           action);
 
   // tries and merges WS read regions into one
-  bool tryMerge(Region& first, const Region& second);
+  bool tryMerge(
+      velox::common::Region& first,
+      const velox::common::Region& second);
 };
 
 } // namespace facebook::velox::dwio::common
