@@ -111,6 +111,13 @@ TEST_F(PlanConverterTest, scanAgg) {
   ASSERT_EQ(requiredSubfields[0].toString(), "complex_type[1][\"foo\"].id");
   ASSERT_EQ(requiredSubfields[1].toString(), "complex_type[2][\"bar\"].id");
 
+  auto* tableHandle = dynamic_cast<const connector::hive::HiveTableHandle*>(
+      tableScan->tableHandle().get());
+  ASSERT_TRUE(tableHandle);
+  ASSERT_EQ(
+      tableHandle->dataColumns()->toString(),
+      "ROW<nationkey:BIGINT,name:VARCHAR,regionkey:BIGINT,complex_type:ARRAY<MAP<VARCHAR,ROW<id:BIGINT,description:VARCHAR>>>,comment:VARCHAR>");
+
   protocol::registerConnector("hive-plus", "hive");
   assertToVeloxQueryPlan("ScanAggCustomConnectorId.json");
 }
