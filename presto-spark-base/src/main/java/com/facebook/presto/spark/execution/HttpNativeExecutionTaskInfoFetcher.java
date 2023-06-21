@@ -58,6 +58,7 @@ public class HttpNativeExecutionTaskInfoFetcher
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final AtomicReference<RuntimeException> lastException = new AtomicReference<>();
     private final Duration maxErrorDuration;
+    private final Object taskFinished;
 
     @GuardedBy("this")
     private ScheduledFuture<?> scheduledFuture;
@@ -68,7 +69,8 @@ public class HttpNativeExecutionTaskInfoFetcher
             PrestoSparkHttpTaskClient workerClient,
             Executor executor,
             Duration infoFetchInterval,
-            Duration maxErrorDuration)
+            Duration maxErrorDuration,
+            Object taskFinished)
     {
         this.workerClient = requireNonNull(workerClient, "workerClient is null");
         this.updateScheduledExecutor = requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
@@ -84,6 +86,7 @@ public class HttpNativeExecutionTaskInfoFetcher
                 maxErrorDuration,
                 errorRetryScheduledExecutor,
                 "getting taskInfo from native process");
+        this.taskFinished = requireNonNull(taskFinished, "taskFinished is null");
     }
 
     public void start()
@@ -101,6 +104,11 @@ public class HttpNativeExecutionTaskInfoFetcher
                             {
                                 log.debug("TaskInfoCallback success %s", result.getValue().getTaskId());
                                 taskInfo.set(result.getValue());
+                                if (result.getValue().getTaskStatus().getState().isDone()) {
+                                    synchronized (taskFinished) {
+                                        taskFinished.notifyAll();
+                                    }
+                                }
                             }
 
                             @Override
