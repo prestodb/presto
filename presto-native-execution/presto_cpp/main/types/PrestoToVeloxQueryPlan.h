@@ -32,8 +32,10 @@ namespace facebook::presto {
 
 class VeloxQueryPlanConverterBase {
  public:
-  explicit VeloxQueryPlanConverterBase(velox::memory::MemoryPool* pool)
-      : pool_(pool), exprConverter_(pool) {}
+  explicit VeloxQueryPlanConverterBase(
+      velox::core::QueryCtx* queryCtx,
+      velox::memory::MemoryPool* pool)
+      : queryCtx_{queryCtx}, pool_(pool), exprConverter_(pool) {}
 
   virtual ~VeloxQueryPlanConverterBase() = default;
 
@@ -175,7 +177,11 @@ class VeloxQueryPlanConverterBase {
   velox::core::WindowNode::Function toVeloxWindowFunction(
       const protocol::Function& func);
 
+  velox::VectorPtr evaluateConstantExpression(
+      const velox::core::TypedExprPtr& expression);
+
   velox::memory::MemoryPool* pool_;
+  velox::core::QueryCtx* queryCtx_;
   VeloxExprConverter exprConverter_;
 };
 
@@ -183,8 +189,10 @@ class VeloxInteractiveQueryPlanConverter : public VeloxQueryPlanConverterBase {
  public:
   using VeloxQueryPlanConverterBase::toVeloxQueryPlan;
 
-  explicit VeloxInteractiveQueryPlanConverter(velox::memory::MemoryPool* pool)
-      : VeloxQueryPlanConverterBase(pool) {}
+  explicit VeloxInteractiveQueryPlanConverter(
+      velox::core::QueryCtx* queryCtx,
+      velox::memory::MemoryPool* pool)
+      : VeloxQueryPlanConverterBase(queryCtx, pool) {}
 
  protected:
   velox::core::PlanNodePtr toVeloxQueryPlan(
@@ -200,8 +208,9 @@ class VeloxBatchQueryPlanConverter : public VeloxQueryPlanConverterBase {
   VeloxBatchQueryPlanConverter(
       const std::string& shuffleName,
       std::shared_ptr<std::string>&& serializedShuffleWriteInfo,
+      velox::core::QueryCtx* queryCtx,
       velox::memory::MemoryPool* pool)
-      : VeloxQueryPlanConverterBase(pool),
+      : VeloxQueryPlanConverterBase(queryCtx, pool),
         shuffleName_(shuffleName),
         serializedShuffleWriteInfo_(std::move(serializedShuffleWriteInfo)) {}
 

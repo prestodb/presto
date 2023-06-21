@@ -107,11 +107,7 @@ class QueryContextManager {
 
   std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtx(
       const protocol::TaskId& taskId,
-      std::unordered_map<std::string, std::string>&& configStrings,
-      std::unordered_map<
-          std::string,
-          std::unordered_map<std::string, std::string>>&&
-          connectorConfigStrings);
+      const protocol::SessionRepresentation& session);
 
   // Calls the given functor for every present query context.
   void visitAllContexts(std::function<void(
@@ -119,6 +115,14 @@ class QueryContextManager {
                             const velox::core::QueryCtx*)> visitor) const;
 
  private:
+  std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtx(
+      const protocol::TaskId& taskId,
+      std::unordered_map<std::string, std::string>&& configStrings,
+      std::unordered_map<
+          std::string,
+          std::unordered_map<std::string, std::string>>&&
+          connectorConfigStrings);
+
   folly::Synchronized<QueryContextCache> queryContextCache_;
 };
 
