@@ -499,10 +499,10 @@ TEST_F(MultiFragmentTest, broadcast) {
     auto task = makeTask(finalAggTaskIds.back(), finalAggPlan, i);
     tasks.emplace_back(task);
     Task::start(task, 1);
-    leafTask->updateBroadcastOutputBuffers(i + 1, false);
+    leafTask->updateOutputBuffers(i + 1, false);
     addRemoteSplits(task, {leafTaskId});
   }
-  leafTask->updateBroadcastOutputBuffers(finalAggTaskIds.size(), true);
+  leafTask->updateOutputBuffers(finalAggTaskIds.size(), true);
 
   // Collect results from multiple tasks.
   auto op = PlanBuilder().exchange(finalAggPlan->outputType()).planNode();
@@ -513,9 +513,9 @@ TEST_F(MultiFragmentTest, broadcast) {
     ASSERT_TRUE(waitForTaskCompletion(task.get())) << task->taskId();
   }
 
-  // Make sure duplicate 'updateBroadcastOutputBuffers' message after task
+  // Make sure duplicate 'updateOutputBuffers' message after task
   // completion doesn't cause an error.
-  leafTask->updateBroadcastOutputBuffers(finalAggTaskIds.size(), true);
+  leafTask->updateOutputBuffers(finalAggTaskIds.size(), true);
 }
 
 TEST_F(MultiFragmentTest, replicateNullsAndAny) {
@@ -796,11 +796,11 @@ TEST_F(MultiFragmentTest, earlyCompletionBroadcast) {
     tasks.push_back(task);
     Task::start(task, 4);
 
-    leafTask->updateBroadcastOutputBuffers(i + 1, false);
+    leafTask->updateOutputBuffers(i + 1, false);
 
     addRemoteSplits(task, {leafTaskId});
   }
-  leafTask->updateBroadcastOutputBuffers(joinTaskIds.size(), true);
+  leafTask->updateOutputBuffers(joinTaskIds.size(), true);
 
   // Create output task.
   auto outputPlan = PlanBuilder().exchange(joinOutputType).planNode();

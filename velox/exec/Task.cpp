@@ -1309,10 +1309,6 @@ bool Task::isFinishedLocked() const {
   return (state_ == TaskState::kFinished);
 }
 
-bool Task::updateBroadcastOutputBuffers(int numBuffers, bool noMoreBuffers) {
-  return updateOutputBuffers(numBuffers, noMoreBuffers);
-}
-
 bool Task::updateOutputBuffers(int numBuffers, bool noMoreBuffers) {
   auto bufferManager = bufferManager_.lock();
   VELOX_CHECK_NOT_NULL(

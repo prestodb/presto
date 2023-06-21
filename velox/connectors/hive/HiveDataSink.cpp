@@ -232,10 +232,7 @@ HiveDataSink::HiveDataSink(
                                             HiveConfig::maxPartitionsPerWriters(
                                                 connectorQueryCtx_->config()),
                                             connectorQueryCtx_->memoryPool())
-                                      : nullptr) {
-  // TODO: remove this hack after Prestissimo adds to register dwrf writer.
-  facebook::velox::dwrf::registerDwrfWriterFactory();
-}
+                                      : nullptr) {}
 
 void HiveDataSink::appendData(RowVectorPtr input) {
   // Write to unpartitioned table.

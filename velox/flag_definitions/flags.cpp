@@ -102,10 +102,9 @@ DEFINE_bool(
     "If true, check fails on any memory leaks in memory pool and memory manager");
 
 DEFINE_bool(
-    velox_memory_debug_mode_enabled,
+    velox_memory_pool_debug_enabled,
     false,
-    "If true, 'MemoryPool' will be running in debug mode. Debug mode allows "
-    "tracking of allocation sites and free sites.");
+    "If true, 'MemoryPool' will be running in debug mode to track the allocation and free call sites to detect the source of memory leak for testing purpose");
 
 // TODO: deprecate this after solves all the use cases that can cause
 // significant performance regression by memory usage tracking.

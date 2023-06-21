@@ -31,7 +31,7 @@
 #include "velox/common/memory/MemoryArbitrator.h"
 
 DECLARE_bool(velox_memory_leak_check_enabled);
-DECLARE_bool(velox_memory_debug_mode_enabled);
+DECLARE_bool(velox_memory_pool_debug_enabled);
 
 namespace facebook::velox::memory {
 #define VELOX_MEM_POOL_CAP_EXCEEDED(errorMessage)                   \
@@ -136,7 +136,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
     /// enable it on a subset of memory pools.
     bool trackUsage{true};
 
-    /// If true, track the leaf memory pool usage in a thread-safe mode
+    /// If true, tracks the leaf memory pool usage in a thread-safe mode
     /// otherwise not. This only applies for leaf memory pool with memory usage
     /// tracking enabled. We use non-thread safe tracking mode for single
     /// threaded use case.
@@ -148,15 +148,15 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
     /// TODO: deprecate this flag after all the existing memory leak use cases
     /// have been fixed.
     ///
-    /// If true, check the memory usage leak on destruction.
+    /// If true, checks the memory usage leak on destruction.
     ///
     /// NOTE: user can turn on/off the memory leak check of each individual
     /// memory pools from the same root memory pool independently.
     bool checkUsageLeak{FLAGS_velox_memory_leak_check_enabled};
 
-    /// If true, 'MemoryPool' will be running in debug mode. Debug mode allows
-    /// tracking of allocation sites and free sites.
-    bool debugMode{FLAGS_velox_memory_debug_mode_enabled};
+    /// If true, tracks the allocation and free call stacks to detect the source
+    /// of memory leak for testing purpose.
+    bool debugEnabled{FLAGS_velox_memory_pool_debug_enabled};
   };
 
   /// Constructs a named memory pool with specified 'name', 'parent' and 'kind'.
@@ -500,7 +500,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   const bool trackUsage_;
   const bool threadSafe_;
   const bool checkUsageLeak_;
-  const bool debugMode_;
+  const bool debugEnabled_;
 
   /// Indicates if the memory pool has been aborted by the memory arbitrator or
   /// not.
@@ -861,6 +861,46 @@ class MemoryPoolImpl : public MemoryPool {
     return out.str();
   }
 
+  // Recording on every allocation is very expensive and normally will result
+  // in CPU saturation. Modify this method while debugging to limit the number
+  // of times that the allocations are recorded. 'isAlloc' will be true at
+  // allocation sites, false at free sites. A good example of this filter would
+  // be based on the 'name_' of the MemoryPool.
+  //  TODO(jtan6): Add support for dynamic condition change.
+  bool needRecordDbg(bool isAlloc);
+
+  // Invoked to record the call stack of a buffer allocation if debug mode of
+  // this memory pool is enabled.
+  void recordAllocDbg(const void* addr, uint64_t size);
+
+  // Invoked to record the call stack of a non-contiguous allocation if debug
+  // mode of this memory pool is enabled.
+  void recordAllocDbg(const Allocation& allocation);
+
+  // Invoked to record the call stack of a contiguous allocation if debug mode
+  // of this memory pool is enabled.
+  void recordAllocDbg(const ContiguousAllocation& allocation);
+
+  // Invoked to free the call stack of a buffer allocation if debug mode of this
+  // memory pool is enabled.
+  void recordFreeDbg(const void* addr, uint64_t size);
+
+  // Invoked to free the call stack of a non-contiguous allocation if debug mode
+  // of this memory pool is enabled.
+  void recordFreeDbg(const Allocation& allocation);
+
+  // Invoked to free the call stack of a contiguous allocation if debug mode
+  // of this memory pool is enabled.
+  void recordFreeDbg(const ContiguousAllocation& allocation);
+
+  // Invoked by memory pool destructor to detect the sources of leaked memory
+  // allocations from the call sites which are still recorded in
+  // 'debugAllocRecords_'. If there is no memory leaks, 'debugAllocRecords_'
+  // should be empty as all the memory allocations should have been freed on
+  // memory pool destruction. We only check this if debug mode of this memory
+  // pool is enabled.
+  void leakCheckDbg();
+
   MemoryManager* const manager_;
   MemoryAllocator* const allocator_;
   const DestructionCallback destructionCb_;
@@ -906,58 +946,6 @@ class MemoryPoolImpl : public MemoryPool {
   // The number of internal memory reservation collisions caused by concurrent
   // memory reservation requests.
   std::atomic<uint64_t> numCollisions_{0};
-
-#define DEBUG_RECORD_ALLOC(...)     \
-  if (FOLLY_UNLIKELY(debugMode_)) { \
-    recordAllocDbg(__VA_ARGS__);    \
-  }
-#define DEBUG_RECORD_FREE(...)      \
-  if (FOLLY_UNLIKELY(debugMode_)) { \
-    recordFreeDbg(__VA_ARGS__);     \
-  }
-#define DEBUG_LEAK_CHECK()          \
-  if (FOLLY_UNLIKELY(debugMode_)) { \
-    leakCheckDbg();                 \
-  }
-
-  /// Recording on every allocation is very expensive and normally will result
-  /// in CPU saturation. Modify this method while debugging to limit the number
-  /// of times that the allocations are recorded. 'isAlloc' will be true at
-  /// allocation sites, false at free sites. A good example of this filter would
-  /// be based on the 'name_' of the MemoryPool.
-  /// TODO(jtan6): Add support for dynamic condition change.
-  bool needRecordDbg(bool isAlloc);
-
-  /// Debug method that is only enabled when 'MEMORY_DBG' macro is defined. This
-  /// should be called after actual allocation.
-  void recordAllocDbg(const void* addr, uint64_t size);
-
-  /// Debug method that is only enabled when 'MEMORY_DBG' macro is defined. This
-  /// should be called after actual allocation.
-  void recordAllocDbg(const Allocation& allocation);
-
-  /// Debug method that is only enabled when 'MEMORY_DBG' macro is defined. This
-  /// should be called after actual allocation.
-  void recordAllocDbg(const ContiguousAllocation& allocation);
-
-  /// Debug method that is only enabled when 'MEMORY_DBG' macro is defined. This
-  /// debug method should be called strictly before the actual free happens to
-  /// avoid unnecessary race conditions.
-  void recordFreeDbg(const void* addr, uint64_t size);
-
-  /// Debug method that is only enabled when 'MEMORY_DBG' macro is defined. This
-  /// debug method should be called strictly before the actual free happens.
-  void recordFreeDbg(const Allocation& allocation);
-
-  /// Debug method that is only enabled when 'MEMORY_DBG' macro is defined. This
-  /// debug method should be called strictly before the actual free happens.
-  void recordFreeDbg(const ContiguousAllocation& allocation);
-
-  /// This debug method should be called upon MemoryPool destruction for memory
-  /// leak check. It checks if 'debugAllocRecords_' is empty. If not it means
-  /// there is memory leak. Then it will print out all leaked allocation
-  /// details.
-  void leakCheckDbg();
 
   // Mutex for 'debugAllocRecords_'.
   std::mutex debugAllocMutex_;

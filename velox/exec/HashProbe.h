@@ -545,9 +545,6 @@ class HashProbe : public Operator {
   // corresponding spilled data on disk.
   std::unique_ptr<UnorderedStreamReader<BatchStream>> spillInputReader_;
 
-  // Used to read the probe inputs from 'spillInputReader_'.
-  RowVectorPtr spillInput_;
-
   // Sets to true after read all the probe inputs from 'spillInputReader_'.
   bool noMoreSpillInput_{false};
 

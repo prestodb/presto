@@ -207,10 +207,6 @@ class Task : public std::enable_shared_from_this<Task> {
   ///         false if buffer was not found for a given task.
   bool updateOutputBuffers(int numBuffers, bool noMoreBuffers);
 
-  /// TODO: deprecate this API after Prestissimo switches to use
-  /// updateOutputBuffers.
-  bool updateBroadcastOutputBuffers(int numBuffers, bool noMoreBuffers);
-
   /// Returns true if state is 'running'.
   bool isRunning() const;
 

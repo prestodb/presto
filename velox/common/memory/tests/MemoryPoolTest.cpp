@@ -25,7 +25,7 @@
 #include "velox/common/testutil/TestValue.h"
 
 DECLARE_bool(velox_memory_leak_check_enabled);
-DECLARE_bool(velox_memory_debug_mode_enabled);
+DECLARE_bool(velox_memory_pool_debug_mode_enabled);
 DECLARE_int32(velox_memory_num_shared_leaf_pools);
 
 using namespace ::testing;
@@ -72,7 +72,7 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
  protected:
   static void SetUpTestCase() {
     FLAGS_velox_memory_leak_check_enabled = true;
-    FLAGS_velox_memory_debug_mode_enabled = true;
+    FLAGS_velox_memory_pool_debug_enabled = true;
     TestValue::enable();
   }
 
@@ -2109,7 +2109,7 @@ TEST(MemoryPoolTest, debugMode) {
         }
       };
 
-  MemoryManager manager{{.capacity = kMaxMemory, .debugMode = true}};
+  MemoryManager manager{{.capacity = kMaxMemory, .debugEnabled = true}};
   auto pool = manager.addRootPool("root")->addLeafChild("child");
   const auto& allocRecords = std::dynamic_pointer_cast<MemoryPoolImpl>(pool)
                                  ->testingDebugAllocRecords();
@@ -2333,7 +2333,7 @@ TEST_P(MemoryPoolTest, memoryReclaimerSetCheck) {
 
 TEST_P(MemoryPoolTest, reclaimAPIsWithDefaultReclaimer) {
   // Disable debug mode for this test as it makes the test timeout.
-  FLAGS_velox_memory_debug_mode_enabled = false;
+  FLAGS_velox_memory_pool_debug_enabled = false;
   MemoryManager manager;
   struct {
     int numChildren;

@@ -132,6 +132,19 @@ void capExceedingMessageVisitor(
 std::string capacityToString(int64_t capacity) {
   return capacity == kMaxMemory ? "UNLIMITED" : succinctBytes(capacity);
 }
+
+#define DEBUG_RECORD_ALLOC(...)        \
+  if (FOLLY_UNLIKELY(debugEnabled_)) { \
+    recordAllocDbg(__VA_ARGS__);       \
+  }
+#define DEBUG_RECORD_FREE(...)         \
+  if (FOLLY_UNLIKELY(debugEnabled_)) { \
+    recordFreeDbg(__VA_ARGS__);        \
+  }
+#define DEBUG_LEAK_CHECK()             \
+  if (FOLLY_UNLIKELY(debugEnabled_)) { \
+    leakCheckDbg();                    \
+  }
 } // namespace
 
 std::string MemoryPool::Stats::toString() const {
@@ -188,7 +201,7 @@ MemoryPool::MemoryPool(
       trackUsage_(options.trackUsage),
       threadSafe_(options.threadSafe),
       checkUsageLeak_(options.checkUsageLeak),
-      debugMode_(options.debugMode),
+      debugEnabled_(options.debugEnabled),
       reclaimer_(std::move(reclaimer)) {
   VELOX_CHECK(!isRoot() || !isLeaf());
   // NOTE: we shall only set reclaimer in a child pool if its parent has also
@@ -626,7 +639,7 @@ std::shared_ptr<MemoryPool> MemoryPoolImpl::genChild(
           .trackUsage = trackUsage_,
           .threadSafe = threadSafe,
           .checkUsageLeak = checkUsageLeak_,
-          .debugMode = debugMode_});
+          .debugEnabled = debugEnabled_});
 }
 
 bool MemoryPoolImpl::maybeReserve(uint64_t increment) {
@@ -961,6 +974,7 @@ bool MemoryPoolImpl::needRecordDbg(bool isAlloc) {
 }
 
 void MemoryPoolImpl::recordAllocDbg(const void* addr, uint64_t size) {
+  VELOX_CHECK(debugEnabled_);
   if (!needRecordDbg(true)) {
     return;
   }
@@ -971,6 +985,7 @@ void MemoryPoolImpl::recordAllocDbg(const void* addr, uint64_t size) {
 }
 
 void MemoryPoolImpl::recordAllocDbg(const Allocation& allocation) {
+  VELOX_CHECK(debugEnabled_);
   if (!needRecordDbg(true) || allocation.empty()) {
     return;
   }
@@ -978,6 +993,7 @@ void MemoryPoolImpl::recordAllocDbg(const Allocation& allocation) {
 }
 
 void MemoryPoolImpl::recordAllocDbg(const ContiguousAllocation& allocation) {
+  VELOX_CHECK(debugEnabled_);
   if (!needRecordDbg(true) || allocation.empty()) {
     return;
   }
@@ -985,6 +1001,7 @@ void MemoryPoolImpl::recordAllocDbg(const ContiguousAllocation& allocation) {
 }
 
 void MemoryPoolImpl::recordFreeDbg(const void* addr, uint64_t size) {
+  VELOX_CHECK(debugEnabled_);
   if (!needRecordDbg(false) || addr == nullptr) {
     return;
   }
@@ -1012,6 +1029,7 @@ void MemoryPoolImpl::recordFreeDbg(const void* addr, uint64_t size) {
 }
 
 void MemoryPoolImpl::recordFreeDbg(const Allocation& allocation) {
+  VELOX_CHECK(debugEnabled_);
   if (!needRecordDbg(false) || allocation.empty()) {
     return;
   }
@@ -1019,6 +1037,7 @@ void MemoryPoolImpl::recordFreeDbg(const Allocation& allocation) {
 }
 
 void MemoryPoolImpl::recordFreeDbg(const ContiguousAllocation& allocation) {
+  VELOX_CHECK(debugEnabled_);
   if (!needRecordDbg(false) || allocation.empty()) {
     return;
   }
@@ -1026,18 +1045,20 @@ void MemoryPoolImpl::recordFreeDbg(const ContiguousAllocation& allocation) {
 }
 
 void MemoryPoolImpl::leakCheckDbg() {
-  if (!debugAllocRecords_.empty()) {
-    std::stringbuf buf;
-    std::ostream oss(&buf);
-    oss << "Detected total of " << debugAllocRecords_.size()
-        << " leaked allocations:\n";
-    for (const auto& itr : debugAllocRecords_) {
-      const auto& allocationRecord = itr.second;
-      oss << "======== Leaked memory allocation of " << allocationRecord.size
-          << " bytes ========\n"
-          << allocationRecord.callStack;
-    }
-    VELOX_FAIL(buf.str());
+  VELOX_CHECK(debugEnabled_);
+  if (debugAllocRecords_.empty()) {
+    return;
   }
+  std::stringbuf buf;
+  std::ostream oss(&buf);
+  oss << "Detected total of " << debugAllocRecords_.size()
+      << " leaked allocations:\n";
+  for (const auto& itr : debugAllocRecords_) {
+    const auto& allocationRecord = itr.second;
+    oss << "======== Leaked memory allocation of " << allocationRecord.size
+        << " bytes ========\n"
+        << allocationRecord.callStack;
+  }
+  VELOX_FAIL(buf.str());
 }
 } // namespace facebook::velox::memory

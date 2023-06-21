@@ -955,7 +955,7 @@ TEST_F(PartitionedOutputBufferManagerTest, getDataOnFailedTask) {
 TEST_F(PartitionedOutputBufferManagerTest, updateBrodcastBufferOnFailedTask) {
   // Updating broadcast buffer count in the buffer manager for a given unknown
   // task must not throw exception, instead must return FALSE.
-  ASSERT_FALSE(bufferManager_->updateBroadcastOutputBuffers(
+  ASSERT_FALSE(bufferManager_->updateOutputBuffers(
       "test.0.1", /* unknown task */
       10,
       false));
