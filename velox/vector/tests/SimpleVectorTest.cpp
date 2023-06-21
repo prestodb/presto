@@ -128,6 +128,32 @@ TEST_F(SimpleVectorNonParameterizedTest, BasicRoundTrip) {
   assertVectorAndProperties<int64_t>(expected.data(), vector);
 }
 
+TEST_F(SimpleVectorNonParameterizedTest, ThreadSafeAsciiCompute) {
+  std::vector<std::thread> tasks;
+  SelectivityVector rows(10000);
+  VectorPtr vectorBase;
+  BaseVector::ensureWritable(rows, VARCHAR(), pool_.get(), vectorBase);
+  auto vector = vectorBase->as<FlatVector<StringView>>();
+  for (int i = 0; i < 10000; i++) {
+    vector->set(i, "dsfdsfsdfdsfds"_sv);
+  }
+
+  for (int i = 0; i < 100; i++) {
+    tasks.emplace_back([&]() {
+      for (int j = 0; j < 100; j++) {
+        vector->invalidateIsAscii();
+        vector->computeAndSetIsAscii(rows);
+        for (int k = 0; k < vector->size(); k++) {
+          ASSERT_TRUE(vector->isAscii(k));
+        }
+      }
+    });
+  }
+  for (auto& thread : tasks) {
+    thread.join();
+  }
+}
+
 // Only signed types are supported.
 using SimpleTypes = ::testing::
     Types<int8_t, int16_t, int32_t, int64_t, double, StringView, bool>;

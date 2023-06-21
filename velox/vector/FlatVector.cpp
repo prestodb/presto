@@ -452,10 +452,10 @@ void FlatVector<StringView>::copy(
       ensureIsAsciiCapacity(rows.end());
       // If we arent All ascii, then invalidate
       // because the remaining selected rows might be ascii
-      if (!isAllAscii_) {
+      if (!asciiInfo.isAllAscii()) {
         invalidateIsAscii();
       } else {
-        asciiSetRows_.deselect(rows);
+        asciiInfo.asciiSetRows().deselect(rows);
       }
     }
   }
