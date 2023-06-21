@@ -254,6 +254,7 @@ public class TestPrestoSparkHttpClient
                 createPlanFragment(),
                 new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
                 Optional.empty(),
+                Optional.empty(),
                 TestingSession.testSessionBuilder().build(),
                 createInitialEmptyOutputBuffers(PARTITIONED));
 
@@ -814,6 +815,7 @@ public class TestPrestoSparkHttpClient
                     createPlanFragment(),
                     sources,
                     new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
+                    Optional.empty(),
                     Optional.empty());
             assertNotNull(task);
             assertFalse(task.getTaskInfo().isPresent());

@@ -195,6 +195,7 @@ public class PrestoSparkHttpTaskClient
             PlanFragment planFragment,
             TableWriteInfo tableWriteInfo,
             Optional<String> shuffleWriteInfo,
+            Optional<String> broadcastBasePath,
             Session session,
             OutputBuffers outputBuffers)
     {
@@ -207,7 +208,7 @@ public class PrestoSparkHttpTaskClient
                 sources,
                 outputBuffers,
                 writeInfo);
-        BatchTaskUpdateRequest batchTaskUpdateRequest = new BatchTaskUpdateRequest(updateRequest, shuffleWriteInfo);
+        BatchTaskUpdateRequest batchTaskUpdateRequest = new BatchTaskUpdateRequest(updateRequest, shuffleWriteInfo, broadcastBasePath);
 
         URI batchTaskUri = uriBuilderFrom(taskUri)
                 .appendPath("batch")

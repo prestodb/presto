@@ -238,6 +238,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
         protocol::PlanFragment prestoPlan = json::parse(fragment);
 
         auto serializedShuffleWriteInfo = batchUpdateRequest.shuffleWriteInfo;
+        auto broadcastBasePath = batchUpdateRequest.broadcastBasePath;
         auto shuffleName = SystemConfig::instance()->shuffleName();
         if (serializedShuffleWriteInfo) {
           VELOX_USER_CHECK(
@@ -253,6 +254,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
         VeloxBatchQueryPlanConverter converter(
             shuffleName,
             std::move(serializedShuffleWriteInfo),
+            std::move(broadcastBasePath),
             queryCtx.get(),
             pool_);
         auto planFragment = converter.toVeloxQueryPlan(
