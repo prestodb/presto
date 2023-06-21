@@ -236,7 +236,8 @@ public class TestFeaturesConfig
                 .setRewriteCrossJoinWithOrFilterToInnerJoin(true)
                 .setRewriteCrossJoinWithArrayContainsFilterToInnerJoin(true)
                 .setLeftJoinNullFilterToSemiJoin(true)
-                .setBroadcastJoinWithSmallBuildUnknownProbe(false));
+                .setBroadcastJoinWithSmallBuildUnknownProbe(false)
+                .setAddPartialNodeForRowNumberWithLimitEnabled(true));
     }
 
     @Test
@@ -421,6 +422,7 @@ public class TestFeaturesConfig
                 .put("optimizer.default-join-selectivity-coefficient", "0.5")
                 .put("optimizer.rewrite-left-join-with-null-filter-to-semi-join", "false")
                 .put("experimental.optimizer.broadcast-join-with-small-build-unknown-probe", "true")
+                .put("optimizer.add-partial-node-for-row-number-with-limit", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -602,7 +604,8 @@ public class TestFeaturesConfig
                 .setRewriteCrossJoinWithOrFilterToInnerJoin(false)
                 .setRewriteCrossJoinWithArrayContainsFilterToInnerJoin(false)
                 .setLeftJoinNullFilterToSemiJoin(false)
-                .setBroadcastJoinWithSmallBuildUnknownProbe(true);
+                .setBroadcastJoinWithSmallBuildUnknownProbe(true)
+                .setAddPartialNodeForRowNumberWithLimitEnabled(false);
         assertFullMapping(properties, expected);
     }
 
