@@ -102,6 +102,7 @@ import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getPartialMergePushdownStrategy;
 import static com.facebook.presto.SystemSessionProperties.getPartitioningProviderCatalog;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
+import static com.facebook.presto.SystemSessionProperties.isAddPartialNodeForRowNumberWithLimit;
 import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistributedIndexJoinEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
@@ -389,10 +390,24 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitRowNumber(RowNumberNode node, PreferredProperties preferredProperties)
         {
+            checkArgument(!node.getPartial(), "RowNumberNode should not be partial before adding exchange");
+
             if (node.getPartitionBy().isEmpty()) {
                 PlanWithProperties child = planChild(node, PreferredProperties.undistributed());
-
                 if (!child.getProperties().isSingleNode()) {
+                    if (node.getMaxRowCountPerPartition().isPresent() && isAddPartialNodeForRowNumberWithLimit(session)) {
+                        child = withDerivedProperties(
+                                new RowNumberNode(
+                                        node.getSourceLocation(),
+                                        idAllocator.getNextId(),
+                                        child.getNode(),
+                                        node.getPartitionBy(),
+                                        variableAllocator.newVariable(node.getRowNumberVariable()),
+                                        node.getMaxRowCountPerPartition(),
+                                        true,
+                                        node.getHashVariable()),
+                                child.getProperties());
+                    }
                     child = withDerivedProperties(
                             gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode()),
                             child.getProperties());
@@ -409,6 +424,19 @@ public class AddExchanges
             // TODO: add config option/session property to force parallel plan if child is unpartitioned and window has a PARTITION BY clause
             if (!isStreamPartitionedOn(child.getProperties(), node.getPartitionBy())
                     && !isNodePartitionedOn(child.getProperties(), node.getPartitionBy())) {
+                if (node.getMaxRowCountPerPartition().isPresent() && isAddPartialNodeForRowNumberWithLimit(session)) {
+                    child = withDerivedProperties(
+                            new RowNumberNode(
+                                    node.getSourceLocation(),
+                                    idAllocator.getNextId(),
+                                    child.getNode(),
+                                    node.getPartitionBy(),
+                                    variableAllocator.newVariable(node.getRowNumberVariable()),
+                                    node.getMaxRowCountPerPartition(),
+                                    true,
+                                    node.getHashVariable()),
+                            child.getProperties());
+                }
                 child = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
