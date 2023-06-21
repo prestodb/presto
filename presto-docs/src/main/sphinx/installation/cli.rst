@@ -13,7 +13,7 @@ Rename it to ``presto`` with the following command
 
     mv  :maven_download:`cli` presto
 
-Make it executable with ``chmod +x``
+Use ``chmod +x`` to make the file executable
 
     chmod +x presto
 
