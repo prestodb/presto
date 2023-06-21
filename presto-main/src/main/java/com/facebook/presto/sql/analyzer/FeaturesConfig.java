@@ -269,6 +269,7 @@ public class FeaturesConfig
     private JoinNotNullInferenceStrategy joinNotNullInferenceStrategy = NONE;
     private boolean leftJoinNullFilterToSemiJoin = true;
     private boolean broadcastJoinWithSmallBuildUnknownProbe;
+    private boolean addPartialNodeForRowNumberWithLimit = true;
 
     private boolean preProcessMetadataCalls;
 
@@ -2652,6 +2653,19 @@ public class FeaturesConfig
     public FeaturesConfig setBroadcastJoinWithSmallBuildUnknownProbe(boolean broadcastJoinWithSmallBuildUnknownProbe)
     {
         this.broadcastJoinWithSmallBuildUnknownProbe = broadcastJoinWithSmallBuildUnknownProbe;
+        return this;
+    }
+
+    public boolean isAddPartialNodeForRowNumberWithLimitEnabled()
+    {
+        return this.addPartialNodeForRowNumberWithLimit;
+    }
+
+    @Config("optimizer.add-partial-node-for-row-number-with-limit")
+    @ConfigDescription("Add partial row number node for row number node with limit")
+    public FeaturesConfig setAddPartialNodeForRowNumberWithLimitEnabled(boolean addPartialNodeForRowNumberWithLimit)
+    {
+        this.addPartialNodeForRowNumberWithLimit = addPartialNodeForRowNumberWithLimit;
         return this;
     }
 }

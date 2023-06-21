@@ -275,6 +275,7 @@ public final class SystemSessionProperties
     public static final String REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN = "rewrite_cross_join_array_contains_to_inner_join";
     public static final String REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN = "rewrite_left_join_null_filter_to_semi_join";
     public static final String USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN = "use_broadcast_when_buildsize_small_probeside_unknown";
+    public static final String ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT = "add_partial_node_for_row_number_with_limit";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1597,6 +1598,11 @@ public final class SystemSessionProperties
                         USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN,
                         "Experimental: When probe side size is unknown but build size is within broadcast limit, choose broadcast join",
                         featuresConfig.isBroadcastJoinWithSmallBuildUnknownProbe(),
+                        false),
+                booleanProperty(
+                        ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT,
+                        "Add partial row number node for row number node with limit",
+                        featuresConfig.isAddPartialNodeForRowNumberWithLimitEnabled(),
                         false));
     }
 
@@ -2684,5 +2690,10 @@ public final class SystemSessionProperties
     public static boolean isUseBroadcastJoinWhenBuildSizeSmallProbeSizeUnknownEnabled(Session session)
     {
         return session.getSystemProperty(USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN, Boolean.class);
+    }
+
+    public static boolean isAddPartialNodeForRowNumberWithLimit(Session session)
+    {
+        return session.getSystemProperty(ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT, Boolean.class);
     }
 }
