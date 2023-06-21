@@ -413,6 +413,55 @@ TEST_F(DecimalArithmeticTest, round) {
           DECIMAL(38, 0))});
 }
 
+TEST_F(DecimalArithmeticTest, roundN) {
+  // Round upto 'scale' decimal places.
+  testDecimalExpr<TypeKind::BIGINT>(
+      {makeShortDecimalFlatVector({123, 552, -999, 0}, DECIMAL(4, 3))},
+      "round(c0, CAST(3 as integer))",
+      {makeShortDecimalFlatVector({123, 552, -999, 0}, DECIMAL(3, 3))});
+  // Round upto scale-1 decimal places.
+  testDecimalExpr<TypeKind::BIGINT>(
+      {makeShortDecimalFlatVector({120, 550, -1000, 0}, DECIMAL(4, 3))},
+      "round(c0, CAST(2 as integer))",
+      {makeShortDecimalFlatVector({123, 552, -999, 0}, DECIMAL(3, 3))});
+  // Round upto 0 decimal places.
+  testDecimalExpr<TypeKind::BIGINT>(
+      {makeShortDecimalFlatVector({100, 600, -1000, 0}, DECIMAL(4, 2))},
+      "round(c0, CAST(0 as integer))",
+      {makeShortDecimalFlatVector({123, 552, -999, 0}, DECIMAL(3, 2))});
+  // Round upto -1 decimal places.
+  testDecimalExpr<TypeKind::BIGINT>(
+      {makeShortDecimalFlatVector({100, 600, -1000, 0}, DECIMAL(4, 1))},
+      "round(c0, CAST(-1 as integer))",
+      {makeShortDecimalFlatVector({123, 552, -999, 0}, DECIMAL(3, 1))});
+  // Round upto -2 decimal places. Here precision == scale - decimals.
+  testDecimalExpr<TypeKind::BIGINT>(
+      {makeShortDecimalFlatVector({0, 0, 0, 0}, DECIMAL(4, 1))},
+      "round(c0, CAST(-2 as integer))",
+      {makeShortDecimalFlatVector({123, 552, -999, 0}, DECIMAL(3, 1))});
+
+  // Round up long decimals scale - 5 decimal places.
+  testDecimalExpr<TypeKind::HUGEINT>(
+      {makeLongDecimalFlatVector(
+          {1234567890123500000,
+           5000000000000000000,
+           -10'000'000'000'000'000'00,
+           0},
+          DECIMAL(20, 19))},
+      "round(c0, CAST(14 as integer))",
+      {makeLongDecimalFlatVector(
+          {1234567890123456789, 5000000000000000000, -999999999999999999, 0},
+          DECIMAL(19, 19))});
+  testDecimalExpr<TypeKind::HUGEINT>(
+      {makeLongDecimalFlatVector(
+          {1234600000000000000, 5555600000000000000, -1000000000000000000, 0},
+          DECIMAL(20, 5))},
+      "round(c0, CAST(-9 as integer))",
+      {makeLongDecimalFlatVector(
+          {1234567890123456789, 5555555555555555555, -999999999999999999, 0},
+          DECIMAL(19, 5))});
+}
+
 TEST_F(DecimalArithmeticTest, abs) {
   testDecimalExpr<TypeKind::BIGINT>(
       {makeShortDecimalFlatVector({1111, 1112, 9999, 0}, DECIMAL(5, 1))},

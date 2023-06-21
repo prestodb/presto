@@ -157,12 +157,12 @@ class DecimalUtil {
       uint8_t /*bRescale*/) {
     VELOX_CHECK_NE(b, 0, "Division by zero");
     int resultSign = 1;
-    R unsignedDividendRescaled(a);
+    A unsignedDividendRescaled(a);
     if (a < 0) {
       resultSign = -1;
       unsignedDividendRescaled *= -1;
     }
-    R unsignedDivisor(b);
+    B unsignedDivisor(b);
     if (b < 0) {
       resultSign *= -1;
       unsignedDivisor *= -1;
@@ -173,7 +173,7 @@ class DecimalUtil {
         "Decimal");
     R quotient = unsignedDividendRescaled / unsignedDivisor;
     R remainder = unsignedDividendRescaled % unsignedDivisor;
-    if (!noRoundUp && remainder * 2 >= unsignedDivisor) {
+    if (!noRoundUp && static_cast<const B>(remainder) * 2 >= unsignedDivisor) {
       ++quotient;
     }
     r = quotient * resultSign;
