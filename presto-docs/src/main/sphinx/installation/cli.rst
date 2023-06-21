@@ -9,19 +9,19 @@ JAR file that acts like a normal UNIX executable.
 
 Download :maven_download:`cli`
 
-Rename the JAR file to ``presto`` with the following command 
+Rename the JAR file to ``presto`` with the following command: 
 
     mv  :maven_download:`cli` presto
 
-Use ``chmod +x`` to make the file executable
+Use ``chmod +x`` to make the file executable:
 
     chmod +x presto
 
- then start the Presto CLI
+Start the Presto CLI using the name you gave it using the ``mv`` command:
 
-    ./presto
+  ./presto
 
-The prompt ``presto>`` is displayed. 
+The Presto CLI starts and displays the prompt ``presto>``. 
 
 To exit the Presto CLI, enter ``quit``.
 
