@@ -228,8 +228,7 @@ void PrestoServer::run() {
         nodeId_,
         nodeLocation_,
         catalogNames,
-        systemConfig->announcementMinFrequencyMs(),
-        systemConfig->announcementMaxFrequencyMs(),
+        30'000 /*milliseconds*/,
         clientCertAndKeyPath,
         ciphers);
     announcer_->start();

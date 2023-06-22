@@ -16,8 +16,6 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
-#include <folly/Random.h>
-#include <folly/futures/Retrying.h>
 #include <velox/common/memory/Memory.h>
 #include "presto_cpp/external/json/json.hpp"
 #include "presto_cpp/main/http/HttpClient.h"
@@ -82,13 +80,11 @@ Announcer::Announcer(
     const std::string& nodeId,
     const std::string& nodeLocation,
     const std::vector<std::string>& connectorIds,
-    const uint64_t minFrequencyMs,
-    const uint64_t maxFrequencyMs,
+    uint64_t frequencyMs,
     const std::string& clientCertAndKeyPath,
     const std::string& ciphers)
     : coordinatorDiscoverer_(coordinatorDiscoverer),
-      minFrequencyMs_(minFrequencyMs),
-      maxFrequencyMs_(maxFrequencyMs),
+      frequencyMs_(frequencyMs),
       announcementBody_(announcementBody(
           address,
           useHttps,
@@ -146,58 +142,34 @@ void Announcer::makeAnnouncement() {
 
   client_->sendRequest(announcementRequest_, announcementBody_)
       .via(eventBaseThread_.getEventBase())
-      .thenValue([this](auto response) {
+      .thenValue([](auto response) {
         auto message = response->headers();
         if (message->getStatusCode() != http::kHttpAccepted) {
-          ++failedAttempts_;
           LOG(WARNING) << "Announcement failed: HTTP "
                        << message->getStatusCode() << " - "
                        << response->dumpBodyChain();
         } else if (response->hasError()) {
-          ++failedAttempts_;
           LOG(ERROR) << "Announcement failed: " << response->error();
         } else {
-          failedAttempts_ = 0;
           LOG(INFO) << "Announcement succeeded: " << message->getStatusCode();
         }
       })
       .thenError(
           folly::tag_t<std::exception>{},
-          [this](const std::exception& e) {
-            ++failedAttempts_;
+          [](const std::exception& e) {
             LOG(WARNING) << "Announcement failed: " << e.what();
           })
       .thenTry([this](auto /*unused*/) { scheduleNext(); });
-}
-
-uint64_t Announcer::getAnnouncementDelay() const {
-  if (failedAttempts_ > 0) {
-    // For announcement failure cases, execute exponential back off to ping
-    // coordinator with max back off time cap at 'maxFrequencyMs_'.
-    auto rng = folly::ThreadLocalPRNG();
-    return folly::futures::detail::retryingJitteredExponentialBackoffDur(
-               failedAttempts_,
-               std::chrono::milliseconds(minFrequencyMs_),
-               std::chrono::milliseconds(maxFrequencyMs_),
-               backOffjitterParam_,
-               rng)
-        .count();
-  }
-
-  // Adds some jitter for successful cases so that all workers does not ping
-  // coordinator at the same time
-  return maxFrequencyMs_ + folly::Random::rand32(2000) - 1000;
 }
 
 void Announcer::scheduleNext() {
   if (stopped_) {
     return;
   }
-
   eventBaseThread_.getEventBase()->scheduleAt(
       [this]() { return makeAnnouncement(); },
       std::chrono::steady_clock::now() +
-          std::chrono::milliseconds(getAnnouncementDelay()));
+          std::chrono::milliseconds(frequencyMs_));
 }
 
 } // namespace facebook::presto
