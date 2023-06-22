@@ -24,8 +24,13 @@ add_library(
   TableHandle.cpp)
 
 target_link_libraries(
-  velox_hive_connector velox_connector velox_dwio_dwrf_reader
-  velox_dwio_dwrf_writer velox_file velox_hive_partition_function)
+  velox_hive_connector
+  velox_connector
+  velox_dwio_dwrf_reader
+  velox_dwio_dwrf_writer
+  velox_file
+  velox_hive_partition_function
+  velox_dwio_catalog_fbhive)
 
 add_library(velox_hive_partition_function HivePartitionFunction.cpp)
 

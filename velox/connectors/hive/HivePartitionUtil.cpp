@@ -39,8 +39,6 @@ namespace facebook::velox::connector::hive {
   }()
 
 namespace {
-// TODO(gaoge): escape path characters as in
-// https://github.com/apache/hive/blob/master/common/src/java/org/apache/hadoop/hive/common/FileUtils.java
 template <typename T>
 inline std::string makePartitionValueString(T value) {
   return folly::to<std::string>(value);
@@ -57,13 +55,12 @@ inline std::string makePartitionValueString(Date value) {
 }
 
 template <TypeKind Kind>
-std::string makePartitionKeyValueString(
+std::pair<std::string, std::string> makePartitionKeyValueString(
     const BaseVector* partitionVector,
     vector_size_t row,
     const std::string& name) {
   using T = typename TypeTraits<Kind>::NativeType;
-  return fmt::format(
-      "{}={}",
+  return std::make_pair(
       name,
       makePartitionValueString(
           partitionVector->as<SimpleVector<T>>()->valueAt(row)));
@@ -71,22 +68,19 @@ std::string makePartitionKeyValueString(
 
 } // namespace
 
-std::string makePartitionName(
+std::vector<std::pair<std::string, std::string>> extractPartitionKeyValues(
     const RowVectorPtr& partitionsVector,
     vector_size_t row) {
-  std::stringstream ss;
+  std::vector<std::pair<std::string, std::string>> partitionKeyValues;
   for (auto i = 0; i < partitionsVector->childrenSize(); i++) {
-    if (i > 0) {
-      ss << '/';
-    }
-    ss << PARTITION_TYPE_DISPATCH(
+    partitionKeyValues.push_back(PARTITION_TYPE_DISPATCH(
         makePartitionKeyValueString,
         partitionsVector->childAt(i)->typeKind(),
         partitionsVector->childAt(i)->loadedVector(),
         row,
-        asRowType(partitionsVector->type())->nameOf(i));
+        asRowType(partitionsVector->type())->nameOf(i)));
   }
-  return ss.str();
+  return partitionKeyValues;
 }
 
 } // namespace facebook::velox::connector::hive

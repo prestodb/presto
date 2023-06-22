@@ -15,6 +15,7 @@ add_library(velox_link_libs INTERFACE)
 target_link_libraries(
   velox_link_libs
   INTERFACE velox_caching
+            velox_dwio_catalog_fbhive
             velox_dwio_common
             velox_dwio_common_exception
             velox_dwio_type_fbhive
@@ -29,6 +30,7 @@ target_link_libraries(
             fmt::fmt)
 
 add_subdirectory(common)
+add_subdirectory(catalog)
 add_subdirectory(dwrf)
 add_subdirectory(parquet)
 add_subdirectory(type)

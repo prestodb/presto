@@ -17,6 +17,9 @@
 #include "velox/connectors/hive/PartitionIdGenerator.h"
 
 #include "velox/connectors/hive/HivePartitionUtil.h"
+#include "velox/dwio/catalog/fbhive/FileUtils.h"
+
+using namespace facebook::velox::dwio::catalog::fbhive;
 
 namespace facebook::velox::connector::hive {
 
@@ -89,7 +92,8 @@ void PartitionIdGenerator::run(
 }
 
 std::string PartitionIdGenerator::partitionName(uint64_t partitionId) const {
-  return makePartitionName(partitionValues_, partitionId);
+  return FileUtils::makePartName(
+      extractPartitionKeyValues(partitionValues_, partitionId));
 }
 
 void PartitionIdGenerator::computeValueIds(

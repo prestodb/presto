@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_dwio_common_exception Exception.cpp Exceptions.cpp)
+add_library(velox_dwio_catalog_fbhive FileUtils.cpp)
+target_link_libraries(velox_dwio_catalog_fbhive velox_dwio_common_exception
+                      fmt::fmt Folly::folly)
 
-target_link_libraries(velox_dwio_common_exception velox_exception Folly::folly
-                      glog::glog)
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(test)
+endif()
