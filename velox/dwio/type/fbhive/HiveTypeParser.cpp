@@ -106,6 +106,15 @@ Result HiveTypeParser::parseType() {
     auto scalarType = createScalarType(nt.typeKind());
     DWIO_ENSURE_NOT_NULL(
         scalarType, "Returned a null scalar type for ", nt.typeKind());
+    if (nt.metadata->tokenType == TokenType::String &&
+        lookAhead() == TokenType::LeftRoundBracket) {
+      eatToken(TokenType::LeftRoundBracket);
+      Token length = nextToken();
+      VELOX_CHECK(
+          isPositiveInteger(length.value.toString()),
+          "Varchar length must be a positive integer");
+      eatToken(TokenType::RightRoundBracket);
+    }
     return Result{scalarType};
   } else if (nt.isValidType()) {
     ResultList resultList = parseTypeList(TypeKind::ROW == nt.typeKind());
