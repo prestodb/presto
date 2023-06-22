@@ -1675,6 +1675,37 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       toRowType(node->outputVariables));
 }
 
+velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::SemiJoinNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  std::vector<core::FieldAccessTypedExprPtr> leftKeys;
+  std::vector<core::FieldAccessTypedExprPtr> rightKeys;
+
+  leftKeys.push_back(exprConverter_.toVeloxExpr(node->sourceJoinVariable));
+  rightKeys.push_back(
+      exprConverter_.toVeloxExpr(node->filteringSourceJoinVariable));
+
+  auto left = toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
+  auto right = toVeloxQueryPlan(node->filteringSource, tableWriteInfo, taskId);
+
+  std::vector<std::string> outputNames = left->outputType()->names();
+  outputNames.push_back(node->semiJoinOutput.name);
+  std::vector<TypePtr> outputTypes = left->outputType()->children();
+  outputTypes.push_back(BOOLEAN());
+
+  return std::make_shared<core::HashJoinNode>(
+      node->id,
+      core::JoinType::kLeftSemiProject,
+      true, // nullAware
+      leftKeys,
+      rightKeys,
+      nullptr, // filter
+      left,
+      right,
+      ROW(std::move(outputNames), std::move(outputTypes)));
+}
+
 core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::MarkDistinctNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
@@ -2085,6 +2116,10 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     return toVeloxQueryPlan(distinctLimit, tableWriteInfo, taskId);
   }
   if (auto join = std::dynamic_pointer_cast<const protocol::JoinNode>(node)) {
+    return toVeloxQueryPlan(join, tableWriteInfo, taskId);
+  }
+  if (auto join =
+          std::dynamic_pointer_cast<const protocol::SemiJoinNode>(node)) {
     return toVeloxQueryPlan(join, tableWriteInfo, taskId);
   }
   if (auto join =
