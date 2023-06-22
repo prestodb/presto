@@ -37,6 +37,7 @@
 #include <folly/futures/Future.h>
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/file/Region.h"
 
 namespace facebook::velox {
 
@@ -85,10 +86,20 @@ class ReadFile {
   // Vectorized read API. Implementations can coalesce and parallelize.
   // It is different to the preadv above because we can add a label to the
   // segment and because the offsets don't need to be sorted.
-  // In the preadv above offsets of buffers are always
   //
   // This method should be thread safe.
   virtual void preadv(const std::vector<Segment>& segments) const;
+
+  // Vectorized read API. Implementations can coalesce and parallelize.
+  // The offsets don't need to be sorted.
+  // `output` is a pointer to an array of IOBufs to store the read data. They
+  // will be stored in the same order as the input `regions` vector. So the
+  // array must be pre-allocated by the caller, with the same size as `regions`.
+  //
+  // This method should be thread safe.
+  virtual void preadv(
+      const std::vector<common::Region>& regions,
+      folly::IOBuf* output) const;
 
   // Like preadv but may execute asynchronously and returns the read
   // size or exception via SemiFuture. Use hasPreadvAsync() to check

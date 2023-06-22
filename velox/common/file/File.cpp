@@ -59,6 +59,17 @@ void ReadFile::preadv(const std::vector<ReadFile::Segment>& segments) const {
   }
 }
 
+void ReadFile::preadv(
+    const std::vector<common::Region>& regions,
+    folly::IOBuf* output) const {
+  for (const auto& region : regions) {
+    *output = folly::IOBuf(folly::IOBuf::CREATE, region.length);
+    pread(region.offset, region.length, output->writableData());
+    output->append(region.length);
+    ++output;
+  }
+}
+
 std::string_view
 InMemoryReadFile::pread(uint64_t offset, uint64_t length, void* buf) const {
   bytesRead_ += length;

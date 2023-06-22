@@ -24,6 +24,7 @@
 #include "gtest/gtest.h"
 
 using namespace facebook::velox;
+using facebook::velox::common::Region;
 
 constexpr int kOneMB = 1 << 20;
 
@@ -95,16 +96,43 @@ TEST(InMemoryFile, preadv) {
   // aaaaa bbbbb c*1MB ddddd
   InMemoryReadFile readFile(buf);
   std::vector<std::string> buffers = {"1234", "567", "something else", "890"};
-  std::vector<std::string> expected = {"1ab4", "567", "scccdding else", "ddd"};
+  std::vector<std::string> expected = {"1ab4", "5b7", "scccdding else", "ddd"};
   std::vector<ReadFile::Segment> readSegments = std::vector<ReadFile::Segment>{
       {4, folly::Range<char*>{&buffers[0][1], 2UL}, {}},
-      {0, folly::Range<char*>{&buffers[1][1], 0UL}, {}},
+      {5, folly::Range<char*>{&buffers[1][1], 1UL}, {}},
       {5 + 5 + kOneMB - 3, {&buffers[2][1], 5UL}, {}},
       {5 + 5 + kOneMB + 2, {&buffers[3][0], 3UL}, {}}};
 
   readFile.preadv(readSegments);
 
   EXPECT_EQ(expected, buffers);
+}
+
+TEST(InMemoryFile, preadv2) {
+  std::string buf;
+  {
+    InMemoryWriteFile writeFile(&buf);
+    writeData(&writeFile);
+  }
+  // aaaaa bbbbb c*1MB ddddd
+  InMemoryReadFile readFile(buf);
+  std::vector<std::string> expected = {"ab", "a", "cccdd", "ddd"};
+  std::vector<Region> readRegions = std::vector<Region>{
+      {4, 2UL, {}},
+      {0, 1UL, {}},
+      {5 + 5 + kOneMB - 3, 5UL, {}},
+      {5 + 5 + kOneMB + 2, 3UL, {}}};
+
+  std::vector<folly::IOBuf> iobufs(readRegions.size());
+  readFile.preadv(readRegions, iobufs.data());
+  std::vector<std::string> values;
+  values.reserve(iobufs.size());
+  for (auto& iobuf : iobufs) {
+    values.push_back(std::string{
+        reinterpret_cast<const char*>(iobuf.data()), iobuf.length()});
+  }
+
+  EXPECT_EQ(expected, values);
 }
 
 TEST(LocalFile, writeAndRead) {
