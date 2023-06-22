@@ -897,6 +897,8 @@ DEBUG_ONLY_TEST_F(TaskTest, outputDriverFinishEarly) {
   ContinueFuture valueFuture = valuePromise.getSemiFuture();
   ContinuePromise driverPromise("driverPromise");
   ContinueFuture driverFuture = driverPromise.getSemiFuture();
+  ContinuePromise noMoreInputPromise("noMoreInputPromise");
+  ContinueFuture noMoreInputFuture = noMoreInputPromise.getSemiFuture();
 
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::Values::getOutput",
@@ -906,9 +908,26 @@ DEBUG_ONLY_TEST_F(TaskTest, outputDriverFinishEarly) {
             if (values->testingCurrent() != 1) {
               return;
             }
+            noMoreInputPromise.setValue();
             std::move(valueFuture).wait();
             driverPromise.setValue();
           })));
+
+  // There's two Drivers on two separate threads that are run with a LocalMerge
+  // in between.  It's possible that the Driver executing the Values operator
+  // gets through one iteration, then the Driver executing the Limit operator
+  // gets through one iteration, at which point the Task is terminated.  To
+  // ensure the Driver executing the Values operator gets to the second
+  // iteration, we wait on the future here at the CallbackSink following the
+  // Limit operator.
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::noMoreInput",
+      std::function<void(Operator*)>(([&](Operator* op) {
+        if (op->operatorType() != "CallbackSink") {
+          return;
+        }
+        std::move(noMoreInputFuture).wait();
+      })));
 
   CursorParameters params;
   params.planNode = plan;
