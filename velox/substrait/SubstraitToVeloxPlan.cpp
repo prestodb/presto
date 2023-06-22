@@ -439,6 +439,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     assignments[outName] = std::make_shared<connector::hive::HiveColumnHandle>(
         colNameList[idx],
         connector::hive::HiveColumnHandle::ColumnType::kRegular,
+        veloxTypeList[idx],
         veloxTypeList[idx]);
     outNames.emplace_back(outName);
   }

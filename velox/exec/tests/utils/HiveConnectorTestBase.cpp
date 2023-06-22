@@ -134,6 +134,15 @@ HiveConnectorTestBase::makeColumnHandle(
     const std::string& name,
     const TypePtr& type,
     const std::vector<std::string>& requiredSubfields) {
+  return makeColumnHandle(name, type, type, requiredSubfields);
+}
+
+std::shared_ptr<connector::hive::HiveColumnHandle>
+HiveConnectorTestBase::makeColumnHandle(
+    const std::string& name,
+    const TypePtr& dataType,
+    const TypePtr& hiveType,
+    const std::vector<std::string>& requiredSubfields) {
   std::vector<common::Subfield> subfields;
   subfields.reserve(requiredSubfields.size());
   for (auto& path : requiredSubfields) {
@@ -143,7 +152,8 @@ HiveConnectorTestBase::makeColumnHandle(
   return std::make_shared<connector::hive::HiveColumnHandle>(
       name,
       connector::hive::HiveColumnHandle::ColumnType::kRegular,
-      type,
+      dataType,
+      hiveType,
       std::move(subfields));
 }
 
@@ -228,12 +238,14 @@ HiveConnectorTestBase::makeHiveInsertTableHandle(
           std::make_shared<connector::hive::HiveColumnHandle>(
               tableColumnNames.at(i),
               connector::hive::HiveColumnHandle::ColumnType::kPartitionKey,
+              tableColumnTypes.at(i),
               tableColumnTypes.at(i)));
     } else {
       columnHandles.push_back(
           std::make_shared<connector::hive::HiveColumnHandle>(
               tableColumnNames.at(i),
               connector::hive::HiveColumnHandle::ColumnType::kRegular,
+              tableColumnTypes.at(i),
               tableColumnTypes.at(i)));
     }
   }
@@ -249,7 +261,10 @@ HiveConnectorTestBase::regularColumn(
     const std::string& name,
     const TypePtr& type) {
   return std::make_shared<connector::hive::HiveColumnHandle>(
-      name, connector::hive::HiveColumnHandle::ColumnType::kRegular, type);
+      name,
+      connector::hive::HiveColumnHandle::ColumnType::kRegular,
+      type,
+      type);
 }
 
 std::shared_ptr<connector::hive::HiveColumnHandle>
@@ -257,7 +272,10 @@ HiveConnectorTestBase::synthesizedColumn(
     const std::string& name,
     const TypePtr& type) {
   return std::make_shared<connector::hive::HiveColumnHandle>(
-      name, connector::hive::HiveColumnHandle::ColumnType::kSynthesized, type);
+      name,
+      connector::hive::HiveColumnHandle::ColumnType::kSynthesized,
+      type,
+      type);
 }
 
 std::shared_ptr<connector::hive::HiveColumnHandle>
@@ -265,7 +283,10 @@ HiveConnectorTestBase::partitionKey(
     const std::string& name,
     const TypePtr& type) {
   return std::make_shared<connector::hive::HiveColumnHandle>(
-      name, connector::hive::HiveColumnHandle::ColumnType::kPartitionKey, type);
+      name,
+      connector::hive::HiveColumnHandle::ColumnType::kPartitionKey,
+      type,
+      type);
 }
 
 } // namespace facebook::velox::exec::test

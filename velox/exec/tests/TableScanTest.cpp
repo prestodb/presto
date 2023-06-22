@@ -329,6 +329,7 @@ TEST_F(TableScanTest, subfieldPruningRowType) {
       "e",
       HiveColumnHandle::ColumnType::kRegular,
       columnType,
+      columnType,
       std::move(requiredSubfields));
   auto op = PlanBuilder()
                 .tableScan(rowType, makeTableHandle(), assignments)
@@ -380,6 +381,7 @@ TEST_F(TableScanTest, subfieldPruningRemainingFilterSubfieldsMissing) {
       "e",
       HiveColumnHandle::ColumnType::kRegular,
       columnType,
+      columnType,
       std::move(requiredSubfields));
 
   auto op = PlanBuilder()
@@ -413,7 +415,7 @@ TEST_F(TableScanTest, subfieldPruningRemainingFilterRootFieldMissing) {
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
       assignments;
   assignments["d"] = std::make_shared<HiveColumnHandle>(
-      "d", HiveColumnHandle::ColumnType::kRegular, BIGINT());
+      "d", HiveColumnHandle::ColumnType::kRegular, BIGINT(), BIGINT());
   auto op = PlanBuilder()
                 .tableScan(
                     ROW({{"d", BIGINT()}}),
@@ -477,6 +479,7 @@ TEST_F(TableScanTest, subfieldPruningMapType) {
   assignments["c"] = std::make_shared<HiveColumnHandle>(
       "c",
       HiveColumnHandle::ColumnType::kRegular,
+      mapType,
       mapType,
       std::move(requiredSubfields));
   auto op = PlanBuilder()
@@ -546,6 +549,7 @@ TEST_F(TableScanTest, subfieldPruningArrayType) {
   assignments["c"] = std::make_shared<HiveColumnHandle>(
       "c",
       HiveColumnHandle::ColumnType::kRegular,
+      arrayType,
       arrayType,
       std::move(requiredSubfields));
   auto op = PlanBuilder()

@@ -56,6 +56,7 @@ folly::dynamic HiveColumnHandle::serialize() const {
   obj["hiveColumnHandleName"] = name_;
   obj["columnType"] = columnTypeName(columnType_);
   obj["dataType"] = dataType_->serialize();
+  obj["hiveType"] = hiveType_->serialize();
   folly::dynamic requiredSubfields = folly::dynamic::array;
   for (const auto& subfield : requiredSubfields_) {
     requiredSubfields.push_back(subfield.toString());
@@ -83,6 +84,7 @@ ColumnHandlePtr HiveColumnHandle::create(const folly::dynamic& obj) {
   auto name = obj["hiveColumnHandleName"].asString();
   auto columnType = columnTypeFromName(obj["columnType"].asString());
   auto dataType = ISerializable::deserialize<Type>(obj["dataType"]);
+  auto hiveType = ISerializable::deserialize<Type>(obj["hiveType"]);
 
   const auto& arr = obj["requiredSubfields"];
   std::vector<common::Subfield> requiredSubfields;
@@ -92,7 +94,7 @@ ColumnHandlePtr HiveColumnHandle::create(const folly::dynamic& obj) {
   }
 
   return std::make_shared<HiveColumnHandle>(
-      name, columnType, dataType, std::move(requiredSubfields));
+      name, columnType, dataType, hiveType, std::move(requiredSubfields));
 }
 
 void HiveColumnHandle::registerSerDe() {

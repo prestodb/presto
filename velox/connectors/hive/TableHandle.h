@@ -30,15 +30,42 @@ class HiveColumnHandle : public ColumnHandle {
  public:
   enum class ColumnType { kPartitionKey, kRegular, kSynthesized };
 
+  /// NOTE: 'dataType' is the column type in target write table. 'hiveType' is
+  /// converted type of the corresponding column in source table which might not
+  /// be the same type, and the table scan needs to do data coercion if needs.
+  /// The table writer also needs to respect the type difference when processing
+  /// input data such as bucket id calculation.
+  HiveColumnHandle(
+      const std::string& name,
+      ColumnType columnType,
+      TypePtr dataType,
+      TypePtr hiveType,
+      std::vector<common::Subfield> requiredSubfields = {})
+      : name_(name),
+        columnType_(columnType),
+        dataType_(std::move(dataType)),
+        hiveType_(std::move(hiveType)),
+        requiredSubfields_(std::move(requiredSubfields)) {
+    VELOX_USER_CHECK(
+        dataType_->equivalent(*hiveType_),
+        "data type {} and hive type {} do not match",
+        dataType_->toString(),
+        hiveType_->toString());
+  }
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   HiveColumnHandle(
       const std::string& name,
       ColumnType columnType,
       TypePtr dataType,
       std::vector<common::Subfield> requiredSubfields = {})
-      : name_(name),
-        columnType_(columnType),
-        dataType_(std::move(dataType)),
-        requiredSubfields_(std::move(requiredSubfields)) {}
+      : HiveColumnHandle(
+            name,
+            columnType,
+            dataType,
+            dataType,
+            std::move(requiredSubfields)) {}
+#endif
 
   const std::string& name() const {
     return name_;
@@ -50,6 +77,10 @@ class HiveColumnHandle : public ColumnHandle {
 
   const TypePtr& dataType() const {
     return dataType_;
+  }
+
+  const TypePtr& hiveType() const {
+    return hiveType_;
   }
 
   // Applies to columns of complex types: arrays, maps and structs.  When a
@@ -91,6 +122,7 @@ class HiveColumnHandle : public ColumnHandle {
   const std::string name_;
   const ColumnType columnType_;
   const TypePtr dataType_;
+  const TypePtr hiveType_;
   const std::vector<common::Subfield> requiredSubfields_;
 };
 
