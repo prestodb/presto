@@ -235,12 +235,6 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kSkipRuntimeStatsInRunningTaskInfo{
       "skip-runtime-stats-in-running-task-info"};
 
-  static constexpr std::string_view kAnnouncementMinFrequencyMs{
-      "announcement-min-frequency-ms"};
-
-  static constexpr std::string_view kAnnouncementMaxFrequencyMs{
-      "announcement-max-frequency-ms"};
-
   SystemConfig();
 
   static SystemConfig* instance();
@@ -345,10 +339,6 @@ class SystemConfig : public ConfigBase {
   bool enableMemoryLeakCheck() const;
 
   bool skipRuntimeStatsInRunningTaskInfo() const;
-
-  uint64_t announcementMinFrequencyMs() const;
-
-  uint64_t announcementMaxFrequencyMs() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
