@@ -41,15 +41,14 @@ class PartitionAndSerializeOperator : public Operator {
             planNode->id(),
             "PartitionAndSerialize"),
         numPartitions_(planNode->numPartitions()),
-        replicateNullsAndAny_(planNode->isReplicateNullsAndAny()),
+        serializedRowType_{planNode->serializedRowType()},
+        keyChannels_(
+            toChannels(planNode->sources()[0]->outputType(), planNode->keys())),
         partitionFunction_(
             numPartitions_ == 1 ? nullptr
                                 : planNode->partitionFunctionFactory()->create(
                                       planNode->numPartitions())),
-        serializedRowType_{planNode->serializedRowType()},
-        keyChannels_(toChannels(
-            planNode->sources()[0]->outputType(),
-            planNode->keys())) {
+        replicateNullsAndAny_(planNode->isReplicateNullsAndAny()) {
     const auto& inputType = planNode->sources()[0]->outputType()->asRow();
     const auto& serializedRowTypeNames = serializedRowType_->names();
     bool identityMapping = true;

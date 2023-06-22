@@ -96,9 +96,9 @@ Announcer::Announcer(
       announcementRequest_(
           announcementRequest(address, port, nodeId, announcementBody_)),
       pool_(velox::memory::addDefaultLeafMemoryPool("Announcer")),
+      eventBaseThread_(false /*autostart*/),
       clientCertAndKeyPath_(clientCertAndKeyPath),
-      ciphers_(ciphers),
-      eventBaseThread_(false /*autostart*/) {}
+      ciphers_(ciphers) {}
 
 void Announcer::start() {
   eventBaseThread_.start("Announcer");
