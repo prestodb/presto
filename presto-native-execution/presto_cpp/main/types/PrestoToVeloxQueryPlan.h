@@ -35,7 +35,7 @@ class VeloxQueryPlanConverterBase {
   explicit VeloxQueryPlanConverterBase(
       velox::core::QueryCtx* queryCtx,
       velox::memory::MemoryPool* pool)
-      : queryCtx_{queryCtx}, pool_(pool), exprConverter_(pool) {}
+      : pool_(pool), queryCtx_{queryCtx}, exprConverter_(pool) {}
 
   virtual ~VeloxQueryPlanConverterBase() = default;
 
