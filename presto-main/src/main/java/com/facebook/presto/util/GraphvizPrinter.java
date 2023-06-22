@@ -49,6 +49,7 @@ import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -105,13 +106,13 @@ public final class GraphvizPrinter
         TABLESCAN,
         VALUES,
         JOIN,
+        MERGE_JOIN,
         SINK,
         WINDOW,
         UNION,
         SORT,
         SAMPLE,
         MARK_DISTINCT,
-        NATIVE_EXECUTION,
         TABLE_WRITER,
         TABLE_WRITER_MERGE,
         TABLE_FINISH,
@@ -132,12 +133,12 @@ public final class GraphvizPrinter
             .put(NodeType.TABLESCAN, "deepskyblue")
             .put(NodeType.VALUES, "deepskyblue")
             .put(NodeType.JOIN, "orange")
+            .put(NodeType.MERGE_JOIN, "grey")
             .put(NodeType.SORT, "aliceblue")
             .put(NodeType.SINK, "indianred1")
             .put(NodeType.WINDOW, "darkolivegreen4")
             .put(NodeType.UNION, "turquoise4")
             .put(NodeType.MARK_DISTINCT, "violet")
-            .put(NodeType.NATIVE_EXECUTION, "grey")
             .put(NodeType.TABLE_WRITER, "cyan")
             .put(NodeType.TABLE_WRITER_MERGE, "cyan4")
             .put(NodeType.TABLE_FINISH, "hotpink")
@@ -575,6 +576,17 @@ public final class GraphvizPrinter
         public Void visitSpatialJoin(SpatialJoinNode node, Void context)
         {
             printNode(node, node.getType().getJoinLabel(), formatter.apply(node.getFilter()), NODE_COLORS.get(NodeType.JOIN));
+
+            node.getLeft().accept(this, context);
+            node.getRight().accept(this, context);
+
+            return null;
+        }
+
+        @Override
+        public Void visitMergeJoin(MergeJoinNode node, Void context)
+        {
+            printNode(node, "MergeJoin", NODE_COLORS.get(NodeType.MERGE_JOIN));
 
             node.getLeft().accept(this, context);
             node.getRight().accept(this, context);
