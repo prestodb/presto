@@ -1052,9 +1052,14 @@ public class InternalResourceGroup
             if (resourceGroupRuntimeInfo.isPresent()) {
                 totalRunningQueries += resourceGroupRuntimeInfo.get().getRunningQueries() + resourceGroupRuntimeInfo.get().getDescendantRunningQueries();
             }
-            int activeWorkerCount = getActiveWorkerCount();
 
-            return totalRunningQueries < hardConcurrencyLimit && cachedMemoryUsageBytes <= softMemoryLimitBytes && totalRunningQueries * workersPerQueryLimit <= activeWorkerCount;
+            boolean hasEnoughActiveWorkers = true;
+            //If workersPerQueryLimit is not set, no need to check for activeWorkerCount
+            if (workersPerQueryLimit != 0) {
+                int activeWorkerCount = getActiveWorkerCount();
+                hasEnoughActiveWorkers = totalRunningQueries * workersPerQueryLimit <= activeWorkerCount;
+            }
+            return totalRunningQueries < hardConcurrencyLimit && cachedMemoryUsageBytes <= softMemoryLimitBytes && hasEnoughActiveWorkers;
         }
     }
 
