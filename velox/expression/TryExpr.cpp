@@ -82,7 +82,8 @@ void applyListenersOnError(
   exprSetListeners().withRLock([&](auto& listeners) {
     if (!listeners.empty()) {
       for (auto& listener : listeners) {
-        listener->onError(*errorRows, *errors);
+        listener->onError(
+            *errorRows, *errors, context.execCtx()->queryCtx()->queryId());
       }
     }
   });
