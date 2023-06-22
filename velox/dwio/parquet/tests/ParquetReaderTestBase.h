@@ -90,10 +90,9 @@ class ParquetReaderTestBase : public testing::Test {
 
     while (total < expected->size()) {
       auto part = reader.next(1000, result);
-      EXPECT_GT(part, 0);
       if (part > 0) {
         assertEqualVectorPart(expected, result, total);
-        total += part;
+        total += result->size();
       } else {
         break;
       }

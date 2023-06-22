@@ -16,6 +16,7 @@
 
 #include "velox/dwio/parquet/reader/ParquetReader.h"
 #include "velox/dwio/parquet/tests/ParquetReaderTestBase.h"
+#include "velox/expression/ExprToSubfieldFilter.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::common;
@@ -267,4 +268,24 @@ TEST_F(ParquetReaderTest, parseIntDecimal) {
     EXPECT_EQ(b[index], expectValues[i]);
     EXPECT_EQ(b[index + 1], expectValues[i]);
   }
+}
+
+TEST_F(ParquetReaderTest, intMultipleFilters) {
+  // Filter int BETWEEN 102 AND 120 AND bigint BETWEEN 900 AND 1006.
+  FilterMap filters;
+  filters.insert({"int", exec::between(102, 120)});
+  filters.insert({"bigint", exec::between(900, 1006)});
+
+  auto expected = vectorMaker_->rowVector(
+      {rangeVector<int32_t>(5, 102), rangeVector<int64_t>(5, 1002)});
+
+  const auto filePath(getExampleFilePath("int.parquet"));
+  ReaderOptions readerOpts{defaultPool.get()};
+  auto reader = createReader(filePath, readerOpts);
+  assertReadWithReaderAndFilters(
+      std::make_unique<ParquetReader>(reader),
+      "int.parquet",
+      intSchema(),
+      std::move(filters),
+      expected);
 }
