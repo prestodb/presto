@@ -47,7 +47,6 @@ struct LocalShuffleWriteInfo {
 struct LocalShuffleReadInfo {
   std::string rootPath;
   std::string queryId;
-  uint32_t numPartitions;
   std::vector<std::string> partitionIds;
 
   /// Deserializes shuffle information that is used by LocalPersistentShuffle.
@@ -105,20 +104,20 @@ class LocalPersistentShuffleWriter : public ShuffleWriter {
       const std::string& root,
       int32_t partition) const;
 
-  const uint64_t maxBytesPerPartition_;
-
+  // Used to make sure files created by this thread have unique names.
+  const std::thread::id threadId_;
   velox::memory::MemoryPool* FOLLY_NONNULL pool_;
-  uint32_t numPartitions_;
+  const uint32_t numPartitions_;
+  const uint64_t maxBytesPerPartition_;
+  // The top directory of the shuffle files and its file system.
+  const std::string rootPath_;
+  const std::string queryId_;
+  const uint32_t shuffleId_;
+
   /// The latest written block buffers and sizes.
   std::vector<velox::BufferPtr> inProgressPartitions_;
   std::vector<size_t> inProgressSizes_;
-  // The top directory of the shuffle files and its file system.
-  std::string rootPath_;
-  std::string queryId_;
-  uint32_t shuffleId_;
   std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
-  // Used to make sure files created by this thread have unique names.
-  std::thread::id threadId_;
 };
 
 class LocalPersistentShuffleReader : public ShuffleReader {
@@ -127,7 +126,6 @@ class LocalPersistentShuffleReader : public ShuffleReader {
       const std::string& rootPath,
       const std::string& queryId,
       std::vector<std::string> partitionIds_,
-      const int32_t partition,
       velox::memory::MemoryPool* FOLLY_NONNULL pool);
 
   bool hasNext() override;
@@ -145,10 +143,9 @@ class LocalPersistentShuffleReader : public ShuffleReader {
   // Returns all created shuffle files for 'partition_'.
   std::vector<std::string> getReadPartitionFiles() const;
 
-  std::string rootPath_;
-  std::string queryId_;
-  std::vector<std::string> partitionIds_;
-  int32_t partition_;
+  const std::string rootPath_;
+  const std::string queryId_;
+  const std::vector<std::string> partitionIds_;
   velox::memory::MemoryPool* FOLLY_NONNULL pool_;
 
   // Latest read block (file) index in 'readPartitionFiles_' for 'partition_'.

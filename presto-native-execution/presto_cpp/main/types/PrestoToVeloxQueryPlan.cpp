@@ -2441,6 +2441,7 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
 
   planFragment.planNode = std::make_shared<operators::ShuffleWriteNode>(
       "root",
+      partitionedOutputNode->numPartitions(),
       shuffleName_,
       std::move(*serializedShuffleWriteInfo_),
       core::LocalPartitionNode::gather(
