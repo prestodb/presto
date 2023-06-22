@@ -31,4 +31,16 @@ bool CoalesceIfDistanceLE::operator()(
   return gap <= maxCoalescingDistance_;
 }
 
+bool CoalesceIfDistanceLE::operator()(
+    const velox::common::Region& a,
+    const velox::common::Region& b) const {
+  VELOX_CHECK_LE(a.offset, b.offset, "Regions to combine must be sorted.");
+  const uint64_t beginGap = a.offset + a.length, endGap = b.offset;
+
+  VELOX_CHECK_LE(beginGap, endGap, "Regions to combine can't overlap.");
+  const uint64_t gap = endGap - beginGap;
+
+  return gap <= maxCoalescingDistance_;
+}
+
 } // namespace facebook::velox::file::utils

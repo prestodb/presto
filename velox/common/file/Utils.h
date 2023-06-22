@@ -20,6 +20,7 @@
 
 #include "folly/io/Cursor.h"
 #include "velox/common/file/File.h"
+#include "velox/common/file/Region.h"
 
 namespace facebook::velox::file::utils {
 
@@ -109,6 +110,10 @@ class CoalesceIfDistanceLE {
       : maxCoalescingDistance_(maxCoalescingDistance) {}
 
   bool operator()(const ReadFile::Segment& a, const ReadFile::Segment& b) const;
+
+  bool operator()(
+      const velox::common::Region& a,
+      const velox::common::Region& b) const;
 
  private:
   uint64_t maxCoalescingDistance_;
