@@ -16,7 +16,7 @@ Rename the JAR file to ``presto`` with the following command:
 
     mv  :maven_download:`cli` presto
 
-Use ``chmod +x`` to make the file executable:
+Use ``chmod +x`` to make the renamed file executable:
 
     chmod +x presto
 
@@ -43,7 +43,9 @@ To connect to a Presto server, run the CLI with the ``--server`` option.
     ./presto --server localhost:8080 --catalog hive --schema default
 
 ``localhost:8080`` is the default for a Presto server, so if you have a Presto server running locally you can 
-leave it off. To connect to a remote Presto server, use the Presto endpoint URL as in 
+leave it off. 
+
+To connect to a remote Presto server, use the Presto endpoint URL as in 
 the following example command
 
    ./presto --server http://www.example.net:8080
