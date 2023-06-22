@@ -48,6 +48,8 @@ class HashAggregation : public Operator {
   void close() override;
 
  private:
+  void updateRuntimeStats();
+
   void prepareOutput(vector_size_t size);
 
   // Invoked to reset partial aggregation state if it was full and has been

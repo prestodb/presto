@@ -264,6 +264,7 @@ TEST_F(PrintPlanWithStatsTest, partialAggregateWithTableScan) {
         {{"-- Aggregation\\[PARTIAL \\[c5\\] a0 := max\\(ROW\\[\"c0\"\\]\\), a1 := sum\\(ROW\\[\"c1\"\\]\\), a2 := sum\\(ROW\\[\"c2\"\\]\\), a3 := sum\\(ROW\\[\"c3\"\\]\\), a4 := sum\\(ROW\\[\"c4\"\\]\\)\\] -> c5:VARCHAR, a0:BIGINT, a1:BIGINT, a2:BIGINT, a3:DOUBLE, a4:DOUBLE"},
          {"   Output: .+, Cpu time: .+, Blocked wall time: .+, Peak memory: .+, Memory allocations: .+, Threads: 1"},
          {"      dataSourceLazyWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},
+         {"      distinctKey0\\s+sum: .+, count: 1, min: .+, max: .+"},
          {"      hashtable.capacity\\s+sum: 1252, count: 1, min: 1252, max: 1252"},
          {"      hashtable.numDistinct\\s+sum: 835, count: 1, min: 835, max: 835"},
          {"      hashtable.numRehashes\\s+sum: 1, count: 1, min: 1, max: 1"},
