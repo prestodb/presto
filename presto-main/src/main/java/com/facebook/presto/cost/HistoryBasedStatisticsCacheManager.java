@@ -32,6 +32,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.spi.statistics.HistoricalPlanStatistics.empty;
+
 public class HistoryBasedStatisticsCacheManager
 {
     // Cache historical statistics of plan node.
@@ -42,7 +44,7 @@ public class HistoryBasedStatisticsCacheManager
 
     public HistoryBasedStatisticsCacheManager() {}
 
-    public LoadingCache<PlanNodeWithHash, HistoricalPlanStatistics> getStatisticsCache(QueryId queryId, Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider)
+    public LoadingCache<PlanNodeWithHash, HistoricalPlanStatistics> getStatisticsCache(QueryId queryId, Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider, int timeoutInMilliSeconds)
     {
         return statisticsCache.computeIfAbsent(queryId, ignored -> CacheBuilder.newBuilder()
                 .build(new CacheLoader<PlanNodeWithHash, HistoricalPlanStatistics>()
@@ -56,10 +58,10 @@ public class HistoryBasedStatisticsCacheManager
                     @Override
                     public Map<PlanNodeWithHash, HistoricalPlanStatistics> loadAll(Iterable<? extends PlanNodeWithHash> keys)
                     {
-                        Map<PlanNodeWithHash, HistoricalPlanStatistics> statistics = new HashMap<>(historyBasedPlanStatisticsProvider.get().getStats(ImmutableList.copyOf(keys)));
+                        Map<PlanNodeWithHash, HistoricalPlanStatistics> statistics = new HashMap<>(historyBasedPlanStatisticsProvider.get().getStats(ImmutableList.copyOf(keys), timeoutInMilliSeconds));
                         // loadAll excepts all keys to be written
                         for (PlanNodeWithHash key : keys) {
-                            statistics.putIfAbsent(key, HistoricalPlanStatistics.empty());
+                            statistics.putIfAbsent(key, empty());
                         }
                         return ImmutableMap.copyOf(statistics);
                     }

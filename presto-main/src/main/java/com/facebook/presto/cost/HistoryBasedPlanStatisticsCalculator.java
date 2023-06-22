@@ -15,6 +15,8 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
+import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeWithHash;
@@ -38,9 +40,11 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
 import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.cost.HistoricalPlanStatisticsUtil.getPredictedPlanStatistics;
+import static com.facebook.presto.spi.StandardWarningCode.QUERY_OPTIMIZER_FAILURE;
 import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.graph.Traverser.forTree;
@@ -93,7 +97,12 @@ public class HistoryBasedPlanStatisticsCalculator
             }
         });
         try {
-            historyBasedStatisticsCacheManager.getStatisticsCache(session.getQueryId(), historyBasedPlanStatisticsProvider).getAll(planNodesWithHash.build());
+            Map<PlanNodeWithHash, HistoricalPlanStatistics> loadedStats = historyBasedStatisticsCacheManager.getStatisticsCache(session.getQueryId(), historyBasedPlanStatisticsProvider, getHistoryBasedOptimizerTimeoutLimit(session)).getAll(planNodesWithHash.build());
+            if (loadedStats.values().stream().allMatch(x -> x.equals(HistoricalPlanStatistics.empty())))
+            {
+                session.getWarningCollector().add((new PrestoWarning(QUERY_OPTIMIZER_FAILURE, format("'%s' failed to load history query statistics", HistoryBasedPlanStatisticsCalculator.class.getSimpleName()))));
+                session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(HistoryBasedPlanStatisticsCalculator.class.getSimpleName(), false, Optional.empty(), Optional.of(true)));
+            }
         }
         catch (ExecutionException e) {
             throw new RuntimeException("Unable to register plan: ", e.getCause());
@@ -147,7 +156,7 @@ public class HistoryBasedPlanStatisticsCalculator
         Map<PlanNodeWithHash, HistoricalPlanStatistics> statistics = ImmutableMap.of();
         try {
             statistics = historyBasedStatisticsCacheManager
-                    .getStatisticsCache(session.getQueryId(), historyBasedPlanStatisticsProvider)
+                    .getStatisticsCache(session.getQueryId(), historyBasedPlanStatisticsProvider, getHistoryBasedOptimizerTimeoutLimit(session))
                     .getAll(allHashes.values().stream().distinct().collect(toImmutableList()));
         }
         catch (ExecutionException e) {

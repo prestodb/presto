@@ -377,8 +377,8 @@ public class IterativeOptimizer
 
         public void collectOptimizerInformation()
         {
-            rulesTriggered.forEach(x -> session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(x, true, Optional.empty())));
-            rulesApplicable.forEach(x -> session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(x, false, Optional.of(true))));
+            rulesTriggered.forEach(x -> session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(x, true, Optional.empty(), Optional.empty())));
+            rulesApplicable.forEach(x -> session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(x, false, Optional.of(true), Optional.empty())));
         }
     }
 }

@@ -153,7 +153,7 @@ public class Optimizer
                         optimizer.isApplicable(oldNode, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
 
         if (isTriggered || isApplicable) {
-            session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(optimizer.getClass().getSimpleName(), isTriggered, Optional.of(isApplicable)));
+            session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(optimizer.getClass().getSimpleName(), isTriggered, Optional.of(isApplicable), Optional.empty()));
         }
     }
 }
