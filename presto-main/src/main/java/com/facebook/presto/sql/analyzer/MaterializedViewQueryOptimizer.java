@@ -759,7 +759,7 @@ public class MaterializedViewQueryOptimizer
                     coercedMaybe,
                     coercedExpressionAnalysis.getExpressionTypes(),
                     ImmutableMap.of(),
-                    metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
+                    metadata.getFunctionAndTypeManager(),
                     session);
         }
 

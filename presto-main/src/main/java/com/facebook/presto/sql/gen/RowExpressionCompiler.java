@@ -144,7 +144,7 @@ public class RowExpressionCompiler
                     RowExpression function = getSqlFunctionRowExpression(
                             functionMetadata,
                             functionImplementation,
-                            metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
+                            metadata.getFunctionAndTypeManager(),
                             sqlFunctionProperties,
                             sessionFunctions,
                             call.getArguments());

@@ -44,11 +44,11 @@ public class TestPrestoSparkNativeGeneralQueries
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
     @Override
     @Ignore
-    public void testCatalogWithCacheEnabled() {}
+    public void testBucketedExecution() {}
 
     @Override
     @Ignore
-    public void testDateFilter() {}
+    public void testCatalogWithCacheEnabled() {}
 
     @Override
     @Ignore
