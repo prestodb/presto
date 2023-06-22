@@ -103,13 +103,35 @@ bool willCoalesceIfDistanceLE(
 }
 
 auto getReader(
+    bool chained,
     std::string content =
         "aaaaabbbbbcccccdddddeeeeefffffggggghhhhhiiiiijjjjjkkkkk") {
-  return [buf = std::move(content)](uint64_t offset, uint64_t size) {
+  return [buf = std::move(content), chained](uint64_t offset, uint64_t size) {
     if (offset + size > buf.size()) {
-      throw std::runtime_error("read is too big.");
+      VELOX_FAIL("read is too big.");
     }
-    return folly::IOBuf::copyBuffer(&buf[offset], size);
+    if (size == 0) {
+      VELOX_FAIL("empty read not allowed");
+    }
+    if (chained) {
+      auto head = folly::IOBuf::copyBuffer(
+          buf.data() + offset,
+          /* size */ 1,
+          /* headroom */ 0,
+          /* minTailRoom*/ 0);
+
+      for (size_t i = 1; i < size; ++i) {
+        head->appendToChain(folly::IOBuf::copyBuffer(
+            buf.data() + offset + i,
+            /* size */ 1,
+            /* headroom */ 0,
+            /* minTailRoom*/ 0));
+      }
+      return head;
+    } else {
+      return folly::IOBuf::copyBuffer(
+          buf.data() + offset, size, /* headroom */ 0, /* minTailRoom*/ 0);
+    }
   };
 }
 
@@ -322,12 +344,15 @@ INSTANTIATE_TEST_SUITE_P(
     ValuesIn(std::vector<ComparisonType>(
         {ComparisonType::SEGMENT, ComparisonType::REGION})));
 
-TEST(ReadToSegmentsTest, CanReadToContiguousSegments) {
+class ReadToSegmentsTest : public testing::TestWithParam<bool> {};
+
+TEST_P(ReadToSegmentsTest, CanReadToContiguousSegments) {
   auto testData = getSegments({"this", "is", "an", "awesome", "test"});
   ASSERT_EQ(testData.segments.size(), 5);
   const auto& s = testData.segments;
 
-  auto readToSegments = ReadToSegments(s.begin(), s.end(), getReader());
+  auto readToSegments =
+      ReadToSegments(s.begin(), s.end(), getReader(GetParam()));
 
   EXPECT_EQ(
       testData.buffers,
@@ -340,12 +365,13 @@ TEST(ReadToSegmentsTest, CanReadToContiguousSegments) {
       (std::vector<std::string>{"aaaa", "ab", "bb", "bbccccc", "dddd"}));
 }
 
-TEST(ReadToSegmentsTest, CanReadToNonContiguousSegments) {
+TEST_P(ReadToSegmentsTest, CanReadToNonContiguousSegments) {
   auto testData = getSegments({"this", "is", "an", "awesome", "test"}, {1, 3});
   ASSERT_EQ(testData.segments.size(), 3);
   const auto& s = testData.segments;
 
-  auto readToSegments = ReadToSegments(s.begin(), s.end(), getReader());
+  auto readToSegments =
+      ReadToSegments(s.begin(), s.end(), getReader(GetParam()));
 
   EXPECT_EQ(
       testData.buffers,
@@ -358,7 +384,7 @@ TEST(ReadToSegmentsTest, CanReadToNonContiguousSegments) {
       (std::vector<std::string>{"aaaa", "is", "bb", "awesome", "dddd"}));
 }
 
-TEST(ReadToSegmentsTest, NoSegmentsIsNoOp) {
+TEST_P(ReadToSegmentsTest, NoSegmentsIsNoOp) {
   auto testData = getSegments({"a", "b"});
   ASSERT_EQ(testData.segments.size(), 2);
   const auto& s = testData.segments;
@@ -368,7 +394,8 @@ TEST(ReadToSegmentsTest, NoSegmentsIsNoOp) {
   testData.segments[0].buffer.reset(testData.buffers[0].data(), 0);
   testData.segments[1].buffer.reset(testData.buffers[1].data(), 0);
 
-  auto readToSegments = ReadToSegments(s.begin(), s.end(), getReader());
+  auto readToSegments =
+      ReadToSegments(s.begin(), s.end(), getReader(GetParam()));
 
   EXPECT_EQ(testData.buffers, (std::vector<std::string>{"a", "b"}));
 
@@ -377,3 +404,9 @@ TEST(ReadToSegmentsTest, NoSegmentsIsNoOp) {
 
   EXPECT_EQ(testData.buffers, (std::vector<std::string>{"a", "b"}));
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    ReadToSegmentsSuite,
+    ReadToSegmentsTest,
+    ValuesIn(
+        std::vector<bool /* Should generated chained IOBuf */>({false, true})));
