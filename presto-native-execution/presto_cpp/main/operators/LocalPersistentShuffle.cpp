@@ -53,12 +53,12 @@ LocalPersistentShuffleWriter::LocalPersistentShuffleWriter(
     uint64_t maxBytesPerPartition,
     velox::memory::MemoryPool* FOLLY_NONNULL pool)
     : maxBytesPerPartition_(maxBytesPerPartition),
-      threadId_(std::this_thread::get_id()),
       pool_(pool),
       numPartitions_(numPartitions),
       rootPath_(std::move(rootPath)),
+      queryId_(std::move(queryId)),
       shuffleId_(shuffleId),
-      queryId_(std::move(queryId)) {
+      threadId_(std::this_thread::get_id()) {
   // Use resize/assign instead of resize(size, val).
   inProgressPartitions_.resize(numPartitions_);
   inProgressPartitions_.assign(numPartitions_, nullptr);
