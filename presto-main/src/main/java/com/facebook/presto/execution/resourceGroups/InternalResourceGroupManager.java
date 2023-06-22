@@ -439,11 +439,8 @@ public final class InternalResourceGroupManager<C>
     {
         int queriesQueuedInternal = 0;
         for (RootInternalResourceGroup rootGroup : rootGroups) {
-            synchronized (rootGroup) {
-                queriesQueuedInternal += getQueriesQueuedOnInternal(rootGroup);
-            }
+            queriesQueuedInternal += rootGroup.getQueriesQueuedOnInternal();
         }
-
         return queriesQueuedInternal;
     }
 
@@ -453,29 +450,6 @@ public final class InternalResourceGroupManager<C>
         // When coordinator restarts/deploy, the initial 0 value make sure the metric won't spike. Without it, the first metric published will have larger value
         // due to the delay from the initialization to the actual successful run of refreshAndStartQueries method
         return lastSchedulingCycleRunTimeMs.get() == 0L ? lastSchedulingCycleRunTimeMs.get() : currentTimeMillis() - lastSchedulingCycleRunTimeMs.get();
-    }
-
-    private int getQueriesQueuedOnInternal(InternalResourceGroup resourceGroup)
-    {
-        if (resourceGroup.subGroups().isEmpty()) {
-            int queuedQueries = resourceGroup.getQueuedQueries();
-            int runningQueries = resourceGroup.getRunningQueries();
-            if (isResourceManagerEnabled) {
-                ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfos.get().get(resourceGroup.getId());
-                if (resourceGroupRuntimeInfo != null) {
-                    queuedQueries += resourceGroupRuntimeInfo.getQueuedQueries();
-                    runningQueries += resourceGroupRuntimeInfo.getRunningQueries();
-                }
-            }
-            return Math.max(Math.min(queuedQueries, resourceGroup.getSoftConcurrencyLimit() - runningQueries), 0);
-        }
-
-        int queriesQueuedInternal = 0;
-        for (InternalResourceGroup subGroup : resourceGroup.subGroups()) {
-            queriesQueuedInternal += getQueriesQueuedOnInternal(subGroup);
-        }
-
-        return queriesQueuedInternal;
     }
 
     @Managed

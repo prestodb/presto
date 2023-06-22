@@ -107,10 +107,12 @@ public class TestResourceGroups
         group3.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         group3.setMaxQueuedQueries(4);
         group3.setHardConcurrencyLimit(1);
+
         MockManagedQueryExecution query1a = new MockManagedQueryExecution(0);
         query1a.startWaitingForPrerequisites();
         group1.run(query1a);
         assertEquals(query1a.getState(), RUNNING);
+
         MockManagedQueryExecution query1b = new MockManagedQueryExecution(0);
         query1b.startWaitingForPrerequisites();
         group1.run(query1b);
@@ -963,6 +965,14 @@ public class TestResourceGroups
         queries.addAll(fillGroupTo(rootBX, ImmutableSet.of(), 10, true));
         queries.addAll(fillGroupTo(rootBY, ImmutableSet.of(), 10, true));
 
+        root.refreshStats();
+        rootA.refreshStats();
+        rootAX.refreshStats();
+        rootAY.refreshStats();
+        rootB.refreshStats();
+        rootBX.refreshStats();
+        rootBY.refreshStats();
+
         assertEquals(root.getWaitingQueuedQueries(), 16);
         assertEquals(rootA.getWaitingQueuedQueries(), 13);
         assertEquals(rootAX.getWaitingQueuedQueries(), 10);
@@ -973,6 +983,14 @@ public class TestResourceGroups
 
         root.setHardConcurrencyLimit(20);
         root.processQueuedQueries();
+
+        root.refreshStats();
+        rootA.refreshStats();
+        rootAX.refreshStats();
+        rootAY.refreshStats();
+        rootB.refreshStats();
+        rootBX.refreshStats();
+        rootBY.refreshStats();
         assertEquals(root.getWaitingQueuedQueries(), 0);
         assertEquals(rootA.getWaitingQueuedQueries(), 5);
         assertEquals(rootAX.getWaitingQueuedQueries(), 6);
