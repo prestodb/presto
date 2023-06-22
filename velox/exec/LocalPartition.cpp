@@ -88,12 +88,18 @@ BlockingReason LocalExchangeQueue::enqueue(
   auto inputBytes = input->estimateFlatSize();
 
   std::vector<ContinuePromise> consumerPromises;
+  bool blockedOnConsumer = false;
   bool isClosed = queue_.withWLock([&](auto& queue) {
     if (closed_) {
       return true;
     }
     queue.push(std::move(input));
     consumerPromises = std::move(consumerPromises_);
+
+    if (memoryManager_->increaseMemoryUsage(future, inputBytes)) {
+      blockedOnConsumer = true;
+    }
+
     return false;
   });
 
@@ -103,7 +109,7 @@ BlockingReason LocalExchangeQueue::enqueue(
 
   notify(consumerPromises);
 
-  if (memoryManager_->increaseMemoryUsage(future, inputBytes)) {
+  if (blockedOnConsumer) {
     return BlockingReason::kWaitForConsumer;
   }
 
