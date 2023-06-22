@@ -33,28 +33,6 @@ public abstract class AbstractTestExpressionCompiler
 
     protected abstract QueryRunner getQueryRunner();
 
-    // TODO: The following test have trouble converting long to Decimal.
-    @Override
-    @Ignore
-    public void testBinaryOperatorsDecimalBigint()
-            throws Exception
-    {
-    }
-
-    @Override
-    @Ignore
-    public void testBinaryOperatorsDecimalInteger()
-            throws Exception
-    {
-    }
-
-    @Override
-    @Ignore
-    public void testBinaryOperatorsDecimalDouble()
-            throws Exception
-    {
-    }
-
     // Remove the override from the following tests on a need basis, not all expressions have custom handling for native query runner, hence they are ignored.
     @Override
     @Ignore
