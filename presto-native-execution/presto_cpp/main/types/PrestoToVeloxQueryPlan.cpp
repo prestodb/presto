@@ -213,7 +213,7 @@ int64_t dateToInt64(
     const VeloxExprConverter& exprConverter,
     const TypePtr& type) {
   auto value = exprConverter.getConstantValue(type, *block);
-  return value.value<Date>().days();
+  return value.value<int32_t>();
 }
 
 double toDouble(
@@ -576,8 +576,12 @@ std::unique_ptr<common::Filter> toFilter(
   switch (type->kind()) {
     case TypeKind::TINYINT:
     case TypeKind::SMALLINT:
-    case TypeKind::INTEGER:
     case TypeKind::BIGINT:
+      return bigintRangeToFilter(range, nullAllowed, exprConverter, type);
+    case TypeKind::INTEGER:
+      if (type->isDate()) {
+        return dateRangeToFilter(range, nullAllowed, exprConverter, type);
+      }
       return bigintRangeToFilter(range, nullAllowed, exprConverter, type);
     case TypeKind::HUGEINT:
       return hugeintRangeToFilter(range, nullAllowed, exprConverter, type);
@@ -589,8 +593,6 @@ std::unique_ptr<common::Filter> toFilter(
       return boolRangeToFilter(range, nullAllowed, exprConverter, type);
     case TypeKind::REAL:
       return floatRangeToFilter(range, nullAllowed, exprConverter, type);
-    case TypeKind::DATE:
-      return dateRangeToFilter(range, nullAllowed, exprConverter, type);
     default:
       VELOX_UNSUPPORTED("Unsupported range type: {}", type->toString());
   }
@@ -626,6 +628,17 @@ std::unique_ptr<common::Filter> toFilter(
       return toFilter(type, ranges[0], nullAllowed, exprConverter);
     }
 
+    if (type->isDate()) {
+      std::vector<std::unique_ptr<common::BigintRange>> dateFilters;
+      dateFilters.reserve(ranges.size());
+      for (const auto& range : ranges) {
+        dateFilters.emplace_back(
+            dateRangeToFilter(range, nullAllowed, exprConverter, type));
+      }
+      return std::make_unique<common::BigintMultiRange>(
+          std::move(dateFilters), nullAllowed);
+    }
+
     if (type->kind() == TypeKind::BIGINT || type->kind() == TypeKind::INTEGER ||
         type->kind() == TypeKind::SMALLINT ||
         type->kind() == TypeKind::TINYINT) {
@@ -636,17 +649,6 @@ std::unique_ptr<common::Filter> toFilter(
             bigintRangeToFilter(range, nullAllowed, exprConverter, type));
       }
       return combineIntegerRanges(bigintFilters, nullAllowed);
-    }
-
-    if (type->kind() == TypeKind::DATE) {
-      std::vector<std::unique_ptr<common::BigintRange>> dateFilters;
-      dateFilters.reserve(ranges.size());
-      for (const auto& range : ranges) {
-        dateFilters.emplace_back(
-            dateRangeToFilter(range, nullAllowed, exprConverter, type));
-      }
-      return std::make_unique<common::BigintMultiRange>(
-          std::move(dateFilters), nullAllowed);
     }
 
     if (type->kind() == TypeKind::VARCHAR) {
