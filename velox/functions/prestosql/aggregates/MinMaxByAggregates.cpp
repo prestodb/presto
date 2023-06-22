@@ -136,17 +136,6 @@ struct MinMaxTrait<Date> {
   }
 };
 
-template <>
-struct MinMaxTrait<Timestamp> {
-  static constexpr Timestamp lowest() {
-    return Timestamp(std::numeric_limits<int64_t>::min(), 0);
-  }
-
-  static constexpr Timestamp max() {
-    return Timestamp(std::numeric_limits<int64_t>::max(), 999'999);
-  }
-};
-
 /// MinMaxByAggregate is the base class for min_by and max_by functions
 /// with numeric value and comparison types. These functions return the value of
 /// X associated with the minimum/maximum value of Y over all input values.

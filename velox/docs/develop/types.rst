@@ -58,6 +58,21 @@ UNKNOWN type is used to represent an empty or all nulls vector of unknown type.
 For example, SELECT array() returns an ARRAY(UNKNOWN()) because it is not possible
 to determine the type of the elements. This works because there are no elements.
 
+TIMESTAMP type is used to represent a specific point in time.
+A TIMESTAMP is defined as the sum of seconds and nanoseconds since UNIX epoch.
+`struct Timestamp` contains one 64-bit signed integer for seconds and another 64-bit
+unsigned integer for nanoseconds. Nanoseconds represent the high-precision part of
+the timestamp, which is less than 1 second. Valid range of nanoseconds is [0, 10^9).
+Timestamps before the epoch are specified using negative values for the seconds.
+Examples:
+* Timestamp(0, 0) represents 1970-01-0 T00:00:00 (epoch).
+* Timestamp(10*24*60*60 + 125, 0) represents 1970-01-11 00:02:05 (10 days 125 seconds after epoch).
+* Timestamp(19524*24*60*60 + 500, 38726411) represents 2023-06-16 08:08:20.038726411
+  (19524 days 500 seconds 38726411 nanoseconds after epoch).
+* Timestamp(-10*24*60*60 - 125, 0) represents 1969-12-21 23:57:55 (10 days 125 seconds before epoch).
+* Timestamp(-5000*24*60*60 - 1000, 123456) represents 1956-04-24 07:43:20.000123456
+  (5000 days 1000 seconds before epoch plus 123456 nanoseconds).
+
 Logical Types
 ~~~~~~~~~~~~~
 Logical types are backed by a physical type and include additional semantics.
@@ -124,3 +139,7 @@ JSON                      VARCHAR
 TIMESTAMP WITH TIME ZONE  ROW<BIGINT, SMALLINT>
 ========================  =====================
 
+TIMESTAMP WITH TIME ZONE represents a time point in milliseconds precision
+from UNIX epoch with timezone information. Its physical type contains one 64-bit
+signed integer for milliseconds and another 16-bit signed integer for timezone ID.
+Valid range of timezone ID is [1, 1680], its definition can be found in ``TimeZoneDatabase.cpp``.

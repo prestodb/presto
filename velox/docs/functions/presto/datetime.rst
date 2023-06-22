@@ -151,10 +151,10 @@ Convenience Extraction Functions
 
 These functions support TIMESTAMP, DATE, and TIMESTAMP WITH TIME ZONE input types.
 
-These functions are implemented using
-`std::gmtime <https://en.cppreference.com/w/c/chrono/gmtime>`_ which raises an
-error when input timestamp is too large (for example, > 100'000'000'000'000'000).
-This behavior is different from Presto Java that allows arbitrary large timestamps.
+For these functions, the input timestamp has range limitations on seconds and nanoseconds.
+Seconds should be in the range [INT64_MIN/1000 - 1, INT64_MAX/1000], nanoseconds should
+be in the range [0, 999999999]. This behavior is different from Presto Java that allows
+arbitrary large timestamps.
 
 .. function:: day(x) -> bigint
 
