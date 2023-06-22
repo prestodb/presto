@@ -27,6 +27,7 @@
 #include "velox/expression/StringWriter.h"
 #include "velox/external/date/tz.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"
+#include "velox/type/Type.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FunctionVector.h"
 #include "velox/vector/SelectivityVector.h"
@@ -46,6 +47,17 @@ void applyCastKernel(
     vector_size_t row,
     const SimpleVector<typename TypeTraits<FromKind>::NativeType>* input,
     FlatVector<typename TypeTraits<ToKind>::NativeType>* result) {
+  if (input->type()->isDecimal()) {
+    // Special handling for decimal types.
+    auto [precision, scale] = getDecimalPrecisionScale(*input->type());
+    if constexpr (ToKind == TypeKind::DOUBLE) {
+      auto output =
+          util::Converter<CppToType<double>::typeKind, void, Truncate>::cast(
+              input->valueAt(row));
+      result->set(row, output / (double)DecimalUtil::kPowersOfTen[scale]);
+    }
+    return;
+  }
   auto output =
       util::Converter<ToKind, void, Truncate>::cast(input->valueAt(row));
 

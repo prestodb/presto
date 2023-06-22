@@ -353,6 +353,12 @@ struct Converter<
     return static_cast<T>(v);
   }
 
+  // Convert large integer to double or float directly, not using folly, as it
+  // might throw 'loss of precision' error.
+  static T cast(const int128_t& v) {
+    return static_cast<T>(v);
+  }
+
   static T cast(const Date&) {
     VELOX_UNSUPPORTED("Conversion of Date to Real or Double is not supported");
   }
