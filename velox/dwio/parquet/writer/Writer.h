@@ -77,14 +77,10 @@ class Writer : public dwio::common::Writer {
 
  private:
   const int32_t rowsInRowGroup_;
-  const double bufferGrowRatio_;
 
   // Pool for 'stream_'.
   std::shared_ptr<memory::MemoryPool> pool_;
   std::shared_ptr<memory::MemoryPool> generalPool_;
-
-  // Final destination of output.
-  std::unique_ptr<dwio::common::DataSink> finalSink_;
 
   // Temporary Arrow stream for capturing the output.
   std::shared_ptr<ArrowDataBufferSink> stream_;
