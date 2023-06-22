@@ -410,3 +410,26 @@ INSTANTIATE_TEST_SUITE_P(
     ReadToSegmentsTest,
     ValuesIn(
         std::vector<bool /* Should generated chained IOBuf */>({false, true})));
+
+class ReadToIOBufsTest : public testing::TestWithParam<bool> {};
+
+TEST_P(ReadToIOBufsTest, CanRead) {
+  std::vector<Region> r = {{0, 1, {}}, {5, 1, {}}, {10, 6}, {16, 5}};
+  std::vector<folly::IOBuf> iobufs;
+  iobufs.reserve(r.size());
+  auto readToIOBufs = ReadToIOBufs(
+      r.begin(), r.end(), std::back_inserter(iobufs), getReader(GetParam()));
+  readToIOBufs();
+
+  ASSERT_EQ(iobufs.size(), r.size());
+
+  EXPECT_EQ(
+      iobufsToStrings(iobufs),
+      (std::vector<std::string>{"a", "b", "cccccd", "dddde"}));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ReadToIOBufsSuite,
+    ReadToIOBufsTest,
+    ValuesIn(
+        std::vector<bool /* Should generated chained IOBuf */>({false, true})));
