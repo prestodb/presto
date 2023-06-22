@@ -12,8 +12,17 @@
  * limitations under the License.
  */
 namespace facebook::presto::protocol {
+struct VariableAggregation {
+  VariableReferenceExpression variableReferenceExpression = {};
+  Aggregation aggregation = {};
+};
+void to_json(json& j, const VariableAggregation& p);
+void from_json(const json& j, VariableAggregation& p);
+} // namespace facebook::presto::protocol
+
+namespace facebook::presto::protocol {
 struct StatisticAggregations {
-  Map<VariableReferenceExpression, Aggregation> aggregations = {};
+  std::vector<VariableAggregation> aggregationList = {};
   std::vector<VariableReferenceExpression> groupingVariables = {};
 };
 void to_json(json& j, const StatisticAggregations& p);

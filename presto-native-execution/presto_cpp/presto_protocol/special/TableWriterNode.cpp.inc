@@ -16,15 +16,51 @@ TableWriterNode::TableWriterNode() noexcept {
   _type = "com.facebook.presto.sql.planner.plan.TableWriterNode";
 }
 
+void to_json(json& j, const VariableAggregation& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "variableReferenceExpression",
+      p.variableReferenceExpression,
+      "VariableAggregation",
+      "VariableReferenceExpression",
+      "variableReferenceExpression");
+  to_json_key(
+      j,
+      "aggregation",
+      p.aggregation,
+      "VariableAggregation",
+      "Aggregation",
+      "aggregation");
+
+}
+
+void from_json(const json& j, VariableAggregation& p) {
+  from_json_key(
+      j,
+      "variableReferenceExpression",
+      p.variableReferenceExpression,
+      "VariableAggregation",
+      "VariableReferenceExpression",
+      "variableReferenceExpression");
+  from_json_key(
+      j,
+      "aggregation",
+      p.aggregation,
+      "VariableAggregation",
+      "Aggregation",
+      "aggregation");
+}
+
 void to_json(json& j, const StatisticAggregations& p) {
   j = json::object();
   to_json_key(
       j,
-      "aggregations",
-      p.aggregations,
+      "aggregationList",
+      p.aggregationList,
       "StatisticAggregations",
-      "Map<VariableReferenceExpression, Aggregation>",
-      "aggregations");
+      "std::vector<VariableAggregation>",
+      "aggregationList");
   to_json_key(
       j,
       "groupingVariables",
@@ -37,11 +73,11 @@ void to_json(json& j, const StatisticAggregations& p) {
 void from_json(const json& j, StatisticAggregations& p) {
   from_json_key(
       j,
-      "aggregations",
-      p.aggregations,
+      "aggregationList",
+      p.aggregationList,
       "StatisticAggregations",
-      "Map<VariableReferenceExpression, Aggregation>",
-      "aggregations");
+      "std::vector<VariableAggregation>",
+      "aggregationList");
   from_json_key(
       j,
       "groupingVariables",
