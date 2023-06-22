@@ -29,8 +29,22 @@ Result getSegments(
     if (skip.count(i++) == 0) {
       result.segments.emplace_back(ReadFile::Segment{
           lastOffset, folly::Range<char*>(&buffer[0], buffer.size()), {}});
+      result.regions.emplace_back(
+          lastOffset, buffer.size(), std::string_view{});
     }
     lastOffset += buffer.size();
+  }
+  return result;
+}
+
+std::vector<std::string> iobufsToStrings(
+    const std::vector<folly::IOBuf>& iobufs) {
+  std::vector<std::string> result;
+  result.reserve(iobufs.size());
+  for (auto& iobuf : iobufs) {
+    auto coalesced = iobuf.cloneCoalescedAsValueWithHeadroomTailroom(0, 0);
+    result.emplace_back(
+        reinterpret_cast<const char*>(coalesced.data()), coalesced.length());
   }
   return result;
 }

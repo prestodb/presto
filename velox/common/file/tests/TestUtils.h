@@ -23,10 +23,14 @@ namespace facebook::velox::tests::utils {
 struct Result {
   std::vector<std::string> buffers;
   std::vector<ReadFile::Segment> segments;
+  std::vector<velox::common::Region> regions;
 };
 
 Result getSegments(
     std::vector<std::string> buffers,
     const std::unordered_set<size_t>& skip = {});
+
+std::vector<std::string> iobufsToStrings(
+    const std::vector<folly::IOBuf>& iobufs);
 
 } // namespace facebook::velox::tests::utils
