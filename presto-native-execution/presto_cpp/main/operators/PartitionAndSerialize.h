@@ -20,7 +20,9 @@ namespace facebook::presto::operators {
 
 /// Partitions the input row based on partition function and serializes the
 /// entire row using UnsafeRow format. The output contains 2 columns: partition
-/// number (INTEGER) and serialized row (VARBINARY).
+/// number (INTEGER) and serialized row (VARBINARY). If 'replicateNullsAndAny'
+/// is true, the output includes a third boolean column which indicates whether
+/// a row needs to be replicated to all partitions.
 class PartitionAndSerializeNode : public velox::core::PlanNode {
  public:
   PartitionAndSerializeNode(
@@ -49,10 +51,15 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
       void* context);
 
   const velox::RowTypePtr& outputType() const override {
-    static const velox::RowTypePtr kRowType{velox::ROW(
+    static const velox::RowTypePtr kOutputType{velox::ROW(
         {"partition", "data"}, {velox::INTEGER(), velox::VARBINARY()})};
 
-    return kRowType;
+    static const velox::RowTypePtr kReplicateNullsAndAnyOutputType{velox::ROW(
+        {"partition", "data", "replicate"},
+        {velox::INTEGER(), velox::VARBINARY(), velox::BOOLEAN()})};
+
+    return replicateNullsAndAny_ ? kReplicateNullsAndAnyOutputType
+                                 : kOutputType;
   }
 
   const std::vector<velox::core::PlanNodePtr>& sources() const override {

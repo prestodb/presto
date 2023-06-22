@@ -61,7 +61,6 @@ public class PrestoSparkLocalShuffleInfoTranslator
     public PrestoSparkLocalShuffleReadInfo createShuffleReadInfo(Session session, PrestoSparkShuffleReadDescriptor readDescriptor)
     {
         return new PrestoSparkLocalShuffleReadInfo(
-                readDescriptor.getNumPartitions(),
                 session.getQueryId().getId(),
                 readDescriptor.getPartitionIds(),
                 localShuffleRootPath);
