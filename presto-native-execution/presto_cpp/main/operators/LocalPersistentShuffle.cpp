@@ -52,13 +52,13 @@ LocalPersistentShuffleWriter::LocalPersistentShuffleWriter(
     uint32_t numPartitions,
     uint64_t maxBytesPerPartition,
     velox::memory::MemoryPool* FOLLY_NONNULL pool)
-    : maxBytesPerPartition_(maxBytesPerPartition),
+    : threadId_(std::this_thread::get_id()),
       pool_(pool),
       numPartitions_(numPartitions),
+      maxBytesPerPartition_(maxBytesPerPartition),
       rootPath_(std::move(rootPath)),
       queryId_(std::move(queryId)),
-      shuffleId_(shuffleId),
-      threadId_(std::this_thread::get_id()) {
+      shuffleId_(shuffleId) {
   // Use resize/assign instead of resize(size, val).
   inProgressPartitions_.resize(numPartitions_);
   inProgressPartitions_.assign(numPartitions_, nullptr);
@@ -152,12 +152,10 @@ LocalPersistentShuffleReader::LocalPersistentShuffleReader(
     const std::string& rootPath,
     const std::string& queryId,
     std::vector<std::string> partitionIds,
-    const int32_t partition,
     velox::memory::MemoryPool* FOLLY_NONNULL pool)
     : rootPath_(rootPath),
       queryId_(queryId),
       partitionIds_(std::move(partitionIds)),
-      partition_(partition),
       pool_(pool) {
   fileSystem_ = velox::filesystems::getFileSystem(rootPath_, nullptr);
 }
@@ -238,13 +236,12 @@ LocalShuffleReadInfo LocalShuffleReadInfo::deserialize(
   jsonReadInfo.at("rootPath").get_to(shuffleInfo.rootPath);
   jsonReadInfo.at("queryId").get_to(shuffleInfo.queryId);
   jsonReadInfo.at("partitionIds").get_to(shuffleInfo.partitionIds);
-  jsonReadInfo.at("numPartitions").get_to(shuffleInfo.numPartitions);
   return shuffleInfo;
 }
 
 std::shared_ptr<ShuffleReader> LocalPersistentShuffleFactory::createReader(
     const std::string& serializedStr,
-    const int32_t partition,
+    const int32_t /*partition*/,
     velox::memory::MemoryPool* pool) {
   const operators::LocalShuffleReadInfo readInfo =
       operators::LocalShuffleReadInfo::deserialize(serializedStr);
@@ -252,7 +249,6 @@ std::shared_ptr<ShuffleReader> LocalPersistentShuffleFactory::createReader(
       readInfo.rootPath,
       readInfo.queryId,
       readInfo.partitionIds,
-      partition,
       pool);
 }
 

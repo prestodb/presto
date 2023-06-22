@@ -72,7 +72,7 @@ public class TestBatchTaskUpdateRequest
         PrestoSparkLocalShuffleInfoTranslator shuffleInfoTranslator = new PrestoSparkLocalShuffleInfoTranslator(
                 PRESTO_SPARK_LOCAL_SHUFFLE_READ_INFO_JSON_CODEC,
                 PRESTO_SPARK_LOCAL_SHUFFLE_WRITE_INFO_JSON_CODEC);
-        PrestoSparkLocalShuffleReadInfo readInfo = new PrestoSparkLocalShuffleReadInfo(0, "test_query_id", ImmutableList.of("shuffle1"), "/dummy/read/path");
+        PrestoSparkLocalShuffleReadInfo readInfo = new PrestoSparkLocalShuffleReadInfo("test_query_id", ImmutableList.of("shuffle1"), "/dummy/read/path");
 
         String stringSerializedReadInfo = shuffleInfoTranslator.createSerializedReadInfo(readInfo);
         PlanNodeId planNodeId = new PlanNodeId("planNodeId");
@@ -121,14 +121,13 @@ public class TestBatchTaskUpdateRequest
         PrestoSparkLocalShuffleInfoTranslator shuffleTranslator = new PrestoSparkLocalShuffleInfoTranslator(
                 PRESTO_SPARK_LOCAL_SHUFFLE_READ_INFO_JSON_CODEC,
                 PRESTO_SPARK_LOCAL_SHUFFLE_WRITE_INFO_JSON_CODEC);
-        PrestoSparkLocalShuffleReadInfo readInfo = new PrestoSparkLocalShuffleReadInfo(0, "test_query_id", ImmutableList.of("shuffle1"), "/dummy/read/path");
+        PrestoSparkLocalShuffleReadInfo readInfo = new PrestoSparkLocalShuffleReadInfo("test_query_id", ImmutableList.of("shuffle1"), "/dummy/read/path");
         PrestoSparkLocalShuffleWriteInfo writeInfo = new PrestoSparkLocalShuffleWriteInfo(1, "test_query_id", 0, "/dummy/write/path");
         String stringSerializedReadInfo = shuffleTranslator.createSerializedReadInfo(readInfo);
         String stringSerializedWriteInfo = shuffleTranslator.createSerializedWriteInfo(writeInfo);
         assertEquals(
                 stringSerializedReadInfo,
                 "{\n" +
-                        "  \"numPartitions\" : 0,\n" +
                         "  \"queryId\" : \"test_query_id\",\n" +
                         "  \"partitionIds\" : [ \"shuffle1\" ],\n" +
                         "  \"rootPath\" : \"/dummy/read/path\"\n" +

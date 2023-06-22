@@ -66,19 +66,22 @@ std::function<PlanNodePtr(std::string nodeId, PlanNodePtr)> addShuffleReadNode(
 }
 
 std::function<PlanNodePtr(std::string nodeId, PlanNodePtr)> addShuffleWriteNode(
+    uint32_t numPartitions,
     const std::string& shuffleName,
     const std::string& serializedWriteInfo) {
-  return [&shuffleName, &serializedWriteInfo](
-             PlanNodeId nodeId, PlanNodePtr source) -> PlanNodePtr {
+  return [=](PlanNodeId nodeId, PlanNodePtr source) -> PlanNodePtr {
     return std::make_shared<ShuffleWriteNode>(
-        nodeId, shuffleName, serializedWriteInfo, std::move(source));
+        nodeId,
+        numPartitions,
+        shuffleName,
+        serializedWriteInfo,
+        std::move(source));
   };
 }
 
 std::function<PlanNodePtr(std::string, PlanNodePtr)> addBroadcastWriteNode(
     const std::string& basePath) {
-  return [&basePath](
-             core::PlanNodeId nodeId,
+  return [=](core::PlanNodeId nodeId,
              core::PlanNodePtr source) -> core::PlanNodePtr {
     return std::make_shared<BroadcastWriteNode>(
         nodeId, basePath, std::move(source));
