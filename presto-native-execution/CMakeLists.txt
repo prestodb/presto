@@ -31,12 +31,15 @@ if("${TREAT_WARNINGS_AS_ERRORS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 endif()
 
-set(KNOWN_WARNINGS "-Wno-nullability-completeness")
+# Known warnings that are benign can be disabled.
+set(DISABLED_WARNINGS
+    "-Wno-nullability-completeness -Wno-deprecated-declarations")
 
-# known warnings
-set(KNOWN_WARNINGS "${KNOWN_WARNINGS} -Wno-deprecated-declarations")
+# Important warnings that must be explicitly enabled.
+set(ENABLE_WARNINGS "-Wreorder")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${KNOWN_WARNINGS}")
+set(CMAKE_CXX_FLAGS
+    "${CMAKE_CXX_FLAGS} ${DISABLED_WARNINGS} ${ENABLE_WARNINGS}")
 
 # Add all Presto options below
 option(PRESTO_ENABLE_S3 "Build S3 connector" OFF)
