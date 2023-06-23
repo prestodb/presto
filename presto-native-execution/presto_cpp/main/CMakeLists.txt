@@ -66,10 +66,8 @@ target_link_libraries(
   ${GFLAGS_LIBRARIES}
   pthread)
 
-if(PRESTO_ENABLE_PARQUET)
-  target_link_libraries(presto_server_lib velox_dwio_parquet_reader
-                        velox_dwio_parquet_writer)
-endif()
+target_link_libraries(presto_server_lib velox_dwio_parquet_reader
+                      velox_dwio_parquet_writer)
 
 # Enabling Parquet causes build errors with missing symbols on MacOS. This is
 # likely due to a conflict between Thrift and FBThrift libraries. The build
