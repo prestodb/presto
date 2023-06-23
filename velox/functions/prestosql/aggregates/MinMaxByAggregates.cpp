@@ -785,8 +785,8 @@ class MinMaxByNAggregate : public exec::Aggregate {
       override {
     auto rowVector = (*result)->as<RowVector>();
     auto nVector = rowVector->childAt(0);
-    auto valueArray = rowVector->childAt(1)->as<ArrayVector>();
-    auto comparisonArray = rowVector->childAt(2)->as<ArrayVector>();
+    auto comparisonArray = rowVector->childAt(1)->as<ArrayVector>();
+    auto valueArray = rowVector->childAt(2)->as<ArrayVector>();
 
     resizeRowVectorAndChildren(*rowVector, numGroups);
 
@@ -984,8 +984,8 @@ class MinMaxByNAggregate : public exec::Aggregate {
         dynamic_cast<const RowVector*>(decodedIntermediates_.base());
 
     decodedN_.decode(*baseRowVector->childAt(0), rows);
-    decodedValue_.decode(*baseRowVector->childAt(1), rows);
-    decodedComparison_.decode(*baseRowVector->childAt(2), rows);
+    decodedComparison_.decode(*baseRowVector->childAt(1), rows);
+    decodedValue_.decode(*baseRowVector->childAt(2), rows);
 
     IntermediateResult result;
     result.valueArray = decodedValue_.base()->template as<ArrayVector>();
@@ -1179,7 +1179,7 @@ exec::AggregateRegistrationResult registerMinMaxBy(const std::string& name) {
 
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   for (const auto& compareType : supportedCompareTypes) {
-    // V, C -> V.
+    // V, C -> row(V, C) -> V.
     signatures.push_back(
         exec::AggregateFunctionSignatureBuilder()
             .typeVariable("T")
@@ -1193,12 +1193,12 @@ exec::AggregateRegistrationResult registerMinMaxBy(const std::string& name) {
   // Add support for all value types to 3-arg version of the aggregate.
   for (const auto& compareType : supportedCompareTypes) {
     for (const auto& valueType : supportedCompareTypes) {
-      // V, C, bigint -> array(V).
+      // V, C, bigint -> row(bigint, array(C), array(V)) -> array(V).
       signatures.push_back(
           exec::AggregateFunctionSignatureBuilder()
               .returnType(fmt::format("array({})", valueType))
               .intermediateType(fmt::format(
-                  "row(bigint,array({}),array({}))", valueType, compareType))
+                  "row(bigint,array({}),array({}))", compareType, valueType))
               .argumentType(valueType)
               .argumentType(compareType)
               .argumentType("bigint")
@@ -1229,10 +1229,10 @@ exec::AggregateRegistrationResult registerMinMaxBy(const std::string& name) {
             return create<NAggregate>(
                 resultType, argTypes[0], argTypes[1], errorMessage);
           } else {
-            // Input is: ROW(BIGINT, ARRAY(V), ARRAY(C)).
+            // Input is: ROW(BIGINT, ARRAY(C), ARRAY(V)).
             const auto& rowType = argTypes[0];
-            const auto& valueType = rowType->childAt(1)->childAt(0);
-            const auto& compareType = rowType->childAt(2)->childAt(0);
+            const auto& compareType = rowType->childAt(1)->childAt(0);
+            const auto& valueType = rowType->childAt(2)->childAt(0);
             return create<NAggregate>(
                 resultType, valueType, compareType, errorMessage);
           }

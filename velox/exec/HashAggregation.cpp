@@ -67,8 +67,6 @@ HashAggregation::HashAggregation(
   std::vector<AggregateInfo> aggregateInfos;
   aggregateInfos.reserve(numAggregates);
 
-  std::vector<std::unique_ptr<Aggregate>> aggregates;
-  aggregates.reserve(numAggregates);
   for (auto i = 0; i < numAggregates; i++) {
     const auto& aggregate = aggregationNode->aggregates()[i];
 
@@ -129,9 +127,9 @@ HashAggregation::HashAggregation(
     aggregateInfos.emplace_back(std::move(info));
   }
 
-  // Check that aggregate result type match the output type
-  for (auto i = 0; i < aggregates.size(); i++) {
-    const auto& aggResultType = aggregates[i]->resultType();
+  // Check that aggregate result type match the output type.
+  for (auto i = 0; i < aggregateInfos.size(); i++) {
+    const auto& aggResultType = aggregateInfos[i].function->resultType();
     const auto& expectedType = outputType_->childAt(numHashers + i);
     VELOX_CHECK(
         aggResultType->kindEquals(expectedType),
