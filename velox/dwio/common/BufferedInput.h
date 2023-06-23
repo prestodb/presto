@@ -170,30 +170,17 @@ class BufferedInput {
       uint64_t length,
       std::optional<size_t> i = std::nullopt) const;
 
-  void readRegion(
-      const velox::common::Region& region,
-      const LogType logType,
-      std::function<void(void* FOLLY_NONNULL, uint64_t, uint64_t, LogType)>
-          action) {
+  folly::Range<char*> allocate(const velox::common::Region& region) {
     // Save the file offset and the buffer to which we'll read it
     offsets_.push_back(region.offset);
     buffers_.emplace_back(
         allocPool_->allocateFixed(region.length), region.length);
-
-    // action is required
-    DWIO_ENSURE_NOT_NULL(action);
-    action(buffers_.back().data(), region.length, region.offset, logType);
+    return folly::Range<char*>(buffers_.back().data(), region.length);
   }
 
   bool useVRead() const;
   void sortRegions();
   void mergeRegions();
-
-  // we either load data parallelly or sequentially according to flag
-  void loadWithAction(
-      const LogType logType,
-      std::function<void(void* FOLLY_NONNULL, uint64_t, uint64_t, LogType)>
-          action);
 
   // tries and merges WS read regions into one
   bool tryMerge(

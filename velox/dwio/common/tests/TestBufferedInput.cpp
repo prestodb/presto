@@ -44,6 +44,11 @@ class ReadFileMock : public ::facebook::velox::ReadFile {
       preadv,
       (const std::vector<Segment>& segments),
       (const, override));
+  MOCK_METHOD(
+      void,
+      preadv,
+      (const std::vector<Region>& regions, folly::IOBuf* FOLLY_NONNULL output),
+      (const, override));
 };
 
 void expectPreads(
@@ -71,27 +76,28 @@ void expectPreadvs(
     std::vector<Region> reads) {
   EXPECT_CALL(file, getName()).WillRepeatedly(Return("mock_name"));
   EXPECT_CALL(file, size()).WillRepeatedly(Return(content.size()));
-  EXPECT_CALL(file, preadv(_))
+  EXPECT_CALL(file, preadv(_, _))
       .Times(1)
-      .WillOnce([content,
-                 reads](const std::vector<::facebook::velox::ReadFile::Segment>&
-                            segments) {
-        ASSERT_EQ(segments.size(), reads.size());
-        for (size_t i = 0; i < reads.size(); ++i) {
-          const auto& segment = segments[i];
-          const auto& read = reads[i];
-          ASSERT_EQ(segment.offset, read.offset);
-          ASSERT_EQ(segment.buffer.size(), read.length);
-          if (!read.label.empty()) {
-            EXPECT_EQ(read.label, segment.label);
-          }
-          ASSERT_LE(segment.offset + segment.buffer.size(), content.size());
-          memcpy(
-              segment.buffer.data(),
-              content.data() + segment.offset,
-              segment.buffer.size());
-        }
-      });
+      .WillOnce(
+          [content, reads](
+              const std::vector<::facebook::velox::common::Region>& regions,
+              folly::IOBuf* output) {
+            ASSERT_EQ(regions.size(), reads.size());
+            for (size_t i = 0; i < reads.size(); ++i) {
+              const auto& region = regions[i];
+              const auto& read = reads[i];
+              ASSERT_EQ(region.offset, read.offset);
+              ASSERT_EQ(region.length, read.length);
+              if (!read.label.empty()) {
+                EXPECT_EQ(read.label, region.label);
+              }
+              ASSERT_LE(region.offset + region.length, content.size());
+              *output++ = folly::IOBuf(
+                  folly::IOBuf::COPY_BUFFER,
+                  content.data() + region.offset,
+                  region.length);
+            }
+          });
 }
 
 std::optional<std::string> getNext(SeekableInputStream& input) {

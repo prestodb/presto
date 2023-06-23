@@ -16,6 +16,7 @@
 
 #include <fmt/format.h>
 
+#include "folly/io/Cursor.h"
 #include "velox/dwio/common/BufferedInput.h"
 
 DEFINE_bool(wsVRLoad, false, "Use WS VRead API to load");
@@ -42,23 +43,24 @@ void BufferedInput::load(const LogType logType) {
   buffers_.reserve(regions_.size());
 
   if (useVRead()) {
-    std::vector<void*> buffers;
-    buffers.reserve(regions_.size());
-    loadWithAction(
-        logType,
-        [&buffers](
-            void* buf, uint64_t /* length */, uint64_t /* offset */, LogType) {
-          buffers.push_back(buf);
-        });
-
     // Now we have all buffers and regions, load it in parallel
-    input_->vread(buffers, regions_, logType);
+    std::vector<folly::IOBuf> iobufs(regions_.size());
+    folly::IOBuf* output = iobufs.data();
+    input_->vread(regions_, output, logType);
+    for (const auto& region : regions_) {
+      auto allocated = allocate(region);
+      folly::io::Cursor cursor(output);
+      DWIO_ENSURE_EQ(
+          cursor.totalLength(), allocated.size(), "length mismatch.");
+      cursor.pull(allocated.data(), allocated.size());
+      *output++ = {}; // delete
+    }
+
   } else {
-    loadWithAction(
-        logType,
-        [this](void* buf, uint64_t length, uint64_t offset, LogType type) {
-          input_->read(buf, length, offset, type);
-        });
+    for (const auto& region : regions_) {
+      auto allocated = allocate(region);
+      input_->read(allocated.data(), allocated.size(), region.offset, logType);
+    }
   }
 
   // clear the loaded regions
@@ -153,14 +155,6 @@ void BufferedInput::mergeRegions() {
   // After merging, remove what's left.
   r.resize(ia + 1);
   std::swap(e, te);
-}
-
-void BufferedInput::loadWithAction(
-    const LogType logType,
-    std::function<void(void*, uint64_t, uint64_t, LogType)> action) {
-  for (const auto& region : regions_) {
-    readRegion(region, logType, action);
-  }
 }
 
 bool BufferedInput::tryMerge(Region& first, const Region& second) {
