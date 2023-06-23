@@ -85,15 +85,37 @@ TEST_F(MapFromEntriesTest, intKeyAndVarcharValue) {
 
 TEST_F(MapFromEntriesTest, nullMapEntries) {
   auto rowType = ROW({INTEGER(), INTEGER()});
-  std::vector<std::vector<variant>> data = {
-      {variant(TypeKind::ROW)}, {variant::row({1, 11})}};
-  auto input = makeArrayOfRowVector(rowType, data);
-  VELOX_ASSERT_THROW(
-      evaluateExpr("map_from_entries(C0)", {input}),
-      "map entry cannot be null");
-  auto expected =
-      makeNullableMapVector<int32_t, int32_t>({std::nullopt, O({{1, 11}})});
-  verifyMapFromEntries({input}, expected, "C0", true);
+  {
+    std::vector<std::vector<variant>> data = {
+        {variant(TypeKind::ROW) /*null*/}, {variant::row({1, 11})}};
+    auto input = makeArrayOfRowVector(rowType, data);
+    VELOX_ASSERT_THROW(
+        evaluateExpr("map_from_entries(C0)", {input}),
+        "map entry cannot be null");
+    auto expected =
+        makeNullableMapVector<int32_t, int32_t>({std::nullopt, O({{1, 11}})});
+    verifyMapFromEntries({input}, expected, "C0", true);
+  }
+  {
+    // Create array(row(a,b)) where a, b sizes are 0 because all row(a, b)
+    // values are null.
+    std::vector<std::vector<variant>> data = {
+        {variant(TypeKind::ROW),
+         variant(TypeKind::ROW),
+         variant(TypeKind::ROW) /*nulls*/},
+        {variant(TypeKind::ROW) /*null*/}};
+    auto input = makeArrayOfRowVector(rowType, data);
+    auto rowInput = input->as<ArrayVector>();
+    rowInput->elements()->as<RowVector>()->childAt(0)->resize(0);
+    rowInput->elements()->as<RowVector>()->childAt(1)->resize(0);
+
+    VELOX_ASSERT_THROW(
+        evaluateExpr("map_from_entries(C0)", {input}),
+        "map entry cannot be null");
+    auto expected =
+        makeNullableMapVector<int32_t, int32_t>({std::nullopt, std::nullopt});
+    verifyMapFromEntries({input}, expected, "C0", true);
+  }
 }
 
 TEST_F(MapFromEntriesTest, nullKeys) {
