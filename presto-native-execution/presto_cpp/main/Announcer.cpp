@@ -166,10 +166,11 @@ void Announcer::scheduleNext() {
   if (stopped_) {
     return;
   }
+
+  auto delayMs_ = frequencyMs_ + folly::Random::rand32(2000) - 1000;
   eventBaseThread_.getEventBase()->scheduleAt(
       [this]() { return makeAnnouncement(); },
-      std::chrono::steady_clock::now() +
-          std::chrono::milliseconds(frequencyMs_));
+      std::chrono::steady_clock::now() + std::chrono::milliseconds(delayMs_));
 }
 
 } // namespace facebook::presto
