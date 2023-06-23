@@ -114,6 +114,8 @@ std::unique_ptr<DataSink> DataSink::create(
       return result;
     }
   }
+  // TODO: remove this fallback once file data sink all switch to use velox
+  // filesystem for io operation.
   return std::make_unique<LocalFileSink>(path, metricsLog, stats);
 }
 
@@ -129,5 +131,9 @@ static std::unique_ptr<DataSink> localFileSink(
 }
 
 VELOX_REGISTER_DATA_SINK_METHOD_DEFINITION(LocalFileSink, localFileSink);
+
+void registerDataSinks() {
+  dwio::common::LocalFileSink::registerFactory();
+}
 
 } // namespace facebook::velox::dwio::common

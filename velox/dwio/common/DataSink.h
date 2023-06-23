@@ -235,6 +235,8 @@ class MemorySink : public DataSink {
   DataBuffer<char> data_;
 };
 
+void registerDataSinks();
+
 } // namespace facebook::velox::dwio::common
 
 #define VELOX_STATIC_REGISTER_DATA_SINK(function)                           \
