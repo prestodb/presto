@@ -48,14 +48,14 @@ class SwitchExpr : public SpecialForm {
       EvalCtx& context,
       VectorPtr& result) override;
 
-  bool propagatesNulls() const override;
-
   bool isConditional() const override {
     return true;
   }
 
  private:
   static TypePtr resolveType(const std::vector<TypePtr>& argTypes);
+
+  void computePropagatesNulls() override;
 
   const size_t numCases_;
   const bool hasElseClause_;

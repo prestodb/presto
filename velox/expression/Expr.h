@@ -282,9 +282,24 @@ class Expr {
     isMultiplyReferenced_ = true;
   }
 
+  template <typename T>
+  const T* as() const {
+    return dynamic_cast<const T*>(this);
+  }
+
+  template <typename T>
+  T* as() {
+    return dynamic_cast<T*>(this);
+  }
+
+  template <typename T>
+  bool is() const {
+    return as<T>() != nullptr;
+  }
+
   // True if 'this' Expr tree is null for a null in any of the columns
   // this depends on.
-  virtual bool propagatesNulls() const {
+  bool propagatesNulls() const {
     return propagatesNulls_;
   }
 

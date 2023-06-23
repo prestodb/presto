@@ -157,7 +157,9 @@ void SwitchExpr::evalSpecialForm(
   }
 }
 
-bool SwitchExpr::propagatesNulls() const {
+// This is safe to call only after all metadata is computed for input
+// expressions.
+void SwitchExpr::computePropagatesNulls() {
   // The "switch" expression propagates nulls when all of the following
   // conditions are met:
   // - All "then" clauses and optional "else" clause propagate nulls.
@@ -166,7 +168,8 @@ bool SwitchExpr::propagatesNulls() const {
 
   for (auto i = 0; i < numCases_; i += 2) {
     if (!inputs_[i + 1]->propagatesNulls()) {
-      return false;
+      propagatesNulls_ = false;
+      return;
     }
   }
 
@@ -175,25 +178,29 @@ bool SwitchExpr::propagatesNulls() const {
     const auto& condition = inputs_[i * 2];
     const auto& thenClause = inputs_[i * 2 + 1];
     if (!Expr::isSameFields(firstThenFields, thenClause->distinctFields())) {
-      return false;
+      propagatesNulls_ = false;
+      return;
     }
 
     if (!Expr::isSubsetOfFields(condition->distinctFields(), firstThenFields)) {
-      return false;
+      propagatesNulls_ = false;
+      return;
     }
   }
 
   if (hasElseClause_) {
     const auto& elseClause = inputs_.back();
     if (!elseClause->propagatesNulls()) {
-      return false;
+      propagatesNulls_ = false;
+      return;
     }
     if (!Expr::isSameFields(firstThenFields, elseClause->distinctFields())) {
-      return false;
+      propagatesNulls_ = false;
+      return;
     }
   }
 
-  return true;
+  propagatesNulls_ = true;
 }
 
 // static

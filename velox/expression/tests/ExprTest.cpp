@@ -3734,6 +3734,14 @@ TEST_F(ExprTest, nullPropagation) {
       ROW({"c0", "c1"}, {VARCHAR(), VARCHAR()}));
   EXPECT_TRUE(propagatesNulls(singleString));
   EXPECT_FALSE(propagatesNulls(twoStrings));
+
+  // Try will call propagateNulls on its child, that should not
+  // redo the computation.
+  auto switchInTry = parseExpression(
+      "try(switch(subscript(c0, array_min(c1)), FALSE, FALSE,"
+      "FALSE, is_null('6338838335202944843'::BIGINT)))",
+      ROW({"c0", "c1"}, {ARRAY({BOOLEAN()}), ARRAY({BIGINT()})}));
+  EXPECT_FALSE(propagatesNulls(switchInTry));
 }
 
 TEST_F(ExprTest, peelingWithSmallerConstantInput) {

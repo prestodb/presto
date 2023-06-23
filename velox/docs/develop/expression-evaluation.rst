@@ -453,4 +453,3 @@ SWITCH expression evaluation goes through the following steps:
 SWITCH expression sets EvalCtx::isFinalSelection flag to false. The expressions
 are expected to use this flag to decide whether the partially populated result
 vector must be preserved or can be overwritten.
-

@@ -34,11 +34,11 @@ class CoalesceExpr : public SpecialForm {
       EvalCtx& context,
       VectorPtr& result) override;
 
-  bool propagatesNulls() const override {
-    return false;
+ private:
+  void computePropagatesNulls() override {
+    propagatesNulls_ = false;
   }
 
- private:
   static TypePtr resolveType(const std::vector<TypePtr>& argTypes);
 
   friend class CoalesceCallToSpecialForm;

@@ -22,6 +22,7 @@
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/SuccinctPrinter.h"
 #include "velox/core/Expressions.h"
+#include "velox/expression/CastExpr.h"
 #include "velox/expression/ConstantExpr.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/ExprCompiler.h"
@@ -188,57 +189,72 @@ bool Expr::allSupportFlatNoNullsFastPath(
 }
 
 void Expr::computeMetadata() {
-  // Sets propagatesNulls_ if a null in any of the columns this
-  // depends on makes the Expr null. If the set of fields
-  // null-propagating arguments depend on is a superset of the fields
-  // non null-propagating arguments depend on and the function itself
-  // has default null behavior, then the Expr propagates nulls.  Sets
-  // isDeterministic to false if some subtree is
-  // non-deterministic. Sets 'distinctFields_' to be the union of
-  // 'distinctFields_' of inputs. If one of the inputs has the
-  // identical set of distinct fields, then the input's distinct
-  // fields are set to empty.
-  bool isNullPropagatingFunction = false;
-  if (isSpecialForm()) {
-    // 'propagatesNulls_' will be adjusted after inputs are processed.
-    propagatesNulls_ = true;
-    deterministic_ = true;
-  } else if (vectorFunction_) {
-    deterministic_ = vectorFunction_->isDeterministic();
-    isNullPropagatingFunction = vectorFunction_->isDefaultNullBehavior();
-    propagatesNulls_ = isNullPropagatingFunction;
+  // Compute metadata for all the inputs.
+  for (auto& input : inputs_) {
+    input->computeMetadata();
   }
 
-  std::vector<FieldReference*> nullPropagatingFields;
-  std::vector<FieldReference*> nonNullPropagatingFields;
-  std::unordered_set<FieldReference*> ignore;
+  // (1) Compute deterministic_.
+  // An expression is deterministic if it is a deterministic function call or a
+  // special form, and all its inputs are also deterministic.
+  if (vectorFunction_) {
+    deterministic_ = vectorFunction_->isDeterministic();
+  } else {
+    VELOX_CHECK(isSpecialForm());
+    deterministic_ = true;
+  }
+
   for (auto& input : inputs_) {
-    // Skip computing for inputs already marked as multiply referenced as they
-    // would have it computed already.
-    if (!input->isMultiplyReferenced_) {
-      input->computeMetadata();
-    }
     deterministic_ &= input->deterministic_;
-    if (!input->distinctFields_.empty()) {
-      if (!isNullPropagatingFunction) {
-        propagatesNulls_ &= input->propagatesNulls_;
-      } else if (input->propagatesNulls_) {
-        mergeFields(nullPropagatingFields, ignore, input->distinctFields_);
-      } else {
-        mergeFields(nonNullPropagatingFields, ignore, input->distinctFields_);
-      }
-    }
+  }
+
+  // (2) Compute distinctFields_ and multiplyReferencedFields_.
+  for (auto& input : inputs_) {
     mergeFields(
         distinctFields_, multiplyReferencedFields_, input->distinctFields_);
   }
-  if (isSpecialForm()) {
-    propagatesNulls_ = propagatesNulls();
-  } else if (isNullPropagatingFunction) {
-    propagatesNulls_ =
-        isSubsetOfFields(nonNullPropagatingFields, nullPropagatingFields);
+
+  // (3) Compute propagatesNulls_.
+  // propagatesNulls_ is true iff a null in any of the columns this
+  // depends on makes the Expr null.
+
+  if (isSpecialForm() && !is<ConstantExpr>() && !is<FieldReference>() &&
+      !is<CastExpr>()) {
+    as<SpecialForm>()->computePropagatesNulls();
   } else {
-    propagatesNulls_ = false;
+    if (vectorFunction_ && !vectorFunction_->isDefaultNullBehavior()) {
+      propagatesNulls_ = false;
+    } else {
+      // Logic for handling default-null vector functions.
+      // cast, constant and fieldReference expressions act as vector functions
+      // with default null behavior.
+
+      // If the function has default null behavior, the Expr propagates nulls if
+      // the set of fields null-propagating arguments depend on is a superset of
+      // the fields non null-propagating arguments depend on.
+      std::unordered_set<FieldReference*> nullPropagating, nonNullPropagating;
+      for (auto& input : inputs_) {
+        if (input->propagatesNulls_) {
+          nullPropagating.insert(
+              input->distinctFields_.begin(), input->distinctFields_.end());
+        } else {
+          nonNullPropagating.insert(
+              input->distinctFields_.begin(), input->distinctFields_.end());
+        }
+      }
+
+      // propagatesNulls_ is true if nonNullPropagating is subset of
+      // nullPropagating.
+      propagatesNulls_ = true;
+      for (auto* field : nonNullPropagating) {
+        if (!nullPropagating.count(field)) {
+          propagatesNulls_ = false;
+          break;
+        }
+      }
+    }
   }
+
   for (auto& input : inputs_) {
     if (!input->isMultiplyReferenced_ &&
         isSameFields(distinctFields_, input->distinctFields_)) {
@@ -246,6 +262,7 @@ void Expr::computeMetadata() {
     }
   }
 
+  // (5) Compute hasConditionals_.
   hasConditionals_ = hasConditionals(this);
 }
 
@@ -272,7 +289,7 @@ void rethrowFirstError(
 // has errors, throws the first error in 'argumentErrors' scoped to 'rows'.
 // Otherwise sets 'errors()' of 'context' to the union of the errors. This is
 // used after all arguments of a function call have been evaluated and
-// we decide on whether to throw or what errors to leave in 'context'  for  the
+// we decide on whether to throw or what errors to leave in 'context' for the
 // caller.
 void mergeOrThrowArgumentErrors(
     const SelectivityVector& rows,
