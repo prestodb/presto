@@ -16,6 +16,7 @@
 #include <gmock/gmock.h>
 #include <optional>
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
 
 namespace facebook::velox::functions::sparksql::test {
@@ -23,6 +24,8 @@ using namespace facebook::velox::test;
 
 namespace {
 
+static constexpr auto kMin8 = std::numeric_limits<int8_t>::min();
+static constexpr auto kMax8 = std::numeric_limits<int8_t>::max();
 static constexpr auto kMin16 = std::numeric_limits<int16_t>::min();
 static constexpr auto kMax16 = std::numeric_limits<int16_t>::max();
 static constexpr auto kMin32 = std::numeric_limits<int32_t>::min();
@@ -41,6 +44,16 @@ class BitwiseTest : public SparkFunctionBaseTest {
   template <typename T>
   std::optional<T> bitwiseOr(std::optional<T> a, std::optional<T> b) {
     return evaluateOnce<T>("bitwise_or(c0, c1)", a, b);
+  }
+
+  template <typename T>
+  std::optional<int32_t> bitCount(std::optional<T> a) {
+    return evaluateOnce<int32_t>("bit_count(c0)", a);
+  }
+
+  template <typename T>
+  std::optional<int8_t> bitGet(std::optional<T> a, std::optional<int32_t> b) {
+    return evaluateOnce<int8_t>("bit_get(c0, c1)", a, b);
   }
 
   template <typename T>
@@ -134,6 +147,67 @@ TEST_F(BitwiseTest, bitwiseOr) {
   EXPECT_EQ(bitwiseOr<int64_t>(kMax64, -1), -1);
   EXPECT_EQ(bitwiseOr<int64_t>(kMin64, 1), kMin64 + 1);
   EXPECT_EQ(bitwiseOr<int64_t>(kMin64, -1), -1);
+}
+
+TEST_F(BitwiseTest, bitCount) {
+  EXPECT_EQ(bitCount<int8_t>(std::nullopt), std::nullopt);
+  EXPECT_EQ(bitCount<bool>(1), 1);
+  EXPECT_EQ(bitCount<bool>(false), 0);
+  EXPECT_EQ(bitCount<int8_t>(kMin8), 1);
+  EXPECT_EQ(bitCount<int8_t>(kMax8), 7);
+  EXPECT_EQ(bitCount<int16_t>(kMin16), 1);
+  EXPECT_EQ(bitCount<int16_t>(kMax16), 15);
+  EXPECT_EQ(bitCount<int32_t>(kMin32), 1);
+  EXPECT_EQ(bitCount<int32_t>(kMax32), 31);
+  EXPECT_EQ(bitCount<int64_t>(kMin64), 1);
+  EXPECT_EQ(bitCount<int64_t>(kMax64), 63);
+}
+
+TEST_F(BitwiseTest, bitGet) {
+  EXPECT_EQ(bitGet<int8_t>(std::nullopt, 1), std::nullopt);
+  EXPECT_EQ(bitGet<int8_t>(kMin8, 0), 0);
+  EXPECT_EQ(bitGet<int8_t>(kMin8, 7), 1);
+  EXPECT_EQ(bitGet<int8_t>(kMax8, 0), 1);
+  EXPECT_EQ(bitGet<int8_t>(kMax8, 7), 0);
+  VELOX_ASSERT_THROW(
+      bitGet<int8_t>(kMax8, -1),
+      "The value of 'pos' argument must be greater than or equal to zero.");
+  VELOX_ASSERT_THROW(
+      bitGet<int8_t>(kMax8, 8),
+      "The value of 'pos' argument must not exceed the number of bits in 'x' - 1.");
+
+  EXPECT_EQ(bitGet<int16_t>(kMin16, 0), 0);
+  EXPECT_EQ(bitGet<int16_t>(kMin16, 15), 1);
+  EXPECT_EQ(bitGet<int16_t>(kMax16, 0), 1);
+  EXPECT_EQ(bitGet<int16_t>(kMax16, 15), 0);
+  VELOX_ASSERT_THROW(
+      bitGet<int16_t>(kMax16, -1),
+      "The value of 'pos' argument must be greater than or equal to zero.");
+  VELOX_ASSERT_THROW(
+      bitGet<int16_t>(kMax16, 16),
+      "The value of 'pos' argument must not exceed the number of bits in 'x' - 1.");
+
+  EXPECT_EQ(bitGet<int32_t>(kMin32, 0), 0);
+  EXPECT_EQ(bitGet<int32_t>(kMin32, 31), 1);
+  EXPECT_EQ(bitGet<int32_t>(kMax32, 0), 1);
+  EXPECT_EQ(bitGet<int32_t>(kMax32, 31), 0);
+  VELOX_ASSERT_THROW(
+      bitGet<int32_t>(kMax32, -1),
+      "The value of 'pos' argument must be greater than or equal to zero.");
+  VELOX_ASSERT_THROW(
+      bitGet<int32_t>(kMax32, 32),
+      "The value of 'pos' argument must not exceed the number of bits in 'x' - 1.");
+
+  EXPECT_EQ(bitGet<int64_t>(kMin64, 0), 0);
+  EXPECT_EQ(bitGet<int64_t>(kMin64, 63), 1);
+  EXPECT_EQ(bitGet<int64_t>(kMax64, 0), 1);
+  EXPECT_EQ(bitGet<int64_t>(kMax64, 63), 0);
+  VELOX_ASSERT_THROW(
+      bitGet<int64_t>(kMax64, -1),
+      "The value of 'pos' argument must be greater than or equal to zero.");
+  VELOX_ASSERT_THROW(
+      bitGet<int64_t>(kMax64, 64),
+      "The value of 'pos' argument must not exceed the number of bits in 'x' - 1.");
 }
 
 TEST_F(BitwiseTest, shiftLeft) {

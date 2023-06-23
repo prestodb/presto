@@ -81,9 +81,51 @@ struct ShiftRightFunction {
   }
 };
 
+template <typename T>
+struct BitCountFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(int32_t& result, TInput num) {
+    constexpr int kMaxBits = sizeof(TInput) * CHAR_BIT;
+    auto value = static_cast<uint64_t>(num);
+    result = bits::countBits(&value, 0, kMaxBits);
+  }
+};
+
+template <typename T>
+struct BitGetFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(int8_t& result, TInput num, int32_t pos) {
+    constexpr int kMaxBits = sizeof(TInput) * CHAR_BIT;
+    VELOX_USER_CHECK_GE(
+        pos,
+        0,
+        "The value of 'pos' argument must be greater than or equal to zero.")
+    VELOX_USER_CHECK_LT(
+        pos,
+        kMaxBits,
+        "The value of 'pos' argument must not exceed the number of bits in 'x' - 1.")
+    result = (num >> pos) & 1;
+  }
+};
+
 void registerBitwiseFunctions(const std::string& prefix) {
   registerBinaryIntegral<BitwiseAndFunction>({prefix + "bitwise_and"});
   registerBinaryIntegral<BitwiseOrFunction>({prefix + "bitwise_or"});
+
+  registerFunction<BitCountFunction, int32_t, bool>({prefix + "bit_count"});
+  registerFunction<BitCountFunction, int32_t, int8_t>({prefix + "bit_count"});
+  registerFunction<BitCountFunction, int32_t, int16_t>({prefix + "bit_count"});
+  registerFunction<BitCountFunction, int32_t, int32_t>({prefix + "bit_count"});
+  registerFunction<BitCountFunction, int32_t, int64_t>({prefix + "bit_count"});
+
+  registerFunction<BitGetFunction, int8_t, int8_t, int32_t>(
+      {prefix + "bit_get"});
+  registerFunction<BitGetFunction, int8_t, int16_t, int32_t>(
+      {prefix + "bit_get"});
+  registerFunction<BitGetFunction, int8_t, int32_t, int32_t>(
+      {prefix + "bit_get"});
+  registerFunction<BitGetFunction, int8_t, int64_t, int32_t>(
+      {prefix + "bit_get"});
 
   registerFunction<ShiftLeftFunction, int32_t, int32_t, int32_t>(
       {prefix + "shiftleft"});
