@@ -496,12 +496,18 @@ void CacheShard::appendSsdSaveable(std::vector<CachePin>& pins) {
 
 AsyncDataCache::AsyncDataCache(
     const std::shared_ptr<MemoryAllocator>& allocator,
-    uint64_t maxBytes,
+    uint64_t /* maxBytes */,
     std::unique_ptr<SsdCache> ssdCache)
-    : allocator_(allocator),
-      ssdCache_(std::move(ssdCache)),
-      cachedPages_(0),
-      maxBytes_(maxBytes) {
+    : allocator_(allocator), ssdCache_(std::move(ssdCache)), cachedPages_(0) {
+  for (auto i = 0; i < kNumShards; ++i) {
+    shards_.push_back(std::make_unique<CacheShard>(this));
+  }
+}
+
+AsyncDataCache::AsyncDataCache(
+    const std::shared_ptr<MemoryAllocator>& allocator,
+    std::unique_ptr<SsdCache> ssdCache)
+    : allocator_(allocator), ssdCache_(std::move(ssdCache)), cachedPages_(0) {
   for (auto i = 0; i < kNumShards; ++i) {
     shards_.push_back(std::make_unique<CacheShard>(this));
   }
@@ -554,21 +560,18 @@ bool AsyncDataCache::makeSpace(
     isCounted = true;
   }
   for (auto nthAttempt = 0; nthAttempt < kMaxAttempts; ++nthAttempt) {
-    if (allocator_->numAllocated() + numPages <
-        maxBytes_ / memory::AllocationTraits::kPageSize) {
-      try {
-        if (allocate()) {
-          if (isCounted) {
-            --numThreadsInAllocate_;
-          }
-          return true;
-        }
-      } catch (const std::exception& e) {
+    try {
+      if (allocate()) {
         if (isCounted) {
           --numThreadsInAllocate_;
         }
-        throw;
+        return true;
       }
+    } catch (const std::exception& e) {
+      if (isCounted) {
+        --numThreadsInAllocate_;
+      }
+      throw;
     }
     if (nthAttempt > 2 && ssdCache_ && ssdCache_->writeInProgress()) {
       LOG(INFO) << "SSDCA: Pause 0.5s after failed eviction waiting for SSD "
@@ -604,7 +607,7 @@ bool AsyncDataCache::makeSpace(
 void AsyncDataCache::backoff(int32_t counter) {
   size_t seed = folly::hasher<uint16_t>()(++backoffCounter_);
   auto usec = (seed & 0xfff) * (counter & 0x1f);
-  LOG(INFO) << "Backoff in allocation contention for " << usec << " us.";
+  VLOG(1) << "Backoff in allocation contention for " << usec << " us.";
   std::this_thread::sleep_for(std::chrono::microseconds(usec)); // NOLINT
 }
 
@@ -706,7 +709,7 @@ std::string AsyncDataCache::toString() const {
   out << "AsyncDataCache: "
       << stats.tinySize + stats.largeSize + stats.tinyPadding +
           stats.largePadding
-      << " / " << maxBytes_ << " bytes\n"
+      << " bytes\n"
       << "Miss: " << stats.numNew << " Hit " << stats.numHit << " evict "
       << stats.numEvict << "\n"
       << " read pins " << stats.numShared << " write pins "

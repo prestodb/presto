@@ -62,7 +62,7 @@ class MemoryAllocatorTest : public testing::TestWithParam<bool> {
       allocator_ = std::make_shared<MmapAllocator>(options);
       auto mmapAllocator = std::dynamic_pointer_cast<MmapAllocator>(allocator_);
       ASSERT_EQ(
-          mmapAllocator->capacity(),
+          AllocationTraits::numPages(mmapAllocator->capacity()),
           bits::roundUp(
               kCapacityBytes * (100 - options.smallAllocationReservePct) / 100 /
                   AllocationTraits::kPageSize,
@@ -369,7 +369,7 @@ TEST_P(MemoryAllocatorTest, mmapAllocatorInit) {
         bits::roundUp(
             AllocationTraits::numPages(options.capacity - smallAllocationBytes),
             64 * mmapAllocator->sizeClasses().back()),
-        mmapAllocator->capacity());
+        AllocationTraits::numPages(mmapAllocator->capacity()));
     EXPECT_EQ(options.maxMallocBytes, mmapAllocator->maxMallocBytes());
     EXPECT_EQ(smallAllocationBytes, mmapAllocator->mallocReservedBytes());
   }
@@ -383,7 +383,7 @@ TEST_P(MemoryAllocatorTest, mmapAllocatorInit) {
         bits::roundUp(
             AllocationTraits::numPages(kCapacityBytes),
             64 * mmapAllocator->sizeClasses().back()),
-        mmapAllocator->capacity());
+        AllocationTraits::numPages(mmapAllocator->capacity()));
     EXPECT_EQ(options.maxMallocBytes, mmapAllocator->maxMallocBytes());
     EXPECT_EQ(0, mmapAllocator->mallocReservedBytes());
   }
@@ -399,7 +399,7 @@ TEST_P(MemoryAllocatorTest, mmapAllocatorInit) {
         bits::roundUp(
             AllocationTraits::numPages(options.capacity),
             64 * mmapAllocator->sizeClasses().back()),
-        mmapAllocator->capacity());
+        AllocationTraits::numPages(mmapAllocator->capacity()));
     EXPECT_EQ(options.maxMallocBytes, mmapAllocator->maxMallocBytes());
     EXPECT_EQ(smallAllocationBytes, mmapAllocator->mallocReservedBytes());
   }

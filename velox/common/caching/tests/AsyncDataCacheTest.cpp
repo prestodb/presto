@@ -568,9 +568,10 @@ TEST_F(AsyncDataCacheTest, replace) {
 }
 
 TEST_F(AsyncDataCacheTest, outOfCapacity) {
-  constexpr int64_t kMaxBytes = 16 << 20;
-  constexpr int32_t kSize = 16 << 10;
-  constexpr int32_t kSizeInPages = kSize / memory::AllocationTraits::kPageSize;
+  const int64_t kMaxBytes = 64
+      << 20; // 64MB as MmapAllocator's min size is 64MB
+  const int32_t kSize = 16 << 10;
+  const int32_t kSizeInPages = memory::AllocationTraits::numPages(kSize);
   std::deque<CachePin> pins;
   std::deque<memory::Allocation> allocations;
   initializeCache(kMaxBytes);
@@ -590,8 +591,8 @@ TEST_F(AsyncDataCacheTest, outOfCapacity) {
   ASSERT_FALSE(cache_->allocateNonContiguous(kSizeInPages, allocation));
   // One 4 page entry below the max size of 4K 4 page entries in 16MB of
   // capacity.
-  ASSERT_EQ(4092, cache_->incrementCachedPages(0));
-  ASSERT_EQ(4092, cache_->incrementPrefetchPages(0));
+  ASSERT_EQ(16384, cache_->incrementCachedPages(0));
+  ASSERT_EQ(16384, cache_->incrementPrefetchPages(0));
   pins.clear();
 
   // We allocate the full capacity and expect the cache entries to go.
@@ -603,7 +604,7 @@ TEST_F(AsyncDataCacheTest, outOfCapacity) {
   }
   EXPECT_EQ(0, cache_->incrementCachedPages(0));
   EXPECT_EQ(0, cache_->incrementPrefetchPages(0));
-  EXPECT_EQ(4092, cache_->numAllocated());
+  EXPECT_EQ(16384, cache_->numAllocated());
   clearAllocations(allocations);
 }
 

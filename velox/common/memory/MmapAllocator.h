@@ -85,6 +85,10 @@ class MmapAllocator : public MemoryAllocator {
     return kind_;
   }
 
+  size_t capacity() const override {
+    return AllocationTraits::pageBytes(capacity_);
+  }
+
   bool allocateNonContiguous(
       MachinePageCount numPages,
       Allocation& out,
@@ -135,10 +139,6 @@ class MmapAllocator : public MemoryAllocator {
   /// Checks that the totals of mapped free and mapped and allocated pages match
   /// the data in the bitmaps in the size classes.
   bool checkConsistency() const override;
-
-  MachinePageCount capacity() const {
-    return capacity_;
-  }
 
   int32_t maxMallocBytes() const {
     return maxMallocBytes_;

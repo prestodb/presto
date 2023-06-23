@@ -611,9 +611,15 @@ class CacheShard {
 
 class AsyncDataCache : public memory::MemoryAllocator {
  public:
+  // TODO(jtan6): Remove this constructor after Presto Native switches to below
+  // constructor
   AsyncDataCache(
       const std::shared_ptr<memory::MemoryAllocator>& allocator,
       uint64_t maxBytes,
+      std::unique_ptr<SsdCache> ssdCache = nullptr);
+
+  AsyncDataCache(
+      const std::shared_ptr<memory::MemoryAllocator>& allocator,
       std::unique_ptr<SsdCache> ssdCache = nullptr);
 
   // Finds or creates a cache entry corresponding to 'key'. The entry
@@ -637,6 +643,10 @@ class AsyncDataCache : public memory::MemoryAllocator {
 
   Kind kind() const override {
     return allocator_->kind();
+  }
+
+  size_t capacity() const override {
+    return allocator_->capacity();
   }
 
   bool allocateNonContiguous(
@@ -693,10 +703,6 @@ class AsyncDataCache : public memory::MemoryAllocator {
   memory::MachinePageCount incrementPrefetchPages(int64_t pages) {
     // The counter is unsigned and the increment is signed.
     return prefetchPages_.fetch_add(pages) + pages;
-  }
-
-  uint64_t maxBytes() const {
-    return maxBytes_;
   }
 
   SsdCache* ssdCache() const {
@@ -783,7 +789,6 @@ class AsyncDataCache : public memory::MemoryAllocator {
   // Number of pages that are allocated and not yet loaded or loaded
   // but not yet hit for the first time.
   std::atomic<memory::MachinePageCount> prefetchPages_{0};
-  uint64_t maxBytes_;
 
   // Approximate counter of bytes allocated to cover misses. When this
   // exceeds 'nextSsdScoreSize_' we update the SSD admission criteria.

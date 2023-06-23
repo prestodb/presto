@@ -195,6 +195,9 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
 
   using ReservationCallback = std::function<void(int64_t, bool)>;
 
+  /// Returns the capacity of the allocator in bytes.
+  virtual size_t capacity() const = 0;
+
   /// Allocates one or more runs that add up to at least 'numPages', with the
   /// smallest run being at least 'minSizeClass' pages. 'minSizeClass' must be
   /// <= the size of the largest size class. The new memory is returned in 'out'

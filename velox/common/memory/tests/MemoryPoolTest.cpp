@@ -25,7 +25,7 @@
 #include "velox/common/testutil/TestValue.h"
 
 DECLARE_bool(velox_memory_leak_check_enabled);
-DECLARE_bool(velox_memory_pool_debug_mode_enabled);
+DECLARE_bool(velox_memory_pool_debug_enabled);
 DECLARE_int32(velox_memory_num_shared_leaf_pools);
 
 using namespace ::testing;
@@ -72,7 +72,6 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
  protected:
   static void SetUpTestCase() {
     FLAGS_velox_memory_leak_check_enabled = true;
-    FLAGS_velox_memory_pool_debug_enabled = true;
     TestValue::enable();
   }
 
@@ -1853,10 +1852,6 @@ class MemoryPoolTester {
 };
 
 TEST_P(MemoryPoolTest, concurrentUpdateToDifferentPools) {
-  if (useCache_) {
-    // TODO(jtan6): Re-enable the test with cache after AsyncDataCache is fixed.
-    return;
-  }
   constexpr int64_t kMaxMemory = 10 * GB;
   MemoryManager manager{{.capacity = kMaxMemory}};
   auto root =
@@ -1904,10 +1899,7 @@ TEST_P(MemoryPoolTest, concurrentUpdateToDifferentPools) {
 }
 
 TEST_P(MemoryPoolTest, concurrentUpdatesToTheSamePool) {
-  if (useCache_) {
-    // TODO(jtan6): Re-enable the test with cache after AsyncDataCache is fixed.
-    return;
-  }
+  FLAGS_velox_memory_pool_debug_enabled = true;
   if (!isLeafThreadSafe_) {
     return;
   }
@@ -1957,10 +1949,6 @@ TEST_P(MemoryPoolTest, concurrentUpdatesToTheSamePool) {
 }
 
 TEST_P(MemoryPoolTest, concurrentUpdateToSharedPools) {
-  // TODO(jtan6): Have a followup PR that fixes AsyncDataCache not freeing 'out'
-  if (useCache_) {
-    return;
-  }
   // under some conditions bug.
   constexpr int64_t kMaxMemory = 10 * GB;
   MemoryManager manager{{.capacity = kMaxMemory}};
@@ -2096,6 +2084,7 @@ TEST(MemoryPoolTest, visitChildren) {
 }
 
 TEST(MemoryPoolTest, debugMode) {
+  FLAGS_velox_memory_pool_debug_enabled = true;
   constexpr int64_t kMaxMemory = 10 * GB;
   constexpr int64_t kNumIterations = 100;
   const std::vector<int64_t> kAllocSizes = {128, 8 * KB, 2 * MB};
@@ -2332,8 +2321,6 @@ TEST_P(MemoryPoolTest, memoryReclaimerSetCheck) {
 }
 
 TEST_P(MemoryPoolTest, reclaimAPIsWithDefaultReclaimer) {
-  // Disable debug mode for this test as it makes the test timeout.
-  FLAGS_velox_memory_pool_debug_enabled = false;
   MemoryManager manager;
   struct {
     int numChildren;
