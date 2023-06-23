@@ -17,6 +17,7 @@
 #include "velox/dwio/common/InputStream.h"
 
 #include <string_view>
+#include "folly/io/Cursor.h"
 
 #include "gtest/gtest.h"
 
@@ -70,4 +71,31 @@ TEST(ReadFileInputStream, VRead) {
   ASSERT_EQ(read_value, "aaaaa");
   read_value = {buf2.get(), 5};
   ASSERT_EQ(read_value, "ccccc");
+}
+
+TEST(ReadFileInputStream, VReadIOBufs) {
+  std::string fileData;
+  {
+    InMemoryWriteFile writeFile(&fileData);
+    writeFile.append("aaaaa");
+    writeFile.append("bbbbb");
+    writeFile.append("ccccc");
+  }
+  auto readFile = std::make_shared<InMemoryReadFile>(fileData);
+  ReadFileInputStream inputStream(readFile);
+  ASSERT_EQ(inputStream.getLength(), 15);
+  std::vector<Region> regions = {{0, 6}, {9, 5}};
+  std::vector<folly::IOBuf> iobufs(regions.size());
+  inputStream.vread(regions, iobufs.data(), LogType::STREAM);
+  std::vector<std::string> result;
+  std::transform(
+      iobufs.cbegin(),
+      iobufs.cend(),
+      std::back_inserter(result),
+      [](const auto& iobuf) {
+        folly::io::Cursor cursor(&iobuf);
+        return cursor.readFixedString(cursor.totalLength());
+      });
+  std::vector<std::string> expected = {"aaaaab", "bcccc"};
+  EXPECT_EQ(result, expected);
 }

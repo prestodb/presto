@@ -125,6 +125,15 @@ class InputStream {
       const std::vector<velox::common::Region>& regions,
       const LogType purpose) = 0;
 
+  /*
+   * Same as the above, but stores the result in an IOBuf array starting at
+   * `output`, which must have the same size as `regions`.
+   */
+  virtual void vread(
+      const std::vector<velox::common::Region>& regions,
+      folly::IOBuf* output,
+      const LogType purpose) = 0;
+
   // case insensitive find
   static uint32_t ifind(const std::string& src, const std::string& target);
 
@@ -174,6 +183,11 @@ class ReadFileInputStream final : public InputStream {
   void vread(
       const std::vector<void*>& buffers,
       const std::vector<velox::common::Region>& regions,
+      const LogType purpose) override;
+
+  void vread(
+      const std::vector<velox::common::Region>& regions,
+      folly::IOBuf* output,
       const LogType purpose) override;
 
   const std::shared_ptr<velox::ReadFile>& getReadFile() const {

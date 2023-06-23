@@ -27,6 +27,7 @@
 #include <cstring>
 #include <functional>
 #include <istream>
+#include <numeric>
 #include <stdexcept>
 #include <string_view>
 #include <type_traits>
@@ -155,6 +156,25 @@ void ReadFileInputStream::vread(
   if (stats_) {
     stats_->incRawBytesRead(length);
     stats_->incTotalScanTime((getCurrentTimeMicro() - readStartMicros) * 1000);
+  }
+}
+
+void ReadFileInputStream::vread(
+    const std::vector<velox::common::Region>& regions,
+    folly::IOBuf* output,
+    const LogType purpose) {
+  DWIO_ENSURE_GT(regions.size(), 0, "regions to read can't be empty");
+  const size_t length = std::accumulate(
+      regions.cbegin(),
+      regions.cend(),
+      size_t(0),
+      [&](size_t acc, const auto& r) { return acc + r.length; });
+  logRead(regions[0].offset, length, purpose);
+  auto readStartMs = getCurrentTimeMs();
+  readFile_->preadv(regions, output);
+  if (stats_) {
+    stats_->incRawBytesRead(length);
+    stats_->incTotalScanTime(getCurrentTimeMs() - readStartMs);
   }
 }
 
