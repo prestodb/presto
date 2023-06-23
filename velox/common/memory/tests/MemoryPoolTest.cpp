@@ -191,6 +191,10 @@ TEST_P(MemoryPoolTest, Ctor) {
     ASSERT_EQ(grandChild->root(), root.get());
     ASSERT_EQ(grandChild->capacity(), capacity);
   }
+  // Check we can't create a memory pool with zero max capacity.
+  VELOX_ASSERT_THROW(
+      manager.addRootPool("rootWithZeroMaxCapacity", 0),
+      "Memory pool rootWithZeroMaxCapacity max capacity can't be zero");
 }
 
 TEST_P(MemoryPoolTest, AddChild) {
@@ -373,8 +377,9 @@ TEST_P(MemoryPoolTest, AllocTest) {
   ASSERT_EQ(4 * kChunkSize, child->stats().peakBytes);
 }
 
-TEST_P(MemoryPoolTest, DISABLED_memoryLeakCheck) {
+TEST_P(MemoryPoolTest, memoryLeakCheck) {
   gflags::FlagSaver flagSaver;
+  testing::FLAGS_gtest_death_test_style = "fast";
   auto manager = getMemoryManager(8 * GB);
   auto root = manager->addRootPool();
 
@@ -384,6 +389,27 @@ TEST_P(MemoryPoolTest, DISABLED_memoryLeakCheck) {
   FLAGS_velox_memory_leak_check_enabled = true;
   ASSERT_DEATH(child.reset(), "");
   child->free(oneChunk, kChunkSize);
+}
+
+TEST_P(MemoryPoolTest, growBeyondMaxCapacity) {
+  gflags::FlagSaver flagSaver;
+  testing::FLAGS_gtest_death_test_style = "fast";
+  auto manager = getMemoryManager(8 * GB);
+  {
+    auto poolWithoutLimit = manager->addRootPool("poolWithoutLimit");
+    ASSERT_EQ(poolWithoutLimit->capacity(), kMaxMemory);
+    ASSERT_DEATH(
+        poolWithoutLimit->grow(1), "Can't grow with unlimited capacity");
+  }
+  {
+    const int64_t capacity = 4 * GB;
+    auto poolWithLimit = manager->addRootPool("poolWithLimit", capacity);
+    ASSERT_EQ(poolWithLimit->capacity(), capacity);
+    ASSERT_EQ(poolWithLimit->shrink(poolWithLimit->currentBytes()), capacity);
+    ASSERT_EQ(poolWithLimit->grow(capacity / 2), capacity / 2);
+    ASSERT_DEATH(
+        poolWithLimit->grow(capacity), "Can't grow beyond the max capacity");
+  }
 }
 
 TEST_P(MemoryPoolTest, ReallocTestSameSize) {
@@ -524,7 +550,7 @@ TEST_P(MemoryPoolTest, MemoryCapExceptions) {
         ASSERT_EQ(error_code::kMemCapExceeded.c_str(), ex.errorCode());
         ASSERT_TRUE(ex.isRetriable());
         ASSERT_EQ(
-            "\nExceeded memory pool cap of 127.00MB when requesting 128.00MB, memory manager cap is 127.00MB\nMemoryCapExceptions usage 0B peak 0B\n\nFailed memory pool: static_quota: 0B\n",
+            "\nExceeded memory pool cap of 127.00MB with max 127.00MB when requesting 128.00MB, memory manager cap is 127.00MB\nMemoryCapExceptions usage 0B peak 0B\n\nFailed memory pool: static_quota: 0B\n",
             ex.message());
       }
     }
@@ -2143,7 +2169,7 @@ TEST(MemoryPoolTest, debugMode) {
 
 TEST_P(MemoryPoolTest, shrinkAndGrowAPIs) {
   MemoryManager manager;
-  std::vector<uint64_t> capacities = {kMaxMemory, 0, 128 * MB};
+  std::vector<uint64_t> capacities = {kMaxMemory, 128 * MB};
   const int allocationSize = 8 * MB;
   for (const auto& capacity : capacities) {
     SCOPED_TRACE(fmt::format("capacity {}", succinctBytes(capacity)));
@@ -2900,7 +2926,7 @@ class MockMemoryReclaimer : public MemoryReclaimer {
 
 TEST_P(MemoryPoolTest, abortAPI) {
   MemoryManager manager;
-  std::vector<uint64_t> capacities = {kMaxMemory, 0, 128 * MB};
+  std::vector<uint64_t> capacities = {kMaxMemory, 128 * MB};
   for (const auto& capacity : capacities) {
     SCOPED_TRACE(fmt::format("capacity {}", succinctBytes(capacity)));
     {

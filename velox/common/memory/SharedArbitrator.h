@@ -65,6 +65,19 @@ class SharedArbitrator : public MemoryArbitrator {
     const std::chrono::steady_clock::time_point startTime_;
   };
 
+  // Invoked to check if the memory growth will exceed the memory pool's max
+  // capacity limit or the arbitrator's node capacity limit.
+  bool checkCapacityGrowth(const MemoryPool& pool, uint64_t targetBytes) const;
+
+  // Invoked to ensure the memory growth request won't exceed the requestor's
+  // max capacity as well as the arbitrator's node capacity. If it does, then we
+  // first need to reclaim the used memory from the requestor itself to ensure
+  // the memory growth won't exceed the capacity limit, and then proceed with
+  // the memory arbitration process. The reclaimed memory capacity returns to
+  // the arbitrator, and let the memory arbitration process to grow the
+  // requestor capacity accordingly.
+  bool ensureCapacity(MemoryPool* requestor, uint64_t targetBytes);
+
   // Invoked to capture the candidate memory pools stats for arbitration.
   static std::vector<Candidate> getCandidateStats(
       const std::vector<std::shared_ptr<MemoryPool>>& pools);

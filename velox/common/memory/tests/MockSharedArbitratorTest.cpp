@@ -383,7 +383,7 @@ class MockSharedArbitrationTest : public testing::Test {
     arbitrator_ = static_cast<SharedArbitrator*>(manager_->arbitrator());
   }
 
-  std::shared_ptr<MockQuery> addQuery(int64_t capacity = 0) {
+  std::shared_ptr<MockQuery> addQuery(int64_t capacity = kMaxMemory) {
     return std::make_shared<MockQuery>(manager_.get(), capacity);
   }
 
@@ -459,7 +459,7 @@ TEST_F(MockSharedArbitrationTest, constructor) {
     } else {
       poolCapacity = kMaxMemory;
     }
-    auto query = addQuery(i % 2 ? 0 : kMemoryCapacity);
+    auto query = addQuery(kMemoryCapacity);
     ASSERT_NE(query->pool()->reclaimer(), nullptr);
     if (i < kMemoryCapacity / kInitMemoryPoolCapacity) {
       ASSERT_EQ(query->capacity(), kInitMemoryPoolCapacity);
@@ -504,6 +504,236 @@ TEST_F(MockSharedArbitrationTest, singlePoolGrowWithoutArbitration) {
           kMinMemoryPoolCapacityTransferSize);
 }
 
+TEST_F(MockSharedArbitrationTest, maxCapacityReserve) {
+  const int memCapacity = 256 * MB;
+  const int minPoolCapacity = 32 * MB;
+  setupMemory(memCapacity, minPoolCapacity);
+  struct {
+    uint64_t maxCapacity;
+    uint64_t expectedInitialCapacity;
+
+    std::string debugString() const {
+      return fmt::format(
+          "maxCapacity {}, expectedInitialCapacity {}",
+          succinctBytes(maxCapacity),
+          succinctBytes(expectedInitialCapacity));
+    }
+  } testSettings[] = {
+      {minPoolCapacity, minPoolCapacity},
+      {minPoolCapacity / 2, minPoolCapacity / 2},
+      {minPoolCapacity * 2, minPoolCapacity}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    auto query = addQuery(testData.maxCapacity);
+    ASSERT_EQ(query->pool()->maxCapacity(), testData.maxCapacity);
+    ASSERT_EQ(query->pool()->capacity(), testData.expectedInitialCapacity);
+  }
+}
+
+TEST_F(MockSharedArbitrationTest, ensureMemoryPoolMaxCapacity) {
+  const int memCapacity = 256 * MB;
+  const int minPoolCapacity = 8 * MB;
+  struct {
+    uint64_t maxCapacity;
+    bool isReclaimable;
+    uint64_t allocatedBytes;
+    uint64_t requestBytes;
+    bool hasOtherQuery;
+    bool expectedSuccess;
+    bool expectedReclaimFromOther;
+
+    std::string debugString() const {
+      return fmt::format(
+          "maxCapacity {} isReclaimable {} allocatedBytes {} requestBytes {} hasOtherQuery {} expectedSuccess {} expectedReclaimFromOther {}",
+          succinctBytes(maxCapacity),
+          isReclaimable,
+          succinctBytes(allocatedBytes),
+          succinctBytes(requestBytes),
+          hasOtherQuery,
+          expectedSuccess,
+          expectedReclaimFromOther);
+    }
+  } testSettings[] = {
+      {memCapacity / 2,
+       true,
+       memCapacity / 4,
+       memCapacity / 2,
+       false,
+       true,
+       false},
+      {memCapacity / 2,
+       true,
+       memCapacity / 4,
+       memCapacity / 8,
+       false,
+       true,
+       false},
+      {memCapacity / 2,
+       true,
+       memCapacity / 4,
+       memCapacity / 2,
+       false,
+       true,
+       false},
+      {memCapacity / 2,
+       true,
+       memCapacity / 2,
+       memCapacity / 4,
+       false,
+       true,
+       false},
+      {memCapacity / 2,
+       false,
+       memCapacity / 4,
+       memCapacity / 2,
+       false,
+       false,
+       false},
+      {memCapacity / 2,
+       false,
+       memCapacity / 2,
+       memCapacity / 4,
+       false,
+       false,
+       false},
+      {memCapacity / 2,
+       true,
+       memCapacity / 4,
+       memCapacity / 2,
+       true,
+       true,
+       true},
+      {memCapacity / 2,
+       true,
+       memCapacity / 4,
+       memCapacity / 8,
+       true,
+       true,
+       true},
+      {memCapacity / 2,
+       true,
+       memCapacity / 4,
+       memCapacity / 2,
+       true,
+       true,
+       true},
+      {memCapacity / 2,
+       true,
+       memCapacity / 2,
+       memCapacity / 4,
+       true,
+       true,
+       false},
+      {memCapacity / 2,
+       false,
+       memCapacity / 4,
+       memCapacity / 2,
+       true,
+       false,
+       false},
+      {memCapacity / 2,
+       false,
+       memCapacity / 2,
+       memCapacity / 4,
+       false,
+       false,
+       false}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    setupMemory(memCapacity, minPoolCapacity);
+
+    auto requestor = addQuery(testData.maxCapacity);
+    auto requestorOp = addMemoryOp(requestor, testData.isReclaimable);
+    requestorOp->allocate(testData.allocatedBytes);
+    std::shared_ptr<MockQuery> other;
+    MockMemoryOperator* otherOp;
+    if (testData.hasOtherQuery) {
+      other = addQuery();
+      otherOp = addMemoryOp(other, true);
+      otherOp->allocate(memCapacity - testData.allocatedBytes);
+    }
+    const auto numRequests = arbitrator_->stats().numRequests;
+    if (testData.expectedSuccess) {
+      requestorOp->allocate(testData.requestBytes);
+    } else {
+      VELOX_ASSERT_THROW(
+          requestorOp->allocate(testData.requestBytes),
+          "Exceeded memory pool cap of");
+    }
+    if (testData.expectedReclaimFromOther) {
+      ASSERT_GT(otherOp->reclaimer()->stats().numReclaims, 0);
+    } else if (testData.hasOtherQuery) {
+      ASSERT_EQ(otherOp->reclaimer()->stats().numReclaims, 0);
+    }
+    if (testData.expectedSuccess &&
+        (((testData.allocatedBytes + testData.requestBytes) >
+          testData.maxCapacity) ||
+         testData.hasOtherQuery)) {
+      ASSERT_GT(arbitrator_->stats().numReclaimedBytes, 0);
+    } else {
+      ASSERT_EQ(arbitrator_->stats().numReclaimedBytes, 0);
+    }
+    ASSERT_EQ(arbitrator_->stats().numRequests, numRequests + 1);
+  }
+}
+
+TEST_F(MockSharedArbitrationTest, ensureNodeMaxCapacity) {
+  struct {
+    uint64_t nodeCapacity;
+    uint64_t poolMaxCapacity;
+    bool isReclaimable;
+    uint64_t allocatedBytes;
+    uint64_t requestBytes;
+    bool expectedSuccess;
+    bool expectedReclaimedBytes;
+
+    std::string debugString() const {
+      return fmt::format(
+          "nodeCapacity {} poolMaxCapacity {} isReclaimable {} allocatedBytes {} requestBytes {} expectedSuccess {} expectedReclaimedBytes {}",
+          succinctBytes(nodeCapacity),
+          succinctBytes(poolMaxCapacity),
+          isReclaimable,
+          succinctBytes(allocatedBytes),
+          succinctBytes(requestBytes),
+          expectedSuccess,
+          expectedReclaimedBytes);
+    }
+  } testSettings[] = {
+      {256 * MB, 256 * MB, true, 128 * MB, 256 * MB, true, true},
+      {256 * MB, 256 * MB, false, 128 * MB, 256 * MB, false, false},
+      {256 * MB, 512 * MB, true, 128 * MB, 256 * MB, true, true},
+      {256 * MB, 512 * MB, false, 128 * MB, 256 * MB, false, false},
+      {256 * MB, 128 * MB, false, 128 * MB, 256 * MB, false, false},
+      {256 * MB, 128 * MB, true, 128 * MB, 256 * MB, false, false},
+      {256 * MB, 128 * MB, true, 128 * MB, 512 * MB, false, false},
+      {256 * MB, 128 * MB, false, 128 * MB, 512 * MB, false, false}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    setupMemory(testData.nodeCapacity);
+
+    auto requestor = addQuery(testData.poolMaxCapacity);
+    auto requestorOp = addMemoryOp(requestor, testData.isReclaimable);
+    requestorOp->allocate(testData.allocatedBytes);
+    const auto numRequests = arbitrator_->stats().numRequests;
+    if (testData.expectedSuccess) {
+      requestorOp->allocate(testData.requestBytes);
+    } else {
+      VELOX_ASSERT_THROW(
+          requestorOp->allocate(testData.requestBytes),
+          "Exceeded memory pool cap");
+    }
+    if (testData.expectedSuccess) {
+      ASSERT_GT(arbitrator_->stats().numReclaimedBytes, 0);
+    } else {
+      ASSERT_EQ(arbitrator_->stats().numReclaimedBytes, 0);
+    }
+    ASSERT_EQ(arbitrator_->stats().numRequests, numRequests + 1);
+  }
+}
+
 TEST_F(MockSharedArbitrationTest, failedArbitration) {
   const int memCapacity = 256 * MB;
   const int minPoolCapacity = 8 * MB;
@@ -522,7 +752,7 @@ TEST_F(MockSharedArbitrationTest, failedArbitration) {
   ASSERT_ANY_THROW(arbitrateOp->allocate(memCapacity));
   verifyReclaimerStats(nonReclaimableOp->reclaimer()->stats());
   verifyReclaimerStats(reclaimableOp->reclaimer()->stats(), 1);
-  verifyReclaimerStats(arbitrateOp->reclaimer()->stats(), 0, 1);
+  verifyReclaimerStats(arbitrateOp->reclaimer()->stats(), 1, 1);
   verifyArbitratorStats(
       arbitrator_->stats(), memCapacity, 260046848, 1, 1, 8388608, 8388608);
   ASSERT_EQ(arbitrator_->stats().queueTimeUs, 0);
@@ -543,9 +773,8 @@ TEST_F(MockSharedArbitrationTest, singlePoolGrowCapacityWithArbitration) {
 
     if (!isLeafReclaimable) {
       ASSERT_ANY_THROW(op->allocate(allocateSize));
-      verifyArbitratorStats(
-          arbitrator_->stats(), kMemoryCapacity, kMemoryCapacity, 63, 1);
-      verifyReclaimerStats(op->reclaimer()->stats(), 0, 63);
+      verifyArbitratorStats(arbitrator_->stats(), kMemoryCapacity, 0, 63, 1);
+      verifyReclaimerStats(op->reclaimer()->stats(), 1, 63);
       continue;
     }
 
@@ -957,15 +1186,14 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, failedToReclaimFromRequestor) {
     std::vector<std::shared_ptr<MockQuery>> otherQueries;
     std::vector<MockMemoryOperator*> otherQueryOps;
     for (int i = 0; i < numOtherQueries; ++i) {
-      otherQueries.push_back(addQuery(otherQueryMemoryCapacity));
+      otherQueries.push_back(addQuery());
       otherQueryOps.push_back(addMemoryOp(otherQueries.back(), false));
       otherQueryOps.back()->allocate(otherQueryMemoryCapacity);
       ASSERT_EQ(
           otherQueries.back()->pool()->currentBytes(),
           otherQueryMemoryCapacity);
     }
-    std::shared_ptr<MockQuery> failedQuery =
-        addQuery(failedQueryMemoryCapacity);
+    std::shared_ptr<MockQuery> failedQuery = addQuery();
     MockMemoryOperator* failedQueryOp = addMemoryOp(
         failedQuery, true, [&](MemoryPool* /*unsed*/, uint64_t /*unsed*/) {
           VELOX_FAIL("throw reclaim exception");
@@ -1144,15 +1372,14 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, failedToReclaimFromOtherQuery) {
     std::vector<std::shared_ptr<MockQuery>> nonFailedQueries;
     std::vector<MockMemoryOperator*> nonFailedQueryOps;
     for (int i = 0; i < numNonFailedQueries; ++i) {
-      nonFailedQueries.push_back(addQuery(nonFailQueryMemoryCapacity));
+      nonFailedQueries.push_back(addQuery());
       nonFailedQueryOps.push_back(addMemoryOp(nonFailedQueries.back(), false));
       nonFailedQueryOps.back()->allocate(nonFailQueryMemoryCapacity);
       ASSERT_EQ(
           nonFailedQueries.back()->pool()->currentBytes(),
           nonFailQueryMemoryCapacity);
     }
-    std::shared_ptr<MockQuery> failedQuery =
-        addQuery(failedQueryMemoryCapacity);
+    std::shared_ptr<MockQuery> failedQuery = addQuery();
     MockMemoryOperator* failedQueryOp = addMemoryOp(
         failedQuery, true, [&](MemoryPool* /*unsed*/, uint64_t /*unsed*/) {
           VELOX_FAIL("throw reclaim exception");
@@ -1291,11 +1518,11 @@ TEST_F(MockSharedArbitrationTest, memoryPoolAbortThrow) {
   std::vector<std::shared_ptr<MockQuery>> smallQueries;
   std::vector<MockMemoryOperator*> smallQueryOps;
   for (int i = 0; i < numQueries; ++i) {
-    smallQueries.push_back(addQuery(smallQueryMemoryCapacity));
+    smallQueries.push_back(addQuery());
     smallQueryOps.push_back(addMemoryOp(smallQueries.back(), false));
     smallQueryOps.back()->allocate(smallQueryMemoryCapacity);
   }
-  std::shared_ptr<MockQuery> largeQuery = addQuery(largeQueryMemoryCapacity);
+  std::shared_ptr<MockQuery> largeQuery = addQuery();
   MockMemoryOperator* largeQueryOp = addMemoryOp(
       largeQuery, true, [&](MemoryPool* /*unsed*/, uint64_t /*unsed*/) {
         VELOX_FAIL("throw reclaim exception");
@@ -1329,16 +1556,16 @@ TEST_F(MockSharedArbitrationTest, memoryPoolAbortThrow) {
 DEBUG_ONLY_TEST_F(
     MockSharedArbitrationTest,
     freeUnusedCapacityWhenReclaimMemoryPool) {
+  setupMemory(kMemoryCapacity, 0);
   const int allocationSize = kMemoryCapacity / 4;
-  std::shared_ptr<MockQuery> reclaimedQuery = addQuery(kMemoryCapacity);
+  std::shared_ptr<MockQuery> reclaimedQuery = addQuery();
   MockMemoryOperator* reclaimedQueryOp = addMemoryOp(reclaimedQuery);
   // The buffer to free later.
   void* bufferToFree = reclaimedQueryOp->allocate(allocationSize);
   reclaimedQueryOp->allocate(kMemoryCapacity - allocationSize);
 
-  std::shared_ptr<MockQuery> arbitrationQuery = addQuery(kMemoryCapacity);
+  std::shared_ptr<MockQuery> arbitrationQuery = addQuery();
   MockMemoryOperator* arbitrationQueryOp = addMemoryOp(arbitrationQuery);
-
   folly::EventCount reclaimWait;
   auto reclaimWaitKey = reclaimWait.prepareWait();
   folly::EventCount reclaimBlock;
@@ -1360,9 +1587,7 @@ DEBUG_ONLY_TEST_F(
   reclaimWait.wait(reclaimWaitKey);
   reclaimedQueryOp->free(bufferToFree);
   reclaimBlock.notify();
-
   allocThread.join();
-
   const auto stats = arbitrator_->stats();
   ASSERT_EQ(stats.numFailures, 0);
   ASSERT_EQ(stats.numAborted, 0);

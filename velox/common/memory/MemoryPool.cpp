@@ -212,6 +212,8 @@ MemoryPool::MemoryPool(
       "Child memory pool {} shall only set memory reclaimer if its parent {} has also set",
       name_,
       parent_->name());
+  VELOX_CHECK_GT(
+      maxCapacity_, 0, "Memory pool {} max capacity can't be zero", name_);
   MemoryAllocator::alignmentCheck(0, alignment_);
 }
 
@@ -768,8 +770,9 @@ bool MemoryPoolImpl::incrementReservationThreadSafe(
   VELOX_MEM_POOL_CAP_EXCEEDED(capExceedingMessage(
       requestor,
       fmt::format(
-          "Exceeded memory pool cap of {} when requesting {}, memory manager cap is {}",
+          "Exceeded memory pool cap of {} with max {} when requesting {}, memory manager cap is {}",
           capacityToString(capacity_),
+          capacityToString(maxCapacity_),
           succinctBytes(size),
           capacityToString(manager_->capacity()))));
 }
@@ -935,7 +938,9 @@ uint64_t MemoryPoolImpl::grow(uint64_t bytes) noexcept {
   // corresponding support in memory arbitrator.
   std::lock_guard<std::mutex> l(mutex_);
   // We don't expect to grow a memory pool without capacity limit.
-  VELOX_CHECK_NE(capacity_, kMaxMemory);
+  VELOX_CHECK_NE(capacity_, kMaxMemory, "Can't grow with unlimited capacity");
+  VELOX_CHECK_LE(
+      capacity_ + bytes, maxCapacity_, "Can't grow beyond the max capacity");
   capacity_ += bytes;
   VELOX_CHECK_GE(capacity_, bytes);
   return capacity_;
