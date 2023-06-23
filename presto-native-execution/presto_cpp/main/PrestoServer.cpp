@@ -50,16 +50,13 @@
 #include "velox/core/Config.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
+#include "velox/dwio/parquet/RegisterParquetReader.h"
 #include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
 #include "velox/serializers/PrestoSerializer.h"
-
-#ifdef PRESTO_ENABLE_PARQUET
-#include "velox/dwio/parquet/RegisterParquetReader.h" // @manual
-#endif
 
 namespace facebook::presto {
 using namespace facebook::velox;
@@ -317,11 +314,10 @@ void PrestoServer::run() {
 
   velox::dwrf::registerDwrfReaderFactory();
   velox::dwrf::registerDwrfWriterFactory();
-#ifdef PRESTO_ENABLE_PARQUET
+
   velox::parquet::registerParquetReaderFactory(
       velox::parquet::ParquetReaderType::NATIVE);
   velox::parquet::registerParquetWriterFactory();
-#endif
 
   pool_ = velox::memory::addDefaultLeafMemoryPool();
   taskManager_ = std::make_unique<TaskManager>();
