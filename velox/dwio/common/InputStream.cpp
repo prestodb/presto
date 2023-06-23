@@ -131,35 +131,6 @@ bool ReadFileInputStream::hasReadAsync() const {
 }
 
 void ReadFileInputStream::vread(
-    const std::vector<void*>& buffers,
-    const std::vector<Region>& regions,
-    const LogType purpose) {
-  const auto size = buffers.size();
-  DWIO_ENSURE_GT(size, 0, "invalid vread parameters");
-  DWIO_ENSURE_EQ(regions.size(), size, "mismatched region->buffer");
-  std::vector<ReadFile::Segment> segments;
-  segments.reserve(size);
-  size_t length = 0;
-  size_t offset = regions[0].offset;
-  for (size_t i = 0; i < size; ++i) {
-    const auto& r = regions[i];
-    segments.push_back(
-        {r.offset,
-         folly::Range<char*>(static_cast<char*>(buffers[i]), r.length),
-         r.label});
-    length += r.length;
-  }
-
-  logRead(offset, length, purpose);
-  auto readStartMicros = getCurrentTimeMicro();
-  readFile_->preadv(segments);
-  if (stats_) {
-    stats_->incRawBytesRead(length);
-    stats_->incTotalScanTime((getCurrentTimeMicro() - readStartMicros) * 1000);
-  }
-}
-
-void ReadFileInputStream::vread(
     const std::vector<velox::common::Region>& regions,
     folly::IOBuf* output,
     const LogType purpose) {

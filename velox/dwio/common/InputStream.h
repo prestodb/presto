@@ -118,16 +118,8 @@ class InputStream {
   /**
    * Take advantage of vectorized read API provided by some file system.
    * Allow file system to do optimzied reading plan to disk to minimize
-   * total bytes transferred through network
-   */
-  virtual void vread(
-      const std::vector<void*>& buffers,
-      const std::vector<velox::common::Region>& regions,
-      const LogType purpose) = 0;
-
-  /*
-   * Same as the above, but stores the result in an IOBuf array starting at
-   * `output`, which must have the same size as `regions`.
+   * total bytes transferred through network. Stores the result in an IOBuf
+   * array starting at `output`, which must have the same size as `regions`.
    */
   virtual void vread(
       const std::vector<velox::common::Region>& regions,
@@ -179,11 +171,6 @@ class ReadFileInputStream final : public InputStream {
       LogType logType) override;
 
   bool hasReadAsync() const override;
-
-  void vread(
-      const std::vector<void*>& buffers,
-      const std::vector<velox::common::Region>& regions,
-      const LogType purpose) override;
 
   void vread(
       const std::vector<velox::common::Region>& regions,
