@@ -86,7 +86,8 @@ public class TestS3SelectPushdown
                 false,
                 false,
                 1234,
-                4567L);
+                4567L,
+                0);
 
         table = new Table(
                 "db",
@@ -168,7 +169,8 @@ public class TestS3SelectPushdown
                 false,
                 false,
                 1234,
-                4567L);
+                4567L,
+                0);
         assertFalse(shouldEnablePushdownForTable(session, newTable, "s3://fakeBucket/fakeObject", Optional.of(newPartition)));
     }
 
@@ -221,7 +223,8 @@ public class TestS3SelectPushdown
                 false,
                 false,
                 1234,
-                4567L);
+                4567L,
+                0);
         assertFalse(shouldEnablePushdownForTable(session, newTable, "s3://fakeBucket/fakeObject", Optional.of(newPartition)));
     }
 

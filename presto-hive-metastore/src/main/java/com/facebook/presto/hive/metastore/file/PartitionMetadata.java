@@ -232,6 +232,7 @@ public class PartitionMetadata
                 eligibleToIgnore,
                 sealedPartition,
                 0,
+                0,
                 0);
     }
 }

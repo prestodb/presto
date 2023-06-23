@@ -497,6 +497,11 @@ public final class ThriftMetastoreUtil
 
     public static Partition fromMetastoreApiPartition(org.apache.hadoop.hive.metastore.api.Partition partition, PartitionMutator partitionMutator, ColumnConverter columnConverter)
     {
+        if (partition instanceof Partition) {
+            // If the partition is already an instance of the presto hive metastore Partition then return it directly
+            return (Partition) partition;
+        }
+
         StorageDescriptor storageDescriptor = partition.getSd();
         if (storageDescriptor == null) {
             throw new PrestoException(HIVE_INVALID_METADATA, "Partition does not contain a storage descriptor: " + partition);
@@ -511,7 +516,8 @@ public final class ThriftMetastoreUtil
                         .collect(toList()))
                 .setParameters(partition.getParameters())
                 .setCreateTime(partition.getCreateTime())
-                .setLastDataCommitTime(getLastDataCommitTime(partition));
+                .setLastDataCommitTime(getLastDataCommitTime(partition))
+                .setLastAccessTime(partition.getLastAccessTime());
 
         // mutate apache partition to Presto partition
         partitionMutator.mutate(partitionBuilder, partition);
@@ -688,7 +694,7 @@ public final class ThriftMetastoreUtil
                 .setParameters(storageDescriptor.getParameters() == null ? ImmutableMap.of() : storageDescriptor.getParameters());
     }
 
-    private static StorageDescriptor makeStorageDescriptor(String tableName, List<Column> columns, Storage storage, ColumnConverter columnConverter)
+    public static StorageDescriptor makeStorageDescriptor(String tableName, List<Column> columns, Storage storage, ColumnConverter columnConverter)
     {
         if (storage.isSkewed()) {
             throw new IllegalArgumentException("Writing to skewed table/partition is not supported");

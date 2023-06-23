@@ -271,6 +271,7 @@ public class TestBackgroundHiveSplitLoader
                 false,
                 true,
                 0,
+                0,
                 0);
     }
 
