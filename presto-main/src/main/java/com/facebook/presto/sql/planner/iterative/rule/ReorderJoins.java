@@ -424,10 +424,16 @@ public class ReorderJoins
                 case BROADCAST:
                     return getPossibleJoinNodes(joinNode, REPLICATED);
                 case AUTOMATIC:
-                    ImmutableList.Builder<JoinEnumerationResult> result = ImmutableList.builder();
-                    result.addAll(getPossibleJoinNodes(joinNode, PARTITIONED));
-                    result.addAll(getPossibleJoinNodes(joinNode, REPLICATED, node -> isBelowMaxBroadcastSize(node, context)));
-                    return result.build();
+                    ImmutableList.Builder<JoinEnumerationResult> builder = ImmutableList.builder();
+                    if (!joinNode.getCriteria().isEmpty()) {
+                        builder.addAll(getPossibleJoinNodes(joinNode, PARTITIONED));
+                    }
+                    builder.addAll(getPossibleJoinNodes(joinNode, REPLICATED, node -> isBelowMaxBroadcastSize(node, context)));
+                    ImmutableList<JoinEnumerationResult> result = builder.build();
+                    if (result.isEmpty()) {
+                        return getPossibleJoinNodes(joinNode, REPLICATED);
+                    }
+                    return result;
                 default:
                     throw new IllegalArgumentException("unexpected join distribution type: " + distributionType);
             }
