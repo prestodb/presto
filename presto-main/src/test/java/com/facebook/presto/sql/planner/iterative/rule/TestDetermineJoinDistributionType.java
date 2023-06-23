@@ -45,6 +45,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
+import static com.facebook.presto.SystemSessionProperties.USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
@@ -814,6 +815,357 @@ public class TestDetermineJoinDistributionType
                         Optional.of(PARTITIONED),
                         values(ImmutableMap.of("A1", 0)),
                         filter("true", values(ImmutableMap.of("B1", 0)))));
+    }
+
+    @Test
+    public void testReplicatesWhenOneSourceIsSmallAndTheOtherUnknown()
+    {
+        VarcharType variableType = createUnboundedVarcharType(); // variable width so that average row size is respected
+        int aRows = 10_000;
+        int bRows = 10;
+
+        // output size does not exceed JOIN_MAX_BROADCAST_TABLE_SIZE limit
+        PlanNodeStatsEstimate bStatsEstimate = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(bRows)
+                .addVariableStatistics(ImmutableMap.of(
+                        new VariableReferenceExpression(Optional.empty(), "B1", variableType),
+                        new VariableStatsEstimate(0, 100, 0, 64, 10)))
+                .build();
+
+        PlanNodeStatsEstimate bLargeStatsEstimate = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(bRows)
+                .addVariableStatistics(ImmutableMap.of(
+                        new VariableReferenceExpression(Optional.empty(), "B1", variableType),
+                        new VariableStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
+                .build();
+
+        // flip and broadcast
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .setSystemProperty(USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN, "true")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.unknown())
+                .overrideStats("valuesB", bStatsEstimate)
+                .on(p -> {
+                    VariableReferenceExpression a1 = p.variable("A1", variableType);
+                    VariableReferenceExpression b1 = p.variable("B1", variableType);
+                    return p.join(
+                            INNER,
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            ImmutableList.of(new JoinNode.EquiJoinClause(b1, a1)),
+                            ImmutableList.of(b1, a1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
+
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .setSystemProperty(USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN, "true")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.unknown())
+                .overrideStats("valuesB", bLargeStatsEstimate)
+                .on(p -> {
+                    VariableReferenceExpression a1 = p.variable("A1", variableType);
+                    VariableReferenceExpression b1 = p.variable("B1", variableType);
+                    return p.join(
+                            INNER,
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            ImmutableList.of(new JoinNode.EquiJoinClause(b1, a1)),
+                            ImmutableList.of(b1, a1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("B1", "A1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("B1", 0)),
+                        values(ImmutableMap.of("A1", 0))));
+
+        // broadcast
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .setSystemProperty(USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN, "true")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.unknown())
+                .overrideStats("valuesB", bStatsEstimate)
+                .on(p -> {
+                    VariableReferenceExpression a1 = p.variable("A1", variableType);
+                    VariableReferenceExpression b1 = p.variable("B1", variableType);
+                    return p.join(
+                            INNER,
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            ImmutableList.of(new JoinNode.EquiJoinClause(a1, b1)),
+                            ImmutableList.of(a1, b1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
+
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .setSystemProperty(USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN, "true")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.unknown())
+                .overrideStats("valuesB", bStatsEstimate)
+                .on(p -> {
+                    VariableReferenceExpression a1 = p.variable("A1", variableType);
+                    VariableReferenceExpression b1 = p.variable("B1", variableType);
+                    return p.join(
+                            INNER,
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            ImmutableList.of(new JoinNode.EquiJoinClause(a1, b1)),
+                            ImmutableList.of(a1, b1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
+
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .setSystemProperty(USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN, "true")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.unknown())
+                .overrideStats("valuesB", bLargeStatsEstimate)
+                .on(p -> {
+                    VariableReferenceExpression a1 = p.variable("A1", variableType);
+                    VariableReferenceExpression b1 = p.variable("B1", variableType);
+                    return p.join(
+                            INNER,
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            ImmutableList.of(new JoinNode.EquiJoinClause(a1, b1)),
+                            ImmutableList.of(a1, b1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
+
+        // Right join cannot be broadcast
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .setSystemProperty(USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN, "true")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.unknown())
+                .overrideStats("valuesB", bStatsEstimate)
+                .on(p -> {
+                    VariableReferenceExpression a1 = p.variable("A1", variableType);
+                    VariableReferenceExpression b1 = p.variable("B1", variableType);
+                    return p.join(
+                            LEFT,
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            ImmutableList.of(new JoinNode.EquiJoinClause(b1, a1)),
+                            ImmutableList.of(b1, a1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        RIGHT,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
+
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .setSystemProperty(USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN, "true")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.unknown())
+                .overrideStats("valuesB", bStatsEstimate)
+                .on(p -> {
+                    VariableReferenceExpression a1 = p.variable("A1", variableType);
+                    VariableReferenceExpression b1 = p.variable("B1", variableType);
+                    return p.join(
+                            LEFT,
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            ImmutableList.of(new JoinNode.EquiJoinClause(a1, b1)),
+                            ImmutableList.of(a1, b1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        LEFT,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
+
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .setSystemProperty(USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN, "true")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.unknown())
+                .overrideStats("valuesB", bLargeStatsEstimate)
+                .on(p -> {
+                    VariableReferenceExpression a1 = p.variable("A1", variableType);
+                    VariableReferenceExpression b1 = p.variable("B1", variableType);
+                    return p.join(
+                            LEFT,
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            ImmutableList.of(new JoinNode.EquiJoinClause(a1, b1)),
+                            ImmutableList.of(a1, b1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        LEFT,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
+
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .setSystemProperty(USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN, "true")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.unknown())
+                .overrideStats("valuesB", bStatsEstimate)
+                .on(p -> {
+                    VariableReferenceExpression a1 = p.variable("A1", variableType);
+                    VariableReferenceExpression b1 = p.variable("B1", variableType);
+                    return p.join(
+                            RIGHT,
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            ImmutableList.of(new JoinNode.EquiJoinClause(b1, a1)),
+                            ImmutableList.of(b1, a1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        LEFT,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
+
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .setSystemProperty(USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN, "true")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.unknown())
+                .overrideStats("valuesB", bLargeStatsEstimate)
+                .on(p -> {
+                    VariableReferenceExpression a1 = p.variable("A1", variableType);
+                    VariableReferenceExpression b1 = p.variable("B1", variableType);
+                    return p.join(
+                            RIGHT,
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            ImmutableList.of(new JoinNode.EquiJoinClause(b1, a1)),
+                            ImmutableList.of(b1, a1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        RIGHT,
+                        ImmutableList.of(equiJoinClause("B1", "A1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("B1", 0)),
+                        values(ImmutableMap.of("A1", 0))));
+
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .setSystemProperty(USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN, "true")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.unknown())
+                .overrideStats("valuesB", bStatsEstimate)
+                .on(p -> {
+                    VariableReferenceExpression a1 = p.variable("A1", variableType);
+                    VariableReferenceExpression b1 = p.variable("B1", variableType);
+                    return p.join(
+                            RIGHT,
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            ImmutableList.of(new JoinNode.EquiJoinClause(a1, b1)),
+                            ImmutableList.of(a1, b1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        RIGHT,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
+
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .setSystemProperty(USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN, "true")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.unknown())
+                .overrideStats("valuesB", bStatsEstimate)
+                .on(p -> {
+                    VariableReferenceExpression a1 = p.variable("A1", variableType);
+                    VariableReferenceExpression b1 = p.variable("B1", variableType);
+                    return p.join(
+                            FULL,
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            ImmutableList.of(new JoinNode.EquiJoinClause(b1, a1)),
+                            ImmutableList.of(b1, a1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        FULL,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
+
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .setSystemProperty(USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN, "true")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.unknown())
+                .overrideStats("valuesB", bStatsEstimate)
+                .on(p -> {
+                    VariableReferenceExpression a1 = p.variable("A1", variableType);
+                    VariableReferenceExpression b1 = p.variable("B1", variableType);
+                    return p.join(
+                            FULL,
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            ImmutableList.of(new JoinNode.EquiJoinClause(a1, b1)),
+                            ImmutableList.of(a1, b1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        FULL,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
     }
 
     @Test
