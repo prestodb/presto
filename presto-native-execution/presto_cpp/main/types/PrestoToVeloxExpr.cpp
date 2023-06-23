@@ -102,6 +102,10 @@ velox::variant VeloxExprConverter::getConstantValue(
     return velox::variant(typeKind);
   }
 
+  if (type->isDate()) {
+    return valueVector->as<velox::SimpleVector<int32_t>>()->valueAt(0);
+  }
+
   switch (typeKind) {
     case TypeKind::HUGEINT:
       return valueVector->as<velox::SimpleVector<velox::int128_t>>()->valueAt(
@@ -117,8 +121,6 @@ velox::variant VeloxExprConverter::getConstantValue(
     case TypeKind::TIMESTAMP:
       return valueVector->as<velox::SimpleVector<velox::Timestamp>>()->valueAt(
           0);
-    case TypeKind::DATE:
-      return valueVector->as<velox::SimpleVector<velox::Date>>()->valueAt(0);
     case TypeKind::BOOLEAN:
       return valueVector->as<velox::SimpleVector<bool>>()->valueAt(0);
     case TypeKind::DOUBLE:

@@ -115,7 +115,15 @@ velox::VectorPtr readScalarBlock(
       }
     }
   }
-
+  if (type->isDate()) {
+    return std::make_shared<velox::FlatVector<U>>(
+        pool,
+        type,
+        nulls,
+        positionCount,
+        buffer,
+        std::vector<velox::BufferPtr>{});
+  }
   switch (type->kind()) {
     case velox::TypeKind::BIGINT:
     case velox::TypeKind::INTEGER:
@@ -124,7 +132,6 @@ velox::VectorPtr readScalarBlock(
     case velox::TypeKind::DOUBLE:
     case velox::TypeKind::REAL:
     case velox::TypeKind::VARCHAR:
-    case velox::TypeKind::DATE:
     case velox::TypeKind::HUGEINT:
       return std::make_shared<velox::FlatVector<U>>(
           pool,
