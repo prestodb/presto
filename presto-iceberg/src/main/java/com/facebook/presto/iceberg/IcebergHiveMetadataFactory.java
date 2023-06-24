@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 
@@ -30,6 +31,7 @@ public class IcebergHiveMetadataFactory
     final HdfsEnvironment hdfsEnvironment;
     final TypeManager typeManager;
     final JsonCodec<CommitTaskData> commitTaskCodec;
+    final String prestoVersion;
 
     @Inject
     public IcebergHiveMetadataFactory(
@@ -37,17 +39,20 @@ public class IcebergHiveMetadataFactory
             ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
-            JsonCodec<CommitTaskData> commitTaskCodec)
+            JsonCodec<CommitTaskData> commitTaskCodec,
+            NodeVersion nodeVersion)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
+        requireNonNull(nodeVersion, "nodeVersion is null");
+        this.prestoVersion = nodeVersion.toString();
         requireNonNull(config, "config is null");
     }
 
     public ConnectorMetadata create()
     {
-        return new IcebergHiveMetadata(metastore, hdfsEnvironment, typeManager, commitTaskCodec);
+        return new IcebergHiveMetadata(metastore, hdfsEnvironment, typeManager, commitTaskCodec, prestoVersion);
     }
 }
