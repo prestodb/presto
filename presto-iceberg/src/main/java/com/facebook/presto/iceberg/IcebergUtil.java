@@ -48,7 +48,11 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.hive.HiveMetadata.TABLE_COMMENT;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VERSION_NAME;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_COMMENT;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_FLAG;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
@@ -218,5 +222,16 @@ public final class IcebergUtil
         if (Stream.of(deleteMode, mergeMode, updateMode).anyMatch(s -> Objects.equals(s, RowLevelOperationMode.MERGE_ON_READ.modeName()))) {
             throw new PrestoException(NOT_SUPPORTED, "merge-on-read table mode not supported yet");
         }
+    }
+
+    public static Map<String, String> createIcebergViewProperties(ConnectorSession session, String prestoVersion)
+    {
+        return ImmutableMap.<String, String>builder()
+                .put(TABLE_COMMENT, PRESTO_VIEW_COMMENT)
+                .put(PRESTO_VIEW_FLAG, "true")
+                .put(PRESTO_VERSION_NAME, prestoVersion)
+                .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE)
+                .build();
     }
 }

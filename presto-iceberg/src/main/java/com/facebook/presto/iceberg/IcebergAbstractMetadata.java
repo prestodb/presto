@@ -65,7 +65,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -101,8 +100,6 @@ public abstract class IcebergAbstractMetadata
 
     protected final TypeManager typeManager;
     protected final JsonCodec<CommitTaskData> commitTaskCodec;
-
-    protected final Map<String, Optional<Long>> snapshotIds = new ConcurrentHashMap<>();
 
     protected Transaction transaction;
 

@@ -13,10 +13,15 @@
  */
 package com.facebook.presto.tests.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import io.prestodb.tempto.AfterTestWithContext;
 import io.prestodb.tempto.BeforeTestWithContext;
 import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.assertions.QueryAssert;
 import org.testng.annotations.Test;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.tests.TestGroups.ICEBERG;
 import static com.facebook.presto.tests.TestGroups.STORAGE_FORMATS;
@@ -27,12 +32,23 @@ import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 public class TestIcebergHiveMetadataListing
         extends ProductTest
 {
+    private List<QueryAssert.Row> preexistingTables;
+    private List<QueryAssert.Row> preexistingColumns;
     @BeforeTestWithContext
     public void setUp()
     {
+        cleanUp();
+        preexistingTables = onPresto().executeQuery("SHOW TABLES FROM iceberg.default").rows().stream()
+                .map(list -> row(list.toArray()))
+                .collect(Collectors.toList());
+        preexistingColumns = onPresto().executeQuery("SELECT table_name, column_name FROM iceberg.information_schema.columns " +
+                        "WHERE table_catalog = 'iceberg' AND table_schema = 'default'").rows().stream()
+                .map(list -> row(list.toArray()))
+                .collect(Collectors.toList());
         onPresto().executeQuery("CREATE TABLE iceberg.default.iceberg_table1 (_string VARCHAR, _integer INTEGER)");
         onPresto().executeQuery("CREATE TABLE hive.default.hive_table (_double DOUBLE)");
         onPresto().executeQuery("CREATE VIEW hive.default.hive_view AS SELECT * FROM hive.default.hive_table");
+        onPresto().executeQuery("CREATE VIEW iceberg.default.iceberg_view AS SELECT * FROM iceberg.default.iceberg_table1");
     }
 
     @AfterTestWithContext
@@ -40,6 +56,7 @@ public class TestIcebergHiveMetadataListing
     {
         onPresto().executeQuery("DROP TABLE IF EXISTS hive.default.hive_table");
         onPresto().executeQuery("DROP VIEW IF EXISTS hive.default.hive_view");
+        onPresto().executeQuery("DROP VIEW IF EXISTS iceberg.default.iceberg_view");
         onPresto().executeQuery("DROP TABLE IF EXISTS iceberg.default.iceberg_table1");
     }
 
@@ -47,10 +64,13 @@ public class TestIcebergHiveMetadataListing
     public void testTableListing()
     {
         assertThat(onPresto().executeQuery("SHOW TABLES FROM iceberg.default"))
-                .containsOnly(
-                        row("iceberg_table1"),
-                        row("hive_table"),
-                        row("hive_view"));
+                .containsOnly(ImmutableList.<QueryAssert.Row>builder()
+                        .addAll(preexistingTables)
+                        .add(row("iceberg_table1"))
+                        .add(row("iceberg_view"))
+                        .add(row("hive_view"))
+                        .add(row("hive_table"))
+                        .build());
     }
 
     @Test(groups = {ICEBERG, STORAGE_FORMATS})
@@ -59,8 +79,13 @@ public class TestIcebergHiveMetadataListing
         assertThat(onPresto().executeQuery(
                 "SELECT table_name, column_name FROM iceberg.information_schema.columns " +
                         "WHERE table_catalog = 'iceberg' AND table_schema = 'default'"))
-                .containsOnly(
-                        row("iceberg_table1", "_string"),
-                        row("iceberg_table1", "_integer"));
+                .containsOnly(ImmutableList.<QueryAssert.Row>builder()
+                        .addAll(preexistingColumns)
+                        .add(row("iceberg_table1", "_string"))
+                        .add(row("iceberg_table1", "_integer"))
+                        .add(row("iceberg_view", "_string"))
+                        .add(row("iceberg_view", "_integer"))
+                        .add(row("hive_view", "_double"))
+                        .build());
     }
 }

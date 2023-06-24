@@ -50,10 +50,10 @@ import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.hive.HiveMetadata.PRESTO_VERSION_NAME;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterPageSize;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VERSION_NAME;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_WRITE_VALIDATION_FAILED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
