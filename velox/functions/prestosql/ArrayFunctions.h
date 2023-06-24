@@ -513,6 +513,26 @@ struct ArrayConcatFunction {
       out.add_items(array.value());
     }
   }
+
+  void call(
+      out_type<Array<Generic<T1>>>& out,
+      const arg_type<Array<Generic<T1>>>& array,
+      const arg_type<Generic<T1>>& element) {
+    out.reserve(array.size() + 1);
+    out.add_items(array);
+    auto& newItem = out.add_item();
+    newItem.copy_from(element);
+  }
+
+  void call(
+      out_type<Array<Generic<T1>>>& out,
+      const arg_type<Generic<T1>>& element,
+      const arg_type<Array<Generic<T1>>>& array) {
+    out.reserve(array.size() + 1);
+    auto& newItem = out.add_item();
+    newItem.copy_from(element);
+    out.add_items(array);
+  }
 };
 
 inline void checkIndexArrayTrim(int64_t size, int64_t arraySize) {

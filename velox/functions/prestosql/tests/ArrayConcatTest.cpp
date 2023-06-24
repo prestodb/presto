@@ -177,4 +177,28 @@ TEST_F(ArrayConcatTest, complexTypes) {
 
   testExpression("concat(c0, c1)", {arrayOfArrays1, arrayOfArrays2}, expected);
 }
+
+/// Concatenate array with a single element.
+TEST_F(ArrayConcatTest, arrayWithElement) {
+  const auto arrayVector = makeArrayVector<int64_t>(
+      {{1, 2, 3, 4}, {3, 4, 5}, {7, 8, 9}, {10, 20, 30}});
+  const auto elementVector = makeFlatVector<int64_t>({11, 22, 33, 44});
+  VectorPtr expected;
+
+  expected = makeArrayVector<int64_t>({
+      {1, 2, 3, 4, 11},
+      {3, 4, 5, 22},
+      {7, 8, 9, 33},
+      {10, 20, 30, 44},
+  });
+  testExpression("concat(c0, c1)", {arrayVector, elementVector}, expected);
+
+  expected = makeArrayVector<int64_t>({
+      {11, 1, 2, 3, 4},
+      {22, 3, 4, 5},
+      {33, 7, 8, 9},
+      {44, 10, 20, 30},
+  });
+  testExpression("concat(c0, c1)", {elementVector, arrayVector}, expected);
+}
 } // namespace

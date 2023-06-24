@@ -140,6 +140,16 @@ void registerArrayFunctions(const std::string& prefix) {
   registerFunction<
       ArrayConcatFunction,
       Array<Generic<T1>>,
+      Array<Generic<T1>>,
+      Generic<T1>>({prefix + "concat"});
+  registerFunction<
+      ArrayConcatFunction,
+      Array<Generic<T1>>,
+      Generic<T1>,
+      Array<Generic<T1>>>({prefix + "concat"});
+  registerFunction<
+      ArrayConcatFunction,
+      Array<Generic<T1>>,
       Variadic<Array<Generic<T1>>>>({prefix + "concat"});
 
   registerFunction<
