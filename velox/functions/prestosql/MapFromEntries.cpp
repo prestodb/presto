@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "velox/expression/EvalCtx.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/CheckDuplicateKeys.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"
-
 namespace facebook::velox::functions {
 namespace {
 // See documentation at https://prestodb.io/docs/current/functions/map.html
@@ -96,8 +96,7 @@ class MapFromEntriesFunction : public exec::VectorFunction {
           const bool isMapEntryNull = decodedValueVector->isNullAt(offset + i);
           if (isMapEntryNull) {
             if (!mutableSizes) {
-              changedSizes = AlignedBuffer::allocate<vector_size_t>(
-                  rows.end(), context.pool());
+              changedSizes = allocateSizes(rows.end(), context.pool());
               mutableSizes = changedSizes->asMutable<vector_size_t>();
               rows.applyToSelected([&](vector_size_t row) {
                 mutableSizes[row] = inputArray->rawSizes()[row];
