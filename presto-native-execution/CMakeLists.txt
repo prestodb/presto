@@ -41,9 +41,13 @@ set(ENABLE_WARNINGS "-Wreorder")
 set(CMAKE_CXX_FLAGS
     "${CMAKE_CXX_FLAGS} ${DISABLED_WARNINGS} ${ENABLE_WARNINGS}")
 
-# Add all Presto options below
+# Add all Presto options below.
+
+# Forwards user input to VELOX_ENABLE_S3.
 option(PRESTO_ENABLE_S3 "Build S3 connector" OFF)
+# Forwards user input to VELOX_ENABLE_HDFS.
 option(PRESTO_ENABLE_HDFS "Build HDFS connector" OFF)
+# Forwards user input to VELOX_ENABLE_PARQUET.
 option(PRESTO_ENABLE_PARQUET "Enable Parquet support" OFF)
 option(PRESTO_ENABLE_TESTING "Enable tests" ON)
 
@@ -68,7 +72,6 @@ if(PRESTO_ENABLE_PARQUET)
   set(VELOX_ENABLE_PARQUET
       ON
       CACHE BOOL "Enable Parquet support")
-  add_definitions(-DPRESTO_ENABLE_PARQUET)
 endif()
 
 set(VELOX_BUILD_TESTING
