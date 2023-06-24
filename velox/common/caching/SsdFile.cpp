@@ -150,12 +150,12 @@ SsdFile::SsdFile(
 }
 
 void SsdFile::pinRegion(uint64_t offset) {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::shared_mutex> l(mutex_);
   pinRegionLocked(offset);
 }
 
 void SsdFile::unpinRegion(uint64_t offset) {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::shared_mutex> l(mutex_);
   auto count = --regionPins_[regionIndex(offset)];
   VELOX_CHECK_LE(0, count);
   if (suspended_ && count == 0) {
@@ -188,7 +188,7 @@ SsdPin SsdFile::find(RawFileCacheKey key) {
   FileCacheKey ssdKey{StringIdLease(fileIds(), key.fileNum), key.offset};
   SsdRun run;
   {
-    std::lock_guard<std::mutex> l(mutex_);
+    std::lock_guard<std::shared_mutex> l(mutex_);
     if (suspended_) {
       return SsdPin();
     }
@@ -205,7 +205,7 @@ SsdPin SsdFile::find(RawFileCacheKey key) {
 
 bool SsdFile::erase(RawFileCacheKey key) {
   FileCacheKey ssdKey{StringIdLease(fileIds(), key.fileNum), key.offset};
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::shared_mutex> l(mutex_);
   auto it = entries_.find(ssdKey);
   if (it == entries_.end()) {
     return false;
@@ -273,7 +273,7 @@ void SsdFile::read(
 std::optional<std::pair<uint64_t, int32_t>> SsdFile::getSpace(
     const std::vector<CachePin>& pins,
     int32_t begin) {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::shared_mutex> l(mutex_);
   for (;;) {
     if (writableRegions_.empty()) {
       if (!growOrEvictLocked()) {
@@ -400,7 +400,7 @@ void SsdFile::write(std::vector<CachePin>& pins) {
       return;
     }
     {
-      std::lock_guard<std::mutex> l(mutex_);
+      std::lock_guard<std::shared_mutex> l(mutex_);
       for (auto i = storeIndex; i < storeIndex + numWritten; ++i) {
         auto entry = pins[i].checkedEntry();
         entry->setSsdFile(this, offset);
@@ -469,7 +469,7 @@ void SsdFile::verifyWrite(AsyncDataCacheEntry& entry, SsdRun ssdRun) {
 void SsdFile::updateStats(SsdCacheStats& stats) const {
   // Lock only in tsan build. Incrementing the counters has no synchronized
   // emantics.
-  tsan_lock_guard<std::mutex> l(mutex_);
+  std::shared_lock<std::shared_mutex> l(mutex_);
   stats.entriesWritten += stats_.entriesWritten;
   stats.bytesWritten += stats_.bytesWritten;
   stats.entriesRead += stats_.entriesRead;
@@ -494,7 +494,7 @@ void SsdFile::updateStats(SsdCacheStats& stats) const {
 }
 
 void SsdFile::clear() {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::shared_mutex> l(mutex_);
   entries_.clear();
   std::fill(regionSize_.begin(), regionSize_.end(), 0);
   writableRegions_.resize(numRegions_);
@@ -571,7 +571,7 @@ inline const char* asChar(const T* ptr) {
 } // namespace
 
 void SsdFile::checkpoint(bool force) {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::shared_mutex> l(mutex_);
   if (!force && bytesAfterCheckpoint_ < checkpointIntervalBytes_) {
     return;
   }

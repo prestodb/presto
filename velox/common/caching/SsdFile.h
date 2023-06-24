@@ -214,7 +214,7 @@ class SsdFile {
   // Asserts that the region of 'offset' is pinned. This is called by
   // the pin holder. The pin count can be read without mutex.
   void checkPinned(uint64_t offset) const {
-    tsan_lock_guard<std::mutex> l(mutex_);
+    tsan_lock_guard<std::shared_mutex> l(mutex_);
     VELOX_CHECK_LT(0, regionPins_[regionIndex(offset)]);
   }
 
@@ -318,7 +318,7 @@ class SsdFile {
   void logEviction(const std::vector<int32_t>& regions);
 
   // Serializes access to all private data members.
-  mutable std::mutex mutex_;
+  mutable std::shared_mutex mutex_;
   // Name of cache file, used as prefix for checkpoint files.
   std::string fileName_;
   static constexpr const char* FOLLY_NONNULL kLogExtension = ".log";
