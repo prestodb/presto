@@ -48,6 +48,12 @@ public class TestIcebergDistributedNessie
         super(NESSIE);
     }
 
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
+    }
+
     @BeforeClass
     @Override
     public void init()

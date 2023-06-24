@@ -72,4 +72,9 @@ public class TestIcebergDistributedHadoop
 
         return queryRunner;
     }
+
+    protected boolean supportsViews()
+    {
+        return false;
+    }
 }

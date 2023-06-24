@@ -440,6 +440,14 @@ Create an Iceberg table partitioned by the first letter of the team field::
     ``Day``, ``Month``, ``Year``, ``Hour`` partition column transform functions are not supported in Presto Iceberg
     connector yet (:issue:`20570`).
 
+CREATE VIEW
+^^^^^^^^^^^^
+
+The Iceberg connector supports creating views in Hive and Glue metastores.
+To create a view named ``view_page_views`` for the ``iceberg.web.page_views`` table created in the `CREATE TABLE`_ example::
+
+    CREATE VIEW iceberg.web.view_page_views AS SELECT user_id, country FROM iceberg.web.page_views;
+
 INSERT INTO
 ^^^^^^^^^^^^
 
@@ -512,6 +520,13 @@ Drop the table ``page_views`` ::
 
 * Dropping an Iceberg table with Hive Metastore and Glue catalogs only removes metadata from metastore.
 * Dropping an Iceberg table with Hadoop and Nessie catalogs removes all the data and metadata in the table.
+
+DROP VIEW
+^^^^^^^^^^
+
+Drop the view ``view_page_views``::
+
+    DROP VIEW iceberg.web.view_page_views;
 
 DROP SCHEMA
 ^^^^^^^^^^^^

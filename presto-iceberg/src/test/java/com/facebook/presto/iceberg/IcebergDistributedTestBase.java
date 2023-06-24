@@ -47,12 +47,6 @@ public class IcebergDistributedTestBase
     }
 
     @Override
-    protected boolean supportsViews()
-    {
-        return false;
-    }
-
-    @Override
     protected boolean supportsNotNullColumns()
     {
         return false;
