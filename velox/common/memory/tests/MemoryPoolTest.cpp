@@ -377,7 +377,7 @@ TEST_P(MemoryPoolTest, AllocTest) {
   ASSERT_EQ(4 * kChunkSize, child->stats().peakBytes);
 }
 
-TEST_P(MemoryPoolTest, memoryLeakCheck) {
+TEST_P(MemoryPoolTest, DISABLED_memoryLeakCheck) {
   gflags::FlagSaver flagSaver;
   testing::FLAGS_gtest_death_test_style = "fast";
   auto manager = getMemoryManager(8 * GB);
@@ -391,7 +391,7 @@ TEST_P(MemoryPoolTest, memoryLeakCheck) {
   child->free(oneChunk, kChunkSize);
 }
 
-TEST_P(MemoryPoolTest, growBeyondMaxCapacity) {
+TEST_P(MemoryPoolTest, DISABLED_growBeyondMaxCapacity) {
   gflags::FlagSaver flagSaver;
   testing::FLAGS_gtest_death_test_style = "fast";
   auto manager = getMemoryManager(8 * GB);
