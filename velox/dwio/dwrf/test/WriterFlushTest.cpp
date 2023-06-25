@@ -40,8 +40,14 @@ class MockMemoryPool : public velox::memory::MemoryPool {
       MemoryPool::Kind kind,
       std::shared_ptr<MemoryPool> parent,
       int64_t cap = std::numeric_limits<int64_t>::max())
-      : MemoryPool{name, kind, parent, nullptr, {.alignment = velox::memory::MemoryAllocator::kMinAlignment}},
+      : MemoryPool{name, kind, parent, {.alignment = velox::memory::MemoryAllocator::kMinAlignment}},
         capacity_(cap) {}
+
+  ~MockMemoryPool() override {
+    if (parent_ != nullptr) {
+      static_cast<MockMemoryPool*>(parent_.get())->dropChild(this);
+    }
+  }
 
   int64_t capacity() const override {
     return parent_ != nullptr ? parent_->capacity() : capacity_;
@@ -163,6 +169,31 @@ class MockMemoryPool : public velox::memory::MemoryPool {
   MOCK_CONST_METHOD0(alignment, uint16_t());
 
   uint64_t freeBytes() const override {
+    VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
+  }
+
+  void setReclaimer(
+      std::unique_ptr<memory::MemoryReclaimer> reclaimer) override {
+    VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
+  }
+
+  memory::MemoryReclaimer* reclaimer() const override {
+    VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
+  }
+
+  void enterArbitration() override {
+    VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
+  }
+
+  void leaveArbitration() noexcept override {
+    VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
+  }
+
+  bool reclaimableBytes(uint64_t& reclaimableBytes) const override {
+    VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
+  }
+
+  uint64_t reclaim(uint64_t targetBytes) override {
     VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
   }
 

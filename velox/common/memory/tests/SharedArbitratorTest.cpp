@@ -179,7 +179,7 @@ class FakeMemoryOperator : public Operator {
 
   const bool canReclaim_;
   const AllocationCallback allocationCb_;
-  const ReclaimInjectionCallback reclaimCb_;
+  const ReclaimInjectionCallback reclaimCb_{nullptr};
 
   std::atomic<size_t> totalBytes_{0};
   std::vector<Allocation> allocations_;
@@ -1632,6 +1632,7 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
   std::vector<std::thread> queryThreads;
   for (int i = 0; i < numThreads; ++i) {
     queryThreads.emplace_back([&, i]() {
+      DuckDbQueryRunner duckDbQueryRunner;
       folly::Random::DefaultGenerator rng;
       rng.seed(i);
       while (!stopped) {
@@ -1646,7 +1647,7 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
         }
         std::shared_ptr<Task> task;
         try {
-          task = AssertQueryBuilder(duckDbQueryRunner_)
+          task = AssertQueryBuilder(duckDbQueryRunner)
                      .queryCtx(query)
                      .plan(PlanBuilder()
                                .values(vectors)

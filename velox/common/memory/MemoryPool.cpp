@@ -191,7 +191,6 @@ MemoryPool::MemoryPool(
     const std::string& name,
     Kind kind,
     std::shared_ptr<MemoryPool> parent,
-    std::unique_ptr<MemoryReclaimer> reclaimer,
     const Options& options)
     : name_(name),
       kind_(kind),
@@ -201,17 +200,8 @@ MemoryPool::MemoryPool(
       trackUsage_(options.trackUsage),
       threadSafe_(options.threadSafe),
       checkUsageLeak_(options.checkUsageLeak),
-      debugEnabled_(options.debugEnabled),
-      reclaimer_(std::move(reclaimer)) {
+      debugEnabled_(options.debugEnabled) {
   VELOX_CHECK(!isRoot() || !isLeaf());
-  // NOTE: we shall only set reclaimer in a child pool if its parent has also
-  // set. Otherwise. it should be mis-configured.
-  VELOX_CHECK(
-      parent_ == nullptr || parent_->reclaimer() != nullptr ||
-          reclaimer_ == nullptr,
-      "Child memory pool {} shall only set memory reclaimer if its parent {} has also set",
-      name_,
-      parent_->name());
   VELOX_CHECK_GT(
       maxCapacity_, 0, "Memory pool {} max capacity can't be zero", name_);
   MemoryAllocator::alignmentCheck(0, alignment_);
@@ -219,9 +209,6 @@ MemoryPool::MemoryPool(
 
 MemoryPool::~MemoryPool() {
   VELOX_CHECK(children_.empty());
-  if (parent_ != nullptr) {
-    parent_->dropChild(this);
-  }
 }
 
 std::string MemoryPool::kindString(Kind kind) {
@@ -370,51 +357,6 @@ size_t MemoryPool::preferredSize(size_t size) {
   return lower * 2;
 }
 
-void MemoryPool::setReclaimer(std::unique_ptr<MemoryReclaimer> reclaimer) {
-  VELOX_CHECK_NOT_NULL(reclaimer);
-  if (parent_ != nullptr) {
-    VELOX_CHECK_NOT_NULL(
-        parent_->reclaimer(),
-        "Child memory pool {} shall only set reclaimer if its parent {} has also set",
-        name_,
-        parent_->name());
-  }
-  folly::SharedMutex::WriteHolder guard{poolMutex_};
-  VELOX_CHECK_NULL(reclaimer_);
-  reclaimer_ = std::move(reclaimer);
-}
-
-MemoryReclaimer* MemoryPool::reclaimer() const {
-  return reclaimer_.get();
-}
-
-bool MemoryPool::reclaimableBytes(uint64_t& reclaimableBytes) const {
-  reclaimableBytes = 0;
-  if (reclaimer_ == nullptr) {
-    return false;
-  }
-  return reclaimer_->reclaimableBytes(*this, reclaimableBytes);
-}
-
-uint64_t MemoryPool::reclaim(uint64_t targetBytes) {
-  if (reclaimer_ == nullptr) {
-    return 0;
-  }
-  return reclaimer_->reclaim(this, targetBytes);
-}
-
-void MemoryPool::enterArbitration() {
-  if (reclaimer_ != nullptr) {
-    reclaimer_->enterArbitration();
-  }
-}
-
-void MemoryPool::leaveArbitration() noexcept {
-  if (reclaimer_ != nullptr) {
-    reclaimer_->leaveArbitration();
-  }
-}
-
 MemoryPoolImpl::MemoryPoolImpl(
     MemoryManager* memoryManager,
     const std::string& name,
@@ -423,18 +365,30 @@ MemoryPoolImpl::MemoryPoolImpl(
     std::unique_ptr<MemoryReclaimer> reclaimer,
     DestructionCallback destructionCb,
     const Options& options)
-    : MemoryPool{name, kind, parent, std::move(reclaimer), options},
+    : MemoryPool{name, kind, parent, options},
       manager_{memoryManager},
       allocator_{&manager_->allocator()},
       destructionCb_(std::move(destructionCb)),
+      reclaimer_(std::move(reclaimer)),
       // The memory manager sets the capacity through grow() according to the
       // actually used memory arbitration policy.
       capacity_(parent_ != nullptr ? kMaxMemory : 0) {
   VELOX_CHECK(options.threadSafe || isLeaf());
+  // NOTE: we shall only set reclaimer in a child pool if its parent has also
+  // set. Otherwise. it should be mis-configured.
+  VELOX_CHECK(
+      parent_ == nullptr || parent_->reclaimer() != nullptr ||
+          reclaimer_ == nullptr,
+      "Child memory pool {} shall only set memory reclaimer if its parent {} has also set",
+      name_,
+      parent_->name());
 }
 
 MemoryPoolImpl::~MemoryPoolImpl() {
   DEBUG_LEAK_CHECK();
+  if (parent_ != nullptr) {
+    toImpl(parent_)->dropChild(this);
+  }
   if (checkUsageLeak_) {
     VELOX_CHECK(
         (usedReservationBytes_ == 0) && (reservationBytes_ == 0) &&
@@ -771,7 +725,7 @@ bool MemoryPoolImpl::incrementReservationThreadSafe(
       requestor,
       fmt::format(
           "Exceeded memory pool cap of {} with max {} when requesting {}, memory manager cap is {}",
-          capacityToString(capacity_),
+          capacityToString(capacity()),
           capacityToString(maxCapacity_),
           succinctBytes(size),
           capacityToString(manager_->capacity()))));
@@ -915,6 +869,52 @@ uint64_t MemoryPoolImpl::freeBytes() const {
   return capacity_ - reservationBytes_;
 }
 
+void MemoryPoolImpl::setReclaimer(std::unique_ptr<MemoryReclaimer> reclaimer) {
+  VELOX_CHECK_NOT_NULL(reclaimer);
+  if (parent_ != nullptr) {
+    VELOX_CHECK_NOT_NULL(
+        parent_->reclaimer(),
+        "Child memory pool {} shall only set reclaimer if its parent {} has also set",
+        name_,
+        parent_->name());
+  }
+  std::lock_guard<std::mutex> l(mutex_);
+  VELOX_CHECK_NULL(reclaimer_);
+  reclaimer_ = std::move(reclaimer);
+}
+
+MemoryReclaimer* MemoryPoolImpl::reclaimer() const {
+  tsan_lock_guard<std::mutex> l(mutex_);
+  return reclaimer_.get();
+}
+
+bool MemoryPoolImpl::reclaimableBytes(uint64_t& reclaimableBytes) const {
+  reclaimableBytes = 0;
+  if (reclaimer() == nullptr) {
+    return false;
+  }
+  return reclaimer()->reclaimableBytes(*this, reclaimableBytes);
+}
+
+uint64_t MemoryPoolImpl::reclaim(uint64_t targetBytes) {
+  if (reclaimer() == nullptr) {
+    return 0;
+  }
+  return reclaimer()->reclaim(this, targetBytes);
+}
+
+void MemoryPoolImpl::enterArbitration() {
+  if (reclaimer() != nullptr) {
+    reclaimer()->enterArbitration();
+  }
+}
+
+void MemoryPoolImpl::leaveArbitration() noexcept {
+  if (reclaimer() != nullptr) {
+    reclaimer()->leaveArbitration();
+  }
+}
+
 uint64_t MemoryPoolImpl::shrink(uint64_t targetBytes) {
   if (parent_ != nullptr) {
     return parent_->shrink(targetBytes);
@@ -958,11 +958,11 @@ void MemoryPoolImpl::abort() {
     parent_->abort();
     return;
   }
-  if (reclaimer_ == nullptr) {
+  if (reclaimer() == nullptr) {
     VELOX_FAIL("Can't abort the memory pool {} without reclaimer", name_);
   }
   aborted_ = true;
-  reclaimer_->abort(this);
+  reclaimer()->abort(this);
 }
 
 void MemoryPoolImpl::testingSetCapacity(int64_t bytes) {

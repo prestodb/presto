@@ -167,7 +167,6 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
       const std::string& name,
       Kind kind,
       std::shared_ptr<MemoryPool> parent,
-      std::unique_ptr<MemoryReclaimer> reclaimer,
       const Options& options);
 
   /// Removes this memory pool's tracking from its parent through dropChild().
@@ -364,27 +363,27 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   ///
   /// NOTE: this shall only be called at most once if the memory pool hasn't set
   /// reclaimer on construction.
-  virtual void setReclaimer(std::unique_ptr<MemoryReclaimer> reclaimer);
+  virtual void setReclaimer(std::unique_ptr<MemoryReclaimer> reclaimer) = 0;
 
   /// Returns the memory reclaimer of this memory pool if not null.
-  virtual MemoryReclaimer* reclaimer() const;
+  virtual MemoryReclaimer* reclaimer() const = 0;
 
   /// Invoked by the memory arbitrator to enter memory arbitration processing.
   /// It is a noop if 'reclaimer_' is not set, otherwise invoke the reclaimer's
   /// corresponding method.
-  virtual void enterArbitration();
+  virtual void enterArbitration() = 0;
 
   /// Invoked by the memory arbitrator to leave memory arbitration processing.
   /// It is a noop if 'reclaimer_' is not set, otherwise invoke the reclaimer's
   /// corresponding method.
-  virtual void leaveArbitration() noexcept;
+  virtual void leaveArbitration() noexcept = 0;
 
   /// Returns how many bytes is reclaimable from this memory pool. The function
   /// returns true if this memory pool is reclaimable, and returns the estimated
   /// reclaimable bytes in 'reclaimableBytes'. If 'reclaimer_' is not set, the
   /// function returns false, otherwise invoke the reclaimer's corresponding
   /// method.
-  virtual bool reclaimableBytes(uint64_t& reclaimableBytes) const;
+  virtual bool reclaimableBytes(uint64_t& reclaimableBytes) const = 0;
 
   /// Invoked by the memory arbitrator to reclaim memory from this memory pool
   /// with specified reclaim target bytes. If 'targetBytes' is zero, then it
@@ -392,7 +391,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// noop if the reclaimer is not set, otherwise invoke the reclaimer's
   /// corresponding method. The function returns the actually freed capacity
   /// from the root of this memory pool.
-  virtual uint64_t reclaim(uint64_t targetBytes);
+  virtual uint64_t reclaim(uint64_t targetBytes) = 0;
 
   /// Invoked by the memory arbitrator to abort a root memory pool. The function
   /// forwards the request to the corresponding query object to abort its
@@ -510,11 +509,6 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   std::atomic<bool> aborted_{false};
 
   mutable folly::SharedMutex poolMutex_;
-  /// Used by memory arbitration to reclaim memory from the associated query
-  /// object if not null. For example, a memory pool can reclaim the used memory
-  /// from a spillable operator through disk spilling. If null, we can't reclaim
-  /// memory from this memory pool.
-  std::unique_ptr<MemoryReclaimer> reclaimer_;
   // NOTE: we use raw pointer instead of weak pointer here to minimize
   // visitChildren() cost as we don't have to upgrade the weak pointer and copy
   // out the upgraded shared pointers.git
@@ -591,6 +585,18 @@ class MemoryPoolImpl : public MemoryPool {
   void release() override;
 
   uint64_t freeBytes() const override;
+
+  void setReclaimer(std::unique_ptr<MemoryReclaimer> reclaimer) override;
+
+  MemoryReclaimer* reclaimer() const override;
+
+  void enterArbitration() override;
+
+  void leaveArbitration() noexcept override;
+
+  bool reclaimableBytes(uint64_t& reclaimableBytes) const override;
+
+  uint64_t reclaim(uint64_t targetBytes) override;
 
   uint64_t shrink(uint64_t targetBytes = 0) override;
 
@@ -911,6 +917,12 @@ class MemoryPoolImpl : public MemoryPool {
   // work based on atomic 'reservationBytes_' without mutex as children updating
   // the same parent do not have to be serialized.
   mutable std::mutex mutex_;
+
+  // Used by memory arbitration to reclaim memory from the associated query
+  // object if not null. For example, a memory pool can reclaim the used memory
+  // from a spillable operator through disk spilling. If null, we can't reclaim
+  // memory from this memory pool.
+  std::unique_ptr<MemoryReclaimer> reclaimer_;
 
   // The memory cap in bytes to enforce.
   int64_t capacity_;
