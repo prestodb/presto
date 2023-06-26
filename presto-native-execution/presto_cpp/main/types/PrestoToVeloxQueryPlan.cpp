@@ -110,9 +110,12 @@ std::shared_ptr<connector::ColumnHandle> toColumnHandle(
     const protocol::ColumnHandle* column) {
   if (auto hiveColumn =
           dynamic_cast<const protocol::HiveColumnHandle*>(column)) {
+    // TODO(spershin): Should we pass something different than 'typeSignature'
+    // to 'hiveType' argument of the 'HiveColumnHandle' constructor?
     return std::make_shared<connector::hive::HiveColumnHandle>(
         hiveColumn->name,
         toHiveColumnType(hiveColumn->columnType),
+        stringToType(hiveColumn->typeSignature),
         stringToType(hiveColumn->typeSignature),
         toRequiredSubfields(hiveColumn->requiredSubfields));
   }

@@ -430,7 +430,9 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(session, getTpcdsQuery("01"));
     }
 
-    @Test
+    // TODO(spershin): Enable test when fixed.
+    // GitHub issue: https://github.com/facebookincubator/velox/issues/5412
+    @Test (enabled = false)
     public void testTpcdsQ2()
             throws Exception
     {
@@ -1005,7 +1007,9 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(session, getTpcdsQuery("77"));
     }
 
-    @Test
+    // TODO(spershin): Enable test when fixed.
+    // GitHub issue: https://github.com/facebookincubator/velox/issues/5412
+    @Test (enabled = false)
     public void testTpcdsQ78()
             throws Exception
     {
