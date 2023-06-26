@@ -1495,7 +1495,7 @@ class StatementAnalyzer
                         viewQueryWhereClause,
                         analysis.getTypes(),
                         ImmutableMap.of(),
-                        functionAndTypeResolver,
+                        metadata.getFunctionAndTypeManager(),
                         session);
 
                 TupleDomain<String> viewQueryDomain = MaterializedViewUtils.getDomainFromFilter(session, domainTranslator, rowExpression);
@@ -2100,9 +2100,8 @@ class StatementAnalyzer
 
                 Window window = windowFunction.getWindow().get();
                 if (window.getOrderBy().filter(
-                        orderBy -> orderBy.getSortItems()
-                                .stream()
-                                .anyMatch(item -> item.getSortKey() instanceof Literal))
+                                orderBy -> orderBy.getSortItems().stream().anyMatch(
+                                        item -> item.getSortKey() instanceof Literal))
                         .isPresent()) {
                     if (isAllowWindowOrderByLiterals(session)) {
                         warningCollector.add(

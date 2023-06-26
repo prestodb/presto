@@ -106,7 +106,7 @@ public class InlineSqlFunctions
                 return getSqlFunctionRowExpression(
                         functionMetadata,
                         (SqlInvokedScalarFunctionImplementation) metadata.getFunctionAndTypeManager().getScalarFunctionImplementation(functionHandle),
-                        metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
+                        metadata.getFunctionAndTypeManager(),
                         session.getSqlFunctionProperties(),
                         session.getSessionFunctions(),
                         rewrittenArguments);
