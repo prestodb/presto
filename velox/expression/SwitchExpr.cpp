@@ -70,7 +70,7 @@ void SwitchExpr::evalSpecialForm(
     // else load access the same vectors, so there is no extra loading.
     DecodedVector decoded;
     auto& remaining = *remainingRows.get();
-    for (const auto& field : distinctFields_) {
+    for (auto* field : distinctFields_) {
       context.ensureFieldLoaded(field->index(context), remaining);
       const auto& vector = context.getField(field->index(context));
       if (vector->mayHaveNulls()) {

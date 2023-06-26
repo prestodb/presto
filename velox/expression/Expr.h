@@ -233,7 +233,8 @@ class Expr {
   }
 
   // Compute the following properties: deterministic_, propagatesNulls_,
-  // distinctFields_, multiplyReferencedFields_ and hasConditionals_.
+  // distinctFields_, multiplyReferencedFields_, hasConditionals_ and
+  // sameAsParentDistinctFields_.
   virtual void computeMetadata();
 
   virtual void reset() {
@@ -371,6 +372,21 @@ class Expr {
       VectorPtr& result) const;
 
   void clearMetaData();
+
+  // No need to peel encoding or remove sure nulls for default null propagating
+  // expressions when the expression has single parent(the expression that
+  // reference it) and have the same distinct fields as its parent.
+  // The reason is because such optimizations would be redundant in that case,
+  // since they would have been performed identically on the parent.
+  bool skipFieldDependentOptimizations() const {
+    if (!isMultiplyReferenced_ && sameAsParentDistinctFields_) {
+      return true;
+    }
+    if (distinctFields_.empty()) {
+      return true;
+    }
+    return false;
+  }
 
  private:
   struct PeelEncodingsResult {
@@ -594,6 +610,10 @@ class Expr {
   // If true computeMetaData returns, otherwise meta data is computed and the
   // flag is set to true.
   bool metaDataComputed_ = false;
+
+  // True if distinctFields_ are identical to at least one of the parent
+  // expression's distinct fields.
+  bool sameAsParentDistinctFields_ = false;
 };
 
 /// Generate a selectivity vector of a single row.

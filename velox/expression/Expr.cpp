@@ -198,6 +198,7 @@ void Expr::clearMetaData() {
   multiplyReferencedFields_.clear();
   hasConditionals_ = false;
   deterministic_ = true;
+  sameAsParentDistinctFields_ = false;
 }
 
 void Expr::computeMetadata() {
@@ -271,9 +272,8 @@ void Expr::computeMetadata() {
   }
 
   for (auto& input : inputs_) {
-    if (!input->isMultiplyReferenced_ &&
-        isSameFields(distinctFields_, input->distinctFields_)) {
-      input->distinctFields_.clear();
+    if (isSameFields(distinctFields_, input->distinctFields_)) {
+      input->sameAsParentDistinctFields_ = true;
     }
   }
 
@@ -800,7 +800,7 @@ void Expr::eval(
   if (!hasConditionals_ || distinctFields_.size() == 1 ||
       shouldEvaluateSharedSubexp()) {
     // Load lazy vectors if any.
-    for (const auto& field : distinctFields_) {
+    for (auto* field : distinctFields_) {
       context.ensureFieldLoaded(field->index(context), rows);
     }
   } else if (!propagatesNulls_) {
@@ -827,7 +827,7 @@ void Expr::evaluateSharedSubexpr(
     TEval eval) {
   // Captures the inputs referenced by distinctFields_.
   std::vector<const BaseVector*> expressionInputFields;
-  for (const auto& field : distinctFields_) {
+  for (auto* field : distinctFields_) {
     expressionInputFields.push_back(
         context.getField(field->index(context)).get());
   }
@@ -921,7 +921,7 @@ Expr::PeelEncodingsResult Expr::peelEncodings(
   auto numFields = context.row()->childrenSize();
   std::vector<VectorPtr> vectorsToPeel;
   vectorsToPeel.reserve(distinctFields_.size());
-  for (const auto& field : distinctFields_) {
+  for (auto* field : distinctFields_) {
     auto fieldIndex = field->index(context);
     assert(fieldIndex >= 0 && fieldIndex < numFields);
     auto fieldVector = context.getField(fieldIndex);
@@ -974,9 +974,9 @@ void Expr::evalEncodings(
     const SelectivityVector& rows,
     EvalCtx& context,
     VectorPtr& result) {
-  if (deterministic_ && !distinctFields_.empty()) {
+  if (deterministic_ && !skipFieldDependentOptimizations()) {
     bool hasFlat = false;
-    for (const auto& field : distinctFields_) {
+    for (auto* field : distinctFields_) {
       if (isFlat(*context.getField(field->index(context)))) {
         hasFlat = true;
         break;
@@ -1113,9 +1113,9 @@ void Expr::evalWithNulls(
     return;
   }
 
-  if (propagatesNulls_) {
+  if (propagatesNulls_ && !skipFieldDependentOptimizations()) {
     bool mayHaveNulls = false;
-    for (const auto& field : distinctFields_) {
+    for (auto* field : distinctFields_) {
       const auto& vector = context.getField(field->index(context));
       if (isLazyNotLoaded(*vector)) {
         continue;
@@ -1127,7 +1127,7 @@ void Expr::evalWithNulls(
       }
     }
 
-    if (mayHaveNulls && !distinctFields_.empty()) {
+    if (mayHaveNulls) {
       LocalSelectivityVector nonNullHolder(context);
       if (removeSureNulls(rows, context, nonNullHolder)) {
         ScopedVarSetter noMoreNulls(context.mutableNullsPruned(), true);

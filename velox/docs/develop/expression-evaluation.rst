@@ -238,7 +238,9 @@ Executable expressions include a set of metadata that’s used during evaluation
 This is calculated by Expr::computeMetadata() virtual methods and stored in
 member variables of the exec::Expr class.
 
-* *distinctFields_* - List of distinct input columns if different from the parent expression. This list is empty if the list of distinct input columns is the same as for the parent expression.
+* *distinctFields_* - List of distinct input columns.
+* *multiplyReferencedFields_* - Subset of distinctFields_ that are used as inputs by multiple subexpressions.
+* *sameAsParentDistinctFields_* - True if distinctFields_ matches one of the parent's distinctFields_ (parents to refer expressions that have this expression as input).
 * *propagatesNulls_* - Boolean indicating whether a null in any of the input columns causes this expression to always return null for the row.
 * *deterministic_* - Boolean indicating whether this expression and all its children are deterministic.
 * *hasConditionals_* - Boolean indicating whether this expression or any of its children is an IF, SWITCH, AND or OR expression.
