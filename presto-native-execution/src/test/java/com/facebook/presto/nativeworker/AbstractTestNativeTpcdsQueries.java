@@ -430,13 +430,11 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(session, getTpcdsQuery("01"));
     }
 
-    // TODO(spershin): Enable test when fixed.
-    // GitHub issue: https://github.com/facebookincubator/velox/issues/5412
-    @Test (enabled = false)
+    @Test
     public void testTpcdsQ2()
             throws Exception
     {
-        assertQueryFails(session, getTpcdsQuery("02"), "[\\s\\S]*Scalar function presto\\.default\\.round not registered with arguments[\\s\\S]*");
+        assertQuery(session, getTpcdsQuery("02"));
     }
 
     @Test
@@ -1007,13 +1005,11 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(session, getTpcdsQuery("77"));
     }
 
-    // TODO(spershin): Enable test when fixed.
-    // GitHub issue: https://github.com/facebookincubator/velox/issues/5412
-    @Test (enabled = false)
+    @Test
     public void testTpcdsQ78()
             throws Exception
     {
-        assertQueryFails(session, getTpcdsQuery("78"), "[\\s\\S]*Scalar function presto\\.default\\.round not registered with arguments[\\s\\S]*");
+        assertQuery(session, getTpcdsQuery("78"));
     }
 
     @Test
