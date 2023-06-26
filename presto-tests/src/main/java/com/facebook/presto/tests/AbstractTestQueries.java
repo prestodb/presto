@@ -68,6 +68,7 @@ import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_T
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.REWRITE_CASE_TO_MAP_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN;
@@ -6974,5 +6975,41 @@ public abstract class AbstractTestQueries
 
         String sql = "select orderkey from (select orderkey, row_number() over(partition by orderkey) <=2 as keep from lineitem) where keep";
         assertQuery(enableOptimization, sql);
+    }
+
+    @Test
+    public void testCaseToMapOptimization()
+    {
+        assertNotEquals(computeActual("EXPLAIN(TYPE DISTRIBUTED) SELECT orderkey, CASE  WHEN orderstatus||'-'|| comment ='O' THEN 'a' " +
+                "when  orderstatus||'-'|| comment='F' THEN 'b' else 'other' END, " +
+                "sum(case when  orderstatus||'-'|| comment='F' THEN  totalprice END)" +
+                "FROM orders group by 1,2").getOnlyValue().toString().indexOf("element_at"), -1);
+
+        assertNotEquals(computeActual("EXPLAIN(TYPE DISTRIBUTED) SELECT orderkey, CASE  WHEN orderstatus in ('a', 'f', 'b') THEN 'a' " +
+                "when  orderstatus='F' THEN 'b' else 'other' END, " +
+                "sum(case when  orderstatus||'-'|| comment='F' THEN  totalprice END)" +
+                "FROM orders group by 1,2").getOnlyValue().toString().indexOf("element_at"), -1);
+
+        // Should not be applied below
+        assertEquals(computeActual("EXPLAIN(TYPE DISTRIBUTED) SELECT orderkey, CASE  WHEN orderstatus in ('a', 'f', 'b') THEN comment||'a' " +
+                "when  orderstatus='F' THEN comment||'b' else 'other' END, " +
+                "sum(case when  orderstatus||'-'|| comment='F' THEN  totalprice END)" +
+                "FROM orders group by 1,2").getOnlyValue().toString().indexOf("element_at"), -1);
+
+        assertQuery("select case x when 1 then 1 when 2 then 2 when 1 then 3 end from (select 1 as x) t", "select 1");
+        assertQuery("select x, case x when 1 then 1 when 2 then 2 else 3 end from (select x from (values 1, 2, 3, 4) t(x))");
+        assertQuery("select x, case when x=1 then 1 when x=2 then 2 else 3 end from (select x from (values 1, 2, 3, 4) t(x))");
+        assertQuery("select x, case when x=1 then 1 when x in (2, 3) then 2 else 3 end from (select x from (values 1, 2, 3, 4) t(x))");
+
+        // disable the feature and test to make sure it doesn't fire
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(REWRITE_CASE_TO_MAP_ENABLED, "false")
+                .build();
+
+        assertEquals(computeActual(session, "EXPLAIN(TYPE DISTRIBUTED) SELECT orderkey, CASE  WHEN orderstatus in ('a', 'f', 'b') THEN 'a' " +
+                "when  orderstatus='F' THEN 'b' else 'other' END, " +
+                "sum(case when  orderstatus||'-'|| comment='F' THEN  totalprice END)" +
+                "FROM orders group by 1,2").getOnlyValue().toString().indexOf("element_at"), -1);
     }
 }
