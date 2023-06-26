@@ -55,7 +55,7 @@ class PartitionAndSerializeOperator : public Operator {
             numPartitions_ > 1 ? planNode->isReplicateNullsAndAny() : false) {
     const auto& inputType = planNode->sources()[0]->outputType()->asRow();
     const auto& serializedRowTypeNames = serializedRowType_->names();
-    bool identityMapping = true;
+    bool identityMapping = (serializedRowType_->size() == inputType.size());
     for (auto i = 0; i < serializedRowTypeNames.size(); ++i) {
       serializedColumnIndices_.push_back(
           inputType.getChildIdx(serializedRowTypeNames[i]));
@@ -157,7 +157,7 @@ class PartitionAndSerializeOperator : public Operator {
     }
 
     const auto& inputColumns = input_->children();
-    std::vector<VectorPtr> columns(inputColumns.size());
+    std::vector<VectorPtr> columns(serializedColumnIndices_.size());
     for (auto i = 0; i < columns.size(); ++i) {
       columns[i] = inputColumns[serializedColumnIndices_[i]];
     }
@@ -182,7 +182,8 @@ class PartitionAndSerializeOperator : public Operator {
     velox::row::UnsafeRowFast unsafeRow(reorderInputsIfNeeded());
 
     size_t totalSize = 0;
-    if (auto fixedRowSize = unsafeRow.fixedRowSize(asRowType(input_->type()))) {
+    if (auto fixedRowSize =
+            unsafeRow.fixedRowSize(asRowType(serializedRowType_))) {
       totalSize += fixedRowSize.value() * numInput;
       std::fill(rowSizes_.begin(), rowSizes_.end(), fixedRowSize.value());
     } else {

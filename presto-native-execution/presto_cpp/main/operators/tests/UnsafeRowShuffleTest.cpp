@@ -970,6 +970,26 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeWithDifferentColumnOrder) {
 
   auto expected = makeRowVector({data->childAt(1), data->childAt(0)});
   testPartitionAndSerialize(plan, expected);
+
+  // Duplicate some columns.
+  plan =
+      exec::test::PlanBuilder()
+          .values({data}, true)
+          .addNode(addPartitionAndSerializeNode(4, false, {"c1", "c0", "c1"}))
+          .planNode();
+
+  expected =
+      makeRowVector({data->childAt(1), data->childAt(0), data->childAt(1)});
+  testPartitionAndSerialize(plan, expected);
+
+  // Remove one column.
+  plan = exec::test::PlanBuilder()
+             .values({data}, true)
+             .addNode(addPartitionAndSerializeNode(4, false, {"c1"}))
+             .planNode();
+
+  expected = makeRowVector({data->childAt(1)});
+  testPartitionAndSerialize(plan, expected);
 }
 
 TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOperatorWhenSinglePartition) {
