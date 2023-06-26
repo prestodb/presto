@@ -43,6 +43,7 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Arrays.asList;
 
@@ -98,7 +99,13 @@ public final class Expressions
 
     public static SpecialFormExpression coalesceNullToFalse(RowExpression rowExpression)
     {
-        return new SpecialFormExpression(rowExpression.getSourceLocation(), COALESCE, BOOLEAN, rowExpression, constant(false, BOOLEAN));
+        return coalesce(rowExpression, constant(false, BOOLEAN));
+    }
+
+    public static SpecialFormExpression coalesce(RowExpression rowExpression, RowExpression coalesced)
+    {
+        checkState(rowExpression.getType().equals(coalesced.getType()));
+        return new SpecialFormExpression(rowExpression.getSourceLocation(), COALESCE, coalesced.getType(), rowExpression, coalesced);
     }
 
     public static CallExpression not(FunctionAndTypeManager functionAndTypeManager, RowExpression rowExpression)
