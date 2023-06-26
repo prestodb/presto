@@ -74,7 +74,7 @@ public class TranslateExpressionsUtil
 
     public static RowExpression toRowExpression(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> types, SqlToRowExpressionTranslator.Context context)
     {
-        return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(), session, context);
+        return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionAndTypeManager(), session, context);
     }
 
     public static Map<NodeRef<Expression>, Type> analyzeCallExpressionTypes(
