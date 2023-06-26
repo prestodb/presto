@@ -34,6 +34,11 @@ BooleanMix refineBooleanMixNonNull(
 }
 } // namespace
 
+// Return a BooleanMix representing the status of boolean values in vector. If
+// vector contains a mix of true and false, extract the boolean values to a raw
+// buffer valuesOut. valuesOut may point to a raw buffer possessed by vector.
+// nullsOut remain unchanged if there is no null in vector. tempValues and
+// tempNulls may or may not be set by this function.
 BooleanMix getFlatBool(
     BaseVector* vector,
     const SelectivityVector& activeRows,
