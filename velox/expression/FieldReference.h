@@ -67,6 +67,7 @@ class FieldReference : public SpecialForm {
     if (inputs_.empty()) {
       distinctFields_.resize(1);
       distinctFields_[0] = this;
+      metaDataComputed_ = true;
     } else {
       Expr::computeMetadata();
     }

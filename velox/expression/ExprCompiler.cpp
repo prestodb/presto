@@ -357,6 +357,7 @@ ExprPtr compileExpression(
       alreadyCompiled->setMultiplyReferenced();
       // A property of this expression changed, namely isMultiplyReferenced_,
       // that affects metadata, so we re-compute it.
+      alreadyCompiled->clearMetaData();
       alreadyCompiled->computeMetadata();
     }
     return alreadyCompiled;

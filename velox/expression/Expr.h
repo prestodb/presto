@@ -232,6 +232,8 @@ class Expr {
     evalSpecialForm(rows, context, result);
   }
 
+  // Compute the following properties: deterministic_, propagatesNulls_,
+  // distinctFields_, multiplyReferencedFields_ and hasConditionals_.
   virtual void computeMetadata();
 
   virtual void reset() {
@@ -367,6 +369,8 @@ class Expr {
       const SelectivityVector& rows,
       EvalCtx& context,
       VectorPtr& result) const;
+
+  void clearMetaData();
 
  private:
   struct PeelEncodingsResult {
@@ -586,6 +590,10 @@ class Expr {
 
   /// Runtime statistics. CPU time, wall time and number of processed rows.
   ExprStats stats_;
+
+  // If true computeMetaData returns, otherwise meta data is computed and the
+  // flag is set to true.
+  bool metaDataComputed_ = false;
 };
 
 /// Generate a selectivity vector of a single row.

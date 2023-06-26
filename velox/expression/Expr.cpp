@@ -188,7 +188,22 @@ bool Expr::allSupportFlatNoNullsFastPath(
   return true;
 }
 
+void Expr::clearMetaData() {
+  metaDataComputed_ = false;
+  for (auto child : inputs_) {
+    child->clearMetaData();
+  }
+  propagatesNulls_ = false;
+  distinctFields_.clear();
+  multiplyReferencedFields_.clear();
+  hasConditionals_ = false;
+  deterministic_ = true;
+}
+
 void Expr::computeMetadata() {
+  if (metaDataComputed_) {
+    return;
+  }
   // Compute metadata for all the inputs.
   for (auto& input : inputs_) {
     input->computeMetadata();
@@ -264,6 +279,8 @@ void Expr::computeMetadata() {
 
   // (5) Compute hasConditionals_.
   hasConditionals_ = hasConditionals(this);
+
+  metaDataComputed_ = true;
 }
 
 namespace {
