@@ -1928,16 +1928,23 @@ public class FeaturesConfig
         return optimizeNullsInJoin;
     }
 
-    public boolean isOptimizePayloadJoins()
-    {
-        return optimizePayloadJoins;
-    }
-
     @Config("optimize-nulls-in-join")
     public FeaturesConfig setOptimizeNullsInJoin(boolean optimizeNullsInJoin)
     {
         this.optimizeNullsInJoin = optimizeNullsInJoin;
         return this;
+    }
+
+    @Config("optimize-payload-joins")
+    public FeaturesConfig setOptimizePayloadJoins(boolean optimizePayloadJoins)
+    {
+        this.optimizePayloadJoins = optimizePayloadJoins;
+        return this;
+    }
+
+    public boolean isOptimizePayloadJoins()
+    {
+        return optimizePayloadJoins;
     }
 
     public String getWarnOnNoTableLayoutFilter()
