@@ -2072,12 +2072,16 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   auto [sortFields, sortOrders] = toSortFieldsAndOrders(
       node->specification.orderingScheme.get(), exprConverter_);
 
+  std::optional<std::string> rowNumberColumnName;
+  if (!node->partial) {
+    rowNumberColumnName = node->rowNumberVariable.name;
+  }
   return std::make_shared<core::TopNRowNumberNode>(
       node->id,
       partitionFields,
       sortFields,
       sortOrders,
-      node->rowNumberVariable.name,
+      rowNumberColumnName,
       node->maxRowCountPerPartition,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
