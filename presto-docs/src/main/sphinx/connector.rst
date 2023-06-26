@@ -35,6 +35,7 @@ from different data sources.
     connector/prometheus
     connector/redis
     connector/redshift
+    connector/scylladb
     connector/sqlserver
     connector/system
     connector/thrift
