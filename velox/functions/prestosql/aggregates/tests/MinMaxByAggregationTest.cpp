@@ -129,6 +129,26 @@ std::vector<TestParam> getTestParams() {
     }                                                           \
   } while (0);
 
+template <typename T>
+struct ExtremeValueTrait : public std::numeric_limits<T> {};
+
+template <>
+struct ExtremeValueTrait<Date> {
+  static constexpr Date lowest() {
+    return Date(std::numeric_limits<int32_t>::lowest());
+  }
+
+  static constexpr Date max() {
+    return Date(std::numeric_limits<int32_t>::max());
+  }
+};
+
+template <typename T>
+const T kMax = ExtremeValueTrait<T>::max();
+
+template <typename T>
+const T kLowest = ExtremeValueTrait<T>::lowest();
+
 class MinMaxByAggregationTestBase : public AggregationTestBase {
  protected:
   MinMaxByAggregationTestBase() : numValues_(6) {}
@@ -384,6 +404,17 @@ class MinMaxByGlobalByAggregationTest
               makeConstant(std::optional<U>(dataAt<U>(0)), 10)}),
          "SELECT NULL"},
 
+        // Extreme value cases.
+        {makeRowVector(
+             {makeNullableFlatVector<T>({std::nullopt, dataAt<T>(4)}),
+              makeConstant(std::optional<U>(kMax<U>), 2)}),
+         "SELECT NULL"},
+
+        {makeRowVector(
+             {makeNullableFlatVector<T>({dataAt<T>(4), std::nullopt}),
+              makeConstant(std::optional<U>(kMax<U>), 2)}),
+         fmt::format("SELECT {}", asSql(dataAt<T>(4)))},
+
         // Regular cases.
         {makeRowVector(
              {makeNullableFlatVector<T>(
@@ -466,6 +497,17 @@ class MinMaxByGlobalByAggregationTest
              {makeNullConstant(GetParam().valueType, 10),
               makeConstant(std::optional<U>(dataAt<U>(0)), 10)}),
          "SELECT NULL"},
+
+        // Extreme value cases.
+        {makeRowVector(
+             {makeNullableFlatVector<T>({std::nullopt, dataAt<T>(4)}),
+              makeConstant(std::optional<U>(kLowest<U>), 2)}),
+         "SELECT NULL"},
+
+        {makeRowVector(
+             {makeNullableFlatVector<T>({dataAt<T>(4), std::nullopt}),
+              makeConstant(std::optional<U>(kLowest<U>), 2)}),
+         fmt::format("SELECT {}", asSql(dataAt<T>(4)))},
 
         // Regular cases.
         {makeRowVector(
