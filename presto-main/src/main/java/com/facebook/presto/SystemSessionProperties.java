@@ -1596,7 +1596,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         CALCULATE_CROSS_JOIN_COST,
                         "calculate the cost of cross joins when optimizing the query plan rather than assume infinite cost",
-                        false,
+                        true,
                         false));
     }
 
