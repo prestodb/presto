@@ -282,7 +282,7 @@ public class RowExpressionInterpreter
                 RowExpression function = getSqlFunctionRowExpression(
                         functionMetadata,
                         functionImplementation,
-                        metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
+                        metadata.getFunctionAndTypeManager(),
                         session.getSqlFunctionProperties(),
                         session.getSessionFunctions(),
                         node.getArguments());
@@ -582,10 +582,10 @@ public class RowExpressionInterpreter
 
                     if (hasUnresolvedValue) {
                         List<RowExpression> simplifiedExpressionValues = Stream.concat(
-                                Stream.concat(
-                                        Stream.of(toRowExpression(target, node.getArguments().get(0))),
-                                        unresolvedValues.stream().filter(determinismEvaluator::isDeterministic).distinct()),
-                                unresolvedValues.stream().filter((expression -> !determinismEvaluator.isDeterministic(expression))))
+                                        Stream.concat(
+                                                Stream.of(toRowExpression(target, node.getArguments().get(0))),
+                                                unresolvedValues.stream().filter(determinismEvaluator::isDeterministic).distinct()),
+                                        unresolvedValues.stream().filter((expression -> !determinismEvaluator.isDeterministic(expression))))
                                 .collect(toImmutableList());
                         return new SpecialFormExpression(IN, node.getType(), simplifiedExpressionValues);
                     }
