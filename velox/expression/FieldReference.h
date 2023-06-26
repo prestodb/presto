@@ -61,18 +61,6 @@ class FieldReference : public SpecialForm {
       EvalCtx& context,
       VectorPtr& result) override;
 
- protected:
-  void computeMetadata() override {
-    propagatesNulls_ = true;
-    if (inputs_.empty()) {
-      distinctFields_.resize(1);
-      distinctFields_[0] = this;
-      metaDataComputed_ = true;
-    } else {
-      Expr::computeMetadata();
-    }
-  }
-
  private:
   const std::string field_;
   int32_t index_ = -1;

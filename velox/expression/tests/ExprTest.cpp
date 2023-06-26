@@ -37,9 +37,8 @@
 #include "velox/vector/tests/TestingAlwaysThrowsFunction.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
-using namespace facebook::velox;
-using namespace facebook::velox::test;
-
+namespace facebook::velox::test {
+namespace {
 class ExprTest : public testing::Test, public VectorTestBase {
  protected:
   void SetUp() override {
@@ -4012,3 +4011,15 @@ TEST_F(ExprTest, dereference) {
   auto expected = makeNullConstant(TypeKind::BIGINT, 6);
   assertEqualVectors(expected, result);
 }
+
+TEST_F(ExprTest, inputFreeFieldReferenceMetaData) {
+  auto exprSet = compileExpression("c0", {ROW({"c0"}, {INTEGER()})});
+  auto expr = exprSet->expr(0);
+  EXPECT_EQ(expr->distinctFields().size(), 1);
+  EXPECT_EQ((void*)expr->distinctFields()[0], expr.get());
+
+  EXPECT_TRUE(expr->propagatesNulls());
+  EXPECT_TRUE(expr->isDeterministic());
+}
+} // namespace
+} // namespace facebook::velox::test

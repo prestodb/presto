@@ -235,7 +235,7 @@ class Expr {
   // Compute the following properties: deterministic_, propagatesNulls_,
   // distinctFields_, multiplyReferencedFields_, hasConditionals_ and
   // sameAsParentDistinctFields_.
-  virtual void computeMetadata();
+  void computeMetadata();
 
   virtual void reset() {
     sharedSubexprResults_.clear();

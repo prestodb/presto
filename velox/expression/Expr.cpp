@@ -205,6 +205,7 @@ void Expr::computeMetadata() {
   if (metaDataComputed_) {
     return;
   }
+
   // Compute metadata for all the inputs.
   for (auto& input : inputs_) {
     input->computeMetadata();
@@ -230,10 +231,14 @@ void Expr::computeMetadata() {
         distinctFields_, multiplyReferencedFields_, input->distinctFields_);
   }
 
+  if (is<FieldReference>() && inputs_.empty()) {
+    distinctFields_.resize(1);
+    distinctFields_[0] = this->as<FieldReference>();
+  }
+
   // (3) Compute propagatesNulls_.
   // propagatesNulls_ is true iff a null in any of the columns this
   // depends on makes the Expr null.
-
   if (isSpecialForm() && !is<ConstantExpr>() && !is<FieldReference>() &&
       !is<CastExpr>()) {
     as<SpecialForm>()->computePropagatesNulls();
