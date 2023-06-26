@@ -741,6 +741,28 @@ struct UnsafeRowDeserializer {
     return vector;
   }
 
+  static VectorPtr createFlatUnknownVector(
+      const DataBatchIteratorPtr& dataIterator,
+      memory::MemoryPool* pool) {
+    auto iterator =
+        std::dynamic_pointer_cast<PrimitiveBatchIterator>(dataIterator);
+    size_t size = iterator->numRows();
+
+    for (int32_t i = 0; i < size; ++i) {
+      VELOX_CHECK(
+          iterator->isNull(i), "UNKNOWN type supports only NULL values");
+    }
+
+    auto nulls = allocateNulls(size, pool, bits::kNull);
+    return std::make_shared<FlatVector<UnknownValue>>(
+        pool,
+        UNKNOWN(),
+        nulls,
+        size,
+        nullptr, // values
+        std::vector<BufferPtr>{}); // stringBuffers
+  }
+
   /**
    * Calls createFlatVector with the correct template argument.
    * @param dataIterators iterator that points to the first dataIterator to
@@ -754,6 +776,10 @@ struct UnsafeRowDeserializer {
       memory::MemoryPool* pool) {
     const TypePtr& type = dataIterator->type();
     assert(type->isPrimitiveType());
+
+    if (type->isUnKnown()) {
+      return createFlatUnknownVector(dataIterator, pool);
+    }
 
     return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
         createFlatVector, type->kind(), dataIterator, type, pool);

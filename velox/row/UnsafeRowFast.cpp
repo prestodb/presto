@@ -99,6 +99,7 @@ void UnsafeRowFast::initialize(const TypePtr& type) {
     case TypeKind::DOUBLE:
       FOLLY_FALLTHROUGH;
     case TypeKind::DATE:
+    case TypeKind::UNKNOWN:
       valueBytes_ = type->cppSizeInBytes();
       fixedWidthTypeKind_ = true;
       supportsBulkCopy_ = decoded_.isIdentityMapping();
@@ -172,10 +173,13 @@ void UnsafeRowFast::serializeFixedWidth(
     vector_size_t size,
     char* buffer) {
   VELOX_DCHECK(supportsBulkCopy_);
-  memcpy(
-      buffer,
-      decoded_.data<char>() + decoded_.index(offset) * valueBytes_,
-      valueBytes_ * size);
+  // decoded_.data<char>() can be null if all values are null.
+  if (decoded_.data<char>()) {
+    memcpy(
+        buffer,
+        decoded_.data<char>() + decoded_.index(offset) * valueBytes_,
+        valueBytes_ * size);
+  }
 }
 
 int32_t UnsafeRowFast::serializeVariableWidth(

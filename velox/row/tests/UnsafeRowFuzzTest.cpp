@@ -106,6 +106,7 @@ TEST_F(UnsafeRowFuzzTests, fast) {
       DOUBLE(),
       VARCHAR(),
       VARBINARY(),
+      UNKNOWN(),
       // Arrays.
       ARRAY(BOOLEAN()),
       ARRAY(TINYINT()),
@@ -116,10 +117,12 @@ TEST_F(UnsafeRowFuzzTests, fast) {
       ARRAY(DOUBLE()),
       ARRAY(VARCHAR()),
       ARRAY(VARBINARY()),
+      ARRAY(UNKNOWN()),
       // Nested arrays.
       ARRAY(ARRAY(INTEGER())),
       ARRAY(ARRAY(BIGINT())),
       ARRAY(ARRAY(VARCHAR())),
+      ARRAY(ARRAY(UNKNOWN())),
       // Maps.
       MAP(BIGINT(), REAL()),
       MAP(BIGINT(), BIGINT()),

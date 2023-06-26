@@ -217,3 +217,41 @@ TEST_F(UnsafeRowSerializerTest, date) {
 
   testRoundTrip(rowVector);
 }
+
+TEST_F(UnsafeRowSerializerTest, unknown) {
+  // UNKNOWN type.
+  auto rowVector = makeRowVector({
+      BaseVector::createNullConstant(UNKNOWN(), 10, pool()),
+  });
+
+  testRoundTrip(rowVector);
+
+  // ARRAY(UNKNOWN) type.
+  rowVector = makeRowVector({
+      makeArrayVector(
+          {0, 3, 10, 15},
+          BaseVector::createNullConstant(UNKNOWN(), 30, pool())),
+  });
+
+  testRoundTrip(rowVector);
+
+  // MAP(BIGINT, UNKNOWN) type.
+  rowVector = makeRowVector({
+      makeMapVector(
+          {0, 3, 7},
+          makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6, 7, 8, 9}),
+          BaseVector::createNullConstant(UNKNOWN(), 9, pool())),
+  });
+
+  testRoundTrip(rowVector);
+
+  // Mix of INTEGER, UNKNOWN and DOUBLE.
+  rowVector = makeRowVector({
+      makeNullableFlatVector<int32_t>({1, std::nullopt, 3, 4, 5}),
+      BaseVector::createNullConstant(UNKNOWN(), 5, pool()),
+      makeNullableFlatVector<double>(
+          {1.1, 2.2, std::nullopt, 4.4, std::nullopt}),
+  });
+
+  testRoundTrip(rowVector);
+}

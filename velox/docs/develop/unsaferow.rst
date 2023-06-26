@@ -64,6 +64,12 @@ map size. These are duplicated in the serialized data.
 Structs are stored as 'null bits' for struct fields, followed by
 fixed-width field values and variable-width field values.
 
+Values of Velox type UNKNOWN (only null values) are treated as fixed-width
+types. UNKNOWN values in the top-level columns and as struct fields use 1 bit
+in the nulls section and 8 bytes in the fixed-width section. UNKNOWN value
+serialized as an array element or map value uses 1 bit for null flag and zero
+bytes for the value.
+
 Examples
 --------
 
