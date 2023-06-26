@@ -27,6 +27,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -171,14 +172,14 @@ public final class SqlToRowExpressionTranslator
             Expression expression,
             Map<NodeRef<Expression>, Type> types,
             Map<VariableReferenceExpression, Integer> layout,
-            FunctionAndTypeResolver functionAndTypeResolver,
+            FunctionAndTypeManager functionAndTypeManager,
             Session session)
     {
         return translate(
                 expression,
                 types,
                 layout,
-                functionAndTypeResolver,
+                functionAndTypeManager,
                 session,
                 new Context());
     }
@@ -187,7 +188,7 @@ public final class SqlToRowExpressionTranslator
             Expression expression,
             Map<NodeRef<Expression>, Type> types,
             Map<VariableReferenceExpression, Integer> layout,
-            FunctionAndTypeResolver functionAndTypeResolver,
+            FunctionAndTypeManager functionAndTypeManager,
             Session session,
             Context context)
     {
@@ -195,7 +196,7 @@ public final class SqlToRowExpressionTranslator
                 expression,
                 types,
                 layout,
-                functionAndTypeResolver,
+                functionAndTypeManager,
                 Optional.of(session.getUser()),
                 session.getTransactionId(),
                 session.getSqlFunctionProperties(),
@@ -207,7 +208,7 @@ public final class SqlToRowExpressionTranslator
             Expression expression,
             Map<NodeRef<Expression>, Type> types,
             Map<VariableReferenceExpression, Integer> layout,
-            FunctionAndTypeResolver functionAndTypeResolver,
+            FunctionAndTypeManager functionAndTypeManager,
             Optional<String> user,
             Optional<TransactionId> transactionId,
             SqlFunctionProperties sqlFunctionProperties,
@@ -217,7 +218,7 @@ public final class SqlToRowExpressionTranslator
         Visitor visitor = new Visitor(
                 types,
                 layout,
-                functionAndTypeResolver,
+                functionAndTypeManager,
                 user,
                 transactionId,
                 sqlFunctionProperties,
@@ -256,6 +257,7 @@ public final class SqlToRowExpressionTranslator
     {
         private final Map<NodeRef<Expression>, Type> types;
         private final Map<VariableReferenceExpression, Integer> layout;
+        private final FunctionAndTypeManager functionAndTypeManager;
         private final FunctionAndTypeResolver functionAndTypeResolver;
         private final Optional<String> user;
         private final Optional<TransactionId> transactionId;
@@ -266,20 +268,21 @@ public final class SqlToRowExpressionTranslator
         private Visitor(
                 Map<NodeRef<Expression>, Type> types,
                 Map<VariableReferenceExpression, Integer> layout,
-                FunctionAndTypeResolver functionAndTypeResolver,
+                FunctionAndTypeManager functionAndTypeManager,
                 Optional<String> user,
                 Optional<TransactionId> transactionId,
                 SqlFunctionProperties sqlFunctionProperties,
                 Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
         {
             this.types = requireNonNull(types, "types is null");
-            this.layout = layout;
-            this.functionAndTypeResolver = functionAndTypeResolver;
-            this.user = user;
-            this.transactionId = transactionId;
-            this.sqlFunctionProperties = sqlFunctionProperties;
+            this.layout = requireNonNull(layout);
+            this.functionAndTypeManager = requireNonNull(functionAndTypeManager);
+            this.functionAndTypeResolver = functionAndTypeManager.getFunctionAndTypeResolver();
+            this.user = requireNonNull(user);
+            this.transactionId = requireNonNull(transactionId);
+            this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties);
             this.functionResolution = new FunctionResolution(functionAndTypeResolver);
-            this.sessionFunctions = sessionFunctions;
+            this.sessionFunctions = requireNonNull(sessionFunctions);
         }
 
         private Type getType(Expression node)
