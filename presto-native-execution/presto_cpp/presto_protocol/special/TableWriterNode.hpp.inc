@@ -13,6 +13,7 @@
  */
 namespace facebook::presto::protocol {
 struct StatisticAggregations {
+  std::vector<VariableReferenceExpression> outputVariables = {};
   Map<VariableReferenceExpression, Aggregation> aggregations = {};
   std::vector<VariableReferenceExpression> groupingVariables = {};
 };
