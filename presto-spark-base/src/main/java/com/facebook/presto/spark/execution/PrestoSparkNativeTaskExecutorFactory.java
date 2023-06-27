@@ -230,8 +230,8 @@ public class PrestoSparkNativeTaskExecutorFactory
         List<TaskSource> taskSources = getTaskSources(serializedTaskSources, fragment, session, nativeInputs);
 
         // 2.b Populate Write info
+        // Comment to test CI failures. REMOVE_BEFORE_MERGE
         Optional<PrestoSparkShuffleWriteInfo> shuffleWriteInfo = nativeInputs.getShuffleWriteDescriptor().isPresent()
-                && !findTableWriteNode(fragment.getRoot()).isPresent()
                 && !(fragment.getRoot() instanceof OutputNode) ?
                 Optional.of(shuffleInfoTranslator.createShuffleWriteInfo(session, nativeInputs.getShuffleWriteDescriptor().get())) : Optional.empty();
         Optional<String> serializedShuffleWriteInfo = shuffleWriteInfo.map(shuffleInfoTranslator::createSerializedWriteInfo);
