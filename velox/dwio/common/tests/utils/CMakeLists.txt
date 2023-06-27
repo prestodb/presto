@@ -20,10 +20,10 @@ target_link_libraries(
   Folly::folly
   velox_dwio_common
   velox_dwio_common_exception
-  velox_dwio_type_fbhive
   velox_exception
   velox_memory
   velox_type
+  velox_type_fbhive
   velox_vector)
 
 # older versions of GCC need it to allow std::filesystem

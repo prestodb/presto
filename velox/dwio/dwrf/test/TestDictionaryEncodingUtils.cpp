@@ -17,7 +17,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "velox/dwio/dwrf/writer/DictionaryEncodingUtils.h"
-#include "velox/dwio/type/fbhive/HiveTypeParser.h"
+#include "velox/type/fbhive/HiveTypeParser.h"
 
 using namespace testing;
 using namespace facebook::velox::memory;

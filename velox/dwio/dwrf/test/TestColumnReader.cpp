@@ -22,7 +22,7 @@
 #include "velox/dwio/dwrf/reader/SelectiveDwrfReader.h"
 #include "velox/dwio/dwrf/reader/StreamLabels.h"
 #include "velox/dwio/dwrf/test/OrcTest.h"
-#include "velox/dwio/type/fbhive/HiveTypeParser.h"
+#include "velox/type/fbhive/HiveTypeParser.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DictionaryVector.h"
 #include "velox/vector/FlatVector.h"
@@ -37,7 +37,7 @@ using namespace facebook::velox::dwio::common;
 using namespace facebook::velox;
 using namespace facebook::velox::dwrf;
 using namespace facebook::velox::test;
-using facebook::velox::dwio::type::fbhive::HiveTypeParser;
+using facebook::velox::type::fbhive::HiveTypeParser;
 
 class TestStrideIndexProvider : public StrideIndexProvider {
  public:

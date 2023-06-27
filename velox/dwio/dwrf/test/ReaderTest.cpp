@@ -26,8 +26,8 @@
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/test/OrcTest.h"
 #include "velox/dwio/dwrf/test/utils/E2EWriterTestUtil.h"
-#include "velox/dwio/type/fbhive/HiveTypeParser.h"
 #include "velox/type/Type.h"
+#include "velox/type/fbhive/HiveTypeParser.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
@@ -38,7 +38,7 @@
 
 using namespace ::testing;
 using namespace facebook::velox::dwio::common;
-using namespace facebook::velox::dwio::type::fbhive;
+using namespace facebook::velox::type::fbhive;
 using namespace facebook::velox;
 using namespace facebook::velox::dwrf;
 using namespace facebook::velox::test;

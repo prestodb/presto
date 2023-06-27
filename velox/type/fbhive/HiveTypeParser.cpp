@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/type/fbhive/HiveTypeParser.h"
+#include "velox/type/fbhive/HiveTypeParser.h"
 
 #include <cctype>
 #include <stdexcept>
 #include <string>
 #include <utility>
 
-#include "velox/dwio/common/exception/Exception.h"
+#include "velox/common/base/Exceptions.h"
 
 using facebook::velox::Type;
 using facebook::velox::TypeKind;
@@ -41,7 +41,7 @@ bool isSupportedSpecialChar(char c) {
 }
 } // namespace
 
-namespace facebook::velox::dwio::type::fbhive {
+namespace facebook::velox::type::fbhive {
 
 HiveTypeParser::HiveTypeParser() {
   metadata_.resize(static_cast<size_t>(TokenType::MaxTokenType));
@@ -104,7 +104,7 @@ Result HiveTypeParser::parseType() {
           std::atoi(precision.value.data()), std::atoi(scale.value.data()))};
     }
     auto scalarType = createScalarType(nt.typeKind());
-    DWIO_ENSURE_NOT_NULL(
+    VELOX_CHECK_NOT_NULL(
         scalarType, "Returned a null scalar type for ", nt.typeKind());
     if (nt.metadata->tokenType == TokenType::String &&
         lookAhead() == TokenType::LeftRoundBracket) {
@@ -269,4 +269,4 @@ TokenMetadata* HiveTypeParser::getMetadata(TokenType type) const {
   return value.get();
 }
 
-} // namespace facebook::velox::dwio::type::fbhive
+} // namespace facebook::velox::type::fbhive

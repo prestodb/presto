@@ -22,7 +22,7 @@ target_link_libraries(
   velox_dwio_common
   velox_dwio_dwrf_utils
   velox_dwio_common_exception
-  velox_dwio_type_fbhive
+  velox_type_fbhive
   gflags::gflags
   gtest
   gtest_main

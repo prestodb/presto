@@ -25,9 +25,9 @@
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/common/tests/utils/DataSetBuilder.h"
 #include "velox/dwio/common/tests/utils/FilterGenerator.h"
-#include "velox/dwio/type/fbhive/HiveTypeParser.h"
 #include "velox/type/Filter.h"
 #include "velox/type/Subfield.h"
+#include "velox/type/fbhive/HiveTypeParser.h"
 #include "velox/vector/FlatVector.h"
 
 #include <gtest/gtest.h>

@@ -21,11 +21,11 @@
 #include "velox/dwio/common/DataSink.h"
 #include "velox/dwio/dwrf/test/utils/E2EWriterTestUtil.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
-#include "velox/dwio/type/fbhive/HiveTypeParser.h"
+#include "velox/type/fbhive/HiveTypeParser.h"
 #include "velox/vector/FlatVector.h"
 
 using namespace ::testing;
-using namespace facebook::velox::dwio::type::fbhive;
+using namespace facebook::velox::type::fbhive;
 using namespace facebook::velox::dwrf;
 using facebook::velox::memory::MemoryPool;
 using folly::Random;

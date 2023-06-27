@@ -16,11 +16,11 @@
 
 #include <gtest/gtest.h>
 #include "velox/dwio/dwrf/utils/ProtoUtils.h"
-#include "velox/dwio/type/fbhive/HiveTypeParser.h"
-#include "velox/dwio/type/fbhive/HiveTypeSerializer.h"
+#include "velox/type/fbhive/HiveTypeParser.h"
+#include "velox/type/fbhive/HiveTypeSerializer.h"
 
 using namespace facebook::velox::dwrf;
-using namespace facebook::velox::dwio::type::fbhive;
+using namespace facebook::velox::type::fbhive;
 
 TEST(ProtoUtilsTests, AllTypes) {
   std::vector<std::string> types{

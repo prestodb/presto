@@ -35,7 +35,7 @@ DEFINE_bool(use_random_seed, false, "");
 namespace facebook::velox::dwio::common {
 
 using namespace facebook::velox::test;
-using namespace facebook::velox::dwio::type::fbhive;
+using namespace facebook::velox::type::fbhive;
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox;
 using namespace facebook::velox::common;

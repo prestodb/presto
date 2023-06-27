@@ -18,13 +18,13 @@ target_link_libraries(
             velox_dwio_catalog_fbhive
             velox_dwio_common
             velox_dwio_common_exception
-            velox_dwio_type_fbhive
             velox_encode
             velox_exception
             velox_memory
             velox_process
             velox_serialization
             velox_type
+            velox_type_fbhive
             velox_vector
             Folly::folly
             fmt::fmt)
@@ -33,4 +33,3 @@ add_subdirectory(common)
 add_subdirectory(catalog)
 add_subdirectory(dwrf)
 add_subdirectory(parquet)
-add_subdirectory(type)

@@ -23,9 +23,9 @@
 #include <vector>
 
 #include "folly/Range.h"
-#include "velox/dwio/type/TypeParser.h"
+#include "velox/type/TypeParser.h"
 
-namespace facebook::velox::dwio::type::fbhive {
+namespace facebook::velox::type::fbhive {
 
 // TODO : Find out what to do with these types
 // NUMERIC, INTERVAL, VARCHAR, VOID
@@ -152,4 +152,4 @@ class HiveTypeParser : public type::TypeParser {
   folly::StringPiece remaining_;
 };
 
-} // namespace facebook::velox::dwio::type::fbhive
+} // namespace facebook::velox::type::fbhive

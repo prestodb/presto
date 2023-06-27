@@ -18,14 +18,14 @@
 #include <gtest/gtest.h>
 #include "velox/dwio/common/encryption/TestProvider.h"
 #include "velox/dwio/dwrf/test/OrcTest.h"
-#include "velox/dwio/type/fbhive/HiveTypeParser.h"
+#include "velox/type/fbhive/HiveTypeParser.h"
 
 using namespace facebook::velox::dwio;
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwio::common::encryption;
 using namespace facebook::velox::dwio::common::encryption::test;
 using namespace facebook::velox::dwrf::encryption;
-using namespace facebook::velox::dwio::type::fbhive;
+using namespace facebook::velox::type::fbhive;
 
 TEST(Encryption, NotEncrypted) {
   HiveTypeParser parser;

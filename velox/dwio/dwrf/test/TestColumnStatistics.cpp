@@ -19,11 +19,11 @@
 #include <cmath>
 #include "velox/dwio/common/Statistics.h"
 #include "velox/dwio/dwrf/writer/StatisticsBuilder.h"
-#include "velox/dwio/type/fbhive/HiveTypeParser.h"
+#include "velox/type/fbhive/HiveTypeParser.h"
 
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwrf;
-using facebook::velox::dwio::type::fbhive::HiveTypeParser;
+using facebook::velox::type::fbhive::HiveTypeParser;
 
 StatisticsBuilderOptions options{16};
 

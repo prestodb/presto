@@ -21,11 +21,7 @@
 
 #include "velox/type/Type.h"
 
-namespace facebook {
-namespace velox {
-namespace dwio {
-namespace type {
-namespace fbhive {
+namespace facebook::velox::type::fbhive {
 
 class HiveTypeSerializer {
  public:
@@ -44,8 +40,4 @@ class HiveTypeSerializer {
   std::string visitChildren(const velox::Type& t) const;
 };
 
-} // namespace fbhive
-} // namespace type
-} // namespace dwio
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::type::fbhive

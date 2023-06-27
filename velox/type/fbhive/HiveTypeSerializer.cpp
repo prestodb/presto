@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/type/fbhive/HiveTypeSerializer.h"
+#include "velox/type/fbhive/HiveTypeSerializer.h"
 
 #include <cstddef>
 #include <stdexcept>
@@ -22,11 +22,7 @@
 using facebook::velox::Type;
 using facebook::velox::TypeKind;
 
-namespace facebook {
-namespace velox {
-namespace dwio {
-namespace type {
-namespace fbhive {
+namespace facebook::velox::type::fbhive {
 
 std::string HiveTypeSerializer::serialize(
     const std::shared_ptr<const Type>& type) {
@@ -93,8 +89,4 @@ std::string HiveTypeSerializer::visitChildren(const velox::Type& t) const {
   return result;
 }
 
-} // namespace fbhive
-} // namespace type
-} // namespace dwio
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::type::fbhive

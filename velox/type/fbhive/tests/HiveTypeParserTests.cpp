@@ -21,11 +21,11 @@
 #include "gtest/gtest-test-part.h"
 #include "gtest/gtest.h"
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/dwio/type/fbhive/HiveTypeParser.h"
+#include "velox/type/fbhive/HiveTypeParser.h"
 
 using facebook::velox::TypeKind;
 
-namespace facebook::velox::dwio::type::fbhive {
+namespace facebook::velox::type::fbhive {
 
 template <TypeKind KIND>
 void validate(const char* str) {
@@ -171,4 +171,4 @@ TEST(FbHive, parseSpecialChar) {
   ASSERT_EQ(t->toString(), "ROW<\"a$_#\":INTEGER>");
 }
 
-} // namespace facebook::velox::dwio::type::fbhive
+} // namespace facebook::velox::type::fbhive

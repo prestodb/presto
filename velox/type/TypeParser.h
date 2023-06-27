@@ -18,10 +18,7 @@
 
 #include "velox/type/Type.h"
 
-namespace facebook {
-namespace velox {
-namespace dwio {
-namespace type {
+namespace facebook::velox::type {
 
 class TypeParser {
  public:
@@ -31,7 +28,4 @@ class TypeParser {
   virtual std::shared_ptr<const velox::Type> parse(const std::string& ser) = 0;
 };
 
-} // namespace type
-} // namespace dwio
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::type

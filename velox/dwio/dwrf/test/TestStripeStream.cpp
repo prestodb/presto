@@ -19,8 +19,8 @@
 #include "velox/dwio/dwrf/test/OrcTest.h"
 #include "velox/dwio/dwrf/utils/ProtoUtils.h"
 #include "velox/dwio/dwrf/writer/WriterBase.h"
-#include "velox/dwio/type/fbhive/HiveTypeParser.h"
 #include "velox/type/Type.h"
+#include "velox/type/fbhive/HiveTypeParser.h"
 
 using namespace testing;
 using namespace facebook::velox::dwio::common;
@@ -31,7 +31,7 @@ using namespace facebook::velox::memory;
 using facebook::velox::common::Region;
 
 using facebook::velox::RowType;
-using facebook::velox::dwio::type::fbhive::HiveTypeParser;
+using facebook::velox::type::fbhive::HiveTypeParser;
 
 class RecordingInputStream : public facebook::velox::InMemoryReadFile {
  public:

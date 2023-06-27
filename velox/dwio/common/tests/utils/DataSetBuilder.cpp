@@ -17,7 +17,7 @@
 #include "velox/dwio/common/tests/utils/DataSetBuilder.h"
 
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
-#include "velox/dwio/type/fbhive/HiveTypeParser.h"
+#include "velox/type/fbhive/HiveTypeParser.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::test {
@@ -30,7 +30,7 @@ RowTypePtr DataSetBuilder::makeRowType(
   std::string schema = wrapInStruct
       ? fmt::format("struct<{},struct_val:struct<{}>>", columns, columns)
       : fmt::format("struct<{}>", columns);
-  dwio::type::fbhive::HiveTypeParser parser;
+  type::fbhive::HiveTypeParser parser;
   return std::dynamic_pointer_cast<const RowType>(parser.parse(schema));
 }
 

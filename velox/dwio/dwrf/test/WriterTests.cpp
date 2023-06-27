@@ -19,11 +19,11 @@
 #include <stdexcept>
 #include "velox/dwio/dwrf/reader/ReaderBase.h"
 #include "velox/dwio/dwrf/writer/WriterBase.h"
-#include "velox/dwio/type/fbhive/HiveTypeParser.h"
+#include "velox/type/fbhive/HiveTypeParser.h"
 
 using namespace ::testing;
 using namespace facebook::velox::dwio::common;
-using namespace facebook::velox::dwio::type::fbhive;
+using namespace facebook::velox::type::fbhive;
 using namespace facebook::velox::memory;
 
 namespace facebook::velox::dwrf {

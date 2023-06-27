@@ -19,15 +19,15 @@
 #include "velox/common/base/VeloxException.h"
 #include "velox/dwio/common/TypeUtils.h"
 #include "velox/dwio/common/TypeWithId.h"
-#include "velox/dwio/type/fbhive/HiveTypeParser.h"
-#include "velox/dwio/type/fbhive/HiveTypeSerializer.h"
+#include "velox/type/fbhive/HiveTypeParser.h"
+#include "velox/type/fbhive/HiveTypeSerializer.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::dwio;
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwio::common::typeutils;
-using facebook::velox::dwio::type::fbhive::HiveTypeParser;
-using facebook::velox::dwio::type::fbhive::HiveTypeSerializer;
+using facebook::velox::type::fbhive::HiveTypeParser;
+using facebook::velox::type::fbhive::HiveTypeSerializer;
 
 TEST(TestType, selectedType) {
   auto type = HiveTypeParser().parse(

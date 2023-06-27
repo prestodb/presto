@@ -22,7 +22,7 @@
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/FlushPolicy.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
-#include "velox/dwio/type/fbhive/HiveTypeParser.h"
+#include "velox/type/fbhive/HiveTypeParser.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 
@@ -30,7 +30,7 @@ using namespace ::testing;
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::test;
 using namespace facebook::velox::dwrf;
-using namespace facebook::velox::dwio::type::fbhive;
+using namespace facebook::velox::type::fbhive;
 using namespace facebook::velox;
 using namespace facebook::velox::memory;
 using folly::Random;

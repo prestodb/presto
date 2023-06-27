@@ -36,7 +36,6 @@ target_link_libraries(
   velox_functions_json
   velox_vector
   velox_memory
-  velox_dwio_type_fbhive
   velox_dwio_common_exception
   velox_dwio_common_test_utils
   velox_presto_serializer

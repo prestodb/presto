@@ -20,7 +20,7 @@
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MemoryArbitrator.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
-#include "velox/dwio/type/fbhive/HiveTypeParser.h"
+#include "velox/type/fbhive/HiveTypeParser.h"
 
 using namespace ::testing;
 using facebook::velox::dwrf::MemoryUsageCategory;
@@ -347,7 +347,7 @@ class WriterFlushTestHelper {
       int64_t writerMemoryBudget) {
     WriterOptions options;
     options.config = std::make_shared<Config>();
-    options.schema = dwio::type::fbhive::HiveTypeParser().parse(
+    options.schema = type::fbhive::HiveTypeParser().parse(
         "struct<int_val:int,string_val:string>");
     // A completely memory pressure based flush policy.
     options.flushPolicyFactory = []() {

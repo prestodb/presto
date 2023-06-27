@@ -17,12 +17,12 @@
 #include <gtest/gtest.h>
 #include "velox/common/base/VeloxException.h"
 #include "velox/dwio/common/ColumnSelector.h"
-#include "velox/dwio/type/fbhive/HiveTypeParser.h"
 #include "velox/type/Type.h"
+#include "velox/type/fbhive/HiveTypeParser.h"
 
 using namespace facebook::velox::dwio::common;
 using facebook::velox::RowType;
-using facebook::velox::dwio::type::fbhive::HiveTypeParser;
+using facebook::velox::type::fbhive::HiveTypeParser;
 
 TEST(ColumnSelectorTests, testBasicFilterTree) {
   const auto schema =
