@@ -34,16 +34,36 @@ import static java.util.Objects.requireNonNull;
 
 public class StatisticAggregations
 {
+    // outputVariables indicates the order of aggregations in the output
+    private final List<VariableReferenceExpression> outputVariables;
     private final Map<VariableReferenceExpression, Aggregation> aggregations;
     private final List<VariableReferenceExpression> groupingVariables;
 
     @JsonCreator
     public StatisticAggregations(
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("aggregations") Map<VariableReferenceExpression, Aggregation> aggregations,
             @JsonProperty("groupingVariables") List<VariableReferenceExpression> groupingVariables)
     {
+        this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
         this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
         this.groupingVariables = ImmutableList.copyOf(requireNonNull(groupingVariables, "groupingVariables is null"));
+        checkArgument(outputVariables.size() == aggregations.size(), "outputVariables and aggregations' sizes are different");
+    }
+
+    public StatisticAggregations(
+            Map<VariableReferenceExpression, Aggregation> aggregations,
+            List<VariableReferenceExpression> groupingVariables)
+    {
+        this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
+        this.groupingVariables = ImmutableList.copyOf(requireNonNull(groupingVariables, "groupingVariables is null"));
+        this.outputVariables = ImmutableList.copyOf(aggregations.keySet());
+    }
+
+    @JsonProperty
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return outputVariables;
     }
 
     @JsonProperty
