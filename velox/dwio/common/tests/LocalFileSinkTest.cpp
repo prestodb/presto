@@ -25,9 +25,7 @@ using namespace facebook::velox::exec::test;
 
 namespace facebook::velox::dwio::common {
 
-TEST(LocalFileSinkTest, create) {
-  LocalFileSink::registerFactory();
-
+void runTest() {
   auto root = TempDirectoryPath::create();
   auto filePath = fs::path(root->path) / "xxx/yyy/zzz/test_file.ext";
 
@@ -38,6 +36,16 @@ TEST(LocalFileSinkTest, create) {
   localFileSink->close();
 
   EXPECT_TRUE(fs::exists(filePath.string()));
+}
+
+TEST(LocalFileSinkTest, create) {
+  LocalFileSink::registerFactory();
+  runTest();
+}
+
+TEST(LocalFileSinkTest, writeFileSink) {
+  WriteFileDataSink::registerLocalFileFactory();
+  runTest();
 }
 
 } // namespace facebook::velox::dwio::common

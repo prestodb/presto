@@ -44,8 +44,10 @@ class ParquetReaderBenchmark {
       : disableDictionary_(disableDictionary) {
     pool_ = memory::addDefaultLeafMemoryPool();
     dataSetBuilder_ = std::make_unique<DataSetBuilder>(*pool_.get(), 0);
+    auto path = fileFolder_->path + "/" + fileName_;
+    auto localWriteFile = std::make_unique<LocalWriteFile>(path, true, false);
     auto sink =
-        std::make_unique<LocalFileSink>(fileFolder_->path + "/" + fileName_);
+        std::make_unique<WriteFileDataSink>(std::move(localWriteFile), path);
     facebook::velox::parquet::WriterOptions options;
     if (disableDictionary_) {
       // The parquet file is in plain encoding format.

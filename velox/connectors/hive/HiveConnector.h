@@ -98,12 +98,12 @@ class HiveConnectorFactory : public ConnectorFactory {
       "hive-hadoop2";
 
   HiveConnectorFactory() : ConnectorFactory(kHiveConnectorName) {
-    dwio::common::LocalFileSink::registerFactory();
+    dwio::common::WriteFileDataSink::registerLocalFileFactory();
   }
 
   HiveConnectorFactory(const char* FOLLY_NONNULL connectorName)
       : ConnectorFactory(connectorName) {
-    dwio::common::LocalFileSink::registerFactory();
+    dwio::common::WriteFileDataSink::registerLocalFileFactory();
   }
 
   std::shared_ptr<Connector> newConnector(
