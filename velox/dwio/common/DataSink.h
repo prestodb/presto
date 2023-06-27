@@ -239,12 +239,6 @@ void registerDataSinks();
 
 } // namespace facebook::velox::dwio::common
 
-#define VELOX_STATIC_REGISTER_DATA_SINK(function)                           \
-  namespace {                                                               \
-  static bool FB_ANONYMOUS_VARIABLE(g_DataSinkFunction) =                   \
-      facebook::velox::dwio::common::DataSink::registerFactory((function)); \
-  }
-
 #define VELOX_REGISTER_DATA_SINK_METHOD_DEFINITION(class, function)       \
   void class ::registerFactory() {                                        \
     facebook::velox::dwio::common::DataSink::registerFactory((function)); \
