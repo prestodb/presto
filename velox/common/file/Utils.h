@@ -27,12 +27,12 @@ namespace facebook::velox::file::utils {
 // Iterable class that produces pairs of iterators pointing to the beginning and
 // end of the segments that are coalesced from the the input range, according to
 // the ShouldCoalesce condition
-template <typename SegmentIter, typename ShouldCoalesce>
-class CoalesceSegments {
+template <typename RegionIter, typename ShouldCoalesce>
+class CoalesceRegions {
  public:
   class Iter {
    public:
-    Iter(SegmentIter begin, SegmentIter end, ShouldCoalesce shouldCoalesce)
+    Iter(RegionIter begin, RegionIter end, ShouldCoalesce shouldCoalesce)
         : begin_{begin},
           end_{end},
           theEnd_{end},
@@ -48,7 +48,7 @@ class CoalesceSegments {
       return !(lhs == rhs);
     }
 
-    std::pair<SegmentIter, SegmentIter> operator*() const {
+    std::pair<RegionIter, RegionIter> operator*() const {
       return {begin_, end_};
     }
 
@@ -78,15 +78,15 @@ class CoalesceSegments {
       }
     }
 
-    SegmentIter begin_;
-    SegmentIter end_;
-    SegmentIter theEnd_;
+    RegionIter begin_;
+    RegionIter end_;
+    RegionIter theEnd_;
     ShouldCoalesce shouldCoalesce_;
   };
 
-  CoalesceSegments(
-      SegmentIter begin,
-      SegmentIter end,
+  CoalesceRegions(
+      RegionIter begin,
+      RegionIter end,
       ShouldCoalesce shouldCoalesce)
       : begin_{begin}, end_{end}, shouldCoalesce_(std::move(shouldCoalesce)) {}
 
@@ -99,8 +99,8 @@ class CoalesceSegments {
   }
 
  private:
-  SegmentIter begin_;
-  SegmentIter end_;
+  RegionIter begin_;
+  RegionIter end_;
   ShouldCoalesce shouldCoalesce_;
 };
 
@@ -109,47 +109,12 @@ class CoalesceIfDistanceLE {
   explicit CoalesceIfDistanceLE(uint64_t maxCoalescingDistance)
       : maxCoalescingDistance_(maxCoalescingDistance) {}
 
-  bool operator()(const ReadFile::Segment& a, const ReadFile::Segment& b) const;
-
   bool operator()(
       const velox::common::Region& a,
       const velox::common::Region& b) const;
 
  private:
   uint64_t maxCoalescingDistance_;
-};
-
-template <typename SegmentIter, typename Reader>
-class ReadToSegments {
- public:
-  ReadToSegments(SegmentIter begin, SegmentIter end, Reader reader)
-      : begin_{begin}, end_{end}, reader_{std::move(reader)} {}
-
-  void read() {
-    if (begin_ == end_) {
-      return;
-    }
-
-    auto fileOffset = begin_->offset;
-    const auto last = std::prev(end_);
-    const auto readSize = last->offset + last->buffer.size() - fileOffset;
-    std::unique_ptr<folly::IOBuf> result = reader_(fileOffset, readSize);
-
-    folly::io::Cursor cursor(result.get());
-    for (auto segment = begin_; segment != end_; ++segment) {
-      if (fileOffset < segment->offset) {
-        cursor.skip(segment->offset - fileOffset);
-        fileOffset = segment->offset;
-      }
-      cursor.pull(segment->buffer.data(), segment->buffer.size());
-      fileOffset += segment->buffer.size();
-    }
-  }
-
- private:
-  SegmentIter begin_;
-  SegmentIter end_;
-  Reader reader_;
 };
 
 template <typename RegionIter, typename OutputIter, typename Reader>

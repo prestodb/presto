@@ -18,25 +18,6 @@
 
 namespace facebook::velox::tests::utils {
 
-Result getSegments(
-    std::vector<std::string> buffers,
-    const std::unordered_set<size_t>& skip) {
-  Result result;
-  result.buffers = std::move(buffers);
-  uint64_t lastOffset = 0;
-  size_t i = 0;
-  for (auto& buffer : result.buffers) {
-    if (skip.count(i++) == 0) {
-      result.segments.emplace_back(ReadFile::Segment{
-          lastOffset, folly::Range<char*>(&buffer[0], buffer.size()), {}});
-      result.regions.emplace_back(
-          lastOffset, buffer.size(), std::string_view{});
-    }
-    lastOffset += buffer.size();
-  }
-  return result;
-}
-
 std::vector<std::string> iobufsToStrings(
     const std::vector<folly::IOBuf>& iobufs) {
   std::vector<std::string> result;

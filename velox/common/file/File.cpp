@@ -54,12 +54,6 @@ uint64_t ReadFile::preadv(
   return numRead;
 }
 
-void ReadFile::preadv(const std::vector<ReadFile::Segment>& segments) const {
-  for (const auto& segment : segments) {
-    pread(segment.offset, segment.buffer.size(), segment.buffer.data());
-  }
-}
-
 void ReadFile::preadv(
     folly::Range<const common::Region*> regions,
     folly::Range<folly::IOBuf*> iobufs) const {

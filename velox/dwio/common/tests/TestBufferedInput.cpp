@@ -42,11 +42,6 @@ class ReadFileMock : public ::facebook::velox::ReadFile {
   MOCK_METHOD(
       void,
       preadv,
-      (const std::vector<Segment>& segments),
-      (const, override));
-  MOCK_METHOD(
-      void,
-      preadv,
       (folly::Range<const Region*> regions, folly::Range<folly::IOBuf*> iobufs),
       (const, override));
 };
