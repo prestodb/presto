@@ -940,6 +940,29 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
+    public void testInsertIntoSpecialPartitionName()
+    {
+        // Generate temporary table name.
+        String tmpTableName = generateRandomTableName();
+        try {
+            getQueryRunner().execute(getSession(), String.format("CREATE TABLE %s (name VARCHAR, nationkey VARCHAR) WITH (partitioned_by = ARRAY['nationkey'])", tmpTableName));
+            Session writeSession = buildSessionForTableWrite();
+
+            // For special character in partition name, without correct handling, it would throw errors like 'Invalid partition spec: nationkey=A/B'
+            // In this test, verify those partition names can be successfully created
+            String[] specialCharacters = new String[]{"\"", "#", "%", "''", "*", "/", ":", "=", "?", "\\", "\\x7F", "{", "[", "]", "^"}; // escape single quote for sql
+            for (String specialCharacter : specialCharacters) {
+                getQueryRunner().execute(writeSession, String.format("INSERT INTO %s VALUES ('name', 'A%sB')", tmpTableName, specialCharacter));
+                assertQuery(String.format("SELECT nationkey FROM %s", tmpTableName), String.format("VALUES('A%sB')", specialCharacter));
+                getQueryRunner().execute(writeSession, String.format("DELETE FROM %s", tmpTableName));
+            }
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+
+    @Test
     public void testCreateBucketTableAsSelect()
     {
         Session session = buildSessionForTableWrite();
