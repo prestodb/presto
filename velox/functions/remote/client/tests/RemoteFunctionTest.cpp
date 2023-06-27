@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/tests/utils/PortUtil.h"
 #include "velox/functions/Registerer.h"
 #include "velox/functions/prestosql/Arithmetic.h"
@@ -29,7 +30,6 @@
 #include "velox/functions/remote/client/Remote.h"
 #include "velox/functions/remote/if/gen-cpp2/RemoteFunctionService.h"
 #include "velox/functions/remote/server/RemoteFunctionService.h"
-#include "velox/serializers/PrestoSerializer.h"
 
 using ::apache::thrift::ThriftServer;
 using ::facebook::velox::test::assertEqualVectors;
@@ -37,38 +37,48 @@ using ::facebook::velox::test::assertEqualVectors;
 namespace facebook::velox::functions {
 namespace {
 
-class RemoteFunctionTest : public functions::test::FunctionBaseTest {
+// Parametrize in the serialization format so we can test both presto page and
+// unsafe row.
+class RemoteFunctionTest
+    : public functions::test::FunctionBaseTest,
+      public ::testing::WithParamInterface<remote::PageFormat> {
  public:
-  RemoteFunctionTest() {
-    serializer::presto::PrestoVectorSerde::registerVectorSerde();
+  void SetUp() override {
     initializeServer();
     registerRemoteFunctions();
   }
 
   // Registers a few remote functions to be used in this test.
   void registerRemoteFunctions() {
+    RemoteVectorFunctionMetadata metadata;
+    metadata.serdeFormat = GetParam();
+    metadata.location = {"::1", port_};
+
     // Register the remote adapter.
     auto plusSignatures = {exec::FunctionSignatureBuilder()
                                .returnType("bigint")
                                .argumentType("bigint")
                                .argumentType("bigint")
                                .build()};
-    registerRemoteFunction("remote_plus", plusSignatures, {"::1", port_});
-    registerRemoteFunction("remote_wrong_port", plusSignatures, {"::1", 1});
+    registerRemoteFunction("remote_plus", plusSignatures, metadata);
+
+    RemoteVectorFunctionMetadata wrongMetadata = metadata;
+    wrongMetadata.location = {"::1", 1};
+    registerRemoteFunction("remote_wrong_port", plusSignatures, wrongMetadata);
 
     auto divSignatures = {exec::FunctionSignatureBuilder()
                               .returnType("double")
                               .argumentType("double")
                               .argumentType("double")
                               .build()};
-    registerRemoteFunction("remote_divide", divSignatures, {"::1", port_});
+    registerRemoteFunction("remote_divide", divSignatures, metadata);
 
     auto substrSignatures = {exec::FunctionSignatureBuilder()
                                  .returnType("varchar")
                                  .argumentType("varchar")
                                  .argumentType("integer")
                                  .build()};
-    registerRemoteFunction("remote_substr", substrSignatures, {"::1", port_});
+    registerRemoteFunction("remote_substr", substrSignatures, metadata);
 
     // Registers the actual function under a different prefix. This is only
     // needed for tests since the thrift service runs in the same process.
@@ -119,7 +129,7 @@ class RemoteFunctionTest : public functions::test::FunctionBaseTest {
   const std::string remotePrefix_{"remote"};
 };
 
-TEST_F(RemoteFunctionTest, simple) {
+TEST_P(RemoteFunctionTest, simple) {
   auto inputVector = makeFlatVector<int64_t>({1, 2, 3, 4, 5});
   auto results = evaluate<SimpleVector<int64_t>>(
       "remote_plus(c0, c0)", makeRowVector({inputVector}));
@@ -128,7 +138,7 @@ TEST_F(RemoteFunctionTest, simple) {
   assertEqualVectors(expected, results);
 }
 
-TEST_F(RemoteFunctionTest, string) {
+TEST_P(RemoteFunctionTest, string) {
   auto inputVector =
       makeFlatVector<StringView>({"hello", "my", "remote", "world"});
   auto inputVector1 = makeFlatVector<int32_t>({2, 1, 3, 5});
@@ -139,7 +149,7 @@ TEST_F(RemoteFunctionTest, string) {
   assertEqualVectors(expected, results);
 }
 
-TEST_F(RemoteFunctionTest, connectionError) {
+TEST_P(RemoteFunctionTest, connectionError) {
   auto inputVector = makeFlatVector<int64_t>({1, 2, 3, 4, 5});
   auto func = [&]() {
     evaluate<SimpleVector<int64_t>>(
@@ -155,6 +165,13 @@ TEST_F(RemoteFunctionTest, connectionError) {
     EXPECT_THAT(e.message(), testing::HasSubstr("Connection refused"));
   }
 }
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    RemoteFunctionTestFixture,
+    RemoteFunctionTest,
+    ::testing::Values(
+        remote::PageFormat::PRESTO_PAGE,
+        remote::PageFormat::SPARK_UNSAFE_ROW));
 
 } // namespace
 } // namespace facebook::velox::functions

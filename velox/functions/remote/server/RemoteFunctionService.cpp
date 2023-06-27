@@ -16,6 +16,7 @@
 
 #include "velox/functions/remote/server/RemoteFunctionService.h"
 #include "velox/expression/Expr.h"
+#include "velox/functions/remote/if/GetSerde.h"
 #include "velox/vector/VectorStream.h"
 
 namespace facebook::velox::functions {
@@ -73,8 +74,11 @@ void RemoteFunctionServiceHandler::invokeFunction(
   auto outputType =
       Type::create(folly::parseJson(functionHandle.get_returnType()));
 
-  auto inputVector =
-      IOBufToRowVector(request->get_inputs().get_payload(), inputType, *pool_);
+  auto serdeFormat = request->get_inputs().get_pageFormat();
+  auto serde = getSerde(serdeFormat);
+
+  auto inputVector = IOBufToRowVector(
+      request->get_inputs().get_payload(), inputType, *pool_, serde.get());
 
   // Execute the expression.
   const vector_size_t numRows = inputVector->size();
@@ -100,8 +104,9 @@ void RemoteFunctionServiceHandler::invokeFunction(
 
   auto result = response.result_ref();
   result->rowCount_ref() = outputRowVector->size();
-  result->pageFormat_ref() = remote::PageFormat::PRESTO_PAGE;
-  result->payload_ref() = rowVectorToIOBuf(outputRowVector, rows.end(), *pool_);
+  result->pageFormat_ref() = serdeFormat;
+  result->payload_ref() =
+      rowVectorToIOBuf(outputRowVector, rows.end(), *pool_, serde.get());
 }
 
 } // namespace facebook::velox::functions

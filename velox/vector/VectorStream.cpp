@@ -97,8 +97,7 @@ void VectorStreamGroup::createStreamTree(
     RowTypePtr type,
     int32_t numRows,
     const VectorSerde::Options* options) {
-  serializer_ =
-      getVectorSerde()->createSerializer(type, numRows, this, options);
+  serializer_ = serde_->createSerializer(type, numRows, this, options);
 }
 
 void VectorStreamGroup::append(
@@ -135,15 +134,17 @@ void VectorStreamGroup::read(
 
 folly::IOBuf rowVectorToIOBuf(
     const RowVectorPtr& rowVector,
-    memory::MemoryPool& pool) {
-  return rowVectorToIOBuf(rowVector, rowVector->size(), pool);
+    memory::MemoryPool& pool,
+    VectorSerde* serde) {
+  return rowVectorToIOBuf(rowVector, rowVector->size(), pool, serde);
 }
 
 folly::IOBuf rowVectorToIOBuf(
     const RowVectorPtr& rowVector,
     vector_size_t rangeEnd,
-    memory::MemoryPool& pool) {
-  auto streamGroup = std::make_unique<VectorStreamGroup>(&pool);
+    memory::MemoryPool& pool,
+    VectorSerde* serde) {
+  auto streamGroup = std::make_unique<VectorStreamGroup>(&pool, serde);
   streamGroup->createStreamTree(asRowType(rowVector->type()), rangeEnd);
 
   IndexRange range{0, rangeEnd};
@@ -157,7 +158,8 @@ folly::IOBuf rowVectorToIOBuf(
 RowVectorPtr IOBufToRowVector(
     const folly::IOBuf& ioBuf,
     const RowTypePtr& outputType,
-    memory::MemoryPool& pool) {
+    memory::MemoryPool& pool,
+    VectorSerde* serde) {
   std::vector<ByteRange> ranges;
   ranges.reserve(4);
 
@@ -169,7 +171,12 @@ RowVectorPtr IOBufToRowVector(
   ByteStream byteStream;
   byteStream.resetInput(std::move(ranges));
   RowVectorPtr outputVector;
-  VectorStreamGroup::read(&byteStream, &pool, outputType, &outputVector);
+
+  // If not supplied, use the default one.
+  if (serde == nullptr) {
+    serde = getVectorSerde();
+  }
+  serde->deserialize(&byteStream, &pool, outputType, &outputVector, nullptr);
   return outputVector;
 }
 
