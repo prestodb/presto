@@ -20,6 +20,13 @@ void to_json(json& j, const StatisticAggregations& p) {
   j = json::object();
   to_json_key(
       j,
+      "outputVariables",
+      p.outputVariables,
+      "StatisticAggregations",
+      "std::vector<VariableReferenceExpression>",
+      "outputVariables");
+  to_json_key(
+      j,
       "aggregations",
       p.aggregations,
       "StatisticAggregations",
@@ -35,6 +42,13 @@ void to_json(json& j, const StatisticAggregations& p) {
 }
 
 void from_json(const json& j, StatisticAggregations& p) {
+  from_json_key(
+      j,
+      "outputVariables",
+      p.outputVariables,
+      "StatisticAggregations",
+      "std::vector<VariableReferenceExpression>",
+      "outputVariables");
   from_json_key(
       j,
       "aggregations",
