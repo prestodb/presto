@@ -123,6 +123,24 @@ TEST_F(ArrayAggTest, sortedGroupBy) {
       .assertResults(
           "SELECT c0, array_agg(c1 ORDER BY c2 DESC, c3), sum(c1) "
           " FROM tmp GROUP BY 1");
+
+  // Sorted aggregation with mask.
+  plan = PlanBuilder()
+             .values({data})
+             .project({"c0", "c1", "c2", "c1 % 2 = 1 as m"})
+             .singleAggregation(
+                 {"c0"},
+                 {
+                     "array_agg(c1 ORDER BY c2 DESC)",
+                     "sum(c1)",
+                 },
+                 {"m", "m"})
+             .planNode();
+
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .assertResults(
+          "SELECT c0, array_agg(c1 ORDER BY c2 DESC) FILTER (WHERE c1 % 2 = 1), sum(c1)  FILTER (WHERE c1 % 2 = 1)"
+          " FROM tmp GROUP BY 1");
 }
 
 TEST_F(ArrayAggTest, global) {
@@ -198,6 +216,73 @@ TEST_F(ArrayAggTest, sortedGlobal) {
   AssertQueryBuilder(plan, duckDbQueryRunner_)
       .assertResults(
           "SELECT sum(c0), array_agg(c0 ORDER BY c1 DESC, c2) FROM tmp");
+}
+
+TEST_F(ArrayAggTest, sortedGlobalWithMask) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6, 7}),
+      makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60, 70}),
+      makeFlatVector<int32_t>({11, 33, 22, 44, 66, 55, 77}),
+  });
+
+  createDuckDbTable({data});
+
+  auto plan =
+      PlanBuilder()
+          .values({data})
+          .project({"c0", "c1", "c2", "c0 % 2 = 1 as m1", "c0 % 3 = 0 as m2"})
+          .singleAggregation(
+              {},
+              {
+                  "sum(c0)",
+                  "array_agg(c0 ORDER BY c1 DESC)",
+                  "array_agg(c0 ORDER BY c2)",
+              },
+              {"", "m1", "m2"})
+          .planNode();
+
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .assertResults(
+          "SELECT sum(c0), array_agg(c0 ORDER BY c1 DESC) FILTER (WHERE c0 % 2 = 1), array_agg(c0 ORDER BY c2) FILTER (WHERE c0 % 3 = 0) FROM tmp");
+
+  // No rows excluded by the mask.
+  plan = PlanBuilder()
+             .values({data})
+             .project({"c0", "c1", "c2", "c0 > 0 as m1"})
+             .singleAggregation(
+                 {},
+                 {
+                     "sum(c0)",
+                     "array_agg(c0 ORDER BY c1 DESC)",
+                     "array_agg(c0 ORDER BY c2)",
+                 },
+                 {
+                     "",
+                     "m1",
+                 })
+             .planNode();
+
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .assertResults(
+          "SELECT sum(c0), array_agg(c0 ORDER BY c1 DESC), array_agg(c0 ORDER BY c2) FROM tmp");
+
+  // All rows are excluded by the mask.
+  plan = PlanBuilder()
+             .values({data})
+             .project({"c0", "c1", "c2", "c0 < 0 as m1", "c0 % 3 = 0 as m2"})
+             .singleAggregation(
+                 {},
+                 {
+                     "sum(c0)",
+                     "array_agg(c0 ORDER BY c1 DESC)",
+                     "array_agg(c0 ORDER BY c2)",
+                 },
+                 {"", "m1", "m2"})
+             .planNode();
+
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .assertResults(
+          "SELECT sum(c0), array_agg(c0 ORDER BY c1 DESC) FILTER (WHERE c1 < 0), array_agg(c0 ORDER BY c2) FILTER (WHERE c1 % 3 = 0) FROM tmp");
 }
 
 TEST_F(ArrayAggTest, mask) {

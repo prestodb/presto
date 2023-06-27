@@ -118,12 +118,6 @@ HashAggregation::HashAggregation(
       info.sortingKeys.push_back(exprToChannel(key.get(), inputType));
     }
 
-    if (numSortingKeys > 0) {
-      VELOX_USER_CHECK_NULL(
-          aggregate.mask,
-          "Aggregations over sorted inputs with masks are not supported yet");
-    }
-
     aggregateInfos.emplace_back(std::move(info));
   }
 
