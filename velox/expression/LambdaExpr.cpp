@@ -49,7 +49,9 @@ class ExprCallable : public Callable {
       const std::vector<VectorPtr>& args,
       const BufferPtr& elementToTopLevelRows,
       VectorPtr* result) override {
-    auto row = createRowVector(context, wrapCapture, args, rows.end());
+    auto captureSize =
+        context->isFinalSelection() ? rows.end() : finalSelection.end();
+    auto row = createRowVector(context, wrapCapture, args, captureSize);
     EvalCtx lambdaCtx = createLambdaCtx(context, row, finalSelection);
     ScopedVarSetter throwOnError(
         lambdaCtx.mutableThrowOnError(), context->throwOnError());
@@ -65,7 +67,10 @@ class ExprCallable : public Callable {
       const std::vector<VectorPtr>& args,
       ErrorVectorPtr& elementErrors,
       VectorPtr* result) override {
-    auto row = createRowVector(context, wrapCapture, args, rows.end());
+    // Make sure to size capture vectors to cover 'final selection' rows.
+    auto captureSize =
+        context->isFinalSelection() ? rows.end() : finalSelection.end();
+    auto row = createRowVector(context, wrapCapture, args, captureSize);
     EvalCtx lambdaCtx = createLambdaCtx(context, row, finalSelection);
     ScopedVarSetter throwOnError(lambdaCtx.mutableThrowOnError(), false);
     body_->eval(rows, lambdaCtx, *result);

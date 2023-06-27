@@ -214,3 +214,29 @@ TEST_F(ArrayAnyMatchTest, conditional) {
       "any_match(c1, if (c0 <= 2, x -> (x > 100), x -> (10 / x > 2)))",
       input);
 }
+
+// Test evaluation of lambda functions under different branches of a CASE
+// statement. Make sure that first branch covers some rows at the end of the
+// vector, so that next branch is evaluated on a subset of rows at the start of
+// the vector. In this case, we still need to create 'capture' vectors of the
+// size of the original vector. Otherwise, peeling dictionary encoding from
+// 'capture' vectors will fail.
+TEST_F(ArrayAnyMatchTest, underConditionalWithCapture) {
+  auto input = makeRowVector({
+      makeFlatVector<int64_t>({1, 2}),
+      makeArrayVector<int64_t>({
+          {1, 2},
+          {1, 2, 3, 4, 5},
+      }),
+  });
+
+  auto result = evaluate(
+      "case "
+      "   when any_match(c1, x -> (x > 3)) then 1 "
+      "   when any_match(c1, x -> (x < c0 * 2)) then 2 "
+      "   else 3 "
+      "end",
+      input);
+
+  assertEqualVectors(makeFlatVector<int64_t>({2, 1}), result);
+}
