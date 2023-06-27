@@ -15,6 +15,7 @@
  */
 
 #include "velox/common/file/File.h"
+#include "velox/common/base/Fs.h"
 
 #include <fmt/format.h>
 #include <glog/logging.h>
@@ -173,14 +174,28 @@ uint64_t LocalReadFile::memoryUsage() const {
   return sizeof(FILE);
 }
 
-LocalWriteFile::LocalWriteFile(std::string_view path) {
+LocalWriteFile::LocalWriteFile(
+    std::string_view path,
+    bool shouldCreateParentDirectories,
+    bool shouldThrowOnFileAlreadyExists) {
+  auto dir = fs::path(path).parent_path();
+  if (shouldCreateParentDirectories && !fs::exists(dir)) {
+    VELOX_CHECK(
+        common::generateFileDirectory(dir.c_str()),
+        "Failed to generate file directory");
+  }
+
   std::unique_ptr<char[]> buf(new char[path.size() + 1]);
   buf[path.size()] = 0;
   memcpy(buf.get(), path.data(), path.size());
   {
-    FILE* exists = fopen(buf.get(), "rb");
-    VELOX_CHECK(
-        !exists, "Failure in LocalWriteFile: path '{}' already exists.", path);
+    if (shouldThrowOnFileAlreadyExists) {
+      FILE* exists = fopen(buf.get(), "rb");
+      VELOX_CHECK(
+          !exists,
+          "Failure in LocalWriteFile: path '{}' already exists.",
+          path);
+    }
   }
   auto file = fopen(buf.get(), "ab");
   VELOX_CHECK(

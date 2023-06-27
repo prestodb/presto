@@ -15,7 +15,7 @@
 # for generated headers
 include_directories(.)
 add_library(velox_file File.cpp FileSystems.cpp Utils.cpp)
-target_link_libraries(velox_file Folly::folly)
+target_link_libraries(velox_file velox_common_base Folly::folly)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

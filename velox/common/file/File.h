@@ -289,8 +289,12 @@ class LocalReadFile final : public ReadFile {
 
 class LocalWriteFile final : public WriteFile {
  public:
-  // An error is thrown is a file already exists at |path|.
-  explicit LocalWriteFile(std::string_view path);
+  // An error is thrown is a file already exists at |path|,
+  // unless flag shouldThrowOnFileAlreadyExists is false
+  explicit LocalWriteFile(
+      std::string_view path,
+      bool shouldCreateParentDirectories = false,
+      bool shouldThrowOnFileAlreadyExists = true);
   ~LocalWriteFile();
 
   void append(std::string_view data) final;
