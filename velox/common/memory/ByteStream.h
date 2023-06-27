@@ -86,12 +86,12 @@ class OStreamOutputStream : public OutputStream {
   std::ostream* out_;
 };
 
-// Stream over a chain of ByteRanges. Provides read, write and
-// comparison for equality between stream contents and memory. Used
-// for streams in repartitioning or for complex variable length data
-// in hash tables. The stream is seekable and supports overwriting of
-// previous content, for example, writing a message body and then
-// seeking back to start to write a length header.
+/// Stream over a chain of ByteRanges. Provides read, write and
+/// comparison for equality between stream contents and memory. Used
+/// for streams in repartitioning or for complex variable length data
+/// in hash tables. The stream is seekable and supports overwriting of
+/// previous content, for example, writing a message body and then
+/// seeking back to start to write a length header.
 class ByteStream {
  public:
   // For input.
@@ -139,62 +139,30 @@ class ByteStream {
 
   void seekp(std::streampos position);
 
-  // Returns the size written into ranges_. This is the sum of the
-  // capacities of non-last ranges + the greatest write position of
-  // the last range.
-  size_t size() const {
-    if (ranges_.empty()) {
-      return 0;
-    }
-    size_t total = 0;
-    for (auto i = 0; i < ranges_.size() - 1; ++i) {
-      total += ranges_[i].size;
-    }
-    return total + std::max(ranges_.back().position, lastRangeEnd_);
-  }
+  /// Returns the size written into ranges_. This is the sum of the
+  /// capacities of non-last ranges + the greatest write position of
+  /// the last range.
+  size_t size() const;
 
-  // For input. Returns true if all input has been read.
-  bool atEnd() const {
-    if (!current_) {
-      return false;
-    }
-    if (current_->position < current_->size) {
-      return false;
-    }
+  /// Returns the remaining size left from current reading position.
+  size_t remainingSize() const;
 
-    VELOX_CHECK(current_ >= ranges_.data() && current_ <= &ranges_.back());
-    return current_ == &ranges_.back();
-  }
+  /// For input. Returns true if all input has been read.
+  bool atEnd() const;
 
   int32_t lastRangeEnd() {
     updateEnd();
     return lastRangeEnd_;
   }
 
-  // Sets 'current_' to point to the next range of input.  // The
-  // input is consecutive ByteRanges in 'ranges_' for the base class
-  // but any view over external buffers can be made by specialization.
-  virtual void next(bool throwIfPastEnd = true) {
-    VELOX_CHECK(current_ >= &ranges_[0]);
-    size_t position = current_ - &ranges_[0];
-    VELOX_CHECK_LT(position, ranges_.size());
-    if (position == ranges_.size() - 1) {
-      if (throwIfPastEnd) {
-        VELOX_FAIL("Reading past end of ByteStream");
-      }
-      return;
-    }
-    ++current_;
-    current_->position = 0;
-  }
+  /// Sets 'current_' to point to the next range of input.  // The
+  /// input is consecutive ByteRanges in 'ranges_' for the base class
+  /// but any view over external buffers can be made by specialization.
+  virtual void next(bool throwIfPastEnd = true);
 
-  uint8_t readByte() {
-    if (current_->position < current_->size) {
-      return current_->buffer[current_->position++];
-    }
-    next();
-    return readByte();
-  }
+  uint8_t readByte();
+
+  void readBytes(uint8_t* bytes, int32_t size);
 
   template <typename T>
   T read() {
@@ -219,53 +187,13 @@ class ByteStream {
     readBytes(reinterpret_cast<uint8_t*>(data), size);
   }
 
-  void readBytes(uint8_t* bytes, int32_t size) {
-    int32_t offset = 0;
-    for (;;) {
-      int32_t available = current_->size - current_->position;
-      int32_t numUsed = std::min(available, size);
-      memcpy(bytes + offset, current_->buffer + current_->position, numUsed);
-      offset += numUsed;
-      size -= numUsed;
-      current_->position += numUsed;
-      if (!size) {
-        return;
-      }
-      next();
-    }
-  }
+  /// Returns a view over the read buffer for up to 'size' next
+  /// bytes. The size of the value may be less if the current byte
+  /// range ends within 'size' bytes from the current position.  The
+  /// size will be 0 if at end.
+  std::string_view nextView(int32_t size);
 
-  // Returns a view over the read buffer for up to 'size' next
-  // bytes. The size of the value may be less if the current byte
-  // range ends within 'size' bytes from the current position.  The
-  // size will be 0 if at end.
-  std::string_view nextView(int32_t size) {
-    if (current_->position == current_->size) {
-      if (current_ == &ranges_.back()) {
-        return std::string_view(nullptr, 0);
-      }
-      next();
-    }
-    VELOX_CHECK(current_->size);
-    auto position = current_->position;
-    auto viewSize = std::min(current_->size - current_->position, size);
-    current_->position += viewSize;
-    return std::string_view(
-        reinterpret_cast<char*>(current_->buffer) + position, viewSize);
-  }
-
-  void skip(int32_t size) {
-    for (;;) {
-      int32_t available = current_->size - current_->position;
-      int32_t numUsed = std::min(available, size);
-      size -= numUsed;
-      current_->position += numUsed;
-      if (!size) {
-        return;
-      }
-      next();
-    }
-  }
+  void skip(int32_t size);
 
   template <typename T>
   void append(folly::Range<const T*> values) {
@@ -286,53 +214,9 @@ class ByteStream {
     current_->position += sizeof(T) * values.size();
   }
 
-  void appendBool(bool value, int32_t count) {
-    if (count == 1 && current_->size > current_->position) {
-      bits::setBit(
-          reinterpret_cast<uint64_t*>(current_->buffer),
-          current_->position,
-          value);
-      ++current_->position;
-      return;
-    }
-    int32_t offset = 0;
-    VELOX_DCHECK(isBits_);
-    for (;;) {
-      int32_t bitsFit =
-          std::min(count - offset, current_->size - current_->position);
-      bits::fillBits(
-          reinterpret_cast<uint64_t*>(current_->buffer),
-          current_->position,
-          current_->position + bitsFit,
-          value);
-      current_->position += bitsFit;
-      offset += bitsFit;
-      if (offset == count) {
-        return;
-      }
-      extend(bits::nbytes(count - offset));
-    }
-  }
+  void appendBool(bool value, int32_t count);
 
-  void appendStringPiece(folly::StringPiece value) {
-    int32_t bytes = value.size();
-    int32_t offset = 0;
-    for (;;) {
-      int32_t bytesFit =
-          std::min(bytes - offset, current_->size - current_->position);
-      memcpy(
-          current_->buffer + current_->position,
-          value.data() + offset,
-          bytesFit);
-      current_->position += bytesFit;
-      offset += bytesFit;
-      if (offset == bytes) {
-        return;
-      }
-      extend(
-          bits::roundUp(bytes - offset, memory::AllocationTraits::kPageSize));
-    }
-  }
+  void appendStringPiece(folly::StringPiece value);
 
   template <typename T>
   void appendOne(const T& value) {
@@ -341,15 +225,12 @@ class ByteStream {
 
   void flush(OutputStream* stream);
 
-  // Returns the next byte that would be written to by a write. This
-  // is used after an append to release the remainder of the reserved
-  // space.
-  char* writePosition() {
-    if (ranges_.empty()) {
-      return nullptr;
-    }
-    return reinterpret_cast<char*>(current_->buffer) + current_->position;
-  }
+  /// Returns the next byte that would be written to by a write. This
+  /// is used after an append to release the remainder of the reserved
+  /// space.
+  char* writePosition();
+
+  std::string toString() const;
 
  private:
   void extend(int32_t bytes = memory::AllocationTraits::kPageSize);
@@ -362,13 +243,18 @@ class ByteStream {
   }
 
   StreamArena* arena_;
+
   // Indicates that position in ranges_ is in bits, not bytes.
   const bool isBits_;
+
   const bool isReverseBitOrder_;
-  // True if the bit order in ranges_ has been inverted. Presto requires reverse
-  // bit order.
+
+  // True if the bit order in ranges_ has been inverted. Presto requires
+  // reverse bit order.
   bool isReversed_ = false;
+
   std::vector<ByteRange> ranges_;
+
   // Pointer to the current element of 'ranges_'.
   ByteRange* current_ = nullptr;
 

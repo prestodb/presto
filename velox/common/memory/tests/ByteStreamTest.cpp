@@ -110,3 +110,59 @@ TEST_F(ByteStreamTest, resetInput) {
   ASSERT_EQ(byteStream.size(), totalBytes);
   ASSERT_EQ(byteStream.lastRangeEnd(), lastRangeEnd);
 }
+
+TEST_F(ByteStreamTest, remainingSize) {
+  const int32_t kSize = 100;
+  const int32_t kBufferSize = 4096;
+  std::vector<void*> buffers;
+  std::vector<ByteRange> byteRanges;
+  for (int32_t i = 0; i < kSize; i++) {
+    buffers.push_back(pool_->allocate(kBufferSize));
+    byteRanges.push_back(
+        ByteRange{reinterpret_cast<uint8_t*>(buffers.back()), kBufferSize, 0});
+  }
+  ByteStream byteStream;
+  byteStream.resetInput(std::move(byteRanges));
+  const int32_t kReadBytes = 2048;
+  int32_t remainingSize = kSize * kBufferSize;
+  uint8_t* tempBuffer = reinterpret_cast<uint8_t*>(pool_->allocate(kReadBytes));
+  while (byteStream.remainingSize() > 0) {
+    byteStream.readBytes(tempBuffer, kReadBytes);
+    remainingSize -= kReadBytes;
+    ASSERT_EQ(remainingSize, byteStream.remainingSize());
+  }
+  ASSERT_EQ(0, byteStream.remainingSize());
+  for (int32_t i = 0; i < kSize; i++) {
+    pool_->free(buffers[i], kBufferSize);
+  }
+  pool_->free(tempBuffer, kReadBytes);
+}
+
+TEST_F(ByteStreamTest, toString) {
+  const int32_t kSize = 10;
+  const int32_t kBufferSize = 4096;
+  std::vector<void*> buffers;
+  std::vector<ByteRange> byteRanges;
+  for (int32_t i = 0; i < kSize; i++) {
+    buffers.push_back(pool_->allocate(kBufferSize));
+    byteRanges.push_back(
+        ByteRange{reinterpret_cast<uint8_t*>(buffers.back()), kBufferSize, 0});
+  }
+  ByteStream byteStream;
+  byteStream.resetInput(std::move(byteRanges));
+  const int32_t kReadBytes = 2048;
+  uint8_t* tempBuffer = reinterpret_cast<uint8_t*>(pool_->allocate(kReadBytes));
+  for (int32_t i = 0; i < kSize / 2; i++) {
+    byteStream.readBytes(tempBuffer, kReadBytes);
+  }
+  std::string byteStreamStr = byteStream.toString();
+  EXPECT_EQ(
+      byteStreamStr,
+      "ByteStream[lastRangeEnd 4096, 10 ranges "
+      "(position/size) [(4096/4096),(4096/4096),(2048/4096 current),"
+      "(0/4096),(0/4096),(0/4096),(0/4096),(0/4096),(0/4096),(0/4096)]]");
+  for (int32_t i = 0; i < kSize; i++) {
+    pool_->free(buffers[i], kBufferSize);
+  }
+  pool_->free(tempBuffer, kReadBytes);
+}

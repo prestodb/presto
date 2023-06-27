@@ -49,11 +49,22 @@ int64_t computeChecksum(
     int uncompressedSize) {
   auto offset = source->tellp();
   bits::Crc32 crc32;
-
+  if (FOLLY_UNLIKELY(source->remainingSize() < uncompressedSize)) {
+    VELOX_FAIL(
+        "Tried to read {} bytes, larger than what's remained in source {} "
+        "bytes. Source details: {}",
+        uncompressedSize,
+        source->remainingSize(),
+        source->toString());
+  }
   auto remainingBytes = uncompressedSize;
   while (remainingBytes > 0) {
     auto data = source->nextView(remainingBytes);
-    VELOX_CHECK_GT(data.size(), 0);
+    if (FOLLY_UNLIKELY(data.size() == 0)) {
+      VELOX_FAIL(
+          "Reading 0 bytes from source. Source details: {}",
+          source->toString());
+    }
     crc32.process_bytes(data.data(), data.size());
     remainingBytes -= data.size();
   }
