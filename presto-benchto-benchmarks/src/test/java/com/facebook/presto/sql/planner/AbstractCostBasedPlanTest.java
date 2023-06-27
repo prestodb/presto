@@ -72,7 +72,7 @@ public abstract class AbstractCostBasedPlanTest
     @Test(dataProvider = "getQueriesDataProvider")
     public void test(String queryResourcePath)
     {
-        assertEquals(generateQueryPlan(read(queryResourcePath)), read(getQueryPlanResourcePath(queryResourcePath)));
+        assertEquals(generateQueryPlan(read(queryResourcePath)), read(getQueryPlanResourcePath(queryResourcePath)), getSql(read(queryResourcePath)));
     }
 
     private String getQueryPlanResourcePath(String queryResourcePath)
@@ -117,12 +117,16 @@ public abstract class AbstractCostBasedPlanTest
         }
     }
 
-    private String generateQueryPlan(String query)
-    {
-        String sql = query.replaceAll("\\s+;\\s+$", "")
+    String getSql(String query) {
+        return query.replaceAll("\\s+;\\s+$", "")
                 .replace("${database}.${schema}.", "")
                 .replace("\"${database}\".\"${schema}\".\"${prefix}", "\"");
-        Plan plan = plan(sql, OPTIMIZED_AND_VALIDATED, false);
+    }
+
+
+    private String generateQueryPlan(String query)
+    {
+        Plan plan = plan(getSql(query), OPTIMIZED_AND_VALIDATED, false);
 
         JoinOrderPrinter joinOrderPrinter = new JoinOrderPrinter();
         plan.getRoot().accept(joinOrderPrinter, 0);
