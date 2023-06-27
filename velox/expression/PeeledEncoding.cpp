@@ -111,7 +111,6 @@ bool PeeledEncoding::peelInternal(
   do {
     peeled = true;
     BufferPtr firstIndices;
-    BufferPtr firstLengths;
     maybePeeled.resize(numFields);
     for (int fieldIndex = 0; fieldIndex < numFields; fieldIndex++) {
       auto leaf = peeledVectors.empty() ? vectorsToPeel[fieldIndex]
@@ -143,11 +142,6 @@ bool PeeledEncoding::peelInternal(
       nonConstant = true;
       auto encoding = leaf->encoding();
       if (encoding == VectorEncoding::Simple::DICTIONARY) {
-        if (firstLengths) {
-          // having a mix of dictionary and sequence encoded fields
-          peeled = false;
-          break;
-        }
         if (!canPeelsHaveNulls && leaf->rawNulls()) {
           // A dictionary that adds nulls over an Expr that is not null for a
           // null argument cannot be peeled.
@@ -159,24 +153,6 @@ bool PeeledEncoding::peelInternal(
           firstIndices = std::move(indices);
         } else if (indices != firstIndices) {
           // different fields use different dictionaries
-          peeled = false;
-          break;
-        }
-        if (firstPeeled == -1) {
-          firstPeeled = fieldIndex;
-        }
-        setPeeled(leaf->valueVector(), fieldIndex, maybePeeled);
-      } else if (encoding == VectorEncoding::Simple::SEQUENCE) {
-        if (firstIndices) {
-          // having a mix of dictionary and sequence encoded fields
-          peeled = false;
-          break;
-        }
-        BufferPtr lengths = leaf->wrapInfo();
-        if (!firstLengths) {
-          firstLengths = std::move(lengths);
-        } else if (lengths != firstLengths) {
-          // different fields use different sequences
           peeled = false;
           break;
         }

@@ -328,7 +328,7 @@ void mergeOrThrowArgumentErrors(
 }
 
 // Returns true if vector is a LazyVector that hasn't been loaded yet or
-// is not dictionary, sequence or constant encoded.
+// is not dictionary or constant encoded.
 bool isFlat(const BaseVector& vector) {
   auto encoding = vector.encoding();
   if (encoding == VectorEncoding::Simple::LAZY) {
@@ -339,7 +339,6 @@ bool isFlat(const BaseVector& vector) {
     encoding = vector.loadedVector()->encoding();
   }
   return !(
-      encoding == VectorEncoding::Simple::SEQUENCE ||
       encoding == VectorEncoding::Simple::DICTIONARY ||
       encoding == VectorEncoding::Simple::CONSTANT);
 }
@@ -1312,7 +1311,6 @@ inline bool isPeelable(VectorEncoding::Simple encoding) {
   switch (encoding) {
     case VectorEncoding::Simple::CONSTANT:
     case VectorEncoding::Simple::DICTIONARY:
-    case VectorEncoding::Simple::SEQUENCE:
       return true;
     default:
       return false;

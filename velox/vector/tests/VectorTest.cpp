@@ -21,7 +21,6 @@
 #include "velox/common/memory/ByteStream.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/BaseVector.h"
-#include "velox/vector/BiasVector.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
@@ -374,7 +373,6 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     do {
       switch (inner->encoding()) {
         case VectorEncoding::Simple::DICTIONARY:
-        case VectorEncoding::Simple::SEQUENCE:
         case VectorEncoding::Simple::CONSTANT:
           inner = inner->valueVector();
           if (inner == nullptr) {
@@ -392,18 +390,15 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
 
   void testCopyEncoded(VectorPtr source) {
     bool maybeConstant = false;
-    bool isSequence = false;
     auto sourcePtr = source.get();
     for (;;) {
       auto encoding = sourcePtr->encoding();
       maybeConstant = encoding == VectorEncoding::Simple::CONSTANT ||
           encoding == VectorEncoding::Simple::LAZY;
-      isSequence = encoding == VectorEncoding::Simple::SEQUENCE;
-      if (maybeConstant || isSequence) {
+      if (maybeConstant) {
         break;
       }
-      if (encoding != VectorEncoding::Simple::DICTIONARY &&
-          encoding != VectorEncoding::Simple::SEQUENCE) {
+      if (encoding != VectorEncoding::Simple::DICTIONARY) {
         break;
       }
       sourcePtr = sourcePtr->valueVector().get();
@@ -470,7 +465,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
         }
       }
       if (i > 1 && i < sourceSize - 1 && !target->isNullAt(i) && !isSmall &&
-          !maybeConstant && !isSequence && source->isScalar()) {
+          !maybeConstant && source->isScalar()) {
         EXPECT_FALSE(target->equalValueAt(source.get(), i, i));
       }
     }
@@ -543,15 +538,6 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     auto inDictionary = BaseVector::wrapInDictionary(
         dictionaryNulls, indices, sourceSize, source);
     testCopy(inDictionary, level - 1);
-
-    // Add sequence wrapping repeating each 'source' row once.
-    BufferPtr lengths =
-        AlignedBuffer::allocate<vector_size_t>(sourceSize, pool_.get());
-    for (int32_t i = 0; i < sourceSize; ++i) {
-      lengths->asMutable<vector_size_t>()[i] = 1;
-    }
-    auto inSequence = BaseVector::wrapInSequence(lengths, sourceSize, source);
-    testCopy(inSequence, level - 1);
 
     // Add constant wrapping.
     auto constant = BaseVector::wrapInConstant(20, 10 + level, source);
@@ -977,14 +963,6 @@ TEST_F(VectorTest, getOrCreateEmpty) {
   EXPECT_NE(empty, nullptr);
   EXPECT_EQ(empty->size(), 0);
   EXPECT_EQ(empty->type(), VARCHAR());
-}
-
-TEST_F(VectorTest, bias) {
-  auto base =
-      createBias<TypeKind::BIGINT, TypeKind::INTEGER>(vectorSize_, false);
-  testCopy(base, 4);
-  base = createBias<TypeKind::INTEGER, TypeKind::SMALLINT>(vectorSize_, true);
-  testCopy(base, 4);
 }
 
 TEST_F(VectorTest, row) {
