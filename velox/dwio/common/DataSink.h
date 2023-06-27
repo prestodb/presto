@@ -155,14 +155,6 @@ class WriteFileDataSink final : public DataSink {
 
   static void registerFactory();
 
-  uint64_t size() const override {
-    DWIO_ENSURE_EQ(
-        size_,
-        writeFile_->size(),
-        "Size mismatch between WriteFile and DataSink.");
-    return size_;
-  }
-
   using DataSink::write;
 
   void write(std::vector<DataBuffer<char>>& buffers) override;
