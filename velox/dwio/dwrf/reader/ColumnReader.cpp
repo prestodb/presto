@@ -1653,7 +1653,7 @@ FlatMapContext makeCopyWithNullDecoder(FlatMapContext& original) {
 
 // From reading side - all sequences are by default 0
 // except it's turned into a sequence level filtering
-// Sequence level fitlering to be added in the future.
+// Sequence level filtering to be added in the future.
 // This comment applied to all below compound types (struct, list, map)
 // that consumes current column projection which is to be refactored
 StructColumnReader::StructColumnReader(
@@ -1664,7 +1664,10 @@ StructColumnReader::StructColumnReader(
     FlatMapContext flatMapContext)
     : ColumnReader(dataType, stripe, streamLabels, std::move(flatMapContext)),
       requestedType_{requestedType} {
-  DWIO_ENSURE_EQ(nodeType_->id, dataType->id, "working on the same node");
+  DWIO_ENSURE_EQ(
+      nodeType_->id,
+      dataType->id,
+      "nodeType and dataType id mismatch in StructColumnReader#init");
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
   auto encoding = static_cast<int64_t>(stripe.getEncoding(encodingKey).kind());
   DWIO_ENSURE_EQ(

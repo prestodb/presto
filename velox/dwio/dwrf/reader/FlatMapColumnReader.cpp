@@ -83,11 +83,7 @@ uint32_t visitUniqueStreamsOfNode(
       dataValueType->id, [&](const StreamInformation& stream) {
         auto sequence = stream.getSequence();
         // No need to load shared dictionary stream here.
-        if (sequence == 0) {
-          return;
-        }
-        // if this branch (sequence) is in the node list already
-        if (processed.count(sequence)) {
+        if (sequence == 0 || processed.count(sequence)) {
           return;
         }
         processed.insert(sequence);
@@ -132,11 +128,7 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesFiltered(
       dataType, stripe, [&](const StreamInformation& stream) {
         auto sequence = stream.getSequence();
         // No need to load shared dictionary stream here.
-        if (sequence == 0) {
-          return;
-        }
-        // if this branch (sequence) is in the node list already
-        if (processed.count(sequence)) {
+        if (sequence == 0 || processed.count(sequence)) {
           return;
         }
         processed.insert(sequence);

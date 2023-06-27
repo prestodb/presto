@@ -122,7 +122,7 @@ std::vector<KeyNode<T>> getKeyNodes(
       dataValueType->id, [&](const StreamInformation& stream) {
         auto sequence = stream.getSequence();
         // No need to load shared dictionary stream here.
-        if (sequence == 0 || processed.count(sequence) > 0) {
+        if (sequence == 0 || processed.count(sequence)) {
           return;
         }
         processed.insert(sequence);

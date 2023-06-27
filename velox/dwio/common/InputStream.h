@@ -150,11 +150,11 @@ class ReadFileInputStream final : public InputStream {
 
   virtual ~ReadFileInputStream() {}
 
-  uint64_t getLength() const final {
+  uint64_t getLength() const final override {
     return readFile_->size();
   }
 
-  uint64_t getNaturalReadSize() const final {
+  uint64_t getNaturalReadSize() const final override {
     return readFile_->getNaturalReadSize();
   }
 
