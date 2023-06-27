@@ -41,11 +41,13 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateJoinInputCost;
 import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateLocalRepartitionCost;
 import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateRemoteGatherCost;
@@ -144,7 +146,15 @@ public class CostCalculatorUsingExchanges
         public PlanCostEstimate visitTableScan(TableScanNode node, Void context)
         {
             // TODO: add network cost, based on input size in bytes? Or let connector provide this cost?
-            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node));
+            LocalCostEstimate localCost;
+            if (node.getOutputVariables().isEmpty()) {
+                // table scan could have 0 output variables, but there is still a cost associated with the scan
+                // apply a minimal cost (boolean)
+                localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeForVariables(Collections.singleton(new VariableReferenceExpression(Optional.empty(), "null", BOOLEAN))));
+            }
+            else {
+                localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node));
+            }
             return costForSource(node, localCost);
         }
 
