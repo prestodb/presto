@@ -3486,6 +3486,24 @@ TEST_F(ExprTest, conjunctUnderTry) {
   auto expected =
       BaseVector::createNullConstant(ARRAY(BOOLEAN()), input->size(), pool());
   assertEqualVectors(expected, result);
+
+  // Test conjunct in switch in coalesce where there are errors came from
+  // coalesce at rows 50--99 while conjunct is evlauated on rows 31--49.
+  // Conjunct should not clear the errors from coalesce.
+  input = makeRowVector({
+      makeFlatVector<int64_t>(
+          100, [](auto row) { return row; }, [](auto row) { return row < 50; }),
+      makeFlatVector<bool>(100, [](auto row) { return row > 30; }),
+      makeFlatVector<bool>(100, [](auto row) { return row > 20; }),
+      makeConstant<int64_t>(0, 100),
+  });
+
+  result = evaluate("try(coalesce(c0 / c3 > 0, switch(c1, c1 or c2)))", input);
+  expected = makeFlatVector<bool>(
+      100,
+      [](auto /*row*/) { return true; },
+      [](auto row) { return row >= 50 || row <= 30; });
+  assertEqualVectors(expected, result);
 }
 
 TEST_F(ExprTest, flatNoNullsFastPathWithCse) {
