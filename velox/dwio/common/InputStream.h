@@ -119,11 +119,11 @@ class InputStream {
    * Take advantage of vectorized read API provided by some file system.
    * Allow file system to do optimzied reading plan to disk to minimize
    * total bytes transferred through network. Stores the result in an IOBuf
-   * array starting at `output`, which must have the same size as `regions`.
+   * range named at `iobufs`, which must have the same size as `regions`.
    */
   virtual void vread(
-      const std::vector<velox::common::Region>& regions,
-      folly::IOBuf* output,
+      folly::Range<const velox::common::Region*> regions,
+      folly::Range<folly::IOBuf*> iobufs,
       const LogType purpose) = 0;
 
   // case insensitive find
@@ -173,8 +173,8 @@ class ReadFileInputStream final : public InputStream {
   bool hasReadAsync() const override;
 
   void vread(
-      const std::vector<velox::common::Region>& regions,
-      folly::IOBuf* output,
+      folly::Range<const velox::common::Region*> regions,
+      folly::Range<folly::IOBuf*> iobufs,
       const LogType purpose) override;
 
   const std::shared_ptr<velox::ReadFile>& getReadFile() const {

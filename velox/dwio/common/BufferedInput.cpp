@@ -45,15 +45,16 @@ void BufferedInput::load(const LogType logType) {
   if (useVRead()) {
     // Now we have all buffers and regions, load it in parallel
     std::vector<folly::IOBuf> iobufs(regions_.size());
-    folly::IOBuf* output = iobufs.data();
-    input_->vread(regions_, output, logType);
-    for (const auto& region : regions_) {
+    input_->vread(regions_, {iobufs.data(), iobufs.size()}, logType);
+    for (size_t i = 0; i < regions_.size(); ++i) {
+      const auto& region = regions_[i];
+      auto iobuf = std::move(iobufs[i]);
+
       auto allocated = allocate(region);
-      folly::io::Cursor cursor(output);
+      folly::io::Cursor cursor(&iobuf);
       DWIO_ENSURE_EQ(
           cursor.totalLength(), allocated.size(), "length mismatch.");
       cursor.pull(allocated.data(), allocated.size());
-      *output++ = {}; // delete
     }
 
   } else {

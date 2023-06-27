@@ -124,7 +124,7 @@ TEST(InMemoryFile, preadv2) {
       {5 + 5 + kOneMB + 2, 3UL, {}}};
 
   std::vector<folly::IOBuf> iobufs(readRegions.size());
-  readFile.preadv(readRegions, iobufs.data());
+  readFile.preadv(readRegions, {iobufs.data(), iobufs.size()});
   std::vector<std::string> values;
   values.reserve(iobufs.size());
   for (auto& iobuf : iobufs) {

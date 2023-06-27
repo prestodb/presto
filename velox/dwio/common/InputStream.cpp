@@ -131,8 +131,8 @@ bool ReadFileInputStream::hasReadAsync() const {
 }
 
 void ReadFileInputStream::vread(
-    const std::vector<velox::common::Region>& regions,
-    folly::IOBuf* output,
+    folly::Range<const velox::common::Region*> regions,
+    folly::Range<folly::IOBuf*> iobufs,
     const LogType purpose) {
   DWIO_ENSURE_GT(regions.size(), 0, "regions to read can't be empty");
   const size_t length = std::accumulate(
@@ -142,7 +142,7 @@ void ReadFileInputStream::vread(
       [&](size_t acc, const auto& r) { return acc + r.length; });
   logRead(regions[0].offset, length, purpose);
   auto readStartMs = getCurrentTimeMs();
-  readFile_->preadv(regions, output);
+  readFile_->preadv(regions, iobufs);
   if (stats_) {
     stats_->incRawBytesRead(length);
     stats_->incTotalScanTime(getCurrentTimeMs() - readStartMs);

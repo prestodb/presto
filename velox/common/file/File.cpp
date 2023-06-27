@@ -61,13 +61,15 @@ void ReadFile::preadv(const std::vector<ReadFile::Segment>& segments) const {
 }
 
 void ReadFile::preadv(
-    const std::vector<common::Region>& regions,
-    folly::IOBuf* output) const {
-  for (const auto& region : regions) {
-    *output = folly::IOBuf(folly::IOBuf::CREATE, region.length);
-    pread(region.offset, region.length, output->writableData());
-    output->append(region.length);
-    ++output;
+    folly::Range<const common::Region*> regions,
+    folly::Range<folly::IOBuf*> iobufs) const {
+  VELOX_CHECK_EQ(regions.size(), iobufs.size());
+  for (size_t i = 0; i < regions.size(); ++i) {
+    const auto& region = regions[i];
+    auto& output = iobufs[i];
+    output = folly::IOBuf(folly::IOBuf::CREATE, region.length);
+    pread(region.offset, region.length, output.writableData());
+    output.append(region.length);
   }
 }
 

@@ -47,7 +47,7 @@ class ReadFileMock : public ::facebook::velox::ReadFile {
   MOCK_METHOD(
       void,
       preadv,
-      (const std::vector<Region>& regions, folly::IOBuf* FOLLY_NONNULL output),
+      (folly::Range<const Region*> regions, folly::Range<folly::IOBuf*> iobufs),
       (const, override));
 };
 
@@ -78,26 +78,26 @@ void expectPreadvs(
   EXPECT_CALL(file, size()).WillRepeatedly(Return(content.size()));
   EXPECT_CALL(file, preadv(_, _))
       .Times(1)
-      .WillOnce(
-          [content, reads](
-              const std::vector<::facebook::velox::common::Region>& regions,
-              folly::IOBuf* output) {
-            ASSERT_EQ(regions.size(), reads.size());
-            for (size_t i = 0; i < reads.size(); ++i) {
-              const auto& region = regions[i];
-              const auto& read = reads[i];
-              ASSERT_EQ(region.offset, read.offset);
-              ASSERT_EQ(region.length, read.length);
-              if (!read.label.empty()) {
-                EXPECT_EQ(read.label, region.label);
-              }
-              ASSERT_LE(region.offset + region.length, content.size());
-              *output++ = folly::IOBuf(
-                  folly::IOBuf::COPY_BUFFER,
-                  content.data() + region.offset,
-                  region.length);
-            }
-          });
+      .WillOnce([content, reads](
+                    folly::Range<const Region*> regions,
+                    folly::Range<folly::IOBuf*> iobufs) {
+        ASSERT_EQ(regions.size(), reads.size());
+        for (size_t i = 0; i < reads.size(); ++i) {
+          const auto& region = regions[i];
+          const auto& read = reads[i];
+          auto& iobuf = iobufs[i];
+          ASSERT_EQ(region.offset, read.offset);
+          ASSERT_EQ(region.length, read.length);
+          if (!read.label.empty()) {
+            EXPECT_EQ(read.label, region.label);
+          }
+          ASSERT_LE(region.offset + region.length, content.size());
+          iobuf = folly::IOBuf(
+              folly::IOBuf::COPY_BUFFER,
+              content.data() + region.offset,
+              region.length);
+        }
+      });
 }
 
 std::optional<std::string> getNext(SeekableInputStream& input) {

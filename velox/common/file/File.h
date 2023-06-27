@@ -92,14 +92,16 @@ class ReadFile {
 
   // Vectorized read API. Implementations can coalesce and parallelize.
   // The offsets don't need to be sorted.
-  // `output` is a pointer to an array of IOBufs to store the read data. They
+  // `iobufs` is a range of IOBufs to store the read data. They
   // will be stored in the same order as the input `regions` vector. So the
-  // array must be pre-allocated by the caller, with the same size as `regions`.
+  // array must be pre-allocated by the caller, with the same size as `regions`,
+  // but don't need to be initialized, since each iobuf will be copy-constructed
+  // by the preadv.
   //
   // This method should be thread safe.
   virtual void preadv(
-      const std::vector<common::Region>& regions,
-      folly::IOBuf* output) const;
+      folly::Range<const common::Region*> regions,
+      folly::Range<folly::IOBuf*> iobufs) const;
 
   // Like preadv but may execute asynchronously and returns the read
   // size or exception via SemiFuture. Use hasPreadvAsync() to check

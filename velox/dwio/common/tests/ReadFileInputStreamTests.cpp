@@ -60,7 +60,7 @@ TEST(ReadFileInputStream, VReadIOBufs) {
   ASSERT_EQ(inputStream.getLength(), 15);
   std::vector<Region> regions = {{0, 6}, {9, 5}};
   std::vector<folly::IOBuf> iobufs(regions.size());
-  inputStream.vread(regions, iobufs.data(), LogType::STREAM);
+  inputStream.vread(regions, {iobufs.data(), iobufs.size()}, LogType::STREAM);
   std::vector<std::string> result;
   std::transform(
       iobufs.cbegin(),
