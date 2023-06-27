@@ -1402,6 +1402,10 @@ void HashProbe::close() {
   joinBridge_.reset();
   spiller_.reset();
   table_.reset();
+  outputRowMapping_.reset();
+  output_.reset();
+  nonSpillInputIndicesBuffer_.reset();
+  spillInputIndicesBuffers_.clear();
 }
 
 } // namespace facebook::velox::exec

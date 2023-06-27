@@ -50,6 +50,8 @@ class SharedArbitrator : public MemoryArbitrator {
     uint64_t reclaimableBytes{0};
     uint64_t freeBytes{0};
     MemoryPool* pool;
+
+    std::string toString() const;
   };
 
  private:

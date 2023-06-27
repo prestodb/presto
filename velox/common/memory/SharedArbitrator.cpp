@@ -36,6 +36,15 @@ uint64_t capacityAfterGrowth(const MemoryPool& pool, uint64_t targetBytes) {
 }
 } // namespace
 
+std::string SharedArbitrator::Candidate::toString() const {
+  return fmt::format(
+      "CANDIDATE[{} RECLAIMABLE[{}] RECLAIMABLE_BYTES[{}] FREE_BYTES[{}]]",
+      pool->root()->name(),
+      reclaimable,
+      succinctBytes(reclaimableBytes),
+      succinctBytes(freeBytes));
+}
+
 void SharedArbitrator::sortCandidatesByFreeCapacity(
     std::vector<Candidate>& candidates) const {
   std::sort(
