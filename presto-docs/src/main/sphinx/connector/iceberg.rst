@@ -288,6 +288,58 @@ original state.
      comment   | varchar |       |
     (4 rows)
 
+Table Properties
+------------------------
+
+Table properties set metadata for the underlying tables. This is key for
+CREATE TABLE/CREATE TABLE AS statements. Table properties are passed to the
+connector using a WITH clause:
+
+.. code-block:: sql
+
+    CREATE TABLE tablename
+    WITH (
+        property_name = property_value,
+        ...
+    )
+
+The following table properties are available:
+
+========================================= ===============================================================
+Property Name                             Description
+========================================= ===============================================================
+``format``                                 Optionally specifies the format of table data files,
+                                           either ``PARQUET`` or ``ORC``. Defaults to ``PARQUET``.
+
+``partitioning``                           Optionally specifies table partitioning. If a table
+                                           is partitioned by columns ``c1`` and ``c2``, the partitioning
+                                           property is ``partitioning = ARRAY['c1', 'c2']``.
+
+``location``                               Optionally specifies the file system location URI for
+                                           the table.
+
+``format_version``                         Optionally specifies the format version of the Iceberg
+                                           specification to use for new tables, either ``1`` or ``2``.
+                                           Defaults to ``1``.
+========================================= ===============================================================
+
+The table definition below specifies format ``ORC``, partitioning by columns ``c1`` and ``c2``,
+and a file system location of ``s3://test_bucket/test_schema/test_table``:
+
+.. code-block:: sql
+
+    CREATE TABLE test_table (
+        c1 bigint,
+        c2 varchar,
+        c3 double
+    )
+    WITH (
+        format = 'ORC',
+        partitioning = ARRAY['c1', 'c2'],
+        location = 's3://test_bucket/test_schema/test_table')
+    )
+
+
 Extra Hidden Metadata Tables
 ----------------------------
 
