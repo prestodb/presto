@@ -145,6 +145,8 @@ class WriteFileDataSink final : public DataSink {
       : DataSink(std::move(name), std::move(metricLogger), stats),
         writeFile_{std::move(writeFile)} {}
 
+  static void registerLocalFileFactory();
+
   ~WriteFileDataSink() override {
     destroy();
   }

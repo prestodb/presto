@@ -40,6 +40,25 @@ void WriteFileDataSink::doClose() {
   }
 }
 
+std::unique_ptr<DataSink> localWriteFileSink(
+    const std::string& filename,
+    MetricsLogPtr metricsLog,
+    IoStatistics* stats = nullptr) {
+  if (strncmp(filename.c_str(), "file:", 5) == 0) {
+    auto pathSuffix = filename.substr(5);
+    return std::make_unique<WriteFileDataSink>(
+        std::make_unique<LocalWriteFile>(pathSuffix, true, false),
+        pathSuffix,
+        metricsLog,
+        stats);
+  }
+  return nullptr;
+}
+
+void WriteFileDataSink::registerLocalFileFactory() {
+  DataSink::registerFactory(localWriteFileSink);
+}
+
 LocalFileSink::LocalFileSink(
     const std::string& name,
     const MetricsLogPtr& metricLogger,
