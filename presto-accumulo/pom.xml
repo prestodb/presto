@@ -16,7 +16,7 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.accumulo.version>1.7.4</dep.accumulo.version>
         <dep.curator.version>2.12.0</dep.curator.version>
-        <dep.log4j.version>1.2.17</dep.log4j.version>
+        <dep.reload4j.version>1.2.18.3</dep.reload4j.version>
     </properties>
 
     <dependencies>
@@ -257,9 +257,9 @@
         </dependency>
 
         <dependency>
-            <groupId>log4j</groupId>
-            <artifactId>log4j</artifactId>
-            <version>${dep.log4j.version}</version>
+            <groupId>ch.qos.reload4j</groupId>
+            <artifactId>reload4j</artifactId>
+            <version>${dep.reload4j.version}</version>
         </dependency>
 
         <!-- Presto SPI -->
