@@ -2006,7 +2006,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       node->columnNames,
       insertTableHandle,
       outputType,
-      connector::CommitStrategy::kNoCommit,
+      getCommitStrategy(),
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
@@ -2531,6 +2531,11 @@ velox::core::PlanNodePtr VeloxInteractiveQueryPlanConverter::toVeloxQueryPlan(
   return std::make_shared<core::ExchangeNode>(node->id, rowType);
 }
 
+velox::connector::CommitStrategy
+VeloxInteractiveQueryPlanConverter::getCommitStrategy() const {
+  return velox::connector::CommitStrategy::kNoCommit;
+}
+
 velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
     const protocol::PlanFragment& fragment,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
@@ -2592,6 +2597,11 @@ velox::core::PlanNodePtr VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
     const protocol::TaskId& taskId) {
   auto rowType = toRowType(node->outputVariables);
   return std::make_shared<operators::ShuffleReadNode>(node->id, rowType);
+}
+
+velox::connector::CommitStrategy
+VeloxBatchQueryPlanConverter::getCommitStrategy() const {
+  return velox::connector::CommitStrategy::kTaskCommit;
 }
 
 void registerPrestoPlanNodeSerDe() {
