@@ -59,6 +59,7 @@ target_link_libraries(
   velox_hive_partition_function
   velox_window
   velox_dwio_dwrf_reader
+  velox_type_fbhive
   ${RE2}
   ${FOLLY_WITH_DEPENDENCIES}
   ${ANTLR4_RUNTIME}

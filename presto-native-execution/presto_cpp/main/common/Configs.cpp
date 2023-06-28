@@ -431,7 +431,7 @@ bool SystemConfig::logZombieTaskInfo() const {
 }
 
 uint32_t SystemConfig::logNumZombieTasks() const {
-  return optionalProperty<uint32_t>(kLogZombieTaskInfo).value();
+  return optionalProperty<uint32_t>(kLogNumZombieTasks).value();
 }
 
 NodeConfig::NodeConfig() {
