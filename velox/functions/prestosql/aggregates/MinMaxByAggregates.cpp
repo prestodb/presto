@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/Aggregate.h"
+#include "velox/exec/ContainerRowSerde.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/functions/lib/aggregates/SingleValueAccumulator.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
@@ -716,6 +717,106 @@ struct MinMaxByNAccumulator {
   }
 };
 
+/// @tparam C Type of compare.
+/// @tparam Compare Type of comparator of
+/// std::pair<C, std::optional<HashStringAllocator::Position>>.
+template <typename C, typename Compare>
+struct MinMaxByNComplexTypeAccumulator {
+  int64_t n{0};
+
+  using V = HashStringAllocator::Position;
+  using Pair = std::pair<C, std::optional<V>>;
+  std::priority_queue<Pair, std::vector<Pair, StlAllocator<Pair>>, Compare>
+      topPairs;
+
+  explicit MinMaxByNComplexTypeAccumulator(HashStringAllocator* allocator)
+      : topPairs{Compare{}, StlAllocator<Pair>(allocator)} {}
+
+  void compareAndAdd(
+      C comparison,
+      DecodedVector& decoded,
+      vector_size_t index,
+      Compare& comparator,
+      HashStringAllocator* allocator) {
+    if (topPairs.size() < n) {
+      auto position = write(decoded, index, allocator);
+      topPairs.push({comparison, position});
+    } else {
+      const auto& topPair = topPairs.top();
+      if (comparator.compare(comparison, topPair)) {
+        if (topPair.second) {
+          allocator->free(topPair.second->header);
+        }
+        topPairs.pop();
+
+        auto position = write(decoded, index, allocator);
+        topPairs.push({comparison, position});
+      }
+    }
+  }
+
+  /// Moves all values from 'topPairs' into 'values' vector. The queue of
+  /// 'topPairs' will be empty after this call.
+  void extractValues(BaseVector& values, vector_size_t offset) {
+    const vector_size_t size = topPairs.size();
+    for (auto i = size - 1; i >= 0; --i) {
+      extractValue(topPairs.top(), values, offset + i);
+      topPairs.pop();
+    }
+  }
+
+  /// Moves all pairs of (comparison, value) from 'topPairs' into
+  /// 'rawComparisons' buffer and 'values' vector. The queue of
+  /// 'topPairs' will be empty after this call.
+  void
+  extractPairs(C* rawComparisons, BaseVector& values, vector_size_t offset) {
+    const vector_size_t size = topPairs.size();
+    for (auto i = size - 1; i >= 0; --i) {
+      const auto& topPair = topPairs.top();
+      const auto index = offset + i;
+
+      rawComparisons[index] = topPair.first;
+      extractValue(topPair, values, index);
+
+      topPairs.pop();
+    }
+  }
+
+ private:
+  static std::optional<V> write(
+      DecodedVector& decoded,
+      vector_size_t index,
+      HashStringAllocator* allocator) {
+    if (decoded.isNullAt(index)) {
+      return std::nullopt;
+    }
+
+    ByteStream stream(allocator);
+    auto position = allocator->newWrite(stream);
+
+    exec::ContainerRowSerde::instance().serialize(
+        *decoded.base(), decoded.index(index), stream);
+    allocator->finishWrite(stream, 0);
+    return position;
+  }
+
+  static void read(V position, BaseVector& vector, vector_size_t index) {
+    ByteStream stream;
+    HashStringAllocator::prepareRead(position.header, stream);
+    exec::ContainerRowSerde::instance().deserialize(stream, index, &vector);
+  }
+
+  static void
+  extractValue(const Pair& topPair, BaseVector& values, vector_size_t index) {
+    const bool valueIsNull = !topPair.second.has_value();
+    values.setNull(index, valueIsNull);
+    if (!valueIsNull) {
+      auto position = topPair.second.value();
+      read(position, values, index);
+    }
+  }
+};
+
 template <typename V, typename C>
 struct Less {
   using Pair = std::pair<C, std::optional<V>>;
@@ -741,12 +842,23 @@ struct Greater {
 };
 
 template <typename V, typename C, typename Compare>
+struct MinMaxByNAccumulatorTypeTraits {
+  using AccumulatorType = MinMaxByNAccumulator<V, C, Compare>;
+};
+
+template <typename C, typename Compare>
+struct MinMaxByNAccumulatorTypeTraits<ComplexType, C, Compare> {
+  using AccumulatorType = MinMaxByNComplexTypeAccumulator<C, Compare>;
+};
+
+template <typename V, typename C, typename Compare>
 class MinMaxByNAggregate : public exec::Aggregate {
  public:
   explicit MinMaxByNAggregate(TypePtr resultType)
       : exec::Aggregate(resultType) {}
 
-  using AccumulatorType = MinMaxByNAccumulator<V, C, Compare>;
+  using AccumulatorType =
+      typename MinMaxByNAccumulatorTypeTraits<V, C, Compare>::AccumulatorType;
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(AccumulatorType);
@@ -773,8 +885,12 @@ class MinMaxByNAggregate : public exec::Aggregate {
     auto values = valuesArray->elements();
     values->resize(numValues);
 
-    auto rawValues = values->as<FlatVector<V>>()->mutableRawValues();
-    uint64_t* rawValueNulls = values->mutableRawNulls();
+    V* rawValues;
+    uint64_t* rawValueNulls;
+    if constexpr (!std::is_same_v<V, ComplexType>) {
+      rawValues = values->as<FlatVector<V>>()->mutableRawValues();
+      rawValueNulls = values->mutableRawNulls();
+    }
 
     auto [rawOffsets, rawSizes] = rawOffsetAndSizes(*valuesArray);
 
@@ -789,7 +905,11 @@ class MinMaxByNAggregate : public exec::Aggregate {
         rawOffsets[i] = offset;
         rawSizes[i] = size;
 
-        accumulator->extractValues(rawValues, rawValueNulls, offset);
+        if constexpr (std::is_same_v<V, ComplexType>) {
+          accumulator->extractValues(*values, offset);
+        } else {
+          accumulator->extractValues(rawValues, rawValueNulls, offset);
+        }
 
         offset += size;
       }
@@ -816,8 +936,14 @@ class MinMaxByNAggregate : public exec::Aggregate {
     values->resize(numValues);
     comparisons->resize(numValues);
 
-    auto rawValues = values->as<FlatVector<V>>()->mutableRawValues();
+    V* rawValues;
     uint64_t* rawValueNulls = values->mutableRawNulls();
+    ;
+    if constexpr (!std::is_same_v<V, ComplexType>) {
+      rawValues = values->as<FlatVector<V>>()->mutableRawValues();
+      rawValueNulls = values->mutableRawNulls();
+    }
+
     auto rawComparisons = comparisons->as<FlatVector<C>>()->mutableRawValues();
 
     auto [rawValueOffsets, rawValueSizes] = rawOffsetAndSizes(*valueArray);
@@ -840,8 +966,12 @@ class MinMaxByNAggregate : public exec::Aggregate {
         rawComparisonOffsets[i] = offset;
         rawComparisonSizes[i] = size;
 
-        accumulator->extractPairs(
-            rawComparisons, rawValues, rawValueNulls, offset);
+        if constexpr (std::is_same_v<V, ComplexType>) {
+          accumulator->extractPairs(rawComparisons, *values, offset);
+        } else {
+          accumulator->extractPairs(
+              rawComparisons, rawValues, rawValueNulls, offset);
+        }
 
         offset += size;
       }
@@ -951,13 +1081,21 @@ class MinMaxByNAggregate : public exec::Aggregate {
     accumulator->n = n;
 
     const auto comparison = decodedComparison_.valueAt<C>(index);
-    const auto value = optionalValue(decodedValue_, index);
-    accumulator->compareAndAdd(comparison, value, comparator_);
+    if constexpr (std::is_same_v<V, ComplexType>) {
+      accumulator->compareAndAdd(
+          comparison, decodedValue_, index, comparator_, allocator_);
+    } else {
+      const auto value = optionalValue(decodedValue_, index);
+      accumulator->compareAndAdd(comparison, value, comparator_);
+    }
   }
 
   struct IntermediateResult {
     const ArrayVector* valueArray;
-    const FlatVector<V>* values;
+    // Used for complex types.
+    DecodedVector values;
+    // Used for primitive types.
+    const FlatVector<V>* flatValues;
     const ArrayVector* comparisonArray;
     const FlatVector<C>* comparisons;
   };
@@ -965,7 +1103,7 @@ class MinMaxByNAggregate : public exec::Aggregate {
   void addIntermediateResults(
       char* group,
       vector_size_t index,
-      const IntermediateResult& result) {
+      IntermediateResult& result) {
     clearNull(group);
 
     auto* accumulator = value(group);
@@ -976,7 +1114,7 @@ class MinMaxByNAggregate : public exec::Aggregate {
     accumulator->n = n;
 
     const auto* valueArray = result.valueArray;
-    const auto* values = result.values;
+    const auto* values = result.flatValues;
     const auto* comparisonArray = result.comparisonArray;
     const auto* comparisons = result.comparisons;
 
@@ -985,8 +1123,17 @@ class MinMaxByNAggregate : public exec::Aggregate {
     const auto comparisonOffset = comparisonArray->offsetAt(decodedIndex);
     for (auto i = 0; i < numValues; ++i) {
       const auto comparison = comparisons->valueAt(comparisonOffset + i);
-      const auto value = optionalValue(*values, valueOffset + i);
-      accumulator->compareAndAdd(comparison, value, comparator_);
+      if constexpr (std::is_same_v<V, ComplexType>) {
+        accumulator->compareAndAdd(
+            comparison,
+            result.values,
+            valueOffset + i,
+            comparator_,
+            allocator_);
+      } else {
+        const auto value = optionalValue(*values, valueOffset + i);
+        accumulator->compareAndAdd(comparison, value, comparator_);
+      }
     }
   }
 
@@ -1007,7 +1154,12 @@ class MinMaxByNAggregate : public exec::Aggregate {
     result.comparisonArray =
         decodedComparison_.base()->template as<ArrayVector>();
 
-    result.values = result.valueArray->elements()->template as<FlatVector<V>>();
+    if constexpr (std::is_same_v<V, ComplexType>) {
+      result.values.decode(*result.valueArray->elements());
+    } else {
+      result.flatValues =
+          result.valueArray->elements()->template as<FlatVector<V>>();
+    }
     result.comparisons =
         result.comparisonArray->elements()->template as<FlatVector<C>>();
 
@@ -1078,18 +1230,46 @@ class MinMaxByNAggregate : public exec::Aggregate {
   DecodedVector decodedIntermediates_;
 };
 
-template <typename C, typename V>
-class MinByNAggregate : public MinMaxByNAggregate<C, V, Less<C, V>> {
+template <typename V, typename C>
+class MinByNAggregate : public MinMaxByNAggregate<V, C, Less<V, C>> {
  public:
   explicit MinByNAggregate(TypePtr resultType)
-      : MinMaxByNAggregate<C, V, Less<C, V>>(resultType) {}
+      : MinMaxByNAggregate<V, C, Less<V, C>>(resultType) {}
 };
 
-template <typename C, typename V>
-class MaxByNAggregate : public MinMaxByNAggregate<C, V, Greater<C, V>> {
+template <typename C>
+class MinByNAggregate<ComplexType, C>
+    : public MinMaxByNAggregate<
+          ComplexType,
+          C,
+          Less<HashStringAllocator::Position, C>> {
+ public:
+  explicit MinByNAggregate(TypePtr resultType)
+      : MinMaxByNAggregate<
+            ComplexType,
+            C,
+            Less<HashStringAllocator::Position, C>>(resultType) {}
+};
+
+template <typename V, typename C>
+class MaxByNAggregate : public MinMaxByNAggregate<V, C, Greater<V, C>> {
  public:
   explicit MaxByNAggregate(TypePtr resultType)
-      : MinMaxByNAggregate<C, V, Greater<C, V>>(resultType) {}
+      : MinMaxByNAggregate<V, C, Greater<V, C>>(resultType) {}
+};
+
+template <typename C>
+class MaxByNAggregate<ComplexType, C>
+    : public MinMaxByNAggregate<
+          ComplexType,
+          C,
+          Greater<HashStringAllocator::Position, C>> {
+ public:
+  explicit MaxByNAggregate(TypePtr resultType)
+      : MinMaxByNAggregate<
+            ComplexType,
+            C,
+            Greater<HashStringAllocator::Position, C>>(resultType) {}
 };
 
 template <template <typename U, typename V> class Aggregate, typename W>
@@ -1207,18 +1387,16 @@ exec::AggregateRegistrationResult registerMinMaxBy(const std::string& name) {
 
   // Add support for all value types to 3-arg version of the aggregate.
   for (const auto& compareType : supportedCompareTypes) {
-    for (const auto& valueType : supportedCompareTypes) {
-      // V, C, bigint -> row(bigint, array(C), array(V)) -> array(V).
-      signatures.push_back(
-          exec::AggregateFunctionSignatureBuilder()
-              .returnType(fmt::format("array({})", valueType))
-              .intermediateType(fmt::format(
-                  "row(bigint,array({}),array({}))", compareType, valueType))
-              .argumentType(valueType)
-              .argumentType(compareType)
-              .argumentType("bigint")
-              .build());
-    }
+    // V, C, bigint -> row(bigint, array(C), array(V)) -> array(V).
+    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                             .typeVariable("V")
+                             .returnType("array(V)")
+                             .intermediateType(fmt::format(
+                                 "row(bigint,array({}),array(V))", compareType))
+                             .argumentType("V")
+                             .argumentType(compareType)
+                             .argumentType("bigint")
+                             .build());
   }
 
   return exec::registerAggregateFunction(

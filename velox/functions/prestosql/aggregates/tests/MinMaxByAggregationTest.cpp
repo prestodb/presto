@@ -1484,5 +1484,97 @@ TEST_F(MinMaxByNTest, variableN) {
       "third argument of max_by/min_by must be a constant for all rows in a group");
 }
 
+TEST_F(MinMaxByNTest, globalRow) {
+  auto data = makeRowVector({
+      makeFlatVector<int16_t>({1, 2, 3, 4, 5, 6}),
+      makeRowVector({
+          makeFlatVector<int16_t>({1, 2, 3, 4, 5, 6}),
+          makeFlatVector<int32_t>({10, 20, 30, 40, 50, 60}),
+      }),
+  });
+
+  auto expected = makeRowVector({
+      makeArrayVector(
+          {0},
+          makeRowVector({
+              makeFlatVector<int16_t>({1, 2, 3}),
+              makeFlatVector<int32_t>({10, 20, 30}),
+          })),
+      makeArrayVector(
+          {0},
+          makeRowVector({
+              makeFlatVector<int16_t>({6, 5, 4, 3}),
+              makeFlatVector<int32_t>({60, 50, 40, 30}),
+          })),
+  });
+
+  testAggregations(
+      {data}, {}, {"min_by(c1, c0, 3)", "max_by(c1, c0, 4)"}, {expected});
+}
+
+TEST_F(MinMaxByNTest, globalRowWithNulls) {
+  auto data = makeRowVector({
+      makeFlatVector<int16_t>({1, 2, 3, 4, 5, 6}),
+      makeRowVector(
+          {
+              makeFlatVector<int16_t>({-1, 2, -1, 4, -1, 6}),
+              makeFlatVector<int32_t>({0, 20, 0, 40, 0, 60}),
+          },
+          nullEvery(2)),
+  });
+
+  auto expected = makeRowVector({
+      makeArrayVector(
+          {0},
+          makeRowVector(
+              {
+                  makeFlatVector<int16_t>({-1, 2, -1}),
+                  makeFlatVector<int32_t>({0, 20, 0}),
+              },
+              nullEvery(2))),
+      makeArrayVector(
+          {0},
+          makeRowVector(
+              {
+                  makeFlatVector<int16_t>({6, -1, 4, -1}),
+                  makeFlatVector<int32_t>({60, 0, 40, 0}),
+              },
+              nullEvery(2, 1))),
+  });
+
+  testAggregations(
+      {data}, {}, {"min_by(c1, c0, 3)", "max_by(c1, c0, 4)"}, {expected});
+}
+
+TEST_F(MinMaxByNTest, groupByRow) {
+  auto data = makeRowVector({
+      makeFlatVector<int16_t>({1, 1, 2, 2, 1, 2}),
+      makeFlatVector<int16_t>({1, 2, 3, 4, 5, 6}),
+      makeRowVector({
+          makeFlatVector<int16_t>({1, 2, 3, 4, 5, 6}),
+          makeFlatVector<int32_t>({10, 20, 30, 40, 50, 60}),
+      }),
+  });
+
+  auto expected = makeRowVector({
+      makeFlatVector<int16_t>({1, 2}),
+      makeArrayVector(
+          {0, 2},
+          makeRowVector({
+              makeFlatVector<int16_t>({1, 2, 3, 4}),
+              makeFlatVector<int32_t>({10, 20, 30, 40}),
+          })),
+      makeArrayVector(
+          {0, 2},
+          makeRowVector({
+              makeFlatVector<int16_t>({5, 2, 6, 4}),
+              makeFlatVector<int32_t>({50, 20, 60, 40}),
+          })),
+  });
+
+  testAggregations(
+      {data}, {"c0"}, {"min_by(c2, c1, 2)", "max_by(c2, c1, 2)"}, {expected});
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test
