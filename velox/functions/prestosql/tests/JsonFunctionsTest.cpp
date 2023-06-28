@@ -71,33 +71,68 @@ class JsonFunctionsTest : public functions::test::FunctionBaseTest {
     return makeNullableFlatVector<StringView>({s}, JSON());
   }
 
+  std::pair<VectorPtr, VectorPtr> makeVectors(std::optional<std::string> json) {
+    std::optional<StringView> s = json.has_value()
+        ? std::make_optional(StringView(json.value()))
+        : std::nullopt;
+    return {
+        makeNullableFlatVector<StringView>({s}, JSON()),
+        makeNullableFlatVector<StringView>({s}, VARCHAR())};
+  }
+
   std::optional<bool> isJsonScalar(std::optional<std::string> json) {
-    return evaluateOnce<bool>(
-        "is_json_scalar(c0)", makeRowVector({makeJsonVector(json)}));
+    auto [jsonVector, varcharVector] = makeVectors(json);
+    auto jsonResult =
+        evaluateOnce<bool>("is_json_scalar(c0)", makeRowVector({jsonVector}));
+    auto varcharResult = evaluateOnce<bool>(
+        "is_json_scalar(c0)", makeRowVector({varcharVector}));
+
+    EXPECT_EQ(jsonResult, varcharResult);
+    return jsonResult;
   }
 
   std::optional<int64_t> jsonArrayLength(std::optional<std::string> json) {
-    return evaluateOnce<int64_t>(
-        "json_array_length(c0)", makeRowVector({makeJsonVector(json)}));
+    auto [jsonVector, varcharVector] = makeVectors(json);
+    auto jsonResult = evaluateOnce<int64_t>(
+        "json_array_length(c0)", makeRowVector({jsonVector}));
+    auto varcharResult = evaluateOnce<int64_t>(
+        "json_array_length(c0)", makeRowVector({varcharVector}));
+
+    EXPECT_EQ(jsonResult, varcharResult);
+    return jsonResult;
   }
 
   template <typename T>
   std::optional<bool> jsonArrayContains(
       std::optional<std::string> json,
       std::optional<T> value) {
-    return evaluateOnce<bool>(
+    auto [jsonVector, varcharVector] = makeVectors(json);
+    auto valueVector = makeNullableFlatVector<T>({value});
+
+    auto jsonResult = evaluateOnce<bool>(
         "json_array_contains(c0, c1)",
-        makeRowVector(
-            {makeJsonVector(json), makeNullableFlatVector<T>({value})}));
+        makeRowVector({jsonVector, valueVector}));
+    auto varcharResult = evaluateOnce<bool>(
+        "json_array_contains(c0, c1)",
+        makeRowVector({varcharVector, valueVector}));
+
+    EXPECT_EQ(jsonResult, varcharResult);
+    return jsonResult;
   }
 
   std::optional<int64_t> jsonSize(
       std::optional<std::string> json,
       const std::string& path) {
-    return evaluateOnce<int64_t>(
-        "json_size(c0, c1)",
-        makeRowVector(
-            {makeJsonVector(json), makeFlatVector<std::string>({path})}));
+    auto [jsonVector, varcharVector] = makeVectors(json);
+    auto pathVector = makeFlatVector<std::string>({path});
+
+    auto jsonResult = evaluateOnce<int64_t>(
+        "json_size(c0, c1)", makeRowVector({jsonVector, pathVector}));
+    auto varcharResult = evaluateOnce<int64_t>(
+        "json_size(c0, c1)", makeRowVector({varcharVector, pathVector}));
+
+    EXPECT_EQ(jsonResult, varcharResult);
+    return jsonResult;
   }
 };
 
@@ -220,16 +255,18 @@ TEST_F(JsonFunctionsTest, jsonParse) {
 
 TEST_F(JsonFunctionsTest, isJsonScalarSignatures) {
   auto signatures = getSignatureStrings("is_json_scalar");
-  ASSERT_EQ(1, signatures.size());
+  ASSERT_EQ(2, signatures.size());
 
   ASSERT_EQ(1, signatures.count("(json) -> boolean"));
+  ASSERT_EQ(1, signatures.count("(varchar) -> boolean"));
 }
 
 TEST_F(JsonFunctionsTest, jsonArrayLengthSignatures) {
   auto signatures = getSignatureStrings("json_array_length");
-  ASSERT_EQ(1, signatures.size());
+  ASSERT_EQ(2, signatures.size());
 
   ASSERT_EQ(1, signatures.count("(json) -> bigint"));
+  ASSERT_EQ(1, signatures.count("(varchar) -> bigint"));
 }
 
 TEST_F(JsonFunctionsTest, jsonExtractScalarSignatures) {
@@ -242,19 +279,25 @@ TEST_F(JsonFunctionsTest, jsonExtractScalarSignatures) {
 
 TEST_F(JsonFunctionsTest, jsonArrayContainsSignatures) {
   auto signatures = getSignatureStrings("json_array_contains");
-  ASSERT_EQ(4, signatures.size());
+  ASSERT_EQ(8, signatures.size());
 
   ASSERT_EQ(1, signatures.count("(json,varchar) -> boolean"));
   ASSERT_EQ(1, signatures.count("(json,bigint) -> boolean"));
   ASSERT_EQ(1, signatures.count("(json,double) -> boolean"));
   ASSERT_EQ(1, signatures.count("(json,boolean) -> boolean"));
+
+  ASSERT_EQ(1, signatures.count("(varchar,varchar) -> boolean"));
+  ASSERT_EQ(1, signatures.count("(varchar,bigint) -> boolean"));
+  ASSERT_EQ(1, signatures.count("(varchar,double) -> boolean"));
+  ASSERT_EQ(1, signatures.count("(varchar,boolean) -> boolean"));
 }
 
 TEST_F(JsonFunctionsTest, jsonSizeSignatures) {
   auto signatures = getSignatureStrings("json_size");
-  ASSERT_EQ(1, signatures.size());
+  ASSERT_EQ(2, signatures.size());
 
   ASSERT_EQ(1, signatures.count("(json,varchar) -> bigint"));
+  ASSERT_EQ(1, signatures.count("(varchar,varchar) -> bigint"));
 }
 
 TEST_F(JsonFunctionsTest, isJsonScalar) {
