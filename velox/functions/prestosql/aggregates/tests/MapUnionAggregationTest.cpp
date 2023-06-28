@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/base/tests/GTestUtils.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/functions/lib/aggregates/tests/AggregationTestBase.h"
 
 using namespace facebook::velox::exec;
@@ -219,5 +221,89 @@ TEST_F(MapUnionTest, nulls) {
 
   testAggregations({data}, {"k"}, {"map_union(m)"}, {expected});
 }
+
+TEST_F(MapUnionTest, unknownKeysAndValues) {
+  // map_union over empty map(unknown, unknown) is allowed.
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 1}),
+      makeMapVector<UnknownValue, UnknownValue>({{}, {}, {}}),
+  });
+
+  auto expectedGlobalResult = makeRowVector({
+      makeMapVector<UnknownValue, UnknownValue>({{}}),
+  });
+
+  auto expectedGroupByResult = makeRowVector({
+      makeFlatVector<int32_t>({1, 2}),
+      makeMapVector<UnknownValue, UnknownValue>({{}, {}}),
+  });
+
+  testAggregations({data}, {}, {"map_union(c1)"}, {expectedGlobalResult});
+  testAggregations({data}, {"c0"}, {"map_union(c1)"}, {expectedGroupByResult});
+
+  // map_union over non-empty map(T, unknown) where T is not unknown is allowed.
+  data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 1}),
+      makeNullableMapVector<int32_t, UnknownValue>({
+          {{{1, {std::nullopt}}, {2, {std::nullopt}}}},
+          {{{3, {std::nullopt}}}},
+          {{{3, {std::nullopt}}, {4, {std::nullopt}}}},
+      }),
+  });
+
+  expectedGlobalResult = makeRowVector({
+      makeNullableMapVector<int32_t, UnknownValue>({
+          {{
+              {1, {std::nullopt}},
+              {2, {std::nullopt}},
+              {3, {std::nullopt}},
+              {4, {std::nullopt}},
+          }},
+      }),
+  });
+
+  expectedGroupByResult = makeRowVector({
+      makeFlatVector<int32_t>({1, 2}),
+      makeNullableMapVector<int32_t, UnknownValue>({
+          {{
+              {1, {std::nullopt}},
+              {2, {std::nullopt}},
+              {3, {std::nullopt}},
+              {4, {std::nullopt}},
+          }},
+          {{
+              {3, {std::nullopt}},
+          }},
+      }),
+  });
+
+  testAggregations({data}, {}, {"map_union(c1)"}, {expectedGlobalResult});
+  testAggregations({data}, {"c0"}, {"map_union(c1)"}, {expectedGroupByResult});
+
+  // map_union over non-emtpy map(unknown, T) is not allowed.
+  data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 1}),
+      // 3 map rows: {null, 100}, {null, 200}, {null, 300}.
+      makeMapVector(
+          {0, 1, 1},
+          makeAllNullFlatVector<UnknownValue>(3),
+          makeFlatVector<int32_t>({100, 200, 300})),
+  });
+
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .singleAggregation({}, {"map_union(c1)"})
+                  .planNode();
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(plan).copyResults(pool()), "map key cannot be null");
+
+  plan = PlanBuilder()
+             .values({data})
+             .singleAggregation({"c0"}, {"map_union(c1)"})
+             .planNode();
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(plan).copyResults(pool()), "map key cannot be null");
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

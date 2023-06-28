@@ -136,6 +136,20 @@ VectorPtr MapAggregateBase::removeDuplicates(MapVectorPtr& mapVector) const {
   }
 }
 
+namespace {
+void checkNullKeys(
+    const VectorPtr& keys,
+    vector_size_t offset,
+    vector_size_t size) {
+  static const char* kNullKey = "map key cannot be null";
+  if (keys->mayHaveNulls()) {
+    for (auto i = offset; i < offset + size; ++i) {
+      VELOX_USER_CHECK(!keys->isNullAt(i), kNullKey);
+    }
+  }
+}
+} // namespace
+
 void MapAggregateBase::addMapInputToAccumulator(
     char** groups,
     const SelectivityVector& rows,
@@ -157,6 +171,7 @@ void MapAggregateBase::addMapInputToAccumulator(
       auto offset = mapVector->offsetAt(decodedRow);
       auto size = mapVector->sizeAt(decodedRow);
       auto tracker = trackRowSize(group);
+      checkNullKeys(mapKeys, offset, size);
       accumulator->keys.appendRange(mapKeys, offset, size, allocator_);
       accumulator->values.appendRange(mapValues, offset, size, allocator_);
     }
@@ -184,6 +199,7 @@ void MapAggregateBase::addSingleGroupMapInputToAccumulator(
       auto decodedRow = decodedMaps_.index(row);
       auto offset = mapVector->offsetAt(decodedRow);
       auto size = mapVector->sizeAt(decodedRow);
+      checkNullKeys(mapKeys, offset, size);
       keys.appendRange(mapKeys, offset, size, allocator_);
       values.appendRange(mapValues, offset, size, allocator_);
     }
