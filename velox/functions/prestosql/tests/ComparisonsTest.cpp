@@ -111,6 +111,27 @@ TEST_F(ComparisonsTest, betweenDate) {
   }
 }
 
+TEST_F(ComparisonsTest, betweenTimestamp) {
+  using util::fromTimestampString;
+
+  const auto between = [&](std::optional<std::string> s) {
+    auto expr =
+        "c0 between cast(\'2019-02-28 10:00:00.500\' as timestamp) and"
+        " cast(\'2019-02-28 10:00:00.600\' as timestamp)";
+    if (s.has_value()) {
+      return evaluateOnce<bool>(
+          expr, std::optional(fromTimestampString((StringView)s.value())));
+    }
+    return evaluateOnce<bool>(expr, std::optional<Timestamp>());
+  };
+
+  EXPECT_EQ(std::nullopt, between(std::nullopt));
+  EXPECT_FALSE(between("2019-02-28 10:00:00.000").value());
+  EXPECT_TRUE(between("2019-02-28 10:00:00.500").value());
+  EXPECT_TRUE(between("2019-02-28 10:00:00.600").value());
+  EXPECT_FALSE(between("2019-02-28 10:00:00.650").value());
+}
+
 TEST_F(ComparisonsTest, betweenDecimal) {
   auto runAndCompare = [&](const std::string& exprStr,
                            VectorPtr input,

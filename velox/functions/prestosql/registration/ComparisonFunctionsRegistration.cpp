@@ -64,6 +64,8 @@ void registerComparisonFunctions(const std::string& prefix) {
       {prefix + "between"});
   registerFunction<BetweenFunction, bool, Date, Date, Date>(
       {prefix + "between"});
+  registerFunction<BetweenFunction, bool, Timestamp, Timestamp, Timestamp>(
+      {prefix + "between"});
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_between, prefix + "between");
 }
