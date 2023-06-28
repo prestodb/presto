@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class PrestoSparkShuffleReadDescriptor
 {
-    private final Partition partition;
+    private final List<Partition> partitions;
     private final ShuffleHandle shuffleHandle;
     private final List<String> blockIds;
     private final List<String> partitionIds;
@@ -37,14 +37,14 @@ public class PrestoSparkShuffleReadDescriptor
     private final int numPartitions;
 
     public PrestoSparkShuffleReadDescriptor(
-            Partition partition,
+            List<Partition> partitions,
             ShuffleHandle shuffleHandle,
             int numPartitions,
             List<String> blockIds,
             List<String> partitionIds,
             List<Long> partitionSizes)
     {
-        this.partition = requireNonNull(partition, "partition is null");
+        this.partitions = requireNonNull(partitions, "partition is null");
         this.shuffleHandle = requireNonNull(shuffleHandle, "shuffleHandle is null");
         this.blockIds = requireNonNull(blockIds, "blockIds is null");
         this.partitionIds = requireNonNull(partitionIds, "partitionIds is null");
@@ -53,9 +53,9 @@ public class PrestoSparkShuffleReadDescriptor
         this.numPartitions = numPartitions;
     }
 
-    public Partition getPartition()
+    public List<Partition> getPartitions()
     {
-        return partition;
+        return partitions;
     }
 
     public List<String> getBlockIds()

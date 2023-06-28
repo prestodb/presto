@@ -2416,10 +2416,6 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
   VELOX_USER_CHECK_NOT_NULL(
       partitionedOutputNode, "PartitionedOutputNode is required");
 
-  VELOX_USER_CHECK(
-      !partitionedOutputNode->isBroadcast(),
-      "Broadcast shuffle is not supported");
-
   // If the serializedShuffleWriteInfo is not nullptr, it means this fragment
   // ends with a shuffle stage. We convert the PartitionedOutputNode to a
   // chain of following nodes:

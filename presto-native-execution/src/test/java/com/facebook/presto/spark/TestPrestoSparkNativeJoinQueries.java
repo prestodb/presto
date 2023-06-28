@@ -51,8 +51,7 @@ public class TestPrestoSparkNativeJoinQueries
     @Test
     public void testBroadcastJoin()
     {
-        assertQueryFails(broadcastJoin(), "SELECT * FROM orders o, lineitem l WHERE o.orderkey = l.orderkey",
-                ".*Broadcast shuffle is not supported");
+        assertQuery(broadcastJoin(), "SELECT * FROM orders o, lineitem l WHERE o.orderkey = l.orderkey");
     }
 
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)

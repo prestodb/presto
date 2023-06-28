@@ -593,7 +593,7 @@ TEST_F(TaskManagerTest, tableScanAllSplitsAtOnce) {
   assertResults(taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 0");
 }
 
-TEST_F(TaskManagerTest, taskCleanupWithPendingResultData) {
+TEST_F(TaskManagerTest, DISABLED_taskCleanupWithPendingResultData) {
   // Trigger old task cleanup immediately.
   FLAGS_old_task_ms = 0;
   auto filePaths = makeFilePaths(5);

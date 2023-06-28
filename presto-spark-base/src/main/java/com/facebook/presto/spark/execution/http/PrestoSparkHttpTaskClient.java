@@ -32,6 +32,7 @@ import com.facebook.presto.operator.RpcShuffleClient;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spark.execution.BatchTaskUpdateRequest;
+import com.facebook.presto.spark.execution.ForNativeExecutionTask;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -78,7 +79,7 @@ public class PrestoSparkHttpTaskClient
     private final Duration infoRefreshMaxWait;
 
     public PrestoSparkHttpTaskClient(
-            HttpClient httpClient,
+            @ForNativeExecutionTask HttpClient httpClient,
             TaskId taskId,
             URI location,
             JsonCodec<TaskInfo> taskInfoCodec,
