@@ -37,6 +37,7 @@ import static org.testng.Assert.assertNotNull;
 public class PrestoNativeQueryRunnerUtils
 {
     private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
+
     private PrestoNativeQueryRunnerUtils() {}
 
     public static QueryRunner createQueryRunner()
@@ -81,12 +82,14 @@ public class PrestoNativeQueryRunnerUtils
         return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, storageFormat);
     }
 
-    public static QueryRunner createJavaQueryRunner() throws Exception
+    public static QueryRunner createJavaQueryRunner()
+            throws Exception
     {
         return createJavaQueryRunner(DEFAULT_STORAGE_FORMAT);
     }
 
-    public static QueryRunner createJavaQueryRunner(String storageFormat) throws Exception
+    public static QueryRunner createJavaQueryRunner(String storageFormat)
+            throws Exception
     {
         String dataDirectory = System.getProperty("DATA_DIR");
         return createJavaQueryRunner(Optional.of(Paths.get(dataDirectory)), storageFormat);
@@ -105,10 +108,7 @@ public class PrestoNativeQueryRunnerUtils
         hivePropertiesBuilder
                 .put("hive.storage-format", storageFormat)
                 .put("hive.pushdown-filter-enabled", "true");
-
-        if ("legacy".equals(security)) {
-            hivePropertiesBuilder.put("hive.allow-drop-table", "true");
-        }
+        hivePropertiesBuilder.put("hive.allow-drop-table", "true");
 
         Optional<Path> dataDirectory = baseDataDirectory.map(path -> Paths.get(path.toString() + '/' + storageFormat));
         DistributedQueryRunner queryRunner =
@@ -173,8 +173,8 @@ public class PrestoNativeQueryRunnerUtils
                         if (cacheMaxSize > 0) {
                             Files.write(catalogDirectoryPath.resolve("hive.properties"),
                                     format("connector.name=hive%n" +
-                                           "cache.enabled=true%n" +
-                                           "cache.max-cache-size=%s", cacheMaxSize).getBytes());
+                                            "cache.enabled=true%n" +
+                                            "cache.max-cache-size=%s", cacheMaxSize).getBytes());
                         }
                         else {
                             Files.write(catalogDirectoryPath.resolve("hive.properties"),
