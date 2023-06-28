@@ -43,6 +43,8 @@ import static org.testng.Assert.assertEquals;
 public abstract class AbstractTestNativeGeneralQueries
         extends AbstractTestQueryFramework
 {
+    private static final String[] TABLE_FORMATS = {"DWRF"};
+
     @Override
     protected void createTables()
     {
@@ -833,7 +835,10 @@ public abstract class AbstractTestNativeGeneralQueries
 
     private String generateRandomTableName()
     {
-        return "tmp_presto_" + UUID.randomUUID().toString().replace("-", "");
+        String tableName = "tmp_presto_" + UUID.randomUUID().toString().replace("-", "");
+        // Clean up if the temporary named table already exists.
+        dropTableIfExists(tableName);
+        return tableName;
     }
 
     @Test
@@ -842,8 +847,6 @@ public abstract class AbstractTestNativeGeneralQueries
         Session session = buildSessionForTableWrite();
         // Generate temporary table name.
         String tmpTableName = generateRandomTableName();
-        // Clean up if temporary table already exists.
-        dropTableIfExists(tmpTableName);
         String[] unsupportedTableFormats = {"ORC", "JSON"};
         for (String unsupportedTableFormat : unsupportedTableFormats) {
             assertQueryFails(String.format("CREATE TABLE %s WITH (format = '" + unsupportedTableFormat + "') AS SELECT * FROM nation", tmpTableName), " Unsupported file format: \"" + unsupportedTableFormat + "\".");
@@ -856,10 +859,7 @@ public abstract class AbstractTestNativeGeneralQueries
         Session session = buildSessionForTableWrite();
         // Generate temporary table name.
         String tmpTableName = generateRandomTableName();
-        // Clean up if temporary table already exists.
-        dropTableIfExists(tmpTableName);
-        String[] tableFormats = {"DWRF", "PARQUET"};
-        for (String tableFormat : tableFormats) {
+        for (String tableFormat : TABLE_FORMATS) {
             try {
                 getQueryRunner().execute(session, String.format("CREATE TABLE %s WITH (format = '" + tableFormat + "') AS SELECT * FROM nation", tmpTableName));
                 assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT * FROM nation");
@@ -887,12 +887,33 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
+    public void testCreatePartitionedTableAsSelect()
+    {
+        {
+            Session session = buildSessionForTableWrite();
+            // Generate temporary table name for created partitioned table.
+            String partitionedOrdersTableName = generateRandomTableName();
+
+            for (String tableFormat : TABLE_FORMATS) {
+                try {
+                    getQueryRunner().execute(session, String.format(
+                            "CREATE TABLE %s WITH (format = '" + tableFormat + "', " +
+                                    "partitioned_by = ARRAY[ 'orderstatus' ]) " +
+                                    "AS SELECT custkey, comment, orderstatus FROM orders", partitionedOrdersTableName));
+                    assertQuery(String.format("SELECT * FROM %s", partitionedOrdersTableName), "SELECT custkey, comment, orderstatus FROM orders");
+                }
+                finally {
+                    dropTableIfExists(partitionedOrdersTableName);
+                }
+            }
+        }
+    }
+
+    @Test
     public void testInsertIntoPartitionedTable()
     {
         // Generate temporary table name.
         String tmpTableName = generateRandomTableName();
-        // Clean up if temporary table already exists.
-        dropTableIfExists(tmpTableName);
 
         try {
             getQueryRunner().execute(getSession(), String.format("CREATE TABLE %s (name VARCHAR, regionkey BIGINT, nationkey BIGINT) WITH (partitioned_by = ARRAY['regionkey','nationkey'])", tmpTableName));
@@ -922,17 +943,44 @@ public abstract class AbstractTestNativeGeneralQueries
     public void testCreateBucketTableAsSelect()
     {
         Session session = buildSessionForTableWrite();
-        // Generate temporary table name.
-        String tmpTableName = generateRandomTableName();
-        // Clean up if temporary table already exists.
-        dropTableIfExists(tmpTableName);
+        // Generate temporary table name for bucketed table.
+        String bucketedOrdersTableName = generateRandomTableName();
 
-        // TODO: update this test condition after bucket write is supported by native worker.
+        for (String tableFormat : TABLE_FORMATS) {
+            try {
+                getQueryRunner().execute(session, String.format(
+                        "CREATE TABLE %s WITH (format = '" + tableFormat + "', " +
+                                "partitioned_by = ARRAY[ 'orderstatus' ], " +
+                                "bucketed_by = ARRAY[ 'custkey' ], " +
+                                "bucket_count = 1) " +
+                                "AS SELECT custkey, comment, orderstatus FROM orders", bucketedOrdersTableName));
+                assertQuery(String.format("SELECT * FROM %s", bucketedOrdersTableName), "SELECT custkey, comment, orderstatus FROM orders");
+            }
+            finally {
+                dropTableIfExists(bucketedOrdersTableName);
+            }
+        }
+    }
+
+    @Test
+    public void testCreateBucketSortedTableAsSelect()
+    {
+        Session session = buildSessionForTableWrite();
+        // Generate temporary table name.
+        String badBucketTableName = generateRandomTableName();
+
+        // TODO: update this test condition after bucket sort write is supported by native worker.
         try {
-            this.assertQueryFails(session, String.format("CREATE TABLE %s WITH (bucketed_by=array['orderkey'], bucket_count=11) AS SELECT * FROM orders_bucketed", tmpTableName), ".*Bucket table write is not supported.*");
+            this.assertQueryFails(session, String.format(
+                    "CREATE TABLE %s WITH (" +
+                            "partitioned_by = ARRAY[ 'orderstatus' ], " +
+                            "bucketed_by=array['orderkey'], " +
+                            "bucket_count=11, " +
+                            "sorted_by=array['orderkey']) " +
+                            "AS SELECT orderkey, orderstatus FROM orders", badBucketTableName), ".*Bucketed sorted table is not supported.*");
         }
         finally {
-            dropTableIfExists(tmpTableName);
+            dropTableIfExists(badBucketTableName);
         }
     }
 
