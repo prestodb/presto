@@ -41,18 +41,23 @@ class HiveConnector : public Connector {
           std::string,
           std::shared_ptr<connector::ColumnHandle>>& columnHandles,
       ConnectorQueryCtx* connectorQueryCtx) override {
+    dwio::common::ReaderOptions options(connectorQueryCtx->memoryPool());
+    options.setMaxCoalesceBytes(
+        HiveConfig::maxCoalescedBytes(connectorQueryCtx->config()));
+    options.setMaxCoalesceDistance(
+        HiveConfig::maxCoalescedDistanceBytes(connectorQueryCtx->config()));
     return std::make_unique<HiveDataSource>(
         outputType,
         tableHandle,
         columnHandles,
         &fileHandleFactory_,
-        connectorQueryCtx->memoryPool(),
         connectorQueryCtx->expressionEvaluator(),
         connectorQueryCtx->allocator(),
         connectorQueryCtx->scanId(),
         HiveConfig::isFileColumnNamesReadAsLowerCase(
             connectorQueryCtx->config()),
-        executor_);
+        executor_,
+        options);
   }
 
   bool supportsSplitPreload() override {

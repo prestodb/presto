@@ -24,11 +24,6 @@ DEFINE_int32(
     80,
     "Minimum percentage of actual uses over references to a column for prefetching. No prefetch if > 100");
 
-DEFINE_int64(
-    max_coalesced_bytes,
-    128 << 20,
-    "Maximum size of single coalesced IO");
-
 using ::facebook::velox::common::Region;
 
 namespace facebook::velox::dwio::common {
@@ -69,7 +64,7 @@ std::unique_ptr<SeekableInputStream> CachedBufferedInput::enqueue(
       tracker_,
       id,
       groupId_,
-      loadQuantum_);
+      options_.loadQuantum());
   requests_.back().stream = stream.get();
   return stream;
 }
@@ -87,7 +82,7 @@ bool CachedBufferedInput::shouldPreload(int32_t numPages) {
   }
   for (auto& request : requests_) {
     numPages += bits::roundUp(
-                    std::min<int32_t>(request.size, loadQuantum_),
+                    std::min<int32_t>(request.size, options_.loadQuantum()),
                     memory::AllocationTraits::kPageSize) /
         memory::AllocationTraits::kPageSize;
   }
@@ -188,7 +183,7 @@ void CachedBufferedInput::load(const LogType) {
       if (prefetchAnyway || adjustedReadPct(trackingData) >= readPct) {
         request.processed = true;
         auto parts = makeRequestParts(
-            request, trackingData, loadQuantum_, extraRequests);
+            request, trackingData, options_.loadQuantum(), extraRequests);
         for (auto part : parts) {
           if (cache_->exists(part->key)) {
             continue;
@@ -222,7 +217,7 @@ void CachedBufferedInput::makeLoads(
     return;
   }
   bool isSsd = !requests[0]->ssdPin.empty();
-  int32_t maxDistance = isSsd ? 20000 : maxCoalesceDistance_;
+  int32_t maxDistance = isSsd ? 20000 : options_.maxCoalesceDistance();
   std::sort(
       requests.begin(),
       requests.end(),
@@ -252,7 +247,7 @@ void CachedBufferedInput::makeLoads(
         return size;
       },
       [&](int32_t index) {
-        if (coalescedBytes > FLAGS_max_coalesced_bytes) {
+        if (coalescedBytes > options_.maxCoalesceBytes()) {
           coalescedBytes = 0;
           return kNoCoalesce;
         }
@@ -471,7 +466,12 @@ void CachedBufferedInput::readRegion(
     load = std::make_shared<SsdLoad>(*cache_, ioStats_, groupId_, requests);
   } else {
     load = std::make_shared<DwioCoalescedLoad>(
-        *cache_, input_, ioStats_, groupId_, requests, maxCoalesceDistance_);
+        *cache_,
+        input_,
+        ioStats_,
+        groupId_,
+        requests,
+        options_.maxCoalesceDistance());
   }
   allCoalescedLoads_.push_back(load);
   coalescedLoads_.withWLock([&](auto& loads) {
@@ -512,7 +512,7 @@ std::unique_ptr<SeekableInputStream> CachedBufferedInput::read(
       nullptr,
       TrackingId(),
       0,
-      loadQuantum_);
+      options_.loadQuantum());
 }
 
 bool CachedBufferedInput::prefetch(Region region) {

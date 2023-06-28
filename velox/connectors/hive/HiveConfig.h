@@ -84,6 +84,13 @@ class HiveConfig {
   static constexpr const char* kFileColumnNamesReadAsLowerCase =
       "file_column_names_read_as_lower_case";
 
+  // Set the max coalesce bytes for a request.
+  static constexpr const char* kMaxCoalescedBytes = "max-coalesced-bytes";
+
+  // Set the max coalesce distance bytes for combining requests.
+  static constexpr const char* kMaxCoalescedDistanceBytes =
+      "max-coalesced-distance-bytes";
+
   static InsertExistingPartitionsBehavior insertExistingPartitionsBehavior(
       const Config* config);
 
@@ -110,6 +117,10 @@ class HiveConfig {
   static std::string s3IAMRoleSessionName(const Config* config);
 
   static bool isFileColumnNamesReadAsLowerCase(const Config* config);
+
+  static int64_t maxCoalescedBytes(const Config* config);
+
+  static int32_t maxCoalescedDistanceBytes(const Config* config);
 };
 
 } // namespace facebook::velox::connector::hive

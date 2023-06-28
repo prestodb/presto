@@ -58,7 +58,6 @@ class CachedBufferedInput : public BufferedInput {
  public:
   CachedBufferedInput(
       std::shared_ptr<ReadFile> readFile,
-      memory::MemoryPool& pool,
       const MetricsLogPtr& metricsLog,
       uint64_t fileNum,
       cache::AsyncDataCache* FOLLY_NONNULL cache,
@@ -66,9 +65,11 @@ class CachedBufferedInput : public BufferedInput {
       uint64_t groupId,
       std::shared_ptr<IoStatistics> ioStats,
       folly::Executor* FOLLY_NULLABLE executor,
-      int32_t loadQuantum,
-      int32_t maxCoalesceDistance)
-      : BufferedInput(std::move(readFile), pool, metricsLog),
+      const ReaderOptions& readerOptions)
+      : BufferedInput(
+            std::move(readFile),
+            readerOptions.getMemoryPool(),
+            metricsLog),
         cache_(cache),
         fileNum_(fileNum),
         tracker_(std::move(tracker)),
@@ -76,21 +77,18 @@ class CachedBufferedInput : public BufferedInput {
         ioStats_(std::move(ioStats)),
         executor_(executor),
         fileSize_(input_->getLength()),
-        loadQuantum_(loadQuantum),
-        maxCoalesceDistance_(maxCoalesceDistance) {}
+        options_(readerOptions) {}
 
   CachedBufferedInput(
       std::shared_ptr<ReadFileInputStream> input,
-      memory::MemoryPool& pool,
       uint64_t fileNum,
       cache::AsyncDataCache* FOLLY_NONNULL cache,
       std::shared_ptr<cache::ScanTracker> tracker,
       uint64_t groupId,
       std::shared_ptr<IoStatistics> ioStats,
       folly::Executor* FOLLY_NULLABLE executor,
-      int32_t loadQuantum,
-      int32_t maxCoalesceDistance)
-      : BufferedInput(std::move(input), pool),
+      const ReaderOptions& readerOptions)
+      : BufferedInput(std::move(input), readerOptions.getMemoryPool()),
         cache_(cache),
         fileNum_(fileNum),
         tracker_(std::move(tracker)),
@@ -98,8 +96,7 @@ class CachedBufferedInput : public BufferedInput {
         ioStats_(std::move(ioStats)),
         executor_(executor),
         fileSize_(input_->getLength()),
-        loadQuantum_(loadQuantum),
-        maxCoalesceDistance_(maxCoalesceDistance) {}
+        options_(readerOptions) {}
 
   ~CachedBufferedInput() override {
     for (auto& load : allCoalescedLoads_) {
@@ -138,15 +135,13 @@ class CachedBufferedInput : public BufferedInput {
   virtual std::unique_ptr<BufferedInput> clone() const override {
     return std::make_unique<CachedBufferedInput>(
         input_,
-        pool_,
         fileNum_,
         cache_,
         tracker_,
         groupId_,
         ioStats_,
         executor_,
-        loadQuantum_,
-        maxCoalesceDistance_);
+        options_);
   }
 
   cache::AsyncDataCache* FOLLY_NONNULL cache() const {
@@ -200,9 +195,8 @@ class CachedBufferedInput : public BufferedInput {
   std::vector<std::shared_ptr<cache::CoalescedLoad>> allCoalescedLoads_;
 
   const uint64_t fileSize_;
-  const int32_t loadQuantum_;
-  const int32_t maxCoalesceDistance_;
   int64_t prefetchSize_{0};
+  ReaderOptions options_;
 };
 
 } // namespace facebook::velox::dwio::common

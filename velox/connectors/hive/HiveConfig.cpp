@@ -130,4 +130,14 @@ bool HiveConfig::isFileColumnNamesReadAsLowerCase(const Config* config) {
   return config->get<bool>(kFileColumnNamesReadAsLowerCase, false);
 }
 
+// static.
+int64_t HiveConfig::maxCoalescedBytes(const Config* config) {
+  return config->get<int64_t>(kMaxCoalescedBytes, 128 << 20);
+}
+
+// static.
+int32_t HiveConfig::maxCoalescedDistanceBytes(const Config* config) {
+  return config->get<int32_t>(kMaxCoalescedDistanceBytes, 512 << 10);
+}
+
 } // namespace facebook::velox::connector::hive
