@@ -14,6 +14,7 @@
 
 add_library(
   velox_aggregates
+  AddressableNonNullValueList.cpp
   ApproxDistinctAggregate.cpp
   ApproxMostFrequentAggregate.cpp
   ApproxPercentileAggregate.cpp
