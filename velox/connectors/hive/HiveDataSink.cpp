@@ -432,6 +432,10 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
   options.memoryPool = connectorQueryCtx_->connectorMemoryPool();
   writers_.emplace_back(writerFactory->createWriter(
       dwio::common::DataSink::create(writePath), options));
+  // Extends the buffer used for partition rows calculations.
+  partitionSizes_.emplace_back(0);
+  partitionRows_.emplace_back(nullptr);
+  rawPartitionRows_.emplace_back(nullptr);
 
   writerIndexMap_.emplace(id, writers_.size() - 1);
   return writerIndexMap_[id];
@@ -451,12 +455,10 @@ void HiveDataSink::splitInputRowsAndEnsureWriters() {
     const auto id = isBucketed() ? HiveWriterId{partitionId, bucketIds_[row]}
                                  : HiveWriterId{partitionId};
     const uint32_t index = ensureWriter(id);
-    if (FOLLY_UNLIKELY(partitionSizes_.size() <= index)) {
-      partitionSizes_.emplace_back(0);
-      partitionRows_.emplace_back(nullptr);
-      rawPartitionRows_.emplace_back(nullptr);
-    }
-    if (FOLLY_UNLIKELY(partitionSizes_[index] == 0) ||
+    VELOX_DCHECK_LT(index, partitionSizes_.size());
+    VELOX_DCHECK_EQ(partitionSizes_.size(), partitionRows_.size());
+    VELOX_DCHECK_EQ(partitionRows_.size(), rawPartitionRows_.size());
+    if (FOLLY_UNLIKELY(partitionRows_[index] == nullptr) ||
         (partitionRows_[index]->capacity() < numRows * sizeof(vector_size_t))) {
       partitionRows_[index] =
           allocateIndices(numRows, connectorQueryCtx_->memoryPool());
@@ -468,7 +470,10 @@ void HiveDataSink::splitInputRowsAndEnsureWriters() {
   }
 
   for (uint32_t i = 0; i < partitionSizes_.size(); ++i) {
-    partitionRows_[i]->setSize(partitionSizes_[i] * sizeof(vector_size_t));
+    if (partitionSizes_[i] != 0) {
+      VELOX_CHECK_NOT_NULL(partitionRows_[i]);
+      partitionRows_[i]->setSize(partitionSizes_[i] * sizeof(vector_size_t));
+    }
   }
 }
 

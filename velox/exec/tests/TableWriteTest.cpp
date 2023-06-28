@@ -784,6 +784,30 @@ class BucketedTableOnlyWriteTest
   }
 };
 
+class PartitionedWithoutBucketTableWriterTest
+    : public TableWriteTest,
+      public testing::WithParamInterface<uint32_t> {
+ public:
+  PartitionedWithoutBucketTableWriterTest() : TableWriteTest(GetParam()) {}
+
+  static std::vector<uint32_t> getTestParams() {
+    std::vector<uint32_t> testParams;
+    testParams.push_back(TestParam{
+        TestMode::kPartitioned,
+        CommitStrategy::kNoCommit,
+        HiveBucketProperty::Kind::kHiveCompatible,
+        false}
+                             .value);
+    testParams.push_back(TestParam{
+        TestMode::kPartitioned,
+        CommitStrategy::kTaskCommit,
+        HiveBucketProperty::Kind::kHiveCompatible,
+        false}
+                             .value);
+    return testParams;
+  }
+};
+
 class AllTableWriterTest : public TableWriteTest,
                            public testing::WithParamInterface<uint32_t> {
  public:
@@ -1233,6 +1257,40 @@ TEST_P(PartitionedTableWriterTest, singlePartition) {
   }
 }
 
+TEST_P(PartitionedWithoutBucketTableWriterTest, fromSinglePartitionToMultiple) {
+  const int32_t numBatches = 1;
+  auto rowType = ROW({"c0", "c1"}, {BIGINT(), BIGINT()});
+  std::vector<std::string> partitionKeys = {"c0"};
+
+  // Partition vector is constant vector.
+  std::vector<RowVectorPtr> vectors;
+  // The initial vector has the same partition key value;
+  vectors.push_back(makeRowVector(
+      rowType->names(),
+      {makeFlatVector<int64_t>(1'000, [&](auto /*unused*/) { return 1; }),
+       makeFlatVector<int64_t>(1'000, [&](auto row) { return row + 1; })}));
+  // The second vector has different partition key value.
+  vectors.push_back(makeRowVector(
+      rowType->names(),
+      {makeFlatVector<int64_t>(1'000, [&](auto row) { return row * 234 % 30; }),
+       makeFlatVector<int64_t>(1'000, [&](auto row) { return row + 1; })}));
+  createDuckDbTable(vectors);
+
+  auto outputDirectory = TempDirectoryPath::create();
+  auto plan = createInsertPlan(
+      PlanBuilder().values(vectors),
+      rowType,
+      outputDirectory->path,
+      partitionKeys);
+
+  assertQuery(plan, "SELECT count(*) FROM tmp");
+
+  assertQuery(
+      PlanBuilder().tableScan(rowType).planNode(),
+      makeHiveConnectorSplits(outputDirectory),
+      "SELECT * FROM tmp");
+}
+
 TEST_P(PartitionedTableWriterTest, maxPartitions) {
   SCOPED_TRACE(testParam_.toString());
   const int32_t maxPartitions = 100;
@@ -1618,3 +1676,9 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     TableWriterTest,
     AllTableWriterTest,
     testing::ValuesIn(AllTableWriterTest::getTestParams()));
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    TableWriterTest,
+    PartitionedWithoutBucketTableWriterTest,
+    testing::ValuesIn(
+        PartitionedWithoutBucketTableWriterTest::getTestParams()));
