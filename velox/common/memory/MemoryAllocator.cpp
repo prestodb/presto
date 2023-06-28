@@ -17,11 +17,14 @@
 #include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/MallocAllocator.h"
 
+#include <sys/mman.h>
 #include <iostream>
 #include <numeric>
 
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/memory/Memory.h"
+
+DECLARE_bool(velox_memory_use_hugepages);
 
 namespace facebook::velox::memory {
 
@@ -206,6 +209,26 @@ std::string Stats::toString() const {
         sizes[i].clocks() >> 20);
   }
   return out.str();
+}
+
+void MemoryAllocator::useHugePages(
+    const ContiguousAllocation& data,
+    bool enable) {
+#ifdef linux
+  if (!FLAGS_velox_memory_use_hugepages) {
+    return;
+  }
+  // A huge page is 2MB, so anything smaller does not apply.
+  if (data.size() < 2 << 20) {
+    return;
+  }
+  auto rc = ::madvise(
+      data.data(), data.size(), enable ? MADV_HUGEPAGE : MADV_NOHUGEPAGE);
+  if (rc != 0) {
+    VELOX_MEM_LOG(WARNING) << "madvise hugepage errno="
+                           << folly ::errnoStr(errno);
+  }
+#endif
 }
 
 } // namespace facebook::velox::memory

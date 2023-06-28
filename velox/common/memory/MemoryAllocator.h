@@ -374,6 +374,10 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
     return true;
   }
 
+  // If 'data' is sufficiently large, enables/disables adaptive  huge pages for
+  // the address raneg.
+  void useHugePages(const ContiguousAllocation& data, bool enable);
+
   // The machine page counts corresponding to different sizes in order
   // of increasing size.
   const std::vector<MachinePageCount>

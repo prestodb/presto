@@ -236,6 +236,7 @@ bool MmapAllocator::allocateContiguousImpl(
   }
   const auto numLargeCollateralPages = allocation.numPages();
   if (numLargeCollateralPages > 0) {
+    useHugePages(allocation, false);
     if (useMmapArena_) {
       std::lock_guard<std::mutex> l(arenaMutex_);
       managedArenas_->free(allocation.data(), allocation.size());
@@ -349,6 +350,7 @@ bool MmapAllocator::allocateContiguousImpl(
     return false;
   }
   allocation.set(data, AllocationTraits::pageBytes(numPages));
+  useHugePages(allocation, true);
   return true;
 }
 
@@ -356,6 +358,7 @@ void MmapAllocator::freeContiguousImpl(ContiguousAllocation& allocation) {
   if (allocation.empty()) {
     return;
   }
+  useHugePages(allocation, false);
   if (useMmapArena_) {
     std::lock_guard<std::mutex> l(arenaMutex_);
     managedArenas_->free(allocation.data(), allocation.size());
