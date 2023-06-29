@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.transaction.TransactionId;
@@ -28,6 +29,7 @@ import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -140,6 +142,7 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
@@ -201,6 +204,7 @@ public final class SqlToRowExpressionTranslator
                 session.getTransactionId(),
                 session.getSqlFunctionProperties(),
                 session.getSessionFunctions(),
+                SystemSessionProperties.isNativeExecutionEnabled(session),
                 context);
     }
 
@@ -213,6 +217,7 @@ public final class SqlToRowExpressionTranslator
             Optional<TransactionId> transactionId,
             SqlFunctionProperties sqlFunctionProperties,
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+            boolean isNative,
             Context context)
     {
         Visitor visitor = new Visitor(
@@ -222,7 +227,8 @@ public final class SqlToRowExpressionTranslator
                 user,
                 transactionId,
                 sqlFunctionProperties,
-                sessionFunctions);
+                sessionFunctions,
+                isNative);
         RowExpression result = visitor.process(expression, context);
         requireNonNull(result, "translated expression is null");
         return result;
@@ -264,6 +270,7 @@ public final class SqlToRowExpressionTranslator
         private final SqlFunctionProperties sqlFunctionProperties;
         private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
         private final FunctionResolution functionResolution;
+        private final boolean isNative;
 
         private Visitor(
                 Map<NodeRef<Expression>, Type> types,
@@ -272,7 +279,8 @@ public final class SqlToRowExpressionTranslator
                 Optional<String> user,
                 Optional<TransactionId> transactionId,
                 SqlFunctionProperties sqlFunctionProperties,
-                Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
+                Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+                boolean isNative)
         {
             this.types = requireNonNull(types, "types is null");
             this.layout = requireNonNull(layout);
@@ -283,6 +291,7 @@ public final class SqlToRowExpressionTranslator
             this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties);
             this.functionResolution = new FunctionResolution(functionAndTypeResolver);
             this.sessionFunctions = requireNonNull(sessionFunctions);
+            this.isNative = isNative;
         }
 
         private Type getType(Expression node)
@@ -833,6 +842,42 @@ public final class SqlToRowExpressionTranslator
             RowExpression first = process(node.getFirst(), context);
             RowExpression second = process(node.getSecond(), context);
 
+            if (isNative && !second.getType().equals(first.getType())) {
+                Optional<Type> commonType = functionAndTypeResolver.getCommonSuperType(first.getType(), second.getType());
+                if (!commonType.isPresent()) {
+                    throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", first.getType(), second.getType());
+                }
+
+                Type returnType = getType(node);
+                // If the first type is unknown, as per presto's NULL_IF semantics we should not infer the type using second argument.
+                // Always return a null with unknown type.
+                if (first.getType().equals(UnknownType.UNKNOWN)) {
+                    return constantNull(UnknownType.UNKNOWN);
+                }
+                RowExpression originalFirst = first;
+                // cast(first as <common type>)
+                if (!first.getType().equals(commonType.get())) {
+                    first = call(
+                            getSourceLocation(node),
+                            CAST.name(),
+                            functionAndTypeResolver.lookupCast(CAST.name(), first.getType(), commonType.get()),
+                            commonType.get(), first);
+                }
+                // cast(second as <common type>)
+                if (!second.getType().equals(commonType.get())) {
+                    second = call(
+                            getSourceLocation(node),
+                            CAST.name(),
+                            functionAndTypeResolver.lookupCast(CAST.name(), second.getType(), commonType.get()),
+                            commonType.get(), second);
+                }
+                FunctionHandle equalsFunctionHandle = functionAndTypeResolver.resolveOperator(EQUAL, fromTypes(first.getType(), second.getType()));
+                // equal(cast(first as <common type>), cast(second as <common type>))
+                RowExpression equal = call(EQUAL.name(), equalsFunctionHandle, BOOLEAN, first, second);
+
+                // if (equal(cast(first as <common type>), cast(second as <common type>)), cast(null as firstType), first)
+                return specialForm(IF, returnType, equal, constantNull(originalFirst.getType()), originalFirst);
+            }
             return specialForm(getSourceLocation(node), NULL_IF, getType(node), first, second);
         }
 

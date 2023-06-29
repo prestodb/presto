@@ -2099,10 +2099,7 @@ class StatementAnalyzer
                 }
 
                 Window window = windowFunction.getWindow().get();
-                if (window.getOrderBy().filter(
-                                orderBy -> orderBy.getSortItems().stream().anyMatch(
-                                        item -> item.getSortKey() instanceof Literal))
-                        .isPresent()) {
+                if (window.getOrderBy().filter(orderBy -> orderBy.getSortItems().stream().anyMatch(item -> item.getSortKey() instanceof Literal)).isPresent()) {
                     if (isAllowWindowOrderByLiterals(session)) {
                         warningCollector.add(
                                 new PrestoWarning(
