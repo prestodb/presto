@@ -440,25 +440,6 @@ class TableWriteTest : public HiveConnectorTestBase {
     }
   }
 
-#if 0
-  // Verifies if the given partitioned table directory (names) are encoded
-  // properly based on the used partitioned keys.
-  void verifyPartitionFileDirectory(
-      const std::filesystem::path& filePath,
-      const std::string& targetDir) {
-    auto parentPath = filePath.parent_path();
-    for (int i = partitionedBy_.size() - 1; i >= 0; --i) {
-      const auto& partitionColumn = partitionedBy_[i];
-      ASSERT_TRUE(RE2::FullMatch(
-          parentPath.filename().string(),
-          fmt::format("{}=.+", partitionColumn)))
-          << parentPath.filename().string() << " " << partitionColumn << " "
-          << i << " " << parentPath.string();
-      parentPath = parentPath.parent_path();
-    }
-  }
-#endif
-
   // Verifies if a partitioned file path (directory and file name) is encoded
   // properly.
   void verifyPartitionedFilePath(
@@ -476,12 +457,12 @@ class TableWriteTest : public HiveConnectorTestBase {
     verifyPartitionedDirPath(filePath, targetDir);
     if (commitStrategy_ == CommitStrategy::kNoCommit) {
       ASSERT_TRUE(RE2::FullMatch(
-          filePath.filename().string(), "0[0-9]+_0_test_cursor.+"))
+          filePath.filename().string(), "0[0-9]+_0_TaskCursorQuery_[0-9]+"))
           << filePath.filename().string();
     } else {
       ASSERT_TRUE(RE2::FullMatch(
           filePath.filename().string(),
-          ".tmp.velox.0[0-9]+_0_test_cursor.+_.+"))
+          ".tmp.velox.0[0-9]+_0_TaskCursorQuery_[0-9]+_.+"))
           << filePath.filename().string();
     }
   }

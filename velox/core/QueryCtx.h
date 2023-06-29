@@ -35,11 +35,11 @@ class QueryCtx {
   /// be passed in here, but instead, ensure that executor exists when actually
   /// being used.
   QueryCtx(
-      folly::Executor* FOLLY_NULLABLE executor = nullptr,
+      folly::Executor* executor = nullptr,
       std::unordered_map<std::string, std::string> queryConfigValues = {},
       std::unordered_map<std::string, std::shared_ptr<Config>>
           connectorConfigs = {},
-      memory::MemoryAllocator* FOLLY_NONNULL allocator =
+      memory::MemoryAllocator* allocator =
           memory::MemoryAllocator::getInstance(),
       std::shared_ptr<memory::MemoryPool> pool = nullptr,
       std::shared_ptr<folly::Executor> spillExecutor = nullptr,
@@ -54,22 +54,22 @@ class QueryCtx {
       std::unordered_map<std::string, std::string> queryConfigValues = {},
       std::unordered_map<std::string, std::shared_ptr<Config>>
           connectorConfigs = {},
-      memory::MemoryAllocator* FOLLY_NONNULL allocator =
+      memory::MemoryAllocator* allocator =
           memory::MemoryAllocator::getInstance(),
       std::shared_ptr<memory::MemoryPool> pool = nullptr,
       const std::string& queryId = "");
 
   static std::string generatePoolName(const std::string& queryId);
 
-  memory::MemoryPool* FOLLY_NONNULL pool() const {
+  memory::MemoryPool* pool() const {
     return pool_.get();
   }
 
-  memory::MemoryAllocator* FOLLY_NONNULL allocator() const {
+  memory::MemoryAllocator* allocator() const {
     return allocator_;
   }
 
-  folly::Executor* FOLLY_NONNULL executor() const {
+  folly::Executor* executor() const {
     if (executor_ != nullptr) {
       return executor_;
     }
@@ -82,8 +82,7 @@ class QueryCtx {
     return queryConfig_;
   }
 
-  Config* FOLLY_NONNULL
-  getConnectorConfig(const std::string& connectorId) const {
+  Config* getConnectorConfig(const std::string& connectorId) const {
     auto it = connectorConfigs_.find(connectorId);
     if (it == connectorConfigs_.end()) {
       return getEmptyConfig();
@@ -107,7 +106,7 @@ class QueryCtx {
         std::make_shared<MemConfig>(std::move(configOverrides));
   }
 
-  folly::Executor* FOLLY_NULLABLE spillExecutor() const {
+  folly::Executor* spillExecutor() const {
     return spillExecutor_.get();
   }
 
@@ -120,7 +119,7 @@ class QueryCtx {
   }
 
  private:
-  static Config* FOLLY_NONNULL getEmptyConfig() {
+  static Config* getEmptyConfig() {
     static const std::unique_ptr<Config> kEmptyConfig =
         std::make_unique<MemConfig>();
     return kEmptyConfig.get();
@@ -133,29 +132,28 @@ class QueryCtx {
     }
   }
 
+  const std::string queryId_;
+
   std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs_;
-  memory::MemoryAllocator* FOLLY_NONNULL allocator_;
+  memory::MemoryAllocator* allocator_;
   std::shared_ptr<memory::MemoryPool> pool_;
-  folly::Executor* FOLLY_NULLABLE executor_;
+  folly::Executor* executor_;
   folly::Executor::KeepAlive<> executorKeepalive_;
   QueryConfig queryConfig_;
-  const std::string queryId_;
   std::shared_ptr<folly::Executor> spillExecutor_;
 };
 
 // Represents the state of one thread of query execution.
 class ExecCtx {
  public:
-  ExecCtx(
-      memory::MemoryPool* FOLLY_NONNULL pool,
-      QueryCtx* FOLLY_NULLABLE queryCtx)
+  ExecCtx(memory::MemoryPool* pool, QueryCtx* queryCtx)
       : pool_(pool), queryCtx_(queryCtx), vectorPool_{pool} {}
 
-  velox::memory::MemoryPool* FOLLY_NONNULL pool() const {
+  velox::memory::MemoryPool* pool() const {
     return pool_;
   }
 
-  QueryCtx* FOLLY_NONNULL queryCtx() const {
+  QueryCtx* queryCtx() const {
     return queryCtx_;
   }
 
@@ -228,8 +226,8 @@ class ExecCtx {
 
  private:
   // Pool for all Buffers for this thread.
-  memory::MemoryPool* FOLLY_NONNULL pool_;
-  QueryCtx* FOLLY_NULLABLE queryCtx_;
+  memory::MemoryPool* pool_;
+  QueryCtx* queryCtx_;
   // A pool of preallocated DecodedVectors for use by expressions and operators.
   std::vector<std::unique_ptr<DecodedVector>> decodedVectorPool_;
   // A pool of preallocated SelectivityVectors for use by expressions

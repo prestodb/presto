@@ -18,19 +18,19 @@
 namespace facebook::velox::core {
 
 QueryCtx::QueryCtx(
-    folly::Executor* FOLLY_NULLABLE executor,
+    folly::Executor* executor,
     std::unordered_map<std::string, std::string> queryConfigValues,
     std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs,
-    memory::MemoryAllocator* FOLLY_NONNULL allocator,
+    memory::MemoryAllocator* allocator,
     std::shared_ptr<memory::MemoryPool> pool,
     std::shared_ptr<folly::Executor> spillExecutor,
     const std::string& queryId)
-    : connectorConfigs_(connectorConfigs),
+    : queryId_(queryId),
+      connectorConfigs_(connectorConfigs),
       allocator_(allocator),
       pool_(std::move(pool)),
       executor_(executor),
       queryConfig_{std::move(queryConfigValues)},
-      queryId_(queryId),
       spillExecutor_(std::move(spillExecutor)) {
   initPool(queryId);
 }
@@ -39,15 +39,15 @@ QueryCtx::QueryCtx(
     folly::Executor::KeepAlive<> executorKeepalive,
     std::unordered_map<std::string, std::string> queryConfigValues,
     std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs,
-    memory::MemoryAllocator* FOLLY_NONNULL allocator,
+    memory::MemoryAllocator* allocator,
     std::shared_ptr<memory::MemoryPool> pool,
     const std::string& queryId)
-    : connectorConfigs_(connectorConfigs),
+    : queryId_(queryId),
+      connectorConfigs_(connectorConfigs),
       allocator_(allocator),
       pool_(std::move(pool)),
       executorKeepalive_(std::move(executorKeepalive)),
-      queryConfig_{std::move(queryConfigValues)},
-      queryId_(queryId) {
+      queryConfig_{std::move(queryConfigValues)} {
   initPool(queryId);
 }
 

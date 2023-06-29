@@ -219,6 +219,7 @@ class ConnectorQueryCtx {
       const Config* connectorConfig,
       std::unique_ptr<core::ExpressionEvaluator> expressionEvaluator,
       memory::MemoryAllocator* FOLLY_NONNULL allocator,
+      const std::string& queryId,
       const std::string& taskId,
       const std::string& planNodeId,
       int driverId)
@@ -228,6 +229,7 @@ class ConnectorQueryCtx {
         expressionEvaluator_(std::move(expressionEvaluator)),
         allocator_(allocator),
         scanId_(fmt::format("{}.{}", taskId, planNodeId)),
+        queryId_(queryId),
         taskId_(taskId),
         driverId_(driverId) {}
 
@@ -266,6 +268,10 @@ class ConnectorQueryCtx {
     return scanId_;
   }
 
+  const std::string queryId() const {
+    return queryId_;
+  }
+
   const std::string& taskId() const {
     return taskId_;
   }
@@ -281,6 +287,7 @@ class ConnectorQueryCtx {
   std::unique_ptr<core::ExpressionEvaluator> expressionEvaluator_;
   memory::MemoryAllocator* FOLLY_NONNULL allocator_;
   const std::string scanId_;
+  const std::string queryId_;
   const std::string taskId_;
   const int driverId_;
 };

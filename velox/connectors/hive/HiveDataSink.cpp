@@ -500,8 +500,8 @@ std::pair<std::string, std::string> HiveDataSink::getWriterFileNames(
   std::string targetFileName;
   if (bucketId.has_value()) {
     // TODO: add hive.file_renaming_enabled support.
-    targetFileName =
-        computeBucketedFileName(connectorQueryCtx_->taskId(), bucketId.value());
+    targetFileName = computeBucketedFileName(
+        connectorQueryCtx_->queryId(), bucketId.value());
   } else {
     targetFileName = fmt::format(
         "{}_{}_{}",

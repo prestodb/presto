@@ -118,7 +118,15 @@ TaskCursor::TaskCursor(const CursorParameters& params)
     // activities to finish on TaskCursor destruction.
     executor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
         std::thread::hardware_concurrency());
-    queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+    static std::atomic<uint64_t> cursorQueryId{0};
+    queryCtx = std::make_shared<core::QueryCtx>(
+        executor_.get(),
+        std::unordered_map<std::string, std::string>{},
+        std::unordered_map<std::string, std::shared_ptr<Config>>{},
+        memory::MemoryAllocator::getInstance(),
+        nullptr,
+        nullptr,
+        fmt::format("TaskCursorQuery_{}", cursorQueryId++));
   }
 
   queue_ = std::make_shared<TaskQueue>(params.bufferedBytes);
