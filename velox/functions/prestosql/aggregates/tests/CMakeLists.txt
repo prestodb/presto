@@ -42,7 +42,8 @@ add_executable(
   MapUnionSumTest.cpp
   ValueListTest.cpp
   VarianceAggregationTest.cpp
-  MaxSizeForStatsTest.cpp)
+  MaxSizeForStatsTest.cpp
+  SumDataSizeForStatsTest.cpp)
 
 add_test(
   NAME velox_aggregates_test

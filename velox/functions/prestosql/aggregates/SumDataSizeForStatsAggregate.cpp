@@ -31,18 +31,10 @@ std::unique_ptr<VectorSerde>& getVectorSerde() {
   return serde;
 }
 
-class MaxSizeForStatsAggregate
+class SumDataSizeForStatsAggregate
     : public SimpleNumericAggregate<int64_t, int64_t, int64_t> {
-  using BaseAggregate = SimpleNumericAggregate<int64_t, int64_t, int64_t>;
-
- private:
-  std::vector<vector_size_t> elementSizes_;
-  std::vector<vector_size_t*> elementSizePtrs_;
-  std::vector<IndexRange> elementIndices_;
-  DecodedVector decoded_;
-
  public:
-  explicit MaxSizeForStatsAggregate(TypePtr resultType)
+  explicit SumDataSizeForStatsAggregate(TypePtr resultType)
       : BaseAggregate(resultType) {}
 
   int32_t accumulatorFixedWidthSize() const override {
@@ -60,8 +52,8 @@ class MaxSizeForStatsAggregate
       char** groups,
       folly::Range<const vector_size_t*> indices) override {
     exec::Aggregate::setAllNulls(groups, indices);
-    for (auto i : indices) {
-      *BaseAggregate ::value<int64_t>(groups[i]) = 0;
+    for (auto index : indices) {
+      *BaseAggregate ::value<int64_t>(groups[index]) = 0;
     }
   }
 
@@ -81,9 +73,7 @@ class MaxSizeForStatsAggregate
         rows,
         args[0],
         [](int64_t& result, int64_t value) {
-          if (result < value) {
-            result = value;
-          }
+          result = checkedPlus(result, value);
         },
         mayPushdown);
   }
@@ -98,10 +88,10 @@ class MaxSizeForStatsAggregate
         rows,
         args[0],
         [](int64_t& result, int64_t value) {
-          result = std::max(result, value);
+          result = checkedPlus(result, value);
         },
         [](int64_t& result, int64_t value, int /* unused */) {
-          result = value;
+          result = checkedPlus(result, value);
         },
         mayPushdown,
         (int64_t)0);
@@ -132,52 +122,42 @@ class MaxSizeForStatsAggregate
 
     // Clear null.
     clearNull(group);
-    // Set max(current, this).
+    // Set sum(current, this).
     int64_t& current = *value<int64_t>(group);
-    current = std::max(current, rowSize);
+    current = checkedPlus(current, rowSize);
   }
 
   void
   doUpdate(char** groups, const SelectivityVector& rows, const VectorPtr& arg) {
     decoded_.decode(*arg, rows, true);
-
-    if (decoded_.isConstantMapping()) {
-      if (!decoded_.isNullAt(0)) {
-        estimateSerializedSizes(arg, rows, 1);
-        rows.applyToSelected([&](auto row) {
-          updateOneAccumulator(groups[row], row, elementSizes_[0]);
-        });
-      }
-    } else {
-      estimateSerializedSizes(arg, rows, rows.countSelected());
-      vector_size_t sizeIndex = 0;
-      rows.applyToSelected([&](auto row) {
-        updateOneAccumulator(groups[row], row, elementSizes_[sizeIndex++]);
-      });
-    }
+    estimateSerializedSizes(arg, rows);
+    vector_size_t sizeIndex = 0;
+    rows.applyToSelected([&](auto row) {
+      updateOneAccumulator(groups[row], row, rowSizes_[sizeIndex++]);
+    });
   }
 
-  // Estimate the sizes of first numToProcess selected elements in vector.
+  // Estimates the sizes of first numToProcess selected elements in vector.
   void estimateSerializedSizes(
       VectorPtr vector,
-      const SelectivityVector& rows,
-      vector_size_t numToProcess) {
-    elementSizes_.resize(numToProcess);
-    std::fill(elementSizes_.begin(), elementSizes_.end(), 0);
-    elementIndices_.resize(numToProcess);
-    elementSizePtrs_.resize(numToProcess);
+      const SelectivityVector& rows) {
+    vector_size_t numRowsToProcess = rows.countSelected();
+    rowSizes_.resize(numRowsToProcess);
+    std::fill(rowSizes_.begin(), rowSizes_.end(), 0);
+    rowIndices_.resize(numRowsToProcess);
+    rowSizePtrs_.resize(numRowsToProcess);
 
     vector_size_t i = 0;
     rows.testSelected([&](auto row) {
-      elementIndices_[i] = IndexRange{row, 1};
-      elementSizePtrs_[i] = &elementSizes_[i];
-      return ++i < numToProcess;
+      rowIndices_[i] = IndexRange{row, 1};
+      rowSizePtrs_[i] = &rowSizes_[i];
+      return ++i < numRowsToProcess;
     });
 
     getVectorSerde()->estimateSerializedSize(
         vector,
-        folly::Range(elementIndices_.data(), elementIndices_.size()),
-        elementSizePtrs_.data());
+        folly::Range(rowIndices_.data(), rowIndices_.size()),
+        rowSizePtrs_.data());
   }
 
   void doUpdateSingleGroup(
@@ -185,24 +165,24 @@ class MaxSizeForStatsAggregate
       const SelectivityVector& rows,
       const VectorPtr& arg) {
     decoded_.decode(*arg, rows, true);
-
-    if (decoded_.isConstantMapping()) {
-      if (!decoded_.isNullAt(0)) {
-        // Estimate first element because it is constant mapping.
-        estimateSerializedSizes(arg, rows, 1);
-        updateOneAccumulator(group, 0, elementSizes_[0]);
-      }
-    } else {
-      estimateSerializedSizes(arg, rows, rows.countSelected());
-      vector_size_t sizeIndex = 0;
-      rows.applyToSelected([&](auto row) {
-        updateOneAccumulator(group, row, elementSizes_[sizeIndex++]);
-      });
-    }
+    estimateSerializedSizes(arg, rows);
+    vector_size_t sizeIndex = 0;
+    rows.applyToSelected([&](auto row) {
+      updateOneAccumulator(group, row, rowSizes_[sizeIndex++]);
+    });
   }
+
+ private:
+  using BaseAggregate = SimpleNumericAggregate<int64_t, int64_t, int64_t>;
+
+  DecodedVector decoded_;
+  // Reusable buffers to calculate the data size of input rows.
+  std::vector<vector_size_t> rowSizes_;
+  std::vector<vector_size_t*> rowSizePtrs_;
+  std::vector<IndexRange> rowIndices_;
 };
 
-exec::AggregateRegistrationResult registerMaxSizeForStats(
+exec::AggregateRegistrationResult registerSumDataSizeForStats(
     const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
 
@@ -223,14 +203,14 @@ exec::AggregateRegistrationResult registerMaxSizeForStats(
         VELOX_CHECK_EQ(argTypes.size(), 1, "{} takes only one argument", name);
         auto inputType = argTypes[0];
 
-        return std::make_unique<MaxSizeForStatsAggregate>(resultType);
+        return std::make_unique<SumDataSizeForStatsAggregate>(resultType);
       });
 }
 
 } // namespace
 
-void registerMaxDataSizeForStatsAggregate(const std::string& prefix) {
-  registerMaxSizeForStats(prefix + kMaxSizeForStats);
+void registerSumDataSizeForStatsAggregate(const std::string& prefix) {
+  registerSumDataSizeForStats(prefix + kSumDataSizeForStats);
 }
 
 } // namespace facebook::velox::aggregate::prestosql
