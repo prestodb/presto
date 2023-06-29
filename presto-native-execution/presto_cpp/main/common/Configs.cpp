@@ -397,6 +397,28 @@ bool SystemConfig::useMmapAllocator() const {
   return optionalProperty<bool>(kUseMmapAllocator).value();
 }
 
+bool SystemConfig::enableMemoryArbitration() const {
+  return optionalProperty<bool>(kEnableMemoryArbitration).value_or(false);
+}
+
+uint64_t SystemConfig::initMemoryPoolCapacity() const {
+  static constexpr uint64_t kInitMemoryPoolCapacityDefault = 128 << 20;
+  return optionalProperty<uint64_t>(kInitMemoryPoolCapacity)
+      .value_or(kInitMemoryPoolCapacityDefault);
+}
+
+uint64_t SystemConfig::minMemoryPoolTransferCapacity() const {
+  static constexpr uint64_t kMinMemoryPoolTransferCapacityDefault = 32 << 20;
+  return optionalProperty<uint64_t>(kMinMemoryPoolTransferCapacity)
+      .value_or(kMinMemoryPoolTransferCapacityDefault);
+}
+
+uint32_t SystemConfig::reservedMemoryPoolCapacityPct() const {
+  static constexpr uint64_t kReservedMemoryPoolCapacityPctDefault = 10;
+  return optionalProperty<uint32_t>(kReservedMemoryPoolCapacityPct)
+      .value_or(kReservedMemoryPoolCapacityPctDefault);
+}
+
 bool SystemConfig::enableHttpAccessLog() const {
   return optionalProperty<bool>(kHttpEnableAccessLog).value();
 }
