@@ -15,10 +15,18 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.ByteArrayBlock;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.block.IntArrayBlock;
+import com.facebook.presto.common.block.LongArrayBlock;
+import com.facebook.presto.common.block.ShortArrayBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 
 public class NullableLongStateSerializer
         implements AccumulatorStateSerializer<NullableLongState>
@@ -44,6 +52,14 @@ public class NullableLongStateSerializer
     public void deserialize(Block block, int index, NullableLongState state)
     {
         state.setNull(false);
-        state.setLong(BIGINT.getLong(block, index));
+        if (((DictionaryBlock) block).getDictionary() instanceof IntArrayBlock) {
+            state.setLong(INTEGER.getLong(block, index));
+        } else if (((DictionaryBlock) block).getDictionary() instanceof ShortArrayBlock) {
+            state.setLong(SMALLINT.getLong(block, index));
+        } else if (((DictionaryBlock) block).getDictionary() instanceof ByteArrayBlock) {
+            state.setLong(TINYINT.getLong(block, index));
+        } else {
+            state.setLong(BIGINT.getLong(block, index));
+        }
     }
 }
