@@ -193,6 +193,12 @@ void ConfigBase::checkRegisteredProperties(
   }
 }
 
+static constexpr std::string_view kAnnouncementMinFrequencyMs{
+    "announcement-min-frequency-ms"};
+
+static constexpr std::string_view kAnnouncementMaxFrequencyMs{
+    "announcement-max-frequency-ms"};
+
 SystemConfig::SystemConfig() {
   registeredProps_ =
       std::unordered_map<std::string, folly::Optional<std::string>>{
@@ -242,6 +248,8 @@ SystemConfig::SystemConfig() {
           STR_PROP(kSkipRuntimeStatsInRunningTaskInfo, "true"),
           STR_PROP(kLogZombieTaskInfo, "false"),
           NUM_PROP(kLogNumZombieTasks, 20),
+          NUM_PROP(kAnnouncementMinFrequencyMs, 25'000), // 25s
+          NUM_PROP(kAnnouncementMaxFrequencyMs, 30'000), // 35s
       };
 }
 
@@ -454,6 +462,14 @@ bool SystemConfig::logZombieTaskInfo() const {
 
 uint32_t SystemConfig::logNumZombieTasks() const {
   return optionalProperty<uint32_t>(kLogNumZombieTasks).value();
+}
+
+uint64_t SystemConfig::announcementMinFrequencyMs() const {
+  return optionalProperty<uint64_t>(kAnnouncementMinFrequencyMs).value();
+}
+
+uint64_t SystemConfig::announcementMaxFrequencyMs() const {
+  return optionalProperty<uint64_t>(kAnnouncementMaxFrequencyMs).value();
 }
 
 NodeConfig::NodeConfig() {
