@@ -14,9 +14,13 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
+import com.facebook.presto.spi.function.SqlParameter;
+import com.facebook.presto.spi.function.SqlParameters;
 import com.facebook.presto.spi.function.SqlType;
 import io.airlift.slice.Slice;
 
@@ -44,5 +48,14 @@ public final class CustomFunctions
     public static boolean customIsNullBigint(@SqlNullable @SqlType(StandardTypes.BIGINT) Long value)
     {
         return value == null;
+    }
+
+    @SqlInvokedScalarFunction(value = "custom_square", deterministic = true, calledOnNullInput = false)
+    @Description("Custom SQL to test NULLIF in Functions")
+    @SqlParameters({@SqlParameter(name = "x", type = "integer"), @SqlParameter(name = "y", type = "integer")})
+    @SqlType("integer")
+    public static String customSquare()
+    {
+        return "RETURN IF(NULLIF(x, y) IS NOT NULL, x * x, y * y)";
     }
 }
