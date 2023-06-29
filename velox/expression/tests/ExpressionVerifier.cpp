@@ -42,28 +42,30 @@ void logRowVector(const RowVectorPtr& rowVector) {
   }
 }
 
-void compareVectors(const VectorPtr& left, const VectorPtr& right) {
-  VELOX_CHECK_EQ(left->size(), right->size());
-
+void compareVectors(
+    const VectorPtr& left,
+    const VectorPtr& right,
+    const SelectivityVector& rows) {
   // Print vector contents if in verbose mode.
   size_t vectorSize = left->size();
   if (VLOG_IS_ON(1)) {
     LOG(INFO) << "== Result contents (common vs. simple): ";
-    for (auto i = 0; i < vectorSize; i++) {
-      LOG(INFO) << "At " << i << ": [" << left->toString(i) << " vs "
-                << right->toString(i) << "]";
-    }
+    rows.applyToSelected([&](vector_size_t row) {
+      LOG(INFO) << fmt::format(
+          "At {} [ {} vs {} ]", row, left->toString(row), right->toString(row));
+    });
     LOG(INFO) << "===================";
   }
 
-  for (auto i = 0; i < vectorSize; i++) {
+  rows.applyToSelected([&](vector_size_t row) {
     VELOX_CHECK(
-        left->equalValueAt(right.get(), i, i),
+        left->equalValueAt(right.get(), row, row),
         "Different results at idx '{}': '{}' vs. '{}'",
-        i,
-        left->toString(i),
-        right->toString(i));
-  }
+        row,
+        left->toString(row),
+        right->toString(row));
+  });
+
   LOG(INFO) << "All results match.";
 }
 
@@ -196,7 +198,7 @@ ResultOrError ExpressionVerifier::verify(
       VELOX_CHECK_EQ(commonEvalResult.size(), plans.size());
       VELOX_CHECK_EQ(simplifiedEvalResult.size(), plans.size());
       for (int i = 0; i < plans.size(); ++i) {
-        compareVectors(commonEvalResult[i], simplifiedEvalResult[i]);
+        compareVectors(commonEvalResult[i], simplifiedEvalResult[i], rows);
       }
     }
   } catch (...) {
