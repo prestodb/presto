@@ -191,8 +191,17 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
-    public void testAnalyzeStats() {
+    public void testAnalyzeStats()
+    {
         assertQuery("ANALYZE region");
+        // presto:tpch> show stats for region;
+        // column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
+        // -------------+-----------+-----------------------+----------------+-----------+-----------+------------
+        // regionkey   | NULL      |                   5.0 |            0.0 | NULL      | 0         | 4
+        // name        |      34.0 |                   5.0 |            0.0 | NULL      | NULL      | NULL
+        // comment     |     330.0 |                   5.0 |            0.0 | NULL      | NULL      | NULL
+        // NULL        | NULL      | NULL                  | NULL           |       5.0 | NULL      | NULL
+        //         (4 rows)
         assertQuery("SHOW STATS FOR region");
         // Create a partitioned table and run analyze on it.
         String tmpTableName = generateRandomTableName();
@@ -205,8 +214,16 @@ public abstract class AbstractTestNativeGeneralQueries
             assertQuery(String.format("SELECT * FROM %s", tmpTableName),
                     "SELECT name, regionkey, nationkey FROM nation");
             assertQuery("ANALYZE %s WITH (partitions = ARRAY[ARRAY['0','0'],ARRAY['4', '11']])", tmpTableName);
-            assertQuery("SHOW STATS for %s",tmpTableName);
-        } finally {
+            // column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
+            //-------------+-----------+-----------------------+----------------+-----------+-----------+------------
+            // name        |     137.5 |                   1.0 |            0.0 | NULL      | NULL      | NULL
+            // regionkey   | NULL      |                   5.0 |            0.0 | NULL      | 0         | 4
+            // nationkey   | NULL      |                  25.0 |            0.0 | NULL      | 0         | 24
+            // NULL        | NULL      | NULL                  | NULL           |      25.0 | NULL      | NULL
+            // (4 rows)
+            assertQuery("SHOW STATS for %s", tmpTableName);
+        }
+        finally {
             dropTableIfExists(tmpTableName);
         }
     }
