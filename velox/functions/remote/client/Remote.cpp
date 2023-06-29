@@ -15,6 +15,8 @@
  */
 
 #include "velox/functions/remote/client/Remote.h"
+
+#include <folly/io/async/EventBase.h>
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/remote/client/ThriftClient.h"
@@ -39,7 +41,7 @@ class RemoteFunction : public exec::VectorFunction {
       const RemoteVectorFunctionMetadata& metadata)
       : functionName_(functionName),
         location_(metadata.location),
-        thriftClient_(getThriftClient(location_)),
+        thriftClient_(getThriftClient(location_, &eventBase_)),
         serdeFormat_(metadata.serdeFormat),
         serde_(getSerde(serdeFormat_)) {
     std::vector<TypePtr> types;
@@ -120,6 +122,8 @@ class RemoteFunction : public exec::VectorFunction {
 
   const std::string functionName_;
   folly::SocketAddress location_;
+
+  folly::EventBase eventBase_;
   std::unique_ptr<RemoteFunctionClient> thriftClient_;
   remote::PageFormat serdeFormat_;
   std::unique_ptr<VectorSerde> serde_;
