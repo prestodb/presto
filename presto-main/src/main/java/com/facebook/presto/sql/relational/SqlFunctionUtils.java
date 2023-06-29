@@ -17,6 +17,7 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -82,31 +83,32 @@ public final class SqlFunctionUtils
     public static RowExpression getSqlFunctionRowExpression(
             FunctionMetadata functionMetadata,
             SqlInvokedScalarFunctionImplementation implementation,
-            FunctionAndTypeResolver functionAndTypeResolver,
+            FunctionAndTypeManager functionAndTypeManager,
             SqlFunctionProperties sqlFunctionProperties,
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
             List<RowExpression> arguments)
     {
         VariableAllocator variableAllocator = new VariableAllocator();
-        Map<String, VariableReferenceExpression> argumentVariables = allocateFunctionArgumentVariables(functionMetadata, functionAndTypeResolver, variableAllocator);
-        Expression expression = getSqlFunctionImplementationExpression(functionMetadata, implementation, functionAndTypeResolver, variableAllocator, sqlFunctionProperties, argumentVariables);
+        Map<String, VariableReferenceExpression> argumentVariables = allocateFunctionArgumentVariables(functionMetadata, functionAndTypeManager.getFunctionAndTypeResolver(), variableAllocator);
+        Expression expression = getSqlFunctionImplementationExpression(functionMetadata, implementation, functionAndTypeManager.getFunctionAndTypeResolver(), variableAllocator, sqlFunctionProperties, argumentVariables);
 
         // Translate to row expression
         return SqlFunctionArgumentBinder.bindFunctionArguments(
                 SqlToRowExpressionTranslator.translate(
                         expression,
                         analyzeSqlFunctionExpression(
-                                functionAndTypeResolver,
+                                functionAndTypeManager.getFunctionAndTypeResolver(),
                                 sqlFunctionProperties,
                                 expression,
                                 argumentVariables.values().stream()
                                         .collect(toImmutableMap(VariableReferenceExpression::getName, VariableReferenceExpression::getType))).getExpressionTypes(),
                         ImmutableMap.of(),
-                        functionAndTypeResolver,
+                        functionAndTypeManager,
                         Optional.empty(),
                         Optional.empty(),
                         sqlFunctionProperties,
                         sessionFunctions,
+                        false,
                         new SqlToRowExpressionTranslator.Context()),
                 functionMetadata.getArgumentNames().get(),
                 arguments,
