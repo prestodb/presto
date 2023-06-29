@@ -14,18 +14,22 @@
  * limitations under the License.
  */
 
-#include <folly/json.h>
-
+#include "velox/functions/remote/client/Remote.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
-#include "velox/functions/remote/client/Remote.h"
 #include "velox/functions/remote/client/ThriftClient.h"
 #include "velox/functions/remote/if/GetSerde.h"
 #include "velox/functions/remote/if/gen-cpp2/RemoteFunctionServiceAsyncClient.h"
+#include "velox/type/fbhive/HiveTypeSerializer.h"
 #include "velox/vector/VectorStream.h"
 
 namespace facebook::velox::functions {
 namespace {
+
+std::string serializeType(const TypePtr& type) {
+  // Use hive type serializer.
+  return type::fbhive::HiveTypeSerializer::serialize(type);
+}
 
 class RemoteFunction : public exec::VectorFunction {
  public:
@@ -44,7 +48,7 @@ class RemoteFunction : public exec::VectorFunction {
 
     for (const auto& arg : inputArgs) {
       types.emplace_back(arg.type);
-      serializedInputTypes_.emplace_back(folly::toJson(arg.type->serialize()));
+      serializedInputTypes_.emplace_back(serializeType(arg.type));
     }
     remoteInputType_ = ROW(std::move(types));
   }
@@ -94,7 +98,7 @@ class RemoteFunction : public exec::VectorFunction {
 
     auto functionHandle = request.remoteFunctionHandle_ref();
     functionHandle->name_ref() = functionName_;
-    functionHandle->returnType_ref() = folly::toJson(outputType->serialize());
+    functionHandle->returnType_ref() = serializeType(outputType);
     functionHandle->argumentTypes_ref() = serializedInputTypes_;
 
     auto requestInputs = request.inputs_ref();
