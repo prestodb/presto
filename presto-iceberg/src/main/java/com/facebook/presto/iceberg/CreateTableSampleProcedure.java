@@ -28,6 +28,10 @@ import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
+import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.procedure.Procedure;
+import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -43,6 +47,10 @@ import static com.facebook.presto.iceberg.CatalogType.NESSIE;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static java.util.Objects.requireNonNull;
+import java.lang.invoke.MethodHandle;
+
+import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
+import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 
 public class CreateTableSampleProcedure
         implements Provider<Procedure>
