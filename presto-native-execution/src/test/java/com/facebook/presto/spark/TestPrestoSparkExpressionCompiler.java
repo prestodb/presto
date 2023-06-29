@@ -11,25 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.nativeworker;
+package com.facebook.presto.spark;
 
-import com.facebook.presto.testing.ExpectedQueryRunner;
+import com.facebook.presto.nativeworker.AbstractTestExpressionCompiler;
 import com.facebook.presto.testing.QueryRunner;
 
-public class TestPrestoNativeGeneralQueriesJSON
-        extends AbstractTestNativeGeneralQueries
+public class TestPrestoSparkExpressionCompiler
+        extends AbstractTestExpressionCompiler
 {
     @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    protected QueryRunner getQueryRunner()
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(false);
-    }
-
-    @Override
-    protected ExpectedQueryRunner createExpectedQueryRunner()
-            throws Exception
-    {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
+        return PrestoSparkNativeQueryRunnerUtils.createHiveRunner();
     }
 }
