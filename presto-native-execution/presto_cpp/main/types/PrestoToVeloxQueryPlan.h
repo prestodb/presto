@@ -187,6 +187,14 @@ class VeloxQueryPlanConverterBase {
   velox::VectorPtr evaluateConstantExpression(
       const velox::core::TypedExprPtr& expression);
 
+  void fillInAggregations(
+      std::vector<velox::core::AggregationNode::Aggregate>& aggregates,
+      std::vector<std::string>& aggregateNames,
+      const std::vector<protocol::VariableReferenceExpression>& outputVariables,
+      const std::map<
+          protocol::VariableReferenceExpression,
+          protocol::Aggregation>& aggregationMap);
+
   velox::memory::MemoryPool* pool_;
   velox::core::QueryCtx* queryCtx_;
   VeloxExprConverter exprConverter_;
