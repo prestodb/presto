@@ -473,7 +473,7 @@ void PrestoServer::initializeVeloxMemory() {
       auto asyncCacheSsdDisableFileCow =
           systemConfig->asyncCacheSsdDisableFileCow();
       PRESTO_STARTUP_LOG(INFO)
-          << "STARTUP: Initializing SSD cache with capacity " << asyncCacheSsdGb
+          << "Initializing SSD cache with capacity " << asyncCacheSsdGb
           << "GB, checkpoint size " << asyncCacheSsdCheckpointGb
           << "GB, file cow "
           << (asyncCacheSsdDisableFileCow ? "DISABLED" : "ENABLED");
@@ -497,11 +497,25 @@ void PrestoServer::initializeVeloxMemory() {
 
   memory::MemoryAllocator::setDefaultInstance(allocator_.get());
   // Set up velox memory manager.
-  memory::MemoryManager::getInstance(
-      memory::MemoryManager::Options{
-          .capacity = memoryBytes,
-          .checkUsageLeak = systemConfig->enableMemoryLeakCheck()},
-      true);
+  memory::MemoryManager::Options options;
+  options.capacity = memoryBytes;
+  options.checkUsageLeak = systemConfig->enableMemoryLeakCheck();
+  if (systemConfig->enableMemoryArbitration()) {
+    auto& arbitratorCfg = options.arbitratorConfig;
+    arbitratorCfg.kind = memory::MemoryArbitrator::Kind::kShared;
+    // TODO: remove this option by making arbitration failure retry a default
+    // behavior.
+    arbitratorCfg.retryArbitrationFailure = true;
+    arbitratorCfg.capacity =
+        memoryBytes * 100 / systemConfig->reservedMemoryPoolCapacityPct();
+    arbitratorCfg.initMemoryPoolCapacity =
+        systemConfig->initMemoryPoolCapacity();
+    arbitratorCfg.minMemoryPoolCapacityTransferSize =
+        systemConfig->minMemoryPoolTransferCapacity();
+  }
+  const auto& manager = memory::MemoryManager::getInstance(options, true);
+  PRESTO_STARTUP_LOG(INFO) << "Memory manager has been setup: "
+                           << manager.toString();
 }
 
 void PrestoServer::stop() {
