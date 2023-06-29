@@ -259,6 +259,12 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kLogZombieTaskInfo{"log-zombie-task-info"};
   static constexpr std::string_view kLogNumZombieTasks{"log-num-zombie-tasks"};
 
+  static constexpr std::string_view kAnnouncementMinFrequencyMs{
+      "announcement-min-frequency-ms"};
+
+  static constexpr std::string_view kAnnouncementMaxFrequencyMs{
+      "announcement-max-frequency-ms"};
+
   SystemConfig();
 
   static SystemConfig* instance();
@@ -375,6 +381,10 @@ class SystemConfig : public ConfigBase {
   bool logZombieTaskInfo() const;
 
   uint32_t logNumZombieTasks() const;
+
+  uint64_t announcementMinFrequencyMs() const;
+
+  uint64_t announcementMaxFrequencyMs() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
