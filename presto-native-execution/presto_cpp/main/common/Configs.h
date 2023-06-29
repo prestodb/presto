@@ -202,6 +202,27 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kMmapArenaCapacityRatio{
       "mmap-arena-capacity-ratio"};
   static constexpr std::string_view kUseMmapAllocator{"use-mmap-allocator"};
+
+  static constexpr std::string_view kEnableMemoryArbitration{
+      "enable-memory-arbitration"};
+  /// The initial memory pool capacity in bytes allocated on creation.
+  ///
+  /// NOTE: this config only applies if the memory arbitration has been enabled.
+  static constexpr std::string_view kInitMemoryPoolCapacity{
+      "init-memory-pool-capacity"};
+  /// The minimal memory capacity in bytes transferred between memory pools
+  /// during memory arbitration.
+  ///
+  /// NOTE: this config only applies if the memory arbitration has been enabled.
+  static constexpr std::string_view kMinMemoryPoolTransferCapacity{
+      "min-memory-pool-transfer-capacity"};
+  /// The percentage of memory pool capacity reserved for system usage such as
+  /// the disk spilling memory usage.
+  ///
+  /// NOTE: this config only applies if the memory arbitration has been enabled.
+  static constexpr std::string_view kReservedMemoryPoolCapacityPct{
+      "reserved-memory-pool-capacity-pct"};
+
   static constexpr std::string_view kEnableVeloxTaskLogging{
       "enable_velox_task_logging"};
   static constexpr std::string_view kEnableVeloxExprSetLogging{
@@ -328,6 +349,14 @@ class SystemConfig : public ConfigBase {
   int32_t mmapArenaCapacityRatio() const;
 
   bool useMmapAllocator() const;
+
+  bool enableMemoryArbitration() const;
+
+  uint64_t initMemoryPoolCapacity() const;
+
+  uint64_t minMemoryPoolTransferCapacity() const;
+
+  uint32_t reservedMemoryPoolCapacityPct() const;
 
   bool enableHttpAccessLog() const;
 
