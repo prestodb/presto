@@ -183,7 +183,7 @@ public class TestInlineSqlFunctions
                 IntegerType.INTEGER);
     }
 
-    private void assertInlined(String inputExpressionStr, String expectedExpressionStr, String variable, Type type)
+    protected void assertInlined(String inputExpressionStr, String expectedExpressionStr, String variable, Type type)
     {
         RowExpression inputExpression = new TestingRowExpressionTranslator(tester.getMetadata()).translate(inputExpressionStr, ImmutableMap.of(variable, type));
 
