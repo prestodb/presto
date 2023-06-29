@@ -296,6 +296,14 @@ class HashProbe : public Operator {
   // Indicates whether there was no input. Used for right semi join project.
   bool noInput_{true};
 
+  // Indicates whether to skip probe input data processing or not. It only
+  // applies for a specific set of join types (see skipProbeOnEmptyBuild()), and
+  // the build table is empty and the probe input is read from non-spilled
+  // source. This ensures the hash probe operator keeps running until all the
+  // probe input from the sources have been processed. It prevents the exchange
+  // hanging problem at the producer side caused by the early query finish.
+  bool skipInput_{false};
+
   // Indicates whether there are rows with null join keys on the build
   // side. Used by anti and left semi project join.
   bool buildSideHasNullKeys_{false};

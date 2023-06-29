@@ -192,6 +192,11 @@ class QueryConfig {
   static constexpr const char* kSparkLegacySizeOfNull =
       "spark.legacy_size_of_null";
 
+  /// If true, finish the hash probe on an empty build table for a specific set
+  /// of hash joins.
+  static constexpr const char* kHashProbeFinishEarlyOnEmptyBuild =
+      "hash_probe_finish_early_on_empty_build";
+
   uint64_t maxPartialAggregationMemoryUsage() const {
     static constexpr uint64_t kDefault = 1L << 24;
     return get<uint64_t>(kMaxPartialAggregationMemory, kDefault);
@@ -382,6 +387,10 @@ class QueryConfig {
 
   bool operatorTrackCpuUsage() const {
     return get<bool>(kOperatorTrackCpuUsage, true);
+  }
+
+  bool hashProbeFinishEarlyOnEmptyBuild() const {
+    return get<bool>(kHashProbeFinishEarlyOnEmptyBuild, true);
   }
 
   template <typename T>

@@ -325,6 +325,11 @@ class HashJoinBuilder {
     return *this;
   }
 
+  HashJoinBuilder& hashProbeFinishEarlyOnEmptyBuild(bool value) {
+    hashProbeFinishEarlyOnEmptyBuild_ = value;
+    return *this;
+  }
+
   HashJoinBuilder& spillDirectory(const std::string& spillDirectory) {
     spillDirectory_ = spillDirectory;
     return *this;
@@ -522,6 +527,10 @@ class HashJoinBuilder {
     } else {
       config(core::QueryConfig::kSpillEnabled, "false");
     }
+    config(
+        core::QueryConfig::kHashProbeFinishEarlyOnEmptyBuild,
+        hashProbeFinishEarlyOnEmptyBuild_ ? "true" : "false");
+
     if (!configs_.empty()) {
       auto configCopy = configs_;
       queryCtx->testingOverrideConfigUnsafe(std::move(configCopy));
@@ -596,6 +605,7 @@ class HashJoinBuilder {
 
   std::shared_ptr<memory::MemoryPool> queryPool_;
   std::string spillDirectory_;
+  bool hashProbeFinishEarlyOnEmptyBuild_{true};
 
   SplitInput inputSplits_;
   std::function<SplitInput()> makeInputSplits_;
@@ -773,22 +783,34 @@ TEST_P(MultiThreadedHashJoinTest, outOfJoinKeyColumnOrder) {
 }
 
 TEST_P(MultiThreadedHashJoinTest, emptyBuild) {
-  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
-      .numDrivers(numDrivers_)
-      .keyTypes({BIGINT()})
-      .probeVectors(1600, 5)
-      .buildVectors(0, 5)
-      .referenceQuery(
-          "SELECT t_k0, t_data, u_k0, u_data FROM t, u WHERE t_k0 = u_k0")
-      .checkSpillStats(false)
-      .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
-        const auto spillStats = taskSpilledStats(*task);
-        ASSERT_EQ(spillStats.spilledRows, 0);
-        ASSERT_EQ(spillStats.spilledBytes, 0);
-        ASSERT_EQ(spillStats.spilledPartitions, 0);
-        ASSERT_EQ(spillStats.spilledFiles, 0);
-      })
-      .run();
+  std::vector<bool> finishOnEmptys = {false, true};
+  for (auto finishOnEmpty : finishOnEmptys) {
+    SCOPED_TRACE(fmt::format("finishOnEmpty: {}", finishOnEmpty));
+
+    HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+        .hashProbeFinishEarlyOnEmptyBuild(finishOnEmpty)
+        .numDrivers(numDrivers_)
+        .keyTypes({BIGINT()})
+        .probeVectors(1600, 5)
+        .buildVectors(0, 5)
+        .referenceQuery(
+            "SELECT t_k0, t_data, u_k0, u_data FROM t, u WHERE t_k0 = u_k0")
+        .checkSpillStats(false)
+        .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
+          const auto spillStats = taskSpilledStats(*task);
+          ASSERT_EQ(spillStats.spilledRows, 0);
+          ASSERT_EQ(spillStats.spilledBytes, 0);
+          ASSERT_EQ(spillStats.spilledPartitions, 0);
+          ASSERT_EQ(spillStats.spilledFiles, 0);
+          // Check the hash probe has processed probe input rows.
+          if (finishOnEmpty) {
+            ASSERT_EQ(getInputPositions(task, 1), 0);
+          } else {
+            ASSERT_GT(getInputPositions(task, 1), 0);
+          }
+        })
+        .run();
+  }
 }
 
 TEST_P(MultiThreadedHashJoinTest, emptyProbe) {
@@ -1066,41 +1088,54 @@ TEST_P(MultiThreadedHashJoinTest, joinSidesDifferentSchema) {
 }
 
 TEST_P(MultiThreadedHashJoinTest, innerJoinWithEmptyBuild) {
-  std::vector<RowVectorPtr> probeVectors = makeBatches(5, [&](int32_t batch) {
-    return makeRowVector({
-        makeFlatVector<int32_t>(
-            123,
-            [batch](auto row) { return row * 11 / std::max(batch, 1); },
-            nullEvery(13)),
-        makeFlatVector<int32_t>(1'234, [](auto row) { return row; }),
-    });
-  });
-  std::vector<RowVectorPtr> buildVectors = makeBatches(10, [&](int32_t batch) {
-    return makeRowVector({makeFlatVector<int32_t>(
-        123,
-        [batch](auto row) { return row % std::max(batch, 1); },
-        nullEvery(7))});
-  });
+  std::vector<bool> finishOnEmptys = {false, true};
+  for (auto finishOnEmpty : finishOnEmptys) {
+    SCOPED_TRACE(fmt::format("finishOnEmpty: {}", finishOnEmpty));
 
-  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
-      .numDrivers(numDrivers_)
-      .probeKeys({"c0"})
-      .probeVectors(std::move(probeVectors))
-      .buildKeys({"c0"})
-      .buildVectors(std::move(buildVectors))
-      .buildFilter("c0 < 0")
-      .joinOutputLayout({"c1"})
-      .referenceQuery("SELECT null LIMIT 0")
-      .checkSpillStats(false)
-      .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
-        const auto spillStats = taskSpilledStats(*task);
-        ASSERT_EQ(spillStats.spilledRows, 0);
-        ASSERT_EQ(spillStats.spilledBytes, 0);
-        ASSERT_EQ(spillStats.spilledPartitions, 0);
-        ASSERT_EQ(spillStats.spilledFiles, 0);
-        ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
-      })
-      .run();
+    std::vector<RowVectorPtr> probeVectors = makeBatches(5, [&](int32_t batch) {
+      return makeRowVector({
+          makeFlatVector<int32_t>(
+              123,
+              [batch](auto row) { return row * 11 / std::max(batch, 1); },
+              nullEvery(13)),
+          makeFlatVector<int32_t>(1'234, [](auto row) { return row; }),
+      });
+    });
+    std::vector<RowVectorPtr> buildVectors =
+        makeBatches(10, [&](int32_t batch) {
+          return makeRowVector({makeFlatVector<int32_t>(
+              123,
+              [batch](auto row) { return row % std::max(batch, 1); },
+              nullEvery(7))});
+        });
+
+    HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+        .hashProbeFinishEarlyOnEmptyBuild(finishOnEmpty)
+        .numDrivers(numDrivers_)
+        .probeKeys({"c0"})
+        .probeVectors(std::move(probeVectors))
+        .buildKeys({"c0"})
+        .buildVectors(std::move(buildVectors))
+        .buildFilter("c0 < 0")
+        .joinOutputLayout({"c1"})
+        .referenceQuery("SELECT null LIMIT 0")
+        .checkSpillStats(false)
+        .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
+          const auto spillStats = taskSpilledStats(*task);
+          ASSERT_EQ(spillStats.spilledRows, 0);
+          ASSERT_EQ(spillStats.spilledBytes, 0);
+          ASSERT_EQ(spillStats.spilledPartitions, 0);
+          ASSERT_EQ(spillStats.spilledFiles, 0);
+          ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
+          // Check the hash probe has processed probe input rows.
+          if (finishOnEmpty) {
+            ASSERT_EQ(getInputPositions(task, 1), 0);
+          } else {
+            ASSERT_GT(getInputPositions(task, 1), 0);
+          }
+        })
+        .run();
+  }
 }
 
 TEST_P(MultiThreadedHashJoinTest, leftSemiJoinFilter) {
@@ -1119,34 +1154,40 @@ TEST_P(MultiThreadedHashJoinTest, leftSemiJoinFilter) {
 }
 
 TEST_P(MultiThreadedHashJoinTest, leftSemiJoinFilterWithEmptyBuild) {
-  std::vector<RowVectorPtr> probeVectors =
-      makeBatches(10, [&](int32_t /*unused*/) {
-        return makeRowVector({
-            makeFlatVector<int32_t>(
-                1'234, [](auto row) { return row % 11; }, nullEvery(13)),
-            makeFlatVector<int32_t>(1'234, [](auto row) { return row; }),
-        });
-      });
-  std::vector<RowVectorPtr> buildVectors =
-      makeBatches(10, [&](int32_t /*unused*/) {
-        return makeRowVector({
-            makeFlatVector<int32_t>(
-                123, [](auto row) { return row % 5; }, nullEvery(7)),
-        });
-      });
+  std::vector<bool> finishOnEmptys = {false, true};
+  for (auto finishOnEmpty : finishOnEmptys) {
+    SCOPED_TRACE(fmt::format("finishOnEmpty: {}", finishOnEmpty));
 
-  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
-      .numDrivers(numDrivers_)
-      .probeKeys({"c0"})
-      .probeVectors(std::move(probeVectors))
-      .buildKeys({"c0"})
-      .buildVectors(std::move(buildVectors))
-      .joinType(core::JoinType::kLeftSemiFilter)
-      .joinFilter("c0 < 0")
-      .joinOutputLayout({"c1"})
-      .referenceQuery(
-          "SELECT t.c1 FROM t WHERE t.c0 IN (SELECT c0 FROM u WHERE c0 < 0)")
-      .run();
+    std::vector<RowVectorPtr> probeVectors =
+        makeBatches(10, [&](int32_t /*unused*/) {
+          return makeRowVector({
+              makeFlatVector<int32_t>(
+                  1'234, [](auto row) { return row % 11; }, nullEvery(13)),
+              makeFlatVector<int32_t>(1'234, [](auto row) { return row; }),
+          });
+        });
+    std::vector<RowVectorPtr> buildVectors =
+        makeBatches(10, [&](int32_t /*unused*/) {
+          return makeRowVector({
+              makeFlatVector<int32_t>(
+                  123, [](auto row) { return row % 5; }, nullEvery(7)),
+          });
+        });
+
+    HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+        .hashProbeFinishEarlyOnEmptyBuild(finishOnEmpty)
+        .numDrivers(numDrivers_)
+        .probeKeys({"c0"})
+        .probeVectors(std::move(probeVectors))
+        .buildKeys({"c0"})
+        .buildVectors(std::move(buildVectors))
+        .joinType(core::JoinType::kLeftSemiFilter)
+        .joinFilter("c0 < 0")
+        .joinOutputLayout({"c1"})
+        .referenceQuery(
+            "SELECT t.c1 FROM t WHERE t.c0 IN (SELECT c0 FROM u WHERE c0 < 0)")
+        .run();
+  }
 }
 
 TEST_P(MultiThreadedHashJoinTest, leftSemiJoinFilterWithExtraFilter) {
@@ -1222,49 +1263,60 @@ TEST_P(MultiThreadedHashJoinTest, rightSemiJoinFilter) {
 }
 
 TEST_P(MultiThreadedHashJoinTest, rightSemiJoinFilterWithEmptyBuild) {
-  // probeVectors size is greater than buildVector size.
-  std::vector<RowVectorPtr> probeVectors =
-      makeBatches(5, [&](uint32_t /*unused*/) {
-        return makeRowVector(
-            {"t0", "t1"},
-            {makeFlatVector<int32_t>(
-                 431, [](auto row) { return row % 11; }, nullEvery(13)),
-             makeFlatVector<int32_t>(431, [](auto row) { return row; })});
-      });
+  std::vector<bool> finishOnEmptys = {false, true};
+  for (auto finishOnEmpty : finishOnEmptys) {
+    SCOPED_TRACE(fmt::format("finishOnEmpty: {}", finishOnEmpty));
 
-  std::vector<RowVectorPtr> buildVectors =
-      makeBatches(5, [&](uint32_t /*unused*/) {
-        return makeRowVector(
-            {"u0", "u1"},
-            {
-                makeFlatVector<int32_t>(
-                    434, [](auto row) { return row % 5; }, nullEvery(7)),
-                makeFlatVector<int32_t>(434, [](auto row) { return row; }),
-            });
-      });
+    // probeVectors size is greater than buildVector size.
+    std::vector<RowVectorPtr> probeVectors =
+        makeBatches(5, [&](uint32_t /*unused*/) {
+          return makeRowVector(
+              {"t0", "t1"},
+              {makeFlatVector<int32_t>(
+                   431, [](auto row) { return row % 11; }, nullEvery(13)),
+               makeFlatVector<int32_t>(431, [](auto row) { return row; })});
+        });
 
-  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
-      .numDrivers(numDrivers_)
-      .probeKeys({"t0"})
-      .probeVectors(std::move(probeVectors))
-      .buildKeys({"u0"})
-      .buildVectors(std::move(buildVectors))
-      .buildFilter("u0 < 0")
-      .joinType(core::JoinType::kRightSemiFilter)
-      .joinOutputLayout({"u1"})
-      .referenceQuery(
-          "SELECT u.u1 FROM u WHERE u.u0 IN (SELECT t0 FROM t) AND u.u0 < 0")
-      .checkSpillStats(false)
-      .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
-        ASSERT_EQ(getInputPositions(task, 1), 0);
-        const auto spillStats = taskSpilledStats(*task);
-        ASSERT_EQ(spillStats.spilledRows, 0);
-        ASSERT_EQ(spillStats.spilledBytes, 0);
-        ASSERT_EQ(spillStats.spilledPartitions, 0);
-        ASSERT_EQ(spillStats.spilledFiles, 0);
-        ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
-      })
-      .run();
+    std::vector<RowVectorPtr> buildVectors =
+        makeBatches(5, [&](uint32_t /*unused*/) {
+          return makeRowVector(
+              {"u0", "u1"},
+              {
+                  makeFlatVector<int32_t>(
+                      434, [](auto row) { return row % 5; }, nullEvery(7)),
+                  makeFlatVector<int32_t>(434, [](auto row) { return row; }),
+              });
+        });
+
+    HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+        .hashProbeFinishEarlyOnEmptyBuild(finishOnEmpty)
+        .numDrivers(numDrivers_)
+        .probeKeys({"t0"})
+        .probeVectors(std::move(probeVectors))
+        .buildKeys({"u0"})
+        .buildVectors(std::move(buildVectors))
+        .buildFilter("u0 < 0")
+        .joinType(core::JoinType::kRightSemiFilter)
+        .joinOutputLayout({"u1"})
+        .referenceQuery(
+            "SELECT u.u1 FROM u WHERE u.u0 IN (SELECT t0 FROM t) AND u.u0 < 0")
+        .checkSpillStats(false)
+        .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
+          const auto spillStats = taskSpilledStats(*task);
+          ASSERT_EQ(spillStats.spilledRows, 0);
+          ASSERT_EQ(spillStats.spilledBytes, 0);
+          ASSERT_EQ(spillStats.spilledPartitions, 0);
+          ASSERT_EQ(spillStats.spilledFiles, 0);
+          ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
+          // Check the hash probe has processed probe input rows.
+          if (finishOnEmpty) {
+            ASSERT_EQ(getInputPositions(task, 1), 0);
+          } else {
+            ASSERT_GT(getInputPositions(task, 1), 0);
+          }
+        })
+        .run();
+  }
 }
 
 TEST_P(MultiThreadedHashJoinTest, rightSemiJoinFilterWithAllMatches) {
@@ -1612,47 +1664,54 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilter) {
 }
 
 TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilterAndEmptyBuild) {
-  auto probeVectors = makeBatches(4, [&](int32_t /*unused*/) {
-    return makeRowVector(
-        {"t0", "t1"},
-        {
-            makeNullableFlatVector<int32_t>({std::nullopt, 1, 2}),
-            makeFlatVector<int32_t>({0, 1, 2}),
-        });
-  });
-  auto buildVectors = makeBatches(4, [&](int32_t /*unused*/) {
-    return makeRowVector(
-        {"u0", "u1"},
-        {
-            makeNullableFlatVector<int32_t>({3, 2, 3}),
-            makeFlatVector<int32_t>({0, 2, 3}),
-        });
-  });
-  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
-      .numDrivers(numDrivers_)
-      .probeKeys({"t0"})
-      .probeVectors(std::vector<RowVectorPtr>(probeVectors))
-      .buildKeys({"u0"})
-      .buildVectors(std::vector<RowVectorPtr>(buildVectors))
-      .buildFilter("u0 < 0")
-      .joinType(core::JoinType::kAnti)
-      .nullAware(true)
-      .joinFilter("u1 > t1")
-      .joinOutputLayout({"t0", "t1"})
-      .referenceQuery(
-          "SELECT t.* FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE u0 < 0 AND u.u0 = t.t0)")
-      .checkSpillStats(false)
-      .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
-        // Verify spilling is not triggered in case of null-aware anti-join with
-        // filter.
-        const auto spillStats = taskSpilledStats(*task);
-        ASSERT_EQ(spillStats.spilledRows, 0);
-        ASSERT_EQ(spillStats.spilledBytes, 0);
-        ASSERT_EQ(spillStats.spilledPartitions, 0);
-        ASSERT_EQ(spillStats.spilledFiles, 0);
-        ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
-      })
-      .run();
+  std::vector<bool> finishOnEmptys = {false, true};
+  for (auto finishOnEmpty : finishOnEmptys) {
+    SCOPED_TRACE(fmt::format("finishOnEmpty: {}", finishOnEmpty));
+
+    auto probeVectors = makeBatches(4, [&](int32_t /*unused*/) {
+      return makeRowVector(
+          {"t0", "t1"},
+          {
+              makeNullableFlatVector<int32_t>({std::nullopt, 1, 2}),
+              makeFlatVector<int32_t>({0, 1, 2}),
+          });
+    });
+    auto buildVectors = makeBatches(4, [&](int32_t /*unused*/) {
+      return makeRowVector(
+          {"u0", "u1"},
+          {
+              makeNullableFlatVector<int32_t>({3, 2, 3}),
+              makeFlatVector<int32_t>({0, 2, 3}),
+          });
+    });
+
+    HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+        .hashProbeFinishEarlyOnEmptyBuild(finishOnEmpty)
+        .numDrivers(numDrivers_)
+        .probeKeys({"t0"})
+        .probeVectors(std::vector<RowVectorPtr>(probeVectors))
+        .buildKeys({"u0"})
+        .buildVectors(std::vector<RowVectorPtr>(buildVectors))
+        .buildFilter("u0 < 0")
+        .joinType(core::JoinType::kAnti)
+        .nullAware(true)
+        .joinFilter("u1 > t1")
+        .joinOutputLayout({"t0", "t1"})
+        .referenceQuery(
+            "SELECT t.* FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE u0 < 0 AND u.u0 = t.t0)")
+        .checkSpillStats(false)
+        .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
+          // Verify spilling is not triggered in case of null-aware anti-join
+          // with filter.
+          const auto spillStats = taskSpilledStats(*task);
+          ASSERT_EQ(spillStats.spilledRows, 0);
+          ASSERT_EQ(spillStats.spilledBytes, 0);
+          ASSERT_EQ(spillStats.spilledPartitions, 0);
+          ASSERT_EQ(spillStats.spilledFiles, 0);
+          ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
+        })
+        .run();
+  }
 }
 
 TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilterAndNullKey) {
@@ -1857,44 +1916,51 @@ TEST_P(MultiThreadedHashJoinTest, antiJoin) {
 }
 
 TEST_P(MultiThreadedHashJoinTest, antiJoinWithFilterAndEmptyBuild) {
-  auto probeVectors = makeBatches(4, [&](int32_t /*unused*/) {
-    return makeRowVector(
-        {"t0", "t1"},
-        {
-            makeNullableFlatVector<int32_t>({std::nullopt, 1, 2}),
-            makeFlatVector<int32_t>({0, 1, 2}),
-        });
-  });
-  auto buildVectors = makeBatches(4, [&](int32_t /*unused*/) {
-    return makeRowVector(
-        {"u0", "u1"},
-        {
-            makeNullableFlatVector<int32_t>({3, 2, 3}),
-            makeFlatVector<int32_t>({0, 2, 3}),
-        });
-  });
-  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
-      .numDrivers(numDrivers_)
-      .probeKeys({"t0"})
-      .probeVectors(std::vector<RowVectorPtr>(probeVectors))
-      .buildKeys({"u0"})
-      .buildVectors(std::vector<RowVectorPtr>(buildVectors))
-      .buildFilter("u0 < 0")
-      .joinType(core::JoinType::kAnti)
-      .joinFilter("u1 > t1")
-      .joinOutputLayout({"t0", "t1"})
-      .referenceQuery(
-          "SELECT t.* FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE u0 < 0 AND u.u0 = t.t0)")
-      .checkSpillStats(false)
-      .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
-        const auto spillStats = taskSpilledStats(*task);
-        ASSERT_EQ(spillStats.spilledRows, 0);
-        ASSERT_EQ(spillStats.spilledBytes, 0);
-        ASSERT_EQ(spillStats.spilledPartitions, 0);
-        ASSERT_EQ(spillStats.spilledFiles, 0);
-        ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
-      })
-      .run();
+  std::vector<bool> finishOnEmptys = {false, true};
+  for (auto finishOnEmpty : finishOnEmptys) {
+    SCOPED_TRACE(fmt::format("finishOnEmpty: {}", finishOnEmpty));
+
+    auto probeVectors = makeBatches(4, [&](int32_t /*unused*/) {
+      return makeRowVector(
+          {"t0", "t1"},
+          {
+              makeNullableFlatVector<int32_t>({std::nullopt, 1, 2}),
+              makeFlatVector<int32_t>({0, 1, 2}),
+          });
+    });
+    auto buildVectors = makeBatches(4, [&](int32_t /*unused*/) {
+      return makeRowVector(
+          {"u0", "u1"},
+          {
+              makeNullableFlatVector<int32_t>({3, 2, 3}),
+              makeFlatVector<int32_t>({0, 2, 3}),
+          });
+    });
+
+    HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+        .hashProbeFinishEarlyOnEmptyBuild(finishOnEmpty)
+        .numDrivers(numDrivers_)
+        .probeKeys({"t0"})
+        .probeVectors(std::vector<RowVectorPtr>(probeVectors))
+        .buildKeys({"u0"})
+        .buildVectors(std::vector<RowVectorPtr>(buildVectors))
+        .buildFilter("u0 < 0")
+        .joinType(core::JoinType::kAnti)
+        .joinFilter("u1 > t1")
+        .joinOutputLayout({"t0", "t1"})
+        .referenceQuery(
+            "SELECT t.* FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE u0 < 0 AND u.u0 = t.t0)")
+        .checkSpillStats(false)
+        .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
+          const auto spillStats = taskSpilledStats(*task);
+          ASSERT_EQ(spillStats.spilledRows, 0);
+          ASSERT_EQ(spillStats.spilledBytes, 0);
+          ASSERT_EQ(spillStats.spilledPartitions, 0);
+          ASSERT_EQ(spillStats.spilledFiles, 0);
+          ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
+        })
+        .run();
+  }
 }
 
 TEST_P(MultiThreadedHashJoinTest, leftJoin) {
@@ -1956,62 +2022,69 @@ TEST_P(MultiThreadedHashJoinTest, leftJoin) {
 }
 
 TEST_P(MultiThreadedHashJoinTest, leftJoinWithEmptyBuild) {
-  // Left side keys are [0, 1, 2,..10].
-  // Use 3-rd column as row number to allow for asserting the order of results.
-  std::vector<RowVectorPtr> probeVectors = mergeBatches(
-      makeBatches(
-          3,
-          [&](int32_t /*unused*/) {
-            return makeRowVector(
-                {"c0", "c1", "row_number"},
-                {
-                    makeFlatVector<int32_t>(
-                        77, [](auto row) { return row % 11; }, nullEvery(13)),
-                    makeFlatVector<int32_t>(77, [](auto row) { return row; }),
-                    makeFlatVector<int32_t>(77, [](auto row) { return row; }),
-                });
-          }),
-      makeBatches(
-          2,
-          [&](int32_t /*unused*/) {
-            return makeRowVector(
-                {"c0", "c1", "row_number"},
-                {
-                    makeFlatVector<int32_t>(
-                        97,
-                        [](auto row) { return (row + 3) % 11; },
-                        nullEvery(13)),
-                    makeFlatVector<int32_t>(97, [](auto row) { return row; }),
-                    makeFlatVector<int32_t>(
-                        97, [](auto row) { return 97 + row; }),
-                });
-          }),
-      true);
+  std::vector<bool> finishOnEmptys = {false, true};
+  for (auto finishOnEmpty : finishOnEmptys) {
+    SCOPED_TRACE(fmt::format("finishOnEmpty: {}", finishOnEmpty));
 
-  std::vector<RowVectorPtr> buildVectors =
-      makeBatches(3, [&](int32_t /*unused*/) {
-        return makeRowVector({
-            makeFlatVector<int32_t>(
-                73, [](auto row) { return row % 5; }, nullEvery(7)),
-            makeFlatVector<int32_t>(
-                73, [](auto row) { return -111 + row * 2; }, nullEvery(7)),
+    // Left side keys are [0, 1, 2,..10].
+    // Use 3-rd column as row number to allow for asserting the order of
+    // results.
+    std::vector<RowVectorPtr> probeVectors = mergeBatches(
+        makeBatches(
+            3,
+            [&](int32_t /*unused*/) {
+              return makeRowVector(
+                  {"c0", "c1", "row_number"},
+                  {
+                      makeFlatVector<int32_t>(
+                          77, [](auto row) { return row % 11; }, nullEvery(13)),
+                      makeFlatVector<int32_t>(77, [](auto row) { return row; }),
+                      makeFlatVector<int32_t>(77, [](auto row) { return row; }),
+                  });
+            }),
+        makeBatches(
+            2,
+            [&](int32_t /*unused*/) {
+              return makeRowVector(
+                  {"c0", "c1", "row_number"},
+                  {
+                      makeFlatVector<int32_t>(
+                          97,
+                          [](auto row) { return (row + 3) % 11; },
+                          nullEvery(13)),
+                      makeFlatVector<int32_t>(97, [](auto row) { return row; }),
+                      makeFlatVector<int32_t>(
+                          97, [](auto row) { return 97 + row; }),
+                  });
+            }),
+        true);
+
+    std::vector<RowVectorPtr> buildVectors =
+        makeBatches(3, [&](int32_t /*unused*/) {
+          return makeRowVector({
+              makeFlatVector<int32_t>(
+                  73, [](auto row) { return row % 5; }, nullEvery(7)),
+              makeFlatVector<int32_t>(
+                  73, [](auto row) { return -111 + row * 2; }, nullEvery(7)),
+          });
         });
-      });
 
-  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
-      .numDrivers(numDrivers_)
-      .probeKeys({"c0"})
-      .probeVectors(std::move(probeVectors))
-      .buildKeys({"u_c0"})
-      .buildVectors(std::move(buildVectors))
-      .buildProjections({"c0 AS u_c0", "c1 AS u_c1"})
-      .buildFilter("c0 < 0")
-      .joinType(core::JoinType::kLeft)
-      .joinOutputLayout({"row_number", "c1"})
-      .referenceQuery(
-          "SELECT t.row_number, t.c1 FROM t LEFT JOIN (SELECT c0 FROM u WHERE c0 < 0) u ON t.c0 = u.c0")
-      .checkSpillStats(false)
-      .run();
+    HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+        .hashProbeFinishEarlyOnEmptyBuild(finishOnEmpty)
+        .numDrivers(numDrivers_)
+        .probeKeys({"c0"})
+        .probeVectors(std::move(probeVectors))
+        .buildKeys({"u_c0"})
+        .buildVectors(std::move(buildVectors))
+        .buildProjections({"c0 AS u_c0", "c1 AS u_c1"})
+        .buildFilter("c0 < 0")
+        .joinType(core::JoinType::kLeft)
+        .joinOutputLayout({"row_number", "c1"})
+        .referenceQuery(
+            "SELECT t.row_number, t.c1 FROM t LEFT JOIN (SELECT c0 FROM u WHERE c0 < 0) u ON t.c0 = u.c0")
+        .checkSpillStats(false)
+        .run();
+  }
 }
 
 TEST_P(MultiThreadedHashJoinTest, leftJoinWithNoJoin) {
@@ -2307,54 +2380,60 @@ TEST_P(MultiThreadedHashJoinTest, rightJoin) {
 }
 
 TEST_P(MultiThreadedHashJoinTest, rightJoinWithEmptyBuild) {
-  // Left side keys are [0, 1, 2,..10].
-  std::vector<RowVectorPtr> probeVectors = mergeBatches(
-      makeBatches(
-          3,
-          [&](int32_t /*unused*/) {
-            return makeRowVector({
-                makeFlatVector<int32_t>(
-                    137, [](auto row) { return row % 11; }, nullEvery(13)),
-                makeFlatVector<int32_t>(137, [](auto row) { return row; }),
-            });
-          }),
-      makeBatches(
-          3,
-          [&](int32_t /*unused*/) {
-            return makeRowVector({
-                makeFlatVector<int32_t>(
-                    234,
-                    [](auto row) { return (row + 3) % 11; },
-                    nullEvery(13)),
-                makeFlatVector<int32_t>(234, [](auto row) { return row; }),
-            });
-          }),
-      true);
+  std::vector<bool> finishOnEmptys = {false, true};
+  for (auto finishOnEmpty : finishOnEmptys) {
+    SCOPED_TRACE(fmt::format("finishOnEmpty: {}", finishOnEmpty));
 
-  // Right side keys are [-3, -2, -1, 0, 1, 2, 3].
-  std::vector<RowVectorPtr> buildVectors =
-      makeBatches(3, [&](int32_t /*unused*/) {
-        return makeRowVector({
-            makeFlatVector<int32_t>(
-                123, [](auto row) { return -3 + row % 7; }, nullEvery(11)),
-            makeFlatVector<int32_t>(
-                123, [](auto row) { return -111 + row * 2; }, nullEvery(13)),
+    // Left side keys are [0, 1, 2,..10].
+    std::vector<RowVectorPtr> probeVectors = mergeBatches(
+        makeBatches(
+            3,
+            [&](int32_t /*unused*/) {
+              return makeRowVector({
+                  makeFlatVector<int32_t>(
+                      137, [](auto row) { return row % 11; }, nullEvery(13)),
+                  makeFlatVector<int32_t>(137, [](auto row) { return row; }),
+              });
+            }),
+        makeBatches(
+            3,
+            [&](int32_t /*unused*/) {
+              return makeRowVector({
+                  makeFlatVector<int32_t>(
+                      234,
+                      [](auto row) { return (row + 3) % 11; },
+                      nullEvery(13)),
+                  makeFlatVector<int32_t>(234, [](auto row) { return row; }),
+              });
+            }),
+        true);
+
+    // Right side keys are [-3, -2, -1, 0, 1, 2, 3].
+    std::vector<RowVectorPtr> buildVectors =
+        makeBatches(3, [&](int32_t /*unused*/) {
+          return makeRowVector({
+              makeFlatVector<int32_t>(
+                  123, [](auto row) { return -3 + row % 7; }, nullEvery(11)),
+              makeFlatVector<int32_t>(
+                  123, [](auto row) { return -111 + row * 2; }, nullEvery(13)),
+          });
         });
-      });
 
-  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
-      .numDrivers(numDrivers_)
-      .probeKeys({"c0"})
-      .probeVectors(std::move(probeVectors))
-      .buildKeys({"u_c0"})
-      .buildVectors(std::move(buildVectors))
-      .buildFilter("c0 > 100")
-      .buildProjections({"c0 AS u_c0", "c1 AS u_c1"})
-      .joinType(core::JoinType::kRight)
-      .joinOutputLayout({"c1"})
-      .referenceQuery("SELECT null LIMIT 0")
-      .checkSpillStats(false)
-      .run();
+    HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+        .hashProbeFinishEarlyOnEmptyBuild(finishOnEmpty)
+        .numDrivers(numDrivers_)
+        .probeKeys({"c0"})
+        .probeVectors(std::move(probeVectors))
+        .buildKeys({"u_c0"})
+        .buildVectors(std::move(buildVectors))
+        .buildFilter("c0 > 100")
+        .buildProjections({"c0 AS u_c0", "c1 AS u_c1"})
+        .joinType(core::JoinType::kRight)
+        .joinOutputLayout({"c1"})
+        .referenceQuery("SELECT null LIMIT 0")
+        .checkSpillStats(false)
+        .run();
+  }
 }
 
 TEST_P(MultiThreadedHashJoinTest, rightJoinWithAllMatch) {
@@ -2535,55 +2614,61 @@ TEST_P(MultiThreadedHashJoinTest, fullJoin) {
 }
 
 TEST_P(MultiThreadedHashJoinTest, fullJoinWithEmptyBuild) {
-  // Left side keys are [0, 1, 2,..10].
-  std::vector<RowVectorPtr> probeVectors = mergeBatches(
-      makeBatches(
-          3,
-          [&](int32_t /*unused*/) {
-            return makeRowVector({
-                makeFlatVector<int32_t>(
-                    213, [](auto row) { return row % 11; }, nullEvery(13)),
-                makeFlatVector<int32_t>(213, [](auto row) { return row; }),
-            });
-          }),
-      makeBatches(
-          2,
-          [&](int32_t /*unused*/) {
-            return makeRowVector({
-                makeFlatVector<int32_t>(
-                    137,
-                    [](auto row) { return (row + 3) % 11; },
-                    nullEvery(13)),
-                makeFlatVector<int32_t>(137, [](auto row) { return row; }),
-            });
-          }),
-      true);
+  std::vector<bool> finishOnEmptys = {false, true};
+  for (auto finishOnEmpty : finishOnEmptys) {
+    SCOPED_TRACE(fmt::format("finishOnEmpty: {}", finishOnEmpty));
 
-  // Right side keys are [-3, -2, -1, 0, 1, 2, 3].
-  std::vector<RowVectorPtr> buildVectors =
-      makeBatches(3, [&](int32_t /*unused*/) {
-        return makeRowVector({
-            makeFlatVector<int32_t>(
-                123, [](auto row) { return -3 + row % 7; }, nullEvery(11)),
-            makeFlatVector<int32_t>(
-                123, [](auto row) { return -111 + row * 2; }, nullEvery(13)),
+    // Left side keys are [0, 1, 2,..10].
+    std::vector<RowVectorPtr> probeVectors = mergeBatches(
+        makeBatches(
+            3,
+            [&](int32_t /*unused*/) {
+              return makeRowVector({
+                  makeFlatVector<int32_t>(
+                      213, [](auto row) { return row % 11; }, nullEvery(13)),
+                  makeFlatVector<int32_t>(213, [](auto row) { return row; }),
+              });
+            }),
+        makeBatches(
+            2,
+            [&](int32_t /*unused*/) {
+              return makeRowVector({
+                  makeFlatVector<int32_t>(
+                      137,
+                      [](auto row) { return (row + 3) % 11; },
+                      nullEvery(13)),
+                  makeFlatVector<int32_t>(137, [](auto row) { return row; }),
+              });
+            }),
+        true);
+
+    // Right side keys are [-3, -2, -1, 0, 1, 2, 3].
+    std::vector<RowVectorPtr> buildVectors =
+        makeBatches(3, [&](int32_t /*unused*/) {
+          return makeRowVector({
+              makeFlatVector<int32_t>(
+                  123, [](auto row) { return -3 + row % 7; }, nullEvery(11)),
+              makeFlatVector<int32_t>(
+                  123, [](auto row) { return -111 + row * 2; }, nullEvery(13)),
+          });
         });
-      });
 
-  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
-      .numDrivers(numDrivers_)
-      .probeKeys({"c0"})
-      .probeVectors(std::move(probeVectors))
-      .buildKeys({"u_c0"})
-      .buildVectors(std::move(buildVectors))
-      .buildFilter("c0 > 100")
-      .buildProjections({"c0 AS u_c0", "c1 AS u_c1"})
-      .joinType(core::JoinType::kFull)
-      .joinOutputLayout({"c1"})
-      .referenceQuery(
-          "SELECT t.c1 FROM t FULL OUTER JOIN (SELECT * FROM u WHERE c0 > 100) u ON t.c0 = u.c0")
-      .checkSpillStats(false)
-      .run();
+    HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+        .hashProbeFinishEarlyOnEmptyBuild(finishOnEmpty)
+        .numDrivers(numDrivers_)
+        .probeKeys({"c0"})
+        .probeVectors(std::move(probeVectors))
+        .buildKeys({"u_c0"})
+        .buildVectors(std::move(buildVectors))
+        .buildFilter("c0 > 100")
+        .buildProjections({"c0 AS u_c0", "c1 AS u_c1"})
+        .joinType(core::JoinType::kFull)
+        .joinOutputLayout({"c1"})
+        .referenceQuery(
+            "SELECT t.c1 FROM t FULL OUTER JOIN (SELECT * FROM u WHERE c0 > 100) u ON t.c0 = u.c0")
+        .checkSpillStats(false)
+        .run();
+  }
 }
 
 TEST_P(MultiThreadedHashJoinTest, fullJoinWithNoMatch) {

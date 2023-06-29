@@ -292,7 +292,14 @@ void HashProbe::asyncWaitForHashTable() {
   if (table_->numDistinct() == 0) {
     if (skipProbeOnEmptyBuild()) {
       if (!needSpillInput()) {
-        noMoreInput();
+        if (isSpillInput() ||
+            operatorCtx_->driverCtx()
+                ->queryConfig()
+                .hashProbeFinishEarlyOnEmptyBuild()) {
+          noMoreInput();
+        } else {
+          skipInput_ = true;
+        }
       }
     }
   } else if (
@@ -501,6 +508,10 @@ void HashProbe::decodeAndDetectNonNullKeys() {
 }
 
 void HashProbe::addInput(RowVectorPtr input) {
+  if (skipInput_) {
+    VELOX_CHECK_NULL(input_);
+    return;
+  }
   input_ = std::move(input);
 
   if (input_->size() > 0) {
@@ -767,8 +778,9 @@ void HashProbe::clearIdentityProjectedOutput() {
 }
 
 bool HashProbe::needLastProbe() const {
-  return isRightJoin(joinType_) || isFullJoin(joinType_) ||
-      isRightSemiFilterJoin(joinType_) || isRightSemiProjectJoin(joinType_);
+  return !skipInput_ &&
+      (isRightJoin(joinType_) || isFullJoin(joinType_) ||
+       isRightSemiFilterJoin(joinType_) || isRightSemiProjectJoin(joinType_));
 }
 
 bool HashProbe::skipProbeOnEmptyBuild() const {
