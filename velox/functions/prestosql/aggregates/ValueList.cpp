@@ -48,8 +48,6 @@ void ValueList::writeLastNulls(HashStringAllocator* allocator) {
   }
   stream.appendOne(lastNulls_);
   nullsCurrent_ = allocator->finishWrite(stream, kInitialSize);
-
-  totalBytes_ += sizeof(uint64_t);
 }
 
 void ValueList::appendNull(HashStringAllocator* allocator) {
@@ -66,10 +64,9 @@ void ValueList::appendNonNull(
   ByteStream stream(allocator);
   allocator->extendWrite(dataCurrent_, stream);
   exec::ContainerRowSerde::instance().serialize(values, index, stream);
-  totalBytes_ += stream.size();
   ++size_;
-  auto reserve = std::max<int32_t>(1024, std::min<int64_t>(128, totalBytes_));
-  dataCurrent_ = allocator->finishWrite(stream, reserve);
+
+  dataCurrent_ = allocator->finishWrite(stream, 1024);
 }
 
 void ValueList::appendValue(

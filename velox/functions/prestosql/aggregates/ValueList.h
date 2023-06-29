@@ -92,9 +92,6 @@ class ValueList {
   HashStringAllocator::Header* dataBegin_{nullptr};
   HashStringAllocator::Position dataCurrent_{nullptr, nullptr};
 
-  // Total bytes written.
-  uint64_t totalBytes_{0};
-
   // Number of values added, including nulls.
   uint32_t size_{0};
 

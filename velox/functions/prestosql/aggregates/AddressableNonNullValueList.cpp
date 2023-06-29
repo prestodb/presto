@@ -45,11 +45,9 @@ HashStringAllocator::Position AddressableNonNullValueList::append(
   exec::ContainerRowSerde::instance().serialize(
       *decoded.base(), decoded.index(index), stream);
 
-  totalBytes_ += stream.size();
   ++size_;
-  const auto reserve =
-      std::max<int32_t>(1024, std::min<int64_t>(128, totalBytes_));
-  currentPosition_ = allocator->finishWrite(stream, reserve);
+
+  currentPosition_ = allocator->finishWrite(stream, 1024);
   return position;
 }
 

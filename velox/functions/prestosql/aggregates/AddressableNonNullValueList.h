@@ -91,9 +91,6 @@ class AddressableNonNullValueList {
   HashStringAllocator::Header* firstHeader_{nullptr};
   HashStringAllocator::Position currentPosition_{nullptr, nullptr};
 
-  // Total bytes written.
-  uint64_t totalBytes_{0};
-
   // Number of values added.
   uint32_t size_{0};
 };
