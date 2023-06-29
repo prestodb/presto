@@ -33,6 +33,8 @@ void FieldReference::evalSpecialForm(
   std::shared_ptr<PeeledEncoding> peeledEncoding;
   VectorRecycler inputRecycler(input, context.vectorPool());
   bool useDecode = false;
+  LocalSelectivityVector nonNullRowsHolder(*context.execCtx());
+  const SelectivityVector* nonNullRows = &rows;
   if (inputs_.empty()) {
     row = context.row();
   } else {
@@ -50,12 +52,22 @@ void FieldReference::evalSpecialForm(
     }
 
     decoded.decode(*input, rows);
+    if (decoded.mayHaveNulls()) {
+      nonNullRowsHolder.get(rows);
+      nonNullRowsHolder->deselectNulls(
+          decoded.nulls(), rows.begin(), rows.end());
+      nonNullRows = nonNullRowsHolder.get();
+      if (!nonNullRows->hasSelections()) {
+        addNulls(rows, decoded.nulls(), context, result);
+        return;
+      }
+    }
     useDecode = !decoded.isIdentityMapping();
     if (useDecode) {
       std::vector<VectorPtr> peeledVectors;
       LocalDecodedVector localDecoded{context};
       peeledEncoding = PeeledEncoding::peel(
-          {input}, rows, localDecoded, true, peeledVectors);
+          {input}, *nonNullRows, localDecoded, true, peeledVectors);
       VELOX_CHECK_NOT_NULL(peeledEncoding);
       VELOX_CHECK(peeledVectors[0]->encoding() == VectorEncoding::Simple::ROW);
       row = peeledVectors[0]->as<const RowVector>();
@@ -74,30 +86,21 @@ void FieldReference::evalSpecialForm(
   if (child->encoding() == VectorEncoding::Simple::LAZY) {
     child = BaseVector::loadedVectorShared(child);
   }
-  // Children of a RowVector may be shorter than the RowVector itself. Resize
-  // the child so that we can wrap it with the encoding of the RowVector later.
-  // Resizing through ensureWritable in case child is not singly referenced.
-  if (child->size() < row->size()) {
-    SelectivityVector extraRows{row->size(), false};
-    extraRows.setValidRange(child->size(), row->size(), true);
-    extraRows.updateBounds();
-    BaseVector::ensureWritable(extraRows, child->type(), context.pool(), child);
-  }
   if (result.get()) {
     if (useDecode) {
-      child = peeledEncoding->wrap(type_, context.pool(), child, rows);
+      child = peeledEncoding->wrap(type_, context.pool(), child, *nonNullRows);
     }
-    result->copy(child.get(), rows, nullptr);
+    result->copy(child.get(), *nonNullRows, nullptr);
   } else {
     // The caller relies on vectors having a meaningful size. If we
     // have a constant that is not wrapped in anything we set its size
     // to correspond to rows.end().
     if (!useDecode && child->isConstantEncoding()) {
-      child = BaseVector::wrapInConstant(rows.end(), 0, child);
+      child = BaseVector::wrapInConstant(nonNullRows->end(), 0, child);
     }
-    result = useDecode
-        ? std::move(peeledEncoding->wrap(type_, context.pool(), child, rows))
-        : std::move(child);
+    result = useDecode ? std::move(peeledEncoding->wrap(
+                             type_, context.pool(), child, *nonNullRows))
+                       : std::move(child);
   }
 
   // Check for nulls in the input struct. Propagate these nulls to 'result'.
