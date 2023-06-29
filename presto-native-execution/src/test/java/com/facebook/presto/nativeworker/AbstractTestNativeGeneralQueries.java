@@ -191,6 +191,27 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
+    public void testAnalyzeStats() {
+        assertQuery("ANALYZE region");
+        assertQuery("SHOW STATS FOR region");
+        // Create a partitioned table and run analyze on it.
+        String tmpTableName = generateRandomTableName();
+        try {
+            getQueryRunner().execute(getSession(), String.format("CREATE TABLE %s (name VARCHAR, regionkey BIGINT," +
+                    "nationkey BIGINT) WITH (partitioned_by = ARRAY['regionkey','nationkey'])", tmpTableName));
+            Session writeSession = buildSessionForTableWrite();
+            getQueryRunner().execute(writeSession,
+                    String.format("INSERT INTO %s SELECT name, regionkey, nationkey FROM nation", tmpTableName));
+            assertQuery(String.format("SELECT * FROM %s", tmpTableName),
+                    "SELECT name, regionkey, nationkey FROM nation");
+            assertQuery("ANALYZE %s WITH (partitions = ARRAY[ARRAY['0','0'],ARRAY['4', '11']])", tmpTableName);
+            assertQuery("SHOW STATS for %s",tmpTableName);
+        } finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+
+    @Test
     public void testDateFilter()
     {
         String tmpTableName = generateRandomTableName();
