@@ -14,209 +14,13 @@
  * limitations under the License.
  */
 #include "velox/exec/Aggregate.h"
-#include "velox/functions/prestosql/aggregates/AddressableNonNullValueList.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
-#include "velox/functions/prestosql/aggregates/Strings.h"
+#include "velox/functions/prestosql/aggregates/SetAccumulator.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::aggregate::prestosql {
 
 namespace {
-
-/// Maintains a set of unique values. Non-null values are stored in F14FastSet.
-/// A separate flag tracks presence of the null value.
-template <
-    typename T,
-    typename Hash = std::hash<T>,
-    typename EqualTo = std::equal_to<T>>
-struct Accumulator {
-  bool hasNull{false};
-  folly::F14FastSet<T, Hash, EqualTo, AlignedStlAllocator<T, 16>> uniqueValues;
-
-  Accumulator(const TypePtr& /*type*/, HashStringAllocator* allocator)
-      : uniqueValues{AlignedStlAllocator<T, 16>(allocator)} {}
-
-  Accumulator(Hash hash, EqualTo equalTo, HashStringAllocator* allocator)
-      : uniqueValues{0, hash, equalTo, AlignedStlAllocator<T, 16>(allocator)} {}
-
-  /// Adds value if new. No-op if the value was added before.
-  void addValue(
-      const DecodedVector& decoded,
-      vector_size_t index,
-      HashStringAllocator* /*allocator*/) {
-    if (decoded.isNullAt(index)) {
-      hasNull = true;
-    } else {
-      uniqueValues.insert(decoded.valueAt<T>(index));
-    }
-  }
-
-  /// Adds new values from an array.
-  void addValues(
-      const ArrayVector& arrayVector,
-      vector_size_t index,
-      const DecodedVector& values,
-      HashStringAllocator* allocator) {
-    const auto size = arrayVector.sizeAt(index);
-    const auto offset = arrayVector.offsetAt(index);
-
-    for (auto i = 0; i < size; ++i) {
-      addValue(values, offset + i, allocator);
-    }
-  }
-
-  /// Returns number of unique values including null.
-  size_t size() const {
-    return uniqueValues.size() + (hasNull ? 1 : 0);
-  }
-
-  /// Copies the unique values and null into the specified vector starting at
-  /// the specified offset.
-  vector_size_t extractValues(FlatVector<T>& values, vector_size_t offset) {
-    vector_size_t index = offset;
-    for (auto value : uniqueValues) {
-      values.set(index++, value);
-    }
-
-    if (hasNull) {
-      values.setNull(index++, true);
-    }
-
-    return index - offset;
-  }
-};
-
-/// Maintains a set of unique strings.
-struct StringViewAccumulator {
-  /// A set of unique StringViews pointing to storage managed by 'strings'.
-  Accumulator<StringView> base;
-
-  /// Stores unique non-null non-inline strings.
-  Strings strings;
-
-  StringViewAccumulator(const TypePtr& type, HashStringAllocator* allocator)
-      : base{type, allocator} {}
-
-  void addValue(
-      const DecodedVector& decoded,
-      vector_size_t index,
-      HashStringAllocator* allocator) {
-    if (decoded.isNullAt(index)) {
-      base.hasNull = true;
-    } else {
-      auto value = decoded.valueAt<StringView>(index);
-      if (!value.isInline()) {
-        if (base.uniqueValues.contains(value)) {
-          return;
-        }
-        value = strings.append(value, *allocator);
-      }
-      base.uniqueValues.insert(value);
-    }
-  }
-
-  void addValues(
-      const ArrayVector& arrayVector,
-      vector_size_t index,
-      const DecodedVector& values,
-      HashStringAllocator* allocator) {
-    const auto size = arrayVector.sizeAt(index);
-    const auto offset = arrayVector.offsetAt(index);
-
-    for (auto i = 0; i < size; ++i) {
-      addValue(values, offset + i, allocator);
-    }
-  }
-
-  size_t size() const {
-    return base.size();
-  }
-
-  vector_size_t extractValues(
-      FlatVector<StringView>& values,
-      vector_size_t offset) {
-    return base.extractValues(values, offset);
-  }
-};
-
-/// Maintains a set of unique arrays, maps or structs.
-struct ComplexTypeAccumulator {
-  /// A set of pointers to values stored in AddressableNonNullValueList.
-  Accumulator<
-      HashStringAllocator::Position,
-      AddressableNonNullValueList::Hash,
-      AddressableNonNullValueList::EqualTo>
-      base;
-
-  /// Stores unique non-null values.
-  AddressableNonNullValueList values;
-
-  ComplexTypeAccumulator(const TypePtr& type, HashStringAllocator* allocator)
-      : base{
-            AddressableNonNullValueList::Hash{},
-            AddressableNonNullValueList::EqualTo{type},
-            allocator} {}
-
-  void addValue(
-      const DecodedVector& decoded,
-      vector_size_t index,
-      HashStringAllocator* allocator) {
-    if (decoded.isNullAt(index)) {
-      base.hasNull = true;
-    } else {
-      auto position = values.append(decoded, index, allocator);
-
-      if (!base.uniqueValues.insert(position).second) {
-        values.removeLast(position);
-      }
-    }
-  }
-
-  void addValues(
-      const ArrayVector& arrayVector,
-      vector_size_t index,
-      const DecodedVector& values,
-      HashStringAllocator* allocator) {
-    const auto size = arrayVector.sizeAt(index);
-    const auto offset = arrayVector.offsetAt(index);
-
-    for (auto i = 0; i < size; ++i) {
-      addValue(values, offset + i, allocator);
-    }
-  }
-
-  size_t size() const {
-    return base.size();
-  }
-
-  vector_size_t extractValues(BaseVector& values, vector_size_t offset) {
-    vector_size_t index = offset;
-    for (const auto& position : base.uniqueValues) {
-      AddressableNonNullValueList::read(position, values, index++);
-    }
-
-    if (base.hasNull) {
-      values.setNull(index++, true);
-    }
-
-    return index - offset;
-  }
-};
-
-template <typename T>
-struct AccumulatorTypeTraits {
-  using AccumulatorType = Accumulator<T>;
-};
-
-template <>
-struct AccumulatorTypeTraits<StringView> {
-  using AccumulatorType = StringViewAccumulator;
-};
-
-template <>
-struct AccumulatorTypeTraits<ComplexType> {
-  using AccumulatorType = ComplexTypeAccumulator;
-};
 
 template <typename T>
 class SetBaseAggregate : public exec::Aggregate {
@@ -224,7 +28,7 @@ class SetBaseAggregate : public exec::Aggregate {
   explicit SetBaseAggregate(const TypePtr& resultType)
       : exec::Aggregate(resultType) {}
 
-  using AccumulatorType = typename AccumulatorTypeTraits<T>::AccumulatorType;
+  using AccumulatorType = typename SetAccumulatorTypeTraits<T>::AccumulatorType;
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(AccumulatorType);
@@ -354,19 +158,9 @@ class SetBaseAggregate : public exec::Aggregate {
   }
 
   void destroy(folly::Range<char**> groups) override {
-    if constexpr (std::is_same_v<T, StringView>) {
-      for (auto* group : groups) {
-        if (!isNull(group)) {
-          value(group)->strings.free(*allocator_);
-        }
-      }
-    }
-
-    if constexpr (std::is_same_v<T, ComplexType>) {
-      for (auto* group : groups) {
-        if (!isNull(group)) {
-          value(group)->values.free(*allocator_);
-        }
+    for (auto* group : groups) {
+      if (!isNull(group)) {
+        value(group)->free(*allocator_);
       }
     }
   }
