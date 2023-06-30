@@ -415,7 +415,8 @@ public abstract class AbstractPrestoSparkQueryExecution
                 types.size() == 1 &&
                 types.get(0).equals(BIGINT) &&
                 results.size() == 1 &&
-                results.get(0).size() == 1) {
+                results.get(0).size() == 1 &&
+                results.get(0).get(0) != null) {
             updateCount = OptionalLong.of(((Number) results.get(0).get(0)).longValue());
         }
 

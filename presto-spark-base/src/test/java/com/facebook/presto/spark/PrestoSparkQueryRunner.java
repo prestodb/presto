@@ -532,7 +532,7 @@ public class PrestoSparkQueryRunner
                         ImmutableMap.of(),
                         ImmutableSet.of(),
                         p.getUpdateType(),
-                        OptionalLong.of((Long) getOnlyElement(getOnlyElement(rows).getFields())),
+                        getOnlyElement(getOnlyElement(rows).getFields()) == null ? OptionalLong.empty() : OptionalLong.of((Long) getOnlyElement(getOnlyElement(rows).getFields())),
                         ImmutableList.of());
             }
         }
