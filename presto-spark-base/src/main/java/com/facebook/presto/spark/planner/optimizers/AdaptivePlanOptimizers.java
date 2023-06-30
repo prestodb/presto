@@ -52,7 +52,7 @@ public class AdaptivePlanOptimizers
             CostCalculator costCalculator)
     {
         this.exporter = exporter;
-        this.adaptiveOptimizers = ImmutableList.of(new IterativeOptimizer(ruleStats, statsCalculator, costCalculator, ImmutableSet.of(new PickJoinSides(metadata, sqlParser))));
+        this.adaptiveOptimizers = ImmutableList.of(new IterativeOptimizer(metadata, ruleStats, statsCalculator, costCalculator, ImmutableSet.of(new PickJoinSides(metadata, sqlParser))));
     }
 
     @PostConstruct

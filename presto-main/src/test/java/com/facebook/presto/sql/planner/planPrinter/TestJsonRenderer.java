@@ -88,6 +88,7 @@ public class TestJsonRenderer
                 TypeProvider.viewOf(VARIABLE_ALLOCATOR.getVariables()),
                 Optional.empty(),
                 Optional.empty(),
+                ImmutableList.of(),
                 ImmutableList.of());
     }
 

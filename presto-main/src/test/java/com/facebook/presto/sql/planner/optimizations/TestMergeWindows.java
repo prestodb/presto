@@ -586,6 +586,7 @@ public class TestMergeWindows
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(getMetadata().getFunctionAndTypeManager()),
                 new IterativeOptimizer(
+                        getMetadata(),
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
                         getQueryRunner().getEstimatedExchangesCostCalculator(),

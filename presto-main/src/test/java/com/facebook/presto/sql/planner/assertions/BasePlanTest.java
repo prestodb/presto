@@ -209,6 +209,7 @@ public class BasePlanTest
                 new UnaliasSymbolReferences(queryRunner.getMetadata().getFunctionAndTypeManager()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
+                        getMetadata(),
                         new RuleStatsRecorder(),
                         queryRunner.getStatsCalculator(),
                         queryRunner.getCostCalculator(),
