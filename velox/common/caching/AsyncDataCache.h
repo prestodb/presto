@@ -683,6 +683,10 @@ class AsyncDataCache : public memory::MemoryAllocator {
     return allocator_->sizeClasses();
   }
 
+  size_t totalUsedBytes() const override {
+    return allocator_->totalUsedBytes();
+  }
+
   memory::MachinePageCount numAllocated() const override {
     return allocator_->numAllocated();
   }

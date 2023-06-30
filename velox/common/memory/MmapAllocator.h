@@ -148,6 +148,10 @@ class MmapAllocator : public MemoryAllocator {
     return mallocReservedBytes_;
   }
 
+  size_t totalUsedBytes() const override {
+    return numMallocBytes_ + AllocationTraits::pageBytes(numAllocated_);
+  }
+
   MachinePageCount numAllocated() const override {
     return numAllocated_;
   }

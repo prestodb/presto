@@ -979,6 +979,7 @@ TEST_P(MemoryAllocatorTest, allocateBytes) {
   // in 'data' cast to char.
   std::vector<folly::Range<char*>> data(kNumAllocs);
   uint64_t expectedNumMallocBytes = 0;
+  uint64_t expectedTotalBytes = 0;
   for (auto counter = 0; counter < data.size() * 4; ++counter) {
     int32_t index = folly::Random::rand32(rng) % kNumAllocs;
     int32_t bytes = sizes[folly::Random::rand32() % sizes.size()];
@@ -991,6 +992,7 @@ TEST_P(MemoryAllocatorTest, allocateBytes) {
       }
       int32_t freeSize = data[index].size();
       instance_->freeBytes(data[index].data(), freeSize);
+      expectedTotalBytes -= freeSize;
       if (useMmap_ && freeSize == sizes[0]) {
         expectedNumMallocBytes -= freeSize;
         ASSERT_EQ(
@@ -1000,11 +1002,22 @@ TEST_P(MemoryAllocatorTest, allocateBytes) {
     }
     data[index] = folly::Range<char*>(
         reinterpret_cast<char*>(instance_->allocateBytes(bytes)), bytes);
+    expectedTotalBytes += bytes;
     if (useMmap_ && bytes == sizes[0]) {
       expectedNumMallocBytes += bytes;
       ASSERT_EQ(
           expectedNumMallocBytes,
           ((MmapAllocator*)instance_)->numMallocBytes());
+    }
+    if (useMmap_) {
+      ASSERT_EQ(
+          expectedNumMallocBytes +
+              AllocationTraits::pageBytes(
+                  ((MmapAllocator*)instance_)->numAllocated()),
+          instance_->totalUsedBytes());
+      ASSERT_LE(expectedTotalBytes, instance_->totalUsedBytes());
+    } else {
+      ASSERT_EQ(expectedTotalBytes, instance_->totalUsedBytes());
     }
     for (auto& byte : data[index]) {
       byte = expected;

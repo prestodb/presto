@@ -77,6 +77,10 @@ class MallocAllocator : public MemoryAllocator {
 
   void freeBytes(void* p, uint64_t bytes) noexcept override;
 
+  size_t totalUsedBytes() const override {
+    return allocatedBytes_;
+  }
+
   MachinePageCount numAllocated() const override {
     return numAllocated_;
   }

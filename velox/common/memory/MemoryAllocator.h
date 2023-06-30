@@ -281,6 +281,9 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
     return sizeClassSizes_;
   }
 
+  /// Returns the total number of used bytes by this allocator
+  virtual size_t totalUsedBytes() const = 0;
+
   virtual MachinePageCount numAllocated() const = 0;
 
   virtual MachinePageCount numMapped() const = 0;
