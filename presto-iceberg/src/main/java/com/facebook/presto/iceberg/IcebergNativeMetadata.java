@@ -49,7 +49,6 @@ import org.apache.iceberg.exceptions.AlreadyExistsException;
 import org.apache.iceberg.exceptions.NamespaceNotEmptyException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -133,10 +132,6 @@ public class IcebergNativeMetadata
         }
         catch (NoSuchTableException e) {
             // return null to throw
-            return null;
-        }
-        catch (IOException e) {
-            LOG.warn("Failed to get table handle: ", e);
             return null;
         }
 

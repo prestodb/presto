@@ -54,7 +54,6 @@ import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -211,12 +210,7 @@ public abstract class IcebergAbstractMetadata
                 insertTable = icebergTable;
                 break;
             case SAMPLES:
-                try {
                     insertTable = SampleUtil.getSampleTableFromActual(icebergTable, table.getSchemaName(), env, session);
-                }
-                catch (IOException e) {
-                    throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, e);
-                }
                 break;
             default:
                 throw new PrestoException(NOT_SUPPORTED, "can only write to data or samples table");

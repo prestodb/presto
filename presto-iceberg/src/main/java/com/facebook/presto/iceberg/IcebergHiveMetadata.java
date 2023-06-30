@@ -135,12 +135,7 @@ public class IcebergHiveMetadata
 
         org.apache.iceberg.Table table = getHiveIcebergTable(metastore, hdfsEnvironment, session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
         if (name.getTableType() == SAMPLES) {
-            try {
-                table = SampleUtil.getSampleTableFromActual(table, tableName.getSchemaName(), hdfsEnvironment, session);
-            }
-            catch (IOException e) {
-                LOG.warn("Failed to get sample table", e);
-            }
+            table = SampleUtil.getSampleTableFromActual(table, tableName.getSchemaName(), hdfsEnvironment, session);
         }
         Optional<Long> snapshotId = getSnapshotId(table, name.getSnapshotId());
 
