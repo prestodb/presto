@@ -611,22 +611,6 @@ TypedExprPtr convertDereferenceExpr(
 
   return std::make_shared<FieldAccessTypedExpr>(returnType, input, childName);
 }
-
-TypedExprPtr convertNullIfExpr(
-    const velox::TypePtr& returnType,
-    const std::vector<TypedExprPtr>& args) {
-  VELOX_CHECK_EQ(args.size(), 2);
-
-  // Convert nullif(a, b) to if(a = b, null, a).
-
-  std::vector<TypedExprPtr> newArgs = {
-      std::make_shared<CallTypedExpr>(
-          velox::BOOLEAN(), args, "presto.default.eq"),
-      std::make_shared<ConstantTypedExpr>(
-          returnType, velox::variant::null(returnType->kind())),
-      args[0]};
-  return std::make_shared<CallTypedExpr>(returnType, newArgs, "if");
-}
 } // namespace
 
 TypedExprPtr VeloxExprConverter::toVeloxExpr(
@@ -657,7 +641,7 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
   }
 
   if (pexpr->form == protocol::Form::NULL_IF) {
-    return convertNullIfExpr(returnType, args);
+    VELOX_UNSUPPORTED("NULLIF not supported natively");
   }
 
   auto form = std::string(json(pexpr->form));
