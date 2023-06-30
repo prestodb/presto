@@ -33,7 +33,6 @@ public class SampleUtil
     public static final String SAMPLE_TABLE_SUFFIX = "sample-table";
 
     public static Table getSampleTableFromActual(Table icebergSource, String prestoSchema, HdfsEnvironment env, ConnectorSession session)
-            throws IOException
     {
         Path tableLocation = new Path(icebergSource.location());
         HdfsContext ctx = new HdfsContext(session, prestoSchema, icebergSource.name(), icebergSource.location(), false);
@@ -43,6 +42,9 @@ public class SampleUtil
             hadoopCatalog.initialize(tableLocation.getName(), new HashMap<>());
             TableIdentifier id = toIcebergTableIdentifier("sample", SAMPLE_TABLE_SUFFIX);
             return hadoopCatalog.loadTable(id);
+        }
+        catch (IOException e) {
+            throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, e);
         }
     }
 }
