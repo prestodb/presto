@@ -194,6 +194,12 @@ public class TestIcebergSystemTables
     }
 
     @Test
+    public void testSamplesTable()
+    {
+        assertUpdate("CALL iceberg.system.create_table_sample('test_schema', 'test_table')");
+    }
+
+    @Test
     public void testFilesTableOnDropColumn()
     {
         assertQuery("SELECT sum(record_count) FROM test_schema.\"test_table_drop_column$files\"", "VALUES 6");
