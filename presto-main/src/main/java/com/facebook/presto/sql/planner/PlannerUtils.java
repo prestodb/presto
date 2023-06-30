@@ -326,9 +326,9 @@ public class PlannerUtils
         return null;
     }
 
-    public static String getPlanString(PlanNode planNode, Session session, TypeProvider types, Metadata metadata)
+    public static String getPlanString(PlanNode planNode, Session session, TypeProvider types, Metadata metadata, boolean isVerboseOptimizerInfoEnabled)
     {
-        return PlanPrinter.textLogicalPlan(planNode, types, StatsAndCosts.empty(), metadata.getFunctionAndTypeManager(), session, 0);
+        return PlanPrinter.textLogicalPlan(planNode, types, StatsAndCosts.empty(), metadata.getFunctionAndTypeManager(), session, 0, false, isVerboseOptimizerInfoEnabled);
     }
 
     private static String getNameHint(Expression expression)

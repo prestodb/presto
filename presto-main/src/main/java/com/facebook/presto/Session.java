@@ -33,6 +33,7 @@ import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager.SystemSessionPropertyConfiguration;
 import com.facebook.presto.spi.tracing.Tracer;
 import com.facebook.presto.sql.planner.optimizations.OptimizerInformationCollector;
+import com.facebook.presto.sql.planner.optimizations.OptimizerResultCollector;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -93,6 +94,7 @@ public final class Session
 
     private final RuntimeStats runtimeStats = new RuntimeStats();
     private final OptimizerInformationCollector optimizerInformationCollector = new OptimizerInformationCollector();
+    private final OptimizerResultCollector optimizerResultCollector = new OptimizerResultCollector();
 
     public Session(
             QueryId queryId,
@@ -317,6 +319,11 @@ public final class Session
     public OptimizerInformationCollector getOptimizerInformationCollector()
     {
         return optimizerInformationCollector;
+    }
+
+    public OptimizerResultCollector getOptimizerResultCollector()
+    {
+        return optimizerResultCollector;
     }
 
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)
