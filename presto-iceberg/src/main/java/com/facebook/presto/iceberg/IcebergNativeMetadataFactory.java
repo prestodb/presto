@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
@@ -28,6 +29,7 @@ public class IcebergNativeMetadataFactory
         implements IcebergMetadataFactory
 {
     final TypeManager typeManager;
+    final HdfsEnvironment hdfsEnvironment;
     final JsonCodec<CommitTaskData> commitTaskCodec;
     final IcebergResourceFactory resourceFactory;
     final CatalogType catalogType;
@@ -38,6 +40,7 @@ public class IcebergNativeMetadataFactory
     @Inject
     public IcebergNativeMetadataFactory(
             IcebergConfig config,
+            HdfsEnvironment hdfsEnvironment,
             IcebergResourceFactory resourceFactory,
             TypeManager typeManager,
             StandardFunctionResolution functionResolution,
@@ -46,6 +49,7 @@ public class IcebergNativeMetadataFactory
             NodeVersion nodeVersion)
     {
         this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
@@ -57,6 +61,6 @@ public class IcebergNativeMetadataFactory
 
     public ConnectorMetadata create()
     {
-        return new IcebergNativeMetadata(resourceFactory, typeManager, functionResolution, rowExpressionService, commitTaskCodec, catalogType, nodeVersion);
+        return new IcebergNativeMetadata(resourceFactory, hdfsEnvironment, typeManager, functionResolution, rowExpressionService, commitTaskCodec, catalogType, nodeVersion);
     }
 }

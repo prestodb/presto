@@ -15,12 +15,15 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.iceberg.changelog.ChangelogSplitSource;
 import com.facebook.presto.iceberg.equalitydeletes.EqualityDeletesSplitSource;
+import com.facebook.presto.iceberg.samples.SampleUtil;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
@@ -34,12 +37,16 @@ import org.apache.iceberg.util.TableScanUtil;
 
 import javax.inject.Inject;
 
+import java.io.IOException;
+
 import static com.facebook.presto.hive.rule.FilterPushdownUtils.isEntireColumn;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
+import static com.facebook.presto.iceberg.IcebergTableType.SAMPLE;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
 import static java.util.Objects.requireNonNull;
 
@@ -47,13 +54,15 @@ public class IcebergSplitManager
         implements ConnectorSplitManager
 {
     private final IcebergTransactionManager transactionManager;
+    private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
 
     @Inject
-    public IcebergSplitManager(IcebergTransactionManager transactionManager,
+    public IcebergSplitManager(IcebergTransactionManager transactionManager, HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
@@ -79,7 +88,17 @@ public class IcebergSplitManager
                                 .transform(layoutHandle.getPredicateColumns()::get)) :
                 table.getPredicate();
 
-        Table icebergTable = getIcebergTable(transactionManager.get(transaction), session, table.getSchemaTableName());
+        Table usedTable = getIcebergTable(transactionManager.get(transaction), session, table.getSchemaTableName());
+
+        if (table.getIcebergTableName().getTableType() == SAMPLE) {
+            try {
+                usedTable = SampleUtil.getSampleTableFromActual(usedTable, table.getSchemaName(), hdfsEnvironment, session);
+            }
+            catch (IOException e) {
+                throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, e);
+            }
+        }
+        final Table icebergTable = usedTable;
 
         if (table.getIcebergTableName().getTableType() == CHANGELOG) {
             // if the snapshot isn't specified, grab the oldest available version of the table

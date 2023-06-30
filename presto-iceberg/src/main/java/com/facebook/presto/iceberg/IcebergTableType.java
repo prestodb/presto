@@ -23,6 +23,7 @@ public enum IcebergTableType
     FILES(true),
     PROPERTIES(true),
     CHANGELOG(true),
+    SAMPLE(true),
     EQUALITY_DELETES(true),
     DATA_WITHOUT_EQUALITY_DELETES(false);
 
