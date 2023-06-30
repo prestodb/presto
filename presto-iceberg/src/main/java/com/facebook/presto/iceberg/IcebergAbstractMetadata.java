@@ -16,7 +16,9 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveWrittenPartitions;
+import com.facebook.presto.iceberg.samples.SampleUtil;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -52,6 +54,7 @@ import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -63,6 +66,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.FORMAT_VERSION;
 import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
@@ -140,6 +144,8 @@ public abstract class IcebergAbstractMetadata
                 return Optional.of(new FilesTable(systemTableName, table, snapshotId, typeManager));
             case PROPERTIES:
                 return Optional.of(new PropertiesTable(systemTableName, table));
+//            case SAMPLES:
+//                return Optional.of(new SamplesSystemTable(tableName.getSchemaName()))
         }
         return Optional.empty();
     }
@@ -197,19 +203,35 @@ public abstract class IcebergAbstractMetadata
         return finishInsert(session, (IcebergWritableTableHandle) tableHandle, fragments, computedStatistics);
     }
 
-    protected ConnectorInsertTableHandle beginIcebergTableInsert(IcebergTableHandle table, org.apache.iceberg.Table icebergTable)
+    protected ConnectorInsertTableHandle beginIcebergTableInsert(ConnectorSession session, IcebergTableHandle table, org.apache.iceberg.Table icebergTable, HdfsEnvironment env)
     {
-        transaction = icebergTable.newTransaction();
+        org.apache.iceberg.Table insertTable;
+        switch (table.getTableType()) {
+            case DATA:
+                insertTable = icebergTable;
+                break;
+            case SAMPLES:
+                try {
+                    insertTable = SampleUtil.getSampleTableFromActual(icebergTable, table.getSchemaName(), env, session);
+                }
+                catch (IOException e) {
+                    throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, e);
+                }
+                break;
+            default:
+                throw new PrestoException(NOT_SUPPORTED, "can only write to data or samples table");
+        }
+        transaction = insertTable.newTransaction();
 
         return new IcebergWritableTableHandle(
                 table.getSchemaName(),
                 table.getTableName(),
-                SchemaParser.toJson(icebergTable.schema()),
-                PartitionSpecParser.toJson(icebergTable.spec()),
-                getColumns(icebergTable.schema(), typeManager),
-                icebergTable.location(),
+                SchemaParser.toJson(insertTable.schema()),
+                PartitionSpecParser.toJson(insertTable.spec()),
+                getColumns(insertTable.schema(), typeManager),
+                insertTable.location(),
                 getFileFormat(icebergTable),
-                icebergTable.properties());
+                insertTable.properties());
     }
 
     @Override
