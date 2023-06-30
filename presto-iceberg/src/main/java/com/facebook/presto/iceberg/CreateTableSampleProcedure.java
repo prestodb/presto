@@ -26,19 +26,6 @@ import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.TableIdentifier;
-import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.iceberg.util.SinglePathCatalog;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.procedure.Procedure;
-import com.google.common.collect.ImmutableList;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.iceberg.Table;
-import org.apache.iceberg.catalog.Catalog;
-import org.apache.iceberg.catalog.TableIdentifier;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -53,16 +40,6 @@ import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.CatalogType.NESSIE;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static com.facebook.presto.iceberg.samples.SampleUtil.SAMPLE_TABLE_SUFFIX;
-import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
-import static java.util.Objects.requireNonNull;
-import java.lang.invoke.MethodHandle;
-import java.util.HashMap;
-
-import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
-import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
-import static com.facebook.presto.iceberg.CatalogType.HADOOP;
-import static com.facebook.presto.iceberg.CatalogType.NESSIE;
-import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static java.util.Objects.requireNonNull;
 

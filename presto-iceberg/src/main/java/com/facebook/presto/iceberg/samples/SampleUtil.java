@@ -20,6 +20,7 @@ import com.facebook.presto.iceberg.IcebergHiveMetadata;
 import com.facebook.presto.iceberg.IcebergResourceFactory;
 import com.facebook.presto.iceberg.util.SinglePathCatalog;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
@@ -28,6 +29,7 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import java.io.IOException;
 import java.util.HashMap;
 
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 
@@ -49,7 +51,6 @@ public class SampleUtil
     }
 
     public static Table getSampleTableFromActual(Table icebergSource, String prestoSchema, HdfsEnvironment env, ConnectorSession session)
-            throws IOException
     {
         Path tableLocation = new Path(icebergSource.location());
         HdfsContext ctx = new HdfsContext(session, prestoSchema, icebergSource.name(), icebergSource.location(), false);
@@ -60,6 +61,9 @@ public class SampleUtil
             TableIdentifier id = toIcebergTableIdentifier("sample", SAMPLE_TABLE_SUFFIX);
             Table t = c.loadTable(id);
             return t;
+        }
+        catch (IOException e) {
+            throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, e);
         }
     }
 }
