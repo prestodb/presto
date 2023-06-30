@@ -180,7 +180,13 @@ public class PlanPrinter
                 .mapToLong(planNode -> planNode.getPlanNodeScheduledTime().toMillis())
                 .sum(), MILLISECONDS));
 
-        this.representation = new PlanRepresentation(planRoot, types, totalCpuTime, totalScheduledTime, session.getOptimizerInformationCollector().getOptimizationInfo());
+        this.representation = new PlanRepresentation(
+                planRoot,
+                types,
+                totalCpuTime,
+                totalScheduledTime,
+                session.getOptimizerInformationCollector().getOptimizationInfo(),
+                session.getOptimizerResultCollector().getOptimizerResults());
 
         RowExpressionFormatter rowExpressionFormatter = new RowExpressionFormatter(functionAndTypeManager);
         ConnectorSession connectorSession = requireNonNull(session, "session is null").toConnectorSession();
@@ -225,9 +231,10 @@ public class PlanPrinter
             FunctionAndTypeManager functionAndTypeManager,
             Session session,
             int level,
-            boolean verbose)
+            boolean verbose,
+            boolean verboseOptimizerInfoEnabled)
     {
-        return textLogicalPlan(plan, types, Optional.empty(), estimatedStatsAndCosts, Optional.empty(), functionAndTypeManager, session, level, verbose);
+        return textLogicalPlan(plan, types, Optional.empty(), estimatedStatsAndCosts, Optional.empty(), functionAndTypeManager, session, level, verbose, verboseOptimizerInfoEnabled);
     }
 
     public static String textLogicalPlan(
@@ -239,9 +246,10 @@ public class PlanPrinter
             FunctionAndTypeManager functionAndTypeManager,
             Session session,
             int level,
-            boolean verbose)
+            boolean verbose,
+            boolean verboseOptimizerInfoEnabled)
     {
-        return new PlanPrinter(plan, types, stageExecutionStrategy, estimatedStatsAndCosts, stats, functionAndTypeManager, session).toText(verbose, level, isVerboseOptimizerInfoEnabled(session));
+        return new PlanPrinter(plan, types, stageExecutionStrategy, estimatedStatsAndCosts, stats, functionAndTypeManager, session).toText(verbose, level, verboseOptimizerInfoEnabled);
     }
 
     public static String textDistributedPlan(StageInfo outputStageInfo, FunctionAndTypeManager functionAndTypeManager, Session session, boolean verbose)
@@ -419,7 +427,8 @@ public class PlanPrinter
                         functionAndTypeManager,
                         session,
                         1,
-                        verbose))
+                        verbose,
+                        isVerboseOptimizerInfoEnabled(session)))
                 .append("\n");
 
         return builder.toString();
