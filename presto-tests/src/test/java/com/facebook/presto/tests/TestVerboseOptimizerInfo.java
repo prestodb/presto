@@ -30,10 +30,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_PAYLOAD_JOINS;
+import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_RESULTS;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestVerboseOptimizerInfo
@@ -74,7 +77,7 @@ public class TestVerboseOptimizerInfo
     public void testApplicableOptimizers()
     {
         Session session = Session.builder(getSession())
-                .setSystemProperty("verbose_optimizer_info_enabled", "true")
+                .setSystemProperty(VERBOSE_OPTIMIZER_INFO_ENABLED, "true")
                 .build();
         String query = "SELECT o.orderkey FROM part p, orders o, lineitem l WHERE p.partkey = l.partkey AND l.orderkey = o.orderkey AND p.partkey <> o.orderkey AND p.name < l.comment";
         MaterializedResult materializedResult = computeActual(session, "explain " + query);
@@ -98,6 +101,29 @@ public class TestVerboseOptimizerInfo
         checkOptimizerInfo(explainPayloadJoinQuery, true, ImmutableList.of("PayloadJoinOptimizer"));
     }
 
+    @Test
+    public void testVerboseOptimizerResults()
+    {
+        Session sessionPrintAll = Session.builder(getSession())
+                .setSystemProperty(VERBOSE_OPTIMIZER_INFO_ENABLED, "true")
+                .setSystemProperty(VERBOSE_OPTIMIZER_RESULTS, "all")
+                .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "true")
+                .build();
+        String query = "SELECT l.* FROM (select *, map(ARRAY[1,3], ARRAY[2,4]) as m1 from lineitem) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)";
+        MaterializedResult materializedResult = computeActual(sessionPrintAll, "explain " + query);
+        String explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
+
+        checkOptimizerResults(explain, ImmutableList.of("PayloadJoinOptimizer", "RemoveRedundantIdentityProjections", "PruneUnreferencedOutputs"), ImmutableList.of());
+
+        Session sessionPrintSome = Session.builder(sessionPrintAll)
+                .setSystemProperty(VERBOSE_OPTIMIZER_RESULTS, "PayloadJoinOptimizer,RemoveRedundantIdentityProjections")
+                .build();
+        materializedResult = computeActual(sessionPrintSome, "explain " + query);
+        explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
+
+        checkOptimizerResults(explain, ImmutableList.of("PayloadJoinOptimizer", "RemoveRedundantIdentityProjections"), ImmutableList.of("PruneUnreferencedOutputs"));
+    }
+
     private void checkOptimizerInfo(String explain, boolean checkTriggered, List<String> optimizers)
     {
         String regex = checkTriggered ? "Triggered optimizers.*" : "Applicable optimizers.*";
@@ -108,6 +134,18 @@ public class TestVerboseOptimizerInfo
         String optimizerInfo = matcher.group();
         for (String opt : optimizers) {
             assertTrue(optimizerInfo.contains(opt));
+        }
+    }
+
+    private void checkOptimizerResults(String explain, List<String> includedOptimizers, List<String> excludedOptimizers)
+    {
+        for (String opt : includedOptimizers) {
+            assertTrue(explain.contains(opt + " (before):"));
+            assertTrue(explain.contains(opt + " (after):"));
+        }
+
+        for (String opt : excludedOptimizers) {
+            assertFalse(explain.contains(opt + " (before):"));
         }
     }
 }

@@ -17,6 +17,7 @@ import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.optimizations.OptimizerResult;
 import io.airlift.units.Duration;
 
 import java.util.HashMap;
@@ -35,14 +36,22 @@ class PlanRepresentation
 
     private final Map<PlanNodeId, NodeRepresentation> nodeInfo = new HashMap<>();
     private final List<PlanOptimizerInformation> planOptimizerInfo;
+    private final List<OptimizerResult> planOptimizerResults;
 
-    public PlanRepresentation(PlanNode root, TypeProvider types, Optional<Duration> totalCpuTime, Optional<Duration> totalScheduledTime, List<PlanOptimizerInformation> planOptimizerInfo)
+    public PlanRepresentation(
+            PlanNode root,
+            TypeProvider types,
+            Optional<Duration> totalCpuTime,
+            Optional<Duration> totalScheduledTime,
+            List<PlanOptimizerInformation> planOptimizerInfo,
+            List<OptimizerResult> planOptimizerResults)
     {
         this.root = requireNonNull(root, "root is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
         this.types = requireNonNull(types, "types is null");
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.planOptimizerInfo = requireNonNull(planOptimizerInfo, "planOptimizerInfo is null");
+        this.planOptimizerResults = requireNonNull(planOptimizerResults, "planOptimizerResults is null");
     }
 
     public NodeRepresentation getRoot()
@@ -86,5 +95,10 @@ class PlanRepresentation
     public List<PlanOptimizerInformation> getPlanOptimizerInfo()
     {
         return planOptimizerInfo;
+    }
+
+    public List<OptimizerResult> getPlanOptimizerResults()
+    {
+        return planOptimizerResults;
     }
 }
