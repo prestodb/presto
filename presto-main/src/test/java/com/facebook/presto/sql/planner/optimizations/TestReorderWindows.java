@@ -324,6 +324,7 @@ public class TestReorderWindows
                 new UnaliasSymbolReferences(getMetadata().getFunctionAndTypeManager()),
                 new PredicatePushDown(getMetadata(), getQueryRunner().getSqlParser()),
                 new IterativeOptimizer(
+                        getMetadata(),
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
                         getQueryRunner().getEstimatedExchangesCostCalculator(),
@@ -334,6 +335,7 @@ public class TestReorderWindows
                                 new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(2))),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
+                        getMetadata(),
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
                         getQueryRunner().getEstimatedExchangesCostCalculator(),
