@@ -23,7 +23,9 @@
 namespace facebook::velox::functions {
 
 struct RemoteVectorFunctionMetadata : public exec::VectorFunctionMetadata {
-  /// Network address of the server to communicate with.
+  /// Network address of the servr to communicate with. Note that this can hold
+  /// a network location (ip/port pair) or a unix domain socket path (see
+  /// SocketAddress::makeFromPath()).
   folly::SocketAddress location;
 
   /// The serialization format to be used

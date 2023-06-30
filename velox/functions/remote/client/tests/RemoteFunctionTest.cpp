@@ -18,10 +18,10 @@
 #include <folly/init/Init.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <cstdio>
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/exec/tests/utils/PortUtil.h"
 #include "velox/functions/Registerer.h"
 #include "velox/functions/prestosql/Arithmetic.h"
 #include "velox/functions/prestosql/CheckedArithmetic.h"
@@ -52,7 +52,7 @@ class RemoteFunctionTest
   void registerRemoteFunctions() {
     RemoteVectorFunctionMetadata metadata;
     metadata.serdeFormat = GetParam();
-    metadata.location = {"::1", port_};
+    metadata.location = location_;
 
     // Register the remote adapter.
     auto plusSignatures = {exec::FunctionSignatureBuilder()
@@ -63,7 +63,7 @@ class RemoteFunctionTest
     registerRemoteFunction("remote_plus", plusSignatures, metadata);
 
     RemoteVectorFunctionMetadata wrongMetadata = metadata;
-    wrongMetadata.location = {"::1", 1};
+    wrongMetadata.location = folly::SocketAddress(); // empty address.
     registerRemoteFunction("remote_wrong_port", plusSignatures, wrongMetadata);
 
     auto divSignatures = {exec::FunctionSignatureBuilder()
@@ -94,14 +94,12 @@ class RemoteFunctionTest
     auto handler =
         std::make_shared<RemoteFunctionServiceHandler>(remotePrefix_);
     server_ = std::make_shared<ThriftServer>();
-
-    port_ = exec::test::getFreePort();
-    server_->setPort(port_);
     server_->setInterface(handler);
+    server_->setAddress(location_);
 
     thread_ = std::make_unique<std::thread>([&] { server_->serve(); });
     VELOX_CHECK(waitForRunning(), "Unable to initialize thrift server.");
-    LOG(INFO) << "Thrift server is up and running in local port " << port_;
+    LOG(INFO) << "Thrift server is up and running in local port " << location_;
   }
 
   ~RemoteFunctionTest() {
@@ -113,18 +111,22 @@ class RemoteFunctionTest
  private:
   // Loop until the server is up and running.
   bool waitForRunning() {
-    for (size_t i = 0; i < 10; ++i) {
+    for (size_t i = 0; i < 100; ++i) {
       if (server_->getServerStatus() == ThriftServer::ServerStatus::RUNNING) {
         return true;
       }
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
     return false;
   }
 
-  uint16_t port_;
   std::shared_ptr<apache::thrift::ThriftServer> server_;
   std::unique_ptr<std::thread> thread_;
+
+  // Creates a random temporary file name to use to communicate as a unix domain
+  // socket.
+  folly::SocketAddress location_{
+      folly::SocketAddress::makeFromPath(std::tmpnam(nullptr))};
 
   const std::string remotePrefix_{"remote"};
 };
@@ -162,7 +164,7 @@ TEST_P(RemoteFunctionTest, connectionError) {
   try {
     func();
   } catch (const VeloxUserError& e) {
-    EXPECT_THAT(e.message(), testing::HasSubstr("Connection refused"));
+    EXPECT_THAT(e.message(), testing::HasSubstr("Channel is !good()"));
   }
 }
 
