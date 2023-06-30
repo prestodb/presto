@@ -14,8 +14,12 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.TableAlreadyExistsException;
+import com.facebook.presto.iceberg.samples.SampleUtil;
 import com.facebook.presto.iceberg.util.IcebergPrestoModelConverters;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -41,6 +45,7 @@ import org.apache.iceberg.exceptions.AlreadyExistsException;
 import org.apache.iceberg.exceptions.NamespaceNotEmptyException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -48,10 +53,15 @@ import java.util.Optional;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFormatVersion;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
+import static com.facebook.presto.iceberg.IcebergUtil.createMetadataProperties;
+import static com.facebook.presto.iceberg.IcebergUtil.getColumnMetadatas;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
+import static com.facebook.presto.iceberg.TableType.DATA;
+import static com.facebook.presto.iceberg.TableType.SAMPLES;
+import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergNamespace;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -68,14 +78,17 @@ import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 public class IcebergNativeMetadata
         extends IcebergAbstractMetadata
 {
+    private static final Logger LOG = Logger.get(IcebergNativeMetadata.class);
     private static final String INFORMATION_SCHEMA = "information_schema";
     private static final String TABLE_COMMENT = "comment";
 
     private final IcebergResourceFactory resourceFactory;
     private final CatalogType catalogType;
+    private final HdfsEnvironment hdfsEnvironment;
 
     public IcebergNativeMetadata(
             IcebergResourceFactory resourceFactory,
+            HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
             CatalogType catalogType)
@@ -83,6 +96,7 @@ public class IcebergNativeMetadata
         super(typeManager, commitTaskCodec);
         this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
         this.catalogType = requireNonNull(catalogType, "catalogType is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     @Override
@@ -221,15 +235,6 @@ public class IcebergNativeMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        Table icebergTable = getNativeIcebergTable(resourceFactory, session, table.getSchemaTableName());
-
-        return beginIcebergTableInsert(table, icebergTable);
-    }
-
-    @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         TableIdentifier tableIdentifier = toIcebergTableIdentifier(((IcebergTableHandle) tableHandle).getSchemaTableName());
@@ -255,7 +260,7 @@ public class IcebergNativeMetadata
             throw new TableNotFoundException(table);
         }
 
-        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable);
+        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable, typeManager);
 
         return new ConnectorTableMetadata(table, columns, createMetadataProperties(icebergTable), getTableComment(icebergTable));
     }

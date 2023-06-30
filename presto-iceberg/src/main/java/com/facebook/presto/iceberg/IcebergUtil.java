@@ -20,7 +20,9 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableMap;
@@ -51,6 +53,11 @@ import java.util.stream.Stream;
 import static com.facebook.presto.hive.HiveMetadata.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
+import static com.facebook.presto.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
+import static com.facebook.presto.iceberg.IcebergTableProperties.FORMAT_VERSION;
+import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
+import static com.facebook.presto.iceberg.PartitionFields.toPartitionFields;
+import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -99,6 +106,25 @@ public final class IcebergUtil
     public static Table getNativeIcebergTable(IcebergResourceFactory resourceFactory, ConnectorSession session, SchemaTableName table)
     {
         return resourceFactory.getCatalog(session).loadTable(toIcebergTableIdentifier(table));
+    }
+
+    public static ConnectorTableMetadata getTableMetadataFromTable(SchemaTableName tableName, Table icebergTable, TypeManager typeManager)
+    {
+        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable, typeManager);
+
+        return new ConnectorTableMetadata(tableName, columns, createMetadataProperties(icebergTable), getTableComment(icebergTable));
+    }
+
+    public static List<ColumnMetadata> getColumnMetadatas(org.apache.iceberg.Table table, TypeManager typeManager)
+    {
+        return table.schema().columns().stream()
+                .map(column -> ColumnMetadata.builder()
+                        .setName(column.name())
+                        .setType(toPrestoType(column.type(), typeManager))
+                        .setComment(Optional.ofNullable(column.doc()))
+                        .setHidden(false)
+                        .build())
+                .collect(toImmutableList());
     }
 
     public static long resolveSnapshotId(Table table, long snapshotId)
@@ -150,6 +176,21 @@ public final class IcebergUtil
         return FileFormat.valueOf(table.properties()
                 .getOrDefault(DEFAULT_FILE_FORMAT, DEFAULT_FILE_FORMAT_DEFAULT)
                 .toUpperCase(Locale.ENGLISH));
+    }
+
+    public static ImmutableMap<String, Object> createMetadataProperties(org.apache.iceberg.Table icebergTable)
+    {
+        ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        properties.put(FILE_FORMAT_PROPERTY, getFileFormat(icebergTable));
+
+        int formatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
+        properties.put(FORMAT_VERSION, String.valueOf(formatVersion));
+
+        if (!icebergTable.spec().fields().isEmpty()) {
+            properties.put(PARTITIONING_PROPERTY, toPartitionFields(icebergTable.spec()));
+        }
+
+        return properties.build();
     }
 
     public static Optional<String> getTableComment(Table table)
