@@ -20,7 +20,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
@@ -30,12 +29,9 @@ import org.apache.iceberg.util.TableScanUtil;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
-
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.CatalogType.NESSIE;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
-import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
@@ -86,12 +82,7 @@ public class IcebergSplitManager
             icebergTable = getHiveIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
         }
         if (table.getTableType() == TableType.SAMPLES) {
-            try {
-                icebergTable = SampleUtil.getSampleTableFromActual(icebergTable, table.getSchemaName(), hdfsEnvironment, session);
-            }
-            catch (IOException e) {
-                throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, e);
-            }
+            icebergTable = SampleUtil.getSampleTableFromActual(icebergTable, table.getSchemaName(), hdfsEnvironment, session);
         }
 
         TableScan tableScan = icebergTable.newScan()
