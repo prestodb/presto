@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg.util;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.CatalogProperties;
@@ -21,6 +22,7 @@ import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -38,23 +40,29 @@ import static java.util.Objects.requireNonNull;
  * no matter the namespace that is provided. You cannot drop or rename the table either.
  */
 public class SinglePathCatalog
-        extends HadoopCatalog
+        extends HadoopCatalog implements AutoCloseable
 {
     private final Path path;
-    private final FileSystem fs;
+    private final Configuration conf;
 
-    public SinglePathCatalog(Path path, FileSystem fs)
+    public SinglePathCatalog(Path path, Configuration conf)
     {
         this.path = requireNonNull(path);
-        this.fs = requireNonNull(fs);
+        this.conf = requireNonNull(conf);
     }
 
     @Override
     public void initialize(String name, Map<String, String> properties)
     {
-        properties.put(CatalogProperties.WAREHOUSE_LOCATION, path.getParent().toString());
-        this.setConf(fs.getConf());
+        properties.put(CatalogProperties.WAREHOUSE_LOCATION, path.toString());
+        this.setConf(this.conf);
         super.initialize(name, properties);
+    }
+
+    @Override
+    public void close() throws IOException
+    {
+        super.close();
     }
 
     @Override
