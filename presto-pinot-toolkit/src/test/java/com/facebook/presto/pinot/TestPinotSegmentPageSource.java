@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VariableWidthType;
+import com.facebook.presto.pinot.datatable.TestDataTableBuilder;
 import com.facebook.presto.pinot.query.PinotProxyGrpcRequestBuilder;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
@@ -27,19 +28,18 @@ import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.ByteString;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.pinot.common.config.GrpcConfig;
+import org.apache.pinot.common.datatable.DataTable;
 import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.utils.DataSchema;
-import org.apache.pinot.common.utils.DataTable;
 import org.apache.pinot.common.utils.grpc.GrpcRequestBuilder;
 import org.apache.pinot.connector.presto.grpc.PinotStreamingQueryClient;
-import org.apache.pinot.connector.presto.grpc.Utils;
-import org.apache.pinot.core.common.datatable.DataTableBuilder;
-import org.apache.pinot.core.common.datatable.DataTableBuilderV4;
 import org.apache.pinot.spi.data.DimensionFieldSpec;
 import org.apache.pinot.spi.data.FieldSpec;
+import org.apache.pinot.spi.utils.ByteArray;
 import org.apache.pinot.spi.utils.CommonConstants;
 import org.testng.annotations.Test;
 
@@ -145,7 +145,7 @@ public class TestPinotSegmentPageSource
             }
             DataSchema.ColumnDataType[] columnDataTypes = ALL_TYPES_ARRAY;
             DataSchema dataSchema = new DataSchema(columnNames, columnDataTypes);
-            DataTableBuilder dataTableBuilder = new DataTableBuilderV4(dataSchema);
+            TestDataTableBuilder dataTableBuilder = new TestDataTableBuilder(dataSchema);
             for (int rowId = 0; rowId < NUM_ROWS; rowId++) {
                 dataTableBuilder.startRow();
                 for (int colId = 0; colId < numColumns; colId++) {
@@ -230,7 +230,7 @@ public class TestPinotSegmentPageSource
                         case BYTES:
                             try {
                                 dataTableBuilder.setColumn(colId,
-                                        Hex.decodeHex("0DE0B6B3A7640000".toCharArray())); // Hex of BigDecimal.ONE
+                                        new ByteArray(Hex.decodeHex("0DE0B6B3A7640000".toCharArray()))); // Hex of BigDecimal.ONE
                             }
                             catch (DecoderException e) {
                                 throw new RuntimeException(e);
@@ -336,7 +336,7 @@ public class TestPinotSegmentPageSource
         DataSchema dataSchema = new DataSchema(columnNames, columnDataTypes);
         String[] stringArray = {"stringVal1", "stringVal2"};
         int[] intArray = {10, 34, 67};
-        DataTableBuilder dataTableBuilder = new DataTableBuilderV4(dataSchema);
+        TestDataTableBuilder dataTableBuilder = new TestDataTableBuilder(dataSchema);
         dataTableBuilder.startRow();
         dataTableBuilder.setColumn(0, intArray);
         dataTableBuilder.setColumn(1, stringArray);
@@ -471,7 +471,7 @@ public class TestPinotSegmentPageSource
                     if (index < dataTables.size()) {
                         final DataTable dataTable = dataTables.get(index++);
                         try {
-                            return Server.ServerResponse.newBuilder().setPayload(Utils.toByteString(dataTable.toBytes())).putMetadata("responseType", "data").build();
+                            return Server.ServerResponse.newBuilder().setPayload(ByteString.copyFrom(dataTable.toBytes())).putMetadata("responseType", "data").build();
                         }
                         catch (IOException e) {
                             throw new RuntimeException();
