@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.iceberg.samples.SampleUtil;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -79,6 +80,9 @@ public class IcebergSplitManager
         else {
             ExtendedHiveMetastore metastore = ((IcebergHiveMetadata) transactionManager.get(transaction)).getMetastore();
             icebergTable = getHiveIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
+        }
+        if (table.getTableType() == TableType.SAMPLES) {
+            icebergTable = SampleUtil.getSampleTableFromActual(icebergTable, table.getSchemaName(), hdfsEnvironment, session);
         }
 
         TableScan tableScan = icebergTable.newScan()
