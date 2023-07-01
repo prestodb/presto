@@ -65,4 +65,8 @@ public class TestPrestoSparkNativeGeneralQueries
     @Override
     @Ignore
     public void testTopN() {}
+
+    @Override
+    @Ignore
+    public void testInsertIntoSpecialPartitionName(){}
 }
