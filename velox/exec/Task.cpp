@@ -537,176 +537,185 @@ void Task::start(
     std::shared_ptr<Task> self,
     uint32_t maxDrivers,
     uint32_t concurrentSplitGroups) {
-  VELOX_CHECK_GE(
-      maxDrivers, 1, "maxDrivers parameter must be greater then or equal to 1");
-  VELOX_CHECK_GE(
-      concurrentSplitGroups,
-      1,
-      "concurrentSplitGroups parameter must be greater then or equal to 1");
+  try {
+    VELOX_CHECK_GE(
+        maxDrivers,
+        1,
+        "maxDrivers parameter must be greater then or equal to 1");
+    VELOX_CHECK_GE(
+        concurrentSplitGroups,
+        1,
+        "concurrentSplitGroups parameter must be greater then or equal to 1");
 
-  uint32_t numPipelines;
-  {
-    std::unique_lock<std::mutex> l(self->mutex_);
-    VELOX_CHECK(self->drivers_.empty());
-    self->concurrentSplitGroups_ = concurrentSplitGroups;
-    self->taskStats_.executionStartTimeMs = getCurrentTimeMs();
+    uint32_t numPipelines;
+    {
+      std::unique_lock<std::mutex> l(self->mutex_);
+      VELOX_CHECK(self->drivers_.empty());
+      self->concurrentSplitGroups_ = concurrentSplitGroups;
+      self->taskStats_.executionStartTimeMs = getCurrentTimeMs();
 
 #if CODEGEN_ENABLED == 1
-    const auto& config = self->queryCtx()->queryConfig();
-    if (config.codegenEnabled() &&
-        config.codegenConfigurationFilePath().length() != 0) {
-      auto codegenLogger =
-          std::make_shared<codegen::DefaultLogger>(self->taskId_);
-      auto codegen = codegen::Codegen(codegenLogger);
-      auto lazyLoading = config.codegenLazyLoading();
-      codegen.initializeFromFile(
-          config.codegenConfigurationFilePath(), lazyLoading);
-      if (auto newPlanNode = codegen.compile(*(self->planFragment_.planNode))) {
-        self->planFragment_.planNode = newPlanNode;
+      const auto& config = self->queryCtx()->queryConfig();
+      if (config.codegenEnabled() &&
+          config.codegenConfigurationFilePath().length() != 0) {
+        auto codegenLogger =
+            std::make_shared<codegen::DefaultLogger>(self->taskId_);
+        auto codegen = codegen::Codegen(codegenLogger);
+        auto lazyLoading = config.codegenLazyLoading();
+        codegen.initializeFromFile(
+            config.codegenConfigurationFilePath(), lazyLoading);
+        if (auto newPlanNode =
+                codegen.compile(*(self->planFragment_.planNode))) {
+          self->planFragment_.planNode = newPlanNode;
+        }
       }
-    }
 #endif
 
-    // Here we create driver factories.
-    LocalPlanner::plan(
-        self->planFragment_,
-        self->consumerSupplier(),
-        &self->driverFactories_,
-        maxDrivers);
+      // Here we create driver factories.
+      LocalPlanner::plan(
+          self->planFragment_,
+          self->consumerSupplier(),
+          &self->driverFactories_,
+          maxDrivers);
 
-    // Keep one exchange client per pipeline (NULL if not used).
-    numPipelines = self->driverFactories_.size();
-    self->exchangeClients_.resize(numPipelines);
+      // Keep one exchange client per pipeline (NULL if not used).
+      numPipelines = self->driverFactories_.size();
+      self->exchangeClients_.resize(numPipelines);
 
-    // For each pipeline we have a corresponding driver factory.
-    // Here we count how many drivers in total we need and create
-    // pipeline stats.
-    for (auto& factory : self->driverFactories_) {
-      if (factory->groupedExecution) {
-        self->numDriversPerSplitGroup_ += factory->numDrivers;
+      // For each pipeline we have a corresponding driver factory.
+      // Here we count how many drivers in total we need and create
+      // pipeline stats.
+      for (auto& factory : self->driverFactories_) {
+        if (factory->groupedExecution) {
+          self->numDriversPerSplitGroup_ += factory->numDrivers;
+        } else {
+          self->numDriversUngrouped_ += factory->numDrivers;
+        }
+        self->numTotalDrivers_ += factory->numTotalDrivers;
+        self->taskStats_.pipelineStats.emplace_back(
+            factory->inputDriver, factory->outputDriver);
+      }
+
+      self->validateGroupedExecutionLeafNodes();
+    }
+
+    // Register self for possible memory recovery callback. Do this
+    // after sizing 'drivers_' but before starting the
+    // Drivers. 'drivers_' can be read by memory recovery or
+    // cancellation while Drivers are being made, so the array should
+    // have final size from the start.
+    auto bufferManager = self->bufferManager_.lock();
+    VELOX_CHECK_NOT_NULL(
+        bufferManager,
+        "Unable to initialize task. "
+        "PartitionedOutputBufferManager was already destructed");
+
+    // In this loop we prepare the global state of pipelines: partitioned output
+    // buffer and exchange client(s).
+    for (auto pipeline = 0; pipeline < numPipelines; ++pipeline) {
+      auto& factory = self->driverFactories_[pipeline];
+
+      if (auto partitionedOutputNode = factory->needsPartitionedOutput()) {
+        VELOX_CHECK(
+            !self->hasPartitionedOutput(),
+            "Only one output pipeline per task is supported");
+        self->numDriversInPartitionedOutput_ = factory->numDrivers;
+        self->groupedPartitionedOutput_ = factory->groupedExecution;
+        const auto totalOutputDrivers = factory->groupedExecution
+            ? factory->numDrivers * self->planFragment_.numSplitGroups
+            : factory->numDrivers;
+        bufferManager->initializeTask(
+            self,
+            // TODO: change PartitionedOutputNode to pass partition output type
+            // which include arbitrary.
+            partitionedOutputNode->isBroadcast()
+                ? PartitionedOutputBuffer::Kind::kBroadcast
+                : PartitionedOutputBuffer::Kind::kPartitioned,
+            partitionedOutputNode->numPartitions(),
+            totalOutputDrivers);
+      }
+
+      // NOTE: MergeExchangeNode doesn't use the exchange client created here to
+      // fetch data from the merge source but only uses it to send abortResults
+      // to the merge source of the split which is added after the task has
+      // failed. Correspondingly, MergeExchangeNode creates one exchange client
+      // for each merge source to fetch data as we can't mix the data from
+      // different sources for merging.
+      if (auto exchangeNodeId = factory->needsExchangeClient()) {
+        self->createExchangeClient(pipeline, exchangeNodeId.value());
+      }
+    }
+
+    std::unique_lock<std::mutex> l(self->mutex_);
+
+    // Preallocate a bunch of slots for max concurrent grouped execution
+    // drivers, if needed.
+    if (self->numDriversPerSplitGroup_ > 0) {
+      self->drivers_.resize(
+          self->numDriversPerSplitGroup_ * self->concurrentSplitGroups_);
+    }
+
+    // We create the drivers running pipelines in ungrouped execution mode
+    // first.
+    if (self->numDriversUngrouped_ > 0) {
+      // Create the drivers we are going to run for this task.
+      std::vector<std::shared_ptr<Driver>> drivers;
+      drivers.reserve(self->numDriversUngrouped_);
+      self->createSplitGroupStateLocked(kUngroupedGroupId);
+      self->createDriversLocked(self, kUngroupedGroupId, drivers);
+
+      // Prevent the connecting structures from being cleaned up before all
+      // split groups are finished during the grouped execution mode.
+      if (self->isGroupedExecution()) {
+        self->splitGroupStates_[kUngroupedGroupId].mixedExecutionMode = true;
+      }
+
+      // We might have first slots taken for grouped execution drivers, so need
+      // to append the ungrouped execution drivers afterwards in that case.
+      if (self->drivers_.empty()) {
+        self->drivers_ = std::move(drivers);
       } else {
-        self->numDriversUngrouped_ += factory->numDrivers;
+        self->drivers_.reserve(
+            self->drivers_.size() + self->numDriversUngrouped_);
+        for (auto& driver : drivers) {
+          self->drivers_.emplace_back(std::move(driver));
+        }
       }
-      self->numTotalDrivers_ += factory->numTotalDrivers;
-      self->taskStats_.pipelineStats.emplace_back(
-          factory->inputDriver, factory->outputDriver);
-    }
 
-    self->validateGroupedExecutionLeafNodes();
-  }
-
-  // Register self for possible memory recovery callback. Do this
-  // after sizing 'drivers_' but before starting the
-  // Drivers. 'drivers_' can be read by memory recovery or
-  // cancellation while Drivers are being made, so the array should
-  // have final size from the start.
-  auto bufferManager = self->bufferManager_.lock();
-  VELOX_CHECK_NOT_NULL(
-      bufferManager,
-      "Unable to initialize task. "
-      "PartitionedOutputBufferManager was already destructed");
-
-  // In this loop we prepare the global state of pipelines: partitioned output
-  // buffer and exchange client(s).
-  for (auto pipeline = 0; pipeline < numPipelines; ++pipeline) {
-    auto& factory = self->driverFactories_[pipeline];
-
-    if (auto partitionedOutputNode = factory->needsPartitionedOutput()) {
-      VELOX_CHECK(
-          !self->hasPartitionedOutput(),
-          "Only one output pipeline per task is supported");
-      self->numDriversInPartitionedOutput_ = factory->numDrivers;
-      self->groupedPartitionedOutput_ = factory->groupedExecution;
-      const auto totalOutputDrivers = factory->groupedExecution
-          ? factory->numDrivers * self->planFragment_.numSplitGroups
-          : factory->numDrivers;
-      bufferManager->initializeTask(
-          self,
-          // TODO: change PartitionedOutputNode to pass partition output type
-          // which include arbitrary.
-          partitionedOutputNode->isBroadcast()
-              ? PartitionedOutputBuffer::Kind::kBroadcast
-              : PartitionedOutputBuffer::Kind::kPartitioned,
-          partitionedOutputNode->numPartitions(),
-          totalOutputDrivers);
-    }
-
-    // NOTE: MergeExchangeNode doesn't use the exchange client created here to
-    // fetch data from the merge source but only uses it to send abortResults
-    // to the merge source of the split which is added after the task has
-    // failed. Correspondingly, MergeExchangeNode creates one exchange client
-    // for each merge source to fetch data as we can't mix the data from
-    // different sources for merging.
-    if (auto exchangeNodeId = factory->needsExchangeClient()) {
-      self->createExchangeClient(pipeline, exchangeNodeId.value());
-    }
-  }
-
-  std::unique_lock<std::mutex> l(self->mutex_);
-
-  // Preallocate a bunch of slots for max concurrent grouped execution
-  // drivers, if needed.
-  if (self->numDriversPerSplitGroup_ > 0) {
-    self->drivers_.resize(
-        self->numDriversPerSplitGroup_ * self->concurrentSplitGroups_);
-  }
-
-  // We create the drivers running pipelines in ungrouped execution mode
-  // first.
-  if (self->numDriversUngrouped_ > 0) {
-    // Create the drivers we are going to run for this task.
-    std::vector<std::shared_ptr<Driver>> drivers;
-    drivers.reserve(self->numDriversUngrouped_);
-    self->createSplitGroupStateLocked(kUngroupedGroupId);
-    self->createDriversLocked(self, kUngroupedGroupId, drivers);
-
-    // Prevent the connecting structures from being cleaned up before all split
-    // groups are finished during the grouped execution mode.
-    if (self->isGroupedExecution()) {
-      self->splitGroupStates_[kUngroupedGroupId].mixedExecutionMode = true;
-    }
-
-    // We might have first slots taken for grouped execution drivers, so need to
-    // append the ungrouped execution drivers afterwards in that case.
-    if (self->drivers_.empty()) {
-      self->drivers_ = std::move(drivers);
-    } else {
-      self->drivers_.reserve(
-          self->drivers_.size() + self->numDriversUngrouped_);
-      for (auto& driver : drivers) {
-        self->drivers_.emplace_back(std::move(driver));
+      // Set and start all Drivers together inside 'mutex_' so that
+      // cancellations and pauses have well defined timing. For example, do not
+      // pause and restart a task while it is still adding Drivers. If the given
+      // executor is folly::InlineLikeExecutor (or it's child), since the
+      // drivers will be executed synchronously on the same thread as the
+      // current task, so we need release the lock to avoid the deadlock.
+      if (dynamic_cast<const folly::InlineLikeExecutor*>(
+              self->queryCtx()->executor())) {
+        l.unlock();
+      }
+      // We might have first slots taken for grouped execution drivers, so need
+      // only to enqueue the ungrouped execution drivers.
+      for (auto it = self->drivers_.end() - self->numDriversUngrouped_;
+           it != self->drivers_.end();
+           ++it) {
+        if (*it) {
+          ++self->numRunningDrivers_;
+          Driver::enqueue(*it);
+        }
       }
     }
 
-    // Set and start all Drivers together inside 'mutex_' so that cancellations
-    // and pauses have well defined timing. For example, do not pause and
-    // restart a task while it is still adding Drivers.
-    // If the given executor is folly::InlineLikeExecutor (or it's child), since
-    // the drivers will be executed synchronously on the same thread as the
-    // current task, so we need release the lock to avoid the deadlock.
-    if (dynamic_cast<const folly::InlineLikeExecutor*>(
-            self->queryCtx()->executor())) {
-      l.unlock();
-    }
-    // We might have first slots taken for grouped execution drivers, so need
-    // only to enqueue the ungrouped execution drivers.
-    for (auto it = self->drivers_.end() - self->numDriversUngrouped_;
-         it != self->drivers_.end();
-         ++it) {
-      if (*it) {
-        ++self->numRunningDrivers_;
-        Driver::enqueue(*it);
+    // As some splits for grouped execution could have been added before the
+    // task start, ensure we start running drivers for them.
+    if (self->numDriversPerSplitGroup_ > 0) {
+      if (!l.owns_lock()) {
+        l.lock();
       }
+      self->ensureSplitGroupsAreBeingProcessedLocked(self);
     }
-  }
 
-  // As some splits for grouped execution could have been added before the task
-  // start, ensure we start running drivers for them.
-  if (self->numDriversPerSplitGroup_ > 0) {
-    if (!l.owns_lock()) {
-      l.lock();
-    }
-    self->ensureSplitGroupsAreBeingProcessedLocked(self);
+  } catch (const std::exception& e) {
+    self->setError(std::current_exception());
+    throw;
   }
 }
 
