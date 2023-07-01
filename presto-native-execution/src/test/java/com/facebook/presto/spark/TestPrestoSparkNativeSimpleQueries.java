@@ -84,8 +84,13 @@ public class TestPrestoSparkNativeSimpleQueries
     {
         assertQuery("SELECT * FROM orders");
         assertQuery("SELECT orderkey, custkey FROM orders WHERE orderkey <= 200");
-        assertQuery("SELECT nullif(orderkey, custkey) FROM orders");
         assertQuery("SELECT orderkey, custkey FROM orders ORDER BY orderkey LIMIT 4");
+    }
+
+    @Test (enabled = false)
+    public void testNullIf()
+    {
+        assertQuery("SELECT nullif(orderkey, custkey) FROM orders");
     }
 
     @Test

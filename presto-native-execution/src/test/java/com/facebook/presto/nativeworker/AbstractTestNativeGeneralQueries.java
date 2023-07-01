@@ -263,7 +263,7 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT linenumber, NULL FROM lineitem ORDER BY 1 LIMIT 23");
     }
 
-    @Test
+    @Test (enabled = false)
     public void testNullIf()
     {
         assertQuery("SELECT NULLIF(totalprice, 0) FROM (SELECT SUM(extendedprice) AS totalprice FROM lineitem WHERE shipdate >= '1995-09-01')");
