@@ -96,8 +96,8 @@ public class ParquetReader
     private static final int MAX_VECTOR_LENGTH = 1024;
     private static final int INITIAL_BATCH_SIZE = 1;
     private static final int BATCH_SIZE_GROWTH_FACTOR = 2;
-    protected final ColumnReader[] verificationColumnReaders;
-    protected final ParquetDataSource dataSource;
+    private final ColumnReader[] verificationColumnReaders;
+    private final ParquetDataSource dataSource;
     private final Optional<InternalFileDecryptor> fileDecryptor;
     private final List<BlockMetaData> blocks;
     private final Optional<List<Long>> firstRowsOfBlocks;
@@ -115,7 +115,7 @@ public class ParquetReader
     private final List<RowRanges> blockRowRanges;
     private final Map<ColumnPath, ColumnDescriptor> paths = new HashMap<>();
     private final boolean columnIndexFilterEnabled;
-    protected BlockMetaData currentBlockMetadata;
+    private BlockMetaData currentBlockMetadata;
     /**
      * Index in the Parquet file of the first row of the current group
      */
@@ -127,7 +127,6 @@ public class ParquetReader
     private final long[] maxBytesPerCell;
     private long maxCombinedBytesPerRow;
     private int maxBatchSize = MAX_VECTOR_LENGTH;
-    private AggregatedMemoryContext currentRowGroupMemoryContext;
     private int currentBlock;
     private long currentPosition;
     private long currentGroupRowCount;
