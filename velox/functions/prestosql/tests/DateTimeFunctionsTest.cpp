@@ -835,6 +835,30 @@ TEST_F(DateTimeFunctionsTest, plusMinusDateIntervalDayTime) {
   EXPECT_THROW(minus(baseDate, partDay), VeloxUserError);
 }
 
+TEST_F(DateTimeFunctionsTest, minusTimestampIntervalDayTime) {
+  const auto minus = [&](std::optional<int64_t> t1, std::optional<int64_t> t2) {
+    const auto timestamp1 = (t1.has_value()) ? Timestamp(t1.value(), 0)
+                                             : std::optional<Timestamp>();
+    const auto timestamp2 = (t2.has_value()) ? Timestamp(t2.value(), 0)
+                                             : std::optional<Timestamp>();
+    return evaluateOnce<int64_t>(
+        "c0 - c1",
+        makeRowVector({
+            makeNullableFlatVector<Timestamp>({timestamp1}),
+            makeNullableFlatVector<Timestamp>({timestamp2}),
+        }));
+  };
+
+  EXPECT_EQ(std::nullopt, minus(std::nullopt, std::nullopt));
+  EXPECT_EQ(std::nullopt, minus(1, std::nullopt));
+  EXPECT_EQ(std::nullopt, minus(std::nullopt, 1));
+  EXPECT_EQ(1000, minus(1, 0));
+  EXPECT_EQ(-1000, minus(1, 2));
+  VELOX_ASSERT_THROW(
+      minus(Timestamp::kMinSeconds, Timestamp::kMaxSeconds),
+      "integer overflow");
+}
+
 TEST_F(DateTimeFunctionsTest, dayOfMonthTimestampWithTimezone) {
   EXPECT_EQ(
       31,

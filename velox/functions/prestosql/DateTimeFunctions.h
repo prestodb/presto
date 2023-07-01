@@ -334,6 +334,18 @@ struct DatePlusIntervalDayTime {
 };
 
 template <typename T>
+struct TimestampMinusIntervalDayTime {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<IntervalDayTime>& result,
+      const arg_type<Timestamp>& a,
+      const arg_type<Timestamp>& b) {
+    result = a.toMillis() - b.toMillis();
+  }
+};
+
+template <typename T>
 struct DayOfWeekFunction : public InitSessionTimezone<T>,
                            public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
