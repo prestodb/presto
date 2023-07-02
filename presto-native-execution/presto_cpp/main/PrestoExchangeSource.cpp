@@ -51,6 +51,21 @@ void onFinalFailure(
 
   queue->setError(errorMessage);
 }
+
+std::string bodyAsString(
+    http::HttpResponse& response,
+    memory::MemoryPool* pool) {
+  if (response.hasError()) {
+    return response.error();
+  }
+  std::ostringstream oss;
+  auto iobufs = response.consumeBody();
+  for (auto& body : iobufs) {
+    oss << std::string((const char*)body->data(), body->length());
+    pool->free(body->writableData(), body->capacity());
+  }
+  return oss.str();
+}
 } // namespace
 
 PrestoExchangeSource::PrestoExchangeSource(
@@ -68,10 +83,12 @@ PrestoExchangeSource::PrestoExchangeSource(
       ciphers_(ciphers) {
   folly::SocketAddress address(folly::IPAddress(host_).str(), port_, true);
   auto* eventBase = folly::getUnsafeMutableGlobalEventBase();
+  auto timeoutMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+      SystemConfig::instance()->exchangeRequestTimeout());
   httpClient_ = std::make_shared<http::HttpClient>(
       eventBase,
       address,
-      std::chrono::milliseconds(10'000),
+      timeoutMs,
       pool_,
       clientCertAndKeyPath_,
       ciphers_,
@@ -93,10 +110,13 @@ bool PrestoExchangeSource::shouldRequestLocked() {
 
 void PrestoExchangeSource::request() {
   failedAttempts_ = 0;
-  doRequest();
+  backoff_ = Backoff(std::chrono::duration_cast<std::chrono::milliseconds>(
+                         SystemConfig::instance()->exchangeMaxErrorDuration())
+                         .count());
+  doRequest(backoff_.nextDelayMs());
 }
 
-void PrestoExchangeSource::doRequest() {
+void PrestoExchangeSource::doRequest(int64_t delayMs) {
   if (closed_.load()) {
     queue_->setError("PrestoExchangeSource closed");
     return;
@@ -108,7 +128,7 @@ void PrestoExchangeSource::doRequest() {
       .method(proxygen::HTTPMethod::GET)
       .url(path)
       .header(protocol::PRESTO_MAX_SIZE_HTTP_HEADER, "32MB")
-      .send(httpClient_.get())
+      .send(httpClient_.get(), "", delayMs)
       .via(driverCPUExecutor())
       .thenValue([path, self](std::unique_ptr<http::HttpResponse> response) {
         velox::common::testutil::TestValue::adjust(
@@ -116,12 +136,17 @@ void PrestoExchangeSource::doRequest() {
         auto* headers = response->headers();
         if (headers->getStatusCode() != http::kHttpOk &&
             headers->getStatusCode() != http::kHttpNoContent) {
+          // Ideally, not all errors are retryable - especially internal server
+          // errors - which usually point to a query failure on another machine.
+          // But we retry all such errors and rely on the coordinator to
+          // cancel other tasks, when some tasks have failed.
           self->processDataError(
               path,
               fmt::format(
-                  "Received HTTP {} {}",
+                  "Received HTTP {} {} {}",
                   headers->getStatusCode(),
-                  headers->getStatusMessage()));
+                  headers->getStatusMessage(),
+                  bodyAsString(*response, self->pool_.get())));
         } else if (response->hasError()) {
           self->processDataError(path, response->error(), false);
         } else {
@@ -248,11 +273,11 @@ void PrestoExchangeSource::processDataError(
     const std::string& error,
     bool retry) {
   ++failedAttempts_;
-  if (retry && failedAttempts_ < 3) {
+  if (retry && !backoff_.isExhausted()) {
     VLOG(1) << "Failed to fetch data from " << host_ << ":" << port_ << " "
             << path << " - Retrying: " << error;
 
-    doRequest();
+    doRequest(backoff_.nextDelayMs());
     return;
   }
 
