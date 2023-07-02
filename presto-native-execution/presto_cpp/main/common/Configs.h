@@ -265,6 +265,12 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kAnnouncementMaxFrequencyMs{
       "announcement-max-frequency-ms"};
 
+  static constexpr std::string_view kExchangeMaxErrorDuration{
+      "exchange.max-error-duration"};
+
+  static constexpr std::string_view kExchangeRequestTimeout{
+      "exchange.http-client.request-timeout"};
+
   SystemConfig();
 
   static SystemConfig* instance();
@@ -385,6 +391,10 @@ class SystemConfig : public ConfigBase {
   uint64_t announcementMinFrequencyMs() const;
 
   uint64_t announcementMaxFrequencyMs() const;
+
+  std::chrono::duration<double> exchangeMaxErrorDuration() const;
+
+  std::chrono::duration<double> exchangeRequestTimeout() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

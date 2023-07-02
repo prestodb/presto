@@ -299,7 +299,8 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
 
 folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
     const proxygen::HTTPMessage& request,
-    const std::string& body) {
+    const std::string& body,
+    int64_t delayMs) {
   auto responseHandler = std::make_shared<ResponseHandler>(
       request,
       maxResponseAllocBytes_,
@@ -308,7 +309,7 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
       shared_from_this());
   auto future = responseHandler->initialize(responseHandler);
 
-  eventBase_->runInEventBaseThreadAlwaysEnqueue([this, responseHandler]() {
+  auto send = [this, responseHandler]() {
     auto txn = sessionPool_->getTransaction(responseHandler.get());
     if (txn) {
       responseHandler->sendRequest(txn);
@@ -325,7 +326,16 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
         ciphers_);
 
     connectionHandler->connect();
-  });
+  };
+
+  if (delayMs > 0) {
+    // schedule() is expected to be run in the event base thread
+    eventBase_->runInEventBaseThread([=]() {
+      eventBase_->schedule(send, std::chrono::milliseconds(delayMs));
+    });
+  } else {
+    eventBase_->runInEventBaseThreadAlwaysEnqueue(send);
+  }
 
   return future;
 }

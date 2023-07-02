@@ -110,6 +110,32 @@ uint64_t toCapacity(const std::string& from, CapacityUnit to) {
        toBytesPerCapacityUnit(to));
 }
 
+std::chrono::duration<double> toDuration(const std::string& str) {
+  static const RE2 kPattern(R"(^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*)");
+
+  double value;
+  std::string unit;
+  if (!RE2::FullMatch(str, kPattern, &value, &unit)) {
+    VELOX_USER_FAIL("Invalid duration '{}'", str);
+  }
+  if (unit == "ns") {
+    return std::chrono::duration<double, std::nano>(value);
+  } else if (unit == "us") {
+    return std::chrono::duration<double, std::micro>(value);
+  } else if (unit == "ms") {
+    return std::chrono::duration<double, std::milli>(value);
+  } else if (unit == "s") {
+    return std::chrono::duration<double>(value);
+  } else if (unit == "m") {
+    return std::chrono::duration<double, std::ratio<60>>(value);
+  } else if (unit == "h") {
+    return std::chrono::duration<double, std::ratio<60 * 60>>(value);
+  } else if (unit == "d") {
+    return std::chrono::duration<double, std::ratio<60 * 60 * 24>>(value);
+  }
+  VELOX_USER_FAIL("Invalid duration '{}'", str);
+}
+
 } // namespace
 
 ConfigBase::ConfigBase()
@@ -192,12 +218,6 @@ void ConfigBase::checkRegisteredProperties(
   }
 }
 
-static constexpr std::string_view kAnnouncementMinFrequencyMs{
-    "announcement-min-frequency-ms"};
-
-static constexpr std::string_view kAnnouncementMaxFrequencyMs{
-    "announcement-max-frequency-ms"};
-
 SystemConfig::SystemConfig() {
   registeredProps_ =
       std::unordered_map<std::string, folly::Optional<std::string>>{
@@ -249,6 +269,8 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kLogNumZombieTasks, 20),
           NUM_PROP(kAnnouncementMinFrequencyMs, 25'000), // 25s
           NUM_PROP(kAnnouncementMaxFrequencyMs, 30'000), // 35s
+          STR_PROP(kExchangeMaxErrorDuration, "30s"),
+          STR_PROP(kExchangeRequestTimeout, "10s"),
       };
 }
 
@@ -469,6 +491,14 @@ uint64_t SystemConfig::announcementMinFrequencyMs() const {
 
 uint64_t SystemConfig::announcementMaxFrequencyMs() const {
   return optionalProperty<uint64_t>(kAnnouncementMaxFrequencyMs).value();
+}
+
+std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
+  return toDuration(optionalProperty(kExchangeMaxErrorDuration).value());
+}
+
+std::chrono::duration<double> SystemConfig::exchangeRequestTimeout() const {
+  return toDuration(optionalProperty(kExchangeRequestTimeout).value());
 }
 
 NodeConfig::NodeConfig() {

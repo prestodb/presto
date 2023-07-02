@@ -14,6 +14,7 @@
 #pragma once
 
 #include <folly/Uri.h>
+#include <folly/futures/Retrying.h>
 
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/http/HttpClient.h"
@@ -21,6 +22,42 @@
 #include "velox/exec/Exchange.h"
 
 namespace facebook::presto {
+
+class Backoff {
+ public:
+  Backoff(int64_t maxWaitMs = 1000)
+      : maxWaitMs_(maxWaitMs), startMs_(velox::getCurrentTimeMs()) {}
+
+  // Returns the delay in millis to wait before next try. This is an exponential
+  // backoff delay with jitter. The first call to this always returns 0.
+  int64_t nextDelayMs() {
+    ++numTries_;
+    if (numTries_ == 1) {
+      return 0;
+    }
+    auto rng = folly::ThreadLocalPRNG();
+    static constexpr int64_t kMinBackoffMs = 100;
+    static constexpr int64_t kMaxBackoffMs = 10000;
+    static constexpr double kJitterParam = 0.1;
+    return folly::futures::detail::retryingJitteredExponentialBackoffDur(
+               numTries_ - 1,
+               std::chrono::milliseconds(kMinBackoffMs),
+               std::chrono::milliseconds(kMaxBackoffMs),
+               kJitterParam,
+               rng)
+        .count();
+  }
+
+  bool isExhausted() const {
+    return velox::getCurrentTimeMs() - startMs_ > maxWaitMs_;
+  }
+
+ private:
+  int64_t maxWaitMs_;
+  int64_t startMs_;
+  size_t numTries_{0};
+};
+
 class PrestoExchangeSource : public velox::exec::ExchangeSource {
  public:
   PrestoExchangeSource(
@@ -70,7 +107,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
  private:
   void request() override;
 
-  void doRequest();
+  void doRequest(int64_t delayMs);
 
   void processDataResponse(std::unique_ptr<http::HttpResponse> response);
 
@@ -117,5 +154,6 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   // A boolean indicating whether abortResults() call was issued and was
   // successfully processed by the remote server.
   std::atomic_bool abortResultsSucceeded_{false};
+  Backoff backoff_;
 };
 } // namespace facebook::presto
