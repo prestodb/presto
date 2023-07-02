@@ -12,13 +12,13 @@
  * limitations under the License.
  */
 #include <folly/init/Init.h>
+#include <folly/portability/GMock.h>
 #include <gtest/gtest.h>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <velox/common/memory/MemoryAllocator.h>
 #include "presto_cpp/main/PrestoExchangeSource.h"
-#include "presto_cpp/main/http/HttpClient.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
@@ -34,6 +34,7 @@ using namespace facebook::presto;
 using namespace facebook::velox;
 using namespace facebook::velox::memory;
 using namespace facebook::velox::common::testutil;
+using namespace testing;
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
@@ -63,6 +64,9 @@ std::string getCertsPath(const std::string& fileName) {
 
 class Producer {
  public:
+  explicit Producer(std::function<bool()> shouldFail = []() { return false; })
+      : shouldFail_(std::move(shouldFail)) {}
+
   void registerEndpoints(http::HttpServer* server) {
     server->registerGet(
         R"(/v1/task/(.*)/results/([0-9]+)/([0-9]+))",
@@ -95,9 +99,16 @@ class Producer {
 
     return new http::CallbackRequestHandler(
         [this, taskId, sequence](
-            proxygen::HTTPMessage* /*message*/,
+            proxygen::HTTPMessage* message,
             const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
             proxygen::ResponseHandler* downstream) {
+          if (shouldFail_()) {
+            return sendErrorResponse(
+                downstream, "ERR\nConnection reset by peer", 500);
+          }
+          if (sequence < this->startSequence_) {
+            return sendResponse(downstream, taskId, sequence, "", false);
+          }
           auto [data, noMoreData] = getData(sequence);
           if (!data.empty() || noMoreData) {
             sendResponse(downstream, taskId, sequence, data, noMoreData);
@@ -237,6 +248,16 @@ class Producer {
     return std::make_tuple(std::move(data), noMoreData);
   }
 
+  void sendErrorResponse(
+      proxygen::ResponseHandler* downstream,
+      const std::string& error,
+      uint16_t status) {
+    proxygen::ResponseBuilder(downstream)
+        .status(status, "ERR")
+        .body(error)
+        .sendWithEOM();
+  }
+
   void sendResponse(
       proxygen::ResponseHandler* downstream,
       const protocol::TaskId& taskId,
@@ -277,6 +298,7 @@ class Producer {
   folly::Promise<bool> deleteResultsPromise_ =
       folly::Promise<bool>::makeEmpty();
   bool receivedDeleteResults_ = false;
+  std::function<bool()> shouldFail_;
 };
 
 std::string toString(exec::SerializedPage* page) {
@@ -432,6 +454,60 @@ TEST_P(PrestoExchangeSourceTestSuite, basic) {
   ASSERT_EQ(stats.size(), 1);
   const auto it = stats.find("prestoExchangeSource.numPages");
   ASSERT_EQ(it->second, 2);
+}
+
+TEST_P(PrestoExchangeSourceTestSuite, retries) {
+  std::vector<std::string> pages = {"page1 - xx", "page2 - xxxx"};
+  const auto useHttps = GetParam();
+  std::atomic<int> numTries(0);
+  auto shouldFail = [&]() {
+    ++numTries;
+    // On the third try, simulate network delay by sleeping for longer than the
+    // request timeout
+    if (numTries == 3) {
+      long seconds = SystemConfig::instance()->exchangeRequestTimeout().count();
+      std::this_thread::sleep_for(std::chrono::seconds(seconds + 1));
+    }
+    // Fail for the first two times
+    return numTries <= 2;
+  };
+  auto producer = std::make_unique<Producer>(shouldFail);
+  for (const auto& page : pages) {
+    producer->enqueue(page);
+  }
+  producer->noMoreData();
+
+  auto producerServer = createHttpServer(useHttps);
+  producer->registerEndpoints(producerServer.get());
+
+  test::HttpServerWrapper serverWrapper(std::move(producerServer));
+  auto producerAddress = serverWrapper.start().get();
+  auto producerUri = makeProducerUri(producerAddress, useHttps);
+
+  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  queue->addSourceLocked();
+  queue->noMoreSources();
+
+  auto exchangeSource = std::make_shared<PrestoExchangeSource>(
+      producerUri,
+      3,
+      queue,
+      pool_.get(),
+      getClientCa(useHttps),
+      getCiphers(useHttps));
+
+  requestNextPage(queue, exchangeSource);
+  {
+    auto page = waitForNextPage(queue);
+    ASSERT_EQ(toString(page.get()), pages[0]) << "at " << 0;
+    ASSERT_EQ(exchangeSource->testingFailedAttempts(), 3);
+    requestNextPage(queue, exchangeSource);
+  }
+  // Simulate always failing producer
+  numTries = -1000000;
+  EXPECT_THAT(
+      [&]() { waitForNextPage(queue); },
+      ThrowsMessage<std::runtime_error>(HasSubstr("Connection reset by peer")));
 }
 
 TEST_P(PrestoExchangeSourceTestSuite, earlyTerminatingConsumer) {
