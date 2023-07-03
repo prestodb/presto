@@ -841,44 +841,47 @@ public final class SqlToRowExpressionTranslator
         {
             RowExpression first = process(node.getFirst(), context);
             RowExpression second = process(node.getSecond(), context);
+            Type returnType = getType(node);
 
-            if (isNative && !second.getType().equals(first.getType())) {
-                Optional<Type> commonType = functionAndTypeResolver.getCommonSuperType(first.getType(), second.getType());
-                if (!commonType.isPresent()) {
-                    throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", first.getType(), second.getType());
-                }
-
-                Type returnType = getType(node);
+            if (isNative) {
                 // If the first type is unknown, as per presto's NULL_IF semantics we should not infer the type using second argument.
                 // Always return a null with unknown type.
                 if (first.getType().equals(UnknownType.UNKNOWN)) {
                     return constantNull(UnknownType.UNKNOWN);
                 }
-                RowExpression originalFirst = first;
-                // cast(first as <common type>)
-                if (!first.getType().equals(commonType.get())) {
-                    first = call(
-                            getSourceLocation(node),
-                            CAST.name(),
-                            functionAndTypeResolver.lookupCast(CAST.name(), first.getType(), commonType.get()),
-                            commonType.get(), first);
-                }
-                // cast(second as <common type>)
-                if (!second.getType().equals(commonType.get())) {
-                    second = call(
-                            getSourceLocation(node),
-                            CAST.name(),
-                            functionAndTypeResolver.lookupCast(CAST.name(), second.getType(), commonType.get()),
-                            commonType.get(), second);
+                RowExpression firstArgWithoutCast = first;
+
+                if (!second.getType().equals(first.getType())) {
+                    Optional<Type> commonType = functionAndTypeResolver.getCommonSuperType(first.getType(), second.getType());
+                    if (!commonType.isPresent()) {
+                        throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", first.getType(), second.getType());
+                    }
+
+                    // cast(first as <common type>)
+                    if (!first.getType().equals(commonType.get())) {
+                        first = call(
+                                getSourceLocation(node),
+                                CAST.name(),
+                                functionAndTypeResolver.lookupCast(CAST.name(), first.getType(), commonType.get()),
+                                commonType.get(), first);
+                    }
+                    // cast(second as <common type>)
+                    if (!second.getType().equals(commonType.get())) {
+                        second = call(
+                                getSourceLocation(node),
+                                CAST.name(),
+                                functionAndTypeResolver.lookupCast(CAST.name(), second.getType(), commonType.get()),
+                                commonType.get(), second);
+                    }
                 }
                 FunctionHandle equalsFunctionHandle = functionAndTypeResolver.resolveOperator(EQUAL, fromTypes(first.getType(), second.getType()));
                 // equal(cast(first as <common type>), cast(second as <common type>))
                 RowExpression equal = call(EQUAL.name(), equalsFunctionHandle, BOOLEAN, first, second);
 
                 // if (equal(cast(first as <common type>), cast(second as <common type>)), cast(null as firstType), first)
-                return specialForm(IF, returnType, equal, constantNull(originalFirst.getType()), originalFirst);
+                return specialForm(IF, returnType, equal, constantNull(returnType), firstArgWithoutCast);
             }
-            return specialForm(getSourceLocation(node), NULL_IF, getType(node), first, second);
+            return specialForm(getSourceLocation(node), NULL_IF, returnType, first, second);
         }
 
         @Override
