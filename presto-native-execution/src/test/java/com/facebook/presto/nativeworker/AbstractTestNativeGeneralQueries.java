@@ -263,7 +263,7 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT linenumber, NULL FROM lineitem ORDER BY 1 LIMIT 23");
     }
 
-    @Test (enabled = false)
+    @Test
     public void testNullIf()
     {
         assertQuery("SELECT NULLIF(totalprice, 0) FROM (SELECT SUM(extendedprice) AS totalprice FROM lineitem WHERE shipdate >= '1995-09-01')");
@@ -963,7 +963,7 @@ public abstract class AbstractTestNativeGeneralQueries
 
             // For special character in partition name, without correct handling, it would throw errors like 'Invalid partition spec: nationkey=A/B'
             // In this test, verify those partition names can be successfully created
-            String[] specialCharacters = new String[]{"\"", "#", "%", "''", "*", "/", ":", "=", "?", "\\", "\\x7F", "{", "[", "]", "^"}; // escape single quote for sql
+            String[] specialCharacters = new String[] {"\"", "#", "%", "''", "*", "/", ":", "=", "?", "\\", "\\x7F", "{", "[", "]", "^"}; // escape single quote for sql
             for (String specialCharacter : specialCharacters) {
                 getQueryRunner().execute(writeSession, String.format("INSERT INTO %s VALUES ('name', 'A%sB')", tmpTableName, specialCharacter));
                 assertQuery(String.format("SELECT nationkey FROM %s", tmpTableName), String.format("VALUES('A%sB')", specialCharacter));
