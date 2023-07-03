@@ -204,4 +204,12 @@ struct ToBinaryStringFunction {
   }
 };
 
+template <typename T>
+struct SinhFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TInput& result, TInput a) {
+    result = std::sinh(a);
+  }
+};
+
 } // namespace facebook::velox::functions::sparksql

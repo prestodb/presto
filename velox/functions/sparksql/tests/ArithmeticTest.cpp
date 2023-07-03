@@ -282,6 +282,18 @@ TEST_F(CeilFloorTest, Limits) {
       floor<double>(-std::numeric_limits<double>::infinity()));
 }
 
+TEST_F(ArithmeticTest, sinh) {
+  const auto sinh = [&](std::optional<double> a) {
+    return evaluateOnce<double>("sinh(c0)", a);
+  };
+
+  EXPECT_EQ(sinh(0), 0);
+  EXPECT_EQ(sinh(kInf), kInf);
+  EXPECT_EQ(sinh(-kInf), -kInf);
+  EXPECT_EQ(sinh(std::nullopt), std::nullopt);
+  EXPECT_TRUE(std::isnan(sinh(kNan).value_or(0)));
+}
+
 class BinTest : public SparkFunctionBaseTest {
  protected:
   std::optional<std::string> bin(std::optional<std::int64_t> arg) {

@@ -96,6 +96,10 @@ Mathematical Functions
 
     Returns the secant of ``x``.
 
+.. spark:function:: sinh(x) -> double
+
+    Returns hyperbolic sine of ``x``.
+
 .. spark:function:: subtract(x, y) -> [same as x]
 
     Returns the result of subtracting y from x. The types of x and y must be the same.
