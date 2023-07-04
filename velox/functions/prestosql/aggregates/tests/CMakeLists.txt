@@ -31,6 +31,7 @@ add_executable(
   CovarianceAggregationTest.cpp
   HistogramTest.cpp
   Main.cpp
+  MapAccumulatorTest.cpp
   MinMaxByAggregationTest.cpp
   MinMaxTest.cpp
   PrestoHasherTest.cpp

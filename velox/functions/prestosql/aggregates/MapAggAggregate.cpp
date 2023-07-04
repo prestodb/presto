@@ -20,27 +20,30 @@ namespace facebook::velox::aggregate::prestosql {
 namespace {
 // See documentation at
 // https://prestodb.io/docs/current/functions/aggregate.html
-class MapAggAggregate : public aggregate::MapAggregateBase {
+template <typename K>
+class MapAggAggregate : public MapAggregateBase<K> {
  public:
-  explicit MapAggAggregate(TypePtr resultType) : MapAggregateBase(resultType) {}
+  explicit MapAggAggregate(TypePtr resultType)
+      : MapAggregateBase<K>(std::move(resultType)) {}
+
+  using Base = MapAggregateBase<K>;
 
   void addRawInput(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    decodedKeys_.decode(*args[0], rows);
-    decodedValues_.decode(*args[1], rows);
+    Base::decodedKeys_.decode(*args[0], rows);
+    Base::decodedValues_.decode(*args[1], rows);
 
     rows.applyToSelected([&](vector_size_t row) {
       // Skip null keys
-      if (!decodedKeys_.isNullAt(row)) {
+      if (!Base::decodedKeys_.isNullAt(row)) {
         auto group = groups[row];
-        clearNull(group);
-        auto accumulator = value<MapAccumulator>(group);
-        auto tracker = trackRowSize(group);
-        accumulator->keys.appendValue(decodedKeys_, row, allocator_);
-        accumulator->values.appendValue(decodedValues_, row, allocator_);
+        Base::clearNull(group);
+        auto tracker = Base::trackRowSize(group);
+        Base::accumulator(group)->insert(
+            Base::decodedKeys_, Base::decodedValues_, row, *Base::allocator_);
       }
     });
   }
@@ -50,19 +53,17 @@ class MapAggAggregate : public aggregate::MapAggregateBase {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /* mayPushdown */) override {
-    auto accumulator = value<MapAccumulator>(group);
-    auto& keys = accumulator->keys;
-    auto& values = accumulator->values;
+    auto singleAccumulator = Base::accumulator(group);
 
-    decodedKeys_.decode(*args[0], rows);
-    decodedValues_.decode(*args[1], rows);
-    auto tracker = trackRowSize(group);
+    Base::decodedKeys_.decode(*args[0], rows);
+    Base::decodedValues_.decode(*args[1], rows);
+    auto tracker = Base::trackRowSize(group);
     rows.applyToSelected([&](vector_size_t row) {
       // Skip null keys
-      if (!decodedKeys_.isNullAt(row)) {
-        clearNull(group);
-        keys.appendValue(decodedKeys_, row, allocator_);
-        values.appendValue(decodedValues_, row, allocator_);
+      if (!Base::decodedKeys_.isNullAt(row)) {
+        Base::clearNull(group);
+        singleAccumulator->insert(
+            Base::decodedKeys_, Base::decodedValues_, row, *Base::allocator_);
       }
     });
   }
@@ -92,7 +93,8 @@ exec::AggregateRegistrationResult registerMapAgg(const std::string& name) {
             rawInput ? 2 : 1,
             "{} ({}): unexpected number of arguments",
             name);
-        return std::make_unique<MapAggAggregate>(resultType);
+
+        return createMapAggregate<MapAggAggregate>(resultType);
       });
 }
 

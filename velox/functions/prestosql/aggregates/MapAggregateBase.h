@@ -18,20 +18,19 @@
 #include "velox/exec/ContainerRowSerde.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
-#include "velox/functions/prestosql/aggregates/ValueList.h"
+#include "velox/functions/prestosql/aggregates/MapAccumulator.h"
 
-namespace facebook::velox::aggregate {
-struct MapAccumulator {
-  ValueList keys;
-  ValueList values;
-};
+namespace facebook::velox::aggregate::prestosql {
 
+template <typename K>
 class MapAggregateBase : public exec::Aggregate {
  public:
   explicit MapAggregateBase(TypePtr resultType) : Aggregate(resultType) {}
 
+  using AccumulatorType = MapAccumulator<K>;
+
   int32_t accumulatorFixedWidthSize() const override {
-    return sizeof(MapAccumulator);
+    return sizeof(AccumulatorType);
   }
 
   bool isFixedSize() const override {
@@ -41,14 +40,49 @@ class MapAggregateBase : public exec::Aggregate {
   void initializeNewGroups(
       char** groups,
       folly::Range<const vector_size_t*> indices) override {
+    const auto& type = resultType()->childAt(0);
     for (auto index : indices) {
-      new (groups[index] + offset_) MapAccumulator();
+      new (groups[index] + offset_) AccumulatorType(type, allocator_);
     }
     setAllNulls(groups, indices);
   }
 
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
-      override;
+      override {
+    auto mapVector = (*result)->as<MapVector>();
+    VELOX_CHECK(mapVector);
+    mapVector->resize(numGroups);
+    auto mapKeys = mapVector->mapKeys();
+    auto mapValues = mapVector->mapValues();
+    auto numElements = countElements(groups, numGroups);
+    mapKeys->resize(numElements);
+    mapValues->resize(numElements);
+
+    auto* rawNulls = getRawNulls(mapVector);
+    vector_size_t offset = 0;
+
+    for (int32_t i = 0; i < numGroups; ++i) {
+      char* group = groups[i];
+
+      if (isNull(group)) {
+        mapVector->setNull(i, true);
+        mapVector->setOffsetAndSize(i, 0, 0);
+        continue;
+      }
+
+      clearNull(rawNulls, i);
+
+      auto accumulator = value<AccumulatorType>(group);
+      auto mapSize = accumulator->size();
+      if (mapSize) {
+        accumulator->extract(mapKeys, mapValues, offset);
+        mapVector->setOffsetAndSize(i, offset, mapSize);
+        offset += mapSize;
+      } else {
+        mapVector->setOffsetAndSize(i, 0, 0);
+      }
+    }
+  }
 
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
       override {
@@ -73,9 +107,8 @@ class MapAggregateBase : public exec::Aggregate {
 
   void destroy(folly::Range<char**> groups) override {
     for (auto group : groups) {
-      auto accumulator = value<MapAccumulator>(group);
-      accumulator->keys.free(allocator_);
-      accumulator->values.free(allocator_);
+      auto accumulator = value<AccumulatorType>(group);
+      accumulator->free(*allocator_);
     }
   }
 
@@ -83,27 +116,121 @@ class MapAggregateBase : public exec::Aggregate {
   vector_size_t countElements(char** groups, int32_t numGroups) const {
     vector_size_t size = 0;
     for (int32_t i = 0; i < numGroups; ++i) {
-      size += value<MapAccumulator>(groups[i])->keys.size();
+      size += value<AccumulatorType>(groups[i])->size();
     }
     return size;
   }
 
-  VectorPtr removeDuplicates(MapVectorPtr& mapVector) const;
+  AccumulatorType* accumulator(char* group) {
+    return value<AccumulatorType>(group);
+  }
+
+  static void checkNullKeys(
+      const DecodedVector& keys,
+      vector_size_t offset,
+      vector_size_t size) {
+    static const char* kNullKey = "map key cannot be null";
+    if (keys.mayHaveNulls()) {
+      for (auto i = offset; i < offset + size; ++i) {
+        VELOX_USER_CHECK(!keys.isNullAt(i), kNullKey);
+      }
+    }
+  }
 
   void addMapInputToAccumulator(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
-      bool mayPushdown);
+      bool /*mayPushdown*/) {
+    decodedMaps_.decode(*args[0], rows);
+    auto mapVector = decodedMaps_.base()->template as<MapVector>();
+
+    decodedKeys_.decode(*mapVector->mapKeys());
+    decodedValues_.decode(*mapVector->mapValues());
+
+    VELOX_CHECK_NOT_NULL(mapVector);
+    rows.applyToSelected([&](vector_size_t row) {
+      auto group = groups[row];
+      auto accumulator = value<AccumulatorType>(group);
+
+      if (!decodedMaps_.isNullAt(row)) {
+        clearNull(group);
+        auto decodedRow = decodedMaps_.index(row);
+        auto offset = mapVector->offsetAt(decodedRow);
+        auto size = mapVector->sizeAt(decodedRow);
+        auto tracker = trackRowSize(group);
+        checkNullKeys(decodedKeys_, offset, size);
+        accumulator->insertRange(
+            decodedKeys_, decodedValues_, offset, size, *allocator_);
+      }
+    });
+  }
 
   void addSingleGroupMapInputToAccumulator(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
-      bool mayPushdown);
+      bool /*mayPushdown*/) {
+    decodedMaps_.decode(*args[0], rows);
+    auto mapVector = decodedMaps_.base()->template as<MapVector>();
+
+    decodedKeys_.decode(*mapVector->mapKeys());
+    decodedValues_.decode(*mapVector->mapValues());
+
+    auto accumulator = value<AccumulatorType>(group);
+
+    VELOX_CHECK_NOT_NULL(mapVector);
+    rows.applyToSelected([&](vector_size_t row) {
+      if (!decodedMaps_.isNullAt(row)) {
+        clearNull(group);
+        auto decodedRow = decodedMaps_.index(row);
+        auto offset = mapVector->offsetAt(decodedRow);
+        auto size = mapVector->sizeAt(decodedRow);
+        checkNullKeys(decodedKeys_, offset, size);
+        accumulator->insertRange(
+            decodedKeys_, decodedValues_, offset, size, *allocator_);
+      }
+    });
+  }
 
   DecodedVector decodedKeys_;
   DecodedVector decodedValues_;
   DecodedVector decodedMaps_;
 };
-} // namespace facebook::velox::aggregate
+
+template <template <typename K> class TAggregate>
+std::unique_ptr<exec::Aggregate> createMapAggregate(const TypePtr& resultType) {
+  auto typeKind = resultType->childAt(0)->kind();
+  switch (typeKind) {
+    case TypeKind::BOOLEAN:
+      return std::make_unique<TAggregate<bool>>(resultType);
+    case TypeKind::TINYINT:
+      return std::make_unique<TAggregate<int8_t>>(resultType);
+    case TypeKind::SMALLINT:
+      return std::make_unique<TAggregate<int16_t>>(resultType);
+    case TypeKind::INTEGER:
+      return std::make_unique<TAggregate<int32_t>>(resultType);
+    case TypeKind::BIGINT:
+      return std::make_unique<TAggregate<int64_t>>(resultType);
+    case TypeKind::REAL:
+      return std::make_unique<TAggregate<float>>(resultType);
+    case TypeKind::DOUBLE:
+      return std::make_unique<TAggregate<double>>(resultType);
+    case TypeKind::TIMESTAMP:
+      return std::make_unique<TAggregate<Timestamp>>(resultType);
+    case TypeKind::DATE:
+      return std::make_unique<TAggregate<Date>>(resultType);
+    case TypeKind::VARCHAR:
+      return std::make_unique<TAggregate<StringView>>(resultType);
+    case TypeKind::ARRAY:
+    case TypeKind::MAP:
+    case TypeKind::ROW:
+      return std::make_unique<TAggregate<ComplexType>>(resultType);
+    case TypeKind::UNKNOWN:
+      return std::make_unique<TAggregate<int32_t>>(resultType);
+    default:
+      VELOX_UNREACHABLE("Unexpected type {}", mapTypeKindToName(typeKind));
+  }
+}
+
+} // namespace facebook::velox::aggregate::prestosql
