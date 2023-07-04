@@ -127,6 +127,7 @@ AbstractClasses:
         - { name: SemiJoinNode,             key: com.facebook.presto.sql.planner.plan.SemiJoinNode }
         - { name: TableScanNode,            key: .TableScanNode }
         - { name: TableWriterNode,          key: com.facebook.presto.sql.planner.plan.TableWriterNode }
+        - { name: TableWriterMergeNode,     key: com.facebook.presto.sql.planner.plan.TableWriterMergeNode }
         - { name: TopNNode,                 key: .TopNNode }
         - { name: TopNRowNumberNode,        key: com.facebook.presto.sql.planner.plan.TopNRowNumberNode }
         - { name: UnnestNode,               key: com.facebook.presto.sql.planner.plan.UnnestNode }
@@ -202,6 +203,7 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/RowNumberNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TopNRowNumberNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TableWriterNode.java
+  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TableWriterMergeNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/UnnestNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/WindowNode.java
   - presto-main/src/main/java/com/facebook/presto/execution/ExecutionFailureInfo.java
