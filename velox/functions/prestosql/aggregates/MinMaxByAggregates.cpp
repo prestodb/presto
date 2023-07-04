@@ -659,8 +659,37 @@ struct MinMaxByNAccumulator {
   explicit MinMaxByNAccumulator(HashStringAllocator* allocator)
       : topPairs{Compare{}, StlAllocator<Pair>(allocator)} {}
 
-  void
-  compareAndAdd(C comparison, std::optional<V> value, Compare& comparator) {
+  int64_t getN() const {
+    return n;
+  }
+
+  size_t size() const {
+    return topPairs.size();
+  }
+
+  void checkAndSetN(DecodedVector& decodedN, vector_size_t row) {
+    VELOX_USER_CHECK(
+        !decodedN.isNullAt(row),
+        "third argument of max_by/min_by must be a positive integer");
+    const auto newN = decodedN.valueAt<int64_t>(row);
+    VELOX_USER_CHECK_GT(
+        newN, 0, "third argument of max_by/min_by must be a positive integer");
+
+    if (n) {
+      VELOX_USER_CHECK_EQ(
+          newN,
+          n,
+          "third argument of max_by/min_by must be a constant for all rows in a group");
+    } else {
+      n = newN;
+    }
+  }
+
+  void compareAndAdd(
+      C comparison,
+      std::optional<V> value,
+      Compare& comparator,
+      HashStringAllocator& /*allocator*/) {
     if (topPairs.size() < n) {
       topPairs.push({comparison, value});
     } else {
@@ -717,20 +746,174 @@ struct MinMaxByNAccumulator {
   }
 };
 
+template <typename V, typename C, typename Compare>
+struct Extractor {
+  V* rawValues;
+  uint64_t* rawValueNulls;
+
+  explicit Extractor(VectorPtr& values)
+      : rawValues{values->as<FlatVector<V>>()->mutableRawValues()},
+        rawValueNulls{values->mutableRawNulls()} {}
+
+  void extractValues(
+      MinMaxByNAccumulator<V, C, Compare>* accumulator,
+      vector_size_t offset) {
+    accumulator->extractValues(rawValues, rawValueNulls, offset);
+  }
+
+  void extractPairs(
+      MinMaxByNAccumulator<V, C, Compare>* accumulator,
+      C* rawComparisons,
+      vector_size_t offset) {
+    accumulator->extractPairs(rawComparisons, rawValues, rawValueNulls, offset);
+  }
+};
+
+template <typename C, typename Compare>
+struct MinMaxByNStringViewAccumulator {
+  MinMaxByNAccumulator<StringView, C, Compare> base;
+
+  explicit MinMaxByNStringViewAccumulator(HashStringAllocator* allocator)
+      : base{allocator} {}
+
+  int64_t getN() const {
+    return base.n;
+  }
+
+  size_t size() const {
+    return base.size();
+  }
+
+  void checkAndSetN(DecodedVector& decodedN, vector_size_t row) {
+    return base.checkAndSetN(decodedN, row);
+  }
+
+  void compareAndAdd(
+      C comparison,
+      std::optional<StringView> value,
+      Compare& comparator,
+      HashStringAllocator& allocator) {
+    if (base.topPairs.size() < base.n) {
+      base.topPairs.push({comparison, write(value, allocator)});
+    } else {
+      const auto& topPair = base.topPairs.top();
+      if (comparator.compare(comparison, topPair)) {
+        free(topPair.second, allocator);
+        base.topPairs.pop();
+        base.topPairs.push({comparison, write(value, allocator)});
+      }
+    }
+  }
+
+  /// Moves all values from 'topPairs' into 'values'
+  /// buffers. The queue of 'topPairs' will be empty after this call.
+  void extractValues(FlatVector<StringView>& values, vector_size_t offset) {
+    const vector_size_t size = base.topPairs.size();
+    for (auto i = size - 1; i >= 0; --i) {
+      extractValue(base.topPairs.top(), values, offset + i);
+      base.topPairs.pop();
+    }
+  }
+
+  /// Moves all pairs of (comparison, value) from 'topPairs' into
+  /// 'rawComparisons' buffer and 'values' vector. The queue of
+  /// 'topPairs' will be empty after this call.
+  void extractPairs(
+      C* rawComparisons,
+      FlatVector<StringView>& values,
+      vector_size_t offset) {
+    const vector_size_t size = base.topPairs.size();
+    for (auto i = size - 1; i >= 0; --i) {
+      const auto& topPair = base.topPairs.top();
+      const auto index = offset + i;
+
+      rawComparisons[index] = topPair.first;
+      extractValue(topPair, values, index);
+
+      base.topPairs.pop();
+    }
+  }
+
+ private:
+  using Pair = typename MinMaxByNAccumulator<StringView, C, Compare>::Pair;
+
+  std::optional<StringView> write(
+      std::optional<StringView> value,
+      HashStringAllocator& allocator) {
+    if (!value.has_value() || value->isInline()) {
+      return value;
+    }
+
+    const auto size = value->size();
+
+    auto* header = allocator.allocate(size);
+    auto* start = header->begin();
+
+    memcpy(start, value->data(), size);
+    return StringView(start, size);
+  }
+
+  void free(std::optional<StringView> value, HashStringAllocator& allocator) {
+    if (value.has_value() && !value->isInline()) {
+      auto* header = HashStringAllocator::headerOf(value->data());
+      allocator.free(header);
+    }
+  }
+
+  static void extractValue(
+      const Pair& topPair,
+      FlatVector<StringView>& values,
+      vector_size_t index) {
+    const bool valueIsNull = !topPair.second.has_value();
+    values.setNull(index, valueIsNull);
+    if (!valueIsNull) {
+      values.set(index, topPair.second.value());
+    }
+  }
+};
+
+template <typename C, typename Compare>
+struct StringViewExtractor {
+  FlatVector<StringView>& values;
+
+  explicit StringViewExtractor(VectorPtr& _values)
+      : values{*_values->asFlatVector<StringView>()} {}
+
+  void extractValues(
+      MinMaxByNStringViewAccumulator<C, Compare>* accumulator,
+      vector_size_t offset) {
+    accumulator->extractValues(values, offset);
+  }
+
+  void extractPairs(
+      MinMaxByNStringViewAccumulator<C, Compare>* accumulator,
+      C* rawComparisons,
+      vector_size_t offset) {
+    accumulator->extractPairs(rawComparisons, values, offset);
+  }
+};
+
 /// @tparam C Type of compare.
 /// @tparam Compare Type of comparator of
 /// std::pair<C, std::optional<HashStringAllocator::Position>>.
 template <typename C, typename Compare>
 struct MinMaxByNComplexTypeAccumulator {
-  int64_t n{0};
-
-  using V = HashStringAllocator::Position;
-  using Pair = std::pair<C, std::optional<V>>;
-  std::priority_queue<Pair, std::vector<Pair, StlAllocator<Pair>>, Compare>
-      topPairs;
+  MinMaxByNAccumulator<HashStringAllocator::Position, C, Compare> base;
 
   explicit MinMaxByNComplexTypeAccumulator(HashStringAllocator* allocator)
-      : topPairs{Compare{}, StlAllocator<Pair>(allocator)} {}
+      : base{allocator} {}
+
+  int64_t getN() const {
+    return base.n;
+  }
+
+  size_t size() const {
+    return base.size();
+  }
+
+  void checkAndSetN(DecodedVector& decodedN, vector_size_t row) {
+    return base.checkAndSetN(decodedN, row);
+  }
 
   void compareAndAdd(
       C comparison,
@@ -738,19 +921,19 @@ struct MinMaxByNComplexTypeAccumulator {
       vector_size_t index,
       Compare& comparator,
       HashStringAllocator* allocator) {
-    if (topPairs.size() < n) {
+    if (base.topPairs.size() < base.n) {
       auto position = write(decoded, index, allocator);
-      topPairs.push({comparison, position});
+      base.topPairs.push({comparison, position});
     } else {
-      const auto& topPair = topPairs.top();
+      const auto& topPair = base.topPairs.top();
       if (comparator.compare(comparison, topPair)) {
         if (topPair.second) {
           allocator->free(topPair.second->header);
         }
-        topPairs.pop();
+        base.topPairs.pop();
 
         auto position = write(decoded, index, allocator);
-        topPairs.push({comparison, position});
+        base.topPairs.push({comparison, position});
       }
     }
   }
@@ -758,10 +941,10 @@ struct MinMaxByNComplexTypeAccumulator {
   /// Moves all values from 'topPairs' into 'values' vector. The queue of
   /// 'topPairs' will be empty after this call.
   void extractValues(BaseVector& values, vector_size_t offset) {
-    const vector_size_t size = topPairs.size();
+    const vector_size_t size = base.topPairs.size();
     for (auto i = size - 1; i >= 0; --i) {
-      extractValue(topPairs.top(), values, offset + i);
-      topPairs.pop();
+      extractValue(base.topPairs.top(), values, offset + i);
+      base.topPairs.pop();
     }
   }
 
@@ -770,19 +953,22 @@ struct MinMaxByNComplexTypeAccumulator {
   /// 'topPairs' will be empty after this call.
   void
   extractPairs(C* rawComparisons, BaseVector& values, vector_size_t offset) {
-    const vector_size_t size = topPairs.size();
+    const vector_size_t size = base.topPairs.size();
     for (auto i = size - 1; i >= 0; --i) {
-      const auto& topPair = topPairs.top();
+      const auto& topPair = base.topPairs.top();
       const auto index = offset + i;
 
       rawComparisons[index] = topPair.first;
       extractValue(topPair, values, index);
 
-      topPairs.pop();
+      base.topPairs.pop();
     }
   }
 
  private:
+  using V = HashStringAllocator::Position;
+  using Pair = typename MinMaxByNAccumulator<V, C, Compare>::Pair;
+
   static std::optional<V> write(
       DecodedVector& decoded,
       vector_size_t index,
@@ -817,6 +1003,26 @@ struct MinMaxByNComplexTypeAccumulator {
   }
 };
 
+template <typename C, typename Compare>
+struct ComplexTypeExtractor {
+  BaseVector& values;
+
+  explicit ComplexTypeExtractor(VectorPtr& _values) : values{*_values} {}
+
+  void extractValues(
+      MinMaxByNComplexTypeAccumulator<C, Compare>* accumulator,
+      vector_size_t offset) {
+    accumulator->extractValues(values, offset);
+  }
+
+  void extractPairs(
+      MinMaxByNComplexTypeAccumulator<C, Compare>* accumulator,
+      C* rawComparisons,
+      vector_size_t offset) {
+    accumulator->extractPairs(rawComparisons, values, offset);
+  }
+};
+
 template <typename V, typename C>
 struct Less {
   using Pair = std::pair<C, std::optional<V>>;
@@ -844,11 +1050,19 @@ struct Greater {
 template <typename V, typename C, typename Compare>
 struct MinMaxByNAccumulatorTypeTraits {
   using AccumulatorType = MinMaxByNAccumulator<V, C, Compare>;
+  using ExtractorType = Extractor<V, C, Compare>;
+};
+
+template <typename C, typename Compare>
+struct MinMaxByNAccumulatorTypeTraits<StringView, C, Compare> {
+  using AccumulatorType = MinMaxByNStringViewAccumulator<C, Compare>;
+  using ExtractorType = StringViewExtractor<C, Compare>;
 };
 
 template <typename C, typename Compare>
 struct MinMaxByNAccumulatorTypeTraits<ComplexType, C, Compare> {
   using AccumulatorType = MinMaxByNComplexTypeAccumulator<C, Compare>;
+  using ExtractorType = ComplexTypeExtractor<C, Compare>;
 };
 
 template <typename V, typename C, typename Compare>
@@ -859,6 +1073,8 @@ class MinMaxByNAggregate : public exec::Aggregate {
 
   using AccumulatorType =
       typename MinMaxByNAccumulatorTypeTraits<V, C, Compare>::AccumulatorType;
+  using ExtractorType =
+      typename MinMaxByNAccumulatorTypeTraits<V, C, Compare>::ExtractorType;
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(AccumulatorType);
@@ -885,12 +1101,7 @@ class MinMaxByNAggregate : public exec::Aggregate {
     auto values = valuesArray->elements();
     values->resize(numValues);
 
-    V* rawValues;
-    uint64_t* rawValueNulls;
-    if constexpr (!std::is_same_v<V, ComplexType>) {
-      rawValues = values->as<FlatVector<V>>()->mutableRawValues();
-      rawValueNulls = values->mutableRawNulls();
-    }
+    ExtractorType extractor(values);
 
     auto [rawOffsets, rawSizes] = rawOffsetAndSizes(*valuesArray);
 
@@ -900,16 +1111,12 @@ class MinMaxByNAggregate : public exec::Aggregate {
 
       if (!isNull(group)) {
         auto* accumulator = value(group);
-        const vector_size_t size = accumulator->topPairs.size();
+        const vector_size_t size = accumulator->size();
 
         rawOffsets[i] = offset;
         rawSizes[i] = size;
 
-        if constexpr (std::is_same_v<V, ComplexType>) {
-          accumulator->extractValues(*values, offset);
-        } else {
-          accumulator->extractValues(rawValues, rawValueNulls, offset);
-        }
+        extractor.extractValues(accumulator, offset);
 
         offset += size;
       }
@@ -936,13 +1143,7 @@ class MinMaxByNAggregate : public exec::Aggregate {
     values->resize(numValues);
     comparisons->resize(numValues);
 
-    V* rawValues;
-    uint64_t* rawValueNulls = values->mutableRawNulls();
-    ;
-    if constexpr (!std::is_same_v<V, ComplexType>) {
-      rawValues = values->as<FlatVector<V>>()->mutableRawValues();
-      rawValueNulls = values->mutableRawNulls();
-    }
+    ExtractorType extractor{values};
 
     auto rawComparisons = comparisons->as<FlatVector<C>>()->mutableRawValues();
 
@@ -956,9 +1157,9 @@ class MinMaxByNAggregate : public exec::Aggregate {
 
       if (!isNull(group)) {
         auto* accumulator = value(group);
-        const auto size = accumulator->topPairs.size();
+        const auto size = accumulator->size();
 
-        rawNs[i] = accumulator->n;
+        rawNs[i] = accumulator->getN();
 
         rawValueOffsets[i] = offset;
         rawValueSizes[i] = size;
@@ -966,12 +1167,7 @@ class MinMaxByNAggregate : public exec::Aggregate {
         rawComparisonOffsets[i] = offset;
         rawComparisonSizes[i] = size;
 
-        if constexpr (std::is_same_v<V, ComplexType>) {
-          accumulator->extractPairs(rawComparisons, *values, offset);
-        } else {
-          accumulator->extractPairs(
-              rawComparisons, rawValues, rawValueNulls, offset);
-        }
+        extractor.extractPairs(accumulator, rawComparisons, offset);
 
         offset += size;
       }
@@ -995,9 +1191,9 @@ class MinMaxByNAggregate : public exec::Aggregate {
       auto* group = groups[i];
 
       auto* accumulator = value(group);
-      const auto n = validateN(decodedN_, i, accumulator->n);
+      accumulator->checkAndSetN(decodedN_, i);
 
-      addRawInput(group, n, i);
+      addRawInput(group, i);
     });
   }
 
@@ -1024,11 +1220,11 @@ class MinMaxByNAggregate : public exec::Aggregate {
     decodedComparison_.decode(*args[1], rows);
 
     auto* accumulator = value(group);
-    const auto n = extractN(args[2], rows, accumulator->n);
+    validateN(args[2], rows, accumulator);
 
     rows.applyToSelected([&](vector_size_t i) {
       if (!decodedComparison_.isNullAt(i)) {
-        addRawInput(group, n, i);
+        addRawInput(group, i);
       }
     });
   }
@@ -1074,11 +1270,10 @@ class MinMaxByNAggregate : public exec::Aggregate {
     return value;
   }
 
-  void addRawInput(char* group, int64_t n, vector_size_t index) {
+  void addRawInput(char* group, vector_size_t index) {
     clearNull(group);
 
     auto* accumulator = value(group);
-    accumulator->n = n;
 
     const auto comparison = decodedComparison_.valueAt<C>(index);
     if constexpr (std::is_same_v<V, ComplexType>) {
@@ -1086,7 +1281,7 @@ class MinMaxByNAggregate : public exec::Aggregate {
           comparison, decodedValue_, index, comparator_, allocator_);
     } else {
       const auto value = optionalValue(decodedValue_, index);
-      accumulator->compareAndAdd(comparison, value, comparator_);
+      accumulator->compareAndAdd(comparison, value, comparator_, *allocator_);
     }
   }
 
@@ -1110,8 +1305,7 @@ class MinMaxByNAggregate : public exec::Aggregate {
 
     const auto decodedIndex = decodedIntermediates_.index(index);
 
-    const auto n = validateN(decodedN_, decodedIndex, accumulator->n);
-    accumulator->n = n;
+    accumulator->checkAndSetN(decodedN_, decodedIndex);
 
     const auto* valueArray = result.valueArray;
     const auto* values = result.flatValues;
@@ -1132,7 +1326,7 @@ class MinMaxByNAggregate : public exec::Aggregate {
             allocator_);
       } else {
         const auto value = optionalValue(*values, valueOffset + i);
-        accumulator->compareAndAdd(comparison, value, comparator_);
+        accumulator->compareAndAdd(comparison, value, comparator_, *allocator_);
       }
     }
   }
@@ -1184,43 +1378,24 @@ class MinMaxByNAggregate : public exec::Aggregate {
         result->setNull(i, true);
       } else {
         clearNull(rawNulls, i);
-        numValues += accumulator->topPairs.size();
+        numValues += accumulator->size();
       }
     }
 
     return numValues;
   }
 
-  int64_t
-  validateN(DecodedVector& decodedN, vector_size_t row, int64_t currentN) {
-    VELOX_USER_CHECK(
-        !decodedN.isNullAt(row),
-        "third argument of max_by/min_by must be a positive integer");
-    const auto n = decodedN.valueAt<int64_t>(row);
-    VELOX_USER_CHECK_GT(
-        n, 0, "third argument of max_by/min_by must be a positive integer");
-
-    if (currentN) {
-      VELOX_USER_CHECK_EQ(
-          n,
-          currentN,
-          "third argument of max_by/min_by must be a constant for all rows in a group");
-    }
-    return n;
-  }
-
-  int64_t extractN(
+  void validateN(
       const VectorPtr& arg,
       const SelectivityVector& rows,
-      int64_t currentN) {
+      AccumulatorType* accumulator) {
     decodedN_.decode(*arg, rows);
     if (decodedN_.isConstantMapping()) {
-      return validateN(decodedN_, rows.begin(), currentN);
+      accumulator->checkAndSetN(decodedN_, rows.begin());
+    } else {
+      rows.applyToSelected(
+          [&](auto row) { accumulator->checkAndSetN(decodedN_, row); });
     }
-
-    const auto n = validateN(decodedN_, rows.begin(), currentN);
-    rows.applyToSelected([&](auto row) { validateN(decodedN_, row, n); });
-    return n;
   }
 
   Compare comparator_;
