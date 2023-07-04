@@ -92,12 +92,26 @@ struct Scope {
   }
 };
 
+// Utility method to check eligibility for flattening.
+bool allInputTypesEquivalent(const TypedExprPtr& expr) {
+  const auto& inputs = expr->inputs();
+  for (int i = 1; i < inputs.size(); i++) {
+    if (!inputs[0]->type()->equivalent(*inputs[i]->type())) {
+      return false;
+    }
+  }
+  return true;
+}
+
 std::optional<std::string> shouldFlatten(
     const TypedExprPtr& expr,
     const std::unordered_set<std::string>& flatteningCandidates) {
   if (auto call = std::dynamic_pointer_cast<const core::CallTypedExpr>(expr)) {
+    // Currently only supports the most common case for flattening where all
+    // inputs are of the same type.
     if (call->name() == kAnd || call->name() == kOr ||
-        flatteningCandidates.count(call->name())) {
+        (flatteningCandidates.count(call->name()) &&
+         allInputTypesEquivalent(expr))) {
       return call->name();
     }
   }
@@ -111,18 +125,27 @@ bool isCall(const TypedExprPtr& expr, const std::string& name) {
   return false;
 }
 
-// Flattens nested ANDs or ORs into a vector of conjuncts
+// Recursively flattens nested ANDs, ORs or eligible callable expressions into a
+// vector of their inputs. Recursive flattening ceases exploring an input branch
+// if it encounters either an expression different from 'flattenCall' or its
+// inputs are not the same type.
 // Examples:
+// flattenCall: AND
 // in: a AND (b AND (c AND d))
 // out: [a, b, c, d]
 //
+// flattenCall: OR
 // in: (a OR b) OR (c OR d)
 // out: [a, b, c, d]
+//
+// flattenCall: concat
+// in: (array1, concat(array2, concat(array2, intVal))
+// out: [array1, array2, concat(array2, intVal)]
 void flattenInput(
     const TypedExprPtr& input,
     const std::string& flattenCall,
     std::vector<TypedExprPtr>& flat) {
-  if (isCall(input, flattenCall)) {
+  if (isCall(input, flattenCall) && allInputTypesEquivalent(input)) {
     for (auto& child : input->inputs()) {
       flattenInput(child, flattenCall, flat);
     }

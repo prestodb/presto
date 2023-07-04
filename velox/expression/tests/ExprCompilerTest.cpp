@@ -44,10 +44,14 @@ class ExprCompilerTest : public testing::Test,
         BOOLEAN(), std::vector<core::TypedExprPtr>{a, b}, "or");
   }
 
-  core::TypedExprPtr concatCall(const std::vector<core::TypedExprPtr>& args) {
+  core::TypedExprPtr concatCall(
+      const std::vector<core::TypedExprPtr>& args,
+      TypePtr returnType = nullptr) {
     VELOX_CHECK_GE(args.size(), 2);
-    return std::make_shared<core::CallTypedExpr>(
-        args[0]->type(), args, "concat");
+    if (!returnType) {
+      returnType = args[0]->type();
+    }
+    return std::make_shared<core::CallTypedExpr>(returnType, args, "concat");
   }
 
   core::TypedExprPtr call(
@@ -154,7 +158,7 @@ TEST_F(ExprCompilerTest, orFlattening) {
   ASSERT_EQ("and(a, or(b, c, d))", compile(expression)->toString());
 }
 
-TEST_F(ExprCompilerTest, concatFlattening) {
+TEST_F(ExprCompilerTest, concatStringFlattening) {
   auto rowType =
       ROW({"a", "b", "c", "d"}, {VARCHAR(), VARCHAR(), VARCHAR(), VARCHAR()});
 
@@ -180,6 +184,53 @@ TEST_F(ExprCompilerTest, concatFlattening) {
       {field("a"), concatCall({varchar("---"), varchar("...")}), field("b")});
   ASSERT_EQ(
       "concat(a, ---:VARCHAR, ...:VARCHAR, b)",
+      compile(expression)->toString());
+}
+
+TEST_F(ExprCompilerTest, concatArrayFlattening) {
+  // Verify that array concat is flattened only if all its inputs are of the
+  // same type.
+  auto rowType =
+      ROW({"array1", "array2", "intVal"},
+          {ARRAY(INTEGER()), ARRAY(INTEGER()), INTEGER()});
+
+  auto field = makeField(rowType);
+
+  // concat(array1, concat(array2, array2)) => concat(array1, array2, array2)
+  auto expression = concatCall(
+      {field("array1"), concatCall({field("array2"), field("array2")})});
+  ASSERT_EQ("concat(array1, array2, array2)", compile(expression)->toString());
+
+  // concat(array1, concat(array2, concat(array2, intVal)))
+  // => concat(array1, array2, concat(array2, intVal))
+  expression = concatCall(
+      {field("array1"),
+       concatCall(
+           {field("array2"), concatCall({field("array2"), field("intVal")})})});
+  ASSERT_EQ(
+      "concat(array1, array2, concat(array2, intVal))",
+      compile(expression)->toString());
+
+  // concat(intVal, concat(array2, concat(array2, array1)))
+  // => concat(intVal, concat(array2, array2, array1))
+  expression = concatCall(
+      {field("intVal"),
+       concatCall(
+           {field("array2"), concatCall({field("array2"), field("array1")})})},
+      ARRAY(INTEGER()));
+  ASSERT_EQ(
+      "concat(intVal, concat(array2, array2, array1))",
+      compile(expression)->toString());
+
+  // concat(concat(array2, concat(array2, array1)), intVal)
+  // => concat(concat(array2, array2, array1), intVal, )
+  expression = concatCall(
+      {concatCall(
+           {field("array2"), concatCall({field("array2"), field("array1")})}),
+       field("intVal")},
+      ARRAY(INTEGER()));
+  ASSERT_EQ(
+      "concat(concat(array2, array2, array1), intVal)",
       compile(expression)->toString());
 }
 

@@ -201,4 +201,23 @@ TEST_F(ArrayConcatTest, arrayWithElement) {
   });
   testExpression("concat(c0, c1)", {elementVector, arrayVector}, expected);
 }
+
+TEST_F(ArrayConcatTest, nestedConcat) {
+  const auto elementVector = makeFlatVector<int64_t>({11, 22, 33, 44});
+  const auto arrayVector = makeArrayVector<int64_t>(
+      {{1, 2, 3, 4}, {3, 4, 5}, {7, 8, 9}, {10, 20, 30}});
+  VectorPtr expected;
+
+  // concat(intVal, concat(array, intVal))
+  expected = makeArrayVector<int64_t>({
+      {11, 1, 2, 3, 4, 11},
+      {22, 3, 4, 5, 22},
+      {33, 7, 8, 9, 33},
+      {44, 10, 20, 30, 44},
+  });
+  testExpression(
+      "concat(c0, concat(c1, c2))",
+      {elementVector, arrayVector, elementVector},
+      expected);
+}
 } // namespace

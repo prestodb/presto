@@ -194,7 +194,9 @@ compiler to convert concat(a, concat(b, concat(c, d))) expression to
 concat(a, b, c, d).
 
 Other functions that can leverage this optimization include concat(array,..) and
-map_concat(map,..).
+map_concat(map,..). However, only signatures that have the same input type for
+all inputs are currently supported. For eg, concat(array<T>, concat(array<T>, array<T>))
+will be flattened but concat(T, concat(array<T>, array<T>)) will not.
 
 A function declaring support for flattening must have a signature with variadic
 arguments of the same type and return type must be the same as input type.
