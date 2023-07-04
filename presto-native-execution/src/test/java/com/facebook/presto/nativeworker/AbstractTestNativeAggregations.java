@@ -194,13 +194,22 @@ public abstract class AbstractTestNativeAggregations
     @Test
     public void testMinMaxBy()
     {
-        // TODO(spershin): Need to add use cases with non-numeric types when implemented.
         // We use filters to make queries deterministic.
         assertQuery("SELECT max_by(partkey, orderkey), max_by(quantity, orderkey), max_by(tax_as_real, orderkey) FROM lineitem where shipmode='MAIL'");
         assertQuery("SELECT min_by(partkey, orderkey), min_by(quantity, orderkey), min_by(tax_as_real, orderkey) FROM lineitem where shipmode='MAIL'");
 
         assertQuery("SELECT max_by(orderkey, extendedprice), max_by(orderkey, cast(extendedprice as REAL)) FROM lineitem");
         assertQuery("SELECT min_by(orderkey, extendedprice), min_by(orderkey, cast(extendedprice as REAL)) FROM lineitem where shipmode='MAIL'");
+
+        // 3 argument variant of max_by, min_by
+        assertQuery("SELECT max_by(orderkey, linenumber, 5), min_by(orderkey, linenumber, 5) FROM lineitem GROUP BY orderkey");
+
+        // Non-numeric arguments
+        assertQuery("SELECT max_by(row(orderkey, custkey), orderkey, 5), min_by(row(orderkey, custkey), orderkey, 5) FROM orders");
+        assertQuery("SELECT max_by(row(orderkey, linenumber), linenumber, 5), min_by(row(orderkey, linenumber), linenumber, 5) FROM lineitem GROUP BY orderkey");
+        assertQuery("SELECT orderkey, MAX_BY(v, c, 5), MIN_BY(v, c, 5) FROM " +
+                "(SELECT orderkey, 'This is a long line ' || CAST(orderkey AS VARCHAR) AS v, 'This is also a really long line ' || CAST(linenumber AS VARCHAR) AS c FROM lineitem) " +
+                "GROUP BY 1");
     }
 
     @Test
