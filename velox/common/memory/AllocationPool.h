@@ -48,7 +48,7 @@ class AllocationPool {
   }
 
   int32_t numSmallAllocations() const {
-    return 1 + allocations_.size();
+    return (allocation_.numPages() == 0 ? 0 : 1) + allocations_.size();
   }
 
   int32_t numLargeAllocations() const {
@@ -109,6 +109,13 @@ class AllocationPool {
 
   memory::MemoryPool* pool() const {
     return pool_;
+  }
+
+  /// true if 'ptr' is inside the active allocation.
+  bool isInCurrentAllocation(void* ptr) const {
+    return allocation_.numPages() && ptr >= allocation_.runAt(0).data<void>() &&
+        ptr <
+        allocation_.runAt(0).data<char>() + allocation_.runAt(0).numBytes();
   }
 
  private:

@@ -634,7 +634,7 @@ int64_t RowContainer::sizeIncrement(
       AllocationPool::kMinPages * memory::AllocationTraits::kPageSize;
   int32_t needRows = std::max<int64_t>(0, numRows - numFreeRows_);
   int64_t needBytes =
-      std::min<int64_t>(0, variableLengthBytes - stringAllocator_.freeSpace());
+      std::max<int64_t>(0, variableLengthBytes - stringAllocator_.freeSpace());
   return bits::roundUp(needRows * fixedRowSize_, kAllocUnit) +
       bits::roundUp(needBytes, kAllocUnit);
 }
