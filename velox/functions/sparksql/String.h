@@ -583,4 +583,59 @@ struct OverlayVarbinaryFunction : public OverlayFunctionBase {
   }
 };
 
+/// left function
+/// left(string, length) -> string
+/// Returns the leftmost length characters from the string
+/// Return an empty string if length is less or equal than 0
+template <typename T>
+struct LeftFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  // Results refer to strings in the first argument.
+  static constexpr int32_t reuse_strings_from_arg = 0;
+
+  // ASCII input always produces ASCII result.
+  static constexpr bool is_default_ascii_behavior = true;
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input,
+      int32_t length) {
+    doCall<false>(result, input, length);
+  }
+
+  FOLLY_ALWAYS_INLINE void callAscii(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input,
+      int32_t length) {
+    doCall<true>(result, input, length);
+  }
+
+  template <bool isAscii>
+  FOLLY_ALWAYS_INLINE void doCall(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input,
+      int32_t length) {
+    if (length <= 0) {
+      result.setEmpty();
+      return;
+    }
+
+    int32_t numCharacters = stringImpl::length<isAscii>(input);
+
+    if (length > numCharacters) {
+      length = numCharacters;
+    }
+
+    int32_t start = 1;
+
+    auto byteRange =
+        stringCore::getByteRange<isAscii>(input.data(), start, length);
+
+    // Generating output string
+    result.setNoCopy(StringView(
+        input.data() + byteRange.first, byteRange.second - byteRange.first));
+  }
+};
+
 } // namespace facebook::velox::functions::sparksql

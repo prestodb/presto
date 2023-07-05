@@ -34,6 +34,11 @@ Unless specified otherwise, all functions return NULL if at least one of the arg
     Returns the starting position of the first instance of ``substring`` in
     ``string``. Positions start with ``1``. Returns 0 if 'substring' is not found.
 
+.. spark:function:: left(string, length) -> string
+
+    Returns the leftmost length characters from the ``string``.
+    If ``length`` is less or equal than 0 the result is an empty string.
+
 .. spark:function:: length(string) -> integer
 
     Returns the length of ``string`` in characters.

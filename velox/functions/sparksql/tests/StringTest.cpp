@@ -134,6 +134,12 @@ class StringTest : public SparkFunctionBaseTest {
         "substring(c0, c1, c2)", str, start, length);
   }
 
+  std::optional<std::string> left(
+      std::optional<std::string> str,
+      std::optional<int32_t> length) {
+    return evaluateOnce<std::string>("left(c0, c1)", str, length);
+  }
+
   std::optional<std::string> overlay(
       std::optional<std::string> input,
       std::optional<std::string> replace,
@@ -477,6 +483,18 @@ TEST_F(StringTest, overlayVarbinary) {
   EXPECT_EQ(overlayVarbinary("Spark SQL", "##", 0, 4), "##rk SQL");
   EXPECT_EQ(overlayVarbinary("Spark SQL", "##", -10, -1), "##park SQL");
   EXPECT_EQ(overlayVarbinary("Spark SQL", "##", -10, 4), "##rk SQL");
+}
+
+TEST_F(StringTest, left) {
+  EXPECT_EQ(left("example", -2), "");
+  EXPECT_EQ(left("example", 0), "");
+  EXPECT_EQ(left("example", 2), "ex");
+  EXPECT_EQ(left("example", 7), "example");
+  EXPECT_EQ(left("example", 20), "example");
+
+  EXPECT_EQ(left("da\u6570\u636Eta", 2), "da");
+  EXPECT_EQ(left("da\u6570\u636Eta", 3), "da\u6570");
+  EXPECT_EQ(left("da\u6570\u636Eta", 30), "da\u6570\u636Eta");
 }
 
 } // namespace

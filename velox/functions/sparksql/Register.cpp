@@ -104,6 +104,10 @@ void registerFunctions(const std::string& prefix) {
       Varbinary,
       int32_t,
       int32_t>({prefix + "overlay"});
+
+  registerFunction<sparksql::LeftFunction, Varchar, Varchar, int32_t>(
+      {prefix + "left"});
+
   exec::registerStatefulVectorFunction(
       prefix + "instr", instrSignatures(), makeInstr);
   exec::registerStatefulVectorFunction(
