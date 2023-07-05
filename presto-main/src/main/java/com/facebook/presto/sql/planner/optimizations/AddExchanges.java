@@ -390,7 +390,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitRowNumber(RowNumberNode node, PreferredProperties preferredProperties)
         {
-            checkArgument(!node.getPartial(), "RowNumberNode should not be partial before adding exchange");
+            checkArgument(!node.isPartial(), "RowNumberNode should not be partial before adding exchange");
 
             if (node.getPartitionBy().isEmpty()) {
                 PlanWithProperties child = planChild(node, PreferredProperties.undistributed());
