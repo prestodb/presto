@@ -59,14 +59,12 @@ public class QueryManagerStats
     public void trackQueryStats(DispatchQuery managedQueryExecution)
     {
         submittedQueries.update(1);
-        queuedQueries.incrementAndGet();
         managedQueryExecution.addStateChangeListener(new StatisticsListener(managedQueryExecution));
     }
 
     public void trackQueryStats(QueryExecution managedQueryExecution)
     {
         submittedQueries.update(1);
-        queuedQueries.incrementAndGet();
         managedQueryExecution.addStateChangeListener(new StatisticsListener());
         managedQueryExecution.addFinalQueryInfoListener(finalQueryInfo -> queryFinished(new BasicQueryInfo(finalQueryInfo)));
     }
