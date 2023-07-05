@@ -275,12 +275,24 @@ int32_t HashStringAllocator::freeListSizes_[kNumFreeLists + 1] = {
     std::numeric_limits<int32_t>::max()};
 
 int32_t HashStringAllocator::freeListIndex(int32_t size, uint32_t mask) {
-  static_assert(sizeof(freeListSizes_) == sizeof(xsimd::batch<int32_t>));
-  int32_t bits =
-      simd::toBitMask(
-          xsimd::broadcast(size) < xsimd::load_unaligned(freeListSizes_)) &
-      mask;
-  return count_trailing_zeros(bits);
+  static_assert(sizeof(freeListSizes_) >= sizeof(xsimd::batch<int32_t>));
+  auto vsize = xsimd::broadcast(size);
+  if constexpr (sizeof(freeListSizes_) == sizeof(xsimd::batch<int32_t>)) {
+    auto sizes = xsimd::load_unaligned(freeListSizes_);
+    auto bits = simd::toBitMask(vsize < sizes) & mask;
+    return count_trailing_zeros(bits);
+  } else {
+    int offset = 0;
+    for (;;) {
+      auto sizes = xsimd::load_unaligned(freeListSizes_ + offset);
+      auto bits = simd::toBitMask(vsize < sizes) & mask;
+      if (bits) {
+        return offset + count_trailing_zeros(bits);
+      }
+      offset += xsimd::batch<int32_t>::size;
+      mask >>= xsimd::batch<int32_t>::size;
+    }
+  }
 }
 
 HashStringAllocator::Header* FOLLY_NULLABLE
