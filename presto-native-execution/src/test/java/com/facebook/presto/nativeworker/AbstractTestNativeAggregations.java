@@ -68,7 +68,7 @@ public abstract class AbstractTestNativeAggregations
         assertQuery("SELECT array_agg(nationkey ORDER BY name) FROM nation");
         assertQuery("SELECT orderkey, array_agg(quantity ORDER BY linenumber DESC) FROM lineitem GROUP BY 1");
 
-        assertQuery("SELECT map_keys(map_union(quantity_by_linenumber)) FROM orders_ex");
+        assertQuery("SELECT array_sort(map_keys(map_union(quantity_by_linenumber))) FROM orders_ex");
 
         assertQuery("SELECT orderkey, count_if(linenumber % 2 > 0) FROM lineitem GROUP BY 1");
         assertQuery("SELECT orderkey, bool_and(linenumber % 2 = 1) FROM lineitem GROUP BY 1");
