@@ -47,7 +47,7 @@ void ValueList::writeLastNulls(HashStringAllocator* allocator) {
     nullsBegin_ = position.header;
   }
   stream.appendOne(lastNulls_);
-  nullsCurrent_ = allocator->finishWrite(stream, kInitialSize);
+  nullsCurrent_ = allocator->finishWrite(stream, kInitialSize).second;
 }
 
 void ValueList::appendNull(HashStringAllocator* allocator) {
@@ -66,7 +66,7 @@ void ValueList::appendNonNull(
   exec::ContainerRowSerde::instance().serialize(values, index, stream);
   ++size_;
 
-  dataCurrent_ = allocator->finishWrite(stream, 1024);
+  dataCurrent_ = allocator->finishWrite(stream, 1024).second;
 }
 
 void ValueList::appendValue(

@@ -37,8 +37,6 @@ HashStringAllocator::Position AddressableNonNullValueList::append(
     allocator->extendWrite(currentPosition_, stream);
   }
 
-  const auto position = currentPosition_;
-
   // Write hash.
   stream.appendOne(decoded.base()->hashValueAt(decoded.index(index)));
   // Write value.
@@ -47,8 +45,9 @@ HashStringAllocator::Position AddressableNonNullValueList::append(
 
   ++size_;
 
-  currentPosition_ = allocator->finishWrite(stream, 1024);
-  return position;
+  auto startAndFinish = allocator->finishWrite(stream, 1024);
+  currentPosition_ = startAndFinish.second;
+  return startAndFinish.first;
 }
 
 namespace {

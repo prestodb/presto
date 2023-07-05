@@ -89,11 +89,10 @@ void HashStringAllocator::prepareRead(const Header* begin, ByteStream& stream) {
   auto header = const_cast<Header*>(begin);
   for (;;) {
     ranges.push_back(ByteRange{
-        reinterpret_cast<uint8_t*>(header->begin()), header->size(), 0});
+        reinterpret_cast<uint8_t*>(header->begin()), header->usableSize(), 0});
     if (!header->isContinued()) {
       break;
     }
-    ranges.back().size -= sizeof(void*);
     header = header->nextContinued();
   }
   stream.resetInput(std::move(ranges));
@@ -113,18 +112,19 @@ HashStringAllocator::Position HashStringAllocator::newWrite(
       currentHeader_->size(),
       0});
 
-  return Position{currentHeader_, currentHeader_->begin()};
+  startPosition_ = Position::atOffset(currentHeader_, 0);
+
+  return startPosition_;
 }
 
 void HashStringAllocator::extendWrite(Position position, ByteStream& stream) {
   auto header = position.header;
+  const auto offset = position.offset();
+  VELOX_CHECK_GE(
+      offset, 0, "Starting extendWrite outside of the current range");
   VELOX_CHECK_LE(
-      header->begin(),
-      position.position,
-      "Starting extendWrite outside of the current range");
-  VELOX_CHECK_LE(
-      position.position,
-      header->end(),
+      offset,
+      header->usableSize(),
       "Starting extendWrite outside of the current range");
 
   if (header->isContinued()) {
@@ -137,25 +137,24 @@ void HashStringAllocator::extendWrite(Position position, ByteStream& stream) {
       static_cast<int32_t>(header->end() - position.position),
       0});
   currentHeader_ = header;
+  startPosition_ = position;
 }
 
-HashStringAllocator::Position HashStringAllocator::finishWrite(
-    ByteStream& stream,
-    int32_t numReserveBytes) {
+std::pair<HashStringAllocator::Position, HashStringAllocator::Position>
+HashStringAllocator::finishWrite(ByteStream& stream, int32_t numReserveBytes) {
   VELOX_CHECK(
       currentHeader_, "Must call newWrite or extendWrite before finishWrite");
   auto writePosition = stream.writePosition();
+  const auto offset = writePosition - currentHeader_->begin();
 
+  VELOX_CHECK_GE(
+      offset, 0, "finishWrite called with writePosition out of range");
   VELOX_CHECK_LE(
-      currentHeader_->begin(),
-      writePosition,
-      "finishWrite called with writePosition out of range");
-  VELOX_CHECK_LE(
-      writePosition,
-      currentHeader_->end(),
+      offset,
+      currentHeader_->usableSize(),
       "finishWrite called with writePosition out of range");
 
-  Position currentPos{currentHeader_, writePosition};
+  Position currentPosition = Position::atOffset(currentHeader_, offset);
   if (currentHeader_->isContinued()) {
     free(currentHeader_->nextContinued());
     currentHeader_->clearContinued();
@@ -165,7 +164,20 @@ HashStringAllocator::Position HashStringAllocator::finishWrite(
       currentHeader_,
       writePosition - currentHeader_->begin() + numReserveBytes);
   currentHeader_ = nullptr;
-  return currentPos;
+
+  // The starting position may have shifted if it was at the end of the block
+  // and the block was extended. Calculate the new position.
+  if (startPosition_.header->isContinued()) {
+    auto header = startPosition_.header;
+    const auto offset = startPosition_.offset();
+    const auto extra = offset - header->usableSize();
+    if (extra > 0) {
+      auto newHeader = header->nextContinued();
+      auto newPosition = newHeader->begin() + extra;
+      startPosition_ = {newHeader, newPosition};
+    }
+  }
+  return {startPosition_, currentPosition};
 }
 
 void HashStringAllocator::newSlab(int32_t size) {
@@ -211,8 +223,8 @@ void HashStringAllocator::newRange(
       "Must have called newWrite or extendWrite before newRange");
   auto newHeader = allocate(bytes, contiguous);
 
-  auto lastWordPtr =
-      reinterpret_cast<void**>(currentHeader_->end() - sizeof(void*));
+  auto lastWordPtr = reinterpret_cast<void**>(
+      currentHeader_->end() - Header::kContinuedPtrSize);
   *reinterpret_cast<void**>(newHeader->begin()) = *lastWordPtr;
   *lastWordPtr = newHeader;
   currentHeader_->setContinued();
@@ -220,7 +232,7 @@ void HashStringAllocator::newRange(
   *range = ByteRange{
       reinterpret_cast<uint8_t*>(currentHeader_->begin()),
       currentHeader_->size(),
-      sizeof(void*)};
+      Header::kContinuedPtrSize};
 }
 
 void HashStringAllocator::newRange(int32_t bytes, ByteRange* range) {
@@ -443,42 +455,44 @@ void HashStringAllocator::free(Header* _header) {
   } while (header);
 }
 
-//  static
+// static
 int64_t HashStringAllocator::offset(
     Header* FOLLY_NONNULL header,
     Position position) {
+  static const int64_t kOutOfRange = -1;
+  if (!position.isSet()) {
+    return kOutOfRange;
+  }
+
   int64_t size = 0;
   for (;;) {
     assert(header);
-    bool continued = header->isContinued();
-    auto length = header->size() - (continued ? sizeof(void*) : 0);
-    auto begin = header->begin();
-    if (position.position >= begin && position.position <= begin + length) {
-      return size + (position.position - begin);
+    const auto length = header->usableSize();
+    const auto offset = position.position - header->begin();
+    if (offset >= 0 && offset <= length) {
+      return size + offset;
     }
-    if (!continued) {
-      return -1;
+    if (!header->isContinued()) {
+      return kOutOfRange;
     }
     size += length;
     header = header->nextContinued();
   }
 }
 
-//  static
+// static
 HashStringAllocator::Position HashStringAllocator::seek(
     Header* FOLLY_NONNULL header,
     int64_t offset) {
   int64_t size = 0;
   for (;;) {
     assert(header);
-    bool continued = header->isContinued();
-    auto length = header->size() - (continued ? sizeof(void*) : 0);
-    auto begin = header->begin();
+    auto length = header->usableSize();
     if (offset <= size + length) {
-      return Position{header, begin + (offset - size)};
+      return Position::atOffset(header, offset - size);
     }
-    if (!continued) {
-      return {nullptr, nullptr};
+    if (!header->isContinued()) {
+      return Position::null();
     }
     size += length;
     header = header->nextContinued();
@@ -488,19 +502,16 @@ HashStringAllocator::Position HashStringAllocator::seek(
 // static
 int64_t HashStringAllocator::available(const Position& position) {
   auto header = position.header;
-  auto startOffset = position.position - position.header->begin();
+  const auto startOffset = position.offset();
   // startOffset bytes from the first block are already used.
   int64_t size = -startOffset;
   for (;;) {
     assert(header);
-    auto continued = header->isContinued();
-    auto length = header->size() - (continued ? sizeof(void*) : 0);
-    size += length;
-    if (!continued) {
+    size += header->usableSize();
+    if (!header->isContinued()) {
       return size;
     }
     header = header->nextContinued();
-    startOffset = 0;
   }
 }
 
@@ -508,8 +519,8 @@ void HashStringAllocator::ensureAvailable(int32_t bytes, Position& position) {
   if (available(position) >= bytes) {
     return;
   }
+
   ByteStream stream(this);
-  auto fromHeader = offset(position.header, position);
   extendWrite(position, stream);
   static char data[128];
   while (bytes) {
@@ -517,8 +528,7 @@ void HashStringAllocator::ensureAvailable(int32_t bytes, Position& position) {
     stream.append(folly::StringPiece(data, written));
     bytes -= written;
   }
-  finishWrite(stream, 0);
-  position = seek(position.header, fromHeader);
+  position = finishWrite(stream, 0).first;
 }
 
 void HashStringAllocator::checkConsistency() const {

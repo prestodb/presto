@@ -36,7 +36,7 @@ struct RowPointers {
     }
 
     stream.appendOne(reinterpret_cast<uintptr_t>(row));
-    currentBlock = allocator.finishWrite(stream, 1024);
+    currentBlock = allocator.finishWrite(stream, 1024).second;
 
     ++size;
   }

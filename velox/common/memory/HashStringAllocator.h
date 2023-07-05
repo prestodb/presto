@@ -110,6 +110,10 @@ class HashStringAllocator : public StreamArena {
       return data_ & kSizeMask;
     }
 
+    int32_t usableSize() const {
+      return isContinued() ? (size() - kContinuedPtrSize) : size();
+    }
+
     void setSize(int32_t size) {
       VELOX_CHECK(size <= kSizeMask);
       data_ = size | (data_ & ~kSizeMask);
@@ -145,6 +149,27 @@ class HashStringAllocator : public StreamArena {
   struct Position {
     Header* FOLLY_NULLABLE header{nullptr};
     char* FOLLY_NULLABLE position{nullptr};
+
+    int32_t offset() const {
+      VELOX_DCHECK_NOT_NULL(header);
+      VELOX_DCHECK_NOT_NULL(position);
+      return position - header->begin();
+    }
+
+    bool isSet() const {
+      return header != nullptr && position != nullptr;
+    }
+
+    static Position atOffset(Header* header, int32_t offset) {
+      VELOX_DCHECK_NOT_NULL(header);
+      VELOX_DCHECK_GE(offset, 0);
+      VELOX_DCHECK_LE(offset, header->usableSize());
+      return {header, header->begin() + offset};
+    }
+
+    static Position null() {
+      return {nullptr, nullptr};
+    }
   };
 
   explicit HashStringAllocator(memory::MemoryPool* FOLLY_NONNULL pool)
@@ -256,9 +281,12 @@ class HashStringAllocator : public StreamArena {
 
   // Completes a write prepared with newWrite or
   // extendWrite. Up to 'numReserveBytes' unused bytes, if available, are left
-  // after the end of the write to accommodate another write. Returns the
-  // position immediately after the last written byte.
-  Position finishWrite(ByteStream& stream, int32_t numReserveBytes);
+  // after the end of the write to accommodate another write. Returns a pair of
+  // positions: (1) position at the start of this 'write', (2) position
+  // immediately after the last written byte.
+  std::pair<Position, Position> finishWrite(
+      ByteStream& stream,
+      int32_t numReserveBytes);
 
   /// Allocates a new range for a stream writing to 'this'. Sets the last word
   /// of the previous range to point to the new range and copies the overwritten
@@ -401,6 +429,7 @@ class HashStringAllocator : public StreamArena {
 
   // Pointer to Header for the range being written. nullptr if a write is not in
   // progress.
+  Position startPosition_;
   Header* FOLLY_NULLABLE currentHeader_ = nullptr;
 
   // Pool for getting new slabs.
