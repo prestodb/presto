@@ -625,7 +625,7 @@ public class PruneUnreferencedOutputs
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            return new RowNumberNode(node.getSourceLocation(), node.getId(), source, node.getPartitionBy(), node.getRowNumberVariable(), node.getMaxRowCountPerPartition(), node.getPartial(), node.getHashVariable());
+            return new RowNumberNode(node.getSourceLocation(), node.getId(), source, node.getPartitionBy(), node.getRowNumberVariable(), node.getMaxRowCountPerPartition(), node.isPartial(), node.getHashVariable());
         }
 
         @Override

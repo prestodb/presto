@@ -126,7 +126,7 @@ public final class RowNumberNode
     }
 
     @JsonProperty
-    public boolean getPartial()
+    public boolean isPartial()
     {
         return partial;
     }

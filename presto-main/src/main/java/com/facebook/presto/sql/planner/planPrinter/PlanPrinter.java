@@ -793,7 +793,7 @@ public class PlanPrinter
             }
 
             NodeRepresentation nodeOutput = addNode(node,
-                    "RowNumber",
+                    format("RowNumber%s", node.isPartial() ? "Partial" : ""),
                     format("[%s]%s", Joiner.on(", ").join(args), formatHash(node.getHashVariable())));
             nodeOutput.appendDetailsLine("%s := %s%s", node.getRowNumberVariable(), "row_number()", formatSourceLocation(node.getRowNumberVariable().getSourceLocation()));
 
