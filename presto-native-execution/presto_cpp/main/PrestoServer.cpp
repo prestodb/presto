@@ -81,23 +81,6 @@ protocol::NodeState convertNodeState(presto::NodeState nodeState) {
   return protocol::NodeState::ACTIVE; // For gcc build.
 }
 
-std::string getLocalIp() {
-  using boost::asio::ip::tcp;
-  boost::asio::io_service io_service;
-  tcp::resolver resolver(io_service);
-  tcp::resolver::query query(boost::asio::ip::host_name(), kHttp);
-  tcp::resolver::iterator it = resolver.resolve(query);
-  while (it != tcp::resolver::iterator()) {
-    boost::asio::ip::address addr = (it++)->endpoint().address();
-    // simple check to see if the address is not ::
-    if (addr.to_string().length() > 4) {
-      return fmt::format("{}", addr.to_string());
-    }
-  }
-  VELOX_FAIL(
-      "Could not infer Node IP. Please specify node.ip in the node.properties file.");
-}
-
 void enableChecksum() {
   velox::exec::PartitionedOutputBufferManager::getInstance()
       .lock()
@@ -175,7 +158,7 @@ void PrestoServer::run() {
     httpExecThreads = systemConfig->httpExecThreads();
     environment_ = nodeConfig->nodeEnvironment();
     nodeId_ = nodeConfig->nodeId();
-    address_ = nodeConfig->nodeIp(getLocalIp);
+    address_ = nodeConfig->nodeIp(std::bind(&PrestoServer::getLocalIp, this));
     // Add [] to an ipv6 address.
     if (address_.find(':') != std::string::npos && address_.front() != '[') {
       address_ = fmt::format("[{}]", address_);
@@ -689,6 +672,23 @@ void PrestoServer::registerFileSystems() {
 void PrestoServer::registerStatsCounters() {
   registerPrestoCppCounters();
   registerVeloxCounters();
+}
+
+std::string PrestoServer::getLocalIp() const {
+  using boost::asio::ip::tcp;
+  boost::asio::io_service io_service;
+  tcp::resolver resolver(io_service);
+  tcp::resolver::query query(boost::asio::ip::host_name(), kHttp);
+  tcp::resolver::iterator it = resolver.resolve(query);
+  while (it != tcp::resolver::iterator()) {
+    boost::asio::ip::address addr = (it++)->endpoint().address();
+    // simple check to see if the address is not ::
+    if (addr.to_string().length() > 4) {
+      return fmt::format("{}", addr.to_string());
+    }
+  }
+  VELOX_FAIL(
+      "Could not infer Node IP. Please specify node.ip in the node.properties file.");
 }
 
 void PrestoServer::populateMemAndCPUInfo() {

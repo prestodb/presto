@@ -124,6 +124,13 @@ class PrestoServer {
   /// In the implementation any extra config properties can be registered.
   virtual void registerExtraConfigProperties() {}
 
+  /// Invoked to get the ip address of the process. In certain deployment
+  /// setup, each process has different ip address. Deployment environment
+  /// may provide there own library to get process specific ip address.
+  /// In such cases, getLocalIp can be overriden to pass process specific
+  /// ip address.
+  virtual std::string getLocalIp() const;
+
   /// Invoked to get the list of filters passed to the http server.
   std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
   getHttpServerFilters();
