@@ -518,9 +518,11 @@ public class SqlQueryExecution
             // time analysis phase
             stateMachine.beginAnalysis();
 
-            PlanNode planNode = stateMachine.getSession().getRuntimeStats().profileNanos(
-                    LOGICAL_PLANNER_TIME_NANOS,
-                    () -> queryAnalyzer.plan(this.analyzerContext, queryAnalysis));
+            PlanNode planNode = stateMachine.getSession()
+                    .getRuntimeStats()
+                    .profileNanos(
+                            LOGICAL_PLANNER_TIME_NANOS,
+                            () -> queryAnalyzer.plan(this.analyzerContext, queryAnalysis));
 
             Optimizer optimizer = new Optimizer(
                     stateMachine.getSession(),
@@ -603,51 +605,7 @@ public class SqlQueryExecution
 
         SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, stateMachine.getWarningCollector());
         // build the stage execution objects (this doesn't schedule execution)
-        SqlQuerySchedulerInterface scheduler = isUseLegacyScheduler(getSession()) ?
-                LegacySqlQueryScheduler.createSqlQueryScheduler(
-                        locationFactory,
-                        executionPolicy,
-                        queryExecutor,
-                        schedulerStats,
-                        sectionExecutionFactory,
-                        remoteTaskFactory,
-                        splitSourceFactory,
-                        stateMachine.getSession(),
-                        metadata.getFunctionAndTypeManager(),
-                        stateMachine,
-                        outputStagePlan,
-                        rootOutputBuffers,
-                        plan.isSummarizeTaskInfos(),
-                        runtimePlanOptimizers,
-                        stateMachine.getWarningCollector(),
-                        idAllocator,
-                        variableAllocator.get(),
-                        planChecker,
-                        metadata,
-                        sqlParser,
-                        partialResultQueryManager) :
-                SqlQueryScheduler.createSqlQueryScheduler(
-                        locationFactory,
-                        executionPolicy,
-                        queryExecutor,
-                        schedulerStats,
-                        sectionExecutionFactory,
-                        remoteTaskFactory,
-                        splitSourceFactory,
-                        internalNodeManager,
-                        stateMachine.getSession(),
-                        stateMachine,
-                        outputStagePlan,
-                        plan.isSummarizeTaskInfos(),
-                        metadata.getFunctionAndTypeManager(),
-                        runtimePlanOptimizers,
-                        stateMachine.getWarningCollector(),
-                        idAllocator,
-                        variableAllocator.get(),
-                        planChecker,
-                        metadata,
-                        sqlParser,
-                        partialResultQueryManager);
+        SqlQuerySchedulerInterface scheduler = getScheduler(plan, outputStagePlan, rootOutputBuffers, splitSourceFactory);
 
         queryScheduler.set(scheduler);
 
@@ -656,6 +614,62 @@ public class SqlQueryExecution
         if (stateMachine.isDone()) {
             scheduler.abort();
             queryScheduler.set(null);
+        }
+    }
+
+    private SqlQuerySchedulerInterface getScheduler(
+            PlanRoot plan,
+            SubPlan outputStagePlan,
+            OutputBuffers rootOutputBuffers,
+            SplitSourceFactory splitSourceFactory)
+    {
+        if (isUseLegacyScheduler(getSession())) {
+            return LegacySqlQueryScheduler.createSqlQueryScheduler(
+                    locationFactory,
+                    executionPolicy,
+                    queryExecutor,
+                    schedulerStats,
+                    sectionExecutionFactory,
+                    remoteTaskFactory,
+                    splitSourceFactory,
+                    stateMachine.getSession(),
+                    metadata.getFunctionAndTypeManager(),
+                    stateMachine,
+                    outputStagePlan,
+                    rootOutputBuffers,
+                    plan.isSummarizeTaskInfos(),
+                    runtimePlanOptimizers,
+                    stateMachine.getWarningCollector(),
+                    idAllocator,
+                    variableAllocator.get(),
+                    planChecker,
+                    metadata,
+                    sqlParser,
+                    partialResultQueryManager);
+        }
+        else {
+            return SqlQueryScheduler.createSqlQueryScheduler(
+                    locationFactory,
+                    executionPolicy,
+                    queryExecutor,
+                    schedulerStats,
+                    sectionExecutionFactory,
+                    remoteTaskFactory,
+                    splitSourceFactory,
+                    internalNodeManager,
+                    stateMachine.getSession(),
+                    stateMachine,
+                    outputStagePlan,
+                    plan.isSummarizeTaskInfos(),
+                    metadata.getFunctionAndTypeManager(),
+                    runtimePlanOptimizers,
+                    stateMachine.getWarningCollector(),
+                    idAllocator,
+                    variableAllocator.get(),
+                    planChecker,
+                    metadata,
+                    sqlParser,
+                    partialResultQueryManager);
         }
     }
 
