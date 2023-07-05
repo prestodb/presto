@@ -429,7 +429,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitRowNumber(RowNumberNode node, RewriteContext<Void> context)
         {
-            return new RowNumberNode(node.getSourceLocation(), node.getId(), context.rewrite(node.getSource()), canonicalizeAndDistinct(node.getPartitionBy()), canonicalize(node.getRowNumberVariable()), node.getMaxRowCountPerPartition(), node.getPartial(), canonicalize(node.getHashVariable()));
+            return new RowNumberNode(node.getSourceLocation(), node.getId(), context.rewrite(node.getSource()), canonicalizeAndDistinct(node.getPartitionBy()), canonicalize(node.getRowNumberVariable()), node.getMaxRowCountPerPartition(), node.isPartial(), canonicalize(node.getHashVariable()));
         }
 
         @Override
