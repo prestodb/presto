@@ -95,7 +95,7 @@ export COMPILER_FLAGS=$(echo -n $(get_cxx_flags $CPU_TARGET))
   git clone https://github.com/google/re2 &&
   cd re2 &&
   git checkout $RE2_VERSION &&    
-  cmake_install -DBUILD_SHARED_LIBS=ON
+  cmake_install -DBUILD_SHARED_LIBS=ON -DBUILD_DEPS=ON
 )
 
 (

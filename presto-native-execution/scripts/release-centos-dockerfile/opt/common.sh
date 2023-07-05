@@ -152,6 +152,15 @@ function render_node_configuration_files()
     prompt "Using default node.properties.template. No user config found."
     cat "${PRESTO_HOME}/etc/node.properties.template" > "${PRESTO_HOME}/node.properties"
   fi
+
+  if [ -f "${PRESTO_HOME}/velox.properties.template" ]
+  then
+    prompt "Using user provided velox.properties.template"
+    cat "${PRESTO_HOME}/velox.properties.template" > "${PRESTO_HOME}/velox.properties"
+  else
+    prompt "Using default velox.properties.template. No user config found."
+    cat "${PRESTO_HOME}/etc/velox.properties.template" > "${PRESTO_HOME}/velox.properties"
+  fi
 }
 
 function memory_gb_preflight_check()
