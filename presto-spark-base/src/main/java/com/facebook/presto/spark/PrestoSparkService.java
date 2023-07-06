@@ -17,8 +17,8 @@ import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkService;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
-import com.facebook.presto.spark.execution.PrestoSparkNativeTaskExecutorFactory;
-import com.facebook.presto.spark.execution.PrestoSparkTaskExecutorFactory;
+import com.facebook.presto.spark.execution.task.PrestoSparkNativeTaskExecutorFactory;
+import com.facebook.presto.spark.execution.task.PrestoSparkTaskExecutorFactory;
 
 import javax.inject.Inject;
 

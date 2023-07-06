@@ -11,13 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark;
-
-import com.facebook.presto.spi.security.TokenAuthenticator;
+package com.facebook.presto.spark.accesscontrol;
 
 import java.util.Map;
 
-public interface PrestoSparkAuthenticatorProvider
+public interface PrestoSparkCredentialsProvider
 {
-    Map<String, TokenAuthenticator> getTokenAuthenticators();
+    Map<String, String> getCredentials();
 }

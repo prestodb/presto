@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark.execution;
+package com.facebook.presto.spark.execution.task;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.http.client.HttpClient;
@@ -23,6 +23,7 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.spark.execution.http.BatchTaskUpdateRequest;
 import com.facebook.presto.sql.planner.PlanFragment;
 
 import javax.annotation.PreDestroy;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark.execution;
+package com.facebook.presto.spark.execution.nativeprocess;
 
 import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
@@ -21,6 +21,8 @@ import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleInfoTranslator;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleInfoTranslator;
+import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
+import com.facebook.presto.spark.execution.task.NativeExecutionTaskFactory;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
