@@ -456,6 +456,20 @@ TEST_P(PrestoExchangeSourceTestSuite, basic) {
   ASSERT_EQ(it->second, 2);
 }
 
+TEST_P(PrestoExchangeSourceTestSuite, retryState) {
+  PrestoExchangeSource::RetryState state(1000);
+  ASSERT_FALSE(state.isExhausted());
+  ASSERT_EQ(state.nextDelayMs(), 0);
+  ASSERT_LT(state.nextDelayMs(), 200);
+  ASSERT_FALSE(state.isExhausted());
+  for (int i = 0; i < 10; ++i) {
+    ASSERT_LE(state.nextDelayMs(), 10000);
+  }
+  ASSERT_FALSE(state.isExhausted());
+  std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+  ASSERT_TRUE(state.isExhausted());
+}
+
 TEST_P(PrestoExchangeSourceTestSuite, retries) {
   std::vector<std::string> pages = {"page1 - xx", "page2 - xxxx"};
   const auto useHttps = GetParam();

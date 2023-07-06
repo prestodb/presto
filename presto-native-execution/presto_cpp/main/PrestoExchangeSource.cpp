@@ -110,10 +110,11 @@ bool PrestoExchangeSource::shouldRequestLocked() {
 
 void PrestoExchangeSource::request() {
   failedAttempts_ = 0;
-  backoff_ = Backoff(std::chrono::duration_cast<std::chrono::milliseconds>(
-                         SystemConfig::instance()->exchangeMaxErrorDuration())
-                         .count());
-  doRequest(backoff_.nextDelayMs());
+  retryState_ =
+      RetryState(std::chrono::duration_cast<std::chrono::milliseconds>(
+                     SystemConfig::instance()->exchangeMaxErrorDuration())
+                     .count());
+  doRequest(retryState_.nextDelayMs());
 }
 
 void PrestoExchangeSource::doRequest(int64_t delayMs) {
@@ -273,11 +274,11 @@ void PrestoExchangeSource::processDataError(
     const std::string& error,
     bool retry) {
   ++failedAttempts_;
-  if (retry && !backoff_.isExhausted()) {
+  if (retry && !retryState_.isExhausted()) {
     VLOG(1) << "Failed to fetch data from " << host_ << ":" << port_ << " "
             << path << " - Retrying: " << error;
 
-    doRequest(backoff_.nextDelayMs());
+    doRequest(retryState_.nextDelayMs());
     return;
   }
 
