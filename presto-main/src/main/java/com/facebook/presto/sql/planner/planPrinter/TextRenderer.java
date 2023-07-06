@@ -227,8 +227,8 @@ public class TextRenderer
         for (int i = 0; i < estimateCount; i++) {
             PlanNodeStatsEstimate stats = node.getEstimatedStats().get(i);
             PlanCostEstimate cost = node.getEstimatedCost().get(i);
-
-            output.append(format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
+            output.append(format("{source: %s, rows: %s (%s), cpu: %s, memory: %s, network: %s}",
+                    stats.getSourceInfo().getClass().getSimpleName(),
                     formatAsLong(stats.getOutputRowCount()),
                     formatEstimateAsDataSize(stats.getOutputSizeInBytes(plan.getPlanNodeRoot())),
                     formatDouble(cost.getCpuCost()),
