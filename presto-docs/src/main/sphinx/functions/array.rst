@@ -88,6 +88,10 @@ Array Functions
 
     Returns the minimum value of input array.
 
+.. function:: array_minus(x, y) -> array
+
+    Returns an array of the elements by removing elements from ``x`` that are present in ``y``.
+
 .. function:: array_max_by(array(T), function(T, U)) -> T
 
     Applies the provided function to each element, and returns the element that gives the maximum value.

@@ -136,4 +136,14 @@ public class ArraySqlFunctions
     {
         return "RETURN IF(none_match(input, x -> x is null), input, filter(input, x -> x is not null))";
     }
+
+    @SqlInvokedScalarFunction(value = "array_minus", deterministic = true, calledOnNullInput = true)
+    @Description("Returns an array of the elements in the union of x and y, without duplicates.")
+    @TypeParameter("T")
+    @SqlParameters({@SqlParameter(name = "x", type = "array(T)"), @SqlParameter(name = "y", type = "array(T)")})
+    @SqlType("array<T>")
+    public static String arrayMinus()
+    {
+        return "RETURN FILTER(x, z -> NOT CONTAINS(y, z))";
+    }
 }
