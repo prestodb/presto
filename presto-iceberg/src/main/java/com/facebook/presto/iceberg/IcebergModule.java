@@ -125,6 +125,8 @@ public class IcebergModule
         binder.bind(MetastoreCacheStats.class).to(HiveMetastoreCacheStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(MetastoreCacheStats.class).as(generatedNameOf(MetastoreCacheStats.class, connectorId));
         binder.bind(ExtendedHiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
+        binder.bind(IcebergFileListCache.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(IcebergFileListCache.class).as(generatedNameOf(IcebergFileListCache.class, connectorId));
 
         binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
         newSetBinder(binder, DynamicConfigurationProvider.class);

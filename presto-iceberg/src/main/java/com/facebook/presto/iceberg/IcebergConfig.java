@@ -18,6 +18,7 @@ import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
 import org.apache.iceberg.FileFormat;
 
 import javax.validation.constraints.DecimalMax;
@@ -26,6 +27,7 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveCompressionCodec.GZIP;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
@@ -33,6 +35,8 @@ import static com.facebook.presto.iceberg.IcebergFileFormat.PARQUET;
 
 public class IcebergConfig
 {
+    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+
     private IcebergFileFormat fileFormat = PARQUET;
     private HiveCompressionCodec compressionCodec = GZIP;
     private CatalogType catalogType = HIVE;
@@ -42,6 +46,10 @@ public class IcebergConfig
     private List<String> hadoopConfigResources = ImmutableList.of();
     private double minimumAssignedSplitWeight = 0.05;
     private boolean parquetDereferencePushdownEnabled = true;
+
+    private Duration fileStatusCacheExpireAfterWrite = new Duration(0, TimeUnit.SECONDS);
+    private long fileStatusCacheMaxSize;
+    private List<String> fileStatusCacheTables = ImmutableList.of();
 
     @NotNull
     public FileFormat getFileFormat()
@@ -165,5 +173,42 @@ public class IcebergConfig
     public boolean isParquetDereferencePushdownEnabled()
     {
         return parquetDereferencePushdownEnabled;
+    }
+
+    public List<String> getFileStatusCacheTables()
+    {
+        return fileStatusCacheTables;
+    }
+
+    @Config("iceberg.file-status-cache-tables")
+    @ConfigDescription("The tables that have file status cache enabled. Setting to '*' includes all tables.")
+    public IcebergConfig setFileStatusCacheTables(String fileStatusCacheTables)
+    {
+        this.fileStatusCacheTables = SPLITTER.splitToList(fileStatusCacheTables);
+        return this;
+    }
+
+    public long getFileStatusCacheMaxSize()
+    {
+        return fileStatusCacheMaxSize;
+    }
+
+    @Config("iceberg.file-status-cache-size")
+    public IcebergConfig setFileStatusCacheMaxSize(long fileStatusCacheMaxSize)
+    {
+        this.fileStatusCacheMaxSize = fileStatusCacheMaxSize;
+        return this;
+    }
+
+    public Duration getFileStatusCacheExpireAfterWrite()
+    {
+        return fileStatusCacheExpireAfterWrite;
+    }
+
+    @Config("iceberg.file-status-cache-expire-time")
+    public IcebergConfig setFileStatusCacheExpireAfterWrite(Duration fileStatusCacheExpireAfterWrite)
+    {
+        this.fileStatusCacheExpireAfterWrite = fileStatusCacheExpireAfterWrite;
+        return this;
     }
 }

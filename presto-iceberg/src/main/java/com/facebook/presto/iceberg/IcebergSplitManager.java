@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.spi.ConnectorSession;
@@ -24,6 +25,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
+import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.util.TableScanUtil;
 
 import javax.inject.Inject;
@@ -43,19 +45,23 @@ public class IcebergSplitManager
     private final HdfsEnvironment hdfsEnvironment;
     private final IcebergResourceFactory resourceFactory;
     private final CatalogType catalogType;
+    private final IcebergFileListCache icebergFileListCache;
 
     @Inject
     public IcebergSplitManager(
             IcebergConfig config,
             IcebergResourceFactory resourceFactory,
             IcebergTransactionManager transactionManager,
-            HdfsEnvironment hdfsEnvironment)
+            HdfsEnvironment hdfsEnvironment,
+            TypeManager typeManager,
+            IcebergFileListCache icebergFileListCache)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
         requireNonNull(config, "config is null");
         this.catalogType = config.getCatalogType();
+        this.icebergFileListCache = requireNonNull(icebergFileListCache, "icebergFileListCache is null");
     }
 
     @Override
@@ -81,8 +87,9 @@ public class IcebergSplitManager
             icebergTable = getHiveIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
         }
 
+        Expression expression = toIcebergExpression(table.getPredicate());
         TableScan tableScan = icebergTable.newScan()
-                .filter(toIcebergExpression(table.getPredicate()))
+                .filter(expression)
                 .useSnapshot(table.getSnapshotId().get());
 
         // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
@@ -90,7 +97,7 @@ public class IcebergSplitManager
         IcebergSplitSource splitSource = new IcebergSplitSource(
                 session,
                 tableScan,
-                TableScanUtil.splitFiles(tableScan.planFiles(), tableScan.targetSplitSize()),
+                TableScanUtil.splitFiles(icebergFileListCache.planFiles(tableScan, table, expression, session), tableScan.targetSplitSize()),
                 getMinimumAssignedSplitWeight(session));
         return splitSource;
     }
