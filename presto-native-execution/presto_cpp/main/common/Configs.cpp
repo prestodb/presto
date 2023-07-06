@@ -116,7 +116,7 @@ std::chrono::duration<double> toDuration(const std::string& str) {
   double value;
   std::string unit;
   if (!RE2::FullMatch(str, kPattern, &value, &unit)) {
-    VELOX_USER_FAIL("Invalid duration '{}'", str);
+    VELOX_USER_FAIL("Invalid duration {}", str);
   }
   if (unit == "ns") {
     return std::chrono::duration<double, std::nano>(value);
@@ -133,7 +133,7 @@ std::chrono::duration<double> toDuration(const std::string& str) {
   } else if (unit == "d") {
     return std::chrono::duration<double, std::ratio<60 * 60 * 24>>(value);
   }
-  VELOX_USER_FAIL("Invalid duration '{}'", str);
+  VELOX_USER_FAIL("Invalid duration {}", str);
 }
 
 } // namespace
