@@ -15,6 +15,8 @@ package com.facebook.presto.spark;
 
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.server.SessionContext;
+import com.facebook.presto.spark.accesscontrol.PrestoSparkAuthenticatorProvider;
+import com.facebook.presto.spark.accesscontrol.PrestoSparkCredentialsProvider;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
