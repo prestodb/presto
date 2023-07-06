@@ -36,7 +36,6 @@ import org.apache.pinot.common.datatable.DataTable;
 import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.common.utils.grpc.GrpcRequestBuilder;
-import org.apache.pinot.connector.presto.grpc.PinotStreamingQueryClient;
 import org.apache.pinot.spi.data.DimensionFieldSpec;
 import org.apache.pinot.spi.data.FieldSpec;
 import org.apache.pinot.spi.utils.ByteArray;

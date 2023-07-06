@@ -1852,7 +1852,13 @@
 
             <dependency>
                 <groupId>org.apache.pinot</groupId>
-                <artifactId>presto-pinot-driver</artifactId>
+                <artifactId>pinot-spi-jdk8</artifactId>
+                <version>${dep.pinot.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.pinot</groupId>
+                <artifactId>pinot-common-jdk8</artifactId>
                 <version>${dep.pinot.version}</version>
             </dependency>
 
