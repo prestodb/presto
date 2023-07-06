@@ -41,7 +41,7 @@ class RowExpressionTest : public ::testing::Test {
         converter_->toVeloxExpr(p));
 
     ASSERT_EQ(cexpr->type()->toString(), type);
-    ASSERT_EQ(cexpr->value().toJson(), value);
+    ASSERT_EQ(cexpr->value().toJson(cexpr->type()), value);
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
