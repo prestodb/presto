@@ -20,6 +20,7 @@ import com.facebook.presto.connector.jmx.JmxPlugin;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.hive.TestHiveEventListenerPlugin.TestingHiveEventListenerPlugin;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
+import com.facebook.presto.hive.hudi.HudiTestingDataGenerator;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
@@ -76,6 +77,7 @@ public final class HiveQueryRunner
     public static final String TPCDS_BUCKETED_SCHEMA = "tpcds_bucketed";
     public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
     private static final String TEMPORARY_TABLE_SCHEMA = "__temporary_tables__";
+    public static final String HUDI_SCHEMA = "test_hudi_schema54";
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
     public static DistributedQueryRunner createQueryRunner(TpchTable<?>... tables)
@@ -97,19 +99,19 @@ public final class HiveQueryRunner
             Optional<Path> dataDirectory)
             throws Exception
     {
-        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, extraCoordinatorProperties, "sql-standard", ImmutableMap.of(), Optional.empty(), dataDirectory, Optional.empty());
+        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, extraCoordinatorProperties, "sql-standard", ImmutableMap.of(), Optional.empty(), dataDirectory, Optional.empty(), false);
     }
 
     public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tpchTables, Map<String, String> extraProperties, Optional<Path> dataDirectory)
             throws Exception
     {
-        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), dataDirectory, Optional.empty());
+        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), dataDirectory, Optional.empty(), false);
     }
 
     public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tpchTables, List<String> tpcdsTableNames, Map<String, String> extraProperties, Optional<Path> dataDirectory)
             throws Exception
     {
-        return createQueryRunner(tpchTables, tpcdsTableNames, extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), dataDirectory, Optional.empty());
+        return createQueryRunner(tpchTables, tpcdsTableNames, extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), dataDirectory, Optional.empty(), false);
     }
 
     public static DistributedQueryRunner createQueryRunner(
@@ -120,22 +122,7 @@ public final class HiveQueryRunner
             Optional<Path> dataDirectory)
             throws Exception
     {
-        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, ImmutableMap.of(), security, extraHiveProperties, Optional.empty(), dataDirectory, Optional.empty());
-    }
-
-    public static DistributedQueryRunner createQueryRunner(
-            Iterable<TpchTable<?>> tpchTables,
-            Iterable<String> tpcdsTableNames,
-            Map<String, String> extraProperties,
-            Map<String, String> extraCoordinatorProperties,
-            String security,
-            Map<String, String> extraHiveProperties,
-            Optional<Integer> workerCount,
-            Optional<Path> dataDirectory,
-            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher)
-            throws Exception
-    {
-        return createQueryRunner(tpchTables, tpcdsTableNames, extraProperties, extraCoordinatorProperties, security, extraHiveProperties, workerCount, dataDirectory, externalWorkerLauncher, Optional.empty());
+        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, ImmutableMap.of(), security, extraHiveProperties, Optional.empty(), dataDirectory, Optional.empty(), false);
     }
 
     public static DistributedQueryRunner createQueryRunner(
@@ -148,21 +135,10 @@ public final class HiveQueryRunner
             Optional<Integer> workerCount,
             Optional<Path> dataDirectory,
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
-            Optional<ExtendedHiveMetastore> externalMetastore)
+            boolean generateHudiData)
             throws Exception
     {
-        return createQueryRunner(
-                tpchTables,
-                tpcdsTableNames,
-                extraProperties,
-                extraCoordinatorProperties,
-                security,
-                extraHiveProperties,
-                workerCount,
-                dataDirectory,
-                externalWorkerLauncher,
-                externalMetastore,
-                false);
+        return createQueryRunner(tpchTables, tpcdsTableNames, extraProperties, extraCoordinatorProperties, security, extraHiveProperties, workerCount, dataDirectory, externalWorkerLauncher, Optional.empty(), generateHudiData);
     }
 
     public static DistributedQueryRunner createQueryRunner(
@@ -176,7 +152,37 @@ public final class HiveQueryRunner
             Optional<Path> dataDirectory,
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
             Optional<ExtendedHiveMetastore> externalMetastore,
-            boolean addJmxPlugin)
+            boolean generateHudiData)
+            throws Exception
+    {
+        return createQueryRunner(
+                tpchTables,
+                tpcdsTableNames,
+                extraProperties,
+                extraCoordinatorProperties,
+                security,
+                extraHiveProperties,
+                workerCount,
+                dataDirectory,
+                externalWorkerLauncher,
+                externalMetastore,
+                false,
+                generateHudiData);
+    }
+
+    public static DistributedQueryRunner createQueryRunner(
+            Iterable<TpchTable<?>> tpchTables,
+            Iterable<String> tpcdsTableNames,
+            Map<String, String> extraProperties,
+            Map<String, String> extraCoordinatorProperties,
+            String security,
+            Map<String, String> extraHiveProperties,
+            Optional<Integer> workerCount,
+            Optional<Path> dataDirectory,
+            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
+            Optional<ExtendedHiveMetastore> externalMetastore,
+            boolean addJmxPlugin,
+            boolean generateHudiData)
             throws Exception
     {
         assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
@@ -211,6 +217,13 @@ public final class HiveQueryRunner
 
             ExtendedHiveMetastore metastore;
             metastore = externalMetastore.orElse(getFileHiveMetastore(queryRunner));
+
+            if (generateHudiData) {
+                Path testingDataDirectory = queryRunner.getCoordinator().getDataDirectory().resolve("hudi_data");
+                HudiTestingDataGenerator generator = new HudiTestingDataGenerator(metastore, HUDI_SCHEMA, testingDataDirectory);
+                generator.generateData();
+                generator.generateMetadata();
+            }
 
             queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, Optional.of(metastore)));
 

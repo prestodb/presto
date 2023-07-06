@@ -60,6 +60,7 @@ public final class S3HiveQueryRunner
                                         hiveEndpoint.getPort()),
                                 new MetastoreClientConfig(),
                                 HDFS_ENVIRONMENT),
-                        new HivePartitionMutator())));
+                        new HivePartitionMutator())),
+                false);
     }
 }

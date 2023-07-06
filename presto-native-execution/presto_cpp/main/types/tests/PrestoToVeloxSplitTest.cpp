@@ -93,3 +93,18 @@ TEST(PrestoToVeloxSplitTest, extraFileInfo) {
   ASSERT_TRUE(veloxHiveSplit->extraFileInfo);
   ASSERT_EQ(*veloxHiveSplit->extraFileInfo, "quux");
 }
+
+TEST(PrestoToVeloxSplitTest, testInputFormat) {
+  std::string inputFormat1 = "com.facebook.hive.orc.OrcInputFormat";
+  std::string inputFormat2 = "org.apache.hudi.hadoop.HoodieParquetInputFormat";
+  std::string inputFormat3 =
+      "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat";
+  ASSERT_EQ(
+      dwio::common::FileFormat::DWRF, input::toVeloxFileFormat(inputFormat1));
+  ASSERT_EQ(
+      dwio::common::FileFormat::PARQUET,
+      input::toVeloxFileFormat(inputFormat2));
+  ASSERT_EQ(
+      dwio::common::FileFormat::PARQUET,
+      input::toVeloxFileFormat(inputFormat3));
+}
