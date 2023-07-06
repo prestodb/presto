@@ -21,7 +21,7 @@ using namespace facebook::velox;
 
 namespace facebook::presto {
 
-namespace {
+namespace input {
 
 dwio::common::FileFormat toVeloxFileFormat(
     const facebook::presto::protocol::String& format) {
@@ -29,14 +29,15 @@ dwio::common::FileFormat toVeloxFileFormat(
     return dwio::common::FileFormat::DWRF;
   } else if (
       format ==
-      "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat") {
+          "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat" ||
+      format == "org.apache.hudi.hadoop.HoodieParquetInputFormat") {
     return dwio::common::FileFormat::PARQUET;
   } else {
     VELOX_FAIL("Unknown file format {}", format);
   }
 }
 
-} // anonymous namespace
+} // namespace input
 
 velox::exec::Split toVeloxSplit(
     const presto::protocol::ScheduledSplit& scheduledSplit) {
@@ -66,7 +67,8 @@ velox::exec::Split toVeloxSplit(
         std::make_shared<connector::hive::HiveConnectorSplit>(
             scheduledSplit.split.connectorId,
             hiveSplit->fileSplit.path,
-            toVeloxFileFormat(hiveSplit->storage.storageFormat.inputFormat),
+            input::toVeloxFileFormat(
+                hiveSplit->storage.storageFormat.inputFormat),
             hiveSplit->fileSplit.start,
             hiveSplit->fileSplit.length,
             partitionKeys,
