@@ -122,6 +122,10 @@ There are also arguments that toggle certain fuzzer features:
 
 * ``--enable_variadic_signatures``: Enable testing of function signatures with variadic arguments. Default is false.
 
+* ``--special_forms``: Enable testing of specified special forms, including `and`, `or`, `cast`, `coalesce`, `if`, and `switch`. Every fuzzer test specifies the enabled special forms of its own. velox_expression_fuzzer_test has all the aforementioned special forms enabled by default.
+
+* ``--enable_dereference``: Enable testing of the field-reference from structs and row_constructor functions. Default is false.
+
 * ``--velox_fuzzer_enable_complex_types``: Enable testing of function signatures with complex argument or return types. Default is false.
 
 * ``--lazy_vector_generation_ratio``: Specifies the probability with which columns in the input row vector will be selected to be wrapped in lazy encoding (expressed as double from 0 to 1). Default is 0.0.
@@ -156,6 +160,9 @@ An example set of arguments to run the fuzzer with all features enabled is as fo
 --velox_fuzzer_enable_expression_reuse
 --velox_fuzzer_enable_column_reuse
 --retry_with_try
+--enable_dereference
+--special_forms="and,or,cast,coalesce,if,switch"
+--max_expression_trees_per_step=2
 --repro_persist_path=<a_valid_local_path>
 --logtostderr=1``
 
