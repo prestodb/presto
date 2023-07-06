@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark.execution;
+package com.facebook.presto.spark.execution.task;
 
 import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
@@ -48,9 +48,9 @@ import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.TaskStats;
-import com.facebook.presto.spark.PrestoSparkAuthenticatorProvider;
 import com.facebook.presto.spark.PrestoSparkConfig;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
+import com.facebook.presto.spark.accesscontrol.PrestoSparkAuthenticatorProvider;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutor;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
@@ -64,10 +64,19 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskSource;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
+import com.facebook.presto.spark.execution.PrestoSparkBroadcastTableCacheManager;
+import com.facebook.presto.spark.execution.PrestoSparkBufferedSerializedPage;
+import com.facebook.presto.spark.execution.PrestoSparkExecutionExceptionFactory;
+import com.facebook.presto.spark.execution.PrestoSparkOutputBuffer;
 import com.facebook.presto.spark.execution.PrestoSparkPageOutputOperator.PrestoSparkPageOutputFactory;
+import com.facebook.presto.spark.execution.PrestoSparkRemoteSourceFactory;
+import com.facebook.presto.spark.execution.PrestoSparkRowBatch;
 import com.facebook.presto.spark.execution.PrestoSparkRowBatch.RowTupleSupplier;
 import com.facebook.presto.spark.execution.PrestoSparkRowOutputOperator.PreDeterminedPartitionFunction;
 import com.facebook.presto.spark.execution.PrestoSparkRowOutputOperator.PrestoSparkRowOutputFactory;
+import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleInput;
+import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleReadInfo;
+import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleWriteInfo;
 import com.facebook.presto.spark.util.PrestoSparkStatsCollectionUtils;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.memory.MemoryPoolId;

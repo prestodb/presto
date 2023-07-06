@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark.execution;
+package com.facebook.presto.spark.execution.nativeprocess;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.TaskInfo;

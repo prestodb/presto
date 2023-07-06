@@ -19,7 +19,7 @@ import com.facebook.presto.spark.classloader_interface.IPrestoSparkServiceFactor
 import com.facebook.presto.spark.classloader_interface.PrestoSparkBootstrapTimer;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
-import com.facebook.presto.spark.execution.NativeExecutionModule;
+import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

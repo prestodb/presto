@@ -35,18 +35,17 @@ import com.facebook.presto.operator.PageBufferClient;
 import com.facebook.presto.operator.PageTransportErrorException;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.server.smile.BaseResponse;
-import com.facebook.presto.spark.execution.BatchTaskUpdateRequest;
-import com.facebook.presto.spark.execution.HttpNativeExecutionTaskInfoFetcher;
-import com.facebook.presto.spark.execution.HttpNativeExecutionTaskResultFetcher;
-import com.facebook.presto.spark.execution.NativeExecutionProcess;
-import com.facebook.presto.spark.execution.NativeExecutionProcessFactory;
-import com.facebook.presto.spark.execution.NativeExecutionTask;
-import com.facebook.presto.spark.execution.NativeExecutionTaskFactory;
+import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTaskInfoFetcher;
+import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTaskResultFetcher;
+import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionProcess;
+import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionProcessFactory;
 import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionVeloxConfig;
 import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
+import com.facebook.presto.spark.execution.task.NativeExecutionTask;
+import com.facebook.presto.spark.execution.task.NativeExecutionTaskFactory;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PageCodecMarker;
@@ -367,41 +366,39 @@ public class TestPrestoSparkHttpClient
         int numPages = 10;
         PrestoSparkHttpTaskClient workerClient = new PrestoSparkHttpTaskClient(
                 new TestingHttpClient(
-                        new TestingResponseManager(
-                            taskId.toString(),
-                            new TestingResponseManager.TestingResultResponseManager()
-                            {
-                                private int requestCount;
+                        new TestingResponseManager(taskId.toString(), new TestingResponseManager.TestingResultResponseManager()
+                        {
+                            private int requestCount;
 
-                                @Override
-                                public Response createResultResponse(String taskId)
-                                        throws PageTransportErrorException
-                                {
-                                    requestCount++;
-                                    if (requestCount < numPages) {
-                                        return createResultResponseHelper(
-                                                HttpStatus.OK,
-                                                taskId,
-                                                requestCount - 1,
-                                                requestCount,
-                                                false,
-                                                serializedPageSize);
-                                    }
-                                    else if (requestCount == numPages) {
-                                        return createResultResponseHelper(
-                                                HttpStatus.OK,
-                                                taskId,
-                                                requestCount - 1,
-                                                requestCount,
-                                                true,
-                                                serializedPageSize);
-                                    }
-                                    else {
-                                        fail("Retrieving results after buffer completion");
-                                        return null;
-                                    }
+                            @Override
+                            public Response createResultResponse(String taskId)
+                                    throws PageTransportErrorException
+                            {
+                                requestCount++;
+                                if (requestCount < numPages) {
+                                    return createResultResponseHelper(
+                                            HttpStatus.OK,
+                                            taskId,
+                                            requestCount - 1,
+                                            requestCount,
+                                            false,
+                                            serializedPageSize);
                                 }
-                            })),
+                                else if (requestCount == numPages) {
+                                    return createResultResponseHelper(
+                                            HttpStatus.OK,
+                                            taskId,
+                                            requestCount - 1,
+                                            requestCount,
+                                            true,
+                                            serializedPageSize);
+                                }
+                                else {
+                                    fail("Retrieving results after buffer completion");
+                                    return null;
+                                }
+                            }
+                        })),
                 taskId,
                 BASE_URI,
                 TASK_INFO_JSON_CODEC,

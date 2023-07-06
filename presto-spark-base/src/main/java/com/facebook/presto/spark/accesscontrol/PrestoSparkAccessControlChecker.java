@@ -11,13 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark;
+package com.facebook.presto.spark.accesscontrol;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryStateTimer;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
-import com.facebook.presto.spark.execution.PrestoSparkAccessControlCheckerExecution;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
