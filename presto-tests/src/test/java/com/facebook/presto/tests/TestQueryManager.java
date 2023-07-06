@@ -32,6 +32,8 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
@@ -49,6 +51,7 @@ import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -224,6 +227,41 @@ public class TestQueryManager
             BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);
             assertEquals(queryInfo.getState(), FAILED);
             assertEquals(queryInfo.getErrorCode(), EXCEEDED_OUTPUT_SIZE_LIMIT.toErrorCode());
+        }
+    }
+
+    @Test
+    public void testQueryCountMetrics()
+            throws Exception
+    {
+        DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
+        // Create a total of 10 queries to test concurrency limit and
+        // ensure that some queries are queued as concurrency limit is 3
+        createQueries(dispatchManager, 10);
+
+        List<BasicQueryInfo> queries = dispatchManager.getQueries();
+        long queuedQueryCount = dispatchManager.getStats().getQueuedQueries();
+        long runningQueryCount = dispatchManager.getStats().getRunningQueries();
+
+        assertEquals(queuedQueryCount,
+                queries.stream().filter(basicQueryInfo -> basicQueryInfo.getState() == QUEUED).count());
+        assertEquals(runningQueryCount,
+                queries.stream().filter(basicQueryInfo -> basicQueryInfo.getState() == RUNNING).count());
+
+        Stopwatch stopwatch = Stopwatch.createStarted();
+
+        long oldQueuedQueryCount = queuedQueryCount;
+
+        // Assert that number of queued queries are decreasing with time and
+        // number of running queries are always <= 3 (max concurrency limit)
+        while (dispatchManager.getStats().getQueuedQueries() + dispatchManager.getStats().getRunningQueries() > 0
+                && stopwatch.elapsed().toMillis() < 60000) {
+            assertTrue(dispatchManager.getStats().getQueuedQueries() <= oldQueuedQueryCount);
+            assertTrue(dispatchManager.getStats().getRunningQueries() <= 3);
+
+            oldQueuedQueryCount = dispatchManager.getStats().getQueuedQueries();
+
+            Thread.sleep(100);
         }
     }
 }
