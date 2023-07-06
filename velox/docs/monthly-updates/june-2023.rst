@@ -1,0 +1,66 @@
+****************
+June 2023 Update
+****************
+
+Core Library
+============
+
+* Add MarkDistinct operator.
+* Add TopNRowNumber operator.
+* Add support for aggregations over sorted inputs: `SELECT agg(x, ORDER BY y) FROM t`.
+* Add join expression support to Nested Loop join.
+* Add serialization support for TableScanNode and TableWriteNode.
+* Add INTERVAL YEAR TO MONTH type.
+* Add basic support for writing bucketed tables.
+* Add support for UNKNOWN type to UnsafeRow serializer.
+
+Presto Functions
+================
+
+* Add :func:`lead` and :func:`lag` window functions.
+* Add :func:`set_agg` and :func:`set_union` aggregate functions.
+* Add :func:`rand` alias for :func:`random` function.
+* Add :func:`array_trim` function.
+* Add :func:`flatten` function.
+* Add :func:`kurtosis` and :func:`skewness` functions.
+* Add :func:`map_from_entries` function.
+* Add :func:`json_extract` function.
+* Add :func:`sum_data_size_for_stats aggregation` function.
+* Add 3-argument version of :func:`min_by` and :func:`max_by` aggregate functions.
+* Add :func:`concat`(array(E), E) function.
+* Add support for inputs of type DECIMAL to :func:`round` function.
+* Add support for inputs of type REAL in :func:`least` and :func:`greatest` functions.
+* Add support for inputs of type TIMESTAMP in :func:`min_by` and :func:`max_by` aggregate functions.
+* Add support for inputs of type VARCHAR in :func:`histogram` aggregate function.
+* Add support for input maps with VARCHAR keys in :func:`map_union_sum` aggregate function.
+* Add support for inputs of type UNKNOWN to :func:`map_union` aggregate function.
+* Fix :func:`date_diff` function to allow case insensitive units.
+* Optimize :func:`json_array_length` and :func:`json_array_contains` functions using SIMD.
+
+Spark Functions
+===============
+
+* Add :spark:func:`bin` function.
+* Add :spark:func:`last_day` function.
+* Add :spark:func:`overlay` function.
+* Add :spark:func:`bit_count` and :spark:func:`bit_get` functions.
+* Add :spark:func:`bloom_filter_agg` aggregate function.
+
+Performance and Correctness
+===========================
+
+* Enable switch and dereference expressions in Fuzzer.
+
+Credits
+=======
+
+Aditi Pandit, Amit Dutta, Ariel Ji, Arpit Porwal, Austin Dickey, Bikramjeet Vig,
+Chengcheng Jin, Daniel Munoz, Darren Fu, David Vu, Deepak Majeti, Ge Gao,
+Genevieve (Genna) Helsel, Huameng Jiang, Ivan Sadikov, Jalpreet Singh Nanda
+(:imjalpreet), Jia Ke, Jialiang Tan, Jiayan Wei, Jimmy Lu, Karteek Murthy Samba
+Murthy, Karteekmurthys, Ke, Kevin Wilfong, Krishna Pai, Laith Sakka, Lingfeng
+Zhang, Masha Basmanova, Nick Terrell, Open Source Bot, Orri Erling, Patrick
+Sullivan, Paul Amonson, Pedro Eugenio Rocha Pedreira, Pramod, Richard Barnes,
+Sanjiban Sengupta, Serge Druzkin, Sergey Pershin, Shiyu Gan, Wei He, Yang
+Zhang, Zac, duanmeng, joey.ljy, rui-mo, usurai, wanweiqiangintel, xiaoxmeng,
+xiyu.zk, yangchuan, yingsu00, zhli1142015
