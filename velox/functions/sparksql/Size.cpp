@@ -35,7 +35,7 @@ struct Size {
   }
 
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool callNullable(int64_t& out, const TInput* input) {
+  FOLLY_ALWAYS_INLINE bool callNullable(int32_t& out, const TInput* input) {
     if (input == nullptr) {
       if (legacySizeOfNull_) {
         out = -1;
@@ -54,8 +54,8 @@ struct Size {
 } // namespace
 
 void registerSize(const std::string& prefix) {
-  registerFunction<Size, int64_t, Array<Any>>({prefix});
-  registerFunction<Size, int64_t, Map<Any, Any>>({prefix});
+  registerFunction<Size, int32_t, Array<Any>>({prefix});
+  registerFunction<Size, int32_t, Map<Any, Any>>({prefix});
 }
 
 } // namespace facebook::velox::functions::sparksql

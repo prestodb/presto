@@ -30,7 +30,7 @@ class SizeTest : public SparkFunctionBaseTest {
 
   void testSize(VectorPtr vector, vector_size_t numRows) {
     auto result =
-        evaluate<SimpleVector<int64_t>>("size(c0)", makeRowVector({vector}));
+        evaluate<SimpleVector<int32_t>>("size(c0)", makeRowVector({vector}));
     for (vector_size_t i = 0; i < numRows; ++i) {
       if (vector->isNullAt(i)) {
         EXPECT_EQ(result->valueAt(i), -1) << "at " << i;
@@ -42,7 +42,7 @@ class SizeTest : public SparkFunctionBaseTest {
 
   void testSizeLegacyNull(VectorPtr vector, vector_size_t numRows) {
     auto result =
-        evaluate<SimpleVector<int64_t>>("size(c0)", makeRowVector({vector}));
+        evaluate<SimpleVector<int32_t>>("size(c0)", makeRowVector({vector}));
     for (vector_size_t i = 0; i < numRows; ++i) {
       EXPECT_EQ(result->isNullAt(i), vector->isNullAt(i)) << "at " << i;
     }
