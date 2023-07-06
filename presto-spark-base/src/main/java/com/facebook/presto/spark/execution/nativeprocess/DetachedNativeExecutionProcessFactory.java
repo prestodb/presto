@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark.execution;
+package com.facebook.presto.spark.execution.nativeprocess;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
@@ -19,6 +19,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
+import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
 import com.facebook.presto.spi.PrestoException;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;

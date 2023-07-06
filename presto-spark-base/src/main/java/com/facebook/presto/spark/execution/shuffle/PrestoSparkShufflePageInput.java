@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark.execution;
+package com.facebook.presto.spark.execution.shuffle;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
@@ -21,6 +21,7 @@ import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
+import com.facebook.presto.spark.execution.PrestoSparkPageInput;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;

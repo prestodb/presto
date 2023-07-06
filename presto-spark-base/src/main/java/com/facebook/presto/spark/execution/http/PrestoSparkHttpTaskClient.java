@@ -31,7 +31,6 @@ import com.facebook.presto.operator.PageBufferClient;
 import com.facebook.presto.operator.RpcShuffleClient;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.BaseResponse;
-import com.facebook.presto.spark.execution.BatchTaskUpdateRequest;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
