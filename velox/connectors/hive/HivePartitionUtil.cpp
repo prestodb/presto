@@ -28,10 +28,8 @@ namespace facebook::velox::connector::hive {
       case TypeKind::BIGINT:                                                \
       case TypeKind::VARCHAR:                                               \
       case TypeKind::VARBINARY:                                             \
-      case TypeKind::DATE: {                                                \
         return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(                          \
             TEMPLATE_FUNC, typeKind, __VA_ARGS__);                          \
-      }                                                                     \
       default:                                                              \
         VELOX_UNSUPPORTED(                                                  \
             "Unsupported partition type: {}", mapTypeKindToName(typeKind)); \
@@ -47,11 +45,6 @@ inline std::string makePartitionValueString(T value) {
 template <>
 inline std::string makePartitionValueString(bool value) {
   return value ? "true" : "false";
-}
-
-template <>
-inline std::string makePartitionValueString(Date value) {
-  return value.toString();
 }
 
 template <TypeKind Kind>
@@ -73,12 +66,21 @@ std::vector<std::pair<std::string, std::string>> extractPartitionKeyValues(
     vector_size_t row) {
   std::vector<std::pair<std::string, std::string>> partitionKeyValues;
   for (auto i = 0; i < partitionsVector->childrenSize(); i++) {
-    partitionKeyValues.push_back(PARTITION_TYPE_DISPATCH(
-        makePartitionKeyValueString,
-        partitionsVector->childAt(i)->typeKind(),
-        partitionsVector->childAt(i)->loadedVector(),
-        row,
-        asRowType(partitionsVector->type())->nameOf(i)));
+    if (partitionsVector->childAt(i)->type()->isDate()) {
+      auto partitionVector = partitionsVector->childAt(i)->loadedVector();
+      auto partitionName = asRowType(partitionsVector->type())->nameOf(i);
+      partitionKeyValues.push_back(
+          {partitionName,
+           DATE()->toString(
+               partitionVector->as<SimpleVector<int32_t>>()->valueAt(row))});
+    } else {
+      partitionKeyValues.push_back(PARTITION_TYPE_DISPATCH(
+          makePartitionKeyValueString,
+          partitionsVector->childAt(i)->typeKind(),
+          partitionsVector->childAt(i)->loadedVector(),
+          row,
+          asRowType(partitionsVector->type())->nameOf(i)));
+    }
   }
   return partitionKeyValues;
 }

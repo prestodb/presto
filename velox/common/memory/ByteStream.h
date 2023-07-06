@@ -279,13 +279,6 @@ inline int128_t ByteStream::read<int128_t>() {
   return value;
 }
 
-template <>
-inline Date ByteStream::read<Date>() {
-  Date value;
-  readBytes(reinterpret_cast<uint8_t*>(&value), sizeof(value));
-  return value;
-}
-
 class IOBufOutputStream : public OutputStream {
  public:
   explicit IOBufOutputStream(

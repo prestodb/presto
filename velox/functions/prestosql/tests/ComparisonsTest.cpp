@@ -90,11 +90,10 @@ TEST_F(ComparisonsTest, betweenVarchar) {
 
 TEST_F(ComparisonsTest, betweenDate) {
   auto parseDate = [](const std::string& dateStr) {
-    Date returnDate;
-    parseTo(dateStr, returnDate);
-    return returnDate;
+    return DATE()->toDays(dateStr);
   };
-  std::vector<std::tuple<Date, bool>> testData = {
+
+  std::vector<std::tuple<int32_t, bool>> testData = {
       {parseDate("2019-05-01"), false},
       {parseDate("2019-06-01"), true},
       {parseDate("2019-07-01"), true},
@@ -104,7 +103,7 @@ TEST_F(ComparisonsTest, betweenDate) {
 
   auto result = evaluate<SimpleVector<bool>>(
       "c0 between cast(\'2019-06-01\' as date) and cast(\'2020-06-01\' as date)",
-      makeRowVector({makeFlatVector<Date, 0>(testData)}));
+      makeRowVector({makeFlatVector<int32_t, 0>(testData, DATE())}));
 
   for (int i = 0; i < testData.size(); ++i) {
     EXPECT_EQ(result->valueAt(i), std::get<1>(testData[i])) << "at " << i;

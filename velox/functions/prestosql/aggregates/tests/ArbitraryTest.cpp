@@ -281,22 +281,15 @@ TEST_F(ArbitraryTest, date) {
       // Grouping key.
       makeFlatVector<int64_t>({1, 1, 2, 2, 3, 3, 4, 4}),
       // Input values: constant within groups.
-      makeNullableFlatVector<Date>(
-          {Date(125),
-           Date(125),
-           Date(126),
-           Date(126),
-           std::nullopt,
-           std::nullopt,
-           std::nullopt,
-           Date(128)}),
+      makeNullableFlatVector<int32_t>(
+          {125, 125, 126, 126, std::nullopt, std::nullopt, std::nullopt, 128},
+          DATE()),
       makeConstant<Timestamp>(std::nullopt, 8),
   });
 
   auto expectedResult = makeRowVector({
       makeFlatVector<int64_t>({1, 2, 3, 4}),
-      makeNullableFlatVector<Date>(
-          {Date(125), Date(126), std::nullopt, Date(128)}),
+      makeNullableFlatVector<int32_t>({125, 126, std::nullopt, 128}, DATE()),
   });
 
   testAggregations({data}, {"c0"}, {"arbitrary(c1)"}, {expectedResult});
@@ -309,10 +302,10 @@ TEST_F(ArbitraryTest, date) {
 
   auto result = readSingleValue(plan);
   ASSERT_TRUE(!result.isNull());
-  ASSERT_EQ(result.kind(), TypeKind::DATE);
+  ASSERT_EQ(result.kind(), TypeKind::INTEGER);
 
-  auto date = result.value<Date>();
-  ASSERT_EQ(date, Date(125));
+  auto date = result.value<int32_t>();
+  ASSERT_EQ(date, 125);
 
   testAggregations({data}, {}, {"arbitrary(c2)"}, "SELECT null");
 }

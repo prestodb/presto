@@ -166,10 +166,6 @@ const ::substrait::Expression_Literal& toSubstraitNotNullLiteral(
       literalExpr->set_timestamp(micros);
       break;
     }
-    case velox::TypeKind::DATE: {
-      literalExpr->set_date(variantValue.value<TypeKind::DATE>().days());
-      break;
-    }
     case velox::TypeKind::VARCHAR: {
       auto vCharValue = variantValue.value<StringView>();
       ::substrait::Expression_Literal::VarChar* sVarChar =
@@ -276,17 +272,6 @@ const ::substrait::Expression_Literal& toSubstraitNotNullLiteral<
       google::protobuf::Arena::CreateMessage<::substrait::Expression_Literal>(
           &arena);
   literalExpr->set_fp64(value);
-  literalExpr->set_nullable(false);
-  return *literalExpr;
-}
-
-template <>
-const ::substrait::Expression_Literal& toSubstraitNotNullLiteral<
-    TypeKind::DATE>(google::protobuf::Arena& arena, const Date& value) {
-  ::substrait::Expression_Literal* literalExpr =
-      google::protobuf::Arena::CreateMessage<::substrait::Expression_Literal>(
-          &arena);
-  literalExpr->set_date(value.days());
   literalExpr->set_nullable(false);
   return *literalExpr;
 }

@@ -29,7 +29,7 @@ class VeloxSubstraitSignature {
   /// name>:<short_arg_type0>_<short_arg_type1>_..._<short_arg_typeN> for more
   /// detail information about the argument type please refer to link
   /// https://substrait.io/extensions/#function-signature-compound-names.
-  static std::string toSubstraitSignature(const TypeKind typeKind);
+  static std::string toSubstraitSignature(const TypePtr& type);
 
   /// Given a velox scalar function name and argument types, return the
   /// substrait function signature.

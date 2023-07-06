@@ -280,21 +280,6 @@ VectorPtr BatchMaker::createVector<TypeKind::TIMESTAMP>(
 }
 
 template <>
-VectorPtr BatchMaker::createVector<TypeKind::DATE>(
-    const std::shared_ptr<const Type>& /* unused */,
-    size_t size,
-    MemoryPool& pool,
-    std::mt19937& gen,
-    std::function<bool(vector_size_t /*index*/)> isNullAt) {
-  return createScalar<Date>(
-      size,
-      gen,
-      [&gen]() { return Date(Random::rand32(gen)); },
-      pool,
-      isNullAt);
-}
-
-template <>
 VectorPtr BatchMaker::createVector<TypeKind::ROW>(
     const std::shared_ptr<const Type>& type,
     size_t size,

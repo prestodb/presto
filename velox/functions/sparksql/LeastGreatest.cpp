@@ -118,7 +118,6 @@ std::shared_ptr<exec::VectorFunction> makeImpl(
     SCALAR_CASE(VARCHAR)
     SCALAR_CASE(VARBINARY)
     SCALAR_CASE(TIMESTAMP)
-    SCALAR_CASE(DATE)
 #undef SCALAR_CASE
     default:
       VELOX_NYI(

@@ -27,19 +27,22 @@ class GreatestLeastTest : public functions::test::FunctionBaseTest {
       const std::string& query,
       const std::vector<std::vector<T>>& inputs,
       const std::vector<std::optional<T>>& output,
-      std::optional<size_t> stringBuffersExpectedCount = std::nullopt) {
+      std::optional<size_t> stringBuffersExpectedCount = std::nullopt,
+      const TypePtr& type = CppToType<T>::create(),
+      const TypePtr& resultType = CppToType<T>::create()) {
     // Create input vectors
     auto vectorSize = inputs[0].size();
     std::vector<VectorPtr> inputColumns(inputs.size());
     for (auto i = 0; i < inputColumns.size(); ++i) {
-      inputColumns[i] = makeFlatVector<T>(inputs[i]);
+      inputColumns[i] = makeFlatVector<T>(inputs[i], type);
       for (auto j = 0; j < vectorSize; ++j) {
         inputColumns[i]->asFlatVector<T>()->set(j, inputs[i][j]);
       }
     }
 
     // Call evaluate to run the query on the created input
-    auto result = evaluate<SimpleVector<T>>(query, makeRowVector(inputColumns));
+    auto result = evaluate<SimpleVector<T>>(
+        query, makeRowVector(inputColumns), std::nullopt, resultType);
     for (int32_t i = 0; i < vectorSize; ++i) {
       if (output[i].has_value()) {
         ASSERT_EQ(result->valueAt(i), output[i]);
@@ -200,21 +203,27 @@ TEST_F(GreatestLeastTest, leastTimeStamp) {
 }
 
 TEST_F(GreatestLeastTest, greatestDate) {
-  runTest<Date>(
+  runTest<int32_t>(
       "greatest(c0, c1, c2)",
-      {{Date(0), Date(5), Date(0)},
-       {Date(1), Date(0), Date(-5)},
-       {Date(5), Date(-5), Date(-10)}},
-      {Date(5), Date(5), Date(0)});
+      {
+          {0, 5, 0},
+          {1, 0, -5},
+          {5, -5, -10},
+      },
+      {5, 5, 0},
+      std::nullopt,
+      DATE(),
+      DATE());
 }
 
 TEST_F(GreatestLeastTest, leastDate) {
-  runTest<Date>(
+  runTest<int32_t>(
       "least(c0, c1, c2)",
-      {{Date(0), Date(0), Date(5)},
-       {Date(1), Date(-1), Date(-1)},
-       {Date(5), Date(5), Date(-5)}},
-      {Date(0), Date(-1), Date(-5)});
+      {{0, 0, 5}, {1, -1, -1}, {5, 5, -5}},
+      {0, -1, -5},
+      std::nullopt,
+      DATE(),
+      DATE());
 }
 
 TEST_F(GreatestLeastTest, stringBuffersMoved) {

@@ -59,6 +59,7 @@ LogicalType fromVeloxType(const TypePtr& type) {
     auto [precision, scale] = getDecimalPrecisionScale(*type);
     return LogicalType::DECIMAL(precision, scale);
   }
+
   switch (type->kind()) {
     case TypeKind::BOOLEAN:
       return LogicalType::BOOLEAN;
@@ -69,6 +70,9 @@ LogicalType fromVeloxType(const TypePtr& type) {
     case TypeKind::INTEGER:
       if (type->isIntervalYearMonth()) {
         return LogicalType::INTERVAL;
+      }
+      if (type->isDate()) {
+        return LogicalType::DATE;
       }
       return LogicalType::INTEGER;
     case TypeKind::BIGINT:
@@ -84,8 +88,6 @@ LogicalType fromVeloxType(const TypePtr& type) {
       return LogicalType::VARCHAR;
     case TypeKind::TIMESTAMP:
       return LogicalType::TIMESTAMP;
-    case TypeKind::DATE:
-      return LogicalType::DATE;
     case TypeKind::ARRAY:
       return LogicalType::LIST(fromVeloxType(type->childAt(0)));
     case TypeKind::MAP:
@@ -207,7 +209,7 @@ variant duckValueToVariant(const Value& val) {
     case LogicalTypeId::BLOB:
       return variant::binary(val.GetValue<std::string>());
     case LogicalTypeId::DATE:
-      return variant::date(val.GetValue<::duckdb::date_t>().days);
+      return variant(val.GetValue<::duckdb::date_t>().days);
     default:
       throw std::runtime_error(
           "unsupported type for duckdb value -> velox  variant conversion: " +

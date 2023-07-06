@@ -258,11 +258,12 @@ TEST_F(HivePartitionFunctionTest, timestamp) {
 }
 
 TEST_F(HivePartitionFunctionTest, date) {
-  auto values = makeNullableFlatVector<Date>(
+  auto values = makeNullableFlatVector<int32_t>(
       {std::nullopt,
-       Date(2'000'000'000),
-       Date(std::numeric_limits<int32_t>::min()),
-       Date(std::numeric_limits<int32_t>::max())});
+       2'000'000'000,
+       std::numeric_limits<int32_t>::min(),
+       std::numeric_limits<int32_t>::max()},
+      DATE());
 
   assertPartitions(values, 1, {0, 0, 0, 0});
   assertPartitions(values, 2, {0, 0, 0, 1});

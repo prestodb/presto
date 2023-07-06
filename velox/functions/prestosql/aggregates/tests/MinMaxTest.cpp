@@ -207,7 +207,7 @@ TEST_F(MinMaxTest, minMaxTimestamp) {
 
 TEST_F(MinMaxTest, largeValuesDate) {
   auto vectors = {makeRowVector(
-      {makeConstant(Date(60577), 100), makeConstant(Date(-57604), 100)})};
+      {makeConstant(60577, 100, DATE()), makeConstant(-57604, 100, DATE())})};
   createDuckDbTable(vectors);
 
   testAggregations(

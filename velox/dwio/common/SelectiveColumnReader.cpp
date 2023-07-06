@@ -179,9 +179,6 @@ void SelectiveColumnReader::getIntValues(
             VELOX_FAIL("Unsupported value size: {}", valueSize_);
         }
         break;
-      case TypeKind::DATE:
-        getFlatValues<Date, Date>(rows, result, requestedType);
-        break;
       case TypeKind::HUGEINT:
         getFlatValues<int128_t, int128_t>(rows, result, requestedType);
         break;

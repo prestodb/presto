@@ -195,29 +195,32 @@ TEST_F(LastAggregateTest, timestampGlobal) {
 TEST_F(LastAggregateTest, dateGroupBy) {
   auto vectors = {makeRowVector({
       makeFlatVector<int32_t>(98, [](auto row) { return row % 7; }),
-      makeFlatVector<Date>(
+      makeFlatVector<int32_t>(
           98, // size
-          [](auto row) { return Date(row); }, // valueAt
-          [](auto row) { return row % 3 == 0; }), // nullAt
+          [](auto row) { return row; }, // valueAt
+          [](auto row) { return row % 3 == 0; }, // nullAt
+          DATE()),
   })};
 
   auto ignoreNullData = {makeRowVector({
       makeFlatVector<int32_t>(7, [](auto row) { return row; }),
-      makeFlatVector<Date>(
+      makeFlatVector<int32_t>(
           7, // size
           [](auto row) {
-            return (row + 91) % 3 == 0 ? Date(row + 91 - 7) : Date(row + 91);
-          } // valueAt
-          ),
+            return (row + 91) % 3 == 0 ? row + 91 - 7 : row + 91;
+          }, // valueAt,
+          nullptr, // nullAt
+          DATE()),
   })};
 
   // Expected result should have first 7 rows including nulls.
   auto hasNullData = {makeRowVector({
       makeFlatVector<int32_t>(7, [](auto row) { return row; }),
-      makeFlatVector<Date>(
+      makeFlatVector<int32_t>(
           7, // size
-          [](auto row) { return Date(row + 91); }, // valueAt
-          [](auto row) { return (row + 91) % 3 == 0; }), // nullAt
+          [](auto row) { return row + 91; }, // valueAt
+          [](auto row) { return (row + 91) % 3 == 0; }, // nullAt
+          DATE()),
   })};
 
   testGroupBy(vectors, ignoreNullData, hasNullData);
@@ -225,15 +228,15 @@ TEST_F(LastAggregateTest, dateGroupBy) {
 
 TEST_F(LastAggregateTest, dateGlobal) {
   auto vectors = {makeRowVector({
-      makeNullableFlatVector<Date>(
-          {std::nullopt, Date(1), Date(2), std::nullopt}),
+      makeNullableFlatVector<int32_t>(
+          {std::nullopt, 1, 2, std::nullopt}, DATE()),
   })};
 
   auto ignoreNullData = {
-      makeRowVector({makeNullableFlatVector<Date>({Date(2)})})};
+      makeRowVector({makeNullableFlatVector<int32_t>({2}, DATE())})};
 
   auto hasNullData = {
-      makeRowVector({makeNullableFlatVector<Date>({std::nullopt})})};
+      makeRowVector({makeNullableFlatVector<int32_t>({std::nullopt}, DATE())})};
 
   testGlobalAggregate(vectors, ignoreNullData, hasNullData);
 }

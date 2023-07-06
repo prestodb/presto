@@ -39,7 +39,8 @@ template <typename T, bool isMapKey = false>
 void generateJsonTyped(
     const SimpleVector<T>& input,
     int row,
-    std::string& result) {
+    std::string& result,
+    const TypePtr& type) {
   auto value = input.valueAt(row);
 
   if constexpr (std::is_same_v<T, StringView>) {
@@ -54,9 +55,10 @@ void generateJsonTyped(
 
     if constexpr (std::is_same_v<T, bool>) {
       result.append(value ? "true" : "false");
-    } else if constexpr (
-        std::is_same_v<T, Date> || std::is_same_v<T, Timestamp>) {
+    } else if constexpr (std::is_same_v<T, Timestamp>) {
       result.append(std::to_string(value));
+    } else if (type->isDate()) {
+      result.append(DATE()->toString(value));
     } else {
       folly::toAppend<std::string, T>(value, &result);
     }
@@ -89,7 +91,7 @@ void castToJson(
         flatResult.set(row, "null");
       } else {
         result.clear();
-        generateJsonTyped(*inputVector, row, result);
+        generateJsonTyped(*inputVector, row, result, input.type());
 
         flatResult.set(row, StringView{result});
       }
@@ -100,7 +102,7 @@ void castToJson(
         VELOX_FAIL("Map keys cannot be null.");
       } else {
         result.clear();
-        generateJsonTyped<T, true>(*inputVector, row, result);
+        generateJsonTyped<T, true>(*inputVector, row, result, input.type());
 
         flatResult.set(row, StringView{result});
       }
@@ -757,7 +759,6 @@ bool JsonCastOperator::isSupportedFromType(const TypePtr& other) const {
 
   switch (other->kind()) {
     case TypeKind::UNKNOWN:
-    case TypeKind::DATE:
     case TypeKind::TIMESTAMP:
       return true;
     case TypeKind::ARRAY:
@@ -779,6 +780,10 @@ bool JsonCastOperator::isSupportedFromType(const TypePtr& other) const {
 }
 
 bool JsonCastOperator::isSupportedToType(const TypePtr& other) const {
+  if (other->isDate()) {
+    return false;
+  }
+
   if (isSupportedBasicType(other)) {
     return true;
   }

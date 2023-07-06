@@ -2383,14 +2383,6 @@ std::unique_ptr<ColumnReader> ColumnReader::build(
     case TypeKind::TIMESTAMP:
       return std::make_unique<TimestampColumnReader>(
           dataType, stripe, streamLabels, std::move(flatMapContext));
-    case TypeKind::DATE:
-      return std::make_unique<IntegerDirectColumnReader<Date>>(
-          dataType,
-          requestedType->type,
-          stripe,
-          streamLabels,
-          dwio::common::INT_BYTE_SIZE,
-          std::move(flatMapContext));
     default:
       DWIO_RAISE("buildReader unhandled type");
   }

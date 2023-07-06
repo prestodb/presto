@@ -2472,8 +2472,8 @@ TEST_F(ExprTest, constantToSql) {
   ASSERT_EQ(toSql(2134456LL), "'2134456'::BIGINT");
   ASSERT_EQ(toSql(variant::null(TypeKind::BIGINT)), "NULL::BIGINT");
 
-  ASSERT_EQ(toSql(Date(18'506)), "'2020-09-01'::DATE");
-  ASSERT_EQ(toSql(variant::null(TypeKind::DATE)), "NULL::DATE");
+  ASSERT_EQ(toSql(18'506, DATE()), "'2020-09-01'::DATE");
+  ASSERT_EQ(toSql(variant::null(TypeKind::INTEGER), DATE()), "NULL::DATE");
 
   ASSERT_EQ(
       toSql(Timestamp(123'456, 123'000)),

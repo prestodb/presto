@@ -1814,9 +1814,8 @@ TEST(FilterTest, hugeIntRange) {
 }
 
 TEST(FilterTest, dateRange) {
-  Date low = Date(1);
-  Date high = Date(100);
-  auto filter = between(low.days(), high.days());
-  EXPECT_TRUE(applyFilter(*filter, Date(10)));
-  EXPECT_FALSE(applyFilter(*filter, Date(101)));
+  auto filter =
+      between(DATE()->toDays("1970-01-01"), DATE()->toDays("1980-01-01"));
+  EXPECT_TRUE(applyFilter(*filter, DATE()->toDays("1970-06-01")));
+  EXPECT_FALSE(applyFilter(*filter, DATE()->toDays("1980-06-01")));
 }

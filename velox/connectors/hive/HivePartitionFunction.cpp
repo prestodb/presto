@@ -173,16 +173,6 @@ void hashTyped<TypeKind::TIMESTAMP>(
   abstractHashTyped<Timestamp>(values, size, mix, hashTimestamp, hashes);
 }
 
-template <>
-void hashTyped<TypeKind::DATE>(
-    const DecodedVector& values,
-    vector_size_t size,
-    bool mix,
-    std::vector<uint32_t>& hashes) {
-  auto hashDate = [](const Date& value) { return value.days(); };
-  abstractHashTyped<Date>(values, size, mix, hashDate, hashes);
-}
-
 void hash(
     const DecodedVector& values,
     TypeKind typeKind,

@@ -106,20 +106,35 @@ struct DateFunction : public TimestampWithTimezoneSupport<T> {
   FOLLY_ALWAYS_INLINE void call(
       out_type<Date>& result,
       const arg_type<Varchar>& date) {
-    result = util::Converter<TypeKind::DATE>::cast(date);
+    bool nullOutput;
+    result = DATE()->toDays(date);
+  }
+
+  int32_t timestampToDate(const Timestamp& t, bool& nullOutput) {
+    static const int32_t kSecsPerDay{86'400};
+    auto seconds = t.getSeconds();
+    if (seconds >= 0 || seconds % kSecsPerDay == 0) {
+      return seconds / kSecsPerDay;
+    }
+    // For division with negatives, minus 1 to compensate the discarded
+    // fractional part. e.g. -1/86'400 yields 0, yet it should be considered as
+    // -1 day.
+    return seconds / kSecsPerDay - 1;
   }
 
   FOLLY_ALWAYS_INLINE void call(
       out_type<Date>& result,
       const arg_type<Timestamp>& timestamp) {
-    result = util::Converter<TypeKind::DATE>::cast(timestamp);
+    bool nullOutput;
+    result = timestampToDate(timestamp, nullOutput);
   }
 
   FOLLY_ALWAYS_INLINE void call(
       out_type<Date>& result,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
-    result = util::Converter<TypeKind::DATE>::cast(
-        this->toTimestamp(timestampWithTimezone));
+    bool nullOutput;
+    result =
+        timestampToDate(this->toTimestamp(timestampWithTimezone), nullOutput);
   }
 };
 
@@ -306,14 +321,13 @@ struct DateMinusIntervalDayTime {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE void call(
-      Date& result,
+      out_type<Date>& result,
       const arg_type<Date>& date,
       const arg_type<IntervalDayTime>& interval) {
     VELOX_USER_CHECK(
         isIntervalWholeDays(interval),
         "Cannot subtract hours, minutes, seconds or milliseconds from a date");
-    result = date;
-    result.addDays(-intervalDays(interval));
+    result = addToDate(date, DateTimeUnit::kDay, -intervalDays(interval));
   }
 };
 
@@ -322,14 +336,13 @@ struct DatePlusIntervalDayTime {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE void call(
-      Date& result,
+      out_type<Date>& result,
       const arg_type<Date>& date,
       const arg_type<IntervalDayTime>& interval) {
     VELOX_USER_CHECK(
         isIntervalWholeDays(interval),
         "Cannot add hours, minutes, seconds or milliseconds to a date");
-    result = date;
-    result.addDays(intervalDays(interval));
+    result = addToDate(date, DateTimeUnit::kDay, intervalDays(interval));
   }
 };
 
@@ -718,14 +731,14 @@ struct DateTruncFunction : public TimestampWithTimezoneSupport<T> {
         : getDateUnit(unitString, true).value();
 
     if (unit == DateTimeUnit::kDay) {
-      result = Date(date.days());
+      result = date;
       return;
     }
 
     auto dateTime = getDateTime(date);
     adjustDateTime(dateTime, unit);
 
-    result = Date(timegm(&dateTime) / kSecondsInDay);
+    result = timegm(&dateTime) / kSecondsInDay;
   }
 
   FOLLY_ALWAYS_INLINE void call(
@@ -1131,13 +1144,15 @@ struct ParseDateTimeFunction {
 
 template <typename T>
 struct CurrentDateFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
   const date::time_zone* timeZone_ = nullptr;
 
   FOLLY_ALWAYS_INLINE void initialize(const core::QueryConfig& config) {
     timeZone_ = getTimeZoneFromConfig(config);
   }
 
-  FOLLY_ALWAYS_INLINE void call(Date& result) {
+  FOLLY_ALWAYS_INLINE void call(out_type<Date>& result) {
     auto now = Timestamp::now();
     if (timeZone_ != nullptr) {
       now.toTimezone(*timeZone_);
@@ -1145,8 +1160,8 @@ struct CurrentDateFunction {
     const std::chrono::
         time_point<std::chrono::system_clock, std::chrono::milliseconds>
             localTimepoint(std::chrono::milliseconds(now.toMillis()));
-    auto daysSinceEpoch = std::chrono::floor<date::days>(localTimepoint);
-    result = Date(daysSinceEpoch.time_since_epoch().count());
+    result = std::chrono::floor<date::days>((localTimepoint).time_since_epoch())
+                 .count();
   }
 };
 

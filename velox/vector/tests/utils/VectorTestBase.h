@@ -448,8 +448,9 @@ class VectorTestBase {
   //   });
   template <typename T>
   ArrayVectorPtr makeNullableArrayVector(
-      const std::vector<std::optional<std::vector<std::optional<T>>>>& data) {
-    return vectorMaker_.arrayVectorNullable<T>(data);
+      const std::vector<std::optional<std::vector<std::optional<T>>>>& data,
+      const TypePtr& arrayType = ARRAY(CppToType<T>::create())) {
+    return vectorMaker_.arrayVectorNullable<T>(data, arrayType);
   }
 
   template <typename T>
@@ -458,9 +459,10 @@ class VectorTestBase {
       std::function<vector_size_t(vector_size_t /* row */)> sizeAt,
       std::function<T(vector_size_t /* idx */)> valueAt,
       std::function<bool(vector_size_t /* row */)> isNullAt = nullptr,
-      std::function<bool(vector_size_t /* idx */)> valueIsNullAt = nullptr) {
+      std::function<bool(vector_size_t /* idx */)> valueIsNullAt = nullptr,
+      const TypePtr& arrayType = ARRAY(CppToType<T>::create())) {
     return vectorMaker_.arrayVector<T>(
-        size, sizeAt, valueAt, isNullAt, valueIsNullAt);
+        size, sizeAt, valueAt, isNullAt, valueIsNullAt, arrayType);
   }
 
   template <typename T>
@@ -469,8 +471,10 @@ class VectorTestBase {
       std::function<vector_size_t(vector_size_t /* row */)> sizeAt,
       std::function<T(vector_size_t /* row */, vector_size_t /* idx */)>
           valueAt,
-      std::function<bool(vector_size_t /*row */)> isNullAt = nullptr) {
-    return vectorMaker_.arrayVector<T>(size, sizeAt, valueAt, isNullAt);
+      std::function<bool(vector_size_t /*row */)> isNullAt = nullptr,
+      const TypePtr& arrayType = ARRAY(CppToType<T>::create())) {
+    return vectorMaker_.arrayVector<T>(
+        size, sizeAt, valueAt, isNullAt, arrayType);
   }
 
   // Convenience function to create vector from a base vector.

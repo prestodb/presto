@@ -277,8 +277,8 @@ TEST_F(TpchConnectorTest, orderDateCount) {
                   .planNode();
 
   auto output = getResults(plan, {makeTpchSplit()});
-  auto orderDate = output->childAt(0)->asFlatVector<Date>();
-  EXPECT_EQ("1992-01-01", orderDate->valueAt(0).toString());
+  auto orderDate = output->childAt(0)->asFlatVector<int32_t>();
+  EXPECT_EQ("1992-01-01", DATE()->toString(orderDate->valueAt(0)));
   // Match with count obtained from Java.
   EXPECT_EQ(9, orderDate->size());
 }

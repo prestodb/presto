@@ -294,7 +294,6 @@ std::shared_ptr<const Type> ReaderBase::convertType(
     case TypeKind::VARCHAR:
     case TypeKind::VARBINARY:
     case TypeKind::TIMESTAMP:
-    case TypeKind::DATE:
       return createScalarType(type.kind());
     case TypeKind::ARRAY:
       return ARRAY(convertType(

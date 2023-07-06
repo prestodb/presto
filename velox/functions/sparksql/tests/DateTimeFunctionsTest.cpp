@@ -56,14 +56,14 @@ TEST_F(DateTimeFunctionsTest, year) {
 }
 
 TEST_F(DateTimeFunctionsTest, yearDate) {
-  const auto year = [&](std::optional<Date> date) {
-    return evaluateOnce<int32_t>("year(c0)", date);
+  const auto year = [&](std::optional<int32_t> date) {
+    return evaluateOnce<int32_t, int32_t>("year(c0)", {date}, {DATE()});
   };
   EXPECT_EQ(std::nullopt, year(std::nullopt));
-  EXPECT_EQ(1970, year(Date(0)));
-  EXPECT_EQ(1969, year(Date(-1)));
-  EXPECT_EQ(2020, year(Date(18262)));
-  EXPECT_EQ(1920, year(Date(-18262)));
+  EXPECT_EQ(1970, year(DATE()->toDays("1970-05-05")));
+  EXPECT_EQ(1969, year(DATE()->toDays("1969-12-31")));
+  EXPECT_EQ(2020, year(DATE()->toDays("2020-01-01")));
+  EXPECT_EQ(1920, year(DATE()->toDays("1920-01-01")));
 }
 
 TEST_F(DateTimeFunctionsTest, unixTimestamp) {
@@ -147,14 +147,10 @@ TEST_F(DateTimeFunctionsTest, makeDate) {
   const auto makeDate = [&](std::optional<int32_t> year,
                             std::optional<int32_t> month,
                             std::optional<int32_t> day) {
-    return evaluateOnce<Date>("make_date(c0, c1, c2)", year, month, day);
+    return evaluateOnce<int32_t>("make_date(c0, c1, c2)", year, month, day);
   };
-  Date expectedDate;
-  parseTo("1920-01-25", expectedDate);
-  EXPECT_EQ(makeDate(1920, 1, 25), expectedDate);
-
-  parseTo("-0010-01-30", expectedDate);
-  EXPECT_EQ(makeDate(-10, 1, 30), expectedDate);
+  EXPECT_EQ(makeDate(1920, 1, 25), DATE()->toDays("1920-01-25"));
+  EXPECT_EQ(makeDate(-10, 1, 30), DATE()->toDays("-0010-01-30"));
 
   constexpr int32_t kMax = std::numeric_limits<int32_t>::max();
   auto errorMessage = fmt::format("Date out of range: {}-12-15", kMax);
@@ -167,29 +163,23 @@ TEST_F(DateTimeFunctionsTest, makeDate) {
   VELOX_ASSERT_THROW(makeDate(2022, 3, 35), "Date out of range: 2022-3-35");
 
   VELOX_ASSERT_THROW(makeDate(2023, 4, 31), "Date out of range: 2023-4-31");
-  parseTo("2023-03-31", expectedDate);
-  EXPECT_EQ(makeDate(2023, 3, 31), expectedDate);
+  EXPECT_EQ(makeDate(2023, 3, 31), DATE()->toDays("2023-03-31"));
 
   VELOX_ASSERT_THROW(makeDate(2023, 2, 29), "Date out of range: 2023-2-29");
-  parseTo("2023-03-29", expectedDate);
-  EXPECT_EQ(makeDate(2023, 3, 29), expectedDate);
+  EXPECT_EQ(makeDate(2023, 3, 29), DATE()->toDays("2023-03-29"));
 }
 
 TEST_F(DateTimeFunctionsTest, lastDay) {
-  const auto lastDayFunc = [&](const std::optional<Date> date) {
-    return evaluateOnce<Date>("last_day(c0)", date);
+  const auto lastDayFunc = [&](const std::optional<int32_t> date) {
+    return evaluateOnce<int32_t, int32_t>("last_day(c0)", {date}, {DATE()});
   };
 
   const auto lastDay = [&](const std::string& dateStr) {
-    Date d0;
-    parseTo(dateStr, d0);
-    return lastDayFunc(d0);
+    return lastDayFunc(DATE()->toDays(dateStr));
   };
 
   const auto parseDateStr = [&](const std::string& dateStr) {
-    Date d0;
-    parseTo(dateStr, d0);
-    return d0;
+    return DATE()->toDays(dateStr);
   };
 
   EXPECT_EQ(lastDay("2015-02-28"), parseDateStr("2015-02-28"));

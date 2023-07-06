@@ -148,10 +148,6 @@ class ExtremeValueFunction : public exec::VectorFunction {
         applyTyped<TypeTraits<TypeKind::TIMESTAMP>::NativeType>(
             rows, args, outputType, context, result);
         return;
-      case TypeKind::DATE:
-        applyTyped<TypeTraits<TypeKind::DATE>::NativeType>(
-            rows, args, outputType, context, result);
-        return;
       default:
         VELOX_FAIL(
             "Unsupported input type for {}: {}",

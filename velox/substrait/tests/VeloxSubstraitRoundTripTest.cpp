@@ -465,7 +465,7 @@ TEST_F(VeloxSubstraitRoundTripTest, arrayLiteral) {
                     makeArrayVector<StringView>({{StringView("6")}})),
                 makeConstantExpr(makeArrayVector<Timestamp>(
                     {{Timestamp(123'456, 123'000)}})),
-                makeConstantExpr(makeArrayVector<Date>({{Date(8035)}})),
+                makeConstantExpr(makeArrayVector<int32_t>({{8035}}, DATE())),
                 makeConstantExpr(makeArrayVector<int64_t>(
                     {{54 * 1000}}, INTERVAL_DAY_TIME())),
                 makeConstantExpr(makeArrayVector<int64_t>({{}})),
@@ -495,7 +495,7 @@ TEST_F(VeloxSubstraitRoundTripTest, arrayLiteral) {
 TEST_F(VeloxSubstraitRoundTripTest, dateType) {
   auto a = makeFlatVector<int32_t>({0, 1});
   auto b = makeFlatVector<double_t>({0.3, 0.4});
-  auto c = makeFlatVector<Date>({Date(8036), Date(8035)});
+  auto c = makeFlatVector<int32_t>({8036, 8035}, DATE());
 
   auto vectors = makeRowVector({"a", "b", "c"}, {a, b, c});
   createDuckDbTable({vectors});

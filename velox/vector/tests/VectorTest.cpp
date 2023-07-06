@@ -871,11 +871,6 @@ Timestamp VectorTest::testValue(int32_t i, BufferPtr& /*space*/) {
 }
 
 template <>
-Date VectorTest::testValue(int32_t i, BufferPtr& /*space*/) {
-  return Date(i);
-}
-
-template <>
 std::shared_ptr<void> VectorTest::testValue(int32_t i, BufferPtr& /*space*/) {
   return std::make_shared<NonPOD>(i);
 }
@@ -943,7 +938,7 @@ TEST_F(VectorTest, createStr) {
 TEST_F(VectorTest, createOther) {
   testFlat<TypeKind::BOOLEAN>(BOOLEAN(), vectorSize_);
   testFlat<TypeKind::TIMESTAMP>(TIMESTAMP(), vectorSize_);
-  testFlat<TypeKind::DATE>(DATE(), vectorSize_);
+  testFlat<TypeKind::INTEGER>(DATE(), vectorSize_);
   testFlat<TypeKind::BIGINT>(INTERVAL_DAY_TIME(), vectorSize_);
 }
 
@@ -1608,7 +1603,7 @@ TEST_F(VectorCreateConstantTest, null) {
   testNullConstant<TypeKind::HUGEINT>(DECIMAL(20, 5));
 
   testNullConstant<TypeKind::TIMESTAMP>(TIMESTAMP());
-  testNullConstant<TypeKind::DATE>(DATE());
+  testNullConstant<TypeKind::INTEGER>(DATE());
   testNullConstant<TypeKind::BIGINT>(INTERVAL_DAY_TIME());
 
   testNullConstant<TypeKind::VARCHAR>(VARCHAR());

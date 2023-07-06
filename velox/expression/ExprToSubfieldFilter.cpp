@@ -159,8 +159,6 @@ std::unique_ptr<common::Filter> makeLessThanOrEqualFilter(
       return lessThanOrEqualFloat(singleValue<float>(upper));
     case TypeKind::VARCHAR:
       return lessThanOrEqual(singleValue<StringView>(upper));
-    case TypeKind::DATE:
-      return lessThanOrEqual(singleValue<Date>(upper).days());
     default:
       return nullptr;
   }
@@ -190,8 +188,6 @@ std::unique_ptr<common::Filter> makeLessThanFilter(
       return lessThanFloat(singleValue<float>(upper));
     case TypeKind::VARCHAR:
       return lessThan(singleValue<StringView>(upper));
-    case TypeKind::DATE:
-      return lessThan(singleValue<Date>(upper).days());
     default:
       return nullptr;
   }
@@ -221,8 +217,6 @@ std::unique_ptr<common::Filter> makeGreaterThanOrEqualFilter(
       return greaterThanOrEqualFloat(singleValue<float>(lower));
     case TypeKind::VARCHAR:
       return greaterThanOrEqual(singleValue<StringView>(lower));
-    case TypeKind::DATE:
-      return greaterThanOrEqual(singleValue<Date>(lower).days());
     default:
       return nullptr;
   }
@@ -252,8 +246,6 @@ std::unique_ptr<common::Filter> makeGreaterThanFilter(
       return greaterThanFloat(singleValue<float>(lower));
     case TypeKind::VARCHAR:
       return greaterThan(singleValue<StringView>(lower));
-    case TypeKind::DATE:
-      return greaterThan(singleValue<Date>(lower).days());
     default:
       return nullptr;
   }
@@ -281,8 +273,6 @@ std::unique_ptr<common::Filter> makeEqualFilter(
       return equalHugeint(singleValue<int128_t>(value));
     case TypeKind::VARCHAR:
       return equal(singleValue<StringView>(value));
-    case TypeKind::DATE:
-      return equal(singleValue<Date>(value).days());
     default:
       return nullptr;
   }
@@ -410,6 +400,12 @@ std::unique_ptr<common::Filter> makeBetweenFilter(
     return nullptr;
   }
   switch (lower->typeKind()) {
+    case TypeKind::INTEGER:
+      if (negated) {
+        return notBetween(
+            singleValue<int32_t>(lower), singleValue<int32_t>(upper));
+      }
+      return between(singleValue<int32_t>(lower), singleValue<int32_t>(upper));
     case TypeKind::BIGINT:
       if (negated) {
         return notBetween(
@@ -425,13 +421,6 @@ std::unique_ptr<common::Filter> makeBetweenFilter(
       return negated
           ? nullptr
           : betweenFloat(singleValue<float>(lower), singleValue<float>(upper));
-    case TypeKind::DATE:
-      if (negated) {
-        return notBetween(
-            singleValue<Date>(lower).days(), singleValue<Date>(upper).days());
-      }
-      return between(
-          singleValue<Date>(lower).days(), singleValue<Date>(upper).days());
     case TypeKind::VARCHAR:
       if (negated) {
         return notBetween(

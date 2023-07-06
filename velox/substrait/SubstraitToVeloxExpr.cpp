@@ -71,11 +71,6 @@ Timestamp getLiteralValue(const ::substrait::Expression::Literal& literal) {
   return Timestamp::fromMicros(literal.timestamp());
 }
 
-template <>
-Date getLiteralValue(const ::substrait::Expression::Literal& literal) {
-  return Date(literal.date());
-}
-
 ArrayVectorPtr makeArrayVector(const VectorPtr& elements) {
   BufferPtr offsets = allocateOffsets(1, elements->pool());
   BufferPtr sizes = allocateOffsets(1, elements->pool());
@@ -113,6 +108,9 @@ void setLiteralValue(
     } else {
       VELOX_FAIL("Unexpected string literal");
     }
+  } else if (vector->type()->isDate()) {
+    auto dateVector = vector->template asFlatVector<int32_t>();
+    dateVector->set(index, int(literal.date()));
   } else {
     vector->set(index, getLiteralValue<T>(literal));
   }
@@ -250,7 +248,7 @@ SubstraitVeloxExprConverter::toVeloxExpr(
     }
     case ::substrait::Expression_Literal::LiteralTypeCase::kDate:
       return std::make_shared<core::ConstantTypedExpr>(
-          DATE(), variant(Date(substraitLit.date())));
+          DATE(), variant(int(substraitLit.date())));
     default:
       VELOX_NYI(
           "Substrait conversion not supported for type case '{}'", typeCase);
@@ -298,7 +296,7 @@ ArrayVectorPtr SubstraitVeloxExprConverter::literalsToArrayVector(
           constructFlatVector, kind, listLiteral, childSize, veloxType, pool_));
     }
     case ::substrait::Expression_Literal::LiteralTypeCase::kDate:
-      return makeArrayVector(constructFlatVector<TypeKind::DATE>(
+      return makeArrayVector(constructFlatVector<TypeKind::INTEGER>(
           listLiteral, childSize, DATE(), pool_));
     case ::substrait::Expression_Literal::LiteralTypeCase::kTimestamp:
       return makeArrayVector(constructFlatVector<TypeKind::TIMESTAMP>(

@@ -40,7 +40,6 @@ TEST_F(SumDataSizeForStatsTest, nullValues) {
       makeNullableFlatVector<float>({std::nullopt, std::nullopt}),
       makeNullableFlatVector<double>({std::nullopt, std::nullopt}),
       makeNullableFlatVector<bool>({std::nullopt, std::nullopt}),
-      makeNullableFlatVector<Date>({std::nullopt, std::nullopt}),
       makeNullableFlatVector<Timestamp>({std::nullopt, std::nullopt}),
       makeNullableFlatVector<StringView>({std::nullopt, std::nullopt}),
   })};
@@ -56,9 +55,8 @@ TEST_F(SumDataSizeForStatsTest, nullValues) {
        "sum_data_size_for_stats(c5)",
        "sum_data_size_for_stats(c6)",
        "sum_data_size_for_stats(c7)",
-       "sum_data_size_for_stats(c8)",
-       "sum_data_size_for_stats(c9)"},
-      "SELECT NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL");
+       "sum_data_size_for_stats(c8)"},
+      "SELECT NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL");
 }
 
 TEST_F(SumDataSizeForStatsTest, nullAndNonNullValues) {
@@ -70,7 +68,6 @@ TEST_F(SumDataSizeForStatsTest, nullAndNonNullValues) {
       makeNullableFlatVector<float>({std::nullopt, 0}),
       makeNullableFlatVector<double>({std::nullopt, 0}),
       makeNullableFlatVector<bool>({std::nullopt, 0}),
-      makeNullableFlatVector<Date>({std::nullopt, 0}),
       makeNullableFlatVector<Timestamp>({std::nullopt, Timestamp(0, 0)}),
       makeNullableFlatVector<StringView>({std::nullopt, "std::nullopt"}),
   })};
@@ -86,9 +83,8 @@ TEST_F(SumDataSizeForStatsTest, nullAndNonNullValues) {
        "sum_data_size_for_stats(c5)",
        "sum_data_size_for_stats(c6)",
        "sum_data_size_for_stats(c7)",
-       "sum_data_size_for_stats(c8)",
-       "sum_data_size_for_stats(c9)"},
-      "SELECT 1, 2, 4, 8, 4, 8, 1, 4, 16, 16");
+       "sum_data_size_for_stats(c8)"},
+      "SELECT 1, 2, 4, 8, 4, 8, 1, 16, 16");
 }
 
 template <class T>
@@ -109,7 +105,6 @@ TEST_F(SumDataSizeForStatsTest, allScalarTypes) {
        makeFlatVector<float>(4, generator<float>),
        makeFlatVector<double>(4, generator<double>),
        makeFlatVector<bool>(4, generator<bool>),
-       makeFlatVector<Date>(4, generator<Date>),
        makeFlatVector<Timestamp>(4, generator<Timestamp>)})};
 
   // With grouping keys.
@@ -123,10 +118,9 @@ TEST_F(SumDataSizeForStatsTest, allScalarTypes) {
        "sum_data_size_for_stats(c5)",
        "sum_data_size_for_stats(c6)",
        "sum_data_size_for_stats(c7)",
-       "sum_data_size_for_stats(c8)",
-       "sum_data_size_for_stats(c9)"},
+       "sum_data_size_for_stats(c8)"},
       // result for group 1 and 2
-      "VALUES (1,2,4,8,16,8,16,2,8,32),(2,2,4,8,16,8,16,2,8,32)");
+      "VALUES (1,2,4,8,16,8,16,2,32),(2,2,4,8,16,8,16,2,32)");
 
   // Without grouping keys.
   testAggregations(
@@ -139,9 +133,8 @@ TEST_F(SumDataSizeForStatsTest, allScalarTypes) {
        "sum_data_size_for_stats(c5)",
        "sum_data_size_for_stats(c6)",
        "sum_data_size_for_stats(c7)",
-       "sum_data_size_for_stats(c8)",
-       "sum_data_size_for_stats(c9)"},
-      "VALUES (4,8,16,32,16,32,4,16,64)");
+       "sum_data_size_for_stats(c8)"},
+      "VALUES (4,8,16,32,16,32,4,64)");
 }
 
 TEST_F(SumDataSizeForStatsTest, arrayGlobalAggregate) {

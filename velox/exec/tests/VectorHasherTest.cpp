@@ -450,11 +450,11 @@ TEST_F(VectorHasherTest, integerIds) {
 
 TEST_F(VectorHasherTest, dateIds) {
   auto vector = BaseVector::create(DATE(), 100, pool_.get());
-  auto* dates = vector->as<FlatVector<Date>>();
+  auto* dates = vector->as<FlatVector<int32_t>>();
   static constexpr int32_t kMin = std::numeric_limits<int32_t>::min();
   dates->setNull(0, true);
   for (auto i = 0; i < 99; ++i) {
-    dates->set(i + 1, Date(kMin + i * 10));
+    dates->set(i + 1, kMin + i * 10);
   }
   auto hasher = exec::VectorHasher::create(DATE(), 1);
   raw_vector<uint64_t> hashes(dates->size());
@@ -492,7 +492,7 @@ TEST_F(VectorHasherTest, dateIds) {
   for (auto count = 0; count < 1000; ++count) {
     vector_size_t index = 0;
     for (int64_t value = count * 100; value < count * 100 + 100; ++value) {
-      dates->set(index++, Date(value));
+      dates->set(index++, value);
     }
     hasher->decode(*vector, rows);
     hasher->computeValueIds(rows, hashes);

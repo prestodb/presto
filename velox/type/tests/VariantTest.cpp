@@ -205,7 +205,6 @@ TEST(VariantTest, serialize) {
   testSerDe(variant(TypeKind::VARCHAR));
   testSerDe(variant(TypeKind::VARBINARY));
   testSerDe(variant(TypeKind::TIMESTAMP));
-  testSerDe(variant(TypeKind::DATE));
   testSerDe(variant(TypeKind::ARRAY));
   testSerDe(variant(TypeKind::MAP));
   testSerDe(variant(TypeKind::ROW));
@@ -221,7 +220,6 @@ TEST(VariantTest, serialize) {
   testSerDe(variant((double)1.234));
   testSerDe(variant("This is a test."));
   testSerDe(variant::binary("This is a test."));
-  testSerDe(variant(Date(123)));
   testSerDe(variant(Timestamp(1, 2)));
 }
 

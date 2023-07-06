@@ -212,7 +212,7 @@ TEST_F(UnsafeRowSerializerTest, types) {
 
 TEST_F(UnsafeRowSerializerTest, date) {
   auto rowVector = makeRowVector({
-      makeFlatVector<Date>({Date(0), Date(1)}),
+      makeFlatVector<int32_t>({0, 1}, DATE()),
   });
 
   testRoundTrip(rowVector);

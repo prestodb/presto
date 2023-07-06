@@ -20,7 +20,6 @@ add_subdirectory(fbhive)
 
 add_library(
   velox_type
-  Date.cpp
   DecimalUtil.cpp
   DoubleUtil.cpp
   Filter.cpp

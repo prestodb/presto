@@ -44,7 +44,6 @@ const std::unordered_set<TypeKind> kSupportedTypes = {
     TypeKind::REAL,
     TypeKind::DOUBLE,
     TypeKind::VARCHAR,
-    TypeKind::DATE,
     TypeKind::TIMESTAMP};
 
 std::vector<TestParam> getTestParams() {
@@ -81,9 +80,6 @@ std::vector<TestParam> getTestParams() {
       case TypeKind::VARCHAR:                                        \
         testFunc<valueType, StringView>();                           \
         break;                                                       \
-      case TypeKind::DATE:                                           \
-        testFunc<valueType, Date>();                                 \
-        break;                                                       \
       case TypeKind::TIMESTAMP:                                      \
         testFunc<valueType, Timestamp>();                            \
         break;                                                       \
@@ -117,9 +113,6 @@ std::vector<TestParam> getTestParams() {
       case TypeKind::VARCHAR:                                   \
         EXECUTE_TEST_BY_VALUE_TYPE(testFunc, StringView);       \
         break;                                                  \
-      case TypeKind::DATE:                                      \
-        EXECUTE_TEST_BY_VALUE_TYPE(testFunc, Date);             \
-        break;                                                  \
       case TypeKind::TIMESTAMP:                                 \
         EXECUTE_TEST_BY_VALUE_TYPE(testFunc, Timestamp);        \
         break;                                                  \
@@ -131,17 +124,6 @@ std::vector<TestParam> getTestParams() {
 
 template <typename T>
 struct ExtremeValueTrait : public std::numeric_limits<T> {};
-
-template <>
-struct ExtremeValueTrait<Date> {
-  static constexpr Date lowest() {
-    return Date(std::numeric_limits<int32_t>::lowest());
-  }
-
-  static constexpr Date max() {
-    return Date(std::numeric_limits<int32_t>::max());
-  }
-};
 
 template <typename T>
 const T kMax = ExtremeValueTrait<T>::max();
@@ -277,8 +259,6 @@ VectorPtr MinMaxByAggregationTestBase::buildDataVector(
       return buildDataVector<double>(size, values);
     case TypeKind::VARCHAR:
       return buildDataVector<StringView>(size, values);
-    case TypeKind::DATE:
-      return buildDataVector<Date>(size, values);
     case TypeKind::TIMESTAMP:
       return buildDataVector<Timestamp>(size, values);
     default:
@@ -320,9 +300,6 @@ void MinMaxByAggregationTestBase::SetUp() {
         break;
       case TypeKind::DOUBLE:
         dataVectorsByType_.emplace(type, buildDataVector<double>(numValues_));
-        break;
-      case TypeKind::DATE:
-        dataVectorsByType_.emplace(type, buildDataVector<Date>(numValues_));
         break;
       case TypeKind::TIMESTAMP:
         dataVectorsByType_.emplace(

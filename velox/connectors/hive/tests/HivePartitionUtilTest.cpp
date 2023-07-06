@@ -75,7 +75,7 @@ TEST_F(HivePartitionUtilTest, partitionName) {
          makeFlatVector<int32_t>(std::vector<int32_t>{1000}),
          makeFlatVector<int64_t>(std::vector<int64_t>{10000}),
          makeDictionary<StringView>(std::vector<StringView>{"str1000"}),
-         makeConstant<Date>(Date(10000), 1)});
+         makeConstant<int32_t>(10000, 1, DATE())});
 
     std::vector<std::string> expectedPartitionKeyValues{
         "flat_bool_col=false",

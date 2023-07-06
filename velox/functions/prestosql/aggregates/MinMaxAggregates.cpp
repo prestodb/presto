@@ -31,17 +31,6 @@ namespace {
 template <typename T>
 struct MinMaxTrait : public std::numeric_limits<T> {};
 
-template <>
-struct MinMaxTrait<Date> {
-  static constexpr Date lowest() {
-    return Date(std::numeric_limits<int32_t>::lowest());
-  }
-
-  static constexpr Date max() {
-    return Date(std::numeric_limits<int32_t>::max());
-  }
-};
-
 template <typename T>
 class MinMaxAggregate : public SimpleNumericAggregate<T, T, T> {
   using BaseAggregate = SimpleNumericAggregate<T, T, T>;
@@ -491,8 +480,6 @@ exec::AggregateRegistrationResult registerMinMax(const std::string& name) {
             return std::make_unique<TNumeric<double>>(resultType);
           case TypeKind::TIMESTAMP:
             return std::make_unique<TNumeric<Timestamp>>(resultType);
-          case TypeKind::DATE:
-            return std::make_unique<TNumeric<Date>>(resultType);
           case TypeKind::HUGEINT:
             return std::make_unique<TNumeric<int128_t>>(resultType);
           case TypeKind::VARCHAR:

@@ -1739,11 +1739,11 @@ TEST(TestReader, testOrcReaderDate) {
   int year = 1900;
   while (rowReader->next(1000, batch)) {
     auto rowVector = batch->as<RowVector>();
-    auto dates = rowVector->childAt(1)->as<SimpleVector<Date>>();
+    auto dates = rowVector->childAt(1)->as<SimpleVector<int32_t>>();
 
     std::stringstream stream;
     stream << year << "-12-25";
-    EXPECT_EQ(stream.str(), dates->valueAt(0).toString());
+    EXPECT_EQ(stream.str(), DATE()->toString(dates->valueAt(0)));
 
     for (size_t i = 1; i < rowVector->size(); ++i) {
       EXPECT_EQ(dates->valueAt(0), dates->valueAt(i));

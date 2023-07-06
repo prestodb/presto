@@ -26,7 +26,6 @@ inline int32_t parquetSizeOfIntKind(TypeKind kind) {
     case TypeKind::TINYINT:
     case TypeKind::SMALLINT:
     case TypeKind::INTEGER:
-    case TypeKind::DATE:
       return 4;
     case TypeKind::BIGINT:
       return 8;

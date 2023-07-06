@@ -261,8 +261,6 @@ std::unique_ptr<exec::Aggregate> create(
       return std::make_unique<Aggregate<double>>(resultType);
     case TypeKind::TIMESTAMP:
       return std::make_unique<Aggregate<Timestamp>>(resultType);
-    case TypeKind::DATE:
-      return std::make_unique<Aggregate<Date>>(resultType);
     case TypeKind::VARCHAR:
       return std::make_unique<Aggregate<StringView>>(resultType);
     case TypeKind::ARRAY:

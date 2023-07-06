@@ -198,15 +198,15 @@ struct DuckTimestampConversion {
 
 struct DuckDateConversion {
   typedef ::duckdb::date_t DUCK_TYPE;
-  typedef Date VELOX_TYPE;
+  typedef int32_t VELOX_TYPE;
 
   static ::duckdb::date_t toDuck(
-      const Date& input,
+      const int32_t& input,
       ::duckdb::Vector& /* unused */) {
-    return ::duckdb::Date::EpochDaysToDate(input.days());
+    return ::duckdb::Date::EpochDaysToDate(input);
   }
-  static Date toVelox(const ::duckdb::date_t& input) {
-    return Date(::duckdb::Date::EpochDays(input));
+  static int32_t toVelox(const ::duckdb::date_t& input) {
+    return ::duckdb::Date::EpochDays(input);
   }
 };
 

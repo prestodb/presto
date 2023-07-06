@@ -67,17 +67,18 @@ class InTest : public SparkFunctionBaseTest {
   }
 
   template <typename T>
-  auto in(std::optional<T> lhs, std::vector<std::optional<T>> rhs) {
+  auto in(
+      std::optional<T> lhs,
+      std::vector<std::optional<T>> rhs,
+      const TypePtr& argType = CppToType<T>::create()) {
     // We don't use evaluateOnce() because we can't get NaN through the DuckDB
     // parser.
-
     auto getExpr = [&](bool asDictionary) {
       std::vector<std::shared_ptr<const velox::core::ITypedExpr>> args;
-      const auto argType = CppToType<T>::create();
       args.push_back(
           std::make_shared<core::FieldAccessTypedExpr>(argType, "c0"));
-      VectorPtr rhsArrayVector =
-          vectorMaker_.arrayVectorNullable<T>({std::optional(rhs)});
+      VectorPtr rhsArrayVector = vectorMaker_.arrayVectorNullable<T>(
+          {std::optional(rhs)}, ARRAY(argType));
       if (asDictionary) {
         auto indices = makeIndices(rhs.size(), [](auto /*row*/) { return 0; });
         rhsArrayVector = wrapInDictionary(indices, rhs.size(), rhsArrayVector);
@@ -104,9 +105,9 @@ class InTest : public SparkFunctionBaseTest {
 
     auto testForDictionary = [&](bool asDictionary = false) {
       auto lhsVector =
-          makeRowVector({makeNullableFlatVector(std::vector{lhs})});
+          makeRowVector({makeNullableFlatVector(std::vector{lhs}, argType)});
       auto flatResult = eval(lhsVector, asDictionary);
-      auto lhsConstantVector = makeRowVector({makeConstant(lhs, 1)});
+      auto lhsConstantVector = makeRowVector({makeConstant(lhs, 1, argType)});
       auto constResult = eval(lhsConstantVector, asDictionary);
       CHECK(flatResult == constResult)
           << "flatResult="
@@ -179,8 +180,8 @@ TEST_F(InTest, Timestamp) {
 }
 
 TEST_F(InTest, Date) {
-  EXPECT_EQ(in<Date>(Date(0), {Date(1), std::nullopt}), std::nullopt);
-  EXPECT_EQ(in<Date>(Date(0), {Date(0), Date()}), true);
+  EXPECT_EQ(in<int32_t>(0, {1, std::nullopt}, DATE()), std::nullopt);
+  EXPECT_EQ(in<int32_t>(0, {0}, DATE()), true);
 }
 
 TEST_F(InTest, Bool) {

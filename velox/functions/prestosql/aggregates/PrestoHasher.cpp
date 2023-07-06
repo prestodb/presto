@@ -100,15 +100,6 @@ FOLLY_ALWAYS_INLINE void PrestoHasher::hash<TypeKind::BOOLEAN>(
 }
 
 template <>
-FOLLY_ALWAYS_INLINE void PrestoHasher::hash<TypeKind::DATE>(
-    const SelectivityVector& rows,
-    BufferPtr& hashes) {
-  applyHashFunction(rows, *vector_.get(), hashes, [&](auto row) {
-    return hashInteger(vector_->valueAt<Date>(row).days());
-  });
-}
-
-template <>
 FOLLY_ALWAYS_INLINE void PrestoHasher::hash<TypeKind::HUGEINT>(
     const SelectivityVector& rows,
     BufferPtr& hashes) {

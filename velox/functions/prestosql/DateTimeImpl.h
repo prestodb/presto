@@ -18,7 +18,6 @@
 #include <chrono>
 #include <optional>
 #include "velox/external/date/date.h"
-#include "velox/type/Date.h"
 #include "velox/type/Timestamp.h"
 #include "velox/type/TimestampConversion.h"
 
@@ -92,14 +91,15 @@ enum class DateTimeUnit {
 // 2020-02-29 + (1 year) = 2021-02-28
 // 2021-02-28 - (1 year) = 2020-02-28
 FOLLY_ALWAYS_INLINE
-Date addToDate(const Date& date, const DateTimeUnit unit, const int32_t value) {
+int32_t
+addToDate(const int32_t input, const DateTimeUnit unit, const int32_t value) {
   // TODO(gaoge): Handle overflow and underflow with 64-bit representation
   if (value == 0) {
-    return date;
+    return input;
   }
 
-  const std::chrono::time_point<std::chrono::system_clock, date::days> inDate(
-      date::days(date.days()));
+  const std::chrono::time_point<std::chrono::system_clock, date::days> inDate{
+      date::days(input)};
   std::chrono::time_point<std::chrono::system_clock, date::days> outDate;
 
   if (unit == DateTimeUnit::kDay) {
@@ -124,7 +124,7 @@ Date addToDate(const Date& date, const DateTimeUnit unit, const int32_t value) {
     outDate = date::sys_days{outCalDate};
   }
 
-  return Date(outDate.time_since_epoch().count());
+  return outDate.time_since_epoch().count();
 }
 
 FOLLY_ALWAYS_INLINE Timestamp addToTimestamp(
@@ -149,12 +149,12 @@ FOLLY_ALWAYS_INLINE Timestamp addToTimestamp(
     case DateTimeUnit::kQuarter:
     case DateTimeUnit::kMonth:
     case DateTimeUnit::kDay: {
-      const Date inDate(
+      const int32_t inDate =
           std::chrono::duration_cast<date::days>(inTimestamp.time_since_epoch())
-              .count());
-      const Date outDate = addToDate(inDate, unit, value);
+              .count();
+      const int32_t outDate = addToDate(inDate, unit, value);
 
-      outTimestamp = inTimestamp + date::days(outDate.days() - inDate.days());
+      outTimestamp = inTimestamp + date::days(outDate - inDate);
       break;
     }
     case DateTimeUnit::kHour: {
@@ -297,15 +297,17 @@ FOLLY_ALWAYS_INLINE int64_t diffTimestamp(
 }
 
 FOLLY_ALWAYS_INLINE
-int64_t
-diffDate(const DateTimeUnit unit, const Date& fromDate, const Date& toDate) {
+int64_t diffDate(
+    const DateTimeUnit unit,
+    const int32_t fromDate,
+    const int32_t toDate) {
   if (fromDate == toDate) {
     return 0;
   }
   return diffTimestamp(
       unit,
       // prevent overflow
-      Timestamp((int64_t)fromDate.days() * util::kSecsPerDay, 0),
-      Timestamp((int64_t)toDate.days() * util::kSecsPerDay, 0));
+      Timestamp((int64_t)fromDate * util::kSecsPerDay, 0),
+      Timestamp((int64_t)toDate * util::kSecsPerDay, 0));
 }
 } // namespace facebook::velox::functions

@@ -22,7 +22,6 @@
 #include <locale>
 
 #include "velox/common/base/Exceptions.h"
-#include "velox/type/Date.h"
 #include "velox/type/Timestamp.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/NullsBuilder.h"
@@ -130,10 +129,6 @@ Timestamp randTimestamp(FuzzerGenerator& rng, VectorFuzzer::Options opts) {
       return Timestamp(rand<int32_t>(rng), 0);
   }
   return {}; // no-op.
-}
-
-Date randDate(FuzzerGenerator& rng) {
-  return Date(rand<int32_t>(rng));
 }
 
 size_t getElementsVectorLength(
@@ -254,9 +249,6 @@ VectorPtr fuzzConstantPrimitiveImpl(
   if constexpr (std::is_same_v<TCpp, Timestamp>) {
     return std::make_shared<ConstantVector<TCpp>>(
         pool, size, false, type, randTimestamp(rng, opts));
-  } else if constexpr (std::is_same_v<TCpp, Date>) {
-    return std::make_shared<ConstantVector<TCpp>>(
-        pool, size, false, type, randDate(rng));
   } else if (type->isShortDecimal()) {
     return std::make_shared<ConstantVector<int64_t>>(
         pool, size, false, type, randShortDecimal(type, rng));
@@ -286,8 +278,6 @@ void fuzzFlatPrimitiveImpl(
       flatVector->set(i, randString(rng, opts, strBuf, converter));
     } else if constexpr (std::is_same_v<TCpp, Timestamp>) {
       flatVector->set(i, randTimestamp(rng, opts));
-    } else if constexpr (std::is_same_v<TCpp, Date>) {
-      flatVector->set(i, randDate(rng));
     } else if constexpr (std::is_same_v<TCpp, int64_t>) {
       if (vector->type()->isShortDecimal()) {
         flatVector->set(i, randShortDecimal(vector->type(), rng));
@@ -791,7 +781,6 @@ TypePtr VectorFuzzer::randScalarNonFloatingPointType() {
       VARCHAR(),
       VARBINARY(),
       TIMESTAMP(),
-      DATE(),
   };
   static constexpr int kNumTypes =
       sizeof(kNonFloatingPointTypes) / sizeof(kNonFloatingPointTypes[0]);
@@ -812,7 +801,6 @@ TypePtr VectorFuzzer::randType(int maxDepth) {
       VARCHAR(),
       VARBINARY(),
       TIMESTAMP(),
-      DATE(),
   };
   static constexpr int kNumScalarTypes =
       sizeof(kScalarTypes) / sizeof(kScalarTypes[0]);

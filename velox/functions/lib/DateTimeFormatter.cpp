@@ -17,7 +17,6 @@
 #include "velox/functions/lib/DateTimeFormatter.h"
 #include <folly/String.h>
 #include <velox/common/base/Exceptions.h>
-#include <velox/type/Date.h>
 #include <cstring>
 #include <stdexcept>
 #include "velox/external/date/date.h"

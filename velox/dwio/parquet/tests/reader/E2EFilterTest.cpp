@@ -554,7 +554,7 @@ TEST_F(E2EFilterTest, date) {
   testWithTypes(
       "date_val:date",
       [&]() {
-        makeIntDistribution<Date>(
+        makeIntDistribution<int32_t>(
             "date_val",
             10, // min
             100, // max

@@ -328,7 +328,8 @@ class VectorMaker {
       std::function<vector_size_t(vector_size_t /* row */)> sizeAt,
       std::function<T(vector_size_t /* idx */)> valueAt,
       std::function<bool(vector_size_t /*row */)> isNullAt = nullptr,
-      std::function<bool(vector_size_t /* idx */)> valueIsNullAt = nullptr) {
+      std::function<bool(vector_size_t /* idx */)> valueIsNullAt = nullptr,
+      const TypePtr& arrayType = ARRAY(CppToType<T>::create())) {
     BufferPtr nulls;
     BufferPtr offsets;
     BufferPtr sizes;
@@ -337,7 +338,7 @@ class VectorMaker {
 
     return std::make_shared<ArrayVector>(
         pool_,
-        ARRAY(CppToType<T>::create()),
+        arrayType,
         nulls,
         size,
         offsets,
@@ -393,9 +394,9 @@ class VectorMaker {
       std::function<vector_size_t(vector_size_t /* row */)> sizeAt,
       std::function<T(vector_size_t /* row */, vector_size_t /* idx */)>
           valueAt,
-      std::function<bool(vector_size_t /*row */)> isNullAt = nullptr) {
-    return arrayVectorImpl(
-        ARRAY(CppToType<T>::create()), size, sizeAt, valueAt, isNullAt);
+      std::function<bool(vector_size_t /*row */)> isNullAt = nullptr,
+      const TypePtr& arrayType = ARRAY(CppToType<T>::create())) {
+    return arrayVectorImpl(arrayType, size, sizeAt, valueAt, isNullAt);
   }
 
   template <typename T>

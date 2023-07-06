@@ -39,8 +39,7 @@ constexpr std::array<TypeKind, 10> kSupportedTypes{
     TypeKind::REAL,
     TypeKind::DOUBLE,
     TypeKind::VARCHAR,
-    TypeKind::TIMESTAMP,
-    TypeKind::DATE};
+    TypeKind::TIMESTAMP};
 
 class HivePartitionFunctionBenchmark
     : public functions::test::FunctionBenchmarkBase {
@@ -265,23 +264,6 @@ BENCHMARK_RELATIVE(timestampManyRowsManyBuckets) {
 }
 
 BENCHMARK_DRAW_LINE();
-
-BENCHMARK(dateFewRowsFewBuckets) {
-  benchmarkFew->runFew<TypeKind::DATE>();
-}
-
-BENCHMARK_RELATIVE(dateFewRowsManyBuckets) {
-  benchmarkFew->runMany<TypeKind::DATE>();
-}
-
-BENCHMARK(dateManyRowsFewBuckets) {
-  benchmarkMany->runFew<TypeKind::DATE>();
-}
-
-BENCHMARK_RELATIVE(dateManyRowsManyBuckets) {
-  benchmarkMany->runMany<TypeKind::DATE>();
-}
-
 } // namespace
 
 int main(int argc, char** argv) {

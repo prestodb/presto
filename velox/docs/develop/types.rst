@@ -23,7 +23,6 @@ SMALLINT           int16_t                       2
 INTEGER            int32_t                       4
 BIGINT             int64_t                       8
 HUGEINT            int128_t                      16
-DATE               struct Date                   8
 REAL               float                         4
 DOUBLE             double                        8
 TIMESTAMP          struct Timestamp              16
@@ -84,13 +83,11 @@ their corresponding physical type.
 ======================  ======================================================
 Logical Type            Physical Type
 ======================  ======================================================
+DATE                    INTEGER
 DECIMAL                 BIGINT if precision <= 18, HUGEINT if precision >= 19
 INTERVAL DAY TO SECOND  BIGINT
 INTERVAL YEAR TO MONTH  INTEGER
 ======================  ======================================================
-
-We are in the process of migrating (:pr:`4744`) DATE type to a logical type backed
-by BIGINT.
 
 DECIMAL type carries additional `precision`,
 and `scale` information. `Precision` is the number of

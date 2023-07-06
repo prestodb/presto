@@ -58,15 +58,6 @@ template <>
 }
 
 template <>
-::duckdb::Value duckValueAt<TypeKind::DATE>(
-    const VectorPtr& vector,
-    vector_size_t index) {
-  using T = typename KindToFlatVector<TypeKind::DATE>::WrapperType;
-  return ::duckdb::Value::DATE(::duckdb::Date::EpochDaysToDate(
-      vector->as<SimpleVector<T>>()->valueAt(index).days()));
-}
-
-template <>
 ::duckdb::Value duckValueAt<TypeKind::BIGINT>(
     const VectorPtr& vector,
     vector_size_t index) {
@@ -220,19 +211,12 @@ velox::variant variantAt<TypeKind::TIMESTAMP>(
       dataChunk->GetValue(column, row).GetValue<::duckdb::timestamp_t>()));
 }
 
-template <>
-velox::variant variantAt<TypeKind::DATE>(
-    ::duckdb::DataChunk* dataChunk,
-    int32_t row,
-    int32_t column) {
-  return velox::variant::date(::duckdb::Date::EpochDays(
-      dataChunk->GetValue(column, row).GetValue<::duckdb::date_t>()));
-}
-
 template <TypeKind kind>
 velox::variant variantAt(const ::duckdb::Value& value) {
   if (value.type() == ::duckdb::LogicalType::INTERVAL) {
     return ::duckdb::Interval::GetMicro(value.GetValue<::duckdb::interval_t>());
+  } else if (value.type() == ::duckdb::LogicalType::DATE) {
+    return ::duckdb::Date::EpochDays(value.GetValue<::duckdb::date_t>());
   } else {
     // NOTE: duckdb only support native cpp type for GetValue so we need to use
     // DeepCopiedType instead of WrapperType here.
@@ -245,12 +229,6 @@ template <>
 velox::variant variantAt<TypeKind::TIMESTAMP>(const ::duckdb::Value& value) {
   return velox::variant::timestamp(
       duckdbTimestampToVelox(value.GetValue<::duckdb::timestamp_t>()));
-}
-
-template <>
-velox::variant variantAt<TypeKind::DATE>(const ::duckdb::Value& value) {
-  return velox::variant::date(
-      ::duckdb::Date::EpochDays(value.GetValue<::duckdb::date_t>()));
 }
 
 variant nullVariant(const TypePtr& type) {
@@ -374,6 +352,10 @@ std::vector<MaterializedRow> materialize(
       } else if (type->isIntervalDayTime()) {
         auto value = variant(::duckdb::Interval::GetMicro(
             dataChunk->GetValue(j, i).GetValue<::duckdb::interval_t>()));
+        row.push_back(value);
+      } else if (type->isDate()) {
+        auto value = variant(::duckdb::Date::EpochDays(
+            dataChunk->GetValue(j, i).GetValue<::duckdb::date_t>()));
         row.push_back(value);
       } else {
         auto value = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
@@ -826,6 +808,10 @@ void DuckDbQueryRunner::createTable(
         } else if (type->isIntervalDayTime()) {
           auto value = ::duckdb::Value::INTERVAL(
               0, 0, columnVector->as<SimpleVector<int64_t>>()->valueAt(row));
+          appender.Append(value);
+        } else if (type->isDate()) {
+          auto value = ::duckdb::Value::DATE(::duckdb::Date::EpochDaysToDate(
+              columnVector->as<SimpleVector<int32_t>>()->valueAt(row)));
           appender.Append(value);
         } else {
           auto value = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(

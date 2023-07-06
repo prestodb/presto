@@ -32,8 +32,8 @@ int64_t toInt64(int64_t value) {
 }
 
 template <>
-int64_t toInt64(Date value) {
-  return value.days();
+int64_t toInt64(int32_t value) {
+  return value;
 }
 
 template <>
@@ -52,8 +52,8 @@ int64_t add(int64_t value, int64_t steps) {
 }
 
 template <>
-Date add(Date value, Days steps) {
-  return Date(value.days() + steps);
+int32_t add(int32_t value, int64_t steps) {
+  return value + steps;
 }
 
 template <>
@@ -62,7 +62,7 @@ Timestamp add(Timestamp value, int64_t steps) {
 }
 
 template <>
-Date add(Date value, Months steps) {
+int32_t add(int32_t value, Months steps) {
   return addToDate(value, DateTimeUnit::kMonth, steps);
 }
 
@@ -76,7 +76,7 @@ int128_t getStepCount(T start, T end, int32_t step) {
   VELOX_FAIL("Unexpected start/end type for argument INTERVAL_YEAR_MONTH");
 }
 
-int128_t getStepCount(Date start, Date end, int32_t step) {
+int128_t getStepCount(int32_t start, int32_t end, int32_t step) {
   return diffDate(DateTimeUnit::kMonth, start, end) / step + 1;
 }
 
@@ -276,14 +276,16 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
 std::shared_ptr<exec::VectorFunction> create(
     const std::string& /* name */,
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
+  if (inputArgs[0].type->isDate()) {
+    if (inputArgs.size() > 2 && inputArgs[2].type->isIntervalYearMonth()) {
+      return std::make_shared<SequenceFunction<int32_t, int32_t>>();
+    }
+    return std::make_shared<SequenceFunction<int32_t, int64_t>>();
+  }
+
   switch (inputArgs[0].type->kind()) {
     case TypeKind::BIGINT:
       return std::make_shared<SequenceFunction<int64_t, int64_t>>();
-    case TypeKind::DATE:
-      if (inputArgs.size() > 2 && inputArgs[2].type->isIntervalYearMonth()) {
-        return std::make_shared<SequenceFunction<Date, int32_t>>();
-      }
-      return std::make_shared<SequenceFunction<Date, int64_t>>();
     case TypeKind::TIMESTAMP:
       if (inputArgs.size() > 2 && inputArgs[2].type->isIntervalYearMonth()) {
         return std::make_shared<SequenceFunction<Timestamp, int32_t>>();

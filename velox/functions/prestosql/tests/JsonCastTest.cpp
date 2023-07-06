@@ -288,12 +288,12 @@ TEST_F(JsonCastTest, fromDouble) {
 }
 
 TEST_F(JsonCastTest, fromDate) {
-  testCast<Date, JsonNativeType>(
+  testCast<int32_t, JsonNativeType>(
       DATE(),
       JSON(),
       {0, 1000, -10000, std::nullopt},
       {"1970-01-01"_sv, "1972-09-27"_sv, "1942-08-16"_sv, std::nullopt});
-  testCast<Date, JsonNativeType>(
+  testCast<int32_t, JsonNativeType>(
       DATE(),
       JSON(),
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
@@ -1070,7 +1070,7 @@ TEST_F(JsonCastTest, toArrayAndMapOfJson) {
 TEST_F(JsonCastTest, toInvalid) {
   testThrow<JsonNativeType, Timestamp>(
       JSON(), TIMESTAMP(), {"null"_sv}, "Cannot cast JSON to TIMESTAMP");
-  testThrow<JsonNativeType, Date>(
+  testThrow<JsonNativeType, int32_t>(
       JSON(), DATE(), {"null"_sv}, "Cannot cast JSON to DATE");
 
   // Casting JSON arrays to ROW type with different number of fields or

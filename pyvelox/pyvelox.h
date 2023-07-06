@@ -398,8 +398,7 @@ static void addVectorBindings(
       TypeKind::REAL,
       TypeKind::DOUBLE,
       TypeKind::VARBINARY,
-      TypeKind::TIMESTAMP,
-      TypeKind::DATE};
+      TypeKind::TIMESTAMP};
 
   for (int i = 0; i < sizeof(supportedTypes) / sizeof(supportedTypes[0]); i++) {
     VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(

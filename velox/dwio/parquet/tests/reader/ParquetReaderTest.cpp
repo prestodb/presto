@@ -170,7 +170,7 @@ TEST_F(ParquetReaderTest, parseDate) {
   auto type = reader.typeWithId();
   EXPECT_EQ(type->size(), 1ULL);
   auto col0 = type->childAt(0);
-  EXPECT_EQ(col0->type->kind(), TypeKind::DATE);
+  EXPECT_EQ(col0->type, DATE());
   EXPECT_EQ(type->childByName("date"), col0);
 }
 

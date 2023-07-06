@@ -438,7 +438,6 @@ class WriterContext : public CompressionBufferPool {
       case TypeKind::VARCHAR:
       case TypeKind::VARBINARY:
       case TypeKind::TIMESTAMP:
-      case TypeKind::DATE:
         physicalSizeAggregators_.emplace(
             type.id, std::make_unique<PhysicalSizeAggregator>(parent));
         break;

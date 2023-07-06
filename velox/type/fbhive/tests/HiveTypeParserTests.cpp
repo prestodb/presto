@@ -41,13 +41,12 @@ TEST(FbHive, typeParserPrimitive) {
   validate<TypeKind::SMALLINT>("smallint");
   validate<TypeKind::INTEGER>("int");
   validate<TypeKind::BIGINT>("bigint");
-  validate<TypeKind::DATE>("date");
   validate<TypeKind::REAL>("float");
   validate<TypeKind::DOUBLE>("double");
   validate<TypeKind::VARCHAR>("string");
   validate<TypeKind::VARCHAR>("varchar");
   validate<TypeKind::VARCHAR>("varchar(16)");
-
+  validate<TypeKind::INTEGER>("date");
   validate<TypeKind::INTEGER>("   int  ");
 }
 

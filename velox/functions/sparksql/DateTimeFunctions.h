@@ -169,7 +169,7 @@ struct MakeDateFunction {
         year,
         month,
         day);
-    result = Date(daysSinceEpoch);
+    result = daysSinceEpoch;
   }
 };
 
@@ -205,7 +205,7 @@ struct LastDayFunction {
         year,
         month,
         day);
-    result = Date(daysSinceEpoch);
+    result = daysSinceEpoch;
   }
 };
 

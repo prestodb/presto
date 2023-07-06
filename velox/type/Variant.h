@@ -46,9 +46,6 @@ template <>
 struct VariantEquality<TypeKind::TIMESTAMP>;
 
 template <>
-struct VariantEquality<TypeKind::DATE>;
-
-template <>
 struct VariantEquality<TypeKind::ARRAY>;
 
 template <>
@@ -211,7 +208,6 @@ class variant {
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::VARCHAR);
   // VARBINARY conflicts with VARCHAR, so we don't gen these methods
   // VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::VARBINARY);
-  VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::DATE)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::TIMESTAMP)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::UNKNOWN)
 #undef VELOX_VARIANT_SCALAR_MEMBERS
@@ -261,13 +257,6 @@ class variant {
         new
         typename detail::VariantTypeTraits<TypeKind::TIMESTAMP>::stored_type{
             input}};
-  }
-
-  static variant date(const Date& input) {
-    return {
-        TypeKind::DATE,
-        new
-        typename detail::VariantTypeTraits<TypeKind::DATE>::stored_type{input}};
   }
 
   template <class T>
@@ -607,7 +596,6 @@ struct VariantConverter {
         return convert<TypeKind::VARCHAR, ToKind>(value);
       case TypeKind::VARBINARY:
         return convert<TypeKind::VARBINARY, ToKind>(value);
-      case TypeKind::DATE:
       case TypeKind::TIMESTAMP:
       case TypeKind::HUGEINT:
         // Default date/timestamp conversion is prone to errors and implicit
