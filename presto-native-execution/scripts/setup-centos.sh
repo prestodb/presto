@@ -15,7 +15,7 @@ set -e
 set -x
 
 export FB_OS_VERSION=v2022.11.14.00
-export RE2_VERSION=2021-04-01
+export RE2_VERSION=2022-12-01
 export nproc=$(getconf _NPROCESSORS_ONLN)
 
 dnf install -y maven
@@ -94,7 +94,7 @@ export COMPILER_FLAGS=$(echo -n $(get_cxx_flags $CPU_TARGET))
 (
   git clone https://github.com/google/re2 &&
   cd re2 &&
-  git checkout $RE2_VERSION &&    
+  git checkout $RE2_VERSION &&
   cmake_install -DBUILD_SHARED_LIBS=ON
 )
 

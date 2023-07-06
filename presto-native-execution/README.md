@@ -84,9 +84,7 @@ A reminder of the available Makefile targets can be obtained using `make help`
 ```
 
 ## Build using Dockerfile
-Run `make runtime-container` in the presto-native-execution root directory
-to build run-ready containerized version of Prestissimo. Information on available
-configuration options can be found in [scripts/release-centos-dockerfile/README.md](scripts/release-centos-dockerfile/README.md)
+Check [Jenkinsfile](../Jenkinsfile) for detailed build steps.
 
 ## Development
 ### Setup Presto with [IntelliJ IDEA](https://www.jetbrains.com/idea/) and Prestissimo with [CLion](https://www.jetbrains.com/clion/)
