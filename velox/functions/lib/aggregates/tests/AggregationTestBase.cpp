@@ -815,6 +815,11 @@ VectorPtr AggregationTestBase::testStreaming(
   }
   auto intermediate = BaseVector::create(intermediateType, 1, pool());
   func->extractAccumulators(groups.data(), 1, &intermediate);
+  // Destroy accumulators to avoid memory leak.
+  if (func->accumulatorUsesExternalMemory()) {
+    func->destroy(folly::Range(groups.data(), 1));
+  }
+
   // Create a new function picking up the intermediate result.
   auto func2 = createFunction();
   func2->initializeNewGroups(groups.data(), indices);
@@ -835,6 +840,11 @@ VectorPtr AggregationTestBase::testStreaming(
   }
   auto result = BaseVector::create(finalType, 1, pool());
   func2->extractValues(groups.data(), 1, &result);
+  // Destroy accumulators to avoid memory leak.
+  if (func2->accumulatorUsesExternalMemory()) {
+    func2->destroy(folly::Range(groups.data(), 1));
+  }
+
   return result;
 }
 
