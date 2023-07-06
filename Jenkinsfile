@@ -89,8 +89,7 @@ pipeline {
                                 sh(script: "git show -s --format=%cd --date=format:'%Y%m%d%H%M%S'", returnStdout: true).trim() + "-" +
                                 env.PRESTO_COMMIT_SHA.substring(0, 7)
                             env.DOCKER_IMAGE = env.AWS_ECR + "/oss-presto/presto:${PRESTO_BUILD_VERSION}"
-                            env.DOCKER_NATIVE_IMAGE = env.AWS_ECR + "/oss-presto/presto-native:${PRESTO_BUILD_VERSION}"
-
+                            
                         }
                         sh 'printenv | sort'
 
