@@ -25,6 +25,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.jheaps.annotations.VisibleForTesting;
 
@@ -32,6 +33,7 @@ import java.util.Optional;
 
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class NativeExecutionModule
@@ -65,6 +67,7 @@ public class NativeExecutionModule
                 .withConfigDefaults(config -> {
                     config.setRequestTimeout(new Duration(10, SECONDS));
                     config.setMaxConnectionsPerServer(250);
+                    config.setMaxContentLength(new DataSize(100, MEGABYTE));
                 });
         if (connectorConfig.isPresent()) {
             binder.bind(PrestoSparkWorkerProperty.class).toInstance(new PrestoSparkWorkerProperty(connectorConfig.get(), new NativeExecutionNodeConfig(), new NativeExecutionSystemConfig(), new NativeExecutionVeloxConfig()));

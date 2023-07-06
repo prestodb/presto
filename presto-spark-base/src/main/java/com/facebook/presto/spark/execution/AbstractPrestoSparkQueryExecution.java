@@ -119,6 +119,7 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
@@ -165,6 +166,7 @@ public abstract class AbstractPrestoSparkQueryExecution
         implements IPrestoSparkQueryExecution
 {
     private static final Logger log = Logger.get(AbstractPrestoSparkQueryExecution.class);
+    private static final Integer BROADCAST_SHUFFLE_DEFAULT_PARTITIONS = 2;
 
     protected final Session session;
     protected final QueryMonitor queryMonitor;
@@ -295,6 +297,10 @@ public abstract class AbstractPrestoSparkQueryExecution
         ShuffledRDD<MutablePartitionId, PrestoSparkMutableRow, PrestoSparkMutableRow> shuffledRdd = (ShuffledRDD<MutablePartitionId, PrestoSparkMutableRow, PrestoSparkMutableRow>) javaPairRdd.rdd();
         shuffledRdd.setSerializer(new PrestoSparkShuffleSerializer());
         shuffledRdd.setName(getRDDName(planFragmentId));
+        if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION)) {
+            shuffledRdd.setName(shuffledRdd.name() + " [BROADCAST]");
+        }
+
         return JavaPairRDD.fromRDD(
                 shuffledRdd,
                 classTag(MutablePartitionId.class),
@@ -306,6 +312,9 @@ public abstract class AbstractPrestoSparkQueryExecution
         PartitioningHandle partitioning = partitioningScheme.getPartitioning().getHandle();
         if (partitioning.equals(SINGLE_DISTRIBUTION)) {
             return new PrestoSparkPartitioner(1);
+        }
+        if (partitioning.equals(FIXED_BROADCAST_DISTRIBUTION)) {
+            return new PrestoSparkPartitioner(BROADCAST_SHUFFLE_DEFAULT_PARTITIONS);
         }
         if (partitioning.equals(FIXED_HASH_DISTRIBUTION)
                 || partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)
@@ -526,6 +535,15 @@ public abstract class AbstractPrestoSparkQueryExecution
 
         for (SubPlan child : subPlan.getChildren()) {
             PlanFragment childFragment = child.getFragment();
+
+            // For native execution, we do not treat broadcast nodes differently
+            // during DAG construction
+            if (isNativeExecutionEnabled(session)) {
+                RddAndMore<PrestoSparkMutableRow> childRdd = createRdd(child, PrestoSparkMutableRow.class, tableWriteInfo);
+                rddInputs.put(childFragment.getId(), partitionBy(childFragment.getId().getId(), childRdd.getRdd(), child.getFragment().getPartitioningScheme()));
+                continue;
+            }
+
             if (childFragment.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION)) {
                 RddAndMore<?> childRdd;
                 PrestoSparkBroadcastDependency<?> broadcastDependency;
@@ -849,7 +867,9 @@ public abstract class AbstractPrestoSparkQueryExecution
             return PrestoSparkSerializedPage.class;
         }
         // Broadcast node can have SerializedPage vs Storage handle depending on how broadcast is done
-        if (isBroadcastDistribution(subPlan)) {
+        // Except, In native execution, we implement broadcast join as normal shuffle output, so no special
+        // handling
+        if (!isNativeExecutionEnabled(session) && isBroadcastDistribution(subPlan)) {
             return getOutputTypeForBroadcastNode();
         }
         // Everything else is Mutable row

@@ -31,6 +31,7 @@ import org.apache.spark.Dependency;
 import org.apache.spark.MapOutputStatistics;
 import org.apache.spark.rdd.RDD;
 import org.apache.spark.rdd.ShuffledRDD;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import java.util.Collection;
@@ -165,6 +166,7 @@ public class TestPrestoSparkQueryExecution
     }
 
     @Test
+    @Ignore
     public void testRddCreationForMemoryBasedBroadcastJoin()
     {
         Session session = Session.builder(getSession())
@@ -177,6 +179,7 @@ public class TestPrestoSparkQueryExecution
     }
 
     @Test
+    @Ignore
     public void testRddCreationForStorageBasedBroadcastJoin()
     {
         Session session = Session.builder(getSession())

@@ -202,6 +202,12 @@ public class PrestoSparkRddFactory
         for (Map.Entry<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> input : rddInputs.entrySet()) {
             RDD<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> rdd = input.getValue().rdd();
             shuffleInputRddMap.put(input.getKey().toString(), rdd);
+
+            // DO not use broadcast Shuffle Inputs as source for
+            // partition count as they have 1-to-ALL partition dependency
+            if (input.getValue().rdd().name().contains("[BROADCAST]")) {
+                continue;
+            }
             if (!numberOfShufflePartitions.isPresent()) {
                 numberOfShufflePartitions = Optional.of(rdd.getNumPartitions());
             }
