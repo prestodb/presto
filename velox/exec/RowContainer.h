@@ -310,6 +310,14 @@ class RowContainer {
       vector_size_t resultOffset,
       const VectorPtr& result);
 
+  /// Sets in result all locations with null values in col for rows
+  /// (for numRows number of rows).
+  static void extractNulls(
+      const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
+      int32_t numRows,
+      RowColumn col,
+      const BufferPtr& result);
+
   // Copies the values at 'columnIndex' into 'result' for the
   // 'numRows' rows pointed to by 'rows'. If an entry in 'rows' is null, sets
   //  corresponding row in 'result' to null.
@@ -348,6 +356,15 @@ class RowContainer {
       const VectorPtr& result) {
     extractColumn(
         rows, rowNumbers, columnAt(columnIndex), resultOffset, result);
+  }
+
+  /// Sets in result all locations with null values in columnIndex for rows.
+  void extractNulls(
+      const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
+      int32_t numRows,
+      int32_t columnIndex,
+      const BufferPtr& result) {
+    extractNulls(rows, numRows, columnAt(columnIndex), result);
   }
 
   /// Copies the 'probed' flags for the specified rows into 'result'.
@@ -1277,6 +1294,29 @@ inline void RowContainer::extractColumn(
       column,
       resultOffset,
       result);
+}
+
+inline void RowContainer::extractNulls(
+    const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
+    int32_t numRows,
+    RowColumn column,
+    const BufferPtr& result) {
+  VELOX_DCHECK(result->size() >= bits::nbytes(numRows));
+  auto* rawResult = result->asMutable<uint64_t>();
+  bits::fillBits(rawResult, 0, numRows, false);
+
+  auto nullMask = column.nullMask();
+  if (!nullMask) {
+    return;
+  }
+
+  auto nullByte = column.nullByte();
+  for (int32_t i = 0; i < numRows; ++i) {
+    const char* row = rows[i];
+    if (row == nullptr || isNullAt(row, nullByte, nullMask)) {
+      bits::setBit(rawResult, i, true);
+    }
+  }
 }
 
 template <bool mayHaveNulls>
