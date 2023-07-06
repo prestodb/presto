@@ -23,7 +23,7 @@ import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spark.execution.PrestoSparkTaskExecution;
+import com.facebook.presto.spark.execution.task.PrestoSparkTaskExecution;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;

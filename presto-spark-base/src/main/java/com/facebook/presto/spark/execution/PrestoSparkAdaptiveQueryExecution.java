@@ -38,6 +38,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
+import com.facebook.presto.spark.execution.task.PrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.node.PrestoSparkNodePartitioningManager;
 import com.facebook.presto.spark.planner.IterativePlanFragmenter;
 import com.facebook.presto.spark.planner.PrestoSparkPlanFragmenter;
