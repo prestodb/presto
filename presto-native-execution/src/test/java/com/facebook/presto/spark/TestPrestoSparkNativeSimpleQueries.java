@@ -104,6 +104,9 @@ public class TestPrestoSparkNativeSimpleQueries
     public void testFailures()
     {
         assertQueryFails("SELECT orderkey / 0 FROM orders", ".*division by zero.*");
+
+        assertQueryFails("SELECT transform(array[row(orderkey, comment)], x -> x[2]) FROM orders", ".*Cannot map field index to name in dereference expression: 1.*");
+        assertQueryFails("SELECT transform(array[row(orderkey, orderkey * 10)], x -> x[2]) FROM orders", ".*Cannot map field index to name in dereference expression: 1.*");
     }
 
     /**
