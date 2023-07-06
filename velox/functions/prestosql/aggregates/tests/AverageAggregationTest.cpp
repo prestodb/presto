@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/exec/tests/SimpleAggregateFunctionsRegistration.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/lib/aggregates/tests/AggregationTestBase.h"
@@ -33,6 +34,8 @@ class AverageAggregationTest : public AggregationTestBase {
   void SetUp() override {
     AggregationTestBase::SetUp();
     allowInputShuffle();
+
+    registerSimpleAverageAggregate("simple_avg");
   }
 
   core::PlanNodePtr createAvgAggPlanNode(
@@ -54,234 +57,298 @@ class AverageAggregationTest : public AggregationTestBase {
 };
 
 TEST_F(AverageAggregationTest, avgConst) {
-  // Have two row vectors a lest as it triggers different code paths.
-  auto vectors = {
-      makeRowVector({
-          makeFlatVector<int64_t>(
-              10, [](vector_size_t row) { return row / 3; }),
-          makeConstant(5, 10),
-          makeConstant(6.0, 10),
-      }),
-      makeRowVector({
-          makeFlatVector<int64_t>(
-              10, [](vector_size_t row) { return row / 3; }),
-          makeConstant(5, 10),
-          makeConstant(6.0, 10),
-      }),
+  auto testFunction = [this](const std::string& functionName) {
+    // Have two row vectors a lest as it triggers different code paths.
+    auto vectors = {
+        makeRowVector({
+            makeFlatVector<int64_t>(
+                10, [](vector_size_t row) { return row / 3; }),
+            makeConstant(5, 10),
+            makeConstant(6.0, 10),
+        }),
+        makeRowVector({
+            makeFlatVector<int64_t>(
+                10, [](vector_size_t row) { return row / 3; }),
+            makeConstant(5, 10),
+            makeConstant(6.0, 10),
+        }),
+    };
+
+    createDuckDbTable(vectors);
+
+    testAggregations(
+        vectors,
+        {},
+        {fmt::format("{}(c1)", functionName),
+         fmt::format("{}(c2)", functionName)},
+        "SELECT avg(c1), avg(c2) FROM tmp");
+
+    testAggregations(
+        vectors,
+        {"c0"},
+        {fmt::format("{}(c1)", functionName),
+         fmt::format("{}(c2)", functionName)},
+        "SELECT c0, avg(c1), avg(c2) FROM tmp group by c0");
+
+    testAggregations(
+        vectors,
+        {},
+        {fmt::format("{}(c0)", functionName)},
+        "SELECT avg(c0) FROM tmp");
+
+    testAggregations(
+        [&](auto& builder) {
+          builder.values(vectors).project({"c0 % 2 AS c0_mod_2", "c0"});
+        },
+        {"c0_mod_2"},
+        {fmt::format("{}(c0)", functionName)},
+        "SELECT c0 % 2, avg(c0) FROM tmp group by 1");
   };
 
-  createDuckDbTable(vectors);
-
-  testAggregations(
-      vectors, {}, {"avg(c1)", "avg(c2)"}, "SELECT avg(c1), avg(c2) FROM tmp");
-
-  testAggregations(
-      vectors,
-      {"c0"},
-      {"avg(c1)", "avg(c2)"},
-      "SELECT c0, avg(c1), avg(c2) FROM tmp group by c0");
-
-  testAggregations(vectors, {}, {"avg(c0)"}, "SELECT avg(c0) FROM tmp");
-
-  testAggregations(
-      [&](auto& builder) {
-        builder.values(vectors).project({"c0 % 2 AS c0_mod_2", "c0"});
-      },
-      {"c0_mod_2"},
-      {"avg(c0)"},
-      "SELECT c0 % 2, avg(c0) FROM tmp group by 1");
+  testFunction("avg");
+  testFunction("simple_avg");
 }
 
 TEST_F(AverageAggregationTest, avgConstNull) {
-  // Have at least two row vectors as it triggers different code paths.
-  auto vectors = {
-      makeRowVector({
-          makeNullableFlatVector<int64_t>({0, 1, 2, 0, 1, 2, 0, 1, 2, 0}),
-          makeNullConstant(TypeKind::BIGINT, 10),
-          makeNullConstant(TypeKind::DOUBLE, 10),
-      }),
-      makeRowVector({
-          makeNullableFlatVector<int64_t>({0, 1, 2, 0, 1, 2, 0, 1, 2, 0}),
-          makeNullConstant(TypeKind::BIGINT, 10),
-          makeNullConstant(TypeKind::DOUBLE, 10),
-      }),
+  auto testFunction = [this](const std::string& functionName) {
+    // Have at least two row vectors as it triggers different code paths.
+    auto vectors = {
+        makeRowVector({
+            makeNullableFlatVector<int64_t>({0, 1, 2, 0, 1, 2, 0, 1, 2, 0}),
+            makeNullConstant(TypeKind::BIGINT, 10),
+            makeNullConstant(TypeKind::DOUBLE, 10),
+        }),
+        makeRowVector({
+            makeNullableFlatVector<int64_t>({0, 1, 2, 0, 1, 2, 0, 1, 2, 0}),
+            makeNullConstant(TypeKind::BIGINT, 10),
+            makeNullConstant(TypeKind::DOUBLE, 10),
+        }),
+    };
+
+    createDuckDbTable(vectors);
+
+    testAggregations(
+        vectors,
+        {},
+        {fmt::format("{}(c1)", functionName),
+         fmt::format("{}(c2)", functionName)},
+        "SELECT avg(c1), avg(c2) FROM tmp");
+
+    testAggregations(
+        vectors,
+        {"c0"},
+        {fmt::format("{}(c1)", functionName),
+         fmt::format("{}(c2)", functionName)},
+        "SELECT c0, avg(c1), avg(c2) FROM tmp group by c0");
+
+    testAggregations(
+        vectors,
+        {},
+        {fmt::format("{}(c0)", functionName)},
+        "SELECT avg(c0) FROM tmp");
   };
 
-  createDuckDbTable(vectors);
-
-  testAggregations(
-      vectors, {}, {"avg(c1)", "avg(c2)"}, "SELECT avg(c1), avg(c2) FROM tmp");
-
-  testAggregations(
-      vectors,
-      {"c0"},
-      {"avg(c1)", "avg(c2)"},
-      "SELECT c0, avg(c1), avg(c2) FROM tmp group by c0");
-
-  testAggregations(vectors, {}, {"avg(c0)"}, "SELECT avg(c0) FROM tmp");
+  testFunction("avg");
+  testFunction("simple_avg");
 }
 
 TEST_F(AverageAggregationTest, avgNulls) {
-  // Have two row vectors a lest as it triggers different code paths.
-  auto vectors = {
-      makeRowVector({
-          makeNullableFlatVector<int64_t>({0, std::nullopt, 2, 0, 1}),
-          makeNullableFlatVector<int64_t>({0, 1, std::nullopt, 3, 4}),
-          makeNullableFlatVector<double>({0.1, 1.2, 2.3, std::nullopt, 4.4}),
-      }),
-      makeRowVector({
-          makeNullableFlatVector<int64_t>({0, std::nullopt, 2, 0, 1}),
-          makeNullableFlatVector<int64_t>({0, 1, std::nullopt, 3, 4}),
-          makeNullableFlatVector<double>({0.1, 1.2, 2.3, std::nullopt, 4.4}),
-      }),
+  auto testFunction = [this](const std::string& functionName) {
+    // Have two row vectors a lest as it triggers different code paths.
+    auto vectors = {
+        makeRowVector({
+            makeNullableFlatVector<int64_t>({0, std::nullopt, 2, 0, 1}),
+            makeNullableFlatVector<int64_t>({0, 1, std::nullopt, 3, 4}),
+            makeNullableFlatVector<double>({0.1, 1.2, 2.3, std::nullopt, 4.4}),
+        }),
+        makeRowVector({
+            makeNullableFlatVector<int64_t>({0, std::nullopt, 2, 0, 1}),
+            makeNullableFlatVector<int64_t>({0, 1, std::nullopt, 3, 4}),
+            makeNullableFlatVector<double>({0.1, 1.2, 2.3, std::nullopt, 4.4}),
+        }),
+    };
+
+    createDuckDbTable(vectors);
+
+    testAggregations(
+        vectors,
+        {},
+        {fmt::format("{}(c1)", functionName),
+         fmt::format("{}(c2)", functionName)},
+        "SELECT avg(c1), avg(c2) FROM tmp");
+
+    testAggregations(
+        vectors,
+        {"c0"},
+        {fmt::format("{}(c1)", functionName),
+         fmt::format("{}(c2)", functionName)},
+        "SELECT c0, avg(c1), avg(c2) FROM tmp group by c0");
   };
 
-  createDuckDbTable(vectors);
-
-  testAggregations(
-      vectors, {}, {"avg(c1)", "avg(c2)"}, "SELECT avg(c1), avg(c2) FROM tmp");
-
-  testAggregations(
-      vectors,
-      {"c0"},
-      {"avg(c1)", "avg(c2)"},
-      "SELECT c0, avg(c1), avg(c2) FROM tmp group by c0");
+  testFunction("avg");
+  testFunction("simple_avg");
 }
 
 TEST_F(AverageAggregationTest, avg) {
-  auto vectors = makeVectors(rowType_, 10, 100);
-  createDuckDbTable(vectors);
+  auto testFunction = [this](const std::string& functionName) {
+    auto vectors = makeVectors(rowType_, 10, 100);
+    createDuckDbTable(vectors);
 
-  // global aggregation
-  testAggregations(
-      vectors,
-      {},
-      {"avg(c1)", "avg(c2)", "avg(c4)", "avg(c5)"},
-      "SELECT avg(c1), avg(c2), avg(c4), avg(c5) FROM tmp");
-  testAggregationsWithCompanion(
-      vectors,
-      [](auto& /*builder*/) {},
-      {},
-      {"avg(c1)", "avg(c2)", "avg(c4)", "avg(c5)"},
-      {{rowType_->childAt(1)},
-       {rowType_->childAt(2)},
-       {rowType_->childAt(4)},
-       {rowType_->childAt(5)}},
-      {},
-      "SELECT avg(c1), avg(c2), avg(c4), avg(c5) FROM tmp");
+    // global aggregation
+    std::vector<std::string> aggregates = {
+        fmt::format("{}(c1)", functionName),
+        fmt::format("{}(c2)", functionName),
+        fmt::format("{}(c4)", functionName),
+        fmt::format("{}(c5)", functionName)};
+    testAggregations(
+        vectors,
+        {},
+        aggregates,
+        "SELECT avg(c1), avg(c2), avg(c4), avg(c5) FROM tmp");
+    testAggregationsWithCompanion(
+        vectors,
+        [](auto& /*builder*/) {},
+        {},
+        aggregates,
+        {{rowType_->childAt(1)},
+         {rowType_->childAt(2)},
+         {rowType_->childAt(4)},
+         {rowType_->childAt(5)}},
+        {},
+        "SELECT avg(c1), avg(c2), avg(c4), avg(c5) FROM tmp");
 
-  // global aggregation; no input
-  testAggregations(
-      [&](auto& builder) { builder.values(vectors).filter("c0 % 2 = 5"); },
-      {},
-      {"avg(c0)"},
-      "SELECT null");
-  testAggregationsWithCompanion(
-      vectors,
-      [&](auto& builder) { builder.filter("c0 % 2 = 5"); },
-      {},
-      {"avg(c0)"},
-      {{rowType_->childAt(0)}},
-      {},
-      "SELECT null");
+    // global aggregation; no input
+    aggregates = {fmt::format("{}(c0)", functionName)};
+    testAggregations(
+        [&](auto& builder) { builder.values(vectors).filter("c0 % 2 = 5"); },
+        {},
+        aggregates,
+        "SELECT null");
+    testAggregationsWithCompanion(
+        vectors,
+        [&](auto& builder) { builder.filter("c0 % 2 = 5"); },
+        {},
+        aggregates,
+        {{rowType_->childAt(0)}},
+        {},
+        "SELECT null");
 
-  // global aggregation over filter
-  testAggregations(
-      [&](auto& builder) { builder.values(vectors).filter("c0 % 5 = 3"); },
-      {},
-      {"avg(c1)"},
-      "SELECT avg(c1) FROM tmp WHERE c0 % 5 = 3");
-  testAggregationsWithCompanion(
-      vectors,
-      [&](auto& builder) { builder.filter("c0 % 5 = 3"); },
-      {},
-      {"avg(c1)"},
-      {{rowType_->childAt(1)}},
-      {},
-      "SELECT avg(c1) FROM tmp WHERE c0 % 5 = 3");
+    // global aggregation over filter
+    aggregates = {fmt::format("{}(c1)", functionName)};
+    testAggregations(
+        [&](auto& builder) { builder.values(vectors).filter("c0 % 5 = 3"); },
+        {},
+        aggregates,
+        "SELECT avg(c1) FROM tmp WHERE c0 % 5 = 3");
+    testAggregationsWithCompanion(
+        vectors,
+        [&](auto& builder) { builder.filter("c0 % 5 = 3"); },
+        {},
+        aggregates,
+        {{rowType_->childAt(1)}},
+        {},
+        "SELECT avg(c1) FROM tmp WHERE c0 % 5 = 3");
 
-  // group by
-  testAggregations(
-      [&](auto& builder) {
-        builder.values(vectors).project(
-            {"c0 % 10 AS c0_mod_10", "c1", "c2", "c3", "c4", "c5"});
-      },
-      {"c0_mod_10"},
-      {"avg(c1)", "avg(c2)", "avg(c3)", "avg(c4)", "avg(c5)"},
-      "SELECT c0 % 10, avg(c1), avg(c2), avg(c3::DOUBLE), "
-      "avg(c4), avg(c5) FROM tmp GROUP BY 1");
-  testAggregationsWithCompanion(
-      vectors,
-      [&](auto& builder) {
-        builder.project(
-            {"c0 % 10 AS c0_mod_10", "c1", "c2", "c3", "c4", "c5", "k0"});
-      },
-      {"c0_mod_10"},
-      {"avg(c1)", "avg(c2)", "avg(c3)", "avg(c4)", "avg(c5)"},
-      {{rowType_->childAt(1)},
-       {rowType_->childAt(2)},
-       {rowType_->childAt(3)},
-       {rowType_->childAt(4)},
-       {rowType_->childAt(5)}},
-      {},
-      "SELECT c0 % 10, avg(c1), avg(c2), avg(c3::DOUBLE), "
-      "avg(c4), avg(c5) FROM tmp GROUP BY 1");
+    // group by
+    aggregates = {
+        fmt::format("{}(c1)", functionName),
+        fmt::format("{}(c2)", functionName),
+        fmt::format("{}(c3)", functionName),
+        fmt::format("{}(c4)", functionName),
+        fmt::format("{}(c5)", functionName)};
+    testAggregations(
+        [&](auto& builder) {
+          builder.values(vectors).project(
+              {"c0 % 10 AS c0_mod_10", "c1", "c2", "c3", "c4", "c5"});
+        },
+        {"c0_mod_10"},
+        aggregates,
+        "SELECT c0 % 10, avg(c1), avg(c2), avg(c3::DOUBLE), "
+        "avg(c4), avg(c5) FROM tmp GROUP BY 1");
+    testAggregationsWithCompanion(
+        vectors,
+        [&](auto& builder) {
+          builder.project(
+              {"c0 % 10 AS c0_mod_10", "c1", "c2", "c3", "c4", "c5", "k0"});
+        },
+        {"c0_mod_10"},
+        aggregates,
+        {{rowType_->childAt(1)},
+         {rowType_->childAt(2)},
+         {rowType_->childAt(3)},
+         {rowType_->childAt(4)},
+         {rowType_->childAt(5)}},
+        {},
+        "SELECT c0 % 10, avg(c1), avg(c2), avg(c3::DOUBLE), "
+        "avg(c4), avg(c5) FROM tmp GROUP BY 1");
 
-  // group by; no input
-  testAggregations(
-      [&](auto& builder) {
-        builder.values(vectors)
-            .project({"c0 % 10 AS c0_mod_10", "c1"})
-            .filter("c0_mod_10 > 10");
-      },
-      {"c0_mod_10"},
-      {"avg(c1)"},
-      "");
-  testAggregationsWithCompanion(
-      vectors,
-      [&](auto& builder) {
-        builder.project({"c0 % 10 AS c0_mod_10", "c1", "k0"})
-            .filter("c0_mod_10 > 10");
-      },
-      {"c0_mod_10"},
-      {"avg(c1)"},
-      {{rowType_->childAt(1)}},
-      {},
-      "");
+    // group by; no input
+    aggregates = {fmt::format("{}(c1)", functionName)};
+    testAggregations(
+        [&](auto& builder) {
+          builder.values(vectors)
+              .project({"c0 % 10 AS c0_mod_10", "c1"})
+              .filter("c0_mod_10 > 10");
+        },
+        {"c0_mod_10"},
+        aggregates,
+        "");
+    testAggregationsWithCompanion(
+        vectors,
+        [&](auto& builder) {
+          builder.project({"c0 % 10 AS c0_mod_10", "c1", "k0"})
+              .filter("c0_mod_10 > 10");
+        },
+        {"c0_mod_10"},
+        aggregates,
+        {{rowType_->childAt(1)}},
+        {},
+        "");
 
-  // group by over filter
-  testAggregations(
-      [&](auto& builder) {
-        builder.values(vectors)
-            .filter("c2 % 5 = 3")
-            .project({"c0 % 10 AS c0_mod_10", "c1"});
-      },
-      {"c0_mod_10"},
-      {"avg(c1)"},
-      "SELECT c0 % 10, avg(c1) FROM tmp WHERE c2 % 5 = 3 GROUP BY 1");
-  testAggregationsWithCompanion(
-      vectors,
-      [&](auto& builder) {
-        builder.filter("c2 % 5 = 3")
-            .project({"c0 % 10 AS c0_mod_10", "c1", "k0"});
-      },
-      {"c0_mod_10"},
-      {"avg(c1)"},
-      {{rowType_->childAt(1)}},
-      {},
-      "SELECT c0 % 10, avg(c1) FROM tmp WHERE c2 % 5 = 3 GROUP BY 1");
+    // group by over filter
+    aggregates = {fmt::format("{}(c1)", functionName)};
+    testAggregations(
+        [&](auto& builder) {
+          builder.values(vectors)
+              .filter("c2 % 5 = 3")
+              .project({"c0 % 10 AS c0_mod_10", "c1"});
+        },
+        {"c0_mod_10"},
+        aggregates,
+        "SELECT c0 % 10, avg(c1) FROM tmp WHERE c2 % 5 = 3 GROUP BY 1");
+    testAggregationsWithCompanion(
+        vectors,
+        [&](auto& builder) {
+          builder.filter("c2 % 5 = 3")
+              .project({"c0 % 10 AS c0_mod_10", "c1", "k0"});
+        },
+        {"c0_mod_10"},
+        aggregates,
+        {{rowType_->childAt(1)}},
+        {},
+        "SELECT c0 % 10, avg(c1) FROM tmp WHERE c2 % 5 = 3 GROUP BY 1");
+  };
+
+  testFunction("avg");
+  testFunction("simple_avg");
 }
 
 TEST_F(AverageAggregationTest, partialResults) {
-  auto data = makeRowVector(
-      {makeFlatVector<int64_t>(100, [](auto row) { return row; })});
+  auto testFunction = [this](const std::string& functionName) {
+    auto data = makeRowVector(
+        {makeFlatVector<int64_t>(100, [](auto row) { return row; })});
 
-  auto plan = PlanBuilder()
-                  .values({data})
-                  .partialAggregation({}, {"avg(c0)"})
-                  .planNode();
+    auto plan =
+        PlanBuilder()
+            .values({data})
+            .partialAggregation({}, {fmt::format("{}(c0)", functionName)})
+            .planNode();
 
-  assertQuery(plan, "SELECT row(4950, 100)");
+    assertQuery(plan, "SELECT row(4950, 100)");
+  };
+
+  testFunction("avg");
+  testFunction("simple_avg");
 }
 
 TEST_F(AverageAggregationTest, decimalAccumulator) {

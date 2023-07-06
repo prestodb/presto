@@ -1699,6 +1699,8 @@ struct Row {
   template <size_t idx>
   using type_at = typename std::tuple_element<idx, std::tuple<T...>>::type;
 
+  static const size_t size_ = sizeof...(T);
+
   static_assert(
       std::conjunction<std::bool_constant<!isVariadicType<T>::value>...>::value,
       "Struct fields cannot be Variadic");
@@ -2210,6 +2212,16 @@ TypePtr fromKindToScalerType(TypeKind kind);
 
 /// Appends type's SQL string to 'out'. Uses DuckDB SQL.
 void toTypeSql(const TypePtr& type, std::ostream& out);
+
+template <typename T>
+struct IsRowType {
+  static constexpr bool value = false;
+};
+
+template <typename... Ts>
+struct IsRowType<Row<Ts...>> {
+  static constexpr bool value = true;
+};
 
 } // namespace facebook::velox
 
