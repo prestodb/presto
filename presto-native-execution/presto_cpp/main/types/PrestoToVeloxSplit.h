@@ -14,10 +14,17 @@
 #pragma once
 
 #include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "velox/dwio/common/Options.h"
 #include "velox/exec/Split.h"
+
+using namespace facebook::velox;
 
 namespace facebook::presto {
 
+namespace input {
+dwio::common::FileFormat toVeloxFileFormat(
+    const facebook::presto::protocol::String& format);
+}
 // Creates and returns exec::Split (with connector::ConnectorSplit inside) based
 // on the given protocol split.
 velox::exec::Split toVeloxSplit(

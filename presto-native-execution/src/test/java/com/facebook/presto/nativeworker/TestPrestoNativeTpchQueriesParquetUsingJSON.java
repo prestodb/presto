@@ -30,6 +30,6 @@ public class TestPrestoNativeTpchQueriesParquetUsingJSON
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner("PARQUET");
+        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner("PARQUET", false);
     }
 }
