@@ -124,7 +124,6 @@ velox::VectorPtr readScalarBlock(
     case velox::TypeKind::DOUBLE:
     case velox::TypeKind::REAL:
     case velox::TypeKind::VARCHAR:
-    case velox::TypeKind::DATE:
     case velox::TypeKind::HUGEINT:
       return std::make_shared<velox::FlatVector<U>>(
           pool,

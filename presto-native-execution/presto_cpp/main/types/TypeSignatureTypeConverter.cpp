@@ -164,6 +164,10 @@ TypePtr typeFromString(const std::string& typeName) {
     return INTERVAL_YEAR_MONTH();
   }
 
+  if (upper == DATE()->toString()) {
+    return DATE();
+  }
+
   return createScalarType(mapNameToTypeKind(upper));
 }
 
