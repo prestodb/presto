@@ -336,8 +336,8 @@ TypePtr ReaderBase::convertType(
       case thrift::ConvertedType::INT_64:
         VELOX_CHECK_EQ(
             schemaElement.type,
-            thrift::Type::INT32,
-            "INT64 converted type can only be set for value of thrift::Type::INT32");
+            thrift::Type::INT64,
+            "INT64 converted type can only be set for value of thrift::Type::INT64");
         return BIGINT();
 
       case thrift::ConvertedType::UINT_8:

@@ -289,3 +289,19 @@ TEST_F(ParquetReaderTest, intMultipleFilters) {
       std::move(filters),
       expected);
 }
+
+TEST_F(ParquetReaderTest, parseLongTagged) {
+  // This is a case for long with annonation read
+  const std::string sample(getExampleFilePath("tagged_long.parquet"));
+
+  ReaderOptions readerOptions{defaultPool.get()};
+  ParquetReader reader = createReader(sample, readerOptions);
+
+  EXPECT_EQ(reader.numberOfRows(), 4ULL);
+
+  auto type = reader.typeWithId();
+  EXPECT_EQ(type->size(), 1ULL);
+  auto col0 = type->childAt(0);
+  EXPECT_EQ(col0->type->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(type->childByName("_c0"), col0);
+}
