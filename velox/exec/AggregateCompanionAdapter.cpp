@@ -217,6 +217,10 @@ void AggregateCompanionAdapter::ExtractFunction::apply(
   localResult = BaseVector::wrapInDictionary(
       nullptr, rowsToGroupsIndices, rows.end(), localResult);
   context.moveOrCopyResult(localResult, rows, result);
+
+  if (fn_->accumulatorUsesExternalMemory()) {
+    fn_->destroy(folly::Range(groups, groupCount));
+  }
 }
 
 bool CompanionFunctionsRegistrar::registerPartialFunction(
