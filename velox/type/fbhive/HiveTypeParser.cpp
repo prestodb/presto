@@ -102,6 +102,8 @@ Result HiveTypeParser::parseType() {
       eatToken(TokenType::RightRoundBracket);
       return Result{DECIMAL(
           std::atoi(precision.value.data()), std::atoi(scale.value.data()))};
+    } else if (nt.metadata->tokenString[0] == "date") {
+      return Result{DATE()};
     }
     auto scalarType = createScalarType(nt.typeKind());
     VELOX_CHECK_NOT_NULL(
