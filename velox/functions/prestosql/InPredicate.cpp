@@ -120,7 +120,8 @@ class InPredicate : public exec::VectorFunction {
 
   static std::shared_ptr<InPredicate> create(
       const std::string& /*name*/,
-      const std::vector<exec::VectorFunctionArg>& inputArgs) {
+      const std::vector<exec::VectorFunctionArg>& inputArgs,
+      const core::QueryConfig& /*config*/) {
     VELOX_CHECK_EQ(inputArgs.size(), 2);
     auto inListType = inputArgs[1].type;
     VELOX_CHECK_EQ(inListType->kind(), TypeKind::ARRAY);

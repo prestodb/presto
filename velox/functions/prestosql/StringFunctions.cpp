@@ -445,7 +445,9 @@ VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION_WITH_METADATA(
     udf_concat,
     ConcatFunction::signatures(),
     ConcatFunction::metadata(),
-    [](const auto& name, const auto& inputs) {
+    [](const auto& name,
+       const auto& inputs,
+       const core::QueryConfig& /*config*/) {
       return std::make_unique<ConcatFunction>(name, inputs);
     });
 

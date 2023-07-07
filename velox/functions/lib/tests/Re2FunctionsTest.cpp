@@ -37,8 +37,9 @@ namespace {
 
 std::shared_ptr<exec::VectorFunction> makeRegexExtract(
     const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
-  return makeRe2Extract(name, inputArgs, /*emptyNoMatch=*/false);
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config) {
+  return makeRe2Extract(name, inputArgs, config, /*emptyNoMatch=*/false);
 }
 
 class Re2FunctionsTest : public test::FunctionBaseTest {

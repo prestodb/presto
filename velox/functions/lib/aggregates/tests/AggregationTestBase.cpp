@@ -791,11 +791,13 @@ VectorPtr AggregationTestBase::testStreaming(
   auto [intermediateType, finalType] =
       getResultTypes(functionName, rawInputTypes);
   auto createFunction = [&, &finalType = finalType] {
+    core::QueryConfig config({});
     auto func = exec::Aggregate::create(
         functionName,
         core::AggregationNode::Step::kSingle,
         rawInputTypes,
-        finalType);
+        finalType,
+        config);
     func->setAllocator(&allocator);
     func->setOffsets(kOffset, 0, 1, kRowSizeOffset);
     return func;

@@ -773,7 +773,9 @@ exec::AggregateRegistrationResult registerApproxPercentile(
       [name](
           core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
-          const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
+          const TypePtr& resultType,
+          const core::QueryConfig& /*config*/)
+          -> std::unique_ptr<exec::Aggregate> {
         auto isRawInput = exec::isRawInput(step);
         auto hasWeight =
             argTypes.size() >= 2 && argTypes[1]->kind() == TypeKind::BIGINT;

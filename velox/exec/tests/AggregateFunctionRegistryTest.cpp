@@ -102,7 +102,8 @@ bool registerAggregateFunc(const std::string& name, bool overwrite = false) {
              std::move(signatures),
              [&](core::AggregationNode::Step step,
                  const std::vector<TypePtr>& argTypes,
-                 const TypePtr& resultType)
+                 const TypePtr& resultType,
+                 const core::QueryConfig& /*config*/)
                  -> std::unique_ptr<exec::Aggregate> {
                if (isPartialOutput(step)) {
                  if (argTypes.empty()) {

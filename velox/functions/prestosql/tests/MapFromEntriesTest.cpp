@@ -229,8 +229,9 @@ TEST_F(MapFromEntriesTest, outputSizeIsBoundBySelectedRows) {
   // `rows.end()` instead of `rows.size()`.
 
   auto rowType = ROW({INTEGER(), INTEGER()});
+  core::QueryConfig config({});
   auto function =
-      exec::getVectorFunction("map_from_entries", {ARRAY(rowType)}, {});
+      exec::getVectorFunction("map_from_entries", {ARRAY(rowType)}, {}, config);
 
   std::vector<std::vector<variant>> data = {
       {variant::row({1, 11}), variant::row({2, 22}), variant::row({3, 33})},

@@ -604,7 +604,8 @@ decimalBetweenSignature() {
 template <typename Operation>
 std::shared_ptr<exec::VectorFunction> createDecimalUnary(
     const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& /*config*/) {
   auto aType = inputArgs[0].type;
   auto [aPrecision, aScale] = getDecimalPrecisionScale(*aType);
   ExtraParams extraParams{};
@@ -639,7 +640,8 @@ std::shared_ptr<exec::VectorFunction> createDecimalUnary(
 template <typename Operation>
 std::shared_ptr<exec::VectorFunction> createDecimalFunction(
     const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& /*config*/) {
   auto aType = inputArgs[0].type;
   auto bType = inputArgs[1].type;
   auto [aPrecision, aScale] = getDecimalPrecisionScale(*aType);
@@ -706,7 +708,8 @@ std::shared_ptr<exec::VectorFunction> createDecimalFunction(
 
 std::shared_ptr<exec::VectorFunction> createDecimalBetweenFunction(
     const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& /*config*/) {
   auto aType = inputArgs[0].type;
   auto bType = inputArgs[1].type;
   auto cType = inputArgs[2].type;

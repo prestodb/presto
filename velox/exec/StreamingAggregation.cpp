@@ -81,7 +81,8 @@ StreamingAggregation::StreamingAggregation(
         aggregate.call->name(),
         aggregationNode->step(),
         argTypes,
-        aggResultType));
+        aggResultType,
+        driverCtx->queryConfig()));
     args_.push_back(channels);
     constantArgs_.push_back(constants);
   }

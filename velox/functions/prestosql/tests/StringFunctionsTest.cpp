@@ -1165,8 +1165,9 @@ void StringFunctionsTest::testReplaceInPlace(
   // If its not expected make sure it did not happen.
   auto applyReplaceFunction = [&](std::vector<VectorPtr>& functionInputs,
                                   VectorPtr& resultPtr) {
+    core::QueryConfig config({});
     auto replaceFunction =
-        exec::getVectorFunction("replace", {VARCHAR(), VARCHAR()}, {});
+        exec::getVectorFunction("replace", {VARCHAR(), VARCHAR()}, {}, config);
     SelectivityVector rows(tests.size());
     ExprSet exprSet({}, &execCtx_);
     RowVectorPtr inputRows = makeRowVector({});

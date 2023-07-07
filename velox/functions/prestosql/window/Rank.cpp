@@ -104,7 +104,8 @@ void registerRankInternal(
           const std::vector<exec::WindowFunctionArg>& /*args*/,
           const TypePtr& resultType,
           velox::memory::MemoryPool* /*pool*/,
-          HashStringAllocator* /*stringAllocator*/)
+          HashStringAllocator* /*stringAllocator*/,
+          const core::QueryConfig& /*queryConfig*/)
           -> std::unique_ptr<exec::WindowFunction> {
         return std::make_unique<RankFunction<TRank, TResult>>(resultType);
       });

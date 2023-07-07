@@ -154,8 +154,8 @@ class AlwaysFailingVectorFunction final : public VectorFunction {
 class SimpleFunctionAdapterFactory {
  public:
   virtual std::unique_ptr<VectorFunction> createVectorFunction(
-      const core::QueryConfig& config,
-      const std::vector<VectorPtr>& constantInputs) const = 0;
+      const std::vector<VectorPtr>& constantInputs,
+      const core::QueryConfig& config) const = 0;
   virtual ~SimpleFunctionAdapterFactory() = default;
 };
 
@@ -180,7 +180,8 @@ std::shared_ptr<const Type> resolveVectorFunction(
 std::shared_ptr<VectorFunction> getVectorFunction(
     const std::string& name,
     const std::vector<TypePtr>& inputTypes,
-    const std::vector<VectorPtr>& constantInputs);
+    const std::vector<VectorPtr>& constantInputs,
+    const core::QueryConfig& config);
 
 struct VectorFunctionMetadata {
   /// Boolean indicating whether this function supports flattening, i.e.
@@ -219,7 +220,8 @@ struct VectorFunctionArg {
 
 using VectorFunctionFactory = std::function<std::shared_ptr<VectorFunction>(
     const std::string& name,
-    const std::vector<VectorFunctionArg>& inputArgs)>;
+    const std::vector<VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config)>;
 
 struct VectorFunctionEntry {
   std::vector<FunctionSignaturePtr> signatures;
@@ -243,7 +245,8 @@ VectorFunctionMap& vectorFunctionFactories();
 template <typename T>
 VectorFunctionFactory makeVectorFunctionFactory() {
   return [](const std::string& name,
-            const std::vector<VectorFunctionArg>& inputArgs) {
+            const std::vector<VectorFunctionArg>& inputArgs,
+            const core::QueryConfig& /*config*/) {
     return std::make_shared<T>(name, inputArgs);
   };
 }

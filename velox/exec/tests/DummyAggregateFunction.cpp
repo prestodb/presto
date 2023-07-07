@@ -27,7 +27,9 @@ AggregateRegistrationResult registerDummyAggregateFunction(
       signatures,
       [&](core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
-          const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
+          const TypePtr& resultType,
+          const core::QueryConfig& /*config*/)
+          -> std::unique_ptr<exec::Aggregate> {
         VELOX_CHECK_GE(argTypes.size(), 1);
         if (isPartialOutput(step)) {
           return std::make_unique<DummyDicitonaryFunction>(argTypes[0]);

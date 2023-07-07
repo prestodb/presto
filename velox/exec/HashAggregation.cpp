@@ -133,7 +133,11 @@ HashAggregation::HashAggregation(
 
     const auto& resultType = outputType_->childAt(numHashers + i);
     info.function = Aggregate::create(
-        aggregate.call->name(), aggregationNode->step(), argTypes, resultType);
+        aggregate.call->name(),
+        aggregationNode->step(),
+        argTypes,
+        resultType,
+        driverCtx->queryConfig());
     info.output = numHashers + i;
 
     // Sorting keys and orders.

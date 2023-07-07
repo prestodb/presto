@@ -107,7 +107,8 @@ class Split final : public exec::VectorFunction {
 ///     values (if provided).
 std::shared_ptr<exec::VectorFunction> createSplit(
     const std::string& /*name*/,
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& /*config*/) {
   BaseVector* constantPattern = inputArgs[1].constantValue.get();
 
   if (inputArgs.size() > 3 || inputArgs[0].type->isVarchar() ||

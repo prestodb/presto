@@ -36,7 +36,8 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> hashSignatures();
 
 std::shared_ptr<exec::VectorFunction> makeHash(
     const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs);
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config);
 
 // Supported types:
 //   - Bools
@@ -56,6 +57,7 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> xxhash64Signatures();
 
 std::shared_ptr<exec::VectorFunction> makeXxHash64(
     const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs);
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config);
 
 } // namespace facebook::velox::functions::sparksql

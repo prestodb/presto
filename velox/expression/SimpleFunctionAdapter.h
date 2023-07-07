@@ -855,8 +855,8 @@ class SimpleFunctionAdapterFactoryImpl : public SimpleFunctionAdapterFactory {
   explicit SimpleFunctionAdapterFactoryImpl() {}
 
   std::unique_ptr<VectorFunction> createVectorFunction(
-      const core::QueryConfig& config,
-      const std::vector<VectorPtr>& constantInputs) const override {
+      const std::vector<VectorPtr>& constantInputs,
+      const core::QueryConfig& config) const override {
     return std::make_unique<SimpleFunctionAdapter<UDFHolder>>(
         config, constantInputs);
   }

@@ -57,7 +57,8 @@ std::shared_ptr<const Type> resolveVectorFunction(
 std::shared_ptr<VectorFunction> getVectorFunction(
     const std::string& name,
     const std::vector<TypePtr>& inputTypes,
-    const std::vector<VectorPtr>& constantInputs) {
+    const std::vector<VectorPtr>& constantInputs,
+    const core::QueryConfig& config) {
   auto sanitizedName = sanitizeName(name);
 
   if (!constantInputs.empty()) {
@@ -77,11 +78,12 @@ std::shared_ptr<VectorFunction> getVectorFunction(
   }
 
   return vectorFunctionFactories().withRLock(
-      [&sanitizedName, &inputArgs, &inputTypes](
+      [&sanitizedName, &inputArgs, &config, &inputTypes](
           auto& functionMap) -> std::shared_ptr<VectorFunction> {
         if (resolveVectorFunction(sanitizedName, inputTypes)) {
           auto functionIterator = functionMap.find(sanitizedName);
-          return functionIterator->second.factory(sanitizedName, inputArgs);
+          return functionIterator->second.factory(
+              sanitizedName, inputArgs, config);
         }
         return nullptr;
       });
@@ -123,9 +125,10 @@ bool registerVectorFunction(
     VectorFunctionMetadata metadata,
     bool overwrite) {
   std::shared_ptr<VectorFunction> sharedFunc = std::move(func);
-  auto factory = [sharedFunc](const auto& /*name*/, const auto& /*vectorArg*/) {
-    return sharedFunc;
-  };
+  auto factory = [sharedFunc](
+                     const auto& /*name*/,
+                     const auto& /*vectorArg*/,
+                     const auto& /*config*/) { return sharedFunc; };
   return registerStatefulVectorFunction(
       name, signatures, factory, metadata, overwrite);
 }

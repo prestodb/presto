@@ -275,7 +275,8 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
 
 std::shared_ptr<exec::VectorFunction> create(
     const std::string& /* name */,
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& /*config*/) {
   if (inputArgs[0].type->isDate()) {
     if (inputArgs.size() > 2 && inputArgs[2].type->isIntervalYearMonth()) {
       return std::make_shared<SequenceFunction<int32_t, int32_t>>();

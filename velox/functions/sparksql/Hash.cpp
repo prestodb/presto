@@ -341,7 +341,8 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> hashSignatures() {
 
 std::shared_ptr<exec::VectorFunction> makeHash(
     const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& /*config*/) {
   static const auto kHashFunction = std::make_shared<Murmur3HashFunction>();
   return kHashFunction;
 }
@@ -356,7 +357,8 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> xxhash64Signatures() {
 
 std::shared_ptr<exec::VectorFunction> makeXxHash64(
     const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& /*config*/) {
   static const auto kXxHash64Function = std::make_shared<XxHash64Function>();
   return kXxHash64Function;
 }

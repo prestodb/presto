@@ -546,12 +546,13 @@ TEST_P(HashTableTest, mixed6Sparse) {
 TEST_P(HashTableTest, clear) {
   std::vector<std::unique_ptr<VectorHasher>> keyHashers;
   keyHashers.push_back(std::make_unique<VectorHasher>(BIGINT(), 0 /*channel*/));
-
+  core::QueryConfig config({});
   auto aggregate = Aggregate::create(
       "sum",
       core::AggregationNode::Step::kPartial,
       std::vector<TypePtr>{BIGINT()},
-      BIGINT());
+      BIGINT(),
+      config);
 
   auto table = HashTable<true>::createForAggregation(
       std::move(keyHashers), {{aggregate.get()}}, pool_.get());

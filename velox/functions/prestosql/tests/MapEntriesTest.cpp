@@ -126,9 +126,9 @@ TEST_F(MapEntriesTest, outputSizeIsBoundBySelectedRows) {
   // reuses the input vector, and the input vector is only guaranteed to be
   // addressable for up to rows.end(). Hence this is needed for the output of
   // this function to be addressable for all of its elements.
-
-  auto function =
-      exec::getVectorFunction("map_entries", {MAP(BIGINT(), BIGINT())}, {});
+  core::QueryConfig config({});
+  auto function = exec::getVectorFunction(
+      "map_entries", {MAP(BIGINT(), BIGINT())}, {}, config);
 
   auto map = makeMapVector<int64_t, int64_t>(
       100,

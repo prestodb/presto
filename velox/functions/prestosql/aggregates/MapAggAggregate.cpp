@@ -86,7 +86,9 @@ exec::AggregateRegistrationResult registerMapAgg(const std::string& name) {
       [name](
           core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
-          const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
+          const TypePtr& resultType,
+          const core::QueryConfig& /*config*/)
+          -> std::unique_ptr<exec::Aggregate> {
         auto rawInput = exec::isRawInput(step);
         VELOX_CHECK_EQ(
             argTypes.size(),

@@ -218,13 +218,15 @@ std::vector<TypePtr> getTypes(const std::vector<ExprPtr>& exprs) {
 }
 
 ExprPtr getRowConstructorExpr(
+    const core::QueryConfig& config,
     const TypePtr& type,
     std::vector<ExprPtr>&& compiledChildren,
     bool trackCpuUsage) {
   static auto rowConstructorVectorFunction =
-      vectorFunctionFactories().withRLock([](auto& functionMap) {
+      vectorFunctionFactories().withRLock([&config](auto& functionMap) {
         auto functionIterator = functionMap.find(exec::kRowConstructor);
-        return functionIterator->second.factory(exec::kRowConstructor, {});
+        return functionIterator->second.factory(
+            exec::kRowConstructor, {}, config);
       });
 
   return std::make_shared<Expr>(
@@ -236,13 +238,14 @@ ExprPtr getRowConstructorExpr(
 }
 
 ExprPtr getSpecialForm(
+    const core::QueryConfig& config,
     const std::string& name,
     const TypePtr& type,
     std::vector<ExprPtr>&& compiledChildren,
     bool trackCpuUsage) {
   if (name == kRowConstructor) {
     return getRowConstructorExpr(
-        type, std::move(compiledChildren), trackCpuUsage);
+        config, type, std::move(compiledChildren), trackCpuUsage);
   }
 
   // If we just check the output of constructSpecialForm we'll have moved
@@ -396,18 +399,20 @@ ExprPtr compileExpression(
   bool isConstantExpr = false;
   if (dynamic_cast<const core::ConcatTypedExpr*>(expr.get())) {
     result = getRowConstructorExpr(
-        resultType, std::move(compiledInputs), trackCpuUsage);
+        config, resultType, std::move(compiledInputs), trackCpuUsage);
   } else if (auto cast = dynamic_cast<const core::CastTypedExpr*>(expr.get())) {
     VELOX_CHECK(!compiledInputs.empty());
     auto castExpr = std::make_shared<CastExpr>(
         resultType, std::move(compiledInputs[0]), trackCpuUsage);
     if (cast->nullOnFailure()) {
-      result = getSpecialForm("try", resultType, {castExpr}, trackCpuUsage);
+      result =
+          getSpecialForm(config, "try", resultType, {castExpr}, trackCpuUsage);
     } else {
       result = castExpr;
     }
   } else if (auto call = dynamic_cast<const core::CallTypedExpr*>(expr.get())) {
     if (auto specialForm = getSpecialForm(
+            config,
             call->name(),
             resultType,
             std::move(compiledInputs),
@@ -415,7 +420,10 @@ ExprPtr compileExpression(
       result = specialForm;
     } else if (
         auto func = getVectorFunction(
-            call->name(), inputTypes, getConstantInputs(compiledInputs))) {
+            call->name(),
+            inputTypes,
+            getConstantInputs(compiledInputs),
+            config)) {
       result = std::make_shared<Expr>(
           resultType,
           std::move(compiledInputs),
@@ -434,7 +442,7 @@ ExprPtr compileExpression(
           resultType,
           folly::join(", ", inputTypes));
       auto func = simpleFunctionEntry->createFunction()->createVectorFunction(
-          config, getConstantInputs(compiledInputs));
+          getConstantInputs(compiledInputs), config);
       result = std::make_shared<Expr>(
           resultType,
           std::move(compiledInputs),

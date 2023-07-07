@@ -56,7 +56,8 @@ enum class PatternKind {
 /// exception.
 std::shared_ptr<exec::VectorFunction> makeRe2Match(
     const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs);
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config);
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> re2MatchSignatures();
 
@@ -67,7 +68,8 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> re2MatchSignatures();
 /// invalid, throws an exception.
 std::shared_ptr<exec::VectorFunction> makeRe2Search(
     const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs);
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config);
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> re2SearchSignatures();
 
@@ -91,6 +93,7 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> re2SearchSignatures();
 std::shared_ptr<exec::VectorFunction> makeRe2Extract(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config,
     const bool emptyNoMatch);
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> re2ExtractSignatures();
@@ -103,7 +106,8 @@ std::pair<PatternKind, vector_size_t> determinePatternKind(StringView pattern);
 
 std::shared_ptr<exec::VectorFunction> makeLike(
     const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs);
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config);
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> likeSignatures();
 
@@ -126,7 +130,8 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> likeSignatures();
 /// match.
 std::shared_ptr<exec::VectorFunction> makeRe2ExtractAll(
     const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs);
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config);
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> re2ExtractAllSignatures();
 
@@ -153,7 +158,7 @@ struct Re2RegexpReplace {
   std::optional<RE2> re_;
 
   FOLLY_ALWAYS_INLINE void initialize(
-      const core::QueryConfig& /*config*/,
+      const core::QueryConfig& config,
       const arg_type<Varchar>* /*string*/,
       const arg_type<Varchar>* pattern,
       const arg_type<Varchar>* replacement) {

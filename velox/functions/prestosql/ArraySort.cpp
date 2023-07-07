@@ -246,7 +246,8 @@ std::shared_ptr<exec::VectorFunction> createTyped(
 // Create function.
 std::shared_ptr<exec::VectorFunction> create(
     const std::string& /* name */,
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& /*config*/) {
   validateType(inputArgs);
   auto elementType = inputArgs.front().type->childAt(0);
   return VELOX_DYNAMIC_TYPE_DISPATCH(

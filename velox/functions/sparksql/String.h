@@ -67,13 +67,15 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> instrSignatures();
 
 std::shared_ptr<exec::VectorFunction> makeInstr(
     const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs);
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config);
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> lengthSignatures();
 
 std::shared_ptr<exec::VectorFunction> makeLength(
     const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs);
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config);
 
 /// Expands each char of the digest data to two chars,
 /// representing the hex value of each digest char, in order.

@@ -391,9 +391,9 @@ TEST_F(AggregationTest, missingFunctionOrSignature) {
            .build()},
       [&](core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
-          const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
-        VELOX_UNREACHABLE();
-      });
+          const TypePtr& resultType,
+          const core::QueryConfig& /*config*/)
+          -> std::unique_ptr<exec::Aggregate> { VELOX_UNREACHABLE(); });
 
   std::vector<core::TypedExprPtr> inputs = {
       std::make_shared<core::FieldAccessTypedExpr>(BIGINT(), "c0"),

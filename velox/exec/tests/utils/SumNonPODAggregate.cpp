@@ -158,7 +158,8 @@ exec::AggregateRegistrationResult registerSumNonPODAggregate(
       [alignment](
           velox::core::AggregationNode::Step /*step*/,
           const std::vector<velox::TypePtr>& /*argTypes*/,
-          const velox::TypePtr& /*resultType*/)
+          const velox::TypePtr& /*resultType*/,
+          const core::QueryConfig& /*config*/)
           -> std::unique_ptr<velox::exec::Aggregate> {
         return std::make_unique<SumNonPODAggregate>(velox::BIGINT(), alignment);
       });

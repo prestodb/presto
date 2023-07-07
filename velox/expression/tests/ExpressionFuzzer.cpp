@@ -180,10 +180,11 @@ bool isDeterministic(
   try {
     if (auto vectorFunctionSignatures =
             exec::getVectorFunctionSignatures(functionName)) {
+      core::QueryConfig config({});
       for (const auto& signature : *vectorFunctionSignatures) {
         if (exec::SignatureBinder(*signature, argTypes).tryBind()) {
           if (auto vectorFunction =
-                  exec::getVectorFunction(functionName, argTypes, {})) {
+                  exec::getVectorFunction(functionName, argTypes, {}, config)) {
             return vectorFunction->isDeterministic();
           }
         }

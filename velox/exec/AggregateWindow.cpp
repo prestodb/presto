@@ -36,7 +36,8 @@ class AggregateWindowFunction : public exec::WindowFunction {
       const std::vector<exec::WindowFunctionArg>& args,
       const TypePtr& resultType,
       velox::memory::MemoryPool* pool,
-      HashStringAllocator* stringAllocator)
+      HashStringAllocator* stringAllocator,
+      const core::QueryConfig& config)
       : WindowFunction(resultType, pool, stringAllocator) {
     argTypes_.reserve(args.size());
     argIndices_.reserve(args.size());
@@ -56,7 +57,11 @@ class AggregateWindowFunction : public exec::WindowFunction {
     // function usage only requires single group aggregation for calculating
     // the function value for each row.
     aggregate_ = exec::Aggregate::create(
-        name, core::AggregationNode::Step::kSingle, argTypes_, resultType);
+        name,
+        core::AggregationNode::Step::kSingle,
+        argTypes_,
+        resultType,
+        config);
     aggregate_->setAllocator(stringAllocator_);
 
     // Aggregate initialization.
@@ -387,10 +392,11 @@ void registerAggregateWindowFunction(const std::string& name) {
             const std::vector<exec::WindowFunctionArg>& args,
             const TypePtr& resultType,
             velox::memory::MemoryPool* pool,
-            HashStringAllocator* stringAllocator)
+            HashStringAllocator* stringAllocator,
+            const core::QueryConfig& config)
             -> std::unique_ptr<exec::WindowFunction> {
           return std::make_unique<AggregateWindowFunction>(
-              name, args, resultType, pool, stringAllocator);
+              name, args, resultType, pool, stringAllocator, config);
         });
   }
 }

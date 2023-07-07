@@ -19,6 +19,7 @@
 
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/core/PlanNode.h"
+#include "velox/core/QueryConfig.h"
 #include "velox/exec/AggregateUtil.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/vector/BaseVector.h"
@@ -234,7 +235,8 @@ class Aggregate {
       const std::string& name,
       core::AggregationNode::Step step,
       const std::vector<TypePtr>& argTypes,
-      const TypePtr& resultType);
+      const TypePtr& resultType,
+      const core::QueryConfig& config);
 
   // Returns the intermediate type for 'name' with signature
   // 'argTypes'. Throws if cannot resolve.
@@ -352,7 +354,8 @@ class Aggregate {
 using AggregateFunctionFactory = std::function<std::unique_ptr<Aggregate>(
     core::AggregationNode::Step step,
     const std::vector<TypePtr>& argTypes,
-    const TypePtr& resultType)>;
+    const TypePtr& resultType,
+    const core::QueryConfig& config)>;
 
 /// Register an aggregate function with the specified name and signatures. If
 /// registerCompanionFunctions is true, also register companion aggregate and

@@ -230,10 +230,11 @@ std::unique_ptr<Aggregate> Aggregate::create(
     const std::string& name,
     core::AggregationNode::Step step,
     const std::vector<TypePtr>& argTypes,
-    const TypePtr& resultType) {
+    const TypePtr& resultType,
+    const core::QueryConfig& config) {
   // Lookup the function in the new registry first.
   if (auto func = getAggregateFunctionEntry(name)) {
-    return func->factory(step, argTypes, resultType);
+    return func->factory(step, argTypes, resultType, config);
   }
 
   VELOX_USER_FAIL("Aggregate function not registered: {}", name);

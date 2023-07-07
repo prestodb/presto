@@ -374,7 +374,8 @@ AggregateRegistrationResult registerFirstLast(const std::string& name) {
       [name](
           core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
-          const TypePtr& resultType) -> std::unique_ptr<Aggregate> {
+          const TypePtr& resultType,
+          const core::QueryConfig& /*config*/) -> std::unique_ptr<Aggregate> {
         VELOX_CHECK_EQ(argTypes.size(), 1, "{} takes only 1 arguments", name);
         const auto& inputType = argTypes[0];
         TypeKind dataKind = isRawInput(step) ? inputType->kind()

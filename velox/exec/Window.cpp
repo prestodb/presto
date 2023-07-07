@@ -82,7 +82,7 @@ Window::Window(
   windowPartition_ =
       std::make_unique<WindowPartition>(inputColumns, inputType->children());
 
-  createWindowFunctions(windowNode, inputType);
+  createWindowFunctions(windowNode, inputType, driverCtx->queryConfig());
 }
 
 Window::WindowFrame Window::createWindowFrame(
@@ -120,7 +120,8 @@ Window::WindowFrame Window::createWindowFrame(
 
 void Window::createWindowFunctions(
     const std::shared_ptr<const core::WindowNode>& windowNode,
-    const RowTypePtr& inputType) {
+    const RowTypePtr& inputType,
+    const core::QueryConfig& config) {
   for (const auto& windowNodeFunction : windowNode->windowFunctions()) {
     VELOX_USER_CHECK(
         !windowNodeFunction.ignoreNulls,
@@ -144,7 +145,8 @@ void Window::createWindowFunctions(
         functionArgs,
         windowNodeFunction.functionCall->type(),
         operatorCtx_->pool(),
-        &stringAllocator_));
+        &stringAllocator_,
+        config));
 
     windowFrames_.push_back(
         createWindowFrame(windowNodeFunction.frame, inputType));

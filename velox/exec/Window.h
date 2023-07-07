@@ -84,7 +84,8 @@ class Window : public Operator {
   // for this operator.
   void createWindowFunctions(
       const std::shared_ptr<const core::WindowNode>& windowNode,
-      const RowTypePtr& inputType);
+      const RowTypePtr& inputType,
+      const core::QueryConfig& config);
 
   // Helper function to create the buffers for peer and frame
   // row indices to send in window function apply invocations.
