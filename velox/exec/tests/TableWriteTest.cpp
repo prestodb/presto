@@ -20,6 +20,7 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/dwio/common/WriterFactory.h"
 #include "velox/exec/HashPartitionFunction.h"
+#include "velox/exec/TableWriter.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -1678,9 +1679,12 @@ TEST_P(AllTableWriterTest, tableWriteOutputCheck) {
                   .planNode();
 
   auto result = AssertQueryBuilder(plan).copyResults(pool());
-  auto writtenRowVector = result->childAt(0)->asFlatVector<int64_t>();
-  auto fragmentVector = result->childAt(1)->asFlatVector<StringView>();
-  auto commitContextVector = result->childAt(2)->asFlatVector<StringView>();
+  auto writtenRowVector = result->childAt(TableWriterTraits::kRowCountChannel)
+                              ->asFlatVector<int64_t>();
+  auto fragmentVector = result->childAt(TableWriterTraits::kFragmentChannel)
+                            ->asFlatVector<StringView>();
+  auto commitContextVector = result->childAt(TableWriterTraits::kContextChannel)
+                                 ->asFlatVector<StringView>();
   const int64_t expectedRows = 10 * 100;
   std::vector<std::string> writeFiles;
   int64_t numRows{0};
@@ -1741,6 +1745,14 @@ TEST_P(AllTableWriterTest, tableWriteOutputCheck) {
   ASSERT_EQ(diskFiles, writeFiles)
       << "\nwrite files: " << folly::join(",", writeFiles)
       << "\ndisk files: " << folly::join(",", diskFiles);
+  // Verify the utilities provided by table writer traits.
+  ASSERT_EQ(TableWriterTraits::getRowCount(result), 10 * 100);
+  auto obj = TableWriterTraits::getTableCommitContext(result);
+  ASSERT_EQ(
+      obj[TableWriterTraits::kCommitStrategyContextKey],
+      commitStrategyToString(commitStrategy_));
+  ASSERT_EQ(obj[TableWriterTraits::klastPageContextKey], true);
+  ASSERT_EQ(obj[TableWriterTraits::kLifeSpanContextKey], "TaskWide");
 }
 
 // TODO: add partitioned table write update mode tests and more failure tests.

@@ -21,6 +21,29 @@
 
 namespace facebook::velox::exec {
 
+/// Defines table writer output related config properties that are shared
+/// betweeen TableWriter and TableWriteMerger.
+class TableWriterTraits {
+ public:
+  /// Defines the column channels in table writer output.
+  static constexpr int32_t kRowCountChannel = 0;
+  static constexpr int32_t kFragmentChannel = 1;
+  static constexpr int32_t kContextChannel = 2;
+  static constexpr int32_t kStatsChannel = 3;
+  /// Defines the names of metadata in commit context in table writer output.
+  static constexpr std::string_view kLifeSpanContextKey = "lifespan";
+  static constexpr std::string_view kTaskIdContextKey = "taskId";
+  static constexpr std::string_view kCommitStrategyContextKey =
+      "pageSinkCommitStrategy";
+  static constexpr std::string_view klastPageContextKey = "lastPage";
+
+  /// Returns the parsed commit context from table writer 'output'.
+  static folly::dynamic getTableCommitContext(const RowVectorPtr& output);
+
+  /// Returns the sum of row counts from table writer 'output'.
+  static int64_t getRowCount(const RowVectorPtr& output);
+};
+
 /**
  * The class implements a simple table writer VELOX operator
  */
@@ -75,8 +98,8 @@ class TableWriter : public Operator {
   std::vector<column_index_t> inputMapping_;
   std::shared_ptr<const RowType> mappedType_;
 
-  bool finished_ = false;
-  bool closed_ = false;
-  vector_size_t numWrittenRows_ = 0;
+  bool finished_{false};
+  bool closed_{false};
+  vector_size_t numWrittenRows_{0};
 };
 } // namespace facebook::velox::exec

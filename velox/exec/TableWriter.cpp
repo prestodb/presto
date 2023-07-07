@@ -104,6 +104,7 @@ RowVectorPtr TableWriter::getOutput() {
     return nullptr;
   }
   if (outputType_->size() == 1) {
+    // NOTE: this is only used for testing purpose.
     return std::make_shared<RowVector>(
         pool(),
         outputType_,
@@ -138,10 +139,10 @@ RowVectorPtr TableWriter::getOutput() {
   // clang-format off
     auto commitContextJson = folly::toJson(
       folly::dynamic::object
-          ("lifespan", "TaskWide")
-          ("taskId", connectorQueryCtx_->taskId())
-          ("pageSinkCommitStrategy", commitStrategyToString(commitStrategy_))
-          ("lastPage", true));
+          (TableWriterTraits::kLifeSpanContextKey, "TaskWide")
+          (TableWriterTraits::kTaskIdContextKey, connectorQueryCtx_->taskId())
+          (TableWriterTraits::kCommitStrategyContextKey, commitStrategyToString(commitStrategy_))
+          (TableWriterTraits::klastPageContextKey, true));
   // clang-format on
 
   auto commitContextVector = std::make_shared<ConstantVector<StringView>>(
@@ -156,5 +157,27 @@ RowVectorPtr TableWriter::getOutput() {
 
   return std::make_shared<RowVector>(
       pool(), outputType_, nullptr, numOutputRows, columns);
+}
+
+folly::dynamic TableWriterTraits::getTableCommitContext(
+    const RowVectorPtr& output) {
+  VELOX_CHECK_GT(output->size(), 0);
+  auto contextVector = output->childAt(kContextChannel)->loadedVector();
+  return folly::parseJson(
+      contextVector->as<FlatVector<StringView>>()->valueAt(0));
+}
+
+int64_t TableWriterTraits::getRowCount(const RowVectorPtr& output) {
+  VELOX_CHECK_GT(output->size(), 0);
+  auto rowCountVector =
+      output->childAt(kRowCountChannel)->asFlatVector<int64_t>();
+  VELOX_CHECK_NOT_NULL(rowCountVector);
+  int64_t rowCount{0};
+  for (int i = 0; i < output->size(); ++i) {
+    if (!rowCountVector->isNullAt(i)) {
+      rowCount += rowCountVector->valueAt(i);
+    }
+  }
+  return rowCount;
 }
 } // namespace facebook::velox::exec
