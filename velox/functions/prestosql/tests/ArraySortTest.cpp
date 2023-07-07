@@ -90,10 +90,25 @@ class ArraySortTest : public FunctionBaseTest,
   }
 
   template <typename T>
+  VectorPtr makeDataArray(const std::vector<std::optional<int32_t>>& indices) {
+    std::vector<std::optional<T>> data;
+    data.reserve(indices.size());
+    for (auto i : indices) {
+      if (i.has_value()) {
+        data.push_back(dataAt<T>(i.value()));
+      } else {
+        data.push_back(std::nullopt);
+      }
+    }
+    return arrayVector(data);
+  }
+
+  template <typename T>
   void test() {
     struct {
       const RowVectorPtr inputVector;
       const VectorPtr expectedResult;
+      const VectorPtr expectedDescResult;
 
       const std::string debugString() const {
         return fmt::format(
@@ -103,86 +118,87 @@ class ArraySortTest : public FunctionBaseTest,
             expectedResult->toString(0, expectedResult->size()));
       }
     } testSettings[] = {
-        {makeRowVector({arrayVector(std::vector<std::optional<T>>(
-             {dataAt<T>(2), dataAt<T>(1), dataAt<T>(0)}))}),
-         arrayVector(std::vector<std::optional<T>>{
-             dataAt<T>(0), dataAt<T>(1), dataAt<T>(2)})},
+        {
+            makeRowVector({makeDataArray<T>({2, 1, 0})}),
+            makeDataArray<T>({0, 1, 2}),
+            makeDataArray<T>({2, 1, 0}),
+        },
 
-        {makeRowVector({arrayVector(std::vector<std::optional<T>>(
-             {dataAt<T>(0), dataAt<T>(1), dataAt<T>(2)}))}),
-         arrayVector(std::vector<std::optional<T>>{
-             dataAt<T>(0), dataAt<T>(1), dataAt<T>(2)})},
+        {
+            makeRowVector({makeDataArray<T>({0, 1, 2})}),
+            makeDataArray<T>({0, 1, 2}),
+            makeDataArray<T>({2, 1, 0}),
+        },
 
-        {makeRowVector({arrayVector(std::vector<std::optional<T>>(
-             {dataAt<T>(0), dataAt<T>(0), dataAt<T>(0)}))}),
-         arrayVector(std::vector<std::optional<T>>{
-             dataAt<T>(0), dataAt<T>(0), dataAt<T>(0)})},
+        {
+            makeRowVector({makeDataArray<T>({0, 0, 0})}),
+            makeDataArray<T>({0, 0, 0}),
+            makeDataArray<T>({0, 0, 0}),
+        },
 
-        {makeRowVector({arrayVector(std::vector<std::optional<T>>(
-             {dataAt<T>(1), dataAt<T>(0), dataAt<T>(2)}))}),
-         arrayVector(std::vector<std::optional<T>>{
-             dataAt<T>(0), dataAt<T>(1), dataAt<T>(2)})},
+        {
+            makeRowVector({makeDataArray<T>({1, 0, 2})}),
+            makeDataArray<T>({0, 1, 2}),
+            makeDataArray<T>({2, 1, 0}),
+        },
 
-        {makeRowVector({arrayVector(std::vector<std::optional<T>>(
-             {std::nullopt, dataAt<T>(1), dataAt<T>(0), dataAt<T>(2)}))}),
-         arrayVector(std::vector<std::optional<T>>{
-             dataAt<T>(0), dataAt<T>(1), dataAt<T>(2), std::nullopt})},
+        {
+            makeRowVector({makeDataArray<T>({std::nullopt, 1, 0, 2})}),
+            makeDataArray<T>({0, 1, 2, std::nullopt}),
+            makeDataArray<T>({2, 1, 0, std::nullopt}),
+        },
 
-        {makeRowVector({arrayVector(std::vector<std::optional<T>>(
-             {std::nullopt,
-              std::nullopt,
-              dataAt<T>(1),
-              dataAt<T>(0),
-              dataAt<T>(2)}))}),
-         arrayVector(std::vector<std::optional<T>>{
-             dataAt<T>(0),
-             dataAt<T>(1),
-             dataAt<T>(2),
-             std::nullopt,
-             std::nullopt})},
+        {
+            makeRowVector(
+                {makeDataArray<T>({std::nullopt, std::nullopt, 1, 0, 2})}),
+            makeDataArray<T>({0, 1, 2, std::nullopt, std::nullopt}),
+            makeDataArray<T>({2, 1, 0, std::nullopt, std::nullopt}),
+        },
 
-        {makeRowVector({arrayVector(std::vector<std::optional<T>>(
-             {std::nullopt,
-              dataAt<T>(1),
-              dataAt<T>(0),
-              std::nullopt,
-              dataAt<T>(2)}))}),
-         arrayVector(std::vector<std::optional<T>>{
-             dataAt<T>(0),
-             dataAt<T>(1),
-             dataAt<T>(2),
-             std::nullopt,
-             std::nullopt})},
+        {
+            makeRowVector(
+                {makeDataArray<T>({std::nullopt, 1, 0, std::nullopt, 2})}),
+            makeDataArray<T>({0, 1, 2, std::nullopt, std::nullopt}),
+            makeDataArray<T>({2, 1, 0, std::nullopt, std::nullopt}),
+        },
 
-        {makeRowVector({arrayVector(std::vector<std::optional<T>>(
-             {dataAt<T>(1),
-              std::nullopt,
-              dataAt<T>(0),
-              dataAt<T>(2),
-              std::nullopt}))}),
-         arrayVector(std::vector<std::optional<T>>{
-             dataAt<T>(0),
-             dataAt<T>(1),
-             dataAt<T>(2),
-             std::nullopt,
-             std::nullopt})},
-        {makeRowVector({arrayVector(std::vector<std::optional<T>>(
-             {std::nullopt,
-              std::nullopt,
-              std::nullopt,
-              std::nullopt,
-              std::nullopt}))}),
-         arrayVector(std::vector<std::optional<T>>{
-             std::nullopt,
-             std::nullopt,
-             std::nullopt,
-             std::nullopt,
-             std::nullopt})}};
+        {
+            makeRowVector(
+                {makeDataArray<T>({1, std::nullopt, 0, 2, std::nullopt})}),
+            makeDataArray<T>({0, 1, 2, std::nullopt, std::nullopt}),
+            makeDataArray<T>({2, 1, 0, std::nullopt, std::nullopt}),
+        },
+
+        {
+            makeRowVector({makeDataArray<T>(
+                {std::nullopt,
+                 std::nullopt,
+                 std::nullopt,
+                 std::nullopt,
+                 std::nullopt})}),
+            makeDataArray<T>(
+                {std::nullopt,
+                 std::nullopt,
+                 std::nullopt,
+                 std::nullopt,
+                 std::nullopt}),
+            makeDataArray<T>(
+                {std::nullopt,
+                 std::nullopt,
+                 std::nullopt,
+                 std::nullopt,
+                 std::nullopt}),
+        },
+    };
     for (const auto& testData : testSettings) {
       SCOPED_TRACE(testData.debugString());
       auto actualResult =
           evaluate<ArrayVector>("array_sort(c0)", testData.inputVector);
       assertEqualVectors(testData.expectedResult, actualResult);
+
+      auto descResult =
+          evaluate<ArrayVector>("array_sort_desc(c0)", testData.inputVector);
+      assertEqualVectors(testData.expectedDescResult, descResult);
     }
   }
 

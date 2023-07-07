@@ -27,6 +27,7 @@ namespace {
 void applyComplexType(
     const SelectivityVector& rows,
     ArrayVector* inputArray,
+    bool ascending,
     exec::EvalCtx& context,
     VectorPtr& resultElements) {
   auto inputElements = inputArray->elements();
@@ -40,7 +41,7 @@ void applyComplexType(
   BufferPtr indices = allocateIndices(inputElements->size(), context.pool());
   vector_size_t* rawIndices = indices->asMutable<vector_size_t>();
 
-  const CompareFlags flags{.nullsFirst = false, .ascending = true};
+  const CompareFlags flags{.nullsFirst = false, .ascending = ascending};
   auto decodedIndices = decodedElements->indices();
 
   rows.applyToSelected([&](vector_size_t row) {
@@ -92,6 +93,7 @@ template <TypeKind kind>
 void applyScalarType(
     const SelectivityVector& rows,
     const ArrayVector* inputArray,
+    bool ascending,
     exec::EvalCtx& context,
     VectorPtr& resultElements) {
   using T = typename TypeTraits<kind>::NativeType;
@@ -135,11 +137,24 @@ void applyScalarType(
       uint64_t* rawBits = flatResults->template mutableRawValues<uint64_t>();
       const auto numOneBits = bits::countBits(rawBits, startRow, endRow);
       const auto endZeroRow = endRow - numOneBits;
-      bits::fillBits(rawBits, startRow, endZeroRow, bits::kNull);
-      bits::fillBits(rawBits, endZeroRow, endRow, bits::kNotNull);
+
+      if (ascending) {
+        bits::fillBits(rawBits, startRow, endZeroRow, false);
+        bits::fillBits(rawBits, endZeroRow, endRow, true);
+      } else {
+        bits::fillBits(rawBits, startRow, startRow + numOneBits, true);
+        bits::fillBits(rawBits, endZeroRow, endRow, false);
+      }
     } else {
       T* resultRawValues = flatResults->mutableRawValues();
-      std::sort(resultRawValues + startRow, resultRawValues + endRow);
+      if (ascending) {
+        std::sort(resultRawValues + startRow, resultRawValues + endRow);
+      } else {
+        std::sort(
+            resultRawValues + startRow,
+            resultRawValues + endRow,
+            std::greater<T>());
+      }
     }
   };
   rows.applyToSelected(processRow);
@@ -164,6 +179,8 @@ class ArraySortFunction : public exec::VectorFunction {
   /// elements in the output, and wrapped into a DictionaryVector. The 'lengths'
   /// and 'offsets' vectors that control where output arrays start and end
   /// remain the same in the output ArrayVector.
+
+  explicit ArraySortFunction(bool ascending) : ascending_{ascending} {}
 
   // Execute function.
   void apply(
@@ -205,10 +222,16 @@ class ArraySortFunction : public exec::VectorFunction {
 
     if (velox::TypeTraits<T>::isPrimitiveType) {
       VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-          applyScalarType, T, rows, inputArray, context, resultElements);
+          applyScalarType,
+          T,
+          rows,
+          inputArray,
+          ascending_,
+          context,
+          resultElements);
 
     } else {
-      applyComplexType(rows, inputArray, context, resultElements);
+      applyComplexType(rows, inputArray, ascending_, context, resultElements);
     }
 
     return std::make_shared<ArrayVector>(
@@ -221,6 +244,8 @@ class ArraySortFunction : public exec::VectorFunction {
         resultElements,
         inputArray->getNullCount());
   }
+
+  const bool ascending_;
 };
 
 // Validate number of parameters and types.
@@ -238,20 +263,33 @@ void validateType(const std::vector<exec::VectorFunctionArg>& inputArgs) {
 // Create function template based on type.
 template <TypeKind kind>
 std::shared_ptr<exec::VectorFunction> createTyped(
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    bool ascending) {
   VELOX_CHECK_EQ(inputArgs.size(), 1);
-  return std::make_shared<ArraySortFunction<kind>>();
+  return std::make_shared<ArraySortFunction<kind>>(ascending);
 }
 
 // Create function.
 std::shared_ptr<exec::VectorFunction> create(
-    const std::string& /* name */,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
-    const core::QueryConfig& /*config*/) {
+    bool ascending) {
   validateType(inputArgs);
   auto elementType = inputArgs.front().type->childAt(0);
   return VELOX_DYNAMIC_TYPE_DISPATCH(
-      createTyped, elementType->kind(), inputArgs);
+      createTyped, elementType->kind(), inputArgs, ascending);
+}
+
+std::shared_ptr<exec::VectorFunction> createAsc(
+    const std::string& /* name */,
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& /*config*/) {
+  return create(inputArgs, true);
+}
+std::shared_ptr<exec::VectorFunction> createDesc(
+    const std::string& /* name */,
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& /*config*/) {
+  return create(inputArgs, false);
 }
 
 // Define function signature.
@@ -267,6 +305,10 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
 } // namespace
 
 // Register function.
-VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(udf_array_sort, signatures(), create);
+VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(udf_array_sort, signatures(), createAsc);
+VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
+    udf_array_sort_desc,
+    signatures(),
+    createDesc);
 
 } // namespace facebook::velox::functions

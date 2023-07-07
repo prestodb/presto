@@ -101,6 +101,8 @@ void registerArrayFunctions(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_position, prefix + "array_position");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_shuffle, prefix + "shuffle");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_sort, prefix + "array_sort");
+  VELOX_REGISTER_VECTOR_FUNCTION(
+      udf_array_sort_desc, prefix + "array_sort_desc");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_sum, prefix + "array_sum");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_repeat, prefix + "repeat");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_sequence, prefix + "sequence");
