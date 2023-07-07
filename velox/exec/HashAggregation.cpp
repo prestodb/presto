@@ -22,6 +22,45 @@
 
 namespace facebook::velox::exec {
 
+namespace {
+std::vector<TypePtr> populateAggregateInputs(
+    const core::AggregationNode::Aggregate& aggregate,
+    const RowType& inputType,
+    AggregateInfo& info,
+    memory::MemoryPool* pool) {
+  auto& channels = info.inputs;
+  auto& constants = info.constantInputs;
+  std::vector<TypePtr> argTypes;
+  for (const auto& arg : aggregate.call->inputs()) {
+    argTypes.push_back(arg->type());
+    if (auto field =
+            dynamic_cast<const core::FieldAccessTypedExpr*>(arg.get())) {
+      channels.push_back(inputType.getChildIdx(field->name()));
+      constants.push_back(nullptr);
+    } else if (
+        auto constant =
+            dynamic_cast<const core::ConstantTypedExpr*>(arg.get())) {
+      channels.push_back(kConstantChannel);
+      constants.push_back(constant->toConstantVector(pool));
+    } else if (
+        auto lambda = dynamic_cast<const core::LambdaTypedExpr*>(arg.get())) {
+      for (const auto& name : lambda->signature()->names()) {
+        if (auto captureIndex = inputType.getChildIdxIfExists(name)) {
+          channels.push_back(captureIndex.value());
+          constants.push_back(nullptr);
+        }
+      }
+    } else {
+      VELOX_FAIL(
+          "Expression must be field access, constant, or lambda: {}",
+          arg->toString());
+    }
+  }
+
+  return argTypes;
+}
+} // namespace
+
 HashAggregation::HashAggregation(
     int32_t operatorId,
     DriverCtx* driverCtx,
@@ -71,20 +110,9 @@ HashAggregation::HashAggregation(
     const auto& aggregate = aggregationNode->aggregates()[i];
 
     AggregateInfo info;
+    auto argTypes =
+        populateAggregateInputs(aggregate, inputType->asRow(), info, pool());
 
-    auto& channels = info.inputs;
-    auto& constants = info.constantInputs;
-    std::vector<TypePtr> argTypes;
-    for (const auto& arg : aggregate.call->inputs()) {
-      argTypes.push_back(arg->type());
-      channels.push_back(exprToChannel(arg.get(), inputType));
-      if (channels.back() == kConstantChannel) {
-        auto constant = dynamic_cast<const core::ConstantTypedExpr*>(arg.get());
-        constants.push_back(constant->toConstantVector(pool()));
-      } else {
-        constants.push_back(nullptr);
-      }
-    }
     if (isRawInput(aggregationNode->step())) {
       info.intermediateType =
           Aggregate::intermediateType(aggregate.call->name(), argTypes);
