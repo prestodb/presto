@@ -15,6 +15,7 @@ package com.facebook.presto.client;
 
 import com.facebook.airlift.security.pem.PemReader;
 import com.google.common.base.CharMatcher;
+import com.google.common.base.StandardSystemProperty;
 import com.google.common.net.HostAndPort;
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -22,6 +23,7 @@ import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
 import okhttp3.Response;
 
 import javax.net.ssl.KeyManager;
@@ -46,6 +48,7 @@ import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -276,5 +279,26 @@ public final class OkHttpUtil
     {
         GCSOAuthInterceptor handler = new GCSOAuthInterceptor(credentialPath, gcsOAuthScopesString);
         clientBuilder.addInterceptor(handler);
+    }
+
+    public static void forceHttp11OnJava11OrLater(OkHttpClient.Builder builder)
+    {
+        if (isJava11OrLater()) {
+            builder.protocols(Collections.singletonList(Protocol.HTTP_1_1));
+        }
+    }
+
+    private static boolean isJava11OrLater()
+    {
+        try {
+            String javaVersion = StandardSystemProperty.JAVA_VERSION.value();
+            if (javaVersion == null) {
+                return false;
+            }
+            return Integer.parseInt(javaVersion.split("\\.")[0]) >= 11;
+        }
+        catch (NumberFormatException e) {
+            return false;
+        }
     }
 }

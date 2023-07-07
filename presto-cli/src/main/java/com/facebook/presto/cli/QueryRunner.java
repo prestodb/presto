@@ -14,7 +14,6 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.client.SocketChannelSocketFactory;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.net.HostAndPort;
 import okhttp3.OkHttpClient;
@@ -29,6 +28,7 @@ import static com.facebook.presto.client.ClientSession.stripTransactionId;
 import static com.facebook.presto.client.GCSOAuthInterceptor.GCS_CREDENTIALS_PATH_KEY;
 import static com.facebook.presto.client.GCSOAuthInterceptor.GCS_OAUTH_SCOPES_KEY;
 import static com.facebook.presto.client.OkHttpUtil.basicAuth;
+import static com.facebook.presto.client.OkHttpUtil.forceHttp11OnJava11OrLater;
 import static com.facebook.presto.client.OkHttpUtil.setupCookieJar;
 import static com.facebook.presto.client.OkHttpUtil.setupGCSOauth;
 import static com.facebook.presto.client.OkHttpUtil.setupHttpProxy;
@@ -76,7 +76,8 @@ public class QueryRunner
 
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
 
-        builder.socketFactory(new SocketChannelSocketFactory());
+        // Avoids threads hanging using http2 on java 11 or later
+        forceHttp11OnJava11OrLater(builder);
 
         setupTimeouts(builder, 30, SECONDS);
         setupCookieJar(builder);

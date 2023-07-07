@@ -28,6 +28,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.client.OkHttpUtil.forceHttp11OnJava11OrLater;
 import static com.facebook.presto.client.OkHttpUtil.userAgent;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.Integer.parseInt;
@@ -42,10 +43,7 @@ public class PrestoDriver
 
     private static final String DRIVER_URL_START = "jdbc:presto:";
 
-    private final OkHttpClient httpClient = new OkHttpClient.Builder()
-            .addInterceptor(userAgent(DRIVER_NAME + "/" + DRIVER_VERSION))
-            .socketFactory(new SocketChannelSocketFactory())
-            .build();
+    private final OkHttpClient httpClient = buildHttpClient();
 
     static {
         String version = nullToEmpty(PrestoDriver.class.getPackage().getImplementationVersion());
@@ -136,5 +134,15 @@ public class PrestoDriver
     {
         // TODO: support java.util.Logging
         throw new SQLFeatureNotSupportedException();
+    }
+
+    private static OkHttpClient buildHttpClient()
+    {
+        OkHttpClient.Builder builder = new OkHttpClient.Builder()
+                .addInterceptor(userAgent(DRIVER_NAME + '/' + DRIVER_VERSION))
+                .socketFactory(new SocketChannelSocketFactory());
+        // Avoids threads hanging using http2 on java 11 or later
+        forceHttp11OnJava11OrLater(builder);
+        return builder.build();
     }
 }
