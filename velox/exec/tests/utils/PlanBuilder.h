@@ -234,12 +234,15 @@ class PlanBuilder {
   /// inputColumns. The names may or may not match. tableColumnNames[i]
   /// corresponds to inputColumns[i].
   /// @param insertHandle Connector-specific table handle.
+  /// @param aggregationNode Optional aggregation node for collecting column
+  /// statistics.
   /// @param rowCountColumnName The name of the output column containing the
   /// number of rows written.
   PlanBuilder& tableWrite(
       const RowTypePtr& inputColumns,
       const std::vector<std::string>& tableColumnNames,
       const std::shared_ptr<core::InsertTableHandle>& insertHandle,
+      const std::shared_ptr<core::AggregationNode>& aggregationNode,
       connector::CommitStrategy commitStrategy =
           connector::CommitStrategy::kNoCommit,
       const std::string& rowCountColumnName = "rowCount");
@@ -249,11 +252,14 @@ class PlanBuilder {
   ///
   /// @param tableColumnNames Column names in the target table.
   /// @param insertHandle Connector-specific table handle.
+  /// @param aggregationNode Optional aggregation node for collecting column
+  /// statistics.
   /// @param rowCountColumnName The name of the output column containing the
   /// number of rows written.
   PlanBuilder& tableWrite(
       const std::vector<std::string>& tableColumnNames,
       const std::shared_ptr<core::InsertTableHandle>& insertHandle,
+      const std::shared_ptr<core::AggregationNode>& aggregationNode,
       connector::CommitStrategy commitStrategy =
           connector::CommitStrategy::kNoCommit,
       const std::string& rowCountColumnName = "rowCount");
@@ -263,11 +269,14 @@ class PlanBuilder {
   ///
   /// @param tableColumnNames Column names in the target table.
   /// @param insertHandle Connector-specific table handle.
+  /// @param aggregationNode Optional aggregation node for collecting column
+  /// statistics.
   /// @param outputType The output type of table writer node.
   PlanBuilder& tableWrite(
       const RowTypePtr& inputColumns,
       const std::vector<std::string>& tableColumnNames,
       const std::shared_ptr<core::InsertTableHandle>& insertHandle,
+      const std::shared_ptr<core::AggregationNode>& aggregationNode,
       connector::CommitStrategy commitStrategy,
       const RowTypePtr outputType);
 

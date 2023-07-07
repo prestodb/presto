@@ -1528,6 +1528,9 @@ folly::dynamic TableWriteNode::serialize() const {
       insertTableHandle_->connectorInsertTableHandle()->serialize();
   obj["outputType"] = outputType_->serialize();
   obj["commitStrategy"] = connector::commitStrategyToString(commitStrategy_);
+  if (aggregationNode_ != nullptr) {
+    obj["aggregationNode"] = aggregationNode_->serialize();
+  }
   return obj;
 }
 
@@ -1546,6 +1549,11 @@ PlanNodePtr TableWriteNode::create(const folly::dynamic& obj, void* context) {
   auto commitStrategy =
       connector::stringToCommitStrategy(obj["commitStrategy"].asString());
   auto source = ISerializable::deserialize<PlanNode>(obj["sources"]);
+  std::shared_ptr<AggregationNode> aggregationNode;
+  if (obj.count("aggregationNode") != 0) {
+    aggregationNode = std::const_pointer_cast<AggregationNode>(
+        ISerializable::deserialize<AggregationNode>(obj["aggregationNode"]));
+  }
   return std::make_shared<TableWriteNode>(
       id,
       columns,
@@ -1554,6 +1562,7 @@ PlanNodePtr TableWriteNode::create(const folly::dynamic& obj, void* context) {
           connectorId, connectorInsertTableHandle),
       outputType,
       commitStrategy,
+      aggregationNode,
       source);
 }
 

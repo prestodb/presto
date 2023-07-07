@@ -475,76 +475,6 @@ class TableScanNode : public PlanNode {
           assignments_;
 };
 
-class TableWriteNode : public PlanNode {
- public:
-  TableWriteNode(
-      const PlanNodeId& id,
-      const RowTypePtr& columns,
-      const std::vector<std::string>& columnNames,
-      const std::shared_ptr<InsertTableHandle>& insertTableHandle,
-      RowTypePtr outputType,
-      connector::CommitStrategy commitStrategy,
-      const PlanNodePtr& source)
-      : PlanNode(id),
-        sources_{source},
-        columns_{columns},
-        columnNames_{columnNames},
-        insertTableHandle_(insertTableHandle),
-        outputType_(std::move(outputType)),
-        commitStrategy_(commitStrategy) {
-    VELOX_CHECK_EQ(columns->size(), columnNames.size());
-    for (const auto& column : columns->names()) {
-      VELOX_CHECK(source->outputType()->containsChild(column));
-    }
-  }
-
-  const std::vector<PlanNodePtr>& sources() const override {
-    return sources_;
-  }
-
-  const RowTypePtr& outputType() const override {
-    return outputType_;
-  }
-
-  // The subset of columns in the output of the source node, potentially in
-  // different order, to write to the table.
-  const RowTypePtr& columns() const {
-    return columns_;
-  }
-
-  // Column names to use when writing the table. This vector is aligned with
-  // 'columns' vector.
-  const std::vector<std::string>& columnNames() const {
-    return columnNames_;
-  }
-
-  const std::shared_ptr<InsertTableHandle>& insertTableHandle() const {
-    return insertTableHandle_;
-  }
-
-  connector::CommitStrategy commitStrategy() const {
-    return commitStrategy_;
-  }
-
-  std::string_view name() const override {
-    return "TableWrite";
-  }
-
-  folly::dynamic serialize() const override;
-
-  static PlanNodePtr create(const folly::dynamic& obj, void* context);
-
- private:
-  void addDetails(std::stringstream& stream) const override;
-
-  const std::vector<PlanNodePtr> sources_;
-  const RowTypePtr columns_;
-  const std::vector<std::string> columnNames_;
-  const std::shared_ptr<InsertTableHandle> insertTableHandle_;
-  const RowTypePtr outputType_;
-  const connector::CommitStrategy commitStrategy_;
-};
-
 class AggregationNode : public PlanNode {
  public:
   enum class Step {
@@ -708,6 +638,112 @@ class AggregationNode : public PlanNode {
   const bool ignoreNullKeys_;
   const std::vector<PlanNodePtr> sources_;
   const RowTypePtr outputType_;
+};
+
+class TableWriteNode : public PlanNode {
+ public:
+  TableWriteNode(
+      const PlanNodeId& id,
+      const RowTypePtr& columns,
+      const std::vector<std::string>& columnNames,
+      const std::shared_ptr<InsertTableHandle>& insertTableHandle,
+      RowTypePtr outputType,
+      connector::CommitStrategy commitStrategy,
+      std::shared_ptr<AggregationNode> aggregationNode,
+      const PlanNodePtr& source)
+      : PlanNode(id),
+        sources_{source},
+        columns_{columns},
+        columnNames_{columnNames},
+        insertTableHandle_(insertTableHandle),
+        outputType_(std::move(outputType)),
+        commitStrategy_(commitStrategy),
+        aggregationNode_(std::move(aggregationNode)) {
+    VELOX_CHECK_EQ(columns->size(), columnNames.size());
+    for (const auto& column : columns->names()) {
+      VELOX_CHECK(source->outputType()->containsChild(column));
+    }
+  }
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  TableWriteNode(
+      const PlanNodeId& id,
+      const RowTypePtr& columns,
+      const std::vector<std::string>& columnNames,
+      const std::shared_ptr<InsertTableHandle>& insertTableHandle,
+      RowTypePtr outputType,
+      connector::CommitStrategy commitStrategy,
+      const PlanNodePtr& source)
+      : PlanNode(id),
+        sources_{source},
+        columns_{columns},
+        columnNames_{columnNames},
+        insertTableHandle_(insertTableHandle),
+        outputType_(std::move(outputType)),
+        commitStrategy_(commitStrategy) {
+    TableWriteNode(
+        id,
+        columns,
+        columnNames,
+        insertTableHandle,
+        outputType,
+        commitStrategy,
+        nullptr,
+        source);
+  }
+#endif
+
+  const std::vector<PlanNodePtr>& sources() const override {
+    return sources_;
+  }
+
+  const RowTypePtr& outputType() const override {
+    return outputType_;
+  }
+
+  // The subset of columns in the output of the source node, potentially in
+  // different order, to write to the table.
+  const RowTypePtr& columns() const {
+    return columns_;
+  }
+
+  // Column names to use when writing the table. This vector is aligned with
+  // 'columns' vector.
+  const std::vector<std::string>& columnNames() const {
+    return columnNames_;
+  }
+
+  const std::shared_ptr<InsertTableHandle>& insertTableHandle() const {
+    return insertTableHandle_;
+  }
+
+  connector::CommitStrategy commitStrategy() const {
+    return commitStrategy_;
+  }
+
+  // Optional aggregation node for column statistics collection
+  std::shared_ptr<AggregationNode> aggregationNode() const {
+    return aggregationNode_;
+  }
+
+  std::string_view name() const override {
+    return "TableWrite";
+  }
+
+  folly::dynamic serialize() const override;
+
+  static PlanNodePtr create(const folly::dynamic& obj, void* context);
+
+ private:
+  void addDetails(std::stringstream& stream) const override;
+
+  const std::vector<PlanNodePtr> sources_;
+  const RowTypePtr columns_;
+  const std::vector<std::string> columnNames_;
+  const std::shared_ptr<InsertTableHandle> insertTableHandle_;
+  const RowTypePtr outputType_;
+  const connector::CommitStrategy commitStrategy_;
+  const std::shared_ptr<AggregationNode> aggregationNode_;
 };
 
 inline std::ostream& operator<<(

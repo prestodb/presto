@@ -182,6 +182,7 @@ struct TableWriteNodeReader {
         node.insertTableHandle(),
         node.outputType(),
         node.commitStrategy(),
+        node.aggregationNode(),
         node.sources()[0]);
   }
 };

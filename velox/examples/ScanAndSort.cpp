@@ -125,6 +125,7 @@ int main(int argc, char** argv) {
                       {},
                       HiveConnectorTestBase::makeLocationHandle(
                           tempDir->path))),
+              nullptr,
               connector::CommitStrategy::kNoCommit)
           .planFragment();
 

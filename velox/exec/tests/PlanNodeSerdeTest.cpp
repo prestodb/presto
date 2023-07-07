@@ -459,10 +459,30 @@ TEST_F(PlanNodeSerdeTest, write) {
           tableColumnNames, tableColumnTypes, {"c2"}, locationHandle);
   auto insertHandle =
       std::make_shared<core::InsertTableHandle>("id", hiveInsertTableHandle);
+
+  core::TypedExprPtr inputField =
+      std::make_shared<const core::FieldAccessTypedExpr>(BIGINT(), "c0");
+  auto callExpr = std::make_shared<const core::CallTypedExpr>(
+      BIGINT(),
+      std::vector<core::TypedExprPtr>{inputField},
+      "presto.default.min");
+  std::vector<std::string> aggregateNames = {"min"};
+  std::vector<core::AggregationNode::Aggregate> aggregates = {
+      core::AggregationNode::Aggregate{callExpr, nullptr, {}, {}}};
+  auto aggregationNode = std::make_shared<core::AggregationNode>(
+      core::PlanNodeId(),
+      core::AggregationNode::Step::kPartial,
+      std::vector<core::FieldAccessTypedExprPtr>{},
+      std::vector<core::FieldAccessTypedExprPtr>{},
+      aggregateNames,
+      aggregates,
+      false, // ignoreNullKeys
+      planBuilder.planNode());
   auto plan = planBuilder
                   .tableWrite(
                       tableColumnNames,
                       insertHandle,
+                      aggregationNode,
                       connector::CommitStrategy::kTaskCommit,
                       "rows")
                   .planNode();

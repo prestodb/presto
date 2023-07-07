@@ -278,12 +278,14 @@ PlanBuilder& PlanBuilder::filter(const std::string& filter) {
 PlanBuilder& PlanBuilder::tableWrite(
     const std::vector<std::string>& tableColumnNames,
     const std::shared_ptr<core::InsertTableHandle>& insertHandle,
+    const std::shared_ptr<core::AggregationNode>& aggregationNode,
     CommitStrategy commitStrategy,
     const std::string& rowCountColumnName) {
   return tableWrite(
       planNode_->outputType(),
       tableColumnNames,
       insertHandle,
+      aggregationNode,
       commitStrategy,
       rowCountColumnName);
 }
@@ -292,6 +294,7 @@ PlanBuilder& PlanBuilder::tableWrite(
     const RowTypePtr& inputColumns,
     const std::vector<std::string>& tableColumnNames,
     const std::shared_ptr<core::InsertTableHandle>& insertHandle,
+    const std::shared_ptr<core::AggregationNode>& aggregationNode,
     CommitStrategy commitStrategy,
     const std::string& rowCountColumnName) {
   auto outputType = ROW({rowCountColumnName}, {BIGINT()});
@@ -302,6 +305,7 @@ PlanBuilder& PlanBuilder::tableWrite(
       insertHandle,
       outputType,
       commitStrategy,
+      aggregationNode,
       planNode_);
   return *this;
 }
@@ -310,6 +314,7 @@ PlanBuilder& PlanBuilder::tableWrite(
     const RowTypePtr& inputColumns,
     const std::vector<std::string>& tableColumnNames,
     const std::shared_ptr<core::InsertTableHandle>& insertHandle,
+    const std::shared_ptr<core::AggregationNode>& aggregationNode,
     CommitStrategy commitStrategy,
     RowTypePtr outputType) {
   planNode_ = std::make_shared<core::TableWriteNode>(
@@ -319,6 +324,7 @@ PlanBuilder& PlanBuilder::tableWrite(
       insertHandle,
       outputType,
       commitStrategy,
+      aggregationNode,
       planNode_);
   return *this;
 }

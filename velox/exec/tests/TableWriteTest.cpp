@@ -346,6 +346,7 @@ class TableWriteTest : public HiveConnectorTestBase {
                 partitionedBy,
                 bucketProperty,
                 fileFormat),
+            nullptr,
             outputCommitStrategy,
             "rows")
         .project({"rows"})
@@ -882,6 +883,7 @@ TEST_P(AllTableWriterTest, scanFilterProjectWrite) {
                               partitionedBy_,
                               bucketProperty_,
                               makeLocationHandle(outputDirectory->path))),
+                      nullptr,
                       commitStrategy_,
                       "rows")
                   .project({"rows"})
@@ -944,6 +946,7 @@ TEST_P(AllTableWriterTest, renameAndReorderColumns) {
                               partitionedBy_,
                               bucketProperty_,
                               makeLocationHandle(outputDirectory->path))),
+                      nullptr,
                       commitStrategy_,
                       "rows")
                   .project({"rows"})
@@ -1669,6 +1672,7 @@ TEST_P(AllTableWriterTest, tableWriteOutputCheck) {
                               partitionedBy_,
                               bucketProperty_,
                               makeLocationHandle(outputDirectory->path))),
+                      nullptr,
                       commitStrategy_,
                       writerOutputType)
                   .planNode();
