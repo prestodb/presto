@@ -153,7 +153,7 @@ pipeline {
                     }
                 }
                 
-                stage('Docker Native Build') {
+                stage('Docker Native Build2') {
                     steps {
                         echo "Building ${DOCKER_NATIVE_IMAGE}"
                         withCredentials([[
