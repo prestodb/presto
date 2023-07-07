@@ -290,6 +290,24 @@ TEST_F(ParquetReaderTest, intMultipleFilters) {
       expected);
 }
 
+// This test is to verify filterRowGroups() doesn't throw the fileOffset Velox
+// check failure
+TEST_F(ParquetReaderTest, filterRowGroups) {
+  // decimal_no_ColumnMetadata.parquet has one columns a: DECIMAL(9,1). It
+  // doesn't have ColumnMetaData, and rowGroups_[0].columns[0].file_offset is 0.
+  auto rowType = ROW({"_c0"}, {DECIMAL(9, 1)});
+  ReaderOptions readerOpts{defaultPool.get()};
+  const std::string decimal_dict(
+      getExampleFilePath("decimal_no_ColumnMetadata.parquet"));
+
+  ParquetReader reader = createReader(decimal_dict, readerOpts);
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setScanSpec(makeScanSpec(rowType));
+  auto rowReader = reader.createRowReader(rowReaderOpts);
+
+  EXPECT_EQ(reader.numberOfRows(), 10ULL);
+}
+
 TEST_F(ParquetReaderTest, parseLongTagged) {
   // This is a case for long with annonation read
   const std::string sample(getExampleFilePath("tagged_long.parquet"));
