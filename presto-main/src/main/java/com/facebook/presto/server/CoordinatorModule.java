@@ -189,6 +189,7 @@ public class CoordinatorModule
 
         // dispatcher
         binder.bind(DispatchManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(DispatchManager.class).withGeneratedName();
         binder.bind(FailedDispatchQueryFactory.class).in(Scopes.SINGLETON);
         binder.bind(DispatchExecutor.class).in(Scopes.SINGLETON);
         newExporter(binder).export(DispatchExecutor.class).withGeneratedName();
