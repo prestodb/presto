@@ -27,6 +27,16 @@ message(STATUS "Building simdjson from source")
 FetchContent_Declare(
   simdjson
   URL ${VELOX_SIMDJSON_SOURCE_URL}
-  URL_HASH ${VELOX_SIMDJSON_BUILD_SHA256_CHECKSUM})
+  URL_HASH ${VELOX_SIMDJSON_BUILD_SHA256_CHECKSUM}
+  SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/simdjson-src/simdjson)
 
-FetchContent_MakeAvailable(simdjson)
+# When simdjson is built with cmake it places simdjson/singleheader/simdjson.h
+# at the root so files simply depend on simdjson.h.  This breaks building with
+# systems other than cmake. This hack makes it so that simdjson.h can
+# consistently be found at simdjson/singleheader/simdjson.h.
+FetchContent_Populate(simdjson)
+
+add_library(simdjson INTERFACE)
+target_sources(simdjson
+               INTERFACE ${simdjson_SOURCE_DIR}/singleheader/simdjson.cpp)
+target_include_directories(simdjson INTERFACE ${simdjson_SOURCE_DIR}/..)
