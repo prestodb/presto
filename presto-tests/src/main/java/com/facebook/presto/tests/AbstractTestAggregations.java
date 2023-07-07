@@ -768,42 +768,42 @@ public abstract class AbstractTestAggregations
     public void testSumDataSizeForStats()
     {
         // varchar
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(comment) FROM orders", "SELECT sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"sum_data_size_for_stats\"(comment) FROM orders", "SELECT sum(length(comment)) FROM orders");
 
         // char
         // Presto removes trailing whitespaces when casting to CHAR.
         // Hard code the expected data size since there is no easy to way to compute it in H2.
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(CAST(comment AS CHAR(1000))) FROM orders", "SELECT 725468");
+        assertQuery("SELECT \"sum_data_size_for_stats\"(CAST(comment AS CHAR(1000))) FROM orders", "SELECT 725468");
 
         // varbinary
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(CAST(comment AS VARBINARY)) FROM orders", "SELECT sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"sum_data_size_for_stats\"(CAST(comment AS VARBINARY)) FROM orders", "SELECT sum(length(comment)) FROM orders");
 
         // array
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ARRAY[comment]) FROM orders", "SELECT sum(length(comment)) FROM orders");
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ARRAY[comment, comment]) FROM orders", "SELECT 2 * sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"sum_data_size_for_stats\"(ARRAY[comment]) FROM orders", "SELECT sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"sum_data_size_for_stats\"(ARRAY[comment, comment]) FROM orders", "SELECT 2 * sum(length(comment)) FROM orders");
 
         // map
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(map(ARRAY[1], ARRAY[comment])) FROM orders", "SELECT 4 * count(*) + sum(length(comment)) FROM orders");
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(map(ARRAY[1, 2], ARRAY[comment, comment])) FROM orders", "SELECT 2 * 4 * count(*) + 2 * sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"sum_data_size_for_stats\"(map(ARRAY[1], ARRAY[comment])) FROM orders", "SELECT 4 * count(*) + sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"sum_data_size_for_stats\"(map(ARRAY[1, 2], ARRAY[comment, comment])) FROM orders", "SELECT 2 * 4 * count(*) + 2 * sum(length(comment)) FROM orders");
 
         // row
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ROW(comment)) FROM orders", "SELECT sum(length(comment)) FROM orders");
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ROW(comment, comment)) FROM orders", "SELECT 2 * sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"sum_data_size_for_stats\"(ROW(comment)) FROM orders", "SELECT sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"sum_data_size_for_stats\"(ROW(comment, comment)) FROM orders", "SELECT 2 * sum(length(comment)) FROM orders");
     }
 
     @Test
     public void testMaxDataSizeForStats()
     {
         // varchar
-        assertQuery("SELECT \"$internal$max_data_size_for_stats\"(comment) FROM orders", "SELECT max(length(comment)) FROM orders");
+        assertQuery("SELECT \"max_data_size_for_stats\"(comment) FROM orders", "SELECT max(length(comment)) FROM orders");
 
         // char
-        assertQuery("SELECT \"$internal$max_data_size_for_stats\"(CAST(comment AS CHAR(1000))) FROM orders", "SELECT max(length(comment)) FROM orders");
+        assertQuery("SELECT \"max_data_size_for_stats\"(CAST(comment AS CHAR(1000))) FROM orders", "SELECT max(length(comment)) FROM orders");
 
         // varbinary
-        assertQuery("SELECT \"$internal$max_data_size_for_stats\"(CAST(comment AS VARBINARY)) FROM orders", "SELECT max(length(comment)) FROM orders");
+        assertQuery("SELECT \"max_data_size_for_stats\"(CAST(comment AS VARBINARY)) FROM orders", "SELECT max(length(comment)) FROM orders");
 
-        // $internal$max_data_size_for_stats is not needed for array, map and row
+        // max_data_size_for_stats is not needed for array, map and row
     }
 
     @Test
