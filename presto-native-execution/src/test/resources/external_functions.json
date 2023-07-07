@@ -85,6 +85,82 @@
           "isOrderSensitive": false
         }
       }
+    ],
+    "avg_partial": [
+      {
+        "docString": "Partial companion function of avg, returning accumulator structs {sum, count} of input integers",
+        "functionKind": "AGGREGATE",
+        "outputType": "ROW(DOUBLE, BIGINT)",
+        "paramTypes": [
+          "INTEGER"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        },
+        "aggregateMetadata": {
+          "intermediateType": "ROW(DOUBLE, BIGINT)",
+          "isOrderSensitive": false
+        }
+      }
+    ],
+    "avg_merge": [
+      {
+        "docString": "Merge companion function of avg, returning merged accumulator structs {sum, count}",
+        "functionKind": "AGGREGATE",
+        "outputType": "ROW(DOUBLE, BIGINT)",
+        "paramTypes": [
+          "ROW(DOUBLE, BIGINT)"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        },
+        "aggregateMetadata": {
+          "intermediateType": "ROW(DOUBLE, BIGINT)",
+          "isOrderSensitive": false
+        }
+      }
+    ],
+    "avg_merge_extract_double": [
+      {
+        "docString": "Merge-extract companion function of avg, merging input accumulator structs {sum, count} and returning the averages",
+        "functionKind": "AGGREGATE",
+        "outputType": "DOUBLE",
+        "paramTypes": [
+          "ROW(sum DOUBLE, count BIGINT)"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        },
+        "aggregateMetadata": {
+          "intermediateType": "ROW(DOUBLE, BIGINT)",
+          "isOrderSensitive": false
+        }
+      }
+    ],
+    "avg_extract_double":[
+      {
+        "docString":"Extract companion function of avg, returning the averages from input accumulator structs {sum, count}",
+        "functionKind": "SCALAR",
+        "outputType": "DOUBLE",
+        "paramTypes":[
+          "ROW(DOUBLE, BIGINT)"
+        ],
+        "schema":"test_schema",
+        "routineCharacteristics": {
+          "language":"CPP",
+          "determinism":"DETERMINISTIC",
+          "nullCallClause":"CALLED_ON_NULL_INPUT"
+        }
+      }
     ]
   }
 }

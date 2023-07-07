@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -124,5 +125,47 @@ public class TestPrestoSparkNativeSimpleQueries
 
         assertQuery("SELECT json.test_schema.map(json.test_schema.array_constructor(linenumber), json.test_schema.array_constructor(linenumber)) FROM lineitem", "SELECT map(array_constructor(linenumber), array_constructor(linenumber)) FROM lineitem");
         assertQuery("SELECT json.test_schema.map_entries(json.test_schema.map(json.test_schema.array_constructor(linenumber), json.test_schema.array_constructor(linenumber))) FROM lineitem", "SELECT map_entries(map(array_constructor(linenumber), array_constructor(linenumber))) FROM lineitem");
+    }
+
+    /**
+     * Test aggregation using companion functions with partial and final aggregation steps handled by separate queries.
+     * The first query computes partial aggregation states and stores them in the avg_partial_states table.
+     * Subsequent queries read from avg_partial_states and aggregate the states to the final result.
+     */
+    @Test
+    public void testAggregationCompanionFunction()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty("table_writer_merge_operator_enabled", "false")
+                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
+                .setCatalogSessionProperty("hive", "optimized_partition_update_serialization_enabled", "false")
+                .build();
+        try {
+            getQueryRunner().execute(session,
+                    "CREATE TABLE avg_partial_states AS ( "
+                            + "SELECT orderpriority, cast(json.test_schema.avg_partial(shippriority) as ROW(sum DOUBLE, count BIGINT)) as states "
+                            + "FROM orders "
+                            + "GROUP BY orderstatus, orderpriority "
+                            + ")");
+
+            // Test group-by aggregation.
+            assertQuery(
+                    "SELECT orderpriority, json.test_schema.avg_merge_extract_double(states) FROM avg_partial_states GROUP BY orderpriority",
+                    "SELECT orderpriority, avg(shippriority) FROM orders GROUP BY orderpriority");
+            assertQuery(
+                    "SELECT orderpriority, json.test_schema.avg_extract_double(json.test_schema.avg_merge(states)) FROM avg_partial_states GROUP BY orderpriority",
+                    "SELECT orderpriority, avg(shippriority) FROM orders GROUP BY orderpriority");
+
+            // Test global aggregation.
+            assertQuery(
+                    "SELECT json.test_schema.avg_merge_extract_double(states) FROM avg_partial_states",
+                    "SELECT avg(shippriority) FROM orders");
+            assertQuery(
+                    "SELECT json.test_schema.avg_extract_double(json.test_schema.avg_merge(states)) FROM avg_partial_states",
+                    "SELECT avg(shippriority) FROM orders");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS avg_partial_states");
+        }
     }
 }
