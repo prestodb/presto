@@ -95,6 +95,20 @@ struct CudaStreamDestroyDeleter {
 template <typename T>
 using CudaPtr = std::unique_ptr<T, detail::CudaFreeDeleter<T>>;
 
+template <typename T>
+CudaPtr<T[]> allocateDeviceMemory(size_t count) {
+  T* ptr;
+  CUDA_CHECK_FATAL(cudaMalloc(&ptr, count * sizeof(T)));
+  return CudaPtr<T[]>(ptr);
+}
+
+template <typename T>
+CudaPtr<T> allocateManagedMemory() {
+  T* ptr;
+  CUDA_CHECK_FATAL(cudaMallocManaged(&ptr, sizeof(T)));
+  return CudaPtr<T>(ptr);
+}
+
 using CudaEvent = std::unique_ptr<CUevent_st, detail::CudaEventDestroyDeleter>;
 
 inline CudaEvent createCudaEvent() {
