@@ -2008,6 +2008,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       insertTableHandle,
       outputType,
       getCommitStrategy(),
+      nullptr,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
