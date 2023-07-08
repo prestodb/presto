@@ -640,6 +640,28 @@ class AggregationNode : public PlanNode {
   const RowTypePtr outputType_;
 };
 
+inline std::ostream& operator<<(
+    std::ostream& out,
+    const AggregationNode::Step& step) {
+  switch (step) {
+    case AggregationNode::Step::kFinal:
+      return out << "FINAL";
+    case AggregationNode::Step::kIntermediate:
+      return out << "INTERMEDIATE";
+    case AggregationNode::Step::kPartial:
+      return out << "PARTIAL";
+    case AggregationNode::Step::kSingle:
+      return out << "SINGLE";
+  }
+  VELOX_UNREACHABLE();
+}
+
+inline std::string mapAggregationStepToName(const AggregationNode::Step& step) {
+  std::stringstream ss;
+  ss << step;
+  return ss.str();
+}
+
 class TableWriteNode : public PlanNode {
  public:
   TableWriteNode(
@@ -746,27 +768,41 @@ class TableWriteNode : public PlanNode {
   const std::shared_ptr<AggregationNode> aggregationNode_;
 };
 
-inline std::ostream& operator<<(
-    std::ostream& out,
-    const AggregationNode::Step& step) {
-  switch (step) {
-    case AggregationNode::Step::kFinal:
-      return out << "FINAL";
-    case AggregationNode::Step::kIntermediate:
-      return out << "INTERMEDIATE";
-    case AggregationNode::Step::kPartial:
-      return out << "PARTIAL";
-    case AggregationNode::Step::kSingle:
-      return out << "SINGLE";
-  }
-  VELOX_UNREACHABLE();
-}
+class TableWriteMergeNode : public PlanNode {
+ public:
+  /// 'outputType' specifies the type to store the metadata of table write
+  /// output which contains the following columns: 'numWrittenRows', 'fragment'
+  /// and 'tableCommitContext'.
+  TableWriteMergeNode(
+      const PlanNodeId& id,
+      RowTypePtr outputType,
+      PlanNodePtr source)
+      : PlanNode(id),
+        sources_{std::move(source)},
+        outputType_(std::move(outputType)) {}
 
-inline std::string mapAggregationStepToName(const AggregationNode::Step& step) {
-  std::stringstream ss;
-  ss << step;
-  return ss.str();
-}
+  const std::vector<PlanNodePtr>& sources() const override {
+    return sources_;
+  }
+
+  const RowTypePtr& outputType() const override {
+    return outputType_;
+  }
+
+  std::string_view name() const override {
+    return "TableWriteMerge";
+  }
+
+  folly::dynamic serialize() const override;
+
+  static PlanNodePtr create(const folly::dynamic& obj, void* context);
+
+ private:
+  void addDetails(std::stringstream& stream) const override;
+
+  const std::vector<PlanNodePtr> sources_;
+  const RowTypePtr outputType_;
+};
 
 /// Plan node used to implement aggregations over grouping sets. Duplicates the
 /// aggregation input for each set of grouping keys. The output contains one
@@ -1114,7 +1150,7 @@ class PartitionedOutputNode : public PlanNode {
         replicateNullsAndAny_(replicateNullsAndAny),
         partitionFunctionSpec_(std::move(partitionFunctionSpec)),
         outputType_(std::move(outputType)) {
-    VELOX_CHECK(numPartitions > 0, "numPartitions must be greater than zero");
+    VELOX_CHECK_GT(numPartitions, 0);
     if (numPartitions == 1) {
       VELOX_CHECK(
           keys_.empty(),

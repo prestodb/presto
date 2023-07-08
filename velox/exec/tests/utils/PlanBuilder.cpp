@@ -329,6 +329,15 @@ PlanBuilder& PlanBuilder::tableWrite(
   return *this;
 }
 
+PlanBuilder& PlanBuilder::tableWriteMerge() {
+  static const auto writeMergeOutputType =
+      ROW({"numWrittenRows", "fragment", "tableCommitContext"},
+          {BIGINT(), VARBINARY(), VARBINARY()});
+  planNode_ = std::make_shared<core::TableWriteMergeNode>(
+      nextPlanNodeId(), writeMergeOutputType, planNode_);
+  return *this;
+}
+
 namespace {
 
 std::string throwAggregateFunctionDoesntExist(const std::string& name) {

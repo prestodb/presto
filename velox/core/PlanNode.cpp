@@ -1566,6 +1566,27 @@ PlanNodePtr TableWriteNode::create(const folly::dynamic& obj, void* context) {
       source);
 }
 
+void TableWriteMergeNode::addDetails(std::stringstream& /* stream */) const {}
+
+folly::dynamic TableWriteMergeNode::serialize() const {
+  auto obj = PlanNode::serialize();
+  VELOX_CHECK_EQ(
+      sources_.size(), 1, "TableWriteMergeNode can only have one source");
+  obj["sources"] = sources_.front()->serialize();
+  obj["outputType"] = outputType_->serialize();
+  return obj;
+}
+
+// static
+PlanNodePtr TableWriteMergeNode::create(
+    const folly::dynamic& obj,
+    void* /*unused*/) {
+  auto id = obj["id"].asString();
+  auto outputType = deserializeRowType(obj["outputType"]);
+  auto source = ISerializable::deserialize<PlanNode>(obj["sources"]);
+  return std::make_shared<TableWriteMergeNode>(id, outputType, source);
+}
+
 void MergeExchangeNode::addDetails(std::stringstream& stream) const {
   addSortingKeys(sortingKeys_, sortingOrders_, stream);
 }
@@ -1877,6 +1898,7 @@ void PlanNode::registerSerDe() {
   registry.Register("RowNumberNode", RowNumberNode::create);
   registry.Register("TableScanNode", TableScanNode::create);
   registry.Register("TableWriteNode", TableWriteNode::create);
+  registry.Register("TableWriteMergeNode", TableWriteMergeNode::create);
   registry.Register("TopNNode", TopNNode::create);
   registry.Register("TopNRowNumberNode", TopNRowNumberNode::create);
   registry.Register("UnnestNode", UnnestNode::create);

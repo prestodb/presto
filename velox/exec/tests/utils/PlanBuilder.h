@@ -280,6 +280,9 @@ class PlanBuilder {
       connector::CommitStrategy commitStrategy,
       const RowTypePtr outputType);
 
+  /// Add a TableWriteMergeNode.
+  PlanBuilder& tableWriteMerge();
+
   /// Add an AggregationNode representing partial aggregation with the
   /// specified grouping keys, aggregates and optional masks.
   ///
