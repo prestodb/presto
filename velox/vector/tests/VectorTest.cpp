@@ -1252,8 +1252,7 @@ TEST_F(VectorTest, wrapInConstantWithCopy) {
       std::dynamic_pointer_cast<ConstantVector<ComplexType>>(
           BaseVector::wrapInConstant(size, 22, constBaseVector, true));
   EXPECT_NE(constArrayVector->valueVector(), nullptr);
-  // This is 2 because valueVector() doesn't return a reference.
-  EXPECT_EQ(constArrayVector->valueVector().use_count(), 2);
+  EXPECT_TRUE(constArrayVector->valueVector().unique());
   for (auto i = 0; i < size; i++) {
     ASSERT_FALSE(constArrayVector->isNullAt(i));
     ASSERT_TRUE(constArrayVector->equalValueAt(arrayVector.get(), i, 3));
@@ -1265,8 +1264,7 @@ TEST_F(VectorTest, wrapInConstantWithCopy) {
   constArrayVector = std::dynamic_pointer_cast<ConstantVector<ComplexType>>(
       BaseVector::wrapInConstant(size, 22, constBaseVector, true));
   EXPECT_NE(constArrayVector->valueVector(), nullptr);
-  // This is 2 because valueVector() doesn't return a reference.
-  EXPECT_EQ(constArrayVector->valueVector().use_count(), 2);
+  EXPECT_TRUE(constArrayVector->valueVector().unique());
   for (auto i = 0; i < size; i++) {
     ASSERT_TRUE(constArrayVector->isNullAt(i));
   }

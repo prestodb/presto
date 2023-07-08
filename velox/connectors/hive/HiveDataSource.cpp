@@ -627,8 +627,14 @@ std::optional<RowVectorPtr> HiveDataSource::next(
     std::vector<VectorPtr> outputColumns;
     outputColumns.reserve(outputType_->size());
     for (int i = 0; i < outputType_->size(); i++) {
-      outputColumns.emplace_back(exec::wrapChild(
-          rowsRemaining, remainingIndices, rowVector->childAt(i)));
+      auto& child = rowVector->childAt(i);
+      if (remainingIndices) {
+        // Disable dictionary values caching in expression eval so that we don't
+        // need to reallocate the result for every batch.
+        child->disableMemo();
+      }
+      outputColumns.emplace_back(
+          exec::wrapChild(rowsRemaining, remainingIndices, child));
     }
 
     return std::make_shared<RowVector>(

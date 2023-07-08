@@ -108,7 +108,7 @@ class SequenceVector : public SimpleVector<T> {
     return const_cast<SequenceVector<T>*>(this)->loadedVector();
   }
 
-  VectorPtr valueVector() const override {
+  const VectorPtr& valueVector() const override {
     return sequenceValues_;
   }
 

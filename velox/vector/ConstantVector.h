@@ -245,7 +245,7 @@ class ConstantVector final : public SimpleVector<T> {
 
   // Base vector if isScalar() is false (e.g. complex type vector) or if base
   // vector is a lazy vector that hasn't been loaded yet.
-  VectorPtr valueVector() const override {
+  const VectorPtr& valueVector() const override {
     return valueVector_;
   }
 

@@ -21,6 +21,7 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/SuccinctPrinter.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/core/Expressions.h"
 #include "velox/expression/CastExpr.h"
 #include "velox/expression/ConstantExpr.h"
@@ -969,8 +970,11 @@ Expr::PeelEncodingsResult Expr::peelEncodings(
 
   // If the expression depends on one dictionary, results are cacheable.
   bool mayCache = distinctFields_.size() == 1 &&
-      VectorEncoding::isDictionary(context.wrapEncoding());
+      VectorEncoding::isDictionary(context.wrapEncoding()) &&
+      !peeledVectors[0]->memoDisabled();
 
+  common::testutil::TestValue::adjust(
+      "facebook::velox::exec::Expr::peelEncodings::mayCache", &mayCache);
   return {newRows, finalRowsHolder.get(), mayCache};
 }
 

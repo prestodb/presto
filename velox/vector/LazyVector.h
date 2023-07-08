@@ -128,6 +128,7 @@ class LazyVector : public BaseVector {
     BaseVector::length_ = size;
     loader_ = std::move(loader);
     allLoaded_ = false;
+    containsLazyAndIsWrapped_ = false;
   }
 
   inline bool isLoaded() const {

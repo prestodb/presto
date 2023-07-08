@@ -109,7 +109,7 @@ class DictionaryVector : public SimpleVector<T> {
     return indices_;
   }
 
-  VectorPtr valueVector() const override {
+  const VectorPtr& valueVector() const override {
     return dictionaryValues_;
   }
 

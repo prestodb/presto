@@ -16,6 +16,7 @@
 #include "velox/exec/TableScan.h"
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/common/tests/utils/DataFiles.h"
@@ -2549,4 +2550,48 @@ TEST_F(TableScanTest, parallelPrepare) {
     splits.push_back(makeHiveSplit(filePath->path));
   }
   AssertQueryBuilder(plan).splits(splits).copyResults(pool_.get());
+}
+
+TEST_F(TableScanTest, dictionaryMemo) {
+  constexpr int kSize = 100;
+  const char* baseStrings[] = {
+      "qwertyuiopasdfghjklzxcvbnm",
+      "qazwsxedcrfvtgbyhnujmikolp",
+  };
+  auto indices = allocateIndices(kSize, pool_.get());
+  for (int i = 0; i < kSize; ++i) {
+    indices->asMutable<vector_size_t>()[i] = i % 2;
+  }
+  auto dict = BaseVector::wrapInDictionary(
+      nullptr,
+      indices,
+      kSize,
+      makeFlatVector<std::string>({baseStrings[0], baseStrings[1]}));
+  auto rows = makeRowVector({"a", "b"}, {dict, makeRowVector({"c"}, {dict})});
+  auto rowType = asRowType(rows->type());
+  auto file = TempFilePath::create();
+  writeToFile(file->path, {rows});
+  auto plan = PlanBuilder()
+                  .tableScan(rowType, {}, "a like '%m'")
+                  .project({"length(b.c)"})
+                  .planNode();
+#ifndef NDEBUG
+  int numPeelEncodings = 0;
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Expr::peelEncodings::mayCache",
+      std::function<void(bool*)>([&](bool* mayCache) {
+        if (numPeelEncodings++ == 0) {
+          ASSERT_TRUE(*mayCache) << "Memoize string dictionary base";
+        } else {
+          ASSERT_FALSE(*mayCache) << "Do not memoize filter result";
+        }
+      }));
+#endif
+  auto result = AssertQueryBuilder(plan)
+                    .splits({makeHiveSplit(file->path)})
+                    .copyResults(pool_.get());
+  ASSERT_EQ(result->size(), 50);
+#ifndef NDEBUG
+  ASSERT_EQ(numPeelEncodings, 2);
+#endif
 }

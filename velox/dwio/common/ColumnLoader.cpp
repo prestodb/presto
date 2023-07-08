@@ -32,8 +32,10 @@ static void scatter(RowSet rows, VectorPtr* result) {
   for (int32_t i = 0; i < rows.size(); ++i) {
     rawIndices[rows[i]] = i;
   }
-  *result =
-      BaseVector::wrapInDictionary(BufferPtr(nullptr), indices, end, *result);
+  // Disable dictionary values caching in expression eval so that we don't need
+  // to reallocate the result for every batch.
+  result->get()->disableMemo();
+  *result = BaseVector::wrapInDictionary(nullptr, indices, end, *result);
 }
 } // namespace
 

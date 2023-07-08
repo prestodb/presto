@@ -373,6 +373,8 @@ class BaseVector {
     clearNulls(0, size());
   }
 
+  void reuseNulls();
+
   // Sets the size to 'newSize' and ensures there is space for the
   // indicated number of nulls and top level values (eg. values for Flat,
   // indices for Dictionary, etc). Any immutable buffers that need to be resized
@@ -532,7 +534,7 @@ class BaseVector {
   // If 'vector' is a wrapper, returns the underlying values vector. This is
   // virtual and defined here because we must be able to access this in type
   // agnostic code without a switch on all data types.
-  virtual VectorPtr valueVector() const {
+  virtual const VectorPtr& valueVector() const {
     VELOX_UNSUPPORTED("Vector is not a wrapper");
   }
 
@@ -742,6 +744,14 @@ class BaseVector {
     return true;
   }
 
+  bool memoDisabled() const {
+    return memoDisabled_;
+  }
+
+  void disableMemo() {
+    memoDisabled_ = true;
+  }
+
  protected:
   /// Returns a brief summary of the vector. The default implementation includes
   /// encoding, type, number of rows and number of nulls.
@@ -852,6 +862,12 @@ class BaseVector {
   /// vectors. This would ensure we avoid it being loaded for two separate set
   /// of rows.
   bool containsLazyAndIsWrapped_{false};
+
+  // Whether we should use Expr::evalWithMemo to cache the result of evaluation
+  // on dictionary values (this vector).  Set to false when the dictionary
+  // values are not going to be reused (e.g. result of filtering), so that we
+  // don't need to reallocate the result for every batch.
+  bool memoDisabled_{false};
 };
 
 template <>
