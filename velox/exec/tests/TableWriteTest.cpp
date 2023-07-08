@@ -18,8 +18,8 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/dwio/common/WriterFactory.h"
-#include "velox/exec/HashPartitionFunction.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
@@ -541,8 +541,8 @@ class TableWriteTest : public HiveConnectorTestBase {
     }
     VELOX_USER_CHECK_EQ(bucketedByChannels.size(), bucketedBy.size());
 
-    return std::make_unique<exec::HashPartitionFunction>(
-        bucketProperty_->bucketCount(), tableSchema_, bucketedByChannels);
+    return std::make_unique<HivePartitionFunction>(
+        bucketProperty_->bucketCount(), bucketedByChannels);
   }
 
   // Verifies the bucketed file data by checking if the bucket id of each read

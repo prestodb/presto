@@ -19,10 +19,9 @@
 #include "velox/common/base/Fs.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/core/ITypedExpr.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
-#include "velox/exec/HashPartitionFunction.h"
-#include "velox/exec/Operator.h"
 
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
@@ -97,8 +96,8 @@ std::unique_ptr<core::PartitionFunction> createBucketFunction(
     }
     bucketedByChannels.push_back(inputChannel);
   }
-  return std::make_unique<exec::HashPartitionFunction>(
-      bucketProperty.bucketCount(), inputType, bucketedByChannels);
+  return std::make_unique<HivePartitionFunction>(
+      bucketProperty.bucketCount(), bucketedByChannels);
 }
 
 std::string computeBucketedFileName(

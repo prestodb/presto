@@ -28,6 +28,16 @@ class HivePartitionFunction : public core::PartitionFunction {
       std::vector<column_index_t> keyChannels,
       const std::vector<VectorPtr>& constValues = {});
 
+  HivePartitionFunction(
+      int numBuckets,
+      std::vector<column_index_t> keyChannels,
+      const std::vector<VectorPtr>& constValues = {})
+      : HivePartitionFunction(
+            numBuckets,
+            {},
+            std::move(keyChannels),
+            constValues) {}
+
   ~HivePartitionFunction() override = default;
 
   void partition(const RowVector& input, std::vector<uint32_t>& partitions)

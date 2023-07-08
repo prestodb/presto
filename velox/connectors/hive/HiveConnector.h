@@ -137,6 +137,24 @@ class HivePartitionFunctionSpec : public core::PartitionFunctionSpec {
         channels_(std::move(channels)),
         constValues_(std::move(constValues)) {}
 
+  /// The constructor without 'bucketToPartition' input is used in case that
+  /// we don't know the actual number of partitions until we create the
+  /// partition function instance. The hive partition function spec then builds
+  /// a bucket to partition map based on the actual number of partitions with
+  /// round-robin partitioning scheme to create the function instance. For
+  /// instance, when we create the local partition node with hive bucket
+  /// function to support multiple table writer drivers, we don't know the the
+  /// actual number of table writer drivers until start the task.
+  HivePartitionFunctionSpec(
+      int numBuckets,
+      std::vector<column_index_t> channels,
+      std::vector<VectorPtr> constValues)
+      : HivePartitionFunctionSpec(
+            numBuckets,
+            {},
+            std::move(channels),
+            std::move(constValues)) {}
+
   std::unique_ptr<core::PartitionFunction> create(
       int numPartitions) const override;
 

@@ -246,9 +246,17 @@ void HivePartitionFunction::partition(
 
   static const int32_t kInt32Max = std::numeric_limits<int32_t>::max();
 
-  for (auto i = 0; i < numRows; ++i) {
-    partitions[i] =
-        bucketToPartition_[((hashes_[i] & kInt32Max) % numBuckets_)];
+  if (bucketToPartition_.empty()) {
+    // NOTE: if bucket to partition mapping is empty, then we do identical
+    // mapping.
+    for (auto i = 0; i < numRows; ++i) {
+      partitions[i] = (hashes_[i] & kInt32Max) % numBuckets_;
+    }
+  } else {
+    for (auto i = 0; i < numRows; ++i) {
+      partitions[i] =
+          bucketToPartition_[((hashes_[i] & kInt32Max) % numBuckets_)];
+    }
   }
 }
 

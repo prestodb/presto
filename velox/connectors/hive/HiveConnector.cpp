@@ -47,8 +47,22 @@ HiveConnector::HiveConnector(
 
 std::unique_ptr<core::PartitionFunction> HivePartitionFunctionSpec::create(
     int numPartitions) const {
+  std::vector<int> bucketToPartitions;
+  if (bucketToPartition_.empty()) {
+    // NOTE: if hive partition function spec doesn't specify bucket to partition
+    // mapping, then we do round-robin mapping based on the actual number of
+    // partitions.
+    bucketToPartitions.resize(numBuckets_);
+    for (int bucket = 0; bucket < numBuckets_; ++bucket) {
+      bucketToPartitions[bucket] = bucket % numPartitions;
+    }
+  }
   return std::make_unique<velox::connector::hive::HivePartitionFunction>(
-      numBuckets_, bucketToPartition_, channels_, constValues_);
+      numBuckets_,
+      bucketToPartition_.empty() ? std::move(bucketToPartitions)
+                                 : bucketToPartition_,
+      channels_,
+      constValues_);
 }
 
 std::string HivePartitionFunctionSpec::toString() const {
