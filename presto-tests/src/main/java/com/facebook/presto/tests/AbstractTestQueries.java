@@ -7012,4 +7012,10 @@ public abstract class AbstractTestQueries
                 "sum(case when  orderstatus||'-'|| comment='F' THEN  totalprice END)" +
                 "FROM orders group by 1,2").getOnlyValue().toString().indexOf("element_at"), -1);
     }
+
+    @Test
+    public void testLikePrefix()
+    {
+        assertQuery("select x like 'abc%' from (values 'abc', 'def', 'bcd') T(x)");
+    }
 }
