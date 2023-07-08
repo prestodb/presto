@@ -192,6 +192,14 @@ class QueryConfig {
   static constexpr const char* kSparkLegacySizeOfNull =
       "spark.legacy_size_of_null";
 
+  /// The number of local parallel table writer operators per task.
+  static constexpr const char* kTaskWriterCount = "task_writer_count";
+
+  /// The number of local parallel table writer operators per task for
+  /// partitioned writes. If not set, use "task_writer_count".
+  static constexpr const char* kTaskPartitionedWriterCount =
+      "task_partitioned_writer_count";
+
   /// If true, finish the hash probe on an empty build table for a specific set
   /// of hash joins.
   static constexpr const char* kHashProbeFinishEarlyOnEmptyBuild =
@@ -387,6 +395,15 @@ class QueryConfig {
 
   bool operatorTrackCpuUsage() const {
     return get<bool>(kOperatorTrackCpuUsage, true);
+  }
+
+  uint32_t taskWriterCount() const {
+    return get<uint32_t>(kTaskWriterCount, 1);
+  }
+
+  uint32_t taskPartitionedWriterCount() const {
+    return get<uint32_t>(kTaskPartitionedWriterCount)
+        .value_or(taskWriterCount());
   }
 
   bool hashProbeFinishEarlyOnEmptyBuild() const {

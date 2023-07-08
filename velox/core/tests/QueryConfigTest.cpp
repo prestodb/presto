@@ -15,6 +15,7 @@
  */
 #include <gtest/gtest.h>
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/core/QueryCtx.h"
 
 namespace facebook::velox::core::test {
@@ -83,6 +84,53 @@ TEST(TestQueryConfig, memConfig) {
         cfg.Config::get<std::string>(QueryConfig::kSessionTimezone).value());
     ASSERT_THROW(cfg.values(), VeloxException);
     ASSERT_EQ(configData, cfg3.valuesCopy());
+  }
+}
+
+TEST(TestQueryConfig, taskWriterCountConfig) {
+  struct {
+    std::optional<int> numWriterCounter;
+    std::optional<int> numPartitionedWriterCounter;
+    int expectedWriterCounter;
+    int expectedPartitionedWriterCounter;
+
+    std::string debugString() const {
+      return fmt::format(
+          "numWriterCounter[{}] numPartitionedWriterCounter[{}] expectedWriterCounter[{}] expectedPartitionedWriterCounter[{}]",
+          numWriterCounter.value_or(0),
+          numPartitionedWriterCounter.value_or(0),
+          expectedWriterCounter,
+          expectedPartitionedWriterCounter);
+    }
+  } testSettings[] = {
+      {std::nullopt, std::nullopt, 1, 1},
+      {std::nullopt, 4, 1, 4},
+      {std::nullopt, 6, 1, 6},
+      {2, 4, 2, 4},
+      {4, 2, 4, 2},
+      {4, 6, 4, 6},
+      {6, 5, 6, 5},
+      {6, 4, 6, 4},
+      {6, std::nullopt, 6, 6}};
+  for (const auto& testConfig : testSettings) {
+    SCOPED_TRACE(testConfig.debugString());
+    std::unordered_map<std::string, std::string> configData;
+    if (testConfig.numWriterCounter.has_value()) {
+      configData.emplace(
+          QueryConfig::kTaskWriterCount,
+          std::to_string(testConfig.numWriterCounter.value()));
+    }
+    if (testConfig.numPartitionedWriterCounter.has_value()) {
+      configData.emplace(
+          QueryConfig::kTaskPartitionedWriterCount,
+          std::to_string(testConfig.numPartitionedWriterCounter.value()));
+    }
+    auto queryCtx = std::make_shared<QueryCtx>(nullptr, std::move(configData));
+    const QueryConfig& config = queryCtx->queryConfig();
+    ASSERT_EQ(config.taskWriterCount(), testConfig.expectedWriterCounter);
+    ASSERT_EQ(
+        config.taskPartitionedWriterCount(),
+        testConfig.expectedPartitionedWriterCounter);
   }
 }
 
