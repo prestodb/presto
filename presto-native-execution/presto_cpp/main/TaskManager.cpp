@@ -395,8 +395,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
 
   for (const auto& source : sources) {
     // Add all splits from the source to the task.
-    LOG(INFO) << "Adding " << source.splits.size() << " splits to " << taskId
-              << " for node " << source.planNodeId;
+    VLOG(1) << "Adding " << source.splits.size() << " splits to " << taskId
+            << " for node " << source.planNodeId;
     // Keep track of the max sequence for this batch of splits.
     long maxSplitSequenceId{-1};
     for (const auto& protocolSplit : source.splits) {
@@ -625,7 +625,7 @@ size_t TaskManager::cleanOldTasks() {
       }
     }
     LOG(INFO) << "cleanOldTasks: Cleaned " << taskIdsToClean.size()
-              << " old task(s) in " << elapsedMs << "ms";
+              << " old task(s) in " << elapsedMs << " ms";
   } else if (elapsedMs > 1000) {
     // If we took more than 1 second to run this, something might be wrong.
     LOG(INFO) << "cleanOldTasks: Didn't clean any old task(s). Took "

@@ -158,7 +158,8 @@ void Announcer::makeAnnouncement() {
           LOG(ERROR) << "Announcement failed: " << response->error();
         } else {
           failedAttempts_ = 0;
-          LOG(INFO) << "Announcement succeeded: " << message->getStatusCode();
+          LOG(INFO) << "Announcement succeeded: HTTP "
+                    << message->getStatusCode();
         }
       })
       .thenError(
