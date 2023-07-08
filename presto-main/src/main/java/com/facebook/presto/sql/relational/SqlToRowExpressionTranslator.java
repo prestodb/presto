@@ -97,6 +97,7 @@ import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -912,7 +913,34 @@ public final class SqlToRowExpressionTranslator
                 return likeFunctionCall(value, call(getSourceLocation(node), "LIKE_PATTERN", functionResolution.likePatternFunction(), LIKE_PATTERN, pattern, escape));
             }
 
+            RowExpression prefixOrSuffixMatch = generateLikePrefix(value, pattern);
+            if (prefixOrSuffixMatch != null) {
+                return prefixOrSuffixMatch;
+            }
+
             return likeFunctionCall(value, call(getSourceLocation(node), CAST.name(), functionAndTypeResolver.lookupCast("CAST", VARCHAR, LIKE_PATTERN), LIKE_PATTERN, pattern));
+        }
+
+        private RowExpression generateLikePrefix(RowExpression value, RowExpression pattern)
+        {
+            if ((value.getType() instanceof VarcharType || value.getType() instanceof CharType) && pattern instanceof ConstantExpression) {
+                Object constObject = ((ConstantExpression) pattern).getValue();
+                if (constObject instanceof Slice) {
+                    Slice slice = (Slice) constObject;
+                    String patternString = slice.toStringUtf8();
+                    if (patternString.length() > 1 && !patternString.contains("_")) {
+                        if (patternString.indexOf('%') == patternString.length() - 1) {
+                            // prefix match
+                            // x LIKE 'some string%' is same as SUBSTR(x, 1, length('some string')) = 'some string', trialing .* won't matter
+                            return buildEquals(
+                                    call(functionAndTypeManager, "SUBSTR", VARCHAR, value, constant(1L, BIGINT), constant((long) slice.length() - 1, BIGINT)),
+                                    constant(slice.slice(0, slice.length() - 1), VARCHAR));
+                        }
+                    }
+                }
+            }
+
+            return null;
         }
 
         private RowExpression likeFunctionCall(RowExpression value, RowExpression pattern)
