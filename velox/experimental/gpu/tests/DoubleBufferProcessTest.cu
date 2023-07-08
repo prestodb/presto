@@ -22,17 +22,19 @@
 #include "velox/experimental/gpu/Common.h"
 
 DEFINE_int64(buffer_size, 32 << 20, "");
-DEFINE_int32(repeat, 100, "");
+DEFINE_int32(repeat, 10, "");
 DEFINE_string(devices, "0", "Comma-separate list of device ids");
 DEFINE_bool(validate, false, "");
 DEFINE_int32(num_strides, 32, "");
+DEFINE_int32(num_cpu_threads, 128, "");
 
 constexpr int kBlockSize = 256;
 
 namespace facebook::velox::gpu {
 namespace {
 
-__device__ uint64_t hashMix(uint64_t upper, uint64_t lower) {
+__host__ __device__ uint64_t hashMix(uint64_t upper, uint64_t lower) {
+  return upper ^ lower;
   constexpr uint64_t kMul = 0x9ddfea08eb382d69ULL;
   uint64_t a = (lower ^ upper) * kMul;
   a ^= (a >> 47);
@@ -51,6 +53,24 @@ __global__ void strideMemory(const int64_t* data, int strides, int64_t* out) {
     ans = hashMix(ans, data[i]);
   }
   out[blockIdx.x] = Reduce(tmp).Reduce(ans, hashMix);
+}
+
+void cpuStrideMemory(
+    const int64_t* data,
+    int64_t size,
+    int strides,
+    int ti,
+    int threadCount,
+    int64_t* out) {
+  auto ans = 0;
+  for (int64_t i0 = ti; i0 < size; i0 += threadCount) {
+    auto i = i0;
+    ans = hashMix(ans, i);
+    for (int j = 0; j < strides; ++j, i = data[i]) {
+      ans = hashMix(ans, data[i]);
+    }
+  }
+  out[ti] = ans;
 }
 
 void testCudaEvent(int deviceId) {
@@ -132,6 +152,37 @@ void testCudaEvent(int deviceId) {
       cudaEventElapsedTime(&time, startEvent.get(), stopEvent.get()));
   printf(
       "Device %d device memory random read throughput: %.2f GB/s\n",
+      deviceId,
+      FLAGS_buffer_size * FLAGS_num_strides * FLAGS_repeat * 1e-6 / time);
+
+  CUDA_CHECK_FATAL(cudaEventRecord(startEvent.get()));
+  if (elementCount % FLAGS_num_cpu_threads != 0) {
+    fprintf(stderr, "%ld %% %d != 0\n", elementCount, FLAGS_num_cpu_threads);
+    abort();
+  }
+  std::vector<int64_t> hostOutputBuffer(FLAGS_num_cpu_threads);
+  for (int i = 0; i < FLAGS_repeat; ++i) {
+    std::vector<std::thread> threads;
+    for (int j = 0; j < FLAGS_num_cpu_threads; ++j) {
+      threads.emplace_back(
+          cpuStrideMemory,
+          hostBuffer,
+          elementCount,
+          FLAGS_num_strides,
+          j,
+          FLAGS_num_cpu_threads,
+          hostOutputBuffer.data());
+    }
+    for (auto& t : threads) {
+      t.join();
+    }
+  }
+  CUDA_CHECK_FATAL(cudaEventRecord(stopEvent.get()));
+  CUDA_CHECK_FATAL(cudaEventSynchronize(stopEvent.get()));
+  CUDA_CHECK_FATAL(
+      cudaEventElapsedTime(&time, startEvent.get(), stopEvent.get()));
+  printf(
+      "Device %d host memory random read throughput: %.2f GB/s\n",
       deviceId,
       FLAGS_buffer_size * FLAGS_num_strides * FLAGS_repeat * 1e-6 / time);
 
