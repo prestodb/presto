@@ -47,6 +47,7 @@ import static java.util.Locale.ENGLISH;
 
 public final class HiveSessionProperties
 {
+    // Add a comment
     private static final String IGNORE_TABLE_BUCKETING = "ignore_table_bucketing";
     private static final String MIN_BUCKET_COUNT_TO_NOT_IGNORE_TABLE_BUCKETING = "min_bucket_count_to_not_ignore_table_bucketing";
     private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
