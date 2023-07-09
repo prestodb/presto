@@ -9,6 +9,7 @@ cpp_library(
         "package_json": "//velox/experimental/codegen/code_generator/tests:copy_dependencies[package.json]",
     },
     exported_deps = [
+        "fbsource//third-party/googletest:gtest",
         "//folly:benchmark",
         "//velox/core:velox_core",
         "//velox/dwio/common/tests/utils:lib_test_batch_maker",
@@ -25,7 +26,6 @@ cpp_library(
     ],
     exported_external_deps = [
         "glog",
-        ("googletest", None, "gtest"),
     ],
 )
 
