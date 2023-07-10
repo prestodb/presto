@@ -18,56 +18,6 @@
 #include "velox/core/Metaprogramming.h"
 #include "velox/type/Type.h"
 
-#define VELOX_UDF_BEGIN(Name)                                                \
-  struct udf_##Name {                                                        \
-    static constexpr auto name = #Name;                                      \
-    template <typename __Velox_ExecParams>                                   \
-    struct udf {                                                             \
-      template <typename __Velox_TArg>                                       \
-      using arg_type = typename __Velox_ExecParams::template resolver<       \
-          __Velox_TArg>::in_type;                                            \
-                                                                             \
-      template <typename __Velox_TArg>                                       \
-      using out_type = typename __Velox_ExecParams::template resolver<       \
-          __Velox_TArg>::out_type;                                           \
-                                                                             \
-      template <typename __Velox_TArg>                                       \
-      using opt_arg_type =                                                   \
-          std::optional<typename __Velox_ExecParams::template resolver<      \
-              __Velox_TArg>::in_type>;                                       \
-                                                                             \
-      template <typename __Velox_TArg>                                       \
-      using opt_out_type =                                                   \
-          std::optional<typename __Velox_ExecParams::template resolver<      \
-              __Velox_TArg>::out_type>;                                      \
-                                                                             \
-      template <typename __Velox_TKey, typename __Velox_TVal>                \
-      using MapVal =                                                         \
-          arg_type<::facebook::velox::Map<__Velox_TKey, __Velox_TVal>>;      \
-      template <typename __Velox_TElement>                                   \
-      using ArrayVal = arg_type<::facebook::velox::Array<__Velox_TElement>>; \
-      using VarcharVal = arg_type<::facebook::velox::Varchar>;               \
-      using VarbinaryVal = arg_type<::facebook::velox::Varbinary>;           \
-      template <typename... __Velox_TArgs>                                   \
-      using RowVal = arg_type<::facebook::velox::Row<__Velox_TArgs...>>;     \
-      template <typename __Velox_TKey, typename __Velox_TVal>                \
-      using MapWriter =                                                      \
-          out_type<::facebook::velox::Map<__Velox_TKey, __Velox_TVal>>;      \
-      template <typename __Velox_TElement>                                   \
-      using ArrayWriter =                                                    \
-          out_type<::facebook::velox::Array<__Velox_TElement>>;              \
-      using VarcharWriter = out_type<::facebook::velox::Varchar>;            \
-      using VarbinaryWriter = out_type<::facebook::velox::Varbinary>;        \
-      template <typename... __Velox_TArgs>                                   \
-      using RowWriter = out_type<::facebook::velox::Row<__Velox_TArgs...>>;  \
-      static constexpr auto name = #Name;
-
-#define VELOX_UDF_END() \
-  }                     \
-  ;                     \
-  }                     \
-  ;
-
 #define VELOX_DEFINE_FUNCTION_TYPES(__Velox_ExecParams)                 \
   template <typename TArgs>                                             \
   using arg_type =                                                      \
@@ -108,3 +58,17 @@
   using VarbinaryWriter = out_type<::facebook::velox::Varbinary>;       \
   template <typename... TArgss>                                         \
   using RowWriter = out_type<::facebook::velox::Row<TArgss...>>;
+
+#define VELOX_UDF_BEGIN(Name)                         \
+  struct udf_##Name {                                 \
+    static constexpr auto name = #Name;               \
+    template <typename __Velox_ExecParams>            \
+    struct udf {                                      \
+      VELOX_DEFINE_FUNCTION_TYPES(__Velox_ExecParams) \
+      static constexpr auto name = #Name;
+
+#define VELOX_UDF_END() \
+  }                     \
+  ;                     \
+  }                     \
+  ;
