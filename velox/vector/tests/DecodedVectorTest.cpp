@@ -614,6 +614,37 @@ TEST_F(DecodedVectorTest, dictionaryOverLazy) {
   }
 }
 
+TEST_F(DecodedVectorTest, nestedLazy) {
+  constexpr vector_size_t size = 1000;
+  auto columnType = ROW({"a", "b"}, {INTEGER(), INTEGER()});
+
+  auto lazyVectorA = vectorMaker_.lazyFlatVector<int32_t>(
+      size,
+      [](vector_size_t i) { return i % 5; },
+      [](vector_size_t i) { return i % 7 == 0; });
+  auto lazyVectorB = vectorMaker_.lazyFlatVector<int32_t>(
+      size,
+      [](vector_size_t i) { return i % 3; },
+      [](vector_size_t i) { return i % 11 == 0; });
+
+  std::vector<VectorPtr> children{lazyVectorA, lazyVectorB};
+  auto rowVector = std::make_shared<RowVector>(
+      pool_.get(), columnType, BufferPtr(nullptr), size, children);
+  EXPECT_TRUE(isLazyNotLoaded(*rowVector.get()));
+
+  DecodedVector decoded(*rowVector, true);
+
+  auto child = decoded.base()->as<RowVector>()->childAt(0);
+  EXPECT_TRUE(child->isFlatEncoding());
+  assertEqualVectors(child, lazyVectorA);
+
+  child = decoded.base()->as<RowVector>()->childAt(1);
+  EXPECT_TRUE(child->isFlatEncoding());
+  assertEqualVectors(child, lazyVectorB);
+
+  EXPECT_FALSE(isLazyNotLoaded(*decoded.base()));
+}
+
 TEST_F(DecodedVectorTest, dictionaryOverConstant) {
   testDictionaryOverConstant(10);
   testDictionaryOverConstant(12.3);

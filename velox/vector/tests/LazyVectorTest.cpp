@@ -63,6 +63,63 @@ TEST_F(LazyVectorTest, lazyInDictionary) {
   assertCopyableVector(wrapped);
 }
 
+TEST_F(LazyVectorTest, nestedLazy) {
+  constexpr vector_size_t size = 1000;
+  auto columnType = ROW({"a", "b"}, {INTEGER(), INTEGER()});
+
+  auto lazyVectorA = vectorMaker_.lazyFlatVector<int32_t>(
+      size,
+      [&](vector_size_t i) { return i % 5; },
+      [](vector_size_t i) { return i % 7 == 0; });
+  auto lazyVectorB = vectorMaker_.lazyFlatVector<int32_t>(
+      size,
+      [&](vector_size_t i) { return i % 3; },
+      [](vector_size_t i) { return i % 11 == 0; });
+
+  VectorPtr rowVector = makeRowVector({lazyVectorA, lazyVectorB});
+  EXPECT_TRUE(isLazyNotLoaded(*rowVector.get()));
+
+  SelectivityVector rows(rowVector->size(), false);
+  LazyVector::ensureLoadedRows(rowVector, rows);
+  EXPECT_FALSE(isLazyNotLoaded(*rowVector.get()));
+}
+
+TEST_F(LazyVectorTest, selectiveNestedLazy) {
+  constexpr vector_size_t size = 1000;
+  auto columnType = ROW({"a", "b"}, {INTEGER(), INTEGER()});
+  int loadedA = 0, loadedB = 0;
+  int expectedLoadedA = 0, expectedLoadedB = 0;
+
+  auto lazyVectorA =
+      vectorMaker_.lazyFlatVector<int32_t>(size, [&](vector_size_t i) {
+        ++loadedA;
+        return i % 5;
+      });
+  auto lazyVectorB =
+      vectorMaker_.lazyFlatVector<int32_t>(size, [&](vector_size_t i) {
+        ++loadedB;
+        return i % 3;
+      });
+
+  VectorPtr rowVector = makeRowVector({lazyVectorA, lazyVectorB});
+  EXPECT_TRUE(isLazyNotLoaded(*rowVector.get()));
+
+  SelectivityVector rows(rowVector->size(), false);
+  for (int i = 0; i < size; ++i) {
+    if (i % 7) {
+      rows.setValid(i, true);
+      ++expectedLoadedA;
+      ++expectedLoadedB;
+    }
+  }
+  rows.updateBounds();
+  LazyVector::ensureLoadedRows(rowVector, rows);
+  EXPECT_FALSE(isLazyNotLoaded(*rowVector.get()));
+  EXPECT_LT(expectedLoadedA, size);
+  EXPECT_EQ(loadedA, expectedLoadedA);
+  EXPECT_EQ(loadedB, expectedLoadedB);
+}
+
 TEST_F(LazyVectorTest, lazyInCostant) {
   // Wrap Lazy vector in a Constant, load some indices and verify that the
   // results.

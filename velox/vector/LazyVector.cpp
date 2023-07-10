@@ -18,6 +18,7 @@
 #include "velox/common/base/RawVector.h"
 #include "velox/common/base/RuntimeMetrics.h"
 #include "velox/common/time/Timer.h"
+#include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"
 
 namespace facebook::velox {
@@ -109,6 +110,15 @@ void LazyVector::ensureLoadedRows(
     SelectivityVector& baseRows) {
   decoded.decode(*vector, rows, false);
   if (decoded.base()->encoding() != VectorEncoding::Simple::LAZY) {
+    if (decoded.base()->encoding() == VectorEncoding::Simple::ROW &&
+        isLazyNotLoaded(*decoded.base())) {
+      auto children = decoded.base()->asUnchecked<RowVector>()->children();
+      for (auto& child : children) {
+        DecodedVector decodedChild;
+        ensureLoadedRows(child, rows, decodedChild, baseRows);
+      }
+      decoded.base()->loadedVector();
+    }
     return;
   }
   auto lazyVector = decoded.base()->asUnchecked<LazyVector>();

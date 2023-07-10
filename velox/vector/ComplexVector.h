@@ -93,6 +93,23 @@ class RowVector : public BaseVector {
 
   uint64_t hashValueAt(vector_size_t index) const override;
 
+  BaseVector* loadedVector() override {
+    for (auto i = 0; i < childrenSize_; ++i) {
+      if (!children_[i]) {
+        continue;
+      }
+      auto newChild = BaseVector::loadedVectorShared(children_[i]);
+      if (children_[i].get() != newChild.get()) {
+        children_[i] = newChild;
+      }
+    }
+    return this;
+  }
+
+  const BaseVector* loadedVector() const override {
+    return const_cast<RowVector*>(this)->loadedVector();
+  }
+
   std::unique_ptr<SimpleVector<uint64_t>> hashAll() const override;
 
   /// Return the number of child vectors.

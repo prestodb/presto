@@ -673,6 +673,12 @@ bool isLazyNotLoaded(const BaseVector& vector) {
     case VectorEncoding::Simple::CONSTANT:
       return vector.valueVector() ? isLazyNotLoaded(*vector.valueVector())
                                   : false;
+    case VectorEncoding::Simple::ROW: {
+      const auto& children = vector.as<RowVector>()->children();
+      return std::any_of(children.begin(), children.end(), [](auto it) {
+        return it != nullptr && isLazyNotLoaded(*it);
+      });
+    }
     default:
       return false;
   }
