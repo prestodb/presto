@@ -22,6 +22,7 @@ import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.ServerInfo;
+import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskId;
@@ -46,6 +47,7 @@ import com.facebook.presto.spark.execution.property.NativeExecutionVeloxConfig;
 import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
 import com.facebook.presto.spark.execution.task.NativeExecutionTask;
 import com.facebook.presto.spark.execution.task.NativeExecutionTaskFactory;
+import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PageCodecMarker;
@@ -93,6 +95,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static com.facebook.presto.common.ErrorType.USER_ERROR;
 import static com.facebook.presto.execution.TaskTestUtils.SPLIT;
 import static com.facebook.presto.execution.TaskTestUtils.createPlanFragment;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
@@ -1280,6 +1283,40 @@ public class TestPrestoSparkHttpClient
                         0,
                         0L,
                         0L);
+            }
+        }
+
+        public static class CrashingTaskInfoResponseManager
+                extends TestingResponseManager.TestingTaskInfoResponseManager
+        {
+            private final int successCount;
+            private int attemptCount;
+
+            public CrashingTaskInfoResponseManager(int successCount)
+            {
+                super();
+                this.successCount = successCount;
+            }
+
+            @Override
+            public Response createTaskInfoResponse(HttpStatus httpStatus, String taskId)
+                    throws PrestoException
+            {
+                if (attemptCount++ > successCount) {
+                    return super.createTaskInfoResponse(HttpStatus.INTERNAL_SERVER_ERROR, taskId);
+                }
+
+                throw new PrestoException(new TestErrorCode(), "Server refused connection");
+            }
+        }
+
+        private static class TestErrorCode
+                implements ErrorCodeSupplier
+        {
+            @Override
+            public ErrorCode toErrorCode()
+            {
+                return new ErrorCode(0, "test", USER_ERROR);
             }
         }
     }

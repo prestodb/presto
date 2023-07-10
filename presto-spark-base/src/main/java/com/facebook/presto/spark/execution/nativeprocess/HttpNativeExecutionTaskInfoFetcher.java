@@ -139,8 +139,14 @@ public class HttpNativeExecutionTaskInfoFetcher
                                 errorTracker.requestFailed(t);
                             }
                             catch (PrestoException e) {
+                                // Entering here means that we are unable
+                                // to get any task info from the CPP process
+                                // likely because process has crashed
                                 stop();
                                 lastException.set(e);
+                                synchronized (taskFinished) {
+                                    taskFinished.notifyAll();
+                                }
                                 return;
                             }
                             ListenableFuture<?> errorRateLimit = errorTracker.acquireRequestPermit();
@@ -169,5 +175,10 @@ public class HttpNativeExecutionTaskInfoFetcher
         }
         TaskInfo info = taskInfo.get();
         return info == null ? Optional.empty() : Optional.of(info);
+    }
+
+    public AtomicReference<RuntimeException> getLastException()
+    {
+        return lastException;
     }
 }
