@@ -314,7 +314,7 @@ public class RandomizeNullKeyInOuterJoin
             joinOutputBuilder.addAll(joinNode.getOutputVariables().stream().filter(x -> newRight.getOutputVariables().contains(x)).collect(toImmutableList()));
 
             session.getOptimizerInformationCollector().addInformation(
-                    new PlanOptimizerInformation(RandomizeNullKeyInOuterJoin.class.getSimpleName(), true, Optional.empty()));
+                    new PlanOptimizerInformation(RandomizeNullKeyInOuterJoin.class.getSimpleName(), true, Optional.empty(), Optional.empty()));
             JoinNode newJoinNode = new JoinNode(
                     joinNode.getSourceLocation(),
                     joinNode.getId(),
