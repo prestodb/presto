@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -33,10 +34,12 @@ import java.util.Deque;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
 import static com.facebook.presto.SystemSessionProperties.getHistoryCanonicalPlanNodeLimit;
 import static com.facebook.presto.SystemSessionProperties.trackHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         implements PlanOptimizer
@@ -76,6 +79,9 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
             return plan;
         }
 
+        long startTimeInNano = System.nanoTime();
+        long timeoutInMilliseconds = getHistoryBasedOptimizerTimeoutLimit(session).toMillis();
+
         // Find SUM(subtree_size^2) whenever we find a limiting plan node. This will be proportional to the extra cost
         // spent by History based optimization framework to canonicalize and hash the plan nodes.
         int historiesLimitingPlanNodeLimit = PlanNodeSearcher.searchFrom(plan)
@@ -93,11 +99,31 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         }
 
         // Assign 'statsEquivalentPlanNode' to plan nodes
-        plan = SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator), plan, new Context());
+        PlanNode newPlan = SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator), plan, new Context());
+        // Return original plan if timeout
+        if (checkTimeOut(startTimeInNano, timeoutInMilliseconds)) {
+            logOptimizerFailure(session);
+            return plan;
+        }
 
         // Fetch and cache history based statistics of all plan nodes, so no serial network calls happen later.
-        statsCalculator.registerPlan(plan, session);
-        return plan;
+        boolean registerSucceed = statsCalculator.registerPlan(newPlan, session, startTimeInNano, timeoutInMilliseconds);
+        // Return original plan if timeout or registration not successful
+        if (checkTimeOut(startTimeInNano, timeoutInMilliseconds) || !registerSucceed) {
+            logOptimizerFailure(session);
+            return plan;
+        }
+        return newPlan;
+    }
+
+    private boolean checkTimeOut(long startTimeInNano, long timeoutInMilliseconds)
+    {
+        return NANOSECONDS.toMillis(System.nanoTime() - startTimeInNano) > timeoutInMilliseconds;
+    }
+
+    private void logOptimizerFailure(Session session)
+    {
+        session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(HistoricalStatisticsEquivalentPlanMarkingOptimizer.class.getSimpleName(), false, Optional.empty(), Optional.of(true)));
     }
 
     private static class Rewriter

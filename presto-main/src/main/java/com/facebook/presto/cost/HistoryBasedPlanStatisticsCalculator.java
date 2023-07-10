@@ -38,6 +38,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
 import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.cost.HistoricalPlanStatisticsUtil.getPredictedPlanStatistics;
@@ -46,6 +47,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.graph.Traverser.forTree;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class HistoryBasedPlanStatisticsCalculator
         implements StatsCalculator
@@ -57,6 +59,9 @@ public class HistoryBasedPlanStatisticsCalculator
     private final StatsCalculator delegate;
     private final PlanCanonicalInfoProvider planCanonicalInfoProvider;
     private final HistoryBasedOptimizationConfig config;
+
+    // Default to false, only set to true for unit tests
+    private boolean prefetchForAllPlanNodes;
 
     public HistoryBasedPlanStatisticsCalculator(
             Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider,
@@ -80,24 +85,36 @@ public class HistoryBasedPlanStatisticsCalculator
     }
 
     @Override
-    public void registerPlan(PlanNode root, Session session)
+    public boolean registerPlan(PlanNode root, Session session, long startTimeInNano, long timeoutInMilliseconds)
     {
         // Only precompute history based stats when plan has a join/aggregation.
-        if (!PlanNodeSearcher.searchFrom(root).where(node -> PRECOMPUTE_PLAN_NODES.stream().anyMatch(clazz -> clazz.isInstance(node))).matches()) {
-            return;
+        if (!prefetchForAllPlanNodes && !PlanNodeSearcher.searchFrom(root).where(node -> PRECOMPUTE_PLAN_NODES.stream().anyMatch(clazz -> clazz.isInstance(node))).matches()) {
+            return false;
         }
         ImmutableList.Builder<PlanNodeWithHash> planNodesWithHash = ImmutableList.builder();
-        forTree(PlanNode::getSources).depthFirstPreOrder(root).forEach(plan -> {
+        Iterable<PlanNode> planNodeIterable = forTree(PlanNode::getSources).depthFirstPreOrder(root);
+        for (PlanNode plan : planNodeIterable) {
+            if (checkTimeOut(startTimeInNano, timeoutInMilliseconds)) {
+                return false;
+            }
             if (plan.getStatsEquivalentPlanNode().isPresent()) {
                 planNodesWithHash.addAll(getPlanNodeHashes(plan, session).values());
             }
-        });
+        }
         try {
-            historyBasedStatisticsCacheManager.getStatisticsCache(session.getQueryId(), historyBasedPlanStatisticsProvider).getAll(planNodesWithHash.build());
+            historyBasedStatisticsCacheManager.getStatisticsCache(session.getQueryId(), historyBasedPlanStatisticsProvider, getHistoryBasedOptimizerTimeoutLimit(session).toMillis()).getAll(planNodesWithHash.build());
         }
         catch (ExecutionException e) {
             throw new RuntimeException("Unable to register plan: ", e.getCause());
         }
+        // Return true even if get empty history statistics, so that HistoricalStatisticsEquivalentPlanMarkingOptimizer still return the plan with StatsEquivalentPlanNode which
+        // will be used in populating history statistics
+        return true;
+    }
+
+    private boolean checkTimeOut(long startTimeInNano, long timeoutInMilliseconds)
+    {
+        return NANOSECONDS.toMillis(System.nanoTime() - startTimeInNano) > timeoutInMilliseconds;
     }
 
     @VisibleForTesting
@@ -116,6 +133,12 @@ public class HistoryBasedPlanStatisticsCalculator
     public Supplier<HistoryBasedPlanStatisticsProvider> getHistoryBasedPlanStatisticsProvider()
     {
         return historyBasedPlanStatisticsProvider;
+    }
+
+    @VisibleForTesting
+    public void setPrefetchForAllPlanNodes(boolean prefetchForAllPlanNodes)
+    {
+        this.prefetchForAllPlanNodes = prefetchForAllPlanNodes;
     }
 
     private Map<PlanCanonicalizationStrategy, PlanNodeWithHash> getPlanNodeHashes(PlanNode plan, Session session)
@@ -137,17 +160,17 @@ public class HistoryBasedPlanStatisticsCalculator
 
     private PlanNodeStatsEstimate getStatistics(PlanNode planNode, Session session, Lookup lookup, PlanNodeStatsEstimate delegateStats)
     {
-        PlanNode plan = resolveGroupReferences(planNode, lookup);
-        if (!useHistoryBasedPlanStatisticsEnabled(session)) {
+        if (!useHistoryBasedPlanStatisticsEnabled(session) || historyBasedStatisticsCacheManager.loadHistoryFailed(session.getQueryId())) {
             return delegateStats;
         }
 
+        PlanNode plan = resolveGroupReferences(planNode, lookup);
         Map<PlanCanonicalizationStrategy, PlanNodeWithHash> allHashes = getPlanNodeHashes(plan, session);
 
         Map<PlanNodeWithHash, HistoricalPlanStatistics> statistics = ImmutableMap.of();
         try {
             statistics = historyBasedStatisticsCacheManager
-                    .getStatisticsCache(session.getQueryId(), historyBasedPlanStatisticsProvider)
+                    .getStatisticsCache(session.getQueryId(), historyBasedPlanStatisticsProvider, getHistoryBasedOptimizerTimeoutLimit(session).toMillis())
                     .getAll(allHashes.values().stream().distinct().collect(toImmutableList()));
         }
         catch (ExecutionException e) {
