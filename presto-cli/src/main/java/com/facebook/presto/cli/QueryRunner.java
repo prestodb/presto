@@ -14,7 +14,6 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.client.SocketChannelSocketFactory;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.net.HostAndPort;
 import okhttp3.OkHttpClient;
@@ -75,8 +74,6 @@ public class QueryRunner
         this.sslSetup = builder -> setupSsl(builder, keystorePath, keystorePassword, truststorePath, truststorePassword);
 
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
-
-        builder.socketFactory(new SocketChannelSocketFactory());
 
         setupTimeouts(builder, 30, SECONDS);
         setupCookieJar(builder);
