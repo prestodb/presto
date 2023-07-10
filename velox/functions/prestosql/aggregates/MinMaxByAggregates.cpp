@@ -16,7 +16,6 @@
 
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/ContainerRowSerde.h"
-#include "velox/expression/FunctionSignature.h"
 #include "velox/functions/lib/aggregates/SingleValueAccumulator.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/vector/FlatVector.h"
@@ -43,10 +42,11 @@ std::pair<vector_size_t*, vector_size_t*> rawOffsetAndSizes(
 
 template <typename T>
 constexpr bool isNumeric() {
-  return std::is_same_v<T, int8_t> || std::is_same_v<T, int16_t> ||
-      std::is_same_v<T, int32_t> || std::is_same_v<T, int64_t> ||
-      std::is_same_v<T, float> || std::is_same_v<T, double> ||
-      std::is_same_v<T, Date> || std::is_same_v<T, Timestamp>;
+  return std::is_same_v<T, bool> || std::is_same_v<T, int8_t> ||
+      std::is_same_v<T, int16_t> || std::is_same_v<T, int32_t> ||
+      std::is_same_v<T, int64_t> || std::is_same_v<T, float> ||
+      std::is_same_v<T, double> || std::is_same_v<T, Date> ||
+      std::is_same_v<T, Timestamp>;
 }
 
 template <typename T, typename TAccumulator>
@@ -54,9 +54,14 @@ void extract(
     TAccumulator* accumulator,
     const VectorPtr& vector,
     vector_size_t index,
-    T* rawValues) {
+    T* rawValues,
+    uint64_t* rawBoolValues) {
   if constexpr (isNumeric<T>()) {
-    rawValues[index] = *accumulator;
+    if constexpr (std::is_same_v<T, bool>) {
+      bits::setBit(rawBoolValues, index, *accumulator);
+    } else {
+      rawValues[index] = *accumulator;
+    }
   } else {
     accumulator->read(vector, index);
   }
@@ -183,10 +188,15 @@ class MinMaxByAggregate : public exec::Aggregate {
     uint64_t* rawNulls = getRawNulls(result->get());
 
     T* rawValues = nullptr;
+    uint64_t* rawBoolValues = nullptr;
     if constexpr (isNumeric<T>()) {
       auto vector = (*result)->as<FlatVector<T>>();
       VELOX_CHECK(vector != nullptr);
-      rawValues = vector->mutableRawValues();
+      if constexpr (std::is_same_v<T, bool>) {
+        rawBoolValues = vector->template mutableRawValues<uint64_t>();
+      } else {
+        rawValues = vector->mutableRawValues();
+      }
     }
 
     for (int32_t i = 0; i < numGroups; ++i) {
@@ -195,7 +205,8 @@ class MinMaxByAggregate : public exec::Aggregate {
         (*result)->setNull(i, true);
       } else {
         clearNull(rawNulls, i);
-        extract<T, ValueAccumulatorType>(value(group), *result, i, rawValues);
+        extract<T, ValueAccumulatorType>(
+            value(group), *result, i, rawValues, rawBoolValues);
       }
     }
   }
@@ -210,16 +221,27 @@ class MinMaxByAggregate : public exec::Aggregate {
     uint64_t* rawNulls = getRawNulls(rowVector);
 
     T* rawValues = nullptr;
+    uint64_t* rawBoolValues = nullptr;
     if constexpr (isNumeric<T>()) {
       auto flatValueVector = valueVector->as<FlatVector<T>>();
       VELOX_CHECK(flatValueVector != nullptr);
-      rawValues = flatValueVector->mutableRawValues();
+      if constexpr (std::is_same_v<T, bool>) {
+        rawBoolValues = flatValueVector->template mutableRawValues<uint64_t>();
+      } else {
+        rawValues = flatValueVector->mutableRawValues();
+      }
     }
     U* rawComparisonValues = nullptr;
+    uint64_t* rawBoolComparisonValues = nullptr;
     if constexpr (isNumeric<U>()) {
       auto flatComparisonVector = comparisonVector->as<FlatVector<U>>();
       VELOX_CHECK(flatComparisonVector != nullptr);
-      rawComparisonValues = flatComparisonVector->mutableRawValues();
+      if constexpr (std::is_same_v<U, bool>) {
+        rawBoolComparisonValues =
+            flatComparisonVector->template mutableRawValues<uint64_t>();
+      } else {
+        rawComparisonValues = flatComparisonVector->mutableRawValues();
+      }
     }
     uint64_t* rawValueNulls =
         valueVector->mutableNulls(rowVector->size())->asMutable<uint64_t>();
@@ -233,10 +255,14 @@ class MinMaxByAggregate : public exec::Aggregate {
         bits::setNull(rawValueNulls, i, isValueNull);
         if (LIKELY(!isValueNull)) {
           extract<T, ValueAccumulatorType>(
-              value(group), valueVector, i, rawValues);
+              value(group), valueVector, i, rawValues, rawBoolValues);
         }
         extract<U, ComparisonAccumulatorType>(
-            comparisonValue(group), comparisonVector, i, rawComparisonValues);
+            comparisonValue(group),
+            comparisonVector,
+            i,
+            rawComparisonValues,
+            rawBoolComparisonValues);
       }
     }
   }
@@ -645,11 +671,35 @@ class MinByAggregate : public MinMaxByAggregate<T, U> {
   }
 };
 
+template <typename T>
+struct RawValueExtractor {
+  using TRawValue = std::conditional_t<std::is_same_v<T, bool>, uint64_t, T>;
+
+  static TRawValue* mutableRawValues(VectorPtr& values) {
+    if constexpr (std::is_same_v<T, bool>) {
+      return values->as<FlatVector<T>>()->template mutableRawValues<uint64_t>();
+    } else {
+      return values->as<FlatVector<T>>()->mutableRawValues();
+    }
+  }
+
+  static void extract(TRawValue* rawValues, vector_size_t offset, T value) {
+    if constexpr (std::is_same_v<T, bool>) {
+      bits::setBit(rawValues, offset, value);
+    } else {
+      rawValues[offset] = value;
+    }
+  }
+};
+
 /// @tparam V Type of value.
 /// @tparam C Type of compare.
 /// @tparam Compare Type of comparator of std::pair<C, std::optional<V>>.
 template <typename V, typename C, typename Compare>
 struct MinMaxByNAccumulator {
+  using TRawValue = typename RawValueExtractor<V>::TRawValue;
+  using TRawComparison = typename RawValueExtractor<C>::TRawValue;
+
   int64_t n{0};
 
   using Pair = std::pair<C, std::optional<V>>;
@@ -703,8 +753,10 @@ struct MinMaxByNAccumulator {
 
   /// Moves all values from 'topPairs' into 'rawValues' and 'rawValueNulls'
   /// buffers. The queue of 'topPairs' will be empty after this call.
-  void
-  extractValues(V* rawValues, uint64_t* rawValueNulls, vector_size_t offset) {
+  void extractValues(
+      TRawValue* rawValues,
+      uint64_t* rawValueNulls,
+      vector_size_t offset) {
     const vector_size_t size = topPairs.size();
     for (auto i = size - 1; i >= 0; --i) {
       const auto& topPair = topPairs.top();
@@ -713,7 +765,7 @@ struct MinMaxByNAccumulator {
       const bool valueIsNull = !topPair.second.has_value();
       bits::setNull(rawValueNulls, index, valueIsNull);
       if (!valueIsNull) {
-        rawValues[index] = topPair.second.value();
+        RawValueExtractor<V>::extract(rawValues, index, topPair.second.value());
       }
 
       topPairs.pop();
@@ -724,8 +776,8 @@ struct MinMaxByNAccumulator {
   /// 'rawComparisons', 'rawValues' and 'rawValueNulls' buffers. The queue of
   /// 'topPairs' will be empty after this call.
   void extractPairs(
-      C* rawComparisons,
-      V* rawValues,
+      TRawComparison* rawComparisons,
+      TRawValue* rawValues,
       uint64_t* rawValueNulls,
       vector_size_t offset) {
     const vector_size_t size = topPairs.size();
@@ -733,12 +785,12 @@ struct MinMaxByNAccumulator {
       const auto& topPair = topPairs.top();
       const auto index = offset + i;
 
-      rawComparisons[index] = topPair.first;
+      RawValueExtractor<C>::extract(rawComparisons, index, topPair.first);
 
       const bool valueIsNull = !topPair.second.has_value();
       bits::setNull(rawValueNulls, index, valueIsNull);
       if (!valueIsNull) {
-        rawValues[index] = topPair.second.value();
+        RawValueExtractor<V>::extract(rawValues, index, topPair.second.value());
       }
 
       topPairs.pop();
@@ -748,12 +800,16 @@ struct MinMaxByNAccumulator {
 
 template <typename V, typename C, typename Compare>
 struct Extractor {
-  V* rawValues;
+  using TRawValue = typename RawValueExtractor<V>::TRawValue;
+  using TRawComparison = typename RawValueExtractor<C>::TRawValue;
+
+  TRawValue* rawValues;
   uint64_t* rawValueNulls;
 
-  explicit Extractor(VectorPtr& values)
-      : rawValues{values->as<FlatVector<V>>()->mutableRawValues()},
-        rawValueNulls{values->mutableRawNulls()} {}
+  explicit Extractor(VectorPtr& values) {
+    rawValues = RawValueExtractor<V>::mutableRawValues(values);
+    rawValueNulls = values->mutableRawNulls();
+  }
 
   void extractValues(
       MinMaxByNAccumulator<V, C, Compare>* accumulator,
@@ -763,7 +819,7 @@ struct Extractor {
 
   void extractPairs(
       MinMaxByNAccumulator<V, C, Compare>* accumulator,
-      C* rawComparisons,
+      TRawComparison* rawComparisons,
       vector_size_t offset) {
     accumulator->extractPairs(rawComparisons, rawValues, rawValueNulls, offset);
   }
@@ -771,6 +827,7 @@ struct Extractor {
 
 template <typename C, typename Compare>
 struct MinMaxByNStringViewAccumulator {
+  using TRawComparison = typename RawValueExtractor<C>::TRawValue;
   MinMaxByNAccumulator<StringView, C, Compare> base;
 
   explicit MinMaxByNStringViewAccumulator(HashStringAllocator* allocator)
@@ -819,7 +876,7 @@ struct MinMaxByNStringViewAccumulator {
   /// 'rawComparisons' buffer and 'values' vector. The queue of
   /// 'topPairs' will be empty after this call.
   void extractPairs(
-      C* rawComparisons,
+      TRawComparison* rawComparisons,
       FlatVector<StringView>& values,
       vector_size_t offset) {
     const vector_size_t size = base.topPairs.size();
@@ -827,7 +884,7 @@ struct MinMaxByNStringViewAccumulator {
       const auto& topPair = base.topPairs.top();
       const auto index = offset + i;
 
-      rawComparisons[index] = topPair.first;
+      RawValueExtractor<C>::extract(rawComparisons, index, topPair.first);
       extractValue(topPair, values, index);
 
       base.topPairs.pop();
@@ -874,6 +931,7 @@ struct MinMaxByNStringViewAccumulator {
 
 template <typename C, typename Compare>
 struct StringViewExtractor {
+  using TRawComparison = typename RawValueExtractor<C>::TRawValue;
   FlatVector<StringView>& values;
 
   explicit StringViewExtractor(VectorPtr& _values)
@@ -887,7 +945,7 @@ struct StringViewExtractor {
 
   void extractPairs(
       MinMaxByNStringViewAccumulator<C, Compare>* accumulator,
-      C* rawComparisons,
+      TRawComparison* rawComparisons,
       vector_size_t offset) {
     accumulator->extractPairs(rawComparisons, values, offset);
   }
@@ -898,6 +956,7 @@ struct StringViewExtractor {
 /// std::pair<C, std::optional<HashStringAllocator::Position>>.
 template <typename C, typename Compare>
 struct MinMaxByNComplexTypeAccumulator {
+  using TRawComparison = typename RawValueExtractor<C>::TRawValue;
   MinMaxByNAccumulator<HashStringAllocator::Position, C, Compare> base;
 
   explicit MinMaxByNComplexTypeAccumulator(HashStringAllocator* allocator)
@@ -951,14 +1010,16 @@ struct MinMaxByNComplexTypeAccumulator {
   /// Moves all pairs of (comparison, value) from 'topPairs' into
   /// 'rawComparisons' buffer and 'values' vector. The queue of
   /// 'topPairs' will be empty after this call.
-  void
-  extractPairs(C* rawComparisons, BaseVector& values, vector_size_t offset) {
+  void extractPairs(
+      TRawComparison* rawComparisons,
+      BaseVector& values,
+      vector_size_t offset) {
     const vector_size_t size = base.topPairs.size();
     for (auto i = size - 1; i >= 0; --i) {
       const auto& topPair = base.topPairs.top();
       const auto index = offset + i;
 
-      rawComparisons[index] = topPair.first;
+      RawValueExtractor<C>::extract(rawComparisons, index, topPair.first);
       extractValue(topPair, values, index);
 
       base.topPairs.pop();
@@ -1005,6 +1066,7 @@ struct MinMaxByNComplexTypeAccumulator {
 
 template <typename C, typename Compare>
 struct ComplexTypeExtractor {
+  using TRawComparison = typename RawValueExtractor<C>::TRawValue;
   BaseVector& values;
 
   explicit ComplexTypeExtractor(VectorPtr& _values) : values{*_values} {}
@@ -1017,7 +1079,7 @@ struct ComplexTypeExtractor {
 
   void extractPairs(
       MinMaxByNComplexTypeAccumulator<C, Compare>* accumulator,
-      C* rawComparisons,
+      TRawComparison* rawComparisons,
       vector_size_t offset) {
     accumulator->extractPairs(rawComparisons, values, offset);
   }
@@ -1075,6 +1137,7 @@ class MinMaxByNAggregate : public exec::Aggregate {
       typename MinMaxByNAccumulatorTypeTraits<V, C, Compare>::AccumulatorType;
   using ExtractorType =
       typename MinMaxByNAccumulatorTypeTraits<V, C, Compare>::ExtractorType;
+  using TRawComparison = typename RawValueExtractor<C>::TRawValue;
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(AccumulatorType);
@@ -1101,7 +1164,7 @@ class MinMaxByNAggregate : public exec::Aggregate {
     auto values = valuesArray->elements();
     values->resize(numValues);
 
-    ExtractorType extractor(values);
+    ExtractorType extractor{values};
 
     auto [rawOffsets, rawSizes] = rawOffsetAndSizes(*valuesArray);
 
@@ -1145,7 +1208,8 @@ class MinMaxByNAggregate : public exec::Aggregate {
 
     ExtractorType extractor{values};
 
-    auto rawComparisons = comparisons->as<FlatVector<C>>()->mutableRawValues();
+    TRawComparison* rawComparisons =
+        RawValueExtractor<C>::mutableRawValues(comparisons);
 
     auto [rawValueOffsets, rawValueSizes] = rawOffsetAndSizes(*valueArray);
     auto [rawComparisonOffsets, rawComparisonSizes] =
@@ -1343,7 +1407,7 @@ class MinMaxByNAggregate : public exec::Aggregate {
     decodedComparison_.decode(*baseRowVector->childAt(1), rows);
     decodedValue_.decode(*baseRowVector->childAt(2), rows);
 
-    IntermediateResult result;
+    IntermediateResult result{};
     result.valueArray = decodedValue_.base()->template as<ArrayVector>();
     result.comparisonArray =
         decodedComparison_.base()->template as<ArrayVector>();
@@ -1453,6 +1517,8 @@ std::unique_ptr<exec::Aggregate> create(
     TypePtr compareType,
     const std::string& errorMessage) {
   switch (compareType->kind()) {
+    case TypeKind::BOOLEAN:
+      return std::make_unique<Aggregate<W, bool>>(resultType);
     case TypeKind::TINYINT:
       return std::make_unique<Aggregate<W, int8_t>>(resultType);
     case TypeKind::SMALLINT:
@@ -1531,8 +1597,8 @@ template <
     template <typename U, typename V>
     class NAggregate>
 exec::AggregateRegistrationResult registerMinMaxBy(const std::string& name) {
-  // TODO Add support for boolean 'compare' types.
   const std::vector<std::string> supportedCompareTypes = {
+      "boolean",
       "tinyint",
       "smallint",
       "integer",
