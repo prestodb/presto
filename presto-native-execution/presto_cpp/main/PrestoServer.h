@@ -21,6 +21,7 @@
 #include <velox/expression/Expr.h>
 #include "presto_cpp/main/CPUMon.h"
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
+#include "presto_cpp/main/PrestoServerOperations.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #if __has_include("filesystem")
@@ -182,6 +183,7 @@ class PrestoServer {
   std::atomic_bool shuttingDown_{false};
   std::chrono::steady_clock::time_point start_;
   std::unique_ptr<PeriodicTaskManager> periodicTaskManager_;
+  std::unique_ptr<PrestoServerOperations> prestoServerOperations_;
 
   // We update these members asynchronously and return in http requests w/o
   // delay.
