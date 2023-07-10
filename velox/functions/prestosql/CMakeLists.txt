@@ -47,6 +47,7 @@ add_library(
   Reverse.cpp
   RowFunction.cpp
   Sequence.cpp
+  SimpleComparisonMatcher.cpp
   Slice.cpp
   Split.cpp
   StringFunctions.cpp

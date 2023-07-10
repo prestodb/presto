@@ -72,6 +72,7 @@ add_executable(
   ReverseTest.cpp
   RoundTest.cpp
   ScalarFunctionRegTest.cpp
+  SimpleComparisonMatcherTest.cpp
   SliceTest.cpp
   SequenceTest.cpp
   SplitTest.cpp
