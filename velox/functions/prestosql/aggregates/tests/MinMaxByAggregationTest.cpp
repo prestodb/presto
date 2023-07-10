@@ -583,7 +583,7 @@ TEST_P(MinMaxByGlobalByAggregationTest, randomMinByGlobalBy) {
   // DuckDB).
   if (GetParam().comparisonType == TypeKind::TIMESTAMP ||
       GetParam().valueType == TypeKind::TIMESTAMP) {
-    GTEST_SKIP() << "Fuzzer test for timestamps is not supported yet.";
+    return;
   }
 
   testGlobalAggregation(
@@ -596,7 +596,7 @@ TEST_P(MinMaxByGlobalByAggregationTest, randomMinByGlobalBy) {
 TEST_P(MinMaxByGlobalByAggregationTest, randomMaxByGlobalBy) {
   if (GetParam().comparisonType == TypeKind::TIMESTAMP ||
       GetParam().valueType == TypeKind::TIMESTAMP) {
-    GTEST_SKIP() << "Fuzzer test for timestamps is not supported yet.";
+    return;
   }
 
   testGlobalAggregation(
@@ -611,7 +611,7 @@ TEST_P(
     randomMaxByGlobalByWithDistinctCompareValue) {
   if (GetParam().comparisonType == TypeKind::TIMESTAMP ||
       GetParam().valueType == TypeKind::TIMESTAMP) {
-    GTEST_SKIP() << "Fuzzer test for timestamps is not supported yet.";
+    return;
   }
   if (GetParam().comparisonType == TypeKind::BOOLEAN) {
     GTEST_SKIP() << "Boolean comparison type is not supported in this test.";
@@ -1015,7 +1015,7 @@ TEST_P(MinMaxByGroupByAggregationTest, maxByGroupBy) {
 TEST_P(MinMaxByGroupByAggregationTest, randomMinByGroupBy) {
   if (GetParam().comparisonType == TypeKind::TIMESTAMP ||
       GetParam().valueType == TypeKind::TIMESTAMP) {
-    GTEST_SKIP() << "Fuzzer test for timestamps is not supported yet.";
+    return;
   }
 
   testGroupByAggregation(
@@ -1029,7 +1029,7 @@ TEST_P(MinMaxByGroupByAggregationTest, randomMinByGroupBy) {
 TEST_P(MinMaxByGroupByAggregationTest, randomMaxByGroupBy) {
   if (GetParam().comparisonType == TypeKind::TIMESTAMP ||
       GetParam().valueType == TypeKind::TIMESTAMP) {
-    GTEST_SKIP() << "Fuzzer test for timestamps is not supported yet.";
+    return;
   }
 
   testGroupByAggregation(
@@ -1045,7 +1045,7 @@ TEST_P(
     randomMinMaxByGroupByWithDistinctCompareValue) {
   if (GetParam().comparisonType == TypeKind::TIMESTAMP ||
       GetParam().valueType == TypeKind::TIMESTAMP) {
-    GTEST_SKIP() << "Fuzzer test for timestamps is not supported yet.";
+    return;
   }
   if (GetParam().comparisonType == TypeKind::BOOLEAN) {
     GTEST_SKIP() << "Boolean comparison type is not supported in this test.";
