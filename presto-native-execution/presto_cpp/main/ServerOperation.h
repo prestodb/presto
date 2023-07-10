@@ -25,10 +25,18 @@ struct ServerOperation {
     kConnector,
     kSystemConfig,
     kVeloxQueryConfig,
+    kDebug,
   };
 
   /// The action this operation is trying to take
-  enum class Action { kClearCache, kGetCacheStats, kSetProperty, kGetProperty };
+  enum class Action {
+    kClearCache,
+    kGetCacheStats,
+    kSetProperty,
+    kGetProperty,
+    kTask,
+    kTrace,
+  };
 
   static const folly::F14FastMap<std::string, Target> kTargetLookup;
   static const folly::F14FastMap<Target, std::string> kReverseTargetLookup;

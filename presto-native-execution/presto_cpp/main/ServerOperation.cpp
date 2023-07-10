@@ -22,6 +22,8 @@ const folly::F14FastMap<std::string, ServerOperation::Action>
         {"getCacheStats", ServerOperation::Action::kGetCacheStats},
         {"setProperty", ServerOperation::Action::kSetProperty},
         {"getProperty", ServerOperation::Action::kGetProperty},
+        {"task", ServerOperation::Action::kTask},
+        {"trace", ServerOperation::Action::kTrace},
     };
 
 const folly::F14FastMap<ServerOperation::Action, std::string>
@@ -30,6 +32,8 @@ const folly::F14FastMap<ServerOperation::Action, std::string>
         {ServerOperation::Action::kGetCacheStats, "getCacheStats"},
         {ServerOperation::Action::kSetProperty, "setProperty"},
         {ServerOperation::Action::kGetProperty, "getProperty"},
+        {ServerOperation::Action::kTask, "task"},
+        {ServerOperation::Action::kTrace, "trace"},
     };
 
 const folly::F14FastMap<std::string, ServerOperation::Target>
@@ -37,6 +41,7 @@ const folly::F14FastMap<std::string, ServerOperation::Target>
         {"connector", ServerOperation::Target::kConnector},
         {"systemConfig", ServerOperation::Target::kSystemConfig},
         {"veloxQueryConfig", ServerOperation::Target::kVeloxQueryConfig},
+        {"debug", ServerOperation::Target::kDebug},
     };
 
 const folly::F14FastMap<ServerOperation::Target, std::string>
@@ -44,6 +49,7 @@ const folly::F14FastMap<ServerOperation::Target, std::string>
         {ServerOperation::Target::kConnector, "connector"},
         {ServerOperation::Target::kSystemConfig, "systemConfig"},
         {ServerOperation::Target::kVeloxQueryConfig, "veloxQueryConfig"},
+        {ServerOperation::Target::kDebug, "debug"},
     };
 
 ServerOperation::Target ServerOperation::targetFromString(
