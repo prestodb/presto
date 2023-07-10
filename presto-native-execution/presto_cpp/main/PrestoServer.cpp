@@ -21,7 +21,6 @@
 #include "presto_cpp/main/Announcer.h"
 #include "presto_cpp/main/PeriodicTaskManager.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
-#include "presto_cpp/main/PrestoServerOperations.h"
 #include "presto_cpp/main/SignalHandler.h"
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
@@ -277,15 +276,6 @@ void PrestoServer::run() {
             .sendWithEOM();
       });
 
-  // The endpoint used by operation in production.
-  httpServer_->registerGet(
-      "/v1/operation/.*",
-      [](proxygen::HTTPMessage* message,
-         const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-         proxygen::ResponseHandler* downstream) {
-        PrestoServerOperations::runOperation(message, downstream);
-      });
-
   registerFunctions();
   registerRemoteFunctions();
   registerVectorSerdes();
@@ -332,6 +322,18 @@ void PrestoServer::run() {
       exec::registerExprSetListener(listener);
     }
   }
+  prestoServerOperations_ =
+      std::make_unique<PrestoServerOperations>(taskManager_.get());
+
+  // The endpoint used by operation in production.
+  httpServer_->registerGet(
+      "/v1/operation/.*",
+      [this](
+          proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        prestoServerOperations_->runOperation(message, downstream);
+      });
 
   PRESTO_STARTUP_LOG(INFO) << "Driver CPU executor has "
                            << driverCPUExecutor()->numThreads() << " threads.";

@@ -14,6 +14,7 @@
 #include "presto_cpp/main/PrestoServerOperations.h"
 #include <velox/common/base/Exceptions.h>
 #include <velox/common/base/VeloxException.h>
+#include <velox/common/process/TraceContext.h>
 #include "presto_cpp/main/ServerOperation.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/http/HttpServer.h"
@@ -83,6 +84,8 @@ void PrestoServerOperations::runOperation(
       case ServerOperation::Target::kVeloxQueryConfig:
         http::sendOkResponse(
             downstream, veloxQueryConfigOperation(op, message));
+      case ServerOperation::Target::kDebug:
+        http::sendOkResponse(downstream, debugOperation(op, message));
         break;
     }
   } catch (const velox::VeloxUserError& ex) {
@@ -175,6 +178,31 @@ std::string PrestoServerOperations::veloxQueryConfigOperation(
           "{}\n",
           BaseVeloxQueryConfig::instance()->optionalProperty(name).value_or(
               "<default>"));
+    }
+    default:
+      break;
+  }
+  return unsupportedAction(op);
+}
+
+std::string PrestoServerOperations::debugOperation(
+    const ServerOperation& op,
+    proxygen::HTTPMessage* message) {
+  switch (op.action) {
+    case ServerOperation::Action::kTask: {
+      const auto id = message->getQueryParam("id");
+      if (!taskManager_) {
+        return "Task Manager not found";
+      }
+      const auto& map = taskManager_->tasks();
+      const auto& task = map.find(id);
+      if (task == map.end()) {
+        return fmt::format("No task found with id {}", id);
+      }
+      return task->second->toJsonString();
+    }
+    case ServerOperation::Action::kTrace: {
+      return velox::process::TraceContext::statusLine();
     }
     default:
       break;
