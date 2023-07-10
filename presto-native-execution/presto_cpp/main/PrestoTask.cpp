@@ -599,6 +599,21 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
   return str;
 }
 
+std::string PrestoTask::toJsonString() const {
+  std::lock_guard<std::mutex> l(mutex);
+  folly::dynamic obj = folly::dynamic::object;
+  obj["task"] = task ? task->toString() : "null";
+  obj["taskStarted"] = taskStarted;
+  obj["lastHeartbeatMs"] = lastHeartbeatMs;
+  obj["lastTaskStatsUpdateMs"] = lastTaskStatsUpdateMs;
+  obj["lastMemoryReservation"] = lastMemoryReservation;
+
+  json j;
+  to_json(j, info);
+  obj["taskInfo"] = to_string(j);
+  return folly::toPrettyJson(obj);
+}
+
 protocol::RuntimeMetric toRuntimeMetric(
     const std::string& name,
     const RuntimeMetric& metric) {
