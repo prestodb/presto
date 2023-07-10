@@ -41,11 +41,15 @@ public interface StatsCalculator
      * with the root PlanNode, so StatsCalculator can prepare for future `calculateStats` calls.
      *
      * @param root Root of plan tree for query
+     * @return true if registration succeeds, otherwise return false
      */
-    default void registerPlan(
+    default boolean registerPlan(
             PlanNode root,
-            Session session)
+            Session session,
+            long startTimeInNano,
+            long timeoutInMilliseconds)
     {
         // no-op
+        return false;
     }
 }
