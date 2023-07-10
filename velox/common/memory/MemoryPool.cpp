@@ -22,6 +22,8 @@
 #include "velox/common/memory/Memory.h"
 #include "velox/common/testutil/TestValue.h"
 
+#include <re2/re2.h>
+
 DECLARE_bool(velox_suppress_memory_capacity_exceeding_error_message);
 
 using facebook::velox::common::testutil::TestValue;
@@ -369,6 +371,7 @@ MemoryPoolImpl::MemoryPoolImpl(
       manager_{memoryManager},
       allocator_{&manager_->allocator()},
       destructionCb_(std::move(destructionCb)),
+      debugPoolNameRegex_(debugEnabled_ ? *(debugPoolNameRegex().rlock()) : ""),
       reclaimer_(std::move(reclaimer)),
       // The memory manager sets the capacity through grow() according to the
       // actually used memory arbitration policy.
@@ -973,7 +976,10 @@ void MemoryPoolImpl::testingSetCapacity(int64_t bytes) {
   capacity_ = bytes;
 }
 
-bool MemoryPoolImpl::needRecordDbg(bool isAlloc) {
+bool MemoryPoolImpl::needRecordDbg(bool /* isAlloc */) {
+  if (!debugPoolNameRegex_.empty()) {
+    return RE2::FullMatch(name_, debugPoolNameRegex_);
+  }
   // TODO(jtan6): Add sample based condition support.
   return true;
 }

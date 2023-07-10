@@ -629,6 +629,10 @@ class MemoryPoolImpl : public MemoryPool {
     return debugAllocRecords_;
   }
 
+  static void setDebugPoolNameRegex(const std::string& regex) {
+    debugPoolNameRegex() = regex;
+  }
+
  private:
   FOLLY_ALWAYS_INLINE static MemoryPoolImpl* toImpl(MemoryPool* pool) {
     return static_cast<MemoryPoolImpl*>(pool);
@@ -637,6 +641,11 @@ class MemoryPoolImpl : public MemoryPool {
   FOLLY_ALWAYS_INLINE static MemoryPoolImpl* toImpl(
       const std::shared_ptr<MemoryPool>& pool) {
     return static_cast<MemoryPoolImpl*>(pool.get());
+  }
+
+  static folly::Synchronized<std::string>& debugPoolNameRegex() {
+    static folly::Synchronized<std::string> debugPoolNameRegex_;
+    return debugPoolNameRegex_;
   }
 
   std::shared_ptr<MemoryPool> genChild(
@@ -911,6 +920,11 @@ class MemoryPoolImpl : public MemoryPool {
   MemoryAllocator* const allocator_;
   const DestructionCallback destructionCb_;
 
+  // Regex for filtering on 'name_' when debug mode is enabled. This allows us
+  // to only track the callsites of memory allocations for memory pools whose
+  // name matches the specified regular expression 'debugPoolNameRegex_'.
+  const std::string debugPoolNameRegex_;
+
   // Serializes updates on 'grantedReservationBytes_', 'usedReservationBytes_'
   // and 'minReservationBytes_' to make reservation decision on a consistent
   // read/write of those counters. incrementReservation()/decrementReservation()
@@ -961,6 +975,7 @@ class MemoryPoolImpl : public MemoryPool {
 
   // Mutex for 'debugAllocRecords_'.
   std::mutex debugAllocMutex_;
+
   // Map from address to 'AllocationRecord'.
   std::unordered_map<uint64_t, AllocationRecord> debugAllocRecords_;
 };
