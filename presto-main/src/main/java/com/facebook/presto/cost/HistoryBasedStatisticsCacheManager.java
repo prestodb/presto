@@ -30,8 +30,11 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
+
+import static com.facebook.presto.spi.statistics.HistoricalPlanStatistics.empty;
 
 public class HistoryBasedStatisticsCacheManager
 {
@@ -43,9 +46,12 @@ public class HistoryBasedStatisticsCacheManager
 
     private final Map<QueryId, Map<CachingPlanCanonicalInfoProvider.InputTableCacheKey, PlanStatistics>> inputTableStatistics = new ConcurrentHashMap<>();
 
+    // Whether the history is loaded successfully
+    private final Set<QueryId> invalidQueryId = ConcurrentHashMap.newKeySet();
+
     public HistoryBasedStatisticsCacheManager() {}
 
-    public LoadingCache<PlanNodeWithHash, HistoricalPlanStatistics> getStatisticsCache(QueryId queryId, Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider)
+    public LoadingCache<PlanNodeWithHash, HistoricalPlanStatistics> getStatisticsCache(QueryId queryId, Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider, long timeoutInMilliSeconds)
     {
         return statisticsCache.computeIfAbsent(queryId, ignored -> CacheBuilder.newBuilder()
                 .build(new CacheLoader<PlanNodeWithHash, HistoricalPlanStatistics>()
@@ -53,16 +59,27 @@ public class HistoryBasedStatisticsCacheManager
                     @Override
                     public HistoricalPlanStatistics load(PlanNodeWithHash key)
                     {
+                        if (invalidQueryId.contains(queryId)) {
+                            return empty();
+                        }
                         return loadAll(Collections.singleton(key)).values().stream().findAny().orElseGet(HistoricalPlanStatistics::empty);
                     }
 
                     @Override
                     public Map<PlanNodeWithHash, HistoricalPlanStatistics> loadAll(Iterable<? extends PlanNodeWithHash> keys)
                     {
-                        Map<PlanNodeWithHash, HistoricalPlanStatistics> statistics = new HashMap<>(historyBasedPlanStatisticsProvider.get().getStats(ImmutableList.copyOf(keys)));
+                        if (invalidQueryId.contains(queryId)) {
+                            Map<PlanNodeWithHash, HistoricalPlanStatistics> emptyResult = new HashMap<>();
+                            keys.forEach(x -> emptyResult.put(x, empty()));
+                            return emptyResult;
+                        }
+                        Map<PlanNodeWithHash, HistoricalPlanStatistics> statistics = new HashMap<>(historyBasedPlanStatisticsProvider.get().getStats(ImmutableList.copyOf(keys), timeoutInMilliSeconds));
+                        if (statistics.isEmpty()) {
+                            invalidQueryId.add(queryId);
+                        }
                         // loadAll excepts all keys to be written
                         for (PlanNodeWithHash key : keys) {
-                            statistics.putIfAbsent(key, HistoricalPlanStatistics.empty());
+                            statistics.putIfAbsent(key, empty());
                         }
                         return ImmutableMap.copyOf(statistics);
                     }
@@ -84,11 +101,17 @@ public class HistoryBasedStatisticsCacheManager
         statisticsCache.remove(queryId);
         canonicalInfoCache.remove(queryId);
         inputTableStatistics.remove(queryId);
+        invalidQueryId.remove(queryId);
     }
 
     @VisibleForTesting
     public Map<QueryId, Map<CachingPlanCanonicalInfoProvider.CacheKey, PlanNodeCanonicalInfo>> getCanonicalInfoCache()
     {
         return canonicalInfoCache;
+    }
+
+    public boolean loadHistoryFailed(QueryId queryId)
+    {
+        return invalidQueryId.contains(queryId);
     }
 }
