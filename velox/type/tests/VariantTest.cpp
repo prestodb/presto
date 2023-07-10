@@ -230,30 +230,45 @@ struct SerializableClass {
       : name(std::move(name)), value(value) {}
 };
 
-TEST(VariantTest, serializeOpaque) {
-  OpaqueType::registerSerialization<SerializableClass>(
-      "serializable_class",
-      [](const std::shared_ptr<SerializableClass>& obj) -> std::string {
-        return folly::toJson(
-            folly::dynamic::object("name", obj->name)("value", obj->value));
-      },
-      [](const std::string& json) -> std::shared_ptr<SerializableClass> {
-        folly::dynamic obj = folly::parseJson(json);
-        return std::make_shared<SerializableClass>(
-            obj["name"].asString(), obj["value"].asBool());
-      });
+class VariantSerializationTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    static folly::once_flag once;
+    folly::call_once(once, []() {
+      OpaqueType::registerSerialization<SerializableClass>(
+          "SerializableClass",
+          [](const std::shared_ptr<SerializableClass>& obj) -> std::string {
+            return folly::json::serialize(
+                folly::dynamic::object("name", obj->name)("value", obj->value),
+                getSerializationOptions());
+          },
+          [](const std::string& json) -> std::shared_ptr<SerializableClass> {
+            folly::dynamic obj = folly::parseJson(json);
+            return std::make_shared<SerializableClass>(
+                obj["name"].asString(), obj["value"].asBool());
+          });
+    });
+    var_ = variant::opaque<SerializableClass>(
+        std::make_shared<SerializableClass>("test_class", false));
+  }
 
-  auto var = variant::opaque<SerializableClass>(
-      std::make_shared<SerializableClass>("test_class", false));
+  variant var_;
+};
 
-  auto serialized = var.serialize();
+TEST_F(VariantSerializationTest, serializeOpaque) {
+  auto serialized = var_.serialize();
   auto deserialized_variant = variant::create(serialized);
   auto opaque = deserialized_variant.value<TypeKind::OPAQUE>().obj;
-
-  auto original_class = std::static_pointer_cast<SerializableClass>(
-      deserialized_variant.value<TypeKind::OPAQUE>().obj);
+  auto original_class = std::static_pointer_cast<SerializableClass>(opaque);
   EXPECT_EQ(original_class->name, "test_class");
   EXPECT_EQ(original_class->value, false);
+}
+
+TEST_F(VariantSerializationTest, opaqueToString) {
+  auto s = var_.toJson();
+  EXPECT_EQ(
+      s,
+      "Opaque<type:OPAQUE<SerializableClass>,value:\"{\"name\":\"test_class\",\"value\":false}\">");
 }
 
 TEST(VariantTest, opaqueSerializationNotRegistered) {

@@ -291,9 +291,15 @@ std::string variant::toJson(const TypePtr& type) const {
       return '"' + timestamp.toString() + '"';
     }
     case TypeKind::OPAQUE: {
-      // Return expression that we can't parse back - we use toJson for
-      // debugging only. Variant::serialize should actually serialize the data.
-      return "\"Opaque<" + value<TypeKind::OPAQUE>().type->toString() + ">\"";
+      // Although this is not used for deserialization, we need to include the
+      // real data because commonExpressionEliminationRules uses
+      // CallTypedExpr.toString as key, which ends up using this string.
+      // Opaque types that want to use common expression elimination need to
+      // make their serialization deterministic.
+      const detail::OpaqueCapsule& capsule = value<TypeKind::OPAQUE>();
+      auto serializeFunction = capsule.type->getSerializeFunc();
+      return "Opaque<type:" + capsule.type->toString() + ",value:\"" +
+          serializeFunction(capsule.obj) + "\">";
     }
     case TypeKind::FUNCTION:
     case TypeKind::UNKNOWN:
@@ -307,11 +313,12 @@ std::string variant::toJson(const TypePtr& type) const {
 
 void serializeOpaque(
     folly::dynamic& variantObj,
-    detail::OpaqueCapsule opaqueValue) {
+    const detail::OpaqueCapsule& opaqueValue) {
   try {
     auto serializeFunction = opaqueValue.type->getSerializeFunc();
     variantObj["value"] = serializeFunction(opaqueValue.obj);
-    variantObj["opaque_type"] = folly::toJson(opaqueValue.type->serialize());
+    variantObj["opaque_type"] = folly::json::serialize(
+        opaqueValue.type->serialize(), getSerializationOptions());
   } catch (VeloxRuntimeError& ex) {
     // Re-throw error for backwards compatibility.
     // Want to return error_code::kNotImplemented rather
