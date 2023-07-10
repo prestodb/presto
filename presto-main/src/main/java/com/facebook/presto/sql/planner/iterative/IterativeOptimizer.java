@@ -425,11 +425,11 @@ public class IterativeOptimizer
 
         public void collectOptimizerInformation()
         {
-            rulesTriggered.stream().map(x -> x.getRule()).distinct().forEach(rule -> session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(rule, true, Optional.empty())));
+            rulesTriggered.stream().map(x -> x.getRule()).distinct().forEach(rule -> session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(rule, true, Optional.empty(), Optional.empty())));
             if (SystemSessionProperties.isVerboseOptimizerResults(session)) {
                 rulesTriggered.stream().filter(x -> x.getNewNode().isPresent()).forEach(x -> session.getOptimizerResultCollector().addOptimizerResult(x.getRule(), x.getOldNode().get(), x.getNewNode().get()));
             }
-            rulesApplicable.forEach(x -> session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(x, false, Optional.of(true))));
+            rulesApplicable.forEach(x -> session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(x, false, Optional.of(true), Optional.empty())));
         }
     }
 }
