@@ -45,6 +45,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
 import static com.facebook.presto.SystemSessionProperties.trackHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.common.resourceGroups.QueryType.INSERT;
@@ -186,9 +187,10 @@ public class HistoryBasedPlanStatisticsTracker
 
     public void updateStatistics(QueryInfo queryInfo)
     {
+        Session session = queryInfo.getSession().toSession(sessionPropertyManager);
         Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> planStatistics = getQueryStats(queryInfo);
         Map<PlanNodeWithHash, HistoricalPlanStatistics> historicalPlanStatisticsMap =
-                historyBasedPlanStatisticsProvider.get().getStats(planStatistics.keySet().stream().collect(toImmutableList()));
+                historyBasedPlanStatisticsProvider.get().getStats(planStatistics.keySet().stream().collect(toImmutableList()), getHistoryBasedOptimizerTimeoutLimit(session).toMillis());
         Map<PlanNodeWithHash, HistoricalPlanStatistics> newPlanStatistics = planStatistics.entrySet().stream()
                 .filter(entry -> entry.getKey().getHash().isPresent() &&
                         entry.getValue().getSourceInfo() instanceof HistoryBasedSourceInfo &&

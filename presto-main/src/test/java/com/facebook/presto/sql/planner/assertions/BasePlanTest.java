@@ -102,7 +102,7 @@ public class BasePlanTest
                 .configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
     }
 
-    private static LocalQueryRunner createQueryRunner(Map<String, String> sessionProperties)
+    protected static LocalQueryRunner createQueryRunner(Map<String, String> sessionProperties)
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("local")

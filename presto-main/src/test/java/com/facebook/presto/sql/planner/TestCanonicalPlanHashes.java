@@ -15,14 +15,20 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
+import com.facebook.presto.cost.HistoryBasedPlanStatisticsCalculator;
+import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.testing.InMemoryHistoryBasedPlanStatisticsProvider;
+import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -43,6 +49,28 @@ import static org.testng.Assert.assertTrue;
 public class TestCanonicalPlanHashes
         extends BasePlanTest
 {
+    public TestCanonicalPlanHashes()
+    {
+        super(() -> createTestQueryRunner());
+    }
+
+    private static LocalQueryRunner createTestQueryRunner()
+    {
+        LocalQueryRunner queryRunner = createQueryRunner(ImmutableMap.of());
+        queryRunner.installPlugin(new Plugin()
+        {
+            @Override
+            public Iterable<HistoryBasedPlanStatisticsProvider> getHistoryBasedPlanStatisticsProviders()
+            {
+                return ImmutableList.of(new InMemoryHistoryBasedPlanStatisticsProvider());
+            }
+        });
+        if (queryRunner.getStatsCalculator() instanceof HistoryBasedPlanStatisticsCalculator) {
+            ((HistoryBasedPlanStatisticsCalculator) queryRunner.getStatsCalculator()).setPrefetchForAllPlanNodes(true);
+        }
+        return queryRunner;
+    }
+
     @Test
     public void testScanFilterProject()
             throws Exception

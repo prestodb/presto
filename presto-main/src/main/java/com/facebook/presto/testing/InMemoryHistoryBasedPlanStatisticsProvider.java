@@ -47,7 +47,7 @@ public class InMemoryHistoryBasedPlanStatisticsProvider
     }
 
     @Override
-    public Map<PlanNodeWithHash, HistoricalPlanStatistics> getStats(List<PlanNodeWithHash> planNodeHashes)
+    public Map<PlanNodeWithHash, HistoricalPlanStatistics> getStats(List<PlanNodeWithHash> planNodeHashes, long timeoutInMilliSeconds)
     {
         return planNodeHashes.stream().collect(toImmutableMap(
                 planNodeWithHash -> planNodeWithHash,

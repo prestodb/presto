@@ -95,6 +95,7 @@ public class FeaturesConfig
     private boolean trackHistoryBasedPlanStatistics;
     private boolean usePerfectlyConsistentHistories;
     private int historyCanonicalPlanNodeLimit = 1000;
+    private Duration historyBasedOptimizerTimeout = new Duration(10, SECONDS);
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
@@ -848,6 +849,19 @@ public class FeaturesConfig
     public FeaturesConfig setHistoryCanonicalPlanNodeLimit(int historyCanonicalPlanNodeLimit)
     {
         this.historyCanonicalPlanNodeLimit = historyCanonicalPlanNodeLimit;
+        return this;
+    }
+
+    @NotNull
+    public Duration getHistoryBasedOptimizerTimeout()
+    {
+        return historyBasedOptimizerTimeout;
+    }
+
+    @Config("optimizer.history-based-optimizer-timeout")
+    public FeaturesConfig setHistoryBasedOptimizerTimeout(Duration historyBasedOptimizerTimeout)
+    {
+        this.historyBasedOptimizerTimeout = historyBasedOptimizerTimeout;
         return this;
     }
 

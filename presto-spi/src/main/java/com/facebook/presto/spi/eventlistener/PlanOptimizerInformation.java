@@ -42,7 +42,7 @@ public class PlanOptimizerInformation
         this.optimizerName = requireNonNull(optimizerName, "optimizerName is null");
         this.optimizerTriggered = requireNonNull(optimizerTriggered, "optimizerTriggered is null");
         this.optimizerApplicable = requireNonNull(optimizerApplicable, "optimizerApplicable is null");
-        this.optimizerFailure = requireNonNull(optimizerFailure, "optimizerApplicable is null");
+        this.optimizerFailure = requireNonNull(optimizerFailure, "optimizerFailure is null");
     }
 
     @JsonProperty

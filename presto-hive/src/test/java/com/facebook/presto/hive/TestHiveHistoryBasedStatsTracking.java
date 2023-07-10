@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.HistoryBasedPlanStatisticsCalculator;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -134,6 +135,9 @@ public class TestHiveHistoryBasedStatsTracking
     private void executeAndTrackHistory(String sql)
     {
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        if (queryRunner.getStatsCalculator() instanceof HistoryBasedPlanStatisticsCalculator) {
+            ((HistoryBasedPlanStatisticsCalculator) queryRunner.getStatsCalculator()).setPrefetchForAllPlanNodes(true);
+        }
         SqlQueryManager sqlQueryManager = (SqlQueryManager) queryRunner.getCoordinator().getQueryManager();
         InMemoryHistoryBasedPlanStatisticsProvider provider = (InMemoryHistoryBasedPlanStatisticsProvider) sqlQueryManager.getHistoryBasedPlanStatisticsTracker().getHistoryBasedPlanStatisticsProvider();
 
