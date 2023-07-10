@@ -14,6 +14,7 @@
 package com.facebook.presto.spark;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spark.planner.PrestoSparkStatsCalculator;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -54,6 +55,9 @@ public class TestPrestoSparkHistoryBasedTracking
                 return ImmutableList.of(new InMemoryHistoryBasedPlanStatisticsProvider());
             }
         });
+        if (queryRunner.getStatsCalculator() instanceof PrestoSparkStatsCalculator) {
+            ((PrestoSparkStatsCalculator) queryRunner.getStatsCalculator()).getHistoryBasedPlanStatisticsCalculator().setPrefetchForAllPlanNodes(true);
+        }
         return queryRunner;
     }
 

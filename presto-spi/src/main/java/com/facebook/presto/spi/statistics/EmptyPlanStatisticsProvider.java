@@ -32,7 +32,7 @@ public class EmptyPlanStatisticsProvider
     }
 
     @Override
-    public Map<PlanNodeWithHash, HistoricalPlanStatistics> getStats(List<PlanNodeWithHash> planNodeHashes)
+    public Map<PlanNodeWithHash, HistoricalPlanStatistics> getStats(List<PlanNodeWithHash> planNodeHashes, long timeoutInMilliSeconds)
     {
         return emptyMap();
     }
