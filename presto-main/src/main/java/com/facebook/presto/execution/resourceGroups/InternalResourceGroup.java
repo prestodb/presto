@@ -17,8 +17,6 @@ import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.SqlQueryExecution;
 import com.facebook.presto.execution.resourceGroups.WeightedFairQueue.Usage;
-import com.facebook.presto.metadata.AllNodes;
-import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.QueryStateInfo;
 import com.facebook.presto.server.ResourceGroupInfo;
@@ -29,7 +27,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -1021,13 +1018,6 @@ public class InternalResourceGroup
         }
     }
 
-    private int getActiveWorkerCount()
-    {
-        AllNodes allNodes = nodeManager.getAllNodes();
-        Set<InternalNode> activeWorkers = Sets.difference(Sets.difference(allNodes.getActiveNodes(), allNodes.getActiveResourceManagers()), allNodes.getActiveCatalogServers());
-        return activeWorkers.size();
-    }
-
     private boolean canRunMore()
     {
         checkState(Thread.holdsLock(root), "Must hold lock");
@@ -1052,7 +1042,7 @@ public class InternalResourceGroup
             if (resourceGroupRuntimeInfo.isPresent()) {
                 totalRunningQueries += resourceGroupRuntimeInfo.get().getRunningQueries() + resourceGroupRuntimeInfo.get().getDescendantRunningQueries();
             }
-            int activeWorkerCount = getActiveWorkerCount();
+            int activeWorkerCount = nodeManager.getAllNodes().getActiveWorkerCount();
 
             return totalRunningQueries < hardConcurrencyLimit && cachedMemoryUsageBytes <= softMemoryLimitBytes && totalRunningQueries * workersPerQueryLimit <= activeWorkerCount;
         }
