@@ -153,9 +153,10 @@ class TableWriteTest : public HiveConnectorTestBase {
     parquet::registerParquetWriterFactory();
   }
 
-  void TearDown() {
+  void TearDown() override {
     parquet::unregisterParquetReaderFactory();
     parquet::unregisterParquetWriterFactory();
+    HiveConnectorTestBase::TearDown();
   }
 
   void setCommitStrategy(CommitStrategy commitStrategy) {
