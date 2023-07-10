@@ -119,7 +119,7 @@ void Announcer::stop() {
 
 void Announcer::makeAnnouncement() {
   // stop() calls EventBase's destructor which executed all pending callbacks;
-  // make sure not to do anything if that's the case
+  // make sure not to do anything if that's the case diff
   if (stopped_) {
     return;
   }
