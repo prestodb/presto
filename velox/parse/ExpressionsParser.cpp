@@ -24,7 +24,7 @@ std::shared_ptr<const core::IExpr> parseExpr(
   facebook::velox::duckdb::ParseOptions duckConversionOptions;
   duckConversionOptions.parseDecimalAsDouble = options.parseDecimalAsDouble;
   duckConversionOptions.parseIntegerAsBigint = options.parseIntegerAsBigint;
-
+  duckConversionOptions.functionPrefix = options.functionPrefix;
   return facebook::velox::duckdb::parseExpr(expr, duckConversionOptions);
 }
 
@@ -34,6 +34,7 @@ std::vector<std::shared_ptr<const core::IExpr>> parseMultipleExpressions(
   facebook::velox::duckdb::ParseOptions duckConversionOptions;
   duckConversionOptions.parseDecimalAsDouble = options.parseDecimalAsDouble;
   duckConversionOptions.parseIntegerAsBigint = options.parseIntegerAsBigint;
+  duckConversionOptions.functionPrefix = options.functionPrefix;
   return facebook::velox::duckdb::parseMultipleExpressions(
       expr, duckConversionOptions);
 }

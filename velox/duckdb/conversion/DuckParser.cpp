@@ -99,6 +99,20 @@ std::string duckOperatorToVelox(ExpressionType type) {
   }
 }
 
+// SQL functions could be registered with different prefixes.
+// This function returns a full Velox function name with the registered prefix.
+std::string toFullFunctionName(
+    const std::string& functionName,
+    const std::string& prefix) {
+  // Special forms are registered without a prefix.
+  static const std::unordered_set<std::string> specialForms{
+      "cast", "and", "coalesce", "if", "or", "switch", "try"};
+  if (specialForms.count(functionName)) {
+    return functionName;
+  }
+  return prefix + functionName;
+}
+
 std::optional<std::string> getAlias(const ParsedExpression& expr) {
   const auto& alias = expr.alias;
   return alias.empty() ? std::optional<std::string>() : alias;
@@ -107,18 +121,24 @@ std::optional<std::string> getAlias(const ParsedExpression& expr) {
 std::shared_ptr<const core::CallExpr> callExpr(
     std::string name,
     std::vector<std::shared_ptr<const core::IExpr>> params,
-    std::optional<std::string> alias) {
+    std::optional<std::string> alias,
+    const ParseOptions& options) {
   return std::make_shared<const core::CallExpr>(
-      std::move(name), std::move(params), std::move(alias));
+      toFullFunctionName(name, options.functionPrefix),
+      std::move(params),
+      std::move(alias));
 }
 
 std::shared_ptr<const core::CallExpr> callExpr(
     std::string name,
     const std::shared_ptr<const core::IExpr>& param,
-    std::optional<std::string> alias) {
+    std::optional<std::string> alias,
+    const ParseOptions& options) {
   std::vector<std::shared_ptr<const core::IExpr>> params = {param};
   return std::make_shared<const core::CallExpr>(
-      std::move(name), std::move(params), std::move(alias));
+      toFullFunctionName(name, options.functionPrefix),
+      std::move(params),
+      std::move(alias));
 }
 
 // Parse a constant (1, 99.8, "string", etc).
@@ -229,10 +249,10 @@ std::shared_ptr<const core::IExpr> parseFunctionExpr(
   if (func == "notlike") {
     auto likeParams = params;
     params.clear();
-    params.emplace_back(callExpr("like", std::move(likeParams), {}));
+    params.emplace_back(callExpr("like", std::move(likeParams), {}, options));
     func = "not";
   }
-  return callExpr(func, std::move(params), getAlias(expr));
+  return callExpr(func, std::move(params), getAlias(expr), options);
 }
 
 // Parse a comparison (a > b, a = b, etc).
@@ -245,7 +265,8 @@ std::shared_ptr<const core::IExpr> parseComparisonExpr(
   return callExpr(
       normalizeFuncName(ExpressionTypeToOperator(expr.GetExpressionType())),
       std::move(params),
-      getAlias(expr));
+      getAlias(expr),
+      options);
 }
 
 // Parse x between lower and upper
@@ -258,7 +279,8 @@ std::shared_ptr<const core::IExpr> parseBetweenExpr(
       {parseExpr(*betweenExpr.input, options),
        parseExpr(*betweenExpr.lower, options),
        parseExpr(*betweenExpr.upper, options)},
-      getAlias(expr));
+      getAlias(expr),
+      options);
 }
 
 // Parse a conjunction (AND or OR).
@@ -292,7 +314,7 @@ std::shared_ptr<const core::IExpr> parseConjunctionExpr(
       params.emplace_back(current);
       params.emplace_back(parseExpr(*conjExpr.children[i], options));
     }
-    current = callExpr(conjName, std::move(params), getAlias(expr));
+    current = callExpr(conjName, std::move(params), getAlias(expr), options);
   }
   return current;
 }
@@ -344,7 +366,8 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(
       for (const auto& child : operExpr.children) {
         params.emplace_back(parseExpr(*child, options));
       }
-      return callExpr("array_constructor", std::move(params), getAlias(expr));
+      return callExpr(
+          "array_constructor", std::move(params), getAlias(expr), options);
     }
   }
 
@@ -392,11 +415,11 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(
     params.emplace_back(parseExpr(*operExpr.children[0], options));
     params.emplace_back(std::make_shared<const core::ConstantExpr>(
         ARRAY(valueType), variant::array(values), std::nullopt));
-    auto inExpr = callExpr("in", std::move(params), getAlias(expr));
+    auto inExpr = callExpr("in", std::move(params), getAlias(expr), options);
     // Translate COMPARE_NOT_IN into NOT(IN()).
     return (expr.GetExpressionType() == ExpressionType::COMPARE_IN)
         ? inExpr
-        : callExpr("not", inExpr, std::nullopt);
+        : callExpr("not", inExpr, std::nullopt, options);
   }
 
   std::vector<std::shared_ptr<const core::IExpr>> params;
@@ -426,14 +449,16 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(
   if (expr.GetExpressionType() == ExpressionType::OPERATOR_IS_NOT_NULL) {
     return callExpr(
         "not",
-        callExpr("is_null", std::move(params), std::nullopt),
-        getAlias(expr));
+        callExpr("is_null", std::move(params), std::nullopt, options),
+        getAlias(expr),
+        options);
   }
 
   return callExpr(
       duckOperatorToVelox(expr.GetExpressionType()),
       std::move(params),
-      getAlias(expr));
+      getAlias(expr),
+      options);
 }
 
 namespace {
@@ -462,7 +487,7 @@ std::shared_ptr<const core::IExpr> parseCaseExpr(
         parseExpr(*check.then_expr, options),
         parseExpr(*caseExpr.else_expr, options),
     };
-    return callExpr("if", std::move(params), getAlias(expr));
+    return callExpr("if", std::move(params), getAlias(expr), options);
   }
 
   std::vector<std::shared_ptr<const core::IExpr>> inputs;
@@ -477,7 +502,7 @@ std::shared_ptr<const core::IExpr> parseCaseExpr(
     inputs.emplace_back(elseExpr);
   }
 
-  return callExpr("switch", std::move(inputs), getAlias(expr));
+  return callExpr("switch", std::move(inputs), getAlias(expr), options);
 }
 
 // Parse an CAST expression.
@@ -806,7 +831,7 @@ IExprWindowFunction parseWindowExpr(
 
   auto func = normalizeFuncName(windowExpr.function_name);
   windowIExpr.functionCall =
-      callExpr(func, std::move(params), getAlias(windowExpr));
+      callExpr(func, std::move(params), getAlias(windowExpr), options);
 
   windowIExpr.ignoreNulls = windowExpr.ignore_nulls;
 
