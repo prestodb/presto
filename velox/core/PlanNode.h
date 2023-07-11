@@ -1945,6 +1945,12 @@ class WindowNode : public PlanNode {
 
   static BoundType boundTypeFromName(const std::string& name);
 
+  /// Window frames can be ROW or RANGE type.
+  /// Frame bounds can be CURRENT ROW, UNBOUNDED PRECEDING(FOLLOWING)
+  /// and k PRECEDING(FOLLOWING). K could be a constant or column.
+  ///
+  /// k PRECEDING(FOLLOWING) is only supported for ROW frames now.
+  /// k has to be of integer or bigint type.
   struct Frame {
     WindowType type;
     BoundType startType;

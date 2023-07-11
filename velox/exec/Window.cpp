@@ -88,6 +88,20 @@ Window::Window(
 Window::WindowFrame Window::createWindowFrame(
     core::WindowNode::Frame frame,
     const RowTypePtr& inputType) {
+  if (frame.type == core::WindowNode::WindowType::kRows) {
+    auto frameBoundCheck = [&](const core::TypedExprPtr& frame) -> void {
+      if (frame == nullptr) {
+        return;
+      }
+
+      VELOX_USER_CHECK(
+          frame->type() == INTEGER() || frame->type() == BIGINT(),
+          "k frame bound must be INTEGER or BIGINT type");
+    };
+    frameBoundCheck(frame.startValue);
+    frameBoundCheck(frame.endValue);
+  }
+
   auto createFrameChannelArg =
       [&](const core::TypedExprPtr& frame) -> std::optional<FrameChannelArg> {
     // frame is nullptr for non (kPreceding or kFollowing) frames.
@@ -100,13 +114,16 @@ Window::WindowFrame Window::createWindowFrame(
           std::dynamic_pointer_cast<const core::ConstantTypedExpr>(frame)
               ->value();
       VELOX_CHECK(!constant.isNull(), "k in frame bounds must not be null");
-      VELOX_USER_CHECK_GE(
-          constant.value<int64_t>(), 1, "k in frame bounds must be at least 1");
-      return std::make_optional(FrameChannelArg{
-          kConstantChannel, nullptr, constant.value<int64_t>()});
+      auto value = VariantConverter::convert(constant, TypeKind::BIGINT)
+                       .value<int64_t>();
+      VELOX_USER_CHECK_GE(value, 1, "k in frame bounds must be at least 1");
+      return std::make_optional(
+          FrameChannelArg{kConstantChannel, nullptr, value});
     } else {
       return std::make_optional(FrameChannelArg{
-          frameChannel, BaseVector::create(BIGINT(), 0, pool()), std::nullopt});
+          frameChannel,
+          BaseVector::create(frame->type(), 0, pool()),
+          std::nullopt});
     }
   };
 
@@ -290,6 +307,33 @@ void Window::callResetPartition(vector_size_t partitionNumber) {
   }
 }
 
+namespace {
+
+template <typename T>
+void updateKRowsOffsetsColumn(
+    bool isKPreceding,
+    const VectorPtr& value,
+    vector_size_t firstPartitionRow,
+    vector_size_t startRow,
+    vector_size_t numRows,
+    vector_size_t* rawFrameBounds) {
+  auto offsets = value->values()->as<T>();
+  for (auto i = 0; i < numRows; i++) {
+    VELOX_USER_CHECK(!value->isNullAt(i), "k in frame bounds cannot be null");
+    VELOX_USER_CHECK_GE(offsets[i], 1, "k in frame bounds must be at least 1");
+  }
+
+  // Preceding involves subtracting from the current position, while following
+  // moves ahead.
+  int precedingFactor = isKPreceding ? -1 : 1;
+  for (auto i = 0; i < numRows; i++) {
+    rawFrameBounds[i] = (startRow + i) +
+        vector_size_t(precedingFactor * offsets[i]) - firstPartitionRow;
+  }
+}
+
+}; // namespace
+
 void Window::updateKRowsFrameBounds(
     bool isKPreceding,
     const FrameChannelArg& frameArg,
@@ -306,20 +350,22 @@ void Window::updateKRowsFrameBounds(
   } else {
     windowPartition_->extractColumn(
         frameArg.index, partitionOffset_, numRows, 0, frameArg.value);
-    auto offsets = frameArg.value->values()->as<int64_t>();
-    for (auto i = 0; i < numRows; i++) {
-      VELOX_USER_CHECK(
-          !frameArg.value->isNullAt(i), "k in frame bounds cannot be null");
-      VELOX_USER_CHECK_GE(
-          offsets[i], 1, "k in frame bounds must be at least 1");
-    }
-
-    // Preceding involves subtracting from the current position, while following
-    // moves ahead.
-    int precedingFactor = isKPreceding ? -1 : 1;
-    for (auto i = 0; i < numRows; i++) {
-      rawFrameBounds[i] = (startRow + i) +
-          vector_size_t(precedingFactor * offsets[i]) - firstPartitionRow;
+    if (frameArg.value->typeKind() == TypeKind::INTEGER) {
+      updateKRowsOffsetsColumn<int32_t>(
+          isKPreceding,
+          frameArg.value,
+          firstPartitionRow,
+          startRow,
+          numRows,
+          rawFrameBounds);
+    } else {
+      updateKRowsOffsetsColumn<int64_t>(
+          isKPreceding,
+          frameArg.value,
+          firstPartitionRow,
+          startRow,
+          numRows,
+          rawFrameBounds);
     }
   }
 }
