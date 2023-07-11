@@ -133,4 +133,13 @@ bool registerVectorFunction(
       name, signatures, factory, metadata, overwrite);
 }
 
+std::vector<ExpressionRewrite>& expressionRewrites() {
+  static std::vector<ExpressionRewrite> rewrites;
+  return rewrites;
+}
+
+void registerExpressionRewrite(ExpressionRewrite rewrite) {
+  expressionRewrites().emplace_back(rewrite);
+}
+
 } // namespace facebook::velox::exec

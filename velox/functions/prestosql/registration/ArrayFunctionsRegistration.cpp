@@ -17,6 +17,7 @@
 #include "velox/functions/Registerer.h"
 #include "velox/functions/prestosql/ArrayConstructor.h"
 #include "velox/functions/prestosql/ArrayFunctions.h"
+#include "velox/functions/prestosql/ArraySort.h"
 #include "velox/functions/prestosql/WidthBucketArray.h"
 
 namespace facebook::velox::functions {
@@ -100,9 +101,13 @@ void registerArrayFunctions(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_zip_with, prefix + "zip_with");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_position, prefix + "array_position");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_shuffle, prefix + "shuffle");
+
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_sort, prefix + "array_sort");
   VELOX_REGISTER_VECTOR_FUNCTION(
       udf_array_sort_desc, prefix + "array_sort_desc");
+
+  exec::registerExpressionRewrite(rewriteArraySortCall);
+
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_sum, prefix + "array_sum");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_repeat, prefix + "repeat");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_sequence, prefix + "sequence");

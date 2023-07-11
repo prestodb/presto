@@ -565,10 +565,22 @@ TEST_F(ArraySortTest, lambda) {
   // Different ways to sort by length ascending.
   testAsc("array_sort", "x -> length(x)");
   testAsc("array_sort_desc", "x -> length(x) * -1");
+  testAsc(
+      "array_sort",
+      "(x, y) -> if(length(x) < length(y), -1, if(length(x) > length(y), 1, 0))");
+  testAsc(
+      "array_sort",
+      "(x, y) -> if(length(x) < length(y), -1, if(length(x) = length(y), 0, 1))");
 
   // Different ways to sort by length descending.
   testDesc("array_sort", "x -> length(x) * -1");
   testDesc("array_sort_desc", "x -> length(x)");
+  testDesc(
+      "array_sort",
+      "(x, y) -> if(length(x) < length(y), 1, if(length(x) > length(y), -1, 0))");
+  testDesc(
+      "array_sort",
+      "(x, y) -> if(length(x) < length(y), 1, if(length(x) = length(y), 0, -1))");
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(

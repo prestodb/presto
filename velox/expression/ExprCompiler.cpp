@@ -369,7 +369,16 @@ std::vector<VectorPtr> getConstantInputs(const std::vector<ExprPtr>& exprs) {
   return constants;
 }
 
-ExprPtr compileExpression(
+core::TypedExprPtr rewriteExpression(const core::TypedExprPtr& expr) {
+  for (auto& rewrite : expressionRewrites()) {
+    if (auto rewritten = rewrite(expr)) {
+      return rewritten;
+    }
+  }
+  return expr;
+}
+
+ExprPtr compileRewrittenExpression(
     const TypedExprPtr& expr,
     Scope* scope,
     const core::QueryConfig& config,
@@ -519,6 +528,23 @@ ExprPtr compileExpression(
       : result;
   scope->visited[expr.get()] = folded;
   return folded;
+}
+
+ExprPtr compileExpression(
+    const TypedExprPtr& expr,
+    Scope* scope,
+    const core::QueryConfig& config,
+    memory::MemoryPool* pool,
+    const std::unordered_set<std::string>& flatteningCandidates,
+    bool enableConstantFolding) {
+  auto rewritten = rewriteExpression(expr);
+  return compileRewrittenExpression(
+      rewritten == nullptr ? expr : rewritten,
+      scope,
+      config,
+      pool,
+      flatteningCandidates,
+      enableConstantFolding);
 }
 
 /// Walk expression tree and collect names of functions used in CallTypedExpr

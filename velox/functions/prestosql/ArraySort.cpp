@@ -21,6 +21,7 @@
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/LambdaFunctionUtil.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"
+#include "velox/functions/prestosql/SimpleComparisonMatcher.h"
 
 namespace facebook::velox::functions {
 namespace {
@@ -368,8 +369,9 @@ std::shared_ptr<exec::VectorFunction> createDesc(
 }
 
 // Define function signature.
-std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
-  return {
+std::vector<std::shared_ptr<exec::FunctionSignature>> signatures(
+    bool withComparator) {
+  std::vector<std::shared_ptr<exec::FunctionSignature>> signatures = {
       // array(T) -> array(T)
       exec::FunctionSignatureBuilder()
           .typeVariable("T")
@@ -385,16 +387,76 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
           .constantArgumentType("function(T,U)")
           .build(),
   };
+
+  if (withComparator) {
+    signatures.push_back(
+        // array(T), function(T,T,bigint) -> array(T)
+        exec::FunctionSignatureBuilder()
+            .typeVariable("T")
+            .returnType("array(T)")
+            .argumentType("array(T)")
+            .constantArgumentType("function(T,T,bigint)")
+            .build());
+  }
+  return signatures;
+}
+
+core::CallTypedExprPtr asArraySortCall(const core::TypedExprPtr& expr) {
+  if (auto call = std::dynamic_pointer_cast<const core::CallTypedExpr>(expr)) {
+    if (call->name() == "array_sort") {
+      return call;
+    }
+  }
+  return nullptr;
 }
 
 } // namespace
 
+core::TypedExprPtr rewriteArraySortCall(const core::TypedExprPtr& expr) {
+  auto call = asArraySortCall(expr);
+  if (call == nullptr || call->inputs().size() != 2) {
+    return nullptr;
+  }
+
+  auto lambda =
+      dynamic_cast<const core::LambdaTypedExpr*>(call->inputs()[1].get());
+  VELOX_CHECK_NOT_NULL(lambda);
+
+  // Extract 'transform' from the comparison lambda:
+  //  (x, y) -> if(func(x) < func(y),...) ===> x -> func(x).
+  if (lambda->signature()->size() != 2) {
+    return nullptr;
+  }
+
+  if (auto comparison = functions::prestosql::isSimpleComparison(*lambda)) {
+    std::string name =
+        comparison->isLessThen ? "array_sort" : "array_sort_desc";
+    auto rewritten = std::make_shared<core::CallTypedExpr>(
+        call->type(),
+        std::vector<core::TypedExprPtr>{
+            call->inputs()[0],
+            std::make_shared<core::LambdaTypedExpr>(
+                ROW({lambda->signature()->nameOf(0)},
+                    {lambda->signature()->childAt(0)}),
+                comparison->expr),
+        },
+        name);
+
+    return rewritten;
+  }
+
+  return nullptr;
+}
+
 // Register function.
-VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(udf_array_sort, signatures(), createAsc);
+VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
+    udf_array_sort,
+    signatures(true),
+    createAsc);
 
 VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
     udf_array_sort_desc,
-    signatures(),
+    signatures(false),
     createDesc);
 
 } // namespace facebook::velox::functions
