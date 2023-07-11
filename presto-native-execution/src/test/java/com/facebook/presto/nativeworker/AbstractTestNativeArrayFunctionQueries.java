@@ -84,4 +84,36 @@ public abstract class AbstractTestNativeArrayFunctionQueries
         this.assertQuery("SELECT trim_array(quantities, 3) FROM orders_ex where cardinality(quantities) > 5");
         this.assertQueryFails("SELECT trim_array(quantities, 3) FROM orders_ex where cardinality(quantities) = 2", ".*size must not exceed array cardinality.*");
     }
+
+    @Test
+    public void testArrayConcat()
+    {
+        // Concatenate two integer arrays.
+        this.assertQuery("SELECT concat(ARRAY[linenumber], ARRAY[orderkey, partkey]) FROM lineitem");
+        this.assertQuery("SELECT ARRAY[linenumber] || ARRAY[orderkey, partkey] FROM lineitem");
+        // Concatenate two integer arrays with null.
+        this.assertQuery("SELECT concat(ARRAY[linenumber, NULL], ARRAY[orderkey, partkey]) FROM lineitem");
+        this.assertQuery("SELECT concat(ARRAY[linenumber], NULL, ARRAY[orderkey, partkey]) FROM lineitem");
+        this.assertQuery("SELECT ARRAY[linenumber, NULL] || ARRAY[orderkey, partkey] FROM lineitem");
+        // Concatenate more than two arrays.
+        this.assertQuery("SELECT concat(ARRAY[linenumber], ARRAY[partkey], ARRAY[orderkey, partkey], ARRAY[123, 456], ARRAY[quantity]) FROM lineitem");
+        this.assertQuery("SELECT ARRAY[linenumber] || ARRAY[partkey] || ARRAY[orderkey, partkey] || ARRAY[123, 456] || ARRAY[quantity] FROM lineitem");
+        // Concatenate complex types.
+        this.assertQuery("SELECT concat(ARRAY[ARRAY[linenumber], ARRAY[suppkey, orderkey]], ARRAY[ARRAY[orderkey, partkey]]) FROM lineitem");
+        this.assertQuery("SELECT ARRAY[ARRAY[linenumber], ARRAY[suppkey, orderkey]] || ARRAY[ARRAY[orderkey, partkey]] FROM lineitem");
+        // Concatenate array with a single element.
+        this.assertQuery("SELECT concat(linenumber, ARRAY[orderkey, partkey]) FROM lineitem");
+        this.assertQuery("SELECT concat(ARRAY[orderkey, partkey], linenumber) FROM lineitem");
+        this.assertQuery("SELECT linenumber || ARRAY[orderkey, partkey] FROM lineitem");
+        this.assertQuery("SELECT ARRAY[orderkey, partkey] || linenumber FROM lineitem");
+        // Concatenate array with a null.
+        this.assertQuery("SELECT concat(CAST(NULL AS INTEGER), ARRAY[orderkey, partkey]) FROM lineitem");
+        this.assertQuery("SELECT concat(ARRAY[orderkey, partkey], CAST(NULL AS INTEGER)) FROM lineitem");
+        this.assertQuery("SELECT CAST(NULL AS INTEGER) || ARRAY[orderkey, partkey] FROM lineitem");
+        this.assertQuery("SELECT ARRAY[orderkey, partkey] || CAST(NULL AS INTEGER) FROM lineitem");
+        // Test nested concatenation.
+        this.assertQuery("SELECT concat(linenumber, concat(orderkey, ARRAY[suppkey, partkey])) FROM lineitem");
+        this.assertQuery("SELECT linenumber || concat(orderkey, ARRAY[suppkey, partkey]) FROM lineitem");
+        this.assertQuery("SELECT concat(linenumber, orderkey || ARRAY[suppkey, partkey]) FROM lineitem");
+    }
 }
