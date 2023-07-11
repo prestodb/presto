@@ -171,6 +171,11 @@ bool isLambdaArgument(const exec::TypeSignature& typeSignature) {
   return typeSignature.baseName() == "function";
 }
 
+bool isLambdaArgument(const exec::TypeSignature& typeSignature, int numInputs) {
+  return isLambdaArgument(typeSignature) &&
+      (typeSignature.parameters().size() == numInputs + 1);
+}
+
 bool hasLambdaArgument(const exec::FunctionSignature& signature) {
   for (const auto& type : signature.argumentTypes()) {
     if (isLambdaArgument(type)) {
@@ -308,6 +313,46 @@ TypedExprPtr Expressions::resolveLambdaExpr(
       signature, inferTypes(body, lambdaRow, pool));
 }
 
+const exec::FunctionSignature* findLambdaSignature(
+    const std::vector<const exec::FunctionSignature*>& signatures,
+    const std::shared_ptr<const CallExpr>& callExpr) {
+  const exec::FunctionSignature* matchingSignature = nullptr;
+  for (const auto& signature : signatures) {
+    if (!hasLambdaArgument(*signature)) {
+      continue;
+    }
+
+    const auto numArguments = callExpr->getInputs().size();
+
+    if (numArguments != signature->argumentTypes().size()) {
+      continue;
+    }
+
+    bool match = true;
+    for (auto i = 0; i < numArguments; ++i) {
+      const auto& argumentType = signature->argumentTypes()[i];
+      if (auto lambda = dynamic_cast<const core::LambdaExpr*>(
+              callExpr->getInputs()[i].get())) {
+        const auto numLambdaInputs = lambda->inputNames().size();
+        if (!isLambdaArgument(argumentType, numLambdaInputs)) {
+          match = false;
+          break;
+        }
+      }
+    }
+
+    if (match) {
+      VELOX_CHECK_NULL(
+          matchingSignature,
+          "Cannot resolve ambiguous lambda function signatures for {}.",
+          callExpr->getFunctionName());
+      matchingSignature = signature;
+    }
+  }
+
+  return matchingSignature;
+}
+
 // static
 TypedExprPtr Expressions::tryResolveCallWithLambdas(
     const std::shared_ptr<const CallExpr>& callExpr,
@@ -319,66 +364,43 @@ TypedExprPtr Expressions::tryResolveCallWithLambdas(
     return nullptr;
   }
 
-  const auto& signatures = it->second;
-  for (const auto& signature : signatures) {
-    if (!hasLambdaArgument(*signature)) {
-      return nullptr;
-    }
-
-    VELOX_CHECK_EQ(
-        1,
-        signatures.size(),
-        "Lambda functions with multiple signatures are not supported. "
-        "Lambda function {} has {} signatures.",
-        callExpr->getFunctionName(),
-        signatures.size());
-
-    VELOX_CHECK_EQ(
-        signature->argumentTypes().size(),
-        callExpr->getInputs().size(),
-        "Lambda function signature is not supported: {}({} arguments)."
-        "Supported signature has {} arguments: {}.",
-        callExpr->getFunctionName(),
-        callExpr->getInputs().size(),
-        signature->argumentTypes().size(),
-        signature->toString());
-
-    // Resolve non-lambda arguments first.
-    auto numArgs = callExpr->getInputs().size();
-    std::vector<TypedExprPtr> children(numArgs);
-    std::vector<TypePtr> childTypes(numArgs);
-    for (auto i = 0; i < numArgs; ++i) {
-      if (!isLambdaArgument(signature->argumentTypes()[i])) {
-        children[i] = inferTypes(callExpr->getInputs()[i], inputRow, pool);
-        childTypes[i] = children[i]->type();
-      }
-    }
-
-    // Resolve lambda arguments.
-    exec::SignatureBinder binder(*signature, childTypes);
-    binder.tryBind();
-    for (auto i = 0; i < numArgs; ++i) {
-      auto argSignature = signature->argumentTypes()[i];
-      if (isLambdaArgument(argSignature)) {
-        std::vector<TypePtr> lambdaTypes;
-        for (auto j = 0; j < argSignature.parameters().size() - 1; ++j) {
-          auto type = binder.tryResolveType(argSignature.parameters()[j]);
-          VELOX_CHECK_NOT_NULL(
-              type,
-              "Cannot resolve lambda argument type: {}.",
-              argSignature.toString());
-          lambdaTypes.push_back(type);
-        }
-
-        children[i] =
-            inferTypes(callExpr->getInputs()[i], inputRow, lambdaTypes, pool);
-      }
-    }
-
-    return createWithImplicitCast(callExpr, std::move(children));
+  auto signature = findLambdaSignature(it->second, callExpr);
+  if (signature == nullptr) {
+    return nullptr;
   }
 
-  return nullptr;
+  // Resolve non-lambda arguments first.
+  auto numArgs = callExpr->getInputs().size();
+  std::vector<TypedExprPtr> children(numArgs);
+  std::vector<TypePtr> childTypes(numArgs);
+  for (auto i = 0; i < numArgs; ++i) {
+    if (!isLambdaArgument(signature->argumentTypes()[i])) {
+      children[i] = inferTypes(callExpr->getInputs()[i], inputRow, pool);
+      childTypes[i] = children[i]->type();
+    }
+  }
+
+  // Resolve lambda arguments.
+  exec::SignatureBinder binder(*signature, childTypes);
+  binder.tryBind();
+  for (auto i = 0; i < numArgs; ++i) {
+    auto argSignature = signature->argumentTypes()[i];
+    if (isLambdaArgument(argSignature)) {
+      std::vector<TypePtr> lambdaTypes;
+      for (auto j = 0; j < argSignature.parameters().size() - 1; ++j) {
+        auto type = binder.tryResolveType(argSignature.parameters()[j]);
+        if (type == nullptr) {
+          return nullptr;
+        }
+        lambdaTypes.push_back(type);
+      }
+
+      children[i] =
+          inferTypes(callExpr->getInputs()[i], inputRow, lambdaTypes, pool);
+    }
+  }
+
+  return createWithImplicitCast(callExpr, std::move(children));
 }
 
 // This method returns null if the expression doesn't depend on any input row.

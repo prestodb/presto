@@ -19,34 +19,34 @@
 #include "velox/expression/EvalCtx.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
+#include "velox/functions/lib/LambdaFunctionUtil.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"
 
 namespace facebook::velox::functions {
 namespace {
 
-void applyComplexType(
+BufferPtr sortElements(
     const SelectivityVector& rows,
-    ArrayVector* inputArray,
+    const ArrayVector& inputArray,
+    const BaseVector& inputElements,
     bool ascending,
-    exec::EvalCtx& context,
-    VectorPtr& resultElements) {
-  auto inputElements = inputArray->elements();
+    exec::EvalCtx& context) {
   const SelectivityVector inputElementRows =
-      toElementRows(inputElements->size(), rows, inputArray);
+      toElementRows(inputElements.size(), rows, &inputArray);
   exec::LocalDecodedVector decodedElements(
-      context, *inputElements, inputElementRows);
+      context, inputElements, inputElementRows);
   const auto* baseElementsVector = decodedElements->base();
 
   // Allocate new vectors for indices.
-  BufferPtr indices = allocateIndices(inputElements->size(), context.pool());
+  BufferPtr indices = allocateIndices(inputElements.size(), context.pool());
   vector_size_t* rawIndices = indices->asMutable<vector_size_t>();
 
   const CompareFlags flags{.nullsFirst = false, .ascending = ascending};
   auto decodedIndices = decodedElements->indices();
 
   rows.applyToSelected([&](vector_size_t row) {
-    const auto size = inputArray->sizeAt(row);
-    const auto offset = inputArray->offsetAt(row);
+    const auto size = inputArray.sizeAt(row);
+    const auto offset = inputArray.offsetAt(row);
 
     for (auto i = offset; i < offset + size; ++i) {
       rawIndices[i] = i;
@@ -71,6 +71,18 @@ void applyComplexType(
         });
   });
 
+  return indices;
+}
+
+void applyComplexType(
+    const SelectivityVector& rows,
+    ArrayVector* inputArray,
+    bool ascending,
+    exec::EvalCtx& context,
+    VectorPtr& resultElements) {
+  auto inputElements = inputArray->elements();
+  auto indices =
+      sortElements(rows, *inputArray, *inputElements, ascending, context);
   resultElements = BaseVector::transpose(indices, std::move(inputElements));
 }
 
@@ -248,17 +260,76 @@ class ArraySortFunction : public exec::VectorFunction {
   const bool ascending_;
 };
 
-// Validate number of parameters and types.
-void validateType(const std::vector<exec::VectorFunctionArg>& inputArgs) {
-  VELOX_USER_CHECK_EQ(
-      inputArgs.size(), 1, "array_sort requires exactly one parameter");
+class ArraySortLambdaFunction : public exec::VectorFunction {
+ public:
+  explicit ArraySortLambdaFunction(bool ascending) : ascending_{ascending} {}
 
-  auto arrayType = inputArgs.front().type;
-  VELOX_USER_CHECK_EQ(
-      arrayType->kind(),
-      TypeKind::ARRAY,
-      "array_sort requires arguments of type ARRAY");
-}
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      const TypePtr& /*outputType*/,
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
+    // Flatten input array.
+    exec::LocalDecodedVector arrayDecoder(context, *args[0], rows);
+    auto& decodedArray = *arrayDecoder.get();
+
+    auto flatArray = flattenArray(rows, args[0], decodedArray);
+
+    std::vector<VectorPtr> lambdaArgs = {flatArray->elements()};
+    auto newNumElements = flatArray->elements()->size();
+
+    SelectivityVector finalSelection;
+    if (!context.isFinalSelection()) {
+      finalSelection = toElementRows<ArrayVector>(
+          newNumElements, *context.finalSelection(), flatArray.get());
+    }
+
+    // Compute sorting keys.
+    VectorPtr newElements;
+
+    auto elementToTopLevelRows = getElementToTopLevelRows(
+        newNumElements, rows, flatArray.get(), context.pool());
+
+    // Loop over lambda functions and apply these to elements of the base array.
+    // In most cases there will be only one function and the loop will run once.
+    auto it = args[1]->asUnchecked<FunctionVector>()->iterator(&rows);
+    while (auto entry = it.next()) {
+      auto elementRows = toElementRows<ArrayVector>(
+          newNumElements, *entry.rows, flatArray.get());
+      auto wrapCapture = toWrapCapture<ArrayVector>(
+          newNumElements, entry.callable, *entry.rows, flatArray);
+
+      entry.callable->apply(
+          elementRows,
+          finalSelection,
+          wrapCapture,
+          &context,
+          lambdaArgs,
+          elementToTopLevelRows,
+          &newElements);
+    }
+
+    // Sort 'newElements'.
+    auto indices =
+        sortElements(rows, *flatArray, *newElements, ascending_, context);
+    auto sortedElements = BaseVector::wrapInDictionary(
+        nullptr, indices, newNumElements, flatArray->elements());
+
+    VectorPtr localResult = std::make_shared<ArrayVector>(
+        flatArray->pool(),
+        flatArray->type(),
+        flatArray->nulls(),
+        flatArray->size(),
+        flatArray->offsets(),
+        flatArray->sizes(),
+        sortedElements);
+    context.moveOrCopyResult(localResult, rows, result);
+  }
+
+ private:
+  const bool ascending_;
+};
 
 // Create function template based on type.
 template <TypeKind kind>
@@ -273,7 +344,10 @@ std::shared_ptr<exec::VectorFunction> createTyped(
 std::shared_ptr<exec::VectorFunction> create(
     const std::vector<exec::VectorFunctionArg>& inputArgs,
     bool ascending) {
-  validateType(inputArgs);
+  if (inputArgs.size() == 2) {
+    return std::make_shared<ArraySortLambdaFunction>(ascending);
+  }
+
   auto elementType = inputArgs.front().type->childAt(0);
   return VELOX_DYNAMIC_TYPE_DISPATCH(
       createTyped, elementType->kind(), inputArgs, ascending);
@@ -285,6 +359,7 @@ std::shared_ptr<exec::VectorFunction> createAsc(
     const core::QueryConfig& /*config*/) {
   return create(inputArgs, true);
 }
+
 std::shared_ptr<exec::VectorFunction> createDesc(
     const std::string& /* name */,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
@@ -294,18 +369,29 @@ std::shared_ptr<exec::VectorFunction> createDesc(
 
 // Define function signature.
 std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
-  // array(T) -> array(T)
-  return {exec::FunctionSignatureBuilder()
-              .typeVariable("T")
-              .returnType("array(T)")
-              .argumentType("array(T)")
-              .build()};
+  return {
+      // array(T) -> array(T)
+      exec::FunctionSignatureBuilder()
+          .typeVariable("T")
+          .returnType("array(T)")
+          .argumentType("array(T)")
+          .build(),
+      // array(T), function(T,U), boolean -> array(T)
+      exec::FunctionSignatureBuilder()
+          .typeVariable("T")
+          .typeVariable("U")
+          .returnType("array(T)")
+          .argumentType("array(T)")
+          .constantArgumentType("function(T,U)")
+          .build(),
+  };
 }
 
 } // namespace
 
 // Register function.
 VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(udf_array_sort, signatures(), createAsc);
+
 VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
     udf_array_sort_desc,
     signatures(),
