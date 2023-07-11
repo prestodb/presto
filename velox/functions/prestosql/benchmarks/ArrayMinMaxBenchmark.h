@@ -24,42 +24,6 @@
 
 namespace facebook::velox::functions {
 
-template <typename T, typename Func>
-VectorPtr fastMinMax(const VectorPtr& in, const Func& func) {
-  const auto numRows = in->size();
-  auto result = BaseVector::create<FlatVector<T>>(
-      in->type()->childAt(0), numRows, in->pool());
-  auto rawResults = result->mutableRawValues();
-
-  auto arrayVector = in->as<ArrayVector>();
-  auto rawOffsets = arrayVector->rawOffsets();
-  auto rawSizes = arrayVector->rawSizes();
-  auto rawElements = arrayVector->elements()->as<FlatVector<T>>()->rawValues();
-  for (auto row = 0; row < numRows; ++row) {
-    const auto start = rawOffsets[row];
-    const auto end = start + rawSizes[row];
-    if (start == end) {
-      result->setNull(row, true); // NULL
-    } else {
-      rawResults[row] = *func(rawElements + start, rawElements + end);
-    }
-  }
-
-  return result;
-}
-
-template <typename T>
-VectorPtr fastMin(const VectorPtr& in) {
-  return fastMinMax<T, decltype(std::min_element<const T*>)>(
-      in, std::min_element<const T*>);
-}
-
-template <typename T>
-VectorPtr fastMax(const VectorPtr& in) {
-  return fastMinMax<T, decltype(std::max_element<const T*>)>(
-      in, std::max_element<const T*>);
-}
-
 template <typename T>
 struct ArrayMinSimpleFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);

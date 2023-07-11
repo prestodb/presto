@@ -13,8 +13,13 @@
 # limitations under the License.
 
 set(BENCHMARK_DEPENDENCIES_NO_FUNC
-    velox_functions_test_lib velox_exec velox_exec_test_lib gflags::gflags
-    Folly::folly ${FOLLY_BENCHMARK})
+    velox_functions_test_lib
+    velox_exec
+    velox_exec_test_lib
+    gflags::gflags
+    Folly::folly
+    ${FOLLY_BENCHMARK}
+    velox_benchmark_builder)
 
 set(BENCHMARK_DEPENDENCIES
     velox_functions_prestosql velox_functions_lib velox_vector_fuzzer
