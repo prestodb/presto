@@ -1636,6 +1636,9 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   for (const auto& entry : node->aggregations) {
     aggregateNames.emplace_back(entry.first.name);
 
+    VELOX_USER_CHECK(
+        !entry.second.distinct, "Distinct aggregations are not supported yet.");
+
     core::AggregationNode::Aggregate aggregate;
     aggregate.call = std::dynamic_pointer_cast<const core::CallTypedExpr>(
         exprConverter_.toVeloxExpr(entry.second.call));
