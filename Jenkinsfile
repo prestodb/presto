@@ -93,6 +93,7 @@ pipeline {
                                 sh(script: "git show -s --format=%cd --date=format:'%Y%m%d%H%M%S'", returnStdout: true).trim() + "-" +
                                 env.PRESTO_COMMIT_SHA.substring(0, 7)
                             env.DOCKER_IMAGE = env.AWS_ECR + "/presto:${PRESTO_BUILD_VERSION}"
+                            env.DOCKER_NATIVE_IMAGE = env.AWS_ECR + "/presto-native:${PRESTO_BUILD_VERSION}"
                         }
                         sh 'printenv | sort'
 
@@ -134,7 +135,7 @@ pipeline {
             stages {
                 stage('Docker') {
                     steps {
-                        echo 'build docker image'
+                        echo 'build docker images'
                         sh 'apk update && apk add aws-cli bash git'
                         sh '''
                             docker run --privileged --rm tonistiigi/binfmt --install all
@@ -168,17 +169,34 @@ pipeline {
                     }
                 }
 
+                stage('Docker Native Build') {
+                    steps {
+                        echo "Building ${DOCKER_NATIVE_IMAGE}"
+                        withCredentials([[
+                                $class:            'AmazonWebServicesCredentialsBinding',
+                                credentialsId:     "${AWS_CREDENTIAL_ID}",
+                                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh '''#!/bin/bash -ex
+                                docker buildx build -f Dockerfile-native --load --platform "linux/amd64" -t "${DOCKER_NATIVE_IMAGE}-amd64" \
+                                    --build-arg "PRESTO_VERSION=${PRESTO_VERSION}" .
+                            '''
+                        }
+                    }
+                }
+
                 stage('Publish Docker') {
                     when {
                         anyOf {
                             expression { params.PUBLISH_ARTIFACTS_ON_CURRENT_BRANCH }
                             branch "master"
+                            branch "ahana"
                         }
                         beforeAgent true
                     }
 
                     steps {
-                        echo 'Publish docker image'
+                        echo 'Publish docker images'
                         withCredentials([[
                                 $class:            'AmazonWebServicesCredentialsBinding',
                                 credentialsId:     "${AWS_CREDENTIAL_ID}",
@@ -194,6 +212,7 @@ pipeline {
                                 docker manifest annotate "${DOCKER_IMAGE}" "${DOCKER_IMAGE}-amd64" --os linux --arch amd64
                                 docker manifest annotate "${DOCKER_IMAGE}" "${DOCKER_IMAGE}-arm64" --os linux --arch arm64
                                 docker manifest push "${DOCKER_IMAGE}"
+                                docker push "${DOCKER_NATIVE_IMAGE}-amd64"
                             '''
                         }
                     }
@@ -202,3 +221,4 @@ pipeline {
         }
     }
 }
+
