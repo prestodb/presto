@@ -212,4 +212,10 @@ struct SinhFunction {
   }
 };
 
+template <typename T>
+struct HypotFunction {
+  FOLLY_ALWAYS_INLINE void call(double& result, double a, double b) {
+    result = std::hypot(a, b);
+  }
+};
 } // namespace facebook::velox::functions::sparksql

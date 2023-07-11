@@ -313,5 +313,17 @@ TEST_F(BinTest, bin) {
   EXPECT_EQ(bin(0), "0");
 }
 
+TEST_F(ArithmeticTest, hypot) {
+  const auto hypot = [&](std::optional<double> a, std::optional<double> b) {
+    return evaluateOnce<double>("hypot(c0, c1)", a, b);
+  };
+
+  EXPECT_EQ(hypot(3, 4), 5);
+  EXPECT_EQ(hypot(-3, -4), 5);
+  EXPECT_EQ(hypot(3.0, -4.0), 5.0);
+  EXPECT_DOUBLE_EQ(5.70087712549569, hypot(3.5, 4.5).value());
+  EXPECT_DOUBLE_EQ(5.70087712549569, hypot(3.5, -4.5).value());
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

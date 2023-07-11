@@ -58,6 +58,10 @@ Mathematical Functions
     Returns ``x`` rounded down to the nearest integer.
     Supported types are: BIGINT and DOUBLE.
 
+.. spark:function:: hypot(a, b) -> double
+
+    Returns the square root of `a` squared plus `b` squared.
+
 .. spark:function:: multiply(x, y) -> [same as x]
 
     Returns the result of multiplying x by y. The types of x and y must be the same.

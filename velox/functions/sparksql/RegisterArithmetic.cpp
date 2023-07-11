@@ -59,6 +59,7 @@ void registerArithmeticFunctions(const std::string& prefix) {
       {prefix + "floor"});
   registerFunction<sparksql::FloorFunction, int64_t, double>(
       {prefix + "floor"});
+  registerFunction<HypotFunction, double, double, double>({prefix + "hypot"});
 }
 
 } // namespace facebook::velox::functions::sparksql
