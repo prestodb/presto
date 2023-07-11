@@ -523,53 +523,6 @@ class AggregationNode : public PlanNode {
       bool ignoreNullKeys,
       PlanNodePtr source);
 
-// TODO Remove after Prestissimo is updated.
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  static std::vector<Aggregate> toAggregates(
-      const std::vector<CallTypedExprPtr>& calls,
-      const std::vector<FieldAccessTypedExprPtr>& aggregateMasks) {
-    std::vector<Aggregate> aggregates;
-    aggregates.reserve(calls.size());
-    for (auto i = 0; i < calls.size(); ++i) {
-      if (i < aggregateMasks.size()) {
-        aggregates.push_back({calls[i], aggregateMasks[i], {}, {}});
-      } else {
-        aggregates.push_back({calls[i], nullptr, {}, {}});
-      }
-    }
-    return aggregates;
-  }
-
-  /**
-   * @param preGroupedKeys A subset of the 'groupingKeys' on which the input is
-   * clustered, i.e. identical sets of values for these keys always appear next
-   * to each other. Can be empty. If contains all the 'groupingKeys', the
-   * aggregation will run in streaming mode.
-   * @param ignoreNullKeys True if rows with at least one null key should be
-   * ignored. Used when group by is a source of a join build side and grouping
-   * keys are join keys.
-   */
-  AggregationNode(
-      const PlanNodeId& id,
-      Step step,
-      const std::vector<FieldAccessTypedExprPtr>& groupingKeys,
-      const std::vector<FieldAccessTypedExprPtr>& preGroupedKeys,
-      const std::vector<std::string>& aggregateNames,
-      const std::vector<CallTypedExprPtr>& aggregates,
-      const std::vector<FieldAccessTypedExprPtr>& aggregateMasks,
-      bool ignoreNullKeys,
-      PlanNodePtr source)
-      : AggregationNode(
-            id,
-            step,
-            groupingKeys,
-            preGroupedKeys,
-            aggregateNames,
-            toAggregates(aggregates, aggregateMasks),
-            ignoreNullKeys,
-            source) {}
-#endif
-
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }
