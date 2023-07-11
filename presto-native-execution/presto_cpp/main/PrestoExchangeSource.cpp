@@ -149,7 +149,7 @@ void PrestoExchangeSource::doRequest(int64_t delayMs) {
                   headers->getStatusMessage(),
                   bodyAsString(*response, self->pool_.get())));
         } else if (response->hasError()) {
-          self->processDataError(path, response->error(), false);
+          self->processDataError(path, response->error());
         } else {
           self->processDataResponse(std::move(response));
         }
