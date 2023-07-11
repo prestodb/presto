@@ -484,6 +484,10 @@ class HashTable : public BaseHashTable {
     setHashMode(mode, numNew);
   }
 
+  auto& testingOtherTables() const {
+    return otherTables_;
+  }
+
  private:
   // Returns the number of entries after which the table gets rehashed.
   static uint64_t rehashSize(int64_t size) {

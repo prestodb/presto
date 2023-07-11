@@ -244,6 +244,7 @@ class HashTableTest : public testing::TestWithParam<bool> {
             insertedRows.asMutableRange().bits(),
             0,
             batchSize);
+        insertedRows.updateBounds();
       }
       decoded.emplace_back(batch->childrenSize());
       VELOX_CHECK_EQ(batch->size(), batchSize);
