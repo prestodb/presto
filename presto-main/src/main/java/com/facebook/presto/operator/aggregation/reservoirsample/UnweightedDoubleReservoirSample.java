@@ -34,7 +34,7 @@ public class UnweightedDoubleReservoirSample
 
     private int seenCount;
     private double[] samples;
-
+    
     public UnweightedDoubleReservoirSample(int maxSamples)
     {
         checkArgument(
@@ -113,6 +113,7 @@ public class UnweightedDoubleReservoirSample
         }
         seenCount += other.seenCount;
         samples = merged;
+        System.out.println("merge data");
     }
 
     public int getTotalPopulationCount()
