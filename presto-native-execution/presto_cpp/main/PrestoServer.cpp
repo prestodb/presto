@@ -172,11 +172,6 @@ void PrestoServer::run() {
   protocol::registerHiveConnectors();
   protocol::registerTpchConnector();
 
-  auto executor = std::make_shared<folly::IOThreadPoolExecutor>(
-      systemConfig->numIoThreads(),
-      std::make_shared<folly::NamedThreadFactory>("PrestoWorkerNetwork"));
-  folly::setUnsafeMutableGlobalIOExecutor(executor);
-
   initializeVeloxMemory();
 
   auto catalogNames = registerConnectors(fs::path(configDirectoryPath_));
@@ -275,8 +270,23 @@ void PrestoServer::run() {
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
 
+  exchangeExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
+      systemConfig->numIoThreads(),
+      std::make_shared<folly::NamedThreadFactory>("PrestoWorkerNetwork"));
+
+  PRESTO_STARTUP_LOG(INFO) << "Exchange executor has "
+                           << exchangeExecutor_->numThreads() << " threads.";
+
   facebook::velox::exec::ExchangeSource::registerFactory(
-      PrestoExchangeSource::createExchangeSource);
+      [this](
+          const std::string& taskId,
+          int destination,
+          std::shared_ptr<velox::exec::ExchangeQueue> queue,
+          memory::MemoryPool* pool) {
+        return PrestoExchangeSource::create(
+            taskId, destination, queue, pool, exchangeExecutor_);
+      });
+
   facebook::velox::exec::ExchangeSource::registerFactory(
       operators::UnsafeRowExchangeSource::createExchangeSource);
 
@@ -378,7 +388,7 @@ void PrestoServer::run() {
 
   auto cpuExecutor = driverCPUExecutor();
   PRESTO_SHUTDOWN_LOG(INFO)
-      << "Joining Driver CPU Executor '" << cpuExecutor->getName()
+      << "Joining driver CPU Executor '" << cpuExecutor->getName()
       << "': threads: " << cpuExecutor->numActiveThreads() << "/"
       << cpuExecutor->numThreads()
       << ", task queue: " << cpuExecutor->getTaskQueueSize();
@@ -386,11 +396,17 @@ void PrestoServer::run() {
 
   if (connectorIoExecutor_) {
     PRESTO_SHUTDOWN_LOG(INFO)
-        << "Joining IO Executor '" << connectorIoExecutor_->getName()
+        << "Joining connector IO Executor '" << connectorIoExecutor_->getName()
         << "': threads: " << connectorIoExecutor_->numActiveThreads() << "/"
         << connectorIoExecutor_->numThreads();
     connectorIoExecutor_->join();
   }
+
+  PRESTO_SHUTDOWN_LOG(INFO)
+      << "Joining exchange Executor '" << exchangeExecutor_->getName()
+      << "': threads: " << exchangeExecutor_->numActiveThreads() << "/"
+      << exchangeExecutor_->numThreads();
+  exchangeExecutor_->join();
 
   PRESTO_SHUTDOWN_LOG(INFO) << "Done joining our executors.";
 
@@ -595,6 +611,10 @@ std::vector<std::string> PrestoServer::registerConnectors(
   if (numConnectorIoThreads) {
     connectorIoExecutor_ =
         std::make_unique<folly::IOThreadPoolExecutor>(numConnectorIoThreads);
+
+    PRESTO_STARTUP_LOG(INFO)
+        << "Connector IO executor has " << connectorIoExecutor_->numThreads()
+        << " threads.";
   }
   std::vector<std::string> catalogNames;
 
