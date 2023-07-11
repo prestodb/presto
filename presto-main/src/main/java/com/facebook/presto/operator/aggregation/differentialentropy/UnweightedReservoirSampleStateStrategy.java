@@ -28,10 +28,6 @@ public class UnweightedReservoirSampleStateStrategy
 {
     private final UnweightedDoubleReservoirSample reservoir;
 
-    public UnweightedDoubleReservoirSample getReservoir() {
-        return reservoir;
-    }
-
     public UnweightedReservoirSampleStateStrategy(long maxSamples)
     {
         if (maxSamples <= 0) {
@@ -56,6 +52,10 @@ public class UnweightedReservoirSampleStateStrategy
     private UnweightedReservoirSampleStateStrategy(UnweightedDoubleReservoirSample reservoir)
     {
         this.reservoir = reservoir;
+    }
+
+    public UnweightedDoubleReservoirSample getReservoir() {
+        return reservoir;
     }
 
     @Override
