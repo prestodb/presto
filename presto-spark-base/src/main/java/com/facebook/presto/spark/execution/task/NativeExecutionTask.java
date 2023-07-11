@@ -13,29 +13,25 @@
  */
 package com.facebook.presto.spark.execution.task;
 
-import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.HttpStatus;
-import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryManagerConfig;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.server.smile.BaseResponse;
-import com.facebook.presto.spark.execution.http.BatchTaskUpdateRequest;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTaskInfoFetcher;
 import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTaskResultFetcher;
 import com.facebook.presto.spi.page.SerializedPage;
+import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -77,22 +73,18 @@ public class NativeExecutionTask
     // Results will be fetched only if not written to shuffle.
     private final Optional<HttpNativeExecutionTaskResultFetcher> taskResultFetcher;
     private final Object taskFinishedOrHasResult = new Object();
+    private Optional<TokenAuthenticator> tokenAuthenticator;
 
     public NativeExecutionTask(
             Session session,
-            URI location,
-            TaskId taskId,
+            PrestoSparkHttpTaskClient workerClient,
             PlanFragment planFragment,
             List<TaskSource> sources,
-            HttpClient httpClient,
             TableWriteInfo tableWriteInfo,
             Optional<String> shuffleWriteInfo,
             Executor executor,
             ScheduledExecutorService updateScheduledExecutor,
             ScheduledExecutorService errorRetryScheduledExecutor,
-            JsonCodec<TaskInfo> taskInfoCodec,
-            JsonCodec<PlanFragment> planFragmentCodec,
-            JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec,
             TaskManagerConfig taskManagerConfig,
             QueryManagerConfig queryManagerConfig)
     {
@@ -102,16 +94,9 @@ public class NativeExecutionTask
         this.shuffleWriteInfo = requireNonNull(shuffleWriteInfo, "shuffleWriteInfo is null");
         this.sources = requireNonNull(sources, "sources is null");
         this.executor = requireNonNull(executor, "executor is null");
+        this.workerClient = requireNonNull(workerClient, "workerClient is null");
         this.outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED);
         requireNonNull(taskManagerConfig, "taskManagerConfig is null");
-        this.workerClient = new PrestoSparkHttpTaskClient(
-                requireNonNull(httpClient, "httpClient is null"),
-                taskId,
-                location,
-                taskInfoCodec,
-                planFragmentCodec,
-                taskUpdateRequestCodec,
-                taskManagerConfig.getInfoRefreshMaxWait());
         requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
         requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.taskInfoFetcher = new HttpNativeExecutionTaskInfoFetcher(
