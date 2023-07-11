@@ -371,16 +371,24 @@ static std::string getClientCa(bool useHttps) {
   return useHttps ? getCertsPath("client_ca.pem") : "";
 }
 
+struct Params {
+  bool useHttps;
+  int exchangeThreadPoolSize;
+};
+
 } // namespace
 
-class PrestoExchangeSourceTestSuite : public ::testing::TestWithParam<bool> {
+class PrestoExchangeSourceTestSuite : public ::testing::TestWithParam<Params> {
  public:
   void SetUp() override {
     auto& defaultManager = memory::MemoryManager::getInstance();
     pool_ = memory::addDefaultLeafMemoryPool();
+
     memory::MmapAllocator::Options options;
     options.capacity = 1L << 30;
     allocator_ = std::make_unique<memory::MmapAllocator>(options);
+    exchangeExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
+        GetParam().exchangeThreadPoolSize);
     memory::MemoryAllocator::setDefaultInstance(allocator_.get());
     TestValue::enable();
   }
@@ -402,11 +410,12 @@ class PrestoExchangeSourceTestSuite : public ::testing::TestWithParam<bool> {
 
   std::shared_ptr<memory::MemoryPool> pool_;
   std::unique_ptr<memory::MemoryAllocator> allocator_;
+  std::shared_ptr<folly::IOThreadPoolExecutor> exchangeExecutor_;
 };
 
 TEST_P(PrestoExchangeSourceTestSuite, basic) {
   std::vector<std::string> pages = {"page1 - xx", "page2 - xxxxx"};
-  const auto useHttps = GetParam();
+  const auto useHttps = GetParam().useHttps;
   auto producer = std::make_unique<Producer>();
   for (const auto& page : pages) {
     producer->enqueue(page);
@@ -429,6 +438,7 @@ TEST_P(PrestoExchangeSourceTestSuite, basic) {
       3,
       queue,
       pool_.get(),
+      exchangeExecutor_,
       getClientCa(useHttps),
       getCiphers(useHttps));
 
@@ -472,7 +482,7 @@ TEST_P(PrestoExchangeSourceTestSuite, retryState) {
 
 TEST_P(PrestoExchangeSourceTestSuite, retries) {
   std::vector<std::string> pages = {"page1 - xx", "page2 - xxxx"};
-  const auto useHttps = GetParam();
+  const auto useHttps = GetParam().useHttps;
   std::atomic<int> numTries(0);
   auto shouldFail = [&]() {
     ++numTries;
@@ -507,6 +517,7 @@ TEST_P(PrestoExchangeSourceTestSuite, retries) {
       3,
       queue,
       pool_.get(),
+      exchangeExecutor_,
       getClientCa(useHttps),
       getCiphers(useHttps));
 
@@ -526,7 +537,7 @@ TEST_P(PrestoExchangeSourceTestSuite, retries) {
 
 TEST_P(PrestoExchangeSourceTestSuite, earlyTerminatingConsumer) {
   std::vector<std::string> pages = {"page1 - xx", "page2 - xxxxx"};
-  const bool useHttps = GetParam();
+  const bool useHttps = GetParam().useHttps;
 
   auto producer = std::make_unique<Producer>();
   for (const auto& page : pages) {
@@ -550,6 +561,7 @@ TEST_P(PrestoExchangeSourceTestSuite, earlyTerminatingConsumer) {
       3,
       queue,
       pool_.get(),
+      exchangeExecutor_,
       getClientCa(useHttps),
       getCiphers(useHttps));
   exchangeSource->close();
@@ -566,7 +578,7 @@ TEST_P(PrestoExchangeSourceTestSuite, earlyTerminatingConsumer) {
 
 TEST_P(PrestoExchangeSourceTestSuite, slowProducer) {
   std::vector<std::string> pages = {"page1 - xx", "page2 - xxxxx"};
-  const bool useHttps = GetParam();
+  const bool useHttps = GetParam().useHttps;
 
   auto producer = std::make_unique<Producer>();
 
@@ -584,6 +596,7 @@ TEST_P(PrestoExchangeSourceTestSuite, slowProducer) {
       3,
       queue,
       pool_.get(),
+      exchangeExecutor_,
       getClientCa(useHttps),
       getCiphers(useHttps));
 
@@ -614,7 +627,7 @@ TEST_P(PrestoExchangeSourceTestSuite, slowProducer) {
 }
 
 TEST_P(PrestoExchangeSourceTestSuite, slowProducerAndEarlyTerminatingConsumer) {
-  const bool useHttps = GetParam();
+  const bool useHttps = GetParam().useHttps;
   std::atomic<bool> codePointHit{false};
   SCOPED_TESTVALUE_SET(
       "facebook::presto::PrestoExchangeSource::doRequest",
@@ -636,6 +649,7 @@ TEST_P(PrestoExchangeSourceTestSuite, slowProducerAndEarlyTerminatingConsumer) {
       3,
       queue,
       pool_.get(),
+      exchangeExecutor_,
       getClientCa(useHttps),
       getCiphers(useHttps));
 
@@ -673,7 +687,7 @@ TEST_P(PrestoExchangeSourceTestSuite, slowProducerAndEarlyTerminatingConsumer) {
 
 TEST_P(PrestoExchangeSourceTestSuite, failedProducer) {
   std::vector<std::string> pages = {"page1 - xx", "page2 - xxxxx"};
-  const bool useHttps = GetParam();
+  const bool useHttps = GetParam().useHttps;
   auto producer = std::make_unique<Producer>();
 
   auto producerServer = createHttpServer(useHttps);
@@ -690,6 +704,7 @@ TEST_P(PrestoExchangeSourceTestSuite, failedProducer) {
       3,
       queue,
       pool_.get(),
+      exchangeExecutor_,
       getClientCa(useHttps),
       getCiphers(useHttps));
 
@@ -704,7 +719,7 @@ TEST_P(PrestoExchangeSourceTestSuite, failedProducer) {
 
 TEST_P(PrestoExchangeSourceTestSuite, exceedingMemoryCapacityForHttpResponse) {
   const int64_t memoryCapBytes = 1 << 10;
-  const bool useHttps = GetParam();
+  const bool useHttps = GetParam().useHttps;
   auto rootPool = defaultMemoryManager().addRootPool("", memoryCapBytes);
   auto leafPool =
       rootPool->addLeafChild("exceedingMemoryCapacityForHttpResponse");
@@ -725,6 +740,7 @@ TEST_P(PrestoExchangeSourceTestSuite, exceedingMemoryCapacityForHttpResponse) {
       3,
       queue,
       leafPool.get(),
+      exchangeExecutor_,
       getClientCa(useHttps),
       getCiphers(useHttps));
 
@@ -749,7 +765,7 @@ TEST_P(PrestoExchangeSourceTestSuite, memoryAllocationAndUsageCheck) {
     auto rootPool = defaultMemoryManager().addRootPool();
     auto leafPool = rootPool->addLeafChild("memoryAllocationAndUsageCheck");
 
-    const bool useHttps = GetParam();
+    const bool useHttps = GetParam().useHttps;
 
     auto producer = std::make_unique<Producer>();
 
@@ -767,6 +783,7 @@ TEST_P(PrestoExchangeSourceTestSuite, memoryAllocationAndUsageCheck) {
         3,
         queue,
         leafPool.get(),
+        exchangeExecutor_,
         getClientCa(useHttps),
         getCiphers(useHttps));
 
@@ -883,4 +900,8 @@ TEST_P(PrestoExchangeSourceTestSuite, memoryAllocationAndUsageCheck) {
 INSTANTIATE_TEST_CASE_P(
     PrestoExchangeSourceTest,
     PrestoExchangeSourceTestSuite,
-    ::testing::Values(true, false));
+    ::testing::Values(
+        Params{true, 1},
+        Params{false, 1},
+        Params{true, 10},
+        Params{false, 10}));
