@@ -115,4 +115,11 @@ public abstract class AbstractTestNativeWindowQueries
         assertQuery("SELECT sum(rn) FROM (SELECT row_number() over() rn, * from orders) WHERE rn = 10");
         assertQuery("SELECT * FROM (SELECT row_number() over(partition by orderstatus order by orderkey) rn, * from orders) WHERE rn = 1");
     }
+
+    @Test
+    public void testWindowFrameBound() {
+        for (int i = 0; i < 10; ++i) {
+            assertQuery("SELECT LAG(spend_this_period, 7) OVER ( ORDER BY b.ds ROWS BETWEEN 7 PRECEDING AND CURRENT ROW ) AS spend_prev_period FROM ( SELECT * FROM ( VALUES (DATE('2023-06-21'), 95317.96574958303) ) AS a (ds, spend_this_period) ) a RIGHT JOIN ( SELECT * FROM ( VALUES (DATE('2023-06-21')), (DATE('2023-06-22')) ) AS r(ds) ) b ON b.ds = a.ds");
+        }
+    }
 }
