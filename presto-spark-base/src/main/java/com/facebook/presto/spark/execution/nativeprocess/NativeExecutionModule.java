@@ -58,23 +58,47 @@ public class NativeExecutionModule
     @Override
     public void configure(Binder binder)
     {
+        bindWorkerProperties(binder);
+        bindNativeExecutionTaskFactory(binder);
+        bindHttpClient(binder);
+        bindNativeExecutionProcess(binder);
+        bindShuffle(binder);
+    }
+
+    protected void bindShuffle(Binder binder)
+    {
         binder.bind(PrestoSparkLocalShuffleInfoTranslator.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, new TypeLiteral<WorkerProperty<?, ?, ?, ?>>() {}).setDefault().to(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, new TypeLiteral<PrestoSparkShuffleInfoTranslator>() {}).setDefault().to(PrestoSparkLocalShuffleInfoTranslator.class).in(Scopes.SINGLETON);
-        binder.bind(NativeExecutionTaskFactory.class).in(Scopes.SINGLETON);
-        httpClientBinder(binder)
-                .bindHttpClient("nativeExecution", ForNativeExecutionTask.class)
-                .withConfigDefaults(config -> {
-                    config.setRequestTimeout(new Duration(10, SECONDS));
-                    config.setMaxConnectionsPerServer(250);
-                });
+    }
+
+    protected void bindWorkerProperties(Binder binder)
+    {
+        newOptionalBinder(binder, new TypeLiteral<WorkerProperty<?, ?, ?, ?>>() {}).setDefault().to(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
         if (connectorConfig.isPresent()) {
             binder.bind(PrestoSparkWorkerProperty.class).toInstance(new PrestoSparkWorkerProperty(connectorConfig.get(), new NativeExecutionNodeConfig(), new NativeExecutionSystemConfig(), new NativeExecutionVeloxConfig()));
         }
         else {
             binder.bind(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
         }
+    }
 
+    protected void bindHttpClient(Binder binder)
+    {
+        httpClientBinder(binder)
+                .bindHttpClient("nativeExecution", ForNativeExecutionTask.class)
+                .withConfigDefaults(config -> {
+                    config.setRequestTimeout(new Duration(10, SECONDS));
+                    config.setMaxConnectionsPerServer(250);
+                });
+    }
+
+    protected void bindNativeExecutionTaskFactory(Binder binder)
+    {
+        binder.bind(NativeExecutionTaskFactory.class).in(Scopes.SINGLETON);
+    }
+
+    protected void bindNativeExecutionProcess(Binder binder)
+    {
         if (System.getProperty("NATIVE_PORT") != null) {
             binder.bind(NativeExecutionProcessFactory.class).to(DetachedNativeExecutionProcessFactory.class).in(Scopes.SINGLETON);
         }
