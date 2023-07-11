@@ -14,6 +14,7 @@
 #pragma once
 
 #include <folly/Uri.h>
+#include <folly/executors/IOThreadPoolExecutor.h>
 #include <folly/futures/Retrying.h>
 
 #include "presto_cpp/main/common/Configs.h"
@@ -68,16 +69,18 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       int destination,
       std::shared_ptr<velox::exec::ExchangeQueue> queue,
       velox::memory::MemoryPool* pool,
+      const std::shared_ptr<folly::IOThreadPoolExecutor>& executor,
       const std::string& clientCertAndKeyPath_ = "",
       const std::string& ciphers_ = "");
 
   bool shouldRequestLocked() override;
 
-  static std::unique_ptr<ExchangeSource> createExchangeSource(
+  static std::unique_ptr<ExchangeSource> create(
       const std::string& url,
       int destination,
       std::shared_ptr<velox::exec::ExchangeQueue> queue,
-      velox::memory::MemoryPool* pool);
+      velox::memory::MemoryPool* pool,
+      std::shared_ptr<folly::IOThreadPoolExecutor> executor);
 
   void close() override;
 
@@ -148,6 +151,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   const uint16_t port_;
   const std::string clientCertAndKeyPath_;
   const std::string ciphers_;
+  const std::shared_ptr<folly::IOThreadPoolExecutor> exchangeExecutor_;
 
   std::shared_ptr<http::HttpClient> httpClient_;
   RetryState retryState_;
