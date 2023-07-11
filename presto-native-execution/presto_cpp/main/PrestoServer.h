@@ -162,6 +162,9 @@ class PrestoServer {
   // Executor for async IO for connectors.
   std::unique_ptr<folly::IOThreadPoolExecutor> connectorIoExecutor_;
 
+  // Executor for exchange data over http.
+  std::shared_ptr<folly::IOThreadPoolExecutor> exchangeExecutor_;
+
   // If not null,  the instance of AsyncDataCache used for in-memory file cache.
   std::shared_ptr<velox::cache::AsyncDataCache> cache_;
 
