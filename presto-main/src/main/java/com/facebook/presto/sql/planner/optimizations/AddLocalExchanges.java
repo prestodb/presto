@@ -551,6 +551,7 @@ public class AddLocalExchanges
             Optional<StatisticAggregations.Parts> statisticAggregations = originalTableWriterNode
                     .getStatisticsAggregation()
                     .map(aggregations -> aggregations.splitIntoPartialAndIntermediate(
+                            session,
                             variableAllocator,
                             metadata.getFunctionAndTypeManager()));
 

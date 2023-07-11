@@ -552,14 +552,14 @@ public abstract class BasePlanFragmenter
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
         StatisticsAggregationPlanner.TableStatisticAggregation statisticsResult = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnNameToVariable);
-        StatisticAggregations.Parts aggregations = statisticsResult.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionAndTypeManager());
+        StatisticAggregations.Parts aggregations = statisticsResult.getAggregations().splitIntoPartialAndFinal(session, variableAllocator, metadata.getFunctionAndTypeManager());
         PlanNode tableWriterMerge;
 
         // Disabled by default. Enable when the column statistics are essential for future runtime adaptive plan optimizations
         boolean enableStatsCollectionForTemporaryTable = SystemSessionProperties.isEnableStatsCollectionForTemporaryTable(session);
 
         if (isTableWriterMergeOperatorEnabled(session)) {
-            StatisticAggregations.Parts localAggregations = aggregations.getPartialAggregation().splitIntoPartialAndIntermediate(variableAllocator, metadata.getFunctionAndTypeManager());
+            StatisticAggregations.Parts localAggregations = aggregations.getPartialAggregation().splitIntoPartialAndIntermediate(session, variableAllocator, metadata.getFunctionAndTypeManager());
             tableWriterMerge = new TableWriterMergeNode(
                     sourceLocation,
                     idAllocator.getNextId(),

@@ -303,6 +303,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
@@ -2698,7 +2699,7 @@ public class LocalExecutionPlanner
                     return createAggregationOperatorFactory(
                             node.getId(),
                             aggregation.getAggregations(),
-                            PARTIAL,
+                            SINGLE,
                             STATS_START_CHANNEL,
                             outputMapping,
                             source,
@@ -2711,7 +2712,7 @@ public class LocalExecutionPlanner
                         ImmutableSet.of(),
                         groupingVariables,
                         ImmutableList.of(),
-                        PARTIAL,
+                        SINGLE,
                         Optional.empty(),
                         Optional.empty(),
                         source,
@@ -2804,7 +2805,7 @@ public class LocalExecutionPlanner
                     return createAggregationOperatorFactory(
                             node.getId(),
                             aggregation.getAggregations(),
-                            INTERMEDIATE,
+                            SINGLE,
                             STATS_START_CHANNEL,
                             outputMapping,
                             source,
@@ -2817,7 +2818,7 @@ public class LocalExecutionPlanner
                         ImmutableSet.of(),
                         groupingVariables,
                         ImmutableList.of(),
-                        INTERMEDIATE,
+                        SINGLE,
                         Optional.empty(),
                         Optional.empty(),
                         source,
@@ -2859,7 +2860,7 @@ public class LocalExecutionPlanner
                     return createAggregationOperatorFactory(
                             node.getId(),
                             aggregation.getAggregations(),
-                            FINAL,
+                            SINGLE,
                             0,
                             outputMapping,
                             source,
@@ -2872,7 +2873,7 @@ public class LocalExecutionPlanner
                         ImmutableSet.of(),
                         groupingVariables,
                         ImmutableList.of(),
-                        FINAL,
+                        SINGLE,
                         Optional.empty(),
                         Optional.empty(),
                         source,

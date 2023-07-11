@@ -401,7 +401,7 @@ public class LogicalPlanner
         if (!statisticsMetadata.isEmpty()) {
             TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToVariableMap);
 
-            StatisticAggregations.Parts aggregations = result.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionAndTypeManager());
+            StatisticAggregations.Parts aggregations = result.getAggregations().splitIntoPartialAndFinal(session, variableAllocator, metadata.getFunctionAndTypeManager());
 
             TableFinishNode commitNode = new TableFinishNode(
                     source.getSourceLocation(),

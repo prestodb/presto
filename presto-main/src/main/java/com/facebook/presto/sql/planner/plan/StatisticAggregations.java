@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.AggregationFunctionImplementation;
@@ -29,6 +32,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -78,17 +83,17 @@ public class StatisticAggregations
         return groupingVariables;
     }
 
-    public Parts splitIntoPartialAndFinal(VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
+    public Parts splitIntoPartialAndFinal(Session session, VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
     {
-        return split(variableAllocator, functionAndTypeManager, false);
+        return split(session, variableAllocator, functionAndTypeManager, false);
     }
 
-    public Parts splitIntoPartialAndIntermediate(VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
+    public Parts splitIntoPartialAndIntermediate(Session session, VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
     {
-        return split(variableAllocator, functionAndTypeManager, true);
+        return split(session, variableAllocator, functionAndTypeManager, true);
     }
 
-    private Parts split(VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager, boolean intermediate)
+    private Parts split(Session session, VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager, boolean intermediate)
     {
         ImmutableMap.Builder<VariableReferenceExpression, Aggregation> finalOrIntermediateAggregations = ImmutableMap.builder();
         ImmutableMap.Builder<VariableReferenceExpression, Aggregation> partialAggregations = ImmutableMap.builder();
@@ -96,14 +101,32 @@ public class StatisticAggregations
             Aggregation originalAggregation = entry.getValue();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
             AggregationFunctionImplementation function = functionAndTypeManager.getAggregateFunctionImplementation(functionHandle);
+            FunctionHandle partialAggregation = null;
+            FunctionHandle finalAggregation = null;
+            ImmutableList.Builder<TypeSignature> types = ImmutableList.builder();
+            for (int i = 0; i < originalAggregation.getArguments().size(); i++) {
+                types.add(originalAggregation.getArguments().get(i).getType().getTypeSignature());
+            }
+            if (originalAggregation.getCall().getDisplayName().equals("approx_distinct")) {
+                partialAggregation = functionAndTypeManager.resolveFunction(
+                        Optional.of(session.getSessionFunctions()),
+                        session.getTransactionId(),
+                        QualifiedObjectName.valueOf("presto.default.approx_set"),
+                        fromTypeSignatures(types.build()));
+                finalAggregation = functionAndTypeManager.resolveFunction(
+                        Optional.of(session.getSessionFunctions()),
+                        session.getTransactionId(),
+                        QualifiedObjectName.valueOf("presto.default.merge"),
+                        fromTypeSignatures(new TypeSignature("HyperLogLog")));
+            }
 
             // create partial aggregation
             VariableReferenceExpression partialVariable = variableAllocator.newVariable(entry.getValue().getCall().getSourceLocation(), functionAndTypeManager.getFunctionMetadata(functionHandle).getName().getObjectName(), function.getIntermediateType());
             partialAggregations.put(partialVariable, new Aggregation(
                     new CallExpression(
                             originalAggregation.getCall().getSourceLocation(),
-                            originalAggregation.getCall().getDisplayName(),
-                            functionHandle,
+                            partialAggregation == null ? originalAggregation.getCall().getDisplayName() : partialAggregation.getName(),
+                            partialAggregation == null ? functionHandle : partialAggregation,
                             function.getIntermediateType(),
                             originalAggregation.getArguments()),
                     originalAggregation.getFilter(),
@@ -116,9 +139,9 @@ public class StatisticAggregations
                     new Aggregation(
                             new CallExpression(
                                     originalAggregation.getCall().getSourceLocation(),
-                                    originalAggregation.getCall().getDisplayName(),
-                                    functionHandle,
-                                    intermediate ? function.getIntermediateType() : function.getFinalType(),
+                                    finalAggregation == null ? originalAggregation.getCall().getDisplayName() : finalAggregation.getName(),
+                                    finalAggregation == null ? functionHandle : finalAggregation,
+                                    function.getFinalType(),
                                     ImmutableList.of(partialVariable)),
                             Optional.empty(),
                             Optional.empty(),
