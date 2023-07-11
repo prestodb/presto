@@ -661,6 +661,7 @@ TEST_F(ElementAtTest, variableInputMap) {
   testVariableInputMap<int8_t>(); // TINYINT
   testVariableInputMap<float>(); // REAL
   testVariableInputMap<double>(); // DOUBLE
+  testVariableInputMap<bool>(); // BOOLEAN
 
   testVariableInputMap<StringView>(); // VARCHAR
 }

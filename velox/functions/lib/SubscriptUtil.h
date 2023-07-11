@@ -85,7 +85,8 @@ class SubscriptImpl : public exec::VectorFunction {
         "bigint",
         "real",
         "double",
-        "varchar"};
+        "varchar",
+        "boolean"};
     for (const auto& keyType : keyTypes) {
       signatures.push_back(exec::FunctionSignatureBuilder()
                                .typeVariable("V")
@@ -149,6 +150,8 @@ class SubscriptImpl : public exec::VectorFunction {
         return applyMapTyped<double>(rows, mapArg, indexArg, context);
       case TypeKind::VARCHAR:
         return applyMapTyped<StringView>(rows, mapArg, indexArg, context);
+      case TypeKind::BOOLEAN:
+        return applyMapTyped<bool>(rows, mapArg, indexArg, context);
       default:
         VELOX_UNSUPPORTED(
             "Unsupported map key type for element_at: {}",
