@@ -6,6 +6,10 @@ Mathematical Functions
 
     Returns the absolute value of ``x``.
 
+.. spark:function:: acos(x) -> double
+
+    Returns the inverse cosine (a.k.a. arc cosine) of ``x``.
+
 .. spark:function:: acosh(x) -> double
 
     Returns inverse hyperbolic cosine of ``x``.

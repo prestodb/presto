@@ -31,6 +31,7 @@ void registerArithmeticFunctions(const std::string& prefix) {
   registerUnaryNumeric<UnaryMinusFunction>({prefix + "unaryminus"});
   // Math functions.
   registerUnaryNumeric<AbsFunction>({prefix + "abs"});
+  registerFunction<AcosFunction, double, double>({prefix + "acos"});
   registerFunction<AcoshFunction, double, double>({prefix + "acosh"});
   registerFunction<AsinhFunction, double, double>({prefix + "asinh"});
   registerFunction<AtanhFunction, double, double>({prefix + "atanh"});
