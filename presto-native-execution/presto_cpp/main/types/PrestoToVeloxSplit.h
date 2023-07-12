@@ -23,7 +23,7 @@ namespace facebook::presto {
 
 namespace input {
 dwio::common::FileFormat toVeloxFileFormat(
-    const facebook::presto::protocol::String& format);
+    const presto::protocol::StorageFormat& format);
 }
 // Creates and returns exec::Split (with connector::ConnectorSplit inside) based
 // on the given protocol split.
