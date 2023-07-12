@@ -18,6 +18,7 @@
 #include "velox/expression/FunctionSignature.h"
 #include "velox/functions/lib/ApproxMostFrequentStreamSummary.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
+#include "velox/functions/prestosql/aggregates/Strings.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::aggregate::prestosql {
@@ -25,26 +26,63 @@ namespace facebook::velox::aggregate::prestosql {
 namespace {
 
 template <typename T>
+struct Accumulator {
+  functions::ApproxMostFrequentStreamSummary<T, AlignedStlAllocator<T, 16>>
+      summary;
+
+  explicit Accumulator(HashStringAllocator* allocator)
+      : summary(AlignedStlAllocator<T, 16>(allocator)) {}
+
+  void insert(T value, int64_t count = 1) {
+    summary.insert(value, count);
+  }
+};
+
+template <>
+struct Accumulator<StringView> {
+  functions::ApproxMostFrequentStreamSummary<
+      StringView,
+      AlignedStlAllocator<StringView, 16>>
+      summary;
+  HashStringAllocator* allocator;
+  Strings strings;
+
+  explicit Accumulator(HashStringAllocator* allocator)
+      : summary(AlignedStlAllocator<StringView, 16>(allocator)),
+        allocator(allocator) {}
+
+  ~Accumulator() {
+    strings.free(*allocator);
+  }
+
+  void insert(StringView value, int64_t count = 1) {
+    if (!value.isInline() && !summary.contains(value)) {
+      value = strings.append(value, *allocator);
+    }
+    summary.insert(value, count);
+  }
+};
+
+template <typename T>
 struct ApproxMostFrequentAggregate : exec::Aggregate {
   explicit ApproxMostFrequentAggregate(const TypePtr& resultType)
       : Aggregate(resultType) {}
 
   int32_t accumulatorFixedWidthSize() const override {
-    return sizeof(StreamSummary);
+    return sizeof(Accumulator<T>);
   }
 
   void initializeNewGroups(
       char** groups,
       folly::Range<const vector_size_t*> indices) override {
     for (auto index : indices) {
-      new (groups[index] + offset_)
-          StreamSummary(AlignedStlAllocator<T, 16>(allocator_));
+      new (groups[index] + offset_) Accumulator<T>(allocator_);
     }
   }
 
   void destroy(folly::Range<char**> groups) override {
     for (auto group : groups) {
-      std::destroy_at(value<StreamSummary>(group));
+      std::destroy_at(value<Accumulator<T>>(group));
     }
   }
 
@@ -56,8 +94,8 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
     decodeArguments(rows, args);
     rows.applyToSelected([&](auto row) {
       if (!decodedValues_.isNullAt(row)) {
-        auto summary = initSummary(groups[row]);
-        summary->insert(decodedValues_.valueAt<T>(row));
+        auto* accumulator = initAccumulator(groups[row]);
+        accumulator->insert(decodedValues_.valueAt<T>(row));
       }
     });
   }
@@ -76,10 +114,10 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
       const std::vector<VectorPtr>& args,
       bool) override {
     decodeArguments(rows, args);
-    auto summary = initSummary(group);
+    auto* accumulator = initAccumulator(group);
     rows.applyToSelected([&](auto row) {
       if (!decodedValues_.isNullAt(row)) {
-        summary->insert(decodedValues_.valueAt<T>(row));
+        accumulator->insert(decodedValues_.valueAt<T>(row));
       }
     });
   }
@@ -98,7 +136,7 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
     if (buckets_ == kMissingArgument) {
       // No data has been added.
       for (int i = 0; i < numGroups; ++i) {
-        VELOX_DCHECK_EQ(value<StreamSummary>(groups[i])->size(), 0);
+        VELOX_DCHECK_EQ(value<Accumulator<T>>(groups[i])->summary.size(), 0);
         (*result)->setNull(i, true);
       }
       return;
@@ -108,7 +146,7 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
     auto [keys, values] = prepareFinalResult(groups, numGroups, mapVector);
     vector_size_t entryCount = 0;
     for (int i = 0; i < numGroups; ++i) {
-      auto summary = value<StreamSummary>(groups[i]);
+      auto* summary = &value<Accumulator<T>>(groups[i])->summary;
       int size = std::min<int>(buckets_, summary->size());
       if (size == 0) {
         mapVector->setNull(i, true);
@@ -147,8 +185,8 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
     auto c = counts->elements()->template asFlatVector<int64_t>();
     vector_size_t entryCount = 0;
     for (int i = 0; i < numGroups; ++i) {
-      auto summary = value<const StreamSummary>(groups[i]);
-      entryCount += summary->size();
+      auto* accumulator = value<const Accumulator<T>>(groups[i]);
+      entryCount += accumulator->summary.size();
     }
     v->resize(entryCount);
     c->resize(entryCount);
@@ -157,7 +195,7 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
 
     entryCount = 0;
     for (int i = 0; i < numGroups; ++i) {
-      auto summary = value<const StreamSummary>(groups[i]);
+      auto* summary = &value<const Accumulator<T>>(groups[i])->summary;
       if (summary->size() == 0) {
         rowVec->setNull(i, true);
       } else {
@@ -183,9 +221,6 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
   }
 
  private:
-  using StreamSummary =
-      functions::ApproxMostFrequentStreamSummary<T, AlignedStlAllocator<T, 16>>;
-
   void decodeArguments(
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args) {
@@ -219,11 +254,11 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
     setConstantArgument(name, val, vec.valueAt<int64_t>(0));
   }
 
-  StreamSummary* initSummary(char* group) {
-    auto summary = value<StreamSummary>(group);
+  Accumulator<T>* initAccumulator(char* group) {
+    auto accumulator = value<Accumulator<T>>(group);
     VELOX_USER_CHECK_LE(capacity_, std::numeric_limits<int>::max());
-    summary->setCapacity(capacity_);
-    return summary;
+    accumulator->summary.setCapacity(capacity_);
+    return accumulator;
   }
 
   template <bool kSingleGroup>
@@ -248,7 +283,7 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
     VELOX_CHECK(v);
     VELOX_CHECK(c);
 
-    StreamSummary* summary{};
+    Accumulator<T>* accumulator = nullptr;
     rows.applyToSelected([&](auto row) {
       if (decoded.isNullAt(row)) {
         return;
@@ -257,18 +292,18 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
       setConstantArgument("Buckets", buckets_, buckets->valueAt(i));
       setConstantArgument("Capacity", capacity_, capacity->valueAt(i));
       if constexpr (kSingleGroup) {
-        if (!summary) {
-          summary = initSummary(group);
+        if (!accumulator) {
+          accumulator = initAccumulator(group);
         }
       } else {
-        summary = initSummary(group[row]);
+        accumulator = initAccumulator(group[row]);
       }
       auto size = values->sizeAt(i);
       VELOX_DCHECK_EQ(counts->sizeAt(i), size);
       auto vo = values->offsetAt(i);
       auto co = counts->offsetAt(i);
       for (int j = 0; j < size; ++j) {
-        summary->insert(v->valueAt(vo + j), c->valueAt(co + j));
+        accumulator->insert(v->valueAt(vo + j), c->valueAt(co + j));
       }
     });
   }
@@ -282,7 +317,7 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
     VELOX_CHECK(values);
     vector_size_t entryCount = 0;
     for (int i = 0; i < numGroups; ++i) {
-      auto summary = value<const StreamSummary>(groups[i]);
+      auto* summary = &value<const Accumulator<T>>(groups[i])->summary;
       entryCount += std::min<int>(buckets_, summary->size());
     }
     keys->resize(entryCount);

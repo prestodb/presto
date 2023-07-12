@@ -25,7 +25,7 @@ namespace {
 class BloomFilterAggAggregateTest
     : public aggregate::test::AggregationTestBase {
  public:
-  BloomFilterAggAggregateTest() {
+  void SetUp() override {
     AggregationTestBase::SetUp();
     registerAggregateFunctions("");
     allowInputShuffle();

@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
@@ -27,6 +28,7 @@ namespace facebook::velox::functions::aggregate::test {
 class AggregationTestBase : public exec::test::OperatorTestBase {
  protected:
   void SetUp() override;
+  void TearDown() override;
 
   std::vector<RowVectorPtr>
   makeVectors(const RowTypePtr& rowType, vector_size_t size, int numVectors);
@@ -165,6 +167,31 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<std::string>& postAggregationProjections,
       std::function<std::shared_ptr<exec::Task>(
           exec::test::AssertQueryBuilder&)> assertResults);
+
+  // Split the input into 2 files then read the input from files.  Can reveal
+  // bugs in string life cycle management.
+  void testReadFromFiles(
+      std::function<void(exec::test::PlanBuilder&)> makeSource,
+      const std::vector<std::string>& groupingKeys,
+      const std::vector<std::string>& aggregates,
+      const std::vector<std::string>& postAggregationProjections,
+      std::function<std::shared_ptr<exec::Task>(
+          exec::test::AssertQueryBuilder&)> assertResults);
+
+  void testReadFromFiles(
+      const std::vector<RowVectorPtr>& data,
+      const std::vector<std::string>& groupingKeys,
+      const std::vector<std::string>& aggregates,
+      const std::vector<RowVectorPtr>& expectedResult) {
+    testReadFromFiles(
+        [&](auto& planBuilder) { planBuilder.values(data); },
+        groupingKeys,
+        aggregates,
+        {},
+        [&](auto& assertBuilder) {
+          return assertBuilder.assertResults({expectedResult});
+        });
+  }
 
   /// Specifies that aggregate functions used in this test are not sensitive
   /// to the order of inputs.

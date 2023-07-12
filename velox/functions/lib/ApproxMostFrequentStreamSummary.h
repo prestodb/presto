@@ -78,6 +78,10 @@ struct ApproxMostFrequentStreamSummary {
     return counts_.data();
   }
 
+  bool contains(T value) const {
+    return indices_.count(value) > 0;
+  }
+
  private:
   template <typename U>
   using RebindAlloc =

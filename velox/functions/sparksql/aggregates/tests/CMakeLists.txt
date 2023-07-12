@@ -26,6 +26,7 @@ target_link_libraries(
   velox_vector_test_lib
   velox_functions_aggregates_test_lib
   velox_functions_spark_aggregates
+  velox_hive_connector
   gflags::gflags
   gtest
   gtest_main)
