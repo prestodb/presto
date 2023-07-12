@@ -28,7 +28,6 @@ import java.util.List;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static java.util.Locale.ENGLISH;
 
 public class UseTask
         implements SessionTransactionControlTask<Use>
@@ -49,14 +48,14 @@ public class UseTask
         }
 
         if (statement.getCatalog().isPresent()) {
-            String catalog = statement.getCatalog().get().getValue().toLowerCase(ENGLISH);
+            String catalog = statement.getCatalog().get().getValueLowerCase();
             if (!metadata.getCatalogHandle(session, catalog).isPresent()) {
                 throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalog);
             }
             stateMachine.setSetCatalog(catalog);
         }
 
-        stateMachine.setSetSchema(statement.getSchema().getValue().toLowerCase(ENGLISH));
+        stateMachine.setSetSchema(statement.getSchema().getValueLowerCase());
 
         return immediateFuture(null);
     }
