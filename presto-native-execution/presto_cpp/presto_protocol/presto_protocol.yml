@@ -312,4 +312,4 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/SortNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/AssignUniqueId.java
   - presto-spi/src/main/java/com/facebook/presto/spi/SourceLocation.java
-  - presto-spark-base/src/main/java/com/facebook/presto/spark/execution/BatchTaskUpdateRequest.java
+  - presto-spark-base/src/main/java/com/facebook/presto/spark/execution/http/BatchTaskUpdateRequest.java
