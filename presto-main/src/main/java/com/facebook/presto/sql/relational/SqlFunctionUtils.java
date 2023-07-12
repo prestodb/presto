@@ -56,7 +56,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.function.Function.identity;
 
 public final class SqlFunctionUtils
@@ -145,7 +144,7 @@ public final class SqlFunctionUtils
             @Override
             public Expression rewriteIdentifier(Identifier node, Map<String, String> context, ExpressionTreeRewriter<Map<String, String>> treeRewriter)
             {
-                String name = node.getValue().toLowerCase(ENGLISH);
+                String name = node.getValueLowerCase();
                 if (context.containsKey(name)) {
                     return new Identifier(context.get(name));
                 }

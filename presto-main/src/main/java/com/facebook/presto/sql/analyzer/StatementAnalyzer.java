@@ -1073,10 +1073,10 @@ class StatementAnalyzer
             }
             Set<String> names = new HashSet<>();
             for (Identifier identifier : columnAliases) {
-                if (names.contains(identifier.getValue().toLowerCase(ENGLISH))) {
+                if (names.contains(identifier.getValueLowerCase())) {
                     throw new SemanticException(DUPLICATE_COLUMN_NAME, identifier, "Column name '%s' specified more than once", identifier.getValue());
                 }
-                names.add(identifier.getValue().toLowerCase(ENGLISH));
+                names.add(identifier.getValueLowerCase());
             }
         }
 
@@ -2763,7 +2763,7 @@ class StatementAnalyzer
                 Query query = withQuery.getQuery();
                 process(query, withScopeBuilder.build());
 
-                String name = withQuery.getName().getValue().toLowerCase(ENGLISH);
+                String name = withQuery.getName().getValueLowerCase();
                 if (withScopeBuilder.containsNamedQuery(name)) {
                     throw new SemanticException(DUPLICATE_RELATION, withQuery, "WITH query name '%s' specified more than once", name);
                 }
