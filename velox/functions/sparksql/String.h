@@ -640,4 +640,145 @@ struct LeftFunction {
   }
 };
 
+/// translate(string, match, replace) -> varchar
+///
+///   Returns a new translated string. It translates the character in ``string``
+///   by a character in ``replace``. The character in ``replace`` is
+///   corresponding to the character in ``match``. The translation will
+///   happen when any character in ``string`` matching with a character in
+///   ``match``.
+template <typename T>
+struct TranslateFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  // ASCII input always produces ASCII result.
+  static constexpr bool is_default_ascii_behavior = true;
+
+  std::optional<folly::F14FastMap<std::string, std::string>> unicodeDictionary_;
+  std::optional<folly::F14FastMap<char, char>> asciiDictionary_;
+
+  bool isConstantDictionary_ = false;
+
+  folly::F14FastMap<std::string, std::string> buildUnicodeDictionary(
+      const arg_type<Varchar>& match,
+      const arg_type<Varchar>& replace) {
+    folly::F14FastMap<std::string, std::string> dictionary;
+    int i = 0;
+    int j = 0;
+    while (i < match.size()) {
+      std::string replaceChar;
+      // If match's character size is larger than replace's, the extra
+      // characters in match will be removed from input string.
+      if (j < replace.size()) {
+        int replaceCharLength = utf8proc_char_length(replace.data() + j);
+        replaceChar = std::string(replace.data() + j, replaceCharLength);
+        j += replaceCharLength;
+      }
+      int matchCharLength = utf8proc_char_length(match.data() + i);
+      std::string matchChar = std::string(match.data() + i, matchCharLength);
+      // Only considers the first occurrence of a character in match.
+      dictionary.emplace(matchChar, replaceChar);
+      i += matchCharLength;
+    }
+    return dictionary;
+  }
+
+  folly::F14FastMap<char, char> buildAsciiDictionary(
+      const arg_type<Varchar>& match,
+      const arg_type<Varchar>& replace) {
+    folly::F14FastMap<char, char> dictionary;
+    int i = 0;
+    for (; i < std::min(match.size(), replace.size()); i++) {
+      char matchChar = *(match.data() + i);
+      char replaceChar = *(replace.data() + i);
+      // Only consider the first occurrence of a character in match.
+      dictionary.emplace(matchChar, replaceChar);
+    }
+    for (; i < match.size(); i++) {
+      char matchChar = *(match.data() + i);
+      dictionary.emplace(matchChar, '\0');
+    }
+    return dictionary;
+  }
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const core::QueryConfig& /*config*/,
+      const arg_type<Varchar>* /*string*/,
+      const arg_type<Varchar>* match,
+      const arg_type<Varchar>* replace) {
+    if (match != nullptr && replace != nullptr) {
+      isConstantDictionary_ = true;
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input,
+      const arg_type<Varchar>& match,
+      const arg_type<Varchar>& replace) {
+    if (!isConstantDictionary_ || !unicodeDictionary_.has_value()) {
+      unicodeDictionary_ = buildUnicodeDictionary(match, replace);
+    }
+    // No need to do the translation.
+    if (unicodeDictionary_->empty()) {
+      result.append(input);
+      return;
+    }
+    // Initial capacity is input size. Larger capacity can be reserved below.
+    result.reserve(input.size());
+    int i = 0;
+    int k = 0;
+    while (k < input.size()) {
+      int inputCharLength = utf8proc_char_length(input.data() + k);
+      auto inputChar = std::string(input.data() + k, inputCharLength);
+      auto it = unicodeDictionary_->find(inputChar);
+      if (it == unicodeDictionary_->end()) {
+        // Final result size can be larger than the initial size (input size),
+        // e.g., replace a ascii character with a longer utf8 character.
+        result.reserve(i + inputCharLength);
+        std::memcpy(result.data() + i, inputChar.data(), inputCharLength);
+        i += inputCharLength;
+      } else {
+        result.reserve(i + it->second.size());
+        std::memcpy(result.data() + i, it->second.data(), it->second.size());
+        i += it->second.size();
+      }
+      k += inputCharLength;
+    }
+    result.resize(i);
+  }
+
+  FOLLY_ALWAYS_INLINE void callAscii(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input,
+      const arg_type<Varchar>& match,
+      const arg_type<Varchar>& replace) {
+    if (!isConstantDictionary_ || !asciiDictionary_.has_value()) {
+      asciiDictionary_ = buildAsciiDictionary(match, replace);
+    }
+    // No need to do the translation.
+    if (asciiDictionary_->empty()) {
+      result.append(input);
+      return;
+    }
+    // Result size cannot be larger than input size for all ascii input.
+    result.reserve(input.size());
+    int i = 0;
+    for (int k = 0; k < input.size(); k++) {
+      auto inputChar = *(input.data() + k);
+      auto it = asciiDictionary_->find(inputChar);
+      if (it == asciiDictionary_->end()) {
+        std::memcpy(result.data() + i, &inputChar, 1);
+        ++i;
+      } else {
+        if (it->second != '\0') {
+          std::memcpy(result.data() + i, &(it->second), 1);
+          ++i;
+        }
+      }
+    }
+    result.resize(i);
+  }
+};
+
 } // namespace facebook::velox::functions::sparksql

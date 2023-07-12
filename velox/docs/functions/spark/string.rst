@@ -155,6 +155,21 @@ Unless specified otherwise, all functions return NULL if at least one of the arg
         SELECT substring('Spark SQL', -10, 3); -- "Sp"
         SELECT substring('Spark SQL', -20, 3); -- ""
 
+.. spark:function:: translate(string, match, replace) -> varchar
+
+    Returns a new translated string. It translates the character in ``string`` by a
+    character in ``replace``. The character in ``replace`` is corresponding to
+    the character in ``match``. The translation will happen when any character
+    in ``string`` matching with a character in ``match``. If ``match's`` character
+    size is larger than ``replace's``, the extra characters in ``match`` will be
+    removed from ``string``. In addition, this function only considers the first
+    occurrence of a character in ``match`` and uses its corresponding character in
+    ``replace`` for translation. ::
+
+        SELECT translate('spark', 'sa', '12');  -- "1p2rk"
+        SELECT translate('spark', 'sa', '1');   -- "1prk"
+        SELECT translate('spark', 'ss', '12');  -- "1park"
+
 .. spark:function:: trim(string) -> varchar
 
     Removes leading and trailing 0x20(space) characters from ``string``. ::

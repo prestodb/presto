@@ -497,5 +497,82 @@ TEST_F(StringTest, left) {
   EXPECT_EQ(left("da\u6570\u636Eta", 30), "da\u6570\u636Eta");
 }
 
+TEST_F(StringTest, translate) {
+  auto testTranslate =
+      [&](const std::vector<std::optional<std::string>>& inputs,
+          auto& expected) {
+        EXPECT_EQ(
+            evaluateOnce<std::string>(
+                "translate(c0, c1, c2)", inputs[0], inputs[1], inputs[2]),
+            expected);
+      };
+
+  testTranslate({"ab[cd]", "[]", "##"}, "ab#cd#");
+  testTranslate({"ab[cd]", "[]", "#"}, "ab#cd");
+  testTranslate({"ab[cd]", "[]", "#@$"}, "ab#cd@");
+  testTranslate({"ab[cd]", "[]", "  "}, "ab cd ");
+  testTranslate({"ab\u2028", "\u2028", "\u2029"}, "ab\u2029");
+  testTranslate({"abcabc", "a", "\u2029"}, "\u2029bc\u2029bc");
+  testTranslate({"abc", "", ""}, "abc");
+  testTranslate({"translate", "rnlt", "123"}, "1a2s3ae");
+  testTranslate({"translate", "rnlt", ""}, "asae");
+  testTranslate({"abcd", "aba", "123"}, "12cd");
+  // Test null input.
+  testTranslate({"abc", std::nullopt, "\u2029"}, std::nullopt);
+  testTranslate({"abc", "\u2028", std::nullopt}, std::nullopt);
+  testTranslate({std::nullopt, "\u2028", "\u2029"}, std::nullopt);
+}
+
+TEST_F(StringTest, translateConstantMatch) {
+  auto rowType = ROW({{"c0", VARCHAR()}});
+  auto exprSet = compileExpression("translate(c0, 'ab', '12')", rowType);
+
+  auto testTranslate = [&](const auto& input, const auto& expected) {
+    auto result = evaluate(*exprSet, makeRowVector({input}));
+    velox::test::assertEqualVectors(expected, result);
+  };
+
+  // Uses ascii batch as the initial input.
+  auto input = makeFlatVector<std::string>({"abcd", "cdab"});
+  auto expected = makeFlatVector<std::string>({"12cd", "cd12"});
+  testTranslate(input, expected);
+
+  // Uses unicode batch as the next input.
+  input = makeFlatVector<std::string>({"abåæçè", "åæçèab"});
+  expected = makeFlatVector<std::string>({"12åæçè", "åæçè12"});
+  testTranslate(input, expected);
+}
+
+TEST_F(StringTest, translateNonconstantMatch) {
+  auto rowType = ROW({{"c0", VARCHAR()}, {"c1", VARCHAR()}, {"c2", VARCHAR()}});
+  auto exprSet = compileExpression("translate(c0, c1, c2)", rowType);
+
+  auto testTranslate = [&](const std::vector<VectorPtr>& inputs,
+                           const auto& expected) {
+    auto result = evaluate(*exprSet, makeRowVector(inputs));
+    velox::test::assertEqualVectors(expected, result);
+  };
+
+  // All inputs are ascii encoded.
+  auto input = makeFlatVector<std::string>({"abcd", "cdab"});
+  auto match = makeFlatVector<std::string>({"ab", "ca"});
+  auto replace = makeFlatVector<std::string>({"#", "@$"});
+  auto expected = makeFlatVector<std::string>({"#cd", "@d$b"});
+  testTranslate({input, match, replace}, expected);
+
+  // Partial inputs are ascii encoded.
+  input = makeFlatVector<std::string>({"abcd", "cdab"});
+  match = makeFlatVector<std::string>({"ac", "ab"});
+  replace = makeFlatVector<std::string>({"åç", "æ"});
+  expected = makeFlatVector<std::string>({"åbçd", "cdæ"});
+  testTranslate({input, match, replace}, expected);
+
+  // All inputs are unicode encoded.
+  input = makeFlatVector<std::string>({"abåæçè", "åæçèac"});
+  match = makeFlatVector<std::string>({"aå", "çc"});
+  replace = makeFlatVector<std::string>({"åa", "cç"});
+  expected = makeFlatVector<std::string>({"åbaæçè", "åæcèaç"});
+  testTranslate({input, match, replace}, expected);
+}
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test
