@@ -26,6 +26,17 @@ namespace facebook::presto {
 
 namespace {
 
+#define TASK_STATS_SUM(taskStats, taskStatusSum, statsName)      \
+  do {                                                           \
+    for (int i = 0; i < taskStats.pipelineStats.size(); ++i) {   \
+      auto& pipeline = taskStats.pipelineStats[i];               \
+      for (auto j = 0; j < pipeline.operatorStats.size(); ++j) { \
+        auto& op = pipeline.operatorStats[j];                    \
+        (taskStatusSum) += op.statsName;                         \
+      }                                                          \
+    }                                                            \
+  } while (0)
+
 protocol::TaskState toPrestoTaskState(exec::TaskState state) {
   switch (state) {
     case exec::kRunning:
@@ -267,6 +278,11 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
   info.taskStatus.memoryReservationInBytes = stats.currentBytes;
   info.taskStatus.systemMemoryReservationInBytes = 0;
   info.taskStatus.peakNodeTotalMemoryReservationInBytes = stats.peakBytes;
+
+  TASK_STATS_SUM(
+      taskStats,
+      info.taskStatus.physicalWrittenDataSizeInBytes,
+      physicalWrittenBytes);
 
   if (task->error() && info.taskStatus.failures.empty()) {
     info.taskStatus.failures.emplace_back(toPrestoError(task->error()));
