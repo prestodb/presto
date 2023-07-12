@@ -66,17 +66,6 @@ struct MapAccumulator {
     }
   }
 
-  void insertRange(
-      const DecodedVector& decodedKeys,
-      const DecodedVector& decodedValues,
-      vector_size_t offset,
-      vector_size_t size,
-      HashStringAllocator& allocator) {
-    for (auto i = offset; i < offset + size; ++i) {
-      insert(decodedKeys, decodedValues, i, allocator);
-    }
-  }
-
   /// Returns number of key-value pairs.
   size_t size() const {
     return keys.size();
@@ -150,15 +139,6 @@ struct StringViewMapAccumulator {
     }
   }
 
-  void insertRange(
-      const DecodedVector& decodedKeys,
-      const DecodedVector& decodedValues,
-      vector_size_t offset,
-      vector_size_t size,
-      HashStringAllocator& allocator) {
-    base.insertRange(decodedKeys, decodedValues, offset, size, allocator);
-  }
-
   size_t size() const {
     return base.size();
   }
@@ -172,6 +152,7 @@ struct StringViewMapAccumulator {
 
   void free(HashStringAllocator& allocator) {
     strings.free(allocator);
+    base.free(allocator);
   }
 };
 
@@ -207,15 +188,6 @@ struct ComplexTypeMapAccumulator {
     }
 
     base.values.appendValue(decodedValues, index, &allocator);
-  }
-
-  void insertRange(
-      const DecodedVector& decodedKeys,
-      const DecodedVector& decodedValues,
-      vector_size_t offset,
-      vector_size_t size,
-      HashStringAllocator& allocator) {
-    base.insertRange(decodedKeys, decodedValues, offset, size, allocator);
   }
 
   size_t size() const {

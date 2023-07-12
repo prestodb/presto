@@ -91,14 +91,6 @@ struct StringViewAccumulator {
       vector_size_t index,
       HashStringAllocator* allocator) {
     auto value = decoded.valueAt<StringView>(index);
-    if (!value.isInline()) {
-      auto it = base.values.find(value);
-      if (it != base.values.end()) {
-        value = it->first;
-      } else {
-        value = strings.append(value, *allocator);
-      }
-    }
     base.values[store(value, allocator)]++;
   }
 
