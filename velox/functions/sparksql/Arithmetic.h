@@ -218,4 +218,15 @@ struct HypotFunction {
     result = std::hypot(a, b);
   }
 };
+
+template <typename T>
+struct Log1pFunction {
+  FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+    if (a <= -1) {
+      return false;
+    }
+    result = std::log1p(a);
+    return true;
+  }
+};
 } // namespace facebook::velox::functions::sparksql

@@ -62,6 +62,11 @@ Mathematical Functions
 
     Returns the square root of `a` squared plus `b` squared.
 
+
+.. function:: log1p(x) -> double
+
+    Returns the natural logarithm of the “given value ``x`` plus one”.
+    Return NULL if x is less than or equal to -1.
 .. spark:function:: multiply(x, y) -> [same as x]
 
     Returns the result of multiplying x by y. The types of x and y must be the same.

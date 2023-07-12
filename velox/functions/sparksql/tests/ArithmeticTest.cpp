@@ -294,6 +294,19 @@ TEST_F(ArithmeticTest, sinh) {
   EXPECT_TRUE(std::isnan(sinh(kNan).value_or(0)));
 }
 
+TEST_F(ArithmeticTest, log1p) {
+  const double kE = std::exp(1);
+
+  static const auto log1p = [&](std::optional<double> a) {
+    return evaluateOnce<double>("log1p(c0)", a);
+  };
+
+  EXPECT_EQ(log1p(0), 0);
+  EXPECT_EQ(log1p(kE - 1), 1);
+  EXPECT_EQ(log1p(kInf), kInf);
+  EXPECT_TRUE(std::isnan(log1p(kNan).value_or(0)));
+}
+
 class BinTest : public SparkFunctionBaseTest {
  protected:
   std::optional<std::string> bin(std::optional<std::int64_t> arg) {
