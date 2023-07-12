@@ -385,9 +385,9 @@ public class QueryRewriter
     private static List<Property> applyPropertyOverride(List<Property> properties, List<Property> overrides)
     {
         Map<String, Expression> propertyMap = properties.stream()
-                .collect(toImmutableMap(property -> property.getName().getValue().toLowerCase(ENGLISH), Property::getValue));
+                .collect(toImmutableMap(property -> property.getName().getValueLowerCase(), Property::getValue));
         Map<String, Expression> overrideMap = overrides.stream()
-                .collect(toImmutableMap(property -> property.getName().getValue().toLowerCase(ENGLISH), Property::getValue));
+                .collect(toImmutableMap(property -> property.getName().getValueLowerCase(), Property::getValue));
         return Stream.concat(propertyMap.entrySet().stream(), overrideMap.entrySet().stream())
                 .collect(Collectors.toMap(Entry::getKey, Entry::getValue, (original, override) -> override))
                 .entrySet()
