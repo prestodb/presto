@@ -218,12 +218,14 @@ void MemoryAllocator::useHugePages(
   if (!FLAGS_velox_memory_use_hugepages) {
     return;
   }
-  // A huge page is 2MB, so anything smaller does not apply.
-  if (data.size() < 2 << 20) {
+  auto maybeRange = data.hugePageRange();
+  if (!maybeRange.has_value()) {
     return;
   }
   auto rc = ::madvise(
-      data.data(), data.size(), enable ? MADV_HUGEPAGE : MADV_NOHUGEPAGE);
+      maybeRange.value().data(),
+      maybeRange.value().size(),
+      enable ? MADV_HUGEPAGE : MADV_NOHUGEPAGE);
   if (rc != 0) {
     VELOX_MEM_LOG(WARNING) << "madvise hugepage errno="
                            << folly ::errnoStr(errno);

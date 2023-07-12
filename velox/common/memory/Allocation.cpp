@@ -76,10 +76,15 @@ ContiguousAllocation::~ContiguousAllocation() {
   }
 }
 
-void ContiguousAllocation::set(void* data, uint64_t size) {
+void ContiguousAllocation::set(void* data, uint64_t size, uint64_t maxSize) {
   data_ = data;
   size_ = size;
+  maxSize_ = maxSize != 0 ? maxSize : size;
   sanityCheck();
+}
+
+void ContiguousAllocation::grow(MachinePageCount increment) {
+  pool_->growContiguous(increment, *this);
 }
 
 void ContiguousAllocation::clear() {
@@ -92,11 +97,24 @@ MachinePageCount ContiguousAllocation::numPages() const {
       AllocationTraits::kPageSize;
 }
 
+std::optional<folly::Range<char*>> ContiguousAllocation::hugePageRange() const {
+  auto begin = reinterpret_cast<uintptr_t>(data_);
+  auto roundedBegin = bits::roundUp(begin, AllocationTraits::kHugePageSize);
+  auto roundedEnd = (begin + maxSize_) / AllocationTraits::kHugePageSize *
+      AllocationTraits::kHugePageSize;
+  if (roundedEnd <= roundedBegin) {
+    return std::nullopt;
+  }
+  return folly::Range<char*>(
+      reinterpret_cast<char*>(roundedBegin), roundedEnd - roundedBegin);
+}
+
 std::string ContiguousAllocation::toString() const {
   return fmt::format(
-      "ContiguousAllocation[data:{}, size:{}, pool:{}]",
+      "ContiguousAllocation[data:{}, size:{}, maxSize: {}, pool:{}]",
       data_,
       size_,
+      maxSize_,
       pool_ == nullptr ? "null" : "set");
 }
 } // namespace facebook::velox::memory

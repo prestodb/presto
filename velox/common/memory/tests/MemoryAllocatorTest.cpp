@@ -407,46 +407,41 @@ TEST_P(MemoryAllocatorTest, mmapAllocatorInit) {
 
 TEST_P(MemoryAllocatorTest, allocationPool) {
   const size_t kNumLargeAllocPages = instance_->largestSizeClass() * 2;
+  const size_t kLarge = kNumLargeAllocPages * AllocationTraits::kPageSize;
   AllocationPool pool(pool_.get());
 
   pool.allocateFixed(10);
-  EXPECT_EQ(pool.numTotalAllocations(), 1);
-  EXPECT_EQ(pool.currentRunIndex(), 0);
+  EXPECT_EQ(pool.numRanges(), 1);
   EXPECT_EQ(pool.currentOffset(), 10);
 
-  pool.allocateFixed(kNumLargeAllocPages * AllocationTraits::kPageSize);
-  EXPECT_EQ(pool.numTotalAllocations(), 2);
-  EXPECT_EQ(pool.currentRunIndex(), 0);
-  EXPECT_EQ(pool.currentOffset(), 10);
+  pool.allocateFixed(kLarge);
+  EXPECT_EQ(pool.numRanges(), 2);
+  // The previous run is dropped, now we are a new one with kLarge bytes
+  // occupied.
+  EXPECT_EQ(pool.currentOffset(), kLarge);
 
   pool.allocateFixed(20);
-  EXPECT_EQ(pool.numTotalAllocations(), 2);
-  EXPECT_EQ(pool.currentRunIndex(), 0);
-  EXPECT_EQ(pool.currentOffset(), 30);
+  EXPECT_EQ(pool.numRanges(), 2);
+  EXPECT_EQ(pool.currentOffset(), kLarge + 20);
 
   // Leaving 10 bytes room
   pool.allocateFixed(128 * 4096 - 10);
-  EXPECT_EQ(pool.numTotalAllocations(), 3);
-  EXPECT_EQ(pool.currentRunIndex(), 0);
-  EXPECT_EQ(pool.currentOffset(), 524278);
+  EXPECT_EQ(pool.numRanges(), 2);
+  int32_t offset = 2621450;
+  EXPECT_EQ(pool.currentOffset(), offset);
 
   pool.allocateFixed(5);
-  EXPECT_EQ(pool.numTotalAllocations(), 3);
-  EXPECT_EQ(pool.currentRunIndex(), 0);
-  EXPECT_EQ(pool.currentOffset(), (524278 + 5));
-
-  pool.allocateFixed(100);
-  EXPECT_EQ(pool.numTotalAllocations(), 4);
-  EXPECT_EQ(pool.currentRunIndex(), 0);
-  EXPECT_EQ(pool.currentOffset(), 100);
+  EXPECT_EQ(pool.numRanges(), 2);
+  EXPECT_EQ(pool.currentOffset(), (offset + 5));
 
   {
-    auto old = pool.numLargeAllocations();
-    auto bytes = AllocationTraits::kPageSize * instance_->largestSizeClass();
+    auto old = pool.numRanges();
+    auto bytes = pool.availableInRun();
     pool.allocateFixed(bytes);
-    ASSERT_EQ(pool.numLargeAllocations(), old);
+    pool.allocateFixed(1);
+    ASSERT_EQ(pool.numRanges(), old + 1);
     auto buf = pool.allocateFixed(bytes, 64);
-    ASSERT_EQ(pool.numLargeAllocations(), old + 1);
+    ASSERT_EQ(pool.numRanges(), old + 1);
     ASSERT_EQ(reinterpret_cast<uintptr_t>(buf) % 64, 0);
   }
 
@@ -457,11 +452,11 @@ TEST_P(MemoryAllocatorTest, allocationPool) {
 
   {
     // Leaving 10 bytes room
-    pool.allocateFixed(128 * 4096 - 10);
-    auto old = pool.numSmallAllocations();
+    pool.allocateFixed(pool.availableInRun() - 10);
+    auto old = pool.numRanges();
     auto buf = pool.allocateFixed(1, 64);
     ASSERT_EQ(reinterpret_cast<uintptr_t>(buf) % 64, 0);
-    ASSERT_EQ(pool.numSmallAllocations(), old + 1);
+    ASSERT_EQ(pool.numRanges(), old + 1);
   }
 
   pool.clear();
@@ -492,7 +487,7 @@ TEST_P(MemoryAllocatorTest, allocationClass1) {
   EXPECT_EQ(allocation.runAt(1).data(), pages + 15 * kPageSize);
 
   Allocation moved(std::move(allocation));
-  ASSERT_TRUE(allocation.empty());
+  ASSERT_TRUE(allocation.empty()); // NOLINT
   EXPECT_EQ(allocation.numRuns(), 0);
   EXPECT_EQ(allocation.numPages(), 0);
   EXPECT_EQ(moved.numRuns(), 3);
@@ -524,10 +519,10 @@ TEST_P(MemoryAllocatorTest, allocationClass2) {
   {
     Allocation movedAllocation = std::move(*allocation);
     ASSERT_TRUE(allocation->empty());
-    ASSERT_TRUE(!movedAllocation.empty());
+    ASSERT_TRUE(!movedAllocation.empty()); // NOLINT
     *allocation = std::move(movedAllocation);
     ASSERT_TRUE(!allocation->empty());
-    ASSERT_TRUE(movedAllocation.empty());
+    ASSERT_TRUE(movedAllocation.empty()); // NOLINT
   }
   ASSERT_DEATH(allocation.reset(), "");
   instance_->freeNonContiguous(*allocation);
@@ -550,7 +545,7 @@ TEST_P(MemoryAllocatorTest, allocationClass2) {
     ASSERT_EQ(movedAllocation.pool(), pool_.get());
     *allocation = std::move(movedAllocation);
     ASSERT_TRUE(!allocation->empty());
-    ASSERT_TRUE(movedAllocation.empty());
+    ASSERT_TRUE(movedAllocation.empty()); // NOLINT
     ASSERT_EQ(allocation->pool(), pool_.get());
   }
   ASSERT_THROW(allocation->setPool(pool_.get()), VeloxRuntimeError);
@@ -964,6 +959,48 @@ TEST_P(MemoryAllocatorTest, allocContiguousFail) {
   }
 }
 
+TEST_P(MemoryAllocatorTest, allocContiguousGrow) {
+  // We allocate almost all capacity worth of small allocations, then make a
+  // large continguous allocation with a small initial size.
+  auto largestClass = instance_->sizeClasses().back();
+  constexpr int32_t kInitialLarge = 1024;
+  constexpr int32_t kMinGrow = 1024;
+  MachinePageCount numPages = 0;
+  std::vector<Allocation> small;
+  auto freeSmall = [&](int32_t toFree) {
+    int32_t freed = 0;
+    while (!small.empty() && freed < toFree) {
+      freed += small.back().numPages();
+      instance_->freeNonContiguous(small.back());
+      small.pop_back();
+    }
+  };
+
+  for (; numPages < kCapacityPages - kInitialLarge; numPages += largestClass) {
+    Allocation temp;
+    instance_->allocateNonContiguous(largestClass, temp);
+    small.push_back(std::move(temp));
+  }
+  ContiguousAllocation large;
+  // Exceeds capacity.
+  EXPECT_FALSE(instance_->allocateContiguous(
+      kInitialLarge * 2, nullptr, large, nullptr, kCapacityPages));
+  EXPECT_TRUE(instance_->allocateContiguous(
+      kInitialLarge, nullptr, large, nullptr, kCapacityPages));
+  EXPECT_FALSE(instance_->growContiguous(kMinGrow, large));
+  freeSmall(kMinGrow);
+  EXPECT_TRUE(instance_->growContiguous(kMinGrow, large));
+  EXPECT_EQ(instance_->numAllocated(), kCapacityPages);
+  freeSmall(4 * kMinGrow);
+  EXPECT_TRUE(instance_->growContiguous(4 * kMinGrow, large));
+  EXPECT_THROW(
+      instance_->growContiguous(100000 * kMinGrow, large), VeloxException);
+  instance_->freeContiguous(large);
+  EXPECT_EQ(
+      kCapacityPages - kInitialLarge - 5 * kMinGrow, instance_->numAllocated());
+  freeSmall(kCapacityPages);
+}
+
 TEST_P(MemoryAllocatorTest, allocateBytes) {
   constexpr int32_t kNumAllocs = 50;
   // Different sizes, including below minimum and above largest size class.
@@ -1215,10 +1252,10 @@ TEST_P(MemoryAllocatorTest, contiguousAllocation) {
   {
     ContiguousAllocation movedAllocation = std::move(*allocation);
     ASSERT_TRUE(allocation->empty());
-    ASSERT_TRUE(!movedAllocation.empty());
+    ASSERT_TRUE(!movedAllocation.empty()); // NOLINT
     *allocation = std::move(movedAllocation);
     ASSERT_TRUE(!allocation->empty());
-    ASSERT_TRUE(movedAllocation.empty());
+    ASSERT_TRUE(movedAllocation.empty()); // NOLINT
   }
   ASSERT_DEATH(allocation.reset(), "");
   instance_->freeContiguous(*allocation);
@@ -1235,10 +1272,10 @@ TEST_P(MemoryAllocatorTest, contiguousAllocation) {
   {
     ContiguousAllocation movedAllocation = std::move(*allocation);
     ASSERT_TRUE(allocation->empty());
-    ASSERT_TRUE(!movedAllocation.empty());
+    ASSERT_TRUE(!movedAllocation.empty()); // NOLINT
     ASSERT_EQ(movedAllocation.pool(), pool_.get());
     *allocation = std::move(movedAllocation);
-    ASSERT_TRUE(!allocation->empty());
+    ASSERT_TRUE(!allocation->empty()); // NOLINT
     ASSERT_TRUE(movedAllocation.empty());
     ASSERT_EQ(allocation->pool(), pool_.get());
   }

@@ -181,24 +181,23 @@ HashStringAllocator::finishWrite(ByteStream& stream, int32_t numReserveBytes) {
 }
 
 void HashStringAllocator::newSlab(int32_t size) {
+  constexpr int32_t kSimdPadding = simd::kPadding - sizeof(Header);
   char* run = nullptr;
   uint64_t available = 0;
   int32_t needed = std::max<int32_t>(
       bits::roundUp(
-          size + 2 * sizeof(Header), memory::AllocationTraits::kPageSize),
+          size + 2 * sizeof(Header) + kSimdPadding,
+          memory::AllocationTraits::kPageSize),
       kUnitSize);
   auto pagesNeeded = memory::AllocationTraits::numPages(needed);
-  if (pagesNeeded > pool()->largestSizeClass()) {
-    LOG(WARNING) << "Unusually large allocation request received of bytes: "
-                 << size;
-    run = pool_.allocateFixed(needed);
-    available =
-        memory::AllocationTraits::pageBytes(pagesNeeded) - sizeof(Header);
-  } else {
-    pool_.newRun(needed);
-    run = pool_.firstFreeInRun();
-    available = pool_.availableInRun() - sizeof(Header);
+  // All large allocations are made standalone in pool().
+  VELOX_CHECK_LE(pagesNeeded, pool()->largestSizeClass());
+  if (pool_.allocatedBytes() >= pool_.hugePageThreshold()) {
+    needed = memory::AllocationTraits::kHugePageSize;
   }
+  run = pool_.allocateFixed(needed);
+  available = needed - sizeof(Header) - kSimdPadding;
+
   VELOX_CHECK_NOT_NULL(run);
   VELOX_CHECK_GT(available, 0);
   // Write end  marker.
@@ -408,7 +407,7 @@ HashStringAllocator::allocateFromFreeList(
 
 void HashStringAllocator::free(Header* _header) {
   Header* header = _header;
-  if (header->size() > kMaxAlloc && !pool_.isInCurrentAllocation(header) &&
+  if (header->size() > kMaxAlloc && !pool_.isInCurrentRange(header) &&
       allocationsFromPool_.find(header) != allocationsFromPool_.end()) {
     // A large free can either be a rest of block or a standalone allocation.
     VELOX_CHECK(!header->isContinued());
@@ -534,44 +533,55 @@ void HashStringAllocator::ensureAvailable(int32_t bytes, Position& position) {
 void HashStringAllocator::checkConsistency() const {
   uint64_t numFree = 0;
   uint64_t freeBytes = 0;
-  VELOX_CHECK_EQ(pool_.numLargeAllocations(), 0);
-  for (auto i = 0; i < pool_.numSmallAllocations(); ++i) {
-    auto allocation = pool_.allocationAt(i);
-    VELOX_CHECK_EQ(allocation->numRuns(), 1);
-    auto run = allocation->runAt(0);
-    auto size = run.numBytes() - sizeof(Header);
-    bool previousFree = false;
-    auto end = reinterpret_cast<Header*>(run.data<char>() + size);
-    auto header = run.data<Header>();
-    while (header != end) {
-      VELOX_CHECK_GE(
-          reinterpret_cast<char*>(header),
-          reinterpret_cast<char*>(run.data<Header>()));
-      VELOX_CHECK_LT(
-          reinterpret_cast<char*>(header), reinterpret_cast<char*>(end));
-      VELOX_CHECK_LE(
-          reinterpret_cast<char*>(header->end()), reinterpret_cast<char*>(end));
-      VELOX_CHECK_EQ(header->isPreviousFree(), previousFree);
+  for (auto i = 0; i < pool_.numRanges(); ++i) {
+    auto topRange = pool_.rangeAt(i);
+    const auto kHugePageSize = memory::AllocationTraits::kHugePageSize;
+    auto topRangeSize = topRange.size();
+    if (topRangeSize >= kHugePageSize) {
+      VELOX_CHECK_EQ(0, topRangeSize % kHugePageSize);
+    }
+    // Some ranges are short and contain one arena. Some are multiples of huge
+    // page size and contain one arena per huge page.
+    for (int64_t subRangeStart = 0; subRangeStart < topRangeSize;
+         subRangeStart += kHugePageSize) {
+      auto range = folly::Range<char*>(
+          topRange.data() + subRangeStart,
+          std::min<int64_t>(topRangeSize, kHugePageSize));
+      auto size = range.size() - simd::kPadding;
+      bool previousFree = false;
+      auto end = reinterpret_cast<Header*>(range.data() + size);
+      auto header = reinterpret_cast<Header*>(range.data());
+      while (header != end) {
+        VELOX_CHECK_GE(reinterpret_cast<char*>(header), range.data());
+        VELOX_CHECK_LT(
+            reinterpret_cast<char*>(header), reinterpret_cast<char*>(end));
+        VELOX_CHECK_LE(
+            reinterpret_cast<char*>(header->end()),
+            reinterpret_cast<char*>(end));
+        VELOX_CHECK_EQ(header->isPreviousFree(), previousFree);
 
-      if (header->isFree()) {
-        VELOX_CHECK(!previousFree);
-        VELOX_CHECK(!header->isContinued());
-        if (header->next()) {
-          VELOX_CHECK_EQ(
-              header->size(), *(reinterpret_cast<int32_t*>(header->end()) - 1));
+        if (header->isFree()) {
+          VELOX_CHECK(!previousFree);
+          VELOX_CHECK(!header->isContinued());
+          if (header->next()) {
+            VELOX_CHECK_EQ(
+                header->size(),
+                *(reinterpret_cast<int32_t*>(header->end()) - 1));
+          }
+          ++numFree;
+          freeBytes += sizeof(Header) + header->size();
+        } else if (header->isContinued()) {
+          // If the content of the header is continued, check the
+          // continue header is readable and not free.
+          auto continued = header->nextContinued();
+          VELOX_CHECK(!continued->isFree());
         }
-        ++numFree;
-        freeBytes += sizeof(Header) + header->size();
-      } else if (header->isContinued()) {
-        // If the content of the header is continued, check the
-        // continue header is readable and not free.
-        auto continued = header->nextContinued();
-        VELOX_CHECK(!continued->isFree());
+        previousFree = header->isFree();
+        header = reinterpret_cast<Header*>(header->end());
       }
-      previousFree = header->isFree();
-      header = reinterpret_cast<Header*>(header->end());
     }
   }
+
   VELOX_CHECK_EQ(numFree, numFree_);
   VELOX_CHECK_EQ(freeBytes, freeBytes_);
   uint64_t numInFreeList = 0;

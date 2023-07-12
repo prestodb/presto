@@ -215,7 +215,14 @@ bool MmapAllocator::allocateContiguousImpl(
     MachinePageCount numPages,
     Allocation* collateral,
     ContiguousAllocation& allocation,
-    ReservationCallback reservationCB) {
+    ReservationCallback reservationCB,
+    MachinePageCount maxPages) {
+  if (maxPages == 0) {
+    maxPages = numPages;
+  } else {
+    VELOX_CHECK_LE(numPages, maxPages);
+  }
+
   MachinePageCount numCollateralPages = 0;
   // 'collateral' and 'allocation' get freed anyway. But the counters are not
   // updated to reflect this. Rather, we add the delta that is needed on top of
@@ -328,11 +335,11 @@ bool MmapAllocator::allocateContiguousImpl(
   } else {
     if (useMmapArena_) {
       std::lock_guard<std::mutex> l(arenaMutex_);
-      data = managedArenas_->allocate(AllocationTraits::pageBytes(numPages));
+      data = managedArenas_->allocate(AllocationTraits::pageBytes(maxPages));
     } else {
       data = ::mmap(
           nullptr,
-          AllocationTraits::pageBytes(numPages),
+          AllocationTraits::pageBytes(maxPages),
           PROT_READ | PROT_WRITE,
           MAP_PRIVATE | MAP_ANONYMOUS,
           -1,
@@ -349,7 +356,10 @@ bool MmapAllocator::allocateContiguousImpl(
     rollbackAllocation(numToMap);
     return false;
   }
-  allocation.set(data, AllocationTraits::pageBytes(numPages));
+  allocation.set(
+      data,
+      AllocationTraits::pageBytes(numPages),
+      AllocationTraits::pageBytes(maxPages));
   useHugePages(allocation, true);
   return true;
 }
@@ -372,6 +382,49 @@ void MmapAllocator::freeContiguousImpl(ContiguousAllocation& allocation) {
   numExternalMapped_ -= allocation.numPages();
   numAllocated_ -= allocation.numPages();
   allocation.clear();
+}
+
+bool MmapAllocator::growContiguous(
+    MachinePageCount increment,
+    ContiguousAllocation& allocation,
+    ReservationCallback reservationCB) {
+  VELOX_CHECK_LE(
+      allocation.size() + increment * AllocationTraits::kPageSize,
+      allocation.maxSize());
+  if (reservationCB) {
+    // May throw. If does, there is nothing to revert.
+    reservationCB(AllocationTraits::pageBytes(increment), true);
+  }
+  auto numAllocated = numAllocated_.fetch_add(increment) + increment;
+  if (numAllocated > capacity_ ||
+      testingHasInjectedFailure(InjectedFailure::kCap)) {
+    VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
+        << "Exceeded memory allocator limit when adding " << increment
+        << " new pages for total allocation of " << allocation.numPages()
+        << " pages, the memory allocator capacity is " << capacity_;
+    numAllocated_ -= increment;
+    if (reservationCB != nullptr) {
+      reservationCB(AllocationTraits::pageBytes(increment), false);
+    }
+    return false;
+  }
+  // Check if need to advise away
+  if (!ensureEnoughMappedPages(increment)) {
+    VELOX_MEM_LOG(WARNING) << "Could not advise away enough for " << increment
+                           << " pages for growing allocation of "
+                           << allocation.numPages() << " pages";
+    if (reservationCB) {
+      reservationCB(increment, false);
+    }
+    numAllocated_.fetch_sub(increment);
+    return false;
+  }
+  numExternalMapped_ += increment;
+  allocation.set(
+      allocation.data(),
+      allocation.size() + AllocationTraits::kPageSize * increment,
+      allocation.maxSize());
+  return true;
 }
 
 void* MmapAllocator::allocateBytes(uint64_t bytes, uint16_t alignment) {

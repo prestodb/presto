@@ -683,10 +683,12 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
     // spill protected section instead.
     return;
   }
-  // If there is variable length data we take the flat size of the
-  // input as a cap on the new variable length data needed.
+  // If there is variable length data we take double the flat size of
+  // the input as a cap on the new variable length data needed. Same
+  // condition as in first check. Completely arbitrary. Allow growth
+  // in spill protected area instead.
   auto increment =
-      rows->sizeIncrement(input->size(), outOfLineBytes ? flatBytes : 0) +
+      rows->sizeIncrement(input->size(), outOfLineBytes ? flatBytes * 2 : 0) +
       tableIncrement;
   // There must be at least 2x the increment in reservation.
   if (pool_.availableReservation() > 2 * increment) {

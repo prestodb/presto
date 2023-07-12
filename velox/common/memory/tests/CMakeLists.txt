@@ -18,6 +18,7 @@ add_executable(
   ByteStreamTest.cpp
   CompactDoubleListTest.cpp
   HashStringAllocatorTest.cpp
+  AllocationPoolTest.cpp
   MemoryAllocatorTest.cpp
   MemoryArbitratorTest.cpp
   MemoryCapExceededTest.cpp

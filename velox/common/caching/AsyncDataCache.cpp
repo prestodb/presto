@@ -623,13 +623,23 @@ bool AsyncDataCache::allocateNonContiguous(
 }
 
 bool AsyncDataCache::allocateContiguous(
-    MachinePageCount numPages,
+    memory::MachinePageCount numPages,
     memory::Allocation* collateral,
     memory::ContiguousAllocation& allocation,
-    ReservationCallback reservationCB) {
+    ReservationCallback reservationCB,
+    memory::MachinePageCount maxPages) {
   return makeSpace(numPages, [&]() {
     return allocator_->allocateContiguous(
-        numPages, collateral, allocation, reservationCB);
+        numPages, collateral, allocation, reservationCB, maxPages);
+  });
+}
+
+bool AsyncDataCache::growContiguous(
+    MachinePageCount increment,
+    memory::ContiguousAllocation& allocation,
+    ReservationCallback reservationCB) {
+  return makeSpace(increment, [&]() {
+    return allocator_->growContiguous(increment, allocation, reservationCB);
   });
 }
 

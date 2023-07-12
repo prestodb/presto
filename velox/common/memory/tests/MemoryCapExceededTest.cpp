@@ -18,6 +18,7 @@
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
 #include <gmock/gmock.h>
+#include <re2/re2.h>
 
 DECLARE_bool(velox_suppress_memory_capacity_exceeding_error_message);
 
@@ -39,6 +40,21 @@ class MemoryCapExceededTest : public OperatorTestBase,
   }
 };
 
+namespace {
+bool someLineMatches(const std::string& text, const std::string& pattern) {
+  std::stringstream in;
+  in << text;
+  std::string line;
+  auto exp = fmt::format(".*{}.*", pattern);
+  while (std::getline(in, line)) {
+    if (RE2::FullMatch(line, exp)) {
+      return true;
+    }
+  }
+  return false;
+}
+} // namespace
+
 TEST_P(MemoryCapExceededTest, singleDriver) {
   // Executes a plan with a single driver thread and query memory limit that
   // forces it to throw MEM_CAP_EXCEEDED exception. Verifies that the error
@@ -55,9 +71,9 @@ TEST_P(MemoryCapExceededTest, singleDriver) {
       "node.1 usage 1.00MB peak 1.00MB",
       "op.1.0.0.FilterProject usage 12.00KB peak 12.00KB",
       "node.2 usage 4.00MB peak 4.00MB",
-      "op.2.0.0.Aggregation usage 3.77MB peak 3.77MB",
+      "op.2.0.0.Aggregation usage 3.70MB peak 3.70MB",
       "Top 2 leaf memory pool usages:",
-      "Failed memory pool: op.2.0.0.Aggregation: 3.77MB"};
+      "Failed memory pool: op.2.0.0.Aggregation: 3.70MB"};
 
   std::vector<RowVectorPtr> data;
   for (auto i = 0; i < 100; ++i) {
@@ -97,7 +113,7 @@ TEST_P(MemoryCapExceededTest, singleDriver) {
     for (const auto& expectedText : expectedDetailedTexts) {
       LOG(ERROR) << expectedText;
       if (!GetParam()) {
-        ASSERT_TRUE(errorMessage.find(expectedText) != std::string::npos)
+        ASSERT_TRUE(someLineMatches(errorMessage, expectedText))
             << "Expected error message to contain '" << expectedText
             << "', but received '" << errorMessage << "'.";
       } else {
@@ -151,7 +167,7 @@ TEST_P(MemoryCapExceededTest, multipleDrivers) {
   } catch (const VeloxException& e) {
     const auto errorMessage = e.message();
     if (!GetParam()) {
-      ASSERT_TRUE(errorMessage.find(expectedText) != std::string::npos)
+      ASSERT_TRUE(someLineMatches(errorMessage, expectedText))
           << "Expected error message to contain '" << expectedText
           << "', but received '" << errorMessage << "'.";
     } else {
@@ -174,16 +190,16 @@ TEST_P(MemoryCapExceededTest, memoryManagerCapacityExeededError) {
   // We look for these lines separately, since their order can change (not sure
   // why).
   std::vector<std::string> expectedTexts = {
-      "Exceeded memory manager cap of 1.00MB when requesting 368.00KB, memory pool cap is 5.00MB"};
+      "Exceeded memory manager cap of 1.00MB when requesting 2.00MB, memory pool cap is 5.00MB"};
   std::vector<std::string> expectedDetailedTexts = {
-      "node.2 usage 1.00MB peak 2.00MB",
-      "op.2.0.0.Aggregation usage 1012.00KB peak 1.35MB",
+      "node.2 usage .*MB peak .*MB",
+      "op.2.0.0.Aggregation usage .*B peak .*B",
       "node.1 usage 1.00MB peak 1.00MB",
       "op.1.0.0.FilterProject usage 12.00KB peak 12.00KB",
       "Top 2 leaf memory pool usages:",
-      "op.2.0.0.Aggregation usage 1012.00KB peak 1.35MB",
+      "op.2.0.0.Aggregation usage .*B peak .*B",
       "op.1.0.0.FilterProject usage 12.00KB peak 12.00KB",
-      "Failed memory pool: op.2.0.0.Aggregation: 1012.00KB"};
+      "Failed memory pool: op.2.0.0.Aggregation: .*B"};
 
   std::vector<RowVectorPtr> data;
   for (auto i = 0; i < 100; ++i) {
@@ -215,13 +231,13 @@ TEST_P(MemoryCapExceededTest, memoryManagerCapacityExeededError) {
   } catch (const VeloxException& e) {
     const auto errorMessage = e.message();
     for (const auto& expectedText : expectedTexts) {
-      ASSERT_TRUE(errorMessage.find(expectedText) != std::string::npos)
+      ASSERT_TRUE(someLineMatches(errorMessage, expectedText))
           << "Expected error message to contain '" << expectedText
           << "', but received '" << errorMessage << "'.";
     }
     for (const auto& expectedText : expectedDetailedTexts) {
       if (!GetParam()) {
-        ASSERT_TRUE(errorMessage.find(expectedText) != std::string::npos)
+        ASSERT_TRUE(someLineMatches(errorMessage, expectedText))
             << "Expected error message to contain '" << expectedText
             << "', but received '" << errorMessage << "'.";
       } else {

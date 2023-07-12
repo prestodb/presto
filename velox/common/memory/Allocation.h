@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <folly/Range.h>
 #include <cstdint>
 
 #include "velox/common/base/BitUtil.h"
@@ -32,6 +33,9 @@ using MachinePageCount = uint64_t;
 struct AllocationTraits {
   /// Defines a machine page size in bytes.
   static constexpr uint64_t kPageSize = 4096;
+
+  /// Size of huge page as intended with MADV_HUGEPAGE.
+  static constexpr uint64_t kHugePageSize = 2 << 20; // 2MB
 
   /// Returns the bytes of the given number pages.
   FOLLY_ALWAYS_INLINE static uint64_t pageBytes(MachinePageCount numPages) {
@@ -187,6 +191,7 @@ class ContiguousAllocation {
     pool_ = other.pool_;
     data_ = other.data_;
     size_ = other.size_;
+    maxSize_ = other.maxSize_;
     other.clear();
     sanityCheck();
     return *this;
@@ -196,6 +201,7 @@ class ContiguousAllocation {
     pool_ = other.pool_;
     data_ = other.data_;
     size_ = other.size_;
+    maxSize_ = other.maxSize_;
     other.clear();
     sanityCheck();
   }
@@ -211,6 +217,10 @@ class ContiguousAllocation {
   uint64_t size() const {
     return size_;
   }
+
+  /// Returns the largest huge page range covered by 'this' or std::nullopt if
+  /// no full huge page is fully contained in 'this'.
+  std::optional<folly::Range<char*>> hugePageRange() const;
 
   /// Invoked by memory pool to set the ownership on allocation success. All
   /// the external contiguous memory allocations go through memory pool.
@@ -228,11 +238,26 @@ class ContiguousAllocation {
 
   bool empty() const {
     sanityCheck();
-    return size_ == 0;
+    return maxSize_ == 0;
   }
 
-  void set(void* data, uint64_t size);
+  /// Sets the pointer and sizes. If maxSize is not specified it defaults to
+  /// 'size'.
+  void set(void* data, uint64_t size, uint64_t maxSize_ = 0);
+
+  // Adjusts 'size' towards 'maxSize' by 'increment' pages. Rounds
+  // 'increment' to huge pages, since this is the unit of growth of
+  // RSS for large contiguous runs.  Increases the reservation in in
+  // 'pool_' and its allocator. May fail by cap exceeded. If failing,
+  // the size is not changed. 'size_' cannot exceed 'maxSize_'.
+  void grow(MachinePageCount increment);
+
   void clear();
+
+  /// Returns the maximum size
+  uint64_t maxSize() const {
+    return maxSize_;
+  }
 
   std::string toString() const;
 
@@ -244,6 +269,11 @@ class ContiguousAllocation {
 
   MemoryPool* pool_{nullptr};
   void* data_{nullptr};
+
+  // Offset of first byte in 'data_' not counted reserved in 'pool_'.
   uint64_t size_{0};
+
+  // Offset of first byte after the mmap of 'data'.
+  uint64_t maxSize_{0};
 };
 } // namespace facebook::velox::memory

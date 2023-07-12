@@ -274,15 +274,29 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// memory allocation.
   virtual const std::vector<MachinePageCount>& sizeClasses() const = 0;
 
-  /// Makes a large contiguous mmap of 'numPages'. The new mapped pages are
-  /// returned in 'out' on success. Any formly mapped pages referenced by
-  /// 'out' is unmapped in all the cases even if the allocation fails.
+  /// Makes a large contiguous mmap of 'numPages'. The new mapped
+  /// pages are returned in 'out' on success. Any formly mapped pages
+  /// referenced by 'out' is unmapped in all the cases even if the
+  /// allocation fails. If 'numPages' is not given, this defaults to
+  /// 'maxPages'. 'maxPages' gives the size of the mmap in
+  /// addresses. 'numPages' gives the amount to declare as
+  /// used. growContiguous() is used to increase the
+  /// reservation up to 'maxPages'. This allows reserving a large
+  /// range of addresses for huge pages. The range can be larger than
+  /// is likely to be used because usage can be declared as needed but
+  /// the number of huge pages  can be set according to an assumption of large
+  /// utilization.
   virtual void allocateContiguous(
-      MachinePageCount numPages,
-      ContiguousAllocation& out) = 0;
+      MachinePageCount maxPages,
+      ContiguousAllocation& out,
+      MachinePageCount numPages = 0) = 0;
 
   /// Frees contiguous 'allocation'. 'allocation' is empty on return.
   virtual void freeContiguous(ContiguousAllocation& allocation) = 0;
+
+  virtual void growContiguous(
+      MachinePageCount increment,
+      ContiguousAllocation& allocation) = 0;
 
   /// Rounds up to a power of 2 >= size, or to a size halfway between
   /// two consecutive powers of two, i.e 8, 12, 16, 24, 32, .... This
@@ -553,10 +567,16 @@ class MemoryPoolImpl : public MemoryPool {
 
   const std::vector<MachinePageCount>& sizeClasses() const override;
 
-  void allocateContiguous(MachinePageCount numPages, ContiguousAllocation& out)
-      override;
+  void allocateContiguous(
+      MachinePageCount maxPages,
+      ContiguousAllocation& out,
+      MachinePageCount numPages = 0) override;
 
   void freeContiguous(ContiguousAllocation& allocation) override;
+
+  void growContiguous(
+      MachinePageCount increment,
+      ContiguousAllocation& allocation) override;
 
   int64_t capacity() const override;
 
@@ -907,6 +927,9 @@ class MemoryPoolImpl : public MemoryPool {
   // Invoked to free the call stack of a contiguous allocation if debug mode
   // of this memory pool is enabled.
   void recordFreeDbg(const ContiguousAllocation& allocation);
+
+  // Accounts for ContiguousAllocation size change in growContiguous().
+  void recordGrowDbg(const void* addr, uint64_t newSize);
 
   // Invoked by memory pool destructor to detect the sources of leaked memory
   // allocations from the call sites which are still recorded in

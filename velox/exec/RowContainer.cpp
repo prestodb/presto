@@ -630,8 +630,9 @@ std::optional<int64_t> RowContainer::estimateRowSize() const {
 int64_t RowContainer::sizeIncrement(
     vector_size_t numRows,
     int64_t variableLengthBytes) const {
-  constexpr int32_t kAllocUnit =
-      AllocationPool::kMinPages * memory::AllocationTraits::kPageSize;
+  // Small containers can grow in smaller units but for spilling the practical
+  // minimum increment is a huge page.
+  constexpr int32_t kAllocUnit = memory::AllocationTraits::kHugePageSize;
   int32_t needRows = std::max<int64_t>(0, numRows - numFreeRows_);
   int64_t needBytes =
       std::max<int64_t>(0, variableLengthBytes - stringAllocator_.freeSpace());
@@ -648,9 +649,9 @@ void RowContainer::skip(RowContainerIterator& iter, int32_t numRows) {
     VELOX_DCHECK_EQ(0, iter.allocationIndex);
     iter.normalizedKeysLeft = numRowsWithNormalizedKey_;
     iter.normalizedKeySize = originalNormalizedKeySize_;
-    auto run = rows_.allocationAt(0)->runAt(0);
-    iter.rowBegin = run.data<char>();
-    iter.endOfRun = iter.rowBegin + run.numBytes();
+    auto range = rows_.rangeAt(0);
+    iter.rowBegin = range.data();
+    iter.endOfRun = iter.rowBegin + range.size();
   }
   if (iter.rowNumber + numRows >= numRows_) {
     iter.rowNumber = numRows_;
@@ -673,22 +674,10 @@ void RowContainer::skip(RowContainerIterator& iter, int32_t numRows) {
     }
     int32_t rowsInRun = (iter.endOfRun - iter.rowBegin) / rowSize;
     toSkip -= rowsInRun;
-    auto numRuns = rows_.allocationAt(iter.allocationIndex)->numRuns();
-    if (iter.runIndex >= numRuns - 1) {
-      ++iter.allocationIndex;
-      iter.runIndex = 0;
-    } else {
-      ++iter.runIndex;
-    }
-    auto run = rows_.allocationAt(iter.allocationIndex)->runAt(iter.runIndex);
-    if (iter.allocationIndex == rows_.numSmallAllocations() - 1 &&
-        iter.runIndex ==
-            rows_.allocationAt(iter.allocationIndex)->numRuns() - 1) {
-      iter.endOfRun = run.data<char>() + rows_.currentOffset();
-    } else {
-      iter.endOfRun = run.data<char>() + run.numBytes();
-    }
-    iter.rowBegin = run.data<char>();
+    ++iter.allocationIndex;
+    auto range = rows_.rangeAt(iter.allocationIndex);
+    iter.endOfRun = range.data() + range.size();
+    iter.rowBegin = range.data();
   }
   if (iter.normalizedKeysLeft) {
     iter.normalizedKeysLeft -= numRows;

@@ -57,11 +57,12 @@ class MallocAllocator : public MemoryAllocator {
       MachinePageCount numPages,
       Allocation* collateral,
       ContiguousAllocation& allocation,
-      ReservationCallback reservationCB = nullptr) override {
+      ReservationCallback reservationCB = nullptr,
+      MachinePageCount maxPages = 0) override {
     bool result;
     stats_.recordAllocate(AllocationTraits::pageBytes(numPages), 1, [&]() {
       result = allocateContiguousImpl(
-          numPages, collateral, allocation, reservationCB);
+          numPages, collateral, allocation, reservationCB, maxPages);
     });
     return result;
   }
@@ -70,6 +71,11 @@ class MallocAllocator : public MemoryAllocator {
     stats_.recordFree(
         allocation.size(), [&]() { freeContiguousImpl(allocation); });
   }
+
+  bool growContiguous(
+      MachinePageCount increment,
+      ContiguousAllocation& allocation,
+      ReservationCallback reservationCB = nullptr) override;
 
   void* allocateBytes(uint64_t bytes, uint16_t alignment) override;
 
@@ -102,7 +108,8 @@ class MallocAllocator : public MemoryAllocator {
       MachinePageCount numPages,
       Allocation* FOLLY_NULLABLE collateral,
       ContiguousAllocation& allocation,
-      ReservationCallback reservationCB);
+      ReservationCallback reservationCB,
+      MachinePageCount maxPages);
 
   void freeContiguousImpl(ContiguousAllocation& allocation);
 

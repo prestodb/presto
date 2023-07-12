@@ -101,11 +101,12 @@ class MmapAllocator : public MemoryAllocator {
       MachinePageCount numPages,
       Allocation* collateral,
       ContiguousAllocation& allocation,
-      ReservationCallback reservationCB = nullptr) override {
+      ReservationCallback reservationCB = nullptr,
+      MachinePageCount maxPages = 0) override {
     bool result;
     stats_.recordAllocate(numPages * AllocationTraits::kPageSize, 1, [&]() {
       result = allocateContiguousImpl(
-          numPages, collateral, allocation, reservationCB);
+          numPages, collateral, allocation, reservationCB, maxPages);
     });
     return result;
   }
@@ -114,6 +115,11 @@ class MmapAllocator : public MemoryAllocator {
     stats_.recordFree(
         allocation.size(), [&]() { freeContiguousImpl(allocation); });
   }
+
+  bool growContiguous(
+      MachinePageCount increment,
+      ContiguousAllocation& allocation,
+      ReservationCallback reservationCB = nullptr) override;
 
   /// Allocates 'bytes' contiguous bytes and returns the pointer to the first
   /// byte. If 'bytes' is less than 'maxMallocBytes_', delegates the allocation
@@ -337,7 +343,8 @@ class MmapAllocator : public MemoryAllocator {
       MachinePageCount numPages,
       Allocation* collateral,
       ContiguousAllocation& allocation,
-      ReservationCallback reservationCB);
+      ReservationCallback reservationCB,
+      MachinePageCount maxPages);
 
   void freeContiguousImpl(ContiguousAllocation& allocation);
 

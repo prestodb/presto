@@ -138,13 +138,20 @@ class MockMemoryPool : public velox::memory::MemoryPool {
 
   void allocateContiguous(
       velox::memory::MachinePageCount /*unused*/,
-      velox::memory::ContiguousAllocation& /*unused*/) override {
+      velox::memory::ContiguousAllocation& /*unused*/,
+      velox::memory::MachinePageCount /*unused*/ = 0) override {
     VELOX_UNSUPPORTED("allocateContiguous unsupported");
   }
 
   void freeContiguous(velox::memory::ContiguousAllocation&
                       /*unused*/) override {
     VELOX_UNSUPPORTED("freeContiguous unsupported");
+  }
+
+  void growContiguous(
+      velox::memory::MachinePageCount /*unused*/,
+      velox::memory::ContiguousAllocation& /*unused*/) override {
+    VELOX_UNSUPPORTED("growContiguous unsupported");
   }
 
   int64_t currentBytes() const override {

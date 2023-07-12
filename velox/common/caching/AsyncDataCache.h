@@ -663,11 +663,17 @@ class AsyncDataCache : public memory::MemoryAllocator {
       memory::MachinePageCount numPages,
       memory::Allocation* FOLLY_NULLABLE collateral,
       memory::ContiguousAllocation& allocation,
-      ReservationCallback reservationCB = nullptr) override;
+      ReservationCallback reservationCB = nullptr,
+      memory::MachinePageCount maxPages = 0) override;
 
   void freeContiguous(memory::ContiguousAllocation& allocation) override {
     allocator_->freeContiguous(allocation);
   }
+
+  bool growContiguous(
+      memory::MachinePageCount increment,
+      memory::ContiguousAllocation& allocation,
+      ReservationCallback reservationCB = nullptr) override;
 
   void* allocateBytes(uint64_t bytes, uint16_t alignment) override;
 
