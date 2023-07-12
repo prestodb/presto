@@ -155,6 +155,33 @@ TEST_F(ProbabilityTest, binomialCDF) {
       binomialCDF(-2, 0.5, -1), "numberOfTrials must be greater than 0");
 }
 
+TEST_F(ProbabilityTest, cauchyCDF) {
+  const auto cauchyCDF = [&](std::optional<double> median,
+                             std::optional<double> scale,
+                             std::optional<double> value) {
+    return evaluateOnce<double>("cauchy_cdf(c0, c1, c2)", median, scale, value);
+  };
+
+  EXPECT_EQ(0.5, cauchyCDF(0.0, 1.0, 0.0));
+  EXPECT_EQ(0.75, cauchyCDF(0.0, 1.0, 1.0));
+  EXPECT_EQ(0.25, cauchyCDF(5.0, 2.0, 3.0));
+  EXPECT_EQ(1.0, cauchyCDF(5.0, 2.0, kInf));
+  EXPECT_EQ(0.5, cauchyCDF(5.0, kInf, 3.0));
+  EXPECT_EQ(0.0, cauchyCDF(kInf, 2.0, 3.0));
+  EXPECT_EQ(1.0, cauchyCDF(5.0, 2.0, kDoubleMax));
+  EXPECT_EQ(0.5, cauchyCDF(5.0, kDoubleMax, 3.0));
+  EXPECT_EQ(0.0, cauchyCDF(kDoubleMax, 1.0, 1.0));
+  EXPECT_EQ(0.25, cauchyCDF(1.0, 1.0, kDoubleMin));
+  EXPECT_EQ(0.5, cauchyCDF(5.0, kDoubleMin, 5.0));
+  EXPECT_EQ(0.75, cauchyCDF(kDoubleMin, 1.0, 1.0));
+  EXPECT_EQ(0.64758361765043326, cauchyCDF(2.5, 1.0, 3.0));
+  EXPECT_THAT(cauchyCDF(kNan, 1.0, 1.0), IsNan());
+  EXPECT_THAT(cauchyCDF(1.0, 1.0, kNan), IsNan());
+  EXPECT_THAT(cauchyCDF(kInf, 1.0, kNan), IsNan());
+  VELOX_ASSERT_THROW(cauchyCDF(1.0, kNan, 1.0), "scale must be greater than 0");
+  VELOX_ASSERT_THROW(cauchyCDF(0, -1, 0), "scale must be greater than 0");
+}
+
 TEST_F(ProbabilityTest, invBetaCDF) {
   const auto invBetaCDF = [&](std::optional<double> a,
                               std::optional<double> b,

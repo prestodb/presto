@@ -255,6 +255,11 @@ Probability Functions: cdf
     The successProbability must be real value in [0, 1], numberOfTrials and value must be
     positive integers with numberOfTrials greater or equal to value
 
+.. function:: cauchy_cdf(median, scale, value) -> double
+
+    Compute the Cauchy cdf with given parameters median and scale (gamma): P(N; median, scale).
+    The scale parameter must be a positive double. The value parameter must be a double on the interval [0, 1].
+
 .. function:: normal_cdf(mean, sd, value) -> double
 
     Compute the Normal cdf with given mean and standard deviation (sd): P(N < value; mean, sd).
