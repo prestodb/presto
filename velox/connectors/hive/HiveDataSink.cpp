@@ -502,11 +502,15 @@ std::pair<std::string, std::string> HiveDataSink::getWriterFileNames(
     targetFileName = computeBucketedFileName(
         connectorQueryCtx_->queryId(), bucketId.value());
   } else {
+    // targetFileName includes planNodeId and Uuid. As a result, different table
+    // writers run by the same task driver or the same table writer run in
+    // different task tries would have different targetFileNames.
     targetFileName = fmt::format(
-        "{}_{}_{}",
+        "{}_{}_{}_{}",
         connectorQueryCtx_->taskId(),
         connectorQueryCtx_->driverId(),
-        isCommitRequired() ? "0" : makeUuid());
+        connectorQueryCtx_->planNodeId(),
+        makeUuid());
   }
   const std::string writeFileName = isCommitRequired()
       ? fmt::format(".tmp.velox.{}_{}", targetFileName, makeUuid())

@@ -231,7 +231,8 @@ class ConnectorQueryCtx {
         scanId_(fmt::format("{}.{}", taskId, planNodeId)),
         queryId_(queryId),
         taskId_(taskId),
-        driverId_(driverId) {}
+        driverId_(driverId),
+        planNodeId_(planNodeId) {}
 
   /// Returns the associated operator's memory pool which is a leaf kind of
   /// memory pool, used for direct memory allocation use.
@@ -280,6 +281,10 @@ class ConnectorQueryCtx {
     return driverId_;
   }
 
+  const std::string& planNodeId() const {
+    return planNodeId_;
+  }
+
  private:
   memory::MemoryPool* operatorPool_;
   memory::MemoryPool* connectorPool_;
@@ -290,6 +295,7 @@ class ConnectorQueryCtx {
   const std::string queryId_;
   const std::string taskId_;
   const int driverId_;
+  const std::string planNodeId_;
 };
 
 class Connector {

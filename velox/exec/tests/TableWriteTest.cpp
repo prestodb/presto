@@ -357,6 +357,7 @@ class TableWriteTest : public HiveConnectorTestBase {
             nullptr,
             outputCommitStrategy,
             "rows")
+        .capturePlanNodeId(tableWriteNodeId_)
         .project({"rows"})
         .planNode();
   }
@@ -439,12 +440,14 @@ class TableWriteTest : public HiveConnectorTestBase {
       const std::string& targetDir) {
     ASSERT_EQ(filePath.parent_path().string(), targetDir);
     if (commitStrategy_ == CommitStrategy::kNoCommit) {
-      ASSERT_TRUE(
-          RE2::FullMatch(filePath.filename().string(), "test_cursor.+_0_.+"))
+      ASSERT_TRUE(RE2::FullMatch(
+          filePath.filename().string(),
+          fmt::format("test_cursor.+_0_{}_.+", tableWriteNodeId_)))
           << filePath.filename().string();
     } else {
       ASSERT_TRUE(RE2::FullMatch(
-          filePath.filename().string(), ".tmp.velox.test_cursor.+_0_0_.+"))
+          filePath.filename().string(),
+          fmt::format(".tmp.velox.test_cursor.+_0_{}_.+", tableWriteNodeId_)))
           << filePath.filename().string();
     }
   }
@@ -665,6 +668,7 @@ class TableWriteTest : public HiveConnectorTestBase {
   std::vector<column_index_t> partitionChannels_;
   std::vector<uint32_t> numPartitionKeyValues_;
   std::shared_ptr<HiveBucketProperty> bucketProperty_{nullptr};
+  core::PlanNodeId tableWriteNodeId_;
 };
 
 class PartitionedTableWriterTest
@@ -951,6 +955,7 @@ TEST_P(AllTableWriterTest, scanFilterProjectWrite) {
   auto types = project->outputType()->children();
   std::vector<std::string> tableColumnNames = {
       "c0", "c1", "c3", "c5", "c2_plus_c3", "substr_c5"};
+  core::PlanNodeId writerNodeId;
   auto plan = planBuilder
                   .tableWrite(
                       tableColumnNames,
@@ -966,6 +971,7 @@ TEST_P(AllTableWriterTest, scanFilterProjectWrite) {
                       nullptr,
                       commitStrategy_,
                       "rows")
+                  .capturePlanNodeId(tableWriteNodeId_)
                   .project({"rows"})
                   .planNode();
 
@@ -1030,6 +1036,7 @@ TEST_P(AllTableWriterTest, renameAndReorderColumns) {
                       nullptr,
                       commitStrategy_,
                       "rows")
+                  .capturePlanNodeId(tableWriteNodeId_)
                   .project({"rows"})
                   .planNode();
 
