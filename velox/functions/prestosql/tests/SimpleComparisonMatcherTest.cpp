@@ -30,7 +30,7 @@ class SimpleComparisonMatcherTest : public testing::Test,
                                     public test::VectorTestBase {
  protected:
   void SetUp() override {
-    functions::prestosql::registerAllScalarFunctions();
+    functions::prestosql::registerAllScalarFunctions(prefix_);
     parse::registerTypeResolver();
   }
 
@@ -38,6 +38,7 @@ class SimpleComparisonMatcherTest : public testing::Test,
       const std::string& text,
       const RowTypePtr& rowType) {
     parse::ParseOptions options;
+    options.functionPrefix = prefix_;
     auto untyped = parse::parseExpr(text, options);
     return core::Expressions::inferTypes(untyped, rowType, execCtx_->pool());
   }
@@ -45,6 +46,7 @@ class SimpleComparisonMatcherTest : public testing::Test,
   std::shared_ptr<core::QueryCtx> queryCtx_{std::make_shared<core::QueryCtx>()};
   std::unique_ptr<core::ExecCtx> execCtx_{
       std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get())};
+  const std::string prefix_ = "tp.";
 };
 
 class TestFunction : public exec::VectorFunction {
@@ -70,7 +72,7 @@ class TestFunction : public exec::VectorFunction {
 
 TEST_F(SimpleComparisonMatcherTest, basic) {
   exec::registerVectorFunction(
-      "test_array_sort",
+      prefix_ + "test_array_sort",
       TestFunction::signatures(),
       std::make_unique<TestFunction>());
 
@@ -86,7 +88,8 @@ TEST_F(SimpleComparisonMatcherTest, basic) {
     auto lambdaExpr = std::dynamic_pointer_cast<const core::LambdaTypedExpr>(
         parsedExpr->inputs()[1]);
 
-    auto comparison = functions::prestosql::isSimpleComparison(*lambdaExpr);
+    auto comparison =
+        functions::prestosql::isSimpleComparison(prefix_, *lambdaExpr);
 
     ASSERT_EQ(lessThan.has_value(), comparison.has_value());
     if (lessThan.has_value()) {
@@ -130,6 +133,10 @@ TEST_F(SimpleComparisonMatcherTest, basic) {
   // Non-matching expressions.
   testMatcher("if(x.f + y.f > 0, 1, -1)", std::nullopt);
   testMatcher("if(x.f < y.f, 1, -1)", std::nullopt);
+  testMatcher("if(x.f = y.f, 0, if(x.f > y.f, -1, 0))", std::nullopt);
+  testMatcher("if(x.f = y.f, 1, if(x.f > y.f, -1, 0))", std::nullopt);
+  testMatcher("if(x.f > (y.f + 5), 1, if(x.f < y.f, -1, 0))", std::nullopt);
+  testMatcher("x.f + y.f", std::nullopt);
 }
 
 } // namespace

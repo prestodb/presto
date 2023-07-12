@@ -29,6 +29,8 @@ namespace facebook::velox::functions {
 ///     array_sort(a, x -> length(x))
 ///
 /// Returns new expression or nullptr if rewrite is not possible.
-core::TypedExprPtr rewriteArraySortCall(const core::TypedExprPtr& expr);
+core::TypedExprPtr rewriteArraySortCall(
+    const std::string& prefix,
+    const core::TypedExprPtr& expr);
 
 } // namespace facebook::velox::functions

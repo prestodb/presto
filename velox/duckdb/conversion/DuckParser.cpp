@@ -569,7 +569,9 @@ std::shared_ptr<const core::IExpr> parseLambdaExpr(
   } else if (
       auto callExpr =
           std::dynamic_pointer_cast<const core::CallExpr>(capture)) {
-    VELOX_CHECK_EQ("row", callExpr->getFunctionName());
+    VELOX_CHECK_EQ(
+        toFullFunctionName("row", options.functionPrefix),
+        callExpr->getFunctionName());
     for (auto& input : callExpr->getInputs()) {
       auto fieldExpr =
           std::dynamic_pointer_cast<const core::FieldAccessExpr>(input);

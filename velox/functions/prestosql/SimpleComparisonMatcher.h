@@ -41,6 +41,7 @@ struct SimpleComparison {
 /// Can be used to re-write generic lambda expressions passed to array_sort into
 /// simpler ones that can be evaluated more efficiently.
 std::optional<SimpleComparison> isSimpleComparison(
+    const std::string& prefix,
     const core::LambdaTypedExpr& expr);
 
 } // namespace facebook::velox::functions::prestosql

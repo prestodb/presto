@@ -106,7 +106,9 @@ void registerArrayFunctions(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(
       udf_array_sort_desc, prefix + "array_sort_desc");
 
-  exec::registerExpressionRewrite(rewriteArraySortCall);
+  exec::registerExpressionRewrite([prefix](const auto& expr) {
+    return rewriteArraySortCall(prefix, expr);
+  });
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_sum, prefix + "array_sum");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_repeat, prefix + "repeat");

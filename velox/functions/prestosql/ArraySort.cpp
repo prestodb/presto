@@ -401,9 +401,11 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> signatures(
   return signatures;
 }
 
-core::CallTypedExprPtr asArraySortCall(const core::TypedExprPtr& expr) {
+core::CallTypedExprPtr asArraySortCall(
+    const std::string& prefix,
+    const core::TypedExprPtr& expr) {
   if (auto call = std::dynamic_pointer_cast<const core::CallTypedExpr>(expr)) {
-    if (call->name() == "array_sort") {
+    if (call->name() == prefix + "array_sort") {
       return call;
     }
   }
@@ -412,8 +414,10 @@ core::CallTypedExprPtr asArraySortCall(const core::TypedExprPtr& expr) {
 
 } // namespace
 
-core::TypedExprPtr rewriteArraySortCall(const core::TypedExprPtr& expr) {
-  auto call = asArraySortCall(expr);
+core::TypedExprPtr rewriteArraySortCall(
+    const std::string& prefix,
+    const core::TypedExprPtr& expr) {
+  auto call = asArraySortCall(prefix, expr);
   if (call == nullptr || call->inputs().size() != 2) {
     return nullptr;
   }
@@ -428,9 +432,10 @@ core::TypedExprPtr rewriteArraySortCall(const core::TypedExprPtr& expr) {
     return nullptr;
   }
 
-  if (auto comparison = functions::prestosql::isSimpleComparison(*lambda)) {
-    std::string name =
-        comparison->isLessThen ? "array_sort" : "array_sort_desc";
+  if (auto comparison =
+          functions::prestosql::isSimpleComparison(prefix, *lambda)) {
+    std::string name = comparison->isLessThen ? prefix + "array_sort"
+                                              : prefix + "array_sort_desc";
     auto rewritten = std::make_shared<core::CallTypedExpr>(
         call->type(),
         std::vector<core::TypedExprPtr>{

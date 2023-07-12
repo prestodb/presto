@@ -65,15 +65,19 @@ using IfMatcherPtr = std::shared_ptr<IfMatcher>;
 
 class ComparisonMatcher : public Matcher {
  public:
-  ComparisonMatcher(std::vector<MatcherPtr> inputMatchers, std::string* op)
-      : inputMatchers_{std::move(inputMatchers)}, op_{op} {
+  ComparisonMatcher(
+      const std::string& prefix,
+      std::vector<MatcherPtr> inputMatchers,
+      std::string* op)
+      : prefix_{prefix}, inputMatchers_{std::move(inputMatchers)}, op_{op} {
     VELOX_CHECK_EQ(2, inputMatchers_.size());
   }
 
   bool match(const core::TypedExprPtr& expr) override {
     if (auto call = dynamic_cast<const core::CallTypedExpr*>(expr.get())) {
       const auto& name = call->name();
-      if (name == "eq" || name == "lt" || name == "gt") {
+      if (name == prefix_ + "eq" || name == prefix_ + "lt" ||
+          name == prefix_ + "gt") {
         if (allMatch(call->inputs(), inputMatchers_)) {
           *op_ = name;
           return true;
@@ -84,6 +88,7 @@ class ComparisonMatcher : public Matcher {
   }
 
  private:
+  const std::string prefix_;
   std::vector<MatcherPtr> inputMatchers_;
   std::string* op_;
 };
@@ -160,7 +165,13 @@ class ComparisonConstantMatcher : public Matcher {
         }
       } else {
         if (!constant->value().isNull()) {
-          return constant->value().value<int64_t>();
+          if (constant->value().kind() == TypeKind::BIGINT) {
+            return constant->value().value<int64_t>();
+          }
+
+          if (constant->value().kind() == TypeKind::INTEGER) {
+            return constant->value().value<int32_t>();
+          }
         }
       }
     }
@@ -181,10 +192,13 @@ MatcherPtr ifelse(
       std::vector<MatcherPtr>{condition, thenClause, elseClause});
 }
 
-MatcherPtr
-comparison(const MatcherPtr& left, const MatcherPtr& right, std::string* op) {
+MatcherPtr comparison(
+    const std::string& prefix,
+    const MatcherPtr& left,
+    const MatcherPtr& right,
+    std::string* op) {
   return std::make_shared<ComparisonMatcher>(
-      std::vector<MatcherPtr>{left, right}, op);
+      prefix, std::vector<MatcherPtr>{left, right}, op);
 }
 
 MatcherPtr anySingleInput(
@@ -197,20 +211,21 @@ MatcherPtr comparisonConstant(int64_t* value) {
   return std::make_shared<ComparisonConstantMatcher>(value);
 }
 
-std::string invert(const std::string& op) {
-  return op == "lt" ? "gt" : "lt";
+std::string invert(const std::string& prefix, const std::string& op) {
+  return op == prefix + "lt" ? prefix + "gt" : prefix + "lt";
 }
 
 /// Returns true for a < b -> -1.
 bool isLessThen(
+    const std::string& prefix,
     const std::string& operation,
     const core::FieldAccessTypedExprPtr& left,
-    const core::FieldAccessTypedExprPtr& right,
     int64_t result,
     const std::string& inputLeft) {
-  std::string op = (left->name() == inputLeft) ? operation : invert(operation);
+  std::string op =
+      (left->name() == inputLeft) ? operation : invert(prefix, operation);
 
-  if (op == "lt") {
+  if (op == prefix + "lt") {
     return result < 0;
   }
 
@@ -220,6 +235,7 @@ bool isLessThen(
 } // namespace
 
 std::optional<SimpleComparison> isSimpleComparison(
+    const std::string& prefix,
     const core::LambdaTypedExpr& expr) {
   // First, check the shape of the expression.
   // if (x(a) < y(b), c1, if (u(c) > v(d), c2, c3))
@@ -229,10 +245,11 @@ std::optional<SimpleComparison> isSimpleComparison(
   int64_t c1, c2, c3;
 
   auto matcher = ifelse(
-      comparison(anySingleInput(&x, &a), anySingleInput(&y, &b), &op1),
+      comparison(prefix, anySingleInput(&x, &a), anySingleInput(&y, &b), &op1),
       comparisonConstant(&c1),
       ifelse(
-          comparison(anySingleInput(&u, &c), anySingleInput(&v, &d), &op2),
+          comparison(
+              prefix, anySingleInput(&u, &c), anySingleInput(&v, &d), &op2),
           comparisonConstant(&c2),
           comparisonConstant(&c3)));
 
@@ -250,21 +267,29 @@ std::optional<SimpleComparison> isSimpleComparison(
   inputMapping.emplace(
       a->name(),
       std::make_shared<core::FieldAccessTypedExpr>(a->type(), b->name()));
+  const auto xRewritten = x->rewriteInputNames(inputMapping);
+  if (!(*xRewritten == *y->rewriteInputNames(inputMapping) &&
+        *xRewritten == *u->rewriteInputNames(inputMapping) &&
+        *xRewritten == *v->rewriteInputNames(inputMapping))) {
+    return std::nullopt;
+  }
 
   // Verify all constants are different.
   if (c1 == c2 || c2 == c3 || c1 == c3) {
     return std::nullopt;
   }
 
+  const auto eq = prefix + "eq";
+
   // Verify that equality comparisons return zero.
   // if (x(a) = y(a), 0,..) is good. if (x(a) = y(a), 1,..) is not good.
   // Also, verify that non-equality comparisons return non-zerp.
   // if (x(a) < y(a), 1,..) is good. if (x(a) < y(a), 0,..) is not good.
-  if ((op1 == "eq" && c1 != 0) || (op1 != "eq" && c1 == 0)) {
+  if ((op1 == eq && c1 != 0) || (op1 != eq && c1 == 0)) {
     return std::nullopt;
   }
 
-  if ((op2 == "eq" && c2 != 0) || (op2 != "eq" && c2 == 0)) {
+  if ((op2 == eq && c2 != 0) || (op2 != eq && c2 == 0)) {
     return std::nullopt;
   }
 
@@ -272,18 +297,18 @@ std::optional<SimpleComparison> isSimpleComparison(
 
   const auto transform = a->name() == left ? x : y;
 
-  if (op1 == "eq") {
+  if (op1 == eq) {
     // if (x(a) = y(b), 0,...)
-    return {{transform, isLessThen(op2, c, d, c2, left)}};
+    return {{transform, isLessThen(prefix, op2, c, c2, left)}};
   }
 
-  if (op2 == "eq") {
-    return {{transform, isLessThen(op1, a, b, c1, left)}};
+  if (op2 == eq) {
+    return {{transform, isLessThen(prefix, op1, a, c1, left)}};
   }
 
   // Make sure op1 and op2 are aligned.
-  auto b1 = isLessThen(op1, a, b, c1, left);
-  auto b2 = isLessThen(op2, c, d, c2, left);
+  auto b1 = isLessThen(prefix, op1, a, c1, left);
+  auto b2 = isLessThen(prefix, op2, c, c2, left);
   if (b1 != b2) {
     return std::nullopt;
   }
