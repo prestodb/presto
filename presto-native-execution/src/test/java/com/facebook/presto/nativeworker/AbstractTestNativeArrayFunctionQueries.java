@@ -76,6 +76,14 @@ public abstract class AbstractTestNativeArrayFunctionQueries
     }
 
     @Test
+    public void testArraySort()
+    {
+        assertQuery("SELECT array_sort(quantities), array_sort_desc(quantities) FROM orders_ex");
+        assertQuery("SELECT array_sort(quantities, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) FROM orders_ex",
+                "SELECT array_sort_desc(quantities) FROM orders_ex");
+    }
+
+    @Test
     public void testArrayTrim()
     {
         this.assertQuery("SELECT trim_array(quantities, 0) FROM orders_ex");
