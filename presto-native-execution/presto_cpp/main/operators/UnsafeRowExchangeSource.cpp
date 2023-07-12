@@ -28,7 +28,7 @@ namespace facebook::presto::operators {
     VELOX_FAIL("ShuffleReader::{} failed: {}", methodName, e.what()); \
   }
 
-void UnsafeRowExchangeSource::request() {
+void UnsafeRowExchangeSource::request(uint64_t /*maxBytes*/) {
   std::vector<velox::ContinuePromise> promises;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
@@ -58,7 +58,10 @@ void UnsafeRowExchangeSource::request() {
           std::make_unique<velox::exec::SerializedPage>(
               std::move(ioBuf), [buffer](auto& /*unused*/) {}),
           promises);
+      queue_->recordReplyLocked(buffer->size());
+      --queue_->numPending();
     }
+    requestPending_ = false;
   }
   for (auto& promise : promises) {
     promise.setValue();

@@ -393,15 +393,20 @@ class PrestoExchangeSourceTestSuite : public ::testing::TestWithParam<bool> {
   void requestNextPage(
       const std::shared_ptr<exec::ExchangeQueue>& queue,
       const std::shared_ptr<exec::ExchangeSource>& exchangeSource) {
+    constexpr int32_t kDefaultSize = 32 << 20;
     {
       std::lock_guard<std::mutex> l(queue->mutex());
       ASSERT_TRUE(exchangeSource->shouldRequestLocked());
+      queue->recordRequestLocked(1, kDefaultSize);
     }
-    exchangeSource->request();
+    exchangeSource->request(kDefaultSize);
+    std::lock_guard<std::mutex> l(queue->mutex());
+    exchangeSource->clearPendingLocked();
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
   std::unique_ptr<memory::MemoryAllocator> allocator_;
+  std::shared_ptr<exec::ExchangeClient> emptyClient_;
 };
 
 TEST_P(PrestoExchangeSourceTestSuite, basic) {
@@ -420,7 +425,8 @@ TEST_P(PrestoExchangeSourceTestSuite, basic) {
   auto producerAddress = serverWrapper.start().get();
   auto producerUri = makeProducerUri(producerAddress, useHttps);
 
-  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  auto queue =
+      std::make_shared<exec::ExchangeQueue>(1 << 20, 1 << 20, emptyClient_);
   queue->addSourceLocked();
   queue->noMoreSources();
 
@@ -445,7 +451,7 @@ TEST_P(PrestoExchangeSourceTestSuite, basic) {
   size_t deltaPool = pool_->currentBytes() - beforePoolSize;
   size_t deltaQueue = queue->totalBytes() - beforeQueueSize;
   EXPECT_EQ(deltaPool, deltaQueue);
-
+  exchangeSource->deleteResults();
   producer->waitForDeleteResults();
   serverWrapper.stop();
   EXPECT_EQ(pool_->currentBytes(), 0);
@@ -498,7 +504,8 @@ TEST_P(PrestoExchangeSourceTestSuite, retries) {
   auto producerAddress = serverWrapper.start().get();
   auto producerUri = makeProducerUri(producerAddress, useHttps);
 
-  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  auto queue =
+      std::make_shared<exec::ExchangeQueue>(1 << 20, 1 << 20, emptyClient_);
   queue->addSourceLocked();
   queue->noMoreSources();
 
@@ -541,7 +548,8 @@ TEST_P(PrestoExchangeSourceTestSuite, earlyTerminatingConsumer) {
   auto producerAddress = serverWrapper.start().get();
   auto producerUri = makeProducerUri(producerAddress, useHttps);
 
-  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  auto queue =
+      std::make_shared<exec::ExchangeQueue>(1 << 20, 1 << 20, emptyClient_);
   queue->addSourceLocked();
   queue->noMoreSources();
 
@@ -576,7 +584,8 @@ TEST_P(PrestoExchangeSourceTestSuite, slowProducer) {
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
   auto producerAddress = serverWrapper.start().get();
 
-  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  auto queue =
+      std::make_shared<exec::ExchangeQueue>(1 << 20, 1 << 20, emptyClient_);
   queue->addSourceLocked();
   queue->noMoreSources();
   auto exchangeSource = std::make_shared<PrestoExchangeSource>(
@@ -603,6 +612,7 @@ TEST_P(PrestoExchangeSourceTestSuite, slowProducer) {
   size_t deltaQueue = queue->totalBytes() - beforeQueueSize;
   EXPECT_EQ(deltaPool, deltaQueue);
 
+  exchangeSource->deleteResults();
   producer->waitForDeleteResults();
   serverWrapper.stop();
   EXPECT_EQ(pool_->currentBytes(), 0);
@@ -628,7 +638,8 @@ TEST_P(PrestoExchangeSourceTestSuite, slowProducerAndEarlyTerminatingConsumer) {
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
   auto producerAddress = serverWrapper.start().get();
 
-  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  auto queue =
+      std::make_shared<exec::ExchangeQueue>(1 << 20, 1 << 20, emptyClient_);
   queue->addSourceLocked();
   queue->noMoreSources();
   auto exchangeSource = std::make_shared<PrestoExchangeSource>(
@@ -682,7 +693,8 @@ TEST_P(PrestoExchangeSourceTestSuite, failedProducer) {
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
   auto producerAddress = serverWrapper.start().get();
 
-  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  auto queue =
+      std::make_shared<exec::ExchangeQueue>(1 << 20, 1 << 20, emptyClient_);
   queue->addSourceLocked();
   queue->noMoreSources();
   auto exchangeSource = std::make_shared<PrestoExchangeSource>(
@@ -717,7 +729,8 @@ TEST_P(PrestoExchangeSourceTestSuite, exceedingMemoryCapacityForHttpResponse) {
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
   auto producerAddress = serverWrapper.start().get();
 
-  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  auto queue =
+      std::make_shared<exec::ExchangeQueue>(1 << 20, 1 << 20, emptyClient_);
   queue->addSourceLocked();
   queue->noMoreSources();
   auto exchangeSource = std::make_shared<PrestoExchangeSource>(
@@ -759,7 +772,8 @@ TEST_P(PrestoExchangeSourceTestSuite, memoryAllocationAndUsageCheck) {
     test::HttpServerWrapper serverWrapper(std::move(producerServer));
     auto producerAddress = serverWrapper.start().get();
 
-    auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+    auto queue =
+        std::make_shared<exec::ExchangeQueue>(1 << 20, 1 << 20, emptyClient_);
     queue->addSourceLocked();
     queue->noMoreSources();
     auto exchangeSource = std::make_shared<PrestoExchangeSource>(
