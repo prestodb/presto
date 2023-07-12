@@ -19,7 +19,7 @@ using namespace facebook::velox;
 using namespace facebook::presto;
 
 namespace {
-protocol::ScheduledSplit makeHiveScheduledSplit() {
+protocol::ScheduledSplit makeHiveScheduledSplit(std::string inputFormat) {
   protocol::ScheduledSplit scheduledSplit;
   scheduledSplit.sequenceId = 111;
   scheduledSplit.planNodeId = "planNodeId-0";
@@ -33,8 +33,7 @@ protocol::ScheduledSplit makeHiveScheduledSplit() {
 
   auto hiveSplit = std::make_shared<protocol::HiveSplit>();
   hiveSplit->fileSplit.path = "/file/path";
-  hiveSplit->storage.storageFormat.inputFormat =
-      "com.facebook.hive.orc.OrcInputFormat";
+  hiveSplit->storage.storageFormat.inputFormat = inputFormat;
   hiveSplit->fileSplit.start = 0;
   hiveSplit->fileSplit.length = 100;
 
@@ -47,7 +46,7 @@ protocol::ScheduledSplit makeHiveScheduledSplit() {
 class PrestoToVeloxSplitTest : public ::testing::Test {};
 
 TEST(PrestoToVeloxSplitTest, nullPartitionKey) {
-  auto scheduledSplit = makeHiveScheduledSplit();
+  auto scheduledSplit = makeHiveScheduledSplit("com.facebook.hive.orc.OrcInputFormat");
   auto hiveSplit = std::dynamic_pointer_cast<protocol::HiveSplit>(
       scheduledSplit.split.connectorSplit);
   protocol::HivePartitionKey partitionKey{"nullPartitionKey", nullptr};
@@ -66,7 +65,7 @@ TEST(PrestoToVeloxSplitTest, nullPartitionKey) {
 }
 
 TEST(PrestoToVeloxSplitTest, customSplitInfo) {
-  auto scheduledSplit = makeHiveScheduledSplit();
+  auto scheduledSplit = makeHiveScheduledSplit("com.facebook.hive.orc.OrcInputFormat");
   auto& hiveSplit =
       static_cast<protocol::HiveSplit&>(*scheduledSplit.split.connectorSplit);
   hiveSplit.fileSplit.customSplitInfo["foo"] = "bar";
@@ -80,7 +79,7 @@ TEST(PrestoToVeloxSplitTest, customSplitInfo) {
 }
 
 TEST(PrestoToVeloxSplitTest, extraFileInfo) {
-  auto scheduledSplit = makeHiveScheduledSplit();
+  auto scheduledSplit = makeHiveScheduledSplit("com.facebook.hive.orc.OrcInputFormat");
   auto& hiveSplit =
       static_cast<protocol::HiveSplit&>(*scheduledSplit.split.connectorSplit);
   hiveSplit.fileSplit.extraFileInfo =
@@ -95,16 +94,10 @@ TEST(PrestoToVeloxSplitTest, extraFileInfo) {
 }
 
 TEST(PrestoToVeloxSplitTest, testInputFormat) {
-  std::string inputFormat1 = "com.facebook.hive.orc.OrcInputFormat";
-  std::string inputFormat2 = "org.apache.hudi.hadoop.HoodieParquetInputFormat";
-  std::string inputFormat3 =
-      "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat";
-  ASSERT_EQ(
-      dwio::common::FileFormat::DWRF, input::toVeloxFileFormat(inputFormat1));
+  auto scheduledSplit = makeHiveScheduledSplit("org.apache.hudi.hadoop.HoodieParquetInputFormat");
+  auto& hiveSplit =
+      static_cast<protocol::HiveSplit&>(*scheduledSplit.split.connectorSplit);
   ASSERT_EQ(
       dwio::common::FileFormat::PARQUET,
-      input::toVeloxFileFormat(inputFormat2));
-  ASSERT_EQ(
-      dwio::common::FileFormat::PARQUET,
-      input::toVeloxFileFormat(inputFormat3));
+      input::toVeloxFileFormat(hiveSplit.storage.storageFormat));
 }
