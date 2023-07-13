@@ -461,6 +461,12 @@ jobs:
       - run:
           name: "Run Unit Tests"
           command: |
+            conda init bash
+            source ~/.bashrc
+            conda create -y --name testbench python=3.7
+            conda activate testbench
+            pip install https://github.com/googleapis/storage-testbench/archive/refs/tags/v0.36.0.tar.gz
+            export LC_ALL=C
             export JAVA_HOME=/usr/lib/jvm/jre-1.8.0-openjdk
             export HADOOP_ROOT_LOGGER="WARN,DRFA"
             export LIBHDFS3_CONF=$(pwd)/.circleci/hdfs-client.xml

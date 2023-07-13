@@ -340,6 +340,29 @@ Hive Connector
      - velox-session
      - Session name associated with the IAM role.
 
+``Google Cloud Storage Configuration``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. list-table::
+   :widths: 30 10 10 60
+   :header-rows: 1
+
+   * - Property Name
+     - Type
+     - Default Value
+     - Description
+   * - hive.gcs.endpoint
+     - string
+     -
+     - The GCS storage endpoint server.
+   * - hive.gcs.scheme
+     - string
+     -
+     - The GCS storage scheme, https for default credentials.
+   * - hive.gcs.credentials
+     - string
+     -
+     - The GCS service account configuration as json string.
+
 Spark-specific Configuration
 ----------------------------
 .. list-table::

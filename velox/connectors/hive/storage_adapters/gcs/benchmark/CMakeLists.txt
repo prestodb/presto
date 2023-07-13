@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if(VELOX_ENABLE_S3)
-  add_subdirectory(s3fs)
-endif()
-if(VELOX_ENABLE_HDFS)
-  add_subdirectory(hdfs)
-endif()
-if(VELOX_ENABLE_GCS)
-  add_subdirectory(gcs)
-endif()
+add_executable(velox_gcsread_benchmark GCSReadBenchmark.cpp
+                                       GCSReadBenchmarkMain.cpp)
+
+target_link_libraries(
+  velox_gcsread_benchmark
+  velox_read_benchmark_lib
+  velox_gcs
+  velox_exception
+  velox_exec_test_lib
+  fmt::fmt
+  Folly::folly)

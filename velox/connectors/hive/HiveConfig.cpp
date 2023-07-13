@@ -125,6 +125,21 @@ std::string HiveConfig::s3IAMRoleSessionName(const Config* config) {
   return config->get(kS3IamRoleSessionName, std::string("velox-session"));
 }
 
+// static
+std::string HiveConfig::gcsEndpoint(const Config* config) {
+  return config->get<std::string>(kGCSEndpoint, std::string(""));
+}
+
+// static
+std::string HiveConfig::gcsScheme(const Config* config) {
+  return config->get<std::string>(kGCSScheme, std::string(""));
+}
+
+// static
+std::string HiveConfig::gcsCredentials(const Config* config) {
+  return config->get<std::string>(kGCSCredentials, std::string(""));
+}
+
 // static.
 bool HiveConfig::isFileColumnNamesReadAsLowerCase(const Config* config) {
   return config->get<bool>(kFileColumnNamesReadAsLowerCase, false);
