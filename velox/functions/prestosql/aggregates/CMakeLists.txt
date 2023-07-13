@@ -14,7 +14,6 @@
 
 add_library(
   velox_aggregates
-  AddressableNonNullValueList.cpp
   ApproxDistinctAggregate.cpp
   ApproxMostFrequentAggregate.cpp
   ApproxPercentileAggregate.cpp
@@ -36,7 +35,6 @@ add_library(
   CountAggregate.cpp
   PrestoHasher.cpp
   SetAggregates.cpp
-  Strings.cpp
   SumAggregate.cpp
   ValueList.cpp
   VarianceAggregates.cpp

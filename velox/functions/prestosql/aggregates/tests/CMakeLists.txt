@@ -14,7 +14,6 @@
 
 add_executable(
   velox_aggregates_test
-  AddressableNonNullValueListTest.cpp
   AggregationFunctionRegTest.cpp
   ApproxDistinctTest.cpp
   ApproxMostFrequentTest.cpp

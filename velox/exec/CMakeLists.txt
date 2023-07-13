@@ -13,6 +13,7 @@
 # limitations under the License.
 add_library(
   velox_exec
+  AddressableNonNullValueList.cpp
   Aggregate.cpp
   AggregateCompanionAdapter.cpp
   AggregateCompanionSignatures.cpp
@@ -57,6 +58,7 @@ add_library(
   SpillOperatorGroup.cpp
   Spiller.cpp
   StreamingAggregation.cpp
+  Strings.cpp
   TableScan.cpp
   TableWriter.cpp
   Task.cpp

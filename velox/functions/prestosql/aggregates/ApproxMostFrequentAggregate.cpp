@@ -15,10 +15,10 @@
  */
 
 #include "velox/exec/Aggregate.h"
+#include "velox/exec/Strings.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/functions/lib/ApproxMostFrequentStreamSummary.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
-#include "velox/functions/prestosql/aggregates/Strings.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::aggregate::prestosql {

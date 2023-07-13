@@ -18,8 +18,8 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/exec/Aggregate.h"
+#include "velox/exec/Strings.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
-#include "velox/functions/prestosql/aggregates/Strings.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::aggregate::prestosql {

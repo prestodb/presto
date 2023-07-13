@@ -17,8 +17,8 @@
 
 #include <folly/container/F14Map.h>
 #include "velox/common/memory/HashStringAllocator.h"
-#include "velox/functions/prestosql/aggregates/AddressableNonNullValueList.h"
-#include "velox/functions/prestosql/aggregates/Strings.h"
+#include "velox/exec/AddressableNonNullValueList.h"
+#include "velox/exec/Strings.h"
 #include "velox/functions/prestosql/aggregates/ValueList.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"

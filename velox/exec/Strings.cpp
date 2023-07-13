@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/functions/prestosql/aggregates/Strings.h"
+#include "velox/exec/Strings.h"
 
 namespace facebook::velox::aggregate::prestosql {
 
