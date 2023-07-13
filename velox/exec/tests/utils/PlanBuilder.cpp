@@ -580,6 +580,8 @@ PlanBuilder::AggregatesAndNames PlanBuilder::createAggregateExpressionsAndNames(
       agg.mask = field(masks[i]);
     }
 
+    agg.distinct = untypedExpr.distinct;
+
     if (!untypedExpr.orderBy.empty()) {
       VELOX_CHECK(
           step == core::AggregationNode::Step::kSingle,

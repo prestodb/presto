@@ -79,6 +79,14 @@ TEST_F(PlanNodeSerdeTest, aggregation) {
              .planNode();
 
   testSerde(plan);
+
+  // Aggregation over distinct inputs.
+  plan = PlanBuilder()
+             .values({data_})
+             .singleAggregation({"c0"}, {"sum(distinct c1)", "avg(c1)"})
+             .planNode();
+
+  testSerde(plan);
 }
 
 TEST_F(PlanNodeSerdeTest, assignUniqueId) {

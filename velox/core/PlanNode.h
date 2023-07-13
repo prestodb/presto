@@ -508,6 +508,10 @@ class AggregationNode : public PlanNode {
     /// A list of sorting orders that goes together with 'sortingKeys'.
     std::vector<SortOrder> sortingOrders;
 
+    /// Boolean indicating whether inputs must be de-duplicated before
+    /// aggregating.
+    bool distinct{false};
+
     folly::dynamic serialize() const;
 
     static Aggregate deserialize(const folly::dynamic& obj, void* context);

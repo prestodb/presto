@@ -195,6 +195,10 @@ void AggregationNode::addDetails(std::stringstream& stream) const {
     }
     const auto& aggregate = aggregates_[i];
     stream << aggregateNames_[i] << " := " << aggregate.call->toString();
+    if (aggregate.distinct) {
+      stream << " distinct";
+    }
+
     if (aggregate.mask) {
       stream << " mask: " << aggregate.mask->name();
     }
@@ -297,6 +301,7 @@ folly::dynamic AggregationNode::Aggregate::serialize() const {
   }
   obj["sortingKeys"] = ISerializable::serialize(sortingKeys);
   obj["sortingOrders"] = serializeSortingOrders(sortingOrders);
+  obj["distinct"] = distinct;
   return obj;
 }
 
@@ -311,7 +316,9 @@ AggregationNode::Aggregate AggregationNode::Aggregate::deserialize(
   }
   auto sortingKeys = deserializeFields(obj["sortingKeys"], context);
   auto sortingOrders = deserializeSortingOrders(obj["sortingOrders"]);
-  return {call, mask, std::move(sortingKeys), std::move(sortingOrders)};
+  bool distinct = obj["distinct"].asBool();
+  return {
+      call, mask, std::move(sortingKeys), std::move(sortingOrders), distinct};
 }
 
 // static

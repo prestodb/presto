@@ -183,12 +183,17 @@ TEST_F(PlanNodeToStringTest, aggregation) {
   auto plan = PlanBuilder()
                   .values({data_})
                   .partialAggregation(
-                      {}, {"sum(c0) AS a", "avg(c1) AS b", "min(c2) AS c"})
+                      {},
+                      {"sum(c0) AS a",
+                       "avg(c1) AS b",
+                       "min(c2) AS c",
+                       "count(distinct c1)"})
                   .planNode();
 
   ASSERT_EQ("-- Aggregation\n", plan->toString());
   ASSERT_EQ(
-      "-- Aggregation[PARTIAL a := sum(ROW[\"c0\"]), b := avg(ROW[\"c1\"]), c := min(ROW[\"c2\"])] -> a:BIGINT, b:ROW<\"\":DOUBLE,\"\":BIGINT>, c:BIGINT\n",
+      "-- Aggregation[PARTIAL a := sum(ROW[\"c0\"]), b := avg(ROW[\"c1\"]), c := min(ROW[\"c2\"]), a3 := count(ROW[\"c1\"]) distinct] "
+      "-> a:BIGINT, b:ROW<\"\":DOUBLE,\"\":BIGINT>, c:BIGINT, a3:BIGINT\n",
       plan->toString(true, false));
 
   // Global aggregation with masks.
@@ -212,12 +217,14 @@ TEST_F(PlanNodeToStringTest, aggregation) {
   // Group-by aggregation.
   plan = PlanBuilder()
              .values({data_})
-             .singleAggregation({"c0"}, {"sum(c1) AS a", "avg(c2) AS b"})
+             .singleAggregation(
+                 {"c0"}, {"sum(c1) AS a", "avg(c2) AS b", "count(distinct c2)"})
              .planNode();
 
   ASSERT_EQ("-- Aggregation\n", plan->toString());
   ASSERT_EQ(
-      "-- Aggregation[SINGLE [c0] a := sum(ROW[\"c1\"]), b := avg(ROW[\"c2\"])] -> c0:SMALLINT, a:BIGINT, b:DOUBLE\n",
+      "-- Aggregation[SINGLE [c0] a := sum(ROW[\"c1\"]), b := avg(ROW[\"c2\"]), a2 := count(ROW[\"c2\"]) distinct] "
+      "-> c0:SMALLINT, a:BIGINT, b:DOUBLE, a2:BIGINT\n",
       plan->toString(true, false));
 
   // Group-by aggregation with masks.
