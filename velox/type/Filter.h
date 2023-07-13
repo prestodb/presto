@@ -1913,8 +1913,13 @@ static inline bool applyFilter(TFilter& filter, T value) {
   } else if constexpr (std::is_same_v<T, bool>) {
     return filter.testBool(value);
   } else {
-    VELOX_CHECK(false, "Bad argument type to filter");
+    VELOX_FAIL("Bad argument type to filter: {}", typeid(T).name());
   }
+}
+
+template <typename TFilter>
+static inline bool applyFilter(TFilter& filter, const std::string& value) {
+  return filter.testBytes(value.data(), value.size());
 }
 
 template <typename TFilter>

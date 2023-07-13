@@ -80,11 +80,12 @@ class HiveConnectorTestBase : public OperatorTestBase {
       common::test::SubfieldFilters subfieldFilters = {},
       const core::TypedExprPtr& remainingFilter = nullptr,
       const std::string& tableName = "hive_table",
-      const RowTypePtr& dataColumns = nullptr) {
+      const RowTypePtr& dataColumns = nullptr,
+      bool filterPushdownEnabled = true) {
     return std::make_shared<connector::hive::HiveTableHandle>(
         kHiveConnectorId,
         tableName,
-        true,
+        filterPushdownEnabled,
         std::move(subfieldFilters),
         remainingFilter,
         dataColumns);

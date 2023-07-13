@@ -2595,3 +2595,43 @@ TEST_F(TableScanTest, dictionaryMemo) {
   ASSERT_EQ(numPeelEncodings, 2);
 #endif
 }
+
+TEST_F(TableScanTest, filterPushdownDisabledChecks) {
+  auto data = makeRowVector({makeFlatVector<int32_t>(10, folly::identity)});
+  auto rowType = asRowType(data->type());
+  auto file = TempFilePath::create();
+  writeToFile(file->path, {data});
+  ColumnHandleMap assignments = {
+      {"ds", partitionKey("ds", VARCHAR())},
+      {"c0", regularColumn("c0", INTEGER())},
+  };
+  auto split = HiveConnectorSplitBuilder(file->path)
+                   .partitionKey("ds", "2023-07-12")
+                   .build();
+
+  auto tableHandle = makeTableHandle(
+      SubfieldFiltersBuilder().add("ds", equal("2023-07-12")).build(),
+      nullptr,
+      "hive_table",
+      nullptr,
+      false);
+  auto plan = exec::test::PlanBuilder(pool_.get())
+                  .tableScan(rowType, tableHandle, assignments)
+                  .planNode();
+  AssertQueryBuilder(plan).splits({split}).assertResults(data);
+
+  tableHandle = makeTableHandle(
+      SubfieldFiltersBuilder().add("c0", equal(5)).build(),
+      nullptr,
+      "hive_table",
+      nullptr,
+      false);
+  plan = exec::test::PlanBuilder(pool_.get())
+             .tableScan(rowType, tableHandle, assignments)
+             .planNode();
+  auto query = AssertQueryBuilder(plan);
+  query.splits({split});
+  VELOX_ASSERT_THROW(
+      query.copyResults(pool_.get()),
+      "Unexpected filter on table hive_table, field c0");
+}

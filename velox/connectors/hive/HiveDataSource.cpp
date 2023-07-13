@@ -420,7 +420,27 @@ HiveDataSource::HiveDataSource(
         false,
         filters);
   } else {
-    VELOX_CHECK(hiveTableHandle->subfieldFilters().empty());
+    for (auto& [field, _] : hiveTableHandle->subfieldFilters()) {
+      VELOX_USER_CHECK_EQ(
+          field.path().size(),
+          1,
+          "Unexpected filter on table {}, field {}",
+          hiveTableHandle->tableName(),
+          field.toString());
+      auto* nestedField = dynamic_cast<const common::Subfield::NestedField*>(
+          field.path()[0].get());
+      VELOX_USER_CHECK_NOT_NULL(
+          nestedField,
+          "Unexpected filter on table {}, field {}",
+          hiveTableHandle->tableName(),
+          field.toString());
+      VELOX_USER_CHECK_GT(
+          partitionKeys_.count(nestedField->name()),
+          0,
+          "Unexpected filter on table {}, field {}",
+          hiveTableHandle->tableName(),
+          field.toString());
+    }
     remainingFilter = hiveTableHandle->remainingFilter();
   }
   std::vector<common::Subfield> remainingFilterInputs;

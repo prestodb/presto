@@ -122,6 +122,10 @@ class HiveTableHandle : public ConnectorTableHandle {
       const core::TypedExprPtr& remainingFilter,
       const RowTypePtr& dataColumns = nullptr);
 
+  const std::string& tableName() const {
+    return tableName_;
+  }
+
   bool isFilterPushdownEnabled() const {
     return filterPushdownEnabled_;
   }
