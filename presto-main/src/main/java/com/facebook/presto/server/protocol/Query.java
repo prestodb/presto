@@ -27,6 +27,7 @@ import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -490,8 +491,14 @@ class Query
 
         // for queries with no output, return a fake result for clients that require it
         if ((queryInfo.getState() == QueryState.FINISHED) && !queryInfo.getOutputStage().isPresent()) {
-            columns = ImmutableList.of(new Column("result", BooleanType.BOOLEAN));
-            data = ImmutableSet.of(ImmutableList.of(true));
+            if (queryInfo.getExplainIOResult().isPresent()) {
+                columns = ImmutableList.of(new Column("Query Plan", VarcharType.VARCHAR));
+                data = ImmutableSet.of(ImmutableList.of(queryInfo.getExplainIOResult().get()));
+            }
+            else {
+                columns = ImmutableList.of(new Column("result", BooleanType.BOOLEAN));
+                data = ImmutableSet.of(ImmutableList.of(true));
+            }
         }
 
         // advance next token

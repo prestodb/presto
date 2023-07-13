@@ -30,7 +30,14 @@ import com.facebook.presto.spi.analyzer.QueryAnalyzer;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.spi.security.AccessControl;
+import com.facebook.presto.sql.analyzer.BuiltInQueryAnalysis;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.tree.AliasedRelation;
+import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.Row;
+import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -73,6 +80,7 @@ public class AccessControlCheckerExecution
     private final AtomicReference<Optional<ResourceGroupQueryLimits>> resourceGroupQueryLimits = new AtomicReference<>(Optional.empty());
 
     private final AnalyzerContext analyzerContext;
+    private Optional<String> explainIOResult = Optional.empty();
 
     public AccessControlCheckerExecution(
             QueryAnalyzer queryAnalyzer,
@@ -262,6 +270,10 @@ public class AccessControlCheckerExecution
         stateMachine.beginColumnAccessPermissionChecking();
         checkAccessPermissions(queryAnalysis.getAccessControlReferences());
         stateMachine.endColumnAccessPermissionChecking();
+        if (preparedQuery.isExplainTypeIO()) {
+            explainIOResult = ((QuerySpecification) ((Query) ((BuiltInQueryAnalysis) queryAnalysis).getAnalysis().getStatement()).getQueryBody()).getFrom()
+                    .map(r -> (((StringLiteral) ((Row) (((Values) ((AliasedRelation) r).getRelation()).getRows().get(0))).getItems().get(0)).getValue()));
+        }
         return immediateFuture(null);
     }
 
@@ -335,7 +347,7 @@ public class AccessControlCheckerExecution
     @Override
     public QueryInfo getQueryInfo()
     {
-        return stateMachine.getFinalQueryInfo().orElseGet(() -> stateMachine.updateQueryInfo(Optional.empty()));
+        return stateMachine.getFinalQueryInfo().orElseGet(() -> stateMachine.updateQueryInfo(Optional.empty(), explainIOResult));
     }
 
     @Override

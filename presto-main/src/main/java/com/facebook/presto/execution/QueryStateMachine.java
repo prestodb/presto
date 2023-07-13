@@ -416,6 +416,11 @@ public class QueryStateMachine
 
     public QueryInfo getQueryInfo(Optional<StageInfo> rootStage)
     {
+        return getQueryInfo(rootStage, Optional.empty());
+    }
+
+    public QueryInfo getQueryInfo(Optional<StageInfo> rootStage, Optional<String> explainIOResult)
+    {
         // Query state must be captured first in order to provide a
         // correct view of the query.  For example, building this
         // information, the query could finish, and the task states would
@@ -489,7 +494,8 @@ public class QueryStateMachine
                 scalarFunctions.get(),
                 aggregateFunctions.get(),
                 windowsFunctions.get(),
-                Optional.ofNullable(planCanonicalInfo.get()).orElseGet(ImmutableList::of));
+                Optional.ofNullable(planCanonicalInfo.get()).orElseGet(ImmutableList::of),
+                explainIOResult);
     }
 
     private QueryStats getQueryStats(Optional<StageInfo> rootStage, List<StageInfo> allStages)
@@ -1022,7 +1028,12 @@ public class QueryStateMachine
 
     public QueryInfo updateQueryInfo(Optional<StageInfo> stageInfo)
     {
-        QueryInfo queryInfo = getQueryInfo(stageInfo);
+        return updateQueryInfo(stageInfo, Optional.empty());
+    }
+
+    public QueryInfo updateQueryInfo(Optional<StageInfo> stageInfo, Optional<String> explainIOResult)
+    {
+        QueryInfo queryInfo = getQueryInfo(stageInfo, explainIOResult);
         if (queryInfo.isFinalQueryInfo()) {
             finalQueryInfo.compareAndSet(Optional.empty(), Optional.of(queryInfo));
         }
@@ -1090,7 +1101,8 @@ public class QueryStateMachine
                 queryInfo.getScalarFunctions(),
                 queryInfo.getAggregateFunctions(),
                 queryInfo.getWindowsFunctions(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                Optional.empty());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 

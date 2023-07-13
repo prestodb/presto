@@ -45,6 +45,7 @@ import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verify
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.sql.analyzer.utils.AnalyzerUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.utils.ParameterExtractor.getParameterCount;
+import static com.facebook.presto.sql.tree.ExplainType.Type.IO;
 import static com.facebook.presto.sql.tree.ExplainType.Type.VALIDATE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -178,6 +179,20 @@ public class BuiltInQueryPreparer
                     .filter(option -> option instanceof ExplainType)
                     .map(option -> (ExplainType) option)
                     .anyMatch(explainType -> explainType.getType() == VALIDATE);
+        }
+
+        @Override
+        public boolean isExplainTypeIO()
+        {
+            if (!(statement instanceof Explain)) {
+                return false;
+            }
+
+            return ((Explain) statement).getOptions()
+                    .stream()
+                    .filter(option -> option instanceof ExplainType)
+                    .map(option -> (ExplainType) option)
+                    .anyMatch(explainType -> explainType.getType() == IO);
         }
     }
 }

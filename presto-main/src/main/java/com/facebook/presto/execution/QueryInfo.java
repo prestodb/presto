@@ -97,6 +97,7 @@ public class QueryInfo
     private final Set<String> windowsFunctions;
     // Using a list rather than map, to avoid implementing map key deserializer
     private final List<CanonicalPlanWithInfo> planCanonicalInfo;
+    private final Optional<String> explainIOResult;
 
     @JsonCreator
     public QueryInfo(
@@ -139,7 +140,8 @@ public class QueryInfo
             @JsonProperty("scalarFunctions") Set<String> scalarFunctions,
             @JsonProperty("aggregateFunctions") Set<String> aggregateFunctions,
             @JsonProperty("windowsFunctions") Set<String> windowsFunctions,
-            List<CanonicalPlanWithInfo> planCanonicalInfo)
+            List<CanonicalPlanWithInfo> planCanonicalInfo,
+            Optional<String> explainIOResult)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -218,6 +220,7 @@ public class QueryInfo
         this.aggregateFunctions = aggregateFunctions;
         this.windowsFunctions = windowsFunctions;
         this.planCanonicalInfo = planCanonicalInfo == null ? ImmutableList.of() : planCanonicalInfo;
+        this.explainIOResult = explainIOResult;
     }
 
     @JsonProperty
@@ -474,6 +477,12 @@ public class QueryInfo
     public List<CanonicalPlanWithInfo> getPlanCanonicalInfo()
     {
         return planCanonicalInfo;
+    }
+
+    // Don't serialize this field because it can be big
+    public Optional<String> getExplainIOResult()
+    {
+        return explainIOResult;
     }
 
     @Override
