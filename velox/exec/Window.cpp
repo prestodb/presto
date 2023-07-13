@@ -113,10 +113,11 @@ Window::WindowFrame Window::createWindowFrame(
       auto constant =
           std::dynamic_pointer_cast<const core::ConstantTypedExpr>(frame)
               ->value();
-      VELOX_CHECK(!constant.isNull(), "k in frame bounds must not be null");
+      VELOX_CHECK(!constant.isNull(), "Window frame offset must not be null");
       auto value = VariantConverter::convert(constant, TypeKind::BIGINT)
                        .value<int64_t>();
-      VELOX_USER_CHECK_GE(value, 1, "k in frame bounds must be at least 1");
+      VELOX_USER_CHECK_GE(
+          value, 0, "Window frame {} offset must not be negative", value);
       return std::make_optional(
           FrameChannelArg{kConstantChannel, nullptr, value});
     } else {
@@ -319,8 +320,13 @@ void updateKRowsOffsetsColumn(
     vector_size_t* rawFrameBounds) {
   auto offsets = value->values()->as<T>();
   for (auto i = 0; i < numRows; i++) {
-    VELOX_USER_CHECK(!value->isNullAt(i), "k in frame bounds cannot be null");
-    VELOX_USER_CHECK_GE(offsets[i], 1, "k in frame bounds must be at least 1");
+    VELOX_USER_CHECK(
+        !value->isNullAt(i), "Window frame offset must not be null");
+    VELOX_USER_CHECK_GE(
+        offsets[i],
+        0,
+        "Window frame {} offset must not be negative",
+        offsets[i]);
   }
 
   // Preceding involves subtracting from the current position, while following
