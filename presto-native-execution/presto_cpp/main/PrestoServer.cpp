@@ -650,7 +650,7 @@ void PrestoServer::registerFunctions() {
       kPrestoDefaultPrefix);
   velox::window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
   if (SystemConfig::instance()->registerTestFunctions()) {
-    velox::functions::prestosql::registerComparisonFunctions(
+    velox::functions::prestosql::registerAllScalarFunctions(
         "json.test_schema.");
     velox::aggregate::prestosql::registerAllAggregateFunctions(
         "json.test_schema.");
