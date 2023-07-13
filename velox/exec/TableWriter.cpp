@@ -100,11 +100,7 @@ RowVectorPtr TableWriter::getOutput() {
   }
   finished_ = true;
 
-  if (outputType_->size() == 0) {
-    return nullptr;
-  }
   if (outputType_->size() == 1) {
-    // NOTE: this is only used for testing purpose.
     return std::make_shared<RowVector>(
         pool(),
         outputType_,
@@ -139,10 +135,10 @@ RowVectorPtr TableWriter::getOutput() {
   // clang-format off
     auto commitContextJson = folly::toJson(
       folly::dynamic::object
-          (TableWriterTraits::kLifeSpanContextKey, "TaskWide")
-          (TableWriterTraits::kTaskIdContextKey, connectorQueryCtx_->taskId())
-          (TableWriterTraits::kCommitStrategyContextKey, commitStrategyToString(commitStrategy_))
-          (TableWriterTraits::klastPageContextKey, true));
+          (TableWriteTraits::kLifeSpanContextKey, "TaskWide")
+          (TableWriteTraits::kTaskIdContextKey, connectorQueryCtx_->taskId())
+          (TableWriteTraits::kCommitStrategyContextKey, commitStrategyToString(commitStrategy_))
+          (TableWriteTraits::klastPageContextKey, true));
   // clang-format on
 
   auto commitContextVector = std::make_shared<ConstantVector<StringView>>(
@@ -159,15 +155,52 @@ RowVectorPtr TableWriter::getOutput() {
       pool(), outputType_, nullptr, numOutputRows, columns);
 }
 
-folly::dynamic TableWriterTraits::getTableCommitContext(
-    const RowVectorPtr& output) {
-  VELOX_CHECK_GT(output->size(), 0);
-  auto contextVector = output->childAt(kContextChannel)->loadedVector();
-  return folly::parseJson(
-      contextVector->as<FlatVector<StringView>>()->valueAt(0));
+std::string TableWriteTraits::rowCountColumnName() {
+  static const std::string kRowCountName = "rows";
+  return kRowCountName;
 }
 
-int64_t TableWriterTraits::getRowCount(const RowVectorPtr& output) {
+std::string TableWriteTraits::fragmentColumnName() {
+  static const std::string kFragmentName = "fragments";
+  return kFragmentName;
+}
+
+std::string TableWriteTraits::contextColumnName() {
+  static const std::string kContextName = "commitcontext";
+  return kContextName;
+}
+
+const TypePtr& TableWriteTraits::rowCountColumnType() {
+  static const TypePtr kRowCountType = BIGINT();
+  return kRowCountType;
+}
+
+const TypePtr& TableWriteTraits::fragmentColumnType() {
+  static const TypePtr kFragmentType = VARBINARY();
+  return kFragmentType;
+}
+
+const TypePtr& TableWriteTraits::contextColumnType() {
+  static const TypePtr kContextType = VARBINARY();
+  return kContextType;
+}
+
+const RowTypePtr& TableWriteTraits::outputType() {
+  static const auto kOutputType =
+      ROW({rowCountColumnName(), fragmentColumnName(), contextColumnName()},
+          {rowCountColumnType(), fragmentColumnType(), contextColumnType()});
+  return kOutputType;
+}
+
+folly::dynamic TableWriteTraits::getTableCommitContext(
+    const RowVectorPtr& input) {
+  VELOX_CHECK_GT(input->size(), 0);
+  auto* contextVector =
+      input->childAt(kContextChannel)->as<SimpleVector<StringView>>();
+  return folly::parseJson(contextVector->valueAt(input->size() - 1));
+}
+
+int64_t TableWriteTraits::getRowCount(const RowVectorPtr& output) {
   VELOX_CHECK_GT(output->size(), 0);
   auto rowCountVector =
       output->childAt(kRowCountChannel)->asFlatVector<int64_t>();

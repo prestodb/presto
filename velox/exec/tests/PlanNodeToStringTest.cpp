@@ -513,7 +513,10 @@ TEST_F(PlanNodeToStringTest, localPartition) {
       "-- LocalPartition[REPARTITION HASH(c0)] -> c0:SMALLINT, c1:INTEGER, c2:BIGINT\n",
       plan->toString(true, false));
 
-  plan = PlanBuilder().values({data_}).localPartition({}).planNode();
+  plan = PlanBuilder()
+             .values({data_})
+             .localPartition(std::vector<std::string>{})
+             .planNode();
 
   ASSERT_EQ("-- LocalPartition\n", plan->toString());
   ASSERT_EQ(

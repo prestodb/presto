@@ -413,7 +413,8 @@ bool Task::supportsSingleThreadedExecution() const {
   }
 
   std::vector<std::unique_ptr<DriverFactory>> driverFactories;
-  LocalPlanner::plan(planFragment_, nullptr, &driverFactories, 1);
+  LocalPlanner::plan(
+      planFragment_, nullptr, &driverFactories, queryCtx_->queryConfig(), 1);
 
   for (const auto& factory : driverFactories) {
     if (!factory->supportsSingleThreadedExecution()) {
@@ -450,7 +451,8 @@ RowVectorPtr Task::next(ContinueFuture* future) {
         "Single-threaded execution doesn't support delivering results to a "
         "callback");
 
-    LocalPlanner::plan(planFragment_, nullptr, &driverFactories_, 1);
+    LocalPlanner::plan(
+        planFragment_, nullptr, &driverFactories_, queryCtx_->queryConfig(), 1);
     exchangeClients_.resize(driverFactories_.size());
 
     // In Task::next() we always assume ungrouped execution.
@@ -576,6 +578,7 @@ void Task::start(
           self->planFragment_,
           self->consumerSupplier(),
           &self->driverFactories_,
+          self->queryCtx_->queryConfig(),
           maxDrivers);
 
       // Keep one exchange client per pipeline (NULL if not used).

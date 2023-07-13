@@ -22,20 +22,37 @@
 namespace facebook::velox::exec {
 
 /// Defines table writer output related config properties that are shared
-/// betweeen TableWriter and TableWriteMerger.
-class TableWriterTraits {
+/// between TableWriter and TableWriteMerger.
+///
+/// TODO: the table write output processing is Prestissimo specific. Consider
+/// move these part logic to Prestissimo and pass to Velox through a customized
+/// output processing callback.
+class TableWriteTraits {
  public:
-  /// Defines the column channels in table writer output.
+  /// Defines the column names/types in table write output.
+  static std::string rowCountColumnName();
+  static std::string fragmentColumnName();
+  static std::string contextColumnName();
+
+  static const TypePtr& rowCountColumnType();
+  static const TypePtr& fragmentColumnType();
+  static const TypePtr& contextColumnType();
+
+  /// Defines the column channels in table write output.
   static constexpr int32_t kRowCountChannel = 0;
   static constexpr int32_t kFragmentChannel = 1;
   static constexpr int32_t kContextChannel = 2;
   static constexpr int32_t kStatsChannel = 3;
+
   /// Defines the names of metadata in commit context in table writer output.
   static constexpr std::string_view kLifeSpanContextKey = "lifespan";
   static constexpr std::string_view kTaskIdContextKey = "taskId";
   static constexpr std::string_view kCommitStrategyContextKey =
       "pageSinkCommitStrategy";
   static constexpr std::string_view klastPageContextKey = "lastPage";
+
+  /// TODO: add column stats support.
+  static const RowTypePtr& outputType();
 
   /// Returns the parsed commit context from table writer 'output'.
   static folly::dynamic getTableCommitContext(const RowVectorPtr& output);
@@ -45,7 +62,7 @@ class TableWriterTraits {
 };
 
 /**
- * The class implements a simple table writer VELOX operator
+ * Implements a simple table writer operator.
  */
 class TableWriter : public Operator {
  public:

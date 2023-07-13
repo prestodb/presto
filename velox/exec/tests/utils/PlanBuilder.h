@@ -19,6 +19,7 @@
 #include <velox/core/PlanFragment.h>
 #include <velox/core/PlanNode.h>
 #include "velox/common/memory/Memory.h"
+#include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/parse/ExpressionsParser.h"
 #include "velox/parse/PlanNodeIdGenerator.h"
 
@@ -233,52 +234,40 @@ class PlanBuilder {
   /// @param tableColumnNames Column names in the target table corresponding to
   /// inputColumns. The names may or may not match. tableColumnNames[i]
   /// corresponds to inputColumns[i].
-  /// @param insertHandle Connector-specific table handle.
   /// @param aggregationNode Optional aggregation node for collecting column
   /// statistics.
-  /// @param rowCountColumnName The name of the output column containing the
-  /// number of rows written.
+  /// @param insertHandle Connector-specific table handle.
+  /// @param hasPartitioningScheme indicates if table partitioning scheme is
+  /// required for this table write which is only true for bucketed hive table
+  /// for now.
   PlanBuilder& tableWrite(
       const RowTypePtr& inputColumns,
       const std::vector<std::string>& tableColumnNames,
-      const std::shared_ptr<core::InsertTableHandle>& insertHandle,
       const std::shared_ptr<core::AggregationNode>& aggregationNode,
+      const std::shared_ptr<core::InsertTableHandle>& insertHandle,
+      bool hasPartitioningScheme,
       connector::CommitStrategy commitStrategy =
-          connector::CommitStrategy::kNoCommit,
-      const std::string& rowCountColumnName = "rowCount");
+          connector::CommitStrategy::kNoCommit);
 
   /// Add a TableWriteNode assuming that input columns match the source node
   /// columns in order.
   ///
-  /// @param tableColumnNames Column names in the target table.
-  /// @param insertHandle Connector-specific table handle.
+  /// @param tableColumnNames Column names in the target table corresponding to
+  /// inputColumns. The names may or may not match. tableColumnNames[i]
+  /// corresponds to inputColumns[i].
   /// @param aggregationNode Optional aggregation node for collecting column
   /// statistics.
-  /// @param rowCountColumnName The name of the output column containing the
-  /// number of rows written.
+  /// @param insertHandle Connector-specific table handle.
+  /// @param hasPartitioningScheme indicates if table partitioning scheme is
+  /// required for this table write which is only true for bucketed hive table
+  /// for now.
   PlanBuilder& tableWrite(
       const std::vector<std::string>& tableColumnNames,
-      const std::shared_ptr<core::InsertTableHandle>& insertHandle,
       const std::shared_ptr<core::AggregationNode>& aggregationNode,
+      const std::shared_ptr<core::InsertTableHandle>& insertHandle,
+      bool hasPartitioningScheme,
       connector::CommitStrategy commitStrategy =
-          connector::CommitStrategy::kNoCommit,
-      const std::string& rowCountColumnName = "rowCount");
-
-  /// Add a TableWriteNode assuming that input columns match the source node
-  /// columns in order.
-  ///
-  /// @param tableColumnNames Column names in the target table.
-  /// @param insertHandle Connector-specific table handle.
-  /// @param aggregationNode Optional aggregation node for collecting column
-  /// statistics.
-  /// @param outputType The output type of table writer node.
-  PlanBuilder& tableWrite(
-      const RowTypePtr& inputColumns,
-      const std::vector<std::string>& tableColumnNames,
-      const std::shared_ptr<core::InsertTableHandle>& insertHandle,
-      const std::shared_ptr<core::AggregationNode>& aggregationNode,
-      connector::CommitStrategy commitStrategy,
-      const RowTypePtr outputType);
+          connector::CommitStrategy::kNoCommit);
 
   /// Add a TableWriteMergeNode.
   PlanBuilder& tableWriteMerge();
@@ -591,6 +580,14 @@ class PlanBuilder {
   /// A convenience method to add a LocalPartitionNode with a single source (the
   /// current plan node).
   PlanBuilder& localPartition(const std::vector<std::string>& keys);
+
+#ifndef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  /// A convenience method to add a LocalPartitionNode with a single source (the
+  /// current plan node) and hive bucket property.
+  PlanBuilder& localPartition(
+      const std::shared_ptr<connector::hive::HiveBucketProperty>&
+          bucketProperty);
+#endif
 
   /// Add a LocalPartitionNode to partition the input using row-wise
   /// round-robin. Number of partitions is determined at runtime based on

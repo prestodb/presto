@@ -61,6 +61,7 @@ add_library(
   StreamingAggregation.cpp
   Strings.cpp
   TableScan.cpp
+  TableWriteMerge.cpp
   TableWriter.cpp
   Task.cpp
   TopN.cpp

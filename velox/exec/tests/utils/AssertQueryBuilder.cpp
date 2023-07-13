@@ -208,10 +208,18 @@ AssertQueryBuilder::readCursor() {
   VELOX_CHECK_NOT_NULL(params_.planNode);
 
   if (!configs_.empty() || !connectorConfigs_.empty()) {
-    if (!params_.queryCtx) {
+    if (params_.queryCtx == nullptr) {
       // NOTE: the destructor of 'executor_' will wait for all the async task
       // activities to finish on AssertQueryBuilder dtor.
-      params_.queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+      static std::atomic<uint64_t> cursorQueryId{0};
+      params_.queryCtx = std::make_shared<core::QueryCtx>(
+          executor_.get(),
+          std::unordered_map<std::string, std::string>{},
+          std::unordered_map<std::string, std::shared_ptr<Config>>{},
+          memory::MemoryAllocator::getInstance(),
+          nullptr,
+          nullptr,
+          fmt::format("TaskCursorQuery_{}", cursorQueryId++));
     }
   }
   if (!configs_.empty()) {

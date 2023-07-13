@@ -213,6 +213,10 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
     return tableStorageFormat_;
   }
 
+  bool supportsMultiThreading() const override {
+    return true;
+  }
+
   bool isPartitioned() const;
 
   bool isBucketed() const;

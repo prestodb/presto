@@ -23,6 +23,7 @@
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/HashPartitionFunction.h"
 #include "velox/exec/RoundRobinPartitionFunction.h"
+#include "velox/exec/TableWriter.h"
 #include "velox/exec/WindowFunction.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
 #include "velox/expression/SignatureBinder.h"
@@ -277,64 +278,42 @@ PlanBuilder& PlanBuilder::filter(const std::string& filter) {
 
 PlanBuilder& PlanBuilder::tableWrite(
     const std::vector<std::string>& tableColumnNames,
-    const std::shared_ptr<core::InsertTableHandle>& insertHandle,
     const std::shared_ptr<core::AggregationNode>& aggregationNode,
-    CommitStrategy commitStrategy,
-    const std::string& rowCountColumnName) {
+    const std::shared_ptr<core::InsertTableHandle>& insertHandle,
+    bool hasPartitioningScheme,
+    CommitStrategy commitStrategy) {
   return tableWrite(
       planNode_->outputType(),
       tableColumnNames,
-      insertHandle,
       aggregationNode,
-      commitStrategy,
-      rowCountColumnName);
+      insertHandle,
+      hasPartitioningScheme,
+      commitStrategy);
 }
 
 PlanBuilder& PlanBuilder::tableWrite(
     const RowTypePtr& inputColumns,
     const std::vector<std::string>& tableColumnNames,
-    const std::shared_ptr<core::InsertTableHandle>& insertHandle,
     const std::shared_ptr<core::AggregationNode>& aggregationNode,
-    CommitStrategy commitStrategy,
-    const std::string& rowCountColumnName) {
-  auto outputType = ROW({rowCountColumnName}, {BIGINT()});
+    const std::shared_ptr<core::InsertTableHandle>& insertHandle,
+    bool hasPartitioningScheme,
+    CommitStrategy commitStrategy) {
   planNode_ = std::make_shared<core::TableWriteNode>(
       nextPlanNodeId(),
       inputColumns,
       tableColumnNames,
-      insertHandle,
-      outputType,
-      commitStrategy,
       aggregationNode,
-      planNode_);
-  return *this;
-}
-
-PlanBuilder& PlanBuilder::tableWrite(
-    const RowTypePtr& inputColumns,
-    const std::vector<std::string>& tableColumnNames,
-    const std::shared_ptr<core::InsertTableHandle>& insertHandle,
-    const std::shared_ptr<core::AggregationNode>& aggregationNode,
-    CommitStrategy commitStrategy,
-    RowTypePtr outputType) {
-  planNode_ = std::make_shared<core::TableWriteNode>(
-      nextPlanNodeId(),
-      inputColumns,
-      tableColumnNames,
       insertHandle,
-      outputType,
+      hasPartitioningScheme,
+      TableWriteTraits::outputType(),
       commitStrategy,
-      aggregationNode,
       planNode_);
   return *this;
 }
 
 PlanBuilder& PlanBuilder::tableWriteMerge() {
-  static const auto writeMergeOutputType =
-      ROW({"numWrittenRows", "fragment", "tableCommitContext"},
-          {BIGINT(), VARBINARY(), VARBINARY()});
   planNode_ = std::make_shared<core::TableWriteMergeNode>(
-      nextPlanNodeId(), writeMergeOutputType, planNode_);
+      nextPlanNodeId(), TableWriteTraits::outputType(), planNode_);
   return *this;
 }
 
@@ -887,6 +866,29 @@ PlanBuilder& PlanBuilder::localPartition(const std::vector<std::string>& keys) {
   planNode_ = createLocalPartitionNode(nextPlanNodeId(), keys, {planNode_});
   return *this;
 }
+
+#ifndef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+PlanBuilder& PlanBuilder::localPartition(
+    const std::shared_ptr<connector::hive::HiveBucketProperty>&
+        bucketProperty) {
+  std::vector<column_index_t> bucketChannels;
+  for (const auto& bucketColumn : bucketProperty->bucketedBy()) {
+    bucketChannels.push_back(
+        planNode_->outputType()->getChildIdx(bucketColumn));
+  }
+  auto hivePartitionFunctionFactory =
+      std::make_shared<HivePartitionFunctionSpec>(
+          bucketProperty->bucketCount(),
+          bucketChannels,
+          std::vector<VectorPtr>{});
+  planNode_ = std::make_shared<core::LocalPartitionNode>(
+      nextPlanNodeId(),
+      core::LocalPartitionNode::Type::kRepartition,
+      std::move(hivePartitionFunctionFactory),
+      std::vector<core::PlanNodePtr>{planNode_});
+  return *this;
+}
+#endif
 
 namespace {
 core::PlanNodePtr createLocalPartitionRoundRobinNode(

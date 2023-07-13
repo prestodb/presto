@@ -47,6 +47,7 @@ TopNNode                    TopN
 LimitNode                   Limit
 UnnestNode                  Unnest
 TableWriteNode              TableWrite
+TableWriteMergeNode         TableWriteMerge
 PartitionedOutputNode       PartitionedOutput
 ExchangeNode                Exchange                                         Y
 MergeExchangeNode           MergeExchange                                    Y
@@ -345,8 +346,9 @@ TableWriteNode
 
 The table write operation consumes one output and writes it to storage via a
 connector. An example would be writing ORC or Parquet files. The table write
-operation return a single row with a single column containing the number of
-rows written to storage.
+operation return a list of columns containing the metadata of the written
+data: the number of rows written to storage, the writer context information,
+the written file paths on storage and the collected column stats.
 
 .. list-table::
    :widths: 10 30
@@ -359,10 +361,28 @@ rows written to storage.
      - A list of input columns to write to storage. This may be a subset of the input columns in different order.
    * - columnNames
      - Column names to use when writing to storage. These can be different from the input column names.
+   * - aggregationNode
+     - Aggregation plan node used to collect the column stats of the data written to storage.
    * - insertTableHandle
      - Connector-specific description of the destination table.
    * - outputType
-     - An output column containing a number of rows written to storage.
+     - A list of output columns containing the metadata of the data written storage.
+
+TableWriteMergeNode
+~~~~~~~~~~~~~~~~~~~
+
+The table write merge operation aggregates the metadata outputs from multiple
+table write operations and returns the aggregated result.
+
+.. list-table::
+   :widths: 10 30
+   :align: left
+   :header-rows: 1
+
+   * - Property
+     - Description
+   * - outputType
+     - A list of output columns containing the metadata of the written data aggregated from multiple table write operations.
 
 PartitionedOutputNode
 ~~~~~~~~~~~~~~~~~~~~~

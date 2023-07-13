@@ -29,6 +29,7 @@ class LocalPlanner {
       const core::PlanFragment& planFragment,
       ConsumerSupplier consumerSupplier,
       std::vector<std::unique_ptr<DriverFactory>>* driverFactories,
+      const core::QueryConfig& queryConfig,
       uint32_t maxDrivers);
 
   // Determine which pipelines should run Grouped Execution.

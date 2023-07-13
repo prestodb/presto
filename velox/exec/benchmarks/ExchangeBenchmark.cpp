@@ -171,7 +171,7 @@ class ExchangeBenchmark : public VectorTestBase {
                     .localPartition({"c0"})
                     .capturePlanNodeId(exchangeId)
                     .singleAggregation({}, aggregates)
-                    .localPartition({})
+                    .localPartition(std::vector<std::string>{})
                     .singleAggregation({}, {"sum(a0)"})
                     .planNode();
     auto startMicros = getCurrentTimeMicro();

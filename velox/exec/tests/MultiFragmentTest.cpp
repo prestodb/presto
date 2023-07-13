@@ -601,7 +601,7 @@ TEST_F(MultiFragmentTest, limit) {
   // Make final task: Exchange -> FinalLimit(10).
   auto plan = PlanBuilder()
                   .exchange(leafPlan->outputType())
-                  .localPartition({})
+                  .localPartition(std::vector<std::string>{})
                   .limit(0, 10, false)
                   .planNode();
 

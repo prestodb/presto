@@ -36,6 +36,7 @@
 #include "velox/exec/RowNumber.h"
 #include "velox/exec/StreamingAggregation.h"
 #include "velox/exec/TableScan.h"
+#include "velox/exec/TableWriteMerge.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/TopN.h"
 #include "velox/exec/TopNRowNumber.h"
@@ -169,7 +170,9 @@ uint32_t maxDriversForConsumer(
   return std::numeric_limits<uint32_t>::max();
 }
 
-uint32_t maxDrivers(const DriverFactory& driverFactory) {
+uint32_t maxDrivers(
+    const DriverFactory& driverFactory,
+    const core::QueryConfig& queryConfig) {
   uint32_t count = maxDriversForConsumer(driverFactory.consumerNode);
   if (count == 1) {
     return count;
@@ -221,10 +224,16 @@ uint32_t maxDrivers(const DriverFactory& driverFactory) {
     } else if (
         auto tableWrite =
             std::dynamic_pointer_cast<const core::TableWriteNode>(node)) {
-      if (!tableWrite->insertTableHandle()
-               ->connectorInsertTableHandle()
-               ->supportsMultiThreading()) {
+      const auto& connectorInsertHandle =
+          tableWrite->insertTableHandle()->connectorInsertTableHandle();
+      if (!connectorInsertHandle->supportsMultiThreading()) {
         return 1;
+      } else {
+        if (tableWrite->hasPartitioningScheme()) {
+          return queryConfig.taskPartitionedWriterCount();
+        } else {
+          return queryConfig.taskWriterCount();
+        }
       }
     } else {
       auto result = Operator::maxDrivers(node);
@@ -250,6 +259,7 @@ void LocalPlanner::plan(
     const core::PlanFragment& planFragment,
     ConsumerSupplier consumerSupplier,
     std::vector<std::unique_ptr<DriverFactory>>* driverFactories,
+    const core::QueryConfig& queryConfig,
     uint32_t maxDrivers) {
   detail::plan(
       planFragment.planNode,
@@ -267,7 +277,7 @@ void LocalPlanner::plan(
 
   // Determine number of drivers for each pipeline.
   for (auto& factory : *driverFactories) {
-    factory->maxDrivers = detail::maxDrivers(*factory);
+    factory->maxDrivers = detail::maxDrivers(*factory, queryConfig);
     factory->numDrivers = std::min(factory->maxDrivers, maxDrivers);
 
     // Pipelines running grouped/bucketed execution would have separate groups
@@ -417,6 +427,12 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
             std::dynamic_pointer_cast<const core::TableWriteNode>(planNode)) {
       operators.push_back(
           std::make_unique<TableWriter>(id, ctx.get(), tableWriteNode));
+    } else if (
+        auto tableWriteMergeNode =
+            std::dynamic_pointer_cast<const core::TableWriteMergeNode>(
+                planNode)) {
+      operators.push_back(std::make_unique<TableWriteMerge>(
+          id, ctx.get(), tableWriteMergeNode));
     } else if (
         auto mergeExchangeNode =
             std::dynamic_pointer_cast<const core::MergeExchangeNode>(

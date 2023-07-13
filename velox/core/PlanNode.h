@@ -625,19 +625,21 @@ class TableWriteNode : public PlanNode {
       const PlanNodeId& id,
       const RowTypePtr& columns,
       const std::vector<std::string>& columnNames,
-      const std::shared_ptr<InsertTableHandle>& insertTableHandle,
+      std::shared_ptr<AggregationNode> aggregationNode,
+      std::shared_ptr<InsertTableHandle> insertTableHandle,
+      bool hasPartitioningScheme,
       RowTypePtr outputType,
       connector::CommitStrategy commitStrategy,
-      std::shared_ptr<AggregationNode> aggregationNode,
       const PlanNodePtr& source)
       : PlanNode(id),
         sources_{source},
         columns_{columns},
         columnNames_{columnNames},
-        insertTableHandle_(insertTableHandle),
+        aggregationNode_(std::move(aggregationNode)),
+        insertTableHandle_(std::move(insertTableHandle)),
+        hasPartitioningScheme_(hasPartitioningScheme),
         outputType_(std::move(outputType)),
-        commitStrategy_(commitStrategy),
-        aggregationNode_(std::move(aggregationNode)) {
+        commitStrategy_(commitStrategy) {
     VELOX_CHECK_EQ(columns->size(), columnNames.size());
     for (const auto& column : columns->names()) {
       VELOX_CHECK(source->outputType()->containsChild(column));
@@ -652,24 +654,18 @@ class TableWriteNode : public PlanNode {
       const std::shared_ptr<InsertTableHandle>& insertTableHandle,
       RowTypePtr outputType,
       connector::CommitStrategy commitStrategy,
+      std::shared_ptr<AggregationNode> aggregationNode,
       const PlanNodePtr& source)
-      : PlanNode(id),
-        sources_{source},
-        columns_{columns},
-        columnNames_{columnNames},
-        insertTableHandle_(insertTableHandle),
-        outputType_(std::move(outputType)),
-        commitStrategy_(commitStrategy) {
-    TableWriteNode(
-        id,
-        columns,
-        columnNames,
-        insertTableHandle,
-        outputType,
-        commitStrategy,
-        nullptr,
-        source);
-  }
+      : TableWriteNode(
+            id,
+            columns,
+            columnNames,
+            std::move(aggregationNode),
+            insertTableHandle,
+            false,
+            outputType,
+            commitStrategy,
+            source) {}
 #endif
 
   const std::vector<PlanNodePtr>& sources() const override {
@@ -680,14 +676,14 @@ class TableWriteNode : public PlanNode {
     return outputType_;
   }
 
-  // The subset of columns in the output of the source node, potentially in
-  // different order, to write to the table.
+  /// The subset of columns in the output of the source node, potentially in
+  /// different order, to write to the table.
   const RowTypePtr& columns() const {
     return columns_;
   }
 
-  // Column names to use when writing the table. This vector is aligned with
-  // 'columns' vector.
+  /// Column names to use when writing the table. This vector is aligned with
+  /// 'columns' vector.
   const std::vector<std::string>& columnNames() const {
     return columnNames_;
   }
@@ -696,11 +692,20 @@ class TableWriteNode : public PlanNode {
     return insertTableHandle_;
   }
 
+  /// Indicates if this table write has specified partitioning scheme. If true,
+  /// the task creates a number of table write operators based on the query
+  /// config 'task_partitioned_writer_count', otherwise based on
+  /// 'task__writer_count'. As for now, this is only true for hive bucketed
+  /// table write.
+  bool hasPartitioningScheme() const {
+    return hasPartitioningScheme_;
+  }
+
   connector::CommitStrategy commitStrategy() const {
     return commitStrategy_;
   }
 
-  // Optional aggregation node for column statistics collection
+  /// Optional aggregation node for column statistics collection
   std::shared_ptr<AggregationNode> aggregationNode() const {
     return aggregationNode_;
   }
@@ -719,10 +724,11 @@ class TableWriteNode : public PlanNode {
   const std::vector<PlanNodePtr> sources_;
   const RowTypePtr columns_;
   const std::vector<std::string> columnNames_;
+  const std::shared_ptr<AggregationNode> aggregationNode_;
   const std::shared_ptr<InsertTableHandle> insertTableHandle_;
+  const bool hasPartitioningScheme_;
   const RowTypePtr outputType_;
   const connector::CommitStrategy commitStrategy_;
-  const std::shared_ptr<AggregationNode> aggregationNode_;
 };
 
 class TableWriteMergeNode : public PlanNode {

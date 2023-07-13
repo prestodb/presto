@@ -179,10 +179,11 @@ struct TableWriteNodeReader {
         node.id(),
         node.columns(),
         node.columnNames(),
+        node.aggregationNode(),
         node.insertTableHandle(),
+        node.hasPartitioningScheme(),
         node.outputType(),
         node.commitStrategy(),
-        node.aggregationNode(),
         node.sources()[0]);
   }
 };

@@ -117,6 +117,7 @@ int main(int argc, char** argv) {
           .values({rowVector})
           .tableWrite(
               inputRowType->names(),
+              nullptr,
               std::make_shared<core::InsertTableHandle>(
                   kHiveConnectorId,
                   HiveConnectorTestBase::makeHiveInsertTableHandle(
@@ -125,7 +126,7 @@ int main(int argc, char** argv) {
                       {},
                       HiveConnectorTestBase::makeLocationHandle(
                           tempDir->path))),
-              nullptr,
+              false,
               connector::CommitStrategy::kNoCommit)
           .planFragment();
 
