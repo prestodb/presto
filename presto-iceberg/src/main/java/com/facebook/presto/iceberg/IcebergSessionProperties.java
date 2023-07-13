@@ -58,6 +58,7 @@ public final class IcebergSessionProperties
     public static final String DELETE_AS_JOIN_REWRITE_ENABLED = "delete_as_join_rewrite_enabled";
     public static final String HIVE_METASTORE_STATISTICS_MERGE_STRATEGY = "hive_statistics_merge_strategy";
     public static final String STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT = "statistic_snapshot_record_difference_weight";
+    public static final String USE_SAMPLE_STATISTICS = "use_sample_statistics";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -181,6 +182,11 @@ public final class IcebergSessionProperties
                         DELETE_AS_JOIN_REWRITE_ENABLED,
                         "When enabled equality delete row filtering will be pushed down into a join.",
                         icebergConfig.isDeleteAsJoinRewriteEnabled(),
+                        false),
+                booleanProperty(
+                        USE_SAMPLE_STATISTICS,
+                        "Use a table of samples to obtain a sketch of statistics rather than analyzing the whole table",
+                        icebergConfig.isUseSampleStatistics(),
                         false));
     }
 
@@ -290,5 +296,10 @@ public final class IcebergSessionProperties
     public static boolean isDeleteToJoinPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(DELETE_AS_JOIN_REWRITE_ENABLED, Boolean.class);
+    }
+
+    public static boolean useSampleStatistics(ConnectorSession session)
+    {
+        return session.getProperty(USE_SAMPLE_STATISTICS, Boolean.class);
     }
 }

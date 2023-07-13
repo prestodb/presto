@@ -85,6 +85,7 @@ import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -112,7 +113,6 @@ import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMB
 import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_METADATA;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
-import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NUMBER;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
@@ -124,7 +124,7 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PR
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
-import static com.facebook.presto.iceberg.IcebergTableType.SAMPLE;
+import static com.facebook.presto.iceberg.IcebergTableType.SAMPLES;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeyColumnHandles;
@@ -425,13 +425,8 @@ public abstract class IcebergAbstractMetadata
             case DATA:
                 insertTable = icebergTable;
                 break;
-            case SAMPLE:
-                try {
-                    insertTable = SampleUtil.getSampleTableFromActual(icebergTable, table.getSchemaName(), hdfsEnvironment, session);
-                }
-                catch (IOException e) {
-                    throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, e);
-                }
+            case SAMPLES:
+                insertTable = SampleUtil.getSampleTableFromActual(icebergTable, table.getSchemaName(), hdfsEnvironment, session);
                 break;
             default:
                 throw new PrestoException(NOT_SUPPORTED, "can only write to data or samples table");
@@ -584,7 +579,7 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
-        TableStatisticsMaker.writeTableStatistics(nodeVersion, icebergTableHandle, icebergTable, session, computedStatistics);
+        TableStatisticsMaker.writeTableStatistics(typeManager, hdfsEnvironment, nodeVersion, icebergTableHandle, icebergTable, session, computedStatistics);
     }
 
     public void rollback()
@@ -658,7 +653,7 @@ public abstract class IcebergAbstractMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        verify(table.getIcebergTableName().getTableType() == DATA || table.getIcebergTableName().getTableType() == SAMPLE, "only the data table can have data inserted");
+        verify(table.getIcebergTableName().getTableType() == DATA || table.getIcebergTableName().getTableType() == SAMPLES, "only the data table can have data inserted");
         Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
         validateTableMode(session, icebergTable);
 
@@ -694,7 +689,7 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        return TableStatisticsMaker.getTableStatistics(session, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
+        return TableStatisticsMaker.getTableStatistics(typeManager, session, hdfsEnvironment, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
     }
 
     @Override
@@ -707,7 +702,7 @@ public abstract class IcebergAbstractMetadata
     public IcebergTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> tableVersion)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
-        verify(name.getTableType() == DATA || name.getTableType() == CHANGELOG || name.getTableType() == EQUALITY_DELETES || name.getTableType() == SAMPLE, "Wrong table type: " + name.getTableType());
+        verify(name.getTableType() == DATA || name.getTableType() == CHANGELOG || name.getTableType() == EQUALITY_DELETES || name.getTableType() == SAMPLES, "Wrong table type: " + name.getTableType());
 
         if (!tableExists(session, tableName)) {
             return null;

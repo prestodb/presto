@@ -14,42 +14,41 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.iceberg.util.SinglePathCatalog;
+import com.facebook.presto.iceberg.samples.SampleUtil;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableList;
-import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.hadoop.HadoopCatalog;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
-import java.util.HashMap;
 
 import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.CatalogType.NESSIE;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
-import static com.facebook.presto.iceberg.samples.SampleUtil.SAMPLE_TABLE_SUFFIX;
+import static com.facebook.presto.iceberg.samples.SampleUtil.SAMPLE_TABLE_ID;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static java.util.Objects.requireNonNull;
 
-public class CreateTableSampleProcedure
+public class DeleteSampleTableProcedure
         implements Provider<Procedure>
 {
-    private static final Logger LOG = Logger.get(CreateTableSampleProcedure.class);
-    private static final MethodHandle CREATE_TABLE_SAMPLE = methodHandle(
-            CreateTableSampleProcedure.class,
-            "createTableSample",
+    private static final Logger LOG = Logger.get(DeleteSampleTableProcedure.class);
+    private static final MethodHandle DELETE_SAMPLE_TABLE = methodHandle(
+            DeleteSampleTableProcedure.class,
+            "deleteSampleTable",
             ConnectorSession.class,
             String.class,
             String.class);
@@ -60,7 +59,7 @@ public class CreateTableSampleProcedure
     private final IcebergResourceFactory resourceFactory;
 
     @Inject
-    public CreateTableSampleProcedure(
+    public DeleteSampleTableProcedure(
             IcebergConfig config,
             IcebergMetadataFactory metadataFactory,
             HdfsEnvironment hdfsEnvironment,
@@ -77,11 +76,11 @@ public class CreateTableSampleProcedure
     {
         return new Procedure(
                 "system",
-                "create_table_sample",
+                "delete_sample_table",
                 ImmutableList.of(
                         new Procedure.Argument("schema", VARCHAR),
                         new Procedure.Argument("table", VARCHAR)),
-                CREATE_TABLE_SAMPLE.bindTo(this));
+                DELETE_SAMPLE_TABLE.bindTo(this));
     }
 
     /**
@@ -92,7 +91,7 @@ public class CreateTableSampleProcedure
      * @param schema the schema where the table exists
      * @param table the name of the table to sample from
      */
-    public void createTableSample(ConnectorSession clientSession, String schema, String table)
+    public void deleteSampleTable(ConnectorSession clientSession, String schema, String table)
     {
         SchemaTableName schemaTableName = new SchemaTableName(schema, table);
         ConnectorMetadata metadata = metadataFactory.create();
@@ -106,18 +105,11 @@ public class CreateTableSampleProcedure
             ExtendedHiveMetastore metastore = ((IcebergHiveMetadata) metadata).getMetastore();
             icebergTable = getHiveIcebergTable(metastore, hdfsEnvironment, clientSession, schemaTableName);
         }
-        String location = icebergTable.location();
-        Path tableLocation = new Path(location);
-        HdfsContext context = new HdfsContext(clientSession, schema, table, location, false);
-        try (SinglePathCatalog c = new SinglePathCatalog(tableLocation, hdfsEnvironment.getConfiguration(context, tableLocation))) {
-            Path samplePath = new Path(tableLocation, SAMPLE_TABLE_SUFFIX);
-            c.initialize(samplePath.getName(), new HashMap<>());
-            TableIdentifier id = toIcebergTableIdentifier("sample", SAMPLE_TABLE_SUFFIX);
-            // create the table for samples and load the table back to make sure it's valid
-            c.createTable(id, icebergTable.schema());
+        try (HadoopCatalog catalog = SampleUtil.getCatalogForSampleTable(icebergTable, schema, hdfsEnvironment, clientSession)) {
+            catalog.dropTable(SAMPLE_TABLE_ID, true);
         }
         catch (IOException e) {
-            LOG.warn("Failed to create sample table", e);
+            throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, e);
         }
     }
 }

@@ -36,15 +36,13 @@ import org.apache.iceberg.util.TableScanUtil;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
-
 import static com.facebook.presto.hive.rule.FilterPushdownUtils.isEntireColumn;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
-import static com.facebook.presto.iceberg.IcebergTableType.SAMPLE;
+import static com.facebook.presto.iceberg.IcebergTableType.SAMPLES;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
 import static java.util.Objects.requireNonNull;
 
@@ -88,13 +86,8 @@ public class IcebergSplitManager
 
         Table usedTable = getIcebergTable(transactionManager.get(transaction), session, table.getSchemaTableName());
 
-        if (table.getIcebergTableName().getTableType() == SAMPLE) {
-            try {
-                usedTable = SampleUtil.getSampleTableFromActual(usedTable, table.getSchemaName(), hdfsEnvironment, session);
-            }
-            catch (IOException e) {
-                throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, e);
-            }
+        if (table.getIcebergTableName().getTableType() == SAMPLES) {
+            usedTable = SampleUtil.getSampleTableFromActual(usedTable, table.getSchemaName(), hdfsEnvironment, session);
         }
         final Table icebergTable = usedTable;
 

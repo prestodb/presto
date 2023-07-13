@@ -23,26 +23,49 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
-public class TestIcebergTableSampling
+public abstract class TestIcebergTableSampling
         extends AbstractTestQueryFramework
 {
+    private final CatalogType catalogType;
+    private final Map<String, String> extraConnectorProperties;
+
+    protected TestIcebergTableSampling(CatalogType catalogType, Map<String, String> extraConnectorProperties)
+    {
+        this.catalogType = requireNonNull(catalogType, "catalogType is null");
+        this.extraConnectorProperties = requireNonNull(extraConnectorProperties, "extraConnectorProperties is null");
+    }
+
+    protected TestIcebergTableSampling(CatalogType catalogType)
+    {
+        this(catalogType, ImmutableMap.of());
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(ImmutableMap.of(), ImmutableMap.of());
+        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), catalogType, extraConnectorProperties);
+    }
+
+    @Override
+    public Session getSession()
+    {
+        return Session.builder(super.getSession())
+                .setSchema("tpch")
+                .build();
     }
 
     @AfterMethod(alwaysRun = true)
     public void cleanup()
     {
         try {
-            assertUpdate("CALL iceberg.system.delete_sample_table('tpch', 'lineitem')");
+            assertUpdate("CALL iceberg.system.delete_sample_table('lineitem')");
         }
         catch (Exception e) {
             Logger.get(getClass()).warn(e, "failed to drop sample table");
@@ -53,7 +76,7 @@ public class TestIcebergTableSampling
     public void testCreateSampleTable()
     {
         assertQuerySucceeds("CREATE TABLE test_create_sample(i int)");
-        assertUpdate("CALL iceberg.system.create_sample_table('tpch', 'test_create_sample', 'i')");
+        assertUpdate(getSession(), "CALL iceberg.system.create_sample_table('test_create_sample')");
         assertQuerySucceeds("SELECT count(*) FROM \"test_create_sample$samples\"");
     }
 
@@ -61,7 +84,7 @@ public class TestIcebergTableSampling
     public void testInsertIntoSampleTable()
     {
         assertQuerySucceeds("CREATE TABLE test_insert_sample(i int)");
-        assertQuerySucceeds("CALL iceberg.system.create_sample_table('tpch', 'test_insert_sample', 'i')");
+        assertQuerySucceeds("CALL iceberg.system.create_sample_table('test_insert_sample')");
         assertUpdate("INSERT INTO \"test_insert_sample$samples\" (VALUES 1, 2, 3)", 3);
     }
 
@@ -69,7 +92,7 @@ public class TestIcebergTableSampling
     public void testQuerySampleTable()
     {
         assertQuerySucceeds("CREATE TABLE test_query_sample_table(i int)");
-        assertQuerySucceeds("CALL iceberg.system.create_sample_table('tpch', 'test_query_sample_table', 'i')");
+        assertQuerySucceeds("CALL iceberg.system.create_sample_table('test_query_sample_table')");
         assertUpdate("INSERT INTO \"test_query_sample_table$samples\" (VALUES 3, 4, 5)", 3);
         assertQuerySucceeds("SELECT * FROM \"test_query_sample_table$samples\"");
         assertQuerySucceeds("SELECT count(*) FROM \"test_query_sample_table$samples\"");
@@ -79,7 +102,7 @@ public class TestIcebergTableSampling
     public void testGetStatsForSampleExplicit()
     {
         assertQuerySucceeds("CREATE TABLE get_stats_explicit(i int)");
-        assertQuerySucceeds("CALL iceberg.system.create_sample_table('tpch', 'get_stats_explicit', 'orderkey')");
+        assertQuerySucceeds("CALL iceberg.system.create_sample_table('get_stats_explicit')");
         assertUpdate("INSERT INTO \"get_stats_explicit$samples\" (VALUES 1, 2, 3)", 3);
         assertQuerySucceeds("SHOW STATS FOR \"get_stats_explicit$samples\"");
     }
@@ -92,7 +115,7 @@ public class TestIcebergTableSampling
                 .build();
         assertQuerySucceeds("CREATE TABLE test_stats_actual(i int)");
         assertUpdate("INSERT INTO test_stats_actual VALUES(1)", 1);
-        assertQuerySucceeds("CALL iceberg.system.create_sample_table('tpch', 'test_stats_actual', 'i')");
+        assertQuerySucceeds("CALL iceberg.system.create_sample_table('test_stats_actual')");
         assertUpdate("INSERT INTO \"test_stats_actual$samples\" VALUES (2)", 1);
         MaterializedResult r = this.computeActual(session, "SHOW STATS FOR test_stats_actual");
         int max = Integer.parseInt(r.getMaterializedRows().get(0).getField(6).toString());
@@ -109,8 +132,8 @@ public class TestIcebergTableSampling
                 .build();
 
         assertQuerySucceeds("CREATE TABLE test_stats_sample(i int)");
+        assertQuerySucceeds("CALL iceberg.system.create_sample_table('test_stats_sample')");
         assertUpdate("INSERT INTO test_stats_sample VALUES(1)", 1);
-        assertQuerySucceeds("CALL iceberg.system.create_sample_table('tpch', 'test_stats_sample', 'i')");
         assertUpdate("INSERT INTO \"test_stats_sample$samples\" VALUES (2)", 1);
         MaterializedResult r = this.computeActual(session, "SHOW STATS FOR test_stats_sample");
         int max = Integer.parseInt(r.getMaterializedRows().get(0).getField(6).toString());
@@ -128,7 +151,7 @@ public class TestIcebergTableSampling
 
         assertQuerySucceeds("CREATE TABLE test_stats_sample_prev(i int)");
         assertUpdate("INSERT INTO test_stats_sample_prev VALUES(1)", 1);
-        assertQuerySucceeds("CALL iceberg.system.create_sample_table('tpch', 'test_stats_sample_prev', 'i')");
+        assertQuerySucceeds("CALL iceberg.system.create_sample_table('test_stats_sample_prev')");
         assertUpdate("INSERT INTO \"test_stats_sample_prev$samples\" VALUES (2)", 1);
         assertUpdate("INSERT INTO test_stats_sample_prev VALUES(2)", 1);
         assertUpdate("INSERT INTO test_stats_sample_prev VALUES(3)", 1);
@@ -156,7 +179,7 @@ public class TestIcebergTableSampling
         assertQuerySucceeds("DROP TABLE IF EXISTS test_stats_sample_next");
         assertQuerySucceeds("CREATE TABLE test_stats_sample_next(i int)");
         assertUpdate("INSERT INTO test_stats_sample_next VALUES(1)", 1);
-        assertQuerySucceeds("CALL iceberg.system.create_sample_table('tpch', 'test_stats_sample_next', 'i')");
+        assertQuerySucceeds("CALL iceberg.system.create_sample_table('test_stats_sample_next')");
         assertUpdate("INSERT INTO \"test_stats_sample_next$samples\" VALUES (2)", 1);
         assertUpdate("INSERT INTO test_stats_sample_next (VALUES (1), (2), (3), (4), (5), (6), (7))", 7);
         assertUpdate("INSERT INTO test_stats_sample_next VALUES(2)", 1);
@@ -185,7 +208,7 @@ public class TestIcebergTableSampling
 
         assertQuerySucceeds("CREATE TABLE test_stats_no_sample_actual(i int)");
         assertUpdate("INSERT INTO test_stats_no_sample_actual VALUES(1)", 1);
-        assertQuerySucceeds("CALL iceberg.system.create_sample_table('tpch', 'test_stats_no_sample_actual', 'i')");
+        assertQuerySucceeds("CALL iceberg.system.create_sample_table('test_stats_no_sample_actual')");
         assertUpdate("INSERT INTO \"test_stats_no_sample_actual$samples\" VALUES (2)", 1);
         assertUpdate("INSERT INTO test_stats_no_sample_actual (VALUES (1), (2), (3), (4), (5), (6), (7))", 7);
         MaterializedResult r = this.computeActual(session, "SHOW STATS FOR test_stats_no_sample_actual");
