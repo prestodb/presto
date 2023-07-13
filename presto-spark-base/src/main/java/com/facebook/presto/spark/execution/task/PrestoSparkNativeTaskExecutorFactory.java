@@ -257,7 +257,7 @@ public class PrestoSparkNativeTaskExecutorFactory
         // task creation might have failed
         processTaskInfoForErrorsOrCompletion(taskInfo);
         // 4. return output to spark RDD layer
-        return new PrestoSparkNativeTaskOutputIterator<>(task, outputType, taskInfoCollector, taskInfoCodec, executionExceptionFactory);
+        return new PrestoSparkNativeTaskOutputIterator<>(partitionId, task, outputType, taskInfoCollector, taskInfoCodec, executionExceptionFactory);
     }
 
     @Override
@@ -387,6 +387,7 @@ public class PrestoSparkNativeTaskExecutorFactory
             extends AbstractIterator<Tuple2<MutablePartitionId, T>>
             implements IPrestoSparkTaskExecutor<T>
     {
+        private final int partitionId;
         private final NativeExecutionTask nativeExecutionTask;
         private Optional<SerializedPage> next = Optional.empty();
         private final CollectionAccumulator<SerializedTaskInfo> taskInfoCollectionAccumulator;
@@ -395,12 +396,14 @@ public class PrestoSparkNativeTaskExecutorFactory
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
 
         public PrestoSparkNativeTaskOutputIterator(
+                int partitionId,
                 NativeExecutionTask nativeExecutionTask,
                 Class<T> outputType,
                 CollectionAccumulator<SerializedTaskInfo> taskInfoCollectionAccumulator,
                 Codec<TaskInfo> taskInfoCodec,
                 PrestoSparkExecutionExceptionFactory executionExceptionFactory)
         {
+            this.partitionId = partitionId;
             this.nativeExecutionTask = nativeExecutionTask;
             this.taskInfoCollectionAccumulator = taskInfoCollectionAccumulator;
             this.taskInfoCodec = taskInfoCodec;
@@ -503,7 +506,11 @@ public class PrestoSparkNativeTaskExecutorFactory
             checkArgument(outputType == PrestoSparkSerializedPage.class,
                     format("PrestoSparkNativeTaskExecutorFactory only outputType=PrestoSparkSerializedPage" +
                             "But tried to extract outputType=%s", outputType));
-            return new Tuple2<>(new MutablePartitionId(), (T) toPrestoSparkSerializedPage(next.get()));
+
+            // Set partition ID to help match the results to the task on the driver for debugging.
+            MutablePartitionId mutablePartitionId = new MutablePartitionId();
+            mutablePartitionId.setPartition(partitionId);
+            return new Tuple2<>(mutablePartitionId, (T) toPrestoSparkSerializedPage(next.get()));
         }
     }
 }
