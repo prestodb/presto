@@ -16,6 +16,7 @@ array_normalize
 array_position
 array_remove
 array_sort
+array_sort_desc
 array_sum
 array_union
 arrays_overlap

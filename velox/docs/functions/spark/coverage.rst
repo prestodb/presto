@@ -6,6 +6,7 @@
     table.coverage td:nth-child(6) {background-color: lightblue;}
     table.coverage td:nth-child(8) {background-color: lightblue;}
     table.coverage tr:nth-child(1) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(2) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(3) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(5) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(6) td:nth-child(3) {background-color: #6BA81E;}
@@ -23,6 +24,7 @@
     table.coverage tr:nth-child(21) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(22) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(22) td:nth-child(4) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(23) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(24) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(25) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(25) td:nth-child(5) {background-color: #6BA81E;}
@@ -31,12 +33,14 @@
     table.coverage tr:nth-child(27) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(29) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(31) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(31) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(31) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(32) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(33) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(34) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(34) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(35) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(36) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(37) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(38) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(39) td:nth-child(4) {background-color: #6BA81E;}
@@ -57,10 +61,12 @@
     table.coverage tr:nth-child(57) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(58) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(59) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(59) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(60) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(62) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(62) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(64) td:nth-child(5) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(65) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(65) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(65) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(65) td:nth-child(5) {background-color: #6BA81E;}
@@ -76,7 +82,7 @@
     Scalar Functions                                                                                                                                                                                                           Aggregate Functions                            Window Functions
     =====================================================================================================================================================================================================================  ==  =========================================  ==  =========================================
     :spark:func:`abs`                          count_if                                   inline                                     nvl                                        sqrt                                           any                                            cume_dist                                
-    acos                                       count_min_sketch                           inline_outer                               nvl2                                       stack                                          approx_count_distinct                          dense_rank                               
+    :spark:func:`acos                          count_min_sketch                           inline_outer                               nvl2                                       stack                                          approx_count_distinct                          dense_rank                               
     :spark:func:`acosh`                        covar_pop                                  input_file_block_length                    octet_length                               std                                            approx_percentile                              first_value                              
     add_months                                 covar_samp                                 input_file_block_start                     or                                         stddev                                         array_agg                                      lag                                      
     :spark:func:`aggregate`                    crc32                                      input_file_name                            overlay                                    stddev_pop                                     avg                                            last_value                               
@@ -97,7 +103,7 @@
     array_repeat                               datediff                                   lcase                                      radians                                    tinyint                                        :spark:func:`first`                                                                     
     :spark:func:`array_sort`                   day                                        lead                                       raise_error                                to_csv                                         first_value                                                                             
     array_union                                dayofmonth                                 :spark:func:`least`                        :spark:func:`rand`                         to_date                                        grouping                                                                                
-    arrays_overlap                             dayofweek                                  left                                       randn                                      to_json                                        grouping_id                                                                             
+    arrays_overlap                             dayofweek                                  :spark:funce:`left`                        randn                                      to_json                                        grouping_id                                                                             
     arrays_zip                                 dayofyear                                  :spark:func:`length`                       random                                     to_timestamp                                   histogram_numeric                                                                       
     :spark:func:`ascii`                        decimal                                    levenshtein                                range                                      :spark:func:`to_unix_timestamp`                kurtosis                                                                                
     asin                                       decode                                     like                                       rank                                       to_utc_timestamp                               :spark:func:`last`                                                                      
@@ -105,12 +111,12 @@
     assert_true                                dense_rank                                 locate                                     regexp                                     transform_keys                                 max                                                                                     
     atan                                       div                                        log                                        :spark:func:`regexp_extract`               transform_values                               max_by                                                                                  
     atan2                                      double                                     log10                                      regexp_extract_all                         translate                                      mean                                                                                    
-    :spark:func:`atanh`                        e                                          log1p                                      regexp_like                                :spark:func:`trim`                             min                                                                                     
+    :spark:func:`atanh`                        e                                          :spark:func:`log1p`                        regexp_like                                :spark:func:`trim`                             min                                                                                     
     avg                                        :spark:func:`element_at`                   log2                                       regexp_replace                             trunc                                          min_by                                                                                  
     base64                                     elt                                        :spark:func:`lower`                        repeat                                     try_add                                        percentile                                                                              
     :spark:func:`between`                      encode                                     lpad                                       :spark:func:`replace`                      try_divide                                     percentile_approx                                                                       
     bigint                                     every                                      :spark:func:`ltrim`                        reverse                                    typeof                                         regr_avgx                                                                               
-    bin                                        exists                                     make_date                                  right                                      ucase                                          regr_avgy                                                                               
+    :spark:func:`bin`                          exists                                     make_date                                  right                                      ucase                                          regr_avgy                                                                               
     binary                                     :spark:func:`exp`                          make_dt_interval                           rint                                       unbase64                                       regr_count                                                                              
     bit_and                                    explode                                    make_interval                              :spark:func:`rlike`                        unhex                                          regr_r2                                                                                 
     bit_count                                  explode_outer                              make_timestamp                             :spark:func:`round`                        unix_date                                      skewness                                                                                
@@ -133,13 +139,13 @@
     char_length                                from_utc_timestamp                         minute                                     sign                                       xpath_boolean                                                                                                                          
     character_length                           :spark:func:`get_json_object`              mod                                        signum                                     xpath_double                                                                                                                           
     :spark:func:`chr`                          getbit                                     monotonically_increasing_id                sin                                        xpath_float                                                                                                                            
-    coalesce                                   :spark:func:`greatest`                     month                                      sinh                                       xpath_int                                                                                                                              
+    coalesce                                   :spark:func:`greatest`                     month                                      :spark:func:`sinh`                         xpath_int                                                                                                                              
     collect_list                               grouping                                   months_between                             :spark:func:`size`                         xpath_long                                                                                                                             
     collect_set                                grouping_id                                named_struct                               skewness                                   xpath_number                                                                                                                           
     :spark:func:`concat`                       :spark:func:`hash`                         nanvl                                      slice                                      xpath_short                                                                                                                            
     concat_ws                                  hex                                        negative                                   smallint                                   xpath_string                                                                                                                           
     conv                                       hour                                       next_day                                   some                                       :spark:func:`xxhash64`                                                                                                                 
-    corr                                       hypot                                      :spark:func:`not`                          :spark:func:`sort_array`                   :spark:func:`year`                                                                                                                     
+    corr                                       :spark:func:`hypot`                        :spark:func:`not`                          :spark:func:`sort_array`                   :spark:func:`year`                                                                                                                     
     cos                                        if                                         now                                        soundex                                    zip_with                                                                                                                               
     cosh                                       ifnull                                     nth_value                                  space                                                                                                                                                                             
     cot                                        :spark:func:`in`                           ntile                                      spark_partition_id                                                                                                                                                                
