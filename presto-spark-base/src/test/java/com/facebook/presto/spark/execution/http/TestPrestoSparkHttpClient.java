@@ -829,7 +829,7 @@ public class TestPrestoSparkHttpClient
             assertEquals(10, resultPages.size());
             assertTrue(task.getTaskInfo().isPresent());
 
-            task.stop();
+            task.stop(true);
         }
         catch (InterruptedException e) {
             e.printStackTrace();
