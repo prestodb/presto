@@ -350,6 +350,7 @@ public enum CassandraType
                 case VARINT:
                     return row.getVarint(position).toString();
                 case BLOB:
+                case DURATION:
                 case CUSTOM:
                     return Bytes.toHexString(row.getBytesUnsafe(position));
                 default:
@@ -374,6 +375,7 @@ public enum CassandraType
                 return CassandraCqlUtils.quoteStringLiteralForJson(object.toString());
 
             case BLOB:
+            case DURATION:
             case CUSTOM:
                 return CassandraCqlUtils.quoteStringLiteralForJson(Bytes.toHexString((ByteBuffer) object));
             case SMALLINT:
