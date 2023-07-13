@@ -16,7 +16,6 @@ package com.facebook.presto.spark.execution.nativeprocess;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.operator.PageBufferClient;
 import com.facebook.presto.operator.PageTransportErrorException;
-import com.facebook.presto.spark.execution.AbstractPrestoSparkQueryExecution;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
@@ -24,8 +23,6 @@ import com.facebook.presto.spi.page.SerializedPage;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
-import java.io.Closeable;
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -109,10 +106,14 @@ public class HttpNativeExecutionTaskResultFetcher
                 });
     }
 
-    public void stop()
+    public void stop(boolean success)
     {
         if (schedulerFuture != null) {
             schedulerFuture.cancel(false);
+        }
+
+        if (success && !pageBuffer.isEmpty()) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("TaskResultFetcher is closed with {} pages left in the buffer", pageBuffer.size()));
         }
     }
 
