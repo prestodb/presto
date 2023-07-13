@@ -78,6 +78,8 @@ public final class IcebergSessionProperties
     private static final String NESSIE_REFERENCE_HASH = "nessie_reference_hash";
     public static final String READ_MASKED_VALUE_ENABLED = "read_null_masked_parquet_encrypted_value_enabled";
     public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
+
+    public static final String USE_SAMPLE_STATISTICS = "use_sample_statistics";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -273,6 +275,11 @@ public final class IcebergSessionProperties
                         PARQUET_DEREFERENCE_PUSHDOWN_ENABLED,
                         "Is dereference pushdown expression pushdown into Parquet reader enabled?",
                         icebergConfig.isParquetDereferencePushdownEnabled(),
+                        false),
+                booleanProperty(
+                        USE_SAMPLE_STATISTICS,
+                        "Use a table of samples to obtain a sketch of statistics rather than analyzing the whole table",
+                        icebergConfig.isUseSampleStatistics(),
                         false));
     }
 
@@ -444,5 +451,10 @@ public final class IcebergSessionProperties
     public static boolean isParquetDereferencePushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean useSampleStatistics(ConnectorSession session)
+    {
+        return session.getProperty(USE_SAMPLE_STATISTICS, Boolean.class);
     }
 }

@@ -202,7 +202,7 @@ public abstract class IcebergAbstractMetadata
                 insertTable = icebergTable;
                 break;
             case SAMPLES:
-                    insertTable = SampleUtil.getSampleTableFromActual(icebergTable, table.getSchemaName(), env, session);
+                insertTable = SampleUtil.getSampleTableFromActual(icebergTable, table.getSchemaName(), env, session);
                 break;
             default:
                 throw new PrestoException(NOT_SUPPORTED, "can only write to data or samples table");
