@@ -25,6 +25,8 @@
 
 namespace facebook::velox::aggregate::prestosql {
 
+namespace detail {
+
 /// Maintains a set of unique values. Non-null values are stored in F14FastSet.
 /// A separate flag tracks presence of the null value.
 template <
@@ -229,5 +231,10 @@ template <>
 struct SetAccumulatorTypeTraits<ComplexType> {
   using AccumulatorType = ComplexTypeSetAccumulator;
 };
+} // namespace detail
+
+template <typename T>
+using SetAccumulator =
+    typename detail::SetAccumulatorTypeTraits<T>::AccumulatorType;
 
 } // namespace facebook::velox::aggregate::prestosql
