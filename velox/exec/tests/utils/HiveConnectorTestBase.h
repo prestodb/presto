@@ -212,7 +212,7 @@ class HiveConnectorSplitBuilder {
   std::shared_ptr<connector::hive::HiveConnectorSplit> build() const {
     return std::make_shared<connector::hive::HiveConnectorSplit>(
         kHiveConnectorId,
-        "file:" + filePath_,
+        filePath_.find("/") == 0 ? "file:" + filePath_ : filePath_,
         fileFormat_,
         start_,
         length_,
