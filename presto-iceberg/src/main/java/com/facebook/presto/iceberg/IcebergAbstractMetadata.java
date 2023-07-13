@@ -65,7 +65,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
-import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.FORMAT_VERSION;
 import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
@@ -210,7 +209,7 @@ public abstract class IcebergAbstractMetadata
                 insertTable = icebergTable;
                 break;
             case SAMPLES:
-                    insertTable = SampleUtil.getSampleTableFromActual(icebergTable, table.getSchemaName(), env, session);
+                insertTable = SampleUtil.getSampleTableFromActual(icebergTable, table.getSchemaName(), env, session);
                 break;
             default:
                 throw new PrestoException(NOT_SUPPORTED, "can only write to data or samples table");

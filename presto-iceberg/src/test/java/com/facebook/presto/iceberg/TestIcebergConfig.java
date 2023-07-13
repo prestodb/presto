@@ -43,7 +43,8 @@ public class TestIcebergConfig
                 .setMaxPartitionsPerWriter(100)
                 .setMinimumAssignedSplitWeight(0.05)
                 .setParquetDereferencePushdownEnabled(true)
-                .setMergeOnReadModeEnabled(false));
+                .setMergeOnReadModeEnabled(false)
+                .setUseSampleStatistics(true));
     }
 
     @Test
@@ -60,6 +61,7 @@ public class TestIcebergConfig
                 .put("iceberg.minimum-assigned-split-weight", "0.01")
                 .put("iceberg.enable-parquet-dereference-pushdown", "false")
                 .put("iceberg.enable-merge-on-read-mode", "true")
+                .put("iceberg.use-sample-statistics", "false")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -72,7 +74,8 @@ public class TestIcebergConfig
                 .setMaxPartitionsPerWriter(222)
                 .setMinimumAssignedSplitWeight(0.01)
                 .setParquetDereferencePushdownEnabled(false)
-                .setMergeOnReadModeEnabled(true);
+                .setMergeOnReadModeEnabled(true)
+                .setUseSampleStatistics(false);
 
         assertFullMapping(properties, expected);
     }
