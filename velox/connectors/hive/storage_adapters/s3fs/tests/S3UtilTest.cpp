@@ -25,8 +25,12 @@ TEST(S3UtilTest, isS3File) {
   EXPECT_FALSE(isS3File("ss3://"));
   EXPECT_FALSE(isS3File("s3:/"));
   EXPECT_FALSE(isS3File("oss:"));
+  EXPECT_FALSE(isS3File("cos:"));
+  EXPECT_FALSE(isS3File("cosn:"));
   EXPECT_FALSE(isS3File("S3A://bucket/some/file.txt"));
   EXPECT_FALSE(isS3File("OSS://other-bucket/some/file.txt"));
+  EXPECT_FALSE(isS3File("COS://other-bucket/some/file.txt"));
+  EXPECT_FALSE(isS3File("COSN://other-bucket/some/file.txt"));
   EXPECT_FALSE(isS3File("s3::/bucket"));
   EXPECT_FALSE(isS3File("s3:/bucket"));
   EXPECT_FALSE(isS3File("file://bucket"));
@@ -65,16 +69,36 @@ TEST(S3UtilTest, isOssFile) {
   EXPECT_TRUE(isOssFile("oss://bucket/file.txt"));
 }
 
+TEST(S3UtilTest, isCosFile) {
+  EXPECT_FALSE(isCosFile("cos:"));
+  EXPECT_FALSE(isCosFile("cos::/bucket"));
+  EXPECT_FALSE(isCosFile("cos:/bucket"));
+  EXPECT_FALSE(isCosFile("COS://BUCKET/sub-key/file.txt"));
+  EXPECT_TRUE(isCosFile("cos://bucket/file.txt"));
+}
+
+TEST(S3UtilTest, isCosNFile) {
+  EXPECT_FALSE(isCosNFile("cosn:"));
+  EXPECT_FALSE(isCosNFile("cosn::/bucket"));
+  EXPECT_FALSE(isCosNFile("cosn:/bucket"));
+  EXPECT_FALSE(isCosNFile("COSN://BUCKET/sub-key/file.txt"));
+  EXPECT_TRUE(isCosNFile("cosn://bucket/file.txt"));
+}
+
 // TODO: Each prefix should be implemented as its own filesystem.
 TEST(S3UtilTest, s3Path) {
   auto path_0 = s3Path("s3://bucket/file.txt");
   auto path_1 = s3Path("oss://bucket-name/file.txt");
   auto path_2 = s3Path("S3A://bucket-NAME/sub-PATH/my-file.txt");
   auto path_3 = s3Path("s3N://bucket-NAME/sub-PATH/my-file.txt");
+  auto path_4 = s3Path("cos://bucket-name/file.txt");
+  auto path_5 = s3Path("cosn://bucket-name/file.txt");
   EXPECT_EQ(path_0, "bucket/file.txt");
   EXPECT_EQ(path_1, "bucket-name/file.txt");
   EXPECT_NE(path_2, "bucket-NAME/sub-PATH/my-file.txt");
   EXPECT_NE(path_3, "bucket-NAME/sub-PATH/my-file.txt");
+  EXPECT_EQ(path_4, "bucket-name/file.txt");
+  EXPECT_EQ(path_5, "bucket-name/file.txt");
 }
 
 TEST(S3UtilTest, bucketAndKeyFromS3Path) {

@@ -40,6 +40,9 @@ constexpr std::string_view kS3aScheme{"s3a://"};
 constexpr std::string_view kS3nScheme{"s3n://"};
 // OSS Alibaba support S3 format, usage only with SSL.
 constexpr std::string_view kOssScheme{"oss://"};
+// Tencent COS support S3 format.
+constexpr std::string_view kCosScheme{"cos://"};
+constexpr std::string_view kCosNScheme{"cosn://"};
 // From AWS documentation
 constexpr int kS3MaxKeySize{1024};
 } // namespace
@@ -60,10 +63,18 @@ inline bool isOssFile(const std::string_view filename) {
   return filename.substr(0, kOssScheme.size()) == kOssScheme;
 }
 
+inline bool isCosFile(const std::string_view filename) {
+  return filename.substr(0, kCosScheme.size()) == kCosScheme;
+}
+
+inline bool isCosNFile(const std::string_view filename) {
+  return filename.substr(0, kCosNScheme.size()) == kCosNScheme;
+}
+
 inline bool isS3File(const std::string_view filename) {
   // TODO: Each prefix should be implemented as its own filesystem.
   return isS3AwsFile(filename) || isS3aFile(filename) || isS3nFile(filename) ||
-      isOssFile(filename);
+      isOssFile(filename) || isCosFile(filename) || isCosNFile(filename);
 }
 
 inline void bucketAndKeyFromS3Path(
@@ -102,6 +113,10 @@ inline std::string s3Path(const std::string_view& path) {
     return std::string(path.substr(kS3nScheme.length()));
   } else if (isOssFile(path)) {
     return std::string(path.substr(kOssScheme.length()));
+  } else if (isCosFile(path)) {
+    return std::string(path.substr(kCosScheme.length()));
+  } else if (isCosNFile(path)) {
+    return std::string(path.substr(kCosNScheme.length()));
   }
   return std::string(path);
 }
