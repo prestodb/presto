@@ -118,5 +118,11 @@ public class TestPrestoSparkNativeSimpleQueries
     {
         assertQuery("SELECT json.test_schema.eq(1, linenumber) FROM lineitem", "SELECT 1 = linenumber FROM lineitem");
         assertQuery("SELECT json.test_schema.sum(linenumber) FROM lineitem", "SELECT sum(linenumber) FROM lineitem");
+
+        // Test functions with complex types (array, map, and row).
+        assertQuery("SELECT json.test_schema.array_constructor(linenumber) FROM lineitem", "SELECT array_constructor(linenumber) FROM lineitem");
+
+        assertQuery("SELECT json.test_schema.map(json.test_schema.array_constructor(linenumber), json.test_schema.array_constructor(linenumber)) FROM lineitem", "SELECT map(array_constructor(linenumber), array_constructor(linenumber)) FROM lineitem");
+        assertQuery("SELECT json.test_schema.map_entries(json.test_schema.map(json.test_schema.array_constructor(linenumber), json.test_schema.array_constructor(linenumber))) FROM lineitem", "SELECT map_entries(map(array_constructor(linenumber), array_constructor(linenumber))) FROM lineitem");
     }
 }
