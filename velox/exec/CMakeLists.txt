@@ -22,6 +22,7 @@ add_library(
   AggregateWindow.cpp
   ArrowStream.cpp
   ContainerRowSerde.cpp
+  DistinctAggregations.cpp
   Driver.cpp
   EnforceSingleRow.cpp
   Exchange.cpp

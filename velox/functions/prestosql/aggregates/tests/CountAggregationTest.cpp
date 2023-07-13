@@ -153,5 +153,116 @@ TEST_F(CountAggregationTest, mask) {
   EXPECT_LT(0, partialStats.at("abandonedPartialAggregation").count);
 }
 
+TEST_F(CountAggregationTest, distinct) {
+  auto data = makeRowVector({
+      makeFlatVector<int16_t>({1, 2, 1, 2, 1, 1, 2, 2}),
+      makeFlatVector<int32_t>({1, 1, 1, 2, 1, 1, 1, 2}),
+      makeNullableFlatVector<int64_t>(
+          {std::nullopt, 1, std::nullopt, 2, std::nullopt, 1, std::nullopt, 1}),
+      makeNullConstant(TypeKind::DOUBLE, 8),
+  });
+  createDuckDbTable({data});
+
+  // Global aggregation.
+  auto testGlobal = [&](const std::string& input) {
+    auto plan =
+        PlanBuilder()
+            .values({data})
+            .singleAggregation({}, {fmt::format("count(distinct {})", input)})
+            .planNode();
+    AssertQueryBuilder(plan, duckDbQueryRunner_)
+        .assertResults(
+            fmt::format("SELECT count(distinct {}) FROM tmp", input));
+  };
+
+  testGlobal("c1");
+  testGlobal("c2");
+  testGlobal("c3");
+
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .singleAggregation(
+                      {},
+                      {"count(distinct c1)",
+                       "count(c1)",
+                       "count(distinct c2)",
+                       "count(c3)"})
+                  .planNode();
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .assertResults(
+          "SELECT count(distinct c1), count(c1), count(distinct c2), count(c3) FROM tmp");
+
+  // Global. Empty input.
+  plan = PlanBuilder()
+             .values({makeRowVector(ROW({"c0"}, {BIGINT()}), 0)})
+             .singleAggregation({}, {"count(distinct c0)"})
+             .planNode();
+  AssertQueryBuilder(plan, duckDbQueryRunner_).assertResults("SELECT 0");
+
+  // Group by.
+  auto testGroupBy = [&](const std::string& input) {
+    auto plan = PlanBuilder()
+                    .values({data})
+                    .singleAggregation(
+                        {"c0"}, {fmt::format("count(distinct {})", input)})
+                    .planNode();
+    AssertQueryBuilder(plan, duckDbQueryRunner_)
+        .assertResults(fmt::format(
+            "SELECT c0, count(distinct {}) FROM tmp GROUP BY 1", input));
+  };
+
+  testGroupBy("c1");
+  testGroupBy("c2");
+  testGroupBy("c3");
+
+  plan = PlanBuilder()
+             .values({data})
+             .singleAggregation(
+                 {"c0"},
+                 {"count(distinct c1)",
+                  "count(c1)",
+                  "count(distinct c2)",
+                  "count(c3)"})
+             .planNode();
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .assertResults(
+          "SELECT c0, count(distinct c1), count(c1), count(distinct c2), count(c3) FROM tmp GROUP BY 1");
+
+  // Group by. Empty input.
+  plan =
+      PlanBuilder()
+          .values({makeRowVector(ROW({"c0", "c1"}, {BIGINT(), VARCHAR()}), 0)})
+          .singleAggregation({"c0"}, {"count(distinct c1)"})
+          .planNode();
+  AssertQueryBuilder(plan, duckDbQueryRunner_).assertEmptyResults();
+}
+
+TEST_F(CountAggregationTest, distinctMask) {
+  auto data = makeRowVector({
+      makeFlatVector<int16_t>({1, 2, 1, 2, 1, 1, 2, 2}),
+      makeFlatVector<bool>(
+          {true, false, false, true, false, true, false, true}),
+      makeFlatVector<int32_t>({1, -1, -1, 2, -1, 1, -1, 1}),
+  });
+  createDuckDbTable({data});
+
+  // Global.
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .singleAggregation({}, {"count(distinct c2)"}, {"c1"})
+                  .planNode();
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .assertResults("SELECT count(distinct c2) FILTER (WHERE c1) FROM tmp");
+
+  // Group by.
+  plan = PlanBuilder()
+             .values({data})
+             .singleAggregation({"c0"}, {"count(distinct c2)"}, {"c1"})
+             .planNode();
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .assertResults(
+          "SELECT c0, count(distinct c2) FILTER (WHERE c1) FROM tmp GROUP BY 1");
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

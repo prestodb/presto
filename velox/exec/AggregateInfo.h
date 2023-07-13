@@ -44,6 +44,10 @@ struct AggregateInfo {
   /// Optional list of sorting orders that goes with 'sortingKeys'.
   std::vector<core::SortOrder> sortingOrders;
 
+  /// Boolean indicating whether inputs must be de-duplicated before
+  /// aggregating.
+  bool distinct{false};
+
   /// Index of the result column in the output RowVector.
   column_index_t output;
 

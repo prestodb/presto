@@ -110,6 +110,7 @@ HashAggregation::HashAggregation(
     const auto& aggregate = aggregationNode->aggregates()[i];
 
     AggregateInfo info;
+    info.distinct = aggregate.distinct;
     auto argTypes =
         populateAggregateInputs(aggregate, inputType->asRow(), info, pool());
 

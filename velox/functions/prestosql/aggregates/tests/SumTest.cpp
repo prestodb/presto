@@ -601,5 +601,28 @@ TEST_F(SumTest, floatAggregateOverflow) {
   testAggregateOverflow<double, double>();
 }
 
+TEST_F(SumTest, distinct) {
+  auto data = makeRowVector({
+      makeFlatVector<int16_t>({1, 2, 1, 2, 1, 1, 2, 2}),
+      makeFlatVector<int32_t>({1, 1, 2, 2, 3, 1, 1, 1}),
+  });
+
+  createDuckDbTable({data});
+
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .singleAggregation({}, {"sum(distinct c1)"})
+                  .planNode();
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .assertResults("SELECT sum(distinct c1) FROM tmp");
+
+  plan = PlanBuilder()
+             .values({data})
+             .singleAggregation({"c0"}, {"sum(distinct c1)"})
+             .planNode();
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .assertResults("SELECT c0, sum(distinct c1) FROM tmp GROUP BY 1");
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

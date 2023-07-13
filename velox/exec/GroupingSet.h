@@ -17,6 +17,7 @@
 
 #include "velox/exec/AggregateInfo.h"
 #include "velox/exec/AggregationMasks.h"
+#include "velox/exec/DistinctAggregations.h"
 #include "velox/exec/HashTable.h"
 #include "velox/exec/SortedAggregations.h"
 #include "velox/exec/Spiller.h"
@@ -207,6 +208,7 @@ class GroupingSet {
   std::vector<AggregateInfo> aggregates_;
   AggregationMasks masks_;
   std::unique_ptr<SortedAggregations> sortedAggregations_;
+  std::vector<std::unique_ptr<DistinctAggregations>> distinctAggregations_;
 
   const bool ignoreNullKeys_;
 
