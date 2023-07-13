@@ -95,7 +95,7 @@ public class PrestoSparkHttpTaskClient
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
         this.planFragmentCodec = requireNonNull(planFragmentCodec, "planFragmentCodec is null");
         this.taskUpdateRequestCodec = requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
-        this.taskUri = getTaskUri(location, taskId);
+        this.taskUri = createTaskUri(location, taskId);
         this.infoRefreshMaxWait = requireNonNull(infoRefreshMaxWait, "infoRefreshMaxWait is null");
         this.tokenAuthenticator = requireNonNull(tokenAuthenticators, "tokenAuthenticator is null");
     }
@@ -225,7 +225,12 @@ public class PrestoSparkHttpTaskClient
         return location;
     }
 
-    private URI getTaskUri(URI baseUri, TaskId taskId)
+    public URI getTaskUri()
+    {
+        return taskUri;
+    }
+
+    private URI createTaskUri(URI baseUri, TaskId taskId)
     {
         return uriBuilderFrom(baseUri)
                 .appendPath(TASK_URI)
