@@ -18,26 +18,28 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.iceberg.IcebergHiveMetadata;
 import com.facebook.presto.iceberg.IcebergResourceFactory;
-import com.facebook.presto.iceberg.util.SinglePathCatalog;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.hadoop.HadoopCatalog;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Map;
 
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
+import static org.apache.iceberg.CatalogProperties.WAREHOUSE_LOCATION;
 
 public class SampleUtil
 {
     private SampleUtil() {}
 
-    public static final String SAMPLE_TABLE_SUFFIX = "sample-table";
+    public static final TableIdentifier SAMPLE_TABLE_ID = toIcebergTableIdentifier("sample", "sample-table");
 
     public static Table getNativeTable(ConnectorSession session, IcebergResourceFactory resourceFactory, SchemaTableName table)
     {
@@ -50,20 +52,47 @@ public class SampleUtil
         return getHiveIcebergTable(metastore, env, session, table);
     }
 
-    public static Table getSampleTableFromActual(Table icebergSource, String prestoSchema, HdfsEnvironment env, ConnectorSession session)
+    public static AutoCloseableCatalog getCatalogForSampleTable(Table icebergSource, String prestoSchema, HdfsEnvironment env, ConnectorSession session)
     {
         Path tableLocation = new Path(icebergSource.location());
         HdfsContext ctx = new HdfsContext(session, prestoSchema, icebergSource.name(), icebergSource.location(), false);
-        try (SinglePathCatalog c = new SinglePathCatalog(tableLocation, env.getConfiguration(ctx, tableLocation))) {
-            // initializing the catalog can be expensive. See if we can somehow store the catalog reference
-            // or wrap a delegate catalog.
-            c.initialize(tableLocation.getName(), new HashMap<>());
-            TableIdentifier id = toIcebergTableIdentifier("sample", SAMPLE_TABLE_SUFFIX);
-            Table t = c.loadTable(id);
-            return t;
+        AutoCloseableCatalog c = new AutoCloseableCatalog();
+        Map<String, String> props = new HashMap<>();
+        c.setConf(env.getConfiguration(ctx, tableLocation));
+        props.put(WAREHOUSE_LOCATION, tableLocation.toString());
+        // initializing the catalog can be expensive. See if we can somehow store the catalog reference
+        // or wrap a delegate catalog.
+        c.initialize(tableLocation.getName(), props);
+        return c;
+    }
+
+    public static boolean sampleTableExists(Table icebergSource, String prestoSchema, HdfsEnvironment env, ConnectorSession session)
+    {
+        try (AutoCloseableCatalog c = getCatalogForSampleTable(icebergSource, prestoSchema, env, session)) {
+            return c.tableExists(SAMPLE_TABLE_ID);
         }
-        catch (IOException e) {
-            throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, e);
+    }
+
+    public static Table getSampleTableFromActual(Table icebergSource, String prestoSchema, HdfsEnvironment env, ConnectorSession session)
+    {
+        try (AutoCloseableCatalog c = getCatalogForSampleTable(icebergSource, prestoSchema, env, session)) {
+            return c.loadTable(SAMPLE_TABLE_ID);
+        }
+    }
+
+    public static class AutoCloseableCatalog
+            extends HadoopCatalog
+            implements AutoCloseable
+    {
+        @Override
+        public void close()
+        {
+            try {
+                super.close();
+            }
+            catch (IOException e) {
+                throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, e);
+            }
         }
     }
 }

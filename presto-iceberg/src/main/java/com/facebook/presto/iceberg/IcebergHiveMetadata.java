@@ -261,6 +261,11 @@ public class IcebergHiveMetadata
         }
         MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
         metastore.dropTable(metastoreContext, handle.getSchemaName(), handle.getTableName(), true);
+        if (SampleUtil.sampleTableExists(table, handle.getSchemaName(), hdfsEnvironment, session)) {
+            try (SampleUtil.AutoCloseableCatalog c = SampleUtil.getCatalogForSampleTable(table, handle.getSchemaName(), hdfsEnvironment, session)) {
+                c.dropTable(SAMPLE_TABLE_ID, true);
+            }
+        }
     }
 
     @Override

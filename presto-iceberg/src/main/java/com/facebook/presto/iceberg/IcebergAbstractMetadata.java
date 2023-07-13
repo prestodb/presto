@@ -405,6 +405,9 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        if (handle.getTableType() == SAMPLES) {
+            icebergTable = SampleUtil.getSampleTableFromActual(icebergTable, handle.getSchemaName(), hdfsEnvironment, session);
+        }
         return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable);
     }
 

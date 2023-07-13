@@ -44,6 +44,8 @@ public class IcebergConfig
     private boolean parquetDereferencePushdownEnabled = true;
     private boolean mergeOnReadModeEnabled;
 
+    private boolean useSampleStatistics = true;
+
     @NotNull
     public FileFormat getFileFormat()
     {
@@ -179,5 +181,18 @@ public class IcebergConfig
     public boolean isMergeOnReadModeEnabled()
     {
         return mergeOnReadModeEnabled;
+    }
+
+    @Config("iceberg.use-sample-statistics")
+    @ConfigDescription("Use a sample of the table rows for calculating table statistics")
+    public IcebergConfig setUseSampleStatistics(boolean useSampleStatistics)
+    {
+        this.useSampleStatistics = useSampleStatistics;
+        return this;
+    }
+
+    public boolean isUseSampleStatistics()
+    {
+        return useSampleStatistics;
     }
 }
