@@ -327,7 +327,7 @@ std::vector<Accumulator> GroupingSet::accumulators() {
   std::vector<Accumulator> accumulators;
   accumulators.reserve(aggregates_.size());
   for (auto& aggregate : aggregates_) {
-    accumulators.push_back(aggregate.function.get());
+    accumulators.push_back(Accumulator{aggregate.function.get()});
   }
 
   if (sortedAggregations_ != nullptr) {

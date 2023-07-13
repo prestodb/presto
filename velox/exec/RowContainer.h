@@ -36,7 +36,7 @@ class Accumulator {
       int32_t alignment,
       std::function<void(folly::Range<char**> groups)> destroyFunction);
 
-  Accumulator(Aggregate* aggregate);
+  explicit Accumulator(Aggregate* aggregate);
 
   bool isFixedSize() const;
 

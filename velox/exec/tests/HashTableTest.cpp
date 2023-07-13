@@ -556,7 +556,7 @@ TEST_P(HashTableTest, clear) {
       config);
 
   auto table = HashTable<true>::createForAggregation(
-      std::move(keyHashers), {{aggregate.get()}}, pool_.get());
+      std::move(keyHashers), {Accumulator{aggregate.get()}}, pool_.get());
   ASSERT_NO_THROW(table->clear());
 }
 
