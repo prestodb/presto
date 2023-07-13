@@ -246,7 +246,7 @@ TypePtr Aggregate::intermediateType(
     const std::vector<TypePtr>& argTypes) {
   auto signatures = getAggregateFunctionSignatures(name);
   if (!signatures.has_value()) {
-    VELOX_USER_FAIL("Aggregate function '{}' not registered", name);
+    VELOX_USER_FAIL("Aggregate function not registered: {}", name);
   }
   for (auto& signature : signatures.value()) {
     SignatureBinder binder(*signature, argTypes);

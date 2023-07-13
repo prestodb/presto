@@ -430,7 +430,7 @@ TEST_F(AggregationTest, missingFunctionOrSignature) {
   params.planNode = makePlan(missingFunc);
   VELOX_ASSERT_THROW(
       readCursor(params, [](Task*) {}),
-      "Aggregate function 'missing-function' not registered");
+      "Aggregate function not registered: missing-function");
 
   params.planNode = makePlan(wrongInputTypes);
   VELOX_ASSERT_THROW(
@@ -491,7 +491,7 @@ TEST_F(AggregationTest, missingLambdaFunction) {
   params.planNode = plan;
   VELOX_ASSERT_THROW(
       readCursor(params, [](Task*) {}),
-      "Aggregate function 'missing-lambda' not registered");
+      "Aggregate function not registered: missing-lambda");
 }
 
 TEST_F(AggregationTest, global) {
