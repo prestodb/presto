@@ -56,6 +56,7 @@ struct AggregateExpr {
   std::shared_ptr<const core::IExpr> expr;
   std::vector<std::pair<std::shared_ptr<const core::IExpr>, core::SortOrder>>
       orderBy;
+  bool distinct{false};
 };
 
 /// Parses aggregate function call expression with optional ORDER by clause.

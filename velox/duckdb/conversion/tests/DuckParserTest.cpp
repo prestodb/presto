@@ -117,34 +117,43 @@ std::string toString(
 
   return out.str();
 }
+
+std::string parseAgg(const std::string& expression) {
+  ParseOptions options;
+  auto aggregateExpr = parseAggregateExpr(expression, options);
+  std::stringstream out;
+  out << aggregateExpr.expr->toString();
+  if (aggregateExpr.distinct) {
+    out << " DISTINCT";
+  }
+  if (!aggregateExpr.orderBy.empty()) {
+    out << " " << toString(aggregateExpr.orderBy);
+  }
+
+  return out.str();
+}
 } // namespace
 
 TEST(DuckParserTest, aggregates) {
-  auto parse = [](const auto& expr) {
-    ParseOptions options;
-    auto aggregateExpr = parseAggregateExpr(expr, options);
-    std::stringstream out;
-    out << aggregateExpr.expr->toString();
-    if (!aggregateExpr.orderBy.empty()) {
-      out << " " << toString(aggregateExpr.orderBy);
-    }
-
-    return out.str();
-  };
-
-  EXPECT_EQ("array_agg(\"x\")", parse("array_agg(x)"));
+  EXPECT_EQ("array_agg(\"x\")", parseAgg("array_agg(x)"));
   EXPECT_EQ(
       "array_agg(\"x\") ORDER BY \"y\" ASC NULLS LAST",
-      parse("array_agg(x ORDER BY y)"));
+      parseAgg("array_agg(x ORDER BY y)"));
   EXPECT_EQ(
       "array_agg(\"x\") ORDER BY \"y\" DESC NULLS LAST",
-      parse("array_agg(x ORDER BY y DESC)"));
+      parseAgg("array_agg(x ORDER BY y DESC)"));
   EXPECT_EQ(
       "array_agg(\"x\") ORDER BY \"y\" ASC NULLS FIRST",
-      parse("array_agg(x ORDER BY y NULLS FIRST)"));
+      parseAgg("array_agg(x ORDER BY y NULLS FIRST)"));
   EXPECT_EQ(
       "array_agg(\"x\") ORDER BY \"y\" ASC NULLS LAST, \"z\" ASC NULLS LAST",
-      parse("array_agg(x ORDER BY y, z)"));
+      parseAgg("array_agg(x ORDER BY y, z)"));
+}
+
+TEST(DuckParserTest, distinctAggregates) {
+  EXPECT_EQ("count(\"x\") DISTINCT", parseAgg("count(distinct x)"));
+  EXPECT_EQ("count(\"x\",\"y\") DISTINCT", parseAgg("count(distinct x, y)"));
+  EXPECT_EQ("sum(\"x\") DISTINCT", parseAgg("sum(distinct x)"));
 }
 
 TEST(DuckParserTest, subscript) {

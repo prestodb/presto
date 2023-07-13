@@ -737,6 +737,7 @@ AggregateExpr parseAggregateExpr(
 
   AggregateExpr aggregateExpr;
   aggregateExpr.expr = parseExpr(*parsedExpr, options);
+  aggregateExpr.distinct = functionExpr.distinct;
 
   if (functionExpr.order_bys) {
     for (const auto& orderByNode : functionExpr.order_bys->orders) {
