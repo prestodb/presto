@@ -103,7 +103,6 @@ public class NativeExecutionTask
                 updateScheduledExecutor,
                 errorRetryScheduledExecutor,
                 this.workerClient,
-                this.executor,
                 taskManagerConfig.getInfoUpdateInterval(),
                 queryManagerConfig.getRemoteTaskMaxErrorDuration(),
                 taskFinishedOrHasResult);

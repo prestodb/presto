@@ -29,7 +29,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -65,7 +64,6 @@ public class TestHttpNativeExecutionTaskInfoFetcher
                 updateScheduledExecutor,
                 errorScheduler,
                 workerClient,
-                directExecutor(),
                 new Duration(1, TimeUnit.SECONDS),
                 new Duration(1, TimeUnit.SECONDS),
                 taskFinishedOrLostSignal);

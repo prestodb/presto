@@ -892,7 +892,6 @@ public class TestPrestoSparkHttpClient
                 newScheduledThreadPool(1),
                 newScheduledThreadPool(1),
                 workerClient,
-                newSingleThreadExecutor(),
                 new Duration(1, TimeUnit.SECONDS),
                 maxErrorDuration,
                 lock);
