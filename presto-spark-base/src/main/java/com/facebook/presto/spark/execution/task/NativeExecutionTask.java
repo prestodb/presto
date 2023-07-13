@@ -182,10 +182,10 @@ public class NativeExecutionTask
     /**
      * Releases all resources, and kills all schedulers. It is caller's responsibility to call this method when NativeExecutionTask is no longer needed.
      */
-    public void stop()
+    public void stop(boolean success)
     {
         taskInfoFetcher.stop();
-        taskResultFetcher.ifPresent(fetcher -> fetcher.stop());
+        taskResultFetcher.ifPresent(fetcher -> fetcher.stop(success));
         workerClient.abortResults();
     }
 

@@ -268,10 +268,10 @@ public class PrestoSparkNativeTaskExecutorFactory
         }
     }
 
-    private static void completeTask(CollectionAccumulator<SerializedTaskInfo> taskInfoCollector, NativeExecutionTask task, Codec<TaskInfo> taskInfoCodec)
+    private static void completeTask(boolean success, CollectionAccumulator<SerializedTaskInfo> taskInfoCollector, NativeExecutionTask task, Codec<TaskInfo> taskInfoCodec)
     {
         // stop the task
-        task.stop();
+        task.stop(success);
 
         // collect statistics (if available)
         Optional<TaskInfo> taskInfoOptional = task.getTaskInfo();
@@ -486,7 +486,7 @@ public class PrestoSparkNativeTaskExecutorFactory
             }
             catch (RuntimeException ex) {
                 // For a failed task, if taskInfo is present we still want to log the metrics
-                completeTask(taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec);
+                completeTask(false, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec);
                 throw executionExceptionFactory.toPrestoSparkExecutionException(ex);
             }
             catch (InterruptedException e) {
@@ -495,7 +495,7 @@ public class PrestoSparkNativeTaskExecutorFactory
             }
 
             // Reaching here marks the end of task processing
-            completeTask(taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec);
+            completeTask(true, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec);
             return Optional.empty();
         }
 
