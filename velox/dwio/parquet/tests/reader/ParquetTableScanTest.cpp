@@ -107,7 +107,7 @@ TEST_F(ParquetTableScanTest, decimalSubfieldFilter) {
       makeRowVector(
           {"a"},
           {
-              makeShortDecimalFlatVector(unscaledShortValues, DECIMAL(5, 2)),
+              makeFlatVector(unscaledShortValues, DECIMAL(5, 2)),
           }));
 
   assertSelectWithFilter(

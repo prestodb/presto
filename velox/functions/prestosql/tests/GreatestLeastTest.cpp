@@ -261,18 +261,18 @@ TEST_F(GreatestLeastTest, shortDecimal) {
   static const auto kMin = DecimalUtil::kLongDecimalMin + 1;
   static const auto kMax = DecimalUtil::kLongDecimalMax - 1;
 
-  const auto a = makeNullableShortDecimalFlatVector(
+  const auto a = makeNullableFlatVector<int64_t>(
       {10000, -10000, 20000, kMax, kMin, std::nullopt}, type);
-  const auto b = makeNullableShortDecimalFlatVector(
+  const auto b = makeNullableFlatVector<int64_t>(
       {-10000, 10000, -20000, kMin, kMax, 1}, type);
   runDecimalTest("least(c0)", {a}, a);
   runDecimalTest("greatest(c0)", {a}, a);
 
-  auto expected = makeNullableShortDecimalFlatVector(
+  auto expected = makeNullableFlatVector<int64_t>(
       {-10000, -10000, -20000, kMin, kMin, std::nullopt}, type);
   runDecimalTest("least(c0, c1)", {a, b}, expected);
 
-  expected = makeNullableShortDecimalFlatVector(
+  expected = makeNullableFlatVector<int64_t>(
       {10000, 10000, 20000, kMax, kMax, std::nullopt}, type);
   runDecimalTest("greatest(c0, c1)", {a, b}, expected);
 }
@@ -282,7 +282,7 @@ TEST_F(GreatestLeastTest, longDecimal) {
   static const auto kMin = DecimalUtil::kLongDecimalMin + 1;
   static const auto kMax = DecimalUtil::kLongDecimalMax - 1;
 
-  const auto a = makeNullableLongDecimalFlatVector(
+  const auto a = makeNullableFlatVector<int128_t>(
       {HugeInt::build(10, 300),
        HugeInt::build(-10, 300),
        HugeInt::build(200, 300),
@@ -290,7 +290,7 @@ TEST_F(GreatestLeastTest, longDecimal) {
        kMin,
        std::nullopt},
       type);
-  const auto b = makeNullableLongDecimalFlatVector(
+  const auto b = makeNullableFlatVector<int128_t>(
       {HugeInt::build(-10, 300),
        HugeInt::build(10, 300),
        HugeInt::build(-200, 300),
@@ -301,7 +301,7 @@ TEST_F(GreatestLeastTest, longDecimal) {
   runDecimalTest("least(c0)", {a}, a);
   runDecimalTest("greatest(c0)", {a}, a);
 
-  auto expected = makeNullableLongDecimalFlatVector(
+  auto expected = makeNullableFlatVector<int128_t>(
       {HugeInt::build(-10, 300),
        HugeInt::build(-10, 300),
        HugeInt::build(-200, 300),
@@ -311,7 +311,7 @@ TEST_F(GreatestLeastTest, longDecimal) {
       type);
   runDecimalTest("least(c0, c1)", {a, b}, expected);
 
-  expected = makeNullableLongDecimalFlatVector(
+  expected = makeNullableFlatVector<int128_t>(
       {HugeInt::build(10, 300),
        HugeInt::build(10, 300),
        HugeInt::build(200, 300),

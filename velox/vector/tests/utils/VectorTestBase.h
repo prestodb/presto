@@ -156,8 +156,6 @@ class VectorTestBase {
     return vectorMaker_.flatVector<T>(size, valueAt, isNullAt, type);
   }
 
-  /// Decimal Vector type cannot be inferred from the cpp type alone as the cpp
-  /// type does not contain the precision and scale.
   template <typename T>
   FlatVectorPtr<EvalType<T>> makeFlatVector(
       const std::vector<T>& data,
@@ -192,30 +190,6 @@ class VectorTestBase {
   template <typename T>
   FlatVectorPtr<T> makeAllNullFlatVector(vector_size_t size) {
     return vectorMaker_.allNullFlatVector<T>(size);
-  }
-
-  FlatVectorPtr<int64_t> makeShortDecimalFlatVector(
-      const std::vector<int64_t>& unscaledValues,
-      const TypePtr& type) {
-    return vectorMaker_.shortDecimalFlatVector(unscaledValues, type);
-  }
-
-  FlatVectorPtr<int128_t> makeLongDecimalFlatVector(
-      const std::vector<int128_t>& unscaledValues,
-      const TypePtr& type) {
-    return vectorMaker_.longDecimalFlatVector(unscaledValues, type);
-  }
-
-  FlatVectorPtr<int64_t> makeNullableShortDecimalFlatVector(
-      const std::vector<std::optional<int64_t>>& unscaledValues,
-      const TypePtr& type) {
-    return vectorMaker_.shortDecimalFlatVectorNullable(unscaledValues, type);
-  }
-
-  FlatVectorPtr<int128_t> makeNullableLongDecimalFlatVector(
-      const std::vector<std::optional<int128_t>>& unscaledValues,
-      const TypePtr& type) {
-    return vectorMaker_.longDecimalFlatVectorNullable(unscaledValues, type);
   }
 
   // Convenience function to create arrayVectors (vector of arrays) based on

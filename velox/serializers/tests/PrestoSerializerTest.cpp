@@ -329,7 +329,7 @@ TEST_F(PrestoSerializerTest, longDecimal) {
   }
   decimalValues[101] = DecimalUtil::kLongDecimalMax;
   auto vector =
-      vectorMaker_->longDecimalFlatVector(decimalValues, DECIMAL(20, 5));
+      vectorMaker_->flatVector<int128_t>(decimalValues, DECIMAL(20, 5));
 
   testRoundTrip(vector);
 

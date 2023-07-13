@@ -253,10 +253,8 @@ TEST_F(SumTest, sumDecimal) {
   shortDecimalRawVector.push_back(std::nullopt);
   longDecimalRawVector.push_back(std::nullopt);
   auto input = makeRowVector(
-      {makeNullableShortDecimalFlatVector(
-           shortDecimalRawVector, DECIMAL(10, 1)),
-       makeNullableLongDecimalFlatVector(
-           longDecimalRawVector, DECIMAL(23, 4))});
+      {makeNullableFlatVector<int64_t>(shortDecimalRawVector, DECIMAL(10, 1)),
+       makeNullableFlatVector<int128_t>(longDecimalRawVector, DECIMAL(23, 4))});
   createDuckDbTable({input});
   testAggregations(
       {input}, {}, {"sum(c0)", "sum(c1)"}, "SELECT sum(c0), sum(c1) FROM tmp");
@@ -264,32 +262,35 @@ TEST_F(SumTest, sumDecimal) {
   // Decimal sum aggregation with multiple groups.
   auto inputRows = {
       makeRowVector(
-          {makeNullableFlatVector<int32_t>({1, 1}),
-           makeShortDecimalFlatVector({37220, 53450}, DECIMAL(5, 2))}),
+          {makeFlatVector<int32_t>({1, 1}),
+           makeFlatVector<int64_t>({37220, 53450}, DECIMAL(5, 2))}),
       makeRowVector(
-          {makeNullableFlatVector<int32_t>({2, 2}),
-           makeShortDecimalFlatVector({10410, 9250}, DECIMAL(5, 2))}),
+          {makeFlatVector<int32_t>({2, 2}),
+           makeFlatVector<int64_t>({10410, 9250}, DECIMAL(5, 2))}),
       makeRowVector(
-          {makeNullableFlatVector<int32_t>({3, 3}),
-           makeShortDecimalFlatVector({-12783, 0}, DECIMAL(5, 2))}),
+          {makeFlatVector<int32_t>({3, 3}),
+           makeFlatVector<int64_t>({-12783, 0}, DECIMAL(5, 2))}),
       makeRowVector(
-          {makeNullableFlatVector<int32_t>({1, 2}),
-           makeShortDecimalFlatVector({23178, 41093}, DECIMAL(5, 2))}),
+          {makeFlatVector<int32_t>({1, 2}),
+           makeFlatVector<int64_t>({23178, 41093}, DECIMAL(5, 2))}),
       makeRowVector(
-          {makeNullableFlatVector<int32_t>({2, 3}),
-           makeShortDecimalFlatVector({-10023, 5290}, DECIMAL(5, 2))}),
+          {makeFlatVector<int32_t>({2, 3}),
+           makeFlatVector<int64_t>({-10023, 5290}, DECIMAL(5, 2))}),
   };
 
   auto expectedResult = {
       makeRowVector(
-          {makeNullableFlatVector<int32_t>({1}),
-           makeLongDecimalFlatVector({113848}, DECIMAL(38, 2))}),
+          {makeFlatVector<int32_t>(std::vector<int32_t>{1}),
+           makeFlatVector<int128_t>(
+               std::vector<int128_t>{113848}, DECIMAL(38, 2))}),
       makeRowVector(
-          {makeNullableFlatVector<int32_t>({2}),
-           makeLongDecimalFlatVector({50730}, DECIMAL(38, 2))}),
+          {makeFlatVector<int32_t>(std::vector<int32_t>{2}),
+           makeFlatVector<int128_t>(
+               std::vector<int128_t>{50730}, DECIMAL(38, 2))}),
       makeRowVector(
-          {makeNullableFlatVector<int32_t>({3}),
-           makeLongDecimalFlatVector({-7493}, DECIMAL(38, 2))})};
+          {makeFlatVector<int32_t>(std::vector<int32_t>{3}),
+           makeFlatVector<int128_t>(
+               std::vector<int128_t>{-7493}, DECIMAL(38, 2))})};
 
   testAggregations(inputRows, {"c0"}, {"sum(c1)"}, expectedResult);
 }
@@ -301,7 +302,7 @@ TEST_F(SumTest, sumDecimalOverflow) {
     shortDecimalInput.push_back(DecimalUtil::kShortDecimalMax);
   }
   auto input = makeRowVector(
-      {makeShortDecimalFlatVector(shortDecimalInput, DECIMAL(17, 5))});
+      {makeFlatVector<int64_t>(shortDecimalInput, DECIMAL(17, 5))});
   createDuckDbTable({input});
   testAggregations({input}, {}, {"sum(c0)"}, "SELECT sum(c0) FROM tmp");
 
@@ -309,8 +310,8 @@ TEST_F(SumTest, sumDecimalOverflow) {
                                 const std::vector<int128_t>& input,
                                 const std::vector<int128_t>& output) {
     const TypePtr type = DECIMAL(38, 0);
-    auto in = makeRowVector({makeLongDecimalFlatVector({input}, type)});
-    auto expected = makeRowVector({makeLongDecimalFlatVector({output}, type)});
+    auto in = makeRowVector({makeFlatVector<int128_t>({input}, type)});
+    auto expected = makeRowVector({makeFlatVector<int128_t>({output}, type)});
     PlanBuilder builder(pool());
     builder.values({in});
     builder.singleAggregation({}, {"sum(c0)"});
