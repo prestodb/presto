@@ -480,6 +480,15 @@ public class PrestoSparkNativeTaskExecutorFactory
                 Optional<TaskInfo> taskInfo = nativeExecutionTask.getTaskInfo();
 
                 processTaskInfoForErrorsOrCompletion(taskInfo.get());
+
+                // Fetch the remaining results, if any.
+                if (nativeExecutionTask.hasResult()) {
+                    pageOptional = nativeExecutionTask.pollResult();
+                    if (!pageOptional.isPresent()) {
+                        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to fetch result from completed native task");
+                    }
+                    return pageOptional;
+                }
             }
             catch (RuntimeException ex) {
                 // For a failed task, if taskInfo is present we still want to log the metrics
