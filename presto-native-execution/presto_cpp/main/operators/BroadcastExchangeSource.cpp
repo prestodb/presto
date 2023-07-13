@@ -31,7 +31,7 @@ std::optional<std::string> getBroadcastInfo(folly::Uri& uri) {
 }
 } // namespace
 
-void BroadcastExchangeSource::request() {
+void BroadcastExchangeSource::request(uint64_t /*maxBytes*/) {
   std::vector<velox::ContinuePromise> promises;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
@@ -49,7 +49,10 @@ void BroadcastExchangeSource::request() {
           std::make_unique<velox::exec::SerializedPage>(
               std::move(ioBuf), [buffer](auto& /*unused*/) {}),
           promises);
+      queue_->recordReplyLocked(buffer->size());
+      --queue_->numPending();
     }
+    requestPending_ = false;
   }
   for (auto& promise : promises) {
     promise.setValue();

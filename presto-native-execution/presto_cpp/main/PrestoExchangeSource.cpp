@@ -108,8 +108,9 @@ bool PrestoExchangeSource::shouldRequestLocked() {
   return !pending;
 }
 
-void PrestoExchangeSource::request() {
+void PrestoExchangeSource::request(uint64_t maxBytes) {
   failedAttempts_ = 0;
+  requestBytes_ = maxBytes;
   retryState_ =
       RetryState(std::chrono::duration_cast<std::chrono::milliseconds>(
                      SystemConfig::instance()->exchangeMaxErrorDuration())
@@ -128,7 +129,9 @@ void PrestoExchangeSource::doRequest(int64_t delayMs) {
   http::RequestBuilder()
       .method(proxygen::HTTPMethod::GET)
       .url(path)
-      .header(protocol::PRESTO_MAX_SIZE_HTTP_HEADER, "32MB")
+      .header(
+          protocol::PRESTO_MAX_SIZE_HTTP_HEADER,
+          fmt::format("{}B", requestBytes_))
       .send(httpClient_.get(), "", delayMs)
       .via(driverCPUExecutor())
       .thenValue([path, self](std::unique_ptr<http::HttpResponse> response) {
@@ -232,12 +235,15 @@ void PrestoExchangeSource::processDataResponse(
     std::vector<ContinuePromise> promises;
     {
       std::lock_guard<std::mutex> l(queue_->mutex());
+      int64_t enqueuedBytes = 0;
       if (page) {
         VLOG(1) << "Enqueuing page for " << basePath_ << "/" << sequence_
                 << ": " << page->size() << " bytes";
         ++numPages_;
+        enqueuedBytes = page->size();
         queue_->enqueueLocked(std::move(page), promises);
       }
+      queue_->recordReplyLocked(enqueuedBytes);
       if (complete) {
         VLOG(1) << "Enqueuing empty page for " << basePath_ << "/" << sequence_;
         atEnd_ = true;
@@ -245,28 +251,14 @@ void PrestoExchangeSource::processDataResponse(
       }
 
       sequence_ = ackSequence;
-
-      // Reset requestPending_ if the response is complete or have pages.
-      if (complete || !empty) {
-        requestPending_ = false;
-      }
     }
     for (auto& promise : promises) {
       promise.setValue();
     }
   }
 
-  if (complete) {
-    abortResults();
-  } else {
-    if (!empty) {
-      // Acknowledge results for non-empty content.
-      acknowledgeResults(ackSequence);
-    } else {
-      // Rerequest results for incomplete results with no pages.
-      request();
-    }
-  }
+  auto self = shared_from_this();
+  queue_->requestIfDue(self, empty ? ExchangeSource::kNoReply : ackSequence);
 }
 
 void PrestoExchangeSource::processDataError(

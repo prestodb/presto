@@ -37,9 +37,13 @@ class BroadcastExchangeSource : public velox::exec::ExchangeSource {
     return !atEnd_;
   }
 
-  void request() override;
+  void request(uint64_t maxBytes) override;
 
   void close() override {}
+
+  void deleteResults() override {}
+
+  void acknowledge(int64_t /*sequence*/) override {}
 
   folly::F14FastMap<std::string, int64_t> stats() const override;
 
