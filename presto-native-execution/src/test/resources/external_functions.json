@@ -17,6 +17,55 @@
         }
       }
     ],
+    "array_constructor":[
+      {
+        "docString":"function to construct an array from scalar parameters",
+        "functionKind": "SCALAR",
+        "outputType": "ARRAY(INTEGER)",
+        "paramTypes":[
+          "INTEGER"
+        ],
+        "schema":"test_schema",
+        "routineCharacteristics": {
+          "language":"CPP",
+          "determinism":"DETERMINISTIC",
+          "nullCallClause":"CALLED_ON_NULL_INPUT"
+        }
+      }
+    ],
+    "map":[
+      {
+        "docString":"function to construct a map from arrays of keys and values",
+        "functionKind": "SCALAR",
+        "outputType": "MAP(INTEGER, INTEGER)",
+        "paramTypes":[
+          "ARRAY(INTEGER)",
+          "ARRAY(INTEGER)"
+        ],
+        "schema":"test_schema",
+        "routineCharacteristics": {
+          "language":"CPP",
+          "determinism":"DETERMINISTIC",
+          "nullCallClause":"CALLED_ON_NULL_INPUT"
+        }
+      }
+    ],
+    "map_entries":[
+      {
+        "docString":"return an array of all entries in the given map.",
+        "functionKind": "SCALAR",
+        "outputType": "ARRAY(ROW(INTEGER, INTEGER))",
+        "paramTypes":[
+          "MAP(INTEGER, INTEGER)"
+        ],
+        "schema":"test_schema",
+        "routineCharacteristics": {
+          "language":"CPP",
+          "determinism":"DETERMINISTIC",
+          "nullCallClause":"CALLED_ON_NULL_INPUT"
+        }
+      }
+    ],
     "sum": [
       {
         "docString": "Returns sum of integers",
