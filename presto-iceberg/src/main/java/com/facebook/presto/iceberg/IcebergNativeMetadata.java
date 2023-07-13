@@ -340,6 +340,9 @@ public class IcebergNativeMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getNativeIcebergTable(resourceFactory, session, handle.getSchemaTableName());
-        return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable);
+        if (handle.getTableType() == SAMPLES) {
+            icebergTable = SampleUtil.getSampleTableFromActual(icebergTable, handle.getSchemaName(), hdfsEnvironment, session);
+        }
+        return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable, session, hdfsEnvironment);
     }
 }
