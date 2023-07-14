@@ -1031,7 +1031,9 @@ public abstract class AbstractTestNativeGeneralQueries
     {
         // TODO: enable this after column stats collection is enabled.
         return Session.builder(getSession())
-                .setSystemProperty("table_writer_merge_operator_enabled", "false")
+                .setSystemProperty("table_writer_merge_operator_enabled", "true")
+                .setSystemProperty("task_writer_count", "4")
+                .setSystemProperty("task_partitioned_writer_count", "2")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
                 .setCatalogSessionProperty("hive", "optimized_partition_update_serialization_enabled", "false")
                 .build();
