@@ -87,6 +87,11 @@ target_link_libraries(
   velox_tpch_connector
   velox_presto_serializer)
 
+add_library(presto_json_signature_parser JsonSignatureParser.cpp)
+
+target_link_libraries(presto_json_signature_parser velox_expression
+                      ${FOLLY_WITH_DEPENDENCIES})
+
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
 endif()
