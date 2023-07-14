@@ -191,6 +191,44 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
+    public void testAnalyzeStats()
+    {
+        assertUpdate("ANALYZE region", 5);
+
+        // Show stats returns the following stats for each column in region table:
+        // column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
+        assertQuery("SHOW STATS FOR region",
+                "SELECT * FROM (VALUES" +
+                        "('regionkey', NULL, 5.0, 0.0, NULL, '0', '4')," +
+                        "('name', 54.0, 5.0, 0.0, NULL, NULL, NULL)," +
+                        "('comment', 350.0, 5.0, 0.0, NULL, NULL, NULL)," +
+                        "(NULL, NULL, NULL, NULL, 5.0, NULL, NULL))");
+
+        // Create a partitioned table and run analyze on it.
+        String tmpTableName = generateRandomTableName();
+        try {
+            Session writeSession = buildSessionForTableWrite();
+            getQueryRunner().execute(writeSession, String.format("CREATE TABLE %s (name VARCHAR, regionkey BIGINT," +
+                    "nationkey BIGINT) WITH (partitioned_by = ARRAY['regionkey','nationkey'])", tmpTableName));
+            getQueryRunner().execute(writeSession,
+                    String.format("INSERT INTO %s SELECT name, regionkey, nationkey FROM nation", tmpTableName));
+            assertQuery(String.format("SELECT * FROM %s", tmpTableName),
+                    "SELECT name, regionkey, nationkey FROM nation");
+            assertUpdate(String.format("ANALYZE %s", tmpTableName), 25);
+            assertQuery(String.format("SHOW STATS for %s", tmpTableName),
+                    "SELECT * FROM (VALUES" +
+                            "('name', 277.0, 1.0, 0.0, NULL, NULL, NULL)," +
+                            "('regionkey', NULL, 5.0, 0.0, NULL, '0', '4')," +
+                            "('nationkey', NULL, 25.0, 0.0, NULL, '0', '24')," +
+                            "(NULL, NULL, NULL, NULL, 25.0, NULL, NULL))");
+            // @TODO Add test for Analyze on table partitions. Refer: https://github.com/prestodb/presto/issues/20232
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+
+    @Test
     public void testDateFilter()
     {
         String tmpTableName = generateRandomTableName();
