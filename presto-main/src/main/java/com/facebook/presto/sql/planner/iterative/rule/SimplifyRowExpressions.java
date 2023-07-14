@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
@@ -21,6 +20,7 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -29,10 +29,14 @@ import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.google.common.annotations.VisibleForTesting;
 
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALIZABLE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IN;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
+import static com.facebook.presto.sql.relational.Expressions.not;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -82,12 +86,13 @@ public class SimplifyRowExpressions
     private static class LogicalExpressionRewriter
             extends RowExpressionRewriter<Boolean>
     {
+        private final FunctionAndTypeManager functionAndTypeManager;
         private final FunctionResolution functionResolution;
         private final LogicalRowExpressions logicalRowExpressions;
 
         public LogicalExpressionRewriter(FunctionAndTypeManager functionAndTypeManager)
         {
-            requireNonNull(functionAndTypeManager, "functionManager is null");
+            this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
             this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
             this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionAndTypeManager), new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()), functionAndTypeManager);
         }
@@ -96,7 +101,7 @@ public class SimplifyRowExpressions
         public RowExpression rewriteCall(CallExpression node, Boolean isRoot, RowExpressionTreeRewriter<Boolean> treeRewriter)
         {
             if (functionResolution.isNotFunction(node.getFunctionHandle())) {
-                checkState(BooleanType.BOOLEAN.equals(node.getType()), "NOT must be boolean function");
+                checkState(BOOLEAN.equals(node.getType()), "NOT must be boolean function");
                 return rewriteBooleanExpression(node, isRoot);
             }
             if (isRoot) {
@@ -109,11 +114,14 @@ public class SimplifyRowExpressions
         public RowExpression rewriteSpecialForm(SpecialFormExpression node, Boolean isRoot, RowExpressionTreeRewriter<Boolean> treeRewriter)
         {
             if (isConjunctiveDisjunctive(node.getForm())) {
-                checkState(BooleanType.BOOLEAN.equals(node.getType()), "AND/OR must be boolean function");
+                checkState(BOOLEAN.equals(node.getType()), "AND/OR must be boolean function");
                 return rewriteBooleanExpression(node, isRoot);
             }
             if (isRoot) {
                 return treeRewriter.rewrite(node, false);
+            }
+            if (node.getForm() == IN) {
+                return rewriteInExpression(node);
             }
             return null;
         }
@@ -129,6 +137,30 @@ public class SimplifyRowExpressions
                 return logicalRowExpressions.convertToConjunctiveNormalForm(expression);
             }
             return logicalRowExpressions.minimalNormalForm(expression);
+        }
+
+        private RowExpression rewriteInExpression(SpecialFormExpression expression)
+        {
+            if (expression.getType() != BOOLEAN) {
+                return expression;
+            }
+            boolean constantTrueFound = false;
+            boolean constantFalseFound = false;
+            for (int i = 1; i < expression.getArguments().size(); i++) {
+                RowExpression argument = expression.getArguments().get(i);
+                if (argument.getType() != BOOLEAN
+                        || !(argument instanceof ConstantExpression)
+                        || ((ConstantExpression) argument).getValue() == null) {
+                    return expression;
+                }
+                boolean value = (boolean) ((ConstantExpression) argument).getValue();
+                constantTrueFound |= value;
+                constantFalseFound |= !value;
+            }
+            if (constantTrueFound && constantFalseFound) {
+                return not(functionAndTypeManager, new SpecialFormExpression(IS_NULL, BOOLEAN, expression.getArguments().get(0)));
+            }
+            return expression;
         }
     }
 }

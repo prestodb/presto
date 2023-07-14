@@ -7018,4 +7018,26 @@ public abstract class AbstractTestQueries
     {
         assertQuery("select x like 'abc%' from (values 'abc', 'def', 'bcd') T(x)");
     }
+
+    @Test
+    public void testInPredicateRewrite()
+    {
+        String inPredicate = "IN((custkey)";
+        String notNullPredicate = "not(IS_NULL((custkey)";
+        MaterializedResult plan;
+
+        plan = computeActual("EXPLAIN SELECT * FROM customer WHERE (custkey < 185) IN (TRUE, FALSE, nationkey = 1)");
+        assertFalse(plan.getOnlyValue().toString().contains(notNullPredicate));
+        assertTrue(plan.getOnlyValue().toString().contains(inPredicate));
+
+        plan = computeActual("EXPLAIN SELECT * FROM customer WHERE (custkey < 185) IN (TRUE, FALSE)");
+        assertTrue(plan.getOnlyValue().toString().contains(notNullPredicate));
+        assertFalse(plan.getOnlyValue().toString().contains(inPredicate));
+
+        assertQuery("SELECT * FROM customer WHERE (custkey < 185) IN (TRUE, FALSE)");
+        assertQuery("SELECT * FROM customer WHERE (custkey < 185) IN (TRUE, FALSE, nationkey = 1)");
+        assertQuery("SELECT * FROM customer WHERE (custkey < 185) IN (TRUE, FALSE, NULL)");
+        assertQuery("SELECT * FROM customer WHERE NULL IN (TRUE, FALSE)");
+        assertQuery("SELECT * FROM customer WHERE CAST(NULL AS BOOLEAN) IN (TRUE, FALSE)");
+    }
 }

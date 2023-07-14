@@ -80,8 +80,25 @@ public class TestSimplifyRowExpressions
     public void testNestedExpressions()
     {
         assertSimplifies(
-                "(true and coalesce(X, true) IN (true, false)) IN (true, false)",
-                "(coalesce(X, true) IN (true, false)) IN (true, false)");
+                "(true and coalesce(X, true) IN (true, false, Y)) IN (true, false, Y)",
+                "(coalesce(X, true) IN (true, false, Y)) IN (true, false, Y)");
+    }
+
+    @Test
+    public void testInExpressions()
+    {
+        assertSimplifies(
+                "X IN (TRUE, FALSE)",
+                "X IS NOT NULL");
+        assertSimplifies(
+                "NULL IN (TRUE, FALSE)",
+                "FALSE");
+        assertSimplifies(
+                "X IN (TRUE, FALSE, Y)",
+                "X IN (TRUE, FALSE, Y)");
+        assertSimplifies(
+                "X IN (TRUE, FALSE, NULL)",
+                "X IN (TRUE, FALSE, NULL)");
     }
 
     @Test
