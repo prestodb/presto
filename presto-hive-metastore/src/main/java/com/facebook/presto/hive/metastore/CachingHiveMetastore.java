@@ -262,6 +262,7 @@ public class CachingHiveMetastore
 
         tableCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
                 .build(asyncReloading(CacheLoader.from(this::loadTable), executor));
+        metastoreCacheStats.setTableCache(tableCache);
 
         tableConstraintsCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
                 .build(asyncReloading(CacheLoader.from(this::loadTableConstraints), executor));
@@ -274,6 +275,7 @@ public class CachingHiveMetastore
 
         partitionFilterCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
                 .build(asyncReloading(CacheLoader.from(this::loadPartitionNamesByFilter), executor));
+        metastoreCacheStats.setPartitionNamesCache(partitionFilterCache);
 
         partitionCache = newCacheBuilder(partitionCacheExpiresAfterWriteMillis, partitionCacheRefreshMills, partitionCacheMaxSize)
                 .build(asyncReloading(new CacheLoader<KeyAndContext<HivePartitionName>, Optional<Partition>>()
