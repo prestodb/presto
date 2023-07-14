@@ -143,6 +143,8 @@ class TaskManager {
   /// Always returns non-empty string.
   static std::string buildTaskSpillDirectoryPath(
       const std::string& baseSpillPath,
+      const std::string& nodeIp,
+      const std::string& nodeId,
       const std::string& queryId,
       const protocol::TaskId& taskId);
 
