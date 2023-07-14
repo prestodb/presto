@@ -14,6 +14,7 @@ add_executable(
   AnnouncerTest.cpp
   CoordinatorDiscovererTest.cpp
   HttpServerWrapper.cpp
+  JsonSignatureParserTest.cpp
   PrestoExchangeSourceTest.cpp
   PrestoTaskTest.cpp
   QueryContextCacheTest.cpp
@@ -28,6 +29,7 @@ add_test(
 target_link_libraries(
   presto_server_test
   presto_server_lib
+  presto_json_signature_parser
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
   velox_exec_test_lib
