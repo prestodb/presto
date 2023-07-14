@@ -1168,6 +1168,67 @@ std::shared_ptr<HiveBucketProperty> toHiveBucketProperty(
       bucketedTypes,
       sortedBy);
 }
+
+std::shared_ptr<core::LocalPartitionNode> buildLocalSystemPartitionNode(
+    const std::shared_ptr<const protocol::ExchangeNode>& node,
+    core::LocalPartitionNode::Type type,
+    const RowTypePtr& outputType,
+    std::vector<core::PlanNodePtr>&& sourceNodes,
+    const VeloxExprConverter& exprConverter) {
+  if (isHashPartition(node)) {
+    auto partitionKeys = toFieldExprs(
+        node->partitioningScheme.partitioning.arguments, exprConverter);
+    auto keyChannels = toChannels(outputType, partitionKeys);
+    return std::make_shared<core::LocalPartitionNode>(
+        node->id,
+        type,
+        std::make_shared<HashPartitionFunctionSpec>(outputType, keyChannels),
+        std::move(sourceNodes));
+  }
+
+  if (isRoundRobinPartition(node)) {
+    return std::make_shared<core::LocalPartitionNode>(
+        node->id,
+        type,
+        std::make_shared<RoundRobinPartitionFunctionSpec>(),
+        std::move(sourceNodes));
+  }
+
+  VELOX_UNSUPPORTED(
+      "Unsupported flavor of local exchange with system partitioning handle: {}",
+      toJsonString(node));
+}
+
+std::shared_ptr<core::LocalPartitionNode> buildLocalHivePartitionNode(
+    const std::shared_ptr<const protocol::ExchangeNode>& node,
+    const std::shared_ptr<protocol::HivePartitioningHandle>&
+        hivePartitioningHandle,
+    core::LocalPartitionNode::Type type,
+    const RowTypePtr& outputType,
+    std::vector<core::PlanNodePtr>&& sourceNodes,
+    const VeloxExprConverter& exprConverter) {
+  if (hivePartitioningHandle->bucketCount == 1) {
+    return core::LocalPartitionNode::gather(node->id, std::move(sourceNodes));
+  }
+
+  VELOX_USER_CHECK(
+      hivePartitioningHandle->bucketFunctionType ==
+          protocol::BucketFunctionType::HIVE_COMPATIBLE,
+      "Unsupported Hive bucket function type: {}",
+      toJsonString(hivePartitioningHandle->bucketFunctionType))
+
+  auto partitionKeys = toFieldExprs(
+      node->partitioningScheme.partitioning.arguments, exprConverter);
+  auto keyChannels = toChannels(outputType, partitionKeys);
+  return std::make_shared<core::LocalPartitionNode>(
+      node->id,
+      type,
+      std::make_shared<HivePartitionFunctionSpec>(
+          hivePartitioningHandle->bucketCount,
+          keyChannels,
+          std::vector<VectorPtr>{}),
+      std::move(sourceNodes));
+}
 } // namespace
 
 core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
@@ -1223,27 +1284,28 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         sourceNodes[i]);
   }
 
-  if (isHashPartition(node)) {
-    auto partitionKeys = toFieldExprs(
-        node->partitioningScheme.partitioning.arguments, exprConverter_);
-    auto keyChannels = toChannels(outputType, partitionKeys);
-    return std::make_shared<core::LocalPartitionNode>(
-        node->id,
-        type,
-        std::make_shared<HashPartitionFunctionSpec>(outputType, keyChannels),
-        std::move(sourceNodes));
-  }
-
-  if (isRoundRobinPartition(node)) {
-    return std::make_shared<core::LocalPartitionNode>(
-        node->id,
-        type,
-        std::make_shared<RoundRobinPartitionFunctionSpec>(),
-        std::move(sourceNodes));
-  }
-
   if (type == core::LocalPartitionNode::Type::kGather) {
     return core::LocalPartitionNode::gather(node->id, std::move(sourceNodes));
+  }
+
+  auto connectorHandle =
+      node->partitioningScheme.partitioning.handle.connectorHandle;
+  if (std::dynamic_pointer_cast<protocol::SystemPartitioningHandle>(
+          connectorHandle) != nullptr) {
+    return buildLocalSystemPartitionNode(
+        node, type, outputType, std::move(sourceNodes), exprConverter_);
+  }
+
+  if (auto hivePartitioningHandle =
+          std::dynamic_pointer_cast<protocol::HivePartitioningHandle>(
+              connectorHandle)) {
+    return buildLocalHivePartitionNode(
+        node,
+        hivePartitioningHandle,
+        type,
+        outputType,
+        std::move(sourceNodes),
+        exprConverter_);
   }
 
   VELOX_UNSUPPORTED(
@@ -2068,10 +2130,26 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       node->id,
       toRowType(node->columns),
       node->columnNames,
-      insertTableHandle,
+      std::move(aggregationNode),
+      std::move(insertTableHandle),
+      node->partitioningScheme != nullptr,
       outputType,
       getCommitStrategy(),
-      std::move(aggregationNode),
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+}
+
+std::shared_ptr<const core::TableWriteMergeNode>
+VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::TableWriterMergeNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  const auto outputType = toRowType(
+      {node->rowCountVariable,
+       node->fragmentVariable,
+       node->tableCommitContextVariable});
+  return std::make_shared<core::TableWriteMergeNode>(
+      node->id,
+      outputType,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
@@ -2353,6 +2431,11 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
           std::dynamic_pointer_cast<const protocol::TableWriterNode>(node)) {
     return toVeloxQueryPlan(tableWriter, tableWriteInfo, taskId);
   }
+  if (auto tableWriteMerger =
+          std::dynamic_pointer_cast<const protocol::TableWriterMergeNode>(
+              node)) {
+    return toVeloxQueryPlan(tableWriteMerger, tableWriteInfo, taskId);
+  }
   if (auto assignUniqueId =
           std::dynamic_pointer_cast<const protocol::AssignUniqueId>(node)) {
     return toVeloxQueryPlan(assignUniqueId, tableWriteInfo, taskId);
@@ -2522,8 +2605,9 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       default:
         VELOX_FAIL("Unsupported kind of SystemPartitioning");
     }
-  } else if (
-      auto hivePartitioningHandle =
+  }
+
+  if (auto hivePartitioningHandle =
           std::dynamic_pointer_cast<protocol::HivePartitioningHandle>(
               partitioningHandle)) {
     const auto& bucketToPartition = *partitioningScheme.bucketToPartition;
@@ -2557,11 +2641,10 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         toRowType(partitioningScheme.outputLayout),
         sourceNode);
     return planFragment;
-  } else {
-    VELOX_UNSUPPORTED(
-        "Unsupported partitioning handle: {}",
-        toJsonString(partitioningHandle));
   }
+
+  VELOX_UNSUPPORTED(
+      "Unsupported partitioning handle: {}", toJsonString(partitioningHandle));
 }
 
 core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
