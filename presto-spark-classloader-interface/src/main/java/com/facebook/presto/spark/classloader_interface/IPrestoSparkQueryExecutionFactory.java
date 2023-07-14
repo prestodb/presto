@@ -16,6 +16,7 @@ package com.facebook.presto.spark.classloader_interface;
 import org.apache.spark.SparkContext;
 import org.apache.spark.util.CollectionAccumulator;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -32,6 +33,6 @@ public interface IPrestoSparkQueryExecutionFactory
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             Optional<String> queryStatusInfoOutputLocation,
             Optional<String> queryDataOutputLocation,
-            Optional<RetryExecutionStrategy> retryExecutionStrategy,
+            List<RetryExecutionStrategy> retryExecutionStrategies,
             Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector);
 }
