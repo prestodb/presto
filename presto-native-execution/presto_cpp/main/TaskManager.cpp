@@ -50,10 +50,13 @@ static void maybeSetupTaskSpillDirectory(
     const core::PlanFragment& planFragment,
     exec::Task& execTask) {
   const auto baseSpillPath = SystemConfig::instance()->spillerSpillPath();
+  auto nodeConfig = NodeConfig::instance();
   if (baseSpillPath.hasValue() &&
       planFragment.canSpill(execTask.queryCtx()->queryConfig())) {
     const auto taskSpillDirPath = TaskManager::buildTaskSpillDirectoryPath(
         baseSpillPath.value(),
+        nodeConfig->nodeIp(),
+        nodeConfig->nodeId(),
         execTask.queryCtx()->queryId(),
         execTask.taskId());
     execTask.setSpillDirectory(taskSpillDirPath);
@@ -204,6 +207,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
 
 /*static*/ std::string TaskManager::buildTaskSpillDirectoryPath(
     const std::string& baseSpillPath,
+    const std::string& nodeIp,
+    const std::string& nodeId,
     const std::string& queryId,
     const protocol::TaskId& taskId) {
   // Generate 'YYYY-MM-DD' from the query ID, which starts with 'YYYYMMDD'.
@@ -218,9 +223,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
       : "1970-01-01";
 
   std::stringstream ss;
-  ss << baseSpillPath << "/";
-  ss << dateString;
-  ss << "/";
+  ss << baseSpillPath << "/" << nodeIp << "_" << nodeId << "/" << dateString
+     << "/";
   // TODO(spershin): We will like need to use identity (from config?) in the
   // long run. Use 'presto_native' for now.
   ss << "presto_native/" << queryId << "/" << taskId << "/";
