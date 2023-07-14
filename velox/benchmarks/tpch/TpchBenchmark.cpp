@@ -31,8 +31,6 @@
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/dwio/common/Options.h"
-#include "velox/dwio/dwrf/reader/DwrfReader.h"
-#include "velox/dwio/parquet/RegisterParquetReader.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/Split.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
@@ -242,12 +240,7 @@ class TpchBenchmark {
     aggregate::prestosql::registerAllAggregateFunctions();
     parse::registerTypeResolver();
     filesystems::registerLocalFileSystem();
-    if (FLAGS_use_native_parquet_reader) {
-      parquet::registerParquetReaderFactory(parquet::ParquetReaderType::NATIVE);
-    } else {
-      parquet::registerParquetReaderFactory(parquet::ParquetReaderType::DUCKDB);
-    }
-    dwrf::registerDwrfReaderFactory();
+
     ioExecutor_ =
         std::make_unique<folly::IOThreadPoolExecutor>(FLAGS_num_io_threads);
 

@@ -35,16 +35,12 @@ void HiveConnectorTestBase::SetUp() {
           connector::hive::HiveConnectorFactory::kHiveConnectorName)
           ->newConnector(kHiveConnectorId, nullptr, ioExecutor_.get());
   connector::registerConnector(hiveConnector);
-  dwrf::registerDwrfReaderFactory();
-  dwrf::registerDwrfWriterFactory();
 }
 
 void HiveConnectorTestBase::TearDown() {
   // Make sure all pending loads are finished or cancelled before unregister
   // connector.
   ioExecutor_.reset();
-  dwrf::unregisterDwrfReaderFactory();
-  dwrf::unregisterDwrfWriterFactory();
   connector::unregisterConnector(kHiveConnectorId);
   OperatorTestBase::TearDown();
 }

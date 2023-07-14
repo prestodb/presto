@@ -373,6 +373,9 @@ class ConnectorFactory {
 
   virtual ~ConnectorFactory() = default;
 
+  // Initialize is called during the factory registration.
+  virtual void initialize() {}
+
   const std::string& connectorName() const {
     return name_;
   }

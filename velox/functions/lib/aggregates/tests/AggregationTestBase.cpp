@@ -60,11 +60,9 @@ void AggregationTestBase::SetUp() {
           connector::hive::HiveConnectorFactory::kHiveConnectorName)
           ->newConnector(kHiveConnectorId, nullptr);
   connector::registerConnector(hiveConnector);
-  dwrf::registerDwrfReaderFactory();
 }
 
 void AggregationTestBase::TearDown() {
-  dwrf::unregisterDwrfReaderFactory();
   connector::unregisterConnector(kHiveConnectorId);
   OperatorTestBase::TearDown();
 }

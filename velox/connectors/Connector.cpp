@@ -32,6 +32,7 @@ std::unordered_map<std::string, std::shared_ptr<Connector>>& connectors() {
 } // namespace
 
 bool registerConnectorFactory(std::shared_ptr<ConnectorFactory> factory) {
+  factory->initialize();
   bool ok =
       connectorFactories().insert({factory->connectorName(), factory}).second;
   VELOX_CHECK(

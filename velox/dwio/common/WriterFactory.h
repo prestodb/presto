@@ -86,6 +86,12 @@ bool unregisterWriterFactory(FileFormat format);
  */
 std::shared_ptr<WriterFactory> getWriterFactory(FileFormat format);
 
+/**
+ * Check if a writer factory object exists for a specified file format.
+ * Returns true if there is a registered factory for this format, false
+ * otherwise.
+ * @return true
+ */
 bool hasWriterFactory(FileFormat format);
 
 } // namespace facebook::velox::dwio::common

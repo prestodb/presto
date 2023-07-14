@@ -15,6 +15,7 @@
  */
 
 #include "velox/common/file/benchmark/ReadBenchmark.h"
+#include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/S3FileSystem.h"
 
 DECLARE_string(s3_config);

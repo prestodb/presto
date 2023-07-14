@@ -20,14 +20,11 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/dwio/common/WriterFactory.h"
-#include "velox/dwio/parquet/RegisterParquetReader.h"
-#include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 #include <re2/re2.h>
 
@@ -844,12 +841,8 @@ class PartitionedTableWriterTest
   static std::vector<uint64_t> getTestParams() {
     std::vector<uint64_t> testParams;
     const std::vector<bool> multiDriverOptions = {false, true};
-    std::vector<FileFormat> fileFormats;
-    if (hasWriterFactory(FileFormat::PARQUET)) {
-      fileFormats = {FileFormat::DWRF, FileFormat::PARQUET};
-    } else {
-      fileFormats = {FileFormat::DWRF};
-    }
+    // Add Parquet with https://github.com/facebookincubator/velox/issues/5560
+    std::vector<FileFormat> fileFormats = {FileFormat::DWRF};
     for (bool multiDrivers : multiDriverOptions) {
       for (FileFormat fileFormat : fileFormats) {
         testParams.push_back(TestParam{
@@ -915,12 +908,8 @@ class UnpartitionedTableWriterTest
   static std::vector<uint64_t> getTestParams() {
     std::vector<uint64_t> testParams;
     const std::vector<bool> multiDriverOptions = {false, true};
-    std::vector<FileFormat> fileFormats;
-    if (hasWriterFactory(FileFormat::PARQUET)) {
-      fileFormats = {FileFormat::DWRF, FileFormat::PARQUET};
-    } else {
-      fileFormats = {FileFormat::DWRF};
-    }
+    // Add Parquet with https://github.com/facebookincubator/velox/issues/5560
+    std::vector<FileFormat> fileFormats = {FileFormat::DWRF};
     for (bool multiDrivers : multiDriverOptions) {
       for (FileFormat fileFormat : fileFormats) {
         testParams.push_back(TestParam{
@@ -954,12 +943,8 @@ class BucketedTableOnlyWriteTest
   static std::vector<uint64_t> getTestParams() {
     std::vector<uint64_t> testParams;
     const std::vector<bool> multiDriverOptions = {false, true};
-    std::vector<FileFormat> fileFormats;
-    if (hasWriterFactory(FileFormat::PARQUET)) {
-      fileFormats = {FileFormat::DWRF, FileFormat::PARQUET};
-    } else {
-      fileFormats = {FileFormat::DWRF};
-    }
+    // Add Parquet with https://github.com/facebookincubator/velox/issues/5560
+    std::vector<FileFormat> fileFormats = {FileFormat::DWRF};
     for (bool multiDrivers : multiDriverOptions) {
       for (FileFormat fileFormat : fileFormats) {
         testParams.push_back(TestParam{
@@ -1009,12 +994,8 @@ class PartitionedWithoutBucketTableWriterTest
   static std::vector<uint64_t> getTestParams() {
     std::vector<uint64_t> testParams;
     const std::vector<bool> multiDriverOptions = {false, true};
-    std::vector<FileFormat> fileFormats;
-    if (hasWriterFactory(FileFormat::PARQUET)) {
-      fileFormats = {FileFormat::DWRF, FileFormat::PARQUET};
-    } else {
-      fileFormats = {FileFormat::DWRF};
-    }
+    // Add Parquet with https://github.com/facebookincubator/velox/issues/5560
+    std::vector<FileFormat> fileFormats = {FileFormat::DWRF};
     for (bool multiDrivers : multiDriverOptions) {
       for (FileFormat fileFormat : fileFormats) {
         testParams.push_back(TestParam{
@@ -1047,12 +1028,8 @@ class AllTableWriterTest : public TableWriteTest,
   static std::vector<uint64_t> getTestParams() {
     std::vector<uint64_t> testParams;
     const std::vector<bool> multiDriverOptions = {false, true};
-    std::vector<FileFormat> fileFormats;
-    if (hasWriterFactory(FileFormat::PARQUET)) {
-      fileFormats = {FileFormat::DWRF, FileFormat::PARQUET};
-    } else {
-      fileFormats = {FileFormat::DWRF};
-    }
+    // Add Parquet with https://github.com/facebookincubator/velox/issues/5560
+    std::vector<FileFormat> fileFormats = {FileFormat::DWRF};
     for (bool multiDrivers : multiDriverOptions) {
       for (FileFormat fileFormat : fileFormats) {
         testParams.push_back(TestParam{

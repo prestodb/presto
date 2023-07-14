@@ -75,6 +75,4 @@ class S3FileSystem : public FileSystem {
   std::shared_ptr<Impl> impl_;
 };
 
-// Register the S3 filesystem.
-void registerS3FileSystem();
 } // namespace facebook::velox::filesystems

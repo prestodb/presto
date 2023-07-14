@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if(VELOX_ENABLE_S3)
-  add_subdirectory(s3fs)
-endif()
+add_subdirectory(s3fs)
+
 if(VELOX_ENABLE_HDFS)
   add_subdirectory(hdfs)
 endif()

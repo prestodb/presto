@@ -60,6 +60,7 @@ class ParquetTpchTestBase : public testing::Test {
     if (parquetReaderType_ == ParquetReaderType::DUCKDB) {
       FLAGS_split_preload_per_driver = 0;
     }
+    unregisterParquetReaderFactory();
     registerParquetReaderFactory(parquetReaderType_);
 
     auto hiveConnector =

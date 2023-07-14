@@ -102,14 +102,14 @@ class HiveConnectorFactory : public ConnectorFactory {
   static constexpr const char* FOLLY_NONNULL kHiveHadoop2ConnectorName =
       "hive-hadoop2";
 
-  HiveConnectorFactory() : ConnectorFactory(kHiveConnectorName) {
-    dwio::common::WriteFileDataSink::registerLocalFileFactory();
-  }
+  HiveConnectorFactory() : ConnectorFactory(kHiveConnectorName) {}
 
-  HiveConnectorFactory(const char* FOLLY_NONNULL connectorName)
-      : ConnectorFactory(connectorName) {
-    dwio::common::WriteFileDataSink::registerLocalFileFactory();
-  }
+  explicit HiveConnectorFactory(const char* FOLLY_NONNULL connectorName)
+      : ConnectorFactory(connectorName) {}
+
+  /// Register HiveConnector components such as Dwrf, Parquet readers and
+  /// writers and FileSystems.
+  void initialize() override;
 
   std::shared_ptr<Connector> newConnector(
       const std::string& id,

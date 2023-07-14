@@ -332,7 +332,6 @@ class S3FileSystem::Impl {
 };
 
 std::atomic<size_t> S3FileSystem::Impl::initCounter_(0);
-folly::once_flag S3FSInstantiationFlag;
 
 S3FileSystem::S3FileSystem(std::shared_ptr<const Config> config)
     : FileSystem(config) {
@@ -364,33 +363,6 @@ std::unique_ptr<WriteFile> S3FileSystem::openFileForWrite(
 
 std::string S3FileSystem::name() const {
   return "S3";
-}
-
-static std::function<std::shared_ptr<FileSystem>(
-    std::shared_ptr<const Config>,
-    std::string_view)>
-    filesystemGenerator = [](std::shared_ptr<const Config> properties,
-                             std::string_view filePath) {
-      // Only one instance of S3FileSystem is supported for now.
-      // TODO: Support multiple S3FileSystem instances using a cache
-      // Initialize on first access and reuse after that.
-      static std::shared_ptr<FileSystem> s3fs;
-      folly::call_once(S3FSInstantiationFlag, [&properties]() {
-        std::shared_ptr<S3FileSystem> fs;
-        if (properties != nullptr) {
-          fs = std::make_shared<S3FileSystem>(properties);
-        } else {
-          fs = std::make_shared<S3FileSystem>(
-              std::make_shared<core::MemConfig>());
-        }
-        fs->initializeClient();
-        s3fs = fs;
-      });
-      return s3fs;
-    };
-
-void registerS3FileSystem() {
-  registerFileSystem(isS3File, filesystemGenerator);
 }
 
 } // namespace filesystems
