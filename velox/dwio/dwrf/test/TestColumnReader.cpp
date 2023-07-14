@@ -207,7 +207,7 @@ class ColumnReaderTestBase {
   virtual bool returnFlatVector() const = 0;
 
   MockStripeStreams streams_;
-  AllocationPool pool_;
+  memory::AllocationPool pool_;
   StreamLabels labels_;
   std::unique_ptr<ColumnReader> columnReader_;
   std::unique_ptr<SelectiveColumnReader> selectiveColumnReader_;

@@ -1136,7 +1136,7 @@ class RowContainer {
   char* FOLLY_NULLABLE firstFreeRow_ = nullptr;
   uint64_t numFreeRows_ = 0;
 
-  AllocationPool rows_;
+  memory::AllocationPool rows_;
   HashStringAllocator stringAllocator_;
 
   // Partition number for each row. Used only in parallel hash join build.

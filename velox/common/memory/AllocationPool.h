@@ -17,7 +17,7 @@
 
 #include "velox/common/memory/Memory.h"
 
-namespace facebook::velox {
+namespace facebook::velox::memory {
 // A set of Allocations holding the fixed width payload
 // rows. The Runs are filled to the end except for the last one. This
 // is used for iterating over the payload for rehashing, returning
@@ -28,9 +28,6 @@ namespace facebook::velox {
 class AllocationPool {
  public:
   static constexpr int32_t kMinPages = 16;
-  static constexpr int64_t kPageSize = memory::AllocationTraits::kPageSize;
-  static constexpr int64_t kHugePageSize =
-      memory::AllocationTraits::kHugePageSize;
 
   explicit AllocationPool(memory::MemoryPool* pool) : pool_(pool) {}
 
@@ -156,4 +153,4 @@ class AllocationPool {
   int64_t hugePageThreshold_{kDefaultHugePageThreshold};
 };
 
-} // namespace facebook::velox
+} // namespace facebook::velox::memory

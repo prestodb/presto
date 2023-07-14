@@ -391,7 +391,7 @@ bool MmapAllocator::growContiguous(
   VELOX_CHECK_LE(
       allocation.size() + increment * AllocationTraits::kPageSize,
       allocation.maxSize());
-  if (reservationCB) {
+  if (reservationCB != nullptr) {
     // May throw. If does, there is nothing to revert.
     reservationCB(AllocationTraits::pageBytes(increment), true);
   }
@@ -408,21 +408,24 @@ bool MmapAllocator::growContiguous(
     }
     return false;
   }
+
   // Check if need to advise away
-  if (!ensureEnoughMappedPages(increment)) {
+  if (!ensureEnoughMappedPages(increment) ||
+      testingHasInjectedFailure(InjectedFailure::kMmap)) {
     VELOX_MEM_LOG(WARNING) << "Could not advise away enough for " << increment
                            << " pages for growing allocation of "
                            << allocation.numPages() << " pages";
-    if (reservationCB) {
-      reservationCB(increment, false);
+    if (reservationCB != nullptr) {
+      reservationCB(AllocationTraits::pageBytes(increment), false);
     }
     numAllocated_.fetch_sub(increment);
     return false;
   }
+
   numExternalMapped_ += increment;
   allocation.set(
       allocation.data(),
-      allocation.size() + AllocationTraits::kPageSize * increment,
+      allocation.size() + AllocationTraits::pageBytes(increment),
       allocation.maxSize());
   return true;
 }

@@ -433,7 +433,7 @@ class HashStringAllocator : public StreamArena {
   Header* FOLLY_NULLABLE currentHeader_ = nullptr;
 
   // Pool for getting new slabs.
-  AllocationPool pool_;
+  memory::AllocationPool pool_;
 
   // Map from pointer to size for large blocks allocated from pool().
   folly::F14FastMap<void*, size_t> allocationsFromPool_;

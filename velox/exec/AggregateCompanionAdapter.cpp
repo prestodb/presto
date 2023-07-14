@@ -157,7 +157,7 @@ int32_t AggregateCompanionAdapter::ExtractFunction::setOffset() const {
 }
 
 char** AggregateCompanionAdapter::ExtractFunction::allocateGroups(
-    AllocationPool& allocationPool,
+    memory::AllocationPool& allocationPool,
     const SelectivityVector& rows,
     uint64_t offsetInGroup) const {
   auto* groups =
@@ -197,7 +197,7 @@ void AggregateCompanionAdapter::ExtractFunction::apply(
     VectorPtr& result) const {
   // Set up data members of fn_.
   HashStringAllocator stringAllocator{context.pool()};
-  AllocationPool allocationPool{context.pool()};
+  memory::AllocationPool allocationPool{context.pool()};
   fn_->setAllocator(&stringAllocator);
 
   auto offset = setOffset();

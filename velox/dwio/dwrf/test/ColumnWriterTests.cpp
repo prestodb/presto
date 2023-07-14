@@ -338,7 +338,7 @@ void testDataTypeWriter(
     auto typeWithId = TypeWithId::create(rowType);
     auto reqType = typeWithId->childAt(0);
 
-    AllocationPool allocPool(pool.get());
+    memory::AllocationPool allocPool(pool.get());
     StreamLabels labels(allocPool);
     auto reader = ColumnReader::build(
         reqType,
@@ -925,7 +925,7 @@ void testMapWriter(
       TestStripeStreams streams(
           context, sf, rowType, &pool, returnFlatVector, structReaderContext);
       auto pool = addDefaultLeafMemoryPool();
-      AllocationPool allocPool(pool.get());
+      memory::AllocationPool allocPool(pool.get());
       StreamLabels labels(allocPool);
       const auto reader =
           ColumnReader::build(dataTypeWithId, dataTypeWithId, streams, labels);
@@ -1060,7 +1060,7 @@ void testMapWriterRow(
       TestStripeStreams streams(
           context, sf, rowType, &pool, returnFlatVector, structReaderContext);
       auto pool = addDefaultLeafMemoryPool();
-      AllocationPool allocPool(pool.get());
+      memory::AllocationPool allocPool(pool.get());
       StreamLabels labels(allocPool);
       const auto reader =
           ColumnReader::build(dataTypeWithId, dataTypeWithId, streams, labels);
@@ -2067,7 +2067,7 @@ struct IntegerColumnWriterTypedTestCase {
       }
 
       auto reqType = TypeWithId::create(rowType)->childAt(0);
-      AllocationPool allocPool(pool.get());
+      memory::AllocationPool allocPool(pool.get());
       StreamLabels labels(allocPool);
       auto columnReader =
           ColumnReader::build(reqType, reqType, streams, labels);
@@ -3301,7 +3301,7 @@ struct StringColumnWriterTestCase {
       }
 
       auto reqType = TypeWithId::create(rowType)->childAt(0);
-      AllocationPool allocPool(pool.get());
+      memory::AllocationPool allocPool(pool.get());
       StreamLabels labels(allocPool);
       auto columnReader =
           ColumnReader::build(reqType, reqType, streams, labels);
@@ -4373,7 +4373,7 @@ struct DictColumnWriterTestCase {
         .WillRepeatedly(Return(0));
     auto rowTypeWithId = TypeWithId::create(rowType);
     auto reqType = rowTypeWithId->childAt(0);
-    AllocationPool allocPool(pool.get());
+    memory::AllocationPool allocPool(pool.get());
     StreamLabels labels(allocPool);
     auto reader = ColumnReader::build(reqType, reqType, streams, labels);
     VectorPtr out;

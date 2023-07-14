@@ -1538,6 +1538,165 @@ TEST_P(MemoryPoolTest, contiguousAllocateExceedMemoryPoolLimit) {
   ASSERT_FALSE(allocation2.empty());
 }
 
+TEST_P(MemoryPoolTest, persistentContiguousGrowAllocateFailure) {
+  struct {
+    MachinePageCount numInitialPages;
+    MachinePageCount numGrowPages;
+    MemoryAllocator::InjectedFailure injectedFailure;
+    std::string expectedErrorMessage;
+    std::string debugString() const {
+      return fmt::format(
+          "numInitialPages:{}, numGrowPages:{}, injectedFailure:{}, expectedErrorMessage:{}",
+          numInitialPages,
+          numGrowPages,
+          injectedFailure,
+          expectedErrorMessage);
+    }
+  } testSettings[] = {// Cap failure injection.
+                      {10,
+                       100,
+                       MemoryAllocator::InjectedFailure::kCap,
+                       "growContiguous failed with 100 pages from Memory Pool"},
+                      {100,
+                       10,
+                       MemoryAllocator::InjectedFailure::kCap,
+                       "growContiguous failed with 10 pages from Memory Pool"},
+                      // Mmap failure injection.
+                      {10,
+                       100,
+                       MemoryAllocator::InjectedFailure::kMmap,
+                       "growContiguous failed with 100 pages from Memory Pool"},
+                      {100,
+                       10,
+                       MemoryAllocator::InjectedFailure::kMmap,
+                       "growContiguous failed with 10 pages from Memory Pool"},
+                      // Madvise failure injection.
+                      {10,
+                       100,
+                       MemoryAllocator::InjectedFailure::kMadvise,
+                       "growContiguous failed with 100 pages from Memory Pool"},
+                      {100,
+                       10,
+                       MemoryAllocator::InjectedFailure::kMadvise,
+                       "growContiguous failed with 10 pages from Memory Pool"}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    if (!useMmap_) {
+      // No failure injections supported for contiguous allocation of
+      // MallocAllocator.
+      continue;
+    }
+    auto manager = getMemoryManager(8 * GB);
+    auto root = manager->addRootPool();
+    auto pool = root->addLeafChild(
+        "persistentContiguousGrowAllocateFailure", isLeafThreadSafe_);
+    ContiguousAllocation allocation;
+    pool->allocateContiguous(
+        testData.numInitialPages,
+        allocation,
+        testData.numGrowPages + testData.numInitialPages);
+    allocator_->testingSetFailureInjection(testData.injectedFailure, true);
+    ASSERT_EQ(allocation.numPages(), testData.numInitialPages);
+    ASSERT_EQ(
+        allocation.maxSize(),
+        AllocationTraits::pageBytes(
+            testData.numInitialPages + testData.numGrowPages));
+    VELOX_ASSERT_THROW(
+        pool->growContiguous(testData.numGrowPages, allocation),
+        testData.expectedErrorMessage);
+    ASSERT_EQ(allocation.numPages(), testData.numInitialPages);
+    allocator_->testingClearFailureInjection();
+  }
+}
+
+TEST_P(MemoryPoolTest, transientContiguousGrowAllocateFailure) {
+  struct {
+    MachinePageCount numInitialPages;
+    MachinePageCount numGrowPages;
+    MemoryAllocator::InjectedFailure injectedFailure;
+    std::string debugString() const {
+      return fmt::format(
+          "numInitialPages:{}, numGrowPages:{}, injectedFailure:{}",
+          numInitialPages,
+          numGrowPages,
+          injectedFailure);
+    }
+  } testSettings[] = {// Cap failure injection.
+                      {10, 100, MemoryAllocator::InjectedFailure::kCap},
+                      {100, 10, MemoryAllocator::InjectedFailure::kCap},
+                      // Mmap failure injection.
+                      {10, 100, MemoryAllocator::InjectedFailure::kMmap},
+                      {100, 10, MemoryAllocator::InjectedFailure::kMmap},
+                      // Madvise failure injection.
+                      {10, 100, MemoryAllocator::InjectedFailure::kMadvise},
+                      {100, 10, MemoryAllocator::InjectedFailure::kMadvise}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(fmt::format(
+        "{}, useCache:{} , useMmap:{}",
+        testData.debugString(),
+        useCache_,
+        useMmap_));
+    if (!useMmap_) {
+      // No failure injections supported for contiguous allocation of
+      // MallocAllocator.
+      continue;
+    }
+    auto manager = getMemoryManager(8 * GB);
+    auto root = manager->addRootPool();
+    auto pool = root->addLeafChild(
+        "transientContiguousGrowAllocateFailure", isLeafThreadSafe_);
+    ContiguousAllocation allocation;
+    pool->allocateContiguous(
+        testData.numInitialPages,
+        allocation,
+        testData.numGrowPages + testData.numInitialPages);
+    allocator_->testingSetFailureInjection(testData.injectedFailure, false);
+    ASSERT_EQ(allocation.numPages(), testData.numInitialPages);
+    ASSERT_EQ(
+        allocation.maxSize(),
+        AllocationTraits::pageBytes(
+            testData.numInitialPages + testData.numGrowPages));
+    // NOTE: AsyncDataCache will retry on the transient memory allocation
+    // failures from the underlying allocator.
+    if (useCache_) {
+      pool->growContiguous(testData.numGrowPages, allocation);
+      ASSERT_EQ(
+          allocation.numPages(),
+          testData.numInitialPages + testData.numGrowPages);
+      ASSERT_EQ(
+          allocation.maxSize(),
+          AllocationTraits::pageBytes(
+              testData.numInitialPages + testData.numGrowPages));
+    } else {
+      ASSERT_THROW(
+          pool->growContiguous(testData.numInitialPages, allocation),
+          VeloxRuntimeError);
+      ASSERT_EQ(allocation.numPages(), testData.numInitialPages);
+    }
+    allocator_->testingClearFailureInjection();
+  }
+}
+
+TEST_P(MemoryPoolTest, contiguousAllocateGrowExceedMemoryPoolLimit) {
+  const MachinePageCount kMaxNumPages = 1 << 10;
+  const auto kMemoryCapBytes = kMaxNumPages * AllocationTraits::kPageSize;
+  auto manager = getMemoryManager(1 << 30);
+  auto root = manager->addRootPool(
+      "contiguousAllocateGrowExceedMemoryPoolLimit", kMemoryCapBytes);
+  auto pool = root->addLeafChild(
+      "contiguousAllocateGrowExceedMemoryPoolLimit", isLeafThreadSafe_);
+
+  ContiguousAllocation allocation;
+  pool->allocateContiguous(kMaxNumPages / 2, allocation, kMaxNumPages * 2);
+  ASSERT_EQ(allocation.numPages(), kMaxNumPages / 2);
+  ASSERT_EQ(
+      allocation.maxSize(), AllocationTraits::pageBytes(kMaxNumPages * 2));
+  VELOX_ASSERT_THROW(
+      pool->growContiguous(kMaxNumPages, allocation),
+      "Exceeded memory pool cap");
+  ASSERT_EQ(allocation.numPages(), kMaxNumPages / 2);
+}
+
 TEST_P(MemoryPoolTest, badNonContiguousAllocation) {
   auto manager = getMemoryManager(8 * GB);
   auto pool = manager->addLeafPool("badNonContiguousAllocation");

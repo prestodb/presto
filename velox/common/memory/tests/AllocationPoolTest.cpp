@@ -40,7 +40,7 @@ class AllocationPoolTest : public testing::Test {
 
 TEST_F(AllocationPoolTest, hugePages) {
   constexpr int64_t kHugePageSize = memory::AllocationTraits::kHugePageSize;
-  auto allocationPool = std::make_unique<AllocationPool>(pool_.get());
+  auto allocationPool = std::make_unique<memory::AllocationPool>(pool_.get());
   allocationPool->setHugePageThreshold(128 << 10);
   int32_t counter = 0;
   for (;;) {

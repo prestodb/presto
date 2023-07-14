@@ -407,7 +407,7 @@ void DwrfRowReader::startNextStripe() {
   auto dataType = getReader().getSchemaWithId();
   FlatMapContext flatMapContext;
   flatMapContext.keySelectionCallback = options_.getKeySelectionCallback();
-  AllocationPool pool(&getReader().getMemoryPool());
+  memory::AllocationPool pool(&getReader().getMemoryPool());
   StreamLabels streamLabels(pool);
 
   if (scanSpec) {

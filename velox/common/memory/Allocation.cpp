@@ -93,8 +93,7 @@ void ContiguousAllocation::clear() {
 }
 
 MachinePageCount ContiguousAllocation::numPages() const {
-  return bits::roundUp(size_, AllocationTraits::kPageSize) /
-      AllocationTraits::kPageSize;
+  return AllocationTraits::numPages(size_);
 }
 
 std::optional<folly::Range<char*>> ContiguousAllocation::hugePageRange() const {

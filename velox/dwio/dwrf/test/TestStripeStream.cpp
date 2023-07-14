@@ -641,7 +641,7 @@ TEST(StripeStream, shareDictionary) {
       ss, getStreamProxy(2, Not(0), proto::Stream_Kind_DICTIONARY_DATA, _))
       .WillRepeatedly(Return(nullptr));
 
-  facebook::velox::AllocationPool allocPool(pool.get());
+  facebook::velox::memory::AllocationPool allocPool(pool.get());
   StreamLabels labels(allocPool);
   std::vector<std::function<facebook::velox::BufferPtr()>> dictInits{};
   dictInits.push_back(

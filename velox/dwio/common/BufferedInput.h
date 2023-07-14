@@ -43,7 +43,7 @@ class BufferedInput {
         pool_{pool},
         maxMergeDistance_{maxMergeDistance},
         wsVRLoad_{wsVRLoad},
-        allocPool_{std::make_unique<AllocationPool>(&pool)} {}
+        allocPool_{std::make_unique<memory::AllocationPool>(&pool)} {}
 
   BufferedInput(
       std::shared_ptr<ReadFileInputStream> input,
@@ -54,7 +54,7 @@ class BufferedInput {
         pool_(pool),
         maxMergeDistance_{maxMergeDistance},
         wsVRLoad_{wsVRLoad},
-        allocPool_{std::make_unique<AllocationPool>(&pool)} {}
+        allocPool_{std::make_unique<memory::AllocationPool>(&pool)} {}
 
   BufferedInput(BufferedInput&&) = default;
   virtual ~BufferedInput() = default;
@@ -146,7 +146,7 @@ class BufferedInput {
  private:
   uint64_t maxMergeDistance_;
   std::optional<bool> wsVRLoad_;
-  std::unique_ptr<AllocationPool> allocPool_;
+  std::unique_ptr<memory::AllocationPool> allocPool_;
 
   // Regions enqueued for reading
   std::vector<velox::common::Region> regions_;

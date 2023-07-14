@@ -149,7 +149,7 @@ struct AggregateCompanionAdapter {
     int32_t setOffset() const;
 
     char** allocateGroups(
-        AllocationPool& allocationPool,
+        memory::AllocationPool& allocationPool,
         const SelectivityVector& rows,
         uint64_t offsetInGroup) const;
 

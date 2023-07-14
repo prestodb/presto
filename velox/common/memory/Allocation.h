@@ -42,8 +42,15 @@ struct AllocationTraits {
     return numPages * kPageSize;
   }
 
-  static MachinePageCount numPages(uint64_t bytes) {
+  FOLLY_ALWAYS_INLINE static MachinePageCount numPages(uint64_t bytes) {
     return bits::roundUp(bytes, kPageSize) / kPageSize;
+  }
+
+  /// The number of pages in a huge page.
+  FOLLY_ALWAYS_INLINE static MachinePageCount numPagesInHugePage() {
+    VELOX_DCHECK_GE(kHugePageSize, kPageSize);
+    VELOX_DCHECK_EQ(kHugePageSize % kPageSize, 0);
+    return kHugePageSize / kPageSize;
   }
 };
 

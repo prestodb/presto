@@ -237,7 +237,7 @@ class GroupingSet {
   // Used to allocate memory for a single row accumulating results of global
   // aggregation
   HashStringAllocator stringAllocator_;
-  AllocationPool rows_;
+  memory::AllocationPool rows_;
   const bool isAdaptive_;
 
   bool noMoreInput_{false};

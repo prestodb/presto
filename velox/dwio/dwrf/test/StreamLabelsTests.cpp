@@ -19,7 +19,7 @@
 #include "velox/dwio/dwrf/reader/StreamLabels.h"
 
 using namespace ::testing;
-using facebook::velox::AllocationPool;
+using facebook::velox::memory::AllocationPool;
 using namespace facebook::velox::dwrf;
 
 TEST(StreamLabelsTest, E2E) {

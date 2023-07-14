@@ -22,17 +22,17 @@ namespace facebook::velox::dwrf {
 
 class StreamLabels {
  public:
-  explicit StreamLabels(AllocationPool& pool) : pool_(pool) {}
+  explicit StreamLabels(memory::AllocationPool& pool) : pool_(pool) {}
 
   StreamLabels append(std::string_view suffix) const;
 
   std::string_view label() const;
 
  private:
-  StreamLabels(AllocationPool& pool, std::string_view label)
+  StreamLabels(memory::AllocationPool& pool, std::string_view label)
       : pool_{pool}, label_{label} {}
 
-  AllocationPool& pool_;
+  memory::AllocationPool& pool_;
   std::string_view label_;
 };
 
