@@ -497,23 +497,23 @@ public class PrestoSparkQueryRunner
     public MaterializedResult execute(Session session, String sql)
     {
         try {
-            return execute(session, sql, Optional.empty());
+            return executeWithRetryStrategies(session, sql, ImmutableList.of());
         }
         catch (PrestoSparkFailure failure) {
-            if (failure.getRetryExecutionStrategy().isPresent()) {
-                return execute(session, sql, failure.getRetryExecutionStrategy());
+            if (!failure.getRetryExecutionStrategies().isEmpty()) {
+                return executeWithRetryStrategies(session, sql, failure.getRetryExecutionStrategies());
             }
 
             throw failure;
         }
     }
 
-    private MaterializedResult execute(
+    private MaterializedResult executeWithRetryStrategies(
             Session session,
             String sql,
-            Optional<RetryExecutionStrategy> retryExecutionStrategy)
+            List<RetryExecutionStrategy> retryExecutionStrategies)
     {
-        IPrestoSparkQueryExecution execution = createPrestoSparkQueryExecution(session, sql, retryExecutionStrategy);
+        IPrestoSparkQueryExecution execution = createPrestoSparkQueryExecution(session, sql, retryExecutionStrategies);
         List<List<Object>> results = execution.execute();
 
         List<MaterializedRow> rows = results.stream()
@@ -561,12 +561,12 @@ public class PrestoSparkQueryRunner
 
     public IPrestoSparkQueryExecution createPrestoSparkQueryExecution(Session session,
             String sql,
-            Optional<RetryExecutionStrategy> retryExecutionStrategy)
+            List<RetryExecutionStrategy> retryExecutionStrategies)
     {
         IPrestoSparkQueryExecutionFactory executionFactory = prestoSparkService.getQueryExecutionFactory();
         IPrestoSparkQueryExecution execution = executionFactory.create(
                 sparkContext,
-                createSessionInfo(session, retryExecutionStrategy),
+                createSessionInfo(session),
                 Optional.of(sql),
                 Optional.empty(),
                 Optional.empty(),
@@ -575,12 +575,12 @@ public class PrestoSparkQueryRunner
                 new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId),
                 Optional.empty(),
                 Optional.empty(),
-                retryExecutionStrategy,
+                retryExecutionStrategies,
                 Optional.empty());
         return execution;
     }
 
-    private static PrestoSparkSession createSessionInfo(Session session, Optional<RetryExecutionStrategy> retryExecutionStrategy)
+    private static PrestoSparkSession createSessionInfo(Session session)
     {
         ImmutableMap.Builder<String, Map<String, String>> catalogSessionProperties = ImmutableMap.builder();
         catalogSessionProperties.putAll(session.getConnectorProperties().entrySet().stream()
