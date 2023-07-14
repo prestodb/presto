@@ -17,10 +17,13 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.cost.HistoryBasedStatisticsCacheManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.statistics.PlanStatistics;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -78,21 +81,29 @@ public class CachingPlanCanonicalInfoProvider
             // Compute input table statistics for the plan node. This is useful in history based optimizations,
             // where historical plan statistics are reused if input tables are similar in size across runs.
             List<PlanStatistics> inputTableStatistics = context.getInputTables().get(plan).stream()
-                    .map(table -> metadata.getTableStatistics(
-                            session,
-                            // Remove table layout, so we don't include filter stats
-                            new TableHandle(
-                                    table.getTable().getConnectorId(),
-                                    table.getTable().getConnectorHandle(),
-                                    table.getTable().getTransaction(),
-                                    Optional.empty()),
-                            ImmutableList.copyOf(table.getAssignments().values()),
-                            new Constraint<>(table.getCurrentConstraint())))
-                    .map(tableStatistics -> new PlanStatistics(tableStatistics.getRowCount(), tableStatistics.getTotalSize(), 1))
+                    .map(table -> getPlanStatisticsForTable(session, table))
                     .collect(toImmutableList());
             cache.put(new CacheKey(plan, key.getStrategy()), new PlanNodeCanonicalInfo(hashValue, inputTableStatistics));
         });
         return Optional.ofNullable(cache.get(key));
+    }
+
+    private PlanStatistics getPlanStatisticsForTable(Session session, TableScanNode table)
+    {
+        InputTableCacheKey key = new InputTableCacheKey(new TableHandle(
+                table.getTable().getConnectorId(),
+                table.getTable().getConnectorHandle(),
+                table.getTable().getTransaction(),
+                Optional.empty()), ImmutableList.copyOf(table.getAssignments().values()), new Constraint<>(table.getCurrentConstraint()));
+        Map<InputTableCacheKey, PlanStatistics> cache = historyBasedStatisticsCacheManager.getInputTableStatistics(session.getQueryId());
+        PlanStatistics planStatistics = cache.get(key);
+        if (planStatistics != null) {
+            return planStatistics;
+        }
+        TableStatistics tableStatistics = metadata.getTableStatistics(session, key.getTableHandle(), key.getColumnHandles(), key.getConstraint());
+        planStatistics = new PlanStatistics(tableStatistics.getRowCount(), tableStatistics.getTotalSize(), 1);
+        cache.put(key, planStatistics);
+        return planStatistics;
     }
 
     @VisibleForTesting
@@ -150,6 +161,55 @@ public class CachingPlanCanonicalInfoProvider
         public int hashCode()
         {
             return Objects.hash(System.identityHashCode(node), strategy);
+        }
+    }
+
+    public static class InputTableCacheKey
+    {
+        private final TableHandle tableHandle;
+        private final List<ColumnHandle> columnHandles;
+        private final Constraint<ColumnHandle> constraint;
+
+        public InputTableCacheKey(TableHandle tableHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
+        {
+            this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+            this.columnHandles = ImmutableList.copyOf(columnHandles);
+            this.constraint = requireNonNull(constraint, "constraint is null");
+        }
+
+        public TableHandle getTableHandle()
+        {
+            return tableHandle;
+        }
+
+        public List<ColumnHandle> getColumnHandles()
+        {
+            return columnHandles;
+        }
+
+        public Constraint<ColumnHandle> getConstraint()
+        {
+            return constraint;
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (!(obj instanceof InputTableCacheKey)) {
+                return false;
+            }
+
+            InputTableCacheKey other = (InputTableCacheKey) obj;
+            return this.tableHandle.equals(other.tableHandle) && this.columnHandles.equals(other.columnHandles) && this.constraint.equals(other.constraint);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(tableHandle, columnHandles, constraint);
         }
     }
 }
