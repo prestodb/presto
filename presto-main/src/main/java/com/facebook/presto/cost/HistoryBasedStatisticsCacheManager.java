@@ -17,6 +17,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
+import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.sql.planner.CachingPlanCanonicalInfoProvider;
 import com.facebook.presto.sql.planner.PlanNodeCanonicalInfo;
 import com.google.common.annotations.VisibleForTesting;
@@ -39,6 +40,8 @@ public class HistoryBasedStatisticsCacheManager
 
     // Cache hashes of plan node.
     private final Map<QueryId, Map<CachingPlanCanonicalInfoProvider.CacheKey, PlanNodeCanonicalInfo>> canonicalInfoCache = new ConcurrentHashMap<>();
+
+    private final Map<QueryId, Map<CachingPlanCanonicalInfoProvider.InputTableCacheKey, PlanStatistics>> inputTableStatistics = new ConcurrentHashMap<>();
 
     public HistoryBasedStatisticsCacheManager() {}
 
@@ -71,10 +74,16 @@ public class HistoryBasedStatisticsCacheManager
         return canonicalInfoCache.computeIfAbsent(queryId, ignored -> new ConcurrentHashMap());
     }
 
+    public Map<CachingPlanCanonicalInfoProvider.InputTableCacheKey, PlanStatistics> getInputTableStatistics(QueryId queryId)
+    {
+        return inputTableStatistics.computeIfAbsent(queryId, ignored -> new ConcurrentHashMap());
+    }
+
     public void invalidate(QueryId queryId)
     {
         statisticsCache.remove(queryId);
         canonicalInfoCache.remove(queryId);
+        inputTableStatistics.remove(queryId);
     }
 
     @VisibleForTesting
