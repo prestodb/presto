@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.io.Resources;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -907,6 +908,8 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(session, getTpcdsQuery("63"));
     }
 
+    // TODO This test often fails in CI only. Tracked by https://github.com/prestodb/presto/issues/20271
+    @Ignore
     @Test
     public void testTpcdsQ64()
             throws Exception
