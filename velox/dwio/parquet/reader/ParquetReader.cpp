@@ -110,9 +110,6 @@ void ReaderBase::initializeSchema() {
       0,
       "Invalid Parquet schema: root element must have at least 1 child");
 
-  std::vector<std::shared_ptr<const ParquetTypeWithId::TypeWithId>> children;
-  children.reserve(fileMetaData_->schema[0].num_children);
-
   uint32_t maxDefine = 0;
   uint32_t maxRepeat = 0;
   uint32_t schemaIdx = 0;
