@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nullable;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.execution.ExecutionFailureInfo.toStackTraceElement;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isRetryOnOutOfMemoryBroadcastJoinEnabled;
@@ -50,7 +49,7 @@ public class PrestoSparkFailureUtils
         PrestoSparkFailure prestoSparkFailure = toPrestoSparkFailure(executionFailureInfo);
         checkState(prestoSparkFailure != null);
 
-        Optional<RetryExecutionStrategy> retryExecutionStrategy = getRetryExecutionStrategy(session,
+        List<RetryExecutionStrategy> retryExecutionStrategies = getRetryExecutionStrategies(session,
                 executionFailureInfo.getErrorCode(),
                 executionFailureInfo.getMessage(),
                 executionFailureInfo.getErrorCause());
@@ -59,7 +58,7 @@ public class PrestoSparkFailureUtils
                 prestoSparkFailure.getCause(),
                 prestoSparkFailure.getType(),
                 prestoSparkFailure.getErrorCode(),
-                retryExecutionStrategy);
+                retryExecutionStrategies);
     }
 
     @Nullable
@@ -74,7 +73,7 @@ public class PrestoSparkFailureUtils
                 toPrestoSparkFailure(executionFailureInfo.getCause()),
                 executionFailureInfo.getType(),
                 executionFailureInfo.getErrorCode() == null ? "" : executionFailureInfo.getErrorCode().getName(),
-                Optional.empty());
+                ImmutableList.of());
 
         for (ExecutionFailureInfo suppressed : executionFailureInfo.getSuppressed()) {
             prestoSparkFailure.addSuppressed(requireNonNull(toPrestoSparkFailure(suppressed), "suppressed failure is null"));
@@ -88,27 +87,32 @@ public class PrestoSparkFailureUtils
         return prestoSparkFailure;
     }
 
-    private static Optional<RetryExecutionStrategy> getRetryExecutionStrategy(Session session, ErrorCode errorCode, String message, ErrorCause errorCause)
+    /**
+     * Returns a list of retry strategies based on the provided error.
+     */
+    private static List<RetryExecutionStrategy> getRetryExecutionStrategies(Session session, ErrorCode errorCode, String message, ErrorCause errorCause)
     {
         if (errorCode == null || message == null) {
-            return Optional.empty();
+            return ImmutableList.of();
         }
+
+        ImmutableList.Builder<RetryExecutionStrategy> strategies = new ImmutableList.Builder<>();
 
         if (isRetryOnOutOfMemoryBroadcastJoinEnabled(session) &&
                 errorCode.equals(EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT.toErrorCode())) {
-            return Optional.of(DISABLE_BROADCAST_JOIN);
+            strategies.add(DISABLE_BROADCAST_JOIN);
         }
 
         if (isRetryOnOutOfMemoryWithIncreasedMemoryEnabled(session)
                 && (errorCode.equals(EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()) || errorCode.equals(SPARK_EXECUTOR_OOM.toErrorCode()))) {
-            return Optional.of(INCREASE_CONTAINER_SIZE);
+            strategies.add(INCREASE_CONTAINER_SIZE);
         }
 
         if (isRetryOnOutOfMemoryWithHigherHashPartitionCountEnabled(session) &&
                 LOW_PARTITION_COUNT == errorCause) {
-            return Optional.of(INCREASE_HASH_PARTITION_COUNT);
+            strategies.add(INCREASE_HASH_PARTITION_COUNT);
         }
 
-        return Optional.empty();
+        return strategies.build();
     }
 }
