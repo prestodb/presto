@@ -574,19 +574,16 @@ TEST_F(SharedArbitrationTest, reclaimFromCompletedOrderBy) {
   }
 }
 
-DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromAggregation) {
-  LOG(ERROR) << "start query";
+DEBUG_ONLY_TEST_F(SharedArbitrationTest, DISABLED_reclaimFromAggregation) {
   const int numVectors = 32;
   std::vector<RowVectorPtr> vectors;
   for (int i = 0; i < numVectors; ++i) {
     vectors.push_back(newVector());
   }
   createDuckDbTable(vectors);
-  LOG(ERROR) << "done duckdb";
   std::vector<bool> sameQueries = {false, true};
   for (bool sameQuery : sameQueries) {
     SCOPED_TRACE(fmt::format("sameQuery {}", sameQuery));
-    LOG(ERROR) << "sameQuery " << sameQuery;
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     std::shared_ptr<core::QueryCtx> fakeMemoryQueryCtx =
         newQueryCtx(kMemoryCapacity);

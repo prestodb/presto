@@ -189,7 +189,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   virtual MemoryPool* parent() const;
 
   /// Returns the root of this memory pool.
-  virtual MemoryPool* root();
+  virtual MemoryPool* root() const;
 
   /// Returns the number of child memory pools.
   virtual uint64_t getChildCount() const;
@@ -870,7 +870,9 @@ class MemoryPoolImpl : public MemoryPool {
 
   FOLLY_ALWAYS_INLINE std::string toStringLocked() const {
     std::stringstream out;
-    out << "Memory Pool[" << name_ << " " << kindString(kind_) << " "
+    out << "Memory Pool[" << name_ << " " << kindString(kind_) << " root["
+        << root()->name() << "] parent["
+        << (isRoot() ? "null" : parent_->name()) << "] "
         << MemoryAllocator::kindString(allocator_->kind())
         << (trackUsage_ ? " track-usage" : " no-usage-track")
         << (threadSafe_ ? " thread-safe" : " non-thread-safe") << "]<";
