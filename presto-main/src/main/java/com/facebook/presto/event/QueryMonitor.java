@@ -24,6 +24,7 @@ import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.Column;
@@ -59,6 +60,8 @@ import com.facebook.presto.spi.eventlistener.QueryStatistics;
 import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.ResourceDistribution;
 import com.facebook.presto.spi.eventlistener.StageStatistics;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import com.google.common.collect.ImmutableList;
@@ -79,7 +82,9 @@ import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.graphvizDistributedPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonDistributedPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Double.NaN;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.time.Duration.ofMillis;
@@ -290,6 +295,8 @@ public class QueryMonitor
 
     private List<OperatorStatistics> createOperatorStatistics(QueryInfo queryInfo)
     {
+        Map<PlanNodeId, PlanNodeStatsEstimate> estimateMap = queryInfo.getPlanStatsAndCosts().getStats();
+        Map<PlanNodeId, PlanNode> planNodeIdMap = queryInfo.getPlanIdNodeMap();
         return queryInfo.getQueryStats().getOperatorSummaries().stream()
                 .map(operatorSummary -> new OperatorStatistics(
                         operatorSummary.getStageId(),
@@ -328,8 +335,19 @@ public class QueryMonitor
                         operatorSummary.getPeakTotalMemoryReservation(),
                         operatorSummary.getSpilledDataSize(),
                         Optional.ofNullable(operatorSummary.getInfo()).map(operatorInfoCodec::toJson),
-                        operatorSummary.getRuntimeStats()))
+                        operatorSummary.getRuntimeStats(),
+                        getPlanNodeEstimateOutputSize(operatorSummary.getPlanNodeId(), estimateMap, planNodeIdMap),
+                        estimateMap.containsKey(operatorSummary.getPlanNodeId()) ? estimateMap.get(operatorSummary.getPlanNodeId()).getOutputRowCount() : NaN))
                 .collect(toImmutableList());
+    }
+
+    private double getPlanNodeEstimateOutputSize(PlanNodeId nodeId, Map<PlanNodeId, PlanNodeStatsEstimate> estimateMap, Map<PlanNodeId, PlanNode> planNodeIdMap)
+    {
+        if (!estimateMap.containsKey(nodeId)) {
+            return NaN;
+        }
+        checkArgument(planNodeIdMap.containsKey(nodeId), "plan node does not exist in planNodeIdMap");
+        return estimateMap.get(nodeId).getOutputSizeInBytes(planNodeIdMap.get(nodeId));
     }
 
     private QueryStatistics createQueryStatistics(QueryInfo queryInfo)

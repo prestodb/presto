@@ -25,6 +25,8 @@ import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
@@ -97,6 +99,7 @@ public class QueryInfo
     private final Set<String> windowsFunctions;
     // Using a list rather than map, to avoid implementing map key deserializer
     private final List<CanonicalPlanWithInfo> planCanonicalInfo;
+    private Map<PlanNodeId, PlanNode> planIdNodeMap;
 
     @JsonCreator
     public QueryInfo(
@@ -139,7 +142,8 @@ public class QueryInfo
             @JsonProperty("scalarFunctions") Set<String> scalarFunctions,
             @JsonProperty("aggregateFunctions") Set<String> aggregateFunctions,
             @JsonProperty("windowsFunctions") Set<String> windowsFunctions,
-            List<CanonicalPlanWithInfo> planCanonicalInfo)
+            List<CanonicalPlanWithInfo> planCanonicalInfo,
+            Map<PlanNodeId, PlanNode> planIdNodeMap)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -218,6 +222,7 @@ public class QueryInfo
         this.aggregateFunctions = aggregateFunctions;
         this.windowsFunctions = windowsFunctions;
         this.planCanonicalInfo = planCanonicalInfo == null ? ImmutableList.of() : planCanonicalInfo;
+        this.planIdNodeMap = planIdNodeMap == null ? ImmutableMap.of() : ImmutableMap.copyOf(planIdNodeMap);
     }
 
     @JsonProperty
@@ -474,6 +479,11 @@ public class QueryInfo
     public List<CanonicalPlanWithInfo> getPlanCanonicalInfo()
     {
         return planCanonicalInfo;
+    }
+
+    public Map<PlanNodeId, PlanNode> getPlanIdNodeMap()
+    {
+        return planIdNodeMap;
     }
 
     @Override
