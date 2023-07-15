@@ -543,6 +543,7 @@ public class SqlQueryExecution
 
             queryPlan.set(plan);
             stateMachine.setPlanStatsAndCosts(plan.getStatsAndCosts());
+            stateMachine.setPlanIdNodeMap(plan.getPlanIdNodeMap());
             stateMachine.setPlanCanonicalInfo(getCanonicalInfo(getSession(), plan.getRoot(), planCanonicalInfoProvider));
 
             // extract inputs
