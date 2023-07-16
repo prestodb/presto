@@ -133,4 +133,15 @@ public class MapSqlFunctions
     {
         return "RETURN NONE_MATCH(MAP_KEYS(input), f)";
     }
+
+    @SqlInvokedScalarFunction(value = "no_values_match", deterministic = true, calledOnNullInput = true)
+    @Description("Returns whether no values of a map match the given predicate.")
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "f", type = "function(V, boolean)")})
+    @SqlType("boolean")
+    public static String noValuesMatch()
+    {
+        return "RETURN NONE_MATCH(MAP_VALUES(input), f)";
+    }
 }
