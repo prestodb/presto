@@ -375,7 +375,7 @@ bool RowType::equivalent(const Type& other) const {
     return false;
   }
   for (size_t i = 0; i < size(); ++i) {
-    if (*childAt(i) != *otherTyped.childAt(i)) {
+    if (!childAt(i)->equivalent(*otherTyped.childAt(i))) {
       return false;
     }
   }

@@ -794,3 +794,28 @@ TEST(TypeTest, fromKindToScalerType) {
     EXPECT_ANY_THROW(fromKindToScalerType(kind));
   }
 }
+
+TEST(TypeTest, rowEquvialentCheckWithChildRowsWithDifferentNames) {
+  std::vector<TypePtr> types;
+  std::vector<TypePtr> typesWithDifferentNames;
+  RowTypePtr childRowType1 =
+      ROW({"a", "b", "c"}, {TINYINT(), VARBINARY(), BIGINT()});
+  RowTypePtr childRowType2 =
+      ROW({"d", "e", "f"}, {TINYINT(), VARBINARY(), BIGINT()});
+  RowTypePtr childRowType3 =
+      ROW({"x", "y", "z"}, {TINYINT(), VARBINARY(), BIGINT()});
+  RowTypePtr childRowType1WithDifferentNames =
+      ROW({"A", "B", "C"}, {TINYINT(), VARBINARY(), BIGINT()});
+  RowTypePtr childRowType2WithDifferentNames =
+      ROW({"D", "E", "F"}, {TINYINT(), VARBINARY(), BIGINT()});
+  RowTypePtr childRowType3WithDifferentNames =
+      ROW({"X", "Y", "Z"}, {TINYINT(), VARBINARY(), BIGINT()});
+  RowTypePtr rowType =
+      ROW({"A", "B", "C"}, {childRowType1, childRowType2, childRowType3});
+  RowTypePtr rowTypeWithDifferentName =
+      ROW({"a", "b", "c"},
+          {childRowType1WithDifferentNames,
+           childRowType2WithDifferentNames,
+           childRowType3WithDifferentNames});
+  ASSERT_TRUE(rowTypeWithDifferentName->equivalent(*rowType));
+}
