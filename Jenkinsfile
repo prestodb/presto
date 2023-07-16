@@ -5,8 +5,8 @@ pipeline {
     environment {
         AWS_CREDENTIAL_ID  = 'aws-jenkins'
         AWS_DEFAULT_REGION = 'us-east-1'
-        AWS_ECR            = credentials('aws-ecr-private-registry')
-        AWS_S3_PREFIX      = 's3://oss-jenkins/artifact/presto'
+        AWS_ECR            = 'public.ecr.aws/oss-presto'
+        AWS_S3_PREFIX      = 's3://oss-prestodb/presto'
     }
 
     options {
@@ -92,12 +92,12 @@ pipeline {
                             env.PRESTO_BUILD_VERSION = env.PRESTO_VERSION + '-' +
                                 sh(script: "git show -s --format=%cd --date=format:'%Y%m%d%H%M%S'", returnStdout: true).trim() + "-" +
                                 env.PRESTO_COMMIT_SHA.substring(0, 7)
-                            env.DOCKER_IMAGE = env.AWS_ECR + "/oss-presto/presto:${PRESTO_BUILD_VERSION}"
+                            env.DOCKER_IMAGE = env.AWS_ECR + "/presto:${PRESTO_BUILD_VERSION}"
                         }
                         sh 'printenv | sort'
 
                         echo "build prestodb source code with build version ${PRESTO_BUILD_VERSION}"
-                        retry (3) {
+                        retry (5) {
                             sh '''
                                 unset MAVEN_CONFIG && ./mvnw install -DskipTests -B -T C1 -P ci -pl '!presto-docs'
                                 tree /root/.m2/repository/com/facebook/presto/
@@ -111,6 +111,9 @@ pipeline {
                                 accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''
+                                echo "${PRESTO_BUILD_VERSION}" > index.txt
+                                git log -n 10 >> index.txt
+                                aws s3 cp index.txt ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/ --no-progress
                                 aws s3 cp presto-server/target/${PRESTO_PKG}  ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/ --no-progress
                                 aws s3 cp presto-cli/target/${PRESTO_CLI_JAR} ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/ --no-progress
                             '''
@@ -133,6 +136,12 @@ pipeline {
                     steps {
                         echo 'build docker image'
                         sh 'apk update && apk add aws-cli bash git'
+                        sh '''
+                            docker run --privileged --rm tonistiigi/binfmt --install all
+                            docker context ls
+                            docker buildx ls
+                            docker buildx inspect
+                        '''
                         withCredentials([[
                                 $class:            'AmazonWebServicesCredentialsBinding',
                                 credentialsId:     "${AWS_CREDENTIAL_ID}",
@@ -151,6 +160,9 @@ pipeline {
                                 echo "Building ${DOCKER_IMAGE}"
                                 docker buildx build --load --platform "linux/amd64" -t "${DOCKER_IMAGE}-amd64" \
                                     --build-arg "PRESTO_VERSION=${PRESTO_VERSION}" .
+                                docker buildx build --load --platform "linux/arm64" -t "${DOCKER_IMAGE}-arm64" \
+                                    --build-arg "PRESTO_VERSION=${PRESTO_VERSION}" .
+                                docker image ls
                             '''
                         }
                     }
@@ -175,8 +187,13 @@ pipeline {
                             sh '''
                                 aws s3 ls ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/
                                 docker image ls
-                                aws ecr get-login-password | docker login --username AWS --password-stdin ${AWS_ECR}
+                                aws ecr-public get-login-password | docker login --username AWS --password-stdin ${AWS_ECR}
                                 docker push "${DOCKER_IMAGE}-amd64"
+                                docker push "${DOCKER_IMAGE}-arm64"
+                                docker manifest create "${DOCKER_IMAGE}" "${DOCKER_IMAGE}-amd64" "${DOCKER_IMAGE}-arm64"
+                                docker manifest annotate "${DOCKER_IMAGE}" "${DOCKER_IMAGE}-amd64" --os linux --arch amd64
+                                docker manifest annotate "${DOCKER_IMAGE}" "${DOCKER_IMAGE}-arm64" --os linux --arch arm64
+                                docker manifest push "${DOCKER_IMAGE}"
                             '''
                         }
                     }
@@ -185,4 +202,3 @@ pipeline {
         }
     }
 }
-
