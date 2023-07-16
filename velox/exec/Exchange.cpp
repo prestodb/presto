@@ -294,12 +294,23 @@ ExchangeClient::~ExchangeClient() {
   close();
 }
 
-std::string ExchangeClient::toString() {
+std::string ExchangeClient::toString() const {
   std::stringstream out;
   for (auto& source : sources_) {
     out << source->toString() << std::endl;
   }
   return out.str();
+}
+
+std::string ExchangeClient::toJsonString() const {
+  folly::dynamic obj = folly::dynamic::object;
+  obj["closed"] = closed_;
+  folly::dynamic clientsObj = folly::dynamic::object;
+  int index = 0;
+  for (auto& source : sources_) {
+    clientsObj[std::to_string(index++)] = source->toJsonString();
+  }
+  return folly::toPrettyJson(obj);
 }
 
 bool Exchange::getSplits(ContinueFuture* future) {

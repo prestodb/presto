@@ -35,6 +35,9 @@ std::string groupName(const std::string& filename) {
 
 std::shared_ptr<FileHandle> FileHandleGenerator::operator()(
     const std::string& filename) {
+  // We have seen cases where drivers are stuck when creating file handles.
+  // Adding a trace here to spot this more easily in future.
+  process::TraceContext trace("FileHandleGenerator::operator()");
   uint64_t elapsedTimeUs{0};
   std::shared_ptr<FileHandle> fileHandle;
   {

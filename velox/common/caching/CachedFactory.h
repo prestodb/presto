@@ -35,6 +35,7 @@
 #include "glog/logging.h"
 
 #include "velox/common/caching/SimpleLRUCache.h"
+#include "velox/common/process/TraceContext.h"
 
 namespace facebook::velox {
 
@@ -117,6 +118,7 @@ class CachedFactory {
 template <typename Key, typename Value, typename Generator>
 std::pair<bool, Value> CachedFactory<Key, Value, Generator>::generate(
     const Key& key) {
+  process::TraceContext trace("CachedFactory::generate");
   std::unique_lock<std::mutex> pending_lock(pendingMu_);
   {
     std::lock_guard<std::mutex> cache_lock(cacheMu_);

@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
+#include "Driver.h"
 #include <folly/ScopeGuard.h>
 #include <folly/executors/QueuedImmediateExecutor.h>
 #include <folly/executors/thread_factory/InitThreadFactory.h>
 #include <gflags/gflags.h>
+#include "velox/common/process/TraceContext.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Operator.h"
@@ -542,6 +544,7 @@ StopReason Driver::runInternal(
 
 // static
 void Driver::run(std::shared_ptr<Driver> self) {
+  process::TraceContext trace("Driver::run");
   std::shared_ptr<BlockingState> blockingState;
   RowVectorPtr nullResult;
   auto reason = self->runInternal(self, blockingState, nullResult);
@@ -720,7 +723,7 @@ std::vector<Operator*> Driver::operators() const {
   return operators;
 }
 
-std::string Driver::toString() {
+std::string Driver::toString() const {
   std::stringstream out;
   out << "{Driver: ";
   if (state_.isOnThread()) {
@@ -733,6 +736,24 @@ std::string Driver::toString() {
   }
   out << "}";
   return out.str();
+}
+
+std::string Driver::toJsonString() const {
+  folly::dynamic obj = folly::dynamic::object;
+  obj["blockingReason"] = blockingReasonToString(blockingReason_);
+  obj["state"] = state_.toJsonString();
+  obj["closed"] = closed_.load();
+  obj["queueTimeStartMicros"] = queueTimeStartMicros_;
+  obj["curOpIndex"] = curOpIndex_;
+
+  folly::dynamic operatorsObj = folly::dynamic::object;
+  int index = 0;
+  for (auto& op : operators_) {
+    operatorsObj[std::to_string(index++)] = op->toString();
+  }
+  obj["operatorsObj"] = operatorsObj;
+
+  return folly::toPrettyJson(obj);
 }
 
 SuspendedSection::SuspendedSection(Driver* driver) : driver_(driver) {

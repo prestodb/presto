@@ -26,6 +26,7 @@ target_link_libraries(
   velox_memory
   velox_exception
   velox_file
+  velox_process
   velox_time
   glog::glog
   Folly::folly)
