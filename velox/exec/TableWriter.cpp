@@ -101,6 +101,7 @@ RowVectorPtr TableWriter::getOutput() {
   finished_ = true;
 
   if (outputType_->size() == 1) {
+    // NOTE: this is for non-prestissimo use cases.
     return std::make_shared<RowVector>(
         pool(),
         outputType_,
