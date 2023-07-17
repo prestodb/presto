@@ -497,11 +497,10 @@ DenseHll::DenseHll(const char* serialized, HashStringAllocator* allocator)
       overflowBuckets_{StlAllocator<uint16_t>(allocator)},
       overflowValues_{StlAllocator<int8_t>(allocator)} {
   auto hll = deserialize(serialized);
-  indexBitLength_ = hll.indexBitLength;
+  initialize(hll.indexBitLength);
   baseline_ = hll.baseline;
 
   auto numBuckets = 1 << indexBitLength_;
-  deltas_.resize(numBuckets / 2);
   std::copy(hll.deltas, hll.deltas + numBuckets / 2, deltas_.data());
 
   overflows_ = hll.overflows;
