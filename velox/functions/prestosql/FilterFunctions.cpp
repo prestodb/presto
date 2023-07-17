@@ -70,12 +70,6 @@ class FilterFunctionBase : public exec::VectorFunction {
     auto rawResultOffsets = resultOffsets->asMutable<vector_size_t>();
     auto numElements = lambdaArgs[0]->size();
 
-    SelectivityVector finalSelection;
-    if (!context.isFinalSelection()) {
-      finalSelection =
-          toElementRows<T>(numElements, *context.finalSelection(), input.get());
-    }
-
     auto elementToTopLevelRows = getElementToTopLevelRows(
         numElements, rows, input.get(), context.pool());
 
@@ -90,7 +84,7 @@ class FilterFunctionBase : public exec::VectorFunction {
       VectorPtr bits;
       entry.callable->apply(
           elementRows,
-          finalSelection,
+          nullptr,
           wrapCapture,
           &context,
           lambdaArgs,

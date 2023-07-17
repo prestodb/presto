@@ -92,7 +92,7 @@ class ZipWithFunction : public exec::VectorFunction {
     auto* rawOffsets = resultBuffers.offsets->as<vector_size_t>();
     auto* rawSizes = resultBuffers.sizes->as<vector_size_t>();
 
-    const SelectivityVector allElementRows(numResultElements);
+    const SelectivityVector validRowsInReusedResult(numResultElements);
 
     VectorPtr newElements;
 
@@ -129,13 +129,9 @@ class ZipWithFunction : public exec::VectorFunction {
         });
       }
 
-      // Make sure already populated entries in newElements do not get
-      // overwritten.
-      exec::ScopedFinalSelectionSetter(context, &allElementRows, true, true);
-
       entry.callable->apply(
           elementRows,
-          allElementRows,
+          &validRowsInReusedResult,
           wrapCapture,
           &context,
           lambdaArgs,

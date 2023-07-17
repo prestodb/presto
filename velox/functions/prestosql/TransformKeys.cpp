@@ -52,11 +52,8 @@ class TransformKeysFunction : public exec::VectorFunction {
         flatMap->mapKeys(), flatMap->mapValues()};
     auto numKeys = flatMap->mapKeys()->size();
 
-    SelectivityVector finalSelection;
-    if (!context.isFinalSelection()) {
-      finalSelection = toElementRows<MapVector>(
-          numKeys, *context.finalSelection(), flatMap.get());
-    }
+    SelectivityVector validRowsInReusedResult =
+        toElementRows<MapVector>(numKeys, rows, flatMap.get());
 
     VectorPtr transformedKeys;
 
@@ -74,7 +71,7 @@ class TransformKeysFunction : public exec::VectorFunction {
 
       entry.callable->apply(
           keyRows,
-          finalSelection,
+          &validRowsInReusedResult,
           wrapCapture,
           &context,
           lambdaArgs,

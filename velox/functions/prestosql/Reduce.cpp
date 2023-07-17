@@ -93,9 +93,9 @@ class ReduceFunction : public exec::VectorFunction {
       }
     });
 
-    // Fix finalSelection at "rows" unless already fixed.
-    exec::ScopedFinalSelectionSetter scopedFinalSelectionSetter(context, &rows);
-    const SelectivityVector& finalSelectionRows = *context.finalSelection();
+    // Make sure already populated entries in 'partialResult' do not get
+    // overwritten if 'arrayRows' shrinks in subsequent iterations.
+    const SelectivityVector& validRowsInReusedResult = rows;
 
     // Loop over lambda functions and apply these to elements of the base array.
     // In most cases there will be only one function and the loop will run once.
@@ -143,7 +143,7 @@ class ReduceFunction : public exec::VectorFunction {
         std::vector<VectorPtr> lambdaArgs = {state, dictNthElements};
         entry.callable->apply(
             arrayRows,
-            finalSelectionRows,
+            &validRowsInReusedResult,
             nullptr,
             &context,
             lambdaArgs,
@@ -155,18 +155,20 @@ class ReduceFunction : public exec::VectorFunction {
     }
 
     // Apply output function.
+    VectorPtr localResult;
     auto outputFuncIt = args[3]->asUnchecked<FunctionVector>()->iterator(&rows);
     while (auto entry = outputFuncIt.next()) {
       std::vector<VectorPtr> lambdaArgs = {partialResult};
       entry.callable->apply(
           *entry.rows,
-          finalSelectionRows,
+          &validRowsInReusedResult,
           nullptr,
           &context,
           lambdaArgs,
           nullptr,
-          &result);
+          &localResult);
     }
+    context.moveOrCopyResult(localResult, rows, result);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {

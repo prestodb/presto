@@ -921,6 +921,10 @@ Expr::PeelEncodingsResult Expr::peelEncodings(
   }
 
   // Prepare the rows and vectors to peel.
+
+  // Use finalSelection to generate peel to ensure those rows can be translated
+  // and ensure consistent peeling across multiple calls to this expression if
+  // its a shared subexpression.
   const auto& rowsToPeel =
       context.isFinalSelection() ? rows : *context.finalSelection();
   auto numFields = context.row()->childrenSize();
@@ -932,7 +936,7 @@ Expr::PeelEncodingsResult Expr::peelEncodings(
     auto fieldVector = context.getField(fieldIndex);
     if (fieldVector->isConstantEncoding()) {
       // Make sure constant encoded fields are loaded
-      fieldVector = context.ensureFieldLoaded(fieldIndex, rows);
+      fieldVector = context.ensureFieldLoaded(fieldIndex, rowsToPeel);
     }
     vectorsToPeel.push_back(fieldVector);
   }

@@ -42,15 +42,17 @@ class Callable {
   /// function to elements of repeated types, so that the values of the
   /// arguments and captures are not aligned. This serves to align these. If
   /// nullptr, the captures are passed as is.
-  /// @param finalSelection It can be empty when context->isFinalSelection() is
-  /// true and must be a valid selectivity vector otherwise.
+  /// @param validRowsInReusedResult This selectivity vector is used to store
+  /// all valid rows in 'result' that can be reused between multiple Callables
+  /// in a function vector. It helps preserve rows that are valid in 'result'
+  /// but on which this callable does not apply.
   /// @param elementToTopLevelRows A mapping from element rows (i.e., the rows
   /// argument) to top-level rows of the complex-typed input of the lambda
   /// function. elementToTopLevelRows could be a nullptr, meaning the element
   /// rows are identical to top-level rows.
   virtual void apply(
       const SelectivityVector& rows,
-      const SelectivityVector& finalSelection,
+      const SelectivityVector* validRowsInReusedResult,
       const BufferPtr& wrapCapture,
       exec::EvalCtx* context,
       const std::vector<VectorPtr>& args,
@@ -61,7 +63,7 @@ class Callable {
   /// 'elementErrors', and errors in 'context' are not updated.
   virtual void applyNoThrow(
       const SelectivityVector& rows,
-      const SelectivityVector& finalSelection,
+      const SelectivityVector* validRowsInReusedResult,
       const BufferPtr& wrapCapture,
       exec::EvalCtx* context,
       const std::vector<VectorPtr>& args,

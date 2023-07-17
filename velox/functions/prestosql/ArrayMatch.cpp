@@ -43,11 +43,9 @@ class MatchFunction : public exec::VectorFunction {
     std::vector<VectorPtr> lambdaArgs = {flatArray->elements()};
     auto numElements = flatArray->elements()->size();
 
-    SelectivityVector finalSelection;
-    if (!context.isFinalSelection()) {
-      finalSelection = toElementRows<ArrayVector>(
-          numElements, *context.finalSelection(), flatArray.get());
-    }
+    SelectivityVector validRowsInReusedResult;
+    validRowsInReusedResult =
+        toElementRows<ArrayVector>(numElements, rows, flatArray.get());
 
     VectorPtr matchBits;
     auto elementToTopLevelRows = getElementToTopLevelRows(
@@ -68,7 +66,7 @@ class MatchFunction : public exec::VectorFunction {
           numElements, entry.callable, *entry.rows, flatArray);
       entry.callable->applyNoThrow(
           elementRows,
-          finalSelection,
+          &validRowsInReusedResult,
           wrapCapture,
           &context,
           lambdaArgs,

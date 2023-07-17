@@ -180,3 +180,28 @@ TEST_F(ReduceTest, try) {
       makeNullableFlatVector<int64_t>({std::nullopt, std::nullopt, 0});
   assertEqualVectors(expectedResult, result);
 }
+
+TEST_F(ReduceTest, finalSelectionLargerThanInput) {
+  // Verify that final selection is not passed on to lambda. Here, 'reduce' is a
+  // CSE, the conjunct ensures that row 2 is only evaluated in the first case,
+  // so when row needs to be evaluated the CSE sets the final selection to both
+  // rows and calls 'reduce'. The 'slice' inside reduce generates an array of
+  // size 1 so if final selection is passed on to the lambda it will fail while
+  // attempting to peel which uses final selection to generate peels.
+  auto input = makeRowVector({
+      makeArrayVector<int64_t>({
+          {1, 2, -2, -1, 5},
+          {1, 2, -2, -1, 9},
+      }),
+  });
+  auto result = evaluate(
+      "case "
+      "   when (c0[5] > 6) AND "
+      "     (reduce(slice(c0, 1, 4), 0, (s, x) -> s + x, s -> s) = 0) then 1 "
+      "   when (reduce(slice(c0, 1, 4), 0, (s, x) -> s + x, s -> s) = 0) then 2 "
+      "   else 3 "
+      "end",
+      input);
+
+  assertEqualVectors(makeFlatVector<int64_t>({2, 1}), result);
+}
