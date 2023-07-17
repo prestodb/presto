@@ -57,7 +57,7 @@ public class ExecutionFactoriesManager
             return sessionDefinitionExecutionFactory;
         }
 
-        if (preparedQuery.isExplainTypeValidate()) {
+        if (preparedQuery.isExplainTypeValidate() || preparedQuery.isExplainTypeIO()) {
             return accessControlCheckerExecutionFactory;
         }
 
