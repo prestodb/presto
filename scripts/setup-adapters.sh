@@ -28,7 +28,7 @@ function install_aws-sdk-cpp {
   local AWS_SDK_VERSION="1.10.57"
 
   github_checkout $AWS_REPO_NAME $AWS_SDK_VERSION --depth 1 --recurse-submodules
-  cmake_install -DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS:BOOL=OFF -DMINIMIZE_SIZE:BOOL=ON -DENABLE_TESTING:BOOL=OFF -DBUILD_ONLY:STRING="s3;identity-management" -DCMAKE_INSTALL_PREFIX="${DEPENDENCY_DIR}/install"
+  cmake_install -DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS:BOOL=OFF -DMINIMIZE_SIZE:BOOL=ON -DENABLE_TESTING:BOOL=OFF -DBUILD_ONLY:STRING="s3;identity-management"
 }
 
 function install_gcs-sdk-cpp {
@@ -76,7 +76,6 @@ function install_libhdfs3 {
   cmake_install
 }
 
-DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 cd "${DEPENDENCY_DIR}" || exit
 # aws-sdk-cpp missing dependencies
 
