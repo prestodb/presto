@@ -969,7 +969,10 @@ class PartitionFunction {
   /// @param input RowVector to split into partitions.
   /// @param [out] partitions Computed partition numbers for each row in
   /// 'input'.
-  virtual void partition(
+  /// @return Returns partition number in case all rows of 'input' are assigned
+  /// to the same partition. In this case 'partitions' vector is left unchanged.
+  /// Used to optimize round-robin partitioning in local exchange.
+  virtual std::optional<uint32_t> partition(
       const RowVector& input,
       std::vector<uint32_t>& partitions) = 0;
 };

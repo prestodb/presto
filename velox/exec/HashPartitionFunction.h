@@ -37,8 +37,9 @@ class HashPartitionFunction : public core::PartitionFunction {
 
   ~HashPartitionFunction() override = default;
 
-  void partition(const RowVector& input, std::vector<uint32_t>& partitions)
-      override;
+  std::optional<uint32_t> partition(
+      const RowVector& input,
+      std::vector<uint32_t>& partitions) override;
 
   int numPartitions() const {
     return numPartitions_;

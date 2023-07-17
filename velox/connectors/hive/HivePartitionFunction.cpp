@@ -219,7 +219,7 @@ HivePartitionFunction::HivePartitionFunction(
   }
 }
 
-void HivePartitionFunction::partition(
+std::optional<uint32_t> HivePartitionFunction::partition(
     const RowVector& input,
     std::vector<uint32_t>& partitions) {
   const auto numRows = input.size();
@@ -258,6 +258,8 @@ void HivePartitionFunction::partition(
           bucketToPartition_[((hashes_[i] & kInt32Max) % numBuckets_)];
     }
   }
+
+  return std::nullopt;
 }
 
 void HivePartitionFunction::precompute(

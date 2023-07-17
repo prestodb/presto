@@ -54,7 +54,7 @@ void HashPartitionFunction::init(
   }
 }
 
-void HashPartitionFunction::partition(
+std::optional<uint32_t> HashPartitionFunction::partition(
     const RowVector& input,
     std::vector<uint32_t>& partitions) {
   auto size = input.size();
@@ -83,6 +83,8 @@ void HashPartitionFunction::partition(
       partitions[i] = hashes_[i] % numPartitions_;
     }
   }
+
+  return std::nullopt;
 }
 
 std::unique_ptr<core::PartitionFunction> HashPartitionFunctionSpec::create(

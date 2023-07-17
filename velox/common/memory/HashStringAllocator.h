@@ -533,10 +533,10 @@ struct AlignedStlAllocator {
 
   static_assert(
       Alignment != 0,
-      "Alignment of AlignmentStlAllocator cannot be 0.");
+      "Alignment of AlignedStlAllocator cannot be 0.");
   static_assert(
       (Alignment & (Alignment - 1)) == 0,
-      "Alignment of AlignmentStlAllocator must be a power of 2.");
+      "Alignment of AlignedStlAllocator must be a power of 2.");
 
   template <class Other>
   struct rebind {

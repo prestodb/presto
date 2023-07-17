@@ -589,7 +589,7 @@ class PlanBuilder {
           bucketProperty);
 #endif
 
-  /// Add a LocalPartitionNode to partition the input using row-wise
+  /// Add a LocalPartitionNode to partition the input using batch-level
   /// round-robin. Number of partitions is determined at runtime based on
   /// parallelism of the downstream pipeline.
   ///
@@ -600,6 +600,11 @@ class PlanBuilder {
   /// A convenience method to add a LocalPartitionNode with a single source (the
   /// current plan node).
   PlanBuilder& localPartitionRoundRobin();
+
+  /// Add a LocalPartitionNode to partition the input using row-wise
+  /// round-robin. Number of partitions is determined at runtime based on
+  /// parallelism of the downstream pipeline.
+  PlanBuilder& localPartitionRoundRobinRow();
 
   /// Add a HashJoinNode to join two inputs using one or more join keys and an
   /// optional filter.

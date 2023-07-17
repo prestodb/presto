@@ -30,16 +30,14 @@ TEST_F(RoundRobinPartitionFunctionTest, basic) {
   auto pool = memory::addDefaultLeafMemoryPool();
   test::VectorMaker vm(pool.get());
 
-  auto data = vm.rowVector(ROW({}, {}), 31);
+  auto data = vm.rowVector(ROW({}, {}), 1024);
   std::vector<uint32_t> partitions;
-  partitionFunction.partition(*data, partitions);
   for (auto i = 0; i < 31; ++i) {
-    ASSERT_EQ(i % 10, partitions[i]) << "at " << i;
-  }
-
-  partitionFunction.partition(*data, partitions);
-  for (auto i = 0; i < 31; ++i) {
-    ASSERT_EQ((i + 31) % 10, partitions[i]) << "at " << i;
+    SCOPED_TRACE(i);
+    auto partition = partitionFunction.partition(*data, partitions);
+    ASSERT_TRUE(partition.has_value());
+    ASSERT_EQ(i % 10, partition.value());
+    ASSERT_TRUE(partitions.empty());
   }
 }
 

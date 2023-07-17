@@ -40,8 +40,9 @@ class HivePartitionFunction : public core::PartitionFunction {
 
   ~HivePartitionFunction() override = default;
 
-  void partition(const RowVector& input, std::vector<uint32_t>& partitions)
-      override;
+  std::optional<uint32_t> partition(
+      const RowVector& input,
+      std::vector<uint32_t>& partitions) override;
 
  private:
   // Precompute single value hive hash for a constant partition key.
