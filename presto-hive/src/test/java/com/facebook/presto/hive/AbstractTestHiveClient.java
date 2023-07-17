@@ -159,6 +159,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -733,14 +734,14 @@ public abstract class AbstractTestHiveClient
 
     protected List<SchemaTableName> constraintsTableList;
 
-    private static final List<TableConstraint<String>> constraintsSingleKeyRely = ImmutableList.of(new PrimaryKeyConstraint<>("", ImmutableSet.of("c1"), false, true),
-            new UniqueConstraint<>("uk1", ImmutableSet.of("c2"), false, true));
-    private static final List<TableConstraint<String>> constraintsMultiKeyRely = ImmutableList.of(new PrimaryKeyConstraint<>("", ImmutableSet.of("c1", "c2"), false, true),
-            new UniqueConstraint<>("uk2", ImmutableSet.of("c3", "c4"), false, true));
-    private static final List<TableConstraint<String>> constraintsSingleKeyNoRely = ImmutableList.of(new PrimaryKeyConstraint<>("", ImmutableSet.of("c1"), false, false),
-            new UniqueConstraint<>("uk3", ImmutableSet.of("c2"), false, false));
-    private static final List<TableConstraint<String>> constraintsMultiKeyNoRely = ImmutableList.of(new PrimaryKeyConstraint<>("", ImmutableSet.of("c1", "c2"), false, false),
-            new UniqueConstraint<>("uk4", ImmutableSet.of("c3", "c4"), false, false));
+    private static final List<TableConstraint<String>> constraintsSingleKeyRely = ImmutableList.of(new PrimaryKeyConstraint<>("", new LinkedHashSet<>(ImmutableList.of("c1")), false, true, false),
+            new UniqueConstraint<>("uk1", new LinkedHashSet<>(ImmutableList.of("c2")), false, true, false));
+    private static final List<TableConstraint<String>> constraintsMultiKeyRely = ImmutableList.of(new PrimaryKeyConstraint<>("", new LinkedHashSet<>(ImmutableList.of("c1", "c2")), false, true, false),
+            new UniqueConstraint<>("uk2", new LinkedHashSet<>(ImmutableList.of("c3", "c4")), false, true, false));
+    private static final List<TableConstraint<String>> constraintsSingleKeyNoRely = ImmutableList.of(new PrimaryKeyConstraint<>("", new LinkedHashSet<>(ImmutableList.of("c1")), false, false, false),
+            new UniqueConstraint<>("uk3", new LinkedHashSet<>(ImmutableList.of("c2")), false, false, false));
+    private static final List<TableConstraint<String>> constraintsMultiKeyNoRely = ImmutableList.of(new PrimaryKeyConstraint<>("", new LinkedHashSet<>(ImmutableList.of("c1", "c2")), false, false, false),
+            new UniqueConstraint<>("uk4", new LinkedHashSet<>(ImmutableList.of("c3", "c4")), false, false, false));
 
     Map<SchemaTableName, List<TableConstraint<String>>> tableConstraintsMap;
 
@@ -5765,7 +5766,7 @@ public abstract class AbstractTestHiveClient
             // Hive primary key name is auto-generated, hence explicit comparison of members excluding name
             if (constraint instanceof PrimaryKeyConstraint) {
                 assertEquals(constraint.getColumns(), expectedConstraint.getColumns());
-                assertEquals(constraint.isEnforced(), expectedConstraint.isEnforced());
+                assertEquals(constraint.isEnabled(), expectedConstraint.isEnabled());
                 assertEquals(constraint.isRely(), expectedConstraint.isRely());
             }
             else {
