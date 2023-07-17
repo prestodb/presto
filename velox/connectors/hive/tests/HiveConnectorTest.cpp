@@ -19,6 +19,7 @@
 
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/expression/ExprToSubfieldFilter.h"
 
 namespace facebook::velox::connector::hive {
 namespace {
@@ -180,6 +181,22 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_allSubscripts) {
   ASSERT_FALSE(elements->hasFilter());
   ASSERT_FALSE(elements->childByName("c0c0")->isConstant());
   validateNullConstant(*elements->childByName("c0c1"), *BIGINT());
+}
+
+TEST_F(HiveConnectorTest, makeScanSpec_filtersNotInRequiredSubfields) {
+  auto columnType = ROW({{"c0c0", BIGINT()}, {"c0c1", VARCHAR()}});
+  auto rowType = ROW({{"c0", columnType}});
+  auto columnHandle = makeColumnHandle("c0", columnType, {"c0.c0c1"});
+  SubfieldFilters filters;
+  filters.emplace(Subfield("c0.c0c0"), exec::equal(42));
+  auto scanSpec = HiveDataSource::makeScanSpec(
+      filters, rowType, {columnHandle.get()}, {}, pool_.get());
+  auto* c0c0 = scanSpec->childByName("c0")->childByName("c0c0");
+  ASSERT_FALSE(c0c0->isConstant());
+  ASSERT_TRUE(c0c0->filter());
+  auto* c0c1 = scanSpec->childByName("c0")->childByName("c0c1");
+  ASSERT_FALSE(c0c1->isConstant());
+  ASSERT_FALSE(c0c1->filter());
 }
 
 TEST_F(HiveConnectorTest, extractFiltersFromRemainingFilter) {
