@@ -124,4 +124,11 @@ public abstract class AbstractTestNativeArrayFunctionQueries
         assertQuery("SELECT linenumber || concat(orderkey, ARRAY[suppkey, partkey]) FROM lineitem");
         assertQuery("SELECT concat(linenumber, orderkey || ARRAY[suppkey, partkey]) FROM lineitem");
     }
+
+    @Test
+    public void testFlatten()
+    {
+        assertQuery("SELECT flatten(ARRAY[ARRAY[linenumber], ARRAY[suppkey, orderkey], ARRAY[orderkey, partkey]]) FROM lineitem");
+        assertQuery("SELECT flatten(ARRAY[ARRAY[linenumber], null, ARRAY[null, partkey]]) FROM lineitem");
+    }
 }
