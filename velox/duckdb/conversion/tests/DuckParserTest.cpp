@@ -123,11 +123,17 @@ std::string parseAgg(const std::string& expression) {
   auto aggregateExpr = parseAggregateExpr(expression, options);
   std::stringstream out;
   out << aggregateExpr.expr->toString();
+
   if (aggregateExpr.distinct) {
     out << " DISTINCT";
   }
+
   if (!aggregateExpr.orderBy.empty()) {
     out << " " << toString(aggregateExpr.orderBy);
+  }
+
+  if (aggregateExpr.maskExpr != nullptr) {
+    out << " FILTER " << aggregateExpr.maskExpr->toString();
   }
 
   return out.str();
@@ -148,6 +154,12 @@ TEST(DuckParserTest, aggregates) {
   EXPECT_EQ(
       "array_agg(\"x\") ORDER BY \"y\" ASC NULLS LAST, \"z\" ASC NULLS LAST",
       parseAgg("array_agg(x ORDER BY y, z)"));
+}
+
+TEST(DuckParserTest, aggregatesWithMasks) {
+  EXPECT_EQ(
+      "array_agg(\"x\") FILTER \"m\"",
+      parseAgg("array_agg(x) filter (where m)"));
 }
 
 TEST(DuckParserTest, distinctAggregates) {

@@ -749,6 +749,10 @@ AggregateExpr parseAggregateExpr(
     }
   }
 
+  if (functionExpr.filter) {
+    aggregateExpr.maskExpr = parseExpr(*functionExpr.filter, options);
+  }
+
   return aggregateExpr;
 }
 
