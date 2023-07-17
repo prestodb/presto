@@ -128,7 +128,7 @@ bool MallocAllocator::allocateContiguousImpl(
   auto numContiguousCollateralPages = allocation.numPages();
   if (numContiguousCollateralPages > 0) {
     useHugePages(allocation, false);
-    if (::munmap(allocation.data(), allocation.size()) < 0) {
+    if (::munmap(allocation.data(), allocation.maxSize()) < 0) {
       VELOX_MEM_LOG(ERROR) << "munmap got " << folly::errnoStr(errno) << "for "
                            << allocation.data() << ", " << allocation.size();
     }
@@ -223,7 +223,7 @@ void MallocAllocator::freeContiguousImpl(ContiguousAllocation& allocation) {
   useHugePages(allocation, false);
   const auto bytes = allocation.size();
   const auto numPages = allocation.numPages();
-  if (::munmap(allocation.data(), bytes) < 0) {
+  if (::munmap(allocation.data(), allocation.maxSize()) < 0) {
     VELOX_MEM_LOG(ERROR) << "Error for munmap(" << allocation.data() << ", "
                          << bytes << "): '" << folly::errnoStr(errno) << "'";
   }
