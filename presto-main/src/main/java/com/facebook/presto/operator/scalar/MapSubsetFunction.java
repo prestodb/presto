@@ -36,8 +36,8 @@ public final class MapSubsetFunction
             @TypeParameter("MAP(K,V)") Type mapType,
             @SqlType("MAP(K,V)") Block mapBlock, @SqlType("ARRAY(K)") Block keySubset)
     {
-        if (mapBlock.getPositionCount() == 0 || keySubset.getPositionCount() == 0) {
-            return mapType.createBlockBuilder(null, 0).build();
+        if (mapBlock.getPositionCount() == 0) {
+            return mapBlock;
         }
 
         TypedSet typedSet = new TypedSet(keyType, keySubset.getPositionCount(), "map_subset");
@@ -51,13 +51,15 @@ public final class MapSubsetFunction
         BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, toFind);
         BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
 
-        for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-            if (typedSet.contains(mapBlock, i)) {
-                keyType.appendTo(mapBlock, i, blockBuilder);
-                valueType.appendTo(mapBlock, i + 1, blockBuilder);
-                toFind--;
-                if (toFind == 0) {
-                    break;
+        if (toFind > 0) {
+            for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
+                if (typedSet.contains(mapBlock, i)) {
+                    keyType.appendTo(mapBlock, i, blockBuilder);
+                    valueType.appendTo(mapBlock, i + 1, blockBuilder);
+                    toFind--;
+                    if (toFind == 0) {
+                        break;
+                    }
                 }
             }
         }

@@ -20,11 +20,14 @@ add_library(
   presto_server_lib
   Announcer.cpp
   CPUMon.cpp
+  CoordinatorDiscoverer.cpp
   PeriodicTaskManager.cpp
   PrestoExchangeSource.cpp
   PrestoServer.cpp
+  PrestoServerOperations.cpp
   PrestoTask.cpp
   QueryContextManager.cpp
+  ServerOperation.cpp
   SignalHandler.cpp
   TaskManager.cpp
   TaskResource.cpp)
@@ -56,6 +59,7 @@ target_link_libraries(
   velox_hive_partition_function
   velox_window
   velox_dwio_dwrf_reader
+  velox_type_fbhive
   ${RE2}
   ${FOLLY_WITH_DEPENDENCIES}
   ${ANTLR4_RUNTIME}
@@ -63,9 +67,8 @@ target_link_libraries(
   ${GFLAGS_LIBRARIES}
   pthread)
 
-if(PRESTO_ENABLE_PARQUET)
-  target_link_libraries(presto_server_lib velox_dwio_parquet_reader)
-endif()
+target_link_libraries(presto_server_lib velox_dwio_parquet_reader
+                      velox_dwio_parquet_writer)
 
 # Enabling Parquet causes build errors with missing symbols on MacOS. This is
 # likely due to a conflict between Thrift and FBThrift libraries. The build
@@ -83,6 +86,11 @@ target_link_libraries(
   velox_hive_connector
   velox_tpch_connector
   velox_presto_serializer)
+
+add_library(presto_json_signature_parser JsonSignatureParser.cpp)
+
+target_link_libraries(presto_json_signature_parser velox_expression
+                      ${FOLLY_WITH_DEPENDENCIES})
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)

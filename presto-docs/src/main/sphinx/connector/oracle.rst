@@ -22,6 +22,9 @@ connection properties as appropriate for your setup:
     # The correct syntax of the connection-url varies by Oracle version and
     # configuration. The following example URL connects to an Oracle SID named
     # "orcl".
+    # In some situations, the connection-url has to include the user and password.
+    # example: connection-url=jdbc:oracle:thin:user/password@example.net:1521:orcl
+    #
     connection-url=jdbc:oracle:thin:@example.net:1521:orcl
     connection-user=root
     connection-password=secret

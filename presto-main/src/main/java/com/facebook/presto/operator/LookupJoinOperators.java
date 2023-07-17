@@ -58,24 +58,108 @@ public class LookupJoinOperators
     {
     }
 
-    public OperatorFactory innerJoin(int operatorId, PlanNodeId planNodeId, JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory, List<Type> probeTypes, List<Integer> probeJoinChannel, OptionalInt probeHashChannel, Optional<List<Integer>> probeOutputChannels, OptionalInt totalOperatorsCount, PartitioningSpillerFactory partitioningSpillerFactory)
+    public OperatorFactory innerJoin(
+            int operatorId,
+            PlanNodeId planNodeId,
+            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
+            List<Type> probeTypes,
+            List<Integer> probeJoinChannel,
+            OptionalInt probeHashChannel,
+            Optional<List<Integer>> probeOutputChannels,
+            OptionalInt totalOperatorsCount,
+            PartitioningSpillerFactory partitioningSpillerFactory,
+            boolean optimizeProbeForEmptyBuild)
     {
-        return createJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeJoinChannel, probeHashChannel, probeOutputChannels.orElse(rangeList(probeTypes.size())), JoinType.INNER, totalOperatorsCount, partitioningSpillerFactory);
+        return createJoinOperatorFactory(
+                operatorId,
+                planNodeId,
+                lookupSourceFactory,
+                probeTypes,
+                probeJoinChannel,
+                probeHashChannel,
+                probeOutputChannels.orElse(rangeList(probeTypes.size())),
+                JoinType.INNER,
+                totalOperatorsCount,
+                partitioningSpillerFactory,
+                optimizeProbeForEmptyBuild);
     }
 
-    public OperatorFactory probeOuterJoin(int operatorId, PlanNodeId planNodeId, JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory, List<Type> probeTypes, List<Integer> probeJoinChannel, OptionalInt probeHashChannel, Optional<List<Integer>> probeOutputChannels, OptionalInt totalOperatorsCount, PartitioningSpillerFactory partitioningSpillerFactory)
+    public OperatorFactory probeOuterJoin(
+            int operatorId,
+            PlanNodeId planNodeId,
+            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
+            List<Type> probeTypes,
+            List<Integer> probeJoinChannel,
+            OptionalInt probeHashChannel,
+            Optional<List<Integer>> probeOutputChannels,
+            OptionalInt totalOperatorsCount,
+            PartitioningSpillerFactory partitioningSpillerFactory,
+            boolean optimizeProbeForEmptyBuild)
     {
-        return createJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeJoinChannel, probeHashChannel, probeOutputChannels.orElse(rangeList(probeTypes.size())), JoinType.PROBE_OUTER, totalOperatorsCount, partitioningSpillerFactory);
+        return createJoinOperatorFactory(
+                operatorId,
+                planNodeId,
+                lookupSourceFactory,
+                probeTypes,
+                probeJoinChannel,
+                probeHashChannel,
+                probeOutputChannels.orElse(rangeList(probeTypes.size())),
+                JoinType.PROBE_OUTER,
+                totalOperatorsCount,
+                partitioningSpillerFactory,
+                optimizeProbeForEmptyBuild);
     }
 
-    public OperatorFactory lookupOuterJoin(int operatorId, PlanNodeId planNodeId, JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory, List<Type> probeTypes, List<Integer> probeJoinChannel, OptionalInt probeHashChannel, Optional<List<Integer>> probeOutputChannels, OptionalInt totalOperatorsCount, PartitioningSpillerFactory partitioningSpillerFactory)
+    public OperatorFactory lookupOuterJoin(
+            int operatorId,
+            PlanNodeId planNodeId,
+            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
+            List<Type> probeTypes,
+            List<Integer> probeJoinChannel,
+            OptionalInt probeHashChannel,
+            Optional<List<Integer>> probeOutputChannels,
+            OptionalInt totalOperatorsCount,
+            PartitioningSpillerFactory partitioningSpillerFactory,
+            boolean optimizeProbeForEmptyBuild)
     {
-        return createJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeJoinChannel, probeHashChannel, probeOutputChannels.orElse(rangeList(probeTypes.size())), JoinType.LOOKUP_OUTER, totalOperatorsCount, partitioningSpillerFactory);
+        return createJoinOperatorFactory(
+                operatorId,
+                planNodeId,
+                lookupSourceFactory,
+                probeTypes,
+                probeJoinChannel,
+                probeHashChannel,
+                probeOutputChannels.orElse(rangeList(probeTypes.size())),
+                JoinType.LOOKUP_OUTER,
+                totalOperatorsCount,
+                partitioningSpillerFactory,
+                optimizeProbeForEmptyBuild);
     }
 
-    public OperatorFactory fullOuterJoin(int operatorId, PlanNodeId planNodeId, JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory, List<Type> probeTypes, List<Integer> probeJoinChannel, OptionalInt probeHashChannel, Optional<List<Integer>> probeOutputChannels, OptionalInt totalOperatorsCount, PartitioningSpillerFactory partitioningSpillerFactory)
+    public OperatorFactory fullOuterJoin(
+            int operatorId,
+            PlanNodeId planNodeId,
+            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
+            List<Type> probeTypes,
+            List<Integer> probeJoinChannel,
+            OptionalInt probeHashChannel,
+            Optional<List<Integer>> probeOutputChannels,
+            OptionalInt totalOperatorsCount,
+            PartitioningSpillerFactory partitioningSpillerFactory,
+            boolean optimizeProbeForEmptyBuild)
     {
-        return createJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeJoinChannel, probeHashChannel, probeOutputChannels.orElse(rangeList(probeTypes.size())), JoinType.FULL_OUTER, totalOperatorsCount, partitioningSpillerFactory);
+        return createJoinOperatorFactory(
+                operatorId,
+                planNodeId,
+                lookupSourceFactory,
+                probeTypes,
+                probeJoinChannel,
+                probeHashChannel,
+                probeOutputChannels.orElse(rangeList(probeTypes.size())),
+                JoinType.FULL_OUTER,
+                totalOperatorsCount,
+                partitioningSpillerFactory,
+                optimizeProbeForEmptyBuild);
     }
 
     private static List<Integer> rangeList(int endExclusive)
@@ -95,7 +179,8 @@ public class LookupJoinOperators
             List<Integer> probeOutputChannels,
             JoinType joinType,
             OptionalInt totalOperatorsCount,
-            PartitioningSpillerFactory partitioningSpillerFactory)
+            PartitioningSpillerFactory partitioningSpillerFactory,
+            boolean optimizeProbeForEmptyBuild)
     {
         List<Type> probeOutputChannelTypes = probeOutputChannels.stream()
                 .map(probeTypes::get)
@@ -113,6 +198,7 @@ public class LookupJoinOperators
                 totalOperatorsCount,
                 probeJoinChannel,
                 probeHashChannel,
-                partitioningSpillerFactory);
+                partitioningSpillerFactory,
+                optimizeProbeForEmptyBuild);
     }
 }

@@ -20,7 +20,9 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
+import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
@@ -34,10 +36,19 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 public class TestRandomizeNullKeyInOuterJoin
         extends BasePlanTest
 {
-    private Session enableOptimization()
+    private Session getSessionAlwaysEnabled()
     {
         return Session.builder(this.getQueryRunner().getDefaultSession())
                 .setSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY, "true")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
+                .build();
+    }
+
+    private Session getSessionEnabledWhenJoinKeyFromOuterJoin()
+    {
+        return Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY, "false")
+                .setSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY, "key_from_outer_join")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
                 .build();
     }
@@ -46,7 +57,7 @@ public class TestRandomizeNullKeyInOuterJoin
     public void testLeftJoin()
     {
         assertPlan("SELECT * FROM orders LEFT JOIN lineitem ON orders.orderkey = lineitem.orderkey",
-                enableOptimization(),
+                getSessionAlwaysEnabled(),
                 anyTree(
                         join(
                                 LEFT,
@@ -66,7 +77,7 @@ public class TestRandomizeNullKeyInOuterJoin
     public void testRightJoin()
     {
         assertPlan("SELECT * FROM orders RIGHT JOIN lineitem ON orders.orderkey = lineitem.orderkey ",
-                enableOptimization(),
+                getSessionAlwaysEnabled(),
                 anyTree(
                         join(
                                 RIGHT,
@@ -86,7 +97,7 @@ public class TestRandomizeNullKeyInOuterJoin
     public void testLeftJoinOnSameKey()
     {
         assertPlan("select * from partsupp ps left join part p on ps.partkey = p.partkey left join lineitem l on ps.partkey = l.partkey",
-                enableOptimization(),
+                getSessionAlwaysEnabled(),
                 anyTree(
                         join(
                                 LEFT,
@@ -110,10 +121,38 @@ public class TestRandomizeNullKeyInOuterJoin
     }
 
     @Test
+    public void testLeftJoinOnSameKeyJoinAsRightSideInput()
+    {
+        assertPlan("select * from partsupp ps left join (select p.name, l.orderkey, l.partkey as partkey from part p left join lineitem l on p.partkey = l.partkey) pl on ps.partkey = pl.partkey",
+                Session.builder(getSessionAlwaysEnabled()).setSystemProperty(OPTIMIZE_HASH_GENERATION, "false").build(),
+                anyTree(
+                        join(
+                                LEFT,
+                                ImmutableList.of(equiJoinClause("ps_partkey_random", "l_partkey_random")),
+                                anyTree(
+                                        project(
+                                                ImmutableMap.of("ps_partkey_random", expression("coalesce(cast(ps_partkey as varchar), 'l' || cast(random(100) as varchar))")),
+                                                tableScan("partsupp", ImmutableMap.of("ps_partkey", "partkey")))),
+                                anyTree(
+                                        join(
+                                                LEFT,
+                                                ImmutableList.of(equiJoinClause("p_partkey_random", "l_partkey_random")),
+                                                anyTree(
+                                                        project(
+                                                                ImmutableMap.of("p_partkey_random", expression("coalesce(cast(p_partkey as varchar), 'l' || cast(random(100) as varchar))")),
+                                                                tableScan("part", ImmutableMap.of("p_partkey", "partkey", "name", "name")))),
+                                                anyTree(
+                                                        project(
+                                                                ImmutableMap.of("l_partkey_random", expression("coalesce(cast(l_partkey as varchar), 'r' || cast(random(100) as varchar))")),
+                                                                tableScan("lineitem", ImmutableMap.of("l_partkey", "partkey", "orderkey", "orderkey")))))))),
+                false);
+    }
+
+    @Test
     public void testLeftJoinOnDifferentKey()
     {
         assertPlan("select * from part p left join lineitem l on p.partkey = l.partkey left join orders o on l.orderkey = o.orderkey",
-                enableOptimization(),
+                getSessionAlwaysEnabled(),
                 anyTree(
                         join(
                                 LEFT,
@@ -142,7 +181,7 @@ public class TestRandomizeNullKeyInOuterJoin
     public void testLeftJoinOnMixedKey()
     {
         assertPlan("select * from partsupp ps left join part p on ps.partkey = p.partkey left join lineitem l on ps.partkey = l.partkey left join orders o on l.orderkey = o.orderkey",
-                enableOptimization(),
+                getSessionAlwaysEnabled(),
                 anyTree(
                         join(LEFT,
                                 ImmutableList.of(equiJoinClause("l_orderkey_random", "o_orderkey_random")),
@@ -174,10 +213,39 @@ public class TestRandomizeNullKeyInOuterJoin
     }
 
     @Test
+    public void testJoinKeyFromOuterJoin()
+    {
+        assertPlan("select * from partsupp ps left join part p on ps.partkey = p.partkey left join lineitem l on ps.partkey = l.partkey left join orders o on l.orderkey = o.orderkey",
+                getSessionEnabledWhenJoinKeyFromOuterJoin(),
+                anyTree(
+                        join(LEFT,
+                                ImmutableList.of(equiJoinClause("l_orderkey_random", "o_orderkey_random")),
+                                anyTree(
+                                        project(ImmutableMap.of("l_orderkey_random", expression("coalesce(cast(l_orderkey as varchar), 'l' || cast(random(100) as varchar))")),
+                                                join(
+                                                        LEFT,
+                                                        ImmutableList.of(equiJoinClause("ps_partkey", "l_partkey")),
+                                                        join(
+                                                                LEFT,
+                                                                ImmutableList.of(equiJoinClause("ps_partkey", "p_partkey")),
+                                                                anyTree(
+                                                                        tableScan("partsupp", ImmutableMap.of("ps_partkey", "partkey"))),
+                                                                anyTree(
+                                                                        tableScan("part", ImmutableMap.of("p_partkey", "partkey")))),
+                                                        anyTree(
+                                                                tableScan("lineitem", ImmutableMap.of("l_partkey", "partkey", "l_orderkey", "orderkey")))))),
+                                anyTree(
+                                        project(
+                                                ImmutableMap.of("o_orderkey_random", expression("coalesce(cast(o_orderkey as varchar), 'r' || cast(random(100) as varchar))")),
+                                                tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey")))))),
+                false);
+    }
+
+    @Test
     public void testCrossJoin()
     {
         assertPlan("SELECT * FROM orders CROSS JOIN lineitem",
-                enableOptimization(),
+                getSessionAlwaysEnabled(),
                 anyTree(
                         join(
                                 INNER,
@@ -192,7 +260,7 @@ public class TestRandomizeNullKeyInOuterJoin
     public void testCrossJoinOverLeftJoin()
     {
         assertPlan("select * from partsupp ps left join part p on ps.partkey = p.partkey CROSS JOIN lineitem l",
-                enableOptimization(),
+                getSessionAlwaysEnabled(),
                 anyTree(
                         join(
                                 INNER,

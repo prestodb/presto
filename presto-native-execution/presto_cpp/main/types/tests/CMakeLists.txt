@@ -26,6 +26,7 @@ target_link_libraries(
   velox_dwio_common_exception
   presto_type_converter
   presto_types
+  velox_type_fbhive
   ${ANTLR4_RUNTIME}
   velox_hive_partition_function)
 

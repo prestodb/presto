@@ -15,6 +15,7 @@ package com.facebook.presto.parquet;
 
 import io.airlift.slice.Slice;
 import org.apache.parquet.column.statistics.Statistics;
+import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -22,6 +23,8 @@ import static java.util.Objects.requireNonNull;
 public class DataPageV1
         extends DataPage
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DataPageV1.class).instanceSize();
+
     private final Slice slice;
     private final Statistics<?> statistics;
     private final ParquetEncoding repetitionLevelEncoding;
@@ -50,6 +53,12 @@ public class DataPageV1
     public Slice getSlice()
     {
         return slice;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + slice.getRetainedSize();
     }
 
     public Statistics<?> getStatistics()

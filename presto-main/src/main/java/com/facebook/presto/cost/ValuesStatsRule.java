@@ -22,7 +22,6 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Objects;
@@ -33,11 +32,8 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
-import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.evaluateConstantRowExpression;
 import static com.facebook.presto.sql.planner.plan.Patterns.values;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.stream.Collectors.toList;
 
@@ -85,12 +81,7 @@ public class ValuesStatsRule
         }
         return valuesNode.getRows().stream()
                 .map(row -> row.get(symbolId))
-                .map(rowExpression -> {
-                    if (isExpression(rowExpression)) {
-                        return evaluateConstantExpression(castToExpression(rowExpression), type, metadata, session, ImmutableMap.of());
-                    }
-                    return evaluateConstantRowExpression(rowExpression, metadata, session.toConnectorSession());
-                })
+                .map(rowExpression -> evaluateConstantRowExpression(rowExpression, metadata, session.toConnectorSession()))
                 .collect(toList());
     }
 

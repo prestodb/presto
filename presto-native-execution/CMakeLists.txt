@@ -28,23 +28,32 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 message("Appending CMAKE_CXX_FLAGS with ${SCRIPT_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SCRIPT_CXX_FLAGS}")
 if("${TREAT_WARNINGS_AS_ERRORS}")
-  set(KNOWN_WARNINGS "-Wno-nullability-completeness")
-
-  # known warnings for MacOS
-  if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    set(KNOWN_WARNINGS "${KNOWN_WARNINGS} -Wno-deprecated-declarations")
-  endif()
-
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror ${KNOWN_WARNINGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 endif()
 
-# Add all Presto options below
+# Known warnings that are benign can be disabled.
+set(DISABLED_WARNINGS
+    "-Wno-nullability-completeness -Wno-deprecated-declarations")
+
+# Important warnings that must be explicitly enabled.
+set(ENABLE_WARNINGS "-Wreorder")
+
+set(CMAKE_CXX_FLAGS
+    "${CMAKE_CXX_FLAGS} ${DISABLED_WARNINGS} ${ENABLE_WARNINGS}")
+
+# Add all Presto options below.
+
+# Forwards user input to VELOX_ENABLE_S3.
 option(PRESTO_ENABLE_S3 "Build S3 connector" OFF)
+# Forwards user input to VELOX_ENABLE_HDFS.
 option(PRESTO_ENABLE_HDFS "Build HDFS connector" OFF)
+# Forwards user input to VELOX_ENABLE_PARQUET.
 option(PRESTO_ENABLE_PARQUET "Enable Parquet support" OFF)
 option(PRESTO_ENABLE_TESTING "Enable tests" ON)
 
 # Set all Velox options below
+add_compile_definitions(FOLLY_HAVE_INT128_T=1)
+
 if(PRESTO_ENABLE_S3)
   set(VELOX_ENABLE_S3
       ON
@@ -63,7 +72,6 @@ if(PRESTO_ENABLE_PARQUET)
   set(VELOX_ENABLE_PARQUET
       ON
       CACHE BOOL "Enable Parquet support")
-  add_definitions(-DPRESTO_ENABLE_PARQUET)
 endif()
 
 set(VELOX_BUILD_TESTING
@@ -144,8 +152,8 @@ include_directories(SYSTEM ${FOLLY_INCLUDE_DIRS})
 
 find_package(Protobuf REQUIRED)
 
-find_path(OPT_OPENSSL_DIR NAMES opt/openssl)
-set(OPENSSL_ROOT_DIR "${OPT_OPENSSL_DIR}/opt/openssl")
+find_path(OPT_OPENSSL_DIR NAMES opt/openssl@1.1)
+set(OPENSSL_ROOT_DIR "${OPT_OPENSSL_DIR}/opt/openssl@1.1")
 find_package(OpenSSL REQUIRED)
 
 find_library(LIBSODIUM_LIBRARY NAMES sodium)
@@ -171,11 +179,14 @@ include_directories(velox/velox/external/xxhash)
 include_directories(${VELOX_ROOT})
 include_directories(${CMAKE_BINARY_DIR})
 
+# set this for backwards compatibility, will be overwritten in velox/
+set(VELOX_GTEST_INCUDE_DIR "velox/third_party/googletest/googletest/include")
+
 add_subdirectory(velox)
 
 if(PRESTO_ENABLE_TESTING)
   include(CTest) # include after project() but before add_subdirectory()
-  include_directories(velox/third_party/googletest/googletest/include)
+  include_directories(${VELOX_GTEST_INCUDE_DIR})
 else()
   add_definitions(-DVELOX_DISABLE_GOOGLETEST)
 endif()

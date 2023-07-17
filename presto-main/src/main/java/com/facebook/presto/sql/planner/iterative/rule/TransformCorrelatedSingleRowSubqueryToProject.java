@@ -25,7 +25,7 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import java.util.List;
 
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
 
 /**
@@ -77,7 +77,7 @@ public class TransformCorrelatedSingleRowSubqueryToProject
         }
         else if (subqueryProjections.size() == 1) {
             Assignments assignments = Assignments.builder()
-                    .putAll(identitiesAsSymbolReferences(parent.getInput().getOutputVariables()))
+                    .putAll(identityAssignments(parent.getInput().getOutputVariables()))
                     .putAll(subqueryProjections.get(0).getAssignments())
                     .build();
             return Result.ofPlanNode(projectNode(parent.getInput(), assignments, context));

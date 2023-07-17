@@ -14,13 +14,13 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.google.common.collect.ImmutableList;
@@ -54,10 +54,24 @@ import static java.util.Objects.requireNonNull;
 public class RemoveRedundantDistinctAggregation
         implements PlanOptimizer
 {
+    private boolean isEnabledForTesting;
+
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public void setEnabledForTesting(boolean isSet)
     {
-        if (isRemoveRedundantDistinctAggregationEnabled(session)) {
+        isEnabledForTesting = isSet;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isEnabledForTesting || isRemoveRedundantDistinctAggregationEnabled(session);
+    }
+
+    @Override
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    {
+        if (isEnabled(session)) {
             PlanWithProperties result = new RemoveRedundantDistinctAggregation.Rewriter().accept(plan);
             return result.getNode();
         }

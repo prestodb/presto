@@ -21,7 +21,6 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.relation.CallExpression;
-import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -66,11 +65,11 @@ public class SimplifyRowExpressions
 
         private RowExpression rewrite(RowExpression expression, ConnectorSession session)
         {
-            RowExpression optimizedRowExpression = optimizer.optimize(expression, SERIALIZABLE, session);
-            if (optimizedRowExpression instanceof ConstantExpression || !BooleanType.BOOLEAN.equals(optimizedRowExpression.getType())) {
-                return optimizedRowExpression;
-            }
-            return RowExpressionTreeRewriter.rewriteWith(logicalExpressionRewriter, optimizedRowExpression, true);
+            // Rewrite RowExpression first to reduce depth of RowExpression tree by balancing AND/OR predicates.
+            // It doesn't matter whether we rewrite/optimize first because this will be called by IterativeOptimizer.
+            RowExpression rewritten = RowExpressionTreeRewriter.rewriteWith(logicalExpressionRewriter, expression, true);
+            RowExpression optimizedRowExpression = optimizer.optimize(rewritten, SERIALIZABLE, session);
+            return optimizedRowExpression;
         }
     }
 

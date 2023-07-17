@@ -2273,6 +2273,8 @@ class AstBuilder
                 return WindowFrame.Type.RANGE;
             case SqlBaseLexer.ROWS:
                 return WindowFrame.Type.ROWS;
+            case SqlBaseLexer.GROUPS:
+                return WindowFrame.Type.GROUPS;
         }
 
         throw new IllegalArgumentException("Unsupported frame type: " + type.getText());

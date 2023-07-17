@@ -42,8 +42,7 @@ jobs:
       - name: Maven Tests
         run: |
           ./mvnw test ${MAVEN_TEST} -pl '
-            !presto-tests,
-            !presto-raptor,
+            !presto-tests, 
             !presto-accumulo,
             !presto-cassandra,
             !presto-hive,

@@ -35,6 +35,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.emptyScalaIterator;
@@ -131,6 +132,11 @@ public class PrestoSparkNativeExecutionShuffleManager
     public Optional<ShuffleHandle> getShuffleHandle(int partitionId)
     {
         return Optional.ofNullable(partitionIdToShuffleHandle.getOrDefault(partitionId, null));
+    }
+
+    public Set<Integer> getAllPartitions()
+    {
+        return partitionIdToShuffleHandle.keySet();
     }
 
     public int getNumOfPartitions(int shuffleId)

@@ -16,38 +16,44 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.SimpleCaseExpression;
-import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.matching.Pattern.nonEmpty;
+import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.Patterns.LateralJoin.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.sql.relational.Expressions.buildSwitch;
+import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.Expressions.specialForm;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Scalar filter scan query is something like:
@@ -82,6 +88,14 @@ public class TransformCorrelatedScalarSubquery
 {
     private static final Pattern<LateralJoinNode> PATTERN = lateralJoin()
             .with(nonEmpty(correlation()));
+
+    private final FunctionAndTypeResolver functionAndTypeResolver;
+
+    public TransformCorrelatedScalarSubquery(FunctionAndTypeManager functionAndTypeManager)
+    {
+        requireNonNull(functionAndTypeManager, "functionManager is null");
+        this.functionAndTypeResolver = functionAndTypeManager.getFunctionAndTypeResolver();
+    }
 
     @Override
     public Pattern getPattern()
@@ -141,25 +155,37 @@ public class TransformCorrelatedScalarSubquery
                 rewrittenLateralJoinNode.getInput().getOutputVariables(),
                 Optional.empty());
 
+        CallExpression fail = call(
+                "fail",
+                functionAndTypeResolver.lookupFunction("fail", fromTypes(INTEGER, VARCHAR)),
+                UNKNOWN,
+                new ConstantExpression((long) SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode(), INTEGER),
+                new ConstantExpression(Slices.utf8Slice("Scalar sub-query has returned multiple rows"), VARCHAR));
+
         FilterNode filterNode = new FilterNode(
                 markDistinctNode.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 markDistinctNode,
-                castToRowExpression(new SimpleCaseExpression(
-                        createSymbolReference(isDistinct),
-                        ImmutableList.of(
-                                new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
-                        Optional.of(new Cast(
-                                new FunctionCall(
-                                        QualifiedName.of("fail"),
-                                        ImmutableList.of(
-                                                new LongLiteral(Integer.toString(SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode())),
-                                                new StringLiteral("Scalar sub-query has returned multiple rows"))),
-                                BOOLEAN)))));
+                buildSwitch(
+                        isDistinct,
+                        ImmutableList.of(specialForm(WHEN, BOOLEAN, TRUE_CONSTANT, TRUE_CONSTANT)),
+                        Optional.of(call(CAST.name(), functionAndTypeResolver.lookupCast("CAST", UNKNOWN, BOOLEAN), BOOLEAN, fail)),
+                        BOOLEAN));
+//                castToRowExpression(new SimpleCaseExpression(
+//                        createSymbolReference(isDistinct),
+//                        ImmutableList.of(
+//                                new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
+//                        Optional.of(new Cast(
+//                                new FunctionCall(
+//                                        QualifiedName.of("fail"),
+//                                        ImmutableList.of(
+//                                                new LongLiteral(Integer.toString(SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode())),
+//                                                new StringLiteral("Scalar sub-query has returned multiple rows"))),
+//                                BOOLEAN)))));
 
         return Result.ofPlanNode(new ProjectNode(
                 context.getIdAllocator().getNextId(),
                 filterNode,
-                identityAssignmentsAsSymbolReferences(lateralJoinNode.getOutputVariables())));
+                identityAssignments(lateralJoinNode.getOutputVariables())));
     }
 }

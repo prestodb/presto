@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
@@ -38,7 +38,7 @@ public class TestLambdaCaptureDesugaringRewriter
     public void testRewriteBasicLambda()
     {
         final List<VariableReferenceExpression> variables = ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "a", BIGINT), new VariableReferenceExpression(Optional.empty(), "x", BIGINT));
-        final PlanVariableAllocator allocator = new PlanVariableAllocator(variables);
+        final VariableAllocator allocator = new VariableAllocator(variables);
 
         assertEquals(rewrite(expression("x -> a + x"), allocator),
                 new BindExpression(

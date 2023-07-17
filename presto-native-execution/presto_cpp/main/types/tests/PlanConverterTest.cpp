@@ -24,6 +24,7 @@
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/presto_protocol/Connectors.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 namespace fs = boost::filesystem;
@@ -61,9 +62,10 @@ std::shared_ptr<const core::PlanNode> assertToVeloxQueryPlan(
   std::string fragment = slurp(getDataPath(fileName));
 
   protocol::PlanFragment prestoPlan = json::parse(fragment);
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
 
-  VeloxInteractiveQueryPlanConverter converter(pool.get());
+  auto queryCtx = std::make_shared<core::QueryCtx>();
+  VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
   return converter
       .toVeloxQueryPlan(
           prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3")
@@ -77,9 +79,13 @@ std::shared_ptr<const core::PlanNode> assertToBatchVeloxQueryPlan(
   const std::string fragment = slurp(getDataPath(fileName));
 
   protocol::PlanFragment prestoPlan = json::parse(fragment);
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
+  auto queryCtx = std::make_shared<core::QueryCtx>();
   VeloxBatchQueryPlanConverter converter(
-      shuffleName, std::move(serializedShuffleWriteInfo), pool.get());
+      shuffleName,
+      std::move(serializedShuffleWriteInfo),
+      queryCtx.get(),
+      pool.get());
   return converter
       .toVeloxQueryPlan(
           prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3")
@@ -93,7 +99,24 @@ class PlanConverterTest : public ::testing::Test {};
 // Scan + Partial Agg + Repartitioning
 TEST_F(PlanConverterTest, scanAgg) {
   protocol::registerConnector("hive", "hive");
-  assertToVeloxQueryPlan("ScanAgg.json");
+  auto partitionedOutput = assertToVeloxQueryPlan("ScanAgg.json");
+  auto* tableScan = dynamic_cast<const core::TableScanNode*>(
+      partitionedOutput->sources()[0]->sources()[0]->sources()[0].get());
+  ASSERT_TRUE(tableScan != nullptr);
+  auto* columnHandle = dynamic_cast<const connector::hive::HiveColumnHandle*>(
+      tableScan->assignments().at("complex_type").get());
+  ASSERT_TRUE(columnHandle != nullptr);
+  auto& requiredSubfields = columnHandle->requiredSubfields();
+  ASSERT_EQ(requiredSubfields.size(), 2);
+  ASSERT_EQ(requiredSubfields[0].toString(), "complex_type[1][\"foo\"].id");
+  ASSERT_EQ(requiredSubfields[1].toString(), "complex_type[2][\"bar\"].id");
+
+  auto* tableHandle = dynamic_cast<const connector::hive::HiveTableHandle*>(
+      tableScan->tableHandle().get());
+  ASSERT_TRUE(tableHandle);
+  ASSERT_EQ(
+      tableHandle->dataColumns()->toString(),
+      "ROW<nationkey:BIGINT,name:VARCHAR,regionkey:BIGINT,complex_type:ARRAY<MAP<VARCHAR,ROW<id:BIGINT,description:VARCHAR>>>,comment:VARCHAR>");
 
   protocol::registerConnector("hive-plus", "hive");
   assertToVeloxQueryPlan("ScanAggCustomConnectorId.json");
@@ -144,14 +167,8 @@ TEST_F(PlanConverterTest, batchPlanConversion) {
           exec::test::TempDirectoryPath::create()->path,
           10)));
 
-  auto partitionedOutput =
-      std::dynamic_pointer_cast<const core::PartitionedOutputNode>(root);
-  ASSERT_NE(partitionedOutput, nullptr);
-  ASSERT_EQ(partitionedOutput->sources().size(), 1);
-
   auto shuffleWrite =
-      std::dynamic_pointer_cast<const operators::ShuffleWriteNode>(
-          partitionedOutput->sources().back());
+      std::dynamic_pointer_cast<const operators::ShuffleWriteNode>(root);
   ASSERT_NE(shuffleWrite, nullptr);
   ASSERT_EQ(shuffleWrite->sources().size(), 1);
 

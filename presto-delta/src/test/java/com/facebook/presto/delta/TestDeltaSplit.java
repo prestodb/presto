@@ -14,6 +14,7 @@
 package com.facebook.presto.delta;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -37,7 +38,8 @@ public class TestDeltaSplit
                 0,
                 200,
                 500,
-                ImmutableMap.of("part1", "part1Val"));
+                ImmutableMap.of("part1", "part1Val"),
+                NodeSelectionStrategy.NO_PREFERENCE);
 
         String json = codec.toJson(expected);
         DeltaSplit actual = codec.fromJson(json);

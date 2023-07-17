@@ -15,6 +15,7 @@
 
 #include <folly/io/async/EventBaseThread.h>
 #include <presto_cpp/main/http/HttpClient.h>
+#include "presto_cpp/main/CoordinatorDiscoverer.h"
 
 namespace facebook::presto {
 
@@ -22,16 +23,20 @@ class Announcer {
  public:
   Announcer(
       const std::string& address,
+      bool useHttps,
       int port,
-      std::function<folly::SocketAddress()> discoveryAddressLookup,
+      const std::shared_ptr<CoordinatorDiscoverer>& coordinatorDiscoverer,
       const std::string& nodeVersion,
       const std::string& environment,
       const std::string& nodeId,
       const std::string& nodeLocation,
       const std::vector<std::string>& connectorIds,
-      int frequencyMs);
+      const uint64_t minFrequencyMs,
+      const uint64_t maxFrequencyMs_,
+      const std::string& clientCertAndKeyPath = "",
+      const std::string& ciphers = "");
 
-  ~Announcer();
+  ~Announcer() = default;
 
   void start();
 
@@ -40,16 +45,26 @@ class Announcer {
  private:
   void makeAnnouncement();
 
+  uint64_t getAnnouncementDelay() const;
+
   void scheduleNext();
 
-  std::function<folly::SocketAddress()> discoveryAddressLookup_;
-  const int frequencyMs_;
+  const std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer_;
+  const uint64_t minFrequencyMs_;
+  const uint64_t maxFrequencyMs_;
   const std::string announcementBody_;
   const proxygen::HTTPMessage announcementRequest_;
-  folly::SocketAddress address_;
-  std::unique_ptr<http::HttpClient> client_;
-  std::atomic_bool stopped_{true};
+  const std::shared_ptr<velox::memory::MemoryPool> pool_;
   folly::EventBaseThread eventBaseThread_;
+  const std::string clientCertAndKeyPath_;
+  const std::string ciphers_;
+  /// jitter value for backoff delay time in case of announcment failure
+  const double backOffjitterParam_{0.1};
+
+  folly::SocketAddress address_;
+  std::shared_ptr<http::HttpClient> client_;
+  std::atomic_bool stopped_{true};
+  uint64_t failedAttempts_{0};
 };
 
 } // namespace facebook::presto

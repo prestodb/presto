@@ -63,6 +63,7 @@ import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
@@ -329,7 +330,8 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 60_000)
+    // This test is flaky: https://github.com/prestodb/presto/issues/19633
+    @Test(timeOut = 60_000, enabled = false)
     public void testQueuedQueryInteraction()
             throws Exception
     {
@@ -392,11 +394,6 @@ public class TestQueues
             DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
             assertEquals(dispatchManager.getQueryInfo(queryId).getErrorCode(), QUERY_REJECTED.toErrorCode());
         }
-    }
-
-    private String getResourceFilePath(String fileName)
-    {
-        return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 
     private QueryId createDashboardQuery(DistributedQueryRunner queryRunner)

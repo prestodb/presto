@@ -127,7 +127,7 @@ public final class GroupByHashYieldAssertion
 
             // Skip if the memory usage is not large enough since we cannot distinguish
             // between rehash and memory used by aggregator
-            if (newMemoryUsage < new DataSize(4, MEGABYTE).toBytes()) {
+            if (newMemoryUsage < new DataSize(3, MEGABYTE).toBytes()) {
                 // free the pool for the next iteration
                 memoryPool.free(queryId1, "test", reservedMemoryInBytes);
                 // this required in case input is blocked
@@ -162,16 +162,10 @@ public final class GroupByHashYieldAssertion
                 // Hash table capacity should not change
                 assertEquals(oldCapacity, (long) getHashCapacity.apply(operator));
 
+                expectedReservedExtraBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity * 2) + page.getRetainedSizeInBytes();
+
                 // Increased memory is no smaller than the hash table size and no greater than the hash table size + the memory used by aggregator
-                if (hashKeyType == BIGINT) {
-                    // groupIds and values double by hashCapacity; while valuesByGroupId double by maxFill = hashCapacity / 0.75
-                    expectedReservedExtraBytes = oldCapacity * (long) (Long.BYTES * 1.75 + Integer.BYTES) + page.getRetainedSizeInBytes();
-                }
-                else {
-                    // groupAddressByHash, groupIdsByHash, and rawHashByHashPosition double by hashCapacity; while groupAddressByGroupId double by maxFill = hashCapacity / 0.75
-                    expectedReservedExtraBytes = oldCapacity * (long) (Long.BYTES * 1.75 + Integer.BYTES + Byte.BYTES) + page.getRetainedSizeInBytes();
-                }
-                assertBetweenInclusive(actualIncreasedMemory, expectedReservedExtraBytes, expectedReservedExtraBytes + additionalMemoryInBytes);
+                assertBetweenInclusive(actualIncreasedMemory, expectedReservedExtraBytes, 2 * expectedReservedExtraBytes + additionalMemoryInBytes);
 
                 // Output should be blocked as well
                 assertNull(operator.getOutput());
@@ -189,10 +183,14 @@ public final class GroupByHashYieldAssertion
                 // Hash table capacity has increased
                 assertGreaterThan(getHashCapacity.apply(operator), oldCapacity);
 
-                // Assert the estimated reserved memory before rehash is very close to the one after rehash
+                // Assert the estimated reserved memory after rehash is lower than the one before rehash (extra memory allocation has been released)
                 long rehashedMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
-                assertBetweenInclusive(rehashedMemoryUsage * 1.0 / newMemoryUsage, 0.99, 1.01);
+                long previousHashTableSizeInBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity);
+                long expectedMemoryUsageAfterRehash = newMemoryUsage - previousHashTableSizeInBytes;
+                double memoryUsageErrorUpperBound = 1.02;
+                double memoryUsageError = rehashedMemoryUsage * 1.0 / expectedMemoryUsageAfterRehash;
 
+                assertBetweenInclusive(memoryUsageError, 0.98, memoryUsageErrorUpperBound);
                 // unblocked
                 assertTrue(operator.needsInput());
             }
@@ -200,6 +198,16 @@ public final class GroupByHashYieldAssertion
 
         result.addAll(finishOperator(operator));
         return new GroupByHashYieldResult(yieldCount, expectedReservedExtraBytes, result);
+    }
+
+    private static long getHashTableSizeInBytes(Type hashKeyType, int capacity)
+    {
+        if (hashKeyType == BIGINT) {
+            // groupIds and values double by hashCapacity; while valuesByGroupId double by maxFill = hashCapacity / 0.75
+            return capacity * (long) (Long.BYTES * 1.75 + Integer.BYTES);
+        }
+        // groupAddressByHash, groupIdsByHash, and rawHashByHashPosition double by hashCapacity; while groupAddressByGroupId double by maxFill = hashCapacity / 0.75
+        return capacity * (long) (Long.BYTES * 1.75 + Integer.BYTES + Byte.BYTES);
     }
 
     public static final class GroupByHashYieldResult

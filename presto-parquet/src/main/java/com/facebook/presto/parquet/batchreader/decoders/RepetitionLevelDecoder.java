@@ -17,13 +17,18 @@ package com.facebook.presto.parquet.batchreader.decoders;
 import com.facebook.presto.parquet.batchreader.decoders.rle.BaseRLEBitPackedDecoder;
 import it.unimi.dsi.fastutil.ints.IntList;
 import org.apache.parquet.io.ParquetDecodingException;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.InputStream;
 
+import static io.airlift.slice.SizeOf.sizeOf;
+
 public class RepetitionLevelDecoder
         extends BaseRLEBitPackedDecoder
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BaseRLEBitPackedDecoder.class).instanceSize();
+
     private int remaining;
     private int currentOffsetPackedBuffer;
     private int endOffsetPackedBuffer;
@@ -89,6 +94,12 @@ public class RepetitionLevelDecoder
             }
         }
         return batchSize - remainingToCopy;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + sizeOf(currentBuffer);
     }
 
     private boolean ensureBlockAvailable()

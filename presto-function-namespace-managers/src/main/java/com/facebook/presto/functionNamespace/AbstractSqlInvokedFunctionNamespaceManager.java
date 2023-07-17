@@ -22,6 +22,8 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.AggregationFunctionImplementation;
+import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -34,11 +36,13 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedAggregationFunctionImplementation;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import javax.annotation.concurrent.GuardedBy;
@@ -51,9 +55,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
+import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -173,11 +178,16 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
         try {
             return Optional.of(userDefinedTypes.getUnchecked(typeName));
         }
-        catch (PrestoException e) {
-            if (e.getErrorCode().equals(NOT_FOUND.toErrorCode())) {
-                return Optional.empty();
+        catch (UncheckedExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof PrestoException) {
+                PrestoException prestoException = (PrestoException) cause;
+                if (prestoException.getErrorCode().equals(NOT_FOUND.toErrorCode())) {
+                    return Optional.empty();
+                }
+                throw prestoException;
             }
-            throw e;
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Error getting UserDefinedType: %s", typeName), cause);
         }
     }
 
@@ -200,7 +210,12 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     {
         checkCatalog(functionHandle);
         checkArgument(functionHandle instanceof SqlFunctionHandle, "Unsupported FunctionHandle type '%s'", functionHandle.getClass().getSimpleName());
-        return metadataByHandle.getUnchecked((SqlFunctionHandle) functionHandle);
+        try {
+            return metadataByHandle.getUnchecked((SqlFunctionHandle) functionHandle);
+        }
+        catch (UncheckedExecutionException e) {
+            throw convertToPrestoException(e, format("Error getting FunctionMetadata for handle: %s", functionHandle));
+        }
     }
 
     @Override
@@ -208,7 +223,12 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     {
         checkCatalog(functionHandle);
         checkArgument(functionHandle instanceof SqlFunctionHandle, "Unsupported FunctionHandle type '%s'", functionHandle.getClass().getSimpleName());
-        return implementationByHandle.getUnchecked((SqlFunctionHandle) functionHandle);
+        try {
+            return implementationByHandle.getUnchecked((SqlFunctionHandle) functionHandle);
+        }
+        catch (UncheckedExecutionException e) {
+            throw convertToPrestoException(e, format("Error getting ScalarFunctionImplementation for handle: %s", functionHandle));
+        }
     }
 
     @Override
@@ -223,6 +243,15 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                 channels,
                 functionMetadata.getArgumentTypes().stream().map(typeManager::getType).collect(toImmutableList()),
                 typeManager.getType(functionMetadata.getReturnType()));
+    }
+
+    private static PrestoException convertToPrestoException(UncheckedExecutionException exception, String failureMessage)
+    {
+        Throwable cause = exception.getCause();
+        if (cause instanceof PrestoException) {
+            return (PrestoException) cause;
+        }
+        return new PrestoException(GENERIC_INTERNAL_ERROR, failureMessage, cause);
     }
 
     protected String getCatalogName()
@@ -275,7 +304,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                         .map(Parameter::getName)
                         .collect(toImmutableList()),
                 function.getSignature().getReturnType(),
-                SCALAR,
+                function.getSignature().getKind(),
                 function.getRoutineCharacteristics().getLanguage(),
                 getFunctionImplementationType(function),
                 function.isDeterministic(),
@@ -308,9 +337,48 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
         }
     }
 
+    protected AggregationFunctionImplementation sqlInvokedFunctionToAggregationImplementation(
+            SqlInvokedFunction function,
+            TypeManager typeManager)
+    {
+        checkArgument(
+                function.getSignature().getKind() == AGGREGATE,
+                "Need an AGGREGATE function input to get aggregation function implementation");
+
+        FunctionImplementationType implementationType = getFunctionImplementationType(function);
+        switch (implementationType) {
+            case SQL:
+            case THRIFT:
+            case GRPC:
+            case JAVA:
+                throw new IllegalStateException(format(
+                        "Aggregate SqlInvokedFunction %s has %s implementation type, which is not supported by %s",
+                        function.getSignature().getName(),
+                        getClass().getSimpleName(),
+                        implementationType));
+            case CPP:
+                checkArgument(
+                        function.getAggregationMetadata().isPresent(),
+                        "Need aggregationMetadata to get aggregation function implementation");
+
+                AggregationFunctionMetadata aggregationMetadata = function.getAggregationMetadata().get();
+                return new SqlInvokedAggregationFunctionImplementation(
+                        typeManager.getType(aggregationMetadata.getIntermediateType()),
+                        typeManager.getType(function.getSignature().getReturnType()),
+                        aggregationMetadata.isOrderSensitive());
+            default:
+                throw new IllegalStateException(format("Unknown function implementation type: %s", implementationType));
+        }
+    }
+
     private Collection<SqlInvokedFunction> fetchFunctions(QualifiedObjectName functionName)
     {
-        return functions.getUnchecked(functionName);
+        try {
+            return functions.getUnchecked(functionName);
+        }
+        catch (UncheckedExecutionException e) {
+            throw convertToPrestoException(e, format("Error fetching functions: %s", functionName));
+        }
     }
 
     private class FunctionCollection

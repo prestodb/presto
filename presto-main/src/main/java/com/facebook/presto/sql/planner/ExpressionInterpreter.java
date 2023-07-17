@@ -35,6 +35,7 @@ import com.facebook.presto.operator.scalar.ArraySubscriptOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionImplementationType;
@@ -47,7 +48,6 @@ import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Interpreters.LambdaVariableResolver;
-import com.facebook.presto.sql.planner.iterative.rule.DesugarCurrentUser;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -956,7 +956,7 @@ public class ExpressionInterpreter
                         functionMetadata,
                         (SqlInvokedScalarFunctionImplementation) metadata.getFunctionAndTypeManager().getScalarFunctionImplementation(functionHandle),
                         metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
-                        new PlanVariableAllocator(),
+                        new VariableAllocator(),
                         session.getSqlFunctionProperties(),
                         node.getArguments());
                 ExpressionInterpreter functionInterpreter = new ExpressionInterpreter(
@@ -1194,7 +1194,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCurrentUser(CurrentUser node, Object context)
         {
-            FunctionCall functionCall = DesugarCurrentUser.getCall(node);
+            FunctionCall functionCall = new FunctionCall(QualifiedName.of("$current_user"), ImmutableList.of());
             addGeneratedExpressionType(functionCall, type(node));
             return visitFunctionCall(functionCall, context);
         }

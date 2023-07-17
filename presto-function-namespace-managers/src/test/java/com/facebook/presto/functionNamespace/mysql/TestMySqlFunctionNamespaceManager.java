@@ -35,7 +35,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Injector;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
@@ -203,7 +202,7 @@ public class TestMySqlFunctionNamespaceManager
         assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"));
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = ".*function 'unittest\\.memory\\.power_tower\\(x double\\):double:1 \\{RETURN pow\\(x, x\\)\\} \\(SQL, DETERMINISTIC, CALLED_ON_NULL_INPUT\\)' is already versioned")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = ".*function 'unittest\\.memory\\.power_tower\\(x double\\):double:1 \\[SCALAR] \\{RETURN pow\\(x, x\\)\\} \\(SQL, DETERMINISTIC, CALLED_ON_NULL_INPUT\\)' is already versioned")
     public void testCreateFunctionFailedVersioned()
     {
         createFunction(FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"), true);
@@ -406,7 +405,7 @@ public class TestMySqlFunctionNamespaceManager
         assertGetFunctionMetadata(handle2, FUNCTION_POWER_TOWER_DOUBLE_UPDATED);
     }
 
-    @Test(expectedExceptions = UncheckedExecutionException.class, expectedExceptionsMessageRegExp = ".*Invalid FunctionHandle: unittest\\.memory\\.power_tower\\(double\\):2")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Error getting FunctionMetadata for handle: unittest\\.memory\\.power_tower\\(double\\):2")
     public void testInvalidFunctionHandle()
     {
         createFunction(FUNCTION_POWER_TOWER_DOUBLE, true);

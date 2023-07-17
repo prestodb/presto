@@ -15,14 +15,18 @@ package com.facebook.presto.parquet.batchreader.dictionary;
 
 import com.facebook.presto.parquet.DictionaryPage;
 import com.facebook.presto.parquet.dictionary.Dictionary;
+import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.parquet.ParquetTimestampUtils.getTimestampMillis;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class TimestampDictionary
         extends Dictionary
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampDictionary.class).instanceSize();
+
     private final long[] dictionary;
 
     public TimestampDictionary(DictionaryPage dictionaryPage)
@@ -48,5 +52,11 @@ public class TimestampDictionary
     public long decodeToLong(int id)
     {
         return dictionary[id];
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + sizeOf(dictionary);
     }
 }

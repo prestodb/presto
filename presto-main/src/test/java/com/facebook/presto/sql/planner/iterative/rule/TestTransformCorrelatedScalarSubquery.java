@@ -30,6 +30,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -54,7 +55,14 @@ public class TestTransformCorrelatedScalarSubquery
     private static final ImmutableList<List<RowExpression>> ONE_ROW = ImmutableList.of(ImmutableList.of(constant(1L, BIGINT)));
     private static final ImmutableList<List<RowExpression>> TWO_ROWS = ImmutableList.of(ImmutableList.of(constant(1L, BIGINT)), ImmutableList.of(constant(2L, BIGINT)));
 
-    private Rule rule = new TransformCorrelatedScalarSubquery();
+    private Rule rule;
+
+    @BeforeClass
+    public void setUp()
+    {
+        super.setUp();
+        this.rule = new TransformCorrelatedScalarSubquery(getFunctionManager());
+    }
 
     @Test
     public void doesNotFireOnPlanWithoutLateralNode()
@@ -90,13 +98,16 @@ public class TestTransformCorrelatedScalarSubquery
     public void rewritesOnSubqueryWithoutProjection()
     {
         tester().assertThat(rule)
-                .on(p -> p.lateral(
-                        ImmutableList.of(p.variable("corr")),
-                        p.values(p.variable("corr")),
-                        p.enforceSingleRow(
-                                p.filter(
-                                        p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
-                                        p.values(ImmutableList.of(p.variable("a")), TWO_ROWS)))))
+                .on(p -> {
+                    p.variable("a");
+                    return p.lateral(
+                            ImmutableList.of(p.variable("corr")),
+                            p.values(p.variable("corr")),
+                            p.enforceSingleRow(
+                                    p.filter(
+                                            p.rowExpression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
+                                            p.values(ImmutableList.of(p.variable("a")), TWO_ROWS))));
+                })
                 .matches(
                         project(
                                 filter(
@@ -118,15 +129,16 @@ public class TestTransformCorrelatedScalarSubquery
     public void rewritesOnSubqueryWithProjection()
     {
         tester().assertThat(rule)
-                .on(p -> p.lateral(
-                        ImmutableList.of(p.variable("corr")),
-                        p.values(p.variable("corr")),
-                        p.enforceSingleRow(
-                                p.project(
-                                        assignment(p.variable("a2"), p.expression("a * 2")),
-                                        p.filter(
-                                                p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
-                                                p.values(ImmutableList.of(p.variable("a")), TWO_ROWS))))))
+                .on(p -> p.registerVariable(p.variable("a"))
+                        .lateral(
+                                ImmutableList.of(p.variable("corr")),
+                                p.values(p.variable("corr")),
+                                p.enforceSingleRow(
+                                        p.project(
+                                                assignment(p.variable("a2"), p.rowExpression("a * 2")),
+                                                p.filter(
+                                                        p.rowExpression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
+                                                        p.values(ImmutableList.of(p.variable("a")), TWO_ROWS))))))
                 .matches(
                         project(
                                 filter(
@@ -148,17 +160,20 @@ public class TestTransformCorrelatedScalarSubquery
     public void rewritesOnSubqueryWithProjectionOnTopEnforceSingleNode()
     {
         tester().assertThat(rule)
-                .on(p -> p.lateral(
-                        ImmutableList.of(p.variable("corr")),
-                        p.values(p.variable("corr")),
-                        p.project(
-                                assignment(p.variable("a3"), p.expression("a2 + 1")),
-                                p.enforceSingleRow(
-                                        p.project(
-                                                assignment(p.variable("a2"), p.expression("a * 2")),
-                                                p.filter(
-                                                        p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
-                                                        p.values(ImmutableList.of(p.variable("a")), TWO_ROWS)))))))
+                .on(p -> p.registerVariable(p.variable("a"))
+                        .registerVariable(p.variable("a2"))
+                        .registerVariable(p.variable("a3"))
+                        .lateral(
+                                ImmutableList.of(p.variable("corr")),
+                                p.values(p.variable("corr")),
+                                p.project(
+                                        assignment(p.variable("a3"), p.rowExpression("a2 + 1")),
+                                        p.enforceSingleRow(
+                                                p.project(
+                                                        assignment(p.variable("a2"), p.rowExpression("a * 2")),
+                                                        p.filter(
+                                                                p.rowExpression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
+                                                                p.values(ImmutableList.of(p.variable("a")), TWO_ROWS)))))))
                 .matches(
                         project(
                                 filter(
@@ -184,13 +199,14 @@ public class TestTransformCorrelatedScalarSubquery
     public void rewritesScalarSubquery()
     {
         tester().assertThat(rule)
-                .on(p -> p.lateral(
-                        ImmutableList.of(p.variable("corr")),
-                        p.values(p.variable("corr")),
-                        p.enforceSingleRow(
-                                p.filter(
-                                        p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
-                                        p.values(ImmutableList.of(p.variable("a")), ONE_ROW)))))
+                .on(p -> p.registerVariable(p.variable("a"))
+                        .lateral(
+                                ImmutableList.of(p.variable("corr")),
+                                p.values(p.variable("corr")),
+                                p.enforceSingleRow(
+                                        p.filter(
+                                                p.rowExpression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
+                                                p.values(ImmutableList.of(p.variable("a")), ONE_ROW)))))
                 .matches(
                         lateral(
                                 ImmutableList.of("corr"),

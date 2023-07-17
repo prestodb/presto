@@ -45,6 +45,7 @@ import static com.facebook.airlift.discovery.client.ServiceDescriptor.serviceDes
 import static com.facebook.airlift.discovery.client.ServiceSelectorConfig.DEFAULT_POOL;
 import static com.facebook.airlift.http.client.HttpStatus.OK;
 import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static com.facebook.presto.server.ServerConfig.POOL_TYPE;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.INACTIVE;
 import static org.testng.Assert.assertEquals;
@@ -338,6 +339,7 @@ public class TestDiscoveryNodeManager
                         .addProperty("coordinator", String.valueOf(node.isCoordinator()))
                         .addProperty("resource_manager", String.valueOf(node.isResourceManager()))
                         .addProperty("catalog_server", String.valueOf(node.isCatalogServer()))
+                        .addProperty(POOL_TYPE, node.getPoolType().name())
                         .build());
             }
 

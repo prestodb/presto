@@ -31,10 +31,9 @@ import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.FO
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.PRECEDING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.GROUPS;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.ROWS;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static java.lang.String.format;
 
 public final class WindowNodeUtil
@@ -48,6 +47,8 @@ public final class WindowNodeUtil
                 return RANGE;
             case ROWS:
                 return ROWS;
+            case GROUPS:
+                return GROUPS;
             default:
                 throw new UnsupportedOperationException(format("unrecognized window frame type %s", type));
         }
@@ -77,12 +78,7 @@ public final class WindowNodeUtil
     {
         ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
         for (RowExpression argument : function.getFunctionCall().getArguments()) {
-            if (isExpression(argument)) {
-                builder.addAll(VariablesExtractor.extractAll(castToExpression(argument), types));
-            }
-            else {
-                builder.addAll(VariablesExtractor.extractAll(argument));
-            }
+            builder.addAll(VariablesExtractor.extractAll(argument));
         }
         return builder.build();
     }

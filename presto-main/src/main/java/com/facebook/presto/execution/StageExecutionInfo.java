@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTime;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -116,6 +117,9 @@ public class StageExecutionInfo
         Map<String, OperatorStats> operatorToStats = new HashMap<>();
         RuntimeStats mergedRuntimeStats = new RuntimeStats();
         mergedRuntimeStats.addMetricValueIgnoreZero(GET_SPLITS_TIME_NANOS, NANO, (long) getSplitDistribution.getTotal());
+
+        List<TaskStats> allTaskStats = new ArrayList<>();
+
         for (TaskInfo taskInfo : taskInfos) {
             TaskState taskState = taskInfo.getTaskStatus().getState();
             if (taskState.isDone()) {
@@ -126,7 +130,21 @@ public class StageExecutionInfo
             }
 
             TaskStats taskStats = taskInfo.getStats();
+            allTaskStats.add(taskStats);
 
+            if (state == FINISHED && taskInfo.getTaskStatus().getState() == TaskState.FAILED) {
+                retriedCpuTime += taskStats.getTotalCpuTimeInNanos();
+            }
+
+            if (!taskState.isDone()) {
+                fullyBlocked &= taskStats.isFullyBlocked();
+                blockedReasons.addAll(taskStats.getBlockedReasons());
+            }
+
+            bufferedDataSize += taskInfo.getOutputBuffers().getTotalBufferedBytes();
+        }
+
+        for (TaskStats taskStats : allTaskStats) {
             totalDrivers += taskStats.getTotalDrivers();
             queuedDrivers += taskStats.getQueuedDrivers();
             runningDrivers += taskStats.getRunningDrivers();
@@ -143,14 +161,7 @@ public class StageExecutionInfo
 
             totalScheduledTime += taskStats.getTotalScheduledTimeInNanos();
             totalCpuTime += taskStats.getTotalCpuTimeInNanos();
-            if (state == FINISHED && taskInfo.getTaskStatus().getState() == TaskState.FAILED) {
-                retriedCpuTime += taskStats.getTotalCpuTimeInNanos();
-            }
             totalBlockedTime += taskStats.getTotalBlockedTimeInNanos();
-            if (!taskState.isDone()) {
-                fullyBlocked &= taskStats.isFullyBlocked();
-                blockedReasons.addAll(taskStats.getBlockedReasons());
-            }
 
             totalAllocation += taskStats.getTotalAllocationInBytes();
 
@@ -160,7 +171,6 @@ public class StageExecutionInfo
             processedInputDataSize += taskStats.getProcessedInputDataSizeInBytes();
             processedInputPositions += taskStats.getProcessedInputPositions();
 
-            bufferedDataSize += taskInfo.getOutputBuffers().getTotalBufferedBytes();
             outputDataSize += taskStats.getOutputDataSizeInBytes();
             outputPositions += taskStats.getOutputPositions();
 

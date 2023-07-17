@@ -36,6 +36,16 @@ import static java.util.Objects.requireNonNull;
 
 public class Assignments
 {
+    private final Map<VariableReferenceExpression, RowExpression> assignments;
+    private final List<VariableReferenceExpression> outputs;
+
+    @JsonCreator
+    public Assignments(@JsonProperty("assignments") Map<VariableReferenceExpression, RowExpression> assignments)
+    {
+        this.assignments = unmodifiableMap(new LinkedHashMap<>(requireNonNull(assignments, "assignments is null")));
+        this.outputs = unmodifiableList(new ArrayList<>(assignments.keySet()));
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -66,16 +76,6 @@ public class Assignments
     public static Assignments of(VariableReferenceExpression variable1, RowExpression expression1, VariableReferenceExpression variable2, RowExpression expression2)
     {
         return builder().put(variable1, expression1).put(variable2, expression2).build();
-    }
-
-    private final Map<VariableReferenceExpression, RowExpression> assignments;
-    private final List<VariableReferenceExpression> outputs;
-
-    @JsonCreator
-    public Assignments(@JsonProperty("assignments") Map<VariableReferenceExpression, RowExpression> assignments)
-    {
-        this.assignments = unmodifiableMap(new LinkedHashMap<>(requireNonNull(assignments, "assignments is null")));
-        this.outputs = unmodifiableList(new ArrayList<>(assignments.keySet()));
     }
 
     public List<VariableReferenceExpression> getOutputs()

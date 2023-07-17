@@ -32,14 +32,22 @@ public class PrestoSparkShuffleReadDescriptor
     private final Partition partition;
     private final ShuffleHandle shuffleHandle;
     private final List<String> blockIds;
+    private final List<String> partitionIds;
     private final List<Long> partitionSizes;
     private final int numPartitions;
 
-    public PrestoSparkShuffleReadDescriptor(Partition partition, ShuffleHandle shuffleHandle, int numPartitions, List<String> blockIds, List<Long> partitionSizes)
+    public PrestoSparkShuffleReadDescriptor(
+            Partition partition,
+            ShuffleHandle shuffleHandle,
+            int numPartitions,
+            List<String> blockIds,
+            List<String> partitionIds,
+            List<Long> partitionSizes)
     {
         this.partition = requireNonNull(partition, "partition is null");
         this.shuffleHandle = requireNonNull(shuffleHandle, "shuffleHandle is null");
         this.blockIds = requireNonNull(blockIds, "blockIds is null");
+        this.partitionIds = requireNonNull(partitionIds, "partitionIds is null");
         this.partitionSizes = requireNonNull(partitionSizes, "partitionSizes is null");
         checkArgument(numPartitions > 0, "numPartitions requires larger than 0");
         this.numPartitions = numPartitions;
@@ -53,6 +61,11 @@ public class PrestoSparkShuffleReadDescriptor
     public List<String> getBlockIds()
     {
         return blockIds;
+    }
+
+    public List<String> getPartitionIds()
+    {
+        return partitionIds;
     }
 
     public List<Long> getPartitionSizes()

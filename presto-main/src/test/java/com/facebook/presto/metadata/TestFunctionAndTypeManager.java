@@ -166,8 +166,8 @@ public class TestFunctionAndTypeManager
         assertTrue(names.contains("rank"), "Expected function names " + names + " to contain 'rank'");
         assertFalse(names.contains("quantiles_at_values"), "Expected function names " + names + " not to contain 'quantiles_at_values'");
         assertFalse(names.contains("like"), "Expected function names " + names + " not to contain 'like'");
-        assertFalse(names.contains("$internal$sum_data_size_for_stats"), "Expected function names " + names + " not to contain '$internal$sum_data_size_for_stats'");
-        assertFalse(names.contains("$internal$max_data_size_for_stats"), "Expected function names " + names + " not to contain '$internal$max_data_size_for_stats'");
+        assertFalse(names.contains("sum_data_size_for_stats"), "Expected function names " + names + " not to contain 'sum_data_size_for_stats'");
+        assertFalse(names.contains("max_data_size_for_stats"), "Expected function names " + names + " not to contain 'max_data_size_for_stats'");
     }
 
     @Test
@@ -188,8 +188,8 @@ public class TestFunctionAndTypeManager
         assertTrue(names.contains("tdigest_agg"), "Expected function names " + names + " to contain 'tdigest_agg'");
         assertTrue(names.contains("quantiles_at_values"), "Expected function names " + names + " to contain 'tdigest_agg'");
         assertFalse(names.contains("like"), "Expected function names " + names + " not to contain 'like'");
-        assertFalse(names.contains("$internal$sum_data_size_for_stats"), "Expected function names " + names + " not to contain '$internal$sum_data_size_for_stats'");
-        assertFalse(names.contains("$internal$max_data_size_for_stats"), "Expected function names " + names + " not to contain '$internal$max_data_size_for_stats'");
+        assertFalse(names.contains("sum_data_size_for_stats"), "Expected function names " + names + " not to contain 'sum_data_size_for_stats'");
+        assertFalse(names.contains("max_data_size_for_stats"), "Expected function names " + names + " not to contain 'max_data_size_for_stats'");
     }
 
     @Test

@@ -13,19 +13,25 @@
  */
 package com.facebook.presto.functionNamespace.json;
 
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.spi.function.AggregationFunctionMetadata;
+import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
- * The function meta data provided by the Json file to the {@link JsonFileBasedFunctionNamespaceManager}.
+ * The function metadata provided by the Json file to the {@link JsonFileBasedFunctionNamespaceManager}.
  */
 public class JsonBasedUdfFunctionMetadata
 {
@@ -34,13 +40,17 @@ public class JsonBasedUdfFunctionMetadata
      */
     private final String docString;
     /**
+     * FunctionKind of the function (e.g. SCALAR, AGGREGATE)
+     */
+    private final FunctionKind functionKind;
+    /**
      * Output type of the function.
      */
-    private final String outputType;
+    private final TypeSignature outputType;
     /**
      * Input types of the function
      */
-    private final List<String> paramTypes;
+    private final List<TypeSignature> paramTypes;
     /**
      * Schema the function belongs to. Catalog.schema.function uniquely identifies a function.
      */
@@ -50,19 +60,31 @@ public class JsonBasedUdfFunctionMetadata
      */
     private final RoutineCharacteristics routineCharacteristics;
 
+    /**
+     * Optional Aggregate-specific metadata (required for aggregation functions)
+     */
+    private final Optional<AggregationFunctionMetadata> aggregateMetadata;
+
     @JsonCreator
     public JsonBasedUdfFunctionMetadata(
             @JsonProperty("docString") String docString,
-            @JsonProperty("outputType") String outputType,
-            @JsonProperty("paramTypes") List<String> paramTypes,
+            @JsonProperty("functionKind") FunctionKind functionKind,
+            @JsonProperty("outputType") TypeSignature outputType,
+            @JsonProperty("paramTypes") List<TypeSignature> paramTypes,
             @JsonProperty("schema") String schema,
-            @JsonProperty("routineCharacteristics") RoutineCharacteristics routineCharacteristics)
+            @JsonProperty("routineCharacteristics") RoutineCharacteristics routineCharacteristics,
+            @JsonProperty("aggregateMetadata") Optional<AggregationFunctionMetadata> aggregateMetadata)
     {
         this.docString = requireNonNull(docString, "docString is null");
+        this.functionKind = requireNonNull(functionKind, "functionKind is null");
         this.outputType = requireNonNull(outputType, "outputType is null");
         this.paramTypes = ImmutableList.copyOf(requireNonNull(paramTypes, "paramTypes is null"));
         this.schema = requireNonNull(schema, "schema is null");
         this.routineCharacteristics = requireNonNull(routineCharacteristics, "routineCharacteristics is null");
+        this.aggregateMetadata = requireNonNull(aggregateMetadata, "aggregateMetadata is null");
+        checkArgument(
+                (functionKind == AGGREGATE && aggregateMetadata.isPresent()) || (functionKind != AGGREGATE && !aggregateMetadata.isPresent()),
+                "aggregateMetadata must be present for aggregation functions and absent otherwise");
     }
 
     public String getDocString()
@@ -70,7 +92,12 @@ public class JsonBasedUdfFunctionMetadata
         return docString;
     }
 
-    public String getOutputType()
+    public FunctionKind getFunctionKind()
+    {
+        return functionKind;
+    }
+
+    public TypeSignature getOutputType()
     {
         return outputType;
     }
@@ -80,7 +107,7 @@ public class JsonBasedUdfFunctionMetadata
         return IntStream.range(0, paramTypes.size()).boxed().map(idx -> "input" + idx).collect(toImmutableList());
     }
 
-    public List<String> getParamTypes()
+    public List<TypeSignature> getParamTypes()
     {
         return paramTypes;
     }
@@ -93,5 +120,10 @@ public class JsonBasedUdfFunctionMetadata
     public RoutineCharacteristics getRoutineCharacteristics()
     {
         return routineCharacteristics;
+    }
+
+    public Optional<AggregationFunctionMetadata> getAggregateMetadata()
+    {
+        return aggregateMetadata;
     }
 }

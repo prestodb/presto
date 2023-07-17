@@ -11,14 +11,25 @@
 # limitations under the License.
 add_executable(
   presto_server_test
-  PrestoExchangeSourceTest.cpp TaskManagerTest.cpp HttpServerWrapper.cpp
-  PrestoTaskTest.cpp AnnouncerTest.cpp QueryContextCacheTest.cpp)
+  AnnouncerTest.cpp
+  CoordinatorDiscovererTest.cpp
+  HttpServerWrapper.cpp
+  JsonSignatureParserTest.cpp
+  PrestoExchangeSourceTest.cpp
+  PrestoTaskTest.cpp
+  QueryContextCacheTest.cpp
+  ServerOperationTest.cpp
+  TaskManagerTest.cpp)
 
-add_test(presto_server_test presto_server_test)
+add_test(
+  NAME presto_server_test
+  COMMAND presto_server_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(
   presto_server_test
   presto_server_lib
+  presto_json_signature_parser
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
   velox_exec_test_lib

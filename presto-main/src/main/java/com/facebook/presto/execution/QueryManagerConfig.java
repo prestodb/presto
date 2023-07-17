@@ -51,6 +51,7 @@ public class QueryManagerConfig
     private String partitioningProviderCatalog = GlobalSystemConnector.NAME;
     private ExchangeMaterializationStrategy exchangeMaterializationStrategy = ExchangeMaterializationStrategy.NONE;
     private boolean useStreamingExchangeForMarkDistinct;
+    private boolean enableWorkerIsolation;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
@@ -676,6 +677,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setRateLimiterCacheWindowMinutes(int rateLimiterCacheWindowMinutes)
     {
         this.rateLimiterCacheWindowMinutes = rateLimiterCacheWindowMinutes;
+        return this;
+    }
+
+    public boolean isEnableWorkerIsolation()
+    {
+        return enableWorkerIsolation;
+    }
+
+    @Config("query-manager.enable-worker-isolation")
+    @ConfigDescription("Config to enable isolating leaf and intermediate workers for query execution")
+    public QueryManagerConfig setEnableWorkerIsolation(boolean enableWorkerIsolation)
+    {
+        this.enableWorkerIsolation = enableWorkerIsolation;
         return this;
     }
 

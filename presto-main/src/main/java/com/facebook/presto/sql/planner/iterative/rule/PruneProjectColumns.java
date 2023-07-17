@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 
 import java.util.Optional;
 import java.util.Set;
@@ -35,7 +35,7 @@ public class PruneProjectColumns
     @Override
     protected Optional<PlanNode> pushDownProjectOff(
             PlanNodeIdAllocator idAllocator,
-            PlanVariableAllocator variableAllocator,
+            VariableAllocator variableAllocator,
             ProjectNode childProjectNode,
             Set<VariableReferenceExpression> referencedOutputs)
     {

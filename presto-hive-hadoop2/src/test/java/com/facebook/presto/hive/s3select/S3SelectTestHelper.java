@@ -27,6 +27,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCoercionPolicy;
 import com.facebook.presto.hive.HiveColumnConverterProvider;
+import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveEncryptionInformationProvider;
 import com.facebook.presto.hive.HiveFileRenamer;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
@@ -57,15 +58,24 @@ import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
 import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.testing.MaterializedResult;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import org.apache.hadoop.fs.Path;
 
+import java.io.IOException;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.LongStream;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.hive.HiveFileSystemTestUtils.filterTable;
+import static com.facebook.presto.hive.HiveFileSystemTestUtils.getSplitsCount;
 import static com.facebook.presto.hive.HiveTestUtils.FILTER_STATS_CALCULATOR_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
@@ -81,6 +91,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.util.Strings.isNullOrEmpty;
 
 public class S3SelectTestHelper
+        implements AutoCloseable
 {
     private HdfsEnvironment hdfsEnvironment;
     private LocationService locationService;
@@ -101,7 +112,7 @@ public class S3SelectTestHelper
             String awsAccessKey,
             String awsSecretKey,
             String writableBucket,
-            boolean s3SelectPushdownEnabled)
+            HiveClientConfig hiveClientConfig)
     {
         checkArgument(!isNullOrEmpty(host), "Expected non empty host");
         checkArgument(!isNullOrEmpty(databaseName), "Expected non empty databaseName");
@@ -109,7 +120,7 @@ public class S3SelectTestHelper
         checkArgument(!isNullOrEmpty(awsSecretKey), "Expected non empty awsSecretKey");
         checkArgument(!isNullOrEmpty(writableBucket), "Expected non empty writableBucket");
 
-        config = new HiveClientConfig().setS3SelectPushdownEnabled(s3SelectPushdownEnabled);
+        config = hiveClientConfig;
         cacheConfig = new CacheConfig();
         metastoreClientConfig = new MetastoreClientConfig();
 
@@ -203,6 +214,16 @@ public class S3SelectTestHelper
         }
     }
 
+    public S3SelectTestHelper(String host,
+            int port,
+            String databaseName,
+            String awsAccessKey,
+            String awsSecretKey,
+            String writableBucket)
+    {
+        this(host, port, databaseName, awsAccessKey, awsSecretKey, writableBucket, new HiveClientConfig().setS3SelectPushdownEnabled(true));
+    }
+
     public HiveMetadataFactory getMetadataFactory()
     {
         return metadataFactory;
@@ -226,5 +247,54 @@ public class S3SelectTestHelper
     public HiveClientConfig getConfig()
     {
         return config;
+    }
+
+    public int getTableSplitsCount(SchemaTableName table)
+    {
+        return getSplitsCount(
+                table,
+                transactionManager,
+                config,
+                metadataFactory,
+                splitManager);
+    }
+
+    MaterializedResult getFilteredTableResult(SchemaTableName table, HiveColumnHandle column)
+    {
+        try {
+            return filterTable(
+                    table,
+                    ImmutableList.of(column),
+                    transactionManager,
+                    config,
+                    metadataFactory,
+                    pageSourceProvider,
+                    splitManager);
+        }
+        catch (IOException ignored) {
+        }
+
+        return null;
+    }
+    public static MaterializedResult expectedResult(ConnectorSession session, int start, int end)
+    {
+        MaterializedResult.Builder builder = MaterializedResult.resultBuilder(session, BIGINT);
+        LongStream.rangeClosed(start, end).forEach(builder::row);
+        return builder.build();
+    }
+
+    public static boolean isSplitCountInOpenInterval(int splitCount,
+            int lowerBound,
+            int upperBound)
+    {
+        // Split number may vary, the minimum number of splits being obtained with
+        // the first split of maxInitialSplitSize and the rest of maxSplitSize
+        return lowerBound < splitCount && splitCount < upperBound;
+    }
+
+    @Override
+    public void close()
+    {
+        tearDown();
     }
 }

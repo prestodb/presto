@@ -328,12 +328,10 @@ TEST_F(TestTypeSignature, spaces01) {
 }
 
 TEST_F(TestTypeSignature, spaces04) {
-  assertRowSignatureContainsThrows(
+  assertRowSignature(
       "row(interval interval year to month)",
       rowSignature(namedParameter(
-          "interval", false, signature("interval year to month"))),
-      VeloxUserError,
-      "Specified element is not found : INTERVAL YEAR TO MONTH");
+          "interval", false, signature("interval year to month"))));
 }
 
 TEST_F(TestTypeSignature, spaces05) {
@@ -353,11 +351,9 @@ TEST_F(TestTypeSignature, spaces06) {
 }
 
 TEST_F(TestTypeSignature, spaces09) {
-  assertRowSignatureContainsThrows(
+  assertRowSignature(
       "row(interval year to month)",
-      rowSignature(unnamedParameter(signature("interval year to month"))),
-      VeloxUserError,
-      "Specified element is not found : INTERVAL YEAR TO MONTH");
+      rowSignature(unnamedParameter(signature("interval year to month"))));
 }
 
 TEST_F(TestTypeSignature, spaces10) {

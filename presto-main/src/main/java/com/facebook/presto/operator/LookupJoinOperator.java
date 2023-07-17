@@ -95,6 +95,7 @@ public class LookupJoinOperator
     private Optional<Partition<Supplier<LookupSource>>> currentPartition = Optional.empty();
     private Optional<ListenableFuture<Supplier<LookupSource>>> unspilledLookupSource = Optional.empty();
     private Iterator<Page> unspilledInputPages = emptyIterator();
+    private final boolean optimizeProbeForEmptyBuild;
 
     public LookupJoinOperator(
             OperatorContext operatorContext,
@@ -106,7 +107,8 @@ public class LookupJoinOperator
             Runnable afterClose,
             OptionalInt lookupJoinsCount,
             HashGenerator hashGenerator,
-            PartitioningSpillerFactory partitioningSpillerFactory)
+            PartitioningSpillerFactory partitioningSpillerFactory,
+            boolean optimizeProbeForEmptyBuild)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.probeTypes = ImmutableList.copyOf(requireNonNull(probeTypes, "probeTypes is null"));
@@ -127,6 +129,7 @@ public class LookupJoinOperator
         operatorContext.setInfoSupplier(this.statisticsCounter);
 
         this.pageBuilder = new LookupJoinPageBuilder(buildOutputTypes);
+        this.optimizeProbeForEmptyBuild = optimizeProbeForEmptyBuild;
     }
 
     @Override
@@ -184,6 +187,19 @@ public class LookupJoinOperator
     @Override
     public boolean needsInput()
     {
+        // We can skip probe for empty build input only when probeOnOuterSide is false
+        // When finishing is true, the partition in the lookup source may have been released and set to null, skip if finishing is true.
+        if (optimizeProbeForEmptyBuild && !probeOnOuterSide && !finishing) {
+            if (tryFetchLookupSourceProvider()) {
+                lookupSourceProvider.withLease(lookupSourceLease -> {
+                    // Do not have spill, build side is empty and probe side does not output for non match, skip and finish the operator
+                    if (!lookupSourceLease.hasSpilled() && lookupSourceLease.getLookupSource().isEmpty()) {
+                        finish();
+                    }
+                    return null;
+                });
+            }
+        }
         return !finishing
                 && lookupSourceProviderFuture.isDone()
                 && spillInProgress.isDone()

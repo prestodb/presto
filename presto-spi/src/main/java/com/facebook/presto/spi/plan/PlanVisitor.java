@@ -20,6 +20,11 @@ public abstract class PlanVisitor<R, C>
      */
     public abstract R visitPlan(PlanNode node, C context);
 
+    public R visitOutput(OutputNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitAggregation(AggregationNode node, C context)
     {
         return visitPlan(node, context);

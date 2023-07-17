@@ -41,7 +41,8 @@ public class TestIcebergConfig
                 .setCatalogCacheSize(10)
                 .setHadoopConfigResources(null)
                 .setMaxPartitionsPerWriter(100)
-                .setMinimumAssignedSplitWeight(0.05));
+                .setMinimumAssignedSplitWeight(0.05)
+                .setParquetDereferencePushdownEnabled(true));
     }
 
     @Test
@@ -56,6 +57,7 @@ public class TestIcebergConfig
                 .put("iceberg.hadoop.config.resources", "/etc/hadoop/conf/core-site.xml")
                 .put("iceberg.max-partitions-per-writer", "222")
                 .put("iceberg.minimum-assigned-split-weight", "0.01")
+                .put("iceberg.enable-parquet-dereference-pushdown", "false")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -66,7 +68,8 @@ public class TestIcebergConfig
                 .setCatalogCacheSize(6)
                 .setHadoopConfigResources("/etc/hadoop/conf/core-site.xml")
                 .setMaxPartitionsPerWriter(222)
-                .setMinimumAssignedSplitWeight(0.01);
+                .setMinimumAssignedSplitWeight(0.01)
+                .setParquetDereferencePushdownEnabled(false);
 
         assertFullMapping(properties, expected);
     }

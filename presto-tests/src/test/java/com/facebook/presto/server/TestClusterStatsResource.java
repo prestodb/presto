@@ -39,6 +39,7 @@ import static com.facebook.presto.server.ClusterStatsResource.ClusterStats;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static com.facebook.presto.utils.QueryExecutionClientUtil.runToExecuting;
 import static com.facebook.presto.utils.QueryExecutionClientUtil.runToQueued;
+import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static java.lang.Thread.sleep;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
@@ -128,10 +129,5 @@ public class TestClusterStatsResource
         else {
             return client.execute(request, createJsonResponseHandler(jsonCodec(ClusterStats.class)));
         }
-    }
-
-    private String getResourceFilePath(String fileName)
-    {
-        return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 }

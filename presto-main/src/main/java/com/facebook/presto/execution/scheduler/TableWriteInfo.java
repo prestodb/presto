@@ -79,11 +79,18 @@ public class TableWriteInfo
         return new TableWriteInfo(writerTarget, analyzeTableHandle, deleteScanInfo);
     }
 
-    private static Optional<ExecutionWriterTarget> createWriterTarget(StreamingSubPlan plan, Metadata metadata, Session session)
+    public static TableWriteInfo createTableWriteInfo(PlanNode planNode, Metadata metadata, Session session)
     {
-        Optional<TableFinishNode> tableFinishNode = findSinglePlanNode(plan, TableFinishNode.class);
-        if (tableFinishNode.isPresent()) {
-            WriterTarget target = tableFinishNode.get().getTarget().orElseThrow(() -> new VerifyException("target is absent"));
+        Optional<ExecutionWriterTarget> writerTarget = createWriterTarget(planNode, metadata, session);
+        Optional<AnalyzeTableHandle> analyzeTableHandle = createAnalyzeTableHandle(planNode, metadata, session);
+        Optional<DeleteScanInfo> deleteScanInfo = createDeleteScanInfo(planNode, writerTarget, metadata, session);
+        return new TableWriteInfo(writerTarget, analyzeTableHandle, deleteScanInfo);
+    }
+
+    private static Optional<ExecutionWriterTarget> createWriterTarget(Optional<TableFinishNode> finishNodeOptional, Metadata metadata, Session session)
+    {
+        if (finishNodeOptional.isPresent()) {
+            WriterTarget target = finishNodeOptional.get().getTarget().orElseThrow(() -> new VerifyException("target is absent"));
             if (target instanceof TableWriterNode.CreateName) {
                 TableWriterNode.CreateName create = (TableWriterNode.CreateName) target;
                 return Optional.of(new ExecutionWriterTarget.CreateHandle(metadata.beginCreateTable(session, create.getConnectorId().getCatalogName(), create.getTableMetadata(), create.getLayout()), create.getSchemaTableName()));
@@ -106,31 +113,69 @@ public class TableWriteInfo
         return Optional.empty();
     }
 
+    private static Optional<ExecutionWriterTarget> createWriterTarget(StreamingSubPlan plan, Metadata metadata, Session session)
+    {
+        return createWriterTarget(findSinglePlanNode(plan, TableFinishNode.class), metadata, session);
+    }
+
+    private static Optional<ExecutionWriterTarget> createWriterTarget(PlanNode planNode, Metadata metadata, Session session)
+    {
+        return createWriterTarget(findSinglePlanNode(planNode, TableFinishNode.class), metadata, session);
+    }
+
     private static Optional<AnalyzeTableHandle> createAnalyzeTableHandle(StreamingSubPlan plan, Metadata metadata, Session session)
     {
-        Optional<StatisticsWriterNode> node = findSinglePlanNode(plan, StatisticsWriterNode.class);
-        if (node.isPresent()) {
-            return Optional.of(metadata.beginStatisticsCollection(session, node.get().getTableHandle()));
-        }
-        return Optional.empty();
+        return createAnalyzeTableHandle(findSinglePlanNode(plan, StatisticsWriterNode.class), metadata, session);
+    }
+
+    private static Optional<AnalyzeTableHandle> createAnalyzeTableHandle(PlanNode planNode, Metadata metadata, Session session)
+    {
+        return createAnalyzeTableHandle(findSinglePlanNode(planNode, StatisticsWriterNode.class), metadata, session);
+    }
+
+    private static Optional<AnalyzeTableHandle> createAnalyzeTableHandle(Optional<StatisticsWriterNode> statisticsWriterNodeOptional, Metadata metadata, Session session)
+    {
+        return statisticsWriterNodeOptional.map(node -> metadata.beginStatisticsCollection(session, node.getTableHandle()));
     }
 
     private static Optional<DeleteScanInfo> createDeleteScanInfo(StreamingSubPlan plan, Optional<ExecutionWriterTarget> writerTarget, Metadata metadata, Session session)
     {
         if (writerTarget.isPresent() && writerTarget.get() instanceof ExecutionWriterTarget.DeleteHandle) {
-            TableHandle tableHandle = ((ExecutionWriterTarget.DeleteHandle) writerTarget.get()).getHandle();
             DeleteNode delete = getOnlyElement(findPlanNodes(plan, DeleteNode.class));
-            TableScanNode tableScan = getDeleteTableScan(delete);
-            TupleDomain<ColumnHandle> originalEnforcedConstraint = tableScan.getEnforcedConstraint();
-            TableLayoutResult layoutResult = metadata.getLayout(
-                    session,
-                    tableHandle,
-                    new Constraint<>(originalEnforcedConstraint),
-                    Optional.of(ImmutableSet.copyOf(tableScan.getAssignments().values())));
-
-            return Optional.of(new DeleteScanInfo(tableScan.getId(), layoutResult.getLayout().getNewTableHandle()));
+            return createDeleteScanInfo(delete, writerTarget, metadata, session);
         }
         return Optional.empty();
+    }
+
+    private static Optional<DeleteScanInfo> createDeleteScanInfo(PlanNode planNode, Optional<ExecutionWriterTarget> writerTarget, Metadata metadata, Session session)
+    {
+        if (writerTarget.isPresent() && writerTarget.get() instanceof ExecutionWriterTarget.DeleteHandle) {
+            DeleteNode delete = findSinglePlanNode(planNode, DeleteNode.class).get();
+            return createDeleteScanInfo(delete, writerTarget, metadata, session);
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<DeleteScanInfo> createDeleteScanInfo(DeleteNode delete, Optional<ExecutionWriterTarget> writerTarget, Metadata metadata, Session session)
+    {
+        TableHandle tableHandle = ((ExecutionWriterTarget.DeleteHandle) writerTarget.get()).getHandle();
+        TableScanNode tableScan = getDeleteTableScan(delete);
+        TupleDomain<ColumnHandle> originalEnforcedConstraint = tableScan.getEnforcedConstraint();
+        TableLayoutResult layoutResult = metadata.getLayout(
+                session,
+                tableHandle,
+                new Constraint<>(originalEnforcedConstraint),
+                Optional.of(ImmutableSet.copyOf(tableScan.getAssignments().values())));
+
+        return Optional.of(new DeleteScanInfo(tableScan.getId(), layoutResult.getLayout().getNewTableHandle()));
+    }
+
+    private static <T extends PlanNode> Optional<T> findSinglePlanNode(PlanNode planNode, Class<T> clazz)
+    {
+        return PlanNodeSearcher
+                .searchFrom(planNode)
+                .where(clazz::isInstance)
+                .findSingle();
     }
 
     private static <T extends PlanNode> Optional<T> findSinglePlanNode(StreamingSubPlan plan, Class<T> clazz)

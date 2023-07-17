@@ -23,6 +23,7 @@ import io.airlift.slice.Slices;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.Optional;
 
@@ -98,7 +99,7 @@ public class PagesSerde
             ByteBuffer decompressionBuffer = ByteBuffer.allocate(uncompressedSize);
 
             decompressor.get().decompress(slice.toByteBuffer(), decompressionBuffer);
-            decompressionBuffer.flip();
+            ((Buffer) decompressionBuffer).flip();
             checkState(decompressionBuffer.remaining() == uncompressedSize, "page size changed after decompression into decompressionBuffer");
 
             slice = Slices.wrappedBuffer(decompressionBuffer);

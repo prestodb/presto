@@ -49,7 +49,7 @@ public class TestHiveFileSystemS3SelectJsonPushdown
     @BeforeClass
     public void setup(String host, int port, String databaseName, String awsAccessKey, String awsSecretKey, String writableBucket)
     {
-        s3SelectTestHelper = new S3SelectTestHelper(host, port, databaseName, awsAccessKey, awsSecretKey, writableBucket, true);
+        s3SelectTestHelper = new S3SelectTestHelper(host, port, databaseName, awsAccessKey, awsSecretKey, writableBucket);
         jsonTable = new SchemaTableName(databaseName, "presto_test_external_fs_json");
     }
 

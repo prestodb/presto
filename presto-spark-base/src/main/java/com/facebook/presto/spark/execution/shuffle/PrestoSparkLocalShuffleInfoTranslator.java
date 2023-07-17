@@ -14,12 +14,9 @@
 package com.facebook.presto.spark.execution.shuffle;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.Session;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleReadDescriptor;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleWriteDescriptor;
-import com.facebook.presto.spark.execution.PrestoSparkLocalShuffleReadInfo;
-import com.facebook.presto.spark.execution.PrestoSparkLocalShuffleWriteInfo;
-import com.facebook.presto.spark.execution.PrestoSparkShuffleReadInfo;
-import com.facebook.presto.spark.execution.PrestoSparkShuffleWriteInfo;
 import com.google.inject.Inject;
 
 import java.io.IOException;
@@ -51,16 +48,17 @@ public class PrestoSparkLocalShuffleInfoTranslator
     }
 
     @Override
-    public PrestoSparkLocalShuffleWriteInfo createShuffleWriteInfo(PrestoSparkShuffleWriteDescriptor writeDescriptor)
+    public PrestoSparkLocalShuffleWriteInfo createShuffleWriteInfo(Session session, PrestoSparkShuffleWriteDescriptor writeDescriptor)
     {
-        return new PrestoSparkLocalShuffleWriteInfo(writeDescriptor.getNumPartitions(), localShuffleRootPath);
+        return new PrestoSparkLocalShuffleWriteInfo(writeDescriptor.getNumPartitions(), session.getQueryId().getId(), writeDescriptor.getShuffleHandle().shuffleId(), localShuffleRootPath);
     }
 
     @Override
-    public PrestoSparkLocalShuffleReadInfo createShuffleReadInfo(PrestoSparkShuffleReadDescriptor readDescriptor)
+    public PrestoSparkLocalShuffleReadInfo createShuffleReadInfo(Session session, PrestoSparkShuffleReadDescriptor readDescriptor)
     {
         return new PrestoSparkLocalShuffleReadInfo(
-                readDescriptor.getNumPartitions(),
+                session.getQueryId().getId(),
+                readDescriptor.getPartitionIds(),
                 localShuffleRootPath);
     }
 

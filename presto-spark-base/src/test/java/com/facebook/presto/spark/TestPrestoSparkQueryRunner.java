@@ -1116,7 +1116,7 @@ public class TestPrestoSparkQueryRunner
                         "FROM orders", 15000);
         assertQuery("select count(*) from hive.hive_test.hive_orders1", "select 15000");
         assertQuerySucceeds("DROP TABLE hive.hive_test.hive_orders1");
-        assertQueryFails("select count(*) from hive.hive_test.hive_orders1", ".* Table hive.hive_test.hive_orders1 does not exist");
+        assertQueryFails("select count(*) from hive.hive_test.hive_orders1", ".*Table hive.hive_test.hive_orders1 does not exist");
     }
 
     @Test
@@ -1300,16 +1300,6 @@ public class TestPrestoSparkQueryRunner
         assertQuery("SELECT * FROM test_drop_column", "SELECT custkey, orderstatus FROM orders");
 
         assertQuerySucceeds("DROP TABLE test_drop_column");
-    }
-
-    @Test
-    public void testCreateFunction()
-    {
-        assertQuerySucceeds("CREATE FUNCTION unittest.memory.tan (x int) RETURNS double COMMENT 'tangent trigonometric function' LANGUAGE SQL DETERMINISTIC CALLED ON NULL INPUT RETURN sin(x) / cos(x)");
-        MaterializedResult actual = computeActual("select unittest.memory.tan(5)");
-        assertEquals("-3.380515006246586", actual.getOnlyValue().toString());
-        //PoS currently supports one query per session. So temporary function created is not discoverable by another query.
-        assertQuerySucceeds("CREATE TEMPORARY FUNCTION foo() RETURNS int RETURN 1");
     }
 
     @Test

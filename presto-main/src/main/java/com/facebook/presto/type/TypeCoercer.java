@@ -376,16 +376,6 @@ public class TypeCoercer
         String fromTypeBaseName = standardFromType.getTypeSignature().getBase();
         String toTypeBaseName = standardToType.getTypeSignature().getBase();
 
-        if (featuresConfig.isLegacyDateTimestampToVarcharCoercion()) {
-            if ((fromTypeBaseName.equals(StandardTypes.DATE) || fromTypeBaseName.equals(StandardTypes.TIMESTAMP)) && toTypeBaseName.equals(StandardTypes.VARCHAR)) {
-                return TypeCompatibility.compatible(toSemanticType(toType, standardToType), true);
-            }
-
-            if (fromTypeBaseName.equals(StandardTypes.VARCHAR) && (toTypeBaseName.equals(StandardTypes.DATE) || toTypeBaseName.equals(StandardTypes.TIMESTAMP))) {
-                return TypeCompatibility.compatible(toSemanticType(fromType, standardFromType), true);
-            }
-        }
-
         if (fromTypeBaseName.equals(toTypeBaseName)) {
             if (fromTypeBaseName.equals(StandardTypes.DECIMAL)) {
                 Type commonSuperType = getCommonSuperTypeForDecimal((DecimalType) standardFromType, (DecimalType) standardToType);

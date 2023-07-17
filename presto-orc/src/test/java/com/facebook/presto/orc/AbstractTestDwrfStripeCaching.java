@@ -51,7 +51,6 @@ import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.FOOTER;
 import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.INDEX;
 import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.INDEX_AND_FOOTER;
-import static com.google.common.io.Resources.getResource;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
@@ -87,43 +86,43 @@ public abstract class AbstractTestDwrfStripeCaching
     }
 
     @DataProvider(name = "Stripe cache for ALL stripes with mode BOTH")
-    public Object[][] bothAllStripesFilesProvider()
+    public Object[][] bothAllStripesFilesProvider() throws IOException
     {
         return toArray(getResourceFile("DwrfStripeCache_BOTH_AllStripes.orc"), bothAllStripesFile.getFile());
     }
 
     @DataProvider(name = "Stripe cache for HALF stripes with mode BOTH")
-    public Object[][] bothHalfStripesFilesProvider()
+    public Object[][] bothHalfStripesFilesProvider() throws IOException
     {
         return toArray(getResourceFile("DwrfStripeCache_BOTH_HalfStripes.orc"), bothHalfStripesFile.getFile());
     }
 
     @DataProvider(name = "Stripe cache for ALL stripes with mode INDEX")
-    public Object[][] indexAllStripesFilesProvider()
+    public Object[][] indexAllStripesFilesProvider() throws IOException
     {
         return toArray(getResourceFile("DwrfStripeCache_INDEX_AllStripes.orc"), indexAllStripesFile.getFile());
     }
 
     @DataProvider(name = "Stripe cache for HALF stripes with mode INDEX")
-    public Object[][] indexHalfStripesFilesProvider()
+    public Object[][] indexHalfStripesFilesProvider() throws IOException
     {
         return toArray(getResourceFile("DwrfStripeCache_INDEX_HalfStripes.orc"), indexHalfStripesFile.getFile());
     }
 
     @DataProvider(name = "Stripe cache for ALL stripes with mode FOOTER")
-    public Object[][] footerAllStripesFilesProvider()
+    public Object[][] footerAllStripesFilesProvider() throws IOException
     {
         return toArray(getResourceFile("DwrfStripeCache_FOOTER_AllStripes.orc"), footerAllStripesFile.getFile());
     }
 
     @DataProvider(name = "Stripe cache for HALF stripes with mode FOOTER")
-    public Object[][] footerHalfStripesFilesProvider()
+    public Object[][] footerHalfStripesFilesProvider() throws IOException
     {
         return toArray(getResourceFile("DwrfStripeCache_FOOTER_HalfStripes.orc"), footerHalfStripesFile.getFile());
     }
 
     @DataProvider(name = "Stripe cache with mode NONE")
-    public Object[][] noneAllStripesFilesProvider()
+    public Object[][] noneAllStripesFilesProvider() throws IOException
     {
         return toArray(getResourceFile("DwrfStripeCache_NONE.orc"), noneAllStripesFile.getFile());
     }
@@ -134,10 +133,10 @@ public abstract class AbstractTestDwrfStripeCaching
         return new Object[][] {{stripeCacheDisabledFile.getFile()}};
     }
 
-    static File getResourceFile(String fileName)
+    static File getResourceFile(String fileName) throws IOException
     {
         String resourceName = "dwrf_stripe_cache/" + fileName;
-        return new File(getResource(resourceName).getFile());
+        return OrcReaderTestingUtils.getResourceFile(resourceName);
     }
 
     private static Object[][] toArray(File file1, File file2)

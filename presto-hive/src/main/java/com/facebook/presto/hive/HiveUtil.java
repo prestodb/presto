@@ -79,7 +79,6 @@ import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.hadoop.HoodieParquetInputFormat;
 import org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat;
-import org.apache.hudi.hadoop.realtime.HoodieRealtimeFileSplit;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -101,6 +100,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
@@ -253,7 +253,7 @@ public final class HiveUtil
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, getInputFormatName(schema), true);
         JobConf jobConf = toJobConf(configuration);
         FileSplit fileSplit = new FileSplit(path, start, length, (String[]) null);
-        if (!customSplitInfo.isEmpty() && isHudiRealtimeSplit(customSplitInfo)) {
+        if (!customSplitInfo.isEmpty()) {
             fileSplit = recreateSplitWithCustomInfo(fileSplit, customSplitInfo);
 
             // Add additional column information for record reader
@@ -307,12 +307,6 @@ public final class HiveUtil
                     firstNonNull(e.getMessage(), e.getClass().getName())),
                     e);
         }
-    }
-
-    private static boolean isHudiRealtimeSplit(Map<String, String> customSplitInfo)
-    {
-        String customSplitClass = customSplitInfo.get(CUSTOM_FILE_SPLIT_CLASS_KEY);
-        return HoodieRealtimeFileSplit.class.getName().equals(customSplitClass);
     }
 
     public static void setReadColumns(Configuration configuration, List<Integer> readHiveColumnIndexes)
@@ -437,8 +431,8 @@ public final class HiveUtil
 
     public static boolean isSplittable(InputFormat<?, ?> inputFormat, FileSystem fileSystem, Path path)
     {
-        if (inputFormat.getClass().getSimpleName().equals("OrcInputFormat") ||
-                inputFormat.getClass().getSimpleName().equals("RCFileInputFormat")) {
+        if ("OrcInputFormat".equals(inputFormat.getClass().getSimpleName()) ||
+                "RCFileInputFormat".equals(inputFormat.getClass().getSimpleName())) {
             return true;
         }
 
@@ -463,6 +457,22 @@ public final class HiveUtil
         catch (InvocationTargetException | IllegalAccessException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static boolean isSelectSplittable(InputFormat<?, ?> inputFormat, Path path, boolean s3SelectPushdownEnabled)
+    {
+        // S3 Select supports splitting for uncompressed CSV & JSON files
+        // Previous checks for supported input formats, SerDes, column types and S3 path
+        // are reflected by the value of s3SelectPushdownEnabled.
+        return !s3SelectPushdownEnabled || isUncompressed(inputFormat, path);
+    }
+
+    private static boolean isUncompressed(InputFormat<?, ?> inputFormat, Path path)
+    {
+        if (inputFormat instanceof TextInputFormat) {
+            return !getCompressionCodec((TextInputFormat) inputFormat, path).isPresent();
+        }
+        return false;
     }
 
     public static StructObjectInspector getTableObjectInspector(Deserializer deserializer)
@@ -590,6 +600,17 @@ public final class HiveUtil
     public static NullableValue parsePartitionValue(HivePartitionKey key, Type type, DateTimeZone timeZone)
     {
         return parsePartitionValue(key.getName(), key.getValue().orElse(HIVE_DEFAULT_DYNAMIC_PARTITION), type, timeZone);
+    }
+
+    public static NullableValue parsePartitionValue(String partitionName, String value, Type type, ZoneId hiveStorageTimeZoneId)
+    {
+        requireNonNull(hiveStorageTimeZoneId, "hiveStorageTimeZoneId is null");
+        return parsePartitionValue(partitionName, value, type, getDateTimeZone(hiveStorageTimeZoneId));
+    }
+
+    private static DateTimeZone getDateTimeZone(ZoneId hiveStorageTimeZoneId)
+    {
+        return DateTimeZone.forID(hiveStorageTimeZoneId.getId());
     }
 
     public static NullableValue parsePartitionValue(String partitionName, String value, Type type, DateTimeZone timeZone)

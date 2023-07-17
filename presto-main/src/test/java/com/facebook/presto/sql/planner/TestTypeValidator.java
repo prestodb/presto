@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -32,6 +33,7 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.sanity.TypeValidator;
@@ -64,11 +66,11 @@ import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.facebook.presto.sql.relational.Expressions.call;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
 public class TestTypeValidator
 {
@@ -82,8 +84,9 @@ public class TestTypeValidator
     private static final FunctionAndTypeManager FUNCTION_MANAGER = createTestMetadataManager().getFunctionAndTypeManager();
     private static final FunctionHandle SUM = FUNCTION_MANAGER.lookupFunction("sum", fromTypes(DOUBLE));
     private static final FunctionHandle APPROX_PERCENTILE = FUNCTION_MANAGER.lookupFunction("approx_percentile", fromTypes(DOUBLE, DOUBLE));
+    private static final TestingRowExpressionTranslator translator = new TestingRowExpressionTranslator();
 
-    private PlanVariableAllocator variableAllocator;
+    private VariableAllocator variableAllocator;
     private TableScanNode baseTableScan;
     private VariableReferenceExpression variableA;
     private VariableReferenceExpression variableB;
@@ -95,7 +98,7 @@ public class TestTypeValidator
     @BeforeClass
     public void setUp()
     {
-        variableAllocator = new PlanVariableAllocator();
+        variableAllocator = new VariableAllocator();
         variableA = variableAllocator.newVariable("a", BIGINT);
         variableB = variableAllocator.newVariable("b", INTEGER);
         variableC = variableAllocator.newVariable("c", DOUBLE);
@@ -127,8 +130,8 @@ public class TestTypeValidator
         Expression expression1 = new Cast(new SymbolReference(variableB.getName()), StandardTypes.BIGINT);
         Expression expression2 = new Cast(new SymbolReference(variableC.getName()), StandardTypes.BIGINT);
         Assignments assignments = Assignments.builder()
-                .put(variableAllocator.newVariable(expression1, BIGINT), castToRowExpression(expression1))
-                .put(variableAllocator.newVariable(expression2, BIGINT), castToRowExpression(expression2))
+                .put(newVariable(variableAllocator, expression1, BIGINT), translator.translate(expression1, TypeProvider.fromVariables(ImmutableList.of(variableB))))
+                .put(newVariable(variableAllocator, expression2, BIGINT), translator.translate(expression2, TypeProvider.fromVariables(ImmutableList.of(variableC))))
                 .build();
         PlanNode node = new ProjectNode(
                 newId(),
@@ -273,8 +276,8 @@ public class TestTypeValidator
     {
         Expression expression = new Cast(new SymbolReference(variableB.getName()), StandardTypes.BIGINT);
         Assignments assignments = Assignments.builder()
-                .put(variableAllocator.newVariable(expression, BIGINT), castToRowExpression(expression))
-                .put(variableAllocator.newVariable(new SymbolReference(variableE.getName()), VARCHAR), castToRowExpression(new SymbolReference(variableE.getName()))) // implicit coercion from varchar(3) to varchar
+                .put(newVariable(variableAllocator, expression, BIGINT), translator.translate(expression, TypeProvider.fromVariables(ImmutableList.of(variableB))))
+                .put(newVariable(variableAllocator, new SymbolReference(variableE.getName()), VARCHAR), variableE) // implicit coercion from varchar(3) to varchar
                 .build();
         PlanNode node = new ProjectNode(newId(), baseTableScan, assignments);
 
@@ -287,8 +290,8 @@ public class TestTypeValidator
         Expression expression1 = new Cast(new SymbolReference(variableB.getName()), StandardTypes.INTEGER);
         Expression expression2 = new Cast(new SymbolReference(variableA.getName()), StandardTypes.INTEGER);
         Assignments assignments = Assignments.builder()
-                .put(variableAllocator.newVariable(expression1, BIGINT), castToRowExpression(expression1)) // should be INTEGER
-                .put(variableAllocator.newVariable(expression1, INTEGER), castToRowExpression(expression2))
+                .put(newVariable(variableAllocator, expression1, BIGINT), translator.translate(expression1, TypeProvider.fromVariables(ImmutableList.of(variableB)))) // should be INTEGER
+                .put(newVariable(variableAllocator, expression1, INTEGER), translator.translate(expression2, TypeProvider.fromVariables(ImmutableList.of(variableA))))
                 .build();
         PlanNode node = new ProjectNode(
                 newId(),
@@ -497,7 +500,7 @@ public class TestTypeValidator
 
     private void assertTypesValid(PlanNode node)
     {
-        TYPE_VALIDATOR.validate(node, TEST_SESSION, createTestMetadataManager(), SQL_PARSER, variableAllocator.getTypes(), WarningCollector.NOOP);
+        TYPE_VALIDATOR.validate(node, TEST_SESSION, createTestMetadataManager(), SQL_PARSER, TypeProvider.viewOf(variableAllocator.getVariables()), WarningCollector.NOOP);
     }
 
     private static PlanNodeId newId()

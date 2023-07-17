@@ -100,7 +100,7 @@ public class S3SelectRecordCursorProvider
 
             IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager, s3SelectDataType);
             String ionSqlQuery = queryBuilder.buildSql(columns, effectivePredicate);
-            Optional<S3SelectLineRecordReader> recordReader = S3SelectLineRecordReaderProvider.get(configuration, clientConfig, path, fileSplit.getStart(), fileSplit.getLength(), schema, ionSqlQuery, s3ClientFactory, s3SelectDataType);
+            Optional<S3SelectLineRecordReader> recordReader = S3SelectLineRecordReaderProvider.get(configuration, clientConfig, path, fileSplit.getStart(), fileSplit.getLength(), fileSplit.getFileSize(), schema, ionSqlQuery, s3ClientFactory, s3SelectDataType);
 
             // If S3 Select data type is not mapped to a S3SelectLineRecordReader it will return Optional.empty()
             return recordReader.map(s3SelectLineRecordReader -> new S3SelectRecordCursor<>(configuration, path, s3SelectLineRecordReader, fileSplit.getLength(), schema, columns, hiveStorageTimeZone, typeManager));

@@ -16,6 +16,7 @@ package com.facebook.presto.parquet.batchreader.decoders.delta;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int32ValuesDecoder;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.values.delta.DeltaBinaryPackingValuesReader;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 
@@ -27,6 +28,8 @@ import java.io.IOException;
 public class Int32DeltaBinaryPackedValuesDecoder
         implements Int32ValuesDecoder
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int32DeltaBinaryPackedValuesDecoder.class).instanceSize();
+
     private final DeltaBinaryPackingValuesReader innerReader;
 
     public Int32DeltaBinaryPackedValuesDecoder(int valueCount, ByteBufferInputStream bufferInputStream)
@@ -52,5 +55,12 @@ public class Int32DeltaBinaryPackedValuesDecoder
             innerReader.skip();
             length--;
         }
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        // Not counting innerReader since it's in another library.
+        return INSTANCE_SIZE;
     }
 }

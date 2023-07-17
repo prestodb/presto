@@ -24,12 +24,14 @@ import com.facebook.presto.parquet.writer.ParquetWriterOptions;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.schema.MessageType;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 
@@ -52,6 +54,8 @@ public class ParquetFileWriter
             Callable<Void> rollbackAction,
             List<String> columnNames,
             List<Type> fileColumnTypes,
+            MessageType messageType,
+            Map<List<String>, Type> primitiveTypes,
             ParquetWriterOptions parquetWriterOptions,
             int[] fileInputColumnIndexes,
             CompressionCodecName compressionCodecName)
@@ -60,6 +64,8 @@ public class ParquetFileWriter
 
         this.parquetWriter = new ParquetWriter(
                 outputStream,
+                messageType,
+                primitiveTypes,
                 columnNames,
                 fileColumnTypes,
                 parquetWriterOptions,

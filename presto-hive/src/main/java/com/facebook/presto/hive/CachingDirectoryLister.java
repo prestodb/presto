@@ -78,9 +78,13 @@ public class CachingDirectoryLister
             NamenodeStats namenodeStats,
             HiveDirectoryContext hiveDirectoryContext)
     {
-        List<HiveFileInfo> files = cache.getIfPresent(path);
-        if (files != null) {
-            return files.iterator();
+        if (hiveDirectoryContext.isCacheable()) {
+            // DO NOT USE Caching, when cache is disabled.
+            // This is useful for debugging issues, when cache is explicitly disabled via session property.
+            List<HiveFileInfo> files = cache.getIfPresent(path);
+            if (files != null) {
+                return files.iterator();
+            }
         }
 
         Iterator<HiveFileInfo> iterator = delegate.list(fileSystem, table, path, partition, namenodeStats, hiveDirectoryContext);

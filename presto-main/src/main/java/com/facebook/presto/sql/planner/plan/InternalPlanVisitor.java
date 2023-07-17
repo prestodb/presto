@@ -27,11 +27,6 @@ public abstract class InternalPlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
-    public R visitOutput(OutputNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
     public R visitSample(SampleNode node, C context)
     {
         return visitPlan(node, context);
@@ -178,11 +173,6 @@ public abstract class InternalPlanVisitor<R, C>
     }
 
     public R visitStatsEquivalentPlanNodeWithLimit(StatsEquivalentPlanNodeWithLimit node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
-    public R visitNativeExecution(NativeExecutionNode node, C context)
     {
         return visitPlan(node, context);
     }

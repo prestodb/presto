@@ -79,6 +79,10 @@ Resource Group Properties
     * ``cpuTimeLimit`` (optional): Specify an absolute value (i.e. ``1h``)
        for the maximum CPU time a query may use.
 
+* ``workerPerQueryLimit`` (optional): specifies the minimum number of workers that have to
+  be available for each query. Intended to be used in elastic clusters where number of workers
+  varies over time.
+
 * ``subGroups`` (optional): list of sub-groups.
 
 Selector Rules

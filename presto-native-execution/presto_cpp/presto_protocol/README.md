@@ -2,10 +2,11 @@
 
 ### Required Dependencies:
 
-Install [PyYAML](https://pyyaml.org/) and [Chevron](https://github.com/noahmorrison/chevron)
+Install [PyYAML](https://pyyaml.org/), [Chevron](https://github.com/noahmorrison/chevron) and [jq](https://github.com/jqlang/jq)
 
 ```
  $ pip3 install pyyaml chevron
+ $ brew install jq
 ```
 
 Presto repo must be present at `$HOME/presto`. The `PRESTO_HOME` environment variable can
@@ -16,7 +17,7 @@ be set to override this location.
 Make necessary changes to `presto_protocol.yml` or to the files in the `special` directory
 and run
 ```
- $ make
+ $ make presto_protocol
 ```
 
 The C++ protocol classes are generated as `presto_prococol.h` and `presto_prococol.cpp`.

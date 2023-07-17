@@ -1362,4 +1362,404 @@ public abstract class AbstractTestWindowQueries
                         "(5.0, ARRAY[3, 4, 5], ARRAY[5, 6]), " +
                         "(6.0, ARRAY[4, 5, 6], ARRAY[6])");
     }
+
+    @Test
+    public void testConstantOffset()
+    {
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN 1 PRECEDING AND 2 FOLLOWING) " +
+                        "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) T(a)",
+                "VALUES " +
+                        "ARRAY[null, null, 1, 2, 2], " +
+                        "ARRAY[null, null, 1, 2, 2], " +
+                        "ARRAY[null, null, 1, 2, 2, 3, 3, 3], " +
+                        "ARRAY[1, 2, 2, 3, 3, 3], " +
+                        "ARRAY[1, 2, 2, 3, 3, 3], " +
+                        "ARRAY[2, 2, 3, 3, 3], " +
+                        "ARRAY[2, 2, 3, 3, 3], " +
+                        "ARRAY[2, 2, 3, 3, 3]");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS CURRENT ROW) " +
+                        "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) T(a)",
+                "VALUES " +
+                        "ARRAY[null, null], " +
+                        "ARRAY[null, null], " +
+                        "ARRAY[1], " +
+                        "ARRAY[2, 2], " +
+                        "ARRAY[2, 2], " +
+                        "ARRAY[3, 3, 3], " +
+                        "ARRAY[3, 3, 3], " +
+                        "ARRAY[3, 3, 3]");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN 0 PRECEDING AND 0 FOLLOWING) " +
+                        "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) T(a)",
+                "VALUES " +
+                        "ARRAY[null, null], " +
+                        "ARRAY[null, null], " +
+                        "ARRAY[1], " +
+                        "ARRAY[2, 2], " +
+                        "ARRAY[2, 2], " +
+                        "ARRAY[3, 3, 3], " +
+                        "ARRAY[3, 3, 3], " +
+                        "ARRAY[3, 3, 3]");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN 1 FOLLOWING AND 2 FOLLOWING) " +
+                        "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) T(a)",
+                "VALUES " +
+                        "ARRAY[1, 2, 2], " +
+                        "ARRAY[1, 2, 2], " +
+                        "ARRAY[2, 2, 3, 3, 3], " +
+                        "ARRAY[3, 3, 3], " +
+                        "ARRAY[3, 3, 3], " +
+                        "null, " +
+                        "null, " +
+                        "null");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN 2 PRECEDING AND 1 PRECEDING) " +
+                        "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) T(a)",
+                "VALUES " +
+                        "null, " +
+                        "null, " +
+                        "ARRAY[null, null], " +
+                        "ARRAY[null, null, 1], " +
+                        "ARRAY[null, null, 1], " +
+                        "ARRAY[1, 2, 2], " +
+                        "ARRAY[1, 2, 2], " +
+                        "ARRAY[1, 2, 2]");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN 2 FOLLOWING AND 1 FOLLOWING) " +
+                        "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) T(a)",
+                "VALUES " +
+                        "CAST(null AS array), " +
+                        "null, " +
+                        "null, " +
+                        "null, " +
+                        "null, " +
+                        "null, " +
+                        "null, " +
+                        "null");
+    }
+
+    @Test
+    public void testNoValueFrameBoundsGroup()
+    {
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) " +
+                        "FROM (VALUES 1, null, null, 2, 1) T(a)",
+                "VALUES " +
+                        "ARRAY[null, null, 1, 1, 2], " +
+                        "ARRAY[null, null, 1, 1, 2], " +
+                        "ARRAY[null, null, 1, 1, 2], " +
+                        "ARRAY[null, null, 1, 1, 2], " +
+                        "ARRAY[null, null, 1, 1, 2]");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) " +
+                        "FROM (VALUES 1, null, null, 2, 1) T(a)",
+                "VALUES " +
+                        "ARRAY[null, null], " +
+                        "ARRAY[null, null], " +
+                        "ARRAY[null, null, 1, 1], " +
+                        "ARRAY[null, null, 1, 1], " +
+                        "ARRAY[null, null, 1, 1, 2]");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) " +
+                        "FROM (VALUES 1, null, null, 2, 1) T(a)",
+                "VALUES " +
+                        "ARRAY[null, null, 1, 1, 2], " +
+                        "ARRAY[null, null, 1, 1, 2], " +
+                        "ARRAY[1, 1, 2], " +
+                        "ARRAY[1, 1, 2], " +
+                        "ARRAY[2]");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN CURRENT ROW AND CURRENT ROW) " +
+                        "FROM (VALUES 1, null, null, 2, 1) T(a)",
+                "VALUES " +
+                        "ARRAY[null, null], " +
+                        "ARRAY[null, null], " +
+                        "ARRAY[1, 1], " +
+                        "ARRAY[1, 1], " +
+                        "ARRAY[2]");
+    }
+
+    @Test
+    public void testMixedTypeFrameBounds()
+    {
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS LAST GROUPS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) " +
+                        "FROM (VALUES 1, null, null, 2, 1) T(a)",
+                "VALUES " +
+                        "null, " +
+                        "null, " +
+                        "ARRAY[1, 1], " +
+                        "ARRAY[1, 1, 2], " +
+                        "ARRAY[1, 1, 2]");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS LAST GROUPS BETWEEN UNBOUNDED PRECEDING AND 1 FOLLOWING) " +
+                        "FROM (VALUES 1, null, null, 2, 1) T(a)",
+                "VALUES " +
+                        "ARRAY[1, 1, 2], " +
+                        "ARRAY[1, 1, 2], " +
+                        "ARRAY[1, 1, 2, null, null], " +
+                        "ARRAY[1, 1, 2, null, null], " +
+                        "ARRAY[1, 1, 2, null, null]");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS LAST GROUPS BETWEEN CURRENT ROW AND 1 FOLLOWING) " +
+                        "FROM (VALUES 1, null, null, 2, 1) T(a)",
+                "VALUES " +
+                        "ARRAY[1, 1, 2], " +
+                        "ARRAY[1, 1, 2], " +
+                        "ARRAY[2, null, null], " +
+                        "ARRAY[null, null], " +
+                        "ARRAY[null, null]");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS LAST GROUPS BETWEEN 1 PRECEDING AND CURRENT ROW) " +
+                        "FROM (VALUES 1, null, null, 2, 1) T(a)",
+                "VALUES " +
+                        "ARRAY[1, 1], " +
+                        "ARRAY[1, 1], " +
+                        "ARRAY[1, 1, 2], " +
+                        "ARRAY[2, null, null], " +
+                        "ARRAY[2, null, null]");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS LAST GROUPS BETWEEN 1 PRECEDING AND UNBOUNDED FOLLOWING) " +
+                        "FROM (VALUES 1, null, null, 2, 1) T(a)",
+                "VALUES " +
+                        "ARRAY[1, 1, 2, null, null], " +
+                        "ARRAY[1, 1, 2, null, null], " +
+                        "ARRAY[1, 1, 2, null, null], " +
+                        "ARRAY[2, null, null], " +
+                        "ARRAY[2, null, null]");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS LAST GROUPS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING) " +
+                        "FROM (VALUES 1, null, null, 2, 1) T(a)",
+                "VALUES " +
+                        "ARRAY[2, null, null], " +
+                        "ARRAY[2, null, null], " +
+                        "ARRAY[null, null], " +
+                        "null, " +
+                        "null");
+    }
+
+    @Test
+    public void testEmptyFrameGroup()
+    {
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS LAST GROUPS BETWEEN 90 PRECEDING AND 100 PRECEDING) " +
+                        "FROM (VALUES 1, null, null, 2, 1) T(a)",
+                "VALUES " +
+                        "CAST(null AS array), " +
+                        "null, " +
+                        "null, " +
+                        "null, " +
+                        "null");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS LAST GROUPS BETWEEN 100 FOLLOWING AND 90 FOLLOWING) " +
+                        "FROM (VALUES 1, null, null, 2, 1) T(a)",
+                "VALUES " +
+                        "CAST(null AS array), " +
+                        "null, " +
+                        "null, " +
+                        "null, " +
+                        "null");
+    }
+
+    @Test
+    public void testNonConstantOffsetGroup()
+    {
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a GROUPS BETWEEN x PRECEDING AND y FOLLOWING) " +
+                        "FROM (VALUES ('a', 1, 1), ('b', 2, 0), ('c', 0, 3)) T(a, x, y)",
+                "VALUES " +
+                        "ARRAY['a', 'b'], " +
+                        "ARRAY['a', 'b'], " +
+                        "ARRAY['c']");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a GROUPS BETWEEN x FOLLOWING AND y FOLLOWING) " +
+                        "FROM (VALUES ('a', 1, 1), ('b', 2, 0), ('c', 3, 3), ('d', 0, 0)) T(a, x, y)",
+                "VALUES " +
+                        "ARRAY['b'], " +
+                        "null, " +
+                        "null, " +
+                        "ARRAY['d']");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a GROUPS BETWEEN x PRECEDING AND y PRECEDING) " +
+                        "FROM (VALUES ('a', 1, 1), ('b', 0, 2), ('c', 2, 1), ('d', 0, 2)) T(a, x, y)",
+                "VALUES " +
+                        "null, " +
+                        "null, " +
+                        "ARRAY['a', 'b'], " +
+                        "null");
+    }
+
+    @Test
+    public void testEmptyInputGroup()
+    {
+        assertQueryReturnsEmptyResult("SELECT array_agg(a) OVER(ORDER BY a GROUPS BETWEEN 1 PRECEDING AND 1 FOLLOWING) " +
+                "FROM (SELECT 1 WHERE false) T(a)");
+        assertQueryReturnsEmptyResult("SELECT array_agg(a) OVER(ORDER BY a GROUPS UNBOUNDED PRECEDING)" +
+                "FROM (SELECT 1 WHERE false) T(a)");
+    }
+
+    @Test
+    public void testOnlyNullsGroup()
+    {
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a GROUPS BETWEEN 1 PRECEDING AND 2 FOLLOWING) " +
+                        "FROM (VALUES CAST(null AS integer), null, null) T(a)",
+                "VALUES " +
+                        "ARRAY[cast(null as integer), cast(null as integer), cast(null as integer)], " +
+                        "ARRAY[null, null, null], " +
+                        "ARRAY[null, null, null]");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a GROUPS BETWEEN 1 FOLLOWING AND 2 FOLLOWING) " +
+                        "FROM (VALUES CAST(null AS integer), null, null) T(a)",
+                "VALUES " +
+                        "CAST(null AS array), " +
+                        "null, " +
+                        "null");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a GROUPS BETWEEN 2 PRECEDING AND 1 PRECEDING) " +
+                        "FROM (VALUES CAST(null AS integer), null, null) T(a)",
+                "VALUES " +
+                        "CAST(null AS array), " +
+                        "null, " +
+                        "null");
+    }
+
+    @Test
+    public void testAllPartitionSameValuesGroup()
+    {
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a GROUPS BETWEEN 1 FOLLOWING AND 2 FOLLOWING) " +
+                        "FROM (VALUES 'a', 'a', 'a') T(a)",
+                "VALUES " +
+                        "CAST(null AS array), " +
+                        "null, " +
+                        "null");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a GROUPS BETWEEN 2 PRECEDING AND 1 PRECEDING) " +
+                        "FROM (VALUES 'a', 'a', 'a') T(a)",
+                "VALUES " +
+                        "CAST(null AS array), " +
+                        "null, " +
+                        "null");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a GROUPS BETWEEN 1 PRECEDING AND 1 FOLLOWING) " +
+                        "FROM (VALUES 'a', 'a', 'a') T(a)",
+                "VALUES " +
+                        "ARRAY['a', 'a', 'a'], " +
+                        "ARRAY['a', 'a', 'a'], " +
+                        "ARRAY['a', 'a', 'a']");
+
+        // test frame bounds at partition bounds
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a GROUPS BETWEEN 10 PRECEDING AND 10 FOLLOWING) " +
+                        "FROM (VALUES 'a', 'a', 'a') T(a)",
+                "VALUES " +
+                        "ARRAY['a', 'a', 'a'], " +
+                        "ARRAY['a', 'a', 'a'], " +
+                        "ARRAY['a', 'a', 'a']");
+    }
+
+    @Test
+    public void testInvalidOffsetGroup()
+    {
+        assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a ASC GROUPS x PRECEDING) " +
+                        "FROM (VALUES (1, 1), (2, -2)) T(a, x)",
+                "Window frame -2 offset must not be negative");
+        assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a ASC GROUPS x PRECEDING) " +
+                        "FROM (VALUES (1, 1), (2, -2)) T(a, x)",
+                "Window frame -2 offset must not be negative");
+
+        assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a ASC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
+                        "FROM (VALUES (1, 1), (2, -2)) T(a, x)",
+                "Window frame -2 offset must not be negative");
+
+        assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS x PRECEDING) " +
+                        "FROM (VALUES (1, 1), (2, -2)) T(a, x)",
+                "Window frame -2 offset must not be negative");
+
+        assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
+                        "FROM (VALUES (1, 1), (2, -2)) T(a, x)",
+                "Window frame -2 offset must not be negative");
+
+        assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS x PRECEDING) " +
+                        "FROM (VALUES (1, 1), (2, null)) T(a, x)",
+                "Window frame starting offset must not be null");
+
+        assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
+                        "FROM (VALUES (1, 1), (2, null)) T(a, x)",
+                "Window frame ending offset must not be null");
+
+        // fail if offset is invalid for null sort key
+        assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
+                        "FROM (VALUES (1, 1), (null, null)) T(a, x)",
+                "Window frame ending offset must not be null");
+
+        assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
+                        "FROM (VALUES (1, 1), (null, -1)) T(a, x)",
+                "Window frame -1 offset must not be negative");
+
+        // test invalid offset of different types
+        assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a GROUPS x PRECEDING) " +
+                        "FROM (VALUES (1, BIGINT '-1')) T(a, x)",
+                "Window frame -1 offset must not be negative");
+
+        assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a GROUPS x PRECEDING) " +
+                        "FROM (VALUES (1, INTEGER '-1')) T(a, x)",
+                "Window frame -1 offset must not be negative");
+    }
+
+    @Test
+    public void testWindowPartitioningGroup()
+    {
+        assertQuery("SELECT a, p, array_agg(a) OVER(PARTITION BY p ORDER BY a ASC NULLS FIRST GROUPS BETWEEN 1 PRECEDING AND 1 FOLLOWING) " +
+                        "FROM (VALUES (1, 'x'), (2, 'x'), (null, 'x'), (null, 'y'), (2, 'y')) T(a, p)",
+                "VALUES " +
+                        "(null, 'x', ARRAY[null, 1]), " +
+                        "(1,    'x', ARRAY[null, 1, 2]), " +
+                        "(2,    'x', ARRAY[1, 2]), " +
+                        "(null, 'y', ARRAY[null, 2]), " +
+                        "(2,    'y', ARRAY[null, 2])");
+
+        assertQuery("SELECT a, p, array_agg(a) OVER(PARTITION BY p ORDER BY a ASC NULLS FIRST GROUPS BETWEEN 0 PRECEDING AND 1 FOLLOWING) " +
+                        "FROM (VALUES (1, 'x'), (2, 'x'), (null, 'x'), (null, 'y'), (2, 'y'), (null, null), (null, null), (1, null)) T(a, p)",
+                "VALUES " +
+                        "(null, null, ARRAY[null, null, 1]), " +
+                        "(null, null, ARRAY[null, null, 1]), " +
+                        "(1,    null, ARRAY[1]), " +
+                        "(null, 'x', ARRAY[null, 1]), " +
+                        "(1,    'x', ARRAY[1, 2]), " +
+                        "(2,    'x', ARRAY[2]), " +
+                        "(null, 'y', ARRAY[null, 2]), " +
+                        "(2,    'y', ARRAY[2])");
+    }
+
+    @Test
+    public void testMultipleWindowFunctionsGroup()
+    {
+        // two functions with frame type GROUPS
+        assertQuery("SELECT x, array_agg(date) OVER(ORDER BY x GROUPS BETWEEN 1 PRECEDING AND 1 PRECEDING), avg(number) OVER(ORDER BY x GROUPS BETWEEN 1 FOLLOWING AND 1 FOLLOWING) " +
+                        "FROM (VALUES " +
+                        "(2, DATE '2222-01-01', 4.4), " +
+                        "(1, DATE '1111-01-01', 2.2), " +
+                        "(3, DATE '3333-01-01', 6.6)) T(x, date, number)",
+                "VALUES " +
+                        "(1, null, 4.4), " +
+                        "(2, ARRAY[DATE '1111-01-01'], 6.6), " +
+                        "(3, ARRAY[DATE '2222-01-01'], null)");
+
+        // three functions with different frame types
+        assertQuery("SELECT " +
+                        "x, " +
+                        "array_agg(a) OVER(ORDER BY x RANGE BETWEEN 2 PRECEDING AND CURRENT ROW), " +
+                        "array_agg(a) OVER(ORDER BY x GROUPS BETWEEN 1 FOLLOWING AND 2 FOLLOWING), " +
+                        "array_agg(a) OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) " +
+                        "FROM (VALUES " +
+                        "(1.0, 1), " +
+                        "(2.0, 2), " +
+                        "(3.0, 3), " +
+                        "(4.0, 4), " +
+                        "(5.0, 5), " +
+                        "(6.0, 6)) T(x, a)",
+                "VALUES " +
+                        "(1.0, ARRAY[1], ARRAY[2, 3], ARRAY[1]), " +
+                        "(2.0, ARRAY[1, 2], ARRAY[3, 4], ARRAY[1, 2]), " +
+                        "(3.0, ARRAY[1, 2, 3], ARRAY[4, 5], ARRAY[2, 3]), " +
+                        "(4.0, ARRAY[2, 3, 4], ARRAY[5, 6], ARRAY[3, 4]), " +
+                        "(5.0, ARRAY[3, 4, 5], ARRAY[6], ARRAY[4, 5]), " +
+                        "(6.0, ARRAY[4, 5, 6], null, ARRAY[5, 6])");
+    }
 }

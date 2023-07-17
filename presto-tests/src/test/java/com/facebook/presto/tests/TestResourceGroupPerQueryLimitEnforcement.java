@@ -36,6 +36,7 @@ import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_L
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -127,10 +128,5 @@ public class TestResourceGroupPerQueryLimitEnforcement
         assertEquals(queryInfo.getState(), FAILED);
         assertEquals(queryInfo.getErrorCode(), EXCEEDED_TIME_LIMIT.toErrorCode());
         assertTrue(queryInfo.getFailureInfo().getMessage().contains(RESOURCE_GROUP.name()));
-    }
-
-    private String getResourceFilePath(String fileName)
-    {
-        return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 }

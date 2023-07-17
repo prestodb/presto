@@ -18,6 +18,7 @@ import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.CompressionType;
 import com.amazonaws.services.s3.model.InputSerialization;
 import com.amazonaws.services.s3.model.OutputSerialization;
+import com.amazonaws.services.s3.model.ScanRange;
 import com.amazonaws.services.s3.model.SelectObjectContentRequest;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.s3.HiveS3Config;
@@ -38,8 +39,6 @@ import org.apache.hadoop.io.compress.CompressionCodecFactory;
 import org.apache.hadoop.io.compress.GzipCodec;
 import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.util.LineReader;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -65,7 +64,6 @@ import static org.apache.hadoop.hive.serde.serdeConstants.FIELD_DELIM;
 import static org.apache.hadoop.hive.serde.serdeConstants.LINE_DELIM;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
 
-@ThreadSafe
 public abstract class S3SelectLineRecordReader
         implements RecordReader<LongWritable, Text>
 {
@@ -85,9 +83,10 @@ public abstract class S3SelectLineRecordReader
     private final Closer closer = Closer.create();
     private final SelectObjectContentRequest selectObjectContentRequest;
     protected final CompressionCodecFactory compressionCodecFactory;
-    protected final String lineDelimiter;
+    private final String lineDelimiter;
     private final Properties schema;
     private final CompressionType compressionType;
+    private long fileSize;
 
     S3SelectLineRecordReader(
             Configuration configuration,
@@ -95,10 +94,12 @@ public abstract class S3SelectLineRecordReader
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             String ionSqlQuery,
             PrestoS3ClientFactory s3ClientFactory)
     {
+        this.fileSize = fileSize;
         requireNonNull(configuration, "configuration is null");
         requireNonNull(clientConfig, "clientConfig is null");
         requireNonNull(schema, "schema is null");
@@ -111,6 +112,7 @@ public abstract class S3SelectLineRecordReader
         this.start = start;
         this.position = this.start;
         this.end = this.start + length;
+        this.fileSize = fileSize;
         this.isFirstLine = true;
 
         this.compressionCodecFactory = new CompressionCodecFactory(configuration);
@@ -141,6 +143,21 @@ public abstract class S3SelectLineRecordReader
         return compressionType;
     }
 
+    protected String getLineDelimiter()
+    {
+        return lineDelimiter;
+    }
+
+    protected long getStart()
+    {
+        return start;
+    }
+
+    protected long getEnd()
+    {
+        return end;
+    }
+
     public SelectObjectContentRequest buildSelectObjectRequest(String query, Path path)
     {
         SelectObjectContentRequest selectObjectRequest = new SelectObjectContentRequest();
@@ -155,6 +172,13 @@ public abstract class S3SelectLineRecordReader
 
         OutputSerialization selectObjectOutputSerialization = buildOutputSerialization();
         selectObjectRequest.setOutputSerialization(selectObjectOutputSerialization);
+
+        if (start != 0 || end != fileSize) {
+            ScanRange scanRange = new ScanRange();
+            scanRange.setStart(start);
+            scanRange.setEnd(end);
+            selectObjectRequest.setScanRange(scanRange);
+        }
 
         return selectObjectRequest;
     }

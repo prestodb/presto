@@ -54,4 +54,9 @@ public abstract class PreparedQuery
     {
         throw new UnsupportedOperationException("getStatementClass method is not supported!");
     }
+
+    public boolean isExplainTypeValidate()
+    {
+        throw new UnsupportedOperationException("isExplainTypeValidate method is not supported!");
+    }
 }

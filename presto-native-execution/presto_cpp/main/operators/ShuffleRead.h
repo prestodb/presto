@@ -22,6 +22,12 @@ class ShuffleReadNode : public velox::core::PlanNode {
   ShuffleReadNode(const velox::core::PlanNodeId& id, velox::RowTypePtr type)
       : PlanNode(id), outputType_(type) {}
 
+  folly::dynamic serialize() const override;
+
+  static velox::core::PlanNodePtr create(
+      const folly::dynamic& obj,
+      void* context);
+
   const velox::RowTypePtr& outputType() const override {
     return outputType_;
   }

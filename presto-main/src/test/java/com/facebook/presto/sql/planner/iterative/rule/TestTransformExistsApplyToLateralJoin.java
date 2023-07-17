@@ -13,15 +13,21 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.relation.ExistsExpression;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.lateral;
@@ -30,7 +36,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static com.facebook.presto.sql.relational.Expressions.comparisonExpression;
 
 public class TestTransformExistsApplyToLateralJoin
         extends BaseRuleTest
@@ -57,7 +63,7 @@ public class TestTransformExistsApplyToLateralJoin
         tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionAndTypeManager()))
                 .on(p ->
                         p.apply(
-                                assignment(p.variable("b", BOOLEAN), expression("EXISTS(SELECT TRUE)")),
+                                assignment(p.variable("b", BOOLEAN), new ExistsExpression(Optional.empty(), TRUE_CONSTANT)),
                                 ImmutableList.of(),
                                 p.values(),
                                 p.values()))
@@ -76,12 +82,16 @@ public class TestTransformExistsApplyToLateralJoin
         tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionAndTypeManager()))
                 .on(p ->
                         p.apply(
-                                assignment(p.variable("b", BOOLEAN), expression("EXISTS(SELECT TRUE)")),
+                                assignment(p.variable("b", BOOLEAN), new ExistsExpression(Optional.empty(), TRUE_CONSTANT)),
                                 ImmutableList.of(p.variable("corr")),
                                 p.values(p.variable("corr")),
                                 p.project(Assignments.of(),
                                         p.filter(
-                                                expression("corr = column"),
+                                                comparisonExpression(
+                                                        new FunctionResolution(getFunctionManager().getFunctionAndTypeResolver()),
+                                                        OperatorType.EQUAL,
+                                                        p.variable("corr"),
+                                                        p.variable("column")),
                                                 p.values(p.variable("column"))))))
                 .matches(
                         project(ImmutableMap.of("b", PlanMatchPattern.expression("COALESCE(subquerytrue, false)")),

@@ -24,7 +24,9 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spark.PhysicalResourceSettings;
 import com.facebook.presto.spark.PrestoSparkPhysicalResourceCalculator;
 import com.facebook.presto.spark.PrestoSparkSourceStatsCollector;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.security.AccessControl;
@@ -41,8 +43,6 @@ import com.facebook.presto.sql.planner.OutputExtractor;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanCanonicalInfoProvider;
 import com.facebook.presto.sql.planner.PlanOptimizers;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -96,10 +96,8 @@ public class PrestoSparkQueryPlanner
         this.planCanonicalInfoProvider = requireNonNull(historyBasedPlanStatisticsManager, "historyBasedPlanStatisticsManager is null").getPlanCanonicalInfoProvider();
     }
 
-    public PlanAndMore createQueryPlan(Session session, BuiltInPreparedQuery preparedQuery, WarningCollector warningCollector)
+    public PlanAndMore createQueryPlan(Session session, BuiltInPreparedQuery preparedQuery, WarningCollector warningCollector, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
     {
-        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-
         Analyzer analyzer = new Analyzer(
                 session,
                 metadata,
@@ -112,12 +110,12 @@ public class PrestoSparkQueryPlanner
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
 
-        final PlanVariableAllocator planVariableAllocator = new PlanVariableAllocator();
         LogicalPlanner logicalPlanner = new LogicalPlanner(
                 session,
                 idAllocator,
                 metadata,
-                planVariableAllocator);
+                variableAllocator,
+                sqlParser);
 
         PlanNode planNode = session.getRuntimeStats().profileNanos(
                 LOGICAL_PLANNER_TIME_NANOS,
@@ -129,7 +127,7 @@ public class PrestoSparkQueryPlanner
                 optimizers.getPlanningTimeOptimizers(),
                 planChecker,
                 sqlParser,
-                planVariableAllocator,
+                variableAllocator,
                 idAllocator,
                 warningCollector,
                 statsCalculator,

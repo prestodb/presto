@@ -201,7 +201,12 @@ public class ExecutionFailureInfo
                 number = -2;
             }
             else if (matcher.group(4) != null) {
-                number = Integer.parseInt(matcher.group(4));
+                try {
+                    number = Integer.parseInt(matcher.group(4));
+                }
+                catch (NumberFormatException e) {
+                    // Stack trace parsing is best effort.
+                }
             }
             return new StackTraceElement(declaringClass, methodName, fileName, number);
         }

@@ -27,7 +27,7 @@ public class WindowFrame
 {
     public enum Type
     {
-        RANGE, ROWS
+        RANGE, ROWS, GROUPS
     }
 
     private final Type type;

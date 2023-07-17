@@ -35,6 +35,7 @@ import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.apache.parquet.io.ParquetDecodingException;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.PrimitiveIterator;
@@ -50,6 +51,8 @@ import static java.util.Objects.requireNonNull;
 public abstract class AbstractColumnReader
         implements ColumnReader
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(AbstractColumnReader.class).instanceSize();
+
     private static final int EMPTY_LEVEL_VALUE = -1;
     protected final RichColumnDescriptor columnDescriptor;
 
@@ -61,9 +64,9 @@ public abstract class AbstractColumnReader
     private int nextBatchSize;
     private LevelReader repetitionReader;
     private LevelReader definitionReader;
-    private long totalValueCount;
     private PageReader pageReader;
     private Dictionary dictionary;
+    private long valueCountInColumnChunk;
     private int currentValueCount;
     private DataPage page;
     private int remainingValueCountInPage;
@@ -72,6 +75,14 @@ public abstract class AbstractColumnReader
     private long currentRow;
     private long targetRow;
 
+    public AbstractColumnReader(RichColumnDescriptor columnDescriptor)
+    {
+        this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor");
+        this.pageReader = null;
+        this.targetRow = Long.MIN_VALUE;
+        this.indexIterator = null;
+    }
+
     protected abstract void readValue(BlockBuilder blockBuilder, Type type);
 
     protected abstract void skipValue();
@@ -79,14 +90,6 @@ public abstract class AbstractColumnReader
     protected boolean isValueNull()
     {
         return ParquetTypeUtils.isValueNull(columnDescriptor.isRequired(), definitionLevel, columnDescriptor.getMaxDefinitionLevel());
-    }
-
-    public AbstractColumnReader(RichColumnDescriptor columnDescriptor)
-    {
-        this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor");
-        pageReader = null;
-        this.targetRow = Long.MIN_VALUE;
-        this.indexIterator = null;
     }
 
     @Override
@@ -113,8 +116,8 @@ public abstract class AbstractColumnReader
         else {
             dictionary = null;
         }
-        checkArgument(pageReader.getTotalValueCount() > 0, "page is empty");
-        totalValueCount = pageReader.getTotalValueCount();
+        checkArgument(pageReader.getValueCountInColumnChunk() > 0, "page is empty");
+        valueCountInColumnChunk = pageReader.getValueCountInColumnChunk();
         indexIterator = (rowRanges == null) ? null : rowRanges.iterator();
     }
 
@@ -149,6 +152,15 @@ public abstract class AbstractColumnReader
         readOffset = 0;
         nextBatchSize = 0;
         return new ColumnChunk(blockBuilder.build(), definitionLevels.toIntArray(), repetitionLevels.toIntArray());
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE +
+                (pageReader == null ? 0 : pageReader.getRetainedSizeInBytes()) +
+                (dictionary == null ? 0 : dictionary.getRetainedSizeInBytes()) +
+                (page == null ? 0 : page.getRetainedSizeInBytes());
     }
 
     private void readValues(BlockBuilder blockBuilder, int valuesToRead, Type type, IntList definitionLevels, IntList repetitionLevels)
@@ -236,7 +248,7 @@ public abstract class AbstractColumnReader
 
     private void seek()
     {
-        checkArgument(currentValueCount <= totalValueCount, "Already read all values in column chunk");
+        checkArgument(currentValueCount <= valueCountInColumnChunk, "Already read all values in column chunk");
         if (readOffset == 0) {
             return;
         }

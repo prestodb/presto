@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -41,6 +41,7 @@ public class DeltaSplit
     private final long length;
     private final long fileSize;
     private final Map<String, String> partitionValues;
+    private final NodeSelectionStrategy nodeSelectionStrategy;
 
     @JsonCreator
     public DeltaSplit(
@@ -51,7 +52,8 @@ public class DeltaSplit
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
             @JsonProperty("fileSize") long fileSize,
-            @JsonProperty("partitionValues") Map<String, String> partitionValues)
+            @JsonProperty("partitionValues") Map<String, String> partitionValues,
+            @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -65,6 +67,7 @@ public class DeltaSplit
         this.length = length;
         this.fileSize = fileSize;
         this.partitionValues = ImmutableMap.copyOf(requireNonNull(partitionValues, "partitionValues id is null"));
+        this.nodeSelectionStrategy = nodeSelectionStrategy;
     }
 
     @JsonProperty
@@ -118,12 +121,17 @@ public class DeltaSplit
     @Override
     public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return NO_PREFERENCE;
+        return nodeSelectionStrategy;
     }
 
     @Override
     public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
+        if (getNodeSelectionStrategy() == SOFT_AFFINITY) {
+            // SOFT_AFFINITY node selection strategy scheduler would choose 2 workers (preferred, secondary preferred)
+            // for scheduling
+            return nodeProvider.get(filePath, 2);
+        }
         return ImmutableList.of(); // empty list indicates no preference.
     }
 

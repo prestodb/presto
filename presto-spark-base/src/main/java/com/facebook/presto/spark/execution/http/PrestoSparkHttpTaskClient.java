@@ -31,7 +31,7 @@ import com.facebook.presto.operator.PageBufferClient;
 import com.facebook.presto.operator.RpcShuffleClient;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.BaseResponse;
-import com.facebook.presto.spark.execution.BatchTaskUpdateRequest;
+import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -41,6 +41,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.airlift.http.client.HttpStatus.familyForStatusCode;
@@ -48,6 +49,7 @@ import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.Request.Builder.prepareDelete;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
+import static com.facebook.airlift.http.client.ResponseHandlerUtils.propagate;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static com.facebook.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
@@ -75,6 +77,7 @@ public class PrestoSparkHttpTaskClient
     private final JsonCodec<PlanFragment> planFragmentCodec;
     private final JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec;
     private final Duration infoRefreshMaxWait;
+    private final Map<String, TokenAuthenticator> tokenAuthenticator;
 
     public PrestoSparkHttpTaskClient(
             HttpClient httpClient,
@@ -83,7 +86,8 @@ public class PrestoSparkHttpTaskClient
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<PlanFragment> planFragmentCodec,
             JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec,
-            Duration infoRefreshMaxWait)
+            Duration infoRefreshMaxWait,
+            Map<String, TokenAuthenticator> tokenAuthenticators)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.taskId = requireNonNull(taskId, "taskId is null");
@@ -91,8 +95,9 @@ public class PrestoSparkHttpTaskClient
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
         this.planFragmentCodec = requireNonNull(planFragmentCodec, "planFragmentCodec is null");
         this.taskUpdateRequestCodec = requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
-        this.taskUri = getTaskUri(location, taskId);
+        this.taskUri = createTaskUri(location, taskId);
         this.infoRefreshMaxWait = requireNonNull(infoRefreshMaxWait, "infoRefreshMaxWait is null");
+        this.tokenAuthenticator = requireNonNull(tokenAuthenticators, "tokenAuthenticator is null");
     }
 
     /**
@@ -123,33 +128,18 @@ public class PrestoSparkHttpTaskClient
                 .appendPath(String.valueOf(nextToken))
                 .appendPath("acknowledge")
                 .build();
-        httpClient.executeAsync(
-                prepareGet().setUri(uri).build(),
-                new ResponseHandler<Void, RuntimeException>()
-                {
-                    @Override
-                    public Void handleException(Request request, Exception exception)
-                    {
-                        log.debug(exception, "Acknowledge request failed: %s", uri);
-                        return null;
-                    }
-
-                    @Override
-                    public Void handle(Request request, Response response)
-                    {
-                        if (familyForStatusCode(response.getStatusCode()) != HttpStatus.Family.SUCCESSFUL) {
-                            log.debug("Unexpected acknowledge response code: %s", response.getStatusCode());
-                        }
-                        return null;
-                    }
-                });
+        httpExecuteAsync(prepareGet().setUri(uri).build(), null);
     }
 
     @Override
     public ListenableFuture<?> abortResults()
     {
         return httpClient.executeAsync(
-                prepareDelete().setUri(taskUri).build(),
+                prepareDelete().setUri(
+                                uriBuilderFrom(taskUri)
+                                        .appendPath("/results/0")
+                                        .build())
+                        .build(),
                 createStatusResponseHandler());
     }
 
@@ -165,8 +155,39 @@ public class PrestoSparkHttpTaskClient
                 .setHeader(PRESTO_MAX_WAIT, infoRefreshMaxWait.toString())
                 .setUri(taskUri)
                 .build();
-        ResponseHandler responseHandler = createAdaptingJsonResponseHandler(taskInfoCodec);
-        return httpClient.executeAsync(request, responseHandler);
+
+        return httpExecuteAsync(request, taskInfoCodec);
+    }
+
+    private <T> ListenableFuture<BaseResponse<T>> httpExecuteAsync(Request request, JsonCodec<T> codec)
+    {
+        return httpClient.executeAsync(request, new ResponseHandler<BaseResponse<T>, RuntimeException>()
+        {
+            @Override
+            public BaseResponse<T> handleException(Request request, Exception exception)
+            {
+                throw propagate(request, exception);
+            }
+
+            @Override
+            public BaseResponse<T> handle(Request request, Response response)
+            {
+                if (familyForStatusCode(response.getStatusCode()) != HttpStatus.Family.SUCCESSFUL) {
+                    throw new RuntimeException(format("Unexpected http response code: %s", response.getStatusCode()));
+                }
+
+                if (codec == null) {
+                    return null;
+                }
+
+                try {
+                    return createAdaptingJsonResponseHandler(codec).handle(request, response);
+                }
+                catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
     }
 
     public ListenableFuture<BaseResponse<TaskInfo>> updateTask(
@@ -191,7 +212,6 @@ public class PrestoSparkHttpTaskClient
         URI batchTaskUri = uriBuilderFrom(taskUri)
                 .appendPath("batch")
                 .build();
-        log.info(format("BatchTaskUpdate: \n %s", taskUpdateRequestCodec.toJson(batchTaskUpdateRequest)));
         return httpClient.executeAsync(
                 setContentTypeHeaders(false, preparePost())
                         .setUri(batchTaskUri)
@@ -205,11 +225,21 @@ public class PrestoSparkHttpTaskClient
         return location;
     }
 
-    private URI getTaskUri(URI baseUri, TaskId taskId)
+    public URI getTaskUri()
+    {
+        return taskUri;
+    }
+
+    private URI createTaskUri(URI baseUri, TaskId taskId)
     {
         return uriBuilderFrom(baseUri)
                 .appendPath(TASK_URI)
                 .appendPath(taskId.toString())
                 .build();
+    }
+
+    public Map<String, TokenAuthenticator> getTokenAuthenticator()
+    {
+        return tokenAuthenticator;
     }
 }

@@ -46,6 +46,19 @@ exec_in_hadoop_master_container /usr/bin/hive -e "
     STORED AS TEXTFILE
     LOCATION '${table_path}'"
 
+table_path="s3a://${S3_BUCKET}/presto_test_csv_scan_range_select_pushdown/"
+exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
+exec_in_hadoop_master_container hadoop fs -put -f /tmp/files/test_table_csv_scan_range_select_pushdown_{1,2,3}.csv "${table_path}"
+exec_in_hadoop_master_container /usr/bin/hive -e "
+    CREATE EXTERNAL TABLE presto_test_csv_scan_range_select_pushdown(index bigint, id string, value1 bigint, value2 bigint, value3 bigint,
+     value4 bigint, value5 bigint, title string, firstname string, lastname string, flag string, day bigint,
+     month bigint, year bigint, country string, comment string, email string, identifier string)
+    ROW FORMAT DELIMITED
+    FIELDS TERMINATED BY '|'
+    STORED AS TEXTFILE
+    LOCATION '${table_path}'"
+
+
 stop_unnecessary_hadoop_services
 
 # restart hive-metastore to apply S3 changes in core-site.xml

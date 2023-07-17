@@ -16,7 +16,6 @@
 #include <gtest/gtest.h>
 
 #include "presto_cpp/main/common/tests/test_json.h"
-#include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 
 namespace fs = boost::filesystem;
@@ -29,11 +28,6 @@ std::string getDataPath(const std::string& fileName) {
   if (boost::algorithm::ends_with(currentPath, "fbcode")) {
     return currentPath +
         "/github/presto-trunk/presto-native-execution/presto_cpp/presto_protocol/tests/data/" +
-        fileName;
-  }
-
-  if (boost::algorithm::ends_with(currentPath, "fbsource")) {
-    return currentPath + "/third-party/presto_cpp/presto_protocol/tests/data/" +
         fileName;
   }
 

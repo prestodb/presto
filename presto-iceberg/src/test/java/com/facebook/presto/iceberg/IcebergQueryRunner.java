@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.jmx.JmxPlugin;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
@@ -24,6 +25,7 @@ import org.apache.iceberg.FileFormat;
 
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
@@ -69,14 +71,29 @@ public final class IcebergQueryRunner
             boolean createTpchTables)
             throws Exception
     {
+        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, format, createTpchTables, false, OptionalInt.empty());
+    }
+
+    public static DistributedQueryRunner createIcebergQueryRunner(
+            Map<String, String> extraProperties,
+            Map<String, String> extraConnectorProperties,
+            FileFormat format,
+            boolean createTpchTables,
+            boolean addJmxPlugin,
+            OptionalInt nodeCount)
+            throws Exception
+    {
         Session session = testSessionBuilder()
                 .setCatalog(ICEBERG_CATALOG)
                 .setSchema("tpch")
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setExtraProperties(extraProperties)
-                .build();
+        DistributedQueryRunner.Builder queryRunnerBuilder = DistributedQueryRunner.builder(session)
+                .setExtraProperties(extraProperties);
+
+        nodeCount.ifPresent(queryRunnerBuilder::setNodeCount);
+
+        DistributedQueryRunner queryRunner = queryRunnerBuilder.build();
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
@@ -94,6 +111,11 @@ public final class IcebergQueryRunner
                 .build();
 
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
+
+        if (addJmxPlugin) {
+            queryRunner.installPlugin(new JmxPlugin());
+            queryRunner.createCatalog("jmx", "jmx");
+        }
 
         queryRunner.execute("CREATE SCHEMA tpch");
 
