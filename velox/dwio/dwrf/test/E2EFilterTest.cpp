@@ -280,7 +280,7 @@ TEST_F(E2EFilterTest, timestamp) {
 }
 
 TEST_F(E2EFilterTest, listAndMap) {
-  int numCombinations = 10;
+  int numCombinations = 20;
 #if !defined(NDEBUG) || defined(TSAN_BUILD)
   // The test is running slow under dev/debug and TSAN build; reduce the number
   // of combinations to avoid timeout.
@@ -290,7 +290,7 @@ TEST_F(E2EFilterTest, listAndMap) {
       "long_val:bigint,"
       "long_val_2:bigint,"
       "int_val:int,"
-      "array_val:array<struct<array_member: array<int>>>,"
+      "array_val:array<struct<array_member: array<int>, float_val:float, long_val:bigint, string_val:string>>,"
       "map_val:map<bigint,struct<nested_map: map<int, int>>>",
       [&]() {},
       true,

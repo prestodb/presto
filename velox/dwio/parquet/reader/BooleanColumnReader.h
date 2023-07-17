@@ -35,7 +35,7 @@ class BooleanColumnReader : public dwio::common::SelectiveByteRleColumnReader {
             nodeType->type) {}
 
   void seekToRowGroup(uint32_t index) override {
-    SelectiveColumnReader::seekToRowGroup(index);
+    SelectiveByteRleColumnReader::seekToRowGroup(index);
     scanState().clear();
     readOffset_ = 0;
     formatData_->as<ParquetData>().seekToRowGroup(index);

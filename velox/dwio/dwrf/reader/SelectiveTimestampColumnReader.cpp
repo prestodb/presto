@@ -56,6 +56,7 @@ uint64_t SelectiveTimestampColumnReader::skip(uint64_t numValues) {
 }
 
 void SelectiveTimestampColumnReader::seekToRowGroup(uint32_t index) {
+  SelectiveColumnReader::seekToRowGroup(index);
   auto positionsProvider = formatData_->seekToRowGroup(index);
   seconds_->seekToRowGroup(positionsProvider);
   nano_->seekToRowGroup(positionsProvider);

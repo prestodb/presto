@@ -27,7 +27,6 @@ class FloatingPointColumnReader
  public:
   using ValueType = TRequested;
 
-  using root = dwio::common::SelectiveColumnReader;
   using base =
       dwio::common::SelectiveFloatingPointColumnReader<TData, TRequested>;
 
@@ -38,10 +37,10 @@ class FloatingPointColumnReader
       common::ScanSpec& scanSpec);
 
   void seekToRowGroup(uint32_t index) override {
-    root::seekToRowGroup(index);
-    root::scanState().clear();
-    root::readOffset_ = 0;
-    root::formatData_->as<ParquetData>().seekToRowGroup(index);
+    base::seekToRowGroup(index);
+    this->scanState().clear();
+    this->readOffset_ = 0;
+    this->formatData_->template as<ParquetData>().seekToRowGroup(index);
   }
 
   uint64_t skip(uint64_t numValues) override;
@@ -49,7 +48,7 @@ class FloatingPointColumnReader
   void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
       override {
     using T = FloatingPointColumnReader<TData, TRequested>;
-    base::template readCommon<T>(offset, rows, incomingNulls);
+    this->template readCommon<T>(offset, rows, incomingNulls);
   }
 
   template <typename TVisitor>
@@ -71,7 +70,7 @@ FloatingPointColumnReader<TData, TRequested>::FloatingPointColumnReader(
 template <typename TData, typename TRequested>
 uint64_t FloatingPointColumnReader<TData, TRequested>::skip(
     uint64_t numValues) {
-  return root::formatData_->skip(numValues);
+  return this->formatData_->skip(numValues);
 }
 
 template <typename TData, typename TRequested>
@@ -79,8 +78,8 @@ template <typename TVisitor>
 void FloatingPointColumnReader<TData, TRequested>::readWithVisitor(
     RowSet rows,
     TVisitor visitor) {
-  root::formatData_->as<ParquetData>().readWithVisitor(visitor);
-  root::readOffset_ += rows.back() + 1;
+  this->formatData_->template as<ParquetData>().readWithVisitor(visitor);
+  this->readOffset_ += rows.back() + 1;
 }
 
 } // namespace facebook::velox::parquet

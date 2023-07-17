@@ -41,7 +41,7 @@ class SelectiveStructColumnReaderBase
   void seekTo(vector_size_t offset, bool readsNullsOnly) override;
 
   void seekToRowGroup(uint32_t index) override {
-    SelectiveColumnReader::seekToRowGroup(index);
+    dwio::common::SelectiveStructColumnReaderBase::seekToRowGroup(index);
     if (isTopLevel_ && !formatData_->hasNulls()) {
       readOffset_ = index * rowsPerRowGroup_;
       return;

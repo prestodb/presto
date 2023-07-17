@@ -135,7 +135,7 @@ void MapColumnReader::enqueueRowGroup(
 }
 
 void MapColumnReader::seekToRowGroup(uint32_t index) {
-  SelectiveColumnReader::seekToRowGroup(index);
+  SelectiveMapColumnReader::seekToRowGroup(index);
   readOffset_ = 0;
   childTargetReadOffset_ = 0;
   BufferPtr noBuffer;
@@ -240,7 +240,7 @@ void ListColumnReader::enqueueRowGroup(
 }
 
 void ListColumnReader::seekToRowGroup(uint32_t index) {
-  SelectiveColumnReader::seekToRowGroup(index);
+  SelectiveListColumnReader::seekToRowGroup(index);
   readOffset_ = 0;
   childTargetReadOffset_ = 0;
   BufferPtr noBuffer;

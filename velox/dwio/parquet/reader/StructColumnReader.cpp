@@ -109,7 +109,7 @@ void StructColumnReader::enqueueRowGroup(
 }
 
 void StructColumnReader::seekToRowGroup(uint32_t index) {
-  SelectiveColumnReader::seekToRowGroup(index);
+  SelectiveStructColumnReader::seekToRowGroup(index);
   BufferPtr noBuffer;
   formatData_->as<ParquetData>().setNulls(noBuffer, 0);
   readOffset_ = 0;
