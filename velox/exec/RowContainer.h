@@ -585,7 +585,7 @@ class RowContainer {
   // reserved storage for variable length data.
   std::pair<uint64_t, uint64_t> freeSpace() const {
     return std::make_pair<uint64_t, uint64_t>(
-        rows_.availableInReservedRun() / fixedRowSize_ + numFreeRows_,
+        rows_.freeBytes() / fixedRowSize_ + numFreeRows_,
         stringAllocator_.freeSpace());
   }
 

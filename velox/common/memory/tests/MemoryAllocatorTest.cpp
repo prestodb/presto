@@ -436,7 +436,7 @@ TEST_P(MemoryAllocatorTest, allocationPool) {
 
   {
     auto old = pool.numRanges();
-    auto bytes = pool.availableInRun();
+    auto bytes = pool.testingFreeAddressableBytes();
     pool.allocateFixed(bytes);
     pool.allocateFixed(1);
     ASSERT_EQ(pool.numRanges(), old + 1);
@@ -452,7 +452,7 @@ TEST_P(MemoryAllocatorTest, allocationPool) {
 
   {
     // Leaving 10 bytes room
-    pool.allocateFixed(pool.availableInRun() - 10);
+    pool.allocateFixed(pool.testingFreeAddressableBytes() - 10);
     auto old = pool.numRanges();
     auto buf = pool.allocateFixed(1, 64);
     ASSERT_EQ(reinterpret_cast<uintptr_t>(buf) % 64, 0);

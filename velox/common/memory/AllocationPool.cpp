@@ -50,7 +50,7 @@ void AllocationPool::clear() {
 
 char* AllocationPool::allocateFixed(uint64_t bytes, int32_t alignment) {
   VELOX_CHECK_GT(bytes, 0, "Cannot allocate zero bytes");
-  if (availableInRun() >= bytes && alignment == 1) {
+  if (freeAddressableBytes() >= bytes && alignment == 1) {
     auto* result = startOfRun_ + currentOffset_;
     currentOffset_ += bytes;
     if (currentOffset_ > endOfReservedRun()) {
@@ -63,11 +63,11 @@ char* AllocationPool::allocateFixed(uint64_t bytes, int32_t alignment) {
 
   auto numPages = AllocationTraits::numPages(bytes + alignment - 1);
 
-  if (availableInRun() == 0) {
+  if (freeAddressableBytes() == 0) {
     newRunImpl(numPages);
   } else {
     auto alignedBytes = bytes + alignmentPadding(firstFreeInRun(), alignment);
-    if (availableInRun() < alignedBytes) {
+    if (freeAddressableBytes() < alignedBytes) {
       newRunImpl(numPages);
     }
   }

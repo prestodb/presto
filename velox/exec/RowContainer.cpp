@@ -618,7 +618,7 @@ std::optional<int64_t> RowContainer::estimateRowSize() const {
   if (numRows_ == 0) {
     return std::nullopt;
   }
-  int64_t freeBytes = rows_.availableInRun() + fixedRowSize_ * numFreeRows_;
+  int64_t freeBytes = rows_.freeBytes() + fixedRowSize_ * numFreeRows_;
   int64_t usedSize = rows_.allocatedBytes() - freeBytes +
       stringAllocator_.retainedSize() - stringAllocator_.freeSpace();
   int64_t rowSize = usedSize / numRows_;

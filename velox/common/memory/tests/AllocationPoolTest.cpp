@@ -48,13 +48,13 @@ TEST_F(AllocationPoolTest, hugePages) {
     allocationPool->newRun(32 << 10);
     // Initial allocations round up to 64K
     EXPECT_EQ(1, allocationPool->numRanges());
-    EXPECT_EQ(allocationPool->availableInRun(), 64 << 10);
+    EXPECT_EQ(allocationPool->testingFreeAddressableBytes(), 64 << 10);
     allocationPool->newRun(64 << 10);
     EXPECT_LE(128 << 10, pool_->currentBytes());
     allocationPool->allocateFixed(64 << 10);
     // Now at end of second 64K range, next will go to huge pages.
     setByte(allocationPool->allocateFixed(11));
-    EXPECT_LE((2 << 20) - 11, allocationPool->availableInRun());
+    EXPECT_LE((2 << 20) - 11, allocationPool->testingFreeAddressableBytes());
     // The first 2MB of the hugepage run are marked reserved.
     EXPECT_LE((2048 + 128) << 10, pool_->currentBytes());
 
@@ -63,7 +63,8 @@ TEST_F(AllocationPoolTest, hugePages) {
     EXPECT_LE((4096 + 128) << 10, pool_->currentBytes());
 
     // Allocate the rest.
-    allocationPool->allocateFixed(allocationPool->availableInRun());
+    allocationPool->allocateFixed(
+        allocationPool->testingFreeAddressableBytes());
 
     // We expect 3 ranges, 2 small and one large.
     EXPECT_EQ(3, allocationPool->numRanges());
@@ -74,7 +75,7 @@ TEST_F(AllocationPoolTest, hugePages) {
     // The first is at least 15 huge pages. The next is at least 31. The mmaps
     // may have unused addresses at either end, so count one huge page less than
     // the nominal size.
-    EXPECT_LE((62 << 20) - 1, allocationPool->availableInRun());
+    EXPECT_LE((62 << 20) - 1, allocationPool->testingFreeAddressableBytes());
 
     // We make a 5GB extra large allocation.
     allocationPool->allocateFixed(5UL << 30);
@@ -82,7 +83,7 @@ TEST_F(AllocationPoolTest, hugePages) {
 
     // 5G is an even multiple of huge page, no free space at end. But it can be
     // the mmap happens to start at 2MB boundary so we get another 2MB.
-    EXPECT_GE(kHugePageSize, allocationPool->availableInRun());
+    EXPECT_GE(kHugePageSize, allocationPool->testingFreeAddressableBytes());
 
     EXPECT_LE(
         (5UL << 30) + (31 << 20) + (128 << 10),

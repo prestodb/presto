@@ -63,22 +63,17 @@ class AllocationPool {
     return usedBytes_;
   }
 
-  // Returns number of bytes left at the end of the current run.
-  int64_t availableInRun() const {
-    return bytesInRun_ - currentOffset_;
-  }
-
-  /// Returns the number of bytes allocatable without bumping up reservation.
-  int64_t availableInReservedRun() const {
+  /// Returns the number of bytes allocatable without growing 'this'.
+  int64_t freeBytes() const {
     if (largeAllocations_.empty()) {
-      return availableInRun();
+      return freeAddressableBytes();
     }
     return largeAllocations_.back().size() - currentOffset_;
   }
 
   // Returns pointer to first unallocated byte in the current run.
   char* firstFreeInRun() {
-    VELOX_DCHECK_GT(availableInRun(), 0);
+    VELOX_DCHECK_GT(testingFreeAddressableBytes(), 0);
     return startOfRun_ + currentOffset_;
   }
 
@@ -110,6 +105,10 @@ class AllocationPool {
     hugePageThreshold_ = size;
   }
 
+  int64_t testingFreeAddressableBytes() const {
+    return freeAddressableBytes();
+  }
+
  private:
   static constexpr int64_t kDefaultHugePageThreshold = 256 * 1024;
   static constexpr int64_t kMaxMmapBytes = 512 << 20; // 512 MB
@@ -123,6 +122,13 @@ class AllocationPool {
       return bytesInRun_;
     }
     return largeAllocations_.back().size();
+  }
+
+  // Returns the number of bytes between first unallocated and the end of the
+  // addresses mapped in the last Allocation/ContiguousAllocation. This can be
+  // larger than the space reported as allocated in 'pool_'.
+  int64_t freeAddressableBytes() const {
+    return bytesInRun_ - currentOffset_;
   }
 
   // Increses the reservation in 'pool_' when 'currentOffset_' goes past

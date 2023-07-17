@@ -827,7 +827,7 @@ TEST_F(RowContainerTest, rowSizeWithNormalizedKey) {
 }
 
 TEST_F(RowContainerTest, estimateRowSize) {
-  auto numRows = 1000;
+  auto numRows = 200'000;
 
   // Make a RowContainer with a fixed-length key column and a variable-length
   // dependent column.
@@ -837,8 +837,10 @@ TEST_F(RowContainerTest, estimateRowSize) {
   // Store rows to the container.
   auto key =
       vectorMaker_.flatVector<int64_t>(numRows, [](auto row) { return row; });
-  auto dependent = vectorMaker_.flatVector<StringView>(numRows, [](auto row) {
-    return StringView::makeInline(fmt::format("str {}", row));
+  std::string str;
+  auto dependent = vectorMaker_.flatVector<StringView>(numRows, [&](auto row) {
+    str = fmt::format("string - {}", row);
+    return StringView(str);
   });
   SelectivityVector allRows(numRows);
   DecodedVector decodedKey(*key, allRows);
@@ -848,6 +850,10 @@ TEST_F(RowContainerTest, estimateRowSize) {
     rowContainer->store(decodedKey, i, row, 0);
     rowContainer->store(decodedDependent, i, row, 1);
   }
+  EXPECT_EQ(37, rowContainer->fixedRowSize());
+  EXPECT_EQ(64, rowContainer->estimateRowSize());
+  // 2*2MB huge page size blocks + 4 * 64K small allocations.
+  EXPECT_EQ(0x440000, rowContainer->stringAllocator().retainedSize());
 }
 
 class AggregateWithAlignment : public Aggregate {
