@@ -987,8 +987,8 @@ as a simple function. I’m using it here for illustration purposes only.
 
     // Decode the arguments.
     DecodedArgs decodedArgs(rows, args, context);
-    auto base = decodedArgs.decodedVector(0);
-    auto exp = decodedArgs.decodedVector(1);
+    auto base = decodedArgs.at(0);
+    auto exp = decodedArgs.at(1);
 
     // Loop over rows and calculate the results.
     rows.applyToSelected([&](int row) {
