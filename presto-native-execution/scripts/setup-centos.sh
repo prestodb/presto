@@ -20,7 +20,7 @@ export nproc=$(getconf _NPROCESSORS_ONLN)
 
 dnf install -y maven
 dnf install -y java
-dnf install -y python3
+dnf install -y python3-devel
 dnf install -y clang-tools-extra
 dnf install -y jq
 dnf install -y perl-XML-XPath
