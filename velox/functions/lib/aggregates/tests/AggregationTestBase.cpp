@@ -674,7 +674,7 @@ void AggregationTestBase::testAggregations(
     }
   }
 
-  if (!groupingKeys.empty() && allowInputShuffle_) {
+  if (!groupingKeys.empty()) {
     SCOPED_TRACE("Run partial + final with abandon partial agg");
     PlanBuilder builder(pool());
     makeSource(builder);
