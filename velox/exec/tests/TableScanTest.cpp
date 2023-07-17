@@ -2635,3 +2635,19 @@ TEST_F(TableScanTest, filterPushdownDisabledChecks) {
       query.copyResults(pool_.get()),
       "Unexpected filter on table hive_table, field c0");
 }
+
+TEST_F(TableScanTest, reuseRowVector) {
+  auto iota = makeFlatVector<int32_t>(10, folly::identity);
+  auto data = makeRowVector({iota, makeRowVector({iota})});
+  auto rowType = asRowType(data->type());
+  auto file = TempFilePath::create();
+  writeToFile(file->path, {data});
+  auto plan = PlanBuilder()
+                  .tableScan(rowType, {}, "c0 < 5")
+                  .project({"c1.c0"})
+                  .planNode();
+  auto split = HiveConnectorSplitBuilder(file->path).build();
+  auto expected = makeRowVector(
+      {makeFlatVector<int32_t>(10, [](auto i) { return i % 5; })});
+  AssertQueryBuilder(plan).splits({split, split}).assertResults(expected);
+}

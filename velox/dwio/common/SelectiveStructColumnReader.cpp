@@ -230,6 +230,7 @@ VectorPtr tryReuseResult(const VectorPtr& result) {
       // recreating the result vector on each batch currently, so no issue with
       // reusability now).
       result->reuseNulls();
+      result->clearContainingLazyAndWrapped();
       return result;
     case VectorEncoding::Simple::LAZY: {
       auto& lazy = static_cast<const LazyVector&>(*result);

@@ -744,6 +744,10 @@ class BaseVector {
     return true;
   }
 
+  void clearContainingLazyAndWrapped() {
+    containsLazyAndIsWrapped_ = false;
+  }
+
   bool memoDisabled() const {
     return memoDisabled_;
   }
