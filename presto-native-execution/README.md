@@ -9,6 +9,7 @@ using [Velox](https://github.com/facebookincubator/velox).
 * [Development](#development)
 * [Create Pull Request](#create-pull-request)
 * [Advance Velox Version](#advance-velox-version)
+* [Troubleshooting](#troubleshooting)
 
 ## Build from Source
 * Clone the Presto repository
@@ -204,3 +205,6 @@ For Prestissimo to use a newer Velox version from the Presto repository root:
 * `git add presto-native-execution/velox`
 * Build and run tests (including E2E) to ensure everything works.
 * Submit a PR, get it approved and merged.
+
+## Troubleshooting
+For known build issues check the wiki page [Troubleshooting known build issues](https://github.com/prestodb/presto/wiki/Troubleshooting-known-build-issues).
