@@ -57,9 +57,9 @@ clean:					#: Delete all build artifacts
 
 velox-submodule:		#: Check out code for velox submodule
 	rm -rf velox && \
-	git clone https://github.com/majetideepak/velox.git && \
+	git clone https://github.com/mbasmanova/velox-1.git velox && \
 	cd velox && \
-	git checkout revert-exchange-optimization
+	git checkout fix-crash
 
 submodules: velox-submodule
 
