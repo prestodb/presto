@@ -23,6 +23,7 @@
 #include "velox/exec/Exchange.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/exec/PlanNodeStats.h"
+#include "velox/exec/RoundRobinPartitionFunction.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -516,6 +517,70 @@ TEST_F(MultiFragmentTest, broadcast) {
   // Make sure duplicate 'updateOutputBuffers' message after task
   // completion doesn't cause an error.
   leafTask->updateOutputBuffers(finalAggTaskIds.size(), true);
+}
+
+TEST_F(MultiFragmentTest, roundRobinPartition) {
+  auto data = {
+      makeRowVector({
+          makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
+      }),
+      makeRowVector({
+          makeFlatVector<int64_t>({6, 7, 8}),
+      }),
+      makeRowVector({
+          makeFlatVector<int64_t>({9, 10}),
+      }),
+  };
+
+  createDuckDbTable(data);
+
+  // Make leaf task: Values -> Round-robin repartitioning (2-way).
+  auto leafTaskId = makeTaskId("leaf", 0);
+  auto leafPlan =
+      PlanBuilder()
+          .values(data)
+          .partitionedOutput(
+              {},
+              2,
+              false,
+              std::make_shared<exec::RoundRobinPartitionFunctionSpec>())
+          .planNode();
+  auto leafTask = makeTask(leafTaskId, leafPlan, 0);
+
+  std::vector<std::shared_ptr<Task>> tasks;
+  auto addTask = [&](std::shared_ptr<Task> task,
+                     const std::vector<std::string>& remoteTaskIds) {
+    tasks.emplace_back(task);
+    Task::start(task, 1);
+    if (!remoteTaskIds.empty()) {
+      addRemoteSplits(task, remoteTaskIds);
+    }
+  };
+
+  addTask(leafTask, {});
+
+  // Collect result from 2 output buffers.
+  core::PlanNodePtr collectPlan;
+  std::vector<std::string> collectTaskIds;
+  for (int i = 0; i < 2; i++) {
+    collectPlan = PlanBuilder()
+                      .exchange(leafPlan->outputType())
+                      .partitionedOutput({}, 1)
+                      .planNode();
+
+    collectTaskIds.push_back(makeTaskId("collect", i));
+    auto task = makeTask(collectTaskIds.back(), collectPlan, i);
+    addTask(task, {leafTaskId});
+  }
+
+  // Collect everything.
+  auto finalPlan = PlanBuilder().exchange(leafPlan->outputType()).planNode();
+
+  assertQuery(finalPlan, {collectTaskIds}, "SELECT * FROM tmp");
+
+  for (auto& task : tasks) {
+    ASSERT_TRUE(waitForTaskCompletion(task.get())) << task->taskId();
+  }
 }
 
 TEST_F(MultiFragmentTest, replicateNullsAndAny) {
