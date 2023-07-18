@@ -19,5 +19,7 @@ target_link_libraries(velox_file velox_common_base Folly::folly)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
+endif()
+if(${VELOX_ENABLE_BENCHMARKS})
   add_subdirectory(benchmark)
 endif()
