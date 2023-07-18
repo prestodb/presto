@@ -290,14 +290,15 @@ public class TestDynamicFilter
                 anyTree(
                         join(
                                 INNER,
-                                ImmutableList.of(equiJoinClause("LINEITEM_OK", "PART_PK")),
-                                join(
-                                        INNER,
-                                        ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
-                                        anyTree(node(FilterNode.class, tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))),
-                                        anyTree(node(FilterNode.class, tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))),
+                                ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
+                                anyTree(node(FilterNode.class, tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))),
                                 exchange(
-                                        project(tableScan("part", ImmutableMap.of("PART_PK", "partkey")))))));
+                                        join(
+                                                INNER,
+                                                ImmutableList.of(equiJoinClause("ORDERS_OK", "PART_PK")),
+                                                anyTree(node(FilterNode.class, tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))),
+                                                exchange(
+                                                        project(tableScan("part", ImmutableMap.of("PART_PK", "partkey")))))))));
     }
 
     @Test
@@ -460,6 +461,29 @@ public class TestDynamicFilter
                                 exchange(
                                         project(
                                                 tableScan("part", ImmutableMap.of("K2", "partkey", "V2", "size")))))));
+    }
+
+    @Test
+    public void testJoinReorderingNotImpacted()
+    {
+        // Test that addition of dynamic filters does not hinder in join re-ordering
+        // Correct join order is (lineitem IJ (supplier IJ nation))
+        assertPlan("select 1 FROM " +
+                        "  supplier s " +
+                        "  INNER JOIN lineitem l ON s.suppkey = l.suppkey " +
+                        "  INNER JOIN nation n ON s.nationkey = n.nationkey ",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("LINEITEM_SK", "SUPPLIER_SK")),
+                                anyTree(node(FilterNode.class, tableScan("lineitem", ImmutableMap.of("LINEITEM_SK", "suppkey")))),
+                                exchange(
+                                        project(
+                                                join(INNER,
+                                                        ImmutableList.of(equiJoinClause("SUPPLIER_NK", "NATION_NK")),
+                                                        anyTree(node(FilterNode.class, tableScan("supplier",
+                                                                ImmutableMap.of("SUPPLIER_SK", "suppkey", "SUPPLIER_NK", "nationkey")))),
+                                                        exchange(project(tableScan("nation", ImmutableMap.of("NATION_NK", "nationkey"))))))))));
     }
 
     private Session noJoinReordering()
