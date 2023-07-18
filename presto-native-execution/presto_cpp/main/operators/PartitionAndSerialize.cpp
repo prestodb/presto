@@ -212,6 +212,11 @@ class PartitionAndSerializeOperator : public Operator {
       VELOX_DCHECK_EQ(size, rowSizes_[i]);
       offset += size;
     }
+
+    {
+      auto lockedStats = stats_.wlock();
+      lockedStats->addRuntimeStat("serializedBytes", RuntimeCounter(totalSize));
+    }
   }
 
   const uint32_t numPartitions_;
