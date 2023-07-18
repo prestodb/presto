@@ -51,12 +51,14 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
@@ -101,8 +103,13 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MIN_VALUE;
@@ -1000,5 +1007,18 @@ public class MetastoreUtil
     public static boolean isIcebergTable(Map<String, String> tableParameters)
     {
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(tableParameters.get(ICEBERG_TABLE_TYPE_NAME));
+    }
+
+    public static PrincipalPrivileges buildInitialPrivilegeSet(String tableOwner)
+    {
+        PrestoPrincipal owner = new PrestoPrincipal(USER, tableOwner);
+        return new PrincipalPrivileges(
+                ImmutableMultimap.<String, HivePrivilegeInfo>builder()
+                        .put(tableOwner, new HivePrivilegeInfo(SELECT, true, owner, owner))
+                        .put(tableOwner, new HivePrivilegeInfo(INSERT, true, owner, owner))
+                        .put(tableOwner, new HivePrivilegeInfo(UPDATE, true, owner, owner))
+                        .put(tableOwner, new HivePrivilegeInfo(DELETE, true, owner, owner))
+                        .build(),
+                ImmutableMultimap.of());
     }
 }
