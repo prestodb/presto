@@ -555,7 +555,21 @@ PlanBuilder::AggregatesAndNames PlanBuilder::createAggregateExpressionsAndNames(
     core::AggregationNode::Aggregate agg;
     agg.call = std::dynamic_pointer_cast<const core::CallTypedExpr>(
         inferTypes(untypedExpr.expr));
+    if (untypedExpr.maskExpr != nullptr) {
+      auto maskExpr =
+          std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
+              inferTypes(untypedExpr.maskExpr));
+      VELOX_CHECK_NOT_NULL(
+          maskExpr,
+          "FILTER clause must use a column name, not an expression: {}",
+          aggregate);
+      agg.mask = maskExpr;
+    }
+
     if (i < masks.size() && !masks[i].empty()) {
+      VELOX_CHECK_NULL(
+          agg.mask,
+          "Aggregation mask should be specified only once (either explicitly or using FILTER clause)");
       agg.mask = field(masks[i]);
     }
 

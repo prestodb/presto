@@ -292,11 +292,8 @@ TEST_F(ArrayAggTest, mask) {
       makeConstant(false, 5),
   });
 
-  auto plan = PlanBuilder()
-                  .values({data})
-                  .singleAggregation({}, {"array_agg(c0)"}, {"c1"})
-                  .planNode();
-  assertQuery(plan, "SELECT null");
+  testAggregations(
+      {data}, {}, {"array_agg(c0) FILTER (WHERE c1)"}, "SELECT null");
 
   // Global aggregation with a non-constant mask.
   data = makeRowVector({
@@ -304,11 +301,8 @@ TEST_F(ArrayAggTest, mask) {
       makeFlatVector<bool>({true, false, true, false, true}),
   });
 
-  plan = PlanBuilder()
-             .values({data})
-             .singleAggregation({}, {"array_agg(c0)"}, {"c1"})
-             .planNode();
-  assertQuery(plan, "SELECT [1, 3, 5]");
+  testAggregations(
+      {data}, {}, {"array_agg(c0) FILTER (WHERE c1)"}, "SELECT [1, 3, 5]");
 
   // Group-by with all-false mask.
   data = makeRowVector({
@@ -317,11 +311,11 @@ TEST_F(ArrayAggTest, mask) {
       makeConstant(false, 5),
   });
 
-  plan = PlanBuilder()
-             .values({data})
-             .singleAggregation({"c0"}, {"array_agg(c1)"}, {"c2"})
-             .planNode();
-  assertQuery(plan, "VALUES (10, null), (20, null)");
+  testAggregations(
+      {data},
+      {"c0"},
+      {"array_agg(c1) FILTER (WHERE c2)"},
+      "VALUES (10, null), (20, null)");
 
   // Group-by with a non-constant mask.
   data = makeRowVector({
@@ -330,11 +324,11 @@ TEST_F(ArrayAggTest, mask) {
       makeFlatVector<bool>({true, false, true, false, true}),
   });
 
-  plan = PlanBuilder()
-             .values({data})
-             .singleAggregation({"c0"}, {"array_agg(c1)"}, {"c2"})
-             .planNode();
-  assertQuery(plan, "VALUES (10, [1, 3]), (20, [5])");
+  testAggregations(
+      {data},
+      {"c0"},
+      {"array_agg(c1) FILTER (WHERE c2)"},
+      "VALUES (10, [1, 3]), (20, [5])");
 }
 
 } // namespace
