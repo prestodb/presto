@@ -484,9 +484,8 @@ void PrestoServer::initializeVeloxMemory() {
           asyncCacheSsdCheckpointGb << 30,
           asyncCacheSsdDisableFileCow);
     }
-    cache_ = std::make_shared<cache::AsyncDataCache>(
-        allocator_, memoryBytes, std::move(ssd));
-    allocator_ = cache_;
+    cache_ = cache::AsyncDataCache::create(allocator_.get(), std::move(ssd));
+    cache::AsyncDataCache::setInstance(cache_.get());
   } else {
     VELOX_CHECK_EQ(
         systemConfig->asyncCacheSsdGb(),
@@ -496,7 +495,7 @@ void PrestoServer::initializeVeloxMemory() {
 
   memory::MemoryAllocator::setDefaultInstance(allocator_.get());
   // Set up velox memory manager.
-  memory::MemoryManager::Options options;
+  memory::IMemoryManager::Options options;
   options.capacity = memoryBytes;
   options.checkUsageLeak = systemConfig->enableMemoryLeakCheck();
   if (systemConfig->enableMemoryArbitration()) {

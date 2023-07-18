@@ -162,9 +162,6 @@ class PrestoServer {
   // Executor for async IO for connectors.
   std::unique_ptr<folly::IOThreadPoolExecutor> connectorIoExecutor_;
 
-  // If not null,  the instance of AsyncDataCache used for in-memory file cache.
-  std::shared_ptr<velox::cache::AsyncDataCache> cache_;
-
   // Instance of MemoryAllocator used for all query memory allocations.
   //
   // NOTE: AsyncDataCache implements MemoryAllocator interface and wraps on top
@@ -172,6 +169,9 @@ class PrestoServer {
   // has been set, 'allocator_' is also set to 'cache_'. It provides memory
   // allocations for both file cache and query memory.
   std::shared_ptr<velox::memory::MemoryAllocator> allocator_;
+
+  // If not null,  the instance of AsyncDataCache used for in-memory file cache.
+  std::shared_ptr<velox::cache::AsyncDataCache> cache_;
 
   std::unique_ptr<http::HttpServer> httpServer_;
   std::unique_ptr<SignalHandler> signalHandler_;
