@@ -28,6 +28,61 @@ class MapAggAggregate : public MapAggregateBase<K> {
 
   using Base = MapAggregateBase<K>;
 
+  bool supportsToIntermediate() const override {
+    return true;
+  }
+
+  void toIntermediate(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      VectorPtr& result) const override {
+    const auto& keys = args[0];
+    const auto& values = args[1];
+
+    const auto numRows = rows.size();
+
+    // Convert input to a single-entry map. Convert entries with null keys to
+    // null maps.
+
+    // Set nulls for rows not present in 'rows'.
+    auto* pool = Base::allocator_->pool();
+    BufferPtr nulls = allocateNulls(numRows, pool);
+    auto* rawNulls = nulls->asMutable<uint64_t>();
+    memcpy(rawNulls, rows.asRange().bits(), bits::nbytes(numRows));
+
+    // Set nulls for rows with null keys.
+    if (keys->mayHaveNulls()) {
+      DecodedVector decodedKeys(*keys, rows);
+      if (decodedKeys.mayHaveNulls()) {
+        rows.applyToSelected([&](auto row) {
+          if (decodedKeys.isNullAt(row)) {
+            bits::setNull(rawNulls, row);
+          }
+        });
+      }
+    }
+
+    // Set offsets to 0, 1, 2, 3...
+    BufferPtr offsets = allocateOffsets(numRows, pool);
+    auto* rawOffsets = offsets->asMutable<vector_size_t>();
+    std::iota(rawOffsets, rawOffsets + numRows, 0);
+
+    // Set sizes to 1.
+    BufferPtr sizes = allocateSizes(numRows, pool);
+    auto* rawSizes = sizes->asMutable<vector_size_t>();
+    std::fill(rawSizes, rawSizes + numRows, 1);
+
+    result = std::make_shared<MapVector>(
+        pool,
+        MAP(keys->type(), values->type()),
+        nulls,
+        numRows,
+        offsets,
+        sizes,
+        BaseVector::loadedVectorShared(keys),
+        BaseVector::loadedVectorShared(values));
+  }
+
   void addRawInput(
       char** groups,
       const SelectivityVector& rows,

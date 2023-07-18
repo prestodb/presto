@@ -24,77 +24,140 @@ namespace facebook::velox::aggregate::test {
 
 namespace {
 
-class MapAggTest : public AggregationTestBase {};
+class MapAggTest : public AggregationTestBase {
+ protected:
+  void SetUp() override {
+    AggregationTestBase::SetUp();
+    allowInputShuffle();
+  }
+};
 
 TEST_F(MapAggTest, groupBy) {
   vector_size_t num = 10;
 
-  auto vectors = {makeRowVector(
-      {makeFlatVector<int32_t>(num, [](vector_size_t row) { return row / 3; }),
-       makeFlatVector<int32_t>(num, [](vector_size_t row) { return row; }),
-       makeFlatVector<double>(
-           num, [](vector_size_t row) { return row + 0.05; })})};
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({0, 0, 0, 1, 1, 1, 2, 2, 2, 3}),
+      makeFlatVector<int32_t>({0, 1, 2, 3, 4, 5, 6, 7, 8, 9}),
+      makeFlatVector<double>(
+          {0.05, 1.05, 2.05, 3.05, 4.05, 5.05, 6.05, 7.05, 8.05, 9.05}),
+      makeFlatVector<bool>(
+          {true, false, true, false, true, false, true, false, true, false}),
+  });
 
-  static std::array<int32_t, 10> keys{0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-  vector_size_t keyIndex{0};
-  vector_size_t valIndex{0};
-  auto expectedResult = {makeRowVector(
-      {makeFlatVector<int32_t>({0, 1, 2, 3}),
-       makeMapVector<int32_t, double>(
-           4,
-           [&](vector_size_t row) { return (row == 3) ? 1 : 3; },
-           [&](vector_size_t row) { return keys[keyIndex++]; },
-           [&](vector_size_t row) { return keys[valIndex++] + 0.05; })})};
+  auto vectors = {data, data, data};
 
-  testAggregations(vectors, {"c0"}, {"map_agg(c1, c2)"}, expectedResult);
+  auto expectedResult = makeRowVector({
+      makeFlatVector<int32_t>({0, 1, 2, 3}),
+      makeMapVector<int32_t, double>({
+          {{0, 0.05}, {1, 1.05}, {2, 2.05}},
+          {{3, 3.05}, {4, 4.05}, {5, 5.05}},
+          {{6, 6.05}, {7, 7.05}, {8, 8.05}},
+          {{9, 9.05}},
+      }),
+  });
+
+  testAggregations(vectors, {"c0"}, {"map_agg(c1, c2)"}, {expectedResult});
+
+  expectedResult = makeRowVector({
+      makeFlatVector<int32_t>({0, 1, 2, 3}),
+      makeNullableMapVector<int32_t, double>({
+          {{{0, 0.05}, {2, 2.05}}},
+          {{{4, 4.05}}},
+          {{{6, 6.05}, {8, 8.05}}},
+          std::nullopt,
+      }),
+  });
+
+  testAggregations(
+      vectors, {"c0"}, {"map_agg(c1, c2) filter (where c3)"}, {expectedResult});
 }
 
-TEST_F(MapAggTest, groupByWithNulls) {
+// Verify that null keys are skipped.
+TEST_F(MapAggTest, groupByNullKeys) {
+  vector_size_t num = 10;
+
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({0, 0, 0, 1, 1, 1, 2, 2, 2, 3}),
+      makeNullableFlatVector<int32_t>(
+          {std::nullopt, 1, 2, 3, std::nullopt, 5, 6, 7, 8, std::nullopt}),
+      makeFlatVector<double>(
+          {-1, 1.05, 2.05, 3.05, -1, 5.05, 6.05, 7.05, 8.05, -1}),
+  });
+
+  auto vectors = {data, data, data};
+
+  auto expectedResult = makeRowVector({
+      makeFlatVector<int32_t>({0, 1, 2, 3}),
+      makeNullableMapVector<int32_t, double>({
+          {{{1, 1.05}, {2, 2.05}}},
+          {{{3, 3.05}, {5, 5.05}}},
+          {{{6, 6.05}, {7, 7.05}, {8, 8.05}}},
+          std::nullopt,
+      }),
+  });
+
+  testAggregations(vectors, {"c0"}, {"map_agg(c1, c2)"}, {expectedResult});
+}
+
+TEST_F(MapAggTest, groupByWithNullValues) {
   vector_size_t size = 90;
 
-  auto vectors = {makeRowVector(
-      {makeFlatVector<int32_t>(size, [](vector_size_t row) { return row / 3; }),
-       makeFlatVector<int32_t>(size, [](vector_size_t row) { return row; }),
-       makeFlatVector<double>(
-           size, [](vector_size_t row) { return row + 0.05; }, nullEvery(7))})};
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>(size, [](vector_size_t row) { return row / 3; }),
+      makeFlatVector<int32_t>(size, [](vector_size_t row) { return row; }),
+      makeFlatVector<double>(
+          size, [](vector_size_t row) { return row + 0.05; }, nullEvery(7)),
+  });
 
-  auto expectedResult = {makeRowVector(
-      {makeFlatVector<int32_t>(30, [](vector_size_t row) { return row; }),
-       makeMapVector<int32_t, double>(
-           30,
-           [](vector_size_t /*row*/) { return 3; },
-           [](vector_size_t row) { return row; },
-           [](vector_size_t row) { return row + 0.05; },
-           nullptr,
-           nullEvery(7))})};
+  auto vectors = {data, data, data};
+
+  auto expectedResult = {makeRowVector({
+      makeFlatVector<int32_t>(30, [](vector_size_t row) { return row; }),
+      makeMapVector<int32_t, double>(
+          30,
+          [](vector_size_t /*row*/) { return 3; },
+          [](vector_size_t row) { return row; },
+          [](vector_size_t row) { return row + 0.05; },
+          nullptr,
+          nullEvery(7)),
+  })};
 
   testAggregations(vectors, {"c0"}, {"map_agg(c1, c2)"}, expectedResult);
 }
 
 TEST_F(MapAggTest, groupByWithDuplicates) {
-  vector_size_t num = 10;
-  auto vectors = {makeRowVector(
-      {makeFlatVector<int32_t>(num, [](vector_size_t row) { return row / 2; }),
-       makeFlatVector<int32_t>(num, [](vector_size_t row) { return row / 2; }),
-       makeFlatVector<double>(
-           num, [](vector_size_t row) { return row + 0.05; })})};
+  disallowInputShuffle();
 
-  auto expectedResult = {makeRowVector(
-      {makeFlatVector<int32_t>({0, 1, 2, 3, 4}),
-       makeMapVector<int32_t, double>(
-           5,
-           [&](vector_size_t /*row*/) { return 1; },
-           [&](vector_size_t row) { return row; },
-           [&](vector_size_t row) { return 2 * row + 0.05; })})};
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({0, 0, 1, 1, 2, 2, 3, 3, 4, 4}),
+      makeFlatVector<int32_t>({0, 0, 1, 1, 2, 2, 3, 3, 4, 4}),
+      makeFlatVector<double>(
+          {0.05, 1.05, 2.05, 3.05, 4.05, 5.05, 6.05, 7.05, 8.05, 9.05}),
+  });
 
-  testAggregations(vectors, {"c0"}, {"map_agg(c1, c2)"}, expectedResult);
+  auto vectors = {data, data, data};
+
+  auto expectedResult = makeRowVector({
+      makeFlatVector<int32_t>({0, 1, 2, 3, 4}),
+      makeMapVector<int32_t, double>({
+          {{0, 0.05}},
+          {{1, 2.05}},
+          {{2, 4.05}},
+          {{3, 6.05}},
+          {{4, 8.05}},
+      }),
+  });
+
+  testAggregations(vectors, {"c0"}, {"map_agg(c1, c2)"}, {expectedResult});
 }
 
 TEST_F(MapAggTest, groupByNoData) {
-  auto vectors = {makeRowVector(
+  auto data = makeRowVector(
       {makeFlatVector<int32_t>({}),
        makeFlatVector<int32_t>({}),
-       makeFlatVector<int32_t>({})})};
+       makeFlatVector<int32_t>({})});
+
+  auto vectors = {data, data, data};
 
   auto expectedResult = {makeRowVector(
       {makeFlatVector<int32_t>({}), makeMapVector<int32_t, double>({})})};
@@ -103,39 +166,117 @@ TEST_F(MapAggTest, groupByNoData) {
 }
 
 TEST_F(MapAggTest, global) {
-  vector_size_t num = 10;
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({0, 1, 2, 3, 4, 5, 6, 7, 8, 9}),
+      makeFlatVector<double>(
+          {0.05, 1.05, 2.05, 3.05, 4.05, 5.05, 6.05, 7.05, 8.05, 9.05}),
+      makeFlatVector<bool>(
+          {true, false, true, false, true, false, true, false, true, false}),
+  });
 
-  auto vectors = {makeRowVector(
-      {makeFlatVector<int32_t>(num, [](vector_size_t row) { return row; }),
-       makeFlatVector<double>(
-           num, [](vector_size_t row) { return row + 0.05; })})};
+  auto vectors = {data, data, data};
 
-  auto expectedResult = {makeRowVector({makeMapVector<int32_t, double>(
-      1,
-      [&](vector_size_t /*row*/) { return num; },
-      [&](vector_size_t row) { return row; },
-      [&](vector_size_t row) { return row + 0.05; })})};
+  auto expectedResult = makeRowVector({
+      makeMapVector<int32_t, double>({
+          {
+              {0, 0.05},
+              {1, 1.05},
+              {2, 2.05},
+              {3, 3.05},
+              {4, 4.05},
+              {5, 5.05},
+              {6, 6.05},
+              {7, 7.05},
+              {8, 8.05},
+              {9, 9.05},
+          },
+      }),
+  });
 
-  testAggregations(vectors, {}, {"map_agg(c0, c1)"}, expectedResult);
+  testAggregations(vectors, {}, {"map_agg(c0, c1)"}, {expectedResult});
+
+  expectedResult = makeRowVector({
+      makeNullableMapVector<int32_t, double>({
+          {{
+              {0, 0.05},
+              {2, 2.05},
+              {4, 4.05},
+              {6, 6.05},
+              {8, 8.05},
+          }},
+      }),
+  });
+
+  testAggregations(
+      vectors, {}, {"map_agg(c0, c1) FILTER (WHERE c2)"}, {expectedResult});
 }
 
-TEST_F(MapAggTest, globalWithNulls) {
-  vector_size_t size = 10;
+// Verify that null keys are skipped.
+TEST_F(MapAggTest, globalWithNullKeys) {
+  auto data = makeRowVector({
+      makeNullableFlatVector<int32_t>({
+          0,
+          1,
+          std::nullopt,
+          3,
+          std::nullopt,
+          5,
+          6,
+          7,
+          std::nullopt,
+          std::nullopt,
+      }),
+      makeFlatVector<double>(
+          {0.05, 1.05, -1, 3.05, -1, 5.05, 6.05, 7.05, -1, -1}),
+  });
 
-  std::vector<RowVectorPtr> vectors = {makeRowVector(
-      {makeFlatVector<int32_t>(size, [](vector_size_t row) { return row; }),
-       makeFlatVector<double>(
-           size, [](vector_size_t row) { return row + 0.05; }, nullEvery(7))})};
+  auto vectors = {data, data, data};
 
-  auto expectedResult = {makeRowVector({makeMapVector<int32_t, double>(
-      1,
-      [&](vector_size_t /*row*/) { return size; },
-      [&](vector_size_t row) { return row; },
-      [&](vector_size_t row) { return row + 0.05; },
-      nullptr,
-      nullEvery(7))})};
+  auto expectedResult = makeRowVector({
+      makeNullableMapVector<int32_t, double>({
+          {{{0, 0.05}, {1, 1.05}, {3, 3.05}, {5, 5.05}, {6, 6.05}, {7, 7.05}}},
+      }),
+  });
 
-  testAggregations(vectors, {}, {"map_agg(c0, c1)"}, expectedResult);
+  testAggregations(vectors, {}, {"map_agg(c0, c1)"}, {expectedResult});
+}
+
+TEST_F(MapAggTest, globalWithNullValues) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({0, 1, 2, 3, 4, 5, 6, 7, 8, 9}),
+      makeNullableFlatVector<double>(
+          {std::nullopt,
+           1.05,
+           2.05,
+           3.05,
+           4.05,
+           5.05,
+           6.05,
+           std::nullopt,
+           8.05,
+           9.05}),
+  });
+
+  auto vectors = {data, data, data};
+
+  auto expectedResult = makeRowVector({
+      makeNullableMapVector<int32_t, double>({
+          {{
+              {0, std::nullopt},
+              {1, 1.05},
+              {2, 2.05},
+              {3, 3.05},
+              {4, 4.05},
+              {5, 5.05},
+              {6, 6.05},
+              {7, std::nullopt},
+              {8, 8.05},
+              {9, 9.05},
+          }},
+      }),
+  });
+
+  testAggregations(vectors, {}, {"map_agg(c0, c1)"}, {expectedResult});
 }
 
 TEST_F(MapAggTest, globalNoData) {
@@ -146,22 +287,31 @@ TEST_F(MapAggTest, globalNoData) {
 }
 
 TEST_F(MapAggTest, globalDuplicateKeys) {
-  vector_size_t size = 10;
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({0, 0, 1, 1, 2, 2, 3, 3, 4, 4}),
+      makeNullableFlatVector<double>({
+          std::nullopt,
+          1.05,
+          2.05,
+          3.05,
+          4.05,
+          5.05,
+          6.05,
+          std::nullopt,
+          8.05,
+          9.05,
+      }),
+  });
 
-  std::vector<RowVectorPtr> vectors = {makeRowVector(
-      {makeFlatVector<int32_t>(size, [](vector_size_t row) { return row / 2; }),
-       makeFlatVector<double>(
-           size, [](vector_size_t row) { return row + 0.05; }, nullEvery(7))})};
+  auto vectors = {data, data, data};
 
-  auto expectedResult = {makeRowVector({makeMapVector<int32_t, double>(
-      1,
-      [&](vector_size_t /*row*/) { return 5; },
-      [&](vector_size_t row) { return row; },
-      [&](vector_size_t row) { return 2 * row + 0.05; },
-      nullptr,
-      nullEvery(7))})};
+  auto expectedResult = makeRowVector({
+      makeNullableMapVector<int32_t, double>({
+          {{{0, std::nullopt}, {1, 2.05}, {2, 4.05}, {3, 6.05}, {4, 8.05}}},
+      }),
+  });
 
-  testAggregations(vectors, {}, {"map_agg(c0, c1)"}, expectedResult);
+  testAggregations(vectors, {}, {"map_agg(c0, c1)"}, {expectedResult});
 }
 
 /// Reproduces the bug reported in
@@ -216,15 +366,20 @@ TEST_F(MapAggTest, stringLifeCycle) {
   for (int i = 0; i < num; ++i) {
     s[i] = std::string(StringView::kInlineSize + 1, 'a' + i);
   }
-  auto vectors = {makeRowVector(
-      {makeFlatVector<StringView>(
-           num, [&](vector_size_t i) { return StringView(s[i]); }),
-       makeFlatVector<double>(num, [](vector_size_t i) { return i + 0.05; })})};
+
+  auto data = makeRowVector({
+      makeFlatVector<StringView>(num, [&](auto i) { return StringView(s[i]); }),
+      makeFlatVector<double>(num, [](auto i) { return i + 0.05; }),
+  });
+
+  auto vectors = {data, data, data};
+
   auto expectedResult = makeRowVector({makeMapVector<StringView, double>(
       1,
       [&](vector_size_t /*row*/) { return num; },
       [&](vector_size_t i) { return StringView(s[i]); },
       [&](vector_size_t i) { return i + 0.05; })});
+
   testReadFromFiles(vectors, {}, {"map_agg(c0, c1)"}, {expectedResult});
 }
 
