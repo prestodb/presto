@@ -272,6 +272,13 @@ public class ShortArrayBlock
     }
 
     @Override
+    public long toLong(int position)
+    {
+        checkReadablePosition(position);
+        return getShortUnchecked(position + arrayOffset);
+    }
+
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {
