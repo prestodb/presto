@@ -154,7 +154,6 @@ class TaskManagerTest : public testing::Test {
             ->newConnector(
                 facebook::velox::exec::test::kHiveConnectorId, nullptr);
     connector::registerConnector(hiveConnector);
-    dwrf::registerDwrfReaderFactory();
 
     rootPool_ =
         memory::defaultMemoryManager().addRootPool("TaskManagerTest.root");
@@ -187,7 +186,6 @@ class TaskManagerTest : public testing::Test {
     }
     connector::unregisterConnector(
         facebook::velox::exec::test::kHiveConnectorId);
-    dwrf::unregisterDwrfReaderFactory();
   }
 
   std::vector<RowVectorPtr> makeVectors(int count, int rowsPerVector) {
