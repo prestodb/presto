@@ -431,16 +431,16 @@ bool SystemConfig::enableMemoryArbitration() const {
   return optionalProperty<bool>(kEnableMemoryArbitration).value_or(false);
 }
 
-uint64_t SystemConfig::initMemoryPoolCapacity() const {
-  static constexpr uint64_t kInitMemoryPoolCapacityDefault = 128 << 20;
-  return optionalProperty<uint64_t>(kInitMemoryPoolCapacity)
-      .value_or(kInitMemoryPoolCapacityDefault);
+uint64_t SystemConfig::memoryPoolInitCapacity() const {
+  static constexpr uint64_t kMemoryPoolInitCapacityDefault = 128 << 20;
+  return optionalProperty<uint64_t>(kMemoryPoolInitCapacity)
+      .value_or(kMemoryPoolInitCapacityDefault);
 }
 
-uint64_t SystemConfig::minMemoryPoolTransferCapacity() const {
-  static constexpr uint64_t kMinMemoryPoolTransferCapacityDefault = 32 << 20;
-  return optionalProperty<uint64_t>(kMinMemoryPoolTransferCapacity)
-      .value_or(kMinMemoryPoolTransferCapacityDefault);
+uint64_t SystemConfig::memoryPoolTransferCapacity() const {
+  static constexpr uint64_t kMemoryPoolTransferCapacityDefault = 32 << 20;
+  return optionalProperty<uint64_t>(kMemoryPoolTransferCapacity)
+      .value_or(kMemoryPoolTransferCapacityDefault);
 }
 
 uint32_t SystemConfig::reservedMemoryPoolCapacityPct() const {
