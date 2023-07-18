@@ -286,13 +286,6 @@ void PrestoServer::run() {
   facebook::velox::exec::ExchangeSource::registerFactory(
       operators::UnsafeRowExchangeSource::createExchangeSource);
 
-  velox::dwrf::registerDwrfReaderFactory();
-  velox::dwrf::registerDwrfWriterFactory();
-
-  velox::parquet::registerParquetReaderFactory(
-      velox::parquet::ParquetReaderType::NATIVE);
-  velox::parquet::registerParquetWriterFactory();
-
   pool_ = velox::memory::addDefaultLeafMemoryPool();
   taskManager_ = std::make_unique<TaskManager>();
 
