@@ -243,6 +243,37 @@ TEST_F(VectorMakerTest, arrayVector) {
   }
 }
 
+TEST_F(VectorMakerTest, arrayVectorString) {
+  auto arrayVector = maker_.arrayVector<std::string>({
+      {"a", "abc", "Somewhat long", "test"},
+      {"b", "Another long string"},
+  });
+
+  EXPECT_FALSE(arrayVector->mayHaveNulls());
+
+  // Validate array sizes and offsets.
+  EXPECT_EQ(2, arrayVector->size());
+
+  EXPECT_EQ(4, arrayVector->sizeAt(0));
+  EXPECT_EQ(2, arrayVector->sizeAt(1));
+
+  EXPECT_EQ(0, arrayVector->offsetAt(0));
+  EXPECT_EQ(4, arrayVector->offsetAt(1));
+
+  // Validate actual vector elements.
+  auto elementsVector = arrayVector->elements()->asFlatVector<StringView>();
+
+  EXPECT_FALSE(elementsVector->mayHaveNulls());
+
+  EXPECT_EQ("a", elementsVector->valueAt(0).str());
+  EXPECT_EQ("abc", elementsVector->valueAt(1).str());
+  EXPECT_EQ("Somewhat long", elementsVector->valueAt(2).str());
+  EXPECT_EQ("test", elementsVector->valueAt(3).str());
+
+  EXPECT_EQ("b", elementsVector->valueAt(4).str());
+  EXPECT_EQ("Another long string", elementsVector->valueAt(5).str());
+}
+
 TEST_F(VectorMakerTest, nullableArrayVector) {
   auto O = [](std::vector<std::optional<int64_t>> data) {
     return std::make_optional(data);
@@ -500,6 +531,45 @@ TEST_F(VectorMakerTest, mapVectorUsingKeyValueVectorsNullsInvalidIndices) {
   // should fail.
   EXPECT_THROW(
       maker_.mapVector({0, 2, 4}, keys, values, {1}), VeloxRuntimeError);
+}
+
+TEST_F(VectorMakerTest, mapVectorStringString) {
+  auto mapVector = maker_.mapVector<std::string, std::string>({
+      {{"a", "1"}, {"b", "2"}},
+      {{"a", "This is a test"}, {"b", "This is another test"}, {"c", "test"}},
+  });
+
+  EXPECT_FALSE(mapVector->mayHaveNulls());
+
+  // Validate map sizes and offsets.
+  EXPECT_EQ(2, mapVector->size());
+
+  EXPECT_EQ(2, mapVector->sizeAt(0));
+  EXPECT_EQ(3, mapVector->sizeAt(1));
+
+  EXPECT_EQ(0, mapVector->offsetAt(0));
+  EXPECT_EQ(2, mapVector->offsetAt(1));
+
+  // Validate map keys and values.
+  auto keys = mapVector->mapKeys()->asFlatVector<StringView>();
+  auto values = mapVector->mapValues()->asFlatVector<StringView>();
+
+  EXPECT_FALSE(keys->mayHaveNulls());
+
+  EXPECT_EQ("a", keys->valueAt(0));
+  EXPECT_EQ("1", values->valueAt(0));
+
+  EXPECT_EQ("b", keys->valueAt(1));
+  EXPECT_EQ("2", values->valueAt(1));
+
+  EXPECT_EQ("a", keys->valueAt(2));
+  EXPECT_EQ("This is a test", values->valueAt(2));
+
+  EXPECT_EQ("b", keys->valueAt(3));
+  EXPECT_EQ("This is another test", values->valueAt(3));
+
+  EXPECT_EQ("c", keys->valueAt(4));
+  EXPECT_EQ("test", values->valueAt(4));
 }
 
 TEST_F(VectorMakerTest, biasVector) {

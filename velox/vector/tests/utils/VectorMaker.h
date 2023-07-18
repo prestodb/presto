@@ -68,17 +68,19 @@ class VectorMaker {
   using EvalType = typename CppToType<T>::NativeType;
 
   template <typename T>
-  FlatVectorPtr<T> flatVector(
+  FlatVectorPtr<EvalType<T>> flatVector(
       vector_size_t size,
       std::function<T(vector_size_t /*row*/)> valueAt,
       std::function<bool(vector_size_t /*row*/)> isNullAt = nullptr,
       const TypePtr& type = CppToType<T>::create()) {
-    auto flatVector = BaseVector::create<FlatVector<T>>(type, size, pool_);
+    auto flatVector =
+        BaseVector::create<FlatVector<EvalType<T>>>(type, size, pool_);
     for (vector_size_t i = 0; i < size; i++) {
       if (isNullAt && isNullAt(i)) {
         flatVector->setNull(i, true);
       } else {
-        flatVector->set(i, valueAt(i));
+        auto v = valueAt(i);
+        flatVector->set(i, EvalType<T>(v));
       }
     }
     return flatVector;
@@ -548,6 +550,37 @@ class VectorMaker {
         sizes,
         flatVector(keys),
         flatVector(values));
+  }
+
+  template <typename TKey, typename TValue>
+  MapVectorPtr mapVector(
+      const std::vector<std::vector<std::pair<TKey, std::optional<TValue>>>>&
+          maps,
+      const TypePtr& type =
+          MAP(CppToType<TKey>::create(), CppToType<TValue>::create())) {
+    std::vector<vector_size_t> lengths;
+    std::vector<TKey> keys;
+    std::vector<TValue> values;
+    std::vector<bool> nullValues;
+    auto undefined = TValue();
+
+    for (const auto& map : maps) {
+      lengths.push_back(map.size());
+      for (const auto& [key, value] : map) {
+        keys.push_back(key);
+        values.push_back(value.value_or(undefined));
+        nullValues.push_back(!value.has_value());
+      }
+    }
+
+    return mapVector<TKey, TValue>(
+        maps.size(),
+        [&](vector_size_t row) { return lengths[row]; },
+        [&](vector_size_t idx) { return keys[idx]; },
+        [&](vector_size_t idx) { return values[idx]; },
+        nullptr,
+        [&](vector_size_t idx) { return nullValues[idx]; },
+        type);
   }
 
   MapVectorPtr allNullMapVector(
