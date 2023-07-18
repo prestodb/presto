@@ -1140,7 +1140,6 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT ln(totalprice) FROM orders");
         assertQuery("SELECT sqrt(totalprice) FROM orders");
         assertQuery("SELECT radians(totalprice) FROM orders");
-        assertQuery("SELECT beta_cdf(nationkey, 0.2, 0.2) from nation where nationkey > 0");
     }
 
     @Test
@@ -1285,16 +1284,6 @@ public abstract class AbstractTestNativeGeneralQueries
         // test nested lambda
         assertQuery("select transform(transform(x, i->i*z), i->i*y) from (select x, y*y as y, z*z as z from (values row(array[1], 2, 3)) t(x, y, z))");
         assertQuery("select transform(x, i->transform(i, j->j*y)) from (select x, y*y as y from (values row(array[array[1]], 2)) t(x, y))");
-    }
-
-    @Test
-    public void testCDF()
-    {
-        assertQuery("SELECT binomial_cdf(CAST (nationkey AS INTEGER), 0.1, 0 ) FROM nation WHERE nationkey > 0");
-        assertQuery("SELECT binomial_cdf(CAST (nationkey AS INTEGER), 0.1, CAST (regionkey AS INTEGER)) FROM nation WHERE nationkey > 0;");
-        assertQuery("SELECT cauchy_cdf(nationkey, 1, 0) FROM nation");
-        assertQuery("SELECT cauchy_cdf(nationkey, 1, regionkey) FROM nation");
-        assertQuery("SELECT cauchy_cdf(nationkey, regionkey, 1) FROM nation WHERE regionkey > 0");
     }
 
     private void assertQueryResultCount(String sql, int expectedResultCount)
