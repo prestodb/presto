@@ -33,8 +33,8 @@ public class TestHistoricalStatisticsSerde
     public void TestSimpleHistoricalStatisticsEncoderDecoder()
     {
         HistoricalPlanStatistics samplePlanStatistics = new HistoricalPlanStatistics(ImmutableList.of(new HistoricalPlanStatisticsEntry(
-                new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1),
-                ImmutableList.of(new PlanStatistics(Estimate.of(15000), Estimate.unknown(), 1)))));
+                new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1, Estimate.unknown(), Estimate.unknown()),
+                ImmutableList.of(new PlanStatistics(Estimate.of(15000), Estimate.unknown(), 1, Estimate.unknown(), Estimate.unknown())))));
         HistoricalStatisticsSerde historicalStatisticsEncoderDecoder = new HistoricalStatisticsSerde();
 
         // Test PlanHash
@@ -51,8 +51,8 @@ public class TestHistoricalStatisticsSerde
     {
         List<HistoricalPlanStatisticsEntry> historicalPlanStatisticsEntryList = new ArrayList<>();
         for (int i = 0; i < 50; i++) {
-            historicalPlanStatisticsEntryList.add(new HistoricalPlanStatisticsEntry(new PlanStatistics(Estimate.of(i * 5), Estimate.of(i * 5), 1),
-                    ImmutableList.of(new PlanStatistics(Estimate.of(100), Estimate.of(i), 0))));
+            historicalPlanStatisticsEntryList.add(new HistoricalPlanStatisticsEntry(new PlanStatistics(Estimate.of(i * 5), Estimate.of(i * 5), 1, Estimate.unknown(), Estimate.unknown()),
+                    ImmutableList.of(new PlanStatistics(Estimate.of(100), Estimate.of(i), 0, Estimate.unknown(), Estimate.unknown()))));
         }
         HistoricalPlanStatistics samplePlanStatistics = new HistoricalPlanStatistics(historicalPlanStatisticsEntryList);
         HistoricalStatisticsSerde historicalStatisticsEncoderDecoder = new HistoricalStatisticsSerde();
@@ -78,11 +78,11 @@ public class TestHistoricalStatisticsSerde
     {
         List<PlanStatistics> planStatisticsEntryList = new ArrayList<>();
         for (int i = 0; i < 50; i++) {
-            planStatisticsEntryList.add(new PlanStatistics(Estimate.of(i * 5), Estimate.of(i * 5), 1));
+            planStatisticsEntryList.add(new PlanStatistics(Estimate.of(i * 5), Estimate.of(i * 5), 1, Estimate.unknown(), Estimate.unknown()));
         }
         List<HistoricalPlanStatisticsEntry> historicalPlanStatisticsEntryList = new ArrayList<>();
         for (int i = 0; i < 50; i++) {
-            historicalPlanStatisticsEntryList.add(new HistoricalPlanStatisticsEntry(new PlanStatistics(Estimate.of(i * 5), Estimate.of(i * 5), 1),
+            historicalPlanStatisticsEntryList.add(new HistoricalPlanStatisticsEntry(new PlanStatistics(Estimate.of(i * 5), Estimate.of(i * 5), 1, Estimate.unknown(), Estimate.unknown()),
                     planStatisticsEntryList));
         }
         HistoricalPlanStatistics samplePlanStatistics = new HistoricalPlanStatistics(historicalPlanStatisticsEntryList);

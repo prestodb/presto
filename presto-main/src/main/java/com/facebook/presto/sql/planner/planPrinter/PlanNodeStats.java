@@ -45,6 +45,8 @@ public class PlanNodeStats
     private final DataSize planNodeOutputDataSize;
 
     protected final Map<String, OperatorInputStats> operatorInputStats;
+    private final long planNodeNullJoinBuildKeyCount;
+    private final long planNodeJoinBuildKeyCount;
 
     PlanNodeStats(
             PlanNodeId planNodeId,
@@ -56,7 +58,9 @@ public class PlanNodeStats
             DataSize planNodeRawInputDataSize,
             long planNodeOutputPositions,
             DataSize planNodeOutputDataSize,
-            Map<String, OperatorInputStats> operatorInputStats)
+            Map<String, OperatorInputStats> operatorInputStats,
+            long planNodeNullJoinBuildKeyCount,
+            long planNodeJoinBuildKeyCount)
     {
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
 
@@ -70,6 +74,8 @@ public class PlanNodeStats
         this.planNodeOutputDataSize = planNodeOutputDataSize;
 
         this.operatorInputStats = requireNonNull(operatorInputStats, "operatorInputStats is null");
+        this.planNodeNullJoinBuildKeyCount = planNodeNullJoinBuildKeyCount;
+        this.planNodeJoinBuildKeyCount = planNodeJoinBuildKeyCount;
     }
 
     private static double computedStdDev(double sumSquared, double sum, long n)
@@ -149,6 +155,16 @@ public class PlanNodeStats
                                 entry.getValue().getTotalDrivers())));
     }
 
+    public long getPlanNodeNullJoinBuildKeyCount()
+    {
+        return planNodeNullJoinBuildKeyCount;
+    }
+
+    public long getPlanNodeJoinBuildKeyCount()
+    {
+        return planNodeJoinBuildKeyCount;
+    }
+
     @Override
     public PlanNodeStats mergeWith(PlanNodeStats other)
     {
@@ -162,6 +178,8 @@ public class PlanNodeStats
         DataSize planNodeOutputDataSize = succinctBytes(this.planNodeOutputDataSize.toBytes() + other.planNodeOutputDataSize.toBytes());
 
         Map<String, OperatorInputStats> operatorInputStats = mergeMaps(this.operatorInputStats, other.operatorInputStats, OperatorInputStats::merge);
+        long planNodeNullJoinBuildKeyCount = this.planNodeNullJoinBuildKeyCount + other.planNodeNullJoinBuildKeyCount;
+        long planNodeJoinBuildKeyCount = this.planNodeJoinBuildKeyCount + other.planNodeJoinBuildKeyCount;
 
         return new PlanNodeStats(
                 planNodeId,
@@ -170,6 +188,8 @@ public class PlanNodeStats
                 planNodeInputPositions, planNodeInputDataSize,
                 planNodeRawInputPositions, planNodeRawInputDataSize,
                 planNodeOutputPositions, planNodeOutputDataSize,
-                operatorInputStats);
+                operatorInputStats,
+                planNodeNullJoinBuildKeyCount,
+                planNodeJoinBuildKeyCount);
     }
 }

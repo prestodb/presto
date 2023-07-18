@@ -122,7 +122,7 @@ public class TestPrestoSparkStatsCalculator
                 new HistoricalPlanStatistics(
                         ImmutableList.of(
                                 new HistoricalPlanStatisticsEntry(
-                                        new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1),
+                                        new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1, Estimate.unknown(), Estimate.unknown()),
                                         ImmutableList.of())))));
 
         tester.assertStatsFor(pb -> pb.remoteSource(ImmutableList.of(new PlanFragmentId(1)), statsEquivalentRemoteSource))
@@ -171,7 +171,7 @@ public class TestPrestoSparkStatsCalculator
                 new HistoricalPlanStatistics(
                         ImmutableList.of(
                                 new HistoricalPlanStatisticsEntry(
-                                        new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1),
+                                        new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1, Estimate.unknown(), Estimate.unknown()),
                                         ImmutableList.of())))));
 
         tester.assertStatsFor(pb -> pb.remoteSource(ImmutableList.of(new PlanFragmentId(1))))
@@ -198,7 +198,7 @@ public class TestPrestoSparkStatsCalculator
                 new HistoricalPlanStatistics(
                         ImmutableList.of(
                                 new HistoricalPlanStatisticsEntry(
-                                        new PlanStatistics(Estimate.of(10), Estimate.of(100), 1),
+                                        new PlanStatistics(Estimate.of(10), Estimate.of(100), 1, Estimate.unknown(), Estimate.unknown()),
                                         ImmutableList.of())))));
 
         tester.assertStatsFor(pb -> pb.remoteSource(ImmutableList.of(new PlanFragmentId(1))))

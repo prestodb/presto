@@ -59,6 +59,14 @@ public final class Estimate
         return new Estimate(value);
     }
 
+    public static Estimate estimateFromDouble(double value)
+    {
+        if (isNaN(value)) {
+            return unknown();
+        }
+        return of(value);
+    }
+
     @JsonCreator
     @ThriftConstructor
     public Estimate(@JsonProperty("value") double value)
