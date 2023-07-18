@@ -326,6 +326,27 @@ public abstract class AbstractTestNativeGeneralQueries
         // Round-trip tests of casts for Json.
         assertQuery("SELECT cast(cast(name as JSON) as VARCHAR), cast(cast(size as JSON) as INTEGER), cast(cast(size + 0.01 as JSON) as DOUBLE), cast(cast(size > 5 as JSON) as BOOLEAN) FROM part");
         assertQuery("SELECT cast(cast(array[suppkey, nationkey] as JSON) as ARRAY(INTEGER)), cast(cast(map(array[name, address, phone], array[1.1, 2.2, 3.3]) as JSON) as MAP(VARCHAR(40), DOUBLE)), cast(cast(map(array[name], array[phone]) as JSON) as MAP(VARCHAR(25), JSON)), cast(cast(array[array[suppkey], array[nationkey]] as JSON) as ARRAY(JSON)) from supplier");
+
+        // Cast all integer types to decimal
+        assertQuery("SELECT CAST(linenumber_as_tinyint as DECIMAL(25, 0)) FROM lineitem");
+        assertQuery("SELECT CAST(linenumber_as_smallint as DECIMAL(8, 4)) FROM lineitem");
+        assertQuery("SELECT CAST(CAST(linenumber as INTEGER) as DECIMAL(15, 6)) FROM lineitem");
+        assertQuery("SELECT CAST(nationkey as DECIMAL(21, 6)) FROM nation_partitioned");
+
+        // Cast decimal to all integer types
+        assertQuery("SELECT CAST(DECIMAL'12.12345' as TINYINT)");
+        assertQuery("SELECT CAST(DECIMAL'123.1234' as SMALLINT)");
+        assertQuery("SELECT CAST(DECIMAL'12345.1234' as INTEGER)");
+        assertQuery("SELECT CAST(DECIMAL'123456789.1234567' as BIGINT)");
+
+        // Cast double/float to decimal
+        // Casting  DOUBLE to DECIMAL and REAL to DECIMAL is not supported yet.
+        // assertQuery("SELECT CAST(discount as DECIMAL(8, 4)) FROM lineitem");
+        // assertQuery("SELECT CAST(discount_as_real as DECIMAL(4, 0)) FROM lineitem");
+
+        // Cast decimal to double/float.
+        assertQuery("SELECT CAST(DECIMAL'123456.123456' as DOUBLE)");
+        assertQuery("SELECT CAST(DECIMAL'12345678.123445' as REAL)");
     }
 
     @Test
