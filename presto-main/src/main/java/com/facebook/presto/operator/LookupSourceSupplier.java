@@ -26,4 +26,8 @@ public interface LookupSourceSupplier
      * @return checksum of this entity for heuristic checking equivalence of two instances
      */
     long checksum();
+
+    long getPositionIsNullCount();
+
+    long getPositionCount();
 }
