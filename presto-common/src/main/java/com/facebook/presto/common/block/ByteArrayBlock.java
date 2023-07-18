@@ -275,6 +275,13 @@ public class ByteArrayBlock
     }
 
     @Override
+    public long toLong(int position)
+    {
+        checkReadablePosition(position);
+        return getByteUnchecked(position + arrayOffset);
+    }
+
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {
