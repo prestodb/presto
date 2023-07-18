@@ -17,9 +17,6 @@
 #include "velox/dwio/parquet/duckdb_reader/ParquetReader.h"
 #include "velox/dwio/parquet/tests/ParquetReaderTestBase.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
-#include "velox/type/Filter.h"
-#include "velox/type/Type.h"
-#include "velox/vector/ComplexVector.h"
 
 #include <gtest/gtest.h>
 #include <array>

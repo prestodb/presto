@@ -22,7 +22,6 @@
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
-#include "velox/type/tests/SubfieldFiltersBuilder.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -36,7 +35,7 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
   void SetUp() override {
     HiveConnectorTestBase::SetUp();
     unregisterParquetReaderFactory();
-    registerParquetReaderFactory();
+    registerParquetReaderFactory(ParquetReaderType::DUCKDB);
   }
 
   void TearDown() override {
