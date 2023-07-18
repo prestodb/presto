@@ -763,6 +763,26 @@ columns as a part of SQL query like any other columns of the table.
 * ``$file_size`` : Filesize for the given row
 * ``$file_modified_time`` : Last file modified time for the given row
 
+How to invalidate metastore cache?
+---------------------------------
+
+The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.metastore.CachingHiveMetastore#flushCache``) to invalidate the metastore cache.
+You can call this procedure to invalidate the metastore cache by connecting via jconsole or jmxterm.
+
+This is useful when the Hive metastore is updated outside of Presto and you want to make the changes visible to Presto immediately.
+
+Currently, this procedure flushes the cache for all the tables in all the schemas. This is a known limitation and will be enhanced in the future.
+
+How to invalidate directory list cache?
+---------------------------------------
+
+The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.HiveDirectoryLister#flushCache``) to invalidate the directory list cache.
+You can call this procedure to invalidate the directory list cache by connecting via jconsole or jmxterm.
+
+This is useful when the files are added or deleted in the cache directory path and you want to make the changes visible to Presto immediately.
+
+Currently, this procedure flushes all the cache entries. This is a known limitation and will be enhanced in the future.
+
 Examples
 --------
 
