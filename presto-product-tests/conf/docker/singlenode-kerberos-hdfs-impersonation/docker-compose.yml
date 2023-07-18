@@ -4,3 +4,4 @@ services:
   presto-master:
     volumes:
       - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-kerberos-hdfs-impersonation/hive.properties:/docker/volumes/conf/presto/etc/catalog/hive.properties
+      - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-kerberos-hdfs-impersonation/iceberg.properties:/docker/volumes/conf/presto/etc/catalog/iceberg.properties
