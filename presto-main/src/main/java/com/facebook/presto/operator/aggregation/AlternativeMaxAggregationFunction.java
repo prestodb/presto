@@ -13,7 +13,12 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.operator.aggregation.state.AlternativeNullableLongState;
+import com.facebook.presto.operator.aggregation.state.StateCompiler;
+import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 
 public class AlternativeMaxAggregationFunction
         extends MaxAggregationFunction
@@ -23,6 +28,11 @@ public class AlternativeMaxAggregationFunction
     public AlternativeMaxAggregationFunction()
     {
         super();
+    }
+
+    protected AccumulatorStateSerializer<?> getStateSerializer(Class<? extends AccumulatorState> stateInterface, DynamicClassLoader classLoader)
+    {
+        return StateCompiler.generateStateSerializer(AlternativeNullableLongState.class, classLoader);
     }
 
     @Override
