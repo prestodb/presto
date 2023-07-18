@@ -17,6 +17,7 @@
 #include "velox/dwio/common/DataSink.h"
 
 #include "velox/common/base/Fs.h"
+#include "velox/common/file/FileSystems.h"
 #include "velox/dwio/common/exception/Exception.h"
 
 #include <fcntl.h>
@@ -27,7 +28,7 @@ namespace facebook::velox::dwio::common {
 
 void WriteFileDataSink::write(std::vector<DataBuffer<char>>& buffers) {
   writeImpl(buffers, [&](auto& buffer) {
-    uint64_t size = buffer.size();
+    const uint64_t size = buffer.size();
     writeFile_->append({buffer.data(), size});
     return size;
   });
@@ -35,13 +36,14 @@ void WriteFileDataSink::write(std::vector<DataBuffer<char>>& buffers) {
 
 void WriteFileDataSink::doClose() {
   LOG(INFO) << "closing file: " << getName() << ",  total size: " << size_;
-  if (writeFile_) {
+  if (writeFile_ != nullptr) {
     writeFile_->close();
   }
 }
 
 std::unique_ptr<DataSink> localWriteFileSink(
     const std::string& filename,
+    memory::MemoryPool* /*unused*/,
     MetricsLogPtr metricsLog,
     IoStatistics* stats = nullptr) {
   if (strncmp(filename.c_str(), "file:", 5) == 0) {
@@ -123,23 +125,25 @@ bool DataSink::registerFactory(const DataSink::Factory& factory) {
 }
 
 std::unique_ptr<DataSink> DataSink::create(
-    const std::string& path,
+    const std::string& filePath,
+    memory::MemoryPool* pool,
     const MetricsLogPtr& metricsLog,
     IoStatistics* stats) {
   DWIO_ENSURE_NOT_NULL(metricsLog.get());
   for (auto& factory : factories()) {
-    auto result = factory(path, metricsLog, stats);
+    auto result = factory(filePath, pool, metricsLog, stats);
     if (result) {
       return result;
     }
   }
   // TODO: remove this fallback once file data sink all switch to use velox
   // filesystem for io operation.
-  return std::make_unique<LocalFileSink>(path, metricsLog, stats);
+  return std::make_unique<LocalFileSink>(filePath, metricsLog, stats);
 }
 
 static std::unique_ptr<DataSink> localFileSink(
     const std::string& filename,
+    memory::MemoryPool* /*unused*/,
     const MetricsLogPtr& metricsLog,
     IoStatistics* stats = nullptr) {
   if (strncmp(filename.c_str(), "file:", 5) == 0) {

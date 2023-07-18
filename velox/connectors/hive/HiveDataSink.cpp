@@ -430,7 +430,9 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
   options.schema = inputType_;
   options.memoryPool = connectorQueryCtx_->connectorMemoryPool();
   writers_.emplace_back(writerFactory->createWriter(
-      dwio::common::DataSink::create(writePath), options));
+      dwio::common::DataSink::create(
+          writePath, connectorQueryCtx_->memoryPool()),
+      options));
   // Extends the buffer used for partition rows calculations.
   partitionSizes_.emplace_back(0);
   partitionRows_.emplace_back(nullptr);

@@ -31,8 +31,9 @@ void runTest() {
 
   ASSERT_FALSE(fs::exists(filePath.string()));
 
+  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
   auto localFileSink =
-      DataSink::create(fmt::format("file:{}", filePath.string()));
+      DataSink::create(fmt::format("file:{}", filePath.string()), pool.get());
   localFileSink->close();
 
   EXPECT_TRUE(fs::exists(filePath.string()));
