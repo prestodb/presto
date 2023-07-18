@@ -391,5 +391,30 @@ TEST_F(HashStringAllocatorTest, stlAllocatorOverflow) {
   VELOX_ASSERT_THROW(alignedAlloc.allocate(1ULL << 62), "integer overflow");
 }
 
+TEST_F(HashStringAllocatorTest, externalLeak) {
+  constexpr int32_t kSize = HashStringAllocator ::kMaxAlloc * 10;
+  auto root =
+      memory::MemoryManager::getInstance().addRootPool("HSALeakTestRoot");
+  auto pool = root->addLeafChild("HSALeakLeaf");
+  auto initialBytes = pool->currentBytes();
+  auto allocator = std::make_unique<HashStringAllocator>(pool.get());
+
+  for (auto i = 0; i < 100; ++i) {
+    allocator->allocate(kSize);
+  }
+  EXPECT_LE(100 * kSize, pool->currentBytes());
+
+  StlAllocator<char> stlAlloc(allocator.get());
+  for (auto i = 0; i < 100; ++i) {
+    stlAlloc.allocate(kSize);
+  }
+  EXPECT_LE(200 * kSize, pool->currentBytes());
+  allocator->clear();
+  EXPECT_GE(initialBytes + 1000, pool->currentBytes());
+
+  allocator.reset();
+  EXPECT_EQ(initialBytes, pool->currentBytes());
+}
+
 } // namespace
 } // namespace facebook::velox

@@ -323,15 +323,7 @@ class HashStringAllocator : public StreamArena {
   }
 
   // Frees all memory associated with 'this' and leaves 'this' ready for reuse.
-  void clear() {
-    numFree_ = 0;
-    freeBytes_ = 0;
-    freeNonEmpty_ = 0;
-    for (auto i = 0; i < kNumFreeLists; ++i) {
-      new (&free_[i]) CompactDoubleList();
-    }
-    pool_.clear();
-  }
+  void clear();
 
   memory::MemoryPool* FOLLY_NONNULL pool() const {
     return pool_.pool();
