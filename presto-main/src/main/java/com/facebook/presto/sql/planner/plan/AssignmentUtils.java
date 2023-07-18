@@ -41,6 +41,16 @@ public class AssignmentUtils
         return identityAssignments(asList(variables));
     }
 
+    public static boolean isIdentity(Assignments assignments)
+    {
+        for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.entrySet()) {
+            if (!assignment.getKey().equals(assignment.getValue())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public static boolean isIdentity(Assignments assignments, VariableReferenceExpression output)
     {
         RowExpression value = assignments.get(output);
