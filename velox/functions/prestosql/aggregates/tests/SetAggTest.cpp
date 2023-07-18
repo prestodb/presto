@@ -88,7 +88,11 @@ TEST_F(SetAggTest, groupBy) {
   });
 
   testAggregations(
-      {data}, {"c0"}, {"set_agg(c1)"}, {"c0", "array_sort(a0)"}, {expected});
+      {data, data, data},
+      {"c0"},
+      {"set_agg(c1)"},
+      {"c0", "array_sort(a0)"},
+      {expected});
 
   // Null inputs.
   data = makeRowVector({
@@ -115,7 +119,11 @@ TEST_F(SetAggTest, groupBy) {
   });
 
   testAggregations(
-      {data}, {"c0"}, {"set_agg(c1)"}, {"c0", "array_sort(a0)"}, {expected});
+      {data, data, data},
+      {"c0"},
+      {"set_agg(c1)"},
+      {"c0", "array_sort(a0)"},
+      {expected});
 
   // All inputs are null for a group.
   data = makeRowVector({
@@ -142,7 +150,11 @@ TEST_F(SetAggTest, groupBy) {
   });
 
   testAggregations(
-      {data}, {"c0"}, {"set_agg(c1)"}, {"c0", "array_sort(a0)"}, {expected});
+      {data, data, data},
+      {"c0"},
+      {"set_agg(c1)"},
+      {"c0", "array_sort(a0)"},
+      {expected});
 }
 
 std::vector<std::optional<std::string>> generateStrings(
@@ -230,7 +242,7 @@ TEST_F(SetAggTest, groupByVarchar) {
       "sweet fruits: papaya",
   };
 
-  std::vector<RowVectorPtr> data = {makeRowVector({
+  auto data = makeRowVector({
       makeFlatVector<int16_t>({1, 1, 2, 2, 2, 1, 2}),
       makeFlatVector<std::string>({
           strings[0],
@@ -241,7 +253,7 @@ TEST_F(SetAggTest, groupByVarchar) {
           strings[0],
           strings[3],
       }),
-  })};
+  });
 
   auto expected = makeRowVector({
       makeFlatVector<int16_t>({1, 2}),
@@ -252,7 +264,11 @@ TEST_F(SetAggTest, groupByVarchar) {
   });
 
   testAggregations(
-      data, {"c0"}, {"set_agg(c1)"}, {"c0", "array_sort(a0)"}, {expected});
+      {data, data, data},
+      {"c0"},
+      {"set_agg(c1)"},
+      {"c0", "array_sort(a0)"},
+      {expected});
 }
 
 TEST_F(SetAggTest, globalArray) {
@@ -308,7 +324,11 @@ TEST_F(SetAggTest, groupByArray) {
   });
 
   testAggregations(
-      {data}, {"c0"}, {"set_agg(c1)"}, {"c0", "array_sort(a0)"}, {expected});
+      {data, data, data},
+      {"c0"},
+      {"set_agg(c1)"},
+      {"c0", "array_sort(a0)"},
+      {expected});
 }
 } // namespace
 } // namespace facebook::velox::aggregate::test

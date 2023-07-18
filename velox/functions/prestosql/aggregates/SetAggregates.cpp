@@ -182,6 +182,48 @@ class SetAggAggregate : public SetBaseAggregate<T> {
 
   using Base = SetBaseAggregate<T>;
 
+  bool supportsToIntermediate() const override {
+    return true;
+  }
+
+  void toIntermediate(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      VectorPtr& result) const override {
+    const auto& elements = args[0];
+
+    const auto numRows = rows.size();
+
+    // Convert input to a single-entry array.
+
+    // Set nulls for rows not present in 'rows'.
+    auto* pool = Base::allocator_->pool();
+    BufferPtr nulls = allocateNulls(numRows, pool);
+    memcpy(
+        nulls->asMutable<uint64_t>(),
+        rows.asRange().bits(),
+        bits::nbytes(numRows));
+
+    // Set offsets to 0, 1, 2, 3...
+    BufferPtr offsets = allocateOffsets(numRows, pool);
+    auto* rawOffsets = offsets->asMutable<vector_size_t>();
+    std::iota(rawOffsets, rawOffsets + numRows, 0);
+
+    // Set sizes to 1.
+    BufferPtr sizes = allocateSizes(numRows, pool);
+    auto* rawSizes = sizes->asMutable<vector_size_t>();
+    std::fill(rawSizes, rawSizes + numRows, 1);
+
+    result = std::make_shared<ArrayVector>(
+        pool,
+        ARRAY(elements->type()),
+        nulls,
+        numRows,
+        offsets,
+        sizes,
+        BaseVector::loadedVectorShared(elements));
+  }
+
   void addRawInput(
       char** groups,
       const SelectivityVector& rows,
