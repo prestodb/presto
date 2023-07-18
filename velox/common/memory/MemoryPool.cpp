@@ -853,7 +853,7 @@ std::string MemoryPoolImpl::capExceedingMessage(
   VELOX_CHECK_NULL(parent_);
 
   std::stringstream out;
-  out << "\n" << errorMessage << "\n";
+  out << errorMessage << "\n";
   if (FLAGS_velox_suppress_memory_capacity_exceeding_error_message) {
     return out.str();
   }
