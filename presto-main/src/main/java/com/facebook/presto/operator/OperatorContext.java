@@ -73,6 +73,11 @@ public class OperatorContext
     private final CounterStat outputDataSize = new CounterStat();
     private final CounterStat outputPositions = new CounterStat();
 
+    // Number of NULL elements in hash table for join operator
+    private final AtomicLong nullJoinBuildKeyCount = new AtomicLong();
+    // Number of elements in hash table for join operator
+    private final AtomicLong joinBuildKeyCount = new AtomicLong();
+
     private final AtomicLong additionalCpuNanos = new AtomicLong();
 
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
@@ -219,6 +224,16 @@ public class OperatorContext
     {
         outputDataSize.update(sizeInBytes);
         outputPositions.update(positions);
+    }
+
+    public void recordNullJoinBuildKeyCount(long positions)
+    {
+        nullJoinBuildKeyCount.getAndAdd(positions);
+    }
+
+    public void recordJoinBuildKeyCount(long positions)
+    {
+        joinBuildKeyCount.getAndAdd(positions);
     }
 
     public void recordPhysicalWrittenData(long sizeInBytes)
@@ -545,7 +560,9 @@ public class OperatorContext
 
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info,
-                runtimeStats);
+                runtimeStats,
+                nullJoinBuildKeyCount.get(),
+                joinBuildKeyCount.get());
     }
 
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
