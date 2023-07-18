@@ -56,8 +56,10 @@ clean:					#: Delete all build artifacts
 	rm -rf $(BUILD_BASE_DIR)
 
 velox-submodule:		#: Check out code for velox submodule
-	git submodule sync --recursive
-	git submodule update --init --recursive
+	rm -rf velox && \
+	git clone https://github.com/majetideepak/velox.git && \
+	cd velox && \
+	git checkout revert-exchange-optimization
 
 submodules: velox-submodule
 
