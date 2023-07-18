@@ -287,11 +287,11 @@ void SelectiveColumnReader::compactScalarValues<bool, bool>(
 char* SelectiveColumnReader::copyStringValue(folly::StringPiece value) {
   uint64_t size = value.size();
   if (stringBuffers_.empty() || rawStringUsed_ + size > rawStringSize_) {
-    if (!stringBuffers_.empty()) {
-      stringBuffers_.back()->setSize(rawStringUsed_);
-    }
     auto bytes = std::max(size, kStringBufferSize);
     BufferPtr buffer = AlignedBuffer::allocate<char>(bytes, &memoryPool_);
+    // Use the prefered size instead of the requested one to improve memory
+    // efficiency.
+    buffer->setSize(buffer->capacity());
     stringBuffers_.push_back(buffer);
     rawStringBuffer_ = buffer->asMutable<char>();
     rawStringUsed_ = 0;
