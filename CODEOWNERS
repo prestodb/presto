@@ -4,3 +4,4 @@
 /presto-parquet @shangxinli @prestodb/committers
 /presto-orc @sdruzkin @prestodb/committers
 /presto-hive/**/com/facebook/presto/hive/security/ranger @agrawalreetika
+/presto-spark* @shrinidhijoshi
