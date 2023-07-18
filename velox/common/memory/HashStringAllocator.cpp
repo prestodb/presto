@@ -293,16 +293,15 @@ int32_t HashStringAllocator::freeListIndex(int32_t size, uint32_t mask) {
     auto bits = simd::toBitMask(vsize < sizes) & mask;
     return count_trailing_zeros(bits);
   } else {
-    int offset = 0;
-    for (;;) {
+    for (int offset = 0; offset <= kNumFreeLists; offset += vsize.size) {
       auto sizes = xsimd::load_unaligned(freeListSizes_ + offset);
       auto bits = simd::toBitMask(vsize < sizes) & mask;
       if (bits) {
         return offset + count_trailing_zeros(bits);
       }
-      offset += xsimd::batch<int32_t>::size;
-      mask >>= xsimd::batch<int32_t>::size;
+      mask >>= vsize.size;
     }
+    return count_trailing_zeros(0);
   }
 }
 
