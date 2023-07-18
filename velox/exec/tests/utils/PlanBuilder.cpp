@@ -867,7 +867,6 @@ PlanBuilder& PlanBuilder::localPartition(const std::vector<std::string>& keys) {
   return *this;
 }
 
-#ifndef VELOX_ENABLE_BACKWARD_COMPATIBILITY
 PlanBuilder& PlanBuilder::localPartition(
     const std::shared_ptr<connector::hive::HiveBucketProperty>&
         bucketProperty) {
@@ -888,7 +887,6 @@ PlanBuilder& PlanBuilder::localPartition(
       std::vector<core::PlanNodePtr>{planNode_});
   return *this;
 }
-#endif
 
 namespace {
 core::PlanNodePtr createLocalPartitionRoundRobinNode(
