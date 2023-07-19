@@ -140,6 +140,10 @@ class InPredicate : public exec::VectorFunction {
       case TypeKind::TINYINT:
         filter = createBigintValuesFilter<int8_t>(inputArgs);
         break;
+      case TypeKind::BOOLEAN:
+        // Hack: using BIGINT filter for bool, which is essentially "int1_t".
+        filter = createBigintValuesFilter<bool>(inputArgs);
+        break;
       case TypeKind::VARCHAR:
       case TypeKind::VARBINARY:
         filter = createBytesValuesFilter(inputArgs);
@@ -190,6 +194,11 @@ class InPredicate : public exec::VectorFunction {
           return filter_->testInt64(value);
         });
         break;
+      case TypeKind::BOOLEAN:
+        applyTyped<bool>(rows, input, context, result, [&](bool value) {
+          return filter_->testInt64(value);
+        });
+        break;
       case TypeKind::VARCHAR:
       case TypeKind::VARBINARY:
         applyTyped<StringView>(
@@ -205,10 +214,11 @@ class InPredicate : public exec::VectorFunction {
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
-    // tinyint|smallint|integer|bigint|varchar... -> boolean
+    // boolean|tinyint|smallint|integer|bigint|varchar... -> boolean
     std::vector<std::shared_ptr<exec::FunctionSignature>> signatures;
     for (auto& type :
-         {"tinyint",
+         {"boolean",
+          "tinyint",
           "smallint",
           "integer",
           "bigint",
@@ -280,7 +290,6 @@ class InPredicate : public exec::VectorFunction {
 
     VELOX_CHECK_EQ(arg->encoding(), VectorEncoding::Simple::FLAT);
     auto flatArg = arg->asUnchecked<FlatVector<T>>();
-    auto rawValues = flatArg->rawValues();
 
     context.ensureWritable(rows, BOOLEAN(), result);
     result->clearNulls(rows);
@@ -293,7 +302,7 @@ class InPredicate : public exec::VectorFunction {
         if (flatArg->isNullAt(row)) {
           boolResult->setNull(row, true);
         } else {
-          bool pass = testFunction(rawValues[row]);
+          bool pass = testFunction(flatArg->valueAtFast(row));
           if (!pass && passOrNull) {
             boolResult->setNull(row, true);
           } else {
@@ -303,7 +312,7 @@ class InPredicate : public exec::VectorFunction {
       });
     } else {
       rows.applyToSelected([&](auto row) {
-        bool pass = testFunction(rawValues[row]);
+        bool pass = testFunction(flatArg->valueAtFast(row));
         bits::setBit(rawResults, row, pass);
       });
     }

@@ -189,6 +189,29 @@ TEST_F(InPredicateTest, tinyint) {
   testsIntegerConstant<int8_t>();
 }
 
+TEST_F(InPredicateTest, boolean) {
+  auto input = makeRowVector({
+      makeNullableFlatVector<bool>({true, false, std::nullopt}),
+  });
+
+  // Test predicate IN for bool constant list.
+  auto expected = makeNullableFlatVector<bool>({true, true, std::nullopt});
+  std::string predicate = "c0 IN (TRUE, FALSE, NULL)";
+  auto result = evaluate<SimpleVector<bool>>(predicate, input);
+  assertEqualVectors(expected, result);
+
+  expected = makeNullableFlatVector<bool>({true, false, std::nullopt});
+  predicate = "c0 IN (TRUE)";
+  result = evaluate<SimpleVector<bool>>(predicate, input);
+  assertEqualVectors(expected, result);
+
+  expected =
+      makeNullableFlatVector<bool>({std::nullopt, std::nullopt, std::nullopt});
+  predicate = "c0 IN (NULL)";
+  result = evaluate<SimpleVector<bool>>(predicate, input);
+  assertEqualVectors(expected, result);
+}
+
 TEST_F(InPredicateTest, varchar) {
   const vector_size_t size = 1'000;
 
