@@ -104,6 +104,9 @@ class TableWriter : public Operator {
  private:
   void createDataSink();
 
+  // Updates physicalWrittenBytes in OperatorStats with current written bytes.
+  void updateWrittenBytes();
+
   const DriverCtx* const driverCtx_;
   memory::MemoryPool* const connectorPool_;
   const std::shared_ptr<connector::ConnectorInsertTableHandle>

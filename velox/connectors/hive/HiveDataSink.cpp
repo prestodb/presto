@@ -357,11 +357,20 @@ void HiveDataSink::computePartitionAndBucketIds(const RowVectorPtr& input) {
   }
 }
 
+int64_t HiveDataSink::getCompletedBytes() const {
+  int64_t completedBytes{0};
+  for (const auto& ioStats : ioStats_) {
+    completedBytes += ioStats->rawBytesWritten();
+  }
+  return completedBytes;
+}
+
 std::vector<std::string> HiveDataSink::finish() const {
   std::vector<std::string> partitionUpdates;
   partitionUpdates.reserve(writerInfo_.size());
 
-  for (const auto& info : writerInfo_) {
+  for (int i = 0; i < writerInfo_.size(); ++i) {
+    const auto& info = writerInfo_.at(i);
     VELOX_CHECK_NOT_NULL(info);
     // clang-format off
       auto partitionUpdateJson = folly::toJson(
@@ -376,12 +385,12 @@ std::vector<std::string> HiveDataSink::finish() const {
             folly::dynamic::object
               ("writeFileName", info->writerParameters.writeFileName())
               ("targetFileName", info->writerParameters.targetFileName())
-              ("fileSize", 0)))
+              ("fileSize", ioStats_.at(i)->rawBytesWritten())))
           ("rowCount", info->numWrittenRows)
-         // TODO(gaoge): track and send the fields when inMemoryDataSizeInBytes, onDiskDataSizeInBytes
+         // TODO(gaoge): track and send the fields when inMemoryDataSizeInBytes
          // and containsNumberedFileNames are needed at coordinator when file_renaming_enabled are turned on.
           ("inMemoryDataSizeInBytes", 0)
-          ("onDiskDataSizeInBytes", 0)
+          ("onDiskDataSizeInBytes", ioStats_.at(i)->rawBytesWritten())
           ("containsNumberedFileNames", true));
     // clang-format on
     partitionUpdates.push_back(partitionUpdateJson);
@@ -429,9 +438,13 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
   dwio::common::WriterOptions options;
   options.schema = inputType_;
   options.memoryPool = connectorQueryCtx_->connectorMemoryPool();
+  ioStats_.emplace_back(std::make_shared<dwio::common::IoStatistics>());
   writers_.emplace_back(writerFactory->createWriter(
       dwio::common::DataSink::create(
-          writePath, connectorQueryCtx_->memoryPool()),
+          writePath,
+          connectorQueryCtx_->memoryPool(),
+          dwio::common::MetricsLog::voidLog(),
+          ioStats_.back().get()),
       options));
   // Extends the buffer used for partition rows calculations.
   partitionSizes_.emplace_back(0);

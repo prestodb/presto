@@ -91,6 +91,7 @@ void TableWriter::addInput(RowVectorPtr input) {
   }
   dataSink_->appendData(mappedInput);
   numWrittenRows_ += input->size();
+  updateWrittenBytes();
 }
 
 RowVectorPtr TableWriter::getOutput() {
@@ -99,6 +100,7 @@ RowVectorPtr TableWriter::getOutput() {
     return nullptr;
   }
   finished_ = true;
+  updateWrittenBytes();
 
   if (outputType_->size() == 1) {
     // NOTE: this is for non-prestissimo use cases.
@@ -154,6 +156,12 @@ RowVectorPtr TableWriter::getOutput() {
 
   return std::make_shared<RowVector>(
       pool(), outputType_, nullptr, numOutputRows, columns);
+}
+
+void TableWriter::updateWrittenBytes() {
+  const auto writtenBytes = dataSink_->getCompletedBytes();
+  auto lockedStats = stats_.wlock();
+  lockedStats->physicalWrittenBytes = writtenBytes;
 }
 
 std::string TableWriteTraits::rowCountColumnName() {

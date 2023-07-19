@@ -136,6 +136,11 @@ class DataSink {
   /// TODO maybe at some point we want to make it async.
   virtual void appendData(RowVectorPtr input) = 0;
 
+  /// Returns the number of bytes written on disk by this data sink so far.
+  virtual int64_t getCompletedBytes() const {
+    return 0;
+  }
+
   /// Called once after all data has been added via possibly multiple calls to
   /// appendData(). Could return data in the string form that would be included
   /// in the output. After calling this function, only close() could be called.

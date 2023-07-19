@@ -384,6 +384,8 @@ class HiveDataSink : public DataSink {
 
   void appendData(RowVectorPtr input) override;
 
+  int64_t getCompletedBytes() const override;
+
   std::vector<std::string> finish() const override;
 
   void close() override;
@@ -454,6 +456,8 @@ class HiveDataSink : public DataSink {
   // writers_ are both indexed by partitionId.
   std::vector<std::shared_ptr<HiveWriterInfo>> writerInfo_;
   std::vector<std::unique_ptr<dwio::common::Writer>> writers_;
+  // IO statistics collected for each writer.
+  std::vector<std::shared_ptr<dwio::common::IoStatistics>> ioStats_;
 
   // Below are structures updated when processing current input. partitionIds_
   // are indexed by the row of input_. partitionRows_, rawPartitionRows_ and
