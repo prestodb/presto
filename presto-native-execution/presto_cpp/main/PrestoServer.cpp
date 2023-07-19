@@ -27,7 +27,6 @@
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
-#include "presto_cpp/main/connectors/hive/storage_adapters/FileSystems.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/StatsFilter.h"
@@ -47,10 +46,6 @@
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/core/Config.h"
-#include "velox/dwio/dwrf/reader/DwrfReader.h"
-#include "velox/dwio/dwrf/writer/Writer.h"
-#include "velox/dwio/parquet/RegisterParquetReader.h"
-#include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -172,7 +167,6 @@ void PrestoServer::run() {
   registerStatsCounters();
   registerFileSinks();
   registerFileSystems();
-  registerOptionalHiveStorageAdapters();
   registerShuffleInterfaceFactories();
   registerCustomOperators();
   protocol::registerHiveConnectors();
