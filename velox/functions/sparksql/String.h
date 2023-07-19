@@ -27,6 +27,50 @@
 
 namespace facebook::velox::functions::sparksql {
 
+template <typename T, bool lpad>
+struct PadFunctionBase {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  // ASCII input always produces ASCII result.
+  static constexpr bool is_default_ascii_behavior = true;
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& string,
+      const arg_type<int64_t>& size,
+      const arg_type<Varchar>& padString) {
+    stringImpl::pad<lpad, false /*isAscii*/>(result, string, size, padString);
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& string,
+      const arg_type<int64_t>& size) {
+    stringImpl::pad<lpad, false /*isAscii*/>(result, string, size, {" "});
+  }
+
+  FOLLY_ALWAYS_INLINE void callAscii(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& string,
+      const arg_type<int64_t>& size,
+      const arg_type<Varchar>& padString) {
+    stringImpl::pad<lpad, true /*isAscii*/>(result, string, size, padString);
+  }
+
+  FOLLY_ALWAYS_INLINE void callAscii(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& string,
+      const arg_type<int64_t>& size) {
+    stringImpl::pad<lpad, true /*isAscii*/>(result, string, size, {" "});
+  }
+};
+
+template <typename T>
+struct LPadFunction : public PadFunctionBase<T, true> {};
+
+template <typename T>
+struct RPadFunction : public PadFunctionBase<T, false> {};
+
 template <typename T>
 struct AsciiFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);

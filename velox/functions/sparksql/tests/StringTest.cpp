@@ -163,6 +163,33 @@ class StringTest : public SparkFunctionBaseTest {
         pos,
         len);
   }
+  std::optional<std::string> rpad(
+      std::optional<std::string> string,
+      std::optional<int32_t> size,
+      std::optional<std::string> padString) {
+    return evaluateOnce<std::string>(
+        "rpad(c0, c1, c2)", string, size, padString);
+  }
+
+  std::optional<std::string> lpad(
+      std::optional<std::string> string,
+      std::optional<int32_t> size,
+      std::optional<std::string> padString) {
+    return evaluateOnce<std::string>(
+        "lpad(c0, c1, c2)", string, size, padString);
+  }
+
+  std::optional<std::string> rpad(
+      std::optional<std::string> string,
+      std::optional<int32_t> size) {
+    return evaluateOnce<std::string>("rpad(c0, c1)", string, size);
+  }
+
+  std::optional<std::string> lpad(
+      std::optional<std::string> string,
+      std::optional<int32_t> size) {
+    return evaluateOnce<std::string>("lpad(c0, c1)", string, size);
+  }
 };
 
 TEST_F(StringTest, Ascii) {
@@ -483,6 +510,72 @@ TEST_F(StringTest, overlayVarbinary) {
   EXPECT_EQ(overlayVarbinary("Spark SQL", "##", 0, 4), "##rk SQL");
   EXPECT_EQ(overlayVarbinary("Spark SQL", "##", -10, -1), "##park SQL");
   EXPECT_EQ(overlayVarbinary("Spark SQL", "##", -10, 4), "##rk SQL");
+}
+
+TEST_F(StringTest, rpad) {
+  const std::string invalidString = "Ψ\xFF\xFFΣΓΔA";
+  const std::string invalidPadString = "\xFFΨ\xFF";
+
+  // ASCII strings with various values for size and padString
+  EXPECT_EQ("textx", rpad("text", 5, "x"));
+  EXPECT_EQ("text", rpad("text", 4, "x"));
+  EXPECT_EQ("textxyx", rpad("text", 7, "xy"));
+  EXPECT_EQ("text  ", rpad("text", 6));
+
+  // Non-ASCII strings with various values for size and padString
+  EXPECT_EQ(
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u671B\u671B",
+      rpad("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ", 11, "\u671B"));
+  EXPECT_EQ(
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u5E0C\u671B\u5E0C",
+      rpad("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ", 12, "\u5E0C\u671B"));
+
+  // Empty string
+  EXPECT_EQ("aaa", rpad("", 3, "a"));
+
+  // Truncating string
+  EXPECT_EQ("", rpad("abc", 0, "e"));
+  EXPECT_EQ("tex", rpad("text", 3, "xy"));
+  EXPECT_EQ(
+      "\u4FE1\u5FF5 \u7231 ",
+      rpad("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ", 5, "\u671B"));
+
+  // Invalid UTF-8 chars
+  EXPECT_EQ(invalidString + "x", rpad(invalidString, 8, "x"));
+  EXPECT_EQ("abc" + invalidPadString, rpad("abc", 6, invalidPadString));
+}
+
+TEST_F(StringTest, lpad) {
+  std::string invalidString = "Ψ\xFF\xFFΣΓΔA";
+  std::string invalidPadString = "\xFFΨ\xFF";
+
+  // ASCII strings with various values for size and padString
+  EXPECT_EQ("xtext", lpad("text", 5, "x"));
+  EXPECT_EQ("text", lpad("text", 4, "x"));
+  EXPECT_EQ("xyxtext", lpad("text", 7, "xy"));
+  EXPECT_EQ("  text", lpad("text", 6));
+
+  // Non-ASCII strings with various values for size and padString
+  EXPECT_EQ(
+      "\u671B\u671B\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ",
+      lpad("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ", 11, "\u671B"));
+  EXPECT_EQ(
+      "\u5E0C\u671B\u5E0C\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ",
+      lpad("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ", 12, "\u5E0C\u671B"));
+
+  // Empty string
+  EXPECT_EQ("aaa", lpad("", 3, "a"));
+
+  // Truncating string
+  EXPECT_EQ("", lpad("abc", 0, "e"));
+  EXPECT_EQ("tex", lpad("text", 3, "xy"));
+  EXPECT_EQ(
+      "\u4FE1\u5FF5 \u7231 ",
+      lpad("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ", 5, "\u671B"));
+
+  // Invalid UTF-8 chars
+  EXPECT_EQ("x" + invalidString, lpad(invalidString, 8, "x"));
+  EXPECT_EQ(invalidPadString + "abc", lpad("abc", 6, invalidPadString));
 }
 
 TEST_F(StringTest, left) {

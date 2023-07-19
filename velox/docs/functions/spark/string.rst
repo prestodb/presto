@@ -49,6 +49,17 @@ Unless specified otherwise, all functions return NULL if at least one of the arg
 
         SELECT lower('SparkSql'); -- sparksql
 
+.. spark:function:: lpad(string, len, pad) -> string
+    
+    Returns ``string``, left-padded with pad to a length of ``len``. If ``string`` is
+    longer than ``len``, the return value is shortened to ``len`` characters or bytes.
+    If ``pad`` is not specified, ``string`` will be padded to the left with space characters
+    if it is a character string, and with zeros if it is a byte sequence. ::
+
+        SELECT lpad('hi', 5, '??'); -- ???hi
+        SELECT lpad('hi', 1, '??'); -- h
+        SELECT lpad('hi', 4); --   hi
+
 .. spark:function:: ltrim(string) -> varchar
 
     Removes leading 0x20(space) characters from ``string``. ::
@@ -89,6 +100,17 @@ Unless specified otherwise, all functions return NULL if at least one of the arg
     Replaces all occurrences of `search` with `replace`. ::
 
         SELECT replace('ABCabc', 'abc', 'DEF'); -- ABCDEF
+
+.. spark:function:: rpad(string, len, pad) -> string
+    
+    Returns ``string``, right-padded with ``pad`` to a length of ``len``. 
+    If ``string`` is longer than ``len``, the return value is shortened to ``len`` characters.
+    If ``pad`` is not specified, ``string`` will be padded to the right with space characters
+    if it is a character string, and with zeros if it is a binary string. ::
+
+        SELECT lpad('hi', 5, '??'); -- ???hi
+        SELECT lpad('hi', 1, '??'); -- h
+        SELECT lpad('hi', 4); -- hi  
 
 .. spark:function:: rtrim(string) -> varchar
 
