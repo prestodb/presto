@@ -104,6 +104,14 @@ class RowReader {
   virtual bool allPrefetchIssued() const {
     return false;
   }
+
+  /**
+   * Helper function used by non-selective reader to project top level columns
+   * according to the scan spec.
+   */
+  static VectorPtr projectColumns(
+      const VectorPtr& input,
+      const velox::common::ScanSpec&);
 };
 
 /**

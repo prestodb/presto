@@ -43,6 +43,7 @@ add_library(
   MetadataFilter.cpp
   Options.cpp
   Range.cpp
+  Reader.cpp
   ReaderFactory.cpp
   ScanSpec.cpp
   ColumnLoader.cpp
