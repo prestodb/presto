@@ -107,8 +107,16 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   /// Used by test to clear the node-wise memory usage tracking.
   static void testingClearMemoryUsage();
 
+  void deleteResults() override {
+    abortResults();
+  }
+
+  void acknowledge(int64_t sequence) override {
+    acknowledgeResults(sequence);
+  }
+
  private:
-  void request() override;
+  void request(uint64_t maxBytes) override;
 
   void doRequest(int64_t delayMs);
 
@@ -158,5 +166,8 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   // A boolean indicating whether abortResults() call was issued and was
   // successfully processed by the remote server.
   std::atomic_bool abortResultsSucceeded_{false};
+
+  // Size of current request.
+  uint64_t requestBytes_{0};
 };
 } // namespace facebook::presto

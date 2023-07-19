@@ -137,10 +137,16 @@ class TestShuffleWriter : public ShuffleWriter {
     getInstance().reset();
   }
 
-  /// Maintains a single shuffle write interface for testing purpose.
+  /// Maintains a single shuffle write interface for testing purpose. The
+  /// lifetime of this is bounded to one test fixture istantiation.
   static std::shared_ptr<TestShuffleWriter>& getInstance() {
-    static std::shared_ptr<TestShuffleWriter> instance_;
     return instance_;
+  }
+
+  // Clears the instance. The instance must be recreated for each test
+  // instantiation to run with the memory pool of each test.
+  static void clearInstance() {
+    instance_ = nullptr;
   }
 
   static std::shared_ptr<TestShuffleWriter> createWriter(
@@ -172,7 +178,12 @@ class TestShuffleWriter : public ShuffleWriter {
   /// inProgressPartitions_
   std::vector<size_t> inProgressSizes_;
   std::shared_ptr<std::vector<std::vector<BufferPtr>>> readyPartitions_;
+
+  static std::shared_ptr<TestShuffleWriter> instance_;
 };
+
+//      static
+std::shared_ptr<TestShuffleWriter> TestShuffleWriter::instance_;
 
 class TestShuffleReader : public ShuffleReader {
  public:
@@ -302,6 +313,9 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
  protected:
   void SetUp() override {
     exec::test::OperatorTestBase::SetUp();
+    // The testing writer must be recreated for each test to get the right
+    // memory pool.
+    TestShuffleWriter::clearInstance();
     ShuffleInterfaceFactory::registerFactory(
         std::string(TestShuffleFactory::kShuffleName),
         std::make_unique<TestShuffleFactory>());
@@ -312,6 +326,11 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
         std::make_unique<PartitionAndSerializeTranslator>());
     exec::Operator::registerOperator(
         std::make_unique<ShuffleWriteTranslator>());
+  }
+
+  void TearDown() override {
+    exec::test::OperatorTestBase::TearDown();
+    TestShuffleWriter::clearInstance();
   }
 
   static std::string makeTaskId(
