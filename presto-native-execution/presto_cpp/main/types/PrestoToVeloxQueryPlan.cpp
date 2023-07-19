@@ -1624,25 +1624,27 @@ void VeloxQueryPlanConverterBase::toAggregations(
   for (const auto& entry : outputVariables) {
     aggregateNames.emplace_back(entry.name);
 
-    VELOX_USER_CHECK(
-        !aggregationMap.at(entry).distinct,
-        "Distinct aggregations are not supported yet.");
+    const auto& prestoAggregation = aggregationMap.at(entry);
 
     core::AggregationNode::Aggregate aggregate;
     aggregate.call = std::dynamic_pointer_cast<const core::CallTypedExpr>(
-        exprConverter_.toVeloxExpr(aggregationMap.at(entry).call));
-    if (aggregationMap.at(entry).mask != nullptr) {
-      aggregate.mask =
-          exprConverter_.toVeloxExpr(aggregationMap.at(entry).mask);
+        exprConverter_.toVeloxExpr(prestoAggregation.call));
+
+    aggregate.distinct = prestoAggregation.distinct;
+
+    if (prestoAggregation.mask != nullptr) {
+      aggregate.mask = exprConverter_.toVeloxExpr(prestoAggregation.mask);
     }
-    if (aggregationMap.at(entry).orderBy != nullptr) {
-      for (const auto& orderBy : aggregationMap.at(entry).orderBy->orderBy) {
+
+    if (prestoAggregation.orderBy != nullptr) {
+      for (const auto& orderBy : prestoAggregation.orderBy->orderBy) {
         aggregate.sortingKeys.emplace_back(
             exprConverter_.toVeloxExpr(orderBy.variable));
         aggregate.sortingOrders.emplace_back(
             toVeloxSortOrder(orderBy.sortOrder));
       }
     }
+
     aggregates.emplace_back(aggregate);
   }
 }
