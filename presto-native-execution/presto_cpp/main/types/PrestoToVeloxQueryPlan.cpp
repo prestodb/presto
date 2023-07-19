@@ -2565,7 +2565,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                     "root",
                     partitioningKeys,
                     numPartitions,
-                    false, // broadcast
+                    core::PartitionedOutputNode::Kind::kPartitioned,
                     partitioningScheme.replicateNullsAndAny,
                     std::make_shared<RoundRobinPartitionFunctionSpec>(),
                     outputType,
@@ -2585,7 +2585,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                     "root",
                     partitioningKeys,
                     numPartitions,
-                    false, // broadcast
+                    core::PartitionedOutputNode::Kind::kPartitioned,
                     partitioningScheme.replicateNullsAndAny,
                     std::make_shared<HashPartitionFunctionSpec>(
                         inputType, keyChannels, constValues),
@@ -2633,7 +2633,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         "root",
         partitioningKeys,
         numPartitions,
-        false, // broadcast
+        core::PartitionedOutputNode::Kind::kPartitioned,
         partitioningScheme.replicateNullsAndAny,
         std::make_shared<HivePartitionFunctionSpec>(
             hivePartitioningHandle->bucketCount,
