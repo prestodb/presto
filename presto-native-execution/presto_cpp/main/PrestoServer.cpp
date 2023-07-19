@@ -499,7 +499,7 @@ void PrestoServer::initializeVeloxMemory() {
 
   memory::MemoryAllocator::setDefaultInstance(allocator_.get());
   // Set up velox memory manager.
-  memory::MemoryManager::Options options;
+  memory::MemoryManagerOptions options;
   options.capacity = memoryBytes;
   options.checkUsageLeak = systemConfig->enableMemoryLeakCheck();
   if (systemConfig->enableMemoryArbitration()) {
