@@ -166,8 +166,15 @@ class WriteFileDataSink final : public DataSink {
 
   void doClose() override;
 
+  // TODO: Hack to make Alpha writer work with Velox.  To be removed after Alpha
+  // writer takes DataSink directly.
+  std::unique_ptr<WriteFile> toWriteFile() {
+    markClosed();
+    return std::move(writeFile_);
+  }
+
  private:
-  std::shared_ptr<WriteFile> writeFile_;
+  std::unique_ptr<WriteFile> writeFile_;
 };
 
 class LocalFileSink : public DataSink {
