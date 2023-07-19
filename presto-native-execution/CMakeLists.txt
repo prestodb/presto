@@ -64,7 +64,6 @@ if(PRESTO_ENABLE_HDFS)
   set(VELOX_ENABLE_HDFS
       ON
       CACHE BOOL "Build HDFS Connector")
-  add_definitions(-DPRESTO_ENABLE_HDFS)
 endif()
 
 if(PRESTO_ENABLE_PARQUET)
