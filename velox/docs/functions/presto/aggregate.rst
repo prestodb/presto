@@ -57,6 +57,19 @@ General Aggregate Functions
     Returns the number of ``TRUE`` input values.
     This function is equivalent to ``count(CASE WHEN x THEN 1 END)``.
 
+.. function:: entropy(c) -> double
+
+    Returns the log-2 entropy of count input-values.
+
+    .. math::
+
+        \mathrm{entropy}(c) = \sum_i \left[ {c_i \over \sum_j [c_j]} \log_2\left({\sum_j [c_j] \over c_i}\right) \right].
+
+    ``c`` must be a ``integer`` column of non-negative values.
+
+    The function ignores any ``NULL`` count. If the sum of non-``NULL`` counts is 0,
+    it returns 0.
+
 .. function:: every(boolean) -> boolean
 
     This is an alias for :func:`bool_and`.

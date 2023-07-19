@@ -111,6 +111,7 @@ class AggregationFuzzerRunner {
           // Semantically inconsistent functions
           {"skewness", ""},
           {"kurtosis", ""},
+          {"entropy", ""},
   };
 
   static int run(const std::string& planPath) {
