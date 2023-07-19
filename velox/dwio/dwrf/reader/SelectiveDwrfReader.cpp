@@ -42,9 +42,11 @@ std::unique_ptr<SelectiveColumnReader> buildIntegerReader(
   auto& stripe = params.stripeStreams();
   switch (static_cast<int64_t>(stripe.getEncoding(ek).kind())) {
     case proto::ColumnEncoding_Kind_DICTIONARY:
+    case proto::ColumnEncoding_Kind_DICTIONARY_V2:
       return std::make_unique<SelectiveIntegerDictionaryColumnReader>(
           requestedType, dataType, params, scanSpec, numBytes);
     case proto::ColumnEncoding_Kind_DIRECT:
+    case proto::ColumnEncoding_Kind_DIRECT_V2:
       return std::make_unique<SelectiveIntegerDirectColumnReader>(
           requestedType, dataType, params, numBytes, scanSpec);
     default:
@@ -110,9 +112,11 @@ std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
     case TypeKind::VARCHAR:
       switch (static_cast<int64_t>(stripe.getEncoding(ek).kind())) {
         case proto::ColumnEncoding_Kind_DIRECT:
+        case proto::ColumnEncoding_Kind_DIRECT_V2:
           return std::make_unique<SelectiveStringDirectColumnReader>(
               requestedType, params, scanSpec);
         case proto::ColumnEncoding_Kind_DICTIONARY:
+        case proto::ColumnEncoding_Kind_DICTIONARY_V2:
           return std::make_unique<SelectiveStringDictionaryColumnReader>(
               requestedType, params, scanSpec);
         default:

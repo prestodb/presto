@@ -413,6 +413,10 @@ class ColumnVisitor {
     }
   }
 
+  ExtractValues extractValues() const {
+    return values_;
+  }
+
   HookType& hook() {
     return values_.hook();
   }

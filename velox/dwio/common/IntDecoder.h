@@ -31,6 +31,7 @@ template <bool isSigned>
 class IntDecoder {
  public:
   static constexpr int32_t kMinDenseBatch = 8;
+  static constexpr bool kIsSigned = isSigned;
 
   IntDecoder(
       std::unique_ptr<dwio::common::SeekableInputStream> input,

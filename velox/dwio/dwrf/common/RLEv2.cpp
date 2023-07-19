@@ -206,13 +206,11 @@ void RleDecoderV2<isSigned>::next(
 
     if (runRead == runLength) {
       resetRun();
-      firstByte = readByte();
     }
 
     uint64_t offset = nRead, length = numValues - nRead;
 
-    EncodingType enc = static_cast<EncodingType>((firstByte >> 6) & 0x03);
-    switch (static_cast<int64_t>(enc)) {
+    switch (type) {
       case SHORT_REPEAT:
         nRead += nextShortRepeats(data, offset, length, nulls);
         break;
@@ -582,5 +580,37 @@ template uint64_t RleDecoderV2<false>::nextDelta(
     uint64_t offset,
     uint64_t numValues,
     const uint64_t* const nulls);
+
+template <bool isSigned>
+int64_t RleDecoderV2<isSigned>::readValue() {
+  if (runRead == runLength) {
+    resetRun();
+  }
+
+  uint64_t nRead = 0;
+  int64_t value = 0;
+  switch (type) {
+    case SHORT_REPEAT:
+      nRead = nextShortRepeats(&value, 0, 1, nullptr);
+      break;
+    case DIRECT:
+      nRead = nextDirect(&value, 0, 1, nullptr);
+      break;
+    case PATCHED_BASE:
+      nRead = nextPatched(&value, 0, 1, nullptr);
+      break;
+    case DELTA:
+      nRead = nextDelta(&value, 0, 1, nullptr);
+      break;
+    default:
+      DWIO_RAISE("unknown encoding");
+  }
+  VELOX_CHECK(nRead == (uint64_t)1);
+  return value;
+}
+
+template int64_t RleDecoderV2<true>::readValue();
+
+template int64_t RleDecoderV2<false>::readValue();
 
 } // namespace facebook::velox::dwrf

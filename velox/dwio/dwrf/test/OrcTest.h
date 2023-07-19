@@ -71,7 +71,11 @@ class MockStripeStreams : public StripeStreams {
   }
 
   DwrfFormat format() const override {
-    return DwrfFormat::kDwrf;
+    return this->format_;
+  }
+
+  void setFormat(DwrfFormat format) {
+    this->format_ = format;
   }
 
   MOCK_METHOD2(
@@ -122,6 +126,7 @@ class MockStripeStreams : public StripeStreams {
  private:
   std::shared_ptr<memory::MemoryPool> pool_;
   dwio::common::RowReaderOptions options_;
+  DwrfFormat format_ = DwrfFormat::kDwrf;
 };
 
 inline uint64_t zigZagEncode(int64_t val) {

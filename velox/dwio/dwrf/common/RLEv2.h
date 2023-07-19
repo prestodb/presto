@@ -56,6 +56,59 @@ class RleDecoderV2 : public dwio::common::IntDecoder<isSigned> {
    */
   void next(int64_t* data, uint64_t numValues, const uint64_t* nulls) override;
 
+  void nextLengths(int32_t* const data, const int32_t numValues) override {
+    for (int i = 0; i < numValues; ++i) {
+      data[i] = readValue();
+    }
+  }
+
+  template <bool hasNulls>
+  inline void skip(int32_t numValues, int32_t current, const uint64_t* nulls) {
+    if constexpr (hasNulls) {
+      numValues = bits::countNonNulls(nulls, current, current + numValues);
+    }
+    skip(numValues);
+  }
+
+  template <bool hasNulls, typename Visitor>
+  void readWithVisitor(const uint64_t* nulls, Visitor visitor) {
+    int32_t current = visitor.start();
+    skip<hasNulls>(current, 0, nulls);
+
+    int32_t toSkip;
+    bool atEnd = false;
+    const bool allowNulls = hasNulls && visitor.allowNulls();
+
+    for (;;) {
+      if (hasNulls && allowNulls && bits::isBitNull(nulls, current)) {
+        toSkip = visitor.processNull(atEnd);
+      } else {
+        if (hasNulls && !allowNulls) {
+          toSkip = visitor.checkAndSkipNulls(nulls, current, atEnd);
+          if (!Visitor::dense) {
+            skip<false>(toSkip, current, nullptr);
+          }
+          if (atEnd) {
+            return;
+          }
+        }
+
+        // We are at a non-null value on a row to visit.
+        auto value = readValue();
+        toSkip = visitor.process(value, atEnd);
+      }
+
+      ++current;
+      if (toSkip) {
+        skip<hasNulls>(toSkip, current, nulls);
+        current += toSkip;
+      }
+      if (atEnd) {
+        return;
+      }
+    }
+  }
+
  private:
   // Used by PATCHED_BASE
   void adjustGapAndPatch() {
@@ -83,6 +136,8 @@ class RleDecoderV2 : public dwio::common::IntDecoder<isSigned> {
   void resetRun() {
     resetReadLongs();
     bitSize = 0;
+    firstByte = readByte();
+    type = static_cast<EncodingType>((firstByte >> 6) & 0x03);
   }
 
   unsigned char readByte() {
@@ -165,6 +220,8 @@ class RleDecoderV2 : public dwio::common::IntDecoder<isSigned> {
       uint64_t numValues,
       const uint64_t* nulls);
 
+  int64_t readValue();
+
   unsigned char firstByte;
   uint64_t runLength;
   uint64_t runRead;
@@ -183,6 +240,7 @@ class RleDecoderV2 : public dwio::common::IntDecoder<isSigned> {
   int64_t curPatch; // Used by PATCHED_BASE
   int64_t patchMask; // Used by PATCHED_BASE
   int64_t actualGap; // Used by PATCHED_BASE
+  EncodingType type;
   dwio::common::DataBuffer<int64_t> unpacked; // Used by PATCHED_BASE
   dwio::common::DataBuffer<int64_t> unpackedPatch; // Used by PATCHED_BASE
 };

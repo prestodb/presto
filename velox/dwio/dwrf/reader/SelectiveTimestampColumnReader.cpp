@@ -29,12 +29,12 @@ SelectiveTimestampColumnReader::SelectiveTimestampColumnReader(
     : SelectiveColumnReader(nodeType, params, scanSpec, nodeType->type) {
   EncodingKey encodingKey{nodeType_->id, params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
-  RleVersion vers = convertRleVersion(stripe.getEncoding(encodingKey).kind());
+  version_ = convertRleVersion(stripe.getEncoding(encodingKey).kind());
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool vints = stripe.getUseVInts(data);
   seconds_ = createRleDecoder</*isSigned*/ true>(
       stripe.getStream(data, params.streamLabels().label(), true),
-      vers,
+      version_,
       memoryPool_,
       vints,
       LONG_BYTE_SIZE);
@@ -42,7 +42,7 @@ SelectiveTimestampColumnReader::SelectiveTimestampColumnReader(
   bool nanoVInts = stripe.getUseVInts(nanoData);
   nano_ = createRleDecoder</*isSigned*/ false>(
       stripe.getStream(nanoData, params.streamLabels().label(), true),
-      vers,
+      version_,
       memoryPool_,
       nanoVInts,
       LONG_BYTE_SIZE);
@@ -69,24 +69,17 @@ void SelectiveTimestampColumnReader::readHelper(RowSet rows) {
   vector_size_t numRows = rows.back() + 1;
   ExtractToReader extractValues(this);
   common::AlwaysTrue filter;
-  auto secondsV1 = dynamic_cast<RleDecoderV1<true>*>(seconds_.get());
-  VELOX_CHECK(secondsV1, "Only RLEv1 is supported");
-  if (nullsInReadRange_) {
-    secondsV1->readWithVisitor<true>(
-        nullsInReadRange_->as<uint64_t>(),
-        DirectRleColumnVisitor<
-            int64_t,
-            common::AlwaysTrue,
-            decltype(extractValues),
-            dense>(filter, this, rows, extractValues));
+  DirectRleColumnVisitor<
+      int64_t,
+      common::AlwaysTrue,
+      decltype(extractValues),
+      dense>
+      visitor(filter, this, rows, extractValues);
+
+  if (version_ == velox::dwrf::RleVersion_1) {
+    decodeWithVisitor<velox::dwrf::RleDecoderV1<true>>(seconds_.get(), visitor);
   } else {
-    secondsV1->readWithVisitor<false>(
-        nullptr,
-        DirectRleColumnVisitor<
-            int64_t,
-            common::AlwaysTrue,
-            decltype(extractValues),
-            dense>(filter, this, rows, extractValues));
+    decodeWithVisitor<velox::dwrf::RleDecoderV2<true>>(seconds_.get(), visitor);
   }
 
   // Save the seconds into their own buffer before reading nanos into
@@ -101,24 +94,10 @@ void SelectiveTimestampColumnReader::readHelper(RowSet rows) {
 
   // We read the nanos into 'values_' starting at index 0.
   numValues_ = 0;
-  auto nanosV1 = dynamic_cast<RleDecoderV1<false>*>(nano_.get());
-  VELOX_CHECK(nanosV1, "Only RLEv1 is supported");
-  if (nullsInReadRange_) {
-    nanosV1->readWithVisitor<true>(
-        nullsInReadRange_->as<uint64_t>(),
-        DirectRleColumnVisitor<
-            int64_t,
-            common::AlwaysTrue,
-            decltype(extractValues),
-            dense>(filter, this, rows, extractValues));
+  if (version_ == velox::dwrf::RleVersion_1) {
+    decodeWithVisitor<velox::dwrf::RleDecoderV1<false>>(nano_.get(), visitor);
   } else {
-    nanosV1->readWithVisitor<false>(
-        nullptr,
-        DirectRleColumnVisitor<
-            int64_t,
-            common::AlwaysTrue,
-            decltype(extractValues),
-            dense>(filter, this, rows, extractValues));
+    decodeWithVisitor<velox::dwrf::RleDecoderV2<false>>(nano_.get(), visitor);
   }
   readOffset_ += numRows;
 }

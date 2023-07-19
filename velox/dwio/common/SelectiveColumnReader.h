@@ -20,6 +20,7 @@
 #include "velox/common/process/ProcessBase.h"
 #include "velox/dwio/common/ColumnSelector.h"
 #include "velox/dwio/common/FormatData.h"
+#include "velox/dwio/common/IntDecoder.h"
 #include "velox/dwio/common/Mutation.h"
 #include "velox/dwio/common/ScanSpec.h"
 #include "velox/type/Filter.h"
@@ -507,6 +508,24 @@ class SelectiveColumnReader {
 
   virtual bool hasMutation() const {
     return false;
+  }
+
+  template <typename Decoder, typename ColumnVisitor>
+  void decodeWithVisitor(
+      IntDecoder<Decoder::kIsSigned>* intDecoder,
+      ColumnVisitor& visitor) {
+    auto decoder = dynamic_cast<Decoder*>(intDecoder);
+    VELOX_CHECK(
+        decoder,
+        "Unexpected Decoder type, Expected: {}",
+        typeid(Decoder).name());
+    const uint64_t* nulls =
+        nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
+    if (nulls) {
+      decoder->template readWithVisitor<true>(nulls, visitor);
+    } else {
+      decoder->template readWithVisitor<false>(nulls, visitor);
+    }
   }
 
   memory::MemoryPool& memoryPool_;

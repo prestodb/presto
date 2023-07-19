@@ -155,6 +155,9 @@ inline RleVersion convertRleVersion(proto::ColumnEncoding_Kind kind) {
     case proto::ColumnEncoding_Kind_DIRECT:
     case proto::ColumnEncoding_Kind_DICTIONARY:
       return RleVersion_1;
+    case proto::ColumnEncoding_Kind_DIRECT_V2:
+    case proto::ColumnEncoding_Kind_DICTIONARY_V2:
+      return RleVersion_2;
     default:
       DWIO_RAISE("Unknown encoding in convertRleVersion");
   }
