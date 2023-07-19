@@ -22,6 +22,7 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.apache.parquet.column.ParquetProperties.WriterVersion;
 
 import javax.inject.Inject;
 
@@ -84,6 +85,7 @@ public final class HiveSessionProperties
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
+    private static final String PARQUET_WRITER_VERSION = "parquet_writer_version";
     private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "parquet_optimized_writer_enabled";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
     private static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
@@ -150,8 +152,7 @@ public final class HiveSessionProperties
     @Inject
     public HiveSessionProperties(HiveClientConfig hiveClientConfig, OrcFileWriterConfig orcFileWriterConfig, ParquetFileWriterConfig parquetFileWriterConfig, CacheConfig cacheConfig)
     {
-        sessionProperties = ImmutableList.of(
-                booleanProperty(
+        sessionProperties = ImmutableList.of(booleanProperty(
                         IGNORE_TABLE_BUCKETING,
                         "Ignore table bucketing to enable reading from unbucketed partitions",
                         hiveClientConfig.isIgnoreTableBucketing(),
@@ -349,6 +350,15 @@ public final class HiveSessionProperties
                         "Parquet: Maximum size of a block to read",
                         hiveClientConfig.getParquetMaxReadBlockSize(),
                         false),
+                new PropertyMetadata<>(
+                        PARQUET_WRITER_VERSION,
+                        "Parquet: Writer format version",
+                        VARCHAR,
+                        WriterVersion.class,
+                        parquetFileWriterConfig.getFormatVersion(),
+                        false,
+                        value -> WriterVersion.valueOf((String) value),
+                        WriterVersion::toString),
                 dataSizeSessionProperty(
                         PARQUET_WRITER_BLOCK_SIZE,
                         "Parquet: Writer block size",
@@ -897,6 +907,11 @@ public final class HiveSessionProperties
     public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_MAX_READ_BLOCK_SIZE, DataSize.class);
+    }
+
+    public static WriterVersion getParquetWriterVersion(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_WRITER_VERSION, WriterVersion.class);
     }
 
     public static DataSize getParquetWriterBlockSize(ConnectorSession session)

@@ -14,12 +14,14 @@
 package com.facebook.presto.parquet.writer;
 
 import io.airlift.units.DataSize;
+import org.apache.parquet.column.ParquetProperties.WriterVersion;
 
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetWriterOptions
 {
+    private static final WriterVersion DEFAULT_FORMAT_VERSION = WriterVersion.PARQUET_2_0;
     private static final DataSize DEFAULT_MAX_ROW_GROUP_SIZE = DataSize.valueOf("128MB");
     private static final DataSize DEFAULT_MAX_PAGE_SIZE = DataSize.valueOf("1MB");
 
@@ -28,13 +30,20 @@ public class ParquetWriterOptions
         return new ParquetWriterOptions.Builder();
     }
 
+    private final WriterVersion writerVersion;
     private final int maxRowGroupSize;
     private final int maxPageSize;
 
-    private ParquetWriterOptions(DataSize maxRowGroupSize, DataSize maxPageSize)
+    private ParquetWriterOptions(WriterVersion writerVersion, DataSize maxRowGroupSize, DataSize maxPageSize)
     {
+        this.writerVersion = writerVersion;
         this.maxRowGroupSize = toIntExact(requireNonNull(maxRowGroupSize, "maxRowGroupSize is null").toBytes());
         this.maxPageSize = toIntExact(requireNonNull(maxPageSize, "maxPageSize is null").toBytes());
+    }
+
+    public WriterVersion getWriterVersion()
+    {
+        return writerVersion;
     }
 
     public int getMaxRowGroupSize()
@@ -49,8 +58,15 @@ public class ParquetWriterOptions
 
     public static class Builder
     {
+        private WriterVersion writerVersion = DEFAULT_FORMAT_VERSION;
         private DataSize maxBlockSize = DEFAULT_MAX_ROW_GROUP_SIZE;
         private DataSize maxPageSize = DEFAULT_MAX_PAGE_SIZE;
+
+        public Builder setWriterVersion(WriterVersion formatVersion)
+        {
+            this.writerVersion = formatVersion;
+            return this;
+        }
 
         public Builder setMaxBlockSize(DataSize maxBlockSize)
         {
@@ -66,7 +82,7 @@ public class ParquetWriterOptions
 
         public ParquetWriterOptions build()
         {
-            return new ParquetWriterOptions(maxBlockSize, maxPageSize);
+            return new ParquetWriterOptions(writerVersion, maxBlockSize, maxPageSize);
         }
     }
 }
