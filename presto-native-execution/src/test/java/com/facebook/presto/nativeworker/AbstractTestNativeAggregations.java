@@ -302,8 +302,10 @@ public abstract class AbstractTestNativeAggregations
         Session session = Session.builder(getSession())
                 .setSystemProperty("use_mark_distinct", "falze")
                 .build();
-        assertQueryFails(session, "SELECT count(distinct orderkey), count(distinct linenumber) FROM lineitem",
-                ".*Distinct aggregations are not supported yet.");
+        assertQuery(session, "SELECT count(distinct orderkey), count(distinct linenumber) FROM lineitem");
+        assertQuery(session, "SELECT count(distinct orderkey), sum(distinct linenumber), array_sort(array_agg(distinct linenumber)) FROM lineitem");
+        assertQueryFails(session, "SELECT count(distinct orderkey), array_agg(distinct linenumber ORDER BY linenumber) FROM lineitem",
+                ".*Aggregations over sorted unique values are not supported yet");
     }
 
     private void assertQueryResultCount(String sql, int expectedResultCount)
