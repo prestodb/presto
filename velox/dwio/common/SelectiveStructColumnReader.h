@@ -96,15 +96,21 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
   }
 
  protected:
+  // The subscript of childSpecs will be set to this value if the column is
+  // constant (either explicitly or because it's missing).
+  static constexpr int32_t kConstantChildSpecSubscript = -1;
+
   SelectiveStructColumnReaderBase(
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       FormatParams& params,
-      velox::common::ScanSpec& scanSpec)
+      velox::common::ScanSpec& scanSpec,
+      bool isRoot = false)
       : SelectiveColumnReader(dataType, params, scanSpec, dataType->type),
         requestedType_(requestedType),
         debugString_(
-            getExceptionContext().message(VeloxException::Type::kSystem)) {}
+            getExceptionContext().message(VeloxException::Type::kSystem)),
+        isRoot_(isRoot) {}
 
   // Records the number of nulls added by 'this' between the end
   // position of each child reader and the end of the range of
@@ -115,6 +121,10 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
   bool hasMutation() const override {
     return hasMutation_;
   }
+
+  // Returns true if we'll return a constant for that childSpec (i.e. we don't
+  // need to read it).
+  bool isChildConstant(const velox::common::ScanSpec& childSpec) const;
 
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
 
@@ -141,6 +151,10 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
   // and query. Set at construction, which takes place on first
   // use. If no ExceptionContext is in effect, this is "".
   const std::string debugString_;
+
+  // Whether or not this is the root Struct that represents entire rows of the
+  // table.
+  const bool isRoot_;
 };
 
 struct SelectiveStructColumnReader : SelectiveStructColumnReaderBase {

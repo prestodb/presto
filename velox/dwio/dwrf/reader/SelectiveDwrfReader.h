@@ -29,7 +29,8 @@ class SelectiveDwrfReader {
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       DwrfParams& params,
-      common::ScanSpec& scanSpec);
+      common::ScanSpec& scanSpec,
+      bool isRoot = false);
 
   // Compatibility wrapper for tests. Takes the components of DwrfParams as
   // separate.
@@ -39,9 +40,10 @@ class SelectiveDwrfReader {
       StripeStreams& stripe,
       const StreamLabels& streamLabels,
       common::ScanSpec* FOLLY_NONNULL scanSpec,
-      FlatMapContext flatMapContext = {}) {
+      FlatMapContext flatMapContext = {},
+      bool isRoot = false) {
     auto params = DwrfParams(stripe, streamLabels, flatMapContext);
-    return build(requestedType, dataType, params, *scanSpec);
+    return build(requestedType, dataType, params, *scanSpec, isRoot);
   }
 };
 

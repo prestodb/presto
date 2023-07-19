@@ -530,7 +530,7 @@ class SelectiveColumnReader {
 
   memory::MemoryPool& memoryPool_;
 
-  // Requested Velox type
+  // The file data type
   std::shared_ptr<const dwio::common::TypeWithId> nodeType_;
 
   // Format specific state and functions.

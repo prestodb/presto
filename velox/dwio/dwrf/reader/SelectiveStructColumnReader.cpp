@@ -27,12 +27,14 @@ SelectiveStructColumnReader::SelectiveStructColumnReader(
     const std::shared_ptr<const TypeWithId>& requestedType,
     const std::shared_ptr<const TypeWithId>& dataType,
     DwrfParams& params,
-    common::ScanSpec& scanSpec)
+    common::ScanSpec& scanSpec,
+    bool isRoot)
     : SelectiveStructColumnReaderBase(
           requestedType,
           dataType,
           params,
-          scanSpec) {
+          scanSpec,
+          isRoot) {
   EncodingKey encodingKey{nodeType_->id, params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   auto encoding = static_cast<int64_t>(stripe.getEncoding(encodingKey).kind());
@@ -48,7 +50,8 @@ SelectiveStructColumnReader::SelectiveStructColumnReader(
   auto& childSpecs = scanSpec.stableChildren();
   for (auto i = 0; i < childSpecs.size(); ++i) {
     auto childSpec = childSpecs[i];
-    if (childSpec->isConstant()) {
+    if (isChildConstant(*childSpec)) {
+      childSpec->setSubscript(kConstantChildSpecSubscript);
       continue;
     }
     auto childDataType = nodeType_->childByName(childSpec->fieldName());

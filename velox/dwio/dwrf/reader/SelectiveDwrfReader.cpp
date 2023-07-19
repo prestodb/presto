@@ -59,7 +59,11 @@ std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
     const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
     DwrfParams& params,
-    common::ScanSpec& scanSpec) {
+    common::ScanSpec& scanSpec,
+    bool isRoot) {
+  DWIO_ENSURE(
+      !isRoot || dataType->type->kind() == TypeKind::ROW,
+      "The root object can only be a row.");
   dwio::common::typeutils::checkTypeCompatibility(
       *dataType->type, *requestedType->type);
   EncodingKey ek{dataType->id, params.flatMapContext().sequence};
@@ -101,7 +105,7 @@ std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
           requestedType, dataType->type, params, scanSpec);
     case TypeKind::ROW:
       return std::make_unique<SelectiveStructColumnReader>(
-          requestedType, dataType, params, scanSpec);
+          requestedType, dataType, params, scanSpec, isRoot);
     case TypeKind::BOOLEAN:
       return std::make_unique<SelectiveByteRleColumnReader>(
           requestedType, dataType, params, scanSpec, true);

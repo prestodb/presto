@@ -417,7 +417,8 @@ void DwrfRowReader::startNextStripe() {
         stripeStreams,
         streamLabels,
         scanSpec,
-        flatMapContext);
+        flatMapContext,
+        true); // isRoot
     selectiveColumnReader_->setIsTopLevel();
   } else {
     columnReader_ = ColumnReader::build(

@@ -187,7 +187,7 @@ void SelectiveListColumnReader::getValues(RowSet rows, VectorPtr* result) {
   makeOffsetsAndSizes(rows);
   VectorPtr elements;
   if (child_ && !nestedRows_.empty()) {
-    prepareStructResult(type_->childAt(0), &elements);
+    prepareStructResult(requestedType_->type->childAt(0), &elements);
     child_->getValues(nestedRows_, &elements);
   }
   *result = std::make_shared<ArrayVector>(
@@ -274,7 +274,7 @@ void SelectiveMapColumnReader::getValues(RowSet rows, VectorPtr* result) {
       "SelectiveMapColumnReader::getValues");
   if (!nestedRows_.empty()) {
     keyReader_->getValues(nestedRows_, &keys);
-    prepareStructResult(type_->childAt(1), &values);
+    prepareStructResult(requestedType_->type->childAt(1), &values);
     elementReader_->getValues(nestedRows_, &values);
   }
   *result = std::make_shared<MapVector>(

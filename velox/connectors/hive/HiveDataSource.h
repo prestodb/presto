@@ -134,7 +134,9 @@ class HiveDataSource : public DataSource {
   // hold adaptation.
   void resetSplit();
 
-  void configureRowReaderOptions(dwio::common::RowReaderOptions&) const;
+  void configureRowReaderOptions(
+      dwio::common::RowReaderOptions&,
+      const RowTypePtr& rowType) const;
 
   const RowTypePtr outputType_;
   // Column handles for the partition key columns keyed on partition key column
