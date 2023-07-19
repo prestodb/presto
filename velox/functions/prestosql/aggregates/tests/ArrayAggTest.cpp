@@ -285,6 +285,19 @@ TEST_F(ArrayAggTest, sortedGlobalWithMask) {
           "SELECT sum(c0), array_agg(c0 ORDER BY c1 DESC) FILTER (WHERE c1 < 0), array_agg(c0 ORDER BY c2) FILTER (WHERE c1 % 3 = 0) FROM tmp");
 }
 
+namespace {
+std::vector<RowVectorPtr> split(const RowVectorPtr& data) {
+  const auto numRows = data->size();
+  VELOX_CHECK_GE(numRows, 2);
+
+  const auto n = numRows / 2;
+  return {
+      std::dynamic_pointer_cast<RowVector>(data->slice(0, n)),
+      std::dynamic_pointer_cast<RowVector>(data->slice(n, numRows - n)),
+  };
+}
+} // namespace
+
 TEST_F(ArrayAggTest, mask) {
   // Global aggregation with all-false mask.
   auto data = makeRowVector({
@@ -293,7 +306,7 @@ TEST_F(ArrayAggTest, mask) {
   });
 
   testAggregations(
-      {data}, {}, {"array_agg(c0) FILTER (WHERE c1)"}, "SELECT null");
+      split(data), {}, {"array_agg(c0) FILTER (WHERE c1)"}, "SELECT null");
 
   // Global aggregation with a non-constant mask.
   data = makeRowVector({
@@ -302,7 +315,7 @@ TEST_F(ArrayAggTest, mask) {
   });
 
   testAggregations(
-      {data}, {}, {"array_agg(c0) FILTER (WHERE c1)"}, "SELECT [1, 3, 5]");
+      split(data), {}, {"array_agg(c0) FILTER (WHERE c1)"}, "SELECT [1, 3, 5]");
 
   // Group-by with all-false mask.
   data = makeRowVector({
@@ -312,7 +325,7 @@ TEST_F(ArrayAggTest, mask) {
   });
 
   testAggregations(
-      {data},
+      split(data),
       {"c0"},
       {"array_agg(c1) FILTER (WHERE c2)"},
       "VALUES (10, null), (20, null)");
@@ -325,7 +338,7 @@ TEST_F(ArrayAggTest, mask) {
   });
 
   testAggregations(
-      {data},
+      split(data),
       {"c0"},
       {"array_agg(c1) FILTER (WHERE c2)"},
       "VALUES (10, [1, 3]), (20, [5])");

@@ -38,6 +38,48 @@ class ArrayAggAggregate : public exec::Aggregate {
     return false;
   }
 
+  bool supportsToIntermediate() const override {
+    return true;
+  }
+
+  void toIntermediate(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      VectorPtr& result) const override {
+    const auto& elements = args[0];
+
+    const auto numRows = rows.size();
+
+    // Convert input to a single-entry array.
+
+    // Set nulls for rows not present in 'rows'.
+    auto* pool = allocator_->pool();
+    BufferPtr nulls = allocateNulls(numRows, pool);
+    memcpy(
+        nulls->asMutable<uint64_t>(),
+        rows.asRange().bits(),
+        bits::nbytes(numRows));
+
+    // Set offsets to 0, 1, 2, 3...
+    BufferPtr offsets = allocateOffsets(numRows, pool);
+    auto* rawOffsets = offsets->asMutable<vector_size_t>();
+    std::iota(rawOffsets, rawOffsets + numRows, 0);
+
+    // Set sizes to 1.
+    BufferPtr sizes = allocateSizes(numRows, pool);
+    auto* rawSizes = sizes->asMutable<vector_size_t>();
+    std::fill(rawSizes, rawSizes + numRows, 1);
+
+    result = std::make_shared<ArrayVector>(
+        pool,
+        ARRAY(elements->type()),
+        nulls,
+        numRows,
+        offsets,
+        sizes,
+        BaseVector::loadedVectorShared(elements));
+  }
+
   void initializeNewGroups(
       char** groups,
       folly::Range<const vector_size_t*> indices) override {
@@ -107,11 +149,13 @@ class ArrayAggAggregate : public exec::Aggregate {
       auto group = groups[row];
       auto decodedRow = decodedIntermediate_.index(row);
       auto tracker = trackRowSize(group);
-      value<ArrayAccumulator>(group)->elements.appendRange(
-          elements,
-          arrayVector->offsetAt(decodedRow),
-          arrayVector->sizeAt(decodedRow),
-          allocator_);
+      if (!decodedIntermediate_.isNullAt(row)) {
+        value<ArrayAccumulator>(group)->elements.appendRange(
+            elements,
+            arrayVector->offsetAt(decodedRow),
+            arrayVector->sizeAt(decodedRow),
+            allocator_);
+      }
     });
   }
 
@@ -140,12 +184,14 @@ class ArrayAggAggregate : public exec::Aggregate {
     auto& values = value<ArrayAccumulator>(group)->elements;
     auto elements = arrayVector->elements();
     rows.applyToSelected([&](vector_size_t row) {
-      auto decodedRow = decodedIntermediate_.index(row);
-      values.appendRange(
-          elements,
-          arrayVector->offsetAt(decodedRow),
-          arrayVector->sizeAt(decodedRow),
-          allocator_);
+      if (!decodedIntermediate_.isNullAt(row)) {
+        auto decodedRow = decodedIntermediate_.index(row);
+        values.appendRange(
+            elements,
+            arrayVector->offsetAt(decodedRow),
+            arrayVector->sizeAt(decodedRow),
+            allocator_);
+      }
     });
   }
 
