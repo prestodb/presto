@@ -1,0 +1,203 @@
+---
+slug: array-sort
+title: array_sort lambda function
+authors: [mbasmanova]
+tags: [tech-blog,functions]
+---
+
+Presto provides an <a href="https://prestodb.io/docs/current/functions/array.html#array_sort">array_sort</a>
+function to sort arrays in ascending order with nulls placed at the end.
+
+```
+presto> select array_sort(array[2, 5, null, 1, -1]);
+        _col0
+---------------------
+ [-1, 1, 2, 5, null]
+```
+
+There is also an <a href="https://prestodb.io/docs/current/functions/array.html#array_sort_desc>">array_sort_desc</a>
+function that sorts arrays in descending order with nulls placed at the end.
+
+```
+presto> select array_sort_desc(array[2, 5, null, 1, -1]);
+        _col0
+---------------------
+ [5, 2, 1, -1, null]
+```
+
+Both array_sort and array_sort_desc place nulls at the end of the array.
+
+There is also a version of <a href="https://prestodb.io/docs/current/functions/array.html#id2">array_sort</a>
+function that takes a comparator lambda function and uses it to sort the array.
+
+```
+array_sort(array(T), function(T, T, int)) -> array(T)
+```
+
+A common use case is to sort an array of structs using one of the struct fields as the sorting key.
+
+```
+presto> select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)],
+        -> (x, y) -> if (x[2] < y[2], -1, if(x[2] > y[2], 1, 0)));
+
+                                         _col0
+---------------------------------------------------------------------------------------
+ [{f0=bananas, f1=12}, {f0=apples, f1=23}, {f0=grapes, f1=44}]
+```
+
+This is all very nice and convenient, but there is a catch.
+
+The documentation says that the "comparator will take two nullable arguments representing two
+nullable elements of the array."" Did you notice the word "nullable" in "nullable arguments"
+and "nullable elements"? Do you think it is important? It is Ok if the answer is No or Not Really.
+Turns out this "nullable" thing is very important. The comparator is expected to handle null
+inputs and should not assume that inputs are not null or that nulls are handled automatically.
+
+Why is it important to handle null inputs? Let’s see what happens if the comparator doesn’t
+handle nulls.
+
+```
+presto> select array_sort(array[2, 3, null, 1],
+                            (x, y) -> if (x < y, -1, if (x > y, 1, 0)));
+      _col0
+-----------------
+ [2, 3, null, 1]
+```
+
+The result array is not sorted! If subsequent logic relies on the array to be sorted the query
+will silently return wrong results. And if there is no logic that relies on the sortedness of
+the array then why waste CPU cycles on sorting?
+
+Why is the array not sorted? That’s because the comparator returns 0 whenever x or y is null.
+
+```
+	x < y  returns null if x or y is null, then
+	x > y  returns null if x or y is null, then
+	result is 0
+```
+
+This confuses the sorting algorithm as it sees that 1 == null, 2 == null, 3 == null,
+but 1 != 2 and 1 != 3. The algorithm assumes that the comparator function is written correctly,
+e.g. if a < b then b > a and if a == b and b == c then a == c. Comparator function that doesn’t
+handle nulls does not satisfy these rules and causes unpredictable results.
+
+To handle null inputs, the comparator function needs to be modified, for example, like so:
+
+```
+	(x, y) -> CASE WHEN x IS NULL THEN 1
+								WHEN y IS NULL THEN -1
+								WHEN x < y THEN -1
+								WHEN x > y THEN 1
+								ELSE 0 END
+```
+
+```
+presto> select array_sort(array[2, 3, null, 1],
+        -> (x, y) -> CASE WHEN x IS NULL THEN 1
+        -> WHEN y IS NULL THEN -1
+        -> WHEN x < y THEN -1
+        -> WHEN x > y THEN 1
+        -> ELSE 0 END
+        -> );
+      _col0
+-----------------
+ [1, 2, 3, null]
+```
+
+This is longer and harder to read, but the result array is sorted properly. The new
+comparator says that null is greater than any other value, so null is placed at the
+end of the array.
+
+Note: When (x, y) return -1, the algorithm assumes that x <= y.
+
+
+Writing comparators correctly is not easy. Writing comparators that handle null inputs
+is even harder. Having no feedback when a comparator is written incorrectly makes it
+yet harder to spot bugs and fix them before a query lands in production and starts
+producing wrong results.
+
+I feel that Presto’s array_sort function with a custom comparator is dangerous and hard
+to use and I wonder if it makes sense to replace it with a safer, easier to use alternative.
+
+```
+array_sort(array(T), function(T, U)) -> array(T)
+```
+
+This version takes an array and a transform lambda function that specifies how to compute
+sorting keys from the array elements.
+
+To sort array of structs by one of the struct fields, one would write
+
+```
+presto> select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)],
+                            x -> x[2])
+
+                                         _col0
+---------------------------------------------------------------------------------------
+ [{f0=bananas, f1=12}, {f0=apples, f1=23}, {f0=grapes, f1=44}]
+```
+
+This version would sort the array by the sorting keys computed using the specified lambda
+in ascending order placing nulls at the end of the array.
+
+A matching array_sort_desc function would sort in descending order placing nulls at the end
+of the array.
+
+These functions would be easier to write and read and null handling will happen automatically.
+
+We implemented these functions in <a href="https://facebookincubator.github.io/velox/functions/presto/array.html#id0">Velox</a>.
+
+
+We also added partial support for array_sort with a comparator lambda function. Expression
+compiler in Velox analyzes the comparator expression to determine whether it can be re-written
+to the alternative version of array_sort. If so, it re-writes the expression and evaluates it.
+Otherwise, it throws an unsupported exception.
+
+For example,
+
+```
+	array_sort(a, (x, y) -> if (x[2] < y[2], -1, if(x[2] > y[2], 1, 0)))
+```
+
+is re-written to
+
+```
+	array_sort(a, x -> x[2])
+```
+
+This rewrite allows Prestissimo and Presto-on-Spark-on-Velox to support common use cases
+and do so efficiently.
+
+The rewrite handles a few different ways to express the same comparator. Some examples:
+
+```
+    // becomes array_sort(a, f(x))
+	(x, y) -> if(f(x) < f(y), -1, if(f(x) > f(y), 1, 0))
+
+	// becomes array_sort_desc(a, f(x))
+	(x, y) -> if(f(x) < f(y), 1, if(f(x) > f(y), -1, 0))
+
+	// becomes array_sort(a, f(x))
+	(x, y) -> if(f(x) < f(y), -1, if(f(x) = f(y), 0, 1))
+
+	// becomes array_sort(a, f(x))
+	(x, y) -> if(f(x) = f(y), 0, if(f(x) < f(y), -1, 1))
+
+	// becomes array_sort(a, f(x))
+	(x, y) -> if(f(y) < f(x), 1, if(f(x) < f(y), -1, 0))
+```
+
+Why didn’t we implement full support for comparator lambda functions in array_sort? Actually,
+we couldn’t think of an efficient way to do that in a vectorized engine. Velox doesn’t use code
+generation and interprets expressions. It can do that efficiently if it can process data in large
+batches. array_sort with custom comparator doesn’t lend itself well to such processing.
+
+array_sort with a transform lambda works well in a vectorized engine. To process a batch of arrays,
+Velox first evaluates the transform lambda on all the elements of the arrays, then sorts the results.
+
+
+For further reading, consider the <a href="https://opensource.googleblog.com/2022/06/Vectorized%20and%20performance%20portable%20Quicksort.html">Vectorized and performance-portable Quicksort</a>
+blog post from Google.
+
+Thank you <a href="https://www.linkedin.com/in/orrierling">Orri Erling</a> for brainstorming
+and <a href="https://www.linkedin.com/in/xiaoxuanmeng">Xiaoxuan Meng</a> for reviewing the code.
