@@ -16,7 +16,7 @@
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsFileSystem.h"
 #include <boost/format.hpp>
 #include <connectors/hive/storage_adapters/hdfs/HdfsReadFile.h>
-#include <connectors/hive/storage_adapters/hdfs/HdfsWriteFile.h>
+#include <connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h>
 #include <gmock/gmock-matchers.h>
 #include <hdfs/hdfs.h>
 #include <atomic>
@@ -24,8 +24,6 @@
 #include "HdfsMiniCluster.h"
 #include "gtest/gtest.h"
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/common/file/File.h"
-#include "velox/common/file/FileSystems.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
 
@@ -56,7 +54,6 @@ class HdfsFileSystemTest : public testing::Test {
     if (!miniCluster->isRunning()) {
       miniCluster->start();
     }
-    filesystems::registerHdfsFileSystem();
   }
 
   static void TearDownTestSuite() {
@@ -179,7 +176,6 @@ TEST_F(HdfsFileSystemTest, read) {
 }
 
 TEST_F(HdfsFileSystemTest, viaFileSystem) {
-  filesystems::registerHdfsFileSystem();
   auto memConfig = std::make_shared<const core::MemConfig>(configurationValues);
   auto hdfsFileSystem =
       filesystems::getFileSystem(fullDestinationPath, memConfig);
@@ -188,7 +184,6 @@ TEST_F(HdfsFileSystemTest, viaFileSystem) {
 }
 
 TEST_F(HdfsFileSystemTest, initializeFsWithEndpointInfoInFilePath) {
-  filesystems::registerHdfsFileSystem();
   // Without host/port configured.
   auto memConfig = std::make_shared<const core::MemConfig>();
   auto hdfsFileSystem =
@@ -205,7 +200,6 @@ TEST_F(HdfsFileSystemTest, initializeFsWithEndpointInfoInFilePath) {
 }
 
 TEST_F(HdfsFileSystemTest, fallbackToUseConfig) {
-  filesystems::registerHdfsFileSystem();
   auto memConfig = std::make_shared<const core::MemConfig>(configurationValues);
   auto hdfsFileSystem =
       filesystems::getFileSystem(simpleDestinationPath, memConfig);
@@ -214,7 +208,6 @@ TEST_F(HdfsFileSystemTest, fallbackToUseConfig) {
 }
 
 TEST_F(HdfsFileSystemTest, oneFsInstanceForOneEndpoint) {
-  filesystems::registerHdfsFileSystem();
   auto hdfsFileSystem1 =
       filesystems::getFileSystem(fullDestinationPath, nullptr);
   auto hdfsFileSystem2 =
@@ -224,7 +217,6 @@ TEST_F(HdfsFileSystemTest, oneFsInstanceForOneEndpoint) {
 
 TEST_F(HdfsFileSystemTest, missingFileViaFileSystem) {
   try {
-    filesystems::registerHdfsFileSystem();
     auto memConfig =
         std::make_shared<const core::MemConfig>(configurationValues);
     auto hdfsFileSystem =
@@ -242,7 +234,6 @@ TEST_F(HdfsFileSystemTest, missingFileViaFileSystem) {
 
 TEST_F(HdfsFileSystemTest, missingHost) {
   try {
-    filesystems::registerHdfsFileSystem();
     std::unordered_map<std::string, std::string> missingHostConfiguration(
         {{"hive.hdfs.port", hdfsPort}});
     auto memConfig =
@@ -262,7 +253,6 @@ TEST_F(HdfsFileSystemTest, missingHost) {
 
 TEST_F(HdfsFileSystemTest, missingPort) {
   try {
-    filesystems::registerHdfsFileSystem();
     std::unordered_map<std::string, std::string> missingPortConfiguration(
         {{"hive.hdfs.host", localhost}});
     auto memConfig =
@@ -314,7 +304,6 @@ TEST_F(HdfsFileSystemTest, schemeMatching) {
 
 TEST_F(HdfsFileSystemTest, writeNotSupported) {
   try {
-    filesystems::registerHdfsFileSystem();
     auto memConfig =
         std::make_shared<const core::MemConfig>(configurationValues);
     auto hdfsFileSystem =
@@ -327,7 +316,6 @@ TEST_F(HdfsFileSystemTest, writeNotSupported) {
 
 TEST_F(HdfsFileSystemTest, removeNotSupported) {
   try {
-    filesystems::registerHdfsFileSystem();
     auto memConfig =
         std::make_shared<const core::MemConfig>(configurationValues);
     auto hdfsFileSystem =
@@ -371,7 +359,6 @@ TEST_F(HdfsFileSystemTest, multipleThreadsWithReadFile) {
 
 TEST_F(HdfsFileSystemTest, multipleThreadsWithFileSystem) {
   startThreads = false;
-  filesystems::registerHdfsFileSystem();
   auto memConfig = std::make_shared<const core::MemConfig>(configurationValues);
   auto hdfsFileSystem =
       filesystems::getFileSystem(fullDestinationPath, memConfig);

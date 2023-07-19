@@ -33,7 +33,9 @@ target_link_libraries(
   velox_dwio_parquet_writer
   velox_file
   velox_hive_partition_function
-  velox_s3fs)
+  velox_s3fs
+  velox_hdfs
+  velox_gcs)
 
 add_library(velox_hive_partition_function HivePartitionFunction.cpp)
 

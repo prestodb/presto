@@ -16,15 +16,12 @@
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsFileSystem.h"
 #include <hdfs/hdfs.h>
 #include <mutex>
-#include "folly/concurrency/ConcurrentHashMap.h"
-#include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsReadFile.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsWriteFile.h"
 #include "velox/core/Config.h"
 
 namespace facebook::velox::filesystems {
 std::string_view HdfsFileSystem::kScheme("hdfs://");
-std::mutex mtx;
 
 class HdfsFileSystem::Impl {
  public:
@@ -126,50 +123,8 @@ HdfsServiceEndpoint HdfsFileSystem::getServiceEndpoint(
   return HdfsServiceEndpoint{host, port};
 }
 
-static std::function<std::shared_ptr<FileSystem>(
-    std::shared_ptr<const Config>,
-    std::string_view)>
-    filesystemGenerator = [](std::shared_ptr<const Config> properties,
-                             std::string_view filePath) {
-      static folly::ConcurrentHashMap<std::string, std::shared_ptr<FileSystem>>
-          filesystems;
-      static folly::
-          ConcurrentHashMap<std::string, std::shared_ptr<folly::once_flag>>
-              hdfsInitiationFlags;
-      HdfsServiceEndpoint endpoint =
-          HdfsFileSystem::getServiceEndpoint(filePath, properties.get());
-      std::string hdfsIdentity = endpoint.identity();
-      if (filesystems.find(hdfsIdentity) != filesystems.end()) {
-        return filesystems[hdfsIdentity];
-      }
-      std::unique_lock<std::mutex> lk(mtx, std::defer_lock);
-      /// If the init flag for a given hdfs identity is not found,
-      /// create one for init use. It's a singleton.
-      if (hdfsInitiationFlags.find(hdfsIdentity) == hdfsInitiationFlags.end()) {
-        lk.lock();
-        if (hdfsInitiationFlags.find(hdfsIdentity) ==
-            hdfsInitiationFlags.end()) {
-          std::shared_ptr<folly::once_flag> initiationFlagPtr =
-              std::make_shared<folly::once_flag>();
-          hdfsInitiationFlags.insert(hdfsIdentity, initiationFlagPtr);
-        }
-        lk.unlock();
-      }
-      folly::call_once(
-          *hdfsInitiationFlags[hdfsIdentity].get(),
-          [&properties, endpoint, hdfsIdentity]() {
-            auto filesystem =
-                std::make_shared<HdfsFileSystem>(properties, endpoint);
-            filesystems.insert(hdfsIdentity, filesystem);
-          });
-      return filesystems[hdfsIdentity];
-    };
-
 void HdfsFileSystem::remove(std::string_view path) {
   VELOX_UNSUPPORTED("Does not support removing files from hdfs");
 }
 
-void registerHdfsFileSystem() {
-  registerFileSystem(HdfsFileSystem::isHdfsFile, filesystemGenerator);
-}
 } // namespace facebook::velox::filesystems

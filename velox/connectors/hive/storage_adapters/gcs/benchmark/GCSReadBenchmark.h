@@ -30,7 +30,6 @@ class GCSReadBenchmark : public ReadBenchmark {
     executor_ =
         std::make_unique<folly::IOThreadPoolExecutor>(FLAGS_num_threads);
 
-    filesystems::registerGCSFileSystem();
     std::shared_ptr<Config> config;
     if (!FLAGS_gcs_config.empty()) {
       config = readConfig(FLAGS_gcs_config);

@@ -13,10 +13,5 @@
 # limitations under the License.
 
 add_subdirectory(s3fs)
-
-if(VELOX_ENABLE_HDFS)
-  add_subdirectory(hdfs)
-endif()
-if(VELOX_ENABLE_GCS)
-  add_subdirectory(gcs)
-endif()
+add_subdirectory(hdfs)
+add_subdirectory(gcs)

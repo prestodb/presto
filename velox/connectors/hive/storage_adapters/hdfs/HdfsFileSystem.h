@@ -98,6 +98,4 @@ class HdfsFileSystem : public FileSystem {
   std::shared_ptr<Impl> impl_;
 };
 
-// Register the HDFS.
-void registerHdfsFileSystem();
 } // namespace facebook::velox::filesystems

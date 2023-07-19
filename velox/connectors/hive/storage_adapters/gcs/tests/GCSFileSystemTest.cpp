@@ -112,7 +112,6 @@ class GCSFileSystemTest : public testing::Test {
     if (testbench_ == nullptr) {
       testbench_ = std::make_shared<GcsTestbench>();
     }
-    filesystems::registerGCSFileSystem();
 
     ASSERT_THAT(testbench_, ::testing::NotNull());
     ASSERT_THAT(testbench_->error(), ::testing::IsEmpty());

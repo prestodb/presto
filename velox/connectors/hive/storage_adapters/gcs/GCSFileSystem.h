@@ -71,7 +71,4 @@ class GCSFileSystem : public FileSystem {
   std::shared_ptr<Impl> impl_;
 };
 
-// Register the GCS filesystem.
-void registerGCSFileSystem();
-
 } // namespace facebook::velox::filesystems

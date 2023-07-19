@@ -329,34 +329,5 @@ void GCSFileSystem::rmdir(std::string_view path) {
   VELOX_UNSUPPORTED("rmdir for GCS not implemented");
 }
 
-folly::once_flag GCSInstantiationFlag;
-static std::function<std::shared_ptr<FileSystem>(
-    std::shared_ptr<const Config>,
-    std::string_view)>
-    filesystemGenerator = [](std::shared_ptr<const Config> properties,
-                             std::string_view filePath) {
-      // Only one instance of GCSFileSystem is supported for now (follow S3 for
-      // now).
-      // TODO: Support multiple GCSFileSystem instances using a cache
-      // Initialize on first access and reuse after that.
-      static std::shared_ptr<FileSystem> gcsfs;
-      folly::call_once(GCSInstantiationFlag, [&properties]() {
-        std::shared_ptr<GCSFileSystem> fs;
-        if (properties != nullptr) {
-          fs = std::make_shared<GCSFileSystem>(properties);
-        } else {
-          fs = std::make_shared<GCSFileSystem>(
-              std::make_shared<core::MemConfig>());
-        }
-        fs->initializeClient();
-        gcsfs = fs;
-      });
-      return gcsfs;
-    };
-
-void registerGCSFileSystem() {
-  registerFileSystem(isGCSFile, filesystemGenerator);
-}
-
 }; // namespace filesystems
 }; // namespace facebook::velox

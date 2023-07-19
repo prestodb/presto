@@ -19,6 +19,12 @@
 #include "velox/common/base/Fs.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
 // Meta's buck build system needs this check.
+#ifdef VELOX_ENABLE_GCS
+#include "velox/connectors/hive/storage_adapters/gcs/RegisterGCSFileSystem.h" // @manual
+#endif
+#ifdef VELOX_ENABLE_HDFS3
+#include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h" // @manual
+#endif
 #ifdef VELOX_ENABLE_S3
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h" // @manual
 #endif
@@ -89,6 +95,12 @@ void HiveConnectorFactory::initialize() {
 // Meta's buck build system needs this check.
 #ifdef VELOX_ENABLE_S3
     filesystems::registerS3FileSystem();
+#endif
+#ifdef VELOX_ENABLE_HDFS3
+    filesystems::registerHdfsFileSystem();
+#endif
+#ifdef VELOX_ENABLE_GCS
+    filesystems::registerGCSFileSystem();
 #endif
     return true;
   }();

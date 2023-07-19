@@ -38,7 +38,6 @@ int main(int argc, char** argv) {
     gflags::ShowUsageWithFlags(argv[0]);
     return 1;
   }
-  filesystems::registerGCSFileSystem();
   filesystems::GCSFileSystem gcfs(newConfiguration());
   gcfs.initializeClient();
   std::cout << "Opening file " << FLAGS_gcs_path << std::endl;
