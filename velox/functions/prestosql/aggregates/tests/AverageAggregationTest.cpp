@@ -534,5 +534,82 @@ TEST_F(AverageAggregationTest, constantVectorOverflow) {
   assertQuery(plan, "SELECT 1073741824");
 }
 
+TEST_F(AverageAggregationTest, companionFunctionsWithNonFlatAndLazyInputs) {
+  auto testFunction = [this](const std::string& functionName) {
+    auto indices = makeIndices({0, 1, 2, 3, 4});
+    VectorPtr row = makeRowVector(
+        {BaseVector::wrapInDictionary(
+             nullptr,
+             indices,
+             5,
+             makeFlatVector<double>({1.0, 2.0, 3.0, 4.0, 5.0})),
+         makeFlatVector<int64_t>({1, 1, 1, 1, 1})});
+    // rowInDict is a Dictionary(Row(Dictionary(Flat), Flat)) vector.
+    auto rowInDict = BaseVector::wrapInDictionary(nullptr, indices, 5, row);
+
+    auto sumVector = std::make_shared<LazyVector>(
+        pool(),
+        DOUBLE(),
+        5,
+        std::make_unique<velox::test::SimpleVectorLoader>([&](auto /*rows*/) {
+          return makeFlatVector<double>({1.0, 2.0, 3.0, 4.0, 5.0});
+        }));
+    // row2 is a Row(Lazy(Flat), Constant(Flat)) vector.
+    VectorPtr row2 = makeRowVector({
+        sumVector,
+        BaseVector::wrapInDictionary(
+            nullptr,
+            indices,
+            5,
+            BaseVector::wrapInConstant(5, 0, makeFlatVector<int64_t>({1, 2}))),
+    });
+    auto key = makeFlatVector<bool>({true, false, true, false, true});
+    auto input = makeRowVector({key, rowInDict, row2});
+
+    // Test non-global aggregations.
+    auto expected = makeRowVector(
+        {makeFlatVector<bool>({false, true}),
+         makeFlatVector<double>({3.0, 3.0}),
+         makeFlatVector<double>({3.0, 3.0})});
+    testAggregations(
+        {input},
+        {"c0"},
+        {fmt::format("{}_merge_extract_double(c1)", functionName),
+         fmt::format("{}_merge_extract_double(c2)", functionName)},
+        {expected});
+    testAggregations(
+        {input},
+        {"c0"},
+        {fmt::format("{}_merge(c1)", functionName),
+         fmt::format("{}_merge(c2)", functionName)},
+        {"c0",
+         fmt::format("{}_extract_double(a0)", functionName),
+         fmt::format("{}_extract_double(a1)", functionName)},
+        {expected});
+
+    // Test global aggregations.
+    expected = makeRowVector(
+        {makeFlatVector<double>(std::vector<double>{3.0}),
+         makeFlatVector<double>(std::vector<double>{3.0})});
+    testAggregations(
+        {input},
+        {},
+        {fmt::format("{}_merge_extract_double(c1)", functionName),
+         fmt::format("{}_merge_extract_double(c2)", functionName)},
+        {expected});
+    testAggregations(
+        {input},
+        {},
+        {fmt::format("{}_merge(c1)", functionName),
+         fmt::format("{}_merge(c2)", functionName)},
+        {fmt::format("{}_extract_double(a0)", functionName),
+         fmt::format("{}_extract_double(a1)", functionName)},
+        {expected});
+  };
+
+  testFunction("avg");
+  testFunction("simple_avg");
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

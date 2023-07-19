@@ -26,6 +26,42 @@ namespace facebook::velox::aggregate::prestosql {
 
 namespace {
 
+// Translate selected rows of decoded to the corresponding rows of its base
+// vector.
+SelectivityVector translateToInnerRows(
+    const DecodedVector& decoded,
+    const SelectivityVector& rows) {
+  VELOX_DCHECK(!decoded.isIdentityMapping());
+  if (decoded.isConstantMapping()) {
+    auto constantIndex = decoded.index(rows.begin());
+    SelectivityVector baseRows{constantIndex + 1, false};
+    baseRows.setValid(constantIndex, true);
+    baseRows.updateBounds();
+    return baseRows;
+  } else {
+    SelectivityVector baseRows{decoded.base()->size(), false};
+    rows.applyToSelected(
+        [&](auto row) { baseRows.setValid(decoded.index(row), true); });
+    baseRows.updateBounds();
+    return baseRows;
+  }
+}
+
+// Return the selected rows of the base vector of decoded corresponding to rows.
+// If decoded is not identify mapping, baseRowsHolder contains the selected base
+// rows. Otherwise, baseRowsHolder is unset.
+const SelectivityVector* getBaseRows(
+    const DecodedVector& decoded,
+    const SelectivityVector& rows,
+    SelectivityVector& baseRowsHolder) {
+  const SelectivityVector* baseRows = &rows;
+  if (!decoded.isIdentityMapping() && rows.hasSelections()) {
+    baseRowsHolder = translateToInnerRows(decoded, rows);
+    baseRows = &baseRowsHolder;
+  }
+  return baseRows;
+}
+
 template <typename TSum>
 struct SumCount {
   TSum sum{0};
@@ -219,21 +255,23 @@ class AverageAggregate : public exec::Aggregate {
       char** groups,
       const SelectivityVector& rows) {
     auto baseRowVector = decodedPartial_.base()->template as<RowVector>();
-    auto baseSumVector =
-        baseRowVector->childAt(0)->template as<SimpleVector<TAccumulator>>();
-    auto baseCountVector =
-        baseRowVector->childAt(1)->template as<SimpleVector<int64_t>>();
+
+    SelectivityVector baseRowsHolder;
+    auto* baseRows = getBaseRows(decodedPartial_, rows, baseRowsHolder);
+
+    DecodedVector baseSumDecoded{*baseRowVector->childAt(0), *baseRows};
+    DecodedVector baseCountDecoded{*baseRowVector->childAt(1), *baseRows};
 
     if (decodedPartial_.isConstantMapping()) {
       if (!decodedPartial_.isNullAt(0)) {
         auto decodedIndex = decodedPartial_.index(0);
         if constexpr (checkNullFields) {
           VELOX_USER_CHECK(
-              !baseSumVector->isNullAt(decodedIndex) &&
-              !baseCountVector->isNullAt(decodedIndex));
+              !baseSumDecoded.isNullAt(decodedIndex) &&
+              !baseCountDecoded.isNullAt(decodedIndex));
         }
-        auto count = baseCountVector->valueAt(decodedIndex);
-        auto sum = baseSumVector->valueAt(decodedIndex);
+        auto count = baseCountDecoded.template valueAt<int64_t>(decodedIndex);
+        auto sum = baseSumDecoded.template valueAt<TAccumulator>(decodedIndex);
         rows.applyToSelected([&](vector_size_t i) {
           updateNonNullValue(groups[i], count, sum);
         });
@@ -246,26 +284,26 @@ class AverageAggregate : public exec::Aggregate {
         auto decodedIndex = decodedPartial_.index(i);
         if constexpr (checkNullFields) {
           VELOX_USER_CHECK(
-              !baseSumVector->isNullAt(decodedIndex) &&
-              !baseCountVector->isNullAt(decodedIndex));
+              !baseSumDecoded.isNullAt(decodedIndex) &&
+              !baseCountDecoded.isNullAt(decodedIndex));
         }
         updateNonNullValue(
             groups[i],
-            baseCountVector->valueAt(decodedIndex),
-            baseSumVector->valueAt(decodedIndex));
+            baseCountDecoded.template valueAt<int64_t>(decodedIndex),
+            baseSumDecoded.template valueAt<TAccumulator>(decodedIndex));
       });
     } else {
       rows.applyToSelected([&](vector_size_t i) {
         auto decodedIndex = decodedPartial_.index(i);
         if constexpr (checkNullFields) {
           VELOX_USER_CHECK(
-              !baseSumVector->isNullAt(decodedIndex) &&
-              !baseCountVector->isNullAt(decodedIndex));
+              !baseSumDecoded.isNullAt(decodedIndex) &&
+              !baseCountDecoded.isNullAt(decodedIndex));
         }
         updateNonNullValue(
             groups[i],
-            baseCountVector->valueAt(decodedIndex),
-            baseSumVector->valueAt(decodedIndex));
+            baseCountDecoded.template valueAt<int64_t>(decodedIndex),
+            baseSumDecoded.template valueAt<TAccumulator>(decodedIndex));
       });
     }
   }
@@ -275,22 +313,27 @@ class AverageAggregate : public exec::Aggregate {
       char* group,
       const SelectivityVector& rows) {
     auto baseRowVector = decodedPartial_.base()->template as<RowVector>();
-    auto baseSumVector =
-        baseRowVector->childAt(0)->template as<SimpleVector<TAccumulator>>();
-    auto baseCountVector =
-        baseRowVector->childAt(1)->template as<SimpleVector<int64_t>>();
+
+    SelectivityVector baseRowsHolder;
+    auto* baseRows = getBaseRows(decodedPartial_, rows, baseRowsHolder);
+
+    DecodedVector baseSumDecoded{*baseRowVector->childAt(0), *baseRows};
+    DecodedVector baseCountDecoded{*baseRowVector->childAt(1), *baseRows};
 
     if (decodedPartial_.isConstantMapping()) {
       if (!decodedPartial_.isNullAt(0)) {
         auto decodedIndex = decodedPartial_.index(0);
         if constexpr (checkNullFields) {
           VELOX_USER_CHECK(
-              !baseSumVector->isNullAt(decodedIndex) &&
-              !baseCountVector->isNullAt(decodedIndex));
+              !baseSumDecoded.isNullAt(decodedIndex) &&
+              !baseCountDecoded.isNullAt(decodedIndex));
         }
         const auto numRows = rows.countSelected();
-        auto totalCount = baseCountVector->valueAt(decodedIndex) * numRows;
-        auto totalSum = baseSumVector->valueAt(decodedIndex) * numRows;
+        auto totalCount =
+            baseCountDecoded.template valueAt<int64_t>(decodedIndex) * numRows;
+        auto totalSum =
+            baseSumDecoded.template valueAt<TAccumulator>(decodedIndex) *
+            numRows;
         updateNonNullValue(group, totalCount, totalSum);
       }
     } else if (decodedPartial_.mayHaveNulls()) {
@@ -299,13 +342,13 @@ class AverageAggregate : public exec::Aggregate {
           auto decodedIndex = decodedPartial_.index(i);
           if constexpr (checkNullFields) {
             VELOX_USER_CHECK(
-                !baseSumVector->isNullAt(decodedIndex) &&
-                !baseCountVector->isNullAt(decodedIndex));
+                !baseSumDecoded.isNullAt(decodedIndex) &&
+                !baseCountDecoded.isNullAt(decodedIndex));
           }
           updateNonNullValue(
               group,
-              baseCountVector->valueAt(decodedIndex),
-              baseSumVector->valueAt(decodedIndex));
+              baseCountDecoded.template valueAt<int64_t>(decodedIndex),
+              baseSumDecoded.template valueAt<TAccumulator>(decodedIndex));
         }
       });
     } else {
@@ -315,11 +358,11 @@ class AverageAggregate : public exec::Aggregate {
         auto decodedIndex = decodedPartial_.index(i);
         if constexpr (checkNullFields) {
           VELOX_USER_CHECK(
-              !baseSumVector->isNullAt(decodedIndex) &&
-              !baseCountVector->isNullAt(decodedIndex));
+              !baseSumDecoded.isNullAt(decodedIndex) &&
+              !baseCountDecoded.isNullAt(decodedIndex));
         }
-        totalCount += baseCountVector->valueAt(decodedIndex);
-        totalSum += baseSumVector->valueAt(decodedIndex);
+        totalCount += baseCountDecoded.template valueAt<int64_t>(decodedIndex);
+        totalSum += baseSumDecoded.template valueAt<TAccumulator>(decodedIndex);
       });
       updateNonNullValue(group, totalCount, totalSum);
     }
