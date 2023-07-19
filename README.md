@@ -66,6 +66,8 @@ found here](velox/examples)
 Developer guides detailing many aspects of the library, in addition to the list
 of available functions [can be found here.](https://facebookincubator.github.io/velox)
 
+Blog posts are available [here](https://velox-lib.io/blog).
+
 ## Getting Started
 
 We provide scripts to help developers setup and install Velox dependencies.
