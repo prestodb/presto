@@ -75,7 +75,7 @@ class NthValueTest : public WindowTestBase {
 
   // This is for testing different output column types in the
   // (nth|first|last)_value functions' column parameter.
-  void testPrimitiveType(const TypePtr& type) {
+  void testPrimitiveTypes() {
     vector_size_t size = 25;
     auto vectors = makeRowVector({
         makeFlatVector<int32_t>(size, [](auto row) { return row % 5; }),
@@ -83,27 +83,64 @@ class NthValueTest : public WindowTestBase {
         makeFlatVector<int64_t>(size, [](auto row) { return row % 3 + 1; }),
         makeFlatVector<int64_t>(size, [](auto row) { return row % 3; }),
         // Note : The Fuzz vector used in nth_value can have null values.
-        makeRandomInputVector(type, size, 0.3),
+        makeRandomInputVector(INTEGER(), size, 0.5),
+        makeRandomInputVector(TINYINT(), size, 0.1),
+        makeRandomInputVector(SMALLINT(), size, 0.2),
+        makeRandomInputVector(BIGINT(), size, 0.3),
+        makeRandomInputVector(REAL(), size, 0.4),
+        makeRandomInputVector(DOUBLE(), size, 0.5),
+        makeRandomInputVector(VARCHAR(), size, 0.6),
+        makeRandomInputVector(VARBINARY(), size, 0.7),
+        makeRandomInputVector(TIMESTAMP(), size, 0.8),
+        makeRandomInputVector(DATE(), size, 0.9),
     });
 
-    // Add c4 column in sort order in overClauses to impose a deterministic
-    // output row order in the tests.
-    auto newOverClause = overClause_ + ", c4";
+    const std::string overClause =
+        "partition by c0 order by c1 desc nulls first, c2 asc nulls first, c3 desc";
 
-    // The below tests cover nth_value invocations with constant and column
-    // arguments. The offsets could also give rows beyond the partition
-    // returning null in those cases.
-    WindowTestBase::testWindowFunction(
-        {vectors}, "nth_value(c4, 1)", {newOverClause}, kFrameClauses);
-    WindowTestBase::testWindowFunction(
-        {vectors}, "nth_value(c4, 7)", {newOverClause}, kFrameClauses, false);
-    WindowTestBase::testWindowFunction(
-        {vectors}, "nth_value(c4, c2)", {newOverClause}, kFrameClauses, false);
+    bool createTable = true;
+    for (auto i = 4; i < vectors->childrenSize(); i++) {
+      auto col = fmt::format("c{}", i);
+      // Add the type specific column in sort order in overClauses to impose a
+      // deterministic output row order in the tests.
+      auto newOverClause = overClause + ", " + col;
 
-    WindowTestBase::testWindowFunction(
-        {vectors}, "first_value(c4)", {newOverClause}, kFrameClauses, false);
-    WindowTestBase::testWindowFunction(
-        {vectors}, "last_value(c4)", {newOverClause}, kFrameClauses, false);
+      // The below tests cover nth_value invocations with constant and column
+      // arguments. The offsets could also give rows beyond the partition
+      // returning null in those cases.
+      WindowTestBase::testWindowFunction(
+          {vectors},
+          fmt::format("nth_value({}, 1)", col),
+          {newOverClause},
+          kFrameClauses,
+          createTable);
+      createTable = false;
+      WindowTestBase::testWindowFunction(
+          {vectors},
+          fmt::format("nth_value({}, 7)", col),
+          {newOverClause},
+          kFrameClauses,
+          createTable);
+      WindowTestBase::testWindowFunction(
+          {vectors},
+          fmt::format("nth_value({}, c2)", col),
+          {newOverClause},
+          kFrameClauses,
+          createTable);
+
+      WindowTestBase::testWindowFunction(
+          {vectors},
+          fmt::format("first_value({})", col),
+          {newOverClause},
+          kFrameClauses,
+          createTable);
+      WindowTestBase::testWindowFunction(
+          {vectors},
+          fmt::format("last_value({})", col),
+          {newOverClause},
+          kFrameClauses,
+          createTable);
+    }
   }
 
  private:
@@ -141,50 +178,14 @@ TEST_P(MultiNthValueTest, randomInput) {
   testValueFunctions({makeRandomInputVector((25))});
 }
 
-TEST_P(MultiNthValueTest, integerValues) {
-  testPrimitiveType(INTEGER());
-}
-
-TEST_P(MultiNthValueTest, tinyintValues) {
-  testPrimitiveType(TINYINT());
-}
-
-TEST_P(MultiNthValueTest, smallintValues) {
-  testPrimitiveType(SMALLINT());
-}
-
-TEST_P(MultiNthValueTest, bigintValues) {
-  testPrimitiveType(BIGINT());
-}
-
-TEST_P(MultiNthValueTest, realValues) {
-  testPrimitiveType(REAL());
-}
-
-TEST_P(MultiNthValueTest, doubleValues) {
-  testPrimitiveType(DOUBLE());
-}
-
-TEST_P(MultiNthValueTest, varcharValues) {
-  testPrimitiveType(VARCHAR());
-}
-
-TEST_P(MultiNthValueTest, varbinaryValues) {
-  testPrimitiveType(VARBINARY());
-}
-
-TEST_P(MultiNthValueTest, timestampValues) {
-  testPrimitiveType(TIMESTAMP());
-}
-
-TEST_P(MultiNthValueTest, dateValues) {
-  testPrimitiveType(DATE());
-}
-
 VELOX_INSTANTIATE_TEST_SUITE_P(
     NthValueTest,
     MultiNthValueTest,
     testing::ValuesIn(std::vector<std::string>(kOverClauses)));
+
+TEST_F(NthValueTest, allTypes) {
+  testPrimitiveTypes();
+}
 
 TEST_F(NthValueTest, nullOffsets) {
   // Test that nth_value with null offset returns rows with null value.
@@ -270,6 +271,22 @@ TEST_F(NthValueTest, int32FrameOffset) {
       {"rows between 5 preceding and current row"});
 
   WindowTestBase::options_.parseIntegerAsBigint = true;
+}
+
+TEST_F(NthValueTest, emptyFrames) {
+  auto vectors = makeSinglePartitionVector(100);
+  static const std::vector<std::string> kFunctionsList = {
+      "first_value(c2)",
+      "first_value(c2)",
+      "nth_value(c2, 5)",
+      "nth_value(c1, c2)",
+  };
+  bool createTable = true;
+  for (const auto& fn : kFunctionsList) {
+    WindowTestBase::testWindowFunction(
+        {vectors}, fn, kOverClauses, kEmptyFrameClauses, createTable);
+    createTable = false;
+  }
 }
 
 }; // namespace

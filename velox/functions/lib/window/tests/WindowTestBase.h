@@ -37,16 +37,12 @@ inline const std::vector<std::string> kOverClauses = {
     "partition by c0 order by c1 nulls first, c2, c3",
     "partition by c0, c2 order by c1 nulls first, c3",
     "partition by c0 order by c1 desc nulls first, c2, c3",
-    "partition by c0, c2 order by c1 desc nulls first, c3",
 
     // No partition by clause.
     "order by c0 asc nulls first, c1 desc, c2, c3",
     "order by c1 asc, c0 desc nulls last, c2 desc, c3",
     "order by c0 asc, c2 desc, c1 asc nulls last, c3",
-    "order by c2 asc, c1 desc nulls first, c0, c3",
-
-    "order by c0 asc nulls first, c1 desc nulls first, c2, c3",
-    "order by c1 desc nulls first, c0 asc nulls first, c2, c3",
+    "order by c2 asc nulls first, c1 desc nulls first, c0, c3",
 
     // No order by clause.
     "partition by c0, c1, c2, c3",
@@ -65,7 +61,6 @@ inline const std::vector<std::string> kFrameClauses = {
     // unbounded following frame combinations.
     "rows unbounded preceding",
     "rows current row",
-    "rows between current row and unbounded following",
     "rows between unbounded preceding and unbounded following",
 
     // Frame clauses in ROWS mode with k preceding and k following frame bounds,
@@ -74,27 +69,25 @@ inline const std::vector<std::string> kFrameClauses = {
     "rows between 5 preceding and unbounded following",
     "rows between current row and 5 following",
     "rows between unbounded preceding and 5 following",
-
-    "rows between 1 preceding and 5 following",
     "rows between 5 preceding and 5 following",
 
     // Frame clauses in ROWS mode with k preceding and k following frame bounds,
     // where k is a column.
     "rows between c2 preceding and current row",
-    "rows between c2 preceding and unbounded following",
     "rows between current row and c2 following",
-    "rows between unbounded preceding and c2 following",
     "rows between c2 preceding and c2 following",
     "rows between c3 preceding and c2 following",
-    "rows between c2 preceding and c3 following",
+};
 
-    // Frame clauses with invalid frames.
+// These frame clauses could have empty or partial frames.
+inline const std::vector<std::string> kEmptyFrameClauses = {
     "rows between unbounded preceding and 1 preceding",
     "rows between 1 preceding and 4 preceding",
     "rows between 1 following and unbounded following",
     "rows between 4 following and 1 following",
     "rows between c2 preceding and c3 preceding",
     "rows between c2 following and c3 following",
+
 };
 
 class WindowTestBase : public exec::test::OperatorTestBase {

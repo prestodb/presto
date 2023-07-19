@@ -52,8 +52,14 @@ class AggregateWindowTestBase : public WindowTestBase {
   }
 
   void testWindowFunction(const std::vector<RowVectorPtr>& vectors) {
+    testWindowFunction(vectors, kFrameClauses);
+  }
+
+  void testWindowFunction(
+      const std::vector<RowVectorPtr>& vectors,
+      const std::vector<std::string>& frameClauses) {
     WindowTestBase::testWindowFunction(
-        vectors, function_, {overClause_}, kFrameClauses);
+        vectors, function_, {overClause_}, frameClauses);
   }
 
   const std::string function_;
@@ -85,8 +91,9 @@ TEST_P(SimpleAggregatesTest, basic) {
 // Tests function with a dataset with a single partition but 2 input row
 // vectors.
 TEST_P(SimpleAggregatesTest, singlePartition) {
-  testWindowFunction(
-      {makeSinglePartitionVector(50), makeSinglePartitionVector(40)});
+  auto input = {makeSinglePartitionVector(50), makeSinglePartitionVector(40)};
+  testWindowFunction(input);
+  testWindowFunction(input, kEmptyFrameClauses);
 }
 
 // Tests function with a dataset where all partitions have a single row.
