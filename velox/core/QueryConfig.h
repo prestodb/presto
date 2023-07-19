@@ -398,7 +398,7 @@ class QueryConfig {
   }
 
   uint32_t taskWriterCount() const {
-    return get<uint32_t>(kTaskWriterCount, 1);
+    return get<uint32_t>(kTaskWriterCount, 4);
   }
 
   uint32_t taskPartitionedWriterCount() const {

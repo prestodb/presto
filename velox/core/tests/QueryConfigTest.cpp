@@ -103,9 +103,9 @@ TEST(TestQueryConfig, taskWriterCountConfig) {
           expectedPartitionedWriterCounter);
     }
   } testSettings[] = {
-      {std::nullopt, std::nullopt, 1, 1},
-      {std::nullopt, 4, 1, 4},
-      {std::nullopt, 6, 1, 6},
+      {std::nullopt, std::nullopt, 4, 4},
+      {std::nullopt, 1, 4, 1},
+      {std::nullopt, 6, 4, 6},
       {2, 4, 2, 4},
       {4, 2, 4, 2},
       {4, 6, 4, 6},
