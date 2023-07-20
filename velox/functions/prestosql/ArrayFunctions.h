@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/expression/ComplexViewTypes.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/CheckedArithmetic.h"
 #include "velox/type/Conversions.h"
@@ -639,4 +640,92 @@ struct ArrayFlattenFunction {
     }
   }
 };
+
+/// This class implements the array union function.
+///
+/// DEFINITION:
+/// array_union(x, y) → array
+/// Returns an array of the elements in the union of x and y, without
+/// duplicates.
+template <typename T>
+struct ArrayUnionFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T)
+
+  // Fast path for primitives.
+  template <typename Out, typename In>
+  void call(Out& out, const In& inputArray1, const In& inputArray2) {
+    folly::F14FastSet<typename In::element_t> elementSet;
+    bool nullAdded = false;
+    auto addItems = [&](auto& inputArray) {
+      for (const auto& item : inputArray) {
+        if (item.has_value()) {
+          if (elementSet.insert(item.value()).second) {
+            auto& newItem = out.add_item();
+            newItem = item.value();
+          }
+        } else if (!nullAdded) {
+          nullAdded = true;
+          out.add_null();
+        }
+      }
+    };
+    addItems(inputArray1);
+    addItems(inputArray2);
+  }
+
+  void call(
+      out_type<Array<Generic<T1>>>& out,
+      const arg_type<Array<Generic<T1>>>& inputArray1,
+      const arg_type<Array<Generic<T1>>>& inputArray2) {
+    folly::F14FastSet<exec::GenericView> elementSet;
+    bool nullAdded = false;
+    auto addItems = [&](auto& inputArray) {
+      for (const auto& item : inputArray) {
+        if (item.has_value()) {
+          if (elementSet.insert(item.value()).second) {
+            auto& newItem = out.add_item();
+            newItem.copy_from(item.value());
+          }
+        } else if (!nullAdded) {
+          nullAdded = true;
+          out.add_null();
+        }
+      }
+    };
+    addItems(inputArray1);
+    addItems(inputArray2);
+  }
+};
+
+template <typename T>
+struct ArrayUnionFunctionString {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  static constexpr int32_t reuse_strings_from_arg = 0;
+
+  // String version that avoids copy of strings.
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Array<Varchar>>& out,
+      const arg_type<Array<Varchar>>& inputArray1,
+      const arg_type<Array<Varchar>>& inputArray2) {
+    folly::F14FastSet<StringView> elementSet;
+    bool nullAdded = false;
+    auto addItems = [&](auto& inputArray) {
+      for (const auto& item : inputArray) {
+        if (item.has_value()) {
+          if (elementSet.insert(item.value()).second) {
+            auto& newItem = out.add_item();
+            newItem.setNoCopy(item.value());
+          }
+        } else if (!nullAdded) {
+          nullAdded = true;
+          out.add_null();
+        }
+      }
+    };
+    addItems(inputArray1);
+    addItems(inputArray2);
+  }
+};
+
 } // namespace facebook::velox::functions
