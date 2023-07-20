@@ -369,7 +369,7 @@ class MockSharedArbitrationTest : public testing::Test {
     if (minMemoryPoolCapacityTransferSize == 0) {
       minMemoryPoolCapacityTransferSize = kMinMemoryPoolCapacityTransferSize;
     }
-    IMemoryManager::Options options;
+    MemoryManagerOptions options;
     options.capacity = (memoryCapacity != 0) ? memoryCapacity : kMemoryCapacity;
     options.arbitratorConfig = {
         .kind = MemoryArbitrator::Kind::kShared,

@@ -120,13 +120,13 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
     SetUp();
   }
 
-  std::shared_ptr<IMemoryManager> getMemoryManager(int64_t quota) {
+  std::shared_ptr<MemoryManager> getMemoryManager(int64_t quota) {
     return std::make_shared<MemoryManager>(
-        IMemoryManager::Options{.capacity = quota});
+        MemoryManagerOptions{.capacity = quota});
   }
 
-  std::shared_ptr<IMemoryManager> getMemoryManager(
-      const IMemoryManager::Options& options) {
+  std::shared_ptr<MemoryManager> getMemoryManager(
+      const MemoryManagerOptions& options) {
     return std::make_shared<MemoryManager>(options);
   }
 
@@ -513,7 +513,7 @@ TEST_P(MemoryPoolTest, alignmentCheck) {
       MemoryAllocator::kMaxAlignment};
   for (const auto& alignment : alignments) {
     SCOPED_TRACE(fmt::format("alignment:{}", alignment));
-    IMemoryManager::Options options;
+    MemoryManagerOptions options;
     options.capacity = 8 * GB;
     options.alignment = alignment;
     auto manager =

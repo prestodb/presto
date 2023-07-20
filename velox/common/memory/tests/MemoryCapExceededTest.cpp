@@ -181,7 +181,7 @@ TEST_P(MemoryCapExceededTest, multipleDrivers) {
 TEST_P(MemoryCapExceededTest, memoryManagerCapacityExeededError) {
   // Executes a plan with no memory pool capacity limit but very small memory
   // manager's limit.
-  memory::IMemoryManager::Options options{.capacity = 1 << 20};
+  memory::MemoryManagerOptions options{.capacity = 1 << 20};
   memory::MemoryManager manager{options};
 
   vector_size_t size = 1'024;

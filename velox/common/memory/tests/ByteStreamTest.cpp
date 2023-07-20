@@ -31,7 +31,7 @@ class ByteStreamTest : public testing::Test {
     options.capacity = kMaxMappedMemory;
     mmapAllocator_ = std::make_shared<MmapAllocator>(options);
     MemoryAllocator::setDefaultInstance(mmapAllocator_.get());
-    memoryManager_ = std::make_unique<MemoryManager>(IMemoryManager::Options{
+    memoryManager_ = std::make_unique<MemoryManager>(MemoryManagerOptions{
         .capacity = kMaxMemory, .allocator = MemoryAllocator::getInstance()});
     pool_ = memoryManager_->addLeafPool("ByteStreamTest");
   }
