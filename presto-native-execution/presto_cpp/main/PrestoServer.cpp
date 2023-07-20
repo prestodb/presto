@@ -30,6 +30,8 @@
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/StatsFilter.h"
+#include "presto_cpp/main/operators/BroadcastExchangeSource.h"
+#include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/LocalPersistentShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleInterface.h"
@@ -290,6 +292,10 @@ void PrestoServer::run() {
   facebook::velox::exec::ExchangeSource::registerFactory(
       operators::UnsafeRowExchangeSource::createExchangeSource);
 
+  // Batch broadcast exchange source.
+  facebook::velox::exec::ExchangeSource::registerFactory(
+      operators::BroadcastExchangeSource::createExchangeSource);
+
   pool_ = velox::memory::addDefaultLeafMemoryPool();
   taskManager_ = std::make_unique<TaskManager>();
 
@@ -449,8 +455,7 @@ void PrestoServer::yieldTasks() {
 void PrestoServer::initializeVeloxMemory() {
   auto nodeConfig = NodeConfig::instance();
   auto systemConfig = SystemConfig::instance();
-  uint64_t memoryGb = nodeConfig->nodeMemoryGb(
-      [&]() { return systemConfig->systemMemoryGb(); });
+  uint64_t memoryGb = systemConfig->systemMemoryGb();
   PRESTO_STARTUP_LOG(INFO) << "Starting with node memory " << memoryGb << "GB";
 
   const int64_t memoryBytes = memoryGb << 30;
@@ -499,7 +504,7 @@ void PrestoServer::initializeVeloxMemory() {
 
   memory::MemoryAllocator::setDefaultInstance(allocator_.get());
   // Set up velox memory manager.
-  memory::MemoryManager::Options options;
+  memory::MemoryManagerOptions options;
   options.capacity = memoryBytes;
   options.checkUsageLeak = systemConfig->enableMemoryLeakCheck();
   if (systemConfig->enableMemoryArbitration()) {
@@ -673,6 +678,12 @@ void PrestoServer::registerCustomOperators() {
       std::make_unique<facebook::presto::operators::ShuffleWriteTranslator>());
   facebook::velox::exec::Operator::registerOperator(
       std::make_unique<operators::ShuffleReadTranslator>());
+
+  // Todo - Split Presto & Presto-on-Spark server into different classes
+  // which will allow server specific operator registration.
+  facebook::velox::exec::Operator::registerOperator(
+      std::make_unique<
+          facebook::presto::operators::BroadcastWriteTranslator>());
 }
 
 void PrestoServer::registerFunctions() {

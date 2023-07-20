@@ -19,12 +19,14 @@ import static java.util.Objects.requireNonNull;
 
 public class JdbcMetadataFactory
 {
+    private final JdbcMetadataCache jdbcMetadataCache;
     private final JdbcClient jdbcClient;
     private final boolean allowDropTable;
 
     @Inject
-    public JdbcMetadataFactory(JdbcClient jdbcClient, JdbcMetadataConfig config)
+    public JdbcMetadataFactory(JdbcMetadataCache jdbcMetadataCache, JdbcClient jdbcClient, JdbcMetadataConfig config)
     {
+        this.jdbcMetadataCache = requireNonNull(jdbcMetadataCache, "jdbcMetadataCache is null");
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         requireNonNull(config, "config is null");
         this.allowDropTable = config.isAllowDropTable();
@@ -32,6 +34,6 @@ public class JdbcMetadataFactory
 
     public JdbcMetadata create()
     {
-        return new JdbcMetadata(jdbcClient, allowDropTable);
+        return new JdbcMetadata(jdbcMetadataCache, jdbcClient, allowDropTable);
     }
 }

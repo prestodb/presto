@@ -14,6 +14,7 @@
 package com.facebook.presto.spark.classloader_interface;
 
 import com.google.common.collect.ImmutableMap;
+import org.apache.spark.broadcast.Broadcast;
 
 import java.util.Map;
 import java.util.Optional;
@@ -27,12 +28,16 @@ public class PrestoSparkNativeTaskInputs
     private final Map<String, PrestoSparkShuffleReadDescriptor> shuffleReadDescriptors;
     private final Optional<PrestoSparkShuffleWriteDescriptor> shuffleWriteDescriptor;
 
+    private final Map<String, Broadcast<?>> broadcastInputs;
+
     public PrestoSparkNativeTaskInputs(
             Map<String, PrestoSparkShuffleReadDescriptor> shuffleReadDescriptors,
-            Optional<PrestoSparkShuffleWriteDescriptor> shuffleWriteDescriptor)
+            Optional<PrestoSparkShuffleWriteDescriptor> shuffleWriteDescriptor,
+            Map<String, Broadcast<?>> broadcastInputs)
     {
         this.shuffleReadDescriptors = ImmutableMap.copyOf(requireNonNull(shuffleReadDescriptors, "shuffleReadDescriptors is null"));
         this.shuffleWriteDescriptor = requireNonNull(shuffleWriteDescriptor, "shuffleWriteDescriptor is null");
+        this.broadcastInputs = ImmutableMap.copyOf(requireNonNull(broadcastInputs, "broadcastInputs is null"));
     }
 
     public Map<String, PrestoSparkShuffleReadDescriptor> getShuffleReadDescriptors()
@@ -43,5 +48,10 @@ public class PrestoSparkNativeTaskInputs
     public Optional<PrestoSparkShuffleWriteDescriptor> getShuffleWriteDescriptor()
     {
         return shuffleWriteDescriptor;
+    }
+
+    public Map<String, Broadcast<?>> getBroadcastInputs()
+    {
+        return broadcastInputs;
     }
 }

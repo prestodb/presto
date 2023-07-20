@@ -23,6 +23,8 @@ import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.Objects.requireNonNull;
+import static org.weakref.jmx.ObjectNames.generatedNameOf;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class JdbcModule
         implements Module
@@ -40,6 +42,11 @@ public class JdbcModule
         newOptionalBinder(binder, ConnectorAccessControl.class);
         newSetBinder(binder, Procedure.class);
         binder.bind(JdbcConnectorId.class).toInstance(new JdbcConnectorId(connectorId));
+
+        binder.bind(JdbcMetadataCache.class).in(Scopes.SINGLETON);
+        binder.bind(JdbcMetadataCacheStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(JdbcMetadataCacheStats.class).as(generatedNameOf(JdbcMetadataCacheStats.class, connectorId));
+
         binder.bind(JdbcMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(JdbcSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);

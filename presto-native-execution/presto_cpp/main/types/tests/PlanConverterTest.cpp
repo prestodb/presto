@@ -75,7 +75,8 @@ std::shared_ptr<const core::PlanNode> assertToVeloxQueryPlan(
 std::shared_ptr<const core::PlanNode> assertToBatchVeloxQueryPlan(
     const std::string& fileName,
     const std::string& shuffleName,
-    std::shared_ptr<std::string>&& serializedShuffleWriteInfo) {
+    std::shared_ptr<std::string>&& serializedShuffleWriteInfo,
+    std::shared_ptr<std::string>&& broadcastBasePath) {
   const std::string fragment = slurp(getDataPath(fileName));
 
   protocol::PlanFragment prestoPlan = json::parse(fragment);
@@ -84,6 +85,7 @@ std::shared_ptr<const core::PlanNode> assertToBatchVeloxQueryPlan(
   VeloxBatchQueryPlanConverter converter(
       shuffleName,
       std::move(serializedShuffleWriteInfo),
+      std::move(broadcastBasePath),
       queryCtx.get(),
       pool.get());
   return converter
@@ -165,7 +167,8 @@ TEST_F(PlanConverterTest, batchPlanConversion) {
           "  \"numPartitions\": {}\n"
           "}}",
           exec::test::TempDirectoryPath::create()->path,
-          10)));
+          10)),
+      std::make_shared<std::string>("/tmp"));
 
   auto shuffleWrite =
       std::dynamic_pointer_cast<const operators::ShuffleWriteNode>(root);
@@ -187,7 +190,8 @@ TEST_F(PlanConverterTest, batchPlanConversion) {
   auto curNode = assertToBatchVeloxQueryPlan(
       "FinalAgg.json",
       std::string(operators::LocalPersistentShuffleFactory::kShuffleName),
-      nullptr);
+      nullptr,
+      std::make_shared<std::string>("/tmp"));
 
   std::shared_ptr<const operators::ShuffleReadNode> shuffleReadNode;
   while (!curNode->sources().empty()) {

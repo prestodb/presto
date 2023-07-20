@@ -143,7 +143,6 @@
         <module>presto-cli</module>
         <module>presto-benchmark-driver</module>
         <module>presto-server</module>
-        <module>presto-server-rpm</module>
         <module>presto-docs</module>
         <module>presto-verifier</module>
         <module>presto-testing-server-launcher</module>
@@ -654,12 +653,6 @@
                 <artifactId>presto-server</artifactId>
                 <version>${project.version}</version>
                 <type>tar.gz</type>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-server-rpm</artifactId>
-                <version>${project.version}</version>
             </dependency>
 
             <dependency>

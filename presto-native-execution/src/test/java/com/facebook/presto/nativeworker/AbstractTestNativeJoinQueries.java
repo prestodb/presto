@@ -105,6 +105,7 @@ public abstract class AbstractTestNativeJoinQueries
         assertQuery("SELECT * FROM nation n, region r WHERE n.regionkey < r.regionkey");
 
         assertQueryReturnsEmptyResult("SELECT l.linenumber FROM lineitem l, orders o WHERE l.orderkey = o.orderkey AND o.orderkey = 12345 AND o.totalprice > 0");
+
         assertQuery("SELECT l.linenumber FROM lineitem l, orders o WHERE l.orderkey = o.orderkey AND o.orderkey = 14209 AND o.totalprice > 0");
 
         assertQuery("SELECT * FROM nation_partitioned a, nation_partitioned b");
