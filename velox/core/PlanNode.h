@@ -1077,6 +1077,15 @@ class LocalPartitionNode : public PlanNode {
 
 class PartitionedOutputNode : public PlanNode {
  public:
+  enum class Kind {
+    kPartitioned,
+    kBroadcast,
+    kArbitrary,
+  };
+  static std::string kindString(Kind kind);
+  static Kind stringToKind(std::string str);
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   PartitionedOutputNode(
       const PlanNodeId& id,
       const std::vector<TypedExprPtr>& keys,
@@ -1086,11 +1095,31 @@ class PartitionedOutputNode : public PlanNode {
       PartitionFunctionSpecPtr partitionFunctionSpec,
       RowTypePtr outputType,
       PlanNodePtr source)
+      : PartitionedOutputNode(
+            id,
+            keys,
+            numPartitions,
+            broadcast ? Kind::kBroadcast : Kind::kPartitioned,
+            replicateNullsAndAny,
+            partitionFunctionSpec,
+            outputType,
+            source) {}
+#endif
+
+  PartitionedOutputNode(
+      const PlanNodeId& id,
+      const std::vector<TypedExprPtr>& keys,
+      int numPartitions,
+      Kind kind,
+      bool replicateNullsAndAny,
+      PartitionFunctionSpecPtr partitionFunctionSpec,
+      RowTypePtr outputType,
+      PlanNodePtr source)
       : PlanNode(id),
         sources_{{std::move(source)}},
         keys_(keys),
         numPartitions_(numPartitions),
-        broadcast_(broadcast),
+        kind_(kind),
         replicateNullsAndAny_(replicateNullsAndAny),
         partitionFunctionSpec_(std::move(partitionFunctionSpec)),
         outputType_(std::move(outputType)) {
@@ -1100,7 +1129,7 @@ class PartitionedOutputNode : public PlanNode {
           keys_.empty(),
           "Non-empty partitioning keys require more than one partition");
     }
-    if (broadcast) {
+    if (isBroadcast()) {
       VELOX_CHECK(
           keys_.empty(),
           "Broadcast partitioning doesn't allow for partitioning keys");
@@ -1117,7 +1146,7 @@ class PartitionedOutputNode : public PlanNode {
         id,
         noKeys,
         numPartitions,
-        true,
+        Kind::kBroadcast,
         false,
         std::make_shared<GatherPartitionFunctionSpec>(),
         std::move(outputType),
@@ -1131,7 +1160,7 @@ class PartitionedOutputNode : public PlanNode {
         id,
         noKeys,
         1,
-        false,
+        Kind::kPartitioned,
         false,
         std::make_shared<GatherPartitionFunctionSpec>(),
         std::move(outputType),
@@ -1159,7 +1188,11 @@ class PartitionedOutputNode : public PlanNode {
   }
 
   bool isBroadcast() const {
-    return broadcast_;
+    return kind_ == Kind::kBroadcast;
+  }
+
+  Kind kind() const {
+    return kind_;
   }
 
   /// Returns true if an arbitrary row and all rows with null keys must be
@@ -1192,11 +1225,17 @@ class PartitionedOutputNode : public PlanNode {
   const std::vector<PlanNodePtr> sources_;
   const std::vector<TypedExprPtr> keys_;
   const int numPartitions_;
-  const bool broadcast_;
+  const Kind kind_;
   const bool replicateNullsAndAny_;
   const PartitionFunctionSpecPtr partitionFunctionSpec_;
   const RowTypePtr outputType_;
 };
+
+FOLLY_ALWAYS_INLINE std::ostream& operator<<(
+    std::ostream& out,
+    const PartitionedOutputNode::Kind kind) {
+  return out << PartitionedOutputNode::kindString(kind);
+}
 
 enum class JoinType {
   // For each row on the left, find all matching rows on the right and return

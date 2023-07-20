@@ -19,6 +19,8 @@
 
 namespace facebook::velox::exec {
 
+using core::PartitionedOutputNode;
+
 void ArbitraryBuffer::noMoreData() {
   // Drop duplicate end markers.
   if (!pages_.empty() && pages_.back() == nullptr) {
@@ -218,22 +220,9 @@ void releaseAfterAcknowledge(
 }
 } // namespace
 
-std::string PartitionedOutputBuffer::kindString(Kind kind) {
-  switch (kind) {
-    case Kind::kPartitioned:
-      return "PARTITIONED";
-    case Kind::kBroadcast:
-      return "BROADCAST";
-    case Kind::kArbitrary:
-      return "ARBITRARY";
-    default:
-      return fmt::format("INVALID OUTPUT KIND {}", static_cast<int>(kind));
-  }
-}
-
 PartitionedOutputBuffer::PartitionedOutputBuffer(
     std::shared_ptr<Task> task,
-    PartitionedOutputBuffer::Kind kind,
+    PartitionedOutputNode::Kind kind,
     int numDestinations,
     uint32_t numDrivers)
     : task_(std::move(task)),
@@ -331,20 +320,20 @@ BlockingReason PartitionedOutputBuffer::enqueue(
 
     totalSize_ += data->size();
     switch (kind_) {
-      case Kind::kBroadcast:
+      case PartitionedOutputNode::Kind::kBroadcast:
         VELOX_CHECK_EQ(destination, 0, "Bad destination {}", destination);
         enqueueBroadcastOutputLocked(std::move(data), dataAvailableCallbacks);
         break;
-      case Kind::kArbitrary:
+      case PartitionedOutputNode::Kind::kArbitrary:
         VELOX_CHECK_EQ(destination, 0, "Bad destination {}", destination);
         enqueueArbitraryOutputLocked(std::move(data), dataAvailableCallbacks);
         break;
-      case Kind::kPartitioned:
+      case PartitionedOutputNode::Kind::kPartitioned:
         enqueuePartitionedOutputLocked(
             destination, std::move(data), dataAvailableCallbacks);
         break;
       default:
-        VELOX_UNREACHABLE(kindString(kind_));
+        VELOX_UNREACHABLE(PartitionedOutputNode::kindString(kind_));
     }
 
     if (totalSize_ > maxSize_ && future) {
@@ -731,7 +720,7 @@ bool PartitionedOutputBufferManager::getData(
 
 void PartitionedOutputBufferManager::initializeTask(
     std::shared_ptr<Task> task,
-    PartitionedOutputBuffer::Kind kind,
+    PartitionedOutputNode::Kind kind,
     int numDestinations,
     int numDrivers) {
   const auto& taskId = task->taskId();

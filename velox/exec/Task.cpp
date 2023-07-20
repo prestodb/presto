@@ -629,11 +629,7 @@ void Task::start(
             : factory->numDrivers;
         bufferManager->initializeTask(
             self,
-            // TODO: change PartitionedOutputNode to pass partition output type
-            // which include arbitrary.
-            partitionedOutputNode->isBroadcast()
-                ? PartitionedOutputBuffer::Kind::kBroadcast
-                : PartitionedOutputBuffer::Kind::kPartitioned,
+            partitionedOutputNode->kind(),
             partitionedOutputNode->numPartitions(),
             totalOutputDrivers);
       }

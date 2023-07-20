@@ -129,20 +129,13 @@ class DestinationBuffer {
 
 class PartitionedOutputBuffer {
  public:
-  enum class Kind {
-    kPartitioned,
-    kBroadcast,
-    kArbitrary,
-  };
-  static std::string kindString(Kind kind);
-
   PartitionedOutputBuffer(
       std::shared_ptr<Task> task,
-      Kind kind,
+      core::PartitionedOutputNode::Kind kind,
       int numDestinations,
       uint32_t numDrivers);
 
-  Kind kind() const {
+  core::PartitionedOutputNode::Kind kind() const {
     return kind_;
   }
 
@@ -226,19 +219,19 @@ class PartitionedOutputBuffer {
   std::string toStringLocked() const;
 
   FOLLY_ALWAYS_INLINE bool isBroadcast() const {
-    return kind_ == Kind::kBroadcast;
+    return kind_ == core::PartitionedOutputNode::Kind::kBroadcast;
   }
 
   FOLLY_ALWAYS_INLINE bool isPartitioned() const {
-    return kind_ == Kind::kPartitioned;
+    return kind_ == core::PartitionedOutputNode::Kind::kPartitioned;
   }
 
   FOLLY_ALWAYS_INLINE bool isArbitrary() const {
-    return kind_ == Kind::kArbitrary;
+    return kind_ == core::PartitionedOutputNode::Kind::kArbitrary;
   }
 
   const std::shared_ptr<Task> task_;
-  const Kind kind_;
+  const core::PartitionedOutputNode::Kind kind_;
   /// If 'totalSize_' > 'maxSize_', each producer is blocked after adding
   /// data.
   const uint64_t maxSize_;
@@ -276,17 +269,11 @@ class PartitionedOutputBuffer {
   bool atEnd_ = false;
 };
 
-FOLLY_ALWAYS_INLINE std::ostream& operator<<(
-    std::ostream& out,
-    const PartitionedOutputBuffer::Kind kind) {
-  return out << PartitionedOutputBuffer::kindString(kind);
-}
-
 class PartitionedOutputBufferManager {
  public:
   void initializeTask(
       std::shared_ptr<Task> task,
-      PartitionedOutputBuffer::Kind kind,
+      core::PartitionedOutputNode::Kind kind,
       int numDestinations,
       int numDrivers);
 

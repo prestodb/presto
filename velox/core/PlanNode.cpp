@@ -1689,13 +1689,48 @@ PlanNodePtr EnforceSingleRowNode::create(
       deserializePlanNodeId(obj), deserializeSingleSource(obj, context));
 }
 
-void PartitionedOutputNode::addDetails(std::stringstream& stream) const {
-  if (broadcast_) {
-    stream << "BROADCAST";
-  } else if (numPartitions_ == 1) {
-    stream << "SINGLE";
+// static
+std::string PartitionedOutputNode::kindString(Kind kind) {
+  switch (kind) {
+    case Kind::kPartitioned:
+      return "PARTITIONED";
+    case Kind::kBroadcast:
+      return "BROADCAST";
+    case Kind::kArbitrary:
+      return "ARBITRARY";
+    default:
+      return fmt::format("INVALID OUTPUT KIND {}", static_cast<int>(kind));
+  }
+}
+
+// static
+PartitionedOutputNode::Kind PartitionedOutputNode::stringToKind(
+    std::string str) {
+  if (str == "PARTITIONED") {
+    return Kind::kPartitioned;
+  } else if (str == "BROADCAST") {
+    return Kind::kBroadcast;
+  } else if (str == "ARBITRARY") {
+    return Kind::kArbitrary;
   } else {
-    stream << partitionFunctionSpec_->toString() << " " << numPartitions_;
+    VELOX_FAIL("Unknown output buffer type: {}", str);
+  }
+}
+
+void PartitionedOutputNode::addDetails(std::stringstream& stream) const {
+  if (kind_ == Kind::kBroadcast) {
+    stream << "BROADCAST";
+  } else if (kind_ == Kind::kPartitioned) {
+    if (numPartitions_ == 1) {
+      stream << "SINGLE";
+    } else {
+      stream << fmt::format(
+          "partitionFunction: {} with {} partitions",
+          partitionFunctionSpec_->toString(),
+          numPartitions_);
+    }
+  } else {
+    stream << "ARBITRARY";
   }
 
   if (replicateNullsAndAny_) {
@@ -1705,7 +1740,7 @@ void PartitionedOutputNode::addDetails(std::stringstream& stream) const {
 
 folly::dynamic PartitionedOutputNode::serialize() const {
   auto obj = PlanNode::serialize();
-  obj["broadcast"] = broadcast_;
+  obj["kind"] = kindString(kind_);
   obj["numPartitions"] = numPartitions_;
   obj["keys"] = ISerializable::serialize(keys_);
   obj["replicateNullsAndAny"] = replicateNullsAndAny_;
@@ -1722,7 +1757,7 @@ PlanNodePtr PartitionedOutputNode::create(
       deserializePlanNodeId(obj),
       ISerializable::deserialize<std::vector<ITypedExpr>>(obj["keys"], context),
       obj["numPartitions"].asInt(),
-      obj["broadcast"].asBool(),
+      stringToKind(obj["kind"].asString()),
       obj["replicateNullsAndAny"].asBool(),
       ISerializable::deserialize<PartitionFunctionSpec>(
           obj["partitionFunctionSpec"], context),

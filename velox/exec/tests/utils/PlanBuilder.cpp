@@ -850,7 +850,7 @@ PlanBuilder& PlanBuilder::partitionedOutput(
       nextPlanNodeId(),
       exprs(keys),
       numPartitions,
-      false,
+      core::PartitionedOutputNode::Kind::kPartitioned,
       replicateNullsAndAny,
       std::move(partitionFunctionSpec),
       outputType,
