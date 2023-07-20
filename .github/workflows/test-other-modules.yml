@@ -38,7 +38,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:presto-docs,!:presto-server,!:presto-server-rpm,!presto-test-coverage'
+          ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:presto-docs,!:presto-server,!presto-test-coverage'
       - name: Maven Tests
         run: |
           ./mvnw test ${MAVEN_TEST} -pl '
@@ -49,7 +49,6 @@ jobs:
             !presto-kudu,
             !presto-docs,
             !presto-server,
-            !presto-server-rpm,
             !presto-main,
             !presto-mongodb,
             !presto-spark-package,
