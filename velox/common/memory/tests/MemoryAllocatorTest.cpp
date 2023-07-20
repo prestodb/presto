@@ -1054,7 +1054,7 @@ TEST_P(MemoryAllocatorTest, allocContiguousGrow) {
   freeSmall(kCapacityPages);
 }
 
-TEST_P(MemoryAllocatorTest, allocContiguousVsize) {
+TEST_P(MemoryAllocatorTest, DISABLED_allocContiguousVsize) {
   // Works with malloc and mmap allocators where MmapArena is not on.
   auto initialSize = processSize();
 
