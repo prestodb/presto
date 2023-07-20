@@ -449,8 +449,7 @@ void PrestoServer::yieldTasks() {
 void PrestoServer::initializeVeloxMemory() {
   auto nodeConfig = NodeConfig::instance();
   auto systemConfig = SystemConfig::instance();
-  uint64_t memoryGb = nodeConfig->nodeMemoryGb(
-      [&]() { return systemConfig->systemMemoryGb(); });
+  uint64_t memoryGb = systemConfig->systemMemoryGb();
   PRESTO_STARTUP_LOG(INFO) << "Starting with node memory " << memoryGb << "GB";
 
   const int64_t memoryBytes = memoryGb << 30;
