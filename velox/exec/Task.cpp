@@ -539,6 +539,9 @@ void Task::start(
     std::shared_ptr<Task> self,
     uint32_t maxDrivers,
     uint32_t concurrentSplitGroups) {
+  facebook::velox::process::ThreadDebugInfo threadDebugInfo{
+      .queryId_ = self->queryCtx()->queryId()};
+  facebook::velox::process::ScopedThreadDebugInfo scopedInfo(threadDebugInfo);
   try {
     VELOX_CHECK_GE(
         maxDrivers,

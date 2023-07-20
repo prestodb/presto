@@ -40,7 +40,8 @@ DriverCtx::DriverCtx(
       pipelineId(_pipelineId),
       splitGroupId(_splitGroupId),
       partitionId(_partitionId),
-      task(_task) {}
+      task(_task),
+      threadDebugInfo({.queryId_ = task->queryCtx()->queryId()}) {}
 
 const core::QueryConfig& DriverCtx::queryConfig() const {
   return task->queryCtx()->queryConfig();
@@ -280,8 +281,9 @@ void Driver::pushdownFilters(int operatorIndex) {
 
 RowVectorPtr Driver::next(std::shared_ptr<BlockingState>& blockingState) {
   enqueueInternal();
-
   auto self = shared_from_this();
+  facebook::velox::process::ScopedThreadDebugInfo scopedInfo(
+      self->driverCtx()->threadDebugInfo);
   RowVectorPtr result;
   auto stop = runInternal(self, blockingState, result);
 
@@ -545,6 +547,8 @@ StopReason Driver::runInternal(
 // static
 void Driver::run(std::shared_ptr<Driver> self) {
   process::TraceContext trace("Driver::run");
+  facebook::velox::process::ScopedThreadDebugInfo scopedInfo(
+      self->driverCtx()->threadDebugInfo);
   std::shared_ptr<BlockingState> blockingState;
   RowVectorPtr nullResult;
   auto reason = self->runInternal(self, blockingState, nullResult);

@@ -20,6 +20,7 @@
 #include <memory>
 
 #include "velox/common/future/VeloxPromise.h"
+#include "velox/common/process/ThreadDebugInfo.h"
 #include "velox/common/time/CpuWallTimer.h"
 #include "velox/connectors/Connector.h"
 #include "velox/core/PlanNode.h"
@@ -223,6 +224,7 @@ struct DriverCtx {
 
   std::shared_ptr<Task> task;
   Driver* driver;
+  facebook::velox::process::ThreadDebugInfo threadDebugInfo;
 
   explicit DriverCtx(
       std::shared_ptr<Task> _task,
