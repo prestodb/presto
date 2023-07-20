@@ -43,6 +43,7 @@
 #include "velox/common/caching/SsdCache.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/MmapAllocator.h"
+#include "velox/common/process/ThreadDebugInfo.h"
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/core/Config.h"
@@ -172,6 +173,7 @@ void PrestoServer::run() {
   protocol::registerHiveConnectors();
   protocol::registerTpchConnector();
 
+  velox::process::addDefaultFatalSignalHandler();
   initializeVeloxMemory();
 
   auto catalogNames = registerConnectors(fs::path(configDirectoryPath_));
