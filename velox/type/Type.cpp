@@ -296,12 +296,27 @@ std::vector<TypeParameter> createTypeParameters(
   }
   return parameters;
 }
+
+// Returns children names index name -> first idx of occurence.
+const folly::F14FastMap<std::string, uint32_t> createdChildrenIndex(
+    const std::vector<std::string>& names) {
+  folly::F14FastMap<std::string, uint32_t> index;
+  index.reserve(names.size());
+  for (uint32_t i = 0; i < names.size(); ++i) {
+    if (index.find(names[i]) == index.end()) {
+      index[names[i]] = i;
+    }
+  }
+  return index;
+}
 } // namespace
 
 RowType::RowType(std::vector<std::string>&& names, std::vector<TypePtr>&& types)
     : names_{std::move(names)},
       children_{std::move(types)},
-      parameters_{createTypeParameters(children_)} {
+      parameters_{createTypeParameters(children_)},
+      // TODO: lazily initialize index on first access instead.
+      childrenIndices_{createdChildrenIndex(names_)} {
   VELOX_USER_CHECK_EQ(
       names_.size(), children_.size(), "Mismatch names/types sizes");
 }
@@ -332,19 +347,20 @@ std::string makeFieldNotFoundErrorMessage(
 }
 } // namespace
 
+// Returns type of first child with matching name.
 const TypePtr& RowType::findChild(folly::StringPiece name) const {
-  for (uint32_t i = 0; i < names_.size(); ++i) {
-    if (names_.at(i) == name) {
-      return children_.at(i);
-    }
+  auto idx = getChildIdxIfExists(std::string(name));
+  if (idx) {
+    return children_[*idx];
   }
   VELOX_USER_FAIL(makeFieldNotFoundErrorMessage(name, names_));
 }
 
 bool RowType::containsChild(std::string_view name) const {
-  return std::find(names_.begin(), names_.end(), name) != names_.end();
+  return getChildIdxIfExists(std::string(name)).has_value();
 }
 
+// Returns index of first child with matching name.
 uint32_t RowType::getChildIdx(const std::string& name) const {
   auto index = getChildIdxIfExists(name);
   if (!index.has_value()) {
@@ -355,10 +371,9 @@ uint32_t RowType::getChildIdx(const std::string& name) const {
 
 std::optional<uint32_t> RowType::getChildIdxIfExists(
     const std::string& name) const {
-  for (uint32_t i = 0; i < names_.size(); i++) {
-    if (names_.at(i) == name) {
-      return i;
-    }
+  const auto it = childrenIndices_.find(name);
+  if (it != childrenIndices_.end()) {
+    return it->second;
   }
   return std::nullopt;
 }
