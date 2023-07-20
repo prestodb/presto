@@ -91,8 +91,6 @@ import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggregationFunctio
 import com.facebook.presto.operator.aggregation.differentialentropy.DifferentialEntropyAggregation;
 import com.facebook.presto.operator.aggregation.histogram.Histogram;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggregationFunction;
-import com.facebook.presto.operator.aggregation.reservoirsample.CreateSampleAggregation;
-import com.facebook.presto.operator.aggregation.reservoirsample.CreateSampleFunction;
 import com.facebook.presto.operator.scalar.ArrayAllMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayAnyMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayCardinalityFunction;
@@ -664,7 +662,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregates(IntervalDayToSecondAverageAggregation.class)
                 .aggregates(IntervalYearToMonthAverageAggregation.class)
                 .aggregates(DifferentialEntropyAggregation.class)
-                .aggregates(CreateSampleAggregation.class)
                 .aggregates(EntropyAggregation.class)
                 .aggregates(GeometricMeanAggregations.class)
                 .aggregates(RealGeometricMeanAggregations.class)
