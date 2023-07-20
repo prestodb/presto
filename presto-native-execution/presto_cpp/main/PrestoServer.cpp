@@ -505,9 +505,6 @@ void PrestoServer::initializeVeloxMemory() {
   if (systemConfig->enableMemoryArbitration()) {
     auto& arbitratorCfg = options.arbitratorConfig;
     arbitratorCfg.kind = memory::MemoryArbitrator::Kind::kShared;
-    // TODO: remove this option by making arbitration failure retry a default
-    // behavior.
-    arbitratorCfg.retryArbitrationFailure = true;
     arbitratorCfg.capacity =
         memoryBytes * 100 / systemConfig->reservedMemoryPoolCapacityPct();
     arbitratorCfg.initMemoryPoolCapacity =
@@ -518,6 +515,8 @@ void PrestoServer::initializeVeloxMemory() {
   const auto& manager = memory::MemoryManager::getInstance(options, true);
   PRESTO_STARTUP_LOG(INFO) << "Memory manager has been setup: "
                            << manager.toString();
+  PRESTO_STARTUP_LOG(INFO) << "Spilling root directory: "
+                           << systemConfig->spillerSpillPath().value_or("NULL");
 }
 
 void PrestoServer::stop() {
