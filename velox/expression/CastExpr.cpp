@@ -118,6 +118,32 @@ VectorPtr castFromDate(
   }
 }
 
+template <bool adjustForTimeZone>
+void castTimestampToDate(
+    const SelectivityVector& rows,
+    const BaseVector& input,
+    exec::EvalCtx& context,
+    FlatVector<int32_t>* resultFlatVector,
+    const date::time_zone* timeZone = nullptr) {
+  static const int32_t kSecsPerDay{86'400};
+  auto inputVector = input.as<SimpleVector<Timestamp>>();
+  context.applyToSelectedNoThrow(rows, [&](int row) {
+    auto input = inputVector->valueAt(row);
+    if constexpr (adjustForTimeZone) {
+      input.toTimezone(*timeZone);
+    }
+    auto seconds = input.getSeconds();
+    if (seconds >= 0 || seconds % kSecsPerDay == 0) {
+      resultFlatVector->set(row, seconds / kSecsPerDay);
+    } else {
+      // For division with negatives, minus 1 to compensate the discarded
+      // fractional part. e.g. -1/86'400 yields 0, yet it should be
+      // considered as -1 day.
+      resultFlatVector->set(row, seconds / kSecsPerDay - 1);
+    }
+  });
+}
+
 VectorPtr castToDate(
     const SelectivityVector& rows,
     const BaseVector& input,
@@ -145,20 +171,15 @@ VectorPtr castToDate(
       return castResult;
     }
     case TypeKind::TIMESTAMP: {
-      auto* inputVector = input.as<SimpleVector<Timestamp>>();
-      static const int32_t kSecsPerDay{86'400};
-      context.applyToSelectedNoThrow(rows, [&](int row) {
-        auto input = inputVector->valueAt(row);
-        auto seconds = input.getSeconds();
-        if (seconds >= 0 || seconds % kSecsPerDay == 0) {
-          resultFlatVector->set(row, seconds / kSecsPerDay);
-        } else {
-          // For division with negatives, minus 1 to compensate the discarded
-          // fractional part. e.g. -1/86'400 yields 0, yet it should be
-          // considered as -1 day.
-          resultFlatVector->set(row, seconds / kSecsPerDay - 1);
-        }
-      });
+      const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
+      auto sessionTzName = queryConfig.sessionTimezone();
+      if (queryConfig.adjustTimestampToTimezone() && !sessionTzName.empty()) {
+        auto* timeZone = date::locate_zone(sessionTzName);
+        castTimestampToDate<true>(
+            rows, input, context, resultFlatVector, timeZone);
+      } else {
+        castTimestampToDate<false>(rows, input, context, resultFlatVector);
+      }
       return castResult;
     }
     default:

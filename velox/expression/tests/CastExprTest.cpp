@@ -330,18 +330,36 @@ TEST_F(CastExprTest, dateToTimestamp) {
 }
 
 TEST_F(CastExprTest, timestampToDate) {
+  setTimezone("");
+  std::vector<std::optional<Timestamp>> inputTimestamps = {
+      Timestamp(0, 0),
+      Timestamp(946684800, 0),
+      Timestamp(1257724800, 0),
+      std::nullopt,
+  };
+
   testCast<Timestamp, int32_t>(
       "date",
-      {
-          Timestamp(0, 0),
-          Timestamp(946684800, 0),
-          Timestamp(1257724800, 0),
-          std::nullopt,
-      },
+      inputTimestamps,
       {
           0,
           10957,
           14557,
+          std::nullopt,
+      },
+      false,
+      false,
+      TIMESTAMP(),
+      DATE());
+
+  setTimezone("America/Los_Angeles");
+  testCast<Timestamp, int32_t>(
+      "date",
+      inputTimestamps,
+      {
+          -1,
+          10956,
+          14556,
           std::nullopt,
       },
       false,

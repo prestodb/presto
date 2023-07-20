@@ -34,6 +34,9 @@ add_executable(velox_benchmark_basic_comparison_conjunct ComparisonConjunct.cpp)
 target_link_libraries(velox_benchmark_basic_comparison_conjunct
                       ${velox_benchmark_deps})
 
+add_executable(velox_benchmark_basic_simple_cast SimpleCastExpr.cpp)
+target_link_libraries(velox_benchmark_basic_simple_cast ${velox_benchmark_deps})
+
 add_executable(velox_benchmark_basic_decoded_vector DecodedVector.cpp)
 target_link_libraries(velox_benchmark_basic_decoded_vector
                       ${velox_benchmark_deps})

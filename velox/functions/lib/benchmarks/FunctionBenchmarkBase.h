@@ -29,6 +29,17 @@ class FunctionBenchmarkBase {
     parse::registerTypeResolver();
   }
 
+  void setTimezone(const std::string& value) {
+    queryCtx_->testingOverrideConfigUnsafe({
+        {core::QueryConfig::kSessionTimezone, value},
+    });
+  }
+
+  void setAdjustTimestampToTimezone(const std::string& value) {
+    queryCtx_->testingOverrideConfigUnsafe(
+        {{core::QueryConfig::kAdjustTimestampToTimezone, value}});
+  }
+
   exec::ExprSet compileExpression(
       const std::string& text,
       const TypePtr& rowType) {
