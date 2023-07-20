@@ -357,6 +357,7 @@ class OptionalAccessor {
   }
 
   element_t value() const {
+    VELOX_DCHECK(has_value());
     return (*reader_)[index_];
   }
 
@@ -365,6 +366,7 @@ class OptionalAccessor {
   }
 
   element_t operator*() const {
+    VELOX_DCHECK(has_value());
     return value();
   }
 
