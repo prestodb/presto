@@ -67,7 +67,7 @@ Unit            Description
 
 .. function:: date_add(unit, value, x) -> x
 
-    Adds an interval ``value`` of type ``unit`` to ``x``. The supported types for ``x`` are TIMESTAMP and DATE.
+    Adds an interval ``value`` of type ``unit`` to ``x``. The supported types for ``x`` are TIMESTAMP, DATE, and TIMESTAMP WITH TIME ZONE.
     Subtraction can be performed by using a negative value.
 
 .. function:: date_diff(unit, x1, x2) -> bigint

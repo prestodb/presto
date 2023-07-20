@@ -774,7 +774,7 @@ struct DateTruncFunction : public TimestampWithTimezoneSupport<T> {
 };
 
 template <typename T>
-struct DateAddFunction {
+struct DateAddFunction : public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   const date::time_zone* sessionTimeZone_ = nullptr;
@@ -835,6 +835,28 @@ struct DateAddFunction {
     } else {
       result = addToTimestamp(timestamp, unit, (int32_t)value);
     }
+
+    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<TimestampWithTimezone>& result,
+      const arg_type<Varchar>& unitString,
+      const int64_t value,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    const auto unit = unit_.has_value()
+        ? unit_.value()
+        : fromDateTimeUnitString(unitString, true /*throwIfInvalid*/).value();
+
+    if (value != (int32_t)value) {
+      VELOX_UNSUPPORTED("integer overflow");
+    }
+
+    auto finalTimeStamp = addToTimestamp(
+        this->toTimestamp(timestampWithTimezone), unit, (int32_t)value);
+    finalTimeStamp.toGMT(*timestampWithTimezone.template at<1>());
+    result = std::make_tuple(
+        finalTimeStamp.toMillis(), *timestampWithTimezone.template at<1>());
 
     return true;
   }

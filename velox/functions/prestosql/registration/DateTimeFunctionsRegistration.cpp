@@ -119,6 +119,12 @@ void registerSimpleFunctions(const std::string& prefix) {
       {prefix + "date_add"});
   registerFunction<DateAddFunction, Timestamp, Varchar, int64_t, Timestamp>(
       {prefix + "date_add"});
+  registerFunction<
+      DateAddFunction,
+      TimestampWithTimezone,
+      Varchar,
+      int64_t,
+      TimestampWithTimezone>({prefix + "date_add"});
   registerFunction<DateDiffFunction, int64_t, Varchar, Date, Date>(
       {prefix + "date_diff"});
   registerFunction<DateDiffFunction, int64_t, Varchar, Timestamp, Timestamp>(

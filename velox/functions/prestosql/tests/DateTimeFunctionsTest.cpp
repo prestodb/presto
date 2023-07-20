@@ -1821,6 +1821,84 @@ TEST_F(DateTimeFunctionsTest, dateAddTimestamp) {
           Timestamp(1582970400, 500'999'999) /*2020-02-29 10:00:00.500*/));
 }
 
+TEST_F(DateTimeFunctionsTest, dateAddTimestampWithTimeZone) {
+  const auto dateAdd = [&](const std::string& unit,
+                           std::optional<int32_t> value,
+                           std::optional<int64_t> timestamp,
+                           const std::optional<std::string>& timeZoneName) {
+    return evaluateWithTimestampWithTimezone(
+        fmt::format("date_add('{}', {}, c0)", unit, *value),
+        timestamp,
+        timeZoneName);
+  };
+
+  // 1970-01-01 00:00:00.000 UTC-8
+  auto result = dateAdd("day", 5, 0, "-08:00");
+  auto expected = makeTimestampWithTimeZoneVector(432000000, "-08:00");
+  assertEqualVectors(expected, result);
+
+  // 2023-01-08 00:00:00.000 UTC-8
+  result = dateAdd("day", -7, 1673136000, "-08:00");
+  expected = makeTimestampWithTimeZoneVector(1068336000, "-08:00");
+  assertEqualVectors(expected, result);
+
+  // 2023-01-08 00:00:00.000 UTC-8
+  result = dateAdd("millisecond", -7, 1673136000, "-08:00");
+  expected = makeTimestampWithTimeZoneVector(1673135993, "-08:00");
+  assertEqualVectors(expected, result);
+
+  // 2023-01-08 00:00:00.000 UTC-8
+  result = dateAdd("millisecond", +7, 1673136000, "-08:00");
+  expected = makeTimestampWithTimeZoneVector(1673136007, "-08:00");
+  assertEqualVectors(expected, result);
+
+  const auto evaluateDateAddFromStrings = [&](const std::string& unit,
+                                              int32_t value,
+                                              const std::string& inputTimestamp,
+                                              const std::string&
+                                                  expectedTimestamp) {
+    assertEqualVectors(
+        evaluate<RowVector>(
+            "parse_datetime(c0, 'YYYY-MM-dd+HH:mm:ssZZ')",
+            makeRowVector({makeNullableFlatVector<StringView>(
+                {StringView{expectedTimestamp}})})),
+        evaluate<RowVector>(
+            fmt::format(
+                "date_add('{}', {}, parse_datetime(c0, 'YYYY-MM-dd+HH:mm:ssZZ'))",
+                unit,
+                value),
+            makeRowVector({makeNullableFlatVector<StringView>(
+                {StringView{inputTimestamp}})})));
+  };
+
+  evaluateDateAddFromStrings(
+      "second", 3, "1972-05-20+23:01:02+14:00", "1972-05-20+23:01:05+14:00");
+  evaluateDateAddFromStrings(
+      "minute", 5, "1972-05-20+23:01:02+14:00", "1972-05-20+23:06:02+14:00");
+  evaluateDateAddFromStrings(
+      "minute", 10, "1968-02-20+23:01:02+14:00", "1968-02-20+23:11:02+14:00");
+  evaluateDateAddFromStrings(
+      "hour", 5, "1972-05-20+23:01:02+14:00", "1972-05-21+04:01:02+14:00");
+  evaluateDateAddFromStrings(
+      "hour", 50, "1968-02-20+23:01:02+14:00", "1968-02-23+01:01:02+14:00");
+  evaluateDateAddFromStrings(
+      "day", 14, "1972-05-20+23:01:02+14:00", "1972-06-03+23:01:02+14:00");
+  evaluateDateAddFromStrings(
+      "day", 140, "1968-02-20+23:01:02+14:00", "1968-07-09+23:01:02+14:00");
+  evaluateDateAddFromStrings(
+      "month", 14, "1972-05-20+23:01:02+14:00", "1973-07-20+23:01:02+14:00");
+  evaluateDateAddFromStrings(
+      "month", 10, "1968-02-20+23:01:02+14:00", "1968-12-20+23:01:02+14:00");
+  evaluateDateAddFromStrings(
+      "quarter", 3, "1972-05-20+23:01:02+14:00", "1973-02-20+23:01:02+14:00");
+  evaluateDateAddFromStrings(
+      "quarter", 30, "1968-02-20+23:01:02+14:00", "1975-08-20+23:01:02+14:00");
+  evaluateDateAddFromStrings(
+      "year", 3, "1972-05-20+23:01:02+14:00", "1975-05-20+23:01:02+14:00");
+  evaluateDateAddFromStrings(
+      "year", 3, "1968-02-20+23:01:02+14:00", "1971-02-20+23:01:02+14:00");
+}
+
 TEST_F(DateTimeFunctionsTest, dateDiffDate) {
   const auto dateDiff = [&](const std::string& unit,
                             std::optional<int32_t> date1,
