@@ -13,7 +13,6 @@
 # limitations under the License.
 
 if(VELOX_ENABLE_PARQUET)
-  add_subdirectory(duckdb_reader)
   add_subdirectory(thrift)
   add_subdirectory(reader)
   add_subdirectory(writer)
@@ -27,9 +26,8 @@ add_library(velox_dwio_parquet_reader RegisterParquetReader.cpp)
 add_library(velox_dwio_parquet_writer RegisterParquetWriter.cpp)
 
 if(VELOX_ENABLE_PARQUET)
-  target_link_libraries(
-    velox_dwio_parquet_reader velox_dwio_duckdb_parquet_reader
-    velox_dwio_native_parquet_reader xsimd)
+  target_link_libraries(velox_dwio_parquet_reader
+                        velox_dwio_native_parquet_reader xsimd)
   target_link_libraries(velox_dwio_parquet_writer
                         velox_dwio_arrow_parquet_writer)
 endif()

@@ -20,7 +20,6 @@
 #include "velox/common/base/Fs.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/dwio/parquet/RegisterParquetReader.h"
-#include "velox/dwio/parquet/duckdb_reader/ParquetReader.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
@@ -28,8 +27,6 @@
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
-
-DECLARE_int32(split_preload_per_driver);
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -41,8 +38,7 @@ namespace {
 
 class ParquetTpchTestBase : public testing::Test {
  public:
-  ParquetTpchTestBase(ParquetReaderType parquetReaderType)
-      : parquetReaderType_(parquetReaderType) {}
+  ParquetTpchTestBase() {}
 
   // Setup a DuckDB instance for the entire suite and load TPC-H data with scale
   // factor 0.01.
@@ -57,11 +53,7 @@ class ParquetTpchTestBase : public testing::Test {
 
     parse::registerTypeResolver();
     filesystems::registerLocalFileSystem();
-    if (parquetReaderType_ == ParquetReaderType::DUCKDB) {
-      FLAGS_split_preload_per_driver = 0;
-    }
-    unregisterParquetReaderFactory();
-    registerParquetReaderFactory(parquetReaderType_);
+    registerParquetReaderFactory();
 
     auto hiveConnector =
         connector::getConnectorFactory(
@@ -135,7 +127,6 @@ class ParquetTpchTestBase : public testing::Test {
         params, addSplits, duckQuery, *duckDb_, sortingKeys);
   }
 
-  const ParquetReaderType parquetReaderType_;
   std::shared_ptr<DuckDbQueryRunner> duckDb_ = nullptr;
   std::shared_ptr<TempDirectoryPath> tempDirectory_ = nullptr;
   TpchQueryBuilder tpchBuilder_ =

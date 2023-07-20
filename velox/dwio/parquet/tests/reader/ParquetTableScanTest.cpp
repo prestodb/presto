@@ -33,16 +33,24 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
  protected:
   using OperatorTestBase::assertQuery;
 
-  void SetUp() override {
-    HiveConnectorTestBase::SetUp();
-    unregisterParquetReaderFactory();
-    registerParquetReaderFactory(
-        facebook::velox::parquet::ParquetReaderType::NATIVE);
+  void SetUp() {
+    registerParquetReaderFactory();
+
+    auto hiveConnector =
+        connector::getConnectorFactory(
+            connector::hive::HiveConnectorFactory::kHiveConnectorName)
+            ->newConnector(kHiveConnectorId, nullptr);
+    connector::registerConnector(hiveConnector);
   }
 
-  void TearDown() override {
-    unregisterParquetReaderFactory();
-    HiveConnectorTestBase::TearDown();
+  void assertSelect(
+      std::vector<std::string>&& outputColumnNames,
+      const std::string& sql) {
+    auto rowType = getRowType(std::move(outputColumnNames));
+
+    auto plan = PlanBuilder().tableScan(rowType).planNode();
+
+    assertQuery(plan, splits_, sql);
   }
 
   void assertSelectWithFilter(
@@ -57,6 +65,37 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
     auto plan = PlanBuilder(pool_.get())
                     .setParseOptions(options)
                     .tableScan(rowType, subfieldFilters, remainingFilter)
+                    .planNode();
+
+    assertQuery(plan, splits_, sql);
+  }
+
+  void assertSelectWithAgg(
+      std::vector<std::string>&& outputColumnNames,
+      const std::vector<std::string>& aggregates,
+      const std::vector<std::string>& groupingKeys,
+      const std::string& sql) {
+    auto rowType = getRowType(std::move(outputColumnNames));
+
+    auto plan = PlanBuilder()
+                    .tableScan(rowType)
+                    .singleAggregation(groupingKeys, aggregates)
+                    .planNode();
+
+    assertQuery(plan, splits_, sql);
+  }
+
+  void assertSelectWithFilterAndAgg(
+      std::vector<std::string>&& outputColumnNames,
+      const std::vector<std::string>& filters,
+      const std::vector<std::string>& aggregates,
+      const std::vector<std::string>& groupingKeys,
+      const std::string& sql) {
+    auto rowType = getRowType(std::move(outputColumnNames));
+
+    auto plan = PlanBuilder()
+                    .tableScan(rowType, filters)
+                    .singleAggregation(groupingKeys, aggregates)
                     .planNode();
 
     assertQuery(plan, splits_, sql);
@@ -93,6 +132,99 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
   RowTypePtr rowType_;
   std::vector<std::shared_ptr<connector::ConnectorSplit>> splits_;
 };
+
+TEST_F(ParquetTableScanTest, basic) {
+  loadData(
+      getExampleFilePath("sample.parquet"),
+      ROW({"a", "b"}, {BIGINT(), DOUBLE()}),
+      makeRowVector(
+          {"a", "b"},
+          {
+              makeFlatVector<int64_t>(20, [](auto row) { return row + 1; }),
+              makeFlatVector<double>(20, [](auto row) { return row + 1; }),
+          }));
+
+  // Plain select.
+  assertSelect({"a"}, "SELECT a FROM tmp");
+  assertSelect({"b"}, "SELECT b FROM tmp");
+  assertSelect({"a", "b"}, "SELECT a, b FROM tmp");
+  assertSelect({"b", "a"}, "SELECT b, a FROM tmp");
+
+  // With filters.
+  assertSelectWithFilter({"a"}, {"a < 3"}, "", "SELECT a FROM tmp WHERE a < 3");
+  assertSelectWithFilter(
+      {"a", "b"}, {"a < 3"}, "", "SELECT a, b FROM tmp WHERE a < 3");
+  assertSelectWithFilter(
+      {"b", "a"}, {"a < 3"}, "", "SELECT b, a FROM tmp WHERE a < 3");
+  assertSelectWithFilter(
+      {"a", "b"}, {"a < 0"}, "", "SELECT a, b FROM tmp WHERE a < 0");
+
+  assertSelectWithFilter(
+      {"b"}, {"b < DOUBLE '2.0'"}, "", "SELECT b FROM tmp WHERE b < 2.0");
+  assertSelectWithFilter(
+      {"a", "b"},
+      {"b >= DOUBLE '2.0'"},
+      "",
+      "SELECT a, b FROM tmp WHERE b >= 2.0");
+  assertSelectWithFilter(
+      {"b", "a"},
+      {"b <= DOUBLE '2.0'"},
+      "",
+      "SELECT b, a FROM tmp WHERE b <= 2.0");
+  assertSelectWithFilter(
+      {"a", "b"},
+      {"b < DOUBLE '0.0'"},
+      "",
+      "SELECT a, b FROM tmp WHERE b < 0.0");
+
+  // With aggregations.
+  assertSelectWithAgg({"a"}, {"sum(a)"}, {}, "SELECT sum(a) FROM tmp");
+  assertSelectWithAgg({"b"}, {"max(b)"}, {}, "SELECT max(b) FROM tmp");
+  assertSelectWithAgg(
+      {"a", "b"}, {"min(a)", "max(b)"}, {}, "SELECT min(a), max(b) FROM tmp");
+  assertSelectWithAgg(
+      {"b", "a"}, {"max(b)"}, {"a"}, "SELECT max(b), a FROM tmp GROUP BY a");
+  assertSelectWithAgg(
+      {"a", "b"}, {"max(a)"}, {"b"}, "SELECT max(a), b FROM tmp GROUP BY b");
+
+  // With filter and aggregation.
+  assertSelectWithFilterAndAgg(
+      {"a"}, {"a < 3"}, {"sum(a)"}, {}, "SELECT sum(a) FROM tmp WHERE a < 3");
+  assertSelectWithFilterAndAgg(
+      {"a", "b"},
+      {"a < 3"},
+      {"sum(b)"},
+      {},
+      "SELECT sum(b) FROM tmp WHERE a < 3");
+  assertSelectWithFilterAndAgg(
+      {"a", "b"},
+      {"a < 3"},
+      {"min(a)", "max(b)"},
+      {},
+      "SELECT min(a), max(b) FROM tmp WHERE a < 3");
+  assertSelectWithFilterAndAgg(
+      {"b", "a"},
+      {"a < 3"},
+      {"max(b)"},
+      {"a"},
+      "SELECT max(b), a FROM tmp WHERE a < 3 GROUP BY a");
+}
+
+TEST_F(ParquetTableScanTest, countStar) {
+  // sample.parquet holds two columns (a: BIGINT, b: DOUBLE) and
+  // 20 rows.
+  auto filePath = getExampleFilePath("sample.parquet");
+  auto split = makeSplit(filePath);
+
+  // Output type does not have any columns.
+  auto rowType = ROW({}, {});
+  auto plan = PlanBuilder()
+                  .tableScan(rowType)
+                  .singleAggregation({}, {"count(0)"})
+                  .planNode();
+
+  assertQuery(plan, {split}, "SELECT 20");
+}
 
 TEST_F(ParquetTableScanTest, decimalSubfieldFilter) {
   // decimal.parquet holds two columns (a: DECIMAL(5, 2), b: DECIMAL(20, 5)) and

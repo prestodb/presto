@@ -15,109 +15,101 @@
  */
 
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/dwio/parquet/RegisterParquetReader.h"
 #include "velox/dwio/parquet/tests/ParquetTpchTestBase.h"
 
-class MultiParquetTpchTest
-    : public ParquetTpchTestBase,
-      public testing::WithParamInterface<ParquetReaderType> {
+class ParquetTpchTest : public ParquetTpchTestBase {
  public:
-  MultiParquetTpchTest() : ParquetTpchTestBase(GetParam()) {}
+  ParquetTpchTest() : ParquetTpchTestBase() {}
 };
 
-TEST_P(MultiParquetTpchTest, Q1) {
+TEST_F(ParquetTpchTest, Q1) {
   assertQuery(1);
 }
 
-TEST_P(MultiParquetTpchTest, Q3) {
+TEST_F(ParquetTpchTest, Q3) {
   std::vector<uint32_t> sortingKeys{1, 2};
   assertQuery(3, std::move(sortingKeys));
 }
 
-TEST_P(MultiParquetTpchTest, Q5) {
+TEST_F(ParquetTpchTest, Q5) {
   std::vector<uint32_t> sortingKeys{1};
   assertQuery(5, std::move(sortingKeys));
 }
 
-TEST_P(MultiParquetTpchTest, Q6) {
+TEST_F(ParquetTpchTest, Q6) {
   assertQuery(6);
 }
 
-TEST_P(MultiParquetTpchTest, Q7) {
+TEST_F(ParquetTpchTest, Q7) {
   std::vector<uint32_t> sortingKeys{0, 1, 2};
   assertQuery(7, std::move(sortingKeys));
 }
 
-TEST_P(MultiParquetTpchTest, Q8) {
+TEST_F(ParquetTpchTest, Q8) {
   std::vector<uint32_t> sortingKeys{0};
   assertQuery(8, std::move(sortingKeys));
 }
 
-TEST_P(MultiParquetTpchTest, Q9) {
+TEST_F(ParquetTpchTest, Q9) {
   std::vector<uint32_t> sortingKeys{0, 1};
   assertQuery(9, std::move(sortingKeys));
 }
 
-TEST_P(MultiParquetTpchTest, Q10) {
+TEST_F(ParquetTpchTest, Q10) {
   std::vector<uint32_t> sortingKeys{2};
   assertQuery(10, std::move(sortingKeys));
 }
 
-TEST_P(MultiParquetTpchTest, Q12) {
+TEST_F(ParquetTpchTest, Q12) {
   std::vector<uint32_t> sortingKeys{0};
   assertQuery(12, std::move(sortingKeys));
 }
 
-TEST_P(MultiParquetTpchTest, Q13) {
+TEST_F(ParquetTpchTest, Q13) {
   std::vector<uint32_t> sortingKeys{0, 1};
   assertQuery(13, std::move(sortingKeys));
 }
 
-TEST_P(MultiParquetTpchTest, Q14) {
+TEST_F(ParquetTpchTest, Q14) {
   assertQuery(14);
 }
 
-TEST_P(MultiParquetTpchTest, Q15) {
+TEST_F(ParquetTpchTest, Q15) {
   std::vector<uint32_t> sortingKeys{0};
   assertQuery(15, std::move(sortingKeys));
 }
 
-TEST_P(MultiParquetTpchTest, Q16) {
+TEST_F(ParquetTpchTest, Q16) {
   std::vector<uint32_t> sortingKeys{0, 1, 2, 3};
   assertQuery(16, std::move(sortingKeys));
 }
 
-TEST_P(MultiParquetTpchTest, Q17) {
+TEST_F(ParquetTpchTest, Q17) {
   assertQuery(17);
 }
 
-TEST_P(MultiParquetTpchTest, Q18) {
+TEST_F(ParquetTpchTest, Q18) {
   assertQuery(18);
 }
 
-TEST_P(MultiParquetTpchTest, Q19) {
+TEST_F(ParquetTpchTest, Q19) {
   assertQuery(19);
 }
 
-TEST_P(MultiParquetTpchTest, Q20) {
+TEST_F(ParquetTpchTest, Q20) {
   std::vector<uint32_t> sortingKeys{0};
   assertQuery(20, std::move(sortingKeys));
 }
 
-TEST_P(MultiParquetTpchTest, Q21) {
+TEST_F(ParquetTpchTest, Q21) {
   std::vector<uint32_t> sortingKeys{0, 1};
   assertQuery(21, std::move(sortingKeys));
 }
 
-TEST_P(MultiParquetTpchTest, Q22) {
+TEST_F(ParquetTpchTest, Q22) {
   std::vector<uint32_t> sortingKeys{0};
   assertQuery(22, std::move(sortingKeys));
 }
-
-VELOX_INSTANTIATE_TEST_SUITE_P(
-    ParquetTpchTestBase,
-    MultiParquetTpchTest,
-    testing::ValuesIn({ParquetReaderType::DUCKDB, ParquetReaderType::NATIVE}));
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);

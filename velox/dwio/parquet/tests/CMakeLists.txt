@@ -22,7 +22,6 @@ set(TEST_LINK_LIBS
     ${GLOG}
     ${FILESYSTEM})
 
-add_subdirectory(duckdb_reader)
 add_subdirectory(reader)
 add_subdirectory(thrift)
 
