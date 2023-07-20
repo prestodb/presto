@@ -91,7 +91,8 @@ import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggregationFunctio
 import com.facebook.presto.operator.aggregation.differentialentropy.DifferentialEntropyAggregation;
 import com.facebook.presto.operator.aggregation.histogram.Histogram;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggregationFunction;
-import com.facebook.presto.operator.aggregation.reservoirsample.BackingSample;
+import com.facebook.presto.operator.aggregation.reservoirsample.CreateSampleAggregation;
+import com.facebook.presto.operator.aggregation.reservoirsample.CreateSampleFunction;
 import com.facebook.presto.operator.scalar.ArrayAllMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayAnyMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayCardinalityFunction;
@@ -343,6 +344,7 @@ import static com.facebook.presto.operator.aggregation.minmaxby.MaxByAggregation
 import static com.facebook.presto.operator.aggregation.minmaxby.MaxByNAggregationFunction.MAX_BY_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.minmaxby.MinByAggregationFunction.MIN_BY;
 import static com.facebook.presto.operator.aggregation.minmaxby.MinByNAggregationFunction.MIN_BY_N_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.reservoirsample.CreateSampleFunction.Reservoir_Sample;
 import static com.facebook.presto.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static com.facebook.presto.operator.scalar.ArrayFlattenFunction.ARRAY_FLATTEN_FUNCTION;
@@ -662,7 +664,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregates(IntervalDayToSecondAverageAggregation.class)
                 .aggregates(IntervalYearToMonthAverageAggregation.class)
                 .aggregates(DifferentialEntropyAggregation.class)
-                .aggregate(BackingSample.class)
+                .aggregates(CreateSampleAggregation.class)
                 .aggregates(EntropyAggregation.class)
                 .aggregates(GeometricMeanAggregations.class)
                 .aggregates(RealGeometricMeanAggregations.class)
@@ -847,6 +849,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_TO_JSON, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY)
                 .function(SET_AGG)
                 .function(SET_UNION)
+                .function(Reservoir_Sample)
                 .function(new ArrayAggregationFunction(featuresConfig.isLegacyArrayAgg(), featuresConfig.getArrayAggGroupImplementation()))
                 .functions(new MapSubscriptOperator(featuresConfig.isLegacyMapSubscript()))
                 .functions(MAP_CONSTRUCTOR, MAP_TO_JSON, JSON_TO_MAP, JSON_STRING_TO_MAP)
