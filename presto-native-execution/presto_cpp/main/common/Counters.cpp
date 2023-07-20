@@ -35,7 +35,7 @@ void registerPrestoCppCounters() {
       facebook::velox::StatType::COUNT);
   REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE(
       kCounterHttpClientPrestoExchangeOnBodyBytes,
-      100,
+      1000,
       0,
       1000000,
       50,
@@ -45,7 +45,7 @@ void registerPrestoCppCounters() {
       100);
   REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE(
       kCounterPrestoExchangeSerializedPageSize,
-      100,
+      10000,
       0,
       10000000,
       50,
@@ -101,9 +101,9 @@ void registerPrestoCppCounters() {
       kCounterOsNumForcedContextSwitches, facebook::velox::StatType::AVG);
   REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE(
       kCounterExchangeSourcePeakQueuedBytes,
-      (1024 * 1024), // bucket unit: 1MB
+      1l * 1024 * 1024 * 1024,
       0,
-      (62l * 1024 * 1024 * 1024), // max bucket size: 62GB
+      62l * 1024 * 1024 * 1024, // max bucket value: 62GB
       100);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterMemoryCacheNumEntries, facebook::velox::StatType::AVG);
