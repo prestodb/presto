@@ -162,14 +162,12 @@ class MemoryArbitrator {
         capacity_(config.capacity),
         initMemoryPoolCapacity_(config.initMemoryPoolCapacity),
         minMemoryPoolCapacityTransferSize_(
-            config.minMemoryPoolCapacityTransferSize),
-        retryArbitrationFailure_(config.retryArbitrationFailure) {}
+            config.minMemoryPoolCapacityTransferSize) {}
 
   const Kind kind_;
   const uint64_t capacity_;
   const uint64_t initMemoryPoolCapacity_;
   const uint64_t minMemoryPoolCapacityTransferSize_;
-  const bool retryArbitrationFailure_;
 };
 
 std::ostream& operator<<(std::ostream& out, const MemoryArbitrator::Kind& kind);

@@ -182,7 +182,7 @@ bool SharedArbitrator::growMemory(
     if (arbitrateMemory(requestor, candidates, targetBytes)) {
       return true;
     }
-    if (!retryArbitrationFailure_ || numRetries > 0) {
+    if (numRetries > 0) {
       break;
     }
     VELOX_CHECK(!requestor->aborted());

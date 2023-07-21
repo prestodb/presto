@@ -361,8 +361,7 @@ class MockSharedArbitrationTest : public testing::Test {
   void setupMemory(
       int64_t memoryCapacity = 0,
       uint64_t initMemoryPoolCapacity = kMaxMemory,
-      uint64_t minMemoryPoolCapacityTransferSize = 0,
-      bool retryArbitrationFailure = true) {
+      uint64_t minMemoryPoolCapacityTransferSize = 0) {
     if (initMemoryPoolCapacity == kMaxMemory) {
       initMemoryPoolCapacity = kInitMemoryPoolCapacity;
     }
@@ -375,8 +374,7 @@ class MockSharedArbitrationTest : public testing::Test {
         .kind = MemoryArbitrator::Kind::kShared,
         .capacity = options.capacity,
         .initMemoryPoolCapacity = initMemoryPoolCapacity,
-        .minMemoryPoolCapacityTransferSize = minMemoryPoolCapacityTransferSize,
-        .retryArbitrationFailure = retryArbitrationFailure};
+        .minMemoryPoolCapacityTransferSize = minMemoryPoolCapacityTransferSize};
     options.checkUsageLeak = true;
     manager_ = std::make_unique<MemoryManager>(options);
     ASSERT_EQ(manager_->arbitrator()->kind(), MemoryArbitrator::Kind::kShared);
@@ -1636,12 +1634,11 @@ DEBUG_ONLY_TEST_F(
   allocThread.join();
 }
 
-TEST_F(MockSharedArbitrationTest, arbitrationFailureRetry) {
+TEST_F(MockSharedArbitrationTest, arbitrationFailure) {
   int64_t maxCapacity = 128 * MB;
   int64_t initialCapacity = 0 * MB;
   int64_t minTransferCapacity = 1 * MB;
   struct {
-    bool retryArbitrationFailure;
     int64_t requestorCapacity;
     int64_t requestorRequestBytes;
     int64_t otherCapacity;
@@ -1650,8 +1647,7 @@ TEST_F(MockSharedArbitrationTest, arbitrationFailureRetry) {
 
     std::string debugString() const {
       return fmt::format(
-          "retryArbitrationFailure {} requestorCapacity {} requestorRequestBytes {} otherCapacity {} expectedAllocationSuccess {} expectedRequestorAborted {}",
-          retryArbitrationFailure,
+          "requestorCapacity {} requestorRequestBytes {} otherCapacity {} expectedAllocationSuccess {} expectedRequestorAborted {}",
           succinctBytes(requestorCapacity),
           succinctBytes(requestorRequestBytes),
           succinctBytes(otherCapacity),
@@ -1659,23 +1655,15 @@ TEST_F(MockSharedArbitrationTest, arbitrationFailureRetry) {
           expectedRequestorAborted);
     }
   } testSettings[] = {
-      {false, 64 * MB, 64 * MB, 32 * MB, false, false},
-      {false, 64 * MB, 48 * MB, 32 * MB, false, false},
-      {false, 32 * MB, 64 * MB, 64 * MB, false, false},
-      {false, 32 * MB, 32 * MB, 96 * MB, false, false},
-      {true, 64 * MB, 64 * MB, 32 * MB, false, true},
-      {true, 64 * MB, 48 * MB, 32 * MB, false, true},
-      {true, 32 * MB, 64 * MB, 64 * MB, false, true},
-      {true, 32 * MB, 32 * MB, 96 * MB, true, false}};
+      {64 * MB, 64 * MB, 32 * MB, false, true},
+      {64 * MB, 48 * MB, 32 * MB, false, true},
+      {32 * MB, 64 * MB, 64 * MB, false, true},
+      {32 * MB, 32 * MB, 96 * MB, true, false}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
 
-    setupMemory(
-        maxCapacity,
-        initialCapacity,
-        minTransferCapacity,
-        testData.retryArbitrationFailure);
+    setupMemory(maxCapacity, initialCapacity, minTransferCapacity);
     std::shared_ptr<MockQuery> requestorQuery = addQuery();
     MockMemoryOperator* requestorOp = addMemoryOp(requestorQuery, false);
     requestorOp->allocate(testData.requestorCapacity);
@@ -1703,9 +1691,7 @@ TEST_F(MockSharedArbitrationTest, arbitrationFailureRetry) {
     ASSERT_EQ(
         arbitrator_->stats().numFailures,
         testData.expectedAllocationSuccess ? 0 : 1);
-    ASSERT_EQ(
-        arbitrator_->stats().numAborted,
-        testData.retryArbitrationFailure ? 1 : 0);
+    ASSERT_EQ(arbitrator_->stats().numAborted, 1);
   }
 }
 
