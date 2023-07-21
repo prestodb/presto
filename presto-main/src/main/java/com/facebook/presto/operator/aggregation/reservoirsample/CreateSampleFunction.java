@@ -4,17 +4,12 @@ import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
-import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.AccumulatorCompiler;
 import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplementation;
-import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggregationStateFactory;
-import com.facebook.presto.operator.aggregation.arrayagg.SetUnionFunction;
-import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.function.*;
 import com.facebook.presto.spi.function.aggregation.Accumulator;
 import com.facebook.presto.spi.function.aggregation.AggregationMetadata;
@@ -25,7 +20,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.operator.aggregation.AbstractMinMaxAggregationFunction.createParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.*;
@@ -36,7 +30,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 public class CreateSampleFunction
         extends SqlAggregationFunction {
 
-    public static final CreateSampleFunction Reservoir_Sample = new CreateSampleFunction();
+    public static final CreateSampleFunction RESERVOIR_SAMPLE = new CreateSampleFunction();
     private static final String NAME = "reservoir_sample";
     private static final MethodHandle INPUT_FUNCTION = methodHandle(CreateSampleFunction.class, "input", Type.class, ReservoirSampleState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(CreateSampleFunction.class, "combine", Type.class, ReservoirSampleState.class, ReservoirSampleState.class);
@@ -59,7 +53,6 @@ public class CreateSampleFunction
         DynamicClassLoader classLoader = new DynamicClassLoader(CreateSampleFunction.class.getClassLoader());
         AccumulatorStateSerializer<?> stateSerializer = new ReservoirSampleStateSerializer(type);
         AccumulatorStateFactory<?> stateFactory = new ReservoirSampleStateFactory(type);
-//        AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(ReservoirSampleState.class, classLoader);
         List<Type> inputTypes = ImmutableList.of(type);
         Type outputType = new ArrayType(type);
         Type intermediateType = stateSerializer.getSerializedType();
@@ -114,7 +107,6 @@ public class CreateSampleFunction
     }
 
     public static void output(Type elementType, ReservoirSampleState state, BlockBuilder out) {
-
         BlockBuilder entryBuilder = out.beginBlockEntry();
         Block[] samples = state.getSamples();
         for (int pos = 0; pos < samples.length; pos++) {
