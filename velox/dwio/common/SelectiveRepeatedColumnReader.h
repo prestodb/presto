@@ -37,11 +37,15 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
   static constexpr int32_t kBufferSize = 1024;
 
   SelectiveRepeatedColumnReader(
-      std::shared_ptr<const dwio::common::TypeWithId> nodeType,
+      const TypePtr& requestedType,
       FormatParams& params,
       velox::common::ScanSpec& scanSpec,
-      const TypePtr& type)
-      : SelectiveColumnReader(std::move(nodeType), params, scanSpec, type) {}
+      std::shared_ptr<const dwio::common::TypeWithId> type)
+      : SelectiveColumnReader(
+            requestedType,
+            params,
+            scanSpec,
+            std::move(type)) {}
 
   /// Reads 'numLengths' next lengths into 'result'. If 'nulls' is
   /// non-null, each kNull bit signifies a null with a length of 0 to

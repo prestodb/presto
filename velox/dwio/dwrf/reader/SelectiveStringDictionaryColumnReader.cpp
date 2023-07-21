@@ -26,11 +26,11 @@ SelectiveStringDictionaryColumnReader::SelectiveStringDictionaryColumnReader(
     const std::shared_ptr<const TypeWithId>& nodeType,
     DwrfParams& params,
     common::ScanSpec& scanSpec)
-    : SelectiveColumnReader(nodeType, params, scanSpec, nodeType->type),
+    : SelectiveColumnReader(nodeType->type, params, scanSpec, nodeType),
       lastStrideIndex_(-1),
       provider_(params.stripeStreams().getStrideIndexProvider()) {
   auto& stripe = params.stripeStreams();
-  EncodingKey encodingKey{nodeType_->id, params.flatMapContext().sequence};
+  EncodingKey encodingKey{fileType_->id, params.flatMapContext().sequence};
   version_ = convertRleVersion(stripe.getEncoding(encodingKey).kind());
   scanState_.dictionary.numValues =
       stripe.getEncoding(encodingKey).dictionarysize();
@@ -181,7 +181,7 @@ void SelectiveStringDictionaryColumnReader::makeDictionaryBaseVector() {
 
     dictionaryValues_ = std::make_shared<FlatVector<StringView>>(
         &memoryPool_,
-        type_,
+        fileType_->type,
         BufferPtr(nullptr), // TODO nulls
         scanState_.dictionary.numValues +
             scanState_.dictionary2.numValues, // length
@@ -191,7 +191,7 @@ void SelectiveStringDictionaryColumnReader::makeDictionaryBaseVector() {
   } else {
     dictionaryValues_ = std::make_shared<FlatVector<StringView>>(
         &memoryPool_,
-        type_,
+        fileType_->type,
         BufferPtr(nullptr), // TODO nulls
         scanState_.dictionary.numValues /*length*/,
         scanState_.dictionary.values,

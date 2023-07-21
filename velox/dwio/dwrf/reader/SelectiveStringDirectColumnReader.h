@@ -51,7 +51,7 @@ class SelectiveStringDirectColumnReader
     rawStringBuffer_ = nullptr;
     rawStringSize_ = 0;
     rawStringUsed_ = 0;
-    getFlatValues<StringView, StringView>(rows, result, type_);
+    getFlatValues<StringView, StringView>(rows, result, requestedType());
   }
 
  private:

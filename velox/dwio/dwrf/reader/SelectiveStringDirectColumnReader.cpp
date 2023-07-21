@@ -24,7 +24,7 @@ SelectiveStringDirectColumnReader::SelectiveStringDirectColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& nodeType,
     DwrfParams& params,
     common::ScanSpec& scanSpec)
-    : SelectiveColumnReader(nodeType, params, scanSpec, nodeType->type) {
+    : SelectiveColumnReader(nodeType->type, params, scanSpec, nodeType) {
   EncodingKey encodingKey{nodeType->id, params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   RleVersion rleVersion =

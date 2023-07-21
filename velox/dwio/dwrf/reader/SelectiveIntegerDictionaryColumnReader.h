@@ -29,7 +29,7 @@ class SelectiveIntegerDictionaryColumnReader
 
   SelectiveIntegerDictionaryColumnReader(
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
-      const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
+      std::shared_ptr<const dwio::common::TypeWithId> dataType,
       DwrfParams& params,
       common::ScanSpec& scanSpec,
       uint32_t numBytes);

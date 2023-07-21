@@ -29,10 +29,10 @@ class BooleanColumnReader : public dwio::common::SelectiveByteRleColumnReader {
       ParquetParams& params,
       common::ScanSpec& scanSpec)
       : SelectiveByteRleColumnReader(
-            nodeType,
+            nodeType->type,
             params,
             scanSpec,
-            nodeType->type) {}
+            nodeType) {}
 
   void seekToRowGroup(uint32_t index) override {
     SelectiveByteRleColumnReader::seekToRowGroup(index);

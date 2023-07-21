@@ -23,16 +23,16 @@ using namespace dwio::common;
 
 SelectiveIntegerDictionaryColumnReader::SelectiveIntegerDictionaryColumnReader(
     const std::shared_ptr<const TypeWithId>& requestedType,
-    const std::shared_ptr<const TypeWithId>& dataType,
+    std::shared_ptr<const TypeWithId> dataType,
     DwrfParams& params,
     common::ScanSpec& scanSpec,
     uint32_t numBytes)
     : SelectiveIntegerColumnReader(
-          std::move(requestedType),
+          requestedType->type,
           params,
           scanSpec,
-          dataType->type) {
-  EncodingKey encodingKey{nodeType_->id, params.flatMapContext().sequence};
+          std::move(dataType)) {
+  EncodingKey encodingKey{fileType_->id, params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   auto encoding = stripe.getEncoding(encodingKey);
   scanState_.dictionary.numValues = encoding.dictionarysize();
@@ -75,7 +75,11 @@ void SelectiveIntegerDictionaryColumnReader::read(
     RowSet rows,
     const uint64_t* incomingNulls) {
   VELOX_WIDTH_DISPATCH(
-      sizeOfIntKind(type_->kind()), prepareRead, offset, rows, incomingNulls);
+      sizeOfIntKind(fileType_->type->kind()),
+      prepareRead,
+      offset,
+      rows,
+      incomingNulls);
   auto end = rows.back() + 1;
   const auto* rawNulls =
       nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;

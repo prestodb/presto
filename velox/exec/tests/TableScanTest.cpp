@@ -2944,3 +2944,95 @@ TEST_F(TableScanTest, tableScanProjections) {
   testQueryRow({2, 0});
   testQueryRow({3, 2});
 }
+
+// Tests queries that use that read more row fields than exist in the data, and
+// read additional columns besides just the row.
+TEST_F(TableScanTest, readMissingFieldsWithMoreColumns) {
+  vector_size_t size = 1'000;
+  std::vector<StringView> fruitViews = {"apple", "banana", "cherry", "grapes"};
+  auto rowVector = makeRowVector(
+      {makeRowVector({
+           makeFlatVector<int64_t>(size, [](auto row) { return row; }),
+           makeFlatVector<int64_t>(size, [](auto row) { return row; }),
+       }),
+       makeFlatVector<int32_t>(size, [](auto row) { return -row; }),
+       makeFlatVector<double>(size, [](auto row) { return row * 0.1; }),
+       makeFlatVector<bool>(size, [](auto row) { return row % 2 == 0; }),
+       makeFlatVector<StringView>(size, [&fruitViews](auto row) {
+         return fruitViews[row % fruitViews.size()];
+       })});
+
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, {rowVector});
+  // Create a row type with additional fields not present in the file.
+  auto rowType = makeRowType(
+      {makeRowType({BIGINT(), BIGINT(), BIGINT(), BIGINT()}),
+       INTEGER(),
+       DOUBLE(),
+       BOOLEAN(),
+       VARCHAR()});
+
+  auto op =
+      PlanBuilder()
+          .tableScan(rowType)
+          .project({"c0.c0", "c0.c1", "c0.c2", "c0.c3", "c1", "c2", "c3", "c4"})
+          .planNode();
+
+  auto split = makeHiveConnectorSplit(filePath->path);
+  auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
+
+  ASSERT_EQ(result->size(), size);
+  auto rows = result->as<RowVector>();
+  ASSERT_TRUE(rows);
+  ASSERT_EQ(rows->childrenSize(), 8);
+  for (int i = 0; i < 2; i++) {
+    auto val = rows->childAt(i)->as<SimpleVector<int64_t>>();
+    ASSERT_TRUE(val);
+    ASSERT_EQ(val->size(), size);
+    for (int j = 0; j < size; j++) {
+      ASSERT_FALSE(val->isNullAt(j));
+      ASSERT_EQ(val->valueAt(j), j);
+    }
+  }
+
+  for (int i = 2; i < 4; i++) {
+    auto val = rows->childAt(i)->as<SimpleVector<int64_t>>();
+    ASSERT_TRUE(val);
+    ASSERT_EQ(val->size(), size);
+    for (int j = 0; j < size; j++) {
+      ASSERT_TRUE(val->isNullAt(j));
+    }
+  }
+
+  auto intCol = rows->childAt(4)->as<SimpleVector<int32_t>>();
+  ASSERT_TRUE(intCol);
+  ASSERT_EQ(intCol->size(), size);
+  for (int j = 0; j < size; j++) {
+    ASSERT_FALSE(intCol->isNullAt(j));
+    ASSERT_EQ(intCol->valueAt(j), -j);
+  }
+
+  auto doubleCol = rows->childAt(5)->as<SimpleVector<double>>();
+  ASSERT_TRUE(doubleCol);
+  ASSERT_EQ(doubleCol->size(), size);
+  for (int j = 0; j < size; j++) {
+    ASSERT_FALSE(doubleCol->isNullAt(j));
+    ASSERT_EQ(doubleCol->valueAt(j), j * 0.1);
+  }
+
+  auto boolCol = rows->childAt(6)->as<SimpleVector<bool>>();
+  ASSERT_TRUE(boolCol);
+  ASSERT_EQ(boolCol->size(), size);
+  for (int j = 0; j < size; j++) {
+    ASSERT_FALSE(boolCol->isNullAt(j));
+    ASSERT_EQ(boolCol->valueAt(j), j % 2 == 0);
+  }
+
+  auto stringCol = rows->childAt(7)->as<SimpleVector<StringView>>();
+  ASSERT_TRUE(stringCol);
+  ASSERT_EQ(stringCol->size(), size);
+  for (int j = 0; j < size; j++) {
+    ASSERT_FALSE(stringCol->isNullAt(j));
+    ASSERT_EQ(stringCol->valueAt(j), fruitViews[j % fruitViews.size()]);
+  }
+}

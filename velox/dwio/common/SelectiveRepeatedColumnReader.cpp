@@ -141,7 +141,7 @@ SelectiveListColumnReader::SelectiveListColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
     FormatParams& params,
     velox::common::ScanSpec& scanSpec)
-    : SelectiveRepeatedColumnReader(dataType, params, scanSpec, dataType->type),
+    : SelectiveRepeatedColumnReader(dataType->type, params, scanSpec, dataType),
       requestedType_{requestedType} {}
 
 uint64_t SelectiveListColumnReader::skip(uint64_t numValues) {
@@ -205,7 +205,7 @@ SelectiveMapColumnReader::SelectiveMapColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
     FormatParams& params,
     velox::common::ScanSpec& scanSpec)
-    : SelectiveRepeatedColumnReader(dataType, params, scanSpec, dataType->type),
+    : SelectiveRepeatedColumnReader(dataType->type, params, scanSpec, dataType),
       requestedType_{requestedType} {}
 
 uint64_t SelectiveMapColumnReader::skip(uint64_t numValues) {

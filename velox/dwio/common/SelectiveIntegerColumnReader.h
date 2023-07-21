@@ -25,18 +25,18 @@ namespace facebook::velox::dwio::common {
 class SelectiveIntegerColumnReader : public SelectiveColumnReader {
  public:
   SelectiveIntegerColumnReader(
-      std::shared_ptr<const dwio::common::TypeWithId> requestedType,
+      const TypePtr& requestedType,
       dwio::common::FormatParams& params,
       velox::common::ScanSpec& scanSpec,
-      const TypePtr& type)
+      std::shared_ptr<const dwio::common::TypeWithId> type)
       : SelectiveColumnReader(
-            std::move(requestedType),
+            requestedType,
             params,
             scanSpec,
-            type) {}
+            std::move(type)) {}
 
   void getValues(RowSet rows, VectorPtr* result) override {
-    getIntValues(rows, nodeType_->type, result);
+    getIntValues(rows, requestedType_, result);
   }
 
  protected:

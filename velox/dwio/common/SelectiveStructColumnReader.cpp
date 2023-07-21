@@ -210,10 +210,10 @@ bool SelectiveStructColumnReaderBase::isChildConstant(
                                                   // a filter on a subfield of a
                                                   // row type that doesn't exist
                                                   // in the output.
-       nodeType_->type->kind() !=
+       fileType_->type->kind() !=
            TypeKind::MAP && // If this is the case it means this is a flat map,
                             // so it can't have "missing" fields.
-       childSpec.channel() >= nodeType_->size());
+       childSpec.channel() >= fileType_->size());
 }
 
 namespace {

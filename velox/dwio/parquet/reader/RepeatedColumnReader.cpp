@@ -35,7 +35,7 @@ PageReader* FOLLY_NULLABLE readLeafRepDefs(
     return pageReader;
   }
   PageReader* pageReader = nullptr;
-  auto& type = *reinterpret_cast<const ParquetTypeWithId*>(&reader->nodeType());
+  auto& type = *reinterpret_cast<const ParquetTypeWithId*>(&reader->fileType());
   if (type.type->kind() == TypeKind::ARRAY) {
     pageReader = readLeafRepDefs(children[0], numTop, true);
     auto list = dynamic_cast<ListColumnReader*>(reader);
@@ -70,11 +70,11 @@ void skipUnreadLengthsAndNulls(dwio::common::SelectiveColumnReader& reader) {
   if (children.empty()) {
     return;
   }
-  if (reader.type()->kind() == TypeKind::ARRAY) {
+  if (reader.fileType().type->kind() == TypeKind::ARRAY) {
     reinterpret_cast<ListColumnReader*>(&reader)->skipUnreadLengths();
-  } else if (reader.type()->kind() == TypeKind::ROW) {
+  } else if (reader.fileType().type->kind() == TypeKind::ROW) {
     reinterpret_cast<StructColumnReader*>(&reader)->seekToEndOfPresetNulls();
-  } else if (reader.type()->kind() == TypeKind::MAP) {
+  } else if (reader.fileType().type->kind() == TypeKind::MAP) {
     reinterpret_cast<MapColumnReader*>(&reader)->skipUnreadLengths();
   } else {
     VELOX_UNREACHABLE();
@@ -100,7 +100,7 @@ void ensureRepDefs(
     dwio::common::SelectiveColumnReader& reader,
     int32_t numTop) {
   auto& nodeType =
-      *reinterpret_cast<const ParquetTypeWithId*>(&reader.nodeType());
+      *reinterpret_cast<const ParquetTypeWithId*>(&reader.fileType());
   // Check that this is a direct child of the root struct.
   if (nodeType.parent && !nodeType.parent->parent) {
     skipUnreadLengthsAndNulls(reader);
@@ -187,7 +187,7 @@ void MapColumnReader::read(
   ensureRepDefs(*this, offset + rows.back() + 1 - readOffset_);
   if (offset > readOffset_) {
     // There is no page reader on this level so cannot call skipNullsOnly on it.
-    if (nodeType().parent && !nodeType().parent->parent) {
+    if (fileType().parent && !fileType().parent->parent) {
       skip(offset - readOffset_);
     }
     readOffset_ = offset;
@@ -290,7 +290,7 @@ void ListColumnReader::read(
   ensureRepDefs(*this, offset + rows.back() + 1 - readOffset_);
   if (offset > readOffset_) {
     // There is no page reader on this level so cannot call skipNullsOnly on it.
-    if (nodeType().parent && !nodeType().parent->parent) {
+    if (fileType().parent && !fileType().parent->parent) {
       skip(offset - readOffset_);
     }
     readOffset_ = offset;

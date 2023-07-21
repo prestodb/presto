@@ -35,7 +35,7 @@ SelectiveStructColumnReader::SelectiveStructColumnReader(
           params,
           scanSpec,
           isRoot) {
-  EncodingKey encodingKey{nodeType_->id, params.flatMapContext().sequence};
+  EncodingKey encodingKey{fileType_->id, params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   auto encoding = static_cast<int64_t>(stripe.getEncoding(encodingKey).kind());
   DWIO_ENSURE_EQ(
@@ -54,7 +54,7 @@ SelectiveStructColumnReader::SelectiveStructColumnReader(
       childSpec->setSubscript(kConstantChildSpecSubscript);
       continue;
     }
-    auto childDataType = nodeType_->childByName(childSpec->fieldName());
+    auto childDataType = fileType_->childByName(childSpec->fieldName());
     auto childRequestedType =
         requestedType_->childByName(childSpec->fieldName());
     auto labels = params.streamLabels().append(folly::to<std::string>(i));

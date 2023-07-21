@@ -54,9 +54,9 @@ SelectiveListColumnReader::SelectiveListColumnReader(
           dataType,
           params,
           scanSpec),
-      length_(makeLengthDecoder(*nodeType_, params, memoryPool_)) {
-  DWIO_ENSURE_EQ(nodeType_->id, dataType->id, "working on the same node");
-  EncodingKey encodingKey{nodeType_->id, params.flatMapContext().sequence};
+      length_(makeLengthDecoder(*fileType_, params, memoryPool_)) {
+  DWIO_ENSURE_EQ(fileType_->id, dataType->id, "working on the same node");
+  EncodingKey encodingKey{fileType_->id, params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   // count the number of selected sub-columns
   const auto& cs = stripe.getColumnSelector();
@@ -76,7 +76,7 @@ SelectiveListColumnReader::SelectiveListColumnReader(
       params.streamLabels(),
       flatMapContextFromEncodingKey(encodingKey));
   child_ = SelectiveDwrfReader::build(
-      childType, nodeType_->childAt(0), childParams, *scanSpec_->children()[0]);
+      childType, fileType_->childAt(0), childParams, *scanSpec_->children()[0]);
   children_ = {child_.get()};
 }
 
@@ -90,9 +90,9 @@ SelectiveMapColumnReader::SelectiveMapColumnReader(
           dataType,
           params,
           scanSpec),
-      length_(makeLengthDecoder(*nodeType_, params, memoryPool_)) {
-  DWIO_ENSURE_EQ(nodeType_->id, dataType->id, "working on the same node");
-  EncodingKey encodingKey{nodeType_->id, params.flatMapContext().sequence};
+      length_(makeLengthDecoder(*fileType_, params, memoryPool_)) {
+  DWIO_ENSURE_EQ(fileType_->id, dataType->id, "working on the same node");
+  EncodingKey encodingKey{fileType_->id, params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   if (scanSpec_->children().empty()) {
     scanSpec_->getOrCreateChild(
@@ -116,7 +116,7 @@ SelectiveMapColumnReader::SelectiveMapColumnReader(
       flatMapContextFromEncodingKey(encodingKey));
   keyReader_ = SelectiveDwrfReader::build(
       keyType,
-      nodeType_->childAt(0),
+      fileType_->childAt(0),
       keyParams,
       *scanSpec_->children()[0].get());
 
@@ -130,12 +130,12 @@ SelectiveMapColumnReader::SelectiveMapColumnReader(
       flatMapContextFromEncodingKey(encodingKey));
   elementReader_ = SelectiveDwrfReader::build(
       valueType,
-      nodeType_->childAt(1),
+      fileType_->childAt(1),
       elementParams,
       *scanSpec_->children()[1]);
   children_ = {keyReader_.get(), elementReader_.get()};
 
-  VLOG(1) << "[Map] Initialized map column reader for node " << nodeType_->id;
+  VLOG(1) << "[Map] Initialized map column reader for node " << fileType_->id;
 }
 
 } // namespace facebook::velox::dwrf
