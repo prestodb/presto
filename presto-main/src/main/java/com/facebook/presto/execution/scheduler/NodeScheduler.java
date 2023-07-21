@@ -349,17 +349,17 @@ public class NodeScheduler
                     .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
                     .forEach(chosen::add);
 
-            InetAddress address;
-            try {
-                address = host.toInetAddress();
-            }
-            catch (UnknownHostException e) {
-                // skip hosts that don't resolve
-                continue;
-            }
-
             // consider a split with a host without a port as being accessible by all nodes in that host
             if (!host.hasPort()) {
+                InetAddress address;
+                try {
+                    address = host.toInetAddress();
+                }
+                catch (UnknownHostException e) {
+                    // skip hosts that don't resolve
+                    continue;
+                }
+
                 nodeMap.getAllNodesByHost().get(address).stream()
                         .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
                         .forEach(chosen::add);
@@ -376,17 +376,17 @@ public class NodeScheduler
                 nodeMap.getAllNodesByHostAndPort().get(host).stream()
                         .forEach(chosen::add);
 
-                InetAddress address;
-                try {
-                    address = host.toInetAddress();
-                }
-                catch (UnknownHostException e) {
-                    // skip hosts that don't resolve
-                    continue;
-                }
-
                 // consider a split with a host without a port as being accessible by all nodes in that host
                 if (!host.hasPort()) {
+                    InetAddress address;
+                    try {
+                        address = host.toInetAddress();
+                    }
+                    catch (UnknownHostException e) {
+                        // skip hosts that don't resolve
+                        continue;
+                    }
+
                     nodeMap.getAllNodesByHost().get(address).stream()
                             .forEach(chosen::add);
                 }
