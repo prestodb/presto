@@ -37,7 +37,7 @@ dnf_install ninja-build ccache gcc-toolset-9 git wget which libevent-devel \
 dnf remove -y gflags
 
 # Required for Thrift
-dnf_install autoconf automake libtool bison flex python3
+dnf_install autoconf automake libtool bison flex python3 libsodium-devel
 
 dnf_install conda
 
@@ -71,10 +71,16 @@ wget_and_untar http://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz 
 wget_and_untar https://boostorg.jfrog.io/artifactory/main/release/1.72.0/source/boost_1_72_0.tar.gz boost &
 wget_and_untar https://github.com/google/snappy/archive/1.1.8.tar.gz snappy &
 wget_and_untar https://github.com/fmtlib/fmt/archive/8.0.1.tar.gz fmt &
-wget_and_untar https://github.com/facebook/folly/archive/v2022.11.14.00.tar.gz folly &
 #  wget_and_untar https://github.com/ericniebler/range-v3/archive/0.11.0.tar.gz ranges-v3 &
 wget_and_untar https://archive.apache.org/dist/hadoop/common/hadoop-2.10.1/hadoop-2.10.1.tar.gz hadoop
 wget_and_untar https://github.com/protocolbuffers/protobuf/releases/download/v21.4/protobuf-all-21.4.tar.gz protobuf &
+
+FB_OS_VERSION="v2022.11.14.00"
+
+wget_and_untar https://github.com/facebook/folly/archive/${FB_OS_VERSION}.tar.gz folly &
+wget_and_untar https://github.com/facebookincubator/fizz/archive/refs/tags/${FB_OS_VERSION}.tar.gz fizz &
+wget_and_untar https://github.com/facebook/wangle/archive/refs/tags/${FB_OS_VERSION}.tar.gz wangle &
+wget_and_untar https://github.com/facebook/fbthrift/archive/refs/tags/${FB_OS_VERSION}.tar.gz fbthrift &
 
 wait  # For cmake and source downloads to complete.
 
@@ -107,6 +113,10 @@ cmake_install glog -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr
 cmake_install snappy -DSNAPPY_BUILD_TESTS=OFF
 cmake_install fmt -DFMT_TEST=OFF
 cmake_install folly -DFOLLY_HAVE_INT128_T=ON
+
+cmake_install fizz/fizz -DBUILD_TESTS=OFF
+cmake_install wangle/wangle -DBUILD_TESTS=OFF
+cmake_install fbthrift -Denable_tests=OFF
 # cmake_install ranges-v3
 
 dnf clean all
