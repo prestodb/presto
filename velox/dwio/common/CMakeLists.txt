@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_subdirectory(compression)
 add_subdirectory(encryption)
 add_subdirectory(exception)
 
@@ -31,7 +30,6 @@ add_library(
   CachedBufferedInput.cpp
   CacheInputStream.cpp
   ColumnSelector.cpp
-  Common.cpp
   DataSink.cpp
   DecoderUtil.cpp
   DirectDecoder.cpp
@@ -60,7 +58,7 @@ target_link_libraries(
   velox_dwio_common
   velox_buffer
   velox_caching
-  velox_dwio_common_compression
+  velox_common_compression
   velox_dwio_common_encryption
   velox_dwio_common_exception
   velox_exception

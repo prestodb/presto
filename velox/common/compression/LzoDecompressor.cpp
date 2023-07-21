@@ -23,7 +23,6 @@
 
 namespace facebook {
 namespace velox {
-namespace dwio {
 namespace common {
 namespace compression {
 
@@ -45,7 +44,7 @@ static std::string toString(int64_t val) {
 }
 
 namespace {
-class MalformedInputException : public common::ParseError {
+class MalformedInputException : public dwio::common::ParseError {
  public:
   explicit MalformedInputException(int64_t off)
       : ParseError("MalformedInputException at " + toString(off)) {}
@@ -386,6 +385,5 @@ uint64_t lzoDecompress(
 
 } // namespace compression
 } // namespace common
-} // namespace dwio
 } // namespace velox
 } // namespace facebook

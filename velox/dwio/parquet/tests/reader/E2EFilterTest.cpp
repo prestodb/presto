@@ -118,10 +118,10 @@ TEST_F(E2EFilterTest, integerDirect) {
 }
 TEST_F(E2EFilterTest, compression) {
   for (const auto compression :
-       {dwio::common::CompressionKind_SNAPPY,
-        dwio::common::CompressionKind_ZSTD,
-        dwio::common::CompressionKind_GZIP,
-        dwio::common::CompressionKind_NONE}) {
+       {common::CompressionKind_SNAPPY,
+        common::CompressionKind_ZSTD,
+        common::CompressionKind_GZIP,
+        common::CompressionKind_NONE}) {
     if (!facebook::velox::parquet::Writer::isCodecAvailable(compression)) {
       continue;
     }

@@ -25,9 +25,9 @@ Config::Entry<WriterVersion> Config::WRITER_VERSION(
     "orc.writer.version",
     WriterVersion_CURRENT);
 
-Config::Entry<dwio::common::CompressionKind> Config::COMPRESSION(
+Config::Entry<common::CompressionKind> Config::COMPRESSION(
     "hive.exec.orc.compress",
-    dwio::common::CompressionKind::CompressionKind_ZSTD);
+    common::CompressionKind::CompressionKind_ZSTD);
 
 Config::Entry<int32_t> Config::ZLIB_COMPRESSION_LEVEL(
     "hive.exec.orc.compress.zlib.level",

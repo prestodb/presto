@@ -26,6 +26,7 @@
 #include <algorithm>
 
 using namespace ::testing;
+using namespace facebook::velox::common;
 using namespace facebook::velox::dwio;
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwio::common::encryption;

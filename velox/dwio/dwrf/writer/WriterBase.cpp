@@ -62,14 +62,13 @@ void WriterBase::writeFooter(const Type& type) {
   ps.set_footerlength(footerLength);
   ps.set_compression(
       static_cast<proto::CompressionKind>(context_->compression));
-  if (context_->compression !=
-      dwio::common::CompressionKind::CompressionKind_NONE) {
+  if (context_->compression != common::CompressionKind::CompressionKind_NONE) {
     ps.set_compressionblocksize(context_->compressionBlockSize);
   }
   ps.set_cachemode(
       static_cast<proto::StripeCacheMode>(writerSink_->getCacheMode()));
   ps.set_cachesize(cacheSize);
-  writeProto(ps, dwio::common::CompressionKind::CompressionKind_NONE);
+  writeProto(ps, common::CompressionKind::CompressionKind_NONE);
   auto psLength = writerSink_->size() - pos;
   DWIO_ENSURE_LE(psLength, 0xff, "PostScript is too large: ", psLength);
   auto psLen = static_cast<char>(psLength);

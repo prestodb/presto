@@ -86,14 +86,14 @@ struct ArrowContext {
 };
 
 ::parquet::Compression::type getArrowParquetCompression(
-    dwio::common::CompressionKind compression) {
-  if (compression == dwio::common::CompressionKind_SNAPPY) {
+    common::CompressionKind compression) {
+  if (compression == common::CompressionKind_SNAPPY) {
     return ::parquet::Compression::SNAPPY;
-  } else if (compression == dwio::common::CompressionKind_GZIP) {
+  } else if (compression == common::CompressionKind_GZIP) {
     return ::parquet::Compression::GZIP;
-  } else if (compression == dwio::common::CompressionKind_ZSTD) {
+  } else if (compression == common::CompressionKind_ZSTD) {
     return ::parquet::Compression::ZSTD;
-  } else if (compression == dwio::common::CompressionKind_NONE) {
+  } else if (compression == common::CompressionKind_NONE) {
     return ::parquet::Compression::UNCOMPRESSED;
   } else {
     VELOX_FAIL("Unsupported compression {}", compression);
@@ -162,7 +162,7 @@ void Writer::write(const VectorPtr& data) {
       arrowContext_->writer->WriteTable(*table, rowsInRowGroup_));
 }
 
-bool Writer::isCodecAvailable(dwio::common::CompressionKind compression) {
+bool Writer::isCodecAvailable(common::CompressionKind compression) {
   return arrow::util::Codec::IsAvailable(
       getArrowParquetCompression(compression));
 }

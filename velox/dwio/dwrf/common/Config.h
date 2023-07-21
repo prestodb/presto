@@ -18,8 +18,8 @@
 
 #include <functional>
 #include <unordered_map>
+#include "velox/common/compression/Compression.h"
 #include "velox/common/config/Config.h"
-#include "velox/dwio/common/Common.h"
 #include "velox/dwio/dwrf/common/Common.h"
 
 namespace facebook::velox::dwrf {
@@ -30,7 +30,7 @@ class Config : public common::ConfigBase<Config> {
   using Entry = common::ConfigBase<Config>::Entry<T>;
 
   static Entry<WriterVersion> WRITER_VERSION;
-  static Entry<dwio::common::CompressionKind> COMPRESSION;
+  static Entry<common::CompressionKind> COMPRESSION;
   static Entry<int32_t> ZLIB_COMPRESSION_LEVEL;
   static Entry<int32_t> ZSTD_COMPRESSION_LEVEL;
   static Entry<uint64_t> COMPRESSION_BLOCK_SIZE;

@@ -129,7 +129,7 @@ class WriterContext : public CompressionBufferPool {
   }
 
   std::unique_ptr<BufferedOutputStream> newStream(
-      dwio::common::CompressionKind kind,
+      common::CompressionKind kind,
       DataBufferHolder& holder,
       const dwio::common::encryption::Encrypter* encrypter = nullptr) {
     return createCompressor(kind, *this, holder, *config_, encrypter);
@@ -177,8 +177,7 @@ class WriterContext : public CompressionBufferPool {
   }
 
   bool isStreamPaged(uint32_t nodeId) const {
-    return (compression !=
-            dwio::common::CompressionKind::CompressionKind_NONE) ||
+    return (compression != common::CompressionKind::CompressionKind_NONE) ||
         handler_->isEncrypted(nodeId);
   }
 
@@ -558,7 +557,7 @@ class WriterContext : public CompressionBufferPool {
   uint64_t stripeRawSize = 0;
 
   // config
-  const dwio::common::CompressionKind compression;
+  const common::CompressionKind compression;
   const uint64_t compressionBlockSize;
   const bool isIndexEnabled;
   const uint32_t indexStride;

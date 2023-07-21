@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "velox/dwio/common/Common.h"
+#include "velox/common/compression/Compression.h"
 #include "velox/dwio/common/DataBuffer.h"
 #include "velox/dwio/common/DataSink.h"
 #include "velox/dwio/common/Options.h"
@@ -37,8 +37,7 @@ struct WriterOptions {
   int64_t maxRowGroupLength = 1'024 * 1'024;
   int64_t dictionaryPageSizeLimit = 1'024 * 1'024;
   double bufferGrowRatio = 1;
-  dwio::common::CompressionKind compression =
-      dwio::common::CompressionKind_NONE;
+  common::CompressionKind compression = common::CompressionKind_NONE;
   velox::memory::MemoryPool* memoryPool;
 };
 
@@ -60,7 +59,7 @@ class Writer : public dwio::common::Writer {
 
   ~Writer() override = default;
 
-  static bool isCodecAvailable(dwio::common::CompressionKind compression);
+  static bool isCodecAvailable(common::CompressionKind compression);
 
   // Appends 'data' into the writer.
   void write(const VectorPtr& data) override;

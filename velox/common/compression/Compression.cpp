@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/common/Common.h"
+#include "velox/common/compression/Compression.h"
 
 #include <folly/Conv.h>
 
-namespace facebook::velox::dwio::common {
+namespace facebook::velox::common {
 
 std::string compressionKindToString(CompressionKind kind) {
   switch (static_cast<int32_t>(kind)) {
@@ -37,4 +37,4 @@ std::string compressionKindToString(CompressionKind kind) {
   }
   return folly::to<std::string>("unknown - ", kind);
 }
-} // namespace facebook::velox::dwio::common
+} // namespace facebook::velox::common

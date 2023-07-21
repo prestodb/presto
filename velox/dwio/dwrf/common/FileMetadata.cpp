@@ -17,7 +17,7 @@
 
 namespace facebook::velox::dwrf {
 namespace detail {
-using dwio::common::CompressionKind;
+using common::CompressionKind;
 
 CompressionKind orcCompressionToCompressionKind(
     proto::orc::CompressionKind compression) {
@@ -104,9 +104,9 @@ TypeKind TypeWrapper::kind() const {
   }
 }
 
-dwio::common::CompressionKind PostScript::compression() const {
+common::CompressionKind PostScript::compression() const {
   return format_ == DwrfFormat::kDwrf
-      ? static_cast<dwio::common::CompressionKind>(dwrfPtr()->compression())
+      ? static_cast<common::CompressionKind>(dwrfPtr()->compression())
       : detail::orcCompressionToCompressionKind(orcPtr()->compression());
 }
 

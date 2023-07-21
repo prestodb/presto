@@ -91,7 +91,7 @@ TEST(LayoutPlannerTests, CreateNodeToColumnIdMapping) {
 TEST(LayoutPlannerTests, Basic) {
   auto config = std::make_shared<Config>();
   config->set(
-      Config::COMPRESSION, dwio::common::CompressionKind::CompressionKind_NONE);
+      Config::COMPRESSION, common::CompressionKind::CompressionKind_NONE);
   WriterContext context{
       config,
       facebook::velox::memory::defaultMemoryManager().addRootPool(

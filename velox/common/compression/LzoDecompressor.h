@@ -18,7 +18,6 @@
 
 namespace facebook {
 namespace velox {
-namespace dwio {
 namespace common {
 namespace compression {
 
@@ -38,6 +37,5 @@ uint64_t lzoDecompress(
 
 } // namespace compression
 } // namespace common
-} // namespace dwio
 } // namespace velox
 } // namespace facebook

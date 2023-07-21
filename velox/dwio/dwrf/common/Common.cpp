@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/dwrf/common/Common.h"
+#include "velox/common/compression/Compression.h"
 
 #include <folly/Conv.h>
 
@@ -83,7 +84,7 @@ DwrfStreamIdentifier EncodingKey::forKind(const proto::Stream_Kind kind) const {
 }
 
 namespace {
-using dwio::common::CompressionKind;
+using common::CompressionKind;
 
 CompressionKind orcCompressionToCompressionKind(
     proto::orc::CompressionKind compression) {

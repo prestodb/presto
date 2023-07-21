@@ -58,7 +58,8 @@ class EncryptedStatsTest : public Test {
     proto::PostScript ps;
     ps.set_compression(
         static_cast<proto::CompressionKind>(context.compression));
-    if (context.compression != CompressionKind::CompressionKind_NONE) {
+    if (context.compression !=
+        facebook::velox::common::CompressionKind::CompressionKind_NONE) {
       ps.set_compressionblocksize(context.compressionBlockSize);
     }
 

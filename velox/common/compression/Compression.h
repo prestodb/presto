@@ -18,7 +18,7 @@
 
 #include <string>
 
-namespace facebook::velox::dwio::common {
+namespace facebook::velox::common {
 
 enum CompressionKind {
   CompressionKind_NONE = 0,
@@ -38,4 +38,4 @@ std::string compressionKindToString(CompressionKind kind);
 
 constexpr uint64_t DEFAULT_COMPRESSION_BLOCK_SIZE = 256 * 1024;
 
-} // namespace facebook::velox::dwio::common
+} // namespace facebook::velox::common

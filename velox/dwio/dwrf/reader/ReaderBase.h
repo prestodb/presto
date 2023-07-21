@@ -159,13 +159,13 @@ class ReaderBase {
   uint64_t getCompressionBlockSize() const {
     return postScript_->hasCompressionBlockSize()
         ? postScript_->compressionBlockSize()
-        : dwio::common::DEFAULT_COMPRESSION_BLOCK_SIZE;
+        : common::DEFAULT_COMPRESSION_BLOCK_SIZE;
   }
 
-  dwio::common::CompressionKind getCompressionKind() const {
+  common::CompressionKind getCompressionKind() const {
     return postScript_->hasCompressionBlockSize()
         ? postScript_->compression()
-        : dwio::common::CompressionKind::CompressionKind_NONE;
+        : common::CompressionKind::CompressionKind_NONE;
   }
 
   WriterVersion getWriterVersion() const {

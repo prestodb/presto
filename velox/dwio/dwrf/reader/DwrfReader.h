@@ -189,7 +189,7 @@ class DwrfReader : public dwio::common::Reader {
 
   ~DwrfReader() override = default;
 
-  dwio::common::CompressionKind getCompression() const {
+  common::CompressionKind getCompression() const {
     return readerBase_->getCompressionKind();
   }
 

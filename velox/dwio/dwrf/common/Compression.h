@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "velox/dwio/common/Common.h"
+#include "velox/common/compression/Compression.h"
 #include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/common/CompressionBufferPool.h"
@@ -73,7 +73,7 @@ class Decompressor {
  * @param pool the memory pool
  */
 std::unique_ptr<dwio::common::SeekableInputStream> createDecompressor(
-    dwio::common::CompressionKind kind,
+    common::CompressionKind kind,
     std::unique_ptr<dwio::common::SeekableInputStream> input,
     uint64_t bufferSize,
     memory::MemoryPool& pool,
@@ -89,7 +89,7 @@ std::unique_ptr<dwio::common::SeekableInputStream> createDecompressor(
  * @param level compression level
  */
 std::unique_ptr<BufferedOutputStream> createCompressor(
-    dwio::common::CompressionKind kind,
+    common::CompressionKind kind,
     CompressionBufferPool& bufferPool,
     DataBufferHolder& bufferHolder,
     const Config& config,

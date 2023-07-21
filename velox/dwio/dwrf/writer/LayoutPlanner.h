@@ -18,7 +18,6 @@
 
 #include <folly/container/F14Map.h>
 #include "velox/common/base/GTestMacros.h"
-#include "velox/dwio/common/Common.h"
 #include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/common/Encryption.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"

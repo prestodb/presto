@@ -21,7 +21,6 @@
 
 #include "folly/Range.h"
 #include "velox/common/caching/ScanTracker.h"
-#include "velox/dwio/common/Common.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/StreamIdentifier.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
