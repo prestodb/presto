@@ -485,7 +485,7 @@ public abstract class AbstractPrestoSparkQueryExecution
                 PrestoSparkSerializedPage page = tuple._2;
                 currentFragmentOutputCompressedSizeInBytes += page.getSize();
                 currentFragmentOutputUncompressedSizeInBytes += page.getUncompressedSizeInBytes();
-                log.info("Received %s rows from taskId %s in fragment %s", page.getPositionCount(), tuple._1.getPartition(), inputFuture.getKey());
+                log.info("Received %s rows from partition %s in fragment %s", page.getPositionCount(), tuple._1.getPartition(), inputFuture.getKey());
                 pages.add(page);
             }
             log.info(
