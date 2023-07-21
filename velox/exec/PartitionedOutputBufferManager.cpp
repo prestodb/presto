@@ -633,6 +633,14 @@ std::string PartitionedOutputBuffer::toStringLocked() const {
   return out.str();
 }
 
+double PartitionedOutputBuffer::getUtilization() {
+  return totalSize_ / (double)maxSize_;
+}
+
+bool PartitionedOutputBuffer::isOverutilized() {
+  return (totalSize_ > maxSize_) && !atEnd_;
+}
+
 // static
 std::weak_ptr<PartitionedOutputBufferManager>
 PartitionedOutputBufferManager::getInstance() {
@@ -781,6 +789,23 @@ std::string PartitionedOutputBufferManager::toString() {
     out << "]";
     return out.str();
   });
+}
+
+double PartitionedOutputBufferManager::getUtilization(
+    const std::string& taskId) {
+  auto buffer = getBufferIfExists(taskId);
+  if (buffer != nullptr) {
+    return buffer->getUtilization();
+  }
+  return 0;
+}
+
+bool PartitionedOutputBufferManager::isOverutilized(const std::string& taskId) {
+  auto buffer = getBufferIfExists(taskId);
+  if (buffer != nullptr) {
+    return buffer->isOverutilized();
+  }
+  return false;
 }
 
 } // namespace facebook::velox::exec

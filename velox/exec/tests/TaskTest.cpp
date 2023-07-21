@@ -1020,6 +1020,43 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
   EXPECT_EQ(1, operatorStats.finishTiming.count);
 }
 
+TEST_F(TaskTest, outputBufferSize) {
+  constexpr int32_t numBatches = 10;
+  std::vector<RowVectorPtr> dataBatches;
+  dataBatches.reserve(numBatches);
+  for (int32_t i = 0; i < numBatches; ++i) {
+    dataBatches.push_back(makeRowVector({makeFlatVector<int64_t>({0, 1, 10})}));
+  }
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .values(dataBatches)
+                  .partitionedOutput({}, 1)
+                  .planNode();
+
+  CursorParameters params;
+  params.planNode = plan;
+  params.queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+
+  // Produce the results to output buffer manager but not consuming them to
+  // check the buffer utilization in test.
+  auto cursor = std::make_unique<TaskCursor>(params);
+  std::vector<RowVectorPtr> result;
+  Task* task = cursor->task().get();
+  while (cursor->moveNext()) {
+    result.push_back(cursor->current());
+  }
+
+  TaskStats finishStats = task->taskStats();
+  // We only have one task and the task has outputBuffer which won't be
+  // consumed, verify 0 < outputBufferUtilization < 1.
+  // Need to call requestCancel to explicitly terminate the task.
+  EXPECT_GT(finishStats.outputBufferUtilization, 0);
+  EXPECT_LT(finishStats.outputBufferUtilization, 1);
+  EXPECT_FALSE(finishStats.outputBufferOverutilized);
+  task->requestCancel();
+}
+
 DEBUG_ONLY_TEST_F(TaskTest, findPeerOperators) {
   const std::vector<RowVectorPtr> probeVectors = {makeRowVector(
       {"t_c0", "t_c1"},

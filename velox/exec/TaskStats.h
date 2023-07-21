@@ -85,6 +85,12 @@ struct TaskStats {
   uint64_t numRunningDrivers{0};
   /// Drivers blocked for various reasons. Based on enum BlockingReason.
   std::unordered_map<BlockingReason, uint64_t> numBlockedDrivers;
+
+  /// Output buffer's memory utilization ratio measured as
+  /// current buffer usage / max buffer size
+  double outputBufferUtilization;
+  /// Indicates if output buffer is over-utilized and thus blocks the producers.
+  bool outputBufferOverutilized;
 };
 
 } // namespace facebook::velox::exec

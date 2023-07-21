@@ -183,6 +183,13 @@ class PartitionedOutputBuffer {
 
   std::string toString();
 
+  // Gets the memory utilization ratio in this output buffer.
+  double getUtilization();
+
+  // Indicates if this output buffer is over-utilized and thus blocks its
+  // producers.
+  bool isOverutilized();
+
  private:
   // Percentage of maxSize below which a blocked producer should
   // be unblocked.
@@ -349,6 +356,14 @@ class PartitionedOutputBufferManager {
   }
 
   std::string toString();
+
+  // Gets the memory utilization ratio for the output buffer from a task of
+  // taskId, if the task of this taskId is not found, return 0.
+  double getUtilization(const std::string& taskId);
+
+  // If the output buffer from a task of taskId is over-utilized and blocks its
+  // producers. When the task of this taskId is not found, return false.
+  bool isOverutilized(const std::string& taskId);
 
   // Retrieves the set of buffers for a query if exists.
   // Returns NULL if task not found.

@@ -312,6 +312,44 @@ class PartitionedOutputBufferManagerTest : public testing::Test {
     fetchedPages = nextSequence;
   }
 
+  // Define the states of output buffer for testing purpose.
+  enum class OutputBufferStatus {
+    kInitiated,
+    kRunning,
+    kBlocked,
+    kFinished,
+    kNoMoreProducer
+  };
+
+  void verifyOutputBuffer(
+      std::shared_ptr<Task> task,
+      OutputBufferStatus outputBufferStatus) {
+    TaskStats finishStats = task->taskStats();
+    if (outputBufferStatus == OutputBufferStatus::kInitiated ||
+        outputBufferStatus == OutputBufferStatus::kFinished) {
+      // zero utilization on a fresh new output buffer
+      ASSERT_EQ(finishStats.outputBufferUtilization, 0);
+      ASSERT_FALSE(finishStats.outputBufferOverutilized);
+    }
+    if (outputBufferStatus == OutputBufferStatus::kRunning) {
+      // non-blocking running, 0 < utilization < 1
+      ASSERT_GT(finishStats.outputBufferUtilization, 0);
+      ASSERT_LT(finishStats.outputBufferUtilization, 1);
+      ASSERT_FALSE(finishStats.outputBufferOverutilized);
+    }
+    if (outputBufferStatus == OutputBufferStatus::kBlocked) {
+      // output buffer is over utilized and blocked
+      ASSERT_GT(finishStats.outputBufferUtilization, 1);
+      ASSERT_TRUE(finishStats.outputBufferOverutilized);
+    }
+    if (outputBufferStatus == OutputBufferStatus::kNoMoreProducer) {
+      // output buffer is over utilized but since there is no more producer
+      // outputBufferOverutilized is not true (producers are not blocked)
+      ASSERT_GT(finishStats.outputBufferUtilization, 1);
+      ASSERT_FALSE(finishStats.outputBufferOverutilized);
+    }
+  }
+
   std::shared_ptr<folly::Executor> executor_{
       std::make_shared<folly::CPUThreadPoolExecutor>(
           std::thread::hardware_concurrency())};
@@ -522,6 +560,7 @@ TEST_F(PartitionedOutputBufferManagerTest, basicPartitioned) {
   std::string taskId = "t0";
   auto task = initializeTask(
       taskId, rowType_, PartitionedOutputNode::Kind::kPartitioned, 5, 1);
+  verifyOutputBuffer(task, OutputBufferStatus::kInitiated);
 
   // Partitioned output buffer doesn't allow to update output buffers once
   // created.
@@ -588,6 +627,8 @@ TEST_F(PartitionedOutputBufferManagerTest, basicPartitioned) {
     fetchEndMarker(taskId, destination, 2);
   }
   EXPECT_TRUE(task->isRunning());
+  verifyOutputBuffer(task, OutputBufferStatus::kRunning);
+
   deleteResults(taskId, 3);
   fetchEndMarker(taskId, 4, 2);
   bufferManager_->removeTask(taskId);
@@ -600,6 +641,7 @@ TEST_F(PartitionedOutputBufferManagerTest, basicBroadcast) {
   std::string taskId = "t0";
   auto task = initializeTask(
       taskId, rowType_, PartitionedOutputNode::Kind::kBroadcast, 5, 1);
+  verifyOutputBuffer(task, OutputBufferStatus::kInitiated);
   VELOX_ASSERT_THROW(enqueue(taskId, 1, rowType_, size), "Bad destination 1");
 
   enqueue(taskId, rowType_, size);
@@ -634,6 +676,7 @@ TEST_F(PartitionedOutputBufferManagerTest, basicBroadcast) {
   bufferManager_->updateOutputBuffers(taskId, 5, false);
   EXPECT_FALSE(bufferManager_->isFinished(taskId));
   bufferManager_->updateOutputBuffers(taskId, 6, false);
+  verifyOutputBuffer(task, OutputBufferStatus::kRunning);
 
   // Fetch all for the new added destinations.
   fetch(taskId, 5, 0, 1'000'000'000, 3, true);
@@ -671,6 +714,8 @@ TEST_F(PartitionedOutputBufferManagerTest, basicArbitrary) {
   const std::string taskId = "t0";
   auto task = initializeTask(
       taskId, rowType_, PartitionedOutputNode::Kind::kArbitrary, 5, 1);
+  verifyOutputBuffer(task, OutputBufferStatus::kInitiated);
+
   VELOX_ASSERT_THROW(
       enqueue(taskId, 1, rowType_, size), "(1 vs. 0) Bad destination 1");
 
@@ -689,6 +734,7 @@ TEST_F(PartitionedOutputBufferManagerTest, basicArbitrary) {
     VELOX_ASSERT_THROW(fetchOne(taskId, destination, 0), "");
   }
   EXPECT_FALSE(bufferManager_->isFinished(taskId));
+  verifyOutputBuffer(task, OutputBufferStatus::kRunning);
 
   bool receivedData0{false};
   bool receivedData1{false};
@@ -866,6 +912,50 @@ TEST_P(AllPartitionedOutputBufferManagerTest, maxBytes) {
   noMoreData(taskId);
   fetchEndMarker(taskId, 0, 3);
   bufferManager_->removeTask(taskId);
+}
+
+TEST_P(AllPartitionedOutputBufferManagerTest, outputBufferUtilization) {
+  const std::string taskId = std::to_string(rand());
+  const auto destination = 0;
+  auto task = initializeTask(taskId, rowType_, kind_, 1, 1);
+  verifyOutputBuffer(task, OutputBufferStatus::kInitiated);
+  if (kind_ !=
+      facebook::velox::core::PartitionedOutputNode::Kind::kPartitioned) {
+    bufferManager_->updateOutputBuffers(taskId, destination, true);
+  }
+
+  BlockingReason blockingReason;
+  do {
+    ContinueFuture future;
+    blockingReason = bufferManager_->enqueue(
+        taskId, destination, makeSerializedPage(rowType_, 100), &future);
+    if (blockingReason == BlockingReason::kNotBlocked) {
+      verifyOutputBuffer(task, OutputBufferStatus::kRunning);
+    }
+  } while (blockingReason == BlockingReason::kNotBlocked);
+
+  verifyOutputBuffer(task, OutputBufferStatus::kBlocked);
+
+  int group = 0;
+  do {
+    fetchOneAndAck(taskId, destination, group);
+    group++;
+  } while (task->taskStats().outputBufferOverutilized);
+  verifyOutputBuffer(task, OutputBufferStatus::kRunning);
+
+  ContinueFuture future;
+  blockingReason = bufferManager_->enqueue(
+      taskId, destination, makeSerializedPage(rowType_, 200), &future);
+  verifyOutputBuffer(task, OutputBufferStatus::kBlocked);
+  auto oldUtilization = task->taskStats().outputBufferUtilization;
+
+  noMoreData(taskId);
+  verifyOutputBuffer(task, OutputBufferStatus::kNoMoreProducer);
+  ASSERT_EQ(oldUtilization, task->taskStats().outputBufferUtilization);
+
+  deleteResults(taskId, destination);
+  bufferManager_->removeTask(taskId);
+  verifyOutputBuffer(task, OutputBufferStatus::kFinished);
 }
 
 TEST_F(PartitionedOutputBufferManagerTest, outOfOrderAcks) {
