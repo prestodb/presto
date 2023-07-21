@@ -39,14 +39,15 @@ namespace {
 std::string makeErrorMessage(
     const BaseVector& input,
     vector_size_t row,
-    const TypePtr& toType) {
+    const TypePtr& toType,
+    const std::string& details = "") {
   return fmt::format(
-      "Failed to cast from {} to {}: {}.",
+      "Failed to cast from {} to {}: {}. {}",
       input.type()->toString(),
       toType->toString(),
-      input.toString(row));
+      input.toString(row),
+      details);
 }
-
 /// The per-row level Kernel
 /// @tparam ToKind The cast target type
 /// @tparam FromKind The expression type
@@ -275,24 +276,26 @@ void applyCastPrimitives(
 
   const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
 
+  auto& resultType = resultFlatVector->type();
+  auto makeException =
+      [&](const auto& input, auto row, const std::string& errorDetails) {
+        return std::make_exception_ptr(VeloxUserError(
+            std::current_exception(),
+            makeErrorMessage(input, row, resultType, errorDetails),
+            false));
+      };
+
   if (!queryConfig.isCastToIntByTruncate()) {
     context.applyToSelectedNoThrow(rows, [&](int row) {
       try {
         // Passing a false truncate flag
         applyCastKernel<ToKind, FromKind, false>(
             row, inputSimpleVector, resultFlatVector);
-      } catch (const VeloxRuntimeError& re) {
-        VELOX_FAIL(
-            makeErrorMessage(input, row, resultFlatVector->type()) + " " +
-            re.message());
       } catch (const VeloxUserError& ue) {
-        VELOX_USER_FAIL(
-            makeErrorMessage(input, row, resultFlatVector->type()) + " " +
-            ue.message());
+        context.setError(row, makeException(input, row, ue.message()));
+
       } catch (const std::exception& e) {
-        VELOX_USER_FAIL(
-            makeErrorMessage(input, row, resultFlatVector->type()) + " " +
-            e.what());
+        context.setError(row, makeException(input, row, e.what()));
       }
     });
   } else {
@@ -301,24 +304,16 @@ void applyCastPrimitives(
         // Passing a true truncate flag
         applyCastKernel<ToKind, FromKind, true>(
             row, inputSimpleVector, resultFlatVector);
-      } catch (const VeloxRuntimeError& re) {
-        VELOX_FAIL(
-            makeErrorMessage(input, row, resultFlatVector->type()) + " " +
-            re.message());
       } catch (const VeloxUserError& ue) {
-        VELOX_USER_FAIL(
-            makeErrorMessage(input, row, resultFlatVector->type()) + " " +
-            ue.message());
+        context.setError(row, makeException(input, row, ue.message()));
       } catch (const std::exception& e) {
-        VELOX_USER_FAIL(
-            makeErrorMessage(input, row, resultFlatVector->type()) + " " +
-            e.what());
+        context.setError(row, makeException(input, row, e.what()));
       }
     });
   }
 
-  // If we're converting to a TIMESTAMP, check if we need to adjust the current
-  // GMT timezone to the user provided session timezone.
+  // If we're converting to a TIMESTAMP, check if we need to adjust the
+  // current GMT timezone to the user provided session timezone.
   if constexpr (ToKind == TypeKind::TIMESTAMP) {
     // If user explicitly asked us to adjust the timezone.
     if (queryConfig.adjustTimestampToTimezone()) {
