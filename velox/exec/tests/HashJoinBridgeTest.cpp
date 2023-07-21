@@ -75,7 +75,7 @@ class HashJoinBridgeTest : public testing::Test,
           std::make_unique<VectorHasher>(rowType_->childAt(channel), channel));
     }
     return HashTable<true>::createForJoin(
-        std::move(keyHashers), {}, true, false, pool_.get());
+        std::move(keyHashers), {}, true, false, 1'000, pool_.get());
   }
 
   std::vector<ContinueFuture> createEmptyFutures(int32_t count) {

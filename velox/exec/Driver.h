@@ -91,7 +91,7 @@ std::ostream& operator<<(std::ostream& out, const StopReason& reason);
 // suspended, off thread or blocked.
 struct ThreadState {
   // The thread currently running this.
-  std::atomic<std::thread::id> thread{};
+  std::atomic<std::thread::id> thread{std::thread::id()};
   // The tid of 'thread'. Allows finding the thread in a debugger.
   std::atomic<int32_t> tid{0};
   // True if queued on an executor but not on thread.

@@ -171,7 +171,12 @@ class HashTableBenchmark : public VectorTestBase {
             params_.buildType->childAt(channel), channel));
       }
       auto table = HashTable<true>::createForJoin(
-          std::move(keyHashers), dependentTypes, true, false, pool_.get());
+          std::move(keyHashers),
+          dependentTypes,
+          true,
+          false,
+          1'000,
+          pool_.get());
 
       makeRows(params_.size, 1, sequence, params_.buildType, batches);
       copyVectorsToTable(batches, startOffset, table.get());

@@ -415,6 +415,13 @@ void Operator::MemoryReclaimer::enterArbitration() {
   // The driver must be alive as the operator is still under memory arbitration
   // processing.
   VELOX_CHECK_NOT_NULL(driver);
+  if (FOLLY_UNLIKELY(!driver->state().isOnThread())) {
+    // NOTE: some memory arbitration are triggered from non-driver execution
+    // context such as async streaming shuffle, table scan prefetch etc. We
+    // should guarantee that such async operations won't mutate the operator
+    // state.
+    return;
+  }
   VELOX_CHECK_EQ(std::this_thread::get_id(), driver->state().thread);
   if (driver->task()->enterSuspended(driver->state()) != StopReason::kNone) {
     // There is no need for arbitration if the associated task has already
@@ -428,6 +435,10 @@ void Operator::MemoryReclaimer::leaveArbitration() noexcept {
   // The driver must be alive as the operator is still under memory arbitration
   // processing.
   VELOX_CHECK_NOT_NULL(driver);
+  if (FOLLY_UNLIKELY(!driver->state().isOnThread())) {
+    // NOTE: see the comment in enterArbitration.
+    return;
+  }
   VELOX_CHECK_EQ(std::this_thread::get_id(), driver->state().thread);
   driver->task()->leaveSuspended(driver->state());
 }

@@ -26,10 +26,6 @@
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
-namespace {
-constexpr int32_t kMinTableSizeForParallelJoinBuild = 1000;
-}
-
 // static
 std::string BaseHashTable::modeString(HashMode mode) {
   switch (mode) {
@@ -53,8 +49,11 @@ HashTable<ignoreNullKeys>::HashTable(
     bool allowDuplicates,
     bool isJoinBuild,
     bool hasProbedFlag,
+    uint32_t minTableSizeForParallelJoinBuild,
     memory::MemoryPool* pool)
-    : BaseHashTable(std::move(hashers)), isJoinBuild_(isJoinBuild) {
+    : BaseHashTable(std::move(hashers)),
+      minTableSizeForParallelJoinBuild_(minTableSizeForParallelJoinBuild),
+      isJoinBuild_(isJoinBuild) {
   std::vector<TypePtr> keys;
   for (auto& hasher : hashers_) {
     keys.push_back(hasher->type());
@@ -124,7 +123,7 @@ class ProbeState {
   }
 
   template <Operation op, typename Compare, typename Insert>
-  inline char* FOLLY_NULLABLE fullProbe(
+  inline char* fullProbe(
       uint8_t* tags,
       char** table,
       uint64_t sizeMask,
@@ -203,7 +202,7 @@ class ProbeState {
     }
   }
 
-  FOLLY_ALWAYS_INLINE char* FOLLY_NULLABLE joinNormalizedKeyFullProbe(
+  FOLLY_ALWAYS_INLINE char* joinNormalizedKeyFullProbe(
       uint8_t* tags,
       char** table,
       uint64_t sizeMask,
@@ -759,7 +758,7 @@ bool HashTable<ignoreNullKeys>::canApplyParallelJoinBuild() const {
     return false;
   }
   return (capacity_ / (1 + otherTables_.size())) >
-      kMinTableSizeForParallelJoinBuild;
+      minTableSizeForParallelJoinBuild_;
 }
 
 template <bool ignoreNullKeys>
@@ -769,9 +768,9 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
   int32_t numPartitions = 1 + otherTables_.size();
   VELOX_CHECK_GT(
       capacity_ / numPartitions,
-      kMinTableSizeForParallelJoinBuild,
+      minTableSizeForParallelJoinBuild_,
       "Less than {} entries per partition for parallel build",
-      kMinTableSizeForParallelJoinBuild);
+      minTableSizeForParallelJoinBuild_);
   buildPartitionBounds_.resize(numPartitions + 1);
   // Pad the tail of buildPartitionBounds_ to max int.
   std::fill(
@@ -1007,7 +1006,7 @@ FOLLY_ALWAYS_INLINE void HashTable<ignoreNullKeys>::buildFullProbe(
     bool extraCheck,
     PartitionBoundIndexType partitionBegin,
     PartitionBoundIndexType partitionEnd,
-    std::vector<char*>* FOLLY_NULLABLE overflows) {
+    std::vector<char*>* overflows) {
   auto insertFn = [&](int32_t /*row*/, PartitionBoundIndexType index) {
     if (index < partitionBegin || index >= partitionEnd) {
       overflows->push_back(inserted);
@@ -1401,7 +1400,7 @@ bool mayUseValueIds(const BaseHashTable& table) {
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::prepareJoinTable(
     std::vector<std::unique_ptr<BaseHashTable>> tables,
-    folly::Executor* FOLLY_NULLABLE executor) {
+    folly::Executor* executor) {
   buildExecutor_ = executor;
   otherTables_.reserve(tables.size());
   for (auto& table : tables) {

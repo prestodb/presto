@@ -50,6 +50,7 @@ TopNRowNumber::TopNRowNumber(
         false, // allowDuplicates
         false, // isJoinBuild
         false, // hasProbedFlag
+        0, // minTableSizeForParallelJoinBuild
         pool());
     partitionOffset_ = table_->rows()->columnAt(numKeys).offset();
     lookup_ = std::make_unique<HashLookup>(table_->hashers());

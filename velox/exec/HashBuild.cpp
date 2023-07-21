@@ -138,6 +138,9 @@ void HashBuild::setupTable() {
         dependentTypes,
         true, // allowDuplicates
         true, // hasProbedFlag
+        operatorCtx_->driverCtx()
+            ->queryConfig()
+            .minTableRowsForParallelJoinBuild(),
         pool());
   } else {
     // (Left) semi and anti join with no extra filter only needs to know whether
@@ -155,6 +158,9 @@ void HashBuild::setupTable() {
           dependentTypes,
           !dropDuplicates, // allowDuplicates
           needProbedFlag, // hasProbedFlag
+          operatorCtx_->driverCtx()
+              ->queryConfig()
+              .minTableRowsForParallelJoinBuild(),
           pool());
     } else {
       // Ignore null keys
@@ -163,6 +169,9 @@ void HashBuild::setupTable() {
           dependentTypes,
           !dropDuplicates, // allowDuplicates
           needProbedFlag, // hasProbedFlag
+          operatorCtx_->driverCtx()
+              ->queryConfig()
+              .minTableRowsForParallelJoinBuild(),
           pool());
     }
   }
@@ -766,12 +775,24 @@ bool HashBuild::finishHashBuild() {
 
       // TODO: re-enable parallel join build with spilling triggered after
       // https://github.com/facebookincubator/velox/issues/3567 is fixed.
-      const bool allowPrallelJoinBuild =
+      const bool allowParallelJoinBuild =
           !otherTables.empty() && spillPartitions.empty();
+      // Inject test value to catch the memory allocations from parallel join
+      // build.
+      if (TestValue::enabled()) {
+        std::vector<Operator*> buildOps;
+        buildOps.reserve(peers.size());
+        for (auto& peer : peers) {
+          auto* op = peer->findOperator(planNodeId());
+          buildOps.push_back(op);
+        }
+        TestValue::adjust(
+            "facebook::velox::exec::HashBuild::prepareJoinTable", &buildOps);
+      }
       table_->prepareJoinTable(
           std::move(otherTables),
-          allowPrallelJoinBuild ? operatorCtx_->task()->queryCtx()->executor()
-                                : nullptr);
+          allowParallelJoinBuild ? operatorCtx_->task()->queryCtx()->executor()
+                                 : nullptr);
 
       addRuntimeStats();
       if (joinBridge_->setHashTable(

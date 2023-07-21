@@ -205,6 +205,11 @@ class QueryConfig {
   static constexpr const char* kHashProbeFinishEarlyOnEmptyBuild =
       "hash_probe_finish_early_on_empty_build";
 
+  /// The minimum number of table rows that can trigger the parallel hash join
+  /// table build.
+  static constexpr const char* kMinTableRowsForParallelJoinBuild =
+      "min_table_rows_for_parallel_join_build";
+
   uint64_t maxPartialAggregationMemoryUsage() const {
     static constexpr uint64_t kDefault = 1L << 24;
     return get<uint64_t>(kMaxPartialAggregationMemory, kDefault);
@@ -321,7 +326,7 @@ class QueryConfig {
   }
 
   /// Returns 'is aggregation spilling enabled' flag. Must also check the
-  /// spillEnabled()!
+  /// spillEnabled()!g
   bool aggregationSpillEnabled() const {
     return get<bool>(kAggregationSpillEnabled, true);
   }
@@ -408,6 +413,10 @@ class QueryConfig {
 
   bool hashProbeFinishEarlyOnEmptyBuild() const {
     return get<bool>(kHashProbeFinishEarlyOnEmptyBuild, true);
+  }
+
+  uint32_t minTableRowsForParallelJoinBuild() const {
+    return get<uint32_t>(kMinTableRowsForParallelJoinBuild, 1'000);
   }
 
   template <typename T>
