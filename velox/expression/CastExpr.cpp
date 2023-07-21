@@ -48,6 +48,18 @@ std::string makeErrorMessage(
       input.toString(row),
       details);
 }
+
+std::exception_ptr makeException(
+    const TypePtr& resultType,
+    const BaseVector& input,
+    vector_size_t row,
+    const std::string& errorDetails) {
+  return std::make_exception_ptr(VeloxUserError(
+      std::current_exception(),
+      makeErrorMessage(input, row, resultType, errorDetails),
+      false));
+};
+
 /// The per-row level Kernel
 /// @tparam ToKind The cast target type
 /// @tparam FromKind The expression type
@@ -57,10 +69,26 @@ std::string makeErrorMessage(
 template <TypeKind ToKind, TypeKind FromKind, bool Truncate>
 void applyCastKernel(
     vector_size_t row,
+    EvalCtx& context,
     const SimpleVector<typename TypeTraits<FromKind>::NativeType>* input,
     FlatVector<typename TypeTraits<ToKind>::NativeType>* result) {
-  auto output =
-      util::Converter<ToKind, void, Truncate>::cast(input->valueAt(row));
+  auto inputRowValue = input->valueAt(row);
+
+  // Optimize empty input strings casting by avoiding throwing exceptions.
+  if constexpr (
+      FromKind == TypeKind::VARCHAR || FromKind == TypeKind::VARBINARY) {
+    if constexpr (
+        TypeTraits<ToKind>::isPrimitiveType &&
+        TypeTraits<ToKind>::isFixedWidth) {
+      if (inputRowValue.size() == 0) {
+        context.setError(
+            row, makeException(result->type(), *input, row, "Empty string"));
+        return;
+      }
+    }
+  }
+
+  auto output = util::Converter<ToKind, void, Truncate>::cast(inputRowValue);
 
   if constexpr (ToKind == TypeKind::VARCHAR || ToKind == TypeKind::VARBINARY) {
     // Write the result output to the output vector
@@ -275,39 +303,33 @@ void applyCastPrimitives(
   auto* inputSimpleVector = input.as<SimpleVector<From>>();
 
   const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
-
   auto& resultType = resultFlatVector->type();
-  auto makeException =
-      [&](const auto& input, auto row, const std::string& errorDetails) {
-        return std::make_exception_ptr(VeloxUserError(
-            std::current_exception(),
-            makeErrorMessage(input, row, resultType, errorDetails),
-            false));
-      };
+
+  auto setError = [&](vector_size_t row, const std::string& details) {
+    context.setError(row, makeException(resultType, input, row, details));
+  };
 
   if (!queryConfig.isCastToIntByTruncate()) {
     context.applyToSelectedNoThrow(rows, [&](int row) {
       try {
-        // Passing a false truncate flag
-        applyCastKernel<ToKind, FromKind, false>(
-            row, inputSimpleVector, resultFlatVector);
-      } catch (const VeloxUserError& ue) {
-        context.setError(row, makeException(input, row, ue.message()));
+        applyCastKernel<ToKind, FromKind, false /*truncate*/>(
+            row, context, inputSimpleVector, resultFlatVector);
 
+      } catch (const VeloxUserError& ue) {
+        setError(row, ue.message());
       } catch (const std::exception& e) {
-        context.setError(row, makeException(input, row, e.what()));
+        setError(row, e.what());
       }
     });
   } else {
     context.applyToSelectedNoThrow(rows, [&](int row) {
       try {
-        // Passing a true truncate flag
-        applyCastKernel<ToKind, FromKind, true>(
-            row, inputSimpleVector, resultFlatVector);
+        applyCastKernel<ToKind, FromKind, true /*truncate*/>(
+            row, context, inputSimpleVector, resultFlatVector);
       } catch (const VeloxUserError& ue) {
-        context.setError(row, makeException(input, row, ue.message()));
+        setError(row, ue.message());
       } catch (const std::exception& e) {
-        context.setError(row, makeException(input, row, e.what()));
+        setError(row, e.what());
       }
     });
   }

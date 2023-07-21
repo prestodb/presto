@@ -30,13 +30,16 @@ int main(int argc, char** argv) {
 
   auto vectorMaker = benchmarkBuilder.vectorMaker();
   auto invalidInput = vectorMaker.flatVector<facebook::velox::StringView>({""});
-
   auto validInput = vectorMaker.flatVector<facebook::velox::StringView>({""});
+  auto nanInput = vectorMaker.flatVector<facebook::velox::StringView>({""});
+
   invalidInput->resize(1000);
   validInput->resize(1000);
+  nanInput->resize(1000);
 
   for (int i = 0; i < 1000; i++) {
-    invalidInput->set(i, ""_sv);
+    nanInput->set(i, "$"_sv);
+    invalidInput->set(i, StringView::makeInline(std::string("")));
     validInput->set(i, StringView::makeInline(std::to_string(i)));
   }
 
@@ -44,8 +47,9 @@ int main(int argc, char** argv) {
       .addBenchmarkSet(
           "cast_int",
           vectorMaker.rowVector(
-              {"valid", "invalid"}, {validInput, invalidInput}))
-      .addExpression("try_invalid", "try_cast (invalid as int)")
+              {"valid", "empty", "nan"}, {validInput, invalidInput, nanInput}))
+      .addExpression("try_invalid_empty_input", "try_cast (empty as int)")
+      .addExpression("try_invalid_nan", "try_cast (nan as int)")
       .addExpression("try_valid", "try_cast (valid as int)")
       .addExpression("valid", "cast(valid as int)")
       .withIterations(100)
