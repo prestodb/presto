@@ -87,7 +87,7 @@ TEST_F(ContainerRowSerdeTest, arrayOfBigint) {
       {{{1, std::nullopt, 2, 3}}},
       {{{std::nullopt, 4, 5}}},
       {{{6, std::nullopt}}},
-      {{{}}},
+      {{std::vector<std::optional<int64_t>>({})}},
   });
 
   testRoundTrip(data);
@@ -111,7 +111,7 @@ TEST_F(ContainerRowSerdeTest, arrayOfString) {
          "b",
          "Longer string ...."}}},
       {{{"c", "Abc", std::nullopt, "Mountains and rivers"}}},
-      {{{}}},
+      {{std::vector<std::optional<std::string>>({})}},
       {{{"Oceans and skies"}}},
   });
 
