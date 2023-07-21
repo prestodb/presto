@@ -99,6 +99,7 @@ TEST_F(HashStringAllocatorTest, allocate) {
     for (auto i = 0; i < 10'000; ++i) {
       headers.push_back(allocate((i % 10) * 10));
     }
+    EXPECT_THROW(allocator_->checkEmpty(), VeloxException);
     allocator_->checkConsistency();
     for (int32_t step = 7; step >= 1; --step) {
       for (auto i = 0; i < headers.size(); i += step) {
@@ -110,6 +111,7 @@ TEST_F(HashStringAllocatorTest, allocate) {
       allocator_->checkConsistency();
     }
   }
+  allocator_->checkEmpty();
   // We allow for some free overhead for free lists after all is freed.
   EXPECT_LE(allocator_->retainedSize() - allocator_->freeSpace(), 250);
 }

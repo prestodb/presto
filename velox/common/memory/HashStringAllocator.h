@@ -334,8 +334,15 @@ class HashStringAllocator : public StreamArena {
   }
 
   // Checks the free space accounting and consistency of
-  // Headers. Throws when detects corruption.
-  void checkConsistency() const;
+  // Headers. Throws when detects corruption. Returns the number of allocated
+  // payload bytes, excluding headers, continue links and other overhead.
+  int64_t checkConsistency() const;
+
+  /// Throws if 'this' is not empty. Checks consistency of
+  /// 'this'. This is a fast check for RowContainer users freeing the
+  /// variable length data they store. Can be used in non-debug
+  /// builds.
+  void checkEmpty() const;
 
  private:
   static constexpr int32_t kUnitSize = 16 * memory::AllocationTraits::kPageSize;
