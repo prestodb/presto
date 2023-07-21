@@ -57,7 +57,6 @@ public class HttpNativeExecutionTaskInfoFetcher
     private final Executor executor;
     private final Duration infoFetchInterval;
     private final RequestErrorTracker errorTracker;
-    private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final AtomicReference<RuntimeException> lastException = new AtomicReference<>();
     private final Duration maxErrorDuration;
     private final Object taskFinished;
@@ -78,7 +77,6 @@ public class HttpNativeExecutionTaskInfoFetcher
         this.updateScheduledExecutor = requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.infoFetchInterval = requireNonNull(infoFetchInterval, "infoFetchInterval is null");
-        this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.maxErrorDuration = requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         this.errorTracker = new RequestErrorTracker(
                 "NativeExecution",
@@ -86,7 +84,7 @@ public class HttpNativeExecutionTaskInfoFetcher
                 NATIVE_EXECUTION_TASK_ERROR,
                 TASK_ERROR_MESSAGE,
                 maxErrorDuration,
-                errorRetryScheduledExecutor,
+                requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null"),
                 "getting taskInfo from native process");
         this.taskFinished = requireNonNull(taskFinished, "taskFinished is null");
     }
