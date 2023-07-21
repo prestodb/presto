@@ -173,16 +173,14 @@ TEST_F(JsonExtractScalarTest, invalidPath) {
   EXPECT_THROW(jsonExtractScalar(R"({"k1":"v1)", "$.k1]"), VeloxUserError);
 }
 
-// TODO: Folly tries to convert scalar integers, and in case they are large
-// enough it overflows and throws conversion error. In this case, we do out best
-// and return NULL, but in Presto java the large integer is returned as-is as a
-// string.
+// simdjson, like Presto java, returns the large number as-is as a string,
+// without trying to convert it to an integer.
 TEST_F(JsonExtractScalarTest, overflow) {
   EXPECT_EQ(
       jsonExtractScalar(
           R"(184467440737095516151844674407370955161518446744073709551615)",
           "$"),
-      std::nullopt);
+      "184467440737095516151844674407370955161518446744073709551615");
 }
 
 // TODO: When there is a wildcard in the json path, Presto's behavior is to

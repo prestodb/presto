@@ -17,6 +17,7 @@
 #include "velox/functions/Macros.h"
 #include "velox/functions/UDFOutputString.h"
 #include "velox/functions/prestosql/json/JsonPathTokenizer.h"
+#include "velox/functions/prestosql/json/SIMDJsonExtractor.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 
 namespace facebook::velox::functions {
@@ -146,6 +147,61 @@ struct SIMDJsonArrayLengthFunction {
     }
 
     return true;
+  }
+};
+
+// jsonExtractScalar(json, json_path) -> varchar
+// Like jsonExtract(), but returns the result value as a string (as opposed
+// to being encoded as JSON). The value referenced by json_path must be a scalar
+// (boolean, number or string)
+template <typename T>
+struct SIMDJsonExtractScalarFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Varchar>& result,
+      const arg_type<Json>& json,
+      const arg_type<Varchar>& jsonPath) {
+    bool resultPopulated = false;
+    std::optional<std::string> resultStr;
+    auto consumer = [&resultStr, &resultPopulated](auto& v) {
+      if (resultPopulated) {
+        // We should just get a single value, if we see multiple, it's an error
+        // and we should return null.
+        resultStr = std::nullopt;
+        return;
+      }
+
+      resultPopulated = true;
+
+      switch (v.type()) {
+        case simdjson::ondemand::json_type::boolean:
+          resultStr = v.get_bool().value() ? "true" : "false";
+          break;
+        case simdjson::ondemand::json_type::string:
+          resultStr = v.get_string().value();
+          break;
+        case simdjson::ondemand::json_type::object:
+        case simdjson::ondemand::json_type::array:
+        case simdjson::ondemand::json_type::null:
+          // Do nothing.
+          break;
+        default:
+          resultStr = simdjson::to_json_string(v).value();
+      }
+    };
+
+    if (!simdJsonExtract(json, jsonPath, consumer)) {
+      // If there's an error parsing the JSON, return null.
+      return false;
+    }
+
+    if (resultStr.has_value()) {
+      result.copy_from(*resultStr);
+      return true;
+    } else {
+      return false;
+    }
   }
 };
 
