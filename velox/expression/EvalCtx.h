@@ -83,6 +83,12 @@ class EvalCtx {
 
   void setError(vector_size_t index, const std::exception_ptr& exceptionPtr);
 
+  // Similar to setError but more performant, should be used when the user knows
+  // for sure that exception_ptr is a velox exception.
+  void setVeloxExceptionError(
+      vector_size_t index,
+      const std::exception_ptr& exceptionPtr);
+
   void setErrors(
       const SelectivityVector& rows,
       const std::exception_ptr& exceptionPtr);
@@ -95,6 +101,9 @@ class EvalCtx {
     rows.template applyToSelected([&](auto row) INLINE_LAMBDA {
       try {
         func(row);
+      } catch (const VeloxException& e) {
+        // Avoid double throwing.
+        setVeloxExceptionError(row, std::current_exception());
       } catch (const std::exception& e) {
         setError(row, std::current_exception());
       }

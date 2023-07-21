@@ -167,6 +167,18 @@ void EvalCtx::setError(
   addError(index, toVeloxException(exceptionPtr), errors_);
 }
 
+// This should be used onlly when exceptionPtr is guranteed to be a
+// VeloxException.
+void EvalCtx::setVeloxExceptionError(
+    vector_size_t index,
+    const std::exception_ptr& exceptionPtr) {
+  if (throwOnError_) {
+    std::rethrow_exception(exceptionPtr);
+  }
+
+  addError(index, exceptionPtr, errors_);
+}
+
 void EvalCtx::setErrors(
     const SelectivityVector& rows,
     const std::exception_ptr& exceptionPtr) {

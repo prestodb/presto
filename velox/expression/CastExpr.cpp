@@ -49,7 +49,7 @@ std::string makeErrorMessage(
       details);
 }
 
-std::exception_ptr makeException(
+std::exception_ptr makeBadCastException(
     const TypePtr& resultType,
     const BaseVector& input,
     vector_size_t row,
@@ -81,8 +81,9 @@ void applyCastKernel(
         TypeTraits<ToKind>::isPrimitiveType &&
         TypeTraits<ToKind>::isFixedWidth) {
       if (inputRowValue.size() == 0) {
-        context.setError(
-            row, makeException(result->type(), *input, row, "Empty string"));
+        context.setVeloxExceptionError(
+            row,
+            makeBadCastException(result->type(), *input, row, "Empty string"));
         return;
       }
     }
@@ -305,8 +306,14 @@ void applyCastPrimitives(
   const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
   auto& resultType = resultFlatVector->type();
 
+  auto setVeloxError = [&](vector_size_t row, const std::string& details) {
+    context.setVeloxExceptionError(
+        row, makeBadCastException(resultType, input, row, details));
+  };
+
   auto setError = [&](vector_size_t row, const std::string& details) {
-    context.setError(row, makeException(resultType, input, row, details));
+    context.setError(
+        row, makeBadCastException(resultType, input, row, details));
   };
 
   if (!queryConfig.isCastToIntByTruncate()) {
@@ -316,7 +323,7 @@ void applyCastPrimitives(
             row, context, inputSimpleVector, resultFlatVector);
 
       } catch (const VeloxUserError& ue) {
-        setError(row, ue.message());
+        setVeloxError(row, ue.message());
       } catch (const std::exception& e) {
         setError(row, e.what());
       }
@@ -327,7 +334,7 @@ void applyCastPrimitives(
         applyCastKernel<ToKind, FromKind, true /*truncate*/>(
             row, context, inputSimpleVector, resultFlatVector);
       } catch (const VeloxUserError& ue) {
-        setError(row, ue.message());
+        setVeloxError(row, ue.message());
       } catch (const std::exception& e) {
         setError(row, e.what());
       }
