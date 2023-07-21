@@ -264,6 +264,12 @@ class DecodedVector {
     return wrap(std::move(data), wrapper, rows.end());
   }
 
+  // Given a SelectivityVector 'rows', updates 'unwrapped' resizing it to match
+  // the base Vector and selecting the rows in the base Vector that correspond
+  // to those selected by 'rows' in the original encoded Vector.
+  void unwrapRows(SelectivityVector& unwrapped, const SelectivityVector& rows)
+      const;
+
   struct DictionaryWrapping {
     BufferPtr indices;
     BufferPtr nulls;

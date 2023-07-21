@@ -53,7 +53,7 @@ void DecodedVector::decode(
   bool isTopLevelLazyAndLoaded =
       vector.isLazy() && vector.asUnchecked<LazyVector>()->isLoaded();
   if (isTopLevelLazyAndLoaded || (loadLazy_ && isLazyNotLoaded(vector))) {
-    decode(*vector.loadedVector(), rows);
+    decode(*vector.loadedVector(), rows, loadLazy);
     return;
   }
 
@@ -411,6 +411,31 @@ VectorPtr DecodedVector::wrap(
       std::move(wrapping.indices),
       size,
       std::move(data));
+}
+
+void DecodedVector::unwrapRows(
+    SelectivityVector& unwrapped,
+    const SelectivityVector& rows) const {
+  if (isIdentityMapping_ && rows.isAllSelected()) {
+    unwrapped.resizeFill(baseVector_->size(), true);
+    return;
+  }
+
+  unwrapped.resizeFill(baseVector_->size(), false);
+
+  if (isIdentityMapping_) {
+    unwrapped.select(rows);
+  } else if (isConstantMapping_) {
+    unwrapped.setValid(constantIndex_, true);
+  } else {
+    rows.applyToSelected([&](vector_size_t row) {
+      if (!isNullAt(row)) {
+        unwrapped.setValid(index(row), true);
+      }
+    });
+  }
+
+  unwrapped.updateBounds();
 }
 
 const uint64_t* DecodedVector::nulls() {

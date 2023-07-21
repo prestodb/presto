@@ -20,6 +20,7 @@
 #include "velox/common/time/Timer.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"
+#include "velox/vector/SelectivityVector.h"
 
 namespace facebook::velox {
 
@@ -103,19 +104,21 @@ void LazyVector::ensureLoadedRows(
 }
 
 // static
-void LazyVector::ensureLoadedRows(
+void LazyVector::ensureLoadedRowsImpl(
     VectorPtr& vector,
-    const SelectivityVector& rows,
     DecodedVector& decoded,
+    const SelectivityVector& rows,
     SelectivityVector& baseRows) {
-  decoded.decode(*vector, rows, false);
   if (decoded.base()->encoding() != VectorEncoding::Simple::LAZY) {
     if (decoded.base()->encoding() == VectorEncoding::Simple::ROW &&
         isLazyNotLoaded(*decoded.base())) {
+      decoded.unwrapRows(baseRows, rows);
       auto children = decoded.base()->asUnchecked<RowVector>()->children();
+      DecodedVector decodedChild;
+      SelectivityVector childRows;
       for (auto& child : children) {
-        DecodedVector decodedChild;
-        ensureLoadedRows(child, rows, decodedChild, baseRows);
+        decodedChild.decode(*child, baseRows, false);
+        ensureLoadedRowsImpl(child, decodedChild, baseRows, childRows);
       }
       decoded.base()->loadedVector();
     }
@@ -123,6 +126,13 @@ void LazyVector::ensureLoadedRows(
   }
   auto lazyVector = decoded.base()->asUnchecked<LazyVector>();
   if (lazyVector->isLoaded()) {
+    if (isLazyNotLoaded(*lazyVector)) {
+      decoded.unwrapRows(baseRows, rows);
+      decoded.decode(*lazyVector->vector_, baseRows, false);
+      SelectivityVector nestedRows;
+      ensureLoadedRowsImpl(lazyVector->vector_, decoded, baseRows, nestedRows);
+    }
+
     vector->loadedVector();
     return;
   }
@@ -142,14 +152,7 @@ void LazyVector::ensureLoadedRows(
       rowSet = RowSet(rowNumbers);
     }
   } else {
-    baseRows.resize(0);
-    baseRows.resize(lazyVector->size(), false);
-    rows.applyToSelected([&](auto row) {
-      if (!decoded.isNullAt(row)) {
-        baseRows.setValid(decoded.index(row), true);
-      }
-    });
-    baseRows.updateBounds();
+    decoded.unwrapRows(baseRows, rows);
 
     rowNumbers.resize(baseRows.end());
     rowNumbers.resize(simd::indicesOfSetBits(
@@ -158,6 +161,14 @@ void LazyVector::ensureLoadedRows(
     rowSet = RowSet(rowNumbers);
 
     lazyVector->load(rowSet, nullptr);
+    VectorPtr loadedVector = lazyVector->loadedVectorShared();
+    if (isLazyNotLoaded(*loadedVector)) {
+      decoded.unwrapRows(baseRows, rows);
+      DecodedVector nestedDecoded;
+      nestedDecoded.decode(*lazyVector, baseRows, false);
+      SelectivityVector nestedRows;
+      ensureLoadedRowsImpl(loadedVector, nestedDecoded, baseRows, nestedRows);
+    }
 
     // The loaded base vector may have fewer rows than the original. Make sure
     // there are no indices referring to rows past the end of the base vector.
@@ -185,17 +196,32 @@ void LazyVector::ensureLoadedRows(
     }
 
     vector = BaseVector::wrapInDictionary(
-        std::move(nulls),
-        std::move(indices),
-        rows.end(),
-        lazyVector->loadedVectorShared());
+        std::move(nulls), std::move(indices), rows.end(), loadedVector);
     return;
   }
   lazyVector->load(rowSet, nullptr);
+
+  if (isLazyNotLoaded(*lazyVector)) {
+    decoded.unwrapRows(baseRows, rows);
+    decoded.decode(*lazyVector->vector_, baseRows, false);
+    SelectivityVector nestedRows;
+    ensureLoadedRowsImpl(lazyVector->vector_, decoded, baseRows, nestedRows);
+  }
+
   // An explicit call to loadedVector() is necessary to allow for proper
   // initialization of dictionaries, sequences, etc. on top of lazy vector
   // after it has been loaded, even if loaded via some other path.
   vector->loadedVector();
+}
+
+// static
+void LazyVector::ensureLoadedRows(
+    VectorPtr& vector,
+    const SelectivityVector& rows,
+    DecodedVector& decoded,
+    SelectivityVector& baseRows) {
+  decoded.decode(*vector, rows, false);
+  ensureLoadedRowsImpl(vector, decoded, rows, baseRows);
 }
 
 } // namespace facebook::velox

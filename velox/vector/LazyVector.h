@@ -270,6 +270,12 @@ class LazyVector : public BaseVector {
       SelectivityVector& baseRows);
 
  private:
+  static void ensureLoadedRowsImpl(
+      VectorPtr& vector,
+      DecodedVector& decoded,
+      const SelectivityVector& rows,
+      SelectivityVector& baseRows);
+
   std::unique_ptr<VectorLoader> loader_;
 
   // True if all values are loaded.

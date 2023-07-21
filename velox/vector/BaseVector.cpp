@@ -666,7 +666,13 @@ VectorPtr BaseVector::transpose(BufferPtr indices, VectorPtr&& source) {
 bool isLazyNotLoaded(const BaseVector& vector) {
   switch (vector.encoding()) {
     case VectorEncoding::Simple::LAZY:
-      return !vector.as<LazyVector>()->isLoaded();
+      if (!vector.as<LazyVector>()->isLoaded()) {
+        return true;
+      }
+
+      // Lazy Vectors may wrap lazy vectors (e.g. nested Rows) so we need to go
+      // deeper.
+      return isLazyNotLoaded(*vector.as<LazyVector>()->loadedVector());
     case VectorEncoding::Simple::DICTIONARY:
     case VectorEncoding::Simple::SEQUENCE:
       return isLazyNotLoaded(*vector.valueVector());

@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 
+#include "velox/common/base/RawVector.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
@@ -120,7 +121,160 @@ TEST_F(LazyVectorTest, selectiveNestedLazy) {
   EXPECT_EQ(loadedB, expectedLoadedB);
 }
 
-TEST_F(LazyVectorTest, lazyInCostant) {
+TEST_F(LazyVectorTest, nestedLazyRows) {
+  constexpr vector_size_t size = 1000;
+  auto columnType =
+      ROW({"inner_row"}, {ROW({"a", "b"}, {INTEGER(), INTEGER()})});
+
+  auto lazyVectorA = vectorMaker_.lazyFlatVector<int32_t>(
+      size,
+      [](vector_size_t i) { return i % 5; },
+      [](vector_size_t i) { return i % 7 == 0; });
+  auto lazyVectorB = vectorMaker_.lazyFlatVector<int32_t>(
+      size,
+      [](vector_size_t i) { return i % 3; },
+      [](vector_size_t i) { return i % 11 == 0; });
+
+  VectorPtr lazyInnerRowVector = std::make_shared<LazyVector>(
+      pool_.get(),
+      columnType->childAt(0),
+      size,
+      std::make_unique<SimpleVectorLoader>([&](RowSet /* rowSet */) {
+        return vectorMaker_.rowVector({lazyVectorA, lazyVectorB});
+      }));
+
+  VectorPtr rowVector = std::make_shared<LazyVector>(
+      pool_.get(),
+      columnType,
+      size,
+      std::make_unique<SimpleVectorLoader>([&](RowSet /* rowSet */) {
+        return vectorMaker_.rowVector({lazyInnerRowVector});
+      }));
+
+  EXPECT_TRUE(isLazyNotLoaded(*rowVector));
+
+  DecodedVector decodedVector;
+  SelectivityVector baseRows;
+  LazyVector::ensureLoadedRows(
+      rowVector, SelectivityVector(size, true), decodedVector, baseRows);
+
+  EXPECT_FALSE(isLazyNotLoaded(*rowVector.get()));
+
+  RowVector* loadedVector = rowVector->loadedVector()->as<RowVector>();
+  auto child = loadedVector->childAt(0);
+  // EXPECT_FALSE(child->isLazy());
+  assertEqualVectors(child, lazyInnerRowVector);
+}
+
+TEST_F(LazyVectorTest, nestedLazyRowsInDictionary) {
+  constexpr vector_size_t size = 1000;
+  auto columnType =
+      ROW({"inner_row"}, {ROW({"a", "b"}, {INTEGER(), INTEGER()})});
+
+  auto lazyVectorA = vectorMaker_.lazyFlatVector<int32_t>(
+      size,
+      [](vector_size_t i) { return i % 5; },
+      [](vector_size_t i) { return i % 7 == 0; });
+  auto lazyVectorB = vectorMaker_.lazyFlatVector<int32_t>(
+      size,
+      [](vector_size_t i) { return i % 3; },
+      [](vector_size_t i) { return i % 11 == 0; });
+
+  VectorPtr lazyInnerRowVector = std::make_shared<LazyVector>(
+      pool_.get(),
+      columnType->childAt(0),
+      size,
+      std::make_unique<SimpleVectorLoader>([&](RowSet /* rowSet */) {
+        return vectorMaker_.rowVector({lazyVectorA, lazyVectorB});
+      }));
+
+  VectorPtr rowVector = std::make_shared<LazyVector>(
+      pool_.get(),
+      columnType,
+      size,
+      std::make_unique<SimpleVectorLoader>([&](RowSet /* rowSet */) {
+        return vectorMaker_.rowVector({lazyInnerRowVector});
+      }));
+
+  VectorPtr dict = BaseVector::wrapInDictionary(
+      nullptr,
+      makeIndices(size, [](auto row) { return row; }),
+      size,
+      BaseVector::wrapInDictionary(
+          nullptr,
+          makeIndices(size, [](auto row) { return row; }),
+          size,
+          rowVector));
+
+  EXPECT_TRUE(isLazyNotLoaded(*dict));
+
+  DecodedVector decodedVector;
+  SelectivityVector baseRows;
+  LazyVector::ensureLoadedRows(
+      dict, SelectivityVector(size, true), decodedVector, baseRows);
+
+  EXPECT_FALSE(isLazyNotLoaded(*dict.get()));
+
+  // The dictionaries get squashed into a single dictionary.
+  RowVector* loadedVector =
+      dict->valueVector()->loadedVector()->as<RowVector>();
+  auto child = loadedVector->childAt(0);
+  EXPECT_FALSE(child->isLazy());
+  assertEqualVectors(child, lazyInnerRowVector);
+}
+
+TEST_F(LazyVectorTest, nestedLazyRowsPartiallyLoaded) {
+  constexpr vector_size_t size = 1000;
+  auto columnType =
+      ROW({"inner_row"}, {ROW({"a", "b"}, {INTEGER(), INTEGER()})});
+
+  auto lazyVectorA = vectorMaker_.lazyFlatVector<int32_t>(
+      size,
+      [](vector_size_t i) { return i % 5; },
+      [](vector_size_t i) { return i % 7 == 0; });
+  auto lazyVectorB = vectorMaker_.lazyFlatVector<int32_t>(
+      size,
+      [](vector_size_t i) { return i % 3; },
+      [](vector_size_t i) { return i % 11 == 0; });
+
+  VectorPtr lazyInnerRowVector = std::make_shared<LazyVector>(
+      pool_.get(),
+      columnType->childAt(0),
+      size,
+      std::make_unique<SimpleVectorLoader>([&](RowSet /* rowSet */) {
+        return vectorMaker_.rowVector({lazyVectorA, lazyVectorB});
+      }));
+
+  VectorPtr rowVector = std::make_shared<LazyVector>(
+      pool_.get(),
+      columnType,
+      size,
+      std::make_unique<SimpleVectorLoader>([&](RowSet /* rowSet */) {
+        return vectorMaker_.rowVector({lazyInnerRowVector});
+      }));
+
+  EXPECT_TRUE(isLazyNotLoaded(*rowVector));
+
+  raw_vector<vector_size_t> rowNumbers;
+  auto iota = facebook::velox::iota(size, rowNumbers);
+  RowSet rowSet(iota, size);
+  rowVector->asUnchecked<LazyVector>()->load(rowSet, nullptr);
+  EXPECT_TRUE(isLazyNotLoaded(*rowVector));
+
+  DecodedVector decodedVector;
+  SelectivityVector baseRows;
+  LazyVector::ensureLoadedRows(
+      rowVector, SelectivityVector(size, true), decodedVector, baseRows);
+
+  EXPECT_FALSE(isLazyNotLoaded(*rowVector.get()));
+
+  RowVector* loadedVector = rowVector->loadedVector()->as<RowVector>();
+  auto child = loadedVector->childAt(0);
+  EXPECT_FALSE(child->isLazy());
+  assertEqualVectors(child, lazyInnerRowVector);
+}
+
+TEST_F(LazyVectorTest, lazyInConstant) {
   // Wrap Lazy vector in a Constant, load some indices and verify that the
   // results.
   static constexpr int32_t kInnerSize = 100;
@@ -299,4 +453,39 @@ TEST_F(LazyVectorTest, lazyInDictionaryNoRowsToLoad) {
   LazyVector::ensureLoadedRows(wrapped, rows);
   auto expected = makeFlatVector<int32_t>(0);
   assertEqualVectors(expected, wrapped);
+}
+
+TEST_F(LazyVectorTest, lazyWithDictionaryInConstant) {
+  // Wrap Lazy vector in a Dictionary in a Lazy vector in a constant, load some
+  // indices and verify that the results.
+  static constexpr int32_t kInnerSize = 1000;
+  static constexpr int32_t kOuterSize = 10;
+  auto base = makeFlatVector<int32_t>(kInnerSize, [](auto row) { return row; });
+  auto innerLazy = std::make_shared<LazyVector>(
+      pool_.get(),
+      INTEGER(),
+      kInnerSize,
+      std::make_unique<test::SimpleVectorLoader>(
+          [&](auto /* rows */) { return base; }));
+  auto wrapped = BaseVector::wrapInDictionary(
+      nullptr,
+      makeIndices(kInnerSize, [](auto row) { return row; }),
+      kInnerSize,
+      innerLazy);
+  auto outerLazy = std::make_shared<LazyVector>(
+      pool_.get(),
+      INTEGER(),
+      kInnerSize,
+      std::make_unique<test::SimpleVectorLoader>(
+          [&](auto /* rows */) { return wrapped; }));
+  VectorPtr constant = std::make_shared<ConstantVector<int32_t>>(
+      pool_.get(), kOuterSize, 7, outerLazy);
+
+  SelectivityVector rows(kOuterSize, true);
+  LazyVector::ensureLoadedRows(constant, rows);
+  EXPECT_EQ(constant->encoding(), VectorEncoding::Simple::CONSTANT);
+
+  for (int i = 0; i < kOuterSize; i++) {
+    EXPECT_EQ(constant->as<SimpleVector<int32_t>>()->valueAt(i), 7);
+  }
 }
