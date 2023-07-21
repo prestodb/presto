@@ -755,6 +755,8 @@ TEST(TypeTest, unknown) {
   EXPECT_TRUE(unknownArray->containsUnknown());
 
   testTypeSerde(unknownArray);
+
+  ASSERT_EQ(0, unknownArray->elementType()->cppSizeInBytes());
 }
 
 TEST(TypeTest, isVariadicType) {
