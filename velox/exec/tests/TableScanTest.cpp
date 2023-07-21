@@ -2747,26 +2747,42 @@ TEST_F(TableScanTest, readMissingFieldsFilesVary) {
   auto rows = result->as<RowVector>();
   ASSERT_TRUE(rows);
   ASSERT_EQ(rows->childrenSize(), 4);
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 2; i++) {
     auto val = rows->childAt(i)->as<SimpleVector<int64_t>>();
     ASSERT_TRUE(val);
     ASSERT_EQ(val->size(), size * 4);
     for (int j = 0; j < size * 4; j++) {
       // These fields always exist.
-      if (i < 2) {
-        ASSERT_FALSE(val->isNullAt(j));
-        ASSERT_EQ(val->valueAt(j), j % size);
-      } else {
-        // The field doesn't exist in even files.
-        if ((j / size) % 2 == 0) {
-          ASSERT_TRUE(val->isNullAt(j));
-        } else {
-          ASSERT_FALSE(val->isNullAt(j));
-          ASSERT_EQ(val->valueAt(j), (j % size) + 1);
-        }
-      }
+      ASSERT_FALSE(val->isNullAt(j));
+      ASSERT_EQ(val->valueAt(j), j % size);
     }
-  };
+  }
+
+  // Handle the case where splits may be read out of order.
+  int32_t nullCount = 0;
+  auto col2 = rows->childAt(2)->as<SimpleVector<int64_t>>();
+  auto col3 = rows->childAt(3)->as<SimpleVector<int64_t>>();
+
+  ASSERT_TRUE(col2);
+  ASSERT_TRUE(col3);
+  ASSERT_EQ(col2->size(), size * 4);
+  ASSERT_EQ(col3->size(), size * 4);
+  for (int j = 0; j < size * 4; j++) {
+    // If a value in this column is null, then it comes from a split without
+    // those additional fields, so the other column should be null as well.
+    if (col2->isNullAt(j)) {
+      ASSERT_TRUE(col3->isNullAt(j));
+      nullCount++;
+    } else {
+      ASSERT_FALSE(col3->isNullAt(j));
+      ASSERT_EQ(col2->valueAt(j), (j % size) + 1);
+      ASSERT_EQ(col3->valueAt(j), (j % size) + 1);
+    }
+  }
+
+  // Half the files are missing the additional columns, so we should see half
+  // the rows with nulls.
+  ASSERT_EQ(nullCount, size * 2);
 }
 
 // Tests queries that use that read more row fields than exist in the data in an
