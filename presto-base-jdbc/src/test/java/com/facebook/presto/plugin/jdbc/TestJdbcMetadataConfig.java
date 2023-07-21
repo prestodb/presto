@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -21,6 +22,8 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestJdbcMetadataConfig
 {
@@ -28,7 +31,10 @@ public class TestJdbcMetadataConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(JdbcMetadataConfig.class)
-                .setAllowDropTable(false));
+                .setAllowDropTable(false)
+                .setMetadataCacheTtl(new Duration(0, SECONDS))
+                .setMetadataCacheRefreshInterval(new Duration(0, SECONDS))
+                .setMetadataCacheMaximumSize(10000));
     }
 
     @Test
@@ -36,10 +42,16 @@ public class TestJdbcMetadataConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("allow-drop-table", "true")
+                .put("metadata-cache-ttl", "1h")
+                .put("metadata-cache-refresh-interval", "10s")
+                .put("metadata-cache-maximum-size", "100")
                 .build();
 
         JdbcMetadataConfig expected = new JdbcMetadataConfig()
-                .setAllowDropTable(true);
+                .setAllowDropTable(true)
+                .setMetadataCacheTtl(new Duration(1, HOURS))
+                .setMetadataCacheRefreshInterval(new Duration(10, SECONDS))
+                .setMetadataCacheMaximumSize(100);
 
         assertFullMapping(properties, expected);
     }
