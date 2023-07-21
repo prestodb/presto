@@ -111,6 +111,10 @@ class ExpressionBenchmarkBuilder
   // If disbleTesting=true for a group set, testing is skipped.
   void testBenchmarks();
 
+  test::VectorMaker& vectorMaker() {
+    return vectorMaker_;
+  }
+
   ExpressionBenchmarkSet& addBenchmarkSet(
       const std::string& name,
       const RowVectorPtr& inputRowVetor) {

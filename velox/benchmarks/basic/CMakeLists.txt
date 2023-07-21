@@ -20,6 +20,7 @@ set(velox_benchmark_deps
     velox_parse_utils
     velox_parse_expression
     velox_serialization
+    velox_benchmark_builder
     Folly::folly
     ${FOLLY_BENCHMARK}
     ${DOUBLE_CONVERSION}
@@ -68,3 +69,7 @@ target_link_libraries(velox_like_functions_benchmark ${velox_benchmark_deps}
 add_executable(velox_benchmark_basic_vector_fuzzer VectorFuzzer.cpp)
 target_link_libraries(velox_benchmark_basic_vector_fuzzer
                       ${velox_benchmark_deps} velox_vector_test_lib)
+
+add_executable(velox_cast_benchmark CastBenchmark.cpp)
+target_link_libraries(velox_cast_benchmark ${velox_benchmark_deps}
+                      velox_vector_test_lib)
