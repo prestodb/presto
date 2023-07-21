@@ -13,16 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/RowContainer.h"
-#include <gtest/gtest.h>
-#include <algorithm>
-#include <random>
-#include "velox/common/file/FileSystems.h"
-#include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/VectorHasher.h"
 #include "velox/exec/tests/utils/RowContainerTestBase.h"
-#include "velox/serializers/PrestoSerializer.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;

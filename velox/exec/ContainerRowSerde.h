@@ -24,6 +24,8 @@ namespace facebook::velox::exec {
 /// Row-wise serialization for use in hash tables and order by.
 class ContainerRowSerde {
  public:
+  /// Serializes value from source[index] into 'out'. The value must not be
+  /// null.
   static void
   serialize(const BaseVector& source, vector_size_t index, ByteStream& out);
 
