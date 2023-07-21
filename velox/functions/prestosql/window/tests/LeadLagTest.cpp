@@ -323,5 +323,62 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     LeadLagTest,
     ::testing::Values("lead"));
 
+// DuckDB has errors in IGNORE NULLS logic for empty
+// frames (tested above). So using non-empty frames.
+inline const std::vector<std::string> kIgnoreNullsFrames = {
+    "range current row",
+    "range between unbounded preceding and current row",
+
+    "range between unbounded preceding and unbounded following",
+
+    "rows between 5 preceding and unbounded following",
+    "rows between unbounded preceding and 5 following",
+
+    "rows between 1 preceding and 5 following",
+
+    "rows between c2 preceding and unbounded following",
+    "rows between unbounded preceding and c2 following",
+    "rows between c2 preceding and c2 following",
+};
+
+inline const std::vector<std::string> kIgnoreNullsPartitionClauses = {
+    "partition by c0 order by c1 desc, c2",
+    "partition by c0 order by c1 desc nulls first, c2",
+    "partition by c0 order by c1 asc, c2",
+    "partition by c0 order by c1 asc nulls first, c2",
+};
+
+TEST_F(LeadLagTest, ignoreNulls) {
+  auto size = 40;
+  auto input = makeRowVector({
+      makeFlatVector<int32_t>(size, [](auto row) { return row % 5; }),
+      makeFlatVector<int64_t>(
+          size, [](auto row) { return row % 7; }, nullEvery(8)),
+      makeFlatVector<int64_t>(size, [](auto row) { return row % 6 + 1; }),
+  });
+  // c1 has null values, so used for the values argument.
+  const std::vector<std::string> kFunctionsList = {
+      "lead(c1, 2 IGNORE NULLS)",
+      "lag(c1, 2 IGNORE NULLS)",
+      "lead(c1, c2 IGNORE NULLS)",
+      "lag(c1, c2 IGNORE NULLS)",
+      "lead(c1, 2, 5 IGNORE NULLS)",
+      "lag(c1, 2, 5 IGNORE NULLS)",
+      "lead(c1, 2, c2 IGNORE NULLS)",
+      "lag(c1, 2, c2 IGNORE NULLS)",
+  };
+
+  bool createTable = true;
+  for (auto fn : kFunctionsList) {
+    WindowTestBase::testWindowFunction(
+        {input},
+        fn,
+        kIgnoreNullsPartitionClauses,
+        kIgnoreNullsFrames,
+        createTable);
+    createTable = false;
+  }
+}
+
 } // namespace
 } // namespace facebook::velox::window::test

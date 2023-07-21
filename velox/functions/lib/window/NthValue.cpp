@@ -27,8 +27,9 @@ class NthValueFunction : public exec::WindowFunction {
   explicit NthValueFunction(
       const std::vector<exec::WindowFunctionArg>& args,
       const TypePtr& resultType,
+      bool ignoreNulls,
       velox::memory::MemoryPool* pool)
-      : WindowFunction(resultType, pool, nullptr) {
+      : WindowFunction(resultType, pool, nullptr), ignoreNulls_(ignoreNulls) {
     VELOX_CHECK_EQ(args.size(), 2);
     VELOX_CHECK_NULL(args[0].constantValue);
     valueIndex_ = args[0].index.value();
@@ -57,12 +58,13 @@ class NthValueFunction : public exec::WindowFunction {
                 ->valueAt(0);
         VELOX_USER_CHECK_GE(
             constantOffset_.value(), 1, "Offset must be at least 1");
-        return;
+      } else {
+        offsetIndex_ = args[1].index.value();
+        offsets_ = BaseVector::create<FlatVector<int64_t>>(BIGINT(), 0, pool);
       }
-
-      offsetIndex_ = args[1].index.value();
-      offsets_ = BaseVector::create<FlatVector<int64_t>>(BIGINT(), 0, pool);
     }
+
+    nulls_ = allocateNulls(0, pool);
   }
 
   void resetPartition(const exec::WindowPartition* partition) override {
@@ -79,15 +81,17 @@ class NthValueFunction : public exec::WindowFunction {
       int32_t resultOffset,
       const VectorPtr& result) override {
     auto numRows = frameStarts->size() / sizeof(vector_size_t);
-    auto rawFrameStarts = frameStarts->as<vector_size_t>();
-    auto rawFrameEnds = frameEnds->as<vector_size_t>();
-
     rowNumbers_.resize(numRows);
-    if (constantOffset_.has_value() || isConstantOffsetNull_) {
-      setRowNumbersForConstantOffset(validRows, rawFrameStarts, rawFrameEnds);
+
+    if (isConstantOffsetNull_) {
+      std::fill(rowNumbers_.begin(), rowNumbers_.end(), kNullRow);
     } else {
-      setRowNumbers(numRows, validRows, rawFrameStarts, rawFrameEnds);
+      if (validRows.hasSelections()) {
+        setRowNumbers(validRows, frameStarts, frameEnds, numRows);
+      }
     }
+
+    setRowNumbersForEmptyFrames(validRows);
 
     auto rowNumbersRange = folly::Range(rowNumbers_.data(), numRows);
     partition_->extractColumn(
@@ -97,49 +101,114 @@ class NthValueFunction : public exec::WindowFunction {
   }
 
  private:
-  // The below 2 functions build the rowNumbers for column extraction.
+  // The below functions build the rowNumbers for column extraction.
   // The rowNumbers map for each output row, as per nth_value function
   // semantics, the rowNumber (relative to the start of the partition) from
   // which the input value should be copied.
   // A rowNumber of kNullRow is for nullptr in the result.
-  void setRowNumbersForConstantOffset(
+  void setRowNumbers(
       const SelectivityVector& validRows,
-      const vector_size_t* frameStarts,
-      const vector_size_t* frameEnds) {
-    if (isConstantOffsetNull_) {
-      std::fill(rowNumbers_.begin(), rowNumbers_.end(), kNullRow);
-      return;
+      const BufferPtr& frameStarts,
+      const BufferPtr& frameEnds,
+      vector_size_t numRows) {
+    auto rawFrameStarts = frameStarts->as<vector_size_t>();
+    auto rawFrameEnds = frameEnds->as<vector_size_t>();
+    bool ignoreNullsForBlock = false;
+    vector_size_t leastFrame = 0;
+    if (ignoreNulls_) {
+      auto extractNullsResult = partition_->extractNulls(
+          valueIndex_, validRows, frameStarts, frameEnds, &nulls_);
+      // Perform ignoreNulls processing only if there are null values in the
+      // current output block. Otherwise continue processing with the logic
+      // without as it is more efficient.
+      ignoreNullsForBlock = extractNullsResult.has_value();
+      leastFrame = ignoreNullsForBlock ? extractNullsResult->first : leastFrame;
     }
 
-    vector_size_t constantOffsetValue =
-        static_cast<vector_size_t>(constantOffset_.value());
-    validRows.applyToSelected([&](auto i) {
-      setRowNumber(i, frameStarts, frameEnds, constantOffsetValue);
-    });
-
-    setRowNumbersForEmptyFrames(validRows);
+    if (constantOffset_.has_value()) {
+      setRowNumbersForConstantOffset(
+          ignoreNullsForBlock,
+          validRows,
+          rawFrameStarts,
+          rawFrameEnds,
+          leastFrame);
+    } else {
+      setRowNumbersForColumnOffset(
+          ignoreNullsForBlock,
+          numRows,
+          validRows,
+          rawFrameStarts,
+          rawFrameEnds,
+          leastFrame);
+    }
   }
 
-  void setRowNumbers(
-      vector_size_t numRows,
+  void setRowNumbersForConstantOffset(
+      bool ignoreNulls,
       const SelectivityVector& validRows,
       const vector_size_t* frameStarts,
-      const vector_size_t* frameEnds) {
-    offsets_->resize(numRows);
-    partition_->extractColumn(
-        offsetIndex_, partitionOffset_, numRows, 0, offsets_);
+      const vector_size_t* frameEnds,
+      vector_size_t leastFrame) {
+    vector_size_t constantOffsetValue =
+        static_cast<vector_size_t>(constantOffset_.value());
+    if (ignoreNulls) {
+      auto rawNulls = nulls_->as<uint64_t>();
+      validRows.applyToSelected([&](auto i) {
+        setRowNumberIgnoreNulls(
+            i,
+            rawNulls,
+            leastFrame,
+            frameStarts,
+            frameEnds,
+            constantOffsetValue);
+      });
+    } else {
+      validRows.applyToSelected([&](auto i) {
+        setRowNumber(i, frameStarts, frameEnds, constantOffsetValue);
+      });
+    }
+  }
 
+  template <bool ignoreNulls>
+  void setRowNumbersApplyLoop(
+      const SelectivityVector& validRows,
+      const vector_size_t* frameStarts,
+      const vector_size_t* frameEnds,
+      vector_size_t leastFrame = 0) {
+    auto rawNulls = nulls_->as<uint64_t>();
     validRows.applyToSelected([&](auto i) {
       if (offsets_->isNullAt(i)) {
         rowNumbers_[i] = kNullRow;
       } else {
         vector_size_t offset = offsets_->valueAt(i);
         VELOX_USER_CHECK_GE(offset, 1, "Offset must be at least 1");
-        setRowNumber(i, frameStarts, frameEnds, offset);
+        if constexpr (ignoreNulls) {
+          setRowNumberIgnoreNulls(
+              i, rawNulls, leastFrame, frameStarts, frameEnds, offset);
+        } else {
+          setRowNumber(i, frameStarts, frameEnds, offset);
+        }
       }
     });
+  }
 
-    setRowNumbersForEmptyFrames(validRows);
+  void setRowNumbersForColumnOffset(
+      bool ignoreNulls,
+      vector_size_t numRows,
+      const SelectivityVector& validRows,
+      const vector_size_t* frameStarts,
+      const vector_size_t* frameEnds,
+      vector_size_t leastFrame) {
+    offsets_->resize(numRows);
+    partition_->extractColumn(
+        offsetIndex_, partitionOffset_, numRows, 0, offsets_);
+
+    if (ignoreNulls) {
+      setRowNumbersApplyLoop<true>(
+          validRows, frameStarts, frameEnds, leastFrame);
+    } else {
+      setRowNumbersApplyLoop<false>(validRows, frameStarts, frameEnds);
+    }
   }
 
   void setRowNumbersForEmptyFrames(const SelectivityVector& validRows) {
@@ -164,6 +233,30 @@ class NthValueFunction : public exec::WindowFunction {
     rowNumbers_[i] = rowNumber <= frameEnd ? rowNumber : kNullRow;
   }
 
+  inline void setRowNumberIgnoreNulls(
+      vector_size_t i,
+      const uint64_t* rawNulls,
+      vector_size_t leastFrame,
+      const vector_size_t* frameStarts,
+      const vector_size_t* frameEnds,
+      vector_size_t offset) {
+    auto frameStart = frameStarts[i];
+    auto frameEnd = frameEnds[i];
+    vector_size_t nonNullCount = 0;
+    for (auto j = frameStart; j <= frameEnd; j++) {
+      if (!bits::isBitSet(rawNulls, j - leastFrame)) {
+        ++nonNullCount;
+        if (nonNullCount == offset) {
+          rowNumbers_[i] = j;
+          return;
+        }
+      }
+    }
+    rowNumbers_[i] = kNullRow;
+  }
+
+  const bool ignoreNulls_;
+
   // These are the argument indices of the nth_value value and offset columns
   // in the input row vector. These are needed to retrieve column values
   // from the partition data.
@@ -185,7 +278,10 @@ class NthValueFunction : public exec::WindowFunction {
   // to the present row set in getOutput.
   vector_size_t partitionOffset_;
 
-  // The NthValue function directly writes from the input column to the
+  // Used to read the null positions of the value column for ignoreNulls.
+  BufferPtr nulls_;
+
+  // The function directly writes from the input column to the
   // resultVector using the extractColumn API specifying the rowNumber mapping
   // to copy between the 2 vectors. This variable is used for the rowNumber
   // vector across getOutput calls.
@@ -212,11 +308,13 @@ void registerNthValue(const std::string& name, const TypeKind& offsetTypeKind) {
       [name](
           const std::vector<exec::WindowFunctionArg>& args,
           const TypePtr& resultType,
+          bool ignoreNulls,
           velox::memory::MemoryPool* pool,
           HashStringAllocator* /*stringAllocator*/,
           const core::QueryConfig& /*queryConfig*/)
           -> std::unique_ptr<exec::WindowFunction> {
-        return std::make_unique<NthValueFunction>(args, resultType, pool);
+        return std::make_unique<NthValueFunction>(
+            args, resultType, ignoreNulls, pool);
       });
 }
 

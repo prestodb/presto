@@ -55,6 +55,30 @@ class WindowPartition {
       vector_size_t resultOffset,
       const VectorPtr& result) const;
 
+  /// Extracts null positions at 'columnIndex' into 'nullsBuffer' for
+  /// 'numRows' starting at positions 'partitionOffset' in the partition
+  /// input data.
+  void extractNulls(
+      int32_t columnIndex,
+      vector_size_t partitionOffset,
+      vector_size_t numRows,
+      const BufferPtr& nullsBuffer) const;
+
+  /// Extracts null positions at 'col' into 'nulls'. The null positions
+  /// are from the smallest 'frameStarts' value to the greatest 'frameEnds'
+  /// value for 'validRows'. Both 'frameStarts' and 'frameEnds' are buffers
+  /// of type vector_size_t.
+  /// The returned value is an optional pair of vector_size_t.
+  /// The pair is returned only if null values are found in the nulls
+  /// extracted. The first value of the pair is the smallest frameStart for
+  /// nulls. The second is the number of frames extracted.
+  std::optional<std::pair<vector_size_t, vector_size_t>> extractNulls(
+      column_index_t col,
+      const SelectivityVector& validRows,
+      const BufferPtr& frameStarts,
+      const BufferPtr& frameEnds,
+      BufferPtr* nulls) const;
+
  private:
   // This is a copy of the input RowColumn objects that are used for
   // accessing the partition row columns. These RowColumn objects

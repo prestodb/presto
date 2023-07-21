@@ -34,10 +34,13 @@ class FirstLastValueFunction : public exec::WindowFunction {
   explicit FirstLastValueFunction(
       const std::vector<exec::WindowFunctionArg>& args,
       const TypePtr& resultType,
+      bool ignoreNulls,
       velox::memory::MemoryPool* pool)
-      : WindowFunction(resultType, pool, nullptr) {
+      : WindowFunction(resultType, pool, nullptr), ignoreNulls_(ignoreNulls) {
     VELOX_CHECK_NULL(args[0].constantValue);
-    argIndex_ = args[0].index.value();
+    valueIndex_ = args[0].index.value();
+
+    nulls_ = allocateNulls(0, pool_);
   }
 
   void resetPartition(const exec::WindowPartition* partition) override {
@@ -54,20 +57,18 @@ class FirstLastValueFunction : public exec::WindowFunction {
       const VectorPtr& result) override {
     auto numRows = frameStarts->size() / sizeof(vector_size_t);
     rowNumbers_.resize(numRows);
-
-    if constexpr (TValue == ValueType::kFirst) {
-      auto rawFrameStarts = frameStarts->as<vector_size_t>();
-      validRows.applyToSelected(
-          [&](auto i) { rowNumbers_[i] = rawFrameStarts[i]; });
-    } else {
-      auto rawFrameEnds = frameEnds->as<vector_size_t>();
-      validRows.applyToSelected(
-          [&](auto i) { rowNumbers_[i] = rawFrameEnds[i]; });
+    if (validRows.hasSelections()) {
+      if (ignoreNulls_) {
+        setRowNumbersIgnoreNulls(validRows, frameStarts, frameEnds);
+      } else {
+        setRowNumbersRespectNulls(validRows, frameStarts, frameEnds);
+      }
     }
-    setRowNumbersForEmptyFrames(validRows);
 
+    setRowNumbersForEmptyFrames(validRows);
     auto rowNumbersRange = folly::Range(rowNumbers_.data(), numRows);
-    partition_->extractColumn(argIndex_, rowNumbersRange, resultOffset, result);
+    partition_->extractColumn(
+        valueIndex_, rowNumbersRange, resultOffset, result);
   }
 
  private:
@@ -82,9 +83,64 @@ class FirstLastValueFunction : public exec::WindowFunction {
     invalidRows_.applyToSelected([&](auto i) { rowNumbers_[i] = kNullRow; });
   }
 
+  void setRowNumbersRespectNulls(
+      const SelectivityVector& validRows,
+      const BufferPtr& frameStarts,
+      const BufferPtr& frameEnds) {
+    if constexpr (TValue == ValueType::kFirst) {
+      auto rawFrameStarts = frameStarts->as<vector_size_t>();
+      validRows.applyToSelected(
+          [&](auto i) { rowNumbers_[i] = rawFrameStarts[i]; });
+    } else {
+      auto rawFrameEnds = frameEnds->as<vector_size_t>();
+      validRows.applyToSelected(
+          [&](auto i) { rowNumbers_[i] = rawFrameEnds[i]; });
+    }
+  }
+
+  void setRowNumbersIgnoreNulls(
+      const SelectivityVector& validRows,
+      const BufferPtr& frameStarts,
+      const BufferPtr& frameEnds) {
+    auto extractNullsResult = partition_->extractNulls(
+        valueIndex_, validRows, frameStarts, frameEnds, &nulls_);
+    if (!extractNullsResult.has_value()) {
+      // There are no nulls in the column. Continue the processing with the
+      // function that respects nulls since it is more efficient.
+      return setRowNumbersRespectNulls(validRows, frameStarts, frameEnds);
+    }
+
+    auto leastFrame = extractNullsResult->first;
+    auto frameSize = extractNullsResult->second;
+
+    // first(last)Value functions return the first(last) non-null values for the
+    // frame. Negate the bits in nulls_ so that nonNull bits are set instead.
+    bits::negate(nulls_->asMutable<char>(), frameSize);
+    auto rawNonNulls = nulls_->as<uint64_t>();
+
+    auto rawFrameStarts = frameStarts->as<vector_size_t>();
+    auto rawFrameEnds = frameEnds->as<vector_size_t>();
+    validRows.applyToSelected([&](auto i) {
+      auto frameStart = rawFrameStarts[i];
+      auto frameEnd = rawFrameEnds[i];
+      // bits::findFirst(Last)Bit returns -1 if a set bit is not found.
+      // The function returns null for this case. -1 correctly maps to
+      // kNullRow as expected for rowNumbers_ extraction.
+      if constexpr (TValue == ValueType::kFirst) {
+        rowNumbers_[i] = bits::findFirstBit(
+            rawNonNulls, frameStart - leastFrame, frameEnd - leastFrame + 1);
+      } else {
+        rowNumbers_[i] = bits::findLastBit(
+            rawNonNulls, frameStart - leastFrame, frameEnd - leastFrame + 1);
+      }
+    });
+  }
+
+  const bool ignoreNulls_;
+
   // Index of the first_value / last_value argument column in the input row
   // vector. This is used to retrieve column values from the partition data.
-  column_index_t argIndex_;
+  column_index_t valueIndex_;
 
   const exec::WindowPartition* partition_;
 
@@ -93,6 +149,10 @@ class FirstLastValueFunction : public exec::WindowFunction {
   // mapping to copy between the 2 vectors. This variable is used for the
   // rowNumber vector across getOutput calls.
   std::vector<vector_size_t> rowNumbers_;
+
+  // Used to extract nulls positions for the input value column if ignoreNulls
+  // is set.
+  BufferPtr nulls_;
 
   // Member variable re-used for setting null for empty frames.
   SelectivityVector invalidRows_;
@@ -115,12 +175,13 @@ void registerFirstLastInternal(const std::string& name) {
       std::move(signatures),
       [](const std::vector<exec::WindowFunctionArg>& args,
          const TypePtr& resultType,
+         bool ignoreNulls,
          velox::memory::MemoryPool* pool,
          HashStringAllocator* /*stringAllocator*/,
          const velox::core::QueryConfig& /*queryConfig*/)
           -> std::unique_ptr<exec::WindowFunction> {
         return std::make_unique<FirstLastValueFunction<TValue>>(
-            args, resultType, pool);
+            args, resultType, ignoreNulls, pool);
       });
 }
 

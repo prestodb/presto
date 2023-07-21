@@ -27,17 +27,32 @@ class LeadLagFunction : public exec::WindowFunction {
   explicit LeadLagFunction(
       const std::vector<exec::WindowFunctionArg>& args,
       const TypePtr& resultType,
+      bool ignoreNulls,
       velox::memory::MemoryPool* pool)
-      : WindowFunction(resultType, pool, nullptr) {
+      : WindowFunction(resultType, pool, nullptr), ignoreNulls_(ignoreNulls) {
     valueIndex_ = args[0].index.value();
 
     initializeOffset(args);
     initializeDefaultValue(args);
+
+    nulls_ = allocateNulls(0, pool);
   }
 
   void resetPartition(const exec::WindowPartition* partition) override {
     partition_ = partition;
     partitionOffset_ = 0;
+    ignoreNullsForPartition_ = false;
+
+    if (ignoreNulls_) {
+      auto partitionSize = partition_->numRows();
+      AlignedBuffer::reallocate<bool>(&nulls_, partitionSize);
+
+      partition_->extractNulls(valueIndex_, 0, partitionSize, nulls_);
+      // There are null bits so the special ignoreNulls processing is required
+      // for this partition.
+      ignoreNullsForPartition_ =
+          bits::countBits(nulls_->as<uint64_t>(), 0, partitionSize) > 0;
+    }
   }
 
   void apply(
@@ -55,7 +70,11 @@ class LeadLagFunction : public exec::WindowFunction {
     if (constantOffset_.has_value() || isConstantOffsetNull_) {
       setRowNumbersForConstantOffset();
     } else {
-      setRowNumbers(numRows);
+      if (ignoreNullsForPartition_) {
+        setRowNumbers<true>(numRows);
+      } else {
+        setRowNumbers<false>(numRows);
+      }
     }
 
     auto rowNumbersRange = folly::Range(rowNumbers_.data(), numRows);
@@ -110,13 +129,14 @@ class LeadLagFunction : public exec::WindowFunction {
 
   void setRowNumbersForConstantOffset();
 
+  template <bool ignoreNulls>
   void setRowNumbers(vector_size_t numRows) {
     offsets_->resize(numRows);
     partition_->extractColumn(
         offsetIndex_, partitionOffset_, numRows, 0, offsets_);
 
     const auto maxRowNumber = partition_->numRows() - 1;
-
+    auto* rawNulls = nulls_->as<uint64_t>();
     for (auto i = 0; i < numRows; ++i) {
       if (offsets_->isNullAt(i)) {
         rowNumbers_[i] = kNullRow;
@@ -125,14 +145,47 @@ class LeadLagFunction : public exec::WindowFunction {
         VELOX_USER_CHECK_GE(offset, 0, "Offset must be at least 0");
 
         if constexpr (isLag) {
-          auto rowNumber = partitionOffset_ + i - offset;
-          rowNumbers_[i] = rowNumber >= 0 ? rowNumber : kNullRow;
+          if constexpr (ignoreNulls) {
+            rowNumbers_[i] = rowNumberIgnoreNull(
+                rawNulls, offset, partitionOffset_ + i - 1, -1, -1);
+          } else {
+            auto rowNumber = partitionOffset_ + i - offset;
+            rowNumbers_[i] = rowNumber >= 0 ? rowNumber : kNullRow;
+          }
         } else {
-          auto rowNumber = partitionOffset_ + i + offset;
-          rowNumbers_[i] = rowNumber <= maxRowNumber ? rowNumber : kNullRow;
+          if constexpr (ignoreNulls) {
+            rowNumbers_[i] = rowNumberIgnoreNull(
+                rawNulls,
+                offset,
+                partitionOffset_ + i + 1,
+                partition_->numRows(),
+                1);
+          } else {
+            auto rowNumber = partitionOffset_ + i + offset;
+            rowNumbers_[i] = rowNumber <= maxRowNumber ? rowNumber : kNullRow;
+          }
         }
       }
     }
+  }
+
+  vector_size_t rowNumberIgnoreNull(
+      const uint64_t* rawNulls,
+      vector_size_t offset,
+      vector_size_t start,
+      vector_size_t end,
+      vector_size_t step) {
+    auto nonNullCount = 0;
+    for (auto j = start; j != end; j += step) {
+      if (!bits::isBitSet(rawNulls, j)) {
+        nonNullCount++;
+        if (nonNullCount == offset) {
+          return j;
+        }
+      }
+    }
+
+    return kNullRow;
   }
 
   void setDefaultValue(const VectorPtr& result, int32_t resultOffset) {
@@ -179,6 +232,12 @@ class LeadLagFunction : public exec::WindowFunction {
     }
   }
 
+  const bool ignoreNulls_;
+
+  // Certain partitions may not have null values. So ignore nulls processing can
+  // be skipped for them. Used for tracking this at the partition level.
+  bool ignoreNullsForPartition_;
+
   // Index of the 'value' argument.
   column_index_t valueIndex_;
 
@@ -203,6 +262,9 @@ class LeadLagFunction : public exec::WindowFunction {
 
   // Reusable vector of default values if these are not cosntant.
   VectorPtr defaultValues_;
+
+  // Null positions buffer to use for ignoreNulls.
+  BufferPtr nulls_;
 
   // This offset tracks how far along the partition rows have been output.
   // This can be used to optimize reading offset column values corresponding
@@ -235,11 +297,19 @@ void LeadLagFunction<true>::setRowNumbersForConstantOffset() {
     }
   }
 
-  // Populate sequential values for non-NULL rows.
-  std::iota(
-      rowNumbers_.begin() + nullCnt,
-      rowNumbers_.end(),
-      partitionOffset_ + nullCnt - constantOffsetValue);
+  if (ignoreNullsForPartition_) {
+    auto rawNulls = nulls_->as<uint64_t>();
+    for (auto i = nullCnt; i < rowNumbers_.size(); i++) {
+      rowNumbers_[i] = rowNumberIgnoreNull(
+          rawNulls, constantOffsetValue, partitionOffset_ + i - 1, -1, -1);
+    }
+  } else {
+    // Populate sequential values for non-NULL rows.
+    std::iota(
+        rowNumbers_.begin() + nullCnt,
+        rowNumbers_.end(),
+        partitionOffset_ + nullCnt - constantOffsetValue);
+  }
 }
 
 template <>
@@ -263,10 +333,22 @@ void LeadLagFunction<false>::setRowNumbersForConstantOffset() {
 
   // Populate sequential values for non-NULL rows.
   if (nonNullCnt > 0) {
-    std::iota(
-        rowNumbers_.begin(),
-        rowNumbers_.begin() + nonNullCnt,
-        partitionOffset_ + constantOffsetValue);
+    if (ignoreNullsForPartition_) {
+      auto rawNulls = nulls_->as<uint64_t>();
+      for (auto i = 0; i < nonNullCnt; i++) {
+        rowNumbers_[i] = rowNumberIgnoreNull(
+            rawNulls,
+            constantOffsetValue,
+            partitionOffset_ + i + 1,
+            partition_->numRows(),
+            1);
+      }
+    } else {
+      std::iota(
+          rowNumbers_.begin(),
+          rowNumbers_.begin() + nonNullCnt,
+          partitionOffset_ + constantOffsetValue);
+    }
   }
 }
 
@@ -305,11 +387,13 @@ void registerLag(const std::string& name) {
       [name](
           const std::vector<exec::WindowFunctionArg>& args,
           const TypePtr& resultType,
+          bool ignoreNulls,
           velox::memory::MemoryPool* pool,
           HashStringAllocator* /*stringAllocator*/,
           const velox::core::QueryConfig& /*queryConfig*/)
           -> std::unique_ptr<exec::WindowFunction> {
-        return std::make_unique<LeadLagFunction<true>>(args, resultType, pool);
+        return std::make_unique<LeadLagFunction<true>>(
+            args, resultType, ignoreNulls, pool);
       });
 }
 
@@ -320,11 +404,13 @@ void registerLead(const std::string& name) {
       [name](
           const std::vector<exec::WindowFunctionArg>& args,
           const TypePtr& resultType,
+          bool ignoreNulls,
           velox::memory::MemoryPool* pool,
           HashStringAllocator* /*stringAllocator*/,
           const velox::core::QueryConfig& /*queryConfig*/)
           -> std::unique_ptr<exec::WindowFunction> {
-        return std::make_unique<LeadLagFunction<false>>(args, resultType, pool);
+        return std::make_unique<LeadLagFunction<false>>(
+            args, resultType, ignoreNulls, pool);
       });
 }
 } // namespace facebook::velox::window::prestosql

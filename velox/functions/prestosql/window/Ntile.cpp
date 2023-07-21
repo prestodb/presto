@@ -241,6 +241,7 @@ void registerNtile(const std::string& name) {
       [name](
           const std::vector<exec::WindowFunctionArg>& args,
           const TypePtr& /*resultType*/,
+          bool /*ignoreNulls*/,
           velox::memory::MemoryPool* pool,
           HashStringAllocator* /*stringAllocator*/,
           const core::QueryConfig& /*queryConfig*/)

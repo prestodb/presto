@@ -52,9 +52,9 @@ RowVectorPtr WindowTestBase::makeSimpleVector(vector_size_t size) {
   return makeRowVector({
       makeFlatVector<int32_t>(size, [](auto row) { return row % 5; }),
       makeFlatVector<int32_t>(
-          size, [](auto row) { return row % 7; }, nullEvery(15)),
-      makeFlatVector<int64_t>(size, [](auto row) { return row % 11 + 1; }),
-      makeFlatVector<int32_t>(size, [](auto row) { return row % 13 + 1; }),
+          size, [](auto row) { return row % 7; }, nullEvery(11)),
+      makeFlatVector<int64_t>(size, [](auto row) { return row % 6 + 1; }),
+      makeFlatVector<int32_t>(size, [](auto row) { return row % 4 + 1; }),
   });
 }
 
@@ -63,8 +63,8 @@ RowVectorPtr WindowTestBase::makeSinglePartitionVector(vector_size_t size) {
       makeFlatVector<int32_t>(size, [](auto /* row */) { return 1; }),
       makeFlatVector<int32_t>(
           size, [](auto row) { return row; }, nullEvery(7)),
-      makeFlatVector<int64_t>(size, [](auto row) { return row % 11 + 1; }),
-      makeFlatVector<int32_t>(size, [](auto row) { return row % 13 + 1; }),
+      makeFlatVector<int64_t>(size, [](auto row) { return row % 6 + 1; }),
+      makeFlatVector<int32_t>(size, [](auto row) { return row % 4 + 1; }),
   });
 }
 
@@ -72,8 +72,8 @@ RowVectorPtr WindowTestBase::makeSingleRowPartitionsVector(vector_size_t size) {
   return makeRowVector({
       makeFlatVector<int32_t>(size, [](auto row) { return row; }),
       makeFlatVector<int32_t>(size, [](auto row) { return row; }),
-      makeFlatVector<int64_t>(size, [](auto row) { return row % 11 + 1; }),
-      makeFlatVector<int32_t>(size, [](auto row) { return row % 13 + 1; }),
+      makeFlatVector<int64_t>(size, [](auto row) { return row % 6 + 1; }),
+      makeFlatVector<int32_t>(size, [](auto row) { return row % 4 + 1; }),
   });
 }
 
