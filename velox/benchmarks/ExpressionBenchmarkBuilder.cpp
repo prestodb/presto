@@ -23,9 +23,8 @@ namespace facebook::velox {
 ExpressionBenchmarkSet& ExpressionBenchmarkSet::addExpression(
     const std::string& name,
     const std::string& expression) {
-  VELOX_CHECK(!expressions_.count(name), "expression name already used");
-  expressions_.emplace(
-      name, builder_.compileExpression(expression, inputType_));
+  expressions_.push_back(
+      std::make_pair(name, builder_.compileExpression(expression, inputType_)));
   return *this;
 }
 
