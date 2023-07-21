@@ -52,13 +52,15 @@ import static java.util.Objects.requireNonNull;
 public class JdbcMetadata
         implements ConnectorMetadata
 {
+    private final JdbcMetadataCache jdbcMetadataCache;
     private final JdbcClient jdbcClient;
     private final boolean allowDropTable;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
-    public JdbcMetadata(JdbcClient jdbcClient, boolean allowDropTable)
+    public JdbcMetadata(JdbcMetadataCache jdbcMetadataCache, JdbcClient jdbcClient, boolean allowDropTable)
     {
+        this.jdbcMetadataCache = requireNonNull(jdbcMetadataCache, "jdbcMetadataCache is null");
         this.jdbcClient = requireNonNull(jdbcClient, "client is null");
         this.allowDropTable = allowDropTable;
     }
@@ -78,7 +80,7 @@ public class JdbcMetadata
     @Override
     public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        return jdbcClient.getTableHandle(session, JdbcIdentity.from(session), tableName);
+        return jdbcMetadataCache.getTableHandle(session, tableName);
     }
 
     @Override
@@ -101,7 +103,7 @@ public class JdbcMetadata
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
         ImmutableList.Builder<ColumnMetadata> columnMetadata = ImmutableList.builder();
-        for (JdbcColumnHandle column : jdbcClient.getColumns(session, handle)) {
+        for (JdbcColumnHandle column : jdbcMetadataCache.getColumns(session, handle)) {
             columnMetadata.add(column.getColumnMetadata());
         }
         return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build());
@@ -119,7 +121,7 @@ public class JdbcMetadata
         JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) tableHandle;
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (JdbcColumnHandle column : jdbcClient.getColumns(session, jdbcTableHandle)) {
+        for (JdbcColumnHandle column : jdbcMetadataCache.getColumns(session, jdbcTableHandle)) {
             columnHandles.put(column.getColumnMetadata().getName(), column);
         }
         return columnHandles.build();
@@ -138,7 +140,7 @@ public class JdbcMetadata
         }
         for (SchemaTableName tableName : tables) {
             try {
-                JdbcTableHandle tableHandle = jdbcClient.getTableHandle(session, JdbcIdentity.from(session), tableName);
+                JdbcTableHandle tableHandle = jdbcMetadataCache.getTableHandle(session, tableName);
                 if (tableHandle == null) {
                     continue;
                 }
