@@ -113,7 +113,6 @@ public class UnweightedDoubleReservoirSample
         }
         seenCount += other.seenCount;
         samples = merged;
-        System.out.println("merge data");
     }
 
     public int getTotalPopulationCount()
