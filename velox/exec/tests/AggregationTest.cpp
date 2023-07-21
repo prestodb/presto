@@ -338,8 +338,7 @@ class AggregationTest : public OperatorTestBase {
         false,
         true,
         true,
-        pool_.get(),
-        ContainerRowSerde::instance());
+        pool_.get());
   }
 
   RowTypePtr rowType_{

@@ -20,7 +20,6 @@
 #include "velox/common/file/FileSystems.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/Aggregate.h"
-#include "velox/exec/ContainerRowSerde.h"
 #include "velox/exec/VectorHasher.h"
 #include "velox/exec/tests/utils/RowContainerTestBase.h"
 #include "velox/serializers/PrestoSerializer.h"
@@ -923,8 +922,7 @@ TEST_F(RowContainerTest, alignment) {
       false,
       true,
       true,
-      pool_.get(),
-      ContainerRowSerde::instance());
+      pool_.get());
   constexpr int kNumRows = 100;
   char* rows[kNumRows];
   for (int i = 0; i < kNumRows; ++i) {
@@ -1035,8 +1033,7 @@ TEST_F(RowContainerTest, probedFlag) {
       true, // isJoinBuild
       true, // hasProbedFlag
       false, // hasNormalizedKey
-      pool_.get(),
-      ContainerRowSerde::instance());
+      pool_.get());
 
   auto input = makeRowVector({
       makeNullableFlatVector<int64_t>({1, 2, 3, 4, std::nullopt, 5}),

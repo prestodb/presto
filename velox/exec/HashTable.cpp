@@ -20,7 +20,6 @@
 #include "velox/common/base/SimdUtil.h"
 #include "velox/common/process/ProcessBase.h"
 #include "velox/common/testutil/TestValue.h"
-#include "velox/exec/ContainerRowSerde.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/vector/VectorTypeUtils.h"
 
@@ -73,8 +72,7 @@ HashTable<ignoreNullKeys>::HashTable(
       isJoinBuild,
       hasProbedFlag,
       hashMode_ != HashMode::kHash,
-      pool,
-      ContainerRowSerde::instance());
+      pool);
   nextOffset_ = rows_->nextOffset();
 }
 

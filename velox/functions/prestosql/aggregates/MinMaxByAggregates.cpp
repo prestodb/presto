@@ -1041,7 +1041,7 @@ struct MinMaxByNComplexTypeAccumulator {
     ByteStream stream(allocator);
     auto position = allocator->newWrite(stream);
 
-    exec::ContainerRowSerde::instance().serialize(
+    exec::ContainerRowSerde::serialize(
         *decoded.base(), decoded.index(index), stream);
     allocator->finishWrite(stream, 0);
     return position;
@@ -1050,7 +1050,7 @@ struct MinMaxByNComplexTypeAccumulator {
   static void read(V position, BaseVector& vector, vector_size_t index) {
     ByteStream stream;
     HashStringAllocator::prepareRead(position.header, stream);
-    exec::ContainerRowSerde::instance().deserialize(stream, index, &vector);
+    exec::ContainerRowSerde::deserialize(stream, index, &vector);
   }
 
   static void

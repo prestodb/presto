@@ -108,8 +108,7 @@ StreamingAggregation::StreamingAggregation(
       false,
       false,
       false,
-      pool(),
-      ContainerRowSerde::instance());
+      pool());
 
   for (auto i = 0; i < aggregates_.size(); ++i) {
     aggregates_[i]->setAllocator(&rows_->stringAllocator());

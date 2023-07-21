@@ -15,35 +15,34 @@
  */
 #pragma once
 
-#include "velox/vector/RowSerde.h"
+#include "velox/common/memory/ByteStream.h"
+#include "velox/vector/BaseVector.h"
+#include "velox/vector/DecodedVector.h"
 
 namespace facebook::velox::exec {
 
-// Row-wise serialization for use in hash tables and order by.
-
-class ContainerRowSerde : public RowSerde {
+/// Row-wise serialization for use in hash tables and order by.
+class ContainerRowSerde {
  public:
-  void serialize(const BaseVector& source, vector_size_t index, ByteStream& out)
-      const override;
+  static void
+  serialize(const BaseVector& source, vector_size_t index, ByteStream& out);
 
-  void deserialize(ByteStream& in, vector_size_t index, BaseVector* result)
-      const override;
+  static void
+  deserialize(ByteStream& in, vector_size_t index, BaseVector* result);
 
-  int32_t compare(
+  static int32_t compare(
       ByteStream& left,
       const DecodedVector& right,
       vector_size_t index,
-      CompareFlags flags) const override;
+      CompareFlags flags);
 
-  int32_t compare(
+  static int32_t compare(
       ByteStream& left,
       ByteStream& right,
       const Type* type,
-      CompareFlags flags) const override;
+      CompareFlags flags);
 
-  uint64_t hash(ByteStream& data, const Type* type) const override;
-
-  static const ContainerRowSerde& instance();
+  static uint64_t hash(ByteStream& data, const Type* type);
 };
 
 } // namespace facebook::velox::exec

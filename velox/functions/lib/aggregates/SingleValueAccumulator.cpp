@@ -32,7 +32,7 @@ void SingleValueAccumulator::write(
     allocator->extendWrite(start_, stream);
   }
 
-  exec::ContainerRowSerde::instance().serialize(*vector, index, stream);
+  exec::ContainerRowSerde::serialize(*vector, index, stream);
   allocator->finishWrite(stream, 0);
 }
 
@@ -42,7 +42,7 @@ void SingleValueAccumulator::read(const VectorPtr& vector, vector_size_t index)
 
   ByteStream stream;
   HashStringAllocator::prepareRead(start_.header, stream);
-  exec::ContainerRowSerde::instance().deserialize(stream, index, vector.get());
+  exec::ContainerRowSerde::deserialize(stream, index, vector.get());
 }
 
 bool SingleValueAccumulator::hasValue() const {
@@ -56,7 +56,7 @@ int32_t SingleValueAccumulator::compare(
 
   ByteStream stream;
   HashStringAllocator::prepareRead(start_.header, stream);
-  return exec::ContainerRowSerde::instance().compare(
+  return exec::ContainerRowSerde::compare(
       stream, decoded, index, {true, true, false});
 }
 

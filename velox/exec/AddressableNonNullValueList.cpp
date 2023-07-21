@@ -40,7 +40,7 @@ HashStringAllocator::Position AddressableNonNullValueList::append(
   // Write hash.
   stream.appendOne(decoded.base()->hashValueAt(decoded.index(index)));
   // Write value.
-  exec::ContainerRowSerde::instance().serialize(
+  exec::ContainerRowSerde::serialize(
       *decoded.base(), decoded.index(index), stream);
 
   ++size_;
@@ -80,7 +80,7 @@ bool AddressableNonNullValueList::equalTo(
 
   CompareFlags compareFlags;
   compareFlags.equalsOnly = true;
-  return exec::ContainerRowSerde::instance().compare(
+  return exec::ContainerRowSerde::compare(
              leftStream, rightStream, type.get(), compareFlags) == 0;
 }
 
@@ -101,7 +101,7 @@ void AddressableNonNullValueList::read(
   ByteStream stream;
   prepareRead(position, stream, true /*skipHash*/);
 
-  exec::ContainerRowSerde::instance().deserialize(stream, index, &result);
+  exec::ContainerRowSerde::deserialize(stream, index, &result);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

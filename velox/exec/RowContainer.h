@@ -184,8 +184,7 @@ class RowContainer {
             false, // isJoinBuild
             false, // hasProbedFlag
             false, // hasNormalizedKey
-            pool,
-            ContainerRowSerde::instance()) {}
+            pool) {}
 
   static int32_t combineAlignments(int32_t a, int32_t b);
 
@@ -203,7 +202,7 @@ class RowContainer {
   // join. 'hasNormalizedKey' specifies that an extra word is left
   // below each row for a normalized key that collapses all parts
   // into one word for faster comparison. The bulk allocation is done
-  // from 'allocator'.  'serde_' is used for serializing complex
+  // from 'allocator'. ContainerRowSerde is used for serializing complex
   // type values into the container.
   RowContainer(
       const std::vector<TypePtr>& keyTypes,
@@ -214,8 +213,7 @@ class RowContainer {
       bool isJoinBuild,
       bool hasProbedFlag,
       bool hasNormalizedKey,
-      memory::MemoryPool* FOLLY_NONNULL pool,
-      const RowSerde& serde);
+      memory::MemoryPool* FOLLY_NONNULL pool);
 
   // Allocates a new row and initializes possible aggregates to null.
   char* FOLLY_NONNULL newRow();
@@ -1042,8 +1040,7 @@ class RowContainer {
         result->setNull(resultIndex, true);
       } else {
         prepareRead(row, offset, stream);
-        ContainerRowSerde::instance().deserialize(
-            stream, resultIndex, result.get());
+        ContainerRowSerde::deserialize(stream, resultIndex, result.get());
       }
     }
   }
@@ -1141,8 +1138,6 @@ class RowContainer {
 
   // Partition number for each row. Used only in parallel hash join build.
   std::unique_ptr<RowPartitions> partitions_;
-
-  const RowSerde& serde_;
 
   int alignment_ = 1;
 };

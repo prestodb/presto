@@ -66,8 +66,7 @@ class RowContainerTestBase : public testing::Test,
         isJoinBuild,
         true,
         true,
-        pool_.get(),
-        ContainerRowSerde::instance());
+        pool_.get());
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;

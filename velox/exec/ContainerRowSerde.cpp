@@ -16,16 +16,10 @@
 
 #include "velox/exec/ContainerRowSerde.h"
 #include "velox/common/base/Exceptions.h"
-#include "velox/common/memory/ByteStream.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::exec {
-
-const ContainerRowSerde& ContainerRowSerde::instance() {
-  static auto instance = std::make_unique<ContainerRowSerde>();
-  return *instance;
-}
 
 namespace {
 
@@ -127,7 +121,7 @@ void writeNulls(
 }
 
 void serializeArray(
-    BaseVector& elements,
+    const BaseVector& elements,
     vector_size_t offset,
     vector_size_t size,
     ByteStream& out) {
@@ -141,7 +135,7 @@ void serializeArray(
 }
 
 void serializeArray(
-    BaseVector& elements,
+    const BaseVector& elements,
     folly::Range<const vector_size_t*> indices,
     ByteStream& out) {
   out.appendOne<int32_t>(indices.size());
@@ -804,41 +798,46 @@ uint64_t hashSwitch(ByteStream& in, const Type* type) {
 
 } // namespace
 
+// static
 void ContainerRowSerde::serialize(
     const BaseVector& source,
     vector_size_t index,
-    ByteStream& out) const {
+    ByteStream& out) {
   serializeSwitch(source, index, out);
 }
 
+// static
 void ContainerRowSerde::deserialize(
     ByteStream& in,
     vector_size_t index,
-    BaseVector* result) const {
+    BaseVector* result) {
   deserializeSwitch(in, index, *result);
 }
 
+// static
 int32_t ContainerRowSerde::compare(
     ByteStream& left,
     const DecodedVector& right,
     vector_size_t index,
-    CompareFlags flags) const {
+    CompareFlags flags) {
   VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
 
   return compareSwitch(left, *right.base(), right.index(index), flags);
 }
 
+// static
 int32_t ContainerRowSerde::compare(
     ByteStream& left,
     ByteStream& right,
     const Type* type,
-    CompareFlags flags) const {
+    CompareFlags flags) {
   VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
 
   return compareSwitch(left, right, type, flags);
 }
 
-uint64_t ContainerRowSerde::hash(ByteStream& in, const Type* type) const {
+// static
+uint64_t ContainerRowSerde::hash(ByteStream& in, const Type* type) {
   return hashSwitch(in, type);
 }
 

@@ -63,7 +63,7 @@ void ValueList::appendNonNull(
   prepareAppend(allocator);
   ByteStream stream(allocator);
   allocator->extendWrite(dataCurrent_, stream);
-  exec::ContainerRowSerde::instance().serialize(values, index, stream);
+  exec::ContainerRowSerde::serialize(values, index, stream);
   ++size_;
 
   dataCurrent_ = allocator->finishWrite(stream, 1024).second;
@@ -113,8 +113,7 @@ bool ValueListReader::next(BaseVector& output, vector_size_t outputIndex) {
   if (nulls_ & (1UL << (pos_ % 64))) {
     output.setNull(outputIndex, true);
   } else {
-    exec::ContainerRowSerde::instance().deserialize(
-        dataStream_, outputIndex, &output);
+    exec::ContainerRowSerde::deserialize(dataStream_, outputIndex, &output);
   }
 
   pos_++;
