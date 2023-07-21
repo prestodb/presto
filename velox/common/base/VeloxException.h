@@ -126,9 +126,26 @@ class VeloxException : public std::exception {
       const std::exception_ptr& e,
       std::string_view message,
       std::string_view errorSource,
+      std::string_view errorCode,
       bool isRetriable,
       Type exceptionType = Type::kSystem,
       std::string_view exceptionName = "VeloxException");
+
+  VeloxException(
+      const std::exception_ptr& e,
+      std::string_view message,
+      std::string_view errorSource,
+      bool isRetriable,
+      Type exceptionType = Type::kSystem,
+      std::string_view exceptionName = "VeloxException")
+      : VeloxException(
+            e,
+            message,
+            errorSource,
+            "",
+            isRetriable,
+            exceptionType,
+            exceptionName) {}
 
   // Inherited
   const char* what() const noexcept override {
@@ -269,6 +286,7 @@ class VeloxUserError : public VeloxException {
             e,
             message,
             error_source::kErrorSourceUser,
+            error_code::kInvalidArgument,
             isRetriable,
             Type::kUser,
             exceptionName) {}
