@@ -432,4 +432,16 @@ TEST_F(TryExprTest, earlyTerminationWithEmptyRows) {
   assertEqualVectors(
       makeNullableFlatVector<bool>({false, false, std::nullopt}), result);
 }
+
+TEST_F(TryExprTest, doesNotMutateSharedResults) {
+  auto input = makeFlatVector<StringView>({"1", "", ""});
+
+  auto data = makeRowVector({input});
+  // The cast here will throw an error, the result of the switch will be c0, but
+  // then the try will set errors on top of c0 for all rows. c0 vector must not
+  // be changed.
+  auto result = evaluate("try(switch(cast(c0 as bool), c0, '1'))", data);
+  // Make sure input did not change.
+  assertEqualVectors(input, makeFlatVector<StringView>({"1", "", ""}));
+}
 } // namespace facebook::velox

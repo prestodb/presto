@@ -66,11 +66,11 @@ TEST_F(TransformKeysTest, duplicateKeys) {
   });
 
   VELOX_ASSERT_THROW(
-      evaluate<MapVector>("transform_keys(c0, (k, v) -> 10 + k % 2)", input),
+      evaluate("transform_keys(c0, (k, v) -> 10 + k % 2)", input),
       "Duplicate map keys (11) are not allowed");
 
-  ASSERT_NO_THROW(evaluate<MapVector>(
-      "try(transform_keys(c0, (k, v) -> 10 + k % 2))", input));
+  ASSERT_NO_THROW(
+      evaluate("try(transform_keys(c0, (k, v) -> 10 + k % 2))", input));
 }
 
 TEST_F(TransformKeysTest, differentResultType) {
