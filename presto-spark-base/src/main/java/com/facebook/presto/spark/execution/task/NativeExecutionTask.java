@@ -112,7 +112,10 @@ public class NativeExecutionTask
         if (!shuffleWriteInfo.isPresent()) {
             this.taskResultFetcher = Optional.of(new HttpNativeExecutionTaskResultFetcher(
                     updateScheduledExecutor,
+                    errorRetryScheduledExecutor,
                     this.workerClient,
+                    this.executor,
+                    queryManagerConfig.getRemoteTaskMaxErrorDuration(),
                     taskFinishedOrHasResult));
         }
         else {
