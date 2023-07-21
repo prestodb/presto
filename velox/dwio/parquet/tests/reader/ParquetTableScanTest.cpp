@@ -268,6 +268,138 @@ TEST_F(ParquetTableScanTest, decimalSubfieldFilter) {
       "Scalar function signature is not supported: eq(DECIMAL(5,2), DECIMAL(5,1))");
 }
 
+// Core dump is fixed.
+TEST_F(ParquetTableScanTest, map) {
+  auto vector = makeMapVector<StringView, StringView>({{{"name", "gluten"}}});
+
+  loadData(
+      getExampleFilePath("type1.parquet"),
+      ROW({"map"}, {MAP(VARCHAR(), VARCHAR())}),
+      makeRowVector(
+          {"map"},
+          {
+              vector,
+          }));
+
+  assertSelectWithFilter({"map"}, {}, "", "SELECT map FROM tmp");
+}
+
+// Core dump is fixed.
+TEST_F(ParquetTableScanTest, singleRowStruct) {
+  auto vector = makeArrayVector<int32_t>({{}});
+  loadData(
+      getExampleFilePath("single-row-struct.parquet"),
+      ROW({"s"}, {ROW({"a", "b"}, {BIGINT(), BIGINT()})}),
+      makeRowVector(
+          {"s"},
+          {
+              vector,
+          }));
+
+  assertSelectWithFilter({"s"}, {}, "", "SELECT (0, 1)");
+}
+
+// Core dump and incorrect result are fixed.
+TEST_F(ParquetTableScanTest, DISABLED_array) {
+  auto vector = makeArrayVector<int32_t>({{1, 2, 3}});
+
+  loadData(
+      getExampleFilePath("old-repeated-int.parquet"),
+      ROW({"repeatedInt"}, {ARRAY(INTEGER())}),
+      makeRowVector(
+          {"repeatedInt"},
+          {
+              vector,
+          }));
+
+  assertSelectWithFilter(
+      {"repeatedInt"}, {}, "", "SELECT repeatedInt FROM tmp");
+}
+
+// Optional array with required elements.
+// Incorrect result.
+TEST_F(ParquetTableScanTest, DISABLED_optArrayReqEle) {
+  auto vector = makeArrayVector<StringView>({});
+
+  loadData(
+      getExampleFilePath("part-0.parquet"),
+      ROW({"_1"}, {ARRAY(VARCHAR())}),
+      makeRowVector(
+          {"_1"},
+          {
+              vector,
+          }));
+
+  assertSelectWithFilter(
+      {"_1"},
+      {},
+      "",
+      "SELECT UNNEST(array[array['a', 'b'], array['c', 'd'], array['e', 'f'], array[], null])");
+}
+
+// Required array with required elements.
+// Core dump is fixed, but the result is incorrect.
+TEST_F(ParquetTableScanTest, DISABLED_reqArrayReqEle) {
+  auto vector = makeArrayVector<StringView>({});
+
+  loadData(
+      getExampleFilePath("part-1.parquet"),
+      ROW({"_1"}, {ARRAY(VARCHAR())}),
+      makeRowVector(
+          {"_1"},
+          {
+              vector,
+          }));
+
+  assertSelectWithFilter(
+      {"_1"},
+      {},
+      "",
+      "SELECT UNNEST(array[array['a', 'b'], array['c', 'd'], array[]])");
+}
+
+// Required array with optional elements.
+// Incorrect result.
+TEST_F(ParquetTableScanTest, DISABLED_reqArrayOptEle) {
+  auto vector = makeArrayVector<StringView>({});
+
+  loadData(
+      getExampleFilePath("part-2.parquet"),
+      ROW({"_1"}, {ARRAY(VARCHAR())}),
+      makeRowVector(
+          {"_1"},
+          {
+              vector,
+          }));
+
+  assertSelectWithFilter(
+      {"_1"},
+      {},
+      "",
+      "SELECT UNNEST(array[array['a', null], array[], array[null, 'b']])");
+}
+
+// Required array with legacy format.
+// Incorrect result.
+TEST_F(ParquetTableScanTest, DISABLED_reqArrayLegacy) {
+  auto vector = makeArrayVector<StringView>({});
+
+  loadData(
+      getExampleFilePath("part-3.parquet"),
+      ROW({"_1"}, {ARRAY(VARCHAR())}),
+      makeRowVector(
+          {"_1"},
+          {
+              vector,
+          }));
+
+  assertSelectWithFilter(
+      {"_1"},
+      {},
+      "",
+      "SELECT UNNEST(array[array['a', 'b'], array[], array['c', 'd']])");
+}
+
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   folly::init(&argc, &argv, false);

@@ -276,12 +276,11 @@ void PageReader::prepareDataPageV1(const PageHeader& pageHeader, int64_t row) {
           pageData_,
           pageData_ + defineLength,
           arrow::bit_util::NumRequiredBits(maxDefine_));
-    } else {
-      wideDefineDecoder_ = std::make_unique<arrow::util::RleDecoder>(
-          reinterpret_cast<const uint8_t*>(pageData_),
-          defineLength,
-          arrow::bit_util::NumRequiredBits(maxDefine_));
     }
+    wideDefineDecoder_ = std::make_unique<arrow::util::RleDecoder>(
+        reinterpret_cast<const uint8_t*>(pageData_),
+        defineLength,
+        arrow::bit_util::NumRequiredBits(maxDefine_));
     pageData_ += defineLength;
   }
   encodedDataSize_ = pageEnd - pageData_;
@@ -577,7 +576,7 @@ void PageReader::preloadRepDefs() {
 }
 
 void PageReader::decodeRepDefs(int32_t numTopLevelRows) {
-  if (definitionLevels_.empty()) {
+  if (definitionLevels_.empty() && maxDefine_ > 0) {
     preloadRepDefs();
   }
   repDefBegin_ = repDefEnd_;
