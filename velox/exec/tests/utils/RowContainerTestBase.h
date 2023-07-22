@@ -54,7 +54,7 @@ class RowContainerTestBase : public testing::Test,
       const std::vector<TypePtr>& keyTypes,
       const std::vector<TypePtr>& dependentTypes,
       bool isJoinBuild = true) {
-    return std::make_unique<RowContainer>(
+    auto container = std::make_unique<RowContainer>(
         keyTypes,
         !isJoinBuild,
         std::vector<Accumulator>{},
@@ -64,6 +64,8 @@ class RowContainerTestBase : public testing::Test,
         true,
         true,
         pool_.get());
+    VELOX_CHECK(container->testingMutable());
+    return container;
   }
 };
 } // namespace facebook::velox::exec::test

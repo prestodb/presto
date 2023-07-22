@@ -110,8 +110,8 @@ RowContainer::RowContainer(
     memory::MemoryPool* pool)
     : keyTypes_(keyTypes),
       nullableKeys_(nullableKeys),
-      accumulators_(accumulators),
       isJoinBuild_(isJoinBuild),
+      accumulators_(accumulators),
       hasNormalizedKeys_(hasNormalizedKeys),
       rows_(pool),
       stringAllocator_(pool) {
@@ -235,10 +235,9 @@ RowContainer::RowContainer(
 }
 
 char* RowContainer::newRow() {
-  char* row;
-  VELOX_DCHECK(
-      !partitions_, "Rows may not be added after partitions() has been called");
+  VELOX_DCHECK(mutable_, "Can't add row into an immutable row container");
   ++numRows_;
+  char* row;
   if (firstFreeRow_) {
     row = firstFreeRow_;
     VELOX_CHECK(bits::isBitSet(row, freeFlagOffset_));
@@ -683,28 +682,30 @@ void RowContainer::skip(RowContainerIterator& iter, int32_t numRows) {
   iter.rowNumber += numRows;
 }
 
-RowPartitions& RowContainer::partitions() {
-  if (!partitions_) {
-    partitions_ = std::make_unique<RowPartitions>(numRows_, *rows_.pool());
-  }
-  return *partitions_;
+std::unique_ptr<RowPartitions> RowContainer::createRowPartitions(
+    memory::MemoryPool& pool) {
+  VELOX_CHECK(
+      mutable_, "Can only create RowPartitions once from a row container");
+  mutable_ = false;
+  return std::make_unique<RowPartitions>(numRows_, pool);
 }
 
 int32_t RowContainer::listPartitionRows(
     RowContainerIterator& iter,
     uint8_t partition,
     int32_t maxRows,
+    const RowPartitions& rowPartitions,
     char** result) {
-  if (!numRows_) {
+  VELOX_CHECK(
+      !mutable_, "Can't list partition rows from a mutable row container");
+  VELOX_CHECK_EQ(
+      rowPartitions.size(), numRows_, "All rows must have a partition");
+  if (numRows_ == 0) {
     return 0;
   }
-  VELOX_CHECK(
-      partitions_, "partitions() must be called before listPartitionRows()");
-  VELOX_CHECK_EQ(
-      partitions_->size(), numRows_, "All rows must have a partition");
-  auto partitionNumberVector = xsimd::batch<uint8_t>::broadcast(partition);
-  auto& allocation = partitions_->allocation();
-  auto numRuns = allocation.numRuns();
+  const auto partitionNumberVector =
+      xsimd::batch<uint8_t>::broadcast(partition);
+  const auto& allocation = rowPartitions.allocation();
   int32_t numResults = 0;
   while (numResults < maxRows && iter.rowNumber < numRows_) {
     constexpr int32_t kBatch = xsimd::batch<uint8_t>::size;

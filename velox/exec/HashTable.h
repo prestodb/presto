@@ -596,12 +596,17 @@ class HashTable : public BaseHashTable {
   // Inserts the rows in 'partition' from this and 'otherTables' into 'this'.
   // The rows that would have gone past the end of the partition are returned in
   // 'overflow'.
-  void buildJoinPartition(uint8_t partition, std::vector<char*>& overflow);
+  void buildJoinPartition(
+      uint8_t partition,
+      const std::vector<std::unique_ptr<RowPartitions>>& rowPartitions,
+      std::vector<char*>& overflow);
 
   // Assigns a partition to each row of 'subtable' in RowPartitions of
   // subtable's RowContainer. If 'hashMode_' is kNormalizedKeys, records the
   // normalized key of each row below the row in its container.
-  void partitionRows(HashTable<ignoreNullKeys>& subtable);
+  void partitionRows(
+      HashTable<ignoreNullKeys>& subtable,
+      RowPartitions& rowPartitions);
 
   // Calculates hashes for 'rows' and returns them in 'hashes'. If
   // 'initNormalizedKeys' is true, the normalized keys are stored

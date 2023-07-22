@@ -764,7 +764,7 @@ bool HashTable<ignoreNullKeys>::canApplyParallelJoinBuild() const {
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::parallelJoinBuild() {
   TestValue::adjust(
-      "facebook::velox::exec::HashTable::parallelJoinBuild", nullptr);
+      "facebook::velox::exec::HashTable::parallelJoinBuild", this);
   int32_t numPartitions = 1 + otherTables_.size();
   VELOX_CHECK_GT(
       capacity_ / numPartitions,
@@ -799,11 +799,15 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
     syncWorkItems(buildSteps, error, true);
   });
 
+  // The parallel table partitioning step.
+  std::vector<std::unique_ptr<RowPartitions>> rowPartitions;
+  rowPartitions.reserve(numPartitions);
   for (auto i = 0; i < numPartitions; ++i) {
-    auto table = i == 0 ? this : otherTables_[i - 1].get();
-    partitionSteps.push_back(
-        std::make_shared<AsyncSource<bool>>([this, table, numPartitions]() {
-          partitionRows(*table);
+    auto* table = i == 0 ? this : otherTables_[i - 1].get();
+    rowPartitions.push_back(table->rows()->createRowPartitions(*rows_->pool()));
+    partitionSteps.push_back(std::make_shared<AsyncSource<bool>>(
+        [this, table, rawRowPartitions = rowPartitions.back().get()]() {
+          partitionRows(*table, *rawRowPartitions);
           return std::make_unique<bool>(true);
         }));
     assert(!partitionSteps.empty()); // lint
@@ -814,20 +818,23 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
   if (error) {
     std::rethrow_exception(error);
   }
+
+  // The parallel table building step.
   std::vector<std::vector<char*>> overflowPerPartition(numPartitions);
   for (auto i = 0; i < numPartitions; ++i) {
-    buildSteps.push_back(
-        std::make_shared<AsyncSource<bool>>([i, &overflowPerPartition, this]() {
-          buildJoinPartition(i, overflowPerPartition[i]);
+    buildSteps.push_back(std::make_shared<AsyncSource<bool>>(
+        [this, i, &overflowPerPartition, &rowPartitions]() {
+          buildJoinPartition(i, rowPartitions, overflowPerPartition[i]);
           return std::make_unique<bool>(true);
         }));
-    assert(!buildSteps.empty()); // lint
+    VELOX_CHECK(!buildSteps.empty());
     buildExecutor_->add([step = buildSteps.back()]() { step->prepare(); });
   }
   syncWorkItems(buildSteps, error);
   if (error) {
     std::rethrow_exception(error);
   }
+
   raw_vector<uint64_t> hashes;
   for (auto i = 0; i < numPartitions; ++i) {
     auto& overflows = overflowPerPartition[i];
@@ -872,7 +879,8 @@ int32_t findPartition(
 
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::partitionRows(
-    HashTable<ignoreNullKeys>& subtable) {
+    HashTable<ignoreNullKeys>& subtable,
+    RowPartitions& rowPartitions) {
   constexpr int32_t kBatch = 1024;
   raw_vector<char*> rows(kBatch);
   raw_vector<uint64_t> hashes(kBatch);
@@ -891,7 +899,7 @@ void HashTable<ignoreNullKeys>::partitionRows(
       partitions[i] = findPartition(
           index, buildPartitionBounds_.data(), buildPartitionBounds_.size());
     }
-    subtable.rows_->partitions().appendPartitions(
+    rowPartitions.appendPartitions(
         folly::Range<const uint8_t*>(partitions.data(), numRows));
   }
 }
@@ -899,6 +907,7 @@ void HashTable<ignoreNullKeys>::partitionRows(
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::buildJoinPartition(
     uint8_t partition,
+    const std::vector<std::unique_ptr<RowPartitions>>& rowPartitions,
     std::vector<char*>& overflow) {
   constexpr int32_t kBatch = 1024;
   raw_vector<char*> rows(kBatch);
@@ -908,7 +917,7 @@ void HashTable<ignoreNullKeys>::buildJoinPartition(
     auto table = i == 0 ? this : otherTables_[i - 1].get();
     RowContainerIterator iter;
     while (auto numRows = table->rows_->listPartitionRows(
-               iter, partition, kBatch, rows.data())) {
+               iter, partition, kBatch, *rowPartitions[i], rows.data())) {
       hashRows(folly::Range(rows.data(), numRows), false, hashes);
       insertForJoin(
           rows.data(),

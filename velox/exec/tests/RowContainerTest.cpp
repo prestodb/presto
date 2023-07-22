@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/VectorHasher.h"
 #include "velox/exec/tests/utils/RowContainerTestBase.h"
@@ -957,8 +958,8 @@ TEST_F(RowContainerTest, compareDouble) {
 }
 
 TEST_F(RowContainerTest, partition) {
-  // We assign an arbitrary partition number to each row and iterate
-  // over the rows a partition at a time.
+  // We assign an arbitrary partition number to each row and iterate over the
+  // rows a partition at a time.
   constexpr int32_t kNumRows = 100019;
   constexpr uint8_t kNumPartitions = 16;
   auto batch = makeDataset(
@@ -986,7 +987,32 @@ TEST_F(RowContainerTest, partition) {
     }
   }
 
-  auto& partitions = data->partitions();
+  // Expect throws before we get row partitions from this row container.
+  for (auto partition = 0; partition < kNumPartitions; ++partition) {
+    char* dummyBuffer;
+    RowPartitions dummyRowPartitions(data->numRows(), *pool_);
+    VELOX_ASSERT_THROW(
+        data->listPartitionRows(
+            iter,
+            partition,
+            1'000, /* maxRows */
+            dummyRowPartitions,
+            &dummyBuffer),
+        "Can't list partition rows from a mutable row container");
+  }
+
+  auto partitions = data->createRowPartitions(*pool_);
+  ASSERT_FALSE(data->testingMutable());
+  // Verify we can only get row partitions once from a row container.
+  VELOX_ASSERT_THROW(
+      data->createRowPartitions(*pool_),
+      "Can only create RowPartitions once from a row container");
+  // Verify we can't insert new row into a immutable row container.
+#ifndef NDEBUG
+  VELOX_ASSERT_THROW(
+      data->newRow(), "Can't add row into an immutable row container")
+#endif
+
   std::vector<uint8_t> rowPartitions(kNumRows);
   // Assign a partition to each row based on  modulo of first column.
   std::vector<std::vector<char*>> partitionRows(kNumPartitions);
@@ -997,7 +1023,7 @@ TEST_F(RowContainerTest, partition) {
     rowPartitions[i] = partition;
     partitionRows[partition].push_back(rows[i]);
   }
-  partitions.appendPartitions(
+  partitions->appendPartitions(
       folly::Range<const uint8_t*>(rowPartitions.data(), kNumRows));
   for (auto partition = 0; partition < kNumPartitions; ++partition) {
     std::vector<char*> result(partitionRows[partition].size() + 10);
@@ -1006,7 +1032,11 @@ TEST_F(RowContainerTest, partition) {
     int32_t resultBatch = 1;
     // Read the rows in multiple batches.
     while (auto numResults = data->listPartitionRows(
-               iter, partition, resultBatch, result.data() + numFound)) {
+               iter,
+               partition,
+               resultBatch,
+               *partitions,
+               result.data() + numFound)) {
       numFound += numResults;
       resultBatch += 13;
     }

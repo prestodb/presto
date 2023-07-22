@@ -777,23 +777,10 @@ bool HashBuild::finishHashBuild() {
       // https://github.com/facebookincubator/velox/issues/3567 is fixed.
       const bool allowParallelJoinBuild =
           !otherTables.empty() && spillPartitions.empty();
-      // Inject test value to catch the memory allocations from parallel join
-      // build.
-      if (TestValue::enabled()) {
-        std::vector<Operator*> buildOps;
-        buildOps.reserve(peers.size());
-        for (auto& peer : peers) {
-          auto* op = peer->findOperator(planNodeId());
-          buildOps.push_back(op);
-        }
-        TestValue::adjust(
-            "facebook::velox::exec::HashBuild::prepareJoinTable", &buildOps);
-      }
       table_->prepareJoinTable(
           std::move(otherTables),
           allowParallelJoinBuild ? operatorCtx_->task()->queryCtx()->executor()
                                  : nullptr);
-
       addRuntimeStats();
       if (joinBridge_->setHashTable(
               std::move(table_),

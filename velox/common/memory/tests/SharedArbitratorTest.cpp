@@ -27,6 +27,7 @@
 #include "velox/common/memory/MemoryArbitrator.h"
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/common/testutil/TestValue.h"
+#include "velox/exec/HashTable.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -1584,113 +1585,43 @@ DEBUG_ONLY_TEST_F(
   createDuckDbTable(vectors);
 
   std::shared_ptr<core::QueryCtx> joinQueryCtx = newQueryCtx(kMemoryCapacity);
-  std::shared_ptr<core::QueryCtx> fakeQueryCtx = newQueryCtx(kMemoryCapacity);
 
-  // Set fake operator to reclaimable to allow arbitration to succeed.
-  fakeOperatorFactory_->setCanReclaim(true);
-
-  folly::EventCount waitForPrepareJoin;
-  folly::EventCount waitForFakeAllocationDone;
-  std::atomic<bool> fakeAllocationDone{false};
-  std::atomic<bool> startPrepareJoin{false};
-  fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
-    if (fakeAllocationDone) {
-      return Allocation{};
-    }
-
-    // Wait for hash join build to start table build at the end of hash build
-    // phase.
-    waitForPrepareJoin.await([&]() { return startPrepareJoin.load(); });
-
-    // Set to allocate all the remaining free memory from the arbitrator.
-    const auto allocationSize =
-        kMemoryCapacity - joinQueryCtx->pool()->currentBytes();
-    auto buffer = op->pool()->allocate(allocationSize);
-    // Unblock table build and expect any memory allocation by parallel table
-    // build to trigger memory arbitration.
-    fakeAllocationDone = true;
-    waitForFakeAllocationDone.notifyAll();
-    return Allocation{op->pool(), buffer, allocationSize};
-  });
-
-  std::vector<Allocation> extraAllocations;
+  // Make sure the parallel build has been triggered.
+  std::atomic<bool> parallelBuildTriggered{false};
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::HashBuild::prepareJoinTable",
-      std::function<void(std::vector<Operator*>*)>(
-          ([&](std::vector<Operator*>* buildOps) {
-            // Free up the unused memory reservations from all the hash build
-            // memory pool to ensure triggering memory arbitration in parallel
-            // build.
-            for (auto* op : *buildOps) {
-              const size_t allocationSize = op->pool()->availableReservation();
-              if (allocationSize > 0) {
-                extraAllocations.push_back(Allocation{
-                    op->pool(),
-                    op->pool()->allocate(allocationSize),
-                    allocationSize});
-              }
-            }
-            // Unblock fake memory allocation to allocate all the freed memory
-            // from arbitrator.
-            startPrepareJoin = true;
-            waitForPrepareJoin.notifyAll();
-            // Wait for the fake memory allocation to complete before
-            // proceeding with the parallel build.
-            waitForFakeAllocationDone.await(
-                [&]() { return fakeAllocationDone.load(); });
-          })));
+      "facebook::velox::exec::HashTable::parallelJoinBuild",
+      std::function<void(void*)>(
+          [&](void*) { parallelBuildTriggered = true; }));
 
-  std::thread joinThread([&]() {
-    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-    auto task =
-        AssertQueryBuilder(duckDbQueryRunner_)
-            // Set very low table size threshold to trigger parallel build.
-            .config(
-                core::QueryConfig::kMinTableRowsForParallelJoinBuild,
-                std::to_string(0))
-            // Set multiple hash build drivers to trigger parallel build.
-            .maxDrivers(4)
-            .queryCtx(joinQueryCtx)
-            .plan(PlanBuilder(planNodeIdGenerator)
-                      .values(vectors, true)
-                      .project({"c0 AS t0", "c1 AS t1", "c2 AS t2"})
-                      .hashJoin(
-                          {"t0", "t1"},
-                          {"u1", "u0"},
-                          PlanBuilder(planNodeIdGenerator)
-                              .values(vectors, true)
-                              .project({"c0 AS u0", "c1 AS u1", "c2 AS u2"})
-                              .planNode(),
-                          "",
-                          {"t1"},
-                          core::JoinType::kInner)
-                      .planNode())
-            .assertResults(
-                "SELECT t.c1 FROM tmp as t, tmp AS u WHERE t.c0 == u.c1 AND t.c1 == u.c0");
+  // TODO: add driver context to test if the memory allocation is triggered in
+  // driver context or not.
 
-    // Free up the extra memory allocations.
-    for (auto& allocation : extraAllocations) {
-      allocation.free();
-    }
-    extraAllocations.clear();
-  });
-
-  std::shared_ptr<Task> fakeMemoryTask;
-  std::thread memThread([&]() {
-    fakeMemoryTask =
-        AssertQueryBuilder(duckDbQueryRunner_)
-            .queryCtx(fakeQueryCtx)
-            .plan(PlanBuilder()
-                      .values(vectors)
-                      .addNode([&](std::string id, core::PlanNodePtr input) {
-                        return std::make_shared<FakeMemoryNode>(id, input);
-                      })
-                      .planNode())
-            .assertResults("SELECT * FROM tmp");
-  });
-  joinThread.join();
-  memThread.join();
-  fakeMemoryTask.reset();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  AssertQueryBuilder(duckDbQueryRunner_)
+      // Set very low table size threshold to trigger parallel build.
+      .config(
+          core::QueryConfig::kMinTableRowsForParallelJoinBuild,
+          std::to_string(0))
+      // Set multiple hash build drivers to trigger parallel build.
+      .maxDrivers(4)
+      .queryCtx(joinQueryCtx)
+      .plan(PlanBuilder(planNodeIdGenerator)
+                .values(vectors, true)
+                .project({"c0 AS t0", "c1 AS t1", "c2 AS t2"})
+                .hashJoin(
+                    {"t0", "t1"},
+                    {"u1", "u0"},
+                    PlanBuilder(planNodeIdGenerator)
+                        .values(vectors, true)
+                        .project({"c0 AS u0", "c1 AS u1", "c2 AS u2"})
+                        .planNode(),
+                    "",
+                    {"t1"},
+                    core::JoinType::kInner)
+                .planNode())
+      .assertResults(
+          "SELECT t.c1 FROM tmp as t, tmp AS u WHERE t.c0 == u.c1 AND t.c1 == u.c0");
+  ASSERT_TRUE(parallelBuildTriggered);
   Task::testingWaitForAllTasksToBeDeleted();
 }
 

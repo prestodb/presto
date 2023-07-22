@@ -88,9 +88,9 @@ struct TaskStats {
 
   /// Output buffer's memory utilization ratio measured as
   /// current buffer usage / max buffer size
-  double outputBufferUtilization;
+  double outputBufferUtilization{0};
   /// Indicates if output buffer is over-utilized and thus blocks the producers.
-  bool outputBufferOverutilized;
+  bool outputBufferOverutilized{false};
 };
 
 } // namespace facebook::velox::exec
