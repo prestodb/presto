@@ -763,10 +763,10 @@ int32_t RowContainer::listPartitionRows(
 
 RowPartitions::RowPartitions(int32_t numRows, memory::MemoryPool& pool)
     : capacity_(numRows) {
-  auto numPages =
-      bits::roundUp(capacity_, memory::AllocationTraits::kPageSize) /
-      memory::AllocationTraits::kPageSize;
-  pool.allocateNonContiguous(numPages, allocation_);
+  const auto numPages = memory::AllocationTraits::numPages(capacity_);
+  if (numPages > 0) {
+    pool.allocateNonContiguous(numPages, allocation_);
+  }
 }
 
 void RowPartitions::appendPartitions(folly::Range<const uint8_t*> partitions) {

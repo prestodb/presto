@@ -1046,6 +1046,17 @@ TEST_F(RowContainerTest, partition) {
   }
 }
 
+TEST_F(RowContainerTest, partitionWithEmptyRowContainer) {
+  auto rowType = ROW(
+      {{"int_val", INTEGER()},
+       {"long_val", BIGINT()},
+       {"string_val", VARCHAR()}});
+  auto rowContainer =
+      std::make_unique<RowContainer>(rowType->children(), pool_.get());
+  auto partitions = rowContainer->createRowPartitions(*pool_);
+  ASSERT_EQ(partitions->size(), 0);
+}
+
 TEST_F(RowContainerTest, probedFlag) {
   auto rowContainer = std::make_unique<RowContainer>(
       std::vector<TypePtr>{BIGINT()}, // keyTypes
