@@ -146,7 +146,8 @@ class TaskManager {
       const std::string& nodeIp,
       const std::string& nodeId,
       const std::string& queryId,
-      const protocol::TaskId& taskId);
+      const protocol::TaskId& taskId,
+      bool includeNodeInSpillPath);
 
  public:
   static constexpr folly::StringPiece kMaxDriversPerTask{

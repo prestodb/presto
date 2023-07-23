@@ -272,6 +272,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kExchangeMaxErrorDuration, "30s"),
           STR_PROP(kExchangeRequestTimeout, "10s"),
           NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
+          BOOL_PROP(kIncludeNodeInSpillPath, false),
       };
 }
 
@@ -504,6 +505,10 @@ std::chrono::duration<double> SystemConfig::exchangeRequestTimeout() const {
 
 int32_t SystemConfig::taskRunTimeSliceMicros() const {
   return optionalProperty<int32_t>(kTaskRunTimeSliceMicros).value();
+}
+
+bool SystemConfig::includeNodeInSpillPath() const {
+  return optionalProperty<bool>(kIncludeNodeInSpillPath).value();
 }
 
 NodeConfig::NodeConfig() {

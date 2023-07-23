@@ -277,6 +277,9 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kTaskRunTimeSliceMicros{
       "task-run-timeslice-micros"};
 
+  static constexpr std::string_view kIncludeNodeInSpillPath{
+      "include_node_in_spill_path"};
+
   SystemConfig();
 
   static SystemConfig* instance();
@@ -403,6 +406,8 @@ class SystemConfig : public ConfigBase {
   std::chrono::duration<double> exchangeRequestTimeout() const;
 
   int32_t taskRunTimeSliceMicros() const;
+
+  bool includeNodeInSpillPath() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
