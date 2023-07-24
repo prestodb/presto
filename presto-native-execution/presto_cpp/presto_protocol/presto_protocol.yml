@@ -27,6 +27,9 @@ EnumMap:
     JoinNode:
         Type: JoinNodeType
 
+    SampleNode:
+        Type: SampleNodeType
+
 ExtraFields:
     RowExpression:
       std::shared_ptr<SourceLocation>: sourceLocation
@@ -43,6 +46,7 @@ ExtraFields:
 
 AddToOutput:
     - NodeState
+    - StatisticAggregations
 
 AbstractClasses:
     ColumnHandle:
@@ -124,6 +128,7 @@ AbstractClasses:
         - { name: ProjectNode,              key: .ProjectNode }
         - { name: RowNumberNode,            key: com.facebook.presto.sql.planner.plan.RowNumberNode }
         - { name: RemoteSourceNode,         key: com.facebook.presto.sql.planner.plan.RemoteSourceNode }
+        - { name: SampleNode,               key: com.facebook.presto.sql.planner.plan.SampleNode }
         - { name: SemiJoinNode,             key: com.facebook.presto.sql.planner.plan.SemiJoinNode }
         - { name: TableScanNode,            key: .TableScanNode }
         - { name: TableWriterNode,          key: com.facebook.presto.sql.planner.plan.TableWriterNode }
@@ -201,6 +206,7 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/ExchangeNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/GroupIdNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/RowNumberNode.java
+  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/SampleNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TopNRowNumberNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TableWriterNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TableWriterMergeNode.java
