@@ -23,4 +23,5 @@ public enum TableType
     FILES,
     PROPERTIES,
     SAMPLES,
+    CHANGELOG
 }

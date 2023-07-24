@@ -64,13 +64,11 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFormatVersion;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getTableLocation;
-import static com.facebook.presto.iceberg.IcebergUtil.createMetadataProperties;
-import static com.facebook.presto.iceberg.IcebergUtil.getColumnMetadatas;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
-import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
 import static com.facebook.presto.iceberg.IcebergUtil.isIcebergTable;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
+import static com.facebook.presto.iceberg.TableType.CHANGELOG;
 import static com.facebook.presto.iceberg.TableType.DATA;
 import static com.facebook.presto.iceberg.TableType.SAMPLES;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
@@ -80,9 +78,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
@@ -97,7 +93,6 @@ public class IcebergHiveMetadata
 {
     private static final Logger LOG = Logger.get(IcebergHiveMetadata.class);
     private final ExtendedHiveMetastore metastore;
-    private final HdfsEnvironment hdfsEnvironment;
 
     public IcebergHiveMetadata(
             ExtendedHiveMetastore metastore,
@@ -105,9 +100,8 @@ public class IcebergHiveMetadata
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec)
     {
-        super(typeManager, commitTaskCodec);
+        super(typeManager, commitTaskCodec, hdfsEnvironment);
         this.metastore = requireNonNull(metastore, "metastore is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     @Override
@@ -121,7 +115,7 @@ public class IcebergHiveMetadata
     public IcebergTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
-        verify(name.getTableType() == DATA || name.getTableType() == SAMPLES, "Wrong table type: " + name.getTableType());
+        verify(name.getTableType() == DATA || name.getTableType() == SAMPLES || name.getTableType() == CHANGELOG, "Wrong table type: " + name.getTableType());
 
         MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
         Optional<Table> hiveTable = metastore.getTable(metastoreContext, tableName.getSchemaName(), name.getTableName());
@@ -155,7 +149,7 @@ public class IcebergHiveMetadata
     private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
-        if (name.getTableType() == DATA) {
+        if (name.getTableType() == DATA || name.getTableType() == SAMPLES || name.getTableType() == CHANGELOG) {
             return Optional.empty();
         }
 
@@ -180,15 +174,6 @@ public class IcebergHiveMetadata
                 .stream()
                 .map(table -> new SchemaTableName(schemaName.get(), table))
                 .collect(toList());
-    }
-
-    @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getHiveIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
-        return getColumns(icebergTable.schema(), typeManager).stream()
-                .collect(toImmutableMap(IcebergColumnHandle::getName, identity()));
     }
 
     @Override
@@ -367,17 +352,14 @@ public class IcebergHiveMetadata
     }
 
     @Override
-    protected ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table)
+    protected org.apache.iceberg.Table getIcebergTable(ConnectorSession session, SchemaTableName table)
     {
         MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
         if (!metastore.getTable(metastoreContext, table.getSchemaName(), table.getTableName()).isPresent()) {
             throw new TableNotFoundException(table);
         }
 
-        org.apache.iceberg.Table icebergTable = getHiveIcebergTable(metastore, hdfsEnvironment, session, table);
-        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable, typeManager);
-
-        return new ConnectorTableMetadata(table, columns, createMetadataProperties(icebergTable), getTableComment(icebergTable));
+        return getHiveIcebergTable(metastore, hdfsEnvironment, session, table);
     }
 
     public ExtendedHiveMetastore getMetastore()

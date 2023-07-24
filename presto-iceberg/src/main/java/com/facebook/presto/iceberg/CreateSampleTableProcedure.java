@@ -23,6 +23,7 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.UpdateProperties;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -33,6 +34,8 @@ import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.CatalogType.NESSIE;
+import static com.facebook.presto.iceberg.IcebergTableProperties.SAMPLE_TABLE_LAST_SNAPSHOT;
+import static com.facebook.presto.iceberg.IcebergTableProperties.SAMPLE_TABLE_PRIMARY_KEY;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static com.facebook.presto.iceberg.samples.SampleUtil.SAMPLE_TABLE_ID;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
@@ -46,6 +49,7 @@ public class CreateSampleTableProcedure
             CreateSampleTableProcedure.class,
             "createSampleTable",
             ConnectorSession.class,
+            String.class,
             String.class,
             String.class);
 
@@ -75,7 +79,8 @@ public class CreateSampleTableProcedure
                 "create_sample_table",
                 ImmutableList.of(
                         new Procedure.Argument("schema", VARCHAR),
-                        new Procedure.Argument("table", VARCHAR)),
+                        new Procedure.Argument("table", VARCHAR),
+                        new Procedure.Argument("primary_key", VARCHAR)),
                 CREATE_SAMPLE_TABLE.bindTo(this));
     }
 
@@ -87,7 +92,7 @@ public class CreateSampleTableProcedure
      * @param schema the schema where the table exists
      * @param table the name of the table to sample from
      */
-    public void createSampleTable(ConnectorSession clientSession, String schema, String table)
+    public void createSampleTable(ConnectorSession clientSession, String schema, String table, String primaryKey)
     {
         SchemaTableName schemaTableName = new SchemaTableName(schema, table);
         ConnectorMetadata metadata = metadataFactory.create();
@@ -105,5 +110,11 @@ public class CreateSampleTableProcedure
             // create the table for samples and load the table back to make sure it's valid
             c.createTable(SAMPLE_TABLE_ID, icebergTable.schema());
         }
+        UpdateProperties properties = icebergTable.updateProperties()
+                .set(SAMPLE_TABLE_PRIMARY_KEY, primaryKey);
+        if (icebergTable.currentSnapshot() != null) {
+            properties.set(SAMPLE_TABLE_LAST_SNAPSHOT, Long.toString(icebergTable.currentSnapshot().snapshotId()));
+        }
+        properties.commit();
     }
 }
