@@ -22,13 +22,12 @@
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
-#include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/row/UnsafeRowDeserializers.h"
+#include "velox/row/CompactRow.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using namespace facebook::velox;
@@ -341,17 +340,18 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
       const RowTypePtr& rowType) {
     auto serializedData =
         serializedResult->childAt(1)->as<FlatVector<StringView>>();
+    auto* rawValues = serializedData->rawValues();
 
-    std::vector<std::optional<std::string_view>> rows;
+    std::vector<std::string_view> rows;
     rows.reserve(serializedData->size());
     for (auto i = 0; i < serializedData->size(); ++i) {
-      auto serializedRow = serializedData->valueAt(i);
+      const auto& serializedRow = rawValues[i];
       rows.push_back(
           std::string_view(serializedRow.data(), serializedRow.size()));
     }
 
     return std::dynamic_pointer_cast<RowVector>(
-        row::UnsafeRowDeserializer::deserialize(rows, rowType, pool()));
+        row::CompactRow::deserialize(rows, rowType, pool()));
   }
 
   RowVectorPtr copyResultVector(const RowVectorPtr& result) {
