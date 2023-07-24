@@ -229,6 +229,23 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
+    public void testTableSample()
+    {
+        // At best we can check for query success for the TABLESAMPLE based queries as the number of rows returned
+        // has some randomness.
+        assertQuerySucceeds("SELECT * FROM nation TABLESAMPLE BERNOULLI (20)");
+        assertQuerySucceeds("SELECT * FROM lineitem TABLESAMPLE BERNOULLI (1) WHERE orderkey > 1000");
+        assertQuerySucceeds("SELECT * FROM lineitem TABLESAMPLE BERNOULLI (1) WHERE orderkey % 2 = 0");
+
+        assertQuerySucceeds("SELECT * FROM nation TABLESAMPLE SYSTEM (45)");
+        assertQuerySucceeds("SELECT * FROM lineitem TABLESAMPLE SYSTEM (1) WHERE orderkey > 1000");
+        assertQuerySucceeds("SELECT * FROM lineitem TABLESAMPLE SYSTEM (1) WHERE orderkey % 2 = 0");
+
+        assertQuerySucceeds("SELECT o.*, i.* FROM orders o TABLESAMPLE SYSTEM (10) " +
+                "JOIN lineitem i TABLESAMPLE BERNOULLI (40) ON o.orderkey = i.orderkey");
+    }
+
+    @Test
     public void testDateFilter()
     {
         String tmpTableName = generateRandomTableName();
