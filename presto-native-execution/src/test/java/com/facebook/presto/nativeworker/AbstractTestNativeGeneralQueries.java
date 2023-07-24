@@ -77,6 +77,7 @@ public abstract class AbstractTestNativeGeneralQueries
 
         Session session = Session.builder(getSession())
                 .setCatalog("hivecached")
+                .setCatalogSessionProperty("hivecached", "orc_compression_codec", "ZSTD")
                 .setCatalogSessionProperty("hivecached", "collect_column_statistics_on_write", "false")
                 .build();
         try {
@@ -252,6 +253,7 @@ public abstract class AbstractTestNativeGeneralQueries
 
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty("hive", "parquet_pushdown_filter_enabled", "true")
+                .setCatalogSessionProperty("hive", "orc_compression_codec", "ZSTD")
                 .build();
 
         try {
@@ -989,12 +991,11 @@ public abstract class AbstractTestNativeGeneralQueries
     {
         // Generate temporary table name.
         String tmpTableName = generateRandomTableName();
+        Session writeSession = buildSessionForTableWrite();
 
         try {
-            getQueryRunner().execute(getSession(), String.format("CREATE TABLE %s (name VARCHAR, regionkey BIGINT, nationkey BIGINT) WITH (partitioned_by = ARRAY['regionkey','nationkey'])", tmpTableName));
-
+            getQueryRunner().execute(writeSession, String.format("CREATE TABLE %s (name VARCHAR, regionkey BIGINT, nationkey BIGINT) WITH (partitioned_by = ARRAY['regionkey','nationkey'])", tmpTableName));
             // Test insert into an empty table.
-            Session writeSession = buildSessionForTableWrite();
             getQueryRunner().execute(writeSession, String.format("INSERT INTO %s SELECT name, regionkey, nationkey FROM nation", tmpTableName));
             assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT name, regionkey, nationkey FROM nation");
 
@@ -1017,11 +1018,11 @@ public abstract class AbstractTestNativeGeneralQueries
     @Test
     public void testInsertIntoSpecialPartitionName()
     {
+        Session writeSession = buildSessionForTableWrite();
         // Generate temporary table name.
         String tmpTableName = generateRandomTableName();
         try {
-            getQueryRunner().execute(getSession(), String.format("CREATE TABLE %s (name VARCHAR, nationkey VARCHAR) WITH (partitioned_by = ARRAY['nationkey'])", tmpTableName));
-            Session writeSession = buildSessionForTableWrite();
+            getQueryRunner().execute(writeSession, String.format("CREATE TABLE %s (name VARCHAR, nationkey VARCHAR) WITH (partitioned_by = ARRAY['nationkey'])", tmpTableName));
 
             // For special character in partition name, without correct handling, it would throw errors like 'Invalid partition spec: nationkey=A/B'
             // In this test, verify those partition names can be successfully created
@@ -1091,6 +1092,7 @@ public abstract class AbstractTestNativeGeneralQueries
                 .setSystemProperty("task_partitioned_writer_count", "2")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
                 .setCatalogSessionProperty("hive", "optimized_partition_update_serialization_enabled", "false")
+                .setCatalogSessionProperty("hive", "orc_compression_codec", "ZSTD")
                 .build();
     }
 
