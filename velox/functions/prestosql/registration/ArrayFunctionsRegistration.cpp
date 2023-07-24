@@ -194,11 +194,6 @@ void registerArrayFunctions(const std::string& prefix) {
       Array<Generic<T1>>,
       int64_t>({prefix + "trim_array"});
 
-  registerFunction<
-      ArrayUnionFunctionString,
-      Array<Varchar>,
-      Array<Varchar>,
-      Array<Varchar>>({prefix + "array_union"});
   registerArrayUnionFunctions<int8_t>(prefix);
   registerArrayUnionFunctions<int16_t>(prefix);
   registerArrayUnionFunctions<int32_t>(prefix);

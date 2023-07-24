@@ -697,35 +697,4 @@ struct ArrayUnionFunction {
   }
 };
 
-template <typename T>
-struct ArrayUnionFunctionString {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
-
-  static constexpr int32_t reuse_strings_from_arg = 0;
-
-  // String version that avoids copy of strings.
-  FOLLY_ALWAYS_INLINE void call(
-      out_type<Array<Varchar>>& out,
-      const arg_type<Array<Varchar>>& inputArray1,
-      const arg_type<Array<Varchar>>& inputArray2) {
-    folly::F14FastSet<StringView> elementSet;
-    bool nullAdded = false;
-    auto addItems = [&](auto& inputArray) {
-      for (const auto& item : inputArray) {
-        if (item.has_value()) {
-          if (elementSet.insert(item.value()).second) {
-            auto& newItem = out.add_item();
-            newItem.setNoCopy(item.value());
-          }
-        } else if (!nullAdded) {
-          nullAdded = true;
-          out.add_null();
-        }
-      }
-    };
-    addItems(inputArray1);
-    addItems(inputArray2);
-  }
-};
-
 } // namespace facebook::velox::functions
