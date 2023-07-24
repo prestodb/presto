@@ -34,7 +34,7 @@ public class UnweightedDoubleReservoirSample
 
     private int seenCount;
     private double[] samples;
-
+    
     public UnweightedDoubleReservoirSample(int maxSamples)
     {
         checkArgument(
