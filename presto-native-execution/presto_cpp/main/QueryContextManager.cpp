@@ -135,7 +135,7 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
       executor().get(),
       std::move(configStrings),
       connectorConfigs,
-      memory::MemoryAllocator::getInstance(),
+      cache::AsyncDataCache::getInstance(),
       std::move(pool),
       spillExecutor(),
       queryId);
