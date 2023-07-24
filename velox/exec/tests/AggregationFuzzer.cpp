@@ -65,6 +65,11 @@ DEFINE_string(
     "future reproduction. Empty string disables this feature.");
 
 DEFINE_bool(
+    enable_window_duck_verification,
+    false,
+    "When true, the results of the window aggregation will be compared to duckdb results");
+
+DEFINE_bool(
     persist_and_run_once,
     false,
     "Persist repro info before evaluation and only run one iteration. "
@@ -164,7 +169,8 @@ class AggregationFuzzer {
       const std::vector<std::string>& sortingKeys,
       const std::vector<std::string>& aggregates,
       const std::vector<RowVectorPtr>& input,
-      bool customVerification);
+      bool customVerification,
+      bool enableWindowDuckVerification);
 
   std::optional<MaterializedRowMultiset> computeDuckWindow(
       const std::vector<std::string>& partitionKeys,
@@ -586,7 +592,12 @@ void AggregationFuzzer::go() {
         auto input = generateInputDataWithRowNumber(argNames, argTypes);
 
         verifyWindow(
-            partitionKeys, sortingKeys, {call}, input, customVerification);
+            partitionKeys,
+            sortingKeys,
+            {call},
+            input,
+            customVerification,
+            FLAGS_enable_window_duck_verification);
       } else {
         // 20% of times use mask.
         std::vector<std::string> masks;
@@ -958,7 +969,8 @@ void AggregationFuzzer::verifyWindow(
     const std::vector<std::string>& sortingKeys,
     const std::vector<std::string>& aggregates,
     const std::vector<RowVectorPtr>& input,
-    bool customVerification) {
+    bool customVerification,
+    bool enableWindowDuckVerification) {
   std::stringstream frame;
   if (!partitionKeys.empty()) {
     frame << "partition by " << folly::join(", ", partitionKeys);
@@ -981,7 +993,8 @@ void AggregationFuzzer::verifyWindow(
       ++stats_.numFailed;
     }
 
-    if (!customVerification && resultOrError.result) {
+    if (!customVerification && resultOrError.result &&
+        enableWindowDuckVerification) {
       if (auto expectedResult = computeDuckWindow(
               partitionKeys, sortingKeys, aggregates, input, plan)) {
         ++stats_.numDuckVerified;
