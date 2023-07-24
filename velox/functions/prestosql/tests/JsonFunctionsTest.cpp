@@ -538,10 +538,10 @@ TEST_F(JsonFunctionsTest, jsonExtract) {
   };
 
   EXPECT_EQ(
-      "{\"x\":{\"a\":1,\"b\":2}}",
+      "{\"x\": {\"a\" : 1, \"b\" : 2} }",
       jsonExtract("{\"x\": {\"a\" : 1, \"b\" : 2} }", "$"));
   EXPECT_EQ(
-      "{\"a\":1,\"b\":2}",
+      "{\"a\" : 1, \"b\" : 2}",
       jsonExtract("{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x"));
   EXPECT_EQ("1", jsonExtract("{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x.a"));
   EXPECT_EQ(

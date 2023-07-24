@@ -32,9 +32,9 @@ void registerJsonFunctions(const std::string& prefix) {
   registerFunction<SIMDJsonExtractScalarFunction, Varchar, Varchar, Varchar>(
       {prefix + "json_extract_scalar"});
 
-  registerFunction<JsonExtractFunction, Json, Json, Varchar>(
+  registerFunction<SIMDJsonExtractFunction, Json, Json, Varchar>(
       {prefix + "json_extract"});
-  registerFunction<JsonExtractFunction, Json, Varchar, Varchar>(
+  registerFunction<SIMDJsonExtractFunction, Json, Varchar, Varchar>(
       {prefix + "json_extract"});
 
   registerFunction<SIMDJsonArrayLengthFunction, int64_t, Json>(

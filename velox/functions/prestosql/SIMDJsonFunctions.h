@@ -205,4 +205,69 @@ struct SIMDJsonExtractScalarFunction {
   }
 };
 
+template <typename T>
+struct SIMDJsonExtractFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  bool call(
+      out_type<Json>& result,
+      const arg_type<Json>& json,
+      const arg_type<Varchar>& jsonPath) {
+    static constexpr std::string_view kNullString{"null"};
+    std::string results;
+    size_t resultSize = 0;
+    auto consumer = [&results, &resultSize](auto& v) {
+      // Add the separator for the JSON array.
+      if (resultSize++ > 0) {
+        results += ",";
+      }
+      // We could just convert v to a string using to_json_string directly, but
+      // in that case the JSON wouldn't be parsed (it would just return the
+      // contents directly) and we might miss invalid JSON.
+      switch (v.type()) {
+        case simdjson::ondemand::json_type::object:
+          results += simdjson::to_json_string(v.get_object()).value();
+          break;
+        case simdjson::ondemand::json_type::array:
+          results += simdjson::to_json_string(v.get_array()).value();
+          break;
+        case simdjson::ondemand::json_type::string:
+        case simdjson::ondemand::json_type::number:
+        case simdjson::ondemand::json_type::boolean:
+          results += simdjson::to_json_string(v).value();
+          break;
+        case simdjson::ondemand::json_type::null:
+          results += kNullString;
+          break;
+      }
+    };
+
+    if (!simdJsonExtract(json, jsonPath, consumer)) {
+      // If there's an error parsing the JSON, return null.
+      return false;
+    }
+
+    if (resultSize == 0) {
+      // If the path didn't map to anything in the JSON object, return null.
+      return false;
+    }
+
+    if (resultSize == 1) {
+      if (results == kNullString) {
+        // If there was only one value mapped to by the path and it was null,
+        // return null directly.
+        return false;
+      }
+
+      // If there was only one value mapped to by the path, don't wrap it in an
+      // array.
+      result.copy_from(results);
+    } else {
+      // Add the square brackets to make it a valid JSON array.
+      result.copy_from("[" + results + "]");
+    }
+    return true;
+  }
+};
+
 } // namespace facebook::velox::functions

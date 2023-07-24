@@ -51,6 +51,10 @@ class JsonBenchmark : public velox::functions::test::FunctionBenchmarkBase {
         {"folly_json_extract_scalar"});
     registerFunction<SIMDJsonExtractScalarFunction, Varchar, Json, Varchar>(
         {"simd_json_extract_scalar"});
+    registerFunction<JsonExtractFunction, Varchar, Json, Varchar>(
+        {"folly_json_extract"});
+    registerFunction<SIMDJsonExtractFunction, Varchar, Json, Varchar>(
+        {"simd_json_extract"});
   }
 
   std::string prepareData(int jsonSize) {
@@ -201,6 +205,24 @@ void SIMDJsonExtractScalar(int iter, int vectorSize, int jsonSize) {
   suspender.dismiss();
   benchmark.runWithJsonExtract(
       iter, vectorSize, "simd_json_extract_scalar", json, "$.key[7].k1");
+}
+
+void FollyJsonExtract(int iter, int vectorSize, int jsonSize) {
+  folly::BenchmarkSuspender suspender;
+  JsonBenchmark benchmark;
+  auto json = benchmark.prepareData(jsonSize);
+  suspender.dismiss();
+  benchmark.runWithJsonExtract(
+      iter, vectorSize, "folly_json_extract", json, "$.key[*].k1");
+}
+
+void SIMDJsonExtract(int iter, int vectorSize, int jsonSize) {
+  folly::BenchmarkSuspender suspender;
+  JsonBenchmark benchmark;
+  auto json = benchmark.prepareData(jsonSize);
+  suspender.dismiss();
+  benchmark.runWithJsonExtract(
+      iter, vectorSize, "simd_json_extract", json, "$.key[*].k1");
 }
 
 BENCHMARK_DRAW_LINE();
@@ -363,6 +385,39 @@ BENCHMARK_NAMED_PARAM(
     10000);
 BENCHMARK_RELATIVE_NAMED_PARAM(
     SIMDJsonExtractScalar,
+    100_iters_10000bytes_size,
+    100,
+    10000);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_DRAW_LINE();
+BENCHMARK_NAMED_PARAM(FollyJsonExtract, 100_iters_10bytes_size, 100, 10);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    SIMDJsonExtract,
+    100_iters_10bytes_size,
+    100,
+    10);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_NAMED_PARAM(FollyJsonExtract, 100_iters_100bytes_size, 100, 100);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    SIMDJsonExtract,
+    100_iters_100bytes_size,
+    100,
+    100);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_NAMED_PARAM(FollyJsonExtract, 100_iters_1000bytes_size, 100, 1000);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    SIMDJsonExtract,
+    100_iters_1000bytes_size,
+    100,
+    1000);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_NAMED_PARAM(FollyJsonExtract, 100_iters_10000bytes_size, 100, 10000);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    SIMDJsonExtract,
     100_iters_10000bytes_size,
     100,
     10000);
