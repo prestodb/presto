@@ -701,6 +701,7 @@ TEST_F(PlanNodeToStringTest, window) {
 }
 
 TEST_F(PlanNodeToStringTest, rowNumber) {
+  // Emit row number.
   auto plan =
       PlanBuilder().tableScan(ROW({"a"}, {VARCHAR()})).rowNumber({}).planNode();
 
@@ -709,6 +710,16 @@ TEST_F(PlanNodeToStringTest, rowNumber) {
       "-- RowNumber[] -> a:VARCHAR, row_number:BIGINT\n",
       plan->toString(true, false));
 
+  // Dont' emit row number.
+  plan = PlanBuilder()
+             .tableScan(ROW({"a"}, {VARCHAR()}))
+             .rowNumber({}, std::nullopt, false)
+             .planNode();
+
+  ASSERT_EQ("-- RowNumber\n", plan->toString());
+  ASSERT_EQ("-- RowNumber[] -> a:VARCHAR\n", plan->toString(true, false));
+
+  // Emit row number.
   plan = PlanBuilder()
              .tableScan(ROW({"a", "b"}, {BIGINT(), VARCHAR()}))
              .rowNumber({"a", "b"})
@@ -719,6 +730,18 @@ TEST_F(PlanNodeToStringTest, rowNumber) {
       "-- RowNumber[partition by (a, b)] -> a:BIGINT, b:VARCHAR, row_number:BIGINT\n",
       plan->toString(true, false));
 
+  // Don't emit row number.
+  plan = PlanBuilder()
+             .tableScan(ROW({"a", "b"}, {BIGINT(), VARCHAR()}))
+             .rowNumber({"a", "b"}, std::nullopt, false)
+             .planNode();
+
+  ASSERT_EQ("-- RowNumber\n", plan->toString());
+  ASSERT_EQ(
+      "-- RowNumber[partition by (a, b)] -> a:BIGINT, b:VARCHAR\n",
+      plan->toString(true, false));
+
+  // Emit row number.
   plan = PlanBuilder()
              .tableScan(ROW({"a", "b"}, {BIGINT(), VARCHAR()}))
              .rowNumber({"b"}, 10)
@@ -727,6 +750,17 @@ TEST_F(PlanNodeToStringTest, rowNumber) {
   ASSERT_EQ("-- RowNumber\n", plan->toString());
   ASSERT_EQ(
       "-- RowNumber[partition by (b) limit 10] -> a:BIGINT, b:VARCHAR, row_number:BIGINT\n",
+      plan->toString(true, false));
+
+  // Don't emit row number.
+  plan = PlanBuilder()
+             .tableScan(ROW({"a", "b"}, {BIGINT(), VARCHAR()}))
+             .rowNumber({"b"}, 10, false)
+             .planNode();
+
+  ASSERT_EQ("-- RowNumber\n", plan->toString());
+  ASSERT_EQ(
+      "-- RowNumber[partition by (b) limit 10] -> a:BIGINT, b:VARCHAR\n",
       plan->toString(true, false));
 }
 

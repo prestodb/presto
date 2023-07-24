@@ -1346,19 +1346,29 @@ RowTypePtr getRowNumberOutputType(
 
   return ROW(std::move(names), std::move(types));
 }
+
+RowTypePtr getOptionalRowNumberOutputType(
+    const RowTypePtr& inputType,
+    const std::optional<std::string>& rowNumberColumnName) {
+  if (rowNumberColumnName) {
+    return getRowNumberOutputType(inputType, rowNumberColumnName.value());
+  }
+
+  return inputType;
+}
 } // namespace
 
 RowNumberNode::RowNumberNode(
     PlanNodeId id,
     std::vector<FieldAccessTypedExprPtr> partitionKeys,
-    const std::string& rowNumberColumnName,
+    const std::optional<std::string>& rowNumberColumnName,
     std::optional<int32_t> limit,
     PlanNodePtr source)
     : PlanNode(std::move(id)),
       partitionKeys_{std::move(partitionKeys)},
       limit_{limit},
       sources_{std::move(source)},
-      outputType_(getRowNumberOutputType(
+      outputType_(getOptionalRowNumberOutputType(
           sources_[0]->outputType(),
           rowNumberColumnName)) {}
 
@@ -1380,7 +1390,9 @@ void RowNumberNode::addDetails(std::stringstream& stream) const {
 folly::dynamic RowNumberNode::serialize() const {
   auto obj = PlanNode::serialize();
   obj["partitionKeys"] = ISerializable::serialize(partitionKeys_);
-  obj["rowNumberColumnName"] = outputType_->names().back();
+  if (generateRowNumber()) {
+    obj["rowNumberColumnName"] = outputType_->names().back();
+  }
   if (limit_) {
     obj["limit"] = limit_.value();
   }
@@ -1398,25 +1410,18 @@ PlanNodePtr RowNumberNode::create(const folly::dynamic& obj, void* context) {
     limit = obj["limit"].asInt();
   }
 
+  std::optional<std::string> rowNumberColumnName;
+  if (obj.count("rowNumberColumnName")) {
+    rowNumberColumnName = obj["rowNumberColumnName"].asString();
+  }
+
   return std::make_shared<RowNumberNode>(
       deserializePlanNodeId(obj),
       partitionKeys,
-      obj["rowNumberColumnName"].asString(),
+      rowNumberColumnName,
       limit,
       source);
 }
-
-namespace {
-RowTypePtr getTopNRowNumberOutputType(
-    const RowTypePtr& inputType,
-    const std::optional<std::string>& rowNumberColumnName) {
-  if (rowNumberColumnName) {
-    return getRowNumberOutputType(inputType, rowNumberColumnName.value());
-  }
-
-  return inputType;
-}
-} // namespace
 
 TopNRowNumberNode::TopNRowNumberNode(
     PlanNodeId id,
@@ -1432,7 +1437,7 @@ TopNRowNumberNode::TopNRowNumberNode(
       sortingOrders_{std::move(sortingOrders)},
       limit_{limit},
       sources_{std::move(source)},
-      outputType_{getTopNRowNumberOutputType(
+      outputType_{getOptionalRowNumberOutputType(
           sources_[0]->outputType(),
           rowNumberColumnName)} {
   VELOX_USER_CHECK_EQ(

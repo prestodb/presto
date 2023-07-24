@@ -2066,19 +2066,21 @@ class WindowNode : public PlanNode {
 
 /// Optimized version of a WindowNode for a single row_number function with an
 /// optional limit and no sorting.
-/// The output of this node contains all input columns followed by a
+/// The output of this node contains all input columns followed by an optional
 /// 'rowNumberColumnName' BIGINT column.
 class RowNumberNode : public PlanNode {
  public:
   /// @param partitionKeys Partitioning keys. May be empty.
-  /// @param rowNumberColumnName Name of the column containing row numbers.
+  /// @param rowNumberColumnName Optional name of the column containing row
+  /// numbers. If not specified, the output doesn't include 'row number' column.
+  /// This is used when computing partial results.
   /// @param limit Optional per-partition limit. If specified, the number of
   /// rows produced by this node will not exceed this value for any given
   /// partition. Extra rows will be dropped.
   RowNumberNode(
       PlanNodeId id,
       std::vector<FieldAccessTypedExprPtr> partitionKeys,
-      const std::string& rowNumberColumnName,
+      const std::optional<std::string>& rowNumberColumnName,
       std::optional<int32_t> limit,
       PlanNodePtr source);
 
@@ -2096,6 +2098,10 @@ class RowNumberNode : public PlanNode {
 
   std::optional<int32_t> limit() const {
     return limit_;
+  }
+
+  bool generateRowNumber() const {
+    return outputType_->size() > sources_[0]->outputType()->size();
   }
 
   std::string_view name() const override {

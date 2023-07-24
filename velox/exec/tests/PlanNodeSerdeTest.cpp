@@ -413,6 +413,7 @@ TEST_F(PlanNodeSerdeTest, window) {
 }
 
 TEST_F(PlanNodeSerdeTest, rowNumber) {
+  // Test with emitting the row number.
   auto plan = PlanBuilder().values({data_}).rowNumber({}).planNode();
   testSerde(plan);
 
@@ -420,6 +421,26 @@ TEST_F(PlanNodeSerdeTest, rowNumber) {
   testSerde(plan);
 
   plan = PlanBuilder().values({data_}).rowNumber({"c1", "c2"}, 10).planNode();
+  testSerde(plan);
+
+  // Test without emitting the row number.
+  plan = PlanBuilder()
+             .values({data_})
+             .rowNumber({}, std::nullopt, false)
+             .planNode();
+  testSerde(plan);
+
+  plan = PlanBuilder()
+             .values({data_})
+             .rowNumber({"c2", "c0"}, std::nullopt, false)
+             .planNode();
+  testSerde(plan);
+
+  plan = PlanBuilder()
+             .values({data_})
+             .rowNumber({"c1", "c2"}, 10, false)
+             .planNode();
+  testSerde(plan);
 }
 
 TEST_F(PlanNodeSerdeTest, scan) {

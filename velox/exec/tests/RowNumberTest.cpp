@@ -28,17 +28,37 @@ TEST_F(RowNumberTest, basic) {
 
   createDuckDbTable({data});
 
-  // No limit.
+  // No limit, emit row numbers.
   auto plan = PlanBuilder().values({data}).rowNumber({"c0"}).planNode();
   assertQuery(plan, "SELECT *, row_number() over (partition by c0) FROM tmp");
 
+  // No limit, don't emit row numbers.
+  plan = PlanBuilder()
+             .values({data})
+             .rowNumber({"c0"}, std::nullopt, false)
+             .planNode();
+  assertQuery(
+      plan,
+      "SELECT c0, c1 FROM (SELECT *, row_number() over (partition by c0) as rn FROM tmp)");
+
   auto testLimit = [&](int32_t limit) {
+    // Limit, emit row numbers.
     auto plan =
         PlanBuilder().values({data}).rowNumber({"c0"}, limit).planNode();
     assertQuery(
         plan,
         fmt::format(
             "SELECT * FROM (SELECT *, row_number() over (partition by c0) as rn FROM tmp) "
+            "WHERE rn <= {}",
+            limit));
+
+    // Limit, don't emit row numbers.
+    plan =
+        PlanBuilder().values({data}).rowNumber({"c0"}, limit, false).planNode();
+    assertQuery(
+        plan,
+        fmt::format(
+            "SELECT c0, c1 FROM (SELECT *, row_number() over (partition by c0) as rn FROM tmp) "
             "WHERE rn <= {}",
             limit));
   };
@@ -55,17 +75,38 @@ TEST_F(RowNumberTest, noPartitionKeys) {
 
   createDuckDbTable({data, data});
 
-  // No limit.
+  // No limit, emit row numbers.
   auto plan = PlanBuilder().values({data, data}).rowNumber({}).planNode();
   assertQuery(plan, "SELECT *, row_number() over () FROM tmp");
 
+  // No limit, don't emit row numbers.
+  plan = PlanBuilder()
+             .values({data, data})
+             .rowNumber({}, std::nullopt, false)
+             .planNode();
+  assertQuery(
+      plan, "SELECT c0 FROM (SELECT *, row_number() over () as rn FROM tmp)");
+
   auto testLimit = [&](int32_t limit) {
+    // Emit row numbers.
     auto plan =
         PlanBuilder().values({data, data}).rowNumber({}, limit).planNode();
     assertQuery(
         plan,
         fmt::format(
             "SELECT * FROM (SELECT *, row_number() over () as rn FROM tmp) "
+            "WHERE rn <= {}",
+            limit));
+
+    // Don't emit row numbers.
+    plan = PlanBuilder()
+               .values({data, data})
+               .rowNumber({}, limit, false)
+               .planNode();
+    assertQuery(
+        plan,
+        fmt::format(
+            "SELECT c0 FROM (SELECT *, row_number() over () as rn FROM tmp) "
             "WHERE rn <= {}",
             limit));
   };
@@ -82,17 +123,39 @@ TEST_F(RowNumberTest, largeInput) {
 
   createDuckDbTable({data, data});
 
-  // No limit.
+  // No limit, emit row numbers.
   auto plan = PlanBuilder().values({data, data}).rowNumber({"c0"}).planNode();
   assertQuery(plan, "SELECT *, row_number() over (partition by c0) FROM tmp");
 
+  // No limit, don't emit row numbers.
+  plan = PlanBuilder()
+             .values({data, data})
+             .rowNumber({"c0"}, std::nullopt, false)
+             .planNode();
+  assertQuery(
+      plan,
+      "SELECT c0, c1 FROM (SELECT *, row_number() over (partition by c0) as rn FROM tmp)");
+
   auto testLimit = [&](int32_t limit) {
+    // Emit row numbers.
     auto plan =
         PlanBuilder().values({data, data}).rowNumber({"c0"}, limit).planNode();
     assertQuery(
         plan,
         fmt::format(
             "SELECT * FROM (SELECT *, row_number() over (partition by c0) as rn FROM tmp) "
+            "WHERE rn <= {}",
+            limit));
+
+    // Don't emit row numbers.
+    plan = PlanBuilder()
+               .values({data, data})
+               .rowNumber({"c0"}, limit, false)
+               .planNode();
+    assertQuery(
+        plan,
+        fmt::format(
+            "SELECT c0, c1 FROM (SELECT *, row_number() over (partition by c0) as rn FROM tmp) "
             "WHERE rn <= {}",
             limit));
   };

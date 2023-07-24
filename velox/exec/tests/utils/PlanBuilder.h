@@ -722,7 +722,8 @@ class PlanBuilder {
   /// optional limit and no sorting.
   PlanBuilder& rowNumber(
       const std::vector<std::string>& partitionKeys,
-      std::optional<int32_t> limit = std::nullopt);
+      std::optional<int32_t> limit = std::nullopt,
+      bool generateRowNumber = true);
 
   /// Add a TopNRowNumberNode to compute single row_number window function with
   /// a limit applied to sorted partitions.

@@ -53,6 +53,7 @@ class RowNumber : public Operator {
   FlatVector<int64_t>& getOrCreateRowNumberVector(vector_size_t size);
 
   const std::optional<int32_t> limit_;
+  const bool generateRowNumber_;
 
   /// Hash table to store number of rows seen so far per partition. Not used if
   /// there are no partitioning keys.

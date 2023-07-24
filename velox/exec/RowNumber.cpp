@@ -27,7 +27,8 @@ RowNumber::RowNumber(
           operatorId,
           rowNumberNode->id(),
           "RowNumber"),
-      limit_{rowNumberNode->limit()} {
+      limit_{rowNumberNode->limit()},
+      generateRowNumber_{rowNumberNode->generateRowNumber()} {
   const auto& inputType = rowNumberNode->sources()[0]->outputType();
   const auto& keys = rowNumberNode->partitionKeys();
   const auto numKeys = keys.size();
@@ -53,8 +54,10 @@ RowNumber::RowNumber(
     identityProjections_.emplace_back(i, i);
   }
 
-  resultProjections_.emplace_back(0, inputType->size());
-  results_.resize(1);
+  if (generateRowNumber_) {
+    resultProjections_.emplace_back(0, inputType->size());
+    results_.resize(1);
+  }
 }
 
 void RowNumber::addInput(RowVectorPtr input) {
@@ -104,8 +107,11 @@ RowVectorPtr RowNumber::getOutput() {
     rawMapping = mapping->asMutable<vector_size_t>();
   }
 
-  // Compute row numbers.
-  auto& rowNumbers = getOrCreateRowNumberVector(numInput);
+  // Compute row numbers if needed.
+  FlatVector<int64_t>* rowNumbers = nullptr;
+  if (generateRowNumber_) {
+    rowNumbers = &getOrCreateRowNumberVector(numInput);
+  }
 
   for (auto i = 0; i < numInput; ++i) {
     auto* partition = lookup_->hits[i];
@@ -119,7 +125,9 @@ RowVectorPtr RowNumber::getOutput() {
       rawMapping[index++] = i;
     }
 
-    rowNumbers.set(i, rowNumber);
+    if (generateRowNumber_) {
+      rowNumbers->set(i, rowNumber);
+    }
     setNumRows(partition, rowNumber);
   }
 
@@ -155,10 +163,11 @@ RowVectorPtr RowNumber::getOutputForSinglePartition() {
     numOutput = numInput;
   }
 
-  auto& rowNumbers = getOrCreateRowNumberVector(numOutput);
-
-  for (auto i = 0; i < numOutput; ++i) {
-    rowNumbers.set(i, ++numTotalInput_);
+  if (generateRowNumber_) {
+    auto& rowNumbers = getOrCreateRowNumberVector(numOutput);
+    for (auto i = 0; i < numOutput; ++i) {
+      rowNumbers.set(i, ++numTotalInput_);
+    }
   }
 
   auto output = fillOutput(numOutput, nullptr);
