@@ -20,28 +20,38 @@ public class ReservoirSampleState implements AccumulatorState {
     private Block[] samples;
     private final Type type;
     private int seenCount;
-
     private boolean isEmpty = true;
-
-    private final int sampleSize = 200;
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ReservoirSampleState.class).instanceSize();
 
+    private boolean sampleInitialized = false;
 
     public ReservoirSampleState(Type type) {
         this.type = requireNonNull(type, "type is null");
-        this.samples = new Block[sampleSize];
     }
 
     public ReservoirSampleState(ReservoirSampleState other) {
         this.type = other.type;
         this.seenCount = other.seenCount;
         this.samples = Arrays.copyOf(requireNonNull(other.samples, "samples is null"), other.samples.length);
-        ;
+    }
+
+    public void initializeSample(long n) {
+        samples = new Block[(int) n];
+        sampleInitialized = true;
+    }
+
+    public int getSampleSize() {
+        if (isSampleInitialized()) {
+            return samples.length;
+        }
+        return 0;
+
     }
 
     public void add(Block block, int position) {
         isEmpty = false;
         seenCount++;
+        int sampleSize = getSampleSize();
         if (seenCount <= sampleSize) {
             BlockBuilder sampleBlock = type.createBlockBuilder(null, 16);
             type.appendTo(block, position, sampleBlock);
@@ -58,6 +68,7 @@ public class ReservoirSampleState implements AccumulatorState {
 
     private void addSingleBlock(Block block) {
         seenCount++;
+        int sampleSize = getSampleSize();
         if (seenCount <= sampleSize) {
             samples[seenCount - 1] = block;
         } else {
@@ -69,10 +80,12 @@ public class ReservoirSampleState implements AccumulatorState {
     }
 
     public void merge(ReservoirSampleState other) {
+        if (!sampleInitialized) {
+            initializeSample(other.samples.length);
+        }
         checkArgument(
                 samples.length == other.samples.length,
                 format("Maximum number of samples %s must be equal to that of other %s", samples.length, other.samples.length));
-
         if (other.seenCount < other.samples.length) {
             for (int i = 0; i < other.seenCount; i++) {
                 addSingleBlock(other.samples[i]);
@@ -129,12 +142,17 @@ public class ReservoirSampleState implements AccumulatorState {
         return samples;
     }
 
-    public void reset() {
-        samples = new Block[sampleSize];
+    public void reset(int size) {
+        initializeSample(size);
+        seenCount = 0;
     }
 
     public boolean isEmpty() {
         return isEmpty;
+    }
+
+    public boolean isSampleInitialized() {
+        return sampleInitialized;
     }
 
     @Override

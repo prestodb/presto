@@ -45,9 +45,10 @@ public class ReservoirSampleStateSerializer implements AccumulatorStateSerialize
     @Override
     public void deserialize(Block block, int index, ReservoirSampleState state)
     {
-        state.reset();
         Block stateBlock = (Block) arrayType.getObject(block, index);
-        for (int i = 0; i < stateBlock.getPositionCount(); i++) {
+        int sampleSize = stateBlock.getPositionCount();
+        state.reset(sampleSize);
+        for (int i = 0; i < sampleSize; i++) {
             state.add(stateBlock, i);
         }
     }
