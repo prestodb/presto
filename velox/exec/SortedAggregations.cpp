@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/SortedAggregations.h"
+#include "velox/common/base/RawVector.h"
 
 namespace facebook::velox::exec {
 
@@ -270,6 +271,7 @@ void SortedAggregations::extractValues(
     const RowVectorPtr& result) {
   // TODO Identify aggregates with same order by and sort once.
 
+  raw_vector<int32_t> temp;
   SelectivityVector rows;
   for (auto i = 0; i < aggregates_.size(); ++i) {
     const auto& aggregate = *aggregates_[i];
@@ -300,6 +302,11 @@ void SortedAggregations::extractValues(
     // Release memory back to HashStringAllocator to allow next aggregate to
     // re-use it.
     aggregate.function->destroy(groups);
+    // Overwrite empty groups over the destructed groups to keep the container
+    // in a well formed state.
+    aggregate.function->initializeNewGroups(
+        groups.data(),
+        folly::Range<const int32_t*>(iota(groups.size(), temp), groups.size()));
   }
 }
 

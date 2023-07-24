@@ -872,7 +872,8 @@ bool GroupingSet::getOutputWithSpill(
         false,
         false,
         false,
-        &pool_);
+        &pool_,
+        table_->rows()->stringAllocatorShared());
 
     initializeAggregates(aggregates_, *mergeRows_);
 
@@ -1063,6 +1064,7 @@ void GroupingSet::toIntermediate(
   if (intermediateRows_) {
     intermediateRows_->eraseRows(folly::Range<char**>(
         intermediateGroups_.data(), intermediateGroups_.size()));
+    intermediateRows_->stringAllocator().checkEmpty();
   }
   tempVectors_.clear();
 }

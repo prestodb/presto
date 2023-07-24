@@ -89,7 +89,10 @@ struct SetAccumulator {
     return index - offset;
   }
 
-  void free(HashStringAllocator& allocator) {}
+  void free(HashStringAllocator& allocator) {
+    using UT = decltype(uniqueValues);
+    uniqueValues.~UT();
+  }
 };
 
 /// Maintains a set of unique strings.
@@ -146,6 +149,8 @@ struct StringViewSetAccumulator {
 
   void free(HashStringAllocator& allocator) {
     strings.free(allocator);
+    using Base = decltype(base);
+    base.~Base();
   }
 };
 
@@ -214,6 +219,8 @@ struct ComplexTypeSetAccumulator {
 
   void free(HashStringAllocator& allocator) {
     values.free(allocator);
+    using Base = decltype(base);
+    base.~Base();
   }
 };
 
