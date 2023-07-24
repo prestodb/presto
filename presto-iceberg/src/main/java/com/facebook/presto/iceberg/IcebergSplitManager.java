@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.iceberg.changelog.ChangelogSplitSource;
+import com.facebook.presto.iceberg.changelog.ChangelogUtil;
 import com.facebook.presto.iceberg.samples.SampleUtil;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -23,6 +26,7 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
+import org.apache.iceberg.IncrementalChangelogScan;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.util.TableScanUtil;
@@ -35,6 +39,7 @@ import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpressio
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
+import static com.facebook.presto.iceberg.TableType.CHANGELOG;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -44,12 +49,14 @@ public class IcebergSplitManager
     private final HdfsEnvironment hdfsEnvironment;
     private final IcebergResourceFactory resourceFactory;
     private final CatalogType catalogType;
+    private final TypeManager typeManager;
 
     @Inject
     public IcebergSplitManager(
             IcebergConfig config,
             IcebergResourceFactory resourceFactory,
             IcebergTransactionManager transactionManager,
+            TypeManager typeManager,
             HdfsEnvironment hdfsEnvironment)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -57,6 +64,7 @@ public class IcebergSplitManager
         this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
         requireNonNull(config, "config is null");
         this.catalogType = config.getCatalogType();
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -85,17 +93,31 @@ public class IcebergSplitManager
             icebergTable = SampleUtil.getSampleTableFromActual(icebergTable, table.getSchemaName(), hdfsEnvironment, session);
         }
 
-        TableScan tableScan = icebergTable.newScan()
-                .filter(toIcebergExpression(table.getPredicate()))
-                .useSnapshot(table.getSnapshotId().get());
+        if (table.getTableType() == CHANGELOG) {
+            // TODO change this to calculate the correct id to scan from.
+            // this change only reads the diff between the current and immediate parent snapshot.
+            long fromSnap = Long.parseLong(icebergTable.properties().get(IcebergTableProperties.SAMPLE_TABLE_LAST_SNAPSHOT));
+            String primaryKeyColumnName = icebergTable.properties().get(IcebergTableProperties.SAMPLE_TABLE_PRIMARY_KEY);
+            // if the predicate is on the "primary_key" column, then we can add a predicate to the table
+            // scan. We need to convert the predicate to filter on the correct column name though.
+            IncrementalChangelogScan scan = icebergTable.newIncrementalChangelogScan()
+                    .filter(toIcebergExpression(ChangelogUtil.convertTupleDomain(table.getPredicate(), primaryKeyColumnName, icebergTable, typeManager)))
+                    .fromSnapshotExclusive(fromSnap);
+            return new ChangelogSplitSource(session, typeManager, icebergTable, scan, scan.targetSplitSize());
+        }
+        else {
+            TableScan tableScan = icebergTable.newScan()
+                    .filter(toIcebergExpression(table.getPredicate()))
+                    .useSnapshot(table.getSnapshotId().get());
 
-        // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
-        //      propagate it at split level so the parquet pushdown can leverage it.
-        IcebergSplitSource splitSource = new IcebergSplitSource(
-                session,
-                tableScan,
-                TableScanUtil.splitFiles(tableScan.planFiles(), tableScan.targetSplitSize()),
-                getMinimumAssignedSplitWeight(session));
-        return splitSource;
+            // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
+            //      propagate it at split level so the parquet pushdown can leverage it.
+            IcebergSplitSource splitSource = new IcebergSplitSource(
+                    session,
+                    tableScan,
+                    TableScanUtil.splitFiles(tableScan.planFiles(), tableScan.targetSplitSize()),
+                    getMinimumAssignedSplitWeight(session));
+            return splitSource;
+        }
     }
 }

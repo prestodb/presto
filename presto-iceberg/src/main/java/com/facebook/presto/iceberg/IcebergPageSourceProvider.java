@@ -35,6 +35,7 @@ import com.facebook.presto.hive.orc.HdfsOrcDataSource;
 import com.facebook.presto.hive.orc.OrcBatchPageSource;
 import com.facebook.presto.hive.orc.ProjectionBasedDwrfKeyProvider;
 import com.facebook.presto.hive.parquet.ParquetPageSource;
+import com.facebook.presto.iceberg.changelog.ChangelogPageSource;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
@@ -648,12 +649,20 @@ public class IcebergPageSourceProvider
             ConnectorSession session,
             ConnectorSplit connectorSplit,
             ConnectorTableLayoutHandle layout,
-            List<ColumnHandle> columns,
+            List<ColumnHandle> desiredColumns,
             SplitContext splitContext)
     {
         IcebergSplit split = (IcebergSplit) connectorSplit;
         IcebergTableLayoutHandle icebergLayout = (IcebergTableLayoutHandle) layout;
         IcebergTableHandle table = icebergLayout.getTable();
+
+        List<ColumnHandle> columns = desiredColumns;
+        if (split.getChangelogSplitInfo().isPresent()) {
+            // just ask for the entire set of columns from the original table
+            // TODO - only put the PK if it's in the desired columns list, otherwise this should
+            // be empty. This prevents additional data scanning
+            columns = (List<ColumnHandle>) (List<?>) split.getChangelogSplitInfo().get().getIcebergColumns();
+        }
 
         List<IcebergColumnHandle> icebergColumns = columns.stream()
                 .map(IcebergColumnHandle.class::cast)
@@ -680,7 +689,11 @@ public class IcebergPageSourceProvider
                 table.getPredicate(),
                 splitContext.isCacheable());
 
-        return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, session.getSqlFunctionProperties().getTimeZoneKey());
+        ConnectorPageSource dataSource = new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, session.getSqlFunctionProperties().getTimeZoneKey());
+        if (split.getChangelogSplitInfo().isPresent()) {
+            dataSource = new ChangelogPageSource(dataSource, split.getChangelogSplitInfo().get(), split, (List<IcebergColumnHandle>) (List<?>) desiredColumns, icebergColumns);
+        }
+        return dataSource;
     }
 
     private ConnectorPageSource createDataPageSource(

@@ -11,79 +11,93 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+package com.facebook.presto.iceberg.changelog;
 
-import com.facebook.presto.iceberg.delete.DeleteFile;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.iceberg.IcebergColumnHandle;
+import com.facebook.presto.iceberg.IcebergSplit;
+import com.facebook.presto.iceberg.IcebergTableProperties;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
-import org.apache.iceberg.FileScanTask;
-import org.apache.iceberg.TableScan;
-import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.AddedRowsScanTask;
+import org.apache.iceberg.ChangelogScanTask;
+import org.apache.iceberg.ContentScanTask;
+import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DeletedDataFileScanTask;
+import org.apache.iceberg.DeletedRowsScanTask;
+import org.apache.iceberg.IncrementalChangelogScan;
+import org.apache.iceberg.Table;
 import org.apache.iceberg.io.CloseableIterator;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getNodeSelectionStrategy;
+import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.limit;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
-public class IcebergSplitSource
+public class ChangelogSplitSource
         implements ConnectorSplitSource
 {
-    private CloseableIterable<FileScanTask> fileScanTaskIterable;
-    private CloseableIterator<FileScanTask> fileScanTaskIterator;
+    private CloseableIterator<ChangelogScanTask> fileScanTaskIterator;
 
-    private final TableScan tableScan;
+    private final Table table;
+    private final IncrementalChangelogScan tableScan;
     private final Closer closer = Closer.create();
     private final double minimumAssignedSplitWeight;
     private final ConnectorSession session;
+    private final List<IcebergColumnHandle> columnHandles;
 
-    public IcebergSplitSource(
+    public ChangelogSplitSource(
             ConnectorSession session,
-            TableScan tableScan,
-            CloseableIterable<FileScanTask> fileScanTaskIterable,
+            TypeManager typeManager,
+            Table table,
+            IncrementalChangelogScan tableScan,
             double minimumAssignedSplitWeight)
     {
         this.session = requireNonNull(session, "session is null");
+        this.columnHandles = getColumns(table.schema(), typeManager);
+        this.table = requireNonNull(table, "table is null");
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
-        this.fileScanTaskIterable = requireNonNull(fileScanTaskIterable, "combinedScanIterable is null");
-        this.fileScanTaskIterator = fileScanTaskIterable.iterator();
         this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
-        closer.register(fileScanTaskIterable);
+        this.fileScanTaskIterator = tableScan.planFiles().iterator();
         closer.register(fileScanTaskIterator);
-    }
-
-    @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
-    {
-        // TODO: move this to a background thread
-        List<ConnectorSplit> splits = new ArrayList<>();
-        Iterator<FileScanTask> iterator = limit(fileScanTaskIterator, maxSize);
-        while (iterator.hasNext()) {
-            FileScanTask task = iterator.next();
-            splits.add(toIcebergSplit(task));
-        }
-        return completedFuture(new ConnectorSplitBatch(splits, isFinished()));
     }
 
     @Override
     public boolean isFinished()
     {
         return !fileScanTaskIterator.hasNext();
+    }
+
+    @Override
+    public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+    {
+        List<ConnectorSplit> splits = new ArrayList<>();
+        Iterator<ChangelogScanTask> iterator = limit(fileScanTaskIterator, maxSize);
+        while (iterator.hasNext()) {
+            ChangelogScanTask task = iterator.next();
+            splits.add(toIcebergSplit(task));
+        }
+        return completedFuture(new ConnectorSplitBatch(splits, isFinished()));
     }
 
     @Override
@@ -97,13 +111,20 @@ public class IcebergSplitSource
         }
     }
 
-    private ConnectorSplit toIcebergSplit(FileScanTask task)
+    private ConnectorSplit toIcebergSplit(ChangelogScanTask task)
     {
-        // TODO: We should leverage residual expression and convert that to TupleDomain.
-        //       The predicate here is used by readers for predicate push down at reader level,
-        //       so when we do not use residual expression, we are just wasting CPU cycles
-        //       on reader side evaluating a condition that we know will always be true.
+        if (task instanceof AddedRowsScanTask || task instanceof DeletedRowsScanTask || task instanceof DeletedDataFileScanTask) {
+            ContentScanTask<DataFile> scanTask = (ContentScanTask<DataFile>) task;
+            return splitFromContentScanTask(scanTask, task);
+        }
+        else {
+            throw new PrestoException(ICEBERG_CANNOT_OPEN_SPLIT, "unsupported task type " + task.getClass().getCanonicalName());
+        }
+    }
 
+    private IcebergSplit splitFromContentScanTask(ContentScanTask<DataFile> task, ChangelogScanTask changeTask)
+    {
+        String primaryKeyColumnName = IcebergTableProperties.getSampleTablePrimaryKey((Map) table.properties());
         return new IcebergSplit(
                 task.file().path().toString(),
                 task.start(),
@@ -113,7 +134,11 @@ public class IcebergSplitSource
                 getPartitionKeys(task),
                 getNodeSelectionStrategy(session),
                 SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)),
-                task.deletes().stream().map(DeleteFile::fromIceberg).collect(toImmutableList()),
-                Optional.empty());
+                Collections.emptyList(),
+                Optional.of(new ChangelogSplitInfo(changeTask.operation(),
+                        changeTask.changeOrdinal(),
+                        changeTask.commitSnapshotId(),
+                        primaryKeyColumnName,
+                        columnHandles.stream().filter(x -> x.getName().equalsIgnoreCase(primaryKeyColumnName)).collect(Collectors.toList()))));
     }
 }

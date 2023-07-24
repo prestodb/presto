@@ -26,6 +26,7 @@ import java.util.Map;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.spi.session.PropertyMetadata.longProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Locale.ENGLISH;
@@ -36,6 +37,9 @@ public class IcebergTableProperties
     public static final String PARTITIONING_PROPERTY = "partitioning";
     public static final String LOCATION_PROPERTY = "location";
     public static final String FORMAT_VERSION = "format_version";
+
+    public static final String SAMPLE_TABLE_LAST_SNAPSHOT = "sample.last_snapshot_id";
+    public static final String SAMPLE_TABLE_PRIMARY_KEY = "sample.primary_key";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -73,6 +77,16 @@ public class IcebergTableProperties
                         "Format version for the table",
                         null,
                         false))
+                .add(longProperty(
+                        SAMPLE_TABLE_LAST_SNAPSHOT,
+                        "the last snapshot id of the table for which this sample was built",
+                        null,
+                        false))
+                .add(stringProperty(
+                        SAMPLE_TABLE_PRIMARY_KEY,
+                        "the primary key used to update sample rows",
+                        null,
+                        false))
                 .build();
     }
 
@@ -101,5 +115,15 @@ public class IcebergTableProperties
     public static String getFormatVersion(Map<String, Object> tableProperties)
     {
         return (String) tableProperties.get(FORMAT_VERSION);
+    }
+
+    public static long getSampleTableLastSnapshot(Map<String, Object> tableProperties)
+    {
+        return (long) tableProperties.get(SAMPLE_TABLE_LAST_SNAPSHOT);
+    }
+
+    public static String getSampleTablePrimaryKey(Map<String, Object> tableProperties)
+    {
+        return (String) tableProperties.get(SAMPLE_TABLE_PRIMARY_KEY);
     }
 }

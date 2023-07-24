@@ -34,18 +34,19 @@ import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.CatalogType.NESSIE;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
-import static com.facebook.presto.iceberg.samples.SampleUtil.SAMPLE_TABLE_ID;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static java.util.Objects.requireNonNull;
 
-public class DeleteSampleTableProcedure
+public class SetTablePropertyProcedure
         implements Provider<Procedure>
 {
-    private static final Logger LOG = Logger.get(DeleteSampleTableProcedure.class);
-    private static final MethodHandle DELETE_SAMPLE_TABLE = methodHandle(
-            DeleteSampleTableProcedure.class,
-            "deleteSampleTable",
+    private static final Logger LOG = Logger.get(SetTablePropertyProcedure.class);
+    private static final MethodHandle SET_TABLE_PROPERTY = methodHandle(
+            SetTablePropertyProcedure.class,
+            "setTableProperty",
             ConnectorSession.class,
+            String.class,
+            String.class,
             String.class,
             String.class);
 
@@ -55,7 +56,7 @@ public class DeleteSampleTableProcedure
     private final IcebergResourceFactory resourceFactory;
 
     @Inject
-    public DeleteSampleTableProcedure(
+    public SetTablePropertyProcedure(
             IcebergConfig config,
             IcebergMetadataFactory metadataFactory,
             HdfsEnvironment hdfsEnvironment,
@@ -72,11 +73,13 @@ public class DeleteSampleTableProcedure
     {
         return new Procedure(
                 "system",
-                "delete_sample_table",
+                "set_table_property",
                 ImmutableList.of(
                         new Procedure.Argument("schema", VARCHAR),
-                        new Procedure.Argument("table", VARCHAR)),
-                DELETE_SAMPLE_TABLE.bindTo(this));
+                        new Procedure.Argument("table", VARCHAR),
+                        new Procedure.Argument("key", VARCHAR),
+                        new Procedure.Argument("value", VARCHAR)),
+                SET_TABLE_PROPERTY.bindTo(this));
     }
 
     /**
@@ -87,26 +90,25 @@ public class DeleteSampleTableProcedure
      * @param schema the schema where the table exists
      * @param table the name of the table to sample from
      */
-    public void deleteSampleTable(ConnectorSession clientSession, String schema, String table)
+    public void setTableProperty(ConnectorSession clientSession, String schema, String table, String key, String value)
     {
-        SchemaTableName schemaTableName = new SchemaTableName(schema, table);
         ConnectorMetadata metadata = metadataFactory.create();
+        IcebergTableName tableName = IcebergTableName.from(table);
+        SchemaTableName schemaTableName = new SchemaTableName(schema, tableName.getTableName());
         Table icebergTable;
         CatalogType catalogType = config.getCatalogType();
-
         if (catalogType == HADOOP || catalogType == NESSIE) {
-            icebergTable = resourceFactory.getCatalog(clientSession).loadTable(toIcebergTableIdentifier(schema, table));
+            icebergTable = resourceFactory.getCatalog(clientSession).loadTable(toIcebergTableIdentifier(schema, tableName.getTableName()));
         }
         else {
             ExtendedHiveMetastore metastore = ((IcebergHiveMetadata) metadata).getMetastore();
             icebergTable = getHiveIcebergTable(metastore, hdfsEnvironment, clientSession, schemaTableName);
         }
-        try (SampleUtil.AutoCloseableCatalog c = SampleUtil.getCatalogForSampleTable(icebergTable, schema, hdfsEnvironment, clientSession)) {
-            c.dropTable(SAMPLE_TABLE_ID, true);
+        if (tableName.getTableType() == TableType.SAMPLES) {
+            icebergTable = SampleUtil.getSampleTableFromActual(icebergTable, schema, hdfsEnvironment, clientSession);
         }
         icebergTable.updateProperties()
-                .remove(IcebergTableProperties.SAMPLE_TABLE_PRIMARY_KEY)
-                .remove(IcebergTableProperties.SAMPLE_TABLE_LAST_SNAPSHOT)
+                .set(key, value)
                 .commit();
     }
 }

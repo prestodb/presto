@@ -15,12 +15,8 @@ package com.facebook.presto.iceberg.samples;
 
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.iceberg.IcebergHiveMetadata;
-import com.facebook.presto.iceberg.IcebergResourceFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.TableIdentifier;
@@ -31,7 +27,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
-import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static org.apache.iceberg.CatalogProperties.WAREHOUSE_LOCATION;
 
@@ -40,17 +35,6 @@ public class SampleUtil
     private SampleUtil() {}
 
     public static final TableIdentifier SAMPLE_TABLE_ID = toIcebergTableIdentifier("sample", "sample-table");
-
-    public static Table getNativeTable(ConnectorSession session, IcebergResourceFactory resourceFactory, SchemaTableName table)
-    {
-        return resourceFactory.getCatalog(session).loadTable(toIcebergTableIdentifier(table.getSchemaName(), table.getTableName()));
-    }
-
-    public static Table getHiveTable(ConnectorSession session, IcebergHiveMetadata metadata, HdfsEnvironment env, SchemaTableName table)
-    {
-        ExtendedHiveMetastore metastore = metadata.getMetastore();
-        return getHiveIcebergTable(metastore, env, session, table);
-    }
 
     public static AutoCloseableCatalog getCatalogForSampleTable(Table icebergSource, String prestoSchema, HdfsEnvironment env, ConnectorSession session)
     {
