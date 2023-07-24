@@ -13,7 +13,7 @@
  */
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "velox/exec/Exchange.h"
-#include "velox/serializers/UnsafeRowSerializer.h"
+#include "velox/serializers/CompactRowSerializer.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox;
@@ -39,7 +39,7 @@ class ShuffleReadOperator : public Exchange {
                 shuffleReadNode->outputType()),
             exchangeClient,
             "ShuffleRead"),
-        serde_(std::make_unique<serializer::spark::UnsafeRowVectorSerde>()) {}
+        serde_(std::make_unique<velox::serializer::CompactRowVectorSerde>()) {}
 
  protected:
   VectorSerde* getSerde() override {
@@ -47,7 +47,7 @@ class ShuffleReadOperator : public Exchange {
   }
 
  private:
-  std::unique_ptr<serializer::spark::UnsafeRowVectorSerde> serde_;
+  std::unique_ptr<velox::serializer::CompactRowVectorSerde> serde_;
 };
 } // namespace
 

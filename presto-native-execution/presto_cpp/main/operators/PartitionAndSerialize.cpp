@@ -14,7 +14,7 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include <folly/lang/Bits.h>
 #include "velox/exec/OperatorUtils.h"
-#include "velox/row/UnsafeRowFast.h"
+#include "velox/row/CompactRow.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox;
@@ -179,16 +179,16 @@ class PartitionAndSerializeOperator : public Operator {
     // Compute row sizes.
     rowSizes_.resize(numInput);
 
-    velox::row::UnsafeRowFast unsafeRow(reorderInputsIfNeeded());
+    velox::row::CompactRow compactRow(reorderInputsIfNeeded());
 
     size_t totalSize = 0;
     if (auto fixedRowSize =
-            unsafeRow.fixedRowSize(asRowType(serializedRowType_))) {
+            compactRow.fixedRowSize(asRowType(serializedRowType_))) {
       totalSize += fixedRowSize.value() * numInput;
       std::fill(rowSizes_.begin(), rowSizes_.end(), fixedRowSize.value());
     } else {
       for (auto i = 0; i < numInput; ++i) {
-        const size_t rowSize = unsafeRow.rowSize(i);
+        const size_t rowSize = compactRow.rowSize(i);
         rowSizes_[i] = rowSize;
         totalSize += rowSize;
       }
@@ -205,11 +205,12 @@ class PartitionAndSerializeOperator : public Operator {
     // Serialize rows.
     size_t offset = 0;
     for (auto i = 0; i < numInput; ++i) {
+      // Write row data.
+      auto size = compactRow.serialize(i, rawBuffer + offset);
+      VELOX_DCHECK_EQ(size, rowSizes_[i]);
+
       dataVector.setNoCopy(i, StringView(rawBuffer + offset, rowSizes_[i]));
 
-      // Write row data.
-      auto size = unsafeRow.serialize(i, rawBuffer + offset);
-      VELOX_DCHECK_EQ(size, rowSizes_[i]);
       offset += size;
     }
 
