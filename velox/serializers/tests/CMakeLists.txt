@@ -14,7 +14,7 @@
 add_executable(
   velox_presto_serializer_test
   PrestoOutputStreamListenerTest.cpp PrestoSerializerTest.cpp
-  UnsafeRowSerializerTest.cpp)
+  UnsafeRowSerializerTest.cpp CompactRowSerializerTest.cpp)
 
 add_test(velox_presto_serializer_test velox_presto_serializer_test)
 
