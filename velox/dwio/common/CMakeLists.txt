@@ -20,8 +20,6 @@ elseif(${VELOX_BUILD_TEST_UTILS})
   add_subdirectory(tests/utils)
 endif()
 
-include_directories(/opt/homebrew/opt/protobuf/include)
-
 add_library(
   velox_dwio_common
   BitConcatenation.cpp
@@ -53,6 +51,8 @@ add_library(
   TypeUtils.cpp
   TypeWithId.cpp
   WriterFactory.cpp)
+
+target_include_directories(velox_dwio_common PRIVATE ${Protobuf_INCLUDE_DIRS})
 
 target_link_libraries(
   velox_dwio_common
