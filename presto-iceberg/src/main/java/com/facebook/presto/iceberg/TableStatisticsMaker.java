@@ -184,7 +184,11 @@ public class TableStatisticsMaker
             catch (IllegalArgumentException | IllegalStateException e) {
                 // no snapshot exists before this time, use the first version of the sample table after the timestamp
                 try {
-                    return Optional.of(SnapshotUtil.oldestAncestorAfter(sampleTable, actualSnap.timestampMillis()).snapshotId());
+                    Snapshot nextSnapshot = SnapshotUtil.oldestAncestorAfter(sampleTable, actualSnap.timestampMillis());
+                    if (nextSnapshot != null) {
+                        return Optional.of(nextSnapshot.snapshotId());
+                    }
+                    return Optional.empty();
                 }
                 catch (IllegalArgumentException | IllegalStateException e2) {
                     LOG.warn("no sample table snapshots found before or after " + actualSnap.timestampMillis() + ". Did you create the samples table?", e);

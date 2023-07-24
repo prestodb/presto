@@ -14,15 +14,20 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.collect.Sets;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.iceberg.TableType.DATA;
 import static com.facebook.presto.iceberg.TableType.FILES;
+import static com.facebook.presto.iceberg.TableType.HISTORY;
 import static com.facebook.presto.iceberg.TableType.MANIFESTS;
 import static com.facebook.presto.iceberg.TableType.PARTITIONS;
+import static com.facebook.presto.iceberg.TableType.PROPERTIES;
+import static com.facebook.presto.iceberg.TableType.SNAPSHOTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
@@ -40,6 +45,8 @@ public class IcebergTableName
     private final TableType tableType;
     private final Optional<Long> snapshotId;
 
+    private static final Set<TableType> SYSTEM_TABLES = Sets.immutableEnumSet(FILES, MANIFESTS, PARTITIONS, HISTORY, SNAPSHOTS, PROPERTIES);
+
     public IcebergTableName(String tableName, TableType tableType, Optional<Long> snapshotId)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -55,6 +62,11 @@ public class IcebergTableName
     public TableType getTableType()
     {
         return tableType;
+    }
+
+    public boolean isSystemTable()
+    {
+        return SYSTEM_TABLES.contains(tableType);
     }
 
     public Optional<Long> getSnapshotId()

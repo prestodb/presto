@@ -163,6 +163,7 @@ public class IcebergModule
         procedures.addBinding().toProvider(RollbackToSnapshotProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(CreateSampleTableProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(DeleteSampleTableProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(SetTablePropertyProcedure.class).in(Scopes.SINGLETON);
 
         // for orc
         binder.bind(EncryptionLibrary.class).annotatedWith(HiveDwrfEncryptionProvider.ForCryptoService.class).to(UnsupportedEncryptionLibrary.class).in(Scopes.SINGLETON);
