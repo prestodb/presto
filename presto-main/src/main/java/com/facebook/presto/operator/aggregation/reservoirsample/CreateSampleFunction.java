@@ -4,6 +4,7 @@ import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -19,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
@@ -32,7 +34,7 @@ public class CreateSampleFunction
 
     public static final CreateSampleFunction RESERVOIR_SAMPLE = new CreateSampleFunction();
     private static final String NAME = "reservoir_sample";
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(CreateSampleFunction.class, "input", Type.class, ReservoirSampleState.class, Block.class, int.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(CreateSampleFunction.class, "input", Type.class, ReservoirSampleState.class, Block.class, int.class, long.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(CreateSampleFunction.class, "combine", Type.class, ReservoirSampleState.class, ReservoirSampleState.class);
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(CreateSampleFunction.class, "output", Type.class, ReservoirSampleState.class, BlockBuilder.class);
 
@@ -40,7 +42,7 @@ public class CreateSampleFunction
         super(NAME, ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
                 parseTypeSignature("array(T)"),
-                ImmutableList.of(parseTypeSignature("T")));
+                ImmutableList.of(parseTypeSignature("T"), parseTypeSignature(StandardTypes.BIGINT)));
     }
 
     @Override
@@ -53,7 +55,7 @@ public class CreateSampleFunction
         DynamicClassLoader classLoader = new DynamicClassLoader(CreateSampleFunction.class.getClassLoader());
         AccumulatorStateSerializer<?> stateSerializer = new ReservoirSampleStateSerializer(type);
         AccumulatorStateFactory<?> stateFactory = new ReservoirSampleStateFactory(type);
-        List<Type> inputTypes = ImmutableList.of(type);
+        List<Type> inputTypes = ImmutableList.of(type, BIGINT);
         Type outputType = new ArrayType(type);
         Type intermediateType = stateSerializer.getSerializedType();
         List<AggregationMetadata.ParameterMetadata> inputParameterMetadata = createInputParameterMetadata(type);
@@ -90,7 +92,11 @@ public class CreateSampleFunction
     }
 
     private static List<AggregationMetadata.ParameterMetadata> createInputParameterMetadata(Type type) {
-        return ImmutableList.of(new AggregationMetadata.ParameterMetadata(STATE), new AggregationMetadata.ParameterMetadata(BLOCK_INPUT_CHANNEL, type), new AggregationMetadata.ParameterMetadata(BLOCK_INDEX));
+        return ImmutableList.of(
+                new AggregationMetadata.ParameterMetadata(STATE),
+                new AggregationMetadata.ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, type),
+                new AggregationMetadata.ParameterMetadata(BLOCK_INDEX),
+                new AggregationMetadata.ParameterMetadata(INPUT_CHANNEL, BIGINT));
     }
 
     @Override
@@ -98,7 +104,10 @@ public class CreateSampleFunction
         return "return an array of values";
     }
 
-    public static void input(Type type, ReservoirSampleState state, Block value, int position) {
+    public static void input(Type type, ReservoirSampleState state, Block value, int position, long n) {
+        if (!state.isSampleInitialized()) {
+            state.initializeSample(n);
+        }
         state.add(value, position);
     }
 
