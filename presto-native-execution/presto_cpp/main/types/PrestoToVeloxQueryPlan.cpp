@@ -2458,6 +2458,17 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
           std::dynamic_pointer_cast<const protocol::MarkDistinctNode>(node)) {
     return toVeloxQueryPlan(markDistinct, tableWriteInfo, taskId);
   }
+  if (auto sampleNode =
+          std::dynamic_pointer_cast<const protocol::SampleNode>(node)) {
+    // SampleNode (used for System TABLESAMPLE) is a no-op at this layer.
+    // SYSTEM Tablesample is implemented by sampling when generating splits
+    // since it skips in units of logical segments of data.
+    // The sampled splits are correctly passed to the TableScanNode which
+    // is the source of this SampleNode.
+    // BERNOULLI sampling is implemented as a filter on the TableScan directly,
+    // and does not have the intermediate SampleNode.
+    return toVeloxQueryPlan(sampleNode->source, tableWriteInfo, taskId);
+  }
   VELOX_UNSUPPORTED("Unknown plan node type {}", node->_type);
 }
 
