@@ -278,7 +278,7 @@ class SystemConfig : public ConfigBase {
       "task-run-timeslice-micros"};
 
   static constexpr std::string_view kIncludeNodeInSpillPath{
-      "include_node_in_spill_path"};
+      "include-node-in-spill-path"};
 
   SystemConfig();
 
