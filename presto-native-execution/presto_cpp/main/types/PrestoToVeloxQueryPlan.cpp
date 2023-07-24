@@ -30,6 +30,7 @@
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include <velox/core/Expressions.h>
+#include "velox/common/compression/Compression.h"
 // clang-format on
 
 #include <folly/container/F14Set.h>
@@ -159,6 +160,26 @@ std::shared_ptr<connector::hive::LocationHandle> toLocationHandle(
       locationHandle.targetPath,
       locationHandle.writePath,
       toTableType(locationHandle.tableType));
+}
+
+velox::common::CompressionKind toFileCompressionKind(
+    const protocol::HiveCompressionCodec& hiveCompressionCodec) {
+  switch (hiveCompressionCodec) {
+    case protocol::HiveCompressionCodec::SNAPPY:
+      return velox::common::CompressionKind::CompressionKind_SNAPPY;
+    case protocol::HiveCompressionCodec::GZIP:
+      return velox::common::CompressionKind::CompressionKind_GZIP;
+    case protocol::HiveCompressionCodec::LZ4:
+      return velox::common::CompressionKind::CompressionKind_LZ4;
+    case protocol::HiveCompressionCodec::ZSTD:
+      return velox::common::CompressionKind::CompressionKind_ZSTD;
+    case protocol::HiveCompressionCodec::NONE:
+      return velox::common::CompressionKind::CompressionKind_NONE;
+    default:
+      VELOX_UNSUPPORTED(
+          "Unsupported file compression format: {}.",
+          toJsonString(hiveCompressionCodec));
+  }
 }
 
 dwio::common::FileFormat toFileFormat(
@@ -2054,7 +2075,9 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         toLocationHandle(hiveOutputTableHandle->locationHandle),
         toFileFormat(hiveOutputTableHandle->tableStorageFormat),
         toHiveBucketProperty(
-            inputColumns, hiveOutputTableHandle->bucketProperty));
+            inputColumns, hiveOutputTableHandle->bucketProperty),
+        std::optional(
+            toFileCompressionKind(hiveOutputTableHandle->compressionCodec)));
   } else if (
       auto insertHandle = std::dynamic_pointer_cast<protocol::InsertHandle>(
           tableWriteInfo->writerTarget)) {
@@ -2078,7 +2101,9 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         toLocationHandle(hiveInsertTableHandle->locationHandle),
         toFileFormat(hiveInsertTableHandle->tableStorageFormat),
         toHiveBucketProperty(
-            inputColumns, hiveInsertTableHandle->bucketProperty));
+            inputColumns, hiveInsertTableHandle->bucketProperty),
+        std::optional(
+            toFileCompressionKind(hiveInsertTableHandle->compressionCodec)));
   } else {
     VELOX_UNSUPPORTED(
         "Unsupported table writer handle: {}",
