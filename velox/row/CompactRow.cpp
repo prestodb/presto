@@ -149,7 +149,7 @@ int32_t CompactRow::serializeRow(vector_size_t index, char* buffer) {
     auto& child = children_[i];
 
     // Write fixed-width value.
-    if (childIsFixedWidth_[i]) {
+    if (childIsFixedWidth_[i] && child.valueBytes_ > 0) {
       child.serializeFixedWidth(childIndex, buffer + valuesOffset);
       valuesOffset += child.valueBytes_;
     }

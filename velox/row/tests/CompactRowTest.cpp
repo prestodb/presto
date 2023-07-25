@@ -60,11 +60,6 @@ class CompactRowTest : public ::testing::Test, public VectorTestBase {
     VELOX_CHECK_EQ(offset, totalSize);
 
     auto copy = CompactRow::deserialize(serialized, rowType, pool());
-
-    //    LOG(ERROR) << data->toString(0, 10);
-
-    //    LOG(ERROR) << copy->toString(0, 10);
-
     assertEqualVectors(data, copy);
   }
 };
@@ -501,8 +496,6 @@ TEST_F(CompactRowTest, fuzz) {
 
     fuzzer.reSeed(seed);
     auto data = fuzzer.fuzzInputRow(rowType);
-
-    //    LOG(ERROR) << data->toString(0, 10);
 
     testRoundTrip(data);
 
