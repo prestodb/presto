@@ -20,12 +20,12 @@ target_link_libraries(velox_example_simple_functions velox_functions_lib
 add_executable(velox_example_expression_eval ExpressionEval.cpp)
 
 target_link_libraries(velox_example_expression_eval velox_type velox_vector
-                      velox_memory velox_expression)
+                      velox_caching velox_memory velox_expression)
 
 add_executable(velox_example_opaque_type OpaqueType.cpp)
 
 target_link_libraries(velox_example_opaque_type velox_type velox_vector
-                      velox_expression velox_memory)
+                      velox_caching velox_expression velox_memory)
 
 # This is disabled temporarily until we figure out why g++ is crashing linking
 # it on linux builds.

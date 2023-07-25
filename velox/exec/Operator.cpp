@@ -54,7 +54,7 @@ OperatorCtx::createConnectorQueryCtx(
       driverCtx_->task->queryCtx()->getConnectorConfig(connectorId),
       std::make_unique<SimpleExpressionEvaluator>(
           execCtx()->queryCtx(), execCtx()->pool()),
-      driverCtx_->task->queryCtx()->allocator(),
+      driverCtx_->task->queryCtx()->cache(),
       driverCtx_->task->queryCtx()->queryId(),
       taskId(),
       planNodeId,

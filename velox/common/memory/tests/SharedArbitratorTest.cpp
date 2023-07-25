@@ -312,7 +312,7 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
         executor_.get(),
         std::unordered_map<std::string, std::string>{},
         configs,
-        memory::MemoryAllocator::getInstance(),
+        cache::AsyncDataCache::getInstance(),
         std::move(pool));
     return queryCtx;
   }

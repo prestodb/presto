@@ -52,7 +52,7 @@ class HiveConnector : public Connector {
         columnHandles,
         &fileHandleFactory_,
         connectorQueryCtx->expressionEvaluator(),
-        connectorQueryCtx->allocator(),
+        connectorQueryCtx->cache(),
         connectorQueryCtx->scanId(),
         HiveConfig::isFileColumnNamesReadAsLowerCase(
             connectorQueryCtx->config()),

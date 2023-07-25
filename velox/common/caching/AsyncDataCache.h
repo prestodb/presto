@@ -506,29 +506,35 @@ struct CacheStats {
 
   std::shared_ptr<SsdCacheStats> ssdStats = nullptr;
 };
-// Collection of cache entries whose key hashes to the same shard of
-// the hash number space.  The cache population is divided into shards
-// to decrease contention on the mutex for the key to entry mapping
-// and other housekeeping.
+
+/// Collection of cache entries whose key hashes to the same shard of
+/// the hash number space.  The cache population is divided into shards
+/// to decrease contention on the mutex for the key to entry mapping
+/// and other housekeeping.
 class CacheShard {
  public:
   explicit CacheShard(AsyncDataCache* FOLLY_NONNULL cache) : cache_(cache) {}
 
-  // See AsyncDataCache::findOrCreate.
+  /// See AsyncDataCache::findOrCreate.
   CachePin findOrCreate(
       RawFileCacheKey key,
       uint64_t size,
       folly::SemiFuture<bool>* readyFuture);
 
-  // Returns true if there is an entry for 'key'. Updates access time.
+  /// Returns true if there is an entry for 'key'. Updates access time.
   bool exists(RawFileCacheKey key) const;
 
-  AsyncDataCache* cache() {
+  AsyncDataCache* cache() const {
     return cache_;
   }
+
   std::mutex& mutex() {
     return mutex_;
   }
+
+  /// Release any resources that consume memory from this 'CacheShard' for a
+  /// graceful shutdown. The shard will no longer be valid after this call.
+  void prepareShutdown();
 
   // removes 'bytesToFree' worth of entries or as many entries as are
   // not pinned. This favors first removing older and less frequently
@@ -609,101 +615,63 @@ class CacheShard {
   std::atomic<uint64_t> allocClocks_;
 };
 
-class AsyncDataCache : public memory::MemoryAllocator {
+class AsyncDataCache : public memory::Cache {
  public:
-  // TODO(jtan6): Remove this constructor after Presto Native switches to below
-  // constructor
   AsyncDataCache(
-      const std::shared_ptr<memory::MemoryAllocator>& allocator,
-      uint64_t maxBytes,
+      memory::MemoryAllocator* allocator,
       std::unique_ptr<SsdCache> ssdCache = nullptr);
 
-  AsyncDataCache(
-      const std::shared_ptr<memory::MemoryAllocator>& allocator,
+  ~AsyncDataCache() override;
+
+  static std::shared_ptr<AsyncDataCache> create(
+      memory::MemoryAllocator* allocator,
       std::unique_ptr<SsdCache> ssdCache = nullptr);
 
-  // Finds or creates a cache entry corresponding to 'key'. The entry
-  // is returned in 'pin'. If the entry is new, it is pinned in
-  // exclusive mode and its 'data_' has uninitialized space for at
-  // least 'size' bytes. If the entry is in cache and already filled,
-  // the pin is in shared mode.  If the entry is in exclusive mode for
-  // some other pin, the pin is empty. If 'waitFuture' is not nullptr
-  // and the pin is exclusive on some other pin, this is set to a
-  // future that is realized when the pin is no longer exclusive. When
-  // the future is realized, the caller may retry findOrCreate().
-  // runtime error with code kNoCacheSpace if there is no space to create the
-  // new entry after evicting any unpinned content.
+  static AsyncDataCache* getInstance();
+
+  static void setInstance(AsyncDataCache* asyncDataCache);
+
+  /// Release any resources that consume memory from 'allocator_' for a graceful
+  /// shutdown. The cache will no longer be valid after this call.
+  void prepareShutdown();
+
+  /// Calls 'allocate' until this returns true. Returns true if
+  /// allocate returns true. and Tries to evict at least 'numPages' of
+  /// cache after each failed call to 'allocate'.  May pause to wait
+  /// for SSD cache flush if ''ssdCache_' is set and is busy
+  /// writing. Does random back-off after several failures and
+  /// eventually gives up. Allocation must not be serialized by a mutex
+  /// for memory arbitration to work.
+  bool makeSpace(
+      memory::MachinePageCount numPages,
+      std::function<bool()> allocate) override;
+
+  memory::MemoryAllocator* allocator() const override {
+    return allocator_;
+  }
+
+  /// Finds or creates a cache entry corresponding to 'key'. The entry
+  /// is returned in 'pin'. If the entry is new, it is pinned in
+  /// exclusive mode and its 'data_' has uninitialized space for at
+  /// least 'size' bytes. If the entry is in cache and already filled,
+  /// the pin is in shared mode.  If the entry is in exclusive mode for
+  /// some other pin, the pin is empty. If 'waitFuture' is not nullptr
+  /// and the pin is exclusive on some other pin, this is set to a
+  /// future that is realized when the pin is no longer exclusive. When
+  /// the future is realized, the caller may retry findOrCreate().
+  /// runtime error with code kNoCacheSpace if there is no space to create the
+  /// new entry after evicting any unpinned content.
   CachePin findOrCreate(
       RawFileCacheKey key,
       uint64_t size,
       folly::SemiFuture<bool>* waitFuture = nullptr);
 
-  // Returns true if there is an entry for 'key'. Updates access time.
+  /// Returns true if there is an entry for 'key'. Updates access time.
   bool exists(RawFileCacheKey key) const;
-
-  Kind kind() const override {
-    return allocator_->kind();
-  }
-
-  size_t capacity() const override {
-    return allocator_->capacity();
-  }
-
-  bool allocateNonContiguous(
-      memory::MachinePageCount numPages,
-      memory::Allocation& out,
-      ReservationCallback reservationCB = nullptr,
-      memory::MachinePageCount minSizeClass = 0) override;
-
-  int64_t freeNonContiguous(memory::Allocation& allocation) override {
-    return allocator_->freeNonContiguous(allocation);
-  }
-
-  bool allocateContiguous(
-      memory::MachinePageCount numPages,
-      memory::Allocation* FOLLY_NULLABLE collateral,
-      memory::ContiguousAllocation& allocation,
-      ReservationCallback reservationCB = nullptr,
-      memory::MachinePageCount maxPages = 0) override;
-
-  void freeContiguous(memory::ContiguousAllocation& allocation) override {
-    allocator_->freeContiguous(allocation);
-  }
-
-  bool growContiguous(
-      memory::MachinePageCount increment,
-      memory::ContiguousAllocation& allocation,
-      ReservationCallback reservationCB = nullptr) override;
-
-  void* allocateBytes(uint64_t bytes, uint16_t alignment) override;
-
-  void freeBytes(void* p, uint64_t size) noexcept override {
-    allocator_->freeBytes(p, size);
-  }
-
-  bool checkConsistency() const override {
-    return allocator_->checkConsistency();
-  }
-
-  const std::vector<memory::MachinePageCount>& sizeClasses() const override {
-    return allocator_->sizeClasses();
-  }
-
-  size_t totalUsedBytes() const override {
-    return allocator_->totalUsedBytes();
-  }
-
-  memory::MachinePageCount numAllocated() const override {
-    return allocator_->numAllocated();
-  }
-
-  memory::MachinePageCount numMapped() const override {
-    return allocator_->numMapped();
-  }
 
   CacheStats refreshStats() const;
 
-  std::string toString() const override;
+  std::string toString() const;
 
   memory::MachinePageCount incrementCachedPages(int64_t pages) {
     // The counter is unsigned and the increment is signed.
@@ -719,19 +687,19 @@ class AsyncDataCache : public memory::MemoryAllocator {
     return ssdCache_.get();
   }
 
-  // Updates stats for creation of a new cache entry of 'size' bytes,
-  // i.e. a cache miss. Periodically updates SSD admission criteria,
-  // i.e. reconsider criteria every half cache capacity worth of misses.
+  /// Updates stats for creation of a new cache entry of 'size' bytes,
+  /// i.e. a cache miss. Periodically updates SSD admission criteria,
+  /// i.e. reconsider criteria every half cache capacity worth of misses.
   void incrementNew(uint64_t size);
 
-  // Updates statistics after bringing in 'bytes' worth of data that
-  // qualifies for SSD save and is not backed by SSD. Periodically
-  // triggers a background write of eligible entries to SSD.
+  /// Updates statistics after bringing in 'bytes' worth of data that
+  /// qualifies for SSD save and is not backed by SSD. Periodically
+  /// triggers a background write of eligible entries to SSD.
   void possibleSsdSave(uint64_t bytes);
 
-  // Sets a callback applied to new entries at the point where
-  //  they are set to shared mode. Used for testing and can be used for
-  // e.g. checking checksums.
+  /// Sets a callback applied to new entries at the point where
+  ///  they are set to shared mode. Used for testing and can be used for
+  /// e.g. checking checksums.
   void setVerifyHook(std::function<void(const AsyncDataCacheEntry&)> hook) {
     verifyHook_ = hook;
   }
@@ -769,29 +737,16 @@ class AsyncDataCache : public memory::MemoryAllocator {
     return numSkippedSaves_;
   }
 
-  memory::Stats stats() const override {
-    return allocator_->stats();
-  }
-
  private:
   static constexpr int32_t kNumShards = 4; // Must be power of 2.
   static constexpr int32_t kShardMask = kNumShards - 1;
 
+  static AsyncDataCache** getInstancePtr();
+
   // Waits a pseudorandom delay times 'counter'.
   void backoff(int32_t counter);
 
-  // Calls 'allocate' until this returns true. Returns true if
-  // allocate returns true. and Tries to evict at least 'numPages' of
-  // cache after each failed call to 'allocate'.  May pause to wait
-  // for SSD cache flush if ''ssdCache_' is set and is busy
-  // writing. Does random back-off after several failures and
-  // eventually gives up. Allocation must not be serialized by a mutex
-  // for memory arbitration to work.
-  bool makeSpace(
-      memory::MachinePageCount numPages,
-      std::function<bool()> allocate);
-
-  std::shared_ptr<memory::MemoryAllocator> allocator_;
+  memory::MemoryAllocator* const allocator_;
   std::unique_ptr<SsdCache> ssdCache_;
   std::vector<std::unique_ptr<CacheShard>> shards_;
   std::atomic<int32_t> shardCounter_{0};

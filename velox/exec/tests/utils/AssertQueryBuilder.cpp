@@ -216,7 +216,7 @@ AssertQueryBuilder::readCursor() {
           executor_.get(),
           std::unordered_map<std::string, std::string>{},
           std::unordered_map<std::string, std::shared_ptr<Config>>{},
-          memory::MemoryAllocator::getInstance(),
+          cache::AsyncDataCache::getInstance(),
           nullptr,
           nullptr,
           fmt::format("TaskCursorQuery_{}", cursorQueryId++));

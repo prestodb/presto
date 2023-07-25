@@ -358,7 +358,7 @@ HiveDataSource::HiveDataSource(
         std::shared_ptr<connector::ColumnHandle>>& columnHandles,
     FileHandleFactory* fileHandleFactory,
     core::ExpressionEvaluator* expressionEvaluator,
-    memory::MemoryAllocator* allocator,
+    cache::AsyncDataCache* cache,
     const std::string& scanId,
     bool fileColumnNamesReadAsLowerCase,
     folly::Executor* executor,
@@ -368,7 +368,7 @@ HiveDataSource::HiveDataSource(
       pool_(&options.getMemoryPool()),
       outputType_(outputType),
       expressionEvaluator_(expressionEvaluator),
-      allocator_(allocator),
+      cache_(cache),
       scanId_(scanId),
       executor_(executor) {
   // Column handled keyed on the column alias, the name used in the query.
@@ -835,12 +835,12 @@ std::unique_ptr<dwio::common::BufferedInput>
 HiveDataSource::createBufferedInput(
     const FileHandle& fileHandle,
     const dwio::common::ReaderOptions& readerOpts) {
-  if (auto* asyncCache = dynamic_cast<cache::AsyncDataCache*>(allocator_)) {
+  if (cache_) {
     return std::make_unique<dwio::common::CachedBufferedInput>(
         fileHandle.file,
         dwio::common::MetricsLog::voidLog(),
         fileHandle.uuid.id(),
-        asyncCache,
+        cache_,
         Connector::getTracker(scanId_, readerOpts.loadQuantum()),
         fileHandle.groupId.id(),
         ioStats_,

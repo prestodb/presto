@@ -114,6 +114,9 @@ class CacheTest : public testing::Test {
     if (ssdCache) {
       ssdCache->deleteFiles();
     }
+    if (cache_) {
+      cache_->prepareShutdown();
+    }
   }
 
   void initializeCache(uint64_t maxBytes, uint64_t ssdBytes = 0) {
@@ -130,10 +133,8 @@ class CacheTest : public testing::Test {
     }
     memory::MmapAllocator::Options options;
     options.capacity = maxBytes;
-    cache_ = std::make_shared<AsyncDataCache>(
-        std::make_shared<memory::MmapAllocator>(options),
-        maxBytes,
-        std::move(ssd));
+    allocator_ = std::make_shared<memory::MmapAllocator>(options);
+    cache_ = AsyncDataCache::create(allocator_.get(), std::move(ssd));
     cache_->setVerifyHook(checkEntry);
     for (auto i = 0; i < kMaxStreams; ++i) {
       streamIds_.push_back(std::make_unique<dwrf::DwrfStreamIdentifier>(
@@ -424,6 +425,7 @@ class CacheTest : public testing::Test {
   folly::F14FastMap<uint64_t, std::shared_ptr<TestReadFile>> pathToInput_;
   std::shared_ptr<exec::test::TempDirectoryPath> tempDirectory_;
   cache::FileGroupStats* FOLLY_NULLABLE groupStats_ = nullptr;
+  std::shared_ptr<memory::MemoryAllocator> allocator_;
   std::shared_ptr<AsyncDataCache> cache_;
   std::shared_ptr<IoStatistics> ioStats_;
   std::unique_ptr<folly::IOThreadPoolExecutor> executor_;
@@ -471,7 +473,7 @@ TEST_F(CacheTest, window) {
   auto cacheInput = dynamic_cast<CacheInputStream*>(stream.get());
   EXPECT_TRUE(cacheInput != nullptr);
   auto maxSize =
-      cache_->sizeClasses().back() * memory::AllocationTraits::kPageSize;
+      allocator_->sizeClasses().back() * memory::AllocationTraits::kPageSize;
   const void* buffer;
   int32_t size;
   int32_t numRead = 0;

@@ -23,6 +23,7 @@ add_library(velox_core Expressions.cpp PlanFragment.cpp PlanNode.cpp
 
 target_link_libraries(
   velox_core
+  velox_caching
   velox_config
   velox_expression_functions
   velox_type

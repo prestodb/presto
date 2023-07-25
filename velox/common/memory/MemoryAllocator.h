@@ -139,6 +139,24 @@ struct Stats {
   int64_t numAdvise{0};
 };
 
+class MemoryAllocator;
+
+/// A general cache interface using 'MemroyAllocator' to allocate memory, that
+/// is also able to free up memory upon request by shrinking itself.
+class Cache {
+ public:
+  virtual ~Cache() = default;
+  /// This method should be implemented so that it tries to accommodate the
+  /// passed in 'allocate' by freeing up space from 'this' if needed. 'numPages'
+  /// is the number of pages 'allocate' tries to allocate.It should return true
+  /// if 'allocate' succeeds, and false otherwise.
+  virtual bool makeSpace(
+      memory::MachinePageCount numPages,
+      std::function<bool()> allocate) = 0;
+
+  virtual MemoryAllocator* allocator() const = 0;
+};
+
 /// This class provides interface for the actual memory allocations from memory
 /// pool. It allocates runs of machine pages from predefined size classes, and
 /// supports both contiguous and non-contiguous memory allocations. An
@@ -193,6 +211,11 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   /// the kind of the delegated memory allocator underneath.
   virtual Kind kind() const = 0;
 
+  /// Registers a 'Cache' that is used for freeing up space when this allocator
+  /// is under memory pressure. The allocator of registered 'Cache' needs to be
+  /// the same as 'this'.
+  virtual void registerCache(const std::shared_ptr<Cache>& cache) = 0;
+
   using ReservationCallback = std::function<void(int64_t, bool)>;
 
   /// Returns the capacity of the allocator in bytes.
@@ -210,18 +233,20 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   /// 'reservationCB' before the actual memory allocation so it needs to release
   /// the reservation if the actual allocation fails halfway. The function
   /// returns true if the allocation succeeded. If it returns false, 'out'
-  /// references no memory and any partially allocated memory is freed.
+  /// references no memory and any partially allocated memory is freed. The
+  /// function might retry allocation failure by making space from 'cache()' if
+  /// registered. But sufficient space is not guaranteed.
   ///
   /// NOTE:
   ///  - 'out' is guaranteed to be freed if it's not empty.
   ///  - Allocation is not guaranteed even if collateral 'out' is larger than
   ///    'numPages', because this method is not atomic.
   ///  - Throws if allocation exceeds capacity.
-  virtual bool allocateNonContiguous(
+  bool allocateNonContiguous(
       MachinePageCount numPages,
       Allocation& out,
       ReservationCallback reservationCB = nullptr,
-      MachinePageCount minSizeClass = 0) = 0;
+      MachinePageCount minSizeClass = 0);
 
   /// Frees non-contiguous 'allocation'. 'allocation' is empty on return. The
   /// function returns the actual freed bytes.
@@ -241,19 +266,18 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   /// cleared.
   ///
   /// NOTE: - 'collateral' and passed in 'allocation' are guaranteed
-  /// to be freed.  If 'maxPages' is non-0, 'maxPages' worth of
-  /// address space is mapped but the utilization in the allocator and
-  /// pool is incremented by 'numPages'. This allows reserving
-  /// a large range of addresses for use with huge pages without
-  /// declaring the whole range as held by the query. The reservation
-  /// will be increased as and if addresses in the range are used. See
-  /// growContiguous().
-  virtual bool allocateContiguous(
+  /// to be freed. If 'maxPages' is non-0, 'maxPages' worth of address space is
+  /// mapped but the utilization in the allocator and pool is incremented by
+  /// 'numPages'. This allows reserving a large range of addresses for use with
+  /// huge pages without declaring the whole range as held by the query. The
+  /// reservation will be increased as and if addresses in the range are used.
+  /// See growContiguous().
+  bool allocateContiguous(
       MachinePageCount numPages,
       Allocation* collateral,
       ContiguousAllocation& allocation,
       ReservationCallback reservationCB = nullptr,
-      MachinePageCount maxPages = 0) = 0;
+      MachinePageCount maxPages = 0);
 
   /// Frees contiguous 'allocation'. 'allocation' is empty on return.
   virtual void freeContiguous(ContiguousAllocation& allocation) = 0;
@@ -262,24 +286,26 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   /// 'increment'. false if would exceed capacity, Throws if size
   /// would exceed maxSize given in allocateContiguous(). Calls reservationCB
   /// before increasing the utilization and returns false with no effect if this
-  /// fails.
-  virtual bool growContiguous(
+  /// fails. The function might retry allocation failure by making
+  /// space from 'cache()' if registered. But sufficient space is not guaranteed
+  bool growContiguous(
       MachinePageCount increment,
       ContiguousAllocation& allocation,
-      ReservationCallback reservationCB = nullptr) = 0;
+      ReservationCallback reservationCB = nullptr);
 
   /// Allocates contiguous 'bytes' and return the first byte. Returns nullptr if
-  /// there is no space.
+  /// there is no space. The function might retry allocation failure by making
+  /// space from 'cache()' if registered. But sufficient space is not
+  /// guaranteed.
   ///
   /// NOTE: 'alignment' must be power of two and in range of
   /// [kMinAlignment, kMaxAlignment].
-  virtual void* allocateBytes(
-      uint64_t bytes,
-      uint16_t alignment = kMinAlignment) = 0;
+  void* allocateBytes(uint64_t bytes, uint16_t alignment = kMinAlignment);
 
   /// Allocates a zero-filled contiguous bytes. Returns nullptr if there is no
-  /// space
-  virtual void* allocateZeroFilled(uint64_t bytes);
+  /// space. The function might retry allocation failure by making space from
+  /// 'cache()' if registered. But sufficient space is not guaranteed.
+  void* allocateZeroFilled(uint64_t bytes);
 
   /// Frees contiguous memory allocated by allocateBytes, allocateZeroFilled,
   /// reallocateBytes.
@@ -306,7 +332,7 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   virtual MachinePageCount numMapped() const = 0;
 
   virtual Stats stats() const {
-    return Stats();
+    return stats_;
   }
 
   virtual std::string toString() const = 0;
@@ -356,7 +382,38 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   }
 
  protected:
-  MemoryAllocator() = default;
+  explicit MemoryAllocator() = default;
+
+  /// The actual memory allocation function implementation without retry
+  /// attempts by making space from cache.
+  virtual bool allocateContiguousWithoutRetry(
+      MachinePageCount numPages,
+      Allocation* collateral,
+      ContiguousAllocation& allocation,
+      ReservationCallback reservationCB = nullptr,
+      MachinePageCount maxPages = 0) = 0;
+
+  virtual bool allocateNonContiguousWithoutRetry(
+      MachinePageCount numPages,
+      Allocation& out,
+      ReservationCallback reservationCB,
+      MachinePageCount minSizeClass) = 0;
+
+  virtual void* allocateBytesWithoutRetry(
+      uint64_t bytes,
+      uint16_t alignment) = 0;
+
+  virtual void* allocateZeroFilledWithoutRetry(uint64_t bytes);
+
+  virtual bool growContiguousWithoutRetry(
+      MachinePageCount increment,
+      ContiguousAllocation& allocation,
+      ReservationCallback reservationCB = nullptr) = 0;
+
+  // 'Cache' getter. The cache is only responsible for freeing up memory space
+  // by shrinking itself when there is not enough space upon allocating. The
+  // free of space is not guaranteed.
+  virtual Cache* cache() const = 0;
 
   // Returns the size class size that corresponds to 'bytes'.
   static MachinePageCount roundUpToSizeClassSize(
@@ -421,6 +478,8 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   // NOTE: this is only used for testing purpose.
   InjectedFailure injectedFailure_{InjectedFailure::kNone};
   bool isPersistentFailureInjection_{false};
+
+  Stats stats_;
 
  private:
   static std::mutex initMutex_;

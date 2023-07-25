@@ -33,9 +33,6 @@ using namespace facebook::velox::common::testutil;
 
 namespace facebook::velox::exec::test {
 
-// static
-std::shared_ptr<cache::AsyncDataCache> OperatorTestBase::asyncDataCache_;
-
 OperatorTestBase::OperatorTestBase() {
   using memory::MemoryAllocator;
   facebook::velox::exec::ExchangeSource::registerFactory();
@@ -51,29 +48,34 @@ OperatorTestBase::~OperatorTestBase() {
   memory::MemoryAllocator::setDefaultInstance(nullptr);
 }
 
+void OperatorTestBase::SetUpTestCase() {
+  functions::prestosql::registerAllScalarFunctions();
+  aggregate::prestosql::registerAllAggregateFunctions();
+  TestValue::enable();
+}
+
 void OperatorTestBase::TearDownTestCase() {
   Task::testingWaitForAllTasksToBeDeleted();
 }
 
 void OperatorTestBase::SetUp() {
-  // Sets the process default MemoryAllocator to an async cache of up
-  // to 4GB backed by a default MemoryAllocator
-  if (!asyncDataCache_) {
-    asyncDataCache_ = std::make_shared<cache::AsyncDataCache>(
-        memory::MemoryAllocator::createDefaultInstance(), 4UL << 30);
-  }
-  memory::MemoryAllocator::setDefaultInstance(asyncDataCache_.get());
   if (!isRegisteredVectorSerde()) {
     this->registerVectorSerde();
   }
   driverExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(3);
   ioExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(3);
+  allocator_ = memory::MemoryAllocator::createDefaultInstance();
+  if (!asyncDataCache_) {
+    asyncDataCache_ = cache::AsyncDataCache::create(allocator_.get());
+    cache::AsyncDataCache::setInstance(asyncDataCache_.get());
+  }
+  memory::MemoryAllocator::setDefaultInstance(allocator_.get());
 }
 
-void OperatorTestBase::SetUpTestCase() {
-  functions::prestosql::registerAllScalarFunctions();
-  aggregate::prestosql::registerAllAggregateFunctions();
-  TestValue::enable();
+void OperatorTestBase::TearDown() {
+  if (asyncDataCache_ != nullptr) {
+    asyncDataCache_->prepareShutdown();
+  }
 }
 
 std::shared_ptr<Task> OperatorTestBase::assertQuery(

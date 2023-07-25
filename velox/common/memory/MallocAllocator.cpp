@@ -23,7 +23,7 @@ namespace facebook::velox::memory {
 MallocAllocator::MallocAllocator(size_t capacity)
     : kind_(MemoryAllocator::Kind::kMalloc), capacity_(capacity) {}
 
-bool MallocAllocator::allocateNonContiguous(
+bool MallocAllocator::allocateNonContiguousWithoutRetry(
     MachinePageCount numPages,
     Allocation& out,
     ReservationCallback reservationCB,
@@ -107,6 +107,20 @@ bool MallocAllocator::allocateNonContiguous(
   // Successfully allocated all pages.
   numAllocated_.fetch_add(mix.totalPages);
   return true;
+}
+
+bool MallocAllocator::allocateContiguousWithoutRetry(
+    MachinePageCount numPages,
+    Allocation* collateral,
+    ContiguousAllocation& allocation,
+    ReservationCallback reservationCB,
+    MachinePageCount maxPages) {
+  bool result;
+  stats_.recordAllocate(AllocationTraits::pageBytes(numPages), 1, [&]() {
+    result = allocateContiguousImpl(
+        numPages, collateral, allocation, reservationCB, maxPages);
+  });
+  return result;
 }
 
 bool MallocAllocator::allocateContiguousImpl(
@@ -216,6 +230,11 @@ int64_t MallocAllocator::freeNonContiguous(Allocation& allocation) {
   return freedBytes;
 }
 
+void MallocAllocator::freeContiguous(ContiguousAllocation& allocation) {
+  stats_.recordFree(
+      allocation.size(), [&]() { freeContiguousImpl(allocation); });
+}
+
 void MallocAllocator::freeContiguousImpl(ContiguousAllocation& allocation) {
   if (allocation.empty()) {
     return;
@@ -233,7 +252,7 @@ void MallocAllocator::freeContiguousImpl(ContiguousAllocation& allocation) {
   allocation.clear();
 }
 
-bool MallocAllocator::growContiguous(
+bool MallocAllocator::growContiguousWithoutRetry(
     MachinePageCount increment,
     ContiguousAllocation& allocation,
     ReservationCallback reservationCB) {
@@ -259,7 +278,9 @@ bool MallocAllocator::growContiguous(
   return true;
 }
 
-void* MallocAllocator::allocateBytes(uint64_t bytes, uint16_t alignment) {
+void* MallocAllocator::allocateBytesWithoutRetry(
+    uint64_t bytes,
+    uint16_t alignment) {
   if (!incrementUsage(bytes)) {
     return nullptr;
   }
@@ -279,7 +300,7 @@ void* MallocAllocator::allocateBytes(uint64_t bytes, uint16_t alignment) {
   return result;
 }
 
-void* MallocAllocator::allocateZeroFilled(uint64_t bytes) {
+void* MallocAllocator::allocateZeroFilledWithoutRetry(uint64_t bytes) {
   if (!incrementUsage(bytes)) {
     return nullptr;
   }

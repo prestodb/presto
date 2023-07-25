@@ -51,7 +51,7 @@ MmapAllocator::~MmapAllocator() {
       (numAllocated_ == 0) && (numExternalMapped_ == 0), "{}", toString());
 }
 
-bool MmapAllocator::allocateNonContiguous(
+bool MmapAllocator::allocateNonContiguousWithoutRetry(
     MachinePageCount numPages,
     Allocation& out,
     ReservationCallback reservationCB,
@@ -211,6 +211,20 @@ MachinePageCount MmapAllocator::freeInternal(Allocation& allocation) {
   return numFreed;
 }
 
+bool MmapAllocator::allocateContiguousWithoutRetry(
+    MachinePageCount numPages,
+    Allocation* collateral,
+    ContiguousAllocation& allocation,
+    ReservationCallback reservationCB,
+    MachinePageCount maxPages) {
+  bool result;
+  stats_.recordAllocate(AllocationTraits::pageBytes(numPages), 1, [&]() {
+    result = allocateContiguousImpl(
+        numPages, collateral, allocation, reservationCB, maxPages);
+  });
+  return result;
+}
+
 bool MmapAllocator::allocateContiguousImpl(
     MachinePageCount numPages,
     Allocation* collateral,
@@ -364,6 +378,11 @@ bool MmapAllocator::allocateContiguousImpl(
   return true;
 }
 
+void MmapAllocator::freeContiguous(ContiguousAllocation& allocation) {
+  stats_.recordFree(
+      allocation.size(), [&]() { freeContiguousImpl(allocation); });
+}
+
 void MmapAllocator::freeContiguousImpl(ContiguousAllocation& allocation) {
   if (allocation.empty()) {
     return;
@@ -384,7 +403,7 @@ void MmapAllocator::freeContiguousImpl(ContiguousAllocation& allocation) {
   allocation.clear();
 }
 
-bool MmapAllocator::growContiguous(
+bool MmapAllocator::growContiguousWithoutRetry(
     MachinePageCount increment,
     ContiguousAllocation& allocation,
     ReservationCallback reservationCB) {
@@ -430,7 +449,9 @@ bool MmapAllocator::growContiguous(
   return true;
 }
 
-void* MmapAllocator::allocateBytes(uint64_t bytes, uint16_t alignment) {
+void* MmapAllocator::allocateBytesWithoutRetry(
+    uint64_t bytes,
+    uint16_t alignment) {
   alignmentCheck(bytes, alignment);
 
   if (useMalloc(bytes)) {
@@ -448,7 +469,8 @@ void* MmapAllocator::allocateBytes(uint64_t bytes, uint16_t alignment) {
   if (bytes <= AllocationTraits::pageBytes(sizeClassSizes_.back())) {
     Allocation allocation;
     const auto numPages = roundUpToSizeClassSize(bytes, sizeClassSizes_);
-    if (!allocateNonContiguous(numPages, allocation, nullptr, numPages)) {
+    if (!allocateNonContiguousWithoutRetry(
+            numPages, allocation, nullptr, numPages)) {
       return nullptr;
     }
     auto run = allocation.runAt(0);
@@ -463,7 +485,7 @@ void* MmapAllocator::allocateBytes(uint64_t bytes, uint16_t alignment) {
   ContiguousAllocation allocation;
   auto numPages = bits::roundUp(bytes, AllocationTraits::kPageSize) /
       AllocationTraits::kPageSize;
-  if (!allocateContiguous(numPages, nullptr, allocation)) {
+  if (!allocateContiguousWithoutRetry(numPages, nullptr, allocation)) {
     return nullptr;
   }
 

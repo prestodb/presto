@@ -37,6 +37,8 @@ class OperatorTestBase : public testing::Test,
 
   void SetUp() override;
 
+  void TearDown() override;
+
   /// Allow base classes to register custom vector serde.
   /// By default, registers Presto-compatible serde.
   virtual void registerVectorSerde();
@@ -139,8 +141,11 @@ class OperatorTestBase : public testing::Test,
  protected:
   DuckDbQueryRunner duckDbQueryRunner_;
 
-  // Used as default MappedMemory. Created on first use.
-  static std::shared_ptr<cache::AsyncDataCache> asyncDataCache_;
+  // Used as default MemoryAllocator.
+  std::shared_ptr<memory::MemoryAllocator> allocator_;
+
+  // Used as default AsyncDataCache.
+  std::shared_ptr<cache::AsyncDataCache> asyncDataCache_;
 
   // Used for driver thread execution.
   std::unique_ptr<folly::CPUThreadPoolExecutor> driverExecutor_;

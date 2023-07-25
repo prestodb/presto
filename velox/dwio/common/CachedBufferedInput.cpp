@@ -87,8 +87,9 @@ bool CachedBufferedInput::shouldPreload(int32_t numPages) {
         memory::AllocationTraits::kPageSize;
   }
   auto cachePages = cache_->incrementCachedPages(0);
-  auto maxPages = memory::AllocationTraits::numPages(cache_->capacity());
-  auto allocatedPages = cache_->numAllocated();
+  auto allocator = cache_->allocator();
+  auto maxPages = memory::AllocationTraits::numPages(allocator->capacity());
+  auto allocatedPages = allocator->numAllocated();
   if (numPages < maxPages - allocatedPages) {
     // There is free space for the read-ahead.
     return true;

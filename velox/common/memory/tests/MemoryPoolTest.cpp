@@ -88,18 +88,16 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
       MmapAllocator::Options opts{8UL << 30};
       allocator_ = std::make_shared<MmapAllocator>(opts);
       if (useCache_) {
-        cache_ =
-            std::make_shared<AsyncDataCache>(allocator_, kCapacity, nullptr);
-        MemoryAllocator::setDefaultInstance(cache_.get());
+        cache_ = AsyncDataCache::create(allocator_.get());
+        MemoryAllocator::setDefaultInstance(allocator_.get());
       } else {
         MemoryAllocator::setDefaultInstance(allocator_.get());
       }
     } else {
       allocator_ = MemoryAllocator::createDefaultInstance();
       if (useCache_) {
-        cache_ =
-            std::make_shared<AsyncDataCache>(allocator_, kCapacity, nullptr);
-        MemoryAllocator::setDefaultInstance(cache_.get());
+        cache_ = AsyncDataCache::create(allocator_.get());
+        MemoryAllocator::setDefaultInstance(allocator_.get());
       } else {
         MemoryAllocator::setDefaultInstance(allocator_.get());
       }
@@ -111,6 +109,9 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
   }
 
   void TearDown() override {
+    if (useCache_) {
+      cache_->prepareShutdown();
+    }
     allocator_->testingClearFailureInjection();
     MmapAllocator::setDefaultInstance(nullptr);
   }
