@@ -70,7 +70,7 @@ public class PrestoNativeQueryRunnerUtils
             checkArgument(dataDirectory.isPresent(), "Path to data files must be specified when testing external workers");
         }
 
-        QueryRunner defaultQueryRunner = createJavaQueryRunner(dataDirectory, storageFormat);
+        QueryRunner defaultQueryRunner = createJavaQueryRunner(dataDirectory, storageFormat, false);
 
         if (!prestoServerPath.isPresent()) {
             return defaultQueryRunner;
@@ -78,27 +78,27 @@ public class PrestoNativeQueryRunnerUtils
 
         defaultQueryRunner.close();
 
-        return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, storageFormat);
+        return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, storageFormat, false);
     }
 
     public static QueryRunner createJavaQueryRunner() throws Exception
     {
-        return createJavaQueryRunner(DEFAULT_STORAGE_FORMAT);
+        return createJavaQueryRunner(DEFAULT_STORAGE_FORMAT, false);
     }
 
-    public static QueryRunner createJavaQueryRunner(String storageFormat) throws Exception
+    public static QueryRunner createJavaQueryRunner(String storageFormat, boolean generateHudiData) throws Exception
     {
         String dataDirectory = System.getProperty("DATA_DIR");
-        return createJavaQueryRunner(Optional.of(Paths.get(dataDirectory)), storageFormat);
+        return createJavaQueryRunner(Optional.of(Paths.get(dataDirectory)), storageFormat, generateHudiData);
     }
 
-    public static QueryRunner createJavaQueryRunner(Optional<Path> dataDirectory, String storageFormat)
+    public static QueryRunner createJavaQueryRunner(Optional<Path> dataDirectory, String storageFormat, boolean generateHudiData)
             throws Exception
     {
-        return createJavaQueryRunner(dataDirectory, "sql-standard", storageFormat);
+        return createJavaQueryRunner(dataDirectory, "sql-standard", storageFormat, generateHudiData);
     }
 
-    public static QueryRunner createJavaQueryRunner(Optional<Path> baseDataDirectory, String security, String storageFormat)
+    public static QueryRunner createJavaQueryRunner(Optional<Path> baseDataDirectory, String security, String storageFormat, boolean generateHudiData)
             throws Exception
     {
         ImmutableMap.Builder<String, String> hivePropertiesBuilder = new ImmutableMap.Builder<>();
@@ -110,7 +110,8 @@ public class PrestoNativeQueryRunnerUtils
             hivePropertiesBuilder.put("hive.allow-drop-table", "true");
         }
 
-        Optional<Path> dataDirectory = baseDataDirectory.map(path -> Paths.get(path.toString() + '/' + storageFormat));
+        Optional<Path> dataDirectory = generateHudiData ? baseDataDirectory.map(path -> Paths.get(path.toString() + "/java/" + storageFormat)) :
+                baseDataDirectory.map(path -> Paths.get(path.toString() + '/' + storageFormat));
         DistributedQueryRunner queryRunner =
                 HiveQueryRunner.createQueryRunner(
                         ImmutableList.of(),
@@ -130,7 +131,8 @@ public class PrestoNativeQueryRunnerUtils
             Optional<Integer> workerCount,
             int cacheMaxSize,
             boolean useThrift,
-            String storageFormat)
+            String storageFormat,
+            boolean generateHudiData)
             throws Exception
     {
         // Make query runner with external workers for tests
@@ -202,7 +204,8 @@ public class PrestoNativeQueryRunnerUtils
                     catch (IOException e) {
                         throw new UncheckedIOException(e);
                     }
-                }));
+                }),
+                generateHudiData);
     }
 
     public static QueryRunner createNativeQueryRunner(boolean useThrift)
@@ -211,7 +214,7 @@ public class PrestoNativeQueryRunnerUtils
         return createNativeQueryRunner(useThrift, DEFAULT_STORAGE_FORMAT);
     }
 
-    public static QueryRunner createNativeQueryRunner(boolean useThrift, String storageFormat)
+    public static QueryRunner createNativeQueryRunner(boolean useThrift, String storageFormat, boolean generateHudiData)
             throws Exception
     {
         String prestoServerPath = System.getProperty("PRESTO_SERVER");
@@ -222,6 +225,12 @@ public class PrestoNativeQueryRunnerUtils
         assertNotNull(prestoServerPath, "Native worker binary path is missing. Add -DPRESTO_SERVER=<path/to/presto_server> to your JVM arguments.");
         assertNotNull(dataDirectory, "Data directory path is missing. Add -DDATA_DIR=<path/to/data> to your JVM arguments.");
 
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(dataDirectory, prestoServerPath, Optional.ofNullable(workerCount).map(Integer::parseInt), cacheMaxSize, useThrift, storageFormat);
+        return createNativeQueryRunner(dataDirectory, prestoServerPath, Optional.ofNullable(workerCount).map(Integer::parseInt), cacheMaxSize, useThrift, storageFormat, generateHudiData);
+    }
+
+    public static QueryRunner createNativeQueryRunner(boolean useThrift, String storageFormat)
+            throws Exception
+    {
+        return createNativeQueryRunner(useThrift, storageFormat, false);
     }
 }

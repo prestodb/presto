@@ -167,7 +167,7 @@ public class PrestoSparkNativeQueryRunnerUtils
     public static QueryRunner createJavaQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner(Optional.of(getBaseDataPath()), "legacy", DEFAULT_STORAGE_FORMAT);
+        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner(Optional.of(getBaseDataPath()), "legacy", DEFAULT_STORAGE_FORMAT, false);
     }
 
     public static void assertShuffleMetadata()
