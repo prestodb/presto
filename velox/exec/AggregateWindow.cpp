@@ -35,10 +35,13 @@ class AggregateWindowFunction : public exec::WindowFunction {
       const std::string& name,
       const std::vector<exec::WindowFunctionArg>& args,
       const TypePtr& resultType,
+      bool ignoreNulls,
       velox::memory::MemoryPool* pool,
       HashStringAllocator* stringAllocator,
       const core::QueryConfig& config)
       : WindowFunction(resultType, pool, stringAllocator) {
+    VELOX_USER_CHECK(
+        !ignoreNulls, "Aggregate window functions do not support IGNORE NULLS");
     argTypes_.reserve(args.size());
     argIndices_.reserve(args.size());
     argVectors_.reserve(args.size());
@@ -391,13 +394,19 @@ void registerAggregateWindowFunction(const std::string& name) {
         [name](
             const std::vector<exec::WindowFunctionArg>& args,
             const TypePtr& resultType,
-            bool /*ignoreNulls*/,
+            bool ignoreNulls,
             velox::memory::MemoryPool* pool,
             HashStringAllocator* stringAllocator,
             const core::QueryConfig& config)
             -> std::unique_ptr<exec::WindowFunction> {
           return std::make_unique<AggregateWindowFunction>(
-              name, args, resultType, pool, stringAllocator, config);
+              name,
+              args,
+              resultType,
+              ignoreNulls,
+              pool,
+              stringAllocator,
+              config);
         });
   }
 }
