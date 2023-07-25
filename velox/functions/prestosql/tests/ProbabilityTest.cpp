@@ -221,5 +221,20 @@ TEST_F(ProbabilityTest, invBetaCDF) {
   VELOX_ASSERT_THROW(invBetaCDF(3, 5, 1.1), "p must be in the interval [0, 1]");
 }
 
+TEST_F(ProbabilityTest, chiSquaredCDF) {
+  const auto chiSquaredCDF = [&](std::optional<double> df,
+                                 std::optional<double> value) {
+    return evaluateOnce<double>("chi_squared_cdf(c0, c1)", df, value);
+  };
+
+  EXPECT_EQ(chiSquaredCDF(3, 0.0), 0.0);
+  EXPECT_EQ(chiSquaredCDF(3, 1.0), 0.1987480430987992);
+  EXPECT_EQ(chiSquaredCDF(3, 2.5), 0.52470891665697938);
+  EXPECT_EQ(chiSquaredCDF(3, 4), 0.73853587005088939);
+  // Invalid inputs
+  VELOX_ASSERT_THROW(chiSquaredCDF(-3, 0.3), "df must be greater than 0");
+  VELOX_ASSERT_THROW(chiSquaredCDF(3, -10), "value must non-negative");
+}
+
 } // namespace
 } // namespace facebook::velox

@@ -18,6 +18,7 @@
 #include "boost/math/distributions/beta.hpp"
 #include "boost/math/distributions/binomial.hpp"
 #include "boost/math/distributions/cauchy.hpp"
+#include "boost/math/distributions/chi_squared.hpp"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/Macros.h"
 
@@ -133,6 +134,19 @@ struct InverseBetaCDFFunction {
 
     boost::math::beta_distribution<> dist(a, b);
     result = boost::math::quantile(dist, p);
+  }
+};
+
+template <typename T>
+struct ChiSquaredCDFFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(double& result, double df, double value) {
+    VELOX_USER_CHECK_GT(df, 0, "df must be greater than 0");
+    VELOX_USER_CHECK_GE(value, 0, "value must non-negative");
+
+    boost::math::chi_squared_distribution<> dist(df);
+    result = boost::math::cdf(dist, value);
   }
 };
 
