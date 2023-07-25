@@ -201,11 +201,16 @@ TEST_F(StringTest, Ascii) {
 }
 
 TEST_F(StringTest, Chr) {
-  EXPECT_EQ(chr(0), std::string("\0", 1));
-  EXPECT_EQ(chr(32), " ");
   EXPECT_EQ(chr(-16), "");
-  EXPECT_EQ(chr(256), std::string("\0", 1));
-  EXPECT_EQ(chr(256 + 32), std::string(" ", 1));
+  EXPECT_EQ(chr(0), std::string("\0", 1));
+  EXPECT_EQ(chr(0x100), std::string("\0", 1));
+  EXPECT_EQ(chr(0x1100), std::string("\0", 1));
+  EXPECT_EQ(chr(0x20), "\x20");
+  EXPECT_EQ(chr(0x100 + 0x20), "\x20");
+  EXPECT_EQ(chr(0x80), "\xC2\x80");
+  EXPECT_EQ(chr(0x100 + 0x80), "\xC2\x80");
+  EXPECT_EQ(chr(0xFF), "\xC3\xBF");
+  EXPECT_EQ(chr(0x100 + 0xFF), "\xC3\xBF");
   EXPECT_EQ(chr(std::nullopt), std::nullopt);
 }
 

@@ -81,18 +81,29 @@ struct AsciiFunction {
   }
 };
 
+/// chr function
+/// chr(n) -> string
+/// Returns the Unicode code point ``n`` as a single character string.
+/// If ``n < 0``, the result is an empty string.
+/// If ``n >= 256``, the result is equivalent to chr(``n % 256``).
 template <typename T>
 struct ChrFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool call(out_type<Varchar>& result, int64_t ord) {
-    if (ord < 0) {
+  FOLLY_ALWAYS_INLINE void call(out_type<Varchar>& result, int64_t n) {
+    if (n < 0) {
       result.resize(0);
     } else {
-      result.resize(1);
-      *result.data() = ord;
+      n = n & 0xFF;
+      if (n < 0x80) {
+        result.resize(1);
+        result.data()[0] = n;
+      } else {
+        result.resize(2);
+        result.data()[0] = 0xC0 + (n >> 6);
+        result.data()[1] = 0x80 + (n & 0x3F);
+      }
     }
-    return true;
   }
 };
 
