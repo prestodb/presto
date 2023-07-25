@@ -185,23 +185,6 @@ pipeline {
                     }
                 }
 
-                stage('Docker Native Build') {
-                    steps {
-                        echo "Building ${DOCKER_NATIVE_IMAGE}"
-                        withCredentials([[
-                                $class:            'AmazonWebServicesCredentialsBinding',
-                                credentialsId:     "${AWS_CREDENTIAL_ID}",
-                                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                            sh '''#!/bin/bash -ex
-                                aws ecr get-login-password | docker login --username AWS --password-stdin ${AWS_ECR}
-                                docker buildx build -f Dockerfile-native --load --platform "linux/amd64" -t "${DOCKER_NATIVE_IMAGE}-amd64" \
-                                    --build-arg "PRESTO_VERSION=${PRESTO_VERSION}" .
-                            '''
-                        }
-                    }
-                }
-
                 stage('Publish Docker') {
                     when {
                         anyOf {
