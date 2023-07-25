@@ -19,6 +19,7 @@
 #include "velox/expression/Expr.h"
 #include "velox/vector/VectorSaver.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 namespace facebook::velox::test {
 
@@ -41,6 +42,15 @@ void logRowVector(const RowVectorPtr& rowVector) {
     }
   }
 }
+namespace {
+auto createCopy(const VectorPtr& input) {
+  VectorPtr result;
+  SelectivityVector rows(input->size());
+  BaseVector::ensureWritable(rows, input->type(), input->pool(), result);
+  result->copy(input.get(), rows, nullptr);
+  return result;
+}
+} // namespace
 
 void compareVectors(
     const VectorPtr& left,
@@ -147,9 +157,13 @@ ResultOrError ExpressionVerifier::verify(
       LOG(INFO) << "Modified inputs for common eval path: ";
       logRowVector(inputRowVector);
     }
-    exec::EvalCtx evalCtxCommon(execCtx_, &exprSetCommon, inputRowVector.get());
 
+    auto copy = createCopy(inputRowVector);
+
+    exec::EvalCtx evalCtxCommon(execCtx_, &exprSetCommon, inputRowVector.get());
     exprSetCommon.eval(rows, evalCtxCommon, commonEvalResult);
+    assertEqualVectors(copy, inputRowVector);
+
   } catch (const VeloxUserError&) {
     if (!canThrow) {
       LOG(ERROR)
@@ -175,7 +189,10 @@ ResultOrError ExpressionVerifier::verify(
     exec::EvalCtx evalCtxSimplified(
         execCtx_, &exprSetSimplified, rowVector.get());
 
+    auto copy = createCopy(rowVector);
     exprSetSimplified.eval(rows, evalCtxSimplified, simplifiedEvalResult);
+    assertEqualVectors(copy, rowVector);
+
   } catch (const VeloxUserError&) {
     exceptionSimplifiedPtr = std::current_exception();
   } catch (...) {
