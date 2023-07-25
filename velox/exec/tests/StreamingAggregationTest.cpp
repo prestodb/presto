@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/SumNonPODAggregate.h"
@@ -25,18 +26,6 @@ class StreamingAggregationTest : public OperatorTestBase {
   void SetUp() override {
     OperatorTestBase::SetUp();
     registerSumNonPODAggregate("sumnonpod", 64);
-  }
-
-  CursorParameters makeCursorParameters(
-      const std::shared_ptr<const core::PlanNode>& planNode,
-      uint32_t preferredOutputBatchSize) {
-    CursorParameters params;
-    params.planNode = planNode;
-    params.queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-    params.queryCtx->testingOverrideConfigUnsafe(
-        {{core::QueryConfig::kPreferredOutputBatchRows,
-          std::to_string(preferredOutputBatchSize)}});
-    return params;
   }
 
   void testAggregation(
@@ -67,11 +56,14 @@ class StreamingAggregationTest : public OperatorTestBase {
                     .finalAggregation()
                     .planNode();
 
-    assertQuery(
-        makeCursorParameters(plan, outputBatchSize),
-        "SELECT c0, count(1), min(c1), max(c1), sum(c1), sum(1)"
-        "     , approx_quantile(c1, 0.95) "
-        "FROM tmp GROUP BY 1");
+    AssertQueryBuilder(plan, duckDbQueryRunner_)
+        .config(
+            core::QueryConfig::kPreferredOutputBatchRows,
+            std::to_string(outputBatchSize))
+        .assertResults(
+            "SELECT c0, count(1), min(c1), max(c1), sum(c1), sum(1)"
+            "     , approx_quantile(c1, 0.95) "
+            "FROM tmp GROUP BY 1");
 
     EXPECT_EQ(NonPODInt64::constructed, NonPODInt64::destructed);
 
@@ -85,9 +77,12 @@ class StreamingAggregationTest : public OperatorTestBase {
             .finalAggregation()
             .planNode();
 
-    assertQuery(
-        makeCursorParameters(plan, outputBatchSize),
-        "SELECT c0, count(1), min(c1), max(c1), sum(c1), sum(1) FROM tmp GROUP BY 1");
+    AssertQueryBuilder(plan, duckDbQueryRunner_)
+        .config(
+            core::QueryConfig::kPreferredOutputBatchRows,
+            std::to_string(outputBatchSize))
+        .assertResults(
+            "SELECT c0, count(1), min(c1), max(c1), sum(c1), sum(1) FROM tmp GROUP BY 1");
 
     EXPECT_EQ(NonPODInt64::constructed, NonPODInt64::destructed);
 
@@ -103,11 +98,14 @@ class StreamingAggregationTest : public OperatorTestBase {
                .finalAggregation()
                .planNode();
 
-    assertQuery(
-        makeCursorParameters(plan, outputBatchSize),
-        "SELECT c0, count(1), min(c1) filter (where c1 % 7 = 0), "
-        "max(c1) filter (where c1 % 11 = 0), sum(c1) filter (where c1 % 7 = 0) "
-        "FROM tmp GROUP BY 1");
+    AssertQueryBuilder(plan, duckDbQueryRunner_)
+        .config(
+            core::QueryConfig::kPreferredOutputBatchRows,
+            std::to_string(outputBatchSize))
+        .assertResults(
+            "SELECT c0, count(1), min(c1) filter (where c1 % 7 = 0), "
+            "max(c1) filter (where c1 % 11 = 0), sum(c1) filter (where c1 % 7 = 0) "
+            "FROM tmp GROUP BY 1");
   }
 
   std::vector<RowVectorPtr> addPayload(const std::vector<RowVectorPtr>& keys) {
@@ -168,12 +166,23 @@ class StreamingAggregationTest : public OperatorTestBase {
       keySql << ", c" << i;
     }
 
-    assertQuery(
-        makeCursorParameters(plan, outputBatchSize),
-        fmt::format(
-            "SELECT {}, count(1), min(c1), max(c1), sum(c1), sum(1) FROM tmp GROUP BY {}",
-            keySql.str(),
-            keySql.str()));
+    const auto sql = fmt::format(
+        "SELECT {}, count(1), min(c1), max(c1), sum(c1), sum(1) FROM tmp GROUP BY {}",
+        keySql.str(),
+        keySql.str());
+
+    AssertQueryBuilder(plan, duckDbQueryRunner_)
+        .config(
+            core::QueryConfig::kPreferredOutputBatchRows,
+            std::to_string(outputBatchSize))
+        .assertResults(sql);
+
+    EXPECT_EQ(NonPODInt64::constructed, NonPODInt64::destructed);
+
+    // Force partial aggregation flush after every batch of input.
+    AssertQueryBuilder(plan, duckDbQueryRunner_)
+        .config(core::QueryConfig::kMaxPartialAggregationMemory, "0")
+        .assertResults(sql);
 
     EXPECT_EQ(NonPODInt64::constructed, NonPODInt64::destructed);
   }

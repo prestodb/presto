@@ -637,9 +637,6 @@ bool GroupingSet::getOutput(
     if (table_) {
       table_->clear();
     }
-    if (remainingInput_) {
-      addRemainingInput();
-    }
     return false;
   }
   extractGroups(folly::Range<char**>(groups, numGroups), result);
