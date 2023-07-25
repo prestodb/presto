@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <folly/compression/Compression.h>
 #include <string>
 
 namespace facebook::velox::common {
@@ -30,6 +31,10 @@ enum CompressionKind {
   CompressionKind_GZIP = 6,
   CompressionKind_MAX = INT64_MAX
 };
+
+std::unique_ptr<folly::io::Codec> compressionKindToCodec(CompressionKind kind);
+
+CompressionKind codecTypeToCompressionKind(folly::io::CodecType type);
 
 /**
  * Get the name of the CompressionKind.

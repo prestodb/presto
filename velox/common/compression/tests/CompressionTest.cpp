@@ -24,7 +24,7 @@ using namespace facebook::velox::common;
 
 class CompressionTest : public testing::Test {};
 
-TEST(CompressionTest, testCompressionNames) {
+TEST_F(CompressionTest, testCompressionNames) {
   EXPECT_EQ("none", compressionKindToString(CompressionKind_NONE));
   EXPECT_EQ("zlib", compressionKindToString(CompressionKind_ZLIB));
   EXPECT_EQ("snappy", compressionKindToString(CompressionKind_SNAPPY));
@@ -34,4 +34,16 @@ TEST(CompressionTest, testCompressionNames) {
   EXPECT_EQ(
       "unknown - 99",
       compressionKindToString(static_cast<CompressionKind>(99)));
+}
+
+TEST_F(CompressionTest, compressionKindToCodec) {
+  ASSERT_EQ(
+      folly::io::CodecType::NO_COMPRESSION,
+      compressionKindToCodec(CompressionKind::CompressionKind_NONE)->type());
+  ASSERT_EQ(
+      folly::io::CodecType::LZ4,
+      compressionKindToCodec(CompressionKind::CompressionKind_LZ4)->type());
+  EXPECT_THROW(
+      compressionKindToCodec(CompressionKind::CompressionKind_LZO),
+      facebook::velox::VeloxException);
 }

@@ -27,7 +27,9 @@ namespace facebook::velox::exec {
 // nanosecond precision, we use this serde option to ensure the serializer
 // preserves precision.
 static const serializer::presto::PrestoVectorSerde::PrestoOptions
-    kDefaultSerdeOptions(/*useLosslessTimestamp*/ true);
+    kDefaultSerdeOptions(
+        /*useLosslessTimestamp*/ true,
+        common::CompressionKind::CompressionKind_NONE);
 
 std::atomic<int32_t> SpillFile::ordinalCounter_;
 

@@ -15,10 +15,46 @@
  */
 
 #include "velox/common/compression/Compression.h"
+#include "velox/common/base/Exceptions.h"
 
 #include <folly/Conv.h>
 
 namespace facebook::velox::common {
+
+std::unique_ptr<folly::io::Codec> compressionKindToCodec(CompressionKind kind) {
+  switch (static_cast<int32_t>(kind)) {
+    case CompressionKind_NONE:
+      return getCodec(folly::io::CodecType::NO_COMPRESSION);
+    case CompressionKind_ZLIB:
+      return getCodec(folly::io::CodecType::ZLIB);
+    case CompressionKind_SNAPPY:
+      return getCodec(folly::io::CodecType::SNAPPY);
+    case CompressionKind_ZSTD:
+      return getCodec(folly::io::CodecType::ZSTD);
+    case CompressionKind_LZ4:
+      return getCodec(folly::io::CodecType::LZ4);
+    default:
+      VELOX_UNSUPPORTED(
+          "Not support {} in folly", compressionKindToString(kind));
+  }
+}
+
+CompressionKind codecTypeToCompressionKind(folly::io::CodecType type) {
+  switch (type) {
+    case folly::io::CodecType::NO_COMPRESSION:
+      return CompressionKind_NONE;
+    case folly::io::CodecType::ZLIB:
+      return CompressionKind_ZLIB;
+    case folly::io::CodecType::SNAPPY:
+      return CompressionKind_SNAPPY;
+    case folly::io::CodecType::ZSTD:
+      return CompressionKind_ZSTD;
+    case folly::io::CodecType::LZ4:
+      return CompressionKind_LZ4;
+    default:
+      VELOX_UNSUPPORTED("Not support folly codec type {}", type);
+  }
+}
 
 std::string compressionKindToString(CompressionKind kind) {
   switch (static_cast<int32_t>(kind)) {
