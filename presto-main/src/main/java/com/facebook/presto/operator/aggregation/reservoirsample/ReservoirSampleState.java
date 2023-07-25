@@ -27,41 +27,71 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class ReservoirSampleState implements AccumulatorState {
-
+public class ReservoirSampleState
+        implements AccumulatorState
+{
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ReservoirSampleState.class).instanceSize();
+    private final Type type;
     //    private BlockBuilder blockBuilder;
     private Block[] samples;
-    private final Type type;
     private int seenCount;
     private boolean isEmpty = true;
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ReservoirSampleState.class).instanceSize();
+    private boolean sampleInitialized;
 
-    private boolean sampleInitialized = false;
-
-    public ReservoirSampleState(Type type) {
+    public ReservoirSampleState(Type type)
+    {
         this.type = requireNonNull(type, "type is null");
     }
 
-    public ReservoirSampleState(ReservoirSampleState other) {
+    public ReservoirSampleState(ReservoirSampleState other)
+    {
         this.type = other.type;
         this.seenCount = other.seenCount;
         this.samples = Arrays.copyOf(requireNonNull(other.samples, "samples is null"), other.samples.length);
     }
 
-    public void initializeSample(long n) {
+    private static Block[] mergeBlockSamples(Block[] samples1, Block[] samples2, int seenCount1, int seenCount2)
+    {
+        int nextIndex = 0;
+        int otherNextIndex = 0;
+        Block[] merged = new Block[samples1.length];
+        for (int i = 0; i < samples1.length; i++) {
+            if (ThreadLocalRandom.current().nextLong(0, seenCount1 + seenCount2) < seenCount1) {
+                merged[i] = samples1[nextIndex++];
+            }
+            else {
+                merged[i] = samples2[otherNextIndex++];
+            }
+        }
+        return merged;
+    }
+
+    private static void shuffleBlockArray(Block[] samples)
+    {
+        for (int i = samples.length - 1; i > 0; i--) {
+            int index = ThreadLocalRandom.current().nextInt(0, i + 1);
+            Block sample = samples[index];
+            samples[index] = samples[i];
+            samples[i] = sample;
+        }
+    }
+
+    public void initializeSample(long n)
+    {
         samples = new Block[(int) n];
         sampleInitialized = true;
     }
 
-    public int getSampleSize() {
+    public int getSampleSize()
+    {
         if (isSampleInitialized()) {
             return samples.length;
         }
         return 0;
-
     }
 
-    public void add(Block block, int position) {
+    public void add(Block block, int position)
+    {
         isEmpty = false;
         seenCount++;
         int sampleSize = getSampleSize();
@@ -69,7 +99,8 @@ public class ReservoirSampleState implements AccumulatorState {
             BlockBuilder sampleBlock = type.createBlockBuilder(null, 16);
             type.appendTo(block, position, sampleBlock);
             samples[seenCount - 1] = sampleBlock.build();
-        } else {
+        }
+        else {
             int index = ThreadLocalRandom.current().nextInt(0, seenCount);
             if (index < samples.length) {
                 BlockBuilder sampleBlock = type.createBlockBuilder(null, 16);
@@ -79,12 +110,14 @@ public class ReservoirSampleState implements AccumulatorState {
         }
     }
 
-    private void addSingleBlock(Block block) {
+    private void addSingleBlock(Block block)
+    {
         seenCount++;
         int sampleSize = getSampleSize();
         if (seenCount <= sampleSize) {
             samples[seenCount - 1] = block;
-        } else {
+        }
+        else {
             int index = ThreadLocalRandom.current().nextInt(0, seenCount);
             if (index < samples.length) {
                 samples[index] = block;
@@ -92,7 +125,8 @@ public class ReservoirSampleState implements AccumulatorState {
         }
     }
 
-    public void merge(ReservoirSampleState other) {
+    public void merge(ReservoirSampleState other)
+    {
         if (!sampleInitialized) {
             initializeSample(other.samples.length);
         }
@@ -119,57 +153,40 @@ public class ReservoirSampleState implements AccumulatorState {
         seenCount += other.seenCount;
     }
 
-    private static Block[] mergeBlockSamples(Block[] samples1, Block[] samples2, int seenCount1, int seenCount2) {
-        int nextIndex = 0;
-        int otherNextIndex = 0;
-        Block[] merged = new Block[samples1.length];
-        for (int i = 0; i < samples1.length; i++) {
-            if (ThreadLocalRandom.current().nextLong(0, seenCount1 + seenCount2) < seenCount1) {
-                merged[i] = samples1[nextIndex++];
-            } else {
-                merged[i] = samples2[otherNextIndex++];
-            }
-        }
-        return merged;
-    }
-
-    private static void shuffleBlockArray(Block[] samples) {
-        for (int i = samples.length - 1; i > 0; i--) {
-            int index = ThreadLocalRandom.current().nextInt(0, i + 1);
-            Block sample = samples[index];
-            samples[index] = samples[i];
-            samples[i] = sample;
-        }
-    }
-
-    public ReservoirSampleState clone() {
+    public ReservoirSampleState clone()
+    {
         return new ReservoirSampleState(this);
     }
 
-
-    public Type getType() {
+    public Type getType()
+    {
         return type;
     }
 
-    public Block[] getSamples() {
+    public Block[] getSamples()
+    {
         return samples;
     }
 
-    public void reset(int size) {
+    public void reset(int size)
+    {
         initializeSample(size);
         seenCount = 0;
     }
 
-    public boolean isEmpty() {
+    public boolean isEmpty()
+    {
         return isEmpty;
     }
 
-    public boolean isSampleInitialized() {
+    public boolean isSampleInitialized()
+    {
         return sampleInitialized;
     }
 
     @Override
-    public long getEstimatedSize() {
+    public long getEstimatedSize()
+    {
         return INSTANCE_SIZE + SizeOf.sizeOf(samples);
     }
 }

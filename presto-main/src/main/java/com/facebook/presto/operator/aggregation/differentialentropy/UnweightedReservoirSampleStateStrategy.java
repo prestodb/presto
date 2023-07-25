@@ -54,7 +54,8 @@ public class UnweightedReservoirSampleStateStrategy
         this.reservoir = reservoir;
     }
 
-    public UnweightedDoubleReservoirSample getReservoir() {
+    public UnweightedDoubleReservoirSample getReservoir()
+    {
         return reservoir;
     }
 
