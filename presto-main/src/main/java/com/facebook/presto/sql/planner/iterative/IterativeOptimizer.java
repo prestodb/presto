@@ -23,6 +23,7 @@ import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Match;
 import com.facebook.presto.matching.Matcher;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
@@ -30,12 +31,14 @@ import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -55,6 +58,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class IterativeOptimizer
         implements PlanOptimizer
 {
+    private final Metadata metadata;
     private final RuleStatsRecorder stats;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
@@ -62,23 +66,24 @@ public class IterativeOptimizer
     private final RuleIndex ruleIndex;
     private final Optional<LogicalPropertiesProvider> logicalPropertiesProvider;
 
-    public IterativeOptimizer(RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
+    public IterativeOptimizer(Metadata metadata, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
     {
-        this(stats, statsCalculator, costCalculator, ImmutableList.of(), Optional.empty(), rules);
+        this(metadata, stats, statsCalculator, costCalculator, ImmutableList.of(), Optional.empty(), rules);
     }
 
-    public IterativeOptimizer(RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Optional<LogicalPropertiesProvider> logicalPropertiesProvider, Set<Rule<?>> rules)
+    public IterativeOptimizer(Metadata metadata, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Optional<LogicalPropertiesProvider> logicalPropertiesProvider, Set<Rule<?>> rules)
     {
-        this(stats, statsCalculator, costCalculator, ImmutableList.of(), logicalPropertiesProvider, rules);
+        this(metadata, stats, statsCalculator, costCalculator, ImmutableList.of(), logicalPropertiesProvider, rules);
     }
 
-    public IterativeOptimizer(RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
+    public IterativeOptimizer(Metadata metadata, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
     {
-        this(stats, statsCalculator, costCalculator, legacyRules, Optional.empty(), newRules);
+        this(metadata, stats, statsCalculator, costCalculator, legacyRules, Optional.empty(), newRules);
     }
 
-    public IterativeOptimizer(RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, List<PlanOptimizer> legacyRules, Optional<LogicalPropertiesProvider> logicalPropertiesProvider, Set<Rule<?>> newRules)
+    public IterativeOptimizer(Metadata metadata, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, List<PlanOptimizer> legacyRules, Optional<LogicalPropertiesProvider> logicalPropertiesProvider, Set<Rule<?>> newRules)
     {
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
@@ -122,7 +127,7 @@ public class IterativeOptimizer
                 session,
                 TypeProvider.viewOf(variableAllocator.getVariables()));
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session);
-        Context context = new Context(memo, lookup, idAllocator, variableAllocator, System.nanoTime(), timeout.toMillis(), session, warningCollector, costProvider, statsProvider);
+        Context context = new Context(memo, lookup, idAllocator, variableAllocator, System.nanoTime(), timeout.toMillis(), session, warningCollector, costProvider, statsProvider, metadata, types);
         boolean planChanged = exploreGroup(memo.getRootGroup(), context, matcher);
         context.collectOptimizerInformation();
         if (!planChanged) {
@@ -188,8 +193,8 @@ public class IterativeOptimizer
                             transformedNode = transformedNode.assignStatsEquivalentPlanNode(node.getStatsEquivalentPlanNode());
                         }
                     }
+                    context.addRulesTriggered(rule.getClass().getSimpleName(), node, transformedNode);
                     node = context.memo.replace(group, transformedNode, rule.getClass().getName());
-                    context.addRulesTriggered(rule.getClass().getSimpleName());
 
                     done = false;
                     progress = true;
@@ -315,6 +320,35 @@ public class IterativeOptimizer
         };
     }
 
+    private static class RuleTriggered
+    {
+        private final String rule;
+        private final Optional<String> oldNode;
+        private final Optional<String> newNode;
+
+        public RuleTriggered(String rule, Optional<String> oldNode, Optional<String> newNode)
+        {
+            this.rule = requireNonNull(rule, "rule is null");
+            this.oldNode = requireNonNull(oldNode, "oldNode is null");
+            this.newNode = requireNonNull(newNode, "newNode is null");
+        }
+
+        public String getRule()
+        {
+            return rule;
+        }
+
+        public Optional<String> getOldNode()
+        {
+            return oldNode;
+        }
+
+        public Optional<String> getNewNode()
+        {
+            return newNode;
+        }
+    }
+
     private static class Context
     {
         private final Memo memo;
@@ -327,8 +361,10 @@ public class IterativeOptimizer
         private final WarningCollector warningCollector;
         private final CostProvider costProvider;
         private final StatsProvider statsProvider;
-        private final Set<String> rulesTriggered;
+        private final List<RuleTriggered> rulesTriggered;
         private final Set<String> rulesApplicable;
+        private final Metadata metadata;
+        private final TypeProvider types;
 
         public Context(
                 Memo memo,
@@ -340,7 +376,9 @@ public class IterativeOptimizer
                 Session session,
                 WarningCollector warningCollector,
                 CostProvider costProvider,
-                StatsProvider statsProvider)
+                StatsProvider statsProvider,
+                Metadata metadata,
+                TypeProvider types)
         {
             checkArgument(timeoutInMilliseconds >= 0, "Timeout has to be a non-negative number [milliseconds]");
 
@@ -354,7 +392,9 @@ public class IterativeOptimizer
             this.warningCollector = warningCollector;
             this.costProvider = costProvider;
             this.statsProvider = statsProvider;
-            this.rulesTriggered = new HashSet<>();
+            this.metadata = metadata;
+            this.types = types;
+            this.rulesTriggered = new ArrayList<>();
             this.rulesApplicable = new HashSet<>();
         }
 
@@ -365,9 +405,17 @@ public class IterativeOptimizer
             }
         }
 
-        public void addRulesTriggered(String rule)
+        public void addRulesTriggered(String rule, PlanNode oldNode, PlanNode newNode)
         {
-            rulesTriggered.add(rule);
+            Optional<String> before = Optional.empty();
+            Optional<String> after = Optional.empty();
+
+            if (SystemSessionProperties.isVerboseOptimizerResults(session, rule)) {
+                before = Optional.of(PlannerUtils.getPlanString(oldNode, session, types, metadata, false));
+                after = Optional.of(PlannerUtils.getPlanString(newNode, session, types, metadata, false));
+            }
+
+            rulesTriggered.add(new RuleTriggered(rule, before, after));
         }
 
         public void addRulesApplicable(String rule)
@@ -377,8 +425,11 @@ public class IterativeOptimizer
 
         public void collectOptimizerInformation()
         {
-            rulesTriggered.forEach(x -> session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(x, true, Optional.empty())));
-            rulesApplicable.forEach(x -> session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(x, false, Optional.of(true))));
+            rulesTriggered.stream().map(x -> x.getRule()).distinct().forEach(rule -> session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(rule, true, Optional.empty(), Optional.empty())));
+            if (SystemSessionProperties.isVerboseOptimizerResults(session)) {
+                rulesTriggered.stream().filter(x -> x.getNewNode().isPresent()).forEach(x -> session.getOptimizerResultCollector().addOptimizerResult(x.getRule(), x.getOldNode().get(), x.getNewNode().get()));
+            }
+            rulesApplicable.forEach(x -> session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(x, false, Optional.of(true), Optional.empty())));
         }
     }
 }

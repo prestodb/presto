@@ -22,6 +22,7 @@ import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.ServerInfo;
+import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskId;
@@ -46,6 +47,7 @@ import com.facebook.presto.spark.execution.property.NativeExecutionVeloxConfig;
 import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
 import com.facebook.presto.spark.execution.task.NativeExecutionTask;
 import com.facebook.presto.spark.execution.task.NativeExecutionTaskFactory;
+import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PageCodecMarker;
@@ -74,6 +76,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -92,6 +95,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static com.facebook.presto.common.ErrorType.USER_ERROR;
 import static com.facebook.presto.execution.TaskTestUtils.SPLIT;
 import static com.facebook.presto.execution.TaskTestUtils.createPlanFragment;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
@@ -144,7 +148,8 @@ public class TestPrestoSparkHttpClient
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
                 TASK_UPDATE_REQUEST_JSON_CODEC,
-                new Duration(1, TimeUnit.SECONDS));
+                new Duration(1, TimeUnit.SECONDS),
+                new HashMap<>());
         ListenableFuture<PageBufferClient.PagesResponse> future = workerClient.getResults(
                 0,
                 new DataSize(32, MEGABYTE));
@@ -172,7 +177,8 @@ public class TestPrestoSparkHttpClient
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
                 TASK_UPDATE_REQUEST_JSON_CODEC,
-                new Duration(1, TimeUnit.SECONDS));
+                new Duration(1, TimeUnit.SECONDS),
+                new HashMap<>());
         workerClient.acknowledgeResultsAsync(1);
     }
 
@@ -188,7 +194,8 @@ public class TestPrestoSparkHttpClient
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
                 TASK_UPDATE_REQUEST_JSON_CODEC,
-                new Duration(1, TimeUnit.SECONDS));
+                new Duration(1, TimeUnit.SECONDS),
+                new HashMap<>());
         ListenableFuture<?> future = workerClient.abortResults();
         try {
             future.get();
@@ -211,7 +218,8 @@ public class TestPrestoSparkHttpClient
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
                 TASK_UPDATE_REQUEST_JSON_CODEC,
-                new Duration(1, TimeUnit.SECONDS));
+                new Duration(1, TimeUnit.SECONDS),
+                new HashMap<>());
         ListenableFuture<BaseResponse<TaskInfo>> future = workerClient.getTaskInfo();
         try {
             TaskInfo taskInfo = future.get().getValue();
@@ -235,7 +243,8 @@ public class TestPrestoSparkHttpClient
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
                 TASK_UPDATE_REQUEST_JSON_CODEC,
-                new Duration(1, TimeUnit.SECONDS));
+                new Duration(1, TimeUnit.SECONDS),
+                new HashMap<>());
 
         Set<ScheduledSplit> splits = new HashSet<>();
         splits.add(SPLIT);
@@ -244,6 +253,7 @@ public class TestPrestoSparkHttpClient
                 sources,
                 createPlanFragment(),
                 new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
+                Optional.empty(),
                 Optional.empty(),
                 TestingSession.testSessionBuilder().build(),
                 createInitialEmptyOutputBuffers(PARTITIONED));
@@ -334,7 +344,8 @@ public class TestPrestoSparkHttpClient
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
                 TASK_UPDATE_REQUEST_JSON_CODEC,
-                new Duration(1, TimeUnit.SECONDS));
+                new Duration(1, TimeUnit.SECONDS),
+                new HashMap<>());
         HttpNativeExecutionTaskResultFetcher taskResultFetcher = new HttpNativeExecutionTaskResultFetcher(
                 newScheduledThreadPool(1),
                 workerClient,
@@ -404,7 +415,8 @@ public class TestPrestoSparkHttpClient
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
                 TASK_UPDATE_REQUEST_JSON_CODEC,
-                new Duration(1, TimeUnit.SECONDS));
+                new Duration(1, TimeUnit.SECONDS),
+                new HashMap<>());
         HttpNativeExecutionTaskResultFetcher taskResultFetcher = new HttpNativeExecutionTaskResultFetcher(
                 newScheduledThreadPool(1),
                 workerClient,
@@ -499,7 +511,8 @@ public class TestPrestoSparkHttpClient
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
                 TASK_UPDATE_REQUEST_JSON_CODEC,
-                new Duration(1, TimeUnit.SECONDS));
+                new Duration(1, TimeUnit.SECONDS),
+                new HashMap<>());
         HttpNativeExecutionTaskResultFetcher taskResultFetcher = new HttpNativeExecutionTaskResultFetcher(
                 newScheduledThreadPool(10),
                 workerClient,
@@ -605,7 +618,8 @@ public class TestPrestoSparkHttpClient
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
                 TASK_UPDATE_REQUEST_JSON_CODEC,
-                new Duration(1, TimeUnit.SECONDS));
+                new Duration(1, TimeUnit.SECONDS),
+                new HashMap<>());
         HttpNativeExecutionTaskResultFetcher taskResultFetcher = new HttpNativeExecutionTaskResultFetcher(
                 newScheduledThreadPool(10),
                 workerClient,
@@ -643,7 +657,8 @@ public class TestPrestoSparkHttpClient
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
                 TASK_UPDATE_REQUEST_JSON_CODEC,
-                new Duration(1, TimeUnit.SECONDS));
+                new Duration(1, TimeUnit.SECONDS),
+                new HashMap<>());
         HttpNativeExecutionTaskResultFetcher taskResultFetcher = new HttpNativeExecutionTaskResultFetcher(
                 newScheduledThreadPool(1),
                 workerClient,
@@ -665,7 +680,8 @@ public class TestPrestoSparkHttpClient
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
                 TASK_UPDATE_REQUEST_JSON_CODEC,
-                new Duration(1, TimeUnit.SECONDS));
+                new Duration(1, TimeUnit.SECONDS),
+                new HashMap<>());
         HttpNativeExecutionTaskResultFetcher taskResultFetcher = new HttpNativeExecutionTaskResultFetcher(
                 newScheduledThreadPool(1),
                 workerClient,
@@ -799,6 +815,7 @@ public class TestPrestoSparkHttpClient
                     createPlanFragment(),
                     sources,
                     new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
+                    Optional.empty(),
                     Optional.empty());
             assertNotNull(task);
             assertFalse(task.getTaskInfo().isPresent());
@@ -817,7 +834,7 @@ public class TestPrestoSparkHttpClient
             assertEquals(10, resultPages.size());
             assertTrue(task.getTaskInfo().isPresent());
 
-            task.stop();
+            task.stop(true);
         }
         catch (InterruptedException e) {
             e.printStackTrace();
@@ -871,7 +888,8 @@ public class TestPrestoSparkHttpClient
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
                 TASK_UPDATE_REQUEST_JSON_CODEC,
-                new Duration(1, TimeUnit.SECONDS));
+                new Duration(1, TimeUnit.SECONDS),
+                new HashMap<>());
         return new HttpNativeExecutionTaskInfoFetcher(
                 newScheduledThreadPool(1),
                 newScheduledThreadPool(1),
@@ -1267,6 +1285,40 @@ public class TestPrestoSparkHttpClient
                         0,
                         0L,
                         0L);
+            }
+        }
+
+        public static class CrashingTaskInfoResponseManager
+                extends TestingResponseManager.TestingTaskInfoResponseManager
+        {
+            private final int successCount;
+            private int attemptCount;
+
+            public CrashingTaskInfoResponseManager(int successCount)
+            {
+                super();
+                this.successCount = successCount;
+            }
+
+            @Override
+            public Response createTaskInfoResponse(HttpStatus httpStatus, String taskId)
+                    throws PrestoException
+            {
+                if (attemptCount++ > successCount) {
+                    return super.createTaskInfoResponse(HttpStatus.INTERNAL_SERVER_ERROR, taskId);
+                }
+
+                throw new PrestoException(new TestErrorCode(), "Server refused connection");
+            }
+        }
+
+        private static class TestErrorCode
+                implements ErrorCodeSupplier
+        {
+            @Override
+            public ErrorCode toErrorCode()
+            {
+                return new ErrorCode(0, "test", USER_ERROR);
             }
         }
     }

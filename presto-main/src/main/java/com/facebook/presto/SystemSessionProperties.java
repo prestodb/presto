@@ -239,6 +239,7 @@ public final class SystemSessionProperties
     public static final String DISTRIBUTED_TRACING_MODE = "distributed_tracing_mode";
     public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
     public static final String VERBOSE_OPTIMIZER_INFO_ENABLED = "verbose_optimizer_info_enabled";
+    public static final String VERBOSE_OPTIMIZER_RESULTS = "verbose_optimizer_results";
     public static final String STREAMING_FOR_PARTIAL_AGGREGATION_ENABLED = "streaming_for_partial_aggregation_enabled";
     public static final String MAX_STAGE_COUNT_FOR_EAGER_SCHEDULING = "max_stage_count_for_eager_scheduling";
     public static final String HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD = "hyperloglog_standard_error_warning_threshold";
@@ -248,6 +249,7 @@ public final class SystemSessionProperties
     public static final String TRACK_HISTORY_BASED_PLAN_STATISTICS = "track_history_based_plan_statistics";
     public static final String USE_PERFECTLY_CONSISTENT_HISTORIES = "use_perfectly_consistent_histories";
     public static final String HISTORY_CANONICAL_PLAN_NODE_LIMIT = "history_canonical_plan_node_limit";
+    public static final String HISTORY_BASED_OPTIMIZER_TIMEOUT_LIMIT = "history_based_optimizer_timeout_limit";
     public static final String MAX_LEAF_NODES_IN_PLAN = "max_leaf_nodes_in_plan";
     public static final String LEAF_NODE_LIMIT_ENABLED = "leaf_node_limit_enabled";
     public static final String PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID = "push_remote_exchange_through_group_id";
@@ -1302,6 +1304,16 @@ public final class SystemSessionProperties
                         "Enable logging of verbose information about applied optimizations",
                         featuresConfig.isVerboseOptimizerInfoEnabled(),
                         false),
+                /**/
+                new PropertyMetadata<>(
+                        VERBOSE_OPTIMIZER_RESULTS,
+                        "Print result of selected optimizer(s), allowed values are ALL | NONE | <OptimizerClassName>[,<OptimizerClassName>...]",
+                        VARCHAR,
+                        VerboseOptimizerResultsProperty.class,
+                        VerboseOptimizerResultsProperty.disabled(),
+                        false,
+                        value -> VerboseOptimizerResultsProperty.valueOf((String) value),
+                        object -> object),
                 booleanProperty(
                         STREAMING_FOR_PARTIAL_AGGREGATION_ENABLED,
                         "Enable streaming for partial aggregation",
@@ -1412,6 +1424,15 @@ public final class SystemSessionProperties
                         "Use history based optimizations only when number of nodes in canonical plan is within this limit. Size of canonical plan can become much larger than original plan leading to increased planning time, particularly in cases when limiting nodes like LimitNode, TopNNode etc. are present.",
                         featuresConfig.getHistoryCanonicalPlanNodeLimit(),
                         false),
+                new PropertyMetadata<>(
+                        HISTORY_BASED_OPTIMIZER_TIMEOUT_LIMIT,
+                        "Timeout in milliseconds for history based optimizer",
+                        VARCHAR,
+                        Duration.class,
+                        featuresConfig.getHistoryBasedOptimizerTimeout(),
+                        false,
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString),
                 new PropertyMetadata<>(
                         MAX_LEAF_NODES_IN_PLAN,
                         "Maximum number of leaf nodes in the logical plan of SQL statement",
@@ -2485,6 +2506,16 @@ public final class SystemSessionProperties
         return session.getSystemProperty(VERBOSE_RUNTIME_STATS_ENABLED, Boolean.class);
     }
 
+    public static boolean isVerboseOptimizerResults(Session session)
+    {
+        return session.getSystemProperty(VERBOSE_OPTIMIZER_RESULTS, VerboseOptimizerResultsProperty.class).isEnabled();
+    }
+
+    public static boolean isVerboseOptimizerResults(Session session, String optimizer)
+    {
+        return session.getSystemProperty(VERBOSE_OPTIMIZER_RESULTS, VerboseOptimizerResultsProperty.class).containsOptimizer(optimizer);
+    }
+
     public static boolean isVerboseOptimizerInfoEnabled(Session session)
     {
         return session.getSystemProperty(VERBOSE_OPTIMIZER_INFO_ENABLED, Boolean.class);
@@ -2583,6 +2614,11 @@ public final class SystemSessionProperties
     public static int getHistoryCanonicalPlanNodeLimit(Session session)
     {
         return session.getSystemProperty(HISTORY_CANONICAL_PLAN_NODE_LIMIT, Integer.class);
+    }
+
+    public static Duration getHistoryBasedOptimizerTimeoutLimit(Session session)
+    {
+        return session.getSystemProperty(HISTORY_BASED_OPTIMIZER_TIMEOUT_LIMIT, Duration.class);
     }
 
     public static boolean shouldPushRemoteExchangeThroughGroupId(Session session)

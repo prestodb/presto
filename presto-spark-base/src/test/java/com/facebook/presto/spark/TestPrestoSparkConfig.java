@@ -62,7 +62,8 @@ public class TestPrestoSparkConfig
                 .setAdaptiveQueryExecutionEnabled(false)
                 .setAdaptiveJoinSideSwitchingEnabled(false)
                 .setExecutorAllocationStrategyEnabled(false)
-                .setHashPartitionCountAllocationStrategyEnabled(false));
+                .setHashPartitionCountAllocationStrategyEnabled(false)
+                .setNativeExecutionBroadcastBasePath(null));
     }
 
     @Test
@@ -100,6 +101,7 @@ public class TestPrestoSparkConfig
                 .put("optimizer.adaptive-join-side-switching-enabled", "true")
                 .put("spark.executor-allocation-strategy-enabled", "true")
                 .put("spark.hash-partition-count-allocation-strategy-enabled", "true")
+                .put("native-execution-broadcast-base-path", "/tmp/broadcast_path")
                 .build();
         PrestoSparkConfig expected = new PrestoSparkConfig()
                 .setSparkPartitionCountAutoTuneEnabled(false)
@@ -132,7 +134,8 @@ public class TestPrestoSparkConfig
                 .setAdaptiveQueryExecutionEnabled(true)
                 .setAdaptiveJoinSideSwitchingEnabled(true)
                 .setHashPartitionCountAllocationStrategyEnabled(true)
-                .setExecutorAllocationStrategyEnabled(true);
+                .setExecutorAllocationStrategyEnabled(true)
+                .setNativeExecutionBroadcastBasePath("/tmp/broadcast_path");
         assertFullMapping(properties, expected);
     }
 }

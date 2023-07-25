@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark.execution.nativeprocess;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.operator.PageBufferClient;
 import com.facebook.presto.operator.PageTransportErrorException;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
@@ -105,10 +106,14 @@ public class HttpNativeExecutionTaskResultFetcher
                 });
     }
 
-    public void stop()
+    public void stop(boolean success)
     {
         if (schedulerFuture != null) {
             schedulerFuture.cancel(false);
+        }
+
+        if (success && !pageBuffer.isEmpty()) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("TaskResultFetcher is closed with {} pages left in the buffer", pageBuffer.size()));
         }
     }
 
@@ -139,6 +144,7 @@ public class HttpNativeExecutionTaskResultFetcher
     {
         private static final DataSize MAX_RESPONSE_SIZE = new DataSize(32, DataSize.Unit.MEGABYTE);
         private static final int MAX_TRANSPORT_ERROR_RETRIES = 5;
+        private static final Logger log = Logger.get(HttpNativeExecutionTaskResultFetcherRunner.class);
 
         private final PrestoSparkHttpTaskClient client;
         private final LinkedBlockingDeque<SerializedPage> pageBuffer;
@@ -176,6 +182,7 @@ public class HttpNativeExecutionTaskResultFetcher
 
                 List<SerializedPage> pages = pagesResponse.getPages();
                 long bytes = 0;
+                long positionCount = 0;
                 for (SerializedPage page : pages) {
                     if (!isChecksumValid(page)) {
                         throw new PrestoException(
@@ -184,7 +191,9 @@ public class HttpNativeExecutionTaskResultFetcher
                                         HostAddress.fromUri(client.getLocation())));
                     }
                     bytes += page.getSizeInBytes();
+                    positionCount += page.getPositionCount();
                 }
+                log.info("Received %s rows in %s pages from %s", positionCount, pages.size(), client.getTaskUri());
                 pageBuffer.addAll(pages);
                 bufferMemoryBytes.addAndGet(bytes);
                 long nextToken = pagesResponse.getNextToken();

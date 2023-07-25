@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.facebook.presto.iceberg.nessie.NessieConfig;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -56,9 +57,10 @@ public class IcebergResourceFactory
     private final String catalogWarehouse;
     private final List<String> hadoopConfigResources;
     private final NessieConfig nessieConfig;
+    private final S3ConfigurationUpdater s3ConfigurationUpdater;
 
     @Inject
-    public IcebergResourceFactory(IcebergConfig config, IcebergCatalogName catalogName, NessieConfig nessieConfig)
+    public IcebergResourceFactory(IcebergConfig config, IcebergCatalogName catalogName, NessieConfig nessieConfig, S3ConfigurationUpdater s3ConfigurationUpdater)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null").getCatalogName();
         requireNonNull(config, "config is null");
@@ -66,6 +68,7 @@ public class IcebergResourceFactory
         this.catalogWarehouse = config.getCatalogWarehouse();
         this.hadoopConfigResources = config.getHadoopConfigResources();
         this.nessieConfig = requireNonNull(nessieConfig, "nessieConfig is null");
+        this.s3ConfigurationUpdater = requireNonNull(s3ConfigurationUpdater, "s3ConfigurationUpdater is null");
         catalogCache = CacheBuilder.newBuilder()
                 .maximumSize(config.getCatalogCacheSize())
                 .build();
@@ -128,7 +131,10 @@ public class IcebergResourceFactory
     private Configuration getHadoopConfiguration(ConnectorSession session)
     {
         Configuration configuration = new Configuration(false);
+
         if (hadoopConfigResources.isEmpty()) {
+            s3ConfigurationUpdater.updateConfiguration(configuration);
+
             configuration.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
             configuration.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
         }

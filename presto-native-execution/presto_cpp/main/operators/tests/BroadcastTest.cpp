@@ -100,22 +100,22 @@ class BroadcastTest : public exec::test::OperatorTestBase {
           fmt::format(kBroadcastFileInfoFormat, broadcastFilePath));
     }
 
-    bool noMoreSplits = false;
+    uint8_t splitIndex = 0;
     // Read back result using BroadcastExchangeSource.
     return readCursor(broadcastReadParams, [&](auto* task) {
-      if (noMoreSplits) {
+      if (splitIndex >= broadcastFilePaths.size()) {
+        task->noMoreSplits("0");
         return;
       }
 
       auto split = exec::Split(
           std::make_shared<exec::RemoteConnectorSplit>(fmt::format(
-              "batch://task?broadcastInfo={{\"basePath\": \"{}\", \"fileInfos\":[{}]}}",
-              basePath,
-              boost::algorithm::join(fileInfos, ","))),
+              "batch://task?broadcastInfo={}",
+              fmt::format(
+                  kBroadcastFileInfoFormat, broadcastFilePaths[splitIndex]))),
           -1);
       task->addSplit("0", std::move(split));
-      task->noMoreSplits("0");
-      noMoreSplits = true;
+      ++splitIndex;
     });
   }
 

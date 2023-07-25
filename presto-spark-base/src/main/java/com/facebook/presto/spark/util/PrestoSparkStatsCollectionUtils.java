@@ -18,6 +18,7 @@ import com.facebook.presto.common.RuntimeMetric;
 import com.facebook.presto.common.RuntimeUnit;
 import com.facebook.presto.execution.TaskInfo;
 import org.apache.commons.text.CaseUtils;
+import org.apache.spark.TaskContext;
 import org.apache.spark.executor.TaskMetrics;
 import org.apache.spark.util.AccumulatorV2;
 
@@ -43,13 +44,18 @@ public class PrestoSparkStatsCollectionUtils
                     .forEach(PrestoSparkStatsCollectionUtils::incSparkInternalAccumulator);
         }
         catch (Exception e) {
-            log.warn("An error occurred while updating Spark Internal metrics for task=%s", taskInfo, e);
+            log.warn(e, "An error occurred while updating Spark Internal metrics for task=%s", taskInfo);
         }
     }
 
     static void incSparkInternalAccumulator(final String prestoKey, final RuntimeMetric metric)
     {
-        TaskMetrics sparkTaskMetrics = org.apache.spark.TaskContext.get().taskMetrics();
+        TaskContext taskContext = TaskContext.get();
+        if (taskContext == null) {
+            return;
+        }
+
+        TaskMetrics sparkTaskMetrics = taskContext.taskMetrics();
         if (sparkTaskMetrics == null) {
             return;
         }

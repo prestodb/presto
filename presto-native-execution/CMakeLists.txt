@@ -58,14 +58,12 @@ if(PRESTO_ENABLE_S3)
   set(VELOX_ENABLE_S3
       ON
       CACHE BOOL "Build S3 connector")
-  add_definitions(-DPRESTO_ENABLE_S3)
 endif()
 
 if(PRESTO_ENABLE_HDFS)
   set(VELOX_ENABLE_HDFS
       ON
       CACHE BOOL "Build HDFS Connector")
-  add_definitions(-DPRESTO_ENABLE_HDFS)
 endif()
 
 if(PRESTO_ENABLE_PARQUET)

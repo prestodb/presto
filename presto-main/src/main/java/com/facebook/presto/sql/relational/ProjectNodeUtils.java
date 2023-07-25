@@ -14,10 +14,7 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.spi.plan.ProjectNode;
-import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
-
-import java.util.Map;
+import com.facebook.presto.sql.planner.plan.AssignmentUtils;
 
 public class ProjectNodeUtils
 {
@@ -25,13 +22,6 @@ public class ProjectNodeUtils
 
     public static boolean isIdentity(ProjectNode projectNode)
     {
-        for (Map.Entry<VariableReferenceExpression, RowExpression> entry : projectNode.getAssignments().entrySet()) {
-            RowExpression value = entry.getValue();
-            VariableReferenceExpression variable = entry.getKey();
-            if (!(value instanceof VariableReferenceExpression && ((VariableReferenceExpression) value).getName().equals(variable.getName()))) {
-                return false;
-            }
-        }
-        return true;
+        return AssignmentUtils.isIdentity(projectNode.getAssignments());
     }
 }

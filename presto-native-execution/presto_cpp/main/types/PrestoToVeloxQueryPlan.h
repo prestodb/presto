@@ -143,6 +143,11 @@ class VeloxQueryPlanConverterBase {
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
+  std::shared_ptr<const velox::core::TableWriteMergeNode> toVeloxQueryPlan(
+      const std::shared_ptr<const protocol::TableWriterMergeNode>& node,
+      const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+      const protocol::TaskId& taskId);
+
   std::shared_ptr<const velox::core::UnnestNode> toVeloxQueryPlan(
       const std::shared_ptr<const protocol::UnnestNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
@@ -187,6 +192,14 @@ class VeloxQueryPlanConverterBase {
   velox::VectorPtr evaluateConstantExpression(
       const velox::core::TypedExprPtr& expression);
 
+  void toAggregations(
+      const std::vector<protocol::VariableReferenceExpression>& outputVariables,
+      const std::map<
+          protocol::VariableReferenceExpression,
+          protocol::Aggregation>& aggregationMap,
+      std::vector<velox::core::AggregationNode::Aggregate>& aggregates,
+      std::vector<std::string>& aggregateNames);
+
   velox::memory::MemoryPool* pool_;
   velox::core::QueryCtx* queryCtx_;
   VeloxExprConverter exprConverter_;
@@ -217,11 +230,13 @@ class VeloxBatchQueryPlanConverter : public VeloxQueryPlanConverterBase {
   VeloxBatchQueryPlanConverter(
       const std::string& shuffleName,
       std::shared_ptr<std::string>&& serializedShuffleWriteInfo,
+      std::shared_ptr<std::string>&& broadcastBasePath,
       velox::core::QueryCtx* queryCtx,
       velox::memory::MemoryPool* pool)
       : VeloxQueryPlanConverterBase(queryCtx, pool),
         shuffleName_(shuffleName),
-        serializedShuffleWriteInfo_(std::move(serializedShuffleWriteInfo)) {}
+        serializedShuffleWriteInfo_(std::move(serializedShuffleWriteInfo)),
+        broadcastBasePath_(std::move(broadcastBasePath)) {}
 
   velox::core::PlanFragment toVeloxQueryPlan(
       const protocol::PlanFragment& fragment,
@@ -239,6 +254,7 @@ class VeloxBatchQueryPlanConverter : public VeloxQueryPlanConverterBase {
  private:
   const std::string shuffleName_;
   const std::shared_ptr<std::string> serializedShuffleWriteInfo_;
+  const std::shared_ptr<std::string> broadcastBasePath_;
 };
 
 void registerPrestoPlanNodeSerDe();

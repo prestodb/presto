@@ -69,4 +69,9 @@ public class TestPrestoSparkNativeGeneralQueries
     @Override
     @Ignore
     public void testInsertIntoSpecialPartitionName(){}
+
+    // @TODO Refer https://github.com/prestodb/presto/issues/20294
+    @Override
+    @Ignore
+    public void testAnalyzeStats() {}
 }

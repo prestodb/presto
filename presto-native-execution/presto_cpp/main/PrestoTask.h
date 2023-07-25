@@ -123,6 +123,8 @@ struct PrestoTask {
 
   protocol::TaskStatus updateStatusLocked();
   protocol::TaskInfo updateInfoLocked();
+
+  std::string toJsonString() const;
 };
 
 using TaskMap =

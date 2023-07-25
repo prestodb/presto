@@ -67,6 +67,9 @@ public class TestHistoryBasedStatsProvider
                 return ImmutableList.of(new TestHistoryBasedPlanStatisticsProvider());
             }
         });
+        if (queryRunner.getStatsCalculator() instanceof HistoryBasedPlanStatisticsCalculator) {
+            ((HistoryBasedPlanStatisticsCalculator) queryRunner.getStatsCalculator()).setPrefetchForAllPlanNodes(true);
+        }
     }
 
     @Test
@@ -111,7 +114,7 @@ public class TestHistoryBasedStatsProvider
         }
 
         @Override
-        public Map<PlanNodeWithHash, HistoricalPlanStatistics> getStats(List<PlanNodeWithHash> planNodeHashes)
+        public Map<PlanNodeWithHash, HistoricalPlanStatistics> getStats(List<PlanNodeWithHash> planNodeHashes, long timeoutInMilliSeconds)
         {
             return planNodeHashes.stream().collect(toImmutableMap(
                     PlanNodeWithHash -> PlanNodeWithHash,

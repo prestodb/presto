@@ -456,7 +456,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
             .values(data, true)
             .addNode(addPartitionAndSerializeNode(
                 numPartitions, replicateNullsAndAny))
-            .localPartition({})
+            .localPartition(std::vector<std::string>{})
             .addNode(addShuffleWriteNode(
                 numPartitions, shuffleName, serializedShuffleWriteInfo))
             .planNode();
@@ -656,7 +656,7 @@ TEST_F(UnsafeRowShuffleTest, operators) {
   auto plan = exec::test::PlanBuilder()
                   .values({data}, true)
                   .addNode(addPartitionAndSerializeNode(4, false))
-                  .localPartition({})
+                  .localPartition(std::vector<std::string>{})
                   .addNode(addShuffleWriteNode(
                       4, std::string(TestShuffleFactory::kShuffleName), info))
                   .planNode();
@@ -1015,7 +1015,7 @@ TEST_F(UnsafeRowShuffleTest, shuffleWriterToString) {
   auto plan = exec::test::PlanBuilder()
                   .values({data}, true)
                   .addNode(addPartitionAndSerializeNode(4, false))
-                  .localPartition({})
+                  .localPartition(std::vector<std::string>{})
                   .addNode(addShuffleWriteNode(
                       4,
                       std::string(TestShuffleFactory::kShuffleName),

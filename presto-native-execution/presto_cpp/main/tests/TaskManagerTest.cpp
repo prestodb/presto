@@ -142,7 +142,14 @@ class TaskManagerTest : public testing::Test {
     aggregate::prestosql::registerAllAggregateFunctions();
     parse::registerTypeResolver();
     exec::ExchangeSource::registerFactory(
-        PrestoExchangeSource::createExchangeSource);
+        [executor = exchangeExecutor_](
+            const std::string& taskId,
+            int destination,
+            std::shared_ptr<exec::ExchangeQueue> queue,
+            memory::MemoryPool* pool) {
+          return PrestoExchangeSource::create(
+              taskId, destination, queue, pool, executor);
+        });
     if (!isRegisteredVectorSerde()) {
       serializer::presto::PrestoVectorSerde::registerVectorSerde();
     };
@@ -154,7 +161,6 @@ class TaskManagerTest : public testing::Test {
             ->newConnector(
                 facebook::velox::exec::test::kHiveConnectorId, nullptr);
     connector::registerConnector(hiveConnector);
-    dwrf::registerDwrfReaderFactory();
 
     rootPool_ =
         memory::defaultMemoryManager().addRootPool("TaskManagerTest.root");
@@ -187,7 +193,6 @@ class TaskManagerTest : public testing::Test {
     }
     connector::unregisterConnector(
         facebook::velox::exec::test::kHiveConnectorId);
-    dwrf::unregisterDwrfReaderFactory();
   }
 
   std::vector<RowVectorPtr> makeVectors(int count, int rowsPerVector) {
@@ -520,6 +525,19 @@ class TaskManagerTest : public testing::Test {
         "{}={}\n", SystemConfig::kSpillerSpillPath, spillDirectory->path));
     sysConfigFile->close();
     SystemConfig::instance()->initialize(sysConfigFilePath);
+
+    auto nodeConfigFilePath =
+        fmt::format("{}/node.properties", spillDirectory->path);
+    auto nodeConfigFile = fileSystem->openFileForWrite(nodeConfigFilePath);
+    nodeConfigFile->append(fmt::format(
+        "{}={}\n{}={}",
+        NodeConfig::kNodeIp,
+        "192.16.7.66",
+        NodeConfig::kNodeId,
+        "12"));
+    nodeConfigFile->close();
+    NodeConfig::instance()->initialize(nodeConfigFilePath);
+
     return spillDirectory;
   }
 
@@ -562,6 +580,8 @@ class TaskManagerTest : public testing::Test {
   std::unique_ptr<TaskManager> taskManager_;
   std::unique_ptr<TaskResource> taskResource_;
   std::unique_ptr<facebook::presto::test::HttpServerWrapper> httpServerWrapper_;
+  std::shared_ptr<folly::IOThreadPoolExecutor> exchangeExecutor_ =
+      std::make_shared<folly::IOThreadPoolExecutor>(10);
   long splitSequenceId_{0};
 };
 
@@ -924,12 +944,13 @@ TEST_F(TaskManagerTest, aggregationSpill) {
 
 TEST_F(TaskManagerTest, buildTaskSpillDirectoryPath) {
   EXPECT_EQ(
-      "fs::/base/2022-12-20/presto_native/20221220-Q/Task1/",
+      "fs::/base/192.168.10.2_19/2022-12-20/presto_native/20221220-Q/Task1/",
       TaskManager::buildTaskSpillDirectoryPath(
-          "fs::/base", "20221220-Q", "Task1"));
+          "fs::/base", "192.168.10.2", "19", "20221220-Q", "Task1"));
   EXPECT_EQ(
-      "fsx::/root/1970-01-01/presto_native/Q100/Task22/",
-      TaskManager::buildTaskSpillDirectoryPath("fsx::/root", "Q100", "Task22"));
+      "fsx::/root/192.16.10.2_sample_node_id/1970-01-01/presto_native/Q100/Task22/",
+      TaskManager::buildTaskSpillDirectoryPath(
+          "fsx::/root", "192.16.10.2", "sample_node_id", "Q100", "Task22"));
 }
 
 TEST_F(TaskManagerTest, getDataOnAbortedTask) {

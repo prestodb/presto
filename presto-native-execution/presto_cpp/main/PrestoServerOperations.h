@@ -14,6 +14,7 @@
 #pragma once
 
 #include <string>
+#include "presto_cpp/main/TaskManager.h"
 
 namespace proxygen {
 class HTTPMessage;
@@ -27,21 +28,30 @@ struct ServerOperation;
 /// Static class implements Presto Server Operations.
 class PrestoServerOperations {
  public:
-  static void runOperation(
+  PrestoServerOperations(TaskManager* const taskManager)
+      : taskManager_(taskManager) {}
+
+  void runOperation(
       proxygen::HTTPMessage* message,
       proxygen::ResponseHandler* downstream);
 
-  static std::string connectorOperation(
+  std::string connectorOperation(
       const ServerOperation& op,
       proxygen::HTTPMessage* message);
 
-  static std::string systemConfigOperation(
+  std::string systemConfigOperation(
       const ServerOperation& op,
       proxygen::HTTPMessage* message);
 
-  static std::string veloxQueryConfigOperation(
+  std::string veloxQueryConfigOperation(
       const ServerOperation& op,
       proxygen::HTTPMessage* message);
+
+  std::string debugOperation(
+      const ServerOperation& op,
+      proxygen::HTTPMessage* message);
+
+  TaskManager* const taskManager_;
 };
 
 } // namespace facebook::presto

@@ -19,22 +19,24 @@ import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkRetryExecutionSettings
 {
-    private final Map<String, String> sparkSettings;
-    private final Map<String, String> prestoSettings;
+    private final Map<String, String> sparkConfigProperties;
+    private final Map<String, String> prestoSessionProperties;
 
-    public PrestoSparkRetryExecutionSettings(Map<String, String> sparkSettings, Map<String, String> prestoSettings)
+    public PrestoSparkRetryExecutionSettings(
+            Map<String, String> sparkConfigProperties,
+            Map<String, String> prestoSessionProperties)
     {
-        this.sparkSettings = requireNonNull(sparkSettings, "sparkSettings is null");
-        this.prestoSettings = requireNonNull(prestoSettings, "sparkSettings is null");
+        this.sparkConfigProperties = requireNonNull(sparkConfigProperties, "sparkConfigProperties is null");
+        this.prestoSessionProperties = requireNonNull(prestoSessionProperties, "prestoSessionProperties is null");
     }
 
-    public Map<String, String> getSparkSettings()
+    public Map<String, String> getSparkConfigProperties()
     {
-        return sparkSettings;
+        return sparkConfigProperties;
     }
 
-    public Map<String, String> getPrestoSettings()
+    public Map<String, String> getPrestoSessionProperties()
     {
-        return prestoSettings;
+        return prestoSessionProperties;
     }
 }

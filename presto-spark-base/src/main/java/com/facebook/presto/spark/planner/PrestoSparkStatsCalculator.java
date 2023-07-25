@@ -85,8 +85,13 @@ public class PrestoSparkStatsCalculator
     }
 
     @Override
-    public void registerPlan(PlanNode root, Session session)
+    public boolean registerPlan(PlanNode root, Session session, long startTimeInNano, long timeoutInMilliseconds)
     {
-        historyBasedPlanStatisticsCalculator.registerPlan(root, session);
+        return historyBasedPlanStatisticsCalculator.registerPlan(root, session, startTimeInNano, timeoutInMilliseconds);
+    }
+
+    public HistoryBasedPlanStatisticsCalculator getHistoryBasedPlanStatisticsCalculator()
+    {
+        return historyBasedPlanStatisticsCalculator;
     }
 }

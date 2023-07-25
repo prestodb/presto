@@ -208,14 +208,14 @@ class SystemConfig : public ConfigBase {
   /// The initial memory pool capacity in bytes allocated on creation.
   ///
   /// NOTE: this config only applies if the memory arbitration has been enabled.
-  static constexpr std::string_view kInitMemoryPoolCapacity{
-      "init-memory-pool-capacity"};
+  static constexpr std::string_view kMemoryPoolInitCapacity{
+      "memory-pool-init-capacity"};
   /// The minimal memory capacity in bytes transferred between memory pools
   /// during memory arbitration.
   ///
   /// NOTE: this config only applies if the memory arbitration has been enabled.
-  static constexpr std::string_view kMinMemoryPoolTransferCapacity{
-      "min-memory-pool-transfer-capacity"};
+  static constexpr std::string_view kMemoryPoolTransferCapacity{
+      "memory-pool-transfer-capacity"};
   /// The percentage of memory pool capacity reserved for system usage such as
   /// the disk spilling memory usage.
   ///
@@ -253,6 +253,8 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kRemoteFunctionServerThriftPort{
       "remote-function-server.thrift.port"};
 
+  /// Do not include runtime stats in the returned task info if the task is
+  /// in running state.
   static constexpr std::string_view kSkipRuntimeStatsInRunningTaskInfo{
       "skip-runtime-stats-in-running-task-info"};
 
@@ -270,6 +272,10 @@ class SystemConfig : public ConfigBase {
 
   static constexpr std::string_view kExchangeRequestTimeout{
       "exchange.http-client.request-timeout"};
+
+  /// The maximum timeslice for a task on thread if there are threads queued.
+  static constexpr std::string_view kTaskRunTimeSliceMicros{
+      "task-run-timeslice-micros"};
 
   SystemConfig();
 
@@ -364,9 +370,9 @@ class SystemConfig : public ConfigBase {
 
   bool enableMemoryArbitration() const;
 
-  uint64_t initMemoryPoolCapacity() const;
+  uint64_t memoryPoolInitCapacity() const;
 
-  uint64_t minMemoryPoolTransferCapacity() const;
+  uint64_t memoryPoolTransferCapacity() const;
 
   uint32_t reservedMemoryPoolCapacityPct() const;
 
@@ -395,6 +401,8 @@ class SystemConfig : public ConfigBase {
   std::chrono::duration<double> exchangeMaxErrorDuration() const;
 
   std::chrono::duration<double> exchangeRequestTimeout() const;
+
+  int32_t taskRunTimeSliceMicros() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

@@ -71,7 +71,7 @@ TEST_F(PlanNodeSerdeTest, partitionAndSerializeNode) {
                   .values(data_, true)
                   .addNode(addPartitionAndSerializeNode(
                       4, false, reverseColumns(asRowType(data_[0]->type()))))
-                  .localPartition({})
+                  .localPartition(std::vector<std::string>{})
                   .planNode();
   testSerde(plan);
 }
@@ -98,7 +98,7 @@ TEST_F(PlanNodeSerdeTest, shuffleWriteNode) {
       exec::test::PlanBuilder()
           .values(data_, true)
           .addNode(addPartitionAndSerializeNode(numPartitions, false))
-          .localPartition({})
+          .localPartition(std::vector<std::string>{})
           .addNode(addShuffleWriteNode(numPartitions, shuffleName, shuffleInfo))
           .planNode();
   testSerde(plan);

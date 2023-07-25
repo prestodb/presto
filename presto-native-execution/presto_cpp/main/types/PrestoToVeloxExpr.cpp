@@ -67,7 +67,18 @@ std::string mapScalarFunction(const std::string& name) {
 }
 
 std::string mapAggregateOrWindowFunction(const std::string& name) {
-  return boost::to_lower_copy(name);
+  static const std::unordered_map<std::string, std::string> kFunctionNames = {
+      {"presto.default.$internal$max_data_size_for_stats",
+       "presto.default.max_data_size_for_stats"},
+      {"presto.default.$internal$sum_data_size_for_stats",
+       "presto.default.sum_data_size_for_stats"},
+  };
+  std::string lowerCaseName = boost::to_lower_copy(name);
+  auto it = kFunctionNames.find(name);
+  if (it != kFunctionNames.end()) {
+    return it->second;
+  }
+  return lowerCaseName;
 }
 
 std::string getFunctionName(const protocol::Signature& signature) {

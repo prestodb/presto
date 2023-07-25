@@ -101,6 +101,7 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -146,6 +147,7 @@ import static com.facebook.presto.spark.util.PrestoSparkRetryExecutionUtils.getR
 import static com.facebook.presto.spark.util.PrestoSparkUtils.createPagesSerde;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.getActionResultWithTimeout;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.util.AnalyzerUtil.createAnalyzerOptions;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -371,9 +373,9 @@ public class PrestoSparkQueryExecutionFactory
                 ImmutableSet.of(),
                 planAndMore.map(PlanAndMore::getPlan).map(Plan::getStatsAndCosts).orElseGet(StatsAndCosts::empty),
                 ImmutableList.of(),
-                ImmutableSet.of(),
-                ImmutableSet.of(),
-                ImmutableSet.of(),
+                planAndMore.map(PlanAndMore::getInvokedScalarFunctions).orElseGet(ImmutableSet::of),
+                planAndMore.map(PlanAndMore::getInvokedAggregateFunctions).orElseGet(ImmutableSet::of),
+                planAndMore.map(PlanAndMore::getInvokedWindowFunctions).orElseGet(ImmutableSet::of),
                 planAndMore.map(PlanAndMore::getPlanCanonicalInfo).orElseGet(ImmutableList::of));
     }
 
@@ -540,7 +542,7 @@ public class PrestoSparkQueryExecutionFactory
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             Optional<String> queryStatusInfoOutputLocation,
             Optional<String> queryDataOutputLocation,
-            Optional<RetryExecutionStrategy> retryExecutionStrategy,
+            List<RetryExecutionStrategy> retryExecutionStrategies,
             Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector)
     {
         PrestoSparkConfInitializer.checkInitialized(sparkContext);
@@ -603,18 +605,19 @@ public class PrestoSparkQueryExecutionFactory
         Session session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory, authorizedIdentity);
         session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), Optional.empty());
 
-        if (retryExecutionStrategy.isPresent()) {
-            PrestoSparkRetryExecutionSettings prestoSparkRetryExecutionSettings = getRetryExecutionSettings(retryExecutionStrategy.get(), session);
+        if (!retryExecutionStrategies.isEmpty()) {
+            log.info("Going to retry with following strategies: %s", retryExecutionStrategies);
+            PrestoSparkRetryExecutionSettings prestoSparkRetryExecutionSettings = getRetryExecutionSettings(retryExecutionStrategies, session);
 
-            // Update spark setting in SparkConf, if present
-            prestoSparkRetryExecutionSettings.getSparkSettings().forEach(sparkContext.conf()::set);
+            // Update Spark setting in SparkConf, if present
+            prestoSparkRetryExecutionSettings.getSparkConfigProperties().forEach(sparkContext.conf()::set);
 
-            // Update presto settings in Session, if present
+            // Update Presto settings in Session, if present
             Session.SessionBuilder sessionBuilder = Session.builder(session);
-            prestoSparkRetryExecutionSettings.getPrestoSettings().forEach(sessionBuilder::setSystemProperty);
+            transferSessionPropertiesToSession(sessionBuilder, prestoSparkRetryExecutionSettings.getPrestoSessionProperties());
 
             Set<String> clientTags = new HashSet<>(session.getClientTags());
-            clientTags.add(retryExecutionStrategy.get().name());
+            retryExecutionStrategies.forEach(s -> clientTags.add(s.name()));
             sessionBuilder.setClientTags(clientTags);
 
             session = sessionBuilder.build();
@@ -818,5 +821,27 @@ public class PrestoSparkQueryExecutionFactory
     private boolean isFatalException(Throwable t)
     {
         return t instanceof PrestoSparkFatalException;
+    }
+
+    @VisibleForTesting
+    static Session.SessionBuilder transferSessionPropertiesToSession(Session.SessionBuilder session, Map<String, String> sessionProperties)
+    {
+        sessionProperties.forEach((key, value) -> {
+            // Presto session properties may also contain catalog properties in format catalog.property_name=value
+            String[] parts = key.split("\\.");
+            if (parts.length == 1) {
+                // system property
+                session.setSystemProperty(parts[0], value);
+            }
+            else if (parts.length == 2) {
+                // catalog property
+                session.setCatalogSessionProperty(parts[0], parts[1], value);
+            }
+            else {
+                throw new PrestoException(INVALID_SESSION_PROPERTY, "Unable to parse session property: " + key);
+            }
+        });
+
+        return session;
     }
 }

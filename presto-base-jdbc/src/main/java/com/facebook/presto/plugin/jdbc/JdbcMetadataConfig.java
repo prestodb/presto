@@ -15,10 +15,20 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
+
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
+
+import java.util.concurrent.TimeUnit;
 
 public class JdbcMetadataConfig
 {
     private boolean allowDropTable;
+    private Duration metadataCacheTtl = new Duration(0, TimeUnit.SECONDS);
+    private Duration metadataCacheRefreshInterval = new Duration(0, TimeUnit.SECONDS);
+    private long metadataCacheMaximumSize = 10000;
 
     public boolean isAllowDropTable()
     {
@@ -30,6 +40,47 @@ public class JdbcMetadataConfig
     public JdbcMetadataConfig setAllowDropTable(boolean allowDropTable)
     {
         this.allowDropTable = allowDropTable;
+        return this;
+    }
+
+    @NotNull
+    public Duration getMetadataCacheTtl()
+    {
+        return metadataCacheTtl;
+    }
+
+    @MinDuration("0ms")
+    @Config("metadata-cache-ttl")
+    public JdbcMetadataConfig setMetadataCacheTtl(Duration metadataCacheTtl)
+    {
+        this.metadataCacheTtl = metadataCacheTtl;
+        return this;
+    }
+
+    @NotNull
+    public Duration getMetadataCacheRefreshInterval()
+    {
+        return metadataCacheRefreshInterval;
+    }
+
+    @MinDuration("1ms")
+    @Config("metadata-cache-refresh-interval")
+    public JdbcMetadataConfig setMetadataCacheRefreshInterval(Duration metadataCacheRefreshInterval)
+    {
+        this.metadataCacheRefreshInterval = metadataCacheRefreshInterval;
+        return this;
+    }
+
+    public long getMetadataCacheMaximumSize()
+    {
+        return metadataCacheMaximumSize;
+    }
+
+    @Min(1)
+    @Config("metadata-cache-maximum-size")
+    public JdbcMetadataConfig setMetadataCacheMaximumSize(long metadataCacheMaximumSize)
+    {
+        this.metadataCacheMaximumSize = metadataCacheMaximumSize;
         return this;
     }
 }

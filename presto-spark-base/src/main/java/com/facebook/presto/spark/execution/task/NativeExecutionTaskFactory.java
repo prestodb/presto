@@ -24,6 +24,7 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.spark.execution.http.BatchTaskUpdateRequest;
+import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.facebook.presto.sql.planner.PlanFragment;
 
 import javax.annotation.PreDestroy;
@@ -85,23 +86,29 @@ public class NativeExecutionTaskFactory
             PlanFragment fragment,
             List<TaskSource> sources,
             TableWriteInfo tableWriteInfo,
-            Optional<String> shuffleWriteInfo)
+            Optional<String> shuffleWriteInfo,
+            Optional<String> broadcastBasePath)
     {
-        return new NativeExecutionTask(
-                session,
-                location,
-                taskId,
-                fragment,
-                sources,
+        PrestoSparkHttpTaskClient workerClient = new PrestoSparkHttpTaskClient(
                 httpClient,
-                tableWriteInfo,
-                shuffleWriteInfo,
-                executor,
-                updateScheduledExecutor,
-                errorRetryScheduledExecutor,
+                taskId,
+                location,
                 taskInfoCodec,
                 planFragmentCodec,
                 taskUpdateRequestCodec,
+                taskManagerConfig.getInfoRefreshMaxWait(),
+                session.getIdentity().getExtraAuthenticators());
+        return new NativeExecutionTask(
+                session,
+                workerClient,
+                fragment,
+                sources,
+                tableWriteInfo,
+                shuffleWriteInfo,
+                broadcastBasePath,
+                executor,
+                updateScheduledExecutor,
+                errorRetryScheduledExecutor,
                 taskManagerConfig,
                 queryManagerConfig);
     }
@@ -111,5 +118,55 @@ public class NativeExecutionTaskFactory
     {
         coreExecutor.shutdownNow();
         updateScheduledExecutor.shutdownNow();
+    }
+
+    public HttpClient getHttpClient()
+    {
+        return httpClient;
+    }
+
+    public ExecutorService getCoreExecutor()
+    {
+        return coreExecutor;
+    }
+
+    public Executor getExecutor()
+    {
+        return executor;
+    }
+
+    public ScheduledExecutorService getUpdateScheduledExecutor()
+    {
+        return updateScheduledExecutor;
+    }
+
+    public ScheduledExecutorService getErrorRetryScheduledExecutor()
+    {
+        return errorRetryScheduledExecutor;
+    }
+
+    public JsonCodec<TaskInfo> getTaskInfoCodec()
+    {
+        return taskInfoCodec;
+    }
+
+    public JsonCodec<PlanFragment> getPlanFragmentCodec()
+    {
+        return planFragmentCodec;
+    }
+
+    public JsonCodec<BatchTaskUpdateRequest> getTaskUpdateRequestCodec()
+    {
+        return taskUpdateRequestCodec;
+    }
+
+    public TaskManagerConfig getTaskManagerConfig()
+    {
+        return taskManagerConfig;
+    }
+
+    public QueryManagerConfig getQueryManagerConfig()
+    {
+        return queryManagerConfig;
     }
 }

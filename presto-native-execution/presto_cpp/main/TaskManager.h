@@ -119,6 +119,11 @@ class TaskManager {
     return &queryContextManager_;
   }
 
+  /// Make upto target task threads to yield. Task candidate must have been on
+  /// thread for at least sliceMicros to be yieldable. Return the number of
+  /// threads in tasks that were requested to yield.
+  int32_t yieldTasks(int32_t numTargetThreadsToYield, int32_t timeSliceMicros);
+
   const QueryContextManager* getQueryContextManager() const {
     return &queryContextManager_;
   }
@@ -138,6 +143,8 @@ class TaskManager {
   /// Always returns non-empty string.
   static std::string buildTaskSpillDirectoryPath(
       const std::string& baseSpillPath,
+      const std::string& nodeIp,
+      const std::string& nodeId,
       const std::string& queryId,
       const protocol::TaskId& taskId);
 
