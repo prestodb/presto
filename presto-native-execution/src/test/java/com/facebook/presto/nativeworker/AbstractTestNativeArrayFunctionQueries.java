@@ -131,4 +131,15 @@ public abstract class AbstractTestNativeArrayFunctionQueries
         assertQuery("SELECT flatten(ARRAY[ARRAY[linenumber], ARRAY[suppkey, orderkey], ARRAY[orderkey, partkey]]) FROM lineitem");
         assertQuery("SELECT flatten(ARRAY[ARRAY[linenumber], null, ARRAY[null, partkey]]) FROM lineitem");
     }
+
+    @Test
+    public void testArrayUnion()
+    {
+        // Simple types with null elements.
+        assertQuery("SELECT array_union(ARRAY[linenumber, null, partkey, null, orderkey], ARRAY[partkey, partkey, suppkey, null, orderkey]) FROM lineitem");
+        // One argument is null.
+        assertQuery("SELECT array_union(ARRAY[linenumber], null) FROM lineitem");
+        // Union array of arrays.
+        assertQuery("SELECT array_union(ARRAY[ARRAY[linenumber], ARRAY[suppkey, orderkey]], ARRAY[ARRAY[linenumber], ARRAY[partkey, partkey, null, orderkey], ARRAY[suppkey, orderkey]]) FROM lineitem");
+    }
 }
