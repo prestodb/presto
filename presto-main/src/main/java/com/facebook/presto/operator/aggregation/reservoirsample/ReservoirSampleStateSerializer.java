@@ -17,12 +17,11 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggregationState;
-import com.facebook.presto.operator.aggregation.state.SetAggregationState;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 
-public class ReservoirSampleStateSerializer implements AccumulatorStateSerializer<ReservoirSampleState> {
-
+public class ReservoirSampleStateSerializer
+        implements AccumulatorStateSerializer<ReservoirSampleState>
+{
     private final Type elementType;
     private final Type arrayType;
 
@@ -52,7 +51,6 @@ public class ReservoirSampleStateSerializer implements AccumulatorStateSerialize
             }
             out.closeEntry();
         }
-
     }
 
     @Override

@@ -31,10 +31,8 @@ public class UnweightedDoubleReservoirSample
 {
     public static final int MAX_SAMPLES_LIMIT = 1_000_000;
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(UnweightedDoubleReservoirSample.class).instanceSize();
-
     private int seenCount;
     private double[] samples;
-    
     public UnweightedDoubleReservoirSample(int maxSamples)
     {
         checkArgument(
