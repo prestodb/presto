@@ -377,3 +377,157 @@ TEST_F(InPredicateTest, reusableResult) {
   auto expected = makeFlatVector<bool>({false, true, true, false});
   assertEqualVectors(expected, actual);
 }
+
+TEST_F(InPredicateTest, doubleWithZero) {
+  // zero and negative zero, FloatingPointRange
+  auto input = makeRowVector({
+      makeNullableFlatVector<double>({0.0, -0.0}, DOUBLE()),
+  });
+  auto predicate = "c0 IN ( 0.0 )";
+  auto result = evaluate<SimpleVector<bool>>(predicate, input);
+  auto expected = makeNullableFlatVector<bool>({true, true});
+  assertEqualVectors(expected, result);
+
+  // zero and negative zero, BigintValuesUsingHashTable, 0 in valuesList
+  input = makeRowVector({
+      makeNullableFlatVector<double>({0.0, -0.0}, DOUBLE()),
+  });
+  predicate = "c0 IN ( 0.0, 1.2, 2.3 )";
+  result = evaluate<SimpleVector<bool>>(predicate, input);
+  expected = makeNullableFlatVector<bool>({true, true});
+  assertEqualVectors(expected, result);
+
+  // zero and negative zero, BigintValuesUsingHashTable, -0 in valuesList
+  input = makeRowVector({
+      makeNullableFlatVector<double>({0.0, -0.0}, DOUBLE()),
+  });
+  predicate = "c0 IN ( -0.0, 1.2, 2.3, null )";
+  result = evaluate<SimpleVector<bool>>(predicate, input);
+  expected = makeNullableFlatVector<bool>({true, true});
+  assertEqualVectors(expected, result);
+
+  // TODO : zero and negative zero, BigintValuesUsingBitmask, depending on
+  // another fix
+}
+
+TEST_F(InPredicateTest, double) {
+  // No Null
+  auto input = makeRowVector({
+      makeNullableFlatVector<double>({1.2, 2.3, 3.4}, DOUBLE()),
+  });
+  std::string predicate = "c0 IN ( 1.2, 2.3, 3.4 )";
+  auto expected = makeConstant(true, input->size());
+  auto result = evaluate<SimpleVector<bool>>(predicate, input);
+  assertEqualVectors(expected, result);
+
+  // InList has Null
+  // Since there is only one non-null float, it will use FloatingPointRange
+  input = makeRowVector({
+      makeNullableFlatVector<double>({1.2, 2.3, 3.4}, DOUBLE()),
+  });
+  predicate = "c0 IN ( 1.2, null )";
+  result = evaluate<SimpleVector<bool>>(predicate, input);
+  expected = makeNullableFlatVector<bool>({true, std::nullopt, std::nullopt});
+  assertEqualVectors(expected, result);
+
+  // InList has Null
+  // Multiple non-null, using BigintValuesUsingHashTable
+  predicate = "c0 IN ( 1.2, 2.3, null )";
+  result = evaluate<SimpleVector<bool>>(predicate, input);
+  expected = makeNullableFlatVector<bool>({true, true, std::nullopt});
+  assertEqualVectors(expected, result);
+
+  // Value(input) has NULL
+  input = makeRowVector({
+      makeNullableFlatVector<double>({1.2, 1.3, std::nullopt}, DOUBLE()),
+  });
+  predicate = "c0 IN ( 1.2, 2.3 )";
+  result = evaluate<SimpleVector<bool>>(predicate, input);
+  expected = makeNullableFlatVector<bool>({true, false, std::nullopt});
+  assertEqualVectors(expected, result);
+
+  // NaN
+  input = makeRowVector({
+      makeNullableFlatVector<double>({std::nan("")}, DOUBLE()),
+  });
+  predicate = "c0 IN ( 1.2, 2.3 )";
+  result = evaluate<SimpleVector<bool>>(predicate, input);
+  expected = makeNullableFlatVector<bool>({false});
+  assertEqualVectors(expected, result);
+
+  predicate = "c0 IN ( 1.2, null )";
+  result = evaluate<SimpleVector<bool>>(predicate, input);
+  expected = makeNullableFlatVector<bool>({std::nullopt});
+  assertEqualVectors(expected, result);
+
+  // Infinity
+  input = makeRowVector({
+      makeNullableFlatVector<double>(
+          {std::numeric_limits<double>::infinity()}, DOUBLE()),
+  });
+  predicate = "c0 IN ( 1.2, 2.3 )";
+  result = evaluate<SimpleVector<bool>>(predicate, input);
+  expected = makeNullableFlatVector<bool>({false});
+  assertEqualVectors(expected, result);
+}
+
+TEST_F(InPredicateTest, float) {
+  // No Null
+  auto input = makeRowVector({
+      makeNullableFlatVector<float>({1.2, 2.3, 3.4}, REAL()),
+  });
+  std::string predicate =
+      "c0 IN ( CAST(1.2 AS REAL), CAST(2.3 AS REAL), CAST(3.4 AS REAL) )";
+  auto expected = makeConstant(true, input->size());
+  auto result = evaluate<SimpleVector<bool>>(predicate, input);
+  assertEqualVectors(expected, result);
+
+  /// InList has Null
+  // Since there is only one non-null float, it will use FloatingPointRange
+  predicate = "c0 IN ( CAST(1.2 AS REAL), null )";
+  result = evaluate<SimpleVector<bool>>(predicate, input);
+  expected = makeNullableFlatVector<bool>({true, std::nullopt, std::nullopt});
+  assertEqualVectors(expected, result);
+
+  // InList has Null
+  // Multiple non-null, using BigintValuesUsingHashTable
+  // TODO: CAST(1.2 AS REAL), CAST(1.2 AS REAL) captured a bug in
+  // BigintValuesUsingBitmask, it will be fixed in separate diff
+  predicate = "c0 IN ( CAST(1.2 AS REAL), CAST(1.3 AS REAL), null )";
+  result = evaluate<SimpleVector<bool>>(predicate, input);
+  expected = makeNullableFlatVector<bool>({true, std::nullopt, std::nullopt});
+  assertEqualVectors(expected, result);
+
+  // Value(input) has NULL
+  input = makeRowVector({
+      makeNullableFlatVector<float>({1.2, 2.3, std::nullopt}, REAL()),
+  });
+  predicate = "c0 IN ( CAST(1.2 AS REAL), CAST(1.3 AS REAL) )";
+  result = evaluate<SimpleVector<bool>>(predicate, input);
+  expected = makeNullableFlatVector<bool>({true, false, std::nullopt});
+  assertEqualVectors(expected, result);
+
+  // NaN
+  input = makeRowVector({
+      makeNullableFlatVector<float>({std::nan("")}, REAL()),
+  });
+  predicate = "c0 IN ( CAST(1.2 AS REAL), CAST(1.3 AS REAL) )";
+  result = evaluate<SimpleVector<bool>>(predicate, input);
+  expected = makeNullableFlatVector<bool>({false});
+  assertEqualVectors(expected, result);
+
+  predicate = "c0 IN ( CAST(1.2 AS REAL), null )";
+  result = evaluate<SimpleVector<bool>>(predicate, input);
+  expected = makeNullableFlatVector<bool>({std::nullopt});
+  assertEqualVectors(expected, result);
+
+  // Infinity
+  input = makeRowVector({
+      makeNullableFlatVector<float>(
+          {std::numeric_limits<float>::infinity()}, REAL()),
+  });
+  predicate = "c0 IN ( CAST(1.2 AS REAL), CAST(1.3 AS REAL) )";
+  result = evaluate<SimpleVector<bool>>(predicate, input);
+  expected = makeNullableFlatVector<bool>({false});
+  assertEqualVectors(expected, result);
+}

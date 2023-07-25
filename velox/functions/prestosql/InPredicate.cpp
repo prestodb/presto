@@ -86,6 +86,43 @@ std::pair<std::unique_ptr<common::Filter>, bool> createBigintValuesFilter(
   return {common::createBigintValues(values, nullAllowed), false};
 }
 
+// Cast double to Int64 and reuse Int64 filters
+template <typename T>
+std::pair<std::unique_ptr<common::Filter>, bool>
+createFloatingPointValuesFilter(
+    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+  auto valuesPair = toValues<double, T>(inputArgs);
+  if (!valuesPair.has_value()) {
+    return {nullptr, false};
+  }
+
+  auto& values = valuesPair.value().first;
+  bool nullAllowed = valuesPair.value().second;
+
+  if (values.empty() && nullAllowed) {
+    return {nullptr, true};
+  }
+  VELOX_USER_CHECK(
+      !values.empty(),
+      "IN predicate expects at least one non-null value in the in-list");
+
+  if (values.size() == 1) {
+    return {
+        std::make_unique<common::FloatingPointRange<double>>(
+            values[0], false, false, values[0], false, false, nullAllowed),
+        false};
+  }
+
+  std::vector<int64_t> intValues(values.size());
+  for (size_t i = 0; i < values.size(); ++i) {
+    if (values[i] == double{}) {
+      values[i] = 0;
+    }
+    intValues[i] = reinterpret_cast<const int64_t&>(values[i]);
+  }
+  return {common::createBigintValues(intValues, nullAllowed), false};
+}
+
 // See createBigintValuesFilter.
 std::pair<std::unique_ptr<common::Filter>, bool> createBytesValuesFilter(
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
@@ -139,6 +176,9 @@ class InPredicate : public exec::VectorFunction {
         break;
       case TypeKind::TINYINT:
         filter = createBigintValuesFilter<int8_t>(inputArgs);
+        break;
+      case TypeKind::DOUBLE:
+        filter = createFloatingPointValuesFilter<double>(inputArgs);
         break;
       case TypeKind::BOOLEAN:
         // Hack: using BIGINT filter for bool, which is essentially "int1_t".
@@ -194,6 +234,19 @@ class InPredicate : public exec::VectorFunction {
           return filter_->testInt64(value);
         });
         break;
+      case TypeKind::DOUBLE:
+        applyTyped<double>(rows, input, context, result, [&](double value) {
+          auto* derived =
+              dynamic_cast<common::FloatingPointRange<double>*>(filter_.get());
+          if (derived) {
+            return filter_->testDouble(value);
+          }
+          if (value == double{}) {
+            value = 0;
+          }
+          return filter_->testInt64(reinterpret_cast<const int64_t&>(value));
+        });
+        break;
       case TypeKind::BOOLEAN:
         applyTyped<bool>(rows, input, context, result, [&](bool value) {
           return filter_->testInt64(value);
@@ -224,6 +277,7 @@ class InPredicate : public exec::VectorFunction {
           "bigint",
           "varchar",
           "varbinary",
+          "double",
           "date"}) {
       signatures.emplace_back(exec::FunctionSignatureBuilder()
                                   .returnType("boolean")
