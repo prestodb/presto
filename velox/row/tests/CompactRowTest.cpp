@@ -443,6 +443,8 @@ TEST_F(CompactRowTest, row) {
               makeFlatVector<int32_t>({1, 2, 3, 4, 5}),
               makeNullableFlatVector<int64_t>({-1, 2, -3, std::nullopt, -5}),
               makeFlatVector<double>({1.05, 2.05, 3.05, 4.05, 5.05}),
+              makeFlatVector<std::string>(
+                  {"a", "Abc", "Long test string", "", "d"}),
           },
           nullEvery(2)),
   });

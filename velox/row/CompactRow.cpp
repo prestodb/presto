@@ -920,11 +920,10 @@ RowVectorPtr deserializeRows(
     auto* rawFieldNulls = fieldNulls.back()->asMutable<uint8_t>();
     for (auto row = 0; row < numRows; ++row) {
       auto* serializedNulls = readNulls(data[row].data() + offsets[row]);
-      bits::setBit(
-          rawFieldNulls,
-          row,
+      const auto isNull =
           (rawNulls != nullptr && bits::isBitNull(rawNulls, row)) ||
-              !bits::isBitSet(serializedNulls, i));
+          bits::isBitSet(serializedNulls, i);
+      bits::setBit(rawFieldNulls, row, !isNull);
     }
   }
 
