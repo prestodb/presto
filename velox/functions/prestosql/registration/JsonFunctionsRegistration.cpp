@@ -59,9 +59,9 @@ void registerJsonFunctions(const std::string& prefix) {
   registerFunction<SIMDJsonArrayContainsFunction, bool, Varchar, Varchar>(
       {prefix + "json_array_contains"});
 
-  registerFunction<JsonSizeFunction, int64_t, Json, Varchar>(
+  registerFunction<SIMDJsonSizeFunction, int64_t, Json, Varchar>(
       {prefix + "json_size"});
-  registerFunction<JsonSizeFunction, int64_t, Varchar, Varchar>(
+  registerFunction<SIMDJsonSizeFunction, int64_t, Varchar, Varchar>(
       {prefix + "json_size"});
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_json_format, prefix + "json_format");

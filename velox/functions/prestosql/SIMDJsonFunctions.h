@@ -270,4 +270,54 @@ struct SIMDJsonExtractFunction {
   }
 };
 
+template <typename T>
+struct SIMDJsonSizeFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      int64_t& result,
+      const arg_type<Json>& json,
+      const arg_type<Varchar>& jsonPath) {
+    size_t resultCount = 0;
+    size_t singleResultSize = 0;
+    auto consumer = [&resultCount, &singleResultSize](auto& v) {
+      resultCount++;
+
+      if (resultCount == 1) {
+        // We only need the size of the actual object if there's only one
+        // returned, if multiple are returned we use the number of objects
+        // returned instead.
+        switch (v.type()) {
+          case simdjson::ondemand::json_type::object:
+            singleResultSize = v.count_fields().value();
+            break;
+          case simdjson::ondemand::json_type::array:
+            singleResultSize = v.count_elements().value();
+            break;
+          case simdjson::ondemand::json_type::string:
+          case simdjson::ondemand::json_type::number:
+          case simdjson::ondemand::json_type::boolean:
+          case simdjson::ondemand::json_type::null:
+            singleResultSize = 0;
+            break;
+        }
+      }
+    };
+
+    if (!simdJsonExtract(json, jsonPath, consumer)) {
+      // If there's an error parsing the JSON, return null.
+      return false;
+    }
+
+    if (resultCount == 0) {
+      // If the path didn't map to anything in the JSON object, return null.
+      return false;
+    }
+
+    result = resultCount == 1 ? singleResultSize : resultCount;
+
+    return true;
+  }
+};
+
 } // namespace facebook::velox::functions
