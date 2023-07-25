@@ -286,7 +286,7 @@ Hive Connector
      - bool
      - false
      - True if reading the source file column names as lower case, and planner should guarantee
-     - the input column name and filter is also lower case to achive case-insensitive read..    
+       the input column name and filter is also lower case to achive case-insensitive read.
    * - max-coalesced-bytes
      - integer
      - 512KB
@@ -327,7 +327,7 @@ Hive Connector
      - bool
      - false
      - Use path-style access for all requests to the S3-compatible storage. This is for S3-compatible storage that
-       doesn’t support virtual-hosted-style access.
+       doesn't support virtual-hosted-style access.
    * - hive.s3.ssl.enabled
      - bool
      - true
