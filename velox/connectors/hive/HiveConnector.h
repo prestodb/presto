@@ -46,6 +46,9 @@ class HiveConnector : public Connector {
         HiveConfig::maxCoalescedBytes(connectorQueryCtx->config()));
     options.setMaxCoalesceDistance(
         HiveConfig::maxCoalescedDistanceBytes(connectorQueryCtx->config()));
+    options.setFileColumnNamesReadAsLowerCase(
+        HiveConfig::isFileColumnNamesReadAsLowerCase(
+            connectorQueryCtx->config()));
     return std::make_unique<HiveDataSource>(
         outputType,
         tableHandle,
@@ -54,8 +57,6 @@ class HiveConnector : public Connector {
         connectorQueryCtx->expressionEvaluator(),
         connectorQueryCtx->cache(),
         connectorQueryCtx->scanId(),
-        HiveConfig::isFileColumnNamesReadAsLowerCase(
-            connectorQueryCtx->config()),
         executor_,
         options);
   }

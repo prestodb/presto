@@ -292,6 +292,9 @@ void checkColumnNameLowerCase(const SubfieldFilters& filters) {
 }
 
 void checkColumnNameLowerCase(const core::TypedExprPtr& typeExpr) {
+  if (typeExpr == nullptr) {
+    return;
+  }
   checkColumnNameLowerCase(typeExpr->type());
   for (auto& type : typeExpr->inputs()) {
     checkColumnNameLowerCase(type);
@@ -360,7 +363,6 @@ HiveDataSource::HiveDataSource(
     core::ExpressionEvaluator* expressionEvaluator,
     cache::AsyncDataCache* cache,
     const std::string& scanId,
-    bool fileColumnNamesReadAsLowerCase,
     folly::Executor* executor,
     const dwio::common::ReaderOptions& options)
     : fileHandleFactory_(fileHandleFactory),
@@ -405,7 +407,7 @@ HiveDataSource::HiveDataSource(
   VELOX_CHECK(
       hiveTableHandle != nullptr,
       "TableHandle must be an instance of HiveTableHandle");
-  if (fileColumnNamesReadAsLowerCase) {
+  if (readerOpts_.isFileColumnNamesReadAsLowerCase()) {
     checkColumnNameLowerCase(outputType);
     checkColumnNameLowerCase(hiveTableHandle->subfieldFilters());
     checkColumnNameLowerCase(hiveTableHandle->remainingFilter());

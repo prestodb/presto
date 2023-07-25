@@ -39,7 +39,6 @@ class HiveDataSource : public DataSource {
       core::ExpressionEvaluator* expressionEvaluator,
       cache::AsyncDataCache* cache,
       const std::string& scanId,
-      bool fileColumnNamesReadAsLowerCase,
       folly::Executor* executor,
       const dwio::common::ReaderOptions& options);
 
