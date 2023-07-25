@@ -1843,7 +1843,6 @@ void PrestoVectorSerde::deserialize(
   auto childTypes = type->as<TypeKind::ROW>().children();
   if (!needCompression(*codec)) {
     auto numColumns = source->read<int32_t>();
-    VELOX_CHECK_EQ(numColumns, type->as<TypeKind::ROW>().size());
     readColumns(source, pool, childTypes, children, useLosslessTimestamp);
   } else {
     auto compressBuf = folly::IOBuf::create(compressedSize);
