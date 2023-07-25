@@ -89,7 +89,7 @@ with HiveConnector, table scan reads data from ORC or Parquet files.
 ArrowStreamNode
 ~~~~~~~~~~~~~~~
 
-The Arrow stream operation reads data from an Arrow array stream. The ArrowArrayStream structure is defined in Arrow abi, 
+The Arrow stream operation reads data from an Arrow array stream. The ArrowArrayStream structure is defined in Arrow abi,
 and provides the required callbacks to interact with a streaming source of Arrow arrays.
 
 .. list-table::
@@ -583,8 +583,8 @@ each batch of input it computes and returns the results before accepting the
 next batch of input.
 
 This operator accumulates state: a hash table mapping partition keys to total
-number of rows seen in this partition so far. This operator doesn't support
-spilling yet.
+number of rows seen in this partition so far. Returning the row numbers as
+a column in the output is optional. This operator doesn't support spilling yet.
 
 This operator is equivalent to a WindowNode followed by
 FilterNode(row_number <= limit), but it uses less memory and CPU and makes
@@ -600,7 +600,7 @@ results available before seeing all input.
   * - partitionKeys
     - Partition by columns.
   * - rowNumberColumnName
-    - Output column name for the row numbers.
+    - Optional output column name for the row numbers. If specified, the generated row numbers are returned as an output column appearing after all input columns.
   * - limit
     - Optional per-partition limit. If specified, the number of rows produced by this node will not exceed this value for any given partition. Extra rows will be dropped.
 
@@ -615,8 +615,8 @@ a 'limit' number of top rows for each partition. After receiving all input,
 assigns row numbers within each partition starting from 1.
 
 This operator accumulates state: a hash table mapping partition keys to a list
-of top 'limit' rows within that partition. This operator doesn't support
-spilling yet.
+of top 'limit' rows within that partition.  Returning the row numbers as
+a column in the output is optional. This operator doesn't support spilling yet.
 
 This operator is logically equivalent to a WindowNode followed by
 FilterNode(row_number <= limit), but it uses less memory and CPU.
@@ -635,7 +635,7 @@ FilterNode(row_number <= limit), but it uses less memory and CPU.
   * - sortingOrders
     - Sorting order for each sorting key above. The supported sort orders are asc nulls first, asc nulls last, desc nulls first and desc nulls last.
   * - rowNumberColumnName
-    - Output column name for the row numbers.
+    - Optional output column name for the row numbers. If specified, the generated row numbers are returned as an output column appearing after all input columns.
   * - limit
     - Per-partition limit. If specified, the number of rows produced by this node will not exceed this value for any given partition. Extra rows will be dropped.
 
