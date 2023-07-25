@@ -27,7 +27,7 @@ class Destination {
   Destination(
       const std::string& taskId,
       int destination,
-      memory::MemoryPool* FOLLY_NONNULL pool)
+      memory::MemoryPool* pool)
       : taskId_(taskId), destination_(destination), pool_(pool) {
     setTargetSizePct();
   }
@@ -52,13 +52,13 @@ class Destination {
       const RowVectorPtr& output,
       PartitionedOutputBufferManager& bufferManager,
       const std::function<void()>& bufferReleaseFn,
-      bool* FOLLY_NONNULL atEnd,
-      ContinueFuture* FOLLY_NONNULL future);
+      bool* atEnd,
+      ContinueFuture* future);
 
   BlockingReason flush(
       PartitionedOutputBufferManager& bufferManager,
       const std::function<void()>& bufferReleaseFn,
-      ContinueFuture* FOLLY_NULLABLE future);
+      ContinueFuture* future);
 
   bool isFinished() const {
     return finished_;
@@ -91,7 +91,7 @@ class Destination {
 
   const std::string taskId_;
   const int destination_;
-  memory::MemoryPool* FOLLY_NONNULL const pool_;
+  memory::MemoryPool* const pool_;
   uint64_t bytesInCurrent_{0};
   std::vector<IndexRange> rows_;
 
@@ -130,7 +130,7 @@ class PartitionedOutput : public Operator {
 
   PartitionedOutput(
       int32_t operatorId,
-      DriverCtx* FOLLY_NONNULL ctx,
+      DriverCtx* ctx,
       const std::shared_ptr<const core::PartitionedOutputNode>& planNode);
 
   void addInput(RowVectorPtr input) override;
@@ -146,7 +146,7 @@ class PartitionedOutput : public Operator {
     return true;
   }
 
-  BlockingReason isBlocked(ContinueFuture* FOLLY_NONNULL future) override {
+  BlockingReason isBlocked(ContinueFuture* future) override {
     if (blockingReason_ != BlockingReason::kNotBlocked) {
       *future = std::move(future_);
       blockingReason_ = BlockingReason::kNotBlocked;

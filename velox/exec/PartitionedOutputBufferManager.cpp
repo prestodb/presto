@@ -242,11 +242,12 @@ PartitionedOutputBuffer::PartitionedOutputBuffer(
 void PartitionedOutputBuffer::updateOutputBuffers(
     int numBuffers,
     bool noMoreBuffers) {
-  VELOX_CHECK(
-      !isPartitioned(),
-      "{} is not supported on {} output buffer",
-      __FUNCTION__,
-      kind_);
+  if (isPartitioned()) {
+    VELOX_CHECK_EQ(buffers_.size(), numBuffers);
+    VELOX_CHECK(noMoreBuffers);
+    noMoreBuffers_ = true;
+    return;
+  }
 
   std::vector<ContinuePromise> promises;
   bool isFinished;
@@ -476,8 +477,16 @@ bool PartitionedOutputBuffer::isFinished() {
 }
 
 bool PartitionedOutputBuffer::isFinishedLocked() {
-  if (!isPartitioned() && !noMoreBuffers_) {
+  // NOTE: for broadcast output buffer, we can only mark it as finished after
+  // receiving the no more (destination) buffers signal.
+  if (isBroadcast() && !noMoreBuffers_) {
     return false;
+  }
+  if (isArbitrary()) {
+    VELOX_CHECK_NOT_NULL(arbitraryBuffer_);
+    if (!arbitraryBuffer_->empty()) {
+      return false;
+    }
   }
   for (auto& buffer : buffers_) {
     if (buffer != nullptr) {

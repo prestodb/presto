@@ -1760,9 +1760,9 @@ PlanNodePtr PartitionedOutputNode::create(
     void* context) {
   return std::make_shared<PartitionedOutputNode>(
       deserializePlanNodeId(obj),
+      stringToKind(obj["kind"].asString()),
       ISerializable::deserialize<std::vector<ITypedExpr>>(obj["keys"], context),
       obj["numPartitions"].asInt(),
-      stringToKind(obj["kind"].asString()),
       obj["replicateNullsAndAny"].asBool(),
       ISerializable::deserialize<PartitionFunctionSpec>(
           obj["partitionFunctionSpec"], context),

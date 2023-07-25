@@ -149,22 +149,22 @@ class PartitionedOutputBufferManagerTest : public testing::Test {
          &receivedData](
             std::vector<std::unique_ptr<folly::IOBuf>> pages,
             int64_t inSequence) {
-          EXPECT_FALSE(receivedData) << "for destination " << destination;
-          EXPECT_EQ(pages.size(), expectedGroups)
+          ASSERT_FALSE(receivedData) << "for destination " << destination;
+          ASSERT_EQ(pages.size(), expectedGroups)
               << "for destination " << destination;
           for (int i = 0; i < pages.size(); ++i) {
             if (i == pages.size() - 1) {
-              EXPECT_EQ(expectedEndMarker, pages[i] == nullptr)
+              ASSERT_EQ(expectedEndMarker, pages[i] == nullptr)
                   << "for destination " << destination;
             } else {
-              EXPECT_TRUE(pages[i] != nullptr)
+              ASSERT_TRUE(pages[i] != nullptr)
                   << "for destination " << destination;
             }
           }
-          EXPECT_EQ(inSequence, sequence) << "for destination " << destination;
+          ASSERT_EQ(inSequence, sequence) << "for destination " << destination;
           receivedData = true;
         }));
-    EXPECT_TRUE(receivedData) << "for destination " << destination;
+    ASSERT_TRUE(receivedData) << "for destination " << destination;
   }
 
   void fetchOne(
@@ -562,20 +562,19 @@ TEST_F(PartitionedOutputBufferManagerTest, basicPartitioned) {
       taskId, rowType_, PartitionedOutputNode::Kind::kPartitioned, 5, 1);
   verifyOutputBuffer(task, OutputBufferStatus::kInitiated);
 
-  // Partitioned output buffer doesn't allow to update output buffers once
-  // created.
+  // Duplicateb update buffers with the same settings are allowed and ignored.
+  ASSERT_TRUE(bufferManager_->updateOutputBuffers(taskId, 5, true));
+  ASSERT_FALSE(bufferManager_->isFinished(taskId));
+  // Partitioned output buffer doesn't allow to update with different number of
+  // output buffers once created.
   VELOX_ASSERT_THROW(
-      bufferManager_->updateOutputBuffers(taskId, 5 + 1, true),
-      "updateOutputBuffers is not supported on PARTITIONED output buffer");
+      bufferManager_->updateOutputBuffers(taskId, 5 + 1, true), "");
+  // Partitioned output buffer doesn't expect more output buffers once created.
+  VELOX_ASSERT_THROW(bufferManager_->updateOutputBuffers(taskId, 5, false), "");
   VELOX_ASSERT_THROW(
-      bufferManager_->updateOutputBuffers(taskId, 5 + 1, false),
-      "updateOutputBuffers is not supported on PARTITIONED output buffer");
+      bufferManager_->updateOutputBuffers(taskId, 5 - 1, true), "");
   VELOX_ASSERT_THROW(
-      bufferManager_->updateOutputBuffers(taskId, 5 - 1, true),
-      "updateOutputBuffers is not supported on PARTITIONED output buffer");
-  VELOX_ASSERT_THROW(
-      bufferManager_->updateOutputBuffers(taskId, 5 - 1, false),
-      "updateOutputBuffers is not supported on PARTITIONED output buffer");
+      bufferManager_->updateOutputBuffers(taskId, 5 - 1, false), "");
 
   // - enqueue one group per destination
   // - fetch and ask one group per destination
@@ -761,8 +760,10 @@ TEST_F(PartitionedOutputBufferManagerTest, basicArbitrary) {
   fetchOneAndAck(taskId, numDestinations - 1, 0);
   ackedSeqbyDestination[numDestinations - 1] = 1;
 
-  bufferManager_->updateOutputBuffers(taskId, numDestinations, true);
-  VELOX_ASSERT_THROW(fetchOneAndAck(taskId, numDestinations, 0), "");
+  bufferManager_->updateOutputBuffers(taskId, numDestinations - 1, false);
+  VELOX_ASSERT_THROW(
+      fetchOneAndAck(taskId, numDestinations - 1, 0),
+      "(0 vs. 1) Get received for an already acknowledged item");
 
   receivedData = false;
   registerForData(taskId, numDestinations - 2, 0, 1, receivedData);
@@ -772,13 +773,18 @@ TEST_F(PartitionedOutputBufferManagerTest, basicArbitrary) {
   ackedSeqbyDestination[numDestinations - 2] = 1;
 
   noMoreData(taskId);
+  EXPECT_FALSE(bufferManager_->isFinished(taskId));
   EXPECT_TRUE(task->isRunning());
   for (int i = 0; i < numDestinations; ++i) {
     fetchEndMarker(taskId, i, ackedSeqbyDestination[i]);
   }
   EXPECT_TRUE(bufferManager_->isFinished(taskId));
-
   EXPECT_FALSE(task->isRunning());
+
+  // NOTE: arbitrary buffer finish condition doesn't depend on no more
+  // (destination )buffers update flag.
+  bufferManager_->updateOutputBuffers(taskId, numDestinations, true);
+
   EXPECT_TRUE(bufferManager_->isFinished(taskId));
   bufferManager_->removeTask(taskId);
   EXPECT_TRUE(task->isFinished());
@@ -919,8 +925,7 @@ TEST_P(AllPartitionedOutputBufferManagerTest, outputBufferUtilization) {
   const auto destination = 0;
   auto task = initializeTask(taskId, rowType_, kind_, 1, 1);
   verifyOutputBuffer(task, OutputBufferStatus::kInitiated);
-  if (kind_ !=
-      facebook::velox::core::PartitionedOutputNode::Kind::kPartitioned) {
+  if (kind_ == facebook::velox::core::PartitionedOutputNode::Kind::kBroadcast) {
     bufferManager_->updateOutputBuffers(taskId, destination, true);
   }
 

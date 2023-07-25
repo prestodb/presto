@@ -103,7 +103,7 @@ BlockingReason Destination::flush(
 
 PartitionedOutput::PartitionedOutput(
     int32_t operatorId,
-    DriverCtx* FOLLY_NONNULL ctx,
+    DriverCtx* ctx,
     const std::shared_ptr<const core::PartitionedOutputNode>& planNode)
     : Operator(
           ctx,
@@ -131,9 +131,12 @@ PartitionedOutput::PartitionedOutput(
       maxBufferedBytes_(ctx->task->queryCtx()
                             ->queryConfig()
                             .maxPartitionedOutputBufferSize()) {
-  if (numDestinations_ == 1 || planNode->isBroadcast()) {
-    VELOX_CHECK(keyChannels_.empty());
-    VELOX_CHECK_NULL(partitionFunction_);
+  if (!planNode->isPartitioned()) {
+    VELOX_USER_CHECK_EQ(numDestinations_, 1);
+  }
+  if (numDestinations_ == 1) {
+    VELOX_USER_CHECK(keyChannels_.empty());
+    VELOX_USER_CHECK_NULL(partitionFunction_);
   }
 }
 

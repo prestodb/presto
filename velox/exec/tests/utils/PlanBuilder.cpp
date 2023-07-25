@@ -848,9 +848,9 @@ PlanBuilder& PlanBuilder::partitionedOutput(
       : extract(planNode_->outputType(), outputLayout);
   planNode_ = std::make_shared<core::PartitionedOutputNode>(
       nextPlanNodeId(),
+      core::PartitionedOutputNode::Kind::kPartitioned,
       exprs(keys),
       numPartitions,
-      core::PartitionedOutputNode::Kind::kPartitioned,
       replicateNullsAndAny,
       std::move(partitionFunctionSpec),
       outputType,
