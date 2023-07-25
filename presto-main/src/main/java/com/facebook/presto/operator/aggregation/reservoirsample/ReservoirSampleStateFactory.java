@@ -14,12 +14,7 @@
 package com.facebook.presto.operator.aggregation.reservoirsample;
 
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.operator.aggregation.reservoirsample.ReservoirSampleState;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
-
-import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static java.lang.String.format;
 
 public class ReservoirSampleStateFactory
         implements AccumulatorStateFactory<ReservoirSampleState>
