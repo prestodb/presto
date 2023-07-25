@@ -60,6 +60,15 @@ TEST_F(ArrayAggTest, groupBy) {
       {"c0"},
       {"array_agg(a)"},
       "SELECT c0, array_agg(a) FROM tmp GROUP BY c0");
+
+  // Having one function supporting toIntermediate and one does not, make sure
+  // the row container is recreated with only the function wihtout
+  // toIntermediate support.
+  testAggregations(
+      batches,
+      {"c0"},
+      {"array_agg(a)", "max(c0)"},
+      "SELECT c0, array_agg(a), max(c0) FROM tmp GROUP BY c0");
 }
 
 TEST_F(ArrayAggTest, sortedGroupBy) {
