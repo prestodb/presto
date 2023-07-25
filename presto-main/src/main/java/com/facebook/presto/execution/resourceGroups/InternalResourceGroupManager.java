@@ -433,6 +433,15 @@ public final class InternalResourceGroupManager<C>
         return totalRunningQueries >= (hardConcurrencyLimit * concurrencyThreshold) && lastUpdatedResourceGroupRuntimeInfo.getAsLong() <= resourceGroup.getLastRunningQueryStartTime();
     }
 
+    /**
+     * Metric to indicate the freshness of "ResourceGroupRuntimeInfos"
+     */
+    @Managed
+    public long getUpdatedResourceGroupRuntimeInfoDelayMs()
+    {
+        return currentTimeMillis() - lastUpdatedResourceGroupRuntimeInfo.get();
+    }
+
     @Managed
     public int getQueriesQueuedOnInternal()
     {
