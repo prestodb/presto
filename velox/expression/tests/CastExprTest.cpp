@@ -27,8 +27,8 @@
 #include "velox/vector/TypeAliases.h"
 
 using namespace facebook::velox;
-using namespace facebook::velox::test;
-
+namespace facebook::velox::test {
+namespace {
 class CastExprTest : public functions::test::CastBaseTest {
  protected:
   CastExprTest() {
@@ -120,7 +120,7 @@ class CastExprTest : public functions::test::CastBaseTest {
       exec::EvalCtx evalCtx(&execCtx_, &dictionaryExprSet, rowVector.get());
       dictionaryExprSet.eval(rows, evalCtx, result);
 
-      auto indices = ::makeIndicesInReverse(size, pool());
+      auto indices = functions::test::makeIndicesInReverse(size, pool());
       assertEqualVectors(wrapInDictionary(indices, size, expected), result[0]);
     }
   }
@@ -691,6 +691,28 @@ TEST_F(CastExprTest, mapCast) {
       VELOX_CHECK(start + size - 1 < valuesSize);
     }
   }
+
+  // Error handling.
+  {
+    auto data = makeRowVector(
+        {makeMapVector<StringView, StringView>({{{"1", "2"}}, {{"", "1"}}})});
+    auto result1 = evaluate("try_cast(c0 as map(int, int))", data);
+    auto result2 = evaluate("try(cast(c0 as map(int, int)))", data);
+    ASSERT_FALSE(result1->isNullAt(0));
+    ASSERT_TRUE(result1->isNullAt(1));
+
+    ASSERT_FALSE(result2->isNullAt(0));
+    ASSERT_TRUE(result2->isNullAt(1));
+    ASSERT_THROW(evaluate("cast(c0 as map(int, int)", data), VeloxException);
+  }
+
+  {
+    auto result = evaluate(
+        "try_cast(map(array_constructor('1'), array_constructor(''))  as map(int, int))",
+        makeRowVector({makeFlatVector<int32_t>({1, 2})}));
+    ASSERT_TRUE(result->isNullAt(0));
+    ASSERT_TRUE(result->isNullAt(1));
+  }
 }
 
 TEST_F(CastExprTest, arrayCast) {
@@ -751,6 +773,34 @@ TEST_F(CastExprTest, arrayCast) {
       VELOX_CHECK(start + size - 1 < elementsSize);
     }
   }
+
+  // Error handling.
+  {
+    auto data =
+        makeRowVector({makeArrayVector<StringView>({{"1", "2"}, {"", "1"}})});
+    auto result1 = evaluate("try_cast(c0 as bigint[])", data);
+    auto result2 = evaluate("try(cast(c0 as bigint[]))", data);
+
+    auto expected = makeNullableArrayVector<int64_t>({{{1, 2}}, std::nullopt});
+
+    assertEqualVectors(result1, expected);
+    assertEqualVectors(result2, expected);
+
+    ASSERT_THROW(evaluate("cast(c0 as bigint[])", data), VeloxException);
+  }
+
+  {
+    auto data = makeNullableNestedArrayVector<StringView>({
+        {{{{"1"_sv, "2"_sv}}, {{""_sv}}}}, // row0
+        {{{{std::nullopt, "4"_sv}}}}, // row1
+    });
+    auto expected = makeNullableNestedArrayVector<int64_t>({
+        std::nullopt, // row0
+        {{{{std::nullopt, 4}}}}, // row1
+
+    });
+    testComplexCast("c0", data, expected, true);
+  }
 }
 
 TEST_F(CastExprTest, rowCast) {
@@ -800,6 +850,58 @@ TEST_F(CastExprTest, rowCast) {
     auto expectedRowVector = makeRowVector(
         {"c0", "b"}, {doubleVectorNullEvery11, intVectorNullAll}, nullEvery(5));
     testComplexCast("c0", rowVector, expectedRowVector);
+  }
+
+  // Error handling.
+  {
+    auto data = makeRowVector(
+        {makeFlatVector<StringView>({"1", ""}),
+         makeFlatVector<StringView>({"2", "3"})});
+
+    auto expected = makeRowVector(
+        {makeFlatVector<int32_t>({1, 2}), makeFlatVector<int32_t>({2, 3})});
+    expected->setNull(1, true);
+
+    testComplexCast("c0", data, expected, true);
+  }
+
+  {
+    auto data = makeRowVector(
+        {makeArrayVector<StringView>({{"1", ""}, {"3", "4"}}),
+         makeFlatVector<StringView>({"2", ""})});
+
+    // expected1 is [null, struct{[3,4], ""}]
+    auto expected1 = makeRowVector(
+        {makeArrayVector<int32_t>({{1 /*will be null*/}, {3, 4}}),
+         makeFlatVector<StringView>({"2" /*will be null*/, ""})});
+    expected1->setNull(0, true);
+
+    // expected2 is [struct{["1",""], 2}, null]
+    auto expected2 = makeRowVector(
+        {makeArrayVector<StringView>({{"1", ""}, {"3", "4"}}),
+         makeFlatVector<int32_t>({2, 0 /*null*/})});
+    expected2->setNull(1, true);
+
+    // expected3 is [null, null]
+    auto expected3 = makeRowVector(
+        {makeArrayVector<int32_t>({{1}}), makeFlatVector<int32_t>(1)});
+    expected3->resize(2);
+    expected3->setNull(0, true);
+    expected3->setNull(1, true);
+
+    testComplexCast("c0", data, expected1, true);
+    testComplexCast("c0", data, expected2, true);
+    testComplexCast("c0", data, expected3, true);
+  }
+
+  // Null handling for nested structs.
+  {
+    auto data =
+        makeRowVector({makeRowVector({makeFlatVector<StringView>({"1", ""})})});
+    auto expected =
+        makeRowVector({makeRowVector({makeFlatVector<int32_t>({1, 0})})});
+    expected->setNull(1, true);
+    testComplexCast("c0", data, expected, true);
   }
 }
 
@@ -1135,7 +1237,7 @@ class TestingDictionaryOverConstFunction : public exec::VectorFunction {
     const auto size = rows.size();
     auto constant = BaseVector::wrapInConstant(size, 0, args[0]);
 
-    auto indices = makeIndicesInReverse(size, context.pool());
+    auto indices = functions::test::makeIndicesInReverse(size, context.pool());
     auto nulls = allocateNulls(size, context.pool());
     result =
         BaseVector::wrapInDictionary(nulls, indices, size, std::move(constant));
@@ -1168,7 +1270,8 @@ TEST_F(CastExprTest, dictionaryOverConst) {
 }
 
 namespace {
-// Wrap input in a dictionary that point to subset of rows of the inner vector.
+// Wrap input in a dictionary that point to subset of rows of the inner
+// vector.
 class TestingDictionaryToFewerRowsFunction : public exec::VectorFunction {
  public:
   TestingDictionaryToFewerRowsFunction() {}
@@ -1206,16 +1309,16 @@ TEST_F(CastExprTest, dictionaryEncodedNestedInput) {
   // Cast ARRAY<ROW<BIGINT>> to ARRAY<ROW<VARCHAR>> where the outermost ARRAY
   // layer and innermost BIGINT layer are dictionary-encoded. This test case
   // ensures that when casting the ROW<BIGINT> vector, the result ROW vector
-  // would not be longer than the result VARCHAR vector. In the test below, the
-  // ARRAY vector has 2 rows, each containing 3 elements. The ARRAY vector is
-  // wrapped in a dictionary layer that only references its first row, hence
-  // only the first 3 out of 6 rows are evaluated for the ROW and BIGINT vector.
-  // The BIGINT vector is also dictionary-encoded, so CastExpr produces a result
-  // VARCHAR vector of length 3. If the casting of the ROW vector produces a
-  // result ROW<VARCHAR> vector of the length of all rows, i.e., 6, the
-  // subsequent call to Expr::addNull() would throw due to the attempt of
-  // accessing the element VARCHAR vector at indices corresonding to the
-  // non-existent ROW at indices 3--5.
+  // would not be longer than the result VARCHAR vector. In the test below,
+  // the ARRAY vector has 2 rows, each containing 3 elements. The ARRAY vector
+  // is wrapped in a dictionary layer that only references its first row,
+  // hence only the first 3 out of 6 rows are evaluated for the ROW and BIGINT
+  // vector. The BIGINT vector is also dictionary-encoded, so CastExpr
+  // produces a result VARCHAR vector of length 3. If the casting of the ROW
+  // vector produces a result ROW<VARCHAR> vector of the length of all rows,
+  // i.e., 6, the subsequent call to Expr::addNull() would throw due to the
+  // attempt of accessing the element VARCHAR vector at indices corresonding
+  // to the non-existent ROW at indices 3--5.
   exec::registerVectorFunction(
       "add_dict",
       TestingDictionaryToFewerRowsFunction::signatures(),
@@ -1256,3 +1359,64 @@ TEST_F(CastExprTest, smallerNonNullRowsSizeThanRows) {
   auto expected = makeNullableFlatVector<double>({4, 6, 7, std::nullopt});
   assertEqualVectors(expected, result);
 }
+
+TEST_F(CastExprTest, tryCastDoesNotHideInputsAndExistingErrors) {
+  auto test = [&](const std::string& castExprThatThrow,
+                  const std::string& type,
+                  const auto& data) {
+    ASSERT_THROW(
+        auto result = evaluate(
+            fmt::format("try_cast({} as {})", castExprThatThrow, type), data),
+        VeloxException);
+
+    ASSERT_NO_THROW(evaluate(
+        fmt::format("try (cast ({} as {}))", castExprThatThrow, type), data));
+    ASSERT_NO_THROW(evaluate(fmt::format("try_{}", castExprThatThrow), data));
+    ASSERT_NO_THROW(evaluate(fmt::format("try ({})", castExprThatThrow), data));
+  };
+
+  {
+    auto data = makeRowVector({makeFlatVector<int64_t>({1, 2, 3, 4})});
+    test("cast('' as int)", "int", data);
+  }
+
+  {
+    auto data =
+        makeRowVector({makeArrayVector<StringView>({{"1", "", "3", "4"}})});
+    test("cast(c0 as integer[])", "integer[]", data);
+    test("cast(map(c0, c0) as map(int, int))", "map(int, int)", data);
+    test(
+        "cast(row_constructor(c0, c0, c0) as struct(a int[], b bigint[], c float[]))",
+        "struct(a int[], b bigint[], c float[])",
+        data);
+  }
+
+  {
+    auto data = makeRowVector(
+        {makeFlatVector<bool>({true, false, true, false}),
+         makeFlatVector<StringView>({{"1", "2", "3", "4"}})});
+
+    ASSERT_THROW(
+        evaluate("switch(c0, cast('' as int), cast(c1 as integer))", data),
+        VeloxException);
+
+    ASSERT_THROW(
+        evaluate("switch(c0, cast('' as int), try_cast(c1 as integer))", data),
+        VeloxException);
+    {
+      auto result = evaluate(
+          "try(switch(c0, cast('' as int), cast(c1 as integer)))", data);
+      ASSERT_TRUE(result->isNullAt(0));
+      ASSERT_TRUE(result->isNullAt(2));
+    }
+
+    {
+      auto result = evaluate(
+          "try(switch(c0, try_cast('' as int), cast(c1 as integer)))", data);
+      ASSERT_TRUE(result->isNullAt(0));
+      ASSERT_TRUE(result->isNullAt(2));
+    }
+  }
+}
+} // namespace
+} // namespace facebook::velox::test

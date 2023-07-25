@@ -412,13 +412,11 @@ ExprPtr compileRewrittenExpression(
   } else if (auto cast = dynamic_cast<const core::CastTypedExpr*>(expr.get())) {
     VELOX_CHECK(!compiledInputs.empty());
     auto castExpr = std::make_shared<CastExpr>(
-        resultType, std::move(compiledInputs[0]), trackCpuUsage);
-    if (cast->nullOnFailure()) {
-      result =
-          getSpecialForm(config, "try", resultType, {castExpr}, trackCpuUsage);
-    } else {
-      result = castExpr;
-    }
+        resultType,
+        std::move(compiledInputs[0]),
+        trackCpuUsage,
+        cast->nullOnFailure());
+    result = castExpr;
   } else if (auto call = dynamic_cast<const core::CallTypedExpr*>(expr.get())) {
     if (auto specialForm = getSpecialForm(
             config,

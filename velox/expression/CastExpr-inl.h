@@ -1,0 +1,322 @@
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+#pragma once
+#include "velox/common/base/Exceptions.h"
+#include "velox/core/CoreTypeSystem.h"
+#include "velox/expression/StringWriter.h"
+#include "velox/external/date/tz.h"
+#include "velox/type/Type.h"
+#include "velox/vector/SelectivityVector.h"
+
+namespace facebook::velox::exec {
+namespace {
+
+inline std::string makeErrorMessage(
+    const BaseVector& input,
+    vector_size_t row,
+    const TypePtr& toType,
+    const std::string& details = "") {
+  return fmt::format(
+      "Failed to cast from {} to {}: {}. {}",
+      input.type()->toString(),
+      toType->toString(),
+      input.toString(row),
+      details);
+}
+
+inline std::exception_ptr makeBadCastException(
+    const TypePtr& resultType,
+    const BaseVector& input,
+    vector_size_t row,
+    const std::string& errorDetails) {
+  return std::make_exception_ptr(VeloxUserError(
+      std::current_exception(),
+      makeErrorMessage(input, row, resultType, errorDetails),
+      false));
+};
+
+} // namespace
+
+template <bool adjustForTimeZone>
+void CastExpr::castTimestampToDate(
+    const SelectivityVector& rows,
+    const BaseVector& input,
+    exec::EvalCtx& context,
+    VectorPtr& result,
+    const date::time_zone* timeZone) {
+  auto* resultFlatVector = result->as<FlatVector<int32_t>>();
+  static const int32_t kSecsPerDay{86'400};
+  auto inputVector = input.as<SimpleVector<Timestamp>>();
+  applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
+    auto input = inputVector->valueAt(row);
+    if constexpr (adjustForTimeZone) {
+      input.toTimezone(*timeZone);
+    }
+    auto seconds = input.getSeconds();
+    if (seconds >= 0 || seconds % kSecsPerDay == 0) {
+      resultFlatVector->set(row, seconds / kSecsPerDay);
+    } else {
+      // For division with negatives, minus 1 to compensate the discarded
+      // fractional part. e.g. -1/86'400 yields 0, yet it should be
+      // considered as -1 day.
+      resultFlatVector->set(row, seconds / kSecsPerDay - 1);
+    }
+  });
+}
+
+template <typename Func>
+void CastExpr::applyToSelectedNoThrowLocal(
+    EvalCtx& context,
+    const SelectivityVector& rows,
+    VectorPtr& result,
+    Func&& func) {
+  if (setNullInResultAtError()) {
+    rows.template applyToSelected([&](auto row) INLINE_LAMBDA {
+      try {
+        func(row);
+      } catch (...) {
+        result->setNull(row, true);
+      }
+    });
+  } else {
+    rows.template applyToSelected([&](auto row) INLINE_LAMBDA {
+      try {
+        func(row);
+      } catch (const VeloxException& e) {
+        // Avoid double throwing.
+        context.setVeloxExceptionError(row, std::current_exception());
+      } catch (const std::exception& e) {
+        context.setError(row, std::current_exception());
+      }
+    });
+  }
+}
+
+/// The per-row level Kernel
+/// @tparam ToKind The cast target type
+/// @tparam FromKind The expression type
+/// @param row The index of the current row
+/// @param input The input vector (of type FromKind)
+/// @param result The output vector (of type ToKind)
+template <TypeKind ToKind, TypeKind FromKind, bool Truncate>
+void CastExpr::applyCastKernel(
+    vector_size_t row,
+    EvalCtx& context,
+    const SimpleVector<typename TypeTraits<FromKind>::NativeType>* input,
+    FlatVector<typename TypeTraits<ToKind>::NativeType>* result) {
+  auto inputRowValue = input->valueAt(row);
+
+  // Optimize empty input strings casting by avoiding throwing exceptions.
+  if constexpr (
+      FromKind == TypeKind::VARCHAR || FromKind == TypeKind::VARBINARY) {
+    if constexpr (
+        TypeTraits<ToKind>::isPrimitiveType &&
+        TypeTraits<ToKind>::isFixedWidth) {
+      if (inputRowValue.size() == 0) {
+        if (setNullInResultAtError()) {
+          result->setNull(row, true);
+        } else {
+          context.setVeloxExceptionError(
+              row,
+              makeBadCastException(
+                  result->type(), *input, row, "Empty string"));
+        }
+        return;
+      }
+    }
+  }
+
+  auto output = util::Converter<ToKind, void, Truncate>::cast(inputRowValue);
+
+  if constexpr (ToKind == TypeKind::VARCHAR || ToKind == TypeKind::VARBINARY) {
+    // Write the result output to the output vector
+    auto writer = exec::StringWriter<>(result, row);
+    writer.copy_from(output);
+    writer.finalize();
+  } else {
+    result->set(row, output);
+  }
+}
+
+template <typename TInput, typename TOutput>
+void CastExpr::applyDecimalCastKernel(
+    const SelectivityVector& rows,
+    const BaseVector& input,
+    exec::EvalCtx& context,
+    const TypePtr& fromType,
+    const TypePtr& toType,
+    VectorPtr& castResult) {
+  auto sourceVector = input.as<SimpleVector<TInput>>();
+  auto castResultRawBuffer =
+      castResult->asUnchecked<FlatVector<TOutput>>()->mutableRawValues();
+  const auto& fromPrecisionScale = getDecimalPrecisionScale(*fromType);
+  const auto& toPrecisionScale = getDecimalPrecisionScale(*toType);
+
+  applyToSelectedNoThrowLocal(
+      context, rows, castResult, [&](vector_size_t row) {
+        auto rescaledValue = DecimalUtil::rescaleWithRoundUp<TInput, TOutput>(
+            sourceVector->valueAt(row),
+            fromPrecisionScale.first,
+            fromPrecisionScale.second,
+            toPrecisionScale.first,
+            toPrecisionScale.second);
+        if (rescaledValue.has_value()) {
+          castResultRawBuffer[row] = rescaledValue.value();
+        } else {
+          castResult->setNull(row, true);
+        }
+      });
+}
+
+template <typename TInput, typename TOutput>
+void CastExpr::applyIntToDecimalCastKernel(
+    const SelectivityVector& rows,
+    const BaseVector& input,
+    exec::EvalCtx& context,
+    const TypePtr& toType,
+    VectorPtr& castResult) {
+  auto sourceVector = input.as<SimpleVector<TInput>>();
+  auto castResultRawBuffer =
+      castResult->asUnchecked<FlatVector<TOutput>>()->mutableRawValues();
+  const auto& toPrecisionScale = getDecimalPrecisionScale(*toType);
+  applyToSelectedNoThrowLocal(
+      context, rows, castResult, [&](vector_size_t row) {
+        auto rescaledValue = DecimalUtil::rescaleInt<TInput, TOutput>(
+            sourceVector->valueAt(row),
+            toPrecisionScale.first,
+            toPrecisionScale.second);
+        if (rescaledValue.has_value()) {
+          castResultRawBuffer[row] = rescaledValue.value();
+        } else {
+          castResult->setNull(row, true);
+        }
+      });
+}
+
+template <typename TInput>
+VectorPtr CastExpr::applyDecimalToDoubleCast(
+    const SelectivityVector& rows,
+    const BaseVector& input,
+    exec::EvalCtx& context,
+    const TypePtr& fromType) {
+  VectorPtr result;
+  context.ensureWritable(rows, DOUBLE(), result);
+  (*result).clearNulls(rows);
+  auto resultBuffer =
+      result->asUnchecked<FlatVector<double>>()->mutableRawValues();
+  const auto precisionScale = getDecimalPrecisionScale(*fromType);
+  const auto simpleInput = input.as<SimpleVector<TInput>>();
+  applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
+    auto output = util::Converter<TypeKind::DOUBLE, void, false>::cast(
+        simpleInput->valueAt(row));
+    resultBuffer[row] =
+        output / DecimalUtil::kPowersOfTen[precisionScale.second];
+  });
+
+  return result;
+}
+
+template <TypeKind ToKind, TypeKind FromKind>
+void CastExpr::applyCastPrimitives(
+    const SelectivityVector& rows,
+    exec::EvalCtx& context,
+    const BaseVector& input,
+    VectorPtr& result) {
+  using To = typename TypeTraits<ToKind>::NativeType;
+  using From = typename TypeTraits<FromKind>::NativeType;
+  auto* resultFlatVector = result->as<FlatVector<To>>();
+  auto* inputSimpleVector = input.as<SimpleVector<From>>();
+
+  const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
+  auto& resultType = resultFlatVector->type();
+
+  auto setError = [&](vector_size_t row, const std::string& details) {
+    if (setNullInResultAtError()) {
+      result->setNull(row, true);
+    } else {
+      context.setVeloxExceptionError(
+          row, makeBadCastException(resultType, input, row, details));
+    }
+  };
+
+  if (!queryConfig.isCastToIntByTruncate()) {
+    applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
+      try {
+        applyCastKernel<ToKind, FromKind, false /*truncate*/>(
+            row, context, inputSimpleVector, resultFlatVector);
+
+      } catch (const VeloxUserError& ue) {
+        setError(row, ue.message());
+      } catch (const std::exception& e) {
+        setError(row, e.what());
+      }
+    });
+
+  } else {
+    applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
+      try {
+        applyCastKernel<ToKind, FromKind, true /*truncate*/>(
+            row, context, inputSimpleVector, resultFlatVector);
+      } catch (const VeloxUserError& ue) {
+        setError(row, ue.message());
+      } catch (const std::exception& e) {
+        setError(row, e.what());
+      }
+    });
+  }
+
+  // If we're converting to a TIMESTAMP, check if we need to adjust the
+  // current GMT timezone to the user provided session timezone.
+  if constexpr (ToKind == TypeKind::TIMESTAMP) {
+    // If user explicitly asked us to adjust the timezone.
+    if (queryConfig.adjustTimestampToTimezone()) {
+      auto sessionTzName = queryConfig.sessionTimezone();
+      if (!sessionTzName.empty()) {
+        // locate_zone throws runtime_error if the timezone couldn't be found
+        // (so we're safe to dereference the pointer).
+        auto* timeZone = date::locate_zone(sessionTzName);
+        auto rawTimestamps = resultFlatVector->mutableRawValues();
+
+        applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
+          rawTimestamps[row].toGMT(*timeZone);
+        });
+      }
+    }
+  }
+}
+
+template <TypeKind ToKind>
+void CastExpr::applyCastPrimitivesDispatch(
+    const TypePtr& fromType,
+    const TypePtr& toType,
+    const SelectivityVector& rows,
+    exec::EvalCtx& context,
+    const BaseVector& input,
+    VectorPtr& result) {
+  context.ensureWritable(rows, toType, result);
+
+  // This already excludes complex types, hugeint and unknown from type kinds.
+  VELOX_DYNAMIC_SCALAR_TEMPLATE_TYPE_DISPATCH(
+      applyCastPrimitives,
+      ToKind,
+      fromType->kind() /*dispatched*/,
+      rows,
+      context,
+      input,
+      result);
+}
+
+} // namespace facebook::velox::exec

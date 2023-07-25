@@ -134,6 +134,13 @@ class EvalCtx {
       const BufferPtr& elementToTopLevelRows,
       ErrorVectorPtr& topLevelErrors);
 
+  // Given a mapping from element rows to top-level rows, set errors in
+  // in the elements as nulls int the top level row.
+  void convertElementErrorsToTopLevelNulls(
+      const SelectivityVector& elementRows,
+      const BufferPtr& elementToTopLevelRows,
+      VectorPtr& result);
+
   void deselectErrors(SelectivityVector& rows) const {
     if (!errors_) {
       return;

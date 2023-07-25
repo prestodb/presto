@@ -48,10 +48,14 @@ int main(int argc, char** argv) {
           "cast_int",
           vectorMaker.rowVector(
               {"valid", "empty", "nan"}, {validInput, invalidInput, nanInput}))
-      .addExpression("try_invalid_empty_input", "try_cast (empty as int)")
-      .addExpression("try_invalid_nan", "try_cast (nan as int)")
-      .addExpression("try_valid", "try_cast (valid as int)")
-      .addExpression("valid", "cast(valid as int)")
+      .addExpression("try_cast_invalid_empty_input", "try_cast (empty as int) ")
+      .addExpression(
+          "tryexpr_cast_invalid_empty_input", "try (cast (empty as int))")
+      .addExpression("try_cast_invalid_nan", "try_cast (nan as int)")
+      .addExpression("tryexpr_cast_invalid_nan", "try (cast (nan as int))")
+      .addExpression("try_cast_valid", "try_cast (valid as int)")
+      .addExpression("tryexpr_cast_valid", "try (cast (valid as int))")
+      .addExpression("cast_valid", "cast(valid as int)")
       .withIterations(100)
       .disableTesting();
 

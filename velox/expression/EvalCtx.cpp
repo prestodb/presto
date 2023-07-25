@@ -211,6 +211,23 @@ void EvalCtx::addElementErrorsToTopLevel(
   });
 }
 
+void EvalCtx::convertElementErrorsToTopLevelNulls(
+    const SelectivityVector& elementRows,
+    const BufferPtr& elementToTopLevelRows,
+    VectorPtr& result) {
+  if (!errors_) {
+    return;
+  }
+
+  const auto* rawElementToTopLevelRows =
+      elementToTopLevelRows->as<vector_size_t>();
+  elementRows.applyToSelected([&](auto row) {
+    if (errors_->isIndexInRange(row) && !errors_->isNullAt(row)) {
+      result->setNull(rawElementToTopLevelRows[row], true);
+    }
+  });
+}
+
 const VectorPtr& EvalCtx::getField(int32_t index) const {
   const VectorPtr* field;
   if (!peeledFields_.empty()) {

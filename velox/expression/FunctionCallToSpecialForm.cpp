@@ -32,6 +32,7 @@ RegistryType makeRegistry() {
   registry.emplace(
       "and", std::make_unique<ConjunctCallToSpecialForm>(true /* isAnd */));
   registry.emplace("cast", std::make_unique<CastCallToSpecialForm>());
+  registry.emplace("try_cast", std::make_unique<TryCastCallToSpecialForm>());
   registry.emplace("coalesce", std::make_unique<CoalesceCallToSpecialForm>());
   registry.emplace("if", std::make_unique<IfCallToSpecialForm>());
   registry.emplace(
