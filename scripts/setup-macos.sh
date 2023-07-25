@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script documents setting up a macOS host for presto_cpp
+# This script documents setting up a macOS host for Velox
 # development.  Running it should make you ready to compile.
 #
 # Environment variables:
