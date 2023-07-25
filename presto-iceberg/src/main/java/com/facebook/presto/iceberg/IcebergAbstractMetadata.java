@@ -73,6 +73,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
 import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
 import static com.facebook.presto.iceberg.TableType.CHANGELOG;
+import static com.facebook.presto.iceberg.TableType.SAMPLES;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getPrimaryKeyType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -168,18 +169,20 @@ public abstract class IcebergAbstractMetadata
         if (itn.isSystemTable()) {
             throw new TableNotFoundException(table);
         }
-        ConnectorTableMetadata tableMeta = getTableMetadata(session, table);
+        ConnectorTableMetadata tableMeta = getTableMetadata(session, new SchemaTableName(table.getSchemaName(), itn.getTableName()));
         if (itn.getTableType() == CHANGELOG) {
             String primaryKeyColumn = IcebergTableProperties.getSampleTablePrimaryKey(tableMeta.getProperties());
             return ChangelogUtil.getChangelogTableMeta(table, getPrimaryKeyType(tableMeta, primaryKeyColumn), typeManager);
+        }
+        else if (itn.getTableType() == SAMPLES) {
+            return new ConnectorTableMetadata(new SchemaTableName(table.getSchemaName(), itn.getTableNameWithType()), tableMeta.getColumns(), tableMeta.getProperties(), tableMeta.getComment(), tableMeta.getTableConstraints());
         }
         return tableMeta;
     }
 
     protected ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table)
     {
-        IcebergTableName ith = IcebergTableName.from(table.getTableName());
-        org.apache.iceberg.Table icebergTable = getIcebergTable(session, new SchemaTableName(table.getSchemaName(), ith.getTableName()));
+        org.apache.iceberg.Table icebergTable = getIcebergTable(session, table);
         List<ColumnMetadata> columns = getColumnMetadatas(icebergTable, typeManager);
         return new ConnectorTableMetadata(table, columns, createMetadataProperties(icebergTable), getTableComment(icebergTable));
     }
