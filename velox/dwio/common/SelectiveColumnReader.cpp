@@ -126,22 +126,27 @@ void SelectiveColumnReader::prepareNulls(
   simd::memset(rawResultNulls_, bits::kNotNullByte, resultNulls_->capacity());
 }
 
-bool SelectiveColumnReader::shouldMoveNulls(RowSet rows) {
-  if (rows.size() == numValues_) {
+const uint64_t* SelectiveColumnReader::shouldMoveNulls(RowSet rows) {
+  if (rows.size() == numValues_ || !anyNulls_) {
     // Nulls will only be moved if there is a selection on values. A cast
     // alone does not move nulls.
-    return false;
+    return nullptr;
   }
-  VELOX_CHECK(
-      !returnReaderNulls_,
-      "Do not return reader nulls if retrieving a subset of values");
-  if (anyNulls_) {
-    VELOX_CHECK(
-        resultNulls_ && resultNulls_->as<uint64_t>() == rawResultNulls_);
-    VELOX_CHECK_GT(resultNulls_->capacity() * 8, rows.size());
-    return true;
+  const uint64_t* moveFrom = rawResultNulls_;
+  if (returnReaderNulls_) {
+    if (!(resultNulls_ && resultNulls_->unique() &&
+          resultNulls_->capacity() >= rows.size() + simd::kPadding)) {
+      resultNulls_ = AlignedBuffer::allocate<bool>(
+          rows.size() + (simd::kPadding * 8), &memoryPool_);
+      rawResultNulls_ = resultNulls_->asMutable<uint64_t>();
+    }
+    moveFrom = nullsInReadRange_->as<uint64_t>();
+    bits::copyBits(moveFrom, 0, rawResultNulls_, 0, rows.size());
+    returnReaderNulls_ = false;
   }
-  return false;
+  VELOX_CHECK(resultNulls_ && resultNulls_->as<uint64_t>() == rawResultNulls_);
+  VELOX_CHECK_GT(resultNulls_->capacity() * 8, rows.size());
+  return moveFrom;
 }
 
 void SelectiveColumnReader::getIntValues(
@@ -257,7 +262,7 @@ void SelectiveColumnReader::compactScalarValues<bool, bool>(
   auto rawBits = reinterpret_cast<uint64_t*>(rawValues_);
   vector_size_t rowIndex = 0;
   auto nextRow = rows[rowIndex];
-  bool moveNulls = shouldMoveNulls(rows);
+  auto* moveNullsFrom = shouldMoveNulls(rows);
   for (size_t i = 0; i < numValues_; i++) {
     if (outputRows_[i] < nextRow) {
       continue;
@@ -266,9 +271,8 @@ void SelectiveColumnReader::compactScalarValues<bool, bool>(
     VELOX_DCHECK(outputRows_[i] == nextRow);
 
     bits::setBit(rawBits, rowIndex, bits::isBitSet(rawBits, i));
-    if (moveNulls && rowIndex != i) {
-      bits::setBit(
-          rawResultNulls_, rowIndex, bits::isBitSet(rawResultNulls_, i));
+    if (moveNullsFrom && rowIndex != i) {
+      bits::setBit(rawResultNulls_, rowIndex, bits::isBitSet(moveNullsFrom, i));
     }
     if (!isFinal) {
       outputRows_[rowIndex] = nextRow;
@@ -289,7 +293,7 @@ char* SelectiveColumnReader::copyStringValue(folly::StringPiece value) {
   if (stringBuffers_.empty() || rawStringUsed_ + size > rawStringSize_) {
     auto bytes = std::max(size, kStringBufferSize);
     BufferPtr buffer = AlignedBuffer::allocate<char>(bytes, &memoryPool_);
-    // Use the prefered size instead of the requested one to improve memory
+    // Use the preferred size instead of the requested one to improve memory
     // efficiency.
     buffer->setSize(buffer->capacity());
     stringBuffers_.push_back(buffer);

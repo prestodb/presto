@@ -496,9 +496,10 @@ class SelectiveColumnReader {
   template <typename T, typename TVector>
   void upcastScalarValues(RowSet rows);
 
-  // Returns true if compactScalarValues and upcastScalarValues should
-  // move null flags. Checks consistency of nulls-related state.
-  bool shouldMoveNulls(RowSet rows);
+  // Return the source null bits if compactScalarValues and upcastScalarValues
+  // should move null flags.  Return nullptr if nulls does not need to be moved.
+  // Checks consistency of nulls-related state.
+  const uint64_t* shouldMoveNulls(RowSet rows);
 
   void addStringValue(folly::StringPiece value);
 

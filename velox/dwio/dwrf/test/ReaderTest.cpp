@@ -1893,3 +1893,39 @@ TEST(TestReader, reuseRowNumberColumn) {
     ASSERT_NE(rowNum.get(), result->asUnchecked<RowVector>()->childAt(1).get());
   }
 }
+
+TEST(TestReader, failToReuseReaderNulls) {
+  auto* pool = defaultPool.get();
+  VectorMaker maker(pool);
+  auto c0 = maker.rowVector(
+      {"a", "b"},
+      {
+          maker.flatVector<int64_t>(11, folly::identity),
+          maker.flatVector<int64_t>(
+              11, folly::identity, [](auto i) { return i % 3 == 0; }),
+      });
+  // Set a null so that the children will not be loaded lazily.
+  bits::setNull(c0->mutableRawNulls(), 10);
+  auto data = maker.rowVector({
+      c0,
+      maker.rowVector({"c"}, {maker.flatVector<int64_t>(11, folly::identity)}),
+  });
+  auto schema = asRowType(data->type());
+  auto [writer, reader] = createWriterReader({data}, *pool);
+  auto spec = std::make_shared<common::ScanSpec>("<root>");
+  spec->addAllChildFields(*schema);
+  spec->childByName("c0")->childByName("a")->setFilter(
+      std::make_unique<common::BigintRange>(
+          0, std::numeric_limits<int64_t>::max(), false));
+  spec->childByName("c1")->childByName("c")->setFilter(
+      std::make_unique<common::BigintRange>(0, 4, false));
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setScanSpec(spec);
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+  auto result = BaseVector::create(schema, 0, pool);
+  ASSERT_EQ(rowReader->next(10, result), 10);
+  ASSERT_EQ(result->size(), 5);
+  for (int i = 0; i < result->size(); ++i) {
+    ASSERT_TRUE(result->equalValueAt(data.get(), i, i)) << result->toString(i);
+  }
+}

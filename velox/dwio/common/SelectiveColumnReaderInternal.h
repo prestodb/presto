@@ -183,7 +183,7 @@ void SelectiveColumnReader::upcastScalarValues(RowSet rows) {
   }
   vector_size_t rowIndex = 0;
   auto nextRow = rows[rowIndex];
-  bool moveNulls = shouldMoveNulls(rows);
+  auto* moveNullsFrom = shouldMoveNulls(rows);
   for (size_t i = 0; i < numValues_; i++) {
     if (sourceRows[i] < nextRow) {
       continue;
@@ -191,9 +191,8 @@ void SelectiveColumnReader::upcastScalarValues(RowSet rows) {
 
     VELOX_DCHECK(sourceRows[i] == nextRow);
     buf[rowIndex] = typedSourceValues[i];
-    if (moveNulls && rowIndex != i) {
-      bits::setBit(
-          rawResultNulls_, rowIndex, bits::isBitSet(rawResultNulls_, i));
+    if (moveNullsFrom && rowIndex != i) {
+      bits::setBit(rawResultNulls_, rowIndex, bits::isBitSet(moveNullsFrom, i));
     }
     valueRows_[rowIndex] = nextRow;
     rowIndex++;
@@ -239,7 +238,7 @@ void SelectiveColumnReader::compactScalarValues(RowSet rows, bool isFinal) {
   }
   vector_size_t rowIndex = 0;
   auto nextRow = rows[rowIndex];
-  bool moveNulls = shouldMoveNulls(rows);
+  auto* moveNullsFrom = shouldMoveNulls(rows);
   for (size_t i = 0; i < numValues_; i++) {
     if (sourceRows[i] < nextRow) {
       continue;
@@ -247,9 +246,8 @@ void SelectiveColumnReader::compactScalarValues(RowSet rows, bool isFinal) {
 
     VELOX_DCHECK(sourceRows[i] == nextRow);
     typedDestValues[rowIndex] = typedSourceValues[i];
-    if (moveNulls && rowIndex != i) {
-      bits::setBit(
-          rawResultNulls_, rowIndex, bits::isBitSet(rawResultNulls_, i));
+    if (moveNullsFrom && rowIndex != i) {
+      bits::setBit(rawResultNulls_, rowIndex, bits::isBitSet(moveNullsFrom, i));
     }
     if (!isFinal) {
       valueRows_[rowIndex] = nextRow;
@@ -310,7 +308,7 @@ void SelectiveColumnReader::compactComplexValues(
   }
   vector_size_t rowIndex = 0;
   auto nextRow = rows[rowIndex];
-  bool moveNulls = shouldMoveNulls(rows);
+  auto* moveNullsFrom = shouldMoveNulls(rows);
   for (size_t i = 0; i < numValues_; i++) {
     if (sourceRows[i] < nextRow) {
       continue;
@@ -319,9 +317,8 @@ void SelectiveColumnReader::compactComplexValues(
     VELOX_DCHECK(sourceRows[i] == nextRow);
     // The value at i is moved to be the value at 'rowIndex'.
     move(i, rowIndex);
-    if (moveNulls && rowIndex != i) {
-      bits::setBit(
-          rawResultNulls_, rowIndex, bits::isBitSet(rawResultNulls_, i));
+    if (moveNullsFrom && rowIndex != i) {
+      bits::setBit(rawResultNulls_, rowIndex, bits::isBitSet(moveNullsFrom, i));
     }
     if (!isFinal) {
       valueRows_[rowIndex] = nextRow;
