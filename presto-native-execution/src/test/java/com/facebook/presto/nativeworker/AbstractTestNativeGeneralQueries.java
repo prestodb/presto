@@ -245,7 +245,7 @@ public abstract class AbstractTestNativeGeneralQueries
                 "JOIN lineitem i TABLESAMPLE BERNOULLI (40) ON o.orderkey = i.orderkey");
     }
 
-    @Test
+    @Test(groups = {"parquet"})
     public void testDateFilter()
     {
         String tmpTableName = generateRandomTableName();
@@ -1206,7 +1206,7 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT row(name, null, cast(row(nationkey, regionkey) as row(a bigint, b bigint))) FROM nation");
     }
 
-    @Test
+    @Test(groups = {"parquet"})
     public void testDecimalRangeFilters()
     {
         // Actual session is for the native query runner.
