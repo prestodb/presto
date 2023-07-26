@@ -43,12 +43,11 @@
 using namespace facebook::velox::exec;
 using namespace facebook::velox::dwrf;
 
-DEFINE_int32(
-    num_file_handle_cache,
-    20'000,
-    "Max number of file handles to cache.");
-
 namespace facebook::velox::connector::hive {
+
+int32_t numCachedFileHandles(const Config* properties) {
+  return properties ? HiveConfig::numCacheFileHandles(properties) : 20'000;
+}
 
 HiveConnector::HiveConnector(
     const std::string& id,
@@ -58,10 +57,13 @@ HiveConnector::HiveConnector(
       fileHandleFactory_(
           std::make_unique<
               SimpleLRUCache<std::string, std::shared_ptr<FileHandle>>>(
-              FLAGS_num_file_handle_cache),
-          std::make_unique<FileHandleGenerator>(std::move(properties))),
-      executor_(executor) {}
-
+              numCachedFileHandles(properties.get())),
+          std::make_unique<FileHandleGenerator>(properties)),
+      executor_(executor) {
+  LOG(INFO) << "Hive connector " << connectorId() << " created with maximum of "
+            << numCachedFileHandles(properties.get())
+            << " cached file handles.";
+}
 std::unique_ptr<core::PartitionFunction> HivePartitionFunctionSpec::create(
     int numPartitions) const {
   std::vector<int> bucketToPartitions;

@@ -155,4 +155,9 @@ int32_t HiveConfig::maxCoalescedDistanceBytes(const Config* config) {
   return config->get<int32_t>(kMaxCoalescedDistanceBytes, 512 << 10);
 }
 
+// static.
+int32_t HiveConfig::numCacheFileHandles(const Config* config) {
+  return config->get<int32_t>(kNumCacheFileHandles, 20'000);
+}
+
 } // namespace facebook::velox::connector::hive

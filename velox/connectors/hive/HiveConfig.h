@@ -100,6 +100,9 @@ class HiveConfig {
   static constexpr const char* kMaxCoalescedDistanceBytes =
       "max-coalesced-distance-bytes";
 
+  /// Maximum number of entries in the file handle cache.
+  static constexpr const char* kNumCacheFileHandles = "num_cached_file_handles";
+
   static InsertExistingPartitionsBehavior insertExistingPartitionsBehavior(
       const Config* config);
 
@@ -136,6 +139,8 @@ class HiveConfig {
   static int64_t maxCoalescedBytes(const Config* config);
 
   static int32_t maxCoalescedDistanceBytes(const Config* config);
+
+  static int32_t numCacheFileHandles(const Config* config);
 };
 
 } // namespace facebook::velox::connector::hive
