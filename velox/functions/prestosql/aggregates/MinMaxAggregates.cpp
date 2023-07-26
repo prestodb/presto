@@ -180,6 +180,31 @@ class MinAggregate : public MinMaxAggregate<T> {
     }
   }
 
+  bool supportsToIntermediate() const override {
+    return true;
+  }
+
+  void toIntermediate(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      VectorPtr& result) const override {
+    const auto& input = args[0];
+    if (rows.isAllSelected()) {
+      result = input;
+      return;
+    }
+
+    auto* pool = BaseAggregate::allocator_->pool();
+
+    result = BaseVector::create(input->type(), rows.size(), pool);
+    result->copy(input.get(), 0, 0, rows.size());
+
+    // Set result to NULL for rows that are masked out.
+    BufferPtr nulls = allocateNulls(rows.size(), pool, bits::kNull);
+    rows.clearNulls(nulls);
+    result->setNulls(nulls);
+  }
+
   void addRawInput(
       char** groups,
       const SelectivityVector& rows,
@@ -256,6 +281,33 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
     for (auto i : indices) {
       new (groups[i] + offset_) SingleValueAccumulator();
     }
+  }
+
+  bool supportsToIntermediate() const override {
+    return true;
+  }
+
+  void toIntermediate(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      VectorPtr& result) const override {
+    const auto& input = args[0];
+    if (rows.isAllSelected()) {
+      result = input;
+      return;
+    }
+
+    auto* pool = allocator_->pool();
+
+    // Set result to NULL for rows that are masked out.
+    BufferPtr nulls = allocateNulls(rows.size(), pool, bits::kNull);
+    rows.clearNulls(nulls);
+
+    BufferPtr indices = allocateIndices(rows.size(), pool);
+    auto* rawIndices = indices->asMutable<vector_size_t>();
+    std::iota(rawIndices, rawIndices + rows.size(), 0);
+
+    result = BaseVector::wrapInDictionary(nulls, indices, rows.size(), input);
   }
 
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
