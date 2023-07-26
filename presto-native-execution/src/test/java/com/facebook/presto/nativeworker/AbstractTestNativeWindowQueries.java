@@ -16,7 +16,6 @@ package com.facebook.presto.nativeworker;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -148,7 +147,6 @@ public abstract class AbstractTestNativeWindowQueries
     }
 
     @Test
-    @Ignore
     public void testRowNumberWithFilter()
     {
         assertQuery("SELECT sum(rn) FROM (SELECT row_number() over() rn, * from orders) WHERE rn = 10");
