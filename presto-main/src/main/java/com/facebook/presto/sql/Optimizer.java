@@ -43,6 +43,7 @@ import com.facebook.presto.sql.planner.sanity.PlanChecker;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryAnalyzerTimeout;
 import static com.facebook.presto.SystemSessionProperties.isPrintStatsForNonJoinQuery;
@@ -102,34 +103,51 @@ public class Optimizer
 
     public Plan validateAndOptimizePlan(PlanNode root, PlanStage stage)
     {
-        planChecker.validateIntermediatePlan(root, session, metadata, sqlParser, TypeProvider.viewOf(variableAllocator.getVariables()), warningCollector);
-
         boolean enableVerboseRuntimeStats = SystemSessionProperties.isVerboseRuntimeStatsEnabled(session);
+        long start = System.nanoTime();
+        planChecker.validateIntermediatePlan(root, session, metadata, sqlParser, TypeProvider.viewOf(variableAllocator.getVariables()), warningCollector);
+        if (enableVerboseRuntimeStats) {
+            session.getRuntimeStats().addMetricValue("validateIntermediatePlan", NANO, System.nanoTime() - start);
+        }
+
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
             for (PlanOptimizer optimizer : planOptimizers) {
                 if (Thread.currentThread().isInterrupted()) {
                     throw new PrestoException(QUERY_PLANNING_TIMEOUT, String.format("The query optimizer exceeded the timeout of %s.", getQueryAnalyzerTimeout(session).toString()));
                 }
-                long start = System.nanoTime();
+                if (enableVerboseRuntimeStats) {
+                    start = System.nanoTime();
+                }
                 PlanNode newRoot = optimizer.optimize(root, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
                 requireNonNull(newRoot, format("%s returned a null plan", optimizer.getClass().getName()));
+                TypeProvider types = TypeProvider.viewOf(variableAllocator.getVariables());
+
+                collectOptimizerInformation(optimizer, root, newRoot, types);
+                root = newRoot;
                 if (enableVerboseRuntimeStats) {
                     String optimizerName = optimizer.getClass().getSimpleName();
                     if (optimizer instanceof StatsRecordingPlanOptimizer) {
                         optimizerName = format("%s:%s", optimizerName, ((StatsRecordingPlanOptimizer) optimizer).getDelegate().getClass().getSimpleName());
                     }
+                    if (optimizer instanceof IterativeOptimizer) {
+                        String rulesIncluded = ((IterativeOptimizer) optimizer).getRuleIndex().getRulesByRootType().values().stream().limit(5)
+                                .map(x -> x.getClass().getSimpleName()).collect(Collectors.joining(","));
+                        optimizerName = format("%s:%s", optimizer, rulesIncluded);
+                    }
                     session.getRuntimeStats().addMetricValue(String.format("optimizer%sTimeNanos", optimizerName), NANO, System.nanoTime() - start);
                 }
-                TypeProvider types = TypeProvider.viewOf(variableAllocator.getVariables());
-
-                collectOptimizerInformation(optimizer, root, newRoot, types);
-                root = newRoot;
             }
         }
 
         if (stage.ordinal() >= OPTIMIZED_AND_VALIDATED.ordinal()) {
+            if (enableVerboseRuntimeStats) {
+                start = System.nanoTime();
+            }
             // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
             planChecker.validateFinalPlan(root, session, metadata, sqlParser, TypeProvider.viewOf(variableAllocator.getVariables()), warningCollector);
+            if (enableVerboseRuntimeStats) {
+                session.getRuntimeStats().addMetricValue("validateFinalPlan", NANO, System.nanoTime() - start);
+            }
         }
 
         TypeProvider types = TypeProvider.viewOf(variableAllocator.getVariables());
@@ -159,8 +177,8 @@ public class Optimizer
         boolean isTriggered = (oldNode != newNode);
         boolean isApplicable =
                 isTriggered ||
-                !optimizer.isEnabled(session) && isVerboseOptimizerInfoEnabled(session) &&
-                        optimizer.isApplicable(oldNode, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
+                        !optimizer.isEnabled(session) && isVerboseOptimizerInfoEnabled(session) &&
+                                optimizer.isApplicable(oldNode, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
 
         if (isTriggered || isApplicable) {
             session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(optimizerName, isTriggered, Optional.of(isApplicable), Optional.empty()));

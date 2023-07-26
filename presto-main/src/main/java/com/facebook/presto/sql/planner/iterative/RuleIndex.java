@@ -32,6 +32,11 @@ public class RuleIndex
         this.rulesByRootType = ImmutableListMultimap.copyOf(rulesByRootType);
     }
 
+    public ListMultimap<Class<?>, Rule<?>> getRulesByRootType()
+    {
+        return rulesByRootType;
+    }
+
     public Stream<Rule<?>> getCandidates(Object object)
     {
         return supertypes(object.getClass())
