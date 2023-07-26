@@ -177,6 +177,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
               ParquetTypeWithId::kNonLeaf, // columnIdx,
               std::move(name),
               std::nullopt,
+              std::nullopt,
               maxRepeat + 1,
               maxDefine);
         }
@@ -195,6 +196,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
               maxSchemaElementIdx,
               ParquetTypeWithId::kNonLeaf, // columnIdx,
               std::move(name),
+              std::nullopt,
               std::nullopt,
               maxRepeat,
               maxDefine);
@@ -220,6 +222,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
               ParquetTypeWithId::kNonLeaf, // columnIdx,
               std::move(name),
               std::nullopt,
+              std::nullopt,
               maxRepeat,
               maxDefine);
         } else if (children.size() == 2) {
@@ -233,6 +236,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
               maxSchemaElementIdx,
               ParquetTypeWithId::kNonLeaf, // columnIdx,
               std::move(name),
+              std::nullopt,
               std::nullopt,
               maxRepeat,
               maxDefine);
@@ -248,6 +252,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
             ParquetTypeWithId::kNonLeaf, // columnIdx,
             std::move(name),
             std::nullopt,
+            std::nullopt,
             maxRepeat,
             maxDefine);
       }
@@ -260,6 +265,10 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
     int32_t type_length =
         schemaElement.__isset.type_length ? schemaElement.type_length : 0;
     std::vector<std::shared_ptr<const dwio::common::TypeWithId>> children;
+    const std::optional<thrift::LogicalType> logicalType_ =
+        schemaElement.__isset.logicalType
+        ? std::optional<thrift::LogicalType>(schemaElement.logicalType)
+        : std::nullopt;
     std::shared_ptr<const ParquetTypeWithId> leafTypePtr =
         std::make_shared<const ParquetTypeWithId>(
             veloxType,
@@ -269,6 +278,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
             columnIdx++,
             name,
             schemaElement.type,
+            logicalType_,
             maxRepeat,
             maxDefine,
             precision,
@@ -288,6 +298,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
           maxSchemaElementIdx,
           columnIdx++,
           std::move(name),
+          std::nullopt,
           std::nullopt,
           maxRepeat,
           maxDefine - 1);
