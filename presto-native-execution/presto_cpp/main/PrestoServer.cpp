@@ -511,13 +511,11 @@ void PrestoServer::initializeVeloxMemory() {
   options.capacity = memoryBytes;
   options.checkUsageLeak = systemConfig->enableMemoryLeakCheck();
   if (systemConfig->enableMemoryArbitration()) {
-    auto& arbitratorCfg = options.arbitratorConfig;
-    arbitratorCfg.kind = memory::MemoryArbitrator::Kind::kShared;
-    arbitratorCfg.capacity =
+    options.arbitratorKind = memory::MemoryArbitrator::Kind::kShared;
+    options.capacity =
         memoryBytes * 100 / systemConfig->reservedMemoryPoolCapacityPct();
-    arbitratorCfg.initMemoryPoolCapacity =
-        systemConfig->memoryPoolInitCapacity();
-    arbitratorCfg.minMemoryPoolCapacityTransferSize =
+    options.memoryPoolInitCapacity = systemConfig->memoryPoolInitCapacity();
+    options.memoryPoolTransferCapacity =
         systemConfig->memoryPoolTransferCapacity();
   }
   const auto& manager = memory::MemoryManager::getInstance(options, true);
