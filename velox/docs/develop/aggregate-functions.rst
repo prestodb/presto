@@ -583,27 +583,293 @@ You can see the documentation for all functions at :doc:`../functions/presto/agg
 Accumulator
 -----------
 
-Variable-width accumulators need to use :doc:`HashStringAllocator <arena>` to allocate memory. An instance of the allocator is available in the base class: *velox::exec::Aggregate::allocator_*.
+In Velox, efficient use of memory is a priority. This includes both optimizing
+the total amount of memory used as well as the number of memory allocations.
+Note that runtime statistics reported by Velox include both peak memory usage
+(in bytes) and number of memory allocations for each operator.
 
-Sometimes you’ll need to create a custom accumulator. Sometimes one of the existing accumulators would do the jobs.
+Aggregate functions use memory to store intermediate results in the
+accumulators. They allocate memory from an arena (:doc:`HashStringAllocator <arena>` class).
 
-SingleValueAccumulator used by :func:`min`, :func:`max` and :func:`arbitrary` functions can be used to store a single value of variable-width type, e.g. string, array, map or struct.
+array_agg and ValueList
+~~~~~~~~~~~~~~~~~~~~~~~
 
-ValueList accumulator used by :func:`array_agg` and :func:`map_agg` accumulates a list of values. This is an append-only accumulator.
-
-An StlAllocator defined in velox/exec/HashStringAllocator.h can be used to make STL containers (e.g. std::vector) backed by memory allocated via the HashStringAllocator. StlAllocator is not an accumulator itself, but can be used to design accumulators that use STL containers. It is used by :func:`approx_percentile` and :func:`approx_distinct`.
-
-Memory allocated from the HashStringAllocator needs to be released in the destroy() method. See velox/aggregates/ArrayAgg.cpp for an example.
+StlAllocator is an STL-compatible allocator backed by HashStringAllocator that
+can be used with STL containers. For example, one can define an std::vector
+that allocates memory from the arena like so:
 
 .. code-block:: c++
 
-      void destroy(folly::Range<char**> groups) override {
-        for (auto group : groups) {
-          if (auto header = value<ArrayAccumulator>(group)->elements.begin()) {
-            allocator_->free(header);
-          }
-        }
-      }
+	std::vector<int64_t, StlAllocator<int64_t>>
+
+This is used, for example, in 3-arg versions of :func:`min_by` and :func:`max_by` with
+fixed-width type inputs (e.g. integers).
+
+There is also an AlignedStlAllocator that provides aligned allocations from the
+arena and can be used with `F14 <https://engineering.fb.com/2019/04/25/developer-tools/f14/>`_
+containers which require 16-byte alignment. One can define an F14FastMap that
+allocates memory from the arena like so:
+
+
+.. code-block:: c++
+
+   folly::F14FastMap<
+         int64_t,
+         double,
+         std::hash<int64_t>,
+         std::equal_to<int64_t>,
+         AlignedStlAllocator<std::pair<const int64_t, double>, 16>>
+
+You can find an example usage in :func:`histogram` aggregation function.
+
+An :func:`array_agg` function on primitive types could be implemented using
+std::vector<T>, but it would not be efficient. Why is that? If one doesn’t
+use ‘reserve’ method to provide a hint to std::vector about how many entries will be
+added, the default behavior is to allocate memory in powers of 2, e.g. first
+allocate 1 entry, then 2, then 4, 8, 16, etc. Every time new allocation is
+made the data is copied into the new memory buffer and the old buffer is
+released. One can see this by instrumenting StlAllocator::allocate and
+deallocate methods to add logging and run a simple loop to add elements to a
+vector:
+
+.. code-block:: c++
+
+   std::vector<double, StlAllocator<double>> data(
+      0, StlAllocator<double>(allocator_.get()));
+
+
+   for (auto i = 0; i < 100; ++i) {
+    data.push_back(i);
+   }
+
+
+.. code-block:: text
+
+   E20230714 14:57:33.717708 975289 HashStringAllocator.h:497] allocate 1
+   E20230714 14:57:33.734280 975289 HashStringAllocator.h:497] allocate 2
+   E20230714 14:57:33.734321 975289 HashStringAllocator.h:506] free 1
+   E20230714 14:57:33.734352 975289 HashStringAllocator.h:497] allocate 4
+   E20230714 14:57:33.734381 975289 HashStringAllocator.h:506] free 2
+   E20230714 14:57:33.734416 975289 HashStringAllocator.h:497] allocate 8
+   E20230714 14:57:33.734445 975289 HashStringAllocator.h:506] free 4
+   E20230714 14:57:33.734481 975289 HashStringAllocator.h:497] allocate 16
+   E20230714 14:57:33.734513 975289 HashStringAllocator.h:506] free 8
+   E20230714 14:57:33.734544 975289 HashStringAllocator.h:497] allocate 32
+   E20230714 14:57:33.734575 975289 HashStringAllocator.h:506] free 16
+   E20230714 14:57:33.734606 975289 HashStringAllocator.h:497] allocate 64
+   E20230714 14:57:33.734637 975289 HashStringAllocator.h:506] free 32
+   E20230714 14:57:33.734668 975289 HashStringAllocator.h:497] allocate 128
+   E20230714 14:57:33.734699 975289 HashStringAllocator.h:506] free 64
+   E20230714 14:57:33.734731 975289 HashStringAllocator.h:506] free 128
+
+
+Reallocating memory and copying data is not cheap. To avoid this overhead we
+introduced ValueList primitive and used it to implement array_agg.
+
+ValueList is an append-only data structure that allows appending values from any
+Velox Vector and reading values back into a Velox Vector. ValueList doesn’t
+require a contiguous chunk of memory and therefore doesn’t need to re-allocate
+and copy when it runs out of space. It just allocates another chunk and starts
+filling that up.
+
+ValueList is designed to work with data that comes from Velox Vectors, hence,
+its API is different from std::vector. You append values from a DecodedVector
+and read values back into a flat vector. Here is an example of usage:
+
+.. code-block:: c++
+
+   DecodedVector decoded(*data);
+
+   // Store data.
+   ValueList values;
+   for (auto i = 0; i < 100; ++i) {
+    values.appendValue(decoded, i, allocator());
+   }
+
+
+   // Read data back.
+   auto copy = BaseVector::create(DOUBLE(), 100, pool());
+   aggregate::ValueListReader reader(values);
+   for (auto i = 0; i < 100; ++i) {
+    reader.next(*copy, i);
+   }
+
+ValueList supports all types, so you can use it to append fixed-width values as
+well as strings, arrays, maps and structs.
+
+When storing complex types, ValueList serializes the values using
+ContainerRowSerde.
+
+ValueList preserves the null flags as well, so you can store a list of nullable
+values in it.
+
+The array_agg is implemented using ValueList for the accumulator.
+
+ValueList needs a pointer to the arena for appending data. It doesn’t take an
+arena in the constructor and doesn’t store it, because that would require 8
+bytes of memory per group in the aggregation operator. Instead,
+ValueList::appendValue method takes a pointer to the arena as an argument.
+Consequently, ValueList’s destructor cannot release the memory back to the
+arena and requires the user to explicitly call the free
+(HashStringAllocator*) method.
+
+min, max, and SingleValueAccumulator
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:func:`min` and :func:`max` functions store a single value in the accumulator
+(the current min or max value). They use SingleValueAccumulator to store
+strings, arrays, maps and structs. When processing a new value, we compare
+it with the stored value and replace the stored value if necessary.
+
+Similar to ValueList, SingleValueAccumulator serializes the values using
+ContainerRowSerde. SingleValueAccumulator provides a compare method to compare
+stored value with a row of a DecodedVector.
+
+This accumulator is also used in the implementation of the :func:`arbitrary`
+aggregate function which stores the first value in the accumulator.
+
+set_agg, set_union, Strings and AddressableNonNullValueList
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:func:`set_agg` function accumulates a set of unique values into an F14FastSet
+configured to allocate memory from the arena via AlignedStlAllocator.
+Fixed-width values are stored directly in F14FastSet. Memory allocation pattern
+for F14 data structures is similar to std::vector. F14 allocates memory in
+powers on 2, copies data and frees previously allocated memory. Hence, we do
+not store strings directly in the F14 set. Instead, Velox writes strings into
+the arena and stores a StringView pointing to the arena in the set.
+
+In general, when writing to the arena, one is not guaranteed a contiguous write.
+However, for StringViews to work we must ensure that strings written into the
+arena are contiguous. Strings helper class provides this functionality. Its
+append method takes a StringView and a pointer to the arena, copies the string
+into the arena and returns a StringView pointing to the copy.
+
+.. code-block:: c++
+
+   /// Copies the string into contiguous memory allocated via
+   /// HashStringAllocator. Returns StringView over the copy.
+   StringView append(StringView value, HashStringAllocator& allocator);
+
+Strings class provides a free method to release memory back to the arena.
+
+.. code-block:: c++
+
+   /// Frees memory used by the strings. StringViews returned from 'append'
+   /// become invalid after this call.
+   void free(HashStringAllocator& allocator);
+
+When aggregating complex types (arrays, maps or structs), we use
+AddressableNonNullValueList which writes values to the arena and returns
+a “pointer” to the written value which we store in the F14 set.
+AddressableNonNullValueList provides methods to compute a hash of a value and
+compare two values. AddressableNonNullValueList uses ContainerRowSerde for
+serializing data and comparing serialized values.
+
+
+.. code-block:: c++
+
+   /// A set of pointers to values stored in AddressableNonNullValueList.
+   SetAccumulator<
+      HashStringAllocator::Position,
+      AddressableNonNullValueList::Hash,
+      AddressableNonNullValueList::EqualTo>
+      base;
+
+AddressableNonNullValueList allows to append a value and erase the last value.
+This functionality is sufficient for set_agg and set_union. When processing a
+new value, we append it to the list, get a “pointer”, insert that “pointer”
+into F14 set and if the “pointer” points to a duplicate value we remove it from
+the list.
+
+Like all other arena-based accumulators, AddressableNonNullValueList provides a
+free method to return memory back to the arena.
+
+Note: AddressableNonNullValueList is different from ValueList in that it
+provides access to individual values (hence, the “Addressable” prefix in the
+name) while ValueList does not. With ValueList one can append values, then copy
+all the values into a Vector. Adhoc access to individual elements is not
+available in ValueList.
+
+SetAccumulator<T> template implements a simple interface to accumulate unique
+values. It is implemented using F14FastSet, Strings and
+AddressableNonNullValueList. T can be a fixed-width type like int32_t or
+int64_t, StringView or ComplexType.
+
+addValue and addValues method allow to add one or multiple values from a vector.
+
+.. code-block:: c++
+
+   /// Adds value if new. No-op if the value was added before.
+   void addValue(
+      const DecodedVector& decoded,
+      vector_size_t index,
+      HashStringAllocator* allocator)/// Adds new values from an array.
+
+   void addValues(
+      const ArrayVector& arrayVector,
+      vector_size_t index,
+      const DecodedVector& values,
+      HashStringAllocator* allocator)
+
+size() method returns the number of unique values.
+
+.. code-block:: c++
+
+   /// Returns number of unique values including null.
+   size_t size() const
+
+extractValues method allows to extract unique values into a vector.
+
+.. code-block:: c++
+
+   /// Copies the unique values and null into the specified vector starting at
+   /// the specified offset.
+   vector_size_t extractValues(FlatVector<T>& values, vector_size_t offset)
+
+   /// For complex types.
+   vector_size_t extractValues(BaseVector& values, vector_size_t offset)
+
+Both :func:`set_agg` and :func:`set_union` functions are implemented using
+SetAccumulator.
+
+map_agg, map_union, and MapAccumulator
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:func:`map_agg` function accumulates keys and values into a map. It discards
+duplicate keys and keeps only one value for each unique key. Map_agg uses
+MapAccumulator<T> template to accumulate the values. Similar to SetAccumulator,
+MapAccumulator is built using F14FastMap, AlignedStlAllocator, Strings and
+AddressableNonNullValueList.
+
+insert() method adds a pair of (key, value) to the map discarding the value if matching key already exists.
+
+.. code-block:: c++
+
+   /// Adds key-value pair if entry with that key doesn't exist yet.
+   void insert(
+      const DecodedVector& decodedKeys,
+      const DecodedVector& decodedValues,
+      vector_size_t index,
+      HashStringAllocator& allocator)
+
+size() method returns the number of unique values.
+
+extract() method copies the keys and the values into vectors, which can be combined to form a MapVector.
+
+.. code-block:: c++
+
+   void extract(
+      const VectorPtr& mapKeys,
+      const VectorPtr& mapValues,
+      vector_size_t offset)
+
+Both :func:`map_agg` and :func:`map_union` functions are implemented using
+MapAccumulator.
+
+When implementing new aggregate functions, consider using ValueList,
+SingleValueAccumulator, Strings, AddressableNonNullValueList and F14
+containers to put together an accumulator that uses memory efficiently.
 
 End-to-End Testing
 ------------------
