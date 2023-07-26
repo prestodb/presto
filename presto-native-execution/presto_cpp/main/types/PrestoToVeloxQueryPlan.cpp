@@ -2324,10 +2324,15 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     limit = *node->maxRowCountPerPartition;
   }
 
+  std::optional<std::string> rowNumberColumnName;
+  if (!node->partial) {
+    rowNumberColumnName = node->rowNumberVariable.name;
+  }
+
   return std::make_shared<core::RowNumberNode>(
       node->id,
       partitionFields,
-      node->rowNumberVariable.name,
+      rowNumberColumnName,
       limit,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
