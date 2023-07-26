@@ -15,7 +15,9 @@ package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
+import org.testng.annotations.Test;
 
+@Test(groups = {"parquet"})
 public class TestPrestoNativeTpcdsQueriesParquetUsingThrift
         extends AbstractTestNativeTpcdsQueries
 {
