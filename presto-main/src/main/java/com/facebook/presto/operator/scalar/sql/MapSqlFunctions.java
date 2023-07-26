@@ -101,6 +101,20 @@ public class MapSqlFunctions
         return "RETURN ALL_MATCH(MAP_KEYS(input), f)";
     }
 
+<<<<<<< HEAD
+=======
+    @SqlInvokedScalarFunction(value = "all_values_match", deterministic = true, calledOnNullInput = true)
+    @Description("Returns whether all values of a map match the given predicate.")
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "f", type = "function(V, boolean)")})
+    @SqlType("boolean")
+    public static String allValuesMatch()
+    {
+        return "RETURN ALL_MATCH(MAP_VALUES(input), f)";
+    }
+
+>>>>>>> 7f9f905f72 (Adding support for ALL_VALUES_MATCH)
     @SqlInvokedScalarFunction(value = "any_keys_match", deterministic = true, calledOnNullInput = true)
     @Description("Returns whether any key of a map matches the given predicate.")
     @TypeParameter("K")
@@ -133,6 +147,7 @@ public class MapSqlFunctions
     {
         return "RETURN NONE_MATCH(MAP_KEYS(input), f)";
     }
+<<<<<<< HEAD
 
     @SqlInvokedScalarFunction(value = "no_values_match", deterministic = true, calledOnNullInput = true)
     @Description("Returns whether no values of a map match the given predicate.")
@@ -144,4 +159,6 @@ public class MapSqlFunctions
     {
         return "RETURN NONE_MATCH(MAP_VALUES(input), f)";
     }
+=======
+>>>>>>> 7f9f905f72 (Adding support for ALL_VALUES_MATCH)
 }

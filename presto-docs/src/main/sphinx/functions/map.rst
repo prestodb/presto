@@ -11,6 +11,29 @@ The ``[]`` operator is used to retrieve the value corresponding to a given key f
 
 Map Functions
 -------------
+.. function:: all_keys_match(x(K,V), function(K, boolean)) -> boolean
+
+    Returns whether all keys of a map match the given predicate. Returns true if all the keys match the predicate (a special case is when the map is empty); false if one or more keys don’t match; NULL if the predicate function returns NULL for one or more keys and true for all other keys. ::
+
+        SELECT all_keys_match(map(array['a', 'b', 'c'], array[1, 2, 3]), x -> length(x) = 1); -- true
+
+.. function:: all_values_match(x(K,V), function(K, boolean)) -> boolean
+
+    Returns whether all values of a map match the given predicate. Returns true if all the values match the predicate (a special case is when the map is empty); false if one or more values don’t match; NULL if the predicate function returns NULL for one or more values and true for all other values. ::
+
+        SELECT all_values_match(map(array['a', 'b', 'c'], array['d', 'e', 'f']), x -> length(x) = 1); -- true
+
+.. function:: any_keys_match(x(K,V), function(K, boolean)) -> boolean
+
+    Returns whether any keys of a map match the given predicate. Returns true if one or more keys match the predicate; false if none of the keys match (a special case is when the map is empty); NULL if the predicate function returns NULL for one or more keys and false for all other keys. ::
+
+        SELECT any_keys_match(map(array['a', 'b', 'c'], array[1, 2, 3]), x -> x = 'a'); -- true
+
+.. function:: any_values_match(x(K,V), function(V, boolean)) -> boolean
+
+    Returns whether any values of a map matches the given predicate. Returns true if one or more values match the predicate; false if none of the values match (a special case is when the map is empty); NULL if the predicate function returns NULL for one or more values and false for all other values. ::
+
+        SELECT ANY_VALUES_MATCH(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), x -> x = 1); -- true
 
 .. function:: all_keys_match(x(K,V), function(K, boolean)) -> boolean
 
@@ -174,12 +197,15 @@ Map Functions
 
         SELECT no_keys_match(map(array['a', 'b', 'c'], array[1, 2, 3]), x -> x = 'd'); -- true
 
+<<<<<<< HEAD
 .. function:: no_values_match(x(K,V), function(V, boolean)) -> boolean
 
     Returns whether no values of a map match the given predicate. Returns true if none of the values match the predicate (a special case is when the map is empty); false if one or more values match; NULL if the predicate function returns NULL for one or more values and false for all other values. ::
 
         SELECT no_values_match(map(array['a', 'b', 'c'], array[1, 2, 3]), x -> x = 'd'); -- true
 
+=======
+>>>>>>> 7f9f905f72 (Adding support for ALL_VALUES_MATCH)
 .. function:: transform_keys(map(K1,V), function(K1,V,K2)) -> map(K2,V)
 
     Returns a map that applies ``function`` to each entry of ``map`` and transforms the keys::
