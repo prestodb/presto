@@ -68,6 +68,12 @@ struct SubfieldSpec {
   bool filterOnly;
 };
 
+template <typename T>
+void deduplicate(std::vector<T>& values) {
+  std::sort(values.begin(), values.end());
+  values.erase(std::unique(values.begin(), values.end()), values.end());
+}
+
 // Recursively add subfields to scan spec.
 void addSubfields(
     const Type& type,
@@ -153,8 +159,10 @@ void addSubfields(
       }
       std::unique_ptr<common::Filter> filter;
       if (stringKey) {
+        deduplicate(stringSubscripts);
         filter = std::make_unique<common::BytesValues>(stringSubscripts, false);
       } else {
+        deduplicate(longSubscripts);
         filter = common::createBigintValues(longSubscripts, false);
       }
       keys->setFilter(std::move(filter));

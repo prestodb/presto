@@ -214,6 +214,26 @@ TEST_F(HiveConnectorTest, makeScanSpec_filtersNotInRequiredSubfields) {
   ASSERT_FALSE(c0c3->childByName("c0c3c0")->isConstant());
 }
 
+TEST_F(HiveConnectorTest, makeScanSpec_duplicateSubfields) {
+  auto c0Type = MAP(BIGINT(), MAP(BIGINT(), BIGINT()));
+  auto c1Type = MAP(VARCHAR(), MAP(BIGINT(), BIGINT()));
+  auto rowType = ROW({{"c0", c0Type}, {"c1", c1Type}});
+  std::shared_ptr<HiveColumnHandle> columnHandles[] = {
+      makeColumnHandle("c0", c0Type, {"c0[10][1]", "c0[10][2]"}),
+      makeColumnHandle("c1", c1Type, {"c1[\"foo\"][1]", "c1[\"foo\"][2]"}),
+  };
+  auto scanSpec = HiveDataSource::makeScanSpec(
+      {},
+      rowType,
+      {columnHandles[0].get(), columnHandles[1].get()},
+      {},
+      pool_.get());
+  auto* c0 = scanSpec->childByName("c0");
+  ASSERT_EQ(c0->children().size(), 2);
+  auto* c1 = scanSpec->childByName("c1");
+  ASSERT_EQ(c1->children().size(), 2);
+}
+
 TEST_F(HiveConnectorTest, extractFiltersFromRemainingFilter) {
   core::QueryCtx queryCtx;
   exec::SimpleExpressionEvaluator evaluator(&queryCtx, pool_.get());
