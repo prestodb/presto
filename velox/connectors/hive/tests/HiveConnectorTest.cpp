@@ -184,11 +184,18 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_allSubscripts) {
 }
 
 TEST_F(HiveConnectorTest, makeScanSpec_filtersNotInRequiredSubfields) {
-  auto columnType = ROW({{"c0c0", BIGINT()}, {"c0c1", VARCHAR()}});
+  auto columnType = ROW(
+      {{"c0c0", BIGINT()},
+       {"c0c1", VARCHAR()},
+       {"c0c2", ROW({{"c0c2c0", BIGINT()}})},
+       {"c0c3", ROW({{"c0c3c0", BIGINT()}})}});
   auto rowType = ROW({{"c0", columnType}});
-  auto columnHandle = makeColumnHandle("c0", columnType, {"c0.c0c1"});
+  auto columnHandle =
+      makeColumnHandle("c0", columnType, {"c0.c0c1", "c0.c0c3"});
   SubfieldFilters filters;
   filters.emplace(Subfield("c0.c0c0"), exec::equal(42));
+  filters.emplace(Subfield("c0.c0c2"), exec::isNotNull());
+  filters.emplace(Subfield("c0.c0c3"), exec::isNotNull());
   auto scanSpec = HiveDataSource::makeScanSpec(
       filters, rowType, {columnHandle.get()}, {}, pool_.get());
   auto* c0c0 = scanSpec->childByName("c0")->childByName("c0c0");
@@ -197,6 +204,14 @@ TEST_F(HiveConnectorTest, makeScanSpec_filtersNotInRequiredSubfields) {
   auto* c0c1 = scanSpec->childByName("c0")->childByName("c0c1");
   ASSERT_FALSE(c0c1->isConstant());
   ASSERT_FALSE(c0c1->filter());
+  auto* c0c2 = scanSpec->childByName("c0")->childByName("c0c2");
+  ASSERT_FALSE(c0c2->isConstant());
+  ASSERT_TRUE(c0c2->filter());
+  ASSERT_TRUE(c0c2->childByName("c0c2c0")->isConstant());
+  auto* c0c3 = scanSpec->childByName("c0")->childByName("c0c3");
+  ASSERT_FALSE(c0c3->isConstant());
+  ASSERT_TRUE(c0c3->filter());
+  ASSERT_FALSE(c0c3->childByName("c0c3c0")->isConstant());
 }
 
 TEST_F(HiveConnectorTest, extractFiltersFromRemainingFilter) {

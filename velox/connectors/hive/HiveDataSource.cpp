@@ -63,25 +63,33 @@ bool applyPartitionFilter(
   }
 }
 
+struct SubfieldSpec {
+  const common::Subfield* subfield;
+  bool filterOnly;
+};
+
 // Recursively add subfields to scan spec.
 void addSubfields(
     const Type& type,
-    const std::vector<const common::Subfield*>& subfields,
+    std::vector<SubfieldSpec>& subfields,
     int level,
     memory::MemoryPool* pool,
     common::ScanSpec& spec) {
-  for (auto& subfield : subfields) {
-    if (level == subfield->path().size()) {
+  int newSize = 0;
+  for (int i = 0; i < subfields.size(); ++i) {
+    if (level < subfields[i].subfield->path().size()) {
+      subfields[newSize++] = subfields[i];
+    } else if (!subfields[i].filterOnly) {
       spec.addAllChildFields(type);
       return;
     }
   }
+  subfields.resize(newSize);
   switch (type.kind()) {
     case TypeKind::ROW: {
-      folly::F14FastMap<std::string, std::vector<const common::Subfield*>>
-          required;
+      folly::F14FastMap<std::string, std::vector<SubfieldSpec>> required;
       for (auto& subfield : subfields) {
-        auto* element = subfield->path()[level].get();
+        auto* element = subfield.subfield->path()[level].get();
         auto* nestedField =
             dynamic_cast<const common::Subfield::NestedField*>(element);
         VELOX_CHECK(
@@ -114,11 +122,14 @@ void addSubfields(
           level + 1,
           pool,
           *spec.addMapValueField());
+      if (subfields.empty()) {
+        return;
+      }
       bool stringKey = keyType->isVarchar() || keyType->isVarbinary();
       std::vector<std::string> stringSubscripts;
       std::vector<int64_t> longSubscripts;
       for (auto& subfield : subfields) {
-        auto* element = subfield->path()[level].get();
+        auto* element = subfield.subfield->path()[level].get();
         if (dynamic_cast<const common::Subfield::AllSubscripts*>(element)) {
           return;
         }
@@ -156,10 +167,13 @@ void addSubfields(
           level + 1,
           pool,
           *spec.addArrayElementField());
+      if (subfields.empty()) {
+        return;
+      }
       constexpr long kMaxIndex = std::numeric_limits<vector_size_t>::max();
       long maxIndex = -1;
       for (auto& subfield : subfields) {
-        auto* element = subfield->path()[level].get();
+        auto* element = subfield.subfield->path()[level].get();
         if (dynamic_cast<const common::Subfield::AllSubscripts*>(element)) {
           return;
         }
@@ -175,7 +189,7 @@ void addSubfields(
       break;
     }
     default:
-      VELOX_FAIL("Subfields pruning not supported on type {}", type.toString());
+      break;
   }
 }
 
@@ -798,22 +812,22 @@ std::shared_ptr<common::ScanSpec> HiveDataSource::makeScanSpec(
       spec->addFieldRecursively(name, *type, i);
       continue;
     }
-    std::vector<const common::Subfield*> subfieldPtrs;
+    std::vector<SubfieldSpec> subfieldSpecs;
     for (auto& subfield : subfields) {
       VELOX_CHECK_GT(subfield.path().size(), 0);
       auto* field = dynamic_cast<const common::Subfield::NestedField*>(
           subfield.path()[0].get());
       VELOX_CHECK(field);
       VELOX_CHECK_EQ(field->name(), name);
-      subfieldPtrs.push_back(&subfield);
+      subfieldSpecs.push_back({&subfield, false});
     }
     if (auto it = requiredSubfieldsInFilters.find(name);
         it != requiredSubfieldsInFilters.end()) {
       for (auto* subfield : it->second) {
-        subfieldPtrs.push_back(subfield);
+        subfieldSpecs.push_back({subfield, true});
       }
     }
-    addSubfields(*type, subfieldPtrs, 1, pool, *spec->addField(name, i));
+    addSubfields(*type, subfieldSpecs, 1, pool, *spec->addField(name, i));
   }
 
   for (auto& pair : filters) {

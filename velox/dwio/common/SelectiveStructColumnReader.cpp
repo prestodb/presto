@@ -128,8 +128,8 @@ void SelectiveStructColumnReaderBase::read(
     activeRows = outputRows_;
   }
 
-  VELOX_CHECK(!children_.empty());
   auto& childSpecs = scanSpec_->children();
+  VELOX_CHECK(!childSpecs.empty());
   for (size_t i = 0; i < childSpecs.size(); ++i) {
     auto& childSpec = childSpecs[i];
     if (isChildConstant(*childSpec)) {
@@ -293,7 +293,7 @@ void setNullField(vector_size_t size, VectorPtr& field) {
 void SelectiveStructColumnReaderBase::getValues(
     RowSet rows,
     VectorPtr* result) {
-  VELOX_CHECK(!children_.empty());
+  VELOX_CHECK(!scanSpec_->children().empty());
   VELOX_CHECK(
       *result != nullptr,
       "SelectiveStructColumnReaderBase expects a non-null result");
