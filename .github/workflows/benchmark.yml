@@ -193,8 +193,7 @@ jobs:
           ./scripts/benchmark-runner.py compare \
                 --baseline_path ${BASELINE_OUTPUT_PATH} \
                 --contender_path ${CONTENDER_OUTPUT_PATH} \
-                --recursive \
-                --do_not_fail
+                --recursive 
           echo "::endgroup::"
 
       - name: "Save PR number"
