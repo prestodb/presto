@@ -2615,8 +2615,20 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                 toJsonString(systemPartitioningHandle->function));
         }
       }
+      case protocol::SystemPartitioning::SCALED: {
+        VELOX_CHECK(
+            systemPartitioningHandle->function ==
+                protocol::SystemPartitionFunction::ROUND_ROBIN,
+            "Unsupported partitioning function: {}",
+            toJsonString(systemPartitioningHandle->function));
+        planFragment.planNode = core::PartitionedOutputNode::arbitrary(
+            "root", std::move(outputType), std::move(sourceNode));
+        return planFragment;
+      }
       default:
-        VELOX_FAIL("Unsupported kind of SystemPartitioning");
+        VELOX_FAIL(
+            "Unsupported kind of SystemPartitioning: {}",
+            toJsonString(systemPartitioningHandle->partitioning));
     }
   }
 
