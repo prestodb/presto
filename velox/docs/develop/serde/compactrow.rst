@@ -1,6 +1,6 @@
-===============================
-CompactRow Serialization Format
-===============================
+==========
+CompactRow
+==========
 
 CompactRow is a row-wise serialization format provided by Velox as an
 alternative to UnsafeRow format. CompactRow is more space efficient then

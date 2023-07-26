@@ -22,8 +22,7 @@ This guide is intended for Velox contributors and developers of Velox-based appl
     develop/task
     develop/simd
     develop/spilling
-    develop/unsaferow
-    develop/compactrow
+    develop/serde
     develop/testing
     develop/debugging
     develop/TpchBenchmark

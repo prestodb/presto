@@ -1,6 +1,6 @@
-==============================
-UnsafeRow Serialization Format
-==============================
+=========
+UnsafeRow
+=========
 
 Velox supports two data serialization formats out of the box:
 `PrestoPage <https://prestodb.io/docs/current/develop/serialized-page.html>`_
