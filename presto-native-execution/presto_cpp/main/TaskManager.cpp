@@ -397,10 +397,10 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
 
   getDataForResultRequests(resultRequests);
 
-  if (outputBuffers.type == protocol::BufferType::BROADCAST &&
+  if (outputBuffers.type != protocol::BufferType::PARTITIONED &&
       !execTask->updateOutputBuffers(
           outputBuffers.buffers.size(), outputBuffers.noMoreBufferIds)) {
-    LOG(INFO) << "Failed to update broadcast buffers for task: " << taskId;
+    LOG(WARNING) << "Failed to update output buffers for task: " << taskId;
   }
 
   for (const auto& source : sources) {
