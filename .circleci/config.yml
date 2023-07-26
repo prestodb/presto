@@ -19,6 +19,7 @@ workflows:
   dist-compile:
     jobs:
       - linux-build
+      - linux-pr-fuzzer-run
       - linux-build-options
       - linux-adapters
       - macos-build:
@@ -161,7 +162,7 @@ commands:
       - run:
           name: "Run << parameters.fuzzer_name >> Fuzzer"
           command: |
-            eval " << parameters.fuzzer_exe >> << parameters.fuzzer_args >> " \
+            eval ' << parameters.fuzzer_exe >> << parameters.fuzzer_args >> ' \
                   2>&1 | tee "<< parameters.fuzzer_output >>" || ( \
                     tail -n 1000 "<< parameters.fuzzer_output >>" ; \
                     echo "FAIL: << parameters.fuzzer_name >> run failed"; \
@@ -357,34 +358,6 @@ jobs:
          name: "Run Example Binaries"
          command: |
            find _build/debug/velox/examples/ -maxdepth 1 -type f -executable -exec "{}" \;
-      - run:
-          name: "Build and Test PyVelox"
-          command: |
-            conda init bash
-            source ~/.bashrc
-            conda create -y --name pyveloxenv python=3.7
-            conda activate pyveloxenv
-            LD_LIBRARY_PATH=/usr/local/lib make python-test
-      - run:
-          name: "Check function signatures"
-          command: |
-            source ~/.bashrc
-            conda activate pyveloxenv
-            pip install deepdiff
-            python ./scripts/signature.py export --spark --presto /tmp/pr_signatures.json
-            cp ./scripts/signature.py /tmp/signature.py
-            git remote add upstream https://github.com/facebookincubator/velox
-            git fetch upstream
-            merge_base=$(git merge-base  'upstream/main' `git rev-parse HEAD`) || \
-            { echo "::error::Failed to find merge_base"; exit 1; }
-            echo "Merge Base: $merge_base"
-            git checkout $merge_base
-            git submodule update --init --recursive
-            LD_LIBRARY_PATH=/usr/local/lib make python-clean
-            LD_LIBRARY_PATH=/usr/local/lib make python-build
-            cp /tmp/signature.py ./scripts/signature.py
-            python ./scripts/signature.py export --spark --presto /tmp/main_signatures.json
-            python ./scripts/signature.py diff /tmp/main_signatures.json /tmp/pr_signatures.json
       - post-steps
 
   linux-build-release:
@@ -671,3 +644,78 @@ jobs:
             git config --global user.name "velox"
             cd presto/presto-native-execution
             make runtime-container
+
+  linux-pr-fuzzer-run:
+    executor: build
+    steps:
+      - pre-steps
+      - run:
+          name: "Get merge base function signatures"
+          command: |
+            source ~/.bashrc
+            conda create -y --name pyveloxenv python=3.7
+            conda activate pyveloxenv
+            cp ./scripts/signature.py /tmp/signature.py
+            pip install deepdiff
+            git remote add upstream https://github.com/facebookincubator/velox
+            git fetch upstream
+            merge_base=$(git merge-base  'upstream/main' `git rev-parse HEAD`) || \
+            { echo "::error::Failed to find merge_base"; exit 1; }
+            echo "Merge Base: $merge_base"
+            git checkout $merge_base
+            git submodule update --init --recursive
+            LD_LIBRARY_PATH=/usr/local/lib make python-clean
+            LD_LIBRARY_PATH=/usr/local/lib make python-build
+            python /tmp/signature.py export --spark spark_merge_base_signatures.json
+            python /tmp/signature.py export --presto presto_merge_base_signatures.json
+      - checkout
+      - run:
+          name: "Build"
+          command: |
+              make debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=6 EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON"
+              ccache -s
+          no_output_timeout: 1h
+      - run:
+          name: "Build and test PyVelox"
+          command: |
+            conda init bash
+            source ~/.bashrc
+            conda activate pyveloxenv
+            LD_LIBRARY_PATH=/usr/local/lib make python-test
+      - run:
+          name: "Check and create bias function signatures"
+          command: |
+            source ~/.bashrc
+            conda activate pyveloxenv
+            pip install deepdiff
+            python ./scripts/signature.py export --presto presto_pr_signatures.json
+            python ./scripts/signature.py export --spark spark_pr_signatures.json
+            python ./scripts/signature.py bias presto_merge_base_signatures.json presto_pr_signatures.json /tmp/presto_bias_functions 
+            python ./scripts/signature.py bias spark_merge_base_signatures.json spark_pr_signatures.json /tmp/spark_bias_functions 
+
+      - fuzzer-run:
+          fuzzer_output: "/tmp/fuzzer.log"
+          fuzzer_repro: "/tmp/fuzzer_repro"
+          fuzzer_name: "Expression Bias Run"
+          fuzzer_exe: "if [ -f /tmp/presto_bias_functions ]; then _build/debug/velox/expression/tests/velox_expression_fuzzer_test"
+          fuzzer_args: " --seed ${RANDOM} --lazy_vector_generation_ratio 0.2 \
+          --assign_function_tickets  $(cat /tmp/presto_bias_functions) \
+          --duration_sec 3600 --enable_variadic_signatures \
+          --velox_fuzzer_enable_complex_types \
+          --velox_fuzzer_enable_column_reuse \
+          --velox_fuzzer_enable_expression_reuse \
+          --max_expression_trees_per_step 2 \
+          --retry_with_try \
+          --enable_dereference \
+          --logtostderr=1 --minloglevel=0 \
+          --repro_persist_path=/tmp/fuzzer_repro ; fi"
+
+      - fuzzer-run:
+          fuzzer_output: "/tmp/spark_fuzzer.log"
+          fuzzer_repro: "/tmp/spark_fuzzer_repro"
+          fuzzer_name: "Spark Bias Run"
+          fuzzer_exe: "if [ -f /tmp/spark_bias_functions ];  then _build/debug/velox/expression/tests/spark_expression_fuzzer_test"
+          fuzzer_args: " --seed ${RANDOM} --duration_sec 3600 --logtostderr=1 --minloglevel=0 \
+          --assign_function_tickets  $(cat /tmp/spark_bias_functions) \
+          --repro_persist_path=/tmp/spark_fuzzer_repro ; fi"
+

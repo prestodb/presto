@@ -34,10 +34,10 @@ class bcolors:
 def export(args):
     """Exports Velox function signatures."""
     if args.spark:
-        pv.register_spark_signatures("spark_")
+        pv.register_spark_signatures()
 
     if args.presto:
-        pv.register_presto_signatures("presto_")
+        pv.register_presto_signatures()
 
     signatures = pv.get_function_signatures()
 
@@ -51,12 +51,15 @@ def export(args):
     return 0
 
 
-def diff(args):
-    """Diffs Velox function signatures."""
-    first_signatures = json.load(args.first)
-    second_signatures = json.load(args.second)
+def diff_signatures(base_signatures, contender_signatures):
+    """Diffs Velox function signatures. Returns a tuple of the delta diff and exit status"""
+
     delta = DeepDiff(
-        first_signatures, second_signatures, ignore_order=True, report_repetition=True
+        base_signatures,
+        contender_signatures,
+        ignore_order=True,
+        report_repetition=True,
+        view="tree",
     )
     exit_status = 0
     if delta:
@@ -93,10 +96,69 @@ def diff(args):
         """
         )
 
-    return exit_status
+    return delta, exit_status
 
 
-def parse_args():
+def diff(args):
+    """Diffs Velox function signatures."""
+    base_signatures = json.load(args.base)
+    contender_signatures = json.load(args.contender)
+    return diff_signatures(base_signatures, contender_signatures)[1]
+
+
+def bias(args):
+    base_signatures = json.load(args.base)
+    contender_signatures = json.load(args.contender)
+    tickets = args.ticket_value
+    bias_output, status = bias_signatures(
+        base_signatures, contender_signatures, tickets
+    )
+    if status:
+        return status
+
+    if bias_output:
+        with open(args.output_path, "w") as f:
+            print(f"{bias_output}", file=f, end="")
+
+    return 0
+
+
+def bias_signatures(base_signatures, contender_signatures, tickets):
+    """Returns newly added functions as string and a status flag.
+    Newly added functions are biased like so `fn_name1=<ticket_count>,fn_name2=<ticket_count>`.
+    If it detects incompatible changes returns 1 in the status and empty string.
+    """
+    delta, status = diff_signatures(base_signatures, contender_signatures)
+
+    # Return if the signature check call flags incompatible changes.
+    if status:
+        return "", status
+
+    if not delta:
+        print(f"{bcolors.BOLD} No changes detected: Nothing to do!")
+        return "", 0
+
+    function_set = set()
+    for items in delta.values():
+        for item in items:
+            function_set.add(item.get_root_key())
+
+    print(f"{bcolors.BOLD}Functions to be biased: {function_set}")
+
+    if function_set:
+        return f"{f'={tickets},'.join(sorted(function_set)) + f'={tickets}'}", 0
+
+    return "", 0
+
+
+def get_tickets(val):
+    tickets = int(val)
+    if tickets < 0:
+        raise argparse.ArgumentTypeError("Cant have negative values!")
+    return tickets
+
+
+def parse_args(args):
     global parser
 
     parser = argparse.ArgumentParser(
@@ -111,16 +173,23 @@ def parse_args():
     export_command_parser.add_argument("output_file", type=argparse.FileType("w"))
 
     diff_command_parser = command.add_parser("diff")
-    diff_command_parser.add_argument("first", type=argparse.FileType("r"))
-    diff_command_parser.add_argument("second", type=argparse.FileType("r"))
+    diff_command_parser.add_argument("base", type=argparse.FileType("r"))
+    diff_command_parser.add_argument("contender", type=argparse.FileType("r"))
 
+    bias_command_parser = command.add_parser("bias")
+    bias_command_parser.add_argument("base", type=argparse.FileType("r"))
+    bias_command_parser.add_argument("contender", type=argparse.FileType("r"))
+    bias_command_parser.add_argument("output_path")
+    bias_command_parser.add_argument(
+        "ticket_value", type=get_tickets, default=10, nargs="?"
+    )
     parser.set_defaults(command="help")
 
-    return parser.parse_args()
+    return parser.parse_args(args)
 
 
 def main():
-    args = parse_args()
+    args = parse_args(sys.argv[1:])
     return globals()[args.command](args)
 
 
