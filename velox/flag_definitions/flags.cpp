@@ -120,9 +120,3 @@ DEFINE_bool(
     "exception. This is only used by test to control the test error output size");
 
 DEFINE_bool(velox_memory_use_hugepages, true, "Use explicit huge pages");
-
-DEFINE_bool(
-    velox_row_container_check_free,
-    false,
-    "Check that variable length data in RowContainers is freed when "
-    "freeing the row");

@@ -23,8 +23,6 @@
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/VectorTypeUtils.h"
 
-DECLARE_bool(velox_row_container_check_free);
-
 namespace facebook::velox::exec {
 
 class Aggregate;
@@ -1106,7 +1104,7 @@ class RowContainer {
   // Free any aggregates associated with the 'rows'.
   void freeAggregates(folly::Range<char**> rows);
 
-  const bool checkFree_{FLAGS_velox_row_container_check_free};
+  const bool checkFree_ = false;
 
   const std::vector<TypePtr> keyTypes_;
   const bool nullableKeys_;

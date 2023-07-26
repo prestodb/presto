@@ -1079,7 +1079,6 @@ void GroupingSet::toIntermediate(
   if (intermediateRows_) {
     intermediateRows_->eraseRows(folly::Range<char**>(
         intermediateGroups_.data(), intermediateGroups_.size()));
-    intermediateRows_->stringAllocator().checkEmpty();
   }
   tempVectors_.clear();
 }
