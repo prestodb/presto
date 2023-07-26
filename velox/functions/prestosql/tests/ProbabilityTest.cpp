@@ -236,5 +236,49 @@ TEST_F(ProbabilityTest, chiSquaredCDF) {
   VELOX_ASSERT_THROW(chiSquaredCDF(3, -10), "value must non-negative");
 }
 
+TEST_F(ProbabilityTest, fCDF) {
+  const auto fCDF = [&](std::optional<double> df1,
+                        std::optional<double> df2,
+                        std::optional<double> value) {
+    return evaluateOnce<double>("f_cdf(c0, c1, c2)", df1, df2, value);
+  };
+
+  EXPECT_EQ(fCDF(2.0, 5.0, 0.0), 0.0);
+  EXPECT_EQ(fCDF(2.0, 5.0, 0.7988), 0.50001145221750731);
+  EXPECT_EQ(fCDF(2.0, 5.0, 3.7797), 0.89999935988961155);
+
+  EXPECT_EQ(fCDF(kDoubleMax, 5.0, 3.7797), 1);
+  EXPECT_EQ(fCDF(1, kDoubleMax, 97.1), 1);
+  EXPECT_EQ(fCDF(82.6, 901.10, kDoubleMax), 1);
+  EXPECT_EQ(fCDF(12.12, 4.2015, kDoubleMin), 0);
+  EXPECT_EQ(fCDF(0.4422, kDoubleMin, 0.697), 7.9148959162596482e-306);
+  EXPECT_EQ(fCDF(kDoubleMin, 50.620, 4), 1);
+  EXPECT_EQ(fCDF(kBigIntMax, 5.0, 3.7797), 0.93256230095450132);
+  EXPECT_EQ(fCDF(76.901, kBigIntMax, 77.97), 1);
+  EXPECT_EQ(fCDF(2.0, 5.0, kBigIntMax), 1);
+
+  EXPECT_EQ(fCDF(2.0, 5.0, std::nullopt), std::nullopt);
+  EXPECT_EQ(fCDF(2.0, std::nullopt, 3.7797), std::nullopt);
+  EXPECT_EQ(fCDF(std::nullopt, 5.0, 3.7797), std::nullopt);
+
+  // Test invalid inputs for df1.
+  VELOX_ASSERT_THROW(fCDF(0, 3, 0.5), "numerator df must be greater than 0");
+  VELOX_ASSERT_THROW(
+      fCDF(kBigIntMin, 5.0, 3.7797), "numerator df must be greater than 0");
+
+  // Test invalid inputs for df2.
+  VELOX_ASSERT_THROW(fCDF(3, 0, 0.5), "denominator df must be greater than 0");
+  VELOX_ASSERT_THROW(
+      fCDF(2.0, kBigIntMin, 3.7797), "denominator df must be greater than 0");
+
+  // Test invalid inputs for value.
+  VELOX_ASSERT_THROW(fCDF(3, 5, -0.1), "value must non-negative");
+  VELOX_ASSERT_THROW(fCDF(2.0, 5.0, kBigIntMin), "value must non-negative");
+
+  // Test a combination of invalid inputs.
+  VELOX_ASSERT_THROW(fCDF(-1.2, 0, -0.1), "value must non-negative");
+  VELOX_ASSERT_THROW(fCDF(1, -kInf, -0.1), "value must non-negative");
+}
+
 } // namespace
 } // namespace facebook::velox
