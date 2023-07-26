@@ -284,6 +284,9 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
       info.taskStatus.physicalWrittenDataSizeInBytes,
       physicalWrittenBytes);
 
+  info.taskStatus.outputBufferUtilization = taskStats.outputBufferUtilization;
+  info.taskStatus.outputBufferOverutilized = taskStats.outputBufferOverutilized;
+
   if (task->error() && info.taskStatus.failures.empty()) {
     info.taskStatus.failures.emplace_back(toPrestoError(task->error()));
   }
