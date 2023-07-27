@@ -121,7 +121,7 @@ SharedArbitrator::~SharedArbitrator() {
 
 void SharedArbitrator::reserveMemory(MemoryPool* pool, uint64_t /*unused*/) {
   const int64_t bytesToReserve =
-      std::min<int64_t>(maxGrowBytes(*pool), initMemoryPoolCapacity_);
+      std::min<int64_t>(maxGrowBytes(*pool), memoryPoolInitCapacity_);
   std::lock_guard<std::mutex> l(mutex_);
   if (running_) {
     // NOTE: if there is a running memory arbitration, then we shall skip
@@ -257,7 +257,7 @@ bool SharedArbitrator::arbitrateMemory(
 
   const uint64_t growTarget = std::min(
       maxGrowBytes(*requestor),
-      std::max(minMemoryPoolCapacityTransferSize_, targetBytes));
+      std::max(memoryPoolTransferCapacity_, targetBytes));
   uint64_t freedBytes = decrementFreeCapacity(growTarget);
   if (freedBytes >= targetBytes) {
     requestor->grow(freedBytes);
@@ -346,7 +346,7 @@ uint64_t SharedArbitrator::reclaimUsedMemoryFromCandidates(
       break;
     }
     const int64_t bytesToReclaim = std::max<int64_t>(
-        targetBytes - freedBytes, minMemoryPoolCapacityTransferSize_);
+        targetBytes - freedBytes, memoryPoolTransferCapacity_);
     VELOX_CHECK_GT(bytesToReclaim, 0);
     freedBytes += reclaim(candidate.pool, bytesToReclaim);
     if ((freedBytes >= targetBytes) || requestor->aborted()) {

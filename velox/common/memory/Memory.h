@@ -80,8 +80,24 @@ struct MemoryManagerOptions {
   /// Specifies the backing memory allocator.
   MemoryAllocator* allocator{MemoryAllocator::getInstance()};
 
-  /// Specifies the memory arbitration config.
-  MemoryArbitrator::Config arbitratorConfig{};
+  /// ================== 'MemoryArbitrator' settings ==================
+
+  MemoryArbitrator::Kind arbitratorKind{MemoryArbitrator::Kind::kNoOp};
+
+  /// The initial memory capacity to reserve for a newly created memory pool.
+  uint64_t memoryPoolInitCapacity{256 << 20};
+
+  /// The minimal memory capacity to transfer out of or into a memory pool
+  /// during the memory arbitration.
+  uint64_t memoryPoolTransferCapacity{32 << 20};
+
+  /// If true, handle the memory arbitration failure by aborting the memory
+  /// pool with most capacity and retry the memory arbitration, otherwise we
+  /// simply fails the memory arbitration requestor itself. This helps the
+  /// distributed query execution use case such as Prestissimo that fail the
+  /// same query on all the workers instead of a random victim query which
+  /// happens to trigger the failed memory arbitration.
+  bool retryArbitrationFailure{true};
 };
 
 /// 'MemoryManager' is responsible for managing the memory pools. For now, users

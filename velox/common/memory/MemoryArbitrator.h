@@ -72,11 +72,11 @@ class MemoryArbitrator {
     int64_t capacity;
 
     /// The initial memory capacity to reserve for a newly created memory pool.
-    uint64_t initMemoryPoolCapacity{128 << 20};
+    uint64_t memoryPoolInitCapacity{256 << 20};
 
     /// The minimal memory capacity to transfer out of or into a memory pool
     /// during the memory arbitration.
-    uint64_t minMemoryPoolCapacityTransferSize{32 << 20};
+    uint64_t memoryPoolTransferCapacity{32 << 20};
 
     /// If true, handle the memory arbitration failure by aborting the memory
     /// pool with most capacity and retry the memory arbitration, otherwise we
@@ -160,14 +160,13 @@ class MemoryArbitrator {
   explicit MemoryArbitrator(const Config& config)
       : kind_(config.kind),
         capacity_(config.capacity),
-        initMemoryPoolCapacity_(config.initMemoryPoolCapacity),
-        minMemoryPoolCapacityTransferSize_(
-            config.minMemoryPoolCapacityTransferSize) {}
+        memoryPoolInitCapacity_(config.memoryPoolInitCapacity),
+        memoryPoolTransferCapacity_(config.memoryPoolTransferCapacity) {}
 
   const Kind kind_;
   const uint64_t capacity_;
-  const uint64_t initMemoryPoolCapacity_;
-  const uint64_t minMemoryPoolCapacityTransferSize_;
+  const uint64_t memoryPoolInitCapacity_;
+  const uint64_t memoryPoolTransferCapacity_;
 };
 
 std::ostream& operator<<(std::ostream& out, const MemoryArbitrator::Kind& kind);

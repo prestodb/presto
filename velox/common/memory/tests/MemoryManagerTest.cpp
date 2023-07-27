@@ -69,15 +69,13 @@ TEST(MemoryManagerTest, Ctor) {
   { ASSERT_ANY_THROW(MemoryManager manager{{.capacity = -1}}); }
   {
     MemoryManagerOptions options;
-    options.capacity = 32L << 30;
-    options.arbitratorConfig.kind = MemoryArbitrator::Kind::kShared;
-    // The arbitrator capacity will be overridden by the memory manager's
-    // capacity.
-    options.arbitratorConfig.capacity = folly::Random::rand32();
+    const auto capacity = folly::Random::rand32();
+    options.capacity = capacity;
+    options.arbitratorKind = MemoryArbitrator::Kind::kShared;
     MemoryManager manager{options};
     auto* arbitrator = manager.arbitrator();
     ASSERT_EQ(arbitrator->kind(), MemoryArbitrator::Kind::kShared);
-    ASSERT_EQ(arbitrator->stats().maxCapacityBytes, 32L << 30);
+    ASSERT_EQ(arbitrator->stats().maxCapacityBytes, capacity);
   }
 }
 
@@ -111,12 +109,12 @@ TEST(MemoryManagerTest, addPool) {
 TEST(MemoryManagerTest, addPoolWithArbitrator) {
   MemoryManagerOptions options;
   options.capacity = 32L << 30;
-  options.arbitratorConfig.kind = MemoryArbitrator::Kind::kShared;
+  options.arbitratorKind = MemoryArbitrator::Kind::kShared;
   // The arbitrator capacity will be overridden by the memory manager's
   // capacity.
-  options.arbitratorConfig.capacity = options.capacity;
-  const uint64_t initialPoolCapacity = options.arbitratorConfig.capacity / 32;
-  options.arbitratorConfig.initMemoryPoolCapacity = initialPoolCapacity;
+  options.capacity = options.capacity;
+  const uint64_t initialPoolCapacity = options.capacity / 32;
+  options.memoryPoolInitCapacity = initialPoolCapacity;
   MemoryManager manager{options};
 
   auto rootPool = manager.addRootPool(

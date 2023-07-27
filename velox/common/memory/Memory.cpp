@@ -28,15 +28,15 @@ constexpr folly::StringPiece kDefaultLeafName("__default_leaf__");
 MemoryManager::MemoryManager(const MemoryManagerOptions& options)
     : capacity_{options.capacity},
       allocator_{options.allocator->shared_from_this()},
+      // TODO: consider to reserve a small amount of memory to compensate for
+      //  the unreclaimable cache memory which are pinned by query accesses if
+      //  enabled.
       arbitrator_(MemoryArbitrator::create(MemoryArbitrator::Config{
-          .kind = options.arbitratorConfig.kind,
+          .kind = options.arbitratorKind,
           .capacity = capacity_,
-          .initMemoryPoolCapacity =
-              options.arbitratorConfig.initMemoryPoolCapacity,
-          .minMemoryPoolCapacityTransferSize =
-              options.arbitratorConfig.minMemoryPoolCapacityTransferSize,
-          .retryArbitrationFailure =
-              options.arbitratorConfig.retryArbitrationFailure})),
+          .memoryPoolInitCapacity = options.memoryPoolInitCapacity,
+          .memoryPoolTransferCapacity = options.memoryPoolTransferCapacity,
+          .retryArbitrationFailure = options.retryArbitrationFailure})),
       alignment_(std::max(MemoryAllocator::kMinAlignment, options.alignment)),
       checkUsageLeak_(options.checkUsageLeak),
       debugEnabled_(options.debugEnabled),

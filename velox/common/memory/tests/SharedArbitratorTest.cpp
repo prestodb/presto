@@ -286,11 +286,10 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
       uint64_t memoryPoolTransferCapacity = kMemoryPoolTransferCapacity) {
     MemoryManagerOptions options;
     options.capacity = (memoryCapacity != 0) ? memoryCapacity : kMemoryCapacity;
-    options.arbitratorConfig = {
-        .kind = MemoryArbitrator::Kind::kShared,
-        .capacity = options.capacity,
-        .initMemoryPoolCapacity = memoryPoolInitCapacity,
-        .minMemoryPoolCapacityTransferSize = memoryPoolTransferCapacity};
+    options.arbitratorKind = MemoryArbitrator::Kind::kShared;
+    options.capacity = options.capacity;
+    options.memoryPoolInitCapacity = memoryPoolInitCapacity;
+    options.memoryPoolTransferCapacity = memoryPoolTransferCapacity;
     options.checkUsageLeak = true;
     memoryManager_ = std::make_unique<MemoryManager>(options);
     ASSERT_EQ(
