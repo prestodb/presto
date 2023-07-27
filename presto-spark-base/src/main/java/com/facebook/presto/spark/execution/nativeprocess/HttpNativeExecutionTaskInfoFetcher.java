@@ -18,7 +18,6 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.server.RequestErrorTracker;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
-import com.facebook.presto.spark.util.PrestoSparkStatsCollectionUtils;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -118,11 +117,6 @@ public class HttpNativeExecutionTaskInfoFetcher
         taskInfo.set(result.getValue());
 
         errorTracker.requestSucceeded();
-
-        // Update Spark Accumulators for spark internal metrics
-        // Note: Updating here also serves as a heartbeat to spark scheduler
-        // that the task is making progress
-        PrestoSparkStatsCollectionUtils.collectMetrics(taskInfo.get());
 
         if (result.getValue().getTaskStatus().getState().isDone()) {
             synchronized (taskFinished) {

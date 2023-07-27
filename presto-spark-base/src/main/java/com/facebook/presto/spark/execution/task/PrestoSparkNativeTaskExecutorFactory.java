@@ -53,6 +53,7 @@ import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionProcess;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionProcessFactory;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleInfoTranslator;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleWriteInfo;
+import com.facebook.presto.spark.util.PrestoSparkStatsCollectionUtils;
 import com.facebook.presto.spark.util.PrestoSparkUtils;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PagesSerde;
@@ -311,6 +312,9 @@ public class PrestoSparkNativeTaskExecutorFactory
         }
         SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(serializeZstdCompressed(taskInfoCodec, taskInfoOptional.get()));
         taskInfoCollector.add(serializedTaskInfo);
+
+        // Update Spark Accumulators for spark internal metrics
+        PrestoSparkStatsCollectionUtils.collectMetrics(taskInfoOptional.get());
     }
 
     private static void processTaskInfoForErrorsOrCompletion(TaskInfo taskInfo)
