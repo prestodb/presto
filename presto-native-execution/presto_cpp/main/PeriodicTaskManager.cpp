@@ -24,6 +24,7 @@
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/Driver.h"
+#include "velox/common/caching/SsdCache.h"
 
 #include <sys/resource.h>
 
