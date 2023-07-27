@@ -25,9 +25,14 @@
 #include "velox/functions/facebook/prestosql/Register.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 
+DEFINE_bool(
+    include_fb_only,
+    true,
+    "If true fb only functions are included in the test");
+
 DEFINE_int64(
     seed,
-    123456,
+    0,
     "Initial seed for random number generator "
     "(use it to reproduce previous results).");
 
@@ -44,22 +49,14 @@ DEFINE_string(
     "Comma-separated list of special forms to use in generated expression. "
     "Supported special forms: and, or, coalesce, if, switch, cast.");
 
-int main(int argc, char** argv) {
-  facebook::velox::functions::prestosql::registerAllScalarFacebookOnlyFunctions(
-      "");
+class FacebookPrestoExpressionFuzzerTest : public testing::Test {};
+
+TEST_F(FacebookPrestoExpressionFuzzerTest, test) {
+  if (FLAGS_include_fb_only) {
+    facebook::velox::functions::prestosql::
+        registerAllScalarFacebookOnlyFunctions("");
+  }
   facebook::velox::functions::prestosql::registerAllScalarFunctions();
-
-  ::testing::InitGoogleTest(&argc, argv);
-
-  // Calls common init functions in the necessary order, initializing
-  // singletons, installing proper signal handlers for better debugging
-  // experience, and initialize glog and gflags.
-  folly::init(&argc, &argv);
-
-  // The following list are the Spark UDFs that hit issues
-  // For rlike you need the following combo in the only list:
-  // rlike, md5 and upper
-
   // TODO: List of the functions that at some point crash or fail and need to
   // be fixed before we can enable.
   std::unordered_set<std::string> skipFunctions = {
@@ -76,7 +73,7 @@ int main(int argc, char** argv) {
       // https://github.com/facebookincubator/velox/issues/5398
       "concat",
   };
-
-  return FuzzerRunner::run(
-      FLAGS_only, FLAGS_seed, skipFunctions, FLAGS_special_forms);
+  size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
+  return FuzzerRunner::runFromGtest(
+      FLAGS_only, initialSeed, skipFunctions, FLAGS_special_forms);
 }
