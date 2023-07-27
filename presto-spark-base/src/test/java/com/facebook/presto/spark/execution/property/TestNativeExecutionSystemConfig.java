@@ -38,11 +38,19 @@ public class TestNativeExecutionSystemConfig
     {
         // Test defaults
         assertRecordedDefaults(ConfigAssertions.recordDefaults(NativeExecutionVeloxConfig.class)
-                .setCodegenEnabled(false));
+                .setCodegenEnabled(false)
+                .setSpillEnabled(true)
+                .setAggregationSpillEnabled(false)
+                .setJoinSpillEnabled(false)
+                .setOrderBySpillEnabled(false));
 
         // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
         NativeExecutionVeloxConfig expected = new NativeExecutionVeloxConfig()
-                .setCodegenEnabled(true);
+                .setCodegenEnabled(true)
+                .setSpillEnabled(false)
+                .setAggregationSpillEnabled(true)
+                .setJoinSpillEnabled(true)
+                .setOrderBySpillEnabled(true);
         Map<String, String> properties = expected.getAllProperties();
         assertFullMapping(properties, expected);
     }
@@ -67,6 +75,12 @@ public class TestNativeExecutionSystemConfig
                 .setShutdownOnsetSec(10)
                 .setSystemMemoryGb(10)
                 .setQueryMemoryGb(new DataSize(10, DataSize.Unit.GIGABYTE))
+                .setUseMmapAllocator(true)
+                .setEnableMemoryArbitration(true)
+                .setMemoryPoolInitCapacity(512 << 20)
+                .setMemoryPoolTransferCapacity(256 << 20)
+                .setReservedMemoryPoolCapacityPct(10)
+                .setSpillerSpillPath("")
                 .setConcurrentLifespansPerTask(5)
                 .setMaxDriversPerTask(15)
                 .setPrestoVersion("dummy.presto.version")
@@ -93,6 +107,12 @@ public class TestNativeExecutionSystemConfig
                 .setShutdownOnsetSec(30)
                 .setSystemMemoryGb(40)
                 .setQueryMemoryGb(new DataSize(20, DataSize.Unit.GIGABYTE))
+                .setUseMmapAllocator(false)
+                .setEnableMemoryArbitration(false)
+                .setMemoryPoolInitCapacity(32 << 20)
+                .setMemoryPoolTransferCapacity(32 << 20)
+                .setReservedMemoryPoolCapacityPct(20)
+                .setSpillerSpillPath("dummy.spill.path")
                 .setMaxDriversPerTask(30)
                 .setShuffleName("custom")
                 .setRegisterTestFunctions(true)
