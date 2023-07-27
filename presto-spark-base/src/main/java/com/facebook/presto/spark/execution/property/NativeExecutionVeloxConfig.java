@@ -24,13 +24,26 @@ import java.util.Map;
 public class NativeExecutionVeloxConfig
 {
     private static final String CODEGEN_ENABLED = "codegen.enabled";
+    // Spilling related configs.
+    private static final String SPILL_ENABLED = "spill_enabled";
+    private static final String AGGREGATION_SPILL_ENABLED = "aggregation_spill_enabled";
+    private static final String JOIN_SPILL_ENABLED = "join_spill_enabled";
+    private static final String ORDER_BY_SPILL_ENABLED = "order_by_spill_enabled";
 
     private boolean codegenEnabled;
+    private boolean spillEnabled = true;
+    private boolean aggregationSpillEnabled;
+    private boolean joinSpillEnabled;
+    private boolean orderBySpillEnabled;
 
     public Map<String, String> getAllProperties()
     {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        return builder.put(CODEGEN_ENABLED, String.valueOf(getCodegenEnabled())).build();
+        return builder.put(CODEGEN_ENABLED, String.valueOf(getCodegenEnabled()))
+                .put(SPILL_ENABLED, String.valueOf(getSpillEnabled()))
+                .put(AGGREGATION_SPILL_ENABLED, String.valueOf(getAggregationSpillEnabled()))
+                .put(JOIN_SPILL_ENABLED, String.valueOf(getJoinSpillEnabled()))
+                .put(ORDER_BY_SPILL_ENABLED, String.valueOf(getOrderBySpillEnabled())).build();
     }
 
     public boolean getCodegenEnabled()
@@ -42,6 +55,54 @@ public class NativeExecutionVeloxConfig
     public NativeExecutionVeloxConfig setCodegenEnabled(boolean codegenEnabled)
     {
         this.codegenEnabled = codegenEnabled;
+        return this;
+    }
+
+    public boolean getSpillEnabled()
+    {
+        return spillEnabled;
+    }
+
+    @Config(SPILL_ENABLED)
+    public NativeExecutionVeloxConfig setSpillEnabled(boolean spillEnabled)
+    {
+        this.spillEnabled = spillEnabled;
+        return this;
+    }
+
+    public boolean getAggregationSpillEnabled()
+    {
+        return aggregationSpillEnabled;
+    }
+
+    @Config(AGGREGATION_SPILL_ENABLED)
+    public NativeExecutionVeloxConfig setAggregationSpillEnabled(boolean aggregationSpillEnabled)
+    {
+        this.aggregationSpillEnabled = aggregationSpillEnabled;
+        return this;
+    }
+
+    public boolean getJoinSpillEnabled()
+    {
+        return joinSpillEnabled;
+    }
+
+    @Config(JOIN_SPILL_ENABLED)
+    public NativeExecutionVeloxConfig setJoinSpillEnabled(boolean joinSpillEnabled)
+    {
+        this.joinSpillEnabled = joinSpillEnabled;
+        return this;
+    }
+
+    public boolean getOrderBySpillEnabled()
+    {
+        return orderBySpillEnabled;
+    }
+
+    @Config(ORDER_BY_SPILL_ENABLED)
+    public NativeExecutionVeloxConfig setOrderBySpillEnabled(boolean orderBySpillEnabled)
+    {
+        this.orderBySpillEnabled = orderBySpillEnabled;
         return this;
     }
 }
