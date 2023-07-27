@@ -24,7 +24,7 @@ General Aggregate Functions
     ``hash`` cannot be null.
     ``numBits`` specifies max capacity of the bloom filter, which allows to trade accuracy for memory.
     In Spark, the value of ``numBits`` is automatically capped at config value 67,108,864.
-    In Velox, the value of ``numBits`` is automatically capped at fixed value 4,194,304.
+    In Velox, the value of ``numBits`` is automatically capped at the value of spark.bloom_filter.max_num_bits configuration property.
 
     ``hash``, ``estimatedNumItems`` and ``numBits`` must be ``BIGINT``.
 
@@ -39,7 +39,7 @@ General Aggregate Functions
 
 .. spark:function:: bloom_filter_agg(hash) -> varbinary
     
-    A version of ``bloom_filter_agg`` that use 4,194,304 as ``numBits``.
+    A version of ``bloom_filter_agg`` that use the value of spark.bloom_filter.max_num_bits configuration property as ``numBits``.
 
     ``hash`` cannot be null.
 

@@ -60,8 +60,13 @@ struct BloomFilterAccumulator {
 
 class BloomFilterAggAggregate : public exec::Aggregate {
  public:
-  explicit BloomFilterAggAggregate(const TypePtr& resultType)
-      : Aggregate(resultType) {}
+  explicit BloomFilterAggAggregate(
+      const TypePtr& resultType,
+      const core::QueryConfig& config)
+      : Aggregate(resultType),
+        defaultExpectedNumItems_(config.sparkBloomFilterExpectedNumItems()),
+        defaultNumBits_(config.sparkBloomFilterNumBits()),
+        maxNumBits_(config.sparkBloomFilterMaxNumBits()) {}
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(BloomFilterAccumulator);
@@ -190,12 +195,6 @@ class BloomFilterAggAggregate : public exec::Aggregate {
   }
 
  private:
-  const int64_t kDefaultExpectedNumItems = 1'000'000;
-  const int64_t kDefaultNumBits = 8'388'608;
-  // Spark kMaxNumBits is 67108864, but velox has memory limit sizeClassSizes
-  // 256, so decrease it to not over memory limit.
-  const int64_t kMaxNumBits = 4'096 * 1024;
-
   void decodeArguments(
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args) {
@@ -213,14 +212,14 @@ class BloomFilterAggAggregate : public exec::Aggregate {
         numBits_ = estimatedNumItems_ * 8;
       }
     } else {
-      estimatedNumItems_ = kDefaultExpectedNumItems;
-      numBits_ = kDefaultNumBits;
+      estimatedNumItems_ = defaultExpectedNumItems_;
+      numBits_ = defaultNumBits_;
     }
   }
 
   void computeCapacity() {
     if (capacity_ == kMissingArgument) {
-      int64_t numBits = std::min(numBits_, kMaxNumBits);
+      int64_t numBits = std::min(numBits_, maxNumBits_);
       capacity_ = numBits / 16;
     }
   }
@@ -263,6 +262,10 @@ class BloomFilterAggAggregate : public exec::Aggregate {
   }
 
   static constexpr int64_t kMissingArgument = -1;
+  const int64_t defaultExpectedNumItems_;
+  const int64_t defaultNumBits_;
+  const int64_t maxNumBits_;
+
   // Reusable instance of DecodedVector for decoding input vectors.
   DecodedVector decodedRaw_;
   DecodedVector decodedIntermediate_;
@@ -302,9 +305,8 @@ exec::AggregateRegistrationResult registerBloomFilterAggAggregate(
           core::AggregationNode::Step /* step */,
           const std::vector<TypePtr>& /* argTypes */,
           const TypePtr& resultType,
-          const core::QueryConfig& /*config*/)
-          -> std::unique_ptr<exec::Aggregate> {
-        return std::make_unique<BloomFilterAggAggregate>(resultType);
+          const core::QueryConfig& config) -> std::unique_ptr<exec::Aggregate> {
+        return std::make_unique<BloomFilterAggAggregate>(resultType, config);
       });
 }
 } // namespace facebook::velox::functions::aggregate::sparksql

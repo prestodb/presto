@@ -64,6 +64,14 @@ AssertQueryBuilder& AssertQueryBuilder::config(
   return *this;
 }
 
+AssertQueryBuilder& AssertQueryBuilder::configs(
+    const std::unordered_map<std::string, std::string>& values) {
+  for (auto& entry : values) {
+    configs_[entry.first] = entry.second;
+  }
+  return *this;
+}
+
 AssertQueryBuilder& AssertQueryBuilder::connectorConfig(
     const std::string& connectorId,
     const std::string& key,

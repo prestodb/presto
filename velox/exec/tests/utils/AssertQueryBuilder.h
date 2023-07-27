@@ -39,6 +39,10 @@ class AssertQueryBuilder {
   /// properties.
   AssertQueryBuilder& config(const std::string& key, const std::string& value);
 
+  /// Set multiple configuration properties.
+  AssertQueryBuilder& configs(
+      const std::unordered_map<std::string, std::string>& values);
+
   /// Set connector-specific configuration property. May be called multiple
   /// times to set multiple properties for one or multiple connectors.
   AssertQueryBuilder& connectorConfig(

@@ -61,11 +61,14 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
   /// @param groupingKeys A list of grouping keys. May be empty.
   /// @param aggregates A list of aggregates to compute.
   /// @param duckDbSql An equivalent DuckDB SQL query.
+  /// @param config Optional configuration properties to use when evaluating
+  /// aggregations.
   void testAggregations(
       std::function<void(exec::test::PlanBuilder&)> makeSource,
       const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
-      const std::string& duckDbSql);
+      const std::string& duckDbSql,
+      const std::unordered_map<std::string, std::string>& config = {});
 
   /// Same as above, but allows to specify a set of projections to apply after
   /// the aggregation.
@@ -75,7 +78,8 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& postAggregationProjections,
       std::function<std::shared_ptr<exec::Task>(
-          exec::test::AssertQueryBuilder& builder)> assertResults);
+          exec::test::AssertQueryBuilder& builder)> assertResults,
+      const std::unordered_map<std::string, std::string>& config = {});
 
   /// Convenience version that allows to specify input data instead of a
   /// function to build Values plan node.
@@ -83,7 +87,8 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<RowVectorPtr>& data,
       const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
-      const std::string& duckDbSql);
+      const std::string& duckDbSql,
+      const std::unordered_map<std::string, std::string>& config = {});
 
   /// Convenience version that allows to specify input data instead of a
   /// function to build Values plan node.
@@ -92,7 +97,8 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& postAggregationProjections,
-      const std::string& duckDbSql);
+      const std::string& duckDbSql,
+      const std::unordered_map<std::string, std::string>& config = {});
 
   /// Convenience version that allows to specify input data instead of a
   /// function to build Values plan node, and the expected result instead of a
@@ -101,7 +107,8 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<RowVectorPtr>& data,
       const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
-      const std::vector<RowVectorPtr>& expectedResult);
+      const std::vector<RowVectorPtr>& expectedResult,
+      const std::unordered_map<std::string, std::string>& config = {});
 
   /// Convenience version that allows to specify input data instead of a
   /// function to build Values plan node, and the expected result instead of a
@@ -111,7 +118,8 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& postAggregationProjections,
-      const std::vector<RowVectorPtr>& expectedResult);
+      const std::vector<RowVectorPtr>& expectedResult,
+      const std::unordered_map<std::string, std::string>& config = {});
 
   /// Ensure the function is working in streaming use case.  Create a first
   /// aggregation function, add the rawInput1, then extract the accumulator,
@@ -121,7 +129,8 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::string& functionName,
       bool testGlobal,
       const std::vector<VectorPtr>& rawInput1,
-      const std::vector<VectorPtr>& rawInput2);
+      const std::vector<VectorPtr>& rawInput2,
+      const std::unordered_map<std::string, std::string>& config = {});
 
   // Given a list of aggregation expressions, test their equivalent plans using
   // companion functions. For example, suppose we have the following arguments
@@ -137,6 +146,7 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
   // Note that we intentionally add an additional grouping key k1 at the
   // avg_partial operation so that the following avg_merge operation will have
   // multiple values to merge for each g0 group.
+  // This config is used in Aggregate parameter core::QueryConfig.
   void testAggregationsWithCompanion(
       const std::vector<RowVectorPtr>& data,
       const std::function<void(exec::test::PlanBuilder&)>&
@@ -145,7 +155,8 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<std::string>& aggregates,
       const std::vector<std::vector<TypePtr>>& aggregatesArgTypes,
       const std::vector<std::string>& postAggregationProjections,
-      const std::string& duckDbSql);
+      const std::string& duckDbSql,
+      const std::unordered_map<std::string, std::string>& config = {});
 
   void testAggregationsWithCompanion(
       const std::vector<RowVectorPtr>& data,
@@ -155,7 +166,8 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<std::string>& aggregates,
       const std::vector<std::vector<TypePtr>>& aggregatesArgTypes,
       const std::vector<std::string>& postAggregationProjections,
-      const std::vector<RowVectorPtr>& expectedResult);
+      const std::vector<RowVectorPtr>& expectedResult,
+      const std::unordered_map<std::string, std::string>& config = {});
 
   void testAggregationsWithCompanion(
       const std::vector<RowVectorPtr>& data,
@@ -166,7 +178,8 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<std::vector<TypePtr>>& aggregatesArgTypes,
       const std::vector<std::string>& postAggregationProjections,
       std::function<std::shared_ptr<exec::Task>(
-          exec::test::AssertQueryBuilder&)> assertResults);
+          exec::test::AssertQueryBuilder&)> assertResults,
+      const std::unordered_map<std::string, std::string>& config = {});
 
   // Split the input into 2 files then read the input from files.  Can reveal
   // bugs in string life cycle management.
@@ -220,7 +233,8 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
   // results. Return the result of aggregates if successful.
   RowVectorPtr validateStreamingInTestAggregations(
       const std::function<void(exec::test::PlanBuilder&)>& makeSource,
-      const std::vector<std::string>& aggregates);
+      const std::vector<std::string>& aggregates,
+      const std::unordered_map<std::string, std::string>& config);
 
   VectorPtr testStreaming(
       const std::string& functionName,
@@ -228,7 +242,8 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<VectorPtr>& rawInput1,
       vector_size_t rawInput1Size,
       const std::vector<VectorPtr>& rawInput2,
-      vector_size_t rawInput2Size);
+      vector_size_t rawInput2Size,
+      const std::unordered_map<std::string, std::string>& config = {});
 
   bool allowInputShuffle_{false};
 };

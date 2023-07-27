@@ -71,17 +71,19 @@ void AggregationTestBase::testAggregations(
     const std::vector<RowVectorPtr>& data,
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
-    const std::string& duckDbSql) {
+    const std::string& duckDbSql,
+    const std::unordered_map<std::string, std::string>& config) {
   SCOPED_TRACE(duckDbSql);
-  testAggregations(data, groupingKeys, aggregates, {}, duckDbSql);
+  testAggregations(data, groupingKeys, aggregates, {}, duckDbSql, config);
 }
 
 void AggregationTestBase::testAggregations(
     const std::vector<RowVectorPtr>& data,
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
-    const std::vector<RowVectorPtr>& expectedResult) {
-  testAggregations(data, groupingKeys, aggregates, {}, expectedResult);
+    const std::vector<RowVectorPtr>& expectedResult,
+    const std::unordered_map<std::string, std::string>& config) {
+  testAggregations(data, groupingKeys, aggregates, {}, expectedResult, config);
 }
 
 void AggregationTestBase::testAggregations(
@@ -89,14 +91,16 @@ void AggregationTestBase::testAggregations(
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
     const std::vector<std::string>& postAggregationProjections,
-    const std::string& duckDbSql) {
+    const std::string& duckDbSql,
+    const std::unordered_map<std::string, std::string>& config) {
   SCOPED_TRACE(duckDbSql);
   testAggregations(
       [&](PlanBuilder& builder) { builder.values(data); },
       groupingKeys,
       aggregates,
       postAggregationProjections,
-      [&](auto& builder) { return builder.assertResults(duckDbSql); });
+      [&](auto& builder) { return builder.assertResults(duckDbSql); },
+      config);
 }
 
 namespace {
@@ -230,7 +234,8 @@ void AggregationTestBase::testAggregationsWithCompanion(
     const std::vector<std::string>& aggregates,
     const std::vector<std::vector<TypePtr>>& aggregatesArgTypes,
     const std::vector<std::string>& postAggregationProjections,
-    const std::string& duckDbSql) {
+    const std::string& duckDbSql,
+    const std::unordered_map<std::string, std::string>& config) {
   testAggregationsWithCompanion(
       data,
       preAggregationProcessing,
@@ -238,7 +243,8 @@ void AggregationTestBase::testAggregationsWithCompanion(
       aggregates,
       aggregatesArgTypes,
       postAggregationProjections,
-      [&](auto& builder) { return builder.assertResults(duckDbSql); });
+      [&](auto& builder) { return builder.assertResults(duckDbSql); },
+      config);
 }
 
 void AggregationTestBase::testAggregationsWithCompanion(
@@ -248,7 +254,8 @@ void AggregationTestBase::testAggregationsWithCompanion(
     const std::vector<std::string>& aggregates,
     const std::vector<std::vector<TypePtr>>& aggregatesArgTypes,
     const std::vector<std::string>& postAggregationProjections,
-    const std::vector<RowVectorPtr>& expectedResult) {
+    const std::vector<RowVectorPtr>& expectedResult,
+    const std::unordered_map<std::string, std::string>& config) {
   testAggregationsWithCompanion(
       data,
       preAggregationProcessing,
@@ -256,7 +263,8 @@ void AggregationTestBase::testAggregationsWithCompanion(
       aggregates,
       aggregatesArgTypes,
       postAggregationProjections,
-      [&](auto& builder) { return builder.assertResults(expectedResult); });
+      [&](auto& builder) { return builder.assertResults(expectedResult); },
+      config);
 }
 
 void AggregationTestBase::testAggregationsWithCompanion(
@@ -267,7 +275,8 @@ void AggregationTestBase::testAggregationsWithCompanion(
     const std::vector<std::vector<TypePtr>>& aggregatesArgTypes,
     const std::vector<std::string>& postAggregationProjections,
     std::function<std::shared_ptr<exec::Task>(exec::test::AssertQueryBuilder&)>
-        assertResults) {
+        assertResults,
+    const std::unordered_map<std::string, std::string>& config) {
   auto dataWithExtraGroupingKey = addExtraGroupingKey(data, "k0");
   auto groupingKeysWithPartialKey = groupingKeys;
   groupingKeysWithPartialKey.push_back("k0");
@@ -312,6 +321,7 @@ void AggregationTestBase::testAggregationsWithCompanion(
     }
 
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.configs(config);
     assertResults(queryBuilder);
   }
 
@@ -342,7 +352,8 @@ void AggregationTestBase::testAggregationsWithCompanion(
     auto spillDirectory = exec::test::TempDirectoryPath::create();
 
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
-    queryBuilder.config(core::QueryConfig::kTestingSpillPct, "100")
+    queryBuilder.configs(config)
+        .config(core::QueryConfig::kTestingSpillPct, "100")
         .config(core::QueryConfig::kSpillEnabled, "true")
         .config(core::QueryConfig::kAggregationSpillEnabled, "true")
         .spillDirectory(spillDirectory->path)
@@ -373,6 +384,7 @@ void AggregationTestBase::testAggregationsWithCompanion(
     }
 
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.configs(config);
     assertResults(queryBuilder);
   }
 
@@ -394,6 +406,7 @@ void AggregationTestBase::testAggregationsWithCompanion(
     }
 
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.configs(config);
     assertResults(queryBuilder);
   }
 
@@ -415,7 +428,7 @@ void AggregationTestBase::testAggregationsWithCompanion(
     }
 
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
-    queryBuilder.maxDrivers(4);
+    queryBuilder.configs(config).maxDrivers(4);
     assertResults(queryBuilder);
   }
 
@@ -448,7 +461,7 @@ void AggregationTestBase::testAggregationsWithCompanion(
     }
 
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
-    queryBuilder.maxDrivers(2);
+    queryBuilder.configs(config).maxDrivers(2);
     assertResults(queryBuilder);
   }
 
@@ -458,11 +471,13 @@ void AggregationTestBase::testAggregationsWithCompanion(
       SCOPED_TRACE("Streaming partial");
       auto partialResult = validateStreamingInTestAggregations(
           [&](auto& builder) { builder.values(dataWithExtraGroupingKey); },
-          paritialAggregates);
+          paritialAggregates,
+          config);
 
       validateStreamingInTestAggregations(
           [&](auto& builder) { builder.values({partialResult}); },
-          mergeAggregates);
+          mergeAggregates,
+          config);
     }
   }
 }
@@ -548,39 +563,50 @@ void AggregationTestBase::testAggregations(
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
     const std::vector<std::string>& postAggregationProjections,
-    const std::vector<RowVectorPtr>& expectedResult) {
+    const std::vector<RowVectorPtr>& expectedResult,
+    const std::unordered_map<std::string, std::string>& config) {
   testAggregations(
       [&](PlanBuilder& builder) { builder.values(data); },
       groupingKeys,
       aggregates,
       postAggregationProjections,
-      [&](auto& builder) { return builder.assertResults(expectedResult); });
+      [&](auto& builder) { return builder.assertResults(expectedResult); },
+      config);
 }
 
 void AggregationTestBase::testAggregations(
     std::function<void(PlanBuilder&)> makeSource,
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
-    const std::string& duckDbSql) {
+    const std::string& duckDbSql,
+    const std::unordered_map<std::string, std::string>& config) {
   testAggregations(
-      makeSource, groupingKeys, aggregates, {}, [&](auto& builder) {
-        return builder.assertResults(duckDbSql);
-      });
+      makeSource,
+      groupingKeys,
+      aggregates,
+      {},
+      [&](auto& builder) { return builder.assertResults(duckDbSql); },
+      config);
 }
 
 RowVectorPtr AggregationTestBase::validateStreamingInTestAggregations(
     const std::function<void(PlanBuilder&)>& makeSource,
-    const std::vector<std::string>& aggregates) {
+    const std::vector<std::string>& aggregates,
+    const std::unordered_map<std::string, std::string>& config) {
   PlanBuilder builder(pool());
   makeSource(builder);
-  auto input = AssertQueryBuilder(builder.planNode()).copyResults(pool());
+  auto input = AssertQueryBuilder(builder.planNode())
+                   .configs(config)
+                   .copyResults(pool());
   if (input->size() < 2) {
     return nullptr;
   }
   auto size1 = input->size() / 2;
   auto size2 = input->size() - size1;
   builder.singleAggregation({}, aggregates);
-  auto expected = AssertQueryBuilder(builder.planNode()).copyResults(pool());
+  auto expected = AssertQueryBuilder(builder.planNode())
+                      .configs(config)
+                      .copyResults(pool());
   EXPECT_EQ(expected->size(), 1);
   auto& aggregationNode =
       static_cast<const core::AggregationNode&>(*builder.planNode());
@@ -612,12 +638,12 @@ RowVectorPtr AggregationTestBase::validateStreamingInTestAggregations(
     }
 
     auto actualResult1 =
-        testStreaming(name, true, rawInput1, size1, rawInput2, size2);
+        testStreaming(name, true, rawInput1, size1, rawInput2, size2, config);
     velox::exec::test::assertEqualResults(
         {makeRowVector({expected->childAt(i)})},
         {makeRowVector({actualResult1})});
     auto actualResult2 =
-        testStreaming(name, false, rawInput1, size1, rawInput2, size2);
+        testStreaming(name, false, rawInput1, size1, rawInput2, size2, config);
     velox::exec::test::assertEqualResults(
         {makeRowVector({expected->childAt(i)})},
         {makeRowVector({actualResult2})});
@@ -631,7 +657,8 @@ void AggregationTestBase::testAggregations(
     const std::vector<std::string>& aggregates,
     const std::vector<std::string>& postAggregationProjections,
     std::function<std::shared_ptr<exec::Task>(AssertQueryBuilder&)>
-        assertResults) {
+        assertResults,
+    const std::unordered_map<std::string, std::string>& config) {
   {
     SCOPED_TRACE("Run partial + final");
     PlanBuilder builder(pool());
@@ -642,6 +669,7 @@ void AggregationTestBase::testAggregations(
     }
 
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.configs(config);
     assertResults(queryBuilder);
   }
 
@@ -666,7 +694,8 @@ void AggregationTestBase::testAggregations(
     auto spillDirectory = exec::test::TempDirectoryPath::create();
 
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
-    queryBuilder.config(core::QueryConfig::kTestingSpillPct, "100")
+    queryBuilder.configs(config)
+        .config(core::QueryConfig::kTestingSpillPct, "100")
         .config(core::QueryConfig::kSpillEnabled, "true")
         .config(core::QueryConfig::kAggregationSpillEnabled, "true")
         .spillDirectory(spillDirectory->path)
@@ -701,7 +730,7 @@ void AggregationTestBase::testAggregations(
     }
 
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
-    queryBuilder
+    queryBuilder.configs(config)
         .config(core::QueryConfig::kAbandonPartialAggregationMinRows, "1")
         .config(core::QueryConfig::kAbandonPartialAggregationMinPct, "0")
         .config(core::QueryConfig::kMaxPartialAggregationMemory, "0")
@@ -732,6 +761,7 @@ void AggregationTestBase::testAggregations(
     }
 
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.configs(config);
     assertResults(queryBuilder);
   }
 
@@ -751,7 +781,7 @@ void AggregationTestBase::testAggregations(
     auto spillDirectory = exec::test::TempDirectoryPath::create();
 
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
-    queryBuilder.config(core::QueryConfig::kTestingSpillPct, "100")
+    queryBuilder.configs(config).config(core::QueryConfig::kTestingSpillPct, "100")
         .config(core::QueryConfig::kSpillEnabled, "true")
         .config(core::QueryConfig::kAggregationSpillEnabled, "true")
         .spillDirectory(spillDirectory->path);
@@ -783,6 +813,7 @@ void AggregationTestBase::testAggregations(
     }
 
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.configs(config);
     assertResults(queryBuilder);
   }
 
@@ -800,6 +831,7 @@ void AggregationTestBase::testAggregations(
     }
 
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.configs(config);
     assertResults(queryBuilder.maxDrivers(4));
   }
 
@@ -826,13 +858,14 @@ void AggregationTestBase::testAggregations(
     }
 
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.configs(config);
     assertResults(queryBuilder.maxDrivers(2));
   }
 
   if (testStreaming_ && groupingKeys.empty() &&
       postAggregationProjections.empty()) {
     SCOPED_TRACE("Streaming");
-    validateStreamingInTestAggregations(makeSource, aggregates);
+    validateStreamingInTestAggregations(makeSource, aggregates, config);
   }
 }
 
@@ -864,7 +897,8 @@ VectorPtr AggregationTestBase::testStreaming(
     const std::string& functionName,
     bool testGlobal,
     const std::vector<VectorPtr>& rawInput1,
-    const std::vector<VectorPtr>& rawInput2) {
+    const std::vector<VectorPtr>& rawInput2,
+    const std::unordered_map<std::string, std::string>& config) {
   VELOX_CHECK(!rawInput1.empty());
   VELOX_CHECK(!rawInput2.empty());
   return testStreaming(
@@ -873,7 +907,8 @@ VectorPtr AggregationTestBase::testStreaming(
       rawInput1,
       rawInput1[0]->size(),
       rawInput2,
-      rawInput2[0]->size());
+      rawInput2[0]->size(),
+      config);
 }
 
 VectorPtr AggregationTestBase::testStreaming(
@@ -882,7 +917,8 @@ VectorPtr AggregationTestBase::testStreaming(
     const std::vector<VectorPtr>& rawInput1,
     vector_size_t rawInput1Size,
     const std::vector<VectorPtr>& rawInput2,
-    vector_size_t rawInput2Size) {
+    vector_size_t rawInput2Size,
+    const std::unordered_map<std::string, std::string>& config) {
   constexpr int kRowSizeOffset = 8;
   constexpr int kOffset = kRowSizeOffset + 8;
   HashStringAllocator allocator(pool());
@@ -893,13 +929,13 @@ VectorPtr AggregationTestBase::testStreaming(
   auto [intermediateType, finalType] =
       getResultTypes(functionName, rawInputTypes);
   auto createFunction = [&, &finalType = finalType] {
-    core::QueryConfig config({});
+    core::QueryConfig queryConfig({config});
     auto func = exec::Aggregate::create(
         functionName,
         core::AggregationNode::Step::kSingle,
         rawInputTypes,
         finalType,
-        config);
+        queryConfig);
     func->setAllocator(&allocator);
     func->setOffsets(kOffset, 0, 1, kRowSizeOffset);
     return func;
