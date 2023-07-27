@@ -49,7 +49,6 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder.builder;
 import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -130,6 +129,11 @@ public class TestQueryManager
         // Create 3 running queries to guarantee queueing
         createQueries(dispatchManager, 3);
         QueryId queryId = dispatchManager.createQueryId();
+
+        //Wait for the queries to be in running state
+        while (dispatchManager.getStats().getRunningQueries() != 3) {
+            Thread.sleep(1000);
+        }
         dispatchManager.createQuery(
                         queryId,
                         "slug",
@@ -138,7 +142,10 @@ public class TestQueryManager
                         "SELECT * FROM lineitem")
                 .get();
 
-        assertNotEquals(dispatchManager.getStats().getQueuedQueries(), 0L, "Expected 0 queued queries, found: " + dispatchManager.getStats().getQueuedQueries());
+        //Wait for query to be in queued state
+        while (dispatchManager.getStats().getQueuedQueries() != 1) {
+            Thread.sleep(1000);
+        }
 
         Stopwatch stopwatch = Stopwatch.createStarted();
         // wait until it's admitted but fail it before it starts
