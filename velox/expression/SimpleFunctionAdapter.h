@@ -600,6 +600,16 @@ class SimpleFunctionAdapter : public VectorFunction {
           });
         }
       } else if (allNotNull) {
+        if constexpr (FUNC::has_ascii) {
+          if (applyContext.allAscii) {
+            applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
+              typename return_type_traits::NativeType out{};
+              bool notNull = doApplyAsciiNotNull<0>(row, out, readers...);
+              writeResult(row, notNull, out);
+            });
+            return;
+          }
+        }
         applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
           // Passing a stack variable have shown to be boost the performance
           // of functions that repeatedly update the output. The opposite
@@ -637,15 +647,17 @@ class SimpleFunctionAdapter : public VectorFunction {
           });
         }
       } else if (allNotNull) {
-        if (applyContext.allAscii) {
-          applyUdf(applyContext, [&](auto& out, auto row) INLINE_LAMBDA {
-            return doApplyAsciiNotNull<0>(row, out, readers...);
-          });
-        } else {
-          applyUdf(applyContext, [&](auto& out, auto row) INLINE_LAMBDA {
-            return doApplyNotNull<0>(row, out, readers...);
-          });
+        if constexpr (FUNC::has_ascii) {
+          if (applyContext.allAscii) {
+            applyUdf(applyContext, [&](auto& out, auto row) INLINE_LAMBDA {
+              return doApplyAsciiNotNull<0>(row, out, readers...);
+            });
+            return;
+          }
         }
+        applyUdf(applyContext, [&](auto& out, auto row) INLINE_LAMBDA {
+          return doApplyNotNull<0>(row, out, readers...);
+        });
       } else {
         applyUdf(applyContext, [&](auto& out, auto row) INLINE_LAMBDA {
           return doApply<0>(row, out, readers...);
