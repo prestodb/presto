@@ -44,7 +44,7 @@ struct EntropyAccumulator {
   }
 
   void update(int64_t count) {
-    VELOX_CHECK_GT(count, 0, "Entropy count value must be non-negative");
+    VELOX_CHECK_GE(count, 0, "Entropy count value must be non-negative");
     if (count == 0) {
       return;
     }
