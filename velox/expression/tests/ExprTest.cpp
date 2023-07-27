@@ -2442,6 +2442,36 @@ TEST_F(ExprTest, constantToString) {
       exprSet.exprs()[2]->toString());
 }
 
+TEST_F(ExprTest, fieldAccessToString) {
+  auto rowType =
+      ROW({"a", "b"},
+          {BIGINT(), ROW({"c", "d"}, {DOUBLE(), ROW({"e"}, {VARCHAR()})})});
+
+  exec::ExprSet exprSet(
+      {std::make_shared<core::FieldAccessTypedExpr>(BIGINT(), "a"),
+       std::make_shared<core::FieldAccessTypedExpr>(
+           DOUBLE(),
+           std::make_shared<core::FieldAccessTypedExpr>(
+               ROW({"c", "d"}, {DOUBLE(), ROW({"e"}, {VARCHAR()})}), "b"),
+           "c"),
+       std::make_shared<core::FieldAccessTypedExpr>(
+           VARCHAR(),
+           std::make_shared<core::FieldAccessTypedExpr>(
+               ROW({"e"}, {VARCHAR()}),
+               std::make_shared<core::FieldAccessTypedExpr>(
+                   ROW({"c", "d"}, {DOUBLE(), ROW({"e"}, {VARCHAR()})}), "b"),
+               "d"),
+           "e")},
+      execCtx_.get());
+
+  ASSERT_EQ("a", exprSet.exprs()[0]->toString());
+  ASSERT_EQ("a", exprSet.exprs()[0]->toString(/*recursive*/ false));
+  ASSERT_EQ("(b).c", exprSet.exprs()[1]->toString());
+  ASSERT_EQ("c", exprSet.exprs()[1]->toString(/*recursive*/ false));
+  ASSERT_EQ("((b).d).e", exprSet.exprs()[2]->toString());
+  ASSERT_EQ("e", exprSet.exprs()[2]->toString(/*recursive*/ false));
+}
+
 TEST_F(ExprTest, constantToSql) {
   auto toSql = [&](const variant& value, const TypePtr& type = nullptr) {
     exec::ExprSet exprSet({makeConstantExpr(value, type)}, execCtx_.get());
@@ -2619,6 +2649,11 @@ TEST_F(ExprTest, toSql) {
 
   // Function without inputs.
   testToSql("pi()", rowType);
+
+  // Field dereference.
+  rowType = ROW({"o"}, {ROW({"i"}, {std::move(rowType)})});
+  testToSql("o.i", rowType);
+  testToSql("(o).i.e", rowType);
 }
 
 namespace {

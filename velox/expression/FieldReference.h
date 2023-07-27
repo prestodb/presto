@@ -61,6 +61,11 @@ class FieldReference : public SpecialForm {
       EvalCtx& context,
       VectorPtr& result) override;
 
+  std::string toString(bool recursive = true) const override;
+
+  std::string toSql(
+      std::vector<VectorPtr>* complexConstants = nullptr) const override;
+
  private:
   const std::string field_;
   int32_t index_ = -1;

@@ -143,4 +143,25 @@ void FieldReference::evalSpecialFormSimplified(
   }
 }
 
+std::string FieldReference::toString(bool recursive) const {
+  std::stringstream out;
+  if (!inputs_.empty() && recursive) {
+    appendInputs(out);
+    out << ".";
+  }
+  out << name();
+  return out.str();
+}
+
+std::string FieldReference::toSql(
+    std::vector<VectorPtr>* complexConstants) const {
+  std::stringstream out;
+  if (!inputs_.empty()) {
+    appendInputsSql(out, complexConstants);
+    out << ".";
+  }
+  out << "\"" << name() << "\"";
+  return out.str();
+}
+
 } // namespace facebook::velox::exec
