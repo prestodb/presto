@@ -312,8 +312,6 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
     return folly::toPrettyJson(obj);
   }
 
-  static void registerFactory();
-
   static bool registerFactory(Factory factory) {
     factories().push_back(factory);
     return true;
@@ -478,8 +476,3 @@ class Exchange : public SourceOperator {
 };
 
 } // namespace facebook::velox::exec
-
-#define VELOX_REGISTER_EXCHANGE_SOURCE_METHOD_DEFINITION(class, function) \
-  void class ::registerFactory() {                                        \
-    facebook::velox::exec::ExchangeSource::registerFactory((function));   \
-  }

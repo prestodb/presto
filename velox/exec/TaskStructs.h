@@ -25,7 +25,6 @@ namespace facebook::velox::exec {
 class Driver;
 class JoinBridge;
 class LocalExchangeMemoryManager;
-class LocalExchangeSource;
 class MergeSource;
 class MergeJoinSource;
 class Split;

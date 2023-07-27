@@ -21,6 +21,7 @@
 #include "velox/exec/Exchange.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
+#include "velox/exec/tests/utils/LocalExchangeSource.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -306,19 +307,19 @@ Counters flat50Counters;
 Counters deep50Counters;
 Counters localFlat10kCounters;
 
-BENCHMARK(exchanegeFlat10k) {
+BENCHMARK(exchangeFlat10k) {
   bm.run(flat10k, FLAGS_width, FLAGS_task_width, flat10kCounters);
 }
 
-BENCHMARK_RELATIVE(exchanegeFlat50) {
+BENCHMARK_RELATIVE(exchangeFlat50) {
   bm.run(flat50, FLAGS_width, FLAGS_task_width, flat50Counters);
 }
 
-BENCHMARK(exchanegeDeep10k) {
+BENCHMARK(exchangeDeep10k) {
   bm.run(deep10k, FLAGS_width, FLAGS_task_width, deep10kCounters);
 }
 
-BENCHMARK_RELATIVE(exchanegeDeep50) {
+BENCHMARK_RELATIVE(exchangeDeep50) {
   bm.run(deep50, FLAGS_width, FLAGS_task_width, deep50Counters);
 }
 
@@ -335,7 +336,7 @@ int main(int argc, char** argv) {
   aggregate::prestosql::registerAllAggregateFunctions();
   parse::registerTypeResolver();
   serializer::presto::PrestoVectorSerde::registerVectorSerde();
-  exec::ExchangeSource::registerFactory();
+  exec::ExchangeSource::registerFactory(exec::test::createLocalExchangeSource);
   std::vector<std::string> flatNames = {"c0"};
   std::vector<TypePtr> flatTypes = {BIGINT()};
   std::vector<TypePtr> typeSelection = {

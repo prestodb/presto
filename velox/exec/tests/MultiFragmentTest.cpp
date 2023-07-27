@@ -25,31 +25,34 @@
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/RoundRobinPartitionFunction.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
-#include "velox/exec/tests/utils/OperatorTestBase.h"
+#include "velox/exec/tests/utils/LocalExchangeSource.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
-using namespace facebook::velox;
-using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
-using namespace facebook::velox::connector::hive;
-using namespace facebook::velox::common::testutil;
-using namespace facebook::velox::memory;
 
 using facebook::velox::common::testutil::TestValue;
 using facebook::velox::test::BatchMaker;
 
+namespace facebook::velox::exec {
+namespace {
+
 class MultiFragmentTest : public HiveConnectorTestBase {
  protected:
+  void SetUp() override {
+    HiveConnectorTestBase::SetUp();
+    exec::ExchangeSource::registerFactory(createLocalExchangeSource);
+  }
+
   static std::string makeTaskId(const std::string& prefix, int num) {
     return fmt::format("local://{}-{}", prefix, num);
   }
 
   std::shared_ptr<Task> makeTask(
       const std::string& taskId,
-      std::shared_ptr<const core::PlanNode> planNode,
+      const core::PlanNodePtr& planNode,
       int destination,
       Consumer consumer = nullptr,
-      int64_t maxMemory = kMaxMemory) {
+      int64_t maxMemory = memory::kMaxMemory) {
     auto configCopy = configSettings_;
     auto queryCtx = std::make_shared<core::QueryCtx>(
         executor_.get(), std::move(configCopy));
@@ -80,7 +83,7 @@ class MultiFragmentTest : public HiveConnectorTestBase {
       const std::vector<std::shared_ptr<TempFilePath>>& filePaths) {
     for (auto& filePath : filePaths) {
       auto split = exec::Split(
-          std::make_shared<HiveConnectorSplit>(
+          std::make_shared<connector::hive::HiveConnectorSplit>(
               kHiveConnectorId,
               "file:" + filePath->path,
               facebook::velox::dwio::common::FileFormat::DWRF),
@@ -103,7 +106,7 @@ class MultiFragmentTest : public HiveConnectorTestBase {
   }
 
   std::shared_ptr<Task> assertQuery(
-      const std::shared_ptr<const core::PlanNode>& plan,
+      const core::PlanNodePtr& plan,
       const std::vector<std::string>& remoteTaskIds,
       const std::string& duckDbSql,
       std::optional<std::vector<uint32_t>> sortingKeys = std::nullopt) {
@@ -115,7 +118,7 @@ class MultiFragmentTest : public HiveConnectorTestBase {
   }
 
   void assertQueryOrdered(
-      const std::shared_ptr<const core::PlanNode>& plan,
+      const core::PlanNodePtr& plan,
       const std::vector<std::string>& remoteTaskIds,
       const std::string& duckDbSql,
       const std::vector<uint32_t>& sortingKeys) {
@@ -1411,3 +1414,5 @@ DEBUG_ONLY_TEST_F(MultiFragmentTest, mergeWithEarlyTermination) {
   ASSERT_TRUE(waitForTaskCompletion(partialSortTask.get(), 1'000'000'000));
   ASSERT_TRUE(waitForTaskAborted(finalSortTask.get(), 1'000'000'000));
 }
+} // namespace
+} // namespace facebook::velox::exec
