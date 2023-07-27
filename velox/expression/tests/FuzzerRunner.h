@@ -135,11 +135,18 @@ class FuzzerRunner {
       size_t seed,
       const std::unordered_set<std::string>& skipFunctions,
       const std::string& specialForms) {
+    runFromGtest(onlyFunctions, seed, skipFunctions, specialForms);
+    return RUN_ALL_TESTS();
+  }
+
+  static void runFromGtest(
+      const std::string& onlyFunctions,
+      size_t seed,
+      const std::unordered_set<std::string>& skipFunctions,
+      const std::string& specialForms) {
     auto signatures = facebook::velox::getFunctionSignatures();
     appendSpecialForms(specialForms, signatures);
     facebook::velox::test::expressionFuzzer(
         filterSignatures(signatures, onlyFunctions, skipFunctions), seed);
-    // Calling gtest here so that it can be recognized as tests in CI systems.
-    return RUN_ALL_TESTS();
   }
 };
