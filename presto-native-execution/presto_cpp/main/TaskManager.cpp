@@ -933,7 +933,6 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTaskLocked(
   prestoTask->info.taskStatus.state = protocol::TaskState::RUNNING;
   prestoTask->info.taskStatus.self =
       fmt::format("{}/v1/task/{}", baseUri_, taskId);
-  prestoTask->info.taskStatus.outputBufferUtilization = 1;
   prestoTask->updateHeartbeatLocked();
   ++prestoTask->info.taskStatus.version;
 
