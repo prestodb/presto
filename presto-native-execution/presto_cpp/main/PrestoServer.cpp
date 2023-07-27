@@ -359,12 +359,13 @@ void PrestoServer::run() {
   }
 
   auto memoryAllocator = velox::memory::MemoryAllocator::getInstance();
+  auto asyncDataCache = cache::AsyncDataCache::getInstance();
   periodicTaskManager_ = std::make_unique<PeriodicTaskManager>(
       driverCPUExecutor(),
       httpServer_->getExecutor(),
       taskManager_.get(),
       memoryAllocator,
-      dynamic_cast<const velox::cache::AsyncDataCache* const>(memoryAllocator),
+      asyncDataCache,
       velox::connector::getAllConnectors());
   addServerPeriodicTasks();
   addAdditionalPeriodicTasks();
