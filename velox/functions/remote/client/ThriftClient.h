@@ -17,7 +17,6 @@
 #pragma once
 
 #include <folly/io/async/EventBase.h>
-#include <thrift/perf/cpp2/util/Util.h>
 #include "velox/functions/remote/if/gen-cpp2/RemoteFunctionServiceAsyncClient.h"
 
 namespace facebook::velox::functions {

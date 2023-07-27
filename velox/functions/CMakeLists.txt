@@ -26,6 +26,10 @@ if(${VELOX_ENABLE_SPARK_FUNCTIONS})
   add_subdirectory(sparksql)
 endif()
 
+if(${VELOX_ENABLE_REMOTE_FUNCTIONS})
+  add_subdirectory(remote)
+endif()
+
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
 endif()

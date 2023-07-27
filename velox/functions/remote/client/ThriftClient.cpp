@@ -15,13 +15,16 @@
  */
 
 #include "velox/functions/remote/client/ThriftClient.h"
+#include <thrift/lib/cpp2/async/HeaderClientChannel.h>
 
 namespace facebook::velox::functions {
 
 std::unique_ptr<RemoteFunctionClient> getThriftClient(
     folly::SocketAddress location,
     folly::EventBase* eventBase) {
-  return newHeaderClient<RemoteFunctionClient>(eventBase, location);
+  auto sock = folly::AsyncSocket::newSocket(eventBase, location);
+  return std::make_unique<RemoteFunctionClient>(
+      apache::thrift::HeaderClientChannel::newChannel(std::move(sock)));
 }
 
 } // namespace facebook::velox::functions
