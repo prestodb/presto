@@ -15,12 +15,14 @@
  */
 #include "velox/exec/Operator.h"
 #include "velox/common/base/SuccinctPrinter.h"
-#include "velox/common/process/ProcessBase.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/Driver.h"
 #include "velox/exec/HashJoinBridge.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/Task.h"
 #include "velox/expression/Expr.h"
+
+using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
 
@@ -415,14 +417,21 @@ void Operator::MemoryReclaimer::enterArbitration() {
   // The driver must be alive as the operator is still under memory arbitration
   // processing.
   VELOX_CHECK_NOT_NULL(driver);
-  if (FOLLY_UNLIKELY(!driver->state().isOnThread())) {
+  if (FOLLY_UNLIKELY(
+          !driver->state().isOnThread() ||
+          (std::this_thread::get_id() != driver->state().thread))) {
     // NOTE: some memory arbitration are triggered from non-driver execution
-    // context such as async streaming shuffle, table scan prefetch etc. We
-    // should guarantee that such async operations won't mutate the operator
-    // state.
+    // context such as async streaming shuffle, table scan prefetch etc. And
+    // those async operations might execute in parallel with the driver threads.
+    // Therefore, it is possible that driver is not on the thread or the
+    // arbitration thread is not the current running driver thread. If memory
+    // arbitration is triggered in non-driver context, then we can't and also
+    // don't need to enter driver suspension state which only applies for driver
+    // thread so that the task pause operation can wait for all driver threads
+    // to stop. We only need to guarantee that such async operations won't
+    // mutate the operator state.g
     return;
   }
-  VELOX_CHECK_EQ(std::this_thread::get_id(), driver->state().thread);
   if (driver->task()->enterSuspended(driver->state()) != StopReason::kNone) {
     // There is no need for arbitration if the associated task has already
     // terminated.
@@ -435,11 +444,12 @@ void Operator::MemoryReclaimer::leaveArbitration() noexcept {
   // The driver must be alive as the operator is still under memory arbitration
   // processing.
   VELOX_CHECK_NOT_NULL(driver);
-  if (FOLLY_UNLIKELY(!driver->state().isOnThread())) {
+  if (FOLLY_UNLIKELY(
+          !driver->state().isOnThread() ||
+          (std::this_thread::get_id() != driver->state().thread))) {
     // NOTE: see the comment in enterArbitration.
     return;
   }
-  VELOX_CHECK_EQ(std::this_thread::get_id(), driver->state().thread);
   driver->task()->leaveSuspended(driver->state());
 }
 
@@ -470,6 +480,9 @@ uint64_t Operator::MemoryReclaimer::reclaim(
       !driver->state().isOnThread() || driver->state().isSuspended ||
       driver->state().isTerminated);
   VELOX_CHECK(driver->task()->pauseRequested());
+
+  TestValue::adjust(
+      "facebook::velox::exec::Operator::MemoryReclaimer::reclaim", pool);
 
   op_->reclaim(targetBytes);
   return pool->shrink(targetBytes);

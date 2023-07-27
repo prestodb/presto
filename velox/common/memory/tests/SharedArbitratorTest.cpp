@@ -27,7 +27,7 @@
 #include "velox/common/memory/MemoryArbitrator.h"
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/common/testutil/TestValue.h"
-#include "velox/exec/HashTable.h"
+#include "velox/exec/Values.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -1652,11 +1652,180 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, driverInitTriggeredArbitration) {
       .queryCtx(queryCtx)
       .plan(PlanBuilder(planNodeIdGenerator, pool())
                 .values(vectors)
-                // Set filter projection to trigger memory allocation on driver
-                // init.
+                // Set filter projection to trigger memory allocation on
+                // driver init.
                 .project({"1+1+4 as t0", "1+3+3 as t1"})
                 .planNode())
       .assertResults(expectedVector);
+}
+
+DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenTaskTerminateAndReclaim) {
+  setupMemory(kMemoryCapacity, 0);
+  const int numVectors = 10;
+  std::vector<RowVectorPtr> vectors;
+  for (int i = 0; i < numVectors; ++i) {
+    vectors.push_back(newVector());
+  }
+  createDuckDbTable(vectors);
+
+  std::shared_ptr<core::QueryCtx> queryCtx = newQueryCtx(kMemoryCapacity);
+  ASSERT_EQ(queryCtx->pool()->capacity(), 0);
+
+  // Allocate a large chunk of memory to trigger memory reclaim during the query
+  // execution.
+  auto fakeLeafPool = queryCtx->pool()->addLeafChild("fakeLeaf");
+  const size_t fakeAllocationSize = kMemoryCapacity / 2;
+  Allocation fakeAllocation{
+      fakeLeafPool.get(),
+      fakeLeafPool->allocate(fakeAllocationSize),
+      fakeAllocationSize};
+
+  // Set test injection to enforce memory arbitration based on the fake
+  // allocation size and the total available memory.
+  std::shared_ptr<Task> task;
+  std::atomic<bool> injectAllocationOnce{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Values::getOutput",
+      std::function<void(const exec::Values*)>([&](const exec::Values* values) {
+        if (!injectAllocationOnce.exchange(false)) {
+          return;
+        }
+        task = values->testingOperatorCtx()->task();
+        MemoryPool* pool = values->pool();
+        VELOX_ASSERT_THROW(
+            pool->allocate(kMemoryCapacity * 2 / 3),
+            "Exceeded memory pool cap");
+      }));
+
+  // Set test injection to wait until the reclaim on hash aggregation operator
+  // triggers.
+  folly::EventCount opReclaimStartWait;
+  std::atomic<bool> opReclaimStarted{false};
+  folly::EventCount taskAbortWait;
+  std::atomic<bool> taskAborted{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Operator::MemoryReclaimer::reclaim",
+      std::function<void(MemoryPool*)>(([&](MemoryPool* pool) {
+        const std::string re(".*Aggregation");
+        if (!RE2::FullMatch(pool->name(), re)) {
+          return;
+        }
+        opReclaimStarted = true;
+        opReclaimStartWait.notifyAll();
+        // Wait for task abort to happen before the actual memory reclaim.
+        taskAbortWait.await([&]() { return taskAborted.load(); });
+      })));
+
+  const int numDrivers = 1;
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  std::thread queryThread([&]() {
+    VELOX_ASSERT_THROW(
+        AssertQueryBuilder(duckDbQueryRunner_)
+            .queryCtx(queryCtx)
+            .spillDirectory(spillDirectory->path)
+            .config(core::QueryConfig::kSpillEnabled, "true")
+            .config(core::QueryConfig::kJoinSpillEnabled, "true")
+            .config(core::QueryConfig::kSpillPartitionBits, "2")
+            .maxDrivers(numDrivers)
+            .plan(PlanBuilder()
+                      .values(vectors)
+                      .localPartition({"c0", "c1"})
+                      .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                      .localPartition(std::vector<std::string>{})
+                      .planNode())
+            .assertResults(
+                "SELECT c0, c1, array_agg(c2) FROM tmp GROUP BY c0, c1"),
+        "Aborted for external error");
+  });
+
+  // Wait for the reclaim on aggregation to be started before the task abort.
+  opReclaimStartWait.await([&]() { return opReclaimStarted.load(); });
+  ASSERT_TRUE(task != nullptr);
+  task->requestAbort().wait();
+
+  // Resume aggregation reclaim to execute.
+  taskAborted = true;
+  taskAbortWait.notifyAll();
+
+  queryThread.join();
+  fakeAllocation.free();
+  task.reset();
+  Task::testingWaitForAllTasksToBeDeleted();
+}
+
+DEBUG_ONLY_TEST_F(SharedArbitrationTest, asyncArbitratonFromNonDriverContext) {
+  setupMemory(kMemoryCapacity, 0);
+  const int numVectors = 10;
+  std::vector<RowVectorPtr> vectors;
+  for (int i = 0; i < numVectors; ++i) {
+    vectors.push_back(newVector());
+  }
+  createDuckDbTable(vectors);
+  std::shared_ptr<core::QueryCtx> queryCtx = newQueryCtx(kMemoryCapacity);
+  ASSERT_EQ(queryCtx->pool()->capacity(), 0);
+
+  folly::EventCount aggregationAllocationWait;
+  std::atomic<bool> aggregationAllocationOnce{true};
+  folly::EventCount aggregationAllocationUnblockWait;
+  std::atomic<bool> aggregationAllocationUnblocked{false};
+  std::atomic<MemoryPool*> injectPool{nullptr};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::memory::MemoryPoolImpl::reserveThreadSafe",
+      std::function<void(MemoryPool*)>(([&](MemoryPool* pool) {
+        const std::string re(".*Aggregation");
+        if (!RE2::FullMatch(pool->name(), re)) {
+          return;
+        }
+
+        if (!aggregationAllocationOnce.exchange(false)) {
+          return;
+        }
+        injectPool = pool;
+        aggregationAllocationWait.notifyAll();
+
+        aggregationAllocationUnblockWait.await(
+            [&]() { return aggregationAllocationUnblocked.load(); });
+      })));
+
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  std::shared_ptr<Task> task;
+  std::thread queryThread([&]() {
+    task = AssertQueryBuilder(duckDbQueryRunner_)
+               .queryCtx(queryCtx)
+               .spillDirectory(spillDirectory->path)
+               .config(core::QueryConfig::kSpillEnabled, "true")
+               .config(core::QueryConfig::kJoinSpillEnabled, "true")
+               .config(core::QueryConfig::kSpillPartitionBits, "2")
+               .plan(PlanBuilder()
+                         .values(vectors)
+                         .localPartition({"c0", "c1"})
+                         .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                         .localPartition(std::vector<std::string>{})
+                         .planNode())
+               .assertResults(
+                   "SELECT c0, c1, array_agg(c2) FROM tmp GROUP BY c0, c1");
+  });
+
+  aggregationAllocationWait.await(
+      [&]() { return !aggregationAllocationOnce.load(); });
+  ASSERT_TRUE(injectPool != nullptr);
+
+  // Trigger the memory arbitration with memory pool whose associated driver is
+  // running on driver thread.
+  const size_t fakeAllocationSize = arbitrator_->stats().freeCapacityBytes / 2;
+  Allocation fakeAllocation = {
+      injectPool.load(),
+      injectPool.load()->allocate(fakeAllocationSize),
+      fakeAllocationSize};
+
+  aggregationAllocationUnblocked = true;
+  aggregationAllocationUnblockWait.notifyAll();
+
+  queryThread.join();
+  fakeAllocation.free();
+
+  task.reset();
+  Task::testingWaitForAllTasksToBeDeleted();
 }
 
 TEST_F(SharedArbitrationTest, concurrentArbitration) {

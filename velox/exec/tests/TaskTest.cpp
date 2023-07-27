@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/Task.h"
+#include "folly/experimental/EventCount.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/future/VeloxPromise.h"
 #include "velox/common/testutil/TestValue.h"
@@ -1124,6 +1125,79 @@ DEBUG_ONLY_TEST_F(TaskTest, findPeerOperators) {
     }
     ASSERT_TRUE(waitForTaskCompletion(task, 5'000'000));
   }
+}
+
+DEBUG_ONLY_TEST_F(TaskTest, raceBetweenTaskPauseAndTerminate) {
+  const std::vector<RowVectorPtr> values = {makeRowVector(
+      {"t_c0", "t_c1"},
+      {
+          makeFlatVector<int64_t>({1, 2, 3, 4}),
+          makeFlatVector<int64_t>({10, 20, 30, 40}),
+      })};
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  CursorParameters params;
+  params.planNode =
+      PlanBuilder(planNodeIdGenerator).values(values, true).planNode();
+  params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+  params.maxDrivers = 1;
+
+  auto cursor = std::make_unique<TaskCursor>(params);
+  auto* task = cursor->task().get();
+  folly::EventCount taskPauseWait;
+  std::atomic<bool> taskPaused{false};
+
+  folly::EventCount taskPauseStartWait;
+  std::atomic<bool> taskPauseStarted{false};
+
+  // Set up a testvalue to trigger task abort when hash build tries to reserve
+  // memory.
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::addInput",
+      std::function<void(Operator*)>([&](Operator* testOp) {
+        if (taskPauseStarted.exchange(true)) {
+          return;
+        }
+        taskPauseStartWait.notifyAll();
+        taskPauseWait.await([&]() { return taskPaused.load(); });
+      }));
+
+  std::thread taskThread([&]() {
+    try {
+      while (cursor->moveNext()) {
+      };
+    } catch (VeloxRuntimeError& ex) {
+    }
+  });
+
+  taskPauseStartWait.await([&]() { return taskPauseStarted.load(); });
+
+  ASSERT_EQ(task->numTotalDrivers(), 1);
+  ASSERT_EQ(task->numFinishedDrivers(), 0);
+  ASSERT_EQ(task->numRunningDrivers(), 1);
+
+  auto pauseFuture = task->requestPause();
+  taskPaused = true;
+  taskPauseWait.notifyAll();
+  pauseFuture.wait();
+
+  ASSERT_EQ(task->numTotalDrivers(), 1);
+  ASSERT_EQ(task->numFinishedDrivers(), 0);
+  ASSERT_EQ(task->numRunningDrivers(), 1);
+
+  task->requestAbort().wait();
+
+  ASSERT_EQ(task->numTotalDrivers(), 1);
+  ASSERT_EQ(task->numFinishedDrivers(), 0);
+  ASSERT_EQ(task->numRunningDrivers(), 0);
+
+  Task::resume(task->shared_from_this());
+
+  ASSERT_EQ(task->numTotalDrivers(), 1);
+  ASSERT_EQ(task->numFinishedDrivers(), 1);
+  ASSERT_EQ(task->numRunningDrivers(), 0);
+
+  taskThread.join();
 }
 
 } // namespace facebook::velox::exec::test
