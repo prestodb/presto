@@ -397,8 +397,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
 
   getDataForResultRequests(resultRequests);
 
-  if (outputBuffers.type != protocol::BufferType::PARTITIONED &&
-      !execTask->updateOutputBuffers(
+  if (!execTask->updateOutputBuffers(
           outputBuffers.buffers.size(), outputBuffers.noMoreBufferIds)) {
     LOG(WARNING) << "Failed to update output buffers for task: " << taskId;
   }
