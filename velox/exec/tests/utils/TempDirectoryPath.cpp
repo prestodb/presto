@@ -28,7 +28,13 @@ std::shared_ptr<TempDirectoryPath> TempDirectoryPath::create() {
 }
 
 TempDirectoryPath::~TempDirectoryPath() {
-  boost::filesystem::remove_all(path.c_str());
+  LOG(INFO) << "TempDirectoryPath:: removing all files from" << path;
+  try {
+    boost::filesystem::remove_all(path.c_str());
+  } catch (...) {
+    LOG(WARNING)
+        << "TempDirectoryPath:: destructor failed while calling boost::filesystem::remove_all";
+  }
 }
 
 } // namespace facebook::velox::exec::test
