@@ -496,7 +496,371 @@ class NonNumericMinAggregate : public NonNumericMinMaxAggregateBase {
   }
 };
 
-template <template <typename T> class TNumeric, typename TNonNumeric>
+std::pair<vector_size_t*, vector_size_t*> rawOffsetAndSizes(
+    ArrayVector& arrayVector) {
+  return {
+      arrayVector.offsets()->asMutable<vector_size_t>(),
+      arrayVector.sizes()->asMutable<vector_size_t>()};
+}
+
+/// @tparam V Type of value.
+/// @tparam Compare Type of comparator for T.
+template <typename T, typename Compare>
+struct MinMaxNAccumulator {
+  int64_t n{0};
+  std::priority_queue<T, std::vector<T, StlAllocator<T>>, Compare> topValues;
+
+  explicit MinMaxNAccumulator(HashStringAllocator* allocator)
+      : topValues{Compare{}, StlAllocator<T>(allocator)} {}
+
+  int64_t getN() const {
+    return n;
+  }
+
+  size_t size() const {
+    return topValues.size();
+  }
+
+  void checkAndSetN(DecodedVector& decodedN, vector_size_t row) {
+    VELOX_USER_CHECK(
+        !decodedN.isNullAt(row),
+        "second argument of max/min must be a positive integer");
+    const auto newN = decodedN.valueAt<int64_t>(row);
+    VELOX_USER_CHECK_GT(
+        newN, 0, "second argument of max/min must be a positive integer");
+
+    if (n) {
+      VELOX_USER_CHECK_EQ(
+          newN,
+          n,
+          "second argument of max/min must be a constant for all rows in a group");
+    } else {
+      n = newN;
+    }
+  }
+
+  void compareAndAdd(T value, Compare& comparator) {
+    if (topValues.size() < n) {
+      topValues.push(value);
+    } else {
+      const auto& topValue = topValues.top();
+      if (comparator(value, topValue)) {
+        topValues.pop();
+        topValues.push(value);
+      }
+    }
+  }
+
+  /// Moves all values from 'topValues' into 'rawValues' buffer. The queue of
+  /// 'topValues' will be empty after this call.
+  void extractValues(T* rawValues, vector_size_t offset) {
+    const vector_size_t size = topValues.size();
+    for (auto i = size - 1; i >= 0; --i) {
+      rawValues[offset + i] = topValues.top();
+      topValues.pop();
+    }
+  }
+};
+
+template <typename T, typename Compare>
+class MinMaxNAggregateBase : public exec::Aggregate {
+ protected:
+  explicit MinMaxNAggregateBase(const TypePtr& resultType)
+      : exec::Aggregate(resultType) {}
+
+  using AccumulatorType = MinMaxNAccumulator<T, Compare>;
+
+  bool isFixedSize() const override {
+    return false;
+  }
+
+  int32_t accumulatorFixedWidthSize() const override {
+    return sizeof(AccumulatorType);
+  }
+
+  void initializeNewGroups(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    exec::Aggregate::setAllNulls(groups, indices);
+    for (const vector_size_t i : indices) {
+      auto group = groups[i];
+      new (group + offset_) AccumulatorType(allocator_);
+    }
+  }
+
+  void addRawInput(
+      char** groups,
+      const SelectivityVector& rows,
+      const std::vector<VectorPtr>& args,
+      bool /*unused*/) override {
+    decodedValue_.decode(*args[0], rows);
+    decodedN_.decode(*args[1], rows);
+
+    rows.applyToSelected([&](vector_size_t i) {
+      if (decodedValue_.isNullAt(i)) {
+        return;
+      }
+
+      auto* group = groups[i];
+
+      auto* accumulator = value(group);
+      accumulator->checkAndSetN(decodedN_, i);
+
+      auto tracker = trackRowSize(group);
+      addRawInput(group, i);
+    });
+  }
+
+  void addIntermediateResults(
+      char** groups,
+      const SelectivityVector& rows,
+      const std::vector<VectorPtr>& args,
+      bool /*mayPushdown*/) override {
+    auto results = decodeIntermediateResults(args[0], rows);
+
+    rows.applyToSelected([&](vector_size_t i) {
+      if (!decodedIntermediates_.isNullAt(i)) {
+        addIntermediateResults(groups[i], i, results);
+      }
+    });
+  }
+
+  void addSingleGroupRawInput(
+      char* group,
+      const SelectivityVector& rows,
+      const std::vector<VectorPtr>& args,
+      bool /*unused*/) override {
+    decodedValue_.decode(*args[0], rows);
+
+    auto* accumulator = value(group);
+    validateN(args[1], rows, accumulator);
+
+    auto tracker = trackRowSize(group);
+    rows.applyToSelected([&](vector_size_t i) {
+      if (!decodedValue_.isNullAt(i)) {
+        addRawInput(group, i);
+      }
+    });
+  }
+
+  void addSingleGroupIntermediateResults(
+      char* group,
+      const SelectivityVector& rows,
+      const std::vector<VectorPtr>& args,
+      bool /*mayPushdown*/) override {
+    auto results = decodeIntermediateResults(args[0], rows);
+
+    rows.applyToSelected([&](vector_size_t i) {
+      if (!decodedIntermediates_.isNullAt(i)) {
+        addIntermediateResults(group, i, results);
+      }
+    });
+  }
+
+  void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
+      override {
+    auto valuesArray = (*result)->as<ArrayVector>();
+    valuesArray->resize(numGroups);
+
+    const auto numValues =
+        countValuesAndSetResultNulls(groups, numGroups, *result);
+
+    auto values = valuesArray->elements();
+    values->resize(numValues);
+
+    auto* rawValues = values->asFlatVector<T>()->mutableRawValues();
+
+    auto [rawOffsets, rawSizes] = rawOffsetAndSizes(*valuesArray);
+
+    extractValues(groups, numGroups, rawOffsets, rawSizes, rawValues, nullptr);
+  }
+
+  void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
+      override {
+    auto rowVector = (*result)->as<RowVector>();
+    rowVector->resize(numGroups);
+
+    auto nVector = rowVector->childAt(0);
+    nVector->resize(numGroups);
+
+    auto valuesArray = rowVector->childAt(1)->as<ArrayVector>();
+    valuesArray->resize(numGroups);
+
+    const auto numValues =
+        countValuesAndSetResultNulls(groups, numGroups, *result);
+
+    auto values = valuesArray->elements();
+    values->resize(numValues);
+
+    auto* rawNs = nVector->as<FlatVector<int64_t>>()->mutableRawValues();
+    auto* rawValues = values->asFlatVector<T>()->mutableRawValues();
+
+    auto [rawOffsets, rawSizes] = rawOffsetAndSizes(*valuesArray);
+
+    extractValues(groups, numGroups, rawOffsets, rawSizes, rawValues, rawNs);
+  }
+
+  void destroy(folly::Range<char**> groups) override {
+    for (auto group : groups) {
+      std::destroy_at(value(group));
+    }
+  }
+
+ private:
+  inline AccumulatorType* value(char* group) {
+    return reinterpret_cast<AccumulatorType*>(group + Aggregate::offset_);
+  }
+
+  void extractValues(
+      char** groups,
+      int32_t numGroups,
+      vector_size_t* rawOffsets,
+      vector_size_t* rawSizes,
+      T* rawValues,
+      int64_t* rawNs) {
+    vector_size_t offset = 0;
+    for (auto i = 0; i < numGroups; ++i) {
+      auto* group = groups[i];
+
+      if (!isNull(group)) {
+        auto* accumulator = value(group);
+        const vector_size_t size = accumulator->size();
+
+        rawOffsets[i] = offset;
+        rawSizes[i] = size;
+
+        if (rawNs != nullptr) {
+          rawNs[i] = accumulator->n;
+        }
+        accumulator->extractValues(rawValues, offset);
+
+        offset += size;
+      }
+    }
+  }
+
+  void addRawInput(char* group, vector_size_t index) {
+    clearNull(group);
+
+    auto* accumulator = value(group);
+
+    accumulator->compareAndAdd(decodedValue_.valueAt<T>(index), comparator_);
+  }
+
+  struct IntermediateResult {
+    const ArrayVector* valueArray;
+    const FlatVector<T>* flatValues;
+  };
+
+  void addIntermediateResults(
+      char* group,
+      vector_size_t index,
+      IntermediateResult& result) {
+    clearNull(group);
+
+    auto* accumulator = value(group);
+
+    const auto decodedIndex = decodedIntermediates_.index(index);
+
+    accumulator->checkAndSetN(decodedN_, decodedIndex);
+
+    const auto* valueArray = result.valueArray;
+    const auto* values = result.flatValues;
+    auto* rawValues = values->rawValues();
+
+    const auto numValues = valueArray->sizeAt(decodedIndex);
+    const auto valueOffset = valueArray->offsetAt(decodedIndex);
+
+    auto tracker = trackRowSize(group);
+    for (auto i = 0; i < numValues; ++i) {
+      const auto v = rawValues[valueOffset + i];
+      accumulator->compareAndAdd(v, comparator_);
+    }
+  }
+
+  IntermediateResult decodeIntermediateResults(
+      const VectorPtr& arg,
+      const SelectivityVector& rows) {
+    decodedIntermediates_.decode(*arg, rows);
+
+    auto baseRowVector =
+        dynamic_cast<const RowVector*>(decodedIntermediates_.base());
+
+    decodedN_.decode(*baseRowVector->childAt(0), rows);
+    decodedValue_.decode(*baseRowVector->childAt(1), rows);
+
+    IntermediateResult result{};
+    result.valueArray = decodedValue_.base()->template as<ArrayVector>();
+    result.flatValues =
+        result.valueArray->elements()->template as<FlatVector<T>>();
+
+    return result;
+  }
+
+  /// Return total number of values in all accumulators of specified 'groups'.
+  /// Set null flags in 'result'.
+  vector_size_t countValuesAndSetResultNulls(
+      char** groups,
+      int32_t numGroups,
+      VectorPtr& result) {
+    vector_size_t numValues = 0;
+
+    uint64_t* rawNulls = getRawNulls(result.get());
+
+    for (auto i = 0; i < numGroups; ++i) {
+      auto* group = groups[i];
+      auto* accumulator = value(group);
+
+      if (isNull(group)) {
+        result->setNull(i, true);
+      } else {
+        clearNull(rawNulls, i);
+        numValues += accumulator->size();
+      }
+    }
+
+    return numValues;
+  }
+
+  void validateN(
+      const VectorPtr& arg,
+      const SelectivityVector& rows,
+      AccumulatorType* accumulator) {
+    decodedN_.decode(*arg, rows);
+    if (decodedN_.isConstantMapping()) {
+      accumulator->checkAndSetN(decodedN_, rows.begin());
+    } else {
+      rows.applyToSelected(
+          [&](auto row) { accumulator->checkAndSetN(decodedN_, row); });
+    }
+  }
+
+  Compare comparator_;
+  DecodedVector decodedValue_;
+  DecodedVector decodedN_;
+  DecodedVector decodedIntermediates_;
+};
+
+template <typename T>
+class MinNAggregate : public MinMaxNAggregateBase<T, std::less<T>> {
+ public:
+  explicit MinNAggregate(const TypePtr& resultType)
+      : MinMaxNAggregateBase<T, std::less<T>>(resultType) {}
+};
+
+template <typename T>
+class MaxNAggregate : public MinMaxNAggregateBase<T, std::greater<T>> {
+ public:
+  explicit MaxNAggregate(const TypePtr& resultType)
+      : MinMaxNAggregateBase<T, std::greater<T>>(resultType) {}
+};
+
+template <
+    template <typename T>
+    class TNumeric,
+    typename TNonNumeric,
+    template <typename T>
+    class TNumericN>
 exec::AggregateRegistrationResult registerMinMax(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   signatures.push_back(exec::AggregateFunctionSignatureBuilder()
@@ -505,6 +869,17 @@ exec::AggregateRegistrationResult registerMinMax(const std::string& name) {
                            .intermediateType("T")
                            .argumentType("T")
                            .build());
+  for (const auto& type :
+       {"tinyint", "integer", "smallint", "bigint", "real", "double"}) {
+    // T, bigint -> row(array(T), bigint) -> array(T)
+    signatures.push_back(
+        exec::AggregateFunctionSignatureBuilder()
+            .returnType(fmt::format("array({})", type))
+            .intermediateType(fmt::format("row(bigint, array({}))", type))
+            .argumentType(type)
+            .argumentType("bigint")
+            .build());
+  }
 
   return exec::registerAggregateFunction(
       name,
@@ -515,38 +890,74 @@ exec::AggregateRegistrationResult registerMinMax(const std::string& name) {
           const TypePtr& resultType,
           const core::QueryConfig& /*config*/)
           -> std::unique_ptr<exec::Aggregate> {
-        VELOX_CHECK_EQ(argTypes.size(), 1, "{} takes only one argument", name);
-        auto inputType = argTypes[0];
-        switch (inputType->kind()) {
-          case TypeKind::BOOLEAN:
-            return std::make_unique<TNumeric<bool>>(resultType);
-          case TypeKind::TINYINT:
-            return std::make_unique<TNumeric<int8_t>>(resultType);
-          case TypeKind::SMALLINT:
-            return std::make_unique<TNumeric<int16_t>>(resultType);
-          case TypeKind::INTEGER:
-            return std::make_unique<TNumeric<int32_t>>(resultType);
-          case TypeKind::BIGINT:
-            return std::make_unique<TNumeric<int64_t>>(resultType);
-          case TypeKind::REAL:
-            return std::make_unique<TNumeric<float>>(resultType);
-          case TypeKind::DOUBLE:
-            return std::make_unique<TNumeric<double>>(resultType);
-          case TypeKind::TIMESTAMP:
-            return std::make_unique<TNumeric<Timestamp>>(resultType);
-          case TypeKind::HUGEINT:
-            return std::make_unique<TNumeric<int128_t>>(resultType);
-          case TypeKind::VARCHAR:
-          case TypeKind::ARRAY:
-          case TypeKind::MAP:
-          case TypeKind::ROW:
-            return std::make_unique<TNonNumeric>(inputType);
-          default:
-            VELOX_CHECK(
-                false,
-                "Unknown input type for {} aggregation {}",
-                name,
-                inputType->kindName());
+        const bool nAgg = (argTypes.size() == 2) ||
+            (argTypes.size() == 1 && argTypes[0]->size() == 2);
+
+        if (nAgg) {
+          // We have either 2 arguments: T, bigint (partial aggregation)
+          // or one argument: row(bigint, array(T)) (intermediate or final
+          // aggregation). Extract T.
+          const auto& inputType = argTypes.size() == 2
+              ? argTypes[0]
+              : argTypes[0]->childAt(1)->childAt(0);
+
+          switch (inputType->kind()) {
+            case TypeKind::TINYINT:
+              return std::make_unique<TNumericN<int8_t>>(resultType);
+            case TypeKind::SMALLINT:
+              return std::make_unique<TNumericN<int16_t>>(resultType);
+            case TypeKind::INTEGER:
+              return std::make_unique<TNumericN<int32_t>>(resultType);
+            case TypeKind::BIGINT:
+              return std::make_unique<TNumericN<int64_t>>(resultType);
+            case TypeKind::REAL:
+              return std::make_unique<TNumericN<float>>(resultType);
+            case TypeKind::DOUBLE:
+              return std::make_unique<TNumericN<double>>(resultType);
+            case TypeKind::TIMESTAMP:
+              return std::make_unique<TNumericN<Timestamp>>(resultType);
+            case TypeKind::HUGEINT:
+              return std::make_unique<TNumericN<int128_t>>(resultType);
+            default:
+              VELOX_CHECK(
+                  false,
+                  "Unknown input type for {} aggregation {}",
+                  name,
+                  inputType->kindName());
+          }
+        } else {
+          auto inputType = argTypes[0];
+          switch (inputType->kind()) {
+            case TypeKind::BOOLEAN:
+              return std::make_unique<TNumeric<bool>>(resultType);
+            case TypeKind::TINYINT:
+              return std::make_unique<TNumeric<int8_t>>(resultType);
+            case TypeKind::SMALLINT:
+              return std::make_unique<TNumeric<int16_t>>(resultType);
+            case TypeKind::INTEGER:
+              return std::make_unique<TNumeric<int32_t>>(resultType);
+            case TypeKind::BIGINT:
+              return std::make_unique<TNumeric<int64_t>>(resultType);
+            case TypeKind::REAL:
+              return std::make_unique<TNumeric<float>>(resultType);
+            case TypeKind::DOUBLE:
+              return std::make_unique<TNumeric<double>>(resultType);
+            case TypeKind::TIMESTAMP:
+              return std::make_unique<TNumeric<Timestamp>>(resultType);
+            case TypeKind::HUGEINT:
+              return std::make_unique<TNumeric<int128_t>>(resultType);
+            case TypeKind::VARCHAR:
+            case TypeKind::ARRAY:
+            case TypeKind::MAP:
+            case TypeKind::ROW:
+              return std::make_unique<TNonNumeric>(inputType);
+            default:
+              VELOX_CHECK(
+                  false,
+                  "Unknown input type for {} aggregation {}",
+                  name,
+                  inputType->kindName());
+          }
         }
       });
 }
@@ -554,8 +965,10 @@ exec::AggregateRegistrationResult registerMinMax(const std::string& name) {
 } // namespace
 
 void registerMinMaxAggregates(const std::string& prefix) {
-  registerMinMax<MinAggregate, NonNumericMinAggregate>(prefix + kMin);
-  registerMinMax<MaxAggregate, NonNumericMaxAggregate>(prefix + kMax);
+  registerMinMax<MinAggregate, NonNumericMinAggregate, MinNAggregate>(
+      prefix + kMin);
+  registerMinMax<MaxAggregate, NonNumericMaxAggregate, MaxNAggregate>(
+      prefix + kMax);
 }
 
 } // namespace facebook::velox::aggregate::prestosql
