@@ -61,8 +61,16 @@ public class NativeExecutionSystemConfig
     private static final String NUM_IO_THREADS = "num-io-threads";
     private static final String PRESTO_VERSION = "presto.version";
     private static final String SHUTDOWN_ONSET_SEC = "shutdown-onset-sec";
+    // Memory related configurations.
     private static final String SYSTEM_MEMORY_GB = "system-memory-gb";
     private static final String QUERY_MEMORY_GB = "query.max-memory-per-node";
+    private static final String USE_MMAP_ALLOCATOR = "use-mmap-allocator";
+    private static final String ENABLE_MEMORY_ARBITRATION = "enable-memory-arbitration";
+    private static final String MEMORY_POOL_INIT_CAPACITY = "memory-pool-init-capacity";
+    private static final String MEMORY_POOL_TRANSFER_CAPACITY = "memory-pool-transfer-capacity";
+    private static final String RESERVED_MEMORY_POOL_CAPACITY_PCT = "reserved-memory-pool-capacity-pct";
+    // Spilling related configs.
+    private static final String SPILLER_SPILL_PATH = "experimental.spiller-spill-path";
     private static final String TASK_MAX_DRIVERS_PER_TASK = "task.max-drivers-per-task";
     // Name of exchange client to use
     private static final String SHUFFLE_NAME = "shuffle.name";
@@ -83,6 +91,12 @@ public class NativeExecutionSystemConfig
     private int shutdownOnsetSec = 10;
     private int systemMemoryGb = 10;
     private DataSize queryMemoryGb = new DataSize(systemMemoryGb, DataSize.Unit.GIGABYTE);
+    private boolean useMmapAllocator = true;
+    private boolean enableMemoryArbitration = true;
+    private long memoryPoolInitCapacity = 512 << 20;
+    private long memoryPoolTransferCapacity = 256 << 20;
+    private int reservedMemoryPoolCapacityPct = 10;
+    private String spillerSpillPath = "";
     private int concurrentLifespansPerTask = 5;
     private int maxDriversPerTask = 15;
     private String prestoVersion = "dummy.presto.version";
@@ -111,6 +125,12 @@ public class NativeExecutionSystemConfig
                 .put(SHUTDOWN_ONSET_SEC, String.valueOf(getShutdownOnsetSec()))
                 .put(SYSTEM_MEMORY_GB, String.valueOf(getSystemMemoryGb()))
                 .put(QUERY_MEMORY_GB, String.valueOf(getQueryMemoryGb()))
+                .put(USE_MMAP_ALLOCATOR, String.valueOf(getUseMmapAllocator()))
+                .put(ENABLE_MEMORY_ARBITRATION, String.valueOf(getEnableMemoryArbitration()))
+                .put(MEMORY_POOL_INIT_CAPACITY, String.valueOf(getMemoryPoolInitCapacity()))
+                .put(MEMORY_POOL_TRANSFER_CAPACITY, String.valueOf(getMemoryPoolTransferCapacity()))
+                .put(RESERVED_MEMORY_POOL_CAPACITY_PCT, String.valueOf(getReservedMemoryPoolCapacityPct()))
+                .put(SPILLER_SPILL_PATH, String.valueOf(getSpillerSpillPath()))
                 .put(TASK_MAX_DRIVERS_PER_TASK, String.valueOf(getMaxDriversPerTask()))
                 .put(SHUFFLE_NAME, getShuffleName())
                 .put(HTTP_SERVER_ACCESS_LOGS, String.valueOf(isEnableHttpServerAccessLog()))
@@ -319,6 +339,78 @@ public class NativeExecutionSystemConfig
     public DataSize getQueryMemoryGb()
     {
         return queryMemoryGb;
+    }
+
+    @Config(USE_MMAP_ALLOCATOR)
+    public NativeExecutionSystemConfig setUseMmapAllocator(boolean useMmapAllocator)
+    {
+        this.useMmapAllocator = useMmapAllocator;
+        return this;
+    }
+
+    public boolean getUseMmapAllocator()
+    {
+        return useMmapAllocator;
+    }
+
+    @Config(ENABLE_MEMORY_ARBITRATION)
+    public NativeExecutionSystemConfig setEnableMemoryArbitration(boolean enableMemoryArbitration)
+    {
+        this.enableMemoryArbitration = enableMemoryArbitration;
+        return this;
+    }
+
+    public boolean getEnableMemoryArbitration()
+    {
+        return enableMemoryArbitration;
+    }
+
+    @Config(MEMORY_POOL_INIT_CAPACITY)
+    public NativeExecutionSystemConfig setMemoryPoolInitCapacity(long memoryPoolInitCapacity)
+    {
+        this.memoryPoolInitCapacity = memoryPoolInitCapacity;
+        return this;
+    }
+
+    public long getMemoryPoolInitCapacity()
+    {
+        return memoryPoolInitCapacity;
+    }
+
+    @Config(MEMORY_POOL_TRANSFER_CAPACITY)
+    public NativeExecutionSystemConfig setMemoryPoolTransferCapacity(long memoryPoolTransferCapacity)
+    {
+        this.memoryPoolTransferCapacity = memoryPoolTransferCapacity;
+        return this;
+    }
+
+    public long getMemoryPoolTransferCapacity()
+    {
+        return memoryPoolTransferCapacity;
+    }
+
+    @Config(RESERVED_MEMORY_POOL_CAPACITY_PCT)
+    public NativeExecutionSystemConfig setReservedMemoryPoolCapacityPct(int reservedMemoryPoolCapacityPct)
+    {
+        this.reservedMemoryPoolCapacityPct = reservedMemoryPoolCapacityPct;
+        return this;
+    }
+
+    public long getReservedMemoryPoolCapacityPct()
+    {
+        return reservedMemoryPoolCapacityPct;
+    }
+
+    @Config(SPILLER_SPILL_PATH)
+    public NativeExecutionSystemConfig setSpillerSpillPath(String spillerSpillPath)
+    {
+        this.spillerSpillPath = spillerSpillPath;
+        return this;
+    }
+
+    public String getSpillerSpillPath()
+    {
+        return spillerSpillPath;
     }
 
     @Config(CONCURRENT_LIFESPANS_PER_TASK)
