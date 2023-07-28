@@ -26,6 +26,7 @@ add_library(
   PrestoServerOperations.cpp
   PrestoTask.cpp
   QueryContextManager.cpp
+  RemoteFunctionRegisterer.cpp
   ServerOperation.cpp
   SignalHandler.cpp
   TaskManager.cpp
@@ -45,6 +46,7 @@ target_link_libraries(
   presto_http
   presto_operators
   velox_aggregates
+  presto_json_signature_parser
   velox_core
   velox_dwio_common_exception
   velox_encode
@@ -55,6 +57,8 @@ target_link_libraries(
   velox_hive_partition_function
   velox_presto_serializer
   velox_serialization
+  velox_functions_remote
+  velox_remote_function_thrift
   velox_time
   velox_type
   velox_type_fbhive

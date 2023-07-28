@@ -18,6 +18,7 @@ add_executable(
   PrestoExchangeSourceTest.cpp
   PrestoTaskTest.cpp
   QueryContextCacheTest.cpp
+  RemoteFunctionRegistererTest.cpp
   ServerOperationTest.cpp
   TaskManagerTest.cpp)
 
