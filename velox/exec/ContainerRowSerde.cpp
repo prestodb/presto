@@ -259,6 +259,7 @@ void deserializeOne<TypeKind::ROW>(
       deserializeSwitch(in, index, *child);
     }
   }
+  result.setNull(index, false);
 }
 
 // Reads the size, null flags and deserializes from 'in', appending to
@@ -293,6 +294,7 @@ void deserializeOne<TypeKind::ARRAY>(
   vector_size_t offset;
   auto size = deserializeArray(in, *array->elements(), offset);
   array->setOffsetAndSize(index, offset, size);
+  result.setNull(index, false);
 }
 
 template <>
@@ -312,6 +314,7 @@ void deserializeOne<TypeKind::MAP>(
   VELOX_CHECK_EQ(keySize, valueSize);
   VELOX_CHECK_EQ(keyOffset, valueOffset);
   map->setOffsetAndSize(index, keyOffset, keySize);
+  result.setNull(index, false);
 }
 
 void deserializeSwitch(

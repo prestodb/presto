@@ -40,6 +40,11 @@ class ContainerRowSerdeTest : public testing::Test,
       const TypePtr& type,
       vector_size_t numRows) {
     auto data = BaseVector::create(type, numRows, pool());
+    // Set all rows in data to NULL to verify that deserialize can clear nulls
+    // correctly.
+    for (auto i = 0; i < numRows; ++i) {
+      data->setNull(i, true);
+    }
 
     ByteStream in;
     HashStringAllocator::prepareRead(position.header, in);
@@ -116,6 +121,27 @@ TEST_F(ContainerRowSerdeTest, arrayOfString) {
   });
 
   testRoundTrip(data);
+}
+
+TEST_F(ContainerRowSerdeTest, nested) {
+  auto data = makeRowVector(
+      {makeNullableFlatVector<int64_t>({1, 2, 3}),
+       makeFlatVector<std::string>({"a", "", "Long test sentence ......"}),
+       makeNullableArrayVector<std::string>({{"a", "b", "c"}, {}, {"d"}})});
+
+  testRoundTrip(data);
+
+  auto nestedArray = makeNullableNestedArrayVector<std::string>(
+      {{{{{"1", "2"}}, {{"3", "4"}}}}, {{}}, {{std::nullopt, {}}}});
+
+  testRoundTrip(nestedArray);
+
+  std::vector<std::pair<std::string, std::optional<int64_t>>> map{
+      {"a", {1}}, {"b", {2}}, {"c", {3}}, {"d", {4}}};
+  nestedArray = makeArrayOfMapVector<std::string, int64_t>(
+      {{map, std::nullopt}, {std::nullopt}});
+
+  testRoundTrip(nestedArray);
 }
 
 } // namespace
