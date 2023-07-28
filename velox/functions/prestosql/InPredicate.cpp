@@ -40,9 +40,9 @@ std::optional<std::pair<std::vector<T>, bool>> toValues(
   auto size = arrayVector->sizeAt(constantInput->index());
   VELOX_USER_CHECK_GT(size, 0, "IN list must not be empty");
 
+  bool nullAllowed = false;
   std::vector<T> values;
   values.reserve(size);
-  bool nullAllowed = false;
 
   for (auto i = offset; i < offset + size; i++) {
     if (elementsVector->isNullAt(i)) {
@@ -51,6 +51,11 @@ std::optional<std::pair<std::vector<T>, bool>> toValues(
       values.emplace_back(elementsVector->valueAt(i));
     }
   }
+
+  // In-place sort, remove duplicates, and later std::move to save memory
+  std::sort(values.begin(), values.end());
+  auto last = std::unique(values.begin(), values.end());
+  values.resize(std::distance(values.begin(), last));
 
   return std::optional<std::pair<std::vector<T>, bool>>(
       {std::move(values), nullAllowed});
