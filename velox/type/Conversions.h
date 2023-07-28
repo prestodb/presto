@@ -374,7 +374,8 @@ template <bool TRUNCATE>
 struct Converter<TypeKind::VARCHAR, void, TRUNCATE> {
   template <typename T>
   static std::string cast(const T& val) {
-    if constexpr (std::is_same_v<T, double> || std::is_same_v<T, float>) {
+    if constexpr (
+        TRUNCATE && (std::is_same_v<T, double> || std::is_same_v<T, float>)) {
       auto stringValue = folly::to<std::string>(val);
       if (stringValue.find(".") == std::string::npos &&
           isdigit(stringValue[stringValue.length() - 1])) {
