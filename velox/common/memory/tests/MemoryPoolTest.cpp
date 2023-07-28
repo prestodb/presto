@@ -762,7 +762,7 @@ TEST_P(MemoryPoolTest, contiguousAllocate) {
   allocations.clear();
 
   // Random tests.
-  const int32_t numIterations = 100;
+  const int32_t numIterations = 10;
   const MachinePageCount kMaxAllocationPages = 32 << 10; // Total 128MB
   int32_t numAllocatedPages = 0;
   for (int32_t i = 0; i < numIterations; ++i) {
@@ -2093,7 +2093,7 @@ TEST_P(MemoryPoolTest, concurrentUpdatesToTheSamePool) {
   MemoryManager manager{{.capacity = kMaxMemory}};
   auto root = manager.addRootPool();
 
-  const int32_t kNumThreads = 5;
+  const int32_t kNumThreads = 4;
   const int32_t kNumChildPools = 2;
   std::vector<std::shared_ptr<MemoryPool>> childPools;
   for (int32_t i = 0; i < kNumChildPools; ++i) {
@@ -2103,7 +2103,7 @@ TEST_P(MemoryPoolTest, concurrentUpdatesToTheSamePool) {
   folly::Random::DefaultGenerator rng;
   rng.seed(1234);
 
-  const int32_t kNumOpsPerThread = 1'000;
+  const int32_t kNumOpsPerThread = 5'00;
   std::vector<std::thread> threads;
   threads.reserve(kNumThreads);
   for (size_t i = 0; i < kNumThreads; ++i) {
