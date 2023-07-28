@@ -1077,7 +1077,7 @@ TEST_F(AggregationTest, spillWithMemoryLimit) {
   }
 }
 
-DEBUG_ONLY_TEST_F(AggregationTest, DISABLED_spillWithEmptyPartition) {
+DEBUG_ONLY_TEST_F(AggregationTest, spillWithEmptyPartition) {
   constexpr int32_t kNumDistinct = 100'000;
   constexpr int64_t kMaxBytes = 20LL << 20; // 20 MB
   rowType_ = ROW({"c0", "a"}, {INTEGER(), VARCHAR()});
