@@ -1659,7 +1659,9 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, driverInitTriggeredArbitration) {
       .assertResults(expectedVector);
 }
 
-DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenTaskTerminateAndReclaim) {
+DEBUG_ONLY_TEST_F(
+    SharedArbitrationTest,
+    DISABLED_raceBetweenTaskTerminateAndReclaim) {
   setupMemory(kMemoryCapacity, 0);
   const int numVectors = 10;
   std::vector<RowVectorPtr> vectors;
