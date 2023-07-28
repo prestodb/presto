@@ -56,11 +56,15 @@ TEST(ConstantTypedExprTest, null) {
 
   EXPECT_TRUE(*makeNull(DOUBLE()) == *makeNull(DOUBLE()));
   EXPECT_TRUE(*makeNull(ARRAY(DOUBLE())) == *makeNull(ARRAY(DOUBLE())));
-  EXPECT_TRUE(
-      *makeNull(ROW({"a", "b"}, {INTEGER(), REAL()})) ==
-      *makeNull(ROW({"x", "y"}, {INTEGER(), REAL()})));
+
   EXPECT_TRUE(*makeNull(JSON()) == *makeNull(JSON()));
   EXPECT_TRUE(
       *makeNull(MAP(VARCHAR(), JSON())) == *makeNull(MAP(VARCHAR(), JSON())));
+
+  EXPECT_FALSE(*makeNull(JSON()) == *makeNull(VARCHAR()));
+  EXPECT_FALSE(
+      *makeNull(ROW({"a", "b"}, {INTEGER(), REAL()})) ==
+      *makeNull(ROW({"x", "y"}, {INTEGER(), REAL()})));
 }
+
 } // namespace facebook::velox::core::test

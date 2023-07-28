@@ -77,6 +77,7 @@ class ConstantTypedExpr : public ITypedExpr {
   size_t localHash() const override {
     static const size_t kBaseHash =
         std::hash<const char*>()("ConstantTypedExpr");
+
     return bits::hashMix(
         kBaseHash,
         hasValueVector() ? valueVector_->hashValueAt(0) : value_.hash());
@@ -128,7 +129,7 @@ class ConstantTypedExpr : public ITypedExpr {
       return false;
     }
 
-    if (!this->type()->equivalent(*casted->type())) {
+    if (*this->type() != *casted->type()) {
       return false;
     }
 
