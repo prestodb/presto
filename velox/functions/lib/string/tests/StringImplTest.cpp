@@ -15,6 +15,7 @@
  */
 
 #include "velox/functions/lib/string/StringImpl.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/core/CoreTypeSystem.h"
 #include "velox/type/StringView.h"
 
@@ -246,6 +247,39 @@ TEST_F(StringImplTest, charToCodePoint) {
   testExpectDeath("hello");
   testExpectDeath("\u666E\u5217\u65AF\u6258");
   testExpectDeath("");
+}
+
+TEST_F(StringImplTest, stringToCodePoints) {
+  auto testStringToCodePoints =
+      [](const std::string& charString,
+         const std::vector<int32_t>& expectedCodePoints) {
+        std::vector<int32_t> codePoints = stringToCodePoints(charString);
+        ASSERT_EQ(codePoints.size(), expectedCodePoints.size());
+        for (int i = 0; i < codePoints.size(); i++) {
+          ASSERT_EQ(codePoints.at(i), expectedCodePoints.at(i));
+        }
+      };
+
+  testStringToCodePoints("", {});
+  testStringToCodePoints("h", {0x0068});
+  testStringToCodePoints("hello", {0x0068, 0x0065, 0x006C, 0x006C, 0x006F});
+
+  testStringToCodePoints("hïllo", {0x0068, 0x00EF, 0x006C, 0x006C, 0x006F});
+  testStringToCodePoints("hüóOO", {0x0068, 0x00FC, 0x00F3, 0x004F, 0x004F});
+  testStringToCodePoints("\u840C", {0x840C});
+
+  VELOX_ASSERT_THROW(
+      testStringToCodePoints("\xA9", {}),
+      "Invalid UTF-8 encoding in characters");
+  VELOX_ASSERT_THROW(
+      testStringToCodePoints("ü\xA9", {}),
+      "Invalid UTF-8 encoding in characters");
+  VELOX_ASSERT_THROW(
+      testStringToCodePoints("ü\xA9hello wooooorld", {}),
+      "Invalid UTF-8 encoding in characters");
+  VELOX_ASSERT_THROW(
+      testStringToCodePoints("ü\xA9hello wooooooooorrrrrld", {}),
+      "Invalid UTF-8 encoding in characters");
 }
 
 TEST_F(StringImplTest, stringPosition) {

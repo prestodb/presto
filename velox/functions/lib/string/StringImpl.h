@@ -147,6 +147,32 @@ FOLLY_ALWAYS_INLINE int32_t charToCodePoint(const T& inputString) {
   return codePoint;
 }
 
+/// Returns the sequence of character Unicode code point of an input string.
+template <typename T>
+std::vector<int32_t> stringToCodePoints(const T& inputString) {
+  int64_t length = inputString.size();
+  std::vector<int32_t> codePoints;
+  codePoints.reserve(length);
+
+  int64_t inputIndex = 0;
+  while (inputIndex < length) {
+    utf8proc_int32_t codepoint;
+    int size;
+    codepoint = utf8proc_codepoint(
+        inputString.data() + inputIndex, inputString.data() + length, size);
+    VELOX_USER_CHECK_GE(
+        codepoint,
+        0,
+        "Invalid UTF-8 encoding in characters: {}",
+        StringView(
+            inputString.data() + inputIndex,
+            std::min(length - inputIndex, inputIndex + 12)));
+    codePoints.push_back(codepoint);
+    inputIndex += size;
+  }
+  return codePoints;
+}
+
 /// Returns the starting position in characters of the Nth instance(counting
 /// from the left if lpos==true and from the end otherwise) of the substring in
 /// string. Positions start with 1. If not found, 0 is returned. If subString is

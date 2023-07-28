@@ -18,6 +18,7 @@
 #include <cctype>
 #include <random>
 #include "velox/common/base/VeloxException.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/Expr.h"
 #include "velox/functions/lib/StringEncodingUtils.h"
 #include "velox/functions/lib/string/StringImpl.h"
@@ -300,6 +301,10 @@ class StringFunctionsTest : public FunctionBaseTest {
       const std::vector<std::tuple<std::string, int64_t>>& tests,
       const std::string& subString,
       int64_t instance);
+
+  int64_t levenshteinDistance(
+      const std::string& left,
+      const std::string& right);
 
   using replace_input_test_t = std::vector<std::pair<
       std::tuple<std::string, std::string, std::string>,
@@ -1129,6 +1134,81 @@ TEST_F(StringFunctionsTest, codePoint) {
   for (int i = 0; i < 10; ++i) {
     EXPECT_EQ(result->valueAt(i), 0x78);
   }
+}
+
+int64_t StringFunctionsTest::levenshteinDistance(
+    const std::string& left,
+    const std::string& right) {
+  return evaluateOnce<int64_t>(
+             "levenshtein_distance(c0, c1)",
+             std::optional(left),
+             std::optional(right))
+      .value();
+}
+
+TEST_F(StringFunctionsTest, asciiLevenshteinDistance) {
+  EXPECT_EQ(levenshteinDistance("", ""), 0);
+  EXPECT_EQ(levenshteinDistance("", "hello"), 5);
+  EXPECT_EQ(levenshteinDistance("hello", ""), 5);
+  EXPECT_EQ(levenshteinDistance("hello", "hello"), 0);
+  EXPECT_EQ(levenshteinDistance("hello", "olleh"), 4);
+  EXPECT_EQ(levenshteinDistance("hello world", "hello"), 6);
+  EXPECT_EQ(levenshteinDistance("hello", "hello world"), 6);
+  EXPECT_EQ(levenshteinDistance("hello world", "hel wold"), 3);
+  EXPECT_EQ(levenshteinDistance("hello world", "hellq wodld"), 2);
+  EXPECT_EQ(levenshteinDistance("hello word", "dello world"), 2);
+  EXPECT_EQ(levenshteinDistance("  facebook  ", "  facebook  "), 0);
+  EXPECT_EQ(levenshteinDistance("hello", std::string(100000, 'h')), 99999);
+  EXPECT_EQ(levenshteinDistance(std::string(100000, 'l'), "hello"), 99998);
+  EXPECT_EQ(levenshteinDistance(std::string(1000001, 'h'), ""), 1000001);
+  EXPECT_EQ(levenshteinDistance("", std::string(1000001, 'h')), 1000001);
+}
+
+TEST_F(StringFunctionsTest, unicodeLevenshteinDistance) {
+  EXPECT_EQ(
+      levenshteinDistance("hello na\u00EFve world", "hello naive world"), 1);
+  EXPECT_EQ(
+      levenshteinDistance("hello na\u00EFve world", "hello na:ive world"), 2);
+  EXPECT_EQ(
+      levenshteinDistance(
+          "\u4FE1\u5FF5,\u7231,\u5E0C\u671B",
+          "\u4FE1\u4EF0,\u7231,\u5E0C\u671B"),
+      1);
+  EXPECT_EQ(
+      levenshteinDistance(
+          "\u4F11\u5FF5,\u7231,\u5E0C\u671B",
+          "\u4FE1\u5FF5,\u7231,\u5E0C\u671B"),
+      1);
+  EXPECT_EQ(
+      levenshteinDistance(
+          "\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u4FE1\u5FF5\u5E0C\u671B"),
+      3);
+  EXPECT_EQ(
+      levenshteinDistance(
+          "\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u4FE1\u5FF5,love,\u5E0C\u671B"),
+      4);
+}
+
+TEST_F(StringFunctionsTest, invalidLevenshteinDistance) {
+  VELOX_ASSERT_THROW(
+      levenshteinDistance("a\xA9ü", "hello world"),
+      "Invalid UTF-8 encoding in characters");
+  VELOX_ASSERT_THROW(
+      levenshteinDistance("Ψ\xFF\xFFΣΓΔA", "abc"),
+      "Invalid UTF-8 encoding in characters");
+  VELOX_ASSERT_THROW(
+      levenshteinDistance("ab", "AΔΓΣ\xFF\xFFΨ"),
+      "Invalid UTF-8 encoding in characters");
+
+  VELOX_ASSERT_THROW(
+      levenshteinDistance(std::string(1001, 'h'), std::string(1001, 'o')),
+      "The combined inputs size exceeded max Levenshtein distance combined input size");
+  VELOX_ASSERT_THROW(
+      levenshteinDistance(std::string(500001, 'h'), "bec"),
+      "The combined inputs size exceeded max Levenshtein distance combined input size");
+  VELOX_ASSERT_THROW(
+      levenshteinDistance("bec", std::string(500001, 'h')),
+      "The combined inputs size exceeded max Levenshtein distance combined input size");
 }
 
 void StringFunctionsTest::testReplaceInPlace(
