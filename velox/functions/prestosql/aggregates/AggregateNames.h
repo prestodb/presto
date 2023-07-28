@@ -47,6 +47,7 @@ const char* const kMaxBy = "max_by";
 const char* const kMerge = "merge";
 const char* const kMin = "min";
 const char* const kMinBy = "min_by";
+const char* const kMultiMapAgg = "multimap_agg";
 const char* const kRegrIntercept = "regr_intercept";
 const char* const kRegrSlop = "regr_slope";
 const char* const kSetAgg = "set_agg";

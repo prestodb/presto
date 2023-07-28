@@ -112,6 +112,11 @@ General Aggregate Functions
 
     Returns ``n`` smallest values of all input values of ``x``.
 
+.. function:: multimap_agg(key, value) -> map(K,array(V))
+
+    Returns a multimap created from the input ``key`` / ``value`` pairs.
+    Each key can be associated with multiple values.
+
 .. function:: set_agg(x) -> array<[same as input]>
 
     Returns an array created from the distinct input ``x`` elements.

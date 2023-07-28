@@ -33,6 +33,7 @@ add_library(
   MapUnionSumAggregate.cpp
   MinMaxAggregates.cpp
   MinMaxByAggregates.cpp
+  MultiMapAggAggregate.cpp
   CountAggregate.cpp
   PrestoHasher.cpp
   SetAggregates.cpp

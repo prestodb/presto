@@ -264,6 +264,7 @@ class Aggregate {
   // accumulator update methods. Use like: { auto tracker =
   // trackRowSize(group); update(group); }
   RowSizeTracker<char, uint32_t> trackRowSize(char* group) {
+    VELOX_DCHECK(!isFixedSize());
     return RowSizeTracker<char, uint32_t>(group[rowSizeOffset_], *allocator_);
   }
 
