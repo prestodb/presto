@@ -810,6 +810,7 @@ TEST(FilterTest, bytesRange) {
   EXPECT_FALSE(filter->testBytes("b", 1));
   EXPECT_FALSE(filter->testBytes("c", 1));
   EXPECT_TRUE(filter->testBytes(nullptr, 0));
+  EXPECT_FALSE(filter->testBytesRange("b", "c", false));
 
   // <= b
   filter = lessThanOrEqual("b");
@@ -817,6 +818,7 @@ TEST(FilterTest, bytesRange) {
   EXPECT_TRUE(filter->testBytes("b", 1));
   EXPECT_FALSE(filter->testBytes("c", 1));
   EXPECT_TRUE(filter->testBytes(nullptr, 0));
+  EXPECT_TRUE(filter->testBytesRange("b", "c", false));
 
   // >= b
   filter = greaterThanOrEqual("b");
@@ -824,6 +826,7 @@ TEST(FilterTest, bytesRange) {
   EXPECT_TRUE(filter->testBytes("b", 1));
   EXPECT_TRUE(filter->testBytes("c", 1));
   EXPECT_FALSE(filter->testBytes(nullptr, 0));
+  EXPECT_TRUE(filter->testBytesRange("a", "b", false));
 
   // > b
   filter = greaterThan("b");
@@ -831,6 +834,7 @@ TEST(FilterTest, bytesRange) {
   EXPECT_FALSE(filter->testBytes("b", 1));
   EXPECT_TRUE(filter->testBytes("c", 1));
   EXPECT_FALSE(filter->testBytes(nullptr, 0));
+  EXPECT_FALSE(filter->testBytesRange("a", "b", false));
 
   // < ''
   filter = lessThan("");

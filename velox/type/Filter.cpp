@@ -1145,35 +1145,11 @@ bool BytesRange::testBytesRange(
   if (hasNull && nullAllowed_) {
     return true;
   }
-
-  if (min.has_value() && max.has_value() && min.value() == max.value()) {
-    return testBytes(min->data(), min->length());
-  }
-
-  if (lowerUnbounded_) {
-    // min > upper_
-    return min.has_value() &&
-        compareRanges(min->data(), min->length(), upper_) < 0;
-  }
-
-  if (upperUnbounded_) {
-    // max < lower_
-    return max.has_value() &&
-        compareRanges(max->data(), max->length(), lower_) > 0;
-  }
-
-  // min > upper_
-  if (min.has_value() &&
-      compareRanges(min->data(), min->length(), upper_) > 0) {
-    return false;
-  }
-
-  // max < lower_
-  if (max.has_value() &&
-      compareRanges(max->data(), max->length(), lower_) < 0) {
-    return false;
-  }
-  return true;
+  // clang-format off
+  return
+    (lowerUnbounded_ || !max.has_value() || compareRanges(max->data(), max->length(), lower_) >=  !!lowerExclusive_) &&
+    (upperUnbounded_ || !min.has_value() || compareRanges(min->data(), min->length(), upper_) <= -!!upperExclusive_);
+  // clang-format on
 }
 
 bool BytesValues::testBytesRange(
