@@ -1058,7 +1058,6 @@ void GroupingSet::toIntermediate(
       std::fill(firstGroup_.begin(), firstGroup_.end(), intermediateGroups_[0]);
       function->extractAccumulators(
           firstGroup_.data(), intermediateGroups_.size(), &aggregateVector);
-      function->clear();
       continue;
     }
 
@@ -1074,12 +1073,16 @@ void GroupingSet::toIntermediate(
         intermediateGroups_.data(),
         intermediateGroups_.size(),
         &aggregateVector);
-    function->clear();
   }
   if (intermediateRows_) {
     intermediateRows_->eraseRows(folly::Range<char**>(
         intermediateGroups_.data(), intermediateGroups_.size()));
   }
+
+  // It's unnecessary to call function->clear() to reset the internal states of
+  // aggregation functions because toIntermediate() is already called at the end
+  // of HashAggregation::getOutput(). When toIntermediate() is called, the
+  // aggregaiton function instances won't be reused after it returns.
   tempVectors_.clear();
 }
 
