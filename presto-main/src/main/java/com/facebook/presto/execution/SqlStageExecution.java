@@ -117,7 +117,7 @@ public final class SqlStageExecution
     @GuardedBy("this")
     private final Set<TaskId> failedTasks = newConcurrentHashSet();
     @GuardedBy("this")
-    private final Set<TaskId> tasksWithFinalInfo = newConcurrentHashSet();
+    private final Set<TaskId> runningTasks = newConcurrentHashSet();
 
     private final Set<Lifespan> finishedLifespans = ConcurrentHashMap.newKeySet();
     private final int totalLifespans;
@@ -212,7 +212,11 @@ public final class SqlStageExecution
     // this is a separate method to ensure that the `this` reference is not leaked during construction
     private void initialize()
     {
-        stateMachine.addStateChangeListener(newState -> checkAllTaskFinal());
+        stateMachine.addStateChangeListener(newState -> {
+            if (newState.isDone()) {
+                checkAllTaskFinal();
+            }
+        });
         completedLifespansChangeListeners.addListener(lifespans -> finishedLifespans.addAll(lifespans));
     }
 
@@ -524,6 +528,8 @@ public final class SqlStageExecution
         completeSources.forEach(task::noMoreSplits);
 
         allTasks.add(taskId);
+        runningTasks.add(taskId);
+
         tasks.computeIfAbsent(node, key -> newConcurrentHashSet()).add(task);
         nodeTaskMap.addTask(node, task);
 
@@ -560,61 +566,55 @@ public final class SqlStageExecution
 
     private void updateTaskStatus(TaskId taskId, TaskStatus taskStatus)
     {
-        try {
-            StageExecutionState stageExecutionState = getState();
-            if (stageExecutionState.isDone()) {
-                return;
-            }
+        StageExecutionState stageExecutionState = getState();
+        if (stageExecutionState.isDone()) {
+            return;
+        }
 
-            TaskState taskState = taskStatus.getState();
-            if (taskState == TaskState.FAILED) {
-                // no matter if it is possible to recover - the task is failed
-                failedTasks.add(taskId);
+        TaskState taskState = taskStatus.getState();
+        if (taskState == TaskState.FAILED) {
+            // no matter if it is possible to recover - the task is failed
+            failedTasks.add(taskId);
 
-                RuntimeException failure = taskStatus.getFailures().stream()
-                        .findFirst()
-                        .map(this::rewriteTransportFailure)
-                        .map(ExecutionFailureInfo::toException)
-                        .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
-                if (isRecoverable(taskStatus.getFailures())) {
-                    try {
-                        stageTaskRecoveryCallback.get().recover(taskId);
-                        finishedTasks.add(taskId);
-                    }
-                    catch (Throwable t) {
-                        // In an ideal world, this exception is not supposed to happen.
-                        // However, it could happen, for example, if connector throws exception.
-                        // We need to handle the exception in order to fail the query properly, otherwise the failed task will hang in RUNNING/SCHEDULING state.
-                        failure.addSuppressed(new PrestoException(GENERIC_RECOVERY_ERROR, format("Encountered error when trying to recover task %s", taskId), t));
-                        stateMachine.transitionToFailed(failure);
-                    }
+            RuntimeException failure = taskStatus.getFailures().stream()
+                    .findFirst()
+                    .map(this::rewriteTransportFailure)
+                    .map(ExecutionFailureInfo::toException)
+                    .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
+            if (isRecoverable(taskStatus.getFailures())) {
+                try {
+                    stageTaskRecoveryCallback.get().recover(taskId);
+                    finishedTasks.add(taskId);
                 }
-                else {
+                catch (Throwable t) {
+                    // In an ideal world, this exception is not supposed to happen.
+                    // However, it could happen, for example, if connector throws exception.
+                    // We need to handle the exception in order to fail the query properly, otherwise the failed task will hang in RUNNING/SCHEDULING state.
+                    failure.addSuppressed(new PrestoException(GENERIC_RECOVERY_ERROR, format("Encountered error when trying to recover task %s", taskId), t));
                     stateMachine.transitionToFailed(failure);
                 }
             }
-            else if (taskState == TaskState.ABORTED) {
-                // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
-                stateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageExecutionState));
-            }
-            else if (taskState == TaskState.FINISHED) {
-                finishedTasks.add(taskId);
-            }
-
-            // The finishedTasks.add(taskStatus.getTaskId()) must happen before the getState() (see schedulingComplete)
-            stageExecutionState = getState();
-            if (stageExecutionState == StageExecutionState.SCHEDULED || stageExecutionState == StageExecutionState.RUNNING) {
-                if (taskState == TaskState.RUNNING) {
-                    stateMachine.transitionToRunning();
-                }
-                if (finishedTasks.size() == allTasks.size()) {
-                    stateMachine.transitionToFinished();
-                }
+            else {
+                stateMachine.transitionToFailed(failure);
             }
         }
-        finally {
-            // after updating state, check if all tasks have final status information
-            checkAllTaskFinal();
+        else if (taskState == TaskState.ABORTED) {
+            // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
+            stateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageExecutionState));
+        }
+        else if (taskState == TaskState.FINISHED) {
+            finishedTasks.add(taskId);
+        }
+
+        // The finishedTasks.add(taskStatus.getTaskId()) must happen before the getState() (see schedulingComplete)
+        stageExecutionState = getState();
+        if (stageExecutionState == StageExecutionState.SCHEDULED || stageExecutionState == StageExecutionState.RUNNING) {
+            if (taskState == TaskState.RUNNING) {
+                stateMachine.transitionToRunning();
+            }
+            if (finishedTasks.size() == allTasks.size()) {
+                stateMachine.transitionToFinished();
+            }
         }
     }
 
@@ -631,13 +631,13 @@ public final class SqlStageExecution
 
     private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)
     {
-        tasksWithFinalInfo.add(finalTaskInfo.getTaskId());
+        runningTasks.remove(finalTaskInfo.getTaskId());
         checkAllTaskFinal();
     }
 
     private synchronized void checkAllTaskFinal()
     {
-        if (stateMachine.getState().isDone() && tasksWithFinalInfo.containsAll(allTasks)) {
+        if (stateMachine.getState().isDone() && runningTasks.isEmpty()) {
             if (getFragment().getStageExecutionDescriptor().isStageGroupedExecution()) {
                 // in case stage is CANCELLED/ABORTED/FAILED, number of finished lifespans can be less than total lifespans
                 checkState(finishedLifespans.size() <= totalLifespans, format("Number of finished lifespans (%s) exceeds number of total lifespans (%s)", finishedLifespans.size(), totalLifespans));
