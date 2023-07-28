@@ -7,6 +7,16 @@ Aggregate functions operate on a set of values to compute a single result.
 General Aggregate Functions
 ---------------------------
 
+.. spark:function:: avg(x) -> double|decimal
+
+    Returns the average (arithmetic mean) of all non-null input values.
+    When x is of type DECIMAL, the result type is DECIMAL,
+    and the intermediate results are varbinarys or (sum, count) pairs represented as row(decimal, bigint).
+    For all other input types, the result type is DOUBLE,
+    and the intermediate results are (sum, count) pairs represented as row(double, bigint).
+    When all inputs are nulls, the intermediate result is row(0, 0),
+    and the final result is null.
+
 .. spark:function:: bit_xor(x) -> bigint
 
     Returns the bitwise XOR of all non-null input values, or null if none.

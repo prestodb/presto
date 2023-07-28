@@ -60,7 +60,14 @@ int main(int argc, char** argv) {
       {"last", ""},
       {"last_ignore_null", ""},
       {"first", ""},
-      {"first_ignore_null", ""}};
+      {"first_ignore_null", ""},
+      // TODO: Skip result verification of companion functions that return
+      // complex types that contain floating-point fields for now, until we
+      // fix test utilities in QueryAssertions to tolerate floating-point
+      // imprecision in complex types.
+      // https://github.com/facebookincubator/velox/issues/4481
+      {"avg_partial", ""},
+      {"avg_merge", ""}};
 
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   return facebook::velox::exec::test::AggregationFuzzerRunner::runFuzzer(

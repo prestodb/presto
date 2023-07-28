@@ -16,9 +16,9 @@
 #pragma once
 
 #include "velox/expression/FunctionSignature.h"
+#include "velox/functions/lib/aggregates/DecimalAggregate.h"
 #include "velox/functions/lib/aggregates/SimpleNumericAggregate.h"
 #include "velox/functions/prestosql/CheckedArithmeticImpl.h"
-#include "velox/functions/prestosql/aggregates/DecimalAggregate.h"
 
 using namespace facebook::velox::functions::aggregate;
 
@@ -171,13 +171,15 @@ class SumAggregate
 };
 
 template <typename TInputType>
-class DecimalSumAggregate : public DecimalAggregate<int128_t, TInputType> {
+class DecimalSumAggregate
+    : public functions::aggregate::DecimalAggregate<int128_t, TInputType> {
  public:
   explicit DecimalSumAggregate(TypePtr resultType)
-      : DecimalAggregate<int128_t, TInputType>(resultType) {}
+      : functions::aggregate::DecimalAggregate<int128_t, TInputType>(
+            resultType) {}
 
   virtual int128_t computeFinalValue(
-      LongDecimalWithOverflowState* accumulator) final {
+      functions::aggregate::LongDecimalWithOverflowState* accumulator) final {
     // Value is valid if the conditions below are true.
     int128_t sum = accumulator->sum;
     if ((accumulator->overflow == 1 && accumulator->sum < 0) ||

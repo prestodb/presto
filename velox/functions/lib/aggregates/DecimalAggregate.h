@@ -21,7 +21,7 @@
 #include "velox/type/HugeInt.h"
 #include "velox/vector/FlatVector.h"
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::functions::aggregate {
 
 /**
  *  LongDecimalWithOverflowState has the following fields:
@@ -338,4 +338,4 @@ class DecimalAggregate : public exec::Aggregate {
   DecodedVector decodedPartial_;
 };
 
-} // namespace facebook::velox::aggregate
+} // namespace facebook::velox::functions::aggregate

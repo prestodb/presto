@@ -27,7 +27,7 @@ General Aggregate Functions
 
 .. function:: avg(x) -> double|real
 
-    Returns the average (arithmetic mean) of all input values.
+    Returns the average (arithmetic mean) of all non-null input values.
     When x is of type REAL, the result type is REAL.
     For all other input types, the result type is DOUBLE.
 

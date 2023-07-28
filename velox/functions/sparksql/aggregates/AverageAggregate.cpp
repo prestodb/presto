@@ -14,38 +14,87 @@
  * limitations under the License.
  */
 
+#include "velox/functions/sparksql/aggregates/AverageAggregate.h"
 #include "velox/functions/lib/aggregates/AverageAggregateBase.h"
-#include "velox/functions/prestosql/aggregates/AggregateNames.h"
 
 using namespace facebook::velox::functions::aggregate;
 
-namespace facebook::velox::aggregate::prestosql {
+namespace facebook::velox::functions::aggregate::sparksql {
 namespace {
+
+template <typename TInput, typename TAccumulator, typename TResult>
+class AverageAggregate
+    : public AverageAggregateBase<TInput, TAccumulator, TResult> {
+ public:
+  explicit AverageAggregate(TypePtr resultType)
+      : AverageAggregateBase<TInput, TAccumulator, TResult>(resultType) {}
+
+  void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
+      override {
+    auto rowVector = (*result)->as<RowVector>();
+    auto sumVector = rowVector->childAt(0)->asFlatVector<TAccumulator>();
+    auto countVector = rowVector->childAt(1)->asFlatVector<int64_t>();
+
+    rowVector->resize(numGroups);
+    sumVector->resize(numGroups);
+    countVector->resize(numGroups);
+    rowVector->clearAllNulls();
+
+    int64_t* rawCounts = countVector->mutableRawValues();
+    TAccumulator* rawSums = sumVector->mutableRawValues();
+    for (auto i = 0; i < numGroups; ++i) {
+      // When all inputs are nulls, the partial result is (0, 0).
+      char* group = groups[i];
+      auto* sumCount = this->accumulator(group);
+      rawCounts[i] = sumCount->count;
+      rawSums[i] = sumCount->sum;
+    }
+  }
+
+  void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
+      override {
+    auto vector = (*result)->as<FlatVector<TResult>>();
+    VELOX_CHECK(vector);
+    vector->resize(numGroups);
+    uint64_t* rawNulls = this->getRawNulls(vector);
+
+    TResult* rawValues = vector->mutableRawValues();
+    for (int32_t i = 0; i < numGroups; ++i) {
+      char* group = groups[i];
+      auto* sumCount = this->accumulator(group);
+      if (sumCount->count == 0) {
+        // In Spark, if all inputs are null, count will be 0,
+        // and the result of final avg will be null.
+        vector->setNull(i, true);
+      } else {
+        this->clearNull(rawNulls, i);
+        rawValues[i] = (TResult)sumCount->sum / sumCount->count;
+      }
+    }
+  }
+};
+
+} // namespace
 
 /// Count is BIGINT() while sum and the final aggregates type depends on
 /// the input types:
 ///       INPUT TYPE    |     SUM             |     AVG
 ///   ------------------|---------------------|------------------
 ///     DOUBLE          |     DOUBLE          |    DOUBLE
-///     REAL            |     DOUBLE          |    REAL
+///     REAL            |     DOUBLE          |    DOUBLE
 ///     ALL INTs        |     DOUBLE          |    DOUBLE
 ///     DECIMAL         |     DECIMAL         |    DECIMAL
 exec::AggregateRegistrationResult registerAverage(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
 
-  for (const auto& inputType : {"smallint", "integer", "bigint", "double"}) {
+  for (const auto& inputType :
+       {"smallint", "integer", "bigint", "real", "double"}) {
     signatures.push_back(exec::AggregateFunctionSignatureBuilder()
                              .returnType("double")
                              .intermediateType("row(double,bigint)")
                              .argumentType(inputType)
                              .build());
   }
-  // Real input type in Presto has special case and returns REAL, not DOUBLE.
-  signatures.push_back(exec::AggregateFunctionSignatureBuilder()
-                           .returnType("real")
-                           .intermediateType("row(double,bigint)")
-                           .argumentType("real")
-                           .build());
 
   signatures.push_back(exec::AggregateFunctionSignatureBuilder()
                            .integerVariable("a_precision")
@@ -71,17 +120,17 @@ exec::AggregateRegistrationResult registerAverage(const std::string& name) {
           switch (inputType->kind()) {
             case TypeKind::SMALLINT:
               return std::make_unique<
-                  AverageAggregateBase<int16_t, double, double>>(resultType);
+                  AverageAggregate<int16_t, double, double>>(resultType);
             case TypeKind::INTEGER:
               return std::make_unique<
-                  AverageAggregateBase<int32_t, double, double>>(resultType);
+                  AverageAggregate<int32_t, double, double>>(resultType);
             case TypeKind::BIGINT: {
               if (inputType->isShortDecimal()) {
                 return std::make_unique<DecimalAverageAggregateBase<int64_t>>(
                     resultType);
               }
               return std::make_unique<
-                  AverageAggregateBase<int64_t, double, double>>(resultType);
+                  AverageAggregate<int64_t, double, double>>(resultType);
             }
             case TypeKind::HUGEINT: {
               if (inputType->isLongDecimal()) {
@@ -91,11 +140,11 @@ exec::AggregateRegistrationResult registerAverage(const std::string& name) {
               VELOX_NYI();
             }
             case TypeKind::REAL:
-              return std::make_unique<
-                  AverageAggregateBase<float, double, float>>(resultType);
+              return std::make_unique<AverageAggregate<float, double, double>>(
+                  resultType);
             case TypeKind::DOUBLE:
-              return std::make_unique<
-                  AverageAggregateBase<double, double, double>>(resultType);
+              return std::make_unique<AverageAggregate<double, double, double>>(
+                  resultType);
             default:
               VELOX_FAIL(
                   "Unknown input type for {} aggregation {}",
@@ -106,12 +155,12 @@ exec::AggregateRegistrationResult registerAverage(const std::string& name) {
           checkAvgIntermediateType(inputType);
           switch (resultType->kind()) {
             case TypeKind::REAL:
-              return std::make_unique<
-                  AverageAggregateBase<int64_t, double, float>>(resultType);
+              return std::make_unique<AverageAggregate<int64_t, double, float>>(
+                  resultType);
             case TypeKind::DOUBLE:
             case TypeKind::ROW:
               return std::make_unique<
-                  AverageAggregateBase<int64_t, double, double>>(resultType);
+                  AverageAggregate<int64_t, double, double>>(resultType);
             case TypeKind::BIGINT:
               return std::make_unique<DecimalAverageAggregateBase<int64_t>>(
                   resultType);
@@ -140,10 +189,5 @@ exec::AggregateRegistrationResult registerAverage(const std::string& name) {
       },
       /*registerCompanionFunctions*/ true);
 }
-} // namespace
 
-void registerAverageAggregate(const std::string& prefix) {
-  registerAverage(prefix + kAvg);
-}
-
-} // namespace facebook::velox::aggregate::prestosql
+} // namespace facebook::velox::functions::aggregate::sparksql
