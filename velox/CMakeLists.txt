@@ -70,6 +70,10 @@ if(${VELOX_CODEGEN_SUPPORT})
   add_subdirectory(experimental/codegen)
 endif()
 
+if(${VELOX_ENABLE_GPU})
+  add_subdirectory(experimental/gpu)
+endif()
+
 # substrait converter
 if(${VELOX_ENABLE_SUBSTRAIT})
   add_subdirectory(substrait)
