@@ -55,6 +55,7 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.units.DataSize;
+import it.unimi.dsi.fastutil.booleans.BooleanIntImmutablePair;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -243,6 +244,12 @@ public class TestThriftServerInfoIntegration
                 public void updateMetadataResults(TaskId taskId, MetadataUpdates metadataUpdates)
                 {
                     throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public BooleanIntImmutablePair shouldBackPressure(TaskUpdateRequest taskUpdateRequest)
+                {
+                    return new BooleanIntImmutablePair(false, 60);
                 }
             };
         }

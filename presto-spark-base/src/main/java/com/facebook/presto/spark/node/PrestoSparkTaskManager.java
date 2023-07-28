@@ -26,9 +26,11 @@ import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.metadata.MetadataUpdates;
+import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import it.unimi.dsi.fastutil.booleans.BooleanIntImmutablePair;
 
 import java.util.List;
 import java.util.Optional;
@@ -130,5 +132,11 @@ public class PrestoSparkTaskManager
     public void updateMetadataResults(TaskId taskId, MetadataUpdates metadataUpdates)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public BooleanIntImmutablePair shouldBackPressure(TaskUpdateRequest taskUpdateRequest)
+    {
+        return new BooleanIntImmutablePair(false, 60);
     }
 }

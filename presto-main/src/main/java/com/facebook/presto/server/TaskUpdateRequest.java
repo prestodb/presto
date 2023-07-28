@@ -39,6 +39,7 @@ public class TaskUpdateRequest
     private final List<TaskSource> sources;
     private final OutputBuffers outputIds;
     private final Optional<TableWriteInfo> tableWriteInfo;
+    private final Optional<Boolean> firstTaskUpdate;
 
     @JsonCreator
     public TaskUpdateRequest(
@@ -47,7 +48,8 @@ public class TaskUpdateRequest
             @JsonProperty("fragment") Optional<byte[]> fragment,
             @JsonProperty("sources") List<TaskSource> sources,
             @JsonProperty("outputIds") OutputBuffers outputIds,
-            @JsonProperty("tableWriteInfo") Optional<TableWriteInfo> tableWriteInfo)
+            @JsonProperty("tableWriteInfo") Optional<TableWriteInfo> tableWriteInfo,
+            @JsonProperty("firstTaskUpdate") Optional<Boolean> firstTaskUpdate)
     {
         requireNonNull(session, "session is null");
         requireNonNull(extraCredentials, "credentials is null");
@@ -55,6 +57,7 @@ public class TaskUpdateRequest
         requireNonNull(sources, "sources is null");
         requireNonNull(outputIds, "outputIds is null");
         requireNonNull(tableWriteInfo, "tableWriteInfo is null");
+        requireNonNull(firstTaskUpdate, "tableWriteInfo is null");
 
         this.session = session;
         this.extraCredentials = extraCredentials;
@@ -62,6 +65,7 @@ public class TaskUpdateRequest
         this.sources = ImmutableList.copyOf(sources);
         this.outputIds = outputIds;
         this.tableWriteInfo = tableWriteInfo;
+        this.firstTaskUpdate = firstTaskUpdate;
     }
 
     @JsonProperty
@@ -99,6 +103,12 @@ public class TaskUpdateRequest
     public Optional<TableWriteInfo> getTableWriteInfo()
     {
         return tableWriteInfo;
+    }
+
+    @JsonProperty
+    public Optional<Boolean> getFirstTaskUpdate()
+    {
+        return firstTaskUpdate;
     }
 
     @Override

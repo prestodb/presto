@@ -39,6 +39,7 @@ import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
+import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
@@ -55,6 +56,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import it.unimi.dsi.fastutil.booleans.BooleanIntImmutablePair;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import org.joda.time.DateTime;
 import org.weakref.jmx.Flatten;
@@ -112,7 +114,10 @@ public class SqlTaskManager
 
     private final Duration infoCacheTime;
     private final Duration clientTimeout;
-
+    private final int taskCreationTaskCountBackpressureThreshold;
+    private final DataSize taskCreationFreeMemoryLowBackpressureThreshold;
+    private final int taskCreationBackpressureRetryAfter;
+    private final boolean isTaskCreationBackpressureEnabled;
     private final LocalMemoryManager localMemoryManager;
     private final JsonCodec<List<TaskMemoryReservationSummary>> memoryReservationSummaryJsonCodec;
     private final LoadingCache<QueryId, QueryContext> queryContexts;
@@ -125,6 +130,9 @@ public class SqlTaskManager
     private final Map<String, Long> currentMemoryPoolAssignmentVersions = new Object2LongOpenHashMap<>();
 
     private final CounterStat failedTasks = new CounterStat();
+
+    private final CounterStat taskCreationBackpressureByTaskCount = new CounterStat();
+    private final CounterStat taskCreationBackpressureByLowMemory = new CounterStat();
 
     @Inject
     public SqlTaskManager(
@@ -152,6 +160,10 @@ public class SqlTaskManager
         requireNonNull(config, "config is null");
         infoCacheTime = config.getInfoMaxAge();
         clientTimeout = config.getClientTimeout();
+        taskCreationTaskCountBackpressureThreshold = config.getTaskCreationTaskCountBackpressureThreshold();
+        taskCreationFreeMemoryLowBackpressureThreshold = config.getTaskCreationFreeMemoryLowBackpressureThreshold();
+        taskCreationBackpressureRetryAfter = config.getTaskCreationBackpressureRetryAfter();
+        isTaskCreationBackpressureEnabled = config.getTaskCreationBackpressureEnabled();
 
         DataSize maxBufferSize = config.getSinkMaxBufferSize();
 
@@ -567,5 +579,43 @@ public class SqlTaskManager
 
     {
         return queryContexts.getUnchecked(queryId);
+    }
+
+    @Override
+    public BooleanIntImmutablePair shouldBackPressure(TaskUpdateRequest taskUpdateRequest)
+    {
+        if (!isTaskCreationBackpressureEnabled) {
+            return new BooleanIntImmutablePair(false, taskCreationBackpressureRetryAfter);
+        }
+
+        if (!taskUpdateRequest.getFirstTaskUpdate().isPresent() || !taskUpdateRequest.getFirstTaskUpdate().get()) {
+            return new BooleanIntImmutablePair(false, taskCreationBackpressureRetryAfter);
+        }
+
+        if (tasks.size() >= taskCreationTaskCountBackpressureThreshold) {
+            taskCreationBackpressureByTaskCount.update(1);
+            return new BooleanIntImmutablePair(true, taskCreationBackpressureRetryAfter);
+        }
+
+        if (Runtime.getRuntime().freeMemory() < taskCreationFreeMemoryLowBackpressureThreshold.toBytes()) {
+            taskCreationBackpressureByLowMemory.update(1);
+            return new BooleanIntImmutablePair(true, taskCreationBackpressureRetryAfter);
+        }
+
+        return new BooleanIntImmutablePair(false, taskCreationBackpressureRetryAfter);
+    }
+
+    @Managed(description = "task creation backpressure due to too many task count counter")
+    @Nested
+    public CounterStat getTaskCreationBackpressureByTaskCount()
+    {
+        return taskCreationBackpressureByTaskCount;
+    }
+
+    @Managed(description = "task creation backpressure due to too low memory counter")
+    @Nested
+    public CounterStat getTaskCreationBackpressureByLowMemory()
+    {
+        return taskCreationBackpressureByLowMemory;
     }
 }

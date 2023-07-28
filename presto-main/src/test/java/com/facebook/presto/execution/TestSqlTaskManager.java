@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.airlift.stats.TestingGcMonitor;
+import com.facebook.presto.Session;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
@@ -29,15 +31,23 @@ import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.metadata.RemoteTransactionHandle;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
+import com.facebook.presto.server.TaskUpdateRequest;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
+import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.testing.TestingSession;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
@@ -45,10 +55,13 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import it.unimi.dsi.fastutil.booleans.BooleanIntImmutablePair;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -58,6 +71,7 @@ import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracki
 import static com.facebook.presto.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static com.facebook.presto.execution.TaskTestUtils.SPLIT;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
+import static com.facebook.presto.execution.TaskTestUtils.createPlanFragment;
 import static com.facebook.presto.execution.TaskTestUtils.createTestSplitMonitor;
 import static com.facebook.presto.execution.TaskTestUtils.createTestingPlanner;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
@@ -67,15 +81,18 @@ import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 @Test
 public class TestSqlTaskManager
 {
     private static final TaskId TASK_ID = new TaskId("query", 0, 0, 1, 0);
     public static final OutputBufferId OUT = new OutputBufferId(0);
+    private static final JsonCodec<PlanFragment> PLAN_FRAGMENT_JSON_CODEC = JsonCodec.jsonCodec(PlanFragment.class);
 
     private final TaskExecutor taskExecutor;
     private final TaskManagementExecutor taskManagementExecutor;
@@ -278,6 +295,86 @@ public class TestSqlTaskManager
                     1,
                     ImmutableList.of(new MemoryPoolAssignment(taskId.getQueryId(), RESERVED_POOL))));
             assertEquals(sqlTaskManager.getQueryContext(taskId.getQueryId()).getMemoryPool().getId(), RESERVED_POOL);
+        }
+    }
+
+    @Test
+    public void testShouldBackpressureWhenTaskCreationBackpressureDisabled()
+    {
+        TaskManagerConfig config = new TaskManagerConfig();
+        config.setTaskCreationBackpressureEnabled(false);
+
+        PlanNodeId planNodeId = new PlanNodeId("planNodeId");
+        Session session = TestingSession.testSessionBuilder().build();
+        List<TaskSource> sources = new ArrayList<>();
+        sources.add(
+                new TaskSource(
+                        planNodeId,
+                        ImmutableSet.of(
+                                new ScheduledSplit(
+                                        0,
+                                        planNodeId,
+                                        new Split(
+                                                new ConnectorId("connector_id"),
+                                                new RemoteTransactionHandle(),
+                                                new RemoteSplit(new Location("0.0.0.0"), TaskId.valueOf("foo.0.0.0.0"))))),
+                        true));
+
+        TaskUpdateRequest updateRequest = new TaskUpdateRequest(
+                session.toSessionRepresentation(),
+                session.getIdentity().getExtraCredentials(),
+                Optional.of(createPlanFragment().toBytes(PLAN_FRAGMENT_JSON_CODEC)),
+                sources,
+                createInitialEmptyOutputBuffers(PARTITIONED),
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())), Optional.of(true));
+
+        try (SqlTaskManager sqlTaskManager = createSqlTaskManager(config)) {
+            TaskId taskId = TASK_ID;
+            TaskInfo taskInfo = createTask(sqlTaskManager, taskId, createInitialEmptyOutputBuffers(PARTITIONED).withNoMoreBufferIds());
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+
+            BooleanIntImmutablePair p = sqlTaskManager.shouldBackPressure(updateRequest);
+            assertFalse(p.leftBoolean());
+        }
+    }
+    @Test
+    public void testShouldBackpressureWhenTaskCreationBackpressureEnabled()
+    {
+        TaskManagerConfig config = new TaskManagerConfig();
+        config.setTaskCreationBackpressureEnabled(true);
+        config.setTaskCreationTaskCountBackpressureThreshold(1);
+
+        PlanNodeId planNodeId = new PlanNodeId("planNodeId");
+        Session session = TestingSession.testSessionBuilder().build();
+        List<TaskSource> sources = new ArrayList<>();
+        sources.add(
+                new TaskSource(
+                        planNodeId,
+                        ImmutableSet.of(
+                                new ScheduledSplit(
+                                        0,
+                                        planNodeId,
+                                        new Split(
+                                                new ConnectorId("connector_id"),
+                                                new RemoteTransactionHandle(),
+                                                new RemoteSplit(new Location("0.0.0.0"), TaskId.valueOf("foo.0.0.0.0"))))),
+                        true));
+
+        TaskUpdateRequest updateRequest = new TaskUpdateRequest(
+                session.toSessionRepresentation(),
+                session.getIdentity().getExtraCredentials(),
+                Optional.of(createPlanFragment().toBytes(PLAN_FRAGMENT_JSON_CODEC)),
+                sources,
+                createInitialEmptyOutputBuffers(PARTITIONED),
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())), Optional.of(true));
+
+        try (SqlTaskManager sqlTaskManager = createSqlTaskManager(config)) {
+            TaskId taskId = TASK_ID;
+            TaskInfo taskInfo = createTask(sqlTaskManager, taskId, createInitialEmptyOutputBuffers(PARTITIONED).withNoMoreBufferIds());
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+
+            BooleanIntImmutablePair p = sqlTaskManager.shouldBackPressure(updateRequest);
+            assertTrue(p.leftBoolean());
         }
     }
 

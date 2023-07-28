@@ -70,7 +70,11 @@ public class TestTaskManagerConfig
                 .setStatisticsCpuTimerEnabled(true)
                 .setLegacyLifespanCompletionCondition(false)
                 .setTaskPriorityTracking(TASK_FAIR)
-                .setInterruptRunawaySplitsTimeout(new Duration(600, SECONDS)));
+                .setInterruptRunawaySplitsTimeout(new Duration(600, SECONDS))
+                .setTaskCreationBackpressureRetryAfter(60)
+                .setTaskCreationBackpressureEnabled(false)
+                .setTaskCreationTaskCountBackpressureThreshold(100)
+                .setTaskCreationFreeMemoryLowBackpressureThreshold(new DataSize(32, Unit.MEGABYTE)));
     }
 
     @Test
@@ -112,6 +116,10 @@ public class TestTaskManagerConfig
                 .put("task.legacy-lifespan-completion-condition", "true")
                 .put("task.task-priority-tracking", "QUERY_FAIR")
                 .put("task.interrupt-runaway-splits-timeout", "599s")
+                .put("task.task-creation-task-count-backpressure-threshold", "10")
+                .put("task.task-creation-free-memory-low-backpressure-threshold", "40MB")
+                .put("task.task-creation-backpressure-retry-after", "40")
+                .put("task.task-creation-backpressure-enabled", "true")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -149,7 +157,11 @@ public class TestTaskManagerConfig
                 .setStatisticsCpuTimerEnabled(false)
                 .setLegacyLifespanCompletionCondition(true)
                 .setTaskPriorityTracking(QUERY_FAIR)
-                .setInterruptRunawaySplitsTimeout(new Duration(599, SECONDS));
+                .setInterruptRunawaySplitsTimeout(new Duration(599, SECONDS))
+                .setTaskCreationTaskCountBackpressureThreshold(10)
+                .setTaskCreationFreeMemoryLowBackpressureThreshold(new DataSize(40, Unit.MEGABYTE))
+                .setTaskCreationBackpressureRetryAfter(40)
+                .setTaskCreationBackpressureEnabled(true);
 
         assertFullMapping(properties, expected);
     }

@@ -54,7 +54,8 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.server.RequestErrorTracker;
 import com.facebook.presto.server.SimpleHttpResponseCallback;
-import com.facebook.presto.server.SimpleHttpResponseHandler;
+import com.facebook.presto.server.TaskCreateOrUpdateResponseHandler;
+import com.facebook.presto.server.TaskCreationBackPressureException;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spi.PrestoException;
@@ -222,6 +223,9 @@ public final class HttpRemoteTask
 
     private final DecayCounter taskUpdateRequestSize;
 
+    private boolean firstTaskUpdate = true;
+    private final boolean isTaskCreationBackpressureEnabled;
+
     public HttpRemoteTask(
             Session session,
             TaskId taskId,
@@ -258,7 +262,8 @@ public final class HttpRemoteTask
             QueryManager queryManager,
             DecayCounter taskUpdateRequestSize,
             HandleResolver handleResolver,
-            ConnectorTypeSerdeManager connectorTypeSerdeManager)
+            ConnectorTypeSerdeManager connectorTypeSerdeManager,
+            boolean isTaskCreationBackpressureEnabled)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -316,6 +321,7 @@ public final class HttpRemoteTask
             this.maxUnacknowledgedSplits = getMaxUnacknowledgedSplitsPerTask(session);
             checkArgument(maxUnacknowledgedSplits > 0, "maxUnacknowledgedSplits must be > 0, found: %s", maxUnacknowledgedSplits);
 
+            this.isTaskCreationBackpressureEnabled = true;
             this.tableScanPlanNodeIds = ImmutableSet.copyOf(planFragment.getTableScanSchedulingOrder());
             this.remoteSourcePlanNodeIds = planFragment.getRemoteSourceNodes().stream()
                     .map(PlanNode::getId)
@@ -850,7 +856,8 @@ public final class HttpRemoteTask
                 fragment,
                 sources,
                 outputBuffers.get(),
-                writeInfo);
+                writeInfo,
+                isTaskCreationBackpressureEnabled ? Optional.of(firstTaskUpdate) : Optional.empty());
         byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toBytes(updateRequest);
         taskUpdateRequestSize.add(taskUpdateRequestJson.length);
 
@@ -894,7 +901,7 @@ public final class HttpRemoteTask
 
         Futures.addCallback(
                 future,
-                new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri(), stats.getHttpResponseStats(), REMOTE_TASK_ERROR),
+                new TaskCreateOrUpdateResponseHandler<>(new UpdateResponseHandler(sources), request.getUri(), stats.getHttpResponseStats(), REMOTE_TASK_ERROR),
                 executor);
     }
 
@@ -1108,6 +1115,7 @@ public final class HttpRemoteTask
                     synchronized (HttpRemoteTask.this) {
                         currentRequest = null;
                         sendPlan.set(value.isNeedsPlan());
+                        firstTaskUpdate = false;
                         currentRequestStartNanos = HttpRemoteTask.this.currentRequestStartNanos;
                     }
                     updateStats(currentRequestStartNanos);
@@ -1123,8 +1131,14 @@ public final class HttpRemoteTask
         @Override
         public void failed(Throwable cause)
         {
+            int delaySeconds = 0;
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
+                    if (cause instanceof TaskCreationBackPressureException) {
+                        TaskCreationBackPressureException reason = (TaskCreationBackPressureException) cause;
+                        delaySeconds = reason.getRetryAfter();
+                    }
+
                     long currentRequestStartNanos;
                     synchronized (HttpRemoteTask.this) {
                         currentRequest = null;
@@ -1149,7 +1163,12 @@ public final class HttpRemoteTask
                     failTask(e);
                 }
                 finally {
-                    sendUpdate();
+                    if (delaySeconds > 0) {
+                        errorScheduledExecutor.schedule(HttpRemoteTask.this::sendUpdate, delaySeconds, SECONDS);
+                    }
+                    else {
+                        sendUpdate();
+                    }
                 }
             }
         }
