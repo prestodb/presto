@@ -103,6 +103,9 @@ public abstract class AbstractTestNativeAggregations
 
         // distinct limit
         assertQueryResultCount("SELECT orderkey FROM lineitem GROUP BY 1 LIMIT 17", 17);
+
+        // aggregation with no grouping keys and no aggregates
+        assertQuery("with a as (select sum(nationkey) from nation) select x from a, unnest(array[1, 2,3]) as t(x)");
     }
 
     @Test
