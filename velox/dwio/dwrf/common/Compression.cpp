@@ -466,7 +466,9 @@ std::unique_ptr<BufferedOutputStream> createCompressor(
     case common::CompressionKind_LZO:
     case common::CompressionKind_LZ4:
     default:
-      DWIO_RAISE("compression codec");
+      VELOX_UNSUPPORTED(
+          "Unsupported dwrf compression type: {}",
+          compressionKindToString(kind));
   }
   return std::make_unique<PagedOutputStream>(
       bufferPool, bufferHolder, config, std::move(compressor), encrypter);

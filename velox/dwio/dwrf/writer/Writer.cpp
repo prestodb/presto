@@ -495,8 +495,14 @@ void Writer::close() {
 }
 
 dwrf::WriterOptions getDwrfOptions(const dwio::common::WriterOptions& options) {
+  std::map<std::string, std::string> configs;
+  if (options.compressionKind.has_value()) {
+    configs.emplace(
+        Config::COMPRESSION.configKey(),
+        std::to_string(options.compressionKind.value()));
+  }
   dwrf::WriterOptions dwrfOptions;
-  dwrfOptions.config = std::make_shared<Config>();
+  dwrfOptions.config = Config::fromMap(configs);
   dwrfOptions.schema = std::move(options.schema);
   dwrfOptions.memoryPool = options.memoryPool;
   return dwrfOptions;

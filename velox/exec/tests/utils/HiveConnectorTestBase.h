@@ -132,6 +132,7 @@ class HiveConnectorTestBase : public OperatorTestBase {
   /// @param bucketProperty if not nulll, specifies the property for a bucket
   /// table.
   /// @param locationHandle Location handle for the table write.
+  /// @param compressionKind compression algorithm to use for table write.
   static std::shared_ptr<connector::hive::HiveInsertTableHandle>
   makeHiveInsertTableHandle(
       const std::vector<std::string>& tableColumnNames,
@@ -140,7 +141,8 @@ class HiveConnectorTestBase : public OperatorTestBase {
       std::shared_ptr<connector::hive::HiveBucketProperty> bucketProperty,
       std::shared_ptr<connector::hive::LocationHandle> locationHandle,
       const dwio::common::FileFormat tableStorageFormat =
-          dwio::common::FileFormat::DWRF);
+          dwio::common::FileFormat::DWRF,
+      const std::optional<common::CompressionKind> compressionKind = {});
 
   static std::shared_ptr<connector::hive::HiveInsertTableHandle>
   makeHiveInsertTableHandle(
@@ -149,7 +151,8 @@ class HiveConnectorTestBase : public OperatorTestBase {
       const std::vector<std::string>& partitionedBy,
       std::shared_ptr<connector::hive::LocationHandle> locationHandle,
       const dwio::common::FileFormat tableStorageFormat =
-          dwio::common::FileFormat::DWRF);
+          dwio::common::FileFormat::DWRF,
+      const std::optional<common::CompressionKind> compressionKind = {});
 
   static std::shared_ptr<connector::hive::HiveColumnHandle> regularColumn(
       const std::string& name,

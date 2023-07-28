@@ -98,9 +98,9 @@ CompressionKind orcCompressionToCompressionKind(
     case proto::orc::CompressionKind::LZO:
       return CompressionKind::CompressionKind_LZO;
     case proto::orc::CompressionKind::LZ4:
-      return CompressionKind::CompressionKind_ZSTD;
-    case proto::orc::CompressionKind::ZSTD:
       return CompressionKind::CompressionKind_LZ4;
+    case proto::orc::CompressionKind::ZSTD:
+      return CompressionKind::CompressionKind_ZSTD;
   }
   return CompressionKind::CompressionKind_NONE;
 }

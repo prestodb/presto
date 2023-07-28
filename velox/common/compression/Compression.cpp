@@ -70,6 +70,8 @@ std::string compressionKindToString(CompressionKind kind) {
       return "zstd";
     case CompressionKind_LZ4:
       return "lz4";
+    case CompressionKind_GZIP:
+      return "gzip";
   }
   return folly::to<std::string>("unknown - ", kind);
 }

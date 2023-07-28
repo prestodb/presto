@@ -52,7 +52,6 @@ class Closeable {
   virtual void doClose() {}
 
   void destroy() {
-    DCHECK(closed_);
     if (!closed_) {
       DWIO_WARN_EVERY_N(1000, "close() not called");
       try {
@@ -61,6 +60,7 @@ class Closeable {
         DWIO_WARN("failed to call close()");
       }
     }
+    DCHECK(closed_);
   }
 
  private:

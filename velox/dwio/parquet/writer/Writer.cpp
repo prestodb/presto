@@ -187,6 +187,9 @@ parquet::WriterOptions getParquetOptions(
     const dwio::common::WriterOptions& options) {
   parquet::WriterOptions parquetOptions;
   parquetOptions.memoryPool = options.memoryPool;
+  if (options.compressionKind.has_value()) {
+    parquetOptions.compression = options.compressionKind.value();
+  }
   return parquetOptions;
 }
 

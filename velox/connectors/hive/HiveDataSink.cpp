@@ -438,6 +438,7 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
   dwio::common::WriterOptions options;
   options.schema = inputType_;
   options.memoryPool = connectorQueryCtx_->connectorMemoryPool();
+  options.compressionKind = insertTableHandle_->compressionKind();
   ioStats_.emplace_back(std::make_shared<dwio::common::IoStatistics>());
   writers_.emplace_back(writerFactory->createWriter(
       dwio::common::DataSink::create(

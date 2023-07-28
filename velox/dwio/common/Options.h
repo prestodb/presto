@@ -20,6 +20,7 @@
 #include <unordered_set>
 
 #include <folly/Executor.h>
+#include "velox/common/compression/Compression.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/dwio/common/ColumnSelector.h"
 #include "velox/dwio/common/ErrorTolerance.h"
@@ -599,6 +600,7 @@ class ReaderOptions {
 struct WriterOptions {
   TypePtr schema;
   velox::memory::MemoryPool* memoryPool;
+  std::optional<velox::common::CompressionKind> compressionKind = {};
 };
 
 } // namespace common

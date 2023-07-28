@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/common/compression/Compression.h"
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/PartitionIdGenerator.h"
 #include "velox/dwio/common/Options.h"
@@ -190,13 +191,21 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
   HiveInsertTableHandle(
       std::vector<std::shared_ptr<const HiveColumnHandle>> inputColumns,
       std::shared_ptr<const LocationHandle> locationHandle,
-      const dwio::common::FileFormat tableStorageFormat =
+      dwio::common::FileFormat tableStorageFormat =
           dwio::common::FileFormat::DWRF,
-      std::shared_ptr<HiveBucketProperty> bucketProperty = nullptr)
+      std::shared_ptr<HiveBucketProperty> bucketProperty = nullptr,
+      std::optional<common::CompressionKind> compressionKind = {})
       : inputColumns_(std::move(inputColumns)),
         locationHandle_(std::move(locationHandle)),
         tableStorageFormat_(tableStorageFormat),
-        bucketProperty_(std::move(bucketProperty)) {}
+        bucketProperty_(std::move(bucketProperty)),
+        compressionKind_(compressionKind) {
+    if (compressionKind.has_value()) {
+      VELOX_CHECK(
+          compressionKind.value() != common::CompressionKind_MAX,
+          "Unsupported compression type: CompressionKind_MAX")
+    }
+  }
 
   virtual ~HiveInsertTableHandle() = default;
 
@@ -207,6 +216,10 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
 
   const std::shared_ptr<const LocationHandle>& locationHandle() const {
     return locationHandle_;
+  }
+
+  std::optional<common::CompressionKind> compressionKind() const {
+    return compressionKind_;
   }
 
   dwio::common::FileFormat tableStorageFormat() const {
@@ -238,6 +251,7 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
   const std::shared_ptr<const LocationHandle> locationHandle_;
   const dwio::common::FileFormat tableStorageFormat_;
   const std::shared_ptr<HiveBucketProperty> bucketProperty_;
+  const std::optional<common::CompressionKind> compressionKind_;
 };
 
 /// Parameters for Hive writers.
