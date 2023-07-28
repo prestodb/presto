@@ -233,10 +233,11 @@ add_executable(velox_aggregation_runner_test AggregationRunnerTest.cpp)
 target_link_libraries(velox_aggregation_runner_test velox_aggregation_fuzzer
                       velox_aggregates velox_vector_test_lib gtest gtest_main)
 
-add_library(velox_simple_aggregate SimpleAverageAggregate.cpp)
+add_library(velox_simple_aggregate SimpleAverageAggregate.cpp
+                                   SimpleArrayAggAggregate.cpp)
 
 target_link_libraries(velox_simple_aggregate velox_exec velox_expression
-                      velox_expression_functions)
+                      velox_expression_functions velox_aggregates)
 
 add_executable(velox_simple_aggregate_test SimpleAggregateAdapterTest.cpp)
 

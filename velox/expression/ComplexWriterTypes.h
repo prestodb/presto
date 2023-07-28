@@ -212,6 +212,16 @@ class ArrayWriter {
     add_items(data);
   }
 
+  // Don't mutate elementVecotr_ through this API unless you know what you're
+  // doing.
+  typename child_writer_t::vector_t* elementsVector() {
+    return elementsVector_;
+  }
+
+  vector_size_t valuesOffset() const {
+    return valuesOffset_;
+  }
+
   // Any vector type with std-like optional-free interface.
   template <typename VectorType>
   void add_items(const VectorType& data) {

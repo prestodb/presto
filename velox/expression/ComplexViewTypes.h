@@ -1077,6 +1077,14 @@ class GenericView {
     return decoded_.base()->hashValueAt(decodedIndex());
   }
 
+  bool isNull() const {
+    return decoded_.isNullAt(index_);
+  }
+
+  const BaseVector* base() const {
+    return decoded_.base();
+  }
+
   bool operator==(const GenericView& other) const {
     return decoded_.base()->equalValueAt(
         other.decoded_.base(), decodedIndex(), other.decodedIndex());
