@@ -75,9 +75,19 @@ template <typename T>
 struct AsciiFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool call(int32_t& result, const arg_type<Varchar>& s) {
+  FOLLY_ALWAYS_INLINE void call(int32_t& result, const arg_type<Varchar>& s) {
+    if (s.empty()) {
+      result = 0;
+      return;
+    }
+    int size;
+    result = utf8proc_codepoint(s.data(), s.data() + s.size(), size);
+  }
+
+  FOLLY_ALWAYS_INLINE void callAscii(
+      int32_t& result,
+      const arg_type<Varchar>& s) {
     result = s.empty() ? 0 : s.data()[0];
-    return true;
   }
 };
 

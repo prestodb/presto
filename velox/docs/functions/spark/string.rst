@@ -6,7 +6,7 @@ Unless specified otherwise, all functions return NULL if at least one of the arg
 
 .. spark:function:: ascii(string) -> integer
 
-    Returns the numeric value of the first character of ``string``.
+    Returns unicode code point of the first character of ``string``. Returns 0 if ``string`` is empty.
 
 .. spark:function:: chr(n) -> varchar
 
