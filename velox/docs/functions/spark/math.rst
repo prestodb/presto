@@ -36,6 +36,10 @@ Mathematical Functions
     Returns ``x`` rounded up to the nearest integer.  
     Supported types are: BIGINT and DOUBLE.
 
+.. spark:function:: cosh(x) -> double
+
+    Returns the hyperbolic cosine of ``x``.
+
 .. spark:function:: csc(x) -> double
 
     Returns the cosecant of ``x``.

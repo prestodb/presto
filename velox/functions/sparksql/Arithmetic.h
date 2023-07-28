@@ -193,6 +193,14 @@ struct CscFunction {
 };
 
 template <typename T>
+struct CoshFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TInput& result, TInput a) {
+    result = std::cosh(a);
+  }
+};
+
+template <typename T>
 struct ToBinaryStringFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
