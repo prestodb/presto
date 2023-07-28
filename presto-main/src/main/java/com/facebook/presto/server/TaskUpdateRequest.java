@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_ABSENT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -62,6 +63,17 @@ public class TaskUpdateRequest
         this.sources = ImmutableList.copyOf(sources);
         this.outputIds = outputIds;
         this.tableWriteInfo = tableWriteInfo;
+    }
+
+    //This constructor is for testing purposes only and will soon be deprecated
+    @ThriftConstructor
+    public TaskUpdateRequest(
+            @JsonProperty("session") SessionRepresentation session,
+            @JsonProperty("extraCredentials") Map<String, String> extraCredentials,
+            @JsonProperty("fragment") Optional<byte[]> fragment
+    )
+    {
+        this(session, extraCredentials, fragment, ImmutableList.of(), OutputBuffers.createInitialEmptyOutputBuffers(ARBITRARY), Optional.empty());
     }
 
     @JsonProperty
