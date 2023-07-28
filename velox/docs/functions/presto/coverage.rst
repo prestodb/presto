@@ -14,18 +14,21 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     table.coverage tr:nth-child(1) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(1) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(1) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(1) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(1) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(1) td:nth-child(9) {background-color: #6BA81E;}
     table.coverage tr:nth-child(2) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(2) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(2) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(2) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(2) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(2) td:nth-child(9) {background-color: #6BA81E;}
     table.coverage tr:nth-child(3) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(3) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(3) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(3) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(3) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(3) td:nth-child(9) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(4) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(4) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(4) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(4) td:nth-child(4) {background-color: #6BA81E;}
@@ -33,29 +36,22 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     table.coverage tr:nth-child(4) td:nth-child(9) {background-color: #6BA81E;}
     table.coverage tr:nth-child(5) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(5) td:nth-child(2) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(5) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(5) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(5) td:nth-child(9) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(6) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(6) td:nth-child(2) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(6) td:nth-child(3) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(6) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(6) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(6) td:nth-child(9) {background-color: #6BA81E;}
     table.coverage tr:nth-child(7) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(7) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(7) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(7) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(7) td:nth-child(9) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(8) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(8) td:nth-child(2) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(8) td:nth-child(3) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(8) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(8) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(8) td:nth-child(9) {background-color: #6BA81E;}
     table.coverage tr:nth-child(9) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(9) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(9) td:nth-child(3) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(9) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(9) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(9) td:nth-child(9) {background-color: #6BA81E;}
     table.coverage tr:nth-child(10) td:nth-child(1) {background-color: #6BA81E;}
@@ -74,179 +70,198 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     table.coverage tr:nth-child(12) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(12) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(12) td:nth-child(4) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(12) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(12) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(13) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(13) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(13) td:nth-child(3) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(13) td:nth-child(4) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(13) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(14) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(14) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(14) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(14) td:nth-child(4) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(14) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(15) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(15) td:nth-child(5) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(15) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(16) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(16) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(16) td:nth-child(4) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(16) td:nth-child(5) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(17) td:nth-child(3) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(17) td:nth-child(4) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(17) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(18) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(18) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(18) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(18) td:nth-child(5) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(19) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(19) td:nth-child(2) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(19) td:nth-child(4) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(19) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(19) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(19) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(20) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(20) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(20) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(20) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(20) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(20) td:nth-child(7) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(21) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(21) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(21) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(21) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(21) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(21) td:nth-child(7) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(22) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(22) td:nth-child(2) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(22) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(22) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(22) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(22) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(23) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(23) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(23) td:nth-child(4) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(23) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(23) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(24) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(24) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(24) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(24) td:nth-child(4) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(24) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(25) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(25) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(25) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(25) td:nth-child(5) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(25) td:nth-child(7) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(26) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(26) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(26) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(26) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(27) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(27) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(27) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(27) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(27) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(27) td:nth-child(7) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(28) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(28) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(28) td:nth-child(3) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(29) td:nth-child(2) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(30) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(28) td:nth-child(4) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(28) td:nth-child(5) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(29) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(29) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(29) td:nth-child(5) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(30) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(30) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(30) td:nth-child(4) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(30) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(30) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(31) td:nth-child(2) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(31) td:nth-child(5) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(31) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(31) td:nth-child(4) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(32) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(32) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(32) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(32) td:nth-child(5) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(33) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(32) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(33) td:nth-child(3) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(33) td:nth-child(5) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(34) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(34) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(34) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(34) td:nth-child(5) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(35) td:nth-child(5) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(36) td:nth-child(5) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(37) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(37) td:nth-child(3) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(37) td:nth-child(5) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(38) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(35) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(35) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(35) td:nth-child(4) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(36) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(36) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(36) td:nth-child(4) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(37) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(38) td:nth-child(2) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(38) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(38) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(38) td:nth-child(7) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(39) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(39) td:nth-child(2) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(39) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(39) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(39) td:nth-child(7) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(40) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(40) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(40) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(40) td:nth-child(7) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(41) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(41) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(41) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(42) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(42) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(42) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(43) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(43) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(43) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(43) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(43) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(44) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(44) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(44) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(44) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(45) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(45) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(45) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(45) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(46) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(46) td:nth-child(3) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(46) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(46) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(47) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(47) td:nth-child(3) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(47) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(48) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(48) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(48) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(48) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(49) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(49) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(49) td:nth-child(5) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(50) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(50) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(50) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(51) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(51) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(51) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(51) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(51) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(52) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(52) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(52) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(52) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(53) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(53) td:nth-child(2) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(53) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(53) td:nth-child(5) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(53) td:nth-child(7) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(54) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(54) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(54) td:nth-child(5) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(54) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(55) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(55) td:nth-child(2) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(55) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(55) td:nth-child(5) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(56) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(55) td:nth-child(7) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(56) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(56) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(56) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(57) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(57) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(57) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(57) td:nth-child(7) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(58) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(58) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(58) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(58) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(59) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(59) td:nth-child(3) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(59) td:nth-child(5) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(59) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(59) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(60) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(60) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(60) td:nth-child(3) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(60) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(60) td:nth-child(7) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(61) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(61) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(61) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(61) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(62) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(62) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(62) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(62) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(62) td:nth-child(7) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(63) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(63) td:nth-child(3) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(63) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(63) td:nth-child(7) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(64) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(64) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(64) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(64) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(64) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(65) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(65) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(66) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(66) td:nth-child(3) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(69) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(67) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(67) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(68) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(68) td:nth-child(5) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(69) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(70) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(70) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(70) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(70) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(71) td:nth-child(1) {background-color: #6BA81E;}
-    table.coverage tr:nth-child(71) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(71) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(71) td:nth-child(5) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(72) td:nth-child(5) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(73) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(73) td:nth-child(5) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(74) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(75) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(75) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(76) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(76) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(77) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(77) td:nth-child(3) {background-color: #6BA81E;}
     </style>
 
 .. table::
@@ -256,75 +271,81 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     ========================================  ========================================  ========================================  ========================================  ========================================  ==  ========================================  ==  ========================================
     Scalar Functions                                                                                                                                                                                                      Aggregate Functions                           Window Functions
     ================================================================================================================================================================================================================  ==  ========================================  ==  ========================================
-    :func:`abs`                               :func:`date_diff`                         :func:`is_nan`                            :func:`replace`                           st_startpoint                                 :func:`approx_distinct`                       :func:`cume_dist`
-    :func:`acos`                              :func:`date_format`                       is_subnet_of                              :func:`reverse`                           st_symdifference                              :func:`approx_most_frequent`                  :func:`dense_rank`
-    :func:`all_match`                         :func:`date_parse`                        jaccard_index                             rgb                                       st_touches                                    :func:`approx_percentile`                     :func:`first_value`
-    :func:`any_match`                         :func:`date_trunc`                        :func:`json_array_contains`               :func:`round`                             st_union                                      :func:`approx_set`                            :func:`lag`
-    :func:`array_average`                     :func:`day`                               json_array_get                            :func:`rpad`                              st_within                                     :func:`arbitrary`                             :func:`last_value`
-    :func:`array_distinct`                    :func:`day_of_month`                      :func:`json_array_length`                 :func:`rtrim`                             st_x                                          :func:`array_agg`                             :func:`lead`
-    :func:`array_duplicates`                  :func:`day_of_week`                       json_extract                              scale_qdigest                             st_xmax                                       :func:`avg`                                   :func:`nth_value`
-    :func:`array_except`                      :func:`day_of_year`                       :func:`json_extract_scalar`               :func:`second`                            st_xmin                                       :func:`bitwise_and_agg`                       :func:`ntile`
-    :func:`array_frequency`                   :func:`degrees`                           :func:`json_format`                       :func:`sequence`                          st_y                                          :func:`bitwise_or_agg`                        :func:`percent_rank`
-    :func:`array_has_duplicates`              :func:`dow`                               :func:`json_parse`                        :func:`sha1`                              st_ymax                                       :func:`bool_and`                              :func:`rank`
-    :func:`array_intersect`                   :func:`doy`                               :func:`json_size`                         :func:`sha256`                            st_ymin                                       :func:`bool_or`                               :func:`row_number`
-    :func:`array_join`                        :func:`e`                                 :func:`least`                             :func:`sha512`                            :func:`strpos`                                :func:`checksum`
-    :func:`array_max`                         :func:`element_at`                        :func:`length`                            :func:`shuffle`                           :func:`strrpos`                               classification_fall_out
-    :func:`array_min`                         :func:`empty_approx_set`                  levenshtein_distance                      :func:`sign`                              :func:`substr`                                classification_miss_rate
-    :func:`array_normalize`                   enum_key                                  line_interpolate_point                    simplify_geometry                         :func:`tan`                                   classification_precision
-    :func:`array_position`                    :func:`exp`                               line_locate_point                         :func:`sin`                               :func:`tanh`                                  classification_recall
-    array_remove                              expand_envelope                           :func:`ln`                                :func:`slice`                             :func:`timezone_hour`                         classification_thresholds
-    :func:`array_sort`                        features                                  localtime                                 spatial_partitions                        :func:`timezone_minute`                       convex_hull_agg
-    :func:`array_sort_desc`                   :func:`filter`                            localtimestamp                            :func:`split`                             :func:`to_base`                               :func:`corr`
-    :func:`array_sum`                         flatten                                   :func:`log10`                             :func:`split_part`                        :func:`to_base64`                             :func:`count`
-    array_union                               flatten_geometry_collections              :func:`log2`                              split_to_map                              :func:`to_base64url`                          :func:`count_if`
-    :func:`arrays_overlap`                    :func:`floor`                             :func:`lower`                             split_to_multimap                         :func:`to_big_endian_32`                      :func:`covar_pop`
-    :func:`asin`                              fnv1_32                                   :func:`lpad`                              :func:`spooky_hash_v2_32`                 :func:`to_big_endian_64`                      :func:`covar_samp`
-    :func:`atan`                              fnv1_64                                   :func:`ltrim`                             :func:`spooky_hash_v2_64`                 to_geometry                                   differential_entropy
-    :func:`atan2`                             fnv1a_32                                  :func:`map`                               :func:`sqrt`                              :func:`to_hex`                                entropy
-    bar                                       fnv1a_64                                  :func:`map_concat`                        st_area                                   to_ieee754_32                                 evaluate_classifier_predictions
-    :func:`beta_cdf`                          :func:`format_datetime`                   :func:`map_entries`                       st_asbinary                               :func:`to_ieee754_64`                         :func:`every`
-    bing_tile                                 :func:`from_base`                         :func:`map_filter`                        st_astext                                 to_iso8601                                    geometric_mean
-    bing_tile_at                              :func:`from_base64`                       map_from_entries                          st_boundary                               to_milliseconds                               geometry_union_agg
-    bing_tile_children                        :func:`from_base64url`                    :func:`map_keys`                          st_buffer                                 to_spherical_geography                        :func:`histogram`
-    bing_tile_coordinates                     :func:`from_big_endian_32`                map_normalize                             st_centroid                               :func:`to_unixtime`                           khyperloglog_agg
-    bing_tile_parent                          :func:`from_big_endian_64`                :func:`map_values`                        st_contains                               :func:`to_utf8`                               kurtosis
-    bing_tile_polygon                         :func:`from_hex`                          :func:`map_zip_with`                      st_convexhull                             :func:`transform`                             learn_classifier
-    bing_tile_quadkey                         from_ieee754_32                           :func:`md5`                               st_coorddim                               :func:`transform_keys`                        learn_libsvm_classifier
-    bing_tile_zoom_level                      from_ieee754_64                           merge_hll                                 st_crosses                                :func:`transform_values`                      learn_libsvm_regressor
-    bing_tiles_around                         from_iso8601_date                         merge_khll                                st_difference                             :func:`trim`                                  learn_regressor
-    :func:`binomial_cdf`                      from_iso8601_timestamp                    :func:`millisecond`                       st_dimension                              :func:`truncate`                              make_set_digest
-    :func:`bit_count`                         :func:`from_unixtime`                     :func:`minute`                            st_disjoint                               typeof                                        :func:`map_agg`
-    :func:`bitwise_and`                       :func:`from_utf8`                         :func:`mod`                               st_distance                               uniqueness_distribution                       :func:`map_union`
-    :func:`bitwise_arithmetic_shift_right`    geometry_as_geojson                       :func:`month`                             st_endpoint                               :func:`upper`                                 :func:`map_union_sum`
-    :func:`bitwise_left_shift`                geometry_from_geojson                     multimap_from_entries                     st_envelope                               :func:`url_decode`                            :func:`max`
-    :func:`bitwise_logical_shift_right`       geometry_invalid_reason                   myanmar_font_encoding                     st_envelopeaspts                          :func:`url_encode`                            :func:`max_by`
-    :func:`bitwise_not`                       geometry_nearest_points                   myanmar_normalize_unicode                 st_equals                                 :func:`url_extract_fragment`                  :func:`merge`
-    :func:`bitwise_or`                        geometry_to_bing_tiles                    :func:`nan`                               st_exteriorring                           :func:`url_extract_host`                      merge_set_digest
-    :func:`bitwise_right_shift`               geometry_to_dissolved_bing_tiles          ngrams                                    st_geometries                             :func:`url_extract_parameter`                 :func:`min`
-    :func:`bitwise_right_shift_arithmetic`    geometry_union                            :func:`none_match`                        st_geometryfromtext                       :func:`url_extract_path`                      :func:`min_by`
-    :func:`bitwise_shift_left`                great_circle_distance                     :func:`normal_cdf`                        st_geometryn                              :func:`url_extract_port`                      multimap_agg
-    :func:`bitwise_xor`                       :func:`greatest`                          normalize                                 st_geometrytype                           :func:`url_extract_protocol`                  numeric_histogram
-    :func:`cardinality`                       hamming_distance                          now                                       st_geomfrombinary                         :func:`url_extract_query`                     qdigest_agg
-    cauchy_cdf                                hash_counts                               :func:`parse_datetime`                    st_interiorringn                          value_at_quantile                             reduce_agg
-    :func:`cbrt`                              :func:`hmac_md5`                          parse_duration                            st_interiorrings                          values_at_quantiles                           :func:`regr_intercept`
-    :func:`ceil`                              :func:`hmac_sha1`                         parse_presto_data_size                    st_intersection                           :func:`week`                                  :func:`regr_slope`
-    :func:`ceiling`                           :func:`hmac_sha256`                       :func:`pi`                                st_intersects                             :func:`week_of_year`                          set_agg
-    chi_squared_cdf                           :func:`hmac_sha512`                       poisson_cdf                               st_isclosed                               weibull_cdf                                   set_union
-    :func:`chr`                               :func:`hour`                              :func:`pow`                               st_isempty                                :func:`width_bucket`                          skewness
-    classify                                  :func:`infinity`                          :func:`power`                             st_isring                                 wilson_interval_lower                         spatial_partitioning
-    :func:`codepoint`                         intersection_cardinality                  quantile_at_value                         st_issimple                               wilson_interval_upper                         :func:`stddev`
-    color                                     inverse_beta_cdf                          :func:`quarter`                           st_isvalid                                word_stem                                     :func:`stddev_pop`
-    :func:`combinations`                      inverse_binomial_cdf                      :func:`radians`                           st_length                                 :func:`xxhash64`                              :func:`stddev_samp`
-    :func:`concat`                            inverse_cauchy_cdf                        :func:`rand`                              st_linefromtext                           :func:`year`                                  :func:`sum`
-    :func:`contains`                          inverse_chi_squared_cdf                   :func:`random`                            st_linestring                             :func:`year_of_week`                          tdigest_agg
-    :func:`cos`                               inverse_normal_cdf                        :func:`reduce`                            st_multipoint                             :func:`yow`                                   :func:`var_pop`
-    :func:`cosh`                              inverse_poisson_cdf                       :func:`regexp_extract`                    st_numgeometries                          :func:`zip`                                   :func:`var_samp`
-    cosine_similarity                         inverse_weibull_cdf                       :func:`regexp_extract_all`                st_numinteriorring                        :func:`zip_with`                              :func:`variance`
-    :func:`crc32`                             ip_prefix                                 :func:`regexp_like`                       st_numpoints
-    :func:`current_date`                      ip_subnet_max                             :func:`regexp_replace`                    st_overlaps
-    current_time                              ip_subnet_min                             regexp_split                              st_point
-    current_timestamp                         ip_subnet_range                           regress                                   st_pointn
-    current_timezone                          :func:`is_finite`                         reidentification_potential                st_points
-    :func:`date`                              :func:`is_infinite`                       render                                    st_polygon
-    :func:`date_add`                          :func:`is_json_scalar`                    :func:`repeat`                            st_relate
+    :func:`abs`                               :func:`date_format`                       :func:`is_finite`                         :func:`regexp_extract`                    st_point                                      :func:`approx_distinct`                       :func:`cume_dist`
+    :func:`acos`                              :func:`date_parse`                        :func:`is_infinite`                       :func:`regexp_extract_all`                st_pointn                                     :func:`approx_most_frequent`                  :func:`dense_rank`
+    :func:`all_match`                         :func:`date_trunc`                        :func:`is_json_scalar`                    :func:`regexp_like`                       st_points                                     :func:`approx_percentile`                     :func:`first_value`
+    any_keys_match                            :func:`day`                               :func:`is_nan`                            :func:`regexp_replace`                    st_polygon                                    :func:`approx_set`                            :func:`lag`
+    :func:`any_match`                         :func:`day_of_month`                      is_subnet_of                              regexp_split                              st_relate                                     :func:`arbitrary`                             :func:`last_value`
+    any_values_match                          :func:`day_of_week`                       jaccard_index                             regress                                   st_startpoint                                 :func:`array_agg`                             :func:`lead`
+    :func:`array_average`                     :func:`day_of_year`                       :func:`json_array_contains`               reidentification_potential                st_symdifference                              :func:`avg`                                   :func:`nth_value`
+    array_cum_sum                             :func:`degrees`                           json_array_get                            remove_nulls                              st_touches                                    :func:`bitwise_and_agg`                       :func:`ntile`
+    :func:`array_distinct`                    :func:`dow`                               :func:`json_array_length`                 render                                    st_union                                      :func:`bitwise_or_agg`                        :func:`percent_rank`
+    :func:`array_duplicates`                  :func:`doy`                               :func:`json_extract`                      :func:`repeat`                            st_within                                     :func:`bool_and`                              :func:`rank`
+    :func:`array_except`                      :func:`e`                                 :func:`json_extract_scalar`               :func:`replace`                           st_x                                          :func:`bool_or`                               :func:`row_number`
+    :func:`array_frequency`                   :func:`element_at`                        :func:`json_format`                       :func:`reverse`                           st_xmax                                       :func:`checksum`
+    :func:`array_has_duplicates`              :func:`empty_approx_set`                  :func:`json_parse`                        rgb                                       st_xmin                                       classification_fall_out
+    :func:`array_intersect`                   ends_with                                 :func:`json_size`                         :func:`round`                             st_y                                          classification_miss_rate
+    :func:`array_join`                        enum_key                                  key_sampling_percent                      :func:`rpad`                              st_ymax                                       classification_precision
+    :func:`array_max`                         :func:`exp`                               laplace_cdf                               :func:`rtrim`                             st_ymin                                       classification_recall
+    array_max_by                              expand_envelope                           last_day_of_month                         scale_qdigest                             starts_with                                   classification_thresholds
+    :func:`array_min`                         f_cdf                                     :func:`least`                             :func:`second`                            :func:`strpos`                                convex_hull_agg
+    array_min_by                              features                                  :func:`length`                            secure_random                             :func:`strrpos`                               :func:`corr`
+    :func:`array_normalize`                   :func:`filter`                            levenshtein_distance                      :func:`sequence`                          :func:`substr`                                :func:`count`
+    :func:`array_position`                    :func:`filter`                            line_interpolate_point                    :func:`sha1`                              :func:`tan`                                   :func:`count_if`
+    array_remove                              find_first                                line_locate_point                         :func:`sha256`                            :func:`tanh`                                  :func:`covar_pop`
+    :func:`array_sort`                        find_first_index                          :func:`ln`                                :func:`sha512`                            tdigest_agg                                   :func:`covar_samp`
+    :func:`array_sort_desc`                   :func:`flatten`                           localtime                                 :func:`shuffle`                           :func:`timezone_hour`                         differential_entropy
+    :func:`array_sum`                         flatten_geometry_collections              localtimestamp                            :func:`sign`                              :func:`timezone_minute`                       :func:`entropy`
+    :func:`array_union`                       :func:`floor`                             :func:`log10`                             simplify_geometry                         :func:`to_base`                               evaluate_classifier_predictions
+    :func:`arrays_overlap`                    fnv1_32                                   :func:`log2`                              :func:`sin`                               :func:`to_base64`                             :func:`every`
+    :func:`asin`                              fnv1_64                                   :func:`lower`                             :func:`slice`                             :func:`to_base64url`                          geometric_mean
+    :func:`atan`                              fnv1a_32                                  :func:`lpad`                              spatial_partitions                        :func:`to_big_endian_32`                      geometry_union_agg
+    :func:`atan2`                             fnv1a_64                                  :func:`ltrim`                             :func:`split`                             :func:`to_big_endian_64`                      :func:`histogram`
+    bar                                       :func:`format_datetime`                   :func:`map`                               :func:`split_part`                        to_geometry                                   khyperloglog_agg
+    :func:`beta_cdf`                          :func:`from_base`                         :func:`map_concat`                        split_to_map                              :func:`to_hex`                                :func:`kurtosis`
+    bing_tile                                 from_base32                               :func:`map_entries`                       split_to_multimap                         to_ieee754_32                                 learn_classifier
+    bing_tile_at                              :func:`from_base64`                       :func:`map_filter`                        :func:`spooky_hash_v2_32`                 :func:`to_ieee754_64`                         learn_libsvm_classifier
+    bing_tile_children                        :func:`from_base64url`                    :func:`map_from_entries`                  :func:`spooky_hash_v2_64`                 to_iso8601                                    learn_libsvm_regressor
+    bing_tile_coordinates                     :func:`from_big_endian_32`                :func:`map_keys`                          :func:`sqrt`                              to_milliseconds                               learn_regressor
+    bing_tile_parent                          :func:`from_big_endian_64`                map_normalize                             st_area                                   to_spherical_geography                        make_set_digest
+    bing_tile_polygon                         :func:`from_hex`                          map_remove_null_values                    st_asbinary                               :func:`to_unixtime`                           :func:`map_agg`
+    bing_tile_quadkey                         from_ieee754_32                           map_subset                                st_astext                                 :func:`to_utf8`                               :func:`map_union`
+    bing_tile_zoom_level                      from_ieee754_64                           map_top_n                                 st_boundary                               :func:`transform`                             :func:`map_union_sum`
+    bing_tiles_around                         from_iso8601_date                         map_top_n_keys                            st_buffer                                 :func:`transform_keys`                        :func:`max`
+    :func:`binomial_cdf`                      from_iso8601_timestamp                    map_top_n_values                          st_centroid                               :func:`transform_values`                      :func:`max_by`
+    :func:`bit_count`                         :func:`from_unixtime`                     :func:`map_values`                        st_contains                               :func:`trim`                                  :func:`merge`
+    :func:`bitwise_and`                       :func:`from_utf8`                         :func:`map_zip_with`                      st_convexhull                             :func:`trim_array`                            merge_set_digest
+    :func:`bitwise_arithmetic_shift_right`    gamma_cdf                                 :func:`md5`                               st_coorddim                               :func:`truncate`                              :func:`min`
+    :func:`bitwise_left_shift`                geometry_as_geojson                       merge_hll                                 st_crosses                                typeof                                        :func:`min_by`
+    :func:`bitwise_logical_shift_right`       geometry_from_geojson                     merge_khll                                st_difference                             uniqueness_distribution                       multimap_agg
+    :func:`bitwise_not`                       geometry_invalid_reason                   :func:`millisecond`                       st_dimension                              :func:`upper`                                 numeric_histogram
+    :func:`bitwise_or`                        geometry_nearest_points                   :func:`minute`                            st_disjoint                               :func:`url_decode`                            qdigest_agg
+    :func:`bitwise_right_shift`               geometry_to_bing_tiles                    :func:`mod`                               st_distance                               :func:`url_encode`                            reduce_agg
+    :func:`bitwise_right_shift_arithmetic`    geometry_to_dissolved_bing_tiles          :func:`month`                             st_endpoint                               :func:`url_extract_fragment`                  :func:`regr_intercept`
+    :func:`bitwise_shift_left`                geometry_union                            multimap_from_entries                     st_envelope                               :func:`url_extract_host`                      :func:`regr_slope`
+    :func:`bitwise_xor`                       great_circle_distance                     murmur3_x64_128                           st_envelopeaspts                          :func:`url_extract_parameter`                 :func:`set_agg`
+    :func:`cardinality`                       :func:`greatest`                          myanmar_font_encoding                     st_equals                                 :func:`url_extract_path`                      :func:`set_union`
+    :func:`cauchy_cdf`                        hamming_distance                          myanmar_normalize_unicode                 st_exteriorring                           :func:`url_extract_port`                      :func:`skewness`
+    :func:`cbrt`                              hash_counts                               :func:`nan`                               st_geometries                             :func:`url_extract_protocol`                  spatial_partitioning
+    :func:`ceil`                              :func:`hmac_md5`                          ngrams                                    st_geometryfromtext                       :func:`url_extract_query`                     :func:`stddev`
+    :func:`ceiling`                           :func:`hmac_sha1`                         no_keys_match                             st_geometryn                              uuid                                          :func:`stddev_pop`
+    :func:`chi_squared_cdf`                   :func:`hmac_sha256`                       no_values_match                           st_geometrytype                           value_at_quantile                             :func:`stddev_samp`
+    :func:`chr`                               :func:`hmac_sha512`                       :func:`none_match`                        st_geomfrombinary                         values_at_quantiles                           :func:`sum`
+    classify                                  :func:`hour`                              :func:`normal_cdf`                        st_interiorringn                          :func:`week`                                  tdigest_agg
+    :func:`codepoint`                         :func:`infinity`                          normalize                                 st_interiorrings                          :func:`week_of_year`                          :func:`var_pop`
+    color                                     intersection_cardinality                  now                                       st_intersection                           weibull_cdf                                   :func:`var_samp`
+    :func:`combinations`                      :func:`inverse_beta_cdf`                  :func:`parse_datetime`                    st_intersects                             :func:`width_bucket`                          :func:`variance`
+    :func:`concat`                            inverse_binomial_cdf                      parse_duration                            st_isclosed                               wilson_interval_lower
+    :func:`contains`                          inverse_cauchy_cdf                        parse_presto_data_size                    st_isempty                                wilson_interval_upper
+    :func:`cos`                               inverse_chi_squared_cdf                   :func:`pi`                                st_isring                                 word_stem
+    :func:`cosh`                              inverse_f_cdf                             pinot_binary_decimal_to_double            st_issimple                               :func:`xxhash64`
+    cosine_similarity                         inverse_gamma_cdf                         poisson_cdf                               st_isvalid                                :func:`year`
+    :func:`crc32`                             inverse_laplace_cdf                       :func:`pow`                               st_length                                 :func:`year_of_week`
+    :func:`current_date`                      inverse_normal_cdf                        :func:`power`                             st_linefromtext                           :func:`yow`
+    current_time                              inverse_poisson_cdf                       quantile_at_value                         st_linestring                             :func:`zip`
+    current_timestamp                         inverse_weibull_cdf                       :func:`quarter`                           st_multipoint                             :func:`zip_with`
+    current_timezone                          ip_prefix                                 :func:`radians`                           st_numgeometries
+    :func:`date`                              ip_subnet_max                             :func:`rand`                              st_numinteriorring
+    :func:`date_add`                          ip_subnet_min                             :func:`random`                            st_numpoints
+    :func:`date_diff`                         ip_subnet_range                           :func:`reduce`                            st_overlaps
     ========================================  ========================================  ========================================  ========================================  ========================================  ==  ========================================  ==  ========================================

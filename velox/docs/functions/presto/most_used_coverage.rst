@@ -21,6 +21,7 @@ Here is a list of most used scalar and aggregate Presto functions with functions
     table.coverage tr:nth-child(2) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(2) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(2) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(2) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(2) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(2) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(2) td:nth-child(9) {background-color: #6BA81E;}
@@ -78,6 +79,7 @@ Here is a list of most used scalar and aggregate Presto functions with functions
     table.coverage tr:nth-child(12) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(12) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(12) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(12) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(12) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(13) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(13) td:nth-child(2) {background-color: #6BA81E;}
@@ -86,19 +88,23 @@ Here is a list of most used scalar and aggregate Presto functions with functions
     table.coverage tr:nth-child(13) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(14) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(14) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(14) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(14) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(14) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(15) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(15) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(15) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(15) td:nth-child(4) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(15) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(16) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(16) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(16) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(16) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(17) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(17) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(17) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(17) td:nth-child(4) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(17) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(18) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(18) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(18) td:nth-child(3) {background-color: #6BA81E;}
@@ -114,7 +120,7 @@ Here is a list of most used scalar and aggregate Presto functions with functions
     Scalar Functions                                                                                                                                     Aggregate Functions              Window Functions
     ===============================================================================================================================================  ==  ===========================  ==  ===========================
     :func:`map`                  :func:`date_format`          :func:`element_at`           :func:`strpos`               :func:`arrays_overlap`           :func:`count`                    :func:`row_number`
-    :func:`lower`                :func:`json_extract_scalar`  :func:`abs`                  flatten                      :func:`from_big_endian_64`       :func:`sum`                      :func:`rank`
+    :func:`lower`                :func:`json_extract_scalar`  :func:`abs`                  :func:`flatten`              :func:`from_big_endian_64`       :func:`sum`                      :func:`rank`
     :func:`json_format`          :func:`array_sort`           :func:`round`                :func:`trim`                 :func:`md5`                      :func:`max`                      :func:`lag`
     :func:`upper`                :func:`transform_values`     :func:`map_filter`           :func:`map_zip_with`         :func:`xxhash64`                 :func:`array_agg`
     :func:`split`                :func:`map_entries`          :func:`regexp_extract`       :func:`year`                 :func:`to_hex`                   :func:`arbitrary`
@@ -124,11 +130,11 @@ Here is a list of most used scalar and aggregate Presto functions with functions
     :func:`map_concat`           :func:`substr`               :func:`greatest`             :func:`bitwise_and`          :func:`crc32`                    :func:`count_if`
     :func:`length`               :func:`date`                 :func:`date_trunc`           :func:`date_parse`           st_y                             :func:`approx_percentile`
     :func:`from_unixtime`        :func:`is_nan`               :func:`date_diff`            bing_tile_at                 st_x                             :func:`avg`
-    :func:`transform`            :func:`rand`                 :func:`array_max`            array_union                  now                              :func:`map_agg`
+    :func:`transform`            :func:`rand`                 :func:`array_max`            :func:`array_union`          now                              :func:`map_agg`
     :func:`to_unixtime`          :func:`filter`               from_iso8601_date            :func:`reverse`              :func:`truncate`                 :func:`min_by`
-    :func:`regexp_like`          :func:`sqrt`                 json_extract                 :func:`array_intersect`                                       :func:`stddev`
-    :func:`array_join`           :func:`least`                :func:`mod`                  :func:`repeat`                                                set_agg
+    :func:`regexp_like`          :func:`sqrt`                 :func:`json_extract`         :func:`array_intersect`                                       :func:`stddev`
+    :func:`array_join`           :func:`least`                :func:`mod`                  :func:`repeat`                                                :func:`set_agg`
     :func:`replace`              :func:`json_parse`           :func:`array_distinct`       st_geometryfromtext                                           :func:`histogram`
-    :func:`regexp_replace`       map_from_entries             :func:`pow`                  :func:`split_part`                                            set_union
+    :func:`regexp_replace`       :func:`map_from_entries`     :func:`pow`                  :func:`split_part`                                            :func:`set_union`
     :func:`parse_datetime`       :func:`date_add`             :func:`power`                :func:`log10`                                                 :func:`merge`
     ===========================  ===========================  ===========================  ===========================  ===========================  ==  ===========================  ==  ===========================

@@ -1,8 +1,11 @@
 abs
 acos
 all_match
+any_keys_match
 any_match
+any_values_match
 array_average
+array_cum_sum
 array_distinct
 array_duplicates
 array_except
@@ -11,7 +14,9 @@ array_has_duplicates
 array_intersect
 array_join
 array_max
+array_max_by
 array_min
+array_min_by
 array_normalize
 array_position
 array_remove
@@ -83,10 +88,15 @@ doy
 e
 element_at
 empty_approx_set
+ends_with
 enum_key
 exp
 expand_envelope
+f_cdf
 features
+filter
+find_first
+find_first_index
 filter
 flatten
 flatten_geometry_collections
@@ -97,6 +107,7 @@ fnv1a_32
 fnv1a_64
 format_datetime
 from_base
+from_base32
 from_base64
 from_base64url
 from_big_endian_32
@@ -108,6 +119,7 @@ from_iso8601_date
 from_iso8601_timestamp
 from_unixtime
 from_utf8
+gamma_cdf
 geometry_as_geojson
 geometry_from_geojson
 geometry_invalid_reason
@@ -130,6 +142,9 @@ inverse_beta_cdf
 inverse_binomial_cdf
 inverse_cauchy_cdf
 inverse_chi_squared_cdf
+inverse_f_cdf
+inverse_gamma_cdf
+inverse_laplace_cdf
 inverse_normal_cdf
 inverse_poisson_cdf
 inverse_weibull_cdf
@@ -151,6 +166,9 @@ json_extract_scalar
 json_format
 json_parse
 json_size
+key_sampling_percent
+laplace_cdf
+last_day_of_month
 least
 length
 levenshtein_distance
@@ -171,6 +189,11 @@ map_filter
 map_from_entries
 map_keys
 map_normalize
+map_remove_null_values
+map_subset
+map_top_n
+map_top_n_keys
+map_top_n_values
 map_values
 map_zip_with
 md5
@@ -181,10 +204,13 @@ minute
 mod
 month
 multimap_from_entries
+murmur3_x64_128
 myanmar_font_encoding
 myanmar_normalize_unicode
 nan
 ngrams
+no_keys_match
+no_values_match
 none_match
 normal_cdf
 normalize
@@ -193,6 +219,7 @@ parse_datetime
 parse_duration
 parse_presto_data_size
 pi
+pinot_binary_decimal_to_double
 poisson_cdf
 pow
 power
@@ -209,6 +236,7 @@ regexp_replace
 regexp_split
 regress
 reidentification_potential
+remove_nulls
 render
 repeat
 replace
@@ -219,6 +247,7 @@ rpad
 rtrim
 scale_qdigest
 second
+secure_random
 sequence
 sha1
 sha256
@@ -293,11 +322,13 @@ st_xmin
 st_y
 st_ymax
 st_ymin
+starts_with
 strpos
 strrpos
 substr
 tan
 tanh
+tdigest_agg
 timezone_hour
 timezone_minute
 to_base
@@ -318,6 +349,7 @@ transform
 transform_keys
 transform_values
 trim
+trim_array
 truncate
 typeof
 uniqueness_distribution
@@ -331,6 +363,7 @@ url_extract_path
 url_extract_port
 url_extract_protocol
 url_extract_query
+uuid
 value_at_quantile
 values_at_quantiles
 week
