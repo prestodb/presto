@@ -227,16 +227,12 @@ struct Timestamp {
 
   std::string toString(
       const Precision& precision = Precision::kNanoseconds) const {
-    // mbasmanova: error: no matching function for call to 'gmtime_r'
-    // mbasmanova: time_t is long not long long
-    // struct tm tmValue;
-    // auto bt = gmtime_r(&seconds_, &tmValue);
-    auto bt = gmtime((const time_t*)&seconds_);
-    if (!bt) {
-      const auto& error_message = folly::to<std::string>(
-          "Can't convert Seconds to time: ", folly::to<std::string>(seconds_));
-      throw std::runtime_error{error_message};
-    }
+    // gmtime is not thread-safe. Make sure to use gmtime_r.
+    std::tm tmValue;
+    VELOX_USER_CHECK_NOT_NULL(
+        gmtime_r((const time_t*)&seconds_, &tmValue),
+        "Can't convert seconds to time: {}",
+        folly::to<std::string>(seconds_));
 
     // return ISO 8601 time format.
     // %F - equivalent to "%Y-%m-%d" (the ISO 8601 date format)
@@ -250,7 +246,7 @@ struct Timestamp {
     auto value =
         precision == Precision::kMilliseconds ? nanos_ / 1'000'000 : nanos_;
     std::ostringstream oss;
-    oss << std::put_time(bt, "%FT%T");
+    oss << std::put_time(&tmValue, "%FT%T");
     oss << '.' << std::setfill('0') << std::setw(width) << value;
 
     return oss.str();
