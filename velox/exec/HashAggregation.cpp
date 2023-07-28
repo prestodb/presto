@@ -77,8 +77,8 @@ HashAggregation::HashAggregation(
               ? driverCtx->makeSpillConfig(operatorId)
               : std::nullopt),
       isPartialOutput_(isPartialOutput(aggregationNode->step())),
-      isDistinct_(aggregationNode->aggregates().empty()),
       isGlobal_(aggregationNode->groupingKeys().empty()),
+      isDistinct_(!isGlobal_ && aggregationNode->aggregates().empty()),
       maxExtendedPartialAggregationMemoryUsage_(
           driverCtx->queryConfig().maxExtendedPartialAggregationMemoryUsage()),
       maxPartialAggregationMemoryUsage_(

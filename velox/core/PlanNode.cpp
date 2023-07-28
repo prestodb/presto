@@ -117,9 +117,9 @@ AggregationNode::AggregationNode(
   //    SELECT sum(c) FROM t
   // Empty aggregates are used in distinct:
   //    SELECT distinct(b, c) FROM t GROUP BY a
-  VELOX_CHECK(
-      !groupingKeys_.empty() || !aggregates_.empty(),
-      "Aggregation must specify either grouping keys or aggregates");
+  // Sometimes there are no grouping keys and no aggregations:
+  //    WITH a AS (SELECT sum(x) from t)
+  //    SELECT y FROM a, UNNEST(array[1, 2,3]) as u(y)
 
   std::unordered_set<std::string> groupingKeyNames;
   groupingKeyNames.reserve(groupingKeys.size());

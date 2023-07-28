@@ -2494,4 +2494,22 @@ DEBUG_ONLY_TEST_F(AggregationTest, abortDuringInputgProcessing) {
   }
 }
 
+TEST_F(AggregationTest, noAggregationsNoGroupingKeys) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3}),
+  });
+
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .partialAggregation({}, {})
+                  .finalAggregation()
+                  .planNode();
+
+  auto result = AssertQueryBuilder(plan).copyResults(pool());
+
+  // 1 row.
+  ASSERT_EQ(result->size(), 1);
+  // Zero columns.
+  ASSERT_EQ(result->type()->size(), 0);
+}
 } // namespace facebook::velox::exec::test
