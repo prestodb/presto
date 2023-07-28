@@ -26,6 +26,9 @@ add_library(
   Driver.cpp
   EnforceSingleRow.cpp
   Exchange.cpp
+  ExchangeClient.cpp
+  ExchangeQueue.cpp
+  ExchangeSource.cpp
   FilterProject.cpp
   GroupId.cpp
   GroupingSet.cpp
