@@ -125,6 +125,23 @@ public class PrestoConnection
         initializeQueryInterceptors();
     }
 
+    public static PrestoConnection newConnectionWithSessionProperties(PrestoConnection connectionWithSessionProperties, Properties connectionProperties)
+            throws SQLException
+    {
+        if (connectionWithSessionProperties != null) {
+            Map<String, String> map = connectionWithSessionProperties.getSessionProperties();
+            if (map != null) {
+                PrestoDriverUri uri = new PrestoDriverUri(connectionWithSessionProperties.getMetaData().getURL(), connectionProperties);
+                PrestoConnection prestoConnection = new PrestoConnection(uri, connectionWithSessionProperties.queryExecutor);
+
+                map.forEach(prestoConnection::setSessionProperty);
+                return prestoConnection;
+            }
+        }
+
+        return connectionWithSessionProperties;
+    }
+
     @Override
     public Statement createStatement()
             throws SQLException
