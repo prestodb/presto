@@ -103,8 +103,9 @@ void MemoryReclaimer::abort(MemoryPool* pool) {
     // instead of the child pool as the latter always forwards the abort to its
     // root first.
     auto* reclaimer = child->reclaimer();
-    VELOX_CHECK_NOT_NULL(reclaimer);
-    reclaimer->abort(child);
+    if (reclaimer != nullptr) {
+      reclaimer->abort(child);
+    }
     return true;
   });
 }

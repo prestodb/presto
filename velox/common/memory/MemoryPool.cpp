@@ -638,6 +638,13 @@ bool MemoryPoolImpl::maybeReserve(uint64_t increment) {
   try {
     reserve(reservationToAdd, true);
   } catch (const std::exception& e) {
+    if (aborted()) {
+      // NOTE: we shall throw to stop the query execution if the root memory
+      // pool has been aborted. It is also unsafe to proceed as the memory abort
+      // code path might have already freed up the memory resource of this
+      // operator while it is under memory arbitration.
+      std::rethrow_exception(std::current_exception());
+    }
     return false;
   }
   return true;

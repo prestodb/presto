@@ -1755,6 +1755,71 @@ DEBUG_ONLY_TEST_F(
   Task::testingWaitForAllTasksToBeDeleted();
 }
 
+DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenMaybeReserveAndTaskAbort) {
+  setupMemory(kMemoryCapacity, 0);
+  const int numVectors = 10;
+  std::vector<RowVectorPtr> vectors;
+  for (int i = 0; i < numVectors; ++i) {
+    vectors.push_back(newVector());
+  }
+  createDuckDbTable(vectors);
+
+  auto queryCtx = newQueryCtx(kMemoryCapacity);
+  ASSERT_EQ(queryCtx->pool()->capacity(), 0);
+
+  // Create a fake query to hold some memory to trigger memory arbitration.
+  auto fakeQueryCtx = newQueryCtx(kMemoryCapacity);
+  auto fakeLeafPool = fakeQueryCtx->pool()->addLeafChild("fakeLeaf");
+  Allocation fakeAllocation{
+      fakeLeafPool.get(),
+      fakeLeafPool->allocate(kMemoryCapacity / 3),
+      kMemoryCapacity / 3};
+
+  std::unique_ptr<Allocation> injectAllocation;
+  std::atomic<bool> injectAllocationOnce{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::common::memory::MemoryPoolImpl::maybeReserve",
+      std::function<void(memory::MemoryPool*)>([&](memory::MemoryPool* pool) {
+        if (!injectAllocationOnce.exchange(false)) {
+          return;
+        }
+        // The injection memory allocation (with the given size) makes sure that
+        // maybeReserve fails and abort this query itself.
+        const size_t injectAllocationSize =
+            pool->freeBytes() + arbitrator_->stats().freeCapacityBytes;
+        injectAllocation.reset(new Allocation{
+            fakeLeafPool.get(),
+            fakeLeafPool->allocate(injectAllocationSize),
+            injectAllocationSize});
+      }));
+
+  const int numDrivers = 1;
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  std::thread queryThread([&]() {
+    VELOX_ASSERT_THROW(
+        AssertQueryBuilder(duckDbQueryRunner_)
+            .queryCtx(queryCtx)
+            .spillDirectory(spillDirectory->path)
+            .config(core::QueryConfig::kSpillEnabled, "true")
+            .config(core::QueryConfig::kJoinSpillEnabled, "true")
+            .config(core::QueryConfig::kSpillPartitionBits, "2")
+            .maxDrivers(numDrivers)
+            .plan(PlanBuilder()
+                      .values(vectors)
+                      .localPartition({"c0", "c1"})
+                      .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                      .localPartition(std::vector<std::string>{})
+                      .planNode())
+            .copyResults(pool()),
+        "Aborted for external error");
+  });
+
+  queryThread.join();
+  fakeAllocation.free();
+  injectAllocation->free();
+  Task::testingWaitForAllTasksToBeDeleted();
+}
+
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, asyncArbitratonFromNonDriverContext) {
   setupMemory(kMemoryCapacity, 0);
   const int numVectors = 10;

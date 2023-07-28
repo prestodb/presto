@@ -3067,6 +3067,27 @@ TEST_P(MemoryPoolTest, maybeReserve) {
   ASSERT_EQ(child->stats().numShrinks, 0);
 }
 
+TEST_P(MemoryPoolTest, maybeReserveFailWithAbort) {
+  constexpr int64_t kMaxSize = 1 << 30; // 1GB
+  constexpr int64_t kMB = 1 << 20;
+  MemoryManagerOptions options;
+  options.capacity = kMaxMemory;
+  options.arbitratorKind = MemoryArbitrator::Kind::kShared;
+  MemoryManager manager{options};
+  auto root = manager.addRootPool(
+      "maybeReserveFailWithAbort", kMaxSize, MemoryReclaimer::create());
+  auto child = root->addLeafChild("maybeReserveFailWithAbort");
+  // maybeReserve returns false if reservation fails.
+  ASSERT_FALSE(child->maybeReserve(2 * kMaxSize));
+  // maybeReserve throws if reservation fails and the memory pool is aborted.
+  child->abort();
+  ASSERT_TRUE(child->aborted());
+  ASSERT_TRUE(root->aborted());
+  VELOX_ASSERT_THROW(
+      child->maybeReserve(2 * kMaxSize),
+      "Memory pool maybeReserveFailWithAbort aborted");
+}
+
 // Model implementation of a GrowCallback.
 bool grow(int64_t size, int64_t hardLimit, MemoryPool& pool) {
   static std::mutex mutex;
