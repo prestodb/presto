@@ -64,12 +64,20 @@ VectorPtr CastExpr::castFromDate(
     }
     case TypeKind::TIMESTAMP: {
       static const int64_t kMillisPerDay{86'400'000};
+      const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
+      const auto sessionTzName = queryConfig.sessionTimezone();
+      const auto* timeZone =
+          (queryConfig.adjustTimestampToTimezone() && !sessionTzName.empty())
+          ? date::locate_zone(sessionTzName)
+          : nullptr;
       auto* resultFlatVector = castResult->as<FlatVector<Timestamp>>();
       applyToSelectedNoThrowLocal(context, rows, castResult, [&](int row) {
-        resultFlatVector->set(
-            row,
-            Timestamp::fromMillis(
-                inputFlatVector->valueAt(row) * kMillisPerDay));
+        auto timestamp = Timestamp::fromMillis(
+            inputFlatVector->valueAt(row) * kMillisPerDay);
+        if (timeZone) {
+          timestamp.toGMT(*timeZone);
+        }
+        resultFlatVector->set(row, timestamp);
       });
 
       return castResult;

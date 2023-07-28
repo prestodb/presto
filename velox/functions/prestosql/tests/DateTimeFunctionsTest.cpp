@@ -3307,3 +3307,68 @@ TEST_F(DateTimeFunctionsTest, timestampWithTimezoneComparisons) {
   auto expectedGte = makeNullableFlatVector<bool>({true, false, true});
   runAndCompare("c0 >= c1", inputs, expectedGte);
 }
+
+TEST_F(DateTimeFunctionsTest, castDateToTimestamp) {
+  const int64_t kSecondsInDay = kMillisInDay / 1'000;
+  const auto castDateToTimestamp = [&](const std::optional<int32_t> date) {
+    return evaluateOnce<Timestamp, int32_t>(
+        "cast(c0 AS timestamp)", {date}, {DATE()});
+  };
+
+  EXPECT_EQ(Timestamp(0, 0), castDateToTimestamp(DATE()->toDays("1970-01-01")));
+  EXPECT_EQ(
+      Timestamp(kSecondsInDay, 0),
+      castDateToTimestamp(DATE()->toDays("1970-01-02")));
+  EXPECT_EQ(
+      Timestamp(2 * kSecondsInDay, 0),
+      castDateToTimestamp(DATE()->toDays("1970-01-03")));
+  EXPECT_EQ(
+      Timestamp(18297 * kSecondsInDay, 0),
+      castDateToTimestamp(DATE()->toDays("2020-02-05")));
+  EXPECT_EQ(
+      Timestamp(-1 * kSecondsInDay, 0),
+      castDateToTimestamp(DATE()->toDays("1969-12-31")));
+  EXPECT_EQ(
+      Timestamp(-18297 * kSecondsInDay, 0),
+      castDateToTimestamp(DATE()->toDays("1919-11-28")));
+
+  const auto tz = "America/Los_Angeles";
+  const auto kTimezoneOffset = 8 * kMillisInHour / 1'000;
+  setQueryTimeZone(tz);
+  EXPECT_EQ(
+      Timestamp(kTimezoneOffset, 0),
+      castDateToTimestamp(DATE()->toDays("1970-01-01")));
+  EXPECT_EQ(
+      Timestamp(kSecondsInDay + kTimezoneOffset, 0),
+      castDateToTimestamp(DATE()->toDays("1970-01-02")));
+  EXPECT_EQ(
+      Timestamp(2 * kSecondsInDay + kTimezoneOffset, 0),
+      castDateToTimestamp(DATE()->toDays("1970-01-03")));
+  EXPECT_EQ(
+      Timestamp(18297 * kSecondsInDay + kTimezoneOffset, 0),
+      castDateToTimestamp(DATE()->toDays("2020-02-05")));
+  EXPECT_EQ(
+      Timestamp(-1 * kSecondsInDay + kTimezoneOffset, 0),
+      castDateToTimestamp(DATE()->toDays("1969-12-31")));
+  EXPECT_EQ(
+      Timestamp(-18297 * kSecondsInDay + kTimezoneOffset, 0),
+      castDateToTimestamp(DATE()->toDays("1919-11-28")));
+
+  disableAdjustTimestampToTimezone();
+  EXPECT_EQ(Timestamp(0, 0), castDateToTimestamp(DATE()->toDays("1970-01-01")));
+  EXPECT_EQ(
+      Timestamp(kSecondsInDay, 0),
+      castDateToTimestamp(DATE()->toDays("1970-01-02")));
+  EXPECT_EQ(
+      Timestamp(2 * kSecondsInDay, 0),
+      castDateToTimestamp(DATE()->toDays("1970-01-03")));
+  EXPECT_EQ(
+      Timestamp(18297 * kSecondsInDay, 0),
+      castDateToTimestamp(DATE()->toDays("2020-02-05")));
+  EXPECT_EQ(
+      Timestamp(-1 * kSecondsInDay, 0),
+      castDateToTimestamp(DATE()->toDays("1969-12-31")));
+  EXPECT_EQ(
+      Timestamp(-18297 * kSecondsInDay, 0),
+      castDateToTimestamp(DATE()->toDays("1919-11-28")));
+}
