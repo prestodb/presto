@@ -30,6 +30,9 @@
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include <velox/core/Expressions.h>
+#include "velox/connectors/hive/TableHandle.h"
+#include "velox/connectors/hive/HiveDataSink.h"
+#include "velox/expression/Expr.h"
 // clang-format on
 
 #include <folly/container/F14Set.h>

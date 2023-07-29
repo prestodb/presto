@@ -26,6 +26,7 @@
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
+#include "velox/connectors/hive/TableHandle.h"
 
 namespace fs = boost::filesystem;
 
