@@ -84,10 +84,13 @@ add_executable(presto_server PrestoMain.cpp)
 target_link_libraries(presto_server presto_server_lib velox_hive_connector
                       velox_tpch_connector)
 
-add_library(presto_json_signature_parser JsonSignatureParser.cpp)
+if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
+  add_library(presto_server_remote_function JsonSignatureParser.cpp
+                                            RemoteFunctionRegisterer.cpp)
 
-target_link_libraries(presto_json_signature_parser velox_expression
-                      ${FOLLY_WITH_DEPENDENCIES})
+  target_link_libraries(presto_server_remote_function velox_expression
+                        velox_functions_remote ${FOLLY_WITH_DEPENDENCIES})
+endif()
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
