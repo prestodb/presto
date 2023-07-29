@@ -153,27 +153,27 @@ TEST_F(JsonSignatureParserTest, multiple) {
           ],
           "schema": "spark",
           "routineCharacteristics": {
-          "language": "CPP",
-        "determinism": "DETERMINISTIC",
-        "nullCallClause": "CALLED_ON_NULL_INPUT"
-      }
-    },
-    {
-      "docString": "example 2",
-      "outputType": "varchar",
-      "paramTypes": [
-        "varchar",
-        "varchar"
-      ],
-      "schema": "spark",
-      "routineCharacteristics": {
-        "language": "CPP",
-        "determinism": "DETERMINISTIC",
-        "nullCallClause": "CALLED_ON_NULL_INPUT"
-      }
+            "language": "CPP",
+            "determinism": "DETERMINISTIC",
+            "nullCallClause": "CALLED_ON_NULL_INPUT"
+          }
+        },
+        {
+          "docString": "example 2",
+          "outputType": "varchar",
+          "paramTypes": [
+            "varchar",
+            "varchar"
+          ],
+          "schema": "spark",
+          "routineCharacteristics": {
+            "language": "CPP",
+            "determinism": "DETERMINISTIC",
+            "nullCallClause": "CALLED_ON_NULL_INPUT"
+          }
+        }
+      ]
     }
-  ]
-  }
   })";
 
   JsonSignatureParser parser(input);
