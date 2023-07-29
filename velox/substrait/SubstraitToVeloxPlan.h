@@ -20,6 +20,11 @@
 #include "velox/core/PlanNode.h"
 #include "velox/substrait/SubstraitToVeloxExpr.h"
 
+#ifndef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+#include "velox/connectors/hive/TableHandle.h"
+#include "velox/dwio/common/Options.h"
+#endif
+
 namespace facebook::velox::substrait {
 
 /// This class is used to convert the Substrait plan into Velox plan.

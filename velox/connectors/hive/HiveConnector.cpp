@@ -17,6 +17,11 @@
 #include "velox/connectors/hive/HiveConnector.h"
 
 #include "velox/common/base/Fs.h"
+#ifndef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+#include "velox/connectors/hive/HiveConfig.h"
+#include "velox/connectors/hive/HiveDataSink.h"
+#include "velox/connectors/hive/HiveDataSource.h"
+#endif
 #include "velox/connectors/hive/HivePartitionFunction.h"
 // Meta's buck build system needs this check.
 #ifdef VELOX_ENABLE_GCS
@@ -64,6 +69,47 @@ HiveConnector::HiveConnector(
             << numCachedFileHandles(properties.get())
             << " cached file handles.";
 }
+
+std::unique_ptr<DataSource> HiveConnector::createDataSource(
+    const RowTypePtr& outputType,
+    const std::shared_ptr<ConnectorTableHandle>& tableHandle,
+    const std::unordered_map<
+        std::string,
+        std::shared_ptr<connector::ColumnHandle>>& columnHandles,
+    ConnectorQueryCtx* connectorQueryCtx) {
+  dwio::common::ReaderOptions options(connectorQueryCtx->memoryPool());
+  options.setMaxCoalesceBytes(
+      HiveConfig::maxCoalescedBytes(connectorQueryCtx->config()));
+  options.setMaxCoalesceDistance(
+      HiveConfig::maxCoalescedDistanceBytes(connectorQueryCtx->config()));
+  options.setFileColumnNamesReadAsLowerCase(
+      HiveConfig::isFileColumnNamesReadAsLowerCase(
+          connectorQueryCtx->config()));
+  return std::make_unique<HiveDataSource>(
+      outputType,
+      tableHandle,
+      columnHandles,
+      &fileHandleFactory_,
+      connectorQueryCtx->expressionEvaluator(),
+      connectorQueryCtx->cache(),
+      connectorQueryCtx->scanId(),
+      executor_,
+      options);
+}
+
+std::unique_ptr<DataSink> HiveConnector::createDataSink(
+    RowTypePtr inputType,
+    std::shared_ptr<ConnectorInsertTableHandle> connectorInsertTableHandle,
+    ConnectorQueryCtx* connectorQueryCtx,
+    CommitStrategy commitStrategy) {
+  auto hiveInsertHandle = std::dynamic_pointer_cast<HiveInsertTableHandle>(
+      connectorInsertTableHandle);
+  VELOX_CHECK_NOT_NULL(
+      hiveInsertHandle, "Hive connector expecting hive write handle!");
+  return std::make_unique<HiveDataSink>(
+      inputType, hiveInsertHandle, connectorQueryCtx, commitStrategy);
+}
+
 std::unique_ptr<core::PartitionFunction> HivePartitionFunctionSpec::create(
     int numPartitions) const {
   std::vector<int> bucketToPartitions;

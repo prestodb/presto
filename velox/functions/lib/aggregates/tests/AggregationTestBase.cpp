@@ -26,7 +26,12 @@
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
 #include "velox/expression/SignatureBinder.h"
+
+#ifndef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+#include "velox/connectors/hive/HiveConnectorSplit.h"
+#else
 #include "velox/vector/tests/utils/VectorMaker.h"
+#endif
 
 using facebook::velox::exec::test::AssertQueryBuilder;
 using facebook::velox::exec::test::CursorParameters;

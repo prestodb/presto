@@ -15,17 +15,28 @@
  */
 #pragma once
 
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
 #include "velox/common/caching/SsdFile.h" // Needed by presto_cpp
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/HiveDataSource.h"
 #include "velox/dwio/common/DataSink.h"
+#endif
+
+#include "velox/connectors/Connector.h"
+#include "velox/connectors/hive/FileHandle.h"
+#include "velox/core/PlanNode.h"
+
+namespace facebook::velox::dwio::common {
+class DataSink;
+class DataSource;
+} // namespace facebook::velox::dwio::common
 
 namespace facebook::velox::connector::hive {
 
 class HiveConnector : public Connector {
  public:
-  explicit HiveConnector(
+  HiveConnector(
       const std::string& id,
       std::shared_ptr<const Config> properties,
       folly::Executor* FOLLY_NULLABLE executor);
@@ -40,26 +51,7 @@ class HiveConnector : public Connector {
       const std::unordered_map<
           std::string,
           std::shared_ptr<connector::ColumnHandle>>& columnHandles,
-      ConnectorQueryCtx* connectorQueryCtx) override {
-    dwio::common::ReaderOptions options(connectorQueryCtx->memoryPool());
-    options.setMaxCoalesceBytes(
-        HiveConfig::maxCoalescedBytes(connectorQueryCtx->config()));
-    options.setMaxCoalesceDistance(
-        HiveConfig::maxCoalescedDistanceBytes(connectorQueryCtx->config()));
-    options.setFileColumnNamesReadAsLowerCase(
-        HiveConfig::isFileColumnNamesReadAsLowerCase(
-            connectorQueryCtx->config()));
-    return std::make_unique<HiveDataSource>(
-        outputType,
-        tableHandle,
-        columnHandles,
-        &fileHandleFactory_,
-        connectorQueryCtx->expressionEvaluator(),
-        connectorQueryCtx->cache(),
-        connectorQueryCtx->scanId(),
-        executor_,
-        options);
-  }
+      ConnectorQueryCtx* connectorQueryCtx) override;
 
   bool supportsSplitPreload() override {
     return true;
@@ -69,14 +61,7 @@ class HiveConnector : public Connector {
       RowTypePtr inputType,
       std::shared_ptr<ConnectorInsertTableHandle> connectorInsertTableHandle,
       ConnectorQueryCtx* connectorQueryCtx,
-      CommitStrategy commitStrategy) override final {
-    auto hiveInsertHandle = std::dynamic_pointer_cast<HiveInsertTableHandle>(
-        connectorInsertTableHandle);
-    VELOX_CHECK_NOT_NULL(
-        hiveInsertHandle, "Hive connector expecting hive write handle!");
-    return std::make_unique<HiveDataSink>(
-        inputType, hiveInsertHandle, connectorQueryCtx, commitStrategy);
-  }
+      CommitStrategy commitStrategy) override final;
 
   folly::Executor* FOLLY_NULLABLE executor() const override {
     return executor_;

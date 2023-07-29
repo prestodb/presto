@@ -21,6 +21,10 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
 
+#ifndef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+#include "velox/connectors/hive/HiveDataSource.h"
+#endif
+
 namespace facebook::velox::connector::hive {
 namespace {
 

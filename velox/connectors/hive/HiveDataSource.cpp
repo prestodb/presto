@@ -20,11 +20,14 @@
 #include <unordered_map>
 
 #include "velox/common/caching/AsyncDataCache.h"
-#include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/common/CachedBufferedInput.h"
 #include "velox/dwio/common/ReaderFactory.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
 #include "velox/expression/FieldReference.h"
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+#include "velox/connectors/hive/HiveConnectorSplit.h"
+#endif
 
 namespace facebook::velox::connector::hive {
 
