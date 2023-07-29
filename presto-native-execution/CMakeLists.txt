@@ -45,10 +45,16 @@ set(CMAKE_CXX_FLAGS
 
 # Forwards user input to VELOX_ENABLE_S3.
 option(PRESTO_ENABLE_S3 "Build S3 connector" OFF)
+
 # Forwards user input to VELOX_ENABLE_HDFS.
 option(PRESTO_ENABLE_HDFS "Build HDFS connector" OFF)
+
 # Forwards user input to VELOX_ENABLE_PARQUET.
 option(PRESTO_ENABLE_PARQUET "Enable Parquet support" OFF)
+
+# Forwards user input to VELOX_ENABLE_REMOTE_FUNCTIONS.
+option(PRESTO_ENABLE_REMOTE_FUNCTIONS "Enable remote function support" OFF)
+
 option(PRESTO_ENABLE_TESTING "Enable tests" ON)
 
 # Set all Velox options below
@@ -70,6 +76,12 @@ if(PRESTO_ENABLE_PARQUET)
   set(VELOX_ENABLE_PARQUET
       ON
       CACHE BOOL "Enable Parquet support")
+endif()
+
+if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
+  set(VELOX_ENABLE_REMOTE_FUNCTIONS
+      ON
+      CACHE BOOL "Enable remote function support")
 endif()
 
 set(VELOX_BUILD_TESTING
