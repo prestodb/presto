@@ -184,6 +184,7 @@ import com.facebook.presto.operator.scalar.sql.ArraySqlFunctions;
 import com.facebook.presto.operator.scalar.sql.MapNormalizeFunction;
 import com.facebook.presto.operator.scalar.sql.MapSqlFunctions;
 import com.facebook.presto.operator.scalar.sql.SimpleSamplingPercent;
+import com.facebook.presto.operator.scalar.sql.StringSqlFunctions;
 import com.facebook.presto.operator.window.CumulativeDistributionFunction;
 import com.facebook.presto.operator.window.DenseRankFunction;
 import com.facebook.presto.operator.window.FirstValueFunction;
@@ -904,6 +905,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .sqlInvokedScalars(ArrayIntersectFunction.class)
                 .sqlInvokedScalars(MapSqlFunctions.class)
                 .sqlInvokedScalars(SimpleSamplingPercent.class)
+                .sqlInvokedScalars(StringSqlFunctions.class)
                 .scalar(DynamicFilterPlaceholderFunction.class)
                 .scalars(EnumCasts.class)
                 .scalars(LongEnumOperators.class)
