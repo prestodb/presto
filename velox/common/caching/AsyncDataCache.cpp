@@ -104,8 +104,10 @@ void AsyncDataCacheEntry::initialize(FileCacheKey key) {
   ClockTimer t(shard_->allocClocks());
   if (size_ < AsyncDataCacheEntry::kTinyDataSize) {
     tinyData_.resize(size_);
+    tinyData_.shrink_to_fit();
   } else {
     tinyData_.clear();
+    tinyData_.shrink_to_fit();
     auto sizePages = bits::roundUp(size_, memory::AllocationTraits::kPageSize) /
         memory::AllocationTraits::kPageSize;
     if (cache->allocator()->allocateNonContiguous(sizePages, data_)) {
@@ -380,11 +382,12 @@ void CacheShard::evict(uint64_t bytesToFree, bool evictAllUnpinned) {
         largeFreed += candidate->data_.byteSize();
         toFree.push_back(std::move(candidate->data()));
         removeEntryLocked(candidate);
-        freeEntries_.push_back(std::move(*iter));
         emptySlots_.push_back(entryIndex);
         tinyFreed += candidate->tinyData_.size();
         candidate->tinyData_.clear();
+        candidate->tinyData_.shrink_to_fit();
         candidate->size_ = 0;
+        tryAddFreeEntry(std::move(*iter));
         ++numEvict_;
         if (score) {
           sumEvictScore_ += score;
@@ -407,6 +410,14 @@ void CacheShard::evict(uint64_t bytesToFree, bool evictAllUnpinned) {
     cache_->saveToSsd();
   } else if (evictSaveableSkipped) {
     ++cache_->numSkippedSaves();
+  }
+}
+
+void CacheShard::tryAddFreeEntry(std::unique_ptr<AsyncDataCacheEntry>&& entry) {
+  freeEntries_.push_back(std::move(entry));
+  // If we have too many free entries, we free up half of them to save space.
+  if (freeEntries_.size() >= kMaxFreeEntries) {
+    freeEntries_.resize(kMaxFreeEntries >> 1);
   }
 }
 

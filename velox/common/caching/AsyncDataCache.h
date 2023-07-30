@@ -564,6 +564,7 @@ class CacheShard {
   }
 
  private:
+  static constexpr uint32_t kMaxFreeEntries = 1 << 10;
   static constexpr int32_t kNoThreshold = std::numeric_limits<int32_t>::max();
 
   void calibrateThreshold();
@@ -577,6 +578,8 @@ class CacheShard {
   CachePin initEntry(RawFileCacheKey key, AsyncDataCacheEntry* entry);
 
   void freeAllocations(std::vector<memory::Allocation>& allocations);
+
+  void tryAddFreeEntry(std::unique_ptr<AsyncDataCacheEntry>&& entry);
 
   mutable std::mutex mutex_;
   folly::F14FastMap<RawFileCacheKey, AsyncDataCacheEntry*> entryMap_;
