@@ -303,6 +303,12 @@ public abstract class AbstractTestNativeAggregations
     }
 
     @Test
+    public void testMultiMapAgg()
+    {
+        assertQuery("SELECT orderkey, multimap_agg(linenumber % 3, discount) FROM lineitem GROUP BY 1");
+    }
+
+    @Test
     public void testMarkDistinct()
     {
         assertQuery("SELECT count(distinct orderkey), count(distinct linenumber) FROM lineitem");
