@@ -178,21 +178,31 @@ public abstract class AbstractTestNativeAggregations
     {
         // tinyint
         assertQuery("SELECT min(cast(linenumber as tinyint)), max(cast(linenumber as tinyint)) FROM lineitem");
+        assertQuery("SELECT min(cast(linenumber as tinyint), 2), max(cast(linenumber as tinyint), 3) FROM lineitem");
         // smallint
         assertQuery("SELECT min(cast(linenumber as smallint)), max(cast(linenumber as smallint)) FROM lineitem");
+        assertQuery("SELECT min(cast(linenumber as smallint), 2), max(cast(linenumber as smallint), 3) FROM lineitem");
         // integer
         assertQuery("SELECT min(linenumber), max(linenumber) FROM lineitem");
+        assertQuery("SELECT min(linenumber, 3), max(linenumber, 2) FROM lineitem");
         // bigint
         assertQuery("SELECT min(orderkey), max(orderkey) FROM lineitem");
+        assertQuery("SELECT min(orderkey, 10), max(orderkey, 100) FROM lineitem");
         // real
         assertQuery("SELECT min(cast(quantity as real)), max(cast(quantity as real)) FROM lineitem");
+        assertQuery("SELECT min(cast(quantity as real), 7), max(cast(quantity as real), 5) FROM lineitem");
         // double
         assertQuery("SELECT min(quantity), max(quantity) FROM lineitem");
+        assertQuery("SELECT min(quantity, 8), max(quantity, 6) FROM lineitem");
         // timestamp
         assertQuery("SELECT min(from_unixtime(orderkey)), max(from_unixtime(orderkey)) FROM lineitem");
+        assertQueryFails("SELECT min(from_unixtime(orderkey), 2), max(from_unixtime(orderkey), 3) FROM lineitem",
+                ".*Aggregate function signature is not supported.*");
         // Commitdate is cast to date here since the original commitdate column read from lineitem in dwrf format is
         // of type char. The cast to date can be removed for Parquet which has date support.
         assertQuery("SELECT min(cast(commitdate as date)), max(cast(commitdate as date)) FROM lineitem");
+        assertQueryFails("SELECT min(cast(commitdate as date), 2), max(cast(commitdate as date), 3) FROM lineitem",
+                ".*Aggregate function signature is not supported.*");
     }
 
     @Test
