@@ -130,6 +130,7 @@ TEST_F(E2EFilterTest, compression) {
     options_.compression = compression;
 
     testWithTypes(
+        "tinyint_val:tinyint,"
         "short_val:smallint,"
         "int_val:int,"
         "long_val:bigint",
@@ -163,9 +164,19 @@ TEST_F(E2EFilterTest, compression) {
               -999, // rareMin
               30000, // rareMax
               true); // keepNulls
+
+          makeIntDistribution<int8_t>(
+              "tinyint_val",
+              10, // min
+              100, // max
+              22, // repeats
+              19, // rareFrequency
+              -99, // rareMin
+              3000, // rareMax
+              true); // keepNulls
         },
         true,
-        {"short_val", "int_val", "long_val"},
+        {"tinyint_val", "short_val", "int_val", "long_val"},
         3);
   }
 }

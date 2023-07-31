@@ -169,6 +169,18 @@ void SelectiveColumnReader::getIntValues(
           VELOX_FAIL("Unsupported value size: {}", valueSize_);
       }
       break;
+      case TypeKind::TINYINT:
+        switch (valueSize_) {
+          case 4:
+            getFlatValues<int32_t, int8_t>(rows, result, requestedType);
+            break;
+          case 2:
+            getFlatValues<int16_t, int8_t>(rows, result, requestedType);
+            break;
+          default:
+            VELOX_FAIL("Unsupported value size: {}", valueSize_);
+        }
+        break;
       case TypeKind::INTEGER:
         switch (valueSize_) {
           case 8:
