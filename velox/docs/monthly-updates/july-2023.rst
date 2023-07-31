@@ -1,0 +1,72 @@
+****************
+July 2023 Update
+****************
+
+Documentation
+=============
+
+* Add :doc:`I/O Optimizations and the TpchBenchmark </develop/TpchBenchmark>` article.
+* Add `array_sort lambda function <https://velox-lib.io/blog/array-sort>`_ blog post.
+* Add documentation for the new :doc:`CompactRow </develop/serde>` row-wise serialization format.
+* Expand documentation for :doc:`aggregate functions with variable-width accumulators </develop/aggregate-functions>`.
+
+Core Library
+============
+
+* Add support for aggregations over distinct inputs: `SELECT sum(distinct a)`.
+* Add TableWriteMerge operator. :issue:`5546`
+* Add :doc:`CompactRow </develop/serde>` row-wise serialization format to optimize shuffle for Presto-on-Spark.
+* Convert DATE to logical type backed by INTEGER physical type.
+* Enhance Aggregate and Window functions APIs to provide access to configuration properties.
+* Add support for compressing spill data. :pr:`5544`
+
+Presto Functions
+================
+
+* Add :func:`array_sort_desc`, `array_union` functions.
+* Add :func:`array_sort` lambda function.
+* Add :func:`cauchy_cdf`, :func:`chi_squared_cdf`, :func:`f_cdf`, :func:`inverse_beta_cdf` function.
+* Add :func:`levenshtein_distance` function.
+* Add 2-arg versions of :func:`min` and :func:`max` aggregate functions.
+* Add :func:`multimap_agg` aggregate function.
+* Add :func:`entropy` aggregate function.
+* Add support for BOOLEAN comparison argument to :func:`min_by` and :func:`max_by`.
+* Add support for IGNORE NULLs to Window value functions.
+* Optimize :func:`map_agg` function for inputs with many duplicate keys.
+* Optimize :func:`array_agg`, :func:`map_agg`, :func:`set_agg`, :func:`min`, :func:`max` for abandon-partial-aggregation use case.
+* Optimize :func:`json_extract`, :func:`json_extract_scalar`, :func:`json_size` using SIMD.
+
+Spark Functions
+===============
+
+* Add :spark:func:`acos`, :spark:func:`cosh`, :spark:func:`hypot`, :spark:func:`left`, :spark:func:`log1p`,
+  :spark:func:`lpad`, :spark:func:`rpad`, :spark:func:`sinh`, :spark:func:`translate` functions.
+* Fix return type of :spark:func:`size` function.
+* Fix intermediate type of :spark:func:`first` and :spark:func:`last` functions.
+
+Hive Connector
+==============
+
+* Add support for `Tencent Cloud Object Storage <https://www.tencentcloud.com/products/cos>`_. :pr:`5619`
+* Add support for reading from `Google Cloud Storage <https://cloud.google.com/storage>`_. :pr:`5069`
+
+Performance and Correctness
+===========================
+
+* Optimize round-robin exchange. :pr:`5651`
+* Optimize try_cast expression for the case when many rows fail the cast.
+
+Credits
+=======
+
+Aditi Pandit, Amit Dutta, Arpit Porwal, Austin Dickey, Bikramjeet Vig,
+Chad Austin, Chen Zhang, Chengcheng Jin, Christian Clauss, Christian Zentgraf,
+Deepak Majeti, Eric Liu, GOPU-Krishna-S, Ge Gao, Gufan Yin, Harsha Rastogi,
+Iosif Spulber, Jacob Wujciak-Jens, Jialiang Tan, Jiayan Wei, Jimmy Lu,
+Jin Chengcheng, John Elliott, Kapil Sharma, Karteekmurthys, Ke, Kevin Wilfong,
+Konstantin Tsoy, Krishna Pai, Laith Sakka, Logan Wendholt, Ma-Jian1,
+Masha Basmanova, Orri Erling, PHILO-HE, Paul Amonson, Pedro Pedreira, Pramod,
+Pranjal Shankhdhar, Sandino Flores, Srikrishna Gopu, Srinivas S T, Taras Galkovskyi,
+Tiziano Carotti, Wei He, Xiaoxuan Meng, Yang Zhang, Ying, Zac, Zhaolong Zhu,
+Zhongjun Jin, duanmeng, joey.ljy, kayagokalp, mayan, mohsaka, rrando901,
+rui-mo, wypb, xiaodou, xiaoxmeng, yangchuan, yanmin, zhejiangxiaomai, 陈旭
