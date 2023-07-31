@@ -280,6 +280,7 @@ public final class SystemSessionProperties
     public static final String USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN = "use_broadcast_when_buildsize_small_probeside_unknown";
     public static final String ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT = "add_partial_node_for_row_number_with_limit";
     public static final String REWRITE_CASE_TO_MAP_ENABLED = "rewrite_case_to_map_enabled";
+    public static final String FIELD_NAMES_IN_JSON_CAST_ENABLED = "field_names_in_json_cast_enabled";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1554,6 +1555,11 @@ public final class SystemSessionProperties
                         10000,
                         false),
                 booleanProperty(
+                        FIELD_NAMES_IN_JSON_CAST_ENABLED,
+                        "Include field names in json output when casting rows",
+                        featuresConfig.isFieldNamesInJsonCastEnabled(),
+                        false),
+                booleanProperty(
                         OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME,
                         "Optimize join probe at runtime if build side is empty",
                         featuresConfig.isOptimizeJoinProbeForEmptyBuildRuntimeEnabled(),
@@ -2113,6 +2119,11 @@ public final class SystemSessionProperties
     public static boolean isParseDecimalLiteralsAsDouble(Session session)
     {
         return session.getSystemProperty(PARSE_DECIMAL_LITERALS_AS_DOUBLE, Boolean.class);
+    }
+
+    public static boolean isFieldNameInJsonCastEnabled(Session session)
+    {
+        return session.getSystemProperty(FIELD_NAMES_IN_JSON_CAST_ENABLED, Boolean.class);
     }
 
     public static boolean isForceSingleNodeOutput(Session session)

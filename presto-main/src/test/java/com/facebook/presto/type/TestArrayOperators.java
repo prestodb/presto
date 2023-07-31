@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -24,10 +25,12 @@ import com.facebook.presto.common.type.SqlDate;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.google.common.base.Strings;
@@ -37,6 +40,7 @@ import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -50,6 +54,7 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
 import static com.facebook.presto.common.block.BlockSerdeUtil.writeBlock;
 import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
@@ -95,12 +100,26 @@ import static org.testng.Assert.fail;
 public class TestArrayOperators
         extends AbstractTestFunctions
 {
-    public TestArrayOperators() {}
+    private static FunctionAssertions fieldNameInJsonCastEnabled;
+
+    public TestArrayOperators(){}
 
     @BeforeClass
     public void setUp()
     {
         registerScalar(getClass());
+        fieldNameInJsonCastEnabled = new FunctionAssertions(
+                Session.builder(session)
+                        .setSystemProperty(FIELD_NAMES_IN_JSON_CAST_ENABLED, "true")
+                        .build(),
+                new FeaturesConfig());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public final void tearDown()
+    {
+        fieldNameInJsonCastEnabled.close();
+        fieldNameInJsonCastEnabled = null;
     }
 
     @ScalarFunction
@@ -162,7 +181,7 @@ public class TestArrayOperators
         assertFunction("CAST(ARRAY [ARRAY[1.0], ARRAY[2.0, 3.0]] AS ARRAY<ARRAY<DOUBLE>>)", new ArrayType(new ArrayType(DOUBLE)), asList(asList(1.0), asList(2.0, 3.0)));
         assertFunction("CAST(ARRAY [ARRAY[1.0E0], ARRAY[2.0E0, 3.0E0]] AS ARRAY<ARRAY<DECIMAL(2,1)>>)",
                 new ArrayType(new ArrayType(createDecimalType(2, 1))), asList(asList(decimal("1.0")), asList(decimal("2.0"), decimal("3.0"))));
-        assertFunction("CAST(ARRAY [ARRAY[1.0E0], ARRAY[2.0E0, 3.0E0]] AS ARRAY<ARRAY<DECIMAL(20,10)>>)",
+        fieldNameInJsonCastEnabled.assertFunction("CAST(ARRAY [ARRAY[1.0E0], ARRAY[2.0E0, 3.0E0]] AS ARRAY<ARRAY<DECIMAL(20,10)>>)",
                 new ArrayType(new ArrayType(createDecimalType(20, 10))),
                 asList(asList(decimal("0000000001.0000000000")), asList(decimal("0000000002.0000000000"), decimal("0000000003.0000000000"))));
 
@@ -186,6 +205,58 @@ public class TestArrayOperators
 
     @Test
     public void testArrayToJson()
+    {
+        fieldNameInJsonCastEnabled.assertFunction("cast(cast (null as ARRAY<BIGINT>) AS JSON)", JSON, null);
+        fieldNameInJsonCastEnabled.assertFunction("cast(ARRAY[] AS JSON)", JSON, "[]");
+        fieldNameInJsonCastEnabled.assertFunction("cast(ARRAY[null, null] AS JSON)", JSON, "[null,null]");
+
+        fieldNameInJsonCastEnabled.assertFunction("cast(ARRAY[true, false, null] AS JSON)", JSON, "[true,false,null]");
+
+        fieldNameInJsonCastEnabled.assertFunction("cast(cast(ARRAY[1, 2, null] AS ARRAY<TINYINT>) AS JSON)", JSON, "[1,2,null]");
+        fieldNameInJsonCastEnabled.assertFunction("cast(cast(ARRAY[12345, -12345, null] AS ARRAY<SMALLINT>) AS JSON)", JSON, "[12345,-12345,null]");
+        fieldNameInJsonCastEnabled.assertFunction("cast(cast(ARRAY[123456789, -123456789, null] AS ARRAY<INTEGER>) AS JSON)", JSON, "[123456789,-123456789,null]");
+        fieldNameInJsonCastEnabled.assertFunction("cast(cast(ARRAY[1234567890123456789, -1234567890123456789, null] AS ARRAY<BIGINT>) AS JSON)", JSON, "[1234567890123456789,-1234567890123456789,null]");
+
+        fieldNameInJsonCastEnabled.assertFunction("CAST(CAST(ARRAY[3.14E0, nan(), infinity(), -infinity(), null] AS ARRAY<REAL>) AS JSON)", JSON, "[3.14,\"NaN\",\"Infinity\",\"-Infinity\",null]");
+        fieldNameInJsonCastEnabled.assertFunction("CAST(ARRAY[3.14E0, 1e-323, 1e308, nan(), infinity(), -infinity(), null] AS JSON)", JSON, "[3.14,1.0E-323,1.0E308,\"NaN\",\"Infinity\",\"-Infinity\",null]");
+        fieldNameInJsonCastEnabled.assertFunction("CAST(ARRAY[DECIMAL '3.14', null] AS JSON)", JSON, "[3.14,null]");
+        fieldNameInJsonCastEnabled.assertFunction("CAST(ARRAY[DECIMAL '12345678901234567890.123456789012345678', null] AS JSON)", JSON, "[12345678901234567890.123456789012345678,null]");
+
+        fieldNameInJsonCastEnabled.assertFunction("cast(ARRAY['a', 'bb', null] AS JSON)", JSON, "[\"a\",\"bb\",null]");
+        fieldNameInJsonCastEnabled.assertFunction(
+                "cast(ARRAY[JSON '123', JSON '3.14', JSON 'false', JSON '\"abc\"', JSON '[1, \"a\", null]', JSON '{\"a\": 1, \"b\": \"str\", \"c\": null}', JSON 'null', null] AS JSON)",
+                JSON,
+                "[123,3.14,false,\"abc\",[1,\"a\",null],{\"a\":1,\"b\":\"str\",\"c\":null},null,null]");
+
+        fieldNameInJsonCastEnabled.assertFunction(
+                "CAST(ARRAY[TIMESTAMP '1970-01-01 00:00:01', null] AS JSON)",
+                JSON,
+                format("[\"%s\",null]", sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, TEST_SESSION)));
+        fieldNameInJsonCastEnabled.assertFunction(
+                "CAST(ARRAY[DATE '2001-08-22', DATE '2001-08-23', null] AS JSON)",
+                JSON,
+                "[\"2001-08-22\",\"2001-08-23\",null]");
+        fieldNameInJsonCastEnabled.assertFunction(
+                "cast(ARRAY[ARRAY[1, 2], ARRAY[3, null], ARRAY[], ARRAY[null, null], null] AS JSON)",
+                JSON,
+                "[[1,2],[3,null],[],[null,null],null]");
+        fieldNameInJsonCastEnabled.assertFunction(
+                "cast(ARRAY[MAP(ARRAY['b', 'a'], ARRAY[2, 1]), MAP(ARRAY['three', 'none'], ARRAY[3, null]), MAP(), MAP(ARRAY['h2', 'h1'], ARRAY[null, null]), null] AS JSON)",
+                JSON,
+                "[{\"a\":1,\"b\":2},{\"none\":null,\"three\":3},{},{\"h1\":null,\"h2\":null},null]");
+        fieldNameInJsonCastEnabled.assertFunction(
+                "cast(ARRAY[ROW(1, 2), ROW(3, CAST(null as INTEGER)), CAST(ROW(null, null) AS ROW(INTEGER, INTEGER)), null] AS JSON)",
+                JSON,
+                "[{\"\":1,\"\":2},{\"\":3,\"\":null},{\"\":null,\"\":null},null]");
+        fieldNameInJsonCastEnabled.assertFunction("CAST(ARRAY [12345.12345, 12345.12345, 3.0] AS JSON)", JSON, "[12345.12345,12345.12345,3.00000]");
+        fieldNameInJsonCastEnabled.assertFunction(
+                "CAST(ARRAY [123456789012345678901234567890.87654321, 123456789012345678901234567890.12345678] AS JSON)",
+                JSON,
+                "[123456789012345678901234567890.87654321,123456789012345678901234567890.12345678]");
+    }
+
+    @Test
+    public void testArrayToJsonNoFieldNames()
     {
         assertFunction("cast(cast (null as ARRAY<BIGINT>) AS JSON)", JSON, null);
         assertFunction("cast(ARRAY[] AS JSON)", JSON, "[]");
