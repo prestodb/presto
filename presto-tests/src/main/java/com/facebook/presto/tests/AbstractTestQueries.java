@@ -7048,4 +7048,17 @@ public abstract class AbstractTestQueries
 
         return true;
     }
+
+    @Test
+    public void testLikePrefixAndSuffix()
+    {
+        assertQuery("select x like 'abc%' from (values 'abc', 'def', 'bcd') T(x)");
+        assertQuery("select x like '%abc%' from (values 'xabcy', 'abxabcdef', 'bcd',  'xabcyabcz') T(x)");
+        assertQuery("select x like '%abc' from (values 'xa bc', 'xabcy', 'abcd', 'xabc') T(x)");
+        assertQuery("select x like '%ab_c' from (values 'xa bc', 'xabcy', 'abcd') T(x)");
+        assertQuery("select x like '%' from (values 'xa bc', 'xabcy', 'abcd') T(x)");
+        assertQuery("select x like '%_%' from (values 'xa bc', 'xabcy', 'abcd') T(x)");
+        assertQuery("select x like '%a%' from (values 'xa bc', 'xabcy', 'abcd') T(x)");
+        assertQuery("select x like '%acd%xy%' from (values 'xa bc', 'xabcy', 'abcd') T(x)");
+    }
 }
