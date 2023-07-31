@@ -1719,7 +1719,20 @@ void HashTable<ignoreNullKeys>::eraseWithHashes(
     }
   }
   numDistinct_ -= numRows;
-  rows_->eraseRows(rows);
+  if (!otherTables_.empty()) {
+    raw_vector<char*> rowsInContainer;
+    rowsInContainer.resize(rows.size());
+    for (auto& other : otherTables_) {
+      auto numInContainer =
+          other->rows()->findRows(rows, rowsInContainer.data());
+      other->rows()->eraseRows(
+          folly::Range(rowsInContainer.data(), numInContainer));
+    }
+    auto numInContainer = rows_->findRows(rows, rowsInContainer.data());
+    rows_->eraseRows(folly::Range(rowsInContainer.data(), numInContainer));
+  } else {
+    rows_->eraseRows(rows);
+  }
 }
 
 template <bool ignoreNullKeys>

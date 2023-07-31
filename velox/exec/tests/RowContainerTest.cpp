@@ -1169,3 +1169,61 @@ TEST_F(RowContainerTest, probedFlag) {
           {true, true, true, true, std::nullopt, true}),
       result);
 }
+
+TEST_F(RowContainerTest, mixedFree) {
+  constexpr int32_t kNumRows = 100'000;
+  constexpr int32_t kNumBad = 100;
+  std::vector<TypePtr> dependent = {
+      TIMESTAMP(),
+      TIMESTAMP(),
+      TIMESTAMP(),
+      TIMESTAMP(),
+      TIMESTAMP(),
+      TIMESTAMP(),
+      TIMESTAMP(),
+      TIMESTAMP(),
+      TIMESTAMP(),
+      TIMESTAMP(),
+      TIMESTAMP()};
+  auto data1 = makeRowContainer({SMALLINT()}, dependent);
+  auto data2 = makeRowContainer({SMALLINT()}, dependent);
+  std::vector<char*> rows;
+
+  // We put every second row in one container and every second in the other.
+  for (auto i = 0; i < 100'000; ++i) {
+    rows.push_back(data1->newRow());
+    rows.push_back(data2->newRow());
+  }
+
+  // We add some bad rows that are in neither container.
+  for (auto i = 0; i < kNumBad; ++i) {
+    rows.push_back(reinterpret_cast<char*>(i));
+    rows.push_back(reinterpret_cast<char*>((1UL << 48) + i));
+  }
+
+  // We check that the containers correctly identify their own rows.
+  std::vector<char*> result1(rows.size());
+  std::vector<char*> result2(rows.size());
+  ASSERT_EQ(
+      kNumRows,
+      data1->findRows(
+          folly::Range<char**>(rows.data(), rows.size()), result1.data()));
+  for (auto i = 0; i < kNumRows * 2; i += 2) {
+    ASSERT_EQ(rows[i], result1[i / 2]);
+  }
+  ASSERT_EQ(
+      kNumRows,
+      data2->findRows(
+          folly::Range<char**>(rows.data(), rows.size()), result2.data()));
+  for (auto i = 1; i < kNumRows * 2; i += 2) {
+    ASSERT_EQ(rows[i], result2[i / 2]);
+  }
+
+  // We erase all rows from both containers and check there are no corruptions.
+  data1->eraseRows(folly::Range<char**>(result1.data(), kNumRows));
+  data2->eraseRows(folly::Range<char**>(result2.data(), kNumRows));
+  EXPECT_EQ(0, data1->numRows());
+  EXPECT_EQ(0, data2->numRows());
+  data1->checkConsistency();
+  data2->checkConsistency();
+}

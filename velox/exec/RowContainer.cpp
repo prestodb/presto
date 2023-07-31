@@ -16,6 +16,7 @@
 
 #include "velox/exec/RowContainer.h"
 
+#include "velox/common/base/RawVector.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/ContainerRowSerde.h"
 #include "velox/exec/Operator.h"
@@ -294,6 +295,49 @@ void RowContainer::eraseRows(folly::Range<char**> rows) {
     firstFreeRow_ = row;
   }
   numFreeRows_ += rows.size();
+}
+
+int32_t RowContainer::findRows(folly::Range<char**> rows, char** result) {
+  raw_vector<folly::Range<char*>> ranges;
+  ranges.resize(rows_.numRanges());
+  for (auto i = 0; i < rows_.numRanges(); ++i) {
+    ranges[i] = rows_.rangeAt(i);
+  }
+  std::sort(
+      ranges.begin(), ranges.end(), [](const auto& left, const auto& right) {
+        return left.data() < right.data();
+      });
+  raw_vector<uint64_t> starts;
+  raw_vector<uint64_t> sizes;
+  starts.reserve(ranges.size());
+  sizes.reserve(ranges.size());
+  for (auto& range : ranges) {
+    starts.push_back(reinterpret_cast<uintptr_t>(range.data()));
+    sizes.push_back(range.size());
+  }
+  int32_t numRows = 0;
+  for (auto row : rows) {
+    auto address = reinterpret_cast<uintptr_t>(row);
+    auto it = std::lower_bound(starts.begin(), starts.end(), address);
+    if (it == starts.end()) {
+      if (address >= starts.back() && address < starts.back() + sizes.back()) {
+        result[numRows++] = row;
+      }
+      continue;
+    }
+    auto index = it - starts.begin();
+    if (address == starts[index]) {
+      result[numRows++] = row;
+      continue;
+    }
+    if (index == 0) {
+      continue;
+    }
+    if (it[-1] + sizes[index - 1] > address) {
+      result[numRows++] = row;
+    }
+  }
+  return numRows;
 }
 
 void RowContainer::freeVariableWidthFields(folly::Range<char**> rows) {
