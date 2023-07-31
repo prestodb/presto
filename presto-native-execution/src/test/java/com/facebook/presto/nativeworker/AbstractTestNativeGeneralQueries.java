@@ -383,6 +383,13 @@ public abstract class AbstractTestNativeGeneralQueries
         // Round-trip tests of casts for Json.
         assertQuery("SELECT cast(cast(name as JSON) as VARCHAR), cast(cast(size as JSON) as INTEGER), cast(cast(size + 0.01 as JSON) as DOUBLE), cast(cast(size > 5 as JSON) as BOOLEAN) FROM part");
         assertQuery("SELECT cast(cast(array[suppkey, nationkey] as JSON) as ARRAY(INTEGER)), cast(cast(map(array[name, address, phone], array[1.1, 2.2, 3.3]) as JSON) as MAP(VARCHAR(40), DOUBLE)), cast(cast(map(array[name], array[phone]) as JSON) as MAP(VARCHAR(25), JSON)), cast(cast(array[array[suppkey], array[nationkey]] as JSON) as ARRAY(JSON)) from supplier");
+
+        // Cast from date to timestamp
+        assertQuery("SELECT CAST(date(shipdate) AS timestamp) FROM lineitem");
+        Session session = Session.builder(getSession())
+                .setSystemProperty("legacy_timestamp", "false")
+                .build();
+        assertQuery(session, "SELECT CAST(date(shipdate) AS timestamp) FROM lineitem");
     }
 
     @Test
