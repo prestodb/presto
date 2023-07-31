@@ -90,6 +90,7 @@ import com.facebook.presto.operator.aggregation.VarianceAggregation;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggregationFunction;
 import com.facebook.presto.operator.aggregation.differentialentropy.DifferentialEntropyAggregation;
 import com.facebook.presto.operator.aggregation.histogram.Histogram;
+import com.facebook.presto.operator.aggregation.multimapagg.AlternativeMultimapAggregationFunction;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggregationFunction;
 import com.facebook.presto.operator.scalar.ArrayAllMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayAnyMatchFunction;
@@ -850,7 +851,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .functions(MAP_CONSTRUCTOR, MAP_TO_JSON, JSON_TO_MAP, JSON_STRING_TO_MAP)
                 .functions(MAP_AGG, MAP_UNION, MAP_UNION_SUM)
                 .function(new ReduceAggregationFunction(featuresConfig.isReduceAggForComplexTypesEnabled()))
-                .function(new MultimapAggregationFunction(featuresConfig.getMultimapAggGroupImplementation()))
                 .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_REAL_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
                 .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, REAL_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
                 .functions(JSON_TO_DECIMAL_CAST, DECIMAL_TO_JSON_CAST)
@@ -941,6 +941,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
             builder.override(MAX_BY, ALTERNATIVE_MAX_BY);
             builder.override(MIN_BY, ALTERNATIVE_MIN_BY);
             builder.functions(AlternativeApproxPercentile.getFunctions());
+            builder.function(new AlternativeMultimapAggregationFunction(featuresConfig.getMultimapAggGroupImplementation()));
         }
         else {
             builder.aggregates(ApproximateLongPercentileAggregations.class);
@@ -949,6 +950,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
             builder.aggregates(ApproximateDoublePercentileArrayAggregations.class);
             builder.aggregates(ApproximateRealPercentileAggregations.class);
             builder.aggregates(ApproximateRealPercentileArrayAggregations.class);
+            builder.function(new MultimapAggregationFunction(featuresConfig.getMultimapAggGroupImplementation()));
         }
 
         return builder.getFunctions();
