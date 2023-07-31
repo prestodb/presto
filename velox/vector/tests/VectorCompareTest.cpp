@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <optional>
 
+#include "velox/vector/tests/utils/VectorMaker.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 namespace facebook::velox {
@@ -183,4 +184,31 @@ TEST_F(VectorCompareTest, compareStopAtNullRow) {
   test({1, std::nullopt}, {1, 2}, kExpectNull);
   test({1, 2}, {std::nullopt, 2}, kExpectNull);
 }
+
+TEST_F(VectorCompareTest, CompareWithNullChildVector) {
+  auto pool = memory::addDefaultLeafMemoryPool();
+  test::VectorMaker maker{pool.get()};
+  auto rowType = ROW({"a", "b", "c"}, {INTEGER(), INTEGER(), INTEGER()});
+  const auto& rowVector1 = std::make_shared<RowVector>(
+      pool_.get(),
+      rowType,
+      BufferPtr(nullptr),
+      3,
+      std::vector<VectorPtr>{
+          maker.flatVector<int32_t>({1, 2, 3, 4}),
+          nullptr,
+          maker.flatVector<int32_t>({1, 2, 3, 4})});
+
+  const auto& rowVector2 = std::make_shared<RowVector>(
+      pool_.get(),
+      rowType,
+      BufferPtr(nullptr),
+      3,
+      std::vector<VectorPtr>{
+          maker.flatVector<int32_t>({1, 2, 3, 4}),
+          nullptr,
+          maker.flatVector<int32_t>({1, 2, 3, 4})});
+  test::assertEqualVectors(rowVector1, rowVector2);
+}
+
 } // namespace facebook::velox

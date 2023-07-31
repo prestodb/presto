@@ -96,7 +96,7 @@ std::optional<int32_t> RowVector::compare(
   auto compareSize = std::min(children_.size(), otherRow->children_.size());
   for (int32_t i = 0; i < compareSize; ++i) {
     BaseVector* child = children_[i].get();
-    BaseVector* otherChild = otherRow->childAt(i)->loadedVector();
+    BaseVector* otherChild = otherRow->childAt(i).get();
     if (!child && !otherChild) {
       continue;
     }
@@ -111,7 +111,8 @@ std::optional<int32_t> RowVector::compare(
           other->BaseVector::toString());
     }
     auto wrappedOtherIndex = other->wrappedIndex(otherIndex);
-    auto result = child->compare(otherChild, index, wrappedOtherIndex, flags);
+    auto result = child->compare(
+        otherChild->loadedVector(), index, wrappedOtherIndex, flags);
     if (flags.stopAtNull && !result.has_value()) {
       return std::nullopt;
     }
