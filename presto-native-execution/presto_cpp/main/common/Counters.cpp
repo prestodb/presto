@@ -159,6 +159,13 @@ void registerPrestoCppCounters() {
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterMemoryCacheNumCumulativeAllocClocks,
       facebook::velox::StatType::AVG);
+  REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE(
+      kCounterMemoryCacheEntryAgeSecsMax,
+      60 * 60, // 1-hour bucket
+      0,
+      30 * 24 * 60 * 60, // max value 30 days
+      99,
+      100);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterMemoryCacheNumAllocClocks, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
@@ -195,6 +202,13 @@ void registerPrestoCppCounters() {
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterSsdCacheCumulativeReadCheckpointErrors,
       facebook::velox::StatType::AVG);
+  REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE(
+      kCounterSsdCacheEntryAgeSecsMax,
+      1 * 60 * 60, // 1-hour bucket
+      0,
+      30 * 24 * 60 * 60, // max value 30 days
+      99,
+      100);
   // Disk spilling stats.
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterSpillRuns, facebook::velox::StatType::SUM);
@@ -233,7 +247,6 @@ void registerPrestoCppCounters() {
       kCounterArbitratorNumReclaimedBytes, facebook::velox::StatType::SUM);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterArbitratorFreeCapacityBytes, facebook::velox::StatType::AVG);
-
   // NOTE: Metrics type exporting for file handle cache counters are in
   // PeriodicTaskManager because they have dynamic names. The following counters
   // have their type exported there:

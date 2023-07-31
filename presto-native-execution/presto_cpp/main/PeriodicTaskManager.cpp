@@ -320,6 +320,8 @@ void PeriodicTaskManager::updateCacheStats() {
   REPORT_ADD_STAT_VALUE(
       kCounterMemoryCacheNumCumulativeAllocClocks,
       memoryCacheStats.allocClocks);
+  REPORT_ADD_HISTOGRAM_VALUE(
+      kCounterMemoryCacheEntryAgeSecsMax, memoryCacheStats.entryAgeSecsMax);
   if (memoryCacheStats.ssdStats != nullptr) {
     REPORT_ADD_STAT_VALUE(
         kCounterSsdCacheCumulativeReadEntries,
@@ -339,6 +341,9 @@ void PeriodicTaskManager::updateCacheStats() {
     REPORT_ADD_STAT_VALUE(
         kCounterSsdCacheCumulativeCachedBytes,
         memoryCacheStats.ssdStats->bytesCached);
+    REPORT_ADD_HISTOGRAM_VALUE(
+        kCounterSsdCacheEntryAgeSecsMax,
+        memoryCacheStats.ssdStats->entryAgeSecsMax);
     REPORT_ADD_STAT_VALUE(
         kCounterSsdCacheCumulativeOpenSsdErrors,
         memoryCacheStats.ssdStats->openFileErrors);

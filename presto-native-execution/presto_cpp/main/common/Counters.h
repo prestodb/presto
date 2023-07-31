@@ -287,6 +287,10 @@ constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeAllocClocks{
 /// since last counter retrieval
 constexpr folly::StringPiece kCounterMemoryCacheNumAllocClocks{
     "presto_cpp.memory_cache_num_alloc_clocks"};
+/// Max age of async data cache entries since the raw file was
+/// opened to load the cache.
+constexpr folly::StringPiece kCounterMemoryCacheEntryAgeSecsMax{
+    "presto_cpp.memory_cache_entry_age_secs_max"};
 constexpr folly::StringPiece kCounterSsdCacheCumulativeReadEntries{
     "presto_cpp.ssd_cache_cumulative_read_entries"};
 constexpr folly::StringPiece kCounterSsdCacheCumulativeReadBytes{
@@ -317,6 +321,10 @@ constexpr folly::StringPiece kCounterSsdCacheCumulativeReadSsdErrors{
     "presto_cpp.ssd_cache_cumulative_read_ssd_errors"};
 constexpr folly::StringPiece kCounterSsdCacheCumulativeReadCheckpointErrors{
     "presto_cpp.ssd_cache_cumulative_read_checkpoint_errors"};
+/// Max age of the SSD cache entries since the raw file was
+/// opened to load the cache.
+constexpr folly::StringPiece kCounterSsdCacheEntryAgeSecsMax{
+    "presto_cpp.ssd_cache_entry_age_secs_max"};
 
 /// ================== HiveConnector Counters ==================
 /// Format template strings use 'constexpr std::string_view' to be 'fmt::format'
