@@ -18,6 +18,7 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalParseResult;
 import com.facebook.presto.common.type.Decimals;
@@ -104,6 +105,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -170,6 +172,10 @@ import static java.util.Objects.requireNonNull;
 
 public final class SqlToRowExpressionTranslator
 {
+    private static final Pattern LIKE_PREFIX_MATCH_PATTERN = Pattern.compile("^[^%_]*%$");
+    private static final Pattern LIKE_SUFFIX_MATCH_PATTERN = Pattern.compile("^%[^%_]*$");
+    private static final Pattern LIKE_SIMPLE_EXISTS_PATTERN = Pattern.compile("^%[^%_]*%$");
+
     private SqlToRowExpressionTranslator() {}
 
     public static RowExpression translate(
@@ -913,7 +919,7 @@ public final class SqlToRowExpressionTranslator
                 return likeFunctionCall(value, call(getSourceLocation(node), "LIKE_PATTERN", functionResolution.likePatternFunction(), LIKE_PATTERN, pattern, escape));
             }
 
-            RowExpression prefixOrSuffixMatch = generateLikePrefix(value, pattern);
+            RowExpression prefixOrSuffixMatch = generateLikePrefixOrSuffixMatch(value, pattern);
             if (prefixOrSuffixMatch != null) {
                 return prefixOrSuffixMatch;
             }
@@ -921,20 +927,36 @@ public final class SqlToRowExpressionTranslator
             return likeFunctionCall(value, call(getSourceLocation(node), CAST.name(), functionAndTypeResolver.lookupCast("CAST", VARCHAR, LIKE_PATTERN), LIKE_PATTERN, pattern));
         }
 
-        private RowExpression generateLikePrefix(RowExpression value, RowExpression pattern)
+        private RowExpression generateLikePrefixOrSuffixMatch(RowExpression value, RowExpression pattern)
         {
             if ((value.getType() instanceof VarcharType || value.getType() instanceof CharType) && pattern instanceof ConstantExpression) {
                 Object constObject = ((ConstantExpression) pattern).getValue();
                 if (constObject instanceof Slice) {
                     Slice slice = (Slice) constObject;
                     String patternString = slice.toStringUtf8();
-                    if (patternString.length() > 1 && !patternString.contains("_")) {
-                        if (patternString.indexOf('%') == patternString.length() - 1) {
+                    int matchLength = patternString.length();
+                    if (matchLength > 1 && !patternString.contains("_")) {
+                        if (LIKE_PREFIX_MATCH_PATTERN.matcher(patternString).matches()) {
                             // prefix match
                             // x LIKE 'some string%' is same as SUBSTR(x, 1, length('some string')) = 'some string', trialing .* won't matter
                             return buildEquals(
-                                    call(functionAndTypeManager, "SUBSTR", VARCHAR, value, constant(1L, BIGINT), constant((long) slice.length() - 1, BIGINT)),
-                                    constant(slice.slice(0, slice.length() - 1), VARCHAR));
+                                    call(functionAndTypeManager, "SUBSTR", VARCHAR, value, constant(1L, BIGINT), constant((long) matchLength - 1, BIGINT)),
+                                    constant(slice.slice(0, matchLength - 1), VARCHAR));
+                        }
+                        else if (LIKE_SUFFIX_MATCH_PATTERN.matcher(patternString).matches()) {
+                            // suffix match
+                            // x LIKE '%some string' is same as SUBSTR(x, 'some string', -length('some string')) = 'some stirng'
+                            return buildEquals(
+                                    call(functionAndTypeManager, "SUBSTR", VARCHAR, value, constant(-(long) (matchLength - 1), BIGINT)),
+                                    constant(slice.slice(1, matchLength - 1), VARCHAR));
+                        }
+                        else if (LIKE_SIMPLE_EXISTS_PATTERN.matcher(patternString).matches()) {
+                            // pattern should just exist in the string ignoring leading and trailing stuff
+                            // x LIKE '%some string%' is same as CARDINALITY(SPLIT(x, 'some string', 2)) = 2
+                            // Split is most efficient as it uses string.indexOf java builtin so little memory/cpu overhead
+                            return buildEquals(
+                                    call(functionAndTypeManager, "CARDINALITY", BIGINT, call(functionAndTypeManager, "SPLIT", new ArrayType(VARCHAR), value, constant(slice.slice(1, matchLength - 2), VARCHAR), constant(2L, BIGINT))),
+                                    constant(2L, BIGINT));
                         }
                     }
                 }
