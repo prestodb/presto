@@ -103,38 +103,64 @@ template <typename T>
 struct DateFunction : public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
+  const date::time_zone* timeZone_ = nullptr;
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const core::QueryConfig& config,
+      const arg_type<Varchar>* date) {
+    timeZone_ = getTimeZoneFromConfig(config);
+  }
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const core::QueryConfig& config,
+      const arg_type<Timestamp>* timestamp) {
+    timeZone_ = getTimeZoneFromConfig(config);
+  }
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const core::QueryConfig& config,
+      const arg_type<TimestampWithTimezone>* timestampWithTimezone) {
+    timeZone_ = getTimeZoneFromConfig(config);
+  }
+
   FOLLY_ALWAYS_INLINE void call(
       out_type<Date>& result,
       const arg_type<Varchar>& date) {
-    bool nullOutput;
     result = DATE()->toDays(date);
   }
 
-  int32_t timestampToDate(const Timestamp& t, bool& nullOutput) {
-    static const int32_t kSecsPerDay{86'400};
-    auto seconds = t.getSeconds();
-    if (seconds >= 0 || seconds % kSecsPerDay == 0) {
-      return seconds / kSecsPerDay;
+  int32_t timestampToDate(const Timestamp& input) {
+    auto convertToDate = [](const Timestamp& t) -> int32_t {
+      static const int32_t kSecsPerDay{86'400};
+      auto seconds = t.getSeconds();
+      if (seconds >= 0 || seconds % kSecsPerDay == 0) {
+        return seconds / kSecsPerDay;
+      }
+      // For division with negatives, minus 1 to compensate the discarded
+      // fractional part. e.g. -1/86'400 yields 0, yet it should be considered
+      // as -1 day.
+      return seconds / kSecsPerDay - 1;
+    };
+
+    if (timeZone_ != nullptr) {
+      Timestamp t = input;
+      t.toTimezone(*timeZone_);
+      return convertToDate(t);
     }
-    // For division with negatives, minus 1 to compensate the discarded
-    // fractional part. e.g. -1/86'400 yields 0, yet it should be considered as
-    // -1 day.
-    return seconds / kSecsPerDay - 1;
+
+    return convertToDate(input);
   }
 
   FOLLY_ALWAYS_INLINE void call(
       out_type<Date>& result,
       const arg_type<Timestamp>& timestamp) {
-    bool nullOutput;
-    result = timestampToDate(timestamp, nullOutput);
+    result = timestampToDate(timestamp);
   }
 
   FOLLY_ALWAYS_INLINE void call(
       out_type<Date>& result,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
-    bool nullOutput;
-    result =
-        timestampToDate(this->toTimestamp(timestampWithTimezone), nullOutput);
+    result = timestampToDate(this->toTimestamp(timestampWithTimezone));
   }
 };
 

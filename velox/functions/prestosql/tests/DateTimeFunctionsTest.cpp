@@ -3180,6 +3180,58 @@ TEST_F(DateTimeFunctionsTest, dateFunctionTimestampWithTimezone) {
           (-18297 * kSecondsInDay + 6 * 3'600) * 1'000, "America/Los_Angeles"));
 }
 
+TEST_F(DateTimeFunctionsTest, castDateForDateFunction) {
+  setQueryTimeZone("America/Los_Angeles");
+
+  static const int64_t kSecondsInDay = 86'400;
+  static const uint64_t kNanosInSecond = 1'000'000'000;
+  const auto castDateTest = [&](std::optional<Timestamp> timestamp) {
+    auto r1 = evaluateOnce<int32_t>("cast(c0 as date)", timestamp);
+    auto r2 = evaluateOnce<int32_t>("date(c0)", timestamp);
+    EXPECT_EQ(r1, r2);
+    return r1;
+  };
+
+  // Note adjustments for PST timezone.
+  EXPECT_EQ(-1, castDateTest(Timestamp()));
+  EXPECT_EQ(0, castDateTest(Timestamp(kSecondsInDay, 0)));
+  EXPECT_EQ(-2, castDateTest(Timestamp(-kSecondsInDay, 0)));
+  EXPECT_EQ(18296, castDateTest(Timestamp(18297 * kSecondsInDay, 0)));
+  EXPECT_EQ(18296, castDateTest(Timestamp(18297 * kSecondsInDay, 123)));
+  EXPECT_EQ(-18298, castDateTest(Timestamp(-18297 * kSecondsInDay, 0)));
+  EXPECT_EQ(-18298, castDateTest(Timestamp(-18297 * kSecondsInDay, 123)));
+
+  // Last second of day 0.
+  EXPECT_EQ(0, castDateTest(Timestamp(kSecondsInDay - 1, 0)));
+  // Last nanosecond of day 0.
+  EXPECT_EQ(0, castDateTest(Timestamp(kSecondsInDay - 1, kNanosInSecond - 1)));
+
+  // Last second of day -1.
+  EXPECT_EQ(-1, castDateTest(Timestamp(-1, 0)));
+  // Last nanosecond of day -1.
+  EXPECT_EQ(-1, castDateTest(Timestamp(-1, kNanosInSecond - 1)));
+
+  // Last second of day 18297.
+  EXPECT_EQ(
+      18297,
+      castDateTest(Timestamp(18297 * kSecondsInDay + kSecondsInDay - 1, 0)));
+  // Last nanosecond of day 18297.
+  EXPECT_EQ(
+      18297,
+      castDateTest(Timestamp(
+          18297 * kSecondsInDay + kSecondsInDay - 1, kNanosInSecond - 1)));
+
+  // Last second of day -18297.
+  EXPECT_EQ(
+      -18297,
+      castDateTest(Timestamp(-18297 * kSecondsInDay + kSecondsInDay - 1, 0)));
+  // Last nanosecond of day -18297.
+  EXPECT_EQ(
+      -18297,
+      castDateTest(Timestamp(
+          -18297 * kSecondsInDay + kSecondsInDay - 1, kNanosInSecond - 1)));
+}
+
 TEST_F(DateTimeFunctionsTest, currentDateWithTimezone) {
   // Since the execution of the code is slightly delayed, it is difficult for us
   // to get the correct value of current_date. If you compare directly based on
