@@ -35,7 +35,6 @@
 #include "folly/Random.h"
 #include "folly/SharedMutex.h"
 #include "velox/common/base/CheckedArithmetic.h"
-#include "velox/common/base/GTestMacros.h"
 #include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/memory/Allocation.h"
 #include "velox/common/memory/MemoryAllocator.h"
