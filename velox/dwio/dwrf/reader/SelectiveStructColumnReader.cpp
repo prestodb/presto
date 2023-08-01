@@ -65,7 +65,7 @@ SelectiveStructColumnReader::SelectiveStructColumnReader(
             .sequence = encodingKey.sequence,
             .inMapDecoder = nullptr,
             .keySelectionCallback = nullptr});
-    VELOX_CHECK(cs.shouldReadNode(childDataType->id));
+    VELOX_CHECK(cs.shouldReadNode(childRequestedType->id));
     addChild(SelectiveDwrfReader::build(
         childRequestedType, childDataType, childParams, *childSpec));
     childSpec->setSubscript(children_.size() - 1);

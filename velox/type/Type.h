@@ -853,7 +853,6 @@ class RowType : public TypeBase<TypeKind::ROW> {
 
   const std::shared_ptr<const Type>& findChild(folly::StringPiece name) const;
 
-  // Note: Internally does a linear search on all child names, cost is O(N).
   bool containsChild(std::string_view name) const;
 
   uint32_t getChildIdx(const std::string& name) const;

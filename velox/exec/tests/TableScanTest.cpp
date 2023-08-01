@@ -2651,61 +2651,36 @@ TEST_F(TableScanTest, reuseRowVector) {
   AssertQueryBuilder(plan).splits({split, split}).assertResults(expected);
 }
 
-// Tests queries that use that read more row fields than exist in the data.
+// Tests queries that read more row fields than exist in the data.
 TEST_F(TableScanTest, readMissingFields) {
-  vector_size_t size = 1'000;
-  auto rowVector = makeRowVector({makeRowVector({
-      makeFlatVector<int64_t>(size, [](auto row) { return row; }),
-      makeFlatVector<int64_t>(size, [](auto row) { return row; }),
-  })});
-
+  vector_size_t size = 10;
+  auto iota = makeFlatVector<int64_t>(size, folly::identity);
+  auto rowVector = makeRowVector({makeRowVector({iota, iota}), iota});
   auto filePath = TempFilePath::create();
   writeToFile(filePath->path, {rowVector});
   // Create a row type with additional fields not present in the file.
-  auto rowType =
-      makeRowType({makeRowType({BIGINT(), BIGINT(), BIGINT(), BIGINT()})});
+  auto rowType = makeRowType(
+      {makeRowType({BIGINT(), BIGINT(), BIGINT(), BIGINT()}), BIGINT()});
+  auto op = PlanBuilder().tableScan(rowType).planNode();
+  auto split = makeHiveConnectorSplit(filePath->path);
+  auto nulls = makeNullConstant(TypeKind::BIGINT, size);
+  auto expected =
+      makeRowVector({makeRowVector({iota, iota, nulls, nulls}), iota});
+  AssertQueryBuilder(op).split(split).assertResults(expected);
+}
 
-  auto testQueryRow = [&](const std::vector<std::string>& projections,
-                          const std::vector<bool>& fieldShouldHaveValue) {
-    auto op = PlanBuilder().tableScan(rowType).project(projections).planNode();
-
-    auto split = makeHiveConnectorSplit(filePath->path);
-    auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
-
-    ASSERT_EQ(result->size(), size);
-    auto rows = result->as<RowVector>();
-    ASSERT_TRUE(rows);
-    ASSERT_EQ(rows->childrenSize(), fieldShouldHaveValue.size());
-    for (int i = 0; i < fieldShouldHaveValue.size(); i++) {
-      auto val = rows->childAt(i)->as<SimpleVector<int64_t>>();
-      ASSERT_TRUE(val);
-      ASSERT_EQ(val->size(), size);
-      for (int j = 0; j < size; j++) {
-        if (fieldShouldHaveValue[i]) {
-          ASSERT_FALSE(val->isNullAt(j));
-          ASSERT_EQ(val->valueAt(j), j);
-        } else {
-          ASSERT_TRUE(val->isNullAt(j));
-        }
-      }
-    }
-  };
-
-  // Query all the fields.
-  testQueryRow(
-      {"c0.c0", "c0.c1", "c0.c2", "c0.c3"}, {true, true, false, false});
-
-  // Query some of the fields.
-  testQueryRow({"c0.c1", "c0.c3"}, {true, false});
-  testQueryRow({"c0.c0", "c0.c2"}, {true, false});
-
-  // Query the fields out of order.
-  testQueryRow(
-      {"c0.c3", "c0.c2", "c0.c1", "c0.c0"}, {false, false, true, true});
-  testQueryRow(
-      {"c0.c3", "c0.c0", "c0.c2", "c0.c1"}, {false, true, false, true});
-  testQueryRow(
-      {"c0.c0", "c0.c3", "c0.c1", "c0.c2"}, {true, false, true, false});
+TEST_F(TableScanTest, readExtraFields) {
+  vector_size_t size = 10;
+  auto iota = makeFlatVector<int64_t>(size, folly::identity);
+  auto rowVector = makeRowVector({makeRowVector({iota, iota}), iota});
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, {rowVector});
+  auto rowType = makeRowType({makeRowType({BIGINT()}), BIGINT()});
+  auto op = PlanBuilder().tableScan(rowType).planNode();
+  auto split = makeHiveConnectorSplit(filePath->path);
+  auto nulls = makeNullConstant(TypeKind::BIGINT, size);
+  auto expected = makeRowVector({makeRowVector({iota}), iota});
+  AssertQueryBuilder(op).split(split).assertResults(expected);
 }
 
 // Tests queries that use that read more row fields than exist in the data in
