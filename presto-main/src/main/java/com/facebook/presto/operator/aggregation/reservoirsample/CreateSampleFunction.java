@@ -17,6 +17,7 @@ import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.BoundVariables;
@@ -33,9 +34,12 @@ import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
@@ -59,7 +63,7 @@ public class CreateSampleFunction
     {
         super(NAME, ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
-                parseTypeSignature("array(T)"),
+                parseTypeSignature("row(integer,array(T))"),
                 ImmutableList.of(parseTypeSignature("T"), parseTypeSignature(StandardTypes.BIGINT)));
     }
 
@@ -69,7 +73,7 @@ public class CreateSampleFunction
         AccumulatorStateSerializer<?> stateSerializer = new ReservoirSampleStateSerializer(type);
         AccumulatorStateFactory<?> stateFactory = new ReservoirSampleStateFactory(type);
         List<Type> inputTypes = ImmutableList.of(type, BIGINT);
-        Type outputType = new ArrayType(type);
+        Type outputType = createOutputType(type);
         Type intermediateType = stateSerializer.getSerializedType();
         List<AggregationMetadata.ParameterMetadata> inputParameterMetadata = createInputParameterMetadata(type);
 
@@ -103,6 +107,14 @@ public class CreateSampleFunction
                 true, false, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 
+    private static Type createOutputType(Type type)
+    {
+        RowType.Field count = new RowType.Field(Optional.of("count"), INTEGER);
+        RowType.Field sample = new RowType.Field(Optional.of("sample"), new ArrayType(type));
+        List<RowType.Field> fields = Arrays.asList(count, sample);
+        return RowType.from(fields);
+    }
+
     private static List<AggregationMetadata.ParameterMetadata> createInputParameterMetadata(Type type)
     {
         return ImmutableList.of(
@@ -114,24 +126,23 @@ public class CreateSampleFunction
 
     public static void input(Type type, ReservoirSampleState state, Block value, int position, long n)
     {
-        if (!state.isSampleInitialized()) {
-            state.initializeSample(n);
-        }
-        state.add(value, position);
+        state.add(value, position, n);
     }
 
     public static void combine(Type type, ReservoirSampleState state, ReservoirSampleState otherState)
     {
-        state.merge(otherState);
+        state.mergeWith(otherState);
     }
 
     public static void output(Type elementType, ReservoirSampleState state, BlockBuilder out)
     {
+        ReservoirSample reservoirSample = state.getSamples();
+        Type arrayType = new ArrayType(elementType);
+        int count = reservoirSample.getSeenCount();
         BlockBuilder entryBuilder = out.beginBlockEntry();
-        Block[] samples = state.getSamples();
-        for (int pos = 0; pos < samples.length; pos++) {
-            elementType.appendTo(samples[pos], 0, entryBuilder);
-        }
+        INTEGER.writeLong(entryBuilder, count);
+        BlockBuilder sampleBlock = reservoirSample.getSampleBlockBuilder();
+        arrayType.appendTo(sampleBlock.build(), 0, entryBuilder);
         out.closeEntry();
     }
 
