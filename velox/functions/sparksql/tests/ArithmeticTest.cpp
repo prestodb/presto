@@ -350,5 +350,17 @@ TEST_F(ArithmeticTest, hypot) {
   EXPECT_DOUBLE_EQ(5.70087712549569, hypot(3.5, -4.5).value());
 }
 
+TEST_F(ArithmeticTest, cot) {
+  const auto cot = [&](std::optional<double> a) {
+    return evaluateOnce<double>("cot(c0)", a);
+  };
+
+  EXPECT_EQ(cot(0), kInf);
+  EXPECT_TRUE(std::isnan(cot(kNan).value_or(0)));
+  EXPECT_EQ(cot(1), 1 / std::tan(1));
+  EXPECT_EQ(cot(-1), 1 / std::tan(-1));
+  EXPECT_EQ(cot(0), 1 / std::tan(0));
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

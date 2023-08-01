@@ -237,4 +237,12 @@ struct Log1pFunction {
     return true;
   }
 };
+
+template <typename T>
+struct CotFunction {
+  FOLLY_ALWAYS_INLINE void call(double& result, double a) {
+    result = 1 / std::tan(a);
+  }
+};
+
 } // namespace facebook::velox::functions::sparksql

@@ -39,6 +39,7 @@ void registerArithmeticFunctions(const std::string& prefix) {
   registerFunction<CscFunction, double, double>({prefix + "csc"});
   registerFunction<SinhFunction, double, double>({prefix + "sinh"});
   registerFunction<CoshFunction, double, double>({prefix + "cosh"});
+  registerFunction<CotFunction, double, double>({prefix + "cot"});
   registerFunction<Log1pFunction, double, double>({prefix + "log1p"});
   registerFunction<ToBinaryStringFunction, Varchar, int64_t>({prefix + "bin"});
   registerFunction<ExpFunction, double, double>({prefix + "exp"});

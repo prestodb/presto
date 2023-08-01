@@ -40,6 +40,10 @@ Mathematical Functions
 
     Returns the hyperbolic cosine of ``x``.
 
+.. spark:function:: cot(x) -> double
+
+    Returns the cotangent of ``x``(measured in radians). Supported type is DOUBLE.
+
 .. spark:function:: csc(x) -> double
 
     Returns the cosecant of ``x``.
