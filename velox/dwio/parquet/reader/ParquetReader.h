@@ -214,6 +214,10 @@ class ParquetReader : public dwio::common::Reader {
     return readerBase_->schemaWithId();
   }
 
+  size_t numberOfRowGroups() const {
+    return readerBase_->fileMetaData().row_groups.size();
+  }
+
   std::unique_ptr<dwio::common::RowReader> createRowReader(
       const dwio::common::RowReaderOptions& options = {}) const override;
 

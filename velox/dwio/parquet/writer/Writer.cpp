@@ -82,7 +82,12 @@ class ArrowDataBufferSink : public arrow::io::OutputStream {
 
 struct ArrowContext {
   std::unique_ptr<::parquet::arrow::FileWriter> writer;
+  std::shared_ptr<arrow::Schema> schema;
   std::shared_ptr<::parquet::WriterProperties> properties;
+  uint64_t stagingRows = 0;
+  int64_t stagingBytes = 0;
+  // columns, Arrays
+  std::vector<std::vector<std::shared_ptr<arrow::Array>>> stagingChunks;
 };
 
 ::parquet::Compression::type getArrowParquetCompression(
@@ -103,7 +108,8 @@ struct ArrowContext {
 }
 
 std::shared_ptr<::parquet::WriterProperties> getArrowParquetWriterOptions(
-    const parquet::WriterOptions& options) {
+    const parquet::WriterOptions& options,
+    const std::unique_ptr<DefaultFlushPolicy>& flushPolicy) {
   auto builder = ::parquet::WriterProperties::Builder();
   ::parquet::WriterProperties::Builder* properties = &builder;
   if (!options.enableDictionary) {
@@ -112,6 +118,8 @@ std::shared_ptr<::parquet::WriterProperties> getArrowParquetWriterOptions(
   properties =
       properties->compression(getArrowParquetCompression(options.compression));
   properties = properties->data_pagesize(options.dataPageSize);
+  properties = properties->max_row_group_length(
+      static_cast<int64_t>(flushPolicy->rowsInRowGroup()));
   return properties->build();
 }
 
@@ -119,15 +127,20 @@ Writer::Writer(
     std::unique_ptr<dwio::common::DataSink> sink,
     const WriterOptions& options,
     std::shared_ptr<memory::MemoryPool> pool)
-    : rowsInRowGroup_(options.rowsInRowGroup),
-      pool_(std::move(pool)),
+    : pool_(std::move(pool)),
       generalPool_{pool_->addLeafChild(".general")},
       stream_(std::make_shared<ArrowDataBufferSink>(
           std::move(sink),
           *generalPool_,
           options.bufferGrowRatio)),
       arrowContext_(std::make_shared<ArrowContext>()) {
-  arrowContext_->properties = getArrowParquetWriterOptions(options);
+  if (options.flushPolicyFactory) {
+    flushPolicy_ = options.flushPolicyFactory();
+  } else {
+    flushPolicy_ = std::make_unique<DefaultFlushPolicy>();
+  }
+  arrowContext_->properties =
+      getArrowParquetWriterOptions(options, flushPolicy_);
 }
 
 Writer::Writer(
@@ -140,6 +153,60 @@ Writer::Writer(
               "writer_node_{}",
               folly::to<std::string>(folly::Random::rand64())))} {}
 
+void Writer::flush() {
+  if (arrowContext_->stagingRows > 0) {
+    if (!arrowContext_->writer) {
+      auto arrowProperties =
+          ::parquet::ArrowWriterProperties::Builder().build();
+      PARQUET_THROW_NOT_OK(::parquet::arrow::FileWriter::Open(
+          *arrowContext_->schema.get(),
+          arrow::default_memory_pool(),
+          stream_,
+          arrowContext_->properties,
+          arrowProperties,
+          &arrowContext_->writer));
+    }
+
+    auto fields = arrowContext_->schema->fields();
+    std::vector<std::shared_ptr<arrow::ChunkedArray>> chunks;
+    for (int colIdx = 0; colIdx < fields.size(); colIdx++) {
+      auto dataType = fields.at(colIdx)->type();
+      auto chunk =
+          arrow::ChunkedArray::Make(
+              std::move(arrowContext_->stagingChunks.at(colIdx)), dataType)
+              .ValueOrDie();
+      chunks.push_back(chunk);
+    }
+    auto table = arrow::Table::Make(
+        arrowContext_->schema,
+        std::move(chunks),
+        static_cast<int64_t>(arrowContext_->stagingRows));
+    PARQUET_THROW_NOT_OK(arrowContext_->writer->WriteTable(
+        *table, static_cast<int64_t>(flushPolicy_->rowsInRowGroup())));
+    PARQUET_THROW_NOT_OK(stream_->Flush());
+    for (auto& chunk : arrowContext_->stagingChunks) {
+      chunk.clear();
+    }
+    arrowContext_->stagingRows = 0;
+    arrowContext_->stagingBytes = 0;
+  }
+}
+
+dwio::common::StripeProgress getStripeProgress(
+    uint64_t stagingRows,
+    int64_t stagingBytes) {
+  return dwio::common::StripeProgress{
+      .stripeRowCount = stagingRows, .stripeSizeEstimate = stagingBytes};
+}
+
+/**
+ * This method would cache input `ColumnarBatch` to make the size of row group
+ * big. It would flush when:
+ * - the cached numRows bigger than `rowsInRowGroup_`
+ * - the cached bytes bigger than `bytesInRowGroup_`
+ *
+ * This method assumes each input `ColumnarBatch` have same schema.
+ */
 void Writer::write(const VectorPtr& data) {
   ArrowArray array;
   ArrowSchema schema;
@@ -147,21 +214,28 @@ void Writer::write(const VectorPtr& data) {
   exportToArrow(data, schema);
   PARQUET_ASSIGN_OR_THROW(
       auto recordBatch, arrow::ImportRecordBatch(&array, &schema));
-  auto table = arrow::Table::Make(
-      recordBatch->schema(), recordBatch->columns(), data->size());
-  if (!arrowContext_->writer) {
-    auto arrowProperties = ::parquet::ArrowWriterProperties::Builder().build();
-    PARQUET_THROW_NOT_OK(::parquet::arrow::FileWriter::Open(
-        *recordBatch->schema(),
-        arrow::default_memory_pool(),
-        stream_,
-        arrowContext_->properties,
-        arrowProperties,
-        &arrowContext_->writer));
+  if (!arrowContext_->schema) {
+    arrowContext_->schema = recordBatch->schema();
+    for (int colIdx = 0; colIdx < arrowContext_->schema->num_fields();
+         colIdx++) {
+      arrowContext_->stagingChunks.push_back(
+          std::vector<std::shared_ptr<arrow::Array>>());
+    }
   }
 
-  PARQUET_THROW_NOT_OK(
-      arrowContext_->writer->WriteTable(*table, rowsInRowGroup_));
+  auto bytes = data->estimateFlatSize();
+  auto numRows = data->size();
+  if (flushPolicy_->shouldFlush(getStripeProgress(
+          arrowContext_->stagingRows, arrowContext_->stagingBytes))) {
+    flush();
+  }
+
+  for (int colIdx = 0; colIdx < recordBatch->num_columns(); colIdx++) {
+    arrowContext_->stagingChunks.at(colIdx).push_back(
+        recordBatch->column(colIdx));
+  }
+  arrowContext_->stagingRows += numRows;
+  arrowContext_->stagingBytes += bytes;
 }
 
 bool Writer::isCodecAvailable(common::CompressionKind compression) {
@@ -169,20 +243,20 @@ bool Writer::isCodecAvailable(common::CompressionKind compression) {
       getArrowParquetCompression(compression));
 }
 
-void Writer::flush() {
-  PARQUET_THROW_NOT_OK(stream_->Flush());
-}
-
 void Writer::newRowGroup(int32_t numRows) {
   PARQUET_THROW_NOT_OK(arrowContext_->writer->NewRowGroup(numRows));
 }
 
 void Writer::close() {
+  flush();
+
   if (arrowContext_->writer) {
     PARQUET_THROW_NOT_OK(arrowContext_->writer->Close());
     arrowContext_->writer.reset();
   }
   PARQUET_THROW_NOT_OK(stream_->Close());
+
+  arrowContext_->stagingChunks.clear();
 }
 
 parquet::WriterOptions getParquetOptions(
