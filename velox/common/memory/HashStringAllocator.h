@@ -357,13 +357,10 @@ class HashStringAllocator : public StreamArena {
 
   void newRange(int32_t bytes, ByteRange* range, bool contiguous);
 
-  // Adds 'bytes' worth of contiguous space to the free list. This
+  // Adds a new standard size slab to the free list. This
   // grows the footprint in MemoryAllocator but does not allocate
-  // anything yet. Throws if fails to grow. The caller typically knows
-  // a cap on memory to allocate and uses this and freeSpace() to make
-  // sure that there is space to accommodate the expected need before
-  // starting to process a batch of input.
-  void newSlab(int32_t size);
+  // anything yet. Throws if fails to grow.
+  void newSlab();
 
   void removeFromFreeList(Header* FOLLY_NONNULL header) {
     VELOX_CHECK(header->isFree());
