@@ -619,7 +619,6 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringInputProcessing) {
             .spillDirectory(tempDirectory->path)
             .config(core::QueryConfig::kSpillEnabled, "true")
             .config(core::QueryConfig::kOrderBySpillEnabled, "true")
-            .config(core::QueryConfig::kSpillPartitionBits, "2")
             .maxDrivers(1)
             .assertResults(expectedResult);
       } else {
@@ -752,7 +751,6 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringReserve) {
         .spillDirectory(tempDirectory->path)
         .config(core::QueryConfig::kSpillEnabled, "true")
         .config(core::QueryConfig::kOrderBySpillEnabled, "true")
-        .config(core::QueryConfig::kSpillPartitionBits, "2")
         .maxDrivers(1)
         .assertResults(expectedResult);
   });
@@ -865,7 +863,6 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringAllocation) {
             .spillDirectory(tempDirectory->path)
             .config(core::QueryConfig::kSpillEnabled, "true")
             .config(core::QueryConfig::kOrderBySpillEnabled, "true")
-            .config(core::QueryConfig::kSpillPartitionBits, "2")
             .maxDrivers(1)
             .assertResults(expectedResult);
       } else {
@@ -986,7 +983,6 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringOutputProcessing) {
             .spillDirectory(tempDirectory->path)
             .config(core::QueryConfig::kSpillEnabled, "true")
             .config(core::QueryConfig::kOrderBySpillEnabled, "true")
-            .config(core::QueryConfig::kSpillPartitionBits, "2")
             .maxDrivers(1)
             .assertResults(expectedResult);
       } else {

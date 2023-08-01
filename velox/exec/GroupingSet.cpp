@@ -842,9 +842,10 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
         rows,
         [&](folly::Range<char**> rows) { table_->erase(rows); },
         ROW(std::move(names), std::move(types)),
-        // Spill up to 8 partitions based on bits starting from 29th of the hash
-        // number. Any from one to three bits would do.
-        spillConfig_->hashBitRange,
+        HashBitRange(
+            spillConfig_->startPartitionBit,
+            spillConfig_->startPartitionBit +
+                spillConfig_->aggregationPartitionBits),
         rows->keyTypes().size(),
         std::vector<CompareFlags>(),
         spillConfig_->filePath,

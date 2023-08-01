@@ -186,8 +186,9 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
     return;
   }
   const auto& spillConfig = spillConfig_.value();
-  HashBitRange hashBits = spillConfig.hashBitRange;
-
+  HashBitRange hashBits(
+      spillConfig.startPartitionBit,
+      spillConfig.startPartitionBit + spillConfig.joinPartitionBits);
   if (spillPartition == nullptr) {
     spillGroup_->addOperator(
         *this,
@@ -196,14 +197,13 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
     spillInputReader_ = spillPartition->createReader();
 
     const auto startBit = spillPartition->id().partitionBitOffset() +
-        spillConfig.hashBitRange.numBits();
+        spillConfig.joinPartitionBits;
     // Disable spilling if exceeding the max spill level and the query might run
     // out of memory if the restored partition still can't fit in memory.
-    if (spillConfig.exceedSpillLevelLimit(startBit)) {
+    if (spillConfig.exceedJoinSpillLevelLimit(startBit)) {
       return;
     }
-    hashBits =
-        HashBitRange(startBit, startBit + spillConfig.hashBitRange.numBits());
+    hashBits = HashBitRange(startBit, startBit + spillConfig.joinPartitionBits);
   }
 
   spiller_ = std::make_unique<Spiller>(
@@ -890,7 +890,7 @@ void HashBuild::addRuntimeStats() {
     lockedStats->addRuntimeStat(
         "maxSpillLevel",
         RuntimeCounter(
-            spillConfig()->spillLevel(spiller_->hashBits().begin())));
+            spillConfig()->joinSpillLevel(spiller_->hashBits().begin())));
   }
 }
 

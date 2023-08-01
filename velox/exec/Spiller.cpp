@@ -594,15 +594,15 @@ std::string Spiller::toString() const {
       spillFinalized_);
 }
 
-int32_t Spiller::Config::spillLevel(uint8_t startBitOffset) const {
-  const auto numPartitionBits = hashBitRange.numBits();
+int32_t Spiller::Config::joinSpillLevel(uint8_t startBitOffset) const {
+  const auto numPartitionBits = joinPartitionBits;
   VELOX_CHECK_LE(
       startBitOffset + numPartitionBits,
       64,
       "startBitOffset:{} numPartitionsBits:{}",
       startBitOffset,
       numPartitionBits);
-  const int32_t deltaBits = startBitOffset - hashBitRange.begin();
+  const int32_t deltaBits = startBitOffset - startPartitionBit;
   VELOX_CHECK_GE(deltaBits, 0, "deltaBits:{}", deltaBits);
   VELOX_CHECK_EQ(
       deltaBits % numPartitionBits,
@@ -613,14 +613,14 @@ int32_t Spiller::Config::spillLevel(uint8_t startBitOffset) const {
   return deltaBits / numPartitionBits;
 }
 
-bool Spiller::Config::exceedSpillLevelLimit(uint8_t startBitOffset) const {
-  if (startBitOffset + hashBitRange.numBits() > 64) {
+bool Spiller::Config::exceedJoinSpillLevelLimit(uint8_t startBitOffset) const {
+  if (startBitOffset + joinPartitionBits > 64) {
     return true;
   }
   if (maxSpillLevel == -1) {
     return false;
   }
-  return spillLevel(startBitOffset) > maxSpillLevel;
+  return joinSpillLevel(startBitOffset) > maxSpillLevel;
 }
 
 // static

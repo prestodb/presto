@@ -1340,10 +1340,17 @@ TEST(SpillerTest, stats) {
 TEST(SpillerTest, spillLevel) {
   const uint8_t kInitialBitOffset = 16;
   const uint8_t kNumPartitionsBits = 3;
-  const HashBitRange partitionBits(
-      kInitialBitOffset, kInitialBitOffset + kNumPartitionsBits);
   const Spiller::Config config(
-      "fakeSpillPath", 0, 0, nullptr, 0, partitionBits, 0, 0);
+      "fakeSpillPath",
+      0,
+      0,
+      nullptr,
+      0,
+      kInitialBitOffset,
+      kNumPartitionsBits,
+      0,
+      0,
+      0);
   struct {
     uint8_t bitOffset;
     // Indicates an invalid if 'expectedLevel' is negative.
@@ -1366,9 +1373,10 @@ TEST(SpillerTest, spillLevel) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     if (testData.expectedLevel == -1) {
-      ASSERT_ANY_THROW(config.spillLevel(testData.bitOffset));
+      ASSERT_ANY_THROW(config.joinSpillLevel(testData.bitOffset));
     } else {
-      ASSERT_EQ(config.spillLevel(testData.bitOffset), testData.expectedLevel);
+      ASSERT_EQ(
+          config.joinSpillLevel(testData.bitOffset), testData.expectedLevel);
     }
   }
 }
@@ -1419,12 +1427,14 @@ TEST(SpillerTest, spillLevelLimit) {
         0,
         nullptr,
         0,
-        partitionBits,
+        testData.startBitOffset,
+        testData.numBits,
+        0,
         testData.maxSpillLevel,
         0);
 
     ASSERT_EQ(
         testData.expectedExceeds,
-        config.exceedSpillLevelLimit(testData.bitOffset));
+        config.exceedJoinSpillLevelLimit(testData.bitOffset));
   }
 }

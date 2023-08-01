@@ -183,7 +183,15 @@ class QueryConfig {
   static constexpr const char* kSpillStartPartitionBit =
       "spiller_start_partition_bit";
 
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   static constexpr const char* kSpillPartitionBits = "spiller_partition_bits";
+#endif
+
+  static constexpr const char* kJoinSpillPartitionBits =
+      "join_spiller_partition_bits";
+
+  static constexpr const char* kAggregationSpillPartitionBits =
+      "aggregation_spiller_partition_bits";
 
   static constexpr const char* kSpillableReservationGrowthPct =
       "spillable_reservation_growth_pct";
@@ -365,21 +373,45 @@ class QueryConfig {
     return get<int32_t>(kMaxSpillLevel, 4);
   }
 
-  /// Returns the start partition bit which is used with 'kSpillPartitionBits'
-  /// together to calculate the spilling partition number.
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  int32_t spillPartitionBits() const {
+    constexpr int32_t kDefaultBits = 2;
+    constexpr int32_t kMaxBits = 3;
+    return std::min(kMaxBits, get<int32_t>(kSpillPartitionBits, kDefaultBits));
+  }
+#endif
+
+  /// Returns the start partition bit which is used with
+  /// 'kJoinSpillPartitionBits' or 'kAggregationSpillPartitionBits' together to
+  /// calculate the spilling partition number for join spill or aggregation
+  /// spill.
   uint8_t spillStartPartitionBit() const {
     constexpr uint8_t kDefaultStartBit = 29;
     return get<uint8_t>(kSpillStartPartitionBit, kDefaultStartBit);
   }
 
   /// Returns the number of bits used to calculate the spilling partition
-  /// number. The number of spilling partitions will be power of two.
+  /// number for hash join. The number of spilling partitions will be power of
+  /// two.
   ///
   /// NOTE: as for now, we only support up to 8-way spill partitioning.
-  int32_t spillPartitionBits() const {
-    constexpr int32_t kDefaultBits = 2;
-    constexpr int32_t kMaxBits = 3;
-    return std::min(kMaxBits, get<int32_t>(kSpillPartitionBits, kDefaultBits));
+  uint8_t joinSpillPartitionBits() const {
+    constexpr uint8_t kDefaultBits = 2;
+    constexpr uint8_t kMaxBits = 3;
+    return std::min(
+        kMaxBits, get<uint8_t>(kJoinSpillPartitionBits, kDefaultBits));
+  }
+
+  /// Returns the number of bits used to calculate the spilling partition
+  /// number for hash join. The number of spilling partitions will be power of
+  /// two.
+  ///
+  /// NOTE: as for now, we only support up to 8-way spill partitioning.
+  uint8_t aggregationSpillPartitionBits() const {
+    constexpr uint8_t kDefaultBits = 0;
+    constexpr uint8_t kMaxBits = 3;
+    return std::min(
+        kMaxBits, get<uint8_t>(kAggregationSpillPartitionBits, kDefaultBits));
   }
 
   uint64_t maxSpillFileSize() const {

@@ -648,7 +648,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, DISABLED_reclaimFromAggregation) {
               .spillDirectory(spillDirectory->path)
               .config(core::QueryConfig::kSpillEnabled, "true")
               .config(core::QueryConfig::kAggregationSpillEnabled, "true")
-              .config(core::QueryConfig::kSpillPartitionBits, "2")
+              .config(core::QueryConfig::kAggregationSpillPartitionBits, "2")
               .queryCtx(aggregationQueryCtx)
               .plan(PlanBuilder()
                         .values(vectors)
@@ -906,7 +906,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromJoinBuilder) {
               .spillDirectory(spillDirectory->path)
               .config(core::QueryConfig::kSpillEnabled, "true")
               .config(core::QueryConfig::kJoinSpillEnabled, "true")
-              .config(core::QueryConfig::kSpillPartitionBits, "2")
+              .config(core::QueryConfig::kJoinSpillPartitionBits, "2")
               .queryCtx(joinQueryCtx)
               .plan(PlanBuilder(planNodeIdGenerator)
                         .values(vectors)
@@ -1209,7 +1209,7 @@ DEBUG_ONLY_TEST_F(
               .spillDirectory(spillDirectory->path)
               .config(core::QueryConfig::kSpillEnabled, "true")
               .config(core::QueryConfig::kJoinSpillEnabled, "true")
-              .config(core::QueryConfig::kSpillPartitionBits, "2")
+              .config(core::QueryConfig::kJoinSpillPartitionBits, "2")
               // NOTE: set an extreme large value to avoid non-reclaimable
               // section in test.
               .config(core::QueryConfig::kSpillableReservationGrowthPct, "8000")
@@ -1364,7 +1364,7 @@ DEBUG_ONLY_TEST_F(
             .spillDirectory(spillDirectory->path)
             .config(core::QueryConfig::kSpillEnabled, "true")
             .config(core::QueryConfig::kJoinSpillEnabled, "true")
-            .config(core::QueryConfig::kSpillPartitionBits, "2")
+            .config(core::QueryConfig::kJoinSpillPartitionBits, "2")
             // NOTE: set an extreme large value to avoid non-reclaimable
             // section in test.
             .config(core::QueryConfig::kSpillableReservationGrowthPct, "8000")
@@ -1518,7 +1518,7 @@ DEBUG_ONLY_TEST_F(
             .spillDirectory(spillDirectory->path)
             .config(core::QueryConfig::kSpillEnabled, "true")
             .config(core::QueryConfig::kJoinSpillEnabled, "true")
-            .config(core::QueryConfig::kSpillPartitionBits, "2")
+            .config(core::QueryConfig::kJoinSpillPartitionBits, "2")
             // NOTE: set an extreme large value to avoid non-reclaimable
             // section in test.
             .config(core::QueryConfig::kSpillableReservationGrowthPct, "8000")
@@ -1727,7 +1727,7 @@ DEBUG_ONLY_TEST_F(
             .spillDirectory(spillDirectory->path)
             .config(core::QueryConfig::kSpillEnabled, "true")
             .config(core::QueryConfig::kJoinSpillEnabled, "true")
-            .config(core::QueryConfig::kSpillPartitionBits, "2")
+            .config(core::QueryConfig::kJoinSpillPartitionBits, "2")
             .maxDrivers(numDrivers)
             .plan(PlanBuilder()
                       .values(vectors)
@@ -1802,7 +1802,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenMaybeReserveAndTaskAbort) {
             .spillDirectory(spillDirectory->path)
             .config(core::QueryConfig::kSpillEnabled, "true")
             .config(core::QueryConfig::kJoinSpillEnabled, "true")
-            .config(core::QueryConfig::kSpillPartitionBits, "2")
+            .config(core::QueryConfig::kJoinSpillPartitionBits, "2")
             .maxDrivers(numDrivers)
             .plan(PlanBuilder()
                       .values(vectors)
@@ -1862,7 +1862,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, asyncArbitratonFromNonDriverContext) {
                .spillDirectory(spillDirectory->path)
                .config(core::QueryConfig::kSpillEnabled, "true")
                .config(core::QueryConfig::kJoinSpillEnabled, "true")
-               .config(core::QueryConfig::kSpillPartitionBits, "2")
+               .config(core::QueryConfig::kJoinSpillPartitionBits, "2")
                .plan(PlanBuilder()
                          .values(vectors)
                          .localPartition({"c0", "c1"})

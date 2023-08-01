@@ -242,7 +242,7 @@ void HashProbe::maybeSetupSpillInput(
       HashBitRange(
           spillInputPartitionIds_.begin()->partitionBitOffset(),
           spillInputPartitionIds_.begin()->partitionBitOffset() +
-              spillConfig.hashBitRange.numBits()),
+              spillConfig.joinPartitionBits),
       spillConfig.filePath,
       spillConfig.maxFileSize,
       spillConfig.minSpillRunSize,

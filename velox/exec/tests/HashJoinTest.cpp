@@ -2807,7 +2807,7 @@ TEST_P(MultiThreadedHashJoinTest, noSpillLevelLimit) {
           "SELECT t_k0, t_data, u_k0, u_data FROM t, u WHERE t.t_k0 = u.u_k0")
       .maxSpillLevel(-1)
       .config(core::QueryConfig::kSpillStartPartitionBit, "48")
-      .config(core::QueryConfig::kSpillPartitionBits, "3")
+      .config(core::QueryConfig::kJoinSpillPartitionBits, "3")
       .checkSpillStats(false)
       .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
         if (!hasSpill) {
@@ -4384,7 +4384,7 @@ TEST_F(HashJoinTest, spillFileSize) {
         .referenceQuery(
             "SELECT t_k0, t_data, u_k0, u_data FROM t, u WHERE t.t_k0 = u.u_k0")
         .config(core::QueryConfig::kSpillStartPartitionBit, "48")
-        .config(core::QueryConfig::kSpillPartitionBits, "3")
+        .config(core::QueryConfig::kJoinSpillPartitionBits, "3")
         .config(
             core::QueryConfig::kMaxSpillFileSize, std::to_string(spillFileSize))
         .checkSpillStats(false)

@@ -43,9 +43,11 @@ class Spiller {
         const std::string& _filePath,
         uint64_t _maxFileSize,
         uint64_t _minSpillRunSize,
-        folly::Executor* FOLLY_NULLABLE _executor,
+        folly::Executor* _executor,
         int32_t _spillableReservationGrowthPct,
-        const HashBitRange& _hashBitRange,
+        uint8_t _startPartitionBit,
+        uint8_t _joinPartitionBits,
+        uint8_t _aggregationPartitionBits,
         int32_t _maxSpillLevel,
         int32_t _testSpillPct)
         : filePath(_filePath),
@@ -55,18 +57,21 @@ class Spiller {
           minSpillRunSize(_minSpillRunSize),
           executor(_executor),
           spillableReservationGrowthPct(_spillableReservationGrowthPct),
-          hashBitRange(_hashBitRange),
+          startPartitionBit(_startPartitionBit),
+          joinPartitionBits(_joinPartitionBits),
+          aggregationPartitionBits(_aggregationPartitionBits),
           maxSpillLevel(_maxSpillLevel),
           testSpillPct(_testSpillPct) {}
 
-    /// Returns the spilling level with given 'startBitOffset'.
+    /// Returns the hash join spilling level with given 'startBitOffset'.
     ///
     /// NOTE: we advance (or right shift) the partition bit offset when goes to
     /// the next level of recursive spilling.
-    int32_t spillLevel(uint8_t startBitOffset) const;
+    int32_t joinSpillLevel(uint8_t startBitOffset) const;
 
-    /// Checks if the given 'startBitOffset' has exceeded the max spill limit.
-    bool exceedSpillLevelLimit(uint8_t startBitOffset) const;
+    /// Checks if the given 'startBitOffset' has exceeded the max hash join
+    /// spill limit.
+    bool exceedJoinSpillLevelLimit(uint8_t startBitOffset) const;
 
     /// Filesystem path for spill files.
     std::string filePath;
@@ -85,14 +90,22 @@ class Spiller {
     uint64_t minSpillRunSize;
 
     // Executor for spilling. If nullptr spilling writes on the Driver's thread.
-    folly::Executor* FOLLY_NULLABLE executor; // Not owned.
+    folly::Executor* executor; // Not owned.
 
     // The spillable memory reservation growth percentage of the current
     // reservation size.
     int32_t spillableReservationGrowthPct;
 
-    // Used to calculate the spill hash partition number.
-    HashBitRange hashBitRange;
+    // Used to calculate spill partition number.
+    uint8_t startPartitionBit;
+
+    // Used to calculate the spill hash partition number for hash join with
+    // 'startPartitionBit'.
+    uint8_t joinPartitionBits;
+
+    // Used to calculate the spill hash partition number for aggregation with
+    // 'startPartitionBit'.
+    uint8_t aggregationPartitionBits;
 
     // The max allowed spilling level with zero being the initial spilling
     // level. This only applies for hash build spilling which needs recursive
@@ -121,7 +134,7 @@ class Spiller {
       uint64_t targetFileSize,
       uint64_t minSpillRunSize,
       memory::MemoryPool& pool,
-      folly::Executor* FOLLY_NULLABLE executor);
+      folly::Executor* executor);
 
   Spiller(
       Type type,
@@ -131,11 +144,11 @@ class Spiller {
       uint64_t targetFileSize,
       uint64_t minSpillRunSize,
       memory::MemoryPool& pool,
-      folly::Executor* FOLLY_NULLABLE executor);
+      folly::Executor* executor);
 
   Spiller(
       Type type,
-      RowContainer* FOLLY_NULLABLE container,
+      RowContainer* container,
       RowContainer::Eraser eraser,
       RowTypePtr rowType,
       HashBitRange bits,
@@ -145,7 +158,7 @@ class Spiller {
       uint64_t targetFileSize,
       uint64_t minSpillRunSize,
       memory::MemoryPool& pool,
-      folly::Executor* FOLLY_NULLABLE executor);
+      folly::Executor* executor);
 
   /// Spills rows from 'this' until there are under 'targetRows' rows
   /// and 'targetBytes' of allocated variable length space in use. spill()
@@ -368,8 +381,7 @@ class Spiller {
   // If 'rowsFromNonSpillingPartitions' is not null, the function is invoked
   // to finish spill, and it will collect rows from the non-spilling partitions
   // in 'rowsFromNonSpillingPartitions' instead of 'spillRuns_'.
-  void fillSpillRuns(
-      SpillRows* FOLLY_NULLABLE rowsFromNonSpillingPartitions = nullptr);
+  void fillSpillRuns(SpillRows* rowsFromNonSpillingPartitions = nullptr);
 
   // Picks the next partition to spill. In case of non kHashJoin type, the
   // function picks the partition with spillable data no matter it has spilled
@@ -406,7 +418,7 @@ class Spiller {
   const Type type_;
   // NOTE: for hash join probe type, there is no associated row container for
   // the spiller.
-  RowContainer* const FOLLY_NULLABLE container_; // Not owned.
+  RowContainer* const container_; // Not owned.
   const RowContainer::Eraser eraser_;
   const HashBitRange bits_;
   const RowTypePtr rowType_;
@@ -428,7 +440,7 @@ class Spiller {
 
   memory::MemoryPool& pool_;
 
-  folly::Executor* FOLLY_NULLABLE const executor_;
+  folly::Executor* const executor_;
 
   uint64_t spilledRows_{0};
 };
