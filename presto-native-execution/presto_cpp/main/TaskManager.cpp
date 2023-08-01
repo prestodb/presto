@@ -328,6 +328,12 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
     std::shared_ptr<velox::core::QueryCtx> queryCtx) {
   std::shared_ptr<exec::Task> execTask;
   bool startTask = false;
+
+  // Refresh token for all registered file system.
+  auto fileSystems = filesystems::getRegisteredFileSystems();
+  for (const auto& fileSystem : fileSystems) {
+    fileSystem->refreshAccessToken();
+  }
   auto prestoTask = findOrCreateTask(taskId);
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
