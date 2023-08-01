@@ -42,8 +42,10 @@ class CompactRowSerializerTest : public ::testing::Test,
     auto serializer = serde_->createSerializer(rowType, numRows, arena.get());
 
     serializer->append(rowVector, folly::Range(rows.data(), numRows));
+    auto size = serializer->maxSerializedSize();
     OStreamOutputStream out(output);
     serializer->flush(&out);
+    ASSERT_EQ(size, output->tellp());
   }
 
   std::unique_ptr<ByteStream> toByteStream(const std::string_view& input) {

@@ -719,6 +719,34 @@ void writeInt64(OutputStream* out, int64_t value) {
   out->write(reinterpret_cast<char*>(&value), sizeof(value));
 }
 
+class CountingOutputStream : public OutputStream {
+ public:
+  explicit CountingOutputStream() : OutputStream{nullptr} {}
+
+  void write(const char* /*s*/, std::streamsize count) override {
+    pos_ += count;
+    if (numBytes_ < pos_) {
+      numBytes_ = pos_;
+    }
+  }
+
+  std::streampos tellp() const override {
+    return pos_;
+  }
+
+  void seekp(std::streampos pos) override {
+    pos_ = pos;
+  }
+
+  std::streamsize size() const {
+    return numBytes_;
+  }
+
+ private:
+  std::streamsize numBytes_{0};
+  std::streampos pos_{0};
+};
+
 // Appendable container for serialized values. To append a value at a
 // time, call appendNull or appendNonNull first. Then call
 // appendLength if the type has a length. A null value has a length of
@@ -820,6 +848,13 @@ class VectorStream {
 
   VectorStream* childAt(int32_t index) {
     return children_[index].get();
+  }
+
+  // Returns the size to flush to OutputStream before calling `flush`.
+  size_t serializedSize() {
+    CountingOutputStream out;
+    flush(&out);
+    return out.size();
   }
 
   // Writes out the accumulated contents. Does not change the state.
@@ -1593,6 +1628,18 @@ class PrestoVectorSerializer : public VectorSerializer {
         serializeColumn(vector->childAt(i).get(), ranges, streams_[i].get());
       }
     }
+  }
+
+  size_t maxSerializedSize() const override {
+    size_t dataSize = 4; // streams_.size()
+    for (auto& stream : streams_) {
+      dataSize += stream->serializedSize();
+    }
+
+    auto compressedSize = needCompression(*codec_)
+        ? codec_->maxCompressedLength(dataSize)
+        : dataSize;
+    return kHeaderSize + compressedSize;
   }
 
   // The SerializedPage layout is:

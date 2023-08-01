@@ -73,6 +73,7 @@ class PrestoSerializerTest
       std::ostream* output,
       const serializer::presto::PrestoVectorSerde::PrestoOptions*
           serdeOptions) {
+    auto streamInitialSize = output->tellp();
     sanityCheckEstimateSerializedSize(rowVector);
 
     auto arena = std::make_unique<StreamArena>(pool_.get());
@@ -83,9 +84,15 @@ class PrestoSerializerTest
         serde_->createSerializer(rowType, numRows, arena.get(), &paramOptions);
 
     serializer->append(rowVector);
+    auto size = serializer->maxSerializedSize();
     facebook::velox::serializer::presto::PrestoOutputStreamListener listener;
     OStreamOutputStream out(output, &listener);
     serializer->flush(&out);
+    if (paramOptions.compressionKind == common::CompressionKind_NONE) {
+      ASSERT_EQ(size, out.tellp() - streamInitialSize);
+    } else {
+      ASSERT_GE(size, out.tellp() - streamInitialSize);
+    }
   }
 
   void serializeRle(
