@@ -237,7 +237,8 @@ public class TestQueryManager
         }
     }
 
-    @Test
+    // Flaky test: https://github.com/prestodb/presto/issues/20447
+    @Test(enabled = false)
     public void testQueryCountMetrics()
             throws Exception
     {
