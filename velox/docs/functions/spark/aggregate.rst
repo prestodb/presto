@@ -68,3 +68,17 @@ General Aggregate Functions
 .. spark:function:: last_ignore_null(x) -> x
 
     Returns the last non-null value of `x`.
+
+.. spark:function:: max_by(x, y) -> x
+
+    Returns the value of `x` associated with the maximum value of `y`.
+    Note: Spark provides a non-strictly comparator which is greater than or equals to.
+    Eg. SELECT max_by(x, y) FROM VALUES (('a', 10)), (('b', 50)), (('c', 50)) AS tab(x, y);
+        > c
+
+.. spark:function:: min_by(x, y) -> x
+
+    Returns the value of `x` associated with the minimum value of `y`.
+    Note: Spark provides a non-strictly comparator which is less than or equals to.
+    Eg. SELECT min_by(x, y) FROM VALUES (('a', 10)), (('b', 10)), (('c', 50)) AS tab(x, y);
+        > b

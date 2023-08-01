@@ -67,7 +67,9 @@ int main(int argc, char** argv) {
       // imprecision in complex types.
       // https://github.com/facebookincubator/velox/issues/4481
       {"avg_partial", ""},
-      {"avg_merge", ""}};
+      {"avg_merge", ""},
+      {"max_by", ""},
+      {"min_by", ""}};
 
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   return facebook::velox::exec::test::AggregationFuzzerRunner::runFuzzer(
