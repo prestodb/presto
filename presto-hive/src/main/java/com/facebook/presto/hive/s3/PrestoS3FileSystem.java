@@ -28,6 +28,7 @@ import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
 import com.amazonaws.event.ProgressListener;
+import com.amazonaws.metrics.RequestMetricCollector;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
@@ -163,7 +164,7 @@ public class PrestoS3FileSystem
 {
     private static final Logger log = Logger.get(PrestoS3FileSystem.class);
     private static final PrestoS3FileSystemStats STATS = new PrestoS3FileSystemStats();
-    private static final PrestoS3FileSystemMetricCollector METRIC_COLLECTOR = new PrestoS3FileSystemMetricCollector(STATS);
+    private static RequestMetricCollector metricCollector = new PrestoS3FileSystemMetricCollector(STATS);
     private static final String DIRECTORY_SUFFIX = "_$folder$";
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
@@ -757,13 +758,13 @@ public class PrestoS3FileSystem
                     .withCredentials(credentialsProvider)
                     .withEncryptionMaterials(encryptionMaterialsProvider.get())
                     .withClientConfiguration(clientConfig)
-                    .withMetricsCollector(METRIC_COLLECTOR);
+                    .withMetricsCollector(metricCollector);
         }
         else {
             clientBuilder = AmazonS3Client.builder()
                     .withCredentials(credentialsProvider)
                     .withClientConfiguration(clientConfig)
-                    .withMetricsCollector(METRIC_COLLECTOR);
+                    .withMetricsCollector(metricCollector);
         }
 
         boolean regionOrEndpointSet = false;
@@ -1365,5 +1366,15 @@ public class PrestoS3FileSystem
     public static PrestoS3FileSystemStats getFileSystemStats()
     {
         return STATS;
+    }
+
+    public static RequestMetricCollector getMetricsCollector()
+    {
+        return metricCollector;
+    }
+
+    public static void setMetricsCollector(RequestMetricCollector customMetricCollector)
+    {
+        metricCollector = customMetricCollector;
     }
 }
