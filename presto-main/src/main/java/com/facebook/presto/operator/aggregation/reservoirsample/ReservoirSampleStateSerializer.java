@@ -16,8 +16,16 @@ package com.facebook.presto.operator.aggregation.reservoirsample;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 
 public class ReservoirSampleStateSerializer
         implements AccumulatorStateSerializer<ReservoirSampleState>
@@ -27,6 +35,13 @@ public class ReservoirSampleStateSerializer
 
     public ReservoirSampleStateSerializer(Type elementType)
     {
+//        assert elementType instanceof RowType;
+//        RowType sampleRows = (RowType) elementType;
+//        List<Field> sampleFields = sampleRows.getFields();
+//        Field count = new Field(Optional.of("rowCount"), INTEGER);
+//        Field length = new Field(Optional.of("sampleLength"), INTEGER);
+//        sampleFields.add(count);
+//        sampleFields.add(length);
         this.elementType = elementType;
         this.arrayType = new ArrayType(elementType);
     }
@@ -34,21 +49,22 @@ public class ReservoirSampleStateSerializer
     @Override
     public Type getSerializedType()
     {
-        return arrayType;
+        Field count = new Field(Optional.of("count"), INTEGER);
+        Field length = new Field(Optional.of("sampleLength"), INTEGER);
+        Field sample = new Field(Optional.of("sample"), arrayType);
+        List<Field> fields = Arrays.asList(count, length, sample);
+        return RowType.from(fields);
     }
 
     @Override
     public void serialize(ReservoirSampleState state, BlockBuilder out)
     {
-        Block[] samples = state.getSamples();
         if (state.isEmpty()) {
             out.appendNull();
         }
         else {
             BlockBuilder entryBuilder = out.beginBlockEntry();
-            for (int i = 0; i < samples.length; i++) {
-                elementType.appendTo(samples[i], 0, entryBuilder);
-            }
+            state.serialize(entryBuilder);
             out.closeEntry();
         }
     }
@@ -56,11 +72,18 @@ public class ReservoirSampleStateSerializer
     @Override
     public void deserialize(Block block, int index, ReservoirSampleState state)
     {
-        Block stateBlock = (Block) arrayType.getObject(block, index);
-        int sampleSize = stateBlock.getPositionCount();
-        state.reset(sampleSize);
-        for (int i = 0; i < sampleSize; i++) {
-            state.add(stateBlock, i);
+        Type rowTypes = getSerializedType();
+        Block stateBlock = (Block) rowTypes.getObject(block, index);
+        int seenCount = stateBlock.getInt(0);
+        int sampleLength = stateBlock.getInt(1);
+        Block samplesBlock = (Block) arrayType.getObject(stateBlock, 2);
+        Block[] samples = new Block[sampleLength];
+        for (int i = 0; i < sampleLength; i++) {
+            BlockBuilder elementBlock = elementType.createBlockBuilder(null, 16);
+            elementType.appendTo(samplesBlock, i, elementBlock);
+            samples[i] = elementBlock.build();
         }
+        ReservoirSample reservoirSample = new ReservoirSample(seenCount, samples, elementType);
+        state.setSample(reservoirSample);
     }
 }
