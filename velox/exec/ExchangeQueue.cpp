@@ -89,7 +89,7 @@ std::unique_ptr<SerializedPage> ExchangeQueue::dequeueLocked(
   VELOX_CHECK(future);
   if (!error_.empty()) {
     *atEnd = true;
-    throw std::runtime_error(error_);
+    VELOX_FAIL(error_);
   }
   if (queue_.empty()) {
     if (atEnd_) {

@@ -995,17 +995,13 @@ TEST_F(PartitionedOutputBufferManagerTest, outOfOrderAcks) {
 }
 
 TEST_F(PartitionedOutputBufferManagerTest, errorInQueue) {
-  auto queue = std::make_shared<ExchangeQueue>(1 << 20);
-  auto page = std::make_unique<SerializedPage>(folly::IOBuf::copyBuffer("", 0));
-  std::vector<ContinuePromise> promises;
-  { queue->setError("error"); }
-  for (auto& promise : promises) {
-    promise.setValue();
-  }
+  auto queue = std::make_shared<ExchangeQueue>();
+  queue->setError("Forced failure");
+
+  std::lock_guard<std::mutex> l(queue->mutex());
   ContinueFuture future;
   bool atEnd = false;
-  EXPECT_THROW(
-      auto page = queue->dequeueLocked(&atEnd, &future), std::runtime_error);
+  VELOX_ASSERT_THROW(queue->dequeueLocked(&atEnd, &future), "Forced failure");
 }
 
 TEST_F(PartitionedOutputBufferManagerTest, setQueueErrorWithPendingPages) {
@@ -1018,20 +1014,20 @@ TEST_F(PartitionedOutputBufferManagerTest, setQueueErrorWithPendingPages) {
 
   auto page = std::make_unique<SerializedPage>(std::move(iobuf));
 
-  auto queue = std::make_shared<ExchangeQueue>(1 << 20);
+  auto queue = std::make_shared<ExchangeQueue>();
   std::vector<ContinuePromise> promises;
   {
     std::lock_guard<std::mutex> l(queue->mutex());
     queue->enqueueLocked(std::move(page), promises);
   }
 
-  queue->setError("error");
+  queue->setError("Forced failure");
 
   // Expect a throw on dequeue after the queue has been set error.
+  std::lock_guard<std::mutex> l(queue->mutex());
   ContinueFuture future;
   bool atEnd = false;
-  ASSERT_THROW(
-      auto page = queue->dequeueLocked(&atEnd, &future), std::runtime_error);
+  VELOX_ASSERT_THROW(queue->dequeueLocked(&atEnd, &future), "Forced failure");
 }
 
 TEST_F(PartitionedOutputBufferManagerTest, getDataOnFailedTask) {

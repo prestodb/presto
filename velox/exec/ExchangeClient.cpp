@@ -107,9 +107,11 @@ std::unique_ptr<SerializedPage> ExchangeClient::next(
     if (*atEnd) {
       return page;
     }
-    if (page && queue_->totalBytes() > queue_->minBytes()) {
+
+    if (page && queue_->totalBytes() > maxQueuedBytes_) {
       return page;
     }
+
     // There is space for more data, send requests to sources with no pending
     // request.
     for (auto& source : sources_) {

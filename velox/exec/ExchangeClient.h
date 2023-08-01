@@ -25,15 +25,16 @@ namespace facebook::velox::exec {
 // per consumer thread.
 class ExchangeClient {
  public:
-  static constexpr int32_t kDefaultMinSize = 32 << 20; // 32 MB.
+  static constexpr int32_t kDefaultMaxQueuedBytes = 32 << 20; // 32 MB.
 
   ExchangeClient(
       int destination,
       memory::MemoryPool* pool,
-      int64_t minSize = kDefaultMinSize)
+      int64_t maxQueuedBytes)
       : destination_(destination),
         pool_(pool),
-        queue_(std::make_shared<ExchangeQueue>(minSize)) {
+        queue_(std::make_shared<ExchangeQueue>()),
+        maxQueuedBytes_{maxQueuedBytes} {
     VELOX_CHECK_NOT_NULL(pool_);
     VELOX_CHECK(
         destination >= 0,
@@ -75,6 +76,7 @@ class ExchangeClient {
   const int destination_;
   memory::MemoryPool* const pool_;
   std::shared_ptr<ExchangeQueue> queue_;
+  const int64_t maxQueuedBytes_;
   std::unordered_set<std::string> taskIds_;
   std::vector<std::shared_ptr<ExchangeSource>> sources_;
   bool closed_{false};
