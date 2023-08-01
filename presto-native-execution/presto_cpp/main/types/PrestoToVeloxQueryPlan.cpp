@@ -2759,14 +2759,14 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
     // TODO - Use original plan node with root node and aggregate operator
     // stats for additional nodes.
     auto broadcastWriteNode = std::make_shared<operators::BroadcastWriteNode>(
-        "broadcast-write",
+        fmt::format("{}.bw", partitionedOutputNode->id()),
         *broadcastBasePath_,
         core::LocalPartitionNode::gather(
             "broadcast-write-gather",
             std::vector<core::PlanNodePtr>{partitionedOutputNode->sources()}));
 
     planFragment.planNode = core::PartitionedOutputNode::broadcast(
-        "partitioned-output",
+        partitionedOutputNode->id(),
         1,
         broadcastWriteNode->outputType(),
         {broadcastWriteNode});
@@ -2791,7 +2791,7 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
 
   auto partitionAndSerializeNode =
       std::make_shared<operators::PartitionAndSerializeNode>(
-          "shuffle-partition-serialize",
+          fmt::format("{}.ps", partitionedOutputNode->id()),
           partitionedOutputNode->keys(),
           partitionedOutputNode->numPartitions(),
           partitionedOutputNode->outputType(),
@@ -2800,12 +2800,12 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
           partitionedOutputNode->partitionFunctionSpecPtr());
 
   planFragment.planNode = std::make_shared<operators::ShuffleWriteNode>(
-      "root",
+      fmt::format("{}.sw", partitionedOutputNode->id()),
       partitionedOutputNode->numPartitions(),
       shuffleName_,
       std::move(*serializedShuffleWriteInfo_),
       core::LocalPartitionNode::gather(
-          "shuffle-gather",
+          fmt::format("{}.g", partitionedOutputNode->id()),
           std::vector<core::PlanNodePtr>{partitionAndSerializeNode}));
   return planFragment;
 }
