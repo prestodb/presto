@@ -221,12 +221,10 @@ jobs:
           name: "Install dependencies"
           command: |
             set -xu
-            if [[ ! -e ~/deps ]]; then
-              mkdir ~/deps ~/deps-src
-              curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C ~/deps
-              PATH=~/deps/bin:${PATH} DEPENDENCY_DIR=~/deps-src INSTALL_PREFIX=~/deps PROMPT_ALWAYS_RESPOND=n ./scripts/setup-macos.sh
-              rm -rf ~/deps/.git ~/deps/Library/Taps/  # Reduce cache size by 70%.
-            fi
+            mkdir -p ~/deps ~/deps-src
+            curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C ~/deps
+            PATH=~/deps/bin:${PATH} DEPENDENCY_DIR=~/deps-src INSTALL_PREFIX=~/deps PROMPT_ALWAYS_RESPOND=n ./scripts/setup-macos.sh
+            rm -rf ~/deps/.git ~/deps/Library/Taps/  # Reduce cache size by 70%.
           no_output_timeout: 20m
       - save_cache:
           name: "Save Dependency Cache"
