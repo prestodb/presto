@@ -15,6 +15,7 @@ Presto Functions
     functions/presto/regexp
     functions/presto/binary
     functions/presto/json
+    functions/presto/conversion
     functions/presto/url
     functions/presto/aggregate
     functions/presto/window
