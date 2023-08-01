@@ -15,12 +15,14 @@
  */
 
 #include "velox/dwio/parquet/reader/PageReader.h"
+#include "velox/common/compression/LzoDecompressor.h"
 #include "velox/dwio/common/BufferUtil.h"
 #include "velox/dwio/common/ColumnVisitors.h"
 #include "velox/dwio/parquet/reader/NestedStructureDecoder.h"
 #include "velox/dwio/parquet/thrift/ThriftTransport.h"
 #include "velox/vector/FlatVector.h"
 
+#include <lz4.h>
 #include <snappy.h>
 #include <thrift/protocol/TCompactProtocol.h> //@manual
 #include <zlib.h>
@@ -121,6 +123,104 @@ const char* PageReader::readBytes(int32_t size, BufferPtr& copy) {
   return copy->as<char>();
 }
 
+const char* FOLLY_NONNULL decompressLz4AndLzo(
+    const char* compressedData,
+    BufferPtr& uncompressedData,
+    uint32_t compressedSize,
+    uint32_t uncompressedSize,
+    memory::MemoryPool& pool,
+    const thrift::CompressionCodec::type codec_) {
+  dwio::common::ensureCapacity<char>(uncompressedData, uncompressedSize, &pool);
+
+  uint32_t decompressedTotalLength = 0;
+  auto* inputPtr = compressedData;
+  auto* outPtr = uncompressedData->asMutable<char>();
+  uint32_t inputLength = compressedSize;
+
+  while (inputLength > 0) {
+    if (inputLength < sizeof(uint32_t)) {
+      VELOX_FAIL(
+          "{} uncompress failed, input len is to small: {}",
+          codec_,
+          inputLength)
+    }
+    uint32_t uncompressedBlockLength =
+        folly::Endian::big(folly::loadUnaligned<uint32_t>(inputPtr));
+    inputPtr += dwio::common::INT_BYTE_SIZE;
+    inputLength -= dwio::common::INT_BYTE_SIZE;
+    uint32_t remainingOutputSize = uncompressedSize - decompressedTotalLength;
+    if (remainingOutputSize < uncompressedBlockLength) {
+      VELOX_FAIL(
+          "{} uncompress failed, remainingOutputSize is less then "
+          "uncompressedBlockLength, remainingOutputSize: {}, "
+          "uncompressedBlockLength: {}",
+          remainingOutputSize,
+          uncompressedBlockLength)
+    }
+    if (inputLength <= 0) {
+      break;
+    }
+
+    do {
+      // Check that input length should not be negative.
+      if (inputLength < sizeof(uint32_t)) {
+        VELOX_FAIL(
+            "{} uncompress failed, input len is to small: {}",
+            codec_,
+            inputLength)
+      }
+      // Read the length of the next lz4/lzo compressed block.
+      uint32_t compressedLength =
+          folly::Endian::big(folly::loadUnaligned<uint32_t>(inputPtr));
+      inputPtr += dwio::common::INT_BYTE_SIZE;
+      inputLength -= dwio::common::INT_BYTE_SIZE;
+
+      if (compressedLength == 0) {
+        continue;
+      }
+
+      if (compressedLength > inputLength) {
+        VELOX_FAIL(
+            "{} uncompress failed, compressedLength is less then inputLength, "
+            "compressedLength: {}, inputLength: {}",
+            compressedLength,
+            inputLength)
+      }
+
+      // Decompress this block.
+      remainingOutputSize = uncompressedSize - decompressedTotalLength;
+      uint64_t decompressedSize = -1;
+      if (codec_ == thrift::CompressionCodec::LZ4) {
+        decompressedSize = LZ4_decompress_safe(
+            inputPtr,
+            outPtr,
+            static_cast<int32_t>(compressedLength),
+            static_cast<int32_t>(remainingOutputSize));
+      } else if (codec_ == thrift::CompressionCodec::LZO) {
+        decompressedSize = common::compression::lzoDecompress(
+            inputPtr,
+            inputPtr + compressedLength,
+            outPtr,
+            outPtr + remainingOutputSize);
+      } else {
+        VELOX_FAIL("Unsupported Parquet compression type '{}'", codec_);
+      }
+
+      VELOX_CHECK_EQ(decompressedSize, remainingOutputSize);
+
+      outPtr += decompressedSize;
+      inputPtr += compressedLength;
+      inputLength -= compressedLength;
+      uncompressedBlockLength -= decompressedSize;
+      decompressedTotalLength += decompressedSize;
+    } while (uncompressedBlockLength > 0);
+  }
+
+  VELOX_CHECK_EQ(decompressedTotalLength, uncompressedSize);
+
+  return uncompressedData->as<char>();
+}
+
 const char* FOLLY_NONNULL PageReader::uncompressData(
     const char* pageData,
     uint32_t compressedSize,
@@ -189,6 +289,16 @@ const char* FOLLY_NONNULL PageReader::uncompressData(
           "GZipCodec failed: {}",
           stream.msg ? stream.msg : "");
       return uncompressedData_->as<char>();
+    }
+    case thrift::CompressionCodec::LZ4:
+    case thrift::CompressionCodec::LZO: {
+      return decompressLz4AndLzo(
+          pageData,
+          uncompressedData_,
+          compressedSize,
+          uncompressedSize,
+          pool_,
+          codec_);
     }
     default:
       VELOX_FAIL("Unsupported Parquet compression type '{}'", codec_);

@@ -95,6 +95,8 @@ struct ArrowContext {
     return ::parquet::Compression::ZSTD;
   } else if (compression == common::CompressionKind_NONE) {
     return ::parquet::Compression::UNCOMPRESSED;
+  } else if (compression == common::CompressionKind_LZ4) {
+    return ::parquet::Compression::LZ4_HADOOP;
   } else {
     VELOX_FAIL("Unsupported compression {}", compression);
   }

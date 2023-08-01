@@ -121,7 +121,8 @@ TEST_F(E2EFilterTest, compression) {
        {common::CompressionKind_SNAPPY,
         common::CompressionKind_ZSTD,
         common::CompressionKind_GZIP,
-        common::CompressionKind_NONE}) {
+        common::CompressionKind_NONE,
+        common::CompressionKind_LZ4}) {
     if (!facebook::velox::parquet::Writer::isCodecAvailable(compression)) {
       continue;
     }
