@@ -122,10 +122,10 @@ function(add_fbthrift_cpp_library LIB_NAME THRIFT_FILE)
     "${LIB_NAME}"
     PUBLIC ${ARG_DEPENDS}
            Folly::folly
+           FBThrift::thriftcpp2
            # TODO: these symbols require other dependencies that need to be
            # correctly handle by Velox's build system before they can be
-           # enabled. FBThrift::thriftcpp2 mvfst::mvfst_server_async_tran
-           # mvfst::mvfst_server
+           # enabled. mvfst::mvfst_server_async_tran mvfst::mvfst_server
   )
 
   # Add ${generated_headers} to the PUBLIC_HEADER property for ${LIB_NAME}

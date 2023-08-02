@@ -12,15 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-include(FBThriftCppLibrary)
+add_executable(velox_functions_remote_client_test RemoteFunctionTest.cpp)
 
-add_fbthrift_cpp_library(velox_remote_function_thrift RemoteFunction.thrift
-                         SERVICES RemoteFunctionService)
+add_test(velox_functions_remote_client_test velox_functions_remote_client_test)
 
-target_compile_options(velox_remote_function_thrift
-                       PRIVATE -Wno-deprecated-declarations)
-
-add_library(velox_functions_remote_get_serde GetSerde.cpp)
 target_link_libraries(
-  velox_functions_remote_get_serde PUBLIC velox_remote_function_thrift
-                                          velox_presto_serializer)
+  velox_functions_remote_client_test
+  velox_remote_function_thrift
+  velox_functions_remote_server
+  velox_functions_remote
+  velox_function_registry
+  velox_functions_test_lib
+  velox_exec_test_lib
+  gmock
+  gtest
+  gtest_main)

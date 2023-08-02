@@ -214,9 +214,11 @@ if(VELOX_ENABLE_PARQUET)
 endif()
 
 if(VELOX_ENABLE_REMOTE_FUNCTIONS)
-  # TODO: Move this to use resolve_dependency().
-  find_package(FBThrift CONFIG REQUIRED)
+  # TODO: Move this to use resolve_dependency(). For some reason, FBThrift
+  # requires clients to explicitly install fizz and wangle.
+  find_package(fizz CONFIG REQUIRED)
   find_package(wangle CONFIG REQUIRED)
+  find_package(FBThrift CONFIG REQUIRED)
 endif()
 
 # Turn on Codegen only for Clang and non Mac systems.

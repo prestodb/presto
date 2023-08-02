@@ -12,15 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-include(FBThriftCppLibrary)
+add_library(velox_functions_remote_server RemoteFunctionService.cpp)
 
-add_fbthrift_cpp_library(velox_remote_function_thrift RemoteFunction.thrift
-                         SERVICES RemoteFunctionService)
-
-target_compile_options(velox_remote_function_thrift
-                       PRIVATE -Wno-deprecated-declarations)
-
-add_library(velox_functions_remote_get_serde GetSerde.cpp)
 target_link_libraries(
-  velox_functions_remote_get_serde PUBLIC velox_remote_function_thrift
-                                          velox_presto_serializer)
+  velox_functions_remote_server
+  PUBLIC velox_remote_function_thrift velox_functions_remote_get_serde
+         velox_type_fbhive velox_memory)
