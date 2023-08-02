@@ -74,8 +74,7 @@ public class TaskUpdateRequest
     public TaskUpdateRequest(
             @JsonProperty("session") SessionRepresentation session,
             @JsonProperty("extraCredentials") Map<String, String> extraCredentials,
-            @JsonProperty("fragment") Optional<byte[]> fragment
-    )
+            @JsonProperty("fragment") Optional<byte[]> fragment)
     {
         this(session, extraCredentials, fragment, ImmutableList.of(), OutputBuffers.createInitialEmptyOutputBuffers(ARBITRARY), Optional.empty());
     }
