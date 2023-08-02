@@ -193,8 +193,9 @@ void getData(
 
 std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
     const TaskId& taskId,
-    const std::exception_ptr& exception) {
-  auto prestoTask = findOrCreateTask(taskId);
+    const std::exception_ptr& exception,
+    long startProcessCpuTime) {
+  auto prestoTask = findOrCreateTask(taskId, startProcessCpuTime);
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
     prestoTask->updateHeartbeatLocked();
@@ -294,20 +295,23 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
     const protocol::TaskId& taskId,
     const protocol::TaskUpdateRequest& updateRequest,
     const velox::core::PlanFragment& planFragment,
-    std::shared_ptr<velox::core::QueryCtx> queryCtx) {
+    std::shared_ptr<velox::core::QueryCtx> queryCtx,
+    long startProcessCpuTime) {
   return createOrUpdateTask(
       taskId,
       planFragment,
       updateRequest.sources,
       updateRequest.outputIds,
-      queryCtx);
+      queryCtx,
+      startProcessCpuTime);
 }
 
 std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
     const protocol::TaskId& taskId,
     const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
     const velox::core::PlanFragment& planFragment,
-    std::shared_ptr<velox::core::QueryCtx> queryCtx) {
+    std::shared_ptr<velox::core::QueryCtx> queryCtx,
+    long startProcessCpuTime) {
   auto updateRequest = batchUpdateRequest.taskUpdateRequest;
 
   checkSplitsForBatchTask(planFragment.planNode, updateRequest.sources);
@@ -317,7 +321,8 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
       planFragment,
       updateRequest.sources,
       updateRequest.outputIds,
-      std::move(queryCtx));
+      std::move(queryCtx),
+      startProcessCpuTime);
 }
 
 std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
@@ -325,10 +330,11 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
     const velox::core::PlanFragment& planFragment,
     const std::vector<protocol::TaskSource>& sources,
     const protocol::OutputBuffers& outputBuffers,
-    std::shared_ptr<velox::core::QueryCtx> queryCtx) {
+    std::shared_ptr<velox::core::QueryCtx> queryCtx,
+    long startProcessCpuTime) {
   std::shared_ptr<exec::Task> execTask;
   bool startTask = false;
-  auto prestoTask = findOrCreateTask(taskId);
+  auto prestoTask = findOrCreateTask(taskId, startProcessCpuTime);
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
     if (not prestoTask->task && planFragment.planNode) {
@@ -462,7 +468,7 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
     // In that case we create the task with ABORTED state, so we know we don't
     // need to do anything on CREATE message and can clean up the cancelled task
     // later.
-    auto prestoTask = findOrCreateTaskLocked(*taskMap, taskId);
+    auto prestoTask = findOrCreateTaskLocked(*taskMap, taskId, 0);
     prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
     return std::make_unique<TaskInfo>(prestoTask->info);
   }
@@ -890,14 +896,16 @@ void TaskManager::removeRemoteSource(
     const TaskId& remoteSourceTaskId) {}
 
 std::shared_ptr<PrestoTask> TaskManager::findOrCreateTask(
-    const TaskId& taskId) {
+    const TaskId& taskId,
+    long startProcessCpuTime) {
   auto taskMap = taskMap_.wlock();
   return findOrCreateTaskLocked(*taskMap, taskId);
 }
 
 std::shared_ptr<PrestoTask> TaskManager::findOrCreateTaskLocked(
     TaskMap& taskMap,
-    const TaskId& taskId) {
+    const TaskId& taskId,
+    long startProcessCpuTime) {
   auto it = taskMap.find(taskId);
   if (it != taskMap.end()) {
     auto prestoTask = it->second;
@@ -907,7 +915,8 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTaskLocked(
     return prestoTask;
   }
 
-  auto prestoTask = std::make_shared<PrestoTask>(taskId, nodeId_);
+  auto prestoTask =
+      std::make_shared<PrestoTask>(taskId, nodeId_, startProcessCpuTime);
   prestoTask->info.stats.createTime =
       util::toISOTimestamp(velox::getCurrentTimeMs());
   prestoTask->info.needsPlan = true;
