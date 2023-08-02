@@ -33,7 +33,7 @@ workflows:
     jobs:
       - format-check
       - header-check
-      - linux-parquet-S3-build
+      - linux-build-all
 
 commands:
   maven_install:
@@ -94,7 +94,16 @@ jobs:
             ccache -sz -M 8Gi
             source /opt/rh/gcc-toolset-9/enable
             cd presto-native-execution
-            cmake -B _build/debug -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Debug -DPRESTO_ENABLE_PARQUET=ON -DCMAKE_PREFIX_PATH=/usr/local -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            cmake \
+              -B _build/debug \
+              -GNinja \
+              -DTREAT_WARNINGS_AS_ERRORS=1 \
+              -DENABLE_ALL_WARNINGS=1 \
+              -DCMAKE_BUILD_TYPE=Debug \
+              -DPRESTO_ENABLE_PARQUET=ON \
+              -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+              -DCMAKE_PREFIX_PATH=/usr/local \
+              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
             ninja -C _build/debug -j 8
             ccache -s
       - save_cache:
@@ -171,7 +180,7 @@ jobs:
               mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -Dtest="${TESTCLASSES}" -DPRESTO_SERVER=${PRESTO_SERVER_PATH} -DDATA_DIR=${TEMP_PATH} -Duser.timezone=America/Bahia_Banderas -T1C
             fi
 
-  linux-parquet-S3-build:
+  linux-build-all:
     executor: build
     steps:
       - checkout
@@ -189,11 +198,22 @@ jobs:
             cd presto-native-execution
             DEPENDENCY_DIR=${HOME}/adapter-deps PROMPT_ALWAYS_RESPOND=n ./velox/scripts/setup-adapters.sh
       - run:
-          name: Build
+          name: "Build All"
           command: |
             source /opt/rh/gcc-toolset-9/enable
             cd presto-native-execution
-            cmake -B _build/release -GNinja -DAWSSDK_ROOT_DIR=${HOME}/adapter-deps/install -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Release -DPRESTO_ENABLE_PARQUET=ON -DPRESTO_ENABLE_S3=ON -DCMAKE_PREFIX_PATH=/usr/local -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            cmake \
+              -B _build/release \
+              -GNinja \
+              -DAWSSDK_ROOT_DIR=${HOME}/adapter-deps/install \
+              -DTREAT_WARNINGS_AS_ERRORS=1 \
+              -DENABLE_ALL_WARNINGS=1 \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DPRESTO_ENABLE_PARQUET=ON \
+              -DPRESTO_ENABLE_S3=ON \
+              -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+              -DCMAKE_PREFIX_PATH=/usr/local \
+              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
             ninja -C _build/release -j 8
 
   format-check:

@@ -171,6 +171,7 @@ find_library(WANGLE wangle)
 
 find_library(RE2 re2)
 
+find_package(fizz CONFIG)
 find_package(wangle CONFIG)
 find_package(FBThrift)
 include_directories(SYSTEM ${FBTHRIFT_INCLUDE_DIR})
