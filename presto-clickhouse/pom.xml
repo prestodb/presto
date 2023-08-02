@@ -202,7 +202,6 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
             <scope>test</scope>
-            <version>1.14.3</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
