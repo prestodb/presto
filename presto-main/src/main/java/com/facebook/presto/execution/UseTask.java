@@ -39,14 +39,34 @@ public class UseTask
     }
 
     @Override
-    public ListenableFuture<?> execute(Use statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(
+            Use statement,
+            TransactionManager transactionManager,
+            Metadata metadata,
+            AccessControl accessControl,
+            QueryStateMachine stateMachine,
+            List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
 
+        checkCatalogAndSessionPresent(statement, session);
+
+        checkAndSetCatalog(statement, metadata, stateMachine, session);
+
+        stateMachine.setSetSchema(statement.getSchema().getValueLowerCase());
+
+        return immediateFuture(null);
+    }
+
+    private void checkCatalogAndSessionPresent(Use statement, Session session)
+    {
         if (!statement.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
             throw new SemanticException(CATALOG_NOT_SPECIFIED, statement, "Catalog must be specified when session catalog is not set");
         }
+    }
 
+    private void checkAndSetCatalog(Use statement, Metadata metadata, QueryStateMachine stateMachine, Session session)
+    {
         if (statement.getCatalog().isPresent()) {
             String catalog = statement.getCatalog().get().getValueLowerCase();
             if (!metadata.getCatalogHandle(session, catalog).isPresent()) {
@@ -54,9 +74,5 @@ public class UseTask
             }
             stateMachine.setSetCatalog(catalog);
         }
-
-        stateMachine.setSetSchema(statement.getSchema().getValueLowerCase());
-
-        return immediateFuture(null);
     }
 }
