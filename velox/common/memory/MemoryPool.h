@@ -277,8 +277,8 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// Makes a large contiguous mmap of 'numPages'. The new mapped
   /// pages are returned in 'out' on success. Any formly mapped pages
   /// referenced by 'out' is unmapped in all the cases even if the
-  /// allocation fails. If 'numPages' is not given, this defaults to
-  /// 'maxPages'. 'maxPages' gives the size of the mmap in
+  /// allocation fails. If 'maxPages' is not given, this defaults to
+  /// 'numPages'. 'maxPages' gives the size of the mmap in
   /// addresses. 'numPages' gives the amount to declare as
   /// used. growContiguous() is used to increase the
   /// reservation up to 'maxPages'. This allows reserving a large
@@ -287,9 +287,9 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// the number of huge pages  can be set according to an assumption of large
   /// utilization.
   virtual void allocateContiguous(
-      MachinePageCount maxPages,
+      MachinePageCount numPages,
       ContiguousAllocation& out,
-      MachinePageCount numPages = 0) = 0;
+      MachinePageCount maxPages = 0) = 0;
 
   /// Frees contiguous 'allocation'. 'allocation' is empty on return.
   virtual void freeContiguous(ContiguousAllocation& allocation) = 0;
@@ -568,9 +568,9 @@ class MemoryPoolImpl : public MemoryPool {
   const std::vector<MachinePageCount>& sizeClasses() const override;
 
   void allocateContiguous(
-      MachinePageCount maxPages,
+      MachinePageCount numPages,
       ContiguousAllocation& out,
-      MachinePageCount numPages = 0) override;
+      MachinePageCount maxPages = 0) override;
 
   void freeContiguous(ContiguousAllocation& allocation) override;
 
