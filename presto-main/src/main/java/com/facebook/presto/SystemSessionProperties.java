@@ -281,6 +281,7 @@ public final class SystemSessionProperties
     public static final String ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT = "add_partial_node_for_row_number_with_limit";
     public static final String REWRITE_CASE_TO_MAP_ENABLED = "rewrite_case_to_map_enabled";
     public static final String FIELD_NAMES_IN_JSON_CAST_ENABLED = "field_names_in_json_cast_enabled";
+    public static final String PULL_EXPRESSION_FROM_LAMBDA_ENABLED = "pull_expression_from_lambda_enabled";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1637,6 +1638,11 @@ public final class SystemSessionProperties
                         REWRITE_CASE_TO_MAP_ENABLED,
                         "Rewrite case with constant WHEN/THEN/ELSE clauses to use map literals",
                         TRUE,
+                        false),
+                booleanProperty(
+                        PULL_EXPRESSION_FROM_LAMBDA_ENABLED,
+                        "Rewrite case with constant WHEN/THEN/ELSE clauses to use map literals",
+                        featuresConfig.isPullUpExpressionFromLambdaEnabled(),
                         false));
     }
 
@@ -2754,5 +2760,10 @@ public final class SystemSessionProperties
     public static boolean isRewriteCaseToMapEnabled(Session session)
     {
         return session.getSystemProperty(REWRITE_CASE_TO_MAP_ENABLED, Boolean.class);
+    }
+
+    public static boolean isPullExpressionFromLambdaEnabled(Session session)
+    {
+        return session.getSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, Boolean.class);
     }
 }
