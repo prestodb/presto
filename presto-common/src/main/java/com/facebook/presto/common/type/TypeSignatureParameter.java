@@ -83,7 +83,7 @@ public class TypeSignatureParameter
     @Override
     public String toString()
     {
-        return value.toString();
+        return convertToValue(value).toString();
     }
 
     @ThriftField(1)

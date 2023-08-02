@@ -23,6 +23,7 @@ import java.util.Objects;
 
 import static com.facebook.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 import static com.facebook.presto.common.type.BigintEnumType.*;
+import static com.facebook.presto.common.type.ParameterKind.*;
 
 @ThriftUnion
 public class TypeSignatureParameterUnion
@@ -34,13 +35,13 @@ public class TypeSignatureParameterUnion
     private LongEnumMap longEnumMap;
     private VarcharEnumMap varcharEnumMap;
     private DistinctTypeInfo distinctTypeInfo;
-    private final int id;
+    private final short id;
 
     @ThriftConstructor
     public TypeSignatureParameterUnion(TypeSignature typeSignature)
     {
         this.typeSignature = typeSignature;
-        this.id = ParameterKind.TYPE.getValue();
+        this.id = (short) TYPE.getValue();
     }
 
     @ThriftField(value = 1, requiredness = OPTIONAL)
@@ -50,36 +51,35 @@ public class TypeSignatureParameterUnion
     }
 
     @ThriftConstructor
-    public TypeSignatureParameterUnion(Long longLiteral)
+    public TypeSignatureParameterUnion(NamedTypeSignature namedTypeSignature)
     {
-        this.longLiteral = longLiteral;
-        this.id = ParameterKind.LONG.getValue();
+        this.namedTypeSignature = namedTypeSignature;
+        this.id = (short) NAMED_TYPE.getValue();
     }
 
     @ThriftField(value = 2, requiredness = OPTIONAL)
+    public NamedTypeSignature getNamedTypeSignature()
+    {
+        return namedTypeSignature;
+    }
+    @ThriftConstructor
+    public TypeSignatureParameterUnion(Long longLiteral)
+    {
+        this.longLiteral = longLiteral;
+        this.id = (short) LONG.getValue();
+    }
+
+    @ThriftField(value = 3, requiredness = OPTIONAL)
     public Long getLongLiteral()
     {
         return longLiteral;
     }
 
     @ThriftConstructor
-    public TypeSignatureParameterUnion(NamedTypeSignature namedTypeSignature)
-    {
-        this.namedTypeSignature = namedTypeSignature;
-        this.id = ParameterKind.NAMED_TYPE.getValue();
-    }
-
-    @ThriftField(value = 3, requiredness = OPTIONAL)
-    public NamedTypeSignature getNamedTypeSignature()
-    {
-        return namedTypeSignature;
-    }
-
-    @ThriftConstructor
     public TypeSignatureParameterUnion(String variable)
     {
         this.variable = variable;
-        this.id = ParameterKind.VARIABLE.getValue();
+        this.id = (short) VARIABLE.getValue();
     }
 
     @ThriftField(value = 4, requiredness = OPTIONAL)
@@ -92,7 +92,7 @@ public class TypeSignatureParameterUnion
     public TypeSignatureParameterUnion(LongEnumMap longEnumMap)
     {
         this.longEnumMap = longEnumMap;
-        this.id = ParameterKind.LONG_ENUM.getValue();
+        this.id = (short) LONG_ENUM.getValue();
     }
 
     @ThriftField(value = 5, requiredness = OPTIONAL)
@@ -105,7 +105,7 @@ public class TypeSignatureParameterUnion
     public TypeSignatureParameterUnion(VarcharEnumMap varcharEnumMap)
     {
         this.varcharEnumMap = varcharEnumMap;
-        this.id = ParameterKind.VARCHAR_ENUM.getValue();
+        this.id = (short) VARCHAR_ENUM.getValue();
     }
 
     @ThriftField(value = 6, requiredness = OPTIONAL)
@@ -118,7 +118,7 @@ public class TypeSignatureParameterUnion
     public TypeSignatureParameterUnion(DistinctTypeInfo distinctTypeInfo)
     {
         this.distinctTypeInfo = distinctTypeInfo;
-        this.id = ParameterKind.DISTINCT_TYPE.getValue();
+        this.id = (short) DISTINCT_TYPE.getValue();
     }
 
     @ThriftField(value = 7, requiredness = OPTIONAL)
@@ -128,7 +128,7 @@ public class TypeSignatureParameterUnion
     }
 
     @ThriftUnionId
-    public int getId()
+    public short getId()
     {
         return id;
     }
