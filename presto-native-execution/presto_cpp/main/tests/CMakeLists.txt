@@ -53,6 +53,11 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
   target_link_libraries(
-    presto_server_remote_function_test presto_server_remote_function
-    velox_expression gmock gtest gtest_main)
+    presto_server_remote_function_test
+    presto_server_remote_function
+    velox_expression
+    velox_temp_path
+    gmock
+    gtest
+    gtest_main)
 endif()
