@@ -14,7 +14,6 @@ add_executable(
   AnnouncerTest.cpp
   CoordinatorDiscovererTest.cpp
   HttpServerWrapper.cpp
-  JsonSignatureParserTest.cpp
   PrestoExchangeSourceTest.cpp
   PrestoTaskTest.cpp
   QueryContextCacheTest.cpp
@@ -28,7 +27,6 @@ add_test(
 
 target_link_libraries(
   presto_server_test
-  presto_json_signature_parser
   velox_exec_test_lib
   presto_server_lib
   velox_dwio_common_test_utils
@@ -44,3 +42,17 @@ target_link_libraries(
   gmock
   gtest
   gtest_main)
+
+if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
+  add_executable(presto_server_remote_function_test
+                 JsonSignatureParserTest.cpp RemoteFunctionRegistererTest.cpp)
+
+  add_test(
+    NAME presto_server_remote_function_test
+    COMMAND presto_server_remote_function_test
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+  target_link_libraries(
+    presto_server_remote_function_test presto_server_remote_function
+    velox_expression gmock gtest gtest_main)
+endif()

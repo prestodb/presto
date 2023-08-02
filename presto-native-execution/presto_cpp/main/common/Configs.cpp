@@ -648,7 +648,11 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
           NUM_PROP(QueryConfig::kMinSpillRunSize, c.minSpillRunSize()),
           NUM_PROP(
               QueryConfig::kSpillStartPartitionBit, c.spillStartPartitionBit()),
-          NUM_PROP(QueryConfig::kSpillPartitionBits, c.spillPartitionBits()),
+          NUM_PROP(
+              QueryConfig::kJoinSpillPartitionBits, c.joinSpillPartitionBits()),
+          NUM_PROP(
+              QueryConfig::kAggregationSpillPartitionBits,
+              c.aggregationSpillPartitionBits()),
           NUM_PROP(
               QueryConfig::kSpillableReservationGrowthPct,
               c.spillableReservationGrowthPct()),

@@ -7014,8 +7014,51 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testLikePrefix()
+    public void testArraySort()
+    {
+        assertQuery("select array_sort(cast(array[5,6,4,null,3,7] as array<integer>))", "select array[3, 4, 5, 6, 7, null]");
+        assertQuery("select array_sort(array[5,6,4,null,3,7])", "select array[3, 4, 5, 6, 7, null]");
+
+        MaterializedResult result = computeActual("select array_sort(array[5,6,4,null,3,7, cast(9223372036854775807 as bigint)])");
+        assertSorted(result.getMaterializedRows().get(0).getFields());
+
+        result = computeActual("select array_sort(array[5.4,6.1,4.9,null,4.5,7.8,5.2])");
+        assertSorted(result.getMaterializedRows().get(0).getFields());
+
+        result = computeActual("select array_sort(cast(array[5.4,6.1,4.9,null,4.5,7.8,5.2] as array<double>))");
+        assertSorted(result.getMaterializedRows().get(0).getFields());
+
+        result = computeActual("select array_sort(cast(array[null, 5.4,6.1,4.9,null,4.5,7.8,5.2] as array<double>))");
+        assertSorted(result.getMaterializedRows().get(0).getFields());
+    }
+
+    private static boolean assertSorted(List<Object> array)
+    {
+        int i = 1;
+        for (; i < array.size(); i++) {
+            if (array.get(i) == null) {
+                break;
+            }
+            assertThat(((Comparable) array.get(i)).compareTo((Comparable) array.get(i - 1)) >= 0);
+        }
+
+        while (i < array.size()) {
+            assertThat(array.get(i++) == null);
+        }
+
+        return true;
+    }
+
+    @Test
+    public void testLikePrefixAndSuffix()
     {
         assertQuery("select x like 'abc%' from (values 'abc', 'def', 'bcd') T(x)");
+        assertQuery("select x like '%abc%' from (values 'xabcy', 'abxabcdef', 'bcd',  'xabcyabcz') T(x)");
+        assertQuery("select x like '%abc' from (values 'xa bc', 'xabcy', 'abcd', 'xabc') T(x)");
+        assertQuery("select x like '%ab_c' from (values 'xa bc', 'xabcy', 'abcd') T(x)");
+        assertQuery("select x like '%' from (values 'xa bc', 'xabcy', 'abcd') T(x)");
+        assertQuery("select x like '%_%' from (values 'xa bc', 'xabcy', 'abcd') T(x)");
+        assertQuery("select x like '%a%' from (values 'xa bc', 'xabcy', 'abcd') T(x)");
+        assertQuery("select x like '%acd%xy%' from (values 'xa bc', 'xabcy', 'abcd') T(x)");
     }
 }
