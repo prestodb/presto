@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.buffer.OutputBuffers;
@@ -26,10 +29,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_ABSENT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class TaskUpdateRequest
 {
     private final SessionRepresentation session;
@@ -64,13 +69,25 @@ public class TaskUpdateRequest
         this.tableWriteInfo = tableWriteInfo;
     }
 
+    //This constructor is for testing purposes only and will soon be deprecated
+    @ThriftConstructor
+    public TaskUpdateRequest(
+            @JsonProperty("session") SessionRepresentation session,
+            @JsonProperty("extraCredentials") Map<String, String> extraCredentials,
+            @JsonProperty("fragment") Optional<byte[]> fragment)
+    {
+        this(session, extraCredentials, fragment, ImmutableList.of(), OutputBuffers.createInitialEmptyOutputBuffers(ARBITRARY), Optional.empty());
+    }
+
     @JsonProperty
+    @ThriftField(1)
     public SessionRepresentation getSession()
     {
         return session;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public Map<String, String> getExtraCredentials()
     {
         return extraCredentials;
@@ -78,6 +95,7 @@ public class TaskUpdateRequest
 
     @JsonInclude(NON_ABSENT)
     @JsonProperty
+    @ThriftField(3)
     public Optional<byte[]> getFragment()
     {
         return fragment;

@@ -13,29 +13,34 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Optional;
 
+@ThriftEnum
 public enum ParameterKind
 {
-    TYPE(Optional.of("TYPE_SIGNATURE")),
-    NAMED_TYPE(Optional.of("NAMED_TYPE_SIGNATURE")),
-    LONG(Optional.of("LONG_LITERAL")),
-    VARIABLE(Optional.empty()),
-    LONG_ENUM(Optional.of("LONG_ENUM")),
-    VARCHAR_ENUM(Optional.of("VARCHAR_ENUM")),
-    DISTINCT_TYPE(Optional.of("DISTINCT_TYPE"));
+    TYPE(Optional.of("TYPE_SIGNATURE"), 1),
+    NAMED_TYPE(Optional.of("NAMED_TYPE_SIGNATURE"), 2),
+    LONG(Optional.of("LONG_LITERAL"), 3),
+    VARIABLE(Optional.empty(), 4),
+    LONG_ENUM(Optional.of("LONG_ENUM"), 5),
+    VARCHAR_ENUM(Optional.of("VARCHAR_ENUM"), 6),
+    DISTINCT_TYPE(Optional.of("DISTINCT_TYPE"), 7);
 
     // TODO: drop special serialization code as soon as all clients
     //       migrate to version which can deserialize new format.
 
     private final Optional<String> oldName;
+    private final int value;
 
-    ParameterKind(Optional<String> oldName)
+    ParameterKind(Optional<String> oldName, int value)
     {
         this.oldName = oldName;
+        this.value = value;
     }
 
     @JsonValue
@@ -56,5 +61,11 @@ public enum ParameterKind
             }
         }
         throw new IllegalArgumentException("Invalid serialized ParameterKind value: " + value);
+    }
+
+    @ThriftEnumValue
+    public int getValue()
+    {
+        return value;
     }
 }
