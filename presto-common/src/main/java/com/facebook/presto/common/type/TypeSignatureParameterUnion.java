@@ -23,14 +23,13 @@ import java.util.Objects;
 
 import static com.facebook.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 import static com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
-import static com.facebook.presto.common.type.ParameterKind.LONG;
-import static com.facebook.presto.common.type.ParameterKind.TYPE;
-import static com.facebook.presto.common.type.ParameterKind.NAMED_TYPE;
 import static com.facebook.presto.common.type.ParameterKind.DISTINCT_TYPE;
+import static com.facebook.presto.common.type.ParameterKind.LONG;
 import static com.facebook.presto.common.type.ParameterKind.LONG_ENUM;
+import static com.facebook.presto.common.type.ParameterKind.NAMED_TYPE;
+import static com.facebook.presto.common.type.ParameterKind.TYPE;
 import static com.facebook.presto.common.type.ParameterKind.VARCHAR_ENUM;
 import static com.facebook.presto.common.type.ParameterKind.VARIABLE;
-
 
 @ThriftUnion
 public class TypeSignatureParameterUnion
