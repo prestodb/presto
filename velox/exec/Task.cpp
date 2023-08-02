@@ -2343,7 +2343,7 @@ void Task::createExchangeClient(
   exchangeClients_[pipelineId] = std::make_shared<ExchangeClient>(
       destination_,
       addExchangeClientPool(planNodeId, pipelineId),
-      queryCtx()->queryConfig().maxPartitionedOutputBufferSize() / 2);
+      queryCtx()->queryConfig().maxExchangeBufferSize());
   exchangeClientByPlanNode_.emplace(planNodeId, exchangeClients_[pipelineId]);
 }
 
