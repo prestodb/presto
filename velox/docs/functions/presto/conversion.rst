@@ -399,6 +399,7 @@ Valid examples
 
   SELECT cast(123 as varchar); -- '123'
   SELECT cast(123.45 as varchar); -- '123.45'
+  SELECT cast(123.0 as varchar); -- '123.0'
   SELECT cast(nan() as varchar); -- 'NaN'
   SELECT cast(infinity() as varchar); -- 'Infinity'
   SELECT cast(true as varchar); -- 'true'
