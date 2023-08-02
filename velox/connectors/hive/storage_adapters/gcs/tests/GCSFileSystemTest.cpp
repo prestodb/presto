@@ -16,6 +16,7 @@
 
 #include "connectors/hive/storage_adapters/gcs/GCSFileSystem.h"
 #include "connectors/hive/storage_adapters/gcs/GCSUtil.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/File.h"
 #include "velox/connectors/hive/FileHandle.h"
 #include "velox/core/Config.h"
@@ -210,6 +211,45 @@ TEST_F(GCSFileSystemTest, readFile) {
   ASSERT_EQ(std::string_view(buff3, sizeof(buff3)), kLoremIpsum.substr(80, 30));
 }
 
+TEST_F(GCSFileSystemTest, writeAndReadFile) {
+  const std::string newFile = "readWriteFile.txt";
+  const std::string gcsFile = gcsURI(preexistingBucketName(), newFile);
+
+  filesystems::GCSFileSystem gcfs(testGcsOptions());
+  gcfs.initializeClient();
+  auto writeFile = gcfs.openFileForWrite(gcsFile);
+  std::string dataContent =
+      "Dance me to your beauty with a burning violin"
+      "Dance me through the panic till I'm gathered safely in"
+      "Lift me like an olive branch and be my homeward dove"
+      "Dance me to the end of love";
+
+  EXPECT_EQ(writeFile->size(), 0);
+  std::int64_t contentSize = dataContent.length();
+  writeFile->append(dataContent.substr(0, 10));
+  EXPECT_EQ(writeFile->size(), 10);
+  writeFile->append(dataContent.substr(10, contentSize - 10));
+  EXPECT_EQ(writeFile->size(), contentSize);
+  writeFile->flush();
+  writeFile->close();
+  VELOX_ASSERT_THROW(
+      writeFile->append(dataContent.substr(0, 10)), "File is not open");
+
+  auto readFile = gcfs.openFileForRead(gcsFile);
+  std::int64_t size = readFile->size();
+  EXPECT_EQ(readFile->size(), contentSize);
+  EXPECT_EQ(readFile->pread(0, size), dataContent);
+}
+
+TEST_F(GCSFileSystemTest, openExistingFileForWrite) {
+  const std::string newFile = "readWriteFile.txt";
+  const std::string gcsFile = gcsURI(preexistingBucketName(), newFile);
+
+  filesystems::GCSFileSystem gcfs(testGcsOptions());
+  gcfs.initializeClient();
+  VELOX_ASSERT_THROW(gcfs.openFileForWrite(gcsFile), "File already exists");
+}
+
 TEST_F(GCSFileSystemTest, renameNotImplemented) {
   const char* file = "newTest.txt";
   const std::string gcsExistingFile =
@@ -217,13 +257,10 @@ TEST_F(GCSFileSystemTest, renameNotImplemented) {
   const std::string gcsNewFile = gcsURI(preexistingBucketName(), file);
   filesystems::GCSFileSystem gcfs(testGcsOptions());
   gcfs.initializeClient();
-  try {
-    gcfs.openFileForRead(gcsExistingFile);
-    gcfs.rename(gcsExistingFile, gcsNewFile, true);
-    FAIL() << "Expected VeloxException";
-  } catch (VeloxException const& err) {
-    EXPECT_EQ(err.message(), std::string("rename for GCS not implemented"));
-  }
+  gcfs.openFileForRead(gcsExistingFile);
+  VELOX_ASSERT_THROW(
+      gcfs.rename(gcsExistingFile, gcsNewFile, true),
+      "rename for GCS not implemented");
 }
 
 TEST_F(GCSFileSystemTest, mkdirNotImplemented) {
@@ -231,12 +268,8 @@ TEST_F(GCSFileSystemTest, mkdirNotImplemented) {
   const std::string gcsNewDirectory = gcsURI(preexistingBucketName(), dir);
   filesystems::GCSFileSystem gcfs(testGcsOptions());
   gcfs.initializeClient();
-  try {
-    gcfs.mkdir(gcsNewDirectory);
-    FAIL() << "Expected VeloxException";
-  } catch (VeloxException const& err) {
-    EXPECT_EQ(err.message(), std::string("mkdir for GCS not implemented"));
-  }
+  VELOX_ASSERT_THROW(
+      gcfs.mkdir(gcsNewDirectory), "mkdir for GCS not implemented");
 }
 
 TEST_F(GCSFileSystemTest, rmdirNotImplemented) {
@@ -244,12 +277,7 @@ TEST_F(GCSFileSystemTest, rmdirNotImplemented) {
   const std::string gcsDirectory = gcsURI(preexistingBucketName(), dir);
   filesystems::GCSFileSystem gcfs(testGcsOptions());
   gcfs.initializeClient();
-  try {
-    gcfs.rmdir(gcsDirectory);
-    FAIL() << "Expected VeloxException";
-  } catch (VeloxException const& err) {
-    EXPECT_EQ(err.message(), std::string("rmdir for GCS not implemented"));
-  }
+  VELOX_ASSERT_THROW(gcfs.rmdir(gcsDirectory), "rmdir for GCS not implemented");
 }
 
 TEST_F(GCSFileSystemTest, missingFile) {

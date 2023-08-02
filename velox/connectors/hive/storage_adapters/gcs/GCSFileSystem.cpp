@@ -129,8 +129,7 @@ class GCSReadFile final : public ReadFile {
   uint64_t memoryUsage() const override {
     return sizeof(GCSReadFile) // this class
         + sizeof(gcs::Client) // pointee
-        + kUploadBufferSize // buffer size
-        ;
+        + kUploadBufferSize; // buffer size
   }
 
   bool shouldCoalesce() const final {
@@ -170,6 +169,78 @@ class GCSReadFile final : public ReadFile {
   std::atomic<int64_t> length_ = -1;
 };
 
+class GCSWriteFile final : public WriteFile {
+ public:
+  explicit GCSWriteFile(
+      const std::string& path,
+      std::shared_ptr<gcs::Client> client)
+      : client_(client) {
+    setBucketAndKeyFromGCSPath(path, bucket_, key_);
+  }
+
+  ~GCSWriteFile() {
+    close();
+  }
+
+  void initialize() {
+    // Make it a no-op if invoked twice.
+    if (size_ != -1) {
+      return;
+    }
+
+    // Check that it doesn't exist, if it does throw an error
+    auto object_metadata = client_->GetObjectMetadata(bucket_, key_);
+
+    if (object_metadata.ok()) {
+      VELOX_CHECK(false, "File already exists");
+    }
+
+    auto stream = client_->WriteObject(bucket_, key_);
+    checkGCSStatus(
+        stream.last_status(),
+        "Failed to open GCS object for writing",
+        bucket_,
+        key_);
+    stream_ = std::move(stream);
+    size_ = 0;
+  }
+
+  void append(const std::string_view data) {
+    VELOX_CHECK(isFileOpen(), "File is not open");
+    stream_ << data;
+    size_ += data.size();
+  }
+
+  void flush() {
+    if (isFileOpen()) {
+      stream_.flush();
+    }
+  }
+
+  void close() {
+    if (isFileOpen()) {
+      stream_.flush();
+      stream_.Close();
+      closed_ = true;
+    }
+  }
+
+  uint64_t size() const {
+    return size_;
+  }
+
+ private:
+  inline bool isFileOpen() {
+    return (!closed_ && stream_.IsOpen());
+  }
+
+  gcs::ObjectWriteStream stream_;
+  std::shared_ptr<gcs::Client> client_;
+  std::string bucket_;
+  std::string key_;
+  std::atomic<int64_t> size_{-1};
+  std::atomic<bool> closed_{false};
+};
 } // namespace
 
 namespace filesystems {
@@ -241,7 +312,10 @@ std::unique_ptr<ReadFile> GCSFileSystem::openFileForRead(
 std::unique_ptr<WriteFile> GCSFileSystem::openFileForWrite(
     std::string_view path,
     const FileOptions& /*unused*/) {
-  VELOX_NYI();
+  const std::string gcspath = gcsPath(path);
+  auto gcsfile = std::make_unique<GCSWriteFile>(gcspath, impl_->getClient());
+  gcsfile->initialize();
+  return gcsfile;
 }
 
 void GCSFileSystem::remove(std::string_view path) {
