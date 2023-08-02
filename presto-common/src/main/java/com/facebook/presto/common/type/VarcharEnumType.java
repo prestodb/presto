@@ -88,14 +88,12 @@ public class VarcharEnumType
                     .collect(toMap(Map.Entry::getValue, Map.Entry::getKey));
         }
 
-
         @ThriftField(1)
         @JsonProperty
         public String getTypeName()
         {
             return typeName;
         }
-
 
         @ThriftField(2)
         @JsonProperty

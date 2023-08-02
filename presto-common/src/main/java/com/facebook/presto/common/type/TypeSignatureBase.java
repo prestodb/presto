@@ -86,7 +86,8 @@ public class TypeSignatureBase
     }
 
     @ThriftConstructor
-    public TypeSignatureBase(Optional<String> optionalStandardTypeBase, Optional<QualifiedObjectName> optionalQualifiedObjectName) {
+    public TypeSignatureBase(Optional<String> optionalStandardTypeBase, Optional<QualifiedObjectName> optionalQualifiedObjectName)
+    {
         this.standardTypeBase = optionalStandardTypeBase;
         this.typeName = optionalQualifiedObjectName;
     }
