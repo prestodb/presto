@@ -74,7 +74,15 @@ void ExchangeQueue::enqueueLocked(
     }
     return;
   }
+
   totalBytes_ += page->size();
+  if (peakBytes_ < totalBytes_) {
+    peakBytes_ = totalBytes_;
+  }
+
+  ++receivedPages_;
+  receivedBytes_ += page->size();
+
   queue_.push_back(std::move(page));
   if (!promises_.empty()) {
     // Resume one of the waiting drivers.

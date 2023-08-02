@@ -129,7 +129,11 @@ RowVectorPtr Exchange::getOutput() {
 void Exchange::recordStats() {
   auto lockedStats = stats_.wlock();
   for (const auto& [name, value] : exchangeClient_->stats()) {
-    lockedStats->runtimeStats[name].merge(value);
+    if (lockedStats->runtimeStats.count(name) == 0) {
+      lockedStats->runtimeStats.insert({name, value});
+    } else {
+      lockedStats->runtimeStats[name].merge(value);
+    }
   }
 }
 
