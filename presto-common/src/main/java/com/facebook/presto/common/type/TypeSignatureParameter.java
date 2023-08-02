@@ -22,7 +22,8 @@ import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.common.type.TypeSignatureParameterUnion.*;
+import static com.facebook.presto.common.type.TypeSignatureParameterUnion.convertToTypeSignatureParameterUnion;
+import static com.facebook.presto.common.type.TypeSignatureParameterUnion.convertToValue;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
