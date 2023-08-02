@@ -24,6 +24,7 @@
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/common/testutil/TestValue.h"
+#include "velox/exec/ExchangeQueue.h"
 
 DECLARE_bool(velox_memory_leak_check_enabled);
 
@@ -429,7 +430,7 @@ TEST_P(PrestoExchangeSourceTestSuite, basic) {
   auto producerAddress = serverWrapper.start().get();
   auto producerUri = makeProducerUri(producerAddress, useHttps);
 
-  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  auto queue = std::make_shared<exec::ExchangeQueue>();
   queue->addSourceLocked();
   queue->noMoreSources();
 
@@ -508,7 +509,7 @@ TEST_P(PrestoExchangeSourceTestSuite, retries) {
   auto producerAddress = serverWrapper.start().get();
   auto producerUri = makeProducerUri(producerAddress, useHttps);
 
-  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  auto queue = std::make_shared<exec::ExchangeQueue>();
   queue->addSourceLocked();
   queue->noMoreSources();
 
@@ -552,7 +553,7 @@ TEST_P(PrestoExchangeSourceTestSuite, earlyTerminatingConsumer) {
   auto producerAddress = serverWrapper.start().get();
   auto producerUri = makeProducerUri(producerAddress, useHttps);
 
-  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  auto queue = std::make_shared<exec::ExchangeQueue>();
   queue->addSourceLocked();
   queue->noMoreSources();
 
@@ -588,7 +589,7 @@ TEST_P(PrestoExchangeSourceTestSuite, slowProducer) {
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
   auto producerAddress = serverWrapper.start().get();
 
-  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  auto queue = std::make_shared<exec::ExchangeQueue>();
   queue->addSourceLocked();
   queue->noMoreSources();
   auto exchangeSource = std::make_shared<PrestoExchangeSource>(
@@ -641,7 +642,7 @@ TEST_P(PrestoExchangeSourceTestSuite, slowProducerAndEarlyTerminatingConsumer) {
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
   auto producerAddress = serverWrapper.start().get();
 
-  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  auto queue = std::make_shared<exec::ExchangeQueue>();
   queue->addSourceLocked();
   queue->noMoreSources();
   auto exchangeSource = std::make_shared<PrestoExchangeSource>(
@@ -696,7 +697,7 @@ TEST_P(PrestoExchangeSourceTestSuite, failedProducer) {
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
   auto producerAddress = serverWrapper.start().get();
 
-  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  auto queue = std::make_shared<exec::ExchangeQueue>();
   queue->addSourceLocked();
   queue->noMoreSources();
   auto exchangeSource = std::make_shared<PrestoExchangeSource>(
@@ -732,7 +733,7 @@ TEST_P(PrestoExchangeSourceTestSuite, exceedingMemoryCapacityForHttpResponse) {
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
   auto producerAddress = serverWrapper.start().get();
 
-  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  auto queue = std::make_shared<exec::ExchangeQueue>();
   queue->addSourceLocked();
   queue->noMoreSources();
   auto exchangeSource = std::make_shared<PrestoExchangeSource>(
@@ -775,7 +776,7 @@ TEST_P(PrestoExchangeSourceTestSuite, memoryAllocationAndUsageCheck) {
     test::HttpServerWrapper serverWrapper(std::move(producerServer));
     auto producerAddress = serverWrapper.start().get();
 
-    auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+    auto queue = std::make_shared<exec::ExchangeQueue>();
     queue->addSourceLocked();
     queue->noMoreSources();
     auto exchangeSource = std::make_shared<PrestoExchangeSource>(
