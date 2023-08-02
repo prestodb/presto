@@ -272,6 +272,7 @@ public class FeaturesConfig
     private boolean leftJoinNullFilterToSemiJoin = true;
     private boolean broadcastJoinWithSmallBuildUnknownProbe;
     private boolean addPartialNodeForRowNumberWithLimit = true;
+    private boolean pullUpExpressionFromLambda = true;
 
     private boolean preProcessMetadataCalls;
 
@@ -2693,6 +2694,19 @@ public class FeaturesConfig
     public FeaturesConfig setAddPartialNodeForRowNumberWithLimitEnabled(boolean addPartialNodeForRowNumberWithLimit)
     {
         this.addPartialNodeForRowNumberWithLimit = addPartialNodeForRowNumberWithLimit;
+        return this;
+    }
+
+    public boolean isPullUpExpressionFromLambdaEnabled()
+    {
+        return this.pullUpExpressionFromLambda;
+    }
+
+    @Config("optimizer.pull-up-expression-from-lambda")
+    @ConfigDescription("Pull up expression from lambda which does not refer to arguments of the lambda function")
+    public FeaturesConfig setPullUpExpressionFromLambdaEnabled(boolean pullUpExpressionFromLambda)
+    {
+        this.pullUpExpressionFromLambda = pullUpExpressionFromLambda;
         return this;
     }
 }
