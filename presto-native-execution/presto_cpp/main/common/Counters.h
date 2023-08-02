@@ -182,6 +182,14 @@ constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeHit{
 /// prefetched entry does not count.
 constexpr folly::StringPiece kCounterMemoryCacheNumHit{
     "presto_cpp.memory_cache_num_hit"};
+/// Cumulated amount of hit bytes (saved IO). The first hit to a prefetched
+/// entry does not count.
+constexpr folly::StringPiece kCounterMemoryCacheCumulativeHitBytes{
+    "presto_cpp.memory_cache_cumulative_hit_bytes"};
+/// Amount of hit bytes (saved IO) since last counter retrieval. The first hit
+/// to a prefetched entry does not count.
+constexpr folly::StringPiece kCounterMemoryCacheHitBytes{
+    "presto_cpp.memory_cache_hit_bytes"};
 /// Cumulated number of new entries created.
 constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeNew{
     "presto_cpp.memory_cache_num_cumulative_new"};
