@@ -241,38 +241,7 @@ void PeriodicTaskManager::updateCacheStats() {
       kCounterMemoryCacheTotalPrefetchBytes, memoryCacheStats.prefetchBytes);
   REPORT_ADD_STAT_VALUE(
       kCounterMemoryCacheSumEvictScore, memoryCacheStats.sumEvictScore);
-
-  // Interval cumulatives.
-  REPORT_ADD_STAT_VALUE(
-      kCounterMemoryCacheNumHit,
-      memoryCacheStats.numHit - lastMemoryCacheHits_);
-  REPORT_ADD_STAT_VALUE(
-      kCounterMemoryCacheHitBytes,
-      memoryCacheStats.hitBytes - lastMemoryCacheHitsBytes_);
-  REPORT_ADD_STAT_VALUE(
-      kCounterMemoryCacheNumNew,
-      memoryCacheStats.numNew - lastMemoryCacheInserts_);
-  REPORT_ADD_STAT_VALUE(
-      kCounterMemoryCacheNumEvict,
-      memoryCacheStats.numEvict - lastMemoryCacheEvictions_);
-  REPORT_ADD_STAT_VALUE(
-      kCounterMemoryCacheNumEvictChecks,
-      memoryCacheStats.numEvictChecks - lastMemoryCacheEvictionChecks_);
-  REPORT_ADD_STAT_VALUE(
-      kCounterMemoryCacheNumWaitExclusive,
-      memoryCacheStats.numWaitExclusive - lastMemoryCacheStalls_);
-  REPORT_ADD_STAT_VALUE(
-      kCounterMemoryCacheNumAllocClocks,
-      memoryCacheStats.allocClocks - lastMemoryCacheAllocClocks_);
-
-  lastMemoryCacheHits_ = memoryCacheStats.numHit;
-  lastMemoryCacheHitsBytes_ = memoryCacheStats.hitBytes;
-  lastMemoryCacheInserts_ = memoryCacheStats.numNew;
-  lastMemoryCacheEvictions_ = memoryCacheStats.numEvict;
-  lastMemoryCacheEvictionChecks_ = memoryCacheStats.numEvictChecks;
-  lastMemoryCacheStalls_ = memoryCacheStats.numWaitExclusive;
-  lastMemoryCacheAllocClocks_ = memoryCacheStats.allocClocks;
-
+  
   // All time cumulatives.
   REPORT_ADD_STAT_VALUE(
       kCounterMemoryCacheNumCumulativeHit, memoryCacheStats.numHit);
