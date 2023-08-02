@@ -81,6 +81,7 @@ import static com.facebook.presto.iceberg.TableType.SAMPLES;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getPrimaryKeyType;
+import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getRowTypeFromSchema;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -177,7 +178,7 @@ public abstract class IcebergAbstractMetadata
         ConnectorTableMetadata tableMeta = getTableMetadata(session, new SchemaTableName(table.getSchemaName(), itn.getTableName()));
         if (itn.getTableType() == CHANGELOG) {
             String primaryKeyColumn = IcebergTableProperties.getSampleTablePrimaryKey(tableMeta.getProperties());
-            return ChangelogUtil.getChangelogTableMeta(table, getPrimaryKeyType(tableMeta, primaryKeyColumn), typeManager);
+            return ChangelogUtil.getChangelogTableMeta(table, getPrimaryKeyType(tableMeta, primaryKeyColumn), typeManager, tableMeta.getColumns());
         }
         else if (itn.getTableType() == SAMPLES) {
             return new ConnectorTableMetadata(new SchemaTableName(table.getSchemaName(), itn.getTableNameWithType()), tableMeta.getColumns(), tableMeta.getProperties(), tableMeta.getComment(), tableMeta.getTableConstraints());
@@ -232,7 +233,7 @@ public abstract class IcebergAbstractMetadata
         Table icebergTable = getIcebergTable(session, icebergHandle.getSchemaTableName());
         if (icebergHandle.getTableType() == CHANGELOG) {
             String primaryKeyColumn = IcebergTableProperties.getSampleTablePrimaryKey((Map) icebergTable.properties());
-            schema = ChangelogUtil.changelogTableSchema(getPrimaryKeyType(icebergTable, primaryKeyColumn));
+            schema = ChangelogUtil.changelogTableSchema(getPrimaryKeyType(icebergTable, primaryKeyColumn), getRowTypeFromSchema(icebergTable.schema(), typeManager));
         }
         else {
             schema = icebergTable.schema();

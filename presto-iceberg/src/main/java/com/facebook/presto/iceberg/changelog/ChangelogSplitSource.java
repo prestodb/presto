@@ -44,7 +44,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getNodeSelectionStrategy;
@@ -139,6 +138,6 @@ public class ChangelogSplitSource
                         changeTask.changeOrdinal(),
                         changeTask.commitSnapshotId(),
                         primaryKeyColumnName,
-                        columnHandles.stream().filter(x -> x.getName().equalsIgnoreCase(primaryKeyColumnName)).collect(Collectors.toList()))));
+                        columnHandles)));
     }
 }

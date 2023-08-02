@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.Collection;
 import java.util.List;
 
+import static com.facebook.presto.operator.annotations.FunctionInstanceParser.parseFunctionsFromAnnotation;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -62,6 +63,11 @@ public final class FunctionExtractor
 
         if (clazz.isAnnotationPresent(SqlInvokedScalarFunction.class)) {
             return SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinition(clazz);
+        }
+
+        List<? extends SqlFunction> annotatedFunctionInstances = parseFunctionsFromAnnotation(clazz);
+        if (!annotatedFunctionInstances.isEmpty()) {
+            return annotatedFunctionInstances;
         }
 
         List<SqlFunction> scalarFunctions = ImmutableList.<SqlFunction>builder()
