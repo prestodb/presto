@@ -15,8 +15,11 @@ package com.facebook.presto.iceberg.changelog;
 
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
+import com.facebook.presto.iceberg.IcebergUtil;
+import com.facebook.presto.iceberg.TypeConverter;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
@@ -29,6 +32,7 @@ import org.apache.iceberg.types.Types;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
@@ -44,18 +48,19 @@ public class ChangelogUtil
         R apply(T1 arg1, T2 arg2);
     }
 
-    public static Schema changelogTableSchema(Type primaryKeyType)
+    public static Schema changelogTableSchema(Type primaryKeyType, RowType rowType)
     {
         return new Schema(
                 Types.NestedField.required(1, "operation", Types.StringType.get()),
                 Types.NestedField.required(2, "ordinal", Types.LongType.get()),
-                Types.NestedField.required(3, "snapshot_id", Types.LongType.get()),
-                Types.NestedField.required(4, "primary_key", primaryKeyType));
+                Types.NestedField.required(3, "snapshotid", Types.LongType.get()),
+                Types.NestedField.required(4, "primarykey", primaryKeyType),
+                Types.NestedField.required(5, "rowdata", TypeConverter.fromRow(rowType, 5)));
     }
 
-    public static ConnectorTableMetadata getChangelogTableMeta(SchemaTableName tableName, Type primaryKeyType, TypeManager typeManager)
+    public static ConnectorTableMetadata getChangelogTableMeta(SchemaTableName tableName, Type primaryKeyType, TypeManager typeManager, List<ColumnMetadata> columns)
     {
-        return new ConnectorTableMetadata(tableName, getColumnMetadata(typeManager, primaryKeyType));
+        return new ConnectorTableMetadata(tableName, getColumnMetadata(typeManager, primaryKeyType, columns));
     }
 
     public static Type getPrimaryKeyType(Table table, String columnName)
@@ -68,10 +73,20 @@ public class ChangelogUtil
         return toIcebergType(table.getColumns().stream().filter(x -> x.getName().equals(columnName)).findFirst().get().getType());
     }
 
-    public static List<ColumnMetadata> getColumnMetadata(TypeManager typeManager, Type primaryKeyType)
+    public static RowType getRowTypeFromSchema(Schema schema, TypeManager typeManager)
+    {
+        return RowType.from(IcebergUtil.getColumns(schema, typeManager).stream().map(col -> RowType.field(col.getName(), col.getType())).collect(Collectors.toList()));
+    }
+
+    public static RowType getRowTypeFromColumnMeta(List<ColumnMetadata> columns)
+    {
+        return RowType.from(columns.stream().map(col -> RowType.field(col.getName(), col.getType())).collect(Collectors.toList()));
+    }
+
+    public static List<ColumnMetadata> getColumnMetadata(TypeManager typeManager, Type primaryKeyType, List<ColumnMetadata> columns)
     {
         ImmutableList.Builder<ColumnMetadata> builder = ImmutableList.builder();
-        changelogTableSchema(primaryKeyType).columns().stream()
+        changelogTableSchema(primaryKeyType, getRowTypeFromColumnMeta(columns)).columns().stream()
                 .map(x -> new ColumnMetadata(x.name(), toPrestoType(x.type(), typeManager)))
                 .forEach(builder::add);
         return builder.build();
@@ -94,7 +109,7 @@ public class ChangelogUtil
         return tupleDomain.getDomains().map(x -> {
             ImmutableList.Builder<TupleDomain.ColumnDomain<IcebergColumnHandle>> newDomains = ImmutableList.builder();
             for (Map.Entry<IcebergColumnHandle, Domain> handle : x.entrySet()) {
-                if (handle.getKey().getName().equalsIgnoreCase(ChangelogPageSource.ChangelogSchemaColumns.PRIMARY_KEY.name())) {
+                if (handle.getKey().getName().equalsIgnoreCase(ChangelogPageSource.ChangelogSchemaColumns.PRIMARYKEY.name())) {
                     newDomains.add(new TupleDomain.ColumnDomain<>(primaryKeyColumn, handle.getValue()));
                     break; // there should only be one column
                 }

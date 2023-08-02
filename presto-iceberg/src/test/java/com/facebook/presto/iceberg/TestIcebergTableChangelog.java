@@ -36,7 +36,8 @@ public class TestIcebergTableChangelog
 
     @Override
     @BeforeClass
-    public void init() throws Exception
+    public void init()
+            throws Exception
     {
         super.init();
         assertQuerySucceeds("CALL iceberg.system.create_sample_table('tpch', 'orders', 'orderkey')");
@@ -51,8 +52,9 @@ public class TestIcebergTableChangelog
                 "VALUES" +
                         "('operation', 'varchar', '', '')," +
                         "('ordinal', 'bigint', '', '')," +
-                        "('snapshot_id', 'bigint', '', '')," +
-                        "('primary_key', 'bigint', '', '')");
+                        "('snapshotid', 'bigint', '', '')," +
+                        "('primarykey', 'bigint', '', '')," +
+                        "('rowdata', 'row(\"orderkey\" bigint, \"custkey\" bigint, \"orderstatus\" varchar, \"totalprice\" double, \"orderdate\" date, \"orderpriority\" varchar, \"clerk\" varchar, \"shippriority\" integer, \"comment\" varchar)', '', '')");
     }
 
     @Test
@@ -62,9 +64,27 @@ public class TestIcebergTableChangelog
     }
 
     @Test
+    public void testSelectSingleColumn()
+    {
+        assertQuerySucceeds("SELECT operation FROM \"orders$changelog\"");
+    }
+
+    @Test
+    public void testSelectMultiColumn()
+    {
+        assertQuerySucceeds("SELECT operation, ordinal FROM \"orders$changelog\"");
+    }
+
+    @Test
+    public void testSelectMultiColumnReorder()
+    {
+        assertQuerySucceeds("SELECT rowdata, primarykey, operation FROM \"orders$changelog\"");
+    }
+
+    @Test
     public void testSelectPredicatePrimaryKey()
     {
-        assertQuerySucceeds("SELECT * FROM \"orders$changelog\" WHERE primary_key > 9000");
+        assertQuerySucceeds("SELECT * FROM \"orders$changelog\" WHERE primarykey > 9000");
     }
 
     @Test
@@ -72,32 +92,44 @@ public class TestIcebergTableChangelog
     {
         assertQuerySucceeds("SELECT * FROM \"orders$changelog\" WHERE ordinal != 0");
         assertQuerySucceeds("SELECT * FROM \"orders$changelog\" WHERE ordinal = 0");
-        assertQuerySucceeds("SELECT * FROM \"orders$changelog\" WHERE snapshot_id = 0");
-        assertQuerySucceeds("SELECT * FROM \"orders$changelog\" WHERE snapshot_id != 0");
+        assertQuerySucceeds("SELECT * FROM \"orders$changelog\" WHERE snapshotid = 0");
+        assertQuerySucceeds("SELECT * FROM \"orders$changelog\" WHERE snapshotid != 0");
         assertQuerySucceeds("SELECT * FROM \"orders$changelog\" WHERE operation != 'INSERT'");
         assertQuerySucceeds("SELECT * FROM \"orders$changelog\" WHERE operation = 'INSERT'");
     }
 
     @Test
+    public void testSelectCount()
+    {
+        assertQuerySucceeds("SELECT count(*) FROM \"orders$changelog\"");
+    }
+
+    @Test
+    public void testCountGroupByAggregation()
+    {
+        assertQuerySucceeds("SELECT count(*) FROM \"orders$changelog\" GROUP BY ordinal");
+    }
+
+    @Test
     public void testPrimaryKeyProjection()
     {
-        assertQuerySucceeds("SELECT primary_key FROM \"orders$changelog\"");
+        assertQuerySucceeds("SELECT primarykey FROM \"orders$changelog\"");
     }
 
     @Test
     public void testBasicAggregation()
     {
-        assertQuerySucceeds("SELECT count(primary_key) FROM \"orders$changelog\"");
+        assertQuerySucceeds("SELECT count(primarykey) FROM \"orders$changelog\"");
     }
 
     @Test
     public void testStaticColumnProjections()
     {
-        assertQuerySucceeds("SELECT operation, ordinal, snapshot_id FROM \"orders$changelog\"");
-        assertQuerySucceeds("SELECT snapshot_id, ordinal, operation FROM \"orders$changelog\"");
-        assertQuerySucceeds("SELECT ordinal, snapshot_id FROM \"orders$changelog\"");
-        assertQuerySucceeds("SELECT operation, snapshot_id FROM \"orders$changelog\"");
-        assertQuerySucceeds("SELECT snapshot_id FROM \"orders$changelog\"");
+        assertQuerySucceeds("SELECT operation, ordinal, snapshotid FROM \"orders$changelog\"");
+        assertQuerySucceeds("SELECT snapshotid, ordinal, operation FROM \"orders$changelog\"");
+        assertQuerySucceeds("SELECT ordinal, snapshotid FROM \"orders$changelog\"");
+        assertQuerySucceeds("SELECT operation, snapshotid FROM \"orders$changelog\"");
+        assertQuerySucceeds("SELECT snapshotid FROM \"orders$changelog\"");
         assertQuerySucceeds("SELECT ordinal FROM \"orders$changelog\"");
         assertQuerySucceeds("SELECT operation FROM \"orders$changelog\"");
     }
@@ -105,19 +137,19 @@ public class TestIcebergTableChangelog
     @Test
     public void testCombinedColumnProjections()
     {
-        assertQuerySucceeds("SELECT primary_key, operation FROM \"orders$changelog\"");
-        assertQuerySucceeds("SELECT primary_key, ordinal FROM \"orders$changelog\"");
-        assertQuerySucceeds("SELECT primary_key, snapshot_id FROM \"orders$changelog\"");
+        assertQuerySucceeds("SELECT primarykey, operation FROM \"orders$changelog\"");
+        assertQuerySucceeds("SELECT primarykey, ordinal FROM \"orders$changelog\"");
+        assertQuerySucceeds("SELECT primarykey, snapshotid FROM \"orders$changelog\"");
     }
 
     @Test
     public void testJoinOnSnapshotTimestamp()
     {
         assertQuerySucceeds("SELECT * FROM \"orders$snapshots\"");
-        assertQuerySucceeds("SELECT snap.committed_at, change.operation, primary_key, ordinal" +
+        assertQuerySucceeds("SELECT snap.committed_at, change.operation, primarykey, ordinal" +
                 " FROM \"orders$snapshots\" as snap" +
                 " JOIN \"orders$changelog\" as change" +
-                " ON change.snapshot_id = snap.snapshot_id" +
+                " ON change.snapshotid = snap.snapshot_id" +
                 " ORDER BY snap.committed_at asc");
     }
 
@@ -125,9 +157,9 @@ public class TestIcebergTableChangelog
     public void testRightOuterJoinOnSamples()
     {
         assertQuerySucceeds("INSERT INTO \"orders$samples\" SELECT * FROM orders TABLESAMPLE BERNOULLI(1)");
-        assertQuerySucceeds("SELECT orderkey, operation, ordinal, snapshot_id" +
+        assertQuerySucceeds("SELECT orderkey, operation, ordinal, snapshotid" +
                 "   FROM \"orders$samples\" as sample" +
                 "   RIGHT OUTER JOIN \"orders$changelog\" as cl" +
-                "   ON cl.primary_key = sample.orderkey");
+                "   ON cl.primarykey = sample.orderkey");
     }
 }

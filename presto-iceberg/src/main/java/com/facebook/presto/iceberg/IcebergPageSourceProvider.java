@@ -657,9 +657,6 @@ public class IcebergPageSourceProvider
 
         List<ColumnHandle> columns = desiredColumns;
         if (split.getChangelogSplitInfo().isPresent()) {
-            // just ask for the entire set of columns from the original table
-            // TODO - only put the PK if it's in the desired columns list, otherwise this should
-            // be empty. This prevents additional data scanning
             columns = (List<ColumnHandle>) (List<?>) split.getChangelogSplitInfo().get().getIcebergColumns();
         }
 

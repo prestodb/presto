@@ -15,18 +15,24 @@ package com.facebook.presto.iceberg.changelog;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.RowBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.StandardErrorCode.CORRUPT_PAGE;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -50,6 +56,8 @@ public class ChangelogPageSource
     private final ConnectorSplit split;
     private final ChangelogSplitInfo changelogSplitInfo;
     private final List<IcebergColumnHandle> desiredColumns;
+    private final List<IcebergColumnHandle> delegateColumns;
+    private final RowType innerRowType;
     private final int primaryKeyIndex;
 
     public ChangelogPageSource(ConnectorPageSource delegate, ChangelogSplitInfo changelogSplitInfo, ConnectorSplit split, List<IcebergColumnHandle> desiredColumns, List<IcebergColumnHandle> delegateColumns)
@@ -58,6 +66,8 @@ public class ChangelogPageSource
         this.split = requireNonNull(split, "split is null");
         this.changelogSplitInfo = requireNonNull(changelogSplitInfo, "changelogSplitInfo is null");
         this.desiredColumns = requireNonNull(desiredColumns, "columns is null");
+        this.delegateColumns = requireNonNull(delegateColumns, "delegateColumns is null");
+        this.innerRowType = RowType.from(delegateColumns.stream().map(x -> new RowType.Field(Optional.of(x.getName()), x.getType())).collect(Collectors.toList()));
         this.primaryKeyIndex = IntStream.range(0, delegateColumns.size())
                 .filter(i -> delegateColumns.get(i).getName().equals(changelogSplitInfo.getPrimaryKeyColumnName())).findFirst().getAsInt();
     }
@@ -98,12 +108,13 @@ public class ChangelogPageSource
         if (delegatePage == null) {
             return null;
         }
+
         Block[] columns = new Block[desiredColumns.size()];
         for (int i = 0; i < columns.length; i++) {
             columns[i] = ChangelogSchemaColumns.valueOf(desiredColumns.get(i).getName().toUpperCase()).getBlock(this, delegatePage);
         }
 
-        return new Page(columns);
+        return new Page(delegatePage.getPositionCount(), columns);
     }
 
     @Override
@@ -123,8 +134,19 @@ public class ChangelogPageSource
     {
         OPERATION((source, page) -> RunLengthEncodedBlock.create(VARCHAR, Slices.utf8Slice(source.changelogSplitInfo.getOperation().toString()), page.getPositionCount())),
         ORDINAL((source, page) -> RunLengthEncodedBlock.create(BIGINT, source.changelogSplitInfo.getChangeOrdinal(), page.getPositionCount())),
-        SNAPSHOT_ID((source, page) -> RunLengthEncodedBlock.create(BIGINT, source.changelogSplitInfo.getSnapshotId(), page.getPositionCount())),
-        PRIMARY_KEY((source, page) -> page.getBlock(source.primaryKeyIndex));
+        SNAPSHOTID((source, page) -> RunLengthEncodedBlock.create(BIGINT, source.changelogSplitInfo.getSnapshotId(), page.getPositionCount())),
+        PRIMARYKEY((source, page) -> page.getBlock(source.primaryKeyIndex)),
+
+        ROWDATA((source, page) -> {
+            if (source.innerRowType.getFields().size() != page.getChannelCount()) {
+                throw new PrestoException(CORRUPT_PAGE, "delegate page channels do not match expected number of channels");
+            }
+            Block[] channels = new Block[page.getChannelCount()];
+            for (int i = 0; i < page.getChannelCount(); i++) {
+                channels[i] = page.getBlock(i);
+            }
+            return RowBlock.fromFieldBlocks(page.getPositionCount(), Optional.empty(), channels);
+        });
 
         private final ChangelogUtil.Function2<ChangelogPageSource, Page, Block> blockSupplier;
 

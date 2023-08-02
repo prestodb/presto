@@ -33,8 +33,11 @@ import com.google.common.collect.Iterables;
 import javax.annotation.Nullable;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -81,6 +84,23 @@ public class FunctionsParserHelper
     public static boolean containsImplementationDependencyAnnotation(Annotation[] annotations)
     {
         return containsAnnotation(annotations, ImplementationDependency::isImplementationDependencyAnnotation);
+    }
+
+    public static Set<Field> findPublicStaticFields(Class<?> clazz, Set<Class<?>> validTypes, Set<Class<? extends Annotation>> includedAnnotations, Set<Class<? extends Annotation>> excludedAnnotations)
+    {
+        return findMembers(
+                clazz.getFields(),
+                field -> checkArgument(validTypes.stream().anyMatch(x -> x.isAssignableFrom(field.getType()))
+                        && isStatic(field.getModifiers())
+                        && isPublic(field.getModifiers()), "Annotated field [%s] must be static and public", field.getName()),
+                includedAnnotations,
+                excludedAnnotations);
+    }
+
+    @SafeVarargs
+    public static Set<Field> findPublicStaticFieldsOfType(Class<?> clazz, Class<?> type, Class<? extends Annotation>... includedAnnotations)
+    {
+        return findPublicStaticFields(clazz, ImmutableSet.of(type), ImmutableSet.copyOf(asList(includedAnnotations)), ImmutableSet.of());
     }
 
     public static List<TypeVariableConstraint> createTypeVariableConstraints(Iterable<TypeParameter> typeParameters, List<ImplementationDependency> dependencies)
@@ -140,7 +160,7 @@ public class FunctionsParserHelper
 
     public static Set<Method> findPublicStaticMethods(Class<?> clazz, Set<Class<? extends Annotation>> includedAnnotations, Set<Class<? extends Annotation>> excludedAnnotations)
     {
-        return findMethods(
+        return findMembers(
                 clazz.getMethods(),
                 method -> checkArgument(isStatic(method.getModifiers()) && isPublic(method.getModifiers()), "Annotated method [%s] must be static and public", method.getName()),
                 includedAnnotations,
@@ -155,25 +175,25 @@ public class FunctionsParserHelper
 
     public static Set<Method> findPublicMethods(Class<?> clazz, Set<Class<? extends Annotation>> includedAnnotations, Set<Class<? extends Annotation>> excludedAnnotations)
     {
-        return findMethods(
+        return findMembers(
                 clazz.getDeclaredMethods(),
                 method -> checkArgument(isPublic(method.getModifiers()), "Annotated method [%s] must be public"),
                 includedAnnotations,
                 excludedAnnotations);
     }
 
-    public static Set<Method> findMethods(
-            Method[] allMethods,
-            Consumer<Method> methodChecker,
+    public static <T extends AccessibleObject & Member> Set<T> findMembers(
+            T[] allMembers,
+            Consumer<T> memberChecker,
             Set<Class<? extends Annotation>> includedAnnotations,
             Set<Class<? extends Annotation>> excludedAnnotations)
     {
-        ImmutableSet.Builder<Method> methods = ImmutableSet.builder();
-        for (Method method : allMethods) {
+        ImmutableSet.Builder<T> members = ImmutableSet.builder();
+        for (T member : allMembers) {
             boolean included = false;
             boolean excluded = false;
 
-            for (Annotation annotation : method.getAnnotations()) {
+            for (Annotation annotation : member.getAnnotations()) {
                 for (Class<?> annotationClass : excludedAnnotations) {
                     if (annotationClass.isInstance(annotation)) {
                         excluded = true;
@@ -195,11 +215,11 @@ public class FunctionsParserHelper
             }
 
             if (included && !excluded) {
-                methodChecker.accept(method);
-                methods.add(method);
+                memberChecker.accept(member);
+                members.add(member);
             }
         }
-        return methods.build();
+        return members.build();
     }
 
     public static Optional<Constructor<?>> findConstructor(Class<?> clazz)
