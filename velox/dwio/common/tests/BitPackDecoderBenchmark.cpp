@@ -26,7 +26,7 @@
 #include "velox/external/duckdb/parquet-amalgamation.hpp"
 #include "velox/vector/TypeAliases.h"
 
-#include <arrow/util/rle_encoding.h> // @manual
+#include <arrow/util/rle_encoding.h>
 #include <folly/Benchmark.h>
 #include <folly/Random.h>
 #include <folly/init/Init.h>
