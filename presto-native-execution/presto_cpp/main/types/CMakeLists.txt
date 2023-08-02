@@ -14,8 +14,6 @@ add_library(
   TypeSignatureTypeConverter.cpp antlr/TypeSignatureLexer.cpp
   antlr/TypeSignatureParser.cpp)
 
-include_directories(/opt/homebrew/opt/protobuf/include/)
-
 target_link_libraries(presto_type_converter velox_type)
 
 add_library(presto_types OBJECT PrestoToVeloxQueryPlan.cpp
