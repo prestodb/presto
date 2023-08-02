@@ -136,8 +136,14 @@ public class PartitionData
             case TIME:
                 return partitionValue.asLong();
             case FLOAT:
+                if (partitionValue.asText().equalsIgnoreCase("NaN")) {
+                    return Float.NaN;
+                }
                 return partitionValue.floatValue();
             case DOUBLE:
+                if (partitionValue.asText().equalsIgnoreCase("NaN")) {
+                    return Double.NaN;
+                }
                 return partitionValue.doubleValue();
             case STRING:
                 return partitionValue.asText();
