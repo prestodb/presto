@@ -436,8 +436,10 @@ void PrestoServer::run() {
         << pGlobalIOExecutor->numThreads();
   }
 
-  PRESTO_SHUTDOWN_LOG(INFO) << "Release resources in AsyncDataCache";
-  cache_->prepareShutdown();
+  if (cache_ != nullptr) {
+    PRESTO_SHUTDOWN_LOG(INFO) << "Shutdown AsyncDataCache";
+    cache_->prepareShutdown();
+  }
 }
 
 void PrestoServer::yieldTasks() {
@@ -496,6 +498,8 @@ void PrestoServer::initializeVeloxMemory() {
           asyncCacheSsdCheckpointGb << 30,
           asyncCacheSsdDisableFileCow);
     }
+    PRESTO_STARTUP_LOG(INFO)
+        << "Setup AsyncDataCache" << (ssd != nullptr ? " with SSD cache" : "");
     cache_ = cache::AsyncDataCache::create(allocator_.get(), std::move(ssd));
     cache::AsyncDataCache::setInstance(cache_.get());
   } else {
