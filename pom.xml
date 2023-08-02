@@ -71,8 +71,8 @@
         <dep.druid.version>0.19.0</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
         <dep.hudi.version>0.12.1</dep.hudi.version>
-        <dep.testcontainers.version>1.15.1</dep.testcontainers.version>
-        <dep.docker-java.version>3.2.12</dep.docker-java.version>
+        <dep.testcontainers.version>1.18.3</dep.testcontainers.version>
+        <dep.docker-java.version>3.3.0</dep.docker-java.version>
         <dep.jayway.version>2.6.0</dep.jayway.version>
         <dep.ratis.version>2.2.0</dep.ratis.version>
         <!--
@@ -520,7 +520,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.14.3</version>
+                <version>${dep.testcontainers.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -1166,7 +1166,7 @@
                 <!-- org.testcontainers:testcontainer's dependencies pull two different versions of this artifact and this is to negotiate the version -->
                 <groupId>net.java.dev.jna</groupId>
                 <artifactId>jna</artifactId>
-                <version>5.5.0</version>
+                <version>5.12.1</version>
             </dependency>
 
             <dependency>
