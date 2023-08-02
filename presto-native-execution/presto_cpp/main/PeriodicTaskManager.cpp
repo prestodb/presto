@@ -247,6 +247,9 @@ void PeriodicTaskManager::updateCacheStats() {
       kCounterMemoryCacheNumHit,
       memoryCacheStats.numHit - lastMemoryCacheHits_);
   REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheHitBytes,
+      memoryCacheStats.hitBytes - lastMemoryCacheHitsBytes_);
+  REPORT_ADD_STAT_VALUE(
       kCounterMemoryCacheNumNew,
       memoryCacheStats.numNew - lastMemoryCacheInserts_);
   REPORT_ADD_STAT_VALUE(
@@ -263,6 +266,7 @@ void PeriodicTaskManager::updateCacheStats() {
       memoryCacheStats.allocClocks - lastMemoryCacheAllocClocks_);
 
   lastMemoryCacheHits_ = memoryCacheStats.numHit;
+  lastMemoryCacheHitsBytes_ = memoryCacheStats.hitBytes;
   lastMemoryCacheInserts_ = memoryCacheStats.numNew;
   lastMemoryCacheEvictions_ = memoryCacheStats.numEvict;
   lastMemoryCacheEvictionChecks_ = memoryCacheStats.numEvictChecks;
@@ -272,6 +276,8 @@ void PeriodicTaskManager::updateCacheStats() {
   // All time cumulatives.
   REPORT_ADD_STAT_VALUE(
       kCounterMemoryCacheNumCumulativeHit, memoryCacheStats.numHit);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheCumulativeHitBytes, memoryCacheStats.hitBytes);
   REPORT_ADD_STAT_VALUE(
       kCounterMemoryCacheNumCumulativeNew, memoryCacheStats.numNew);
   REPORT_ADD_STAT_VALUE(

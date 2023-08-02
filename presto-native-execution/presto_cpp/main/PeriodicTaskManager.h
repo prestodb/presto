@@ -106,6 +106,7 @@ class PeriodicTaskManager {
 
   // Cache related stats
   int64_t lastMemoryCacheHits_{0};
+  int64_t lastMemoryCacheHitsBytes_{0};
   int64_t lastMemoryCacheInserts_{0};
   int64_t lastMemoryCacheEvictions_{0};
   int64_t lastMemoryCacheEvictionChecks_{0};
