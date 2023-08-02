@@ -139,6 +139,7 @@ public class TestPrestoSparkNativeSimpleQueries
                 .setSystemProperty("table_writer_merge_operator_enabled", "false")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
                 .setCatalogSessionProperty("hive", "optimized_partition_update_serialization_enabled", "false")
+                .setCatalogSessionProperty("hive", "orc_compression_codec", "ZSTD")
                 .build();
         try {
             getQueryRunner().execute(session,

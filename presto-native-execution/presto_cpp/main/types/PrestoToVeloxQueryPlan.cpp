@@ -17,10 +17,14 @@
 #include <velox/type/Filter.h>
 #include <velox/type/fbhive/HiveTypeParser.h>
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
+#include "velox/connectors/hive/TableHandle.h"
 #include "velox/connectors/tpch/TpchConnector.h"
+#include "velox/core/QueryCtx.h"
 #include "velox/exec/HashPartitionFunction.h"
 #include "velox/exec/RoundRobinPartitionFunction.h"
+#include "velox/expression/Expr.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 #include "presto_cpp/main/types/TypeSignatureTypeConverter.h"
@@ -30,6 +34,7 @@
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include <velox/core/Expressions.h>
+#include "velox/common/compression/Compression.h"
 // clang-format on
 
 #include <folly/container/F14Set.h>
@@ -159,6 +164,26 @@ std::shared_ptr<connector::hive::LocationHandle> toLocationHandle(
       locationHandle.targetPath,
       locationHandle.writePath,
       toTableType(locationHandle.tableType));
+}
+
+velox::common::CompressionKind toFileCompressionKind(
+    const protocol::HiveCompressionCodec& hiveCompressionCodec) {
+  switch (hiveCompressionCodec) {
+    case protocol::HiveCompressionCodec::SNAPPY:
+      return velox::common::CompressionKind::CompressionKind_SNAPPY;
+    case protocol::HiveCompressionCodec::GZIP:
+      return velox::common::CompressionKind::CompressionKind_GZIP;
+    case protocol::HiveCompressionCodec::LZ4:
+      return velox::common::CompressionKind::CompressionKind_LZ4;
+    case protocol::HiveCompressionCodec::ZSTD:
+      return velox::common::CompressionKind::CompressionKind_ZSTD;
+    case protocol::HiveCompressionCodec::NONE:
+      return velox::common::CompressionKind::CompressionKind_NONE;
+    default:
+      VELOX_UNSUPPORTED(
+          "Unsupported file compression format: {}.",
+          toJsonString(hiveCompressionCodec));
+  }
 }
 
 dwio::common::FileFormat toFileFormat(
@@ -2054,7 +2079,9 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         toLocationHandle(hiveOutputTableHandle->locationHandle),
         toFileFormat(hiveOutputTableHandle->tableStorageFormat),
         toHiveBucketProperty(
-            inputColumns, hiveOutputTableHandle->bucketProperty));
+            inputColumns, hiveOutputTableHandle->bucketProperty),
+        std::optional(
+            toFileCompressionKind(hiveOutputTableHandle->compressionCodec)));
   } else if (
       auto insertHandle = std::dynamic_pointer_cast<protocol::InsertHandle>(
           tableWriteInfo->writerTarget)) {
@@ -2078,7 +2105,9 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         toLocationHandle(hiveInsertTableHandle->locationHandle),
         toFileFormat(hiveInsertTableHandle->tableStorageFormat),
         toHiveBucketProperty(
-            inputColumns, hiveInsertTableHandle->bucketProperty));
+            inputColumns, hiveInsertTableHandle->bucketProperty),
+        std::optional(
+            toFileCompressionKind(hiveInsertTableHandle->compressionCodec)));
   } else {
     VELOX_UNSUPPORTED(
         "Unsupported table writer handle: {}",
@@ -2734,14 +2763,14 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
     // TODO - Use original plan node with root node and aggregate operator
     // stats for additional nodes.
     auto broadcastWriteNode = std::make_shared<operators::BroadcastWriteNode>(
-        "broadcast-write",
+        fmt::format("{}.bw", partitionedOutputNode->id()),
         *broadcastBasePath_,
         core::LocalPartitionNode::gather(
             "broadcast-write-gather",
             std::vector<core::PlanNodePtr>{partitionedOutputNode->sources()}));
 
     planFragment.planNode = core::PartitionedOutputNode::broadcast(
-        "partitioned-output",
+        partitionedOutputNode->id(),
         1,
         broadcastWriteNode->outputType(),
         {broadcastWriteNode});
@@ -2766,7 +2795,7 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
 
   auto partitionAndSerializeNode =
       std::make_shared<operators::PartitionAndSerializeNode>(
-          "shuffle-partition-serialize",
+          fmt::format("{}.ps", partitionedOutputNode->id()),
           partitionedOutputNode->keys(),
           partitionedOutputNode->numPartitions(),
           partitionedOutputNode->outputType(),
@@ -2775,12 +2804,12 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
           partitionedOutputNode->partitionFunctionSpecPtr());
 
   planFragment.planNode = std::make_shared<operators::ShuffleWriteNode>(
-      "root",
+      fmt::format("{}.sw", partitionedOutputNode->id()),
       partitionedOutputNode->numPartitions(),
       shuffleName_,
       std::move(*serializedShuffleWriteInfo_),
       core::LocalPartitionNode::gather(
-          "shuffle-gather",
+          fmt::format("{}.g", partitionedOutputNode->id()),
           std::vector<core::PlanNodePtr>{partitionAndSerializeNode}));
   return planFragment;
 }
