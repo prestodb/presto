@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi.function;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.api.Experimental;
@@ -30,22 +33,26 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 @Experimental
+@ThriftStruct
 public class SqlFunctionId
 {
     private final QualifiedObjectName functionName;
     private final List<TypeSignature> argumentTypes;
 
+    @ThriftConstructor
     public SqlFunctionId(QualifiedObjectName functionName, List<TypeSignature> argumentTypes)
     {
         this.functionName = requireNonNull(functionName, "functionName is null");
         this.argumentTypes = requireNonNull(argumentTypes, "argumentTypes is null");
     }
 
+    @ThriftField(1)
     public QualifiedObjectName getFunctionName()
     {
         return functionName;
     }
 
+    @ThriftField(2)
     public List<TypeSignature> getArgumentTypes()
     {
         return argumentTypes;

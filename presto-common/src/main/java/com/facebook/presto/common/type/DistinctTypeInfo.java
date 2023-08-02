@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -26,6 +29,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class DistinctTypeInfo
 {
     private final QualifiedObjectName name;
@@ -36,6 +40,7 @@ public class DistinctTypeInfo
     private final List<QualifiedObjectName> otherAncestors;
     private final boolean isOrderable;
 
+    @ThriftConstructor
     @JsonCreator
     public DistinctTypeInfo(
             @JsonProperty("name") QualifiedObjectName name,
@@ -60,24 +65,28 @@ public class DistinctTypeInfo
         this(name, baseType, parent, emptyList(), isOrderable);
     }
 
+    @ThriftField(1)
     @JsonProperty
     public QualifiedObjectName getName()
     {
         return name;
     }
 
+    @ThriftField(2)
     @JsonProperty
     public TypeSignature getBaseType()
     {
         return baseType;
     }
 
+    @ThriftField(3)
     @JsonProperty
     public List<QualifiedObjectName> getOtherAncestors()
     {
         return otherAncestors;
     }
 
+    @ThriftField(4)
     @JsonProperty
     public Optional<QualifiedObjectName> getTopMostAncestor()
     {
@@ -86,6 +95,12 @@ public class DistinctTypeInfo
 
     @JsonProperty
     public boolean isOrderable()
+    {
+        return isOrderable;
+    }
+
+    @ThriftField(5)
+    public boolean getIsOrderable()
     {
         return isOrderable;
     }
