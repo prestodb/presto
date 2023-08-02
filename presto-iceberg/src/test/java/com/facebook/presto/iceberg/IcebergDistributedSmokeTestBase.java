@@ -790,4 +790,30 @@ public class IcebergDistributedSmokeTestBase
 
         dropTable(session, tableName);
     }
+
+    @Test
+    public void testPartitionedByRealWithNaN()
+    {
+        Session session = getSession();
+        String tableName = "test_partitioned_by_real";
+        assertUpdate("CREATE TABLE " + tableName + " WITH(partitioning = ARRAY['part']) AS SELECT 1 AS id, real 'NaN' AS part", 1);
+
+        assertQuery("SELECT part FROM " + tableName, "VALUES cast('NaN' as real)");
+        assertQuery("SELECT id FROM " + tableName + " WHERE is_nan(part)", "VALUES 1");
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testPartitionedByDoubleWithNaN()
+    {
+        Session session = getSession();
+        String tableName = "test_partitioned_by_double";
+        assertUpdate("CREATE TABLE " + tableName + " WITH(partitioning = ARRAY['part']) AS SELECT 1 AS id, double 'NaN' AS part", 1);
+
+        assertQuery("SELECT part FROM " + tableName, "VALUES cast('NaN' as double)");
+        assertQuery("SELECT id FROM " + tableName + " WHERE is_nan(part)", "VALUES 1");
+
+        dropTable(session, tableName);
+    }
 }
