@@ -53,19 +53,22 @@ class TaskManager {
   // next time coordinator checks for the status it retrieves the error.
   std::unique_ptr<protocol::TaskInfo> createOrUpdateErrorTask(
       const protocol::TaskId& taskId,
-      const std::exception_ptr& exception);
+      const std::exception_ptr& exception,
+      long startProcessCpuTime);
 
   std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
       const protocol::TaskId& taskId,
       const protocol::TaskUpdateRequest& updateRequest,
       const velox::core::PlanFragment& planFragment,
-      std::shared_ptr<velox::core::QueryCtx> queryCtx);
+      std::shared_ptr<velox::core::QueryCtx> queryCtx,
+      long startProcessCpuTime);
 
   std::unique_ptr<protocol::TaskInfo> createOrUpdateBatchTask(
       const protocol::TaskId& taskId,
       const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
       const velox::core::PlanFragment& planFragment,
-      std::shared_ptr<velox::core::QueryCtx> queryCtx);
+      std::shared_ptr<velox::core::QueryCtx> queryCtx,
+      long startProcessCpuTime);
 
   // Iterates through a map of resultRequests and fetches data from
   // buffer manager. This method uses the getData() global call to fetch
@@ -162,13 +165,17 @@ class TaskManager {
       const velox::core::PlanFragment& planFragment,
       const std::vector<protocol::TaskSource>& sources,
       const protocol::OutputBuffers& outputBuffers,
-      std::shared_ptr<velox::core::QueryCtx> queryCtx);
+      std::shared_ptr<velox::core::QueryCtx> queryCtx,
+      long startProcessCpuTime);
 
-  std::shared_ptr<PrestoTask> findOrCreateTask(const protocol::TaskId& taskId);
+  std::shared_ptr<PrestoTask> findOrCreateTask(
+      const protocol::TaskId& taskId,
+      long startProcessCpuTime = 0);
 
   std::shared_ptr<PrestoTask> findOrCreateTaskLocked(
       TaskMap& taskMap,
-      const protocol::TaskId& taskId);
+      const protocol::TaskId& taskId,
+      long startProcessCpuTime = 0);
 
   std::string baseUri_;
   std::string nodeId_;

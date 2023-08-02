@@ -12,7 +12,8 @@
  * limitations under the License.
  */
 
-#include "PrestoTask.h"
+#include "presto_cpp/main/PrestoTask.h"
+#include <sys/resource.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
@@ -221,8 +222,14 @@ static void processTaskStats(
 
 } // namespace
 
-PrestoTask::PrestoTask(const std::string& taskId, const std::string& nodeId)
-    : id(taskId) {
+PrestoTask::PrestoTask(
+    const std::string& taskId,
+    const std::string& nodeId,
+    long _startProcessCpuTime)
+    : id(taskId),
+      startProcessCpuTime{
+          _startProcessCpuTime > 0 ? _startProcessCpuTime
+                                   : getProcessCpuTime()} {
   info.taskId = taskId;
   info.nodeId = nodeId;
 }
@@ -238,6 +245,26 @@ uint64_t PrestoTask::timeSinceLastHeartbeatMs() const {
     return 0UL;
   }
   return getCurrentTimeMs() - lastHeartbeatMs;
+}
+
+// static
+long PrestoTask::getProcessCpuTime() {
+  struct rusage rusageEnd;
+  getrusage(RUSAGE_SELF, &rusageEnd);
+
+  auto tvNanos = [](struct timeval tv) {
+    return tv.tv_sec * 1000000000 + tv.tv_usec * 1000;
+  };
+
+  return tvNanos(rusageEnd.ru_utime) + tvNanos(rusageEnd.ru_stime);
+}
+
+void PrestoTask::recordProcessCpuTime() {
+  if (processCpuTime_ > 0) {
+    return;
+  }
+
+  processCpuTime_ = getProcessCpuTime() - startProcessCpuTime;
 }
 
 protocol::TaskStatus PrestoTask::updateStatusLocked() {
@@ -256,6 +283,7 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
       info.taskStatus.failures.emplace_back(toPrestoError(error));
     }
     info.taskStatus.state = protocol::TaskState::FAILED;
+    recordProcessCpuTime();
     return info.taskStatus;
   }
   VELOX_CHECK_NOT_NULL(task, "task is null when updating status")
@@ -289,6 +317,9 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
 
   if (task->error() && info.taskStatus.failures.empty()) {
     info.taskStatus.failures.emplace_back(toPrestoError(task->error()));
+  }
+  if (isFinalState(info.taskStatus.state)) {
+    recordProcessCpuTime();
   }
   return info.taskStatus;
 }
@@ -381,6 +412,10 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
     taskRuntimeStats["createTime"].addValue(taskStats.executionStartTimeMs);
     taskRuntimeStats["endTime"].addValue(taskStats.endTimeMs);
   }
+
+  taskRuntimeStats.insert(
+      {"nativeProcessCpuTime",
+       RuntimeMetric(processCpuTime_, RuntimeCounter::Unit::kNanos)});
 
   for (int i = 0; i < taskStats.pipelineStats.size(); ++i) {
     auto& pipelineOut = info.stats.pipelines[i];
