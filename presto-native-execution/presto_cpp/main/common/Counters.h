@@ -178,53 +178,27 @@ constexpr folly::StringPiece kCounterMemoryCacheSumEvictScore{
 /// does not count.
 constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeHit{
     "presto_cpp.memory_cache_num_cumulative_hit"};
-/// Number of hits (saved IO) since last counter retrieval. The first hit to a
-/// prefetched entry does not count.
-constexpr folly::StringPiece kCounterMemoryCacheNumHit{
-    "presto_cpp.memory_cache_num_hit"};
 /// Cumulated amount of hit bytes (saved IO). The first hit to a prefetched
 /// entry does not count.
 constexpr folly::StringPiece kCounterMemoryCacheCumulativeHitBytes{
     "presto_cpp.memory_cache_cumulative_hit_bytes"};
-/// Amount of hit bytes (saved IO) since last counter retrieval. The first hit
-/// to a prefetched entry does not count.
-constexpr folly::StringPiece kCounterMemoryCacheHitBytes{
-    "presto_cpp.memory_cache_hit_bytes"};
 /// Cumulated number of new entries created.
 constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeNew{
     "presto_cpp.memory_cache_num_cumulative_new"};
-/// Number of new entries created since last counter retrieval.
-constexpr folly::StringPiece kCounterMemoryCacheNumNew{
-    "presto_cpp.memory_cache_num_new"};
 /// Cumulated number of times a valid entry was removed in order to make space.
 constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeEvict{
     "presto_cpp.memory_cache_num_cumulative_evict"};
-/// Number of times a valid entry was removed in order to make space, since last
-/// counter retrieval.
-constexpr folly::StringPiece kCounterMemoryCacheNumEvict{
-    "presto_cpp.memory_cache_num_evict"};
 /// Cumulated number of entries considered for evicting.
 constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeEvictChecks{
     "presto_cpp.memory_cache_num_cumulative_evict_checks"};
-/// Number of entries considered for evicting, since last counter retrieval.
-constexpr folly::StringPiece kCounterMemoryCacheNumEvictChecks{
-    "presto_cpp.memory_cache_num_evict_checks"};
 /// Cumulated number of times a user waited for an entry to transit from
 /// exclusive to shared mode.
 constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeWaitExclusive{
     "presto_cpp.memory_cache_num_cumulative_wait_exclusive"};
-/// Number of times a user waited for an entry to transit from exclusive to
-/// shared mode, since last counter retrieval.
-constexpr folly::StringPiece kCounterMemoryCacheNumWaitExclusive{
-    "presto_cpp.memory_cache_num_wait_exclusive"};
 /// Cumulative clocks spent in allocating or freeing memory for backing cache
 /// entries.
 constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeAllocClocks{
     "presto_cpp.memory_cache_num_cumulative_alloc_clocks"};
-/// Clocks spent in allocating or freeing memory for backing cache entries,
-/// since last counter retrieval
-constexpr folly::StringPiece kCounterMemoryCacheNumAllocClocks{
-    "presto_cpp.memory_cache_num_alloc_clocks"};
 constexpr folly::StringPiece kCounterSsdCacheCumulativeReadEntries{
     "presto_cpp.ssd_cache_cumulative_read_entries"};
 constexpr folly::StringPiece kCounterSsdCacheCumulativeReadBytes{
