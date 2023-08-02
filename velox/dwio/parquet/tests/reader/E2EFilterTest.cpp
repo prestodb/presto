@@ -59,7 +59,6 @@ class E2EFilterTest : public E2EFilterTestBase {
     auto sink = std::make_unique<MemorySink>(*leafPool_, 200 * 1024 * 1024);
     sinkPtr_ = sink.get();
     options_.memoryPool = rootPool_.get();
-    options_.bufferGrowRatio = 2;
     int32_t flushCounter = 0;
     options_.flushPolicyFactory = [&]() {
       return std::make_unique<LambdaFlushPolicy>(
