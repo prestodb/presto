@@ -149,6 +149,20 @@ static VectorPtr pyListToVector(
       variantsToFlatVector, first_kind, variants, pool);
 }
 
+static VectorPtr pyListToVector(
+    const py::list& list,
+    const facebook::velox::Type& dtype,
+    facebook::velox::memory::MemoryPool* pool) {
+  std::vector<velox::variant> variants;
+  variants.reserve(list.size());
+  for (auto item : list) {
+    variants.push_back(pyToVariant(item, dtype));
+  }
+
+  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+      variantsToFlatVector, dtype.kind(), variants, pool);
+}
+
 template <typename NativeType>
 static py::object getItemFromSimpleVector(
     SimpleVectorPtr<NativeType>& vector,
