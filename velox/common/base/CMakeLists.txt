@@ -43,3 +43,14 @@ endif()
 if(${VELOX_ENABLE_BENCHMARKS})
   add_subdirectory(benchmarks)
 endif()
+
+add_library(velox_id_map BigintIdMap.cpp)
+target_link_libraries(
+  velox_id_map
+  velox_memory
+  velox_flag_definitions
+  velox_process
+  glog::glog
+  Folly::folly
+  fmt::fmt
+  gflags::gflags)

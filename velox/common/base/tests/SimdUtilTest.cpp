@@ -376,4 +376,27 @@ TEST_F(SimdUtilTest, reinterpretBatch) {
   validateReinterpretBatch<int64_t>();
 }
 
+TEST_F(SimdUtilTest, memEqual) {
+  constexpr int32_t kSize = 132;
+  struct {
+    char x[kSize];
+    char y[kSize];
+    char padding[sizeof(xsimd::batch<uint8_t>)];
+  } data;
+  memset(&data, 11, sizeof(data));
+  EXPECT_TRUE(simd::memEqualUnsafe(data.x, data.y, kSize));
+  EXPECT_TRUE(simd::memEqualUnsafe(data.x, data.y, 17));
+  EXPECT_TRUE(simd::memEqualUnsafe(data.x, data.y, 32));
+  EXPECT_TRUE(simd::memEqualUnsafe(data.x, data.y, 33));
+
+  // Make data at 67 not equal.
+  data.y[67] = 0;
+  EXPECT_TRUE(simd::memEqualUnsafe(data.x, data.y, 67));
+  EXPECT_FALSE(simd::memEqualUnsafe(data.x, data.y, 68));
+
+  // Redo the test offset by 1 to test unaligned.
+  EXPECT_TRUE(simd::memEqualUnsafe(&data.x[1], &data.y[1], 66));
+  EXPECT_FALSE(simd::memEqualUnsafe(&data.x[1], &data.y[1], 67));
+}
+
 } // namespace

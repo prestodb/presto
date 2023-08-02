@@ -1253,4 +1253,26 @@ xsimd::batch<T, A> reinterpretBatch(xsimd::batch<U, A> data, const A& arch) {
   return detail::ReinterpretBatch<T, U, A>::apply(data, arch);
 }
 
+template <typename A>
+inline bool memEqualUnsafe(const void* x, const void* y, int32_t size) {
+  constexpr int32_t kBatch = xsimd::batch<uint8_t, A>::size;
+
+  auto left = reinterpret_cast<const uint8_t*>(x);
+  auto right = reinterpret_cast<const uint8_t*>(y);
+  while (size > 0) {
+    auto bits = toBitMask(
+        xsimd::batch<uint8_t, A>::load_unaligned(left) ==
+        xsimd::batch<uint8_t, A>::load_unaligned(right));
+    if (bits == allSetBitMask<uint8_t, A>()) {
+      left += kBatch;
+      right += kBatch;
+      size -= kBatch;
+      continue;
+    }
+    auto leading = __builtin_ctz(~bits);
+    return leading >= size;
+  }
+  return true;
+}
+
 } // namespace facebook::velox::simd
