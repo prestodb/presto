@@ -118,5 +118,45 @@ TEST_F(XxHash64Test, float) {
   EXPECT_EQ(xxhash64<float>(limits::infinity()), -5940311692336719973);
   EXPECT_EQ(xxhash64<float>(-limits::infinity()), -7580553461823983095);
 }
+
+TEST_F(XxHash64Test, hashSeed) {
+  auto xxhash64WithSeed = [&](int64_t seed, const std::optional<int64_t>& arg) {
+    return evaluateOnce<int64_t>(
+        fmt::format("xxhash64_with_seed({}, c0)", seed), arg);
+  };
+
+  static const auto kIntMin = std::numeric_limits<int32_t>::min();
+  static const auto kIntMax = std::numeric_limits<int32_t>::max();
+  static const auto kLongMin = std::numeric_limits<int64_t>::min();
+  static const auto kLongMax = std::numeric_limits<int64_t>::max();
+
+  EXPECT_EQ(xxhash64WithSeed(0L, 42), -5379971487550586029);
+  EXPECT_EQ(xxhash64WithSeed(kLongMin, 42), -6671470883434376173);
+  EXPECT_EQ(xxhash64WithSeed(kLongMax, 42), 4605443450566835086);
+  EXPECT_EQ(
+      xxhash64WithSeed(static_cast<int64_t>(kIntMin) - 1L, 42),
+      8765374525824963196);
+  EXPECT_EQ(
+      xxhash64WithSeed(static_cast<int64_t>(kIntMax) + 1L, 42),
+      8810073187160811495);
+}
+
+// The expected result was obtained by running SELECT xxhash64("hello", "world")
+// query using spark-sql CLI.
+TEST_F(XxHash64Test, hashSeedVarcharArgs) {
+  auto xxhash64WithSeed = [&](int64_t seed,
+                              const std::optional<std::string>& arg1,
+                              const std::optional<std::string>& arg2) {
+    return evaluateOnce<int64_t>(
+        fmt::format("xxhash64_with_seed({}, c0, c1)", seed), arg1, arg2);
+  };
+
+  EXPECT_EQ(xxhash64WithSeed(42L, "hello", "world"), 7824066149349576922);
+  EXPECT_EQ(xxhash64WithSeed(42L, "hello", std::nullopt), -4367754540140381902);
+  EXPECT_EQ(xxhash64WithSeed(42L, "hello", ""), -5179011742163812830);
+  EXPECT_EQ(xxhash64WithSeed(0L, std::nullopt, "hello"), 2794345569481354659);
+  EXPECT_EQ(xxhash64WithSeed(0L, "", "hello"), 1992633642622160295);
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

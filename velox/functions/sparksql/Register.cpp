@@ -139,7 +139,13 @@ void registerFunctions(const std::string& prefix) {
   exec::registerStatefulVectorFunction(
       prefix + "hash", hashSignatures(), makeHash);
   exec::registerStatefulVectorFunction(
+      prefix + "hash_with_seed", hashWithSeedSignatures(), makeHashWithSeed);
+  exec::registerStatefulVectorFunction(
       prefix + "xxhash64", xxhash64Signatures(), makeXxHash64);
+  exec::registerStatefulVectorFunction(
+      prefix + "xxhash64_with_seed",
+      xxhash64WithSeedSignatures(),
+      makeXxHash64WithSeed);
   VELOX_REGISTER_VECTOR_FUNCTION(udf_map, prefix + "map");
 
   // Register 'in' functions.

@@ -24,24 +24,28 @@
 namespace facebook::velox::functions::sparksql {
 namespace {
 
+const int32_t kDefaultSeed = 42;
+
 // ReturnType can be either int32_t or int64_t
 // HashClass contains the function like hashInt32
 template <typename ReturnType, typename HashClass, typename SeedType>
 void applyWithType(
     const SelectivityVector& rows,
     std::vector<VectorPtr>& args, // Not using const ref so we can reuse args
+    std::optional<SeedType> seed,
     exec::EvalCtx& context,
     VectorPtr& resultRef) {
-  constexpr SeedType kSeed = 42;
   HashClass hash;
+  size_t hashIdx = seed ? 1 : 0;
+  SeedType hashSeed = seed ? *seed : kDefaultSeed;
 
   auto& result = *resultRef->as<FlatVector<ReturnType>>();
-  rows.applyToSelected([&](int row) { result.set(row, kSeed); });
+  rows.applyToSelected([&](int row) { result.set(row, hashSeed); });
 
   exec::LocalSelectivityVector selectedMinusNulls(context);
 
   exec::DecodedArgs decodedArgs(rows, args, context);
-  for (auto i = 0; i < args.size(); i++) {
+  for (auto i = hashIdx; i < args.size(); i++) {
     auto decoded = decodedArgs.at(i);
     const SelectivityVector* selected = &rows;
     if (args[i]->mayHaveNulls()) {
@@ -163,6 +167,10 @@ class Murmur3Hash final {
 };
 
 class Murmur3HashFunction final : public exec::VectorFunction {
+ public:
+  Murmur3HashFunction() = default;
+  explicit Murmur3HashFunction(int32_t seed) : seed_(seed) {}
+
   bool isDefaultNullBehavior() const final {
     return false;
   }
@@ -174,9 +182,11 @@ class Murmur3HashFunction final : public exec::VectorFunction {
       exec::EvalCtx& context,
       VectorPtr& resultRef) const final {
     context.ensureWritable(rows, INTEGER(), resultRef);
-    applyWithType<int32_t, Murmur3Hash, uint32_t>(
-        rows, args, context, resultRef);
+    applyWithType<int32_t, Murmur3Hash>(rows, args, seed_, context, resultRef);
   }
+
+ private:
+  const std::optional<int32_t> seed_;
 };
 
 class XxHash64 final {
@@ -314,6 +324,10 @@ class XxHash64 final {
 };
 
 class XxHash64Function final : public exec::VectorFunction {
+ public:
+  XxHash64Function() = default;
+  explicit XxHash64Function(int64_t seed) : seed_(seed) {}
+
   bool isDefaultNullBehavior() const final {
     return false;
   }
@@ -325,8 +339,11 @@ class XxHash64Function final : public exec::VectorFunction {
       exec::EvalCtx& context,
       VectorPtr& resultRef) const final {
     context.ensureWritable(rows, BIGINT(), resultRef);
-    applyWithType<int64_t, XxHash64, uint64_t>(rows, args, context, resultRef);
+    applyWithType<int64_t, XxHash64>(rows, args, seed_, context, resultRef);
   }
+
+ private:
+  const std::optional<int64_t> seed_;
 };
 
 } // namespace
@@ -347,9 +364,40 @@ std::shared_ptr<exec::VectorFunction> makeHash(
   return kHashFunction;
 }
 
-std::vector<std::shared_ptr<exec::FunctionSignature>> xxhash64Signatures() {
+std::shared_ptr<exec::VectorFunction> makeHashWithSeed(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& /*config*/) {
+  const auto& constantSeed = inputArgs[0].constantValue;
+  if (!constantSeed || constantSeed->isNullAt(0)) {
+    VELOX_USER_FAIL("{} requires a constant non-null seed argument.", name);
+  }
+  auto seed = constantSeed->as<ConstantVector<int32_t>>()->valueAt(0);
+  return std::make_shared<Murmur3HashFunction>(seed);
+}
+
+std::vector<std::shared_ptr<exec::FunctionSignature>> hashWithSeedSignatures() {
   return {exec::FunctionSignatureBuilder()
               .returnType("integer")
+              .constantArgumentType("integer")
+              .argumentType("any")
+              .variableArity()
+              .build()};
+}
+
+std::vector<std::shared_ptr<exec::FunctionSignature>> xxhash64Signatures() {
+  return {exec::FunctionSignatureBuilder()
+              .returnType("bigint")
+              .argumentType("any")
+              .variableArity()
+              .build()};
+}
+
+std::vector<std::shared_ptr<exec::FunctionSignature>>
+xxhash64WithSeedSignatures() {
+  return {exec::FunctionSignatureBuilder()
+              .returnType("bigint")
+              .constantArgumentType("bigint")
               .argumentType("any")
               .variableArity()
               .build()};
@@ -361,6 +409,18 @@ std::shared_ptr<exec::VectorFunction> makeXxHash64(
     const core::QueryConfig& /*config*/) {
   static const auto kXxHash64Function = std::make_shared<XxHash64Function>();
   return kXxHash64Function;
+}
+
+std::shared_ptr<exec::VectorFunction> makeXxHash64WithSeed(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& /*config*/) {
+  const auto& constantSeed = inputArgs[0].constantValue;
+  if (!constantSeed || constantSeed->isNullAt(0)) {
+    VELOX_USER_FAIL("{} requires a constant non-null seed argument.", name);
+  }
+  auto seed = constantSeed->as<ConstantVector<int64_t>>()->valueAt(0);
+  return std::make_shared<XxHash64Function>(seed);
 }
 
 } // namespace facebook::velox::functions::sparksql

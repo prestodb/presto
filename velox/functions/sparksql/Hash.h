@@ -34,7 +34,14 @@ namespace facebook::velox::functions::sparksql {
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> hashSignatures();
 
+std::vector<std::shared_ptr<exec::FunctionSignature>> hashWithSeedSignatures();
+
 std::shared_ptr<exec::VectorFunction> makeHash(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config);
+
+std::shared_ptr<exec::VectorFunction> makeHashWithSeed(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
     const core::QueryConfig& config);
@@ -55,7 +62,15 @@ std::shared_ptr<exec::VectorFunction> makeHash(
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> xxhash64Signatures();
 
+std::vector<std::shared_ptr<exec::FunctionSignature>>
+xxhash64WithSeedSignatures();
+
 std::shared_ptr<exec::VectorFunction> makeXxHash64(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config);
+
+std::shared_ptr<exec::VectorFunction> makeXxHash64WithSeed(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
     const core::QueryConfig& config);
