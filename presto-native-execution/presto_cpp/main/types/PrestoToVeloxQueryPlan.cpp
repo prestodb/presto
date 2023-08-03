@@ -187,7 +187,8 @@ velox::common::CompressionKind toFileCompressionKind(
 }
 
 dwio::common::FileFormat toFileFormat(
-    const protocol::HiveStorageFormat storageFormat) {
+    const protocol::HiveStorageFormat storageFormat,
+    const char* usage) {
   switch (storageFormat) {
     case protocol::HiveStorageFormat::DWRF:
       return dwio::common::FileFormat::DWRF;
@@ -195,7 +196,9 @@ dwio::common::FileFormat toFileFormat(
       return dwio::common::FileFormat::PARQUET;
     default:
       VELOX_UNSUPPORTED(
-          "Unsupported file format: {}.", toJsonString(storageFormat));
+          "Unsupported file format in {}: {}.",
+          usage,
+          toJsonString(storageFormat));
   }
 }
 
@@ -2077,7 +2080,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     hiveTableHandle = std::make_shared<connector::hive::HiveInsertTableHandle>(
         inputColumns,
         toLocationHandle(hiveOutputTableHandle->locationHandle),
-        toFileFormat(hiveOutputTableHandle->tableStorageFormat),
+        toFileFormat(hiveOutputTableHandle->tableStorageFormat, "TableWrite"),
         toHiveBucketProperty(
             inputColumns, hiveOutputTableHandle->bucketProperty),
         std::optional(
@@ -2103,7 +2106,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     hiveTableHandle = std::make_shared<connector::hive::HiveInsertTableHandle>(
         inputColumns,
         toLocationHandle(hiveInsertTableHandle->locationHandle),
-        toFileFormat(hiveInsertTableHandle->tableStorageFormat),
+        toFileFormat(hiveInsertTableHandle->tableStorageFormat, "TableWrite"),
         toHiveBucketProperty(
             inputColumns, hiveInsertTableHandle->bucketProperty),
         std::optional(
