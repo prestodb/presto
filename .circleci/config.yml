@@ -40,11 +40,6 @@ workflows:
                - main
     jobs:
       - doc-gen-job
-      - linux-presto-fuzzer-run
-      - linux-spark-fuzzer-run
-      - linux-spark-aggregate-fuzzer-run
-      - linux-aggregate-fuzzer-run
-      - linux-join-fuzzer-run
       - docker-compose-ubuntu-cpp
       - docker-compose-centos-cpp
       - docker-compose-presto-native

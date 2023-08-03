@@ -1,0 +1,219 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: "Scheduled Fuzzer Jobs"
+
+on:
+  schdule:
+    - cron: '0 3 * * *'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  linux-presto-fuzzer-run:
+    runs-on: 8-core
+    timeout-minutes: 120
+    env:
+      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
+      CCACHE_BASEDIR: "${{ github.workspace }}"
+      LINUX_DISTRO: "ubuntu"
+    steps:
+
+      - name: "Checkout Repo"
+        uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+
+      - name: "Install dependencies"
+        run: source ./scripts/setup-ubuntu.sh
+
+      - name: "Build"
+        run: |
+          make debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=6 EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON"
+          ccache -s
+
+      - name: "Run Presto Fuzzer"
+        run: |
+          mkdir -p /tmp/fuzzer_repro/
+          chmod -R 777 /tmp/fuzzer_repro
+          _build/debug/velox/expression/tests/velox_expression_fuzzer_test \
+                --seed ${RANDOM} \
+                --enable_variadic_signatures \
+                --velox_fuzzer_enable_complex_types \
+                --lazy_vector_generation_ratio 0.2 \
+                --velox_fuzzer_enable_column_reuse \
+                --velox_fuzzer_enable_expression_reuse \
+                --max_expression_trees_per_step 2 \
+                --retry_with_try \
+                --enable_dereference \
+                --duration_sec 3600 \
+                --logtostderr=1 \
+                --minloglevel=0 \
+                --repro_persist_path=/tmp/fuzzer_repro \
+          && echo -e "\n\nFuzzer run finished successfully."
+
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: presto-fuzzer-failure-artifacts
+          path: |
+            /tmp/fuzzer_repro
+            
+  
+
+  linux-spark-fuzzer-run:
+    runs-on: 8-core
+    timeout-minutes: 120
+    env:
+      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
+      CCACHE_BASEDIR: "${{ github.workspace }}"
+      LINUX_DISTRO: "ubuntu"
+    steps:
+
+      - name: "Checkout Repo"
+        uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+
+      - name: "Install dependencies"
+        run: source ./scripts/setup-ubuntu.sh
+
+      - name: "Build"
+        run: |
+          make debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=6 EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON"
+          ccache -s
+
+      - name: "Run Spark Fuzzer"
+        run: |
+          mkdir -p /tmp/spark_fuzzer_repro/
+            chmod -R 777 /tmp/spark_fuzzer_repro
+            _build/debug/velox/expression/tests/spark_expression_fuzzer_test \
+                --seed ${RANDOM} \
+                --duration_sec 1800 \
+                --logtostderr=1 \
+                --minloglevel=0 \
+                --repro_persist_path=/tmp/spark_fuzzer_repro \
+            && echo -e "\n\nSpark Fuzzer run finished successfully."
+
+      - name: Archive Spark production artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: spark-fuzzer-failure-artifacts
+          path: |
+            /tmp/spark_fuzzer_repro
+
+      - name: "Run Spark Aggregate Fuzzer"
+        run: |
+          mkdir -p /tmp/spark_aggregate_fuzzer_repro/
+          chmod -R 777 /tmp/spark_aggregate_fuzzer_repro
+          _build/debug/velox/exec/tests/spark_aggregation_fuzzer_test \
+                --seed ${RANDOM} \
+                --duration_sec 1800 \
+                --logtostderr=1 \
+                --minloglevel=0 \
+                --repro_persist_path=/tmp/spark_aggregate_fuzzer_repro \
+          && echo -e "\n\nSpark Aggregation Fuzzer run finished successfully."
+        
+      - name: Archive Spark aggregate production artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: spark-agg-fuzzer-failure-artifacts
+          path: |
+            /tmp/spark_aggregate_fuzzer_repro
+
+
+  linux-aggregate-fuzzer-run:
+    runs-on: 8-core
+    timeout-minutes: 120
+    env:
+      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
+      CCACHE_BASEDIR: "${{ github.workspace }}"
+      LINUX_DISTRO: "ubuntu"
+    steps:
+
+      - name: "Checkout Repo"
+        uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+
+      - name: "Install dependencies"
+        run: source ./scripts/setup-ubuntu.sh
+
+      - name: "Build"
+        run: |
+          make debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=6 EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON"
+          ccache -s
+
+      - name: "Run Aggregate Fuzzer"
+        run: |
+          mkdir -p /tmp/aggregate_fuzzer_repro/
+            rm -rfv /tmp/aggregate_fuzzer_repro/*
+            chmod -R 777 /tmp/aggregate_fuzzer_repro
+            _build/debug/velox/exec/tests/velox_aggregation_fuzzer_test \
+                --seed ${RANDOM} \
+                --duration_sec 1800 \
+                --logtostderr=1 \
+                --minloglevel=0 \
+                --repro_persist_path=/tmp/aggregate_fuzzer_repro \
+            && echo -e "\n\nAggregation fuzzer run finished successfully."
+
+      - name: Archive aggregate production artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: aggregate-fuzzer-failure-artifacts
+          path: |
+            /tmp/aggregate_fuzzer_repro
+
+  linux-join-fuzzer-run:
+    runs-on: 8-core
+    timeout-minutes: 120
+    env:
+      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
+      CCACHE_BASEDIR: "${{ github.workspace }}"
+      LINUX_DISTRO: "ubuntu"
+    steps:
+
+      - name: "Checkout Repo"
+        uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+
+      - name: "Install dependencies"
+        run: source ./scripts/setup-ubuntu.sh
+
+      - name: "Build"
+        run: |
+          make debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=6 EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON"
+          ccache -s
+
+      - name: "Run Aggregate Fuzzer"
+        run: |
+          mkdir -p /tmp/join_fuzzer_repro/
+          rm -rfv /tmp/join_fuzzer_repro/*
+          chmod -R 777 /tmp/join_fuzzer_repro
+          _build/debug/velox/exec/tests/velox_join_fuzzer_test \
+                --seed ${RANDOM} \
+                --duration_sec 1800 \
+                --logtostderr=1 \
+                --minloglevel=0 \
+            && echo -e "\n\nAggregation fuzzer run finished successfully."
+
+      - name: Archive aggregate production artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: join-fuzzer-failure-artifacts
+          path: |
+            /tmp/join_fuzzer_repro
