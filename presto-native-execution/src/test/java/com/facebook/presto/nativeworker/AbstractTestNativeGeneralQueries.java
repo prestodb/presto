@@ -926,7 +926,7 @@ public abstract class AbstractTestNativeGeneralQueries
         String tmpTableName = generateRandomTableName();
         String[] unsupportedTableFormats = {"ORC", "JSON"};
         for (String unsupportedTableFormat : unsupportedTableFormats) {
-            assertQueryFails(String.format("CREATE TABLE %s WITH (format = '" + unsupportedTableFormat + "') AS SELECT * FROM nation", tmpTableName), " Unsupported file format: \"" + unsupportedTableFormat + "\".");
+            assertQueryFails(String.format("CREATE TABLE %s WITH (format = '" + unsupportedTableFormat + "') AS SELECT * FROM nation", tmpTableName), " Unsupported file format in TableWrite: \"" + unsupportedTableFormat + "\".");
         }
     }
 
