@@ -55,14 +55,25 @@ class ArrayConstructor : public exec::VectorFunction {
     } else {
       elementsResult->resize(baseOffset + numArgs * rows.countSelected());
 
+      std::vector<BaseVector::CopyRange> ranges;
+      ranges.reserve(rows.end());
+
       vector_size_t offset = baseOffset;
       rows.applyToSelected([&](vector_size_t row) {
         rawSizes[row] = numArgs;
         rawOffsets[row] = offset;
-        for (int i = 0; i < numArgs; i++) {
-          elementsResult->copy(args[i].get(), offset++, row, 1);
-        }
+        ranges.push_back({row, offset, 1});
+        offset += numArgs;
       });
+
+      elementsResult->copyRanges(args[0].get(), ranges);
+
+      for (int i = 1; i < numArgs; i++) {
+        for (auto& range : ranges) {
+          ++range.targetIndex;
+        }
+        elementsResult->copyRanges(args[i].get(), ranges);
+      }
     }
   }
 
