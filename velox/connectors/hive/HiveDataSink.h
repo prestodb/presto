@@ -342,7 +342,7 @@ struct HiveWriterInfo {
       : writerParameters(std::move(parameters)) {}
 
   const HiveWriterParameters writerParameters;
-  vector_size_t numWrittenRows = 0;
+  int64_t numWrittenRows = 0;
 };
 
 /// Identifies a hive writer.
