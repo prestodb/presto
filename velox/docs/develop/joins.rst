@@ -139,6 +139,8 @@ parallel building of the hash table where the operator that finishes building
 its table last is responsible for merging it with all the other hash tables
 before making the hash table available over the JoinBridge.
 
+.. _DynamicFilterPushdown:
+
 Dynamic Filter Pushdown
 ~~~~~~~~~~~~~~~~~~~~~~~
 

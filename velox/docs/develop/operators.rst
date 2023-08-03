@@ -64,10 +64,12 @@ TopNRowNumberNode           TopNRowNumber
 Plan Nodes
 ----------
 
+.. _TableScanNode:
+
 TableScanNode
 ~~~~~~~~~~~~~
 
-The table scan operation reads data from a connector. For example, when used
+The table scan operation reads data from a :doc:`connector </develop/connectors>`. For example, when used
 with HiveConnector, table scan reads data from ORC or Parquet files.
 
 .. list-table::
@@ -341,11 +343,13 @@ number starting with 1.
    * - ordinalityName
      - Optional name for the ordinality column.
 
+.. _TableWriteNode:
+
 TableWriteNode
 ~~~~~~~~~~~~~~
 
 The table write operation consumes one output and writes it to storage via a
-connector. An example would be writing ORC or Parquet files. The table write
+:doc:`connector </develop/connectors>`. An example would be writing ORC or Parquet files. The table write
 operation return a list of columns containing the metadata of the written
 data: the number of rows written to storage, the writer context information,
 the written file paths on storage and the collected column stats.
