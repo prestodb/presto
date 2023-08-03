@@ -130,6 +130,11 @@ class VectorTestBase {
     return vectorMaker_.rowVector(rowType, size);
   }
 
+  /// Splits input vector into 2. First half of rows goes to first vector, the
+  /// rest to the second vector. Input vector must have at least 2 rows.
+  /// @return 2 vectors
+  std::vector<RowVectorPtr> split(const RowVectorPtr& vector);
+
   // Returns a one element ArrayVector with 'vector' as elements of array at 0.
   VectorPtr asArray(VectorPtr vector) {
     BufferPtr sizes = AlignedBuffer::allocate<vector_size_t>(

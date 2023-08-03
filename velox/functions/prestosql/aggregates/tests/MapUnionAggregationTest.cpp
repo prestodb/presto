@@ -46,27 +46,56 @@ class MapUnionTest : public AggregationTestBase {};
  * map is NULL for every 7th entry (num % 7 == 0).
  */
 TEST_F(MapUnionTest, groupByWithoutDuplicates) {
-  auto inputVectors = {makeRowVector(
-      {makeFlatVector<int32_t>(10, [](vector_size_t row) { return row / 5; }),
-       makeMapVector<int32_t, double>(
-           10,
-           [&](vector_size_t /*row*/) { return 1; },
-           [&](vector_size_t row) { return row; },
-           [&](vector_size_t row) { return row + 0.05; },
-           nullEvery(4),
-           nullEvery(7))})};
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({0, 0, 0, 0, 0, 1, 1, 1, 1, 1}),
+      makeNullableMapVector<int32_t, double>({
+          // Group 0.
+          std::nullopt,
+          {{{1, std::nullopt}}},
+          {{{2, 2.05}}},
+          {{{3, 3.05}}},
+          std::nullopt,
+          // Group 1.
+          {{{5, 5.05}}},
+          {{{6, std::nullopt}}},
+          {{{7, 7.05}}},
+          std::nullopt,
+          {{{9, 9.05}}},
+      }),
+      makeFlatVector<bool>(10, [](auto row) { return row % 2 == 0; }),
+  });
 
-  auto expectedResult = {makeRowVector(
-      {makeFlatVector<int32_t>({0, 1}),
-       makeMapVector<int32_t, double>(
-           2,
-           [&](vector_size_t row) { return row == 0 ? 3 : 4; },
-           [&](vector_size_t row) { return row; },
-           [&](vector_size_t row) { return row + 0.05; },
-           nullptr,
-           nullEvery(7))})};
+  auto expectedResult = makeRowVector({
+      makeFlatVector<int32_t>({0, 1}),
+      makeNullableMapVector<int32_t, double>({
+          // Group 0.
+          {{{1, std::nullopt}, {2, 2.05}, {3, 3.05}}},
+          // Group 1.
+          {{{5, 5.05}, {6, std::nullopt}, {7, 7.05}, {9, 9.05}}},
+      }),
+  });
 
-  testAggregations(inputVectors, {"c0"}, {"map_union(c1)"}, expectedResult);
+  testAggregations({data}, {"c0"}, {"map_union(c1)"}, {expectedResult});
+  testAggregations(split(data), {"c0"}, {"map_union(c1)"}, {expectedResult});
+
+  expectedResult = makeRowVector({
+      makeFlatVector<int32_t>({0, 1}),
+      makeNullableMapVector<int32_t, double>({
+          // Group 0.
+          {{{2, 2.05}}},
+          // Group 1.
+          {{{6, std::nullopt}}},
+      }),
+  });
+
+  testAggregations(
+      {data}, {"c0"}, {"map_union(c1) filter (where c2)"}, {expectedResult});
+
+  testAggregations(
+      split(data),
+      {"c0"},
+      {"map_union(c1) filter (where c2)"},
+      {expectedResult});
 }
 
 /**
@@ -84,13 +113,16 @@ TEST_F(MapUnionTest, groupByWithoutDuplicates) {
  * contains (Key, Value) as (1, 1.05).
  */
 TEST_F(MapUnionTest, groupByWithDuplicates) {
-  auto inputVectors = {makeRowVector(
-      {makeFlatVector<int32_t>(10, [](vector_size_t row) { return row / 5; }),
-       makeMapVector<int32_t, double>(
-           10,
-           [&](vector_size_t /*row*/) { return 1; },
-           [&](vector_size_t /*row*/) { return 1; },
-           [&](vector_size_t /*row*/) { return 1.05; })})};
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>(10, [](vector_size_t row) { return row / 5; }),
+      makeMapVector<int32_t, double>(
+          10,
+          [&](vector_size_t /*row*/) { return 1; },
+          [&](vector_size_t /*row*/) { return 1; },
+          [&](vector_size_t /*row*/) { return 1.05; }),
+      makeFlatVector<bool>(10, [](auto row) { return row % 2 == 0; }),
+  });
+
   auto expectedResult = {makeRowVector(
       {makeFlatVector<int32_t>({0, 1}),
        makeMapVector<int32_t, double>(
@@ -99,7 +131,14 @@ TEST_F(MapUnionTest, groupByWithDuplicates) {
            [&](vector_size_t /*row*/) { return 1; },
            [&](vector_size_t /*row*/) { return 1.05; })})};
 
-  testAggregations(inputVectors, {"c0"}, {"map_union(c1)"}, expectedResult);
+  testAggregations(
+      {data, data, data}, {"c0"}, {"map_union(c1)"}, expectedResult);
+
+  testAggregations(
+      {data, data, data},
+      {"c0"},
+      {"map_union(c1) filter (where c2)"},
+      expectedResult);
 }
 
 /**

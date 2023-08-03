@@ -338,19 +338,6 @@ TEST_F(ArrayAggTest, sortedGlobalWithMask) {
   testFunction("simple_array_agg");
 }
 
-namespace {
-std::vector<RowVectorPtr> split(const RowVectorPtr& data) {
-  const auto numRows = data->size();
-  VELOX_CHECK_GE(numRows, 2);
-
-  const auto n = numRows / 2;
-  return {
-      std::dynamic_pointer_cast<RowVector>(data->slice(0, n)),
-      std::dynamic_pointer_cast<RowVector>(data->slice(n, numRows - n)),
-  };
-}
-} // namespace
-
 TEST_F(ArrayAggTest, mask) {
   auto testFunction = [this](const std::string& functionName) {
     // Global aggregation with all-false mask.

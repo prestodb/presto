@@ -114,6 +114,17 @@ BufferPtr VectorTestBase::makeNulls(const std::vector<bool>& values) {
   return nulls;
 }
 
+std::vector<RowVectorPtr> VectorTestBase::split(const RowVectorPtr& vector) {
+  const auto numRows = vector->size();
+  VELOX_CHECK_GE(numRows, 2);
+
+  const auto n = numRows / 2;
+  return {
+      std::dynamic_pointer_cast<RowVector>(vector->slice(0, n)),
+      std::dynamic_pointer_cast<RowVector>(vector->slice(n, numRows - n)),
+  };
+}
+
 void assertEqualVectors(const VectorPtr& expected, const VectorPtr& actual) {
   ASSERT_EQ(expected->size(), actual->size());
   ASSERT_TRUE(expected->type()->equivalent(*actual->type()))
