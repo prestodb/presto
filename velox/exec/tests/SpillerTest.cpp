@@ -53,9 +53,13 @@ struct TestParam {
   // Specifies the spill executor pool size. If the size is zero, then spill
   // write path is executed inline with spiller control code path.
   int poolSize;
+  common::CompressionKind compressionKind;
 
-  TestParam(Spiller::Type _type, int _poolSize)
-      : type(_type), poolSize(_poolSize) {}
+  TestParam(
+      Spiller::Type _type,
+      int _poolSize,
+      common::CompressionKind _compressionKind)
+      : type(_type), poolSize(_poolSize), compressionKind(_compressionKind) {}
 
   std::string toString() const {
     return fmt::format("{}|{}", Spiller::typeName(type), poolSize);
@@ -68,8 +72,10 @@ struct TestParamsBuilder {
     for (int i = 0; i < Spiller::kNumTypes; ++i) {
       const auto type = static_cast<Spiller::Type>(i);
       if (typesToExclude.find(type) == typesToExclude.end()) {
+        common::CompressionKind compressionKind =
+            static_cast<common::CompressionKind>(Spiller::kNumTypes % 6);
         for (int poolSize : {0, 8}) {
-          params.emplace_back(type, poolSize);
+          params.emplace_back(type, poolSize, compressionKind);
         }
       }
     }
@@ -109,6 +115,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       : param_(param),
         type_(param.type),
         executorPoolSize_(param.poolSize),
+        compressionKind_(param.compressionKind),
         hashBits_(0, type_ == Spiller::Type::kOrderBy ? 0 : 2),
         numPartitions_(hashBits_.numPartitions()),
         statWriter_(std::make_unique<TestRuntimeStatWriter>(stats_)) {
@@ -404,6 +411,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           makeError ? "/bad/path" : tempDirPath_->path,
           targetFileSize,
           minSpillRunSize,
+          compressionKind_,
           *pool_,
           executor());
     } else if (type_ == Spiller::Type::kOrderBy) {
@@ -419,6 +427,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           makeError ? "/bad/path" : tempDirPath_->path,
           targetFileSize,
           minSpillRunSize,
+          compressionKind_,
           *pool_,
           executor());
     } else {
@@ -433,6 +442,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           makeError ? "/bad/path" : tempDirPath_->path,
           targetFileSize,
           minSpillRunSize,
+          compressionKind_,
           *pool_,
           executor());
     }
@@ -845,6 +855,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
   const TestParam param_;
   const Spiller::Type type_;
   const int32_t executorPoolSize_;
+  const common::CompressionKind compressionKind_;
   const HashBitRange hashBits_;
   const int32_t numPartitions_;
   std::unordered_map<std::string, RuntimeMetric> stats_;
@@ -1350,7 +1361,8 @@ TEST(SpillerTest, spillLevel) {
       kNumPartitionsBits,
       0,
       0,
-      0);
+      0,
+      "none");
   struct {
     uint8_t bitOffset;
     // Indicates an invalid if 'expectedLevel' is negative.
@@ -1431,7 +1443,8 @@ TEST(SpillerTest, spillLevelLimit) {
         testData.numBits,
         0,
         testData.maxSpillLevel,
-        0);
+        0,
+        "none");
 
     ASSERT_EQ(
         testData.expectedExceeds,

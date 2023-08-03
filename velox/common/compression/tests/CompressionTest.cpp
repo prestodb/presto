@@ -20,7 +20,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/compression/Compression.h"
 
-using namespace facebook::velox::common;
+namespace facebook::velox::common {
 
 class CompressionTest : public testing::Test {};
 
@@ -47,3 +47,16 @@ TEST_F(CompressionTest, compressionKindToCodec) {
       compressionKindToCodec(CompressionKind::CompressionKind_LZO),
       facebook::velox::VeloxException);
 }
+
+TEST_F(CompressionTest, stringToCompressionKind) {
+  EXPECT_EQ(stringToCompressionKind("none"), CompressionKind_NONE);
+  EXPECT_EQ(stringToCompressionKind("zlib"), CompressionKind_ZLIB);
+  EXPECT_EQ(stringToCompressionKind("snappy"), CompressionKind_SNAPPY);
+  EXPECT_EQ(stringToCompressionKind("lzo"), CompressionKind_LZO);
+  EXPECT_EQ(stringToCompressionKind("lz4"), CompressionKind_LZ4);
+  EXPECT_EQ(stringToCompressionKind("zstd"), CompressionKind_ZSTD);
+  EXPECT_EQ(stringToCompressionKind("gzip"), CompressionKind_GZIP);
+  VELOX_ASSERT_THROW(
+      stringToCompressionKind("bz2"), "Not support compression kind bz2");
+}
+} // namespace facebook::velox::common

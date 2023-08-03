@@ -441,4 +441,5 @@ INSTANTIATE_TEST_SUITE_P(
         common::CompressionKind::CompressionKind_ZLIB,
         common::CompressionKind::CompressionKind_SNAPPY,
         common::CompressionKind::CompressionKind_ZSTD,
-        common::CompressionKind::CompressionKind_LZ4));
+        common::CompressionKind::CompressionKind_LZ4,
+        common::CompressionKind::CompressionKind_GZIP));

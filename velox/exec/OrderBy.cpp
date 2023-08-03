@@ -243,6 +243,7 @@ void OrderBy::spill(int64_t targetRows, int64_t targetBytes) {
         spillConfig.filePath,
         spillConfig.maxFileSize,
         spillConfig.minSpillRunSize,
+        spillConfig.compressionKind,
         Spiller::spillPool(),
         spillConfig.executor);
     VELOX_CHECK_EQ(spiller_->state().maxPartitions(), 1);

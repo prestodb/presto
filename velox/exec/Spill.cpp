@@ -26,10 +26,7 @@ namespace facebook::velox::exec {
 // with presto. Since velox's native timestamp implementation supports
 // nanosecond precision, we use this serde option to ensure the serializer
 // preserves precision.
-static const serializer::presto::PrestoVectorSerde::PrestoOptions
-    kDefaultSerdeOptions(
-        /*useLosslessTimestamp*/ true,
-        common::CompressionKind::CompressionKind_NONE);
+static const bool kDefaultUseLosslessTimestamp = true;
 
 std::atomic<int32_t> SpillFile::ordinalCounter_;
 
@@ -71,8 +68,9 @@ bool SpillFile::nextBatch(RowVectorPtr& rowVector) {
   if (input_->atEnd()) {
     return false;
   }
-  VectorStreamGroup::read(
-      input_.get(), &pool_, type_, &rowVector, &kDefaultSerdeOptions);
+  serializer::presto::PrestoVectorSerde::PrestoOptions options = {
+      kDefaultUseLosslessTimestamp, compressionKind_};
+  VectorStreamGroup::read(input_.get(), &pool_, type_, &rowVector, &options);
   return true;
 }
 
@@ -87,12 +85,14 @@ WriteFile& SpillFileList::currentOutput() {
         numSortingKeys_,
         sortCompareFlags_,
         fmt::format("{}-{}", path_, files_.size()),
+        compressionKind_,
         pool_));
   }
   return files_.back()->output();
 }
 
-void SpillFileList::flush() {
+uint64_t SpillFileList::flush() {
+  uint64_t totalBytes = 0;
   if (batch_) {
     IOBufOutputStream out(
         pool_, nullptr, std::max<int64_t>(64 * 1024, batch_->size()));
@@ -103,23 +103,26 @@ void SpillFileList::flush() {
     for (auto& range : *iobuf) {
       file.append(std::string_view(
           reinterpret_cast<const char*>(range.data()), range.size()));
+      totalBytes += range.size();
     }
   }
+  return totalBytes;
 }
 
-void SpillFileList::write(
+uint64_t SpillFileList::write(
     const RowVectorPtr& rows,
     const folly::Range<IndexRange*>& indices) {
   if (!batch_) {
+    serializer::presto::PrestoVectorSerde::PrestoOptions options = {
+        kDefaultUseLosslessTimestamp, compressionKind_};
     batch_ = std::make_unique<VectorStreamGroup>(&pool_);
+
     batch_->createStreamTree(
-        std::static_pointer_cast<const RowType>(rows->type()),
-        1000,
-        &kDefaultSerdeOptions);
+        std::static_pointer_cast<const RowType>(rows->type()), 1000, &options);
   }
   batch_->append(rows, indices);
 
-  flush();
+  return flush();
 }
 
 void SpillFileList::finishFile() {
@@ -163,7 +166,7 @@ void SpillState::setPartitionSpilled(int32_t partition) {
   spilledPartitionSet_.insert(partition);
 }
 
-void SpillState::appendToPartition(
+uint64_t SpillState::appendToPartition(
     int32_t partition,
     const RowVectorPtr& rows) {
   VELOX_CHECK(isPartitionSpilled(partition));
@@ -175,11 +178,12 @@ void SpillState::appendToPartition(
         sortCompareFlags_,
         fmt::format("{}-spill-{}", path_, partition),
         targetFileSize_,
+        compressionKind_,
         pool_);
   }
 
   IndexRange range{0, rows->size()};
-  files_[partition]->write(rows, folly::Range<IndexRange*>(&range, 1));
+  return files_[partition]->write(rows, folly::Range<IndexRange*>(&range, 1));
 }
 
 std::unique_ptr<TreeOfLosers<SpillMergeStream>> SpillState::startMerge(

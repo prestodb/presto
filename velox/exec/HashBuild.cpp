@@ -217,6 +217,7 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
       spillConfig.filePath,
       spillConfig.maxFileSize,
       spillConfig.minSpillRunSize,
+      spillConfig.compressionKind,
       Spiller::spillPool(),
       spillConfig.executor);
 

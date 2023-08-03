@@ -88,7 +88,8 @@ target_link_libraries(
   velox_codegen
   velox_common_base
   velox_test_util
-  velox_arrow_bridge)
+  velox_arrow_bridge
+  velox_common_compression)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

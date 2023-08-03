@@ -18,6 +18,7 @@
 
 #include <folly/container/F14Set.h>
 
+#include "velox/common/compression/Compression.h"
 #include "velox/common/file/File.h"
 #include "velox/exec/TreeOfLosers.h"
 #include "velox/exec/UnorderedStreamReader.h"
@@ -68,13 +69,15 @@ class SpillFile {
       int32_t numSortingKeys,
       const std::vector<CompareFlags>& sortCompareFlags,
       const std::string& path,
+      common::CompressionKind compressionKind,
       memory::MemoryPool& pool)
       : type_(std::move(type)),
         numSortingKeys_(numSortingKeys),
         sortCompareFlags_(sortCompareFlags),
         pool_(pool),
         ordinal_(ordinalCounter_++),
-        path_(fmt::format("{}-{}", path, ordinal_)) {
+        path_(fmt::format("{}-{}", path, ordinal_)),
+        compressionKind_(compressionKind) {
     // NOTE: if the spilling operator has specified the sort comparison flags,
     // then it must match the number of sorting keys.
     VELOX_CHECK(
@@ -144,6 +147,7 @@ class SpillFile {
   // Ordinal number used for making a label for debugging.
   const int32_t ordinal_;
   const std::string path_;
+  const common::CompressionKind compressionKind_;
 
   // Byte size of the backing file. Set when finishing writing.
   uint64_t fileSize_ = 0;
@@ -172,12 +176,14 @@ class SpillFileList {
       const std::vector<CompareFlags>& sortCompareFlags,
       const std::string& path,
       uint64_t targetFileSize,
+      common::CompressionKind compressionKind,
       memory::MemoryPool& pool)
       : type_(type),
         numSortingKeys_(numSortingKeys),
         sortCompareFlags_(sortCompareFlags),
         path_(path),
         targetFileSize_(targetFileSize),
+        compressionKind_(compressionKind),
         pool_(pool) {
     // NOTE: if the associated spilling operator has specified the sort
     // comparison flags, then it must match the number of sorting keys.
@@ -190,7 +196,8 @@ class SpillFileList {
   /// must produce a view where the rows are sorted if sorting is desired.
   /// Consecutive calls must have sorted data so that the first row of the
   /// next call is not less than the last row of the previous call.
-  void write(
+  /// Returns the size to write.
+  uint64_t write(
       const RowVectorPtr& rows,
       const folly::Range<IndexRange*>& indices);
 
@@ -217,8 +224,9 @@ class SpillFileList {
   // Returns the current file to write to and creates one if needed.
   WriteFile& currentOutput();
 
-  // Writes data from 'batch_' to the current output file.
-  void flush();
+  /// Writes data from 'batch_' to the current output file.
+  /// Returns the flushed size.
+  uint64_t flush();
 
   // Invoked by 'files()' to record stats when finish writing all the spill
   // files.
@@ -229,6 +237,7 @@ class SpillFileList {
   const std::vector<CompareFlags> sortCompareFlags_;
   const std::string path_;
   const uint64_t targetFileSize_;
+  const common::CompressionKind compressionKind_;
   memory::MemoryPool& pool_;
   std::unique_ptr<VectorStreamGroup> batch_;
   SpillFiles files_;
@@ -556,12 +565,14 @@ class SpillState {
       int32_t numSortingKeys,
       const std::vector<CompareFlags>& sortCompareFlags,
       uint64_t targetFileSize,
+      common::CompressionKind compressionKind,
       memory::MemoryPool& pool)
       : path_(path),
         maxPartitions_(maxPartitions),
         numSortingKeys_(numSortingKeys),
         sortCompareFlags_(sortCompareFlags),
         targetFileSize_(targetFileSize),
+        compressionKind_(compressionKind),
         pool_(pool),
         files_(maxPartitions_) {}
 
@@ -583,6 +594,10 @@ class SpillState {
     return targetFileSize_;
   }
 
+  common::CompressionKind compressionKind() const {
+    return compressionKind_;
+  }
+
   memory::MemoryPool& pool() const {
     return pool_;
   }
@@ -600,7 +615,8 @@ class SpillState {
   // sorted for a sorted spill and must hash to 'partition'. It is
   // safe to call this on multiple threads if all threads specify a
   // different partition.
-  void appendToPartition(int32_t partition, const RowVectorPtr& rows);
+  // Returns the size to sppend to partition.
+  uint64_t appendToPartition(int32_t partition, const RowVectorPtr& rows);
 
   // Finishes a sorted run for 'partition'. If write is called for 'partition'
   // again, the data does not have to be sorted relative to the data
@@ -646,6 +662,7 @@ class SpillState {
   const int32_t numSortingKeys_;
   const std::vector<CompareFlags> sortCompareFlags_;
   const uint64_t targetFileSize_;
+  const common::CompressionKind compressionKind_;
 
   memory::MemoryPool& pool_;
 

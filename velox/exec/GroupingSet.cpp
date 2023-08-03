@@ -851,6 +851,7 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
         spillConfig_->filePath,
         spillConfig_->maxFileSize,
         spillConfig_->minSpillRunSize,
+        spillConfig_->compressionKind,
         Spiller::spillPool(),
         spillConfig_->executor);
   }

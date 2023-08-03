@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/common/compression/Compression.h"
 #include "velox/exec/HashBitRange.h"
 #include "velox/exec/RowContainer.h"
 
@@ -49,7 +50,8 @@ class Spiller {
         uint8_t _joinPartitionBits,
         uint8_t _aggregationPartitionBits,
         int32_t _maxSpillLevel,
-        int32_t _testSpillPct)
+        int32_t _testSpillPct,
+        const std::string& _compressionKind)
         : filePath(_filePath),
           maxFileSize(
               _maxFileSize == 0 ? std::numeric_limits<int64_t>::max()
@@ -61,7 +63,8 @@ class Spiller {
           joinPartitionBits(_joinPartitionBits),
           aggregationPartitionBits(_aggregationPartitionBits),
           maxSpillLevel(_maxSpillLevel),
-          testSpillPct(_testSpillPct) {}
+          testSpillPct(_testSpillPct),
+          compressionKind(common::stringToCompressionKind(_compressionKind)) {}
 
     /// Returns the hash join spilling level with given 'startBitOffset'.
     ///
@@ -117,6 +120,9 @@ class Spiller {
     // Percentage of input batches to be spilled for testing. 0 means no
     // spilling for test.
     int32_t testSpillPct;
+
+    // CompressionKind when spilling, CompressionKind_NONE means no compression.
+    common::CompressionKind compressionKind;
   };
 
   using SpillRows = std::vector<char*, memory::StlAllocator<char*>>;
@@ -133,6 +139,7 @@ class Spiller {
       const std::string& path,
       uint64_t targetFileSize,
       uint64_t minSpillRunSize,
+      common::CompressionKind compressionKind,
       memory::MemoryPool& pool,
       folly::Executor* executor);
 
@@ -143,6 +150,7 @@ class Spiller {
       const std::string& path,
       uint64_t targetFileSize,
       uint64_t minSpillRunSize,
+      common::CompressionKind compressionKind,
       memory::MemoryPool& pool,
       folly::Executor* executor);
 
@@ -157,6 +165,7 @@ class Spiller {
       const std::string& path,
       uint64_t targetFileSize,
       uint64_t minSpillRunSize,
+      common::CompressionKind compressionKind,
       memory::MemoryPool& pool,
       folly::Executor* executor);
 

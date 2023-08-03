@@ -185,6 +185,9 @@ class QueryConfig {
   /// spilled files.
   static constexpr const char* kMinSpillRunSize = "min_spill_run_size";
 
+  static constexpr const char* kSpillCompressionKind =
+      "spill_compression_codec";
+
   static constexpr const char* kSpillStartPartitionBit =
       "spiller_start_partition_bit";
 
@@ -432,6 +435,10 @@ class QueryConfig {
   uint64_t minSpillRunSize() const {
     constexpr uint64_t kDefaultMinSpillRunSize = 256 << 20; // 256MB.
     return get<uint64_t>(kMinSpillRunSize, kDefaultMinSpillRunSize);
+  }
+
+  std::string spillCompressionKind() const {
+    return get<std::string>(kSpillCompressionKind, "none");
   }
 
   /// Returns the spillable memory reservation growth percentage of the previous
