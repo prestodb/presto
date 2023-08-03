@@ -24,6 +24,7 @@
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/RoundRobinPartitionFunction.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/LocalExchangeSource.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -456,6 +457,38 @@ TEST_F(MultiFragmentTest, partitionedOutput) {
         assertQuery(op, intermediateTaskIds, "SELECT c3, c0, c2 FROM tmp");
 
     verifyExchangeStats(task, kFanout);
+
+    ASSERT_TRUE(waitForTaskCompletion(leafTask.get())) << leafTask->taskId();
+  }
+
+  // Test dropping all columns.
+  {
+    auto leafTaskId = makeTaskId("leaf", 0);
+    auto leafPlan = PlanBuilder()
+                        .values(vectors_)
+                        .addNode(
+                            [](std::string nodeId,
+                               core::PlanNodePtr source) -> core::PlanNodePtr {
+                              return core::PartitionedOutputNode::broadcast(
+                                  nodeId, 1, ROW({}), source);
+                            })
+                        .planNode();
+    auto leafTask = makeTask(leafTaskId, leafPlan, 0);
+    Task::start(leafTask, 4);
+    leafTask->updateOutputBuffers(1, true);
+
+    auto op = PlanBuilder().exchange(leafPlan->outputType()).planNode();
+
+    vector_size_t numRows = 0;
+    for (const auto& vector : vectors_) {
+      numRows += vector->size();
+    }
+
+    auto result = AssertQueryBuilder(op)
+                      .split(std::make_shared<RemoteConnectorSplit>(leafTaskId))
+                      .copyResults(pool());
+    ASSERT_EQ(*result->type(), *ROW({}));
+    ASSERT_EQ(result->size(), numRows);
 
     ASSERT_TRUE(waitForTaskCompletion(leafTask.get())) << leafTask->taskId();
   }

@@ -142,22 +142,28 @@ PartitionedOutput::PartitionedOutput(
 
 void PartitionedOutput::initializeInput(RowVectorPtr input) {
   input_ = std::move(input);
-  if (outputChannels_.empty()) {
+  if (outputType_->size() == 0) {
+    output_ = std::make_shared<RowVector>(
+        input_->pool(),
+        outputType_,
+        nullptr /*nulls*/,
+        input_->size(),
+        std::vector<VectorPtr>{});
+  } else if (outputChannels_.empty()) {
     output_ = input_;
   } else {
     std::vector<VectorPtr> outputColumns;
     outputColumns.reserve(outputChannels_.size());
-    for (auto& i : outputChannels_) {
+    for (auto i : outputChannels_) {
       outputColumns.push_back(input_->childAt(i));
     }
 
     output_ = std::make_shared<RowVector>(
         input_->pool(),
         outputType_,
-        input_->nulls(),
+        nullptr /*nulls*/,
         input_->size(),
-        outputColumns,
-        input_->getNullCount());
+        outputColumns);
   }
 }
 
