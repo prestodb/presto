@@ -871,6 +871,30 @@ When implementing new aggregate functions, consider using ValueList,
 SingleValueAccumulator, Strings, AddressableNonNullValueList and F14
 containers to put together an accumulator that uses memory efficiently.
 
+Tracking Memory Usage
+~~~~~~~~~~~~~~~~~~~~~
+
+Aggregation operator needs to know how much memory is used for each group.
+For example, this information is used to decide how many and which rows to
+spill when memory is tight.
+
+Aggregation functions should use RowSizeTracker to help track memory usage
+per group. Aggregate base class provides helper method trackRowSize(group),
+which can be used like so:
+
+.. code-block:: c++
+
+    rows.applyToSelected([&](vector_size_t row) {
+        auto group = groups[row];
+        auto tracker = trackRowSize(group);
+        accumulator->append(...);
+    });
+
+The 'trackRowSize' method returns an instance of RowSizeTracker initialized
+with a reference to the arena and a counter to increment on destruction. When
+object returned by trackRowSize goes out of scope, the counter is updated to
+add memory allocated since object's creation.
+
 End-to-End Testing
 ------------------
 
