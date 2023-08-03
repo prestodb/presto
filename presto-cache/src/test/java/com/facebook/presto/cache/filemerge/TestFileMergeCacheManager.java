@@ -52,6 +52,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestFileMergeCacheManager
 {
     private static final int DATA_LENGTH = (int) new DataSize(20, KILOBYTE).toBytes();
