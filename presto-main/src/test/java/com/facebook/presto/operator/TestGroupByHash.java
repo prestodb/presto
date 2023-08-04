@@ -95,6 +95,33 @@ public class TestGroupByHash
     }
 
     @Test
+    public void testDictionaryBigintGroupByHash()
+    {
+        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(BIGINT), new int[] {0}, Optional.of(1), 100, JOIN_COMPILER);
+        Block block = BlockAssertions.createLongsBlock(0L, 1L);
+        Block hashBlock = TypeUtils.getHashBlock(ImmutableList.of(BIGINT), block);
+        int[] ids = new int[] {0, 0, 1, 1};
+        Page page = new Page(
+                new DictionaryBlock(block, ids),
+                new DictionaryBlock(hashBlock, ids));
+
+        groupByHash.addPage(page).process();
+
+        assertEquals(groupByHash.getGroupCount(), 2);
+
+        Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
+        work.process();
+        GroupByIdBlock groupIds = work.getResult();
+
+        assertEquals(groupIds.getGroupCount(), 2);
+        assertEquals(groupIds.getPositionCount(), 4);
+        assertEquals(groupIds.getGroupId(0), 0);
+        assertEquals(groupIds.getGroupId(1), 0);
+        assertEquals(groupIds.getGroupId(2), 1);
+        assertEquals(groupIds.getGroupId(3), 1);
+    }
+
+    @Test
     public void testNullGroup()
     {
         GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(BIGINT), new int[] {0}, Optional.of(1), 100, JOIN_COMPILER);
