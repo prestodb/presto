@@ -190,10 +190,7 @@ class GCSWriteFile final : public WriteFile {
 
     // Check that it doesn't exist, if it does throw an error
     auto object_metadata = client_->GetObjectMetadata(bucket_, key_);
-
-    if (object_metadata.ok()) {
-      VELOX_CHECK(false, "File already exists");
-    }
+    VELOX_CHECK(!object_metadata.ok(), "File already exists");
 
     auto stream = client_->WriteObject(bucket_, key_);
     checkGCSStatus(
@@ -205,19 +202,19 @@ class GCSWriteFile final : public WriteFile {
     size_ = 0;
   }
 
-  void append(const std::string_view data) {
+  void append(const std::string_view data) override {
     VELOX_CHECK(isFileOpen(), "File is not open");
     stream_ << data;
     size_ += data.size();
   }
 
-  void flush() {
+  void flush() override {
     if (isFileOpen()) {
       stream_.flush();
     }
   }
 
-  void close() {
+  void close() override {
     if (isFileOpen()) {
       stream_.flush();
       stream_.Close();
@@ -225,7 +222,7 @@ class GCSWriteFile final : public WriteFile {
     }
   }
 
-  uint64_t size() const {
+  uint64_t size() const override {
     return size_;
   }
 
@@ -257,7 +254,7 @@ class GCSFileSystem::Impl {
   // Use the input Config parameters and initialize the GCSClient.
   void initializeClient() {
     auto options = gc::Options{};
-    std::string scheme = HiveConfig::gcsScheme(config_);
+    auto scheme = HiveConfig::gcsScheme(config_);
     if (scheme == "https") {
       options.set<gc::UnifiedCredentialsOption>(
           gc::MakeGoogleDefaultCredentials());
@@ -266,12 +263,12 @@ class GCSFileSystem::Impl {
     }
     options.set<gcs::UploadBufferSizeOption>(kUploadBufferSize);
 
-    std::string endpointOverride = HiveConfig::gcsEndpoint(config_);
+    auto endpointOverride = HiveConfig::gcsEndpoint(config_);
     if (!endpointOverride.empty()) {
       options.set<gcs::RestEndpointOption>(scheme + "://" + endpointOverride);
     }
 
-    std::string cred = HiveConfig::gcsCredentials(config_);
+    auto cred = HiveConfig::gcsCredentials(config_);
     if (!cred.empty()) {
       auto credentials = gc::MakeServiceAccountCredentials(cred);
       options.set<gc::UnifiedCredentialsOption>(credentials);
@@ -303,7 +300,7 @@ void GCSFileSystem::initializeClient() {
 std::unique_ptr<ReadFile> GCSFileSystem::openFileForRead(
     std::string_view path,
     const FileOptions& /*unused*/) {
-  const std::string gcspath = gcsPath(path);
+  const auto gcspath = gcsPath(path);
   auto gcsfile = std::make_unique<GCSReadFile>(gcspath, impl_->getClient());
   gcsfile->initialize();
   return gcsfile;
@@ -312,7 +309,7 @@ std::unique_ptr<ReadFile> GCSFileSystem::openFileForRead(
 std::unique_ptr<WriteFile> GCSFileSystem::openFileForWrite(
     std::string_view path,
     const FileOptions& /*unused*/) {
-  const std::string gcspath = gcsPath(path);
+  const auto gcspath = gcsPath(path);
   auto gcsfile = std::make_unique<GCSWriteFile>(gcspath, impl_->getClient());
   gcsfile->initialize();
   return gcsfile;
@@ -326,7 +323,7 @@ void GCSFileSystem::remove(std::string_view path) {
   // We assume 'path' is well-formed here.
   std::string bucket;
   std::string object;
-  const std::string file = gcsPath(path);
+  const auto file = gcsPath(path);
   setBucketAndKeyFromGCSPath(file, bucket, object);
 
   if (!object.empty()) {
@@ -352,7 +349,7 @@ bool GCSFileSystem::exists(std::string_view path) {
     VELOX_FAIL(kGCSInvalidPath, path);
 
   // We assume 'path' is well-formed here.
-  const std::string file = gcsPath(path);
+  const auto file = gcsPath(path);
   std::string bucket;
   std::string object;
   setBucketAndKeyFromGCSPath(file, bucket, object);
@@ -369,7 +366,7 @@ std::vector<std::string> GCSFileSystem::list(std::string_view path) {
     VELOX_FAIL(kGCSInvalidPath, path);
 
   // We assume 'path' is well-formed here.
-  const std::string file = gcsPath(path);
+  const auto file = gcsPath(path);
   std::string bucket;
   std::string object;
   setBucketAndKeyFromGCSPath(file, bucket, object);
