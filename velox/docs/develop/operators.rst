@@ -401,12 +401,12 @@ distribution fields.
 
    * - Property
      - Description
+   * - kind
+     - Specifies output buffer types: kPartitioned, kBroadcast and kArbitrary. For kPartitioned type, rows are partitioned and each sent to corresponding destination partition. For kBroadcast type, rows are not partitioned and sent to all the destination partitions. For kArbitrary type, rows are not partitioned and each sent to any one of the destination partitions.
    * - keys
      - Zero or more input fields to use for calculating a partition for each row.
    * - numPartitions
-     - Number of partitions to split the data into.
-   * - broadcast
-     - Boolean flag indicating whether all rows should be sent to all partitions.
+     - Number of partitions to split the data into.g
    * - replicateNullsAndAny
      - Boolean flag indicating whether rows with nulls in the keys should be sent to all partitions and, in case there are no such rows, whether a single arbitrarily chosen row should be sent to all partitions. Used to provide global-scope information necessary to implement anti join semantics on a single node.
    * - partitionFunctionFactory

@@ -1085,46 +1085,6 @@ class PartitionedOutputNode : public PlanNode {
   static std::string kindString(Kind kind);
   static Kind stringToKind(std::string str);
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  PartitionedOutputNode(
-      const PlanNodeId& id,
-      const std::vector<TypedExprPtr>& keys,
-      int numPartitions,
-      bool broadcast,
-      bool replicateNullsAndAny,
-      PartitionFunctionSpecPtr partitionFunctionSpec,
-      RowTypePtr outputType,
-      PlanNodePtr source)
-      : PartitionedOutputNode(
-            id,
-            broadcast ? Kind::kBroadcast : Kind::kPartitioned,
-            keys,
-            numPartitions,
-            replicateNullsAndAny,
-            partitionFunctionSpec,
-            outputType,
-            source) {}
-
-  PartitionedOutputNode(
-      const PlanNodeId& id,
-      const std::vector<TypedExprPtr>& keys,
-      int numPartitions,
-      Kind kind,
-      bool replicateNullsAndAny,
-      PartitionFunctionSpecPtr partitionFunctionSpec,
-      RowTypePtr outputType,
-      PlanNodePtr source)
-      : PartitionedOutputNode(
-            id,
-            kind,
-            keys,
-            numPartitions,
-            replicateNullsAndAny,
-            std::move(partitionFunctionSpec),
-            std::move(outputType),
-            std::move(source)) {}
-#endif
-
   PartitionedOutputNode(
       const PlanNodeId& id,
       Kind kind,

@@ -191,10 +191,6 @@ class QueryConfig {
   static constexpr const char* kSpillStartPartitionBit =
       "spiller_start_partition_bit";
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  static constexpr const char* kSpillPartitionBits = "spiller_partition_bits";
-#endif
-
   static constexpr const char* kJoinSpillPartitionBits =
       "join_spiller_partition_bits";
 
@@ -385,14 +381,6 @@ class QueryConfig {
   int32_t maxSpillLevel() const {
     return get<int32_t>(kMaxSpillLevel, 4);
   }
-
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  int32_t spillPartitionBits() const {
-    constexpr int32_t kDefaultBits = 2;
-    constexpr int32_t kMaxBits = 3;
-    return std::min(kMaxBits, get<int32_t>(kSpillPartitionBits, kDefaultBits));
-  }
-#endif
 
   /// Returns the start partition bit which is used with
   /// 'kJoinSpillPartitionBits' or 'kAggregationSpillPartitionBits' together to
