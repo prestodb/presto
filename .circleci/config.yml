@@ -703,7 +703,14 @@ jobs:
             python ./scripts/signature.py export --spark spark_pr_signatures.json
             python ./scripts/signature.py bias presto_merge_base_signatures.json presto_pr_signatures.json /tmp/presto_bias_functions
             python ./scripts/signature.py bias spark_merge_base_signatures.json spark_pr_signatures.json /tmp/spark_bias_functions
-
+      - store_artifacts:
+          path: 'presto_merge_base_signatures.json'
+      - store_artifacts:
+          path: 'presto_pr_signatures.json'
+      - store_artifacts:
+          path: 'spark_merge_base_signatures.json'
+      - store_artifacts:
+          path: 'spark_pr_signatures.json'
       - fuzzer-run:
           fuzzer_output: "/tmp/fuzzer.log"
           fuzzer_repro: "/tmp/fuzzer_repro"
