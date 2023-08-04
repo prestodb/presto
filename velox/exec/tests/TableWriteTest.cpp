@@ -562,7 +562,7 @@ class TableWriteTest : public HiveConnectorTestBase {
     std::vector<std::string> conjuncts;
 
     std::vector<std::string> partitionKeyValues;
-    folly::split("/", partitionName, partitionKeyValues);
+    folly::split('/', partitionName, partitionKeyValues);
     VELOX_CHECK_EQ(partitionKeyValues.size(), partitionTypes.size());
 
     for (auto i = 0; i < partitionKeyValues.size(); ++i) {

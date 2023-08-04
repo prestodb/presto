@@ -223,7 +223,7 @@ getFunctionNamesAndArgs(const std::vector<std::string>& aggregates) {
   std::vector<std::string> aggregateArgs;
   for (const auto& aggregate : aggregates) {
     std::vector<std::string> tokens;
-    folly::split("(", aggregate, tokens);
+    folly::split('(', aggregate, tokens);
     VELOX_CHECK_EQ(tokens.size(), 2);
     functionNames.push_back(tokens[0]);
     aggregateArgs.push_back(tokens[1].substr(0, tokens[1].find(')')));
