@@ -109,16 +109,18 @@ TEST_F(SetUnionTest, groupBy) {
       makeFlatVector<int16_t>({1, 1, 2, 2, 2, 1, 2, 1, 2, 1}),
       makeArrayVector<int32_t>({
           {},
-          {1, 2, 3},
+          {1, 2, 3}, // masked out
           {10, 20},
           {20, 30, 40},
-          {10, 50},
-          {4, 2, 1, 5},
+          {10, 50}, // masked out
+          {4, 2, 1, 5}, // masked out
           {60, 20},
           {5, 6},
-          {},
+          {}, // masked out
           {},
       }),
+      makeFlatVector<bool>(
+          {true, false, true, true, false, false, true, true, false, true}),
   });
 
   auto expected = makeRowVector({
@@ -130,7 +132,26 @@ TEST_F(SetUnionTest, groupBy) {
   });
 
   testAggregations(
-      {data}, {"c0"}, {"set_union(c1)"}, {"c0", "array_sort(a0)"}, {expected});
+      {data, data, data},
+      {"c0"},
+      {"set_union(c1)"},
+      {"c0", "array_sort(a0)"},
+      {expected});
+
+  expected = makeRowVector({
+      makeFlatVector<int16_t>({1, 2}),
+      makeArrayVector<int32_t>({
+          {5, 6},
+          {10, 20, 30, 40, 60},
+      }),
+  });
+
+  testAggregations(
+      {data, data, data},
+      {"c0"},
+      {"set_union(c1) filter (where c2)"},
+      {"c0", "array_sort(a0)"},
+      {expected});
 
   // Null inputs.
   data = makeRowVector({
@@ -158,7 +179,11 @@ TEST_F(SetUnionTest, groupBy) {
   });
 
   testAggregations(
-      {data}, {"c0"}, {"set_union(c1)"}, {"c0", "array_sort(a0)"}, {expected});
+      {data, data, data},
+      {"c0"},
+      {"set_union(c1)"},
+      {"c0", "array_sort(a0)"},
+      {expected});
 
   // All null arrays for one group.
   data = makeRowVector({
@@ -183,7 +208,11 @@ TEST_F(SetUnionTest, groupBy) {
   });
 
   testAggregations(
-      {data}, {"c0"}, {"set_union(c1)"}, {"c0", "array_sort(a0)"}, {expected});
+      {data, data, data},
+      {"c0"},
+      {"set_union(c1)"},
+      {"c0", "array_sort(a0)"},
+      {expected});
 }
 
 } // namespace
