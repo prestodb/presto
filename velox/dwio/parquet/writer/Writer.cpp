@@ -261,6 +261,10 @@ void Writer::close() {
   arrowContext_->stagingChunks.clear();
 }
 
+void Writer::abort() {
+  VELOX_NYI("abort function for Parquet writer is not supported yet");
+}
+
 parquet::WriterOptions getParquetOptions(
     const dwio::common::WriterOptions& options) {
   parquet::WriterOptions parquetOptions;

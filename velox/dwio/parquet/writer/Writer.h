@@ -129,6 +129,8 @@ class Writer : public dwio::common::Writer {
   // live until destruction of 'this'.
   void close() override;
 
+  void abort() override;
+
  private:
   // Pool for 'stream_'.
   std::shared_ptr<memory::MemoryPool> pool_;

@@ -494,6 +494,10 @@ void Writer::close() {
   writerBase_->close();
 }
 
+void Writer::abort() {
+  writerBase_->abort();
+}
+
 dwrf::WriterOptions getDwrfOptions(const dwio::common::WriterOptions& options) {
   std::map<std::string, std::string> configs;
   if (options.compressionKind.has_value()) {

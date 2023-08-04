@@ -43,7 +43,7 @@ class Writer {
    */
   virtual void write(const VectorPtr& data) = 0;
 
-  /*
+  /**
    * Forces the writer to flush data to the file.
    * Does not close the writer.
    */
@@ -54,6 +54,12 @@ class Writer {
    *  Data can no longer be written.
    */
   virtual void close() = 0;
+
+  /**
+   *  Aborts the writing by closing the writer and dropping everything.
+   *  Data can no longer be written.
+   */
+  virtual void abort() = 0;
 };
 
 } // namespace facebook::velox::dwio::common

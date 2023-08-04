@@ -118,6 +118,8 @@ class Writer : public dwio::common::Writer {
 
   virtual void close() override;
 
+  virtual void abort() override;
+
   void setLowMemoryMode();
 
   uint64_t flushTimeMemoryUsageEstimate(
