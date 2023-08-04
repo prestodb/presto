@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -29,6 +30,7 @@ import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -42,6 +44,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -173,6 +176,7 @@ public final class SqlStageExecution
                 getMaxFailedTaskPercentage(session),
                 tableWriteInfo);
         sqlStageExecution.initialize();
+        sqlStageExecution.addStateChangeListener(new SqlStageStateLogging(sqlStageExecution.getStageExecutionId().toString()));
         return sqlStageExecution;
     }
 
@@ -527,6 +531,9 @@ public final class SqlStageExecution
         tasks.computeIfAbsent(node, key -> newConcurrentHashSet()).add(task);
         nodeTaskMap.addTask(node, task);
 
+        task.addStateChangeListener(new StageTaskStatusLogging(taskId));
+        task.addFinalTaskInfoListener(new StageTaskInfoLogging(taskId));
+
         task.addStateChangeListener(new StageTaskListener(taskId));
         task.addFinalTaskInfoListener(this::updateFinalTaskInfo);
 
@@ -676,6 +683,68 @@ public final class SqlStageExecution
     public String toString()
     {
         return stateMachine.toString();
+    }
+
+    private static class SqlStageStateLogging
+            implements StateMachine.StateChangeListener<StageExecutionState>
+    {
+        private final String name;
+        private final Stopwatch timer = Stopwatch.createStarted();
+        private static final Logger log = Logger.get(SqlStageStateLogging.class);
+
+        public SqlStageStateLogging(String name)
+        {
+            this.name = name;
+        }
+
+        @Override
+        public void stateChanged(StageExecutionState state)
+        {
+            java.time.Duration elapsedTime = timer.elapsed();
+            log.info("stageId=%s, state=%s, duration=%s, timeNs=%s", name, state, elapsedTime, elapsedTime.get(ChronoUnit.NANOS));
+        }
+    }
+
+    private static class StageTaskInfoLogging
+            implements StateChangeListener<TaskInfo>
+    {
+        private static final Logger log = Logger.get(StageTaskInfoLogging.class);
+
+        public final TaskId taskId;
+        private final Stopwatch timer = Stopwatch.createStarted();
+
+        private StageTaskInfoLogging(TaskId taskId)
+        {
+            this.taskId = taskId;
+        }
+
+        @Override
+        public void stateChanged(TaskInfo taskInfo)
+        {
+            java.time.Duration elapsedTime = timer.elapsed();
+            log.info("taskId=%s, duration=%s, timeNs=%s, taskInfo=%s", taskId, taskInfo, elapsedTime, elapsedTime.get(ChronoUnit.NANOS), taskInfo);
+        }
+    }
+
+    private static class StageTaskStatusLogging
+            implements StateChangeListener<TaskStatus>
+    {
+        private static final Logger log = Logger.get(StageTaskStatusLogging.class);
+
+        public final TaskId taskId;
+        private final Stopwatch timer = Stopwatch.createStarted();
+
+        private StageTaskStatusLogging(TaskId taskId)
+        {
+            this.taskId = taskId;
+        }
+
+        @Override
+        public void stateChanged(TaskStatus taskStatus)
+        {
+            java.time.Duration elapsedTime = timer.elapsed();
+            log.info("taskId=%s, duration=%s, timeNs=%s, taskStatus=%s", taskId, elapsedTime, elapsedTime.get(ChronoUnit.NANOS), taskStatus);
+        }
     }
 
     private class StageTaskListener
