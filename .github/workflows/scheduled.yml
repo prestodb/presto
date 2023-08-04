@@ -15,7 +15,7 @@
 name: "Scheduled Fuzzer Jobs"
 
 on:
-  schdule:
+  schedule:
     - cron: '0 3 * * *'
 
 defaults:
