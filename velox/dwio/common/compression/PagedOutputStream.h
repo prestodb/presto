@@ -16,23 +16,25 @@
 
 #pragma once
 
-#include "velox/dwio/dwrf/common/Compression.h"
+#include "velox/dwio/common/compression/Compression.h"
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common::compression {
 
 class PagedOutputStream : public BufferedOutputStream {
  public:
   PagedOutputStream(
       CompressionBufferPool& pool,
       DataBufferHolder& bufferHolder,
-      const Config& config,
+      uint32_t compressionThreshold,
+      uint8_t pageHeaderSize,
       std::unique_ptr<Compressor> compressor,
       const dwio::common::encryption::Encrypter* encrypter)
       : BufferedOutputStream(bufferHolder),
         pool_{pool},
         compressor_{std::move(compressor)},
         encrypter_{encrypter},
-        threshold_{config.get(Config::COMPRESSION_THRESHOLD)} {
+        threshold_{compressionThreshold},
+        pageHeaderSize_{pageHeaderSize} {
     DWIO_ENSURE(compressor_ || encrypter_, "invalid paged output stream");
   }
 
@@ -82,6 +84,8 @@ class PagedOutputStream : public BufferedOutputStream {
 
   // threshold below which, we skip compression
   uint32_t threshold_;
+
+  uint8_t pageHeaderSize_;
 };
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common::compression

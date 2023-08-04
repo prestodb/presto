@@ -17,9 +17,9 @@
 #pragma once
 
 #include "velox/dwio/common/SeekableInputStream.h"
-#include "velox/dwio/dwrf/common/Compression.h"
+#include "velox/dwio/common/compression/Compression.h"
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common::compression {
 
 class PagedInputStream : public dwio::common::SeekableInputStream {
  public:
@@ -153,4 +153,4 @@ class PagedInputStream : public dwio::common::SeekableInputStream {
   const std::string streamDebugInfo_;
 };
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common::compression

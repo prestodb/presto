@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/dwrf/common/OutputStream.h"
-#include "velox/dwio/common/exception/Exception.h"
+#include "velox/dwio/common/OutputStream.h"
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common {
 
 bool BufferedOutputStream::Next(
     void** buffer,
@@ -74,4 +73,4 @@ uint64_t AppendOnlyBufferedStream::flush() {
   return outStream_->flush();
 }
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common

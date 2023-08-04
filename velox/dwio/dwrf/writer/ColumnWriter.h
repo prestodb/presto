@@ -17,10 +17,10 @@
 #pragma once
 
 #include "velox/common/base/GTestMacros.h"
+#include "velox/dwio/common/OutputStream.h"
 #include "velox/dwio/dwrf/common/ByteRLE.h"
 #include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/common/IntEncoder.h"
-#include "velox/dwio/dwrf/common/OutputStream.h"
 #include "velox/dwio/dwrf/writer/IndexBuilder.h"
 #include "velox/dwio/dwrf/writer/StatisticsBuilder.h"
 #include "velox/dwio/dwrf/writer/WriterContext.h"

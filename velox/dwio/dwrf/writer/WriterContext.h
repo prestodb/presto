@@ -21,6 +21,7 @@
 #include "velox/common/time/CpuWallTimer.h"
 #include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/common/Compression.h"
+#include "velox/dwio/dwrf/common/Config.h"
 #include "velox/dwio/dwrf/common/EncoderUtil.h"
 #include "velox/dwio/dwrf/writer/IndexBuilder.h"
 #include "velox/dwio/dwrf/writer/IntegerDictionaryEncoder.h"
@@ -29,6 +30,9 @@
 #include "velox/vector/DecodedVector.h"
 
 namespace facebook::velox::dwrf {
+using dwio::common::BufferedOutputStream;
+using dwio::common::DataBufferHolder;
+using dwio::common::compression::CompressionBufferPool;
 
 enum class MemoryUsageCategory { DICTIONARY, OUTPUT_STREAM, GENERAL };
 

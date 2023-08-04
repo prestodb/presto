@@ -21,7 +21,7 @@
 #include <gtest/gtest.h>
 #include "velox/common/base/BitUtil.h"
 #include "velox/dwio/common/InputStream.h"
-#include "velox/dwio/dwrf/common/Compression.h"
+#include "velox/dwio/common/compression/Compression.h"
 #include "velox/dwio/dwrf/test/OrcTest.h"
 
 #include <cstdio>

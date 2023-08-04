@@ -12,30 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(
-  velox_dwio_dwrf_common
-  ByteRLE.cpp
-  Common.cpp
-  Config.cpp
-  Decryption.cpp
-  Encryption.cpp
-  EncryptionSpecification.cpp
-  FileMetadata.cpp
-  IntEncoder.cpp
-  RLEv1.cpp
-  RLEv2.cpp
-  Statistics.cpp
-  wrap/dwrf-proto-wrapper.cpp
-  wrap/orc-proto-wrapper.cpp)
+add_library(velox_dwio_common_compression Compression.cpp PagedInputStream.cpp
+                                          PagedOutputStream.cpp)
 
-add_dependencies(velox_dwio_dwrf_common velox_dwio_dwrf_proto)
-
-target_link_libraries(
-  velox_dwio_dwrf_common
-  velox_common_base
-  velox_common_compression
-  velox_dwio_common
-  velox_dwio_dwrf_proto
-  velox_caching
-  Snappy::snappy
-  zstd::zstd)
+target_link_libraries(velox_dwio_common_compression velox_dwio_common xsimd
+                      gtest Folly::folly)

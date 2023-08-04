@@ -35,7 +35,7 @@ void WriterContext::validateConfigs() const {
       compressionBlockSize, getConfig(Config::COMPRESSION_BLOCK_SIZE_MIN));
   DWIO_ENSURE_GE(
       getConfig(Config::COMPRESSION_BLOCK_SIZE_EXTEND_RATIO),
-      MIN_PAGE_GROW_RATIO);
+      dwio::common::MIN_PAGE_GROW_RATIO);
 }
 
 } // namespace facebook::velox::dwrf

@@ -18,7 +18,7 @@
 
 #include "velox/dwio/common/DataBuffer.h"
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common::compression {
 
 class CompressionBufferPool {
  public:
@@ -31,4 +31,4 @@ class CompressionBufferPool {
       std::unique_ptr<dwio::common::DataBuffer<char>> buffer) = 0;
 };
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common::compression

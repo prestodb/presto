@@ -27,6 +27,9 @@
 
 namespace facebook::velox::dwrf {
 
+using dwio::common::BufferedOutputStream;
+using dwio::common::PositionRecorder;
+
 template <bool isSigned>
 class RleEncoderV1 : public IntEncoder<isSigned> {
  public:

@@ -22,11 +22,14 @@
 #include "velox/common/base/Nulls.h"
 #include "velox/common/encode/Coding.h"
 #include "velox/dwio/common/IntCodecCommon.h"
+#include "velox/dwio/common/OutputStream.h"
 #include "velox/dwio/common/Range.h"
 #include "velox/dwio/dwrf/common/Common.h"
-#include "velox/dwio/dwrf/common/OutputStream.h"
 
 namespace facebook::velox::dwrf {
+
+using facebook::velox::dwio::common::BufferedOutputStream;
+using facebook::velox::dwio::common::PositionRecorder;
 
 template <bool isSigned>
 class IntEncoder {

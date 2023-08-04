@@ -16,11 +16,14 @@
 
 #pragma once
 
-#include "velox/dwio/dwrf/common/OutputStream.h"
+#include "velox/dwio/common/OutputStream.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 #include "velox/dwio/dwrf/writer/StatisticsBuilder.h"
 
 namespace facebook::velox::dwrf {
+
+using dwio::common::BufferedOutputStream;
+using dwio::common::PositionRecorder;
 
 namespace {
 

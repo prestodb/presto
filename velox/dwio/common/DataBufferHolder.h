@@ -19,7 +19,7 @@
 #include "velox/dwio/common/DataBuffer.h"
 #include "velox/dwio/common/DataSink.h"
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common {
 
 constexpr float DEFAULT_PAGE_GROW_RATIO = 2.0f;
 constexpr float MIN_PAGE_GROW_RATIO = 1.2f;
@@ -171,4 +171,4 @@ class DataBufferHolder {
   float growRatio_;
 };
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common

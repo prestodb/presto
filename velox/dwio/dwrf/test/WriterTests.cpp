@@ -167,7 +167,7 @@ TEST_P(AllWriterCompressionTest, compression) {
     VELOX_ASSERT_THROW(
         writeFooter(*schema),
         fmt::format(
-            "Unsupported dwrf compression type: {}",
+            "Unsupported compression type: {}",
             compressionKindToString(compressionKind_)));
     return;
   }

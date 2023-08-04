@@ -16,11 +16,10 @@
 
 #pragma once
 
+#include "velox/dwio/common/DataBufferHolder.h"
 #include "velox/dwio/common/wrap/zero-copy-stream-wrapper.h"
-#include "velox/dwio/dwrf/common/DataBufferHolder.h"
-#include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common {
 
 /**
  * Record write position for creating index stream
@@ -163,4 +162,4 @@ class AppendOnlyBufferedStream {
   }
 };
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common

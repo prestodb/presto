@@ -18,9 +18,9 @@
 
 #include <folly/container/Array.h>
 
+#include "velox/dwio/common/DataBufferHolder.h"
 #include "velox/dwio/dwrf/common/Checksum.h"
 #include "velox/dwio/dwrf/common/Config.h"
-#include "velox/dwio/dwrf/common/DataBufferHolder.h"
 
 namespace facebook::velox::dwrf {
 
@@ -78,7 +78,7 @@ class WriterSink {
 
   void addBuffer(dwio::common::DataBuffer<char> buffer);
 
-  void addBuffers(DataBufferHolder& holder) {
+  void addBuffers(dwio::common::DataBufferHolder& holder) {
     auto& other = holder.getBuffers();
     for (auto& buf : other) {
       addBuffer(std::move(buf));
@@ -139,7 +139,7 @@ class WriterSink {
 
   // members used by stripe metadata cache
   uint32_t maxCacheSize_;
-  DataBufferHolder cacheHolder_;
+  dwio::common::DataBufferHolder cacheHolder_;
   dwio::common::DataBuffer<char> cacheBuffer_;
   std::vector<uint32_t> offsets_;
   bool exceedsLimit_;

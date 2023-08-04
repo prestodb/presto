@@ -18,6 +18,7 @@
 
 #include "velox/dwio/common/BufferedInput.h"
 #include "velox/dwio/common/Options.h"
+#include "velox/dwio/dwrf/common/Decryption.h"
 #include "velox/dwio/dwrf/reader/ReaderBase.h"
 
 namespace facebook::velox::dwrf {

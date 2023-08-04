@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/dwrf/common/Compression.h"
+#include "velox/dwio/common/compression/Compression.h"
 
 #include "velox/common/compression/LzoDecompressor.h"
-#include "velox/dwio/common/exception/Exception.h"
-#include "velox/dwio/dwrf/common/PagedInputStream.h"
-#include "velox/dwio/dwrf/common/PagedOutputStream.h"
+#include "velox/dwio/common/compression/PagedInputStream.h"
+#include "velox/dwio/common/compression/PagedOutputStream.h"
 
 #include <folly/logging/xlog.h>
 #include <lz4.h>
@@ -28,10 +27,11 @@
 #include <zstd.h>
 #include <zstd_errors.h>
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common::compression {
 
 using dwio::common::encryption::Decrypter;
 using dwio::common::encryption::Encrypter;
+using facebook::velox::common::CompressionKind;
 using memory::MemoryPool;
 
 namespace {
@@ -197,7 +197,7 @@ class LzoDecompressor : public Decompressor {
       uint64_t srcLength,
       char* dest,
       uint64_t destLength) override {
-    return common::compression::lzoDecompress(
+    return ::facebook::velox::common::compression::lzoDecompress(
         src, src + srcLength, dest, dest + destLength);
   }
 };
@@ -433,49 +433,54 @@ bool ZlibDecompressionStream::Next(const void** data, int32_t* size) {
 } // namespace
 
 std::unique_ptr<BufferedOutputStream> createCompressor(
-    common::CompressionKind kind,
+    CompressionKind kind,
     CompressionBufferPool& bufferPool,
     DataBufferHolder& bufferHolder,
-    const Config& config,
+    uint32_t compressionThreshold,
+    int32_t zlibCompressionLevel,
+    int32_t zstdCompressionLevel,
+    uint8_t pageHeaderSize,
     const Encrypter* encrypter) {
   std::unique_ptr<Compressor> compressor;
   switch (static_cast<int64_t>(kind)) {
-    case common::CompressionKind_NONE:
+    case CompressionKind::CompressionKind_NONE:
       if (!encrypter) {
         return std::make_unique<BufferedOutputStream>(bufferHolder);
       }
       // compressor remain as nullptr
       break;
-    case common::CompressionKind_ZLIB: {
-      int32_t zlibCompressionLevel = config.get(Config::ZLIB_COMPRESSION_LEVEL);
+    case CompressionKind::CompressionKind_ZLIB: {
       compressor = std::make_unique<ZlibCompressor>(zlibCompressionLevel);
       XLOG_FIRST_N(INFO, 1) << fmt::format(
           "Initialized zlib compressor with compression level {}",
           zlibCompressionLevel);
       break;
     }
-    case common::CompressionKind_ZSTD: {
-      int32_t zstdCompressionLevel = config.get(Config::ZSTD_COMPRESSION_LEVEL);
+    case CompressionKind::CompressionKind_ZSTD: {
       compressor = std::make_unique<ZstdCompressor>(zstdCompressionLevel);
       XLOG_FIRST_N(INFO, 1) << fmt::format(
           "Initialized zstd compressor with compression level {}",
           zstdCompressionLevel);
       break;
     }
-    case common::CompressionKind_SNAPPY:
-    case common::CompressionKind_LZO:
-    case common::CompressionKind_LZ4:
+    case CompressionKind::CompressionKind_SNAPPY:
+    case CompressionKind::CompressionKind_LZO:
+    case CompressionKind::CompressionKind_LZ4:
     default:
       VELOX_UNSUPPORTED(
-          "Unsupported dwrf compression type: {}",
-          compressionKindToString(kind));
+          "Unsupported compression type: {}", compressionKindToString(kind));
   }
   return std::make_unique<PagedOutputStream>(
-      bufferPool, bufferHolder, config, std::move(compressor), encrypter);
+      bufferPool,
+      bufferHolder,
+      compressionThreshold,
+      pageHeaderSize,
+      std::move(compressor),
+      encrypter);
 }
 
 std::unique_ptr<dwio::common::SeekableInputStream> createDecompressor(
-    common::CompressionKind kind,
+    CompressionKind kind,
     std::unique_ptr<dwio::common::SeekableInputStream> input,
     uint64_t blockSize,
     MemoryPool& pool,
@@ -483,13 +488,13 @@ std::unique_ptr<dwio::common::SeekableInputStream> createDecompressor(
     const Decrypter* decrypter) {
   std::unique_ptr<Decompressor> decompressor;
   switch (static_cast<int64_t>(kind)) {
-    case common::CompressionKind_NONE:
+    case CompressionKind::CompressionKind_NONE:
       if (!decrypter) {
         return input;
       }
       // decompressor remain as nullptr
       break;
-    case common::CompressionKind_ZLIB:
+    case CompressionKind::CompressionKind_ZLIB:
       if (!decrypter) {
         // When file is not encrypted, we can use zlib streaming codec to avoid
         // copying data
@@ -499,19 +504,19 @@ std::unique_ptr<dwio::common::SeekableInputStream> createDecompressor(
       decompressor =
           std::make_unique<ZlibDecompressor>(blockSize, streamDebugInfo);
       break;
-    case common::CompressionKind_SNAPPY:
+    case CompressionKind::CompressionKind_SNAPPY:
       decompressor =
           std::make_unique<SnappyDecompressor>(blockSize, streamDebugInfo);
       break;
-    case common::CompressionKind_LZO:
+    case CompressionKind::CompressionKind_LZO:
       decompressor =
           std::make_unique<LzoDecompressor>(blockSize, streamDebugInfo);
       break;
-    case common::CompressionKind_LZ4:
+    case CompressionKind::CompressionKind_LZ4:
       decompressor =
           std::make_unique<Lz4Decompressor>(blockSize, streamDebugInfo);
       break;
-    case common::CompressionKind_ZSTD:
+    case CompressionKind::CompressionKind_ZSTD:
       decompressor =
           std::make_unique<ZstdDecompressor>(blockSize, streamDebugInfo);
       break;
@@ -526,4 +531,4 @@ std::unique_ptr<dwio::common::SeekableInputStream> createDecompressor(
       streamDebugInfo);
 }
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common::compression

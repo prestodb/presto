@@ -15,10 +15,9 @@
  */
 
 #include <gtest/gtest.h>
-#include "velox/dwio/dwrf/common/DataBufferHolder.h"
+#include "velox/dwio/common/DataBufferHolder.h"
 
 using namespace facebook::velox::dwio::common;
-using namespace facebook::velox::dwrf;
 using namespace facebook::velox::memory;
 
 TEST(DataBufferHolderTests, InputCheck) {

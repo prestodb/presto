@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/dwrf/common/PagedOutputStream.h"
-#include "velox/dwio/common/exception/Exception.h"
+#include "velox/dwio/common/compression/PagedOutputStream.h"
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common::compression {
 
 std::vector<folly::StringPiece> PagedOutputStream::createPage() {
   auto origSize = buffer_.size();
-  DWIO_ENSURE_GT(origSize, PAGE_HEADER_SIZE);
-  origSize -= PAGE_HEADER_SIZE;
+  DWIO_ENSURE_GT(origSize, pageHeaderSize_);
+  origSize -= pageHeaderSize_;
 
   auto compressedSize = origSize;
   // apply compressoin if there is compressor and original data size exceeds
@@ -30,8 +29,8 @@ std::vector<folly::StringPiece> PagedOutputStream::createPage() {
   if (compressor_ && origSize >= threshold_) {
     compressionBuffer_ = pool_.getBuffer(buffer_.size());
     compressedSize = compressor_->compress(
-        buffer_.data() + PAGE_HEADER_SIZE,
-        compressionBuffer_->data() + PAGE_HEADER_SIZE,
+        buffer_.data() + pageHeaderSize_,
+        compressionBuffer_->data() + pageHeaderSize_,
         origSize);
   }
 
@@ -39,13 +38,12 @@ std::vector<folly::StringPiece> PagedOutputStream::createPage() {
   if (compressedSize >= origSize) {
     // write orig
     writeHeader(buffer_.data(), origSize, true);
-    compressed =
-        folly::StringPiece(buffer_.data(), origSize + PAGE_HEADER_SIZE);
+    compressed = folly::StringPiece(buffer_.data(), origSize + pageHeaderSize_);
   } else {
     // write compressed
     writeHeader(compressionBuffer_->data(), compressedSize, false);
     compressed = folly::StringPiece(
-        compressionBuffer_->data(), compressedSize + PAGE_HEADER_SIZE);
+        compressionBuffer_->data(), compressedSize + pageHeaderSize_);
   }
 
   if (!encrypter_) {
@@ -53,11 +51,11 @@ std::vector<folly::StringPiece> PagedOutputStream::createPage() {
   }
 
   encryptionBuffer_ = encrypter_->encrypt(folly::StringPiece(
-      compressed.begin() + PAGE_HEADER_SIZE, compressed.end()));
+      compressed.begin() + pageHeaderSize_, compressed.end()));
   updateSize(
       const_cast<char*>(compressed.begin()), encryptionBuffer_->length());
   return {
-      folly::StringPiece(compressed.begin(), PAGE_HEADER_SIZE),
+      folly::StringPiece(compressed.begin(), pageHeaderSize_),
       folly::StringPiece(
           reinterpret_cast<const char*>(encryptionBuffer_->data()),
           encryptionBuffer_->length())};
@@ -91,25 +89,25 @@ void PagedOutputStream::resetBuffers() {
 uint64_t PagedOutputStream::flush() {
   auto size = buffer_.size();
   auto originalSize = bufferHolder_.size();
-  if (size > PAGE_HEADER_SIZE) {
+  if (size > pageHeaderSize_) {
     bufferHolder_.take(createPage());
     resetBuffers();
     // reset input buffer
-    buffer_.resize(PAGE_HEADER_SIZE);
+    buffer_.resize(pageHeaderSize_);
   }
   return bufferHolder_.size() - originalSize;
 }
 
 void PagedOutputStream::BackUp(int32_t count) {
   if (count > 0) {
-    DWIO_ENSURE_GE(buffer_.size(), count + PAGE_HEADER_SIZE);
+    DWIO_ENSURE_GE(buffer_.size(), count + pageHeaderSize_);
     BufferedOutputStream::BackUp(count);
   }
 }
 
 bool PagedOutputStream::Next(void** data, int32_t* size, uint64_t increment) {
-  if (!tryResize(data, size, PAGE_HEADER_SIZE, increment)) {
-    flushAndReset(data, size, PAGE_HEADER_SIZE, createPage());
+  if (!tryResize(data, size, pageHeaderSize_, increment)) {
+    flushAndReset(data, size, pageHeaderSize_, createPage());
     resetBuffers();
   }
   return true;
@@ -124,9 +122,9 @@ void PagedOutputStream::recordPosition(
   recorder.add(bufferHolder_.size(), strideOffset);
   auto size = buffer_.size();
   if (size) {
-    size -= (PAGE_HEADER_SIZE + bufferLength - bufferOffset);
+    size -= (pageHeaderSize_ + bufferLength - bufferOffset);
   }
   recorder.add(size, strideOffset);
 }
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common::compression

@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/dwrf/common/PagedInputStream.h"
-#include "velox/dwio/common/SeekableInputStream.h"
-#include "velox/dwio/common/exception/Exception.h"
+#include "velox/dwio/common/compression/PagedInputStream.h"
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::dwio::common::compression {
 
 void PagedInputStream::prepareOutputBuffer(uint64_t uncompressedLength) {
   if (!outputBuffer_ || uncompressedLength > outputBuffer_->capacity()) {
@@ -272,4 +270,4 @@ void PagedInputStream::seekToPosition(
   }
 }
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::dwio::common::compression

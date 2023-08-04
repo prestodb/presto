@@ -1833,7 +1833,7 @@ TEST_P(UnpartitionedTableWriterTest, differentCompression) {
               .connectorConfig(
                   kHiveConnectorId, HiveConfig::kImmutablePartitions, "true")
               .copyResults(pool()),
-          "Unsupported dwrf compression type:");
+          "Unsupported compression type:");
     }
   }
 }

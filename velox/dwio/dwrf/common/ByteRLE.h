@@ -20,14 +20,17 @@
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Nulls.h"
 #include "velox/dwio/common/IntCodecCommon.h"
+#include "velox/dwio/common/OutputStream.h"
 #include "velox/dwio/common/Range.h"
 #include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/dwrf/common/Common.h"
-#include "velox/dwio/dwrf/common/OutputStream.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 #include "velox/vector/TypeAliases.h"
 
 namespace facebook::velox::dwrf {
+
+using dwio::common::BufferedOutputStream;
+using dwio::common::PositionRecorder;
 
 class ByteRleEncoder {
  public:
