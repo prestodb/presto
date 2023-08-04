@@ -1356,7 +1356,6 @@ public class LocalExecutionPlanner
                 return planGlobalAggregation(node, source, context);
             }
 
-            boolean spillEnabled = isSpillEnabled(context.getSession());
             DataSize unspillMemoryLimit = getAggregationOperatorUnspillMemoryLimit(context.getSession());
 
             return planGroupByAggregation(
