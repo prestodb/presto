@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.279-SNAPSHOT</version>
+    <version>0.284-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -44,18 +44,18 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.205</dep.airlift.version>
+        <dep.airlift.version>0.207</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
-        <dep.aws-sdk.version>1.11.697</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.261</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
-        <dep.drift.version>1.33</dep.drift.version>
+        <dep.drift.version>1.36</dep.drift.version>
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
-        <dep.joda.version>2.10.8</dep.joda.version>
+        <dep.joda.version>2.12.2</dep.joda.version>
         <dep.tempto.version>1.53</dep.tempto.version>
         <dep.testng.version>7.5</dep.testng.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
@@ -64,15 +64,15 @@
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
         <dep.asm.version>9.0</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
-        <dep.alluxio.version>2.9.0</dep.alluxio.version>
+        <dep.alluxio.version>2.8.1</dep.alluxio.version>
         <dep.slf4j.version>1.7.32</dep.slf4j.version>
         <dep.kafka.version>2.3.1</dep.kafka.version>
         <dep.pinot.version>0.11.0</dep.pinot.version>
         <dep.druid.version>0.19.0</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
-        <dep.hudi.version>0.12.0</dep.hudi.version>
-        <dep.testcontainers.version>1.15.1</dep.testcontainers.version>
-        <dep.docker-java.version>3.2.12</dep.docker-java.version>
+        <dep.hudi.version>0.12.1</dep.hudi.version>
+        <dep.testcontainers.version>1.18.3</dep.testcontainers.version>
+        <dep.docker-java.version>3.3.0</dep.docker-java.version>
         <dep.jayway.version>2.6.0</dep.jayway.version>
         <dep.ratis.version>2.2.0</dep.ratis.version>
         <!--
@@ -95,7 +95,6 @@
         <module>presto-atop</module>
         <module>presto-spi</module>
         <module>presto-analyzer</module>
-        <module>presto-crux</module>
         <module>presto-cache</module>
         <module>presto-jmx</module>
         <module>presto-record-decoder</module>
@@ -120,7 +119,6 @@
         <module>presto-local-file</module>
         <module>presto-tpch</module>
         <module>presto-tpcds</module>
-        <module>presto-raptor</module>
         <module>presto-base-jdbc</module>
         <module>presto-testing-docker</module>
         <module>presto-mysql</module>
@@ -145,7 +143,6 @@
         <module>presto-cli</module>
         <module>presto-benchmark-driver</module>
         <module>presto-server</module>
-        <module>presto-server-rpm</module>
         <module>presto-docs</module>
         <module>presto-verifier</module>
         <module>presto-testing-server-launcher</module>
@@ -523,7 +520,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.14.3</version>
+                <version>${dep.testcontainers.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -543,12 +540,6 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-geospatial-toolkit</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-raptor</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -587,6 +578,12 @@
                 <artifactId>presto-parser</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-jmx</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -656,12 +653,6 @@
                 <artifactId>presto-server</artifactId>
                 <version>${project.version}</version>
                 <type>tar.gz</type>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-server-rpm</artifactId>
-                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -1175,7 +1166,7 @@
                 <!-- org.testcontainers:testcontainer's dependencies pull two different versions of this artifact and this is to negotiate the version -->
                 <groupId>net.java.dev.jna</groupId>
                 <artifactId>jna</artifactId>
-                <version>5.5.0</version>
+                <version>5.12.1</version>
             </dependency>
 
             <dependency>
@@ -1200,6 +1191,12 @@
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
                 <version>7.0.0.jre8</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.fusesource.jansi</groupId>
+                <artifactId>jansi</artifactId>
+                <version>1.18</version>
             </dependency>
 
             <dependency>
@@ -1316,6 +1313,12 @@
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-math3</artifactId>
                 <version>3.6.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-text</artifactId>
+                <version>1.9</version>
             </dependency>
 
             <dependency>
@@ -1643,7 +1646,7 @@
             <dependency>
                 <groupId>commons-codec</groupId>
                 <artifactId>commons-codec</artifactId>
-                <version>1.10</version>
+                <version>1.15</version>
             </dependency>
 
             <dependency>
@@ -2240,6 +2243,8 @@
                                     <exclude>org.codehaus.plexus:plexus-utils</exclude>
                                     <exclude>com.google.guava:guava</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
+                                    <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
+                                    <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
                                 </excludes>
                             </requireUpperBoundDeps>
                         </rules>
@@ -2448,6 +2453,26 @@
                     <plugin>
                         <groupId>org.sonatype.plugins</groupId>
                         <artifactId>nexus-staging-maven-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>1.6</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                                <configuration>
+                                    <gpgArguments>
+                                        <arg>--pinentry-mode</arg>
+                                        <arg>loopback</arg>
+                                    </gpgArguments>
+                                </configuration>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>

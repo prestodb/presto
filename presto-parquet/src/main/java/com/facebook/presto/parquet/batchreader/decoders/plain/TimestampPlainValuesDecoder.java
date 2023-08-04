@@ -14,13 +14,17 @@
 package com.facebook.presto.parquet.batchreader.decoders.plain;
 
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.TimestampValuesDecoder;
+import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.parquet.ParquetTimestampUtils.getTimestampMillis;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.sizeOf;
 
 public class TimestampPlainValuesDecoder
         implements TimestampValuesDecoder
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int64TimestampMicrosPlainValuesDecoder.class).instanceSize();
+
     private final byte[] byteBuffer;
     private final int bufferEnd;
 
@@ -58,5 +62,11 @@ public class TimestampPlainValuesDecoder
         checkArgument(length >= 0, "invalid length %s", length);
 
         bufferOffset += length * 12;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + sizeOf(byteBuffer);
     }
 }

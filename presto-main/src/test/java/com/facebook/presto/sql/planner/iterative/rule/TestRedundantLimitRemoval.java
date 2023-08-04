@@ -30,11 +30,9 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static java.util.Collections.emptyList;
 
 public class TestRedundantLimitRemoval
@@ -46,7 +44,7 @@ public class TestRedundantLimitRemoval
     public final void setUp()
     {
         tester = new RuleTester(emptyList(), ImmutableMap.of("exploit_constraints", Boolean.toString(true)), Optional.of(1), new TestTableConstraintsConnectorFactory(1));
-        logicalPropertiesProvider = new LogicalPropertiesProviderImpl(new FunctionResolution(tester.getMetadata().getFunctionAndTypeManager()));
+        logicalPropertiesProvider = new LogicalPropertiesProviderImpl(new FunctionResolution(tester.getMetadata().getFunctionAndTypeManager().getFunctionAndTypeResolver()));
     }
 
     @Test
@@ -57,9 +55,9 @@ public class TestRedundantLimitRemoval
                         p.limit(
                                 10,
                                 p.aggregation(builder -> builder
-                                        .addAggregation(p.variable("c"), expression("count(foo)"), ImmutableList.of(BIGINT))
-                                        .globalGrouping()
-                                        .source(p.values(p.variable("foo"))))))
+                                        .source(p.values(p.variable("foo")))
+                                        .addAggregation(p.variable("c"), p.rowExpression("count(foo)"))
+                                        .globalGrouping())))
                 .matches(
                         node(AggregationNode.class,
                                 node(ValuesNode.class)));

@@ -547,7 +547,7 @@ public class TestPrestoS3FileSystem
             fs.initialize(new URI("s3n://test-bucket/"), config);
             fs.setS3Client(s3);
             FileStatus[] statuses = fs.listStatus(new Path("s3n://test-bucket/test"));
-            assertEquals(statuses.length, skipGlacierObjects ? 1 : 2);
+            assertEquals(statuses.length, skipGlacierObjects ? 1 : 3);
         }
     }
 

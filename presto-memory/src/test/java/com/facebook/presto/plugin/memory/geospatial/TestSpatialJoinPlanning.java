@@ -20,7 +20,7 @@ import com.facebook.presto.geospatial.Rectangle;
 import com.facebook.presto.plugin.memory.MemoryConnectorFactory;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -213,7 +213,7 @@ public class TestSpatialJoinPlanning
         LocalQueryRunner queryRunner = getQueryRunner();
         try {
             queryRunner.inTransaction(session, transactionSession -> {
-                queryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP);
+                queryRunner.createPlan(transactionSession, sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP);
                 return null;
             });
             fail(format("Expected query to fail: %s", sql));

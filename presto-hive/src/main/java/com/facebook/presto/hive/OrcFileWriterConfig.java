@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.presto.orc.DefaultOrcWriterFlushPolicy;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
@@ -36,6 +37,7 @@ public class OrcFileWriterConfig
     }
 
     public static final int DEFAULT_COMPRESSION_LEVEL = Integer.MIN_VALUE;
+    private static final boolean DEFAULT_FLAT_MAP_WRITER_ENABLED = false;
 
     private DataSize stripeMinSize = DefaultOrcWriterFlushPolicy.DEFAULT_STRIPE_MIN_SIZE;
     private DataSize stripeMaxSize = DefaultOrcWriterFlushPolicy.DEFAULT_STRIPE_MAX_SIZE;
@@ -45,13 +47,15 @@ public class OrcFileWriterConfig
     private DataSize stringStatisticsLimit = OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
     private DataSize maxCompressionBufferSize = OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
     private StreamLayoutType streamLayoutType = BY_COLUMN_SIZE;
-    private boolean isDwrfStripeCacheEnabled;
+    private boolean isDwrfStripeCacheEnabled = true;
     private DataSize dwrfStripeCacheMaxSize = OrcWriterOptions.DEFAULT_DWRF_STRIPE_CACHE_MAX_SIZE;
     private DwrfStripeCacheMode dwrfStripeCacheMode = OrcWriterOptions.DEFAULT_DWRF_STRIPE_CACHE_MODE;
     private int compressionLevel = DEFAULT_COMPRESSION_LEVEL;
     private boolean isIntegerDictionaryEncodingEnabled = OrcWriterOptions.DEFAULT_INTEGER_DICTIONARY_ENCODING_ENABLED;
     private boolean isStringDictionaryEncodingEnabled = OrcWriterOptions.DEFAULT_STRING_DICTIONARY_ENCODING_ENABLED;
     private boolean isStringDictionarySortingEnabled = OrcWriterOptions.DEFAULT_STRING_DICTIONARY_SORTING_ENABLED;
+    private boolean isFlatMapWriterEnabled = DEFAULT_FLAT_MAP_WRITER_ENABLED;
+    private boolean addHostnameToFileMetadataEnabled = true;
 
     public OrcWriterOptions.Builder toOrcWriterOptionsBuilder()
     {
@@ -179,6 +183,18 @@ public class OrcFileWriterConfig
         return this;
     }
 
+    public boolean isFlatMapWriterEnabled()
+    {
+        return isFlatMapWriterEnabled;
+    }
+
+    @Config("hive.orc.writer.flat-map-writer-enabled")
+    public OrcFileWriterConfig setFlatMapWriterEnabled(boolean isFlatMapWriterEnabled)
+    {
+        this.isFlatMapWriterEnabled = isFlatMapWriterEnabled;
+        return this;
+    }
+
     public int getCompressionLevel()
     {
         return compressionLevel;
@@ -265,6 +281,19 @@ public class OrcFileWriterConfig
     public OrcFileWriterConfig setDwrfStripeCacheMode(DwrfStripeCacheMode dwrfStripeCacheMode)
     {
         this.dwrfStripeCacheMode = dwrfStripeCacheMode;
+        return this;
+    }
+
+    public boolean isAddHostnameToFileMetadataEnabled()
+    {
+        return addHostnameToFileMetadataEnabled;
+    }
+
+    @Config("hive.orc.writer.add-hostname-to-file-metadata-enabled")
+    @ConfigDescription("Add writer's hostname to the ORC/DWRF file footer. Can be used to troubleshoot file corruption issues.")
+    public OrcFileWriterConfig setAddHostnameToFileMetadataEnabled(boolean addHostnameToFileMetadataEnabled)
+    {
+        this.addHostnameToFileMetadataEnabled = addHostnameToFileMetadataEnabled;
         return this;
     }
 

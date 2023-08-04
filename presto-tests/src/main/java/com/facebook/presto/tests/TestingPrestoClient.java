@@ -29,6 +29,7 @@ import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeWithName;
+import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarcharEnumType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.server.testing.TestingPrestoServer;
@@ -50,6 +51,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -250,6 +252,17 @@ public class TestingPrestoClient
                             e -> convertToRowValue(((MapType) type).getValueType(), e.getValue())));
         }
         else if (type instanceof RowType) {
+            if (value instanceof LinkedHashMap) {
+                // If value is an ordered map, use indexes instead of names.
+                List<Object> data = new ArrayList<>(((Map<String, Object>) value).values());
+                List<RowType.Field> fields = ((RowType) type).getFields();
+                List<Object> rowValues = new ArrayList<>();
+                for (int i = 0; i < fields.size(); i++) {
+                    rowValues.add(convertToRowValue(fields.get(i).getType(), data.get(i)));
+                }
+                return rowValues;
+            }
+
             Map<String, Object> data = (Map<String, Object>) value;
             RowType rowType = (RowType) type;
 
@@ -261,6 +274,9 @@ public class TestingPrestoClient
             return new BigDecimal((String) value);
         }
         else if (type instanceof JsonType) {
+            return value;
+        }
+        else if (type instanceof UuidType) {
             return value;
         }
         else if (type instanceof VarcharEnumType) {

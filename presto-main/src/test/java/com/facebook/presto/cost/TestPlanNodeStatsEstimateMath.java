@@ -36,9 +36,9 @@ public class TestPlanNodeStatsEstimateMath
     @Test
     public void testAddRowCount()
     {
-        PlanNodeStatsEstimate unknownStats = statistics(NaN, NaN, NaN, StatisticRange.empty());
-        PlanNodeStatsEstimate first = statistics(10, NaN, NaN, StatisticRange.empty());
-        PlanNodeStatsEstimate second = statistics(20, NaN, NaN, StatisticRange.empty());
+        PlanNodeStatsEstimate unknownStats = statistics(NaN, NaN, NaN, NaN, StatisticRange.empty());
+        PlanNodeStatsEstimate first = statistics(10, NaN, NaN, NaN, StatisticRange.empty());
+        PlanNodeStatsEstimate second = statistics(20, NaN, NaN, NaN, StatisticRange.empty());
 
         assertEquals(addStatsAndSumDistinctValues(unknownStats, unknownStats), PlanNodeStatsEstimate.unknown());
         assertEquals(addStatsAndSumDistinctValues(first, unknownStats), PlanNodeStatsEstimate.unknown());
@@ -47,14 +47,27 @@ public class TestPlanNodeStatsEstimateMath
     }
 
     @Test
+    public void testAddTotalSize()
+    {
+        PlanNodeStatsEstimate unknownStats = statistics(NaN, NaN, NaN, NaN, StatisticRange.empty());
+        PlanNodeStatsEstimate first = statistics(NaN, 10, NaN, NaN, StatisticRange.empty());
+        PlanNodeStatsEstimate second = statistics(NaN, 20, NaN, NaN, StatisticRange.empty());
+
+        assertEquals(addStatsAndSumDistinctValues(unknownStats, unknownStats), PlanNodeStatsEstimate.unknown());
+        assertEquals(addStatsAndSumDistinctValues(first, unknownStats), PlanNodeStatsEstimate.unknown());
+        assertEquals(addStatsAndSumDistinctValues(unknownStats, second), PlanNodeStatsEstimate.unknown());
+        assertEquals(addStatsAndSumDistinctValues(first, second).getTotalSize(), 30.0);
+    }
+
+    @Test
     public void testAddNullsFraction()
     {
-        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, 0.1, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate unknownNullsFraction = statistics(10, NaN, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate first = statistics(10, 0.1, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate second = statistics(20, 0.2, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate fractionalRowCountFirst = statistics(0.1, 0.1, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate fractionalRowCountSecond = statistics(0.2, 0.3, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, 0.1, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate unknownNullsFraction = statistics(10, NaN, NaN, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate first = statistics(10, NaN, 0.1, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate second = statistics(20, NaN, 0.2, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate fractionalRowCountFirst = statistics(0.1, NaN, 0.1, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate fractionalRowCountSecond = statistics(0.2, NaN, 0.3, NaN, NON_EMPTY_RANGE);
 
         assertAddNullsFraction(unknownRowCount, unknownRowCount, NaN);
         assertAddNullsFraction(unknownNullsFraction, unknownNullsFraction, NaN);
@@ -73,13 +86,13 @@ public class TestPlanNodeStatsEstimateMath
     @Test
     public void testAddAverageRowSize()
     {
-        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, 0.1, 10, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate unknownNullsFraction = statistics(10, NaN, 10, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate unknownAverageRowSize = statistics(10, 0.1, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate first = statistics(10, 0.1, 15, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate second = statistics(20, 0.2, 20, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate fractionalRowCountFirst = statistics(0.1, 0.1, 0.3, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate fractionalRowCountSecond = statistics(0.2, 0.3, 0.4, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, 0.1, 10, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate unknownNullsFraction = statistics(10, NaN, NaN, 10, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate unknownAverageRowSize = statistics(10, NaN, 0.1, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate first = statistics(10, NaN, 0.1, 15, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate second = statistics(20, NaN, 0.2, 20, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate fractionalRowCountFirst = statistics(0.1, NaN, 0.1, 0.3, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate fractionalRowCountSecond = statistics(0.2, NaN, 0.3, 0.4, NON_EMPTY_RANGE);
 
         assertAddAverageRowSize(unknownRowCount, unknownRowCount, NaN);
         assertAddAverageRowSize(unknownNullsFraction, unknownNullsFraction, NaN);
@@ -99,11 +112,11 @@ public class TestPlanNodeStatsEstimateMath
     @Test
     public void testSumNumberOfDistinctValues()
     {
-        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate emptyRange = statistics(10, NaN, NaN, StatisticRange.empty());
-        PlanNodeStatsEstimate unknownRange = statistics(10, NaN, NaN, openRange(NaN));
-        PlanNodeStatsEstimate first = statistics(10, NaN, NaN, openRange(2));
-        PlanNodeStatsEstimate second = statistics(10, NaN, NaN, openRange(3));
+        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, NaN, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate emptyRange = statistics(10, NaN, NaN, NaN, StatisticRange.empty());
+        PlanNodeStatsEstimate unknownRange = statistics(10, NaN, NaN, NaN, openRange(NaN));
+        PlanNodeStatsEstimate first = statistics(10, NaN, NaN, NaN, openRange(2));
+        PlanNodeStatsEstimate second = statistics(10, NaN, NaN, NaN, openRange(3));
 
         assertSumNumberOfDistinctValues(unknownRowCount, unknownRowCount, NaN);
         assertSumNumberOfDistinctValues(unknownRowCount, second, NaN);
@@ -120,11 +133,11 @@ public class TestPlanNodeStatsEstimateMath
     @Test
     public void testMaxNumberOfDistinctValues()
     {
-        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate emptyRange = statistics(10, NaN, NaN, StatisticRange.empty());
-        PlanNodeStatsEstimate unknownRange = statistics(10, NaN, NaN, openRange(NaN));
-        PlanNodeStatsEstimate first = statistics(10, NaN, NaN, openRange(2));
-        PlanNodeStatsEstimate second = statistics(10, NaN, NaN, openRange(3));
+        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, NaN, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate emptyRange = statistics(10, NaN, NaN, NaN, StatisticRange.empty());
+        PlanNodeStatsEstimate unknownRange = statistics(10, NaN, NaN, NaN, openRange(NaN));
+        PlanNodeStatsEstimate first = statistics(10, NaN, NaN, NaN, openRange(2));
+        PlanNodeStatsEstimate second = statistics(10, NaN, NaN, NaN, openRange(3));
 
         assertMaxNumberOfDistinctValues(unknownRowCount, unknownRowCount, NaN);
         assertMaxNumberOfDistinctValues(unknownRowCount, second, NaN);
@@ -141,11 +154,11 @@ public class TestPlanNodeStatsEstimateMath
     @Test
     public void testAddRange()
     {
-        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate emptyRange = statistics(10, NaN, NaN, StatisticRange.empty());
-        PlanNodeStatsEstimate unknownRange = statistics(10, NaN, NaN, openRange(NaN));
-        PlanNodeStatsEstimate first = statistics(10, NaN, NaN, new StatisticRange(12, 100, 2));
-        PlanNodeStatsEstimate second = statistics(10, NaN, NaN, new StatisticRange(101, 200, 3));
+        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, NaN, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate emptyRange = statistics(10, NaN, NaN, NaN, StatisticRange.empty());
+        PlanNodeStatsEstimate unknownRange = statistics(10, NaN, NaN, NaN, openRange(NaN));
+        PlanNodeStatsEstimate first = statistics(10, NaN, NaN, NaN, new StatisticRange(12, 100, 2));
+        PlanNodeStatsEstimate second = statistics(10, NaN, NaN, NaN, new StatisticRange(101, 200, 3));
 
         assertAddRange(unknownRange, unknownRange, NEGATIVE_INFINITY, POSITIVE_INFINITY);
         assertAddRange(unknownRowCount, second, NEGATIVE_INFINITY, POSITIVE_INFINITY);
@@ -164,9 +177,9 @@ public class TestPlanNodeStatsEstimateMath
     @Test
     public void testSubtractRowCount()
     {
-        PlanNodeStatsEstimate unknownStats = statistics(NaN, NaN, NaN, StatisticRange.empty());
-        PlanNodeStatsEstimate first = statistics(40, NaN, NaN, StatisticRange.empty());
-        PlanNodeStatsEstimate second = statistics(10, NaN, NaN, StatisticRange.empty());
+        PlanNodeStatsEstimate unknownStats = statistics(NaN, NaN, NaN, NaN, StatisticRange.empty());
+        PlanNodeStatsEstimate first = statistics(40, NaN, NaN, NaN, StatisticRange.empty());
+        PlanNodeStatsEstimate second = statistics(10, NaN, NaN, NaN, StatisticRange.empty());
 
         assertEquals(subtractSubsetStats(unknownStats, unknownStats), PlanNodeStatsEstimate.unknown());
         assertEquals(subtractSubsetStats(first, unknownStats), PlanNodeStatsEstimate.unknown());
@@ -177,12 +190,12 @@ public class TestPlanNodeStatsEstimateMath
     @Test
     public void testSubtractNullsFraction()
     {
-        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, 0.1, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate unknownNullsFraction = statistics(10, NaN, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate first = statistics(50, 0.1, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate second = statistics(20, 0.2, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate fractionalRowCountFirst = statistics(0.7, 0.1, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate fractionalRowCountSecond = statistics(0.2, 0.3, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, 0.1, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate unknownNullsFraction = statistics(10, NaN, NaN, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate first = statistics(50, NaN, 0.1, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate second = statistics(20, NaN, 0.2, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate fractionalRowCountFirst = statistics(0.7, NaN, 0.1, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate fractionalRowCountSecond = statistics(0.2, NaN, 0.3, NaN, NON_EMPTY_RANGE);
 
         assertSubtractNullsFraction(unknownRowCount, unknownRowCount, NaN);
         assertSubtractNullsFraction(unknownRowCount, unknownNullsFraction, NaN);
@@ -200,12 +213,12 @@ public class TestPlanNodeStatsEstimateMath
     @Test
     public void testSubtractNumberOfDistinctValues()
     {
-        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate unknownDistinctValues = statistics(100, 0.1, NaN, openRange(NaN));
-        PlanNodeStatsEstimate zero = statistics(0, 0.1, NaN, openRange(0));
-        PlanNodeStatsEstimate first = statistics(30, 0.1, NaN, openRange(10));
-        PlanNodeStatsEstimate second = statistics(20, 0.1, NaN, openRange(5));
-        PlanNodeStatsEstimate third = statistics(10, 0.1, NaN, openRange(3));
+        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, NaN, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate unknownDistinctValues = statistics(100, NaN, 0.1, NaN, openRange(NaN));
+        PlanNodeStatsEstimate zero = statistics(0, NaN, 0.1, NaN, openRange(0));
+        PlanNodeStatsEstimate first = statistics(30, NaN, 0.1, NaN, openRange(10));
+        PlanNodeStatsEstimate second = statistics(20, NaN, 0.1, NaN, openRange(5));
+        PlanNodeStatsEstimate third = statistics(10, NaN, 0.1, NaN, openRange(3));
 
         assertSubtractNumberOfDistinctValues(unknownRowCount, unknownRowCount, NaN);
         assertSubtractNumberOfDistinctValues(unknownRowCount, second, NaN);
@@ -235,8 +248,8 @@ public class TestPlanNodeStatsEstimateMath
 
     private static void assertSubtractRange(double supersetLow, double supersetHigh, double subsetLow, double subsetHigh, double expectedLow, double expectedHigh)
     {
-        PlanNodeStatsEstimate first = statistics(30, NaN, NaN, new StatisticRange(supersetLow, supersetHigh, 10));
-        PlanNodeStatsEstimate second = statistics(20, NaN, NaN, new StatisticRange(subsetLow, subsetHigh, 5));
+        PlanNodeStatsEstimate first = statistics(30, NaN, NaN, NaN, new StatisticRange(supersetLow, supersetHigh, 10));
+        PlanNodeStatsEstimate second = statistics(20, NaN, NaN, NaN, new StatisticRange(subsetLow, subsetHigh, 5));
         VariableStatsEstimate statistics = subtractSubsetStats(first, second).getVariableStatistics(VARIABLE);
         assertEquals(statistics.getLowValue(), expectedLow);
         assertEquals(statistics.getHighValue(), expectedHigh);
@@ -245,9 +258,9 @@ public class TestPlanNodeStatsEstimateMath
     @Test
     public void testCapRowCount()
     {
-        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate first = statistics(20, NaN, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate second = statistics(10, NaN, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, NaN, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate first = statistics(20, NaN, NaN, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate second = statistics(10, NaN, NaN, NaN, NON_EMPTY_RANGE);
 
         assertEquals(capStats(unknownRowCount, unknownRowCount).getOutputRowCount(), NaN);
         assertEquals(capStats(first, unknownRowCount).getOutputRowCount(), NaN);
@@ -259,10 +272,10 @@ public class TestPlanNodeStatsEstimateMath
     @Test
     public void testCapAverageRowSize()
     {
-        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate unknownAverageRowSize = statistics(20, NaN, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate first = statistics(20, NaN, 10, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate second = statistics(10, NaN, 5, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, NaN, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate unknownAverageRowSize = statistics(20, NaN, NaN, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate first = statistics(20, NaN, NaN, 10, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate second = statistics(10, NaN, NaN, 5, NON_EMPTY_RANGE);
 
         assertCapAverageRowSize(unknownRowCount, unknownRowCount, NaN);
         assertCapAverageRowSize(unknownAverageRowSize, unknownAverageRowSize, NaN);
@@ -281,10 +294,10 @@ public class TestPlanNodeStatsEstimateMath
     @Test
     public void testCapNumberOfDistinctValues()
     {
-        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate unknownNumberOfDistinctValues = statistics(20, NaN, NaN, openRange(NaN));
-        PlanNodeStatsEstimate first = statistics(20, NaN, NaN, openRange(10));
-        PlanNodeStatsEstimate second = statistics(10, NaN, NaN, openRange(5));
+        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, NaN, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate unknownNumberOfDistinctValues = statistics(20, NaN, NaN, NaN, openRange(NaN));
+        PlanNodeStatsEstimate first = statistics(20, NaN, NaN, NaN, openRange(10));
+        PlanNodeStatsEstimate second = statistics(10, NaN, NaN, NaN, openRange(5));
 
         assertCapNumberOfDistinctValues(unknownRowCount, unknownRowCount, NaN);
         assertCapNumberOfDistinctValues(unknownNumberOfDistinctValues, unknownNumberOfDistinctValues, NaN);
@@ -301,10 +314,10 @@ public class TestPlanNodeStatsEstimateMath
     @Test
     public void testCapRange()
     {
-        PlanNodeStatsEstimate emptyRange = statistics(10, NaN, NaN, StatisticRange.empty());
-        PlanNodeStatsEstimate openRange = statistics(10, NaN, NaN, openRange(NaN));
-        PlanNodeStatsEstimate first = statistics(10, NaN, NaN, new StatisticRange(12, 100, NaN));
-        PlanNodeStatsEstimate second = statistics(10, NaN, NaN, new StatisticRange(13, 99, NaN));
+        PlanNodeStatsEstimate emptyRange = statistics(10, NaN, NaN, NaN, StatisticRange.empty());
+        PlanNodeStatsEstimate openRange = statistics(10, NaN, NaN, NaN, openRange(NaN));
+        PlanNodeStatsEstimate first = statistics(10, NaN, NaN, NaN, new StatisticRange(12, 100, NaN));
+        PlanNodeStatsEstimate second = statistics(10, NaN, NaN, NaN, new StatisticRange(13, 99, NaN));
 
         assertCapRange(emptyRange, emptyRange, NaN, NaN);
         assertCapRange(emptyRange, openRange, NaN, NaN);
@@ -324,11 +337,11 @@ public class TestPlanNodeStatsEstimateMath
     @Test
     public void testCapNullsFraction()
     {
-        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate unknownNullsFraction = statistics(10, NaN, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate first = statistics(20, 0.25, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate second = statistics(10, 0.6, NaN, NON_EMPTY_RANGE);
-        PlanNodeStatsEstimate third = statistics(0, 0.6, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, NaN, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate unknownNullsFraction = statistics(10, NaN, NaN, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate first = statistics(20, NaN, 0.25, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate second = statistics(10, NaN, 0.6, NaN, NON_EMPTY_RANGE);
+        PlanNodeStatsEstimate third = statistics(0, NaN, 0.6, NaN, NON_EMPTY_RANGE);
 
         assertCapNullsFraction(unknownRowCount, unknownRowCount, NaN);
         assertCapNullsFraction(unknownNullsFraction, unknownNullsFraction, NaN);
@@ -343,10 +356,11 @@ public class TestPlanNodeStatsEstimateMath
         assertEquals(capStats(stats, cap).getVariableStatistics(VARIABLE).getNullsFraction(), expected);
     }
 
-    private static PlanNodeStatsEstimate statistics(double rowCount, double nullsFraction, double averageRowSize, StatisticRange range)
+    private static PlanNodeStatsEstimate statistics(double rowCount, double totalSize, double nullsFraction, double averageRowSize, StatisticRange range)
     {
         return PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(rowCount)
+                .setTotalSize(totalSize)
                 .addVariableStatistics(VARIABLE, VariableStatsEstimate.builder()
                         .setNullsFraction(nullsFraction)
                         .setAverageRowSize(averageRowSize)

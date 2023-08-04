@@ -35,7 +35,7 @@ that should generally lead to better read performance:
 **Column Filtering**
 
     The new API allows column filtering to only read the data you are interested in.
-    `Backed by a columnar datastore <https://cloud.google.com/blog/big-data/2016/04/inside-capacitor-bigquerys-next-generation-columnar-storage-format>`_,
+    `Backed by a columnar datastore <https://cloud.google.com/blog/products/bigquery/inside-capacitor-bigquerys-next-generation-columnar-storage-format>`_,
     it can efficiently stream data without reading all columns.
 
 **Dynamic Sharding**
@@ -43,7 +43,7 @@ that should generally lead to better read performance:
     The API rebalances records between readers until they all complete. This means
     that all Map phases will finish nearly concurrently. See this blog article on
     `how dynamic sharding is similarly used in Google Cloud Dataflow
-    <https://cloud.google.com/blog/big-data/2016/05/no-shard-left-behind-dynamic-work-rebalancing-in-google-cloud-dataflow>`_.
+    <https://cloud.google.com/blog/products/gcp/no-shard-left-behind-dynamic-work-rebalancing-in-google-cloud-dataflow>`_.
 
 Requirements
 ------------

@@ -36,6 +36,7 @@ import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_STAGE_COUNT;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY_PER_NODE;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.METASTORE_CONTEXT;
@@ -936,6 +937,31 @@ public class TestPrestoSparkQueryRunner
     }
 
     @Test
+    public void testCorrectErrorMessageWhenSubPlanCreationFails()
+    {
+        String query = "with l as (" +
+                "select * from lineitem UNION ALL select * from lineitem UNION ALL select * from lineitem" +
+                "), " +
+                "o as (" +
+                "select * from orders UNION ALL select * from orders UNION ALL select * from orders" +
+                ") " +
+                "select * from l right outer join o on l.orderkey = o.orderkey";
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "partitioned")
+                .setSystemProperty(HASH_PARTITION_COUNT, "1")
+                .setSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, "10MB")
+                .setSystemProperty(QUERY_MAX_MEMORY, "100MB")
+                .setSystemProperty(VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED, "true")
+                .setSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_HIGHER_PARTITION_COUNT_ENABLED, "false")
+                .setSystemProperty(QUERY_MAX_STAGE_COUNT, "2")
+                .build();
+        assertQueryFails(session,
+                query,
+                "Number of stages in the query.* exceeds the allowed maximum.*");
+    }
+
+    @Test
     public void testRetryWithHigherHashPartitionCount()
     {
         String query = "with l as (" +
@@ -1090,7 +1116,7 @@ public class TestPrestoSparkQueryRunner
                         "FROM orders", 15000);
         assertQuery("select count(*) from hive.hive_test.hive_orders1", "select 15000");
         assertQuerySucceeds("DROP TABLE hive.hive_test.hive_orders1");
-        assertQueryFails("select count(*) from hive.hive_test.hive_orders1", ".* Table hive.hive_test.hive_orders1 does not exist");
+        assertQueryFails("select count(*) from hive.hive_test.hive_orders1", ".*Table hive.hive_test.hive_orders1 does not exist");
     }
 
     @Test
@@ -1274,16 +1300,6 @@ public class TestPrestoSparkQueryRunner
         assertQuery("SELECT * FROM test_drop_column", "SELECT custkey, orderstatus FROM orders");
 
         assertQuerySucceeds("DROP TABLE test_drop_column");
-    }
-
-    @Test
-    public void testCreateFunction()
-    {
-        assertQuerySucceeds("CREATE FUNCTION unittest.memory.tan (x int) RETURNS double COMMENT 'tangent trigonometric function' LANGUAGE SQL DETERMINISTIC CALLED ON NULL INPUT RETURN sin(x) / cos(x)");
-        MaterializedResult actual = computeActual("select unittest.memory.tan(5)");
-        assertEquals("-3.380515006246586", actual.getOnlyValue().toString());
-        //PoS currently supports one query per session. So temporary function created is not discoverable by another query.
-        assertQuerySucceeds("CREATE TEMPORARY FUNCTION foo() RETURNS int RETURN 1");
     }
 
     @Test

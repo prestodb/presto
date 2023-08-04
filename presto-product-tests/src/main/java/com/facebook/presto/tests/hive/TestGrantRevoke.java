@@ -120,7 +120,7 @@ public class TestGrantRevoke
 
         // test REVOKE
         aliceExecutor.executeQuery(format("REVOKE INSERT ON %s FROM bob", tableName));
-        assertThat(() -> bobExecutor.executeQuery(format("INSERT INTO %s VALUES ('y', 5)", tableName)))
+        assertThat(() -> bobExecutor.executeQuery(format("INSERT INTO %s VALUES (1, 5)", tableName)))
                 .failsWithMessage(format("Access Denied: Cannot insert into table default.%s", tableName));
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasRowsCount(1);
         aliceExecutor.executeQuery(format("REVOKE INSERT, SELECT ON %s FROM bob", tableName));

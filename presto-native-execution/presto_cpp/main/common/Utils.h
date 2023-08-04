@@ -12,9 +12,17 @@
  * limitations under the License.
  */
 #pragma once
+#include <glog/logging.h>
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 
 namespace facebook::presto::util {
+
+#define PRESTO_STARTUP_LOG_PREFIX "[PRESTO_STARTUP] "
+#define PRESTO_STARTUP_LOG(severity) LOG(severity) << PRESTO_STARTUP_LOG_PREFIX
+
+#define PRESTO_SHUTDOWN_LOG_PREFIX "[PRESTO_SHUTDOWN] "
+#define PRESTO_SHUTDOWN_LOG(severity) \
+  LOG(severity) << PRESTO_SHUTDOWN_LOG_PREFIX
 
 protocol::DateTime toISOTimestamp(uint64_t timeMilli);
 

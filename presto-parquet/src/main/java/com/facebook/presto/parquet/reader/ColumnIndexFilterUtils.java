@@ -25,6 +25,7 @@ import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.internal.filter2.columnindex.RowRanges;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,6 +35,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+
+import static io.airlift.slice.SizeOf.sizeOf;
 
 public class ColumnIndexFilterUtils
 {
@@ -85,6 +88,8 @@ public class ColumnIndexFilterUtils
     private static class FilteredOffsetIndex
             implements OffsetIndex
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(FilteredOffsetIndex.class).instanceSize();
+
         private final OffsetIndex offsetIndex;
         private final int[] indices;
 
@@ -142,6 +147,11 @@ public class ColumnIndexFilterUtils
                 }
                 return formatter.toString();
             }
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + sizeOf(indices);
         }
     }
 

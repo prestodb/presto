@@ -38,6 +38,8 @@ struct ByteStream {
 
   template <typename T>
   T read() {
+    // Directly reading int128 values is not yet supported in ByteStream.
+    static_assert(sizeof(T) <= sizeof(uint64_t));
     T value = *reinterpret_cast<const T*>(data_ + offset_);
     offset_ += sizeof(T);
     return value;
@@ -58,6 +60,16 @@ struct ByteStream {
   const char* data_;
   int32_t offset_;
 };
+
+// ByteStream::read specialization for int128_t
+template <>
+velox::int128_t ByteStream::read<velox::int128_t>() {
+  // Fetching int128_t value by reading two 64-bit blocks rather than one
+  // 128-bit block to avoid general protection exception.
+  auto low = read<int64_t>();
+  auto high = read<int64_t>();
+  return velox::HugeInt::build(high, low);
+}
 
 velox::BufferPtr
 readNulls(int32_t count, ByteStream& stream, velox::memory::MemoryPool* pool) {
@@ -94,6 +106,15 @@ velox::VectorPtr readScalarBlock(
       rawBuffer[i] = stream.read<T>();
     }
   }
+  if (type->isLongDecimal()) {
+    for (auto i = 0; i < positionCount; i++) {
+      // Convert signed magnitude form to 2's complement.
+      if (rawBuffer[i] < 0) {
+        rawBuffer[i] &= kInt128Mask;
+        rawBuffer[i] *= -1;
+      }
+    }
+  }
 
   switch (type->kind()) {
     case velox::TypeKind::BIGINT:
@@ -103,9 +124,7 @@ velox::VectorPtr readScalarBlock(
     case velox::TypeKind::DOUBLE:
     case velox::TypeKind::REAL:
     case velox::TypeKind::VARCHAR:
-    case velox::TypeKind::DATE:
-    case velox::TypeKind::INTERVAL_DAY_TIME:
-    case velox::TypeKind::SHORT_DECIMAL:
+    case velox::TypeKind::HUGEINT:
       return std::make_shared<velox::FlatVector<U>>(
           pool,
           type,
@@ -113,22 +132,6 @@ velox::VectorPtr readScalarBlock(
           positionCount,
           buffer,
           std::vector<velox::BufferPtr>{});
-    case velox::TypeKind::LONG_DECIMAL: {
-      for (auto i = 0; i < positionCount; i++) {
-        // Convert signed magnitude form to 2's complement.
-        if (rawBuffer[i] < 0) {
-          rawBuffer[i] &= kInt128Mask;
-          rawBuffer[i] *= -1;
-        }
-      }
-      return std::make_shared<velox::FlatVector<velox::UnscaledLongDecimal>>(
-          pool,
-          type,
-          nulls,
-          positionCount,
-          buffer,
-          std::vector<velox::BufferPtr>{});
-    }
     case velox::TypeKind::TIMESTAMP: {
       velox::BufferPtr timestamps =
           velox::AlignedBuffer::allocate<velox::Timestamp>(positionCount, pool);
@@ -262,28 +265,7 @@ velox::VectorPtr readRleBlock(
     throw std::runtime_error("Unexpected RLE block. Expected single null.");
   }
 
-  if (type->kind() == velox::TypeKind::SHORT_DECIMAL ||
-      type->kind() == velox::TypeKind::LONG_DECIMAL) {
-    return velox::BaseVector::createNullConstant(type, positionCount, pool);
-  }
-
-  velox::TypeKind typeKind;
-  if (encoding == kByteArray) {
-    typeKind = velox::TypeKind::UNKNOWN;
-  } else if (encoding == kLongArray) {
-    typeKind = velox::TypeKind::BIGINT;
-  } else if (encoding == kIntArray) {
-    typeKind = velox::TypeKind::INTEGER;
-  } else if (encoding == kShortArray) {
-    typeKind = velox::TypeKind::SMALLINT;
-  } else if (encoding == kVariableWidth) {
-    typeKind = velox::TypeKind::VARCHAR;
-  } else {
-    VELOX_FAIL("Unexpected RLE block encoding: {}", encoding);
-  }
-
-  return velox::BaseVector::createConstant(
-      velox::variant(typeKind), positionCount, pool);
+  return velox::BaseVector::createNullConstant(type, positionCount, pool);
 }
 
 void unpackTimestampWithTimeZone(
@@ -364,13 +346,8 @@ velox::VectorPtr readBlockInt(
     return readRleBlock(type, stream, pool);
   }
 
-  if (type->kind() == velox::TypeKind::SHORT_DECIMAL) {
-    return readScalarBlock<velox::TypeKind::SHORT_DECIMAL>(
-        encoding, type, stream, pool);
-  }
-
-  if (type->kind() == velox::TypeKind::LONG_DECIMAL) {
-    return readScalarBlock<velox::TypeKind::LONG_DECIMAL>(
+  if (type->kind() == velox::TypeKind::HUGEINT) {
+    return readScalarBlock<velox::TypeKind::HUGEINT>(
         encoding, type, stream, pool);
   }
 
@@ -405,7 +382,23 @@ velox::VectorPtr readBlockInt(
         nulls,
         positionCount,
         std::vector<velox::VectorPtr>{timestamps, timezones});
-  };
+  }
+
+  if (type->kind() == velox::TypeKind::ROW) {
+    auto numFields = stream.read<int32_t>();
+    std::vector<velox::VectorPtr> children;
+    children.reserve(numFields);
+    for (auto i = 0; i < numFields; i++) {
+      children.push_back(readBlockInt(type->asRow().childAt(i), stream, pool));
+    }
+    auto positionCount = stream.read<int32_t>();
+    for (int position = 0; position < positionCount + 1; position++) {
+      stream.read<int32_t>();
+    }
+    velox::BufferPtr nulls = readNulls(positionCount, stream, pool);
+    return std::make_shared<velox::RowVector>(
+        pool, type, nulls, positionCount, children);
+  }
 
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
       readScalarBlock, type->kind(), encoding, type, stream, pool);

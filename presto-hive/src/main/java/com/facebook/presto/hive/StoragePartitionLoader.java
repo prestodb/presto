@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Storage;
@@ -59,6 +60,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_FILE_NAMES;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveMetadata.shouldCreateFilesForMissingBuckets;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
@@ -138,9 +140,18 @@ public class StoragePartitionLoader
         Optional<DirectoryLister> directoryListerOverride = Optional.empty();
         if (!isNullOrEmpty(table.getStorage().getLocation())) {
             Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, new Path(table.getStorage().getLocation()));
-            InputFormat<?, ?> inputFormat = getInputFormat(configuration, table.getStorage().getStorageFormat().getInputFormat(), false);
-            if (isHudiParquetInputFormat(inputFormat)) {
-                directoryListerOverride = Optional.of(new HudiDirectoryLister(configuration, session, table));
+            try {
+                InputFormat<?, ?> inputFormat = getInputFormat(configuration, table.getStorage().getStorageFormat().getInputFormat(), false);
+                if (isHudiParquetInputFormat(inputFormat)) {
+                    directoryListerOverride = Optional.of(new HudiDirectoryLister(configuration, session, table));
+                }
+            }
+            catch (PrestoException ex) {
+                // Tables and partitions can have different format. When Table format is not supported,
+                // Ignore Hudi check for those tables. Partitions can still be of a supported format.
+                if (!HIVE_UNSUPPORTED_FORMAT.toErrorCode().equals(ex.getErrorCode())) {
+                    throw ex;
+                }
             }
         }
         this.directoryLister = directoryListerOverride.orElseGet(() -> requireNonNull(directoryLister, "directoryLister is null"));
@@ -258,6 +269,16 @@ public class StoragePartitionLoader
         }
         Path path = new Path(location);
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
+        // This is required for HUDI MOR realtime tables only.
+        // Similar changes are implemented in HudiDirectoryLister for HUDI COW and MOR read-optimised tables.
+        if (directoryLister instanceof HudiDirectoryLister) {
+            if (configuration instanceof HiveCachingHdfsConfiguration.CachingJobConf) {
+                configuration = ((HiveCachingHdfsConfiguration.CachingJobConf) configuration).getConfig();
+            }
+            if (configuration instanceof CopyOnFirstWriteConfiguration) {
+                configuration = ((CopyOnFirstWriteConfiguration) configuration).getConfig();
+            }
+        }
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, inputFormatName, false);
         ExtendedFileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext.getIdentity().getUser(), path, configuration);
         boolean s3SelectPushdownEnabled = shouldEnablePushdownForTable(session, table, path.toString(), partition.getPartition());
@@ -290,14 +311,13 @@ public class StoragePartitionLoader
         if (shouldUseFileSplitsFromInputFormat(inputFormat, directoryLister)) {
             return handleGetSplitsFromInputFormat(configuration, path, schema, inputFormat, stopped, hiveSplitSource, splitFactory);
         }
+
         // Streaming aggregation works at the granularity of individual files
-        // S3 Select pushdown works at the granularity of individual S3 objects,
         // Partial aggregation pushdown works at the granularity of individual files
         // therefore we must not split files when either is enabled.
         // Skip header / footer lines are not splittable except for a special case when skip.header.line.count=1
         boolean splittable = isFileSplittable(session) &&
                 !isOrderBasedExecutionEnabled(session) &&
-                !s3SelectPushdownEnabled &&
                 !partialAggregationsPushedDown &&
                 getFooterCount(schema) == 0 && getHeaderCount(schema) <= 1;
 
@@ -342,7 +362,11 @@ public class StoragePartitionLoader
             cacheable &= partition.get().isSealedPartition();
         }
 
-        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, cacheable, buildDirectoryContextProperties(session));
+        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(
+                recursiveDirWalkerEnabled ? RECURSE : IGNORED,
+                cacheable,
+                hdfsContext.getIdentity(),
+                buildDirectoryContextProperties(session));
         return stream(directoryLister.list(fileSystem, table, path, partition, namenodeStats, hiveDirectoryContext))
                 .map(status -> splitFactory.createInternalHiveSplit(status, splittable))
                 .filter(Optional::isPresent)
@@ -369,7 +393,11 @@ public class StoragePartitionLoader
         // list all files in the partition
         List<HiveFileInfo> fileInfos = new ArrayList<>(partitionBucketCount);
         try {
-            Iterators.addAll(fileInfos, directoryLister.list(fileSystem, table, path, partition, namenodeStats, new HiveDirectoryContext(FAIL, isUseListDirectoryCache(session), buildDirectoryContextProperties(session))));
+            Iterators.addAll(fileInfos, directoryLister.list(fileSystem, table, path, partition, namenodeStats, new HiveDirectoryContext(
+                    FAIL,
+                    isUseListDirectoryCache(session),
+                    hdfsContext.getIdentity(),
+                    buildDirectoryContextProperties(session))));
         }
         catch (HiveFileIterator.NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does
@@ -513,7 +541,11 @@ public class StoragePartitionLoader
     private List<InternalHiveSplit> getVirtuallyBucketedSplits(Path path, ExtendedFileSystem fileSystem, InternalHiveSplitFactory splitFactory, int bucketCount, Optional<Partition> partition, boolean splittable)
     {
         // List all files recursively in the partition and assign virtual bucket number to each of them
-        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, isUseListDirectoryCache(session), buildDirectoryContextProperties(session));
+        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(
+                recursiveDirWalkerEnabled ? RECURSE : IGNORED,
+                isUseListDirectoryCache(session),
+                hdfsContext.getIdentity(),
+                buildDirectoryContextProperties(session));
         return stream(directoryLister.list(fileSystem, table, path, partition, namenodeStats, hiveDirectoryContext))
                 .map(fileInfo -> {
                     int virtualBucketNumber = getVirtualBucketNumber(bucketCount, fileInfo.getPath());

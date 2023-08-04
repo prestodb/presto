@@ -11,18 +11,27 @@
 # limitations under the License.
 add_executable(
   presto_server_test
-  PrestoExchangeSourceTest.cpp TaskManagerTest.cpp HttpServerWrapper.cpp
-  PrestoTaskTest.cpp AnnouncerTest.cpp QueryContextCacheTest.cpp)
+  AnnouncerTest.cpp
+  CoordinatorDiscovererTest.cpp
+  HttpServerWrapper.cpp
+  PrestoExchangeSourceTest.cpp
+  PrestoTaskTest.cpp
+  QueryContextCacheTest.cpp
+  ServerOperationTest.cpp
+  TaskManagerTest.cpp)
 
-add_test(presto_server_test presto_server_test)
+add_test(
+  NAME presto_server_test
+  COMMAND presto_server_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(
   presto_server_test
+  velox_exec_test_lib
   presto_server_lib
+  velox_dwio_common_test_utils
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
-  velox_exec_test_lib
-  velox_dwio_common_test_utils
   velox_hive_connector
   velox_tpch_connector
   velox_presto_serializer
@@ -30,5 +39,20 @@ target_link_libraries(
   velox_aggregates
   velox_hive_partition_function
   ${RE2}
+  gmock
   gtest
   gtest_main)
+
+if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
+  add_executable(presto_server_remote_function_test
+                 JsonSignatureParserTest.cpp RemoteFunctionRegistererTest.cpp)
+
+  add_test(
+    NAME presto_server_remote_function_test
+    COMMAND presto_server_remote_function_test
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+  target_link_libraries(
+    presto_server_remote_function_test presto_server_remote_function
+    velox_expression gmock gtest gtest_main)
+endif()

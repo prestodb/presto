@@ -77,7 +77,7 @@ public class ArraySqlFunctions
     public static String arrayDuplicates()
     {
         return "RETURN CONCAT(" +
-                "IF (cardinality(filter(input, x -> x is NULL)) > 1, array[find_first(input, x -> x IS NULL)], array[])," +
+                "IF (cardinality(filter(input, x -> x is NULL)) > 1, array[element_at(input, find_first_index(input, x -> x IS NULL))], array[])," +
                 "map_keys(map_filter(array_frequency(input), (k, v) -> v > 1)))";
     }
 
@@ -125,5 +125,15 @@ public class ArraySqlFunctions
     public static String arraySortDesc()
     {
         return "RETURN reverse(array_sort(remove_nulls(input))) || filter(input, x -> x is null)";
+    }
+
+    @SqlInvokedScalarFunction(value = "remove_nulls", deterministic = true, calledOnNullInput = true)
+    @Description("Removes null values from an array.")
+    @TypeParameter("T")
+    @SqlParameter(name = "input", type = "array(T)")
+    @SqlType("array<T>")
+    public static String removeNulls()
+    {
+        return "RETURN IF(none_match(input, x -> x is null), input, filter(input, x -> x is not null))";
     }
 }

@@ -90,19 +90,23 @@ import com.facebook.presto.operator.aggregation.VarianceAggregation;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggregationFunction;
 import com.facebook.presto.operator.aggregation.differentialentropy.DifferentialEntropyAggregation;
 import com.facebook.presto.operator.aggregation.histogram.Histogram;
+import com.facebook.presto.operator.aggregation.multimapagg.AlternativeMultimapAggregationFunction;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggregationFunction;
 import com.facebook.presto.operator.scalar.ArrayAllMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayAnyMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayCardinalityFunction;
 import com.facebook.presto.operator.scalar.ArrayCombinationsFunction;
 import com.facebook.presto.operator.scalar.ArrayContains;
+import com.facebook.presto.operator.scalar.ArrayCumSum;
 import com.facebook.presto.operator.scalar.ArrayDistinctFromOperator;
 import com.facebook.presto.operator.scalar.ArrayDistinctFunction;
 import com.facebook.presto.operator.scalar.ArrayElementAtFunction;
 import com.facebook.presto.operator.scalar.ArrayEqualOperator;
 import com.facebook.presto.operator.scalar.ArrayExceptFunction;
 import com.facebook.presto.operator.scalar.ArrayFilterFunction;
-import com.facebook.presto.operator.scalar.ArrayFindFirstFirstFunction;
+import com.facebook.presto.operator.scalar.ArrayFindFirstFunction;
+import com.facebook.presto.operator.scalar.ArrayFindFirstIndexFunction;
+import com.facebook.presto.operator.scalar.ArrayFindFirstIndexWithOffsetFunction;
 import com.facebook.presto.operator.scalar.ArrayFindFirstWithOffsetFunction;
 import com.facebook.presto.operator.scalar.ArrayFunctions;
 import com.facebook.presto.operator.scalar.ArrayGreaterThanOperator;
@@ -121,7 +125,6 @@ import com.facebook.presto.operator.scalar.ArrayNotEqualOperator;
 import com.facebook.presto.operator.scalar.ArrayPositionFunction;
 import com.facebook.presto.operator.scalar.ArrayPositionWithIndexFunction;
 import com.facebook.presto.operator.scalar.ArrayRemoveFunction;
-import com.facebook.presto.operator.scalar.ArrayRemoveNullsFunction;
 import com.facebook.presto.operator.scalar.ArrayReverseFunction;
 import com.facebook.presto.operator.scalar.ArrayShuffleFunction;
 import com.facebook.presto.operator.scalar.ArraySliceFunction;
@@ -302,6 +305,7 @@ import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAM
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharEnumParametricType.VARCHAR_ENUM;
 import static com.facebook.presto.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
@@ -472,7 +476,6 @@ import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
-import static com.facebook.presto.type.UuidType.UUID;
 import static com.facebook.presto.type.khyperloglog.KHyperLogLogType.K_HYPER_LOG_LOG;
 import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -681,6 +684,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregates(ClassificationPrecisionAggregation.class)
                 .aggregates(ClassificationRecallAggregation.class)
                 .aggregates(ClassificationThresholdsAggregation.class)
+                .scalar(ArrayCumSum.class)
                 .scalar(RepeatFunction.class)
                 .scalars(SequenceFunction.class)
                 .scalars(SessionFunctions.class)
@@ -783,7 +787,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayLessThanOperator.class)
                 .scalar(ArrayLessThanOrEqualOperator.class)
                 .scalar(ArrayRemoveFunction.class)
-                .scalar(ArrayRemoveNullsFunction.class)
                 .scalar(ArrayGreaterThanOperator.class)
                 .scalar(ArrayGreaterThanOrEqualOperator.class)
                 .scalar(ArrayElementAtFunction.class)
@@ -810,8 +813,10 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayNgramsFunction.class)
                 .scalar(ArrayAllMatchFunction.class)
                 .scalar(ArrayAnyMatchFunction.class)
-                .scalar(ArrayFindFirstFirstFunction.class)
+                .scalar(ArrayFindFirstFunction.class)
                 .scalar(ArrayFindFirstWithOffsetFunction.class)
+                .scalar(ArrayFindFirstIndexFunction.class)
+                .scalar(ArrayFindFirstIndexWithOffsetFunction.class)
                 .scalar(ArrayNoneMatchFunction.class)
                 .scalar(ArrayNormalizeFunction.class)
                 .scalar(MapDistinctFromOperator.class)
@@ -846,7 +851,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .functions(MAP_CONSTRUCTOR, MAP_TO_JSON, JSON_TO_MAP, JSON_STRING_TO_MAP)
                 .functions(MAP_AGG, MAP_UNION, MAP_UNION_SUM)
                 .function(new ReduceAggregationFunction(featuresConfig.isReduceAggForComplexTypesEnabled()))
-                .function(new MultimapAggregationFunction(featuresConfig.getMultimapAggGroupImplementation()))
                 .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_REAL_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
                 .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, REAL_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
                 .functions(JSON_TO_DECIMAL_CAST, DECIMAL_TO_JSON_CAST)
@@ -937,6 +941,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
             builder.override(MAX_BY, ALTERNATIVE_MAX_BY);
             builder.override(MIN_BY, ALTERNATIVE_MIN_BY);
             builder.functions(AlternativeApproxPercentile.getFunctions());
+            builder.function(new AlternativeMultimapAggregationFunction(featuresConfig.getMultimapAggGroupImplementation()));
         }
         else {
             builder.aggregates(ApproximateLongPercentileAggregations.class);
@@ -945,6 +950,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
             builder.aggregates(ApproximateDoublePercentileArrayAggregations.class);
             builder.aggregates(ApproximateRealPercentileAggregations.class);
             builder.aggregates(ApproximateRealPercentileArrayAggregations.class);
+            builder.function(new MultimapAggregationFunction(featuresConfig.getMultimapAggGroupImplementation()));
         }
 
         return builder.getFunctions();
@@ -1112,7 +1118,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         }
     }
 
-    public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle)
+    public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle, TypeManager typeManager)
     {
         checkArgument(functionHandle instanceof BuiltInFunctionHandle, "Expect BuiltInFunctionHandle");
         Signature signature = ((BuiltInFunctionHandle) functionHandle).getSignature();

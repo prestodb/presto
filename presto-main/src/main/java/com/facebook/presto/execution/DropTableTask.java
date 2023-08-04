@@ -16,10 +16,10 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Expression;
@@ -48,7 +48,7 @@ public class DropTableTask
     {
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
 
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+        Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(tableName);
         if (!tableHandle.isPresent()) {
             if (!statement.isExists()) {
                 throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);

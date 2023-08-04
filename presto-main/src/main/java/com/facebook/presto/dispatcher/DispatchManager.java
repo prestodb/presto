@@ -15,6 +15,7 @@ package com.facebook.presto.dispatcher;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
@@ -26,7 +27,6 @@ import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.resourcemanager.ClusterQueryTrackerService;
 import com.facebook.presto.resourcemanager.ClusterStatusSender;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.server.SessionPropertyDefaults;
@@ -34,14 +34,13 @@ import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.analyzer.AnalyzerOptions;
+import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
-import com.facebook.presto.spi.security.AccessControlContext;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AuthorizedIdentity;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.sql.analyzer.AnalyzerOptions;
-import com.facebook.presto.sql.analyzer.AnalyzerProvider;
-import com.facebook.presto.sql.analyzer.PreparedQuery;
+import com.facebook.presto.sql.analyzer.AnalyzerProviderManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -57,6 +56,8 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.SystemSessionProperties.getAnalyzerType;
+import static com.facebook.presto.security.AccessControlUtils.checkPermissions;
+import static com.facebook.presto.security.AccessControlUtils.getAuthorizedIdentity;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static com.facebook.presto.util.AnalyzerUtil.createAnalyzerOptions;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -71,7 +72,6 @@ import static java.util.Objects.requireNonNull;
 public class DispatchManager
 {
     private final QueryIdGenerator queryIdGenerator;
-    private final AnalyzerProvider analyzerProvider;
     private final ResourceGroupManager<?> resourceGroupManager;
     private final WarningCollectorFactory warningCollectorFactory;
     private final DispatchQueryFactory dispatchQueryFactory;
@@ -93,6 +93,7 @@ public class DispatchManager
     private final QueryManagerStats stats = new QueryManagerStats();
 
     private final SecurityConfig securityConfig;
+    private final AnalyzerProviderManager analyzerProviderManager;
 
     /**
      * Dispatch Manager is used for the pre-queuing part of queries prior to the query execution phase.
@@ -100,7 +101,7 @@ public class DispatchManager
      * Dispatch Manager object is instantiated when the presto server is launched by server bootstrap time. It is a critical component in resource management section of the query.
      *
      * @param queryIdGenerator query ID generator for generating a new query ID when a query is created
-     * @param analyzerProvider analyzer provider provides an interface for query preparer when a dispatch query is created and registered
+     * @param analyzerProviderManager provides access to registered analyzer providers
      * @param resourceGroupManager the resource group manager to select corresponding resource group for query to retrieve basic information from session context for selection context
      * @param warningCollectorFactory the warning collector factory to collect presto warning in a query session
      * @param dispatchQueryFactory the dispatch query factory is used to create a {@link DispatchQuery} object.  The dispatch query is submitted to the {@link ResourceGroupManager} which enqueues the query.
@@ -116,7 +117,7 @@ public class DispatchManager
     @Inject
     public DispatchManager(
             QueryIdGenerator queryIdGenerator,
-            AnalyzerProvider analyzerProvider,
+            AnalyzerProviderManager analyzerProviderManager,
             @SuppressWarnings("rawtypes") ResourceGroupManager resourceGroupManager,
             WarningCollectorFactory warningCollectorFactory,
             DispatchQueryFactory dispatchQueryFactory,
@@ -132,7 +133,7 @@ public class DispatchManager
             Optional<ClusterQueryTrackerService> clusterQueryTrackerService)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
-        this.analyzerProvider = requireNonNull(analyzerProvider, "analyzerClient is null");
+        this.analyzerProviderManager = requireNonNull(analyzerProviderManager, "analyzerProviderManager is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
         this.dispatchQueryFactory = requireNonNull(dispatchQueryFactory, "dispatchQueryFactory is null");
@@ -260,7 +261,7 @@ public class DispatchManager
 
     /**
      * Creates and registers a dispatch query with the query tracker.  This method will never fail to register a query with the query
-     * tracker.  If an error occurs while, creating a dispatch query a failed dispatch will be created and registered.
+     * tracker. If an error occurs while creating a dispatch query, a failed dispatch will be created and registered.
      */
     private <C> void createQueryInternal(QueryId queryId, String slug, int retryCount, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
     {
@@ -274,17 +275,18 @@ public class DispatchManager
             }
 
             // check permissions if needed
-            checkPermissions(queryId, sessionContext);
+            checkPermissions(accessControl, securityConfig, queryId, sessionContext);
 
             // get authorized identity if possible
-            Optional<AuthorizedIdentity> authorizedIdentity = getAuthorizedIdentity(queryId, sessionContext);
+            Optional<AuthorizedIdentity> authorizedIdentity = getAuthorizedIdentity(accessControl, securityConfig, queryId, sessionContext);
 
             // decode session
             session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory, authorizedIdentity);
 
             // prepare query
             AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, session.getWarningCollector());
-            preparedQuery = analyzerProvider.getQueryPreparer(getAnalyzerType(session)).prepareQuery(analyzerOptions, query, session.getPreparedStatements(), session.getWarningCollector());
+            AnalyzerProvider analyzerProvider = analyzerProviderManager.getAnalyzerProvider(getAnalyzerType(session));
+            preparedQuery = analyzerProvider.getQueryPreparer().prepareQuery(analyzerOptions, query, session.getPreparedStatements(), session.getWarningCollector());
             query = preparedQuery.getFormattedQuery().orElse(query);
 
             // select resource group
@@ -296,7 +298,8 @@ public class DispatchManager
                     sessionContext.getClientTags(),
                     sessionContext.getResourceEstimates(),
                     queryType.map(Enum::name),
-                    Optional.ofNullable(sessionContext.getClientInfo())));
+                    Optional.ofNullable(sessionContext.getClientInfo()),
+                    Optional.ofNullable(sessionContext.getSchema())));
 
             // apply system default session properties (does not override user set properties)
             session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, queryType.map(Enum::name), Optional.of(selectionContext.getResourceGroupId()));
@@ -306,6 +309,7 @@ public class DispatchManager
 
             DispatchQuery dispatchQuery = dispatchQueryFactory.createDispatchQuery(
                     session,
+                    analyzerProvider,
                     query,
                     preparedQuery,
                     slug,
@@ -339,46 +343,6 @@ public class DispatchManager
             DispatchQuery failedDispatchQuery = failedDispatchQueryFactory.createFailedDispatchQuery(session, query, Optional.empty(), throwable);
             queryCreated(failedDispatchQuery);
         }
-    }
-
-    /**
-     * When selectAuthorizedIdentity API is not enabled, we check the delegation permission
-     */
-    private void checkPermissions(QueryId queryId, SessionContext sessionContext)
-    {
-        Identity identity = sessionContext.getIdentity();
-        if (!securityConfig.isAuthorizedIdentitySelectionEnabled()) {
-            accessControl.checkCanSetUser(
-                    identity,
-                    new AccessControlContext(
-                            queryId,
-                            Optional.ofNullable(sessionContext.getClientInfo()),
-                            Optional.ofNullable(sessionContext.getSource())),
-                    identity.getPrincipal(),
-                    identity.getUser());
-        }
-    }
-
-    /**
-     * When selectAuthorizedIdentity API is enabled,
-     * 1. Check the delegation permission, which is inside the API call
-     * 2. Select and return the authorized identity
-     */
-    private Optional<AuthorizedIdentity> getAuthorizedIdentity(QueryId queryId, SessionContext sessionContext)
-    {
-        if (securityConfig.isAuthorizedIdentitySelectionEnabled()) {
-            Identity identity = sessionContext.getIdentity();
-            AuthorizedIdentity authorizedIdentity = accessControl.selectAuthorizedIdentity(
-                    identity,
-                    new AccessControlContext(
-                            queryId,
-                            Optional.ofNullable(sessionContext.getClientInfo()),
-                            Optional.ofNullable(sessionContext.getSource())),
-                    identity.getUser(),
-                    sessionContext.getCertificates());
-            return Optional.of(authorizedIdentity);
-        }
-        return Optional.empty();
     }
 
     private boolean queryCreated(DispatchQuery dispatchQuery)

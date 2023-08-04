@@ -19,26 +19,57 @@
 
 namespace facebook::presto::operators {
 
-void UnsafeRowExchangeSource::request() {
-  std::lock_guard<std::mutex> l(queue_->mutex());
-
-  if (!shuffle_->hasNext(destination_)) {
-    atEnd_ = true;
-    queue_->enqueue(nullptr);
-    return;
+#define CALL_SHUFFLE(call, methodName)                                \
+  try {                                                               \
+    call;                                                             \
+  } catch (const velox::VeloxException& e) {                          \
+    throw;                                                            \
+  } catch (const std::exception& e) {                                 \
+    VELOX_FAIL("ShuffleReader::{} failed: {}", methodName, e.what()); \
   }
 
-  auto buffer = shuffle_->next(destination_, true);
+void UnsafeRowExchangeSource::request() {
+  std::vector<velox::ContinuePromise> promises;
+  {
+    std::lock_guard<std::mutex> l(queue_->mutex());
+    if (atEnd_) {
+      return;
+    }
 
-  auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
-  // NOTE: SerializedPage's onDestructionCb_ captures one reference on 'buffer'
-  // to keep its alive until SerializedPage destruction. Also note that 'buffer'
-  // should have been allocated from memory pool. Hence, we don't need to update
-  // the memory usage counting for the associated 'ioBuf' attached to
-  // SerializedPage on destruction.
-  queue_->enqueue(std::make_unique<velox::exec::SerializedPage>(
-      std::move(ioBuf), pool_, [buffer](auto&) {}));
+    bool hasNext;
+    CALL_SHUFFLE(hasNext = shuffle_->hasNext(), "hasNext");
+
+    if (!hasNext) {
+      atEnd_ = true;
+      queue_->enqueueLocked(nullptr, promises);
+    } else {
+      velox::BufferPtr buffer;
+      CALL_SHUFFLE(buffer = shuffle_->next(), "next");
+
+      ++numBatches_;
+
+      auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
+      // NOTE: SerializedPage's onDestructionCb_ captures one reference on
+      // 'buffer' to keep its alive until SerializedPage destruction. Also note
+      // that 'buffer' should have been allocated from memory pool. Hence, we
+      // don't need to update the memory usage counting for the associated
+      // 'ioBuf' attached to SerializedPage on destruction.
+      queue_->enqueueLocked(
+          std::make_unique<velox::exec::SerializedPage>(
+              std::move(ioBuf), [buffer](auto& /*unused*/) {}),
+          promises);
+    }
+  }
+  for (auto& promise : promises) {
+    promise.setValue();
+  }
 }
+
+folly::F14FastMap<std::string, int64_t> UnsafeRowExchangeSource::stats() const {
+  return shuffle_->stats();
+}
+
+#undef CALL_SHUFFLE
 
 namespace {
 std::optional<std::string> getSerializedShuffleInfo(folly::Uri& uri) {
@@ -61,23 +92,26 @@ UnsafeRowExchangeSource::createExchangeSource(
   if (::strncmp(url.c_str(), "batch://", 8) != 0) {
     return nullptr;
   }
+
+  auto uri = folly::Uri(url);
+  auto serializedShuffleInfo = getSerializedShuffleInfo(uri);
+  // Not shuffle exchange source.
+  if (!serializedShuffleInfo.has_value()) {
+    return nullptr;
+  }
+
   auto shuffleName = SystemConfig::instance()->shuffleName();
   VELOX_CHECK(
       !shuffleName.empty(),
       "shuffle.name is not provided in config.properties to create a shuffle "
       "interface.");
   auto shuffleFactory = ShuffleInterfaceFactory::factory(shuffleName);
-  auto uri = folly::Uri(url);
-  auto serializedShuffleInfo = getSerializedShuffleInfo(uri);
-  VELOX_USER_CHECK(
-      serializedShuffleInfo.has_value(),
-      "Cannot find shuffleInfo parameter in split url '{}'",
-      url);
   return std::make_unique<UnsafeRowExchangeSource>(
       uri.host(),
       destination,
       std::move(queue),
-      shuffleFactory->createReader(serializedShuffleInfo.value(), pool),
+      shuffleFactory->createReader(
+          serializedShuffleInfo.value(), destination, pool),
       pool);
 }
 }; // namespace facebook::presto::operators

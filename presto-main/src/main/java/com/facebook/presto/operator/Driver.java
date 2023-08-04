@@ -188,6 +188,8 @@ public class Driver
             return;
         }
 
+        // set the yield signal and interrupt any actively running driver to stop them as soon as possible
+        driverContext.getYieldSignal().yieldImmediatelyForTermination();
         exclusiveLock.interruptCurrentOwner();
 
         // if we can get the lock, attempt a clean shutdown; otherwise someone else will shutdown

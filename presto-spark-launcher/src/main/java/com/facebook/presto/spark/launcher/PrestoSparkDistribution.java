@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration.METADATA_STORAGE_TYPE_KEY;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
@@ -31,13 +32,14 @@ public class PrestoSparkDistribution
     private final PackageSupplier packageSupplier;
     private final Map<String, String> configProperties;
     private final Map<String, Map<String, String>> catalogProperties;
-    private final String metadataStorageType;
+    private final Map<String, String> prestoSparkProperties;
     private final Optional<Map<String, String>> eventListenerProperties;
     private final Optional<Map<String, String>> accessControlProperties;
     private final Optional<Map<String, String>> sessionPropertyConfigurationProperties;
     private final Optional<Map<String, Map<String, String>>> functionNamespaceProperties;
     private final Optional<Map<String, Map<String, String>>> tempStorageProperties;
 
+    @Deprecated
     public PrestoSparkDistribution(
             SparkContext sparkContext,
             PackageSupplier packageSupplier,
@@ -50,12 +52,37 @@ public class PrestoSparkDistribution
             Optional<Map<String, Map<String, String>>> functionNamespaceProperties,
             Optional<Map<String, Map<String, String>>> tempStorageProperties)
     {
+        this(
+                sparkContext,
+                packageSupplier,
+                configProperties,
+                catalogProperties,
+                ImmutableMap.of(METADATA_STORAGE_TYPE_KEY, metadataStorageType),
+                eventListenerProperties,
+                accessControlProperties,
+                sessionPropertyConfigurationProperties,
+                functionNamespaceProperties,
+                tempStorageProperties);
+    }
+
+    public PrestoSparkDistribution(
+            SparkContext sparkContext,
+            PackageSupplier packageSupplier,
+            Map<String, String> configProperties,
+            Map<String, Map<String, String>> catalogProperties,
+            Map<String, String> prestoSparkProperties,
+            Optional<Map<String, String>> eventListenerProperties,
+            Optional<Map<String, String>> accessControlProperties,
+            Optional<Map<String, String>> sessionPropertyConfigurationProperties,
+            Optional<Map<String, Map<String, String>>> functionNamespaceProperties,
+            Optional<Map<String, Map<String, String>>> tempStorageProperties)
+    {
         this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
         this.packageSupplier = requireNonNull(packageSupplier, "packageSupplier is null");
         this.configProperties = ImmutableMap.copyOf(requireNonNull(configProperties, "configProperties is null"));
         this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null").entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
-        this.metadataStorageType = requireNonNull(metadataStorageType, "metadataStorageType is null");
+        this.prestoSparkProperties = ImmutableMap.copyOf(requireNonNull(prestoSparkProperties, "prestoSparkProperties is null"));
         this.eventListenerProperties = requireNonNull(eventListenerProperties, "eventListenerProperties is null")
                 .map(properties -> unmodifiableMap(new HashMap<>(properties)));
         this.accessControlProperties = requireNonNull(accessControlProperties, "accessControlProperties is null")
@@ -90,9 +117,9 @@ public class PrestoSparkDistribution
         return catalogProperties;
     }
 
-    public String getMetadataStorageType()
+    public Map<String, String> getPrestoSparkProperties()
     {
-        return metadataStorageType;
+        return prestoSparkProperties;
     }
 
     public Optional<Map<String, String>> getEventListenerProperties()

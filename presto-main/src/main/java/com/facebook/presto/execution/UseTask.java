@@ -15,8 +15,8 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Use;
@@ -28,7 +28,6 @@ import java.util.List;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static java.util.Locale.ENGLISH;
 
 public class UseTask
         implements SessionTransactionControlTask<Use>
@@ -40,24 +39,40 @@ public class UseTask
     }
 
     @Override
-    public ListenableFuture<?> execute(Use statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(
+            Use statement,
+            TransactionManager transactionManager,
+            Metadata metadata,
+            AccessControl accessControl,
+            QueryStateMachine stateMachine,
+            List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
 
+        checkCatalogAndSessionPresent(statement, session);
+
+        checkAndSetCatalog(statement, metadata, stateMachine, session);
+
+        stateMachine.setSetSchema(statement.getSchema().getValueLowerCase());
+
+        return immediateFuture(null);
+    }
+
+    private void checkCatalogAndSessionPresent(Use statement, Session session)
+    {
         if (!statement.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
             throw new SemanticException(CATALOG_NOT_SPECIFIED, statement, "Catalog must be specified when session catalog is not set");
         }
+    }
 
+    private void checkAndSetCatalog(Use statement, Metadata metadata, QueryStateMachine stateMachine, Session session)
+    {
         if (statement.getCatalog().isPresent()) {
-            String catalog = statement.getCatalog().get().getValue().toLowerCase(ENGLISH);
+            String catalog = statement.getCatalog().get().getValueLowerCase();
             if (!metadata.getCatalogHandle(session, catalog).isPresent()) {
                 throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalog);
             }
             stateMachine.setSetCatalog(catalog);
         }
-
-        stateMachine.setSetSchema(statement.getSchema().getValue().toLowerCase(ENGLISH));
-
-        return immediateFuture(null);
     }
 }

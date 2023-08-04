@@ -14,8 +14,8 @@ where
 	c.mktsegment = 'BUILDING'
 	and c.custkey = o.custkey
 	and l.orderkey = o.orderkey
-	and o.orderdate < date '1995-03-15'
-	and l.shipdate > date '1995-03-15'
+	and o.orderdate < '1995-03-15'
+	and l.shipdate > '1995-03-15'
 group by
 	l.orderkey,
 	o.orderdate,

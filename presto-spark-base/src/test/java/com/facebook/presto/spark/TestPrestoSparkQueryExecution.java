@@ -20,10 +20,14 @@ import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutio
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskRdd;
 import com.facebook.presto.spark.execution.FragmentExecutionResult;
+import com.facebook.presto.spark.execution.PrestoSparkAdaptiveQueryExecution;
 import com.facebook.presto.spark.execution.PrestoSparkStaticQueryExecution;
 import com.facebook.presto.sql.planner.SubPlan;
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.facebook.presto.tests.QueryAssertions;
+import com.google.common.collect.ImmutableList;
 import org.apache.spark.Dependency;
 import org.apache.spark.MapOutputStatistics;
 import org.apache.spark.rdd.RDD;
@@ -35,11 +39,15 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.STORAGE_BASED_BROADCAST_JOIN_ENABLED;
+import static com.facebook.presto.spark.execution.RuntimeStatistics.createRuntimeStats;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestPrestoSparkQueryExecution
@@ -49,15 +57,90 @@ public class TestPrestoSparkQueryExecution
 
     @Override
     protected QueryRunner createQueryRunner()
-            throws Exception
     {
-        prestoSparkQueryRunner = PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner();
+        prestoSparkQueryRunner = createHivePrestoSparkQueryRunner();
         return prestoSparkQueryRunner;
     }
 
     private IPrestoSparkQueryExecution getPrestoSparkQueryExecution(Session session, String sql)
     {
-        return prestoSparkQueryRunner.createPrestoSparkQueryExecution(session, sql, Optional.empty());
+        return prestoSparkQueryRunner.createPrestoSparkQueryExecution(session, sql, ImmutableList.of());
+    }
+
+    @Test
+    public void testQueryExecutionCreation()
+    {
+        String sqlText = "select * from lineitem";
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED, "false")
+                .build();
+        IPrestoSparkQueryExecution psQueryExecution = getPrestoSparkQueryExecution(session, sqlText);
+        assertTrue(psQueryExecution instanceof PrestoSparkStaticQueryExecution);
+
+        session = Session.builder(getSession())
+                .setSystemProperty(SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED, "true")
+                .build();
+        psQueryExecution = getPrestoSparkQueryExecution(session, sqlText);
+        assertTrue(psQueryExecution instanceof PrestoSparkAdaptiveQueryExecution);
+    }
+
+    @Test
+    public void testSingleFragmentQueryAdaptiveExecution()
+    {
+        String sqlText = "select * from lineitem";
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED, "false")
+                .build();
+        MaterializedResult staticResults = prestoSparkQueryRunner.execute(session, sqlText);
+
+        session = Session.builder(getSession())
+                .setSystemProperty(SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED, "true")
+                .build();
+        MaterializedResult dynamicResults = prestoSparkQueryRunner.execute(session, sqlText);
+
+        QueryAssertions.assertEqualsIgnoreOrder(staticResults, dynamicResults);
+    }
+
+    @Test
+    public void testJoinQueryAdaptiveExecution()
+    {
+        String sqlText = "select * from lineitem l join orders o on l.orderkey = o.orderkey";
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED, "false")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "partitioned")
+                .setSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED, "false")
+                .build();
+        MaterializedResult staticResults = prestoSparkQueryRunner.execute(session, sqlText);
+
+        session = Session.builder(getSession())
+                .setSystemProperty(SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED, "true")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "partitioned")
+                .setSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED, "false")
+                .build();
+        MaterializedResult dynamicResults = prestoSparkQueryRunner.execute(session, sqlText);
+
+        QueryAssertions.assertEqualsIgnoreOrder(staticResults, dynamicResults);
+    }
+
+    @Test
+    public void testGroupByAdaptiveExecution()
+    {
+        String sqlText = "SELECT custkey, orderstatus FROM orders ORDER BY orderkey DESC LIMIT 10";
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED, "false")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "partitioned")
+                .setSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED, "false")
+                .build();
+        MaterializedResult staticResults = prestoSparkQueryRunner.execute(session, sqlText);
+
+        session = Session.builder(getSession())
+                .setSystemProperty(SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED, "true")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "partitioned")
+                .setSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED, "false")
+                .build();
+        MaterializedResult dynamicResults = prestoSparkQueryRunner.execute(session, sqlText);
+
+        QueryAssertions.assertEqualsIgnoreOrder(staticResults, dynamicResults);
     }
 
     @Test
@@ -118,19 +201,19 @@ public class TestPrestoSparkQueryExecution
         Optional<PlanNodeStatsEstimate> planNodeStatsEstimate;
 
         // Empty stats case
-        planNodeStatsEstimate = execution.createRuntimeStats(Optional.empty());
+        planNodeStatsEstimate = createRuntimeStats(Optional.empty());
         assertFalse(planNodeStatsEstimate.isPresent());
 
         // Empty partition array
-        planNodeStatsEstimate = execution.createRuntimeStats(Optional.of(new MapOutputStatistics(0, new long[] {})));
+        planNodeStatsEstimate = createRuntimeStats(Optional.of(new MapOutputStatistics(0, new long[] {})));
         assertEquals(planNodeStatsEstimate.get().getOutputSizeInBytes(), 0);
 
         // One partition case
-        planNodeStatsEstimate = execution.createRuntimeStats(Optional.of(new MapOutputStatistics(0, new long[] {23})));
+        planNodeStatsEstimate = createRuntimeStats(Optional.of(new MapOutputStatistics(0, new long[] {23})));
         assertEquals(planNodeStatsEstimate.get().getOutputSizeInBytes(), 23);
 
         // Multiple partition case
-        planNodeStatsEstimate = execution.createRuntimeStats(Optional.of(new MapOutputStatistics(0, new long[] {23, 520, 190})));
+        planNodeStatsEstimate = createRuntimeStats(Optional.of(new MapOutputStatistics(0, new long[] {23, 520, 190})));
         assertEquals(planNodeStatsEstimate.get().getOutputSizeInBytes(), 733);
     }
 
@@ -167,23 +250,24 @@ public class TestPrestoSparkQueryExecution
         rootFragmentedPlan.getChildren().stream()
                 .map(SubPlan::getChildren)
                 .flatMap(Collection::stream)
-                .forEach(subPlan -> excecuteSubPlanWithUncheckedException(execution, subPlan, tableWriteInfo));
+                .forEach(subPlan -> excecuteSubPlanWithUncheckedException(execution, subPlan, tableWriteInfo, Optional.empty()));
 
         // Level 1
         rootFragmentedPlan.getChildren().stream()
-                .forEach(subPlan -> excecuteSubPlanWithUncheckedException(execution, subPlan, tableWriteInfo));
+                .forEach(subPlan -> excecuteSubPlanWithUncheckedException(execution, subPlan, tableWriteInfo, Optional.empty()));
 
         // Level 0 - Root
-        return excecuteSubPlanWithUncheckedException(execution, rootFragmentedPlan, tableWriteInfo);
+        return excecuteSubPlanWithUncheckedException(execution, rootFragmentedPlan, tableWriteInfo, Optional.empty());
     }
 
     // This exists as forEach can't handle methods with checked exception
     private FragmentExecutionResult excecuteSubPlanWithUncheckedException(PrestoSparkStaticQueryExecution execution,
             SubPlan subPlan,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            Optional<Class<?>> outputType)
     {
         try {
-            return execution.executeFragment(subPlan, tableWriteInfo);
+            return execution.executeFragment(subPlan, tableWriteInfo, outputType);
         }
         catch (Exception e) {
             throwIfUnchecked(e);

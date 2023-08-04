@@ -106,7 +106,7 @@ public class ScalarStatsCalculator
     {
         private final PlanNodeStatsEstimate input;
         private final ConnectorSession session;
-        private final FunctionResolution resolution = new FunctionResolution(metadata.getFunctionAndTypeManager());
+        private final FunctionResolution resolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
 
         public RowExpressionStatsVisitor(PlanNodeStatsEstimate input, ConnectorSession session)
         {
@@ -356,7 +356,7 @@ public class ScalarStatsCalculator
         protected VariableStatsEstimate visitLiteral(Literal node, Void context)
         {
             Object value = evaluate(metadata, session.toConnectorSession(), node);
-            Type type = ExpressionAnalyzer.createConstantAnalyzer(metadata, session, ImmutableMap.of(), WarningCollector.NOOP).analyze(node, Scope.create());
+            Type type = ExpressionAnalyzer.createConstantAnalyzer(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(), session, ImmutableMap.of(), WarningCollector.NOOP).analyze(node, Scope.create());
             OptionalDouble doubleValue = toStatsRepresentation(metadata, session, type, value);
             VariableStatsEstimate.Builder estimate = VariableStatsEstimate.builder()
                     .setNullsFraction(0)
@@ -395,7 +395,7 @@ public class ScalarStatsCalculator
         private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
         {
             ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                    metadata.getFunctionAndTypeManager(),
+                    metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
                     session,
                     types,
                     emptyMap(),

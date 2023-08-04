@@ -88,6 +88,12 @@ public final class CallExpression
         return returnType;
     }
 
+    @Override
+    public List<RowExpression> getChildren()
+    {
+        return arguments;
+    }
+
     @JsonProperty
     public List<RowExpression> getArguments()
     {

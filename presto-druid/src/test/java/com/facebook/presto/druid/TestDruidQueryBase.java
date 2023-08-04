@@ -81,7 +81,7 @@ import static java.util.stream.Collectors.toMap;
 public class TestDruidQueryBase
 {
     protected static final FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-    protected static final StandardFunctionResolution standardFunctionResolution = new FunctionResolution(functionAndTypeManager);
+    protected static final StandardFunctionResolution standardFunctionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
 
     protected static ConnectorId druidConnectorId = new ConnectorId("id");
     protected static DruidTableHandle realtimeOnlyTable = new DruidTableHandle("schema", "realtimeOnly", Optional.empty());

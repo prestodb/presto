@@ -47,7 +47,7 @@ import static org.testng.Assert.assertTrue;
 public class TestRowExpressionPredicateCompiler
 {
     private Metadata metadata = createTestMetadataManager();
-    private FunctionResolution functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager());
+    private FunctionResolution functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
 
     @Test
     public void test()

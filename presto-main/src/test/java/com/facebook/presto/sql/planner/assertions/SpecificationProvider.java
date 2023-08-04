@@ -103,4 +103,21 @@ public class SpecificationProvider
                                         .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue))))
                         .orElse(true);
     }
+
+    public static boolean matchSpecification(WindowNode.Specification actual, SpecificationProvider expected)
+    {
+        return actual.getPartitionBy().stream().map(VariableReferenceExpression::getName).collect(toImmutableList())
+                .equals(expected.partitionBy.stream().map(SymbolAlias::toString).collect(toImmutableList())) &&
+                actual.getOrderingScheme().map(orderingScheme -> orderingScheme.getOrderByVariables().stream()
+                        .map(VariableReferenceExpression::getName)
+                        .collect(toImmutableSet())
+                        .equals(expected.orderBy.stream()
+                                .map(SymbolAlias::toString)
+                                .collect(toImmutableSet())) &&
+                        orderingScheme.getOrderingsMap().entrySet().stream()
+                                .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue))
+                                .equals(expected.orderings.entrySet().stream()
+                                        .collect(toImmutableMap(entry -> entry.getKey().toString(), Map.Entry::getValue))))
+                        .orElse(true);
+    }
 }

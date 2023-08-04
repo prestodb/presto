@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.query;
 
 import com.facebook.presto.spi.plan.FilterNode;
-import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
@@ -280,7 +280,7 @@ public class TestFilteredAggregations
     private void assertPlanContainsNoFilter(String sql)
     {
         assertFalse(
-                searchFrom(plan(sql, LogicalPlanner.Stage.OPTIMIZED).getRoot())
+                searchFrom(plan(sql, Optimizer.PlanStage.OPTIMIZED).getRoot())
                         .where(isInstanceOfAny(FilterNode.class))
                         .matches(),
                 "Unexpected node for query: " + sql);

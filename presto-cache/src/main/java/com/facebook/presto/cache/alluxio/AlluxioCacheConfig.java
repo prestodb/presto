@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class AlluxioCacheConfig
@@ -38,6 +39,9 @@ public class AlluxioCacheConfig
     private EvictionPolicy evictionPolicy = EvictionPolicy.LRU;
     private boolean shadowCacheEnabled;
     private Duration shadowCacheWindow = new Duration(7, DAYS);
+    private boolean ttlEnabled;
+    private Duration ttlCheckInterval = new Duration(1, HOURS);
+    private Duration ttlThreshold = new Duration(14, DAYS);
 
     public boolean isMetricsCollectionEnabled()
     {
@@ -218,6 +222,45 @@ public class AlluxioCacheConfig
     public AlluxioCacheConfig setShadowCacheWindow(Duration shadowCacheWindow)
     {
         this.shadowCacheWindow = shadowCacheWindow;
+        return this;
+    }
+
+    @Config("cache.alluxio.ttl-enabled")
+    @ConfigDescription("If the alluxio caching enables the TTL")
+    public AlluxioCacheConfig setTtlEnabled(boolean ttlEnabled)
+    {
+        this.ttlEnabled = ttlEnabled;
+        return this;
+    }
+
+    public boolean isTtlEnabled()
+    {
+        return ttlEnabled;
+    }
+
+    public Duration getTtlCheckInterval()
+    {
+        return ttlCheckInterval;
+    }
+
+    @Config("cache.alluxio.ttl-check-interval")
+    @ConfigDescription("TTL check interval for alluxio cache")
+    public AlluxioCacheConfig setTtlCheckInterval(Duration ttlCheckInterval)
+    {
+        this.ttlCheckInterval = ttlCheckInterval;
+        return this;
+    }
+
+    public Duration getTtlThreshold()
+    {
+        return ttlThreshold;
+    }
+
+    @Config("cache.alluxio.ttl-threshold")
+    @ConfigDescription("TTL threshold for alluxio cache")
+    public AlluxioCacheConfig setTtlThreshold(Duration ttlThreshold)
+    {
+        this.ttlThreshold = ttlThreshold;
         return this;
     }
 }

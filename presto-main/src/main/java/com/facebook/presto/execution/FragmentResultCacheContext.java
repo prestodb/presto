@@ -66,7 +66,7 @@ public class FragmentResultCacheContext
             return Optional.empty();
         }
 
-        Optional<CanonicalPlanFragment> canonicalPlanFragment = generateCanonicalPlanFragment(root, partitioningScheme, objectMapper);
+        Optional<CanonicalPlanFragment> canonicalPlanFragment = generateCanonicalPlanFragment(root, partitioningScheme, objectMapper, session);
         if (!canonicalPlanFragment.isPresent()) {
             return Optional.empty();
         }

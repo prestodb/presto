@@ -17,7 +17,7 @@ set -eufx -o pipefail
 source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-macos.sh"
 
 MACOS_DEPS="${MACOS_DEPS} bison gperf libsodium"
-export FB_OS_VERSION=v2022.07.11.00
+export FB_OS_VERSION=v2022.11.14.00
 
 function install_six {
   pip3 install six
@@ -28,9 +28,8 @@ export PATH=$(brew --prefix bison)/bin:$PATH
 function install_folly {
   github_checkout facebook/folly "${FB_OS_VERSION}"
   OPENSSL_ROOT_DIR=$(brew --prefix openssl@1.1) \
-    cmake_install -DBUILD_TESTS=OFF
+   cmake_install -DBUILD_TESTS=OFF -DFOLLY_HAVE_INT128_T=ON
 }
-
 
 function install_fizz {
   github_checkout facebookincubator/fizz "${FB_OS_VERSION}"

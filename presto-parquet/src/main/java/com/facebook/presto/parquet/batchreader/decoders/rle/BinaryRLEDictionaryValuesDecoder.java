@@ -16,17 +16,21 @@ package com.facebook.presto.parquet.batchreader.decoders.rle;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BinaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.dictionary.BinaryBatchDictionary;
 import org.apache.parquet.io.ParquetDecodingException;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.InputStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.sizeOf;
 
 public class BinaryRLEDictionaryValuesDecoder
         extends BaseRLEBitPackedDecoder
         implements BinaryValuesDecoder
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BinaryRLEDictionaryValuesDecoder.class).instanceSize();
+
     private final BinaryBatchDictionary dictionary;
 
     public BinaryRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, BinaryBatchDictionary dictionary)
@@ -117,6 +121,12 @@ public class BinaryRLEDictionaryValuesDecoder
             remaining -= chunkSize;
         }
         checkState(remaining == 0, "Invalid read size request");
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + (dictionary == null ? 0 : dictionary.getRetainedSizeInBytes()) + sizeOf(currentBuffer);
     }
 
     public static class RLEValueBuffer

@@ -22,6 +22,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.List;
+
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
@@ -37,28 +39,34 @@ public class PrestoSparkRetryExecutionUtils
     private PrestoSparkRetryExecutionUtils() {}
 
     public static PrestoSparkRetryExecutionSettings getRetryExecutionSettings(
-            RetryExecutionStrategy retryExecutionStrategy,
+            List<RetryExecutionStrategy> retryExecutionStrategies,
             Session session)
     {
-        log.info(String.format("Applying retry execution strategy: %s. Query Id: %s", retryExecutionStrategy.name(), session.getQueryId().getId()));
-        switch (retryExecutionStrategy) {
-            case DISABLE_BROADCAST_JOIN:
-                ImmutableMap.Builder<String, String> prestoSettings = new ImmutableMap.Builder<>();
-                prestoSettings.put(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.PARTITIONED.name());
-                return new PrestoSparkRetryExecutionSettings(ImmutableMap.of(), prestoSettings.build());
+        ImmutableMap.Builder<String, String> sparkConfigProperties = new ImmutableMap.Builder<>();
+        ImmutableMap.Builder<String, String> prestoSessionProperties = new ImmutableMap.Builder<>();
 
-            case INCREASE_CONTAINER_SIZE:
-                return new PrestoSparkRetryExecutionSettings(getOutOfMemoryRetrySparkConfigs(session), getOutOfMemoryRetryPrestoSessionProperties(session));
+        for (RetryExecutionStrategy strategy : retryExecutionStrategies) {
+            log.info(String.format("Applying retry execution strategy: %s. Query Id: %s", strategy.name(), session.getQueryId().getId()));
+            switch (strategy) {
+                case DISABLE_BROADCAST_JOIN:
+                    prestoSessionProperties.put(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.PARTITIONED.name());
+                    break;
 
-            case INCREASE_HASH_PARTITION_COUNT:
-                ImmutableMap.Builder<String, String> prestoSettingsWithScaledPartitionCount = new ImmutableMap.Builder<>();
-                Long updatedPartitionCount = Math.round(getHashPartitionCount(session) *
-                        getHashPartitionCountScalingFactorOnOutOfMemory(session));
-                prestoSettingsWithScaledPartitionCount.put(HASH_PARTITION_COUNT, updatedPartitionCount.toString());
-                return new PrestoSparkRetryExecutionSettings(ImmutableMap.of(), prestoSettingsWithScaledPartitionCount.build());
+                case INCREASE_CONTAINER_SIZE:
+                    sparkConfigProperties.putAll(getOutOfMemoryRetrySparkConfigs(session));
+                    prestoSessionProperties.putAll(getOutOfMemoryRetryPrestoSessionProperties(session));
+                    break;
 
-            default:
-                throw new PrestoException(INVALID_RETRY_EXECUTION_STRATEGY, "Retry execution strategy not supported: " + retryExecutionStrategy);
+                case INCREASE_HASH_PARTITION_COUNT:
+                    long updatedPartitionCount = Math.round(getHashPartitionCount(session) *
+                            getHashPartitionCountScalingFactorOnOutOfMemory(session));
+                    prestoSessionProperties.put(HASH_PARTITION_COUNT, Long.toString(updatedPartitionCount));
+                    break;
+                default:
+                    throw new PrestoException(INVALID_RETRY_EXECUTION_STRATEGY, "Retry execution strategy not supported: " + retryExecutionStrategies);
+            }
         }
+
+        return new PrestoSparkRetryExecutionSettings(sparkConfigProperties.build(), prestoSessionProperties.build());
     }
 }

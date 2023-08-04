@@ -149,6 +149,19 @@ public class TestStatsNormalizer
                 .variableStats(variable, variableAssert -> variableAssert.distinctValuesCount(expectedNormalizedNdv));
     }
 
+    @Test
+    public void testTotalSizeOnlyMaintainsTotalSize()
+    {
+        PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(NaN)
+                .setTotalSize(120)
+                .build();
+
+        assertNormalized(estimate)
+                .outputRowsCountUnknown()
+                .totalSize(120);
+    }
+
     private PlanNodeStatsAssertion assertNormalized(PlanNodeStatsEstimate estimate)
     {
         PlanNodeStatsEstimate normalized = normalizer.normalize(estimate, estimate.getVariablesWithKnownStatistics());

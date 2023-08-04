@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -30,6 +31,9 @@ public class HudiConfig
     private boolean sizeBasedSplitWeightsEnabled = true;
     private DataSize standardSplitWeightSize = new DataSize(128, MEGABYTE);
     private double minimumAssignedSplitWeight = 0.05;
+    private int maxOutstandingSplits = 1000;
+    private int splitLoaderParallelism = 4;
+    private int splitGeneratorParallelism = 4;
 
     public boolean isMetadataTableEnabled()
     {
@@ -84,6 +88,49 @@ public class HudiConfig
     public HudiConfig setMinimumAssignedSplitWeight(double minimumAssignedSplitWeight)
     {
         this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxOutstandingSplits()
+    {
+        return maxOutstandingSplits;
+    }
+
+    @Config("hudi.max-outstanding-splits")
+    @ConfigDescription("Maximum outstanding splits per batch for query.")
+    public HudiConfig setMaxOutstandingSplits(int maxOutstandingSplits)
+    {
+        this.maxOutstandingSplits = maxOutstandingSplits;
+        return this;
+    }
+
+    @Min(1)
+    public int getSplitGeneratorParallelism()
+    {
+        return splitGeneratorParallelism;
+    }
+
+    @Config("hudi.split-generator-parallelism")
+    @ConfigDescription("Number of threads used to generate splits from partitions.")
+    public HudiConfig setSplitGeneratorParallelism(int splitGeneratorParallelism)
+    {
+        this.splitGeneratorParallelism = splitGeneratorParallelism;
+        return this;
+    }
+
+    @Min(1)
+    public int getSplitLoaderParallelism()
+    {
+        return splitLoaderParallelism;
+    }
+
+    @Config("hudi.split-loader-parallelism")
+    @ConfigDescription("Number of threads used to run background split loader. "
+            + "A single background split loader is needed per query.")
+    public HudiConfig setSplitLoaderParallelism(int splitLoaderParallelism)
+    {
+        this.splitLoaderParallelism = splitLoaderParallelism;
         return this;
     }
 }

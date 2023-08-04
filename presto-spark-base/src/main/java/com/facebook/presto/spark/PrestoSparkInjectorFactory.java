@@ -22,13 +22,14 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.warnings.WarningCollectorModule;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkBootstrapTimer;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.storage.TempStorageManager;
@@ -124,8 +125,10 @@ public class PrestoSparkInjectorFactory
         this.isForTesting = isForTesting;
     }
 
-    public Injector create()
+    public Injector create(PrestoSparkBootstrapTimer bootstrapTimer)
     {
+        bootstrapTimer.beginInjectorCreation();
+
         // TODO: migrate docker containers to a newer JVM, then re-enable it
         // verifyJvmRequirements();
         verifySystemTimeIsReasonable();
@@ -169,15 +172,20 @@ public class PrestoSparkInjectorFactory
 
         app.setRequiredConfigurationProperties(ImmutableMap.copyOf(requiredProperties));
 
+        bootstrapTimer.beginInjectorInitialization();
         Injector injector = app.initialize();
+        bootstrapTimer.endInjectorInitialization();
 
         try {
+            bootstrapTimer.beginSharedModulesLoading();
             injector.getInstance(PluginManager.class).loadPlugins();
             injector.getInstance(StaticCatalogStore.class).loadCatalogs(catalogProperties);
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
             eventListenerProperties.ifPresent(properties -> injector.getInstance(EventListenerManager.class).loadConfiguredEventListener(properties));
+            bootstrapTimer.endSharedModulesLoading();
 
+            bootstrapTimer.beginNonTestingModulesLoading();
             if (!isForTesting) {
                 if (accessControlProperties.isPresent()) {
                     injector.getInstance(AccessControlManager.class).loadSystemAccessControl(accessControlProperties.get());
@@ -193,7 +201,9 @@ public class PrestoSparkInjectorFactory
                     injector.getInstance(TempStorageManager.class).loadTempStorages();
                 }
             }
+            bootstrapTimer.endNonTestingModulesLoading();
 
+            bootstrapTimer.beginDriverModulesLoading();
             if ((sparkProcessType.equals(DRIVER))) {
                 if (sessionPropertyConfigurationProperties.isPresent()) {
                     injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager(sessionPropertyConfigurationProperties.get());
@@ -212,11 +222,12 @@ public class PrestoSparkInjectorFactory
                     injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
                 }
             }
+            bootstrapTimer.endDriverModulesLoading();
         }
         catch (Exception e) {
             throw new RuntimeException(e);
         }
-
+        bootstrapTimer.endInjectorCreation();
         return injector;
     }
 }

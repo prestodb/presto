@@ -232,4 +232,19 @@ public class TestCombineApproxPercentileFunctions
                     }
                 })).doesNotFire();
     }
+
+    @Test
+    public void testWithDuplicate()
+    {
+        tester().assertThat(new CombineApproxPercentileFunctions(getMetadata().getFunctionAndTypeManager()))
+                .on(p -> p.aggregation(af -> {
+                    p.variable("col", BIGINT);
+                    af.globalGrouping()
+                            .addAggregation(p.variable("approx_percentile_1"), p.rowExpression("approx_percentile(col, 0.1)", ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE))
+                            .addAggregation(p.variable("approx_percentile_2"), p.rowExpression("approx_percentile(col, 0.1)", ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE))
+                            .addAggregation(p.variable("approx_percentile_3"), p.rowExpression("approx_percentile(col, 0.2)", ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE))
+                            .addAggregation(p.variable("approx_percentile_4"), p.rowExpression("approx_percentile(col, 0.2)", ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE))
+                            .source(p.values(p.variable("col")));
+                })).doesNotFire();
+    }
 }

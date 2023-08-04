@@ -14,13 +14,11 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
@@ -72,7 +70,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                         p.values(p.variable("corr")),
                         p.aggregation(ab -> ab
                                 .source(p.values(p.variable("a"), p.variable("b")))
-                                .addAggregation(p.variable("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                .addAggregation(p.variable("sum"), p.rowExpression("sum(a)"))
                                 .singleGroupingSet(p.variable("b")))))
                 .doesNotFire();
     }
@@ -86,7 +84,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                         p.values(p.variable("corr")),
                         p.aggregation(ab -> ab
                                 .source(p.values(p.variable("a"), p.variable("b")))
-                                .addAggregation(p.variable("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                .addAggregation(p.variable("sum"), p.rowExpression("sum(a)"))
                                 .globalGrouping())))
                 .matches(
                         project(ImmutableMap.of("sum_1", expression("sum_1"), "corr", expression("corr")),
@@ -106,11 +104,12 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                 .on(p -> p.lateral(
                         ImmutableList.of(p.variable("corr")),
                         p.values(p.variable("corr")),
-                        p.project(assignment(p.variable("expr"), p.expression("sum + 1")),
+                        p.project(
                                 p.aggregation(ab -> ab
                                         .source(p.values(p.variable("a"), p.variable("b")))
-                                        .addAggregation(p.variable("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                                        .globalGrouping()))))
+                                        .addAggregation(p.variable("sum"), p.rowExpression("sum(a)"))
+                                        .globalGrouping()),
+                        assignment(p.variable("expr"), p.rowExpression("sum + 1")))))
                 .matches(
                         project(ImmutableMap.of("corr", expression("corr"), "expr", expression("(\"sum_1\" + 1)")),
                                 aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),

@@ -224,7 +224,7 @@ queryNoWith:
       queryTerm
       (ORDER BY sortItem (',' sortItem)*)?
       (OFFSET offset=INTEGER_VALUE (ROW | ROWS)?)?
-      (LIMIT limit=(INTEGER_VALUE | ALL))?
+      ((LIMIT limit=(INTEGER_VALUE | ALL) | (FETCH FIRST fetchFirstNRows=INTEGER_VALUE ROWS ONLY))?)?
     ;
 
 queryTerm
@@ -487,8 +487,10 @@ over
 windowFrame
     : frameType=RANGE start=frameBound
     | frameType=ROWS start=frameBound
+    | frameType=GROUPS start=frameBound
     | frameType=RANGE BETWEEN start=frameBound AND end=frameBound
     | frameType=ROWS BETWEEN start=frameBound AND end=frameBound
+    | frameType=GROUPS BETWEEN start=frameBound AND end=frameBound
     ;
 
 frameBound
@@ -566,8 +568,8 @@ nonReserved
     | CALL | CALLED | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CURRENT | CURRENT_ROLE
     | DATA | DATE | DAY | DEFINER | DESC | DETERMINISTIC | DISTRIBUTED
     | EXCLUDING | EXPLAIN | EXTERNAL
-    | FILTER | FIRST | FOLLOWING | FORMAT | FUNCTION | FUNCTIONS
-    | GRANT | GRANTED | GRANTS | GRAPHVIZ
+    | FETCH | FILTER | FIRST | FOLLOWING | FORMAT | FUNCTION | FUNCTIONS
+    | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
     | IF | IGNORE | INCLUDING | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
@@ -645,6 +647,7 @@ EXPLAIN: 'EXPLAIN';
 EXTRACT: 'EXTRACT';
 EXTERNAL: 'EXTERNAL';
 FALSE: 'FALSE';
+FETCH: 'FETCH';
 FILTER: 'FILTER';
 FIRST: 'FIRST';
 FOLLOWING: 'FOLLOWING';
@@ -660,6 +663,7 @@ GRANTS: 'GRANTS';
 GRAPHVIZ: 'GRAPHVIZ';
 GROUP: 'GROUP';
 GROUPING: 'GROUPING';
+GROUPS: 'GROUPS';
 HAVING: 'HAVING';
 HOUR: 'HOUR';
 IF: 'IF';

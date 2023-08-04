@@ -72,6 +72,7 @@ public final class HiveSessionProperties
     private static final String ORC_OPTIMIZED_WRITER_INTEGER_DICTIONARY_ENCODING_ENABLED = "orc_optimized_writer_integer_dictionary_encoding_enabled";
     private static final String ORC_OPTIMIZED_WRITER_STRING_DICTIONARY_ENCODING_ENABLED = "orc_optimized_writer_string_dictionary_encoding_enabled";
     private static final String ORC_OPTIMIZED_WRITER_STRING_DICTIONARY_SORTING_ENABLED = "orc_optimized_writer_string_dictionary_sorting_enabled";
+    private static final String ORC_OPTIMIZED_WRITER_FLAT_MAP_WRITER_ENABLED = "orc_optimized_writer_flat_map_writer_enabled";
     private static final String ORC_OPTIMIZED_WRITER_COMPRESSION_LEVEL = "orc_optimized_writer_compression_level";
     private static final String PAGEFILE_WRITER_MAX_STRIPE_SIZE = "pagefile_writer_max_stripe_size";
     public static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
@@ -289,6 +290,11 @@ public final class HiveSessionProperties
                         ORC_OPTIMIZED_WRITER_STRING_DICTIONARY_SORTING_ENABLED,
                         "ORC: Enable string dictionary sorting",
                         orcFileWriterConfig.isStringDictionarySortingEnabled(),
+                        false),
+                booleanProperty(
+                        ORC_OPTIMIZED_WRITER_FLAT_MAP_WRITER_ENABLED,
+                        "ORC: Enable flat map writer",
+                        orcFileWriterConfig.isFlatMapWriterEnabled(),
                         false),
                 integerProperty(
                         ORC_OPTIMIZED_WRITER_COMPRESSION_LEVEL,
@@ -837,6 +843,11 @@ public final class HiveSessionProperties
     public static boolean isStringDictionarySortingEnabled(ConnectorSession session)
     {
         return session.getProperty(ORC_OPTIMIZED_WRITER_STRING_DICTIONARY_SORTING_ENABLED, Boolean.class);
+    }
+
+    public static boolean isFlatMapWriterEnabled(ConnectorSession session)
+    {
+        return session.getProperty(ORC_OPTIMIZED_WRITER_FLAT_MAP_WRITER_ENABLED, Boolean.class);
     }
 
     public static OptionalInt getCompressionLevel(ConnectorSession session)

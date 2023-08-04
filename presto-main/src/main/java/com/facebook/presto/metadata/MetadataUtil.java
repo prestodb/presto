@@ -225,7 +225,7 @@ public final class MetadataUtil
             return false;
         }
         QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), table);
-        return metadata.getTableHandle(session, name).isPresent();
+        return metadata.getMetadataResolver(session).getTableHandle(name).isPresent();
     }
 
     public static class SchemaMetadataBuilder

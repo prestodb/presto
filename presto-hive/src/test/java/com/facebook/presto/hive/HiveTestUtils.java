@@ -43,7 +43,9 @@ import com.facebook.presto.hive.pagefile.PageFileWriterFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.hive.s3.HiveS3Config;
+import com.facebook.presto.hive.s3.PrestoS3ClientFactory;
 import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
+import com.facebook.presto.hive.s3select.S3SelectRecordCursorProvider;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.PagesIndex;
@@ -99,7 +101,7 @@ public final class HiveTestUtils
 
     public static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = METADATA.getFunctionAndTypeManager();
 
-    public static final StandardFunctionResolution FUNCTION_RESOLUTION = new FunctionResolution(METADATA.getFunctionAndTypeManager());
+    public static final StandardFunctionResolution FUNCTION_RESOLUTION = new FunctionResolution(METADATA.getFunctionAndTypeManager().getFunctionAndTypeResolver());
 
     public static final RowExpressionService ROW_EXPRESSION_SERVICE = new RowExpressionService()
     {
@@ -171,6 +173,18 @@ public final class HiveTestUtils
     {
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig, metastoreClientConfig);
         return ImmutableSet.<HiveRecordCursorProvider>builder()
+                .add(new GenericHiveRecordCursorProvider(testHdfsEnvironment))
+                .build();
+    }
+
+    public static Set<HiveRecordCursorProvider> getDefaultS3HiveRecordCursorProvider(HiveClientConfig hiveClientConfig, MetastoreClientConfig metastoreClientConfig)
+    {
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig, metastoreClientConfig);
+        // Without S3SelectRecordCursorProvider we are not pushing down to Select, but falling on GET path.
+        // GenericHiveRecordCursorProvider is needed to handle Hive splits when the query does not filter data
+        // as this is no longer pushed to Select.
+        return ImmutableSet.<HiveRecordCursorProvider>builder()
+                .add(new S3SelectRecordCursorProvider(testHdfsEnvironment, hiveClientConfig, new PrestoS3ClientFactory()))
                 .add(new GenericHiveRecordCursorProvider(testHdfsEnvironment))
                 .build();
     }

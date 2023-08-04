@@ -100,6 +100,13 @@ public class TestAccumuloDistributedQueries
                 "SELECT 0");
     }
 
+    @Test
+    @Override
+    public void testSubfieldAccessControl()
+    {
+        // disabled as accumulo doesn't support complex types
+    }
+
     @Override
     public void testDelete()
     {
@@ -376,5 +383,23 @@ public class TestAccumuloDistributedQueries
     public void testDescribeOutputNamedAndUnnamed()
     {
         // this connector uses a non-canonical type for varchar columns in tpch
+    }
+
+    @Override
+    @Test(enabled = false)
+    public void testStringFilters()
+    {
+        // Type not supported for Accumulo: CHAR(10).
+        // VARCHAR(10) fails and this test is disabled for now. See https://github.com/prestodb/presto/issues/19288
+        assertUpdate("CREATE TABLE test_varcharn_filter (shipmode VARCHAR(10))");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_varcharn_filter"));
+        assertTableColumnNames("test_varcharn_filter", "shipmode");
+        assertUpdate("INSERT INTO test_varcharn_filter SELECT shipmode FROM lineitem", 60175);
+
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR'", "VALUES (8491)");
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR    '", "VALUES (0)");
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR       '", "VALUES (0)");
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR            '", "VALUES (0)");
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'NONEXIST'", "VALUES (0)");
     }
 }

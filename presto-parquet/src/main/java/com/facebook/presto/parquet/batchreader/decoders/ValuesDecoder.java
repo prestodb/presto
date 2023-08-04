@@ -81,4 +81,6 @@ public interface ValuesDecoder
 
         void skip(int length);
     }
+
+    public long getRetainedSizeInBytes();
 }

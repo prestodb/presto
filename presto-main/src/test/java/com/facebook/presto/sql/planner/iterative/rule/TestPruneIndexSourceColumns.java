@@ -40,7 +40,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constrainedIndexSource;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -80,7 +80,7 @@ public class TestPruneIndexSourceColumns
         ColumnHandle custkeyHandle = new TpchColumnHandle(custkey.getName(), INTEGER);
         ColumnHandle totalpriceHandle = new TpchColumnHandle(totalprice.getName(), DOUBLE);
         return p.project(
-                identityAssignmentsAsSymbolReferences(
+                identityAssignments(
                         ImmutableList.of(orderkey, custkey, totalprice).stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),

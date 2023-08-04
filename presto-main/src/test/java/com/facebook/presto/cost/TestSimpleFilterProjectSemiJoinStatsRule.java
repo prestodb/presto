@@ -20,7 +20,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -28,7 +27,7 @@ import java.util.Optional;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 
 public class TestSimpleFilterProjectSemiJoinStatsRule
         extends BaseStatsCalculatorTest
@@ -79,16 +78,10 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
     private static final PlanNodeId RIGHT_SOURCE_ID = new PlanNodeId("right_source_values");
     private static final TestingRowExpressionTranslator TRANSLATOR = new TestingRowExpressionTranslator(MetadataManager.createTestMetadataManager());
 
-    @DataProvider(name = "toRowExpression")
-    public Object[][] toRowExpressionProvider()
+    @Test
+    public void testFilterPositiveSemiJoin()
     {
-        return new Object[][] {{true}, {false}};
-    }
-
-    @Test(dataProvider = "toRowExpression")
-    public void testFilterPositiveSemiJoin(boolean toRowExpression)
-    {
-        getStatsCalculatorAssertion(new SymbolReference("sjo"), toRowExpression)
+        getStatsCalculatorAssertion(new SymbolReference("sjo"))
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
                         .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "a", BIGINT), aStats)
@@ -105,8 +98,8 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                         .variableStatsUnknown("sjo"));
     }
 
-    @Test(dataProvider = "toRowExpression")
-    public void testFilterPositiveNarrowingProjectSemiJoin(boolean toRowExpression)
+    @Test
+    public void testFilterPositiveNarrowingProjectSemiJoin()
     {
         tester().assertStatsFor(pb -> {
             VariableReferenceExpression a = pb.variable("a", BIGINT);
@@ -124,12 +117,9 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                     Optional.empty(),
                     Optional.empty());
 
-            if (toRowExpression) {
-                return pb.filter(
-                        TRANSLATOR.translateAndOptimize(expression("sjo"), pb.getTypes()),
-                        pb.project(identityAssignmentsAsSymbolReferences(semiJoinOutput, a), semiJoinNode));
-            }
-            return pb.filter(expression("sjo"), pb.project(identityAssignmentsAsSymbolReferences(semiJoinOutput, a), semiJoinNode));
+            return pb.filter(
+                    TRANSLATOR.translate(expression("sjo"), pb.getTypes()),
+                    pb.project(identityAssignments(semiJoinOutput, a), semiJoinNode));
         })
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
@@ -147,10 +137,10 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                         .variableStatsUnknown("sjo"));
     }
 
-    @Test(dataProvider = "toRowExpression")
-    public void testFilterPositivePlusExtraConjunctSemiJoin(boolean toRowExpression)
+    @Test
+    public void testFilterPositivePlusExtraConjunctSemiJoin()
     {
-        getStatsCalculatorAssertion(expression("sjo AND a < 8"), toRowExpression)
+        getStatsCalculatorAssertion(expression("sjo AND a < 8"))
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
                         .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "a", BIGINT), aStats)
@@ -167,10 +157,10 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                         .variableStatsUnknown("sjo"));
     }
 
-    @Test(dataProvider = "toRowExpression")
-    public void testFilterNegativeSemiJoin(boolean toRowExpression)
+    @Test
+    public void testFilterNegativeSemiJoin()
     {
-        getStatsCalculatorAssertion(expression("NOT sjo"), toRowExpression)
+        getStatsCalculatorAssertion(expression("NOT sjo"))
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
                         .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "a", BIGINT), aStats)
@@ -187,7 +177,7 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                         .variableStatsUnknown("sjo"));
     }
 
-    private StatsCalculatorAssertion getStatsCalculatorAssertion(Expression expression, boolean toRowExpression)
+    private StatsCalculatorAssertion getStatsCalculatorAssertion(Expression expression)
     {
         return tester().assertStatsFor(pb -> {
             VariableReferenceExpression a = pb.variable("a", BIGINT);
@@ -205,10 +195,7 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                     Optional.empty(),
                     Optional.empty());
 
-            if (toRowExpression) {
-                return pb.filter(TRANSLATOR.translateAndOptimize(expression, pb.getTypes()), semiJoinNode);
-            }
-            return pb.filter(expression, semiJoinNode);
+            return pb.filter(TRANSLATOR.translate(expression, pb.getTypes()), semiJoinNode);
         });
     }
 }

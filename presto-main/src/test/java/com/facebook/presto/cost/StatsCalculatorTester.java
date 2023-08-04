@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.function.Function;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.util.Objects.requireNonNull;
 
 public class StatsCalculatorTester
         implements AutoCloseable
@@ -49,9 +50,14 @@ public class StatsCalculatorTester
         return metadata;
     }
 
-    private StatsCalculatorTester(LocalQueryRunner queryRunner)
+    public StatsCalculatorTester(LocalQueryRunner queryRunner)
     {
-        this.statsCalculator = queryRunner.getStatsCalculator();
+        this(queryRunner, queryRunner.getStatsCalculator());
+    }
+
+    public StatsCalculatorTester(LocalQueryRunner queryRunner, StatsCalculator statsCalculator)
+    {
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.session = queryRunner.getDefaultSession();
         this.metadata = queryRunner.getMetadata();
         this.queryRunner = queryRunner;

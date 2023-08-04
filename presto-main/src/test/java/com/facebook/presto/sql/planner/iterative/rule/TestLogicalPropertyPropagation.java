@@ -114,7 +114,7 @@ public class TestLogicalPropertyPropagation
     {
         tester = new RuleTester(emptyList(), ImmutableMap.of(), Optional.of(1), new TestTableConstraintsConnectorFactory(1));
         ConnectorId connectorId = tester().getCurrentConnectorId();
-        functionResolution = new FunctionResolution(tester.getMetadata().getFunctionAndTypeManager());
+        functionResolution = new FunctionResolution(tester.getMetadata().getFunctionAndTypeManager().getFunctionAndTypeResolver());
         logicalPropertiesProvider = new LogicalPropertiesProviderImpl(functionResolution);
 
         TpchTableHandle customerTpchTableHandle = new TpchTableHandle("customer", 1.0);
@@ -1051,7 +1051,7 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(ordersTableHandle));
 
-                    return p.join(JoinNode.Type.INNER, customerTableScan, ordersTableScan, emptyList(), ImmutableList.of(ordersOrderKeyVariable, customerCustKeyVariable, ordersCustKeyVariable), Optional.empty());
+                    return p.join(JoinNode.Type.INNER, customerTableScan, ordersTableScan, emptyList(), ImmutableList.of(customerCustKeyVariable, ordersOrderKeyVariable, ordersCustKeyVariable), Optional.empty());
                 })
                 .matches(expectedLogicalProperties);
 
@@ -1080,7 +1080,7 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(ordersTableHandle));
 
-                    return p.join(JoinNode.Type.INNER, p.limit(11, customerTableScan), p.limit(12, ordersTableScan), emptyList(), ImmutableList.of(ordersOrderKeyVariable, ordersCustKeyVariable, customerCustKeyVariable), Optional.empty());
+                    return p.join(JoinNode.Type.INNER, p.limit(11, customerTableScan), p.limit(12, ordersTableScan), emptyList(), ImmutableList.of(customerCustKeyVariable, ordersOrderKeyVariable, ordersCustKeyVariable), Optional.empty());
                 })
                 .matches(expectedLogicalProperties);
 
@@ -1120,8 +1120,7 @@ public class TestLogicalPropertyPropagation
                             orderTableConstraints);
 
                     return p.join(JoinNode.Type.INNER, customerTableScan, ordersTableScan, emptyList(),
-                            ImmutableList.of(ordersOrderKeyVariable, ordersCustKeyVariable, ordersCommentVariable,
-                                    customerCustKeyVariable, customerCommentVariable),
+                            ImmutableList.of(customerCustKeyVariable, customerCommentVariable, ordersOrderKeyVariable, ordersCustKeyVariable, ordersCommentVariable),
                             Optional.empty());
                 })
                 .matches(expectedLogicalProperties);
@@ -1215,7 +1214,7 @@ public class TestLogicalPropertyPropagation
 
                     return p.join(JoinNode.Type.FULL, p.limit(12, customerTableScan), p.limit(10, ordersTableScan),
                             ImmutableList.of(new JoinNode.EquiJoinClause(customerCustKeyVariable, ordersCustKeyVariable)),
-                            ImmutableList.of(ordersOrderKeyVariable, customerCustKeyVariable),
+                            ImmutableList.of(customerCustKeyVariable, ordersOrderKeyVariable),
                             Optional.empty());
                 })
                 .matches(expectedLogicalProperties);
@@ -1246,8 +1245,7 @@ public class TestLogicalPropertyPropagation
                             tester().getTableConstraints(ordersTableHandle));
 
                     return p.join(JoinNode.Type.INNER, p.limit(2, customerTableScan), ordersTableScan, emptyList(),
-                            ImmutableList.of(ordersOrderKeyVariable, ordersCustKeyVariable,
-                                    customerCustKeyVariable),
+                            ImmutableList.of(customerCustKeyVariable, ordersOrderKeyVariable, ordersCustKeyVariable),
                             Optional.empty());
                 })
                 .matches(expectedLogicalProperties);
@@ -1278,8 +1276,7 @@ public class TestLogicalPropertyPropagation
                             tester().getTableConstraints(ordersTableHandle));
 
                     return p.join(JoinNode.Type.INNER, ordersTableScan, p.limit(2, customerTableScan), emptyList(),
-                            ImmutableList.of(ordersOrderKeyVariable, ordersCustKeyVariable,
-                                    customerCustKeyVariable),
+                            ImmutableList.of(ordersOrderKeyVariable, ordersCustKeyVariable, customerCustKeyVariable),
                             Optional.empty());
                 })
                 .matches(expectedLogicalProperties);

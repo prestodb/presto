@@ -24,6 +24,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.SortExpressionContext;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -46,6 +47,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
+import static com.facebook.presto.sql.planner.sanity.ValidateDependenciesChecker.checkLeftOutputVariablesBeforeRight;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -122,6 +124,8 @@ public class JoinNode
         this.distributionType = distributionType;
         this.dynamicFilters = ImmutableMap.copyOf(dynamicFilters);
 
+        checkLeftOutputVariablesBeforeRight(left.getOutputVariables(), outputVariables);
+
         Set<VariableReferenceExpression> inputVariables = ImmutableSet.<VariableReferenceExpression>builder()
                 .addAll(left.getOutputVariables())
                 .addAll(right.getOutputVariables())
@@ -174,7 +178,8 @@ public class JoinNode
                 ImmutableMap.of()); // dynamicFilters are invalid after flipping children
     }
 
-    private static Type flipType(Type type)
+    @VisibleForTesting
+    public static Type flipType(Type type)
     {
         switch (type) {
             case INNER:

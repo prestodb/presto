@@ -15,7 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -23,6 +23,7 @@ import com.facebook.presto.testing.LocalQueryRunner;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.SystemSessionProperties.isVerboseOptimizerInfoEnabled;
 import static org.testng.Assert.assertEquals;
 
 public class PlanDeterminismChecker
@@ -62,15 +63,16 @@ public class PlanDeterminismChecker
     private String getPlanText(Session session, String sql)
     {
         return localQueryRunner.inTransaction(session, transactionSession -> {
-            Plan plan = localQueryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP);
+            Plan plan = localQueryRunner.createPlan(transactionSession, sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP);
             return PlanPrinter.textLogicalPlan(
                     plan.getRoot(),
                     plan.getTypes(),
-                    localQueryRunner.getMetadata().getFunctionAndTypeManager(),
                     plan.getStatsAndCosts(),
+                    localQueryRunner.getMetadata().getFunctionAndTypeManager(),
                     transactionSession,
                     0,
-                    false);
+                    false,
+                    isVerboseOptimizerInfoEnabled(session));
         });
     }
 }

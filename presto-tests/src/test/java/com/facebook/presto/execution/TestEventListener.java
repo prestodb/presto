@@ -39,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.execution.TestQueues.createResourceGroupId;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
@@ -70,12 +71,7 @@ public class TestEventListener
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
         queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of("tpch.splits-per-node", Integer.toString(SPLITS_PER_NODE)));
         queryRunner.getCoordinator().getResourceGroupManager().get()
-                .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
-    }
-
-    private String getResourceFilePath(String fileName)
-    {
-        return this.getClass().getClassLoader().getResource(fileName).getPath();
+                .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
     }
 
     @AfterClass(alwaysRun = true)
@@ -263,6 +259,21 @@ public class TestEventListener
         assertTrue(queryCompletedEvent.getStatistics().getOutputBytes() > 0L);
         assertEquals(1L, queryStats.getOutputPositions());
         assertEquals(1L, queryCompletedEvent.getStatistics().getOutputRows());
+    }
+
+    @Test
+    public void testGraphvizQueryPlanOutput()
+            throws Exception
+    {
+        int expectedEvents = 1 + 1 + SPLITS_PER_NODE + 1 + 1;
+        String query = "EXPLAIN (type distributed, format graphviz) SELECT * FROM LINEITEM limit 1";
+        Session sessionForEventLoggingWithStats = Session.builder(session)
+                .setSystemProperty("print_stats_for_non_join_query", "true")
+                .build();
+        runQueryAndWaitForEvents("SELECT * FROM lineitem limit 1", expectedEvents, sessionForEventLoggingWithStats);
+        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        MaterializedResult expected = runQueryAndWaitForEvents(query, expectedEvents);
+        assertEquals(queryCompletedEvent.getMetadata().getGraphvizPlan().get(), getOnlyElement(expected.getOnlyColumnAsSet()));
     }
 
     static class EventsBuilder

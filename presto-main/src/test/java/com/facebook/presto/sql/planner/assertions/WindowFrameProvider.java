@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType;
@@ -31,21 +32,40 @@ public class WindowFrameProvider
     private final WindowType type;
     private final BoundType startType;
     private final Optional<SymbolAlias> startValue;
+    private final Optional<SymbolAlias> sortKeyForStartComparison;
     private final BoundType endType;
     private final Optional<SymbolAlias> endValue;
+    private final Optional<SymbolAlias> sortKeyForEndComparison;
+
+    private Optional<Type> startValueType;
+    private Optional<Type> sortKeyForStartComparisonType;
+    private Optional<Type> endValueType;
+    private Optional<Type> sortKeyForEndComparisonType;
 
     WindowFrameProvider(
             WindowType type,
             BoundType startType,
             Optional<SymbolAlias> startValue,
+            Optional<Type> startValueType,
+            Optional<SymbolAlias> sortKeyForStartComparison,
+            Optional<Type> sortKeyForStartComparisonType,
             BoundType endType,
-            Optional<SymbolAlias> endValue)
+            Optional<SymbolAlias> endValue,
+            Optional<Type> endValueType,
+            Optional<SymbolAlias> sortKeyForEndComparison,
+            Optional<Type> sortKeyForEndComparisonType)
     {
         this.type = requireNonNull(type, "type is null");
         this.startType = requireNonNull(startType, "startType is null");
         this.startValue = requireNonNull(startValue, "startValue is null");
+        this.startValueType = requireNonNull(startValueType, "startValueType is null");
+        this.sortKeyForStartComparison = requireNonNull(sortKeyForStartComparison, "sortKeyForStartComparison is null");
+        this.sortKeyForStartComparisonType = requireNonNull(sortKeyForStartComparisonType, "sortKeyForStartComparisonType is null");
         this.endType = requireNonNull(endType, "endType is null");
         this.endValue = requireNonNull(endValue, "endValue is null");
+        this.endValueType = requireNonNull(endValueType, "endValueType is null");
+        this.sortKeyForEndComparison = requireNonNull(sortKeyForEndComparison, "sortKeyForEndComparison is null");
+        this.sortKeyForEndComparisonType = requireNonNull(sortKeyForEndComparisonType, "sortKeyForEndComparisonType is null");
     }
 
     @Override
@@ -59,11 +79,28 @@ public class WindowFrameProvider
         return new WindowNode.Frame(
                 type,
                 startType,
-                startValue.map(alias -> new VariableReferenceExpression(Optional.empty(), alias.toSymbol(aliases).getName(), BIGINT)),
+                toVariableReferenceExpression(aliases, startValue, startValueType),
+                toVariableReferenceExpression(aliases, sortKeyForStartComparison, sortKeyForStartComparisonType),
                 endType,
-                endValue.map(alias -> new VariableReferenceExpression(Optional.empty(), alias.toSymbol(aliases).getName(), BIGINT)),
+                toVariableReferenceExpression(aliases, endValue, endValueType),
+                toVariableReferenceExpression(aliases, sortKeyForEndComparison, sortKeyForEndComparisonType),
                 originalStartValue.map(Expression::toString),
                 originalEndValue.map(Expression::toString));
+    }
+
+    private Optional<VariableReferenceExpression> toVariableReferenceExpression(SymbolAliases aliases, Optional<SymbolAlias> symbolAlias, Optional<Type> type)
+    {
+        if (!symbolAlias.isPresent()) {
+            return Optional.empty();
+        }
+
+        String alias = symbolAlias.get().toSymbol(aliases).getName();
+        Type variableType = type.orElseGet(() -> BIGINT);
+        if (alias.startsWith("field")) {
+            return Optional.of(new VariableReferenceExpression(Optional.empty(), symbolAlias.get().toString(), variableType));
+        }
+
+        return Optional.of(new VariableReferenceExpression(Optional.empty(), symbolAlias.get().toSymbol(aliases).getName(), variableType));
     }
 
     @Override
@@ -73,8 +110,14 @@ public class WindowFrameProvider
                 .add("type", this.type)
                 .add("startType", this.startType)
                 .add("startValue", this.startValue)
+                .add("startValueType", this.startValueType)
+                .add("sortKeyForStartComparison", this.sortKeyForStartComparison)
+                .add("sortKeyForStartComparisonType", this.sortKeyForStartComparisonType)
                 .add("endType", this.endType)
                 .add("endValue", this.endValue)
+                .add("endValueType", this.endValueType)
+                .add("sortKeyForEndComparison", this.sortKeyForEndComparison)
+                .add("sortKeyForEndComparisonType", this.sortKeyForEndComparisonType)
                 .toString();
     }
 }

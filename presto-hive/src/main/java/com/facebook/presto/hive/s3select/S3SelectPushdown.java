@@ -20,7 +20,6 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.io.compress.BZip2Codec;
 import org.apache.hadoop.io.compress.GzipCodec;
@@ -54,7 +53,6 @@ public class S3SelectPushdown
 {
     private static final Logger LOG = Logger.get(S3SelectPushdown.class);
     private static final Set<String> SUPPORTED_S3_PREFIXES = ImmutableSet.of("s3://", "s3a://", "s3n://");
-    private static final Set<String> SUPPORTED_SERDES = ImmutableSet.of(LazySimpleSerDe.class.getName());
     private static final Set<String> SUPPORTED_INPUT_FORMATS = ImmutableSet.of(TextInputFormat.class.getName());
 
     /*
@@ -80,7 +78,7 @@ public class S3SelectPushdown
     private static boolean isSerdeSupported(Properties schema)
     {
         String serdeName = getDeserializerClassName(schema);
-        return SUPPORTED_SERDES.contains(serdeName);
+        return S3SelectSerDeDataTypeMapper.doesSerDeExist(serdeName);
     }
 
     private static boolean isInputFormatSupported(Properties schema)

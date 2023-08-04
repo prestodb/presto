@@ -20,6 +20,8 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.relation.InSubqueryExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -27,9 +29,6 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -40,17 +39,14 @@ import static com.facebook.presto.SystemSessionProperties.getJoinReorderingStrat
 import static com.facebook.presto.SystemSessionProperties.isExploitConstraints;
 import static com.facebook.presto.SystemSessionProperties.isInPredicatesAsInnerJoinsEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.matching.Pattern.empty;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.AUTOMATIC;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 /**
@@ -105,12 +101,12 @@ public class TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin
             return Result.empty();
         }
 
-        Expression expression = castToExpression(getOnlyElement(subqueryAssignments.getExpressions()));
-        if (!(expression instanceof InPredicate)) {
+        RowExpression expression = getOnlyElement(subqueryAssignments.getExpressions());
+        if (!(expression instanceof InSubqueryExpression)) {
             return Result.empty();
         }
+        InSubqueryExpression inPredicate = (InSubqueryExpression) expression;
 
-        InPredicate inPredicate = (InPredicate) expression;
         VariableReferenceExpression inPredicateOutputVariable = getOnlyElement(subqueryAssignments.getVariables());
 
         PlanNode leftInput = applyNode.getInput();
@@ -125,10 +121,8 @@ public class TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin
                     uniqueKeyVariable);
         }
 
-        checkArgument(inPredicate.getValue() instanceof SymbolReference, "Unexpected expression: %s", inPredicate.getValue());
-        VariableReferenceExpression leftVariableReference = context.getVariableAllocator().toVariableReference(inPredicate.getValue());
-        checkArgument(inPredicate.getValueList() instanceof SymbolReference, "Unexpected expression: %s", inPredicate.getValueList());
-        VariableReferenceExpression rightVariableReference = context.getVariableAllocator().toVariableReference(inPredicate.getValueList());
+        VariableReferenceExpression leftVariableReference = inPredicate.getValue();
+        VariableReferenceExpression rightVariableReference = inPredicate.getSubquery();
 
         JoinNode innerJoin = new JoinNode(
                 applyNode.getSourceLocation(),
@@ -170,8 +164,8 @@ public class TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin
                 context.getIdAllocator().getNextId(),
                 distinctNode,
                 Assignments.builder()
-                        .putAll(identitiesAsSymbolReferences(distinctNode.getOutputVariables()))
-                        .put(inPredicateOutputVariable, castToRowExpression(TRUE_LITERAL))
+                        .putAll(identityAssignments(distinctNode.getOutputVariables()))
+                        .put(inPredicateOutputVariable, TRUE_CONSTANT)
                         .build()
                         .filter(referencedOutputs));
 

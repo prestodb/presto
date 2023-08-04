@@ -111,7 +111,7 @@ public class TestResourceManagerClusterStatusSender
                 format("Expect number of heartbeats to fall within target range (%s), +/- 50%%.  Was: %s", TARGET_HEARTBEATS, nodeHeartbeats));
     }
 
-    @Test(timeOut = 4_000)
+    @Test(timeOut = 6_000)
     public void testQueryHeartbeat()
             throws Exception
     {

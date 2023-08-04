@@ -16,9 +16,12 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.DefunctConfig;
+import com.facebook.airlift.configuration.LegacyConfig;
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -37,6 +40,7 @@ import java.nio.file.Paths;
 import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinNotNullInferenceStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -89,6 +93,9 @@ public class FeaturesConfig
     private int maxReorderedJoins = 9;
     private boolean useHistoryBasedPlanStatistics;
     private boolean trackHistoryBasedPlanStatistics;
+    private boolean usePerfectlyConsistentHistories;
+    private int historyCanonicalPlanNodeLimit = 1000;
+    private Duration historyBasedOptimizerTimeout = new Duration(10, SECONDS);
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
@@ -111,13 +118,13 @@ public class FeaturesConfig
     private boolean legacyMapSubscript;
     private boolean legacyRowFieldOrdinalAccess;
     private boolean legacyCharToVarcharCoercion;
-    private boolean legacyDateTimestampToVarcharCoercion;
     private boolean optimizeMixedDistinctAggregations;
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean distributedSort = true;
     private boolean optimizeJoinsWithEmptySources;
     private boolean logFormattedQueryEnabled;
+    private boolean logInvokedFunctionNamesEnabled;
 
     private boolean dictionaryAggregation;
 
@@ -130,6 +137,7 @@ public class FeaturesConfig
     private boolean spillEnabled;
     private boolean joinSpillingEnabled = true;
     private boolean aggregationSpillEnabled = true;
+    private boolean topNSpillEnabled = true;
     private boolean distinctAggregationSpillEnabled = true;
     private boolean dedupBasedDistinctAggregationSpillEnabled;
     private boolean distinctAggregationLargeBlockSpillEnabled;
@@ -138,6 +146,7 @@ public class FeaturesConfig
     private boolean windowSpillEnabled = true;
     private boolean orderBySpillEnabled = true;
     private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, MEGABYTE);
+    private DataSize topNOperatorUnspillMemoryLimit = new DataSize(4, MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
@@ -148,6 +157,9 @@ public class FeaturesConfig
     private boolean ignoreStatsCalculatorFailures = true;
     private boolean printStatsForNonJoinQuery;
     private boolean defaultFilterFactorEnabled;
+    // Give a default 10% selectivity coefficient factor to avoid hitting unknown stats in join stats estimates
+    // which could result in syntactic join order. Set it to 0 to disable this feature
+    private double defaultJoinSelectivityCoefficient;
     private boolean pushAggregationThroughJoin = true;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
@@ -192,6 +204,7 @@ public class FeaturesConfig
     private boolean optimizeCommonSubExpressions = true;
     private boolean preferDistributedUnion = true;
     private boolean optimizeNullsInJoin;
+    private boolean optimizePayloadJoins;
     private boolean pushdownDereferenceEnabled;
     private boolean inlineSqlFunctions = true;
     private boolean checkAccessControlOnUtilizedColumnsOnly;
@@ -220,11 +233,12 @@ public class FeaturesConfig
     private boolean queryOptimizationWithMaterializedViewEnabled;
 
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
-    private AnalyzerType analyzerType = AnalyzerType.BUILTIN;
+    private String analyzerType = "BUILTIN";
     private boolean verboseRuntimeStatsEnabled;
+    private boolean verboseOptimizerInfoEnabled;
 
     private boolean streamingForPartialAggregationEnabled;
-    private boolean preferMergeJoin;
+    private boolean preferMergeJoinForSortedInputs;
     private boolean segmentedAggregationEnabled;
 
     private int maxStageCountForEagerScheduling = 25;
@@ -236,11 +250,29 @@ public class FeaturesConfig
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
     private boolean nativeExecutionEnabled;
     private String nativeExecutionExecutablePath = "./presto_server";
+    private String nativeExecutionProgramArguments = "";
+    private boolean nativeExecutionProcessReuseEnabled = true;
     private boolean randomizeOuterJoinNullKey;
+    private RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy = RandomizeOuterJoinNullKeyStrategy.DISABLED;
     private boolean isOptimizeConditionalAggregationEnabled;
     private boolean isRemoveRedundantDistinctAggregationEnabled = true;
     private boolean inPredicatesAsInnerJoinsEnabled;
     private double pushAggregationBelowJoinByteReductionThreshold = 1;
+    private boolean prefilterForGroupbyLimit;
+    private boolean isOptimizeJoinProbeWithEmptyBuildRuntime;
+    private boolean useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins = true;
+    private boolean mergeDuplicateAggregationsEnabled = true;
+    private boolean mergeAggregationsWithAndWithoutFilter;
+    private boolean simplifyPlanWithEmptyInput = true;
+    private PushDownFilterThroughCrossJoinStrategy pushDownFilterExpressionEvaluationThroughCrossJoin = PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN;
+    private boolean rewriteCrossJoinWithOrFilterToInnerJoin = true;
+    private boolean rewriteCrossJoinWithArrayContainsFilterToInnerJoin = true;
+    private JoinNotNullInferenceStrategy joinNotNullInferenceStrategy = NONE;
+    private boolean leftJoinNullFilterToSemiJoin = true;
+    private boolean broadcastJoinWithSmallBuildUnknownProbe;
+    private boolean addPartialNodeForRowNumberWithLimit = true;
+
+    private boolean preProcessMetadataCalls;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -325,6 +357,47 @@ public class FeaturesConfig
         UNWRAP_IF // Rewrites AGG(IF(condition, expr)) to AGG(expr) FILTER (WHERE condition).
     }
 
+    public enum RandomizeOuterJoinNullKeyStrategy
+    {
+        DISABLED,
+        KEY_FROM_OUTER_JOIN, // Enabled only when join keys are from output of outer joins
+        ALWAYS
+    }
+
+    public enum PushDownFilterThroughCrossJoinStrategy
+    {
+        DISABLED,
+        REWRITTEN_TO_INNER_JOIN, // Enabled only when the change can enable rewriting cross join to inner join
+        ALWAYS
+    }
+
+    /**
+     * Strategy used in {@link com.facebook.presto.sql.planner.iterative.rule.AddNotNullFiltersToJoinNode.ExtractInferredNotNullVariablesVisitor}
+     * to infer NOT NULL predicates
+     */
+    public enum JoinNotNullInferenceStrategy
+    {
+        /**
+         * No NOT NULL predicates are inferred
+         */
+        NONE,
+
+        /**
+         * Use the equi-join condition and the join filter for inferring NOT NULL predicates.
+         * For the join filter, try to map functions to a standard operator in {@link OperatorType}.
+         * If this mapping is successful, use {@link OperatorType#isCalledOnNullInput()}
+         * to check if this function can operate on NULL inputs.
+         */
+        INFER_FROM_STANDARD_OPERATORS,
+
+        /**
+         * Use the equi-join condition and the join filter for inferring NOT NULL predicates.
+         * For the join filter, use the function's  {@link FunctionMetadata#isCalledOnNullInput()} value
+         * to check if this function can operate on NULL inputs
+         */
+        USE_FUNCTION_METADATA
+    }
+
     public double getCpuCostWeight()
     {
         return cpuCostWeight;
@@ -395,18 +468,6 @@ public class FeaturesConfig
     public boolean isLegacyCharToVarcharCoercion()
     {
         return legacyCharToVarcharCoercion;
-    }
-
-    @Config("deprecated.legacy-date-timestamp-to-varchar-coercion")
-    public FeaturesConfig setLegacyDateTimestampToVarcharCoercion(boolean legacyDateTimestampToVarcharCoercion)
-    {
-        this.legacyDateTimestampToVarcharCoercion = legacyDateTimestampToVarcharCoercion;
-        return this;
-    }
-
-    public boolean isLegacyDateTimestampToVarcharCoercion()
-    {
-        return legacyDateTimestampToVarcharCoercion;
     }
 
     @Config("deprecated.legacy-array-agg")
@@ -765,6 +826,45 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isUsePerfectlyConsistentHistories()
+    {
+        return usePerfectlyConsistentHistories;
+    }
+
+    @Config("optimizer.use-perfectly-consistent-histories")
+    public FeaturesConfig setUsePerfectlyConsistentHistories(boolean usePerfectlyConsistentHistories)
+    {
+        this.usePerfectlyConsistentHistories = usePerfectlyConsistentHistories;
+        return this;
+    }
+
+    @Min(0)
+    public int getHistoryCanonicalPlanNodeLimit()
+    {
+        return historyCanonicalPlanNodeLimit;
+    }
+
+    @Config("optimizer.history-canonical-plan-node-limit")
+    @ConfigDescription("Use history based optimizations only when number of nodes in canonical plan is within this limit. Size of canonical plan can become much larger than original plan leading to increased planning time, particularly in cases when limiting nodes like LimitNode, TopNNode etc. are present.")
+    public FeaturesConfig setHistoryCanonicalPlanNodeLimit(int historyCanonicalPlanNodeLimit)
+    {
+        this.historyCanonicalPlanNodeLimit = historyCanonicalPlanNodeLimit;
+        return this;
+    }
+
+    @NotNull
+    public Duration getHistoryBasedOptimizerTimeout()
+    {
+        return historyBasedOptimizerTimeout;
+    }
+
+    @Config("optimizer.history-based-optimizer-timeout")
+    public FeaturesConfig setHistoryBasedOptimizerTimeout(Duration historyBasedOptimizerTimeout)
+    {
+        this.historyBasedOptimizerTimeout = historyBasedOptimizerTimeout;
+        return this;
+    }
+
     public AggregationPartitioningMergingStrategy getAggregationPartitioningMergingStrategy()
     {
         return aggregationPartitioningMergingStrategy;
@@ -1061,6 +1161,19 @@ public class FeaturesConfig
         return aggregationSpillEnabled;
     }
 
+    @Config("experimental.topn-spill-enabled")
+    @ConfigDescription("Spill TopN if spill is enabled")
+    public FeaturesConfig setTopNSpillEnabled(boolean topNSpillEnabled)
+    {
+        this.topNSpillEnabled = topNSpillEnabled;
+        return this;
+    }
+
+    public boolean isTopNSpillEnabled()
+    {
+        return topNSpillEnabled;
+    }
+
     @Config("experimental.distinct-aggregation-spill-enabled")
     @ConfigDescription("Spill distinct aggregations if aggregation spill is enabled")
     public FeaturesConfig setDistinctAggregationSpillEnabled(boolean distinctAggregationSpillEnabled)
@@ -1262,6 +1375,33 @@ public class FeaturesConfig
         return defaultFilterFactorEnabled;
     }
 
+    @Config("optimizer.default-join-selectivity-coefficient")
+    @ConfigDescription("Used when join selectivity estimation is unknown. Default 0 to disable the use of join selectivity, this will allow planner to fall back to FROM-clause join order when the join cardinality is unknown")
+    public FeaturesConfig setDefaultJoinSelectivityCoefficient(double defaultJoinSelectivityCoefficient)
+    {
+        this.defaultJoinSelectivityCoefficient = defaultJoinSelectivityCoefficient;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getDefaultJoinSelectivityCoefficient()
+    {
+        return defaultJoinSelectivityCoefficient;
+    }
+
+    public DataSize getTopNOperatorUnspillMemoryLimit()
+    {
+        return topNOperatorUnspillMemoryLimit;
+    }
+
+    @Config("experimental.topn-operator-unspill-memory-limit")
+    public FeaturesConfig setTopNOperatorUnspillMemoryLimit(DataSize aggregationOperatorUnspillMemoryLimit)
+    {
+        this.topNOperatorUnspillMemoryLimit = aggregationOperatorUnspillMemoryLimit;
+        return this;
+    }
+
     public DataSize getAggregationOperatorUnspillMemoryLimit()
     {
         return aggregationOperatorUnspillMemoryLimit;
@@ -1353,7 +1493,8 @@ public class FeaturesConfig
         return enableDynamicFiltering;
     }
 
-    @Config("experimental.enable-dynamic-filtering")
+    @Config("enable-dynamic-filtering")
+    @LegacyConfig("experimental.enable-dynamic-filtering")
     public FeaturesConfig setEnableDynamicFiltering(boolean value)
     {
         this.enableDynamicFiltering = value;
@@ -1365,7 +1506,8 @@ public class FeaturesConfig
         return dynamicFilteringMaxPerDriverRowCount;
     }
 
-    @Config("experimental.dynamic-filtering-max-per-driver-row-count")
+    @Config("dynamic-filtering-max-per-driver-row-count")
+    @LegacyConfig("experimental.dynamic-filtering-max-per-driver-row-count")
     public FeaturesConfig setDynamicFilteringMaxPerDriverRowCount(int dynamicFilteringMaxPerDriverRowCount)
     {
         this.dynamicFilteringMaxPerDriverRowCount = dynamicFilteringMaxPerDriverRowCount;
@@ -1378,7 +1520,8 @@ public class FeaturesConfig
         return dynamicFilteringMaxPerDriverSize;
     }
 
-    @Config("experimental.dynamic-filtering-max-per-driver-size")
+    @Config("dynamic-filtering-max-per-driver-size")
+    @LegacyConfig("experimental.dynamic-filtering-max-per-driver-size")
     public FeaturesConfig setDynamicFilteringMaxPerDriverSize(DataSize dynamicFilteringMaxPerDriverSize)
     {
         this.dynamicFilteringMaxPerDriverSize = dynamicFilteringMaxPerDriverSize;
@@ -1390,7 +1533,8 @@ public class FeaturesConfig
         return dynamicFilteringRangeRowLimitPerDriver;
     }
 
-    @Config("experimental.dynamic-filtering-range-row-limit-per-driver")
+    @Config("dynamic-filtering-range-row-limit-per-driver")
+    @LegacyConfig("experimental.dynamic-filtering-range-row-limit-per-driver")
     @ConfigDescription("Maximum number of build-side rows per driver up to which min and max values will be collected for dynamic filtering")
     public FeaturesConfig setDynamicFilteringRangeRowLimitPerDriver(int dynamicFilteringRangeRowLimitPerDriver)
     {
@@ -1807,6 +1951,18 @@ public class FeaturesConfig
         return this;
     }
 
+    @Config("optimize-payload-joins")
+    public FeaturesConfig setOptimizePayloadJoins(boolean optimizePayloadJoins)
+    {
+        this.optimizePayloadJoins = optimizePayloadJoins;
+        return this;
+    }
+
+    public boolean isOptimizePayloadJoins()
+    {
+        return optimizePayloadJoins;
+    }
+
     public String getWarnOnNoTableLayoutFilter()
     {
         return warnOnNoTableLayoutFilter;
@@ -1913,6 +2069,19 @@ public class FeaturesConfig
     public FeaturesConfig setLogFormattedQueryEnabled(boolean logFormattedQueryEnabled)
     {
         this.logFormattedQueryEnabled = logFormattedQueryEnabled;
+        return this;
+    }
+
+    public boolean isLogInvokedFunctionNamesEnabled()
+    {
+        return logInvokedFunctionNamesEnabled;
+    }
+
+    @Config("log-invoked-function-names-enabled")
+    @ConfigDescription("Log the names of the functions invoked by the query when enabled.")
+    public FeaturesConfig setLogInvokedFunctionNamesEnabled(boolean logInvokedFunctionNamesEnabled)
+    {
+        this.logInvokedFunctionNamesEnabled = logInvokedFunctionNamesEnabled;
         return this;
     }
 
@@ -2060,6 +2229,11 @@ public class FeaturesConfig
         return verboseRuntimeStatsEnabled;
     }
 
+    public boolean isVerboseOptimizerInfoEnabled()
+    {
+        return verboseOptimizerInfoEnabled;
+    }
+
     @Config("verbose-runtime-stats-enabled")
     @ConfigDescription("Enable logging all runtime stats.")
     public FeaturesConfig setVerboseRuntimeStatsEnabled(boolean value)
@@ -2081,17 +2255,43 @@ public class FeaturesConfig
         return this;
     }
 
-    public AnalyzerType getAnalyzerType()
+    @Config("optimizer.joins-not-null-inference-strategy")
+    @ConfigDescription("Set the strategy used NOT NULL filter inference on Join Nodes")
+    public FeaturesConfig setJoinsNotNullInferenceStrategy(JoinNotNullInferenceStrategy strategy)
+    {
+        this.joinNotNullInferenceStrategy = strategy;
+        return this;
+    }
+
+    public JoinNotNullInferenceStrategy getJoinsNotNullInferenceStrategy()
+    {
+        return joinNotNullInferenceStrategy;
+    }
+
+    public String getAnalyzerType()
     {
         return analyzerType;
     }
 
     @Config("analyzer-type")
     @ConfigDescription("Set the analyzer type for parsing and analyzing.")
-    public FeaturesConfig setAnalyzerType(AnalyzerType analyzerType)
+    public FeaturesConfig setAnalyzerType(String analyzerType)
     {
         this.analyzerType = analyzerType;
         return this;
+    }
+
+    @Config("pre-process-metadata-calls")
+    @ConfigDescription("Pre process metadata calls before analyzer invocation")
+    public FeaturesConfig setPreProcessMetadataCalls(boolean preProcessMetadataCalls)
+    {
+        this.preProcessMetadataCalls = preProcessMetadataCalls;
+        return this;
+    }
+
+    public boolean isPreProcessMetadataCalls()
+    {
+        return preProcessMetadataCalls;
     }
 
     public boolean isStreamingForPartialAggregationEnabled()
@@ -2133,17 +2333,17 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isPreferMergeJoin()
+    public boolean isPreferMergeJoinForSortedInputs()
     {
-        return preferMergeJoin;
+        return preferMergeJoinForSortedInputs;
     }
 
-    @Config("optimizer.prefer-merge-join")
+    @Config("optimizer.prefer-merge-join-for-sorted-inputs")
     @ConfigDescription("Prefer merge join for sorted join inputs, e.g., tables pre-sorted, pre-partitioned by join columns." +
             "To make it work, the connector needs to guarantee and expose the data properties of the underlying table.")
-    public FeaturesConfig setPreferMergeJoin(boolean preferMergeJoin)
+    public FeaturesConfig setPreferMergeJoinForSortedInputs(boolean preferMergeJoinForSortedInputs)
     {
-        this.preferMergeJoin = preferMergeJoin;
+        this.preferMergeJoinForSortedInputs = preferMergeJoinForSortedInputs;
         return this;
     }
 
@@ -2223,6 +2423,32 @@ public class FeaturesConfig
         return this.nativeExecutionExecutablePath;
     }
 
+    @Config("native-execution-program-arguments")
+    @ConfigDescription("Program arguments for native engine execution")
+    public FeaturesConfig setNativeExecutionProgramArguments(String nativeExecutionProgramArguments)
+    {
+        this.nativeExecutionProgramArguments = nativeExecutionProgramArguments;
+        return this;
+    }
+
+    public String getNativeExecutionProgramArguments()
+    {
+        return this.nativeExecutionProgramArguments;
+    }
+
+    @Config("native-execution-process-reuse-enabled")
+    @ConfigDescription("Enable reuse the native process within the same JVM")
+    public FeaturesConfig setNativeExecutionProcessReuseEnabled(boolean nativeExecutionProcessReuseEnabled)
+    {
+        this.nativeExecutionProcessReuseEnabled = nativeExecutionProcessReuseEnabled;
+        return this;
+    }
+
+    public boolean isNativeExecutionProcessReuseEnabled()
+    {
+        return this.nativeExecutionProcessReuseEnabled;
+    }
+
     public boolean isRandomizeOuterJoinNullKeyEnabled()
     {
         return randomizeOuterJoinNullKey;
@@ -2233,6 +2459,19 @@ public class FeaturesConfig
     public FeaturesConfig setRandomizeOuterJoinNullKeyEnabled(boolean randomizeOuterJoinNullKey)
     {
         this.randomizeOuterJoinNullKey = randomizeOuterJoinNullKey;
+        return this;
+    }
+
+    public RandomizeOuterJoinNullKeyStrategy getRandomizeOuterJoinNullKeyStrategy()
+    {
+        return randomizeOuterJoinNullKeyStrategy;
+    }
+
+    @Config("optimizer.randomize-outer-join-null-key-strategy")
+    @ConfigDescription("When to apply randomization to null keys in outer join")
+    public FeaturesConfig setRandomizeOuterJoinNullKeyStrategy(RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy)
+    {
+        this.randomizeOuterJoinNullKeyStrategy = randomizeOuterJoinNullKeyStrategy;
         return this;
     }
 
@@ -2285,6 +2524,162 @@ public class FeaturesConfig
     public FeaturesConfig setPushAggregationBelowJoinByteReductionThreshold(double pushAggregationBelowJoinByteReductionThreshold)
     {
         this.pushAggregationBelowJoinByteReductionThreshold = pushAggregationBelowJoinByteReductionThreshold;
+        return this;
+    }
+
+    public boolean isPrefilterForGroupbyLimit()
+    {
+        return prefilterForGroupbyLimit;
+    }
+
+    @Config("optimizer.prefilter-for-groupby-limit")
+    @ConfigDescription("Enable optimizations for groupby limit queries")
+    public FeaturesConfig setPrefilterForGroupbyLimit(boolean prefilterForGroupbyLimit)
+    {
+        this.prefilterForGroupbyLimit = prefilterForGroupbyLimit;
+        return this;
+    }
+
+    public boolean isOptimizeJoinProbeForEmptyBuildRuntimeEnabled()
+    {
+        return isOptimizeJoinProbeWithEmptyBuildRuntime;
+    }
+
+    @Config("optimizer.optimize-probe-for-empty-build-runtime")
+    @ConfigDescription("Optimize join probe at runtime if build side is empty")
+    public FeaturesConfig setOptimizeJoinProbeForEmptyBuildRuntimeEnabled(boolean isOptimizeJoinProbeWithEmptyBuildRuntime)
+    {
+        this.isOptimizeJoinProbeWithEmptyBuildRuntime = isOptimizeJoinProbeWithEmptyBuildRuntime;
+        return this;
+    }
+
+    public boolean isUseDefaultsForCorrelatedAggregationPushdownThroughOuterJoins()
+    {
+        return useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins;
+    }
+
+    @Config("optimizer.use-defaults-for-correlated-aggregation-pushdown-through-outer-joins")
+    @ConfigDescription("Enable using defaults for well-defined aggregation functions when pushing them through outer joins")
+    public FeaturesConfig setUseDefaultsForCorrelatedAggregationPushdownThroughOuterJoins(boolean useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins)
+    {
+        this.useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins = useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins;
+        return this;
+    }
+
+    public boolean isMergeDuplicateAggregationsEnabled()
+    {
+        return mergeDuplicateAggregationsEnabled;
+    }
+
+    @Config("optimizer.merge-duplicate-aggregations")
+    @ConfigDescription("Merge identical aggregation functions within the same aggregation node")
+    public FeaturesConfig setMergeDuplicateAggregationsEnabled(boolean mergeDuplicateAggregationsEnabled)
+    {
+        this.mergeDuplicateAggregationsEnabled = mergeDuplicateAggregationsEnabled;
+        return this;
+    }
+
+    public boolean isMergeAggregationsWithAndWithoutFilter()
+    {
+        return this.mergeAggregationsWithAndWithoutFilter;
+    }
+
+    @Config("optimizer.merge-aggregations-with-and-without-filter")
+    @ConfigDescription("Enable optimization that merges the same agg with and without filter for efficiency")
+    public FeaturesConfig setMergeAggregationsWithAndWithoutFilter(boolean mergeAggregationsWithAndWithoutFilter)
+    {
+        this.mergeAggregationsWithAndWithoutFilter = mergeAggregationsWithAndWithoutFilter;
+        return this;
+    }
+
+    public boolean isSimplifyPlanWithEmptyInput()
+    {
+        return this.simplifyPlanWithEmptyInput;
+    }
+
+    @Config("optimizer.simplify-plan-with-empty-input")
+    @ConfigDescription("Enable simplifying query plans with empty input")
+    public FeaturesConfig setSimplifyPlanWithEmptyInput(boolean simplifyPlanWithEmptyInput)
+    {
+        this.simplifyPlanWithEmptyInput = simplifyPlanWithEmptyInput;
+        return this;
+    }
+
+    public PushDownFilterThroughCrossJoinStrategy getPushDownFilterExpressionEvaluationThroughCrossJoin()
+    {
+        return this.pushDownFilterExpressionEvaluationThroughCrossJoin;
+    }
+
+    @Config("optimizer.push-down-filter-expression-evaluation-through-cross-join")
+    @ConfigDescription("Push down expression evaluation in filter through cross join")
+    public FeaturesConfig setPushDownFilterExpressionEvaluationThroughCrossJoin(PushDownFilterThroughCrossJoinStrategy strategy)
+    {
+        this.pushDownFilterExpressionEvaluationThroughCrossJoin = strategy;
+        return this;
+    }
+
+    public boolean isRewriteCrossJoinWithOrFilterToInnerJoin()
+    {
+        return this.rewriteCrossJoinWithOrFilterToInnerJoin;
+    }
+
+    @Config("optimizer.rewrite-cross-join-with-or-filter-to-inner-join")
+    @ConfigDescription("Enable optimization to rewrite cross join with or filter to inner join")
+    public FeaturesConfig setRewriteCrossJoinWithOrFilterToInnerJoin(boolean rewriteCrossJoinWithOrFilterToInnerJoin)
+    {
+        this.rewriteCrossJoinWithOrFilterToInnerJoin = rewriteCrossJoinWithOrFilterToInnerJoin;
+        return this;
+    }
+
+    public boolean isRewriteCrossJoinWithArrayContainsFilterToInnerJoin()
+    {
+        return this.rewriteCrossJoinWithArrayContainsFilterToInnerJoin;
+    }
+
+    @Config("optimizer.rewrite-cross-join-with-array-contains-filter-to-inner-join")
+    @ConfigDescription("Enable optimization to rewrite cross join with array contains filter to inner join")
+    public FeaturesConfig setRewriteCrossJoinWithArrayContainsFilterToInnerJoin(boolean rewriteCrossJoinWithArrayContainsFilterToInnerJoin)
+    {
+        this.rewriteCrossJoinWithArrayContainsFilterToInnerJoin = rewriteCrossJoinWithArrayContainsFilterToInnerJoin;
+        return this;
+    }
+
+    public boolean isLeftJoinNullFilterToSemiJoin()
+    {
+        return this.leftJoinNullFilterToSemiJoin;
+    }
+
+    @Config("optimizer.rewrite-left-join-with-null-filter-to-semi-join")
+    @ConfigDescription("Rewrite left join with is null check to semi join")
+    public FeaturesConfig setLeftJoinNullFilterToSemiJoin(boolean leftJoinNullFilterToSemiJoin)
+    {
+        this.leftJoinNullFilterToSemiJoin = leftJoinNullFilterToSemiJoin;
+        return this;
+    }
+
+    public boolean isBroadcastJoinWithSmallBuildUnknownProbe()
+    {
+        return this.broadcastJoinWithSmallBuildUnknownProbe;
+    }
+
+    @Config("experimental.optimizer.broadcast-join-with-small-build-unknown-probe")
+    @ConfigDescription("Experimental: When probe side size is unknown but build size is within broadcast limit, choose broadcast join")
+    public FeaturesConfig setBroadcastJoinWithSmallBuildUnknownProbe(boolean broadcastJoinWithSmallBuildUnknownProbe)
+    {
+        this.broadcastJoinWithSmallBuildUnknownProbe = broadcastJoinWithSmallBuildUnknownProbe;
+        return this;
+    }
+
+    public boolean isAddPartialNodeForRowNumberWithLimitEnabled()
+    {
+        return this.addPartialNodeForRowNumberWithLimit;
+    }
+
+    @Config("optimizer.add-partial-node-for-row-number-with-limit")
+    @ConfigDescription("Add partial row number node for row number node with limit")
+    public FeaturesConfig setAddPartialNodeForRowNumberWithLimitEnabled(boolean addPartialNodeForRowNumberWithLimit)
+    {
+        this.addPartialNodeForRowNumberWithLimit = addPartialNodeForRowNumberWithLimit;
         return this;
     }
 }

@@ -34,7 +34,7 @@ import static java.lang.Math.max;
 @AggregationFunction(value = MaxDataSizeForStats.NAME, visibility = HIDDEN)
 public final class MaxDataSizeForStats
 {
-    public static final String NAME = "$internal$max_data_size_for_stats";
+    public static final String NAME = "max_data_size_for_stats";
 
     private MaxDataSizeForStats() {}
 

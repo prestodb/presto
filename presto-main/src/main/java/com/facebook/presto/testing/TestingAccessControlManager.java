@@ -16,11 +16,11 @@ package com.facebook.presto.testing;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllSystemAccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 
@@ -301,7 +301,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<Subfield> columnOrSubfieldNames)
     {
-        Set<String> columns = columnOrSubfieldNames.stream().map(subfield -> subfield.getRootName()).collect(toImmutableSet());
+        Set<String> columns = columnOrSubfieldNames.stream().map(subfield -> subfield.toString()).collect(toImmutableSet());
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), SELECT_COLUMN)) {
             denySelectColumns(tableName.toString(), columns);
         }

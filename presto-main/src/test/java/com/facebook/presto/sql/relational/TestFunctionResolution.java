@@ -35,7 +35,7 @@ public class TestFunctionResolution
     public void setup()
     {
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-        functionResolution = new FunctionResolution(functionAndTypeManager);
+        functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
     }
 
     @Test

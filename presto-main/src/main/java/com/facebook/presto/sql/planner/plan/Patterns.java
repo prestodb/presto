@@ -20,6 +20,7 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -123,6 +124,11 @@ public class Patterns
     public static Pattern<ProjectNode> project()
     {
         return typeOf(ProjectNode.class);
+    }
+
+    public static Pattern<RemoteSourceNode> remoteSource()
+    {
+        return typeOf(RemoteSourceNode.class);
     }
 
     public static Pattern<SampleNode> sample()

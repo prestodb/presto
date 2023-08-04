@@ -49,7 +49,7 @@ public class PrestoCacheContext
     }
 
     @Override
-    public void incrementCounter(String name, StatsUnit unit, long value)
+    public void incrementCounter(String name, long value)
     {
         hiveFileContext.incrementCounter(name, NONE, value);
     }

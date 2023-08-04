@@ -25,14 +25,13 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
-import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
@@ -53,7 +52,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
-import static com.facebook.presto.sql.planner.LogicalPlanner.Stage.CREATED;
+import static com.facebook.presto.sql.Optimizer.PlanStage.CREATED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -103,7 +102,7 @@ public class BasePlanTest
                 .configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
     }
 
-    private static LocalQueryRunner createQueryRunner(Map<String, String> sessionProperties)
+    protected static LocalQueryRunner createQueryRunner(Map<String, String> sessionProperties)
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("local")
@@ -146,20 +145,20 @@ public class BasePlanTest
 
     protected void assertPlan(String sql, PlanMatchPattern pattern)
     {
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
+        assertPlan(sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, pattern);
     }
 
     protected void assertPlan(String sql, Session session, PlanMatchPattern pattern)
     {
-        assertPlan(sql, session, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern, queryRunner.getPlanOptimizers(true));
+        assertPlan(sql, session, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, pattern, queryRunner.getPlanOptimizers(true));
     }
 
     protected void assertPlan(String sql, Session session, PlanMatchPattern pattern, boolean forceSingleNode)
     {
-        assertPlan(sql, session, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern, queryRunner.getPlanOptimizers(forceSingleNode));
+        assertPlan(sql, session, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, pattern, queryRunner.getPlanOptimizers(forceSingleNode));
     }
 
-    protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
+    protected void assertPlan(String sql, Optimizer.PlanStage stage, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = queryRunner.getPlanOptimizers(true);
 
@@ -168,10 +167,10 @@ public class BasePlanTest
 
     protected void assertPlan(String sql, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
     {
-        assertPlan(sql, queryRunner.getDefaultSession(), LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
+        assertPlan(sql, queryRunner.getDefaultSession(), Optimizer.PlanStage.OPTIMIZED, pattern, optimizers);
     }
 
-    protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, Predicate<PlanOptimizer> optimizerPredicate)
+    protected void assertPlan(String sql, Optimizer.PlanStage stage, PlanMatchPattern pattern, Predicate<PlanOptimizer> optimizerPredicate)
     {
         List<PlanOptimizer> optimizers = queryRunner.getPlanOptimizers(true).stream()
                 .filter(optimizerPredicate)
@@ -180,15 +179,13 @@ public class BasePlanTest
         assertPlan(sql, queryRunner.getDefaultSession(), stage, pattern, optimizers);
     }
 
-    protected void assertPlan(String sql, Session session, LogicalPlanner.Stage stage, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
+    protected void assertPlan(String sql, Session session, Optimizer.PlanStage stage, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
     {
         queryRunner.inTransaction(session, transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(
                     transactionSession,
                     sql,
-                    ImmutableList.<PlanOptimizer>builder()
-                            .addAll(optimizers)
-                            .add(getExpressionTranslator()).build(), // To avoid assert plan failure not printing out plan (#12885)
+                    optimizers,
                     stage,
                     WarningCollector.NOOP);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
@@ -212,19 +209,19 @@ public class BasePlanTest
                 new UnaliasSymbolReferences(queryRunner.getMetadata().getFunctionAndTypeManager()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
+                        getMetadata(),
                         new RuleStatsRecorder(),
                         queryRunner.getStatsCalculator(),
                         queryRunner.getCostCalculator(),
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                getExpressionTranslator()); // To avoid assert plan failure not printing out plan (#12885)
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
-        assertPlan(sql, queryRunner.getDefaultSession(), LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
+        assertPlan(sql, queryRunner.getDefaultSession(), Optimizer.PlanStage.OPTIMIZED, pattern, optimizers);
     }
 
     protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern)
     {
         queryRunner.inTransaction(session, transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
             return null;
         });
@@ -233,7 +230,7 @@ public class BasePlanTest
     protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern, Consumer<Plan> planValidator)
     {
         queryRunner.inTransaction(session, transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
             planValidator.accept(actualPlan);
             return null;
@@ -243,7 +240,7 @@ public class BasePlanTest
     protected void assertPlanValidatorWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, Consumer<Plan> planValidator)
     {
         queryRunner.inTransaction(session, transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
             planValidator.accept(actualPlan);
             return null;
         });
@@ -274,15 +271,15 @@ public class BasePlanTest
 
     protected Plan plan(String sql)
     {
-        return plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
+        return plan(sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED);
     }
 
-    protected Plan plan(String sql, LogicalPlanner.Stage stage)
+    protected Plan plan(String sql, Optimizer.PlanStage stage)
     {
         return plan(sql, stage, true);
     }
 
-    protected Plan plan(String sql, LogicalPlanner.Stage stage, boolean forceSingleNode)
+    protected Plan plan(String sql, Optimizer.PlanStage stage, boolean forceSingleNode)
     {
         try {
             return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode, WarningCollector.NOOP));
@@ -292,12 +289,12 @@ public class BasePlanTest
         }
     }
 
-    protected Plan plan(String sql, LogicalPlanner.Stage stage, Session session)
+    protected Plan plan(String sql, Optimizer.PlanStage stage, Session session)
     {
         return plan(sql, stage, true, session);
     }
 
-    protected Plan plan(String sql, LogicalPlanner.Stage stage, boolean forceSingleNode, Session session)
+    protected Plan plan(String sql, Optimizer.PlanStage stage, boolean forceSingleNode, Session session)
     {
         try {
             return queryRunner.inTransaction(session, transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode, WarningCollector.NOOP));
@@ -307,12 +304,12 @@ public class BasePlanTest
         }
     }
 
-    protected SubPlan subplan(String sql, LogicalPlanner.Stage stage, boolean forceSingleNode)
+    protected SubPlan subplan(String sql, Optimizer.PlanStage stage, boolean forceSingleNode)
     {
         return subplan(sql, stage, forceSingleNode, getQueryRunner().getDefaultSession());
     }
 
-    protected SubPlan subplan(String sql, LogicalPlanner.Stage stage, boolean forceSingleNode, Session session)
+    protected SubPlan subplan(String sql, Optimizer.PlanStage stage, boolean forceSingleNode, Session session)
     {
         try {
             return queryRunner.inTransaction(session, transactionSession -> {
@@ -328,16 +325,6 @@ public class BasePlanTest
     protected Metadata getMetadata()
     {
         return getQueryRunner().getMetadata();
-    }
-
-    // Translate all OriginalExpression in planNodes to RowExpression so that we can do plan pattern asserting and printing on RowExpression only.
-    protected PlanOptimizer getExpressionTranslator()
-    {
-        return new IterativeOptimizer(
-                new RuleStatsRecorder(),
-                getQueryRunner().getStatsCalculator(),
-                getQueryRunner().getCostCalculator(),
-                ImmutableSet.copyOf(new TranslateExpressions(getMetadata(), getQueryRunner().getSqlParser()).rules()));
     }
 
     public interface LocalQueryRunnerSupplier

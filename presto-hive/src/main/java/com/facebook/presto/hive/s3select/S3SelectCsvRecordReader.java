@@ -15,25 +15,15 @@ package com.facebook.presto.hive.s3select;
 
 import com.amazonaws.services.s3.model.CSVInput;
 import com.amazonaws.services.s3.model.CSVOutput;
-import com.amazonaws.services.s3.model.CompressionType;
-import com.amazonaws.services.s3.model.ExpressionType;
 import com.amazonaws.services.s3.model.InputSerialization;
 import com.amazonaws.services.s3.model.OutputSerialization;
-import com.amazonaws.services.s3.model.SelectObjectContentRequest;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.s3.PrestoS3ClientFactory;
-import com.facebook.presto.hive.s3.PrestoS3FileSystem;
-import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.compress.BZip2Codec;
-import org.apache.hadoop.io.compress.CompressionCodec;
-import org.apache.hadoop.io.compress.GzipCodec;
 
-import java.net.URI;
 import java.util.Properties;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static org.apache.hadoop.hive.serde.serdeConstants.ESCAPE_CHAR;
 import static org.apache.hadoop.hive.serde.serdeConstants.QUOTE_CHAR;
 
@@ -56,58 +46,51 @@ public class S3SelectCsvRecordReader
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             String ionSqlQuery,
             PrestoS3ClientFactory s3ClientFactory)
     {
-        super(configuration, clientConfig, path, start, length, schema, ionSqlQuery, s3ClientFactory);
+        super(configuration, clientConfig, path, start, length, fileSize, schema, ionSqlQuery, s3ClientFactory);
     }
 
     @Override
-    public SelectObjectContentRequest buildSelectObjectRequest(Properties schema, String query, Path path)
+    public InputSerialization buildInputSerialization()
     {
-        SelectObjectContentRequest selectObjectRequest = new SelectObjectContentRequest();
-        URI uri = path.toUri();
-        selectObjectRequest.setBucketName(PrestoS3FileSystem.getBucketName(uri));
-        selectObjectRequest.setKey(PrestoS3FileSystem.keyFromPath(path));
-        selectObjectRequest.setExpression(query);
-        selectObjectRequest.setExpressionType(ExpressionType.SQL);
-
+        Properties schema = getSchema();
         String fieldDelimiter = getFieldDelimiter(schema);
         String quoteChar = schema.getProperty(QUOTE_CHAR, null);
         String escapeChar = schema.getProperty(ESCAPE_CHAR, null);
 
         CSVInput selectObjectCSVInputSerialization = new CSVInput();
-        selectObjectCSVInputSerialization.setRecordDelimiter(lineDelimiter);
+        selectObjectCSVInputSerialization.setRecordDelimiter(getLineDelimiter());
         selectObjectCSVInputSerialization.setFieldDelimiter(fieldDelimiter);
         selectObjectCSVInputSerialization.setComments(COMMENTS_CHAR_STR);
         selectObjectCSVInputSerialization.setQuoteCharacter(quoteChar);
         selectObjectCSVInputSerialization.setQuoteEscapeCharacter(escapeChar);
         InputSerialization selectObjectInputSerialization = new InputSerialization();
-
-        CompressionCodec codec = compressionCodecFactory.getCodec(path);
-        if (codec instanceof GzipCodec) {
-            selectObjectInputSerialization.setCompressionType(CompressionType.GZIP);
-        }
-        else if (codec instanceof BZip2Codec) {
-            selectObjectInputSerialization.setCompressionType(CompressionType.BZIP2);
-        }
-        else if (codec != null) {
-            throw new PrestoException(NOT_SUPPORTED, "Compression extension not supported for S3 Select: " + path);
-        }
-
+        selectObjectInputSerialization.setCompressionType(getCompressionType());
         selectObjectInputSerialization.setCsv(selectObjectCSVInputSerialization);
-        selectObjectRequest.setInputSerialization(selectObjectInputSerialization);
+
+        return selectObjectInputSerialization;
+    }
+
+    @Override
+    public OutputSerialization buildOutputSerialization()
+    {
+        Properties schema = getSchema();
+        String fieldDelimiter = getFieldDelimiter(schema);
+        String quoteChar = schema.getProperty(QUOTE_CHAR, null);
+        String escapeChar = schema.getProperty(ESCAPE_CHAR, null);
 
         OutputSerialization selectObjectOutputSerialization = new OutputSerialization();
         CSVOutput selectObjectCSVOutputSerialization = new CSVOutput();
-        selectObjectCSVOutputSerialization.setRecordDelimiter(lineDelimiter);
+        selectObjectCSVOutputSerialization.setRecordDelimiter(getLineDelimiter());
         selectObjectCSVOutputSerialization.setFieldDelimiter(fieldDelimiter);
         selectObjectCSVOutputSerialization.setQuoteCharacter(quoteChar);
         selectObjectCSVOutputSerialization.setQuoteEscapeCharacter(escapeChar);
         selectObjectOutputSerialization.setCsv(selectObjectCSVOutputSerialization);
-        selectObjectRequest.setOutputSerialization(selectObjectOutputSerialization);
 
-        return selectObjectRequest;
+        return selectObjectOutputSerialization;
     }
 }

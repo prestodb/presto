@@ -1,7 +1,7 @@
 {
   "id":"0",
   "root":{
-    "@type":"com.facebook.presto.sql.planner.plan.OutputNode",
+    "@type":".OutputNode",
     "id":"8",
     "source":{
       "@type":"com.facebook.presto.sql.planner.plan.RemoteSourceNode",

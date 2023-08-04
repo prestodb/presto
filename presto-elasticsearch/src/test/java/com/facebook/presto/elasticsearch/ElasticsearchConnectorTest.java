@@ -13,25 +13,47 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.net.HostAndPort;
 import io.airlift.tpch.TpchTable;
-import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
+import org.apache.http.HttpHost;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
-import static com.facebook.presto.elasticsearch.EmbeddedElasticsearchNode.createEmbeddedElasticsearchNode;
-import static org.elasticsearch.client.Requests.indexAliasesRequest;
-import static org.elasticsearch.client.Requests.refreshRequest;
+import java.io.IOException;
 
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static java.lang.String.format;
+
+@Test(singleThreaded = true)
 public class ElasticsearchConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private EmbeddedElasticsearchNode embeddedElasticsearchNode;
+    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch-oss:6.0.0";
+    private ElasticsearchServer elasticsearch;
+    private RestHighLevelClient client;
+
+    @AfterClass(alwaysRun = true)
+    public final void destroy()
+            throws IOException
+    {
+        elasticsearch.stop();
+        client.close();
+    }
 
     @Test
     public void testSelectInformationSchemaForMultiIndexAlias()
+            throws IOException
     {
         addAlias("nation", "multi_alias");
         addAlias("region", "multi_alias");
@@ -132,25 +154,71 @@ public class ElasticsearchConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        embeddedElasticsearchNode = createEmbeddedElasticsearchNode();
-        return createElasticsearchQueryRunner(embeddedElasticsearchNode, TpchTable.getTables());
+        elasticsearch = new ElasticsearchServer(elasticsearchServer, ImmutableMap.of());
+        HostAndPort address = elasticsearch.getAddress();
+        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
+
+        return createElasticsearchQueryRunner(elasticsearch.getAddress(),
+                TpchTable.getTables(),
+                ImmutableMap.of(),
+                ImmutableMap.of());
+    }
+
+    @Test
+    @Override
+    public void testDescribeTable()
+    {
+        MaterializedResult actualColumns = computeActual("DESC orders").toTestTypes();
+        MaterializedResult.Builder builder = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR);
+        for (MaterializedRow row : actualColumns.getMaterializedRows()) {
+            builder.row(row.getField(0), row.getField(1), "", "");
+        }
+        MaterializedResult actualResult = builder.build();
+        builder = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR);
+        MaterializedResult expectedColumns = builder
+                .row("clerk", "varchar", "", "")
+                .row("comment", "varchar", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderdate", "timestamp", "", "")
+                .row("orderkey", "bigint", "", "")
+                .row("orderpriority", "varchar", "", "")
+                .row("orderstatus", "varchar", "", "")
+                .row("shippriority", "bigint", "", "")
+                .row("totalprice", "real", "", "")
+                .build();
+        assertEquals(actualResult, expectedColumns, format("%s != %s", actualResult, expectedColumns));
+    }
+
+    @Test
+    public void testMultipleRangesPredicate()
+    {
+        assertQuery("" +
+                "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                "FROM orders " +
+                "WHERE orderkey BETWEEN 10 AND 50 OR orderkey BETWEEN 100 AND 150");
+    }
+
+    @Test
+    public void testRangePredicate()
+    {
+        // List columns explicitly, as there's no defined order in Elasticsearch
+        assertQuery("" +
+                "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                "FROM orders " +
+                "WHERE orderkey BETWEEN 10 AND 50");
+    }
+
+    @Test
+    public void testSelectAll()
+    {
+        // List columns explicitly, as there's no defined order in Elasticsearch
+        assertQuery("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment  FROM orders");
     }
 
     private void addAlias(String index, String alias)
+            throws IOException
     {
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .aliases(indexAliasesRequest()
-                        .addAliasAction(IndicesAliasesRequest.AliasActions.add()
-                                .index(index)
-                                .alias(alias)))
-                .actionGet();
-
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .refresh(refreshRequest(alias))
-                .actionGet();
+        client.getLowLevelClient()
+                .performRequest("PUT", format("/%s/_alias/%s", index, alias));
     }
 }

@@ -84,6 +84,8 @@ public class PlanNodeStatsSummarizer
         Map<PlanNodeId, Map<String, OperatorInputStats>> operatorInputStats = new HashMap<>();
         Map<PlanNodeId, Map<String, OperatorHashCollisionsStats>> operatorHashCollisionsStats = new HashMap<>();
         Map<PlanNodeId, WindowOperatorStats> windowNodeStats = new HashMap<>();
+        List<TaskStats> nativeTaskStats = new ArrayList<>();
+        Set<PlanNodeId> nativePlanNodeIds = new HashSet<>();
 
         for (PipelineStats pipelineStats : taskStats.getPipelines()) {
             // Due to eventual consistently collected stats, these could be empty
@@ -169,7 +171,15 @@ public class PlanNodeStatsSummarizer
             }
         }
 
+        // Convert native statistics.
+        // Remove statistics for the 'output' plan node to avoid double counting.
+        List<PlanNodeStats> nativePlanNodeStats = nativeTaskStats.stream()
+                .flatMap(stats -> getPlanNodeStats(stats).stream())
+                .filter(stats -> !nativePlanNodeIds.contains(stats.getPlanNodeId()))
+                .collect(toList());
+
         List<PlanNodeStats> stats = new ArrayList<>();
+        stats.addAll(nativePlanNodeStats);
         for (PlanNodeId planNodeId : planNodeIds) {
             if (!planNodeInputPositions.containsKey(planNodeId)) {
                 continue;

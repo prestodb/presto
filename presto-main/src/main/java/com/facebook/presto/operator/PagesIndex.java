@@ -58,6 +58,7 @@ import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -441,6 +442,12 @@ public class PagesIndex
                 Optional.empty(),
                 functionAndTypeManager,
                 groupByUsesEqualTo);
+    }
+
+    public PagesIndexComparator createChannelComparator(int leftChannel, int rightChannel, SortOrder sortOrder)
+    {
+        checkArgument(types.get(leftChannel).equals(types.get(rightChannel)), "comparing channels of different types: %s and %s", types.get(leftChannel), types.get(rightChannel));
+        return new SimpleChannelComparator(leftChannel, rightChannel, types.get(leftChannel), sortOrder);
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(

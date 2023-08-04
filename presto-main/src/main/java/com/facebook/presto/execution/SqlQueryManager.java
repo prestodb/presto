@@ -165,6 +165,17 @@ public class SqlQueryManager
                 log.error(e, "Error enforcing query output size limits");
             }
         }, 1, 1, TimeUnit.SECONDS);
+
+        // Pulling out the checking of memory leaks to happen at a coarser granularity since it's a bit
+        // expensive and does not need to happen as frequently as enforcement.
+        queryManagementExecutor.scheduleWithFixedDelay(() -> {
+            try {
+                checkForMemoryLeaks();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error checking memory leaks");
+            }
+        }, 1, 1, TimeUnit.MINUTES);
     }
 
     @PreDestroy
@@ -365,7 +376,12 @@ public class SqlQueryManager
         List<QueryExecution> runningQueries = queryTracker.getAllQueries().stream()
                 .filter(query -> query.getState() == RUNNING)
                 .collect(toImmutableList());
-        memoryManager.process(runningQueries, this::getQueries);
+        memoryManager.process(runningQueries);
+    }
+
+    private void checkForMemoryLeaks()
+    {
+        memoryManager.checkForLeaks(this::getQueries);
     }
 
     /**

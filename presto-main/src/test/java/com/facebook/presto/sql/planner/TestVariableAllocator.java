@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
@@ -27,7 +28,7 @@ public class TestVariableAllocator
     @Test
     public void testUnique()
     {
-        PlanVariableAllocator allocator = new PlanVariableAllocator();
+        VariableAllocator allocator = new VariableAllocator();
         Set<VariableReferenceExpression> variables = ImmutableSet.<VariableReferenceExpression>builder()
                 .add(allocator.newVariable("foo_1_0", BigintType.BIGINT))
                 .add(allocator.newVariable("foo", BigintType.BIGINT))

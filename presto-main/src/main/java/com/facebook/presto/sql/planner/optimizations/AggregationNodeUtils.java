@@ -13,8 +13,14 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -27,10 +33,9 @@ import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class AggregationNodeUtils
@@ -41,7 +46,7 @@ public class AggregationNodeUtils
     {
         return new AggregationNode.Aggregation(
                 new CallExpression("count",
-                        new FunctionResolution(functionAndTypeManager).countFunction(),
+                        new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()).countFunction(),
                         BIGINT,
                         ImmutableList.of()),
                 Optional.empty(),
@@ -62,11 +67,39 @@ public class AggregationNodeUtils
 
     private static List<VariableReferenceExpression> extractAll(RowExpression expression, TypeProvider types)
     {
-        if (isExpression(expression)) {
-            return VariablesExtractor.extractAll(castToExpression(expression), types);
-        }
         return VariablesExtractor.extractAll(expression)
                 .stream()
                 .collect(toImmutableList());
+    }
+
+    public static boolean isAllLowCardinalityGroupByKeys(AggregationNode aggregationNode, TableScanNode scanNode, Session session, StatsCalculator statsCalculator, TypeProvider types, long count)
+    {
+        List<VariableReferenceExpression> groupbyKeys = aggregationNode.getGroupingSets().getGroupingKeys().stream().collect(Collectors.toList());
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
+        PlanNodeStatsEstimate estimate = statsProvider.getStats(scanNode);
+        if (!estimate.isConfident()) {
+            // For safety, we assume they are low card if not confident
+            // TODO(kaikalur) : maybe return low card only for partition keys if/when we can detect that
+            return true;
+        }
+
+        return groupbyKeys.stream().noneMatch(x -> estimate.getVariableStatistics(x).getDistinctValuesCount() >= count);
+    }
+
+    public static AggregationNode.Aggregation removeFilterAndMask(AggregationNode.Aggregation aggregation)
+    {
+        Optional<RowExpression> filter = aggregation.getFilter();
+        Optional<VariableReferenceExpression> mask = aggregation.getMask();
+
+        if (filter.isPresent() || mask.isPresent()) {
+            return new AggregationNode.Aggregation(
+                    aggregation.getCall(),
+                    Optional.empty(),
+                    aggregation.getOrderBy(),
+                    aggregation.isDistinct(),
+                    Optional.empty());
+        }
+
+        return aggregation;
     }
 }

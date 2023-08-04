@@ -210,7 +210,8 @@ public class TestCursorProcessorCompiler
     private void checkPageEqual(Page a, Page b)
     {
         assertEquals(a.getPositionCount(), b.getPositionCount());
-        for (int i = 0; i < a.getPositionCount(); i++) {
+        assertEquals(a.getChannelCount(), b.getChannelCount());
+        for (int i = 0; i < a.getChannelCount(); i++) {
             checkBlockEqual(a.getBlock(i), b.getBlock(i));
         }
     }

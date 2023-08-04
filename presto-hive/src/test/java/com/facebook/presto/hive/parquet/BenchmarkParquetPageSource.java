@@ -64,7 +64,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -246,11 +245,11 @@ public class BenchmarkParquetPageSource
             List<Float> filterRates = Arrays.stream(filterRateSignature.split("\\|")).map(r -> Float.parseFloat(r)).collect(toImmutableList());
             channelCount = filterRates.size();
 
-            Iterator<?>[] values = new Iterator<?>[channelCount];
+            List<?>[] values = new List<?>[channelCount];
             for (int i = 0; i < channelCount; i++) {
                 float filterRate = filterRates.get(i);
                 Pair<Boolean, Float> filterInfoForNonNull = getFilterInfoForNonNull(filterRate);
-                values[i] = createValues(filterRate).iterator();
+                values[i] = createValues(filterRate);
                 filters.add(getFilter(i, type, filterRate, filterInfoForNonNull.getKey(), filterInfoForNonNull.getValue()));
                 columnNames.add("column" + i);
             }

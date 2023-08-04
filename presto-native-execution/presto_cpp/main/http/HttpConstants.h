@@ -14,11 +14,11 @@
 #pragma once
 namespace facebook::presto::http {
 
-const int kHttpOk = 200;
-const int kHttpAccepted = 202;
-const int kHttpNoContent = 204;
-const int kHttpNotFound = 404;
-const int kHttpInternalServerError = 500;
+const uint16_t kHttpOk = 200;
+const uint16_t kHttpAccepted = 202;
+const uint16_t kHttpNoContent = 204;
+const uint16_t kHttpNotFound = 404;
+const uint16_t kHttpInternalServerError = 500;
 
 const char kMimeTypeApplicationJson[] = "application/json";
 const char kMimeTypeApplicationThrift[] = "application/x-thrift+binary";

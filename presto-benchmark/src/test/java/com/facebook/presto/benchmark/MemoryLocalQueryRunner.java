@@ -93,7 +93,7 @@ public class MemoryLocalQueryRunner
 
         TaskContext taskContext = queryContext
                 .addTaskContext(
-                        new TaskStateMachine(new TaskId("query", 0, 0, 0), localQueryRunner.getExecutor()),
+                        new TaskStateMachine(new TaskId("query", 0, 0, 0, 0), localQueryRunner.getExecutor()),
                         localQueryRunner.getDefaultSession(),
                         Optional.empty(),
                         false,
@@ -142,7 +142,7 @@ public class MemoryLocalQueryRunner
     {
         Session session = localQueryRunner.getDefaultSession();
         Metadata metadata = localQueryRunner.getMetadata();
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, QualifiedObjectName.valueOf(tableName));
+        Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(QualifiedObjectName.valueOf(tableName));
         assertTrue(tableHandle.isPresent(), "Table " + tableName + " does not exist");
         metadata.dropTable(session, tableHandle.get());
     }

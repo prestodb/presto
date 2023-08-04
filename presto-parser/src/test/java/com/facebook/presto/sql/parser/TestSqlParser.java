@@ -961,6 +961,22 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty()));
 
+        assertStatement("SELECT * FROM table1 order by x FETCH FIRST 10 ROWS ONLY",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("x"), ASCENDING, UNDEFINED)))),
+                                Optional.empty(),
+                                Optional.of("10")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
         Query valuesQuery = query(values(
                 row(new LongLiteral("1"), new StringLiteral("1")),
                 row(new LongLiteral("2"), new StringLiteral("2"))));

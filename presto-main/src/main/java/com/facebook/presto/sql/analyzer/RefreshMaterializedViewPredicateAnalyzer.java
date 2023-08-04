@@ -28,6 +28,7 @@ import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 
@@ -35,6 +36,7 @@ import javax.annotation.Nullable;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
@@ -141,9 +143,15 @@ public class RefreshMaterializedViewPredicateAnalyzer
             if (!(node.getRight() instanceof Literal)) {
                 throw new SemanticException(NOT_SUPPORTED, node.getRight(), "Only columns specified on literals are supported in WHERE clause.");
             }
+            Supplier<QualifiedName> qualifiedName = () -> {
+                if (node.getLeft() instanceof DereferenceExpression) {
+                    return DereferenceExpression.getQualifiedName((DereferenceExpression) node.getLeft());
+                }
+                return QualifiedName.of(((Identifier) node.getLeft()).getValue());
+            };
 
-            ResolvedField resolvedField = viewScope.tryResolveField(node.getLeft()).orElseThrow(() -> missingAttributeException(node.getLeft()));
-            String column = resolvedField.getField().getOriginColumnName().orElseThrow(() -> missingAttributeException(node.getLeft()));
+            ResolvedField resolvedField = viewScope.tryResolveField(node.getLeft()).orElseThrow(() -> missingAttributeException(node.getLeft(), qualifiedName.get()));
+            String column = resolvedField.getField().getOriginColumnName().orElseThrow(() -> missingAttributeException(node.getLeft(), qualifiedName.get()));
 
             if (!viewDefinition.getValidRefreshColumns().orElse(emptyList()).contains(column)) {
                 throw new SemanticException(NOT_SUPPORTED, node.getLeft(), "Refresh materialized view by column %s is not supported.", node.getLeft().toString());

@@ -21,14 +21,37 @@
 
 namespace facebook::presto::operators {
 
-/// LocalShuffleInfo can be used for both READ and WRITE.
-struct LocalShuffleInfo {
+// LocalShuffleWriteInfo is used for containing shuffle write information.
+// This struct is a 1:1 strict API mapping to
+// presto-spark-base/src/main/java/com/facebook/presto/spark/execution/PrestoSparkLocalShuffleWriteInfo.java
+// Please refrain changes to this API class. If any changes have to be made to
+// this struct, one should make sure to make corresponding changes in the above
+// Java classes and its corresponding serde functionalities.
+struct LocalShuffleWriteInfo {
   std::string rootPath;
+  std::string queryId;
   uint32_t numPartitions;
+  uint32_t shuffleId;
 
   /// Deserializes shuffle information that is used by LocalPersistentShuffle.
   /// Structures are assumed to be encoded in JSON format.
-  static LocalShuffleInfo deserialize(const std::string& info);
+  static LocalShuffleWriteInfo deserialize(const std::string& info);
+};
+
+// LocalShuffleReadInfo is used for containing shuffle read metadata
+// This struct is a 1:1 strict API mapping to
+// presto-spark-base/src/main/java/com/facebook/presto/spark/execution/PrestoSparkLocalShuffleReadInfo.java.
+// Please refrain changes to this API class. If any changes have to be made to
+// this struct, one should make sure to make corresponding changes in the above
+// Java classes and its corresponding serde functionalities.
+struct LocalShuffleReadInfo {
+  std::string rootPath;
+  std::string queryId;
+  std::vector<std::string> partitionIds;
+
+  /// Deserializes shuffle information that is used by LocalPersistentShuffle.
+  /// Structures are assumed to be encoded in JSON format.
+  static LocalShuffleReadInfo deserialize(const std::string& info);
 };
 
 /// This class is a persistent shuffle server that implements
@@ -46,12 +69,12 @@ struct LocalShuffleInfo {
 /// multi-process use scenarios as long as each producer or consumer is assigned
 /// to a distinct group of partition IDs. Each of them can create an instance of
 /// this class (pointing to the same root path) to read and write shuffle data.
-class LocalPersistentShuffle : public ShuffleReader, public ShuffleWriter {
+class LocalPersistentShuffleWriter : public ShuffleWriter {
  public:
-  static constexpr folly::StringPiece kShuffleName{"local"};
-
-  LocalPersistentShuffle(
+  LocalPersistentShuffleWriter(
       const std::string& rootPath,
+      const std::string& queryId,
+      uint32_t shuffleId,
       uint32_t numPartitions,
       uint64_t maxBytesPerPartition,
       velox::memory::MemoryPool* FOLLY_NONNULL pool);
@@ -60,51 +83,87 @@ class LocalPersistentShuffle : public ShuffleReader, public ShuffleWriter {
 
   void noMoreData(bool success) override;
 
-  bool hasNext(int32_t partition) const override;
-
-  velox::BufferPtr next(int32_t partition, bool success) override;
+  folly::F14FastMap<std::string, int64_t> stats() const override {
+    // Fake counter for testing only.
+    return {{"local.write", 2345}};
+  }
 
  private:
   // Finds and creates the next file for writing the next block of the
   // given 'partition'.
   std::unique_ptr<velox::WriteFile> getNextOutputFile(int32_t partition);
 
-  // Returns the number of stored files for a given partition.
-  int getWritePartitionFilesCount(int32_t partition) const;
-
-  // Returns all created shuffle files for a given partition.
-  std::vector<std::string> getReadPartitionFiles(int32_t partition) const;
-
   // Writes the in-progress block to the given partition.
   void storePartitionBlock(int32_t partition);
-
-  bool readyForRead() const;
 
   // Deletes all the files in the root directory.
   void cleanup();
 
-  const uint64_t maxBytesPerPartition_;
+  // find next available partition file name to store shuffle data
+  std::string nextAvailablePartitionFileName(
+      const std::string& root,
+      int32_t partition) const;
 
+  // Used to make sure files created by this thread have unique names.
+  const std::thread::id threadId_;
   velox::memory::MemoryPool* FOLLY_NONNULL pool_;
-  uint32_t numPartitions_;
+  const uint32_t numPartitions_;
+  const uint64_t maxBytesPerPartition_;
+  // The top directory of the shuffle files and its file system.
+  const std::string rootPath_;
+  const std::string queryId_;
+  const uint32_t shuffleId_;
+
   /// The latest written block buffers and sizes.
   std::vector<velox::BufferPtr> inProgressPartitions_;
   std::vector<size_t> inProgressSizes_;
-  // The latest read block index of each partition.
-  std::vector<size_t> readPartitionsFileIndex_;
-  // List of generated files for each partition.
-  std::vector<std::vector<std::string>> readPartitionFiles_;
-  // The top directory of the shuffle files and its file system.
-  std::string rootPath_;
   std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
-  // Used to make sure files created by this thread have unique names.
-  std::thread::id threadId_;
+};
+
+class LocalPersistentShuffleReader : public ShuffleReader {
+ public:
+  LocalPersistentShuffleReader(
+      const std::string& rootPath,
+      const std::string& queryId,
+      std::vector<std::string> partitionIds_,
+      velox::memory::MemoryPool* FOLLY_NONNULL pool);
+
+  bool hasNext() override;
+
+  velox::BufferPtr next() override;
+
+  void noMoreData(bool success) override;
+
+  folly::F14FastMap<std::string, int64_t> stats() const override {
+    // Fake counter for testing only.
+    return {{"local.read", 123}};
+  }
+
+ private:
+  // Returns all created shuffle files for 'partition_'.
+  std::vector<std::string> getReadPartitionFiles() const;
+
+  const std::string rootPath_;
+  const std::string queryId_;
+  const std::vector<std::string> partitionIds_;
+  velox::memory::MemoryPool* FOLLY_NONNULL pool_;
+
+  // Latest read block (file) index in 'readPartitionFiles_' for 'partition_'.
+  size_t readPartitionFileIndex_{0};
+
+  // List of generated files for 'partition_'.
+  std::vector<std::string> readPartitionFiles_;
+
+  // The top directory of the shuffle files and its file system.
+  std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
 };
 
 class LocalPersistentShuffleFactory : public ShuffleInterfaceFactory {
  public:
+  static constexpr folly::StringPiece kShuffleName{"local"};
   std::shared_ptr<ShuffleReader> createReader(
       const std::string& serializedStr,
+      const int32_t partition,
       velox::memory::MemoryPool* FOLLY_NONNULL pool) override;
 
   std::shared_ptr<ShuffleWriter> createWriter(

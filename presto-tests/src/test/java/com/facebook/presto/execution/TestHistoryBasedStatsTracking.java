@@ -19,33 +19,45 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
+import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.sql.planner.assertions.MatchResult;
 import com.facebook.presto.sql.planner.assertions.Matcher;
 import com.facebook.presto.sql.planner.assertions.SymbolAliases;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.RowNumberNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.testing.InMemoryHistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tests.statistics.InMemoryHistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.HISTORY_CANONICAL_PLAN_NODE_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.TRACK_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
+import static com.facebook.presto.SystemSessionProperties.USE_PERFECTLY_CONSISTENT_HISTORIES;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.isNaN;
+import static org.testng.Assert.assertFalse;
 
 @Test(singleThreaded = true)
 public class TestHistoryBasedStatsTracking
@@ -67,14 +79,15 @@ public class TestHistoryBasedStatsTracking
                 return ImmutableList.of(new InMemoryHistoryBasedPlanStatisticsProvider());
             }
         });
+        if (queryRunner.getStatsCalculator() instanceof HistoryBasedPlanStatisticsCalculator) {
+            ((HistoryBasedPlanStatisticsCalculator) queryRunner.getStatsCalculator()).setPrefetchForAllPlanNodes(true);
+        }
         return queryRunner;
     }
 
     @BeforeMethod(alwaysRun = true)
     public void setUp()
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
-        ((HistoryBasedPlanStatisticsCalculator) queryRunner.getStatsCalculator()).invalidateCache();
         getHistoryProvider().clearCache();
     }
 
@@ -136,6 +149,80 @@ public class TestHistoryBasedStatsTracking
     }
 
     @Test
+    public void testWindow()
+    {
+        String query1 = "SELECT orderkey, SUM(custkey) OVER (PARTITION BY orderstatus ORDER BY totalprice) FROM orders where orderkey < 1000";
+        String query2 = "SELECT orderkey, SUM(custkey) OVER (PARTITION BY orderstatus ORDER BY totalprice) FROM orders where orderkey < 2000";
+
+        assertPlan(query1 + " UNION ALL " + query2, anyTree(node(WindowNode.class, anyTree(any())).withOutputRowCount(Double.NaN)));
+        executeAndTrackHistory(query1 + " UNION ALL " + query2);
+        assertPlan(
+                query2 + " UNION ALL " + query1,
+                anyTree(node(ExchangeNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(758)));
+    }
+
+    @Test
+    public void testValues()
+    {
+        String query = "SELECT * FROM (SELECT * FROM ( VALUES (1, 'a'), (2, 'b'), (3, 'c')) AS t(id, name)) T1 JOIN (SELECT nationkey FROM nation WHERE substr(name, 1, 1) = 'A') T2 ON T2.nationkey = T1.id";
+
+        assertPlan(query, anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(Double.NaN)));
+        executeAndTrackHistory(query);
+        assertPlan(query, anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(1)));
+    }
+
+    @Test
+    public void testSort()
+    {
+        String query = "SELECT * FROM nation where substr(name, 1, 1) = 'A' ORDER BY regionkey";
+
+        assertPlan(query, anyTree(node(SortNode.class, anyTree(any())).withOutputRowCount(Double.NaN)));
+        executeAndTrackHistory(query);
+        assertPlan(query, anyTree(node(SortNode.class, anyTree(any())).withOutputRowCount(2)));
+    }
+
+    @Test
+    public void testMarkDistinct()
+    {
+        String query = "SELECT count(*), count(distinct orderstatus) FROM (SELECT * FROM orders WHERE orderstatus = 'F')";
+
+        assertPlan(query, anyTree(node(MarkDistinctNode.class, anyTree(any())).withOutputRowCount(Double.NaN)));
+        executeAndTrackHistory(query);
+        assertPlan(query, anyTree(node(MarkDistinctNode.class, anyTree(any())).withOutputRowCount(7304)));
+    }
+
+    @Test
+    public void testAssignUniqueId()
+    {
+        String query = "SELECT name, (SELECT name FROM region WHERE regionkey = nation.regionkey) FROM nation";
+
+        // Stats of AssignUniqueId can be generated from CBO, so test for OutputNode stats which include the whole plan hash
+        assertPlan(query, node(OutputNode.class, anyTree(anyTree(any()), anyTree(any()))).withOutputRowCount(Double.NaN));
+        executeAndTrackHistory(query);
+        assertPlan(query, node(OutputNode.class, anyTree(anyTree(any()), anyTree(any()))).withOutputRowCount(25));
+    }
+
+    @Test
+    public void testSemiJoin()
+    {
+        String query = "SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = 2))";
+
+        assertPlan(query, anyTree(node(SemiJoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(Double.longBitsToDouble(4616202753553671564L))));
+        executeAndTrackHistory(query);
+        assertPlan(query, anyTree(node(SemiJoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(1)));
+    }
+
+    @Test
+    public void testRowNumber()
+    {
+        String query = "SELECT nationkey, ROW_NUMBER() OVER (PARTITION BY regionkey) from nation where substr(name, 1, 1) = 'A'";
+
+        assertPlan(query, anyTree(node(RowNumberNode.class, anyTree(any())).withOutputRowCount(Double.NaN)));
+        executeAndTrackHistory(query);
+        assertPlan(query, anyTree(node(RowNumberNode.class, anyTree(any())).withOutputRowCount(2)));
+    }
+
+    @Test
     public void testUnionMultiple()
     {
         assertPlan(
@@ -159,7 +246,7 @@ public class TestHistoryBasedStatsTracking
 
         executeAndTrackHistory("SELECT nationkey FROM nation where substr(name, 1, 1) = 'A' UNION ALL SELECT nationkey FROM customer  where nationkey < 10");
         assertPlan(
-                " SELECT nationkey FROM customer where nationkey < 10 UNION ALL SELECT nationkey FROM nation where substr(name, 1, 1) = 'A'",
+                "SELECT nationkey FROM customer where nationkey < 10 UNION ALL SELECT nationkey FROM nation where substr(name, 1, 1) = 'A'",
                 anyTree(node(ExchangeNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(601)));
     }
 
@@ -211,6 +298,46 @@ public class TestHistoryBasedStatsTracking
                 anyTree(node(LimitNode.class, anyTree(any())).withOutputRowCount(1)));
     }
 
+    @Test
+    public void testTopN()
+    {
+        String query = "SELECT orderkey FROM orders where orderkey < 1000 GROUP BY 1 ORDER BY 1 DESC LIMIT 10000";
+        assertPlan(query, anyTree(node(TopNNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(Double.NaN)));
+        executeAndTrackHistory(query);
+        assertPlan(query, anyTree(node(TopNNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(255)));
+    }
+
+    @Test
+    public void testUseHistoriesWithLimitingPlanNode()
+    {
+        String query = "SELECT orderkey FROM orders where orderkey < 1000 GROUP BY 1 ORDER BY 1 DESC LIMIT 10000";
+        Session session = Session.builder(createSession())
+                .setSystemProperty(HISTORY_CANONICAL_PLAN_NODE_LIMIT, "2")
+                .build();
+        assertPlan(session, query, anyTree(node(TopNNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(Double.NaN)));
+        getQueryRunner().execute(session, query);
+        assertFalse(getHistoryProvider().waitProcessQueryEventsIfAvailable());
+        assertPlan(session, query, anyTree(node(TopNNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(Double.NaN)));
+    }
+
+    @Test
+    public void testTopNRowNumber()
+    {
+        String query = "SELECT orderstatus FROM (SELECT orderstatus, row_number() OVER (PARTITION BY orderstatus ORDER BY custkey) n FROM orders) WHERE n = 1";
+        assertPlan(query, anyTree(node(TopNRowNumberNode.class, anyTree(any())).withOutputRowCount(Double.NaN)));
+        executeAndTrackHistory(query);
+        assertPlan(query, anyTree(node(TopNRowNumberNode.class, anyTree(any())).withOutputRowCount(3)));
+    }
+
+    @Test
+    public void testDistinctLimit()
+    {
+        String query = "SELECT distinct regionkey from nation limit 2";
+        assertPlan(query, anyTree(node(DistinctLimitNode.class, anyTree(any())).withOutputRowCount(Double.NaN)));
+        executeAndTrackHistory(query);
+        assertPlan(query, anyTree(node(DistinctLimitNode.class, anyTree(any())).withOutputRowCount(2)));
+    }
+
     private void executeAndTrackHistory(String sql)
     {
         getQueryRunner().execute(sql);
@@ -247,6 +374,7 @@ public class TestHistoryBasedStatsTracking
         return testSessionBuilder()
                 .setSystemProperty(USE_HISTORY_BASED_PLAN_STATISTICS, "true")
                 .setSystemProperty(TRACK_HISTORY_BASED_PLAN_STATISTICS, "true")
+                .setSystemProperty(USE_PERFECTLY_CONSISTENT_HISTORIES, "true")
                 .setSystemProperty("task_concurrency", "1")
                 .setCatalog("tpch")
                 .setSchema("tiny")

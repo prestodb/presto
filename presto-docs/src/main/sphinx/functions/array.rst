@@ -40,6 +40,13 @@ Array Functions
     Returns the average of all non-null elements of the ``array``. If there is no non-null elements, returns
     ``null``.
 
+.. function:: array_cum_sum(array(T)) -> array(T)
+
+    Returns the array whose elements are the cumulative sum of the input array, i.e. result[i] = input[1]+input[2]+...+input[i].
+    If there there is null elements in the array, the cumulative sum at and after the element is null. ::
+
+        SELECT array_cum_sum(ARRAY [1, 2, null, 3]) -- array[1, 3, null, null]
+
 .. function:: array_distinct(x) -> array
 
     Remove duplicate values from the array ``x``.
@@ -223,16 +230,35 @@ Array Functions
 
 .. function:: find_first(array(E), function(T,boolean)) -> E
 
-    Returns the first element of ``array`` which returns true for ``function(T,boolean)``. Returns ``NULL`` if no such element exists.
+    Returns the first element of ``array`` which returns true for ``function(T,boolean)``, throws exception if the returned element is NULL.
+    Returns ``NULL`` if no such element exists.
 
 .. function:: find_first(array(E), index, function(T,boolean)) -> E
 
-    Returns the first element of ``array`` which returns true for ``function(T,boolean)``. Returns ``NULL`` if no such element exists.
+    Returns the first element of ``array`` which returns true for ``function(T,boolean)``, throws exception if the returned element is NULL.
+    Returns ``NULL`` if no such element exists.
     If ``index`` > 0, the search for element starts at position ``index`` until the end of array.
     If ``index`` < 0, the search for element starts at position ``abs(index)`` counting from last, until the start of array. ::
 
         SELECT find_first(ARRAY[3, 4, 5, 6], 2, x -> x > 0); -- 4
         SELECT find_first(ARRAY[3, 4, 5, 6], -2, x -> x > 0); -- 5
+        SELECT find_first(ARRAY[3, 4, 5, 6], 2, x -> x < 4); -- NULL
+        SELECT find_first(ARRAY[3, 4, 5, 6], -2, x -> x > 5); -- NULL
+
+.. function:: find_first_index(array(E), function(T,boolean)) -> BIGINT
+
+    Returns the index of the first element of ``array`` which returns true for ``function(T,boolean)``.
+    Returns ``NULL`` if no such element exists.
+
+.. function:: find_first_index(array(E), index, function(T,boolean)) -> BIGINT
+
+    Returns the index of the first element of ``array`` which returns true for ``function(T,boolean)``.
+    Returns ``NULL`` if no such element exists.
+    If ``index`` > 0, the search for element starts at position ``index`` until the end of array.
+    If ``index`` < 0, the search for element starts at position ``abs(index)`` counting from last, until the start of array. ::
+
+        SELECT find_first(ARRAY[3, 4, 5, 6], 2, x -> x > 0); -- 2
+        SELECT find_first(ARRAY[3, 4, 5, 6], -2, x -> x > 0); -- 3
         SELECT find_first(ARRAY[3, 4, 5, 6], 2, x -> x < 4); -- NULL
         SELECT find_first(ARRAY[3, 4, 5, 6], -2, x -> x > 5); -- NULL
 

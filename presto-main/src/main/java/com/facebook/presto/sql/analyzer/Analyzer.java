@@ -14,11 +14,10 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.rewrite.StatementRewrite;
 import com.facebook.presto.sql.tree.Expression;
@@ -33,7 +32,10 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
+import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlWithSubfields;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExternalFunctions;
@@ -41,6 +43,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindow
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.UtilizedColumnsAnalyzer.analyzeForUtilizedColumns;
+import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static java.util.Objects.requireNonNull;
 
 public class Analyzer
@@ -53,8 +56,10 @@ public class Analyzer
     private final List<Expression> parameters;
     private final Map<NodeRef<Parameter>, Expression> parameterLookup;
     private final WarningCollector warningCollector;
+    private final MetadataExtractor metadataExtractor;
 
-    public Analyzer(Session session,
+    public Analyzer(
+            Session session,
             Metadata metadata,
             SqlParser sqlParser,
             AccessControl accessControl,
@@ -63,14 +68,30 @@ public class Analyzer
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector)
     {
+        this(session, metadata, sqlParser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector, Optional.empty());
+    }
+
+    public Analyzer(
+            Session session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            AccessControl accessControl,
+            Optional<QueryExplainer> queryExplainer,
+            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameterLookup,
+            WarningCollector warningCollector,
+            Optional<ExecutorService> metadataExtractorExecutor)
+    {
         this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.queryExplainer = requireNonNull(queryExplainer, "query explainer is null");
-        this.parameters = parameters;
-        this.parameterLookup = parameterLookup;
+        this.parameters = requireNonNull(parameters, "parameters is null");
+        this.parameterLookup = requireNonNull(parameterLookup, "parameterLookup is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        requireNonNull(metadataExtractorExecutor, "metadataExtractorExecutor is null");
+        this.metadataExtractor = new MetadataExtractor(session, metadata, metadataExtractorExecutor, sqlParser, warningCollector);
     }
 
     public Analysis analyze(Statement statement)
@@ -78,10 +99,11 @@ public class Analyzer
         return analyze(statement, false);
     }
 
+    // TODO: Remove this method once all calls are moved to analyzer interface, as this call is overloaded with analyze and columnCheckPermissions
     public Analysis analyze(Statement statement, boolean isDescribe)
     {
         Analysis analysis = analyzeSemantic(statement, isDescribe);
-        checkColumnAccessPermissions(analysis);
+        checkAccessPermissions(analysis.getAccessControlReferences());
         return analysis;
     }
 
@@ -89,31 +111,22 @@ public class Analyzer
     {
         Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, accessControl, warningCollector);
         Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe);
+
+        metadataExtractor.populateMetadataHandle(session, rewrittenStatement, analysis.getMetadataHandle());
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
         analyzer.analyze(rewrittenStatement, Optional.empty());
         analyzeForUtilizedColumns(analysis, analysis.getStatement());
+        analysis.populateTableColumnAndSubfieldReferencesForAccessControl(isCheckAccessControlOnUtilizedColumnsOnly(session), isCheckAccessControlWithSubfields(session));
         return analysis;
     }
 
-    /**
-     * check column access permissions for each table
-     * @param analysis the Analysis that needs to check ACL for
-     */
-    public void checkColumnAccessPermissions(Analysis analysis)
+    static void verifyNoAggregateWindowOrGroupingFunctions(
+            Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles,
+            FunctionAndTypeResolver functionAndTypeResolver,
+            Expression predicate,
+            String clause)
     {
-        analysis.getTableColumnAndSubfieldReferencesForAccessControl(session).forEach((accessControlInfo, tableColumnReferences) ->
-                tableColumnReferences.forEach((tableName, columns) ->
-                        accessControlInfo.getAccessControl().checkCanSelectFromColumns(
-                                session.getRequiredTransactionId(),
-                                accessControlInfo.getIdentity(),
-                                session.getAccessControlContext(),
-                                tableName,
-                                columns)));
-    }
-
-    static void verifyNoAggregateWindowOrGroupingFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, FunctionAndTypeManager functionAndTypeManager, Expression predicate, String clause)
-    {
-        List<FunctionCall> aggregates = extractAggregateFunctions(functionHandles, ImmutableList.of(predicate), functionAndTypeManager);
+        List<FunctionCall> aggregates = extractAggregateFunctions(functionHandles, ImmutableList.of(predicate), functionAndTypeResolver);
 
         List<FunctionCall> windowExpressions = extractWindowFunctions(ImmutableList.of(predicate));
 
@@ -129,9 +142,9 @@ public class Analyzer
         }
     }
 
-    static void verifyNoExternalFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, FunctionAndTypeManager functionAndTypeManager, Expression predicate, String clause)
+    static void verifyNoExternalFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, FunctionAndTypeResolver functionAndTypeResolver, Expression predicate, String clause)
     {
-        List<FunctionCall> externalFunctions = extractExternalFunctions(functionHandles, ImmutableList.of(predicate), functionAndTypeManager);
+        List<FunctionCall> externalFunctions = extractExternalFunctions(functionHandles, ImmutableList.of(predicate), functionAndTypeResolver);
         if (!externalFunctions.isEmpty()) {
             throw new SemanticException(NOT_SUPPORTED, predicate, "External functions in %s is not supported: %s", clause, externalFunctions);
         }

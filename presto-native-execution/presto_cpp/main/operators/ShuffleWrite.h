@@ -23,13 +23,21 @@ class ShuffleWriteNode : public velox::core::PlanNode {
  public:
   ShuffleWriteNode(
       const velox::core::PlanNodeId& id,
+      uint32_t numPartitions,
       const std::string& shuffleName,
       const std::string& serializedShuffleWriteInfo,
       velox::core::PlanNodePtr source)
       : velox::core::PlanNode(id),
+        numPartitions_{numPartitions},
         shuffleName_{shuffleName},
         serializedShuffleWriteInfo_(serializedShuffleWriteInfo),
         sources_{std::move(source)} {}
+
+  folly::dynamic serialize() const override;
+
+  static velox::core::PlanNodePtr create(
+      const folly::dynamic& obj,
+      void* context);
 
   const velox::RowTypePtr& outputType() const override {
     return sources_[0]->outputType();
@@ -37,6 +45,10 @@ class ShuffleWriteNode : public velox::core::PlanNode {
 
   const std::vector<velox::core::PlanNodePtr>& sources() const override {
     return sources_;
+  }
+
+  uint32_t numPartitions() const {
+    return numPartitions_;
   }
 
   const std::string& shuffleName() const {
@@ -52,8 +64,11 @@ class ShuffleWriteNode : public velox::core::PlanNode {
   }
 
  private:
-  void addDetails(std::stringstream& stream) const override {}
+  void addDetails(std::stringstream& stream) const override {
+    stream << numPartitions_ << ", " << shuffleName_;
+  }
 
+  const uint32_t numPartitions_;
   const std::string shuffleName_;
   const std::string serializedShuffleWriteInfo_;
   const std::vector<velox::core::PlanNodePtr> sources_;

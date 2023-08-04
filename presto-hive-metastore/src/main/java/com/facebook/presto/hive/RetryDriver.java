@@ -139,6 +139,11 @@ public class RetryDriver
                 return callable.call();
             }
             catch (Exception e) {
+                // Immediately stop retry attempts once an interrupt has been received
+                if (e instanceof InterruptedException || Thread.currentThread().isInterrupted()) {
+                    addSuppressed(e, suppressedExceptions);
+                    throw e;
+                }
                 e = exceptionMapper.apply(e);
                 for (Class<? extends Exception> clazz : exceptionWhiteList) {
                     if (clazz.isInstance(e)) {

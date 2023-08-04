@@ -66,7 +66,7 @@ public class TestOrcWriterOptions
 
         assertEquals(options.getFlattenedColumns(), ImmutableSet.of());
         assertFalse(options.isMapStatisticsEnabled());
-        assertEquals(options.getMaxFlattenedMapKeyCount(), 20000);
+        assertEquals(options.getMaxFlattenedMapKeyCount(), 25000);
     }
 
     @Test

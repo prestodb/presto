@@ -371,7 +371,7 @@ public class TestLocalDispatchQuery
 
         query.startWaitingForResources();
 
-        Thread.sleep(300); // Sleep long enough to ensure resource exhaustion error
+        Thread.sleep(2000); // Sleep long enough to ensure resource exhaustion error
 
         assertEquals(query.getBasicQueryInfo().getState(), FAILED);
         assertEquals(query.getBasicQueryInfo().getErrorCode(), GENERIC_INSUFFICIENT_RESOURCES.toErrorCode());

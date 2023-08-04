@@ -84,7 +84,6 @@ import static org.testng.Assert.assertTrue;
 public class TestTupleDomainParquetPredicate
 {
     private static final ParquetDataSourceId ID = new ParquetDataSourceId("testFile");
-    private TestingWarningCollector collector = new TestingWarningCollector(new WarningCollectorConfig(), new TestingWarningCollectorConfig().setAddWarnings(true));
 
     private static BooleanStatistics booleanColumnStats(boolean minimum, boolean maximum)
     {
@@ -155,8 +154,8 @@ public class TestTupleDomainParquetPredicate
 
     @Test
     public void testBoolean()
-            throws ParquetCorruptionException
     {
+        TestingWarningCollector collector = new TestingWarningCollector(new WarningCollectorConfig(), new TestingWarningCollectorConfig().setAddWarnings(true));
         ColumnDescriptor columnDescriptor = createColumnDescriptor(PrimitiveTypeName.BOOLEAN, "BooleanColumn");
         assertEquals(getDomain(columnDescriptor, BOOLEAN, 0, null, ID, Optional.of(collector)), Domain.all(BOOLEAN));
 
@@ -168,8 +167,8 @@ public class TestTupleDomainParquetPredicate
 
     @Test
     public void testBigint()
-            throws ParquetCorruptionException
     {
+        TestingWarningCollector collector = new TestingWarningCollector(new WarningCollectorConfig(), new TestingWarningCollectorConfig().setAddWarnings(true));
         ColumnDescriptor columnDescriptor = createColumnDescriptor(INT64, "BigintColumn");
         assertEquals(getDomain(columnDescriptor, BIGINT, 0, null, ID, Optional.of(collector)), Domain.all(BIGINT));
 
@@ -179,13 +178,13 @@ public class TestTupleDomainParquetPredicate
 
         assertEquals(getDomain(columnDescriptor, BIGINT, 20, longOnlyNullsStats(10), ID, Optional.of(collector)), create(ValueSet.all(BIGINT), true));
 
-        assertStatsCorruptionWarning(getDomain(columnDescriptor, BIGINT, 10, longColumnStats(100L, 10L), ID, Optional.of(collector)), BIGINT);
+        assertStatsCorruptionWarning(collector, getDomain(columnDescriptor, BIGINT, 10, longColumnStats(100L, 10L), ID, Optional.of(collector)), BIGINT);
     }
 
     @Test
     public void testInteger()
-            throws ParquetCorruptionException
     {
+        TestingWarningCollector collector = new TestingWarningCollector(new WarningCollectorConfig(), new TestingWarningCollectorConfig().setAddWarnings(true));
         ColumnDescriptor columnDescriptor = createColumnDescriptor(INT32, "IntegerColumn");
         assertEquals(getDomain(columnDescriptor, INTEGER, 0, null, ID, Optional.of(collector)), Domain.all(INTEGER));
 
@@ -197,13 +196,13 @@ public class TestTupleDomainParquetPredicate
 
         assertEquals(getDomain(columnDescriptor, INTEGER, 20, longOnlyNullsStats(10), ID, Optional.of(collector)), create(ValueSet.all(INTEGER), true));
 
-        assertStatsCorruptionWarning(getDomain(columnDescriptor, INTEGER, 10, longColumnStats(2147483648L, 10), ID, Optional.of(collector)), INTEGER);
+        assertStatsCorruptionWarning(collector, getDomain(columnDescriptor, INTEGER, 10, longColumnStats(2147483648L, 10), ID, Optional.of(collector)), INTEGER);
     }
 
     @Test
     public void testSmallint()
-            throws ParquetCorruptionException
     {
+        TestingWarningCollector collector = new TestingWarningCollector(new WarningCollectorConfig(), new TestingWarningCollectorConfig().setAddWarnings(true));
         ColumnDescriptor columnDescriptor = createColumnDescriptor(INT32, "SmallintColumn");
         assertEquals(getDomain(columnDescriptor, SMALLINT, 0, null, ID, Optional.of(collector)), Domain.all(SMALLINT));
 
@@ -215,13 +214,13 @@ public class TestTupleDomainParquetPredicate
 
         assertEquals(getDomain(columnDescriptor, SMALLINT, 20, longOnlyNullsStats(10), ID, Optional.of(collector)), create(ValueSet.all(SMALLINT), true));
 
-        assertStatsCorruptionWarning(getDomain(columnDescriptor, SMALLINT, 10, longColumnStats(2147483648L, 10), ID, Optional.of(collector)), SMALLINT);
+        assertStatsCorruptionWarning(collector, getDomain(columnDescriptor, SMALLINT, 10, longColumnStats(2147483648L, 10), ID, Optional.of(collector)), SMALLINT);
     }
 
     @Test
     public void testTinyint()
-            throws ParquetCorruptionException
     {
+        TestingWarningCollector collector = new TestingWarningCollector(new WarningCollectorConfig(), new TestingWarningCollectorConfig().setAddWarnings(true));
         ColumnDescriptor columnDescriptor = createColumnDescriptor(INT32, "TinyintColumn");
         assertEquals(getDomain(columnDescriptor, TINYINT, 0, null, ID, Optional.of(collector)), Domain.all(TINYINT));
 
@@ -233,13 +232,14 @@ public class TestTupleDomainParquetPredicate
 
         assertEquals(getDomain(columnDescriptor, TINYINT, 20, longOnlyNullsStats(10), ID, Optional.of(collector)), create(ValueSet.all(TINYINT), true));
 
-        assertStatsCorruptionWarning(getDomain(columnDescriptor, TINYINT, 10, longColumnStats(2147483648L, 10), ID, Optional.of(collector)), TINYINT);
+        assertStatsCorruptionWarning(collector, getDomain(columnDescriptor, TINYINT, 10, longColumnStats(2147483648L, 10), ID, Optional.of(collector)), TINYINT);
     }
 
     @Test
     public void testDouble()
             throws Exception
     {
+        TestingWarningCollector collector = new TestingWarningCollector(new WarningCollectorConfig(), new TestingWarningCollectorConfig().setAddWarnings(true));
         ColumnDescriptor columnDescriptor = createColumnDescriptor(PrimitiveTypeName.DOUBLE, "DoubleColumn");
         assertEquals(getDomain(columnDescriptor, DOUBLE, 0, null, ID, Optional.of(collector)), Domain.all(DOUBLE));
 
@@ -259,13 +259,13 @@ public class TestTupleDomainParquetPredicate
 
         assertEquals(getDomain(DOUBLE, doubleDictionaryDescriptor(3.3, NaN)), Domain.all(DOUBLE));
 
-        assertStatsCorruptionWarning(getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(42.24, 3.3), ID, Optional.of(collector)), DOUBLE);
+        assertStatsCorruptionWarning(collector, getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(42.24, 3.3), ID, Optional.of(collector)), DOUBLE);
     }
 
     @Test
     public void testString()
-            throws ParquetCorruptionException
     {
+        TestingWarningCollector collector = new TestingWarningCollector(new WarningCollectorConfig(), new TestingWarningCollectorConfig().setAddWarnings(true));
         ColumnDescriptor columnDescriptor = createColumnDescriptor(BINARY, "StringColumn");
         assertEquals(getDomain(columnDescriptor, createUnboundedVarcharType(), 0, null, ID, Optional.of(collector)), Domain.all(createUnboundedVarcharType()));
 
@@ -275,13 +275,14 @@ public class TestTupleDomainParquetPredicate
 
         assertEquals(getDomain(columnDescriptor, createUnboundedVarcharType(), 10, stringColumnStats("中国", "美利坚"), ID, Optional.of(collector)), create(ValueSet.ofRanges(range(createUnboundedVarcharType(), utf8Slice("中国"), true, utf8Slice("美利坚"), true)), false));
 
-        assertStatsCorruptionWarning(getDomain(columnDescriptor, createUnboundedVarcharType(), 10, stringColumnStats("taco", "apple"), ID, Optional.of(collector)), createUnboundedVarcharType());
+        assertStatsCorruptionWarning(collector, getDomain(columnDescriptor, createUnboundedVarcharType(), 10, stringColumnStats("taco", "apple"), ID, Optional.of(collector)), createUnboundedVarcharType());
     }
 
     @Test
     public void testFloat()
             throws Exception
     {
+        TestingWarningCollector collector = new TestingWarningCollector(new WarningCollectorConfig(), new TestingWarningCollectorConfig().setAddWarnings(true));
         ColumnDescriptor columnDescriptor = createColumnDescriptor(FLOAT, "FloatColumn");
         assertEquals(getDomain(columnDescriptor, REAL, 0, null, ID, Optional.of(collector)), Domain.all(REAL));
 
@@ -306,25 +307,25 @@ public class TestTupleDomainParquetPredicate
 
         assertEquals(getDomain(REAL, floatDictionaryDescriptor(minimum, NaN)), Domain.all(REAL));
 
-        assertStatsCorruptionWarning(getDomain(columnDescriptor, REAL, 10, floatColumnStats(maximum, minimum), ID, Optional.of(collector)), REAL);
+        assertStatsCorruptionWarning(collector, getDomain(columnDescriptor, REAL, 10, floatColumnStats(maximum, minimum), ID, Optional.of(collector)), REAL);
     }
 
     @Test
     public void testDate()
-            throws ParquetCorruptionException
     {
+        TestingWarningCollector collector = new TestingWarningCollector(new WarningCollectorConfig(), new TestingWarningCollectorConfig().setAddWarnings(true));
         ColumnDescriptor columnDescriptor = createColumnDescriptor(INT32, "DateColumn");
         assertEquals(getDomain(columnDescriptor, DATE, 0, null, ID, Optional.of(collector)), Domain.all(DATE));
         assertEquals(getDomain(columnDescriptor, DATE, 10, intColumnStats(100, 100), ID, Optional.of(collector)), singleValue(DATE, 100L));
         assertEquals(getDomain(columnDescriptor, DATE, 10, intColumnStats(0, 100), ID, Optional.of(collector)), create(ValueSet.ofRanges(range(DATE, 0L, true, 100L, true)), false));
 
-        assertStatsCorruptionWarning(getDomain(columnDescriptor, DATE, 10, intColumnStats(200, 100), ID, Optional.of(collector)), DATE);
+        assertStatsCorruptionWarning(collector, getDomain(columnDescriptor, DATE, 10, intColumnStats(200, 100), ID, Optional.of(collector)), DATE);
     }
 
     @Test
     public void testVarcharMatchesWithStatistics()
-            throws ParquetCorruptionException
     {
+        TestingWarningCollector collector = new TestingWarningCollector(new WarningCollectorConfig(), new TestingWarningCollectorConfig().setAddWarnings(true));
         String value = "Test";
         ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {"path"}, BINARY, 0, 0);
         RichColumnDescriptor column = new RichColumnDescriptor(columnDescriptor, new PrimitiveType(OPTIONAL, BINARY, "Test column"));
@@ -338,8 +339,8 @@ public class TestTupleDomainParquetPredicate
 
     @Test(dataProvider = "typeForParquetInt32")
     public void testIntegerMatchesWithStatistics(Type typeForParquetInt32)
-            throws ParquetCorruptionException
     {
+        TestingWarningCollector collector = new TestingWarningCollector(new WarningCollectorConfig(), new TestingWarningCollectorConfig().setAddWarnings(true));
         RichColumnDescriptor column = new RichColumnDescriptor(
                 new ColumnDescriptor(new String[] {"path"}, INT32, 0, 0),
                 new PrimitiveType(OPTIONAL, INT32, "Test column"));
@@ -365,8 +366,8 @@ public class TestTupleDomainParquetPredicate
 
     @Test
     public void testBigintMatchesWithStatistics()
-            throws ParquetCorruptionException
     {
+        TestingWarningCollector collector = new TestingWarningCollector(new WarningCollectorConfig(), new TestingWarningCollectorConfig().setAddWarnings(true));
         RichColumnDescriptor column = new RichColumnDescriptor(
                 new ColumnDescriptor(new String[] {"path"}, INT64, 0, 0),
                 new PrimitiveType(OPTIONAL, INT64, "Test column"));
@@ -432,7 +433,7 @@ public class TestTupleDomainParquetPredicate
         return new ColumnDescriptor(new String[] {}, new PrimitiveType(REQUIRED, typeName, columnName), 0, 0);
     }
 
-    private boolean assertStatsCorruptionWarning(Domain domain, Type type)
+    private boolean assertStatsCorruptionWarning(TestingWarningCollector collector, Domain domain, Type type)
     {
         assertEquals(domain, create(ValueSet.all(type), false));
         assertTrue(collector.hasWarnings());
@@ -441,7 +442,6 @@ public class TestTupleDomainParquetPredicate
         assertEquals(warnings.size(), 2);
         assertEquals(warnings.get(0).getWarningCode(), HIVE_FILE_STATISTICS_CORRUPTION.toWarningCode());
 
-        collector.clear();
         return true;
     }
 }

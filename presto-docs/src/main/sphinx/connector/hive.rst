@@ -487,7 +487,16 @@ Enabling S3 Select Pushdown
 You can enable S3 Select Pushdown using the ``s3_select_pushdown_enabled``
 Hive session property or using the ``hive.s3select-pushdown.enabled``
 configuration property. The session property will override the config
-property, allowing you enable or disable on a per-query basis.
+property, allowing you enable or disable on a per-query basis. Non-filtering
+queries (``SELECT * FROM table``) are not pushed down to S3 Select,
+as they retrieve the entire object content.
+
+For uncompressed files, using supported formats and SerDes,
+S3 Select scans ranges of bytes in parallel.
+The scan range requests run across the byte ranges of the internal
+Hive splits for the query fragments pushed down to S3 Select.
+Parallelization is controlled by the existing ``hive.max-split-size``
+property.
 
 Understanding and Tuning the Maximum Connections
 ################################################
@@ -617,7 +626,7 @@ Column Type   Collectible Statistics
 ============= ====================================================================
 
 Automatic column level statistics collection on write is controlled by
-the ``collect-column-statistics-on-write`` catalog session property.
+the ``collect_column_statistics_on_write`` catalog session property.
 
 .. _hive_analyze:
 
@@ -753,6 +762,26 @@ columns as a part of SQL query like any other columns of the table.
 * ``$path`` : Filepath for the given row data
 * ``$file_size`` : Filesize for the given row
 * ``$file_modified_time`` : Last file modified time for the given row
+
+How to invalidate metastore cache?
+---------------------------------
+
+The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.metastore.CachingHiveMetastore#flushCache``) to invalidate the metastore cache.
+You can call this procedure to invalidate the metastore cache by connecting via jconsole or jmxterm.
+
+This is useful when the Hive metastore is updated outside of Presto and you want to make the changes visible to Presto immediately.
+
+Currently, this procedure flushes the cache for all the tables in all the schemas. This is a known limitation and will be enhanced in the future.
+
+How to invalidate directory list cache?
+---------------------------------------
+
+The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.HiveDirectoryLister#flushCache``) to invalidate the directory list cache.
+You can call this procedure to invalidate the directory list cache by connecting via jconsole or jmxterm.
+
+This is useful when the files are added or deleted in the cache directory path and you want to make the changes visible to Presto immediately.
+
+Currently, this procedure flushes all the cache entries. This is a known limitation and will be enhanced in the future.
 
 Examples
 --------

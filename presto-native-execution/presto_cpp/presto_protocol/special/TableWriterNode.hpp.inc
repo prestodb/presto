@@ -12,6 +12,16 @@
  * limitations under the License.
  */
 namespace facebook::presto::protocol {
+struct StatisticAggregations {
+  std::vector<VariableReferenceExpression> outputVariables = {};
+  Map<VariableReferenceExpression, Aggregation> aggregations = {};
+  std::vector<VariableReferenceExpression> groupingVariables = {};
+};
+void to_json(json& j, const StatisticAggregations& p);
+void from_json(const json& j, StatisticAggregations& p);
+} // namespace facebook::presto::protocol
+
+namespace facebook::presto::protocol {
 struct TableWriterNode : public PlanNode {
   std::shared_ptr<PlanNode> source = {};
   // TODO Add target
@@ -23,7 +33,7 @@ struct TableWriterNode : public PlanNode {
   List<VariableReferenceExpression> notNullColumnVariables = {};
   std::shared_ptr<PartitioningScheme> partitioningScheme = {};
   std::shared_ptr<PartitioningScheme> preferredShufflePartitioningScheme = {};
-  // TODO Add statisticsAggregation
+  std::shared_ptr<StatisticAggregations> statisticsAggregation = {};
 
   TableWriterNode() noexcept;
 };

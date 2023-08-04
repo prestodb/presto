@@ -23,8 +23,8 @@ where
 	and l.shipmode in ('MAIL', 'SHIP')
 	and l.commitdate < l.receiptdate
 	and l.shipdate < l.commitdate
-	and l.receiptdate >= date '1994-01-01'
-	and l.receiptdate < date '1994-01-01' + interval '1' year
+	and l.receiptdate >= '1994-01-01'
+	and cast(l.receiptdate as date) < date '1994-01-01' + interval '1' year
 group by
 	l.shipmode
 order by

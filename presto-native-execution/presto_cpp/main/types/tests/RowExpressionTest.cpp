@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
+#include <array>
 
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
@@ -25,7 +26,7 @@ using namespace facebook::velox::core;
 class RowExpressionTest : public ::testing::Test {
  public:
   void SetUp() override {
-    pool_ = memory::getDefaultMemoryPool();
+    pool_ = memory::addDefaultLeafMemoryPool();
     converter_ = std::make_unique<VeloxExprConverter>(pool_.get());
   }
 
@@ -40,7 +41,7 @@ class RowExpressionTest : public ::testing::Test {
         converter_->toVeloxExpr(p));
 
     ASSERT_EQ(cexpr->type()->toString(), type);
-    ASSERT_EQ(cexpr->value().toJson(), value);
+    ASSERT_EQ(cexpr->value().toJson(cexpr->type()), value);
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -278,6 +279,84 @@ TEST_F(RowExpressionTest, varchar3) {
   testConstantExpression(str, "VARCHAR", "\"102\"");
 }
 
+TEST_F(RowExpressionTest, varbinary1) {
+  // The result was generated from
+  // `select to_big_endian_32(1)`.
+  std::string str = R"##(
+        {
+            "@type": "constant",
+            "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAQAAAAABAAAAAAAAAE=",
+            "type": "varbinary"
+        }
+    )##";
+  // The expected value is a Base64 value for 1 in big endian.
+  testConstantExpression(str, "VARBINARY", "\"AAAAAQ==\"");
+}
+
+TEST_F(RowExpressionTest, varbinary2) {
+  // The result was generated from
+  // `select cast('value' as varbinary)`.
+  std::string str = R"##(
+        {
+            "@type": "constant",
+            "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAHZhbHVl",
+            "type": "varbinary"
+        }
+    )##";
+  testConstantExpression(
+      str, "VARBINARY", '"' + encoding::Base64::encode("value") + '"');
+}
+
+TEST_F(RowExpressionTest, varbinary3) {
+  // The result was generated from
+  // `select cast('SPECIAL_#@,$|%/^~?{}+-' as varbinary)`.
+  std::string str = R"##(
+        {
+            "@type": "constant",
+            "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAABYAAAAAFgAAAFNQRUNJQUxfI0AsJHwlL15+P3t9Ky0=",
+            "type": "varbinary"
+        }
+    )##";
+  testConstantExpression(
+      str,
+      "VARBINARY",
+      '"' + encoding::Base64::encode("SPECIAL_#@,$|%/^~?{}+-") + '"');
+}
+
+TEST_F(RowExpressionTest, varbinary4) {
+  // The result was generated from
+  // `select cast(null as varbinary)`.
+  std::string str = R"##(
+        {
+            "@type": "constant",
+            "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAAAAAABgAAAAAA=",
+            "type": "varbinary"
+        }
+    )##";
+  testConstantExpression(str, "VARBINARY", "null");
+}
+
+TEST_F(RowExpressionTest, varbinary5) {
+  // The result was generated from
+  // `select
+  // cast('0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789'
+  // as varbinary)`.
+  std::string str = R"##(
+        {
+            "@type": "constant",
+            "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAGQAAAAAZAAAADAxMjM0NTY3ODkwMTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODk=",
+            "type": "varbinary"
+        }
+    )##";
+  testConstantExpression(
+      str,
+      "VARBINARY",
+      '"' +
+          encoding::Base64::encode(
+              "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789") +
+          '"');
+}
+
 TEST_F(RowExpressionTest, timestamp) {
   std::string str = R"(
         {
@@ -312,7 +391,8 @@ TEST_F(RowExpressionTest, date) {
 }
 
 TEST_F(RowExpressionTest, call) {
-  std::string str = R"##(
+  static const std::array<std::string, 2> jsonStrings{
+      R"##(
       {
         "@type": "call",
         "arguments": [
@@ -345,32 +425,62 @@ TEST_F(RowExpressionTest, call) {
         },
         "returnType": "boolean"
       }
-  )##";
+  )##",
+      R"##(
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "variable",
+            "name": "name",
+            "type": "varchar(25)"
+          },
+          {
+            "@type": "constant",
+            "type": "varchar(25)",
+            "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAMAAAAAAwAAAGZvbw=="
+          }
+        ],
+        "displayName": "EQUAL",
+        "functionHandle": {
+          "@type": "json_file",
+          "functionId": "json.x4.eq;INTEGER;INTEGER",
+          "version": "1"
+        },
+        "returnType": "boolean"
+      }
+  )##",
+  };
 
-  json j = json::parse(str);
-  std::shared_ptr<protocol::RowExpression> p = j;
+  static const std::array<std::string, 2> callExprNames{
+      "presto.default.eq", "json.x4.eq"};
 
-  InputTypedExpr rowExpr(BIGINT());
+  for (size_t i = 0; i < 2; ++i) {
+    std::shared_ptr<protocol::RowExpression> p = json::parse(jsonStrings[i]);
 
-  auto callexpr =
-      std::static_pointer_cast<const CallTypedExpr>(converter_->toVeloxExpr(p));
+    InputTypedExpr rowExpr(BIGINT());
 
-  // Check some values ...
-  ASSERT_EQ(callexpr->name(), "eq");
+    auto callexpr = std::static_pointer_cast<const CallTypedExpr>(
+        converter_->toVeloxExpr(p));
 
-  auto iexpr = callexpr->inputs();
+    // Check some values ...
+    ASSERT_EQ(callexpr->name(), callExprNames[i]);
 
-  ASSERT_EQ(iexpr.size(), 2);
+    auto iexpr = callexpr->inputs();
 
-  {
-    auto cexpr = std::static_pointer_cast<const FieldAccessTypedExpr>(iexpr[0]);
-    ASSERT_EQ(cexpr->type()->toString(), "VARCHAR");
-    ASSERT_EQ(cexpr->name(), "name");
-  }
-  {
-    auto cexpr = std::static_pointer_cast<const ConstantTypedExpr>(iexpr[1]);
-    ASSERT_EQ(cexpr->type()->toString(), "VARCHAR");
-    ASSERT_EQ(cexpr->value().toJson(), "\"foo\"");
+    ASSERT_EQ(iexpr.size(), 2);
+
+    {
+      auto cexpr =
+          std::static_pointer_cast<const FieldAccessTypedExpr>(iexpr[0]);
+      ASSERT_EQ(cexpr->type()->toString(), "VARCHAR");
+      ASSERT_EQ(cexpr->name(), "name");
+    }
+    {
+      auto cexpr = std::static_pointer_cast<const ConstantTypedExpr>(iexpr[1]);
+      ASSERT_EQ(cexpr->type()->toString(), "VARCHAR");
+      ASSERT_EQ(cexpr->value().toJson(), "\"foo\"");
+    }
   }
 }
 
@@ -464,7 +574,7 @@ TEST_F(RowExpressionTest, special) {
         std::static_pointer_cast<const CallTypedExpr>(callexpr->inputs()[0]);
 
     ASSERT_EQ(arg0expr->type()->toString(), "BOOLEAN");
-    ASSERT_EQ(arg0expr->name(), "eq");
+    ASSERT_EQ(arg0expr->name(), "presto.default.eq");
     {
       auto cexpr = std::static_pointer_cast<const FieldAccessTypedExpr>(
           arg0expr->inputs()[0]);
@@ -484,7 +594,7 @@ TEST_F(RowExpressionTest, special) {
         std::static_pointer_cast<const CallTypedExpr>(callexpr->inputs()[1]);
 
     ASSERT_EQ(arg1expr->type()->toString(), "BOOLEAN");
-    ASSERT_EQ(arg1expr->name(), "eq");
+    ASSERT_EQ(arg1expr->name(), "presto.default.eq");
     {
       auto cexpr = std::static_pointer_cast<const FieldAccessTypedExpr>(
           arg1expr->inputs()[0]);
@@ -656,7 +766,7 @@ TEST_F(RowExpressionTest, likeSimple) {
   ASSERT_NE(callExpr, nullptr);
 
   auto callExprToString = callExpr->toString();
-  ASSERT_EQ(callExprToString, "like(\"type\",\"%BRASS\")");
+  ASSERT_EQ(callExprToString, "presto.default.like(\"type\",\"%BRASS\")");
 }
 
 TEST_F(RowExpressionTest, likeWithEscape) {
@@ -719,7 +829,8 @@ TEST_F(RowExpressionTest, likeWithEscape) {
   ASSERT_NE(callExpr, nullptr);
 
   auto callExprToString = callExpr->toString();
-  ASSERT_EQ(callExpr->toString(), "like(\"type\",\"%BRASS\",\"#\")");
+  ASSERT_EQ(
+      callExpr->toString(), "presto.default.like(\"type\",\"%BRASS\",\"#\")");
 }
 
 TEST_F(RowExpressionTest, dereference) {

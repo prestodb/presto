@@ -39,7 +39,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -65,7 +64,6 @@ import static com.facebook.presto.orc.TestMapFlatBatchStreamReader.ExpectedValue
 import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.Iterators.advance;
-import static com.google.common.io.Resources.getResource;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -440,7 +438,7 @@ public class TestMapFlatBatchStreamReader
             throws Exception
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(
-                new File(getResource(testOrcFileName).getFile()),
+                OrcReaderTestingUtils.getResourceFile(testOrcFileName),
                 new DataSize(1, MEGABYTE),
                 new DataSize(1, MEGABYTE),
                 new DataSize(1, MEGABYTE),

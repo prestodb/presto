@@ -58,7 +58,12 @@ public class TestPrestoSparkConfig
                 .setMinHashPartitionCount(1024)
                 .setSparkResourceAllocationStrategyEnabled(false)
                 .setRetryOnOutOfMemoryWithHigherHashPartitionCountEnabled(false)
-                .setHashPartitionCountScalingFactorOnOutOfMemory(2.0));
+                .setHashPartitionCountScalingFactorOnOutOfMemory(2.0)
+                .setAdaptiveQueryExecutionEnabled(false)
+                .setAdaptiveJoinSideSwitchingEnabled(false)
+                .setExecutorAllocationStrategyEnabled(false)
+                .setHashPartitionCountAllocationStrategyEnabled(false)
+                .setNativeExecutionBroadcastBasePath(null));
     }
 
     @Test
@@ -92,6 +97,11 @@ public class TestPrestoSparkConfig
                 .put("spark.resource-allocation-strategy-enabled", "true")
                 .put("spark.retry-on-out-of-memory-higher-hash-partition-count-enabled", "true")
                 .put("spark.hash-partition-count-scaling-factor-on-out-of-memory", "5.6")
+                .put("spark.adaptive-query-execution-enabled", "true")
+                .put("optimizer.adaptive-join-side-switching-enabled", "true")
+                .put("spark.executor-allocation-strategy-enabled", "true")
+                .put("spark.hash-partition-count-allocation-strategy-enabled", "true")
+                .put("native-execution-broadcast-base-path", "/tmp/broadcast_path")
                 .build();
         PrestoSparkConfig expected = new PrestoSparkConfig()
                 .setSparkPartitionCountAutoTuneEnabled(false)
@@ -120,7 +130,12 @@ public class TestPrestoSparkConfig
                 .setMinHashPartitionCount(30)
                 .setSparkResourceAllocationStrategyEnabled(true)
                 .setRetryOnOutOfMemoryWithHigherHashPartitionCountEnabled(true)
-                .setHashPartitionCountScalingFactorOnOutOfMemory(5.6);
+                .setHashPartitionCountScalingFactorOnOutOfMemory(5.6)
+                .setAdaptiveQueryExecutionEnabled(true)
+                .setAdaptiveJoinSideSwitchingEnabled(true)
+                .setHashPartitionCountAllocationStrategyEnabled(true)
+                .setExecutorAllocationStrategyEnabled(true)
+                .setNativeExecutionBroadcastBasePath("/tmp/broadcast_path");
         assertFullMapping(properties, expected);
     }
 }

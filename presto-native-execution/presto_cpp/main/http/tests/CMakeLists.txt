@@ -11,6 +11,9 @@
 # limitations under the License.
 add_executable(presto_http_test HttpTest.cpp)
 
-add_test(presto_http_test presto_http_test)
+add_test(
+  NAME presto_http_test
+  COMMAND presto_http_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(presto_http_test presto_http gtest gtest_main)

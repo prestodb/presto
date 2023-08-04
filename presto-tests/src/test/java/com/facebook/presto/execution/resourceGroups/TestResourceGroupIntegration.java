@@ -25,6 +25,7 @@ import java.util.List;
 
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
@@ -38,7 +39,7 @@ public class TestResourceGroupIntegration
     {
         try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-            getResourceGroupManager(queryRunner).setConfigurationManager("file", ImmutableMap.of(
+            getResourceGroupManager(queryRunner).forceSetConfigurationManager("file", ImmutableMap.of(
                     "resource-groups.config-file", getResourceFilePath("resource_groups_memory_percentage.json")));
 
             queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
@@ -53,7 +54,7 @@ public class TestResourceGroupIntegration
         try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             InternalResourceGroupManager<?> manager = getResourceGroupManager(queryRunner);
-            manager.setConfigurationManager("file", ImmutableMap.of(
+            manager.forceSetConfigurationManager("file", ImmutableMap.of(
                     "resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
 
             queryRunner.execute(testSessionBuilder().setCatalog("tpch").setSchema("tiny").setSource("dashboard-foo").build(), "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
@@ -64,11 +65,6 @@ public class TestResourceGroupIntegration
             assertEquals(path.get(2).getHardConcurrencyLimit(), 100);
             assertEquals(path.get(2).getRunningQueries(), null);
         }
-    }
-
-    private String getResourceFilePath(String fileName)
-    {
-        return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 
     public static void waitForGlobalResourceGroup(DistributedQueryRunner queryRunner)

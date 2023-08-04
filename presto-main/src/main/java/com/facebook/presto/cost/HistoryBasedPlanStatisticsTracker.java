@@ -45,6 +45,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
 import static com.facebook.presto.SystemSessionProperties.trackHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.common.resourceGroups.QueryType.INSERT;
@@ -62,15 +63,18 @@ public class HistoryBasedPlanStatisticsTracker
     private static final Set<QueryType> ALLOWED_QUERY_TYPES = ImmutableSet.of(SELECT, INSERT);
 
     private final Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider;
+    private final HistoryBasedStatisticsCacheManager historyBasedStatisticsCacheManager;
     private final SessionPropertyManager sessionPropertyManager;
     private final HistoryBasedOptimizationConfig config;
 
     public HistoryBasedPlanStatisticsTracker(
             Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider,
+            HistoryBasedStatisticsCacheManager historyBasedStatisticsCacheManager,
             SessionPropertyManager sessionPropertyManager,
             HistoryBasedOptimizationConfig config)
     {
         this.historyBasedPlanStatisticsProvider = requireNonNull(historyBasedPlanStatisticsProvider, "historyBasedPlanStatisticsProvider is null");
+        this.historyBasedStatisticsCacheManager = requireNonNull(historyBasedStatisticsCacheManager, "historyBasedStatisticsCacheManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.config = requireNonNull(config, "config is null");
     }
@@ -183,9 +187,10 @@ public class HistoryBasedPlanStatisticsTracker
 
     public void updateStatistics(QueryInfo queryInfo)
     {
+        Session session = queryInfo.getSession().toSession(sessionPropertyManager);
         Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> planStatistics = getQueryStats(queryInfo);
         Map<PlanNodeWithHash, HistoricalPlanStatistics> historicalPlanStatisticsMap =
-                historyBasedPlanStatisticsProvider.get().getStats(planStatistics.keySet().stream().collect(toImmutableList()));
+                historyBasedPlanStatisticsProvider.get().getStats(planStatistics.keySet().stream().collect(toImmutableList()), getHistoryBasedOptimizerTimeoutLimit(session).toMillis());
         Map<PlanNodeWithHash, HistoricalPlanStatistics> newPlanStatistics = planStatistics.entrySet().stream()
                 .filter(entry -> entry.getKey().getHash().isPresent() &&
                         entry.getValue().getSourceInfo() instanceof HistoryBasedSourceInfo &&
@@ -203,9 +208,9 @@ public class HistoryBasedPlanStatisticsTracker
                                     config);
                         }));
 
-        if (newPlanStatistics.isEmpty()) {
-            return;
+        if (!newPlanStatistics.isEmpty()) {
+            historyBasedPlanStatisticsProvider.get().putStats(ImmutableMap.copyOf(newPlanStatistics));
         }
-        historyBasedPlanStatisticsProvider.get().putStats(ImmutableMap.copyOf(newPlanStatistics));
+        historyBasedStatisticsCacheManager.invalidate(queryInfo.getQueryId());
     }
 }

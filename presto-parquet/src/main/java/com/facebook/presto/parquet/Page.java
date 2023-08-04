@@ -37,4 +37,6 @@ public abstract class Page
     }
 
     public abstract Slice getSlice();
+
+    public abstract long getRetainedSizeInBytes();
 }

@@ -28,8 +28,7 @@ jobs:
           - ":presto-tests -P ci-only-distributed-queries"
           - ":presto-tests -P ci-only-aggregation-queries"
           - ":presto-tests -P ci-only-plan-determinism"
-          - ":presto-tests -P ci-only-resource-manager"
-          - ":presto-raptor"
+          - ":presto-tests -P ci-only-resource-manager" 
           - ":presto-accumulo"
           - ":presto-cassandra -P test-cassandra-integration-smoke-test"
           - ":presto-hive"
@@ -50,6 +49,9 @@ jobs:
           - ":presto-spark-base -P presto-spark-tests-all-queries"
           - ":presto-spark-base -P presto-spark-tests-spill-queries"
     timeout-minutes: 80
+    concurrency:
+      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1

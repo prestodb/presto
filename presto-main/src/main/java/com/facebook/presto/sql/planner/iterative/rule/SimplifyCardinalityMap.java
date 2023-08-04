@@ -13,13 +13,15 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+
 import static com.facebook.presto.sql.planner.iterative.rule.SimplifyCardinalityMapRewriter.rewrite;
 
 public class SimplifyCardinalityMap
-        extends ExpressionRewriteRuleSet
+        extends RowExpressionRewriteRuleSet
 {
-    public SimplifyCardinalityMap()
+    public SimplifyCardinalityMap(FunctionAndTypeManager functionAndTypeManager)
     {
-        super((expression, context) -> rewrite(expression));
+        super((expression, context) -> rewrite(expression, functionAndTypeManager, context.getSession()));
     }
 }

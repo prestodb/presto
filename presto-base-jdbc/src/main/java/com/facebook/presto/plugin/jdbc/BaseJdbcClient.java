@@ -18,6 +18,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -107,6 +108,7 @@ public class BaseJdbcClient
             .put(TIME_WITH_TIME_ZONE, "time with timezone")
             .put(TIMESTAMP, "timestamp")
             .put(TIMESTAMP_WITH_TIME_ZONE, "timestamp with timezone")
+            .put(UuidType.UUID, "uuid")
             .build();
 
     protected final String connectorId;
@@ -144,7 +146,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public final Set<String> getSchemaNames(JdbcIdentity identity)
+    public final Set<String> getSchemaNames(ConnectorSession session, JdbcIdentity identity)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             return listSchemas(connection).stream()
@@ -175,7 +177,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public List<SchemaTableName> getTableNames(JdbcIdentity identity, Optional<String> schema)
+    public List<SchemaTableName> getTableNames(ConnectorSession session, JdbcIdentity identity, Optional<String> schema)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             Optional<String> remoteSchema = schema.map(schemaName -> toRemoteSchemaName(identity, connection, schemaName));
@@ -196,7 +198,7 @@ public class BaseJdbcClient
 
     @Nullable
     @Override
-    public JdbcTableHandle getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName)
+    public JdbcTableHandle getTableHandle(ConnectorSession session, JdbcIdentity identity, SchemaTableName schemaTableName)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
@@ -265,7 +267,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public ConnectorSplitSource getSplits(JdbcIdentity identity, JdbcTableLayoutHandle layoutHandle)
+    public ConnectorSplitSource getSplits(ConnectorSession session, JdbcIdentity identity, JdbcTableLayoutHandle layoutHandle)
     {
         JdbcTableHandle tableHandle = layoutHandle.getTable();
         JdbcSplit jdbcSplit = new JdbcSplit(
@@ -279,7 +281,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public Connection getConnection(JdbcIdentity identity, JdbcSplit split)
+    public Connection getConnection(ConnectorSession session, JdbcIdentity identity, JdbcSplit split)
             throws SQLException
     {
         Connection connection = connectionFactory.openConnection(identity);
@@ -347,7 +349,7 @@ public class BaseJdbcClient
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         JdbcIdentity identity = JdbcIdentity.from(session);
-        if (!getSchemaNames(identity).contains(schemaTableName.getSchemaName())) {
+        if (!getSchemaNames(session, identity).contains(schemaTableName.getSchemaName())) {
             throw new PrestoException(NOT_FOUND, "Schema not found: " + schemaTableName.getSchemaName());
         }
 
@@ -409,7 +411,7 @@ public class BaseJdbcClient
 
     //todo
     @Override
-    public void commitCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
+    public void commitCreateTable(ConnectorSession session, JdbcIdentity identity, JdbcOutputTableHandle handle)
     {
         renameTable(
                 identity,
@@ -419,7 +421,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public void renameTable(JdbcIdentity identity, JdbcTableHandle handle, SchemaTableName newTable)
+    public void renameTable(ConnectorSession session, JdbcIdentity identity, JdbcTableHandle handle, SchemaTableName newTable)
     {
         renameTable(identity, handle.getCatalogName(), handle.getSchemaTableName(), newTable);
     }
@@ -450,21 +452,21 @@ public class BaseJdbcClient
     }
 
     @Override
-    public void finishInsertTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
+    public void finishInsertTable(ConnectorSession session, JdbcIdentity identity, JdbcOutputTableHandle handle)
     {
         String temporaryTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName());
         String targetTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
         String insertSql = format("INSERT INTO %s SELECT * FROM %s", targetTable, temporaryTable);
         String cleanupSql = "DROP TABLE " + temporaryTable;
 
-        try (Connection connection = getConnection(identity, handle)) {
+        try (Connection connection = getConnection(session, identity, handle)) {
             execute(connection, insertSql);
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
         }
 
-        try (Connection connection = getConnection(identity, handle)) {
+        try (Connection connection = getConnection(session, identity, handle)) {
             execute(connection, cleanupSql);
         }
         catch (SQLException e) {
@@ -473,7 +475,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public void addColumn(JdbcIdentity identity, JdbcTableHandle handle, ColumnMetadata column)
+    public void addColumn(ConnectorSession session, JdbcIdentity identity, JdbcTableHandle handle, ColumnMetadata column)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             String schema = handle.getSchemaName();
@@ -497,7 +499,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    public void renameColumn(ConnectorSession session, JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
@@ -517,7 +519,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public void dropColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column)
+    public void dropColumn(ConnectorSession session, JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             String sql = format(
@@ -532,7 +534,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public void dropTable(JdbcIdentity identity, JdbcTableHandle handle)
+    public void dropTable(ConnectorSession session, JdbcIdentity identity, JdbcTableHandle handle)
     {
         StringBuilder sql = new StringBuilder()
                 .append("DROP TABLE ")
@@ -547,7 +549,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public void truncateTable(JdbcIdentity identity, JdbcTableHandle jdbcTableHandle)
+    public void truncateTable(ConnectorSession session, JdbcIdentity identity, JdbcTableHandle jdbcTableHandle)
     {
         StringBuilder sql = new StringBuilder()
                 .append("TRUNCATE TABLE ")
@@ -562,9 +564,9 @@ public class BaseJdbcClient
     }
 
     @Override
-    public void rollbackCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
+    public void rollbackCreateTable(ConnectorSession session, JdbcIdentity identity, JdbcOutputTableHandle handle)
     {
-        dropTable(identity, new JdbcTableHandle(
+        dropTable(session, identity, new JdbcTableHandle(
                 handle.getConnectorId(),
                 new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName()),
                 handle.getCatalogName(),
@@ -573,7 +575,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public String buildInsertSql(JdbcOutputTableHandle handle)
+    public String buildInsertSql(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         String vars = Joiner.on(',').join(nCopies(handle.getColumnNames().size(), "?"));
         return new StringBuilder()
@@ -584,14 +586,14 @@ public class BaseJdbcClient
     }
 
     @Override
-    public Connection getConnection(JdbcIdentity identity, JdbcOutputTableHandle handle)
+    public Connection getConnection(ConnectorSession session, JdbcIdentity identity, JdbcOutputTableHandle handle)
             throws SQLException
     {
         return connectionFactory.openConnection(identity);
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
             throws SQLException
     {
         return connection.prepareStatement(sql);

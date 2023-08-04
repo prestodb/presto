@@ -77,7 +77,7 @@ public final class HyperLogLogFunctions
         Slice initialSlice = block.getSlice(firstNonNullIndex, 0, block.getSliceLength(firstNonNullIndex));
         merged = HyperLogLog.newInstance(initialSlice);
 
-        for (int i = firstNonNullIndex; i < block.getPositionCount(); i++) {
+        for (int i = firstNonNullIndex + 1; i < block.getPositionCount(); i++) {
             Slice currentSlice = block.getSlice(i, 0, block.getSliceLength(i));
             if (!block.isNull(i)) {
                 merged.mergeWith(HyperLogLog.newInstance(currentSlice));

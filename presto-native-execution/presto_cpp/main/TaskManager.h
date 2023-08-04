@@ -30,12 +30,14 @@ struct DriverCountStats {
 
 class TaskManager {
  public:
-  explicit TaskManager(
-      std::unordered_map<std::string, std::string> properties = {},
-      std::unordered_map<std::string, std::string> nodeProperties = {});
+  TaskManager();
 
   void setBaseUri(const std::string& baseUri) {
     baseUri_ = baseUri;
+  }
+
+  void setNodeId(const std::string& nodeId) {
+    nodeId_ = nodeId;
   }
 
   TaskMap tasks() const {
@@ -51,18 +53,32 @@ class TaskManager {
   // next time coordinator checks for the status it retrieves the error.
   std::unique_ptr<protocol::TaskInfo> createOrUpdateErrorTask(
       const protocol::TaskId& taskId,
-      const std::exception_ptr& exception);
+      const std::exception_ptr& exception,
+      long startProcessCpuTime);
 
   std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
       const protocol::TaskId& taskId,
-      velox::core::PlanFragment planFragment,
-      const std::vector<protocol::TaskSource>& sources,
-      const protocol::OutputBuffers& outputBuffers,
-      std::unordered_map<std::string, std::string>&& configStrings,
-      std::unordered_map<
-          std::string,
-          std::unordered_map<std::string, std::string>>&&
-          connectorConfigStrings);
+      const protocol::TaskUpdateRequest& updateRequest,
+      const velox::core::PlanFragment& planFragment,
+      std::shared_ptr<velox::core::QueryCtx> queryCtx,
+      long startProcessCpuTime);
+
+  std::unique_ptr<protocol::TaskInfo> createOrUpdateBatchTask(
+      const protocol::TaskId& taskId,
+      const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
+      const velox::core::PlanFragment& planFragment,
+      std::shared_ptr<velox::core::QueryCtx> queryCtx,
+      long startProcessCpuTime);
+
+  // Iterates through a map of resultRequests and fetches data from
+  // buffer manager. This method uses the getData() global call to fetch
+  // data for each resultRequest bufferManager. If the output buffer for task
+  // is not found, prepares the Result object with completed flags set to false
+  // and notifies the future.
+  // Note: This method is made public for unit testing purpose only.
+  void getDataForResultRequests(
+      const std::unordered_map<int64_t, std::shared_ptr<ResultRequest>>&
+          resultRequests);
 
   std::unique_ptr<protocol::TaskInfo> deleteTask(
       const protocol::TaskId& taskId,
@@ -71,6 +87,9 @@ class TaskManager {
   /// Remove old Finished, Cancelled, Failed and Aborted tasks.
   /// Old is being defined by the lifetime of the task.
   size_t cleanOldTasks();
+
+  /// Invoked by Presto server shutdown to wait for all the tasks to complete.
+  void waitForTasksToComplete();
 
   folly::Future<std::unique_ptr<protocol::TaskInfo>> getTaskInfo(
       const protocol::TaskId& taskId,
@@ -103,6 +122,11 @@ class TaskManager {
     return &queryContextManager_;
   }
 
+  /// Make upto target task threads to yield. Task candidate must have been on
+  /// thread for at least sliceMicros to be yieldable. Return the number of
+  /// threads in tasks that were requested to yield.
+  int32_t yieldTasks(int32_t numTargetThreadsToYield, int32_t timeSliceMicros);
+
   const QueryContextManager* getQueryContextManager() const {
     return &queryContextManager_;
   }
@@ -118,6 +142,16 @@ class TaskManager {
   // in exec/Task.h).
   std::array<size_t, 5> getTaskNumbers(size_t& numTasks) const;
 
+  /// Build directory path for spilling for the given task.
+  /// Always returns non-empty string.
+  static std::string buildTaskSpillDirectoryPath(
+      const std::string& baseSpillPath,
+      const std::string& nodeIp,
+      const std::string& nodeId,
+      const std::string& queryId,
+      const protocol::TaskId& taskId,
+      bool includeNodeInSpillPath);
+
  public:
   static constexpr folly::StringPiece kMaxDriversPerTask{
       "max_drivers_per_task"};
@@ -126,18 +160,28 @@ class TaskManager {
   static constexpr folly::StringPiece kSessionTimezone{"session_timezone"};
 
  private:
-  std::shared_ptr<PrestoTask> findOrCreateTask(const protocol::TaskId& taskId);
+  std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
+      const protocol::TaskId& taskId,
+      const velox::core::PlanFragment& planFragment,
+      const std::vector<protocol::TaskSource>& sources,
+      const protocol::OutputBuffers& outputBuffers,
+      std::shared_ptr<velox::core::QueryCtx> queryCtx,
+      long startProcessCpuTime);
+
+  std::shared_ptr<PrestoTask> findOrCreateTask(
+      const protocol::TaskId& taskId,
+      long startProcessCpuTime = 0);
 
   std::shared_ptr<PrestoTask> findOrCreateTaskLocked(
       TaskMap& taskMap,
-      const protocol::TaskId& taskId);
+      const protocol::TaskId& taskId,
+      long startProcessCpuTime = 0);
 
   std::string baseUri_;
+  std::string nodeId_;
   std::shared_ptr<velox::exec::PartitionedOutputBufferManager> bufferManager_;
   folly::Synchronized<TaskMap> taskMap_;
   QueryContextManager queryContextManager_;
-  int32_t maxDriversPerTask_;
-  int32_t concurrentLifespansPerTask_;
 };
 
 } // namespace facebook::presto

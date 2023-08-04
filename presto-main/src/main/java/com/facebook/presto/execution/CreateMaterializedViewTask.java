@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -25,6 +24,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.MaterializedViewColumnMappingExtractor;
@@ -78,7 +78,7 @@ public class CreateMaterializedViewTask
     {
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName());
 
-        Optional<TableHandle> viewHandle = metadata.getTableHandle(session, viewName);
+        Optional<TableHandle> viewHandle = metadata.getMetadataResolver(session).getTableHandle(viewName);
         if (viewHandle.isPresent()) {
             if (!statement.isNotExists()) {
                 throw new SemanticException(MATERIALIZED_VIEW_ALREADY_EXISTS, statement, "Materialized view '%s' already exists", viewName);

@@ -19,6 +19,8 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.util.MergeSortedPages.PageWithPosition;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
@@ -45,11 +47,28 @@ public class MergeHashSort
     /**
      * Rows with same hash value are guaranteed to be in the same result page.
      */
-    public WorkProcessor<Page> merge(List<Type> keyTypes, List<Type> allTypes, List<WorkProcessor<Page>> channels, DriverYieldSignal driverYieldSignal)
+    public WorkProcessor<Page> merge(List<Type> keyTypes, List<Type> allTypes, List<WorkProcessor<Page>> pages, DriverYieldSignal driverYieldSignal)
     {
-        InterpretedHashGenerator hashGenerator = InterpretedHashGenerator.createPositionalWithTypes(keyTypes);
+        return merge(keyTypes, null, allTypes, pages, driverYieldSignal);
+    }
+
+    public WorkProcessor<Page> merge(List<Type> keyTypes, @Nullable List<Integer> keyChannels, List<Type> allTypes, List<WorkProcessor<Page>> pages, DriverYieldSignal driverYieldSignal)
+    {
+        InterpretedHashGenerator hashGenerator;
+
+        // keyChannels=null indicates that the keyChannels are implicitly the first N channels, N being keyTypes.size()
+        // SpillableHashAggregationBuilder invokes this function in this manner.
+        // For other invocations of this function (like in SpillableGroupedTopNBuilder), the keyChannels need not be the first N channels
+        // and are hence explicitly specified
+        if (keyChannels == null) {
+            hashGenerator = InterpretedHashGenerator.createPositionalWithTypes(keyTypes);
+        }
+        else {
+            hashGenerator = new InterpretedHashGenerator(keyTypes, keyChannels);
+        }
+
         return mergeSortedPages(
-                channels,
+                pages,
                 createHashPageWithPositionComparator(hashGenerator),
                 IntStream.range(0, allTypes.size()).boxed().collect(toImmutableList()),
                 allTypes,

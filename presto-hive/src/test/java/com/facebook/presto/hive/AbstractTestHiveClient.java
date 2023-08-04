@@ -225,6 +225,7 @@ import static com.facebook.presto.hive.HiveMetadata.convertToPredicate;
 import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.hive.HiveSessionProperties.OFFLINE_DATA_DEBUG_MODE_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.SORTED_WRITE_TO_TEMP_PATH_ENABLED;
+import static com.facebook.presto.hive.HiveStorageFormat.ALPHA;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.CSV;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
@@ -573,10 +574,7 @@ public abstract class AbstractTestHiveClient
             row -> row.getField(0) != null && (short) row.getField(0) + 1 > 0,
             row -> row.getField(0) != null && (short) row.getField(0) + 1 < 0);
 
-    protected Set<HiveStorageFormat> createTableFormats = difference(
-            ImmutableSet.copyOf(HiveStorageFormat.values()),
-            // exclude formats that change table schema with serde
-            ImmutableSet.of(AVRO, CSV));
+    protected Set<HiveStorageFormat> createTableFormats = getSupportedCreateTableHiveStorageFormats();
 
     private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
 
@@ -5704,6 +5702,15 @@ public abstract class AbstractTestHiveClient
             List<TableConstraint<String>> expectedConstraints = tableConstraintsMap.get(table);
             compareTableConstraints(tableConstraints, expectedConstraints);
         }
+    }
+
+    protected Set<HiveStorageFormat> getSupportedCreateTableHiveStorageFormats()
+    {
+        return difference(
+                ImmutableSet.copyOf(HiveStorageFormat.values()),
+                // exclude formats that change table schema with serde
+                // exclude ALPHA because it does not support DML yet
+                ImmutableSet.of(AVRO, CSV, ALPHA));
     }
 
     private List<TableConstraint<String>> getTableConstraints(SchemaTableName tableName)

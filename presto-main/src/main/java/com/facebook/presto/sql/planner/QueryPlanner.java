@@ -14,12 +14,16 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
@@ -42,30 +46,35 @@ import com.facebook.presto.sql.analyzer.FieldId;
 import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
-import com.facebook.presto.sql.planner.plan.AssignmentUtils;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupingOperation;
+import com.facebook.presto.sql.tree.IfExpression;
+import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
+import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Offset;
 import com.facebook.presto.sql.tree.OrderBy;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
@@ -76,55 +85,76 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.isSkipRedundantSort;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.isNumericType;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
 import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
 import static com.facebook.presto.sql.planner.PlannerUtils.toSortOrder;
+import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
+import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.analyzeCallExpressionTypes;
+import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.toBoundType;
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.toWindowType;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.relational.Expressions.call;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.IntervalLiteral.IntervalField.DAY;
+import static com.facebook.presto.sql.tree.IntervalLiteral.IntervalField.YEAR;
+import static com.facebook.presto.sql.tree.IntervalLiteral.Sign.POSITIVE;
+import static com.facebook.presto.sql.tree.WindowFrame.Type.GROUPS;
+import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
+import static com.facebook.presto.sql.tree.WindowFrame.Type.ROWS;
+import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.stream;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class QueryPlanner
 {
     private final Analysis analysis;
-    private final PlanVariableAllocator variableAllocator;
+    private final VariableAllocator variableAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap;
     private final Metadata metadata;
     private final Session session;
     private final SubqueryPlanner subqueryPlanner;
     private final SqlPlannerContext sqlPlannerContext;
+    private final SqlParser sqlParser;
 
     QueryPlanner(
             Analysis analysis,
-            PlanVariableAllocator variableAllocator,
+            VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
             Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap,
             Metadata metadata,
             Session session,
-            SqlPlannerContext sqlPlannerContext)
+            SqlPlannerContext sqlPlannerContext,
+            SqlParser sqlParser)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(variableAllocator, "variableAllocator is null");
@@ -132,6 +162,7 @@ class QueryPlanner
         requireNonNull(lambdaDeclarationToVariableMap, "lambdaDeclarationToVariableMap is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
+        requireNonNull(sqlParser, "sqlParser is null");
 
         this.analysis = analysis;
         this.variableAllocator = variableAllocator;
@@ -139,8 +170,9 @@ class QueryPlanner
         this.lambdaDeclarationToVariableMap = lambdaDeclarationToVariableMap;
         this.metadata = metadata;
         this.session = session;
-        this.subqueryPlanner = new SubqueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session);
+        this.subqueryPlanner = new SubqueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser);
         this.sqlPlannerContext = sqlPlannerContext;
+        this.sqlParser = sqlParser;
     }
 
     public RelationPlan plan(Query query)
@@ -268,7 +300,7 @@ class QueryPlanner
 
     private PlanBuilder planQueryBody(Query query)
     {
-        RelationPlan relationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session)
+        RelationPlan relationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser)
                 .process(query.getQueryBody(), sqlPlannerContext);
 
         return planBuilderFor(relationPlan);
@@ -279,7 +311,7 @@ class QueryPlanner
         RelationPlan relationPlan;
 
         if (node.getFrom().isPresent()) {
-            relationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session)
+            relationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser)
                     .process(node.getFrom().get(), sqlPlannerContext);
         }
         else {
@@ -336,7 +368,7 @@ class QueryPlanner
         subPlan = subqueryPlanner.handleSubqueries(subPlan, rewrittenBeforeSubqueries, node, sqlPlannerContext);
         Expression rewrittenAfterSubqueries = subPlan.rewrite(predicate);
 
-        return subPlan.withNewRoot(new FilterNode(getSourceLocation(node), idAllocator.getNextId(), subPlan.getRoot(), castToRowExpression(rewrittenAfterSubqueries)));
+        return subPlan.withNewRoot(new FilterNode(getSourceLocation(node), idAllocator.getNextId(), subPlan.getRoot(), rowExpression(rewrittenAfterSubqueries, sqlPlannerContext)));
     }
 
     private PlanBuilder project(PlanBuilder subPlan, Iterable<Expression> expressions, RelationPlan parentRelationPlan)
@@ -351,14 +383,14 @@ class QueryPlanner
         Assignments.Builder projections = Assignments.builder();
         for (Expression expression : expressions) {
             if (expression instanceof SymbolReference) {
-                VariableReferenceExpression variable = variableAllocator.toVariableReference(expression);
-                projections.put(variable, castToRowExpression(expression));
+                VariableReferenceExpression variable = toVariableReference(variableAllocator, expression);
+                projections.put(variable, rowExpression(expression, sqlPlannerContext));
                 outputTranslations.put(expression, variable);
                 continue;
             }
 
-            VariableReferenceExpression variable = variableAllocator.newVariable(expression, analysis.getTypeWithCoercions(expression));
-            projections.put(variable, castToRowExpression(subPlan.rewrite(expression)));
+            VariableReferenceExpression variable = newVariable(variableAllocator, expression, analysis.getTypeWithCoercions(expression));
+            projections.put(variable, rowExpression(subPlan.rewrite(expression), sqlPlannerContext));
             outputTranslations.put(expression, variable);
         }
 
@@ -368,6 +400,42 @@ class QueryPlanner
                 projections.build()));
     }
 
+    /**
+     * Creates a projection with any additional coercions by identity of the provided expressions.
+     *
+     * @return the new subplan and a mapping of each expression to the symbol representing the coercion or an existing symbol if a coercion wasn't needed
+     */
+    private PlanAndMappings coerce(PlanBuilder subPlan, List<Expression> expressions, Analysis analysis, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Metadata metadata)
+    {
+        Assignments.Builder assignments = Assignments.builder();
+        assignments.putAll(subPlan.getRoot().getOutputVariables().stream().collect(toImmutableMap(Function.identity(), Function.identity())));
+        ImmutableMap.Builder<NodeRef<Expression>, VariableReferenceExpression> mappings = ImmutableMap.builder();
+        for (Expression expression : expressions) {
+            Type coercion = analysis.getCoercion(expression);
+            if (coercion != null) {
+                Type type = analysis.getType(expression);
+                VariableReferenceExpression variable = newVariable(variableAllocator, expression, coercion);
+                assignments.put(variable, rowExpression(
+                        new Cast(
+                                subPlan.rewrite(expression),
+                                coercion.getTypeSignature().toString(),
+                                false,
+                                metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(type, coercion)),
+                        sqlPlannerContext));
+                mappings.put(NodeRef.of(expression), variable);
+            }
+            else {
+                mappings.put(NodeRef.of(expression), subPlan.translate(expression));
+            }
+        }
+        subPlan = subPlan.withNewRoot(
+                new ProjectNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        assignments.build()));
+        return new PlanAndMappings(subPlan, mappings.build());
+    }
+
     private Map<VariableReferenceExpression, RowExpression> coerce(Iterable<? extends Expression> expressions, PlanBuilder subPlan, TranslationMap translations)
     {
         ImmutableMap.Builder<VariableReferenceExpression, RowExpression> projections = ImmutableMap.builder();
@@ -375,7 +443,7 @@ class QueryPlanner
         for (Expression expression : expressions) {
             Type type = analysis.getType(expression);
             Type coercion = analysis.getCoercion(expression);
-            VariableReferenceExpression variable = variableAllocator.newVariable(expression, firstNonNull(coercion, type));
+            VariableReferenceExpression variable = newVariable(variableAllocator, expression, firstNonNull(coercion, type));
             Expression rewritten = subPlan.rewrite(expression);
             if (coercion != null) {
                 rewritten = new Cast(
@@ -384,7 +452,7 @@ class QueryPlanner
                         false,
                         metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(type, coercion));
             }
-            projections.put(variable, castToRowExpression(rewritten));
+            projections.put(variable, rowExpression(rewritten, sqlPlannerContext));
             translations.put(expression, variable);
         }
 
@@ -403,13 +471,13 @@ class QueryPlanner
                 // If this is an identity projection, no need to rewrite it
                 // This is needed because certain synthetic identity expressions such as "group id" introduced when planning GROUPING
                 // don't have a corresponding analysis, so the code below doesn't work for them
-                projections.put(variableAllocator.toVariableReference(expression), castToRowExpression(expression));
+                projections.put(toVariableReference(variableAllocator, expression), rowExpression(expression, sqlPlannerContext));
                 continue;
             }
 
-            VariableReferenceExpression variable = variableAllocator.newVariable(expression, analysis.getType(expression));
+            VariableReferenceExpression variable = newVariable(variableAllocator, expression, analysis.getType(expression));
             Expression rewritten = subPlan.rewrite(expression);
-            projections.put(variable, castToRowExpression(rewritten));
+            projections.put(variable, rowExpression(rewritten, sqlPlannerContext));
             translations.put(expression, variable);
         }
 
@@ -427,7 +495,7 @@ class QueryPlanner
 
         Assignments assignments = Assignments.builder()
                 .putAll(coerce(uncoerced, subPlan, translations))
-                .putAll(identitiesAsSymbolReferences(alreadyCoerced))
+                .putAll(alreadyCoerced.stream().collect(toImmutableMap(Function.identity(), Function.identity())))
                 .build();
 
         return new PlanBuilder(translations, new ProjectNode(
@@ -496,7 +564,7 @@ class QueryPlanner
 
         for (Expression expression : groupByExpressions) {
             VariableReferenceExpression input = subPlan.translate(expression);
-            VariableReferenceExpression output = variableAllocator.newVariable(expression, analysis.getTypeWithCoercions(expression), "gid");
+            VariableReferenceExpression output = newVariable(variableAllocator, expression, analysis.getTypeWithCoercions(expression), "gid");
             groupingTranslations.put(expression, output);
             groupingSetMappings.put(output, input);
         }
@@ -550,8 +618,8 @@ class QueryPlanner
         }
         else {
             Assignments.Builder assignments = Assignments.builder();
-            aggregationArguments.stream().map(AssignmentUtils::identityAsSymbolReference).forEach(assignments::put);
-            groupingSetMappings.forEach((key, value) -> assignments.put(key, castToRowExpression(asSymbolReference(value))));
+            aggregationArguments.stream().forEach(var -> assignments.put(var, var));
+            groupingSetMappings.forEach((key, value) -> assignments.put(key, value));
 
             ProjectNode project = new ProjectNode(subPlan.getRoot().getSourceLocation(), idAllocator.getNextId(), subPlan.getRoot(), assignments.build(), LOCAL);
             subPlan = new PlanBuilder(groupingTranslations, project);
@@ -565,7 +633,7 @@ class QueryPlanner
         boolean needPostProjectionCoercion = false;
         for (FunctionCall aggregate : analysis.getAggregates(node)) {
             Expression rewritten = argumentTranslations.rewrite(aggregate);
-            VariableReferenceExpression newVariable = variableAllocator.newVariable(rewritten, analysis.getType(aggregate));
+            VariableReferenceExpression newVariable = newVariable(variableAllocator, rewritten, analysis.getType(aggregate));
 
             // TODO: this is a hack, because we apply coercions to the output of expressions, rather than the arguments to expressions.
             // Therefore we can end up with this implicit cast, and have to move it into a post-projection
@@ -575,17 +643,18 @@ class QueryPlanner
             }
             aggregationTranslations.put(aggregate, newVariable);
             FunctionCall rewrittenFunction = (FunctionCall) rewritten;
+            FunctionHandle functionHandle = analysis.getFunctionHandle(aggregate);
 
             aggregationsBuilder.put(newVariable,
                     new Aggregation(
                             new CallExpression(
                                     getSourceLocation(rewrittenFunction),
                                     aggregate.getName().getSuffix(),
-                                    analysis.getFunctionHandle(aggregate),
+                                    functionHandle,
                                     analysis.getType(aggregate),
-                                    rewrittenFunction.getArguments().stream().map(OriginalExpressionUtils::castToRowExpression).collect(toImmutableList())),
-                            rewrittenFunction.getFilter().map(OriginalExpressionUtils::castToRowExpression),
-                            rewrittenFunction.getOrderBy().map(orderBy -> toOrderingScheme(orderBy, variableAllocator.getTypes())),
+                                    callArgumentsToRowExpression(functionHandle, rewrittenFunction.getArguments())),
+                            rewrittenFunction.getFilter().map(expression -> rowExpression(expression, sqlPlannerContext)),
+                            rewrittenFunction.getOrderBy().map(orderBy -> toOrderingScheme(orderBy, TypeProvider.viewOf(variableAllocator.getVariables()))),
                             rewrittenFunction.isDistinct(),
                             Optional.empty()));
         }
@@ -692,7 +761,7 @@ class QueryPlanner
         TranslationMap newTranslations = subPlan.copyTranslations();
 
         Assignments.Builder projections = Assignments.builder();
-        projections.putAll(identitiesAsSymbolReferences(subPlan.getRoot().getOutputVariables()));
+        projections.putAll(subPlan.getRoot().getOutputVariables().stream().collect(toImmutableMap(Function.identity(), Function.identity())));
 
         List<Set<Integer>> descriptor = groupingSets.stream()
                 .map(set -> set.stream()
@@ -703,7 +772,7 @@ class QueryPlanner
         for (GroupingOperation groupingOperation : analysis.getGroupingOperations(node)) {
             Expression rewritten = GroupingOperationRewriter.rewriteGroupingOperation(groupingOperation, descriptor, analysis.getColumnReferenceFields(), groupIdVariable);
             Type coercion = analysis.getCoercion(groupingOperation);
-            VariableReferenceExpression variable = variableAllocator.newVariable(rewritten, analysis.getTypeWithCoercions(groupingOperation));
+            VariableReferenceExpression variable = newVariable(variableAllocator, rewritten, analysis.getTypeWithCoercions(groupingOperation));
             if (coercion != null) {
                 rewritten = new Cast(
                         rewritten,
@@ -711,7 +780,7 @@ class QueryPlanner
                         false,
                         metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(analysis.getType(groupingOperation), coercion));
             }
-            projections.put(variable, castToRowExpression(rewritten));
+            projections.put(variable, rowExpression(rewritten, sqlPlannerContext));
             newTranslations.put(groupingOperation, variable);
         }
 
@@ -738,39 +807,80 @@ class QueryPlanner
             Window window = windowFunction.getWindow().get();
 
             // Extract frame
-            WindowFrame.Type frameType = WindowFrame.Type.RANGE;
+            WindowFrame.Type frameType = RANGE;
             FrameBound.Type frameStartType = FrameBound.Type.UNBOUNDED_PRECEDING;
             FrameBound.Type frameEndType = FrameBound.Type.CURRENT_ROW;
-            Expression frameStart = null;
-            Expression frameEnd = null;
+            Optional<Expression> startValue = Optional.empty();
+            Optional<Expression> endValue = Optional.empty();
 
             if (window.getFrame().isPresent()) {
                 WindowFrame frame = window.getFrame().get();
                 frameType = frame.getType();
 
                 frameStartType = frame.getStart().getType();
-                frameStart = frame.getStart().getValue().orElse(null);
+                startValue = frame.getStart().getValue();
 
                 if (frame.getEnd().isPresent()) {
                     frameEndType = frame.getEnd().get().getType();
-                    frameEnd = frame.getEnd().get().getValue().orElse(null);
+                    endValue = frame.getEnd().get().getValue();
                 }
             }
 
             // Pre-project inputs
-            ImmutableList.Builder<Expression> inputs = ImmutableList.<Expression>builder()
+            ImmutableList.Builder<Expression> inputsBuilder = ImmutableList.<Expression>builder()
                     .addAll(windowFunction.getArguments())
                     .addAll(window.getPartitionBy())
                     .addAll(Iterables.transform(getSortItemsFromOrderBy(window.getOrderBy()), SortItem::getSortKey));
 
-            if (frameStart != null) {
-                inputs.add(frameStart);
+            if (startValue.isPresent()) {
+                inputsBuilder.add(startValue.get());
             }
-            if (frameEnd != null) {
-                inputs.add(frameEnd);
+            if (endValue.isPresent()) {
+                inputsBuilder.add(endValue.get());
             }
 
-            subPlan = subPlan.appendProjections(inputs.build(), variableAllocator, idAllocator);
+            ImmutableList<Expression> inputs = inputsBuilder.build();
+            subPlan = subPlan.appendProjections(inputs, variableAllocator, idAllocator, session, metadata, sqlParser, analysis, sqlPlannerContext);
+
+            // Add projection to coerce inputs to their site-specific types.
+            // This is important because the same lexical expression may need to be coerced
+            // in different ways if it's referenced by multiple arguments to the window function.
+            // For example, given v::integer,
+            //    avg(v) OVER (ORDER BY v)
+            // Needs to be rewritten as
+            //    avg(CAST(v AS double)) OVER (ORDER BY v)
+            PlanAndMappings coercions = coerce(subPlan, inputs, analysis, idAllocator, variableAllocator, metadata);
+            subPlan = coercions.getSubPlan();
+
+            // For frame of type RANGE, append casts and functions necessary for frame bound calculations
+            Optional<VariableReferenceExpression> frameStart = Optional.empty();
+            Optional<VariableReferenceExpression> frameEnd = Optional.empty();
+            Optional<VariableReferenceExpression> sortKeyCoercedForFrameStartComparison = Optional.empty();
+            Optional<VariableReferenceExpression> sortKeyCoercedForFrameEndComparison = Optional.empty();
+
+            if (window.getFrame().isPresent() && window.getFrame().get().getType() == RANGE) {
+                // record sortKey coercions for reuse
+                Map<Type, VariableReferenceExpression> sortKeyCoercions = new HashMap<>();
+
+                // process frame start
+                FrameBoundPlanAndSymbols plan = planFrameBound(subPlan, coercions, startValue, window, sortKeyCoercions);
+                subPlan = plan.getSubPlan();
+                frameStart = plan.getFrameBoundSymbol();
+                sortKeyCoercedForFrameStartComparison = plan.getSortKeyCoercedForFrameBoundComparison();
+
+                // process frame end
+                plan = planFrameBound(subPlan, coercions, endValue, window, sortKeyCoercions);
+                subPlan = plan.getSubPlan();
+                frameEnd = plan.getFrameBoundSymbol();
+                sortKeyCoercedForFrameEndComparison = plan.getSortKeyCoercedForFrameBoundComparison();
+            }
+            else if (window.getFrame().isPresent() && (window.getFrame().get().getType() == ROWS || window.getFrame().get().getType() == GROUPS)) {
+                frameStart = window.getFrame().get().getStart().getValue().map(coercions::get);
+                frameEnd = window.getFrame().get().getEnd().flatMap(FrameBound::getValue).map(coercions::get);
+            }
+            else if (window.getFrame().isPresent()) {
+                throw new IllegalArgumentException("unexpected window frame type: " + window.getFrame().get().getType());
+            }
 
             // Rewrite PARTITION BY in terms of pre-projected inputs
             ImmutableList.Builder<VariableReferenceExpression> partitionByVariables = ImmutableList.builder();
@@ -787,23 +897,17 @@ class QueryPlanner
             }
 
             // Rewrite frame bounds in terms of pre-projected inputs
-            Optional<VariableReferenceExpression> frameStartVariable = Optional.empty();
-            Optional<VariableReferenceExpression> frameEndVariable = Optional.empty();
-            if (frameStart != null) {
-                frameStartVariable = Optional.of(subPlan.translate(frameStart));
-            }
-            if (frameEnd != null) {
-                frameEndVariable = Optional.of(subPlan.translate(frameEnd));
-            }
 
             WindowNode.Frame frame = new WindowNode.Frame(
                     toWindowType(frameType),
                     toBoundType(frameStartType),
-                    frameStartVariable,
+                    frameStart,
+                    sortKeyCoercedForFrameStartComparison,
                     toBoundType(frameEndType),
-                    frameEndVariable,
-                    Optional.ofNullable(frameStart).map(Expression::toString),
-                    Optional.ofNullable(frameEnd).map(Expression::toString));
+                    frameEnd,
+                    sortKeyCoercedForFrameEndComparison,
+                    startValue.map(Expression::toString),
+                    endValue.map(Expression::toString));
 
             TranslationMap outputTranslations = subPlan.copyTranslations();
 
@@ -826,7 +930,7 @@ class QueryPlanner
             }
 
             Type returnType = analysis.getType(windowFunction);
-            VariableReferenceExpression newVariable = variableAllocator.newVariable(rewritten, returnType);
+            VariableReferenceExpression newVariable = newVariable(variableAllocator, rewritten, returnType);
             outputTranslations.put(windowFunction, newVariable);
 
             // TODO: replace arguments with RowExpression once we introduce subquery expression for RowExpression (#12745).
@@ -834,12 +938,13 @@ class QueryPlanner
             // The utility that work on the CallExpression should be aware of the RawExpression handling.
             // The interface will be dirty until we introduce subquery expression for RowExpression.
             // With subqueries, the translation from Expression to RowExpression can happen here.
+            FunctionHandle functionHandle = analysis.getFunctionHandle(windowFunction);
             WindowNode.Function function = new WindowNode.Function(
                     call(
                             windowFunction.getName().toString(),
-                            analysis.getFunctionHandle(windowFunction),
+                            functionHandle,
                             returnType,
-                            ((FunctionCall) rewritten).getArguments().stream().map(OriginalExpressionUtils::castToRowExpression).collect(toImmutableList())),
+                            callArgumentsToRowExpression(functionHandle, ((FunctionCall) rewritten).getArguments())),
                     frame,
                     windowFunction.isIgnoreNulls());
 
@@ -870,6 +975,134 @@ class QueryPlanner
         }
 
         return subPlan;
+    }
+
+    private FrameBoundPlanAndSymbols planFrameBound(PlanBuilder subPlan, PlanAndMappings coercions, Optional<Expression> frameOffset, Window window, Map<Type, VariableReferenceExpression> sortKeyCoercions)
+    {
+        Optional<FunctionHandle> frameBoundCalculationFunction = frameOffset.map(analysis::getFrameBoundCalculation);
+
+        // Empty frameBoundCalculationFunction indicates that frame bound type is CURRENT ROW or UNBOUNDED.
+        // Handling it doesn't require any additional symbols.
+        if (!frameBoundCalculationFunction.isPresent()) {
+            return new FrameBoundPlanAndSymbols(subPlan, Optional.empty(), Optional.empty());
+        }
+
+        // Present frameBoundCalculationFunction indicates that frame bound type is <expression> PRECEDING or <expression> FOLLOWING.
+        // It requires adding certain projections to the plan so that the operator can determine frame bounds.
+
+        // First, append filter to validate offset values. They mustn't be negative or null.
+        VariableReferenceExpression offsetSymbol = coercions.get(frameOffset.get());
+        Expression zeroOffset = zeroOfType(TypeProvider.viewOf(variableAllocator.getVariables()).get(offsetSymbol));
+        FunctionHandle fail = metadata.getFunctionAndTypeManager().resolveFunction(Optional.empty(), Optional.empty(), QualifiedObjectName.valueOf("presto.default.fail"), fromTypes(VARCHAR));
+        Expression predicate = new IfExpression(
+                new ComparisonExpression(
+                        GREATER_THAN_OR_EQUAL,
+                        new SymbolReference(offsetSymbol.getName()),
+                        zeroOffset),
+                TRUE_LITERAL,
+                new Cast(
+                        new FunctionCall(
+                                QualifiedName.of("presto", "default", "fail"),
+                                ImmutableList.of(new Cast(new StringLiteral("Window frame offset value must not be negative or null"), VARCHAR.getTypeSignature().toString()))),
+                        BOOLEAN.getTypeSignature().toString()));
+        subPlan = subPlan.withNewRoot(new FilterNode(
+                getSourceLocation(window),
+                idAllocator.getNextId(),
+                subPlan.getRoot(),
+                rowExpression(predicate, sqlPlannerContext)));
+
+        // Then, coerce the sortKey so that we can add / subtract the offset.
+        // Note: for that we cannot rely on the usual mechanism of using the coerce() method. The coerce() method can only handle one coercion for a node,
+        // while the sortKey node might require several different coercions, e.g. one for frame start and one for frame end.
+        Expression sortKey = Iterables.getOnlyElement(window.getOrderBy().get().getSortItems()).getSortKey();
+        VariableReferenceExpression sortKeyCoercedForFrameBoundCalculation = coercions.get(sortKey);
+        Optional<Type> coercion = frameOffset.map(analysis::getSortKeyCoercionForFrameBoundCalculation);
+        if (coercion.isPresent()) {
+            Type expectedType = coercion.get();
+            VariableReferenceExpression alreadyCoerced = sortKeyCoercions.get(expectedType);
+            if (alreadyCoerced != null) {
+                sortKeyCoercedForFrameBoundCalculation = alreadyCoerced;
+            }
+            else {
+                Expression cast = new Cast(
+                        new SymbolReference(coercions.get(sortKey).getName()),
+                        expectedType.getTypeSignature().toString(),
+                        false,
+                        metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(analysis.getType(sortKey), expectedType));
+                sortKeyCoercedForFrameBoundCalculation = newVariable(variableAllocator, cast, expectedType);
+                sortKeyCoercions.put(expectedType, sortKeyCoercedForFrameBoundCalculation);
+                subPlan = subPlan.withNewRoot(new ProjectNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        Assignments.builder()
+                                .putAll(subPlan.getRoot().getOutputVariables().stream().collect(toImmutableMap(Function.identity(), Function.identity())))
+                                .put(sortKeyCoercedForFrameBoundCalculation, rowExpression(cast, sqlPlannerContext))
+                                .build()));
+            }
+        }
+
+        // Next, pre-project the function which combines sortKey with the offset.
+        // Note: if frameOffset needs a coercion, it was added before by a call to coerce() method.
+        FunctionHandle function = frameBoundCalculationFunction.get();
+        FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(function);
+        QualifiedObjectName name = functionMetadata.getName();
+        Expression functionCall = new FunctionCall(
+                QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getObjectName()),
+                ImmutableList.of(
+                        new SymbolReference(sortKeyCoercedForFrameBoundCalculation.getName()),
+                        new SymbolReference(offsetSymbol.getName())));
+        VariableReferenceExpression frameBoundVariable = newVariable(variableAllocator, functionCall, metadata.getFunctionAndTypeManager().getType(functionMetadata.getReturnType()));
+        subPlan = subPlan.withNewRoot(new ProjectNode(
+                idAllocator.getNextId(),
+                subPlan.getRoot(),
+                Assignments.builder()
+                        .putAll(subPlan.getRoot().getOutputVariables().stream().collect(toImmutableMap(Function.identity(), Function.identity())))
+                        .put(frameBoundVariable, rowExpression(functionCall, sqlPlannerContext))
+                        .build()));
+
+        // Finally, coerce the sortKey to the type of frameBound so that the operator can perform comparisons on them
+        Optional<VariableReferenceExpression> sortKeyCoercedForFrameBoundComparison = Optional.of(coercions.get(sortKey));
+        coercion = frameOffset.map(analysis::getSortKeyCoercionForFrameBoundComparison);
+        if (coercion.isPresent()) {
+            Type expectedType = coercion.get();
+            VariableReferenceExpression alreadyCoerced = sortKeyCoercions.get(expectedType);
+            if (alreadyCoerced != null) {
+                sortKeyCoercedForFrameBoundComparison = Optional.of(alreadyCoerced);
+            }
+            else {
+                Expression cast = new Cast(
+                        new SymbolReference(coercions.get(sortKey).getName()),
+                        expectedType.getTypeSignature().toString(),
+                        false,
+                        metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(analysis.getType(sortKey), expectedType));
+                VariableReferenceExpression castSymbol = newVariable(variableAllocator, cast, expectedType);
+                sortKeyCoercions.put(expectedType, castSymbol);
+                subPlan = subPlan.withNewRoot(new ProjectNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        Assignments.builder()
+                                .putAll(subPlan.getRoot().getOutputVariables().stream().collect(toImmutableMap(Function.identity(), Function.identity())))
+                                .put(castSymbol, rowExpression(cast, sqlPlannerContext))
+                                .build()));
+                sortKeyCoercedForFrameBoundComparison = Optional.of(castSymbol);
+            }
+        }
+
+        return new FrameBoundPlanAndSymbols(subPlan, Optional.of(frameBoundVariable), sortKeyCoercedForFrameBoundComparison);
+    }
+
+    private Expression zeroOfType(Type type)
+    {
+        if (isNumericType(type)) {
+            return new Cast(new LongLiteral("0"), type.getTypeSignature().toString());
+        }
+        if (type.equals(INTERVAL_DAY_TIME)) {
+            return new IntervalLiteral("0", POSITIVE, DAY);
+        }
+        if (type.equals(INTERVAL_YEAR_MONTH)) {
+            return new IntervalLiteral("0", POSITIVE, YEAR);
+        }
+        throw new IllegalArgumentException("unexpected type: " + type);
     }
 
     private PlanBuilder handleSubqueries(PlanBuilder subPlan, Node node, Iterable<Expression> inputs)
@@ -962,6 +1195,31 @@ class QueryPlanner
         return subPlan;
     }
 
+    // Special treatment of CallExpression
+    private List<RowExpression> callArgumentsToRowExpression(FunctionHandle functionHandle, List<Expression> arguments)
+    {
+        return arguments.stream()
+                .map(expression -> toRowExpression(
+                        expression,
+                        metadata,
+                        session,
+                        analyzeCallExpressionTypes(functionHandle, arguments, metadata, sqlParser, session, TypeProvider.viewOf(variableAllocator.getVariables())),
+                        sqlPlannerContext.getTranslatorContext()))
+                .collect(toImmutableList());
+    }
+
+    private RowExpression rowExpression(Expression expression, SqlPlannerContext context)
+    {
+        return toRowExpression(
+                expression,
+                metadata,
+                session,
+                sqlParser,
+                variableAllocator,
+                analysis,
+                context.getTranslatorContext());
+    }
+
     private static List<Expression> toSymbolReferences(List<VariableReferenceExpression> variables)
     {
         return variables.stream()
@@ -969,5 +1227,66 @@ class QueryPlanner
                         variable.getSourceLocation().map(location -> new NodeLocation(location.getLine(), location.getColumn())),
                         variable.getName()))
                 .collect(toImmutableList());
+    }
+
+    public static class PlanAndMappings
+    {
+        private final PlanBuilder subPlan;
+        private final Map<NodeRef<Expression>, VariableReferenceExpression> mappings;
+
+        public PlanAndMappings(PlanBuilder subPlan, Map<NodeRef<Expression>, VariableReferenceExpression> mappings)
+        {
+            this.subPlan = subPlan;
+            this.mappings = mappings;
+        }
+
+        public PlanBuilder getSubPlan()
+        {
+            return subPlan;
+        }
+
+        public VariableReferenceExpression get(Expression expression)
+        {
+            return tryGet(expression)
+                    .orElseThrow(() -> new IllegalArgumentException(format("No mapping for expression: %s (%s)", expression, System.identityHashCode(expression))));
+        }
+
+        public Optional<VariableReferenceExpression> tryGet(Expression expression)
+        {
+            VariableReferenceExpression result = mappings.get(NodeRef.of(expression));
+            if (result != null) {
+                return Optional.of(result);
+            }
+            return Optional.empty();
+        }
+    }
+
+    private static class FrameBoundPlanAndSymbols
+    {
+        private final PlanBuilder subPlan;
+        private final Optional<VariableReferenceExpression> frameBoundSymbol;
+        private final Optional<VariableReferenceExpression> sortKeyCoercedForFrameBoundComparison;
+
+        public FrameBoundPlanAndSymbols(PlanBuilder subPlan, Optional<VariableReferenceExpression> frameBoundSymbol, Optional<VariableReferenceExpression> sortKeyCoercedForFrameBoundComparison)
+        {
+            this.subPlan = subPlan;
+            this.frameBoundSymbol = frameBoundSymbol;
+            this.sortKeyCoercedForFrameBoundComparison = sortKeyCoercedForFrameBoundComparison;
+        }
+
+        public PlanBuilder getSubPlan()
+        {
+            return subPlan;
+        }
+
+        public Optional<VariableReferenceExpression> getFrameBoundSymbol()
+        {
+            return frameBoundSymbol;
+        }
+
+        public Optional<VariableReferenceExpression> getSortKeyCoercedForFrameBoundComparison()
+        {
+            return sortKeyCoercedForFrameBoundComparison;
+        }
     }
 }

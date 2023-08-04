@@ -29,6 +29,7 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -55,7 +56,7 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -786,6 +787,24 @@ public class PropertyDerivations
             properties.local(LocalProperties.translate(constantAppendedLocalProperties, column -> Optional.ofNullable(assignments.get(column))));
 
             return properties.build();
+        }
+
+        @Override
+        public ActualProperties visitRemoteSource(RemoteSourceNode node, List<ActualProperties> inputProperties)
+        {
+            if (node.getOrderingScheme().isPresent()) {
+                return ActualProperties.builder()
+                        .global(singleStreamPartition())
+                        .unordered(false)
+                        .build();
+            }
+            if (node.isEnsureSourceOrdering()) {
+                return ActualProperties.builder()
+                        .global(singleStreamPartition())
+                        .build();
+            }
+
+            return ActualProperties.builder().build();
         }
 
         private Global deriveGlobalProperties(TableLayout layout, Map<ColumnHandle, VariableReferenceExpression> assignments, Map<ColumnHandle, ConstantExpression> constants)

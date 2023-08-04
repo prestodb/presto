@@ -19,9 +19,10 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -30,7 +31,6 @@ import java.util.List;
 
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogName;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static java.util.Locale.ENGLISH;
 
 public class SetRoleTask
         implements SessionTransactionControlTask<SetRole>
@@ -51,7 +51,7 @@ public class SetRoleTask
                     session.getRequiredTransactionId(),
                     session.getIdentity(),
                     session.getAccessControlContext(),
-                    statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH)).get(),
+                    statement.getRole().map(Identifier::getValueLowerCase).get(),
                     catalog);
         }
         SelectedRole.Type type;
@@ -68,7 +68,7 @@ public class SetRoleTask
             default:
                 throw new IllegalArgumentException("Unsupported type: " + statement.getType());
         }
-        stateMachine.addSetRole(catalog, new SelectedRole(type, statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH))));
+        stateMachine.addSetRole(catalog, new SelectedRole(type, statement.getRole().map(Identifier::getValueLowerCase)));
         return immediateFuture(null);
     }
 }

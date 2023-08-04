@@ -20,6 +20,7 @@ import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.deltalengthbytearray.DeltaLengthByteArrayValuesReader;
 import org.apache.parquet.column.values.deltastrings.DeltaByteArrayReader;
 import org.apache.parquet.io.api.Binary;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 
@@ -35,6 +36,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class BinaryDeltaValuesDecoder
         implements BinaryValuesDecoder
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BinaryDeltaValuesDecoder.class).instanceSize();
+
     private final ValuesReader innerReader;
 
     public BinaryDeltaValuesDecoder(ParquetEncoding encoding, int valueCount, ByteBufferInputStream bufferInputStream)
@@ -94,6 +97,13 @@ public class BinaryDeltaValuesDecoder
             innerReader.skip();
             length--;
         }
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        // Not counting valuesReader since it's in another library.
+        return INSTANCE_SIZE;
     }
 
     private static class DeltaValueBuffer

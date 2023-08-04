@@ -51,7 +51,7 @@ public class OptimizerStatsRecorder
         optimizerStats.recordFailure();
     }
 
-    void export(MBeanExporter exporter)
+    public void export(MBeanExporter exporter)
     {
         for (Map.Entry<Class<?>, OptimizerStats> entry : stats.entrySet()) {
             verify(!entry.getKey().getSimpleName().isEmpty());
@@ -64,7 +64,7 @@ public class OptimizerStatsRecorder
         }
     }
 
-    void unexport(MBeanExporter exporter)
+    public void unexport(MBeanExporter exporter)
     {
         for (Class<?> rule : stats.keySet()) {
             exporter.unexport(getName(rule));

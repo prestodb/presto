@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.QueryTracker.TrackedQuery;
@@ -20,8 +21,8 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
-import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.planner.Plan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -37,6 +38,10 @@ import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Tracks a query that is being executed on the cluster. Provides methods to start, cancel or observe the execution of the query
+ * See also {@link QueryManager} for operations related to query lifecycle.
+ */
 public interface QueryExecution
         extends TrackedQuery
 {
@@ -92,13 +97,15 @@ public interface QueryExecution
      * Add a listener for the final query info.  This notification is guaranteed to be fired only once.
      * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
      * be taken to avoid leaking {@code this} when adding a listener in a constructor.
+     * @param stateChangeListener The listener to add.
      */
     void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener);
 
     interface QueryExecutionFactory<T extends QueryExecution>
     {
         T createQueryExecution(
-                BuiltInPreparedQuery preparedQuery,
+                AnalyzerProvider analyzerProvider,
+                PreparedQuery preparedQuery,
                 QueryStateMachine stateMachine,
                 String slug,
                 int retryCount,

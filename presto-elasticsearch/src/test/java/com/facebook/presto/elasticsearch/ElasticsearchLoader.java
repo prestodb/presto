@@ -24,7 +24,7 @@ import com.facebook.presto.tests.AbstractTestingPrestoClient;
 import com.facebook.presto.tests.ResultsSession;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.client.Client;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 
 import java.io.IOException;
@@ -42,17 +42,17 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
-import static org.elasticsearch.client.Requests.flushRequest;
+import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
 public class ElasticsearchLoader
         extends AbstractTestingPrestoClient<Void>
 {
     private final String tableName;
-    private final Client client;
+    RestHighLevelClient restClient;
 
     public ElasticsearchLoader(
-            Client client,
+            RestHighLevelClient client,
             String tableName,
             TestingPrestoServer prestoServer,
             Session defaultSession)
@@ -60,7 +60,7 @@ public class ElasticsearchLoader
         super(prestoServer, defaultSession);
 
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.client = requireNonNull(client, "client is null");
+        this.restClient = requireNonNull(client, "client is null");
     }
 
     @Override
@@ -108,8 +108,13 @@ public class ElasticsearchLoader
                     throw new UncheckedIOException("Error loading data into Elasticsearch index: " + tableName, e);
                 }
             }
-            client.bulk(request).actionGet();
-            client.admin().indices().flush(flushRequest(tableName)).actionGet();
+            request.setRefreshPolicy(IMMEDIATE);
+            try {
+                restClient.bulk(request);
+            }
+            catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         @Override

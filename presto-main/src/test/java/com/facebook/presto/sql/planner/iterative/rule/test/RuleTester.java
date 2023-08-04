@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Plugin;
@@ -23,6 +23,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -82,7 +83,12 @@ public class RuleTester
 
     public RuleTester(List<Plugin> plugins, Map<String, String> sessionProperties, Optional<Integer> nodeCountForStats, ConnectorFactory connectorFactory)
     {
-        Session.SessionBuilder sessionBuilder = testSessionBuilder()
+        this(plugins, sessionProperties, new SessionPropertyManager(), nodeCountForStats, connectorFactory);
+    }
+
+    public RuleTester(List<Plugin> plugins, Map<String, String> sessionProperties, SessionPropertyManager sessionPropertyManager, Optional<Integer> nodeCountForStats, ConnectorFactory connectorFactory)
+    {
+        Session.SessionBuilder sessionBuilder = testSessionBuilder(sessionPropertyManager)
                 .setCatalog(CATALOG_ID)
                 .setSchema("tiny")
                 .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
@@ -122,6 +128,7 @@ public class RuleTester
     public OptimizerAssert assertThat(Set<Rule<?>> rules)
     {
         PlanOptimizer optimizer = new IterativeOptimizer(
+                getMetadata(),
                 new RuleStatsRecorder(),
                 queryRunner.getStatsCalculator(),
                 queryRunner.getCostCalculator(),
@@ -132,6 +139,7 @@ public class RuleTester
     public OptimizerAssert assertThat(Set<Rule<?>> rules, LogicalPropertiesProvider logicalPropertiesProvider)
     {
         PlanOptimizer optimizer = new IterativeOptimizer(
+                getMetadata(),
                 new RuleStatsRecorder(),
                 queryRunner.getStatsCalculator(),
                 queryRunner.getCostCalculator(),

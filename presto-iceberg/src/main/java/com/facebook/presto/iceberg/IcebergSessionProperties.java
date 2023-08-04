@@ -77,6 +77,7 @@ public final class IcebergSessionProperties
     private static final String NESSIE_REFERENCE_NAME = "nessie_reference_name";
     private static final String NESSIE_REFERENCE_HASH = "nessie_reference_hash";
     public static final String READ_MASKED_VALUE_ENABLED = "read_null_masked_parquet_encrypted_value_enabled";
+    public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -267,6 +268,11 @@ public final class IcebergSessionProperties
                         READ_MASKED_VALUE_ENABLED,
                         "Return null when access is denied for an encrypted parquet column",
                         hiveClientConfig.getReadNullMaskedParquetEncryptedValue(),
+                        false),
+                booleanProperty(
+                        PARQUET_DEREFERENCE_PUSHDOWN_ENABLED,
+                        "Is dereference pushdown expression pushdown into Parquet reader enabled?",
+                        icebergConfig.isParquetDereferencePushdownEnabled(),
                         false));
     }
 
@@ -433,5 +439,10 @@ public final class IcebergSessionProperties
     public static boolean getReadNullMaskedParquetEncryptedValue(ConnectorSession session)
     {
         return session.getProperty(READ_MASKED_VALUE_ENABLED, Boolean.class);
+    }
+
+    public static boolean isParquetDereferencePushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, Boolean.class);
     }
 }

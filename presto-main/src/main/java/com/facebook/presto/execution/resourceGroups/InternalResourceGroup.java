@@ -17,6 +17,7 @@ import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.SqlQueryExecution;
 import com.facebook.presto.execution.resourceGroups.WeightedFairQueue.Usage;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.QueryStateInfo;
 import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.PrestoException;
@@ -96,6 +97,7 @@ public class InternalResourceGroup
     private final boolean staticResourceGroup;
     private final Function<ResourceGroupId, Optional<ResourceGroupRuntimeInfo>> additionalRuntimeInfo;
     private final Predicate<InternalResourceGroup> shouldWaitForResourceManagerUpdate;
+    private final InternalNodeManager nodeManager;
 
     // Configuration
     // =============
@@ -103,6 +105,8 @@ public class InternalResourceGroup
     private long softMemoryLimitBytes = Long.MAX_VALUE;
     @GuardedBy("root")
     private int softConcurrencyLimit;
+    @GuardedBy("root")
+    private int workersPerQueryLimit;
     @GuardedBy("root")
     private int hardConcurrencyLimit;
     @GuardedBy("root")
@@ -163,11 +167,13 @@ public class InternalResourceGroup
             Executor executor,
             boolean staticResourceGroup,
             Function<ResourceGroupId, Optional<ResourceGroupRuntimeInfo>> additionalRuntimeInfo,
-            Predicate<InternalResourceGroup> shouldWaitForResourceManagerUpdate)
+            Predicate<InternalResourceGroup> shouldWaitForResourceManagerUpdate,
+            InternalNodeManager nodeManager)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.jmxExportListener = requireNonNull(jmxExportListener, "jmxExportListener is null");
         this.executor = requireNonNull(executor, "executor is null");
+        this.nodeManager = requireNonNull(nodeManager, "node manager is null");
         requireNonNull(name, "name is null");
         if (parent.isPresent()) {
             id = new ResourceGroupId(parent.get().id, name);
@@ -203,7 +209,8 @@ public class InternalResourceGroup
                             .filter(group -> !includeStaticSubgroupsOnly || group.isStaticResourceGroup())
                             .map(group -> summarizeSubgroups ? group.getSummaryInfo() : group.getResourceGroupInfo(includeQueryInfo, false, includeStaticSubgroupsOnly))
                             .collect(toImmutableList()),
-                    includeQueryInfo ? getAggregatedRunningQueriesInfo() : null);
+                    includeQueryInfo ? getAggregatedRunningQueriesInfo() : null,
+                    workersPerQueryLimit);
         }
     }
 
@@ -227,7 +234,8 @@ public class InternalResourceGroup
                             .filter(group -> group.getRunningQueries() + group.getQueuedQueries() > 0)
                             .map(InternalResourceGroup::getSummaryInfo)
                             .collect(toImmutableList()),
-                    null);
+                    null,
+                    workersPerQueryLimit);
         }
     }
 
@@ -248,7 +256,8 @@ public class InternalResourceGroup
                     getRunningQueries(),
                     eligibleSubGroups.size(),
                     null,
-                    null);
+                    null,
+                    workersPerQueryLimit);
         }
     }
 
@@ -438,6 +447,27 @@ public class InternalResourceGroup
         checkArgument(rate > 0, "Cpu quota generation must be positive");
         synchronized (root) {
             cpuQuotaGenerationMillisPerSecond = rate;
+        }
+    }
+
+    @Override
+    public int getWorkersPerQueryLimit()
+    {
+        synchronized (root) {
+            return workersPerQueryLimit;
+        }
+    }
+
+    @Override
+    public void setWorkersPerQueryLimit(int workersPerQueryLimit)
+    {
+        checkArgument(workersPerQueryLimit >= 0, "workersPerQueryLimit is negative");
+        synchronized (root) {
+            boolean oldCanRun = canRunMore();
+            this.workersPerQueryLimit = workersPerQueryLimit;
+            if (canRunMore() != oldCanRun) {
+                updateEligibility();
+            }
         }
     }
 
@@ -642,7 +672,8 @@ public class InternalResourceGroup
                     executor,
                     staticResourceGroup && staticSegment,
                     additionalRuntimeInfo,
-                    shouldWaitForResourceManagerUpdate);
+                    shouldWaitForResourceManagerUpdate,
+                    nodeManager);
             // Sub group must use query priority to ensure ordering
             if (schedulingPolicy == QUERY_PRIORITY) {
                 subGroup.setSchedulingPolicy(QUERY_PRIORITY);
@@ -680,6 +711,7 @@ public class InternalResourceGroup
 
     public void run(ManagedQueryExecution query)
     {
+        boolean isQueryQueueFull = false;
         synchronized (root) {
             if (!subGroups.isEmpty()) {
                 throw new PrestoException(INVALID_RESOURCE_GROUP, format("Cannot add queries to %s. It is not a leaf group.", id));
@@ -697,21 +729,25 @@ public class InternalResourceGroup
                 group = group.parent.get();
             }
             if (!canQueue && !canRun) {
-                query.fail(new QueryQueueFullException(id));
-                return;
-            }
-            query.setResourceGroupQueryLimits(perQueryLimits);
-            if (canRun && queuedQueries.isEmpty()) {
-                startInBackground(query);
+                isQueryQueueFull = true;
             }
             else {
-                enqueueQuery(query);
-            }
-            query.addStateChangeListener(state -> {
-                if (state.isDone()) {
-                    queryFinished(query);
+                query.setResourceGroupQueryLimits(perQueryLimits);
+                if (canRun && queuedQueries.isEmpty()) {
+                    startInBackground(query);
                 }
-            });
+                else {
+                    enqueueQuery(query);
+                }
+                query.addStateChangeListener(state -> {
+                    if (state.isDone()) {
+                        queryFinished(query);
+                    }
+                });
+            }
+        }
+        if (isQueryQueueFull) {
+            query.fail(new QueryQueueFullException(id));
         }
     }
 
@@ -1006,8 +1042,9 @@ public class InternalResourceGroup
             if (resourceGroupRuntimeInfo.isPresent()) {
                 totalRunningQueries += resourceGroupRuntimeInfo.get().getRunningQueries() + resourceGroupRuntimeInfo.get().getDescendantRunningQueries();
             }
+            int activeWorkerCount = nodeManager.getAllNodes().getActiveWorkerCount();
 
-            return totalRunningQueries < hardConcurrencyLimit && cachedMemoryUsageBytes <= softMemoryLimitBytes;
+            return totalRunningQueries < hardConcurrencyLimit && cachedMemoryUsageBytes <= softMemoryLimitBytes && totalRunningQueries * workersPerQueryLimit <= activeWorkerCount;
         }
     }
 
@@ -1100,7 +1137,8 @@ public class InternalResourceGroup
                 BiConsumer<InternalResourceGroup, Boolean> jmxExportListener,
                 Executor executor,
                 Function<ResourceGroupId, Optional<ResourceGroupRuntimeInfo>> additionalRuntimeInfo,
-                Predicate<InternalResourceGroup> shouldWaitForResourceManagerUpdate)
+                Predicate<InternalResourceGroup> shouldWaitForResourceManagerUpdate,
+                InternalNodeManager nodeManager)
         {
             super(Optional.empty(),
                     name,
@@ -1108,7 +1146,8 @@ public class InternalResourceGroup
                     executor,
                     true,
                     additionalRuntimeInfo,
-                    shouldWaitForResourceManagerUpdate);
+                    shouldWaitForResourceManagerUpdate,
+                    nodeManager);
         }
 
         public synchronized void processQueuedQueries()

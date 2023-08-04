@@ -28,19 +28,29 @@ class ShuffleWriter {
   /// Tell the shuffle system the writer is done.
   /// @param success set to false to indicate aborted client.
   virtual void noMoreData(bool success) = 0;
+
+  /// Runtime statistics.
+  virtual folly::F14FastMap<std::string, int64_t> stats() const = 0;
 };
 
 class ShuffleReader {
  public:
   virtual ~ShuffleReader() = default;
 
-  /// Check by the reader to see if more blocks are available for this
-  /// partition.
-  virtual bool hasNext(int32_t partition) const = 0;
+  /// Check by the reader to see if more blocks are available
+  virtual bool hasNext() = 0;
 
-  /// Read the next block of data for this partition.
+  /// Read the next block of data.
+  virtual velox::BufferPtr next() = 0;
+
+  /// Tell the shuffle system the reader is done. May be called with 'success'
+  /// true before reading all the data. This happens when a query has a LIMIT or
+  /// similar operator that finishes the query early.
   /// @param success set to false to indicate aborted client.
-  virtual velox::BufferPtr next(int32_t partition, bool success) = 0;
+  virtual void noMoreData(bool success) = 0;
+
+  /// Runtime statistics.
+  virtual folly::F14FastMap<std::string, int64_t> stats() const = 0;
 };
 
 class ShuffleInterfaceFactory {
@@ -49,6 +59,7 @@ class ShuffleInterfaceFactory {
 
   virtual std::shared_ptr<ShuffleReader> createReader(
       const std::string& serializedShuffleInfo,
+      const int32_t partition,
       velox::memory::MemoryPool* pool) = 0;
 
   virtual std::shared_ptr<ShuffleWriter> createWriter(

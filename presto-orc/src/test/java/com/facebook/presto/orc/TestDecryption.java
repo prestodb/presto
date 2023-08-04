@@ -32,7 +32,6 @@ import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -70,7 +69,6 @@ import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.STRUCT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.io.Resources.getResource;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
@@ -477,7 +475,7 @@ public class TestDecryption
             throws Exception
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(
-                new File(getResource("encrypted_2splits.dwrf").getFile()),
+                OrcReaderTestingUtils.getResourceFile("encrypted_2splits.dwrf"),
                 new DataSize(1, MEGABYTE),
                 new DataSize(1, MEGABYTE),
                 new DataSize(1, MEGABYTE),

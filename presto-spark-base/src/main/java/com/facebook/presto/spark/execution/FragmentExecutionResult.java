@@ -13,25 +13,16 @@
  */
 package com.facebook.presto.spark.execution;
 
-import com.facebook.presto.spark.PrestoSparkServiceWaitTimeMetrics;
 import com.facebook.presto.spark.RddAndMore;
-import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
 import org.apache.spark.MapOutputStatistics;
 import org.apache.spark.SimpleFutureAction;
-import org.apache.spark.SparkException;
-import scala.Tuple2;
 
-import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /*
     Represents result of a fragment/sub-plan's execution.
     It contains RDD, execution stats and methods to extract result.
-
  */
 public class FragmentExecutionResult<T extends PrestoSparkTaskOutput>
 {
@@ -42,12 +33,6 @@ public class FragmentExecutionResult<T extends PrestoSparkTaskOutput>
     {
         this.rddAndMore = rddAndMore;
         this.mapOutputStatisticsFutureAction = mapOutputStatisticsFutureAction;
-    }
-
-    public List<Tuple2<MutablePartitionId, T>> collectResult(long timeout, TimeUnit timeUnit, Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics)
-            throws SparkException, TimeoutException
-    {
-        return this.rddAndMore.collectAndDestroyDependenciesWithTimeout(timeout, timeUnit, waitTimeMetrics);
     }
 
     public RddAndMore<T> getRddAndMore()

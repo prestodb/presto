@@ -25,6 +25,7 @@ import com.facebook.presto.spi.function.TypeParameter;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static java.lang.Boolean.TRUE;
 import static java.lang.Math.toIntExact;
 
@@ -112,6 +113,9 @@ public class ArrayFindFirstWithOffsetFunction
             }
             Boolean match = function.apply(element);
             if (TRUE.equals(match)) {
+                if (element == null) {
+                    checkCondition(false, INVALID_FUNCTION_ARGUMENT, "FIND_FIRST finds NULL as match, which is not supported.");
+                }
                 return element;
             }
         }
@@ -136,6 +140,9 @@ public class ArrayFindFirstWithOffsetFunction
             }
             Boolean match = function.apply(element);
             if (TRUE.equals(match)) {
+                if (element == null) {
+                    checkCondition(false, INVALID_FUNCTION_ARGUMENT, "FIND_FIRST finds NULL as match, which is not supported.");
+                }
                 return element;
             }
         }
@@ -160,6 +167,9 @@ public class ArrayFindFirstWithOffsetFunction
             }
             Boolean match = function.apply(element);
             if (TRUE.equals(match)) {
+                if (element == null) {
+                    checkCondition(false, INVALID_FUNCTION_ARGUMENT, "FIND_FIRST finds NULL as match, which is not supported.");
+                }
                 return element;
             }
         }
@@ -184,6 +194,9 @@ public class ArrayFindFirstWithOffsetFunction
             }
             Boolean match = function.apply(element);
             if (TRUE.equals(match)) {
+                if (element == null) {
+                    checkCondition(false, INVALID_FUNCTION_ARGUMENT, "FIND_FIRST finds NULL as match, which is not supported.");
+                }
                 return element;
             }
         }
@@ -208,6 +221,9 @@ public class ArrayFindFirstWithOffsetFunction
             }
             Boolean match = function.apply(element);
             if (TRUE.equals(match)) {
+                if (element == null) {
+                    checkCondition(false, INVALID_FUNCTION_ARGUMENT, "FIND_FIRST finds NULL as match, which is not supported.");
+                }
                 return element;
             }
         }

@@ -19,6 +19,7 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholder;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -197,7 +198,7 @@ public class TestLocalDynamicFilter
         SubPlan subplan = subplan(
                 "SELECT count() FROM lineitem, orders WHERE lineitem.orderkey = orders.orderkey " +
                         "AND orders.custkey < 10",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED,
                 false);
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
         LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).orElseThrow(NoSuchElementException::new);
@@ -218,7 +219,7 @@ public class TestLocalDynamicFilter
                 .build();
         SubPlan subplan = subplan(
                 "SELECT count() FROM nation, region WHERE nation.regionkey = region.regionkey " + "AND region.comment = 'abc'",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED,
                 false,
                 session);
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
@@ -234,7 +235,7 @@ public class TestLocalDynamicFilter
                 "SELECT count() FROM lineitem, partsupp " +
                         "WHERE lineitem.partkey = partsupp.partkey AND lineitem.suppkey = partsupp.suppkey " +
                         "AND partsupp.availqty < 10",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED,
                 false);
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
         LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).orElseThrow(NoSuchElementException::new);
@@ -263,7 +264,7 @@ public class TestLocalDynamicFilter
                 "SELECT count() FROM lineitem, orders, part " +
                         "WHERE lineitem.orderkey = orders.orderkey AND lineitem.partkey = part.partkey " +
                         "AND orders.custkey < 10 AND part.name = 'abc'",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED,
                 false);
         List<JoinNode> joinNodes = searchJoins(subplan.getChildren().get(0).getFragment()).findAll();
         assertEquals(joinNodes.size(), 2);
@@ -288,7 +289,7 @@ public class TestLocalDynamicFilter
                         "((SELECT partkey FROM part) UNION (SELECT suppkey FROM supplier)) " +
                         "SELECT count() FROM union_table, nation WHERE union_table.key = nation.nationkey " +
                         "AND nation.comment = 'abc'",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED,
                 true);
         JoinNode joinNode = searchJoins(subplan.getFragment()).findOnlyElement();
         LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).orElseThrow(NoSuchElementException::new);

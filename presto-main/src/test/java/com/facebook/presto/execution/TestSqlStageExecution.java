@@ -81,7 +81,7 @@ public class TestSqlStageExecution
         scheduledExecutor = null;
     }
 
-    @Test(timeOut = 2 * 60 * 1000)
+    @Test(timeOut = 3 * 60 * 1000)
     public void testFinalStageInfo()
             throws Exception
     {

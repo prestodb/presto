@@ -48,7 +48,9 @@ import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 /**
  * For multiple approx_percentile() function calls on the same column with different percentile arguments, combine them to one call on an array of percentile arguments.
@@ -224,9 +226,13 @@ public class CombineApproxPercentileFunctions
                 x -> x.getCall().getDisplayName().equals(APPROX_PERCENTILE) && !(x.getCall().getType() instanceof ArrayType)
         ).collect(Collectors.toList());
 
+        // Remove aggregations which occurs more than once, as we assumes that there are no duplicates in later stage
+        Map<AggregationNode.Aggregation, Long> aggregationOccurrences = approxPercentile.stream().collect(Collectors.groupingBy(identity(), Collectors.counting()));
+        ImmutableList<AggregationNode.Aggregation> candidateApproxPercentile = approxPercentile.stream().filter(x -> aggregationOccurrences.get(x) == 1).collect(toImmutableList());
+
         // Group the aggregations on the same column and have the same function handle
         Map<RowExpression, Map<FunctionHandle, List<AggregationNode.Aggregation>>> sameColumnHandle =
-                approxPercentile.stream().collect(Collectors.groupingBy(x -> x.getCall().getArguments().get(0), LinkedHashMap::new,
+                candidateApproxPercentile.stream().collect(Collectors.groupingBy(x -> x.getCall().getArguments().get(0), LinkedHashMap::new,
                         Collectors.groupingBy(x -> x.getFunctionHandle(), LinkedHashMap::new, Collectors.toList())));
 
         // Each list contains the aggregations which can be combined

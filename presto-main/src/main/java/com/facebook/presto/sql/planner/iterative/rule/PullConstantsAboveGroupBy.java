@@ -31,12 +31,9 @@ import java.util.Map;
 
 import static com.facebook.presto.SystemSessionProperties.isOptimizeConstantGroupingKeys;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isConstant;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.function.Function.identity;
@@ -137,15 +134,7 @@ public class PullConstantsAboveGroupBy
     private static Map<VariableReferenceExpression, RowExpression> extractConstVars(ProjectNode projectNode, List<VariableReferenceExpression> outputVariables)
     {
         return projectNode.getAssignments().entrySet().stream()
-                .filter((entry) -> isConstantRowExpr(entry.getValue()) && outputVariables.contains(entry.getKey()))
+                .filter((entry) -> entry.getValue() instanceof ConstantExpression && outputVariables.contains(entry.getKey()))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-    }
-
-    private static boolean isConstantRowExpr(RowExpression expr)
-    {
-        if (isExpression(expr)) {
-            return isConstant(castToExpression(expr));
-        }
-        return expr instanceof ConstantExpression;
     }
 }

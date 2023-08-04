@@ -495,7 +495,7 @@ export function formatShortDateTime(date: Date): string {
 
 // Remove the Java package from each node type to convert the node type to the short name.
 // For example, in the response sent from the server, an output node is represented by
-// "com.facebook.presto.sql.planner.plan.OutputNode". After the invocation of this function,
+// "com.facebook.presto.spi.plan.OutputNode". After the invocation of this function,
 // the short name "OutputNode" will be returned.
 export function removeNodeTypePackage(nodeType: string): string {
     const classEndIndex = nodeType.lastIndexOf(".");

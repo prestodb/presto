@@ -25,7 +25,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.IntFunction;
 
-import static com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer.INITIAL_HASH_VALUE;
+import static com.facebook.presto.sql.planner.PlannerUtils.INITIAL_HASH_VALUE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;

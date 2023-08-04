@@ -16,10 +16,12 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.array.IntBigArray;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.aggregation.GroupByIdBlock;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
+import it.unimi.dsi.fastutil.ints.IntIterator;
 
 import java.util.List;
 import java.util.Optional;
@@ -85,4 +87,34 @@ public interface GroupByHash
 
     @VisibleForTesting
     int getCapacity();
+
+    default IntIterator getHashSortedGroupIds()
+    {
+        IntBigArray groupIds = new IntBigArray();
+        groupIds.ensureCapacity(getGroupCount());
+        for (int i = 0; i < getGroupCount(); i++) {
+            groupIds.set(i, i);
+        }
+
+        groupIds.sort(0, getGroupCount(), (leftGroupId, rightGroupId) ->
+                Long.compare(getRawHash(leftGroupId), getRawHash(rightGroupId)));
+
+        return new IntIterator()
+        {
+            private final int totalPositions = getGroupCount();
+            private int position;
+
+            @Override
+            public boolean hasNext()
+            {
+                return position < totalPositions;
+            }
+
+            @Override
+            public int nextInt()
+            {
+                return groupIds.get(position++);
+            }
+        };
+    }
 }

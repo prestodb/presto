@@ -52,7 +52,6 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.resourcemanager.ResourceManagerClusterStateProvider;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.GracefulShutdownHandler;
 import com.facebook.presto.server.PluginManager;
@@ -65,6 +64,7 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -361,6 +361,7 @@ public class TestingPrestoServer
             this.resourceGroupManager = resourceGroupManager instanceof InternalResourceGroupManager
                     ? Optional.of((InternalResourceGroupManager<?>) resourceGroupManager)
                     : Optional.empty();
+            resourceGroupManager.loadConfigurationManager();
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             planOptimizerManager = injector.getInstance(ConnectorPlanOptimizerManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
@@ -439,6 +440,7 @@ public class TestingPrestoServer
         serverProperties.put("task.max-worker-threads", "4");
         serverProperties.put("exchange.client-threads", "4");
         serverProperties.put("optimizer.ignore-stats-calculator-failures", "false");
+        serverProperties.put("internal-communication.shared-secret", "internal-shared-secret");
         if (coordinator || resourceManager || catalogServer) {
             // enabling failure detector in tests can make them flakey
             serverProperties.put("failure-detector.enabled", "false");

@@ -24,7 +24,7 @@ import com.facebook.presto.spi.function.OutputFunction;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 
-@AggregationFunction("count")
+@AggregationFunction(value = "count", isCalledOnNullInput = true)
 public final class CountAggregation
 {
     private CountAggregation()

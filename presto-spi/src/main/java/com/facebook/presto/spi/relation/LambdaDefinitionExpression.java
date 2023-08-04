@@ -34,6 +34,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
+import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -83,6 +84,12 @@ public final class LambdaDefinitionExpression
     public Type getType()
     {
         return new FunctionType(argumentTypes, body.getType());
+    }
+
+    @Override
+    public List<RowExpression> getChildren()
+    {
+        return singletonList(body);
     }
 
     @Override

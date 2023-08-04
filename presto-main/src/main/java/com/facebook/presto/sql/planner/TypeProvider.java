@@ -67,6 +67,15 @@ public class TypeProvider
         return type;
     }
 
+    public Type get(VariableReferenceExpression expression)
+    {
+        requireNonNull(expression, "expression is null");
+        Type type = types.get(expression.getName());
+        checkArgument(type != null, "no type found found for expression '%s'", expression);
+
+        return type;
+    }
+
     public Set<VariableReferenceExpression> allVariables()
     {
         return types.entrySet().stream()

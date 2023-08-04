@@ -22,6 +22,7 @@ import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.expressions.RowExpressionNodeInliner;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
@@ -40,11 +41,11 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.EffectivePredicateExtractor;
 import com.facebook.presto.sql.planner.EqualityInference;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.AssignmentUtils;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -95,6 +96,7 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.extractConju
 import static com.facebook.presto.spi.plan.ProjectNode.Locality;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.UNKNOWN;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
@@ -106,7 +108,6 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
-import static com.facebook.presto.sql.relational.Expressions.uniqueSubExpressions;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
@@ -131,7 +132,7 @@ public class PredicatePushDown
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -168,7 +169,7 @@ public class PredicatePushDown
     private static class Rewriter
             extends SimplePlanRewriter<RowExpression>
     {
-        private final PlanVariableAllocator variableAllocator;
+        private final VariableAllocator variableAllocator;
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
         private final EffectivePredicateExtractor effectivePredicateExtractor;
@@ -180,7 +181,7 @@ public class PredicatePushDown
         private final ExternalCallExpressionChecker externalCallExpressionChecker;
 
         private Rewriter(
-                PlanVariableAllocator variableAllocator,
+                VariableAllocator variableAllocator,
                 PlanNodeIdAllocator idAllocator,
                 Metadata metadata,
                 EffectivePredicateExtractor effectivePredicateExtractor,
@@ -194,7 +195,7 @@ public class PredicatePushDown
             this.session = requireNonNull(session, "session is null");
             this.expressionEquivalence = new ExpressionEquivalence(metadata, sqlParser);
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata);
-            this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, new FunctionResolution(metadata.getFunctionAndTypeManager()), metadata.getFunctionAndTypeManager());
+            this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()), metadata.getFunctionAndTypeManager());
             this.functionAndTypeManager = metadata.getFunctionAndTypeManager();
             this.externalCallExpressionChecker = new ExternalCallExpressionChecker(functionAndTypeManager);
         }
@@ -312,15 +313,6 @@ public class PredicatePushDown
 
         private boolean isInliningCandidate(RowExpression expression, ProjectNode node)
         {
-            // TryExpressions should not be pushed down. However they are now being handled as lambda
-            // passed to a FunctionCall now and should not affect predicate push down. So we want to make
-            // sure the conjuncts are not TryExpressions.
-            FunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager);
-            verify(uniqueSubExpressions(expression)
-                    .stream()
-                    .noneMatch(subExpression -> subExpression instanceof CallExpression &&
-                            functionResolution.isTryFunction(((CallExpression) subExpression).getFunctionHandle())));
-
             // candidate symbols for inlining are
             //   1. references to simple constants
             //   2. references to complex expressions that appear only once
@@ -543,8 +535,8 @@ public class PredicatePushDown
             boolean equiJoinClausesUnmodified = ImmutableSet.copyOf(equiJoinClauses).equals(ImmutableSet.copyOf(node.getCriteria()));
 
             if (dynamicFilterEnabled && !equiJoinClausesUnmodified) {
-                leftSource = context.rewrite(new ProjectNode(idAllocator.getNextId(), node.getLeft(), leftProjections.build()), leftPredicate);
-                rightSource = context.rewrite(new ProjectNode(idAllocator.getNextId(), node.getRight(), rightProjections.build()), rightPredicate);
+                leftSource = context.rewrite(wrapInProjectIfNeeded(node.getLeft(), leftProjections.build()), leftPredicate);
+                rightSource = context.rewrite(wrapInProjectIfNeeded(node.getRight(), rightProjections.build()), rightPredicate);
             }
             else {
                 leftSource = context.rewrite(node.getLeft(), leftPredicate);
@@ -575,8 +567,14 @@ public class PredicatePushDown
                     !filtersEquivalent ||
                     (dynamicFilterEnabled && !dynamicFilters.equals(node.getDynamicFilters())) ||
                     !equiJoinClausesUnmodified) {
-                leftSource = new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), leftSource, leftProjections.build(), leftLocality);
-                rightSource = new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), rightSource, rightProjections.build(), rightLocality);
+                leftSource = wrapInProjectIfNeeded(leftSource, leftProjections.build(), leftLocality);
+                rightSource = wrapInProjectIfNeeded(rightSource, rightProjections.build(), rightLocality);
+
+                checkState(ImmutableSet.<VariableReferenceExpression>builder()
+                                .addAll(leftSource.getOutputVariables())
+                                .addAll(rightSource.getOutputVariables())
+                                .build().containsAll(node.getOutputVariables()),
+                        "JoinNode predicate pushdown incorrect : Left and right source are not producing original JoinNode output variables");
 
                 // if the distribution type is already set, make sure that changes from PredicatePushDown
                 // don't make the join node invalid.
@@ -590,6 +588,18 @@ public class PredicatePushDown
                     }
                 }
 
+                List<VariableReferenceExpression> newJoinOutputVariables = node.getOutputVariables();
+                // If, the new Join node is a cross-join OR
+                // we have a post join predicate that refers to variables that were not already referenced by the JoinNode
+                if ((node.getType() == INNER && equiJoinClauses.isEmpty() && !newJoinFilter.isPresent())
+                        || (!ImmutableSet.copyOf(newJoinOutputVariables).containsAll(VariablesExtractor.extractUnique(postJoinPredicate)))) {
+                    // Set the new output variables to be left + right output variables
+                    newJoinOutputVariables = ImmutableList.<VariableReferenceExpression>builder()
+                            .addAll(leftSource.getOutputVariables())
+                            .addAll(rightSource.getOutputVariables())
+                            .build();
+                }
+
                 output = new JoinNode(
                         node.getSourceLocation(),
                         node.getId(),
@@ -597,10 +607,7 @@ public class PredicatePushDown
                         leftSource,
                         rightSource,
                         equiJoinClauses,
-                        ImmutableList.<VariableReferenceExpression>builder()
-                                .addAll(leftSource.getOutputVariables())
-                                .addAll(rightSource.getOutputVariables())
-                                .build(),
+                        newJoinOutputVariables,
                         newJoinFilter,
                         node.getLeftHashVariable(),
                         node.getRightHashVariable(),
@@ -617,6 +624,25 @@ public class PredicatePushDown
             }
 
             return output;
+        }
+
+        private PlanNode wrapInProjectIfNeeded(PlanNode childNode, Assignments assignments)
+        {
+            return wrapInProjectIfNeeded(childNode, assignments, UNKNOWN);
+        }
+
+        private PlanNode wrapInProjectIfNeeded(PlanNode childNode, Assignments assignments, Locality locality)
+        {
+            if ((childNode instanceof ProjectNode || childNode instanceof JoinNode)
+                    && AssignmentUtils.isIdentity(assignments)) {
+                // By wrapping an identity Project over a child node of type :
+                // ProjectNode - we are adding no value
+                // JoinNode - we are preventing this JoinNode from participating in join re-ordering
+                // So we return the child node as is, without an identity project
+                return childNode;
+            }
+
+            return new ProjectNode(childNode.getSourceLocation(), idAllocator.getNextId(), childNode, assignments, locality);
         }
 
         private static DynamicFiltersResult createDynamicFilters(

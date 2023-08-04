@@ -12,6 +12,24 @@ The ``[]`` operator is used to retrieve the value corresponding to a given key f
 Map Functions
 -------------
 
+.. function:: all_keys_match(x(K,V), function(K, boolean)) -> boolean
+
+    Returns whether all keys of a map match the given predicate. Returns true if all the keys match the predicate (a special case is when the map is empty); false if one or more keys don’t match; NULL if the predicate function returns NULL for one or more keys and true for all other keys. ::
+
+        SELECT all_keys_match(map(array['a', 'b', 'c'], array[1, 2, 3]), x -> length(x) = 1); -- true
+
+.. function:: any_keys_match(x(K,V), function(K, boolean)) -> boolean
+
+    Returns whether any keys of a map match the given predicate. Returns true if one or more keys match the predicate; false if none of the keys match (a special case is when the map is empty); NULL if the predicate function returns NULL for one or more keys and false for all other keys. ::
+
+        SELECT any_keys_match(map(array['a', 'b', 'c'], array[1, 2, 3]), x -> x = 'a'); -- true
+
+.. function:: any_values_match(x(K,V), function(V, boolean)) -> boolean
+
+    Returns whether any values of a map matches the given predicate. Returns true if one or more values match the predicate; false if none of the values match (a special case is when the map is empty); NULL if the predicate function returns NULL for one or more values and false for all other values. ::
+
+        SELECT ANY_VALUES_MATCH(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), x -> x = 1); -- true
+
 .. function:: cardinality(x) -> bigint
     :noindex:
 
@@ -67,6 +85,10 @@ Map Functions
         SELECT map_filter(MAP(ARRAY[10, 20, 30], ARRAY['a', NULL, 'c']), (k, v) -> v IS NOT NULL); -- {10 -> a, 30 -> c}
         SELECT map_filter(MAP(ARRAY['k1', 'k2', 'k3'], ARRAY[20, 3, 15]), (k, v) -> v > 10); -- {k1 -> 20, k3 -> 15}
 
+.. function:: map_remove_null_values(x(K,V)) -> map(K, V)
+
+    Removes all the entries where the value is null from the map ``x``.
+
 .. function:: map_subset(map(K,V), array(k)) -> map(K,V)
 
     Constructs a map from those entries of ``map`` for which the key is in the array given::
@@ -97,6 +119,13 @@ Map Functions
     If the comparator function returns other values (including ``NULL``), the query will fail and raise an error ::
 
         SELECT map_top_n_keys(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 2, (x, y) -> IF(x < y, -1, IF(x = y, 0, 1))) --- ['c', 'b']
+
+.. function:: map_top_n(x(K,V), n) -> map(K, V)
+
+    Truncates map items. Keeps only the top N elements by value.
+    ``n`` must be a non-negative integer
+
+        SELECT map_top_n(map(ARRAY['a', 'b', 'c'], ARRAY[2, 3, 1]), 2) --- {'b' -> 3, 'a' -> 2}
 
 .. function:: map_normalize(x(varchar,double)) -> map(varchar,double)
 
@@ -138,6 +167,18 @@ Map Functions
         SELECT map_zip_with(MAP(ARRAY['a', 'b', 'c'], ARRAY[1, 8, 27]), -- {a -> a1, b -> b4, c -> c9}
                             MAP(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]),
                             (k, v1, v2) -> k || CAST(v1/v2 AS VARCHAR));
+
+.. function:: no_keys_match(x(K,V), function(K, boolean)) -> boolean
+
+    Returns whether no keys of a map match the given predicate. Returns true if none of the keys match the predicate (a special case is when the map is empty); false if one or more keys match; NULL if the predicate function returns NULL for one or more keys and false for all other keys. ::
+
+        SELECT no_keys_match(map(array['a', 'b', 'c'], array[1, 2, 3]), x -> x = 'd'); -- true
+
+.. function:: no_values_match(x(K,V), function(V, boolean)) -> boolean
+
+    Returns whether no values of a map match the given predicate. Returns true if none of the values match the predicate (a special case is when the map is empty); false if one or more values match; NULL if the predicate function returns NULL for one or more values and false for all other values. ::
+
+        SELECT no_values_match(map(array['a', 'b', 'c'], array[1, 2, 3]), x -> x = 'd'); -- true
 
 .. function:: transform_keys(map(K1,V), function(K1,V,K2)) -> map(K2,V)
 

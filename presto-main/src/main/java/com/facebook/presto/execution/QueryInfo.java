@@ -17,6 +17,7 @@ import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.ErrorType;
 import com.facebook.presto.common.resourceGroups.QueryType;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
@@ -27,7 +28,6 @@ import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
-import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -92,6 +92,9 @@ public class QueryInfo
     private final Set<SqlFunctionId> removedSessionFunctions;
     private final StatsAndCosts planStatsAndCosts;
     private final List<PlanOptimizerInformation> optimizerInformation;
+    private final Set<String> scalarFunctions;
+    private final Set<String> aggregateFunctions;
+    private final Set<String> windowsFunctions;
     // Using a list rather than map, to avoid implementing map key deserializer
     private final List<CanonicalPlanWithInfo> planCanonicalInfo;
 
@@ -133,6 +136,9 @@ public class QueryInfo
             @JsonProperty("removedSessionFunctions") Set<SqlFunctionId> removedSessionFunctions,
             @JsonProperty("planStatsAndCosts") StatsAndCosts planStatsAndCosts,
             @JsonProperty("optimizerInformation") List<PlanOptimizerInformation> optimizerInformation,
+            @JsonProperty("scalarFunctions") Set<String> scalarFunctions,
+            @JsonProperty("aggregateFunctions") Set<String> aggregateFunctions,
+            @JsonProperty("windowsFunctions") Set<String> windowsFunctions,
             List<CanonicalPlanWithInfo> planCanonicalInfo)
     {
         requireNonNull(queryId, "queryId is null");
@@ -163,6 +169,9 @@ public class QueryInfo
         requireNonNull(removedSessionFunctions, "removedSessionFunctions is null");
         requireNonNull(planStatsAndCosts, "planStatsAndCosts is null");
         requireNonNull(optimizerInformation, "optimizerInformation is null");
+        requireNonNull(scalarFunctions, "scalarFunctions is null");
+        requireNonNull(aggregateFunctions, "aggregateFunctions is null");
+        requireNonNull(windowsFunctions, "windowsFunctions is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -205,6 +214,9 @@ public class QueryInfo
         this.removedSessionFunctions = ImmutableSet.copyOf(removedSessionFunctions);
         this.planStatsAndCosts = planStatsAndCosts;
         this.optimizerInformation = optimizerInformation;
+        this.scalarFunctions = scalarFunctions;
+        this.aggregateFunctions = aggregateFunctions;
+        this.windowsFunctions = windowsFunctions;
         this.planCanonicalInfo = planCanonicalInfo == null ? ImmutableList.of() : planCanonicalInfo;
     }
 
@@ -438,6 +450,24 @@ public class QueryInfo
     public List<PlanOptimizerInformation> getOptimizerInformation()
     {
         return optimizerInformation;
+    }
+
+    @JsonProperty
+    public Set<String> getScalarFunctions()
+    {
+        return scalarFunctions;
+    }
+
+    @JsonProperty
+    public Set<String> getAggregateFunctions()
+    {
+        return aggregateFunctions;
+    }
+
+    @JsonProperty
+    public Set<String> getWindowsFunctions()
+    {
+        return windowsFunctions;
     }
 
     // Don't serialize this field because it can be big

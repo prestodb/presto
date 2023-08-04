@@ -16,8 +16,15 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsCalculator;
+import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.testing.InMemoryHistoryBasedPlanStatisticsProvider;
+import com.facebook.presto.testing.LocalQueryRunner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
@@ -30,12 +37,34 @@ import static org.testng.Assert.assertTrue;
 public class TestCachingPlanCanonicalInfoProvider
         extends BasePlanTest
 {
+    public TestCachingPlanCanonicalInfoProvider()
+    {
+        super(() -> createTestQueryRunner());
+    }
+
+    private static LocalQueryRunner createTestQueryRunner()
+    {
+        LocalQueryRunner queryRunner = createQueryRunner(ImmutableMap.of());
+        queryRunner.installPlugin(new Plugin()
+        {
+            @Override
+            public Iterable<HistoryBasedPlanStatisticsProvider> getHistoryBasedPlanStatisticsProviders()
+            {
+                return ImmutableList.of(new InMemoryHistoryBasedPlanStatisticsProvider());
+            }
+        });
+        if (queryRunner.getStatsCalculator() instanceof HistoryBasedPlanStatisticsCalculator) {
+            ((HistoryBasedPlanStatisticsCalculator) queryRunner.getStatsCalculator()).setPrefetchForAllPlanNodes(true);
+        }
+        return queryRunner;
+    }
+
     @Test
     public void testCache()
     {
         Session session = createSession();
         String sql = "SELECT O.totalprice, C.name FROM orders O, customer C WHERE C.custkey = O.custkey LIMIT 10";
-        PlanNode root = plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, session).getRoot();
+        PlanNode root = plan(sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, session).getRoot();
         assertTrue(root.getStatsEquivalentPlanNode().isPresent());
 
         CachingPlanCanonicalInfoProvider planCanonicalInfoProvider = (CachingPlanCanonicalInfoProvider) ((HistoryBasedPlanStatisticsCalculator) getQueryRunner().getStatsCalculator()).getPlanCanonicalInfoProvider();
@@ -50,6 +79,8 @@ public class TestCachingPlanCanonicalInfoProvider
         });
         // Assert that size of cache remains same, meaning all needed hashes were already cached.
         assertEquals(planCanonicalInfoProvider.getCacheSize(), 5L * historyBasedPlanCanonicalizationStrategyList().size());
+        planCanonicalInfoProvider.getHistoryBasedStatisticsCacheManager().invalidate(session.getQueryId());
+        assertEquals(planCanonicalInfoProvider.getCacheSize(), 0);
     }
 
     private Session createSession()

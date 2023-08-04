@@ -23,7 +23,6 @@ import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.PartitioningMetadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
-import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -34,8 +33,11 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TableMetadata;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -50,8 +52,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
-import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -77,12 +77,12 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
-import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.planner.BasePlanFragmenter.FragmentProperties;
+import static com.facebook.presto.sql.planner.PlanFragmenterUtils.isCoordinatorOnlyDistribution;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -117,7 +117,7 @@ public abstract class BasePlanFragmenter
     private final Session session;
     private final Metadata metadata;
     private final PlanNodeIdAllocator idAllocator;
-    private final PlanVariableAllocator variableAllocator;
+    private final VariableAllocator variableAllocator;
     private final StatsAndCosts statsAndCosts;
     private final PlanChecker planChecker;
     private final WarningCollector warningCollector;
@@ -133,7 +133,7 @@ public abstract class BasePlanFragmenter
             WarningCollector warningCollector,
             SqlParser sqlParser,
             PlanNodeIdAllocator idAllocator,
-            PlanVariableAllocator variableAllocator,
+            VariableAllocator variableAllocator,
             Set<PlanNodeId> outputTableWriterNodeIds)
     {
         this.session = requireNonNull(session, "session is null");
@@ -145,7 +145,7 @@ public abstract class BasePlanFragmenter
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         this.outputTableWriterNodeIds = ImmutableSet.copyOf(requireNonNull(outputTableWriterNodeIds, "outputTableWriterNodeIds is null"));
-        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(variableAllocator, metadata);
+        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(variableAllocator, metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
     }
 
     public SubPlan buildRootFragment(PlanNode root, FragmentProperties properties)
@@ -177,12 +177,6 @@ public abstract class BasePlanFragmenter
                     tableWriterNodeIds);
         }
 
-        // Only delegate non-coordinatorOnly plan fragment to native engine
-        if (isNativeExecutionEnabled(session) && !properties.getPartitioningHandle().isCoordinatorOnly()) {
-            root = new NativeExecutionNode(root);
-            schedulingOrder = scheduleOrder(root);
-        }
-
         PlanFragment fragment = new PlanFragment(
                 fragmentId,
                 root,
@@ -193,7 +187,7 @@ public abstract class BasePlanFragmenter
                 StageExecutionDescriptor.ungroupedExecution(),
                 outputTableWriterFragment,
                 statsAndCosts.getForSubplan(root),
-                Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, metadata.getFunctionAndTypeManager(), session)));
+                Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, statsAndCosts.getForSubplan(root), metadata.getFunctionAndTypeManager(), session)));
 
         return new SubPlan(fragment, properties.getChildren());
     }
@@ -211,28 +205,28 @@ public abstract class BasePlanFragmenter
     @Override
     public PlanNode visitExplainAnalyze(ExplainAnalyzeNode node, RewriteContext<FragmentProperties> context)
     {
-        context.get().setCoordinatorOnlyDistribution();
+        context.get().setCoordinatorOnlyDistribution(node);
         return context.defaultRewrite(node, context.get());
     }
 
     @Override
     public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<FragmentProperties> context)
     {
-        context.get().setCoordinatorOnlyDistribution();
+        context.get().setCoordinatorOnlyDistribution(node);
         return context.defaultRewrite(node, context.get());
     }
 
     @Override
     public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<FragmentProperties> context)
     {
-        context.get().setCoordinatorOnlyDistribution();
+        context.get().setCoordinatorOnlyDistribution(node);
         return context.defaultRewrite(node, context.get());
     }
 
     @Override
     public PlanNode visitMetadataDelete(MetadataDeleteNode node, RewriteContext<FragmentProperties> context)
     {
-        context.get().setCoordinatorOnlyDistribution();
+        context.get().setCoordinatorOnlyDistribution(node);
         return context.defaultRewrite(node, context.get());
     }
 
@@ -287,12 +281,7 @@ public abstract class BasePlanFragmenter
 
         PartitioningScheme partitioningScheme = exchange.getPartitioningScheme();
 
-        if (exchange.getType() == ExchangeNode.Type.GATHER) {
-            context.get().setSingleNodeDistribution();
-        }
-        else if (exchange.getType() == ExchangeNode.Type.REPARTITION) {
-            context.get().setDistribution(partitioningScheme.getPartitioning().getHandle(), metadata, session);
-        }
+        setDistributionForExchange(exchange.getType(), partitioningScheme, context);
 
         ImmutableList.Builder<SubPlan> builder = ImmutableList.builder();
         for (int sourceIndex = 0; sourceIndex < exchange.getSources().size(); sourceIndex++) {
@@ -308,7 +297,17 @@ public abstract class BasePlanFragmenter
                 .map(PlanFragment::getId)
                 .collect(toImmutableList());
 
-        return new RemoteSourceNode(exchange.getSourceLocation(), exchange.getId(), childrenIds, exchange.getOutputVariables(), exchange.isEnsureSourceOrdering(), exchange.getOrderingScheme(), exchange.getType());
+        return new RemoteSourceNode(exchange.getSourceLocation(), exchange.getId(), exchange.getStatsEquivalentPlanNode(), childrenIds, exchange.getOutputVariables(), exchange.isEnsureSourceOrdering(), exchange.getOrderingScheme(), exchange.getType());
+    }
+
+    protected void setDistributionForExchange(ExchangeNode.Type exchangeType, PartitioningScheme partitioningScheme, RewriteContext<FragmentProperties> context)
+    {
+        if (exchangeType == ExchangeNode.Type.GATHER) {
+            context.get().setSingleNodeDistribution();
+        }
+        else if (exchangeType == ExchangeNode.Type.REPARTITION) {
+            context.get().setDistribution(partitioningScheme.getPartitioning().getHandle(), metadata, session);
+        }
     }
 
     private PlanNode createRemoteMaterializedExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
@@ -376,7 +375,7 @@ public abstract class BasePlanFragmenter
         FragmentProperties writeProperties = new FragmentProperties(new PartitioningScheme(
                 Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
                 write.getOutputVariables()));
-        writeProperties.setCoordinatorOnlyDistribution();
+        writeProperties.setCoordinatorOnlyDistribution(write);
 
         List<SubPlan> children = ImmutableList.of(buildSubPlan(write, writeProperties, context));
         context.get().addChildren(children);
@@ -552,7 +551,7 @@ public abstract class BasePlanFragmenter
         String catalogName = tableHandle.getConnectorId().getCatalogName();
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
-        StatisticsAggregationPlanner.TableStatisticAggregation statisticsResult = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnNameToVariable, false);
+        StatisticsAggregationPlanner.TableStatisticAggregation statisticsResult = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnNameToVariable);
         StatisticAggregations.Parts aggregations = statisticsResult.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionAndTypeManager());
         PlanNode tableWriterMerge;
 
@@ -702,8 +701,11 @@ public abstract class BasePlanFragmenter
                     this.partitioningHandle));
         }
 
-        public FragmentProperties setCoordinatorOnlyDistribution()
+        public FragmentProperties setCoordinatorOnlyDistribution(PlanNode node)
         {
+            checkArgument(isCoordinatorOnlyDistribution(node),
+                    "PlanNode type %s doesn't support COORDINATOR_DISTRIBUTION", node.getClass());
+
             if (partitioningHandle.isPresent() && partitioningHandle.get().isCoordinatorOnly()) {
                 // already single node distribution
                 return this;

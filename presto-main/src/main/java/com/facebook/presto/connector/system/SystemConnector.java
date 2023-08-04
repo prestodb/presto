@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SystemTable;
@@ -23,7 +24,6 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.transaction.InternalConnector;
-import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

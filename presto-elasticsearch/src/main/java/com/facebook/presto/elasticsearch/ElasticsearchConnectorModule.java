@@ -30,6 +30,7 @@ import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.elasticsearch.ElasticsearchConfig.Security.AWS;
+import static com.facebook.presto.elasticsearch.ElasticsearchConfig.Security.PASSWORD;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.Objects.requireNonNull;
@@ -55,6 +56,7 @@ public class ElasticsearchConnectorModule
         binder.install(new DecoderModule());
 
         newOptionalBinder(binder, AwsSecurityConfig.class);
+        newOptionalBinder(binder, PasswordConfig.class);
 
         install(installModuleIf(
                 ElasticsearchConfig.class,
@@ -62,6 +64,13 @@ public class ElasticsearchConnectorModule
                         .filter(isEqual(AWS))
                         .isPresent(),
                 conditionalBinder -> configBinder(conditionalBinder).bindConfig(AwsSecurityConfig.class)));
+
+        install(installModuleIf(
+                ElasticsearchConfig.class,
+                config -> config.getSecurity()
+                        .filter(isEqual(PASSWORD))
+                        .isPresent(),
+                conditionalBinder -> configBinder(conditionalBinder).bindConfig(PasswordConfig.class)));
     }
 
     private static final class TypeDeserializer

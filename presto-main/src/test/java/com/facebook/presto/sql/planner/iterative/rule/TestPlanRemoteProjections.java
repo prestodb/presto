@@ -23,13 +23,13 @@ import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceMa
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.assertions.ExpressionMatcher;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
@@ -132,7 +132,7 @@ public class TestPlanRemoteProjections
         List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
                 .put(planBuilder.variable("a"), planBuilder.rowExpression("abs(x) + abs(y)"))
                 .put(planBuilder.variable("b", BOOLEAN), planBuilder.rowExpression("x is null and y is null"))
-                .build(), new PlanVariableAllocator(planBuilder.getTypes().allVariables()));
+                .build(), new VariableAllocator(planBuilder.getTypes().allVariables()));
         assertEquals(rewritten.size(), 1);
         assertEquals(rewritten.get(0).getProjections().size(), 2);
     }
@@ -146,7 +146,7 @@ public class TestPlanRemoteProjections
         List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
                 .put(planBuilder.variable("a"), planBuilder.rowExpression("unittest.memory.remote_foo()"))
                 .put(planBuilder.variable("b"), planBuilder.rowExpression("unittest.memory.remote_foo(unittest.memory.remote_foo())"))
-                .build(), new PlanVariableAllocator(planBuilder.getTypes().allVariables()));
+                .build(), new VariableAllocator(planBuilder.getTypes().allVariables()));
         assertEquals(rewritten.size(), 2);
         assertEquals(rewritten.get(1).getProjections().size(), 2);
     }
@@ -164,7 +164,7 @@ public class TestPlanRemoteProjections
                 .put(planBuilder.variable("b"), planBuilder.rowExpression("abs(x)"))
                 .put(planBuilder.variable("c"), planBuilder.rowExpression("abs(unittest.memory.remote_foo())"))
                 .put(planBuilder.variable("d"), planBuilder.rowExpression("unittest.memory.remote_foo(x + y, abs(x))"))
-                .build(), new PlanVariableAllocator(planBuilder.getTypes().allVariables()));
+                .build(), new VariableAllocator(planBuilder.getTypes().allVariables()));
         assertEquals(rewritten.size(), 4);
         assertEquals(rewritten.get(3).getProjections().size(), 4);
     }
@@ -183,7 +183,7 @@ public class TestPlanRemoteProjections
                 .put(planBuilder.variable("c"), planBuilder.rowExpression("IF(abs(unittest.memory.remote_foo()) > 0, x, y)"))
                 .put(planBuilder.variable("d"), planBuilder.rowExpression("unittest.memory.remote_foo(x + y, abs(x))"))
                 .put(planBuilder.variable("e"), planBuilder.rowExpression("TRUE OR FALSE"))
-                .build(), new PlanVariableAllocator(planBuilder.getTypes().allVariables()));
+                .build(), new VariableAllocator(planBuilder.getTypes().allVariables()));
         assertEquals(rewritten.size(), 4);
         assertEquals(rewritten.get(3).getProjections().size(), 5);
     }

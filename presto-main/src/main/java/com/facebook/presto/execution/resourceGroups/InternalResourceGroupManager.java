@@ -18,11 +18,13 @@ import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.resourcemanager.ResourceGroupService;
 import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
+import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerContext;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
@@ -62,7 +64,10 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
+import static com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManager.HARD_CONCURRENCY_LIMIT;
+import static com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManager.MAX_QUEUED_QUERIES;
+import static com.facebook.presto.spi.StandardErrorCode.MISSING_RESOURCE_GROUP_SELECTOR;
+import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -89,7 +94,7 @@ public final class InternalResourceGroupManager<C>
     private final ConcurrentMap<ResourceGroupId, InternalResourceGroup> groups = new ConcurrentHashMap<>();
     private final AtomicReference<ResourceGroupConfigurationManager<C>> configurationManager;
     private final ResourceGroupConfigurationManagerContext configurationManagerContext;
-    private final ResourceGroupConfigurationManager<?> legacyManager;
+    private final ResourceGroupConfigurationManager<?> initializingConfigurationManager;
     private final MBeanExporter exporter;
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicLong lastCpuQuotaGenerationNanos = new AtomicLong(System.nanoTime());
@@ -104,28 +109,32 @@ public final class InternalResourceGroupManager<C>
     private final double concurrencyThreshold;
     private final Duration resourceGroupRuntimeInfoRefreshInterval;
     private final boolean isResourceManagerEnabled;
+    private final QueryManagerConfig queryManagerConfig;
+    private final InternalNodeManager nodeManager;
 
     @Inject
     public InternalResourceGroupManager(
-            LegacyResourceGroupConfigurationManager legacyManager,
             ClusterMemoryPoolManager memoryPoolManager,
             QueryManagerConfig queryManagerConfig,
             NodeInfo nodeInfo,
             MBeanExporter exporter,
             ResourceGroupService resourceGroupService,
-            ServerConfig serverConfig)
+            ServerConfig serverConfig,
+            InternalNodeManager nodeManager)
     {
-        requireNonNull(queryManagerConfig, "queryManagerConfig is null");
+        this.queryManagerConfig = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.exporter = requireNonNull(exporter, "exporter is null");
+        this.nodeManager = requireNonNull(nodeManager, "node manager is null");
         this.configurationManagerContext = new ResourceGroupConfigurationManagerContextInstance(memoryPoolManager, nodeInfo.getEnvironment());
-        this.legacyManager = requireNonNull(legacyManager, "legacyManager is null");
-        this.configurationManager = new AtomicReference<>(cast(legacyManager));
+        this.initializingConfigurationManager = new InitializingConfigurationManager();
+        this.configurationManager = new AtomicReference(cast(initializingConfigurationManager));
         this.maxTotalRunningTaskCountToNotExecuteNewQuery = queryManagerConfig.getMaxTotalRunningTaskCountToNotExecuteNewQuery();
         this.resourceGroupService = requireNonNull(resourceGroupService, "resourceGroupService is null");
         this.concurrencyThreshold = queryManagerConfig.getConcurrencyThresholdToEnableResourceGroupRefresh();
         this.resourceGroupRuntimeInfoRefreshInterval = queryManagerConfig.getResourceGroupRunTimeInfoRefreshInterval();
         this.isResourceManagerEnabled = requireNonNull(serverConfig, "serverConfig is null").isResourceManagerEnabled();
         this.resourceGroupRuntimeExecutor = new PeriodicTaskExecutor(resourceGroupRuntimeInfoRefreshInterval.toMillis(), refreshExecutor, this::refreshResourceGroupRuntimeInfo);
+        configurationManagerFactories.putIfAbsent(LegacyResourceGroupConfigurationManager.NAME, new LegacyResourceGroupConfigurationManager.Factory());
     }
 
     @Override
@@ -154,7 +163,7 @@ public final class InternalResourceGroupManager<C>
     public SelectionContext<C> selectGroup(SelectionCriteria criteria)
     {
         return configurationManager.get().match(criteria)
-                .orElseThrow(() -> new PrestoException(QUERY_REJECTED, "Query did not match any selection rule"));
+                .orElseThrow(() -> new PrestoException(MISSING_RESOURCE_GROUP_SELECTOR, "Query did not match any selection rule"));
     }
 
     @Override
@@ -178,10 +187,15 @@ public final class InternalResourceGroupManager<C>
 
             setConfigurationManager(configurationManagerName, properties);
         }
+        else {
+            Map<String, String> legacyProperties = ImmutableMap.of(
+                    HARD_CONCURRENCY_LIMIT, Integer.toString(queryManagerConfig.getMaxConcurrentQueries()),
+                    MAX_QUEUED_QUERIES, Integer.toString(queryManagerConfig.getMaxQueuedQueries()));
+            setConfigurationManager(LegacyResourceGroupConfigurationManager.NAME, legacyProperties);
+        }
     }
 
-    @VisibleForTesting
-    public void setConfigurationManager(String name, Map<String, String> properties)
+    private void setConfigurationManager(String name, Map<String, String> properties)
     {
         requireNonNull(name, "name is null");
         requireNonNull(properties, "properties is null");
@@ -192,7 +206,27 @@ public final class InternalResourceGroupManager<C>
         checkState(configurationManagerFactory != null, "Resource group configuration manager %s is not registered", name);
 
         ResourceGroupConfigurationManager<C> configurationManager = cast(configurationManagerFactory.create(ImmutableMap.copyOf(properties), configurationManagerContext));
-        checkState(this.configurationManager.compareAndSet(cast(legacyManager), configurationManager), "configurationManager already set");
+        checkState(this.configurationManager.compareAndSet(cast(initializingConfigurationManager), configurationManager), "configurationManager already set");
+
+        log.info("-- Loaded resource group configuration manager %s --", name);
+    }
+
+    /**
+     * for use in testing to override the default configuration manager configured for the server
+     */
+    @VisibleForTesting
+    public void forceSetConfigurationManager(String name, Map<String, String> properties)
+    {
+        requireNonNull(name, "name is null");
+        requireNonNull(properties, "properties is null");
+
+        log.info("-- Loading new resource group configuration manager --");
+
+        ResourceGroupConfigurationManagerFactory configurationManagerFactory = configurationManagerFactories.get(name);
+        checkState(configurationManagerFactory != null, "Resource group configuration manager %s is not registered", name);
+
+        ResourceGroupConfigurationManager<C> configurationManager = cast(configurationManagerFactory.create(ImmutableMap.copyOf(properties), configurationManagerContext));
+        this.configurationManager.set(configurationManager);
 
         log.info("-- Loaded resource group configuration manager %s --", name);
     }
@@ -202,7 +236,7 @@ public final class InternalResourceGroupManager<C>
     public ResourceGroupConfigurationManager<C> getConfigurationManager()
     {
         ResourceGroupConfigurationManager<C> manager = configurationManager.get();
-        checkState(manager != legacyManager, "cannot fetch legacy manager");
+        checkState(manager != initializingConfigurationManager, "cannot fetch initializing manager");
         return manager;
     }
 
@@ -268,7 +302,7 @@ public final class InternalResourceGroupManager<C>
             }
         }
         catch (Throwable t) {
-            log.error(t, "Error while executing refreshAndStartQueries");
+            log.error(t, "Error while executing refreshResourceGroupRuntimeInfo");
         }
     }
 
@@ -345,7 +379,7 @@ public final class InternalResourceGroupManager<C>
             else {
                 RootInternalResourceGroup root;
                 if (!isResourceManagerEnabled) {
-                    root = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor, ignored -> Optional.empty(), rg -> false);
+                    root = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor, ignored -> Optional.empty(), rg -> false, nodeManager);
                 }
                 else {
                     root = new RootInternalResourceGroup(
@@ -357,7 +391,8 @@ public final class InternalResourceGroupManager<C>
                                     rg,
                                     resourceGroupRuntimeInfosSnapshot::get,
                                     lastUpdatedResourceGroupRuntimeInfo::get,
-                                    concurrencyThreshold));
+                                    concurrencyThreshold),
+                            nodeManager);
                 }
                 group = root;
                 rootGroups.add(root);
@@ -472,5 +507,21 @@ public final class InternalResourceGroupManager<C>
     private static <C> ResourceGroupConfigurationManager<C> cast(ResourceGroupConfigurationManager<?> manager)
     {
         return (ResourceGroupConfigurationManager<C>) manager;
+    }
+
+    private static class InitializingConfigurationManager
+            implements ResourceGroupConfigurationManager<Void>
+    {
+        @Override
+        public void configure(ResourceGroup group, SelectionContext criteria)
+        {
+            throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
+        }
+
+        @Override
+        public Optional<SelectionContext<Void>> match(SelectionCriteria criteria)
+        {
+            throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
+        }
     }
 }

@@ -15,8 +15,8 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.CreateRole;
@@ -34,7 +34,6 @@ import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ROLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ROLE_ALREADY_EXIST;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static java.util.Locale.ENGLISH;
 
 public class CreateRoleTask
         implements DDLDefinitionTask<CreateRole>
@@ -49,7 +48,7 @@ public class CreateRoleTask
     public ListenableFuture<?> execute(CreateRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
         String catalog = createCatalogName(session, statement);
-        String role = statement.getName().getValue().toLowerCase(ENGLISH);
+        String role = statement.getName().getValueLowerCase();
         Optional<PrestoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
         accessControl.checkCanCreateRole(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), role, grantor, catalog);
         Set<String> existingRoles = metadata.listRoles(session, catalog);

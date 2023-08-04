@@ -115,7 +115,6 @@ import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 public class SemiTransactionalHiveMetastore
 {
     private static final Logger log = Logger.get(SemiTransactionalHiveMetastore.class);
-    private static final int PARTITION_COMMIT_BATCH_SIZE = 8;
     private static final int MAX_LAST_DATA_COMMIT_TIME_ENTRY_PER_TABLE = 100;
     private static final int MAX_LAST_DATA_COMMIT_TIME_ENTRY_PER_TRANSACTION = 10_000;
 
@@ -824,11 +823,38 @@ public class SemiTransactionalHiveMetastore
             Path currentLocation,
             PartitionStatistics statistics)
     {
+        addPartition(session, databaseName, tableName, tablePath, isNewTable, partition, currentLocation, statistics, false);
+    }
+
+    /**
+     * Add a new partition metadata in metastore
+     *
+     * @param session Connector level session
+     * @param databaseName Name of the schema
+     * @param tableName Name of the table
+     * @param tablePath Storage location of the table
+     * @param isNewTable The new partition is from an existing table or a new table
+     * @param partition The new partition object to be added
+     * @param currentLocation The path for which the partition is added in the table
+     * @param statistics The basic statistics and column statistics for the added partition
+     * @param noNeedToValidatePath check metastore file path. True for no check which is enabled by the sync partition code path only
+     */
+    public synchronized void addPartition(
+            ConnectorSession session,
+            String databaseName,
+            String tableName,
+            String tablePath,
+            boolean isNewTable,
+            Partition partition,
+            Path currentLocation,
+            PartitionStatistics statistics,
+            boolean isPathValidationNeeded)
+    {
         setShared();
         checkArgument(getPrestoQueryId(partition).isPresent());
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
         Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partition.getValues());
-        HdfsContext context = new HdfsContext(session, databaseName, tableName, tablePath, isNewTable);
+        HdfsContext context = new HdfsContext(session, databaseName, tableName, tablePath, isNewTable, isPathValidationNeeded);
         if (oldPartitionAction == null) {
             partitionActionsOfTable.put(
                     partition.getValues(),
@@ -1486,21 +1512,25 @@ public class SemiTransactionalHiveMetastore
 
             PartitionAdder partitionAdder = partitionAdders.computeIfAbsent(
                     partition.getSchemaTableName(),
-                    ignored -> new PartitionAdder(metastoreContext, partition.getDatabaseName(), partition.getTableName(), delegate, PARTITION_COMMIT_BATCH_SIZE));
+                    ignored -> new PartitionAdder(metastoreContext, partition.getDatabaseName(), partition.getTableName(), delegate));
 
-            if (pathExists(context, hdfsEnvironment, currentPath)) {
-                if (!targetPath.equals(currentPath)) {
-                    renameDirectory(
-                            context,
-                            hdfsEnvironment,
-                            currentPath,
-                            targetPath,
-                            () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true)));
+            // we can bypass the file storage path checking logic for sync partition code path
+            // because the file paths have been verified during early phase of the sync logic already
+            if (!context.getIsPathValidationNeeded().orElse(false)) {
+                if (pathExists(context, hdfsEnvironment, currentPath)) {
+                    if (!targetPath.equals(currentPath)) {
+                        renameDirectory(
+                                context,
+                                hdfsEnvironment,
+                                currentPath,
+                                targetPath,
+                                () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true)));
+                    }
                 }
-            }
-            else {
-                cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true));
-                createDirectory(context, hdfsEnvironment, targetPath);
+                else {
+                    cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true));
+                    createDirectory(context, hdfsEnvironment, targetPath);
+                }
             }
             String partitionName = getPartitionName(metastoreContext, partition.getDatabaseName(), partition.getTableName(), partition.getValues());
             partitionAdder.addPartition(new PartitionWithStatistics(partition, partitionName, partitionAndMore.getStatisticsUpdate()));
@@ -2930,13 +2960,13 @@ public class SemiTransactionalHiveMetastore
         private List<List<String>> createdPartitionValues = new ArrayList<>();
         private List<MetastoreOperationResult> operationResults;
 
-        public PartitionAdder(MetastoreContext metastoreContext, String schemaName, String tableName, ExtendedHiveMetastore metastore, int batchSize)
+        public PartitionAdder(MetastoreContext metastoreContext, String schemaName, String tableName, ExtendedHiveMetastore metastore)
         {
             this.metastoreContext = requireNonNull(metastoreContext, "metastoreContext is null");
             this.schemaName = schemaName;
             this.tableName = tableName;
             this.metastore = metastore;
-            this.batchSize = batchSize;
+            this.batchSize = metastore.getPartitionCommitBatchSize();
             this.partitions = new ArrayList<>(batchSize);
             this.operationResults = new ArrayList<>();
         }

@@ -117,7 +117,7 @@ public class FilterStatsCalculator
         this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
         this.normalizer = requireNonNull(normalizer, "normalizer is null");
         this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
-        this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager());
+        this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
     }
 
     @Deprecated
@@ -179,7 +179,7 @@ public class FilterStatsCalculator
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata.getFunctionAndTypeManager(),
+                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
                 session,
                 types,
                 emptyMap(),
@@ -461,7 +461,7 @@ public class FilterStatsCalculator
             }
 
             ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                    metadata.getFunctionAndTypeManager(),
+                    metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
                     session,
                     types,
                     ImmutableMap.of(),

@@ -35,6 +35,7 @@ public class ResourceManagerConfig
     private Duration queryHeartbeatInterval = new Duration(1, SECONDS);
     private Duration nodeHeartbeatInterval = new Duration(1, SECONDS);
     private Duration resourceGroupRuntimeHeartbeatInterval = new Duration(1, TimeUnit.SECONDS);
+    private Duration resourceGroupRuntimeInfoTimeout = new Duration(30, SECONDS);
     private int heartbeatThreads = 4;
     private int heartbeatConcurrency = 4;
     private int resourceManagerExecutorThreads = 1000;
@@ -140,13 +141,26 @@ public class ResourceManagerConfig
     @MinDuration("1ms")
     public Duration getResourceGroupRuntimeHeartbeatInterval()
     {
-        return nodeHeartbeatInterval;
+        return resourceGroupRuntimeHeartbeatInterval;
     }
 
     @Config("resource-manager.resource-group-runtimeinfo-heartbeat-interval")
-    public ResourceManagerConfig setResourceGroupRuntimeHeartbeatInterval(Duration nodeHeartbeatInterval)
+    public ResourceManagerConfig setResourceGroupRuntimeHeartbeatInterval(Duration resourceGroupRuntimeHeartbeatInterval)
     {
-        this.nodeHeartbeatInterval = nodeHeartbeatInterval;
+        this.resourceGroupRuntimeHeartbeatInterval = resourceGroupRuntimeHeartbeatInterval;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getResourceGroupRuntimeInfoTimeout()
+    {
+        return resourceGroupRuntimeInfoTimeout;
+    }
+
+    @Config("resource-manager.resource-group-runtimeinfo-timeout")
+    public ResourceManagerConfig setResourceGroupRuntimeInfoTimeout(Duration resourceGroupRuntimeInfoTimeout)
+    {
+        this.resourceGroupRuntimeInfoTimeout = resourceGroupRuntimeInfoTimeout;
         return this;
     }
 

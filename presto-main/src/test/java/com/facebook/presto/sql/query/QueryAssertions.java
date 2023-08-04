@@ -33,10 +33,11 @@ import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-class QueryAssertions
+public class QueryAssertions
         implements Closeable
 {
     protected QueryRunner runner;
@@ -60,7 +61,12 @@ class QueryAssertions
 
     public QueryAssertions(Session session)
     {
-        runner = new LocalQueryRunner(session);
+        this(new LocalQueryRunner(requireNonNull(session, "session is null")));
+    }
+
+    public QueryAssertions(QueryRunner runner)
+    {
+        this.runner = requireNonNull(runner, "runner is null");
     }
 
     public QueryRunner getQueryRunner()

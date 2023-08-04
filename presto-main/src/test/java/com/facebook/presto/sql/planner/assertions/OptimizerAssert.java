@@ -17,21 +17,21 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.spi.security.AccessControl;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyRowExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
-import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert.TestingStatsCalculator;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -57,13 +57,13 @@ public class OptimizerAssert
 {
     private final Metadata metadata;
     private final TestingStatsCalculator statsCalculator;
-    private final Session session;
     private final PlanOptimizer optimizer;
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final LocalQueryRunner queryRunner;
 
+    private Session session;
     private TypeProvider types;
     private PlanNode plan;
 
@@ -76,6 +76,19 @@ public class OptimizerAssert
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "access control is null");
         this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
+    }
+
+    public OptimizerAssert setSystemProperty(String key, String value)
+    {
+        return withSession(Session.builder(session)
+                .setSystemProperty(key, value)
+                .build());
+    }
+
+    public OptimizerAssert withSession(Session session)
+    {
+        this.session = session;
+        return this;
     }
 
     public OptimizerAssert on(Function<PlanBuilder, PlanNode> planProvider)
@@ -93,7 +106,7 @@ public class OptimizerAssert
         checkState(plan == null, "plan has already been set");
 
         //get an initial plan and apply a minimal set of optimizers in preparation foor applying the specific rules to be tested
-        Plan result = queryRunner.inTransaction(session -> queryRunner.createPlan(session, sql, getMinimalOptimizers(), LogicalPlanner.Stage.OPTIMIZED, WarningCollector.NOOP));
+        Plan result = queryRunner.inTransaction(session -> queryRunner.createPlan(session, sql, getMinimalOptimizers(), Optimizer.PlanStage.OPTIMIZED, WarningCollector.NOOP));
         plan = result.getRoot();
         types = result.getTypes();
         return this;
@@ -122,7 +135,7 @@ public class OptimizerAssert
 
     private Plan applyRules()
     {
-        PlanNode actual = optimizer.optimize(plan, session, types, new PlanVariableAllocator(), idAllocator, WarningCollector.NOOP);
+        PlanNode actual = optimizer.optimize(plan, session, types, new VariableAllocator(), idAllocator, WarningCollector.NOOP);
 
         if (!ImmutableSet.copyOf(plan.getOutputVariables()).equals(ImmutableSet.copyOf(actual.getOutputVariables()))) {
             fail(String.format(
@@ -138,29 +151,26 @@ public class OptimizerAssert
 
     private List<PlanOptimizer> getMinimalOptimizers()
     {
+        ImmutableSet.Builder<Rule<?>> rulesBuilder = ImmutableSet.builder();
+        rulesBuilder.add(new TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin());
+        rulesBuilder.add(new TransformUncorrelatedInPredicateSubqueryToSemiJoin());
+        rulesBuilder.add(new RemoveRedundantIdentityProjections());
+        ImmutableSet<Rule<?>> rules = rulesBuilder.build();
         return ImmutableList.of(
                 new UnaliasSymbolReferences(queryRunner.getMetadata().getFunctionAndTypeManager()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
+                        queryRunner.getMetadata(),
                         new RuleStatsRecorder(),
                         queryRunner.getStatsCalculator(),
                         queryRunner.getCostCalculator(),
-                        ImmutableSet.of(new TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin(), new TransformUncorrelatedInPredicateSubqueryToSemiJoin(), new RemoveRedundantIdentityProjections())),
-                getExpressionTranslator(),
+                        rules),
                 new IterativeOptimizer(
+                        queryRunner.getMetadata(),
                         new RuleStatsRecorder(),
                         queryRunner.getStatsCalculator(),
                         queryRunner.getCostCalculator(),
                         new SimplifyRowExpressions(metadata).rules()));
-    }
-
-    private PlanOptimizer getExpressionTranslator()
-    {
-        return new IterativeOptimizer(
-                new RuleStatsRecorder(),
-                queryRunner.getStatsCalculator(),
-                queryRunner.getCostCalculator(),
-                ImmutableSet.copyOf(new TranslateExpressions(metadata, queryRunner.getSqlParser()).rules()));
     }
 
     private <T> void inTransaction(Function<Session, T> transactionSessionConsumer)

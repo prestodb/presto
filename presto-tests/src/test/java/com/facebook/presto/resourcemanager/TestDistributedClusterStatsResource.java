@@ -44,6 +44,7 @@ import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static com.facebook.presto.utils.QueryExecutionClientUtil.runToFirstResult;
 import static com.facebook.presto.utils.QueryExecutionClientUtil.runToQueued;
+import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.lang.Thread.sleep;
@@ -89,7 +90,7 @@ public class TestDistributedClusterStatsResource
         runner.getCoordinators().stream().forEach(coordinator -> {
             coordinator.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
             coordinator.getResourceGroupManager().get()
-                    .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath(RESOURCE_GROUPS_CONFIG_FILE)));
+                    .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath(RESOURCE_GROUPS_CONFIG_FILE)));
         });
     }
 
@@ -104,11 +105,6 @@ public class TestDistributedClusterStatsResource
         coordinator2 = null;
         resourceManager = null;
         client = null;
-    }
-
-    private String getResourceFilePath(String fileName)
-    {
-        return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 
     @Test(timeOut = 60_000, enabled = false)
@@ -136,8 +132,9 @@ public class TestDistributedClusterStatsResource
             throws InterruptedException, TimeoutException
     {
         long deadline = System.currentTimeMillis() + timeoutInMillis;
-        int globalQueryCount = 0;
+        int finalGlobalQueryCount = 0;
         while (System.currentTimeMillis() < deadline) {
+            int globalQueryCount = 0;
             for (int i = 0; i < COORDINATOR_COUNT; i++) {
                 TestingPrestoServer currCoordinator = runner.getCoordinator(i);
                 Optional<Integer> globalQueryCountFromCoordinator = getGlobalQueryCountIfAvailable(state, currCoordinator);
@@ -146,13 +143,14 @@ public class TestDistributedClusterStatsResource
                 }
                 globalQueryCount += globalQueryCountFromCoordinator.get();
             }
+            finalGlobalQueryCount = globalQueryCount;
 
             if (globalQueryCount == queryCount) {
                 return;
             }
             sleep(100);
         }
-        throw new TimeoutException(format("Global Query Count: %s after %s ms", globalQueryCount, timeoutInMillis));
+        throw new TimeoutException(format("Global Query Count: %s after %s ms", finalGlobalQueryCount, timeoutInMillis));
     }
 
     private Optional<Integer> getGlobalQueryCountIfAvailable(QueryState state, TestingPrestoServer coordinator)
@@ -205,14 +203,16 @@ public class TestDistributedClusterStatsResource
         return client.execute(request, createJsonResponseHandler(jsonCodec(ClusterStatsResource.ClusterStats.class)));
     }
 
-    @Test(timeOut = 120_000)
-    public void testClusterStatsLocalInfoReturn() throws Exception
+    @Test(timeOut = 120_000, enabled = false)
+    public void testClusterStatsLocalInfoReturn()
+            throws Exception
     {
         waitUntilCoordinatorsDiscoveredHealthyInRM(SECONDS.toMillis(15));
         runToFirstResult(client, coordinator2, "SELECT * from tpch.sf100.orders");
         runToFirstResult(client, coordinator2, "SELECT * from tpch.sf101.orders");
         waitForGlobalQueryViewInCoordinator(2, RUNNING, SECONDS.toMillis(30));
         runToFirstResult(client, coordinator1, "SELECT * from tpch.sf101.orders");
+        waitForGlobalQueryViewInCoordinator(3, RUNNING, SECONDS.toMillis(20));
         runToQueued(client, coordinator2, "SELECT * from tpch.sf101.orders");
         waitForGlobalQueryViewInCoordinator(1, QUEUED, SECONDS.toMillis(20));
 

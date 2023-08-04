@@ -17,6 +17,7 @@ import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.FieldDefinition;
 import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
@@ -25,7 +26,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
@@ -70,7 +70,7 @@ public class CommonSubExpressionRewriter
 
         Map<Integer, Map<RowExpression, Integer>> cseByLevel = removeRedundantCSE(expressionCollector.cseByLevel, expressionCollector.expressionCount);
 
-        PlanVariableAllocator variableAllocator = new PlanVariableAllocator();
+        VariableAllocator variableAllocator = new VariableAllocator();
         ImmutableMap.Builder<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressions = ImmutableMap.builder();
         Map<RowExpression, VariableReferenceExpression> rewriteWith = new HashMap<>();
         int startCSELevel = cseByLevel.keySet().stream().reduce(Math::min).get();

@@ -15,22 +15,18 @@
 #include "presto_cpp/main/QueryContextManager.h"
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include "presto_cpp/main/common/Configs.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 using namespace facebook::velox;
 
 using facebook::presto::protocol::QueryId;
 using facebook::presto::protocol::TaskId;
 
-DEFINE_int32(
-    num_query_threads,
-    std::thread::hardware_concurrency(),
-    "Process-wide number of query execution threads");
-
 namespace facebook::presto {
 namespace {
 static std::shared_ptr<folly::CPUThreadPoolExecutor>& executor() {
   static auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(
-      FLAGS_num_query_threads,
+      SystemConfig::instance()->numQueryThreads(),
       std::make_shared<folly::NamedThreadFactory>("Driver"));
   return executor;
 }
@@ -48,6 +44,53 @@ std::shared_ptr<folly::IOThreadPoolExecutor> spillExecutor() {
 
 folly::CPUThreadPoolExecutor* driverCPUExecutor() {
   return executor().get();
+}
+
+folly::IOThreadPoolExecutor* spillExecutorPtr() {
+  return spillExecutor().get();
+}
+
+namespace {
+std::unordered_map<std::string, std::string> toConfigs(
+    const protocol::SessionRepresentation& session) {
+  // Use base velox query config as the starting point and add Presto session
+  // properties on top of it.
+  auto configs = BaseVeloxQueryConfig::instance()->values();
+  for (const auto& it : session.systemProperties) {
+    configs[it.first] = it.second;
+  }
+
+  // If there's a timeZoneKey, convert to timezone name and add to the
+  // configs. Throws if timeZoneKey can't be resolved.
+  if (session.timeZoneKey != 0) {
+    configs.emplace(
+        velox::core::QueryConfig::kSessionTimezone,
+        velox::util::getTimeZoneName(session.timeZoneKey));
+  }
+  return configs;
+}
+
+std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
+toConnectorConfigs(const protocol::SessionRepresentation& session) {
+  std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
+      connectorConfigs;
+  for (const auto& entry : session.catalogProperties) {
+    connectorConfigs.insert(
+        {entry.first,
+         std::unordered_map<std::string, std::string>(
+             entry.second.begin(), entry.second.end())});
+  }
+
+  return connectorConfigs;
+}
+} // namespace
+
+std::shared_ptr<velox::core::QueryCtx>
+QueryContextManager::findOrCreateQueryCtx(
+    const protocol::TaskId& taskId,
+    const protocol::SessionRepresentation& session) {
+  return findOrCreateQueryCtx(
+      taskId, toConfigs(session), toConnectorConfigs(session));
 }
 
 std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
@@ -75,30 +118,24 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
         core::QueryConfig::kAdjustTimestampToTimezone, "true");
   }
 
-  std::shared_ptr<Config> config =
-      std::make_shared<core::MemConfig>(configStrings);
   std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs;
   for (auto& entry : connectorConfigStrings) {
     connectorConfigs.insert(
         {entry.first, std::make_shared<core::MemConfig>(entry.second)});
   }
 
-  int64_t maxUserMemoryPerNode =
-      getMaxMemoryPerNode(kQueryMaxMemoryPerNode, kDefaultMaxMemoryPerNode);
-  int64_t maxSystemMemoryPerNode = kDefaultMaxMemoryPerNode;
-  int64_t maxTotalMemoryPerNode = getMaxMemoryPerNode(
-      kQueryMaxTotalMemoryPerNode, kDefaultMaxMemoryPerNode);
-
-  auto pool =
-      memory::getProcessDefaultMemoryManager().getRoot().addChild("query_root");
-  pool->setMemoryUsageTracker(velox::memory::MemoryUsageTracker::create(
-      maxUserMemoryPerNode, maxSystemMemoryPerNode, maxTotalMemoryPerNode));
+  auto pool = memory::defaultMemoryManager().addRootPool(
+      queryId,
+      SystemConfig::instance()->queryMaxMemoryPerNode(),
+      SystemConfig::instance()->enableMemoryArbitration()
+          ? memory::MemoryReclaimer::create()
+          : nullptr);
 
   auto queryCtx = std::make_shared<core::QueryCtx>(
       executor().get(),
-      config,
+      std::move(configStrings),
       connectorConfigs,
-      memory::MemoryAllocator::getInstance(),
+      cache::AsyncDataCache::getInstance(),
       std::move(pool),
       spillExecutor(),
       queryId);

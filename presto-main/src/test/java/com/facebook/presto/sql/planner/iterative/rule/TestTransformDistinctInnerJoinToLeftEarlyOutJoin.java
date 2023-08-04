@@ -64,7 +64,7 @@ public class TestTransformDistinctInnerJoinToLeftEarlyOutJoin
     @Test
     public void testAggregationPushedDown()
     {
-        tester().assertThat(new TransformDistinctInnerJoinToLeftEarlyOutJoin(), new LogicalPropertiesProviderImpl(new FunctionResolution(getFunctionManager())))
+        tester().assertThat(new TransformDistinctInnerJoinToLeftEarlyOutJoin(), new LogicalPropertiesProviderImpl(new FunctionResolution(getFunctionManager().getFunctionAndTypeResolver())))
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a", BIGINT);
                     VariableReferenceExpression b = p.variable("b", BIGINT);
@@ -104,7 +104,7 @@ public class TestTransformDistinctInnerJoinToLeftEarlyOutJoin
 
         // Negative test
         // Join output contains columns from B that are not part of the join key
-        tester().assertThat(new TransformDistinctInnerJoinToLeftEarlyOutJoin(), new LogicalPropertiesProviderImpl(new FunctionResolution(getFunctionManager())))
+        tester().assertThat(new TransformDistinctInnerJoinToLeftEarlyOutJoin(), new LogicalPropertiesProviderImpl(new FunctionResolution(getFunctionManager().getFunctionAndTypeResolver())))
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a", BIGINT);
                     VariableReferenceExpression b = p.variable("b", BIGINT);

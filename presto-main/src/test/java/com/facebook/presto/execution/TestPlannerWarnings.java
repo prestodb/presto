@@ -23,13 +23,12 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCode;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -104,7 +103,7 @@ public class TestPlannerWarnings
                     createPlan(queryRunner, transactionSession, sql, warningCollector, rules.get());
                 }
                 else {
-                    queryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.CREATED, false, warningCollector);
+                    queryRunner.createPlan(transactionSession, sql, Optimizer.PlanStage.CREATED, false, warningCollector);
                 }
                 return null;
             });
@@ -126,19 +125,13 @@ public class TestPlannerWarnings
     {
         // Warnings from testing rules will be added
         PlanOptimizer optimizer = new IterativeOptimizer(
+                queryRunner.getMetadata(),
                 new RuleStatsRecorder(),
                 queryRunner.getStatsCalculator(),
                 queryRunner.getCostCalculator(),
                 ImmutableSet.copyOf(rules));
 
-        // Translate all OriginalExpression in planNodes to RowExpression so that we can do plan pattern asserting and printing on RowExpression only.
-        PlanOptimizer expressionTranslator = new IterativeOptimizer(
-                new RuleStatsRecorder(),
-                queryRunner.getStatsCalculator(),
-                queryRunner.getCostCalculator(),
-                ImmutableSet.copyOf(new TranslateExpressions(queryRunner.getMetadata(), queryRunner.getSqlParser()).rules()));
-
-        return queryRunner.createPlan(session, sql, ImmutableList.of(optimizer, expressionTranslator), LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, warningCollector);
+        return queryRunner.createPlan(session, sql, ImmutableList.of(optimizer), Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, warningCollector);
     }
 
     public static List<PrestoWarning> createTestWarnings(int numberOfWarnings)

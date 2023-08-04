@@ -63,6 +63,12 @@ public class PlanNodeStatsAssertion
         return this;
     }
 
+    public PlanNodeStatsAssertion totalSizeUnknown()
+    {
+        assertTrue(Double.isNaN(actual.getTotalSize()), "expected unknown totalSize but got " + actual.getTotalSize());
+        return this;
+    }
+
     public PlanNodeStatsAssertion variableStats(VariableReferenceExpression variable, Consumer<VariableStatsAssertion> columnAssertionConsumer)
     {
         VariableStatsAssertion columnAssertion = VariableStatsAssertion.assertThat(actual.getVariableStatistics(variable));

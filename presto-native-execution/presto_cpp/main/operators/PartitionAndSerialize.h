@@ -19,39 +19,47 @@
 namespace facebook::presto::operators {
 
 /// Partitions the input row based on partition function and serializes the
-/// entire row.
+/// entire row using UnsafeRow format. The output contains 2 columns: partition
+/// number (INTEGER) and serialized row (VARBINARY). If 'replicateNullsAndAny'
+/// is true, the output includes a third boolean column which indicates whether
+/// a row needs to be replicated to all partitions.
 class PartitionAndSerializeNode : public velox::core::PlanNode {
  public:
-  static constexpr std::string_view kPartitionColumnNameDefault = "partition";
-  static constexpr std::string_view kDataColumnNameDefault = "data";
-
   PartitionAndSerializeNode(
       const velox::core::PlanNodeId& id,
       std::vector<velox::core::TypedExprPtr> keys,
       uint32_t numPartitions,
-      velox::RowTypePtr outputType,
+      velox::RowTypePtr serializedRowType,
       velox::core::PlanNodePtr source,
-      velox::core::PartitionFunctionFactory partitionFunctionFactory)
+      bool replicateNullsAndAny,
+      velox::core::PartitionFunctionSpecPtr partitionFunctionFactory)
       : velox::core::PlanNode(id),
         keys_(std::move(keys)),
         numPartitions_(numPartitions),
-        outputType_{std::move(outputType)},
+        serializedRowType_{std::move(serializedRowType)},
         sources_({std::move(source)}),
-        partitionFunctionFactory_(std::move(partitionFunctionFactory)) {
-    // Only verify output types are correct. Note column names are not enforced
-    // in the following check.
-    VELOX_USER_CHECK(
-        velox::ROW(
-            {"partition", "data"}, {velox::INTEGER(), velox::VARBINARY()})
-            ->equivalent(*outputType_));
-    VELOX_USER_CHECK(!keys_.empty(), "Empty partition keys");
+        replicateNullsAndAny_(replicateNullsAndAny),
+        partitionFunctionSpec_(std::move(partitionFunctionFactory)) {
     VELOX_USER_CHECK_NOT_NULL(
-        partitionFunctionFactory_,
-        "Partition function factory cannot be null.");
+        partitionFunctionSpec_, "Partition function factory cannot be null.");
   }
 
+  folly::dynamic serialize() const override;
+
+  static velox::core::PlanNodePtr create(
+      const folly::dynamic& obj,
+      void* context);
+
   const velox::RowTypePtr& outputType() const override {
-    return outputType_;
+    static const velox::RowTypePtr kOutputType{velox::ROW(
+        {"partition", "data"}, {velox::INTEGER(), velox::VARBINARY()})};
+
+    static const velox::RowTypePtr kReplicateNullsAndAnyOutputType{velox::ROW(
+        {"partition", "data", "replicate"},
+        {velox::INTEGER(), velox::VARBINARY(), velox::BOOLEAN()})};
+
+    return replicateNullsAndAny_ ? kReplicateNullsAndAnyOutputType
+                                 : kOutputType;
   }
 
   const std::vector<velox::core::PlanNodePtr>& sources() const override {
@@ -66,9 +74,21 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
     return numPartitions_;
   }
 
-  const velox::core::PartitionFunctionFactory& partitionFunctionFactory()
+  const velox::RowTypePtr& serializedRowType() const {
+    return serializedRowType_;
+  }
+
+  /// Returns true if an arbitrary row and all rows with null keys must be
+  /// replicated to all destinations. This is used to ensure correct results for
+  /// anti-join which requires all nodes to know whether combined build side is
+  /// empty and whether it has any entry with null join key.
+  bool isReplicateNullsAndAny() const {
+    return replicateNullsAndAny_;
+  }
+
+  const velox::core::PartitionFunctionSpecPtr& partitionFunctionFactory()
       const {
-    return partitionFunctionFactory_;
+    return partitionFunctionSpec_;
   }
 
   std::string_view name() const override {
@@ -80,9 +100,10 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
 
   const std::vector<velox::core::TypedExprPtr> keys_;
   const uint32_t numPartitions_;
-  const velox::RowTypePtr outputType_;
+  const velox::RowTypePtr serializedRowType_;
   const std::vector<velox::core::PlanNodePtr> sources_;
-  const velox::core::PartitionFunctionFactory partitionFunctionFactory_;
+  const bool replicateNullsAndAny_;
+  const velox::core::PartitionFunctionSpecPtr partitionFunctionSpec_;
 };
 
 class PartitionAndSerializeTranslator

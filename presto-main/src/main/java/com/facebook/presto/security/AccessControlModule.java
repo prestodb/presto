@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.security;
 
+import com.facebook.presto.spi.security.AccessControl;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;

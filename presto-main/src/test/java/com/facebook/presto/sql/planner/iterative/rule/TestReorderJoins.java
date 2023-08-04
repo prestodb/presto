@@ -76,7 +76,7 @@ public class TestReorderJoins
                         JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name(),
                         JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name()),
                 Optional.of(4));
-        this.functionResolution = new FunctionResolution(tester.getMetadata().getFunctionAndTypeManager());
+        this.functionResolution = new FunctionResolution(tester.getMetadata().getFunctionAndTypeManager().getFunctionAndTypeResolver());
     }
 
     @AfterClass(alwaysRun = true)
@@ -280,7 +280,7 @@ public class TestReorderJoins
                                 p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.variable("B1")), TWO_ROWS),
                                 p.values(new PlanNodeId("valuesA"), p.variable("A1")), // matches isAtMostScalar
                                 ImmutableList.of(new EquiJoinClause(p.variable("A1"), p.variable("B1"))),
-                                ImmutableList.of(p.variable("A1"), p.variable("B1")),
+                                ImmutableList.of(p.variable("B1"), p.variable("A1")),
                                 Optional.empty()))
                 .overrideStats("valuesA", valuesA)
                 .overrideStats("valuesB", valuesB)

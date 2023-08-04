@@ -38,7 +38,7 @@ public class TestValuesNodeStats
     @Test
     public void testStatsForValuesNode()
     {
-        FunctionResolution resolution = new FunctionResolution(tester().getMetadata().getFunctionAndTypeManager());
+        FunctionResolution resolution = new FunctionResolution(tester().getMetadata().getFunctionAndTypeManager().getFunctionAndTypeResolver());
         tester().assertStatsFor(pb -> pb
                 .values(
                         ImmutableList.of(pb.variable("a", BIGINT), pb.variable("b", DOUBLE)),
@@ -93,7 +93,7 @@ public class TestValuesNodeStats
     @Test
     public void testStatsForValuesNodeWithJustNulls()
     {
-        FunctionResolution resolution = new FunctionResolution(tester().getMetadata().getFunctionAndTypeManager());
+        FunctionResolution resolution = new FunctionResolution(tester().getMetadata().getFunctionAndTypeManager().getFunctionAndTypeResolver());
         PlanNodeStatsEstimate bigintNullAStats = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(1)
                 .setConfident(true)

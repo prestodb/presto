@@ -100,7 +100,7 @@ public class SpatialJoinUtils
         return LogicalRowExpressions.extractConjuncts(filterExpression).stream()
                 .filter(CallExpression.class::isInstance)
                 .map(CallExpression.class::cast)
-                .filter(call -> new FunctionResolution(functionAndTypeManager).isComparisonFunction(call.getFunctionHandle()))
+                .filter(call -> new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()).isComparisonFunction(call.getFunctionHandle()))
                 .filter(call -> isSupportedSpatialComparison(call, functionAndTypeManager))
                 .collect(toImmutableList());
     }

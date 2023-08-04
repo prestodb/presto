@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.delta.DeltaSessionProperties.getNodeSelectionStrategy;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
@@ -72,9 +73,11 @@ public class DeltaSplitManager
         private final DeltaTable deltaTable;
         private final CloseableIterator<AddFile> fileIterator;
         private final int maxBatchSize;
+        private final ConnectorSession session;
 
         DeltaSplitSource(ConnectorSession session, DeltaTableLayoutHandle deltaTableHandle)
         {
+            this.session = requireNonNull(session, "session is null");
             this.deltaTable = deltaTableHandle.getTable().getDeltaTable();
             this.fileIterator = DeltaExpressionUtils.iterateWithPartitionPruning(
                     deltaClient.listFiles(session, deltaTable),
@@ -99,7 +102,8 @@ public class DeltaSplitManager
                         0, /* start */
                         file.getSize() /* split length - default is read the entire file in one split */,
                         file.getSize(),
-                        removeNullPartitionValues(file.getPartitionValues())));
+                        removeNullPartitionValues(file.getPartitionValues()),
+                        getNodeSelectionStrategy(session)));
                 currentSplitCount++;
             }
 

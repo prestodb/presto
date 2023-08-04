@@ -15,9 +15,9 @@ package com.facebook.presto;
 
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -25,6 +25,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
@@ -32,7 +33,7 @@ import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager.SystemSessionPropertyConfiguration;
 import com.facebook.presto.spi.tracing.Tracer;
 import com.facebook.presto.sql.planner.optimizations.OptimizerInformationCollector;
-import com.facebook.presto.transaction.TransactionId;
+import com.facebook.presto.sql.planner.optimizations.OptimizerResultCollector;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -53,7 +54,6 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.SystemSessionProperties.isLegacyMapSubscript;
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
-import static com.facebook.presto.SystemSessionProperties.isLegacyTypeCoercionWarningEnabled;
 import static com.facebook.presto.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
@@ -94,6 +94,7 @@ public final class Session
 
     private final RuntimeStats runtimeStats = new RuntimeStats();
     private final OptimizerInformationCollector optimizerInformationCollector = new OptimizerInformationCollector();
+    private final OptimizerResultCollector optimizerResultCollector = new OptimizerResultCollector();
 
     public Session(
             QueryId queryId,
@@ -320,6 +321,11 @@ public final class Session
         return optimizerInformationCollector;
     }
 
+    public OptimizerResultCollector getOptimizerResultCollector()
+    {
+        return optimizerResultCollector;
+    }
+
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)
     {
         requireNonNull(transactionId, "transactionId is null");
@@ -481,7 +487,6 @@ public final class Session
         return SqlFunctionProperties.builder()
                 .setTimeZoneKey(timeZoneKey)
                 .setLegacyRowFieldOrdinalAccessEnabled(isLegacyRowFieldOrdinalAccessEnabled(this))
-                .setLegacyTypeCoercionWarningEnabled(isLegacyTypeCoercionWarningEnabled(this))
                 .setLegacyTimestamp(isLegacyTimestamp(this))
                 .setLegacyMapSubscript(isLegacyMapSubscript(this))
                 .setParseDecimalLiteralAsDouble(isParseDecimalLiteralsAsDouble(this))

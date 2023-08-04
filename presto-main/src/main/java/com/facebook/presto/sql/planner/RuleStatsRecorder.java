@@ -49,7 +49,7 @@ public class RuleStatsRecorder
         stats.get(rule.getClass()).recordFailure();
     }
 
-    void export(MBeanExporter exporter)
+    public void export(MBeanExporter exporter)
     {
         for (Map.Entry<Class<?>, RuleStats> entry : stats.entrySet()) {
             verify(!entry.getKey().getSimpleName().isEmpty());
@@ -66,7 +66,7 @@ public class RuleStatsRecorder
         }
     }
 
-    void unexport(MBeanExporter exporter)
+    public void unexport(MBeanExporter exporter)
     {
         for (Class<?> rule : stats.keySet()) {
             String name = ObjectNames.builder(IterativeOptimizer.class)

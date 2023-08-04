@@ -264,7 +264,7 @@ public class TestTableWriterOperator
         return wrappedBuffer(TABLE_COMMIT_CONTEXT_CODEC.toJsonBytes(
                 new TableCommitContext(
                         Lifespan.taskWide(),
-                        new TaskId("query", 0, 0, 0),
+                        new TaskId("query", 0, 0, 0, 0),
                         NO_COMMIT,
                         lastPage)));
     }
