@@ -28,6 +28,19 @@ workflows:
               os: [macos-intel]
       - format-check
       - header-check
+      - doc-gen-job:
+          filters:
+            branches:
+              only:
+                - main
+      - macos-build:
+          matrix:
+            parameters:
+              os: [ macos-m1 ]
+          filters:
+            branches:
+              only:
+                - main
 
   # Daily documentation update
   nightly:
@@ -39,14 +52,9 @@ workflows:
              only:
                - main
     jobs:
-      - doc-gen-job
       - docker-compose-ubuntu-cpp
       - docker-compose-centos-cpp
       - docker-compose-presto-native
-      - macos-build:
-          matrix:
-            parameters:
-              os: [ macos-m1 ]
 
 
   # Hourly build on weekdays
