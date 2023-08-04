@@ -16,21 +16,6 @@
 
 #include <gflags/gflags.h>
 
-// Used in velox/builder/SimpleVectorBuilder.cpp
-
-DEFINE_int32(
-    max_block_value_set_length,
-    5,
-    "Max entries per column that the block meta-record stores for pre-flight "
-    "filtering optimization");
-
-// Used in velox/common/memory/Memory.cpp
-
-DEFINE_int32(
-    memory_usage_aggregation_interval_millis,
-    2,
-    "Interval to compute aggregate memory usage for all nodes");
-
 // Used in velox/common/memory/MappedMemory.cpp
 
 DEFINE_int32(
