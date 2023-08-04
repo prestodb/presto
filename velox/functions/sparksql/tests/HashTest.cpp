@@ -38,6 +38,21 @@ TEST_F(HashTest, String) {
   EXPECT_EQ(hash<std::string>(std::nullopt), 42);
 }
 
+TEST_F(HashTest, longDecimal) {
+  EXPECT_EQ(hash<int128_t>(12345678), -277285195);
+  EXPECT_EQ(hash<int128_t>(0), -783713497);
+  EXPECT_EQ(hash<int128_t>(DecimalUtil::kLongDecimalMin), 1400911110);
+  EXPECT_EQ(hash<int128_t>(DecimalUtil::kLongDecimalMax), -817514053);
+  EXPECT_EQ(hash<int128_t>(-12345678), -1198355617);
+  EXPECT_EQ(hash<int128_t>(std::nullopt), 42);
+}
+
+// Spark CLI select timestamp_micros(12345678) to get the Timestamp.
+// select hash(Timestamp("1970-01-01 00:00:12.345678")) to get the hash value.
+TEST_F(HashTest, Timestamp) {
+  EXPECT_EQ(hash<Timestamp>(Timestamp::fromMicros(12345678)), 1402875301);
+}
+
 TEST_F(HashTest, Int64) {
   EXPECT_EQ(hash<int64_t>(0xcafecafedeadbeef), -256235155);
   EXPECT_EQ(hash<int64_t>(0xdeadbeefcafecafe), 673261790);

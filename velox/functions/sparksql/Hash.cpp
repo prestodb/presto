@@ -73,6 +73,8 @@ void applyWithType(
       CASE(VARBINARY, hash.hashBytes, StringView);
       CASE(REAL, hash.hashFloat, float);
       CASE(DOUBLE, hash.hashDouble, double);
+      CASE(HUGEINT, hash.hashLongDecimal, int128_t);
+      CASE(TIMESTAMP, hash.hashTimestamp, Timestamp);
 #undef CASE
       default:
         VELOX_NYI(
@@ -137,6 +139,17 @@ class Murmur3Hash final {
       h1 = mixH1(h1, mixK1(*i));
     }
     return fmix(h1, input.size());
+  }
+
+  uint32_t hashLongDecimal(int128_t input, uint32_t seed) {
+    int32_t length;
+    char out[sizeof(int128_t)];
+    DecimalUtil::toByteArray(input, out, length);
+    return hashBytes(StringView(out, length), seed);
+  }
+
+  uint32_t hashTimestamp(Timestamp input, uint32_t seed) {
+    return hashInt64(input.toMicros(), seed);
   }
 
  private:
@@ -243,6 +256,17 @@ class XxHash64 final {
       offset++;
     }
     return fmix(hash);
+  }
+
+  int64_t hashLongDecimal(int128_t input, uint32_t seed) {
+    int32_t length;
+    char out[sizeof(int128_t)];
+    DecimalUtil::toByteArray(input, out, length);
+    return hashBytes(StringView(out, length), seed);
+  }
+
+  int64_t hashTimestamp(Timestamp input, uint32_t seed) {
+    return hashInt64(input.toMicros(), seed);
   }
 
  private:

@@ -22,11 +22,11 @@ namespace facebook::velox::functions::sparksql {
 //   - Integer types (tinyint, smallint, integer, bigint)
 //   - Varchar, varbinary
 //   - Real, double
-//
-// TODO:
 //   - Decimal
 //   - Date
 //   - Timestamp
+//
+// TODO:
 //   - Row, Array: hash the elements in order
 //   - Map: iterate over map, hashing key then value. Since map ordering is
 //        unspecified, hashing logically equivalent maps may result in
@@ -51,10 +51,11 @@ std::shared_ptr<exec::VectorFunction> makeHashWithSeed(
 //   - Integer types (byte, short, int, long)
 //   - String, Binary
 //   - Float, Double
+//   - Decimal
+//   - Date
+//   - Timestamp
 //
 // Unsupported:
-//   - Decimal
-//   - Datetime
 //   - Structs, Arrays: hash the elements in order
 //   - Maps: iterate over map, hashing key then value. Since map ordering is
 //        unspecified, hashing logically equivalent maps may result in

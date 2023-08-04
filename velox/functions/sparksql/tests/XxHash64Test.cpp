@@ -44,6 +44,25 @@ TEST_F(XxHash64Test, varchar) {
   EXPECT_EQ(xxhash64<std::string>(std::nullopt), 42);
 }
 
+TEST_F(XxHash64Test, longDecimal) {
+  EXPECT_EQ(xxhash64<int128_t>(12345678), 4541350547708072824);
+  EXPECT_EQ(xxhash64<int128_t>(0), -8959994473701255385);
+  EXPECT_EQ(
+      xxhash64<int128_t>(DecimalUtil::kLongDecimalMin), -2254039905620870768);
+  EXPECT_EQ(
+      xxhash64<int128_t>(DecimalUtil::kLongDecimalMax), -47190729175993179);
+  EXPECT_EQ(xxhash64<int128_t>(-12345678), -7692719129258511951);
+  EXPECT_EQ(xxhash64<int128_t>(std::nullopt), 42);
+}
+
+// Spark CLI select timestamp_micros(12345678) to get the Timestamp.
+// select xxhash64(Timestamp("1970-01-01 00:00:12.345678")) to get the hash
+// value.
+TEST_F(XxHash64Test, Timestamp) {
+  EXPECT_EQ(
+      xxhash64<Timestamp>(Timestamp::fromMicros(12345678)), 782671362992292307);
+}
+
 TEST_F(XxHash64Test, int64) {
   EXPECT_EQ(xxhash64<int64_t>(0xcafecafedeadbeef), -6259772178006417012);
   EXPECT_EQ(xxhash64<int64_t>(0xdeadbeefcafecafe), -1700188678616701932);
