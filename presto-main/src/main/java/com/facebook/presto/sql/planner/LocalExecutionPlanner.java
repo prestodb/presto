@@ -2139,7 +2139,7 @@ public class LocalExecutionPlanner
 
             checkState(
                     buildSource.getPipelineExecutionStrategy() == UNGROUPED_EXECUTION,
-                    "Build source of a nested loop join is expected to be GROUPED_EXECUTION.");
+                    "Build source of a nested loop join is expected to be UNGROUPED_EXECUTION.");
             checkArgument(node.getType() == INNER, "NestedLoopJoin is only used for inner join");
 
             JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(
