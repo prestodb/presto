@@ -3201,6 +3201,7 @@ TEST_F(ExprTest, addNulls) {
         nullptr,
         kSize,
         std::vector<VectorPtr>({a, b}));
+    row->setNull(kSize - 1, true);
     VectorPtr result = row;
     exec::Expr::addNulls(rows, rawNulls, context, row->type(), result);
     ASSERT_NE(result.get(), row.get());

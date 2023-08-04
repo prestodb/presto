@@ -2500,3 +2500,70 @@ TEST_F(VectorTest, getRawStringBufferWithSpaceNoExistingBuffer) {
       makeFlatVector<StringView>({"ee", "I'm replace 123456789", "rryy", "kk"});
   test::assertEqualVectors(expected, vector);
 }
+
+namespace {
+
+SelectivityVector toSelectivityVector(
+    const std::vector<BaseVector::CopyRange>& ranges) {
+  vector_size_t size = 0;
+  for (const auto& range : ranges) {
+    VELOX_CHECK_EQ(range.sourceIndex, range.targetIndex);
+    if (range.sourceIndex >= size) {
+      size = range.sourceIndex + range.count;
+    }
+  }
+
+  SelectivityVector rows(size, false);
+  for (const auto& range : ranges) {
+    rows.setValidRange(
+        range.sourceIndex, range.sourceIndex + range.count, true);
+  }
+  rows.updateBounds();
+  return rows;
+}
+
+} // namespace
+
+TEST_F(VectorTest, toCopyRanges) {
+  SelectivityVector rows(10);
+
+  auto testRoundTrip = [&]() {
+    auto ranges = BaseVector::toCopyRanges(rows);
+    ASSERT_EQ(rows, toSelectivityVector(ranges));
+  };
+
+  // All selected.
+  testRoundTrip();
+
+  // One row missing in the middle.
+  rows.setValid(3, false);
+  rows.updateBounds();
+
+  testRoundTrip();
+
+  // One row at each end is missing.
+  rows.setValid(0, false);
+  rows.setValid(9, false);
+  rows.updateBounds();
+
+  testRoundTrip();
+
+  // Nothing selected.
+  rows.clearAll();
+  testRoundTrip();
+
+  // Only every 3-rd row selected.
+  for (auto i = 0; i < 10; i += 3) {
+    rows.setValid(i, true);
+  }
+  rows.updateBounds();
+  testRoundTrip();
+
+  // Every 3-rd row is not selected.
+  rows.setAll();
+  for (auto i = 0; i < 10; i += 3) {
+    rows.setValid(i, false);
+  }
+  rows.updateBounds();
+  testRoundTrip();
+}

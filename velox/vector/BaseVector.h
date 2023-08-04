@@ -389,19 +389,7 @@ class BaseVector {
   virtual void copy(
       const BaseVector* source,
       const SelectivityVector& rows,
-      const vector_size_t* toSourceRow) {
-    rows.applyToSelected([&](vector_size_t row) {
-      auto sourceRow = toSourceRow ? toSourceRow[row] : row;
-      if (sourceRow >= source->size()) {
-        return;
-      }
-      if (source->isNullAt(sourceRow)) {
-        setNull(row, true);
-      } else {
-        copy(source, row, sourceRow, 1);
-      }
-    });
-  }
+      const vector_size_t* toSourceRow);
 
   // Utility for making a deep copy of a whole vector.
   static VectorPtr copy(const BaseVector& vector) {
@@ -428,6 +416,11 @@ class BaseVector {
     vector_size_t targetIndex;
     vector_size_t count;
   };
+
+  /// Converts SelectivityVetor into a list of CopyRanges having sourceIndex ==
+  /// targetIndex. Aims to produce as few ranges as possible. If all rows are
+  /// selected, returns a single range.
+  static std::vector<CopyRange> toCopyRanges(const SelectivityVector& rows);
 
   // Copy multiple ranges at once.  This is more efficient than calling `copy`
   // multiple times, especially for ARRAY, MAP, and VARCHAR.

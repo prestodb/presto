@@ -621,6 +621,69 @@ VectorPtr BaseVector::createConstant(
       newConstant, value.kind(), type, value, size, pool);
 }
 
+// static
+std::vector<BaseVector::CopyRange> BaseVector::toCopyRanges(
+    const SelectivityVector& rows) {
+  if (rows.isAllSelected()) {
+    return {{0, 0, rows.size()}};
+  }
+
+  std::vector<BaseVector::CopyRange> ranges;
+  ranges.reserve(rows.end());
+
+  vector_size_t prevRow = rows.begin();
+  auto bits = rows.asRange().bits();
+  bits::forEachUnsetBit(bits, rows.begin(), rows.end(), [&](vector_size_t row) {
+    if (row > prevRow) {
+      ranges.push_back({prevRow, prevRow, row - prevRow});
+    }
+    prevRow = row + 1;
+  });
+
+  if (rows.end() > prevRow) {
+    ranges.push_back({prevRow, prevRow, rows.end() - prevRow});
+  }
+
+  return ranges;
+}
+
+void BaseVector::copy(
+    const BaseVector* source,
+    const SelectivityVector& rows,
+    const vector_size_t* toSourceRow) {
+  // Check if there are rows that do not exist in 'source'. Remove these from
+  // 'ranges'.
+  // TODO Update the callers and remove this logic.
+
+  std::vector<CopyRange> ranges;
+  if (toSourceRow == nullptr) {
+    if (source->size() < rows.end()) {
+      SelectivityVector trimmedRows = rows;
+      trimmedRows.setValidRange(source->size(), rows.end(), false);
+      trimmedRows.updateBounds();
+
+      ranges = toCopyRanges(trimmedRows);
+    } else {
+      ranges = toCopyRanges(rows);
+    }
+  } else {
+    ranges.reserve(rows.end());
+    rows.applyToSelected([&](vector_size_t row) {
+      const auto sourceRow = toSourceRow[row];
+      if (sourceRow >= source->size()) {
+        return;
+      }
+      ranges.push_back({sourceRow, row, 1});
+    });
+  }
+
+  if (ranges.empty()) {
+    return;
+  }
+
+  copyRanges(source, ranges);
+}
+
 namespace {
 
 template <TypeKind kind>
