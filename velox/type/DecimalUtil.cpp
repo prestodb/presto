@@ -56,4 +56,33 @@ std::string DecimalUtil::toString(const int128_t value, const TypePtr& type) {
   return formatDecimal(scale, value);
 }
 
+int32_t DecimalUtil::getByteArrayLength(int128_t value) {
+  if (value < 0) {
+    value = ~value;
+  }
+  int nbits;
+  if (auto hi = HugeInt::upper(value)) {
+    nbits = 128 - bits::countLeadingZeros(hi);
+  } else if (auto lo = HugeInt::lower(value)) {
+    nbits = 64 - bits::countLeadingZeros(lo);
+  } else {
+    nbits = 0;
+  }
+  return 1 + nbits / 8;
+}
+
+void DecimalUtil::toByteArray(int128_t value, char* out, int32_t& length) {
+  length = getByteArrayLength(value);
+  auto lowBig = folly::Endian::big<int64_t>(value);
+  uint8_t* lowAddr = reinterpret_cast<uint8_t*>(&lowBig);
+  if (length <= sizeof(int64_t)) {
+    memcpy(out, lowAddr + sizeof(int64_t) - length, length);
+  } else {
+    auto highBig = folly::Endian::big<int64_t>(value >> 64);
+    uint8_t* highAddr = reinterpret_cast<uint8_t*>(&highBig);
+    memcpy(out, highAddr + sizeof(int128_t) - length, length - sizeof(int64_t));
+    memcpy(out + length - sizeof(int64_t), lowAddr, sizeof(int64_t));
+  }
+}
+
 } // namespace facebook::velox

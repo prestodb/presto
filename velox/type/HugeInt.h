@@ -25,6 +25,8 @@
 namespace facebook::velox {
 
 using int128_t = __int128_t;
+using uint128_t = __uint128_t;
+
 class HugeInt {
  public:
   static constexpr FOLLY_ALWAYS_INLINE int128_t

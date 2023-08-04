@@ -23,6 +23,15 @@ namespace facebook::velox {
 
 namespace {
 
+void testToByteArray(int128_t value, int8_t* expected, int32_t size) {
+  int32_t length;
+  char out[size];
+  DecimalUtil::toByteArray(value, out, length);
+  EXPECT_EQ(length, size);
+  EXPECT_EQ(DecimalUtil::getByteArrayLength(value), size);
+  EXPECT_EQ(std::memcmp(expected, out, length), 0);
+}
+
 TEST(DecimalTest, toString) {
   EXPECT_EQ(std::to_string(HugeInt::build(0, 0)), "0");
   EXPECT_EQ(std::to_string(HugeInt::build(0, 1)), "1");
@@ -129,5 +138,44 @@ TEST(DecimalTest, longDecimalSerDe) {
   deserializedData = HugeInt::deserialize(data);
   ASSERT_EQ(deserializedData, 10);
 }
+
+// The result can be obtained by
+// test("biginteger") {
+//   val a = new BigInteger("20")
+//   val arr = a.toByteArray
+//   print("length is " + arr.length + "\n")
+//   arr.foreach(r => print(r + ","))
+// }
+TEST(DecimalTest, toByteArray) {
+  int8_t expected0[1] = {0};
+  testToByteArray(0, expected0, 1);
+
+  int8_t expected1[1] = {20};
+  testToByteArray(20, expected1, 1);
+
+  int8_t expected2[1] = {-20};
+  testToByteArray(-20, expected2, 1);
+
+  int8_t expected3[2] = {0, -56};
+  testToByteArray(200, expected3, 2);
+
+  int8_t expected4[2] = {78, 32};
+  testToByteArray(20000, expected4, 2);
+
+  int8_t expected5[6] = {-2, -32, -114, 4, -5, 77};
+  testToByteArray(-1234567890099, expected5, 6);
+
+  int8_t expected6[8] = {13, -32, -74, -77, -89, 99, -1, -1};
+  testToByteArray(DecimalUtil::kShortDecimalMax, expected6, 8);
+
+  int8_t expected7[16] = {
+      -76, -60, -77, 87, -91, 121, 59, -123, -10, 117, -35, -64, 0, 0, 0, 1};
+  testToByteArray(DecimalUtil::kLongDecimalMin, expected7, 16);
+
+  int8_t expected8[16] = {
+      75, 59, 76, -88, 90, -122, -60, 122, 9, -118, 34, 63, -1, -1, -1, -1};
+  testToByteArray(DecimalUtil::kLongDecimalMax, expected8, 16);
+}
+
 } // namespace
 } // namespace facebook::velox
