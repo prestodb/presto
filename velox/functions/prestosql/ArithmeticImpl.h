@@ -44,12 +44,10 @@ round(const TNum& number, const TDecimals& decimals = 0) {
   }
 
   double factor = std::pow(10, decimals);
-  static const TNum kInf = std::numeric_limits<TNum>::infinity();
   if (number < 0) {
-    return (std::round(std::nextafter(number, -kInf) * factor * -1) / factor) *
-        -1;
+    return (std::round(number * factor * -1) / factor) * -1;
   }
-  return std::round(std::nextafter(number, kInf) * factor) / factor;
+  return std::round(number * factor) / factor;
 }
 
 // This is used by Velox for floating points plus.

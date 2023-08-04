@@ -59,20 +59,30 @@ class RoundTest : public functions::test::FunctionBaseTest {
   }
 
   template <typename T>
-  std::vector<std::tuple<T, int32_t, T>> testRoundWithDecFloatAndDoubleData() {
-    return {{1.122112, 0, 1},         {1.129, 1, 1.1},
-            {1.129, 2, 1.13},         {1.0 / 3, 0, 0.0},
-            {1.0 / 3, 1, 0.3},        {1.0 / 3, 2, 0.33},
-            {1.0 / 3, 6, 0.333333},   {-1.122112, 0, -1},
-            {-1.129, 1, -1.1},        {-1.129, 2, -1.13},
-            {-1.129, 2, -1.13},       {-1.0 / 3, 0, 0.0},
-            {-1.0 / 3, 1, -0.3},      {-1.0 / 3, 2, -0.33},
-            {-1.0 / 3, 6, -0.333333}, {1.0, -1, 0.0},
-            {0.0, -2, 0.0},           {-1.0, -3, 0.0},
-            {11111.0, -1, 11110.0},   {11111.0, -2, 11100.0},
-            {11111.0, -3, 11000.0},   {11111.0, -4, 10000.0},
-            {0.575, 2, 0.58},         {0.574, 2, 0.57},
-            {-0.575, 2, -0.58},       {-0.574, 2, -0.57}};
+  std::vector<std::tuple<T, int32_t, T>> testRoundWithDecFloatData() {
+    return {
+        {1.122112, 0, 1},
+        {1.129, 1, 1.1},
+        {1.129, 2, 1.13},
+        {1.0 / 3, 0, 0.0},
+        {1.0 / 3, 1, 0.3},
+        {1.0 / 3, 2, 0.33},
+        {1.0 / 3, 10, 0.3333333333},
+        {-1.122112, 0, -1},
+        {-1.129, 1, -1.1},
+        {-1.129, 2, -1.13},
+        {-1.129, 2, -1.13},
+        {-1.0 / 3, 0, 0.0},
+        {-1.0 / 3, 1, -0.3},
+        {-1.0 / 3, 2, -0.33},
+        {-1.0 / 3, 10, -0.3333333333},
+        {1.0, -1, 0.0},
+        {0.0, -2, 0.0},
+        {-1.0, -3, 0.0},
+        {11111.0, -1, 11110.0},
+        {11111.0, -2, 11100.0},
+        {11111.0, -3, 11000.0},
+        {11111.0, -4, 10000.0}};
   }
 
   template <typename T>
@@ -104,8 +114,9 @@ TEST_F(RoundTest, round) {
 }
 
 TEST_F(RoundTest, roundWithDecimal) {
-  runRoundWithDecimalTest<float>(testRoundWithDecFloatAndDoubleData<float>());
-  runRoundWithDecimalTest<double>(testRoundWithDecFloatAndDoubleData<double>());
+  runRoundWithDecimalTest<float>(testRoundWithDecFloatData<float>());
+  runRoundWithDecimalTest<double>(testRoundWithDecFloatData<double>());
+
   runRoundWithDecimalTest<int64_t>(testRoundWithDecIntegralData<int64_t>());
   runRoundWithDecimalTest<int32_t>(testRoundWithDecIntegralData<int32_t>());
   runRoundWithDecimalTest<int16_t>(testRoundWithDecIntegralData<int16_t>());
