@@ -276,9 +276,10 @@ public final class DiscoveryNodeManager
     private synchronized void refreshNodesInternal()
     {
         // This is currently a blacklist.
+        final Set<ServiceDescriptor> failures = failureDetector.getFailed();
         // TODO: make it a whitelist (a failure-detecting service selector) and maybe build in support for injecting this in airlift
         Set<ServiceDescriptor> services = serviceSelector.selectAllServices().stream()
-                .filter(service -> !failureDetector.getFailed().contains(service))
+                .filter(service -> !failures.contains(service))
                 .filter(filterRelevantNodes())
                 .collect(toImmutableSet());
 
