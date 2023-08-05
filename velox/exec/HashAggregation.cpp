@@ -421,6 +421,8 @@ void HashAggregation::noMoreInput() {
   groupingSet_->noMoreInput();
   recordSpillStats();
   Operator::noMoreInput();
+  // Release the extra reserved memory right after processing all the inputs.
+  pool()->release();
 }
 
 bool HashAggregation::isFinished() {
