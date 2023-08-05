@@ -136,6 +136,7 @@ public class TestThriftServerInfoIntegration
             configBinder(binder).bindConfig(ServerConfig.class);
             //Bind noop QueryManager similar to the binding done for TaskManager here
             binder.bind(QueryManager.class).to(NoOpQueryManager.class).in(Scopes.SINGLETON);
+            binder.bind(NodeStatusNotificationManager.class).in(Scopes.SINGLETON);
             binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
             binder.bind(ShutdownAction.class).to(TestingPrestoServer.TestShutdownAction.class).in(Scopes.SINGLETON);
 
