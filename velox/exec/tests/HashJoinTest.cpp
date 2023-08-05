@@ -305,6 +305,11 @@ class HashJoinBuilder {
     return *this;
   }
 
+  HashJoinBuilder& spillMemoryThreshold(uint64_t threshold) {
+    spillMemoryThreshold_ = threshold;
+    return *this;
+  }
+
   HashJoinBuilder& injectSpill(bool injectSpill) {
     injectSpill_ = injectSpill;
     return *this;
@@ -489,7 +494,7 @@ class HashJoinBuilder {
   }
 
   void runTest(const core::PlanNodePtr& planNode) {
-    runTest(planNode, false);
+    runTest(planNode, false, maxSpillLevel_.value_or(-1));
     if (injectSpill_) {
       if (maxSpillLevel_.has_value()) {
         runTest(planNode, true, maxSpillLevel_.value());
@@ -520,6 +525,15 @@ class HashJoinBuilder {
       config(core::QueryConfig::kMaxSpillLevel, std::to_string(maxSpillLevel));
       config(core::QueryConfig::kJoinSpillEnabled, "true");
       config(core::QueryConfig::kTestingSpillPct, "100");
+    } else if (spillMemoryThreshold_ != 0) {
+      spillDirectory = exec::test::TempDirectoryPath::create();
+      builder.spillDirectory(spillDirectory->path);
+      config(core::QueryConfig::kSpillEnabled, "true");
+      config(core::QueryConfig::kMaxSpillLevel, std::to_string(maxSpillLevel));
+      config(core::QueryConfig::kJoinSpillEnabled, "true");
+      config(
+          core::QueryConfig::kJoinSpillMemoryThreshold,
+          std::to_string(spillMemoryThreshold_));
     } else if (!spillDirectory_.empty()) {
       builder.spillDirectory(spillDirectory_);
       config(core::QueryConfig::kSpillEnabled, "true");
@@ -555,9 +569,9 @@ class HashJoinBuilder {
           ASSERT_EQ(maxHashBuildSpillLevel(*task), maxSpillLevel);
         }
       }
-      // NOTE: if 'spillDirectory_' is not empty, the test might trigger
-      // spilling by its own.
-    } else if (spillDirectory_.empty()) {
+      // NOTE: if 'spillDirectory_' is not empty and spill threshold is not set,
+      // the test might trigger spilling by its own.
+    } else if (spillDirectory_.empty() && spillMemoryThreshold_ == 0) {
       ASSERT_EQ(spillStats.spilledRows, 0);
       ASSERT_EQ(spillStats.spilledBytes, 0);
       ASSERT_EQ(spillStats.spilledPartitions, 0);
@@ -598,6 +612,7 @@ class HashJoinBuilder {
   std::vector<std::string> joinOutputLayout_;
   std::vector<std::string> outputProjections_;
 
+  uint64_t spillMemoryThreshold_{0};
   bool injectSpill_{true};
   // If not set, then the test will run the test with different settings: 0, 2.
   std::optional<int32_t> maxSpillLevel_;
@@ -821,6 +836,27 @@ TEST_P(MultiThreadedHashJoinTest, emptyProbe) {
       .buildVectors(1500, 5)
       .referenceQuery(
           "SELECT t_k0, t_data, u_k0, u_data FROM t, u WHERE t_k0 = u_k0")
+      .run();
+}
+
+TEST_P(MultiThreadedHashJoinTest, emptyProbeWithSpillMemoryThreshold) {
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+      .numDrivers(numDrivers_)
+      .keyTypes({BIGINT()})
+      .probeVectors(0, 5)
+      .buildVectors(1500, 5)
+      .injectSpill(false)
+      .spillMemoryThreshold(1)
+      .maxSpillLevel(0)
+      .referenceQuery(
+          "SELECT t_k0, t_data, u_k0, u_data FROM t, u WHERE t_k0 = u_k0")
+      .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
+        const auto spillStats = taskSpilledStats(*task);
+        ASSERT_GT(spillStats.spilledRows, 0);
+        ASSERT_GT(spillStats.spilledBytes, 0);
+        ASSERT_GT(spillStats.spilledPartitions, 0);
+        ASSERT_GT(spillStats.spilledFiles, 0);
+      })
       .run();
 }
 

@@ -61,7 +61,9 @@ HashBuild::HashBuild(
       nullAware_{joinNode_->isNullAware()},
       joinBridge_(operatorCtx_->task()->getHashJoinBridgeLocked(
           operatorCtx_->driverCtx()->splitGroupId,
-          planNodeId())) {
+          planNodeId())),
+      spillMemoryThreshold_(
+          operatorCtx_->driverCtx()->queryConfig().joinSpillMemoryThreshold()) {
   VELOX_CHECK(pool()->trackUsage());
   VELOX_CHECK_NOT_NULL(joinBridge_);
 
@@ -440,6 +442,18 @@ bool HashBuild::reserveMemory(const RowVectorPtr& input) {
   // Test-only spill path.
   if (testingTriggerSpill()) {
     numSpillRows_ = std::max<int64_t>(1, numRows / 10);
+    numSpillBytes_ = numSpillRows_ * outOfLineBytesPerRow;
+    return false;
+  }
+
+  // We check usage from the parent pool to take peers' allocations into
+  // account.
+  const auto currentUsage = pool()->parent()->currentBytes();
+  if (spillMemoryThreshold_ != 0 && currentUsage > spillMemoryThreshold_) {
+    const int64_t bytesToSpill =
+        currentUsage * spillConfig()->spillableReservationGrowthPct / 100;
+    numSpillRows_ = std::max<int64_t>(
+        1, bytesToSpill / (rows->fixedRowSize() + outOfLineBytesPerRow));
     numSpillBytes_ = numSpillRows_ * outOfLineBytesPerRow;
     return false;
   }
