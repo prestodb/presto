@@ -498,10 +498,11 @@ void PrestoServer::initializeVeloxMemory() {
           asyncCacheSsdCheckpointGb << 30,
           asyncCacheSsdDisableFileCow);
     }
-    PRESTO_STARTUP_LOG(INFO)
-        << "Setup AsyncDataCache" << (ssd != nullptr ? " with SSD cache" : "");
+    std::string cacheStr =
+        ssd == nullptr ? "AsyncDataCache" : "AsyncDataCache with SSD";
     cache_ = cache::AsyncDataCache::create(allocator_.get(), std::move(ssd));
     cache::AsyncDataCache::setInstance(cache_.get());
+    PRESTO_STARTUP_LOG(INFO) << cacheStr << " has been setup";
   } else {
     VELOX_CHECK_EQ(
         systemConfig->asyncCacheSsdGb(),
@@ -525,8 +526,10 @@ void PrestoServer::initializeVeloxMemory() {
   const auto& manager = memory::MemoryManager::getInstance(options, true);
   PRESTO_STARTUP_LOG(INFO) << "Memory manager has been setup: "
                            << manager.toString();
-  PRESTO_STARTUP_LOG(INFO) << "Spilling root directory: "
-                           << systemConfig->spillerSpillPath().value_or("NULL");
+  if (systemConfig->spillerSpillPath().has_value()) {
+    PRESTO_STARTUP_LOG(INFO) << "Spilling root directory: "
+                             << systemConfig->spillerSpillPath().value();
+  }
 }
 
 void PrestoServer::stop() {
