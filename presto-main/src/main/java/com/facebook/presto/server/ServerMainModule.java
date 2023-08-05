@@ -769,6 +769,7 @@ public class ServerMainModule
 
         //Optional Status Detector
         newOptionalBinder(binder, NodeStatusService.class);
+        binder.bind(NodeStatusNotificationManager.class).in(Scopes.SINGLETON);
     }
 
     @Provides
