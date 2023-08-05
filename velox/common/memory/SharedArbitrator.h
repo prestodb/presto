@@ -137,8 +137,11 @@ class SharedArbitrator : public MemoryArbitrator {
   void abort(MemoryPool* pool);
 
   // Invoked to handle the memory arbitration failure to abort the memory pool
-  // with the largest capacity to free up memory.
-  void handleOOM(
+  // with the largest capacity to free up memory. The function returns true on
+  // success and false if the requestor itself has been selected as the victim.
+  // We don't abort the requestor itself but just fails the arbitration to let
+  // the user decide to either proceed with the query or fail it.
+  bool handleOOM(
       MemoryPool* requestor,
       uint64_t targetBytes,
       std::vector<Candidate>& candidates);

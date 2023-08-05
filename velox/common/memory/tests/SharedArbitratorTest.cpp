@@ -1393,22 +1393,15 @@ DEBUG_ONLY_TEST_F(
   });
 
   std::thread memThread([&]() {
-    bool queryFailed{false};
-    try {
-      AssertQueryBuilder(duckDbQueryRunner_)
-          .queryCtx(fakeMemoryQueryCtx)
-          .plan(PlanBuilder()
-                    .values(vectors)
-                    .addNode([&](std::string id, core::PlanNodePtr input) {
-                      return std::make_shared<FakeMemoryNode>(id, input);
-                    })
-                    .planNode())
-          .assertResults("SELECT * FROM tmp");
-    } catch (const VeloxRuntimeError& error) {
-      ASSERT_EQ(error.message(), "Aborted for external error");
-      queryFailed = true;
-    }
-    ASSERT_TRUE(queryFailed);
+    AssertQueryBuilder(duckDbQueryRunner_)
+        .queryCtx(fakeMemoryQueryCtx)
+        .plan(PlanBuilder()
+                  .values(vectors)
+                  .addNode([&](std::string id, core::PlanNodePtr input) {
+                    return std::make_shared<FakeMemoryNode>(id, input);
+                  })
+                  .planNode())
+        .assertResults("SELECT * FROM tmp");
   });
   joinThread.join();
   memThread.join();
@@ -1547,22 +1540,15 @@ DEBUG_ONLY_TEST_F(
   });
 
   std::thread memThread([&]() {
-    bool queryFailed{false};
-    try {
-      AssertQueryBuilder(duckDbQueryRunner_)
-          .queryCtx(fakeMemoryQueryCtx)
-          .plan(PlanBuilder()
-                    .values(vectors)
-                    .addNode([&](std::string id, core::PlanNodePtr input) {
-                      return std::make_shared<FakeMemoryNode>(id, input);
-                    })
-                    .planNode())
-          .assertResults("SELECT * FROM tmp");
-    } catch (const VeloxRuntimeError& error) {
-      ASSERT_EQ(error.message(), "Aborted for external error");
-      queryFailed = true;
-    }
-    ASSERT_TRUE(queryFailed);
+    AssertQueryBuilder(duckDbQueryRunner_)
+        .queryCtx(fakeMemoryQueryCtx)
+        .plan(PlanBuilder()
+                  .values(vectors)
+                  .addNode([&](std::string id, core::PlanNodePtr input) {
+                    return std::make_shared<FakeMemoryNode>(id, input);
+                  })
+                  .planNode())
+        .assertResults("SELECT * FROM tmp");
   });
   joinThread.join();
   memThread.join();
@@ -1811,7 +1797,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenMaybeReserveAndTaskAbort) {
                       .localPartition(std::vector<std::string>{})
                       .planNode())
             .copyResults(pool()),
-        "Aborted for external error");
+        "Exceeded memory pool cap");
   });
 
   queryThread.join();

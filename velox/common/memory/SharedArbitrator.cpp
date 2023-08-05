@@ -186,7 +186,9 @@ bool SharedArbitrator::growMemory(
       break;
     }
     VELOX_CHECK(!requestor->aborted());
-    handleOOM(requestor, targetBytes, candidates);
+    if (!handleOOM(requestor, targetBytes, candidates)) {
+      break;
+    }
   }
   VELOX_MEM_LOG(ERROR)
       << "Failed to arbitrate sufficient memory for memory pool "
@@ -225,28 +227,26 @@ bool SharedArbitrator::ensureCapacity(
   return checkCapacityGrowth(*requestor, targetBytes);
 }
 
-void SharedArbitrator::handleOOM(
+bool SharedArbitrator::handleOOM(
     MemoryPool* requestor,
     uint64_t targetBytes,
     std::vector<Candidate>& candidates) {
   MemoryPool* victim =
       findCandidateWithLargestCapacity(requestor, targetBytes, candidates).pool;
-  if (requestor != victim) {
-    VELOX_MEM_LOG(WARNING) << "Aborting victim memory pool " << victim->name()
-                           << " to free up memory for requestor "
-                           << requestor->name();
-  } else {
-    VELOX_MEM_LOG(ERROR) << "Aborting requestor memory pool "
-                         << requestor->name() << " itself to free up memory";
+  if (requestor == victim) {
+    VELOX_MEM_LOG(ERROR)
+        << "Requestor memory pool " << requestor->name()
+        << " is selected as victim memory pool so fail the memory arbitration";
+    return false;
   }
+  VELOX_MEM_LOG(WARNING) << "Aborting victim memory pool " << victim->name()
+                         << " to free up memory for requestor "
+                         << requestor->name();
   abort(victim);
   // Free up all the unused capacity from the aborted memory pool and gives back
   // to the arbitrator.
   incrementFreeCapacity(victim->shrink());
-  if (requestor == victim) {
-    ++numFailures_;
-    VELOX_MEM_POOL_ABORTED(requestor);
-  }
+  return true;
 }
 
 bool SharedArbitrator::arbitrateMemory(

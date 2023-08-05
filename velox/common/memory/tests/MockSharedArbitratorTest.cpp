@@ -885,6 +885,49 @@ TEST_F(MockSharedArbitrationTest, arbitrateBySelfMemoryReclaim) {
   }
 }
 
+TEST_F(MockSharedArbitrationTest, noAbortOnRequestWhenArbitrationFails) {
+  const uint64_t memCapacity = 128 * MB;
+  struct {
+    uint64_t initialAllocationSize;
+    uint64_t failedAllocationSize;
+    bool maybeReserve;
+
+    std::string debugString() const {
+      return fmt::format(
+          "initialAllocationSize {}, failedAllocationSize {}, maybeReserve {}",
+          initialAllocationSize,
+          failedAllocationSize,
+          maybeReserve);
+    }
+  } testSettings[] = {
+      {memCapacity / 2, memCapacity / 2 + memCapacity / 4, true},
+      {memCapacity / 2, memCapacity / 2 + memCapacity / 4, false},
+      {0, memCapacity + memCapacity / 4, true},
+      {0, memCapacity + memCapacity / 4, false},
+      {memCapacity / 2, memCapacity, true},
+      {memCapacity / 2, memCapacity, false}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    setupMemory(memCapacity, 0);
+    std::shared_ptr<MockQuery> query = addQuery(kMemoryCapacity);
+    auto* memOp = addMemoryOp(query, false);
+    if (testData.initialAllocationSize != 0) {
+      memOp->allocate(testData.initialAllocationSize);
+    }
+    if (testData.maybeReserve) {
+      ASSERT_FALSE(memOp->pool()->maybeReserve(testData.failedAllocationSize));
+    } else {
+      VELOX_ASSERT_THROW(
+          memOp->allocate(testData.failedAllocationSize),
+          "Exceeded memory pool cap");
+    }
+    ASSERT_EQ(arbitrator_->stats().numFailures, 1);
+    ASSERT_EQ(arbitrator_->stats().numAborted, 0);
+    memOp->pool()->release();
+  }
+}
+
 DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, orderedArbitration) {
   SCOPED_TESTVALUE_SET(
       "facebook::velox::memory::SharedArbitrator::sortCandidatesByFreeCapacity",
@@ -1647,9 +1690,9 @@ TEST_F(MockSharedArbitrationTest, arbitrationFailure) {
           expectedRequestorAborted);
     }
   } testSettings[] = {
-      {64 * MB, 64 * MB, 32 * MB, false, true},
-      {64 * MB, 48 * MB, 32 * MB, false, true},
-      {32 * MB, 64 * MB, 64 * MB, false, true},
+      {64 * MB, 64 * MB, 32 * MB, false, false},
+      {64 * MB, 48 * MB, 32 * MB, false, false},
+      {32 * MB, 64 * MB, 64 * MB, false, false},
       {32 * MB, 32 * MB, 96 * MB, true, false}};
 
   for (const auto& testData : testSettings) {
@@ -1683,7 +1726,11 @@ TEST_F(MockSharedArbitrationTest, arbitrationFailure) {
     ASSERT_EQ(
         arbitrator_->stats().numFailures,
         testData.expectedAllocationSuccess ? 0 : 1);
-    ASSERT_EQ(arbitrator_->stats().numAborted, 1);
+    ASSERT_EQ(
+        arbitrator_->stats().numAborted,
+        testData.expectedRequestorAborted
+            ? 1
+            : (testData.expectedAllocationSuccess ? 1 : 0));
   }
 }
 
