@@ -57,6 +57,8 @@ class TopNRowNumber : public Operator {
 
   bool isFinished() override;
 
+  void close() override;
+
  private:
   /// A priority queue to keep track of top 'limit' rows for a given partition.
   struct TopRows {

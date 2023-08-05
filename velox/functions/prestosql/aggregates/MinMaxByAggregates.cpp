@@ -140,7 +140,8 @@ struct MinMaxByNAccumulator {
   void extractValues(
       TRawValue* rawValues,
       uint64_t* rawValueNulls,
-      vector_size_t offset) {
+      vector_size_t offset,
+      HashStringAllocator* /*allocator*/) {
     const vector_size_t size = topPairs.size();
     for (auto i = size - 1; i >= 0; --i) {
       const auto& topPair = topPairs.top();
@@ -163,7 +164,8 @@ struct MinMaxByNAccumulator {
       TRawComparison* rawComparisons,
       TRawValue* rawValues,
       uint64_t* rawValueNulls,
-      vector_size_t offset) {
+      vector_size_t offset,
+      HashStringAllocator* /*allocator*/) {
     const vector_size_t size = topPairs.size();
     for (auto i = size - 1; i >= 0; --i) {
       const auto& topPair = topPairs.top();
@@ -179,6 +181,10 @@ struct MinMaxByNAccumulator {
 
       topPairs.pop();
     }
+  }
+
+  void free(HashStringAllocator* /*allocator*/) {
+    std::destroy_at(&topPairs);
   }
 };
 
@@ -197,15 +203,18 @@ struct Extractor {
 
   void extractValues(
       MinMaxByNAccumulator<V, C, Compare>* accumulator,
-      vector_size_t offset) {
-    accumulator->extractValues(rawValues, rawValueNulls, offset);
+      vector_size_t offset,
+      HashStringAllocator* allocator) {
+    accumulator->extractValues(rawValues, rawValueNulls, offset, allocator);
   }
 
   void extractPairs(
       MinMaxByNAccumulator<V, C, Compare>* accumulator,
       TRawComparison* rawComparisons,
-      vector_size_t offset) {
-    accumulator->extractPairs(rawComparisons, rawValues, rawValueNulls, offset);
+      vector_size_t offset,
+      HashStringAllocator* allocator) {
+    accumulator->extractPairs(
+        rawComparisons, rawValues, rawValueNulls, offset, allocator);
   }
 };
 
@@ -248,10 +257,13 @@ struct MinMaxByNStringViewAccumulator {
 
   /// Moves all values from 'topPairs' into 'values'
   /// buffers. The queue of 'topPairs' will be empty after this call.
-  void extractValues(FlatVector<StringView>& values, vector_size_t offset) {
+  void extractValues(
+      FlatVector<StringView>& values,
+      vector_size_t offset,
+      HashStringAllocator* allocator) {
     const vector_size_t size = base.topPairs.size();
     for (auto i = size - 1; i >= 0; --i) {
-      extractValue(base.topPairs.top(), values, offset + i);
+      extractValue(base.topPairs.top(), values, offset + i, allocator);
       base.topPairs.pop();
     }
   }
@@ -262,17 +274,27 @@ struct MinMaxByNStringViewAccumulator {
   void extractPairs(
       TRawComparison* rawComparisons,
       FlatVector<StringView>& values,
-      vector_size_t offset) {
+      vector_size_t offset,
+      HashStringAllocator* allocator) {
     const vector_size_t size = base.topPairs.size();
     for (auto i = size - 1; i >= 0; --i) {
       const auto& topPair = base.topPairs.top();
       const auto index = offset + i;
 
       RawValueExtractor<C>::extract(rawComparisons, index, topPair.first);
-      extractValue(topPair, values, index);
+      extractValue(topPair, values, index, allocator);
 
       base.topPairs.pop();
     }
+  }
+
+  void free(HashStringAllocator* allocator) {
+    while (!base.topPairs.empty()) {
+      auto& pair = base.topPairs.top();
+      free(pair.second, *allocator);
+      base.topPairs.pop();
+    }
+    std::destroy_at(&base);
   }
 
  private:
@@ -294,7 +316,9 @@ struct MinMaxByNStringViewAccumulator {
     return StringView(start, size);
   }
 
-  void free(std::optional<StringView> value, HashStringAllocator& allocator) {
+  static void free(
+      std::optional<StringView> value,
+      HashStringAllocator& allocator) {
     if (value.has_value() && !value->isInline()) {
       auto* header = HashStringAllocator::headerOf(value->data());
       allocator.free(header);
@@ -304,11 +328,13 @@ struct MinMaxByNStringViewAccumulator {
   static void extractValue(
       const Pair& topPair,
       FlatVector<StringView>& values,
-      vector_size_t index) {
+      vector_size_t index,
+      HashStringAllocator* allocator) {
     const bool valueIsNull = !topPair.second.has_value();
     values.setNull(index, valueIsNull);
     if (!valueIsNull) {
       values.set(index, topPair.second.value());
+      free(topPair.second.value(), *allocator);
     }
   }
 };
@@ -323,15 +349,17 @@ struct StringViewExtractor {
 
   void extractValues(
       MinMaxByNStringViewAccumulator<C, Compare>* accumulator,
-      vector_size_t offset) {
-    accumulator->extractValues(values, offset);
+      vector_size_t offset,
+      HashStringAllocator* allocator) {
+    accumulator->extractValues(values, offset, allocator);
   }
 
   void extractPairs(
       MinMaxByNStringViewAccumulator<C, Compare>* accumulator,
       TRawComparison* rawComparisons,
-      vector_size_t offset) {
-    accumulator->extractPairs(rawComparisons, values, offset);
+      vector_size_t offset,
+      HashStringAllocator* allocator) {
+    accumulator->extractPairs(rawComparisons, values, offset, allocator);
   }
 };
 
@@ -383,10 +411,13 @@ struct MinMaxByNComplexTypeAccumulator {
 
   /// Moves all values from 'topPairs' into 'values' vector. The queue of
   /// 'topPairs' will be empty after this call.
-  void extractValues(BaseVector& values, vector_size_t offset) {
+  void extractValues(
+      BaseVector& values,
+      vector_size_t offset,
+      HashStringAllocator* allocator) {
     const vector_size_t size = base.topPairs.size();
     for (auto i = size - 1; i >= 0; --i) {
-      extractValue(base.topPairs.top(), values, offset + i);
+      extractValue(base.topPairs.top(), values, offset + i, allocator);
       base.topPairs.pop();
     }
   }
@@ -397,17 +428,30 @@ struct MinMaxByNComplexTypeAccumulator {
   void extractPairs(
       TRawComparison* rawComparisons,
       BaseVector& values,
-      vector_size_t offset) {
+      vector_size_t offset,
+      HashStringAllocator* allocator) {
     const vector_size_t size = base.topPairs.size();
     for (auto i = size - 1; i >= 0; --i) {
       const auto& topPair = base.topPairs.top();
       const auto index = offset + i;
 
       RawValueExtractor<C>::extract(rawComparisons, index, topPair.first);
-      extractValue(topPair, values, index);
+      extractValue(topPair, values, index, allocator);
 
       base.topPairs.pop();
     }
+  }
+
+  void free(HashStringAllocator* allocator) {
+    while (!base.topPairs.empty()) {
+      auto& pair = base.topPairs.top();
+      // Should free pair.first if it is not inline.
+      if (pair.second.has_value()) {
+        allocator->free(pair.second.value().header);
+      }
+      base.topPairs.pop();
+    }
+    std::destroy_at(&base);
   }
 
  private:
@@ -437,13 +481,17 @@ struct MinMaxByNComplexTypeAccumulator {
     exec::ContainerRowSerde::deserialize(stream, index, &vector);
   }
 
-  static void
-  extractValue(const Pair& topPair, BaseVector& values, vector_size_t index) {
+  static void extractValue(
+      const Pair& topPair,
+      BaseVector& values,
+      vector_size_t index,
+      HashStringAllocator* allocator) {
     const bool valueIsNull = !topPair.second.has_value();
     values.setNull(index, valueIsNull);
     if (!valueIsNull) {
       auto position = topPair.second.value();
       read(position, values, index);
+      allocator->free(topPair.second.value().header);
     }
   }
 };
@@ -457,15 +505,17 @@ struct ComplexTypeExtractor {
 
   void extractValues(
       MinMaxByNComplexTypeAccumulator<C, Compare>* accumulator,
-      vector_size_t offset) {
-    accumulator->extractValues(values, offset);
+      vector_size_t offset,
+      HashStringAllocator* allocator) {
+    accumulator->extractValues(values, offset, allocator);
   }
 
   void extractPairs(
       MinMaxByNComplexTypeAccumulator<C, Compare>* accumulator,
       TRawComparison* rawComparisons,
-      vector_size_t offset) {
-    accumulator->extractPairs(rawComparisons, values, offset);
+      vector_size_t offset,
+      HashStringAllocator* allocator) {
+    accumulator->extractPairs(rawComparisons, values, offset, allocator);
   }
 };
 
@@ -572,7 +622,7 @@ class MinMaxByNAggregate : public exec::Aggregate {
         rawOffsets[i] = offset;
         rawSizes[i] = size;
 
-        extractor.extractValues(accumulator, offset);
+        extractor.extractValues(accumulator, offset, allocator_);
 
         offset += size;
       }
@@ -624,7 +674,7 @@ class MinMaxByNAggregate : public exec::Aggregate {
         rawComparisonOffsets[i] = offset;
         rawComparisonSizes[i] = size;
 
-        extractor.extractPairs(accumulator, rawComparisons, offset);
+        extractor.extractPairs(accumulator, rawComparisons, offset, allocator_);
 
         offset += size;
       }
@@ -698,6 +748,12 @@ class MinMaxByNAggregate : public exec::Aggregate {
         addIntermediateResults(group, i, results);
       }
     });
+  }
+
+  void destroy(folly::Range<char**> groups) override {
+    for (auto group : groups) {
+      Aggregate::value<AccumulatorType>(group)->free(allocator_);
+    }
   }
 
  private:

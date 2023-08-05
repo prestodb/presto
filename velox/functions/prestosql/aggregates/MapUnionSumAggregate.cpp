@@ -269,12 +269,13 @@ class MapUnionSumAggregate : public exec::Aggregate {
   }
 
   void destroy(folly::Range<char**> groups) override {
-    if constexpr (std::is_same_v<K, StringView>) {
-      for (auto* group : groups) {
+    for (auto* group : groups) {
+      if constexpr (std::is_same_v<K, StringView>) {
         if (!isNull(group)) {
           value<AccumulatorType>(group)->strings.free(*allocator_);
         }
       }
+      std::destroy_at(value<AccumulatorType>(group));
     }
   }
 

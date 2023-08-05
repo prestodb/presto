@@ -105,6 +105,7 @@ struct MapAccumulator {
   }
 
   void free(HashStringAllocator& allocator) {
+    std::destroy_at(&keys);
     values.free(&allocator);
   }
 };

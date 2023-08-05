@@ -278,4 +278,21 @@ bool TopNRowNumber::isFinished() {
   return finished_;
 }
 
+void TopNRowNumber::close() {
+  if (table_) {
+    partitionIt_.reset();
+    partitions_.resize(1000);
+    while (auto numPartitions = table_->listAllRows(
+               &partitionIt_,
+               partitions_.size(),
+               RowContainer::kUnlimited,
+               partitions_.data())) {
+      for (auto i = 0; i < numPartitions; ++i) {
+        std::destroy_at(
+            reinterpret_cast<TopRows*>(partitions_[i] + partitionOffset_));
+      }
+    }
+  }
+}
+
 } // namespace facebook::velox::exec

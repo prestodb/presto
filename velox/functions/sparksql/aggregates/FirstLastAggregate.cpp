@@ -352,6 +352,9 @@ class LastAggregate : public FirstLastAggregateBase<numeric, TData> {
 
     if (!decodedVector.isNullAt(index)) {
       Aggregate::clearNull(group);
+      if (accumulator->has_value()) {
+        accumulator->value().destroy(Aggregate::allocator_);
+      }
       *accumulator = SingleValueAccumulator();
       accumulator->value().write(
           decodedVector.base(), index, Aggregate::allocator_);
@@ -359,6 +362,9 @@ class LastAggregate : public FirstLastAggregateBase<numeric, TData> {
     }
 
     if constexpr (!ignoreNull) {
+      if (accumulator->has_value()) {
+        accumulator->value().destroy(Aggregate::allocator_);
+      }
       Aggregate::setNull(group);
       *accumulator = SingleValueAccumulator();
     }
