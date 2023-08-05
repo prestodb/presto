@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.HistoryEntry;
+import org.apache.iceberg.MetadataTableType;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -40,6 +41,7 @@ import org.apache.iceberg.io.LocationProvider;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -48,12 +50,17 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPS
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Lists.reverse;
+import static com.google.common.collect.Maps.immutableEntry;
+import static com.google.common.collect.Streams.mapWithIndex;
 import static com.google.common.collect.Streams.stream;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.LocationProviders.locationsFor;
+import static org.apache.iceberg.MetadataTableUtils.createMetadataTableInstance;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
@@ -178,5 +185,17 @@ public final class IcebergUtil
                     " as a location provider. Writing to Iceberg tables with custom location provider is not supported.");
         }
         return locationsFor(tableLocation, storageProperties);
+    }
+
+    public static TableScan buildTableScan(Table icebergTable, MetadataTableType metadataTableType)
+    {
+        return createMetadataTableInstance(icebergTable, metadataTableType).newScan();
+    }
+
+    public static Map<String, Integer> columnNameToPositionInSchema(Schema schema)
+    {
+        return mapWithIndex(schema.columns().stream(),
+                (column, position) -> immutableEntry(column.name(), toIntExact(position)))
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 }
