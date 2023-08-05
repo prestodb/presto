@@ -1408,8 +1408,8 @@ void HashProbe::setRunning() {
   setState(ProbeOperatorState::kRunning);
 }
 
-void HashProbe::close() {
-  Operator::close();
+void HashProbe::abort() {
+  Operator::abort();
 
   // Free up major memory usage.
   joinBridge_.reset();

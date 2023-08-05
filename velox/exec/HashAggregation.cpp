@@ -457,4 +457,8 @@ void HashAggregation::close() {
   output_ = nullptr;
   groupingSet_.reset();
 }
+
+void HashAggregation::abort() {
+  close();
+}
 } // namespace facebook::velox::exec

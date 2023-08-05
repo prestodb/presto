@@ -862,6 +862,28 @@ DEBUG_ONLY_TEST_P(MultiThreadedHashJoinTest, parallelJoinBuildCheck) {
   ASSERT_EQ(numDrivers_ == 1, !isParallelBuild);
 }
 
+DEBUG_ONLY_TEST_P(
+    MultiThreadedHashJoinTest,
+    raceBetweenTaskTerminateAndTableBuild) {
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::HashBuild::finishHashBuild",
+      std::function<void(Operator*)>([&](Operator* op) {
+        auto task = op->testingOperatorCtx()->task();
+        task->requestAbort();
+      }));
+  VELOX_ASSERT_THROW(
+      HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+          .numDrivers(numDrivers_)
+          .keyTypes({BIGINT(), VARCHAR()})
+          .probeVectors(1600, 5)
+          .buildVectors(1500, 5)
+          .referenceQuery(
+              "SELECT t_k0, t_k1, t_data, u_k0, u_k1, u_data FROM t, u WHERE t_k0 = u_k0 AND t_k1 = u_k1")
+          .injectSpill(false)
+          .run(),
+      "Aborted for external error");
+}
+
 TEST_P(MultiThreadedHashJoinTest, allTypes) {
   HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
       .keyTypes(

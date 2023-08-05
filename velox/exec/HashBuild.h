@@ -79,7 +79,7 @@ class HashBuild final : public Operator {
 
   void reclaim(uint64_t targetBytes) override;
 
-  void close() override;
+  void abort() override;
 
  private:
   void setState(State state);

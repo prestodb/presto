@@ -410,8 +410,8 @@ void OrderBy::prepareOutput() {
   }
 }
 
-void OrderBy::close() {
-  Operator::close();
+void OrderBy::abort() {
+  Operator::abort();
 
   output_ = nullptr;
   spiller_.reset();

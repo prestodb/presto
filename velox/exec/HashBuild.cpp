@@ -716,6 +716,8 @@ bool HashBuild::finishHashBuild() {
     return false;
   }
 
+  TestValue::adjust("facebook::velox::exec::HashBuild::finishHashBuild", this);
+
   auto promisesGuard = folly::makeGuard([&]() {
     // Realize the promises so that the other Drivers (which were not
     // the last to finish) can continue from the barrier and finish.
@@ -736,7 +738,7 @@ bool HashBuild::finishHashBuild() {
     for (auto& peer : peers) {
       auto op = peer->findOperator(planNodeId());
       HashBuild* build = dynamic_cast<HashBuild*>(op);
-      VELOX_CHECK(build);
+      VELOX_CHECK_NOT_NULL(build);
       if (build->joinHasNullKeys_) {
         joinHasNullKeys_ = true;
         if (isAntiJoin(joinType_) && nullAware_ && !joinNode_->filter()) {
@@ -1055,8 +1057,8 @@ void HashBuild::reclaim(uint64_t /*unused*/) {
   }
 }
 
-void HashBuild::close() {
-  Operator::close();
+void HashBuild::abort() {
+  Operator::abort();
 
   // Free up major memory usage.
   joinBridge_.reset();

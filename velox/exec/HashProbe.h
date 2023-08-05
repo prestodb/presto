@@ -64,7 +64,7 @@ class HashProbe : public Operator {
     return false;
   }
 
-  void close() override;
+  void abort() override;
 
   void clearDynamicFilters() override;
 
