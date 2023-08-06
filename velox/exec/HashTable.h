@@ -69,7 +69,7 @@ class BaseHashTable {
 
   using MaskType = uint16_t;
 
-  // 2M entries, i.e. 16MB is the largest array based hash table.
+  /// 2M entries, i.e. 16MB is the largest array based hash table.
   static constexpr uint64_t kArrayHashMaxSize = 2L << 20;
 
   /// Specifies the hash mode of a table.
@@ -209,6 +209,10 @@ class BaseHashTable {
   /// entries. This only concerns the hash table, not the payload rows.
   virtual uint64_t hashTableSizeIncrease(int32_t numNewDistinct) const = 0;
 
+  /// Returns the estimated new hash table size in bytes with the given number
+  /// of distinct entries.
+  virtual uint64_t estimateHashTableSize(uint64_t numDistinct) const = 0;
+
   /// Returns true if the hash table contains rows with duplicate keys.
   virtual bool hasDuplicateKeys() const = 0;
 
@@ -289,6 +293,11 @@ class BaseHashTable {
   }
 
  protected:
+  static FOLLY_ALWAYS_INLINE size_t tableSlotSize() {
+    // Each slot is 8 bytes.
+    return sizeof(void*);
+  }
+
   virtual void setHashMode(HashMode mode, int32_t numNew) = 0;
 
   std::vector<std::unique_ptr<VectorHasher>> hashers_;
@@ -447,9 +456,20 @@ class HashTable : public BaseHashTable {
       // If rehashed, the table adds size_ entries (i.e. doubles),
       // adding one pointer worth for each new position.  (16 tags, 16 6 byte
       // pointers, 16 bytes padding).
-      return capacity_ * sizeof(void*);
+      return capacity_ * tableSlotSize();
     }
     return 0;
+  }
+
+  uint64_t estimateHashTableSize(uint64_t numDistinct) const override {
+    // Take the max of max size in array mode and estimated size in non-array
+    // mode.
+    const uint64_t maxByteSizeInArrayMode = kArrayHashMaxSize * tableSlotSize();
+    return bits::roundUp(
+        std::max(
+            maxByteSizeInArrayMode,
+            newHashTableEntries(numDistinct, 0) * tableSlotSize()),
+        memory::AllocationTraits::kPageSize);
   }
 
   uint64_t rehashSize() const {
@@ -483,15 +503,11 @@ class HashTable : public BaseHashTable {
   static constexpr bool kTrackLoads = true;
 #endif
 
-  // The table in non-kArray mode has a power of two
-  // number of buckets each with 16
-  // slots. Each slot has a 1 byte tag
-  // (a field of hash number) and a 48
-  // bit pointer. All the tags are in a
-  // 16 byte SIMD word,, followed by the
-  // 6 byte pointers. There are 16 bytes
-  // of padding at the end to make the
-  // bucket occupy exactly two cache lines.
+  // The table in non-kArray mode has a power of two number of buckets each with
+  // 16 slots. Each slot has a 1 byte tag (a field of hash number) and a 48 bit
+  // pointer. All the tags are in a 16 byte SIMD word followed by the 6 byte
+  // pointers. There are 16 bytes of padding at the end to make the bucket
+  // occupy exactly two (64 bytes) cache lines.
   class Bucket {
    public:
     Bucket() {
@@ -541,6 +557,20 @@ class HashTable : public BaseHashTable {
   static uint64_t rehashSize(int64_t size) {
     // This implements the F14 load factor: Resize if less than 1/8 unoccupied.
     return size - (size / 8);
+  }
+
+  // Returns the number of entries with 'numNew' and existing 'numDistincts'
+  // distincts to create a new hash table.
+  static uint64_t newHashTableEntries(uint64_t numDistincts, uint64_t numNew) {
+    // Initial guess of cardinality is double the first input batch or at
+    // least 2K entries.
+    auto numNewEntries = std::max(
+        (uint64_t)2048, bits::nextPowerOfTwo(numNew * 2 + numDistincts));
+    const auto newNumDistincts = numDistincts + numNew;
+    if (newNumDistincts > rehashSize(numNewEntries)) {
+      numNewEntries *= 2;
+    }
+    return numNewEntries;
   }
 
   template <RowContainer::ProbeType probeType>
@@ -620,14 +650,14 @@ class HashTable : public BaseHashTable {
   // group. 'groups' is expected to have no duplicate keys.
   void insertForGroupBy(char** groups, uint64_t* hashes, int32_t numGroups);
 
-  /// Checks if we can apply parallel table build optimization for hash join.
-  /// The function returns true if all of the following conditions:
-  /// 1. the hash table is built for parallel join;
-  /// 2. there is more than one sub-tables;
-  /// 3. the build executor has been set;
-  /// 4. the table is not in kArray mode;
-  /// 5. the number of table entries per each parallel build shard is no less
-  ///    than a pre-defined threshold: 1000 for now.
+  // Checks if we can apply parallel table build optimization for hash join.
+  // The function returns true if all of the following conditions:
+  // 1. the hash table is built for parallel join;
+  // 2. there is more than one sub-tables;
+  // 3. the build executor has been set;
+  // 4. the table is not in kArray mode;
+  // 5. the number of table entries per each parallel build shard is no less
+  //    than a pre-defined threshold: 1000 for now.
   bool canApplyParallelJoinBuild() const;
 
   // Builds a join table with '1 + otherTables_.size()' independent
@@ -655,12 +685,11 @@ class HashTable : public BaseHashTable {
       RowPartitions& rowPartitions);
 
   // Calculates hashes for 'rows' and returns them in 'hashes'. If
-  // 'initNormalizedKeys' is true, the normalized keys are stored
-  // below each row in the container. If 'initNormalizedKeys' is false
-  // and the table is in normalized keys mode, the keys are retrieved
-  // from the row and the hash is made from this, without recomputing
-  // the normalized key. Returns false if the hash keys are not mappable via the
-  // VectorHashers.
+  // 'initNormalizedKeys' is true, the normalized keys are stored below each row
+  // in the container. If 'initNormalizedKeys' is false and the table is in
+  // normalized keys mode, the keys are retrieved from the row and the hash is
+  // made from this, without recomputing the normalized key. Returns false if
+  // the hash keys are not mappable via the VectorHashers.
   bool hashRows(
       folly::Range<char**> rows,
       bool initNormalizedKeys,
@@ -720,24 +749,24 @@ class HashTable : public BaseHashTable {
     return isJoinBuild_ ? 0 : 50;
   }
 
-  // Returns the offset in bytes of the bucket for 'hash'.
+  // Returns the byte offset of the bucket for 'hash' starting from 'table_'.
   int64_t bucketOffset(uint64_t hash) const {
     return hash & bucketOffsetMask_;
   }
 
-  // Returns the offset of the next bucket from 'offset'. Wraps around at
+  // Returns the byte offset of the next bucket from 'offset'. Wraps around at
   // the end of the table.
   int64_t nextBucketOffset(int32_t offset) const {
     VELOX_DCHECK_EQ(0, offset & (kBucketSize - 1));
     return sizeMask_ & (offset + kBucketSize);
   }
 
-  /// Return the row pointer at 'slotIndex' of bucket at 'bucketOffset'.
+  // Return the row pointer at 'slotIndex' of bucket at 'bucketOffset'.
   char* row(int64_t bucketOffset, int32_t slotIndex) const {
     return bucketAt(bucketOffset)->pointerAt(slotIndex);
   }
 
-  // Returns the tatg vector for bucket at 'bucketOffset'.
+  // Returns the tag vector for bucket at 'bucketOffset'.
   TagVector loadTags(int32_t bucketOffset) const {
     return BaseHashTable::loadTags(
         reinterpret_cast<uint8_t*>(table_), bucketOffset);
@@ -796,9 +825,9 @@ class HashTable : public BaseHashTable {
   // number.
   int64_t bucketOffsetMask_{0};
   int64_t numDistinct_{0};
-  /// Counts the number of tombstone table slots.
+  // Counts the number of tombstone table slots.
   int64_t numTombstones_{0};
-  /// Counts the number of rehash() calls.
+  // Counts the number of rehash() calls.
   int64_t numRehashes_{0};
   HashMode hashMode_ = HashMode::kArray;
   // Owns the memory of multiple build side hash join tables that are
@@ -812,7 +841,7 @@ class HashTable : public BaseHashTable {
   // Number of times a word of 16 tags is accessed. At least once per probe.
   mutable tsan_atomic<int64_t> numTagLoads_{0};
 
-  // Number of times a row of payload is accessed. At leadst once per hit.
+  // Number of times a row of payload is accessed. At least once per hit.
   mutable tsan_atomic<int64_t> numRowLoads_{0};
 
   // Number of times a match is found.

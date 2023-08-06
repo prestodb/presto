@@ -311,12 +311,12 @@ int32_t RowContainer::findRows(folly::Range<char**> rows, char** result) {
   raw_vector<uint64_t> sizes;
   starts.reserve(ranges.size());
   sizes.reserve(ranges.size());
-  for (auto& range : ranges) {
+  for (const auto& range : ranges) {
     starts.push_back(reinterpret_cast<uintptr_t>(range.data()));
     sizes.push_back(range.size());
   }
   int32_t numRows = 0;
-  for (auto row : rows) {
+  for (const auto& row : rows) {
     auto address = reinterpret_cast<uintptr_t>(row);
     auto it = std::lower_bound(starts.begin(), starts.end(), address);
     if (it == starts.end()) {
@@ -325,7 +325,7 @@ int32_t RowContainer::findRows(folly::Range<char**> rows, char** result) {
       }
       continue;
     }
-    auto index = it - starts.begin();
+    const auto index = it - starts.begin();
     if (address == starts[index]) {
       result[numRows++] = row;
       continue;

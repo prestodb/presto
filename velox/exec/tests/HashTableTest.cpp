@@ -71,6 +71,7 @@ class HashTableTest : public testing::TestWithParam<bool> {
     }
     int32_t startOffset = 0;
     std::vector<std::unique_ptr<BaseHashTable>> otherTables;
+    uint64_t numRows{0};
     for (auto way = 0; way < numWays; ++way) {
       std::vector<RowVectorPtr> batches;
       std::vector<std::unique_ptr<VectorHasher>> keyHashers;
@@ -92,13 +93,21 @@ class HashTableTest : public testing::TestWithParam<bool> {
       if (!topTable_) {
         topTable_ = std::move(table);
       } else {
+        numRows += table->rows()->numRows();
         otherTables.push_back(std::move(table));
       }
       batches_.insert(batches_.end(), batches.begin(), batches.end());
       startOffset += size;
     }
+    numRows += topTable_->rows()->numRows();
+    const uint64_t estimatedTableSize =
+        topTable_->estimateHashTableSize(numRows);
+    const uint64_t usedMemoryBytes = topTable_->rows()->pool()->currentBytes();
     topTable_->prepareJoinTable(std::move(otherTables), executor_.get());
-    EXPECT_EQ(topTable_->hashMode(), mode);
+    ASSERT_GE(
+        estimatedTableSize,
+        topTable_->rows()->pool()->currentBytes() - usedMemoryBytes);
+    ASSERT_EQ(topTable_->hashMode(), mode);
     LOG(INFO) << "Made table " << describeTable();
     testProbe();
     testEraseEveryN(3);
@@ -477,7 +486,10 @@ class HashTableTest : public testing::TestWithParam<bool> {
     ASSERT_EQ(0, table->listNullKeyRows(&iter, rows.size(), rows.data()));
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> rootPool_{
+      memory::defaultMemoryManager().addRootPool("HashTableTest")};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      rootPool_->addLeafChild("HashTableTest")};
   std::unique_ptr<test::VectorMaker> vectorMaker_{
       std::make_unique<test::VectorMaker>(pool_.get())};
   // Bitmap of positions in batches_ that end up in the table.

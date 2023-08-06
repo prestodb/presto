@@ -716,6 +716,9 @@ void HashBuild::noMoreInputInternal() {
 
 bool HashBuild::finishHashBuild() {
   checkRunning();
+  // Release the unused memory reservation before building the merged join
+  // table.
+  pool()->release();
 
   std::vector<ContinuePromise> promises;
   std::vector<std::shared_ptr<Driver>> peers;
@@ -741,82 +744,116 @@ bool HashBuild::finishHashBuild() {
     }
   });
 
+  if (joinHasNullKeys_ && isAntiJoin(joinType_) && nullAware_ &&
+      !joinNode_->filter()) {
+    joinBridge_->setAntiJoinHasNullKeys();
+    return true;
+  }
+
+  std::vector<HashBuild*> otherBuilds;
+  otherBuilds.reserve(peers.size());
+  uint64_t numRows = table_->rows()->numRows();
+  for (auto& peer : peers) {
+    auto op = peer->findOperator(planNodeId());
+    HashBuild* build = dynamic_cast<HashBuild*>(op);
+    VELOX_CHECK_NOT_NULL(build);
+    if (build->joinHasNullKeys_) {
+      joinHasNullKeys_ = true;
+      if (isAntiJoin(joinType_) && nullAware_ && !joinNode_->filter()) {
+        joinBridge_->setAntiJoinHasNullKeys();
+        return true;
+      }
+    }
+    numRows += build->table_->rows()->numRows();
+    otherBuilds.push_back(build);
+  }
+
+  ensureTableFits(numRows);
+
+  NonReclaimableSection guard(this);
   std::vector<std::unique_ptr<BaseHashTable>> otherTables;
   otherTables.reserve(peers.size());
   SpillPartitionSet spillPartitions;
   Spiller::Stats spillStats;
-  if (joinHasNullKeys_ && isAntiJoin(joinType_) && nullAware_ &&
-      !joinNode_->filter()) {
-    joinBridge_->setAntiJoinHasNullKeys();
-  } else {
-    for (auto& peer : peers) {
-      auto op = peer->findOperator(planNodeId());
-      HashBuild* build = dynamic_cast<HashBuild*>(op);
-      VELOX_CHECK_NOT_NULL(build);
-      if (build->joinHasNullKeys_) {
-        joinHasNullKeys_ = true;
-        if (isAntiJoin(joinType_) && nullAware_ && !joinNode_->filter()) {
-          break;
-        }
-      }
-      otherTables.push_back(std::move(build->table_));
-      if (build->spiller_ != nullptr) {
-        spillStats += build->spiller_->stats();
-        build->spiller_->finishSpill(spillPartitions);
-      }
-    }
-
-    if (joinHasNullKeys_ && isAntiJoin(joinType_) && nullAware_ &&
-        !joinNode_->filter()) {
-      joinBridge_->setAntiJoinHasNullKeys();
-    } else {
-      if (spiller_ != nullptr) {
-        spillStats += spiller_->stats();
-
-        {
-          auto lockedStats = stats_.wlock();
-          lockedStats->spilledBytes += spillStats.spilledBytes;
-          lockedStats->spilledRows += spillStats.spilledRows;
-          lockedStats->spilledPartitions += spillStats.spilledPartitions;
-          lockedStats->spilledFiles += spillStats.spilledFiles;
-        }
-
-        spiller_->finishSpill(spillPartitions);
-
-        // Verify all the spilled partitions are not empty as we won't spill on
-        // an empty one.
-        for (const auto& spillPartitionEntry : spillPartitions) {
-          VELOX_CHECK_GT(spillPartitionEntry.second->numFiles(), 0);
-        }
-      }
-
-      // TODO: re-enable parallel join build with spilling triggered after
-      // https://github.com/facebookincubator/velox/issues/3567 is fixed.
-      const bool allowParallelJoinBuild =
-          !otherTables.empty() && spillPartitions.empty();
-      table_->prepareJoinTable(
-          std::move(otherTables),
-          allowParallelJoinBuild ? operatorCtx_->task()->queryCtx()->executor()
-                                 : nullptr);
-      addRuntimeStats();
-      if (joinBridge_->setHashTable(
-              std::move(table_),
-              std::move(spillPartitions),
-              joinHasNullKeys_)) {
-        spillGroup_->restart();
-      }
+  for (auto* build : otherBuilds) {
+    VELOX_CHECK_NOT_NULL(build->table_);
+    otherTables.push_back(std::move(build->table_));
+    if (build->spiller_ != nullptr) {
+      spillStats += build->spiller_->stats();
+      build->spiller_->finishSpill(spillPartitions);
     }
   }
 
+  if (spiller_ != nullptr) {
+    spillStats += spiller_->stats();
+
+    {
+      auto lockedStats = stats_.wlock();
+      lockedStats->spilledBytes += spillStats.spilledBytes;
+      lockedStats->spilledRows += spillStats.spilledRows;
+      lockedStats->spilledPartitions += spillStats.spilledPartitions;
+      lockedStats->spilledFiles += spillStats.spilledFiles;
+    }
+
+    spiller_->finishSpill(spillPartitions);
+
+    // Verify all the spilled partitions are not empty as we won't spill on
+    // an empty one.
+    for (const auto& spillPartitionEntry : spillPartitions) {
+      VELOX_CHECK_GT(spillPartitionEntry.second->numFiles(), 0);
+    }
+  }
+
+  // TODO: re-enable parallel join build with spilling triggered after
+  // https://github.com/facebookincubator/velox/issues/3567 is fixed.
+  const bool allowParallelJoinBuild =
+      !otherTables.empty() && spillPartitions.empty();
+  table_->prepareJoinTable(
+      std::move(otherTables),
+      allowParallelJoinBuild ? operatorCtx_->task()->queryCtx()->executor()
+                             : nullptr);
+  addRuntimeStats();
+  if (joinBridge_->setHashTable(
+          std::move(table_), std::move(spillPartitions), joinHasNullKeys_)) {
+    spillGroup_->restart();
+  }
+
+  // Release the unused memory reservation since we have finished the merged
+  // table build.
+  pool()->release();
   return true;
+}
+
+void HashBuild::ensureTableFits(uint64_t numRows) {
+  // NOTE: we don't need memory reservation if all the partitions have been
+  // spilled as nothing need to be built.
+  if (!spillEnabled() || spiller_ == nullptr || spiller_->isAllSpilled()) {
+    return;
+  }
+
+  TestValue::adjust("facebook::velox::exec::HashBuild::ensureTableFits", this);
+
+  // NOTE: reserve a bit more memory to consider the extra memory used for
+  // parallel table build operation.
+  const uint64_t bytesToReserve = table_->estimateHashTableSize(numRows) * 1.1;
+  if (pool()->maybeReserve(bytesToReserve)) {
+    return;
+  }
+
+  // NOTE: the memory arbitrator must have spilled everything from this hash
+  // build operator and all its peers.
+  VELOX_CHECK(spiller_->isAllSpilled());
+
+  // Throw a memory cap exceeded error to fail this query.
+  VELOX_MEM_POOL_CAP_EXCEEDED(fmt::format(
+      "Failed to reserve {} to build table with {} rows from {}",
+      succinctBytes(bytesToReserve),
+      numRows,
+      pool()->name()));
 }
 
 void HashBuild::postHashBuildProcess() {
   checkRunning();
-
-  // Release the unused memory reservation since we have finished the table
-  // build.
-  pool()->release();
 
   if (!spillEnabled()) {
     setState(State::kFinish);
@@ -1026,7 +1063,8 @@ void HashBuild::reclaim(uint64_t /*unused*/) {
 
   // NOTE: a hash build operator is reclaimable if it is in the middle of table
   // build processing and is not under non-reclaimable execution section.
-  if ((state_ != State::kRunning) || nonReclaimableSection_) {
+  if ((state_ != State::kRunning && state_ != State::kWaitForBuild) ||
+      nonReclaimableSection_) {
     // TODO: add stats to record the non-reclaimable case and reduce the log
     // frequency if it is too verbose.
     LOG(WARNING) << "Can't reclaim from hash build operator, state_["
@@ -1043,7 +1081,8 @@ void HashBuild::reclaim(uint64_t /*unused*/) {
     HashBuild* buildOp = dynamic_cast<HashBuild*>(op);
     VELOX_CHECK_NOT_NULL(buildOp);
     VELOX_CHECK(buildOp->canReclaim());
-    if ((buildOp->state_ != State::kRunning) ||
+    if ((buildOp->state_ != State::kRunning &&
+         buildOp->state_ != State::kWaitForBuild) ||
         buildOp->nonReclaimableSection_) {
       // TODO: add stats to record the non-reclaimable case and reduce the log
       // frequency if it is too verbose.

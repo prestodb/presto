@@ -696,11 +696,11 @@ void HashTable<ignoreNullKeys>::allocateTables(uint64_t size) {
   sizeMask_ = (capacity_ * sizeof(void*)) - 1;
   sizeBits_ = __builtin_popcountll(sizeMask_);
   bucketOffsetMask_ = sizeMask_ & ~(kBucketSize - 1);
-  constexpr auto kPageSize = memory::AllocationTraits::kPageSize;
-  // The total size is 8 bytes per slot, in groups of 16 slots
-  // with 16 bytes of tags and 16 * 6 bytes of pointers and a
-  // padding of 16 bytes to round up the cache line.
-  auto numPages = bits::roundUp(size * sizeof(char*), kPageSize) / kPageSize;
+  // The total size is 8 bytes per slot, in groups of 16 slots with 16 bytes of
+  // tags and 16 * 6 bytes of pointers and a padding of 16 bytes to round up the
+  // cache line.
+  const auto numPages =
+      memory::AllocationTraits::numPages(size * tableSlotSize());
   rows_->pool()->allocateContiguous(numPages, tableAllocation_);
   table_ = tableAllocation_.data<char*>();
   memset(table_, 0, capacity_ * sizeof(char*));
@@ -731,16 +731,7 @@ void HashTable<ignoreNullKeys>::checkSize(int32_t numNew) {
 
   const int64_t newNumDistincts = numNew + numDistinct_;
   if (table_ == nullptr || capacity_ == 0) {
-    // Initial guess of cardinality is double the first input batch or at
-    // least 2K entries.
-    // stats_.numDistinct is non-0 when switching from HashMode::kArray to
-    // regular hashing.
-    auto newSize = std::max(
-        (uint64_t)2048, bits::nextPowerOfTwo(numNew * 2 + numDistinct_));
-    if (newNumDistincts > rehashSize(newSize)) {
-      newSize *= 2;
-    }
-
+    const auto newSize = newHashTableEntries(numDistinct_, numNew);
     allocateTables(newSize);
     if (numDistinct_ > 0) {
       rehash();
@@ -844,7 +835,7 @@ bool HashTable<ignoreNullKeys>::canApplyParallelJoinBuild() const {
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::parallelJoinBuild() {
   TestValue::adjust(
-      "facebook::velox::exec::HashTable::parallelJoinBuild", this);
+      "facebook::velox::exec::HashTable::parallelJoinBuild", rows_->pool());
   int32_t numPartitions = 1 + otherTables_.size();
   VELOX_CHECK_GT(
       capacity_ / numPartitions,
@@ -1223,9 +1214,8 @@ template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::setHashMode(HashMode mode, int32_t numNew) {
   VELOX_CHECK_NE(hashMode_, HashMode::kHash);
   if (mode == HashMode::kArray) {
-    auto bytes = capacity_ * sizeof(char*);
-    constexpr auto kPageSize = memory::AllocationTraits::kPageSize;
-    auto numPages = bits::roundUp(bytes, kPageSize) / kPageSize;
+    const auto bytes = capacity_ * tableSlotSize();
+    const auto numPages = memory::AllocationTraits::numPages(bytes);
     rows_->pool()->allocateContiguous(numPages, tableAllocation_);
     table_ = tableAllocation_.data<char*>();
     memset(table_, 0, bytes);
@@ -1834,16 +1824,16 @@ void HashTable<ignoreNullKeys>::eraseWithHashes(
   }
   numDistinct_ -= numRows;
   if (!otherTables_.empty()) {
-    raw_vector<char*> rowsInContainer;
-    rowsInContainer.resize(rows.size());
+    raw_vector<char*> containerRows;
+    containerRows.resize(rows.size());
     for (auto& other : otherTables_) {
-      auto numInContainer =
-          other->rows()->findRows(rows, rowsInContainer.data());
+      const auto numContainerRows =
+          other->rows()->findRows(rows, containerRows.data());
       other->rows()->eraseRows(
-          folly::Range(rowsInContainer.data(), numInContainer));
+          folly::Range(containerRows.data(), numContainerRows));
     }
-    auto numInContainer = rows_->findRows(rows, rowsInContainer.data());
-    rows_->eraseRows(folly::Range(rowsInContainer.data(), numInContainer));
+    const auto numContainerRows = rows_->findRows(rows, containerRows.data());
+    rows_->eraseRows(folly::Range(containerRows.data(), numContainerRows));
   } else {
     rows_->eraseRows(rows);
   }
