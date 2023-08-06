@@ -46,7 +46,7 @@ class SsdFileTest : public testing::Test {
       ssdFile_->deleteFile();
     }
     if (cache_) {
-      cache_->prepareShutdown();
+      cache_->shutdown();
     }
   }
 

@@ -72,7 +72,7 @@ void OperatorTestBase::SetUp() {
 
 void OperatorTestBase::TearDown() {
   if (asyncDataCache_ != nullptr) {
-    asyncDataCache_->prepareShutdown();
+    asyncDataCache_->shutdown();
   }
 }
 

@@ -110,7 +110,7 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
 
   void TearDown() override {
     if (useCache_) {
-      cache_->prepareShutdown();
+      cache_->shutdown();
     }
     allocator_->testingClearFailureInjection();
     MmapAllocator::setDefaultInstance(nullptr);

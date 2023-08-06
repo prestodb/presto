@@ -115,7 +115,7 @@ class CacheTest : public testing::Test {
       ssdCache->deleteFiles();
     }
     if (cache_) {
-      cache_->prepareShutdown();
+      cache_->shutdown();
     }
   }
 

@@ -81,7 +81,7 @@ class AsyncDataCacheTest : public testing::Test {
       if (ssdCache) {
         ssdCache->deleteFiles();
       }
-      cache_->prepareShutdown();
+      cache_->shutdown();
     }
   }
 
@@ -106,7 +106,7 @@ class AsyncDataCacheTest : public testing::Test {
     memory::MmapAllocator::Options options;
     options.capacity = maxBytes;
     if (cache_) {
-      cache_->prepareShutdown();
+      cache_->shutdown();
     }
     cache_.reset();
     allocator_.reset();

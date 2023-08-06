@@ -534,7 +534,7 @@ class CacheShard {
 
   /// Release any resources that consume memory from this 'CacheShard' for a
   /// graceful shutdown. The shard will no longer be valid after this call.
-  void prepareShutdown();
+  void shutdown();
 
   // removes 'bytesToFree' worth of entries or as many entries as are
   // not pinned. This favors first removing older and less frequently
@@ -634,9 +634,14 @@ class AsyncDataCache : public memory::Cache {
 
   static void setInstance(AsyncDataCache* asyncDataCache);
 
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   /// Release any resources that consume memory from 'allocator_' for a graceful
   /// shutdown. The cache will no longer be valid after this call.
   void prepareShutdown();
+#endif
+  /// Release any resources that consume memory from 'allocator_' for a graceful
+  /// shutdown. The cache will no longer be valid after this call.
+  void shutdown();
 
   /// Calls 'allocate' until this returns true. Returns true if
   /// allocate returns true. and Tries to evict at least 'numPages' of
