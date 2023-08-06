@@ -29,13 +29,15 @@ class TableWriteMerge : public Operator {
       int32_t operatorId,
       DriverCtx* driverCtx,
       const std::shared_ptr<const core::TableWriteMergeNode>&
-          TableWriteMergeNode);
+          tableWriteMergeNode);
 
   BlockingReason isBlocked(ContinueFuture* /* future */) override {
     return BlockingReason::kNotBlocked;
   }
 
   void addInput(RowVectorPtr input) override;
+
+  void noMoreInput() override;
 
   virtual bool needsInput() const override {
     return true;
@@ -58,6 +60,10 @@ class TableWriteMerge : public Operator {
   // Creates the last output and fragment columns must be null.
   RowVectorPtr createLastOutput();
 
+  // Check if the input is statistics input.
+  bool isStatistics(RowVectorPtr input);
+
+  std::unique_ptr<Operator> aggregation_;
   bool finished_{false};
   // The sum of written rows.
   int64_t numRows_{0};

@@ -24,6 +24,7 @@
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
+#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 #include <re2/re2.h>
@@ -52,6 +53,29 @@ std::string testModeString(TestMode mode) {
     case TestMode::kBucketed:
       return "BUCKETED";
   }
+}
+
+static std::shared_ptr<core::AggregationNode> generateAggregationNode(
+    const std::string& name,
+    const std::vector<core::FieldAccessTypedExprPtr>& groupingKeys,
+    AggregationNode::Step step,
+    const PlanNodePtr& source) {
+  core::TypedExprPtr inputField =
+      std::make_shared<const core::FieldAccessTypedExpr>(BIGINT(), name);
+  auto callExpr = std::make_shared<const core::CallTypedExpr>(
+      BIGINT(), std::vector<core::TypedExprPtr>{inputField}, "min");
+  std::vector<std::string> aggregateNames = {"min"};
+  std::vector<core::AggregationNode::Aggregate> aggregates = {
+      core::AggregationNode::Aggregate{callExpr, nullptr, {}, {}}};
+  return std::make_shared<core::AggregationNode>(
+      core::PlanNodeId(),
+      step,
+      groupingKeys,
+      std::vector<core::FieldAccessTypedExprPtr>{},
+      aggregateNames,
+      aggregates,
+      false, // ignoreNullKeys
+      source);
 }
 
 FOLLY_ALWAYS_INLINE std::ostream& operator<<(std::ostream& os, TestMode mode) {
@@ -408,7 +432,8 @@ class TableWriteTest : public HiveConnectorTestBase {
       const connector::hive::LocationHandle::TableType& outputTableType =
           connector::hive::LocationHandle::TableType::kNew,
       const CommitStrategy& outputCommitStrategy = CommitStrategy::kNoCommit,
-      bool aggregateResult = true) {
+      bool aggregateResult = true,
+      std::shared_ptr<core::AggregationNode> aggregationNode = nullptr) {
     return createInsertPlan(
         inputPlan,
         inputPlan.planNode()->outputType(),
@@ -420,7 +445,8 @@ class TableWriteTest : public HiveConnectorTestBase {
         numTableWriters,
         outputTableType,
         outputCommitStrategy,
-        aggregateResult);
+        aggregateResult,
+        aggregationNode);
   }
 
   PlanNodePtr createInsertPlan(
@@ -435,13 +461,14 @@ class TableWriteTest : public HiveConnectorTestBase {
       const connector::hive::LocationHandle::TableType& outputTableType =
           connector::hive::LocationHandle::TableType::kNew,
       const CommitStrategy& outputCommitStrategy = CommitStrategy::kNoCommit,
-      bool aggregateResult = true) {
+      bool aggregateResult = true,
+      std::shared_ptr<core::AggregationNode> aggregationNode = nullptr) {
     if (numTableWriters == 1) {
       auto insertPlan = inputPlan
                             .tableWrite(
                                 inputRowType,
                                 tableRowType->names(),
-                                nullptr,
+                                aggregationNode,
                                 createInsertTableHandle(
                                     tableRowType,
                                     outputTableType,
@@ -2150,6 +2177,216 @@ TEST_P(AllTableWriterTest, tableWriteOutputCheck) {
       commitStrategyToString(commitStrategy_));
   ASSERT_EQ(obj[TableWriteTraits::klastPageContextKey], true);
   ASSERT_EQ(obj[TableWriteTraits::kLifeSpanContextKey], "TaskWide");
+}
+
+TEST_P(AllTableWriterTest, columnStats) {
+  auto input = makeVectors(1, 100);
+  createDuckDbTable(input);
+  auto outputDirectory = TempDirectoryPath::create();
+
+  // 1. standard columns
+  std::vector<std::string> output = {
+      "numWrittenRows", "fragment", "tableCommitContext"};
+  std::vector<TypePtr> types = {BIGINT(), VARBINARY(), VARBINARY()};
+  std::vector<core::FieldAccessTypedExprPtr> groupingKeys;
+  // 2. partition columns
+  for (int i = 0; i < partitionedBy_.size(); i++) {
+    groupingKeys.emplace_back(
+        std::make_shared<const core::FieldAccessTypedExpr>(
+            partitionTypes_.at(i), partitionedBy_.at(i)));
+    output.emplace_back(partitionedBy_.at(i));
+    types.emplace_back(partitionTypes_.at(i));
+  }
+  // 3. stats columns
+  output.emplace_back("min");
+  types.emplace_back(BIGINT());
+  const auto writerOutputType = ROW(std::move(output), std::move(types));
+
+  // aggregation node
+  auto aggregationNode = generateAggregationNode(
+      "c0",
+      groupingKeys,
+      core::AggregationNode::Step::kPartial,
+      PlanBuilder().values({input}).planNode());
+
+  auto plan = PlanBuilder()
+                  .values({input})
+                  .tableWrite(
+                      rowType_,
+                      rowType_->names(),
+                      aggregationNode,
+                      std::make_shared<core::InsertTableHandle>(
+                          kHiveConnectorId,
+                          makeHiveInsertTableHandle(
+                              rowType_->names(),
+                              rowType_->children(),
+                              partitionedBy_,
+                              bucketProperty_,
+                              makeLocationHandle(outputDirectory->path))),
+                      false,
+                      commitStrategy_)
+                  .planNode();
+
+  auto result = AssertQueryBuilder(plan).copyResults(pool());
+  auto rowVector = result->childAt(0)->asFlatVector<int64_t>();
+  auto fragmentVector = result->childAt(1)->asFlatVector<StringView>();
+  auto commitContextVector = result->childAt(2)->asFlatVector<StringView>();
+  auto columnStatsVector =
+      result->childAt(3 + partitionedBy_.size())->asFlatVector<int64_t>();
+
+  const int64_t expectedRows = 10 * 100;
+  std::vector<std::string> writeFiles;
+  int64_t numRows{0};
+
+  // For partitioned, expected result is as follows:
+  // Row     Fragment           Context       partition           c1_min_value
+  // null    null                x            partition1          0
+  // null    null                x            partition2          10
+  // null    null                x            partition3          15
+  // count   null                x            null                null
+  // null    partition1_update   x            null                null
+  // null    partition1_update   x            null                null
+  // null    partition2_update   x            null                null
+  // null    partition2_update   x            null                null
+  // null    partition3_update   x            null                null
+  //
+  // Note that we can have multiple same partition_update, they're for different
+  // files, but for stats, we would only have one record for each partition
+  //
+  // For unpartitioned, expected result is:
+  // Row     Fragment           Context       partition           c1_min_value
+  // null    null                x                                0
+  // count   null                x            null                null
+  // null    update              x            null                null
+
+  int countRow = 0;
+  while (!columnStatsVector->isNullAt(countRow)) {
+    countRow++;
+  }
+  for (int i = 0; i < result->size(); ++i) {
+    if (i < countRow) {
+      ASSERT_FALSE(columnStatsVector->isNullAt(i));
+      ASSERT_TRUE(rowVector->isNullAt(i));
+      ASSERT_TRUE(fragmentVector->isNullAt(i));
+    } else if (i == countRow) {
+      ASSERT_TRUE(columnStatsVector->isNullAt(i));
+      ASSERT_FALSE(rowVector->isNullAt(i));
+      ASSERT_TRUE(fragmentVector->isNullAt(i));
+    } else {
+      ASSERT_TRUE(columnStatsVector->isNullAt(i));
+      ASSERT_TRUE(rowVector->isNullAt(i));
+      ASSERT_FALSE(fragmentVector->isNullAt(i));
+    }
+  }
+}
+
+TEST_P(AllTableWriterTest, columnStatsWithTableWriteMerge) {
+  auto input = makeVectors(1, 100);
+  createDuckDbTable(input);
+  auto outputDirectory = TempDirectoryPath::create();
+
+  // 1. standard columns
+  std::vector<std::string> output = {
+      "numWrittenRows", "fragment", "tableCommitContext"};
+  std::vector<TypePtr> types = {BIGINT(), VARBINARY(), VARBINARY()};
+  std::vector<core::FieldAccessTypedExprPtr> groupingKeys;
+  // 2. partition columns
+  for (int i = 0; i < partitionedBy_.size(); i++) {
+    groupingKeys.emplace_back(
+        std::make_shared<const core::FieldAccessTypedExpr>(
+            partitionTypes_.at(i), partitionedBy_.at(i)));
+    output.emplace_back(partitionedBy_.at(i));
+    types.emplace_back(partitionTypes_.at(i));
+  }
+  // 3. stats columns
+  output.emplace_back("min");
+  types.emplace_back(BIGINT());
+  const auto writerOutputType = ROW(std::move(output), std::move(types));
+
+  // aggregation node
+  auto aggregationNode = generateAggregationNode(
+      "c0",
+      groupingKeys,
+      core::AggregationNode::Step::kPartial,
+      PlanBuilder().values({input}).planNode());
+
+  auto tableWriterPlan = PlanBuilder().values({input}).tableWrite(
+      rowType_,
+      rowType_->names(),
+      aggregationNode,
+      std::make_shared<core::InsertTableHandle>(
+          kHiveConnectorId,
+          makeHiveInsertTableHandle(
+              rowType_->names(),
+              rowType_->children(),
+              partitionedBy_,
+              bucketProperty_,
+              makeLocationHandle(outputDirectory->path))),
+      false,
+      commitStrategy_);
+
+  auto mergeAggregationNode = generateAggregationNode(
+      "min",
+      groupingKeys,
+      core::AggregationNode::Step::kIntermediate,
+      std::move(tableWriterPlan.planNode()));
+
+  auto finalPlan = tableWriterPlan.capturePlanNodeId(tableWriteNodeId_)
+                       .localPartition(std::vector<std::string>{})
+                       .tableWriteMerge(std::move(mergeAggregationNode))
+                       .planNode();
+
+  auto result = AssertQueryBuilder(finalPlan).copyResults(pool());
+  auto rowVector = result->childAt(0)->asFlatVector<int64_t>();
+  auto fragmentVector = result->childAt(1)->asFlatVector<StringView>();
+  auto commitContextVector = result->childAt(2)->asFlatVector<StringView>();
+  auto columnStatsVector =
+      result->childAt(3 + partitionedBy_.size())->asFlatVector<int64_t>();
+
+  const int64_t expectedRows = 10 * 100;
+  std::vector<std::string> writeFiles;
+  int64_t numRows{0};
+
+  // For partitioned, expected result is as follows:
+  // Row     Fragment           Context       partition           c1_min_value
+  // null    null                x            partition1          0
+  // null    null                x            partition2          10
+  // null    null                x            partition3          15
+  // count   null                x            null                null
+  // null    partition1_update   x            null                null
+  // null    partition1_update   x            null                null
+  // null    partition2_update   x            null                null
+  // null    partition2_update   x            null                null
+  // null    partition3_update   x            null                null
+  //
+  // Note that we can have multiple same partition_update, they're for different
+  // files, but for stats, we would only have one record for each partition
+  //
+  // For unpartitioned, expected result is:
+  // Row     Fragment           Context       partition           c1_min_value
+  // null    null                x                                0
+  // count   null                x            null                null
+  // null    update              x            null                null
+
+  int statsRow = 0;
+  while (columnStatsVector->isNullAt(statsRow) && statsRow < result->size()) {
+    ++statsRow;
+  }
+  for (int i = 1; i < result->size(); ++i) {
+    if (i < statsRow) {
+      ASSERT_TRUE(rowVector->isNullAt(i));
+      ASSERT_FALSE(fragmentVector->isNullAt(i));
+      ASSERT_TRUE(columnStatsVector->isNullAt(i));
+    } else if (i < result->size() - 1) {
+      ASSERT_TRUE(rowVector->isNullAt(i));
+      ASSERT_TRUE(fragmentVector->isNullAt(i));
+      ASSERT_FALSE(columnStatsVector->isNullAt(i));
+    } else {
+      ASSERT_FALSE(rowVector->isNullAt(i));
+      ASSERT_TRUE(fragmentVector->isNullAt(i));
+      ASSERT_TRUE(columnStatsVector->isNullAt(i));
+    }
+  }
 }
 
 // TODO: add partitioned table write update mode tests and more failure tests.

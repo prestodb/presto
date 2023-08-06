@@ -39,6 +39,29 @@ class TableWriteTraits {
   static const TypePtr& contextColumnType();
 
   /// Defines the column channels in table write output.
+  /// Both the statistics and the row_count + fragments are transferred over the
+  /// same communication link between the TableWriter and TableFinish. Thus the
+  /// multiplexing is needed.
+  ///
+  ///  The transferred page layout looks like:
+  /// [row_count_channel], [fragment_channel], [context_channel],
+  /// [statistic_channel_1] ... [statistic_channel_N]]
+  ///
+  /// [row_count_channel] - contains number of rows processed by a TableWriter
+  /// [fragment_channel] - contains data provided by the DataSink#finish
+  /// [statistic_channel_1] ...[statistic_channel_N] -
+  /// contain aggregated statistics computed by the statistics aggregation
+  /// within the TableWriter
+  ///
+  /// For convenience, we never set both: [row_count_channel] +
+  /// [fragment_channel] and the [statistic_channel_1] ...
+  /// [statistic_channel_N].
+  ///
+  /// If this is a row that holds statistics - the [row_count_channel] +
+  /// [fragment_channel] will be NULL.
+  ///
+  /// If this is a row that holds the row count
+  /// or the fragment - all the statistics channels will be set to NULL.
   static constexpr int32_t kRowCountChannel = 0;
   static constexpr int32_t kFragmentChannel = 1;
   static constexpr int32_t kContextChannel = 2;
@@ -51,14 +74,25 @@ class TableWriteTraits {
       "pageSinkCommitStrategy";
   static constexpr std::string_view klastPageContextKey = "lastPage";
 
-  /// TODO: add column stats support.
-  static const RowTypePtr& outputType();
+  static const RowTypePtr outputType(
+      const std::shared_ptr<core::AggregationNode>& aggregationNode = nullptr);
 
   /// Returns the parsed commit context from table writer 'output'.
   static folly::dynamic getTableCommitContext(const RowVectorPtr& output);
 
   /// Returns the sum of row counts from table writer 'output'.
   static int64_t getRowCount(const RowVectorPtr& output);
+
+  /// Creates the statistics output.
+  /// Statistics page layout (aggregate by partition):
+  /// row     fragments     context     [partition]   stats1     stats2 ...
+  /// null       null          X          [X]            X          X
+  /// null       null          X          [X]            X          X
+  static RowVectorPtr createAggregationStatsOutput(
+      RowTypePtr outputType,
+      RowVectorPtr aggregationOutput,
+      StringView tableCommitContext,
+      velox::memory::MemoryPool* pool);
 };
 
 /**
@@ -79,6 +113,9 @@ class TableWriter : public Operator {
 
   void noMoreInput() override {
     Operator::noMoreInput();
+    if (aggregation_ != nullptr) {
+      aggregation_->noMoreInput();
+    }
     close();
   }
 
@@ -107,11 +144,14 @@ class TableWriter : public Operator {
   // Updates physicalWrittenBytes in OperatorStats with current written bytes.
   void updateWrittenBytes();
 
+  std::string createTableCommitContext(bool lastOutput);
+
   const DriverCtx* const driverCtx_;
   memory::MemoryPool* const connectorPool_;
   const std::shared_ptr<connector::ConnectorInsertTableHandle>
       insertTableHandle_;
   const connector::CommitStrategy commitStrategy_;
+  std::unique_ptr<Operator> aggregation_;
   std::shared_ptr<connector::Connector> connector_;
   std::shared_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;
   std::unique_ptr<connector::DataSink> dataSink_;

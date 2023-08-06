@@ -821,3 +821,26 @@ TEST(TypeTest, rowEquvialentCheckWithChildRowsWithDifferentNames) {
            childRowType3WithDifferentNames});
   ASSERT_TRUE(rowTypeWithDifferentName->equivalent(*rowType));
 }
+
+TEST(TypeTest, unionWith) {
+  std::vector<TypePtr> types;
+  std::vector<TypePtr> typesWithDifferentNames;
+  RowTypePtr emptyRowType = ROW({}, {});
+  RowTypePtr childRowType1 =
+      ROW({"a", "b", "c"}, {TINYINT(), VARBINARY(), BIGINT()});
+  RowTypePtr childRowType2 =
+      ROW({"d", "e", "f"}, {TINYINT(), VARBINARY(), BIGINT()});
+  RowTypePtr resultRowType =
+      ROW({"a", "b", "c", "d", "e", "f"},
+          {TINYINT(), VARBINARY(), BIGINT(), TINYINT(), VARBINARY(), BIGINT()});
+  RowTypePtr resultRowType2 =
+      ROW({"a", "b", "c", "a", "b", "c"},
+          {TINYINT(), VARBINARY(), BIGINT(), TINYINT(), VARBINARY(), BIGINT()});
+
+  ASSERT_TRUE(
+      emptyRowType->unionWith(childRowType1)->equivalent(*childRowType1));
+  ASSERT_TRUE(
+      childRowType1->unionWith(childRowType2)->equivalent(*resultRowType));
+  ASSERT_TRUE(
+      childRowType1->unionWith(childRowType1)->equivalent(*resultRowType2));
+}

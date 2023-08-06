@@ -311,15 +311,19 @@ PlanBuilder& PlanBuilder::tableWrite(
       aggregationNode,
       insertHandle,
       hasPartitioningScheme,
-      TableWriteTraits::outputType(),
+      TableWriteTraits::outputType(aggregationNode),
       commitStrategy,
       planNode_);
   return *this;
 }
 
-PlanBuilder& PlanBuilder::tableWriteMerge() {
+PlanBuilder& PlanBuilder::tableWriteMerge(
+    const std::shared_ptr<core::AggregationNode>& aggregationNode) {
   planNode_ = std::make_shared<core::TableWriteMergeNode>(
-      nextPlanNodeId(), TableWriteTraits::outputType(), planNode_);
+      nextPlanNodeId(),
+      TableWriteTraits::outputType(aggregationNode),
+      aggregationNode,
+      planNode_);
   return *this;
 }
 

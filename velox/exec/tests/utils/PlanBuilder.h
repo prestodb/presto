@@ -270,7 +270,8 @@ class PlanBuilder {
           connector::CommitStrategy::kNoCommit);
 
   /// Add a TableWriteMergeNode.
-  PlanBuilder& tableWriteMerge();
+  PlanBuilder& tableWriteMerge(
+      const std::shared_ptr<core::AggregationNode>& aggregationNode = nullptr);
 
   /// Add an AggregationNode representing partial aggregation with the
   /// specified grouping keys, aggregates and optional masks.

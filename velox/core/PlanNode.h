@@ -714,13 +714,31 @@ class TableWriteMergeNode : public PlanNode {
   /// 'outputType' specifies the type to store the metadata of table write
   /// output which contains the following columns: 'numWrittenRows', 'fragment'
   /// and 'tableCommitContext'.
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   TableWriteMergeNode(
       const PlanNodeId& id,
       RowTypePtr outputType,
       PlanNodePtr source)
       : PlanNode(id),
+        aggregationNode_(nullptr),
         sources_{std::move(source)},
         outputType_(std::move(outputType)) {}
+#endif
+
+  TableWriteMergeNode(
+      const PlanNodeId& id,
+      RowTypePtr outputType,
+      std::shared_ptr<AggregationNode> aggregationNode,
+      PlanNodePtr source)
+      : PlanNode(id),
+        aggregationNode_(std::move(aggregationNode)),
+        sources_{std::move(source)},
+        outputType_(std::move(outputType)) {}
+
+  /// Optional aggregation node for column statistics collection
+  std::shared_ptr<AggregationNode> aggregationNode() const {
+    return aggregationNode_;
+  }
 
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
@@ -741,6 +759,7 @@ class TableWriteMergeNode : public PlanNode {
  private:
   void addDetails(std::stringstream& stream) const override;
 
+  const std::shared_ptr<AggregationNode> aggregationNode_;
   const std::vector<PlanNodePtr> sources_;
   const RowTypePtr outputType_;
 };

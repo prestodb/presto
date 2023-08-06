@@ -437,6 +437,20 @@ void RowType::printChildren(std::stringstream& ss, std::string_view delimiter)
   }
 }
 
+std::shared_ptr<RowType> RowType::unionWith(
+    std::shared_ptr<const RowType> rowType) const {
+  std::vector<std::string> names;
+  std::vector<TypePtr> types;
+  copy(names_.begin(), names_.end(), back_inserter(names));
+  copy(rowType->names_.begin(), rowType->names_.end(), back_inserter(names));
+  copy(children_.begin(), children_.end(), back_inserter(types));
+  copy(
+      rowType->children_.begin(),
+      rowType->children_.end(),
+      back_inserter(types));
+  return std::make_shared<RowType>(std::move(names), std::move(types));
+}
+
 std::string RowType::toString() const {
   std::stringstream ss;
   ss << (TypeTraits<TypeKind::ROW>::name) << "<";

@@ -1586,6 +1586,9 @@ folly::dynamic TableWriteMergeNode::serialize() const {
   VELOX_CHECK_EQ(
       sources_.size(), 1, "TableWriteMergeNode can only have one source");
   obj["sources"] = sources_.front()->serialize();
+  if (aggregationNode_ != nullptr) {
+    obj["aggregationNode"] = aggregationNode_->serialize();
+  }
   obj["outputType"] = outputType_->serialize();
   return obj;
 }
@@ -1596,8 +1599,14 @@ PlanNodePtr TableWriteMergeNode::create(
     void* /*unused*/) {
   auto id = obj["id"].asString();
   auto outputType = deserializeRowType(obj["outputType"]);
+  std::shared_ptr<AggregationNode> aggregationNode;
+  if (obj.count("aggregationNode") != 0) {
+    aggregationNode = std::const_pointer_cast<AggregationNode>(
+        ISerializable::deserialize<AggregationNode>(obj["aggregationNode"]));
+  }
   auto source = ISerializable::deserialize<PlanNode>(obj["sources"]);
-  return std::make_shared<TableWriteMergeNode>(id, outputType, source);
+  return std::make_shared<TableWriteMergeNode>(
+      id, outputType, aggregationNode, source);
 }
 
 void MergeExchangeNode::addDetails(std::stringstream& stream) const {
