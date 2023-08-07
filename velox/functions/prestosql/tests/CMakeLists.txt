@@ -81,6 +81,7 @@ add_executable(
   TransformTest.cpp
   TransformKeysTest.cpp
   TransformValuesTest.cpp
+  TrimFunctionsTest.cpp
   URLFunctionsTest.cpp
   Utf8Test.cpp
   WidthBucketArrayTest.cpp
