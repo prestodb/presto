@@ -166,12 +166,12 @@ supported conversions to/from JSON are listed in :doc:`json`.
      -
      -
    * - decimal
+     - Y
+     - Y
+     - Y
+     - Y
      -
-     -
-     -
-     -
-     -
-     -
+     - Y
      - Y
      -
      -
@@ -382,13 +382,19 @@ consistent with other supported cases of cast.
 From decimal
 ^^^^^^^^^^^^
 
-Casting from decimal to double is allowed.
+Casting from decimal to double, float or any integral type is allowed. During decimal to an integral type conversion, if result overflows, or underflows, an exception is thrown.
 
 Valid example
 
 ::
 
   SELECT cast(decimal '10.001' as double); -- 10.001
+
+Invalid example
+
+::
+
+  SELECT cast(decimal '300.001' as tinyint); -- Out of range
 
 Cast to String
 --------------

@@ -211,12 +211,29 @@ class CastExpr : public SpecialForm {
       const TypePtr& toType,
       VectorPtr& castResult);
 
-  template <typename TInput>
-  VectorPtr applyDecimalToDoubleCast(
+  template <typename FromNativeType, TypeKind ToKind>
+  VectorPtr applyDecimalToFloatCast(
       const SelectivityVector& rows,
       const BaseVector& input,
       exec::EvalCtx& context,
-      const TypePtr& fromType);
+      const TypePtr& fromType,
+      const TypePtr& toType);
+
+  template <typename FromNativeType, TypeKind ToKind>
+  VectorPtr applyDecimalToIntegralCast(
+      const SelectivityVector& rows,
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const TypePtr& fromType,
+      const TypePtr& toType);
+
+  template <typename FromNativeType>
+  VectorPtr applyDecimalToPrimitiveCast(
+      const SelectivityVector& rows,
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const TypePtr& fromType,
+      const TypePtr& toType);
 
   template <TypeKind ToKind, TypeKind FromKind>
   void applyCastPrimitives(

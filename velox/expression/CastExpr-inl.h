@@ -206,27 +206,107 @@ void CastExpr::applyIntToDecimalCastKernel(
       });
 }
 
-template <typename TInput>
-VectorPtr CastExpr::applyDecimalToDoubleCast(
+template <typename FromNativeType, TypeKind ToKind>
+VectorPtr CastExpr::applyDecimalToFloatCast(
     const SelectivityVector& rows,
     const BaseVector& input,
     exec::EvalCtx& context,
-    const TypePtr& fromType) {
-  VectorPtr result;
-  context.ensureWritable(rows, DOUBLE(), result);
-  (*result).clearNulls(rows);
-  auto resultBuffer =
-      result->asUnchecked<FlatVector<double>>()->mutableRawValues();
-  const auto precisionScale = getDecimalPrecisionScale(*fromType);
-  const auto simpleInput = input.as<SimpleVector<TInput>>();
-  applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
-    auto output = util::Converter<TypeKind::DOUBLE, void, false>::cast(
-        simpleInput->valueAt(row));
-    resultBuffer[row] =
-        output / DecimalUtil::kPowersOfTen[precisionScale.second];
-  });
+    const TypePtr& fromType,
+    const TypePtr& toType) {
+  using To = typename TypeTraits<ToKind>::NativeType;
 
+  VectorPtr result;
+  context.ensureWritable(rows, toType, result);
+  (*result).clearNulls(rows);
+  auto resultBuffer = result->asUnchecked<FlatVector<To>>()->mutableRawValues();
+  const auto precisionScale = getDecimalPrecisionScale(*fromType);
+  const auto simpleInput = input.as<SimpleVector<FromNativeType>>();
+  const auto scaleFactor = DecimalUtil::kPowersOfTen[precisionScale.second];
+  applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
+    auto output =
+        util::Converter<ToKind, void, false>::cast(simpleInput->valueAt(row));
+    resultBuffer[row] = output / scaleFactor;
+  });
   return result;
+}
+
+template <typename FromNativeType, TypeKind ToKind>
+VectorPtr CastExpr::applyDecimalToIntegralCast(
+    const SelectivityVector& rows,
+    const BaseVector& input,
+    exec::EvalCtx& context,
+    const TypePtr& fromType,
+    const TypePtr& toType) {
+  using To = typename TypeTraits<ToKind>::NativeType;
+
+  VectorPtr result;
+  context.ensureWritable(rows, toType, result);
+  (*result).clearNulls(rows);
+  auto resultBuffer = result->asUnchecked<FlatVector<To>>()->mutableRawValues();
+  const auto precisionScale = getDecimalPrecisionScale(*fromType);
+  const auto simpleInput = input.as<SimpleVector<FromNativeType>>();
+  const auto scaleFactor = DecimalUtil::kPowersOfTen[precisionScale.second];
+  applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
+    auto value = simpleInput->valueAt(row);
+    auto integralPart = value / scaleFactor;
+    auto fractionPart = value % scaleFactor;
+    auto sign = value >= 0 ? 1 : -1;
+    bool needsRoundUp =
+        (scaleFactor != 1) && (sign * fractionPart >= (scaleFactor >> 1));
+    integralPart += needsRoundUp ? sign : 0;
+    if (integralPart > std::numeric_limits<To>::max() ||
+        integralPart < std::numeric_limits<To>::min()) {
+      if (setNullInResultAtError()) {
+        result->setNull(row, true);
+      } else {
+        context.setVeloxExceptionError(
+            row,
+            makeBadCastException(
+                result->type(),
+                input,
+                row,
+                makeErrorMessage(input, row, toType) + "Out of bounds."));
+      }
+      return;
+    }
+
+    resultBuffer[row] = static_cast<To>(integralPart);
+  });
+  return result;
+}
+
+template <typename FromNativeType>
+VectorPtr CastExpr::applyDecimalToPrimitiveCast(
+    const SelectivityVector& rows,
+    const BaseVector& input,
+    exec::EvalCtx& context,
+    const TypePtr& fromType,
+    const TypePtr& toType) {
+  switch (toType->kind()) {
+    case TypeKind::TINYINT:
+      return applyDecimalToIntegralCast<FromNativeType, TypeKind::TINYINT>(
+          rows, input, context, fromType, toType);
+    case TypeKind::SMALLINT:
+      return applyDecimalToIntegralCast<FromNativeType, TypeKind::SMALLINT>(
+          rows, input, context, fromType, toType);
+    case TypeKind::INTEGER:
+      return applyDecimalToIntegralCast<FromNativeType, TypeKind::INTEGER>(
+          rows, input, context, fromType, toType);
+    case TypeKind::BIGINT:
+      return applyDecimalToIntegralCast<FromNativeType, TypeKind::BIGINT>(
+          rows, input, context, fromType, toType);
+    case TypeKind::REAL:
+      return applyDecimalToFloatCast<FromNativeType, TypeKind::REAL>(
+          rows, input, context, fromType, toType);
+    case TypeKind::DOUBLE:
+      return applyDecimalToFloatCast<FromNativeType, TypeKind::DOUBLE>(
+          rows, input, context, fromType, toType);
+    default:
+      VELOX_UNSUPPORTED(
+          "Cast from {} to {} is not supported",
+          fromType->toString(),
+          toType->toString());
+  }
 }
 
 template <TypeKind ToKind, TypeKind FromKind>
