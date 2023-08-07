@@ -133,12 +133,39 @@ TEST_F(SystemConfigTest, remoteFunctionServer) {
   init(config, {});
   ASSERT_EQ(folly::none, config.remoteFunctionServerLocation());
 
+  // Only address. Throw.
+  init(
+      config,
+      {{std::string(SystemConfig::kRemoteFunctionServerThriftAddress),
+        "127.1.2.3"}});
+  EXPECT_THROW(config.remoteFunctionServerLocation(), VeloxException);
+
+  // Only port (address fallback to loopback).
   init(
       config,
       {{std::string(SystemConfig::kRemoteFunctionServerThriftPort), "8081"}});
   ASSERT_EQ(
       config.remoteFunctionServerLocation(),
       (folly::SocketAddress{"::1", 8081}));
+
+  // Port and address.
+  init(
+      config,
+      {{std::string(SystemConfig::kRemoteFunctionServerThriftPort), "8081"},
+       {std::string(SystemConfig::kRemoteFunctionServerThriftAddress),
+        "127.1.2.3"}});
+  ASSERT_EQ(
+      config.remoteFunctionServerLocation(),
+      (folly::SocketAddress{"127.1.2.3", 8081}));
+
+  // UDS path.
+  init(
+      config,
+      {{std::string(SystemConfig::kRemoteFunctionServerThriftUdsPath),
+        "/tmp/any.socket"}});
+  ASSERT_EQ(
+      config.remoteFunctionServerLocation(),
+      (folly::SocketAddress::makeFromPath("/tmp/any.socket")));
 }
 
 } // namespace facebook::presto::test

@@ -81,7 +81,8 @@ endif()
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   set(VELOX_ENABLE_REMOTE_FUNCTIONS
       ON
-      CACHE BOOL "Enable remote function support")
+      CACHE BOOL "Enable remote function support in Velox")
+  add_compile_definitions(PRESTO_ENABLE_REMOTE_FUNCTIONS)
 endif()
 
 set(VELOX_BUILD_TESTING

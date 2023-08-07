@@ -54,6 +54,10 @@
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
 #include "velox/serializers/PrestoSerializer.h"
 
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+#include "presto_cpp/main/RemoteFunctionRegisterer.h"
+#endif
+
 namespace facebook::presto {
 using namespace facebook::velox;
 
@@ -709,7 +713,29 @@ void PrestoServer::registerFunctions() {
   }
 }
 
-void PrestoServer::registerRemoteFunctions() {}
+void PrestoServer::registerRemoteFunctions() {
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+  if (auto dirPath = SystemConfig::instance()
+                         ->remoteFunctionServerSignatureFilesDirectoryPath()) {
+    PRESTO_STARTUP_LOG(INFO)
+        << "Registering remote functions from path: " << *dirPath;
+    if (auto remoteLocation =
+            SystemConfig::instance()->remoteFunctionServerLocation()) {
+      size_t registeredCount =
+          presto::registerRemoteFunctions(*dirPath, *remoteLocation);
+      PRESTO_STARTUP_LOG(INFO)
+          << registeredCount << " remote functions registered.";
+    } else {
+      VELOX_FAIL(
+          "To register remote functions using a json file path you need to "
+          "specify the remote server location using '{}', '{}' or '{}'.",
+          SystemConfig::kRemoteFunctionServerThriftAddress,
+          SystemConfig::kRemoteFunctionServerThriftPort,
+          SystemConfig::kRemoteFunctionServerThriftUdsPath);
+    }
+  }
+#endif
+}
 
 void PrestoServer::registerVectorSerdes() {
   if (!velox::isRegisteredVectorSerde()) {
