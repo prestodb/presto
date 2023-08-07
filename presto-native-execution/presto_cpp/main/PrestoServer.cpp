@@ -438,7 +438,7 @@ void PrestoServer::run() {
 
   if (cache_ != nullptr) {
     PRESTO_SHUTDOWN_LOG(INFO) << "Shutdown AsyncDataCache";
-    cache_->prepareShutdown();
+    cache_->shutdown();
   }
 }
 
