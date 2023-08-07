@@ -18,6 +18,7 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupplier;
 
 public abstract class AbstractTestNativeProbabilityFunctionQueries
         extends AbstractTestQueryFramework
@@ -27,6 +28,7 @@ public abstract class AbstractTestNativeProbabilityFunctionQueries
     {
         QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
         createNation(queryRunner);
+        createSupplier(queryRunner);
     }
 
     @Test
@@ -56,5 +58,12 @@ public abstract class AbstractTestNativeProbabilityFunctionQueries
         assertQuery("SELECT f_cdf(nationKey, 1, 0) FROM nation WHERE nationKey > 0");
         assertQuery("SELECT f_cdf(nationKey, regionKey, 1) FROM nation WHERE nationKey > 0 AND regionkey > 0");
         assertQuery("SELECT f_cdf(nationKey, 1, regionKey) FROM nation WHERE nationKey > 0 AND regionkey > 0");
+    }
+
+    @Test
+    public void testChiSquaredCDF()
+    {
+        assertQuery("SELECT chi_squared_cdf(acctbal, 2.0) FROM supplier WHERE acctbal > 0.0 AND acctbal < 500.0");
+        assertQuery("SELECT chi_squared_cdf(acctbal, 40.0) FROM supplier WHERE acctbal > 0.0 AND acctbal < 500.0");
     }
 }
