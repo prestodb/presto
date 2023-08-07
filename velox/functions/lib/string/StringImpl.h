@@ -365,12 +365,11 @@ FOLLY_ALWAYS_INLINE bool splitPart(
 template <
     bool leftTrim,
     bool rightTrim,
-    bool(shouldTrim)(char) = isAsciiWhiteSpace,
+    typename TShouldTrim,
     typename TOutString,
     typename TInString>
-FOLLY_ALWAYS_INLINE void trimAsciiWhiteSpace(
-    TOutString& output,
-    const TInString& input) {
+FOLLY_ALWAYS_INLINE void
+trimAscii(TOutString& output, const TInString& input, TShouldTrim shouldTrim) {
   if (input.empty()) {
     output.setEmpty();
     return;

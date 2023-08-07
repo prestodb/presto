@@ -407,9 +407,8 @@ struct TrimSpaceFunctionBase {
       const arg_type<Varchar>& srcStr) {
     // Because utf-8 and Ascii have the same space character code, both are
     // char=32. So trimAsciiSpace can be reused here.
-    stringImpl::
-        trimAsciiWhiteSpace<leftTrim, rightTrim, stringImpl::isAsciiSpace>(
-            result, srcStr);
+    stringImpl::trimAscii<leftTrim, rightTrim>(
+        result, srcStr, stringImpl::isAsciiSpace);
   }
 };
 

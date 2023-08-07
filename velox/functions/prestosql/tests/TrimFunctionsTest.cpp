@@ -182,5 +182,51 @@ TEST_F(TrimFunctionsTest, rtrim) {
   EXPECT_EQ("     Ψ\xFF\xFFΣΓΔA", rtrim("     Ψ\xFF\xFFΣΓΔA \u2028 \r \t \n"));
 }
 
+TEST_F(TrimFunctionsTest, trimCustomCharacters) {
+  const auto trim = [&](const std::string& input, const std::string& chars) {
+    return evaluateOnce<std::string>(
+               "trim(c0, c1)",
+               std::make_optional(input),
+               std::make_optional(chars))
+        .value();
+  };
+
+  const auto ltrim = [&](const std::string& input, const std::string& chars) {
+    return evaluateOnce<std::string>(
+               "ltrim(c0, c1)",
+               std::make_optional(input),
+               std::make_optional(chars))
+        .value();
+  };
+
+  const auto rtrim = [&](const std::string& input, const std::string& chars) {
+    return evaluateOnce<std::string>(
+               "rtrim(c0, c1)",
+               std::make_optional(input),
+               std::make_optional(chars))
+        .value();
+  };
+
+  // One custom trim character.
+  EXPECT_EQ("es", trim("test", "t"));
+  EXPECT_EQ("es", trim("tttesttt", "t"));
+  EXPECT_EQ("est", ltrim("test", "t"));
+  EXPECT_EQ("est", ltrim("tttest", "t"));
+  EXPECT_EQ("tes", rtrim("test", "t"));
+  EXPECT_EQ("tes", rtrim("testtt", "t"));
+  EXPECT_EQ("", trim("tttttttt", "t"));
+
+  // Empty list of custom trim characters.
+  EXPECT_EQ("test", trim("test", ""));
+
+  // Multiple custom trim characters.
+  EXPECT_EQ("nan", trim("banana", "ab"));
+  EXPECT_EQ("nan", trim("banana", "ba"));
+  EXPECT_EQ("", trim("banana", "abn"));
+  EXPECT_EQ("", trim("banana", "nba"));
+  EXPECT_EQ("anana", trim("banana", "bn"));
+  EXPECT_EQ("anana", trim("banana", "nb"));
+}
+
 } // namespace
 } // namespace facebook::velox::functions

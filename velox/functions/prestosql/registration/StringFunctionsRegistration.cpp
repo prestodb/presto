@@ -52,8 +52,13 @@ void registerSimpleFunctions(const std::string& prefix) {
       {prefix + "split_part"});
 
   registerFunction<TrimFunction, Varchar, Varchar>({prefix + "trim"});
+  registerFunction<TrimFunction, Varchar, Varchar, Varchar>({prefix + "trim"});
   registerFunction<LTrimFunction, Varchar, Varchar>({prefix + "ltrim"});
+  registerFunction<LTrimFunction, Varchar, Varchar, Varchar>(
+      {prefix + "ltrim"});
   registerFunction<RTrimFunction, Varchar, Varchar>({prefix + "rtrim"});
+  registerFunction<RTrimFunction, Varchar, Varchar, Varchar>(
+      {prefix + "rtrim"});
 
   registerFunction<LPadFunction, Varchar, Varchar, int64_t, Varchar>(
       {prefix + "lpad"});

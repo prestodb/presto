@@ -153,10 +153,39 @@ struct TrimFunctionBase {
     stringImpl::trimUnicodeWhiteSpace<leftTrim, rightTrim>(result, input);
   }
 
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input,
+      const arg_type<Varchar>& trimCharacters) {
+    if (stringCore::isAscii(trimCharacters.data(), trimCharacters.size())) {
+      callAscii(result, input, trimCharacters);
+    } else {
+      VELOX_UNSUPPORTED(
+          "trim functions with custom trim characters and non-ASCII inputs are not supported yet");
+    }
+  }
+
   FOLLY_ALWAYS_INLINE void callAscii(
       out_type<Varchar>& result,
       const arg_type<Varchar>& input) {
-    stringImpl::trimAsciiWhiteSpace<leftTrim, rightTrim>(result, input);
+    stringImpl::trimAscii<leftTrim, rightTrim>(
+        result, input, stringImpl::isAsciiWhiteSpace);
+  }
+
+  FOLLY_ALWAYS_INLINE void callAscii(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input,
+      const arg_type<Varchar>& trimCharacters) {
+    const auto numChars = trimCharacters.size();
+    const auto* chars = trimCharacters.data();
+    stringImpl::trimAscii<leftTrim, rightTrim>(result, input, [&](char c) {
+      for (auto i = 0; i < numChars; ++i) {
+        if (c == chars[i]) {
+          return true;
+        }
+      }
+      return false;
+    });
   }
 };
 
