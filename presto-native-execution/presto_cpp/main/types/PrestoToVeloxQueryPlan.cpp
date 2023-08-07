@@ -1640,6 +1640,70 @@ velox::VectorPtr VeloxQueryPlanConverterBase::evaluateConstantExpression(
   return result[0];
 }
 
+std::shared_ptr<core::AggregationNode>
+VeloxQueryPlanConverterBase::generateAggregationNode(
+    const std::shared_ptr<protocol::StatisticAggregations>&
+        statisticsAggregation,
+    core::AggregationNode::Step step,
+    const protocol::PlanNodeId& id,
+    const std::shared_ptr<protocol::PlanNode>& source,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  if (statisticsAggregation == nullptr) {
+    return nullptr;
+  }
+  auto outputVariables = statisticsAggregation->outputVariables;
+  auto aggregationMap = statisticsAggregation->aggregations;
+  auto groupingVariables = statisticsAggregation->groupingVariables;
+  VELOX_CHECK_EQ(
+      aggregationMap.size(),
+      outputVariables.size(),
+      "TableWriterNode's aggregations and outputVariables should be the same size");
+  VELOX_CHECK(
+      !outputVariables.empty(),
+      "TableWriterNode's outputVariables shouldn't be empty");
+
+  std::vector<std::string> aggregateNames;
+  std::vector<core::AggregationNode::Aggregate> aggregates;
+  toAggregations(outputVariables, aggregationMap, aggregates, aggregateNames);
+
+  return std::make_shared<core::AggregationNode>(
+      id,
+      step,
+      toVeloxExprs(statisticsAggregation->groupingVariables),
+      std::vector<core::FieldAccessTypedExprPtr>{},
+      aggregateNames,
+      aggregates,
+      false, // ignoreNullKeys
+      toVeloxQueryPlan(source, tableWriteInfo, taskId));
+}
+
+std::vector<protocol::VariableReferenceExpression>
+VeloxQueryPlanConverterBase::generateOutputVariables(
+    const std::vector<protocol::VariableReferenceExpression>&
+        nonStatisticsOutputVariables,
+    const std::shared_ptr<protocol::StatisticAggregations>&
+        statisticsAggregation) {
+  std::vector<protocol::VariableReferenceExpression> outputVariables;
+  outputVariables.insert(
+      outputVariables.end(),
+      nonStatisticsOutputVariables.begin(),
+      nonStatisticsOutputVariables.end());
+  if (statisticsAggregation == nullptr) {
+    return outputVariables;
+  }
+  auto statisticsOutputVariables = statisticsAggregation->outputVariables;
+  auto statisticsGroupingVariables = statisticsAggregation->groupingVariables;
+  outputVariables.insert(
+      outputVariables.end(),
+      statisticsGroupingVariables.begin(),
+      statisticsGroupingVariables.end());
+  for (auto const& variable : statisticsOutputVariables) {
+    outputVariables.push_back(variable);
+  }
+  return outputVariables;
+}
+
 void VeloxQueryPlanConverterBase::toAggregations(
     const std::vector<protocol::VariableReferenceExpression>& outputVariables,
     const std::map<
@@ -2120,46 +2184,19 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   auto insertTableHandle =
       std::make_shared<core::InsertTableHandle>(connectorId, hiveTableHandle);
 
-  std::vector<protocol::VariableReferenceExpression> variables = {
-      node->rowCountVariable,
-      node->fragmentVariable,
-      node->tableCommitContextVariable};
-
-  std::shared_ptr<core::AggregationNode> aggregationNode;
-  if (node->statisticsAggregation != nullptr) {
-    auto outputVariables = node->statisticsAggregation->outputVariables;
-    auto aggregationMap = node->statisticsAggregation->aggregations;
-    auto groupingVariables = node->statisticsAggregation->groupingVariables;
-    VELOX_CHECK_EQ(
-        aggregationMap.size(),
-        outputVariables.size(),
-        "TableWriterNode's aggregations and outputVariables should be the same size");
-    VELOX_CHECK(
-        !outputVariables.empty(),
-        "TableWriterNode's outputVariables shouldn't be empty");
-    variables.insert(
-        variables.end(), groupingVariables.begin(), groupingVariables.end());
-    for (auto const& variable : outputVariables) {
-      variables.push_back(variable);
-    }
-
-    std::vector<std::string> aggregateNames;
-    std::vector<core::AggregationNode::Aggregate> aggregates;
-    toAggregations(outputVariables, aggregationMap, aggregates, aggregateNames);
-
-    aggregationNode = std::make_shared<core::AggregationNode>(
-        // Use the ID of the DistinctLimit plan node here to propagate the
-        // stats.
-        node->id,
-        core::AggregationNode::Step::kPartial,
-        toVeloxExprs(node->statisticsAggregation->groupingVariables),
-        std::vector<core::FieldAccessTypedExprPtr>{},
-        aggregateNames,
-        aggregates,
-        false, // ignoreNullKeys
-        toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
-  }
-  auto outputType = toRowType(variables);
+  const auto outputType = toRowType(generateOutputVariables(
+      {node->rowCountVariable,
+       node->fragmentVariable,
+       node->tableCommitContextVariable},
+      node->statisticsAggregation));
+  std::shared_ptr<core::AggregationNode> aggregationNode =
+      generateAggregationNode(
+          node->statisticsAggregation,
+          core::AggregationNode::Step::kPartial,
+          node->id,
+          node->source,
+          tableWriteInfo,
+          taskId);
   return std::make_shared<core::TableWriteNode>(
       node->id,
       toRowType(node->columns),
@@ -2177,13 +2214,24 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::TableWriterMergeNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
-  const auto outputType = toRowType(
+  const auto outputType = toRowType(generateOutputVariables(
       {node->rowCountVariable,
        node->fragmentVariable,
-       node->tableCommitContextVariable});
+       node->tableCommitContextVariable},
+      node->statisticsAggregation));
+  std::shared_ptr<core::AggregationNode> aggregationNode =
+      generateAggregationNode(
+          node->statisticsAggregation,
+          core::AggregationNode::Step::kIntermediate,
+          node->id,
+          node->source,
+          tableWriteInfo,
+          taskId);
+
   return std::make_shared<core::TableWriteMergeNode>(
       node->id,
       outputType,
+      aggregationNode,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 

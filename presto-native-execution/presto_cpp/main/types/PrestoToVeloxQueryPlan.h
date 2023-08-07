@@ -192,6 +192,21 @@ class VeloxQueryPlanConverterBase {
   velox::VectorPtr evaluateConstantExpression(
       const velox::core::TypedExprPtr& expression);
 
+  std::shared_ptr<velox::core::AggregationNode> generateAggregationNode(
+      const std::shared_ptr<protocol::StatisticAggregations>&
+          statisticsAggregation,
+      velox::core::AggregationNode::Step step,
+      const protocol::PlanNodeId& id,
+      const std::shared_ptr<protocol::PlanNode>& source,
+      const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+      const protocol::TaskId& taskId);
+
+  std::vector<protocol::VariableReferenceExpression> generateOutputVariables(
+      const std::vector<protocol::VariableReferenceExpression>&
+          nonStatisticsOutputVariables,
+      const std::shared_ptr<protocol::StatisticAggregations>&
+          statisticsAggregation);
+
   void toAggregations(
       const std::vector<protocol::VariableReferenceExpression>& outputVariables,
       const std::map<
