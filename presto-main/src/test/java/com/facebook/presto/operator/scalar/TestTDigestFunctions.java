@@ -665,6 +665,79 @@ public class TestTDigestFunctions
         assertEquals(constructedSqlVarbinary, sqlVarbinary);
     }
 
+    @Test
+    public void testArrayMergeTDigestNullInput() {
+        functionAssertions.assertFunction("array_merge(null)", TDIGEST_DOUBLE, null);
+    }
+    @Test
+    public void testArrayMergeTDigestEmptyArray() {
+        functionAssertions.assertFunction("array_merge(array[])", TDIGEST_DOUBLE, null);
+    }
+    @Test
+    public void testArrayMergeTDigestEmptyArrayOfNull() {
+        functionAssertions.assertFunction("array_merge(array[null])", TDIGEST_DOUBLE, null);
+    }
+    @Test
+    public void testArrayMergeTDigestEmptyArrayOfNulls() {
+        functionAssertions.assertFunction("array_merge(array[null, null, null])", TDIGEST_DOUBLE, null);
+    }
+    @Test
+    public void testArrayMergeTDigests() {
+        TDigest digest1 = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        addAll(digest1, 0.1);
+        TDigest digest2 = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        addAll(digest2, 0.2);
+        SqlVarbinary sqlVarbinary = functionAssertions.selectSingleValue(
+                format("array_merge(cast(array[%s, %s] as array(tdigest(double))))",
+                        toSqlString(digest1),
+                        toSqlString(digest2)),
+                TDIGEST_DOUBLE,
+                SqlVarbinary.class);
+        digest1.merge(digest2);
+        assertEquals(sqlVarbinary, new SqlVarbinary(digest1.serialize().getBytes()));
+    }
+    @Test
+    public void testArrayMergeTDigestOneNull() {
+        TDigest digest1 = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        addAll(digest1, 0.1);
+        SqlVarbinary sqlVarbinary = functionAssertions.selectSingleValue(
+                format("array_merge(cast(array[%s, null] as array(tdigest(double))))",
+                        toSqlString(digest1)),
+                TDIGEST_DOUBLE,
+                SqlVarbinary.class);
+        assertEquals(sqlVarbinary, new SqlVarbinary(digest1.serialize().getBytes()));
+    }
+    @Test
+    public void testArrayMergeTDigestOneNullFirst() {
+        TDigest digest1 = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        addAll(digest1, 0.1);
+        TDigest digest2 = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        addAll(digest2, 0.2);
+        SqlVarbinary sqlVarbinary = functionAssertions.selectSingleValue(
+                format("array_merge(cast(array[null, %s, %s] as array(tdigest(double))))",
+                        toSqlString(digest1),
+                        toSqlString(digest2)),
+                TDIGEST_DOUBLE,
+                SqlVarbinary.class);
+        digest1.merge(digest2);
+        assertEquals(sqlVarbinary, new SqlVarbinary(digest1.serialize().getBytes()));
+    }
+    @Test
+    public void testArrayMergeTDigestOneNullMiddle() {
+        TDigest digest1 = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        addAll(digest1, 0.1);
+        TDigest digest2 = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        addAll(digest2, 0.2);
+        SqlVarbinary sqlVarbinary = functionAssertions.selectSingleValue(
+                format("array_merge(cast(array[%s, null, %s] as array(tdigest(double))))",
+                        toSqlString(digest1),
+                        toSqlString(digest2)),
+                TDIGEST_DOUBLE,
+                SqlVarbinary.class);
+        digest1.merge(digest2);
+        assertEquals(sqlVarbinary, new SqlVarbinary(digest1.serialize().getBytes()));
+    }
+
     // disabled because test takes almost 10s
     @Test(enabled = false)
     public void testBinomialDistribution()

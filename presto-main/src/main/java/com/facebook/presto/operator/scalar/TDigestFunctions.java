@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.tdigest.Centroid;
 import com.facebook.presto.tdigest.TDigest;
@@ -180,5 +181,32 @@ public final class TDigestFunctions
                 toIntExact(count));
 
         return tDigest.serialize();
+    }
+
+    @ScalarFunction(value = "array_merge", visibility = EXPERIMENTAL)
+    @Description("Merge an array of TDigests into a single TDigest")
+    @SqlType("tdigest(double)")
+    @SqlNullable
+    public static Slice arrayMerge(@SqlType("array(tdigest(double))") Block input) {
+        if (input.getPositionCount() == 0) {
+            return null;
+        }
+        TDigest output = null;
+        int firstNonNullIndex = 0;
+        while (firstNonNullIndex < input.getPositionCount() && input.isNull(firstNonNullIndex)) {
+            firstNonNullIndex++;
+        }
+        if (firstNonNullIndex == input.getPositionCount()) {
+            return null;
+        }
+        Slice initialSlice = input.getSlice(firstNonNullIndex, 0, input.getSliceLength(firstNonNullIndex));
+        output = createTDigest(initialSlice);
+        for (int i = firstNonNullIndex + 1; i < input.getPositionCount(); i++) {
+            if (input.isNull(i)) {
+                continue;
+            }
+            output.merge(createTDigest(input.getSlice(i, 0, input.getSliceLength(i))));
+        }
+        return output.serialize();
     }
 }
