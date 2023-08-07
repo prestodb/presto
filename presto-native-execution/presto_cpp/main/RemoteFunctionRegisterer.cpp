@@ -45,7 +45,7 @@ size_t processFile(
 
 } // namespace
 
-size_t registerRemoteFuctions(
+size_t registerRemoteFunctions(
     const std::string& inputPath,
     const folly::SocketAddress& location) {
   size_t signaturesCount = 0;

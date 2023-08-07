@@ -329,12 +329,38 @@ folly::Optional<std::string> SystemConfig::discoveryUri() const {
 
 folly::Optional<folly::SocketAddress>
 SystemConfig::remoteFunctionServerLocation() const {
+  // First check if there is a UDS path registered. If there's one, use it.
+  auto remoteServerUdsPath =
+      optionalProperty(kRemoteFunctionServerThriftUdsPath);
+  if (remoteServerUdsPath.hasValue()) {
+    return folly::SocketAddress::makeFromPath(remoteServerUdsPath.value());
+  }
+
+  // Otherwise, check for address and port parameters.
+  auto remoteServerAddress =
+      optionalProperty(kRemoteFunctionServerThriftAddress);
   auto remoteServerPort =
       optionalProperty<uint16_t>(kRemoteFunctionServerThriftPort);
+
   if (remoteServerPort.hasValue()) {
-    return folly::SocketAddress{"::1", remoteServerPort.value()};
+    // Fallback to localhost if address is not specified.
+    return remoteServerAddress.hasValue()
+        ? folly::
+              SocketAddress{remoteServerAddress.value(), remoteServerPort.value()}
+        : folly::SocketAddress{"::1", remoteServerPort.value()};
+  } else if (remoteServerAddress.hasValue()) {
+    VELOX_FAIL(
+        "Remote function server port not provided using '{}'.",
+        kRemoteFunctionServerThriftPort);
   }
+
+  // No remote function server configured.
   return folly::none;
+}
+
+folly::Optional<std::string>
+SystemConfig::remoteFunctionServerSignatureFilesDirectoryPath() const {
+  return optionalProperty(kRemoteFunctionServerSignatureFilesDirectoryPath);
 }
 
 int32_t SystemConfig::maxDriversPerTask() const {

@@ -255,10 +255,6 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kEnableMemoryLeakCheck{
       "enable-memory-leak-check"};
 
-  /// Port used by the remote function thrift server.
-  static constexpr std::string_view kRemoteFunctionServerThriftPort{
-      "remote-function-server.thrift.port"};
-
   /// Do not include runtime stats in the returned task info if the task is
   /// in running state.
   static constexpr std::string_view kSkipRuntimeStatsInRunningTaskInfo{
@@ -285,6 +281,27 @@ class SystemConfig : public ConfigBase {
 
   static constexpr std::string_view kIncludeNodeInSpillPath{
       "include-node-in-spill-path"};
+
+  /// Remote function server configs.
+
+  /// Port used by the remote function thrift server.
+  static constexpr std::string_view kRemoteFunctionServerThriftPort{
+      "remote-function-server.thrift.port"};
+
+  /// Address (ip or hostname) used by the remote function thrift server
+  /// (fallback to localhost if not specified).
+  static constexpr std::string_view kRemoteFunctionServerThriftAddress{
+      "remote-function-server.thrift.address"};
+
+  /// UDS (unix domain socket) path used by the remote function thrift server.
+  static constexpr std::string_view kRemoteFunctionServerThriftUdsPath{
+      "remote-function-server.thrift.uds-path"};
+
+  /// Path where json files containing signatures for remote functions can be
+  /// found.
+  static constexpr std::string_view
+      kRemoteFunctionServerSignatureFilesDirectoryPath{
+          "remote-function-server.signature.files.directory.path"};
 
   SystemConfig();
 
@@ -328,6 +345,9 @@ class SystemConfig : public ConfigBase {
   folly::Optional<std::string> discoveryUri() const;
 
   folly::Optional<folly::SocketAddress> remoteFunctionServerLocation() const;
+
+  folly::Optional<std::string> remoteFunctionServerSignatureFilesDirectoryPath()
+      const;
 
   int32_t maxDriversPerTask() const;
 
