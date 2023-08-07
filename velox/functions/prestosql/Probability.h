@@ -20,6 +20,7 @@
 #include "boost/math/distributions/cauchy.hpp"
 #include "boost/math/distributions/chi_squared.hpp"
 #include "boost/math/distributions/fisher_f.hpp"
+#include "boost/math/distributions/poisson.hpp"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/Macros.h"
 
@@ -163,6 +164,19 @@ struct FCDFFunction {
 
     boost::math::fisher_f_distribution<> dist(df1, df2);
     result = boost::math::cdf(dist, value);
+  }
+};
+
+template <typename T>
+struct PoissonCDFFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(double& result, double lambda, int64_t value) {
+    VELOX_USER_CHECK_GE(value, 0, "value must be a non-negative integer");
+    VELOX_USER_CHECK_GT(lambda, 0, "lambda must be greater than 0");
+
+    boost::math::poisson_distribution<double> poisson(lambda);
+    result = boost::math::cdf(poisson, value);
   }
 };
 

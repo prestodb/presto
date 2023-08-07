@@ -115,6 +115,8 @@ void registerSimpleFunctions(const std::string& prefix) {
       {prefix + "inverse_beta_cdf"});
   registerFunction<FCDFFunction, double, double, double, double>(
       {prefix + "f_cdf"});
+  registerFunction<PoissonCDFFunction, double, double, int64_t>(
+      {prefix + "poisson_cdf"});
 }
 
 } // namespace

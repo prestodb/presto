@@ -280,5 +280,27 @@ TEST_F(ProbabilityTest, fCDF) {
   VELOX_ASSERT_THROW(fCDF(1, -kInf, -0.1), "value must non-negative");
 }
 
+TEST_F(ProbabilityTest, poissonCDF) {
+  const auto poissonCDF = [&](std::optional<double> lambda,
+                              std::optional<int64_t> value) {
+    return evaluateOnce<double>("poisson_cdf(c0, c1)", lambda, value);
+  };
+
+  EXPECT_EQ(0.91608205796869657, poissonCDF(3, 5));
+  EXPECT_EQ(0, poissonCDF(kDoubleMax, 3));
+  EXPECT_EQ(1, poissonCDF(3, kBigIntMax));
+  EXPECT_EQ(1, poissonCDF(kDoubleMin, 3));
+  EXPECT_EQ(std::nullopt, poissonCDF(std::nullopt, 1));
+  EXPECT_EQ(std::nullopt, poissonCDF(1, std::nullopt));
+  EXPECT_EQ(std::nullopt, poissonCDF(std::nullopt, std::nullopt));
+  VELOX_ASSERT_THROW(poissonCDF(kNan, 3), "lambda must be greater than 0");
+  VELOX_ASSERT_THROW(poissonCDF(-3, 5), "lambda must be greater than 0");
+  VELOX_ASSERT_THROW(
+      poissonCDF(3, kBigIntMin), "value must be a non-negative integer");
+  VELOX_ASSERT_THROW(
+      poissonCDF(3, -10), "value must be a non-negative integer");
+  EXPECT_THROW(poissonCDF(kInf, 3), VeloxUserError);
+}
+
 } // namespace
 } // namespace facebook::velox

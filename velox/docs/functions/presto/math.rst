@@ -276,6 +276,11 @@ Probability Functions: cdf
     The mean and value must be real values and the standard deviation must be a real and
     positive value (all of type DOUBLE).
 
+.. function:: poisson_cdf(lambda, value) -> double
+
+    Compute the Poisson cdf with given lambda (mean) parameter:  P(N <= value; lambda).
+    The lambda parameter must be a positive real number (of type DOUBLE) and value must be a non-negative integer.
+
 
 ====================================
 Probability Functions: inverse_cdf
@@ -286,4 +291,3 @@ Probability Functions: inverse_cdf
     Compute the inverse of the Beta cdf with given a, b parameters for the cumulative
     probability (p): P(N < n). The a, b parameters must be positive real values (all of type DOUBLE).
     The probability p must lie on the interval [0, 1].
-
