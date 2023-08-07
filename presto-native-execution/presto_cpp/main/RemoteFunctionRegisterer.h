@@ -27,7 +27,7 @@ namespace facebook::presto {
 /// to.
 ///
 /// Returns the number of signatures registered.
-size_t registerRemoteFuctions(
+size_t registerRemoteFunctions(
     const std::string& inputPath,
     const folly::SocketAddress& location);
 

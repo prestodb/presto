@@ -66,7 +66,7 @@ TEST_F(RemoteFunctionRegistererTest, singleFile) {
   EXPECT_TRUE(exec::getVectorFunctionSignatures("mock2") == std::nullopt);
 
   // Read and register functions in that file.
-  EXPECT_EQ(registerRemoteFuctions(path->path, {}), 2);
+  EXPECT_EQ(registerRemoteFunctions(path->path, {}), 2);
   EXPECT_TRUE(exec::getVectorFunctionSignatures("mock1") != std::nullopt);
   EXPECT_TRUE(exec::getVectorFunctionSignatures("mock2") != std::nullopt);
 }
@@ -97,7 +97,7 @@ TEST_F(RemoteFunctionRegistererTest, directory) {
   fs::create_directory(tempSubdir);
   writeToFile(tempSubdir + "/remote3.json", getJson("mock3"));
 
-  EXPECT_EQ(registerRemoteFuctions(tempDir->path, {}), 3);
+  EXPECT_EQ(registerRemoteFunctions(tempDir->path, {}), 3);
 }
 
 } // namespace
