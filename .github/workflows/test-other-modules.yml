@@ -62,4 +62,5 @@ jobs:
             !presto-orc,
             !presto-thrift-connector,
             !presto-native-execution,
-            !presto-test-coverage'
+            !presto-test-coverage,
+            !presto-iceberg'
