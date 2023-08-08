@@ -58,6 +58,7 @@ TEST_F(MemoryArbitrationTest, kind) {
   } testSettings[] = {
       {MemoryArbitrator::Kind::kNoOp, "NOOP"},
       {MemoryArbitrator::Kind::kShared, "SHARED"},
+      {MemoryArbitrator::Kind::kCustom, "CUSTOM"},
       {static_cast<MemoryArbitrator::Kind>(100), "UNKNOWN: 100"}};
 
   for (const auto& testData : testSettings) {
@@ -71,6 +72,7 @@ TEST_F(MemoryArbitrationTest, create) {
   const std::vector<MemoryArbitrator::Kind> kinds = {
       MemoryArbitrator::Kind::kNoOp,
       MemoryArbitrator::Kind::kShared,
+      MemoryArbitrator::Kind::kCustom,
       static_cast<MemoryArbitrator::Kind>(100)};
   for (const auto& kind : kinds) {
     MemoryArbitrator::Config config;
@@ -81,6 +83,10 @@ TEST_F(MemoryArbitrationTest, create) {
     } else if (kind == MemoryArbitrator::Kind::kShared) {
       auto arbitrator = MemoryArbitrator::create(config);
       ASSERT_EQ(arbitrator->kind(), kind);
+    } else if (kind == MemoryArbitrator::Kind::kCustom) {
+      VELOX_ASSERT_THROW(
+          MemoryArbitrator::create(config),
+          "CUSTOM kind of Arbitrator can't be created via create");
     } else {
       VELOX_ASSERT_THROW(MemoryArbitrator::create(config), "");
     }

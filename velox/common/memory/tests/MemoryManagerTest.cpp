@@ -35,6 +35,38 @@ constexpr folly::StringPiece kDefaultRootName{"__default_root__"};
 MemoryManager& toMemoryManager(MemoryManager& manager) {
   return *static_cast<MemoryManager*>(&manager);
 }
+
+class ArbitratorWithCapacityOverridden : public MemoryArbitrator {
+ public:
+  explicit ArbitratorWithCapacityOverridden(
+      const Config& config,
+      int64_t capacity)
+      : MemoryArbitrator(
+            {.kind = config.kind,
+             .capacity = capacity,
+             .memoryPoolInitCapacity = config.memoryPoolInitCapacity,
+             .memoryPoolTransferCapacity = config.memoryPoolTransferCapacity,
+             .retryArbitrationFailure = config.retryArbitrationFailure}) {}
+
+  void reserveMemory(MemoryPool* pool, uint64_t bytes) override {
+    VELOX_FAIL("Unreachable")
+  }
+
+  void releaseMemory(MemoryPool* pool) override {
+    VELOX_FAIL("Unreachable")
+  }
+
+  bool growMemory(
+      MemoryPool* pool,
+      const std::vector<std::shared_ptr<MemoryPool>>& candidatePools,
+      uint64_t targetBytes) override{VELOX_FAIL("Unreachable")}
+
+  Stats stats() const override{VELOX_FAIL("Unreachable")}
+
+  std::string toString() const override {
+    VELOX_FAIL("Unreachable")
+  }
+};
 } // namespace
 
 TEST(MemoryManagerTest, Ctor) {
@@ -75,6 +107,20 @@ TEST(MemoryManagerTest, Ctor) {
     auto* arbitrator = manager.arbitrator();
     ASSERT_EQ(arbitrator->kind(), MemoryArbitrator::Kind::kShared);
     ASSERT_EQ(arbitrator->stats().maxCapacityBytes, capacity);
+  }
+}
+
+TEST(MemoryManagerTest, createWithCustomArbitrator) {
+  {
+    MemoryManagerOptions options;
+    options.arbitratorKind = MemoryArbitrator::Kind::kCustom;
+    options.capacity = 8L * 1024 * 1024;
+    options.arbitratorFactory = [](MemoryArbitrator::Config config) {
+      return std::make_unique<ArbitratorWithCapacityOverridden>(config, 0LL);
+    };
+    VELOX_ASSERT_THROW(
+        MemoryManager{options},
+        "Memory arbitrator and memory manager must have the same capacity")
   }
 }
 

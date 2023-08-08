@@ -31,12 +31,24 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
       // TODO: consider to reserve a small amount of memory to compensate for
       //  the unreclaimable cache memory which are pinned by query accesses if
       //  enabled.
-      arbitrator_(MemoryArbitrator::create(MemoryArbitrator::Config{
-          .kind = options.arbitratorKind,
-          .capacity = capacity_,
-          .memoryPoolInitCapacity = options.memoryPoolInitCapacity,
-          .memoryPoolTransferCapacity = options.memoryPoolTransferCapacity,
-          .retryArbitrationFailure = options.retryArbitrationFailure})),
+      arbitrator_(
+          options.arbitratorKind == MemoryArbitrator::Kind::kCustom
+              ? options.arbitratorFactory(
+                    {.kind = options.arbitratorKind,
+                     .capacity = options.capacity,
+                     .memoryPoolInitCapacity = options.memoryPoolInitCapacity,
+                     .memoryPoolTransferCapacity =
+                         options.memoryPoolTransferCapacity,
+                     .retryArbitrationFailure =
+                         options.retryArbitrationFailure})
+              : MemoryArbitrator::create(
+                    {.kind = options.arbitratorKind,
+                     .capacity = options.capacity,
+                     .memoryPoolInitCapacity = options.memoryPoolInitCapacity,
+                     .memoryPoolTransferCapacity =
+                         options.memoryPoolTransferCapacity,
+                     .retryArbitrationFailure =
+                         options.retryArbitrationFailure})),
       alignment_(std::max(MemoryAllocator::kMinAlignment, options.alignment)),
       checkUsageLeak_(options.checkUsageLeak),
       debugEnabled_(options.debugEnabled),
@@ -58,6 +70,12 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
               .checkUsageLeak = options.checkUsageLeak,
               .debugEnabled = options.debugEnabled})} {
   VELOX_CHECK_NOT_NULL(allocator_);
+  if (arbitrator_ != nullptr) {
+    VELOX_CHECK_EQ(
+        arbitrator_->capacity(),
+        capacity_,
+        "Memory arbitrator and memory manager must have the same capacity");
+  }
   VELOX_USER_CHECK_GE(capacity_, 0);
   MemoryAllocator::alignmentCheck(0, alignment_);
   defaultRoot_->grow(defaultRoot_->maxCapacity());
