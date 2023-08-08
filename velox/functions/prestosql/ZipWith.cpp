@@ -182,6 +182,8 @@ class ZipWithFunction : public exec::VectorFunction {
         decodedInputs.decodedRight->mayHaveNulls()) {
       nulls = allocateNulls(rows.end(), pool);
       rawNulls = nulls->asMutable<uint64_t>();
+      // Set nulls for rows not present in 'rows'.
+      memcpy(rawNulls, rows.asRange().bits(), bits::nbytes(rows.end()));
     }
 
     auto leftSizes = decodedInputs.baseLeft->rawSizes();

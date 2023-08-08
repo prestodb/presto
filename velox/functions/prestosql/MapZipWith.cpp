@@ -191,6 +191,13 @@ class MapZipWithFunction : public exec::VectorFunction {
           &mergedValues);
     }
 
+    // Set nulls for rows not present in 'rows'.
+    bits::andBits(
+        mergeResults.rawNewNulls,
+        rows.asRange().bits(),
+        rows.begin(),
+        rows.end());
+
     auto localResult = std::make_shared<MapVector>(
         context.pool(),
         outputType,

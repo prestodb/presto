@@ -87,4 +87,10 @@ MapVectorPtr flattenMap(
     const SelectivityVector& rows,
     const VectorPtr& vector,
     DecodedVector& decodedVector);
+
+// Makes a copy of the original nulls in 'vector' and adds nulls for unselected
+// rows in 'rows'
+BufferPtr addNullsForUnselectedRows(
+    const VectorPtr& vector,
+    const SelectivityVector& rows);
 } // namespace facebook::velox::functions

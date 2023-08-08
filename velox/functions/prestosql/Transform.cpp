@@ -78,10 +78,13 @@ class TransformFunction : public exec::VectorFunction {
           &newElements);
     }
 
+    // Set nulls for rows not present in 'rows'.
+    BufferPtr newNulls = addNullsForUnselectedRows(flatArray, rows);
+
     VectorPtr localResult = std::make_shared<ArrayVector>(
         flatArray->pool(),
         outputType,
-        flatArray->nulls(),
+        std::move(newNulls),
         flatArray->size(),
         flatArray->offsets(),
         flatArray->sizes(),

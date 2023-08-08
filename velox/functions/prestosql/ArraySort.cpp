@@ -314,10 +314,13 @@ class ArraySortLambdaFunction : public exec::VectorFunction {
     auto sortedElements = BaseVector::wrapInDictionary(
         nullptr, indices, newNumElements, flatArray->elements());
 
+    // Set nulls for rows not present in 'rows'.
+    BufferPtr newNulls = addNullsForUnselectedRows(flatArray, rows);
+
     VectorPtr localResult = std::make_shared<ArrayVector>(
         flatArray->pool(),
         flatArray->type(),
-        flatArray->nulls(),
+        std::move(newNulls),
         flatArray->size(),
         flatArray->offsets(),
         flatArray->sizes(),

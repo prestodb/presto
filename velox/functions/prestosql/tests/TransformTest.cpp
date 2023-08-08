@@ -35,6 +35,31 @@ TEST_F(TransformTest, basic) {
   assertEqualVectors(expectedResult, result);
 }
 
+TEST_F(TransformTest, evaluateSubsetOfRows) {
+  // Test to verify that output complex vector of valid internal state is
+  // generated when only a subset of the rows are evaluated. To simulate this,
+  // the trailing rows are unselected to generate an elements vector of smaller
+  // size so that indices for those rows would point to out of bounds location
+  // in elements vector.
+  vector_size_t size = 100;
+  auto input = makeRowVector(
+      {makeArrayVector<int64_t>(size, modN(5), modN(7), nullEvery(11))});
+
+  SelectivityVector inputRows(size, false);
+  inputRows.setValidRange(0, size / 3, true);
+  inputRows.updateBounds();
+
+  auto result =
+      evaluate<ArrayVector>("transform(c0, x -> x + 5)", input, inputRows);
+
+  auto expectedResult = makeArrayVector<int64_t>(
+      size / 3,
+      modN(5),
+      [](vector_size_t row) { return row % 7 + 5; },
+      nullEvery(11));
+  assertEqualVectors(expectedResult, result, inputRows);
+}
+
 TEST_F(TransformTest, differentResultType) {
   vector_size_t size = 1'000;
   auto input = makeRowVector(

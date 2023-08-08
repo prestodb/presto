@@ -154,4 +154,23 @@ MapVectorPtr flattenMap(
           map->mapValues()));
 }
 
+BufferPtr addNullsForUnselectedRows(
+    const VectorPtr& vector,
+    const SelectivityVector& rows) {
+  // Set nulls for rows not present in 'rows'.
+  BufferPtr nulls = allocateNulls(vector->size(), vector->pool(), bits::kNull);
+  memcpy(
+      nulls->asMutable<uint64_t>(),
+      rows.asRange().bits(),
+      bits::nbytes(rows.end()));
+  if (vector->nulls() != nullptr) {
+    // Transfer original nulls
+    bits::andBits(
+        nulls->asMutable<uint64_t>(),
+        vector->rawNulls(),
+        rows.begin(),
+        rows.end());
+  }
+  return nulls;
+}
 } // namespace facebook::velox::functions

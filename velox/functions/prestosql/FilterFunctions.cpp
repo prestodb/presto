@@ -153,10 +153,12 @@ class ArrayFilterFunction : public FilterFunctionBase {
                                              numSelected,
                                              std::move(elements))
                                        : nullptr;
+    // Set nulls for rows not present in 'rows'.
+    BufferPtr newNulls = addNullsForUnselectedRows(flatArray, rows);
     auto localResult = std::make_shared<ArrayVector>(
         flatArray->pool(),
         flatArray->type(),
-        flatArray->nulls(),
+        std::move(newNulls),
         rows.end(),
         std::move(resultOffsets),
         std::move(resultSizes),
@@ -218,10 +220,12 @@ class MapFilterFunction : public FilterFunctionBase {
                                            numSelected,
                                            std::move(values))
                                      : nullptr;
+    // Set nulls for rows not present in 'rows'.
+    BufferPtr newNulls = addNullsForUnselectedRows(flatMap, rows);
     auto localResult = std::make_shared<MapVector>(
         flatMap->pool(),
         outputType,
-        flatMap->nulls(),
+        std::move(newNulls),
         rows.end(),
         std::move(resultOffsets),
         std::move(resultSizes),
