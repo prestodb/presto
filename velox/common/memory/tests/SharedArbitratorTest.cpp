@@ -1414,6 +1414,7 @@ DEBUG_ONLY_TEST_F(
 DEBUG_ONLY_TEST_F(
     SharedArbitrationTest,
     reclaimFromJoinBuildWaitForTableBuild) {
+  setupMemory(kMemoryCapacity, 0);
   const int numVectors = 32;
   std::vector<RowVectorPtr> vectors;
   fuzzerOpts_.vectorSize = 128;
@@ -1424,51 +1425,53 @@ DEBUG_ONLY_TEST_F(
   }
   const int numDrivers = 4;
   createDuckDbTable(vectors);
-  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+
   std::shared_ptr<core::QueryCtx> fakeMemoryQueryCtx =
       newQueryCtx(kMemoryCapacity);
   std::shared_ptr<core::QueryCtx> joinQueryCtx = newQueryCtx(kMemoryCapacity);
 
-  folly::EventCount allocationWait;
-  auto allocationWaitKey = allocationWait.prepareWait();
+  folly::EventCount fakeAllocationWait;
+  std::atomic<bool> fakeAllocationUnblock{false};
+  std::atomic<bool> injectFakeAllocationOnce{true};
 
-  const auto joinMemoryUsage = 8L << 20;
-  const auto fakeAllocationSize = kMemoryCapacity - joinMemoryUsage / 2;
-
-  std::atomic<bool> injectAllocationOnce{true};
   fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
-    if (!injectAllocationOnce.exchange(false)) {
+    if (!injectFakeAllocationOnce.exchange(false)) {
       return Allocation{};
     }
-    allocationWait.wait(allocationWaitKey);
+    fakeAllocationWait.await([&]() { return fakeAllocationUnblock.load(); });
+    // Set the fake allocation size to trigger memory reclaim.
+    const auto fakeAllocationSize = arbitrator_->stats().freeCapacityBytes +
+        joinQueryCtx->pool()->freeBytes() + 1;
     return Allocation{
         op->pool(),
         op->pool()->allocate(fakeAllocationSize),
         fakeAllocationSize};
   });
 
-  std::atomic<int> injectCount{0};
   folly::futures::Barrier builderBarrier(numDrivers);
   folly::futures::Barrier pauseBarrier(numDrivers + 1);
+  std::atomic<int> addInputInjectCount{0};
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::Driver::runInternal::addInput",
-      std::function<void(Operator*)>(([&](Operator* op) {
-        if (op->operatorType() != "HashBuild") {
+      "facebook::velox::exec::Driver::runInternal",
+      std::function<void(Driver*)>(([&](Driver* driver) {
+        // Check if the driver is from join query.
+        if (driver->task()->queryCtx()->pool()->name() !=
+            joinQueryCtx->pool()->name()) {
           return;
         }
-        // Check all the hash build operators' memory usage instead of
-        // individual operator.
-        if (op->pool()->parent()->currentBytes() < joinMemoryUsage) {
+        // Check if the driver is from the pipeline with hash build.
+        if (driver->driverCtx()->pipelineId != 1) {
           return;
         }
-        if (++injectCount > numDrivers - 1) {
+        if (++addInputInjectCount > numDrivers - 1) {
           return;
         }
         if (builderBarrier.wait().get()) {
-          allocationWait.notify();
+          fakeAllocationUnblock = true;
+          fakeAllocationWait.notifyAll();
         }
         // Wait for pause to be triggered.
-        pauseBarrier.wait();
+        pauseBarrier.wait().get();
       })));
 
   std::atomic<bool> injectNoMoreInputOnce{true};
@@ -1482,10 +1485,11 @@ DEBUG_ONLY_TEST_F(
           return;
         }
         if (builderBarrier.wait().get()) {
-          allocationWait.notify();
+          fakeAllocationUnblock = true;
+          fakeAllocationWait.notifyAll();
         }
         // Wait for pause to be triggered.
-        pauseBarrier.wait();
+        pauseBarrier.wait().get();
       })));
 
   std::atomic<bool> injectPauseOnce{true};
@@ -1495,18 +1499,17 @@ DEBUG_ONLY_TEST_F(
         if (!injectPauseOnce.exchange(false)) {
           return;
         }
-        pauseBarrier.wait();
+        pauseBarrier.wait().get();
       }));
 
   // Verifies that we only trigger the hash build reclaim once.
   std::atomic<int> numHashBuildReclaims{0};
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::HashBuild::reclaim",
-      std::function<void(Operator*)>(([&](Operator* /*unused*/) {
-        ++numHashBuildReclaims;
-        ASSERT_EQ(numHashBuildReclaims, 1);
-      })));
+      std::function<void(Operator*)>(
+          ([&](Operator* /*unused*/) { ++numHashBuildReclaims; })));
 
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
   std::thread joinThread([&]() {
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     auto task =
@@ -1552,8 +1555,10 @@ DEBUG_ONLY_TEST_F(
                   .planNode())
         .assertResults("SELECT * FROM tmp");
   });
+
   joinThread.join();
   memThread.join();
+
   // We only expect to reclaim from one hash build operator once.
   ASSERT_EQ(numHashBuildReclaims, 1);
   Task::testingWaitForAllTasksToBeDeleted();
