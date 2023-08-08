@@ -54,6 +54,11 @@ public class UnweightedReservoirSampleStateStrategy
         this.reservoir = reservoir;
     }
 
+    public UnweightedDoubleReservoirSample getReservoir()
+    {
+        return reservoir;
+    }
+
     @Override
     public void validateParameters(long maxSamples, double sample, double weight)
     {

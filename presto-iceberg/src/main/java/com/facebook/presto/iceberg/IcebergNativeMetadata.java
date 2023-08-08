@@ -14,9 +14,12 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.TableAlreadyExistsException;
+import com.facebook.presto.iceberg.samples.SampleUtil;
 import com.facebook.presto.iceberg.util.IcebergPrestoModelConverters;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -56,20 +59,19 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.getFormatVersio
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
-import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
 import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
+import static com.facebook.presto.iceberg.TableType.CHANGELOG;
 import static com.facebook.presto.iceberg.TableType.DATA;
+import static com.facebook.presto.iceberg.TableType.SAMPLES;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergNamespace;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
@@ -78,6 +80,7 @@ import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 public class IcebergNativeMetadata
         extends IcebergAbstractMetadata
 {
+    private static final Logger LOG = Logger.get(IcebergNativeMetadata.class);
     private static final String INFORMATION_SCHEMA = "information_schema";
     private static final String TABLE_COMMENT = "comment";
 
@@ -86,11 +89,12 @@ public class IcebergNativeMetadata
 
     public IcebergNativeMetadata(
             IcebergResourceFactory resourceFactory,
+            HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
             CatalogType catalogType)
     {
-        super(typeManager, commitTaskCodec);
+        super(typeManager, commitTaskCodec, hdfsEnvironment);
         this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
         this.catalogType = requireNonNull(catalogType, "catalogType is null");
     }
@@ -109,12 +113,15 @@ public class IcebergNativeMetadata
     public IcebergTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
-        verify(name.getTableType() == DATA, "Wrong table type: " + name.getTableType());
+        verify(name.getTableType() == DATA || name.getTableType() == SAMPLES || name.getTableType() == CHANGELOG, "Wrong table type: " + name.getTableType());
         TableIdentifier tableIdentifier = toIcebergTableIdentifier(tableName.getSchemaName(), name.getTableName());
 
         Table table;
         try {
             table = resourceFactory.getCatalog(session).loadTable(tableIdentifier);
+            if (name.getTableType() == SAMPLES) {
+                table = SampleUtil.getSampleTableFromActual(table, tableName.getSchemaName(), hdfsEnvironment, session);
+            }
         }
         catch (NoSuchTableException e) {
             // return null to throw
@@ -133,7 +140,7 @@ public class IcebergNativeMetadata
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
-        if (name.getTableType() == DATA) {
+        if (name.getTableType() == DATA || name.getTableType() == SAMPLES || name.getTableType() == CHANGELOG) {
             return Optional.empty();
         }
 
@@ -166,27 +173,6 @@ public class IcebergNativeMetadata
                 .stream()
                 .map(IcebergPrestoModelConverters::toPrestoSchemaTableName)
                 .collect(toList());
-    }
-
-    @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        Table icebergTable = getNativeIcebergTable(resourceFactory, session, table.getSchemaTableName());
-        return getColumns(icebergTable.schema(), typeManager).stream()
-                .collect(toImmutableMap(IcebergColumnHandle::getName, identity()));
-    }
-
-    @Override
-    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
-    {
-        IcebergColumnHandle column = (IcebergColumnHandle) columnHandle;
-        return ColumnMetadata.builder()
-                .setName(column.getName())
-                .setType(column.getType())
-                .setComment(column.getComment())
-                .setHidden(false)
-                .build();
     }
 
     @Override
@@ -262,7 +248,7 @@ public class IcebergNativeMetadata
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         Table icebergTable = getNativeIcebergTable(resourceFactory, session, table.getSchemaTableName());
 
-        return beginIcebergTableInsert(table, icebergTable);
+        return beginIcebergTableInsert(session, table, icebergTable, hdfsEnvironment);
     }
 
     @Override
@@ -307,19 +293,14 @@ public class IcebergNativeMetadata
     }
 
     @Override
-    protected ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table)
+    protected Table getIcebergTable(ConnectorSession session, SchemaTableName table)
     {
-        Table icebergTable;
         try {
-            icebergTable = getNativeIcebergTable(resourceFactory, session, table);
+            return getNativeIcebergTable(resourceFactory, session, table);
         }
         catch (NoSuchTableException e) {
             throw new TableNotFoundException(table);
         }
-
-        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable);
-
-        return new ConnectorTableMetadata(table, columns, createMetadataProperties(icebergTable), getTableComment(icebergTable));
     }
 
     @Override
@@ -327,6 +308,9 @@ public class IcebergNativeMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getNativeIcebergTable(resourceFactory, session, handle.getSchemaTableName());
-        return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable);
+        if (handle.getTableType() == SAMPLES) {
+            icebergTable = SampleUtil.getSampleTableFromActual(icebergTable, handle.getSchemaName(), hdfsEnvironment, session);
+        }
+        return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable, session, hdfsEnvironment);
     }
 }

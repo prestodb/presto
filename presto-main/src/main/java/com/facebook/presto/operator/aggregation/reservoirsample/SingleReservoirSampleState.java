@@ -11,17 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+package com.facebook.presto.operator.aggregation.reservoirsample;
 
-public enum TableType
+import com.facebook.presto.common.type.Type;
+
+public class SingleReservoirSampleState
+        extends ReservoirSampleState
 {
-    DATA,
-    HISTORY,
-    SNAPSHOTS,
-    MANIFESTS,
-    PARTITIONS,
-    FILES,
-    PROPERTIES,
-    SAMPLES,
-    CHANGELOG
+    public SingleReservoirSampleState(Type type)
+    {
+        super(type);
+    }
+
+    public SingleReservoirSampleState(ReservoirSampleState other)
+    {
+        super(other);
+    }
 }

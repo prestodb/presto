@@ -43,6 +43,8 @@ public class IcebergConfig
     private double minimumAssignedSplitWeight = 0.05;
     private boolean parquetDereferencePushdownEnabled = true;
 
+    private boolean useSampleStatistics = true;
+
     @NotNull
     public FileFormat getFileFormat()
     {
@@ -165,5 +167,18 @@ public class IcebergConfig
     public boolean isParquetDereferencePushdownEnabled()
     {
         return parquetDereferencePushdownEnabled;
+    }
+
+    @Config("iceberg.use-sample-statistics")
+    @ConfigDescription("Use a sample of the table rows for calculating table statistics")
+    public IcebergConfig setUseSampleStatistics(boolean useSampleStatistics)
+    {
+        this.useSampleStatistics = useSampleStatistics;
+        return this;
+    }
+
+    public boolean isUseSampleStatistics()
+    {
+        return useSampleStatistics;
     }
 }
