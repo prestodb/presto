@@ -318,6 +318,20 @@ class ConstantVector final : public SimpleVector<T> {
     return false;
   }
 
+  void validate(const VectorValidateOptions& options) const override {
+    // Do not call BaseVector's validate() since the nulls buffer has
+    // a fixed size for constant vectors.
+    if (options.callback) {
+      options.callback(*this);
+    }
+    if (valueVector_ != nullptr) {
+      if (!isNull_) {
+        VELOX_CHECK_LT(index_, valueVector_->size());
+      }
+      valueVector_->validate(options);
+    }
+  }
+
  protected:
   std::string toSummaryString() const override {
     std::stringstream out;

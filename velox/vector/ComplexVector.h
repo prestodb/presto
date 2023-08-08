@@ -192,6 +192,8 @@ class RowVector : public BaseVector {
 
   VectorPtr slice(vector_size_t offset, vector_size_t length) const override;
 
+  void validate(const VectorValidateOptions& options) const override;
+
  private:
   vector_size_t childSize() const {
     bool allConstant = false;
@@ -317,6 +319,10 @@ struct ArrayVectorBase : BaseVector {
       VectorPtr* targetKeys,
       const BaseVector* sourceKeys);
 
+  void validateArrayVectorBase(
+      const VectorValidateOptions& options,
+      vector_size_t minChildVectorSize) const;
+
  private:
   BufferPtr
   ensureIndices(BufferPtr& buf, const vector_size_t*& raw, vector_size_t size) {
@@ -437,6 +443,8 @@ class ArrayVector : public ArrayVectorBase {
   }
 
   VectorPtr slice(vector_size_t offset, vector_size_t length) const override;
+
+  void validate(const VectorValidateOptions& options) const override;
 
  private:
   VectorPtr elements_;
@@ -586,6 +594,8 @@ class MapVector : public ArrayVectorBase {
   }
 
   VectorPtr slice(vector_size_t offset, vector_size_t length) const override;
+
+  void validate(const VectorValidateOptions& options) const override;
 
  protected:
   virtual void resetDataDependentFlags(const SelectivityVector* rows) override {
