@@ -49,4 +49,12 @@ public abstract class AbstractTestNativeProbabilityFunctionQueries
     {
         assertQuery("SELECT beta_cdf(nationkey, 0.2, 0.2) from nation where nationkey > 0");
     }
+
+    @Test
+    public void testFCDF()
+    {
+        assertQuery("SELECT f_cdf(nationKey, 1, 0) FROM nation WHERE nationKey > 0");
+        assertQuery("SELECT f_cdf(nationKey, regionKey, 1) FROM nation WHERE nationKey > 0 AND regionkey > 0");
+        assertQuery("SELECT f_cdf(nationKey, 1, regionKey) FROM nation WHERE nationKey > 0 AND regionkey > 0");
+    }
 }
