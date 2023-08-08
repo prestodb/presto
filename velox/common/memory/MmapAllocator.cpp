@@ -56,17 +56,21 @@ bool MmapAllocator::allocateNonContiguousWithoutRetry(
     Allocation& out,
     ReservationCallback reservationCB,
     MachinePageCount minSizeClass) {
-  const int64_t numFreed = freeInternal(out);
+  const MachinePageCount numFreed = freeInternal(out);
+  const auto bytesFreed = AllocationTraits::pageBytes(numFreed);
   if (numFreed != 0) {
     numAllocated_.fetch_sub(numFreed);
   }
   if (numPages == 0) {
+    if ((bytesFreed != 0) && (reservationCB != nullptr)) {
+      reservationCB(bytesFreed, false);
+    }
     return true;
   }
   const SizeMix mix = allocationSize(numPages, minSizeClass);
   if (testingHasInjectedFailure(InjectedFailure::kCap)) {
-    if ((numFreed != 0) && (reservationCB != nullptr)) {
-      reservationCB(AllocationTraits::pageBytes(numFreed), false);
+    if ((bytesFreed != 0) && (reservationCB != nullptr)) {
+      reservationCB(bytesFreed, false);
     }
     return false;
   }
@@ -75,8 +79,8 @@ bool MmapAllocator::allocateNonContiguousWithoutRetry(
     VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
         << "Exceeding memory allocator limit when allocate " << mix.totalPages
         << " pages with capacity of " << capacity_;
-    if ((numFreed != 0) && (reservationCB != nullptr)) {
-      reservationCB(AllocationTraits::pageBytes(numFreed), false);
+    if ((bytesFreed != 0) && (reservationCB != nullptr)) {
+      reservationCB(bytesFreed, false);
     }
     return false;
   }
@@ -85,8 +89,8 @@ bool MmapAllocator::allocateNonContiguousWithoutRetry(
         << "Exceeded memory allocator limit when allocate " << mix.totalPages
         << " pages with capacity of " << capacity_;
     numAllocated_.fetch_sub(mix.totalPages);
-    if ((numFreed != 0) && (reservationCB != nullptr)) {
-      reservationCB(AllocationTraits::pageBytes(numFreed), false);
+    if ((bytesFreed != 0) && (reservationCB != nullptr)) {
+      reservationCB(bytesFreed, false);
     }
     return false;
   }
@@ -102,7 +106,7 @@ bool MmapAllocator::allocateNonContiguousWithoutRetry(
           << "Exceeded memory reservation limit when reserve " << numNeededPages
           << " new pages when allocate " << mix.totalPages << " pages";
       numAllocated_.fetch_sub(mix.totalPages);
-      reservationCB(AllocationTraits::pageBytes(numFreed), false);
+      reservationCB(bytesFreed, false);
       std::rethrow_exception(std::current_exception());
     }
   }
@@ -269,12 +273,17 @@ bool MmapAllocator::allocateContiguousImpl(
     }
     allocation.clear();
   }
+  const auto totalCollateralPages =
+      numCollateralPages + numLargeCollateralPages;
+  const auto totalCollateralBytes =
+      AllocationTraits::pageBytes(totalCollateralPages);
   if (numPages == 0) {
+    if (totalCollateralBytes != 0 && reservationCB != nullptr) {
+      reservationCB(totalCollateralBytes, false);
+    }
     return true;
   }
 
-  const auto totalCollateralPages =
-      numCollateralPages + numLargeCollateralPages;
   const auto numCollateralUnmap = numLargeCollateralPages;
   const int64_t newPages = numPages - totalCollateralPages;
   if (reservationCB != nullptr) {
@@ -290,7 +299,7 @@ bool MmapAllocator::allocateContiguousImpl(
 
       // We failed to grow by 'newPages. So we record the freeing off the whole
       // collateral and the unmap of former 'allocation'.
-      reservationCB(AllocationTraits::pageBytes(totalCollateralPages), false);
+      reservationCB(totalCollateralBytes, false);
       std::rethrow_exception(std::current_exception());
     }
   }

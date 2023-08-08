@@ -62,7 +62,8 @@ struct MemoryManagerOptions {
   /// Specifies the default memory allocation alignment.
   uint16_t alignment{MemoryAllocator::kMaxAlignment};
 
-  /// Specifies the max memory capacity in bytes.
+  /// Specifies the max memory capacity in bytes. MemoryManager will not
+  /// enforce capacity. This will be used by MemoryArbitrator
   int64_t capacity{kMaxMemory};
 
   /// If true, check the memory pool and usage leaks on destruction.
@@ -110,14 +111,21 @@ class MemoryManager {
   ~MemoryManager();
 
   /// Tries to get the singleton memory manager. If not previously initialized,
-  /// the process singleton manager will be initialized with the given capacity.
+  /// the process singleton manager will be initialized.
+  // TODO(jtan6): remove 'ensureCapacity' in a compatible way as we always
+  //  want to ensureCapacity after cap checks completely responsible by
+  //  allocators
   FOLLY_EXPORT static MemoryManager& getInstance(
-      const MemoryManagerOptions& options = MemoryManagerOptions{},
-      bool ensureCapacity = false);
+      const MemoryManagerOptions& options = MemoryManagerOptions{});
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  FOLLY_EXPORT static MemoryManager& getInstance(
+      const MemoryManagerOptions& options,
+      bool ensureCapacity);
+#endif
 
   /// Returns the memory capacity of this memory manager which puts a hard cap
-  /// on the memory usage, and any allocation that would exceed this capacity
-  /// throws.
+  /// on memory usage, and any allocation that exceeds this capacity throws.
   int64_t capacity() const;
 
   /// Returns the memory allocation alignment of this memory manager.
@@ -156,20 +164,6 @@ class MemoryManager {
   /// Returns the current total memory usage under this memory manager.
   int64_t getTotalBytes() const;
 
-  /// Reserves size for the allocation. Returns true if the total usage remains
-  /// under capacity after the reservation. Caller is responsible for releasing
-  /// the offending reservation.
-  ///
-  /// TODO: deprecate this and enforce the memory usage capacity by memory
-  /// allocator.
-  bool reserve(int64_t size);
-
-  /// Subtracts from current total memory usage.
-  ///
-  /// TODO: deprecate this and enforce the memory usage capacity by memory
-  /// allocator.
-  void release(int64_t size);
-
   /// Returns the number of alive memory pools allocated from addRootPool() and
   /// addLeafPool().
   ///
@@ -200,6 +194,11 @@ class MemoryManager {
   //  Returns the shared references to all the alive memory pools in 'pools_'.
   std::vector<std::shared_ptr<MemoryPool>> getAlivePools() const;
 
+  // Specifies the total memory capacity. Memory manager itself doesn't enforce
+  // the capacity but relies on memory allocator and memory arbitrator to do the
+  // enforcement. Memory allocator ensures physical memory allocations are
+  // within capacity limit. Memory arbitrator ensures that total allocated
+  // memory pool capacity is within the limit.
   const int64_t capacity_;
   const std::shared_ptr<MemoryAllocator> allocator_;
   // If not null, used to arbitrate the memory capacity among 'pools_'.
@@ -216,7 +215,6 @@ class MemoryManager {
   std::vector<std::shared_ptr<MemoryPool>> sharedLeafPools_;
 
   mutable folly::SharedMutex mutex_;
-  std::atomic_long totalBytes_{0};
   std::unordered_map<std::string, std::weak_ptr<MemoryPool>> pools_;
 };
 

@@ -92,7 +92,8 @@ inline constexpr auto kMemCapExceeded = "MEM_CAP_EXCEEDED"_fs;
 // An error raised when memory pool is aborted.
 inline constexpr auto kMemAborted = "MEM_ABORTED"_fs;
 
-// Error caused by memory allocation failure.
+// Error caused by memory allocation failure (inclusive of allocator memory cap
+// exceeded).
 inline constexpr auto kMemAllocError = "MEM_ALLOC_ERROR"_fs;
 
 // Error caused by failing to allocate cache buffer space for IO.

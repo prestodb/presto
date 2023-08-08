@@ -30,11 +30,17 @@ bool MallocAllocator::allocateNonContiguousWithoutRetry(
     MachinePageCount minSizeClass) {
   const uint64_t freedBytes = freeNonContiguous(out);
   if (numPages == 0) {
+    if (freedBytes != 0 && reservationCB != nullptr) {
+      reservationCB(freedBytes, false);
+    }
     return true;
   }
   const SizeMix mix = allocationSize(numPages, minSizeClass);
   const auto totalBytes = AllocationTraits::pageBytes(mix.totalPages);
   if (!incrementUsage(totalBytes)) {
+    if (freedBytes != 0 && reservationCB != nullptr) {
+      reservationCB(freedBytes, false);
+    }
     return false;
   }
 
@@ -151,16 +157,25 @@ bool MallocAllocator::allocateContiguousImpl(
     decrementUsage(AllocationTraits::pageBytes(numContiguousCollateralPages));
     allocation.clear();
   }
+  const auto totalCollateralPages =
+      numCollateralPages + numContiguousCollateralPages;
+  const auto totalCollateralBytes =
+      AllocationTraits::pageBytes(totalCollateralPages);
   if (numPages == 0) {
+    if (totalCollateralBytes != 0 && reservationCB != nullptr) {
+      reservationCB(totalCollateralBytes, false);
+    }
     return true;
   }
 
   const auto totalBytes = AllocationTraits::pageBytes(numPages);
   if (!incrementUsage(totalBytes)) {
+    if (totalCollateralBytes != 0 && reservationCB != nullptr) {
+      reservationCB(totalCollateralBytes, false);
+    }
     return false;
   }
-  const int64_t numNeededPages =
-      numPages - (numCollateralPages + numContiguousCollateralPages);
+  const int64_t numNeededPages = numPages - totalCollateralPages;
   if (reservationCB != nullptr) {
     try {
       reservationCB(AllocationTraits::pageBytes(numNeededPages), true);
@@ -170,14 +185,9 @@ bool MallocAllocator::allocateContiguousImpl(
       VELOX_MEM_LOG(WARNING)
           << "Failed to reserve " << AllocationTraits::pageBytes(numNeededPages)
           << " bytes for contiguous allocation of " << numPages
-          << " pages, then release "
-          << (numCollateralPages + numContiguousCollateralPages) *
-              AllocationTraits::kPageSize
+          << " pages, then release " << totalCollateralBytes
           << " bytes from the old allocations";
-      reservationCB(
-          (numCollateralPages + numContiguousCollateralPages) *
-              AllocationTraits::kPageSize,
-          false);
+      reservationCB(totalCollateralBytes, false);
       decrementUsage(totalBytes);
       std::rethrow_exception(std::current_exception());
     }

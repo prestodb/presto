@@ -661,20 +661,6 @@ void MemoryPoolImpl::reserve(uint64_t size, bool reserveOnly) {
   if (reserveOnly) {
     return;
   }
-  if (FOLLY_UNLIKELY(!manager_->reserve(size))) {
-    // NOTE: If we can make the reserve and release a single transaction we
-    // would have more accurate aggregates in intermediate states. However, this
-    // is low-pri because we can only have inflated aggregates, and be on the
-    // more conservative side.
-    release(size);
-    VELOX_MEM_POOL_CAP_EXCEEDED(toImpl(root())->capExceedingMessage(
-        this,
-        fmt::format(
-            "Exceeded memory manager cap of {} when requesting {}, memory pool cap is {}",
-            capacityToString(manager_->capacity()),
-            succinctBytes(size),
-            capacityToString(capacity()))));
-  }
 }
 
 void MemoryPoolImpl::reserveThreadSafe(uint64_t size, bool reserveOnly) {
@@ -761,7 +747,8 @@ bool MemoryPoolImpl::incrementReservationThreadSafe(
   VELOX_MEM_POOL_CAP_EXCEEDED(capExceedingMessage(
       requestor,
       fmt::format(
-          "Exceeded memory pool cap of {} with max {} when requesting {}, memory manager cap is {}",
+          "Exceeded memory pool cap of {} with max {} when requesting {}, "
+          "memory manager cap is {}",
           capacityToString(capacity()),
           capacityToString(maxCapacity_),
           succinctBytes(size),
@@ -799,9 +786,6 @@ void MemoryPoolImpl::release() {
 }
 
 void MemoryPoolImpl::release(uint64_t size, bool releaseOnly) {
-  if (!releaseOnly) {
-    manager_->release(size);
-  }
   if (FOLLY_LIKELY(trackUsage_)) {
     if (FOLLY_LIKELY(threadSafe_)) {
       releaseThreadSafe(size, releaseOnly);

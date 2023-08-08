@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/memory/MallocAllocator.h"
+#include "velox/common/memory/MmapAllocator.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
@@ -178,76 +180,72 @@ TEST_P(MemoryCapExceededTest, multipleDrivers) {
   }
 }
 
-TEST_P(MemoryCapExceededTest, memoryManagerCapacityExeededError) {
+TEST_P(MemoryCapExceededTest, allocatorCapacityExceededError) {
   // Executes a plan with no memory pool capacity limit but very small memory
   // manager's limit.
-  memory::MemoryManagerOptions options{.capacity = 1 << 20};
-  memory::MemoryManager manager{options};
+  std::vector<std::pair<
+      std::shared_ptr<memory::MemoryAllocator>,
+      std::vector<std::string>>>
+      allocatorExpectations;
+  allocatorExpectations.push_back(std::pair{
+      std::make_shared<memory::MallocAllocator>(64LL << 20),
+      std::vector<std::string>{
+          "allocateContiguous failed with .* pages",
+          "unlimited max capacity unlimited capacity used .* available .*",
+          ".* reservation .used .*MB, reserved .*MB, min 0B. counters",
+          "allocs .*, frees .*, reserves .*, releases .*, collisions .*"}});
+  const memory::MmapAllocator::Options options = {.capacity = 64LL << 20};
+  allocatorExpectations.push_back(std::pair{
+      std::make_shared<memory::MmapAllocator>(options),
+      std::vector<std::string>{
+          "allocateContiguous failed with .* pages",
+          "unlimited max capacity unlimited capacity used .* available .*",
+          ".* reservation .used .*MB, reserved .*MB, min .*B. counters",
+          ".*, frees .*, reserves .*, releases .*, collisions .*"}});
+  for (auto& allocExp : allocatorExpectations) {
+    memory::MemoryManager manager({.allocator = allocExp.first.get()});
 
-  vector_size_t size = 1'024;
-  // This limit ensures that only the Aggregation Operator fails.
-  constexpr int64_t kMaxBytes = 5LL << 20; // 5MB
-  // We look for these lines separately, since their order can change (not sure
-  // why).
-  std::vector<std::string> expectedTexts = {
-      "Exceeded memory manager cap of 1.00MB when requesting 2.00MB, memory pool cap is 5.00MB"};
-  std::vector<std::string> expectedDetailedTexts = {
-      "node.2 usage .*MB peak .*MB",
-      "op.2.0.0.Aggregation usage .*B peak .*B",
-      "node.1 usage 1.00MB peak 1.00MB",
-      "op.1.0.0.FilterProject usage 12.00KB peak 12.00KB",
-      "Top 2 leaf memory pool usages:",
-      "op.2.0.0.Aggregation usage .*B peak .*B",
-      "op.1.0.0.FilterProject usage 12.00KB peak 12.00KB",
-      "Failed memory pool: op.2.0.0.Aggregation: .*B"};
+    vector_size_t size = 1'024;
+    // This limit ensures that only the Aggregation Operator fails.
+    constexpr int64_t kMaxBytes = 128LL << 20; // 128MB
 
-  std::vector<RowVectorPtr> data;
-  for (auto i = 0; i < 100; ++i) {
-    data.push_back(makeRowVector({
-        makeFlatVector<int64_t>(
-            size, [&i](auto row) { return row + (i * 1000); }),
-        makeFlatVector<int64_t>(size, [](auto row) { return row + 3; }),
-    }));
-  }
-
-  // Plan created to allow multiple operators to show up in the top 3 memory
-  // usage list in the error message.
-  auto plan = PlanBuilder()
-                  .values(data)
-                  .project({"c0", "c0 + c1"})
-                  .singleAggregation({"c0"}, {"sum(p1)"})
-                  .orderBy({"c0"}, false)
-                  .planNode();
-  auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  queryCtx->testingOverrideMemoryPool(
-      manager.addRootPool(queryCtx->queryId(), kMaxBytes));
-  CursorParameters params;
-  params.planNode = plan;
-  params.queryCtx = queryCtx;
-  params.maxDrivers = 1;
-  try {
-    readCursor(params, [](Task*) {});
-    FAIL() << "Expected a MEM_CAP_EXCEEDED RuntimeException.";
-  } catch (const VeloxException& e) {
-    const auto errorMessage = e.message();
-    for (const auto& expectedText : expectedTexts) {
-      ASSERT_TRUE(someLineMatches(errorMessage, expectedText))
-          << "Expected error message to contain '" << expectedText
-          << "', but received '" << errorMessage << "'.";
+    std::vector<RowVectorPtr> data;
+    for (auto i = 0; i < 10000; ++i) {
+      data.push_back(makeRowVector({
+          makeFlatVector<int64_t>(
+              size, [&i](auto row) { return row + (i * 1000); }),
+          makeFlatVector<int64_t>(size, [](auto row) { return row + 3; }),
+      }));
     }
-    for (const auto& expectedText : expectedDetailedTexts) {
-      if (!GetParam()) {
+
+    // Plan created to allow multiple operators to show up in the top 3 memory
+    // usage list in the error message.
+    auto plan = PlanBuilder()
+                    .values(data)
+                    .project({"c0", "c0 + c1"})
+                    .singleAggregation({"c0"}, {"sum(p1)"})
+                    .orderBy({"c0"}, false)
+                    .planNode();
+    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+    queryCtx->testingOverrideMemoryPool(
+        manager.addRootPool(queryCtx->queryId(), kMaxBytes));
+    CursorParameters params;
+    params.planNode = plan;
+    params.queryCtx = queryCtx;
+    params.maxDrivers = 1;
+    try {
+      readCursor(params, [](Task*) {});
+      FAIL() << "Expected a MEM_CAP_EXCEEDED RuntimeException.";
+    } catch (const VeloxException& e) {
+      const auto errorMessage = e.message();
+      for (const auto& expectedText : allocExp.second) {
         ASSERT_TRUE(someLineMatches(errorMessage, expectedText))
             << "Expected error message to contain '" << expectedText
             << "', but received '" << errorMessage << "'.";
-      } else {
-        ASSERT_TRUE(errorMessage.find(expectedText) == std::string::npos)
-            << "Unexpected error message to contain '" << expectedText
-            << "', but received '" << errorMessage << "'.";
       }
     }
+    Task::testingWaitForAllTasksToBeDeleted();
   }
-  Task::testingWaitForAllTasksToBeDeleted();
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
