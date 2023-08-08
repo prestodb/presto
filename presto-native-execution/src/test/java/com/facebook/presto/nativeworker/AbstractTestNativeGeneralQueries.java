@@ -132,6 +132,7 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT * FROM lineitem");
         assertQuery("SELECT ceil(discount), ceiling(discount), floor(discount), abs(discount) FROM lineitem");
         assertQuery("SELECT linenumber IN (2, 4, 6) FROM lineitem");
+        assertQuery("SELECT orderdate FROM orders WHERE cast(orderdate as DATE) IN (cast('1997-07-29' as DATE), cast('1993-03-13' as DATE)) ORDER BY orderdate LIMIT 10");
 
         assertQuery("SELECT * FROM orders");
 
