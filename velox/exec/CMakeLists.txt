@@ -52,6 +52,7 @@ add_library(
   OperatorUtils.cpp
   OrderBy.cpp
   PartitionedOutput.cpp
+  PartitionedOutputBuffer.cpp
   PartitionedOutputBufferManager.cpp
   PlanNodeStats.cpp
   ProbeOperatorState.cpp

@@ -17,6 +17,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
+#include "velox/exec/Task.h"
 #include "velox/exec/tests/utils/LocalExchangeSource.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/serializers/PrestoSerializer.h"
@@ -70,9 +71,9 @@ class ExchangeClientTest : public testing::Test,
     auto page = toSerializedPage(data);
     const auto pageSize = page->size();
     ContinueFuture unused;
-    auto blockingReason =
+    auto blocked =
         bufferManager_->enqueue(taskId, destination, std::move(page), &unused);
-    VELOX_CHECK(blockingReason == BlockingReason::kNotBlocked);
+    VELOX_CHECK(!blocked);
     return pageSize;
   }
 

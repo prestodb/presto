@@ -15,11 +15,10 @@
  */
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include <gtest/gtest.h>
-#include <velox/common/memory/MemoryAllocator.h>
 #include "folly/experimental/EventCount.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
-#include "velox/exec/Exchange.h"
+#include "velox/exec/Task.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/serializers/PrestoSerializer.h"
 
@@ -79,7 +78,7 @@ class PartitionedOutputBufferManagerTest : public testing::Test {
   }
 
   std::unique_ptr<SerializedPage> makeSerializedPage(
-      std::shared_ptr<const RowType> rowType,
+      RowTypePtr rowType,
       vector_size_t size) {
     auto vector = std::dynamic_pointer_cast<RowVector>(
         BatchMaker::createBatch(rowType, size, *pool_));
@@ -102,25 +101,25 @@ class PartitionedOutputBufferManagerTest : public testing::Test {
 
   void enqueue(
       const std::string& taskId,
-      std::shared_ptr<const RowType> rowType,
+      const RowTypePtr& rowType,
       vector_size_t size,
       bool expectedBlock = false) {
-    enqueue(taskId, 0, std::move(rowType), size);
+    enqueue(taskId, 0, rowType, size);
   }
 
   void enqueue(
       const std::string& taskId,
       int destination,
-      std::shared_ptr<const RowType> rowType,
+      const RowTypePtr& rowType,
       vector_size_t size,
       bool expectedBlock = false) {
     ContinueFuture future;
-    auto blockingReason = bufferManager_->enqueue(
+    auto blocked = bufferManager_->enqueue(
         taskId, destination, makeSerializedPage(rowType, size), &future);
     if (!expectedBlock) {
-      ASSERT_EQ(blockingReason, BlockingReason::kNotBlocked);
+      ASSERT_FALSE(blocked);
     }
-    if (blockingReason != BlockingReason::kNotBlocked) {
+    if (blocked) {
       future.wait();
     }
   }
@@ -929,15 +928,15 @@ TEST_P(AllPartitionedOutputBufferManagerTest, outputBufferUtilization) {
     bufferManager_->updateOutputBuffers(taskId, destination, true);
   }
 
-  BlockingReason blockingReason;
+  bool blocked = false;
   do {
     ContinueFuture future;
-    blockingReason = bufferManager_->enqueue(
+    blocked = bufferManager_->enqueue(
         taskId, destination, makeSerializedPage(rowType_, 100), &future);
-    if (blockingReason == BlockingReason::kNotBlocked) {
+    if (!blocked) {
       verifyOutputBuffer(task, OutputBufferStatus::kRunning);
     }
-  } while (blockingReason == BlockingReason::kNotBlocked);
+  } while (!blocked);
 
   verifyOutputBuffer(task, OutputBufferStatus::kBlocked);
 
@@ -949,7 +948,7 @@ TEST_P(AllPartitionedOutputBufferManagerTest, outputBufferUtilization) {
   verifyOutputBuffer(task, OutputBufferStatus::kRunning);
 
   ContinueFuture future;
-  blockingReason = bufferManager_->enqueue(
+  bufferManager_->enqueue(
       taskId, destination, makeSerializedPage(rowType_, 200), &future);
   verifyOutputBuffer(task, OutputBufferStatus::kBlocked);
   auto oldUtilization = task->taskStats().outputBufferUtilization;

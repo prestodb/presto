@@ -38,6 +38,7 @@
 #include "velox/exec/TableScan.h"
 #include "velox/exec/TableWriteMerge.h"
 #include "velox/exec/TableWriter.h"
+#include "velox/exec/Task.h"
 #include "velox/exec/TopN.h"
 #include "velox/exec/TopNRowNumber.h"
 #include "velox/exec/Unnest.h"

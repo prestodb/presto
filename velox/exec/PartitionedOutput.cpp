@@ -16,9 +16,11 @@
 
 #include "velox/exec/PartitionedOutput.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
+#include "velox/exec/Task.h"
 
 namespace facebook::velox::exec {
 
+namespace detail {
 BlockingReason Destination::advance(
     uint64_t maxBytes,
     const std::vector<vector_size_t>& sizes,
@@ -94,12 +96,15 @@ BlockingReason Destination::flush(
   bytesInCurrent_ = 0;
   setTargetSizePct();
 
-  return bufferManager.enqueue(
+  bool blocked = bufferManager.enqueue(
       taskId_,
       destination_,
       std::make_unique<SerializedPage>(stream.getIOBuf(bufferReleaseFn)),
       future);
+  return blocked ? BlockingReason::kWaitForConsumer
+                 : BlockingReason::kNotBlocked;
 }
+} // namespace detail
 
 PartitionedOutput::PartitionedOutput(
     int32_t operatorId,
@@ -171,7 +176,8 @@ void PartitionedOutput::initializeDestinations() {
   if (destinations_.empty()) {
     auto taskId = operatorCtx_->taskId();
     for (int i = 0; i < numDestinations_; ++i) {
-      destinations_.push_back(std::make_unique<Destination>(taskId, i, pool()));
+      destinations_.push_back(
+          std::make_unique<detail::Destination>(taskId, i, pool()));
     }
   }
 }
@@ -295,7 +301,7 @@ RowVectorPtr PartitionedOutput::getOutput() {
   }
 
   blockingReason_ = BlockingReason::kNotBlocked;
-  Destination* blockedDestination = nullptr;
+  detail::Destination* blockedDestination = nullptr;
   auto bufferManager = bufferManager_.lock();
   VELOX_CHECK_NOT_NULL(
       bufferManager, "PartitionedOutputBufferManager was already destructed");
