@@ -691,4 +691,25 @@ TEST_F(InPredicateTest, floatDuplicateWithFloatingPointRange) {
   auto expected = makeNullableFlatVector<bool>({true, false});
   auto result = evaluate<SimpleVector<bool>>(predicate, input);
   assertEqualVectors(expected, result);
+
+  // with null
+  input = makeRowVector({
+      makeNullableFlatVector<float>({1.2, 2.3}, REAL()),
+  });
+  predicate = "c0 IN ( CAST(1.2 AS REAL), CAST(1.2 AS REAL), null )";
+  expected = makeNullableFlatVector<bool>({true, std::nullopt});
+  result = evaluate<SimpleVector<bool>>(predicate, input);
+  assertEqualVectors(expected, result);
+}
+
+TEST_F(InPredicateTest, floatDuplicateWithBigintValuesUsingHashTable) {
+  // No Null
+  auto input = makeRowVector({
+      makeNullableFlatVector<float>({1.2, 2.3}, REAL()),
+  });
+  std::string predicate =
+      "c0 IN ( CAST(1.2 AS REAL), CAST(1.2 AS REAL), CAST(1.2 AS REAL), CAST(2.3 AS REAL) )";
+  auto expected = makeNullableFlatVector<bool>({true, true});
+  auto result = evaluate<SimpleVector<bool>>(predicate, input);
+  assertEqualVectors(expected, result);
 }

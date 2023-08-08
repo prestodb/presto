@@ -19,6 +19,8 @@
 namespace facebook::velox::functions {
 namespace {
 
+// Read from innermost vector of type SimpleVector<U> and return vector<T>
+// Results are de-duped
 template <typename T, typename U = T>
 std::optional<std::pair<std::vector<T>, bool>> toValues(
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
@@ -91,12 +93,13 @@ std::pair<std::unique_ptr<common::Filter>, bool> createBigintValuesFilter(
   return {common::createBigintValues(values, nullAllowed), false};
 }
 
-// Cast double to Int64 and reuse Int64 filters
+// For double, cast double to Int64 and reuse Int64 filters
+// For float, cast float to Int32 and promote to Int64
 template <typename T>
 std::pair<std::unique_ptr<common::Filter>, bool>
 createFloatingPointValuesFilter(
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
-  auto valuesPair = toValues<double, T>(inputArgs);
+  auto valuesPair = toValues<T, T>(inputArgs);
   if (!valuesPair.has_value()) {
     return {nullptr, false};
   }
@@ -113,17 +116,24 @@ createFloatingPointValuesFilter(
 
   if (values.size() == 1) {
     return {
-        std::make_unique<common::FloatingPointRange<double>>(
+        std::make_unique<common::FloatingPointRange<T>>(
             values[0], false, false, values[0], false, false, nullAllowed),
         false};
   }
 
   std::vector<int64_t> intValues(values.size());
   for (size_t i = 0; i < values.size(); ++i) {
-    if (values[i] == double{}) {
-      values[i] = 0;
+    if constexpr (std::is_same_v<T, float>) {
+      if (values[i] == float{}) {
+        values[i] = 0;
+      }
+      intValues[i] = reinterpret_cast<const int32_t&>(values[i]); // silently promote to int64
+    }else{
+      if (values[i] == double{}) {
+        values[i] = 0;
+      }
+      intValues[i] = reinterpret_cast<const int64_t&>(values[i]);
     }
-    intValues[i] = reinterpret_cast<const int64_t&>(values[i]);
   }
   return {common::createBigintValues(intValues, nullAllowed), false};
 }
@@ -182,6 +192,9 @@ class InPredicate : public exec::VectorFunction {
       case TypeKind::TINYINT:
         filter = createBigintValuesFilter<int8_t>(inputArgs);
         break;
+      case TypeKind::REAL:
+        filter = createFloatingPointValuesFilter<float>(inputArgs);
+        break;
       case TypeKind::DOUBLE:
         filter = createFloatingPointValuesFilter<double>(inputArgs);
         break;
@@ -239,6 +252,19 @@ class InPredicate : public exec::VectorFunction {
           return filter_->testInt64(value);
         });
         break;
+      case TypeKind::REAL:
+        applyTyped<float>(rows, input, context, result, [&](float value) {
+          auto* derived =
+              dynamic_cast<common::FloatingPointRange<float>*>(filter_.get());
+          if (derived) {
+            return filter_->testFloat(value);
+          }
+          if (value == float{}) {
+            value = 0;
+          }
+          return filter_->testInt64(reinterpret_cast<const int32_t&>(value));
+        });
+        break;
       case TypeKind::DOUBLE:
         applyTyped<double>(rows, input, context, result, [&](double value) {
           auto* derived =
@@ -283,6 +309,7 @@ class InPredicate : public exec::VectorFunction {
           "varchar",
           "varbinary",
           "double",
+          "real",
           "date"}) {
       signatures.emplace_back(exec::FunctionSignatureBuilder()
                                   .returnType("boolean")
