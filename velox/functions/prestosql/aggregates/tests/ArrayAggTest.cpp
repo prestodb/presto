@@ -32,13 +32,20 @@ class ArrayAggTest : public AggregationTestBase {
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
-
     registerSimpleArrayAggAggregate("simple_array_agg");
   }
 };
 
+std::unordered_map<std::string, std::string> makeConfig(bool ignoreNulls) {
+  if (ignoreNulls) {
+    return {{"presto.array_agg.ignore_nulls", "true"}};
+  }
+  return {};
+}
+
 TEST_F(ArrayAggTest, groupBy) {
-  auto testFunction = [this](const std::string& functionName) {
+  auto testFunction = [this](
+                          const std::string& functionName, bool ignoreNulls) {
     constexpr int32_t kNumGroups = 10;
     std::vector<RowVectorPtr> batches;
     // We make 10 groups. each with 10 arrays. Each array consists of n
@@ -64,24 +71,29 @@ TEST_F(ArrayAggTest, groupBy) {
     }
 
     createDuckDbTable(batches);
+    auto filter = ignoreNulls ? "filter (where a is not null)" : "";
     testAggregations(
         batches,
         {"c0"},
-        {"array_agg(a)"},
-        "SELECT c0, array_agg(a) FROM tmp GROUP BY c0");
+        {fmt::format("{}(a)", functionName)},
+        fmt::format("SELECT c0, array_agg(a) {} FROM tmp GROUP BY c0", filter),
+        makeConfig(ignoreNulls));
 
     // Having one function supporting toIntermediate and one does not, make sure
-    // the row container is recreated with only the function wihtout
+    // the row container is recreated with only the function without
     // toIntermediate support.
     testAggregations(
         batches,
         {"c0"},
         {fmt::format("{}(a)", functionName), "max(c0)"},
-        "SELECT c0, array_agg(a), max(c0) FROM tmp GROUP BY c0");
+        fmt::format(
+            "SELECT c0, array_agg(a) {}, max(c0) FROM tmp GROUP BY c0", filter),
+        makeConfig(ignoreNulls));
   };
 
-  testFunction("array_agg");
-  testFunction("simple_array_agg");
+  testFunction("array_agg", true);
+  testFunction("array_agg", false);
+  testFunction("simple_array_agg", false);
 }
 
 TEST_F(ArrayAggTest, sortedGroupBy) {
@@ -172,34 +184,52 @@ TEST_F(ArrayAggTest, sortedGroupBy) {
 }
 
 TEST_F(ArrayAggTest, global) {
-  auto testFunction = [this](const std::string& functionName) {
+  auto testFunction = [this](
+                          const std::string& functionName, bool ignoreNulls) {
     vector_size_t size = 10;
 
     std::vector<RowVectorPtr> vectors = {makeRowVector({makeFlatVector<int32_t>(
         size, [](vector_size_t row) { return row * 2; }, nullEvery(3))})};
 
     createDuckDbTable(vectors);
+    auto filter = ignoreNulls ? "filter (where c0 is not null)" : "";
     testAggregations(
         vectors,
         {},
         {fmt::format("{}(c0)", functionName)},
-        "SELECT array_agg(c0) FROM tmp");
+        fmt::format("SELECT array_agg(c0) {} FROM tmp", filter),
+        makeConfig(ignoreNulls));
   };
 
-  testFunction("array_agg");
-  testFunction("simple_array_agg");
+  testFunction("array_agg", true);
+  testFunction("array_agg", false);
+  testFunction("simple_array_agg", false);
 }
 
 TEST_F(ArrayAggTest, globalNoData) {
-  auto testFunction = [this](const std::string& functionName) {
+  auto testFunction = [this](
+                          const std::string& functionName, bool ignoreNulls) {
     auto data = makeRowVector(ROW({"c0"}, {INTEGER()}), 0);
-
     testAggregations(
         {data}, {}, {fmt::format("{}(c0)", functionName)}, "SELECT null");
+
+    std::vector<RowVectorPtr> allNulls = {
+        makeRowVector({makeFlatVector<int32_t>(
+            10, [](vector_size_t row) { return row; }, nullEvery(1))})};
+    auto filter = ignoreNulls ? "filter (where c0 is not null)" : "";
+
+    createDuckDbTable(allNulls);
+    testAggregations(
+        allNulls,
+        {},
+        {fmt::format("{}(c0)", functionName)},
+        fmt::format("SELECT array_agg(c0) {} FROM tmp", filter),
+        makeConfig(ignoreNulls));
   };
 
-  testFunction("array_agg");
-  testFunction("simple_array_agg");
+  testFunction("array_agg", true);
+  testFunction("array_agg", false);
+  testFunction("simple_array_agg", false);
 }
 
 TEST_F(ArrayAggTest, sortedGlobal) {

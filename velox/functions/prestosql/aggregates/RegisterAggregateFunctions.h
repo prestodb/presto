@@ -18,6 +18,7 @@
 #include <string>
 
 namespace facebook::velox::aggregate::prestosql {
+
 void registerAllAggregateFunctions(const std::string& prefix = "");
 
 } // namespace facebook::velox::aggregate::prestosql

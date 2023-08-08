@@ -23,7 +23,9 @@ General Aggregate Functions
 
 .. function:: array_agg(x) -> array<[same as input]>
 
-    Returns an array created from the input ``x`` elements.
+    Returns an array created from the input ``x`` elements. Ignores null
+    inputs if :doc:`presto.array_agg.ignore_nulls <../../configs>` is set
+    to false.
 
 .. function:: avg(x) -> double|real
 

@@ -380,6 +380,21 @@ Hive Connector
      -
      - The GCS service account configuration as json string.
 
+Presto-specific Configuration
+----------------------------
+.. list-table::
+   :widths: 20 10 10 70
+   :header-rows: 1
+
+   * - Property Name
+     - Type
+     - Default Value
+     - Description
+   * - presto.array_agg.ignore_nulls
+     - bool
+     - false
+     - If true, ``array_agg`` function ignores null inputs.
+
 Spark-specific Configuration
 ----------------------------
 .. list-table::
