@@ -96,6 +96,11 @@ public class IterativeOptimizer
         stats.registerAll(newRules);
     }
 
+    public RuleIndex getRuleIndex()
+    {
+        return ruleIndex;
+    }
+
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
