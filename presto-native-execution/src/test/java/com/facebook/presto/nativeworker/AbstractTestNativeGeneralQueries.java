@@ -391,6 +391,46 @@ public abstract class AbstractTestNativeGeneralQueries
                 .setSystemProperty("legacy_timestamp", "false")
                 .build();
         assertQuery(session, "SELECT CAST(date(shipdate) AS timestamp) FROM lineitem");
+
+        // Cast all integer types to short decimal
+        assertQuery("SELECT CAST(linenumber_as_tinyint as DECIMAL(2, 0)) FROM lineitem");
+        assertQuery("SELECT CAST(linenumber_as_smallint as DECIMAL(8, 4)) FROM lineitem");
+        assertQuery("SELECT CAST(CAST(linenumber as INTEGER) as DECIMAL(15, 6)) FROM lineitem");
+        assertQuery("SELECT CAST(nationkey as DECIMAL(18, 6)) FROM nation_partitioned");
+
+        // Cast all integer types to long decimal
+        assertQuery("SELECT CAST(linenumber_as_tinyint as DECIMAL(25, 0)) FROM lineitem");
+        assertQuery("SELECT CAST(linenumber_as_smallint as DECIMAL(19, 4)) FROM lineitem");
+        assertQuery("SELECT CAST(CAST(linenumber as INTEGER) as DECIMAL(20, 6)) FROM lineitem");
+        assertQuery("SELECT CAST(nationkey as DECIMAL(22, 6)) FROM nation_partitioned");
+
+        // Cast short decimal to integer types
+        assertQuery("SELECT CAST(c0 as TINYINT) FROM (VALUES (DECIMAL'1.23'), " +
+                "(NULL), (DECIMAL'1.'), (DECIMAL'0.0')) as l (c0)");
+        assertQuery("SELECT CAST(c0 as SMALLINT) FROM (VALUES (DECIMAL'123.04'), " +
+                "(NULL), (DECIMAL'32.760'), (DECIMAL'0.0')) as l (c0)");
+        assertQuery("SELECT CAST(c0 as INTEGER) FROM (VALUES (DECIMAL'12345.678'), " +
+                "(NULL), (DECIMAL'123456.7890'), (DECIMAL'1234567.0'), (DECIMAL'0.0')) as l (c0)");
+        assertQuery("SELECT CAST(c0 as BIGINT) FROM (VALUES (DECIMAL'1234567.89012134'), " +
+                "(NULL), (DECIMAL'12345678.901'), (DECIMAL'123456789.01214234')) as l (c0)");
+
+        // Cast long decimal to integer types
+        assertQuery("SELECT CAST(c0 as INTEGER) FROM (VALUES (DECIMAL'12345.67890121416182022234'), " +
+                "(NULL), (DECIMAL'123456.78901214161822234'), (DECIMAL'1234567.890121416234')) as l (c0)");
+        assertQuery("SELECT CAST(c0 as BIGINT) FROM (VALUES (DECIMAL'1234567.890121416182022234'), " +
+                "(NULL), (DECIMAL'12345678.901214161822234'), (DECIMAL'123456789.0121416234')) as l (c0)");
+
+        // Cast short decimal to double/float.
+        assertQuery("SELECT CAST(c0 as DOUBLE) FROM (VALUES (DECIMAL'1.234'), (NULL), (DECIMAL'12.12345'), " +
+                "(DECIMAL'12345.1234'), (DECIMAL'123456789.1234567'), (DECIMAL'1234567890121418.0')) as l (c0)");
+        assertQuery("SELECT CAST(c0 as REAL) FROM (VALUES (DECIMAL'1.234'), (NULL), (DECIMAL'12.12345'), " +
+                "(DECIMAL'12345.1234'), (DECIMAL'123456789.1234567'), (DECIMAL'1234567890121418.0')) as l (c0)");
+
+        // Cast long decimal to double/float.
+        assertQuery("SELECT CAST(c0 as DOUBLE) FROM (VALUES (DECIMAL'1234567890121416182022.234'), (NULL), " +
+                "(DECIMAL'12345678920222426.1234'), (DECIMAL'12345678901214161830.1234567')) as l (c0)");
+        assertQuery("SELECT CAST(c0 as REAL) FROM (VALUES (DECIMAL'1234567890121416182022.234'), (NULL), " +
+                "(DECIMAL'12345678920222426.1234'), (DECIMAL'12345678901214162830.1234567')) as l (c0)");
     }
 
     @Test
