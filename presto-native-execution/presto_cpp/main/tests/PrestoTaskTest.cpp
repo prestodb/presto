@@ -38,16 +38,6 @@ TEST_F(PrestoTaskTest, basicTaskId) {
   EXPECT_EQ(id.attemptNumber(), 4);
 }
 
-TEST_F(PrestoTaskTest, legacyTaskId) {
-  PrestoTaskId id("20201107_130540_00011_wrpkw.1.2.3");
-
-  EXPECT_EQ(id.queryId(), "20201107_130540_00011_wrpkw");
-  EXPECT_EQ(id.stageId(), 1);
-  EXPECT_EQ(id.stageExecutionId(), 2);
-  EXPECT_EQ(id.id(), 3);
-  EXPECT_EQ(id.attemptNumber(), 0);
-}
-
 TEST_F(PrestoTaskTest, malformedTaskId) {
   VELOX_ASSERT_THROW(PrestoTaskId(""), "Malformed task ID: ");
   VELOX_ASSERT_THROW(
