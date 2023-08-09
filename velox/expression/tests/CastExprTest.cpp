@@ -29,6 +29,10 @@
 using namespace facebook::velox;
 namespace facebook::velox::test {
 namespace {
+
+constexpr float kInf = std::numeric_limits<float>::infinity();
+constexpr float kNan = std::numeric_limits<float>::quiet_NaN();
+
 class CastExprTest : public functions::test::CastBaseTest {
  protected:
   CastExprTest() {
@@ -555,6 +559,9 @@ TEST_F(CastExprTest, timestampInvalid) {
 
   testCast<float, Timestamp>("timestamp", {12.99}, {Timestamp(0, 0)}, true);
   testCast<double, Timestamp>("timestamp", {12.99}, {Timestamp(0, 0)}, true);
+
+  testCast<std::string, Timestamp>(
+      "timestamp", {"2012-Oct-01"}, {Timestamp(0, 0)}, true);
 }
 
 TEST_F(CastExprTest, timestampAdjustToTimezone) {
@@ -642,6 +649,198 @@ TEST_F(CastExprTest, invalidDate) {
   // Parsing an ill-formated date.
   testCast<std::string, int32_t>(
       "date", {"2012-Oct-23"}, {0}, true, false, VARCHAR(), DATE());
+}
+
+TEST_F(CastExprTest, primitiveInvalidCornerCases) {
+  setCastIntByTruncate(false);
+  // To integer.
+  {
+    // Overflow.
+    testCast<int32_t, int8_t>("tinyint", {1234567}, {0}, true);
+    testCast<int32_t, int8_t>("tinyint", {-1234567}, {0}, true);
+    testCast<double, int8_t>("tinyint", {12345.67}, {0}, true);
+    testCast<double, int8_t>("tinyint", {-12345.67}, {0}, true);
+    testCast<double, int8_t>("tinyint", {127.8}, {128}, true);
+    testCast<float, int32_t>("integer", {kInf}, {0}, true);
+    testCast<float, int64_t>("bigint", {kInf}, {0}, true);
+    // Presto throws on cast(nan() as bigint), but we let it return 0 to be
+    // consistent with other cases.
+    testCast<float, int64_t>("bigint", {kNan}, {0}, true);
+    testCast<float, int32_t>("integer", {kNan}, {0}, true);
+    testCast<float, int16_t>("smallint", {kNan}, {0}, true);
+    testCast<float, int8_t>("tinyint", {kNan}, {0}, true);
+
+    // Invalid strings.
+    testCast<std::string, int8_t>("tinyint", {"1234567"}, {0}, true);
+    testCast<std::string, int8_t>("tinyint", {"1.2"}, {0}, true);
+    testCast<std::string, int8_t>("tinyint", {"1a"}, {0}, true);
+    testCast<std::string, int8_t>("tinyint", {""}, {0}, true);
+    testCast<std::string, int32_t>("integer", {"1'234'567"}, {0}, true);
+    testCast<std::string, int32_t>("integer", {"1,234,567"}, {0}, true);
+    testCast<std::string, int64_t>("bigint", {"infinity"}, {0}, true);
+    testCast<std::string, int64_t>("bigint", {"nan"}, {0}, true);
+  }
+
+  // To floating-point.
+  {
+    // TODO: Presto returns Infinity in this case.
+    testCast<double, float>("real", {1.7E308}, {0}, true);
+
+    // Invalid strings.
+    testCast<std::string, float>("real", {"1.2a"}, {0}, true);
+    testCast<std::string, float>("real", {"1.2.3"}, {0}, true);
+  }
+
+  // To boolean.
+  {
+    testCast<std::string, bool>("boolean", {"1.7E308"}, {0}, true);
+    testCast<std::string, bool>("boolean", {"nan"}, {0}, true);
+    testCast<std::string, bool>("boolean", {"infinity"}, {0}, true);
+    testCast<std::string, bool>("boolean", {"12"}, {0}, true);
+    testCast<std::string, bool>("boolean", {"-1"}, {0}, true);
+    testCast<std::string, bool>("boolean", {"tr"}, {0}, true);
+    testCast<std::string, bool>("boolean", {"tru"}, {0}, true);
+  }
+
+  setCastIntByTruncate(true);
+  // To integer.
+  {
+    // Invalid strings.
+    testCast<std::string, int8_t>("tinyint", {"1234567"}, {0}, true);
+    testCast<std::string, int8_t>("tinyint", {"1.2"}, {0}, true);
+    testCast<std::string, int8_t>("tinyint", {"1a"}, {0}, true);
+    testCast<std::string, int8_t>("tinyint", {""}, {0}, true);
+    testCast<std::string, int32_t>("integer", {"1'234'567"}, {0}, true);
+    testCast<std::string, int32_t>("integer", {"1,234,567"}, {0}, true);
+    testCast<std::string, int64_t>("bigint", {"infinity"}, {0}, true);
+    testCast<std::string, int64_t>("bigint", {"nan"}, {0}, true);
+    testCast<std::string, int8_t>("tinyint", {"+1"}, {0}, true);
+  }
+
+  // To floating-point.
+  {
+    // Invalid strings.
+    testCast<std::string, float>("real", {"1.2a"}, {0}, true);
+    testCast<std::string, float>("real", {"1.2.3"}, {0}, true);
+  }
+
+  // To boolean.
+  {
+    testCast<std::string, bool>("boolean", {"1.7E308"}, {0}, true);
+    testCast<std::string, bool>("boolean", {"nan"}, {0}, true);
+    testCast<std::string, bool>("boolean", {"infinity"}, {0}, true);
+    testCast<std::string, bool>("boolean", {"12"}, {0}, true);
+    testCast<std::string, bool>("boolean", {"-1"}, {0}, true);
+    testCast<std::string, bool>("boolean", {"tr"}, {0}, true);
+    testCast<std::string, bool>("boolean", {"tru"}, {0}, true);
+  }
+}
+
+TEST_F(CastExprTest, primitiveValidCornerCases) {
+  setCastIntByTruncate(false);
+  // To integer.
+  {
+    testCast<double, int8_t>("tinyint", {127.1}, {127}, false);
+    testCast<double, int64_t>("bigint", {12345.12}, {12345}, false);
+    testCast<double, int64_t>("bigint", {12345.67}, {12346}, false);
+    testCast<std::string, int8_t>("tinyint", {"+1"}, {1}, false);
+  }
+
+  // To floating-point.
+  {
+    testCast<std::string, float>("real", {"1.7E308"}, {kInf}, false);
+    testCast<std::string, float>("real", {"1."}, {1.0}, false);
+    testCast<std::string, float>("real", {"1"}, {1}, false);
+    // When casting from "Infinity" and "NaN", Presto is case sensitive. But we
+    // let them be case insensitive to be consistent with other conversions.
+    testCast<std::string, float>("real", {"infinity"}, {kInf}, false);
+    testCast<std::string, float>("real", {"-infinity"}, {-kInf}, false);
+    testCast<std::string, float>("real", {"InfiNiTy"}, {kInf}, false);
+    testCast<std::string, float>("real", {"-InfiNiTy"}, {-kInf}, false);
+    testCast<std::string, float>("real", {"nan"}, {kNan}, false);
+    testCast<std::string, float>("real", {"nAn"}, {kNan}, false);
+  }
+
+  // To boolean.
+  {
+    testCast<int8_t, bool>("boolean", {1}, {true}, false);
+    testCast<int8_t, bool>("boolean", {0}, {false}, false);
+    testCast<int8_t, bool>("boolean", {12}, {true}, false);
+    testCast<int8_t, bool>("boolean", {-1}, {true}, false);
+    testCast<double, bool>("boolean", {1.0}, {true}, false);
+    testCast<double, bool>("boolean", {1.1}, {true}, false);
+    testCast<float, bool>("boolean", {kNan}, {true}, false);
+    testCast<float, bool>("boolean", {kInf}, {true}, false);
+    testCast<double, bool>("boolean", {0.0000000000001}, {true}, false);
+
+    testCast<std::string, bool>("boolean", {"1"}, {true}, false);
+    testCast<std::string, bool>("boolean", {"0"}, {false}, false);
+    testCast<std::string, bool>("boolean", {"t"}, {true}, false);
+    testCast<std::string, bool>("boolean", {"true"}, {true}, false);
+  }
+
+  // To string.
+  {
+    testCast<float, std::string>("varchar", {kInf}, {"Infinity"}, false);
+    testCast<float, std::string>("varchar", {kNan}, {"NaN"}, false);
+  }
+
+  setCastIntByTruncate(true);
+  // To integer.
+  {
+    testCast<int32_t, int8_t>("tinyint", {1234567}, {-121}, false);
+    testCast<int32_t, int8_t>("tinyint", {-1234567}, {121}, false);
+    testCast<double, int8_t>("tinyint", {12345.67}, {57}, false);
+    testCast<double, int8_t>("tinyint", {-12345.67}, {-57}, false);
+    testCast<double, int8_t>("tinyint", {127.1}, {127}, false);
+    testCast<float, int64_t>("bigint", {kInf}, {9223372036854775807}, false);
+    testCast<float, int64_t>("bigint", {kNan}, {0}, false);
+    testCast<float, int32_t>("integer", {kNan}, {0}, false);
+    testCast<float, int16_t>("smallint", {kNan}, {0}, false);
+    testCast<float, int8_t>("tinyint", {kNan}, {0}, false);
+
+    testCast<double, int64_t>("bigint", {12345.12}, {12345}, false);
+    testCast<double, int64_t>("bigint", {12345.67}, {12345}, false);
+  }
+
+  // To floating-point.
+  {
+    testCast<double, float>("real", {1.7E308}, {kInf}, false);
+
+    testCast<std::string, float>("real", {"1.7E308"}, {kInf}, false);
+    testCast<std::string, float>("real", {"1."}, {1.0}, false);
+    testCast<std::string, float>("real", {"1"}, {1}, false);
+    testCast<std::string, float>("real", {"infinity"}, {kInf}, false);
+    testCast<std::string, float>("real", {"-infinity"}, {-kInf}, false);
+    testCast<std::string, float>("real", {"nan"}, {kNan}, false);
+    testCast<std::string, float>("real", {"InfiNiTy"}, {kInf}, false);
+    testCast<std::string, float>("real", {"-InfiNiTy"}, {-kInf}, false);
+    testCast<std::string, float>("real", {"nAn"}, {kNan}, false);
+  }
+
+  // To boolean.
+  {
+    testCast<int8_t, bool>("boolean", {1}, {true}, false);
+    testCast<int8_t, bool>("boolean", {0}, {false}, false);
+    testCast<int8_t, bool>("boolean", {12}, {true}, false);
+    testCast<int8_t, bool>("boolean", {-1}, {true}, false);
+    testCast<double, bool>("boolean", {1.0}, {true}, false);
+    testCast<double, bool>("boolean", {1.1}, {true}, false);
+    testCast<float, bool>("boolean", {kNan}, {false}, false);
+    testCast<float, bool>("boolean", {kInf}, {true}, false);
+    testCast<double, bool>("boolean", {0.0000000000001}, {true}, false);
+
+    testCast<std::string, bool>("boolean", {"1"}, {true}, false);
+    testCast<std::string, bool>("boolean", {"0"}, {false}, false);
+    testCast<std::string, bool>("boolean", {"t"}, {true}, false);
+    testCast<std::string, bool>("boolean", {"true"}, {true}, false);
+  }
+
+  // To string.
+  {
+    testCast<float, std::string>("varchar", {kInf}, {"Infinity"}, false);
+    testCast<float, std::string>("varchar", {kNan}, {"NaN"}, false);
+  }
 }
 
 TEST_F(CastExprTest, truncateVsRound) {
