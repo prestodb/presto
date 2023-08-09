@@ -71,7 +71,7 @@ common::InputByteStream initializeInputStream(const char* serialized) {
 
 bool SparseHll::insertHash(uint64_t hash) {
   auto index = computeIndex(hash, kIndexBitLength);
-  auto value = computeValue(hash, kIndexBitLength);
+  auto value = numberOfLeadingZeros(hash, kIndexBitLength);
 
   auto entry = encode(index, value);
   auto position = searchIndex(index, entries_);
@@ -231,15 +231,15 @@ void SparseHll::toDense(DenseHll& denseHll) const {
   for (auto i = 0; i < entries_.size(); i++) {
     auto entry = entries_[i];
     auto index = entry >> (32 - indexBitLength);
+    auto shiftedValue = entry << indexBitLength;
+    auto zeros = shiftedValue == 0 ? 32 : __builtin_clz(shiftedValue);
 
-    auto zeros = __builtin_clz(entry << indexBitLength);
-
-    // If zeros > kIndexBitLength - indexBitLength, it means all those bits were
-    // zeros, so look at the entry value, which contains the number of leading 0
-    // *after* kIndexBitLength.
+    // If zeros >= kIndexBitLength - indexBitLength, it means all those bits
+    // were zeros, so look at the entry value, which contains the number of
+    // leading 0 *after* kIndexBitLength.
     auto bits = kIndexBitLength - indexBitLength;
-    if (zeros > bits) {
-      zeros = bits + decodeValue(entry) - 1;
+    if (zeros >= bits) {
+      zeros = bits + decodeValue(entry);
     }
 
     denseHll.insert(index, zeros + 1);

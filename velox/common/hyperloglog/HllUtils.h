@@ -44,10 +44,8 @@ inline void checkMaxStandardError(double error) {
 }
 
 inline int8_t toIndexBitLength(double maxStandardError) {
-  return (8 * sizeof(int) -
-          __builtin_clz(
-              std::ceil(1.0816 / (maxStandardError * maxStandardError)))) -
-      1;
+  int buckets = std::ceil(1.0816 / (maxStandardError * maxStandardError));
+  return 8 * sizeof(int) - __builtin_clz(buckets - 1);
 }
 
 /// Returns first 'indexBitLength' bits of a hash.
@@ -55,13 +53,13 @@ inline uint32_t computeIndex(uint64_t hash, int indexBitLength) {
   return hash >> (64 - indexBitLength);
 }
 
-/// Returns number of contiguous zeros after 'indexBitLength' bits in the 'hash'
-/// + 1.
-inline int8_t computeValue(uint64_t hash, int indexBitLength) {
-  // Place a 1 in the LSB to preserve the original number of
-  // leading zeros if the hash happens to be 0.
-  uint64_t v = (hash << indexBitLength) | (1L << (indexBitLength - 1));
-  return __builtin_clzl(v) + 1;
+/// Returns number of contiguous zeros after 'indexBitLength' bits in the
+/// 'hash'.
+inline int numberOfLeadingZeros(uint64_t hash, int indexBitLength) {
+  // Place a 1 in the LSB to preserve the original number of leading zeros if
+  // the hash happens to be 0.
+  return __builtin_clzl(
+      (hash << indexBitLength) | (1L << (indexBitLength - 1)));
 }
 
 /// Estimates cardinality using Linear Counting algorithm.

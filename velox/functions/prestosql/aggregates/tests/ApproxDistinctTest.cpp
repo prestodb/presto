@@ -190,7 +190,7 @@ TEST_F(ApproxDistinctTest, groupByHighCardinalityIntegers) {
   auto keys = makeFlatVector<int32_t>(size, [](auto row) { return row % 2; });
   auto values = makeFlatVector<int32_t>(size, [](auto row) { return row; });
 
-  testGroupByAgg(keys, values, {{0, 499}, {1, 491}});
+  testGroupByAgg(keys, values, {{0, 488}, {1, 493}});
 }
 
 TEST_F(ApproxDistinctTest, groupByVeryLowCardinalityIntegers) {
@@ -244,7 +244,7 @@ TEST_F(ApproxDistinctTest, globalAggHighCardinalityIntegers) {
   vector_size_t size = 1'000;
   auto values = makeFlatVector<int32_t>(size, [](auto row) { return row; });
 
-  testGlobalAgg(values, 986);
+  testGlobalAgg(values, 977);
 }
 
 TEST_F(ApproxDistinctTest, globalAggVeryLowCardinalityIntegers) {
@@ -254,14 +254,36 @@ TEST_F(ApproxDistinctTest, globalAggVeryLowCardinalityIntegers) {
   testGlobalAgg(values, 1);
 }
 
+TEST_F(ApproxDistinctTest, toIndexBitLength) {
+  ASSERT_EQ(
+      common::hll::toIndexBitLength(common::hll::kHighestMaxStandardError), 4);
+  ASSERT_EQ(
+      common::hll::toIndexBitLength(common::hll::kDefaultStandardError), 11);
+  ASSERT_EQ(
+      common::hll::toIndexBitLength(common::hll::kLowestMaxStandardError), 16);
+
+  ASSERT_EQ(common::hll::toIndexBitLength(0.0325), 10);
+  ASSERT_EQ(common::hll::toIndexBitLength(0.0324), 11);
+  ASSERT_EQ(common::hll::toIndexBitLength(0.0230), 11);
+  ASSERT_EQ(common::hll::toIndexBitLength(0.0229), 12);
+  ASSERT_EQ(common::hll::toIndexBitLength(0.0163), 12);
+  ASSERT_EQ(common::hll::toIndexBitLength(0.0162), 13);
+  ASSERT_EQ(common::hll::toIndexBitLength(0.0115), 13);
+  ASSERT_EQ(common::hll::toIndexBitLength(0.0114), 14);
+  ASSERT_EQ(common::hll::toIndexBitLength(0.008125), 14);
+  ASSERT_EQ(common::hll::toIndexBitLength(0.008124), 15);
+  ASSERT_EQ(common::hll::toIndexBitLength(0.00575), 15);
+  ASSERT_EQ(common::hll::toIndexBitLength(0.00574), 16);
+}
+
 TEST_F(ApproxDistinctTest, globalAggIntegersWithError) {
   vector_size_t size = 1'000;
   auto values = makeFlatVector<int32_t>(size, [](auto row) { return row; });
 
   testGlobalAgg(values, common::hll::kLowestMaxStandardError, 1000);
   testGlobalAgg(values, 0.01, 1000);
-  testGlobalAgg(values, 0.1, 930);
-  testGlobalAgg(values, 0.2, 929);
+  testGlobalAgg(values, 0.1, 951);
+  testGlobalAgg(values, 0.2, 936);
   testGlobalAgg(values, common::hll::kHighestMaxStandardError, 929);
 
   values = makeFlatVector<int32_t>(50'000, folly::identity);
@@ -312,10 +334,10 @@ TEST_F(ApproxDistinctTest, streaming) {
   auto result =
       testStreaming("approx_distinct", true, {rawInput1}, {rawInput2});
   ASSERT_EQ(result->size(), 1);
-  ASSERT_EQ(result->asFlatVector<int64_t>()->valueAt(0), 1008);
+  ASSERT_EQ(result->asFlatVector<int64_t>()->valueAt(0), 1010);
   result = testStreaming("approx_distinct", false, {rawInput1}, {rawInput2});
   ASSERT_EQ(result->size(), 1);
-  ASSERT_EQ(result->asFlatVector<int64_t>()->valueAt(0), 1008);
+  ASSERT_EQ(result->asFlatVector<int64_t>()->valueAt(0), 1010);
 }
 
 // Ensure that we convert to dense HLL during merge when necessary.
@@ -337,10 +359,12 @@ TEST_F(ApproxDistinctTest, memoryLeakInMerge) {
                 .finalAggregation()
                 .capturePlanNodeId(finalAgg)
                 .planNode();
-  auto expected = makeFlatVector(std::vector<int64_t>({50311}));
+  auto expected = makeFlatVector(std::vector<int64_t>({49810}));
   auto task = assertQuery(op, {makeRowVector({expected})});
+  // Should be significantly smaller than 500KB (the number before the fix),
+  // because we should be able to convert to DenseHll in the process.
   ASSERT_LT(
-      toPlanStats(task->taskStats()).at(finalAgg).peakMemoryBytes, 150'000);
+      toPlanStats(task->taskStats()).at(finalAgg).peakMemoryBytes, 180'000);
 }
 
 } // namespace

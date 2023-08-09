@@ -139,7 +139,7 @@ void DenseHll::initialize(int8_t indexBitLength) {
 
 void DenseHll::insertHash(uint64_t hash) {
   auto index = computeIndex(hash, indexBitLength_);
-  auto value = computeValue(hash, indexBitLength_);
+  auto value = numberOfLeadingZeros(hash, indexBitLength_) + 1;
   insert(index, value);
 }
 

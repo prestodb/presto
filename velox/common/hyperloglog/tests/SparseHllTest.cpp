@@ -195,6 +195,20 @@ TEST_P(SparseHllToDenseTest, toDense) {
   ASSERT_EQ(serialize(denseHll), serialize(expectedHll));
 }
 
+TEST_P(SparseHllToDenseTest, testNumberOfZeros) {
+  auto indexBitLength = GetParam();
+  for (int i = 0; i < 64 - indexBitLength; ++i) {
+    auto hash = 1ull << i;
+    SparseHll sparseHll(&allocator_);
+    sparseHll.insertHash(hash);
+    DenseHll expectedHll(indexBitLength, &allocator_);
+    expectedHll.insertHash(hash);
+    DenseHll denseHll(indexBitLength, &allocator_);
+    sparseHll.toDense(denseHll);
+    ASSERT_EQ(serialize(denseHll), serialize(expectedHll));
+  }
+}
+
 INSTANTIATE_TEST_SUITE_P(
     SparseHllToDenseTest,
     SparseHllToDenseTest,
