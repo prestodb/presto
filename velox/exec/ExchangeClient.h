@@ -32,9 +32,9 @@ class ExchangeClient {
       memory::MemoryPool* pool,
       int64_t maxQueuedBytes)
       : destination_(destination),
+        maxQueuedBytes_{maxQueuedBytes},
         pool_(pool),
-        queue_(std::make_shared<ExchangeQueue>()),
-        maxQueuedBytes_{maxQueuedBytes} {
+        queue_(std::make_shared<ExchangeQueue>()) {
     VELOX_CHECK_NOT_NULL(pool_);
     VELOX_CHECK(
         destination >= 0,
@@ -73,12 +73,33 @@ class ExchangeClient {
   std::string toJsonString() const;
 
  private:
+  // A list of sources to request data from and how much to request from each
+  // (in bytes).
+  struct RequestSpec {
+    std::vector<std::shared_ptr<ExchangeSource>> sources;
+    int64_t maxBytes;
+  };
+
+  int64_t getAveragePageSize();
+
+  int32_t getNumSourcesToRequestLocked(int64_t averagePageSize);
+
+  RequestSpec pickSourcesToRequest();
+
+  RequestSpec pickSourcesToRequestLocked();
+
+  int32_t countPendingSourcesLocked();
+
+  void request(const RequestSpec& requestSpec);
+
   const int destination_;
+  const int64_t maxQueuedBytes_;
   memory::MemoryPool* const pool_;
   std::shared_ptr<ExchangeQueue> queue_;
-  const int64_t maxQueuedBytes_;
   std::unordered_set<std::string> taskIds_;
   std::vector<std::shared_ptr<ExchangeSource>> sources_;
+  bool allSourcesSupportFlowControl_{true};
+  uint32_t nextSourceIndex_{0};
   bool closed_{false};
 };
 

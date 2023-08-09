@@ -18,7 +18,7 @@
 namespace facebook::velox::exec {
 
 void ExchangeClient::addRemoteTaskId(const std::string& taskId) {
-  std::shared_ptr<ExchangeSource> toRequest;
+  RequestSpec toRequest;
   std::shared_ptr<ExchangeSource> toClose;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
@@ -36,29 +36,31 @@ void ExchangeClient::addRemoteTaskId(const std::string& taskId) {
     } catch (const VeloxException& e) {
       throw;
     } catch (const std::exception& e) {
-      // Task ID can be very long. Truncate to 256 characters.
+      // Task ID can be very long. Truncate to 128 characters.
       VELOX_FAIL(
           "Failed to create ExchangeSource: {}. Task ID: {}.",
           e.what(),
-          taskId.substr(0, 126));
+          taskId.substr(0, 128));
     }
 
     if (closed_) {
       toClose = std::move(source);
     } else {
+      if (!source->supportsFlowControl()) {
+        allSourcesSupportFlowControl_ = false;
+      }
       sources_.push_back(source);
       queue_->addSourceLocked();
-      if (source->shouldRequestLocked()) {
-        toRequest = source;
-      }
+
+      toRequest = pickSourcesToRequestLocked();
     }
   }
 
   // Outside of lock.
   if (toClose) {
     toClose->close();
-  } else if (toRequest) {
-    toRequest->request();
+  } else {
+    request(toRequest);
   }
 }
 
@@ -106,7 +108,7 @@ folly::F14FastMap<std::string, RuntimeMetric> ExchangeClient::stats() const {
 std::unique_ptr<SerializedPage> ExchangeClient::next(
     bool* atEnd,
     ContinueFuture* future) {
-  std::vector<std::shared_ptr<ExchangeSource>> toRequest;
+  RequestSpec toRequest;
   std::unique_ptr<SerializedPage> page;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
@@ -120,20 +122,103 @@ std::unique_ptr<SerializedPage> ExchangeClient::next(
       return page;
     }
 
-    // There is space for more data, send requests to sources with no pending
-    // request.
-    for (auto& source : sources_) {
-      if (source->shouldRequestLocked()) {
-        toRequest.push_back(source);
+    toRequest = pickSourcesToRequestLocked();
+  }
+
+  // Outside of lock
+  request(toRequest);
+  return page;
+}
+
+void ExchangeClient::request(const RequestSpec& requestSpec) {
+  for (auto& source : requestSpec.sources) {
+    auto future = source->request(requestSpec.maxBytes);
+    if (future.valid()) {
+      auto& exec = folly::QueuedImmediateExecutor::instance();
+      std::move(future)
+          .via(&exec)
+          .thenValue(
+              [&](auto&& /* unused */) { request(pickSourcesToRequest()); })
+          .thenError(
+              folly::tag_t<std::exception>{},
+              [&](const std::exception& e) { queue_->setError(e.what()); });
+    }
+  }
+}
+
+int32_t ExchangeClient::countPendingSourcesLocked() {
+  int32_t numPending = 0;
+  for (auto& source : sources_) {
+    if (source->isRequestPendingLocked()) {
+      ++numPending;
+    }
+  }
+  return numPending;
+}
+
+ExchangeClient::RequestSpec ExchangeClient::pickSourcesToRequest() {
+  std::lock_guard<std::mutex> l(queue_->mutex());
+  return pickSourcesToRequestLocked();
+}
+
+int64_t ExchangeClient::getAveragePageSize() {
+  auto averagePageSize =
+      std::min<int64_t>(maxQueuedBytes_, queue_->averageReceivedPageBytes());
+  if (averagePageSize == 0) {
+    averagePageSize = 1 << 20; // 1 MB.
+  }
+
+  return averagePageSize;
+}
+
+int32_t ExchangeClient::getNumSourcesToRequestLocked(int64_t averagePageSize) {
+  if (!allSourcesSupportFlowControl_) {
+    return sources_.size();
+  }
+
+  // Figure out how many more 'averagePageSize' fit into 'maxQueuedBytes_'.
+  // Make sure to leave room for 'numPending' pages.
+  const auto numPending = countPendingSourcesLocked();
+
+  auto numToRequest = std::max<int32_t>(
+      1, (maxQueuedBytes_ - queue_->totalBytes()) / averagePageSize);
+  if (numToRequest <= numPending) {
+    return 0;
+  }
+
+  return numToRequest - numPending;
+}
+
+ExchangeClient::RequestSpec ExchangeClient::pickSourcesToRequestLocked() {
+  if (closed_ || queue_->totalBytes() >= maxQueuedBytes_) {
+    return {};
+  }
+
+  const auto averagePageSize = getAveragePageSize();
+  const auto numToRequest = getNumSourcesToRequestLocked(averagePageSize);
+
+  if (numToRequest == 0) {
+    return {};
+  }
+
+  RequestSpec toRequest;
+  toRequest.maxBytes = averagePageSize;
+
+  // Pick up to 'numToRequest' next sources to request data from.
+  for (auto i = 0; i < sources_.size(); ++i) {
+    auto& source = sources_[nextSourceIndex_];
+
+    nextSourceIndex_ = (nextSourceIndex_ + 1) % sources_.size();
+
+    if (source->shouldRequestLocked()) {
+      toRequest.sources.push_back(source);
+      if (toRequest.sources.size() == numToRequest) {
+        break;
       }
     }
   }
 
-  // Outside of lock
-  for (auto& source : toRequest) {
-    source->request();
-  }
-  return page;
+  return toRequest;
 }
 
 ExchangeClient::~ExchangeClient() {

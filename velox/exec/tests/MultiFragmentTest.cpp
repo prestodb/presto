@@ -1568,7 +1568,7 @@ TEST_F(MultiFragmentTest, maxBytes) {
     task->updateOutputBuffers(1, true);
 
     // Allow for data to accumulate.
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::this_thread::sleep_for(std::chrono::seconds(2));
 
     DataFetcher fetcher(taskId, 0, maxBytes);
     fetcher.fetch().wait();
