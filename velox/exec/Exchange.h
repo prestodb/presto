@@ -45,8 +45,8 @@ class Exchange : public SourceOperator {
             operatorId,
             exchangeNode->id(),
             operatorType),
-        planNodeId_(exchangeNode->id()),
-        exchangeClient_(std::move(exchangeClient)) {}
+        processSplits_{operatorCtx_->driverCtx()->driverId == 0},
+        exchangeClient_{std::move(exchangeClient)} {}
 
   ~Exchange() override {
     close();
@@ -54,15 +54,7 @@ class Exchange : public SourceOperator {
 
   RowVectorPtr getOutput() override;
 
-  void close() override {
-    SourceOperator::close();
-    currentPage_ = nullptr;
-    result_ = nullptr;
-    if (exchangeClient_) {
-      exchangeClient_->close();
-    }
-    exchangeClient_ = nullptr;
-  }
+  void close() override;
 
   BlockingReason isBlocked(ContinueFuture* future) override;
 
@@ -81,9 +73,13 @@ class Exchange : public SourceOperator {
   /// exchangeClient_.
   bool getSplits(ContinueFuture* future);
 
-  void recordStats();
+  /// Fetches runtime stats from ExchangeClient and replaces these in this
+  /// operator's stats.
+  void recordExchangeClientStats();
 
-  const core::PlanNodeId planNodeId_;
+  /// True if this operator is responsible for fetching splits from the Task and
+  /// passing these to ExchangeClient.
+  const bool processSplits_;
   bool noMoreSplits_ = false;
 
   /// A future received from Task::getSplitOrFuture(). It will be complete when

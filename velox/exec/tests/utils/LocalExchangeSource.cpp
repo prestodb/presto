@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/tests/utils/LocalExchangeSource.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
 
 namespace facebook::velox::exec::test {
@@ -74,6 +75,15 @@ class LocalExchangeSource : public exec::ExchangeSource {
             inputPage = nullptr;
           }
           numPages_ += pages.size();
+
+          try {
+            common::testutil::TestValue::adjust(
+                "facebook::velox::exec::test::LocalExchangeSource", &numPages_);
+          } catch (const std::exception& e) {
+            queue_->setError(e.what());
+            return;
+          }
+
           int64_t ackSequence;
           {
             std::vector<ContinuePromise> promises;
@@ -112,7 +122,7 @@ class LocalExchangeSource : public exec::ExchangeSource {
   }
 
  private:
-  static constexpr uint64_t kMaxBytes = 32 * 1024 * 1024; // 32 MB
+  static constexpr uint64_t kMaxBytes = 1 * 1024 * 1024; // 32 MB
 
   // Records the total number of pages fetched from sources.
   int64_t numPages_{0};

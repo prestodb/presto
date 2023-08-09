@@ -49,6 +49,12 @@ class MultiFragmentTest : public HiveConnectorTestBase {
     return fmt::format("local://{}-{}", prefix, num);
   }
 
+  static exec::Consumer noopConsumer() {
+    return [](RowVectorPtr, ContinueFuture*) {
+      return BlockingReason::kNotBlocked;
+    };
+  }
+
   std::shared_ptr<Task> makeTask(
       const std::string& taskId,
       const core::PlanNodePtr& planNode,
@@ -96,13 +102,15 @@ class MultiFragmentTest : public HiveConnectorTestBase {
     task->noMoreSplits("0");
   }
 
+  exec::Split remoteSplit(const std::string& taskId) {
+    return exec::Split(std::make_shared<RemoteConnectorSplit>(taskId));
+  }
+
   void addRemoteSplits(
       std::shared_ptr<Task> task,
       const std::vector<std::string>& remoteTaskIds) {
     for (auto& taskId : remoteTaskIds) {
-      auto split =
-          exec::Split(std::make_shared<RemoteConnectorSplit>(taskId), -1);
-      task->addSplit("0", std::move(split));
+      task->addSplit("0", remoteSplit(taskId));
     }
     task->noMoreSplits("0");
   }
@@ -485,7 +493,7 @@ TEST_F(MultiFragmentTest, partitionedOutput) {
     }
 
     auto result = AssertQueryBuilder(op)
-                      .split(std::make_shared<RemoteConnectorSplit>(leafTaskId))
+                      .split(remoteSplit(leafTaskId))
                       .copyResults(pool());
     ASSERT_EQ(*result->type(), *ROW({}));
     ASSERT_EQ(result->size(), numRows);
@@ -707,9 +715,6 @@ TEST_F(MultiFragmentTest, limit) {
                   .limit(0, 10, false)
                   .planNode();
 
-  auto split =
-      exec::Split(std::make_shared<RemoteConnectorSplit>(leafTaskId), -1);
-
   // Expect the task to produce results before receiving no-more-splits message.
   bool splitAdded = false;
   auto task = ::assertQuery(
@@ -718,7 +723,7 @@ TEST_F(MultiFragmentTest, limit) {
         if (splitAdded) {
           return;
         }
-        task->addSplit("0", std::move(split));
+        task->addSplit("0", remoteSplit(leafTaskId));
         splitAdded = true;
       },
       "VALUES (null), (1), (2), (3), (4), (5), (6), (null), (8), (9)",
@@ -1237,14 +1242,15 @@ TEST_F(MultiFragmentTest, customPlanNodeWithExchangeClient) {
   addRemoteSplits(task, {leafTaskId});
   while (cursor->moveNext()) {
   }
+  ASSERT_TRUE(waitForTaskCompletion(leafTask.get(), 3'000'000))
+      << leafTask->taskId();
+  ASSERT_TRUE(waitForTaskCompletion(task.get(), 3'000'000)) << task->taskId();
+
   EXPECT_NE(
       toPlanStats(task->taskStats())
           .at(testNodeId)
           .customStats.count("testCustomExchangeStat"),
       0);
-  ASSERT_TRUE(waitForTaskCompletion(leafTask.get(), 3'000'000))
-      << leafTask->taskId();
-  ASSERT_TRUE(waitForTaskCompletion(task.get(), 3'000'000)) << task->taskId();
 }
 
 // This test is to reproduce the race condition between task terminate and no
@@ -1283,9 +1289,7 @@ DEBUG_ONLY_TEST_F(
           return;
         }
         // Trigger to add more split after the task has run into error.
-        auto split =
-            exec::Split(std::make_shared<RemoteConnectorSplit>(leafTaskId), -1);
-        task->addSplit("0", std::move(split));
+        task->addSplit("0", remoteSplit(leafTaskId));
       })));
 
   SCOPED_TESTVALUE_SET(
@@ -1313,11 +1317,7 @@ DEBUG_ONLY_TEST_F(
           -> BlockingReason { return BlockingReason::kNotBlocked; },
       kRootMemoryLimit);
   Task::start(rootTask, 1);
-  {
-    auto split =
-        exec::Split(std::make_shared<RemoteConnectorSplit>(leafTaskId), -1);
-    rootTask->addSplit("0", std::move(split));
-  }
+  rootTask->addSplit("0", remoteSplit(leafTaskId));
   blockNoMoreSplits.await([&]() { return noMoreSplits.load(); });
   rootTask->noMoreSplits("0");
   // Unblock task terminate execution after no more split call finishes.
@@ -1598,6 +1598,52 @@ TEST_F(MultiFragmentTest, maxBytes) {
   test(10 * kMB);
   test(20 * kMB);
   test(32 * kMB);
+}
+
+/// Verify that ExchangeClient stats are populated even if task fails.
+DEBUG_ONLY_TEST_F(MultiFragmentTest, exchangeStatsOnFailure) {
+  // Trigger a failure after fetching first 10 pages.
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::test::LocalExchangeSource",
+      std::function<void(void* data)>([&](void* data) {
+        int32_t numPages = *static_cast<int32_t*>(data);
+        if (numPages > 10) {
+          VELOX_FAIL("Forced failure after {} pages", numPages);
+        }
+      }));
+
+  std::string s(25, 'x');
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(10'000, [](auto row) { return row; }),
+      makeConstant(StringView(s), 10'000),
+  });
+
+  auto producerPlan = PlanBuilder()
+                          .values({data}, false, 100)
+                          .partitionedOutput({}, 1)
+                          .planNode();
+
+  auto producerTaskId = makeTaskId("producer", 0);
+  auto producerTask = makeTask(producerTaskId, producerPlan, 0);
+  Task::start(producerTask, 1);
+  producerTask->updateOutputBuffers(1, true);
+
+  auto plan = PlanBuilder().exchange(producerPlan->outputType()).planNode();
+
+  auto task = makeTask("t", plan, 0, noopConsumer());
+  Task::start(task, 4);
+  task->addSplit("0", remoteSplit(producerTaskId));
+  task->noMoreSplits("0");
+
+  test::waitForTaskFailure(task.get());
+
+  ASSERT_TRUE(task->errorMessage().find("Forced failure") != std::string::npos)
+      << "Got: [" << task->errorMessage() << "]";
+
+  auto stats = toPlanStats(task->taskStats());
+  EXPECT_EQ(10, stats.at("0").customStats.at("numReceivedPages").sum);
+
+  ASSERT_TRUE(waitForTaskCompletion(producerTask.get()));
 }
 
 } // namespace

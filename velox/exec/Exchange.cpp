@@ -19,9 +19,7 @@
 namespace facebook::velox::exec {
 
 bool Exchange::getSplits(ContinueFuture* future) {
-  if (operatorCtx_->driverCtx()->driverId != 0) {
-    // When there are multiple pipelines, a single operator, the one from
-    // pipeline 0, is responsible for feeding splits into shared ExchangeClient.
+  if (!processSplits_) {
     return false;
   }
   if (noMoreSplits_) {
@@ -30,7 +28,7 @@ bool Exchange::getSplits(ContinueFuture* future) {
   for (;;) {
     exec::Split split;
     auto reason = operatorCtx_->task()->getSplitOrFuture(
-        operatorCtx_->driverCtx()->splitGroupId, planNodeId_, split, *future);
+        operatorCtx_->driverCtx()->splitGroupId, planNodeId(), split, *future);
     if (reason == BlockingReason::kNotBlocked) {
       if (split.hasConnectorSplit()) {
         auto remoteSplit = std::dynamic_pointer_cast<RemoteConnectorSplit>(
@@ -44,7 +42,7 @@ bool Exchange::getSplits(ContinueFuture* future) {
         if (atEnd_) {
           operatorCtx_->task()->multipleSplitsFinished(
               stats_.rlock()->numSplits);
-          recordStats();
+          recordExchangeClientStats();
         }
         return false;
       }
@@ -72,8 +70,8 @@ BlockingReason Exchange::isBlocked(ContinueFuture* future) {
     if (atEnd_ && noMoreSplits_) {
       const auto numSplits = stats_.rlock()->numSplits;
       operatorCtx_->task()->multipleSplitsFinished(numSplits);
-      recordStats();
     }
+    recordExchangeClientStats();
     return BlockingReason::kNotBlocked;
   }
 
@@ -126,14 +124,26 @@ RowVectorPtr Exchange::getOutput() {
   return result_;
 }
 
-void Exchange::recordStats() {
+void Exchange::close() {
+  SourceOperator::close();
+  currentPage_ = nullptr;
+  result_ = nullptr;
+  if (exchangeClient_) {
+    recordExchangeClientStats();
+    exchangeClient_->close();
+  }
+  exchangeClient_ = nullptr;
+}
+
+void Exchange::recordExchangeClientStats() {
+  if (!processSplits_) {
+    return;
+  }
+
   auto lockedStats = stats_.wlock();
   for (const auto& [name, value] : exchangeClient_->stats()) {
-    if (lockedStats->runtimeStats.count(name) == 0) {
-      lockedStats->runtimeStats.insert({name, value});
-    } else {
-      lockedStats->runtimeStats[name].merge(value);
-    }
+    lockedStats->runtimeStats.erase(name);
+    lockedStats->runtimeStats.insert({name, value});
   }
 }
 

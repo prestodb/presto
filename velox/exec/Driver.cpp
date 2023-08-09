@@ -623,10 +623,10 @@ void Driver::close() {
   if (!isOnThread() && !isTerminated()) {
     LOG(FATAL) << "Driver::close is only allowed from the Driver's thread";
   }
-  addStatsToTask();
   for (auto& op : operators_) {
     op->close();
   }
+  addStatsToTask();
   closed_ = true;
   Task::removeDriver(ctx_->task, this);
 }
