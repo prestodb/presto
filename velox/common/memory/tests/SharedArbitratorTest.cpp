@@ -419,7 +419,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromOrderBy) {
 
     orderByThread.join();
     memThread.join();
-    Task::testingWaitForAllTasksToBeDeleted();
+    waitForAllTasksToBeDeleted();
   }
 }
 
@@ -507,7 +507,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToOrderBy) {
 
     orderByThread.join();
     memThread.join();
-    Task::testingWaitForAllTasksToBeDeleted();
+    waitForAllTasksToBeDeleted();
     const auto newStats = arbitrator_->stats();
     ASSERT_GT(newStats.numReclaimedBytes, oldStats.numReclaimedBytes);
   }
@@ -577,7 +577,7 @@ TEST_F(SharedArbitrationTest, reclaimFromCompletedOrderBy) {
 
     orderByThread.join();
     memThread.join();
-    Task::testingWaitForAllTasksToBeDeleted();
+    waitForAllTasksToBeDeleted();
   }
 }
 
@@ -676,7 +676,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, DISABLED_reclaimFromAggregation) {
 
     aggregationThread.join();
     memThread.join();
-    Task::testingWaitForAllTasksToBeDeleted();
+    waitForAllTasksToBeDeleted();
   }
 }
 
@@ -764,7 +764,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToAggregation) {
 
     aggregationThread.join();
     memThread.join();
-    Task::testingWaitForAllTasksToBeDeleted();
+    waitForAllTasksToBeDeleted();
 
     const auto newStats = arbitrator_->stats();
     ASSERT_GT(newStats.numReclaimedBytes, oldStats.numReclaimedBytes);
@@ -835,7 +835,7 @@ TEST_F(SharedArbitrationTest, reclaimFromCompletedAggregation) {
 
     aggregationThread.join();
     memThread.join();
-    Task::testingWaitForAllTasksToBeDeleted();
+    waitForAllTasksToBeDeleted();
   }
 }
 
@@ -944,7 +944,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromJoinBuilder) {
 
     aggregationThread.join();
     memThread.join();
-    Task::testingWaitForAllTasksToBeDeleted();
+    waitForAllTasksToBeDeleted();
   }
 }
 
@@ -1043,7 +1043,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToJoinBuilder) {
 
     joinThread.join();
     memThread.join();
-    Task::testingWaitForAllTasksToBeDeleted();
+    waitForAllTasksToBeDeleted();
 
     const auto newStats = arbitrator_->stats();
     ASSERT_GT(newStats.numReclaimedBytes, oldStats.numReclaimedBytes);
@@ -1061,6 +1061,7 @@ TEST_F(SharedArbitrationTest, reclaimFromCompletedJoinBuilder) {
   for (bool sameQuery : sameQueries) {
     SCOPED_TRACE(fmt::format("sameQuery {}", sameQuery));
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
+    const uint64_t numCreatedTasks = Task::numCreatedTasks();
     std::shared_ptr<core::QueryCtx> fakeMemoryQueryCtx =
         newQueryCtx(kMemoryCapacity);
     std::shared_ptr<core::QueryCtx> joinQueryCtx;
@@ -1107,6 +1108,9 @@ TEST_F(SharedArbitrationTest, reclaimFromCompletedJoinBuilder) {
               .assertResults(
                   "SELECT c1 FROM tmp WHERE c0 NOT IN (SELECT c0 FROM tmp)");
       waitForTaskCompletion(task.get());
+      task.reset();
+      // Make sure the join query task has been destroyed.
+      waitForAllTasksToBeDeleted(numCreatedTasks + 1, 3'000'000);
       fakeAllocationWait.notify();
     });
 
@@ -1125,7 +1129,7 @@ TEST_F(SharedArbitrationTest, reclaimFromCompletedJoinBuilder) {
 
     joinThread.join();
     memThread.join();
-    Task::testingWaitForAllTasksToBeDeleted();
+    waitForAllTasksToBeDeleted();
   }
 }
 
@@ -1250,7 +1254,7 @@ DEBUG_ONLY_TEST_F(
     });
     joinThread.join();
     memThread.join();
-    Task::testingWaitForAllTasksToBeDeleted();
+    waitForAllTasksToBeDeleted();
   }
 }
 
@@ -1408,7 +1412,7 @@ DEBUG_ONLY_TEST_F(
   memThread.join();
   // We only expect to reclaim from one hash build operator once.
   ASSERT_EQ(numHashBuildReclaims, 1);
-  Task::testingWaitForAllTasksToBeDeleted();
+  waitForAllTasksToBeDeleted();
 }
 
 DEBUG_ONLY_TEST_F(
@@ -1561,7 +1565,7 @@ DEBUG_ONLY_TEST_F(
 
   // We only expect to reclaim from one hash build operator once.
   ASSERT_EQ(numHashBuildReclaims, 1);
-  Task::testingWaitForAllTasksToBeDeleted();
+  waitForAllTasksToBeDeleted();
 }
 
 DEBUG_ONLY_TEST_F(
@@ -1614,7 +1618,7 @@ DEBUG_ONLY_TEST_F(
       .assertResults(
           "SELECT t.c1 FROM tmp as t, tmp AS u WHERE t.c0 == u.c1 AND t.c1 == u.c0");
   ASSERT_TRUE(parallelBuildTriggered);
-  Task::testingWaitForAllTasksToBeDeleted();
+  waitForAllTasksToBeDeleted();
 }
 
 DEBUG_ONLY_TEST_F(
@@ -1695,7 +1699,7 @@ DEBUG_ONLY_TEST_F(
           .assertResults(
               "SELECT t.c1 FROM tmp as t, tmp AS u WHERE t.c0 == u.c1 AND t.c1 == u.c0");
   task.reset();
-  Task::testingWaitForAllTasksToBeDeleted();
+  waitForAllTasksToBeDeleted();
   ASSERT_EQ(injectAllocations.size(), 2);
 }
 
@@ -1788,7 +1792,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimDuringJoinTableBuild) {
   memThread.join();
   queryThread.join();
 
-  Task::testingWaitForAllTasksToBeDeleted();
+  waitForAllTasksToBeDeleted();
 }
 
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, driverInitTriggeredArbitration) {
@@ -1919,7 +1923,7 @@ DEBUG_ONLY_TEST_F(
   queryThread.join();
   fakeAllocation.free();
   task.reset();
-  Task::testingWaitForAllTasksToBeDeleted();
+  waitForAllTasksToBeDeleted();
 }
 
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenMaybeReserveAndTaskAbort) {
@@ -1984,7 +1988,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenMaybeReserveAndTaskAbort) {
   queryThread.join();
   fakeAllocation.free();
   injectAllocation->free();
-  Task::testingWaitForAllTasksToBeDeleted();
+  waitForAllTasksToBeDeleted();
 }
 
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, asyncArbitratonFromNonDriverContext) {
@@ -2059,7 +2063,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, asyncArbitratonFromNonDriverContext) {
   fakeAllocation.free();
 
   task.reset();
-  Task::testingWaitForAllTasksToBeDeleted();
+  waitForAllTasksToBeDeleted();
 }
 
 TEST_F(SharedArbitrationTest, concurrentArbitration) {

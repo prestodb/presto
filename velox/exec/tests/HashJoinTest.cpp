@@ -5298,7 +5298,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashBuildAbortDuringOutputProcessing) {
     driverWait.notify();
     taskThread.join();
     task.reset();
-    Task::testingWaitForAllTasksToBeDeleted();
+    waitForAllTasksToBeDeleted();
   }
 }
 
@@ -5403,7 +5403,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashBuildAbortDuringInputgProcessing) {
     driverWait.notify();
     taskThread.join();
     task.reset();
-    Task::testingWaitForAllTasksToBeDeleted();
+    waitForAllTasksToBeDeleted();
   }
 }
 
@@ -5508,7 +5508,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeAbortDuringInputProcessing) {
     driverWait.notify();
     taskThread.join();
     task.reset();
-    Task::testingWaitForAllTasksToBeDeleted();
+    waitForAllTasksToBeDeleted();
   }
 }
 } // namespace

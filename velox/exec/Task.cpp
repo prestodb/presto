@@ -2377,29 +2377,6 @@ std::shared_ptr<SpillOperatorGroup> Task::getSpillOperatorGroupLocked(
   return group;
 }
 
-// static
-void Task::testingWaitForAllTasksToBeDeleted(uint64_t maxWaitUs) {
-  const uint64_t numCreatedTasks = Task::numCreatedTasks();
-  uint64_t numDeletedTasks = Task::numDeletedTasks();
-  uint64_t waitUs = 0;
-  while (numCreatedTasks > numDeletedTasks) {
-    constexpr uint64_t kWaitInternalUs = 1'000;
-    std::this_thread::sleep_for(std::chrono::microseconds(kWaitInternalUs));
-    waitUs += kWaitInternalUs;
-    numDeletedTasks = Task::numDeletedTasks();
-    if (waitUs >= maxWaitUs) {
-      break;
-    }
-  }
-  VELOX_CHECK_EQ(
-      numDeletedTasks,
-      numCreatedTasks,
-      "{} tasks have been created while only {} have been deleted after waiting for {} us",
-      numCreatedTasks,
-      numDeletedTasks,
-      waitUs);
-}
-
 void Task::testingVisitDrivers(const std::function<void(Driver*)>& callback) {
   std::lock_guard<std::mutex> l(mutex_);
   for (int i = 0; i < drivers_.size(); ++i) {

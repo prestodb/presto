@@ -42,6 +42,8 @@ void OperatorTestBase::registerVectorSerde() {
 }
 
 OperatorTestBase::~OperatorTestBase() {
+  // Wait for all the tasks to be deleted.
+  exec::test::waitForAllTasksToBeDeleted();
   // Revert to default process-wide MemoryAllocator.
   memory::MemoryAllocator::setDefaultInstance(nullptr);
 }
@@ -53,7 +55,7 @@ void OperatorTestBase::SetUpTestCase() {
 }
 
 void OperatorTestBase::TearDownTestCase() {
-  Task::testingWaitForAllTasksToBeDeleted();
+  waitForAllTasksToBeDeleted();
 }
 
 void OperatorTestBase::SetUp() {
@@ -172,7 +174,7 @@ core::TypedExprPtr OperatorTestBase::parseExpr(
 
   // Wait for the task to go.
   task.reset();
-  Task::testingWaitForAllTasksToBeDeleted();
+  waitForAllTasksToBeDeleted();
 
   // If a spilling directory was set, ensure it was removed after the task is
   // gone.

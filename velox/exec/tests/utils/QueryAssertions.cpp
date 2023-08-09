@@ -1248,6 +1248,51 @@ bool waitForTaskDriversToFinish(exec::Task* task, uint64_t maxWaitMicros) {
   return task->numFinishedDrivers() == task->numTotalDrivers();
 }
 
+void waitForAllTasksToBeDeleted(uint64_t maxWaitUs) {
+  const uint64_t numCreatedTasks = Task::numCreatedTasks();
+  uint64_t numDeletedTasks = Task::numDeletedTasks();
+  uint64_t waitUs = 0;
+  while (numCreatedTasks > numDeletedTasks) {
+    constexpr uint64_t kWaitInternalUs = 1'000;
+    std::this_thread::sleep_for(std::chrono::microseconds(kWaitInternalUs));
+    waitUs += kWaitInternalUs;
+    numDeletedTasks = Task::numDeletedTasks();
+    if (waitUs >= maxWaitUs) {
+      break;
+    }
+  }
+  VELOX_CHECK_EQ(
+      numDeletedTasks,
+      numCreatedTasks,
+      "{} tasks have been created while only {} have been deleted after waiting for {} us",
+      numCreatedTasks,
+      numDeletedTasks,
+      waitUs);
+}
+
+void waitForAllTasksToBeDeleted(
+    uint64_t expectedDeletedTasks,
+    uint64_t maxWaitUs) {
+  uint64_t numDeletedTasks = Task::numDeletedTasks();
+  uint64_t waitUs = 0;
+  while (expectedDeletedTasks > numDeletedTasks) {
+    constexpr uint64_t kWaitInternalUs = 1'000;
+    std::this_thread::sleep_for(std::chrono::microseconds(kWaitInternalUs));
+    waitUs += kWaitInternalUs;
+    numDeletedTasks = Task::numDeletedTasks();
+    if (waitUs >= maxWaitUs) {
+      break;
+    }
+  }
+  VELOX_CHECK_EQ(
+      numDeletedTasks,
+      expectedDeletedTasks,
+      "expected {} tasks to be deleted but only {} have been deleted after waiting for {} us",
+      expectedDeletedTasks,
+      numDeletedTasks,
+      waitUs);
+}
+
 std::shared_ptr<Task> assertQuery(
     const core::PlanNodePtr& plan,
     std::function<void(exec::Task*)> addSplits,

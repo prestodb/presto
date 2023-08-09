@@ -131,6 +131,18 @@ bool waitForTaskDriversToFinish(
     exec::Task* task,
     uint64_t maxWaitMicros = 1'000'000);
 
+/// Invoked to wait for all the tasks created by the test to be deleted.
+///
+/// NOTE: it is assumed that there is no more task to be created after or
+/// during this wait call. This is for testing purpose for now.
+void waitForAllTasksToBeDeleted(uint64_t maxWaitUs = 3'000'000);
+
+/// Similar to above test utility except waiting for a specific number of
+/// tasks to be deleted.
+void waitForAllTasksToBeDeleted(
+    uint64_t expectedDeletedTasks,
+    uint64_t maxWaitUs);
+
 std::shared_ptr<Task> assertQuery(
     const core::PlanNodePtr& plan,
     const std::string& duckDbSql,

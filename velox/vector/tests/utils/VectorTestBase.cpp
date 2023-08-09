@@ -16,8 +16,6 @@
 
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
-#include "velox/exec/Task.h"
-
 namespace facebook::velox::test {
 
 BufferPtr makeIndicesInReverse(vector_size_t size, memory::MemoryPool* pool) {
@@ -44,8 +42,6 @@ BufferPtr makeIndices(
 }
 
 VectorTestBase::~VectorTestBase() {
-  // Wait for all the tasks to be deleted.
-  exec::Task::testingWaitForAllTasksToBeDeleted();
   // Reset the executor to wait for all the async activities to finish.
   executor_.reset();
 }

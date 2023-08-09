@@ -1123,7 +1123,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, abortDuringOutputProcessing) {
     driverWait.notify();
     taskThread.join();
     task.reset();
-    Task::testingWaitForAllTasksToBeDeleted();
+    waitForAllTasksToBeDeleted();
   }
 }
 
@@ -1219,6 +1219,6 @@ DEBUG_ONLY_TEST_F(OrderByTest, abortDuringInputgProcessing) {
     driverWait.notify();
     taskThread.join();
     task.reset();
-    Task::testingWaitForAllTasksToBeDeleted();
+    waitForAllTasksToBeDeleted();
   }
 }

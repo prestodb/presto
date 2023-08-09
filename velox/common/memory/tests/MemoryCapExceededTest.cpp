@@ -244,7 +244,7 @@ TEST_P(MemoryCapExceededTest, allocatorCapacityExceededError) {
             << "', but received '" << errorMessage << "'.";
       }
     }
-    Task::testingWaitForAllTasksToBeDeleted();
+    waitForAllTasksToBeDeleted();
   }
 }
 

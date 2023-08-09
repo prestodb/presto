@@ -2397,7 +2397,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, abortDuringOutputProcessing) {
     driverWait.notify();
     taskThread.join();
     task.reset();
-    Task::testingWaitForAllTasksToBeDeleted();
+    waitForAllTasksToBeDeleted();
   }
 }
 
@@ -2492,7 +2492,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, abortDuringInputgProcessing) {
     driverWait.notify();
     taskThread.join();
     task.reset();
-    Task::testingWaitForAllTasksToBeDeleted();
+    waitForAllTasksToBeDeleted();
   }
 }
 
