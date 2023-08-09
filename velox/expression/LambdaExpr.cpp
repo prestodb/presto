@@ -227,4 +227,20 @@ void LambdaExpr::makeTypeWithCapture(EvalCtx& context) {
         ROW(std::move(parameterNames), std::move(parameterTypes));
   }
 }
+
+void LambdaExpr::extractSubfieldsImpl(
+    folly::F14FastMap<std::string, int32_t>* shadowedNames,
+    std::vector<common::Subfield>* subfields) const {
+  for (auto& name : signature_->names()) {
+    (*shadowedNames)[name]++;
+  }
+  body_->extractSubfieldsImpl(shadowedNames, subfields);
+  for (auto& name : signature_->names()) {
+    auto it = shadowedNames->find(name);
+    if (--it->second == 0) {
+      shadowedNames->erase(it);
+    }
+  }
+}
+
 } // namespace facebook::velox::exec

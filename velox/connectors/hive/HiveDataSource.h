@@ -72,10 +72,12 @@ class HiveDataSource : public DataSource {
   // Internal API, made public to be accessible in unit tests.  Do not use in
   // other places.
   static std::shared_ptr<common::ScanSpec> makeScanSpec(
-      const SubfieldFilters& filters,
       const RowTypePtr& rowType,
-      const std::vector<const HiveColumnHandle*>& columnHandles,
-      const std::vector<common::Subfield>& remainingFilterInputs,
+      const folly::F14FastMap<
+          std::string,
+          std::vector<const common::Subfield*>>& outputSubfields,
+      const SubfieldFilters& filters,
+      const RowTypePtr& dataColumns,
       memory::MemoryPool* pool);
 
   // Internal API, made public to be accessible in unit tests.  Do not use in

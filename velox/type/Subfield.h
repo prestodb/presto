@@ -16,6 +16,8 @@
 #pragma once
 
 #include <boost/algorithm/string/replace.hpp>
+#include <ostream>
+
 #include "velox/common/base/Exceptions.h"
 
 namespace facebook::velox::common {
@@ -268,6 +270,11 @@ class Subfield {
  private:
   std::vector<std::unique_ptr<PathElement>> path_;
 };
+
+inline std::ostream& operator<<(std::ostream& out, const Subfield& subfield) {
+  return out << subfield.toString();
+}
+
 } // namespace facebook::velox::common
 
 namespace std {

@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/type/Type.h"
 #include "velox/vector/NullsBuilder.h"
@@ -38,7 +39,7 @@ template <
     bool nullOnNegativeIndices,
     bool allowOutOfBound,
     bool indexStartsAtOne>
-class SubscriptImpl : public exec::VectorFunction {
+class SubscriptImpl : public exec::Subscript {
  public:
   void apply(
       const SelectivityVector& rows,

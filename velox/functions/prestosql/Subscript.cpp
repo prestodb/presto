@@ -25,11 +25,17 @@ namespace {
 /// - does not allow negative indices for arrays
 /// - does not allow out of bounds accesses for arrays (throws)
 /// - index starts at 1 for arrays.
-using SubscriptFunction = SubscriptImpl<
-    /* allowNegativeIndices */ false,
-    /* nullOnNegativeIndices */ false,
-    /* allowOutOfBound */ false,
-    /* indexStartsAtOne */ true>;
+class SubscriptFunction : public SubscriptImpl<
+                              /* allowNegativeIndices */ false,
+                              /* nullOnNegativeIndices */ false,
+                              /* allowOutOfBound */ false,
+                              /* indexStartsAtOne */ true> {
+ public:
+  bool canPushdown() const override {
+    return true;
+  }
+};
+
 } // namespace
 
 VELOX_DECLARE_VECTOR_FUNCTION(

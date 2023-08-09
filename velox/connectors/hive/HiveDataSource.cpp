@@ -326,6 +326,14 @@ void checkColumnNameLowerCase(const core::TypedExprPtr& typeExpr) {
   }
 }
 
+const std::string& getColumnName(const common::Subfield& subfield) {
+  VELOX_CHECK_GT(subfield.path().size(), 0);
+  auto* field = dynamic_cast<const common::Subfield::NestedField*>(
+      subfield.path()[0].get());
+  VELOX_CHECK(field);
+  return field->name();
+}
+
 } // namespace
 
 core::TypedExprPtr HiveDataSource::extractFiltersFromRemainingFilter(
@@ -411,10 +419,10 @@ HiveDataSource::HiveDataSource(
     }
   }
 
-  std::vector<std::string> columnNames;
-  columnNames.reserve(outputType->size());
-  std::vector<const HiveColumnHandle*> hiveColumnHandles;
-  hiveColumnHandles.reserve(outputType->size());
+  std::vector<std::string> readerRowNames;
+  auto readerRowTypes = outputType_->children();
+  folly::F14FastMap<std::string, std::vector<const common::Subfield*>>
+      subfields;
   for (auto& outputName : outputType->names()) {
     auto it = columnHandles.find(outputName);
     VELOX_CHECK(
@@ -423,8 +431,14 @@ HiveDataSource::HiveDataSource(
         outputName);
 
     auto* handle = static_cast<const HiveColumnHandle*>(it->second.get());
-    columnNames.push_back(handle->name());
-    hiveColumnHandles.push_back(handle);
+    readerRowNames.push_back(handle->name());
+    for (auto& subfield : handle->requiredSubfields()) {
+      VELOX_USER_CHECK_EQ(
+          getColumnName(subfield),
+          handle->name(),
+          "Required subfield does not match column name");
+      subfields[handle->name()].push_back(&subfield);
+    }
   }
 
   auto hiveTableHandle =
@@ -473,47 +487,44 @@ HiveDataSource::HiveDataSource(
     }
     remainingFilter = hiveTableHandle->remainingFilter();
   }
-  std::vector<common::Subfield> remainingFilterInputs;
+
+  std::vector<common::Subfield> remainingFilterSubfields;
   if (remainingFilter) {
     remainingFilterExprSet_ = expressionEvaluator_->compile(remainingFilter);
-    for (auto& input : remainingFilterExprSet_->expr(0)->distinctFields()) {
-      remainingFilterInputs.emplace_back(input->field());
+    auto& remainingFilterExpr = remainingFilterExprSet_->expr(0);
+    folly::F14FastSet<std::string> columnNames(
+        readerRowNames.begin(), readerRowNames.end());
+    for (auto& input : remainingFilterExpr->distinctFields()) {
+      if (columnNames.count(input->field()) > 0) {
+        continue;
+      }
+      // Remaining filter may reference columns that are not used otherwise,
+      // e.g. are not being projected out and are not used in range filters.
+      // Make sure to add these columns to readerOutputType_.
+      readerRowNames.push_back(input->field());
+      readerRowTypes.push_back(input->type());
+    }
+    remainingFilterSubfields = remainingFilterExpr->extractSubfields();
+    if (VLOG_IS_ON(1)) {
+      VLOG(1) << fmt::format(
+          "Extracted subfields from remaining filter: [{}]",
+          fmt::join(remainingFilterSubfields, ", "));
+    }
+    for (auto& subfield : remainingFilterSubfields) {
+      subfields[getColumnName(subfield)].push_back(&subfield);
     }
   }
 
-  auto outputTypes = outputType_->children();
-  readerOutputType_ = ROW(std::move(columnNames), std::move(outputTypes));
+  readerOutputType_ = ROW(std::move(readerRowNames), std::move(readerRowTypes));
   scanSpec_ = makeScanSpec(
-      filters,
       readerOutputType_,
-      hiveColumnHandles,
-      remainingFilterInputs,
+      subfields,
+      filters,
+      hiveTableHandle->dataColumns(),
       pool_);
-
   if (remainingFilter) {
     metadataFilter_ = std::make_shared<common::MetadataFilter>(
         *scanSpec_, *remainingFilter, expressionEvaluator_);
-
-    // Remaining filter may reference columns that are not used otherwise,
-    // e.g. are not being projected out and are not used in range filters.
-    // Make sure to add these columns to scanSpec_.
-    auto& filterInputs = remainingFilterExprSet_->expr(0)->distinctFields();
-    column_index_t channel = outputType_->size();
-    auto names = readerOutputType_->names();
-    auto types = readerOutputType_->children();
-    for (auto& input : filterInputs) {
-      if (readerOutputType_->containsChild(input->field())) {
-        continue;
-      }
-      names.emplace_back(input->field());
-      types.emplace_back(input->type());
-      // This is to handle root fields that are not included in output types at
-      // all but used in remaining filter.
-      //
-      // TODO: Put only selected subfields in the scan spec.
-      scanSpec_->addFieldRecursively(input->field(), *input->type(), channel++);
-    }
-    readerOutputType_ = ROW(std::move(names), std::move(types));
   }
 
   readerOpts_.setFileSchema(hiveTableHandle->dataColumns());
@@ -778,64 +789,58 @@ int64_t HiveDataSource::estimatedRowSize() {
 }
 
 std::shared_ptr<common::ScanSpec> HiveDataSource::makeScanSpec(
-    const SubfieldFilters& filters,
     const RowTypePtr& rowType,
-    const std::vector<const HiveColumnHandle*>& columnHandles,
-    const std::vector<common::Subfield>& remainingFilterInputs,
+    const folly::F14FastMap<std::string, std::vector<const common::Subfield*>>&
+        outputSubfields,
+    const SubfieldFilters& filters,
+    const RowTypePtr& dataColumns,
     memory::MemoryPool* pool) {
-  // This is to handle subfields that appear only in remaining filter (the root
-  // field is already included in column handles).  Presto planner does not add
-  // them to required subfields so we need to handle them by ourselves.
-  //
-  // TODO: Put only selected subfields instead of the whole root field from
-  // remaining filter in the scan spec.
-  std::unordered_set<std::string> remainingFilterInputNames;
-  for (auto& input : remainingFilterInputs) {
-    VELOX_CHECK_GT(input.path().size(), 0);
-    auto* field = dynamic_cast<const common::Subfield::NestedField*>(
-        input.path()[0].get());
-    VELOX_CHECK(field);
-    remainingFilterInputNames.insert(field->name());
-  }
-
-  std::unordered_map<std::string, std::vector<const common::Subfield*>>
-      requiredSubfieldsInFilters;
-  for (auto& [field, _] : filters) {
-    if (auto name = field.toString(); name == kPath || name == kBucket) {
-      continue;
-    }
-    VELOX_CHECK_GT(field.path().size(), 0);
-    auto* nestedField = dynamic_cast<const common::Subfield::NestedField*>(
-        field.path()[0].get());
-    VELOX_CHECK(nestedField);
-    requiredSubfieldsInFilters[nestedField->name()].push_back(&field);
-  }
-
   auto spec = std::make_shared<common::ScanSpec>("root");
-  for (int i = 0; i < columnHandles.size(); ++i) {
+  folly::F14FastMap<std::string, std::vector<const common::Subfield*>>
+      filterSubfields;
+  std::vector<SubfieldSpec> subfieldSpecs;
+  for (auto& [subfield, _] : filters) {
+    if (auto name = subfield.toString(); name != kPath && name != kBucket) {
+      filterSubfields[getColumnName(subfield)].push_back(&subfield);
+    }
+  }
+
+  // Process columns that will be projected out.
+  for (int i = 0; i < rowType->size(); ++i) {
     auto& name = rowType->nameOf(i);
     auto& type = rowType->childAt(i);
-    auto& subfields = columnHandles[i]->requiredSubfields();
-    if (subfields.empty() || remainingFilterInputNames.count(name) > 0) {
+    auto it = outputSubfields.find(name);
+    if (it == outputSubfields.end()) {
       spec->addFieldRecursively(name, *type, i);
+      filterSubfields.erase(name);
       continue;
     }
-    std::vector<SubfieldSpec> subfieldSpecs;
-    for (auto& subfield : subfields) {
-      VELOX_CHECK_GT(subfield.path().size(), 0);
-      auto* field = dynamic_cast<const common::Subfield::NestedField*>(
-          subfield.path()[0].get());
-      VELOX_CHECK(field);
-      VELOX_CHECK_EQ(field->name(), name);
-      subfieldSpecs.push_back({&subfield, false});
+    for (auto* subfield : it->second) {
+      subfieldSpecs.push_back({subfield, false});
     }
-    if (auto it = requiredSubfieldsInFilters.find(name);
-        it != requiredSubfieldsInFilters.end()) {
+    it = filterSubfields.find(name);
+    if (it != filterSubfields.end()) {
       for (auto* subfield : it->second) {
         subfieldSpecs.push_back({subfield, true});
       }
+      filterSubfields.erase(it);
     }
     addSubfields(*type, subfieldSpecs, 1, pool, *spec->addField(name, i));
+    subfieldSpecs.clear();
+  }
+
+  // Now process the columns that will not be projected out.
+  if (!filterSubfields.empty()) {
+    VELOX_CHECK_NOT_NULL(dataColumns);
+    for (auto& [fieldName, subfields] : filterSubfields) {
+      for (auto* subfield : subfields) {
+        subfieldSpecs.push_back({subfield, true});
+      }
+      auto& type = dataColumns->findChild(fieldName);
+      auto* fieldSpec = spec->getOrCreateChild(common::Subfield(fieldName));
+      addSubfields(*type, subfieldSpecs, 1, pool, *fieldSpec);
+      subfieldSpecs.clear();
+    }
   }
 
   for (auto& pair : filters) {
@@ -852,6 +857,7 @@ std::shared_ptr<common::ScanSpec> HiveDataSource::makeScanSpec(
     auto fieldSpec = spec->getOrCreateChild(pair.first);
     fieldSpec->addFilter(*pair.second);
   }
+
   return spec;
 }
 

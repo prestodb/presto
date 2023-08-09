@@ -4033,5 +4033,43 @@ TEST_F(ExprTest, inputFreeFieldReferenceMetaData) {
   EXPECT_TRUE(expr->propagatesNulls());
   EXPECT_TRUE(expr->isDeterministic());
 }
+
+TEST_F(ExprTest, extractSubfields) {
+  auto rowType = ROW({
+      {"c0",
+       ARRAY(ROW({
+           {"c0c0", MAP(BIGINT(), BIGINT())},
+           {"c0c1", MAP(VARCHAR(), BIGINT())},
+       }))},
+      {"c1", ARRAY(BIGINT())},
+      {"c2", ARRAY(ARRAY(BIGINT()))},
+      {"c3", BIGINT()},
+  });
+  auto validate = [&](const std::string& expr,
+                      const std::vector<std::string>& expected) {
+    SCOPED_TRACE(expr);
+    auto exprSet = compileExpression(expr, rowType);
+    std::vector<std::string> actual;
+    for (auto& subfield : exprSet->expr(0)->extractSubfields()) {
+      actual.push_back(subfield.toString());
+    }
+    std::sort(actual.begin(), actual.end());
+    auto newEnd = std::unique(actual.begin(), actual.end());
+    actual.erase(newEnd, actual.end());
+    ASSERT_EQ(actual, expected);
+  };
+  validate("c0[1].c0c0[0] > c1[1]", {"c0[1].c0c0[0]", "c1[1]"});
+  validate("c0[1].c0c1['foo'] > 0", {"c0[1].c0c1[\"foo\"]"});
+  validate("c0[1].c0c0[c1[1]] > 0", {"c0[1].c0c0", "c1[1]"});
+  validate("element_at(c1, -1)", {"c1"});
+  validate("transform(c0, x -> x.c0c0[0] + c1[1])", {"c0", "c1[1]"});
+  validate("transform(c0, c1 -> c1.c0c0[0])", {"c0"});
+  validate("reduce(c1, 0, (c0, c3) -> c0 + c3, c2 -> c2)", {"c1"});
+  validate("reduce(c1, 0, (c0, c3) -> c0 + c3, c2 -> c2) + c3", {"c1", "c3"});
+  validate(
+      "transform(c2, c0 -> reduce(c0, 0, (c0, c2) -> c0 + c2, c0 -> c0 + c1[1]) + c0[1])",
+      {"c1[1]", "c2"});
+}
+
 } // namespace
 } // namespace facebook::velox::test

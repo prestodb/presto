@@ -71,6 +71,10 @@ class LambdaExpr : public SpecialForm {
     propagatesNulls_ = false;
   }
 
+  void extractSubfieldsImpl(
+      folly::F14FastMap<std::string, int32_t>* shadowedNames,
+      std::vector<common::Subfield>* subfields) const override;
+
   RowTypePtr signature_;
 
   /// The inner expression that will be applied to the elements of the input

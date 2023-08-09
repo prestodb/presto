@@ -421,7 +421,8 @@ TEST_F(TableScanTest, subfieldPruningRemainingFilterRootFieldMissing) {
                 .tableScan(
                     ROW({{"d", BIGINT()}}),
                     makeTableHandle(
-                        SubfieldFilters{}, parseExpr("e.a is null", rowType)),
+                        SubfieldFilters{},
+                        parseExpr("e.a is null or e.b is null", rowType)),
                     assignments)
                 .planNode();
   auto split = makeHiveConnectorSplit(filePath->path);
@@ -435,7 +436,8 @@ TEST_F(TableScanTest, subfieldPruningRemainingFilterRootFieldMissing) {
   for (auto& vec : vectors) {
     auto e = vec->as<RowVector>()->childAt(1)->as<RowVector>();
     for (int i = 0; i < e->size(); ++i) {
-      expectedSize += e->isNullAt(i) || e->childAt(0)->isNullAt(i);
+      expectedSize += e->isNullAt(i) || e->childAt(0)->isNullAt(i) ||
+          e->childAt(1)->isNullAt(i);
     }
   }
   ASSERT_EQ(rows->size(), expectedSize);
@@ -1194,7 +1196,11 @@ TEST_F(TableScanTest, statsBasedSkipping) {
   ColumnHandleMap assignments = {{"c1", regularColumn("c1", INTEGER())}};
 
   auto assertQuery = [&](const std::string& query) {
-    auto tableHandle = makeTableHandle(std::move(subfieldFilters));
+    auto tableHandle = makeTableHandle(
+        std::move(subfieldFilters),
+        nullptr,
+        "hive_table",
+        asRowType(rowVector->type()));
     return TableScanTest::assertQuery(
         PlanBuilder()
             .tableScan(ROW({"c1"}, {INTEGER()}), tableHandle, assignments)
@@ -1680,7 +1686,8 @@ TEST_F(TableScanTest, filterPushdown) {
           .add("c1", greaterThanOrEqual(0, true))
           .add("c3", std::make_unique<common::BoolValue>(true, false))
           .build();
-  auto tableHandle = makeTableHandle(std::move(subfieldFilters));
+  auto tableHandle = makeTableHandle(
+      std::move(subfieldFilters), nullptr, "hive_table", rowType);
 
   auto assignments = allRegularColumns(rowType);
 

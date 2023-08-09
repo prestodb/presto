@@ -1637,6 +1637,88 @@ bool Expr::isConstant() const {
   return true;
 }
 
+namespace {
+
+common::Subfield extractSubfield(
+    const Expr* expr,
+    const folly::F14FastMap<std::string, int32_t>& shadowedNames) {
+  std::vector<std::unique_ptr<common::Subfield::PathElement>> path;
+  for (;;) {
+    if (auto* ref = expr->as<FieldReference>()) {
+      path.push_back(
+          std::make_unique<common::Subfield::NestedField>(ref->name()));
+      if (!ref->inputs().empty()) {
+        expr = ref->inputs()[0].get();
+        continue;
+      }
+      if (shadowedNames.count(ref->name()) > 0) {
+        return {};
+      }
+      std::reverse(path.begin(), path.end());
+      return common::Subfield(std::move(path));
+    }
+    if (!expr->vectorFunction()) {
+      return {};
+    }
+    auto* subscript =
+        dynamic_cast<const Subscript*>(expr->vectorFunction().get());
+    if (!subscript || !subscript->canPushdown()) {
+      return {};
+    }
+    auto* index = expr->inputs()[1]->as<ConstantExpr>();
+    if (!index) {
+      return {};
+    }
+    switch (index->value()->typeKind()) {
+      case TypeKind::TINYINT:
+        path.push_back(std::make_unique<common::Subfield::LongSubscript>(
+            index->value()->as<ConstantVector<int8_t>>()->value()));
+        break;
+      case TypeKind::SMALLINT:
+        path.push_back(std::make_unique<common::Subfield::LongSubscript>(
+            index->value()->as<ConstantVector<int16_t>>()->value()));
+        break;
+      case TypeKind::INTEGER:
+        path.push_back(std::make_unique<common::Subfield::LongSubscript>(
+            index->value()->as<ConstantVector<int32_t>>()->value()));
+        break;
+      case TypeKind::BIGINT:
+        path.push_back(std::make_unique<common::Subfield::LongSubscript>(
+            index->value()->as<ConstantVector<int64_t>>()->value()));
+        break;
+      case TypeKind::VARCHAR:
+        path.push_back(std::make_unique<common::Subfield::StringSubscript>(
+            index->value()->as<ConstantVector<StringView>>()->value()));
+        break;
+      default:
+        return {};
+    }
+    expr = expr->inputs()[0].get();
+  }
+}
+
+} // namespace
+
+void Expr::extractSubfieldsImpl(
+    folly::F14FastMap<std::string, int32_t>* shadowedNames,
+    std::vector<common::Subfield>* subfields) const {
+  auto subfield = extractSubfield(this, *shadowedNames);
+  if (subfield.valid()) {
+    subfields->push_back(std::move(subfield));
+    return;
+  }
+  for (auto& input : inputs_) {
+    input->extractSubfieldsImpl(shadowedNames, subfields);
+  }
+}
+
+std::vector<common::Subfield> Expr::extractSubfields() const {
+  folly::F14FastMap<std::string, int32_t> shadowedNames;
+  std::vector<common::Subfield> subfields;
+  extractSubfieldsImpl(&shadowedNames, &subfields);
+  return subfields;
+}
+
 ExprSet::ExprSet(
     const std::vector<core::TypedExprPtr>& sources,
     core::ExecCtx* execCtx,

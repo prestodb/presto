@@ -298,13 +298,15 @@ TypedExprPtr Expressions::resolveLambdaExpr(
     types.push_back(lambdaInputTypes[i]);
   }
 
-  auto signature = ROW(std::move(names), std::move(types));
+  auto signature =
+      ROW(std::vector<std::string>(names), std::vector<TypePtr>(types));
 
-  names = inputRow->asRow().names();
-  types = inputRow->asRow().children();
-  for (auto i = 0; i < signature->size(); ++i) {
-    names.push_back(signature->names()[i]);
-    types.push_back(signature->childAt(i));
+  auto& inputRowType = inputRow->asRow();
+  for (auto i = 0; i < inputRowType.size(); ++i) {
+    if (!signature->containsChild(inputRowType.names()[i])) {
+      names.push_back(inputRowType.names()[i]);
+      types.push_back(inputRowType.childAt(i));
+    }
   }
 
   auto lambdaRow = ROW(std::move(names), std::move(types));
