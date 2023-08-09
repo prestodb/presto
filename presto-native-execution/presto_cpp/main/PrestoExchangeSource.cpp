@@ -287,7 +287,7 @@ void PrestoExchangeSource::processDataError(
 
   onFinalFailure(
       fmt::format(
-          "Failed to fetched data from {}:{} {} - Exhausted retries: {}",
+          "Failed to fetch data from {}:{} {} - Exhausted retries: {}",
           host_,
           port_,
           path,
