@@ -257,6 +257,7 @@ public class TestArraySqlFunctions
         // Test VARCHAR
         assertFunction("ARRAY_TOP_N(ARRAY ['a', 'z', 'd', 'f', 'g', 'b'], 4)", new ArrayType(createVarcharType(1)), ImmutableList.of("z", "g", "f", "d"));
         assertFunction("ARRAY_TOP_N(ARRAY ['foo', 'bar', 'lorem', 'ipsum', 'lorem2'], 3)", new ArrayType(createVarcharType(6)), ImmutableList.of("lorem2", "lorem", "ipsum"));
+        assertFunction("ARRAY_TOP_N(ARRAY ['a', 'zzz', 'zz', 'b', 'g', 'f'], 3)", new ArrayType(createVarcharType(3)), ImmutableList.of("zzz", "zz", "g"));
         assertFunction("ARRAY_TOP_N(ARRAY ['a', 'a', 'd', 'a', 'a', 'a'], 3)", new ArrayType(createVarcharType(1)), ImmutableList.of("d", "a", "a"));
 
         // Test BOOLEAN
