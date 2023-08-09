@@ -175,6 +175,14 @@ Array Functions
     ``T`` must be coercible to ``double``.
     Returns ``bigint`` if T is coercible to ``bigint``. Otherwise, returns ``double``.
 
+.. function:: array_top_n(array(T), int) -> array(T)
+
+    Returns an array of top n elements from a given ``array``, according to its natural descending order.
+    If n is smaller than the size of the given ``array``, the returned list will be the same size as the input instead of n.
+        SELECT array_top_n(ARRAY [1, 100, 2, 5, 3], 3); -- [100, 5, 3]
+        SELECT array_top_n(ARRAY [1, 100], 5); -- [100, 1]
+        SELECT array_top_n(ARRAY ['a', 'zzz', 'zz', 'b', 'g', 'f'], 3); -- ['zzz', 'zz', 'g']
+
 .. function:: arrays_overlap(x, y) -> boolean
 
     Tests if arrays ``x`` and ``y`` have any non-null elements in common.

@@ -136,4 +136,22 @@ public class ArraySqlFunctions
     {
         return "RETURN IF(none_match(input, x -> x is null), input, filter(input, x -> x is not null))";
     }
+
+    @SqlInvokedScalarFunction(value = "array_top_n", deterministic = true, calledOnNullInput = true)
+    @Description("Returns top N elements of a given array, using natural descending order.")
+    @TypeParameter("T")
+    @SqlParameters({@SqlParameter(name = "input", type = "array(T)"), @SqlParameter(name = "n", type = "int")})
+    @SqlType("array<T>")
+    public static String arrayTopN()
+    { return "RETURN IF(n < 0, fail('Parameter n: ' || cast(n as varchar) || ' to ARRAY_TOP_N is negative'), SLICE(ARRAY_SORT_DESC(input), 1, n))"; }
+
+    @SqlInvokedScalarFunction(value = "array_top_n", deterministic = true, calledOnNullInput = true)
+    @Description("Returns the top N values of the given map sorted using the provided lambda comparator.")
+    @TypeParameter("T")
+    @SqlParameters({@SqlParameter(name = "input", type = "array(T)"), @SqlParameter(name = "n", type = "int"), @SqlParameter(name = "f", type = "function(T, T, int)")})
+    @SqlType("array<T>")
+    public static String arrayTopNComparator()
+    {
+        return "RETURN IF(n < 0, fail('Parameter n: ' || cast(n as varchar) || ' to ARRAY_TOP_N is negative'), SLICE(REVERSE(ARRAY_SORT(input, f)), 1, n))";
+    }
 }
