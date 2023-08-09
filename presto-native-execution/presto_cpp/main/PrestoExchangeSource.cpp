@@ -106,35 +106,58 @@ bool PrestoExchangeSource::shouldRequestLocked() {
   if (atEnd_) {
     return false;
   }
-  bool pending = requestPending_;
-  requestPending_ = true;
-  return !pending;
+
+  if (!requestPending_) {
+    VELOX_CHECK(!promise_.valid() || promise_.isFulfilled());
+    requestPending_ = true;
+    return true;
+  }
+
+  // We are still processing previous request.
+  return false;
 }
 
-void PrestoExchangeSource::request() {
+velox::ContinueFuture PrestoExchangeSource::request(uint32_t maxBytes) {
+  // Before calling 'request', the caller should have called
+  // 'shouldRequestLocked' and received 'true' response. Hence, we expect
+  // requestPending_ == true, atEnd_ == false.
+  // This call cannot be made concurrently from multiple threads.
+  VELOX_CHECK(requestPending_);
+  VELOX_CHECK(!promise_.valid() || promise_.isFulfilled());
+
+  auto [promise, future] =
+      makeVeloxContinuePromiseContract("PrestoExchangeSource::request");
+
+  promise_ = std::move(promise);
   failedAttempts_ = 0;
   retryState_ =
       RetryState(std::chrono::duration_cast<std::chrono::milliseconds>(
                      SystemConfig::instance()->exchangeMaxErrorDuration())
                      .count());
-  doRequest(retryState_.nextDelayMs());
+  doRequest(retryState_.nextDelayMs(), maxBytes);
+
+  return std::move(future);
 }
 
-void PrestoExchangeSource::doRequest(int64_t delayMs) {
+void PrestoExchangeSource::doRequest(int64_t delayMs, uint32_t maxBytes) {
   if (closed_.load()) {
     queue_->setError("PrestoExchangeSource closed");
     return;
   }
+
   auto path = fmt::format("{}/{}", basePath_, sequence_);
   VLOG(1) << "Fetching data from " << host_ << ":" << port_ << " " << path;
   auto self = getSelfPtr();
   http::RequestBuilder()
       .method(proxygen::HTTPMethod::GET)
       .url(path)
-      .header(protocol::PRESTO_MAX_SIZE_HTTP_HEADER, "32MB")
+      .header(
+          protocol::PRESTO_MAX_SIZE_HTTP_HEADER,
+          protocol::DataSize(maxBytes, protocol::DataUnit::BYTE).toString())
       .send(httpClient_.get(), "", delayMs)
       .via(exchangeExecutor_.get())
-      .thenValue([path, self](std::unique_ptr<http::HttpResponse> response) {
+      .thenValue([path, maxBytes, self](
+                     std::unique_ptr<http::HttpResponse> response) {
         velox::common::testutil::TestValue::adjust(
             "facebook::presto::PrestoExchangeSource::doRequest", self.get());
         auto* headers = response->headers();
@@ -146,21 +169,22 @@ void PrestoExchangeSource::doRequest(int64_t delayMs) {
           // cancel other tasks, when some tasks have failed.
           self->processDataError(
               path,
+              maxBytes,
               fmt::format(
                   "Received HTTP {} {} {}",
                   headers->getStatusCode(),
                   headers->getStatusMessage(),
                   bodyAsString(*response, self->pool_.get())));
         } else if (response->hasError()) {
-          self->processDataError(path, response->error(), false);
+          self->processDataError(path, maxBytes, response->error(), false);
         } else {
           self->processDataResponse(std::move(response));
         }
       })
       .thenError(
           folly::tag_t<std::exception>{},
-          [path, self](const std::exception& e) {
-            self->processDataError(path, e.what());
+          [path, maxBytes, self](const std::exception& e) {
+            self->processDataError(path, maxBytes, e.what());
           });
 };
 
@@ -232,48 +256,49 @@ void PrestoExchangeSource::processDataResponse(
       kCounterPrestoExchangeSerializedPageSize, page ? page->size() : 0);
 
   {
-    std::vector<ContinuePromise> promises;
+    ContinuePromise requestPromise;
+    std::vector<ContinuePromise> queuePromises;
     {
       std::lock_guard<std::mutex> l(queue_->mutex());
       if (page) {
         VLOG(1) << "Enqueuing page for " << basePath_ << "/" << sequence_
                 << ": " << page->size() << " bytes";
         ++numPages_;
-        queue_->enqueueLocked(std::move(page), promises);
+        queue_->enqueueLocked(std::move(page), queuePromises);
       }
       if (complete) {
         VLOG(1) << "Enqueuing empty page for " << basePath_ << "/" << sequence_;
         atEnd_ = true;
-        queue_->enqueueLocked(nullptr, promises);
+        queue_->enqueueLocked(nullptr, queuePromises);
       }
 
       sequence_ = ackSequence;
-
-      // Reset requestPending_ if the response is complete or have pages.
-      if (complete || !empty) {
-        requestPending_ = false;
-      }
+      requestPending_ = false;
+      requestPromise = std::move(promise_);
     }
-    for (auto& promise : promises) {
+    for (auto& promise : queuePromises) {
       promise.setValue();
+    }
+
+    if (requestPromise.valid() && !requestPromise.isFulfilled()) {
+      requestPromise.setValue();
+    } else {
+      // The source must have been closed.
+      VELOX_CHECK(closed_.load());
     }
   }
 
   if (complete) {
     abortResults();
-  } else {
-    if (!empty) {
-      // Acknowledge results for non-empty content.
-      acknowledgeResults(ackSequence);
-    } else {
-      // Rerequest results for incomplete results with no pages.
-      request();
-    }
+  } else if (!empty) {
+    // Acknowledge results for non-empty content.
+    acknowledgeResults(ackSequence);
   }
 }
 
 void PrestoExchangeSource::processDataError(
     const std::string& path,
+    uint32_t maxBytes,
     const std::string& error,
     bool retry) {
   ++failedAttempts_;
@@ -281,7 +306,7 @@ void PrestoExchangeSource::processDataError(
     VLOG(1) << "Failed to fetch data from " << host_ << ":" << port_ << " "
             << path << " - Retrying: " << error;
 
-    doRequest(retryState_.nextDelayMs());
+    doRequest(retryState_.nextDelayMs(), maxBytes);
     return;
   }
 
@@ -293,6 +318,25 @@ void PrestoExchangeSource::processDataError(
           path,
           error),
       queue_);
+
+  if (!checkSetRequestPromise()) {
+    // The source must have been closed.
+    VELOX_CHECK(closed_.load());
+  }
+}
+
+bool PrestoExchangeSource::checkSetRequestPromise() {
+  ContinuePromise promise;
+  {
+    std::lock_guard<std::mutex> l(queue_->mutex());
+    promise = std::move(promise_);
+  }
+  if (promise.valid() && !promise.isFulfilled()) {
+    promise.setValue();
+    return true;
+  }
+
+  return false;
 }
 
 void PrestoExchangeSource::acknowledgeResults(int64_t ackSequence) {
@@ -350,6 +394,7 @@ void PrestoExchangeSource::abortResults() {
 
 void PrestoExchangeSource::close() {
   closed_.store(true);
+  checkSetRequestPromise();
   if (!abortResultsSucceeded_.load()) {
     abortResults();
   }
