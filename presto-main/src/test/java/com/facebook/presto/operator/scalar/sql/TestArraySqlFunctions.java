@@ -263,6 +263,7 @@ public class TestArraySqlFunctions
         // Test BOOLEAN
         assertFunction("ARRAY_TOP_N(ARRAY [true, true, false, true, false], 4)", new ArrayType(BOOLEAN), ImmutableList.of(true, true, true, false));
 
+        // Test exceptions
         assertInvalidFunction("ARRAY_TOP_N(ARRAY [ROW('a', 1), ROW('a', null), null, ROW('a', 0)], 2)", StandardErrorCode.INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("ARRAY_TOP_N(ARRAY [MAP(ARRAY['foo', 'bar'], ARRAY[1, 2]), MAP(ARRAY['foo', 'bar'], ARRAY[0, 3])], 2)", SemanticErrorCode.FUNCTION_NOT_FOUND);
     }
