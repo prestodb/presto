@@ -23,9 +23,7 @@ class PrestoTaskId {
     std::vector<std::string> taskIdParts;
     folly::split('.', taskId, taskIdParts);
 
-    // TODO (adutta): Remove taskIdParts.size() < 4 after presto
-    // release with new taskid format.
-    if (taskIdParts.size() < 4 || taskIdParts.size() > 5) {
+    if (taskIdParts.size() != 5) {
       VELOX_USER_FAIL("Malformed task ID: {}", taskId);
     }
 
@@ -33,9 +31,7 @@ class PrestoTaskId {
     stageId_ = folly::to<int32_t>(taskIdParts[1]);
     stageExecutionId_ = folly::to<int32_t>(taskIdParts[2]);
     id_ = folly::to<int32_t>(taskIdParts[3]);
-    if (taskIdParts.size() == 5) {
-      attemptNumber_ = folly::to<int32_t>(taskIdParts[4]);
-    }
+    attemptNumber_ = folly::to<int32_t>(taskIdParts[4]);
   }
 
   const std::string& queryId() const {
