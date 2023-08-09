@@ -28,7 +28,7 @@ jobs:
       with:
         filters: |
           codechange:
-            - '!docs/**'
+            - '!presto-docs/**'
 
   test:
     runs-on: ubuntu-latest
