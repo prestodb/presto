@@ -33,12 +33,12 @@ BlockingReason Destination::advance(
     *atEnd = true;
     return BlockingReason::kNotBlocked;
   }
-  uint32_t adjustedMaxBytes = std::max(
-      PartitionedOutput::kMinDestinationSize,
-      (maxBytes * targetSizePct_) / 100);
+
+  const uint32_t adjustedMaxBytes = (maxBytes * targetSizePct_) / 100;
   if (bytesInCurrent_ >= adjustedMaxBytes) {
     return flush(bufferManager, bufferReleaseFn, future);
   }
+
   auto firstRow = row_;
   for (; row_ < rows_.size(); ++row_) {
     // TODO: add support for serializing partial ranges if the full range is too
@@ -67,7 +67,7 @@ void Destination::serialize(
     vector_size_t end) {
   if (!current_) {
     current_ = std::make_unique<VectorStreamGroup>(pool_);
-    auto rowType = std::dynamic_pointer_cast<const RowType>(output->type());
+    auto rowType = asRowType(output->type());
     vector_size_t numRows = 0;
     for (vector_size_t i = begin; i < end; i++) {
       numRows += rows_[i].size;
@@ -84,6 +84,7 @@ BlockingReason Destination::flush(
   if (!current_) {
     return BlockingReason::kNotBlocked;
   }
+
   // Upper limit of message size with no columns.
   constexpr int32_t kMinMessageSize = 128;
   auto listener = bufferManager.newListener();
@@ -306,13 +307,19 @@ RowVectorPtr PartitionedOutput::getOutput() {
   VELOX_CHECK_NOT_NULL(
       bufferManager, "PartitionedOutputBufferManager was already destructed");
 
+  // Limit serialized pages to 1MB.
+  static const uint64_t kMaxPageSize = 1 << 20;
+  const uint64_t maxPageSize = std::max<uint64_t>(
+      kMinDestinationSize,
+      std::min<uint64_t>(kMaxPageSize, maxBufferedBytes_ / numDestinations_));
+
   bool workLeft;
   do {
     workLeft = false;
     for (auto& destination : destinations_) {
       bool atEnd = false;
       blockingReason_ = destination->advance(
-          maxBufferedBytes_ / destinations_.size(),
+          maxPageSize,
           rowSize_,
           output_,
           *bufferManager,

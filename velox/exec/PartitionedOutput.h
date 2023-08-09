@@ -85,9 +85,9 @@ class Destination {
   // the same time. This is done for each batch so that the average
   // batch size for each converges.
   void setTargetSizePct() {
-    // Flush at  70 to 120% of target row or byte count.
+    // Flush at 70 to 120% of target row or byte count.
     targetSizePct_ = 70 + (folly::Random::rand32(rng_) % 50);
-    targetNumRows_ = (10000 * targetSizePct_) / 100;
+    targetNumRows_ = (10'000 * targetSizePct_) / 100;
   }
 
   const std::string taskId_;
