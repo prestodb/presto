@@ -32,6 +32,10 @@ class TaskManager {
  public:
   TaskManager();
 
+  /// Invoked by Presto server shutdown to wait for all the tasks to complete
+  /// and cleanup the completed tasks.
+  void shutdown();
+
   void setBaseUri(const std::string& baseUri) {
     baseUri_ = baseUri;
   }
@@ -87,9 +91,6 @@ class TaskManager {
   /// Remove old Finished, Cancelled, Failed and Aborted tasks.
   /// Old is being defined by the lifetime of the task.
   size_t cleanOldTasks();
-
-  /// Invoked by Presto server shutdown to wait for all the tasks to complete.
-  void waitForTasksToComplete();
 
   folly::Future<std::unique_ptr<protocol::TaskInfo>> getTaskInfo(
       const protocol::TaskId& taskId,
@@ -152,14 +153,13 @@ class TaskManager {
       const protocol::TaskId& taskId,
       bool includeNodeInSpillPath);
 
- public:
+ private:
   static constexpr folly::StringPiece kMaxDriversPerTask{
       "max_drivers_per_task"};
   static constexpr folly::StringPiece kConcurrentLifespansPerTask{
       "concurrent_lifespans_per_task"};
   static constexpr folly::StringPiece kSessionTimezone{"session_timezone"};
 
- private:
   std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
       const protocol::TaskId& taskId,
       const velox::core::PlanFragment& planFragment,
