@@ -42,7 +42,6 @@ namespace facebook::presto {
 constexpr uint32_t kMaxConcurrentLifespans{16};
 
 namespace {
-
 // If spilling is enabled and the given Task can spill, then this helper
 // generates the spilling directory path for the Task, creates that directory in
 // the file system and sets the path to it to the Task.
@@ -88,31 +87,6 @@ void keepPromiseAlive(
   handlerState->runOnFinalization(
       [promiseHolder]() mutable { promiseHolder.reset(); });
 }
-} // namespace
-
-TaskManager::TaskManager()
-    : bufferManager_(
-          velox::exec::PartitionedOutputBufferManager::getInstance().lock()) {
-  VELOX_CHECK_NOT_NULL(
-      bufferManager_, "invalid PartitionedOutputBufferManager");
-}
-
-void TaskManager::abortResults(const TaskId& taskId, long bufferId) {
-  VLOG(1) << "TaskManager::abortResults " << taskId;
-
-  bufferManager_->deleteResults(taskId, bufferId);
-}
-
-void TaskManager::acknowledgeResults(
-    const TaskId& taskId,
-    const long bufferId,
-    long token) {
-  VLOG(1) << "TaskManager::acknowledgeResults " << taskId << ", " << bufferId
-          << ", " << token;
-  bufferManager_->acknowledge(taskId, bufferId, token);
-}
-
-namespace {
 
 std::unique_ptr<Result> createTimeOutResult(long token) {
   auto result = std::make_unique<Result>();
@@ -189,7 +163,131 @@ void getData(
     promiseHolder->promise.setValue(std::move(createTimeOutResult(token)));
   }
 }
+
+// Presto-on-Spark is expected to specify all splits at once along with
+// no-more-splits flag. Verify that all plan nodes that require splits
+// have received splits and no-more-splits flag. This check helps
+// prevent hard-to-debug query hangs caused by Velox Task waiting for
+// splits that never arrive.
+void checkSplitsForBatchTask(
+    const velox::core::PlanNodePtr& planNode,
+    const std::vector<protocol::TaskSource>& sources) {
+  std::unordered_set<velox::core::PlanNodeId> splitNodeIds;
+  velox::core::PlanNode::findFirstNode(
+      planNode.get(), [&](const velox::core::PlanNode* node) {
+        if (node->requiresSplits()) {
+          splitNodeIds.insert(node->id());
+        }
+        return false;
+      });
+
+  for (const auto& source : sources) {
+    VELOX_USER_CHECK(
+        source.noMoreSplits,
+        "Expected no-more-splits message for plan node {}",
+        source.planNodeId);
+    splitNodeIds.erase(source.planNodeId);
+  }
+
+  VELOX_USER_CHECK(
+      splitNodeIds.empty(),
+      "Expected all splits and no-more-splits message for all plan nodes: {}",
+      folly::join(", ", splitNodeIds));
+}
+
+struct ZombieTaskStats {
+  const std::string taskId;
+  const std::string taskInfo;
+
+  explicit ZombieTaskStats(const std::shared_ptr<exec::Task>& task)
+      : taskId(task->taskId()), taskInfo(task->toString()) {}
+
+  std::string toString() const {
+    return SystemConfig::instance()->logZombieTaskInfo() ? taskInfo : taskId;
+  }
+};
+
+// Helper structure holding stats for 'zombie' tasks.
+struct ZombieTaskStatsSet {
+  size_t numRunning{0};
+  size_t numFinished{0};
+  size_t numCanceled{0};
+  size_t numAborted{0};
+  size_t numFailed{0};
+  size_t numTotal{0};
+
+  const size_t numSampleTasks;
+  std::vector<ZombieTaskStats> tasks;
+
+  ZombieTaskStatsSet()
+      : numSampleTasks(SystemConfig::instance()->logNumZombieTasks()) {
+    tasks.reserve(numSampleTasks);
+  }
+
+  void updateCounts(std::shared_ptr<exec::Task>& task) {
+    switch (task->state()) {
+      case exec::TaskState::kRunning:
+        ++numRunning;
+        break;
+      case exec::TaskState::kFinished:
+        ++numFinished;
+        break;
+      case exec::TaskState::kCanceled:
+        ++numCanceled;
+        break;
+      case exec::TaskState::kAborted:
+        ++numAborted;
+        break;
+      case exec::TaskState::kFailed:
+        ++numFailed;
+        break;
+      default:
+        break;
+    }
+    if (tasks.size() < numSampleTasks) {
+      tasks.emplace_back(task);
+    }
+  }
+
+  void logZombieTaskStatus(const std::string& hangingClassName) {
+    LOG(ERROR) << "There are " << numTotal << " zombie " << hangingClassName
+               << " that satisfy cleanup conditions but could not be "
+                  "cleaned up, because the "
+               << hangingClassName
+               << " are referenced by more than 1 owners. RUNNING["
+               << numRunning << "] FINISHED[" << numFinished << "] CANCELED["
+               << numCanceled << "] ABORTED[" << numAborted << "] FAILED["
+               << numFailed << "]  Sample task IDs (shows only "
+               << numSampleTasks << " IDs): " << std::endl;
+    for (int i = 0; i < tasks.size(); ++i) {
+      LOG(ERROR) << "Zombie Task[" << i + 1 << "/" << tasks.size()
+                 << "]: " << tasks[i].toString() << std::endl;
+    }
+  }
+};
 } // namespace
+
+TaskManager::TaskManager()
+    : bufferManager_(
+          velox::exec::PartitionedOutputBufferManager::getInstance().lock()) {
+  VELOX_CHECK_NOT_NULL(
+      bufferManager_, "invalid PartitionedOutputBufferManager");
+}
+
+void TaskManager::abortResults(const TaskId& taskId, long bufferId) {
+  VLOG(1) << "TaskManager::abortResults " << taskId;
+
+  bufferManager_->deleteResults(taskId, bufferId);
+}
+
+void TaskManager::acknowledgeResults(
+    const TaskId& taskId,
+    const long bufferId,
+    long token) {
+  VLOG(1) << "TaskManager::acknowledgeResults " << taskId << ", " << bufferId
+          << ", " << token;
+  bufferManager_->acknowledge(taskId, bufferId, token);
+}
 
 std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
     const TaskId& taskId,
@@ -256,40 +354,6 @@ void TaskManager::getDataForResultRequests(
         *bufferManager_);
   }
 }
-
-namespace {
-
-/// Presto-on-Spark is expected to specify all splits at once along with
-/// no-more-splits flag. Verify that all plan nodes that require splits
-/// have received splits and no-more-splits flag. This check helps
-/// prevent hard-to-debug query hangs caused by Velox Task waiting for
-/// splits that never arrive.
-void checkSplitsForBatchTask(
-    const velox::core::PlanNodePtr& planNode,
-    const std::vector<protocol::TaskSource>& sources) {
-  std::unordered_set<velox::core::PlanNodeId> splitNodeIds;
-  velox::core::PlanNode::findFirstNode(
-      planNode.get(), [&](const velox::core::PlanNode* node) {
-        if (node->requiresSplits()) {
-          splitNodeIds.insert(node->id());
-        }
-        return false;
-      });
-
-  for (const auto& source : sources) {
-    VELOX_USER_CHECK(
-        source.noMoreSplits,
-        "Expected no-more-splits message for plan node {}",
-        source.planNodeId);
-    splitNodeIds.erase(source.planNodeId);
-  }
-
-  VELOX_USER_CHECK(
-      splitNodeIds.empty(),
-      "Expected all splits and no-more-splits message for all plan nodes: {}",
-      folly::join(", ", splitNodeIds));
-}
-} // namespace
 
 std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
     const protocol::TaskId& taskId,
@@ -497,81 +561,6 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
 
   return std::make_unique<TaskInfo>(prestoTask->info);
 }
-
-namespace {
-
-struct ZombieTaskStats {
-  const std::string taskId;
-  const std::string taskInfo;
-
-  explicit ZombieTaskStats(const std::shared_ptr<exec::Task>& task)
-      : taskId(task->taskId()), taskInfo(task->toString()) {}
-
-  std::string toString() const {
-    return SystemConfig::instance()->logZombieTaskInfo() ? taskInfo : taskId;
-  }
-};
-
-// Helper structure holding stats for 'zombie' tasks.
-struct ZombieTaskStatsSet {
-  size_t numRunning{0};
-  size_t numFinished{0};
-  size_t numCanceled{0};
-  size_t numAborted{0};
-  size_t numFailed{0};
-  size_t numTotal{0};
-
-  const size_t numSampleTasks;
-  std::vector<ZombieTaskStats> tasks;
-
-  ZombieTaskStatsSet()
-      : numSampleTasks(SystemConfig::instance()->logNumZombieTasks()) {
-    tasks.reserve(numSampleTasks);
-  }
-
-  void updateCounts(std::shared_ptr<exec::Task>& task) {
-    switch (task->state()) {
-      case exec::TaskState::kRunning:
-        ++numRunning;
-        break;
-      case exec::TaskState::kFinished:
-        ++numFinished;
-        break;
-      case exec::TaskState::kCanceled:
-        ++numCanceled;
-        break;
-      case exec::TaskState::kAborted:
-        ++numAborted;
-        break;
-      case exec::TaskState::kFailed:
-        ++numFailed;
-        break;
-      default:
-        break;
-    }
-    if (tasks.size() < numSampleTasks) {
-      tasks.emplace_back(task);
-    }
-  }
-
-  void logZombieTaskStatus(const std::string& hangingClassName) {
-    LOG(ERROR) << "There are " << numTotal << " zombie " << hangingClassName
-               << " that satisfy cleanup conditions but could not be "
-                  "cleaned up, because the "
-               << hangingClassName
-               << " are referenced by more than 1 owners. RUNNING["
-               << numRunning << "] FINISHED[" << numFinished << "] CANCELED["
-               << numCanceled << "] ABORTED[" << numAborted << "] FAILED["
-               << numFailed << "]  Sample task IDs (shows only "
-               << numSampleTasks << " IDs): " << std::endl;
-    for (int i = 0; i < tasks.size(); ++i) {
-      LOG(ERROR) << "Zombie Task[" << i + 1 << "/" << tasks.size()
-                 << "]: " << tasks[i].toString() << std::endl;
-    }
-  }
-};
-
-}; // namespace
 
 size_t TaskManager::cleanOldTasks() {
   const auto startTimeMs = getCurrentTimeMs();
@@ -1008,19 +997,38 @@ std::array<size_t, 5> TaskManager::getTaskNumbers(size_t& numTasks) const {
   return res;
 }
 
-void TaskManager::waitForTasksToComplete() {
+void TaskManager::shutdown() {
   size_t numTasks;
   auto taskNumbers = getTaskNumbers(numTasks);
   size_t seconds = 0;
   while (taskNumbers[velox::exec::TaskState::kRunning] > 0) {
-    LOG(INFO) << "Waiting (" << seconds
-              << " seconds so far) for 'Running' tasks to complete. "
-              << numTasks << " tasks left: "
-              << PrestoTask::taskNumbersToString(taskNumbers);
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "Waited (" << seconds
+        << " seconds so far) for 'Running' tasks to complete. " << numTasks
+        << " tasks left: " << PrestoTask::taskNumbersToString(taskNumbers);
     std::this_thread::sleep_for(std::chrono::seconds(1));
     taskNumbers = getTaskNumbers(numTasks);
     ++seconds;
   }
+
+  taskMap_.withRLock([&](const TaskMap& taskMap) {
+    for (auto it = taskMap.begin(); it != taskMap.end(); ++it) {
+      const auto veloxTaskRefCount = it->second->task.use_count();
+      if (veloxTaskRefCount > 1) {
+        VELOX_CHECK_NOT_NULL(it->second->task);
+        PRESTO_SHUTDOWN_LOG(WARNING)
+            << "Velox task has pending reference on destruction: "
+            << it->second->task->taskId();
+        continue;
+      }
+      const auto prestoTaskRefCount = it->second.use_count();
+      if (prestoTaskRefCount > 1) {
+        PRESTO_SHUTDOWN_LOG(WARNING)
+            << "Presto task has pending reference on destruction: "
+            << it->second->id.toString();
+      }
+    }
+  });
 }
 
 } // namespace facebook::presto
