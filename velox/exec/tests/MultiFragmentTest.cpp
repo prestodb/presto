@@ -1600,8 +1600,9 @@ TEST_F(MultiFragmentTest, maxBytes) {
   test(32 * kMB);
 }
 
+/// Flaky: https://github.com/facebookincubator/velox/issues/6061
 /// Verify that ExchangeClient stats are populated even if task fails.
-DEBUG_ONLY_TEST_F(MultiFragmentTest, exchangeStatsOnFailure) {
+DEBUG_ONLY_TEST_F(MultiFragmentTest, DISABLED_exchangeStatsOnFailure) {
   // Trigger a failure after fetching first 10 pages.
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::test::LocalExchangeSource",
