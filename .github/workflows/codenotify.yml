@@ -3,7 +3,7 @@
 name: codenotify
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, ready_for_review]
 
 jobs:
