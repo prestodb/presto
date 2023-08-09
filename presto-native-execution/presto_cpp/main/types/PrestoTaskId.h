@@ -54,6 +54,16 @@ class PrestoTaskId {
     return attemptNumber_;
   }
 
+  std::string toString() const {
+    return fmt::format(
+        "{}.{}.{}.{}.{}",
+        queryId_,
+        stageId_,
+        stageExecutionId_,
+        id_,
+        attemptNumber_);
+  }
+
  private:
   std::string queryId_;
   int32_t stageId_{0};
