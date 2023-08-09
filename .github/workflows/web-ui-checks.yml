@@ -24,7 +24,7 @@ jobs:
       with:
         filters: |
           codechange:
-            - '!docs/**'
+            - '!presto-docs/**'
   web-ui-checks:
     runs-on: ubuntu-latest
     needs: changes

@@ -28,7 +28,7 @@ jobs:
       with:
         filters: |
           codechange:
-            - '!docs/**'
+            - '!presto-docs/**'
 
   hive-tests:
     runs-on: ubuntu-latest
