@@ -891,7 +891,7 @@ PlanBuilder& PlanBuilder::localPartition(const std::vector<std::string>& keys) {
   return *this;
 }
 
-PlanBuilder& PlanBuilder::localPartition(
+PlanBuilder& PlanBuilder::localPartitionByBucket(
     const std::shared_ptr<connector::hive::HiveBucketProperty>&
         bucketProperty) {
   std::vector<column_index_t> bucketChannels;

@@ -528,23 +528,24 @@ class TableWriteTest : public HiveConnectorTestBase {
           bucketColumns,
           bucketProperty->bucketedTypes(),
           bucketProperty->sortedBy());
-      auto insertPlan = inputPlan.localPartition(localPartitionBucketProperty)
-                            .tableWrite(
-                                inputRowType,
-                                tableRowType->names(),
-                                nullptr,
-                                createInsertTableHandle(
-                                    tableRowType,
-                                    outputTableType,
-                                    outputDirectoryPath,
-                                    partitionedBy,
-                                    bucketProperty,
-                                    compressionKind),
-                                bucketProperty != nullptr,
-                                outputCommitStrategy)
-                            .capturePlanNodeId(tableWriteNodeId_)
-                            .localPartition(std::vector<std::string>{})
-                            .tableWriteMerge();
+      auto insertPlan =
+          inputPlan.localPartitionByBucket(localPartitionBucketProperty)
+              .tableWrite(
+                  inputRowType,
+                  tableRowType->names(),
+                  nullptr,
+                  createInsertTableHandle(
+                      tableRowType,
+                      outputTableType,
+                      outputDirectoryPath,
+                      partitionedBy,
+                      bucketProperty,
+                      compressionKind),
+                  bucketProperty != nullptr,
+                  outputCommitStrategy)
+              .capturePlanNodeId(tableWriteNodeId_)
+              .localPartition({})
+              .tableWriteMerge();
       if (aggregateResult) {
         insertPlan.project({TableWriteTraits::rowCountColumnName()})
             .singleAggregation(
