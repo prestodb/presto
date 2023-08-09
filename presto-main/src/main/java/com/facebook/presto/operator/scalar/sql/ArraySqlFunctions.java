@@ -136,4 +136,12 @@ public class ArraySqlFunctions
     {
         return "RETURN IF(none_match(input, x -> x is null), input, filter(input, x -> x is not null))";
     }
+
+    @SqlInvokedScalarFunction(value = "array_top_n", deterministic = true, calledOnNullInput = true)
+    @Description("Returns top N elements of a given array, using natural descending order.")
+    @TypeParameter("T")
+    @SqlParameters({@SqlParameter(name = "input", type = "array(T)"), @SqlParameter(name = "n", type = "int")})
+    @SqlType("array<T>")
+    public static String arrayTopN()
+    { return "RETURN SLICE(ARRAY_SORT_DESC(input), 1, n)"; }
 }

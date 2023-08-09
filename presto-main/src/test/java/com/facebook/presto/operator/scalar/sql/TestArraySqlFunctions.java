@@ -242,4 +242,27 @@ public class TestArraySqlFunctions
         assertInvalidFunction("ARRAY_SORT_DESC(ARRAY [ROW('a', 1), ROW('a', null), null, ROW('a', 0)])", StandardErrorCode.INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("ARRAY_SORT_DESC(ARRAY [MAP(ARRAY['foo', 'bar'], ARRAY[1, 2]), MAP(ARRAY['foo', 'bar'], ARRAY[0, 3])])", SemanticErrorCode.FUNCTION_NOT_FOUND);
     }
+
+    @Test
+    public void testArrayTopN()
+    {
+        // Test INT, DOUBLE, and mixed
+        assertFunction("ARRAY_TOP_N(ARRAY [1, 1, 1, 1], 3)", new ArrayType(INTEGER), ImmutableList.of(1, 1, 1));
+        assertFunction("ARRAY_TOP_N(ARRAY [1, 100, 2, 5, 3], 3)", new ArrayType(INTEGER), ImmutableList.of(100, 5, 3));
+        assertFunction("ARRAY_TOP_N(ARRAY [DOUBLE '1.0', DOUBLE '100.0', DOUBLE '2.0', DOUBLE '5.0', DOUBLE '3.0'], 3)", new ArrayType(DOUBLE), ImmutableList.of(100.0d, 5.0d, 3.0d));
+        assertFunction("ARRAY_TOP_N(ARRAY [DOUBLE '1.0', 100, 2, DOUBLE '5.0', DOUBLE '3.0'], 3)", new ArrayType(DOUBLE), ImmutableList.of(100d, 5.0d, 3.0d));
+        assertFunction("ARRAY_TOP_N(ARRAY [], 3)", new ArrayType(UNKNOWN), emptyList());
+        assertFunction("ARRAY_TOP_N(ARRAY [1, 4], 3)", new ArrayType(INTEGER), ImmutableList.of(4, 1));
+
+        // Test VARCHAR
+        assertFunction("ARRAY_TOP_N(ARRAY ['a', 'z', 'd', 'f', 'g', 'b'], 4)", new ArrayType(createVarcharType(1)), ImmutableList.of("z", "g", "f", "d"));
+        assertFunction("ARRAY_TOP_N(ARRAY ['foo', 'bar', 'lorem', 'ipsum', 'lorem2'], 3)", new ArrayType(createVarcharType(6)), ImmutableList.of("lorem2", "lorem", "ipsum"));
+        assertFunction("ARRAY_TOP_N(ARRAY ['a', 'a', 'd', 'a', 'a', 'a'], 3)", new ArrayType(createVarcharType(1)), ImmutableList.of("d", "a", "a"));
+
+        // Test BOOLEAN
+        assertFunction("ARRAY_TOP_N(ARRAY [true, true, false, true, false], 4)", new ArrayType(BOOLEAN), ImmutableList.of(true, true, true, false));
+
+        assertInvalidFunction("ARRAY_TOP_N(ARRAY [ROW('a', 1), ROW('a', null), null, ROW('a', 0)], 2)", StandardErrorCode.INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("ARRAY_TOP_N(ARRAY [MAP(ARRAY['foo', 'bar'], ARRAY[1, 2]), MAP(ARRAY['foo', 'bar'], ARRAY[0, 3])], 2)", SemanticErrorCode.FUNCTION_NOT_FOUND);
+    }
 }
