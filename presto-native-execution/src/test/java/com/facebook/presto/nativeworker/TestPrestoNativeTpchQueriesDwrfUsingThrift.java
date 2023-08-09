@@ -28,6 +28,6 @@ public class TestPrestoNativeTpchQueriesDwrfUsingThrift
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner("DWRF");
+        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner("DWRF", false);
     }
 }

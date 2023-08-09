@@ -33,6 +33,6 @@ public class TestPrestoNativeTpcdsQueriesParquetUsingThrift
             throws Exception
     {
         this.storageFormat = "PARQUET";
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner("PARQUET");
+        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner("PARQUET", false);
     }
 }
