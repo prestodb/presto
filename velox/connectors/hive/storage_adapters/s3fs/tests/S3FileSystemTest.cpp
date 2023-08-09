@@ -18,6 +18,7 @@
 #include "connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
 #include "connectors/hive/storage_adapters/s3fs/S3Util.h"
 #include "connectors/hive/storage_adapters/s3fs/tests/MinioServer.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/File.h"
 #include "velox/connectors/hive/FileHandle.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
@@ -162,15 +163,9 @@ TEST_F(S3FileSystemTest, invalidCredentialsConfig) {
         std::make_shared<const core::MemConfig>(std::move(config));
     filesystems::S3FileSystem s3fs(hiveConfig);
     // Both instance credentials and iam-role cannot be specified
-    try {
-      s3fs.initializeClient();
-      FAIL() << "Expected VeloxException";
-    } catch (VeloxException const& err) {
-      EXPECT_EQ(
-          err.message(),
-          std::string(
-              "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'"));
-    }
+    VELOX_ASSERT_THROW(
+        s3fs.initializeClient(),
+        "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'");
   }
   {
     const std::unordered_map<std::string, std::string> config(
@@ -181,15 +176,9 @@ TEST_F(S3FileSystemTest, invalidCredentialsConfig) {
         std::make_shared<const core::MemConfig>(std::move(config));
     filesystems::S3FileSystem s3fs(hiveConfig);
     // Both access/secret keys and iam-role cannot be specified
-    try {
-      s3fs.initializeClient();
-      FAIL() << "Expected VeloxException";
-    } catch (VeloxException const& err) {
-      EXPECT_EQ(
-          err.message(),
-          std::string(
-              "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'"));
-    }
+    VELOX_ASSERT_THROW(
+        s3fs.initializeClient(),
+        "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'");
   }
   {
     const std::unordered_map<std::string, std::string> config(
@@ -200,15 +189,9 @@ TEST_F(S3FileSystemTest, invalidCredentialsConfig) {
         std::make_shared<const core::MemConfig>(std::move(config));
     filesystems::S3FileSystem s3fs(hiveConfig);
     // Both access/secret keys and instance credentials cannot be specified
-    try {
-      s3fs.initializeClient();
-      FAIL() << "Expected VeloxException";
-    } catch (VeloxException const& err) {
-      EXPECT_EQ(
-          err.message(),
-          std::string(
-              "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'"));
-    }
+    VELOX_ASSERT_THROW(
+        s3fs.initializeClient(),
+        "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'");
   }
   {
     const std::unordered_map<std::string, std::string> config(
@@ -217,15 +200,9 @@ TEST_F(S3FileSystemTest, invalidCredentialsConfig) {
         std::make_shared<const core::MemConfig>(std::move(config));
     filesystems::S3FileSystem s3fs(hiveConfig);
     // Both access key and secret key must be specified
-    try {
-      s3fs.initializeClient();
-      FAIL() << "Expected VeloxException";
-    } catch (VeloxException const& err) {
-      EXPECT_EQ(
-          err.message(),
-          std::string(
-              "Invalid configuration: both access key and secret key must be specified"));
-    }
+    VELOX_ASSERT_THROW(
+        s3fs.initializeClient(),
+        "Invalid configuration: both access key and secret key must be specified");
   }
 }
 
@@ -237,31 +214,18 @@ TEST_F(S3FileSystemTest, missingFile) {
   auto hiveConfig = minioServer_->hiveConfig();
   filesystems::S3FileSystem s3fs(hiveConfig);
   s3fs.initializeClient();
-  try {
-    s3fs.openFileForRead(s3File);
-    FAIL() << "Expected VeloxException";
-  } catch (VeloxException const& err) {
-    EXPECT_EQ(
-        err.message(),
-        std::string(
-            "Failed to get metadata for S3 object due to: 'Resource not found'. Path:'s3://data1/i-do-not-exist.txt', SDK Error Type:16, HTTP Status Code:404, S3 Service:'MinIO', Message:'No response body.'"));
-  }
+  VELOX_ASSERT_THROW(
+      s3fs.openFileForRead(s3File),
+      "Failed to get metadata for S3 object due to: 'Resource not found'. Path:'s3://data1/i-do-not-exist.txt', SDK Error Type:16, HTTP Status Code:404, S3 Service:'MinIO', Message:'No response body.'");
 }
 
 TEST_F(S3FileSystemTest, missingBucket) {
   auto hiveConfig = minioServer_->hiveConfig();
   filesystems::S3FileSystem s3fs(hiveConfig);
   s3fs.initializeClient();
-  try {
-    const char* s3File = "s3://dummy/foo.txt";
-    s3fs.openFileForRead(s3File);
-    FAIL() << "Expected VeloxException";
-  } catch (VeloxException const& err) {
-    EXPECT_EQ(
-        err.message(),
-        std::string(
-            "Failed to get metadata for S3 object due to: 'Resource not found'. Path:'s3://dummy/foo.txt', SDK Error Type:16, HTTP Status Code:404, S3 Service:'MinIO', Message:'No response body.'"));
-  }
+  VELOX_ASSERT_THROW(
+      s3fs.openFileForRead("s3://dummy/foo.txt"),
+      "Failed to get metadata for S3 object due to: 'Resource not found'. Path:'s3://dummy/foo.txt', SDK Error Type:16, HTTP Status Code:404, S3 Service:'MinIO', Message:'No response body.'");
 }
 
 TEST_F(S3FileSystemTest, invalidAccessKey) {
@@ -270,16 +234,9 @@ TEST_F(S3FileSystemTest, invalidAccessKey) {
   filesystems::S3FileSystem s3fs(hiveConfig);
   s3fs.initializeClient();
   // Minio credentials are wrong and this should throw
-  try {
-    const char* s3File = "s3://dummy/foo.txt";
-    s3fs.openFileForRead(s3File);
-    FAIL() << "Expected VeloxException";
-  } catch (VeloxException const& err) {
-    EXPECT_EQ(
-        err.message(),
-        std::string(
-            "Failed to get metadata for S3 object due to: 'Access denied'. Path:'s3://dummy/foo.txt', SDK Error Type:15, HTTP Status Code:403, S3 Service:'MinIO', Message:'No response body.'"));
-  }
+  VELOX_ASSERT_THROW(
+      s3fs.openFileForRead("s3://dummy/foo.txt"),
+      "Failed to get metadata for S3 object due to: 'Access denied'. Path:'s3://dummy/foo.txt', SDK Error Type:15, HTTP Status Code:403, S3 Service:'MinIO', Message:'No response body.'");
 }
 
 TEST_F(S3FileSystemTest, invalidSecretKey) {
@@ -287,17 +244,10 @@ TEST_F(S3FileSystemTest, invalidSecretKey) {
       minioServer_->hiveConfig({{"hive.s3.aws-secret-key", "dummy-key"}});
   filesystems::S3FileSystem s3fs(hiveConfig);
   s3fs.initializeClient();
-  // Minio credentials are wrong and this should throw
-  try {
-    const char* s3File = "s3://dummy/foo.txt";
-    s3fs.openFileForRead(s3File);
-    FAIL() << "Expected VeloxException";
-  } catch (VeloxException const& err) {
-    EXPECT_EQ(
-        err.message(),
-        std::string(
-            "Failed to get metadata for S3 object due to: 'Access denied'. Path:'s3://dummy/foo.txt', SDK Error Type:15, HTTP Status Code:403, S3 Service:'MinIO', Message:'No response body.'"));
-  }
+  // Minio credentials are wrong and this should throw.
+  VELOX_ASSERT_THROW(
+      s3fs.openFileForRead("s3://dummy/foo.txt"),
+      "Failed to get metadata for S3 object due to: 'Access denied'. Path:'s3://dummy/foo.txt', SDK Error Type:15, HTTP Status Code:403, S3 Service:'MinIO', Message:'No response body.'");
 }
 
 TEST_F(S3FileSystemTest, noBackendServer) {
@@ -305,18 +255,13 @@ TEST_F(S3FileSystemTest, noBackendServer) {
       minioServer_->hiveConfig({{"hive.s3.aws-secret-key", "dummy-key"}});
   filesystems::S3FileSystem s3fs(hiveConfig);
   s3fs.initializeClient();
-  // stop Minio and check error
+  // Stop Minio and check error.
   minioServer_->stop();
-  try {
-    const char* s3File = "s3://dummy/foo.txt";
-    s3fs.openFileForRead(s3File);
-    FAIL() << "Expected VeloxException";
-  } catch (VeloxException const& err) {
-    EXPECT_EQ(
-        err.message(),
-        std::string(
-            "Failed to get metadata for S3 object due to: 'Network connection'. Path:'s3://dummy/foo.txt', SDK Error Type:99, HTTP Status Code:-1, S3 Service:'Unknown', Message:'curlCode: 7, Couldn't connect to server'"));
-  }
+  VELOX_ASSERT_THROW(
+      s3fs.openFileForRead("s3://dummy/foo.txt"),
+      "Failed to get metadata for S3 object due to: 'Network connection'. Path:'s3://dummy/foo.txt', SDK Error Type:99, HTTP Status Code:-1, S3 Service:'Unknown', Message:'curlCode: 7, Couldn't connect to server'");
+  // Start Minio again.
+  minioServer_->start();
 }
 
 TEST_F(S3FileSystemTest, logLevel) {
