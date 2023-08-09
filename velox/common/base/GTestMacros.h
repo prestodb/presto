@@ -21,6 +21,7 @@
 // Replacing it with "nothing" is okay when testing is disabled.
 #define VELOX_FRIEND_TEST(X, Y)
 #else
-#include <gtest/gtest_prod.h>
-#define VELOX_FRIEND_TEST(X, Y) FRIEND_TEST(X, Y)
+// Same as FRIEND_TEST(X, Y) defined in gtest/gtest_prod.h
+#define VELOX_FRIEND_TEST(test_case_name, test_name) \
+  friend class test_case_name##_##test_name##_Test
 #endif
