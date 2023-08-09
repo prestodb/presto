@@ -205,6 +205,12 @@ class SystemConfig : public ConfigBase {
 
   static constexpr std::string_view kEnableMemoryArbitration{
       "enable-memory-arbitration"};
+
+  /// Specifies the memory arbitrator kind. If it is empty, then there is no
+  /// memory arbitration.
+  static constexpr std::string_view kMemoryArbitratorKind{
+      "memory-arbitrator-kind"};
+
   /// The initial memory pool capacity in bytes allocated on creation.
   ///
   /// NOTE: this config only applies if the memory arbitration has been enabled.
@@ -372,6 +378,8 @@ class SystemConfig : public ConfigBase {
   bool useMmapAllocator() const;
 
   bool enableMemoryArbitration() const;
+
+  std::string memoryArbitratorKind() const;
 
   uint64_t memoryPoolInitCapacity() const;
 

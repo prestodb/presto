@@ -515,6 +515,8 @@ void PrestoServer::initializeVeloxMemory() {
   memory::MemoryManagerOptions options;
   options.capacity = memoryBytes;
   options.checkUsageLeak = systemConfig->enableMemoryLeakCheck();
+  // Re-enable this after memory arbitrator register code refactor landed.
+#if 0
   if (systemConfig->enableMemoryArbitration()) {
     options.arbitratorKind = memory::MemoryArbitrator::Kind::kShared;
     options.capacity =
@@ -523,6 +525,7 @@ void PrestoServer::initializeVeloxMemory() {
     options.memoryPoolTransferCapacity =
         systemConfig->memoryPoolTransferCapacity();
   }
+#endif
   const auto& manager = memory::MemoryManager::getInstance(options, true);
   PRESTO_STARTUP_LOG(INFO) << "Memory manager has been setup: "
                            << manager.toString();
@@ -535,7 +538,7 @@ void PrestoServer::initializeVeloxMemory() {
 void PrestoServer::stop() {
   // Make sure we only go here once.
   auto shutdownOnsetSec = SystemConfig::instance()->shutdownOnsetSec();
-  if (not shuttingDown_.exchange(true)) {
+  if (!shuttingDown_.exchange(true)) {
     PRESTO_SHUTDOWN_LOG(INFO) << "Initiating shutdown. Will wait for "
                               << shutdownOnsetSec << " seconds.";
     this->setNodeState(NodeState::SHUTTING_DOWN);
@@ -544,7 +547,7 @@ void PrestoServer::stop() {
     // any tasks.
     std::this_thread::sleep_for(std::chrono::seconds(shutdownOnsetSec));
 
-    taskManager_->waitForTasksToComplete();
+    taskManager_->shutdown();
 
     // Give coordinator some time to request tasks stats for completed or failed
     // tasks.
