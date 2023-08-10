@@ -668,8 +668,7 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT substr(comment, 1, 10), length(comment), ltrim(comment) FROM orders");
         assertQuery("SELECT substr(comment, 1, 10), length(comment), rtrim(comment) FROM orders");
 
-        assertQueryFails("SELECT trim(comment, '.') FROM orders",
-                ".*Scalar function presto.default.trim not registered with arguments.*\n.*");
+        assertQuery("SELECT trim(comment, ' ns'), ltrim(comment, 'a b c'), rtrim(comment, 'l y') FROM orders");
 
         // Split
         assertQueryOrdered("SELECT shipmode, comment, split(comment, 'ly') FROM lineitem order by 1,2");
