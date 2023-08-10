@@ -7030,6 +7030,15 @@ public abstract class AbstractTestQueries
 
         result = computeActual("select array_sort(cast(array[null, 5.4,6.1,4.9,null,4.5,7.8,5.2] as array<double>))");
         assertSorted(result.getMaterializedRows().get(0).getFields());
+
+        result = computeActual("select array_sort(cast(array[null, 5.4,6.1,4.9,null,4.5,7.8,5.2] as array<real>))");
+        assertSorted(result.getMaterializedRows().get(0).getFields());
+
+        result = computeActual("select array_sort(cast(array[5.4,6.1,4.9,4.5,7.8,5.2] as array<real>))");
+        assertSorted(result.getMaterializedRows().get(0).getFields());
+
+        result = computeActual("select array_sort(cast(array[5.4,6.1,4.9,4.5,7.8,5.2] as array<double>))");
+        assertSorted(result.getMaterializedRows().get(0).getFields());
     }
 
     private static boolean assertSorted(List<Object> array)
