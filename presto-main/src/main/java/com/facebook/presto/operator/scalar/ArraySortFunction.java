@@ -38,6 +38,7 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Float.floatToIntBits;
+import static java.lang.Float.intBitsToFloat;
 
 @ScalarFunction("array_sort")
 @Description("Sorts the given array in ascending order according to the natural ordering of its elements.")
@@ -223,13 +224,13 @@ public final class ArraySortFunction
                     nulls++;
                 }
                 else {
-                    values[j++] = (Float) REAL.getObject(array, i);
+                    values[j++] = intBitsToFloat(array.getInt(i));
                 }
             }
         }
         else {
             for (int i = 0; i < array.getPositionCount(); i++) {
-                values[i] = (Float) REAL.getObject(array, i);
+                values[i] = intBitsToFloat(array.getInt(i));
             }
         }
 
