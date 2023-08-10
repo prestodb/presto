@@ -101,7 +101,7 @@ class LocalExchangeSource : public exec::ExchangeSource {
                 "facebook::velox::exec::test::LocalExchangeSource", &numPages_);
           } catch (const std::exception& e) {
             queue_->setError(e.what());
-            promise_.setValue();
+            checkSetRequestPromise();
             return;
           }
 
@@ -133,16 +133,16 @@ class LocalExchangeSource : public exec::ExchangeSource {
             buffers->acknowledge(taskId_, destination_, ackSequence);
           }
 
-          requestPromise.setValue();
+          if (!requestPromise.isFulfilled()) {
+            requestPromise.setValue();
+          }
         });
 
     return std::move(future);
   }
 
   void close() override {
-    if (promise_.valid() && !promise_.isFulfilled()) {
-      promise_.setValue();
-    }
+    checkSetRequestPromise();
 
     auto buffers = PartitionedOutputBufferManager::getInstance().lock();
     buffers->deleteResults(taskId_, destination_);
@@ -153,6 +153,20 @@ class LocalExchangeSource : public exec::ExchangeSource {
   }
 
  private:
+  bool checkSetRequestPromise() {
+    ContinuePromise promise;
+    {
+      std::lock_guard<std::mutex> l(queue_->mutex());
+      promise = std::move(promise_);
+    }
+    if (promise.valid() && !promise.isFulfilled()) {
+      promise.setValue();
+      return true;
+    }
+
+    return false;
+  }
+
   // Records the total number of pages fetched from sources.
   int64_t numPages_{0};
   ContinuePromise promise_{ContinuePromise::makeEmpty()};

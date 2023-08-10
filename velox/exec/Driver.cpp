@@ -606,7 +606,13 @@ void Driver::initializeOperatorStats(std::vector<OperatorStats>& stats) {
   }
 }
 
-void Driver::addStatsToTask() {
+void Driver::closeOperators() {
+  // Close operators.
+  for (auto& op : operators_) {
+    op->close();
+  }
+
+  // Add operator stats to the task.
   for (auto& op : operators_) {
     auto stats = op->stats(true);
     stats.memoryStats.update(op->pool());
@@ -623,10 +629,7 @@ void Driver::close() {
   if (!isOnThread() && !isTerminated()) {
     LOG(FATAL) << "Driver::close is only allowed from the Driver's thread";
   }
-  for (auto& op : operators_) {
-    op->close();
-  }
-  addStatsToTask();
+  closeOperators();
   closed_ = true;
   Task::removeDriver(ctx_->task, this);
 }
@@ -634,10 +637,7 @@ void Driver::close() {
 void Driver::closeByTask() {
   VELOX_CHECK(isOnThread());
   VELOX_CHECK(isTerminated());
-  addStatsToTask();
-  for (auto& op : operators_) {
-    op->close();
-  }
+  closeOperators();
   closed_ = true;
 }
 

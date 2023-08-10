@@ -1600,9 +1600,8 @@ TEST_F(MultiFragmentTest, maxBytes) {
   test(32 * kMB);
 }
 
-/// Flaky: https://github.com/facebookincubator/velox/issues/6061
 /// Verify that ExchangeClient stats are populated even if task fails.
-DEBUG_ONLY_TEST_F(MultiFragmentTest, DISABLED_exchangeStatsOnFailure) {
+DEBUG_ONLY_TEST_F(MultiFragmentTest, exchangeStatsOnFailure) {
   // Trigger a failure after fetching first 10 pages.
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::test::LocalExchangeSource",
@@ -1636,7 +1635,7 @@ DEBUG_ONLY_TEST_F(MultiFragmentTest, DISABLED_exchangeStatsOnFailure) {
   task->addSplit("0", remoteSplit(producerTaskId));
   task->noMoreSplits("0");
 
-  test::waitForTaskFailure(task.get());
+  ASSERT_TRUE(test::waitForTaskFailure(task.get(), 3'000'000));
 
   ASSERT_TRUE(task->errorMessage().find("Forced failure") != std::string::npos)
       << "Got: [" << task->errorMessage() << "]";
@@ -1644,7 +1643,7 @@ DEBUG_ONLY_TEST_F(MultiFragmentTest, DISABLED_exchangeStatsOnFailure) {
   auto stats = toPlanStats(task->taskStats());
   EXPECT_EQ(10, stats.at("0").customStats.at("numReceivedPages").sum);
 
-  ASSERT_TRUE(waitForTaskCompletion(producerTask.get()));
+  ASSERT_TRUE(waitForTaskCompletion(producerTask.get(), 3'000'000));
 }
 
 } // namespace

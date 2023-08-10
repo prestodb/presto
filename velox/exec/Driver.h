@@ -275,7 +275,8 @@ class Driver : public std::enable_shared_from_this<Driver> {
 
   void initializeOperatorStats(std::vector<OperatorStats>& stats);
 
-  void addStatsToTask();
+  // Close operators and add operator stats to the task.
+  void closeOperators();
 
   // Returns true if all operators between the source and 'aggregation' are
   // order-preserving and do not increase cardinality.
