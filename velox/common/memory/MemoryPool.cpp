@@ -99,7 +99,7 @@ std::vector<MemoryUsage> sortMemoryUsages(MemoryUsageHeap& heap) {
 
 // Invoked by visitChildren() to traverse the memory pool structure to build the
 // memory capacity exceeded exception error message.
-void capExceedingMessageVisitor(
+void treeMemoryUsageVisitor(
     MemoryPool* pool,
     size_t indent,
     MemoryUsageHeap& topLeafMemUsages,
@@ -126,7 +126,7 @@ void capExceedingMessageVisitor(
   }
   pool->visitChildren(
       [&, indent = indent + kCapMessageIndentSize](MemoryPool* pool) {
-        capExceedingMessageVisitor(pool, indent, topLeafMemUsages, out);
+        treeMemoryUsageVisitor(pool, indent, topLeafMemUsages, out);
         return true;
       });
 }
@@ -744,15 +744,16 @@ bool MemoryPoolImpl::incrementReservationThreadSafe(
     // pool which should happen rarely.
     return maybeIncrementReservation(size);
   }
-  VELOX_MEM_POOL_CAP_EXCEEDED(capExceedingMessage(
-      requestor,
-      fmt::format(
-          "Exceeded memory pool cap of {} with max {} when requesting {}, "
-          "memory manager cap is {}",
-          capacityToString(capacity()),
-          capacityToString(maxCapacity_),
-          succinctBytes(size),
-          capacityToString(manager_->capacity()))));
+  VELOX_MEM_POOL_CAP_EXCEEDED(fmt::format(
+      "Exceeded memory pool cap of {} with max {} when requesting {}, memory "
+      "manager cap is {}, requestor '{}' with current usage {}\n{}",
+      capacityToString(capacity()),
+      capacityToString(maxCapacity_),
+      succinctBytes(size),
+      capacityToString(manager_->capacity()),
+      requestor->name(),
+      succinctBytes(requestor->currentBytes()),
+      treeMemoryUsage()));
 }
 
 bool MemoryPoolImpl::maybeIncrementReservation(uint64_t size) {
@@ -763,10 +764,10 @@ bool MemoryPoolImpl::maybeIncrementReservation(uint64_t size) {
 bool MemoryPoolImpl::maybeIncrementReservationLocked(uint64_t size) {
   if (isRoot()) {
     if (aborted()) {
-      // Throw exception if this root memory pool has been aborted by the memory
-      // arbitrator. This is to prevent it from triggering memory arbitration,
-      // and we expect the associated query will also abort soon.
-      VELOX_MEM_POOL_ABORTED(this);
+      // This memory pool has been aborted by the memory arbitrator. Abort to
+      // prevent this pool from triggering memory arbitration. The associated
+      // query should also abort soon.
+      VELOX_MEM_POOL_ABORTED("This memory pool has been aborted.");
     }
     if (reservationBytes_ + size > capacity_) {
       return false;
@@ -838,16 +839,14 @@ void MemoryPoolImpl::decrementReservation(uint64_t size) noexcept {
   sanityCheckLocked();
 }
 
-std::string MemoryPoolImpl::capExceedingMessage(
-    MemoryPool* requestor,
-    const std::string& errorMessage) {
-  VELOX_CHECK_NULL(parent_);
-
-  std::stringstream out;
-  out << errorMessage << "\n";
-  if (FLAGS_velox_suppress_memory_capacity_exceeding_error_message) {
-    return out.str();
+std::string MemoryPoolImpl::treeMemoryUsage() const {
+  if (parent_ != nullptr) {
+    return parent_->treeMemoryUsage();
   }
+  if (FLAGS_velox_suppress_memory_capacity_exceeding_error_message) {
+    return "";
+  }
+  std::stringstream out;
   {
     std::lock_guard<std::mutex> l(mutex_);
     const Stats stats = statsLocked();
@@ -860,7 +859,7 @@ std::string MemoryPoolImpl::capExceedingMessage(
 
   MemoryUsageHeap topLeafMemUsages;
   visitChildren([&, indent = kCapMessageIndentSize](MemoryPool* pool) {
-    capExceedingMessageVisitor(pool, indent, topLeafMemUsages, out);
+    treeMemoryUsageVisitor(pool, indent, topLeafMemUsages, out);
     return true;
   });
 
@@ -872,9 +871,6 @@ std::string MemoryPoolImpl::capExceedingMessage(
           << "\n";
     }
   }
-
-  out << "\nFailed memory pool: " << requestor->name() << ": "
-      << succinctBytes(requestor->currentBytes()) << "\n";
   return out.str();
 }
 
@@ -974,16 +970,17 @@ bool MemoryPoolImpl::aborted() const {
   return aborted_;
 }
 
-void MemoryPoolImpl::abort() {
+void MemoryPoolImpl::abort(const std::exception_ptr& error) {
+  VELOX_CHECK_NOT_NULL(error);
   if (parent_ != nullptr) {
-    parent_->abort();
+    parent_->abort(error);
     return;
   }
   if (reclaimer() == nullptr) {
     VELOX_FAIL("Can't abort the memory pool {} without reclaimer", name_);
   }
   aborted_ = true;
-  reclaimer()->abort(this);
+  reclaimer()->abort(this, error);
 }
 
 void MemoryPoolImpl::testingSetCapacity(int64_t bytes) {

@@ -218,11 +218,15 @@ class MockMemoryPool : public velox::memory::MemoryPool {
         velox::memory::MemoryAllocator::kindString(allocator_->kind()));
   }
 
-  void abort() override {
+  void abort(const std::exception_ptr& error) override {
     VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
   }
 
   bool aborted() const override {
+    VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
+  }
+
+  std::string treeMemoryUsage() const override {
     VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
   }
 

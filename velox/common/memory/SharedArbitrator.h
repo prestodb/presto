@@ -134,7 +134,7 @@ class SharedArbitrator : public MemoryArbitrator {
   uint64_t reclaim(MemoryPool* pool, uint64_t targetBytes) noexcept;
 
   // Invoked to abort memory 'pool'.
-  void abort(MemoryPool* pool);
+  void abort(MemoryPool* pool, const std::exception_ptr& error);
 
   // Invoked to handle the memory arbitration failure to abort the memory pool
   // with the largest capacity to free up memory. The function returns true on

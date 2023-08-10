@@ -129,6 +129,14 @@ std::pair<int32_t, int32_t> numTaskSpillFiles(const exec::Task& task) {
   return {numBuildFiles, numProbeFiles};
 }
 
+void abortPool(memory::MemoryPool* pool) {
+  try {
+    VELOX_FAIL("Manual MemoryPool Abortion");
+  } catch (const VeloxException& error) {
+    pool->abort(std::current_exception());
+  }
+}
+
 using JoinResultsVerifier =
     std::function<void(const std::shared_ptr<Task>&, bool)>;
 
@@ -5272,7 +5280,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashBuildAbortDuringOutputProcessing) {
           ASSERT_EQ(
               driver->task()->leaveSuspended(driver->state()),
               StopReason::kAlreadyTerminated);
-          VELOX_MEM_POOL_ABORTED(op->pool());
+          VELOX_MEM_POOL_ABORTED("Memory pool aborted");
         })));
 
     std::thread taskThread([&]() {
@@ -5291,7 +5299,8 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashBuildAbortDuringOutputProcessing) {
     testWait.wait(testWaitKey);
     ASSERT_TRUE(op != nullptr);
     auto task = op->testingOperatorCtx()->task();
-    testData.abortFromRootMemoryPool ? queryPool->abort() : op->pool()->abort();
+    testData.abortFromRootMemoryPool ? abortPool(queryPool.get())
+                                     : abortPool(op->pool());
     ASSERT_TRUE(op->pool()->aborted());
     ASSERT_TRUE(queryPool->aborted());
     ASSERT_EQ(queryPool->currentBytes(), 0);
@@ -5377,7 +5386,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashBuildAbortDuringInputgProcessing) {
           ASSERT_EQ(
               driver->task()->leaveSuspended(driver->state()),
               StopReason::kAlreadyTerminated);
-          VELOX_MEM_POOL_ABORTED(op->pool());
+          VELOX_MEM_POOL_ABORTED("Memory pool aborted");
         })));
 
     std::thread taskThread([&]() {
@@ -5396,7 +5405,8 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashBuildAbortDuringInputgProcessing) {
     testWait.wait(testWaitKey);
     ASSERT_TRUE(op != nullptr);
     auto task = op->testingOperatorCtx()->task();
-    testData.abortFromRootMemoryPool ? queryPool->abort() : op->pool()->abort();
+    testData.abortFromRootMemoryPool ? abortPool(queryPool.get())
+                                     : abortPool(op->pool());
     ASSERT_TRUE(op->pool()->aborted());
     ASSERT_TRUE(queryPool->aborted());
     ASSERT_EQ(queryPool->currentBytes(), 0);
@@ -5482,7 +5492,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeAbortDuringInputProcessing) {
           ASSERT_EQ(
               driver->task()->leaveSuspended(driver->state()),
               StopReason::kAlreadyTerminated);
-          VELOX_MEM_POOL_ABORTED(op->pool());
+          VELOX_MEM_POOL_ABORTED("Memory pool aborted");
         })));
 
     std::thread taskThread([&]() {
@@ -5501,7 +5511,8 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeAbortDuringInputProcessing) {
     testWait.wait(testWaitKey);
     ASSERT_TRUE(op != nullptr);
     auto task = op->testingOperatorCtx()->task();
-    testData.abortFromRootMemoryPool ? queryPool->abort() : op->pool()->abort();
+    testData.abortFromRootMemoryPool ? abortPool(queryPool.get())
+                                     : abortPool(op->pool());
     ASSERT_TRUE(op->pool()->aborted());
     ASSERT_TRUE(queryPool->aborted());
     ASSERT_EQ(queryPool->currentBytes(), 0);

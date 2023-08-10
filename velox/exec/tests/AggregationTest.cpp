@@ -2307,6 +2307,16 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimWithEmptyAggregationTable) {
   }
 }
 
+namespace {
+void abortPool(memory::MemoryPool* pool) {
+  try {
+    VELOX_FAIL("Memory pool manually aborted");
+  } catch (const VeloxException& e) {
+    pool->abort(std::current_exception());
+  }
+}
+} // namespace
+
 DEBUG_ONLY_TEST_F(AggregationTest, abortDuringOutputProcessing) {
   constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
   auto rowType = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
@@ -2370,7 +2380,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, abortDuringOutputProcessing) {
           ASSERT_EQ(
               driver->task()->leaveSuspended(driver->state()),
               StopReason::kAlreadyTerminated);
-          VELOX_MEM_POOL_ABORTED(op->pool());
+          VELOX_MEM_POOL_ABORTED("Memory pool aborted");
         })));
 
     std::thread taskThread([&]() {
@@ -2389,8 +2399,8 @@ DEBUG_ONLY_TEST_F(AggregationTest, abortDuringOutputProcessing) {
     testWait.wait(testWaitKey);
     ASSERT_TRUE(op != nullptr);
     auto task = op->testingOperatorCtx()->task();
-    testData.abortFromRootMemoryPool ? queryCtx->pool()->abort()
-                                     : op->pool()->abort();
+    testData.abortFromRootMemoryPool ? abortPool(queryCtx->pool())
+                                     : abortPool(op->pool());
     ASSERT_TRUE(op->pool()->aborted());
     ASSERT_TRUE(queryCtx->pool()->aborted());
     ASSERT_EQ(queryCtx->pool()->currentBytes(), 0);
@@ -2465,7 +2475,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, abortDuringInputgProcessing) {
           ASSERT_EQ(
               driver->task()->leaveSuspended(driver->state()),
               StopReason::kAlreadyTerminated);
-          VELOX_MEM_POOL_ABORTED(op->pool());
+          VELOX_MEM_POOL_ABORTED("Memory pool aborted");
         })));
 
     std::thread taskThread([&]() {
@@ -2484,8 +2494,8 @@ DEBUG_ONLY_TEST_F(AggregationTest, abortDuringInputgProcessing) {
     testWait.wait(testWaitKey);
     ASSERT_TRUE(op != nullptr);
     auto task = op->testingOperatorCtx()->task();
-    testData.abortFromRootMemoryPool ? queryCtx->pool()->abort()
-                                     : op->pool()->abort();
+    testData.abortFromRootMemoryPool ? abortPool(queryCtx->pool())
+                                     : abortPool(op->pool());
     ASSERT_TRUE(op->pool()->aborted());
     ASSERT_TRUE(queryCtx->pool()->aborted());
     ASSERT_EQ(queryCtx->pool()->currentBytes(), 0);

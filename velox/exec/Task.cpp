@@ -1894,7 +1894,8 @@ ContinueFuture Task::taskCompletionFuture(uint64_t maxWaitMicros) {
   // If 'this' is running, the future is realized on timeout or when
   // this no longer is running.
   if (not isRunningLocked()) {
-    return ContinueFuture();
+    return makeFinishFutureLocked(
+        fmt::format("Task::taskCompletionFuture {}", taskId_).data());
   }
   auto [promise, future] = makeVeloxContinuePromiseContract(
       fmt::format("Task::taskCompletionFuture {}", taskId_));
@@ -2416,14 +2417,18 @@ uint64_t Task::MemoryReclaimer::reclaim(
   return memory::MemoryReclaimer::reclaim(pool, targetBytes);
 }
 
-void Task::MemoryReclaimer::abort(memory::MemoryPool* pool) {
+void Task::MemoryReclaimer::abort(
+    memory::MemoryPool* pool,
+    const std::exception_ptr& error) {
   auto task = ensureTask();
   if (FOLLY_UNLIKELY(task == nullptr)) {
     return;
   }
   VELOX_CHECK_EQ(task->pool()->name(), pool->name());
-  task->requestAbort().wait();
-  memory::MemoryReclaimer::abort(pool);
+  task->setError(error);
+  // Set timeout to zero to infinite wait until task completes.
+  task->taskCompletionFuture(0).wait();
+  memory::MemoryReclaimer::abort(pool, error);
 }
 
 } // namespace facebook::velox::exec

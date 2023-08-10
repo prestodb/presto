@@ -43,14 +43,14 @@ namespace facebook::velox::memory {
       "{}",                                                         \
       errorMessage);
 
-#define VELOX_MEM_POOL_ABORTED(pool)                                \
+#define VELOX_MEM_POOL_ABORTED(errorMessage)                        \
   _VELOX_THROW(                                                     \
       ::facebook::velox::VeloxRuntimeError,                         \
       ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
       ::facebook::velox::error_code::kMemAborted.c_str(),           \
       /* isRetriable */ true,                                       \
       "{}",                                                         \
-      fmt::format("Memory pool {} aborted", (pool)->name()));
+      errorMessage);
 
 class MemoryManager;
 
@@ -412,8 +412,9 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// execution through the reclaimer. The function throws if the reclaimer is
   /// not set, otherwise returns a future to wait for the abort processing to
   /// completion. We expect the query object to release its used memory soon
-  /// after the abort completes.
-  virtual void abort() = 0;
+  /// after the abort completes. 'error' should be the cause of the abortion. It
+  /// will be propagated to task level for accurate error exposure.
+  virtual void abort(const std::exception_ptr& error) = 0;
 
   /// Returns true if this memory pool has been aborted.
   virtual bool aborted() const = 0;
@@ -466,6 +467,20 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
 
   virtual std::string toString() const = 0;
 
+  /// Invoked to generate a descriptive memory usage summary of the entire tree.
+  /// MemoryPoolImpl::treeMemoryUsage()
+  virtual std::string treeMemoryUsage() const = 0;
+
+  /// Indicates if this is a leaf memory pool or not.
+  FOLLY_ALWAYS_INLINE bool isLeaf() const {
+    return kind_ == Kind::kLeaf;
+  }
+
+  /// Indicates if this is a root memory pool or not.
+  FOLLY_ALWAYS_INLINE bool isRoot() const {
+    return parent_ == nullptr;
+  }
+
   /// Returns the next higher quantized size for the internal memory reservation
   /// propagation. Small sizes are at MB granularity, larger ones at coarser
   /// granularity.
@@ -481,16 +496,6 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
 
  protected:
   static constexpr uint64_t kMB = 1 << 20;
-
-  /// Indicates if this is a leaf memory pool or not.
-  FOLLY_ALWAYS_INLINE bool isLeaf() const {
-    return kind_ == Kind::kLeaf;
-  }
-
-  /// Indicates if this is a root memory pool or not.
-  FOLLY_ALWAYS_INLINE bool isRoot() const {
-    return parent_ == nullptr;
-  }
 
   /// Invoked by addChild() to create a child memory pool object. 'parent' is
   /// a shared pointer created from this.
@@ -622,7 +627,7 @@ class MemoryPoolImpl : public MemoryPool {
 
   uint64_t grow(uint64_t bytes) noexcept override;
 
-  void abort() override;
+  void abort(const std::exception_ptr& error) override;
 
   bool aborted() const override;
 
@@ -630,6 +635,31 @@ class MemoryPoolImpl : public MemoryPool {
     std::lock_guard<std::mutex> l(mutex_);
     return toStringLocked();
   }
+
+  // Detailed debug pool state printout by traversing the pool structure from
+  // the root memory pool.
+  //
+  // Exceeded memory cap of 5.00MB when requesting 2.00MB
+  // default_root_1 usage 5.00MB peak 5.00MB
+  //     task.test_cursor 1 usage 5.00MB peak 5.00MB
+  //         node.N/A usage 0B peak 0B
+  //             op.N/A.0.0.CallbackSink usage 0B peak 0B
+  //         node.2 usage 4.00MB peak 4.00MB
+  //             op.2.0.0.Aggregation usage 3.77MB peak 3.77MB
+  //         node.1 usage 1.00MB peak 1.00MB
+  //             op.1.0.0.FilterProject usage 12.00KB peak 12.00KB
+  //         node.3 usage 0B peak 0B
+  //             op.3.0.0.OrderBy usage 0B peak 0B
+  //         node.0 usage 0B peak 0B
+  //             op.0.0.0.Values usage 0B peak 0B
+  //
+  // Top 5 leaf memory pool usages:
+  //     op.2.0.0.Aggregation usage 3.77MB peak 3.77MB
+  //     op.1.0.0.FilterProject usage 12.00KB peak 12.00KB
+  //     op.N/A.0.0.CallbackSink usage 0B peak 0B
+  //     op.3.0.0.OrderBy usage 0B peak 0B
+  //     op.0.0.0.Values usage 0B peak 0B
+  std::string treeMemoryUsage() const override;
 
   Stats stats() const override;
 
@@ -825,37 +855,6 @@ class MemoryPoolImpl : public MemoryPool {
 
   // Decrements the reservation in 'this' and parents.
   void decrementReservation(uint64_t size) noexcept;
-
-  // Invoked to generate a descriptive memory pool capacity exceeded exception
-  // error message by traversing the pool structure from the root memory
-  // pool.
-  // Example Error Message generated:
-  // Exceeded memory cap of 5.00MB when requesting 2.00MB
-  // default_root_1 usage 5.00MB peak 5.00MB
-  //     task.test_cursor 1 usage 5.00MB peak 5.00MB
-  //         node.N/A usage 0B peak 0B
-  //             op.N/A.0.0.CallbackSink usage 0B peak 0B
-  //         node.2 usage 4.00MB peak 4.00MB
-  //             op.2.0.0.Aggregation usage 3.77MB peak 3.77MB
-  //         node.1 usage 1.00MB peak 1.00MB
-  //             op.1.0.0.FilterProject usage 12.00KB peak 12.00KB
-  //         node.3 usage 0B peak 0B
-  //             op.3.0.0.OrderBy usage 0B peak 0B
-  //         node.0 usage 0B peak 0B
-  //             op.0.0.0.Values usage 0B peak 0B
-  //
-  // Top 5 leaf memory pool usages:
-  //     op.2.0.0.Aggregation usage 3.77MB peak 3.77MB
-  //     op.1.0.0.FilterProject usage 12.00KB peak 12.00KB
-  //     op.N/A.0.0.CallbackSink usage 0B peak 0B
-  //     op.3.0.0.OrderBy usage 0B peak 0B
-  //     op.0.0.0.Values usage 0B peak 0B
-  //
-  // Failed memory pool: op.2.0.0.Aggregation: 3.77MB
-  // , Source: RUNTIME, ErrorCode: MEM_CAP_EXCEEDED
-  std::string capExceedingMessage(
-      MemoryPool* requestor,
-      const std::string& errorMessage);
 
   FOLLY_ALWAYS_INLINE void sanityCheckLocked() const {
     if (FOLLY_UNLIKELY(

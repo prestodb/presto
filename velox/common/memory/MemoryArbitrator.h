@@ -240,8 +240,10 @@ class MemoryReclaimer {
   /// query execution when encounters non-recoverable memory reclaim error or
   /// fails to reclaim enough free capacity. The abort is a synchronous
   /// operation and we expect most of used memory to be freed after the abort
-  /// completes.
-  virtual void abort(MemoryPool* pool);
+  /// completes. 'error' should be passed in as the direct cause of the
+  /// abortion. It will be propagated all the way to task level for accurate
+  /// error exposure.
+  virtual void abort(MemoryPool* pool, const std::exception_ptr& error);
 
  protected:
   MemoryReclaimer() = default;

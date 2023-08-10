@@ -488,7 +488,9 @@ uint64_t Operator::MemoryReclaimer::reclaim(
   return pool->shrink(targetBytes);
 }
 
-void Operator::MemoryReclaimer::abort(memory::MemoryPool* pool) {
+void Operator::MemoryReclaimer::abort(
+    memory::MemoryPool* pool,
+    const std::exception_ptr& /* error */) {
   std::shared_ptr<Driver> driver = ensureDriver();
   if (FOLLY_UNLIKELY(driver == nullptr)) {
     return;

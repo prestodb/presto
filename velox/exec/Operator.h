@@ -517,7 +517,8 @@ class Operator : public BaseRuntimeStatWriter {
 
     uint64_t reclaim(memory::MemoryPool* pool, uint64_t targetBytes) override;
 
-    void abort(memory::MemoryPool* pool) override;
+    void abort(memory::MemoryPool* pool, const std::exception_ptr& /* error */)
+        override;
 
    private:
     MemoryReclaimer(const std::shared_ptr<Driver>& driver, Operator* op)

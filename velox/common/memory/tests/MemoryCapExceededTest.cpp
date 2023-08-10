@@ -68,14 +68,15 @@ TEST_P(MemoryCapExceededTest, singleDriver) {
   // We look for these lines separately, since their order can change (not sure
   // why).
   std::vector<std::string> expectedTexts = {
-      "Exceeded memory pool cap of 5.00MB with max 5.00MB when requesting 2.00MB, memory manager cap is UNLIMITED"};
+      "Exceeded memory pool cap of 5.00MB with max 5.00MB when requesting "
+      "2.00MB, memory manager cap is UNLIMITED, requestor "
+      "'op.2.0.0.Aggregation' with current usage 3.70MB"};
   std::vector<std::string> expectedDetailedTexts = {
       "node.1 usage 1.00MB peak 1.00MB",
       "op.1.0.0.FilterProject usage 12.00KB peak 12.00KB",
       "node.2 usage 4.00MB peak 4.00MB",
       "op.2.0.0.Aggregation usage 3.70MB peak 3.70MB",
-      "Top 2 leaf memory pool usages:",
-      "Failed memory pool: op.2.0.0.Aggregation: 3.70MB"};
+      "Top 2 leaf memory pool usages:"};
 
   std::vector<RowVectorPtr> data;
   for (auto i = 0; i < 100; ++i) {

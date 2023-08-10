@@ -100,7 +100,7 @@ uint64_t MemoryReclaimer::reclaim(MemoryPool* pool, uint64_t targetBytes) {
   return reclaimedBytes;
 }
 
-void MemoryReclaimer::abort(MemoryPool* pool) {
+void MemoryReclaimer::abort(MemoryPool* pool, const std::exception_ptr& error) {
   if (pool->kind() == MemoryPool::Kind::kLeaf) {
     VELOX_UNSUPPORTED(
         "Don't support to abort a leaf memory pool {}", pool->name());
@@ -111,7 +111,7 @@ void MemoryReclaimer::abort(MemoryPool* pool) {
     // root first.
     auto* reclaimer = child->reclaimer();
     if (reclaimer != nullptr) {
-      reclaimer->abort(child);
+      reclaimer->abort(child, error);
     }
     return true;
   });
