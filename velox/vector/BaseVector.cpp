@@ -848,16 +848,6 @@ void BaseVector::prepareForReuse() {
   this->resetDataDependentFlags(nullptr);
 }
 
-void BaseVector::validate(const VectorValidateOptions& options) const {
-  if (nulls_ != nullptr) {
-    auto bytes = byteSize<bool>(size());
-    VELOX_CHECK_GE(nulls_->size(), bytes);
-  }
-  if (options.callback) {
-    options.callback(*this);
-  }
-}
-
 namespace {
 
 size_t typeSize(const Type& type) {

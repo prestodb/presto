@@ -430,15 +430,6 @@ class FlatVector final : public SimpleVector<T> {
   /// mutable. Resizes the buffer to zero to allow for reuse instead of append.
   void prepareForReuse() override;
 
-  void validate(const VectorValidateOptions& options) const override {
-    SimpleVector<T>::validate(options);
-    auto byteSize = BaseVector::byteSize<T>(BaseVector::size());
-    if (byteSize > 0) {
-      VELOX_CHECK_NOT_NULL(values_);
-      VELOX_CHECK_GE(values_->size(), byteSize);
-    }
-  }
-
  private:
   void copyValuesAndNulls(
       const BaseVector* source,

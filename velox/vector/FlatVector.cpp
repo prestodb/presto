@@ -498,42 +498,5 @@ void FlatVector<StringView>::copyRanges(
   }
 }
 
-// For strings, we also verify if they point to valid memory locations inside
-// the string buffers.
-template <>
-void FlatVector<StringView>::validate(
-    const VectorValidateOptions& options) const {
-  SimpleVector<StringView>::validate(options);
-  auto byteSize = BaseVector::byteSize<StringView>(BaseVector::size());
-  if (byteSize == 0) {
-    return;
-  }
-  VELOX_CHECK_NOT_NULL(values_);
-  VELOX_CHECK_GE(values_->size(), byteSize);
-  auto rawValues = values_->as<StringView>();
-
-  for (auto i = 0; i < BaseVector::length_; ++i) {
-    if (isNullAt(i)) {
-      continue;
-    }
-    auto stringView = rawValues[i];
-    if (!stringView.isInline()) {
-      bool isValid = false;
-      for (const auto& buffer : stringBuffers_) {
-        auto start = buffer->as<char>();
-        if (stringView.data() >= start &&
-            stringView.data() < start + buffer->size()) {
-          isValid = true;
-          break;
-        }
-      }
-      VELOX_CHECK(
-          isValid,
-          "String view at idx {} points outside of the string buffers",
-          i)
-    }
-  }
-}
-
 } // namespace velox
 } // namespace facebook

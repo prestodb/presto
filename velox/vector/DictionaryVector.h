@@ -199,8 +199,6 @@ class DictionaryVector : public SimpleVector<T> {
 
   VectorPtr slice(vector_size_t offset, vector_size_t length) const override;
 
-  void validate(const VectorValidateOptions& options) const override;
-
  private:
   // return the dictionary index for the specified vector index.
   inline vector_size_t getDictionaryIndex(vector_size_t idx) const {
