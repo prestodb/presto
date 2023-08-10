@@ -96,7 +96,7 @@ TEST_F(ExchangeClientTest, nonVeloxCreateExchangeSourceException) {
         throw std::runtime_error("Testing error");
       });
 
-  ExchangeClient client(1, pool(), ExchangeClient::kDefaultMaxQueuedBytes);
+  ExchangeClient client("t", 1, pool(), ExchangeClient::kDefaultMaxQueuedBytes);
   VELOX_ASSERT_THROW(
       client.addRemoteTaskId("task.1.2.3"),
       "Failed to create ExchangeSource: Testing error. Task ID: task.1.2.3.");
@@ -125,7 +125,8 @@ TEST_F(ExchangeClientTest, stats) {
   bufferManager_->initializeTask(
       task, core::PartitionedOutputNode::Kind::kPartitioned, 100, 16);
 
-  ExchangeClient client(17, pool(), ExchangeClient::kDefaultMaxQueuedBytes);
+  ExchangeClient client(
+      "t", 17, pool(), ExchangeClient::kDefaultMaxQueuedBytes);
   client.addRemoteTaskId(taskId);
 
   // Enqueue 3 pages.
@@ -159,7 +160,7 @@ TEST_F(ExchangeClientTest, flowControl) {
   auto page = toSerializedPage(data);
 
   // Set limit at 3.5 pages.
-  ExchangeClient client(17, pool(), page->size() * 3.5);
+  ExchangeClient client("flow.control", 17, pool(), page->size() * 3.5);
 
   auto plan = test::PlanBuilder()
                   .values({data})

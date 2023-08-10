@@ -123,6 +123,7 @@ class MergeExchangeSource : public MergeSource {
       memory::MemoryPool* FOLLY_NONNULL pool)
       : mergeExchange_(mergeExchange),
         client_(std::make_unique<ExchangeClient>(
+            taskId,
             destination,
             pool,
             ExchangeClient::kDefaultMaxQueuedBytes)) {

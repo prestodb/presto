@@ -28,18 +28,18 @@ class ExchangeClient {
   static constexpr int32_t kDefaultMaxQueuedBytes = 32 << 20; // 32 MB.
 
   ExchangeClient(
+      std::string taskId,
       int destination,
       memory::MemoryPool* pool,
       int64_t maxQueuedBytes)
-      : destination_(destination),
+      : taskId_{std::move(taskId)},
+        destination_(destination),
         maxQueuedBytes_{maxQueuedBytes},
         pool_(pool),
         queue_(std::make_shared<ExchangeQueue>()) {
     VELOX_CHECK_NOT_NULL(pool_);
-    VELOX_CHECK(
-        destination >= 0,
-        "Exchange client destination must be greater than zero, got {}",
-        destination);
+    VELOX_CHECK_GE(
+        destination, 0, "Exchange client destination must not be negative");
   }
 
   ~ExchangeClient();
@@ -92,6 +92,8 @@ class ExchangeClient {
 
   void request(const RequestSpec& requestSpec);
 
+  // Handy for ad-hoc logging.
+  const std::string taskId_;
   const int destination_;
   const int64_t maxQueuedBytes_;
   memory::MemoryPool* const pool_;

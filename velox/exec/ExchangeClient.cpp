@@ -235,6 +235,7 @@ std::string ExchangeClient::toString() const {
 
 std::string ExchangeClient::toJsonString() const {
   folly::dynamic obj = folly::dynamic::object;
+  obj["taskId"] = taskId_;
   obj["closed"] = closed_;
   folly::dynamic clientsObj = folly::dynamic::object;
   int index = 0;
