@@ -15,39 +15,24 @@
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include <gtest/gtest.h>
 #include "presto_cpp/main/common/Configs.h"
-#include "velox/common/file/File.h"
+#include "presto_cpp/main/tests/MultableConfigs.h"
 #include "velox/common/file/FileSystems.h"
-#include "velox/core/Config.h"
 
-using namespace facebook::presto;
 using namespace facebook::velox;
+
+namespace facebook::presto {
+namespace {
 
 class CoordinatorDiscovererTest : public testing::Test {
  public:
   void SetUp() override {
     filesystems::registerLocalFileSystem();
-
-    char path[] = "/tmp/velox_system_config_test_XXXXXX";
-    const char* tempDirectoryPath = mkdtemp(path);
-    if (tempDirectoryPath == nullptr) {
-      throw std::logic_error("Cannot open temp directory");
-    }
-    configFilePath = tempDirectoryPath;
-    configFilePath += "/config.properties";
-
-    auto fileSystem = filesystems::getFileSystem(configFilePath, nullptr);
-    auto sysConfigFile = fileSystem->openFileForWrite(configFilePath);
-    sysConfigFile->append(
-        fmt::format("{}={}\n", ConfigBase::kMutableConfig, "true"));
-    sysConfigFile->close();
+    test::setupMutableSystemConfig();
   }
-
-  std::string configFilePath;
 };
 
 TEST_F(CoordinatorDiscovererTest, basic) {
   auto systemConfig = SystemConfig::instance();
-  systemConfig->initialize(configFilePath);
   auto coordinatorDiscoverer = std::make_unique<CoordinatorDiscoverer>();
   EXPECT_TRUE(coordinatorDiscoverer->updateAddress().empty());
 
@@ -64,3 +49,6 @@ TEST_F(CoordinatorDiscovererTest, basic) {
   EXPECT_EQ(cachedAddress.getAddressStr(), "88.88.88.88");
   EXPECT_EQ(cachedAddress.getPort(), 8888);
 }
+
+} // namespace
+} // namespace facebook::presto
