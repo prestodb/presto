@@ -30,6 +30,10 @@ class DateTimeFunctionsTest : public SparkFunctionBaseTest {
         {core::QueryConfig::kAdjustTimestampToTimezone, "true"},
     });
   }
+
+  int32_t parseDate(const std::string& dateStr) {
+    return DATE()->toDays(dateStr);
+  }
 };
 
 TEST_F(DateTimeFunctionsTest, year) {
@@ -64,6 +68,29 @@ TEST_F(DateTimeFunctionsTest, yearDate) {
   EXPECT_EQ(1969, year(DATE()->toDays("1969-12-31")));
   EXPECT_EQ(2020, year(DATE()->toDays("2020-01-01")));
   EXPECT_EQ(1920, year(DATE()->toDays("1920-01-01")));
+}
+
+TEST_F(DateTimeFunctionsTest, weekOfYear) {
+  const auto weekOfYear = [&](const char* dateString) {
+    auto date = std::make_optional(parseDate(dateString));
+    return evaluateOnce<int32_t, int32_t>("week_of_year(c0)", {date}, {DATE()})
+        .value();
+  };
+
+  EXPECT_EQ(1, weekOfYear("1919-12-31"));
+  EXPECT_EQ(1, weekOfYear("1920-01-01"));
+  EXPECT_EQ(1, weekOfYear("1920-01-04"));
+  EXPECT_EQ(2, weekOfYear("1920-01-05"));
+  EXPECT_EQ(53, weekOfYear("1960-01-01"));
+  EXPECT_EQ(53, weekOfYear("1960-01-03"));
+  EXPECT_EQ(1, weekOfYear("1960-01-04"));
+  EXPECT_EQ(1, weekOfYear("1969-12-31"));
+  EXPECT_EQ(1, weekOfYear("1970-01-01"));
+  EXPECT_EQ(1, weekOfYear("0001-01-01"));
+  EXPECT_EQ(52, weekOfYear("9999-12-31"));
+  EXPECT_EQ(8, weekOfYear("2008-02-20"));
+  EXPECT_EQ(15, weekOfYear("2015-04-08"));
+  EXPECT_EQ(15, weekOfYear("2013-04-08"));
 }
 
 TEST_F(DateTimeFunctionsTest, unixTimestamp) {
