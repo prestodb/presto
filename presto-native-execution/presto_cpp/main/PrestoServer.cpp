@@ -526,7 +526,7 @@ void PrestoServer::initializeVeloxMemory() {
         systemConfig->memoryPoolTransferCapacity();
   }
 #endif
-  const auto& manager = memory::MemoryManager::getInstance(options, true);
+  const auto& manager = memory::MemoryManager::getInstance(options);
   PRESTO_STARTUP_LOG(INFO) << "Memory manager has been setup: "
                            << manager.toString();
   if (systemConfig->spillerSpillPath().has_value()) {
