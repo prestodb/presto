@@ -17,11 +17,13 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
-#include <velox/common/memory/MemoryAllocator.h>
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
+#include "presto_cpp/main/tests/MultableConfigs.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "velox/common/file/FileSystems.h"
+#include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/exec/ExchangeQueue.h"
@@ -382,7 +384,6 @@ struct Params {
 class PrestoExchangeSourceTestSuite : public ::testing::TestWithParam<Params> {
  public:
   void SetUp() override {
-    auto& defaultManager = memory::MemoryManager::getInstance();
     pool_ = memory::addDefaultLeafMemoryPool();
 
     memory::MmapAllocator::Options options;
@@ -392,6 +393,9 @@ class PrestoExchangeSourceTestSuite : public ::testing::TestWithParam<Params> {
         GetParam().exchangeThreadPoolSize);
     memory::MemoryAllocator::setDefaultInstance(allocator_.get());
     TestValue::enable();
+
+    filesystems::registerLocalFileSystem();
+    test::setupMutableSystemConfig();
   }
 
   void TearDown() override {
@@ -482,6 +486,11 @@ TEST_P(PrestoExchangeSourceTestSuite, retryState) {
 }
 
 TEST_P(PrestoExchangeSourceTestSuite, retries) {
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeRequestTimeout), "1s");
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeMaxErrorDuration), "3s");
+
   std::vector<std::string> pages = {"page1 - xx", "page2 - xxxx"};
   const auto useHttps = GetParam().useHttps;
   std::atomic<int> numTries(0);
@@ -490,8 +499,7 @@ TEST_P(PrestoExchangeSourceTestSuite, retries) {
     // On the third try, simulate network delay by sleeping for longer than the
     // request timeout
     if (numTries == 3) {
-      long seconds = SystemConfig::instance()->exchangeRequestTimeout().count();
-      std::this_thread::sleep_for(std::chrono::seconds(seconds + 1));
+      std::this_thread::sleep_for(std::chrono::milliseconds(1'100));
     }
     // Fail for the first two times
     return numTries <= 2;
@@ -687,6 +695,9 @@ TEST_P(PrestoExchangeSourceTestSuite, slowProducerAndEarlyTerminatingConsumer) {
 }
 
 TEST_P(PrestoExchangeSourceTestSuite, failedProducer) {
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeMaxErrorDuration), "3s");
+
   std::vector<std::string> pages = {"page1 - xx", "page2 - xxxxx"};
   const bool useHttps = GetParam().useHttps;
   auto producer = std::make_unique<Producer>();
