@@ -23,7 +23,9 @@
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::memory {
+
 namespace {
+
 // Returns the max capacity to grow of memory 'pool'. The calculation is based
 // on a memory pool's max capacity and its current capacity.
 uint64_t maxGrowBytes(const MemoryPool& pool) {
@@ -55,7 +57,13 @@ std::string memoryPoolAbortMessage(
       << victim->treeMemoryUsage();
   return out.str();
 }
+
 } // namespace
+
+SharedArbitrator::SharedArbitrator(const MemoryArbitrator::Config& config)
+    : MemoryArbitrator(config), freeCapacity_(capacity_) {
+  VELOX_CHECK_EQ(kind_, config.kind);
+}
 
 std::string SharedArbitrator::Candidate::toString() const {
   return fmt::format(
@@ -480,7 +488,7 @@ std::string SharedArbitrator::toString() const {
 std::string SharedArbitrator::toStringLocked() const {
   return fmt::format(
       "ARBITRATOR[{}] CAPACITY {} {}",
-      kindString(kind_),
+      kind_,
       succinctBytes(capacity_),
       statsLocked().toString());
 }
@@ -551,5 +559,20 @@ void SharedArbitrator::finishArbitration() {
   if (resumePromise.valid()) {
     resumePromise.setValue();
   }
+}
+
+std::string SharedArbitrator::kind() {
+  return kind_;
+}
+
+void SharedArbitrator::registerFactory() {
+  MemoryArbitrator::registerFactory(
+      kind_, [](const MemoryArbitrator::Config& config) {
+        return std::make_unique<SharedArbitrator>(config);
+      });
+}
+
+void SharedArbitrator::unregisterFactory() {
+  MemoryArbitrator::unregisterFactory(kind_);
 }
 } // namespace facebook::velox::memory

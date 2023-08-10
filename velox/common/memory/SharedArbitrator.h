@@ -22,12 +22,22 @@
 #include "velox/common/memory/Memory.h"
 
 namespace facebook::velox::memory {
+
+/// Used to achieve dynamic memory sharing among running queries. When a
+/// memory pool exceeds its current memory capacity, the arbitrator tries to
+/// grow its capacity by reclaim the overused memory from the query with
+/// more memory usage. We can configure memory arbitrator the way to reclaim
+/// memory. For Prestissimo, we can configure it to reclaim memory by
+/// aborting a query. For Prestissimo-on-Spark, we can configure it to
+/// reclaim from a running query through techniques such as disk-spilling,
+/// partial aggregation or persistent shuffle data flushes.
 class SharedArbitrator : public MemoryArbitrator {
  public:
-  explicit SharedArbitrator(const Config& config)
-      : MemoryArbitrator(config), freeCapacity_(capacity_) {
-    VELOX_CHECK_EQ(kind_, Kind::kShared);
-  }
+  static void registerFactory();
+
+  static void unregisterFactory();
+
+  explicit SharedArbitrator(const Config& config);
 
   ~SharedArbitrator() override;
 
@@ -42,6 +52,8 @@ class SharedArbitrator : public MemoryArbitrator {
 
   Stats stats() const final;
 
+  std::string kind() override;
+
   std::string toString() const final;
 
   // The candidate memory pool stats used by arbitration.
@@ -55,6 +67,9 @@ class SharedArbitrator : public MemoryArbitrator {
   };
 
  private:
+  // The kind string of shared arbitrator.
+  inline static const std::string kind_{"SHARED"};
+
   class ScopedArbitration {
    public:
     ScopedArbitration(MemoryPool* requestor, SharedArbitrator* arbitrator);

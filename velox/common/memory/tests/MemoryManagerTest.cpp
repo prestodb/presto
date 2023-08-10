@@ -35,41 +35,19 @@ constexpr folly::StringPiece kDefaultRootName{"__default_root__"};
 MemoryManager& toMemoryManager(MemoryManager& manager) {
   return *static_cast<MemoryManager*>(&manager);
 }
-
-class ArbitratorWithCapacityOverridden : public MemoryArbitrator {
- public:
-  explicit ArbitratorWithCapacityOverridden(
-      const Config& config,
-      int64_t capacity)
-      : MemoryArbitrator(
-            {.kind = config.kind,
-             .capacity = capacity,
-             .memoryPoolInitCapacity = config.memoryPoolInitCapacity,
-             .memoryPoolTransferCapacity = config.memoryPoolTransferCapacity,
-             .retryArbitrationFailure = config.retryArbitrationFailure}) {}
-
-  void reserveMemory(MemoryPool* pool, uint64_t bytes) override {
-    VELOX_FAIL("Unreachable")
-  }
-
-  void releaseMemory(MemoryPool* pool) override {
-    VELOX_FAIL("Unreachable")
-  }
-
-  bool growMemory(
-      MemoryPool* pool,
-      const std::vector<std::shared_ptr<MemoryPool>>& candidatePools,
-      uint64_t targetBytes) override{VELOX_FAIL("Unreachable")}
-
-  Stats stats() const override{VELOX_FAIL("Unreachable")}
-
-  std::string toString() const override {
-    VELOX_FAIL("Unreachable")
-  }
-};
 } // namespace
 
-TEST(MemoryManagerTest, Ctor) {
+class MemoryManagerTest : public testing::Test {
+ public:
+ protected:
+  static void SetUpTestCase() {
+    MemoryArbitrator::registerAllFactories();
+  }
+
+  inline static const std::string arbitratorKind_{"SHARED"};
+};
+
+TEST_F(MemoryManagerTest, Ctor) {
   const auto kSharedPoolCount = FLAGS_velox_memory_num_shared_leaf_pools;
   {
     MemoryManager manager{};
@@ -102,29 +80,65 @@ TEST(MemoryManagerTest, Ctor) {
     MemoryManagerOptions options;
     const auto capacity = folly::Random::rand32();
     options.capacity = capacity;
-    options.arbitratorKind = MemoryArbitrator::Kind::kShared;
+    std::string arbitratorKind = "SHARED";
+    options.arbitratorKind = arbitratorKind;
     MemoryManager manager{options};
     auto* arbitrator = manager.arbitrator();
-    ASSERT_EQ(arbitrator->kind(), MemoryArbitrator::Kind::kShared);
+    ASSERT_EQ(arbitrator->kind(), arbitratorKind);
     ASSERT_EQ(arbitrator->stats().maxCapacityBytes, capacity);
   }
 }
 
-TEST(MemoryManagerTest, createWithCustomArbitrator) {
-  {
-    MemoryManagerOptions options;
-    options.arbitratorKind = MemoryArbitrator::Kind::kCustom;
-    options.capacity = 8L * 1024 * 1024;
-    options.arbitratorFactory = [](MemoryArbitrator::Config config) {
-      return std::make_unique<ArbitratorWithCapacityOverridden>(config, 0LL);
-    };
-    VELOX_ASSERT_THROW(
-        MemoryManager{options},
-        "Memory arbitrator and memory manager must have the same capacity")
+namespace {
+class FakeTestArbitrator : public MemoryArbitrator {
+ public:
+  FakeTestArbitrator(const Config& config, int64_t capacity)
+      : MemoryArbitrator(
+            {.kind = config.kind,
+             .capacity = capacity,
+             .memoryPoolInitCapacity = config.memoryPoolInitCapacity,
+             .memoryPoolTransferCapacity = config.memoryPoolTransferCapacity,
+             .retryArbitrationFailure = config.retryArbitrationFailure}) {}
+
+  void reserveMemory(MemoryPool* pool, uint64_t bytes) override {
+    VELOX_NYI()
   }
+
+  void releaseMemory(MemoryPool* pool) override {
+    VELOX_NYI()
+  }
+
+  bool growMemory(
+      MemoryPool* pool,
+      const std::vector<std::shared_ptr<MemoryPool>>& candidatePools,
+      uint64_t targetBytes) override{VELOX_NYI()}
+
+  Stats stats() const override{VELOX_NYI()}
+
+  std::string toString() const override{VELOX_NYI()}
+
+  std::string kind() override {
+    return "FAKE";
+  }
+};
+} // namespace
+
+TEST_F(MemoryManagerTest, createWithCustomArbitrator) {
+  const std::string kindString = "FAKE";
+  MemoryArbitrator::Factory factory =
+      [](const MemoryArbitrator::Config& config) {
+        return std::make_unique<FakeTestArbitrator>(config, 0LL);
+      };
+  MemoryArbitrator::registerFactory(kindString, factory);
+  MemoryManagerOptions options;
+  options.arbitratorKind = kindString;
+  options.capacity = 8L * 1024 * 1024;
+  VELOX_ASSERT_THROW(
+      MemoryManager{options},
+      "Memory arbitrator and memory manager must have the same capacity")
 }
 
-TEST(MemoryManagerTest, addPool) {
+TEST_F(MemoryManagerTest, addPool) {
   MemoryManager manager{};
 
   auto rootPool = manager.addRootPool("duplicateRootPool", kMaxMemory);
@@ -151,10 +165,10 @@ TEST(MemoryManagerTest, addPool) {
   ASSERT_EQ(aggregationPool->capacity(), poolCapacity);
 }
 
-TEST(MemoryManagerTest, addPoolWithArbitrator) {
+TEST_F(MemoryManagerTest, addPoolWithArbitrator) {
   MemoryManagerOptions options;
   options.capacity = 32L << 30;
-  options.arbitratorKind = MemoryArbitrator::Kind::kShared;
+  options.arbitratorKind = arbitratorKind_;
   // The arbitrator capacity will be overridden by the memory manager's
   // capacity.
   options.capacity = options.capacity;
@@ -193,7 +207,7 @@ TEST(MemoryManagerTest, addPoolWithArbitrator) {
   ASSERT_EQ(aggregationPool->capacity(), initialPoolCapacity);
 }
 
-TEST(MemoryManagerTest, defaultMemoryManager) {
+TEST_F(MemoryManagerTest, defaultMemoryManager) {
   auto& managerA = toMemoryManager(defaultMemoryManager());
   auto& managerB = toMemoryManager(defaultMemoryManager());
   const auto kSharedPoolCount = FLAGS_velox_memory_num_shared_leaf_pools;
@@ -273,7 +287,7 @@ TEST(MemoryHeaderTest, addDefaultLeafMemoryPool) {
   ASSERT_EQ(namedPool->name(), "namedPool");
 }
 
-TEST(MemoryManagerTest, memoryPoolManagement) {
+TEST_F(MemoryManagerTest, memoryPoolManagement) {
   const int alignment = 32;
   MemoryManagerOptions options;
   options.alignment = alignment;
@@ -316,7 +330,7 @@ TEST(MemoryManagerTest, memoryPoolManagement) {
 // TODO: when run sequentially, e.g. `buck run dwio/memory/...`, this has side
 // effects for other tests using process singleton memory manager. Might need to
 // use folly::Singleton for isolation by tag.
-TEST(MemoryManagerTest, globalMemoryManager) {
+TEST_F(MemoryManagerTest, globalMemoryManager) {
   auto& manager = MemoryManager::getInstance();
   auto& managerII = MemoryManager::getInstance();
   const auto kSharedPoolCount = FLAGS_velox_memory_num_shared_leaf_pools;
@@ -372,7 +386,7 @@ TEST(MemoryManagerTest, globalMemoryManager) {
   ASSERT_EQ(manager.numPools(), 0);
 }
 
-TEST(MemoryManagerTest, GlobalMemoryManagerQuota) {
+TEST_F(MemoryManagerTest, GlobalMemoryManagerQuota) {
   auto& manager = MemoryManager::getInstance();
   MemoryManager::getInstance({.alignment = 32});
 
@@ -380,7 +394,7 @@ TEST(MemoryManagerTest, GlobalMemoryManagerQuota) {
   ASSERT_EQ(manager.alignment(), coercedManager.alignment());
 }
 
-TEST(MemoryManagerTest, alignmentOptionCheck) {
+TEST_F(MemoryManagerTest, alignmentOptionCheck) {
   struct {
     uint16_t alignment;
     bool expectedSuccess;
@@ -425,7 +439,7 @@ TEST(MemoryManagerTest, alignmentOptionCheck) {
   }
 }
 
-TEST(MemoryManagerTest, concurrentPoolAccess) {
+TEST_F(MemoryManagerTest, concurrentPoolAccess) {
   MemoryManager manager{};
   const int numAllocThreads = 40;
   std::vector<std::thread> allocThreads;
@@ -480,7 +494,7 @@ TEST(MemoryManagerTest, concurrentPoolAccess) {
   ASSERT_EQ(manager.numPools(), 0);
 }
 
-TEST(MemoryManagerTest, quotaEnforcement) {
+TEST_F(MemoryManagerTest, quotaEnforcement) {
   struct {
     int64_t memoryQuotaBytes;
     int64_t smallAllocationBytes;
@@ -553,7 +567,7 @@ TEST(MemoryManagerTest, quotaEnforcement) {
   }
 }
 
-TEST(MemoryManagerTest, testCheckUsageLeak) {
+TEST_F(MemoryManagerTest, testCheckUsageLeak) {
   FLAGS_velox_memory_leak_check_enabled = true;
   auto& manager = MemoryManager::getInstance(
       memory::MemoryManagerOptions{.checkUsageLeak = false});

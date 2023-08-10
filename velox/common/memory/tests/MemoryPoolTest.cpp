@@ -72,6 +72,7 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
 
  protected:
   static void SetUpTestCase() {
+    MemoryArbitrator::registerAllFactories();
     FLAGS_velox_memory_leak_check_enabled = true;
     TestValue::enable();
   }
@@ -3136,7 +3137,7 @@ TEST_P(MemoryPoolTest, maybeReserveFailWithAbort) {
   constexpr int64_t kMB = 1 << 20;
   MemoryManagerOptions options;
   options.capacity = kMaxMemory;
-  options.arbitratorKind = MemoryArbitrator::Kind::kShared;
+  options.arbitratorKind = "SHARED";
   MemoryManager manager{options};
   auto root = manager.addRootPool(
       "maybeReserveFailWithAbort", kMaxSize, MemoryReclaimer::create());

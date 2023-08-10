@@ -31,24 +31,12 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
       // TODO: consider to reserve a small amount of memory to compensate for
       //  the unreclaimable cache memory which are pinned by query accesses if
       //  enabled.
-      arbitrator_(
-          options.arbitratorKind == MemoryArbitrator::Kind::kCustom
-              ? options.arbitratorFactory(
-                    {.kind = options.arbitratorKind,
-                     .capacity = options.capacity,
-                     .memoryPoolInitCapacity = options.memoryPoolInitCapacity,
-                     .memoryPoolTransferCapacity =
-                         options.memoryPoolTransferCapacity,
-                     .retryArbitrationFailure =
-                         options.retryArbitrationFailure})
-              : MemoryArbitrator::create(
-                    {.kind = options.arbitratorKind,
-                     .capacity = options.capacity,
-                     .memoryPoolInitCapacity = options.memoryPoolInitCapacity,
-                     .memoryPoolTransferCapacity =
-                         options.memoryPoolTransferCapacity,
-                     .retryArbitrationFailure =
-                         options.retryArbitrationFailure})),
+      arbitrator_(MemoryArbitrator::create(
+          {.kind = options.arbitratorKind,
+           .capacity = options.capacity,
+           .memoryPoolInitCapacity = options.memoryPoolInitCapacity,
+           .memoryPoolTransferCapacity = options.memoryPoolTransferCapacity,
+           .retryArbitrationFailure = options.retryArbitrationFailure})),
       alignment_(std::max(MemoryAllocator::kMinAlignment, options.alignment)),
       checkUsageLeak_(options.checkUsageLeak),
       debugEnabled_(options.debugEnabled),

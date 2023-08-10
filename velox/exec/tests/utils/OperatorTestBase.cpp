@@ -49,6 +49,7 @@ OperatorTestBase::~OperatorTestBase() {
 }
 
 void OperatorTestBase::SetUpTestCase() {
+  memory::MemoryArbitrator::registerAllFactories();
   functions::prestosql::registerAllScalarFunctions();
   aggregate::prestosql::registerAllAggregateFunctions();
   TestValue::enable();
@@ -56,6 +57,7 @@ void OperatorTestBase::SetUpTestCase() {
 
 void OperatorTestBase::TearDownTestCase() {
   waitForAllTasksToBeDeleted();
+  memory::MemoryArbitrator::unregisterAllFactories();
 }
 
 void OperatorTestBase::SetUp() {

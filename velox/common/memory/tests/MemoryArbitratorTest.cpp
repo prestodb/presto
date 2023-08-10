@@ -47,50 +47,88 @@ TEST_F(MemoryArbitrationTest, stats) {
       "STATS[numRequests 2 numAborted 3 numFailures 100 queueTime 230.00ms arbitrationTime 1.02ms shrunkMemory 95.37MB reclaimedMemory 9.77KB maxCapacity 0B freeCapacity 0B]");
 }
 
-TEST_F(MemoryArbitrationTest, kind) {
-  struct {
-    MemoryArbitrator::Kind kind;
-    std::string expectedKindStr;
-
-    std::string debugString() const {
-      return fmt::format("kind:{}, expectedStr:{}", kind, expectedKindStr);
-    }
-  } testSettings[] = {
-      {MemoryArbitrator::Kind::kNoOp, "NOOP"},
-      {MemoryArbitrator::Kind::kShared, "SHARED"},
-      {MemoryArbitrator::Kind::kCustom, "CUSTOM"},
-      {static_cast<MemoryArbitrator::Kind>(100), "UNKNOWN: 100"}};
-
-  for (const auto& testData : testSettings) {
-    SCOPED_TRACE(testData.debugString());
-    ASSERT_EQ(
-        MemoryArbitrator::kindString(testData.kind), testData.expectedKindStr);
-  }
-}
-
 TEST_F(MemoryArbitrationTest, create) {
-  const std::vector<MemoryArbitrator::Kind> kinds = {
-      MemoryArbitrator::Kind::kNoOp,
-      MemoryArbitrator::Kind::kShared,
-      MemoryArbitrator::Kind::kCustom,
-      static_cast<MemoryArbitrator::Kind>(100)};
+  const std::string unknownType = "UNKNOWN";
+  const std::vector<std::string> kinds = {
+      std::string(),
+      unknownType // expect error on unregistered type
+  };
   for (const auto& kind : kinds) {
     MemoryArbitrator::Config config;
     config.capacity = 1 * GB;
     config.kind = kind;
-    if (kind == MemoryArbitrator::Kind::kNoOp) {
+    if (kind.empty()) {
       ASSERT_EQ(MemoryArbitrator::create(config), nullptr);
-    } else if (kind == MemoryArbitrator::Kind::kShared) {
-      auto arbitrator = MemoryArbitrator::create(config);
-      ASSERT_EQ(arbitrator->kind(), kind);
-    } else if (kind == MemoryArbitrator::Kind::kCustom) {
+    } else if (kind == unknownType) {
       VELOX_ASSERT_THROW(
           MemoryArbitrator::create(config),
-          "CUSTOM kind of Arbitrator can't be created via create");
+          "Arbitrator factory for kind UNKNOWN not registered");
     } else {
       VELOX_ASSERT_THROW(MemoryArbitrator::create(config), "");
     }
   }
+}
+
+namespace {
+class FakeTestArbitrator : public MemoryArbitrator {
+ public:
+  explicit FakeTestArbitrator(const Config& config)
+      : MemoryArbitrator(
+            {.kind = config.kind,
+             .capacity = config.capacity,
+             .memoryPoolInitCapacity = config.memoryPoolInitCapacity,
+             .memoryPoolTransferCapacity = config.memoryPoolTransferCapacity,
+             .retryArbitrationFailure = config.retryArbitrationFailure}) {}
+
+  void reserveMemory(MemoryPool* pool, uint64_t bytes) override {
+    VELOX_NYI()
+  }
+
+  void releaseMemory(MemoryPool* pool) override{VELOX_NYI()}
+
+  std::string kind() override {
+    return "USER";
+  }
+
+  bool growMemory(
+      MemoryPool* pool,
+      const std::vector<std::shared_ptr<MemoryPool>>& candidatePools,
+      uint64_t targetBytes) override{VELOX_NYI()}
+
+  Stats stats() const override{VELOX_NYI()}
+
+  std::string toString() const override {
+    VELOX_NYI()
+  }
+};
+} // namespace
+
+class MemoryArbitratorFactoryTest : public testing::Test {
+ public:
+ protected:
+  static void SetUpTestCase() {
+    MemoryArbitrator::registerFactory(kind_, factory_);
+  }
+
+ protected:
+  inline static const std::string kind_{"USER"};
+  inline static const MemoryArbitrator::Factory factory_{
+      [](const MemoryArbitrator::Config& config) {
+        return std::make_unique<FakeTestArbitrator>(config);
+      }};
+};
+
+TEST_F(MemoryArbitratorFactoryTest, register) {
+  VELOX_ASSERT_THROW(
+      MemoryArbitrator::registerFactory(kind_, factory_),
+      "Arbitrator factory for kind USER already registered");
+}
+
+TEST_F(MemoryArbitratorFactoryTest, create) {
+  MemoryArbitrator::Config config;
+  config.kind = kind_;
+  auto arbitrator = MemoryArbitrator::create(config);
+  ASSERT_EQ(kind_, arbitrator->kind());
 }
 
 class MemoryReclaimerTest : public testing::Test {

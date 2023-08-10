@@ -58,9 +58,6 @@ namespace facebook::velox::memory {
       "{}",                                                         \
       errorMessage);
 
-using MemoryArbitratorFactory = std::function<std::unique_ptr<MemoryArbitrator>(
-    MemoryArbitrator::Config config)>;
-
 struct MemoryManagerOptions {
   /// Specifies the default memory allocation alignment.
   uint16_t alignment{MemoryAllocator::kMaxAlignment};
@@ -85,7 +82,11 @@ struct MemoryManagerOptions {
 
   /// ================== 'MemoryArbitrator' settings ==================
 
-  MemoryArbitrator::Kind arbitratorKind{MemoryArbitrator::Kind::kNoOp};
+  /// The string kind of memory arbitrator used in the memory manager.
+  ///
+  /// NOTE: the arbitrator will only be created if its kind is set explicitly.
+  /// Otherwise MemoryArbitrator::create returns a nullptr.
+  std::string arbitratorKind{};
 
   /// The initial memory capacity to reserve for a newly created memory pool.
   uint64_t memoryPoolInitCapacity{256 << 20};
@@ -101,10 +102,6 @@ struct MemoryManagerOptions {
   /// same query on all the workers instead of a random victim query which
   /// happens to trigger the failed memory arbitration.
   bool retryArbitrationFailure{true};
-
-  /// The customized arbitrator create method which is only set in case of
-  /// custom kind of arbitrator.
-  MemoryArbitratorFactory arbitratorFactory{nullptr};
 };
 
 /// 'MemoryManager' is responsible for managing the memory pools. For now, users
