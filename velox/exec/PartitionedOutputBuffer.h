@@ -185,11 +185,11 @@ class PartitionedOutputBuffer {
   std::string toString();
 
   // Gets the memory utilization ratio in this output buffer.
-  double getUtilization();
+  double getUtilization() const;
 
   // Indicates if this output buffer is over-utilized and thus blocks its
   // producers.
-  bool isOverutilized();
+  bool isOverutilized() const;
 
  private:
   // Percentage of maxSize below which a blocked producer should

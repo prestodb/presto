@@ -74,7 +74,7 @@ std::vector<std::unique_ptr<folly::IOBuf>> DestinationBuffer::getData(
   }
 
   if (sequence - sequence_ > data_.size()) {
-    VLOG(0) << this << " Out of order get: " << sequence << " over "
+    VLOG(1) << this << " Out of order get: " << sequence << " over "
             << sequence_ << " Setting second notify " << notifySequence_
             << " / " << sequence;
     notify_ = std::move(notify);
@@ -152,7 +152,7 @@ std::vector<std::shared_ptr<SerializedPage>> DestinationBuffer::acknowledge(
   const int64_t numDeleted = sequence - sequence_;
   if (numDeleted == 0 && fromGetData) {
     // If called from getData, it is expected that there will be
-    // nothing to delete because a previous acknowledge has been
+    // nothing to delete because a previous acknowledgement has been
     // received before the getData. This is not guaranteed though
     // because the messages may arrive out of order. Note that getData
     // implicitly acknowledges all messages with a lower sequence
@@ -162,7 +162,7 @@ std::vector<std::shared_ptr<SerializedPage>> DestinationBuffer::acknowledge(
   if (numDeleted <= 0) {
     // Acknowledges come out of order, e.g. ack of 10 and 9 have
     // swapped places in flight.
-    VLOG(0) << this << " Out of order ack: " << sequence << " over "
+    VLOG(1) << this << " Out of order ack: " << sequence << " over "
             << sequence_;
     return {};
   }
@@ -640,11 +640,11 @@ std::string PartitionedOutputBuffer::toStringLocked() const {
   return out.str();
 }
 
-double PartitionedOutputBuffer::getUtilization() {
+double PartitionedOutputBuffer::getUtilization() const {
   return totalSize_ / (double)maxSize_;
 }
 
-bool PartitionedOutputBuffer::isOverutilized() {
+bool PartitionedOutputBuffer::isOverutilized() const {
   return (totalSize_ > maxSize_) && !atEnd_;
 }
 
