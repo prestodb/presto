@@ -13,7 +13,7 @@
 # limitations under the License.
 
 add_library(velox_functions_aggregates SingleValueAccumulator.cpp
-                                       AverageAggregateBase.cpp)
+                                       AverageAggregateBase.cpp ValueSet.cpp)
 
 target_link_libraries(velox_functions_aggregates velox_exec
                       velox_presto_serializer Folly::folly)

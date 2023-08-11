@@ -1758,5 +1758,118 @@ TEST_F(MinMaxByNTest, groupByVarchar) {
       {data}, {"c0"}, {"min_by(c1, c2, 3)", "max_by(c1, c2, 4)"}, {expected});
 }
 
+TEST_F(MinMaxByNTest, stringComparison) {
+  std::string s[6];
+  for (int i = 0; i < 6; ++i) {
+    s[i] = std::string(StringView::kInlineSize, 'x') + std::to_string(i);
+  }
+
+  auto data = makeRowVector({
+      makeFlatVector<std::string>({s[0], s[1], s[2], s[3], s[4], s[5]}),
+      makeRowVector({
+          makeFlatVector<int16_t>({1, 2, 3, 4, 5, 6}),
+          makeFlatVector<int32_t>({10, 20, 30, 40, 50, 60}),
+      }),
+      makeFlatVector<int16_t>({1, 2, 3, 4, 5, 6}),
+      makeFlatVector<std::string>({s[5], s[4], s[3], s[2], s[1], s[0]}),
+      makeFlatVector<bool>({true, true, true, false, false, false}),
+  });
+
+  // Test min_by(row, varchar, n) and max_by(row, varchar, n).
+  {
+    // Global.
+    auto expected = makeRowVector({
+        makeArrayVector(
+            {0},
+            makeRowVector({
+                makeFlatVector<int16_t>({1, 2, 3}),
+                makeFlatVector<int32_t>({10, 20, 30}),
+            })),
+        makeArrayVector(
+            {0},
+            makeRowVector({
+                makeFlatVector<int16_t>({6, 5, 4, 3}),
+                makeFlatVector<int32_t>({60, 50, 40, 30}),
+            })),
+    });
+    testAggregations(
+        {data}, {}, {"min_by(c1, c0, 3)", "max_by(c1, c0, 4)"}, {expected});
+    testReadFromFiles(
+        {data}, {}, {"min_by(c1, c0, 3)", "max_by(c1, c0, 4)"}, {expected});
+
+    // Group-by.
+    expected = makeRowVector({
+        makeFlatVector<bool>({false, true}),
+        makeArrayVector(
+            {0, 2},
+            makeRowVector({
+                makeFlatVector<int16_t>({4, 5, 1, 2}),
+                makeFlatVector<int32_t>({40, 50, 10, 20}),
+            })),
+        makeArrayVector(
+            {0, 2},
+            makeRowVector({
+                makeFlatVector<int16_t>({6, 5, 3, 2}),
+                makeFlatVector<int32_t>({60, 50, 30, 20}),
+            })),
+    });
+    testAggregations(
+        {data}, {"c4"}, {"min_by(c1, c0, 2)", "max_by(c1, c0, 2)"}, {expected});
+    testReadFromFiles(
+        {data}, {"c4"}, {"min_by(c1, c0, 2)", "max_by(c1, c0, 2)"}, {expected});
+  }
+
+  // Test min_by(smallint, varchar, n) and max_by(smallint, varchar, n).
+  {
+    // Global.
+    auto expected = makeRowVector({
+        makeArrayVector({0}, makeFlatVector<int16_t>({1, 2, 3})),
+        makeArrayVector({0}, makeFlatVector<int16_t>({6, 5, 4, 3})),
+    });
+    testAggregations(
+        {data}, {}, {"min_by(c2, c0, 3)", "max_by(c2, c0, 4)"}, {expected});
+    testReadFromFiles(
+        {data}, {}, {"min_by(c2, c0, 3)", "max_by(c2, c0, 4)"}, {expected});
+
+    // Group-by.
+    expected = makeRowVector({
+        makeFlatVector<bool>({false, true}),
+        makeArrayVector({0, 2}, makeFlatVector<int16_t>({4, 5, 1, 2})),
+        makeArrayVector({0, 2}, makeFlatVector<int16_t>({6, 5, 3, 2})),
+    });
+    testAggregations(
+        {data}, {"c4"}, {"min_by(c2, c0, 2)", "max_by(c2, c0, 2)"}, {expected});
+    testReadFromFiles(
+        {data}, {"c4"}, {"min_by(c2, c0, 2)", "max_by(c2, c0, 2)"}, {expected});
+  }
+
+  // Test min_by(varchar, varchar, n) and max_by(varchar, varchar, n).
+  {
+    // Global.
+    auto expected = makeRowVector({
+        makeArrayVector({0}, makeFlatVector<std::string>({s[5], s[4], s[3]})),
+        makeArrayVector(
+            {0}, makeFlatVector<std::string>({s[0], s[1], s[2], s[3]})),
+    });
+    testAggregations(
+        {data}, {}, {"min_by(c3, c0, 3)", "max_by(c3, c0, 4)"}, {expected});
+    testReadFromFiles(
+        {data}, {}, {"min_by(c3, c0, 3)", "max_by(c3, c0, 4)"}, {expected});
+
+    // Group-by.
+    expected = makeRowVector({
+        makeFlatVector<bool>({false, true}),
+        makeArrayVector(
+            {0, 2}, makeFlatVector<std::string>({s[2], s[1], s[5], s[4]})),
+        makeArrayVector(
+            {0, 2}, makeFlatVector<std::string>({s[0], s[1], s[3], s[4]})),
+    });
+    testAggregations(
+        {data}, {"c4"}, {"min_by(c3, c0, 2)", "max_by(c3, c0, 2)"}, {expected});
+    testReadFromFiles(
+        {data}, {"c4"}, {"min_by(c3, c0, 2)", "max_by(c3, c0, 2)"}, {expected});
+  }
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

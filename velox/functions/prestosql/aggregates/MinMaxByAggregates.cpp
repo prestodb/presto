@@ -15,6 +15,7 @@
  */
 
 #include "velox/functions/lib/aggregates/MinMaxByAggregatesBase.h"
+#include "velox/functions/lib/aggregates/ValueSet.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 
 using namespace facebook::velox::functions::aggregate;
@@ -87,8 +88,9 @@ struct MinMaxByNAccumulator {
   int64_t n{0};
 
   using Pair = std::pair<C, std::optional<V>>;
-  std::priority_queue<Pair, std::vector<Pair, StlAllocator<Pair>>, Compare>
-      topPairs;
+  using Queue =
+      std::priority_queue<Pair, std::vector<Pair, StlAllocator<Pair>>, Compare>;
+  Queue topPairs;
 
   explicit MinMaxByNAccumulator(HashStringAllocator* allocator)
       : topPairs{Compare{}, StlAllocator<Pair>(allocator)} {}
@@ -119,11 +121,8 @@ struct MinMaxByNAccumulator {
     }
   }
 
-  void compareAndAdd(
-      C comparison,
-      std::optional<V> value,
-      Compare& comparator,
-      HashStringAllocator& /*allocator*/) {
+  void
+  compareAndAdd(C comparison, std::optional<V> value, Compare& comparator) {
     if (topPairs.size() < n) {
       topPairs.push({comparison, value});
     } else {
@@ -140,8 +139,7 @@ struct MinMaxByNAccumulator {
   void extractValues(
       TRawValue* rawValues,
       uint64_t* rawValueNulls,
-      vector_size_t offset,
-      HashStringAllocator* /*allocator*/) {
+      vector_size_t offset) {
     const vector_size_t size = topPairs.size();
     for (auto i = size - 1; i >= 0; --i) {
       const auto& topPair = topPairs.top();
@@ -164,8 +162,7 @@ struct MinMaxByNAccumulator {
       TRawComparison* rawComparisons,
       TRawValue* rawValues,
       uint64_t* rawValueNulls,
-      vector_size_t offset,
-      HashStringAllocator* /*allocator*/) {
+      vector_size_t offset) {
     const vector_size_t size = topPairs.size();
     for (auto i = size - 1; i >= 0; --i) {
       const auto& topPair = topPairs.top();
@@ -181,10 +178,6 @@ struct MinMaxByNAccumulator {
 
       topPairs.pop();
     }
-  }
-
-  void free(HashStringAllocator* /*allocator*/) {
-    std::destroy_at(&topPairs);
   }
 };
 
@@ -203,28 +196,34 @@ struct Extractor {
 
   void extractValues(
       MinMaxByNAccumulator<V, C, Compare>* accumulator,
-      vector_size_t offset,
-      HashStringAllocator* allocator) {
-    accumulator->extractValues(rawValues, rawValueNulls, offset, allocator);
+      vector_size_t offset) {
+    accumulator->extractValues(rawValues, rawValueNulls, offset);
   }
 
   void extractPairs(
       MinMaxByNAccumulator<V, C, Compare>* accumulator,
       TRawComparison* rawComparisons,
-      vector_size_t offset,
-      HashStringAllocator* allocator) {
-    accumulator->extractPairs(
-        rawComparisons, rawValues, rawValueNulls, offset, allocator);
+      vector_size_t offset) {
+    accumulator->extractPairs(rawComparisons, rawValues, rawValueNulls, offset);
   }
 };
 
-template <typename C, typename Compare>
+template <typename V, typename C, typename Compare>
 struct MinMaxByNStringViewAccumulator {
-  using TRawComparison = typename RawValueExtractor<C>::TRawValue;
-  MinMaxByNAccumulator<StringView, C, Compare> base;
+  using BaseType = MinMaxByNAccumulator<V, C, Compare>;
+  BaseType base;
+  ValueSet valueSet;
 
   explicit MinMaxByNStringViewAccumulator(HashStringAllocator* allocator)
-      : base{allocator} {}
+      : base{allocator}, valueSet{allocator} {}
+
+  ~MinMaxByNStringViewAccumulator() {
+    while (!base.topPairs.empty()) {
+      auto& pair = base.topPairs.top();
+      freePair(pair);
+      base.topPairs.pop();
+    }
+  }
 
   int64_t getN() const {
     return base.n;
@@ -238,32 +237,28 @@ struct MinMaxByNStringViewAccumulator {
     return base.checkAndSetN(decodedN, row);
   }
 
-  void compareAndAdd(
-      C comparison,
-      std::optional<StringView> value,
-      Compare& comparator,
-      HashStringAllocator& allocator) {
+  void
+  compareAndAdd(C comparison, std::optional<V> value, Compare& comparator) {
     if (base.topPairs.size() < base.n) {
-      base.topPairs.push({comparison, write(value, allocator)});
+      addToAccumulator(comparison, value);
     } else {
       const auto& topPair = base.topPairs.top();
       if (comparator.compare(comparison, topPair)) {
-        free(topPair.second, allocator);
+        freePair(topPair);
         base.topPairs.pop();
-        base.topPairs.push({comparison, write(value, allocator)});
+        addToAccumulator(comparison, value);
       }
     }
   }
 
   /// Moves all values from 'topPairs' into 'values'
   /// buffers. The queue of 'topPairs' will be empty after this call.
-  void extractValues(
-      FlatVector<StringView>& values,
-      vector_size_t offset,
-      HashStringAllocator* allocator) {
+  void extractValues(FlatVector<V>& values, vector_size_t offset) {
     const vector_size_t size = base.topPairs.size();
     for (auto i = size - 1; i >= 0; --i) {
-      extractValue(base.topPairs.top(), values, offset + i, allocator);
+      const auto& pair = base.topPairs.top();
+      extractValue(pair, values, offset + i);
+      freePair(pair);
       base.topPairs.pop();
     }
   }
@@ -272,94 +267,98 @@ struct MinMaxByNStringViewAccumulator {
   /// 'rawComparisons' buffer and 'values' vector. The queue of
   /// 'topPairs' will be empty after this call.
   void extractPairs(
-      TRawComparison* rawComparisons,
-      FlatVector<StringView>& values,
-      vector_size_t offset,
-      HashStringAllocator* allocator) {
+      FlatVector<C>& compares,
+      FlatVector<V>& values,
+      vector_size_t offset) {
     const vector_size_t size = base.topPairs.size();
     for (auto i = size - 1; i >= 0; --i) {
       const auto& topPair = base.topPairs.top();
       const auto index = offset + i;
 
-      RawValueExtractor<C>::extract(rawComparisons, index, topPair.first);
-      extractValue(topPair, values, index, allocator);
-
+      extractCompare(topPair, compares, index);
+      extractValue(topPair, values, index);
+      freePair(topPair);
       base.topPairs.pop();
     }
-  }
-
-  void free(HashStringAllocator* allocator) {
-    while (!base.topPairs.empty()) {
-      auto& pair = base.topPairs.top();
-      free(pair.second, *allocator);
-      base.topPairs.pop();
-    }
-    std::destroy_at(&base);
   }
 
  private:
-  using Pair = typename MinMaxByNAccumulator<StringView, C, Compare>::Pair;
+  using Pair = typename MinMaxByNAccumulator<V, C, Compare>::Pair;
 
-  std::optional<StringView> write(
-      std::optional<StringView> value,
-      HashStringAllocator& allocator) {
-    if (!value.has_value() || value->isInline()) {
-      return value;
+  std::optional<StringView> writeString(
+      const std::optional<StringView>& value) {
+    if (!value.has_value()) {
+      return std::nullopt;
     }
-
-    const auto size = value->size();
-
-    auto* header = allocator.allocate(size);
-    auto* start = header->begin();
-
-    memcpy(start, value->data(), size);
-    return StringView(start, size);
+    return valueSet.write(*value);
   }
 
-  static void free(
-      std::optional<StringView> value,
-      HashStringAllocator& allocator) {
-    if (value.has_value() && !value->isInline()) {
-      auto* header = HashStringAllocator::headerOf(value->data());
-      allocator.free(header);
+  void addToAccumulator(C comparison, std::optional<V> value) {
+    if constexpr (
+        std::is_same_v<V, StringView> && std::is_same_v<C, StringView>) {
+      base.topPairs.push({valueSet.write(comparison), writeString(value)});
+    } else if constexpr (std::is_same_v<V, StringView>) {
+      base.topPairs.push({comparison, writeString(value)});
+    } else {
+      static_assert(
+          std::is_same_v<C, StringView>,
+          "At least one of V and C must be StringView.");
+      base.topPairs.push({valueSet.write(comparison), value});
     }
   }
 
-  static void extractValue(
+  void freePair(typename BaseType::Queue::const_reference topPair) {
+    if constexpr (std::is_same_v<C, StringView>) {
+      valueSet.free(topPair.first);
+    }
+    if constexpr (std::is_same_v<V, StringView>) {
+      if (topPair.second.has_value()) {
+        valueSet.free(*topPair.second);
+      }
+    }
+  }
+
+  void extractValue(
       const Pair& topPair,
-      FlatVector<StringView>& values,
-      vector_size_t index,
-      HashStringAllocator* allocator) {
+      FlatVector<V>& values,
+      vector_size_t index) {
     const bool valueIsNull = !topPair.second.has_value();
     values.setNull(index, valueIsNull);
     if (!valueIsNull) {
       values.set(index, topPair.second.value());
-      free(topPair.second.value(), *allocator);
     }
+  }
+
+  void extractCompare(
+      const Pair& topPair,
+      FlatVector<C>& compares,
+      vector_size_t index) {
+    compares.setNull(index, false);
+    compares.set(index, topPair.first);
   }
 };
 
-template <typename C, typename Compare>
+template <typename V, typename C, typename Compare>
 struct StringViewExtractor {
   using TRawComparison = typename RawValueExtractor<C>::TRawValue;
-  FlatVector<StringView>& values;
+  FlatVector<V>& values;
+  FlatVector<C>* compares;
 
-  explicit StringViewExtractor(VectorPtr& _values)
-      : values{*_values->asFlatVector<StringView>()} {}
+  StringViewExtractor(VectorPtr& _values, BaseVector* _compares)
+      : values{*_values->asFlatVector<V>()},
+        compares{_compares ? _compares->asFlatVector<C>() : nullptr} {}
 
   void extractValues(
-      MinMaxByNStringViewAccumulator<C, Compare>* accumulator,
-      vector_size_t offset,
-      HashStringAllocator* allocator) {
-    accumulator->extractValues(values, offset, allocator);
+      MinMaxByNStringViewAccumulator<V, C, Compare>* accumulator,
+      vector_size_t offset) {
+    accumulator->extractValues(values, offset);
   }
 
   void extractPairs(
-      MinMaxByNStringViewAccumulator<C, Compare>* accumulator,
-      TRawComparison* rawComparisons,
-      vector_size_t offset,
-      HashStringAllocator* allocator) {
-    accumulator->extractPairs(rawComparisons, values, offset, allocator);
+      MinMaxByNStringViewAccumulator<V, C, Compare>* accumulator,
+      vector_size_t offset) {
+    VELOX_DCHECK_NOT_NULL(compares);
+    accumulator->extractPairs(*compares, values, offset);
   }
 };
 
@@ -368,11 +367,21 @@ struct StringViewExtractor {
 /// std::pair<C, std::optional<HashStringAllocator::Position>>.
 template <typename C, typename Compare>
 struct MinMaxByNComplexTypeAccumulator {
-  using TRawComparison = typename RawValueExtractor<C>::TRawValue;
-  MinMaxByNAccumulator<HashStringAllocator::Position, C, Compare> base;
+  using BaseType =
+      MinMaxByNAccumulator<HashStringAllocator::Position, C, Compare>;
+  BaseType base;
+  ValueSet valueSet;
 
   explicit MinMaxByNComplexTypeAccumulator(HashStringAllocator* allocator)
-      : base{allocator} {}
+      : base{allocator}, valueSet{allocator} {}
+
+  ~MinMaxByNComplexTypeAccumulator() {
+    while (!base.topPairs.empty()) {
+      auto& pair = base.topPairs.top();
+      freePair(pair);
+      base.topPairs.pop();
+    }
+  }
 
   int64_t getN() const {
     return base.n;
@@ -390,34 +399,30 @@ struct MinMaxByNComplexTypeAccumulator {
       C comparison,
       DecodedVector& decoded,
       vector_size_t index,
-      Compare& comparator,
-      HashStringAllocator* allocator) {
+      Compare& comparator) {
     if (base.topPairs.size() < base.n) {
-      auto position = write(decoded, index, allocator);
-      base.topPairs.push({comparison, position});
+      auto position = writeComplex(decoded, index);
+      addToAccumulator(comparison, position);
     } else {
       const auto& topPair = base.topPairs.top();
       if (comparator.compare(comparison, topPair)) {
-        if (topPair.second) {
-          allocator->free(topPair.second->header);
-        }
+        freePair(topPair);
         base.topPairs.pop();
 
-        auto position = write(decoded, index, allocator);
-        base.topPairs.push({comparison, position});
+        auto position = writeComplex(decoded, index);
+        addToAccumulator(comparison, position);
       }
     }
   }
 
   /// Moves all values from 'topPairs' into 'values' vector. The queue of
   /// 'topPairs' will be empty after this call.
-  void extractValues(
-      BaseVector& values,
-      vector_size_t offset,
-      HashStringAllocator* allocator) {
+  void extractValues(BaseVector& values, vector_size_t offset) {
     const vector_size_t size = base.topPairs.size();
     for (auto i = size - 1; i >= 0; --i) {
-      extractValue(base.topPairs.top(), values, offset + i, allocator);
+      const auto& pair = base.topPairs.top();
+      extractValue(pair, values, offset + i);
+      freePair(pair);
       base.topPairs.pop();
     }
   }
@@ -426,96 +431,92 @@ struct MinMaxByNComplexTypeAccumulator {
   /// 'rawComparisons' buffer and 'values' vector. The queue of
   /// 'topPairs' will be empty after this call.
   void extractPairs(
-      TRawComparison* rawComparisons,
+      FlatVector<C>& compares,
       BaseVector& values,
-      vector_size_t offset,
-      HashStringAllocator* allocator) {
+      vector_size_t offset) {
     const vector_size_t size = base.topPairs.size();
     for (auto i = size - 1; i >= 0; --i) {
       const auto& topPair = base.topPairs.top();
       const auto index = offset + i;
 
-      RawValueExtractor<C>::extract(rawComparisons, index, topPair.first);
-      extractValue(topPair, values, index, allocator);
-
+      extractCompare(topPair, compares, index);
+      extractValue(topPair, values, index);
+      freePair(topPair);
       base.topPairs.pop();
     }
-  }
-
-  void free(HashStringAllocator* allocator) {
-    while (!base.topPairs.empty()) {
-      auto& pair = base.topPairs.top();
-      // Should free pair.first if it is not inline.
-      if (pair.second.has_value()) {
-        allocator->free(pair.second.value().header);
-      }
-      base.topPairs.pop();
-    }
-    std::destroy_at(&base);
   }
 
  private:
   using V = HashStringAllocator::Position;
   using Pair = typename MinMaxByNAccumulator<V, C, Compare>::Pair;
 
-  static std::optional<V> write(
+  void addToAccumulator(C comparison, const std::optional<V>& position) {
+    if constexpr (std::is_same_v<C, StringView>) {
+      base.topPairs.push({valueSet.write(comparison), position});
+    } else {
+      base.topPairs.push({comparison, position});
+    }
+  }
+
+  std::optional<HashStringAllocator::Position> writeComplex(
       DecodedVector& decoded,
-      vector_size_t index,
-      HashStringAllocator* allocator) {
+      vector_size_t index) {
     if (decoded.isNullAt(index)) {
       return std::nullopt;
     }
-
-    ByteStream stream(allocator);
-    auto position = allocator->newWrite(stream);
-
-    exec::ContainerRowSerde::serialize(
-        *decoded.base(), decoded.index(index), stream);
-    allocator->finishWrite(stream, 0);
+    HashStringAllocator::Position position;
+    valueSet.write(*decoded.base(), decoded.index(index), position);
     return position;
   }
 
-  static void read(V position, BaseVector& vector, vector_size_t index) {
-    ByteStream stream;
-    HashStringAllocator::prepareRead(position.header, stream);
-    exec::ContainerRowSerde::deserialize(stream, index, &vector);
+  void freePair(typename BaseType::Queue::const_reference topPair) {
+    if constexpr (std::is_same_v<C, StringView>) {
+      valueSet.free(topPair.first);
+    }
+    if (topPair.second.has_value()) {
+      valueSet.free(topPair.second->header);
+    }
   }
 
-  static void extractValue(
-      const Pair& topPair,
-      BaseVector& values,
-      vector_size_t index,
-      HashStringAllocator* allocator) {
+  void
+  extractValue(const Pair& topPair, BaseVector& values, vector_size_t index) {
     const bool valueIsNull = !topPair.second.has_value();
     values.setNull(index, valueIsNull);
     if (!valueIsNull) {
       auto position = topPair.second.value();
-      read(position, values, index);
-      allocator->free(topPair.second.value().header);
+      valueSet.read(&values, index, position.header);
     }
   }
-};
+
+  void extractCompare(
+      const Pair& topPair,
+      FlatVector<C>& compares,
+      vector_size_t index) {
+    compares.setNull(index, false);
+    compares.set(index, topPair.first);
+  }
+}; // namespace
 
 template <typename C, typename Compare>
 struct ComplexTypeExtractor {
-  using TRawComparison = typename RawValueExtractor<C>::TRawValue;
   BaseVector& values;
+  FlatVector<C>* compares;
 
-  explicit ComplexTypeExtractor(VectorPtr& _values) : values{*_values} {}
+  explicit ComplexTypeExtractor(VectorPtr& _values, BaseVector* _compares)
+      : values{*_values},
+        compares{_compares ? _compares->asFlatVector<C>() : nullptr} {}
 
   void extractValues(
       MinMaxByNComplexTypeAccumulator<C, Compare>* accumulator,
-      vector_size_t offset,
-      HashStringAllocator* allocator) {
-    accumulator->extractValues(values, offset, allocator);
+      vector_size_t offset) {
+    accumulator->extractValues(values, offset);
   }
 
   void extractPairs(
       MinMaxByNComplexTypeAccumulator<C, Compare>* accumulator,
-      TRawComparison* rawComparisons,
-      vector_size_t offset,
-      HashStringAllocator* allocator) {
-    accumulator->extractPairs(rawComparisons, values, offset, allocator);
+      vector_size_t offset) {
+    VELOX_DCHECK_NOT_NULL(compares);
+    accumulator->extractPairs(*compares, values, offset);
   }
 };
 
@@ -549,16 +550,41 @@ struct MinMaxByNAccumulatorTypeTraits {
   using ExtractorType = Extractor<V, C, Compare>;
 };
 
+// Use MinMaxByNStringViewAccumulator and StringViewExtractor if at least one of
+// V and C is StringView. (Unless V is ComplexType.)
 template <typename C, typename Compare>
 struct MinMaxByNAccumulatorTypeTraits<StringView, C, Compare> {
-  using AccumulatorType = MinMaxByNStringViewAccumulator<C, Compare>;
-  using ExtractorType = StringViewExtractor<C, Compare>;
+  using AccumulatorType =
+      MinMaxByNStringViewAccumulator<StringView, C, Compare>;
+  using ExtractorType = StringViewExtractor<StringView, C, Compare>;
 };
 
+template <typename Compare>
+struct MinMaxByNAccumulatorTypeTraits<StringView, StringView, Compare> {
+  using AccumulatorType =
+      MinMaxByNStringViewAccumulator<StringView, StringView, Compare>;
+  using ExtractorType = StringViewExtractor<StringView, StringView, Compare>;
+};
+
+template <typename V, typename Compare>
+struct MinMaxByNAccumulatorTypeTraits<V, StringView, Compare> {
+  using AccumulatorType =
+      MinMaxByNStringViewAccumulator<V, StringView, Compare>;
+  using ExtractorType = StringViewExtractor<V, StringView, Compare>;
+};
+
+// Use MinMaxByNComplexTypeAccumulator and ComplexTypeExtractor if V is
+// ComplexType.
 template <typename C, typename Compare>
 struct MinMaxByNAccumulatorTypeTraits<ComplexType, C, Compare> {
   using AccumulatorType = MinMaxByNComplexTypeAccumulator<C, Compare>;
   using ExtractorType = ComplexTypeExtractor<C, Compare>;
+};
+
+template <typename Compare>
+struct MinMaxByNAccumulatorTypeTraits<ComplexType, StringView, Compare> {
+  using AccumulatorType = MinMaxByNComplexTypeAccumulator<StringView, Compare>;
+  using ExtractorType = ComplexTypeExtractor<StringView, Compare>;
 };
 
 namespace {
@@ -607,7 +633,14 @@ class MinMaxByNAggregate : public exec::Aggregate {
     auto values = valuesArray->elements();
     values->resize(numValues);
 
-    ExtractorType extractor{values};
+    std::optional<ExtractorType> extractor;
+    if constexpr (
+        std::is_same_v<V, StringView> || std::is_same_v<C, StringView> ||
+        std::is_same_v<V, ComplexType>) {
+      extractor.emplace(values, nullptr);
+    } else {
+      extractor.emplace(values);
+    }
 
     auto [rawOffsets, rawSizes] = rawOffsetAndSizes(*valuesArray);
 
@@ -622,7 +655,7 @@ class MinMaxByNAggregate : public exec::Aggregate {
         rawOffsets[i] = offset;
         rawSizes[i] = size;
 
-        extractor.extractValues(accumulator, offset, allocator_);
+        extractor->extractValues(accumulator, offset);
 
         offset += size;
       }
@@ -649,7 +682,14 @@ class MinMaxByNAggregate : public exec::Aggregate {
     values->resize(numValues);
     comparisons->resize(numValues);
 
-    ExtractorType extractor{values};
+    std::optional<ExtractorType> extractor;
+    if constexpr (
+        std::is_same_v<V, StringView> || std::is_same_v<C, StringView> ||
+        std::is_same_v<V, ComplexType>) {
+      extractor.emplace(values, comparisons.get());
+    } else {
+      extractor.emplace(values);
+    }
 
     TRawComparison* rawComparisons =
         RawValueExtractor<C>::mutableRawValues(comparisons);
@@ -674,7 +714,13 @@ class MinMaxByNAggregate : public exec::Aggregate {
         rawComparisonOffsets[i] = offset;
         rawComparisonSizes[i] = size;
 
-        extractor.extractPairs(accumulator, rawComparisons, offset, allocator_);
+        if constexpr (
+            std::is_same_v<V, StringView> || std::is_same_v<C, StringView> ||
+            std::is_same_v<V, ComplexType>) {
+          extractor->extractPairs(accumulator, offset);
+        } else {
+          extractor->extractPairs(accumulator, rawComparisons, offset);
+        }
 
         offset += size;
       }
@@ -752,7 +798,8 @@ class MinMaxByNAggregate : public exec::Aggregate {
 
   void destroy(folly::Range<char**> groups) override {
     for (auto group : groups) {
-      Aggregate::value<AccumulatorType>(group)->free(allocator_);
+      auto* accumulator = Aggregate::value<AccumulatorType>(group);
+      std::destroy_at(accumulator);
     }
   }
 
@@ -790,11 +837,10 @@ class MinMaxByNAggregate : public exec::Aggregate {
 
     const auto comparison = decodedComparison_.valueAt<C>(index);
     if constexpr (std::is_same_v<V, ComplexType>) {
-      accumulator->compareAndAdd(
-          comparison, decodedValue_, index, comparator_, allocator_);
+      accumulator->compareAndAdd(comparison, decodedValue_, index, comparator_);
     } else {
       const auto value = optionalValue(decodedValue_, index);
-      accumulator->compareAndAdd(comparison, value, comparator_, *allocator_);
+      accumulator->compareAndAdd(comparison, value, comparator_);
     }
   }
 
@@ -832,14 +878,10 @@ class MinMaxByNAggregate : public exec::Aggregate {
       const auto comparison = comparisons->valueAt(comparisonOffset + i);
       if constexpr (std::is_same_v<V, ComplexType>) {
         accumulator->compareAndAdd(
-            comparison,
-            result.values,
-            valueOffset + i,
-            comparator_,
-            allocator_);
+            comparison, result.values, valueOffset + i, comparator_);
       } else {
         const auto value = optionalValue(*values, valueOffset + i);
-        accumulator->compareAndAdd(comparison, value, comparator_, *allocator_);
+        accumulator->compareAndAdd(comparison, value, comparator_);
       }
     }
   }
