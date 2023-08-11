@@ -2121,8 +2121,6 @@ void toAppend(
   result->append(type->toString());
 }
 
-// MaterializeType is used in ForwardAdapter to determine whether a Velox-typed
-// input needs to be converted to non-Velox typed data.
 template <typename T>
 struct MaterializeType {
   using null_free_t = T;
@@ -2179,7 +2177,7 @@ template <>
 struct MaterializeType<Varchar> {
   using nullable_t = std::string;
   using null_free_t = std::string;
-  static constexpr bool requiresMaterialization = true;
+  static constexpr bool requiresMaterialization = false;
 };
 
 template <>
