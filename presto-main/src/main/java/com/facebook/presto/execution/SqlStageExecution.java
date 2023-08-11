@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -29,6 +30,7 @@ import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -42,6 +44,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -117,7 +120,7 @@ public final class SqlStageExecution
     @GuardedBy("this")
     private final Set<TaskId> failedTasks = newConcurrentHashSet();
     @GuardedBy("this")
-    private final Set<TaskId> tasksWithFinalInfo = newConcurrentHashSet();
+    private final Set<TaskId> tasksWaitingForFinalInfo = newConcurrentHashSet();
 
     private final Set<Lifespan> finishedLifespans = ConcurrentHashMap.newKeySet();
     private final int totalLifespans;
@@ -173,6 +176,7 @@ public final class SqlStageExecution
                 getMaxFailedTaskPercentage(session),
                 tableWriteInfo);
         sqlStageExecution.initialize();
+        sqlStageExecution.addStateChangeListener(new SqlStageStateLogging(sqlStageExecution.getStageExecutionId().toString()));
         return sqlStageExecution;
     }
 
@@ -212,7 +216,11 @@ public final class SqlStageExecution
     // this is a separate method to ensure that the `this` reference is not leaked during construction
     private void initialize()
     {
-        stateMachine.addStateChangeListener(newState -> checkAllTaskFinal());
+        stateMachine.addStateChangeListener(newState -> {
+            if (newState.isDone()) {
+                checkAllTaskFinal();
+            }
+        });
         completedLifespansChangeListeners.addListener(lifespans -> finishedLifespans.addAll(lifespans));
     }
 
@@ -524,8 +532,13 @@ public final class SqlStageExecution
         completeSources.forEach(task::noMoreSplits);
 
         allTasks.add(taskId);
+        tasksWaitingForFinalInfo.add(taskId);
+
         tasks.computeIfAbsent(node, key -> newConcurrentHashSet()).add(task);
         nodeTaskMap.addTask(node, task);
+
+        task.addStateChangeListener(new StageTaskStatusLogging(taskId));
+        task.addFinalTaskInfoListener(new StageTaskInfoLogging(taskId));
 
         task.addStateChangeListener(new StageTaskListener(taskId));
         task.addFinalTaskInfoListener(this::updateFinalTaskInfo);
@@ -560,61 +573,55 @@ public final class SqlStageExecution
 
     private void updateTaskStatus(TaskId taskId, TaskStatus taskStatus)
     {
-        try {
-            StageExecutionState stageExecutionState = getState();
-            if (stageExecutionState.isDone()) {
-                return;
-            }
+        StageExecutionState stageExecutionState = getState();
+        if (stageExecutionState.isDone()) {
+            return;
+        }
 
-            TaskState taskState = taskStatus.getState();
-            if (taskState == TaskState.FAILED) {
-                // no matter if it is possible to recover - the task is failed
-                failedTasks.add(taskId);
+        TaskState taskState = taskStatus.getState();
+        if (taskState == TaskState.FAILED) {
+            // no matter if it is possible to recover - the task is failed
+            failedTasks.add(taskId);
 
-                RuntimeException failure = taskStatus.getFailures().stream()
-                        .findFirst()
-                        .map(this::rewriteTransportFailure)
-                        .map(ExecutionFailureInfo::toException)
-                        .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
-                if (isRecoverable(taskStatus.getFailures())) {
-                    try {
-                        stageTaskRecoveryCallback.get().recover(taskId);
-                        finishedTasks.add(taskId);
-                    }
-                    catch (Throwable t) {
-                        // In an ideal world, this exception is not supposed to happen.
-                        // However, it could happen, for example, if connector throws exception.
-                        // We need to handle the exception in order to fail the query properly, otherwise the failed task will hang in RUNNING/SCHEDULING state.
-                        failure.addSuppressed(new PrestoException(GENERIC_RECOVERY_ERROR, format("Encountered error when trying to recover task %s", taskId), t));
-                        stateMachine.transitionToFailed(failure);
-                    }
+            RuntimeException failure = taskStatus.getFailures().stream()
+                    .findFirst()
+                    .map(this::rewriteTransportFailure)
+                    .map(ExecutionFailureInfo::toException)
+                    .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
+            if (isRecoverable(taskStatus.getFailures())) {
+                try {
+                    stageTaskRecoveryCallback.get().recover(taskId);
+                    finishedTasks.add(taskId);
                 }
-                else {
+                catch (Throwable t) {
+                    // In an ideal world, this exception is not supposed to happen.
+                    // However, it could happen, for example, if connector throws exception.
+                    // We need to handle the exception in order to fail the query properly, otherwise the failed task will hang in RUNNING/SCHEDULING state.
+                    failure.addSuppressed(new PrestoException(GENERIC_RECOVERY_ERROR, format("Encountered error when trying to recover task %s", taskId), t));
                     stateMachine.transitionToFailed(failure);
                 }
             }
-            else if (taskState == TaskState.ABORTED) {
-                // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
-                stateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageExecutionState));
-            }
-            else if (taskState == TaskState.FINISHED) {
-                finishedTasks.add(taskId);
-            }
-
-            // The finishedTasks.add(taskStatus.getTaskId()) must happen before the getState() (see schedulingComplete)
-            stageExecutionState = getState();
-            if (stageExecutionState == StageExecutionState.SCHEDULED || stageExecutionState == StageExecutionState.RUNNING) {
-                if (taskState == TaskState.RUNNING) {
-                    stateMachine.transitionToRunning();
-                }
-                if (finishedTasks.size() == allTasks.size()) {
-                    stateMachine.transitionToFinished();
-                }
+            else {
+                stateMachine.transitionToFailed(failure);
             }
         }
-        finally {
-            // after updating state, check if all tasks have final status information
-            checkAllTaskFinal();
+        else if (taskState == TaskState.ABORTED) {
+            // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
+            stateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageExecutionState));
+        }
+        else if (taskState == TaskState.FINISHED) {
+            finishedTasks.add(taskId);
+        }
+
+        // The finishedTasks.add(taskStatus.getTaskId()) must happen before the getState() (see schedulingComplete)
+        stageExecutionState = getState();
+        if (stageExecutionState == StageExecutionState.SCHEDULED || stageExecutionState == StageExecutionState.RUNNING) {
+            if (taskState == TaskState.RUNNING) {
+                stateMachine.transitionToRunning();
+            }
+            if (finishedTasks.size() == allTasks.size()) {
+                stateMachine.transitionToFinished();
+            }
         }
     }
 
@@ -631,13 +638,13 @@ public final class SqlStageExecution
 
     private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)
     {
-        tasksWithFinalInfo.add(finalTaskInfo.getTaskId());
+        tasksWaitingForFinalInfo.remove(finalTaskInfo.getTaskId());
         checkAllTaskFinal();
     }
 
     private synchronized void checkAllTaskFinal()
     {
-        if (stateMachine.getState().isDone() && tasksWithFinalInfo.containsAll(allTasks)) {
+        if (stateMachine.getState().isDone() && tasksWaitingForFinalInfo.isEmpty()) {
             if (getFragment().getStageExecutionDescriptor().isStageGroupedExecution()) {
                 // in case stage is CANCELLED/ABORTED/FAILED, number of finished lifespans can be less than total lifespans
                 checkState(finishedLifespans.size() <= totalLifespans, format("Number of finished lifespans (%s) exceeds number of total lifespans (%s)", finishedLifespans.size(), totalLifespans));
@@ -676,6 +683,68 @@ public final class SqlStageExecution
     public String toString()
     {
         return stateMachine.toString();
+    }
+
+    private static class SqlStageStateLogging
+            implements StateMachine.StateChangeListener<StageExecutionState>
+    {
+        private final String name;
+        private final Stopwatch timer = Stopwatch.createStarted();
+        private static final Logger log = Logger.get(SqlStageStateLogging.class);
+
+        public SqlStageStateLogging(String name)
+        {
+            this.name = name;
+        }
+
+        @Override
+        public void stateChanged(StageExecutionState state)
+        {
+            java.time.Duration elapsedTime = timer.elapsed();
+            log.info("stageId=%s, state=%s, duration=%s, timeNs=%s", name, state, elapsedTime, elapsedTime.get(ChronoUnit.NANOS));
+        }
+    }
+
+    private static class StageTaskInfoLogging
+            implements StateChangeListener<TaskInfo>
+    {
+        private static final Logger log = Logger.get(StageTaskInfoLogging.class);
+
+        public final TaskId taskId;
+        private final Stopwatch timer = Stopwatch.createStarted();
+
+        private StageTaskInfoLogging(TaskId taskId)
+        {
+            this.taskId = taskId;
+        }
+
+        @Override
+        public void stateChanged(TaskInfo taskInfo)
+        {
+            java.time.Duration elapsedTime = timer.elapsed();
+            log.info("taskId=%s, duration=%s, timeNs=%s, taskInfo=%s", taskId, taskInfo, elapsedTime, elapsedTime.get(ChronoUnit.NANOS), taskInfo);
+        }
+    }
+
+    private static class StageTaskStatusLogging
+            implements StateChangeListener<TaskStatus>
+    {
+        private static final Logger log = Logger.get(StageTaskStatusLogging.class);
+
+        public final TaskId taskId;
+        private final Stopwatch timer = Stopwatch.createStarted();
+
+        private StageTaskStatusLogging(TaskId taskId)
+        {
+            this.taskId = taskId;
+        }
+
+        @Override
+        public void stateChanged(TaskStatus taskStatus)
+        {
+            java.time.Duration elapsedTime = timer.elapsed();
+            log.info("taskId=%s, duration=%s, timeNs=%s, taskStatus=%s", taskId, elapsedTime, elapsedTime.get(ChronoUnit.NANOS), taskStatus);
+        }
     }
 
     private class StageTaskListener
