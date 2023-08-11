@@ -63,6 +63,12 @@ struct Timestamp {
   // Returns the current unix timestamp (ms precision).
   static Timestamp now();
 
+  static Timestamp create(const folly::dynamic& obj) {
+    auto seconds = obj["seconds"].asInt();
+    auto nanos = obj["nanos"].asInt();
+    return Timestamp(seconds, nanos);
+  }
+
   int64_t getSeconds() const {
     return seconds_;
   }
@@ -220,6 +226,32 @@ struct Timestamp {
         (seconds_ == b.seconds_ && nanos_ >= b.nanos_);
   }
 
+  void operator++() {
+    if (nanos_ < kMaxNanos) {
+      nanos_++;
+      return;
+    }
+    if (seconds_ < kMaxSeconds) {
+      seconds_++;
+      nanos_ = 0;
+      return;
+    }
+    VELOX_USER_FAIL("Timestamp nanos out of range");
+  }
+
+  void operator--() {
+    if (nanos_ > 0) {
+      nanos_--;
+      return;
+    }
+    if (seconds_ > kMinSeconds) {
+      seconds_--;
+      nanos_ = kMaxNanos;
+      return;
+    }
+    VELOX_USER_FAIL("Timestamp nanos out of range");
+  }
+
   // Needed for serialization of FlatVector<Timestamp>
   operator StringView() const {
     return StringView("TODO: Implement");
@@ -258,6 +290,13 @@ struct Timestamp {
 
   operator folly::dynamic() const {
     return folly::dynamic(seconds_);
+  }
+
+  folly::dynamic serialize() const {
+    folly::dynamic obj = folly::dynamic::object;
+    obj["seconds"] = seconds_;
+    obj["nanos"] = nanos_;
+    return obj;
   }
 
  private:

@@ -159,6 +159,8 @@ std::unique_ptr<common::Filter> makeLessThanOrEqualFilter(
       return lessThanOrEqualFloat(singleValue<float>(upper));
     case TypeKind::VARCHAR:
       return lessThanOrEqual(singleValue<StringView>(upper));
+    case TypeKind::TIMESTAMP:
+      return lessThanOrEqual(singleValue<Timestamp>(upper));
     default:
       return nullptr;
   }
@@ -188,6 +190,8 @@ std::unique_ptr<common::Filter> makeLessThanFilter(
       return lessThanFloat(singleValue<float>(upper));
     case TypeKind::VARCHAR:
       return lessThan(singleValue<StringView>(upper));
+    case TypeKind::TIMESTAMP:
+      return lessThan(singleValue<Timestamp>(upper));
     default:
       return nullptr;
   }
@@ -217,6 +221,8 @@ std::unique_ptr<common::Filter> makeGreaterThanOrEqualFilter(
       return greaterThanOrEqualFloat(singleValue<float>(lower));
     case TypeKind::VARCHAR:
       return greaterThanOrEqual(singleValue<StringView>(lower));
+    case TypeKind::TIMESTAMP:
+      return greaterThanOrEqual(singleValue<Timestamp>(lower));
     default:
       return nullptr;
   }
@@ -246,6 +252,8 @@ std::unique_ptr<common::Filter> makeGreaterThanFilter(
       return greaterThanFloat(singleValue<float>(lower));
     case TypeKind::VARCHAR:
       return greaterThan(singleValue<StringView>(lower));
+    case TypeKind::TIMESTAMP:
+      return greaterThan(singleValue<Timestamp>(lower));
     default:
       return nullptr;
   }
@@ -273,6 +281,8 @@ std::unique_ptr<common::Filter> makeEqualFilter(
       return equalHugeint(singleValue<int128_t>(value));
     case TypeKind::VARCHAR:
       return equal(singleValue<StringView>(value));
+    case TypeKind::TIMESTAMP:
+      return equal(singleValue<Timestamp>(value));
     default:
       return nullptr;
   }
@@ -428,6 +438,11 @@ std::unique_ptr<common::Filter> makeBetweenFilter(
       }
       return between(
           singleValue<StringView>(lower), singleValue<StringView>(upper));
+    case TypeKind::TIMESTAMP:
+      return negated
+          ? nullptr
+          : between(
+                singleValue<Timestamp>(lower), singleValue<Timestamp>(upper));
     default:
       return nullptr;
   }

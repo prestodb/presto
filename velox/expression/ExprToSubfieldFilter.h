@@ -386,4 +386,45 @@ std::unique_ptr<common::Filter> leafCallToSubfieldFilter(
     core::ExpressionEvaluator*,
     bool negated = false);
 
+inline std::unique_ptr<common::TimestampRange> equal(
+    const Timestamp& value,
+    bool nullAllowed = false) {
+  return std::make_unique<common::TimestampRange>(value, value, nullAllowed);
+}
+
+inline std::unique_ptr<common::TimestampRange>
+between(const Timestamp& min, const Timestamp& max, bool nullAllowed = false) {
+  return std::make_unique<common::TimestampRange>(min, max, nullAllowed);
+}
+
+inline std::unique_ptr<common::TimestampRange> lessThan(
+    Timestamp& max,
+    bool nullAllowed = false) {
+  --max;
+  return std::make_unique<common::TimestampRange>(
+      std::numeric_limits<Timestamp>::min(), max, nullAllowed);
+}
+
+inline std::unique_ptr<common::TimestampRange> lessThanOrEqual(
+    const Timestamp& max,
+    bool nullAllowed = false) {
+  return std::make_unique<common::TimestampRange>(
+      std::numeric_limits<Timestamp>::min(), max, nullAllowed);
+}
+
+inline std::unique_ptr<common::TimestampRange> greaterThan(
+    Timestamp& min,
+    bool nullAllowed = false) {
+  ++min;
+  return std::make_unique<common::TimestampRange>(
+      min, std::numeric_limits<Timestamp>::max(), nullAllowed);
+}
+
+inline std::unique_ptr<common::TimestampRange> greaterThanOrEqual(
+    const Timestamp& min,
+    bool nullAllowed = false) {
+  return std::make_unique<common::TimestampRange>(
+      min, std::numeric_limits<Timestamp>::max(), nullAllowed);
+}
+
 } // namespace facebook::velox::exec

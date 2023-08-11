@@ -88,6 +88,9 @@ std::string Filter::toString() const {
     case FilterKind::kHugeintRange:
       strKind = "HugeintRange";
       break;
+    case FilterKind::kTimestampRange:
+      strKind = "TimestampRange";
+      break;
   };
 
   return fmt::format(
@@ -122,6 +125,7 @@ std::unordered_map<FilterKind, std::string> filterKindNames() {
       {FilterKind::kBigintMultiRange, "kBigintMultiRange"},
       {FilterKind::kMultiRange, "kMultiRange"},
       {FilterKind::kHugeintRange, "kHugeintRange"},
+      {FilterKind::kTimestampRange, "kTimestampRange"},
   };
 }
 
@@ -174,6 +178,7 @@ void Filter::registerSerDe() {
   registry.Register("BigintMultiRange", BigintMultiRange::create);
   registry.Register("NegatedBytesValues", NegatedBytesValues::create);
   registry.Register("MultiRange", MultiRange::create);
+  registry.Register("TimestampRange", TimestampRange::create);
 }
 
 folly::dynamic Filter::serializeBase(std::string_view name) const {
@@ -296,6 +301,27 @@ bool HugeintRange::testingEquals(const Filter& other) const {
   return otherHugeintRange != nullptr && Filter::testingBaseEquals(other) &&
       lower_ == otherHugeintRange->lower_ &&
       upper_ == otherHugeintRange->upper_;
+}
+
+folly::dynamic TimestampRange::serialize() const {
+  auto obj = Filter::serializeBase("TimestampRange");
+  obj["lower"] = lower_.serialize();
+  obj["upper"] = upper_.serialize();
+  return obj;
+}
+
+FilterPtr TimestampRange::create(const folly::dynamic& obj) {
+  auto lower = ISerializable::deserialize<Timestamp>(obj["lower"]);
+  auto upper = ISerializable::deserialize<Timestamp>(obj["upper"]);
+  auto nullAllowed = deserializeNullAllowed(obj);
+  return std::make_unique<TimestampRange>(lower, upper, nullAllowed);
+}
+
+bool TimestampRange::testingEquals(const Filter& other) const {
+  auto otherTimestampRange = dynamic_cast<const TimestampRange*>(&other);
+  return otherTimestampRange != nullptr && Filter::testingBaseEquals(other) &&
+      (lower_ == otherTimestampRange->lower_) &&
+      (upper_ == otherTimestampRange->upper_);
 }
 
 folly::dynamic BigintValuesUsingHashTable::serialize() const {
@@ -1744,6 +1770,32 @@ std::unique_ptr<Filter> BigintRange::mergeWith(const Filter* other) const {
       rangeList.emplace_back(
           std::make_unique<common::BigintRange>(lower_, upper_, false));
       return combineRangesAndNegatedValues(rangeList, vals, bothNullAllowed);
+    }
+    default:
+      VELOX_UNREACHABLE();
+  }
+}
+
+std::unique_ptr<Filter> TimestampRange::mergeWith(const Filter* other) const {
+  switch (other->kind()) {
+    case FilterKind::kAlwaysTrue:
+    case FilterKind::kAlwaysFalse:
+    case FilterKind::kIsNull:
+      return other->mergeWith(this);
+    case FilterKind::kIsNotNull:
+      return this->clone(false);
+    case FilterKind::kTimestampRange: {
+      bool bothNullAllowed = nullAllowed_ && other->testNull();
+      auto otherRange = static_cast<const TimestampRange*>(other);
+
+      auto lower = std::max(lower_, otherRange->lower_);
+      auto upper = std::min(upper_, otherRange->upper_);
+
+      if (lower <= upper) {
+        return std::make_unique<TimestampRange>(lower, upper, bothNullAllowed);
+      }
+
+      return nullOrFalse(bothNullAllowed);
     }
     default:
       VELOX_UNREACHABLE();

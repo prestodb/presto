@@ -158,5 +158,37 @@ TEST(TimestampTest, toString) {
   EXPECT_EQ("-292275055-05-16T16:47:04.000000000", kMin.toString());
   EXPECT_EQ("292278994-08-17T07:12:55.999999999", kMax.toString());
 }
+
+TEST(TimestampTest, increaseOperator) {
+  auto ts = Timestamp(0, 999999998);
+  EXPECT_EQ("1970-01-01T00:00:00.999999998", ts.toString());
+  ++ts;
+  EXPECT_EQ("1970-01-01T00:00:00.999999999", ts.toString());
+  ++ts;
+  EXPECT_EQ("1970-01-01T00:00:01.000000000", ts.toString());
+  ++ts;
+  EXPECT_EQ("1970-01-01T00:00:01.000000001", ts.toString());
+  ++ts;
+  EXPECT_EQ("1970-01-01T00:00:01.000000002", ts.toString());
+
+  auto kMax = Timestamp(Timestamp::kMaxSeconds, Timestamp::kMaxNanos);
+  VELOX_ASSERT_THROW(++kMax, "Timestamp nanos out of range");
+}
+
+TEST(TimestampTest, decreaseOperator) {
+  auto ts = Timestamp(0, 2);
+  EXPECT_EQ("1970-01-01T00:00:00.000000002", ts.toString());
+  --ts;
+  EXPECT_EQ("1970-01-01T00:00:00.000000001", ts.toString());
+  --ts;
+  EXPECT_EQ("1970-01-01T00:00:00.000000000", ts.toString());
+  --ts;
+  EXPECT_EQ("1969-12-31T23:59:59.999999999", ts.toString());
+  --ts;
+  EXPECT_EQ("1969-12-31T23:59:59.999999998", ts.toString());
+
+  auto kMin = Timestamp(Timestamp::kMinSeconds, 0);
+  VELOX_ASSERT_THROW(--kMin, "Timestamp nanos out of range");
+}
 } // namespace
 } // namespace facebook::velox

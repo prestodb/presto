@@ -138,3 +138,11 @@ TEST_F(FilterSerDeTest, multiFilter) {
   MultiRange multiRange(std::move(filters), true, true);
   testSerde(multiRange);
 }
+
+TEST_F(FilterSerDeTest, timestampFilter) {
+  Timestamp hi(100000, 2000);
+  Timestamp lo(-123, 99999);
+
+  testSerde(TimestampRange(lo, hi, true));
+  testSerde(TimestampRange(lo, hi, false));
+}
