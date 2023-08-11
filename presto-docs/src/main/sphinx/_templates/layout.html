@@ -1,0 +1,8 @@
+{# Import the theme's layout. #}
+{% extends '!layout.html' %}
+
+{%- block fonticon %}
+  {# add Font Awesome here #}
+  <link rel="stylesheet" href="{{ pathto('_static/fonts/font-awesome.css', 1) }}"/>
+{{ super() }}
+{%- endblock %}
