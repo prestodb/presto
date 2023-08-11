@@ -272,6 +272,76 @@ TEST_F(SimpleArrayAggAggregationTest, nestedArray) {
       {expected});
 }
 
+TEST_F(SimpleArrayAggAggregationTest, trackRowSize) {
+  core::QueryConfig queryConfig({});
+  auto testTractRowSize = [&](core::AggregationNode::Step step,
+                              const VectorPtr& input,
+                              bool testGlobal) {
+    auto fn = Aggregate::create(
+        "simple_array_agg",
+        step,
+        isRawInput(step) ? std::vector<TypePtr>{BIGINT()}
+                         : std::vector<TypePtr>{ARRAY(BIGINT())},
+        ARRAY(BIGINT()),
+        queryConfig);
+
+    HashStringAllocator stringAllocator{pool()};
+    memory::AllocationPool allocationPool{pool()};
+    fn->setAllocator(&stringAllocator);
+
+    int32_t rowSizeOffset = bits::nbytes(1);
+    int32_t offset = rowSizeOffset + sizeof(uint32_t);
+    offset = bits::roundUp(offset, fn->accumulatorAlignmentSize());
+    fn->setOffsets(
+        offset,
+        RowContainer::nullByte(0),
+        RowContainer::nullMask(0),
+        rowSizeOffset);
+
+    // Make two groups for odd and even rows.
+    auto size = input->size();
+    std::vector<char> group1(offset + fn->accumulatorFixedWidthSize());
+    std::vector<char> group2(offset + fn->accumulatorFixedWidthSize());
+    std::vector<char*> groups(size);
+    for (auto i = 0; i < size; ++i) {
+      groups[i] = i % 2 == 0 ? group1.data() : group2.data();
+    }
+
+    std::vector<vector_size_t> indices{0, 1};
+    fn->initializeNewGroups(groups.data(), indices);
+
+    SelectivityVector rows{size};
+    if (isRawInput(step)) {
+      if (testGlobal) {
+        fn->addSingleGroupRawInput(group1.data(), rows, {input}, false);
+      } else {
+        fn->addRawInput(groups.data(), rows, {input}, false);
+      }
+    } else {
+      if (testGlobal) {
+        fn->addSingleGroupIntermediateResults(
+            group1.data(), rows, {input}, false);
+      } else {
+        fn->addIntermediateResults(groups.data(), rows, {input}, false);
+      }
+    }
+
+    VELOX_CHECK_GT(groups[0][rowSizeOffset], 0);
+    if (!testGlobal) {
+      VELOX_CHECK_GT(groups[1][rowSizeOffset], 0);
+    }
+  };
+
+  auto rawInput = makeFlatVector<int64_t>({1, 2, 3, 4, 5});
+  testTractRowSize(core::AggregationNode::Step::kPartial, rawInput, true);
+  testTractRowSize(core::AggregationNode::Step::kPartial, rawInput, false);
+
+  auto intermediate =
+      makeArrayVector<int64_t>({{1, 2}, {3, 4}, {5, 6}, {7, 8}, {9, 10}});
+  testTractRowSize(core::AggregationNode::Step::kFinal, intermediate, true);
+  testTractRowSize(core::AggregationNode::Step::kFinal, intermediate, false);
+}
+
 // A testing aggregation function that counts the number of nulls in inputs.
 // Return NULL for a group if there is no input null in the group.
 class CountNullsAggregate {

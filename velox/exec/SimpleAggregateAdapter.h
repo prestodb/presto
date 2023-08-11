@@ -313,8 +313,9 @@ class SimpleAggregateAdapter : public Aggregate {
         if (!(std::get<Is>(readers).isSet(row) && ...)) {
           return;
         }
+        std::optional<RowSizeTracker<char, uint32_t>> tracker;
         if constexpr (!accumulator_is_fixed_size_) {
-          auto tracker = trackRowSize(groups[row]);
+          tracker.emplace(groups[row][rowSizeOffset_], *allocator_);
         }
         auto group = value<typename FUNC::AccumulatorType>(groups[row]);
         group->addInput(allocator_, std::get<Is>(readers)[row]...);
@@ -322,8 +323,9 @@ class SimpleAggregateAdapter : public Aggregate {
       });
     } else {
       rows.applyToSelected([&](auto row) {
+        std::optional<RowSizeTracker<char, uint32_t>> tracker;
         if constexpr (!accumulator_is_fixed_size_) {
-          auto tracker = trackRowSize(groups[row]);
+          tracker.emplace(groups[row][rowSizeOffset_], *allocator_);
         }
         auto group = value<typename FUNC::AccumulatorType>(groups[row]);
         bool nonNull = group->addInput(
@@ -352,16 +354,18 @@ class SimpleAggregateAdapter : public Aggregate {
         if (!(std::get<Is>(readers).isSet(row) && ...)) {
           return;
         }
+        std::optional<RowSizeTracker<char, uint32_t>> tracker;
         if constexpr (!accumulator_is_fixed_size_) {
-          auto tracker = trackRowSize(group);
+          tracker.emplace(group[rowSizeOffset_], *allocator_);
         }
         accumulator->addInput(allocator_, std::get<Is>(readers)[row]...);
         clearNull(group);
       });
     } else {
       rows.applyToSelected([&](auto row) {
+        std::optional<RowSizeTracker<char, uint32_t>> tracker;
         if constexpr (!accumulator_is_fixed_size_) {
-          auto tracker = trackRowSize(group);
+          tracker.emplace(group[rowSizeOffset_], *allocator_);
         }
         bool nonNull = accumulator->addInput(
             allocator_,
@@ -386,8 +390,9 @@ class SimpleAggregateAdapter : public Aggregate {
         if (!reader.isSet(row)) {
           return;
         }
+        std::optional<RowSizeTracker<char, uint32_t>> tracker;
         if constexpr (!accumulator_is_fixed_size_) {
-          auto tracker = trackRowSize(groups[row]);
+          tracker.emplace(groups[row][rowSizeOffset_], *allocator_);
         }
         auto group = value<typename FUNC::AccumulatorType>(groups[row]);
         group->combine(allocator_, reader[row]);
@@ -395,8 +400,9 @@ class SimpleAggregateAdapter : public Aggregate {
       });
     } else {
       rows.applyToSelected([&](auto row) {
+        std::optional<RowSizeTracker<char, uint32_t>> tracker;
         if constexpr (!accumulator_is_fixed_size_) {
-          auto tracker = trackRowSize(groups[row]);
+          tracker.emplace(groups[row][rowSizeOffset_], *allocator_);
         }
         auto group = value<typename FUNC::AccumulatorType>(groups[row]);
         bool nonNull = group->combine(
@@ -423,16 +429,18 @@ class SimpleAggregateAdapter : public Aggregate {
         if (!reader.isSet(row)) {
           return;
         }
+        std::optional<RowSizeTracker<char, uint32_t>> tracker;
         if constexpr (!accumulator_is_fixed_size_) {
-          auto tracker = trackRowSize(group);
+          tracker.emplace(group[rowSizeOffset_], *allocator_);
         }
         accumulator->combine(allocator_, reader[row]);
         clearNull(group);
       });
     } else {
       rows.applyToSelected([&](auto row) {
+        std::optional<RowSizeTracker<char, uint32_t>> tracker;
         if constexpr (!accumulator_is_fixed_size_) {
-          auto tracker = trackRowSize(group);
+          tracker.emplace(group[rowSizeOffset_], *allocator_);
         }
         bool nonNull = accumulator->combine(
             allocator_,
