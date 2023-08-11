@@ -18,7 +18,9 @@
 #include "folly/concurrency/ConcurrentHashMap.h"
 
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsFileSystem.h"
+#include "velox/connectors/hive/storage_adapters/hdfs/HdfsUtil.h"
 #include "velox/core/Config.h"
+#include "velox/dwio/common/DataSink.h"
 #endif
 
 namespace facebook::velox::filesystems {
@@ -65,11 +67,36 @@ hdfsFileSystemGenerator() {
   };
   return filesystemGenerator;
 }
+
+std::function<std::unique_ptr<velox::dwio::common::DataSink>(
+    const std::string&,
+    memory::MemoryPool*,
+    dwio::common::MetricsLogPtr,
+    dwio::common::IoStatistics*)>
+hdfsWriteFileSinkGenerator() {
+  static auto hdfsWriteFileSink = [](const std::string& fileURI,
+                                     memory::MemoryPool* /*unused*/,
+                                     dwio::common::MetricsLogPtr metricsLog,
+                                     dwio::common::IoStatistics* stats =
+                                         nullptr) {
+    if (HdfsFileSystem::isHdfsFile(fileURI)) {
+      std::string pathSuffix = getHdfsPath(fileURI, HdfsFileSystem::kScheme);
+      auto fileSystem = filesystems::getFileSystem(fileURI, nullptr);
+      return std::make_unique<dwio::common::WriteFileDataSink>(
+          fileSystem->openFileForWrite(pathSuffix), fileURI, metricsLog, stats);
+    }
+    return static_cast<std::unique_ptr<dwio::common::WriteFileDataSink>>(
+        nullptr);
+  };
+
+  return hdfsWriteFileSink;
+}
 #endif
 
 void registerHdfsFileSystem() {
 #ifdef VELOX_ENABLE_HDFS3
   registerFileSystem(HdfsFileSystem::isHdfsFile, hdfsFileSystemGenerator());
+  dwio::common::DataSink::registerFactory(hdfsWriteFileSinkGenerator());
 #endif
 }
 

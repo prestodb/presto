@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_hdfs_file_test HdfsFileSystemTest.cpp HdfsMiniCluster.cpp)
+add_executable(
+  velox_hdfs_file_test HdfsFileSystemTest.cpp InsertIntoHdfsTest.cpp
+                       HdfsMiniCluster.cpp HdfsUtilTest.cpp)
+
 add_test(velox_hdfs_file_test velox_hdfs_file_test)
 target_link_libraries(
   velox_hdfs_file_test
