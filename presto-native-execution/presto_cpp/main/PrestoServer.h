@@ -118,6 +118,8 @@ class PrestoServer {
 
   virtual void registerFileSystems();
 
+  virtual void registerMemoryArbitrators();
+
   virtual void registerStatsCounters();
 
   /// Invoked after creating global (singleton) config objects (SystemConfig and
