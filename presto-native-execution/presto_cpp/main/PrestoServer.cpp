@@ -169,6 +169,7 @@ void PrestoServer::run() {
   registerStatsCounters();
   registerFileSinks();
   registerFileSystems();
+  registerMemoryArbitrators();
   registerShuffleInterfaceFactories();
   registerCustomOperators();
   protocol::registerHiveConnectors();
@@ -515,17 +516,14 @@ void PrestoServer::initializeVeloxMemory() {
   memory::MemoryManagerOptions options;
   options.capacity = memoryBytes;
   options.checkUsageLeak = systemConfig->enableMemoryLeakCheck();
-  // Re-enable this after memory arbitrator register code refactor landed.
-#if 0
-  if (systemConfig->enableMemoryArbitration()) {
-    options.arbitratorKind = memory::MemoryArbitrator::Kind::kShared;
+  if (!systemConfig->memoryArbitratorKind().empty()) {
+    options.arbitratorKind = systemConfig->memoryArbitratorKind();
     options.capacity =
         memoryBytes * 100 / systemConfig->reservedMemoryPoolCapacityPct();
     options.memoryPoolInitCapacity = systemConfig->memoryPoolInitCapacity();
     options.memoryPoolTransferCapacity =
         systemConfig->memoryPoolTransferCapacity();
   }
-#endif
   const auto& manager = memory::MemoryManager::getInstance(options);
   PRESTO_STARTUP_LOG(INFO) << "Memory manager has been setup: "
                            << manager.toString();
@@ -721,6 +719,10 @@ void PrestoServer::registerVectorSerdes() {
 
 void PrestoServer::registerFileSystems() {
   velox::filesystems::registerLocalFileSystem();
+}
+
+void PrestoServer::registerMemoryArbitrators() {
+  velox::memory::MemoryArbitrator::registerAllFactories();
 }
 
 void PrestoServer::registerStatsCounters() {
