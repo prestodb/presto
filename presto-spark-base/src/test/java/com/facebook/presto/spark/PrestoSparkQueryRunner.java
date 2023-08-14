@@ -695,9 +695,16 @@ public class PrestoSparkQueryRunner
             throw new RuntimeException(e);
         }
 
-        if (instanceId != null) {
-            instances.get(instanceId).getPrestoSparkService().getTaskExecutorFactory().close();
-            instances.get(instanceId).getPrestoSparkService().getNativeTaskExecutorFactory().close();
+        if (instanceId != null && instances.get(instanceId) != null) {
+            PrestoSparkService prestoSparkService = instances.get(instanceId).getPrestoSparkService();
+            if (prestoSparkService != null) {
+                if (prestoSparkService.getTaskExecutorFactory() != null) {
+                    prestoSparkService.getTaskExecutorFactory().close();
+                }
+                if (prestoSparkService.getNativeTaskExecutorFactory() != null) {
+                    prestoSparkService.getNativeTaskExecutorFactory().close();
+                }
+            }
             instances.remove(instanceId);
         }
     }
