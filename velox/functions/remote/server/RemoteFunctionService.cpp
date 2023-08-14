@@ -26,7 +26,8 @@ namespace {
 std::string getFunctionName(
     const std::string& prefix,
     const std::string& functionName) {
-  return fmt::format("{}.{}", prefix, functionName);
+  return prefix.empty() ? functionName
+                        : fmt::format("{}.{}", prefix, functionName);
 }
 
 TypePtr deserializeType(const std::string& input) {
@@ -69,7 +70,10 @@ void RemoteFunctionServiceHandler::invokeFunction(
     remote::RemoteFunctionResponse& response,
     std::unique_ptr<remote::RemoteFunctionRequest> request) {
   const auto& functionHandle = request->get_remoteFunctionHandle();
-  LOG(INFO) << "Got a request for '" << functionHandle.get_name() << "'.";
+  const auto& inputs = request->get_inputs();
+
+  LOG(INFO) << "Got a request for '" << functionHandle.get_name()
+            << "': " << inputs.get_rowCount() << " input rows.";
 
   if (!request->get_throwOnError()) {
     VELOX_NYI("throwOnError not implemented yet on remote server.");
@@ -79,11 +83,11 @@ void RemoteFunctionServiceHandler::invokeFunction(
   auto inputType = deserializeArgTypes(functionHandle.get_argumentTypes());
   auto outputType = deserializeType(functionHandle.get_returnType());
 
-  auto serdeFormat = request->get_inputs().get_pageFormat();
+  auto serdeFormat = inputs.get_pageFormat();
   auto serde = getSerde(serdeFormat);
 
-  auto inputVector = IOBufToRowVector(
-      request->get_inputs().get_payload(), inputType, *pool_, serde.get());
+  auto inputVector =
+      IOBufToRowVector(inputs.get_payload(), inputType, *pool_, serde.get());
 
   // Execute the expression.
   const vector_size_t numRows = inputVector->size();
