@@ -98,6 +98,10 @@ class PeriodicTaskManager {
   void addSpillStatsUpdateTask();
   void updateSpillStatsTask();
 
+  // Adds task that periodically prints http endpoint latency metrics.
+  void addHttpEndpointLatencyStatsTask();
+  void printHttpEndpointLatencyStats();
+
   folly::FunctionScheduler scheduler_;
   folly::CPUThreadPoolExecutor* const driverCPUExecutor_;
   folly::IOThreadPoolExecutor* const httpExecutor_;
