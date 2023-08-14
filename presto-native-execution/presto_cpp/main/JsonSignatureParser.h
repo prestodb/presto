@@ -55,9 +55,13 @@ namespace facebook::presto {
 ///   }
 class JsonSignatureParser {
  public:
-  using TContainer = std::unordered_map<
-      std::string,
-      std::vector<velox::exec::FunctionSignaturePtr>>;
+  struct FunctionSignatureItem {
+    velox::exec::FunctionSignaturePtr signature;
+    std::string schema;
+  };
+
+  using TContainer =
+      std::unordered_map<std::string, std::vector<FunctionSignatureItem>>;
 
   explicit JsonSignatureParser(const std::string& input);
 
