@@ -88,6 +88,13 @@ void TaskResource::registerUris(http::HttpServer& server) {
       });
 
   server.registerDelete(
+      R"(/v1/task/(.+)/remote-source/(.+))",
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::string>& pathMatch) {
+        return removeRemoteSource(message, pathMatch);
+      });
+
+  server.registerDelete(
       R"(/v1/task/(.+))",
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
@@ -120,13 +127,6 @@ void TaskResource::registerUris(http::HttpServer& server) {
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
         return getTaskInfo(message, pathMatch);
-      });
-
-  server.registerGet(
-      R"(/v1/task/(.+)/remote-source/(.+))",
-      [&](proxygen::HTTPMessage* message,
-          const std::vector<std::string>& pathMatch) {
-        return removeRemoteSource(message, pathMatch);
       });
 }
 
