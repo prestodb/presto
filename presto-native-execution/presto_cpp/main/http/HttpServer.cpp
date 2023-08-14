@@ -142,10 +142,8 @@ HttpServer::HttpServer(
   VELOX_CHECK((httpConfig_ != nullptr) || (httpsConfig_ != nullptr));
 }
 
-proxygen::RequestHandler*
-DispatchingRequestHandlerFactory::EndPoint::checkAndApply(
+bool EndPoint::check(
     const std::string& path,
-    proxygen::HTTPMessage* message,
     std::vector<std::string>& matches,
     std::vector<RE2::Arg>& args,
     std::vector<RE2::Arg*>& argPtrs) const {
@@ -160,6 +158,18 @@ DispatchingRequestHandlerFactory::EndPoint::checkAndApply(
   }
   if (RE2::FullMatchN(path, re_, argPtrs.data(), numArgs)) {
     matches[0] = path;
+    return true;
+  }
+  return false;
+}
+
+proxygen::RequestHandler* EndPoint::checkAndApply(
+    const std::string& path,
+    proxygen::HTTPMessage* message,
+    std::vector<std::string>& matches,
+    std::vector<RE2::Arg>& args,
+    std::vector<RE2::Arg*>& argPtrs) const {
+  if (check(path, matches, args, argPtrs)) {
     return factory_(message, matches);
   }
   return nullptr;
@@ -211,6 +221,31 @@ void DispatchingRequestHandlerFactory::registerEndPoint(
   } else {
     it->second.emplace_back(std::make_unique<EndPoint>(pattern, endpoint));
   }
+}
+
+const std::
+    unordered_map<proxygen::HTTPMethod, std::vector<std::unique_ptr<EndPoint>>>&
+    DispatchingRequestHandlerFactory::endpoints() const {
+  return endpoints_;
+}
+
+std::unordered_map<proxygen::HTTPMethod, std::vector<std::unique_ptr<EndPoint>>>
+HttpServer::endpoints() const {
+  const auto& endpoints = handlerFactory_->endpoints();
+  std::unordered_map<
+      proxygen::HTTPMethod,
+      std::vector<std::unique_ptr<EndPoint>>>
+      copy;
+  for (const auto& methodPair : endpoints) {
+    const auto& method = methodPair.first;
+    copy.emplace(method, std::vector<std::unique_ptr<EndPoint>>());
+    auto& endpoints = copy.at(method);
+    for (const auto& endpoint : methodPair.second) {
+      endpoints.emplace_back(
+          std::make_unique<EndPoint>(endpoint->pattern(), nullptr));
+    }
+  }
+  return copy;
 }
 
 void HttpServer::start(

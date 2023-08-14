@@ -177,6 +177,35 @@ using EndpointRequestHandlerFactory = std::function<proxygen::RequestHandler*(
     proxygen::HTTPMessage* message,
     const std::vector<std::string>& args)>;
 
+class EndPoint {
+ public:
+  EndPoint(
+      const std::string& pattern,
+      const EndpointRequestHandlerFactory& factory)
+      : re_(pattern), factory_(factory) {}
+
+  bool check(
+      const std::string& path,
+      std::vector<std::string>& matches,
+      std::vector<RE2::Arg>& args,
+      std::vector<RE2::Arg*>& argPtrs) const;
+
+  proxygen::RequestHandler* checkAndApply(
+      const std::string& path,
+      proxygen::HTTPMessage* message,
+      std::vector<std::string>& matches,
+      std::vector<RE2::Arg>& args,
+      std::vector<RE2::Arg*>& argPtrs) const;
+
+  const std::string& pattern() const {
+    return re_.pattern();
+  }
+
+ private:
+  const RE2 re_;
+  EndpointRequestHandlerFactory factory_;
+};
+
 class DispatchingRequestHandlerFactory
     : public proxygen::RequestHandlerFactory {
  public:
@@ -193,26 +222,12 @@ class DispatchingRequestHandlerFactory
       const std::string& pattern,
       const EndpointRequestHandlerFactory& endpoint);
 
+  const std::unordered_map<
+      proxygen::HTTPMethod,
+      std::vector<std::unique_ptr<EndPoint>>>&
+  endpoints() const;
+
  private:
-  class EndPoint {
-   public:
-    EndPoint(
-        const std::string& pattern,
-        const EndpointRequestHandlerFactory& factory)
-        : re_(pattern), factory_(factory) {}
-
-    proxygen::RequestHandler* checkAndApply(
-        const std::string& path,
-        proxygen::HTTPMessage* message,
-        std::vector<std::string>& matches,
-        std::vector<RE2::Arg>& args,
-        std::vector<RE2::Arg*>& argPtrs) const;
-
-   private:
-    RE2 re_;
-    EndpointRequestHandlerFactory factory_;
-  };
-
   std::unordered_map<
       proxygen::HTTPMethod,
       std::vector<std::unique_ptr<EndPoint>>>
@@ -336,6 +351,11 @@ class HttpServer {
       const RequestHandlerCallback& callback) {
     registerDelete(pattern, endPointWrapper(callback));
   }
+
+  std::unordered_map<
+      proxygen::HTTPMethod,
+      std::vector<std::unique_ptr<EndPoint>>>
+  endpoints() const;
 
  private:
   const std::unique_ptr<HttpConfig> httpConfig_;

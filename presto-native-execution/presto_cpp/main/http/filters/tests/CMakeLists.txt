@@ -10,11 +10,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(http_filters AccessLogFilter.cpp HttpEndpointLatencyFilter.cpp
-                         StatsFilter.cpp)
+add_executable(presto_http_filter_test HttpFilterTest.cpp)
 
-target_link_libraries(http_filters presto_common ${PROXYGEN_LIBRARIES})
+add_test(
+  NAME presto_http_filter_test
+  COMMAND presto_http_filter_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
-if(PRESTO_ENABLE_TESTING)
-  add_subdirectory(tests)
-endif()
+target_link_libraries(presto_http_filter_test http_filters presto_http gtest
+                      gtest_main)
