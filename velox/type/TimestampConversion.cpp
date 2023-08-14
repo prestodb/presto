@@ -105,6 +105,20 @@ constexpr int32_t kCumulativeYearDays[] = {
 
 namespace {
 
+// Enum to dictate parsing modes for date strings.
+//
+// kStrict: For date string conversion, align with DuckDB's implementation.
+//
+// kNonStrict: For timestamp string conversion, align with DuckDB's
+// implementation.
+//
+// kStandardCast: Strictly processes dates in the [+-](YYYY-MM-DD) format.
+// Align with Presto casting conventions.
+//
+// kNonStandardCast: Like standard but permits missing day/month and allows
+// trailing 'T' or spaces. Align with Spark SQL casting conventions.
+enum class ParseMode { kStrict, kNonStrict, kStandardCast, kNonStandardCast };
+
 inline bool characterIsSpace(char c) {
   return c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' ||
       c == '\r';
@@ -142,12 +156,17 @@ bool isValidWeekDate(int32_t weekYear, int32_t weekOfYear, int32_t dayOfWeek) {
   return true;
 }
 
+inline bool validDate(int64_t daysSinceEpoch) {
+  return daysSinceEpoch >= std::numeric_limits<int32_t>::min() &&
+      daysSinceEpoch <= std::numeric_limits<int32_t>::max();
+}
+
 bool tryParseDateString(
     const char* buf,
     size_t len,
     size_t& pos,
     int64_t& daysSinceEpoch,
-    bool strict) {
+    ParseMode mode) {
   pos = 0;
   if (len == 0) {
     return false;
@@ -173,7 +192,13 @@ bool tryParseDateString(
     if (pos >= len) {
       return false;
     }
+  } else if (buf[pos] == '+') {
+    pos++;
+    if (pos >= len) {
+      return false;
+    }
   }
+
   if (!characterIsDigit(buf[pos])) {
     return false;
   }
@@ -191,20 +216,39 @@ bool tryParseDateString(
     }
   }
 
+  // No month or day.
+  if (mode == ParseMode::kNonStandardCast && pos == len) {
+    daysSinceEpoch = daysSinceEpochFromDate(year, 1, 1);
+    return validDate(daysSinceEpoch);
+  }
+
   if (pos >= len) {
     return false;
   }
 
   // Fetch the separator.
   sep = buf[pos++];
-  if (sep != ' ' && sep != '-' && sep != '/' && sep != '\\') {
-    // Invalid separator.
-    return false;
+  if (mode == ParseMode::kStandardCast || mode == ParseMode::kNonStandardCast) {
+    // Only '-' is valid for cast.
+    if (sep != '-') {
+      return false;
+    }
+  } else {
+    if (sep != ' ' && sep != '-' && sep != '/' && sep != '\\') {
+      // Invalid separator.
+      return false;
+    }
   }
 
   // Parse the month.
   if (!parseDoubleDigit(buf, len, pos, month)) {
     return false;
+  }
+
+  // No day.
+  if (mode == ParseMode::kNonStandardCast && pos == len) {
+    daysSinceEpoch = daysSinceEpochFromDate(year, month, 1);
+    return validDate(daysSinceEpoch);
   }
 
   if (pos >= len) {
@@ -224,6 +268,35 @@ bool tryParseDateString(
     return false;
   }
 
+  // In standard-cast mode, no more trailing characters.
+  if (mode == ParseMode::kStandardCast) {
+    daysSinceEpoch = daysSinceEpochFromDate(year, month, day);
+
+    if (pos == len) {
+      return validDate(daysSinceEpoch);
+    }
+    return false;
+  }
+
+  // In non-standard cast mode, any optional trailing 'T' or spaces followed
+  // by any optional characters are valid patterns.
+  if (mode == ParseMode::kNonStandardCast) {
+    daysSinceEpoch = daysSinceEpochFromDate(year, month, day);
+
+    if (!validDate(daysSinceEpoch)) {
+      return false;
+    }
+
+    if (pos == len) {
+      return true;
+    }
+
+    if (buf[pos] == 'T' || buf[pos] == ' ') {
+      return true;
+    }
+    return false;
+  }
+
   // Check for an optional trailing " (BC)".
   if (len - pos >= 5 && characterIsSpace(buf[pos]) && buf[pos + 1] == '(' &&
       buf[pos + 2] == 'B' && buf[pos + 3] == 'C' && buf[pos + 4] == ')') {
@@ -239,7 +312,7 @@ bool tryParseDateString(
   }
 
   // In strict mode, check remaining string for non-space characters.
-  if (strict) {
+  if (mode == ParseMode::kStrict) {
     // Skip trailing spaces.
     while (pos < len && characterIsSpace(buf[pos])) {
       pos++;
@@ -498,10 +571,36 @@ int64_t fromDateString(const char* str, size_t len) {
   int64_t daysSinceEpoch;
   size_t pos = 0;
 
-  if (!tryParseDateString(str, len, pos, daysSinceEpoch, true)) {
+  if (!tryParseDateString(str, len, pos, daysSinceEpoch, ParseMode::kStrict)) {
     VELOX_USER_FAIL(
         "Unable to parse date value: \"{}\", expected format is (YYYY-MM-DD)",
         std::string(str, len));
+  }
+  return daysSinceEpoch;
+}
+
+int32_t
+castFromDateString(const char* str, size_t len, bool isNonStandardCast) {
+  int64_t daysSinceEpoch;
+  size_t pos = 0;
+
+  auto mode = isNonStandardCast ? ParseMode::kNonStandardCast
+                                : ParseMode::kStandardCast;
+  if (!tryParseDateString(str, len, pos, daysSinceEpoch, mode)) {
+    if (isNonStandardCast) {
+      VELOX_USER_FAIL(
+          "Unable to parse date value: \"{}\"."
+          "Valid date string patterns include "
+          "(YYYY, YYYY-MM, YYYY-MM-DD), and any pattern prefixed with [+-]",
+          std::string(str, len));
+
+    } else {
+      VELOX_USER_FAIL(
+          "Unable to parse date value: \"{}\"."
+          "Valid date string pattern is (YYYY-MM-DD), "
+          "and can be prefixed with [+-]",
+          std::string(str, len));
+    }
   }
   return daysSinceEpoch;
 }
@@ -580,7 +679,8 @@ Timestamp fromTimestampString(const char* str, size_t len) {
   int64_t daysSinceEpoch;
   int64_t microsSinceMidnight;
 
-  if (!tryParseDateString(str, len, pos, daysSinceEpoch, false)) {
+  if (!tryParseDateString(
+          str, len, pos, daysSinceEpoch, ParseMode::kNonStrict)) {
     parserError(str, len);
   }
 

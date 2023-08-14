@@ -81,6 +81,26 @@ inline int64_t fromDateString(const StringView& str) {
   return fromDateString(str.data(), str.size());
 }
 
+/// Cast string to date.
+/// When isNonStandardCast = false, only support "[+-]YYYY-MM-DD" format.
+/// When isNonStandardCast = true, supported date formats include:
+///
+/// `[+-]YYYY*`
+/// `[+-]YYYY*-[M]M`
+/// `[+-]YYYY*-[M]M-[D]D`
+/// `[+-]YYYY*-[M]M-[D]D `
+/// `[+-]YYYY*-[M]M-[D]D *`
+/// `[+-]YYYY*-[M]M-[D]DT*`
+///
+/// Throws VeloxUserError if the format or date is invalid.
+int32_t castFromDateString(const char* buf, size_t len, bool isNonStandardCast);
+
+inline int32_t castFromDateString(
+    const StringView& str,
+    bool isNonStandardCast) {
+  return castFromDateString(str.data(), str.size(), isNonStandardCast);
+}
+
 // Extracts the day of the week from the number of days since epoch
 int32_t extractISODayOfTheWeek(int32_t daysSinceEpoch);
 
