@@ -14,8 +14,6 @@
 package com.facebook.presto.spark;
 
 import com.facebook.airlift.log.Logging;
-import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
-import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
@@ -26,7 +24,6 @@ import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Resources;
 import com.google.inject.Module;
 import org.apache.spark.SparkEnv;
 import org.apache.spark.shuffle.ShuffleHandle;
@@ -117,7 +114,7 @@ public class PrestoSparkNativeQueryRunnerUtils
     public static PrestoSparkQueryRunner createHiveRunner()
     {
         PrestoSparkQueryRunner queryRunner = createRunner("hive", new NativeExecutionModule());
-        setupJsonFunctionNamespaceManager(queryRunner);
+        PrestoNativeQueryRunnerUtils.setupJsonFunctionNamespaceManager(queryRunner, "external_functions.json", "json");
 
         return queryRunner;
     }
@@ -206,19 +203,6 @@ public class PrestoSparkNativeQueryRunnerUtils
         sparkConfigs.put(SPARK_SHUFFLE_MANAGER, "com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager");
         sparkConfigs.put(FALLBACK_SPARK_SHUFFLE_MANAGER, "org.apache.spark.shuffle.sort.SortShuffleManager");
         return sparkConfigs.build();
-    }
-
-    public static void setupJsonFunctionNamespaceManager(QueryRunner queryRunner)
-    {
-        String jsonDefinitionPath = Resources.getResource("external_functions.json").getFile();
-        queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
-        queryRunner.loadFunctionNamespaceManager(
-                JsonFileBasedFunctionNamespaceManagerFactory.NAME,
-                "json",
-                ImmutableMap.of(
-                        "supported-function-languages", "CPP",
-                        "function-implementation-type", "CPP",
-                        "json-based-function-manager.path-to-function-definition", jsonDefinitionPath));
     }
 
     public static synchronized Path getBaseDataPath()
