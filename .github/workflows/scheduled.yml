@@ -102,6 +102,12 @@ jobs:
             chmod -R 777 /tmp/spark_fuzzer_repro
             _build/debug/velox/expression/tests/spark_expression_fuzzer_test \
                 --seed ${RANDOM} \
+                --enable_variadic_signatures \
+                --lazy_vector_generation_ratio 0.2 \
+                --velox_fuzzer_enable_column_reuse \
+                --velox_fuzzer_enable_expression_reuse \
+                --max_expression_trees_per_step 2 \
+                --retry_with_try \
                 --duration_sec 1800 \
                 --logtostderr=1 \
                 --minloglevel=0 \
