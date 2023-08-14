@@ -882,7 +882,9 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
 
 void TaskManager::removeRemoteSource(
     const TaskId& taskId,
-    const TaskId& remoteSourceTaskId) {}
+    const TaskId& remoteSourceTaskId) {
+  VELOX_NYI();
+}
 
 std::shared_ptr<PrestoTask> TaskManager::findOrCreateTask(
     const TaskId& taskId,
