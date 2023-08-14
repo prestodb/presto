@@ -43,15 +43,13 @@ TEST_F(RemoteFunctionRegistererTest, singleFile) {
           "outputType": "varchar",
           "paramTypes": [
             "varchar"
-          ],
-          "schema": "mock_schema"
+          ]
         }
       ],
       "mock2": [
         {
           "outputType": "boolean",
-          "paramTypes": [],
-          "schema": "mock_schema"
+          "paramTypes": []
         }
       ]
     }
@@ -71,11 +69,56 @@ TEST_F(RemoteFunctionRegistererTest, singleFile) {
   EXPECT_TRUE(exec::getVectorFunctionSignatures("mock2") != std::nullopt);
 }
 
+TEST_F(RemoteFunctionRegistererTest, prefixes) {
+  std::string_view json = R"(
+  {
+    "udfSignatureMap": {
+      "mock3": [
+        {
+          "outputType": "varchar",
+          "paramTypes": [
+            "varchar"
+          ],
+          "schema": "mock_schema"
+        }
+      ]
+    }
+  })";
+
+  // Write to a single output file.
+  auto path = exec::test::TempFilePath::create();
+  writeToFile(path->path, json);
+
+  EXPECT_TRUE(exec::getVectorFunctionSignatures("mock3") == std::nullopt);
+  EXPECT_TRUE(
+      exec::getVectorFunctionSignatures("mock_schema.mock3") == std::nullopt);
+  EXPECT_TRUE(
+      exec::getVectorFunctionSignatures("json.mock_schema.mock3") ==
+      std::nullopt);
+
+  EXPECT_EQ(registerRemoteFunctions(path->path, {}), 1);
+
+  EXPECT_TRUE(exec::getVectorFunctionSignatures("mock3") == std::nullopt);
+  EXPECT_TRUE(
+      exec::getVectorFunctionSignatures("mock_schema.mock3") != std::nullopt);
+  EXPECT_TRUE(
+      exec::getVectorFunctionSignatures("json.mock_schema.mock3") ==
+      std::nullopt);
+
+  EXPECT_EQ(registerRemoteFunctions(path->path, {}, "json"), 1);
+
+  EXPECT_TRUE(exec::getVectorFunctionSignatures("mock3") == std::nullopt);
+  EXPECT_TRUE(
+      exec::getVectorFunctionSignatures("mock_schema.mock3") != std::nullopt);
+  EXPECT_TRUE(
+      exec::getVectorFunctionSignatures("json.mock_schema.mock3") !=
+      std::nullopt);
+}
+
 std::string getJson(const std::string& functionName) {
   return fmt::format(
       "{{ \"udfSignatureMap\": {{ \"{}\": [ "
-      "  {{ \"outputType\": \"boolean\",\"paramTypes\": [],"
-      "     \"schema\": \"mock_schema\" }}"
+      "  {{ \"outputType\": \"boolean\",\"paramTypes\": []}}"
       " ] }} }}",
       functionName);
 }
