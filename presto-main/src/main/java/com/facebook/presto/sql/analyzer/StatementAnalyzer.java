@@ -2690,7 +2690,7 @@ class StatementAnalyzer
             }
             catch (RuntimeException e) {
                 throwIfInstanceOf(e, PrestoException.class);
-                throw new SemanticException(VIEW_ANALYSIS_ERROR, node, "Failed analyzing stored view '%s': %s", name, e.getMessage());
+                throw new SemanticException(VIEW_ANALYSIS_ERROR, e, node.getLocation(), "Failed analyzing stored view '%s': %s", name, e.getMessage());
             }
         }
 
