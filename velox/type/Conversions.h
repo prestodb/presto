@@ -209,6 +209,9 @@ struct Converter<
       if (std::isnan(v)) {
         return 0;
       }
+      if constexpr (std::is_same_v<T, bool>) {
+        return v != 0;
+      }
       if constexpr (std::is_same_v<T, int128_t>) {
         return std::numeric_limits<int128_t>::max();
       } else if (v > LimitType::maxLimit()) {
@@ -232,6 +235,9 @@ struct Converter<
     if constexpr (TRUNCATE) {
       if (std::isnan(v)) {
         return 0;
+      }
+      if constexpr (std::is_same_v<T, bool>) {
+        return v != 0;
       }
       if constexpr (std::is_same_v<T, int128_t>) {
         return std::numeric_limits<int128_t>::max();

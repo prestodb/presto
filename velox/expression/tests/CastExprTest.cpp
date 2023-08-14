@@ -769,6 +769,9 @@ TEST_F(CastExprTest, primitiveValidCornerCases) {
     testCast<int8_t, bool>("boolean", {-1}, {true}, false);
     testCast<double, bool>("boolean", {1.0}, {true}, false);
     testCast<double, bool>("boolean", {1.1}, {true}, false);
+    testCast<double, bool>("boolean", {0.1}, {true}, false);
+    testCast<double, bool>("boolean", {-0.1}, {true}, false);
+    testCast<double, bool>("boolean", {-1.0}, {true}, false);
     testCast<float, bool>("boolean", {kNan}, {true}, false);
     testCast<float, bool>("boolean", {kInf}, {true}, false);
     testCast<double, bool>("boolean", {0.0000000000001}, {true}, false);
@@ -826,6 +829,9 @@ TEST_F(CastExprTest, primitiveValidCornerCases) {
     testCast<int8_t, bool>("boolean", {-1}, {true}, false);
     testCast<double, bool>("boolean", {1.0}, {true}, false);
     testCast<double, bool>("boolean", {1.1}, {true}, false);
+    testCast<double, bool>("boolean", {0.1}, {true}, false);
+    testCast<double, bool>("boolean", {-0.1}, {true}, false);
+    testCast<double, bool>("boolean", {-1.0}, {true}, false);
     testCast<float, bool>("boolean", {kNan}, {false}, false);
     testCast<float, bool>("boolean", {kInf}, {true}, false);
     testCast<double, bool>("boolean", {0.0000000000001}, {true}, false);
