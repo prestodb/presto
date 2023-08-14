@@ -237,6 +237,8 @@ class SystemConfig : public ConfigBase {
       "http-server.enable-access-log"};
   static constexpr std::string_view kHttpEnableStatsFilter{
       "http-server.enable-stats-filter"};
+  static constexpr std::string_view kHttpEnableEndpointLatencyFilter{
+      "http-server.enable-endpoint-latency-filter"};
   static constexpr std::string_view kRegisterTestFunctions{
       "register-test-functions"};
 
@@ -416,6 +418,8 @@ class SystemConfig : public ConfigBase {
   bool enableHttpAccessLog() const;
 
   bool enableHttpStatsFilter() const;
+
+  bool enableHttpEndpointLatencyFilter() const;
 
   bool registerTestFunctions() const;
 

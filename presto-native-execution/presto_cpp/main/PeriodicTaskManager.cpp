@@ -18,7 +18,9 @@
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/TaskManager.h"
 #include "presto_cpp/main/common/Counters.h"
+#include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
 #include "velox/common/base/StatsReporter.h"
+#include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/caching/SsdFile.h"
 #include "velox/common/memory/MemoryAllocator.h"
@@ -41,8 +43,14 @@ static constexpr size_t kExchangeSourcePeriodGlobalCounters{
 static constexpr size_t kTaskPeriodCleanOldTasks{60'000'000}; // 60 seconds.
 // Every 1 minute we export cache counters.
 static constexpr size_t kCachePeriodGlobalCounters{60'000'000}; // 60 seconds.
+// Every 1 minute we export connector counters.
+static constexpr size_t kConnectorPeriodGlobalCounters{
+    60'000'000}; // 60 seconds.
 static constexpr size_t kOsPeriodGlobalCounters{2'000'000}; // 2 seconds
 static constexpr size_t kSpillStatsUpdateIntervalUs{60'000'000}; // 60 seconds
+// Every 1 minute we print endpoint latency counters.
+static constexpr size_t kHttpEndpointLatencyPeriodGlobalCounters{
+    60'000'000}; // 60 seconds.
 
 PeriodicTaskManager::PeriodicTaskManager(
     folly::CPUThreadPoolExecutor* const driverCPUExecutor,
@@ -78,7 +86,12 @@ void PeriodicTaskManager::start() {
   }
   addConnectorStatsTask();
   addOperatingSystemStatsUpdateTask();
+
   addSpillStatsUpdateTask();
+  if (SystemConfig::instance()->enableHttpEndpointLatencyFilter()) {
+    addHttpEndpointLatencyStatsTask();
+  }
+
   // This should be the last call in this method.
   scheduler_.start();
 }
@@ -422,7 +435,7 @@ void PeriodicTaskManager::addConnectorStatsTask() {
                     oldValues[kNumLookupsMetricName]);
             oldValues[kNumLookupsMetricName] = fileHandleCacheStats.numLookups;
           },
-          std::chrono::microseconds{kCachePeriodGlobalCounters},
+          std::chrono::microseconds{kConnectorPeriodGlobalCounters},
           fmt::format("{}.hive_connector_counters", connectorId));
     }
   }
@@ -526,5 +539,24 @@ void PeriodicTaskManager::updateSpillStatsTask() {
         kCounterSpillWriteTimeUs, deltaSpillStats.spillWriteTimeUs);
   }
   lastSpillStats_ = updatedSpillStats;
+}
+
+void PeriodicTaskManager::printHttpEndpointLatencyStats() {
+  const auto latencyMetrics =
+      http::filters::HttpEndpointLatencyFilter::retrieveLatencies();
+  std::ostringstream oss;
+  oss << "Http endpoint latency \n[\n";
+  for (const auto& metrics : latencyMetrics) {
+    oss << metrics.toString() << ",\n";
+  }
+  oss << "]";
+  LOG(INFO) << oss.str();
+}
+
+void PeriodicTaskManager::addHttpEndpointLatencyStatsTask() {
+  scheduler_.addFunction(
+      [this]() { printHttpEndpointLatencyStats(); },
+      std::chrono::microseconds{kHttpEndpointLatencyPeriodGlobalCounters},
+      "http_endpoint_counters");
 }
 } // namespace facebook::presto

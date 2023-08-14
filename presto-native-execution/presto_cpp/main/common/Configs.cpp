@@ -261,6 +261,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kRemoteFunctionServerCatalogName, ""),
           STR_PROP(kHttpEnableAccessLog, "false"),
           STR_PROP(kHttpEnableStatsFilter, "false"),
+          STR_PROP(kHttpEnableEndpointLatencyFilter, "false"),
           STR_PROP(kRegisterTestFunctions, "false"),
           NUM_PROP(kHttpMaxAllocateBytes, 65536),
           STR_PROP(kQueryMaxMemoryPerNode, "4GB"),
@@ -489,6 +490,10 @@ bool SystemConfig::enableHttpAccessLog() const {
 
 bool SystemConfig::enableHttpStatsFilter() const {
   return optionalProperty<bool>(kHttpEnableStatsFilter).value();
+}
+
+bool SystemConfig::enableHttpEndpointLatencyFilter() const {
+  return optionalProperty<bool>(kHttpEnableEndpointLatencyFilter).value();
 }
 
 bool SystemConfig::registerTestFunctions() const {

@@ -29,6 +29,7 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
+#include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
 #include "presto_cpp/main/http/filters/StatsFilter.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
@@ -599,17 +600,23 @@ PrestoServer::getExprSetListener() {
 std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
 PrestoServer::getHttpServerFilters() {
   std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters;
-
-  if (SystemConfig::instance()->enableHttpAccessLog()) {
+  const auto* systemConfig = SystemConfig::instance();
+  if (systemConfig->enableHttpAccessLog()) {
     filters.push_back(
         std::make_unique<http::filters::AccessLogFilterFactory>());
   }
 
-  if (SystemConfig::instance()->enableHttpStatsFilter()) {
+  if (systemConfig->enableHttpStatsFilter()) {
     auto additionalFilters = getAdditionalHttpServerFilters();
     for (auto& filter : additionalFilters) {
       filters.push_back(std::move(filter));
     }
+  }
+
+  if (systemConfig->enableHttpEndpointLatencyFilter()) {
+    filters.push_back(
+        std::make_unique<http::filters::HttpEndpointLatencyFilterFactory>(
+            httpServer_.get()));
   }
 
   return filters;
