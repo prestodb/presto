@@ -30,9 +30,12 @@ static void printCurrentQueryId() {
         "ThreadDebugInfo object not found.";
     write(STDERR_FILENO, msg, strlen(msg));
   } else {
-    const char* msg = "Fatal signal handler. Query Id= ";
-    write(STDERR_FILENO, msg, strlen(msg));
+    const char* msg1 = "Fatal signal handler. Query Id= ";
+    write(STDERR_FILENO, msg1, strlen(msg1));
     write(STDERR_FILENO, info->queryId_.c_str(), info->queryId_.length());
+    const char* msg2 = " Task Id= ";
+    write(STDERR_FILENO, msg2, strlen(msg2));
+    write(STDERR_FILENO, info->taskId_.c_str(), info->taskId_.length());
   }
   write(STDERR_FILENO, "\n", 1);
 }

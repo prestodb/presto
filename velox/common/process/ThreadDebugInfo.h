@@ -24,6 +24,7 @@ namespace facebook::velox::process {
 // handler and logged.
 struct ThreadDebugInfo {
   std::string queryId_;
+  std::string taskId_;
 };
 
 // A RAII class to store thread local debug information.

@@ -540,7 +540,7 @@ void Task::start(
     uint32_t maxDrivers,
     uint32_t concurrentSplitGroups) {
   facebook::velox::process::ThreadDebugInfo threadDebugInfo{
-      .queryId_ = self->queryCtx()->queryId()};
+      self->queryCtx()->queryId(), self->taskId_};
   facebook::velox::process::ScopedThreadDebugInfo scopedInfo(threadDebugInfo);
   try {
     VELOX_CHECK_GE(

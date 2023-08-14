@@ -63,10 +63,9 @@ TEST_F(ThreadDebugInfoDeathTest, withinSeperateDriverThread) {
   auto vector = makeRowVector({makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6})});
   registerFunction<InduceSegFaultFunction, int64_t, int64_t>({"segFault"});
   auto op = PlanBuilder().values({vector}).project({"segFault(c0)"}).planNode();
-
   ASSERT_DEATH(
       (assertQuery(op, vector)),
-      ".*Fatal signal handler. Query Id= TaskCursorQuery_0.*");
+      ".*Fatal signal handler. Query Id= TaskCursorQuery_0 Task Id= test_cursor 1.*");
 }
 
 TEST_F(ThreadDebugInfoDeathTest, withinQueryCompilation) {
@@ -78,7 +77,7 @@ TEST_F(ThreadDebugInfoDeathTest, withinQueryCompilation) {
 
   ASSERT_DEATH(
       (assertQuery(op, vector)),
-      ".*Fatal signal handler. Query Id= TaskCursorQuery_0.*");
+      ".*Fatal signal handler. Query Id= TaskCursorQuery_0 Task Id= test_cursor 1.*");
 }
 
 TEST_F(ThreadDebugInfoDeathTest, withinTheCallingThread) {
@@ -99,7 +98,8 @@ TEST_F(ThreadDebugInfoDeathTest, withinTheCallingThread) {
       "single.execution.task.0", std::move(plan), 0, queryCtx);
 
   ASSERT_DEATH(
-      (task->next()), ".*Fatal signal handler. Query Id= TaskCursorQuery_0.*");
+      (task->next()),
+      ".*Fatal signal handler. Query Id= TaskCursorQuery_0 Task Id= single.execution.task.0.*");
 }
 
 #endif
