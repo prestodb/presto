@@ -64,19 +64,67 @@ std::function<void(Task* task)> makeAddSplit(
   };
 }
 
-// Returns aggregated spilled stats by 'task'.
-Spiller::Stats taskSpilledStats(const exec::Task& task) {
-  Spiller::Stats spilledStats;
+// Returns aggregated spilled stats by build and probe operators from 'task'.
+std::pair<SpillStats, SpillStats> taskSpilledStats(const exec::Task& task) {
+  SpillStats buildStats;
+  SpillStats probeStats;
   auto stats = task.taskStats();
   for (auto& pipeline : stats.pipelineStats) {
     for (auto op : pipeline.operatorStats) {
-      spilledStats.spilledBytes += op.spilledBytes;
-      spilledStats.spilledRows += op.spilledRows;
-      spilledStats.spilledPartitions += op.spilledPartitions;
-      spilledStats.spilledFiles += op.spilledFiles;
+      if (op.operatorType == "HashBuild") {
+        buildStats.spilledBytes += op.spilledBytes;
+        buildStats.spilledRows += op.spilledRows;
+        buildStats.spilledPartitions += op.spilledPartitions;
+        buildStats.spilledFiles += op.spilledFiles;
+      } else if (op.operatorType == "HashProbe") {
+        probeStats.spilledBytes += op.spilledBytes;
+        probeStats.spilledRows += op.spilledRows;
+        probeStats.spilledPartitions += op.spilledPartitions;
+        probeStats.spilledFiles += op.spilledFiles;
+      }
     }
   }
-  return spilledStats;
+  return {buildStats, probeStats};
+}
+
+// Returns aggregated spilled runtime stats by build and probe operators from
+// 'task'.
+void verifyTaskSpilledRuntimeStats(const exec::Task& task, bool expectedSpill) {
+  auto stats = task.taskStats();
+  for (auto& pipeline : stats.pipelineStats) {
+    for (auto op : pipeline.operatorStats) {
+      if ((op.operatorType == "HashBuild") ||
+          (op.operatorType == "HashProbe")) {
+        if (!expectedSpill) {
+          ASSERT_EQ(op.runtimeStats["spillFillTime"].count, 0);
+          ASSERT_EQ(op.runtimeStats["spillSortTime"].count, 0);
+          ASSERT_EQ(op.runtimeStats["spillSerializationTime"].count, 0);
+          ASSERT_EQ(op.runtimeStats["spillFlushTime"].count, 0);
+          ASSERT_EQ(op.runtimeStats["spillDiskWrites"].count, 0);
+          ASSERT_EQ(op.runtimeStats["spillWriteTime"].count, 0);
+        } else {
+          if (op.operatorType == "HashBuild") {
+            ASSERT_GT(op.runtimeStats["spillFillTime"].sum, 0);
+          } else {
+            ASSERT_EQ(op.runtimeStats["spillFillTime"].sum, 0);
+          }
+          ASSERT_EQ(op.runtimeStats["spillSortTime"].sum, 0);
+          ASSERT_GT(op.runtimeStats["spillSerializationTime"].sum, 0);
+          ASSERT_GE(op.runtimeStats["spillFlushTime"].sum, 0);
+          // NOTE: spill flush might take less than one microsecond.
+          ASSERT_GE(
+              op.runtimeStats["spillSerializationTime"].count,
+              op.runtimeStats["spillFlushTime"].count);
+          ASSERT_GT(op.runtimeStats["spillDiskWrites"].sum, 0);
+          ASSERT_GE(op.runtimeStats["spillWriteTime"].sum, 0);
+          // NOTE: spill flush might take less than one microsecond.
+          ASSERT_GE(
+              op.runtimeStats["spillDiskWrites"].count,
+              op.runtimeStats["spillWriteTime"].count);
+        }
+      }
+    }
+  }
 }
 
 static uint64_t getOutputPositions(
@@ -120,8 +168,9 @@ std::pair<int32_t, int32_t> numTaskSpillFiles(const exec::Task& task) {
       }
       if (operatorStat.operatorType == "HashBuild") {
         numBuildFiles += operatorStat.runtimeStats["spillFileSize"].count;
-      } else {
-        VELOX_CHECK_EQ(operatorStat.operatorType, "HashProbe");
+        continue;
+      }
+      if (operatorStat.operatorType == "HashProbe") {
         numProbeFiles += operatorStat.runtimeStats["spillFileSize"].count;
       }
     }
@@ -220,8 +269,8 @@ class HashJoinBuilder {
     // NOTE: there is one value node copy per driver thread and if the value
     // node is not parallelizable, then the associated driver pipeline will be
     // single threaded. 'allProbeVectors_' contains the value vectors fed to
-    // all the hash probe drivers, which will be used to populate the duckdb as
-    // well.
+    // all the hash probe drivers, which will be used to populate the duckdb
+    // as well.
     allProbeVectors_ = makeCopies(probeVectors_, numDrivers_);
     return *this;
   }
@@ -264,8 +313,8 @@ class HashJoinBuilder {
     // NOTE: there is one value node copy per driver thread and if the value
     // node is not parallelizable, then the associated driver pipeline will be
     // single threaded. 'allBuildVectors_' contains the value vectors fed to
-    // all the hash build drivers, which will be used to populate the duckdb as
-    // well.
+    // all the hash build drivers, which will be used to populate the duckdb
+    // as well.
     allBuildVectors_ = makeCopies(buildVectors_, numDrivers_);
     return *this;
   }
@@ -457,8 +506,9 @@ class HashJoinBuilder {
     }
     // NOTE: we generate a number of vectors with a fresh new fuzzer init with
     // the same fix seed. The purpose is to ensure we have sufficient match if
-    // we use the row type for both build and probe inputs. Here we shuffle the
-    // built vectors to introduce some randomness during the join execution.
+    // we use the row type for both build and probe inputs. Here we shuffle
+    // the built vectors to introduce some randomness during the join
+    // execution.
     if (shuffle) {
       shuffleBatches(vectors);
     }
@@ -566,24 +616,34 @@ class HashJoinBuilder {
         injectSpill ? fmt::format("With Max Spill Level: {}", maxSpillLevel)
                     : "Without Spill");
     auto task = builder.assertResults(referenceQuery_);
-    const auto spillStats = taskSpilledStats(*task);
+    const auto statsPair = taskSpilledStats(*task);
     if (injectSpill) {
       if (checkSpillStats_) {
-        ASSERT_GT(spillStats.spilledRows, 0);
-        ASSERT_GT(spillStats.spilledBytes, 0);
-        ASSERT_GT(spillStats.spilledPartitions, 0);
-        ASSERT_GT(spillStats.spilledFiles, 0);
+        ASSERT_GT(statsPair.first.spilledRows, 0);
+        ASSERT_GT(statsPair.second.spilledRows, 0);
+        ASSERT_GT(statsPair.first.spilledBytes, 0);
+        ASSERT_GT(statsPair.second.spilledBytes, 0);
+        ASSERT_GT(statsPair.first.spilledPartitions, 0);
+        ASSERT_GT(statsPair.second.spilledPartitions, 0);
+        ASSERT_GT(statsPair.first.spilledFiles, 0);
+        ASSERT_GT(statsPair.second.spilledFiles, 0);
         if (maxSpillLevel != -1) {
           ASSERT_EQ(maxHashBuildSpillLevel(*task), maxSpillLevel);
         }
+        verifyTaskSpilledRuntimeStats(*task, true);
       }
-      // NOTE: if 'spillDirectory_' is not empty and spill threshold is not set,
-      // the test might trigger spilling by its own.
+      // NOTE: if 'spillDirectory_' is not empty and spill threshold is not
+      // set, the test might trigger spilling by its own.
     } else if (spillDirectory_.empty() && spillMemoryThreshold_ == 0) {
-      ASSERT_EQ(spillStats.spilledRows, 0);
-      ASSERT_EQ(spillStats.spilledBytes, 0);
-      ASSERT_EQ(spillStats.spilledPartitions, 0);
-      ASSERT_EQ(spillStats.spilledFiles, 0);
+      ASSERT_EQ(statsPair.first.spilledRows, 0);
+      ASSERT_EQ(statsPair.first.spilledBytes, 0);
+      ASSERT_EQ(statsPair.first.spilledPartitions, 0);
+      ASSERT_EQ(statsPair.first.spilledFiles, 0);
+      ASSERT_EQ(statsPair.second.spilledRows, 0);
+      ASSERT_EQ(statsPair.second.spilledBytes, 0);
+      ASSERT_EQ(statsPair.second.spilledPartitions, 0);
+      ASSERT_EQ(statsPair.second.spilledFiles, 0);
+      verifyTaskSpilledRuntimeStats(*task, false);
     }
     // Customized test verification.
     if (testVerifier_ != nullptr) {
@@ -622,7 +682,8 @@ class HashJoinBuilder {
 
   uint64_t spillMemoryThreshold_{0};
   bool injectSpill_{true};
-  // If not set, then the test will run the test with different settings: 0, 2.
+  // If not set, then the test will run the test with different settings:
+  // 0, 2.
   std::optional<int32_t> maxSpillLevel_;
   bool checkSpillStats_{true};
 
@@ -819,12 +880,17 @@ TEST_P(MultiThreadedHashJoinTest, emptyBuild) {
         .referenceQuery(
             "SELECT t_k0, t_data, u_k0, u_data FROM t, u WHERE t_k0 = u_k0")
         .checkSpillStats(false)
-        .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
-          const auto spillStats = taskSpilledStats(*task);
-          ASSERT_EQ(spillStats.spilledRows, 0);
-          ASSERT_EQ(spillStats.spilledBytes, 0);
-          ASSERT_EQ(spillStats.spilledPartitions, 0);
-          ASSERT_EQ(spillStats.spilledFiles, 0);
+        .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
+          const auto statsPair = taskSpilledStats(*task);
+          ASSERT_EQ(statsPair.first.spilledRows, 0);
+          ASSERT_EQ(statsPair.first.spilledBytes, 0);
+          ASSERT_EQ(statsPair.first.spilledPartitions, 0);
+          ASSERT_EQ(statsPair.first.spilledFiles, 0);
+          ASSERT_EQ(statsPair.second.spilledRows, 0);
+          ASSERT_EQ(statsPair.second.spilledBytes, 0);
+          ASSERT_EQ(statsPair.second.spilledPartitions, 0);
+          ASSERT_EQ(statsPair.second.spilledFiles, 0);
+          verifyTaskSpilledRuntimeStats(*task, false);
           // Check the hash probe has processed probe input rows.
           if (finishOnEmpty) {
             ASSERT_EQ(getInputPositions(task, 1), 0);
@@ -842,8 +908,33 @@ TEST_P(MultiThreadedHashJoinTest, emptyProbe) {
       .keyTypes({BIGINT()})
       .probeVectors(0, 5)
       .buildVectors(1500, 5)
+      .checkSpillStats(false)
       .referenceQuery(
           "SELECT t_k0, t_data, u_k0, u_data FROM t, u WHERE t_k0 = u_k0")
+      .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
+        const auto statsPair = taskSpilledStats(*task);
+        if (hasSpill) {
+          ASSERT_GT(statsPair.first.spilledRows, 0);
+          ASSERT_GT(statsPair.first.spilledBytes, 0);
+          ASSERT_GT(statsPair.first.spilledPartitions, 0);
+          ASSERT_GT(statsPair.first.spilledFiles, 0);
+          // There is no spilling at empty probe side.
+          ASSERT_EQ(statsPair.second.spilledRows, 0);
+          ASSERT_EQ(statsPair.second.spilledBytes, 0);
+          ASSERT_GT(statsPair.second.spilledPartitions, 0);
+          ASSERT_EQ(statsPair.second.spilledFiles, 0);
+        } else {
+          ASSERT_EQ(statsPair.first.spilledRows, 0);
+          ASSERT_EQ(statsPair.first.spilledBytes, 0);
+          ASSERT_EQ(statsPair.first.spilledPartitions, 0);
+          ASSERT_EQ(statsPair.first.spilledFiles, 0);
+          ASSERT_EQ(statsPair.second.spilledRows, 0);
+          ASSERT_EQ(statsPair.second.spilledBytes, 0);
+          ASSERT_EQ(statsPair.second.spilledPartitions, 0);
+          ASSERT_EQ(statsPair.second.spilledFiles, 0);
+          verifyTaskSpilledRuntimeStats(*task, false);
+        }
+      })
       .run();
 }
 
@@ -859,11 +950,15 @@ TEST_P(MultiThreadedHashJoinTest, emptyProbeWithSpillMemoryThreshold) {
       .referenceQuery(
           "SELECT t_k0, t_data, u_k0, u_data FROM t, u WHERE t_k0 = u_k0")
       .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
-        const auto spillStats = taskSpilledStats(*task);
-        ASSERT_GT(spillStats.spilledRows, 0);
-        ASSERT_GT(spillStats.spilledBytes, 0);
-        ASSERT_GT(spillStats.spilledPartitions, 0);
-        ASSERT_GT(spillStats.spilledFiles, 0);
+        const auto statsPair = taskSpilledStats(*task);
+        ASSERT_GT(statsPair.first.spilledRows, 0);
+        ASSERT_GT(statsPair.first.spilledBytes, 0);
+        ASSERT_GT(statsPair.first.spilledPartitions, 0);
+        ASSERT_GT(statsPair.first.spilledFiles, 0);
+        ASSERT_EQ(statsPair.second.spilledRows, 0);
+        ASSERT_EQ(statsPair.second.spilledBytes, 0);
+        ASSERT_GT(statsPair.second.spilledPartitions, 0);
+        ASSERT_EQ(statsPair.second.spilledFiles, 0);
       })
       .run();
 }
@@ -1003,7 +1098,8 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithNull) {
 }
 
 TEST_P(MultiThreadedHashJoinTest, rightSemiJoinFilterWithLargeOutput) {
-  // Build the identical left and right vectors to generate large join outputs.
+  // Build the identical left and right vectors to generate large join
+  // outputs.
   std::vector<RowVectorPtr> probeVectors =
       makeBatches(4, [&](uint32_t /*unused*/) {
         return makeRowVector(
@@ -1186,12 +1282,17 @@ TEST_P(MultiThreadedHashJoinTest, innerJoinWithEmptyBuild) {
         .joinOutputLayout({"c1"})
         .referenceQuery("SELECT null LIMIT 0")
         .checkSpillStats(false)
-        .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
-          const auto spillStats = taskSpilledStats(*task);
-          ASSERT_EQ(spillStats.spilledRows, 0);
-          ASSERT_EQ(spillStats.spilledBytes, 0);
-          ASSERT_EQ(spillStats.spilledPartitions, 0);
-          ASSERT_EQ(spillStats.spilledFiles, 0);
+        .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
+          const auto statsPair = taskSpilledStats(*task);
+          ASSERT_EQ(statsPair.first.spilledRows, 0);
+          ASSERT_EQ(statsPair.first.spilledBytes, 0);
+          ASSERT_EQ(statsPair.first.spilledPartitions, 0);
+          ASSERT_EQ(statsPair.first.spilledFiles, 0);
+          ASSERT_EQ(statsPair.second.spilledRows, 0);
+          ASSERT_EQ(statsPair.second.spilledBytes, 0);
+          ASSERT_EQ(statsPair.second.spilledPartitions, 0);
+          ASSERT_EQ(statsPair.second.spilledFiles, 0);
+          verifyTaskSpilledRuntimeStats(*task, false);
           ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
           // Check the hash probe has processed probe input rows.
           if (finishOnEmpty) {
@@ -1367,12 +1468,17 @@ TEST_P(MultiThreadedHashJoinTest, rightSemiJoinFilterWithEmptyBuild) {
         .referenceQuery(
             "SELECT u.u1 FROM u WHERE u.u0 IN (SELECT t0 FROM t) AND u.u0 < 0")
         .checkSpillStats(false)
-        .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
-          const auto spillStats = taskSpilledStats(*task);
-          ASSERT_EQ(spillStats.spilledRows, 0);
-          ASSERT_EQ(spillStats.spilledBytes, 0);
-          ASSERT_EQ(spillStats.spilledPartitions, 0);
-          ASSERT_EQ(spillStats.spilledFiles, 0);
+        .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
+          const auto statsPair = taskSpilledStats(*task);
+          ASSERT_EQ(statsPair.first.spilledRows, 0);
+          ASSERT_EQ(statsPair.first.spilledBytes, 0);
+          ASSERT_EQ(statsPair.first.spilledPartitions, 0);
+          ASSERT_EQ(statsPair.first.spilledFiles, 0);
+          ASSERT_EQ(statsPair.second.spilledRows, 0);
+          ASSERT_EQ(statsPair.second.spilledBytes, 0);
+          ASSERT_EQ(statsPair.second.spilledPartitions, 0);
+          ASSERT_EQ(statsPair.second.spilledFiles, 0);
+          verifyTaskSpilledRuntimeStats(*task, false);
           ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
           // Check the hash probe has processed probe input rows.
           if (finishOnEmpty) {
@@ -1716,14 +1822,19 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilter) {
       .referenceQuery(
           "SELECT t.* FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE t0 = u0 AND t1 <> u1)")
       .checkSpillStats(false)
-      .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
-        // Verify spilling is not triggered in case of null-aware anti-join with
-        // filter.
-        const auto spillStats = taskSpilledStats(*task);
-        ASSERT_EQ(spillStats.spilledRows, 0);
-        ASSERT_EQ(spillStats.spilledBytes, 0);
-        ASSERT_EQ(spillStats.spilledPartitions, 0);
-        ASSERT_EQ(spillStats.spilledFiles, 0);
+      .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
+        // Verify spilling is not triggered in case of null-aware anti-join
+        // with filter.
+        const auto statsPair = taskSpilledStats(*task);
+        ASSERT_EQ(statsPair.first.spilledRows, 0);
+        ASSERT_EQ(statsPair.first.spilledBytes, 0);
+        ASSERT_EQ(statsPair.first.spilledPartitions, 0);
+        ASSERT_EQ(statsPair.first.spilledFiles, 0);
+        ASSERT_EQ(statsPair.second.spilledRows, 0);
+        ASSERT_EQ(statsPair.second.spilledBytes, 0);
+        ASSERT_EQ(statsPair.second.spilledPartitions, 0);
+        ASSERT_EQ(statsPair.second.spilledFiles, 0);
+        verifyTaskSpilledRuntimeStats(*task, false);
         ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
       })
       .run();
@@ -1766,14 +1877,19 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilterAndEmptyBuild) {
         .referenceQuery(
             "SELECT t.* FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE u0 < 0 AND u.u0 = t.t0)")
         .checkSpillStats(false)
-        .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
+        .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
           // Verify spilling is not triggered in case of null-aware anti-join
           // with filter.
-          const auto spillStats = taskSpilledStats(*task);
-          ASSERT_EQ(spillStats.spilledRows, 0);
-          ASSERT_EQ(spillStats.spilledBytes, 0);
-          ASSERT_EQ(spillStats.spilledPartitions, 0);
-          ASSERT_EQ(spillStats.spilledFiles, 0);
+          const auto statsPair = taskSpilledStats(*task);
+          ASSERT_EQ(statsPair.first.spilledRows, 0);
+          ASSERT_EQ(statsPair.first.spilledBytes, 0);
+          ASSERT_EQ(statsPair.first.spilledPartitions, 0);
+          ASSERT_EQ(statsPair.first.spilledFiles, 0);
+          ASSERT_EQ(statsPair.second.spilledRows, 0);
+          ASSERT_EQ(statsPair.second.spilledBytes, 0);
+          ASSERT_EQ(statsPair.second.spilledPartitions, 0);
+          ASSERT_EQ(statsPair.second.spilledFiles, 0);
+          verifyTaskSpilledRuntimeStats(*task, false);
           ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
         })
         .run();
@@ -1818,14 +1934,19 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilterAndNullKey) {
         .joinOutputLayout({"t0", "t1"})
         .referenceQuery(referenceSql)
         .checkSpillStats(false)
-        .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
+        .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
           // Verify spilling is not triggered in case of null-aware anti-join
           // with filter.
-          const auto spillStats = taskSpilledStats(*task);
-          ASSERT_EQ(spillStats.spilledRows, 0);
-          ASSERT_EQ(spillStats.spilledBytes, 0);
-          ASSERT_EQ(spillStats.spilledPartitions, 0);
-          ASSERT_EQ(spillStats.spilledFiles, 0);
+          const auto statsPair = taskSpilledStats(*task);
+          ASSERT_EQ(statsPair.first.spilledRows, 0);
+          ASSERT_EQ(statsPair.first.spilledBytes, 0);
+          ASSERT_EQ(statsPair.first.spilledPartitions, 0);
+          ASSERT_EQ(statsPair.first.spilledFiles, 0);
+          ASSERT_EQ(statsPair.second.spilledRows, 0);
+          ASSERT_EQ(statsPair.second.spilledBytes, 0);
+          ASSERT_EQ(statsPair.second.spilledPartitions, 0);
+          ASSERT_EQ(statsPair.second.spilledFiles, 0);
+          verifyTaskSpilledRuntimeStats(*task, false);
           ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
         })
         .run();
@@ -1866,14 +1987,19 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilterOnNullableColumn) {
         .joinOutputLayout({"t0", "t1"})
         .referenceQuery(referenceSql)
         .checkSpillStats(false)
-        .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
+        .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
           // Verify spilling is not triggered in case of null-aware anti-join
           // with filter.
-          const auto spillStats = taskSpilledStats(*task);
-          ASSERT_EQ(spillStats.spilledRows, 0);
-          ASSERT_EQ(spillStats.spilledBytes, 0);
-          ASSERT_EQ(spillStats.spilledPartitions, 0);
-          ASSERT_EQ(spillStats.spilledFiles, 0);
+          const auto statsPair = taskSpilledStats(*task);
+          ASSERT_EQ(statsPair.first.spilledRows, 0);
+          ASSERT_EQ(statsPair.first.spilledBytes, 0);
+          ASSERT_EQ(statsPair.first.spilledPartitions, 0);
+          ASSERT_EQ(statsPair.first.spilledFiles, 0);
+          ASSERT_EQ(statsPair.second.spilledRows, 0);
+          ASSERT_EQ(statsPair.second.spilledBytes, 0);
+          ASSERT_EQ(statsPair.second.spilledPartitions, 0);
+          ASSERT_EQ(statsPair.second.spilledFiles, 0);
+          verifyTaskSpilledRuntimeStats(*task, false);
           ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
         })
         .run();
@@ -1911,14 +2037,19 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilterOnNullableColumn) {
         .joinOutputLayout({"t0", "t1"})
         .referenceQuery(referenceSql)
         .checkSpillStats(false)
-        .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
+        .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
           // Verify spilling is not triggered in case of null-aware anti-join
           // with filter.
-          const auto spillStats = taskSpilledStats(*task);
-          ASSERT_EQ(spillStats.spilledRows, 0);
-          ASSERT_EQ(spillStats.spilledBytes, 0);
-          ASSERT_EQ(spillStats.spilledPartitions, 0);
-          ASSERT_EQ(spillStats.spilledFiles, 0);
+          const auto statsPair = taskSpilledStats(*task);
+          ASSERT_EQ(statsPair.first.spilledRows, 0);
+          ASSERT_EQ(statsPair.first.spilledBytes, 0);
+          ASSERT_EQ(statsPair.first.spilledPartitions, 0);
+          ASSERT_EQ(statsPair.first.spilledFiles, 0);
+          ASSERT_EQ(statsPair.second.spilledRows, 0);
+          ASSERT_EQ(statsPair.second.spilledBytes, 0);
+          ASSERT_EQ(statsPair.second.spilledPartitions, 0);
+          ASSERT_EQ(statsPair.second.spilledFiles, 0);
+          verifyTaskSpilledRuntimeStats(*task, false);
           ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
         })
         .run();
@@ -1957,11 +2088,12 @@ TEST_P(MultiThreadedHashJoinTest, antiJoin) {
   std::vector<std::string> filters({
       "u1 > t1",
       "u1 * t1 > 0",
-      // This filter is true on rows without a match. It should not prevent the
-      // row from being returned.
+      // This filter is true on rows without a match. It should not prevent
+      // the row from being returned.
       "coalesce(u1, t1, 0::integer) is not null",
       // This filter throws if evaluated on rows without a match. The join
-      // should not evaluate filter on those rows and therefore should not fail.
+      // should not evaluate filter on those rows and therefore should not
+      // fail.
       "t1 / coalesce(u1, 0::integer) is not null",
   });
   for (const std::string& filter : filters) {
@@ -2017,12 +2149,17 @@ TEST_P(MultiThreadedHashJoinTest, antiJoinWithFilterAndEmptyBuild) {
         .referenceQuery(
             "SELECT t.* FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE u0 < 0 AND u.u0 = t.t0)")
         .checkSpillStats(false)
-        .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
-          const auto spillStats = taskSpilledStats(*task);
-          ASSERT_EQ(spillStats.spilledRows, 0);
-          ASSERT_EQ(spillStats.spilledBytes, 0);
-          ASSERT_EQ(spillStats.spilledPartitions, 0);
-          ASSERT_EQ(spillStats.spilledFiles, 0);
+        .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
+          const auto statsPair = taskSpilledStats(*task);
+          ASSERT_EQ(statsPair.first.spilledRows, 0);
+          ASSERT_EQ(statsPair.first.spilledBytes, 0);
+          ASSERT_EQ(statsPair.first.spilledPartitions, 0);
+          ASSERT_EQ(statsPair.first.spilledFiles, 0);
+          ASSERT_EQ(statsPair.second.spilledRows, 0);
+          ASSERT_EQ(statsPair.second.spilledBytes, 0);
+          ASSERT_EQ(statsPair.second.spilledPartitions, 0);
+          ASSERT_EQ(statsPair.second.spilledFiles, 0);
+          verifyTaskSpilledRuntimeStats(*task, false);
           ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
         })
         .run();
@@ -2031,7 +2168,8 @@ TEST_P(MultiThreadedHashJoinTest, antiJoinWithFilterAndEmptyBuild) {
 
 TEST_P(MultiThreadedHashJoinTest, leftJoin) {
   // Left side keys are [0, 1, 2,..20].
-  // Use 3-rd column as row number to allow for asserting the order of results.
+  // Use 3-rd column as row number to allow for asserting the order of
+  // results.
   std::vector<RowVectorPtr> probeVectors = mergeBatches(
       makeBatches(
           3,
@@ -2155,7 +2293,8 @@ TEST_P(MultiThreadedHashJoinTest, leftJoinWithEmptyBuild) {
 
 TEST_P(MultiThreadedHashJoinTest, leftJoinWithNoJoin) {
   // Left side keys are [0, 1, 2,..10].
-  // Use 3-rd column as row number to allow for asserting the order of results.
+  // Use 3-rd column as row number to allow for asserting the order of
+  // results.
   std::vector<RowVectorPtr> probeVectors = mergeBatches(
       makeBatches(
           3,
@@ -2212,7 +2351,8 @@ TEST_P(MultiThreadedHashJoinTest, leftJoinWithNoJoin) {
 
 TEST_P(MultiThreadedHashJoinTest, leftJoinWithAllMatch) {
   // Left side keys are [0, 1, 2,..10].
-  // Use 3-rd column as row number to allow for asserting the order of results.
+  // Use 3-rd column as row number to allow for asserting the order of
+  // results.
   std::vector<RowVectorPtr> probeVectors = mergeBatches(
       makeBatches(
           3,
@@ -2270,7 +2410,8 @@ TEST_P(MultiThreadedHashJoinTest, leftJoinWithAllMatch) {
 
 TEST_P(MultiThreadedHashJoinTest, leftJoinWithFilter) {
   // Left side keys are [0, 1, 2,..10].
-  // Use 3-rd column as row number to allow for asserting the order of results.
+  // Use 3-rd column as row number to allow for asserting the order of
+  // results.
   std::vector<RowVectorPtr> probeVectors = mergeBatches(
       makeBatches(
           3,
@@ -4390,8 +4531,8 @@ TEST_F(HashJoinTest, memoryUsage) {
 }
 
 /// Test an edge case in producing small output batches where the logic to
-/// calculate the set of probe-side rows to load lazy vectors for was triggering
-/// a crash.
+/// calculate the set of probe-side rows to load lazy vectors for was
+/// triggering a crash.
 TEST_F(HashJoinTest, smallOutputBatchSize) {
   // Setup probe data with 50 non-null matching keys followed by 50 null
   // keys: 1, 2, 1, 2,...null, null.
@@ -4459,21 +4600,23 @@ TEST_F(HashJoinTest, spillFileSize) {
           if (!hasSpill) {
             return;
           }
-          const auto stats = taskSpilledStats(*task);
-          const int32_t numPartitions = stats.spilledPartitions;
+          const auto statsPair = taskSpilledStats(*task);
+          const int32_t numPartitions = statsPair.first.spilledPartitions;
+          ASSERT_EQ(statsPair.second.spilledPartitions, numPartitions);
           const auto fileSizes = numTaskSpillFiles(*task);
           if (spillFileSize != 1) {
             ASSERT_EQ(fileSizes.first, numPartitions);
           } else {
             ASSERT_GT(fileSizes.first, numPartitions);
           }
+          verifyTaskSpilledRuntimeStats(*task, true);
         })
         .run();
   }
 }
 
-// The test is to verify if the hash build reservation has been released on task
-// error.
+// The test is to verify if the hash build reservation has been released on
+// task error.
 DEBUG_ONLY_TEST_F(HashJoinTest, buildReservationReleaseCheck) {
   std::vector<RowVectorPtr> probeVectors =
       makeBatches(1, [&](int32_t /*unused*/) {
@@ -4675,13 +4818,19 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringInputProcessing) {
           .referenceQuery(
               "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
           .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
-            const auto spillStats = taskSpilledStats(*task);
+            const auto statsPair = taskSpilledStats(*task);
             if (testData.expectedReclaimable) {
-              ASSERT_GT(spillStats.spilledBytes, 0);
-              ASSERT_EQ(spillStats.spilledPartitions, 4);
+              ASSERT_GT(statsPair.first.spilledBytes, 0);
+              ASSERT_EQ(statsPair.first.spilledPartitions, 4);
+              ASSERT_GT(statsPair.second.spilledBytes, 0);
+              ASSERT_EQ(statsPair.second.spilledPartitions, 4);
+              verifyTaskSpilledRuntimeStats(*task, true);
             } else {
-              ASSERT_EQ(spillStats.spilledBytes, 0);
-              ASSERT_EQ(spillStats.spilledPartitions, 0);
+              ASSERT_EQ(statsPair.first.spilledBytes, 0);
+              ASSERT_EQ(statsPair.first.spilledPartitions, 0);
+              ASSERT_EQ(statsPair.second.spilledBytes, 0);
+              ASSERT_EQ(statsPair.second.spilledPartitions, 0);
+              verifyTaskSpilledRuntimeStats(*task, false);
             }
           })
           .run();
@@ -4807,9 +4956,12 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringReserve) {
         .referenceQuery(
             "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
         .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
-          const auto spillStats = taskSpilledStats(*task);
-          ASSERT_GT(spillStats.spilledBytes, 0);
-          ASSERT_EQ(spillStats.spilledPartitions, 4);
+          const auto statsPair = taskSpilledStats(*task);
+          ASSERT_GT(statsPair.first.spilledBytes, 0);
+          ASSERT_EQ(statsPair.first.spilledPartitions, 4);
+          ASSERT_GT(statsPair.second.spilledBytes, 0);
+          ASSERT_EQ(statsPair.second.spilledPartitions, 4);
+          verifyTaskSpilledRuntimeStats(*task, true);
         })
         .run();
   });
@@ -4928,9 +5080,12 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringAllocation) {
           .referenceQuery(
               "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
           .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
-            const auto spillStats = taskSpilledStats(*task);
-            ASSERT_EQ(spillStats.spilledBytes, 0);
-            ASSERT_EQ(spillStats.spilledPartitions, 0);
+            const auto statsPair = taskSpilledStats(*task);
+            ASSERT_EQ(statsPair.first.spilledBytes, 0);
+            ASSERT_EQ(statsPair.first.spilledPartitions, 0);
+            ASSERT_EQ(statsPair.second.spilledBytes, 0);
+            ASSERT_EQ(statsPair.second.spilledPartitions, 0);
+            verifyTaskSpilledRuntimeStats(*task, false);
           })
           .run();
     });
@@ -5041,9 +5196,12 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringOutputProcessing) {
           .referenceQuery(
               "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
           .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
-            const auto spillStats = taskSpilledStats(*task);
-            ASSERT_EQ(spillStats.spilledBytes, 0);
-            ASSERT_EQ(spillStats.spilledPartitions, 0);
+            const auto statsPair = taskSpilledStats(*task);
+            ASSERT_EQ(statsPair.first.spilledBytes, 0);
+            ASSERT_EQ(statsPair.first.spilledPartitions, 0);
+            ASSERT_EQ(statsPair.second.spilledBytes, 0);
+            ASSERT_EQ(statsPair.second.spilledPartitions, 0);
+            verifyTaskSpilledRuntimeStats(*task, false);
           })
           .run();
     });
@@ -5175,9 +5333,11 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringWaitForProbe) {
         .referenceQuery(
             "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
         .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
-          const auto spillStats = taskSpilledStats(*task);
-          ASSERT_GT(spillStats.spilledBytes, 0);
-          ASSERT_EQ(spillStats.spilledPartitions, 4);
+          const auto statsPair = taskSpilledStats(*task);
+          ASSERT_GT(statsPair.first.spilledBytes, 0);
+          ASSERT_EQ(statsPair.first.spilledPartitions, 4);
+          ASSERT_GT(statsPair.second.spilledBytes, 0);
+          ASSERT_EQ(statsPair.second.spilledPartitions, 4);
         })
         .run();
   });

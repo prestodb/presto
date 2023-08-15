@@ -271,6 +271,65 @@ void Operator::recordBlockingTime(uint64_t start, BlockingReason reason) {
       fmt::format("blocked{}Times", blockReason), RuntimeCounter(1));
 }
 
+void Operator::recordSpillStats(const SpillStats& spillStats) {
+  VELOX_CHECK(noMoreInput_);
+  auto lockedStats = stats_.wlock();
+  lockedStats->spilledBytes += spillStats.spilledBytes;
+  lockedStats->spilledRows += spillStats.spilledRows;
+  lockedStats->spilledPartitions += spillStats.spilledPartitions;
+  lockedStats->spilledFiles += spillStats.spilledFiles;
+  if (spillStats.spillFillTimeUs != 0) {
+    lockedStats->addRuntimeStat(
+        "spillFillTime",
+        RuntimeCounter{
+            static_cast<int64_t>(
+                spillStats.spillFillTimeUs *
+                Timestamp::kNanosecondsInMicrosecond),
+            RuntimeCounter::Unit::kNanos});
+  }
+  if (spillStats.spillSortTimeUs != 0) {
+    lockedStats->addRuntimeStat(
+        "spillSortTime",
+        RuntimeCounter{
+            static_cast<int64_t>(
+                spillStats.spillSortTimeUs *
+                Timestamp::kNanosecondsInMicrosecond),
+            RuntimeCounter::Unit::kNanos});
+  }
+  if (spillStats.spillSerializationTimeUs != 0) {
+    lockedStats->addRuntimeStat(
+        "spillSerializationTime",
+        RuntimeCounter{
+            static_cast<int64_t>(
+                spillStats.spillSerializationTimeUs *
+                Timestamp::kNanosecondsInMicrosecond),
+            RuntimeCounter::Unit::kNanos});
+  }
+  if (spillStats.spillFlushTimeUs != 0) {
+    lockedStats->addRuntimeStat(
+        "spillFlushTime",
+        RuntimeCounter{
+            static_cast<int64_t>(
+                spillStats.spillFlushTimeUs *
+                Timestamp::kNanosecondsInMicrosecond),
+            RuntimeCounter::Unit::kNanos});
+  }
+  if (spillStats.spillDiskWrites != 0) {
+    lockedStats->addRuntimeStat(
+        "spillDiskWrites",
+        RuntimeCounter{static_cast<int64_t>(spillStats.spillDiskWrites)});
+  }
+  if (spillStats.spillWriteTimeUs != 0) {
+    lockedStats->addRuntimeStat(
+        "spillWriteTime",
+        RuntimeCounter{
+            static_cast<int64_t>(
+                spillStats.spillWriteTimeUs *
+                Timestamp::kNanosecondsInMicrosecond),
+            RuntimeCounter::Unit::kNanos});
+  }
+}
+
 std::string Operator::toString() const {
   std::stringstream out;
   if (auto task = operatorCtx_->task()) {

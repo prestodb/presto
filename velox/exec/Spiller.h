@@ -131,7 +131,7 @@ class Spiller {
   // partition by default. It is only used by kOrderBy spiller type as for now.
   Spiller(
       Type type,
-      RowContainer* FOLLY_NONNULL container,
+      RowContainer* container,
       RowContainer::Eraser eraser,
       RowTypePtr rowType,
       int32_t numSortingKeys,
@@ -140,7 +140,7 @@ class Spiller {
       uint64_t targetFileSize,
       uint64_t minSpillRunSize,
       common::CompressionKind compressionKind,
-      memory::MemoryPool& pool,
+      memory::MemoryPool* pool,
       folly::Executor* executor);
 
   Spiller(
@@ -151,7 +151,7 @@ class Spiller {
       uint64_t targetFileSize,
       uint64_t minSpillRunSize,
       common::CompressionKind compressionKind,
-      memory::MemoryPool& pool,
+      memory::MemoryPool* pool,
       folly::Executor* executor);
 
   Spiller(
@@ -166,7 +166,7 @@ class Spiller {
       uint64_t targetFileSize,
       uint64_t minSpillRunSize,
       common::CompressionKind compressionKind,
-      memory::MemoryPool& pool,
+      memory::MemoryPool* pool,
       folly::Executor* executor);
 
   /// Spills rows from 'this' until there are under 'targetRows' rows
@@ -262,7 +262,7 @@ class Spiller {
 
   /// Indicates if any one of the partitions has spilled.
   bool isAnySpilled() const {
-    return state_.spilledPartitions() != 0;
+    return state_.isAnyPartitionSpilled();
   }
 
   /// Returns the spilled partition number set.
@@ -277,57 +277,11 @@ class Spiller {
     }
   }
 
-  /// Define the spiller stats.
-  struct Stats {
-    uint64_t spilledBytes{0};
-    uint64_t spilledRows{0};
-    /// NOTE: when we sum up the stats from a group of spill operators, it is
-    /// the total number of spilled partitions X number of operators.
-    uint32_t spilledPartitions{0};
-    uint64_t spilledFiles{0};
+  SpillStats stats() const;
 
-    Stats(
-        uint64_t _spilledBytes,
-        uint64_t _spilledRows,
-        uint32_t _spilledPartitions,
-        uint64_t _spilledFiles)
-        : spilledBytes(_spilledBytes),
-          spilledRows(_spilledRows),
-          spilledPartitions(_spilledPartitions),
-          spilledFiles(_spilledFiles) {}
-
-    Stats() = default;
-
-    Stats& operator+=(const Stats& other) {
-      spilledBytes += other.spilledBytes;
-      spilledRows += other.spilledRows;
-      spilledPartitions += other.spilledPartitions;
-      spilledFiles += other.spilledFiles;
-      return *this;
-    }
-  };
-
-  Stats stats() const {
-    return Stats{
-        state_.spilledBytes(),
-        spilledRows_,
-        state_.spilledPartitions(),
-        spilledFiles()};
-  }
-
-  /// Return the number of spilled files we have.
-  uint64_t spilledFiles() const {
-    return state_.spilledFiles();
-  }
-
-  // Returns the MemoryAllocator to use for intermediate storage for
-  // spilling. This is not directly the RowContainer's memory because
-  // this is usually at limit when starting spilling.
-  static memory::MemoryAllocator& allocator();
-
-  // Global memory pool for spill intermediates. ~1MB per spill executor thread
-  // is the expected peak utilization.
-  static memory::MemoryPool& spillPool();
+  /// Global memory pool for spill intermediates. ~1MB per spill executor thread
+  /// is the expected peak utilization.
+  static memory::MemoryPool* pool();
 
   std::string toString() const;
 
@@ -424,15 +378,28 @@ class Spiller {
   // non hash join types of spilling.
   bool needSort() const;
 
+  void updateSpillFillTime(uint64_t timeUs);
+
+  void updateSpillSortTime(uint64_t timeUs);
+
   const Type type_;
   // NOTE: for hash join probe type, there is no associated row container for
   // the spiller.
-  RowContainer* const container_; // Not owned.
+  RowContainer* const container_;
+  folly::Executor* const executor_;
+  memory::MemoryPool* const pool_;
   const RowContainer::Eraser eraser_;
   const HashBitRange bits_;
   const RowTypePtr rowType_;
   const uint64_t minSpillRunSize_;
 
+  // True if all rows of spilling partitions are in 'spillRuns_', so
+  // that one can start reading these back. This means that the rows
+  // that are not written out and deleted will be captured by
+  // spillMergeStreamOverRows().
+  bool finalized_{false};
+
+  folly::Synchronized<SpillStats> stats_;
   SpillState state_;
 
   // Indices into 'spillRuns_' that are currently getting spilled.
@@ -440,18 +407,5 @@ class Spiller {
 
   // One spill run for each partition of spillable data.
   std::vector<SpillRun> spillRuns_;
-
-  // True if all rows of spilling partitions are in 'spillRuns_', so
-  // that one can start reading these back. This means that the rows
-  // that are not written out and deleted will be captured by
-  // spillMergeStreamOverRows().
-  bool spillFinalized_{false};
-
-  memory::MemoryPool& pool_;
-
-  folly::Executor* const executor_;
-
-  uint64_t spilledRows_{0};
 };
-
 } // namespace facebook::velox::exec

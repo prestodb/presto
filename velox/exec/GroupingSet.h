@@ -97,8 +97,11 @@ class GroupingSet {
   void spill(int64_t targetRows, int64_t targetBytes);
 
   /// Returns the spiller stats including total bytes and rows spilled so far.
-  Spiller::Stats spilledStats() const {
-    return spiller_ != nullptr ? spiller_->stats() : Spiller::Stats{};
+  std::optional<SpillStats> spilledStats() const {
+    if (spiller_ == nullptr) {
+      return std::nullopt;
+    }
+    return spiller_->stats();
   }
 
   /// Returns the hashtable stats.

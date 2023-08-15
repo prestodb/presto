@@ -154,9 +154,9 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     spillIndicesBuffers_.resize(numPartitions_);
     numPartitionInputs_.resize(numPartitions_, 0);
     // Check spiller memory pool properties.
-    ASSERT_EQ(Spiller::spillPool().name(), "spilling");
-    ASSERT_EQ(Spiller::spillPool().kind(), memory::MemoryPool::Kind::kLeaf);
-    ASSERT_TRUE(Spiller::spillPool().threadSafe());
+    ASSERT_EQ(Spiller::pool()->name(), "spilling");
+    ASSERT_EQ(Spiller::pool()->kind(), memory::MemoryPool::Kind::kLeaf);
+    ASSERT_TRUE(Spiller::pool()->threadSafe());
   }
 
  protected:
@@ -174,6 +174,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
         ascending,
         makeError));
     constexpr int32_t kNumRows = 5'000;
+    const auto prevGStats = globalSpillStats();
 
     setupSpillData(
         rowType_, numKeys_, kNumRows, numDuplicates, [&](RowVectorPtr rows) {
@@ -190,14 +191,17 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       return;
     }
     // Verify the spilled file exist on file system.
-    const auto numSpilledFiles = spiller_->spilledFiles();
-    EXPECT_GT(numSpilledFiles, 0);
+    auto stats = spiller_->stats();
+    const auto numSpilledFiles = stats.spilledFiles;
+    ASSERT_GT(numSpilledFiles, 0);
     const auto spilledFileSet = spiller_->state().testingSpilledFilePaths();
-    EXPECT_EQ(numSpilledFiles, spilledFileSet.size());
+    ASSERT_EQ(numSpilledFiles, spilledFileSet.size());
 
+    uint64_t totalSpilledBytes{0};
     for (auto spilledFile : spilledFileSet) {
       auto readFile = fs_->openFileForRead(spilledFile);
-      EXPECT_NE(readFile.get(), nullptr);
+      ASSERT_NE(readFile.get(), nullptr);
+      totalSpilledBytes += readFile->size();
     }
     if (spillPct == 100) {
       ASSERT_TRUE(spiller_->isAnySpilled());
@@ -207,32 +211,79 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     Spiller::SpillRows unspilledPartitionRows = spiller_->finishSpill();
     SpillPartitionNumSet expectedSpillPartitions;
     if (spillPct == 100) {
-      EXPECT_TRUE(unspilledPartitionRows.empty());
-      EXPECT_EQ(0, rowContainer_->numRows());
-      EXPECT_EQ(numPartitions_, spiller_->stats().spilledPartitions);
-      EXPECT_EQ(numSpilledFiles, spiller_->stats().spilledFiles);
+      ASSERT_TRUE(unspilledPartitionRows.empty());
+      ASSERT_EQ(0, rowContainer_->numRows());
+      ASSERT_EQ(numPartitions_, spiller_->stats().spilledPartitions);
+      ASSERT_EQ(numSpilledFiles, spiller_->stats().spilledFiles);
       for (int i = 0; i < numPartitions_; ++i) {
         expectedSpillPartitions.insert(i);
       }
-      EXPECT_EQ(
+      ASSERT_EQ(
           expectedSpillPartitions, spiller_->state().spilledPartitionSet());
     } else {
-      EXPECT_GE(numPartitions_, spiller_->stats().spilledPartitions);
-      EXPECT_GE(numPartitions_, spiller_->state().spilledPartitionSet().size());
-      EXPECT_GE(numSpilledFiles, spiller_->stats().spilledFiles);
+      ASSERT_GE(numPartitions_, spiller_->stats().spilledPartitions);
+      ASSERT_GE(numPartitions_, spiller_->state().spilledPartitionSet().size());
+      ASSERT_GE(numSpilledFiles, spiller_->stats().spilledFiles);
     }
     // Assert we can't call any spill function after the spiller has been
     // finalized.
-    ASSERT_ANY_THROW(spiller_->spill({0}));
-    ASSERT_ANY_THROW(spiller_->spill(0, nullptr));
-    ASSERT_ANY_THROW(spiller_->spill(100, 100));
+    VELOX_ASSERT_THROW(spiller_->spill({0}), "");
+    VELOX_ASSERT_THROW(spiller_->spill(0, nullptr), "");
+    VELOX_ASSERT_THROW(spiller_->spill(100, 100), "");
 
     verifySortedSpillData(outputBatchSize);
+
+    stats = spiller_->stats();
+    ASSERT_EQ(stats.spilledFiles, spilledFileSet.size());
+    ASSERT_GT(stats.spilledRows, 0);
+    if (spillPct == 100) {
+      ASSERT_EQ(stats.spilledPartitions, expectedSpillPartitions.size());
+    } else {
+      ASSERT_LE(stats.spilledPartitions, numPartitions_);
+    }
+    ASSERT_EQ(stats.spilledBytes, totalSpilledBytes);
+    ASSERT_GT(stats.spillWriteTimeUs, 0);
+    ASSERT_GT(stats.spillSortTimeUs, 0);
+    ASSERT_GT(stats.spillFlushTimeUs, 0);
+    ASSERT_GT(stats.spillFillTimeUs, 0);
+    ASSERT_GT(stats.spillSerializationTimeUs, 0);
+    ASSERT_GT(stats.spillDiskWrites, 0);
+
+    const auto newGStats = globalSpillStats();
+    ASSERT_EQ(
+        prevGStats.spilledFiles + stats.spilledFiles, newGStats.spilledFiles);
+    ASSERT_EQ(
+        prevGStats.spilledRows + stats.spilledRows, newGStats.spilledRows);
+    ASSERT_EQ(
+        prevGStats.spilledPartitions + stats.spilledPartitions,
+        newGStats.spilledPartitions);
+    ASSERT_EQ(
+        prevGStats.spilledBytes + stats.spilledBytes, newGStats.spilledBytes);
+    ASSERT_EQ(
+        prevGStats.spillWriteTimeUs + stats.spillWriteTimeUs,
+        newGStats.spillWriteTimeUs);
+    ASSERT_EQ(
+        prevGStats.spillSortTimeUs + stats.spillSortTimeUs,
+        newGStats.spillSortTimeUs);
+    ASSERT_EQ(
+        prevGStats.spillFlushTimeUs + stats.spillFlushTimeUs,
+        newGStats.spillFlushTimeUs)
+        << prevGStats.spillFlushTimeUs << " " << stats.spillFlushTimeUs << " "
+        << newGStats.spillFlushTimeUs;
+    ASSERT_EQ(
+        prevGStats.spillFillTimeUs + stats.spillFillTimeUs,
+        newGStats.spillFillTimeUs);
+    ASSERT_EQ(
+        prevGStats.spillSerializationTimeUs + stats.spillSerializationTimeUs,
+        newGStats.spillSerializationTimeUs);
+    ASSERT_EQ(
+        prevGStats.spillDiskWrites + stats.spillDiskWrites,
+        newGStats.spillDiskWrites);
 
     spiller_.reset();
     // Verify the spilled files are still there after spiller destruction.
     for (const auto& spilledFile : spilledFileSet) {
-      EXPECT_NO_THROW(fs_->exists(spilledFile));
+      ASSERT_NO_THROW(fs_->exists(spilledFile));
     }
   }
 
@@ -412,7 +463,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           targetFileSize,
           minSpillRunSize,
           compressionKind_,
-          *pool_,
+          pool_.get(),
           executor());
     } else if (type_ == Spiller::Type::kOrderBy) {
       // We spill 'data' in one partition in type of kOrderBy, otherwise in 4
@@ -428,7 +479,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           targetFileSize,
           minSpillRunSize,
           compressionKind_,
-          *pool_,
+          pool_.get(),
           executor());
     } else {
       spiller_ = std::make_unique<Spiller>(
@@ -443,7 +494,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           targetFileSize,
           minSpillRunSize,
           compressionKind_,
-          *pool_,
+          pool_.get(),
           executor());
     }
     if (type_ == Spiller::Type::kOrderBy) {
@@ -637,6 +688,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     // them by partition.
     std::vector<std::unique_ptr<Spiller>> spillers;
     for (int iter = 0; iter < numSpillers; ++iter) {
+      const auto prevGStats = globalSpillStats();
       setupSpillData(
           rowType_,
           numKeys_,
@@ -646,19 +698,19 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           {});
       setupSpiller(targetFileSize, 0, false);
       // Can't append without marking a partition as spilling.
-      ASSERT_ANY_THROW(spiller_->spill(0, rowVector_));
+      VELOX_ASSERT_THROW(spiller_->spill(0, rowVector_), "");
       // Can't create sorted stream reader from non-sorted spiller.
-      ASSERT_ANY_THROW(spiller_->startMerge(0));
+      VELOX_ASSERT_THROW(spiller_->startMerge(0), "");
 
       splitByPartition(rowVector_, spillHashFunction, inputsByPartition);
-
       std::vector<Spiller::SpillableStats> statsList;
       if (type_ == Spiller::Type::kHashJoinProbe) {
         spiller_->setPartitionsSpilled(spillPartitionNumSet);
 #ifndef NDEBUG
-        ASSERT_ANY_THROW(spiller_->setPartitionsSpilled(spillPartitionNumSet));
+        VELOX_ASSERT_THROW(
+            spiller_->setPartitionsSpilled(spillPartitionNumSet), "");
 #endif
-        ASSERT_ANY_THROW(spiller_->fillSpillRuns(statsList););
+        VELOX_ASSERT_THROW(spiller_->fillSpillRuns(statsList), "");
       } else {
         spiller_->fillSpillRuns(statsList);
         spiller_->spill(spillPartitionNumSet);
@@ -680,18 +732,86 @@ class SpillerTest : public exec::test::RowContainerTestBase {
             }
           }
         } else {
-          ASSERT_ANY_THROW(spiller_->fillSpillRuns(statsList););
+          VELOX_ASSERT_THROW(spiller_->fillSpillRuns(statsList), "");
         }
       }
       // Assert that non-sorted spiller type doesn't support incremental
       // spilling.
-      ASSERT_ANY_THROW(spiller_->spill(100, 100));
+      VELOX_ASSERT_THROW(spiller_->spill(100, 100), "");
+
+      const auto stats = spiller_->stats();
+      ASSERT_GE(stats.spilledFiles, 0);
+      if (type_ == Spiller::Type::kHashJoinProbe) {
+        if (numAppendBatches == 0) {
+          ASSERT_EQ(stats.spilledRows, 0);
+          ASSERT_EQ(stats.spilledBytes, 0);
+          ASSERT_EQ(stats.spillWriteTimeUs, 0);
+          ASSERT_EQ(stats.spillFlushTimeUs, 0);
+          ASSERT_EQ(stats.spillSerializationTimeUs, 0);
+          ASSERT_EQ(stats.spillDiskWrites, 0);
+        } else {
+          ASSERT_GT(stats.spilledRows, 0);
+          ASSERT_GT(stats.spilledBytes, 0);
+          ASSERT_GT(stats.spillWriteTimeUs, 0);
+          ASSERT_GT(stats.spillFlushTimeUs, 0);
+          ASSERT_GT(stats.spillSerializationTimeUs, 0);
+          ASSERT_GT(stats.spillDiskWrites, 0);
+        }
+      } else {
+        ASSERT_GT(stats.spilledRows, 0);
+        ASSERT_GT(stats.spilledBytes, 0);
+        ASSERT_GT(stats.spillWriteTimeUs, 0);
+        ASSERT_GT(stats.spillFlushTimeUs, 0);
+        ASSERT_GT(stats.spillSerializationTimeUs, 0);
+        ASSERT_GT(stats.spillDiskWrites, 0);
+      }
+      ASSERT_GT(stats.spilledPartitions, 0);
+      ASSERT_EQ(stats.spillSortTimeUs, 0);
+      if (type_ == Spiller::Type::kHashJoinBuild) {
+        ASSERT_GT(stats.spillFillTimeUs, 0);
+      } else {
+        ASSERT_EQ(stats.spillFillTimeUs, 0);
+      }
+
+      const auto newGStats = globalSpillStats();
+      ASSERT_EQ(
+          prevGStats.spilledFiles + stats.spilledFiles, newGStats.spilledFiles);
+      ASSERT_EQ(
+          prevGStats.spilledRows + stats.spilledRows, newGStats.spilledRows);
+      ASSERT_EQ(
+          prevGStats.spilledPartitions + stats.spilledPartitions,
+          newGStats.spilledPartitions);
+      ASSERT_EQ(
+          prevGStats.spilledBytes + stats.spilledBytes, newGStats.spilledBytes);
+      ASSERT_EQ(
+          prevGStats.spillWriteTimeUs + stats.spillWriteTimeUs,
+          newGStats.spillWriteTimeUs);
+      ASSERT_EQ(
+          prevGStats.spillSortTimeUs + stats.spillSortTimeUs,
+          newGStats.spillSortTimeUs);
+      ASSERT_EQ(
+          prevGStats.spillFlushTimeUs + stats.spillFlushTimeUs,
+          newGStats.spillFlushTimeUs)
+          << prevGStats.spillFlushTimeUs << " " << stats.spillFlushTimeUs << " "
+          << newGStats.spillFlushTimeUs;
+      ASSERT_EQ(
+          prevGStats.spillFillTimeUs + stats.spillFillTimeUs,
+          newGStats.spillFillTimeUs);
+      ASSERT_EQ(
+          prevGStats.spillSerializationTimeUs + stats.spillSerializationTimeUs,
+          newGStats.spillSerializationTimeUs);
+      ASSERT_EQ(
+          prevGStats.spillDiskWrites + stats.spillDiskWrites,
+          newGStats.spillDiskWrites);
+
       spillers.push_back(std::move(spiller_));
     }
 
     // Read back data from all the spilled partitions and verify.
     verifyNonSortedSpillData(
         std::move(spillers), spillPartitionNumSet, inputsByPartition);
+    // Spilled file stats should be updated after finalizing spiller.
+    ASSERT_GT(globalSpillStats().spilledFiles, 0);
   }
 
   void verifyNonSortedSpillData(
@@ -1021,12 +1141,26 @@ TEST_P(NoHashJoinNoOrderBy, spillWithEmptyPartitions) {
             << partition;
       }
     }
-    const auto numSpilledFiles = spiller_->spilledFiles();
-    ASSERT_EQ(numNonEmptyPartitions, numSpilledFiles);
+    const auto stats = spiller_->stats();
+    ASSERT_EQ(stats.spilledFiles, numNonEmptyPartitions);
+    ASSERT_EQ(stats.spilledRows, numRows);
+    ASSERT_EQ(stats.spilledPartitions, numNonEmptyPartitions);
+    ASSERT_GT(stats.spilledBytes, 0);
+    ASSERT_GT(stats.spillWriteTimeUs, 0);
+    ASSERT_GT(stats.spillSortTimeUs, 0);
+    ASSERT_GT(stats.spillFlushTimeUs, 0);
+    ASSERT_GT(stats.spillFillTimeUs, 0);
+    ASSERT_GT(stats.spillSerializationTimeUs, 0);
+    ASSERT_GT(stats.spillDiskWrites, 0);
     // Expect no non-spilling partitions.
-    EXPECT_TRUE(spiller_->finishSpill().empty());
+    ASSERT_TRUE(spiller_->finishSpill().empty());
+    const auto finalStats = spiller_->stats();
+    ASSERT_GT(finalStats, stats);
+    ASSERT_GT(finalStats.spillFillTimeUs, stats.spillFillTimeUs);
+    ASSERT_EQ(finalStats.spilledFiles, numNonEmptyPartitions);
+    ASSERT_EQ(finalStats.spilledRows, numRows);
+    ASSERT_EQ(finalStats.spilledPartitions, numNonEmptyPartitions);
     verifySortedSpillData();
-    EXPECT_EQ(numRows, spiller_->stats().spilledRows);
   }
 }
 
@@ -1084,7 +1218,8 @@ TEST_P(NoHashJoinNoOrderBy, spillWithNonSpillingPartitions) {
     }
     ASSERT_TRUE(spiller_->isAnySpilled());
     ASSERT_FALSE(spiller_->isAllSpilled());
-    ASSERT_EQ(1, spiller_->spilledFiles());
+    const auto stats = spiller_->stats();
+    ASSERT_EQ(1, stats.spilledFiles);
     // Expect non-spilling partition.
     EXPECT_FALSE(spiller_->finishSpill().empty());
     verifySortedSpillData();
@@ -1317,13 +1452,13 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     testing::ValuesIn(HashJoinBuildOnly::getTestParams()));
 
 TEST(SpillerTest, stats) {
-  Spiller::Stats sumStats;
+  SpillStats sumStats;
   EXPECT_EQ(0, sumStats.spilledRows);
   EXPECT_EQ(0, sumStats.spilledBytes);
   EXPECT_EQ(0, sumStats.spilledPartitions);
   EXPECT_EQ(0, sumStats.spilledFiles);
 
-  Spiller::Stats stats;
+  SpillStats stats;
   stats.spilledRows = 10;
   stats.spilledBytes = 100;
   stats.spilledPartitions = 2;

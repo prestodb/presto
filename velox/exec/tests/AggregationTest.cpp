@@ -1071,8 +1071,37 @@ TEST_F(AggregationTest, spillWithMemoryLimit) {
                         std::to_string(testData.aggregationMemLimit))
                     .assertResults(results);
 
-    auto stats = task->taskStats().pipelineStats;
-    ASSERT_EQ(testData.expectSpill, stats[0].operatorStats[1].spilledBytes > 0);
+    auto stats = task->taskStats().pipelineStats[0].operatorStats[1];
+    ASSERT_EQ(testData.expectSpill, stats.spilledBytes > 0);
+    if (testData.expectSpill) {
+      ASSERT_GT(stats.spilledRows, 0);
+      ASSERT_GT(stats.spilledBytes, 0);
+      ASSERT_GT(stats.spilledPartitions, 0);
+      ASSERT_GT(stats.spilledFiles, 0);
+      ASSERT_GT(stats.runtimeStats["spillFillTime"].sum, 0);
+      ASSERT_GT(stats.runtimeStats["spillSortTime"].sum, 0);
+      ASSERT_GT(stats.runtimeStats["spillSerializationTime"].sum, 0);
+      ASSERT_GT(stats.runtimeStats["spillFlushTime"].sum, 0);
+      ASSERT_GT(stats.runtimeStats["spillDiskWrites"].sum, 0);
+      ASSERT_GT(stats.runtimeStats["spillWriteTime"].sum, 0);
+    } else {
+      ASSERT_EQ(stats.spilledRows, 0);
+      ASSERT_EQ(stats.spilledBytes, 0);
+      ASSERT_EQ(stats.spilledPartitions, 0);
+      ASSERT_EQ(stats.spilledFiles, 0);
+      ASSERT_EQ(stats.runtimeStats["spillFillTime"].sum, 0);
+      ASSERT_EQ(stats.runtimeStats["spillSortTime"].sum, 0);
+      ASSERT_EQ(stats.runtimeStats["spillSerializationTime"].sum, 0);
+      ASSERT_EQ(stats.runtimeStats["spillFlushTime"].sum, 0);
+      ASSERT_EQ(stats.runtimeStats["spillDiskWrites"].sum, 0);
+      ASSERT_EQ(stats.runtimeStats["spillWriteTime"].sum, 0);
+    }
+    ASSERT_EQ(
+        stats.runtimeStats["spillSerializationTime"].count,
+        stats.runtimeStats["spillFlushTime"].count);
+    ASSERT_EQ(
+        stats.runtimeStats["spillDiskWrites"].count,
+        stats.runtimeStats["spillWriteTime"].count);
     OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
   }
 }

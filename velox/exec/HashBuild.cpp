@@ -220,7 +220,7 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
       spillConfig.maxFileSize,
       spillConfig.minSpillRunSize,
       spillConfig.compressionKind,
-      Spiller::spillPool(),
+      Spiller::pool(),
       spillConfig.executor);
 
   const int32_t numPartitions = spiller_->hashBits().numPartitions();
@@ -774,28 +774,18 @@ bool HashBuild::finishHashBuild() {
   std::vector<std::unique_ptr<BaseHashTable>> otherTables;
   otherTables.reserve(peers.size());
   SpillPartitionSet spillPartitions;
-  Spiller::Stats spillStats;
   for (auto* build : otherBuilds) {
     VELOX_CHECK_NOT_NULL(build->table_);
     otherTables.push_back(std::move(build->table_));
     if (build->spiller_ != nullptr) {
-      spillStats += build->spiller_->stats();
       build->spiller_->finishSpill(spillPartitions);
+      build->recordSpillStats();
     }
   }
 
   if (spiller_ != nullptr) {
-    spillStats += spiller_->stats();
-
-    {
-      auto lockedStats = stats_.wlock();
-      lockedStats->spilledBytes += spillStats.spilledBytes;
-      lockedStats->spilledRows += spillStats.spilledRows;
-      lockedStats->spilledPartitions += spillStats.spilledPartitions;
-      lockedStats->spilledFiles += spillStats.spilledFiles;
-    }
-
     spiller_->finishSpill(spillPartitions);
+    recordSpillStats();
 
     // Verify all the spilled partitions are not empty as we won't spill on
     // an empty one.
@@ -822,6 +812,13 @@ bool HashBuild::finishHashBuild() {
   // table build.
   pool()->release();
   return true;
+}
+
+void HashBuild::recordSpillStats() {
+  VELOX_CHECK_NOT_NULL(spiller_);
+  const auto spillStats = spiller_->stats();
+  VELOX_CHECK_EQ(spillStats.spillSortTimeUs, 0);
+  Operator::recordSpillStats(spillStats);
 }
 
 void HashBuild::ensureTableFits(uint64_t numRows) {

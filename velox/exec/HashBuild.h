@@ -116,6 +116,8 @@ class HashBuild final : public Operator {
     return spillConfig_.has_value() ? &spillConfig_.value() : nullptr;
   }
 
+  void recordSpillStats();
+
   // Indicates if the input is read from spill data or not.
   bool isInputFromSpill() const;
 

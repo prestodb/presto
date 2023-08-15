@@ -47,8 +47,8 @@ class TestValue {
       const std::string& injectionPoint,
       std::function<void(T*)> injectionCb);
 
-  /// Invoked by the test code to unregisterFactory a callback hook at the
-  /// specified execution point.
+  /// Invoked by the test code to unregister a callback hook at the specified
+  /// execution point.
   static void clear(const std::string& injectionPoint);
 
   /// Invoked by the production code to try to invoke the test callback hook

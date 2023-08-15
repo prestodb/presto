@@ -103,7 +103,7 @@ class HashJoinBridgeTest : public testing::Test,
           std::vector<CompareFlags>({}),
           tempDir_->path + "/Spill",
           common::CompressionKind_NONE,
-          *pool_));
+          pool_.get()));
       // Create a fake file to avoid too many exception logs in test when spill
       // file deletion fails.
       createFile(files.back()->testingFilePath());

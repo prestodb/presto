@@ -262,12 +262,11 @@ void HashAggregation::updateRuntimeStats() {
 }
 
 void HashAggregation::recordSpillStats() {
-  const auto spillStats = groupingSet_->spilledStats();
-  auto lockedStats = stats_.wlock();
-  lockedStats->spilledBytes = spillStats.spilledBytes;
-  lockedStats->spilledRows = spillStats.spilledRows;
-  lockedStats->spilledPartitions = spillStats.spilledPartitions;
-  lockedStats->spilledFiles = spillStats.spilledFiles;
+  const auto spillStatsOr = groupingSet_->spilledStats();
+  if (!spillStatsOr.has_value()) {
+    return;
+  }
+  Operator::recordSpillStats(spillStatsOr.value());
 }
 
 void HashAggregation::prepareOutput(vector_size_t size) {
@@ -419,8 +418,8 @@ RowVectorPtr HashAggregation::getOutput() {
 
 void HashAggregation::noMoreInput() {
   groupingSet_->noMoreInput();
-  recordSpillStats();
   Operator::noMoreInput();
+  recordSpillStats();
   // Release the extra reserved memory right after processing all the inputs.
   pool()->release();
 }

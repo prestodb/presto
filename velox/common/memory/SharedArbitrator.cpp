@@ -46,12 +46,12 @@ std::string memoryPoolAbortMessage(
   VELOX_CHECK(requestor->isRoot());
   if (requestor == victim) {
     out << "\nFailed memory pool '" << victim->name()
-        << "' aborted by itself when tried to grow " << growBytes
-        << " bytes.\n";
+        << "' aborted by itself when tried to grow " << succinctBytes(growBytes)
+        << "\n";
   } else {
     out << "\nFailed memory pool '" << victim->name()
         << "' aborted when requestor '" << requestor->name()
-        << "' tried to grow " << growBytes << " bytes.\n";
+        << "' tried to grow " << succinctBytes(growBytes) << "\n";
   }
   out << "Memory usage of the failed memory pool:\n"
       << victim->treeMemoryUsage();

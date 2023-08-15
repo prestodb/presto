@@ -244,3 +244,22 @@ add_executable(velox_simple_aggregate_test SimpleAggregateAdapterTest.cpp)
 target_link_libraries(
   velox_simple_aggregate_test velox_simple_aggregate velox_exec
   velox_functions_aggregates_test_lib gtest gtest_main)
+
+add_library(velox_spiller_benchmark_base SpillerBenchmarkBase.cpp)
+
+target_link_libraries(velox_spiller_benchmark_base velox_exec
+                      velox_exec_test_lib velox_memory velox_vector_fuzzer)
+
+add_executable(velox_spiller_benchmark SpillerBenchmark.cpp)
+
+target_link_libraries(
+  velox_spiller_benchmark
+  velox_exec
+  velox_exec_test_lib
+  velox_spiller_benchmark_base
+  velox_vector_fuzzer
+  glog::glog
+
+  gflags::gflags
+  Folly::folly
+  pthread)

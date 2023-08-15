@@ -34,6 +34,7 @@ struct Timestamp {
  public:
   enum class Precision : int { kMilliseconds = 3, kNanoseconds = 9 };
   static constexpr int64_t kMillisecondsInSecond = 1'000;
+  static constexpr int64_t kNanosecondsInMicrosecond = 1'000;
   static constexpr int64_t kNanosecondsInMillisecond = 1'000'000;
 
   // Limit the range of seconds to avoid some problems. Seconds should be

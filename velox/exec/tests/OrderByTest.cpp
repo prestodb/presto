@@ -37,8 +37,8 @@ using namespace facebook::velox::exec::test;
 
 namespace {
 // Returns aggregated spilled stats by 'task'.
-Spiller::Stats spilledStats(const exec::Task& task) {
-  Spiller::Stats spilledStats;
+SpillStats spilledStats(const exec::Task& task) {
+  SpillStats spilledStats;
   auto stats = task.taskStats();
   for (auto& pipeline : stats.pipelineStats) {
     for (auto op : pipeline.operatorStats) {
@@ -465,12 +465,25 @@ TEST_F(OrderByTest, spill) {
   params.spillDirectory = spillDirectory->path;
   auto task = assertQueryOrdered(
       params, "SELECT * FROM tmp ORDER BY c0 ASC NULLS LAST", {0});
-  auto stats = task->taskStats().pipelineStats;
-  EXPECT_LT(0, stats[0].operatorStats[1].spilledRows);
-  EXPECT_GT(kNumBatches * kNumRows, stats[0].operatorStats[1].spilledRows);
-  EXPECT_LT(0, stats[0].operatorStats[1].spilledBytes);
-  EXPECT_EQ(1, stats[0].operatorStats[1].spilledPartitions);
-  EXPECT_EQ(2, stats[0].operatorStats[1].spilledFiles);
+  auto stats = task->taskStats().pipelineStats[0].operatorStats[1];
+  ASSERT_GT(stats.spilledRows, 0);
+  ASSERT_LT(stats.spilledRows, kNumBatches * kNumRows);
+  ASSERT_GT(stats.spilledBytes, 0);
+  ASSERT_EQ(stats.spilledPartitions, 1);
+  ASSERT_EQ(stats.spilledFiles, 2);
+  ASSERT_GT(stats.runtimeStats["spillFillTime"].sum, 0);
+  ASSERT_GT(stats.runtimeStats["spillSortTime"].sum, 0);
+  ASSERT_GT(stats.runtimeStats["spillSerializationTime"].sum, 0);
+  ASSERT_GT(stats.runtimeStats["spillFlushTime"].sum, 0);
+  ASSERT_EQ(
+      stats.runtimeStats["spillSerializationTime"].count,
+      stats.runtimeStats["spillFlushTime"].count);
+  ASSERT_GT(stats.runtimeStats["spillDiskWrites"].sum, 0);
+  ASSERT_GT(stats.runtimeStats["spillWriteTime"].sum, 0);
+  ASSERT_EQ(
+      stats.runtimeStats["spillDiskWrites"].count,
+      stats.runtimeStats["spillWriteTime"].count);
+
   OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
 }
 
