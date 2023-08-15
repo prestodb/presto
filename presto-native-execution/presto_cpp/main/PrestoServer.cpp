@@ -530,8 +530,6 @@ void PrestoServer::initializeVeloxMemory() {
   options.checkUsageLeak = systemConfig->enableMemoryLeakCheck();
   if (!systemConfig->memoryArbitratorKind().empty()) {
     options.arbitratorKind = systemConfig->memoryArbitratorKind();
-    options.capacity =
-        memoryBytes * 100 / systemConfig->reservedMemoryPoolCapacityPct();
     options.memoryPoolInitCapacity = systemConfig->memoryPoolInitCapacity();
     options.memoryPoolTransferCapacity =
         systemConfig->memoryPoolTransferCapacity();
