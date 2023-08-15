@@ -18,6 +18,7 @@
 #include "velox/dwio/common/TypeUtils.h"
 
 #include "velox/dwio/dwrf/reader/SelectiveByteRleColumnReader.h"
+#include "velox/dwio/dwrf/reader/SelectiveDecimalColumnReader.h"
 #include "velox/dwio/dwrf/reader/SelectiveFlatMapColumnReader.h"
 #include "velox/dwio/dwrf/reader/SelectiveFloatingPointColumnReader.h"
 #include "velox/dwio/dwrf/reader/SelectiveIntegerDictionaryColumnReader.h"
@@ -73,8 +74,13 @@ std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
       return buildIntegerReader(
           requestedType, dataType, params, INT_BYTE_SIZE, scanSpec);
     case TypeKind::BIGINT:
-      return buildIntegerReader(
-          requestedType, dataType, params, LONG_BYTE_SIZE, scanSpec);
+      if (dataType->type->isDecimal()) {
+        return std::make_unique<SelectiveDecimalColumnReader<int64_t>>(
+            requestedType, params, scanSpec);
+      } else {
+        return buildIntegerReader(
+            requestedType, dataType, params, LONG_BYTE_SIZE, scanSpec);
+      }
     case TypeKind::SMALLINT:
       return buildIntegerReader(
           requestedType, dataType, params, SHORT_BYTE_SIZE, scanSpec);
@@ -129,6 +135,11 @@ std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
     case TypeKind::TIMESTAMP:
       return std::make_unique<SelectiveTimestampColumnReader>(
           dataType, params, scanSpec);
+    case TypeKind::HUGEINT:
+      if (dataType->type->isDecimal()) {
+        return std::make_unique<SelectiveDecimalColumnReader<int128_t>>(
+            requestedType, params, scanSpec);
+      }
     default:
       DWIO_RAISE(
           "buildReader unhandled type: " +

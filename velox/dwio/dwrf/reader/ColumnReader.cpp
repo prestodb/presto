@@ -360,6 +360,117 @@ void nextValues(
   TemplatedReadHelper<IntDecoderT, T>::nextValues(
       decoder, data, numValues, nulls);
 }
+
+template <typename DataT>
+class DecimalColumnReader : public ColumnReader {
+ private:
+  const TypePtr requestedType_;
+  std::unique_ptr<dwio::common::DirectDecoder</*isSigned*/ true>> valueDecoder_;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ true>> scaleDecoder_;
+  BufferPtr valueBuffer_;
+  BufferPtr scaleBuffer_;
+  int32_t scale_ = 0;
+
+ public:
+  DecimalColumnReader(
+      std::shared_ptr<const dwio::common::TypeWithId> nodeType,
+      TypePtr requestedType,
+      StripeStreams& stripe,
+      const StreamLabels& streamLabels,
+      FlatMapContext flatMapContext);
+
+  ~DecimalColumnReader() override = default;
+
+  uint64_t skip(uint64_t numValues) override;
+
+  void next(uint64_t numValues, VectorPtr& result, const uint64_t* nulls)
+      override;
+};
+
+template <typename DataT>
+DecimalColumnReader<DataT>::DecimalColumnReader(
+    std::shared_ptr<const dwio::common::TypeWithId> nodeType,
+    TypePtr requestedType,
+    StripeStreams& stripe,
+    const StreamLabels& streamLabels,
+    FlatMapContext flatMapContext)
+    : ColumnReader(
+          std::move(nodeType),
+          stripe,
+          streamLabels,
+          std::move(flatMapContext)),
+      requestedType_(std::move(requestedType)) {
+  EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
+  if constexpr (std::is_same_v<DataT, std::int64_t>) {
+    scale_ = requestedType_->asShortDecimal().scale();
+  } else {
+    scale_ = requestedType_->asLongDecimal().scale();
+  }
+  auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
+  valueDecoder_ = std::make_unique<dwio::common::DirectDecoder<true>>(
+      stripe.getStream(data, streamLabels.label(), true),
+      stripe.getUseVInts(data),
+      sizeof(DataT));
+
+  // [NOTICE] DWRF's NANO_DATA has the same enum value as ORC's SECONDARY
+  auto secondary = encodingKey.forKind(proto::Stream_Kind_NANO_DATA);
+  scaleDecoder_ = createRleDecoder</*isSigned*/ true>(
+      stripe.getStream(secondary, streamLabels.label(), true),
+      convertRleVersion(stripe.getEncoding(encodingKey).kind()),
+      memoryPool_,
+      stripe.getUseVInts(secondary),
+      dwio::common::LONG_BYTE_SIZE);
+}
+
+template <typename DataT>
+uint64_t DecimalColumnReader<DataT>::skip(uint64_t numValues) {
+  numValues = ColumnReader::skip(numValues);
+  valueDecoder_->skip(numValues);
+  scaleDecoder_->skip(numValues);
+  return numValues;
+}
+
+template <typename DataT>
+void DecimalColumnReader<DataT>::next(
+    uint64_t numValues,
+    VectorPtr& result,
+    const uint64_t* incomingNulls) {
+  auto flatVector = resetIfWrongFlatVectorType<DataT>(result);
+  BufferPtr values;
+  if (flatVector) {
+    values = flatVector->mutableValues(numValues);
+  }
+
+  BufferPtr nulls = readNulls(numValues, result, incomingNulls);
+  const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
+  uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
+
+  if (flatVector) {
+    detail::resetIfNotWritable(result, values);
+  }
+  if (!values) {
+    values = AlignedBuffer::allocate<DataT>(numValues, &memoryPool_);
+  }
+
+  if (result) {
+    result->resize(numValues, false);
+    result->setNullCount(nullCount);
+  } else {
+    result = makeFlatVector<DataT>(
+        &memoryPool_, requestedType_, nulls, nullCount, numValues, values);
+  }
+
+  detail::ensureCapacity<DataT>(valueBuffer_, numValues, &memoryPool_);
+  detail::ensureCapacity<int64_t>(scaleBuffer_, numValues, &memoryPool_);
+  auto valuesData = valueBuffer_->asMutable<DataT>();
+  auto scalesData = scaleBuffer_->asMutable<int64_t>();
+  valueDecoder_->nextValues(valuesData, numValues, nullsPtr);
+  scaleDecoder_->next(scalesData, numValues, nullsPtr);
+  auto* valuesPtr = values->asMutable<DataT>();
+  DecimalUtil::fillDecimals<DataT>(
+      valuesPtr, nullsPtr, valuesData, scalesData, numValues, scale_);
+}
+
 } // namespace
 
 template <class ReqT>
@@ -2284,13 +2395,22 @@ std::unique_ptr<ColumnReader> ColumnReader::build(
           stripe,
           streamLabels);
     case TypeKind::BIGINT:
-      return buildIntegerReader(
-          dataType,
-          requestedType->type,
-          dwio::common::LONG_BYTE_SIZE,
-          std::move(flatMapContext),
-          stripe,
-          streamLabels);
+      if (dataType->type->isDecimal()) {
+        return std::make_unique<DecimalColumnReader<int64_t>>(
+            dataType,
+            requestedType->type,
+            stripe,
+            streamLabels,
+            std::move(flatMapContext));
+      } else {
+        return buildIntegerReader(
+            dataType,
+            requestedType->type,
+            dwio::common::LONG_BYTE_SIZE,
+            std::move(flatMapContext),
+            stripe,
+            streamLabels);
+      }
     case TypeKind::SMALLINT:
       return buildIntegerReader(
           dataType,
@@ -2383,6 +2503,15 @@ std::unique_ptr<ColumnReader> ColumnReader::build(
     case TypeKind::TIMESTAMP:
       return std::make_unique<TimestampColumnReader>(
           dataType, stripe, streamLabels, std::move(flatMapContext));
+    case TypeKind::HUGEINT:
+      if (dataType->type->isDecimal()) {
+        return std::make_unique<DecimalColumnReader<int128_t>>(
+            dataType,
+            requestedType->type,
+            stripe,
+            streamLabels,
+            std::move(flatMapContext));
+      }
     default:
       DWIO_RAISE("buildReader unhandled type");
   }

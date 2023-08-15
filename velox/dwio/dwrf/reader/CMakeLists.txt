@@ -27,6 +27,7 @@ add_library(
   SelectiveStringDirectColumnReader.cpp
   SelectiveStringDictionaryColumnReader.cpp
   SelectiveTimestampColumnReader.cpp
+  SelectiveDecimalColumnReader.cpp
   SelectiveStructColumnReader.cpp
   SelectiveRepeatedColumnReader.cpp
   StreamLabels.cpp

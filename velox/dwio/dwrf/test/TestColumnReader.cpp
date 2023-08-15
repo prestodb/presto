@@ -3781,6 +3781,184 @@ TEST_P(TestColumnReader, testTimestamp) {
   }
 }
 
+TEST_P(TestColumnReader, testDecimal64) {
+  // set getEncoding
+  proto::ColumnEncoding directEncoding;
+  directEncoding.set_kind(proto::ColumnEncoding_Kind_DIRECT);
+  EXPECT_CALL(streams_, getEncodingProxy(_))
+      .WillRepeatedly(Return(&directEncoding));
+
+  // set getStream
+  EXPECT_CALL(streams_, getStreamProxy(_, proto::Stream_Kind_ROW_INDEX, false))
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams_, getStreamProxy(_, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(nullptr));
+  // col_0's Data Stream
+  char numBuffer[65];
+  for (int i = 0; i < 65; ++i) {
+    if (i < 32) {
+      numBuffer[i] = static_cast<char>(0x3f - 2 * i);
+    } else {
+      numBuffer[i] = static_cast<char>(2 * (i - 32));
+    }
+  }
+  EXPECT_CALL(streams_, getStreamProxy(1, proto::Stream_Kind_DATA, true))
+      .WillRepeatedly(Return(new SeekableArrayInputStream(
+          numBuffer, VELOX_ARRAY_SIZE(numBuffer), 3)));
+  // col_0's Secondary Stream
+  const unsigned char buffer2[] = {0x3e, 0x00, 0x04}; // [0x02] * 65
+  EXPECT_CALL(streams_, getStreamProxy(1, proto::Stream_Kind_NANO_DATA, true))
+      .WillRepeatedly(Return(
+          new SeekableArrayInputStream(buffer2, VELOX_ARRAY_SIZE(buffer2))));
+
+  // create the row type
+  auto rowType = HiveTypeParser().parse("struct<col_0:decimal(12, 2)>");
+  buildReader(rowType);
+  VectorPtr batch = newBatch(rowType);
+  skipAndRead(batch, /* read */ 64);
+
+  auto intBatch = getOnlyChild<FlatVector<int64_t>>(batch);
+  ASSERT_EQ(64, batch->size());
+  ASSERT_EQ(64, intBatch->size());
+  ASSERT_EQ(0, getNullCount(batch));
+  ASSERT_EQ(0, getNullCount(intBatch));
+  for (int64_t i = 0; i < 64; ++i) {
+    ASSERT_EQ(i - 32, intBatch->valueAt(i));
+  }
+}
+
+TEST_P(TestColumnReader, testDecimal64WithSkip) {
+  // set getEncoding
+  proto::ColumnEncoding directEncoding;
+  directEncoding.set_kind(proto::ColumnEncoding_Kind_DIRECT);
+  EXPECT_CALL(streams_, getEncodingProxy(_))
+      .WillRepeatedly(Return(&directEncoding));
+
+  // set getStream
+  EXPECT_CALL(streams_, getStreamProxy(_, proto::Stream_Kind_ROW_INDEX, false))
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams_, getStreamProxy(_, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(nullptr));
+  const unsigned char presentBuffer[] = {0xfe, 0xff, 0x80}; // [0xff]
+  EXPECT_CALL(streams_, getStreamProxy(1, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(new SeekableArrayInputStream(
+          presentBuffer, VELOX_ARRAY_SIZE(presentBuffer))));
+  const unsigned char numBuffer[] = {
+      0xf8, 0xe8, 0xe2, 0xcf, 0xf4, 0xcb, 0xb6, 0xda, 0x0d, 0x86, 0xc1, 0xcc,
+      0xcd, 0x9e, 0xd5, 0xc5, 0x11, 0xb4, 0xf6, 0xfc, 0xf3, 0xb9, 0xba, 0x16,
+      0xca, 0xe7, 0xa3, 0xa6, 0xdf, 0x1c, 0xea, 0xad, 0xc0, 0xe5, 0x24, 0xf8,
+      0x94, 0x8c, 0x2f, 0x86, 0xa4, 0x3c, 0x94, 0x4d, 0x62};
+  EXPECT_CALL(streams_, getStreamProxy(1, proto::Stream_Kind_DATA, true))
+      .WillRepeatedly(Return(new SeekableArrayInputStream(
+          numBuffer, VELOX_ARRAY_SIZE(numBuffer))));
+  const unsigned char buffer1[] = {0x06, 0x00, 0x14}; // [0x0a] * 9
+  EXPECT_CALL(streams_, getStreamProxy(1, proto::Stream_Kind_NANO_DATA, true))
+      .WillRepeatedly(Return(
+          new SeekableArrayInputStream(buffer1, VELOX_ARRAY_SIZE(buffer1))));
+
+  // create the row type
+  auto rowType = HiveTypeParser().parse("struct<col_0:decimal(12, 10)>");
+  buildReader(rowType);
+  VectorPtr batch = newBatch(rowType);
+  skipAndRead(batch, /* read */ 6);
+
+  auto intBatch = getOnlyChild<FlatVector<int64_t>>(batch);
+  ASSERT_EQ(0, getNullCount(batch));
+  ASSERT_EQ(0, getNullCount(intBatch));
+  ASSERT_EQ(6, batch->size());
+  ASSERT_EQ(6, intBatch->size());
+  ASSERT_EQ(493827160549382716, intBatch->valueAt(0));
+  ASSERT_EQ(4938271605493827, intBatch->valueAt(1));
+  ASSERT_EQ(49382716054938, intBatch->valueAt(2));
+  ASSERT_EQ(493827160549, intBatch->valueAt(3));
+  ASSERT_EQ(4938271605, intBatch->valueAt(4));
+  ASSERT_EQ(49382716, intBatch->valueAt(5));
+  skip(2);
+  next(1, batch);
+  intBatch = getOnlyChild<FlatVector<int64_t>>(batch);
+  ASSERT_EQ(1, batch->size());
+  ASSERT_EQ(1, intBatch->size());
+  ASSERT_EQ(0, getNullCount(batch));
+  ASSERT_EQ(0, getNullCount(intBatch));
+  EXPECT_EQ(49, intBatch->valueAt(0));
+}
+
+TEST_P(TestColumnReader, testDecimal128WithSkip) {
+  // set getEncoding
+  proto::ColumnEncoding directEncoding;
+  directEncoding.set_kind(proto::ColumnEncoding_Kind_DIRECT);
+  EXPECT_CALL(streams_, getEncodingProxy(_))
+      .WillRepeatedly(Return(&directEncoding));
+
+  // set getStream
+  EXPECT_CALL(streams_, getStreamProxy(_, proto::Stream_Kind_ROW_INDEX, false))
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(streams_, getStreamProxy(_, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(nullptr));
+  const unsigned char presentBuffer[] = {0xfe, 0xff, 0xf8};
+  EXPECT_CALL(streams_, getStreamProxy(1, proto::Stream_Kind_PRESENT, false))
+      .WillRepeatedly(Return(new SeekableArrayInputStream(
+          presentBuffer, VELOX_ARRAY_SIZE(presentBuffer))));
+  const unsigned char numBuffer[] = {
+      0xf8, 0xe8, 0xe2, 0xcf, 0xf4, 0xcb, 0xb6, 0xda, 0x0d, 0x86, 0xc1, 0xcc,
+      0xcd, 0x9e, 0xd5, 0xc5, 0x11, 0xb4, 0xf6, 0xfc, 0xf3, 0xb9, 0xba, 0x16,
+      0xca, 0xe7, 0xa3, 0xa6, 0xdf, 0x1c, 0xea, 0xad, 0xc0, 0xe5, 0x24, 0xf8,
+      0x94, 0x8c, 0x2f, 0x86, 0xa4, 0x3c, 0x94, 0x4d, 0x62, 0xaa, 0xcd, 0xb3,
+      0xf2, 0x9e, 0xf0, 0x99, 0xd6, 0xbe, 0xf8, 0xb6, 0x9e, 0xe4, 0xb7, 0xfd,
+      0xce, 0x8f, 0x34, 0xa9, 0xcd, 0xb3, 0xf2, 0x9e, 0xf0, 0x99, 0xd6, 0xbe,
+      0xf8, 0xb6, 0x9e, 0xe4, 0xb7, 0xfd, 0xce, 0x8f, 0x34, 0xfe, 0xff, 0xff,
+      0xff, 0xff, 0x8f, 0x91, 0x8a, 0x93, 0xe8, 0xa3, 0xec, 0xd0, 0x96, 0xd4,
+      0xcc, 0xf6, 0xac, 0x02, 0xfd, 0xff, 0xff, 0xff, 0xff, 0x8f, 0x91, 0x8a,
+      0x93, 0xe8, 0xa3, 0xec, 0xd0, 0x96, 0xd4, 0xcc, 0xf6, 0xac, 0x02,
+  };
+  EXPECT_CALL(streams_, getStreamProxy(1, proto::Stream_Kind_DATA, true))
+      .WillRepeatedly(Return(new SeekableArrayInputStream(
+          numBuffer, VELOX_ARRAY_SIZE(numBuffer))));
+  const unsigned char buffer1[] = {0x0a, 0x00, 0x4a}; // [0x02] * 13
+  EXPECT_CALL(streams_, getStreamProxy(1, proto::Stream_Kind_NANO_DATA, true))
+      .WillRepeatedly(Return(
+          new SeekableArrayInputStream(buffer1, VELOX_ARRAY_SIZE(buffer1))));
+
+  // create the row type
+  auto rowType = HiveTypeParser().parse("struct<col_0:decimal(38, 37)>");
+  auto decimalType = asRowType(rowType)->childAt(0);
+  buildReader(rowType);
+  VectorPtr batch = newBatch(rowType);
+  skipAndRead(batch, /* read */ 6);
+
+  auto intBatch = getOnlyChild<FlatVector<int128_t>>(batch);
+  ASSERT_EQ(0, getNullCount(batch));
+  ASSERT_EQ(0, getNullCount(intBatch));
+  ASSERT_EQ(6, batch->size());
+  ASSERT_EQ(6, intBatch->size());
+  ASSERT_EQ(493827160549382716, (long)intBatch->valueAt(0));
+  ASSERT_EQ(4938271605493827, (long)intBatch->valueAt(1));
+  ASSERT_EQ(49382716054938, (long)intBatch->valueAt(2));
+  ASSERT_EQ(493827160549, (long)intBatch->valueAt(3));
+  ASSERT_EQ(4938271605, (long)intBatch->valueAt(4));
+  ASSERT_EQ(49382716, (long)intBatch->valueAt(5));
+  skip(2);
+  next(5, batch);
+  intBatch = getOnlyChild<FlatVector<int128_t>>(batch);
+  ASSERT_EQ(5, batch->size());
+  ASSERT_EQ(5, intBatch->size());
+  ASSERT_EQ(0, getNullCount(batch));
+  ASSERT_EQ(0, getNullCount(intBatch));
+  ASSERT_EQ(49, (long)intBatch->valueAt(0));
+  ASSERT_EQ(
+      "1.7320508075688772935274463415058723669",
+      DecimalUtil::toString(intBatch->valueAt(1), decimalType));
+  ASSERT_EQ(
+      "-1.7320508075688772935274463415058723669",
+      DecimalUtil::toString(intBatch->valueAt(2), decimalType));
+  ASSERT_EQ(
+      "9.9999999999999999999999999999999999999",
+      DecimalUtil::toString(intBatch->valueAt(3), decimalType));
+  ASSERT_EQ(
+      "-9.9999999999999999999999999999999999999",
+      DecimalUtil::toString(intBatch->valueAt(4), decimalType));
+}
+
 TEST_P(TestColumnReader, testLargeSkip) {
   // set getEncoding
   proto::ColumnEncoding directEncoding;

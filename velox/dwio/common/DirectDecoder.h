@@ -38,10 +38,18 @@ class DirectDecoder : public IntDecoder<isSigned> {
 
   void skip(uint64_t numValues) override;
 
+  template <typename T>
+  void nextValues(
+      T* FOLLY_NONNULL data,
+      uint64_t numValues,
+      const uint64_t* FOLLY_NULLABLE nulls);
+
   void next(
       int64_t* FOLLY_NONNULL data,
       uint64_t numValues,
-      const uint64_t* FOLLY_NULLABLE nulls) override;
+      const uint64_t* FOLLY_NULLABLE nulls) override {
+    nextValues<int64_t>(data, numValues, nulls);
+  }
 
   template <bool hasNulls>
   inline void skip(
@@ -98,9 +106,9 @@ class DirectDecoder : public IntDecoder<isSigned> {
       } else if constexpr (std::is_same_v<
                                typename Visitor::DataType,
                                int128_t>) {
-        toSkip = visitor.process(super::readInt128(), atEnd);
+        toSkip = visitor.process(super::template readInt<int128_t>(), atEnd);
       } else {
-        toSkip = visitor.process(super::readLong(), atEnd);
+        toSkip = visitor.process(super::template readInt<int64_t>(), atEnd);
       }
     skip:
       ++current;

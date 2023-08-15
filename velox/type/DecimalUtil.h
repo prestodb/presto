@@ -19,6 +19,7 @@
 #include <string>
 #include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/Nulls.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox {
@@ -87,6 +88,51 @@ class DecimalUtil {
 
   /// Helper function to convert a decimal value to string.
   static std::string toString(const int128_t value, const TypePtr& type);
+
+  template <typename T>
+  inline static void fillDecimals(
+      T* decimals,
+      const uint64_t* nullsPtr,
+      const T* values,
+      const int64_t* scales,
+      int32_t numValues,
+      int32_t targetScale) {
+    for (int32_t i = 0; i < numValues; i++) {
+      if (!nullsPtr || !bits::isBitNull(nullsPtr, i)) {
+        int32_t currentScale = scales[i];
+        T value = values[i];
+        if constexpr (std::is_same_v<T, std::int64_t>) { // Short Decimal
+          if (targetScale > currentScale &&
+              targetScale - currentScale <= ShortDecimalType::kMaxPrecision) {
+            value *= static_cast<T>(kPowersOfTen[targetScale - currentScale]);
+          } else if (
+              targetScale < currentScale &&
+              currentScale - targetScale <= ShortDecimalType::kMaxPrecision) {
+            value /= static_cast<T>(kPowersOfTen[currentScale - targetScale]);
+          } else if (targetScale != currentScale) {
+            VELOX_FAIL("Decimal scale out of range");
+          }
+        } else { // Long Decimal
+          if (targetScale > currentScale) {
+            while (targetScale > currentScale) {
+              int32_t scaleAdjust = std::min<int32_t>(
+                  ShortDecimalType::kMaxPrecision, targetScale - currentScale);
+              value *= kPowersOfTen[scaleAdjust];
+              currentScale += scaleAdjust;
+            }
+          } else if (targetScale < currentScale) {
+            while (currentScale > targetScale) {
+              int32_t scaleAdjust = std::min<int32_t>(
+                  ShortDecimalType::kMaxPrecision, currentScale - targetScale);
+              value /= kPowersOfTen[scaleAdjust];
+              currentScale -= scaleAdjust;
+            }
+          }
+        }
+        decimals[i] = value;
+      }
+    }
+  }
 
   template <typename TInput, typename TOutput>
   inline static std::optional<TOutput> rescaleWithRoundUp(

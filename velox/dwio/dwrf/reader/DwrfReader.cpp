@@ -475,6 +475,9 @@ std::optional<size_t> DwrfRowReader::estimatedRowSizeHelper(
     case TypeKind::BIGINT: {
       return valueCount * sizeof(uint64_t);
     }
+    case TypeKind::HUGEINT: {
+      return valueCount * sizeof(uint128_t);
+    }
     case TypeKind::REAL: {
       return valueCount * sizeof(float);
     }

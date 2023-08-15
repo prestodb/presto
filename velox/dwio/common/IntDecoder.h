@@ -149,12 +149,17 @@ class IntDecoder {
   void
   bulkReadRowsFixed(RowSet rows, int32_t initialRow, T* FOLLY_NONNULL result);
 
+  template <typename T>
+  T readInt();
+
+  template <typename T>
+  T readVInt();
+
   signed char readByte();
-  int64_t readLong();
   uint64_t readVuLong();
   int64_t readVsLong();
   int64_t readLongLE();
-  int128_t readInt128();
+
   template <typename cppType>
   cppType readLittleEndianFromBigEndian();
 
@@ -169,6 +174,8 @@ class IntDecoder {
  private:
   uint64_t skipVarintsInBuffer(uint64_t items);
   void skipVarints(uint64_t items);
+  int128_t readVsHugeInt();
+  uint128_t readVuHugeInt();
 
  protected:
   // note: there is opportunity for performance gains here by avoiding
@@ -305,7 +312,7 @@ FOLLY_ALWAYS_INLINE uint64_t IntDecoder<isSigned>::readVuLong() {
 
 template <bool isSigned>
 FOLLY_ALWAYS_INLINE int64_t IntDecoder<isSigned>::readVsLong() {
-  return ZigZag::decode(readVuLong());
+  return ZigZag::decode<uint64_t>(readVuLong());
 }
 
 template <bool isSigned>
@@ -400,27 +407,63 @@ inline cppType IntDecoder<isSigned>::readLittleEndianFromBigEndian() {
 }
 
 template <bool isSigned>
-inline int64_t IntDecoder<isSigned>::readLong() {
-  if (useVInts) {
-    if constexpr (isSigned) {
-      return readVsLong();
-    } else {
-      return static_cast<int64_t>(readVuLong());
+inline int128_t IntDecoder<isSigned>::readVsHugeInt() {
+  return ZigZag::decode<uint128_t>(readVuHugeInt());
+}
+
+template <bool isSigned>
+inline uint128_t IntDecoder<isSigned>::readVuHugeInt() {
+  uint128_t value = 0;
+  uint128_t work;
+  uint32_t offset = 0;
+  signed char ch;
+  while (true) {
+    ch = readByte();
+    work = ch & 0x7f;
+    work <<= offset;
+    value |= work;
+    offset += 7;
+    if (!(ch & 0x80)) {
+      break;
     }
-  } else if (bigEndian) {
-    return readLittleEndianFromBigEndian<int64_t>();
+  }
+  return value;
+}
+
+template <bool isSigned>
+template <typename T>
+inline T IntDecoder<isSigned>::readInt() {
+  if (useVInts) {
+    return readVInt<T>();
+  }
+  if (bigEndian) {
+    return readLittleEndianFromBigEndian<T>();
   } else {
+    if constexpr (std::is_same_v<T, int128_t>) {
+      VELOX_NYI();
+    }
     return readLongLE();
   }
 }
 
 template <bool isSigned>
-inline int128_t IntDecoder<isSigned>::readInt128() {
-  if (!bigEndian) {
-    VELOX_NYI();
+template <typename T>
+inline T IntDecoder<isSigned>::readVInt() {
+  if constexpr (isSigned) {
+    if constexpr (std::is_same_v<T, int128_t>) {
+      return readVsHugeInt();
+    } else {
+      return readVsLong();
+    }
+  } else {
+    if constexpr (std::is_same_v<T, int128_t>) {
+      return readVuHugeInt();
+    } else {
+      return readVuLong();
+    }
   }
-  return readLittleEndianFromBigEndian<int128_t>();
 }
+
 template <>
 template <>
 inline void IntDecoder<false>::bulkRead(
