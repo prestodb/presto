@@ -1393,6 +1393,158 @@ TEST_F(DateTimeFunctionsTest, dateTruncDate) {
   EXPECT_THROW(dateTrunc("hour", -18297), VeloxUserError);
 }
 
+TEST_F(DateTimeFunctionsTest, dateTruncDateForWeek) {
+  const auto dateTrunc = [&](const std::string& unit,
+                             std::optional<int32_t> date) {
+    return evaluateOnce<int32_t, int32_t>(
+        fmt::format("date_trunc('{}', c0)", unit), {date}, {DATE()});
+  };
+
+  // Date(19576) is 2023-08-07, which is Monday, should return Monday
+  EXPECT_EQ(19576, dateTrunc("week", 19576));
+
+  // Date(19579) is 2023-08-10, Thur, should return Monday
+  EXPECT_EQ(19576, dateTrunc("week", 19579));
+
+  // Date(19570) is 2023-08-01, A non-Monday(Tue) date at the beginning of a
+  // month when the preceding Monday falls in the previous month. should return
+  // 2023-07-31(19569), which is previous Monday
+  EXPECT_EQ(19569, dateTrunc("week", 19570));
+
+  // Date(19358) is 2023-01-01, A non-Monday(Sunday) date at the beginning of
+  // January where the preceding Monday falls in the previous year. should
+  // return 2022-12-26(19352), which is previous Monday
+  EXPECT_EQ(19352, dateTrunc("week", 19358));
+
+  // Date(19783) is 2024-03-01, A non-Monday(Friday) date which will go over to
+  // a leap day (February 29th) in a leap year. should return 2024-02-26(19352),
+  // which is previous Monday
+  EXPECT_EQ(19779, dateTrunc("week", 19783));
+}
+
+// Reference dateTruncDateForWeek for test cases explanaitons
+TEST_F(DateTimeFunctionsTest, dateTruncTimeStampForWeek) {
+  const auto dateTrunc = [&](const std::string& unit,
+                             std::optional<Timestamp> timestamp) {
+    return evaluateOnce<Timestamp>(
+        fmt::format("date_trunc('{}', c0)", unit), timestamp);
+  };
+
+  EXPECT_EQ(
+      Timestamp(19576 * 24 * 60 * 60, 0),
+      dateTrunc("week", Timestamp(19576 * 24 * 60 * 60, 321'001'234)));
+
+  EXPECT_EQ(
+      Timestamp(19576 * 24 * 60 * 60, 0),
+      dateTrunc("week", Timestamp(19579 * 24 * 60 * 60 + 500, 321'001'234)));
+
+  EXPECT_EQ(
+      Timestamp(19569 * 24 * 60 * 60, 0),
+      dateTrunc("week", Timestamp(19570 * 24 * 60 * 60 + 500, 321'001'234)));
+
+  EXPECT_EQ(
+      Timestamp(19352 * 24 * 60 * 60, 0),
+      dateTrunc("week", Timestamp(19358 * 24 * 60 * 60 + 500, 321'001'234)));
+
+  EXPECT_EQ(
+      Timestamp(19779 * 24 * 60 * 60, 0),
+      dateTrunc("week", Timestamp(19783 * 24 * 60 * 60 + 500, 321'001'234)));
+}
+
+// Logical Steps
+// 1. Convert Original Millisecond Input to UTC
+// 2. Apply Time Zone Offset
+// 3. Truncate to the Nearest "Unit"
+// 4. Convert Back to UTC (remove Time Zone offset)
+// 5. Convert Back to Milliseconds Since the Unix Epoch
+TEST_F(DateTimeFunctionsTest, dateTruncTimeStampWithTimezoneForWeek) {
+  const auto evaluateDateTrunc = [&](const std::string& truncUnit,
+                                     int64_t inputTimestamp,
+                                     const std::string& timeZone,
+                                     int64_t expectedTimestamp) {
+    assertEqualVectors(
+        makeTimestampWithTimeZoneVector(expectedTimestamp, timeZone.c_str()),
+        evaluateWithTimestampWithTimezone(
+            fmt::format("date_trunc('{}', c0)", truncUnit),
+            inputTimestamp,
+            timeZone));
+  };
+  // input 2023-08-07 00:00:00 (19576 days) with timeZone +01:00
+  // output 2023-08-06 23:00:00" in UTC.(1691362800000)
+  auto inputMilli = int64_t(19576) * 24 * 60 * 60 * 1000;
+  auto outputMilli = inputMilli - int64_t(1) * 60 * 60 * 1000;
+  evaluateDateTrunc("week", inputMilli, "+01:00", outputMilli);
+
+  // Date(19579) is 2023-08-10, Thur, should return Monday UTC (previous Sunday
+  // in +03:00 timezone)
+  inputMilli = int64_t(19579) * 24 * 60 * 60 * 1000;
+  outputMilli = inputMilli - int64_t(3) * 24 * 60 * 60 * 1000 -
+      int64_t(3) * 60 * 60 * 1000;
+  evaluateDateTrunc("week", inputMilli, "+03:00", outputMilli);
+
+  // Date(19570) is 2023-08-01, A non-Monday(Tue) date at the beginning of a
+  // month when the preceding Monday falls in the previous month. should return
+  // 2023-07-31(19569), which is previous Monday EXPECT_EQ(19569,
+  // dateTrunc("week", 19570));
+  inputMilli = int64_t(19570) * 24 * 60 * 60 * 1000;
+  outputMilli = inputMilli - int64_t(1) * 24 * 60 * 60 * 1000 -
+      int64_t(3) * 60 * 60 * 1000;
+  evaluateDateTrunc("week", inputMilli, "+03:00", outputMilli);
+
+  // Date(19570) is 2023-08-01, which is Tuesday; TimeZone is -05:00, so input
+  // will become Monday. 2023-07-31 19:00:00, which will truncate to 2023-07-31
+  // 00:00:00
+  // TODO : Need to double-check with presto logic
+  inputMilli = int64_t(19570) * 24 * 60 * 60 * 1000;
+  outputMilli =
+      int64_t(19569) * 24 * 60 * 60 * 1000 + int64_t(5) * 60 * 60 * 1000;
+  evaluateDateTrunc("week", inputMilli, "-05:00", outputMilli);
+}
+
+TEST_F(DateTimeFunctionsTest, dateTruncTimeStampWithTimezoneStringForWeek) {
+  const auto evaluateDateTruncFromStrings = [&](const std::string& truncUnit,
+                                                const std::string&
+                                                    inputTimestamp,
+                                                const std::string&
+                                                    expectedTimestamp) {
+    assertEqualVectors(
+        evaluate<RowVector>(
+            "parse_datetime(c0, 'YYYY-MM-dd+HH:mm:ssZZ')",
+            makeRowVector({makeNullableFlatVector<StringView>(
+                {StringView{expectedTimestamp}})})),
+        evaluate<RowVector>(
+            fmt::format(
+                "date_trunc('{}', parse_datetime(c0, 'YYYY-MM-dd+HH:mm:ssZZ'))",
+                truncUnit),
+            makeRowVector({makeNullableFlatVector<StringView>(
+                {StringView{inputTimestamp}})})));
+  };
+  // Monday
+  evaluateDateTruncFromStrings(
+      "week", "2023-08-07+23:01:02+14:00", "2023-08-07+00:00:00+14:00");
+
+  // Thur
+  evaluateDateTruncFromStrings(
+      "week", "2023-08-10+23:01:02+14:00", "2023-08-07+00:00:00+14:00");
+
+  // 2023-08-01, A non-Monday(Tue) date at the beginning of a
+  // month when the preceding Monday falls in the previous month. should return
+  // 2023-07-31, which is previous Monday
+  evaluateDateTruncFromStrings(
+      "week", "2023-08-01+23:01:02+14:00", "2023-07-31+00:00:00+14:00");
+
+  // 2023-01-01, A non-Monday(Sunday) date at the beginning of
+  // January where the preceding Monday falls in the previous year. should
+  // return 2022-12-26, which is previous Monday
+  evaluateDateTruncFromStrings(
+      "week", "2023-01-01+23:01:02+14:00", "2022-12-26+00:00:00+14:00");
+
+  // 2024-03-01, A non-Monday(Friday) date which will go over to
+  // a leap day (February 29th) in a leap year. should return 2024-02-26,
+  // which is previous Monday
+  evaluateDateTruncFromStrings(
+      "week", "2024-03-01+23:01:02+14:00", "2024-02-26+00:00:00+14:00");
+}
 TEST_F(DateTimeFunctionsTest, dateTruncTimestampWithTimezone) {
   const auto evaluateDateTrunc = [&](const std::string& truncUnit,
                                      int64_t inputTimestamp,

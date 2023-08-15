@@ -70,6 +70,7 @@ enum class DateTimeUnit {
   kMinute,
   kHour,
   kDay,
+  kWeek,
   kMonth,
   kQuarter,
   kYear

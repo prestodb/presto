@@ -584,6 +584,7 @@ inline std::optional<DateTimeUnit> fromDateTimeUnitString(
   static const StringView kMinute("minute");
   static const StringView kHour("hour");
   static const StringView kDay("day");
+  static const StringView kWeek("week");
   static const StringView kMonth("month");
   static const StringView kQuarter("quarter");
   static const StringView kYear("year");
@@ -604,6 +605,9 @@ inline std::optional<DateTimeUnit> fromDateTimeUnitString(
   }
   if (unit == kDay) {
     return DateTimeUnit::kDay;
+  }
+  if (unit == kWeek) {
+    return DateTimeUnit::kWeek;
   }
   if (unit == kMonth) {
     return DateTimeUnit::kMonth;
@@ -628,7 +632,8 @@ inline bool isTimeUnit(const DateTimeUnit unit) {
 
 inline bool isDateUnit(const DateTimeUnit unit) {
   return unit == DateTimeUnit::kDay || unit == DateTimeUnit::kMonth ||
-      unit == DateTimeUnit::kQuarter || unit == DateTimeUnit::kYear;
+      unit == DateTimeUnit::kQuarter || unit == DateTimeUnit::kYear ||
+      unit == DateTimeUnit::kWeek;
 }
 
 inline std::optional<DateTimeUnit> getDateUnit(
@@ -708,7 +713,47 @@ struct DateTruncFunction : public TimestampWithTimezoneSupport<T> {
         FMT_FALLTHROUGH;
       case DateTimeUnit::kMonth:
         dateTime.tm_mday = 1;
-        FMT_FALLTHROUGH;
+        dateTime.tm_hour = 0;
+        dateTime.tm_min = 0;
+        dateTime.tm_sec = 0;
+        break;
+      case DateTimeUnit::kWeek:
+        // Subtract the truncation
+        dateTime.tm_mday -= dateTime.tm_wday == 0 ? 6 : dateTime.tm_wday - 1;
+        // Setting the day of the week to Monday
+        dateTime.tm_wday = 1;
+
+        // If the adjusted day of the month falls in the previous month
+        // Move to the previous month
+        if (dateTime.tm_mday < 1) {
+          dateTime.tm_mon -= 1;
+
+          // If the adjusted month falls in the previous year
+          // Set to December and Move to the previous year
+          if (dateTime.tm_mon < 0) {
+            dateTime.tm_mon = 11;
+            dateTime.tm_year -= 1;
+          }
+
+          // Calculate the correct day of the month based on the number of days
+          // in the adjusted month
+          static const int daysInMonth[] = {
+              31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+          int daysInPrevMonth = daysInMonth[dateTime.tm_mon];
+
+          // Adjust for leap year if February
+          if (dateTime.tm_mon == 1 && (dateTime.tm_year + 1900) % 4 == 0 &&
+              ((dateTime.tm_year + 1900) % 100 != 0 ||
+               (dateTime.tm_year + 1900) % 400 == 0)) {
+            daysInPrevMonth = 29;
+          }
+          // Set to the correct day in the previous month
+          dateTime.tm_mday += daysInPrevMonth;
+        }
+        dateTime.tm_hour = 0;
+        dateTime.tm_min = 0;
+        dateTime.tm_sec = 0;
+        break;
       case DateTimeUnit::kDay:
         dateTime.tm_hour = 0;
         FMT_FALLTHROUGH;
