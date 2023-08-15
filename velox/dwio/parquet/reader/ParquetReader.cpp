@@ -30,6 +30,99 @@ DEFINE_int32(
 
 namespace facebook::velox::parquet {
 
+/// Metadata and options for reading Parquet.
+class ReaderBase {
+ public:
+  ReaderBase(
+      std::unique_ptr<dwio::common::BufferedInput>,
+      const dwio::common::ReaderOptions& options);
+
+  virtual ~ReaderBase() = default;
+
+  memory::MemoryPool& getMemoryPool() const {
+    return pool_;
+  }
+
+  dwio::common::BufferedInput& bufferedInput() const {
+    return *input_;
+  }
+
+  uint64_t fileLength() const {
+    return fileLength_;
+  }
+
+  uint64_t fileNumRows() const {
+    return fileMetaData_->num_rows;
+  }
+
+  const thrift::FileMetaData& fileMetaData() const {
+    return *fileMetaData_;
+  }
+
+  const std::shared_ptr<const RowType>& schema() const {
+    return schema_;
+  }
+
+  const std::shared_ptr<const dwio::common::TypeWithId>& schemaWithId() {
+    return schemaWithId_;
+  }
+
+  bool isFileColumnNamesReadAsLowerCase() const {
+    return options_.isFileColumnNamesReadAsLowerCase();
+  }
+
+  /// Ensures that streams are enqueued and loading for the row group at
+  /// 'currentGroup'. May start loading one or more subsequent groups.
+  void scheduleRowGroups(
+      const std::vector<uint32_t>& groups,
+      int32_t currentGroup,
+      StructColumnReader& reader);
+
+  /// Returns the uncompressed size for columns in 'type' and its children in
+  /// row
+  /// group.
+  int64_t rowGroupUncompressedSize(
+      int32_t rowGroupIndex,
+      const dwio::common::TypeWithId& type) const;
+
+ private:
+  // Reads and parses file footer.
+  void loadFileMetaData();
+
+  void initializeSchema();
+
+  std::shared_ptr<const ParquetTypeWithId> getParquetColumnInfo(
+      uint32_t maxSchemaElementIdx,
+      uint32_t maxRepeat,
+      uint32_t maxDefine,
+      uint32_t& schemaIdx,
+      uint32_t& columnIdx) const;
+
+  TypePtr convertType(const thrift::SchemaElement& schemaElement) const;
+
+  static std::shared_ptr<const RowType> createRowType(
+      std::vector<std::shared_ptr<const ParquetTypeWithId::TypeWithId>>
+          children,
+      bool fileColumnNamesReadAsLowerCase);
+
+  memory::MemoryPool& pool_;
+  const uint64_t directorySizeGuess_;
+  const uint64_t filePreloadThreshold_;
+  // Copy of options. Must be owned by 'this'.
+  const dwio::common::ReaderOptions options_;
+  std::unique_ptr<velox::dwio::common::BufferedInput> input_;
+  uint64_t fileLength_;
+  std::unique_ptr<thrift::FileMetaData> fileMetaData_;
+  RowTypePtr schema_;
+  std::shared_ptr<const dwio::common::TypeWithId> schemaWithId_;
+
+  const bool binaryAsString = false;
+
+  // Map from row group index to pre-created loading BufferedInput.
+  std::unordered_map<uint32_t, std::unique_ptr<dwio::common::BufferedInput>>
+      inputs_;
+};
+
 ReaderBase::ReaderBase(
     std::unique_ptr<dwio::common::BufferedInput> input,
     const dwio::common::ReaderOptions& options)
@@ -50,7 +143,6 @@ void ReaderBase::loadFileMetaData() {
   bool preloadFile_ = fileLength_ <= filePreloadThreshold_;
   uint64_t readSize =
       preloadFile_ ? fileLength_ : std::min(fileLength_, directorySizeGuess_);
-
   auto stream = input_->read(
       fileLength_ - readSize, readSize, dwio::common::LogType::FOOTER);
 
@@ -668,6 +760,23 @@ ParquetReader::ParquetReader(
     std::unique_ptr<dwio::common::BufferedInput> input,
     const dwio::common::ReaderOptions& options)
     : readerBase_(std::make_shared<ReaderBase>(std::move(input), options)) {}
+
+std::optional<uint64_t> ParquetReader::numberOfRows() const {
+  return readerBase_->fileNumRows();
+}
+
+const velox::RowTypePtr& ParquetReader::rowType() const {
+  return readerBase_->schema();
+}
+
+const std::shared_ptr<const dwio::common::TypeWithId>&
+ParquetReader::typeWithId() const {
+  return readerBase_->schemaWithId();
+}
+
+size_t ParquetReader::numberOfRowGroups() const {
+  return readerBase_->fileMetaData().row_groups.size();
+}
 
 std::unique_ptr<dwio::common::RowReader> ParquetReader::createRowReader(
     const dwio::common::RowReaderOptions& options) const {
