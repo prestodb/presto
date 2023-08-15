@@ -715,16 +715,18 @@ void PrestoServer::registerFunctions() {
 
 void PrestoServer::registerRemoteFunctions() {
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
-  if (auto dirPath = SystemConfig::instance()
-                         ->remoteFunctionServerSignatureFilesDirectoryPath()) {
+  auto* systemConfig = SystemConfig::instance();
+  if (auto dirPath =
+          systemConfig->remoteFunctionServerSignatureFilesDirectoryPath()) {
     PRESTO_STARTUP_LOG(INFO)
         << "Registering remote functions from path: " << *dirPath;
-    if (auto remoteLocation =
-            SystemConfig::instance()->remoteFunctionServerLocation()) {
-      size_t registeredCount =
-          presto::registerRemoteFunctions(*dirPath, *remoteLocation);
+    if (auto remoteLocation = systemConfig->remoteFunctionServerLocation()) {
+      auto catalogName = systemConfig->remoteFunctionServerCatalogName();
+      size_t registeredCount = presto::registerRemoteFunctions(
+          *dirPath, *remoteLocation, catalogName);
       PRESTO_STARTUP_LOG(INFO)
-          << registeredCount << " remote functions registered.";
+          << registeredCount << " remote functions registered in the '"
+          << catalogName << "' catalog.";
     } else {
       VELOX_FAIL(
           "To register remote functions using a json file path you need to "

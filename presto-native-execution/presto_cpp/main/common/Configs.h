@@ -303,6 +303,11 @@ class SystemConfig : public ConfigBase {
       kRemoteFunctionServerSignatureFilesDirectoryPath{
           "remote-function-server.signature.files.directory.path"};
 
+  /// Optional catalog name to be added as a prefix to the function names
+  /// registered. The patter registered is `catalog.schema.function_name`.
+  static constexpr std::string_view kRemoteFunctionServerCatalogName{
+      "remote-function-server.catalog-name"};
+
   SystemConfig();
 
   static SystemConfig* instance();
@@ -348,6 +353,8 @@ class SystemConfig : public ConfigBase {
 
   folly::Optional<std::string> remoteFunctionServerSignatureFilesDirectoryPath()
       const;
+
+  std::string remoteFunctionServerCatalogName() const;
 
   int32_t maxDriversPerTask() const;
 
