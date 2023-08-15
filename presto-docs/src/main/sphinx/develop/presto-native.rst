@@ -62,6 +62,19 @@ The following properties allow the configuration of remote function execution:
     recursively search, open, parse, and register function definitions from
     these JSON files.
 
+``remote-function-server.catalog-name``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Default value:** ``""``
+
+    The catalog name to be added as a prefix to the function names registered
+    in Velox. The function name pattern registered is
+    ``catalog.schema.function_name``, where ``catalog`` is defined by this
+    parameter, and ``schema`` and ``function_name`` are read from the input
+    JSON file.
+
+    If empty, the function is registered as ``schema.function_name``.
 
 ``remote-function-server.thrift.address``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

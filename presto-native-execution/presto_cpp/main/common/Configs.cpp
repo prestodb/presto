@@ -258,6 +258,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kEnableVeloxExprSetLogging, "false"),
           NUM_PROP(kLocalShuffleMaxPartitionBytes, 268435456),
           STR_PROP(kShuffleName, ""),
+          STR_PROP(kRemoteFunctionServerCatalogName, ""),
           STR_PROP(kHttpEnableAccessLog, "false"),
           STR_PROP(kHttpEnableStatsFilter, "false"),
           STR_PROP(kRegisterTestFunctions, "false"),
@@ -361,6 +362,10 @@ SystemConfig::remoteFunctionServerLocation() const {
 folly::Optional<std::string>
 SystemConfig::remoteFunctionServerSignatureFilesDirectoryPath() const {
   return optionalProperty(kRemoteFunctionServerSignatureFilesDirectoryPath);
+}
+
+std::string SystemConfig::remoteFunctionServerCatalogName() const {
+  return optionalProperty(kRemoteFunctionServerCatalogName).value();
 }
 
 int32_t SystemConfig::maxDriversPerTask() const {
