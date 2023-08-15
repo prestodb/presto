@@ -127,7 +127,7 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
   auto pool = memory::defaultMemoryManager().addRootPool(
       queryId,
       SystemConfig::instance()->queryMaxMemoryPerNode(),
-      SystemConfig::instance()->enableMemoryArbitration()
+      !SystemConfig::instance()->memoryArbitratorKind().empty()
           ? memory::MemoryReclaimer::create()
           : nullptr);
 

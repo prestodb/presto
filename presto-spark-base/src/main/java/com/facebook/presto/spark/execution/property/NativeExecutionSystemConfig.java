@@ -65,7 +65,7 @@ public class NativeExecutionSystemConfig
     private static final String SYSTEM_MEMORY_GB = "system-memory-gb";
     private static final String QUERY_MEMORY_GB = "query.max-memory-per-node";
     private static final String USE_MMAP_ALLOCATOR = "use-mmap-allocator";
-    private static final String ENABLE_MEMORY_ARBITRATION = "enable-memory-arbitration";
+    private static final String MEMORY_ARBITRATOR_KIND = "memory-arbitrator-kind";
     private static final String MEMORY_POOL_INIT_CAPACITY = "memory-pool-init-capacity";
     private static final String MEMORY_POOL_TRANSFER_CAPACITY = "memory-pool-transfer-capacity";
     private static final String RESERVED_MEMORY_POOL_CAPACITY_PCT = "reserved-memory-pool-capacity-pct";
@@ -92,9 +92,9 @@ public class NativeExecutionSystemConfig
     private int systemMemoryGb = 10;
     private DataSize queryMemoryGb = new DataSize(systemMemoryGb, DataSize.Unit.GIGABYTE);
     private boolean useMmapAllocator = true;
-    private boolean enableMemoryArbitration = true;
-    private long memoryPoolInitCapacity = 512 << 20;
-    private long memoryPoolTransferCapacity = 256 << 20;
+    private String memoryArbitratorKind = "";
+    private long memoryPoolInitCapacity = 10 << 30;
+    private long memoryPoolTransferCapacity = 512 << 20;
     private int reservedMemoryPoolCapacityPct = 10;
     private String spillerSpillPath = "";
     private int concurrentLifespansPerTask = 5;
@@ -126,7 +126,7 @@ public class NativeExecutionSystemConfig
                 .put(SYSTEM_MEMORY_GB, String.valueOf(getSystemMemoryGb()))
                 .put(QUERY_MEMORY_GB, String.valueOf(getQueryMemoryGb()))
                 .put(USE_MMAP_ALLOCATOR, String.valueOf(getUseMmapAllocator()))
-                .put(ENABLE_MEMORY_ARBITRATION, String.valueOf(getEnableMemoryArbitration()))
+                .put(MEMORY_ARBITRATOR_KIND, String.valueOf(getMemoryArbitratorKind()))
                 .put(MEMORY_POOL_INIT_CAPACITY, String.valueOf(getMemoryPoolInitCapacity()))
                 .put(MEMORY_POOL_TRANSFER_CAPACITY, String.valueOf(getMemoryPoolTransferCapacity()))
                 .put(RESERVED_MEMORY_POOL_CAPACITY_PCT, String.valueOf(getReservedMemoryPoolCapacityPct()))
@@ -353,16 +353,16 @@ public class NativeExecutionSystemConfig
         return useMmapAllocator;
     }
 
-    @Config(ENABLE_MEMORY_ARBITRATION)
-    public NativeExecutionSystemConfig setEnableMemoryArbitration(boolean enableMemoryArbitration)
+    @Config(MEMORY_ARBITRATOR_KIND)
+    public NativeExecutionSystemConfig setMemoryArbitratorKind(String memoryArbitratorKind)
     {
-        this.enableMemoryArbitration = enableMemoryArbitration;
+        this.memoryArbitratorKind = memoryArbitratorKind;
         return this;
     }
 
-    public boolean getEnableMemoryArbitration()
+    public String getMemoryArbitratorKind()
     {
-        return enableMemoryArbitration;
+        return memoryArbitratorKind;
     }
 
     @Config(MEMORY_POOL_INIT_CAPACITY)
