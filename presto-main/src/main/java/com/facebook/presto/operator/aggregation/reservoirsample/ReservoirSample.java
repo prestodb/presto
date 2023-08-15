@@ -20,11 +20,13 @@ import com.facebook.presto.common.type.Type;
 import io.airlift.slice.SizeOf;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -33,89 +35,111 @@ public class ReservoirSample
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ReservoirSampleState.class).instanceSize();
     private final Type type;
-    //    private BlockBuilder blockBuilder;
-    private Block[] samples;
-    private int seenCount;
-    private boolean isEmpty = true;
-    private boolean sampleInitialized;
+    private final Type arrayType;
+    private ArrayList<Block> samples;
+    private int maxSampleSize = -1;
+    private long seenCount;
 
     public ReservoirSample(Type type)
     {
         this.type = requireNonNull(type, "type is null");
+        this.arrayType = new ArrayType(type);
+        this.samples = new ArrayList<>();
     }
 
     public ReservoirSample(ReservoirSample other)
     {
         this.type = other.type;
+        this.arrayType = new ArrayType(type);
         this.seenCount = other.seenCount;
-        this.samples = Arrays.copyOf(requireNonNull(other.samples, "samples is null"), other.samples.length);
-        this.sampleInitialized = true;
+        this.samples = (ArrayList<Block>) other.samples.clone();
+        this.maxSampleSize = other.maxSampleSize;
     }
 
-    public ReservoirSample(int seenCount, Block[] samples, Type type)
+    public ReservoirSample(Type type, long seenCount, int maxSampleSize, ArrayList<Block> samples)
     {
         this.type = type;
+        this.arrayType = new ArrayType(type);
         this.seenCount = seenCount;
         this.samples = samples;
-        this.sampleInitialized = true;
+        this.maxSampleSize = maxSampleSize;
     }
 
-    private static Block[] mergeBlockSamples(Block[] samples1, Block[] samples2, int seenCount1, int seenCount2)
+    private static ArrayList<Block> mergeBlockSamples(ArrayList<Block> samples1, ArrayList<Block> samples2, long seenCount1, long seenCount2)
     {
         int nextIndex = 0;
         int otherNextIndex = 0;
-        Block[] merged = new Block[samples1.length];
-        for (int i = 0; i < samples1.length; i++) {
+        ArrayList<Block> merged = new ArrayList<>(samples1.size());
+        for (int i = 0; i < samples1.size(); i++) {
             if (ThreadLocalRandom.current().nextLong(0, seenCount1 + seenCount2) < seenCount1) {
-                merged[i] = samples1[nextIndex++];
+                merged.add(samples1.get(nextIndex++));
             }
             else {
-                merged[i] = samples2[otherNextIndex++];
+                merged.add(samples2.get(otherNextIndex++));
             }
         }
         return merged;
     }
 
-    private static void shuffleBlockArray(Block[] samples)
+    private static void shuffleBlockArray(ArrayList<Block> samples)
     {
-        for (int i = samples.length - 1; i > 0; i--) {
+        for (int i = samples.size() - 1; i > 0; i--) {
             int index = ThreadLocalRandom.current().nextInt(0, i + 1);
-            Block sample = samples[index];
-            samples[index] = samples[i];
-            samples[i] = sample;
+            Block sample = samples.get(index);
+            samples.set(index, samples.get(i));
+            samples.set(i, sample);
         }
     }
 
-    public void initializeSample(long n)
+    public void initializeSample(int n)
     {
-        samples = new Block[(int) n];
-        sampleInitialized = true;
+        samples = new ArrayList<>(max(n, 0));
+        maxSampleSize = n;
+    }
+
+    private boolean sampleNotInitialized()
+    {
+        return maxSampleSize < 0;
     }
 
     public int getSampleSize()
     {
-        if (isSampleInitialized()) {
-            return samples.length;
+        if (sampleNotInitialized()) {
+            return 0;
         }
-        return 0;
+        return samples.size();
     }
 
-    public void add(Block block, int position)
+    public int getMaxSampleSize()
     {
-        isEmpty = false;
+        return maxSampleSize;
+    }
+
+    /**
+     * Potentially add a value from a block at a given position into the sample.
+     *
+     * @param block the block containing the potential sample
+     * @param position the position in the block to potentially insert
+     * @param n the maximum size of the sample in case it is not initialized
+     */
+    public void add(Block block, int position, long n)
+    {
+        if (sampleNotInitialized()) {
+            initializeSample((int) n);
+        }
         seenCount++;
-        int sampleSize = getSampleSize();
+        int sampleSize = getMaxSampleSize();
         if (seenCount <= sampleSize) {
-            BlockBuilder sampleBlock = type.createBlockBuilder(null, 16);
+            BlockBuilder sampleBlock = type.createBlockBuilder(null, 1);
             type.appendTo(block, position, sampleBlock);
-            samples[seenCount - 1] = sampleBlock.build();
+            samples.add(sampleBlock.build());
         }
         else {
-            int index = ThreadLocalRandom.current().nextInt(0, seenCount);
-            if (index < samples.length) {
-                BlockBuilder sampleBlock = type.createBlockBuilder(null, 16);
+            long index = ThreadLocalRandom.current().nextLong(0, seenCount);
+            if (index < samples.size()) {
+                BlockBuilder sampleBlock = type.createBlockBuilder(null, 1);
                 type.appendTo(block, position, sampleBlock);
-                samples[index] = sampleBlock.build();
+                samples.set((int) index, sampleBlock.build());
             }
         }
     }
@@ -123,35 +147,35 @@ public class ReservoirSample
     private void addSingleBlock(Block block)
     {
         seenCount++;
-        int sampleSize = getSampleSize();
+        int sampleSize = getMaxSampleSize();
         if (seenCount <= sampleSize) {
-            samples[seenCount - 1] = block;
+            samples.add(block);
         }
         else {
-            int index = ThreadLocalRandom.current().nextInt(0, seenCount);
-            if (index < samples.length) {
-                samples[index] = block;
+            long index = ThreadLocalRandom.current().nextLong(0L, seenCount);
+            if (index < samples.size()) {
+                samples.set((int) index, block);
             }
         }
     }
 
     public void merge(ReservoirSample other)
     {
-        if (!sampleInitialized) {
-            initializeSample(other.samples.length);
+        if (sampleNotInitialized()) {
+            initializeSample(other.getMaxSampleSize());
         }
         checkArgument(
-                samples.length == other.samples.length,
-                format("Maximum number of samples %s must be equal to that of other %s", samples.length, other.samples.length));
-        if (other.seenCount < other.samples.length) {
-            for (int i = 0; i < other.seenCount; i++) {
-                addSingleBlock(other.samples[i]);
+                getMaxSampleSize() == other.getMaxSampleSize(),
+                format("maximum number of samples %s must be equal to that of other %s", getMaxSampleSize(), other.getMaxSampleSize()));
+        if (other.seenCount < getMaxSampleSize()) {
+            for (int i = 0; i < other.samples.size(); i++) {
+                addSingleBlock(other.samples.get(i));
             }
             return;
         }
-        if (seenCount < samples.length) {
+        if (seenCount < getMaxSampleSize()) {
             for (int i = 0; i < seenCount; i++) {
-                other.addSingleBlock(samples[i]);
+                other.addSingleBlock(samples.get(i));
             }
             seenCount = other.seenCount;
             samples = other.samples;
@@ -173,46 +197,39 @@ public class ReservoirSample
         return type;
     }
 
-    public Block[] getSampleArray()
+    public ArrayList<Block> getSampleArray()
     {
         return samples;
     }
 
-    public boolean isEmpty()
-    {
-        return isEmpty;
-    }
-
-    public int getSeenCount()
+    public long getSeenCount()
     {
         return seenCount;
-    }
-
-    public boolean isSampleInitialized()
-    {
-        return sampleInitialized;
     }
 
     public long estimatedInMemorySize()
     {
         return INSTANCE_SIZE +
-                SizeOf.sizeOf(samples);
+                SizeOf.sizeOfObjectArray(samples.size());
     }
 
     public void serialize(BlockBuilder out)
     {
         BlockBuilder sampleBlock = getSampleBlockBuilder();
-        INTEGER.writeLong(out, seenCount);
-        INTEGER.writeLong(out, samples.length);
-        new ArrayType(type).appendTo(sampleBlock.build(), 0, out);
+
+        BIGINT.writeLong(out, seenCount);
+        INTEGER.writeLong(out, maxSampleSize);
+        INTEGER.writeLong(out, samples.size());
+        arrayType.appendTo(sampleBlock.build(), 0, out);
     }
 
     BlockBuilder getSampleBlockBuilder()
     {
-        BlockBuilder sampleBlock = new ArrayType(type).createBlockBuilder(null, 16);
+        int sampleSize = getSampleSize();
+        BlockBuilder sampleBlock = arrayType.createBlockBuilder(null, sampleSize);
         BlockBuilder sampleEntryBuilder = sampleBlock.beginBlockEntry();
-        for (Block sample : samples) {
-            type.appendTo(sample, 0, sampleEntryBuilder);
+        for (int i = 0; i < sampleSize; i++) {
+            type.appendTo(samples.get(i), 0, sampleEntryBuilder);
         }
         sampleBlock.closeEntry();
         return sampleBlock;

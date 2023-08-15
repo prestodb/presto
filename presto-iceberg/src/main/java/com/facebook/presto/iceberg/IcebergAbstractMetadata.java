@@ -189,7 +189,7 @@ public abstract class IcebergAbstractMetadata
     protected ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table)
     {
         org.apache.iceberg.Table icebergTable = getIcebergTable(session, table);
-        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable, typeManager);
+        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable);
         return new ConnectorTableMetadata(table, columns, createMetadataProperties(icebergTable), getTableComment(icebergTable));
     }
 

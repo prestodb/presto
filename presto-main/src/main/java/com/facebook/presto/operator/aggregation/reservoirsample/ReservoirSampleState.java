@@ -13,39 +13,50 @@
  */
 package com.facebook.presto.operator.aggregation.reservoirsample;
 
+import com.facebook.presto.common.block.ArrayBlockBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.AccumulatorState;
+
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 
 public class ReservoirSampleState
         implements AccumulatorState
 {
     private ReservoirSample sample;
-    private boolean isEmpty = true;
+    private final Type arrayType;
+
+    private Block initialSample;
+    private long initialSeenCount = -1;
 
     public ReservoirSampleState(Type type)
     {
         sample = new ReservoirSample(type);
+        arrayType = new ArrayType(type);
+        initialSample = new ArrayBlockBuilder(arrayType, null, 1).appendNull().build();
     }
 
     public ReservoirSampleState(ReservoirSampleState other)
     {
         sample = other.sample.clone();
+        arrayType = other.arrayType;
+        this.initialSample = other.initialSample;
+        this.initialSeenCount = other.initialSeenCount;
     }
 
-    public ReservoirSampleState(ReservoirSample sample)
+    public void initializeInitialSample(Block initialSample, long initialSeenCount)
     {
-        this.sample = sample;
+        if (this.initialSeenCount < 0) {
+            this.initialSample = initialSample;
+            this.initialSeenCount = initialSeenCount;
+        }
     }
 
     public void add(Block block, int position, long n)
     {
-        isEmpty = false;
-        if (!sample.isSampleInitialized()) {
-            sample.initializeSample(n);
-        }
-        sample.add(block, position);
+        sample.add(block, position, n);
     }
 
     public void setSample(ReservoirSample sample)
@@ -62,6 +73,7 @@ public class ReservoirSampleState
     public void mergeWith(ReservoirSampleState otherState)
     {
         sample.merge(otherState.sample);
+        initializeInitialSample(otherState.getInitialSample(), otherState.getInitialSeenCount());
     }
 
     public ReservoirSample getSamples()
@@ -69,13 +81,20 @@ public class ReservoirSampleState
         return sample;
     }
 
-    public void serialize(BlockBuilder out)
+    public Block getInitialSample()
     {
-        sample.serialize(out);
+        return initialSample;
     }
 
-    public boolean isEmpty()
+    public long getInitialSeenCount()
     {
-        return isEmpty;
+        return initialSeenCount;
+    }
+
+    public void serialize(BlockBuilder out)
+    {
+        arrayType.appendTo(initialSample, 0, out);
+        BIGINT.writeLong(out, initialSeenCount);
+        sample.serialize(out);
     }
 }

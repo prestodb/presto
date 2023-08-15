@@ -23,7 +23,7 @@ import static java.util.Objects.requireNonNull;
 public interface ApplyChangelogState
         extends AccumulatorState
 {
-    public Type getType();
+    Type getType();
 
     ChangelogRecord get();
 

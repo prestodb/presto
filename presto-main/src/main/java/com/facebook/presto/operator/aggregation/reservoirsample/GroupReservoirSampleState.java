@@ -14,10 +14,14 @@
 package com.facebook.presto.operator.aggregation.reservoirsample;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.function.GroupedAccumulatorState;
 
 public class GroupReservoirSampleState
         extends ReservoirSampleState
+        implements GroupedAccumulatorState
 {
+    private long groupId;
+
     public GroupReservoirSampleState(Type type)
     {
         super(type);
@@ -26,5 +30,16 @@ public class GroupReservoirSampleState
     public GroupReservoirSampleState(ReservoirSampleState other)
     {
         super(other);
+    }
+
+    @Override
+    public void setGroupId(long groupId)
+    {
+        this.groupId = groupId;
+    }
+
+    @Override
+    public void ensureCapacity(long size)
+    {
     }
 }
