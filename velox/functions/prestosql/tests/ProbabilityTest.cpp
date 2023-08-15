@@ -302,5 +302,45 @@ TEST_F(ProbabilityTest, poissonCDF) {
   EXPECT_THROW(poissonCDF(kInf, 3), VeloxUserError);
 }
 
+TEST_F(ProbabilityTest, gammaCDF) {
+  const auto gammaCDF = [&](std::optional<double> shape,
+                            std::optional<double> scale,
+                            std::optional<double> value) {
+    return evaluateOnce<double>("gamma_cdf(c0, c1, c2)", shape, scale, value);
+  };
+
+  EXPECT_DOUBLE_EQ(0.96675918913720599, gammaCDF(0.5, 3.0, 6.8).value());
+  EXPECT_DOUBLE_EQ(0.50636537728827200, gammaCDF(1.5, 2.0, 2.4).value());
+  EXPECT_DOUBLE_EQ(0.55950671493478754, gammaCDF(5.0, 2.0, 10.0).value());
+  EXPECT_DOUBLE_EQ(0.01751372384616767, gammaCDF(6.5, 3.5, 8.1).value());
+  EXPECT_DOUBLE_EQ(1.0, gammaCDF(5.0, 2.0, 100.0).value());
+  EXPECT_DOUBLE_EQ(0.0, gammaCDF(5.0, 2.0, 0.0).value());
+  EXPECT_DOUBLE_EQ(0.15085496391539036, gammaCDF(2.5, 1.0, 1.0).value());
+  EXPECT_DOUBLE_EQ(1.0, gammaCDF(2.0, kInf, kInf).value());
+  EXPECT_DOUBLE_EQ(0.0, gammaCDF(kInf, 3.0, 6.0).value());
+  EXPECT_DOUBLE_EQ(0.0, gammaCDF(2.0, kInf, 6.0).value());
+  EXPECT_DOUBLE_EQ(1.0, gammaCDF(2.0, 3.0, kInf).value());
+  EXPECT_DOUBLE_EQ(0.0, gammaCDF(kDoubleMax, 3.0, 6.0).value());
+  EXPECT_DOUBLE_EQ(0.0, gammaCDF(2.0, kDoubleMax, 6.0).value());
+  EXPECT_DOUBLE_EQ(1.0, gammaCDF(2.0, 3.0, kDoubleMax).value());
+  EXPECT_DOUBLE_EQ(1.0, gammaCDF(kDoubleMin, 3.0, 6.0).value());
+  EXPECT_DOUBLE_EQ(1.0, gammaCDF(2.0, kDoubleMin, 6.0).value());
+  EXPECT_DOUBLE_EQ(0.0, gammaCDF(2.0, 3.0, kDoubleMin).value());
+
+  EXPECT_EQ(std::nullopt, gammaCDF(std::nullopt, 3.0, 6.0));
+  EXPECT_EQ(std::nullopt, gammaCDF(2.0, std::nullopt, 6.0));
+  EXPECT_EQ(std::nullopt, gammaCDF(2.0, 3.0, std::nullopt));
+
+  // invalid inputs
+  VELOX_ASSERT_THROW(gammaCDF(-1.0, 3.0, 6.0), "shape must be greater than 0");
+  VELOX_ASSERT_THROW(gammaCDF(2.0, -1.0, 6.0), "scale must be greater than 0");
+  VELOX_ASSERT_THROW(
+      gammaCDF(2.0, 3.0, -1.0), "value must be greater than, or equal to, 0");
+  VELOX_ASSERT_THROW(gammaCDF(kNan, 3.0, 6.0), "shape must be greater than 0");
+  VELOX_ASSERT_THROW(gammaCDF(2.0, kNan, 6.0), "scale must be greater than 0");
+  VELOX_ASSERT_THROW(
+      gammaCDF(2.0, 3.0, kNan), "value must be greater than, or equal to, 0");
+}
+
 } // namespace
 } // namespace facebook::velox

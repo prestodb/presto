@@ -270,6 +270,11 @@ Probability Functions: cdf
     Compute the F cdf with given df1 (numerator degrees of freedom) and df2 (denominator degrees of freedom) parameters:  P(N < value; df1, df2).
     The numerator and denominator df parameters must be positive real numbers. The value must be a non-negative real number.
 
+.. function:: gamma_cdf(shape, scale, value) -> double
+
+    Compute the Gamma cdf with given shape and scale parameters: P(N < value; shape, scale).
+    The shape and scale parameters must be positive real numbers. The value must be a non-negative real number.
+
 .. function:: normal_cdf(mean, sd, value) -> double
 
     Compute the Normal cdf with given mean and standard deviation (sd): P(N < value; mean, sd).

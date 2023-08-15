@@ -20,6 +20,7 @@
 #include "boost/math/distributions/cauchy.hpp"
 #include "boost/math/distributions/chi_squared.hpp"
 #include "boost/math/distributions/fisher_f.hpp"
+#include "boost/math/distributions/gamma.hpp"
 #include "boost/math/distributions/poisson.hpp"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/Macros.h"
@@ -117,6 +118,31 @@ struct CauchyCDFFunction {
 
       boost::math::cauchy_distribution<> dist(median, scale);
       result = boost::math::cdf(dist, value);
+    }
+  }
+};
+
+template <typename T>
+struct GammaCDFFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void
+  call(double& result, double shape, double scale, double value) {
+    static constexpr double kInf = std::numeric_limits<double>::infinity();
+
+    VELOX_USER_CHECK_GE(value, 0, "value must be greater than, or equal to, 0");
+    VELOX_USER_CHECK_GT(shape, 0, "shape must be greater than 0");
+    VELOX_USER_CHECK_GT(scale, 0, "scale must be greater than 0");
+
+    if (scale == kInf && value == kInf) {
+      result = 1.0;
+    } else if (shape == kInf || scale == kInf) {
+      result = 0.0;
+    } else if (value == kInf) {
+      result = 1.0;
+    } else {
+      boost::math::gamma_distribution<> gammaDist(shape, scale);
+      result = boost::math::cdf(gammaDist, value);
     }
   }
 };
