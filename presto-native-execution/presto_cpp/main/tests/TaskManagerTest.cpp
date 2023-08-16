@@ -915,12 +915,15 @@ TEST_F(TaskManagerTest, aggregationSpill) {
     SCOPED_TRACE(fmt::format("doSpill: {}", doSpill));
     std::shared_ptr<exec::test::TempDirectoryPath> spillDirectory;
     std::map<std::string, std::string> queryConfigs;
+
     if (doSpill) {
       spillDirectory = TaskManagerTest::setupSpillPath();
+      taskManager_->setBaseSpillDirectory(spillDirectory->path);
       queryConfigs.emplace(core::QueryConfig::kTestingSpillPct, "100");
       queryConfigs.emplace(core::QueryConfig::kSpillEnabled, "true");
       queryConfigs.emplace(core::QueryConfig::kAggregationSpillEnabled, "true");
     }
+
     testCountAggregation(
         fmt::format("aggregationSpill:{}", queryId++),
         filePaths,

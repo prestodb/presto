@@ -47,27 +47,30 @@ namespace {
 // the file system and sets the path to it to the Task.
 static void maybeSetupTaskSpillDirectory(
     const core::PlanFragment& planFragment,
-    exec::Task& execTask) {
-  const auto baseSpillPath = SystemConfig::instance()->spillerSpillPath();
+    exec::Task& execTask,
+    const std::string& baseSpillDirectory) {
+  if (baseSpillDirectory.empty() ||
+      !planFragment.canSpill(execTask.queryCtx()->queryConfig())) {
+    return;
+  }
+
   const auto includeNodeInSpillPath =
       SystemConfig::instance()->includeNodeInSpillPath();
   auto nodeConfig = NodeConfig::instance();
-  if (baseSpillPath.hasValue() &&
-      planFragment.canSpill(execTask.queryCtx()->queryConfig())) {
-    const auto taskSpillDirPath = TaskManager::buildTaskSpillDirectoryPath(
-        baseSpillPath.value(),
-        nodeConfig->nodeIp(),
-        nodeConfig->nodeId(),
-        execTask.queryCtx()->queryId(),
-        execTask.taskId(),
-        includeNodeInSpillPath);
-    execTask.setSpillDirectory(taskSpillDirPath);
-    // Create folder for the task spilling.
-    auto fileSystem =
-        velox::filesystems::getFileSystem(taskSpillDirPath, nullptr);
-    VELOX_CHECK_NOT_NULL(fileSystem, "File System is null!");
-    fileSystem->mkdir(taskSpillDirPath);
-  }
+
+  const auto taskSpillDirPath = TaskManager::buildTaskSpillDirectoryPath(
+      baseSpillDirectory,
+      nodeConfig->nodeIp(),
+      nodeConfig->nodeId(),
+      execTask.queryCtx()->queryId(),
+      execTask.taskId(),
+      includeNodeInSpillPath);
+  execTask.setSpillDirectory(taskSpillDirPath);
+  // Create folder for the task spilling.
+  auto fileSystem =
+      velox::filesystems::getFileSystem(taskSpillDirPath, nullptr);
+  VELOX_CHECK_NOT_NULL(fileSystem, "File System is null!");
+  fileSystem->mkdir(taskSpillDirPath);
 }
 
 // Keep outstanding Promises in RequestHandler's state itself.
@@ -410,7 +413,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
 
       execTask = exec::Task::create(
           taskId, planFragment, prestoTask->id.id(), std::move(queryCtx));
-      maybeSetupTaskSpillDirectory(planFragment, *execTask);
+      maybeSetupTaskSpillDirectory(
+          planFragment, *execTask, baseSpillDirectory_);
 
       prestoTask->task = execTask;
       prestoTask->info.needsPlan = false;
