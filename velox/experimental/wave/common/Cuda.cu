@@ -61,21 +61,87 @@ void setDevice(Device* device) {
 }
 
 Stream::Stream() {
-  stream = std::make_unique<StreamImpl>();
-  CUDA_CHECK(cudaStreamCreate(&stream->stream));
+  stream_ = std::make_unique<StreamImpl>();
+  CUDA_CHECK(cudaStreamCreate(&stream_->stream));
 }
 
 Stream::~Stream() {
-  cudaStreamDestroy(stream->stream);
+  cudaStreamDestroy(stream_->stream);
 }
 
 void Stream::wait() {
-  CUDA_CHECK(cudaStreamSynchronize(stream->stream));
+  CUDA_CHECK(cudaStreamSynchronize(stream_->stream));
 }
 
 void Stream::prefetch(Device* device, void* ptr, size_t size) {
   CUDA_CHECK(cudaMemPrefetchAsync(
-      ptr, size, device ? device->deviceId : cudaCpuDeviceId, stream->stream));
+      ptr, size, device ? device->deviceId : cudaCpuDeviceId, stream_->stream));
+}
+
+namespace {
+struct CallbackData {
+  CallbackData(std::function<void()> callback)
+      : callback(std::move(callback)){};
+  std::function<void()> callback;
+};
+
+void readyCallback(void* voidData) {
+  std::unique_ptr<CallbackData> data(reinterpret_cast<CallbackData*>(voidData));
+  data->callback();
+}
+} // namespace
+
+void Stream::addCallback(std::function<void()> callback) {
+  auto cdata = new CallbackData(std::move(callback));
+  CUDA_CHECK(cudaLaunchHostFunc(stream_->stream, readyCallback, cdata));
+}
+
+struct EventImpl {
+  ~EventImpl() {
+    CUDA_CHECK(cudaEventDestroy(event));
+  }
+  cudaEvent_t event;
+};
+
+Event::Event(bool withTime) : hasTiming_(withTime) {
+  event_ = std::make_unique<EventImpl>();
+  CUDA_CHECK(
+      cudaEventCreate(&event_->event, withTime ? 0 : cudaEventDisableTiming));
+}
+
+Event::~Event() {}
+
+void Event::record(Stream& stream) {
+  CUDA_CHECK(cudaEventRecord(event_->event, stream.stream_->stream));
+  recorded_ = true;
+}
+
+void Event::wait() {
+  CUDA_CHECK(cudaEventSynchronize(event_->event));
+}
+
+bool Event::query() const {
+  auto rc = cudaEventQuery(event_->event);
+  if (rc == ::cudaErrorNotReady) {
+    return false;
+  }
+  CUDA_CHECK(rc);
+  return true;
+}
+
+void Event::wait(Stream& stream) {
+  CUDA_CHECK(cudaStreamWaitEvent(stream.stream_->stream, event_->event));
+}
+
+/// Returns time in ms betweene 'this' and an earlier 'start'. Both events must
+/// enable timing.
+float Event::elapsedTime(const Event& start) const {
+  float ms;
+  if (!hasTiming_ || !start.hasTiming_) {
+    waveError("Event timing not enabled");
+  }
+  CUDA_CHECK(cudaEventElapsedTime(&ms, start.event_->event, event_->event));
+  return ms;
 }
 
 } // namespace facebook::velox::wave

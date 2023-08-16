@@ -134,7 +134,7 @@ TEST_F(GpuArenaTest, buffers) {
   auto arena = std::make_unique<GpuArena>(1 << 20, allocator_.get());
   std::vector<WaveBufferPtr> buffers;
   for (auto i = 0; i < 5000; ++i) {
-    buffers.push_back(arena->allocate(1024));
+    buffers.push_back(arena->allocate<char>(1024));
   }
   EXPECT_EQ(5, arena->slabs().size());
   // We clear some of the first allocated buffers.
@@ -143,11 +143,11 @@ TEST_F(GpuArenaTest, buffers) {
   // Allocate some more. Check that slabs  with unuused capacity get used before
   // making new ones.
   for (auto i = 0; i < 100; ++i) {
-    buffers.push_back(arena->allocate(1024));
+    buffers.push_back(arena->allocate<char>(1024));
   }
   EXPECT_EQ(3, arena->slabs().size());
   for (auto i = 0; i < 500; ++i) {
-    buffers.push_back(arena->allocate(1024));
+    buffers.push_back(arena->allocate<char>(1024));
   }
   EXPECT_EQ(4, arena->slabs().size());
 

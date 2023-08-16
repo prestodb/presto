@@ -33,7 +33,7 @@ class Buffer {
  public:
   template <typename T>
   T* as() {
-    reinterpret_cast<T*>(ptr_);
+    return reinterpret_cast<T*>(ptr_);
   }
 
   size_t capacity() const {

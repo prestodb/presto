@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_wave_common_test GpuArenaTest.cpp CudaTest.cpp CudaTest.cu)
+add_executable(velox_wave_common_test GpuArenaTest.cpp CudaTest.cpp CudaTest.cu
+                                      BlockTest.cpp BlockTest.cu)
 
 set_target_properties(velox_wave_common_test PROPERTIES CUDA_ARCHITECTURES
                                                         native)
@@ -22,8 +23,10 @@ add_test(velox_wave_common_test velox_wave_common_test)
 target_link_libraries(
   velox_wave_common_test
   velox_wave_common
+  velox_time
   velox_exception
   gtest
   gtest_main
   gflags::gflags
+  glog::glog
   Folly::folly)

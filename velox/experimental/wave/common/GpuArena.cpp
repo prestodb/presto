@@ -304,7 +304,7 @@ WaveBufferPtr GpuArena::getBuffer(void* ptr, size_t size) {
   return result;
 }
 
-WaveBufferPtr GpuArena::allocate(uint64_t bytes) {
+WaveBufferPtr GpuArena::allocateBytes(uint64_t bytes) {
   bytes = GpuSlab::roundBytes(bytes);
   std::lock_guard<std::mutex> l(mutex_);
   auto* result = currentArena_->allocate(bytes);
