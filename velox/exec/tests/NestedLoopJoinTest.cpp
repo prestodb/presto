@@ -255,6 +255,44 @@ TEST_F(NestedLoopJoinTest, basicCrossJoin) {
       "SELECT * FROM t, (SELECT * FROM UNNEST (ARRAY[10, 17, 10, 17, 10, 17, 10, 17])) u");
 }
 
+TEST_F(NestedLoopJoinTest, outerJoinWithoutCondition) {
+  auto probeVectors = {
+      makeRowVector({sequence<int32_t>(10)}),
+      makeRowVector({sequence<int32_t>(100, 10)}),
+  };
+
+  auto buildVectors = {
+      makeRowVector({sequence<int32_t>(1, 111)}),
+  };
+
+  createDuckDbTable("t", {probeVectors});
+  createDuckDbTable("u", {buildVectors});
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto testOuterJoin = [&](core::JoinType joinType) {
+    auto op = PlanBuilder(planNodeIdGenerator)
+                  .values({probeVectors})
+                  .nestedLoopJoin(
+                      PlanBuilder(planNodeIdGenerator)
+                          .values({buildVectors})
+                          .project({"c0 AS u_c0"})
+                          .planNode(),
+                      {"c0", "u_c0"},
+                      joinType)
+                  .singleAggregation({}, {"count(*)"})
+                  .planNode();
+
+    assertQuery(
+        op,
+        fmt::format(
+            "SELECT count(*) FROM t {} join u on 1",
+            core::joinTypeName(joinType)));
+  };
+  testOuterJoin(core::JoinType::kLeft);
+  testOuterJoin(core::JoinType::kRight);
+  testOuterJoin(core::JoinType::kFull);
+}
+
 TEST_F(NestedLoopJoinTest, lazyVectors) {
   auto probeVectors = {
       makeRowVector({lazySequence<int32_t>(10)}),

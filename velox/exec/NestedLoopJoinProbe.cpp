@@ -222,7 +222,7 @@ RowVectorPtr NestedLoopJoinProbe::getMismatchedOutput(
     BufferPtr& unmatchedMapping,
     const std::vector<IdentityProjection>& projections,
     const std::vector<IdentityProjection>& nullProjections) {
-  if (matched.isAllSelected()) {
+  if (matched.isAllSelected() || joinCondition_ == nullptr) {
     return nullptr;
   }
 

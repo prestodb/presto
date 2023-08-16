@@ -1079,8 +1079,9 @@ PlanBuilder& PlanBuilder::mergeJoin(
 
 PlanBuilder& PlanBuilder::nestedLoopJoin(
     const core::PlanNodePtr& right,
-    const std::vector<std::string>& outputLayout) {
-  return nestedLoopJoin(right, "", outputLayout, core::JoinType::kInner);
+    const std::vector<std::string>& outputLayout,
+    core::JoinType joinType) {
+  return nestedLoopJoin(right, "", outputLayout, joinType);
 }
 
 PlanBuilder& PlanBuilder::nestedLoopJoin(
