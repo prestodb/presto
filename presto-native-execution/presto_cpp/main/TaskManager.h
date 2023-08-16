@@ -44,6 +44,11 @@ class TaskManager {
     nodeId_ = nodeId;
   }
 
+  void setBaseSpillDirectory(const std::string& baseSpillDirectory) {
+    VELOX_CHECK(!baseSpillDirectory.empty());
+    baseSpillDirectory_ = baseSpillDirectory;
+  }
+
   TaskMap tasks() const {
     return taskMap_.withRLock([](const auto& tasks) { return tasks; });
   }
@@ -179,6 +184,7 @@ class TaskManager {
 
   std::string baseUri_;
   std::string nodeId_;
+  std::string baseSpillDirectory_;
   std::shared_ptr<velox::exec::PartitionedOutputBufferManager> bufferManager_;
   folly::Synchronized<TaskMap> taskMap_;
   QueryContextManager queryContextManager_;
