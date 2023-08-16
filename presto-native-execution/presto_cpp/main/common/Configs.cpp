@@ -460,10 +460,6 @@ bool SystemConfig::useMmapAllocator() const {
   return optionalProperty<bool>(kUseMmapAllocator).value();
 }
 
-bool SystemConfig::enableMemoryArbitration() const {
-  return optionalProperty<bool>(kEnableMemoryArbitration).value_or(false);
-}
-
 std::string SystemConfig::memoryArbitratorKind() const {
   return optionalProperty<std::string>(kMemoryArbitratorKind).value_or("");
 }

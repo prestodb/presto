@@ -203,11 +203,6 @@ class SystemConfig : public ConfigBase {
       "mmap-arena-capacity-ratio"};
   static constexpr std::string_view kUseMmapAllocator{"use-mmap-allocator"};
 
-  /// TODO: deprecate this after all the meta internal use cases have been
-  /// removed.
-  static constexpr std::string_view kEnableMemoryArbitration{
-      "enable-memory-arbitration"};
-
   /// Specifies the memory arbitrator kind. If it is empty, then there is no
   /// memory arbitration.
   static constexpr std::string_view kMemoryArbitratorKind{
@@ -405,10 +400,6 @@ class SystemConfig : public ConfigBase {
   int32_t mmapArenaCapacityRatio() const;
 
   bool useMmapAllocator() const;
-
-  /// TODO: deprecate this after all the meta internal use cases have been
-  /// removed.
-  bool enableMemoryArbitration() const;
 
   std::string memoryArbitratorKind() const;
 
