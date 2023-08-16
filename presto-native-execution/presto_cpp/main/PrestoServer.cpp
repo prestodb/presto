@@ -313,6 +313,14 @@ void PrestoServer::run() {
 
   taskManager_->setBaseUri(taskUri);
   taskManager_->setNodeId(nodeId_);
+
+  auto baseSpillDirectory = getBaseSpillDirectory();
+  if (!baseSpillDirectory.empty()) {
+    taskManager_->setBaseSpillDirectory(baseSpillDirectory);
+    PRESTO_STARTUP_LOG(INFO)
+        << "Spilling root directory: " << baseSpillDirectory;
+  }
+
   taskResource_ = std::make_unique<TaskResource>(*taskManager_, pool_.get());
   taskResource_->registerUris(*httpServer_);
   if (systemConfig->enableSerializedPageChecksum()) {
@@ -531,10 +539,6 @@ void PrestoServer::initializeVeloxMemory() {
   const auto& manager = memory::MemoryManager::getInstance(options);
   PRESTO_STARTUP_LOG(INFO) << "Memory manager has been setup: "
                            << manager.toString();
-  if (systemConfig->spillerSpillPath().has_value()) {
-    PRESTO_STARTUP_LOG(INFO) << "Spilling root directory: "
-                             << systemConfig->spillerSpillPath().value();
-  }
 }
 
 void PrestoServer::stop() {
@@ -773,6 +777,10 @@ std::string PrestoServer::getLocalIp() const {
   }
   VELOX_FAIL(
       "Could not infer Node IP. Please specify node.ip in the node.properties file.");
+}
+
+std::string PrestoServer::getBaseSpillDirectory() const {
+  return SystemConfig::instance()->spillerSpillPath().value_or("");
 }
 
 void PrestoServer::populateMemAndCPUInfo() {

@@ -134,6 +134,9 @@ class PrestoServer {
   /// ip address.
   virtual std::string getLocalIp() const;
 
+  /// Invoked to get the spill directory.
+  virtual std::string getBaseSpillDirectory() const;
+
   /// Invoked to get the list of filters passed to the http server.
   std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
   getHttpServerFilters();
