@@ -234,7 +234,7 @@ TEST_F(CudaTest, custom) {
 }
 
 int main(int argc, char** argv) {
-  testing::InitGoogleTest();
+  testing::InitGoogleTest(&argc, argv);
   folly::init(&argc, &argv);
   return RUN_ALL_TESTS();
 }
