@@ -559,10 +559,22 @@ struct VectorWriter<Generic<T>> : public VectorWriterBase {
     if (!isSet) {
       commitNull();
     } else {
-      VELOX_DCHECK(
-          castWriter_,
-          "Impossible to commit a non-null value if generic writer was never casted");
-      castWriter_->commit(isSet);
+      // It is possible that the writer hasn't been casted when commit(true) is
+      // called. This can happen when this generic writer is a child writer of a
+      // complex-type writer, i.e., array, map, or row writers, and the previous
+      // writing threw right after the parent's add_item was called. In this
+      // case, when the next writing calls the parent's add_item(), add_item()
+      // calls commitMostRecentChildItem() with the needsCommit_ (or
+      // keyNeedsCommit_ and valueNeedsCommit_) flag being true. So it will call
+      // commit(true) on the child writer even if the child writer is generic
+      // and hasn't been casted yet. In this situation, commitNull() should have
+      // been called on the parent writer at the row of the exception before
+      // add_item() is called for the next row. commitNull() of the parent
+      // writer resets length_ to 0, so we don't need to commit anything here
+      // from the last writing.
+      if (castType_) {
+        castWriter_->commit(isSet);
+      }
     }
   }
 

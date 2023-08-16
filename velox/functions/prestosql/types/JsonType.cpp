@@ -706,6 +706,7 @@ void castFromJson(
       try {
         object = folly::parseJson(inputVector->valueAt(row));
       } catch (const std::exception& e) {
+        writer.commitNull();
         VELOX_USER_FAIL("Not a JSON input: {}", inputVector->valueAt(row));
       }
 
@@ -715,12 +716,14 @@ void castFromJson(
         try {
           castFromJsonTyped<kind>(object, writer.current());
         } catch (const VeloxException& ve) {
+          writer.commitNull();
           VELOX_USER_FAIL(
               "Cannot cast from Json value {} to {}: {}",
               inputVector->valueAt(row),
               result.type()->toString(),
               ve.message());
         } catch (const std::exception& e) {
+          writer.commitNull();
           VELOX_USER_FAIL(
               "Cannot cast from Json value {} to {}: {}",
               inputVector->valueAt(row),

@@ -1200,3 +1200,49 @@ TEST_F(JsonCastTest, castInTry) {
       makeRowVector({rowVector}),
       jsonExpected);
 }
+
+TEST_F(JsonCastTest, tryCastFromJson) {
+  // Test try_cast to map when there are error in the conversions of map
+  // elements.
+  // To map(bigint, real).
+  auto data = makeFlatVector<JsonNativeType>(
+      {R"({"102":"2","101a":1.1})"_sv,
+       R"({"103":null,"104":2859327816787296000})"_sv},
+      JSON());
+  auto expectedMap =
+      makeNullableMapVector<int64_t, float>({std::nullopt, std::nullopt});
+  evaluateAndVerify<ComplexType>(
+      JSON(), MAP(BIGINT(), REAL()), makeRowVector({data}), expectedMap, true);
+
+  // To array(bigint).
+  data = makeFlatVector<JsonNativeType>(
+      {R"(["102a","101a"])"_sv, R"(["103a","2859327816787296000"])"_sv},
+      JSON());
+  auto expectedArray =
+      makeNullableArrayVector<float>({std::nullopt, std::nullopt});
+  evaluateAndVerify<ComplexType>(
+      JSON(), ARRAY(REAL()), makeRowVector({data}), expectedArray, true);
+
+  // To row(bigint).
+  data = makeFlatVector<JsonNativeType>(
+      {R"(["101a"])"_sv, R"(["28593278167872960000000a"])"_sv}, JSON());
+  auto expectedRow = makeRowVector(
+      {makeFlatVector<float>({0, 0})}, [](auto /*row*/) { return true; });
+  evaluateAndVerify<ComplexType>(
+      JSON(), ROW({REAL()}), makeRowVector({data}), expectedRow, true);
+
+  // To primitive.
+  data = makeFlatVector<JsonNativeType>(
+      {R"("101a")"_sv, R"("28593278167872960000000a")"_sv}, JSON());
+  auto expected = makeNullableFlatVector<float>({std::nullopt, std::nullopt});
+  evaluateAndVerify<float>(
+      JSON(), REAL(), makeRowVector({data}), expected, true);
+
+  // Invalid input.
+  data = makeFlatVector<JsonNativeType>(
+      {R"(["101a"})"_sv, R"(["28593278167872960000000a"})"_sv}, JSON());
+  expectedRow = makeRowVector(
+      {makeFlatVector<float>({0, 0})}, [](auto /*row*/) { return true; });
+  evaluateAndVerify<ComplexType>(
+      JSON(), ROW({REAL()}), makeRowVector({data}), expectedRow, true);
+}
