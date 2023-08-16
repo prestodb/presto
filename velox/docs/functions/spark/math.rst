@@ -100,6 +100,7 @@ Mathematical Functions
 .. spark:function:: pmod(n, m) -> [same as n]
 
     Returns the positive remainder of n divided by m.
+    Supported types are: TINYINT, SMALLINT, INTEGER, BIGINT, FLOAT and DOUBLE.
 
 .. spark:function:: power(x, p) -> double
 

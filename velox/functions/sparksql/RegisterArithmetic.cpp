@@ -43,7 +43,8 @@ void registerArithmeticFunctions(const std::string& prefix) {
   registerFunction<Log1pFunction, double, double>({prefix + "log1p"});
   registerFunction<ToBinaryStringFunction, Varchar, int64_t>({prefix + "bin"});
   registerFunction<ExpFunction, double, double>({prefix + "exp"});
-  registerBinaryIntegral<PModFunction>({prefix + "pmod"});
+  registerBinaryIntegral<PModIntFunction>({prefix + "pmod"});
+  registerBinaryFloatingPoint<PModFloatFunction>({prefix + "pmod"});
   registerFunction<PowerFunction, double, double, double>({prefix + "power"});
   registerUnaryNumeric<RoundFunction>({prefix + "round"});
   registerFunction<RoundFunction, int8_t, int8_t, int32_t>({prefix + "round"});
