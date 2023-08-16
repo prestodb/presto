@@ -706,10 +706,7 @@ When Zero-copy optimization is enabled (see zero-copy-string-result section abov
 
 Limitations
 ***********
-1. It is not possible to define functions that have generic output types,
-for example Array<T> output, where T is an input type.
-
-2. If a function throws an exception while writing a complex type, then the output of the
+1. If a function throws an exception while writing a complex type, then the output of the
 row being written as well as the output of the next row are undefined. Hence, it's recommended
 to avoid throwing exceptions after writing has started for a complex output within the function.
 
