@@ -219,6 +219,14 @@ int128_t toInt128(
   return value.value<velox::TypeKind::HUGEINT>();
 }
 
+Timestamp toTimestamp(
+    const std::shared_ptr<protocol::Block>& block,
+    const VeloxExprConverter& exprConverter,
+    const TypePtr& type) {
+  const auto value = exprConverter.getConstantValue(type, *block);
+  return value.value<velox::TypeKind::TIMESTAMP>();
+}
+
 std::unique_ptr<common::BigintRange> bigintRangeToFilter(
     const protocol::Range& range,
     bool nullAllowed,
@@ -261,6 +269,29 @@ std::unique_ptr<common::HugeintRange> hugeintRangeToFilter(
     high--;
   }
   return std::make_unique<common::HugeintRange>(low, high, nullAllowed);
+}
+
+std::unique_ptr<common::TimestampRange> timestampRangeToFilter(
+    const protocol::Range& range,
+    bool nullAllowed,
+    const VeloxExprConverter& exprConverter,
+    const TypePtr& type) {
+  const bool lowUnbounded = range.low.valueBlock == nullptr;
+  auto low = lowUnbounded
+      ? std::numeric_limits<Timestamp>::min()
+      : toTimestamp(range.low.valueBlock, exprConverter, type);
+  if (!lowUnbounded && range.low.bound == protocol::Bound::ABOVE) {
+    ++low;
+  }
+
+  const bool highUnbounded = range.high.valueBlock == nullptr;
+  auto high = highUnbounded
+      ? std::numeric_limits<Timestamp>::max()
+      : toTimestamp(range.high.valueBlock, exprConverter, type);
+  if (!highUnbounded && range.high.bound == protocol::Bound::BELOW) {
+    --high;
+  }
+  return std::make_unique<common::TimestampRange>(low, high, nullAllowed);
 }
 
 int64_t dateToInt64(
@@ -647,6 +678,8 @@ std::unique_ptr<common::Filter> toFilter(
       return boolRangeToFilter(range, nullAllowed, exprConverter, type);
     case TypeKind::REAL:
       return floatRangeToFilter(range, nullAllowed, exprConverter, type);
+    case TypeKind::TIMESTAMP:
+      return timestampRangeToFilter(range, nullAllowed, exprConverter, type);
     default:
       VELOX_UNSUPPORTED("Unsupported range type: {}", type->toString());
   }
