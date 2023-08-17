@@ -162,8 +162,10 @@ ResultOrError ExpressionVerifier::verify(
 
     exec::EvalCtx evalCtxCommon(execCtx_, &exprSetCommon, inputRowVector.get());
     exprSetCommon.eval(rows, evalCtxCommon, commonEvalResult);
-    assertEqualVectors(copy, inputRowVector);
-
+    {
+      SelectivityVector rows(copy->size());
+      compareVectors(copy, inputRowVector, rows);
+    }
   } catch (const VeloxUserError&) {
     if (!canThrow) {
       LOG(ERROR)
@@ -191,7 +193,10 @@ ResultOrError ExpressionVerifier::verify(
 
     auto copy = createCopy(rowVector);
     exprSetSimplified.eval(rows, evalCtxSimplified, simplifiedEvalResult);
-    assertEqualVectors(copy, rowVector);
+    {
+      SelectivityVector rows(copy->size());
+      compareVectors(copy, rowVector, rows);
+    }
 
   } catch (const VeloxUserError&) {
     exceptionSimplifiedPtr = std::current_exception();
