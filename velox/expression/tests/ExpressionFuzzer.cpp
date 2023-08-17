@@ -856,8 +856,8 @@ core::TypedExprPtr ExpressionFuzzer::generateExpression(
     }
   }
   if (!expression) {
-    LOG(INFO) << "Couldn't find a proper function to return '"
-              << returnType->toString() << "'. Returning a constant instead.";
+    VLOG(1) << "Couldn't find a proper function to return '"
+            << returnType->toString() << "'. Returning a constant instead.";
     return generateArgConstant(returnType);
   }
   expressionBank_.insert(expression);

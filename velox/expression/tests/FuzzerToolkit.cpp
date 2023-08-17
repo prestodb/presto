@@ -98,6 +98,7 @@ void compareExceptions(
       std::rethrow_exception(simplifiedPtr);
     }
   }
+  LOG(INFO) << "Excpetions match.";
 }
 
 } // namespace facebook::velox::test
