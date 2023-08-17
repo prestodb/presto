@@ -603,7 +603,8 @@ TEST_F(TaskManagerTest, tableScanAllSplitsAtOnce) {
 
 TEST_F(TaskManagerTest, taskCleanupWithPendingResultData) {
   // Trigger old task cleanup immediately.
-  FLAGS_old_task_ms = 0;
+  taskManager_->setOldTaskCleanUpMs(0);
+
   auto filePaths = makeFilePaths(5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
