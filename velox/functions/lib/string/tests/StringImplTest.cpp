@@ -431,6 +431,20 @@ TEST_F(StringImplTest, getByteRange) {
     EXPECT_EQ(expectedStartByteIndex, range.first);
     EXPECT_EQ(expectedEndByteIndex, range.second);
   }
+
+  // Test bad unicode strings.
+
+  // This exercises bad unicode byte in determining startByteIndex.
+  std::string badUnicode = "aa\xff  ";
+  auto range = getByteRange<false>(badUnicode.data(), 4, 3);
+  EXPECT_EQ(range.first, 3);
+  EXPECT_EQ(range.second, 6);
+
+  // This exercises bad unicode byte in determining endByteIndex.
+  badUnicode = "\xff aa";
+  range = getByteRange<false>(badUnicode.data(), 1, 3);
+  EXPECT_EQ(range.first, 0);
+  EXPECT_EQ(range.second, 3);
 }
 
 TEST_F(StringImplTest, pad) {
@@ -529,6 +543,11 @@ TEST_F(StringImplTest, pad) {
   runTestUserError("text", -1, "a");
   runTestUserError(
       "text", ((int64_t)std::numeric_limits<int32_t>::max()) + 1, "a");
+  // Additional tests with bad unicode bytes.
+  runTest("abcd\xff \xff ef", 6, "0", "abcd\xff ", "abcd\xff ");
+  runTest(
+      "abcd\xff \xff ef", 11, "0", "0abcd\xff \xff ef", "abcd\xff \xff ef0");
+  runTest("abcd\xff ef", 6, "0", "abcd\xff ", "abcd\xff ");
 }
 
 // Make sure that utf8proc_codepoint returns invalid codepoint (-1) for

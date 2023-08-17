@@ -399,6 +399,8 @@ inline static size_t replace(
 /// Given a utf8 string, a starting position and length returns the
 /// corresponding underlying byte range [startByteIndex, endByteIndex).
 /// Byte indicies starts from 0, UTF8 character positions starts from 1.
+/// If a bad unicode byte is encountered, then we skip that bad byte and
+/// count that as one codepoint.
 template <bool isAscii>
 static inline std::pair<size_t, size_t>
 getByteRange(const char* str, size_t startCharPosition, size_t length) {
@@ -415,14 +417,16 @@ getByteRange(const char* str, size_t startCharPosition, size_t length) {
 
     // Find startByteIndex
     for (auto i = 0; i < startCharPosition - 1; i++) {
-      nextCharOffset += utf8proc_char_length(&str[nextCharOffset]);
+      auto increment = utf8proc_char_length(&str[nextCharOffset]);
+      nextCharOffset += UNLIKELY(increment < 0) ? 1 : increment;
     }
 
     startByteIndex = nextCharOffset;
 
     // Find endByteIndex
     for (auto i = 0; i < length; i++) {
-      nextCharOffset += utf8proc_char_length(&str[nextCharOffset]);
+      auto increment = utf8proc_char_length(&str[nextCharOffset]);
+      nextCharOffset += UNLIKELY(increment < 0) ? 1 : increment;
     }
 
     return std::make_pair(startByteIndex, nextCharOffset);
