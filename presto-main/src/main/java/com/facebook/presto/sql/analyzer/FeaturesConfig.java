@@ -365,6 +365,7 @@ public class FeaturesConfig
     {
         DISABLED,
         KEY_FROM_OUTER_JOIN, // Enabled only when join keys are from output of outer joins
+        COST_BASED,
         ALWAYS
     }
 

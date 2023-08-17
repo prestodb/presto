@@ -715,7 +715,7 @@ public class PlanOptimizers
                             // Must run before AddExchanges and after ReplicateSemiJoinInDelete
                             // to avoid temporarily having an invalid plan
                             new DetermineSemiJoinDistributionType(costComparator, taskCountEstimator))));
-            builder.add(new RandomizeNullKeyInOuterJoin(metadata.getFunctionAndTypeManager()),
+            builder.add(new RandomizeNullKeyInOuterJoin(metadata.getFunctionAndTypeManager(), statsCalculator),
                     new PruneUnreferencedOutputs(),
                     new IterativeOptimizer(
                             metadata,
