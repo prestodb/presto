@@ -36,22 +36,17 @@ class TaskManager {
   /// and cleanup the completed tasks.
   void shutdown();
 
-  void setBaseUri(const std::string& baseUri) {
-    baseUri_ = baseUri;
-  }
+  void setBaseUri(const std::string& baseUri);
 
-  void setNodeId(const std::string& nodeId) {
-    nodeId_ = nodeId;
-  }
+  void setNodeId(const std::string& nodeId);
 
-  void setBaseSpillDirectory(const std::string& baseSpillDirectory) {
-    VELOX_CHECK(!baseSpillDirectory.empty());
-    baseSpillDirectory_ = baseSpillDirectory;
-  }
+  void setBaseSpillDirectory(const std::string& baseSpillDirectory);
 
-  TaskMap tasks() const {
-    return taskMap_.withRLock([](const auto& tasks) { return tasks; });
-  }
+  /// Sets the time (ms) that a task is considered to be old for cleanup since
+  /// its completion.
+  void setOldTaskCleanUpMs(int32_t oldTaskCleanUpMs);
+
+  TaskMap tasks() const;
 
   void abortResults(const protocol::TaskId& taskId, long bufferId);
 
@@ -133,9 +128,7 @@ class TaskManager {
   /// threads in tasks that were requested to yield.
   int32_t yieldTasks(int32_t numTargetThreadsToYield, int32_t timeSliceMicros);
 
-  const QueryContextManager* getQueryContextManager() const {
-    return &queryContextManager_;
-  }
+  const QueryContextManager* getQueryContextManager() const;
 
   inline size_t getNumTasks() const {
     return taskMap_.rlock()->size();
@@ -184,7 +177,8 @@ class TaskManager {
 
   std::string baseUri_;
   std::string nodeId_;
-  std::string baseSpillDirectory_;
+  std::string baseSpillDir_;
+  int32_t oldTaskCleanUpMs_;
   std::shared_ptr<velox::exec::PartitionedOutputBufferManager> bufferManager_;
   folly::Synchronized<TaskMap> taskMap_;
   QueryContextManager queryContextManager_;

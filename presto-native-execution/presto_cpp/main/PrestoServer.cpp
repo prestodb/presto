@@ -313,6 +313,7 @@ void PrestoServer::run() {
 
   taskManager_->setBaseUri(taskUri);
   taskManager_->setNodeId(nodeId_);
+  taskManager_->setOldTaskCleanUpMs(systemConfig->oldTaskCleanUpMs());
 
   auto baseSpillDirectory = getBaseSpillDirectory();
   if (!baseSpillDirectory.empty()) {
