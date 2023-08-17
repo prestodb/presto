@@ -14,21 +14,39 @@
 package com.facebook.presto.operator.aggregation.estimatendv;
 
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.operator.aggregation.reservoirsample.ReservoirSampleState;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
+import io.airlift.slice.SizeOf;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 
+/**
+ * Implementation of Chao's estimator from Chao 1984, using counts of values that appear exactly once and twice
+ * Before running NDV estimator, first run a select count(*) group by col query to get the frequency of each
+ * distinct value in col.
+ * Collect the counts of values with each frequency and store in the Map field freqDict
+ * Use the counts of values with frequency 1 and 2 to do the computation:
+ * d_chao = d + (f_1)^2/(2*(f_2))
+ * Return birthday problem solution if there are no values observed of frequency 2
+ * Also make insane bets (10x) when every point observed is almost unique, which could be good or bad
+ */
 @AccumulatorStateMetadata(
         stateSerializerClass = NDVEstimatorStateSerializer.class,
         stateFactoryClass = NDVEstimatorStateFactory.class)
 public class NDVEstimatorState
         implements AccumulatorState
 {
+    private static final double LOWER_BOUND_PROBABILITY = 0.1;
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ReservoirSampleState.class).instanceSize();
+    /**
+     * Counts of values with each frequency in the column
+     */
     private Map<Long, Long> freqDict = new HashMap<>();
 
     public NDVEstimatorState() {}
@@ -36,7 +54,7 @@ public class NDVEstimatorState
     @Override
     public long getEstimatedSize()
     {
-        return 0;
+        return INSTANCE_SIZE + 2L * SizeOf.SIZE_OF_LONG * freqDict.keySet().size();
     }
 
     public Map<Long, Long> getFreqDict()
@@ -49,41 +67,31 @@ public class NDVEstimatorState
         this.freqDict = frequencyDict;
     }
 
+    /**
+     * @param freq Frequency of a distinct value in original column . The frequency comes from a count(*) group by col query.
+     */
     public void add(Long freq)
     {
-        if (freqDict.containsKey(freq)) {
-            freqDict.put(freq, freqDict.get(freq) + 1);
-        }
-        else {
-            freqDict.put(freq, 1L);
-        }
+        freqDict.put(freq, freqDict.getOrDefault(freq, 0L) + 1);
     }
 
     public void merge(NDVEstimatorState otherState)
     {
         Map<Long, Long> otherFreqDict = otherState.getFreqDict();
         for (Long value : otherFreqDict.keySet()) {
-            if (freqDict.containsKey(value)) {
-                freqDict.put(value, freqDict.get(value) + otherFreqDict.get(value));
-            }
-            else {
-                freqDict.put(value, otherFreqDict.get(value));
-            }
+            freqDict.put(value, freqDict.getOrDefault(value, 0L) + otherFreqDict.get(value));
         }
     }
 
     private long computeBirthdayProblemProbability(long d)
     {
-        double lowerBoundProbability = 0.1;
         long i = d;
         long lowerBound;
         while (true) {
             lowerBound = d + i;
-            double multiplied = 1;
-            for (int j : IntStream.range(0, (int) d).toArray()) {
-                multiplied *= (double) (lowerBound - j) / lowerBound;
-            }
-            if (multiplied > lowerBoundProbability) {
+            long finalLowerBound = lowerBound;
+            double multiplied = LongStream.range(0, d).mapToDouble(j -> (double) (finalLowerBound - j) / finalLowerBound).reduce(1, (x, y) -> x * y);
+            if (multiplied > LOWER_BOUND_PROBABILITY) {
                 break;
             }
             i += 1;
@@ -91,6 +99,11 @@ public class NDVEstimatorState
         return lowerBound;
     }
 
+    /**
+     * Use Chao estimator to estimate NDV
+     *
+     * @return Estimate of the NDV in the specific column in the original table
+     */
     public long estimate()
     {
         long distinctValues = freqDict.values().stream().mapToLong(i -> i).sum();
