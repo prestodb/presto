@@ -275,6 +275,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kExchangeRequestTimeout, "10s"),
           NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
           BOOL_PROP(kIncludeNodeInSpillPath, false),
+          NUM_PROP(kOldTaskCleanUpMs, 60'000),
       };
 }
 
@@ -541,6 +542,10 @@ int32_t SystemConfig::taskRunTimeSliceMicros() const {
 
 bool SystemConfig::includeNodeInSpillPath() const {
   return optionalProperty<bool>(kIncludeNodeInSpillPath).value();
+}
+
+int32_t SystemConfig::oldTaskCleanUpMs() const {
+  return optionalProperty<int32_t>(kOldTaskCleanUpMs).value();
 }
 
 NodeConfig::NodeConfig() {

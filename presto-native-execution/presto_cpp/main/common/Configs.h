@@ -260,6 +260,10 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kLogZombieTaskInfo{"log-zombie-task-info"};
   static constexpr std::string_view kLogNumZombieTasks{"log-num-zombie-tasks"};
 
+  /// Time (ms) since the task execution ended, when task is considered old for
+  /// cleanup.
+  static constexpr std::string_view kOldTaskCleanUpMs{"old-task-cleanup-ms"};
+
   static constexpr std::string_view kAnnouncementMinFrequencyMs{
       "announcement-min-frequency-ms"};
 
@@ -438,6 +442,8 @@ class SystemConfig : public ConfigBase {
   int32_t taskRunTimeSliceMicros() const;
 
   bool includeNodeInSpillPath() const;
+
+  int32_t oldTaskCleanUpMs() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

@@ -26,11 +26,6 @@
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Exchange.h"
 
-DEFINE_int32(
-    old_task_ms,
-    60'000, // 1 minute, by default.
-    "Time (ms) since the task execution ended, when task is considered old.");
-
 using namespace facebook::velox;
 
 using facebook::presto::protocol::TaskId;
@@ -277,6 +272,32 @@ TaskManager::TaskManager()
       bufferManager_, "invalid PartitionedOutputBufferManager");
 }
 
+void TaskManager::setBaseUri(const std::string& baseUri) {
+  baseUri_ = baseUri;
+}
+
+void TaskManager::setNodeId(const std::string& nodeId) {
+  nodeId_ = nodeId;
+}
+
+void TaskManager::setBaseSpillDirectory(const std::string& baseSpillDirectory) {
+  VELOX_CHECK(!baseSpillDirectory.empty());
+  baseSpillDir_ = baseSpillDirectory;
+}
+
+void TaskManager::setOldTaskCleanUpMs(int32_t oldTaskCleanUpMs) {
+  VELOX_CHECK_GE(oldTaskCleanUpMs, 0);
+  oldTaskCleanUpMs_ = oldTaskCleanUpMs;
+}
+
+TaskMap TaskManager::tasks() const {
+  return taskMap_.withRLock([](const auto& tasks) { return tasks; });
+}
+
+const QueryContextManager* TaskManager::getQueryContextManager() const {
+  return &queryContextManager_;
+}
+
 void TaskManager::abortResults(const TaskId& taskId, long bufferId) {
   VLOG(1) << "TaskManager::abortResults " << taskId;
 
@@ -413,8 +434,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
 
       execTask = exec::Task::create(
           taskId, planFragment, prestoTask->id.id(), std::move(queryCtx));
-      maybeSetupTaskSpillDirectory(
-          planFragment, *execTask, baseSpillDirectory_);
+      maybeSetupTaskSpillDirectory(planFragment, *execTask, baseSpillDir_);
 
       prestoTask->task = execTask;
       prestoTask->info.needsPlan = false;
@@ -582,14 +602,14 @@ size_t TaskManager::cleanOldTasks() {
       bool eraseTask{false};
       if (it->second->task != nullptr) {
         if (it->second->task->state() != exec::TaskState::kRunning) {
-          if (it->second->task->timeSinceEndMs() >= FLAGS_old_task_ms) {
+          if (it->second->task->timeSinceEndMs() >= oldTaskCleanUpMs_) {
             // Not running and old.
             eraseTask = true;
           }
         }
       } else {
         // Use heartbeat to determine the task's age.
-        if (it->second->timeSinceLastHeartbeatMs() >= FLAGS_old_task_ms) {
+        if (it->second->timeSinceLastHeartbeatMs() >= oldTaskCleanUpMs_) {
           eraseTask = true;
         }
       }
