@@ -432,7 +432,12 @@ public class ServerMainModule
                     public void configure(Binder moduleBinder)
                     {
                         configBinder(moduleBinder).bindConfig(ResourceManagerConfig.class);
-                        moduleBinder.bind(ClusterStatusSender.class).to(ResourceManagerClusterStatusSender.class).in(Scopes.SINGLETON);
+
+                        // In the disaggregated-coordinators setup, we should only send heartbeat from the coordinators and workers.
+                        if (serverConfig.isCoordinator() || serverConfig.isWorker()) {
+                            moduleBinder.bind(ClusterStatusSender.class).to(ResourceManagerClusterStatusSender.class).in(Scopes.SINGLETON);
+                        }
+
                         if (serverConfig.isCoordinator()) {
                             moduleBinder.bind(ClusterMemoryManagerService.class).in(Scopes.SINGLETON);
                             moduleBinder.bind(ClusterQueryTrackerService.class).in(Scopes.SINGLETON);
