@@ -89,6 +89,7 @@ import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggregationFunction;
 import com.facebook.presto.operator.aggregation.differentialentropy.DifferentialEntropyAggregation;
+import com.facebook.presto.operator.aggregation.estimatendv.NDVEstimatorFunction;
 import com.facebook.presto.operator.aggregation.histogram.Histogram;
 import com.facebook.presto.operator.aggregation.multimapagg.AlternativeMultimapAggregationFunction;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggregationFunction;
@@ -647,6 +648,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregate(GeometryUnionAgg.class)
                 .aggregate(SpatialPartitioningAggregateFunction.class)
                 .aggregate(SpatialPartitioningInternalAggregateFunction.class)
+                .aggregate(NDVEstimatorFunction.class)
                 .aggregates(CountAggregation.class)
                 .aggregates(VarianceAggregation.class)
                 .aggregates(CentralMomentsAggregation.class)
