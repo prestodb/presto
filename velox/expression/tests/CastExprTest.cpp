@@ -437,6 +437,13 @@ TEST_F(CastExprTest, basics) {
       {1.888, 2.5, 3.6, 100.44, -100.101, 1.0, -2.0},
       {1.888, 2.5, 3.6, 100.44, -100.101, 1.0, -2.0});
   testCast<bool, std::string>("string", {true, false}, {"true", "false"});
+
+  gflags::FlagSaver flagSaver;
+  FLAGS_experimental_enable_legacy_cast = true;
+  testCast<double, std::string>(
+      "string",
+      {1.888, 2.5, 3.6, 100.44, -100.101, 1.0, -2.0},
+      {"1.888", "2.5", "3.6", "100.44", "-100.101", "1", "-2"});
 }
 
 TEST_F(CastExprTest, stringToTimestamp) {
