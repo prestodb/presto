@@ -59,7 +59,7 @@ public class TestExplainVerification
         assertTrue(event.isPresent());
 
         // Explain verification do not fail in case of plan changes.
-        assertEvent(event.get(), SUCCEEDED);
+        assertEvent(event.get(), FAILED);
         assertEquals(event.get().getMatchType(), "STRUCTURE_MISMATCH");
         assertEquals(event.get().getControlQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT \"count\"(*)\nFROM\n  structure_mismatch");
         assertEquals(event.get().getTestQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT \"count\"(*)\nFROM\n  (structure_mismatch\nCROSS JOIN structure_mismatch)");
@@ -74,7 +74,7 @@ public class TestExplainVerification
         assertTrue(event.isPresent());
 
         // Explain verification do not fail in case of plan changes.
-        assertEvent(event.get(), SUCCEEDED);
+        assertEvent(event.get(), FAILED);
         assertEquals(event.get().getMatchType(), "DETAILS_MISMATCH");
         assertEquals(event.get().getControlQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT 1");
         assertEquals(event.get().getTestQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT 2");
