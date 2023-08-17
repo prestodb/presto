@@ -50,6 +50,12 @@ class SharedArbitrator : public MemoryArbitrator {
       const std::vector<std::shared_ptr<MemoryPool>>& candidatePools,
       uint64_t targetBytes) final;
 
+  uint64_t shrinkMemory(
+      const std::vector<std::shared_ptr<MemoryPool>>& /*unused*/,
+      uint64_t /*unused*/) override final {
+    VELOX_NYI("shrinkMemory is not supported by SharedArbitrator");
+  }
+
   Stats stats() const final;
 
   std::string kind() override;

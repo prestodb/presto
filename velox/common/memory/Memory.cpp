@@ -175,10 +175,12 @@ bool MemoryManager::growPool(MemoryPool* pool, uint64_t incrementBytes) {
   if (arbitrator_ == nullptr) {
     return false;
   }
-  // Holds a shared reference to each alive memory pool in 'pools_' to keep
-  // their aliveness during the memory arbitration process.
-  std::vector<std::shared_ptr<MemoryPool>> candidates = getAlivePools();
-  return arbitrator_->growMemory(pool, candidates, incrementBytes);
+  return arbitrator_->growMemory(pool, getAlivePools(), incrementBytes);
+}
+
+uint64_t MemoryManager::shrinkPools(uint64_t targetBytes) {
+  VELOX_CHECK_NOT_NULL(arbitrator_);
+  return arbitrator_->shrinkMemory(getAlivePools(), targetBytes);
 }
 
 void MemoryManager::dropPool(MemoryPool* pool) {

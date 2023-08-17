@@ -113,6 +113,10 @@ class FakeTestArbitrator : public MemoryArbitrator {
       const std::vector<std::shared_ptr<MemoryPool>>& candidatePools,
       uint64_t targetBytes) override{VELOX_NYI()}
 
+  uint64_t shrinkMemory(
+      const std::vector<std::shared_ptr<MemoryPool>>& pools,
+      uint64_t targetBytes) override{VELOX_NYI()}
+
   Stats stats() const override{VELOX_NYI()}
 
   std::string toString() const override{VELOX_NYI()}

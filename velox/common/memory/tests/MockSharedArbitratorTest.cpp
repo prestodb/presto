@@ -535,6 +535,11 @@ TEST_F(MockSharedArbitrationTest, arbitrationFailsTask) {
   growOp->freeAll();
 }
 
+TEST_F(MockSharedArbitrationTest, shrinkMemory) {
+  std::vector<std::shared_ptr<MemoryPool>> pools;
+  ASSERT_THROW(arbitrator_->shrinkMemory(pools, 128), VeloxException);
+}
+
 TEST_F(MockSharedArbitrationTest, singlePoolGrowWithoutArbitration) {
   auto* memOp = addMemoryOp();
   const int allocateSize = 1 * MB;

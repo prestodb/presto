@@ -141,6 +141,13 @@ class MemoryArbitrator {
       const std::vector<std::shared_ptr<MemoryPool>>& candidatePools,
       uint64_t targetBytes) = 0;
 
+  /// Invoked by the memory manager to shrink memory from a given list of memory
+  /// pools. The freed memory capacity is given back to the arbitrator. The
+  /// function returns the actual freed memory capacity in bytes.
+  virtual uint64_t shrinkMemory(
+      const std::vector<std::shared_ptr<MemoryPool>>& pools,
+      uint64_t targetBytes) = 0;
+
   /// The internal execution stats of the memory arbitrator.
   struct Stats {
     /// The number of arbitration requests.
