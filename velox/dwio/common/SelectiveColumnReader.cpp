@@ -154,7 +154,7 @@ void SelectiveColumnReader::getIntValues(
     const TypePtr& requestedType,
     VectorPtr* result) {
   switch (requestedType->kind()) {
-    case TypeKind::SMALLINT: {
+    case TypeKind::SMALLINT:
       switch (valueSize_) {
         case 8:
           getFlatValues<int64_t, int16_t>(rows, result, requestedType);
@@ -169,56 +169,54 @@ void SelectiveColumnReader::getIntValues(
           VELOX_FAIL("Unsupported value size: {}", valueSize_);
       }
       break;
-      case TypeKind::TINYINT:
-        switch (valueSize_) {
-          case 4:
-            getFlatValues<int32_t, int8_t>(rows, result, requestedType);
-            break;
-          case 2:
-            getFlatValues<int16_t, int8_t>(rows, result, requestedType);
-            break;
-          default:
-            VELOX_FAIL("Unsupported value size: {}", valueSize_);
-        }
-        break;
-      case TypeKind::INTEGER:
-        switch (valueSize_) {
-          case 8:
-            getFlatValues<int64_t, int32_t>(rows, result, requestedType);
-            break;
-          case 4:
-            getFlatValues<int32_t, int32_t>(rows, result, requestedType);
-            break;
-          case 2:
-            getFlatValues<int16_t, int32_t>(rows, result, requestedType);
-            break;
-          default:
-            VELOX_FAIL("Unsupported value size: {}", valueSize_);
-        }
-        break;
-      case TypeKind::HUGEINT:
-        getFlatValues<int128_t, int128_t>(rows, result, requestedType);
-        break;
-      case TypeKind::BIGINT:
-        switch (valueSize_) {
-          case 8:
-            getFlatValues<int64_t, int64_t>(rows, result, requestedType);
-            break;
-          case 4:
-            getFlatValues<int32_t, int64_t>(rows, result, requestedType);
-            break;
-          case 2:
-            getFlatValues<int16_t, int64_t>(rows, result, requestedType);
-            break;
-          default:
-            VELOX_FAIL("Unsupported value size: {}", valueSize_);
-        }
-        break;
-      default:
-        VELOX_FAIL(
-            "Not a valid type for integer reader: {}",
-            requestedType->toString());
-    }
+    case TypeKind::TINYINT:
+      switch (valueSize_) {
+        case 4:
+          getFlatValues<int32_t, int8_t>(rows, result, requestedType);
+          break;
+        case 2:
+          getFlatValues<int16_t, int8_t>(rows, result, requestedType);
+          break;
+        default:
+          VELOX_FAIL("Unsupported value size: {}", valueSize_);
+      }
+      break;
+    case TypeKind::INTEGER:
+      switch (valueSize_) {
+        case 8:
+          getFlatValues<int64_t, int32_t>(rows, result, requestedType);
+          break;
+        case 4:
+          getFlatValues<int32_t, int32_t>(rows, result, requestedType);
+          break;
+        case 2:
+          getFlatValues<int16_t, int32_t>(rows, result, requestedType);
+          break;
+        default:
+          VELOX_FAIL("Unsupported value size: {}", valueSize_);
+      }
+      break;
+    case TypeKind::HUGEINT:
+      getFlatValues<int128_t, int128_t>(rows, result, requestedType);
+      break;
+    case TypeKind::BIGINT:
+      switch (valueSize_) {
+        case 8:
+          getFlatValues<int64_t, int64_t>(rows, result, requestedType);
+          break;
+        case 4:
+          getFlatValues<int32_t, int64_t>(rows, result, requestedType);
+          break;
+        case 2:
+          getFlatValues<int16_t, int64_t>(rows, result, requestedType);
+          break;
+        default:
+          VELOX_FAIL("Unsupported value size: {}", valueSize_);
+      }
+      break;
+    default:
+      VELOX_FAIL(
+          "Not a valid type for integer reader: {}", requestedType->toString());
   }
 }
 
