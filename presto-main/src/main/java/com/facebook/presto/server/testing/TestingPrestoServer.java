@@ -77,11 +77,13 @@ import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.testing.TestingEventListenerManager;
+import com.facebook.presto.testing.TestingPeriodicTaskExecutorFactory;
 import com.facebook.presto.testing.TestingTempStorageManager;
 import com.facebook.presto.testing.TestingWarningCollectorModule;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManagerModule;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManagerModule;
+import com.facebook.presto.util.PeriodicTaskExecutorFactory;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -162,6 +164,7 @@ public class TestingPrestoServer
     private final DispatchManager dispatchManager;
     private final QueryManager queryManager;
     private final TaskManager taskManager;
+    private final PeriodicTaskExecutorFactory periodicTaskExecutorFactory;
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
     private final RequestBlocker requestBlocker;
@@ -311,6 +314,7 @@ public class TestingPrestoServer
                     binder.bind(RequestBlocker.class).in(Scopes.SINGLETON);
                     newSetBinder(binder, Filter.class, TheServlet.class).addBinding()
                             .to(RequestBlocker.class).in(Scopes.SINGLETON);
+                    binder.bind(PeriodicTaskExecutorFactory.class).to(TestingPeriodicTaskExecutorFactory.class).in(Scopes.SINGLETON);
                 });
 
         if (discoveryUri != null) {
@@ -407,6 +411,7 @@ public class TestingPrestoServer
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
         gracefulShutdownHandler = injector.getInstance(GracefulShutdownHandler.class);
         taskManager = injector.getInstance(TaskManager.class);
+        periodicTaskExecutorFactory = injector.getInstance(PeriodicTaskExecutorFactory.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
         announcer = injector.getInstance(Announcer.class);
         requestBlocker = injector.getInstance(RequestBlocker.class);
@@ -642,6 +647,13 @@ public class TestingPrestoServer
     public TaskManager getTaskManager()
     {
         return taskManager;
+    }
+
+    public Optional<TestingPeriodicTaskExecutorFactory> getPeriodicTaskExecutorFactory()
+    {
+        return periodicTaskExecutorFactory instanceof TestingPeriodicTaskExecutorFactory ?
+                Optional.of((TestingPeriodicTaskExecutorFactory) periodicTaskExecutorFactory) :
+                Optional.empty();
     }
 
     public ShutdownAction getShutdownAction()
