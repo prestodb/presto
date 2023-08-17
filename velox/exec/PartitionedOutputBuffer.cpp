@@ -480,12 +480,6 @@ bool PartitionedOutputBuffer::isFinishedLocked() {
   if (isBroadcast() && !noMoreBuffers_) {
     return false;
   }
-  if (isArbitrary()) {
-    VELOX_CHECK_NOT_NULL(arbitraryBuffer_);
-    if (!arbitraryBuffer_->empty()) {
-      return false;
-    }
-  }
   for (auto& buffer : buffers_) {
     if (buffer != nullptr) {
       return false;
