@@ -162,6 +162,10 @@ TEST_F(SparseHllTest, mergeWith) {
 
   // idempotent
   testMergeWith(sequence(0, 100), sequence(0, 100));
+
+  // empty sequence
+  testMergeWith(sequence(0, 100), {});
+  testMergeWith({}, sequence(100, 300));
 }
 
 class SparseHllToDenseTest : public ::testing::TestWithParam<int8_t> {

@@ -162,15 +162,26 @@ SparseHll::SparseHll(const char* serialized, HashStringAllocator* allocator)
 }
 
 void SparseHll::mergeWith(const SparseHll& other) {
-  mergeWith(other.entries_.size(), other.entries_.data());
+  auto size = other.entries_.size();
+  // This check prevents merge aggregation from being performed on
+  // empty_approx_set(), an empty HyperLogLog. The merge function typically does
+  // not take an empty HyperLogLog structure as an argument.
+  if (size) {
+    mergeWith(size, other.entries_.data());
+  }
 }
 
 void SparseHll::mergeWith(const char* serialized) {
   auto stream = initializeInputStream(serialized);
 
   auto size = stream.read<int16_t>();
-  mergeWith(
-      size, reinterpret_cast<const uint32_t*>(serialized + stream.offset()));
+  // This check prevents merge aggregation from being performed on
+  // empty_approx_set(), an empty HyperLogLog. The merge function typically does
+  // not take an empty HyperLogLog structure as an argument.
+  if (size) {
+    mergeWith(
+        size, reinterpret_cast<const uint32_t*>(serialized + stream.offset()));
+  }
 }
 
 void SparseHll::mergeWith(size_t otherSize, const uint32_t* otherEntries) {
