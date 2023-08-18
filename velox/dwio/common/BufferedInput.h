@@ -122,6 +122,12 @@ class BufferedInput {
     return std::make_unique<BufferedInput>(input_, pool_);
   }
 
+  std::unique_ptr<SeekableInputStream> loadCompleteFile() {
+    auto stream = enqueue({0, input_->getLength()});
+    load(dwio::common::LogType::FILE);
+    return stream;
+  }
+
   const std::shared_ptr<ReadFile>& getReadFile() const {
     return input_->getReadFile();
   }

@@ -33,8 +33,12 @@ class StructColumnReader : public dwio::common::SelectiveStructColumnReader {
 
   void seekToRowGroup(uint32_t index) override;
 
-  /// Creates the streams for 'rowGroup in 'input'. Does not load yet.
-  void enqueueRowGroup(uint32_t index, dwio::common::BufferedInput& input);
+  /// Creates the streams for 'rowGroup'. Checks whether row 'rowGroup'
+  /// has been buffered in 'input'. If true, return the input. Or else creates
+  /// the streams in a new input and loads.
+  std::shared_ptr<dwio::common::BufferedInput> loadRowGroup(
+      uint32_t index,
+      const std::shared_ptr<dwio::common::BufferedInput>& input);
 
   // No-op in Parquet. All readers switch row groups at the same time, there is
   // no on-demand skipping to a new row group.
@@ -64,6 +68,10 @@ class StructColumnReader : public dwio::common::SelectiveStructColumnReader {
 
  private:
   dwio::common::SelectiveColumnReader* findBestLeaf();
+
+  void enqueueRowGroup(uint32_t index, dwio::common::BufferedInput& input);
+
+  bool isRowGroupBuffered(uint32_t index, dwio::common::BufferedInput& input);
 
   // Leaf column reader used for getting nullability information for
   // 'this'. This is nullptr for the root of a table.

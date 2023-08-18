@@ -595,3 +595,38 @@ TEST_F(ParquetReaderTest, parseLongTagged) {
   EXPECT_EQ(col0->type->kind(), TypeKind::BIGINT);
   EXPECT_EQ(type->childByName("_c0"), col0);
 }
+
+TEST_F(ParquetReaderTest, preloadSmallFile) {
+  const std::string sample(getExampleFilePath("sample.parquet"));
+
+  auto file = std::make_shared<LocalReadFile>(sample);
+  auto input = std::make_unique<BufferedInput>(file, *defaultPool);
+
+  ReaderOptions readerOptions{defaultPool.get()};
+  auto reader =
+      std::make_unique<ParquetReader>(std::move(input), readerOptions);
+
+  auto rowReaderOpts = getReaderOpts(sampleSchema());
+  auto scanSpec = makeScanSpec(sampleSchema());
+  rowReaderOpts.setScanSpec(scanSpec);
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+
+  // Ensure the input is small parquet file.
+  const auto fileSize = file->size();
+  ASSERT_TRUE(
+      fileSize <= ReaderOptions::kDefaultFilePreloadThreshold ||
+      fileSize <= ReaderOptions::kDefaultDirectorySizeGuess);
+
+  // Check the whole file already loaded.
+  ASSERT_EQ(file->bytesRead(), fileSize);
+
+  // Reset bytes read to check for duplicate reads.
+  file->resetBytesRead();
+
+  constexpr int kBatchSize = 10;
+  auto result = BaseVector::create(sampleSchema(), 1, pool_.get());
+  while (rowReader->next(kBatchSize, result)) {
+    // Check no duplicate reads.
+    ASSERT_EQ(file->bytesRead(), 0);
+  }
+}

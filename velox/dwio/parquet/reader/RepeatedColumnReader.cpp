@@ -87,8 +87,7 @@ void enqueueChildren(
     dwio::common::BufferedInput& input) {
   auto children = reader->children();
   if (children.empty()) {
-    reader->formatData().as<ParquetData>().enqueueRowGroup(index, input);
-    return;
+    return reader->formatData().as<ParquetData>().enqueueRowGroup(index, input);
   }
   for (auto* child : children) {
     enqueueChildren(child, index, input);

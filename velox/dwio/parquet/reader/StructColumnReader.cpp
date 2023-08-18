@@ -92,6 +92,27 @@ void StructColumnReader::read(
   SelectiveStructColumnReader::read(offset, rows, nullptr);
 }
 
+std::shared_ptr<dwio::common::BufferedInput> StructColumnReader::loadRowGroup(
+    uint32_t index,
+    const std::shared_ptr<dwio::common::BufferedInput>& input) {
+  if (isRowGroupBuffered(index, *input)) {
+    enqueueRowGroup(index, *input);
+    return input;
+  }
+  auto newInput = input->clone();
+  enqueueRowGroup(index, *newInput);
+  newInput->load(dwio::common::LogType::STRIPE);
+  return newInput;
+}
+
+bool StructColumnReader::isRowGroupBuffered(
+    uint32_t index,
+    dwio::common::BufferedInput& input) {
+  auto [offset, length] =
+      formatData().as<ParquetData>().getRowGroupRegion(index);
+  return input.isBuffered(offset, length);
+}
+
 void StructColumnReader::enqueueRowGroup(
     uint32_t index,
     dwio::common::BufferedInput& input) {

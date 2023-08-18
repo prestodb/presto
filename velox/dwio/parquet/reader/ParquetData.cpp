@@ -123,4 +123,22 @@ dwio::common::PositionProvider ParquetData::seekToRowGroup(uint32_t index) {
   return dwio::common::PositionProvider(empty);
 }
 
+std::pair<int64_t, int64_t> ParquetData::getRowGroupRegion(
+    uint32_t index) const {
+  auto& rowGroup = rowGroups_[index];
+
+  VELOX_CHECK_GT(rowGroup.columns.size(), 0);
+  auto fileOffset = rowGroup.__isset.file_offset ? rowGroup.file_offset
+      : rowGroup.columns[0].meta_data.__isset.dictionary_page_offset
+      ? rowGroup.columns[0].meta_data.dictionary_page_offset
+      : rowGroup.columns[0].meta_data.data_page_offset;
+  VELOX_CHECK_GT(fileOffset, 0);
+
+  auto length = rowGroup.__isset.total_compressed_size
+      ? rowGroup.total_compressed_size
+      : rowGroup.total_byte_size;
+
+  return {fileOffset, length};
+}
+
 } // namespace facebook::velox::parquet
