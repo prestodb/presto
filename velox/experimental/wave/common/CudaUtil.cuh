@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuda_runtime.h>
+#include <cstdint>
 
 /// Utilities header to include in Cuda code for Velox Wave. Do not combine with
 /// Velox *.h.n
@@ -29,6 +30,18 @@ void cudaCheck(cudaError_t err, const char* file, int line);
 template <typename T, typename U>
 constexpr inline T roundUp(T value, U factor) {
   return (value + (factor - 1)) / factor * factor;
+}
+
+__device__ __host__ inline int
+memcmp(const void* lhs, const void* rhs, size_t n) {
+  auto* a = reinterpret_cast<const uint8_t*>(lhs);
+  auto* b = reinterpret_cast<const uint8_t*>(rhs);
+  for (size_t i = 0; i < n; ++i) {
+    if (int c = (int)a[i] - (int)b[i]) {
+      return c;
+    }
+  }
+  return 0;
 }
 
 struct StreamImpl {

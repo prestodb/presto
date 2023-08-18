@@ -106,8 +106,55 @@ class GpuAllocator {
   /// Frees a pointer from allocate(). 'size' must correspond to the size given
   /// to allocate(). A Memory must be freed to the same allocator it came from.
   virtual void free(void* ptr, size_t bytes) = 0;
+
+  class Deleter;
+
+  template <typename T>
+  using UniquePtr = std::unique_ptr<T, GpuAllocator::Deleter>;
+
+  /// Convenient method to do allocation with automatic life cycle management.
+  template <typename T>
+  UniquePtr<T> allocate();
+
+  /// Convenient method to do allocation with automatic life cycle management.
+  template <typename T>
+  UniquePtr<T[]> allocate(size_t n);
 };
 
 GpuAllocator* getAllocator(Device* device);
+
+class GpuAllocator::Deleter {
+ public:
+  Deleter() = default;
+
+  Deleter(GpuAllocator* allocator, size_t bytes)
+      : allocator_(allocator), bytes_(bytes) {}
+
+  void operator()(void* ptr) const {
+    if (ptr) {
+      allocator_->free(ptr, bytes_);
+    }
+  }
+
+ private:
+  GpuAllocator* allocator_;
+  size_t bytes_;
+};
+
+template <typename T>
+GpuAllocator::UniquePtr<T> GpuAllocator::allocate() {
+  static_assert(std::is_trivially_destructible_v<T>);
+  auto bytes = sizeof(T);
+  T* ptr = static_cast<T*>(allocate(bytes));
+  return UniquePtr<T>(ptr, Deleter(this, bytes));
+}
+
+template <typename T>
+GpuAllocator::UniquePtr<T[]> GpuAllocator::allocate(size_t n) {
+  static_assert(std::is_trivially_destructible_v<T>);
+  auto bytes = n * sizeof(T);
+  T* ptr = static_cast<T*>(allocate(bytes));
+  return UniquePtr<T[]>(ptr, Deleter(this, bytes));
+}
 
 } // namespace facebook::velox::wave
