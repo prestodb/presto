@@ -7087,4 +7087,14 @@ public abstract class AbstractTestQueries
                 "values array[array[array[1, 2, 3], array[1, 2, 3], array[1, 2, 3], array[1, 2, 3], array[1, 2, 3]], array[array[1, 2, 3], array[1, 2, 3], array[1, 2, 3], array[1, 2, 3], array[1, 2, 3]]], " +
                         "array[array[array[0, 1, 2], array[0, 1, 2], array[0, 1, 2], array[0, 1, 2]], array[array[0, 1, 2], array[0, 1, 2], array[0, 1, 2], array[0, 1, 2]], array[array[0, 1, 2], array[0, 1, 2], array[0, 1, 2], array[0, 1, 2]]]");
     }
+
+    @Test
+    public void testRewriteContainsToIn()
+    {
+        assertQuery("select k from (values 1, 2, 3, 4, 5) t(k) where contains(array[1, 3, 4], k)", "values 1, 3, 4");
+        assertQuery("select filter(arr, x -> contains(array[1,5], x)) from (values array[1, 2, 3, 4], array[1,3,5,7]) t(arr)", "values array[1], array[1, 5]");
+        assertQuery("select x, contains(array[null], x) from (values 1, 2, 3, 4, null) t(x)", "values (1, null), (2, null), (3, null), (4, null), (null, null)");
+        assertQuery("select x, contains(array[null, 1], x) from (values 1, 2, 3, 4, null) t(x)", "values (1, true), (2, null), (3, null), (4, null), (null, null)");
+        assertQuery("select x, contains(array[], x) from (values 1, 2, 3, 4, null) t(x)", "values (1, false), (2, false), (3, false), (4, false), (null, null)");
+    }
 }
