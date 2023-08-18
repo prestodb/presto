@@ -24,6 +24,78 @@ public class StringSqlFunctions
 {
     private StringSqlFunctions() {}
 
+    @SqlInvokedScalarFunction(value = "ascii", deterministic = true, calledOnNullInput = true)
+    @Description("Returns the ascii code of the first letter.")
+    @SqlParameter(name = "input", type = "varchar")
+    @SqlType("int")
+    public static String ascii()
+    {
+        return "RETURN IF(cast(input as varchar) = '', 0, cast(from_base(to_hex(to_utf8(substr(input, 1, 1))), 16) as int))";
+    }
+
+    @SqlInvokedScalarFunction(value = "ascii", deterministic = true, calledOnNullInput = true)
+    @Description("Returns the ascii code of the first letter.")
+    @SqlParameter(name = "input", type = "int")
+    @SqlType("int")
+    public static String asciiInt()
+    {
+        return "RETURN IF(cast(input as varchar) = '', 0, cast(from_base(to_hex(to_utf8(substr(cast(input as varchar), 1, 1))), 16) as int))";
+    }
+
+    @SqlInvokedScalarFunction(value = "ascii", deterministic = true, calledOnNullInput = true)
+    @Description("Returns the ascii code of the first letter.")
+    @SqlParameter(name = "input", type = "date")
+    @SqlType("int")
+    public static String asciiDate()
+    {
+        return "RETURN IF(cast(input as varchar) = '', 0, cast(from_base(to_hex(to_utf8(substr(cast(input as varchar), 1, 1))), 16) as int))";
+    }
+
+    @SqlInvokedScalarFunction(value = "ascii", deterministic = true, calledOnNullInput = true)
+    @Description("Returns the ascii code of the first letter.")
+    @SqlParameter(name = "input", type = "timestamp")
+    @SqlType("int")
+    public static String asciiTimestamp()
+    {
+        return "RETURN IF(cast(input as varchar) = '', 0, cast(from_base(to_hex(to_utf8(substr(cast(input as varchar), 1, 1))), 16) as int))";
+    }
+
+    @SqlInvokedScalarFunction(value = "ascii", deterministic = true, calledOnNullInput = true)
+    @Description("Returns the ascii code of the first letter.")
+    @SqlParameter(name = "input", type = "double")
+    @SqlType("int")
+    public static String asciiDouble()
+    {
+        return "RETURN IF(cast(input as varchar) = '', 0, cast(from_base(to_hex(to_utf8(substr(cast(input as varchar), 1, 1))), 16) as int))";
+    }
+
+    @SqlInvokedScalarFunction(value = "ascii", deterministic = true, calledOnNullInput = true)
+    @Description("Returns the ascii code of the first letter.")
+    @SqlParameter(name = "input", type = "boolean")
+    @SqlType("int")
+    public static String asciiBoolean()
+    {
+        return "RETURN IF(cast(input as varchar) = '', 0, cast(from_base(to_hex(to_utf8(substr(cast(input as varchar), 1, 1))), 16) as int))";
+    }
+
+    @SqlInvokedScalarFunction(value = "ascii", deterministic = true, calledOnNullInput = true)
+    @Description("Returns the ascii code of the first letter.")
+    @SqlParameter(name = "input", type = "unknown")
+    @SqlType("int")
+    public static String asciiNull()
+    {
+        return "RETURN NULL";
+    }
+
+    @SqlInvokedScalarFunction(value = "ascii", deterministic = true, calledOnNullInput = true)
+    @Description("Returns the ascii code of the first letter.")
+    @SqlParameter(name = "input", type = "varbinary")
+    @SqlType("int")
+    public static String asciiVarbinary()
+    {
+        return "RETURN cast(from_base(to_hex(to_utf8(substr(to_base64(input), 1, 1))), 16) as int)";
+    }
+
     @SqlInvokedScalarFunction(value = "replace_first", deterministic = true, calledOnNullInput = true)
     @Description("Replaces the first occurrence of a substring that matches the given pattern with the given replacement.")
     @SqlParameters({@SqlParameter(name = "str", type = "varchar"), @SqlParameter(name = "search", type = "varchar"), @SqlParameter(name = "replace", type = "varchar")})
