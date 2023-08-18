@@ -225,5 +225,40 @@ TEST_F(DateTimeFunctionsTest, lastDay) {
   EXPECT_EQ(lastDayFunc(std::nullopt), std::nullopt);
 }
 
+TEST_F(DateTimeFunctionsTest, dateAdd) {
+  const auto dateAdd = [&](std::optional<int32_t> date,
+                           std::optional<int32_t> value) {
+    return evaluateOnce<int32_t, int32_t>(
+        "date_add(c0, c1)", {date, value}, {DATE(), INTEGER()});
+  };
+
+  // Check null behaviors
+  EXPECT_EQ(std::nullopt, dateAdd(std::nullopt, 1));
+  EXPECT_EQ(std::nullopt, dateAdd(parseDate("2019-02-28"), std::nullopt));
+  EXPECT_EQ(std::nullopt, dateAdd(std::nullopt, std::nullopt));
+
+  // Check simple tests.
+  EXPECT_EQ(parseDate("2019-03-01"), dateAdd(parseDate("2019-03-01"), 0));
+  EXPECT_EQ(parseDate("2019-03-01"), dateAdd(parseDate("2019-02-28"), 1));
+
+  // Account for the last day of a year-month
+  EXPECT_EQ(parseDate("2020-02-29"), dateAdd(parseDate("2019-01-30"), 395));
+  EXPECT_EQ(parseDate("2020-02-29"), dateAdd(parseDate("2019-01-30"), 395));
+
+  // Check for negative intervals
+  EXPECT_EQ(parseDate("2019-02-28"), dateAdd(parseDate("2020-02-29"), -366));
+  EXPECT_EQ(parseDate("2019-02-28"), dateAdd(parseDate("2020-02-29"), -366));
+
+  // Check for minimum and maximum tests.
+  constexpr int32_t kMin = std::numeric_limits<int32_t>::min();
+  constexpr int32_t kMax = std::numeric_limits<int32_t>::max();
+  EXPECT_EQ(parseDate("5881580-07-11"), dateAdd(parseDate("1970-01-01"), kMax));
+  EXPECT_EQ(
+      parseDate("1969-12-31"), dateAdd(parseDate("-5877641-06-23"), kMax));
+  EXPECT_EQ(
+      parseDate("-5877641-06-23"), dateAdd(parseDate("1970-01-01"), kMin));
+  EXPECT_EQ(parseDate("1969-12-31"), dateAdd(parseDate("5881580-07-11"), kMin));
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

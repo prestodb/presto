@@ -16,6 +16,7 @@
 
 #include "velox/functions/lib/DateTimeFormatter.h"
 #include "velox/functions/lib/TimeUtils.h"
+#include "velox/functions/prestosql/DateTimeImpl.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox::functions::sparksql {
@@ -263,4 +264,15 @@ struct LastDayFunction {
   }
 };
 
+template <typename T>
+struct DateAddFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Date>& result,
+      const arg_type<Date>& date,
+      const int32_t value) {
+    result = addToDate(date, DateTimeUnit::kDay, value);
+  }
+};
 } // namespace facebook::velox::functions::sparksql
