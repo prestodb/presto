@@ -146,20 +146,22 @@ ResultOrError ExpressionVerifier::verify(
     exec::ExprSet exprSetCommon(
         plans, execCtx_, !options_.disableConstantFolding);
     auto inputRowVector = rowVector;
+    VectorPtr copiedInput;
     if (!columnsToWrapInLazy.empty()) {
       inputRowVector =
           VectorFuzzer::fuzzRowChildrenToLazy(rowVector, columnsToWrapInLazy);
       VLOG(1) << "Modified inputs for common eval path: ";
       logRowVector(inputRowVector);
+    } else {
+      // Copy loads lazy vectors so only do this when there are no lazy inputs.
+      copiedInput = createCopy(inputRowVector);
     }
-
-    auto copy = createCopy(inputRowVector);
 
     exec::EvalCtx evalCtxCommon(execCtx_, &exprSetCommon, inputRowVector.get());
     exprSetCommon.eval(rows, evalCtxCommon, commonEvalResult);
-    {
-      SelectivityVector rows(copy->size());
-      compareVectors(copy, inputRowVector, rows);
+    if (copiedInput) {
+      SelectivityVector rows(copiedInput->size());
+      compareVectors(copiedInput, inputRowVector, rows);
     }
   } catch (const VeloxUserError&) {
     if (!canThrow) {
