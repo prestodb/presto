@@ -405,11 +405,12 @@ class FooterWrapper : public ProtoWrapperBase {
 
   bool hasRowIndexStride() const {
     return format_ == DwrfFormat::kDwrf ? dwrfPtr()->has_rowindexstride()
-                                        : false;
+                                        : orcPtr()->has_rowindexstride();
   }
 
   uint32_t rowIndexStride() const {
-    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->rowindexstride() : 0;
+    return format_ == DwrfFormat::kDwrf ? dwrfPtr()->rowindexstride()
+                                        : orcPtr()->rowindexstride();
   }
 
   int stripeCacheOffsetsSize() const {

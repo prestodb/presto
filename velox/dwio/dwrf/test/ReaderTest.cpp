@@ -1660,6 +1660,24 @@ TEST(TestReader, testFooterWrapper) {
   EXPECT_EQ(wrapper.numberOfRows(), 0);
 }
 
+TEST(TestReader, testOrcAndDwrfRowIndexStride) {
+  // orc footer
+  proto::orc::Footer orcFooter;
+  FooterWrapper orcFooterWrapper(&orcFooter);
+  EXPECT_FALSE(orcFooterWrapper.hasRowIndexStride());
+  orcFooter.set_rowindexstride(100);
+  ASSERT_TRUE(orcFooterWrapper.hasRowIndexStride());
+  EXPECT_EQ(orcFooterWrapper.rowIndexStride(), 100);
+
+  // dwrf footer
+  proto::Footer dwrfFooter;
+  FooterWrapper dwrfFooterWrapper(&dwrfFooter);
+  EXPECT_FALSE(dwrfFooterWrapper.hasRowIndexStride());
+  dwrfFooter.set_rowindexstride(100);
+  ASSERT_TRUE(dwrfFooterWrapper.hasRowIndexStride());
+  EXPECT_EQ(dwrfFooterWrapper.rowIndexStride(), 100);
+}
+
 TEST(TestReader, testOrcReaderComplexTypes) {
   const std::string icebergOrc(getExampleFilePath("complextypes_iceberg.orc"));
   const std::shared_ptr<const RowType> expectedType =
