@@ -69,7 +69,6 @@ template <typename ColumnVisitor>
 void SelectiveIntegerDictionaryColumnReader::readWithVisitor(
     RowSet rows,
     ColumnVisitor visitor) {
-  vector_size_t numRows = rows.back() + 1;
   auto dictVisitor = visitor.toDictionaryColumnVisitor();
   if (rleVersion_ == RleVersion_1) {
     decodeWithVisitor<velox::dwrf::RleDecoderV1<false>>(
@@ -78,6 +77,5 @@ void SelectiveIntegerDictionaryColumnReader::readWithVisitor(
     decodeWithVisitor<velox::dwrf::RleDecoderV2<false>>(
         dataReader_.get(), dictVisitor);
   }
-  readOffset_ += numRows;
 }
 } // namespace facebook::velox::dwrf

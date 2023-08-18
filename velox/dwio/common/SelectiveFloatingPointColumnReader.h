@@ -171,14 +171,14 @@ void SelectiveFloatingPointColumnReader<TData, TRequested>::readCommon(
       } else {
         processValueHook<Reader, false>(rows, scanSpec_->valueHook());
       }
-      return;
-    }
-    if (isDense) {
-      processFilter<Reader, true>(
-          scanSpec_->filter(), rows, ExtractToReader(this));
     } else {
-      processFilter<Reader, false>(
-          scanSpec_->filter(), rows, ExtractToReader(this));
+      if (isDense) {
+        processFilter<Reader, true>(
+            scanSpec_->filter(), rows, ExtractToReader(this));
+      } else {
+        processFilter<Reader, false>(
+            scanSpec_->filter(), rows, ExtractToReader(this));
+      }
     }
   } else {
     if (isDense) {

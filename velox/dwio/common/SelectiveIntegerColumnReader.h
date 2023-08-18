@@ -211,12 +211,12 @@ void SelectiveIntegerColumnReader::readCommon(RowSet rows) {
       } else {
         processValueHook<Reader, false>(rows, scanSpec_->valueHook());
       }
-      return;
-    }
-    if (isDense) {
-      processFilter<Reader, true>(filter, ExtractToReader(this), rows);
     } else {
-      processFilter<Reader, false>(filter, ExtractToReader(this), rows);
+      if (isDense) {
+        processFilter<Reader, true>(filter, ExtractToReader(this), rows);
+      } else {
+        processFilter<Reader, false>(filter, ExtractToReader(this), rows);
+      }
     }
   } else {
     if (isDense) {

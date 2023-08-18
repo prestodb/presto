@@ -66,7 +66,6 @@ void SelectiveTimestampColumnReader::seekToRowGroup(uint32_t index) {
 
 template <bool dense>
 void SelectiveTimestampColumnReader::readHelper(RowSet rows) {
-  vector_size_t numRows = rows.back() + 1;
   ExtractToReader extractValues(this);
   common::AlwaysTrue filter;
   DirectRleColumnVisitor<
@@ -99,7 +98,6 @@ void SelectiveTimestampColumnReader::readHelper(RowSet rows) {
   } else {
     decodeWithVisitor<velox::dwrf::RleDecoderV2<false>>(nano_.get(), visitor);
   }
-  readOffset_ += numRows;
 }
 
 void SelectiveTimestampColumnReader::read(
@@ -114,6 +112,7 @@ void SelectiveTimestampColumnReader::read(
   } else {
     readHelper<false>(rows);
   }
+  readOffset_ += rows.back() + 1;
 }
 
 namespace {

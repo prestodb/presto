@@ -365,7 +365,7 @@ void SelectiveColumnReader::filterNulls(
         }
       }
     }
-    readOffset_ += rows.back() + 1;
+
     return;
   }
 
@@ -388,7 +388,6 @@ void SelectiveColumnReader::filterNulls(
       }
     }
   }
-  readOffset_ += rows.back() + 1;
 }
 
 } // namespace facebook::velox::dwio::common

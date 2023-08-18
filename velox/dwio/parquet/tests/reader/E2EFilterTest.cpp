@@ -126,6 +126,7 @@ TEST_F(E2EFilterTest, integerDirect) {
       {"short_val", "int_val", "long_val"},
       20);
 }
+
 TEST_F(E2EFilterTest, compression) {
   for (const auto compression :
        {common::CompressionKind_SNAPPY,

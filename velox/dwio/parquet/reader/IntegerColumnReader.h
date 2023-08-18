@@ -65,12 +65,12 @@ class IntegerColumnReader : public dwio::common::SelectiveIntegerColumnReader {
         rows,
         nullptr);
     readCommon<IntegerColumnReader>(rows);
+    readOffset_ += rows.back() + 1;
   }
 
   template <typename ColumnVisitor>
   void readWithVisitor(RowSet rows, ColumnVisitor visitor) {
     formatData_->as<ParquetData>().readWithVisitor(visitor);
-    readOffset_ += rows.back() + 1;
   }
 };
 

@@ -35,6 +35,7 @@ void SelectiveIntegerDirectColumnReader::read(
       rows,
       incomingNulls);
   readCommon<SelectiveIntegerDirectColumnReader>(rows);
+  readOffset_ += rows.back() + 1;
 }
 
 } // namespace facebook::velox::dwrf

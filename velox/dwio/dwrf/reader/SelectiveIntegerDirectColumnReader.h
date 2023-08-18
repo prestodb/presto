@@ -92,7 +92,6 @@ template <typename ColumnVisitor>
 void SelectiveIntegerDirectColumnReader::readWithVisitor(
     RowSet rows,
     ColumnVisitor visitor) {
-  vector_size_t numRows = rows.back() + 1;
   if (format == velox::dwrf::DwrfFormat::kDwrf) {
     decodeWithVisitor<dwio::common::DirectDecoder<true>>(ints.get(), visitor);
   } else {
@@ -121,7 +120,6 @@ void SelectiveIntegerDirectColumnReader::readWithVisitor(
           "SelectiveIntegerDirectColumnReader::readWithVisitor get int128_t");
     }
   }
-  readOffset_ += numRows;
 }
 
 } // namespace facebook::velox::dwrf

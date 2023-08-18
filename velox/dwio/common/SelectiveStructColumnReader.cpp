@@ -163,6 +163,7 @@ void SelectiveStructColumnReaderBase::read(
       reader->read(offset, activeRows, structNulls);
     }
   }
+
   // If this adds nulls, the field readers will miss a value for each null added
   // here.
   recordParentNullsInChildren(offset, rows);

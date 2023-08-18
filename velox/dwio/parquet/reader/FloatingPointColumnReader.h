@@ -49,6 +49,7 @@ class FloatingPointColumnReader
       override {
     using T = FloatingPointColumnReader<TData, TRequested>;
     this->template readCommon<T>(offset, rows, incomingNulls);
+    this->readOffset_ += rows.back() + 1;
   }
 
   template <typename TVisitor>
@@ -79,7 +80,6 @@ void FloatingPointColumnReader<TData, TRequested>::readWithVisitor(
     RowSet rows,
     TVisitor visitor) {
   this->formatData_->template as<ParquetData>().readWithVisitor(visitor);
-  this->readOffset_ += rows.back() + 1;
 }
 
 } // namespace facebook::velox::parquet

@@ -106,6 +106,8 @@ void SelectiveIntegerDictionaryColumnReader::read(
   // lazy load dictionary only when it's needed
   ensureInitialized();
   readCommon<SelectiveIntegerDictionaryColumnReader>(rows);
+
+  readOffset_ += rows.back() + 1;
 }
 
 void SelectiveIntegerDictionaryColumnReader::ensureInitialized() {

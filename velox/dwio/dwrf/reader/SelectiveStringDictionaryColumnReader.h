@@ -106,7 +106,6 @@ template <typename TVisitor>
 void SelectiveStringDictionaryColumnReader::readWithVisitor(
     RowSet rows,
     TVisitor visitor) {
-  vector_size_t numRows = rows.back() + 1;
   if (version_ == velox::dwrf::RleVersion_1) {
     decodeWithVisitor<velox::dwrf::RleDecoderV1<false>>(
         dictIndex_.get(), visitor);
@@ -114,7 +113,6 @@ void SelectiveStringDictionaryColumnReader::readWithVisitor(
     decodeWithVisitor<velox::dwrf::RleDecoderV2<false>>(
         dictIndex_.get(), visitor);
   }
-  readOffset_ += numRows;
 }
 
 template <typename TFilter, bool isDense, typename ExtractValues>

@@ -80,6 +80,7 @@ class SelectiveByteRleColumnReader
   void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
       override {
     readCommon<SelectiveByteRleColumnReader>(offset, rows, incomingNulls);
+    readOffset_ += rows.back() + 1;
   }
 
   template <typename ColumnVisitor>
@@ -109,7 +110,6 @@ void SelectiveByteRleColumnReader::readWithVisitor(
       byteRle_->readWithVisitor<false>(nullptr, visitor);
     }
   }
-  readOffset_ += numRows;
 }
 
 } // namespace facebook::velox::dwrf

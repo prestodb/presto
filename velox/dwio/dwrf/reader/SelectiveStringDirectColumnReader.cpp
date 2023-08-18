@@ -314,7 +314,6 @@ template <typename TVisitor>
 void SelectiveStringDirectColumnReader::readWithVisitor(
     RowSet rows,
     TVisitor visitor) {
-  vector_size_t numRows = rows.back() + 1;
   int32_t current = visitor.start();
   constexpr bool isExtract =
       std::is_same_v<typename TVisitor::FilterType, common::AlwaysTrue> &&
@@ -346,7 +345,6 @@ void SelectiveStringDirectColumnReader::readWithVisitor(
       extractSparse(rows.data(), rows.size());
     }
     numValues_ = rows.size();
-    readOffset_ += numRows;
     return;
   }
 
@@ -360,7 +358,6 @@ void SelectiveStringDirectColumnReader::readWithVisitor(
   } else {
     decode<false, TVisitor>(nullptr, visitor);
   }
-  readOffset_ += numRows;
 }
 
 template <typename TFilter, bool isDense, typename ExtractValues>
@@ -424,11 +421,14 @@ void SelectiveStringDirectColumnReader::read(
   prepareRead<folly::StringPiece>(offset, rows, incomingNulls);
   bool isDense = rows.back() == rows.size() - 1;
 
-  auto end = rows.back() + 1;
-  auto numNulls =
-      nullsInReadRange_ ? BaseVector::countNulls(nullsInReadRange_, 0, end) : 0;
-  dwio::common::ensureCapacity<int32_t>(lengths_, end - numNulls, &memoryPool_);
-  lengthDecoder_->nextLengths(lengths_->asMutable<int32_t>(), end - numNulls);
+  auto numRows = rows.back() + 1;
+  auto numNulls = nullsInReadRange_
+      ? BaseVector::countNulls(nullsInReadRange_, 0, numRows)
+      : 0;
+  dwio::common::ensureCapacity<int32_t>(
+      lengths_, numRows - numNulls, &memoryPool_);
+  lengthDecoder_->nextLengths(
+      lengths_->asMutable<int32_t>(), numRows - numNulls);
   rawLengths_ = lengths_->as<uint32_t>();
   lengthIndex_ = 0;
   if (scanSpec_->keepValues()) {
@@ -444,14 +444,14 @@ void SelectiveStringDirectColumnReader::read(
             rows,
             dwio::common::ExtractToGenericHook(scanSpec_->valueHook()));
       }
-      return;
-    }
-    if (isDense) {
-      processFilter<true>(
-          scanSpec_->filter(), rows, dwio::common::ExtractToReader(this));
     } else {
-      processFilter<false>(
-          scanSpec_->filter(), rows, dwio::common::ExtractToReader(this));
+      if (isDense) {
+        processFilter<true>(
+            scanSpec_->filter(), rows, dwio::common::ExtractToReader(this));
+      } else {
+        processFilter<false>(
+            scanSpec_->filter(), rows, dwio::common::ExtractToReader(this));
+      }
     }
   } else {
     if (isDense) {
@@ -462,6 +462,8 @@ void SelectiveStringDirectColumnReader::read(
           scanSpec_->filter(), rows, dwio::common::DropValues());
     }
   }
+
+  readOffset_ += numRows;
 }
 
 } // namespace facebook::velox::dwrf

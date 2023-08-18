@@ -244,12 +244,12 @@ void SelectiveStringDictionaryColumnReader::read(
             ExtractStringDictionaryToGenericHook(
                 scanSpec_->valueHook(), rows, scanState_.rawState));
       }
-      return;
-    }
-    if (isDense) {
-      processFilter<true>(scanSpec_->filter(), rows, ExtractToReader(this));
     } else {
-      processFilter<false>(scanSpec_->filter(), rows, ExtractToReader(this));
+      if (isDense) {
+        processFilter<true>(scanSpec_->filter(), rows, ExtractToReader(this));
+      } else {
+        processFilter<false>(scanSpec_->filter(), rows, ExtractToReader(this));
+      }
     }
   } else {
     if (isDense) {
@@ -260,6 +260,8 @@ void SelectiveStringDictionaryColumnReader::read(
           scanSpec_->filter(), rows, dwio::common::DropValues());
     }
   }
+
+  readOffset_ += rows.back() + 1;
 }
 
 void SelectiveStringDictionaryColumnReader::getValues(
