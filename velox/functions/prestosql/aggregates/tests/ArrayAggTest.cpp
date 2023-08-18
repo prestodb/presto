@@ -78,6 +78,17 @@ TEST_F(ArrayAggTest, groupBy) {
         {fmt::format("{}(a)", functionName)},
         fmt::format("SELECT c0, array_agg(a) {} FROM tmp GROUP BY c0", filter),
         makeConfig(ignoreNulls));
+    testAggregationsWithCompanion(
+        batches,
+        [](auto& /*builder*/) {},
+        {"c0"},
+        {fmt::format("{}(a)", functionName)},
+        {{ARRAY(VARCHAR())}},
+        {"c0", "array_sort(a0)"},
+        fmt::format(
+            "SELECT c0, array_sort(array_agg(a) {}) FROM tmp GROUP BY c0",
+            filter),
+        makeConfig(ignoreNulls));
 
     // Having one function supporting toIntermediate and one does not, make sure
     // the row container is recreated with only the function without
@@ -199,6 +210,15 @@ TEST_F(ArrayAggTest, global) {
         {fmt::format("{}(c0)", functionName)},
         fmt::format("SELECT array_agg(c0) {} FROM tmp", filter),
         makeConfig(ignoreNulls));
+    testAggregationsWithCompanion(
+        vectors,
+        [](auto& /*builder*/) {},
+        {},
+        {fmt::format("{}(c0)", functionName)},
+        {{INTEGER()}},
+        {"array_sort(a0)"},
+        fmt::format("SELECT array_sort(array_agg(c0) {}) FROM tmp", filter),
+        makeConfig(ignoreNulls));
   };
 
   testFunction("array_agg", true);
@@ -224,6 +244,15 @@ TEST_F(ArrayAggTest, globalNoData) {
         {},
         {fmt::format("{}(c0)", functionName)},
         fmt::format("SELECT array_agg(c0) {} FROM tmp", filter),
+        makeConfig(ignoreNulls));
+    testAggregationsWithCompanion(
+        allNulls,
+        [](auto& /*builder*/) {},
+        {},
+        {fmt::format("{}(c0)", functionName)},
+        {{INTEGER()}},
+        {"array_sort(a0)"},
+        fmt::format("SELECT array_sort(array_agg(c0) {}) FROM tmp", filter),
         makeConfig(ignoreNulls));
   };
 
@@ -376,6 +405,8 @@ TEST_F(ArrayAggTest, mask) {
         makeConstant(false, 5),
     });
 
+    // TODO: Add support for FILTER in testAggregationsWithCompanion() and test
+    // queries with companion functions.
     testAggregations(
         split(data),
         {},

@@ -256,7 +256,8 @@ exec::AggregateRegistrationResult registerArray(const std::string& name) {
             argTypes.size(), 1, "{} takes at most one argument", name);
         return std::make_unique<ArrayAggAggregate>(
             resultType, config.prestoArrayAggIgnoreNulls());
-      });
+      },
+      /*registerCompanionFunctions*/ true);
 }
 
 } // namespace

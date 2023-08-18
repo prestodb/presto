@@ -145,8 +145,10 @@ void AggregateCompanionAdapter::MergeExtractFunction::extractValues(
 }
 
 int32_t AggregateCompanionAdapter::ExtractFunction::setOffset() const {
-  int32_t rowSizeOffset = bits::nbytes(1);
-  int32_t offset = rowSizeOffset;
+  const int32_t rowSizeOffset = bits::nbytes(1);
+  // Tracked row size takes an uint32_t slot. Accumulator starts after the
+  // row-size slot.
+  int32_t offset = rowSizeOffset + sizeof(uint32_t);
   offset = bits::roundUp(offset, fn_->accumulatorAlignmentSize());
   fn_->setOffsets(
       offset,

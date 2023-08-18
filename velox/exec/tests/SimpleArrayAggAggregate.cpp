@@ -148,7 +148,8 @@ exec::AggregateRegistrationResult registerSimpleArrayAggAggregate(
             argTypes.size(), 1, "{} takes at most one argument", name);
         return std::make_unique<SimpleAggregateAdapter<ArrayAggAggregate>>(
             resultType);
-      });
+      },
+      /*registerCompanionFunctions*/ true);
 }
 
 } // namespace facebook::velox::aggregate
