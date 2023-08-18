@@ -284,6 +284,7 @@ public final class SystemSessionProperties
     public static final String REWRITE_CASE_TO_MAP_ENABLED = "rewrite_case_to_map_enabled";
     public static final String FIELD_NAMES_IN_JSON_CAST_ENABLED = "field_names_in_json_cast_enabled";
     public static final String PULL_EXPRESSION_FROM_LAMBDA_ENABLED = "pull_expression_from_lambda_enabled";
+    public static final String REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION = "rewrite_constant_array_contains_to_in_expression";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1655,6 +1656,11 @@ public final class SystemSessionProperties
                         PULL_EXPRESSION_FROM_LAMBDA_ENABLED,
                         "Rewrite case with constant WHEN/THEN/ELSE clauses to use map literals",
                         featuresConfig.isPullUpExpressionFromLambdaEnabled(),
+                        false),
+                booleanProperty(
+                        REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION,
+                        "Rewrite contant array contains to IN expression",
+                        true,
                         false));
     }
 
@@ -2787,5 +2793,10 @@ public final class SystemSessionProperties
     public static boolean isPullExpressionFromLambdaEnabled(Session session)
     {
         return session.getSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, Boolean.class);
+    }
+
+    public static boolean isRwriteConstantArrayContainsToInExpressionEnabled(Session session)
+    {
+        return session.getSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, Boolean.class);
     }
 }
