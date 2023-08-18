@@ -15,6 +15,7 @@
 
 #include <folly/experimental/FunctionScheduler.h>
 #include "velox/common/memory/Memory.h"
+#include "velox/exec/Spill.h"
 
 namespace folly {
 class CPUThreadPoolExecutor;
@@ -94,6 +95,9 @@ class PeriodicTaskManager {
   void addOperatingSystemStatsUpdateTask();
   void updateOperatingSystemStats();
 
+  void addSpillStatsUpdateTask();
+  void updateSpillStatsTask();
+
   folly::FunctionScheduler scheduler_;
   folly::CPUThreadPoolExecutor* const driverCPUExecutor_;
   folly::IOThreadPoolExecutor* const httpExecutor_;
@@ -120,6 +124,7 @@ class PeriodicTaskManager {
   int64_t lastHardPageFaults_{0};
   int64_t lastVoluntaryContextSwitches_{0};
   int64_t lastForcedContextSwitches_{0};
+  velox::exec::SpillStats lastSpillStats_;
 };
 
 } // namespace facebook::presto

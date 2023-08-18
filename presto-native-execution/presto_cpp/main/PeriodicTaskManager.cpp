@@ -42,6 +42,7 @@ static constexpr size_t kTaskPeriodCleanOldTasks{60'000'000}; // 60 seconds.
 // Every 1 minute we export cache counters.
 static constexpr size_t kCachePeriodGlobalCounters{60'000'000}; // 60 seconds.
 static constexpr size_t kOsPeriodGlobalCounters{2'000'000}; // 2 seconds
+static constexpr size_t kSpillStatsUpdateIntervalUs{60'000'000}; // 60 seconds
 
 PeriodicTaskManager::PeriodicTaskManager(
     folly::CPUThreadPoolExecutor* const driverCPUExecutor,
@@ -77,7 +78,7 @@ void PeriodicTaskManager::start() {
   }
   addConnectorStatsTask();
   addOperatingSystemStatsUpdateTask();
-
+  addSpillStatsUpdateTask();
   // This should be the last call in this method.
   scheduler_.start();
 }
@@ -474,5 +475,56 @@ void PeriodicTaskManager::addOperatingSystemStatsUpdateTask() {
       [this]() { updateOperatingSystemStats(); },
       std::chrono::microseconds{kOsPeriodGlobalCounters},
       "os_counters");
+}
+
+void PeriodicTaskManager::addSpillStatsUpdateTask() {
+  scheduler_.addFunction(
+      [this]() { updateSpillStatsTask(); },
+      std::chrono::microseconds{kSpillStatsUpdateIntervalUs},
+      "spill_stats");
+}
+
+void PeriodicTaskManager::updateSpillStatsTask() {
+  const auto updatedSpillStats = velox::exec::globalSpillStats();
+  VELOX_CHECK_GE(updatedSpillStats, lastSpillStats_);
+  const auto deltaSpillStats = updatedSpillStats - lastSpillStats_;
+  if (deltaSpillStats.spillRuns != 0) {
+    REPORT_ADD_STAT_VALUE(kCounterSpillRuns, deltaSpillStats.spillRuns);
+  }
+  if (deltaSpillStats.spilledFiles != 0) {
+    REPORT_ADD_STAT_VALUE(kCounterSpilledFiles, deltaSpillStats.spilledFiles);
+  }
+  if (deltaSpillStats.spilledRows != 0) {
+    REPORT_ADD_STAT_VALUE(kCounterSpilledRows, deltaSpillStats.spilledRows);
+  }
+  if (deltaSpillStats.spilledBytes != 0) {
+    REPORT_ADD_STAT_VALUE(kCounterSpilledBytes, deltaSpillStats.spilledBytes);
+  }
+  if (deltaSpillStats.spillFillTimeUs != 0) {
+    REPORT_ADD_STAT_VALUE(
+        kCounterSpillFillTimeUs, deltaSpillStats.spillFillTimeUs);
+  }
+  if (deltaSpillStats.spillSortTimeUs != 0) {
+    REPORT_ADD_STAT_VALUE(
+        kCounterSpillSortTimeUs, deltaSpillStats.spillSortTimeUs);
+  }
+  if (deltaSpillStats.spillSerializationTimeUs != 0) {
+    REPORT_ADD_STAT_VALUE(
+        kCounterSpillSerializationTimeUs,
+        deltaSpillStats.spillSerializationTimeUs);
+  }
+  if (deltaSpillStats.spillDiskWrites != 0) {
+    REPORT_ADD_STAT_VALUE(
+        kCounterSpillDiskWrites, deltaSpillStats.spillDiskWrites);
+  }
+  if (deltaSpillStats.spillFlushTimeUs != 0) {
+    REPORT_ADD_STAT_VALUE(
+        kCounterSpillFlushTimeUs, deltaSpillStats.spillFlushTimeUs);
+  }
+  if (deltaSpillStats.spillWriteTimeUs != 0) {
+    REPORT_ADD_STAT_VALUE(
+        kCounterSpillWriteTimeUs, deltaSpillStats.spillWriteTimeUs);
+  }
+  lastSpillStats_ = updatedSpillStats;
 }
 } // namespace facebook::presto
