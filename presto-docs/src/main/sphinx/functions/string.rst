@@ -28,6 +28,12 @@ String Functions
     some languages. Specifically, this will return incorrect results for
     Lithuanian, Turkish and Azeri.
 
+.. function:: ascii(n) -> integer
+
+    Returns the ASCII code of the first character of a given parameter.
+    Parameter `n` needs to be convertible to `varchar`, which in this case are:
+    varchar, integer, double, varbinary, date, timestamp, and boolean.
+
 .. function:: chr(n) -> varchar
 
     Returns the Unicode code point ``n`` as a single character string.
