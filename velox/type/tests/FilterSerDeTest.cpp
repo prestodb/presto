@@ -38,6 +38,19 @@ class FilterSerDeTest : public testing::Test {
     EXPECT_EQ(filter.toString(), copy->toString());
     ASSERT_TRUE(filter.testingEquals(*copy));
   }
+
+  template <typename T>
+  const std::vector<T> getValues(T lower, T upper) {
+    size_t sz =
+        3 + folly::Random::rand32() % 7; // values size must greater than 1
+    std::vector<T> values;
+    values.reserve(sz);
+    for (size_t i = 0; i < sz; ++i) {
+      auto num = lower + folly::Random::rand32() % (upper - lower);
+      values.push_back(num);
+    }
+    return values;
+  }
 };
 
 TEST_F(FilterSerDeTest, simpleFilters) {
@@ -69,16 +82,17 @@ TEST_F(FilterSerDeTest, valuesFilters) {
   for (int r = 0; r < 7; ++r) {
     int64_t lower = 13;
     int64_t upper = 9527;
-    size_t sz =
-        3 + folly::Random::rand32() % 7; // values size must greater than 1
-    std::vector<int64_t> values;
-    values.reserve(sz);
+    std::vector<int64_t> values = getValues<int64_t>(lower, upper);
+    size_t sz = values.size();
     std::vector<std::string> strValues;
     for (size_t i = 0; i < sz; ++i) {
-      auto num = lower + folly::Random::rand32() % (upper - lower);
-      values.push_back(num);
-      strValues.emplace_back(std::to_string(num));
+      strValues.emplace_back(std::to_string(values[i]));
     }
+
+    int128_t lowerHugeint = 0x0123456789ABCDEF;
+    int128_t upperHugeint = 0xFEDCBA9876543210;
+    std::vector<int128_t> valuesHugeint =
+        getValues<int128_t>(lowerHugeint, upperHugeint);
 
     for (auto nullAllowed : {false, true}) {
       testSerde(BigintValuesUsingHashTable(lower, upper, values, nullAllowed));
@@ -89,6 +103,9 @@ TEST_F(FilterSerDeTest, valuesFilters) {
           NegatedBigintValuesUsingBitmask(lower, upper, values, nullAllowed));
       testSerde(BytesValues(strValues, nullAllowed));
       testSerde(NegatedBytesValues(strValues, nullAllowed));
+
+      testSerde(HugeintValuesUsingHashTable(
+          lowerHugeint, upperHugeint, valuesHugeint, nullAllowed));
     }
   }
 }

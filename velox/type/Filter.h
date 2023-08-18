@@ -55,6 +55,7 @@ enum class FilterKind {
   kMultiRange,
   kHugeintRange,
   kTimestampRange,
+  kHugeintValuesUsingHashTable,
 };
 
 class Filter;
@@ -941,6 +942,47 @@ class BigintValuesUsingHashTable final : public Filter {
   bool containsEmptyMarker_ = false;
   std::vector<int64_t> values_;
   int32_t sizeMask_;
+};
+
+/// IN-list filter for int128_t data type, implemented as a hash table.
+class HugeintValuesUsingHashTable final : public Filter {
+ public:
+  HugeintValuesUsingHashTable(
+      const int128_t min,
+      const int128_t max,
+      const std::vector<int128_t>& values,
+      const bool nullAllowed);
+
+  HugeintValuesUsingHashTable(
+      const HugeintValuesUsingHashTable& other,
+      bool nullAllowed)
+      : Filter(true, nullAllowed, other.kind()),
+        min_(other.min_),
+        max_(other.max_),
+        values_(other.values_) {}
+
+  folly::dynamic serialize() const override;
+
+  static FilterPtr create(const folly::dynamic& obj);
+
+  std::unique_ptr<Filter> clone(
+      std::optional<bool> nullAllowed = std::nullopt) const final {
+    if (nullAllowed) {
+      return std::make_unique<HugeintValuesUsingHashTable>(
+          *this, nullAllowed.value());
+    } else {
+      return std::make_unique<HugeintValuesUsingHashTable>(*this);
+    }
+  }
+
+  bool testInt128(int128_t value) const final;
+
+  bool testingEquals(const Filter& other) const override;
+
+ private:
+  const int128_t min_;
+  const int128_t max_;
+  folly::F14FastSet<int128_t> values_;
 };
 
 /// IN-list filter for integral data types. Implemented as a bitmask. Offers
@@ -2029,6 +2071,10 @@ static inline bool applyFilter(TFilter& filter, StringView value) {
 // Creates a hash or bitmap based IN filter depending on value distribution.
 std::unique_ptr<Filter> createBigintValues(
     const std::vector<int64_t>& values,
+    bool nullAllowed);
+
+std::unique_ptr<Filter> createHugeintValues(
+    const std::vector<int128_t>& values,
     bool nullAllowed);
 
 // Creates a hash or bitmap based NOT IN filter depending on value distribution.

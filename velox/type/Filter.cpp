@@ -91,6 +91,9 @@ std::string Filter::toString() const {
     case FilterKind::kTimestampRange:
       strKind = "TimestampRange";
       break;
+    case FilterKind::kHugeintValuesUsingHashTable:
+      strKind = "HugeintValuesUsingHashTable";
+      break;
   };
 
   return fmt::format(
@@ -126,6 +129,8 @@ std::unordered_map<FilterKind, std::string> filterKindNames() {
       {FilterKind::kMultiRange, "kMultiRange"},
       {FilterKind::kHugeintRange, "kHugeintRange"},
       {FilterKind::kTimestampRange, "kTimestampRange"},
+      {FilterKind::kHugeintValuesUsingHashTable,
+       "kHugeintValuesUsingHashTable"},
   };
 }
 
@@ -144,6 +149,19 @@ std::vector<int64_t> deserializeValues(const folly::dynamic& obj) {
   values.reserve(valuesArray.size());
   for (const auto& v : valuesArray) {
     values.push_back(v.asInt());
+  }
+  return values;
+}
+
+std::vector<int128_t> deserializeHugeintValues(const folly::dynamic& obj) {
+  auto lowerValuesArray = obj["lower_values"];
+  auto upperValuesArray = obj["upper_values"];
+  auto len = lowerValuesArray.size();
+  std::vector<int128_t> values(len);
+
+  for (auto i = 0; i < len; i++) {
+    values[i] = HugeInt::build(
+        upperValuesArray[i].asInt(), lowerValuesArray[i].asInt());
   }
   return values;
 }
@@ -170,6 +188,8 @@ void Filter::registerSerDe() {
   registry.Register(
       "NegatedBigintValuesUsingBitmask",
       NegatedBigintValuesUsingBitmask::create);
+  registry.Register(
+      "HugeintValuesUsingHashTable", HugeintValuesUsingHashTable::create);
   registry.Register("FloatRange", AbstractRange::create);
   registry.Register("DoubleRange", AbstractRange::create);
   registry.Register("BytesRange", BytesRange::create);
@@ -944,6 +964,73 @@ bool BigintValuesUsingHashTable::testInt64Range(
   return max >= *it;
 }
 
+folly::dynamic HugeintValuesUsingHashTable::serialize() const {
+  auto obj = Filter::serializeBase("HugeintValuesUsingHashTable");
+  obj["min_lower"] = HugeInt::lower(min_);
+  obj["min_upper"] = HugeInt::upper(min_);
+  obj["max_lower"] = HugeInt::lower(max_);
+  obj["max_upper"] = HugeInt::upper(max_);
+
+  folly::dynamic lowerValues = folly::dynamic::array;
+  folly::dynamic upperValues = folly::dynamic::array;
+  for (auto v : values_) {
+    lowerValues.push_back(HugeInt::lower(v));
+    upperValues.push_back(HugeInt::upper(v));
+  }
+  obj["lower_values"] = lowerValues;
+  obj["upper_values"] = upperValues;
+
+  return obj;
+}
+
+FilterPtr HugeintValuesUsingHashTable::create(const folly::dynamic& obj) {
+  auto nullAllowed = deserializeNullAllowed(obj);
+  auto min = HugeInt::build(obj["min_upper"].asInt(), obj["min_lower"].asInt());
+  auto max = HugeInt::build(obj["max_upper"].asInt(), obj["max_lower"].asInt());
+  auto values = deserializeHugeintValues(obj);
+
+  return std::make_unique<HugeintValuesUsingHashTable>(
+      min, max, values, nullAllowed);
+}
+
+HugeintValuesUsingHashTable::HugeintValuesUsingHashTable(
+    const int128_t min,
+    const int128_t max,
+    const std::vector<int128_t>& values,
+    const bool nullAllowed)
+    : Filter(true, nullAllowed, FilterKind::kHugeintValuesUsingHashTable),
+      min_(min),
+      max_(max) {
+  VELOX_CHECK(!values.empty(), "values must not be empty");
+  VELOX_CHECK_LE(min_, max_, "min must not be greater than max");
+  for (auto value : values) {
+    values_.insert(value);
+  }
+}
+
+bool HugeintValuesUsingHashTable::testInt128(int128_t value) const {
+  return values_.contains(value);
+}
+
+bool HugeintValuesUsingHashTable::testingEquals(const Filter& other) const {
+  auto otherHugeintValues =
+      dynamic_cast<const HugeintValuesUsingHashTable*>(&other);
+  bool res = otherHugeintValues != nullptr &&
+      Filter::testingBaseEquals(other) && min_ == otherHugeintValues->min_ &&
+      max_ == otherHugeintValues->max_ &&
+      values_.size() == otherHugeintValues->values_.size();
+  if (!res) {
+    return false;
+  }
+
+  for (auto value : values_) {
+    if (!otherHugeintValues->values_.contains(value)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 NegatedBigintValuesUsingBitmask::NegatedBigintValuesUsingBitmask(
     int64_t min,
     int64_t max,
@@ -1097,6 +1184,16 @@ std::unique_ptr<Filter> createBigintValues(
     const std::vector<int64_t>& values,
     bool nullAllowed) {
   return createBigintValuesFilter(values, nullAllowed, false);
+}
+
+std::unique_ptr<Filter> createHugeintValues(
+    const std::vector<int128_t>& values,
+    bool nullAllowed) {
+  int128_t min = *std::min_element(values.begin(), values.end());
+  int128_t max = *std::max_element(values.begin(), values.end());
+
+  return std::make_unique<HugeintValuesUsingHashTable>(
+      min, max, values, nullAllowed);
 }
 
 std::unique_ptr<Filter> createNegatedBigintValues(

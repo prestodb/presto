@@ -140,6 +140,34 @@ createFloatingPointValuesFilter(
 }
 
 // See createBigintValuesFilter.
+template <typename T>
+std::pair<std::unique_ptr<common::Filter>, bool> createHugeintValuesFilter(
+    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+  auto valuesPair = toValues<int128_t, T>(inputArgs);
+  if (!valuesPair.has_value()) {
+    return {nullptr, false};
+  }
+
+  const auto& values = valuesPair.value().first;
+  bool nullAllowed = valuesPair.value().second;
+
+  if (values.empty() && nullAllowed) {
+    return {nullptr, true};
+  }
+  VELOX_USER_CHECK(
+      !values.empty(),
+      "IN predicate expects at least one non-null value in the in-list");
+  if (values.size() == 1) {
+    return {
+        std::make_unique<common::HugeintRange>(
+            values[0], values[0], nullAllowed),
+        false};
+  }
+
+  return {common::createHugeintValues(values, nullAllowed), false};
+}
+
+// See createBigintValuesFilter.
 std::pair<std::unique_ptr<common::Filter>, bool> createBytesValuesFilter(
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
   auto valuesPair = toValues<std::string, StringView>(inputArgs);
@@ -181,6 +209,9 @@ class InPredicate : public exec::VectorFunction {
     std::pair<std::unique_ptr<common::Filter>, bool> filter;
 
     switch (inListType->childAt(0)->kind()) {
+      case TypeKind::HUGEINT:
+        filter = createHugeintValuesFilter<int128_t>(inputArgs);
+        break;
       case TypeKind::BIGINT:
         filter = createBigintValuesFilter<int64_t>(inputArgs);
         break;
@@ -233,6 +264,11 @@ class InPredicate : public exec::VectorFunction {
       VectorPtr& result) const override {
     const auto& input = args[0];
     switch (input->typeKind()) {
+      case TypeKind::HUGEINT:
+        applyTyped<int128_t>(rows, input, context, result, [&](int128_t value) {
+          return filter_->testInt128(value);
+        });
+        break;
       case TypeKind::BIGINT:
         applyTyped<int64_t>(rows, input, context, result, [&](int64_t value) {
           return filter_->testInt64(value);
@@ -323,6 +359,22 @@ class InPredicate : public exec::VectorFunction {
                                   .argumentType("array(unknown)")
                                   .build());
     }
+    signatures.emplace_back(
+        exec::FunctionSignatureBuilder()
+            .returnType("boolean")
+            .integerVariable("precision")
+            .integerVariable("scale")
+            .argumentType("DECIMAL(precision, scale)")
+            .argumentType("array(DECIMAL(precision, scale))")
+            .build());
+    signatures.emplace_back(exec::FunctionSignatureBuilder()
+                                .returnType("boolean")
+                                .integerVariable("precision")
+                                .integerVariable("scale")
+                                .argumentType("DECIMAL(precision, scale)")
+                                .argumentType("array(unknown)")
+                                .build());
+
     return signatures;
   }
 

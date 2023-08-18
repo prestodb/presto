@@ -22,18 +22,50 @@ using namespace facebook::velox::functions::test;
 class InPredicateTest : public FunctionBaseTest {
  protected:
   template <typename T>
-  void testIntegers() {
+  std::string getInList(
+      std::vector<std::optional<T>> input,
+      const TypePtr& type = CppToType<T>::create()) {
+    FlatVectorPtr<T> flatVec = makeNullableFlatVector<T>(input, type);
+    std::string inList;
+    auto len = flatVec->size();
+    auto toString = [&](vector_size_t idx) {
+      if (type->isDecimal()) {
+        if (flatVec->isNullAt(idx)) {
+          return std::string("null");
+        }
+        return fmt::format(
+            "cast({} as {})", flatVec->toString(idx), type->toString());
+      }
+      return flatVec->toString(idx);
+    };
+
+    for (auto i = 0; i < len - 1; i++) {
+      inList += fmt::format("{}, ", toString(i));
+    }
+    inList += toString(len - 1);
+    return inList;
+  }
+
+  template <typename T>
+  void testValues(const TypePtr type = CppToType<T>::create()) {
+    if (type->isDecimal()) {
+      this->options_.parseDecimalAsDouble = false;
+    }
     std::shared_ptr<memory::MemoryPool> pool{
         memory::addDefaultLeafMemoryPool()};
 
     const vector_size_t size = 1'000;
-    auto vector = makeFlatVector<T>(size, [](auto row) { return row % 17; });
+    auto inList = getInList<T>({1, 3, 5}, type);
+
+    auto vector = makeFlatVector<T>(
+        size, [](auto row) { return row % 17; }, nullptr, type);
     auto vectorWithNulls = makeFlatVector<T>(
-        size, [](auto row) { return row % 17; }, nullEvery(7));
+        size, [](auto row) { return row % 17; }, nullEvery(7), type);
     auto rowVector = makeRowVector({vector, vectorWithNulls});
 
     // no nulls
-    auto result = evaluate<SimpleVector<bool>>("c0 IN (1, 3, 5)", rowVector);
+    auto result = evaluate<SimpleVector<bool>>(
+        fmt::format("c0 IN ({})", inList), rowVector);
     auto expected = makeFlatVector<bool>(size, [](auto row) {
       auto n = row % 17;
       return n == 1 || n == 3 || n == 5;
@@ -42,7 +74,8 @@ class InPredicateTest : public FunctionBaseTest {
     assertEqualVectors(expected, result);
 
     // some nulls
-    result = evaluate<SimpleVector<bool>>("c1 IN (1, 3, 5)", rowVector);
+    result = evaluate<SimpleVector<bool>>(
+        fmt::format("c1 IN ({})", inList), rowVector);
     expected = makeFlatVector<bool>(
         size,
         [](auto row) {
@@ -55,7 +88,9 @@ class InPredicateTest : public FunctionBaseTest {
 
     // null values in the in-list
     // The results can be either true or null, but not false.
-    result = evaluate<SimpleVector<bool>>("c0 IN (1, 3, null, 5)", rowVector);
+    inList = getInList<T>({1, 3, std::nullopt, 5}, type);
+    result = evaluate<SimpleVector<bool>>(
+        fmt::format("c0 IN ({})", inList), rowVector);
     expected = makeFlatVector<bool>(
         size,
         [](auto /* row */) { return true; },
@@ -66,7 +101,8 @@ class InPredicateTest : public FunctionBaseTest {
 
     assertEqualVectors(expected, result);
 
-    result = evaluate<SimpleVector<bool>>("c1 IN (1, 3, null, 5)", rowVector);
+    result = evaluate<SimpleVector<bool>>(
+        fmt::format("c1 IN ({})", inList), rowVector);
     expected = makeFlatVector<bool>(
         size,
         [](auto /* row */) { return true; },
@@ -77,7 +113,9 @@ class InPredicateTest : public FunctionBaseTest {
 
     assertEqualVectors(expected, result);
 
-    result = evaluate<SimpleVector<bool>>("c0 IN (2, null)", rowVector);
+    inList = getInList<T>({2, std::nullopt}, type);
+    result = evaluate<SimpleVector<bool>>(
+        fmt::format("c0 IN ({})", inList), rowVector);
     expected = makeFlatVector<bool>(
         size,
         [](auto /* row */) { return true; },
@@ -88,7 +126,8 @@ class InPredicateTest : public FunctionBaseTest {
 
     assertEqualVectors(expected, result);
 
-    result = evaluate<SimpleVector<bool>>("c1 IN (2, null)", rowVector);
+    result = evaluate<SimpleVector<bool>>(
+        fmt::format("c1 IN ({})", inList), rowVector);
     expected = makeFlatVector<bool>(
         size,
         [](auto /* row */) { return true; },
@@ -130,7 +169,10 @@ class InPredicateTest : public FunctionBaseTest {
     auto dict = BaseVector::wrapInDictionary(nulls, indices, size, vector);
 
     rowVector = makeRowVector({dict});
-    result = evaluate<SimpleVector<bool>>("c0 IN (2, 5, 9)", rowVector);
+
+    inList = getInList<T>({2, 5, 9}, type);
+    result = evaluate<SimpleVector<bool>>(
+        fmt::format("c0 IN ({})", inList), rowVector);
     assertEqualVectors(expected, result);
 
     // an in list with nulls only is always null.
@@ -141,52 +183,69 @@ class InPredicateTest : public FunctionBaseTest {
   }
 
   template <typename T>
-  void testsIntegerConstant() {
+  void testConstantValues(const TypePtr type = CppToType<T>::create()) {
     const vector_size_t size = 1'000;
     auto rowVector = makeRowVector(
-        {makeConstant((T)123, size),
-         makeNullConstant(CppToType<T>::create()->kind(), size)});
+        {makeConstant(static_cast<T>(123), size, type),
+         BaseVector::createNullConstant(type, size, pool())});
+    auto inList = getInList<T>({1, 3, 5}, type);
 
     auto constTrue = makeConstant(true, size);
     auto constFalse = makeConstant(false, size);
     auto constNull = makeNullConstant(TypeKind::BOOLEAN, size);
 
     // a miss
-    auto result = evaluate<SimpleVector<bool>>("c0 IN (1, 3, 5)", rowVector);
+    auto result = evaluate<SimpleVector<bool>>(
+        fmt::format("c0 IN ({})", inList), rowVector);
     assertEqualVectors(constFalse, result);
 
+    // null
+    result = evaluate<SimpleVector<bool>>(
+        fmt::format("c1 IN ({})", inList), rowVector);
+    assertEqualVectors(constNull, result);
+
     // a hit
-    result = evaluate<SimpleVector<bool>>("c0 IN (1, 123, 5)", rowVector);
+    inList = getInList<T>({1, 123, 5}, type);
+    result = evaluate<SimpleVector<bool>>(
+        fmt::format("c0 IN ({})", inList), rowVector);
     assertEqualVectors(constTrue, result);
 
     // a miss that is a null
-    result = evaluate<SimpleVector<bool>>("c0 IN (1, null, 5)", rowVector);
-    assertEqualVectors(constNull, result);
-
-    // null
-    result = evaluate<SimpleVector<bool>>("c1 IN (1, 3, 5)", rowVector);
+    inList = getInList<T>({1, std::nullopt, 5}, type);
+    result = evaluate<SimpleVector<bool>>(
+        fmt::format("c0 IN ({})", inList), rowVector);
     assertEqualVectors(constNull, result);
   }
 };
 
 TEST_F(InPredicateTest, bigint) {
-  testIntegers<int64_t>();
-  testsIntegerConstant<int64_t>();
+  testValues<int64_t>();
+  testConstantValues<int64_t>();
 }
 
 TEST_F(InPredicateTest, integer) {
-  testIntegers<int32_t>();
-  testsIntegerConstant<int32_t>();
+  testValues<int32_t>();
+  testConstantValues<int32_t>();
 }
 
 TEST_F(InPredicateTest, smallint) {
-  testIntegers<int16_t>();
-  testsIntegerConstant<int16_t>();
+  testValues<int16_t>();
+  testConstantValues<int16_t>();
 }
 
 TEST_F(InPredicateTest, tinyint) {
-  testIntegers<int8_t>();
-  testsIntegerConstant<int8_t>();
+  testValues<int8_t>();
+  testConstantValues<int8_t>();
+}
+
+TEST_F(InPredicateTest, shortDecimal) {
+  testValues<int64_t>(DECIMAL(5, 2));
+  testConstantValues<int64_t>(DECIMAL(5, 2));
+}
+
+TEST_F(InPredicateTest, longDecimal) {
+  testValues<int128_t>(DECIMAL(19, 7));
+  testConstantValues<int128_t>(DECIMAL(19, 7));
 }
 
 TEST_F(InPredicateTest, boolean) {
