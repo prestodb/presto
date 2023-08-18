@@ -135,6 +135,40 @@ constexpr folly::StringPiece kCounterMmapRawAllocBytesSmall{
 constexpr folly::StringPiece kCounterExchangeSourcePeakQueuedBytes{
     "presto_cpp.exchange_source_peak_queued_bytes"};
 
+/// ================== Disk Spilling Counters =================
+
+/// The number of times that spilling runs on a velox operator.
+constexpr folly::StringPiece kCounterSpillRuns{"presto_cpp.spill_run_count"};
+/// The number of bytes spilled to disks.
+///
+/// NOTE: if compression is enabled, this counts the compressed bytes.
+constexpr folly::StringPiece kCounterSpilledFiles{
+    "presto_cpp.spilled_file_count"};
+/// The number of spilled rows.
+constexpr folly::StringPiece kCounterSpilledRows{
+    "presto_cpp.spilled_row_count"};
+/// The number of spilled files.
+constexpr folly::StringPiece kCounterSpilledBytes{"presto_cpp.spilled_bytes"};
+/// The time spent on filling rows for spilling.
+constexpr folly::StringPiece kCounterSpillFillTimeUs{
+    "presto_cpp.spill_fill_time_us"};
+/// The time spent on sorting rows for spilling.
+constexpr folly::StringPiece kCounterSpillSortTimeUs{
+    "presto_cpp.spill_sort_time_us"};
+/// The time spent on serializing rows for spilling.
+constexpr folly::StringPiece kCounterSpillSerializationTimeUs{
+    "presto_cpp.spill_serialization_time_us"};
+/// The number of disk writes to spill rows.
+constexpr folly::StringPiece kCounterSpillDiskWrites{
+    "presto_cpp.spill_disk_write_count"};
+/// The time spent on copy out serialized rows for disk write. If compression
+/// is enabled, this includes the compression time.
+constexpr folly::StringPiece kCounterSpillFlushTimeUs{
+    "presto_cpp.spill_flush_time_us"};
+/// The time spent on writing spilled rows to disk.
+constexpr folly::StringPiece kCounterSpillWriteTimeUs{
+    "presto_cpp.spill_write_time_us"};
+
 /// ================== Cache Counters ==================
 
 /// Total number of cache entries.
