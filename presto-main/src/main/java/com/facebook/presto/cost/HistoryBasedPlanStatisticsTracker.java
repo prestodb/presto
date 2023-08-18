@@ -197,6 +197,9 @@ public class HistoryBasedPlanStatisticsTracker
     public void updateStatistics(QueryInfo queryInfo)
     {
         Session session = queryInfo.getSession().toSession(sessionPropertyManager);
+        if (!trackHistoryBasedPlanStatisticsEnabled(session)) {
+            return;
+        }
         Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> planStatistics = getQueryStats(queryInfo);
         Map<PlanNodeWithHash, HistoricalPlanStatistics> historicalPlanStatisticsMap =
                 historyBasedPlanStatisticsProvider.get().getStats(planStatistics.keySet().stream().collect(toImmutableList()), getHistoryBasedOptimizerTimeoutLimit(session).toMillis());
