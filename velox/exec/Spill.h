@@ -143,6 +143,8 @@ class SpillFile {
 
 /// Provides the fine-grained spill execution stats.
 struct SpillStats {
+  /// The number of times that spilling runs on an operator.
+  uint64_t spillRuns{0};
   /// The number of bytes spilled to disks.
   ///
   /// NOTE: if compression is enabled, this counts the compressed bytes.
@@ -169,6 +171,7 @@ struct SpillStats {
   uint64_t spillWriteTimeUs{0};
 
   SpillStats(
+      uint64_t _spillRuns,
       uint64_t _spilledBytes,
       uint64_t _spilledRows,
       uint32_t _spilledPartitions,
@@ -183,11 +186,15 @@ struct SpillStats {
   SpillStats() = default;
 
   SpillStats& operator+=(const SpillStats& other);
-  bool operator<(const SpillStats& other) const;
+  SpillStats operator-(const SpillStats& other) const;
   bool operator==(const SpillStats& other) const;
-  bool operator>(const SpillStats& other) const {
-    return !(*this < other) && !(*this == other);
+  bool operator!=(const SpillStats& other) const {
+    return !(*this == other);
   }
+  bool operator>(const SpillStats& other) const;
+  bool operator<(const SpillStats& other) const;
+  bool operator>=(const SpillStats& other) const;
+  bool operator<=(const SpillStats& other) const;
 
   void reset();
 
@@ -665,6 +672,8 @@ SpillPartitionIdSet toSpillPartitionIdSet(
     const SpillPartitionSet& partitionSet);
 
 /// The utilities to update the process wide spilling stats.
+/// Updates the number of spill runs.
+void updateGlobalSpillRunStats(uint64_t numRuns);
 /// Updates the stats of new append spilled rows including the number of spilled
 /// rows and the serializaion time.
 void updateGlobalSpillAppendStats(

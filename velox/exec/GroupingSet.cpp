@@ -56,6 +56,7 @@ GroupingSet::GroupingSet(
     bool isPartial,
     bool isRawInput,
     const Spiller::Config* spillConfig,
+    uint32_t* numSpillRuns,
     tsan_atomic<bool>* nonReclaimableSection,
     OperatorCtx* operatorCtx)
     : preGroupedKeyChannels_(std::move(preGroupedKeys)),
@@ -70,6 +71,7 @@ GroupingSet::GroupingSet(
                                 ->queryConfig()
                                 .aggregationSpillMemoryThreshold()),
       spillConfig_(spillConfig),
+      numSpillRuns_(numSpillRuns),
       nonReclaimableSection_(nonReclaimableSection),
       stringAllocator_(operatorCtx->pool()),
       rows_(operatorCtx->pool()),
@@ -139,7 +141,7 @@ GroupingSet::~GroupingSet() {
 std::unique_ptr<GroupingSet> GroupingSet::createForMarkDistinct(
     const RowTypePtr& inputType,
     std::vector<std::unique_ptr<VectorHasher>>&& hashers,
-    OperatorCtx* FOLLY_NONNULL operatorCtx,
+    OperatorCtx* operatorCtx,
     tsan_atomic<bool>* nonReclaimableSection) {
   return std::make_unique<GroupingSet>(
       inputType,
@@ -150,6 +152,7 @@ std::unique_ptr<GroupingSet> GroupingSet::createForMarkDistinct(
       /*isPartial*/ false,
       /*isRawInput*/ false,
       /*spillConfig*/ nullptr,
+      /*numSpillRuns*/ nullptr,
       nonReclaimableSection,
       operatorCtx);
 };
@@ -856,6 +859,7 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
         Spiller::pool(),
         spillConfig_->executor);
   }
+  ++(*numSpillRuns_);
   spiller_->spill(targetRows, targetBytes);
   if (table_->rows()->numRows() == 0) {
     table_->clear();
@@ -940,9 +944,7 @@ bool GroupingSet::mergeNext(int32_t batchSize, const RowVectorPtr& result) {
   }
 }
 
-void GroupingSet::initializeRow(
-    SpillMergeStream& keys,
-    char* FOLLY_NONNULL row) {
+void GroupingSet::initializeRow(SpillMergeStream& keys, char* row) {
   for (auto i = 0; i < keyChannels_.size(); ++i) {
     mergeRows_->store(keys.decoded(i), keys.currentIndex(), mergeState_, i);
   }
@@ -964,7 +966,7 @@ void GroupingSet::extractSpillResult(const RowVectorPtr& result) {
   mergeRows_->clear();
 }
 
-void GroupingSet::updateRow(SpillMergeStream& input, char* FOLLY_NONNULL row) {
+void GroupingSet::updateRow(SpillMergeStream& input, char* row) {
   if (input.currentIndex() >= mergeSelection_.size()) {
     mergeSelection_.resize(bits::roundUp(input.currentIndex() + 1, 64));
     mergeSelection_.clearAll();

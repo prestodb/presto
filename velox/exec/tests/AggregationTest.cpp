@@ -1078,6 +1078,7 @@ TEST_F(AggregationTest, spillWithMemoryLimit) {
       ASSERT_GT(stats.spilledBytes, 0);
       ASSERT_GT(stats.spilledPartitions, 0);
       ASSERT_GT(stats.spilledFiles, 0);
+      ASSERT_GT(stats.runtimeStats["spillRuns"].sum, 0);
       ASSERT_GT(stats.runtimeStats["spillFillTime"].sum, 0);
       ASSERT_GT(stats.runtimeStats["spillSortTime"].sum, 0);
       ASSERT_GT(stats.runtimeStats["spillSerializationTime"].sum, 0);
@@ -1089,6 +1090,7 @@ TEST_F(AggregationTest, spillWithMemoryLimit) {
       ASSERT_EQ(stats.spilledBytes, 0);
       ASSERT_EQ(stats.spilledPartitions, 0);
       ASSERT_EQ(stats.spilledFiles, 0);
+      ASSERT_EQ(stats.runtimeStats["spillRuns"].sum, 0);
       ASSERT_EQ(stats.runtimeStats["spillFillTime"].sum, 0);
       ASSERT_EQ(stats.runtimeStats["spillSortTime"].sum, 0);
       ASSERT_EQ(stats.runtimeStats["spillSerializationTime"].sum, 0);

@@ -96,6 +96,7 @@ void verifyTaskSpilledRuntimeStats(const exec::Task& task, bool expectedSpill) {
       if ((op.operatorType == "HashBuild") ||
           (op.operatorType == "HashProbe")) {
         if (!expectedSpill) {
+          ASSERT_EQ(op.runtimeStats["spillRuns"].count, 0);
           ASSERT_EQ(op.runtimeStats["spillFillTime"].count, 0);
           ASSERT_EQ(op.runtimeStats["spillSortTime"].count, 0);
           ASSERT_EQ(op.runtimeStats["spillSerializationTime"].count, 0);
@@ -103,6 +104,7 @@ void verifyTaskSpilledRuntimeStats(const exec::Task& task, bool expectedSpill) {
           ASSERT_EQ(op.runtimeStats["spillDiskWrites"].count, 0);
           ASSERT_EQ(op.runtimeStats["spillWriteTime"].count, 0);
         } else {
+          ASSERT_GT(op.runtimeStats["spillRuns"].count, 0);
           if (op.operatorType == "HashBuild") {
             ASSERT_GT(op.runtimeStats["spillFillTime"].sum, 0);
           } else {

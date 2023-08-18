@@ -640,6 +640,7 @@ void HashBuild::runSpill(const std::vector<Operator*>& spillOperators) {
   for (auto& spillOp : spillOperators) {
     HashBuild* build = dynamic_cast<HashBuild*>(spillOp);
     VELOX_CHECK_NOT_NULL(build);
+    ++build->numSpillRuns_;
     spillers.push_back(build->spiller_.get());
     build->addAndClearSpillTarget(targetRows, targetBytes);
   }
@@ -1096,6 +1097,7 @@ void HashBuild::reclaim(uint64_t /*unused*/) {
   // TODO: consider to parallelize this disk spilling processing.
   for (auto* op : operators) {
     HashBuild* buildOp = static_cast<HashBuild*>(op);
+    ++buildOp->numSpillRuns_;
     buildOp->spiller_->fillSpillRuns(spillableStats);
     // TODO: support fine-grain disk spilling based on 'targetBytes' after
     // having row container memory compaction support later.

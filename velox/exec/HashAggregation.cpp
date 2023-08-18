@@ -181,6 +181,7 @@ HashAggregation::HashAggregation(
       isPartialOutput_,
       isRawInput(aggregationNode->step()),
       spillConfig_.has_value() ? &spillConfig_.value() : nullptr,
+      &numSpillRuns_,
       &nonReclaimableSection_,
       operatorCtx_.get());
 }

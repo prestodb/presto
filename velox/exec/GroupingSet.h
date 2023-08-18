@@ -37,6 +37,7 @@ class GroupingSet {
       bool isPartial,
       bool isRawInput,
       const Spiller::Config* spillConfig,
+      uint32_t* numSpillRuns,
       tsan_atomic<bool>* nonReclaimableSection,
       OperatorCtx* operatorCtx);
 
@@ -221,7 +222,9 @@ class GroupingSet {
   // If it is zero, then there is no such limit.
   const uint64_t spillMemoryThreshold_;
 
-  const Spiller::Config* const spillConfig_; // Not owned.
+  const Spiller::Config* const spillConfig_;
+
+  uint32_t* const numSpillRuns_;
 
   // Indicates if this grouping set and the associated hash aggregation operator
   // is under non-reclaimable execution section or not.

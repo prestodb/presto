@@ -231,6 +231,7 @@ void OrderBy::spill(int64_t targetRows, int64_t targetBytes) {
   VELOX_CHECK_GE(targetRows, 0);
   VELOX_CHECK_GE(targetBytes, 0);
 
+  ++numSpillRuns_;
   if (spiller_ == nullptr) {
     const auto& spillConfig = spillConfig_.value();
     spiller_ = std::make_unique<Spiller>(

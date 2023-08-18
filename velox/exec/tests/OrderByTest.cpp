@@ -471,6 +471,7 @@ TEST_F(OrderByTest, spill) {
   ASSERT_GT(stats.spilledBytes, 0);
   ASSERT_EQ(stats.spilledPartitions, 1);
   ASSERT_EQ(stats.spilledFiles, 2);
+  ASSERT_GT(stats.runtimeStats["spillRuns"].count, 0);
   ASSERT_GT(stats.runtimeStats["spillFillTime"].sum, 0);
   ASSERT_GT(stats.runtimeStats["spillSortTime"].sum, 0);
   ASSERT_GT(stats.runtimeStats["spillSerializationTime"].sum, 0);

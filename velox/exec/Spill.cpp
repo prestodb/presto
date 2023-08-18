@@ -414,6 +414,7 @@ SpillPartition::createReader() {
 }
 
 SpillStats::SpillStats(
+    uint64_t _spillRuns,
     uint64_t _spilledBytes,
     uint64_t _spilledRows,
     uint32_t _spilledPartitions,
@@ -424,7 +425,8 @@ SpillStats::SpillStats(
     uint64_t _spillDiskWrites,
     uint64_t _spillFlushTimeUs,
     uint64_t _spillWriteTimeUs)
-    : spilledBytes(_spilledBytes),
+    : spillRuns(_spillRuns),
+      spilledBytes(_spilledBytes),
       spilledRows(_spilledRows),
       spilledPartitions(_spilledPartitions),
       spilledFiles(_spilledFiles),
@@ -436,6 +438,7 @@ SpillStats::SpillStats(
       spillWriteTimeUs(_spillWriteTimeUs) {}
 
 SpillStats& SpillStats::operator+=(const SpillStats& other) {
+  spillRuns += other.spillRuns;
   spilledBytes += other.spilledBytes;
   spilledRows += other.spilledRows;
   spilledPartitions += other.spilledPartitions;
@@ -449,33 +452,73 @@ SpillStats& SpillStats::operator+=(const SpillStats& other) {
   return *this;
 }
 
+SpillStats SpillStats::operator-(const SpillStats& other) const {
+  SpillStats result;
+  result.spillRuns = spillRuns - other.spillRuns;
+  result.spilledBytes = spilledBytes - other.spilledBytes;
+  result.spilledRows = spilledRows - other.spilledRows;
+  result.spilledPartitions = spilledPartitions - other.spilledPartitions;
+  result.spilledFiles = spilledFiles - other.spilledFiles;
+  result.spillFillTimeUs = spillFillTimeUs - other.spillFillTimeUs;
+  result.spillSortTimeUs = spillSortTimeUs - other.spillSortTimeUs;
+  result.spillSerializationTimeUs =
+      spillSerializationTimeUs - other.spillSerializationTimeUs;
+  result.spillDiskWrites = spillDiskWrites - other.spillDiskWrites;
+  result.spillFlushTimeUs = spillFlushTimeUs - other.spillFlushTimeUs;
+  result.spillWriteTimeUs = spillWriteTimeUs - other.spillWriteTimeUs;
+  return result;
+}
+
 bool SpillStats::operator<(const SpillStats& other) const {
-  return std::tie(
-             spilledBytes,
-             spilledRows,
-             spilledPartitions,
-             spilledFiles,
-             spillFillTimeUs,
-             spillSortTimeUs,
-             spillSerializationTimeUs,
-             spillDiskWrites,
-             spillFlushTimeUs,
-             spillWriteTimeUs) <
-      std::tie(
-             other.spilledBytes,
-             other.spilledRows,
-             other.spilledPartitions,
-             other.spilledFiles,
-             other.spillFillTimeUs,
-             other.spillSortTimeUs,
-             other.spillSerializationTimeUs,
-             other.spillDiskWrites,
-             other.spillFlushTimeUs,
-             other.spillWriteTimeUs);
+  uint32_t eqCount{0};
+  uint32_t gtCount{0};
+  uint32_t ltCount{0};
+#define UPDATE_COUNTER(counter)           \
+  do {                                    \
+    if (counter < other.counter) {        \
+      ++ltCount;                          \
+    } else if (counter > other.counter) { \
+      ++gtCount;                          \
+    } else {                              \
+      ++eqCount;                          \
+    }                                     \
+  } while (0);
+
+  UPDATE_COUNTER(spillRuns);
+  UPDATE_COUNTER(spilledBytes);
+  UPDATE_COUNTER(spilledRows);
+  UPDATE_COUNTER(spilledPartitions);
+  UPDATE_COUNTER(spilledFiles);
+  UPDATE_COUNTER(spillFillTimeUs);
+  UPDATE_COUNTER(spillSortTimeUs);
+  UPDATE_COUNTER(spillSerializationTimeUs);
+  UPDATE_COUNTER(spillDiskWrites);
+  UPDATE_COUNTER(spillFlushTimeUs);
+  UPDATE_COUNTER(spillWriteTimeUs);
+#undef UPDATE_COUNTER
+  VELOX_CHECK(
+      !((gtCount > 0) && (ltCount > 0)),
+      "gtCount {} ltCount {}",
+      gtCount,
+      ltCount);
+  return ltCount > 0;
+}
+
+bool SpillStats::operator>(const SpillStats& other) const {
+  return !(*this < other) && (*this != other);
+}
+
+bool SpillStats::operator>=(const SpillStats& other) const {
+  return !(*this < other);
+}
+
+bool SpillStats::operator<=(const SpillStats& other) const {
+  return !(*this > other);
 }
 
 bool SpillStats::operator==(const SpillStats& other) const {
   return std::tie(
+             spillRuns,
              spilledBytes,
              spilledRows,
              spilledPartitions,
@@ -487,6 +530,7 @@ bool SpillStats::operator==(const SpillStats& other) const {
              spillFlushTimeUs,
              spillWriteTimeUs) ==
       std::tie(
+             other.spillRuns,
              other.spilledBytes,
              other.spilledRows,
              other.spilledPartitions,
@@ -500,6 +544,7 @@ bool SpillStats::operator==(const SpillStats& other) const {
 }
 
 void SpillStats::reset() {
+  spillRuns = 0;
   spilledBytes = 0;
   spilledRows = 0;
   spilledPartitions = 0;
@@ -514,7 +559,8 @@ void SpillStats::reset() {
 
 std::string SpillStats::toString() const {
   return fmt::format(
-      "spilledBytes[{}] spilledRows[{}] spilledPartitions[{}] spilledFiles[{}] spillFillTimeUs[{}] spillSortTime[{}] spillSerializationTime[{}] spillDiskWrites[{}] spillFlushTime[{}] spillWriteTime[{}]",
+      "spillRuns[{}] spilledBytes[{}] spilledRows[{}] spilledPartitions[{}] spilledFiles[{}] spillFillTimeUs[{}] spillSortTime[{}] spillSerializationTime[{}] spillDiskWrites[{}] spillFlushTime[{}] spillWriteTime[{}]",
+      spillRuns,
       succinctBytes(spilledBytes),
       spilledRows,
       spilledPartitions,
@@ -535,6 +581,11 @@ SpillPartitionIdSet toSpillPartitionIdSet(
     partitionIdSet.insert(partitionEntry.first);
   }
   return partitionIdSet;
+}
+
+void updateGlobalSpillRunStats(uint64_t numRuns) {
+  auto statsLocked = localSpillStats().wlock();
+  statsLocked->spillRuns += numRuns;
 }
 
 void updateGlobalSpillAppendStats(
