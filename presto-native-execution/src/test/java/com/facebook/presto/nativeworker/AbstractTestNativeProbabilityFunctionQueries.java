@@ -66,4 +66,12 @@ public abstract class AbstractTestNativeProbabilityFunctionQueries
         assertQuery("SELECT chi_squared_cdf(acctbal, 2.0) FROM supplier WHERE acctbal > 0.0 AND acctbal < 500.0");
         assertQuery("SELECT chi_squared_cdf(acctbal, 40.0) FROM supplier WHERE acctbal > 0.0 AND acctbal < 500.0");
     }
+
+    @Test
+    public void testGammaCDF()
+    {
+        assertQuery("SELECT gamma_cdf(acctbal, 3.5, 0.5) FROM supplier WHERE acctbal > 0.0 AND acctbal < 999.0");
+        assertQuery("SELECT gamma_cdf(1.0, acctbal, 7.0) FROM supplier WHERE acctbal > 0.0 AND acctbal < 999.0");
+        assertQuery("SELECT gamma_cdf(10.0, 2.0, acctbal) FROM supplier WHERE acctbal > 0.0 AND acctbal < 999.0");
+    }
 }
