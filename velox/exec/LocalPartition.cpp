@@ -119,7 +119,7 @@ BlockingReason LocalExchangeQueue::enqueue(
 void LocalExchangeQueue::noMoreData() {
   std::vector<ContinuePromise> consumerPromises;
   std::vector<ContinuePromise> producerPromises;
-  queue_.withWLock([&](auto queue) {
+  queue_.withWLock([&](auto& queue) {
     VELOX_CHECK_GT(pendingProducers_, 0);
     --pendingProducers_;
     if (noMoreProducers_ && pendingProducers_ == 0) {
