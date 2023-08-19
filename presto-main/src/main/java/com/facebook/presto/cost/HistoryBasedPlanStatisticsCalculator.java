@@ -15,7 +15,6 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
-import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
@@ -25,9 +24,6 @@ import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.sql.planner.PlanCanonicalInfoProvider;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -52,16 +48,11 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class HistoryBasedPlanStatisticsCalculator
         implements StatsCalculator
 {
-    private static final List<Class<? extends PlanNode>> PRECOMPUTE_PLAN_NODES = ImmutableList.of(JoinNode.class, SemiJoinNode.class, AggregationNode.class);
-
     private final Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider;
     private final HistoryBasedStatisticsCacheManager historyBasedStatisticsCacheManager;
     private final StatsCalculator delegate;
     private final PlanCanonicalInfoProvider planCanonicalInfoProvider;
     private final HistoryBasedOptimizationConfig config;
-
-    // Default to false, only set to true for unit tests
-    private boolean prefetchForAllPlanNodes;
 
     public HistoryBasedPlanStatisticsCalculator(
             Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider,
@@ -87,10 +78,6 @@ public class HistoryBasedPlanStatisticsCalculator
     @Override
     public boolean registerPlan(PlanNode root, Session session, long startTimeInNano, long timeoutInMilliseconds)
     {
-        // Only precompute history based stats when plan has a join/aggregation.
-        if (!prefetchForAllPlanNodes && !PlanNodeSearcher.searchFrom(root).where(node -> PRECOMPUTE_PLAN_NODES.stream().anyMatch(clazz -> clazz.isInstance(node))).matches()) {
-            return false;
-        }
         ImmutableList.Builder<PlanNodeWithHash> planNodesWithHash = ImmutableList.builder();
         Iterable<PlanNode> planNodeIterable = forTree(PlanNode::getSources).depthFirstPreOrder(root);
         for (PlanNode plan : planNodeIterable) {
@@ -133,12 +120,6 @@ public class HistoryBasedPlanStatisticsCalculator
     public Supplier<HistoryBasedPlanStatisticsProvider> getHistoryBasedPlanStatisticsProvider()
     {
         return historyBasedPlanStatisticsProvider;
-    }
-
-    @VisibleForTesting
-    public void setPrefetchForAllPlanNodes(boolean prefetchForAllPlanNodes)
-    {
-        this.prefetchForAllPlanNodes = prefetchForAllPlanNodes;
     }
 
     private Map<PlanCanonicalizationStrategy, PlanNodeWithHash> getPlanNodeHashes(PlanNode plan, Session session)
