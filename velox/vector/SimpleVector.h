@@ -402,14 +402,9 @@ inline std::optional<int32_t> SimpleVector<ComplexType>::compare(
       << "Attempting to compare vectors not of the same type";
 
   bool otherNull = other->isNullAt(otherIndex);
-  if (isNullAt(index)) {
-    if (otherNull) {
-      return 0;
-    }
-    return flags.nullsFirst ? -1 : 1;
-  }
-  if (otherNull) {
-    return flags.nullsFirst ? 1 : -1;
+  bool isNull = isNullAt(index);
+  if (isNull || otherNull) {
+    return BaseVector::compareNulls(isNull, otherNull, flags);
   }
 
   auto otherWrappedIndex = other->wrappedIndex(otherIndex);
