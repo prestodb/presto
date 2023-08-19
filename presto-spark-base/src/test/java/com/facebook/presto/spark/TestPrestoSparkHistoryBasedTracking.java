@@ -14,7 +14,6 @@
 package com.facebook.presto.spark;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spark.planner.PrestoSparkStatsCalculator;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -28,6 +27,7 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY;
 import static com.facebook.presto.SystemSessionProperties.TRACK_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
@@ -55,9 +55,6 @@ public class TestPrestoSparkHistoryBasedTracking
                 return ImmutableList.of(new InMemoryHistoryBasedPlanStatisticsProvider());
             }
         });
-        if (queryRunner.getStatsCalculator() instanceof PrestoSparkStatsCalculator) {
-            ((PrestoSparkStatsCalculator) queryRunner.getStatsCalculator()).getHistoryBasedPlanStatisticsCalculator().setPrefetchForAllPlanNodes(true);
-        }
         return queryRunner;
     }
 
@@ -140,6 +137,7 @@ public class TestPrestoSparkHistoryBasedTracking
                 .setSystemProperty(TRACK_HISTORY_BASED_PLAN_STATISTICS, "true")
                 .setCatalogSessionProperty("hive", "pushdown_filter_enabled", "true")
                 .setSystemProperty("task_concurrency", "1")
+                .setSystemProperty(RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY, "false")
                 .build();
     }
 }
