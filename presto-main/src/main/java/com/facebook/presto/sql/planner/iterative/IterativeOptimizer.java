@@ -35,6 +35,7 @@ import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
@@ -46,6 +47,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.getOptimizersToEnableVerboseRuntimeStats;
 import static com.facebook.presto.SystemSessionProperties.isVerboseOptimizerInfoEnabled;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
@@ -226,11 +228,21 @@ public class IterativeOptimizer
             throw e;
         }
         stats.record(rule, duration, !result.isEmpty());
-        if (SystemSessionProperties.isVerboseRuntimeStatsEnabled(context.session)) {
+        if (SystemSessionProperties.isVerboseRuntimeStatsEnabled(context.session) || trackOptimizerRuntime(context.session, rule)) {
             context.session.getRuntimeStats().addMetricValue(String.format("rule%sTimeNanos", rule.getClass().getSimpleName()), NANO, duration);
         }
 
         return result;
+    }
+
+    private boolean trackOptimizerRuntime(Session session, Rule rule)
+    {
+        String optimizerString = getOptimizersToEnableVerboseRuntimeStats(session);
+        if (optimizerString.isEmpty()) {
+            return false;
+        }
+        List<String> optimizers = Splitter.on(",").trimResults().splitToList(optimizerString);
+        return optimizers.contains(rule.getClass().getSimpleName());
     }
 
     private <T> boolean isApplicable(PlanNode node, Rule<T> rule, Matcher matcher, Context context)
