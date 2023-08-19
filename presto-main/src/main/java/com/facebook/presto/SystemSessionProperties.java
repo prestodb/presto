@@ -251,6 +251,7 @@ public final class SystemSessionProperties
     public static final String USE_PERFECTLY_CONSISTENT_HISTORIES = "use_perfectly_consistent_histories";
     public static final String HISTORY_CANONICAL_PLAN_NODE_LIMIT = "history_canonical_plan_node_limit";
     public static final String HISTORY_BASED_OPTIMIZER_TIMEOUT_LIMIT = "history_based_optimizer_timeout_limit";
+    public static final String RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY = "restrict_history_based_optimization_to_complex_query";
     public static final String MAX_LEAF_NODES_IN_PLAN = "max_leaf_nodes_in_plan";
     public static final String LEAF_NODE_LIMIT_ENABLED = "leaf_node_limit_enabled";
     public static final String PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID = "push_remote_exchange_through_group_id";
@@ -1441,6 +1442,11 @@ public final class SystemSessionProperties
                         false,
                         value -> Duration.valueOf((String) value),
                         Duration::toString),
+                booleanProperty(
+                        RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY,
+                        "Enable history based optimization only for complex queries, i.e. queries with join and aggregation",
+                        true,
+                        false),
                 new PropertyMetadata<>(
                         MAX_LEAF_NODES_IN_PLAN,
                         "Maximum number of leaf nodes in the logical plan of SQL statement",
@@ -2647,6 +2653,11 @@ public final class SystemSessionProperties
     public static Duration getHistoryBasedOptimizerTimeoutLimit(Session session)
     {
         return session.getSystemProperty(HISTORY_BASED_OPTIMIZER_TIMEOUT_LIMIT, Duration.class);
+    }
+
+    public static boolean restrictHistoryBasedOptimizationToComplexQuery(Session session)
+    {
+        return session.getSystemProperty(RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY, Boolean.class);
     }
 
     public static boolean shouldPushRemoteExchangeThroughGroupId(Session session)

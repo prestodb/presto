@@ -14,7 +14,6 @@
 package com.facebook.presto.statistic;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.HistoryBasedPlanStatisticsCalculator;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.Plugin;
@@ -61,6 +60,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import static com.facebook.presto.SystemSessionProperties.RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY;
 import static com.facebook.presto.SystemSessionProperties.TRACK_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.SystemSessionProperties.USE_PERFECTLY_CONSISTENT_HISTORIES;
@@ -106,9 +106,6 @@ public class TestHistoryBasedRedisStatisticsTracking
                 return ImmutableList.of(redisPlanStatisticsProvider);
             }
         });
-        if (queryRunner.getStatsCalculator() instanceof HistoryBasedPlanStatisticsCalculator) {
-            ((HistoryBasedPlanStatisticsCalculator) queryRunner.getStatsCalculator()).setPrefetchForAllPlanNodes(true);
-        }
         return queryRunner;
     }
 
@@ -490,6 +487,7 @@ public class TestHistoryBasedRedisStatisticsTracking
                 .setSystemProperty(TRACK_HISTORY_BASED_PLAN_STATISTICS, "true")
                 .setSystemProperty(USE_PERFECTLY_CONSISTENT_HISTORIES, "true")
                 .setSystemProperty("task_concurrency", "1")
+                .setSystemProperty(RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY, "false")
                 .setCatalog("tpch")
                 .setSchema("tiny")
                 .build();
