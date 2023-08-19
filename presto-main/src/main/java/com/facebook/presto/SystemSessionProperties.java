@@ -238,6 +238,7 @@ public final class SystemSessionProperties
     public static final String EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY = "exceeded_memory_limit_heap_dump_file_directory";
     public static final String DISTRIBUTED_TRACING_MODE = "distributed_tracing_mode";
     public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
+    public static final String OPTIMIZERS_TO_ENABLE_VERBOSE_RUNTIME_STATS = "optimizers_to_enable_verbose_runtime_stats";
     public static final String VERBOSE_OPTIMIZER_INFO_ENABLED = "verbose_optimizer_info_enabled";
     public static final String VERBOSE_OPTIMIZER_RESULTS = "verbose_optimizer_results";
     public static final String STREAMING_FOR_PARTIAL_AGGREGATION_ENABLED = "streaming_for_partial_aggregation_enabled";
@@ -1300,6 +1301,11 @@ public final class SystemSessionProperties
                         VERBOSE_RUNTIME_STATS_ENABLED,
                         "Enable logging all runtime stats",
                         featuresConfig.isVerboseRuntimeStatsEnabled(),
+                        false),
+                stringProperty(
+                        OPTIMIZERS_TO_ENABLE_VERBOSE_RUNTIME_STATS,
+                        "Optimizers to enable verbose runtime stats",
+                        "",
                         false),
                 booleanProperty(
                         VERBOSE_OPTIMIZER_INFO_ENABLED,
@@ -2521,6 +2527,11 @@ public final class SystemSessionProperties
     public static boolean isVerboseRuntimeStatsEnabled(Session session)
     {
         return session.getSystemProperty(VERBOSE_RUNTIME_STATS_ENABLED, Boolean.class);
+    }
+
+    public static String getOptimizersToEnableVerboseRuntimeStats(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZERS_TO_ENABLE_VERBOSE_RUNTIME_STATS, String.class);
     }
 
     public static boolean isVerboseOptimizerResults(Session session)
