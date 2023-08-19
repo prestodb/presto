@@ -295,6 +295,7 @@ std::shared_ptr<const Type> ReaderBase::convertType(
         return DECIMAL(
             type.getOrcPtr()->precision(), type.getOrcPtr()->scale());
       }
+      [[fallthrough]];
     case TypeKind::REAL:
     case TypeKind::DOUBLE:
     case TypeKind::VARCHAR:

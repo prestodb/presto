@@ -2512,6 +2512,7 @@ std::unique_ptr<ColumnReader> ColumnReader::build(
             streamLabels,
             std::move(flatMapContext));
       }
+      [[fallthrough]];
     default:
       DWIO_RAISE("buildReader unhandled type");
   }

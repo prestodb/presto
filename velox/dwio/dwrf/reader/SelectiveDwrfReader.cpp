@@ -140,6 +140,7 @@ std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
         return std::make_unique<SelectiveDecimalColumnReader<int128_t>>(
             requestedType, params, scanSpec);
       }
+      [[fallthrough]];
     default:
       DWIO_RAISE(
           "buildReader unhandled type: " +
