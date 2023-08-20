@@ -27,7 +27,7 @@ RUN dnf install -y java-11-openjdk less procps python3 \
     && mkdir -p /var/lib/presto/data \
         && mkdir -p /usr/lib/presto/utils \
         # Download jmx prometheus exporter \
-        && curl -o /usr/lib/presto/utils/jmx_prometheus_javaagent-0.16.1.jar https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.16.1/jmx_prometheus_javaagent-0.16.1.jar
+        && curl -o /usr/lib/presto/utils/jmx_prometheus_javaagent-0.20.0.jar https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.20.0/jmx_prometheus_javaagent-0.20.0.jar
 
 COPY etc $PRESTO_HOME/etc
 COPY entrypoint.sh /opt
