@@ -36,7 +36,12 @@ CoalesceExpr::CoalesceExpr(
       [](const ExprPtr& expr) { return expr->type(); });
 
   // Apply type checks.
-  resolveType(inputTypes);
+  auto expectedType = resolveType(inputTypes);
+  VELOX_CHECK(
+      *expectedType == *this->type(),
+      "Coalesce expression type different than its inputs. Expected {} but got Actual {}.",
+      expectedType->toString(),
+      this->type()->toString());
 }
 
 void CoalesceExpr::evalSpecialForm(
@@ -88,7 +93,7 @@ TypePtr CoalesceExpr::resolveType(const std::vector<TypePtr>& argTypes) {
       "COALESCE statements expect to receive at least 1 argument, but did not receive any.");
   for (auto i = 1; i < argTypes.size(); i++) {
     VELOX_USER_CHECK(
-        argTypes[0]->equivalent(*argTypes[i]),
+        *argTypes[0] == *argTypes[i],
         "Inputs to coalesce must have the same type. Expected {}, but got {}.",
         argTypes[0]->toString(),
         argTypes[i]->toString());
