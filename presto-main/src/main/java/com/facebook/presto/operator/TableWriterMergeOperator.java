@@ -22,6 +22,7 @@ import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -144,7 +145,7 @@ public class TableWriterMergeOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return statisticsAggregationOperator.isBlocked();
+        return new Driver.BlockedFuture(statisticsAggregationOperator.isBlocked(), SplitBlockedReason.TABLE_WRITER_MERGE);
     }
 
     @Override

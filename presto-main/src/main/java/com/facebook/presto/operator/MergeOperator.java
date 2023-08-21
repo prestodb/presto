@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -210,11 +211,11 @@ public class MergeOperator
     public ListenableFuture<?> isBlocked()
     {
         if (!blockedOnSplits.isDone()) {
-            return blockedOnSplits;
+            return new Driver.BlockedFuture(blockedOnSplits, SplitBlockedReason.MERGE);
         }
 
         if (mergedPages.isBlocked()) {
-            return mergedPages.getBlockedFuture();
+            return new Driver.BlockedFuture(mergedPages.getBlockedFuture(), SplitBlockedReason.MERGE);
         }
 
         return NOT_BLOCKED;

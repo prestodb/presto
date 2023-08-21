@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -112,7 +113,10 @@ public class NestedLoopBuildOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return probeDoneWithPages.orElse(NOT_BLOCKED);
+        if (probeDoneWithPages.isPresent()) {
+            return new Driver.BlockedFuture(probeDoneWithPages.get(), SplitBlockedReason.NESTED_LOOP_BUILD);
+        }
+        return NOT_BLOCKED;
     }
 
     @Override

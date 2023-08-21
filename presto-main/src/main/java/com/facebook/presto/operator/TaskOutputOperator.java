@@ -17,6 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -137,10 +138,10 @@ public class TaskOutputOperator
         if (isBlocked.isDone()) {
             isBlocked = outputBuffer.isFull();
             if (isBlocked.isDone()) {
-                isBlocked = NOT_BLOCKED;
+                return NOT_BLOCKED;
             }
         }
-        return isBlocked;
+        return new Driver.BlockedFuture(isBlocked, SplitBlockedReason.TASK_OUTPUT);
     }
 
     @Override

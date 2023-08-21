@@ -29,6 +29,7 @@ import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.CursorProcessorOutput;
 import com.facebook.presto.operator.project.MergingPageOutput;
 import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.RecordCursor;
@@ -218,11 +219,11 @@ public class ScanFilterAndProjectOperator
     public ListenableFuture<?> isBlocked()
     {
         if (!blocked.isDone()) {
-            return blocked;
+            return new Driver.BlockedFuture(blocked, SplitBlockedReason.SCAN_FILTER_PROJECT);
         }
         if (pageSource != null) {
             CompletableFuture<?> pageSourceBlocked = pageSource.isBlocked();
-            return pageSourceBlocked.isDone() ? NOT_BLOCKED : toListenableFuture(pageSourceBlocked);
+            return pageSourceBlocked.isDone() ? NOT_BLOCKED : new Driver.BlockedFuture(toListenableFuture(pageSourceBlocked), SplitBlockedReason.SCAN_FILTER_PROJECT);
         }
         return NOT_BLOCKED;
     }

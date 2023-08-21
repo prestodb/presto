@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -122,7 +123,7 @@ public class HashSemiJoinOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return channelSetFuture;
+        return new Driver.BlockedFuture(channelSetFuture, SplitBlockedReason.HASH_SEMI_JOIN);
     }
 
     @Override

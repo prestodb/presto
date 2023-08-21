@@ -19,6 +19,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -144,7 +145,7 @@ public class DeleteOperator
         if (finishFuture == null) {
             return NOT_BLOCKED;
         }
-        return finishFuture;
+        return new Driver.BlockedFuture(finishFuture, SplitBlockedReason.DELETE);
     }
 
     @Override

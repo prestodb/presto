@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.geospatial.KdbTreeUtils;
 import com.facebook.presto.geospatial.Rectangle;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.google.common.collect.ImmutableList;
@@ -217,7 +218,7 @@ public class SpatialIndexBuilderOperator
     public ListenableFuture<?> isBlocked()
     {
         if (indexNotNeeded != null && !indexNotNeeded.isDone()) {
-            return indexNotNeeded;
+            return new Driver.BlockedFuture(indexNotNeeded, SplitBlockedReason.SPACIAL_INDEX);
         }
         return NOT_BLOCKED;
     }

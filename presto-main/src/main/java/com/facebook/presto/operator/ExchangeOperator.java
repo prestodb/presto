@@ -17,6 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.page.PagesSerde;
@@ -159,10 +160,10 @@ public class ExchangeOperator
         if (isBlocked.isDone()) {
             isBlocked = exchangeClient.isBlocked();
             if (isBlocked.isDone()) {
-                isBlocked = NOT_BLOCKED;
+                return NOT_BLOCKED;
             }
         }
-        return isBlocked;
+        return new Driver.BlockedFuture(isBlocked, SplitBlockedReason.EXCHANGE);
     }
 
     @Override

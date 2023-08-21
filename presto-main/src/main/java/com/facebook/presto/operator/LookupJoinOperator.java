@@ -20,6 +20,7 @@ import com.facebook.presto.operator.LookupJoinOperators.JoinType;
 import com.facebook.presto.operator.LookupSourceProvider.LookupSourceLease;
 import com.facebook.presto.operator.PartitionedConsumption.Partition;
 import com.facebook.presto.operator.exchange.LocalPartitionGenerator;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spiller.PartitioningSpiller;
 import com.facebook.presto.spiller.PartitioningSpiller.PartitioningSpillResult;
 import com.facebook.presto.spiller.PartitioningSpillerFactory;
@@ -170,18 +171,18 @@ public class LookupJoinOperator
     {
         if (!spillInProgress.isDone()) {
             // Input spilling can happen only after lookupSourceProviderFuture was done.
-            return spillInProgress;
+            return new Driver.BlockedFuture(spillInProgress, SplitBlockedReason.LOOKUP_JOIN);
         }
         if (unspilledLookupSource.isPresent()) {
             // Unspilling can happen only after lookupSourceProviderFuture was done.
-            return unspilledLookupSource.get();
+            return new Driver.BlockedFuture(unspilledLookupSource.get(), SplitBlockedReason.LOOKUP_JOIN);
         }
 
         if (finishing) {
             return NOT_BLOCKED;
         }
 
-        return lookupSourceProviderFuture;
+        return new Driver.BlockedFuture(lookupSourceProviderFuture, SplitBlockedReason.LOOKUP_JOIN);
     }
 
     @Override

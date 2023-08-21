@@ -14,10 +14,12 @@
 package com.facebook.presto.operator.index;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -96,7 +98,7 @@ public class PageBufferOperator
     public ListenableFuture<?> isBlocked()
     {
         updateBlockedIfNecessary();
-        return blocked;
+        return new Driver.BlockedFuture(blocked, SplitBlockedReason.PAGE_BUFFER);
     }
 
     @Override
