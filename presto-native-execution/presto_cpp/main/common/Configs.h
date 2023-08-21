@@ -275,11 +275,13 @@ class SystemConfig : public ConfigBase {
   /// cleanup.
   static constexpr std::string_view kOldTaskCleanUpMs{"old-task-cleanup-ms"};
 
-  static constexpr std::string_view kAnnouncementMinFrequencyMs{
-      "announcement-min-frequency-ms"};
-
   static constexpr std::string_view kAnnouncementMaxFrequencyMs{
       "announcement-max-frequency-ms"};
+
+  /// Time (ms) after which we periodically send heartbeats to discovery
+  /// endpoint.
+  static constexpr std::string_view kHeartbeatFrequencyMs{
+      "heartbeat-frequency-ms"};
 
   static constexpr std::string_view kExchangeMaxErrorDuration{
       "exchange.max-error-duration"};
@@ -446,9 +448,9 @@ class SystemConfig : public ConfigBase {
 
   uint32_t logNumZombieTasks() const;
 
-  uint64_t announcementMinFrequencyMs() const;
-
   uint64_t announcementMaxFrequencyMs() const;
+
+  uint64_t heartbeatFrequencyMs() const;
 
   std::chrono::duration<double> exchangeMaxErrorDuration() const;
 

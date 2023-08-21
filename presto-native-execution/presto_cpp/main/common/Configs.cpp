@@ -271,8 +271,8 @@ SystemConfig::SystemConfig() {
           STR_PROP(kSkipRuntimeStatsInRunningTaskInfo, "true"),
           STR_PROP(kLogZombieTaskInfo, "false"),
           NUM_PROP(kLogNumZombieTasks, 20),
-          NUM_PROP(kAnnouncementMinFrequencyMs, 25'000), // 25s
-          NUM_PROP(kAnnouncementMaxFrequencyMs, 30'000), // 35s
+          NUM_PROP(kAnnouncementMaxFrequencyMs, 30'000), // 30s
+          NUM_PROP(kHeartbeatFrequencyMs, 0),
           STR_PROP(kExchangeMaxErrorDuration, "30s"),
           STR_PROP(kExchangeRequestTimeout, "10s"),
           NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
@@ -530,12 +530,12 @@ uint32_t SystemConfig::logNumZombieTasks() const {
   return optionalProperty<uint32_t>(kLogNumZombieTasks).value();
 }
 
-uint64_t SystemConfig::announcementMinFrequencyMs() const {
-  return optionalProperty<uint64_t>(kAnnouncementMinFrequencyMs).value();
-}
-
 uint64_t SystemConfig::announcementMaxFrequencyMs() const {
   return optionalProperty<uint64_t>(kAnnouncementMaxFrequencyMs).value();
+}
+
+uint64_t SystemConfig::heartbeatFrequencyMs() const {
+  return optionalProperty<uint64_t>(kHeartbeatFrequencyMs).value();
 }
 
 std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
