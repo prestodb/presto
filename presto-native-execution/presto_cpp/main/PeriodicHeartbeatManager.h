@@ -13,37 +13,34 @@
  */
 #pragma once
 
-#include <folly/io/async/EventBaseThread.h>
-#include <presto_cpp/main/http/HttpClient.h>
-#include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicServiceInventoryManager.h"
+#include "presto_cpp/presto_protocol/presto_protocol.h"
 
 namespace facebook::presto {
 
-class Announcer : public PeriodicServiceInventoryManager {
+class PeriodicHeartbeatManager : public PeriodicServiceInventoryManager {
  public:
-  Announcer(
+  PeriodicHeartbeatManager(
       const std::string& address,
-      bool useHttps,
       int port,
       const std::shared_ptr<CoordinatorDiscoverer>& coordinatorDiscoverer,
-      const std::string& nodeVersion,
-      const std::string& environment,
-      const std::string& nodeId,
-      const std::string& nodeLocation,
-      const std::vector<std::string>& connectorIds,
-      const uint64_t maxFrequencyMs_,
-      const std::string& clientCertAndKeyPath = "",
-      const std::string& ciphers = "");
-
-  ~Announcer() = default;
+      const std::string& clientCertAndKeyPath,
+      const std::string& ciphers,
+      std::function<protocol::NodeStatus()> nodeStatusFetcher,
+      uint64_t frequencyMs);
 
  protected:
+  bool retryFailed() override {
+    return false;
+  }
+
+  int updateServiceTimes() override {
+    return 10;
+  }
+
   std::tuple<proxygen::HTTPMessage, std::string> httpRequest() override;
 
  private:
-  const std::string announcementBody_;
-  const proxygen::HTTPMessage announcementRequest_;
+  std::function<protocol::NodeStatus()> nodeStatusFetcher_;
 };
-
 } // namespace facebook::presto

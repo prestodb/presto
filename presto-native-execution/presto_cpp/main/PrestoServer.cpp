@@ -204,11 +204,22 @@ void PrestoServer::run() {
         nodeId_,
         nodeLocation_,
         catalogNames,
-        systemConfig->announcementMinFrequencyMs(),
         systemConfig->announcementMaxFrequencyMs(),
         clientCertAndKeyPath,
         ciphers);
     announcer_->start();
+    uint64_t heartbeatFrequencyMs = systemConfig->heartbeatFrequencyMs();
+    if (heartbeatFrequencyMs > 0) {
+      heartbeatManager_ = std::make_unique<PeriodicHeartbeatManager>(
+          address_,
+          httpsPort.has_value() ? httpsPort.value() : httpPort,
+          coordinatorDiscoverer_,
+          clientCertAndKeyPath,
+          ciphers,
+          [server = this]() { return server->fetchNodeStatus(); },
+          heartbeatFrequencyMs);
+      heartbeatManager_->start();
+    }
   }
 
   const bool reusePort = SystemConfig::instance()->httpServerReusePort();
@@ -394,6 +405,12 @@ void PrestoServer::run() {
     PRESTO_SHUTDOWN_LOG(INFO) << "Stopping announcer";
     announcer_->stop();
   }
+
+  if (heartbeatManager_ != nullptr) {
+    PRESTO_SHUTDOWN_LOG(INFO) << "Stopping Heartbeat manager";
+    heartbeatManager_->stop();
+  }
+
   PRESTO_SHUTDOWN_LOG(INFO) << "Stopping all periodic tasks...";
   periodicTaskManager_->stop();
 
@@ -862,6 +879,10 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
 }
 
 void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
+  http::sendOkResponse(downstream, json(fetchNodeStatus()));
+}
+
+protocol::NodeStatus PrestoServer::fetchNodeStatus() {
   auto systemConfig = SystemConfig::instance();
   const int64_t nodeMemoryGb = systemConfig->systemMemoryGb();
 
@@ -882,11 +903,11 @@ void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
       (int)std::thread::hardware_concurrency(),
       cpuLoadPct,
       cpuLoadPct,
-      pool_->currentBytes(),
+      pool_ ? pool_->currentBytes() : 0,
       nodeMemoryGb * 1024 * 1024 * 1024,
       nonHeapUsed};
 
-  http::sendOkResponse(downstream, json(nodeStatus));
+  return nodeStatus;
 }
 
 } // namespace facebook::presto

@@ -21,6 +21,7 @@
 #include <velox/expression/Expr.h>
 #include "presto_cpp/main/CPUMon.h"
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
+#include "presto_cpp/main/PeriodicHeartbeatManager.h"
 #include "presto_cpp/main/PrestoServerOperations.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/MemoryAllocator.h"
@@ -152,6 +153,8 @@ class PrestoServer {
 
   void reportNodeStatus(proxygen::ResponseHandler* downstream);
 
+  protocol::NodeStatus fetchNodeStatus();
+
   void populateMemAndCPUInfo();
 
   // Periodically yield tasks if there are tasks queued.
@@ -179,6 +182,7 @@ class PrestoServer {
   std::unique_ptr<http::HttpServer> httpServer_;
   std::unique_ptr<SignalHandler> signalHandler_;
   std::unique_ptr<Announcer> announcer_;
+  std::unique_ptr<PeriodicHeartbeatManager> heartbeatManager_;
   std::shared_ptr<velox::memory::MemoryPool> pool_;
   std::unique_ptr<TaskManager> taskManager_;
   std::unique_ptr<TaskResource> taskResource_;
