@@ -149,9 +149,9 @@ public class TaskHandle
             return null;
         }
 
-        if (runningLeafSplits.size() >= concurrencyController.getTargetConcurrency()) {
-            return null;
-        }
+//        if (runningLeafSplits.size() >= concurrencyController.getTargetConcurrency()) {
+//            return null;
+//        }
 
         PrioritizedSplitRunner split = queuedLeafSplits.poll();
         if (split != null) {

@@ -74,6 +74,8 @@ public class PrioritizedSplitRunner
     private final TimeStat blockedQuantaWallTime;
     private final TimeStat unblockedQuantaWallTime;
 
+    private final boolean isLeaf;
+
     PrioritizedSplitRunner(
             TaskHandle taskHandle,
             SplitRunner split,
@@ -81,7 +83,8 @@ public class PrioritizedSplitRunner
             CounterStat globalCpuTimeMicros,
             CounterStat globalScheduledTimeMicros,
             TimeStat blockedQuantaWallTime,
-            TimeStat unblockedQuantaWallTime)
+            TimeStat unblockedQuantaWallTime,
+            boolean isLeaf)
     {
         this.taskHandle = taskHandle;
         this.splitId = taskHandle.getNextSplitId();
@@ -92,6 +95,7 @@ public class PrioritizedSplitRunner
         this.globalScheduledTimeMicros = globalScheduledTimeMicros;
         this.blockedQuantaWallTime = blockedQuantaWallTime;
         this.unblockedQuantaWallTime = unblockedQuantaWallTime;
+        this.isLeaf = isLeaf;
 
         this.updateLevelPriority();
     }
@@ -254,6 +258,11 @@ public class PrioritizedSplitRunner
                 (int) (cpuTimeNanos.get() / 1.0e6),
                 (int) (waitNanos.get() / 1.0e6),
                 processCalls.get());
+    }
+
+    public boolean isLeaf()
+    {
+        return this.isLeaf;
     }
 
     @Override

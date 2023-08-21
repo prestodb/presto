@@ -148,6 +148,11 @@ public class TaskExecutor
      */
     private final Set<PrioritizedSplitRunner> runningSplits = newConcurrentHashSet();
 
+    // Total unfinished leaf splits (waitingSplitsQueue + taskHandle.queue + running)
+    private final Set<PrioritizedSplitRunner> totalLeafSplit = newConcurrentHashSet();
+
+    private final AtomicLong runningLeafSplit = new AtomicLong(0);
+
     /**
      * Splits blocked by the driver.
      */
@@ -177,6 +182,8 @@ public class TaskExecutor
 
     private final TimeStat blockedQuantaWallTime = new TimeStat(MICROSECONDS);
     private final TimeStat unblockedQuantaWallTime = new TimeStat(MICROSECONDS);
+    private final AtomicLong totalLeafSplitsOfAllTime = new AtomicLong(0);
+    private final AtomicLong totalIntermediateSplitsOfAllTime = new AtomicLong(0);
 
     private volatile boolean closed;
 
@@ -387,6 +394,7 @@ public class TaskExecutor
             intermediateSplits.removeAll(splits);
             blockedSplits.keySet().removeAll(splits);
             waitingSplits.removeAll(splits);
+            totalLeafSplit.removeAll(splits);
         }
 
         // call destroy outside of synchronized block as it is expensive and doesn't need a lock on the task executor
@@ -414,13 +422,15 @@ public class TaskExecutor
                         globalCpuTimeMicros,
                         globalScheduledTimeMicros,
                         blockedQuantaWallTime,
-                        unblockedQuantaWallTime);
+                        unblockedQuantaWallTime,
+                        !intermediate);
 
                 if (intermediate) {
                     // add the runner to the handle so it can be destroyed if the task is canceled
                     if (taskHandle.recordIntermediateSplit(prioritizedSplitRunner)) {
                         // Note: we do not record queued time for intermediate splits
                         startIntermediateSplit(prioritizedSplitRunner);
+                        totalIntermediateSplitsOfAllTime.incrementAndGet();
                     }
                     else {
                         splitsToDestroy.add(prioritizedSplitRunner);
@@ -429,6 +439,8 @@ public class TaskExecutor
                 else {
                     // add this to the work queue for the task
                     if (taskHandle.enqueueSplit(prioritizedSplitRunner)) {
+                        totalLeafSplit.add(prioritizedSplitRunner);
+                        totalLeafSplitsOfAllTime.incrementAndGet();
                         // if task is under the limit for guaranteed splits, start one
                         scheduleTaskIfNecessary(taskHandle);
                         // if globally we have more resources, start more
@@ -463,7 +475,7 @@ public class TaskExecutor
                 intermediateSplitWaitTime.add(split.getWaitNanos());
                 intermediateSplitCpuTime.add(split.getCpuTimeNanos());
             }
-            else {
+            if (totalLeafSplit.remove(split)) {
                 leafSplitWallTime.add(wallNanos);
                 leafSplitScheduledTime.add(split.getScheduledNanos());
                 leafSplitWaitTime.add(split.getWaitNanos());
@@ -597,6 +609,9 @@ public class TaskExecutor
                         RunningSplitInfo splitInfo = new RunningSplitInfo(ticker.read(), threadId, Thread.currentThread(), split);
                         runningSplitInfos.add(splitInfo);
                         runningSplits.add(split);
+                        if (runLeafSplits) {
+                            runningLeafSplit.incrementAndGet();
+                        }
 
                         ListenableFuture<?> blocked;
                         try {
@@ -605,6 +620,9 @@ public class TaskExecutor
                         finally {
                             runningSplitInfos.remove(splitInfo);
                             runningSplits.remove(split);
+                            if (runLeafSplits) {
+                                runningLeafSplit.decrementAndGet();
+                            }
                         }
 
                         if (split.isFinished()) {
@@ -961,6 +979,18 @@ public class TaskExecutor
             }
         }
         return count;
+    }
+
+    @Managed
+    public long getTotalIntermediateSplitsOfAllTime()
+    {
+        return totalIntermediateSplitsOfAllTime.get();
+    }
+
+    @Managed
+    public long getTotalLeafSplitsOfAllTime()
+    {
+        return totalLeafSplitsOfAllTime.get();
     }
 
     private static class RunningSplitInfo
