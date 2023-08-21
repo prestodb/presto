@@ -58,6 +58,7 @@ const T* FlatVector<T>::rawValues() const {
 
 template <typename T>
 T FlatVector<T>::valueAtFast(vector_size_t idx) const {
+  VELOX_DCHECK_LT(idx, BaseVector::length_, "Index out of range");
   return rawValues_[idx];
 }
 
