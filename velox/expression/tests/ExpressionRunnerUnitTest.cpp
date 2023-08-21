@@ -110,4 +110,18 @@ TEST_F(ExpressionRunnerUnitTest, persistAndReproComplexSql) {
   // against race conditions, which in effect falttens the array.
   ASSERT_EQ(reproExprs[0]->toString(), "4 elements starting at 0 {3, 5, 1, 2}");
 }
+
+TEST_F(ExpressionRunnerUnitTest, primitiveConstantsInexpressibleInSql) {
+  auto varbinaryData = vectorMaker_.flatVector<StringView>(
+      {"12"_sv}, CppToType<Varbinary>::create());
+  auto constantExpr = std::make_shared<const core::ConstantTypedExpr>(
+      BaseVector::wrapInConstant(1, 0, varbinaryData));
+
+  auto sqlExpr = exec::ExprSet({constantExpr}, &execCtx_, false).expr(0);
+
+  ASSERT_THROW(sqlExpr->toSql(), VeloxUserError);
+  std::vector<VectorPtr> complexConstants;
+  auto complexConstantsSql = sqlExpr->toSql(&complexConstants);
+  ASSERT_EQ(complexConstantsSql, "__complex_constant(c0)");
+}
 } // namespace facebook::velox::test

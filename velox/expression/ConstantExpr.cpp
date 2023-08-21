@@ -211,13 +211,18 @@ void appendSqlLiteral(
           "Type not supported yet: {}", vector.type()->toString());
   }
 }
+
+bool canBeExpressedInSQL(const TypePtr& type) {
+  return type->isPrimitiveType() && type != VARBINARY();
+}
+
 } // namespace
 
 std::string ConstantExpr::toSql(
     std::vector<VectorPtr>* complexConstants) const {
   VELOX_CHECK_NOT_NULL(sharedConstantValue_);
   std::ostringstream out;
-  if (complexConstants && !sharedConstantValue_->type()->isPrimitiveType()) {
+  if (complexConstants && !canBeExpressedInSQL(sharedConstantValue_->type())) {
     int idx = complexConstants->size();
     out << "__complex_constant(c" << idx << ")";
     complexConstants->push_back(sharedConstantValue_);
