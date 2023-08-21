@@ -116,7 +116,6 @@ find_package(
   system
   date_time
   atomic)
-include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 
 find_package(gflags COMPONENTS shared)
 
@@ -160,8 +159,26 @@ endif()
 include_directories(SYSTEM ${FOLLY_INCLUDE_DIRS})
 
 # Include third party header files
-find_path(OPT_OPENSSL_DIR NAMES opt/openssl@1.1)
-set(OPENSSL_ROOT_DIR "${OPT_OPENSSL_DIR}/opt/openssl@1.1")
+
+# Find openssl@1.1 folder.
+if(NOT DEFINED OPENSSL_ROOT_DIR)
+  find_path(OPT_OPENSSL_DIR NAMES opt/openssl@1.1)
+  if(NOT ${OPT_OPENSSL_DIR} STREQUAL "OPT_OPENSSL_DIR-NOTFOUND")
+    set(OPENSSL_ROOT_DIR "${OPT_OPENSSL_DIR}/opt/openssl@1.1")
+  else()
+    find_path(OPT_OPENSSL_DIR NAMES ../opt/openssl@1.1)
+    if(NOT ${OPT_OPENSSL_DIR} STREQUAL "OPT_OPENSSL_DIR-NOTFOUND")
+      set(OPENSSL_ROOT_DIR "${OPT_OPENSSL_DIR}/../opt/openssl@1.1")
+    endif()
+  endif()
+endif()
+if(NOT DEFINED OPENSSL_ROOT_DIR)
+  message(
+    WARNING
+      "'OPENSSL_ROOT_DIR' is not defined. Issues are possible with finding and linking to openssl@1.1."
+  )
+endif()
+include_directories(SYSTEM ${OPENSSL_ROOT_DIR}/include)
 find_package(OpenSSL REQUIRED)
 
 find_library(LIBSODIUM_LIBRARY NAMES sodium)
@@ -190,6 +207,8 @@ include_directories(${CMAKE_BINARY_DIR})
 
 # set this for backwards compatibility, will be overwritten in velox/
 set(VELOX_GTEST_INCUDE_DIR "velox/third_party/googletest/googletest/include")
+
+include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 
 add_subdirectory(velox)
 
