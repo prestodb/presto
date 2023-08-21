@@ -43,6 +43,7 @@ public class ResourceManagerConfig
     private Duration memoryPoolFetchInterval = new Duration(1, SECONDS);
     private boolean resourceGroupServiceCacheEnabled;
     private Duration resourceGroupServiceCacheExpireInterval = new Duration(10, SECONDS);
+    private boolean heartbeatHttpEnabled;
     private Duration resourceGroupServiceCacheRefreshInterval = new Duration(1, SECONDS);
 
     private Duration runningTaskCountFetchInterval = new Duration(1, SECONDS);
@@ -276,6 +277,18 @@ public class ResourceManagerConfig
     public ResourceManagerConfig setRunningTaskCountFetchInterval(Duration runningTaskCountFetchInterval)
     {
         this.runningTaskCountFetchInterval = runningTaskCountFetchInterval;
+        return this;
+    }
+
+    public boolean getHeartbeatHttpEnabled()
+    {
+        return heartbeatHttpEnabled;
+    }
+
+    @Config("resource-manager.heartbeat-http-enabled")
+    public ResourceManagerConfig setHeartbeatHttpEnabled(boolean heartbeatHttpEnabled)
+    {
+        this.heartbeatHttpEnabled = heartbeatHttpEnabled;
         return this;
     }
 }

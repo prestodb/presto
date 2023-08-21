@@ -38,9 +38,11 @@ public class ResourceManagerServer
     private final ListeningExecutorService executor;
 
     @Inject
-    public ResourceManagerServer(ResourceManagerClusterStateProvider clusterStateProvider, @ForResourceManager ListeningExecutorService executor)
+    public ResourceManagerServer(
+            ResourceManagerClusterStateProvider clusterStateProvider,
+            @ForResourceManager ListeningExecutorService executor)
     {
-        this.clusterStateProvider = requireNonNull(clusterStateProvider, "internalNodeManager is null");
+        this.clusterStateProvider = requireNonNull(clusterStateProvider, "clusterStateProvider is null");
         this.executor = executor;
     }
 
