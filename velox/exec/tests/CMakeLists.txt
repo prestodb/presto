@@ -259,7 +259,6 @@ target_link_libraries(
   velox_spiller_benchmark_base
   velox_vector_fuzzer
   glog::glog
-
   gflags::gflags
   Folly::folly
   pthread)
