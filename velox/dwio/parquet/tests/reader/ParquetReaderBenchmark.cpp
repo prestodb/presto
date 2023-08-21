@@ -41,8 +41,10 @@ class ParquetReaderBenchmark {
  public:
   explicit ParquetReaderBenchmark(bool disableDictionary)
       : disableDictionary_(disableDictionary) {
-    pool_ = memory::addDefaultLeafMemoryPool();
-    dataSetBuilder_ = std::make_unique<DataSetBuilder>(*pool_.get(), 0);
+    rootPool_ =
+        memory::defaultMemoryManager().addRootPool("ParquetReaderBenchmark");
+    leafPool_ = rootPool_->addLeafChild("ParquetReaderBenchmark");
+    dataSetBuilder_ = std::make_unique<DataSetBuilder>(*leafPool_, 0);
     auto path = fileFolder_->path + "/" + fileName_;
     auto localWriteFile = std::make_unique<LocalWriteFile>(path, true, false);
     auto sink =
@@ -52,7 +54,7 @@ class ParquetReaderBenchmark {
       // The parquet file is in plain encoding format.
       options.enableDictionary = false;
     }
-    options.memoryPool = pool_.get();
+    options.memoryPool = rootPool_.get();
     writer_ = std::make_unique<facebook::velox::parquet::Writer>(
         std::move(sink), options);
   }
@@ -117,7 +119,7 @@ class ParquetReaderBenchmark {
   std::unique_ptr<RowReader> createReader(
       std::shared_ptr<ScanSpec> scanSpec,
       const RowTypePtr& rowType) {
-    dwio::common::ReaderOptions readerOpts{pool_.get()};
+    dwio::common::ReaderOptions readerOpts{leafPool_.get()};
     auto input = std::make_unique<BufferedInput>(
         std::make_shared<LocalReadFile>(fileFolder_->path + "/" + fileName_),
         readerOpts.getMemoryPool());
@@ -143,7 +145,7 @@ class ParquetReaderBenchmark {
     runtimeStats_ = dwio::common::RuntimeStatistics();
 
     rowReader->resetFilterCaches();
-    auto result = BaseVector::create(rowType, 1, pool_.get());
+    auto result = BaseVector::create(rowType, 1, leafPool_.get());
     int resultSize = 0;
     while (true) {
       bool hasData = rowReader->next(nextSize, result);
@@ -234,7 +236,8 @@ class ParquetReaderBenchmark {
   const bool disableDictionary_;
 
   std::unique_ptr<test::DataSetBuilder> dataSetBuilder_;
-  std::shared_ptr<memory::MemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> rootPool_;
+  std::shared_ptr<memory::MemoryPool> leafPool_;
   dwio::common::DataSink* sinkPtr_;
   std::unique_ptr<facebook::velox::parquet::Writer> writer_;
   RuntimeStatistics runtimeStats_;
