@@ -579,7 +579,7 @@ TEST_F(SharedArbitrationTest, reclaimFromCompletedOrderBy) {
   }
 }
 
-DEBUG_ONLY_TEST_F(SharedArbitrationTest, DISABLED_reclaimFromAggregation) {
+DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromAggregation) {
   const int numVectors = 32;
   std::vector<RowVectorPtr> vectors;
   for (int i = 0; i < numVectors; ++i) {
@@ -606,7 +606,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, DISABLED_reclaimFromAggregation) {
 
     const auto aggregationMemoryUsage = 32L << 20;
     const auto fakeAllocationSize =
-        kMemoryCapacity - aggregationMemoryUsage / 2;
+        kMemoryCapacity - aggregationMemoryUsage + 1;
 
     std::atomic<bool> injectAllocationOnce{true};
     fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
