@@ -186,6 +186,36 @@ void verifyFlatMapReading(
 
 class TestFlatMapReader : public TestWithParam<bool> {};
 
+TEST_P(TestFlatMapReader, testReadFlatMapEmptyMap) {
+  const std::string fmSmall(getExampleFilePath("empty_flatmap.orc"));
+  auto returnFlatVector = GetParam();
+
+  ReaderOptions readerOpts{defaultPool.get()};
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setReturnFlatVector(returnFlatVector);
+  std::shared_ptr<const RowType> requestedType =
+      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
+          id:int,\
+      mapCol:map<int,int>,\
+      ds:string>"));
+  rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(fmSmall, readerOpts.getMemoryPool()), readerOpts);
+  auto rowReaderOwner = reader->createRowReader(rowReaderOpts);
+  auto rowReader = dynamic_cast<DwrfRowReader*>(rowReaderOwner.get());
+  VectorPtr batch;
+  rowReader->next(1, batch);
+  auto root = batch->as<RowVector>();
+
+  auto map = root->childAt(1)->as<MapVector>();
+  auto mapKeyInt = map->mapKeys()->as<SimpleVector<int32_t>>();
+  auto mapValueInt = map->mapValues()->as<SimpleVector<int32_t>>();
+
+  EXPECT_EQ(0, mapKeyInt->size());
+  EXPECT_EQ(0, mapValueInt->size());
+  EXPECT_EQ(mapKeyInt->getNullCount().has_value(), false);
+}
+
 TEST_P(TestFlatMapReader, testStringKeyLifeCycle) {
   const std::string fmSmall(getExampleFilePath("fm_small.orc"));
   auto returnFlatVector = GetParam();

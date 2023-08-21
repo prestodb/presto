@@ -272,6 +272,18 @@ void FlatMapColumnReader<StringView>::initKeysVector(
   vector->resize(size, false);
 }
 
+// When read-string-as-row flag is on, string readers produce ROW(BIGINT,
+// BIGINT) type instead of VARCHAR or VARBINARY. In these cases,
+// requestedType_->type is not the right type of the final vector.
+const std::shared_ptr<const Type> getMapType(
+    const VectorPtr& keysVector,
+    const VectorPtr& valuesVector,
+    const std::shared_ptr<const Type> backupType) {
+  return (keysVector == nullptr || valuesVector == nullptr)
+      ? backupType
+      : MAP(keysVector->type(), valuesVector->type());
+}
+
 template <typename T>
 void FlatMapColumnReader<T>::next(
     uint64_t numValues,
@@ -327,6 +339,26 @@ void FlatMapColumnReader<T>::next(
         totalChildren += batch->size();
       }
     }
+  }
+
+  if (nodeBatches.empty()) {
+    auto* offsetsPtr = offsets->asMutable<vector_size_t>();
+    auto* lengthsPtr = lengths->asMutable<vector_size_t>();
+    std::fill(offsetsPtr, offsetsPtr + numValues, 0);
+    std::fill(lengthsPtr, lengthsPtr + numValues, 0);
+
+    // todo: refactor this method to reduce branching
+    result = std::make_shared<MapVector>(
+        &memoryPool_,
+        getMapType(keysVector, valuesVector, requestedType_->type),
+        std::move(nulls),
+        numValues,
+        std::move(offsets),
+        std::move(lengths),
+        nullptr,
+        nullptr,
+        nullCount);
+    return;
   }
 
   size_t startIndices[nodeBatches.size()];
@@ -400,12 +432,7 @@ void FlatMapColumnReader<T>::next(
         nullptr, indices, totalChildren, std::move(valuesVector));
   }
 
-  // When read-string-as-row flag is on, string readers produce ROW(BIGINT,
-  // BIGINT) type instead of VARCHAR or VARBINARY. In these cases,
-  // requestedType_->type is not the right type of the final vector.
-  auto mapType = (keysVector == nullptr || valuesVector == nullptr)
-      ? requestedType_->type
-      : MAP(keysVector->type(), valuesVector->type());
+  auto mapType = getMapType(keysVector, valuesVector, requestedType_->type);
 
   // TODO Reuse
   result = std::make_shared<MapVector>(
