@@ -97,7 +97,7 @@ public class Analysis
     private final Map<NodeRef<Parameter>, Expression> parameters;
     private String updateType;
 
-    private final Map<NodeRef<Table>, Query> namedQueries = new LinkedHashMap<>();
+    private final Map<NodeRef<Table>, NamedQuery> namedQueries = new LinkedHashMap<>();
 
     private final Map<NodeRef<Node>, Scope> scopes = new LinkedHashMap<>();
     private final Multimap<NodeRef<Expression>, FieldId> columnReferences = ArrayListMultimap.create();
@@ -179,6 +179,8 @@ public class Analysis
 
     // for materialized view analysis state detection, state is used to identify if materialized view has been expanded or in-process.
     private final Map<Table, MaterializedViewAnalysisState> materializedViewAnalysisStateMap = new HashMap<>();
+
+    private final HashSet<QualifiedObjectName> views = new HashSet<>();
 
     private final Map<QualifiedObjectName, String> materializedViews = new LinkedHashMap<>();
 
@@ -692,17 +694,17 @@ public class Analysis
         return refreshMaterializedViewAnalysis;
     }
 
-    public Query getNamedQuery(Table table)
+    public NamedQuery getNamedQuery(Table table)
     {
         return namedQueries.get(NodeRef.of(table));
     }
 
-    public void registerNamedQuery(Table tableReference, Query query)
+    public void registerNamedQuery(Table tableReference, Query query, boolean isFromView)
     {
         requireNonNull(tableReference, "tableReference is null");
         requireNonNull(query, "query is null");
 
-        namedQueries.put(NodeRef.of(tableReference), query);
+        namedQueries.put(NodeRef.of(tableReference), new NamedQuery(query, isFromView));
     }
 
     public void registerTableForView(Table tableReference)
@@ -1140,6 +1142,28 @@ public class Analysis
         public boolean isVisiting()
         {
             return this.value == VISITING.value;
+        }
+    }
+
+    public class NamedQuery
+    {
+        private final Query query;
+        private final boolean isFromView;
+
+        public NamedQuery(Query query, boolean isFromView)
+        {
+            this.query = query;
+            this.isFromView = isFromView;
+        }
+
+        public Query getQuery()
+        {
+            return query;
+        }
+
+        public boolean isFromView()
+        {
+            return isFromView;
         }
     }
 }
