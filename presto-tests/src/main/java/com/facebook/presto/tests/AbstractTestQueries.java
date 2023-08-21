@@ -2561,6 +2561,14 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExplainValidateOfExplain()
+    {
+        String query = "EXPLAIN SELECT 1";
+        MaterializedResult result = computeActual("EXPLAIN (TYPE VALIDATE) " + query);
+        assertEquals(result.getOnlyValue(), true);
+    }
+
+    @Test
     public void testExplainDdl()
     {
         assertExplainDdl("CREATE TABLE foo (pk bigint)", "CREATE TABLE foo");
