@@ -1359,6 +1359,18 @@ TEST_F(CastExprTest, decimalToFloat) {
   testDecimalToFloatCasts<double>();
 }
 
+TEST_F(CastExprTest, decimalToBool) {
+  auto shortFlat = makeNullableFlatVector<int64_t>(
+      {DecimalUtil::kShortDecimalMin, 0, std::nullopt}, DECIMAL(18, 18));
+  testComplexCast(
+      "c0", shortFlat, makeNullableFlatVector<bool>({1, 0, std::nullopt}));
+
+  auto longFlat = makeNullableFlatVector<int128_t>(
+      {DecimalUtil::kLongDecimalMin, 0, std::nullopt}, DECIMAL(38, 5));
+  testComplexCast(
+      "c0", longFlat, makeNullableFlatVector<bool>({1, 0, std::nullopt}));
+}
+
 TEST_F(CastExprTest, decimalToDecimal) {
   // short to short, scale up.
   auto shortFlat =

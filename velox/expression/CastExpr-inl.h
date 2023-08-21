@@ -276,6 +276,24 @@ VectorPtr CastExpr::applyDecimalToIntegralCast(
 }
 
 template <typename FromNativeType>
+VectorPtr CastExpr::applyDecimalToBooleanCast(
+    const SelectivityVector& rows,
+    const BaseVector& input,
+    exec::EvalCtx& context) {
+  VectorPtr result;
+  context.ensureWritable(rows, BOOLEAN(), result);
+  (*result).clearNulls(rows);
+  auto resultBuffer =
+      result->asUnchecked<FlatVector<bool>>()->mutableRawValues<uint64_t>();
+  const auto simpleInput = input.as<SimpleVector<FromNativeType>>();
+  applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
+    auto value = simpleInput->valueAt(row);
+    bits::setBit(resultBuffer, row, value != 0);
+  });
+  return result;
+}
+
+template <typename FromNativeType>
 VectorPtr CastExpr::applyDecimalToPrimitiveCast(
     const SelectivityVector& rows,
     const BaseVector& input,
@@ -283,6 +301,8 @@ VectorPtr CastExpr::applyDecimalToPrimitiveCast(
     const TypePtr& fromType,
     const TypePtr& toType) {
   switch (toType->kind()) {
+    case TypeKind::BOOLEAN:
+      return applyDecimalToBooleanCast<FromNativeType>(rows, input, context);
     case TypeKind::TINYINT:
       return applyDecimalToIntegralCast<FromNativeType, TypeKind::TINYINT>(
           rows, input, context, fromType, toType);
