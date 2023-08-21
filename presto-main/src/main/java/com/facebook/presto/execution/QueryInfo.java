@@ -21,6 +21,7 @@ import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.eventlistener.CTEInformation;
 import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -94,6 +95,7 @@ public class QueryInfo
     private final Set<SqlFunctionId> removedSessionFunctions;
     private final StatsAndCosts planStatsAndCosts;
     private final List<PlanOptimizerInformation> optimizerInformation;
+    private final List<CTEInformation> cteInformationList;
     private final Set<String> scalarFunctions;
     private final Set<String> aggregateFunctions;
     private final Set<String> windowsFunctions;
@@ -139,6 +141,7 @@ public class QueryInfo
             @JsonProperty("removedSessionFunctions") Set<SqlFunctionId> removedSessionFunctions,
             @JsonProperty("planStatsAndCosts") StatsAndCosts planStatsAndCosts,
             @JsonProperty("optimizerInformation") List<PlanOptimizerInformation> optimizerInformation,
+            @JsonProperty("cteInformation") List<CTEInformation> cteInformationList,
             @JsonProperty("scalarFunctions") Set<String> scalarFunctions,
             @JsonProperty("aggregateFunctions") Set<String> aggregateFunctions,
             @JsonProperty("windowsFunctions") Set<String> windowsFunctions,
@@ -173,6 +176,7 @@ public class QueryInfo
         requireNonNull(removedSessionFunctions, "removedSessionFunctions is null");
         requireNonNull(planStatsAndCosts, "planStatsAndCosts is null");
         requireNonNull(optimizerInformation, "optimizerInformation is null");
+        requireNonNull(cteInformationList, "cteInformationList is null");
         requireNonNull(scalarFunctions, "scalarFunctions is null");
         requireNonNull(aggregateFunctions, "aggregateFunctions is null");
         requireNonNull(windowsFunctions, "windowsFunctions is null");
@@ -218,6 +222,7 @@ public class QueryInfo
         this.removedSessionFunctions = ImmutableSet.copyOf(removedSessionFunctions);
         this.planStatsAndCosts = planStatsAndCosts;
         this.optimizerInformation = optimizerInformation;
+        this.cteInformationList = cteInformationList;
         this.scalarFunctions = scalarFunctions;
         this.aggregateFunctions = aggregateFunctions;
         this.windowsFunctions = windowsFunctions;
@@ -455,6 +460,12 @@ public class QueryInfo
     public List<PlanOptimizerInformation> getOptimizerInformation()
     {
         return optimizerInformation;
+    }
+
+    @JsonProperty
+    public List<CTEInformation> getCteInformationList()
+    {
+        return cteInformationList;
     }
 
     @JsonProperty
