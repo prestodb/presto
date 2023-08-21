@@ -314,6 +314,9 @@ public class TaskExecutor
         for (int i = 0; i < runnerThreads; i++) {
             addRunnerThread();
         }
+        for (int i = 0; i < runnerThreads / 2; i++) {
+            addIntermediateRunnerThread();
+        }
         if (interruptRunawaySplitsTimeout != null) {
             long interval = (long) interruptSplitInterval.getValue(SECONDS);
             splitMonitorExecutor.scheduleAtFixedRate(this::interruptRunawaySplits, interval, interval, SECONDS);
@@ -344,7 +347,16 @@ public class TaskExecutor
     private synchronized void addRunnerThread()
     {
         try {
-            executor.execute(embedVersion.embedVersion(new TaskRunner()));
+            executor.execute(embedVersion.embedVersion(new TaskRunner(true)));
+        }
+        catch (RejectedExecutionException ignored) {
+        }
+    }
+
+    private synchronized void addIntermediateRunnerThread()
+    {
+        try {
+            executor.execute(embedVersion.embedVersion(new TaskRunner(false)));
         }
         catch (RejectedExecutionException ignored) {
         }
@@ -592,6 +604,12 @@ public class TaskExecutor
             implements Runnable
     {
         private final long runnerId = NEXT_RUNNER_ID.getAndIncrement();
+        private final boolean runLeafSplits;
+
+        public TaskRunner(boolean runLeafSplits)
+        {
+            this.runLeafSplits = runLeafSplits;
+        }
 
         @Override
         public void run()
@@ -601,7 +619,12 @@ public class TaskExecutor
                     // select next worker
                     final PrioritizedSplitRunner split;
                     try {
-                        split = waitingSplits.take();
+                        if (runLeafSplits) {
+                            split = waitingSplits.take();
+                        }
+                        else {
+                            split = waitingSplits.takeIntermediate();
+                        }
                     }
                     catch (InterruptedException e) {
                         Thread.currentThread().interrupt();

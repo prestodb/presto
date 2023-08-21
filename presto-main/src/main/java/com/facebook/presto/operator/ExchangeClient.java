@@ -48,6 +48,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -63,6 +64,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 /**
  * {@link ExchangeClient} is the client on receiver side, used in operators requiring data exchange from other tasks,
@@ -125,6 +127,8 @@ public class ExchangeClient
     private final LocalMemoryContext systemMemoryContext;
     private final Executor pageBufferClientCallbackExecutor;
 
+    private final ScheduledExecutorService emptyBufferBreakExecutor;
+
     // ExchangeClientStatus.mergeWith assumes all clients have the same bufferCapacity.
     // Please change that method accordingly when this assumption becomes not true.
     public ExchangeClient(
@@ -155,6 +159,11 @@ public class ExchangeClient
         this.maxBufferRetainedSizeInBytes = Long.MIN_VALUE;
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
         this.responseSizeExponentialMovingAverage = new ExponentialMovingAverage(responseSizeExponentialMovingAverageDecayingAlpha, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+        this.emptyBufferBreakExecutor = newSingleThreadScheduledExecutor();
+
+        emptyBufferBreakExecutor.scheduleAtFixedRate(() -> {
+            scheduleRequestIfNecessary();
+        }, 100, 500, TimeUnit.MILLISECONDS);
     }
 
     public ExchangeClientStatus getStatus()
@@ -373,10 +382,10 @@ public class ExchangeClient
         }
         long averageResponseSize = max(1, responseSizeExponentialMovingAverage.get());
         int clientCount = (int) ((1.0 * neededBytes / averageResponseSize) * concurrentRequestMultiplier);
-        clientCount = max(clientCount, 1);
 
         int pendingClients = allClients.size() - queuedClients.size() - completedClients.size();
         clientCount -= pendingClients;
+        clientCount = max(clientCount, 1);
 
         for (int i = 0; i < clientCount; ) {
             PageBufferClient client = queuedClients.poll();
