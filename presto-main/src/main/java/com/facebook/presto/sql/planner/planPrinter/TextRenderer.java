@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.spi.eventlistener.CTEInformation;
 import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.sql.planner.optimizations.OptimizerResult;
 import com.google.common.base.Joiner;
@@ -58,8 +59,10 @@ public class TextRenderer
 
         if (verboseOptimizerInfo) {
             String optimizerInfo = optimizerInfoToText(plan.getPlanOptimizerInfo());
+            String cteInformation = cteInformationToText(plan.getCteInformationList());
             String optimizerResults = optimizerResultsToText(plan.getPlanOptimizerResults());
             result += optimizerInfo;
+            result += cteInformation;
             result += optimizerResults;
         }
         return result;
@@ -309,6 +312,15 @@ public class TextRenderer
         String applicable = "Applicable optimizers: [" +
                 String.join(", ", applicableOptimizers) + "]\n";
         return triggered + applicable;
+    }
+
+    private String cteInformationToText(List<CTEInformation> cteInformationList)
+    {
+        List<String> cteInfo = cteInformationList.stream().map(
+                x -> x.getCteName() + ": " + x.getNumberOfReferences() + " (is_view: " + x.getIsView() + ")")
+                .collect(toList());
+
+        return "CTEInfo: [" + String.join(", ", cteInfo) + "]\n";
     }
 
     private String optimizerResultsToText(List<OptimizerResult> optimizerResults)
