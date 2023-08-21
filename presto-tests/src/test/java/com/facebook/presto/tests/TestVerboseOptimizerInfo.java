@@ -124,6 +124,21 @@ public class TestVerboseOptimizerInfo
         checkOptimizerResults(explain, ImmutableList.of("PayloadJoinOptimizer", "RemoveRedundantIdentityProjections"), ImmutableList.of("PruneUnreferencedOutputs"));
     }
 
+    @Test
+    public void testVerboseCTEResults()
+    {
+        Session sessionPrintAll = Session.builder(getSession())
+                .setSystemProperty(VERBOSE_OPTIMIZER_INFO_ENABLED, "true")
+                .build();
+
+        String query = "with tbl as (select * from lineitem), tbl2 as (select * from tbl) select * from tbl, tbl2";
+        MaterializedResult materializedResult = computeActual(sessionPrintAll, "explain " + query);
+        String explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
+
+        checkCTEInfo(explain, "tbl", 2, false);
+        checkCTEInfo(explain, "tbl2", 1, false);
+    }
+
     private void checkOptimizerInfo(String explain, boolean checkTriggered, List<String> optimizers)
     {
         String regex = checkTriggered ? "Triggered optimizers.*" : "Applicable optimizers.*";
@@ -147,5 +162,16 @@ public class TestVerboseOptimizerInfo
         for (String opt : excludedOptimizers) {
             assertFalse(explain.contains(opt + " (before):"));
         }
+    }
+
+    private void checkCTEInfo(String explain, String name, int frequency, boolean isView)
+    {
+        String regex = "CTEInfo.*";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(explain);
+        assertTrue(matcher.find());
+
+        String cteInfo = matcher.group();
+        assertTrue(cteInfo.contains(name + ": " + frequency + " (is_view: " + isView + ")"));
     }
 }

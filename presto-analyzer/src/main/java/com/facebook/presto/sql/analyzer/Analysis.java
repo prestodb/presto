@@ -180,6 +180,8 @@ public class Analysis
     // for materialized view analysis state detection, state is used to identify if materialized view has been expanded or in-process.
     private final Map<Table, MaterializedViewAnalysisState> materializedViewAnalysisStateMap = new HashMap<>();
 
+    private final HashSet<QualifiedObjectName> views = new HashSet<>();
+
     private final Map<QualifiedObjectName, String> materializedViews = new LinkedHashMap<>();
 
     private Optional<String> expandedQuery = Optional.empty();
@@ -743,6 +745,15 @@ public class Analysis
         return materializedViewAnalysisStateMap.getOrDefault(materializedView, NOT_VISITED);
     }
 
+    public void addView(QualifiedObjectName name)
+    {
+        views.add(name);
+    }
+
+    public boolean isView(QualifiedObjectName name)
+    {
+        return views.contains(name);
+    }
     public boolean hasTableInView(Table tableReference)
     {
         return tablesForView.contains(tableReference);
