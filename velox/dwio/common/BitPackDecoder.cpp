@@ -70,9 +70,13 @@ FOLLY_ALWAYS_INLINE __m256i gather8Sparse(
     __m256si masks,
     T* result) {
   constexpr __m256si kMultipliers = {256, 128, 64, 32, 16, 8, 4, 2};
+  // workaround for:
+  // https://github.com/llvm/llvm-project/issues/64819#issuecomment-1684943890
+  constexpr __m256si kWidthSplat = {
+      width, width, width, width, width, width, width, width};
 
   auto indices =
-      *reinterpret_cast<const __m256si_u*>(rows + i) * width + bitOffset;
+      *reinterpret_cast<const __m256si_u*>(rows + i) * kWidthSplat + bitOffset;
   __m256si multipliers;
   if (width % 8 != 0) {
     multipliers = (__m256si)_mm256_permutevar8x32_epi32(
