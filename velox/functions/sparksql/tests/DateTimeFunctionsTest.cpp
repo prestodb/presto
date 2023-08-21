@@ -260,5 +260,36 @@ TEST_F(DateTimeFunctionsTest, dateAdd) {
   EXPECT_EQ(parseDate("1969-12-31"), dateAdd(parseDate("5881580-07-11"), kMin));
 }
 
+TEST_F(DateTimeFunctionsTest, dateSub) {
+  const auto dateSubFunc = [&](std::optional<int32_t> date,
+                               std::optional<int32_t> value) {
+    return evaluateOnce<int32_t, int32_t>(
+        "date_sub(c0, c1)", {date, value}, {DATE(), INTEGER()});
+  };
+
+  const auto dateSub = [&](const std::string& dateStr,
+                           std::optional<int32_t> value) {
+    return dateSubFunc(parseDate(dateStr), value);
+  };
+
+  // Check simple tests.
+  EXPECT_EQ(parseDate("2019-03-01"), dateSub("2019-03-01", 0));
+  EXPECT_EQ(parseDate("2019-02-28"), dateSub("2019-03-01", 1));
+
+  // Account for the last day of a year-month.
+  EXPECT_EQ(parseDate("2019-01-30"), dateSub("2020-02-29", 395));
+
+  // Check for negative intervals.
+  EXPECT_EQ(parseDate("2020-02-29"), dateSub("2019-02-28", -366));
+
+  // Check for minimum and maximum tests.
+  constexpr int32_t kMin = std::numeric_limits<int32_t>::min();
+  constexpr int32_t kMax = std::numeric_limits<int32_t>::max();
+  EXPECT_EQ(parseDate("-5877641-06-23"), dateSub("1969-12-31", kMax));
+  EXPECT_EQ(parseDate("1970-01-01"), dateSub("5881580-07-11", kMax));
+  EXPECT_EQ(parseDate("1970-01-01"), dateSub("-5877641-06-23", kMin));
+  EXPECT_EQ(parseDate("5881580-07-11"), dateSub("1969-12-31", kMin));
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test
