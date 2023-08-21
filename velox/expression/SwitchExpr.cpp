@@ -48,7 +48,12 @@ SwitchExpr::SwitchExpr(
       [](const ExprPtr& expr) { return expr->type(); });
 
   // Apply type checking.
-  resolveType(inputTypes);
+  auto typeExpected = resolveType(inputTypes);
+  VELOX_CHECK(
+      *typeExpected == *this->type(),
+      "Switch expression type different than then clause. Expected {} but got Actual {}.",
+      typeExpected->toString(),
+      this->type()->toString());
 }
 
 void SwitchExpr::evalSpecialForm(
@@ -230,7 +235,7 @@ TypePtr SwitchExpr::resolveType(const std::vector<TypePtr>& argTypes) {
         "Condition of  SWITCH statement is not bool");
 
     VELOX_CHECK(
-        thenType->equivalent(*expressionType),
+        *thenType == *expressionType,
         "All then clauses of a SWITCH statement must have the same type. "
         "Expected {}, but got {}.",
         expressionType->toString(),
@@ -243,7 +248,7 @@ TypePtr SwitchExpr::resolveType(const std::vector<TypePtr>& argTypes) {
     auto& elseClauseType = argTypes.back();
 
     VELOX_CHECK(
-        elseClauseType->equivalent(*expressionType),
+        *elseClauseType == *expressionType,
         "Else clause of a SWITCH statement must have the same type as 'then' clauses. "
         "Expected {}, but got {}.",
         expressionType->toString(),
