@@ -34,7 +34,7 @@ public class HistoricalStatisticsSerde
         implements RedisCodec<String, HistoricalPlanStatistics>
 {
     private static final int ESTIMATED_BUFFER_SIZE_BYTES = 100 * 1024;
-    private static final ThriftCodecManager thriftCodecManager = new ThriftCodecManager();
+    private final ThriftCodecManager thriftCodecManager = new ThriftCodecManager();
 
     @Override
     public String decodeKey(ByteBuffer bytes)
