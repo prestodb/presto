@@ -52,7 +52,7 @@ class Writer : public dwio::common::Writer {
  public:
   Writer(
       const WriterOptions& options,
-      std::unique_ptr<dwio::common::DataSink> sink,
+      std::unique_ptr<dwio::common::FileSink> sink,
       memory::MemoryPool& parentPool)
       : Writer{
             std::move(sink),
@@ -62,7 +62,7 @@ class Writer : public dwio::common::Writer {
                 folly::to<std::string>(folly::Random::rand64())))} {}
 
   Writer(
-      std::unique_ptr<dwio::common::DataSink> sink,
+      std::unique_ptr<dwio::common::FileSink> sink,
       const WriterOptions& options,
       std::shared_ptr<memory::MemoryPool> pool)
       : writerBase_(std::make_unique<WriterBase>(std::move(sink))),
@@ -100,7 +100,7 @@ class Writer : public dwio::common::Writer {
   }
 
   Writer(
-      std::unique_ptr<dwio::common::DataSink> sink,
+      std::unique_ptr<dwio::common::FileSink> sink,
       const WriterOptions& options)
       : Writer{
             std::move(sink),
@@ -176,7 +176,7 @@ class DwrfWriterFactory : public dwio::common::WriterFactory {
   DwrfWriterFactory() : WriterFactory(dwio::common::FileFormat::DWRF) {}
 
   std::unique_ptr<dwio::common::Writer> createWriter(
-      std::unique_ptr<dwio::common::DataSink> sink,
+      std::unique_ptr<dwio::common::FileSink> sink,
       const dwio::common::WriterOptions& options) override;
 };
 

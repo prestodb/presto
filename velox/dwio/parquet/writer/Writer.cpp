@@ -29,7 +29,7 @@ class ArrowDataBufferSink : public arrow::io::OutputStream {
   /// @param growRatio Growth factor used when invoking the reserve() method of
   /// DataSink, thereby helping to minimize frequent memcpy operations.
   ArrowDataBufferSink(
-      std::unique_ptr<dwio::common::DataSink> sink,
+      std::unique_ptr<dwio::common::FileSink> sink,
       memory::MemoryPool& pool,
       double growRatio)
       : sink_(std::move(sink)), growRatio_(growRatio), buffer_(pool) {}
@@ -76,7 +76,7 @@ class ArrowDataBufferSink : public arrow::io::OutputStream {
   }
 
  private:
-  std::unique_ptr<dwio::common::DataSink> sink_;
+  std::unique_ptr<dwio::common::FileSink> sink_;
   const double growRatio_;
   dwio::common::DataBuffer<char> buffer_;
   int64_t bytesFlushed_ = 0;
@@ -126,7 +126,7 @@ std::shared_ptr<::parquet::WriterProperties> getArrowParquetWriterOptions(
 }
 
 Writer::Writer(
-    std::unique_ptr<dwio::common::DataSink> sink,
+    std::unique_ptr<dwio::common::FileSink> sink,
     const WriterOptions& options,
     std::shared_ptr<memory::MemoryPool> pool)
     : pool_(std::move(pool)),
@@ -146,7 +146,7 @@ Writer::Writer(
 }
 
 Writer::Writer(
-    std::unique_ptr<dwio::common::DataSink> sink,
+    std::unique_ptr<dwio::common::FileSink> sink,
     const WriterOptions& options)
     : Writer{
           std::move(sink),
@@ -276,7 +276,7 @@ parquet::WriterOptions getParquetOptions(
 }
 
 std::unique_ptr<dwio::common::Writer> ParquetWriterFactory::createWriter(
-    std::unique_ptr<dwio::common::DataSink> sink,
+    std::unique_ptr<dwio::common::FileSink> sink,
     const dwio::common::WriterOptions& options) {
   auto parquetOptions = getParquetOptions(options);
   return std::make_unique<Writer>(std::move(sink), parquetOptions);

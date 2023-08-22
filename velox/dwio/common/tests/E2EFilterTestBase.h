@@ -18,7 +18,7 @@
 
 #include "velox/common/time/Timer.h"
 #include "velox/dwio/common/BufferedInput.h"
-#include "velox/dwio/common/DataSink.h"
+#include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/common/Reader.h"
 #include "velox/dwio/common/ScanSpec.h"
 #include "velox/dwio/common/SelectiveColumnReader.h"

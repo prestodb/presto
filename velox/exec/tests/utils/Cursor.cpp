@@ -177,7 +177,7 @@ TaskCursor::TaskCursor(const CursorParameters& params)
       std::rethrow_exception(std::current_exception());
     }
 
-    LOG(INFO) << "Task spill directory " << taskSpillDirectory << "created ";
+    LOG(INFO) << "Task spill directory[" << taskSpillDirectory << "] created";
     task_->setSpillDirectory(taskSpillDirectory);
   }
 }

@@ -447,11 +447,12 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
   options.compressionKind = insertTableHandle_->compressionKind();
   ioStats_.emplace_back(std::make_shared<dwio::common::IoStatistics>());
   writers_.emplace_back(writerFactory->createWriter(
-      dwio::common::DataSink::create(
+      dwio::common::FileSink::create(
           writePath,
-          connectorQueryCtx_->memoryPool(),
-          dwio::common::MetricsLog::voidLog(),
-          ioStats_.back().get()),
+          {.bufferWrite = false,
+           .pool = connectorQueryCtx_->memoryPool(),
+           .metricLogger = dwio::common::MetricsLog::voidLog(),
+           .stats = ioStats_.back().get()}),
       options));
   // Extends the buffer used for partition rows calculations.
   partitionSizes_.emplace_back(0);

@@ -18,7 +18,7 @@
 #include "folly/CPortability.h"
 
 #include "folly/Random.h"
-#include "velox/dwio/common/DataSink.h"
+#include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/dwrf/test/utils/E2EWriterTestUtil.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/type/fbhive/HiveTypeParser.h"

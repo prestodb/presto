@@ -1528,7 +1528,8 @@ std::unique_ptr<DwrfReader> getDwrfReader(
     config->set(Config::MAP_FLAT_COLS, {0});
   }
 
-  auto sink = std::make_unique<MemorySink>(leafPool, 2 * 1024 * 1024);
+  auto sink = std::make_unique<MemorySink>(
+      2 * 1024 * 1024, dwio::common::FileSink::Options{.pool = &leafPool});
   auto sinkPtr = sink.get();
 
   dwrf::WriterOptions options;
@@ -1544,7 +1545,7 @@ std::unique_ptr<DwrfReader> getDwrfReader(
   writer.write(batch);
   writer.close();
 
-  std::string_view data(sinkPtr->getData(), sinkPtr->size());
+  std::string_view data(sinkPtr->data(), sinkPtr->size());
   ReaderOptions readerOpts{&leafPool};
   return std::make_unique<DwrfReader>(
       readerOpts,

@@ -41,7 +41,7 @@ void testInts(std::function<T()> generator) {
 
   constexpr size_t capacity =
       count * (vInt ? folly::kMaxVarintLength64 : sizeof(T));
-  MemorySink sink{*pool, capacity};
+  MemorySink sink{capacity, {.pool = pool.get()}};
   DataBufferHolder holder{*pool, capacity, 0, DEFAULT_PAGE_GROW_RATIO, &sink};
   auto output = std::make_unique<BufferedOutputStream>(holder);
   auto encoder =
@@ -77,7 +77,7 @@ void testInts(std::function<T()> generator) {
   EXPECT_EQ(sink.size(), latestPos.at(0));
 
   auto input = std::make_unique<SeekableArrayInputStream>(
-      sink.getData(), expectedSize, expectedSize);
+      sink.data(), expectedSize, expectedSize);
   auto decoder =
       createDirectDecoder<isSigned>(std::move(input), vInt, sizeof(T));
 
@@ -88,7 +88,7 @@ void testInts(std::function<T()> generator) {
   }
 
   input = std::make_unique<SeekableArrayInputStream>(
-      sink.getData(), expectedSize, 100);
+      sink.data(), expectedSize, 100);
   decoder = createDirectDecoder<isSigned>(std::move(input), vInt, sizeof(T));
   int32_t numRead = 0;
   int32_t stride = 1;
@@ -107,7 +107,7 @@ void testInts(std::function<T()> generator) {
 
   // Bulk read consecutive.
   input = std::make_unique<SeekableArrayInputStream>(
-      sink.getData(), expectedSize, 100);
+      sink.data(), expectedSize, 100);
   decoder = createDirectDecoder<isSigned>(std::move(input), vInt, sizeof(T));
   std::vector<uint64_t> result(count / 2);
   decoder->bulkRead(count / 2, result.data());
@@ -126,7 +126,7 @@ void testInts(std::function<T()> generator) {
     i += random - 10;
   }
   input = std::make_unique<SeekableArrayInputStream>(
-      sink.getData(), expectedSize, 100);
+      sink.data(), expectedSize, 100);
   decoder = createDirectDecoder<isSigned>(std::move(input), vInt, sizeof(T));
   decoder->bulkReadRows(rows, result.data());
   for (auto i = 0; i < rows.size(); ++i) {

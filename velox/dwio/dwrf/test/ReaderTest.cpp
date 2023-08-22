@@ -20,7 +20,7 @@
 #include "folly/Random.h"
 #include "folly/lang/Assume.h"
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/dwio/common/DataSink.h"
+#include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
@@ -1341,7 +1341,7 @@ TEST(TestReader, testUpcastFloat) {
 
 TEST(TestReader, testEmptyFile) {
   auto pool = memory::addDefaultLeafMemoryPool();
-  MemorySink sink{*pool, 1024};
+  MemorySink sink{1024, {.pool = pool.get()}};
   DataBufferHolder holder{*pool, 1024, 0, DEFAULT_PAGE_GROW_RATIO, &sink};
   BufferedOutputStream output{holder};
 
@@ -1365,7 +1365,7 @@ TEST(TestReader, testEmptyFile) {
   DataBuffer<char> buf{*pool, 1};
   buf.data()[0] = psLen;
   sink.write(std::move(buf));
-  std::string_view data(sink.getData(), sink.size());
+  std::string_view data(sink.data(), sink.size());
   auto input = std::make_unique<BufferedInput>(
       std::make_shared<InMemoryReadFile>(data), *pool);
 
@@ -1462,12 +1462,13 @@ void testBufferLifeCycle(
       BatchMaker::createBatch(schema, batchSize * 2, *pool, rng, isNullAt);
   batches.push_back(vector);
 
-  auto sink = std::make_unique<MemorySink>(*pool, 1024 * 1024);
+  auto sink = std::make_unique<MemorySink>(
+      1024 * 1024, FileSink::Options{.pool = pool.get()});
   auto sinkPtr = sink.get();
   auto writer =
       E2EWriterTestUtil::writeData(std::move(sink), schema, batches, config);
 
-  std::string_view data(sinkPtr->getData(), sinkPtr->size());
+  std::string_view data(sinkPtr->data(), sinkPtr->size());
   auto input = std::make_unique<BufferedInput>(
       std::make_shared<InMemoryReadFile>(data), *pool);
 
@@ -1519,12 +1520,13 @@ void testFlatmapAsMapFieldLifeCycle(
       BatchMaker::createBatch(schema, batchSize * 5, *pool, rng, isNullAt);
   batches.push_back(vector);
 
-  auto sink = std::make_unique<MemorySink>(*pool, 1024 * 1024);
+  auto sink = std::make_unique<MemorySink>(
+      1024 * 1024, FileSink::Options{.pool = pool.get()});
   auto sinkPtr = sink.get();
   auto writer =
       E2EWriterTestUtil::writeData(std::move(sink), schema, batches, config);
 
-  std::string_view data(sinkPtr->getData(), sinkPtr->size());
+  std::string_view data(sinkPtr->data(), sinkPtr->size());
   auto input = std::make_unique<BufferedInput>(
       std::make_shared<InMemoryReadFile>(data), *pool);
 
@@ -1831,7 +1833,8 @@ std::pair<std::unique_ptr<dwrf::Writer>, std::unique_ptr<DwrfReader>>
 createWriterReader(
     const std::vector<VectorPtr>& batches,
     memory::MemoryPool& pool) {
-  auto sink = std::make_unique<MemorySink>(pool, 1 << 20);
+  auto sink =
+      std::make_unique<MemorySink>(1 << 20, FileSink::Options{.pool = &pool});
   auto* sinkPtr = sink.get();
   auto writer = E2EWriterTestUtil::writeData(
       std::move(sink),
@@ -1839,7 +1842,7 @@ createWriterReader(
       batches,
       std::make_shared<Config>(),
       E2EWriterTestUtil::simpleFlushPolicyFactory(true));
-  std::string_view data(sinkPtr->getData(), sinkPtr->size());
+  std::string_view data(sinkPtr->data(), sinkPtr->size());
   auto input = std::make_unique<BufferedInput>(
       std::make_shared<InMemoryReadFile>(data), pool);
   ReaderOptions readerOpts(&pool);

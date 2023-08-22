@@ -56,7 +56,8 @@ class E2EFilterTest : public E2EFilterTestBase {
       const TypePtr&,
       const std::vector<RowVectorPtr>& batches,
       bool forRowGroupSkip = false) override {
-    auto sink = std::make_unique<MemorySink>(*leafPool_, 200 * 1024 * 1024);
+    auto sink = std::make_unique<MemorySink>(
+        200 * 1024 * 1024, FileSink::Options{.pool = leafPool_.get()});
     sinkPtr_ = sink.get();
     options_.memoryPool = rootPool_.get();
     int32_t flushCounter = 0;
@@ -96,7 +97,7 @@ TEST_F(E2EFilterTest, writerMagic) {
   batches.push_back(std::static_pointer_cast<RowVector>(
       test::BatchMaker::createBatch(rowType_, 20000, *leafPool_, nullptr, 0)));
   writeToMemory(rowType_, batches, false);
-  auto data = sinkPtr_->getData();
+  auto data = sinkPtr_->data();
   auto size = sinkPtr_->size();
   EXPECT_EQ("PAR1", std::string(data, 4));
   EXPECT_EQ("PAR1", std::string(data + size - 4, 4));
@@ -569,7 +570,7 @@ TEST_F(E2EFilterTest, largeMetadata) {
   readerOpts.setDirectorySizeGuess(1024);
   readerOpts.setFilePreloadThreshold(1024 * 8);
   dwio::common::RowReaderOptions rowReaderOpts;
-  std::string_view data(sinkPtr_->getData(), sinkPtr_->size());
+  std::string_view data(sinkPtr_->data(), sinkPtr_->size());
   auto input = std::make_unique<BufferedInput>(
       std::make_shared<InMemoryReadFile>(data), readerOpts.getMemoryPool());
   auto reader = makeReader(readerOpts, std::move(input));
@@ -604,7 +605,7 @@ TEST_F(E2EFilterTest, combineRowGroup) {
         test::BatchMaker::createBatch(rowType_, 1, *leafPool_, nullptr, 0)));
   }
   writeToMemory(rowType_, batches, false);
-  std::string_view data(sinkPtr_->getData(), sinkPtr_->size());
+  std::string_view data(sinkPtr_->data(), sinkPtr_->size());
   dwio::common::ReaderOptions readerOpts{leafPool_.get()};
   auto input = std::make_unique<BufferedInput>(
       std::make_shared<InMemoryReadFile>(data), readerOpts.getMemoryPool());

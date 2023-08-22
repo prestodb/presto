@@ -26,7 +26,7 @@ using namespace facebook::velox::dwrf;
 
 TEST(BufferedOutputStream, blockAligned) {
   auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(*pool, 1024);
+  MemorySink memSink(1024, {.pool = pool.get()});
 
   uint64_t block = 10;
   DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
@@ -44,13 +44,13 @@ TEST(BufferedOutputStream, blockAligned) {
   bufStream.flush();
   ASSERT_EQ(1000, memSink.size());
   for (int32_t i = 0; i < 1000; ++i) {
-    ASSERT_EQ(memSink.getData()[i], 'a' + i % 10);
+    ASSERT_EQ(memSink.data()[i], 'a' + i % 10);
   }
 }
 
 TEST(BufferedOutputStream, blockNotAligned) {
   auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(*pool, 1024);
+  MemorySink memSink(1024, {.pool = pool.get()});
 
   uint64_t block = 10;
   DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
@@ -70,7 +70,7 @@ TEST(BufferedOutputStream, blockNotAligned) {
 
   ASSERT_EQ(7, memSink.size());
   for (int32_t i = 0; i < 7; ++i) {
-    ASSERT_EQ(memSink.getData()[i], 'a' + i);
+    ASSERT_EQ(memSink.data()[i], 'a' + i);
   }
 
   ASSERT_TRUE(bufStream.Next(reinterpret_cast<void**>(&buf), &len));
@@ -85,17 +85,17 @@ TEST(BufferedOutputStream, blockNotAligned) {
 
   ASSERT_EQ(12, memSink.size());
   for (int32_t i = 0; i < 7; ++i) {
-    ASSERT_EQ(memSink.getData()[i], 'a' + i);
+    ASSERT_EQ(memSink.data()[i], 'a' + i);
   }
 
   for (int32_t i = 0; i < 5; ++i) {
-    ASSERT_EQ(memSink.getData()[i + 7], 'a' + i);
+    ASSERT_EQ(memSink.data()[i + 7], 'a' + i);
   }
 }
 
 TEST(BufferedOutputStream, protoBufSerialization) {
   auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(*pool, 1024);
+  MemorySink memSink(1024, {.pool = pool.get()});
 
   uint64_t block = 10;
   DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
@@ -111,7 +111,7 @@ TEST(BufferedOutputStream, protoBufSerialization) {
   ASSERT_EQ(ps.ByteSizeLong(), memSink.size());
 
   proto::PostScript ps2;
-  ps2.ParseFromArray(memSink.getData(), static_cast<int32_t>(memSink.size()));
+  ps2.ParseFromArray(memSink.data(), static_cast<int32_t>(memSink.size()));
 
   ASSERT_EQ(ps.footerlength(), ps2.footerlength());
   ASSERT_EQ(ps.compression(), ps2.compression());
@@ -120,7 +120,7 @@ TEST(BufferedOutputStream, protoBufSerialization) {
 
 TEST(BufferedOutputStream, increaseSize) {
   auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(*pool, 1024);
+  MemorySink memSink(1024, {.pool = pool.get()});
 
   uint64_t max = 512;
   uint64_t min = 16;
@@ -168,14 +168,14 @@ TEST(BufferedOutputStream, increaseSize) {
   for (size_t i = 0; i < expected.size(); ++i) {
     for (size_t j = 0; j < expected[i]; ++j) {
       ASSERT_EQ(
-          memSink.getData()[pos++], static_cast<char>(('a' + i + j) % 0x100));
+          memSink.data()[pos++], static_cast<char>(('a' + i + j) % 0x100));
     }
   }
 }
 
 TEST(BufferedOutputStream, recordPosition) {
   auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(*pool, 1024);
+  MemorySink memSink(1024, {.pool = pool.get()});
   uint64_t block = 256;
   uint64_t initial = 128;
   DataBufferHolder holder{
@@ -235,7 +235,7 @@ TEST(BufferedOutputStream, recordPosition) {
 
 TEST(AppendOnlyBufferedStream, Basic) {
   auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(*pool, 1024);
+  MemorySink memSink(1024, {.pool = pool.get()});
   uint64_t block = 10;
   DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
   auto bufStream = std::make_unique<BufferedOutputStream>(holder);

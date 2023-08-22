@@ -123,7 +123,7 @@ class WriterContext : public CompressionBufferPool {
   }
 
   std::unique_ptr<DataBufferHolder> newDataBufferHolder(
-      dwio::common::DataSink* sink = nullptr) {
+      dwio::common::FileSink* sink = nullptr) {
     return std::make_unique<DataBufferHolder>(
         getMemoryPool(MemoryUsageCategory::OUTPUT_STREAM),
         compressionBlockSize,

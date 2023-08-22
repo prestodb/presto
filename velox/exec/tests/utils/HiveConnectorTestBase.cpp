@@ -59,7 +59,7 @@ void HiveConnectorTestBase::writeToFile(
   options.config = config;
   options.schema = vectors[0]->type();
   auto localWriteFile = std::make_unique<LocalWriteFile>(filePath, true, false);
-  auto sink = std::make_unique<dwio::common::WriteFileDataSink>(
+  auto sink = std::make_unique<dwio::common::WriteFileSink>(
       std::move(localWriteFile), filePath);
   auto childPool = rootPool_->addAggregateChild("HiveConnectorTestBase.Writer");
   options.memoryPool = childPool.get();

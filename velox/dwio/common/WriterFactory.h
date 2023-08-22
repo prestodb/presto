@@ -18,7 +18,7 @@
 
 #include <memory>
 
-#include "velox/dwio/common/DataSink.h"
+#include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/Writer.h"
 
@@ -57,7 +57,7 @@ class WriterFactory {
    * @return writer object
    */
   virtual std::unique_ptr<Writer> createWriter(
-      std::unique_ptr<dwio::common::DataSink> sink,
+      std::unique_ptr<dwio::common::FileSink> sink,
       const dwio::common::WriterOptions& options) = 0;
 
  private:

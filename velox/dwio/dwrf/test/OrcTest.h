@@ -236,7 +236,9 @@ class ProtoWriter : public WriterBase {
   ProtoWriter(
       std::shared_ptr<memory::MemoryPool> pool,
       memory::MemoryPool& sinkPool)
-      : WriterBase{std::make_unique<dwio::common::MemorySink>(sinkPool, 1024)} {
+      : WriterBase{std::make_unique<dwio::common::MemorySink>(
+            1024,
+            dwio::common::FileSink::Options{.pool = &sinkPool})} {
     initContext(
         std::make_shared<Config>(), pool->addAggregateChild("proto_writer"));
   }

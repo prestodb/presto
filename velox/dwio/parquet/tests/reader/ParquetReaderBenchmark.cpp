@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/common/DataSink.h"
+#include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/Statistics.h"
 #include "velox/dwio/common/tests/utils/DataSetBuilder.h"
@@ -48,7 +48,7 @@ class ParquetReaderBenchmark {
     auto path = fileFolder_->path + "/" + fileName_;
     auto localWriteFile = std::make_unique<LocalWriteFile>(path, true, false);
     auto sink =
-        std::make_unique<WriteFileDataSink>(std::move(localWriteFile), path);
+        std::make_unique<WriteFileSink>(std::move(localWriteFile), path);
     facebook::velox::parquet::WriterOptions options;
     if (disableDictionary_) {
       // The parquet file is in plain encoding format.
@@ -59,8 +59,7 @@ class ParquetReaderBenchmark {
         std::move(sink), options);
   }
 
-  ~ParquetReaderBenchmark() {
-  }
+  ~ParquetReaderBenchmark() {}
 
   void writeToFile(
       const std::vector<RowVectorPtr>& batches,
@@ -238,7 +237,6 @@ class ParquetReaderBenchmark {
   std::unique_ptr<test::DataSetBuilder> dataSetBuilder_;
   std::shared_ptr<memory::MemoryPool> rootPool_;
   std::shared_ptr<memory::MemoryPool> leafPool_;
-  dwio::common::DataSink* sinkPtr_;
   std::unique_ptr<facebook::velox::parquet::Writer> writer_;
   RuntimeStatistics runtimeStats_;
 };

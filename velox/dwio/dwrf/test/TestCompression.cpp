@@ -77,7 +77,7 @@ void decompressAndVerify(
     MemoryPool& pool,
     const Decrypter* decrypter) {
   std::unique_ptr<SeekableInputStream> inputStream(
-      new SeekableArrayInputStream(memSink.getData(), memSink.size()));
+      new SeekableArrayInputStream(memSink.data(), memSink.size()));
 
   std::unique_ptr<SeekableInputStream> decompressStream = createDecompressor(
       kind,
@@ -103,7 +103,7 @@ void decompressAndVerify(
 
 void compressAndVerify(
     CompressionKind kind,
-    DataSink& sink,
+    FileSink& sink,
     uint64_t block,
     MemoryPool& pool,
     const char* data,
@@ -162,7 +162,7 @@ class CompressionTest : public TestWithParam<TestParams> {
 
 TEST_P(CompressionTest, compressOriginalString) {
   auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
 
   uint64_t block = 128;
 
@@ -176,7 +176,7 @@ TEST_P(CompressionTest, compressOriginalString) {
 
 TEST_P(CompressionTest, compressSimpleRepeatedString) {
   auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
 
   constexpr uint64_t block = 128;
 
@@ -190,7 +190,7 @@ TEST_P(CompressionTest, compressSimpleRepeatedString) {
 
 TEST_P(CompressionTest, compressTwoBlocks) {
   auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
 
   uint64_t block = 128;
   constexpr size_t size = 170;
@@ -204,7 +204,7 @@ TEST_P(CompressionTest, compressTwoBlocks) {
 
 TEST_P(CompressionTest, compressRandomLetters) {
   auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
 
   uint64_t block = 1024;
   constexpr size_t dataSize = 1024 * 1024; // 1M
@@ -220,7 +220,7 @@ TEST_P(CompressionTest, compressRandomLetters) {
 
 TEST_P(CompressionTest, compressRandomBytes) {
   auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
 
   uint64_t block = 1024;
   constexpr size_t dataSize = 1024 * 1024; // 1M
@@ -242,7 +242,7 @@ void verifyProto(
     proto::PostScript& expected,
     const Decrypter* decrypter) {
   std::unique_ptr<SeekableInputStream> inputStream(
-      new SeekableArrayInputStream(memSink.getData(), memSink.size()));
+      new SeekableArrayInputStream(memSink.data(), memSink.size()));
 
   std::unique_ptr<SeekableInputStream> decompressStream = createDecompressor(
       kind, std::move(inputStream), block, pool, "Test Comrpession", decrypter);
@@ -257,7 +257,7 @@ void verifyProto(
 
 TEST_P(CompressionTest, compressProtoBuf) {
   auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
 
   uint64_t block = 256;
 
@@ -307,7 +307,7 @@ class RecordPositionTest : public TestWithParam<TestParams2> {
 
 TEST_P(RecordPositionTest, testRecordPosition) {
   auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
   uint64_t block = 256;
   uint64_t initial = 128;
 

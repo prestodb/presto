@@ -59,7 +59,7 @@ class E2EWriterTests : public Test {
   std::unique_ptr<DwrfReader> createReader(
       const MemorySink& sink,
       const ReaderOptions& opts) {
-    std::string_view data(sink.getData(), sink.size());
+    std::string_view data(sink.data(), sink.size());
     return std::make_unique<DwrfReader>(
         opts,
         std::make_unique<BufferedInput>(
@@ -80,7 +80,9 @@ class E2EWriterTests : public Test {
         Config::MAP_FLAT_COLS, mapColumnIds);
     config->set(Config::MAP_STATISTICS, true);
 
-    auto sink = std::make_unique<MemorySink>(*leafPool_, 200 * 1024 * 1024);
+    auto sink = std::make_unique<MemorySink>(
+        200 * 1024 * 1024,
+        dwio::common::FileSink::Options{.pool = leafPool_.get()});
     auto sinkPtr = sink.get();
 
     dwrf::WriterOptions options;
@@ -132,7 +134,9 @@ class E2EWriterTests : public Test {
         Config::MAP_FLAT_COLS, mapColumnIds);
     config->set(Config::MAP_STATISTICS, true);
 
-    auto sink = std::make_unique<MemorySink>(*leafPool_, 400 * 1024 * 1024);
+    auto sink = std::make_unique<MemorySink>(
+        400 * 1024 * 1024,
+        dwio::common::FileSink::Options{.pool = leafPool_.get()});
     auto sinkPtr = sink.get();
 
     dwrf::WriterOptions options;
@@ -272,8 +276,7 @@ TEST_F(E2EWriterTests, DISABLED_TestFileCreation) {
 
   auto path = "/tmp/e2e_generated_file.orc";
   auto localWriteFile = std::make_unique<LocalWriteFile>(path, true, false);
-  auto sink =
-      std::make_unique<WriteFileDataSink>(std::move(localWriteFile), path);
+  auto sink = std::make_unique<WriteFileSink>(std::move(localWriteFile), path);
   E2EWriterTestUtil::writeData(
       std::move(sink),
       type,
@@ -421,7 +424,9 @@ TEST_F(E2EWriterTests, PresentStreamIsSuppressedOnFlatMap) {
   config->set(Config::FLATTEN_MAP, true);
   config->set(Config::MAP_FLAT_COLS, {0});
 
-  auto sink = std::make_unique<MemorySink>(*pool, 200 * 1024 * 1024);
+  auto sink = std::make_unique<MemorySink>(
+      200 * 1024 * 1024,
+      dwio::common::FileSink::Options{.pool = leafPool_.get()});
   auto sinkPtr = sink.get();
 
   auto writer = E2EWriterTestUtil::writeData(
@@ -755,7 +760,9 @@ TEST_F(E2EWriterTests, PartialStride) {
   size_t size = 1'000;
 
   auto config = std::make_shared<Config>();
-  auto sink = std::make_unique<MemorySink>(*leafPool_, 2 * 1024 * 1024);
+  auto sink = std::make_unique<MemorySink>(
+      2 * 1024 * 1024,
+      dwio::common::FileSink::Options{.pool = leafPool_.get()});
   auto sinkPtr = sink.get();
 
   dwrf::WriterOptions options;
@@ -968,7 +975,9 @@ class E2EEncryptionTest : public E2EWriterTests {
     // make sure we always write dictionary to test stride index
     config->set(Config::DICTIONARY_STRING_KEY_SIZE_THRESHOLD, 1.0f);
     config->set(Config::ENTROPY_KEY_STRING_SIZE_THRESHOLD, 0.0f);
-    auto sink = std::make_unique<MemorySink>(*leafPool_, 16 * 1024 * 1024);
+    auto sink = std::make_unique<MemorySink>(
+        16 * 1024 * 1024,
+        dwio::common::FileSink::Options{.pool = leafPool_.get()});
     sink_ = sink.get();
     dwrf::WriterOptions options;
     options.config = config;

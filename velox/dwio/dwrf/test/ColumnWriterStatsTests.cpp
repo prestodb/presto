@@ -151,7 +151,9 @@ class ColumnWriterStatsTest : public ::testing::Test {
       const size_t repeat,
       const int32_t flatMapColId) {
     // write file to memory
-    auto sink = std::make_unique<MemorySink>(*leafPool_, 200 * 1024 * 1024);
+    auto sink = std::make_unique<MemorySink>(
+        200 * 1024 * 1024,
+        dwio::common::FileSink::Options{.pool = leafPool_.get()});
     auto sinkPtr = sink.get();
 
     auto config = std::make_shared<Config>();
@@ -177,7 +179,7 @@ class ColumnWriterStatsTest : public ::testing::Test {
 
     writer.close();
 
-    std::string_view data(sinkPtr->getData(), sinkPtr->size());
+    std::string_view data(sinkPtr->data(), sinkPtr->size());
     auto readFile = std::make_shared<facebook::velox::InMemoryReadFile>(data);
     auto input = std::make_unique<BufferedInput>(readFile, *leafPool_);
 

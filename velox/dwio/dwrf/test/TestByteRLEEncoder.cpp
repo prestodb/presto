@@ -68,7 +68,7 @@ void decodeAndVerify(
     uint64_t numValues,
     uint64_t* nulls) {
   std::unique_ptr<SeekableInputStream> inStream(
-      new SeekableArrayInputStream(memSink.getData(), memSink.size()));
+      new SeekableArrayInputStream(memSink.data(), memSink.size()));
 
   std::unique_ptr<ByteRleDecoder> decoder =
       createByteRleDecoder(std::move(inStream), EncodingKey{0, 0});
@@ -91,7 +91,7 @@ void decodeAndVerifyBoolean(
     uint64_t numValues,
     uint64_t* nulls) {
   std::unique_ptr<SeekableInputStream> inStream(
-      new SeekableArrayInputStream(memSink.getData(), memSink.size()));
+      new SeekableArrayInputStream(memSink.data(), memSink.size()));
 
   std::unique_ptr<ByteRleDecoder> decoder =
       createBooleanRleDecoder(std::move(inStream), EncodingKey{0, 0});
@@ -112,7 +112,7 @@ void decodeAndVerifyBoolean(
 
 TEST(ByteRleEncoder, random_chars) {
   auto pool = memory::addDefaultLeafMemoryPool();
-  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
 
   uint64_t block = 1024;
   DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
@@ -132,7 +132,7 @@ TEST(ByteRleEncoder, random_chars) {
 
 TEST(ByteRleEncoder, random_chars_with_null) {
   auto pool = memory::addDefaultLeafMemoryPool();
-  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
 
   uint64_t block = 1024;
   DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
@@ -154,7 +154,7 @@ TEST(ByteRleEncoder, random_chars_with_null) {
 
 TEST(BooleanRleEncoder, random_bits_not_aligned) {
   auto pool = memory::addDefaultLeafMemoryPool();
-  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
 
   uint64_t block = 1024;
   DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
@@ -174,7 +174,7 @@ TEST(BooleanRleEncoder, random_bits_not_aligned) {
 
 TEST(BooleanRleEncoder, random_bits_aligned) {
   auto pool = memory::addDefaultLeafMemoryPool();
-  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
 
   uint64_t block = 1024;
   DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
@@ -194,7 +194,7 @@ TEST(BooleanRleEncoder, random_bits_aligned) {
 
 TEST(BooleanRleEncoder, random_bits_aligned_with_null) {
   auto pool = memory::addDefaultLeafMemoryPool();
-  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
 
   uint64_t block = 1024;
   DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};

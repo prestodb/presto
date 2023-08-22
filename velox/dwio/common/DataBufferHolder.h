@@ -17,7 +17,7 @@
 #pragma once
 
 #include "velox/dwio/common/DataBuffer.h"
-#include "velox/dwio/common/DataSink.h"
+#include "velox/dwio/common/FileSink.h"
 
 namespace facebook::velox::dwio::common {
 
@@ -34,8 +34,8 @@ class DataBufferHolder {
       uint64_t maxSize,
       uint64_t initialSize = 0,
       float growRatio = DEFAULT_PAGE_GROW_RATIO,
-      dwio::common::DataSink* sink = nullptr)
-      : pool_{pool},
+      dwio::common::FileSink* sink = nullptr)
+      : pool_{&pool},
         sink_{sink},
         maxSize_{maxSize},
         initialSize_{initialSize ? initialSize : maxSize},
@@ -54,7 +54,7 @@ class DataBufferHolder {
       totalSize += buf.size();
     }
     if (totalSize > 0) {
-      dwio::common::DataBuffer<char> buf(pool_, totalSize);
+      dwio::common::DataBuffer<char> buf(*pool_, totalSize);
       auto data = buf.data();
       for (auto& buffer : buffers) {
         auto size = buffer.size();
@@ -149,7 +149,7 @@ class DataBufferHolder {
       uint64_t increment = 1) const;
 
   memory::MemoryPool& getMemoryPool() {
-    return pool_;
+    return *pool_;
   }
 
  private:
@@ -157,9 +157,9 @@ class DataBufferHolder {
     suppressed_ = false;
   }
 
-  memory::MemoryPool& pool_;
+  memory::MemoryPool* const pool_;
+  dwio::common::FileSink* const sink_;
   std::vector<dwio::common::DataBuffer<char>> buffers_;
-  dwio::common::DataSink* sink_;
 
   // state
   bool suppressed_{false};

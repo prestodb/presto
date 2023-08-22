@@ -60,7 +60,7 @@ class Closeable {
         DWIO_WARN("failed to call close()");
       }
     }
-    DCHECK(closed_);
+    DWIO_ENSURE(closed_);
   }
 
  private:

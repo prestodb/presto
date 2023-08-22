@@ -497,8 +497,8 @@ void writeToFile(
   options.schema = vector->type();
   options.memoryPool = pool;
   auto writeFile = std::make_unique<LocalWriteFile>(path, true, false);
-  auto sink = std::make_unique<dwio::common::WriteFileDataSink>(
-      std::move(writeFile), path);
+  auto sink =
+      std::make_unique<dwio::common::WriteFileSink>(std::move(writeFile), path);
   dwrf::Writer writer(std::move(sink), options);
   writer.write(vector);
   writer.close();

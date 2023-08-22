@@ -37,7 +37,7 @@ class WriterSink {
   enum Mode : uint8_t { None = 0, Data = 1, Index = 2, Footer = 3 };
 
   WriterSink(
-      dwio::common::DataSink& sink,
+      dwio::common::FileSink& sink,
       memory::MemoryPool& pool,
       const Config& configs)
       : sink_{sink},
@@ -45,7 +45,7 @@ class WriterSink {
             ChecksumFactory::create(configs.get(Config::CHECKSUM_ALGORITHM))},
         cacheMode_{configs.get(Config::STRIPE_CACHE_MODE)},
         mode_{Mode::None},
-        shouldBuffer_{!sink.isBuffered()},
+        shouldBuffer_{!sink_.isBuffered()},
         size_{0},
         maxCacheSize_{configs.get(Config::STRIPE_CACHE_SIZE)},
         cacheHolder_{pool, SLICE_SIZE, SLICE_SIZE},
@@ -130,7 +130,7 @@ class WriterSink {
   }
 
  private:
-  dwio::common::DataSink& sink_;
+  dwio::common::FileSink& sink_;
   std::unique_ptr<Checksum> checksum_;
   StripeCacheMode cacheMode_;
   Mode mode_;

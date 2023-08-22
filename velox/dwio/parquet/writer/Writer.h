@@ -18,7 +18,7 @@
 
 #include "velox/common/compression/Compression.h"
 #include "velox/dwio/common/DataBuffer.h"
-#include "velox/dwio/common/DataSink.h"
+#include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/common/FlushPolicy.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/Writer.h"
@@ -104,12 +104,12 @@ class Writer : public dwio::common::Writer {
   // temporary memory. 'properties' specifies Parquet-specific
   // options.
   Writer(
-      std::unique_ptr<dwio::common::DataSink> sink,
+      std::unique_ptr<dwio::common::FileSink> sink,
       const WriterOptions& options,
       std::shared_ptr<memory::MemoryPool> pool);
 
   Writer(
-      std::unique_ptr<dwio::common::DataSink> sink,
+      std::unique_ptr<dwio::common::FileSink> sink,
       const WriterOptions& options);
 
   ~Writer() override = default;
@@ -149,7 +149,7 @@ class ParquetWriterFactory : public dwio::common::WriterFactory {
   ParquetWriterFactory() : WriterFactory(dwio::common::FileFormat::PARQUET) {}
 
   std::unique_ptr<dwio::common::Writer> createWriter(
-      std::unique_ptr<dwio::common::DataSink> sink,
+      std::unique_ptr<dwio::common::FileSink> sink,
       const dwio::common::WriterOptions& options) override;
 };
 

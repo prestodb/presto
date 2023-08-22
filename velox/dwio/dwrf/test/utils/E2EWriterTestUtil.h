@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "velox/dwio/common/DataSink.h"
+#include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 
 namespace facebook::velox::dwrf {
@@ -39,7 +39,7 @@ class E2EWriterTestUtil {
    *    writerMemoryCap         total memory budget for the writer
    */
   static std::unique_ptr<Writer> writeData(
-      std::unique_ptr<dwio::common::DataSink> sink,
+      std::unique_ptr<dwio::common::FileSink> sink,
       const std::shared_ptr<const Type>& type,
       const std::vector<VectorPtr>& batches,
       const std::shared_ptr<Config>& config,

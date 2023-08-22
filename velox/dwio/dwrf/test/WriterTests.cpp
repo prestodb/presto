@@ -36,9 +36,10 @@ class WriterTest : public Test {
 
   WriterBase& createWriter(
       const std::shared_ptr<Config>& config,
-      std::unique_ptr<DataSink> sink = nullptr) {
+      std::unique_ptr<FileSink> sink = nullptr) {
     if (!sink) {
-      auto memSink = std::make_unique<MemorySink>(*pool_, 1024);
+      auto memSink = std::make_unique<MemorySink>(
+          1024, FileSink::Options{.pool = pool_.get()});
       sinkPtr_ = memSink.get();
       sink = std::move(memSink);
     }
@@ -49,7 +50,7 @@ class WriterTest : public Test {
   }
 
   std::unique_ptr<ReaderBase> createReader() {
-    std::string_view data(sinkPtr_->getData(), sinkPtr_->size());
+    std::string_view data(sinkPtr_->data(), sinkPtr_->size());
     auto readFile = std::make_shared<InMemoryReadFile>(data);
     auto input = std::make_unique<BufferedInput>(std::move(readFile), *pool_);
     return std::make_unique<ReaderBase>(*pool_, std::move(input));
@@ -415,13 +416,14 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     SupportedCompressionTest,
     testing::ValuesIn(SupportedCompressionTest::getTestParams()));
 
-class FailingSink : public DataSink {
+class FailingSink : public FileSink {
  public:
-  FailingSink() : DataSink{"FailingSink", MetricsLog::voidLog(), nullptr} {}
+  FailingSink()
+      : FileSink{
+            "FailingSink",
+            FileSink::Options{.metricLogger = MetricsLog::voidLog()}} {}
 
   virtual ~FailingSink() override {}
-
-  using DataSink::write;
 
   void write(std::vector<DataBuffer<char>>&) override {
     DWIO_RAISE("Unexpected call");
@@ -441,10 +443,11 @@ TEST_F(WriterTest, DoNotCrashDbgModeOnAbort) {
   EXPECT_THROW(abandonWriterWithoutClosing(), std::runtime_error);
 }
 
-class MockDataSink : public dwio::common::DataSink {
+class MockFileSink : public dwio::common::FileSink {
  public:
-  explicit MockDataSink() : DataSink("mock_data_sink", nullptr) {}
-  virtual ~MockDataSink() = default;
+  explicit MockFileSink()
+      : FileSink("mock_data_sink", {.metricLogger = nullptr}) {}
+  virtual ~MockFileSink() = default;
 
   MOCK_METHOD(uint64_t, size, (), (const override));
   MOCK_METHOD(bool, isBuffered, (), (const override));
@@ -454,8 +457,8 @@ class MockDataSink : public dwio::common::DataSink {
 TEST(WriterBaseTest, FlushWriterSinkUponClose) {
   auto config = std::make_shared<Config>();
   auto pool = defaultMemoryManager().addRootPool("FlushWriterSinkUponClose");
-  auto sink = std::make_unique<MockDataSink>();
-  MockDataSink* sinkPtr = sink.get();
+  auto sink = std::make_unique<MockFileSink>();
+  MockFileSink* sinkPtr = sink.get();
   EXPECT_CALL(*sinkPtr, write(_)).Times(1);
   EXPECT_CALL(*sinkPtr, isBuffered()).WillOnce(Return(false));
   {

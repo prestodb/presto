@@ -35,7 +35,7 @@ TEST(DataBufferHolderTests, InputCheck) {
 
 TEST(DataBufferHolderTests, TakeAndGetBuffer) {
   auto pool = addDefaultLeafMemoryPool();
-  MemorySink sink{*pool, 1024};
+  MemorySink sink{1024, {.pool = pool.get()}};
   DataBufferHolder holder{*pool, 1024, 0, 2.0f, &sink};
   DataBuffer<char> buffer{*pool, 512};
   std::memset(buffer.data(), 'a', 512);
@@ -46,7 +46,7 @@ TEST(DataBufferHolderTests, TakeAndGetBuffer) {
   holder.take(buffer);
   ASSERT_EQ(holder.size(), 1024);
   ASSERT_EQ(sink.size(), 1024);
-  auto data = sink.getData();
+  auto data = sink.data();
   for (size_t i = 0; i < 512; ++i) {
     ASSERT_EQ(data[i], 'a');
   }

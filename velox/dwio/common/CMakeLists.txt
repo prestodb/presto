@@ -30,10 +30,10 @@ add_library(
   CacheInputStream.cpp
   ColumnSelector.cpp
   DataBufferHolder.cpp
-  DataSink.cpp
   DecoderUtil.cpp
   DirectDecoder.cpp
   DwioMetricsLog.cpp
+  FileSink.cpp
   FlatMapHelper.cpp
   InputStream.cpp
   IntDecoder.cpp

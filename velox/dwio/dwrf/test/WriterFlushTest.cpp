@@ -243,7 +243,7 @@ class DummyWriter : public velox::dwrf::Writer {
  public:
   DummyWriter(
       WriterOptions& options,
-      std::unique_ptr<dwio::common::DataSink> sink,
+      std::unique_ptr<dwio::common::FileSink> sink,
       std::shared_ptr<memory::MemoryPool> pool)
       : Writer{std::move(sink), options, std::move(pool)} {}
 
@@ -367,7 +367,8 @@ class WriterFlushTestHelper {
     auto writer = std::make_unique<DummyWriter>(
         options,
         // Unused sink.
-        std::make_unique<dwio::common::MemorySink>(*sinkPool, kSizeKB),
+        std::make_unique<dwio::common::MemorySink>(
+            kSizeKB, dwio::common::FileSink::Options{.pool = sinkPool.get()}),
         std::make_shared<MockMemoryPool>(
             "writer_root_pool",
             memory::MemoryPool::Kind::kAggregate,

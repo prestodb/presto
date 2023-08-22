@@ -60,11 +60,11 @@ class DataBuffer {
     clear();
   }
 
-  T* FOLLY_NULLABLE data() {
+  T* data() {
     return buf_;
   }
 
-  const T* FOLLY_NULLABLE data() const {
+  const T* data() const {
     return buf_;
   }
 
@@ -216,12 +216,12 @@ class DataBuffer {
     return sizeof(T) * items;
   }
 
-  velox::memory::MemoryPool* const FOLLY_NULLABLE pool_;
+  velox::memory::MemoryPool* const pool_;
   // The referenced velox buffer. 'buf_' owns the memory when 'veloxRef_' is
   // nullptr.
   const velox::BufferPtr veloxRef_{nullptr};
 
-  T* FOLLY_NULLABLE buf_;
+  T* buf_;
   // current size
   uint64_t size_;
   // maximal capacity (actual allocated memory)

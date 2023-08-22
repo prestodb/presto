@@ -24,7 +24,7 @@ namespace facebook::velox::dwrf {
 
 class WriterBase {
  public:
-  explicit WriterBase(std::unique_ptr<dwio::common::DataSink> sink)
+  explicit WriterBase(std::unique_ptr<dwio::common::FileSink> sink)
       : sink_{std::move(sink)} {
     DWIO_ENSURE_NOT_NULL(sink_);
   }
@@ -74,7 +74,7 @@ class WriterBase {
       std::shared_ptr<velox::memory::MemoryPool> pool,
       std::unique_ptr<encryption::EncryptionHandler> handler = nullptr) {
     context_ = std::make_unique<WriterContext>(
-        config, std::move(pool), sink_->getMetricsLog(), std::move(handler));
+        config, std::move(pool), sink_->metricsLog(), std::move(handler));
     writerSink_ = std::make_unique<WriterSink>(
         *sink_,
         context_->getMemoryPool(MemoryUsageCategory::OUTPUT_STREAM),
@@ -155,7 +155,7 @@ class WriterBase {
 
  private:
   std::unique_ptr<WriterContext> context_;
-  std::unique_ptr<dwio::common::DataSink> sink_;
+  std::unique_ptr<dwio::common::FileSink> sink_;
   std::unique_ptr<WriterSink> writerSink_;
   proto::Footer footer_;
   std::unordered_map<std::string, std::string> userMetadata_;
