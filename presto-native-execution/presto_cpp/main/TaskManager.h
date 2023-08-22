@@ -170,11 +170,6 @@ class TaskManager {
       const protocol::TaskId& taskId,
       long startProcessCpuTime = 0);
 
-  std::shared_ptr<PrestoTask> findOrCreateTaskLocked(
-      TaskMap& taskMap,
-      const protocol::TaskId& taskId,
-      long startProcessCpuTime = 0);
-
   std::string baseUri_;
   std::string nodeId_;
   std::string baseSpillDir_;
