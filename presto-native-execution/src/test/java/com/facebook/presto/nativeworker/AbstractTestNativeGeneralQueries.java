@@ -1332,6 +1332,13 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("select transform(x, i->transform(i, j->j*y)) from (select x, y*y as y from (values row(array[array[1]], 2)) t(x, y))");
     }
 
+    @Test
+    public void testMergeEmptyHll()
+    {
+        assertQuery("select cardinality(merge(empty_approx_set())) from orders");
+        assertQuery("select cardinality(merge(empty_approx_set(0.1))) from orders");
+    }
+
     private void assertQueryResultCount(String sql, int expectedResultCount)
     {
         assertEquals(getQueryRunner().execute(sql).getRowCount(), expectedResultCount);
