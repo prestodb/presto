@@ -605,7 +605,7 @@ void PageReader::prepareDictionary(const PageHeader& pageHeader) {
         }
         auto values = dictionary_.values->asMutable<int128_t>();
         for (auto i = 0; i < dictionary_.numValues; ++i) {
-          values[i] = dwio::common::builtin_bswap128(values[i]);
+          values[i] = bits::builtin_bswap128(values[i]);
         }
         break;
       }

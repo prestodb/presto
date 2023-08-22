@@ -958,6 +958,23 @@ inline void padToAlignment(
   }
 }
 
+/// Returns value with the order of the bytes reversed; for example, 0xaabb
+/// becomes 0xbbaa. Byte here always means exactly 8 bits.
+inline __int128_t builtin_bswap128(__int128_t value) {
+#if defined __has_builtin
+#if __has_builtin(__builtin_bswap128)
+#define VELOX_HAS_BUILTIN_BSWAP_INT128 1
+  return __builtin_bswap128(value);
+#endif
+#endif
+#if not VELOX_HAS_BUILTIN_BSWAP_INT128
+  return (static_cast<__uint128_t>(__builtin_bswap64(value)) << 64) |
+      __builtin_bswap64(value >> 64);
+#else
+#undef VELOX_HAS_BUILTIN_BSWAP_INT128
+#endif
+}
+
 } // namespace bits
 } // namespace velox
 } // namespace facebook

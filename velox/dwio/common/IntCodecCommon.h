@@ -43,19 +43,4 @@ constexpr int64_t MAX_NANOS = 999'999'999;
 // Minimum seconds that can be written using the Timestamp Writer.
 // 1 is reduced to epoch, as writer adds 1 for negative seconds.
 constexpr int64_t MIN_SECONDS = INT64_MIN + (EPOCH_OFFSET - 1);
-
-#if defined __has_builtin
-#if __has_builtin(__builtin_bswap128)
-#define HAS_BUILTIN_BSWAP_INT128 1
-inline __int128_t builtin_bswap128(__int128_t value) {
-  return __builtin_bswap128(value);
-}
-#endif
-#endif
-#if not HAS_BUILTIN_BSWAP_INT128
-inline __int128_t builtin_bswap128(__int128_t value) {
-  return (static_cast<__uint128_t>(__builtin_bswap64(value)) << 64) |
-      __builtin_bswap64(value >> 64);
-}
-#endif
 } // namespace facebook::velox::dwio::common

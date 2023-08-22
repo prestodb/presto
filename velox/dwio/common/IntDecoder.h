@@ -372,7 +372,7 @@ inline cppType IntDecoder<isSigned>::readLittleEndianFromBigEndian() {
         numBytes);
     // Convert bigEndianValue to little endian value and return.
     if constexpr (sizeof(cppType) == 16) {
-      return dwio::common::builtin_bswap128(bigEndianValue);
+      return bits::builtin_bswap128(bigEndianValue);
     } else {
       return __builtin_bswap64(bigEndianValue);
     }
@@ -400,7 +400,7 @@ inline cppType IntDecoder<isSigned>::readLittleEndianFromBigEndian() {
       numBytes);
   // Convert bigEndianValue to little endian value and return.
   if constexpr (sizeof(cppType) == 16) {
-    return dwio::common::builtin_bswap128(bigEndianValue);
+    return bits::builtin_bswap128(bigEndianValue);
   } else {
     return __builtin_bswap64(bigEndianValue);
   }

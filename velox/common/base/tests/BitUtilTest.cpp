@@ -16,6 +16,7 @@
 
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Crc.h"
+#include "velox/type/HugeInt.h"
 
 #include <unordered_set>
 
@@ -810,6 +811,13 @@ TEST_F(BitUtilTest, rotateLeft64) {
     EXPECT_EQ(rotateLeft64(data[i], 2), expectedShift2[i]);
     EXPECT_EQ(rotateLeft64(data[i], 33), expectedShift33[i]);
   }
+}
+
+TEST_F(BitUtilTest, bswap128) {
+  EXPECT_EQ(builtin_bswap128(10), HugeInt::build(720575940379279360, 0));
+  EXPECT_EQ(
+      builtin_bswap128(HugeInt::build(0x08FFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF)),
+      -248);
 }
 } // namespace bits
 } // namespace velox
