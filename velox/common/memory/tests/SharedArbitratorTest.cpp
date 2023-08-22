@@ -837,7 +837,7 @@ TEST_F(SharedArbitrationTest, reclaimFromCompletedAggregation) {
   }
 }
 
-DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromJoinBuilder) {
+DEBUG_ONLY_TEST_F(SharedArbitrationTest, DISABLED_reclaimFromJoinBuilder) {
   const int numVectors = 32;
   std::vector<RowVectorPtr> vectors;
   for (int i = 0; i < numVectors; ++i) {

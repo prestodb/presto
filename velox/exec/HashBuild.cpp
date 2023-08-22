@@ -788,10 +788,15 @@ bool HashBuild::finishHashBuild() {
     spiller_->finishSpill(spillPartitions);
     recordSpillStats();
 
-    // Verify all the spilled partitions are not empty as we won't spill on
-    // an empty one.
-    for (const auto& spillPartitionEntry : spillPartitions) {
-      VELOX_CHECK_GT(spillPartitionEntry.second->numFiles(), 0);
+    // Remove the spilled partitions which are empty so as we don't need to
+    // trigger unnecessary spilling at hash probe side.
+    auto iter = spillPartitions.begin();
+    while (iter != spillPartitions.end()) {
+      if (iter->second->numFiles() > 0) {
+        ++iter;
+      } else {
+        iter = spillPartitions.erase(iter);
+      }
     }
   }
 
