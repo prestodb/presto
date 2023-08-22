@@ -837,7 +837,7 @@ TEST_F(SharedArbitrationTest, reclaimFromCompletedAggregation) {
   }
 }
 
-DEBUG_ONLY_TEST_F(SharedArbitrationTest, DISABLED_reclaimFromJoinBuilder) {
+DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromJoinBuilder) {
   const int numVectors = 32;
   std::vector<RowVectorPtr> vectors;
   for (int i = 0; i < numVectors; ++i) {
@@ -857,10 +857,10 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, DISABLED_reclaimFromJoinBuilder) {
       joinQueryCtx = newQueryCtx(kMemoryCapacity);
     }
 
+    std::atomic_bool fakeAllocationReady{false};
     folly::EventCount fakeAllocationWait;
-    auto fakeAllocationWaitKey = fakeAllocationWait.prepareWait();
+    std::atomic_bool taskPauseDone{false};
     folly::EventCount taskPauseWait;
-    auto taskPauseWaitKey = taskPauseWait.prepareWait();
 
     const auto joinMemoryUsage = 32L << 20;
     const auto fakeAllocationSize = kMemoryCapacity - joinMemoryUsage / 2;
@@ -870,7 +870,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, DISABLED_reclaimFromJoinBuilder) {
       if (!injectAllocationOnce.exchange(false)) {
         return Allocation{};
       }
-      fakeAllocationWait.wait(fakeAllocationWaitKey);
+      fakeAllocationWait.await([&]() { return fakeAllocationReady.load(); });
       auto buffer = op->pool()->allocate(fakeAllocationSize);
       return Allocation{op->pool(), buffer, fakeAllocationSize};
     });
@@ -888,15 +888,18 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, DISABLED_reclaimFromJoinBuilder) {
           if (!injectAggregationByOnce.exchange(false)) {
             return;
           }
-          fakeAllocationWait.notify();
+          fakeAllocationReady.store(true);
+          fakeAllocationWait.notifyAll();
           // Wait for pause to be triggered.
-          taskPauseWait.wait(taskPauseWaitKey);
+          taskPauseWait.await([&]() { return taskPauseDone.load(); });
         })));
 
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Task::requestPauseLocked",
-        std::function<void(Task*)>(
-            ([&](Task* /*unused*/) { taskPauseWait.notify(); })));
+        std::function<void(Task*)>(([&](Task* /*unused*/) {
+          taskPauseDone.store(true);
+          taskPauseWait.notifyAll();
+        })));
 
     std::thread aggregationThread([&]() {
       auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
