@@ -548,20 +548,19 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
     bool /*abort*/) {
   LOG(INFO) << "Deleting task " << taskId;
   // Fast. non-blocking delete and cancel serialized on 'taskMap'.
-  auto taskMap = taskMap_.wlock();
-  auto it = taskMap->find(taskId);
-  if (it == taskMap->cend()) {
-    VLOG(1) << "Task not found for delete: " << taskId;
-    // If task is not found than we observe DELETE message coming before CREATE.
-    // In that case we create the task with ABORTED state, so we know we don't
-    // need to do anything on CREATE message and can clean up the cancelled task
-    // later.
-    auto prestoTask = findOrCreateTaskLocked(*taskMap, taskId, 0);
-    prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
-    return std::make_unique<TaskInfo>(prestoTask->info);
-  }
+  std::shared_ptr<facebook::presto::PrestoTask> prestoTask;
 
-  auto prestoTask = it->second;
+  taskMap_.withRLock([&](const auto& taskMap) {
+    auto it = taskMap.find(taskId);
+    if (it != taskMap.cend()) {
+      prestoTask = it->second;
+    }
+  });
+
+  if (prestoTask == nullptr) {
+    VLOG(1) << "Task not found for delete: " << taskId;
+    prestoTask = findOrCreateTask(taskId, 0);
+  }
 
   std::lock_guard<std::mutex> l(prestoTask->mutex);
   prestoTask->updateHeartbeatLocked();
@@ -574,6 +573,13 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
     prestoTask->info.stats.endTime =
         util::toISOTimestamp(velox::getCurrentTimeMs());
     prestoTask->updateInfoLocked();
+  } else {
+    // If task is not found than we observe DELETE message coming before
+    // CREATE. In that case we create the task with ABORTED state, so we know
+    // we don't need to do anything on CREATE message and can clean up the
+    // cancelled task later.
+    prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
+    return std::make_unique<TaskInfo>(prestoTask->info);
   }
 
   // Do not erase the finished/aborted tasks, because someone might still want
@@ -913,24 +919,22 @@ void TaskManager::removeRemoteSource(
 std::shared_ptr<PrestoTask> TaskManager::findOrCreateTask(
     const TaskId& taskId,
     long startProcessCpuTime) {
-  auto taskMap = taskMap_.wlock();
-  return findOrCreateTaskLocked(*taskMap, taskId);
-}
+  std::shared_ptr<PrestoTask> prestoTask;
+  taskMap_.withRLock([&](const auto& taskMap) {
+    auto it = taskMap.find(taskId);
+    if (it != taskMap.end()) {
+      prestoTask = it->second;
+    }
+  });
 
-std::shared_ptr<PrestoTask> TaskManager::findOrCreateTaskLocked(
-    TaskMap& taskMap,
-    const TaskId& taskId,
-    long startProcessCpuTime) {
-  auto it = taskMap.find(taskId);
-  if (it != taskMap.end()) {
-    auto prestoTask = it->second;
+  if (prestoTask != nullptr) {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
     prestoTask->updateHeartbeatLocked();
     ++prestoTask->info.taskStatus.version;
     return prestoTask;
   }
 
-  auto prestoTask =
+  prestoTask =
       std::make_shared<PrestoTask>(taskId, nodeId_, startProcessCpuTime);
   prestoTask->info.stats.createTime =
       util::toISOTimestamp(velox::getCurrentTimeMs());
@@ -960,7 +964,13 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTaskLocked(
   prestoTask->updateHeartbeatLocked();
   ++prestoTask->info.taskStatus.version;
 
-  taskMap[taskId] = prestoTask;
+  taskMap_.withWLock([&](auto& taskMap) {
+    if (taskMap.count(taskId) == 0) {
+      taskMap[taskId] = prestoTask;
+    } else {
+      prestoTask = taskMap[taskId];
+    }
+  });
   return prestoTask;
 }
 
