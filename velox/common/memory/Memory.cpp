@@ -33,7 +33,7 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
       //  enabled.
       arbitrator_(MemoryArbitrator::create(
           {.kind = options.arbitratorKind,
-           .capacity = options.capacity,
+           .capacity = std::min(options.queryMemoryCapacity, options.capacity),
            .memoryPoolInitCapacity = options.memoryPoolInitCapacity,
            .memoryPoolTransferCapacity = options.memoryPoolTransferCapacity,
            .retryArbitrationFailure = options.retryArbitrationFailure})),
@@ -58,11 +58,10 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
               .checkUsageLeak = options.checkUsageLeak,
               .debugEnabled = options.debugEnabled})} {
   VELOX_CHECK_NOT_NULL(allocator_);
-  if (arbitrator_ != nullptr) {
-    VELOX_CHECK_EQ(
-        arbitrator_->capacity(),
-        capacity_,
-        "Memory arbitrator and memory manager must have the same capacity");
+  if (arbitrator_ == nullptr && options.queryMemoryCapacity != kMaxMemory) {
+    LOG(WARNING) << "MemoryArbitrator is not set while "
+                    "MemoryManagerOptions::queryMemoryCapacity is set as "
+                 << options.queryMemoryCapacity;
   }
   VELOX_USER_CHECK_GE(capacity_, 0);
   MemoryAllocator::alignmentCheck(0, alignment_);

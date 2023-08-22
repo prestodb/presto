@@ -20,8 +20,10 @@
 #include <deque>
 
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/memory/MallocAllocator.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MemoryArbitrator.h"
+#include "velox/common/memory/SharedArbitrator.h"
 
 using namespace ::testing;
 
@@ -66,6 +68,44 @@ TEST_F(MemoryArbitrationTest, create) {
     } else {
       VELOX_ASSERT_THROW(MemoryArbitrator::create(config), "");
     }
+  }
+}
+
+TEST_F(MemoryArbitrationTest, queryMemoryCapacity) {
+  {
+    // Reserved memory is not enforced when no arbitrator is provided.
+    auto allocator = std::make_shared<MallocAllocator>(8L << 20);
+    MemoryManager manager{
+        {.capacity = (int64_t)allocator->capacity(),
+         .queryMemoryCapacity = 4L << 20,
+         .allocator = allocator.get()}};
+    auto rootPool = manager.addRootPool("root-1", 8L << 20);
+    auto leafPool = rootPool->addLeafChild("leaf-1.0");
+    void* buffer;
+    ASSERT_NO_THROW({
+      buffer = leafPool->allocate(7L << 20);
+      leafPool->free(buffer, 7L << 20);
+    });
+  }
+  {
+    // Reserved memory is enforced when SharedMemoryArbitrator is used.
+    SharedArbitrator::registerFactory();
+    auto allocator = std::make_shared<MallocAllocator>(8L << 20);
+    MemoryManager manager{
+        {.capacity = (int64_t)allocator->capacity(),
+         .queryMemoryCapacity = 4L << 20,
+         .allocator = allocator.get(),
+         .arbitratorKind = "SHARED"}};
+    auto rootPool =
+        manager.addRootPool("root-1", 8L << 20, MemoryReclaimer::create());
+    auto leafPool = rootPool->addLeafChild("leaf-1.0");
+    void* buffer;
+    VELOX_ASSERT_THROW(
+        buffer = leafPool->allocate(7L << 20),
+        "Exceeded memory pool cap of 4.00MB");
+    ASSERT_NO_THROW(buffer = leafPool->allocate(4L << 20));
+    leafPool->free(buffer, 4L << 20);
+    SharedArbitrator::unregisterFactory();
   }
 }
 

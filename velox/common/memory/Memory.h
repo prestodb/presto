@@ -66,6 +66,17 @@ struct MemoryManagerOptions {
   /// enforce capacity. This will be used by MemoryArbitrator
   int64_t capacity{kMaxMemory};
 
+  /// Memory capacity for query/task memory pools. This capacity setting should
+  /// be equal or smaller than 'capacity'. The difference between 'capacity' and
+  /// 'queryMemoryCapacity' is reserved for system usage such as cache and
+  /// spilling.
+  ///
+  /// NOTE:
+  /// - if 'queryMemoryCapacity' is greater than 'capacity', the behavior
+  /// will be equivalent to as if they are equal, meaning no reservation
+  /// capacity for system usage.
+  int64_t queryMemoryCapacity{kMaxMemory};
+
   /// If true, check the memory pool and usage leaks on destruction.
   ///
   /// TODO: deprecate this flag after all the existing memory leak use cases

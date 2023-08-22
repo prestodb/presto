@@ -92,10 +92,10 @@ TEST_F(MemoryManagerTest, Ctor) {
 namespace {
 class FakeTestArbitrator : public MemoryArbitrator {
  public:
-  FakeTestArbitrator(const Config& config, int64_t capacity)
+  FakeTestArbitrator(const Config& config)
       : MemoryArbitrator(
             {.kind = config.kind,
-             .capacity = capacity,
+             .capacity = config.capacity,
              .memoryPoolInitCapacity = config.memoryPoolInitCapacity,
              .memoryPoolTransferCapacity = config.memoryPoolTransferCapacity,
              .retryArbitrationFailure = config.retryArbitrationFailure}) {}
@@ -131,15 +131,15 @@ TEST_F(MemoryManagerTest, createWithCustomArbitrator) {
   const std::string kindString = "FAKE";
   MemoryArbitrator::Factory factory =
       [](const MemoryArbitrator::Config& config) {
-        return std::make_unique<FakeTestArbitrator>(config, 0LL);
+        return std::make_unique<FakeTestArbitrator>(config);
       };
   MemoryArbitrator::registerFactory(kindString, factory);
   MemoryManagerOptions options;
   options.arbitratorKind = kindString;
-  options.capacity = 8L * 1024 * 1024;
-  VELOX_ASSERT_THROW(
-      MemoryManager{options},
-      "Memory arbitrator and memory manager must have the same capacity")
+  options.capacity = 8L << 20;
+  options.queryMemoryCapacity = 256L << 20;
+  MemoryManager manager{options};
+  ASSERT_EQ(manager.arbitrator()->capacity(), options.capacity);
 }
 
 TEST_F(MemoryManagerTest, addPool) {
