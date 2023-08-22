@@ -22,6 +22,14 @@ var             ([[:alpha:]][[:alnum:]_]*)
 "="             return Parser::token::ASSIGN;
 "min"           return Parser::token::MIN;
 "max"           return Parser::token::MAX;
+"<"             return Parser::token::LT;
+"<="            return Parser::token::LTE;
+">"             return Parser::token::GT;
+">="            return Parser::token::GTE;
+"=="            return Parser::token::EQ;
+"!="            return Parser::token::NEQ;
+"?"             return Parser::token::TERNARY;
+":"             return Parser::token::COLON;
 {integer}       yylval->build<long long>(strtoll(YYText(), nullptr, 10)); return Parser::token::INT;
 {var}           yylval->build<std::string>(YYText()); return Parser::token::VAR;
 <<EOF>>         return Parser::token::YYEOF;

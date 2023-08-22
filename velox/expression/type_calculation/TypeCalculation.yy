@@ -24,7 +24,7 @@
     #define yylex(x) scanner->lex(x)
 }
 
-%token               LPAREN RPAREN COMMA MIN MAX
+%token               LPAREN RPAREN COMMA MIN MAX TERNARY COLON
 %token <long long>   INT
 %token <std::string> VAR
 %token YYEOF         0
@@ -32,6 +32,9 @@
 %nterm <long long>  iexp
 
 %nonassoc           ASSIGN
+%right              TERNARY
+%left               EQ NEQ
+%left               LT LTE GT GTE
 %left               PLUS MINUS
 %left               MULTIPLY DIVIDE MODULO
 %precedence         UMINUS
@@ -52,6 +55,13 @@ iexp    : INT                       { $$ = $1; }
         | LPAREN iexp RPAREN        { $$ = $2; }
         | MAX LPAREN iexp COMMA iexp RPAREN { $$ = std::max($3, $5); }
         | MIN LPAREN iexp COMMA iexp RPAREN { $$ = std::min($3, $5); }
+        | iexp LT iexp              { $$ = $1 < $3; }
+        | iexp LTE iexp             { $$ = $1 <= $3; }
+        | iexp GT iexp              { $$ = $1 > $3; }
+        | iexp GTE iexp             { $$ = $1 >= $3; }
+        | iexp EQ iexp              { $$ = $1 == $3; }
+        | iexp NEQ iexp             { $$ = $1 != $3; }
+        | iexp TERNARY iexp COLON iexp { $$ = $1 ? $3 : $5; }
         | VAR                       { $$ = scanner->getValue($1); }
         ;
 
