@@ -27,6 +27,19 @@ namespace {
 
 class CompactRowTest : public ::testing::Test, public VectorTestBase {
  protected:
+  /// TODO Replace with VectorFuzzer::fuzzInputRow once
+  /// https://github.com/facebookincubator/velox/issues/6195 is fixed.
+  RowVectorPtr fuzzInputRow(VectorFuzzer& fuzzer, const RowTypePtr& rowType) {
+    const auto size = fuzzer.getOptions().vectorSize;
+    std::vector<VectorPtr> children;
+    for (auto i = 0; i < rowType->size(); ++i) {
+      children.push_back(fuzzer.fuzz(rowType->childAt(i), size));
+    }
+
+    return std::make_shared<RowVector>(
+        pool_.get(), rowType, nullptr, size, std::move(children));
+  }
+
   void testRoundTrip(const RowVectorPtr& data) {
     SCOPED_TRACE(data->toString());
 
@@ -504,7 +517,7 @@ TEST_F(CompactRowTest, fuzz) {
     SCOPED_TRACE(fmt::format("seed: {}", seed));
 
     fuzzer.reSeed(seed);
-    auto data = fuzzer.fuzzInputRow(rowType);
+    auto data = fuzzInputRow(fuzzer, rowType);
 
     testRoundTrip(data);
 

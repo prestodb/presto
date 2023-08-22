@@ -98,6 +98,18 @@ void CompactRow::initialize(const TypePtr& type) {
   }
 }
 
+namespace {
+std::optional<int32_t> fixedValueSize(const TypePtr& type) {
+  if (type->isTimestamp()) {
+    return sizeof(int64_t);
+  }
+  if (type->isFixedWidth()) {
+    return type->cppSizeInBytes();
+  }
+  return std::nullopt;
+}
+} // namespace
+
 // static
 std::optional<int32_t> CompactRow::fixedRowSize(const RowTypePtr& rowType) {
   const size_t numFields = rowType->size();
@@ -105,10 +117,8 @@ std::optional<int32_t> CompactRow::fixedRowSize(const RowTypePtr& rowType) {
 
   size_t size = nullLength;
   for (const auto& child : rowType->children()) {
-    if (child->isTimestamp()) {
-      size += sizeof(int64_t);
-    } else if (child->isFixedWidth()) {
-      size += child->cppSizeInBytes();
+    if (auto valueBytes = fixedValueSize(child)) {
+      size += valueBytes.value();
     } else {
       return std::nullopt;
     }
@@ -469,10 +479,9 @@ int32_t CompactRow::serializeVariableWidth(vector_size_t index, char* buffer) {
 
 namespace {
 
-// Reads single fixed-width value from buffer and returns number of bytes read.
-// Stores the value into flatVector[index].
+// Reads single fixed-width value from buffer into flatVector[index].
 template <typename T>
-size_t readFixedWidthValue(
+void readFixedWidthValue(
     bool isNull,
     const char* buffer,
     FlatVector<T>* flatVector,
@@ -488,7 +497,10 @@ size_t readFixedWidthValue(
     memcpy(&value, buffer, sizeof(T));
     flatVector->set(index, value);
   }
+}
 
+template <typename T>
+int32_t valueSize() {
   if constexpr (std::is_same_v<T, Timestamp>) {
     return sizeof(int64_t);
   } else {
@@ -500,14 +512,14 @@ size_t readFixedWidthValue(
 // Each value starts at data[row].data() + offsets[row].
 //
 // @param nulls Null flags for the values.
-// @param offsets In/out parameter that specifies offsets in 'data' for the
-// serialized values. Advances past the serialized value.
+// @param offsets Offsets in 'data' for the serialized values. Not used if value
+// is null.
 template <TypeKind Kind>
 VectorPtr deserializeFixedWidth(
     const TypePtr& type,
     const std::vector<std::string_view>& data,
     const BufferPtr& nulls,
-    std::vector<size_t>& offsets,
+    const std::vector<size_t>& offsets,
     memory::MemoryPool* pool) {
   using T = typename TypeTraits<Kind>::NativeType;
 
@@ -517,11 +529,9 @@ VectorPtr deserializeFixedWidth(
   auto* rawNulls = nulls->as<uint64_t>();
 
   for (auto i = 0; i < numRows; ++i) {
-    offsets[i] += readFixedWidthValue<T>(
-        bits::isBitNull(rawNulls, i),
-        data[i].data() + offsets[i],
-        flatVector.get(),
-        i);
+    const bool isNull = bits::isBitNull(rawNulls, i);
+    readFixedWidthValue<T>(
+        isNull, data[i].data() + offsets[i], flatVector.get(), i);
   }
 
   return flatVector;
@@ -554,6 +564,8 @@ VectorPtr deserializeFixedWidthArrays(
     memory::MemoryPool* pool) {
   using T = typename TypeTraits<Kind>::NativeType;
 
+  const int32_t valueBytes = valueSize<T>();
+
   const auto numRows = data.size();
   auto* rawSizes = sizes->as<vector_size_t>();
 
@@ -572,11 +584,13 @@ VectorPtr deserializeFixedWidthArrays(
       offsets[i] += nullBytes;
 
       for (auto j = 0; j < size; ++j) {
-        offsets[i] += readFixedWidthValue<T>(
+        readFixedWidthValue<T>(
             bits::isBitSet(rawElementNulls, j),
             data[i].data() + offsets[i],
             flatVector.get(),
             index);
+
+        offsets[i] += valueBytes;
         ++index;
       }
     }
@@ -719,10 +733,8 @@ VectorPtr deserializeComplexArrays(
   BufferPtr nulls = allocateNulls(total, pool);
   auto* rawNulls = nulls->asMutable<uint64_t>();
 
-  std::vector<std::string_view> nestedData;
-  nestedData.reserve(total);
-  std::vector<size_t> nestedOffsets;
-  nestedOffsets.reserve(total);
+  std::vector<std::string_view> nestedData(total);
+  std::vector<size_t> nestedOffsets(total, 0);
 
   vector_size_t nestedIndex = 0;
   for (auto i = 0; i < numRows; ++i) {
@@ -740,13 +752,13 @@ VectorPtr deserializeComplexArrays(
       auto buffer = data[i].data() + offsets[i];
       for (auto j = 0; j < size; ++j) {
         if (bits::isBitSet(rawElementNulls, j)) {
-          bits::setNull(rawNulls, nestedIndex++);
+          bits::setNull(rawNulls, nestedIndex);
         } else {
           int32_t nestedOffset = readInt32(buffer + j * kSizeBytes);
-          nestedOffsets.push_back(offsets[i] + nestedOffset);
-          nestedData.push_back(data[i]);
-          ++nestedIndex;
+          nestedOffsets[nestedIndex] = offsets[i] + nestedOffset;
+          nestedData[nestedIndex] = data[i];
         }
+        ++nestedIndex;
       }
 
       offsets[i] += serializedSize;
@@ -866,6 +878,8 @@ RowVectorPtr deserializeRows(
 // Switches on 'type' and calls type-specific deserialize method to deserialize
 // one value from each 'row' in 'data' starting at the specified offset.
 // Each value starts at data[row].data() + offsets[row].
+// If 'type' is variable-width, advances 'offsets' past deserialized values.
+// If 'type' is fixed-width, offsets remain unmodified.
 VectorPtr deserialize(
     const TypePtr& type,
     const std::vector<std::string_view>& data,
@@ -932,12 +946,26 @@ RowVectorPtr deserializeRows(
 
   const size_t nullLength = bits::nbytes(numFields);
   for (auto row = 0; row < numRows; ++row) {
+    if (rawNulls != nullptr && bits::isBitNull(rawNulls, row)) {
+      continue;
+    }
     offsets[row] += nullLength;
   }
 
   for (auto i = 0; i < numFields; ++i) {
-    auto field =
-        deserialize(type->childAt(i), data, fieldNulls[i], offsets, pool);
+    const auto& child = type->childAt(i);
+    auto field = deserialize(child, data, fieldNulls[i], offsets, pool);
+    // If 'field' is fixed-width, advance offsets for rows where top-level
+    // struct is not null.
+    if (auto numBytes = fixedValueSize(child)) {
+      for (auto row = 0; row < numRows; ++row) {
+        const auto isTopLevelNull =
+            rawNulls != nullptr && bits::isBitNull(rawNulls, row);
+        if (!isTopLevelNull) {
+          offsets[row] += numBytes.value();
+        }
+      }
+    }
     fields.emplace_back(std::move(field));
   }
 
