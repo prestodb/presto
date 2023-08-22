@@ -1992,13 +1992,22 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
   auto joinType = toJoinType(node->type);
-
-  if (node->criteria.empty() && core::isInnerJoin(joinType) && !node->filter) {
-    return std::make_shared<core::NestedLoopJoinNode>(
-        node->id,
-        toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
-        toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
-        toRowType(node->outputVariables));
+  if (node->criteria.empty()) {
+    auto isNestedJoinType = core::isInnerJoin(joinType) |
+        core::isLeftJoin(joinType) | core::isRightJoin(joinType) |
+        core::isFullJoin(joinType);
+    if (isNestedJoinType) {
+      return std::make_shared<core::NestedLoopJoinNode>(
+          node->id,
+          joinType,
+          node->filter ? exprConverter_.toVeloxExpr(*node->filter) : nullptr,
+          toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
+          toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
+          toRowType(node->outputVariables));
+    }
+    VELOX_UNSUPPORTED(
+        "JoinNode has empty criteria that cannot be "
+        "satisfied by NestedJoinNode or HashJoinNode");
   }
 
   std::vector<core::FieldAccessTypedExprPtr> leftKeys;

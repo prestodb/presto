@@ -120,6 +120,19 @@ public abstract class AbstractTestNativeJoinQueries
         assertQuery(mergeJoin(), sql, getSession(), sql);
     }
 
+    @Test
+    public void testJoinsWithoutEquiClause()
+    {
+        // Test double filtered left, right, full and inner joins with right constant equality.
+        String query = "SELECT count(*) FROM (SELECT * FROM lineitem WHERE orderkey %% 1024 = 0) "
+                + "lineitem %s JOIN (SELECT * FROM orders WHERE orderkey %% 1024 = 0) "
+                + "orders ON orders.orderkey = 1024";
+        assertQuery(String.format(query, "LEFT"));
+        assertQuery(String.format(query, "RIGHT"));
+        assertQuery(String.format(query, "FULL"));
+        assertQuery(String.format(query, "INNER"));
+    }
+
     @DataProvider(name = "joinTypeProvider")
     public Object[][] joinTypeProvider()
     {
