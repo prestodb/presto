@@ -749,6 +749,10 @@ int main(int argc, char** argv) {
   assert(__builtin_popcount(FLAGS_table_size) == 1);
   assert(FLAGS_table_size % kBlockSize == 0);
   CUDA_CHECK_FATAL(cudaSetDevice(FLAGS_device));
+  cudaDeviceProp prop;
+  CUDA_CHECK_FATAL(cudaGetDeviceProperties(&prop, FLAGS_device));
+  printf("Device : %s\n", prop.name);
+
   if (FLAGS_partitioned) {
     if (FLAGS_use_tags) {
       runPartitioned<true>();

@@ -370,6 +370,10 @@ class Driver : public std::enable_shared_from_this<Driver> {
 
   bool trackOperatorCpuUsage_;
 
+  // Indicates that a DriverAdapter can rearrange Operators. Set to false at end
+  // of DriverFactory::createDriver().
+  bool isAdaptable_{true};
+
   friend struct DriverFactory;
 };
 
@@ -378,6 +382,15 @@ using OperatorSupplier = std::function<
 
 using Consumer = std::function<BlockingReason(RowVectorPtr, ContinueFuture*)>;
 using ConsumerSupplier = std::function<Consumer()>;
+
+struct DriverFactory;
+using AdaptDriverFunction =
+    std::function<bool(const DriverFactory& factory, Driver& driver)>;
+
+struct DriverAdapter {
+  std::string label;
+  AdaptDriverFunction adapt;
+};
 
 struct DriverFactory {
   std::vector<std::shared_ptr<const core::PlanNode>> planNodes;
@@ -416,6 +429,18 @@ struct DriverFactory {
       std::unique_ptr<DriverCtx> ctx,
       std::shared_ptr<ExchangeClient> exchangeClient,
       std::function<int(int pipelineId)> numDrivers);
+
+  /// Replaces operators at indices 'begin' to 'end - 1' with
+  /// 'replaceWith, in the Driver being created.  Sets operator ids to be
+  /// consecutive after the replace. May only be called from inside a
+  /// DriverAdapter. Returns the replaced Operators.
+  std::vector<std::unique_ptr<Operator>> replaceOperators(
+      Driver& driver,
+      int32_t begin,
+      int32_t end,
+      std::vector<std::unique_ptr<Operator>> replaceWith) const;
+
+  static void registerAdapter(DriverAdapter adapter);
 
   bool supportsSingleThreadedExecution() const {
     return !needsPartitionedOutput() && !needsExchangeClient() &&
@@ -473,6 +498,8 @@ struct DriverFactory {
   /// Returns plan node IDs for which Nested Loop Join Bridges must be created
   /// based on this pipeline.
   std::vector<core::PlanNodeId> needsNestedLoopJoinBridges() const;
+
+  static std::vector<DriverAdapter> adapters;
 };
 
 // Begins and ends a section where a thread is running but not

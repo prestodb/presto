@@ -12,6 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(common)
-add_subdirectory(exec)
-add_subdirectory(vector)
+add_executable(velox_wave_vector_test VectorTest.cpp)
+
+set_target_properties(velox_wave_vector_test PROPERTIES CUDA_ARCHITECTURES
+                                                        native)
+
+add_test(veloxwave__vector_test velox_wave_vector_test)
+
+target_link_libraries(
+  velox_wave_vector_test
+  velox_wave_vector
+  velox_type
+  velox_vector
+  Boost::atomic
+  Boost::context
+  Boost::date_time
+  Boost::filesystem
+  Boost::program_options
+  Boost::regex
+  Boost::thread
+  Boost::system
+  gtest
+  gtest_main
+  gmock
+  Folly::folly
+  gflags::gflags
+  glog::glog
+  fmt::fmt
+  ${FILESYSTEM})

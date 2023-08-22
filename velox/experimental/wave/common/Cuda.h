@@ -53,8 +53,19 @@ class Stream {
   /// Adds a callback to be invoked after pending processing is done.
   void addCallback(std::function<void()> callback);
 
+  auto stream() const {
+    return stream_.get();
+  }
+
+  /// Mutable reference to arbitrary non-owned user data. Can be used for
+  /// tagging streams when scheduling.
+  void*& userData() {
+    return userData_;
+  }
+
  protected:
   std::unique_ptr<StreamImpl> stream_;
+  void* userData_{nullptr};
 
   friend class Event;
 };
