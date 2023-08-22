@@ -48,6 +48,7 @@ import com.google.common.collect.ImmutableMap;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
+import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -76,7 +77,7 @@ public class TestHistoryBasedRedisStatisticsTracking
         extends AbstractTestQueryFramework
 {
     private RedisServer server;
-
+    private RedisClient redisClient;
     RedisClusterAsyncCommands redisAsyncCommands;
     private final long sleepTimeoutMillis = 6000;
     private final long redisTimeoutMillis = 4000;
@@ -88,7 +89,7 @@ public class TestHistoryBasedRedisStatisticsTracking
     {
         server = RedisServer.newRedisServer();
         server.start();
-        RedisClient redisClient = RedisClient.create(RedisURI.create(server.getHost(), server.getBindPort()));
+        redisClient = RedisClient.create(RedisURI.create(server.getHost(), server.getBindPort()));
         QueryRunner queryRunner = new DistributedQueryRunner(createSession(), 1);
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of("tpch.splits-per-node", "3"));
@@ -118,6 +119,14 @@ public class TestHistoryBasedRedisStatisticsTracking
     {
         // Delete all keys from the cluster
         redisAsyncCommands.flushall().get();
+    }
+
+    @AfterTest(alwaysRun = true)
+    public void cleanup()
+            throws Exception
+    {
+        redisClient.shutdown();
+        server.stop();
     }
 
     @Test
