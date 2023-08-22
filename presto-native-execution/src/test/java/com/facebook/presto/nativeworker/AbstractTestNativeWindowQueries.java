@@ -28,7 +28,7 @@ public abstract class AbstractTestNativeWindowQueries
         extends AbstractTestQueryFramework
 {
     protected enum FunctionType {
-        RANK, VALUE,
+        RANK, VALUE, AGGREGATE,
     }
 
     @Override
@@ -74,7 +74,7 @@ public abstract class AbstractTestNativeWindowQueries
         ImmutableList.Builder<String> queries = ImmutableList.builder();
         List<String> overClauses = new ArrayList<>(OVER_CLAUSES_WITH_ORDER_BY);
         List<String> frameClauses = FRAME_CLAUSES;
-        if (functionType == FunctionType.VALUE) {
+        if (functionType != FunctionType.RANK) {
             overClauses.addAll(OVER_CLAUSES_WITHOUT_ORDER_BY);
         }
         List<String> windowClauseList = new ArrayList<>();
@@ -113,6 +113,12 @@ public abstract class AbstractTestNativeWindowQueries
         for (String query : queries) {
             assertQuery(query);
         }
+    }
+
+    protected void testWindowAggregate(String functionName)
+    {
+        testWindowFunction(functionName + "(orderkey)", FunctionType.AGGREGATE);
+        testWindowFunction(functionName + "(totalprice)", FunctionType.AGGREGATE);
     }
 
     @Test
@@ -196,5 +202,35 @@ public abstract class AbstractTestNativeWindowQueries
         assertQuery("SELECT row_number() OVER (PARTITION BY orderdate ORDER BY orderdate) FROM orders");
         assertQuery("SELECT min(orderkey) OVER (PARTITION BY orderdate ORDER BY orderdate, totalprice) FROM orders");
         assertQuery("SELECT * FROM (SELECT row_number() over(partition by orderstatus order by orderkey, orderstatus) rn, * from orders) WHERE rn = 1");
+    }
+
+    @Test
+    public void testSum()
+    {
+        testWindowAggregate("sum");
+    }
+
+    @Test
+    public void testAvg()
+    {
+        testWindowAggregate("avg");
+    }
+
+    @Test
+    public void testCount()
+    {
+        testWindowAggregate("count");
+    }
+
+    @Test
+    public void testMin()
+    {
+        testWindowAggregate("min");
+    }
+
+    @Test
+    public void testMax()
+    {
+        testWindowAggregate("max");
     }
 }
