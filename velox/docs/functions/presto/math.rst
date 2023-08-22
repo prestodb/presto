@@ -296,3 +296,18 @@ Probability Functions: inverse_cdf
     Compute the inverse of the Beta cdf with given a, b parameters for the cumulative
     probability (p): P(N < n). The a, b parameters must be positive real values (all of type DOUBLE).
     The probability p must lie on the interval [0, 1].
+
+
+====================================
+Statistical Functions
+====================================
+
+.. function:: wilson_interval_lower(successes, trials, z) -> double
+
+    Returns the lower bound of the Wilson score interval of a Bernoulli trial process
+    at a confidence specified by the z-score z.
+
+.. function:: wilson_interval_upper(successes, trials, z) -> double
+
+    Returns the upper bound of the Wilson score interval of a Bernoulli trial process
+    at a confidence specified by the z-score z.

@@ -495,5 +495,27 @@ struct TruncateFunction {
   }
 };
 
+template <typename T>
+struct WilsonIntervalUpperFunction {
+  FOLLY_ALWAYS_INLINE void call(
+      double& result,
+      const int64_t& successes,
+      const int64_t& trials,
+      const double& z) {
+    result = wilsonInterval<true /*isUpper*/>(successes, trials, z);
+  }
+};
+
+template <typename T>
+struct WilsonIntervalLowerFunction {
+  FOLLY_ALWAYS_INLINE void call(
+      double& result,
+      const int64_t& successes,
+      const int64_t& trials,
+      const double& z) {
+    result = wilsonInterval<false /*isUpper*/>(successes, trials, z);
+  }
+};
+
 } // namespace
 } // namespace facebook::velox::functions

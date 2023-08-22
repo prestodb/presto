@@ -119,6 +119,18 @@ void registerSimpleFunctions(const std::string& prefix) {
       {prefix + "poisson_cdf"});
   registerFunction<GammaCDFFunction, double, double, double, double>(
       {prefix + "gamma_cdf"});
+  registerFunction<
+      WilsonIntervalUpperFunction,
+      double,
+      int64_t,
+      int64_t,
+      double>({prefix + "wilson_interval_upper"});
+  registerFunction<
+      WilsonIntervalLowerFunction,
+      double,
+      int64_t,
+      int64_t,
+      double>({prefix + "wilson_interval_lower"});
 }
 
 } // namespace

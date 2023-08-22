@@ -161,4 +161,46 @@ FOLLY_ALWAYS_INLINE double truncate(
   }
 }
 
+// helper function for calculating upper and lower limit of wilson interval
+template <bool isUpper>
+FOLLY_ALWAYS_INLINE double
+wilsonInterval(int64_t successes, int64_t trials, double z) {
+  VELOX_USER_CHECK_GE(successes, 0, "number of successes must not be negative");
+  VELOX_USER_CHECK_GT(trials, 0, "number of trials must be positive");
+  VELOX_USER_CHECK_LE(
+      successes,
+      trials,
+      "number of successes must not be larger than number of trials");
+  VELOX_USER_CHECK_GE(z, 0, "z-score must not be negative");
+
+  double s{static_cast<double>(successes)};
+  double n{static_cast<double>(trials)};
+  double p{s / n};
+
+  // Wilson interval limits are solutions of a quadratic equation.
+  // Let the equation be {ax^2 + bx + c = 0}.
+  // r will store the value (-b + sqrt(b*b - 4*a*c)).
+  double a, c, r;
+
+  // Compute the equations differently depending on whether z is large or small.
+  // This helps to avoid computations like (INFINITY/INFINITY),
+  // yielding accurate results in the limit as z approaches infinity.
+  if (z < 1) {
+    a = n + z * z;
+    c = s * p;
+    r = 2 * s + z * z + z * std::sqrt(z * z + 4 * s * (1 - p));
+  } else {
+    a = n / (z * z) + 1;
+    c = s * p / (z * z);
+    r = 2 * s / (z * z) + 1 + std::sqrt(1 + 4 * s * (1 - p) / (z * z));
+  }
+
+  // Since (s, n, z >= 0), r >= 0 is guaranteed, but r == 0 needs to be handled.
+  if constexpr (isUpper) {
+    return r / (2 * a);
+  } else {
+    return (r > 0) ? (2 * c) / r : 0;
+  }
+}
+
 } // namespace facebook::velox::functions

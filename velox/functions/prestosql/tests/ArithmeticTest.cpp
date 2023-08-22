@@ -699,5 +699,121 @@ TEST_F(ArithmeticTest, truncate) {
   EXPECT_DOUBLE_EQ(truncate(123456789012345678901.23, -21).value(), 0.0);
 }
 
+TEST_F(ArithmeticTest, wilsonIntervalLower) {
+  const auto wilsonIntervalLower = [&](std::optional<int64_t> s,
+                                       std::optional<int64_t> n,
+                                       std::optional<double> z) {
+    return evaluateOnce<double>("wilson_interval_lower(c0,c1,c2)", s, n, z);
+  };
+
+  // Verify that bounds checking is working.
+  VELOX_ASSERT_THROW(
+      wilsonIntervalLower(-1, -1, -1),
+      "number of successes must not be negative");
+  VELOX_ASSERT_THROW(
+      wilsonIntervalLower(0, -1, -1), "number of trials must be positive");
+  VELOX_ASSERT_THROW(
+      wilsonIntervalLower(0, 0, -1), "number of trials must be positive");
+  VELOX_ASSERT_THROW(
+      wilsonIntervalLower(0, 1, -1), "z-score must not be negative");
+  EXPECT_DOUBLE_EQ(wilsonIntervalLower(0, 1, 0).value(), 0.0);
+  VELOX_ASSERT_THROW(
+      wilsonIntervalLower(2, 1, 0),
+      "number of successes must not be larger than number of trials")
+
+  // Verify correctness on simple inputs.
+  EXPECT_DOUBLE_EQ(wilsonIntervalLower(3, 5, 0.5).value(), 0.48822759497978935);
+  EXPECT_DOUBLE_EQ(wilsonIntervalLower(2, 10, 1).value(), 0.10362299537513234);
+  EXPECT_DOUBLE_EQ(
+      wilsonIntervalLower(7, 14, 1.6).value(), 0.30341072512680384);
+  EXPECT_DOUBLE_EQ(
+      wilsonIntervalLower(1250, 1310, 1.96).value(), 0.9414883725395894);
+
+  // Verify correctness on extreme inputs.
+  constexpr int64_t max64 = std::numeric_limits<int64_t>::max();
+  EXPECT_DOUBLE_EQ(wilsonIntervalLower(max64, max64, 1.6).value(), 1.0);
+  EXPECT_DOUBLE_EQ(
+      wilsonIntervalLower(max64 / 10, max64, 0.4).value(), 0.09999999996048733);
+  EXPECT_DOUBLE_EQ(
+      wilsonIntervalLower(max64 / 10, max64, 1e10).value(),
+      9.065125579912648e-4);
+  EXPECT_DOUBLE_EQ(
+      wilsonIntervalLower(max64 / 10, max64, 1e150).value(),
+      9.223372036854775e-284);
+  EXPECT_DOUBLE_EQ(wilsonIntervalLower(max64 / 10, max64, 1e300).value(), 0.0);
+  EXPECT_DOUBLE_EQ(wilsonIntervalLower(max64 / 10, max64, 1e-10).value(), 0.1);
+  EXPECT_DOUBLE_EQ(wilsonIntervalLower(max64 / 10, max64, 0).value(), 0.1);
+  EXPECT_DOUBLE_EQ(wilsonIntervalLower(0, max64, 1.2).value(), 0.0);
+  EXPECT_DOUBLE_EQ(
+      wilsonIntervalLower(3, max64, 0.02).value(), 3.2152648669633817e-19);
+  EXPECT_DOUBLE_EQ(
+      wilsonIntervalLower(3, max64, 10.2).value(), 8.874121192596711e-21);
+  EXPECT_DOUBLE_EQ(
+      wilsonIntervalLower(3, 3, 10.2).value(), 0.028026905829596414);
+
+  // Verify correctness on nan, inf.
+  VELOX_ASSERT_THROW(
+      wilsonIntervalLower(1, 3, kNan), "z-score must not be negative");
+  VELOX_ASSERT_THROW(
+      wilsonIntervalLower(1, 3, -kInf), "z-score must not be negative");
+  EXPECT_DOUBLE_EQ(wilsonIntervalLower(1, 3, kInf).value(), 0.0);
+}
+
+TEST_F(ArithmeticTest, wilsonIntervalUpper) {
+  const auto wilsonIntervalUpper = [&](std::optional<int64_t> s,
+                                       std::optional<int64_t> n,
+                                       std::optional<double> z) {
+    return evaluateOnce<double>("wilson_interval_upper(c0,c1,c2)", s, n, z);
+  };
+
+  // Verify that bounds checking is working.
+  VELOX_ASSERT_THROW(
+      wilsonIntervalUpper(-1, -1, -1),
+      "number of successes must not be negative");
+  VELOX_ASSERT_THROW(
+      wilsonIntervalUpper(0, -1, -1), "number of trials must be positive");
+  VELOX_ASSERT_THROW(
+      wilsonIntervalUpper(0, 0, -1), "number of trials must be positive");
+  VELOX_ASSERT_THROW(
+      wilsonIntervalUpper(0, 1, -1), "z-score must not be negative");
+  EXPECT_DOUBLE_EQ(wilsonIntervalUpper(0, 1, 0).value(), 0.0);
+  VELOX_ASSERT_THROW(
+      wilsonIntervalUpper(2, 1, 0),
+      "number of successes must not be larger than number of trials")
+
+  // Verify correctness on simple inputs.
+  EXPECT_DOUBLE_EQ(wilsonIntervalUpper(3, 5, 0.5).value(), 0.7022485954964011);
+  EXPECT_DOUBLE_EQ(wilsonIntervalUpper(2, 10, 1).value(), 0.3509224591703222);
+  EXPECT_DOUBLE_EQ(wilsonIntervalUpper(7, 14, 1.6).value(), 0.6965892748731962);
+  EXPECT_DOUBLE_EQ(
+      wilsonIntervalUpper(1250, 1310, 1.96).value(), 0.9642524717143908);
+
+  // Verify correctness on extreme inputs.
+  constexpr int64_t max64 = std::numeric_limits<int64_t>::max();
+  EXPECT_DOUBLE_EQ(wilsonIntervalUpper(max64, max64, 1.6).value(), 1.0);
+  EXPECT_DOUBLE_EQ(
+      wilsonIntervalUpper(max64 / 10, max64, 0.4).value(), 0.10000000003951268);
+  EXPECT_DOUBLE_EQ(
+      wilsonIntervalUpper(max64 / 10, max64, 1e10).value(), 0.931537455322857);
+  EXPECT_DOUBLE_EQ(wilsonIntervalUpper(max64 / 10, max64, 1e150).value(), 1.0);
+  EXPECT_DOUBLE_EQ(wilsonIntervalUpper(max64 / 10, max64, 1e300).value(), 1.0);
+  EXPECT_DOUBLE_EQ(wilsonIntervalUpper(max64 / 10, max64, 1e-10).value(), 0.1);
+  EXPECT_DOUBLE_EQ(wilsonIntervalUpper(max64 / 10, max64, 0).value(), 0.1);
+  EXPECT_DOUBLE_EQ(
+      wilsonIntervalUpper(0, max64, 1.2).value(), 1.5612511283791263e-19);
+  EXPECT_DOUBLE_EQ(
+      wilsonIntervalUpper(3, max64, 0.02).value(), 3.290381848818639e-19);
+  EXPECT_DOUBLE_EQ(
+      wilsonIntervalUpper(3, max64, 10.2).value(), 1.1921686584837893e-17);
+  EXPECT_DOUBLE_EQ(wilsonIntervalUpper(3, 3, 10.2).value(), 1.0);
+
+  // Verify correctness on nan, inf.
+  VELOX_ASSERT_THROW(
+      wilsonIntervalUpper(1, 3, kNan), "z-score must not be negative");
+  VELOX_ASSERT_THROW(
+      wilsonIntervalUpper(1, 3, -kInf), "z-score must not be negative");
+  EXPECT_DOUBLE_EQ(wilsonIntervalUpper(1, 3, kInf).value(), 1.0);
+}
+
 } // namespace
 } // namespace facebook::velox
