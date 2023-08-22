@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveWrittenPartitions;
@@ -47,23 +48,29 @@ import io.airlift.slice.Slice;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.DeleteFiles;
+import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
@@ -82,6 +89,8 @@ import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getPrimaryKeyType;
 import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getRowTypeFromSchema;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -336,7 +345,63 @@ public abstract class IcebergAbstractMetadata
     @Override
     public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely");
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+        transaction = icebergTable.newTransaction();
+        return table;
+    }
+
+    /**
+     * Finish delete query
+     *
+     * @param fragments all fragments returned by {@link com.facebook.presto.spi.UpdatablePageSource#finish()}
+     */
+    @Override
+    public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        return;
+    }
+
+    /**
+     * @return whether delete without table scan is supported
+     */
+    @Override
+    public boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> tableLayoutHandle)
+    {
+        return tableLayoutHandle.map(x -> ((IcebergTableLayoutHandle) x).getTupleDomain().equals(TupleDomain.all())).orElse(true);
+    }
+
+    /**
+     * Delete the provided table layout
+     *
+     * @return number of rows deleted, or null for unknown
+     */
+    public OptionalLong metadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
+    {
+        IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) tableLayoutHandle;
+        if (!layoutHandle.getTupleDomain().equals(TupleDomain.all())) {
+            throw new PrestoException(INVALID_ARGUMENTS, "iceberg metadata delete doesn't support predicates");
+        }
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        if (handle.getTableType().equals(SAMPLES)) {
+            icebergTable = SampleUtil.getSampleTableFromActual(icebergTable, handle.getSchemaName(), hdfsEnvironment, session);
+        }
+        transaction = icebergTable.newTransaction();
+        DeleteFiles deletes = transaction.newDelete();
+        AtomicLong rowsDeleted = new AtomicLong(0L);
+        try (CloseableIterable<FileScanTask> files = icebergTable.newScan().planFiles()) {
+            files.forEach(t -> {
+                deletes.deleteFile(t.file());
+                rowsDeleted.addAndGet(t.estimatedRowsCount());
+            });
+        }
+        catch (IOException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "failed to scan files for delete", e);
+        }
+        deletes.commit();
+        transaction.commitTransaction();
+        return OptionalLong.of(rowsDeleted.get());
     }
 
     protected List<ColumnMetadata> getColumnMetadatas(org.apache.iceberg.Table table)
