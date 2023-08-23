@@ -25,7 +25,7 @@ namespace facebook::velox::memory {
 /// The implementation of MemoryAllocator using malloc.
 class MallocAllocator : public MemoryAllocator {
  public:
-  explicit MallocAllocator(size_t capacity = 0);
+  explicit MallocAllocator(size_t capacity);
 
   ~MallocAllocator() override {
     // TODO: Remove the check when memory leak issue is resolved.
@@ -146,7 +146,7 @@ class MallocAllocator : public MemoryAllocator {
   const Kind kind_;
 
   /// Capacity in bytes. Total allocation byte is not allowed to exceed this
-  /// value. Setting this to 0 means no capacity enforcement.
+  /// value.
   const size_t capacity_;
 
   /// Current total allocated bytes by this 'MallocAllocator'.

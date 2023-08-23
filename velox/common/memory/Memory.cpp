@@ -58,12 +58,19 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
               .checkUsageLeak = options.checkUsageLeak,
               .debugEnabled = options.debugEnabled})} {
   VELOX_CHECK_NOT_NULL(allocator_);
+  VELOX_CHECK_EQ(
+      allocator_->capacity(),
+      capacity_,
+      "MemoryAllocator capacity {} must be the same as MemoryManager capacity {}.",
+      allocator_->capacity(),
+      capacity_);
+  VELOX_USER_CHECK_GE(capacity_, 0);
+
   if (arbitrator_ == nullptr && options.queryMemoryCapacity != kMaxMemory) {
     LOG(WARNING) << "MemoryArbitrator is not set while "
                     "MemoryManagerOptions::queryMemoryCapacity is set as "
                  << options.queryMemoryCapacity;
   }
-  VELOX_USER_CHECK_GE(capacity_, 0);
   MemoryAllocator::alignmentCheck(0, alignment_);
   defaultRoot_->grow(defaultRoot_->maxCapacity());
   const size_t numSharedPools =
@@ -225,8 +232,9 @@ MemoryArbitrator* MemoryManager::arbitrator() {
 
 std::string MemoryManager::toString() const {
   std::stringstream out;
-  out << "Memory Manager[capacity " << succinctBytes(capacity_) << " alignment "
-      << succinctBytes(alignment_) << " usedBytes "
+  out << "Memory Manager[capacity "
+      << (capacity_ == kMaxMemory ? "UNLIMITED" : succinctBytes(capacity_))
+      << " alignment " << succinctBytes(alignment_) << " usedBytes "
       << succinctBytes(getTotalBytes()) << " number of pools " << numPools()
       << "\n";
   out << "List of root pools:\n";

@@ -114,7 +114,7 @@ MemoryAllocator* MemoryAllocator::getInstance() {
 
 // static
 std::shared_ptr<MemoryAllocator> MemoryAllocator::createDefaultInstance() {
-  return std::make_shared<MallocAllocator>();
+  return std::make_shared<MallocAllocator>(kDefaultCapacityBytes);
 }
 
 // static

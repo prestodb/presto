@@ -21,6 +21,7 @@
 #include "folly/experimental/EventCount.h"
 #include "folly/futures/Barrier.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/memory/MallocAllocator.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MemoryArbitrator.h"
 #include "velox/common/memory/SharedArbitrator.h"
@@ -404,8 +405,11 @@ class MockSharedArbitrationTest : public testing::Test {
     if (memoryPoolTransferCapacity == 0) {
       memoryPoolTransferCapacity = kMemoryPoolTransferCapacity;
     }
+    memoryCapacity = (memoryCapacity != 0) ? memoryCapacity : kMemoryCapacity;
+    allocator_ = std::make_shared<MallocAllocator>(memoryCapacity);
     MemoryManagerOptions options;
-    options.capacity = (memoryCapacity != 0) ? memoryCapacity : kMemoryCapacity;
+    options.allocator = allocator_.get();
+    options.capacity = allocator_->capacity();
     std::string arbitratorKind = "SHARED";
     options.arbitratorKind = arbitratorKind;
     options.capacity = options.capacity;
@@ -437,6 +441,7 @@ class MockSharedArbitrationTest : public testing::Test {
     tasks_.clear();
   }
 
+  std::shared_ptr<MemoryAllocator> allocator_;
   std::unique_ptr<MemoryManager> manager_;
   SharedArbitrator* arbitrator_;
   std::vector<std::shared_ptr<MockTask>> tasks_;

@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 #include "velox/common/memory/AllocationPool.h"
+#include "velox/common/memory/MallocAllocator.h"
+#include "velox/common/memory/Memory.h"
 
-#include <folly/container/F14Map.h>
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
@@ -24,8 +25,13 @@ using namespace facebook::velox;
 class AllocationPoolTest : public testing::Test {
  protected:
   void SetUp() override {
-    auto root_ = memory::MemoryManager::getInstance().addRootPool(
-        "allocationPoolTestRoot");
+    allocator_ = std::make_shared<memory::MallocAllocator>(8L << 30);
+    manager_ =
+        std::make_shared<memory::MemoryManager>(memory::MemoryManagerOptions{
+            .capacity = (int64_t)allocator_->capacity(),
+            .allocator = allocator_.get()});
+
+    root_ = manager_->addRootPool("allocationPoolTestRoot");
     pool_ = root_->addLeafChild("leaf");
   }
 
@@ -34,6 +40,8 @@ class AllocationPoolTest : public testing::Test {
     *reinterpret_cast<char*>(ptr) = 1;
   }
 
+  std::shared_ptr<memory::MemoryAllocator> allocator_;
+  std::shared_ptr<memory::MemoryManager> manager_;
   std::shared_ptr<memory::MemoryPool> root_;
   std::shared_ptr<memory::MemoryPool> pool_;
 };

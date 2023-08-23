@@ -52,7 +52,7 @@ TEST_F(MemoryManagerTest, Ctor) {
   {
     MemoryManager manager{};
     ASSERT_EQ(manager.numPools(), 0);
-    ASSERT_EQ(manager.capacity(), kMaxMemory);
+    ASSERT_EQ(manager.capacity(), MemoryAllocator::kDefaultCapacityBytes);
     ASSERT_EQ(0, manager.getTotalBytes());
     ASSERT_EQ(manager.alignment(), MemoryAllocator::kMaxAlignment);
     ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
@@ -61,31 +61,50 @@ TEST_F(MemoryManagerTest, Ctor) {
     ASSERT_EQ(manager.arbitrator(), nullptr);
   }
   {
-    MemoryManager manager{{.capacity = 8L * 1024 * 1024}};
-    ASSERT_EQ(8L * 1024 * 1024, manager.capacity());
+    const auto kCapacity = 8L * 1024 * 1024;
+    auto allocator = std::make_shared<MallocAllocator>(kCapacity);
+    MemoryManager manager{
+        {.capacity = kCapacity, .allocator = allocator.get()}};
+    ASSERT_EQ(kCapacity, manager.capacity());
     ASSERT_EQ(manager.numPools(), 0);
     ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
   }
   {
-    MemoryManager manager{{.alignment = 0, .capacity = 8L * 1024 * 1024}};
+    const auto kCapacity = 8L * 1024 * 1024;
+    auto allocator = std::make_shared<MallocAllocator>(kCapacity);
+    MemoryManager manager{
+        {.alignment = 0, .capacity = kCapacity, .allocator = allocator.get()}};
 
     ASSERT_EQ(manager.alignment(), MemoryAllocator::kMinAlignment);
     ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
     // TODO: replace with root pool memory tracker quota check.
     ASSERT_EQ(kSharedPoolCount, manager.testingDefaultRoot().getChildCount());
-    ASSERT_EQ(8L * 1024 * 1024, manager.capacity());
+    ASSERT_EQ(kCapacity, manager.capacity());
     ASSERT_EQ(0, manager.getTotalBytes());
   }
   {
     MemoryManagerOptions options;
-    const auto capacity = folly::Random::rand32();
-    options.capacity = capacity;
+    const auto kCapacity = folly::Random::rand32();
+    auto allocator = std::make_shared<MallocAllocator>(kCapacity);
+    options.capacity = kCapacity;
+    options.allocator = allocator.get();
     std::string arbitratorKind = "SHARED";
     options.arbitratorKind = arbitratorKind;
     MemoryManager manager{options};
     auto* arbitrator = manager.arbitrator();
     ASSERT_EQ(arbitrator->kind(), arbitratorKind);
-    ASSERT_EQ(arbitrator->stats().maxCapacityBytes, capacity);
+    ASSERT_EQ(arbitrator->stats().maxCapacityBytes, kCapacity);
+  }
+  {
+    // Test construction failure due to inconsistent allocator capacity setting.
+    MemoryManagerOptions options;
+    const auto kCapacity = 8L * 1024 * 1024;
+    options.capacity = kCapacity;
+    auto allocator = std::make_shared<MallocAllocator>(kCapacity + 1);
+    options.allocator = allocator.get();
+    VELOX_ASSERT_THROW(
+        MemoryManager(options),
+        "MemoryAllocator capacity 8388609 must be the same as MemoryManager capacity 8388608");
   }
 }
 
@@ -138,6 +157,8 @@ TEST_F(MemoryManagerTest, createWithCustomArbitrator) {
   options.arbitratorKind = kindString;
   options.capacity = 8L << 20;
   options.queryMemoryCapacity = 256L << 20;
+  auto allocator = std::make_shared<MallocAllocator>(options.capacity);
+  options.allocator = allocator.get();
   MemoryManager manager{options};
   ASSERT_EQ(manager.arbitrator()->capacity(), options.capacity);
 }
@@ -171,7 +192,10 @@ TEST_F(MemoryManagerTest, addPool) {
 
 TEST_F(MemoryManagerTest, addPoolWithArbitrator) {
   MemoryManagerOptions options;
-  options.capacity = 32L << 30;
+  const auto kCapacity = 32L << 30;
+  auto allocator = std::make_shared<MallocAllocator>(kCapacity);
+  options.allocator = allocator.get();
+  options.capacity = kCapacity;
   options.arbitratorKind = arbitratorKind_;
   // The arbitrator capacity will be overridden by the memory manager's
   // capacity.
@@ -235,10 +259,10 @@ TEST_F(MemoryManagerTest, defaultMemoryManager) {
   ASSERT_EQ(managerB.numPools(), 3);
   ASSERT_EQ(
       managerA.toString(),
-      "Memory Manager[capacity 8388608.00TB alignment 64B usedBytes 0B number of pools 3\nList of root pools:\n\t__default_root__\n\tdefault_root_0\n]");
+      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 3\nList of root pools:\n\t__default_root__\n\tdefault_root_0\n]");
   ASSERT_EQ(
       managerB.toString(),
-      "Memory Manager[capacity 8388608.00TB alignment 64B usedBytes 0B number of pools 3\nList of root pools:\n\t__default_root__\n\tdefault_root_0\n]");
+      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 3\nList of root pools:\n\t__default_root__\n\tdefault_root_0\n]");
   child1.reset();
   EXPECT_EQ(
       kSharedPoolCount + 1, managerA.testingDefaultRoot().getChildCount());
@@ -251,10 +275,10 @@ TEST_F(MemoryManagerTest, defaultMemoryManager) {
   ASSERT_EQ(managerB.numPools(), 0);
   ASSERT_EQ(
       managerA.toString(),
-      "Memory Manager[capacity 8388608.00TB alignment 64B usedBytes 0B number of pools 0\nList of root pools:\n\t__default_root__\n]");
+      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 0\nList of root pools:\n\t__default_root__\n]");
   ASSERT_EQ(
       managerB.toString(),
-      "Memory Manager[capacity 8388608.00TB alignment 64B usedBytes 0B number of pools 0\nList of root pools:\n\t__default_root__\n]");
+      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 0\nList of root pools:\n\t__default_root__\n]");
 }
 
 TEST(MemoryHeaderTest, addDefaultLeafMemoryPool) {

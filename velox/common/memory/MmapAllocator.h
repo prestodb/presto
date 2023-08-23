@@ -49,8 +49,8 @@ using ClassPageCount = int32_t;
 class MmapAllocator : public MemoryAllocator {
  public:
   struct Options {
-    ///  Capacity in bytes, default 512MB
-    uint64_t capacity = 1L << 29;
+    ///  Capacity in bytes, default unlimited.
+    uint64_t capacity = kDefaultCapacityBytes;
 
     /// If set true, allocations larger than largest size class size will be
     /// delegated to ManagedMmapArena. Otherwise a system mmap call will be

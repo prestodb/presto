@@ -17,6 +17,7 @@
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/memory/MallocAllocator.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/common/FileSink.h"
 #include "velox/exec/Exchange.h"
@@ -66,7 +67,7 @@ void OperatorTestBase::SetUp() {
   }
   driverExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(3);
   ioExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(3);
-  allocator_ = memory::MemoryAllocator::createDefaultInstance();
+  allocator_ = std::make_shared<memory::MallocAllocator>(8L << 30);
   if (!asyncDataCache_) {
     asyncDataCache_ = cache::AsyncDataCache::create(allocator_.get());
     cache::AsyncDataCache::setInstance(asyncDataCache_.get());

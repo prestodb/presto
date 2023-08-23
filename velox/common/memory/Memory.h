@@ -64,7 +64,7 @@ struct MemoryManagerOptions {
 
   /// Specifies the max memory capacity in bytes. MemoryManager will not
   /// enforce capacity. This will be used by MemoryArbitrator
-  int64_t capacity{kMaxMemory};
+  int64_t capacity{MemoryAllocator::kDefaultCapacityBytes};
 
   /// Memory capacity for query/task memory pools. This capacity setting should
   /// be equal or smaller than 'capacity'. The difference between 'capacity' and
@@ -127,9 +127,6 @@ class MemoryManager {
 
   /// Tries to get the singleton memory manager. If not previously initialized,
   /// the process singleton manager will be initialized.
-  // TODO(jtan6): remove 'ensureCapacity' in a compatible way as we always
-  //  want to ensureCapacity after cap checks completely responsible by
-  //  allocators
   FOLLY_EXPORT static MemoryManager& getInstance(
       const MemoryManagerOptions& options = MemoryManagerOptions{});
 

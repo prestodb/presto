@@ -15,11 +15,11 @@
  */
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/MallocAllocator.h"
+#include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
-#include <gmock/gmock.h>
 #include <re2/re2.h>
 
 DECLARE_bool(velox_suppress_memory_capacity_exceeding_error_message);
@@ -204,7 +204,9 @@ TEST_P(MemoryCapExceededTest, allocatorCapacityExceededError) {
           ".* reservation .used .*MB, reserved .*MB, min .*B. counters",
           ".*, frees .*, reserves .*, releases .*, collisions .*"}});
   for (auto& allocExp : allocatorExpectations) {
-    memory::MemoryManager manager({.allocator = allocExp.first.get()});
+    memory::MemoryManager manager(
+        {.capacity = (int64_t)allocExp.first->capacity(),
+         .allocator = allocExp.first.get()});
 
     vector_size_t size = 1'024;
     // This limit ensures that only the Aggregation Operator fails.
