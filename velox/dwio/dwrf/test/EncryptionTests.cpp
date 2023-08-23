@@ -213,11 +213,11 @@ TEST(Encryption, NestedType) {
   ASSERT_EQ(handler->getEncryptionGroupCount(), 2);
   for (auto i = 0; i < withId->size(); ++i) {
     auto& col = withId->childAt(i);
-    bool encrypted = (col->column % 2 == 1);
-    for (auto j = col->id; j <= col->maxId; ++j) {
+    bool encrypted = (col->column() % 2 == 1);
+    for (auto j = col->id(); j <= col->maxId(); ++j) {
       ASSERT_EQ(handler->isEncrypted(j), encrypted);
       if (encrypted) {
-        ASSERT_EQ(handler->getEncryptionRoot(j), col->id);
+        ASSERT_EQ(handler->getEncryptionRoot(j), col->id());
       }
     }
   }

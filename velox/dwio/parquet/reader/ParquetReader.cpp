@@ -268,7 +268,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
           auto element = children.at(0)->getChildren();
           VELOX_CHECK_EQ(children.size(), 1);
           return std::make_shared<const ParquetTypeWithId>(
-              children[0]->type,
+              children[0]->type(),
               std::move(element),
               curSchemaIdx, // TODO: there are holes in the ids
               maxSchemaElementIdx,
@@ -288,7 +288,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
           auto childrenCopy = children;
           return std::make_shared<const ParquetTypeWithId>(
               TypeFactory<TypeKind::MAP>::create(
-                  children[0]->type, children[1]->type),
+                  children[0]->type(), children[1]->type()),
               std::move(childrenCopy),
               curSchemaIdx, // TODO: there are holes in the ids
               maxSchemaElementIdx,
@@ -313,7 +313,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
           // child of LIST
           auto childrenCopy = children;
           return std::make_shared<ParquetTypeWithId>(
-              TypeFactory<TypeKind::ARRAY>::create(children[0]->type),
+              TypeFactory<TypeKind::ARRAY>::create(children[0]->type()),
               std::move(childrenCopy),
               curSchemaIdx,
               maxSchemaElementIdx,
@@ -328,7 +328,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
           auto childrenCopy = children;
           return std::make_shared<const ParquetTypeWithId>(
               TypeFactory<TypeKind::MAP>::create(
-                  children[0]->type, children[1]->type),
+                  children[0]->type(), children[1]->type()),
               std::move(childrenCopy),
               curSchemaIdx, // TODO: there are holes in the ids
               maxSchemaElementIdx,
@@ -559,7 +559,7 @@ std::shared_ptr<const RowType> ReaderBase::createRowType(
       folly::toLowerAscii(childName);
     }
     childNames.push_back(std::move(childName));
-    childTypes.push_back(child->type);
+    childTypes.push_back(child->type());
   }
   return TypeFactory<TypeKind::ROW>::create(
       std::move(childNames), std::move(childTypes));
@@ -596,9 +596,9 @@ void ReaderBase::scheduleRowGroups(
 int64_t ReaderBase::rowGroupUncompressedSize(
     int32_t rowGroupIndex,
     const dwio::common::TypeWithId& type) const {
-  if (type.column != ParquetTypeWithId::kNonLeaf) {
+  if (type.column() != ParquetTypeWithId::kNonLeaf) {
     return fileMetaData_->row_groups[rowGroupIndex]
-        .columns[type.column]
+        .columns[type.column()]
         .meta_data.total_uncompressed_size;
   }
   int64_t sum = 0;

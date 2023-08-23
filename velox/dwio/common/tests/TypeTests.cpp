@@ -40,8 +40,8 @@ TEST(TestType, selectedType) {
       "col5:int,col6:bigint,col7:string>",
       HiveTypeSerializer::serialize(type).c_str());
   auto typeWithId = TypeWithId::create(type);
-  EXPECT_EQ(0, typeWithId->id);
-  EXPECT_EQ(11, typeWithId->maxId);
+  EXPECT_EQ(0, typeWithId->id());
+  EXPECT_EQ(11, typeWithId->maxId());
 
   std::vector<bool> selected(12);
   selected[0] = true;
@@ -50,10 +50,10 @@ TEST(TestType, selectedType) {
   auto cutType = buildSelectedType(typeWithId, selector);
   EXPECT_STREQ(
       "struct<col1:smallint>",
-      HiveTypeSerializer::serialize(cutType->type).c_str());
-  EXPECT_EQ(0, cutType->id);
-  EXPECT_EQ(11, cutType->maxId);
-  EXPECT_EQ(2, cutType->childAt(0)->maxId);
+      HiveTypeSerializer::serialize(cutType->type()).c_str());
+  EXPECT_EQ(0, cutType->id());
+  EXPECT_EQ(11, cutType->maxId());
+  EXPECT_EQ(2, cutType->childAt(0)->maxId());
 
   selected.assign(12, true);
   cutType = buildSelectedType(typeWithId, selector);
@@ -61,9 +61,9 @@ TEST(TestType, selectedType) {
       "struct<col0:tinyint,col1:smallint,col2:array<string>,"
       "col3:map<float,double>,col4:float,"
       "col5:int,col6:bigint,col7:string>",
-      HiveTypeSerializer::serialize(cutType->type).c_str());
-  EXPECT_EQ(0, cutType->id);
-  EXPECT_EQ(11, cutType->maxId);
+      HiveTypeSerializer::serialize(cutType->type()).c_str());
+  EXPECT_EQ(0, cutType->id());
+  EXPECT_EQ(11, cutType->maxId());
 
   selected.assign(12, false);
   selected[0] = true;
@@ -71,11 +71,11 @@ TEST(TestType, selectedType) {
   cutType = buildSelectedType(typeWithId, selector);
   EXPECT_STREQ(
       "struct<col4:float>",
-      HiveTypeSerializer::serialize(cutType->type).c_str());
-  EXPECT_EQ(0, cutType->id);
-  EXPECT_EQ(11, cutType->maxId);
-  EXPECT_EQ(8, cutType->childAt(0)->id);
-  EXPECT_EQ(8, cutType->childAt(0)->maxId);
+      HiveTypeSerializer::serialize(cutType->type()).c_str());
+  EXPECT_EQ(0, cutType->id());
+  EXPECT_EQ(11, cutType->maxId());
+  EXPECT_EQ(8, cutType->childAt(0)->id());
+  EXPECT_EQ(8, cutType->childAt(0)->maxId());
 
   selected.assign(12, false);
   selected[0] = true;
@@ -93,7 +93,7 @@ TEST(TestType, selectedType) {
   cutType = buildSelectedType(typeWithId, selector);
   EXPECT_STREQ(
       "struct<col2:array<string>>",
-      HiveTypeSerializer::serialize(cutType->type).c_str());
+      HiveTypeSerializer::serialize(cutType->type()).c_str());
 
   selected.assign(12, false);
   selected[0] = true;
@@ -108,9 +108,9 @@ TEST(TestType, selectedType) {
   cutType = buildSelectedType(typeWithId, selector);
   EXPECT_STREQ(
       "struct<col3:map<float,double>>",
-      HiveTypeSerializer::serialize(cutType->type).c_str());
-  EXPECT_EQ(5, cutType->childAt(0)->id);
-  EXPECT_EQ(7, cutType->childAt(0)->maxId);
+      HiveTypeSerializer::serialize(cutType->type()).c_str());
+  EXPECT_EQ(5, cutType->childAt(0)->id());
+  EXPECT_EQ(7, cutType->childAt(0)->maxId());
 
   // TODO : Consider supporting partial selection of some compound types
   selected.assign(12, false);
@@ -137,11 +137,11 @@ TEST(TestType, selectedType) {
   cutType = buildSelectedType(typeWithId, selector);
   EXPECT_STREQ(
       "struct<col0:tinyint,col7:string>",
-      HiveTypeSerializer::serialize(cutType->type).c_str());
-  EXPECT_EQ(1, cutType->childAt(0)->id);
-  EXPECT_EQ(1, cutType->childAt(0)->maxId);
-  EXPECT_EQ(11, cutType->childAt(1)->id);
-  EXPECT_EQ(11, cutType->childAt(1)->maxId);
+      HiveTypeSerializer::serialize(cutType->type()).c_str());
+  EXPECT_EQ(1, cutType->childAt(0)->id());
+  EXPECT_EQ(1, cutType->childAt(0)->maxId());
+  EXPECT_EQ(11, cutType->childAt(1)->id());
+  EXPECT_EQ(11, cutType->childAt(1)->maxId());
 }
 
 TEST(TestType, buildTypeFromString) {
@@ -229,60 +229,60 @@ TEST(TestType, typeColumns) {
       "col3:map<float,double>,col4:float,"
       "col5:int,col6:bigint,col7:struct<c1:tinyint,c2:map<int,float>>,col8:string>");
   auto typeWithId = TypeWithId::create(type);
-  EXPECT_EQ(0, typeWithId->id);
-  EXPECT_EQ(0, typeWithId->column);
+  EXPECT_EQ(0, typeWithId->id());
+  EXPECT_EQ(0, typeWithId->column());
   EXPECT_EQ(9, typeWithId->size());
 
-  EXPECT_EQ(0, typeWithId->childAt(0)->column);
+  EXPECT_EQ(0, typeWithId->childAt(0)->column());
   EXPECT_EQ(0, typeWithId->childAt(0)->size());
 
-  EXPECT_EQ(1, typeWithId->childAt(1)->column);
+  EXPECT_EQ(1, typeWithId->childAt(1)->column());
   EXPECT_EQ(0, typeWithId->childAt(1)->size());
 
-  EXPECT_EQ(2, typeWithId->childAt(2)->column);
+  EXPECT_EQ(2, typeWithId->childAt(2)->column());
   EXPECT_EQ(1, typeWithId->childAt(2)->size());
-  EXPECT_EQ(2, typeWithId->childAt(2)->childAt(0)->column);
+  EXPECT_EQ(2, typeWithId->childAt(2)->childAt(0)->column());
 
-  EXPECT_EQ(3, typeWithId->childAt(3)->column);
+  EXPECT_EQ(3, typeWithId->childAt(3)->column());
   EXPECT_EQ(2, typeWithId->childAt(3)->size());
-  EXPECT_EQ(3, typeWithId->childAt(3)->childAt(0)->column);
-  EXPECT_EQ(3, typeWithId->childAt(3)->childAt(1)->column);
+  EXPECT_EQ(3, typeWithId->childAt(3)->childAt(0)->column());
+  EXPECT_EQ(3, typeWithId->childAt(3)->childAt(1)->column());
   EXPECT_EQ(0, typeWithId->childAt(3)->childAt(0)->size());
   EXPECT_EQ(0, typeWithId->childAt(3)->childAt(1)->size());
 
-  EXPECT_EQ(4, typeWithId->childAt(4)->column);
+  EXPECT_EQ(4, typeWithId->childAt(4)->column());
   EXPECT_EQ(0, typeWithId->childAt(4)->size());
 
-  EXPECT_EQ(5, typeWithId->childAt(5)->column);
+  EXPECT_EQ(5, typeWithId->childAt(5)->column());
   EXPECT_EQ(0, typeWithId->childAt(5)->size());
 
-  EXPECT_EQ(6, typeWithId->childAt(6)->column);
+  EXPECT_EQ(6, typeWithId->childAt(6)->column());
   EXPECT_EQ(0, typeWithId->childAt(6)->size());
 
   // Only root struct types should allocate column ids.
   // Sub struct types should inherit column id and not
   // allocate new ids
-  EXPECT_EQ(7, typeWithId->childAt(7)->column);
+  EXPECT_EQ(7, typeWithId->childAt(7)->column());
   EXPECT_EQ(2, typeWithId->childAt(7)->size());
-  EXPECT_EQ(7, typeWithId->childAt(7)->childAt(0)->column);
-  EXPECT_EQ(7, typeWithId->childAt(7)->childAt(1)->column);
+  EXPECT_EQ(7, typeWithId->childAt(7)->childAt(0)->column());
+  EXPECT_EQ(7, typeWithId->childAt(7)->childAt(1)->column());
   EXPECT_EQ(0, typeWithId->childAt(7)->childAt(0)->size());
   EXPECT_EQ(2, typeWithId->childAt(7)->childAt(1)->size());
-  EXPECT_EQ(7, typeWithId->childAt(7)->childAt(1)->childAt(0)->column);
-  EXPECT_EQ(7, typeWithId->childAt(7)->childAt(1)->childAt(1)->column);
+  EXPECT_EQ(7, typeWithId->childAt(7)->childAt(1)->childAt(0)->column());
+  EXPECT_EQ(7, typeWithId->childAt(7)->childAt(1)->childAt(1)->column());
 
-  EXPECT_EQ(8, typeWithId->childAt(8)->column);
+  EXPECT_EQ(8, typeWithId->childAt(8)->column());
   EXPECT_EQ(0, typeWithId->childAt(8)->size());
 
   // Root, non-struct compound objects should not allocate column ids
   // to child types
   type = HiveTypeParser().parse("map<float,double>");
   typeWithId = TypeWithId::create(type);
-  EXPECT_EQ(0, typeWithId->id);
-  EXPECT_EQ(0, typeWithId->column);
+  EXPECT_EQ(0, typeWithId->id());
+  EXPECT_EQ(0, typeWithId->column());
   EXPECT_EQ(2, typeWithId->size());
-  EXPECT_EQ(0, typeWithId->childAt(0)->column);
-  EXPECT_EQ(0, typeWithId->childAt(1)->column);
+  EXPECT_EQ(0, typeWithId->childAt(0)->column());
+  EXPECT_EQ(0, typeWithId->childAt(1)->column());
   EXPECT_EQ(0, typeWithId->childAt(0)->size());
   EXPECT_EQ(0, typeWithId->childAt(1)->size());
 }
@@ -293,54 +293,59 @@ TEST(TestType, typeParents) {
       "col3:map<float,double>,col4:float,"
       "col5:int,col6:bigint,col7:struct<c1:tinyint,c2:map<int,float>>,col8:string>");
   auto typeWithId = TypeWithId::create(type);
-  EXPECT_EQ(0, typeWithId->id);
-  EXPECT_EQ(nullptr, typeWithId->parent);
+  EXPECT_EQ(0, typeWithId->id());
+  EXPECT_EQ(nullptr, typeWithId->parent());
   EXPECT_EQ(9, typeWithId->size());
 
-  EXPECT_EQ(typeWithId.get(), typeWithId->childAt(0)->parent);
+  EXPECT_EQ(typeWithId.get(), typeWithId->childAt(0)->parent());
   EXPECT_EQ(0, typeWithId->childAt(0)->size());
 
-  EXPECT_EQ(typeWithId.get(), typeWithId->childAt(1)->parent);
+  EXPECT_EQ(typeWithId.get(), typeWithId->childAt(1)->parent());
   EXPECT_EQ(0, typeWithId->childAt(1)->size());
 
-  EXPECT_EQ(typeWithId.get(), typeWithId->childAt(2)->parent);
+  EXPECT_EQ(typeWithId.get(), typeWithId->childAt(2)->parent());
   EXPECT_EQ(1, typeWithId->childAt(2)->size());
   EXPECT_EQ(
-      typeWithId->childAt(2).get(), typeWithId->childAt(2)->childAt(0)->parent);
+      typeWithId->childAt(2).get(),
+      typeWithId->childAt(2)->childAt(0)->parent());
 
-  EXPECT_EQ(typeWithId.get(), typeWithId->childAt(3)->parent);
+  EXPECT_EQ(typeWithId.get(), typeWithId->childAt(3)->parent());
   EXPECT_EQ(2, typeWithId->childAt(3)->size());
   EXPECT_EQ(
-      typeWithId->childAt(3).get(), typeWithId->childAt(3)->childAt(0)->parent);
+      typeWithId->childAt(3).get(),
+      typeWithId->childAt(3)->childAt(0)->parent());
   EXPECT_EQ(
-      typeWithId->childAt(3).get(), typeWithId->childAt(3)->childAt(1)->parent);
+      typeWithId->childAt(3).get(),
+      typeWithId->childAt(3)->childAt(1)->parent());
   EXPECT_EQ(0, typeWithId->childAt(3)->childAt(0)->size());
   EXPECT_EQ(0, typeWithId->childAt(3)->childAt(1)->size());
 
-  EXPECT_EQ(typeWithId.get(), typeWithId->childAt(4)->parent);
+  EXPECT_EQ(typeWithId.get(), typeWithId->childAt(4)->parent());
   EXPECT_EQ(0, typeWithId->childAt(4)->size());
 
-  EXPECT_EQ(typeWithId.get(), typeWithId->childAt(5)->parent);
+  EXPECT_EQ(typeWithId.get(), typeWithId->childAt(5)->parent());
   EXPECT_EQ(0, typeWithId->childAt(5)->size());
 
-  EXPECT_EQ(typeWithId.get(), typeWithId->childAt(6)->parent);
+  EXPECT_EQ(typeWithId.get(), typeWithId->childAt(6)->parent());
   EXPECT_EQ(0, typeWithId->childAt(6)->size());
 
-  EXPECT_EQ(typeWithId.get(), typeWithId->childAt(7)->parent);
+  EXPECT_EQ(typeWithId.get(), typeWithId->childAt(7)->parent());
   EXPECT_EQ(2, typeWithId->childAt(7)->size());
   EXPECT_EQ(
-      typeWithId->childAt(7).get(), typeWithId->childAt(7)->childAt(0)->parent);
+      typeWithId->childAt(7).get(),
+      typeWithId->childAt(7)->childAt(0)->parent());
   EXPECT_EQ(
-      typeWithId->childAt(7).get(), typeWithId->childAt(7)->childAt(1)->parent);
+      typeWithId->childAt(7).get(),
+      typeWithId->childAt(7)->childAt(1)->parent());
   EXPECT_EQ(0, typeWithId->childAt(7)->childAt(0)->size());
   EXPECT_EQ(2, typeWithId->childAt(7)->childAt(1)->size());
   EXPECT_EQ(
       typeWithId->childAt(7)->childAt(1).get(),
-      typeWithId->childAt(7)->childAt(1)->childAt(0)->parent);
+      typeWithId->childAt(7)->childAt(1)->childAt(0)->parent());
   EXPECT_EQ(
       typeWithId->childAt(7)->childAt(1).get(),
-      typeWithId->childAt(7)->childAt(1)->childAt(1)->parent);
+      typeWithId->childAt(7)->childAt(1)->childAt(1)->parent());
 
-  EXPECT_EQ(typeWithId.get(), typeWithId->childAt(8)->parent);
+  EXPECT_EQ(typeWithId.get(), typeWithId->childAt(8)->parent());
   EXPECT_EQ(0, typeWithId->childAt(8)->size());
 }

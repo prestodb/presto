@@ -50,7 +50,7 @@ dwio::common::flatmap::KeyPredicate<T> prepareKeyPredicate(
     const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
     StripeStreams& stripe) {
   auto& cs = stripe.getColumnSelector();
-  const auto expr = cs.getNode(requestedType->id)->getNode().expression;
+  const auto expr = cs.getNode(requestedType->id())->getNode().expression;
   return dwio::common::flatmap::prepareKeyPredicate<T>(expr);
 }
 
@@ -119,14 +119,14 @@ std::vector<KeyNode<T>> getKeyNodes(
   // Load all sub streams.
   // Fetch reader, in map bitmap and key object.
   auto streams = stripe.visitStreamsOfNode(
-      dataValueType->id, [&](const StreamInformation& stream) {
+      dataValueType->id(), [&](const StreamInformation& stream) {
         auto sequence = stream.getSequence();
         // No need to load shared dictionary stream here.
         if (sequence == 0 || processed.count(sequence)) {
           return;
         }
         processed.insert(sequence);
-        EncodingKey seqEk(dataValueType->id, sequence);
+        EncodingKey seqEk(dataValueType->id(), sequence);
         const auto& keyInfo = stripe.getEncoding(seqEk).key();
         auto key = extractKey<T>(keyInfo);
         // Check if we have key filter passed through read schema.
@@ -173,7 +173,7 @@ std::vector<KeyNode<T>> getKeyNodes(
       });
 
   VLOG(1) << "[Flat-Map] Initialized a flat-map column reader for node "
-          << dataType->id << ", keys=" << keyNodes.size()
+          << dataType->id() << ", keys=" << keyNodes.size()
           << ", streams=" << streams;
 
   return keyNodes;
@@ -236,7 +236,7 @@ class SelectiveFlatMapReader : public SelectiveStructColumnReaderBase {
     for (int i = 0; i < keyNodes_.size(); ++i) {
       children_[i] = keyNodes_[i].reader.get();
     }
-    if (auto type = requestedType_->type->childAt(1); type->isRow()) {
+    if (auto type = requestedType_->type()->childAt(1); type->isRow()) {
       for (auto& vec : childValues_) {
         vec = BaseVector::create(type, 0, &memoryPool_);
       }
@@ -320,7 +320,7 @@ class SelectiveFlatMapReader : public SelectiveStructColumnReaderBase {
         anyNulls_ = true;
       }
     }
-    auto& mapType = requestedType_->type->asMap();
+    auto& mapType = requestedType_->type()->asMap();
     VectorPtr keys =
         BaseVector::create(mapType.keyType(), totalSize, &memoryPool_);
     VectorPtr values =
@@ -373,7 +373,7 @@ class SelectiveFlatMapReader : public SelectiveStructColumnReaderBase {
     }
     *result = std::make_shared<MapVector>(
         &memoryPool_,
-        requestedType_->type,
+        requestedType_->type(),
         anyNulls_ ? resultNulls_ : nullptr,
         rows.size(),
         std::move(offsets),
@@ -397,7 +397,7 @@ std::unique_ptr<dwio::common::SelectiveColumnReader> createReader(
     common::ScanSpec& scanSpec) {
   auto& mapColumnIdAsStruct =
       params.stripeStreams().getRowReaderOptions().getMapColumnIdAsStruct();
-  auto it = mapColumnIdAsStruct.find(requestedType->id);
+  auto it = mapColumnIdAsStruct.find(requestedType->id());
   if (it != mapColumnIdAsStruct.end()) {
     return std::make_unique<SelectiveFlatMapAsStructReader<T>>(
         requestedType, dataType, params, scanSpec, it->second);
@@ -415,7 +415,7 @@ createSelectiveFlatMapColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
     DwrfParams& params,
     common::ScanSpec& scanSpec) {
-  auto kind = dataType->childAt(0)->type->kind();
+  auto kind = dataType->childAt(0)->type()->kind();
   switch (kind) {
     case TypeKind::TINYINT:
       return createReader<int8_t>(requestedType, dataType, params, scanSpec);

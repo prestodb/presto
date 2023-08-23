@@ -121,8 +121,8 @@ class LayoutResult {
           consumer) const;
 
  private:
-  StreamList streams_;
-  size_t indexCount_;
+  const StreamList streams_;
+  const size_t indexCount_;
 };
 
 class LayoutPlanner {

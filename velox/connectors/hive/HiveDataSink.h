@@ -20,6 +20,7 @@
 #include "velox/connectors/hive/PartitionIdGenerator.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/Writer.h"
+#include "velox/dwio/common/WriterFactory.h"
 
 namespace facebook::velox::dwrf {
 class Writer;
@@ -461,6 +462,7 @@ class HiveDataSink : public DataSink {
   const std::unique_ptr<PartitionIdGenerator> partitionIdGenerator_;
   const int32_t bucketCount_{0};
   const std::unique_ptr<core::PartitionFunction> bucketFunction_;
+  std::shared_ptr<dwio::common::WriterFactory> writerFactory_;
 
   // The map from writer id to the writer index in 'writers_' and 'writerInfo_'.
   folly::F14FastMap<HiveWriterId, uint32_t, HiveWriterIdHasher, HiveWriterIdEq>

@@ -254,8 +254,8 @@ class PageReader {
       Visitor visitor) {
     if (nulls) {
       nullsFromFastPath = dwio::common::useFastPath<Visitor, true>(visitor) &&
-          (!this->type_->type->isLongDecimal()) &&
-          (this->type_->type->isShortDecimal() ? isDictionary() : true);
+          (!this->type_->type()->isLongDecimal()) &&
+          (this->type_->type()->isShortDecimal() ? isDictionary() : true);
 
       if (isDictionary()) {
         auto dictVisitor = visitor.toDictionaryColumnVisitor();
@@ -270,7 +270,7 @@ class PageReader {
         dictionaryIdDecoder_->readWithVisitor<false>(nullptr, dictVisitor);
       } else {
         directDecoder_->readWithVisitor<false>(
-            nulls, visitor, !this->type_->type->isShortDecimal());
+            nulls, visitor, !this->type_->type()->isShortDecimal());
       }
     }
   }

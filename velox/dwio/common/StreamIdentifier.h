@@ -50,7 +50,7 @@ class StreamIdentifier {
   }
 
   /// Returns a special value indicating a stream to be read load quantum by
-  /// load quantum
+  /// load quantum.
   static StreamIdentifier sequentialFile() {
     constexpr int32_t kSequentialFile = std::numeric_limits<int32_t>::max() - 1;
     return StreamIdentifier(kSequentialFile);

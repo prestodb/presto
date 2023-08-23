@@ -106,32 +106,41 @@ class EncodingKey {
     return INVALID;
   }
 
- public:
   EncodingKey()
       : EncodingKey(dwio::common::MAX_UINT32, dwio::common::MAX_UINT32) {}
 
   /* implicit */ EncodingKey(uint32_t n, uint32_t s = 0)
-      : node{n}, sequence{s} {}
-  uint32_t node;
-  uint32_t sequence;
+      : node_{n}, sequence_{s} {}
 
   bool operator==(const EncodingKey& other) const {
-    return node == other.node && sequence == other.sequence;
+    return node_ == other.node_ && sequence_ == other.sequence_;
+  }
+
+  uint32_t node() const {
+    return node_;
+  }
+
+  uint32_t sequence() const {
+    return sequence_;
   }
 
   std::size_t hash() const {
-    return std::hash<uint32_t>()(node) ^ std::hash<uint32_t>()(sequence);
+    return std::hash<uint32_t>()(node_) ^ std::hash<uint32_t>()(sequence_);
   }
 
   bool valid() const {
-    return node != dwio::common::MAX_UINT32 && sequence >= 0;
+    return node_ != dwio::common::MAX_UINT32 && sequence_ >= 0;
   }
 
   std::string toString() const {
-    return fmt::format("[node={}, sequence={}]", node, sequence);
+    return fmt::format("[node={}, sequence={}]", node_, sequence_);
   }
 
   DwrfStreamIdentifier forKind(const proto::Stream_Kind kind) const;
+
+ private:
+  uint32_t node_;
+  uint32_t sequence_;
 };
 
 struct EncodingKeyHash {
@@ -143,11 +152,10 @@ struct EncodingKeyHash {
 class DwrfStreamIdentifier : public dwio::common::StreamIdentifier {
  public:
   static const DwrfStreamIdentifier& getInvalid() {
-    static const DwrfStreamIdentifier INVALID;
-    return INVALID;
+    static const DwrfStreamIdentifier kInvalidId;
+    return kInvalidId;
   }
 
- public:
   DwrfStreamIdentifier()
       : column_(dwio::common::MAX_UINT32), kind_(StreamKind_DATA) {}
 
@@ -208,8 +216,8 @@ class DwrfStreamIdentifier : public dwio::common::StreamIdentifier {
     return fmt::format(
         "[id={}, node={}, sequence={}, column={}, kind={}]",
         id_,
-        encodingKey_.node,
-        encodingKey_.sequence,
+        encodingKey_.node(),
+        encodingKey_.sequence(),
         column_,
         static_cast<uint32_t>(kind_));
   }

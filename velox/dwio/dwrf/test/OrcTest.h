@@ -47,7 +47,7 @@ class MockStripeStreams : public StripeStreams {
       std::string_view /* unused */,
       bool throwIfNotFound) const override {
     return std::unique_ptr<dwio::common::SeekableInputStream>(getStreamProxy(
-        si.encodingKey().node,
+        si.encodingKey().node(),
         static_cast<proto::Stream_Kind>(si.kind()),
         throwIfNotFound));
   }
@@ -57,7 +57,7 @@ class MockStripeStreams : public StripeStreams {
       uint64_t /* unused */,
       const StreamLabels& /* streamLabels */,
       uint64_t /* unused */) override {
-    return [this, nodeId = ek.node, sequenceId = ek.sequence]() {
+    return [this, nodeId = ek.node(), sequenceId = ek.sequence()]() {
       BufferPtr dictionaryData;
       genMockDictDataSetter(nodeId, sequenceId)(
           dictionaryData, &getMemoryPool());
@@ -67,7 +67,7 @@ class MockStripeStreams : public StripeStreams {
 
   const proto::ColumnEncoding& getEncoding(
       const EncodingKey& ek) const override {
-    return *getEncodingProxy(ek.node);
+    return *getEncodingProxy(ek.node());
   }
 
   DwrfFormat format() const override {

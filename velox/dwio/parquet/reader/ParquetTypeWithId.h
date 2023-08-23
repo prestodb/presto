@@ -60,7 +60,7 @@ class ParquetTypeWithId : public dwio::common::TypeWithId {
 
   bool isLeaf() const {
     // Negative column ordinal means non-leaf column.
-    return static_cast<int32_t>(column) >= 0;
+    return static_cast<int32_t>(column()) >= 0;
   }
 
   const ParquetTypeWithId& parquetChildAt(uint32_t index) const {
@@ -68,7 +68,7 @@ class ParquetTypeWithId : public dwio::common::TypeWithId {
   }
 
   const ParquetTypeWithId* FOLLY_NULLABLE parquetParent() const {
-    return reinterpret_cast<const ParquetTypeWithId*>(parent);
+    return reinterpret_cast<const ParquetTypeWithId*>(parent());
   }
 
   /// Fills 'info' and returns the mode for interpreting levels.

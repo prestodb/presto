@@ -66,18 +66,18 @@ FlatMapColumnWriter<K>::FlatMapColumnWriter(
   keyFileStatsBuilder_ =
       std::unique_ptr<typename TypeInfo<K>::StatisticsBuilder>(
           dynamic_cast<typename TypeInfo<K>::StatisticsBuilder*>(
-              StatisticsBuilder::create(*keyType_.type, options).release()));
+              StatisticsBuilder::create(*keyType_.type(), options).release()));
   valueFileStatsBuilder_ = ValueStatisticsBuilder::create(context_, valueType_);
   reset();
   const auto structColumnKeys =
       context.getConfig(Config::MAP_FLAT_COLS_STRUCT_KEYS);
   if (!structColumnKeys.empty()) {
     if constexpr (std::is_same_v<KeyType, StringView>) {
-      const auto& keys = structColumnKeys[type.column];
+      const auto& keys = structColumnKeys[type.column()];
       std::copy(keys.cbegin(), keys.cend(), std::back_inserter(stringKeys_));
       structKeys_ = parseKeys<KeyType>(stringKeys_);
     } else {
-      structKeys_ = parseKeys<KeyType>(structColumnKeys[type.column]);
+      structKeys_ = parseKeys<KeyType>(structColumnKeys[type.column()]);
     }
   }
 }
@@ -141,9 +141,9 @@ uint64_t FlatMapColumnWriter<K>::writeFileStats(
   fileStatsBuilder_->toProto(stats);
   uint64_t size = context_.getPhysicalSizeAggregator(id_).getResult();
 
-  auto& keyStats = statsFactory(keyType_.id);
+  auto& keyStats = statsFactory(keyType_.id());
   keyFileStatsBuilder_->toProto(keyStats);
-  auto keySize = context_.getPhysicalSizeAggregator(keyType_.id).getResult();
+  auto keySize = context_.getPhysicalSizeAggregator(keyType_.id()).getResult();
   keyStats.set_size(keySize);
 
   valueFileStatsBuilder_->writeFileStats(statsFactory);
@@ -157,14 +157,14 @@ void FlatMapColumnWriter<K>::clearNodes() {
   // stream should be reused. Even when the stream is not actually used, we
   // should keep it around in case of future encoding decision changes.
   context_.removeAllIntDictionaryEncodersOnNode([this](uint32_t nodeId) {
-    return nodeId >= valueType_.id && nodeId <= valueType_.maxId;
+    return nodeId >= valueType_.id() && nodeId <= valueType_.maxId();
   });
 
   context_.removeStreams([this](const DwrfStreamIdentifier& identifier) {
-    return identifier.encodingKey().node >= valueType_.id &&
-        identifier.encodingKey().node <= valueType_.maxId &&
+    return identifier.encodingKey().node() >= valueType_.id() &&
+        identifier.encodingKey().node() <= valueType_.maxId() &&
         (identifier.kind() == StreamKind::StreamKind_DICTIONARY_DATA ||
-         identifier.encodingKey().sequence > 0);
+         identifier.encodingKey().sequence() > 0);
   });
 }
 
@@ -202,7 +202,7 @@ ValueWriter& FlatMapColumnWriter<K>::getValueWriter(
     DWIO_RAISE(fmt::format(
         "Too many map keys requested in (node {}, column {}). Allowed: {}",
         id_,
-        type_.column,
+        type_.column(),
         maxKeyCount_));
   }
 

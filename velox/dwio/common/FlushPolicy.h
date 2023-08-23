@@ -22,7 +22,7 @@ struct StripeProgress {
   uint32_t stripeIndex{0};
   uint64_t stripeRowCount{0};
   int64_t totalMemoryUsage{0};
-  // hide first stripe special case in customer side.
+  /// Hides the first stripe special case in customer side.
   int64_t stripeSizeEstimate{0};
 };
 

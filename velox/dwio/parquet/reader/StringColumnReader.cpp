@@ -23,7 +23,7 @@ StringColumnReader::StringColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& nodeType,
     ParquetParams& params,
     common::ScanSpec& scanSpec)
-    : SelectiveColumnReader(nodeType->type, params, scanSpec, nodeType) {}
+    : SelectiveColumnReader(nodeType->type(), params, scanSpec, nodeType) {}
 
 uint64_t StringColumnReader::skip(uint64_t numValues) {
   formatData_->skip(numValues);
@@ -128,7 +128,7 @@ void StringColumnReader::read(
 void StringColumnReader::getValues(RowSet rows, VectorPtr* result) {
   if (scanState_.dictionary.values) {
     auto dictionaryValues =
-        formatData_->as<ParquetData>().dictionaryValues(fileType_->type);
+        formatData_->as<ParquetData>().dictionaryValues(fileType_->type());
     compactScalarValues<int32_t, int32_t>(rows, false);
 
     *result = std::make_shared<DictionaryVector<StringView>>(
@@ -144,13 +144,13 @@ void StringColumnReader::getValues(RowSet rows, VectorPtr* result) {
   rawStringBuffer_ = nullptr;
   rawStringSize_ = 0;
   rawStringUsed_ = 0;
-  getFlatValues<StringView, StringView>(rows, result, fileType_->type);
+  getFlatValues<StringView, StringView>(rows, result, fileType_->type());
 }
 
 void StringColumnReader::dedictionarize() {
   if (scanSpec_->keepValues()) {
     auto dict = formatData_->as<ParquetData>()
-                    .dictionaryValues(fileType_->type)
+                    .dictionaryValues(fileType_->type())
                     ->as<FlatVector<StringView>>();
     auto valuesCapacity = values_->capacity();
     auto indices = values_->as<vector_size_t>();

@@ -141,7 +141,11 @@ SelectiveListColumnReader::SelectiveListColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
     FormatParams& params,
     velox::common::ScanSpec& scanSpec)
-    : SelectiveRepeatedColumnReader(dataType->type, params, scanSpec, dataType),
+    : SelectiveRepeatedColumnReader(
+          dataType->type(),
+          params,
+          scanSpec,
+          dataType),
       requestedType_{requestedType} {}
 
 uint64_t SelectiveListColumnReader::skip(uint64_t numValues) {
@@ -187,12 +191,12 @@ void SelectiveListColumnReader::getValues(RowSet rows, VectorPtr* result) {
   makeOffsetsAndSizes(rows);
   VectorPtr elements;
   if (child_ && !nestedRows_.empty()) {
-    prepareStructResult(requestedType_->type->childAt(0), &elements);
+    prepareStructResult(requestedType_->type()->childAt(0), &elements);
     child_->getValues(nestedRows_, &elements);
   }
   *result = std::make_shared<ArrayVector>(
       &memoryPool_,
-      requestedType_->type,
+      requestedType_->type(),
       anyNulls_ ? resultNulls_ : nullptr,
       rows.size(),
       offsets_,
@@ -205,7 +209,11 @@ SelectiveMapColumnReader::SelectiveMapColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
     FormatParams& params,
     velox::common::ScanSpec& scanSpec)
-    : SelectiveRepeatedColumnReader(dataType->type, params, scanSpec, dataType),
+    : SelectiveRepeatedColumnReader(
+          dataType->type(),
+          params,
+          scanSpec,
+          dataType),
       requestedType_{requestedType} {}
 
 uint64_t SelectiveMapColumnReader::skip(uint64_t numValues) {
@@ -274,12 +282,12 @@ void SelectiveMapColumnReader::getValues(RowSet rows, VectorPtr* result) {
       "SelectiveMapColumnReader::getValues");
   if (!nestedRows_.empty()) {
     keyReader_->getValues(nestedRows_, &keys);
-    prepareStructResult(requestedType_->type->childAt(1), &values);
+    prepareStructResult(requestedType_->type()->childAt(1), &values);
     elementReader_->getValues(nestedRows_, &values);
   }
   *result = std::make_shared<MapVector>(
       &memoryPool_,
-      requestedType_->type,
+      requestedType_->type(),
       anyNulls_ ? resultNulls_ : nullptr,
       rows.size(),
       offsets_,

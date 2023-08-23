@@ -142,8 +142,8 @@ TEST_P(AllWriterCompressionTest, compression) {
     writerSink.setMode(WriterSink::Mode::Footer);
     writerSink.addBuffer(*pool_, data.data(), data.size());
     writerSink.setMode(WriterSink::Mode::None);
-    context.stripeRowCount = 123;
-    context.stripeRawSize = 345;
+    context.setStripeRowCount(123);
+    context.setStripeRawSize(345);
     addStripeInfo();
     context.nextStripe();
   }
@@ -207,8 +207,8 @@ TEST_P(SupportedCompressionTest, WriteFooter) {
     writerSink.setMode(WriterSink::Mode::Footer);
     writerSink.addBuffer(*pool_, data.data(), data.size());
     writerSink.setMode(WriterSink::Mode::None);
-    context.stripeRowCount = 123;
-    context.stripeRawSize = 345;
+    context.setStripeRowCount(123);
+    context.setStripeRawSize(345);
     addStripeInfo();
     context.nextStripe();
   }
@@ -290,8 +290,8 @@ TEST_P(SupportedCompressionTest, AddStripeInfo) {
   auto& writer = createWriter(config);
   auto& context = getContext();
 
-  context.stripeRowCount = 101;
-  context.stripeRawSize = 202;
+  context.setStripeRowCount(101);
+  context.setStripeRawSize(202);
   std::array<char, 512> data;
   std::memset(data.data(), 'a', data.size());
   auto& writerSink = writer.getSink();

@@ -49,35 +49,35 @@ class WriterContext : public CompressionBufferPool {
         dictionaryPool_{pool_->addLeafChild(".dictionary")},
         outputStreamPool_{pool_->addLeafChild(".compression")},
         generalPool_{pool_->addLeafChild(".general")},
-        handler_{std::move(handler)},
-        compression{getConfig(Config::COMPRESSION)},
-        compressionBlockSize{getConfig(Config::COMPRESSION_BLOCK_SIZE)},
-        isIndexEnabled{getConfig(Config::CREATE_INDEX)},
-        indexStride{getConfig(Config::ROW_INDEX_STRIDE)},
-        shareFlatMapDictionaries{getConfig(Config::MAP_FLAT_DICT_SHARE)},
-        stripeSizeFlushThreshold{getConfig(Config::STRIPE_SIZE)},
-        dictionarySizeFlushThreshold{getConfig(Config::MAX_DICTIONARY_SIZE)},
-        isStreamSizeAboveThresholdCheckEnabled{
+        indexEnabled_{getConfig(Config::CREATE_INDEX)},
+        indexStride_{getConfig(Config::ROW_INDEX_STRIDE)},
+        compression_{getConfig(Config::COMPRESSION)},
+        compressionBlockSize_{getConfig(Config::COMPRESSION_BLOCK_SIZE)},
+        shareFlatMapDictionaries_{getConfig(Config::MAP_FLAT_DICT_SHARE)},
+        stripeSizeFlushThreshold_{getConfig(Config::STRIPE_SIZE)},
+        dictionarySizeFlushThreshold_{getConfig(Config::MAX_DICTIONARY_SIZE)},
+        streamSizeAboveThresholdCheckEnabled_{
             getConfig(Config::STREAM_SIZE_ABOVE_THRESHOLD_CHECK_ENABLED)},
-        rawDataSizePerBatch{getConfig(Config::RAW_DATA_SIZE_PER_BATCH)},
+        rawDataSizePerBatch_{getConfig(Config::RAW_DATA_SIZE_PER_BATCH)},
         // Currently logging with no metadata. Might consider populating
         // metadata with dwio::common::request::AccessDescriptor upstream and
         // pass down the metric log.
-        metricLogger{metricLogger} {
-    bool forceLowMemoryMode{getConfig(Config::FORCE_LOW_MEMORY_MODE)};
-    bool disableLowMemoryMode{getConfig(Config::DISABLE_LOW_MEMORY_MODE)};
+        metricLogger_{metricLogger},
+        handler_{std::move(handler)} {
+    const bool forceLowMemoryMode{getConfig(Config::FORCE_LOW_MEMORY_MODE)};
+    const bool disableLowMemoryMode{getConfig(Config::DISABLE_LOW_MEMORY_MODE)};
     DWIO_ENSURE(!(forceLowMemoryMode && disableLowMemoryMode));
     checkLowMemoryMode_ = !forceLowMemoryMode && !disableLowMemoryMode;
     if (forceLowMemoryMode) {
       setLowMemoryMode();
     }
-    if (!handler_) {
+    if (handler_ == nullptr) {
       handler_ = std::make_unique<encryption::EncryptionHandler>();
     }
     validateConfigs();
-    VLOG(2) << fmt::format("Compression config: {}", compression);
+    VLOG(2) << fmt::format("Compression config: {}", compression_);
     compressionBuffer_ = std::make_unique<dwio::common::DataBuffer<char>>(
-        *generalPool_, compressionBlockSize + PAGE_HEADER_SIZE);
+        *generalPool_, compressionBlockSize_ + PAGE_HEADER_SIZE);
   }
 
   bool hasStream(const DwrfStreamIdentifier& stream) const {
@@ -106,27 +106,28 @@ class WriterContext : public CompressionBufferPool {
       const DwrfStreamIdentifier& stream) {
     DWIO_ENSURE(
         !hasStream(stream), "Stream already exists ", stream.toString());
+
     streams_.emplace(
         std::piecewise_construct,
         std::forward_as_tuple(stream),
         std::forward_as_tuple(
             getMemoryPool(MemoryUsageCategory::OUTPUT_STREAM),
-            compressionBlockSize,
+            compressionBlockSize(),
             getConfig(Config::COMPRESSION_BLOCK_SIZE_MIN),
             getConfig(Config::COMPRESSION_BLOCK_SIZE_EXTEND_RATIO)));
     auto& holder = streams_.at(stream);
-    auto encrypter = handler_->isEncrypted(stream.encodingKey().node)
+    auto encrypter = handler_->isEncrypted(stream.encodingKey().node())
         ? std::addressof(
-              handler_->getEncryptionProvider(stream.encodingKey().node))
+              handler_->getEncryptionProvider(stream.encodingKey().node()))
         : nullptr;
-    return newStream(compression, holder, encrypter);
+    return newStream(compression_, holder, encrypter);
   }
 
   std::unique_ptr<DataBufferHolder> newDataBufferHolder(
       dwio::common::FileSink* sink = nullptr) {
     return std::make_unique<DataBufferHolder>(
         getMemoryPool(MemoryUsageCategory::OUTPUT_STREAM),
-        compressionBlockSize,
+        compressionBlockSize(),
         getConfig(Config::COMPRESSION_BLOCK_SIZE_MIN),
         getConfig(Config::COMPRESSION_BLOCK_SIZE_EXTEND_RATIO),
         sink);
@@ -141,21 +142,21 @@ class WriterContext : public CompressionBufferPool {
 
   template <typename T>
   IntegerDictionaryEncoder<T>& getIntDictionaryEncoder(
-      const EncodingKey& ek,
+      const EncodingKey& encodingKey,
       velox::memory::MemoryPool& dictionaryPool,
       velox::memory::MemoryPool& generalPool) {
-    auto result = dictEncoders_.find(ek);
+    auto result = dictEncoders_.find(encodingKey);
     if (result == dictEncoders_.end()) {
       auto emplaceResult = dictEncoders_.emplace(
-          ek,
+          encodingKey,
           std::make_unique<IntegerDictionaryEncoder<T>>(
               dictionaryPool,
               generalPool,
               getConfig(Config::DICTIONARY_SORT_KEYS),
               createDirectEncoder</* isSigned */ true>(
                   newStream(
-                      {ek.node,
-                       ek.sequence,
+                      {encodingKey.node(),
+                       encodingKey.sequence(),
                        0,
                        StreamKind::StreamKind_DICTIONARY_DATA}),
                   getConfig(Config::USE_VINTS),
@@ -181,18 +182,18 @@ class WriterContext : public CompressionBufferPool {
   }
 
   bool isStreamPaged(uint32_t nodeId) const {
-    return (compression != common::CompressionKind::CompressionKind_NONE) ||
+    return (compression_ != common::CompressionKind::CompressionKind_NONE) ||
         handler_->isEncrypted(nodeId);
   }
 
   void nextStripe() {
-    fileRowCount += stripeRowCount;
-    rowsPerStripe.push_back(stripeRowCount);
-    stripeRowCount = 0;
-    indexRowCount = 0;
-    fileRawSize += stripeRawSize;
-    stripeRawSize = 0;
-    stripeIndex += 1;
+    fileRowCount_ += stripeRowCount_;
+    rowsPerStripe_.push_back(stripeRowCount_);
+    stripeRowCount_ = 0;
+    indexRowCount_ = 0;
+    fileRawSize_ += stripeRawSize_;
+    stripeRawSize_ = 0;
+    ++stripeIndex_;
 
     for (auto& pair : streams_) {
       pair.second.reset();
@@ -200,51 +201,21 @@ class WriterContext : public CompressionBufferPool {
   }
 
   void incRowCount(uint64_t count) {
-    stripeRowCount += count;
-    if (isIndexEnabled) {
-      indexRowCount += count;
+    stripeRowCount_ += count;
+    if (indexEnabled_) {
+      indexRowCount_ += count;
     }
   }
 
   void incRawSize(uint64_t size) {
-    stripeRawSize += size;
+    stripeRawSize_ += size;
   }
 
-  memory::MemoryPool& getMemoryPool(const MemoryUsageCategory& category) {
-    switch (category) {
-      case MemoryUsageCategory::DICTIONARY:
-        return *dictionaryPool_;
-      case MemoryUsageCategory::OUTPUT_STREAM:
-        return *outputStreamPool_;
-      case MemoryUsageCategory::GENERAL:
-        return *generalPool_;
-    }
-    VELOX_FAIL("Unreachable");
-  }
+  memory::MemoryPool& getMemoryPool(const MemoryUsageCategory& category);
 
-  const memory::MemoryPool& getMemoryUsage(
-      const MemoryUsageCategory& category) const {
-    switch (category) {
-      case MemoryUsageCategory::DICTIONARY:
-        return *dictionaryPool_;
-      case MemoryUsageCategory::OUTPUT_STREAM:
-        return *outputStreamPool_;
-      case MemoryUsageCategory::GENERAL:
-        return *generalPool_;
-    }
-    VELOX_FAIL("Unreachable");
-  }
+  int64_t getMemoryUsage(const MemoryUsageCategory& category) const;
 
-  int64_t getTotalMemoryUsage() const {
-    const auto& outputStreamPool =
-        getMemoryUsage(MemoryUsageCategory::OUTPUT_STREAM);
-    const auto& dictionaryPool =
-        getMemoryUsage(MemoryUsageCategory::DICTIONARY);
-    const auto& generalPool = getMemoryUsage(MemoryUsageCategory::GENERAL);
-
-    return outputStreamPool.currentBytes() + dictionaryPool.currentBytes() +
-        generalPool.currentBytes();
-  }
+  int64_t getTotalMemoryUsage() const;
 
   int64_t getMemoryBudget() const {
     return pool_->capacity();
@@ -280,7 +251,7 @@ class WriterContext : public CompressionBufferPool {
       std::function<bool(uint32_t)> predicate) {
     auto iter = dictEncoders_.begin();
     while (iter != dictEncoders_.end()) {
-      if (predicate(iter->first.node)) {
+      if (predicate(iter->first.node())) {
         iter = dictEncoders_.erase(iter);
       } else {
         ++iter;
@@ -326,18 +297,17 @@ class WriterContext : public CompressionBufferPool {
   }
 
   void recordCompressionRatio(uint64_t compressedSize) {
-    compressionRatioTracker_.takeSample(stripeRawSize, compressedSize);
+    compressionRatioTracker_.takeSample(stripeRawSize_, compressedSize);
   }
 
   void recordFlushOverhead(uint64_t flushOverhead) {
     flushOverheadRatioTracker_.takeSample(
-        stripeRawSize +
-            getMemoryUsage(MemoryUsageCategory::DICTIONARY).currentBytes(),
+        stripeRawSize_ + getMemoryUsage(MemoryUsageCategory::DICTIONARY),
         flushOverhead);
   }
 
   void recordAverageRowSize() {
-    rowSizeTracker_.takeSample(stripeRowCount, stripeRawSize);
+    rowSizeTracker_.takeSample(stripeRowCount(), stripeRawSize());
   }
 
   float getCompressionRatio() const {
@@ -352,21 +322,22 @@ class WriterContext : public CompressionBufferPool {
     return rowSizeTracker_.getEstimatedRatio();
   }
 
-  // This is parity with bbio. Doesn't seem like we do anything special when
-  // estimated compression ratio is larger than 1.0f. In fact, given how
-  // compression works, we should cap the ratio used for estimate at 1.0f.
-  // Estimates prior to first flush can be quite inaccurate depending on
-  // encoding, so we rely on a tuned compression ratio initial guess unless we
-  // want to produce estimates at ColumnWriter level.
-  // TODO: expose config for initial guess?
+  /// This is parity with bbio. Doesn't seem like we do anything special when
+  /// estimated compression ratio is larger than 1.0f. In fact, given how
+  /// compression works, we should cap the ratio used for estimate at 1.0f.
+  /// Estimates prior to first flush can be quite inaccurate depending on
+  /// encoding, so we rely on a tuned compression ratio initial guess unless we
+  /// want to produce estimates at ColumnWriter level.
+  ///
+  /// TODO: expose config for initial guess?
   int64_t getEstimatedStripeSize(size_t dataRawSize) const {
     return ceil(compressionRatioTracker_.getEstimatedRatio() * dataRawSize);
   }
 
   int64_t getEstimatedOutputStreamSize() const {
     return (int64_t)std::ceil(
-        (getMemoryUsage(MemoryUsageCategory::OUTPUT_STREAM).currentBytes() +
-         getMemoryUsage(MemoryUsageCategory::DICTIONARY).currentBytes()) /
+        (getMemoryUsage(MemoryUsageCategory::OUTPUT_STREAM) +
+         getMemoryUsage(MemoryUsageCategory::DICTIONARY)) /
         getConfig(Config::COMPRESSION_BLOCK_SIZE_EXTEND_RATIO));
   }
 
@@ -396,19 +367,119 @@ class WriterContext : public CompressionBufferPool {
   }
 
   void recordPhysicalSize(const DwrfStreamIdentifier& streamId, uint64_t size) {
-    auto& agg = getPhysicalSizeAggregator(streamId.encodingKey().node);
+    auto& agg = getPhysicalSizeAggregator(streamId.encodingKey().node());
     agg.recordSize(streamId, size);
+  }
+
+  bool indexEnabled() const {
+    return indexEnabled_;
+  }
+
+  uint32_t indexStride() const {
+    return indexStride_;
+  }
+
+  common::CompressionKind compression() const {
+    return compression_;
+  }
+
+  uint64_t compressionBlockSize() const {
+    return compressionBlockSize_;
+  }
+
+  bool shareFlatMapDictionaries() const {
+    return shareFlatMapDictionaries_;
+  }
+
+  uint64_t stripeSizeFlushThreshold() const {
+    return stripeSizeFlushThreshold_;
+  }
+
+  uint64_t dictionarySizeFlushThreshold() const {
+    return dictionarySizeFlushThreshold_;
+  }
+
+  bool streamSizeAboveThresholdCheckEnabled() const {
+    return streamSizeAboveThresholdCheckEnabled_;
+  }
+
+  uint64_t rawDataSizePerBatch() const {
+    return rawDataSizePerBatch_;
+  }
+
+  const dwio::common::MetricsLogPtr& metricLogger() const {
+    return metricLogger_;
+  }
+
+  uint32_t stripeIndex() const {
+    return stripeIndex_;
+  }
+
+  void testingIncStripeIndex() {
+    ++stripeIndex_;
+  }
+
+  uint64_t fileRowCount() const {
+    return fileRowCount_;
+  }
+
+  void incFileRowCount(uint64_t increment) {
+    fileRowCount_ += increment;
+  }
+
+  uint64_t stripeRowCount() const {
+    return stripeRowCount_;
+  }
+
+  void setStripeRowCount(uint64_t stripeRowCount) {
+    stripeRowCount_ = stripeRowCount;
+  }
+
+  uint32_t indexRowCount() const {
+    return indexRowCount_;
+  }
+
+  void resetIndexRowCount() {
+    indexRowCount_ = 0;
+  }
+
+  uint64_t fileRawSize() const {
+    return fileRawSize_;
+  }
+
+  void incFileRawSize(uint64_t increment) {
+    fileRawSize_ += increment;
+  }
+
+  uint64_t stripeRawSize() const {
+    return stripeRawSize_;
+  }
+
+  void setStripeRawSize(uint64_t stripeRawSize) {
+    stripeRawSize_ = stripeRawSize;
+  }
+
+  const std::vector<uint64_t>& rowsPerStripe() const {
+    return rowsPerStripe_;
+  }
+
+  CpuWallTiming& flushTiming() {
+    return flushTiming_;
+  }
+
+  const CpuWallTiming& flushTiming() const {
+    return flushTiming_;
   }
 
   void buildPhysicalSizeAggregators(
       const velox::dwio::common::TypeWithId& type,
       PhysicalSizeAggregator* parent = nullptr) {
-    switch (type.type->kind()) {
+    switch (type.type()->kind()) {
       case TypeKind::ROW: {
         physicalSizeAggregators_.emplace(
-            type.id, std::make_unique<PhysicalSizeAggregator>(parent));
-        auto current = physicalSizeAggregators_.at(type.id).get();
-        for (auto& child : type.getChildren()) {
+            type.id(), std::make_unique<PhysicalSizeAggregator>(parent));
+        auto* current = physicalSizeAggregators_.at(type.id()).get();
+        for (const auto& child : type.getChildren()) {
           buildPhysicalSizeAggregators(*child, current);
         }
         break;
@@ -417,42 +488,57 @@ class WriterContext : public CompressionBufferPool {
         // MapPhysicalSizeAggregator is only required for flatmaps, but it will
         // behave just fine as a regular PhysicalSizeAggregator.
         physicalSizeAggregators_.emplace(
-            type.id, std::make_unique<MapPhysicalSizeAggregator>(parent));
-        auto current = physicalSizeAggregators_.at(type.id).get();
+            type.id(), std::make_unique<MapPhysicalSizeAggregator>(parent));
+        auto* current = physicalSizeAggregators_.at(type.id()).get();
         buildPhysicalSizeAggregators(*type.childAt(0), current);
         buildPhysicalSizeAggregators(*type.childAt(1), current);
         break;
       }
       case TypeKind::ARRAY: {
         physicalSizeAggregators_.emplace(
-            type.id, std::make_unique<PhysicalSizeAggregator>(parent));
-        auto current = physicalSizeAggregators_.at(type.id).get();
+            type.id(), std::make_unique<PhysicalSizeAggregator>(parent));
+        auto* current = physicalSizeAggregators_.at(type.id()).get();
         buildPhysicalSizeAggregators(*type.childAt(0), current);
         break;
       }
       case TypeKind::BOOLEAN:
+        FOLLY_FALLTHROUGH;
       case TypeKind::TINYINT:
+        FOLLY_FALLTHROUGH;
       case TypeKind::SMALLINT:
+        FOLLY_FALLTHROUGH;
       case TypeKind::INTEGER:
+        FOLLY_FALLTHROUGH;
       case TypeKind::BIGINT:
+        FOLLY_FALLTHROUGH;
       case TypeKind::HUGEINT:
+        FOLLY_FALLTHROUGH;
       case TypeKind::REAL:
+        FOLLY_FALLTHROUGH;
       case TypeKind::DOUBLE:
+        FOLLY_FALLTHROUGH;
       case TypeKind::VARCHAR:
+        FOLLY_FALLTHROUGH;
       case TypeKind::VARBINARY:
+        FOLLY_FALLTHROUGH;
       case TypeKind::TIMESTAMP:
         physicalSizeAggregators_.emplace(
-            type.id, std::make_unique<PhysicalSizeAggregator>(parent));
+            type.id(), std::make_unique<PhysicalSizeAggregator>(parent));
         break;
       case TypeKind::UNKNOWN:
+        FOLLY_FALLTHROUGH;
       case TypeKind::FUNCTION:
+        FOLLY_FALLTHROUGH;
       case TypeKind::OPAQUE:
+        FOLLY_FALLTHROUGH;
       case TypeKind::INVALID:
+        FOLLY_FALLTHROUGH;
+      default:
         VELOX_FAIL(fmt::format(
             "Unexpected type kind {} encountered when building "
             "physical size aggregator for node {}.",
-            type.type->toString(),
-            type.id));
+            type.type()->toString(),
+            type.id()));
     }
   }
 
@@ -486,7 +572,7 @@ class WriterContext : public CompressionBufferPool {
   }
 
   SelectivityVector& getSharedSelectivityVector(velox::vector_size_t size) {
-    if (UNLIKELY(!selectivityVector_)) {
+    if (FOLLY_UNLIKELY(selectivityVector_ == nullptr)) {
       selectivityVector_ = std::make_unique<velox::SelectivityVector>(size);
     } else {
       selectivityVector_->resize(size);
@@ -510,11 +596,23 @@ class WriterContext : public CompressionBufferPool {
     decodedVectorPool_.push_back(std::move(vector));
   }
 
-  std::shared_ptr<const Config> config_;
-  std::shared_ptr<memory::MemoryPool> pool_;
-  std::shared_ptr<memory::MemoryPool> dictionaryPool_;
-  std::shared_ptr<memory::MemoryPool> outputStreamPool_;
-  std::shared_ptr<memory::MemoryPool> generalPool_;
+  const std::shared_ptr<const Config> config_;
+  const std::shared_ptr<memory::MemoryPool> pool_;
+  const std::shared_ptr<memory::MemoryPool> dictionaryPool_;
+  const std::shared_ptr<memory::MemoryPool> outputStreamPool_;
+  const std::shared_ptr<memory::MemoryPool> generalPool_;
+  // config
+  const bool indexEnabled_;
+  const uint32_t indexStride_;
+  const common::CompressionKind compression_;
+  const uint64_t compressionBlockSize_;
+  const bool shareFlatMapDictionaries_;
+  const uint64_t stripeSizeFlushThreshold_;
+  const uint64_t dictionarySizeFlushThreshold_;
+  const bool streamSizeAboveThresholdCheckEnabled_;
+  const uint64_t rawDataSizePerBatch_;
+  const dwio::common::MetricsLogPtr metricLogger_;
+
   // Map needs referential stability because reference to map value is stored by
   // another class.
   folly::F14NodeMap<
@@ -548,30 +646,17 @@ class WriterContext : public CompressionBufferPool {
   bool checkLowMemoryMode_;
   bool lowMemoryMode_{false};
 
- public:
-  // stats
-  uint32_t stripeIndex = 0;
+  /// stats
+  uint32_t stripeIndex_{0};
+  uint64_t fileRowCount_{0};
+  uint64_t stripeRowCount_{0};
+  uint32_t indexRowCount_{0};
+  std::vector<uint64_t> rowsPerStripe_;
 
-  uint64_t fileRowCount = 0;
-  uint64_t stripeRowCount = 0;
-  uint32_t indexRowCount = 0;
-  std::vector<uint64_t> rowsPerStripe{};
+  uint64_t fileRawSize_{0};
+  uint64_t stripeRawSize_{0};
 
-  uint64_t fileRawSize = 0;
-  uint64_t stripeRawSize = 0;
-
-  // config
-  const common::CompressionKind compression;
-  const uint64_t compressionBlockSize;
-  const bool isIndexEnabled;
-  const uint32_t indexStride;
-  const bool shareFlatMapDictionaries;
-  const uint64_t stripeSizeFlushThreshold;
-  const uint64_t dictionarySizeFlushThreshold;
-  const bool isStreamSizeAboveThresholdCheckEnabled;
-  const uint64_t rawDataSizePerBatch;
-  const dwio::common::MetricsLogPtr metricLogger;
-  CpuWallTiming flushTiming{};
+  CpuWallTiming flushTiming_{};
 
   template <typename TestType>
   friend class WriterEncodingIndexTest;

@@ -23,7 +23,7 @@ std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> makeLengthDecoder(
     const dwio::common::TypeWithId& nodeType,
     DwrfParams& params,
     memory::MemoryPool& pool) {
-  EncodingKey encodingKey{nodeType.id, params.flatMapContext().sequence};
+  EncodingKey encodingKey{nodeType.id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   auto rleVersion = convertRleVersion(stripe.getEncoding(encodingKey).kind());
   auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
@@ -39,7 +39,7 @@ std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> makeLengthDecoder(
 
 FlatMapContext flatMapContextFromEncodingKey(EncodingKey& encodingKey) {
   return FlatMapContext{
-      .sequence = encodingKey.sequence,
+      .sequence = encodingKey.sequence(),
       .inMapDecoder = nullptr,
       .keySelectionCallback = nullptr};
 }
@@ -55,14 +55,14 @@ SelectiveListColumnReader::SelectiveListColumnReader(
           params,
           scanSpec),
       length_(makeLengthDecoder(*fileType_, params, memoryPool_)) {
-  DWIO_ENSURE_EQ(fileType_->id, dataType->id, "working on the same node");
-  EncodingKey encodingKey{fileType_->id, params.flatMapContext().sequence};
+  DWIO_ENSURE_EQ(fileType_->id(), dataType->id(), "working on the same node");
+  EncodingKey encodingKey{fileType_->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   // count the number of selected sub-columns
   const auto& cs = stripe.getColumnSelector();
   auto& childType = requestedType_->childAt(0);
   VELOX_CHECK(
-      cs.shouldReadNode(childType->id),
+      cs.shouldReadNode(childType->id()),
       "SelectiveListColumnReader must select the values stream");
   if (scanSpec_->children().empty()) {
     scanSpec.getOrCreateChild(
@@ -91,8 +91,8 @@ SelectiveMapColumnReader::SelectiveMapColumnReader(
           params,
           scanSpec),
       length_(makeLengthDecoder(*fileType_, params, memoryPool_)) {
-  DWIO_ENSURE_EQ(fileType_->id, dataType->id, "working on the same node");
-  EncodingKey encodingKey{fileType_->id, params.flatMapContext().sequence};
+  DWIO_ENSURE_EQ(fileType_->id(), dataType->id(), "working on the same node");
+  EncodingKey encodingKey{fileType_->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   if (scanSpec_->children().empty()) {
     scanSpec_->getOrCreateChild(
@@ -108,7 +108,7 @@ SelectiveMapColumnReader::SelectiveMapColumnReader(
   const auto& cs = stripe.getColumnSelector();
   auto& keyType = requestedType_->childAt(0);
   VELOX_CHECK(
-      cs.shouldReadNode(keyType->id),
+      cs.shouldReadNode(keyType->id()),
       "Map key must be selected in SelectiveMapColumnReader");
   auto keyParams = DwrfParams(
       stripe,
@@ -122,7 +122,7 @@ SelectiveMapColumnReader::SelectiveMapColumnReader(
 
   auto& valueType = requestedType_->childAt(1);
   VELOX_CHECK(
-      cs.shouldReadNode(valueType->id),
+      cs.shouldReadNode(valueType->id()),
       "Map Values must be selected in SelectiveMapColumnReader");
   auto elementParams = DwrfParams(
       stripe,
@@ -135,7 +135,7 @@ SelectiveMapColumnReader::SelectiveMapColumnReader(
       *scanSpec_->children()[1]);
   children_ = {keyReader_.get(), elementReader_.get()};
 
-  VLOG(1) << "[Map] Initialized map column reader for node " << fileType_->id;
+  VLOG(1) << "[Map] Initialized map column reader for node " << fileType_->id();
 }
 
 } // namespace facebook::velox::dwrf

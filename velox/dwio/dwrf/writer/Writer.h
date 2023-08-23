@@ -33,10 +33,10 @@ struct WriterOptions {
   std::shared_ptr<const Config> config = std::make_shared<Config>();
   std::shared_ptr<const Type> schema;
   velox::memory::MemoryPool* memoryPool;
-  // The default factory allows the writer to construct the default flush
-  // policy with the configs in its ctor.
+  /// The default factory allows the writer to construct the default flush
+  /// policy with the configs in its ctor.
   std::function<std::unique_ptr<DWRFFlushPolicy>()> flushPolicyFactory;
-  // Change the interface to stream list and encoding iter.
+  /// Changes the interface to stream list and encoding iter.
   std::function<std::unique_ptr<LayoutPlanner>(const dwio::common::TypeWithId&)>
       layoutPlannerFactory;
   std::shared_ptr<encryption::EncryptionSpecification> encryptionSpec;
@@ -67,6 +67,10 @@ class Writer : public dwio::common::Writer {
       std::shared_ptr<memory::MemoryPool> pool)
       : writerBase_(std::make_unique<WriterBase>(std::move(sink))),
         schema_{dwio::common::TypeWithId::create(options.schema)} {
+    VELOX_CHECK(
+        !pool->isLeaf(),
+        "Memory pool {} for DWRF writer can't be leaf",
+        pool->name());
     auto handler =
         (options.encryptionSpec ? encryption::EncryptionHandler::create(
                                       schema_,
@@ -75,23 +79,24 @@ class Writer : public dwio::common::Writer {
                                 : nullptr);
     writerBase_->initContext(
         options.config, std::move(pool), std::move(handler));
+
     auto& context = writerBase_->getContext();
     context.buildPhysicalSizeAggregators(*schema_);
-    if (!options.flushPolicyFactory) {
+    if (options.flushPolicyFactory == nullptr) {
       flushPolicy_ = std::make_unique<DefaultFlushPolicy>(
-          context.stripeSizeFlushThreshold,
-          context.dictionarySizeFlushThreshold);
+          context.stripeSizeFlushThreshold(),
+          context.dictionarySizeFlushThreshold());
     } else {
       flushPolicy_ = options.flushPolicyFactory();
     }
 
-    if (options.layoutPlannerFactory) {
+    if (options.layoutPlannerFactory != nullptr) {
       layoutPlanner_ = options.layoutPlannerFactory(*schema_);
     } else {
       layoutPlanner_ = std::make_unique<LayoutPlanner>(*schema_);
     }
 
-    if (!options.columnWriterFactory) {
+    if (options.columnWriterFactory == nullptr) {
       writer_ = BaseColumnWriter::create(writerBase_->getContext(), *schema_);
     } else {
       writer_ =
@@ -126,11 +131,31 @@ class Writer : public dwio::common::Writer {
       const WriterContext& context,
       size_t nextWriteSize) const;
 
-  // protected:
-  bool overMemoryBudget(const WriterContext& context, size_t writeLength) const;
+  bool overMemoryBudget(const WriterContext& context, size_t numRows) const;
 
+  /// Writer will flush to make more memory if the incoming slice would make
+  /// it exceed memory budget with the default flush policy. Other policies
+  /// can intentionally throw and expect the application to retry.
+  ///
+  /// The current approach is to assume that the customer passes in slices of
+  /// similar sizes, perhaps even bounded by a configurable amount. We then
+  /// compute the soft_cap = hard_budget - expected_increment_per_slice, and
+  /// compare that against a dynamically determined flush_overhead +
+  /// current_total_usage and try to flush preemptively after writing each
+  /// slice/stride to bring the current memory usage below the soft_cap again.
+  ///
+  /// Using less memory than the soft_cap ensures being able to
+  /// write a new slice/stride, unless the slice/stride is drastically bigger
+  /// than the previous ones.
   bool shouldFlush(const WriterContext& context, size_t nextWriteLength);
 
+  /// Low memory allows for the writer to write the same data with a lower
+  /// memory budget. Currently this method is only called locally to switch
+  /// encoding if we couldn't meet flush criteria without exceeding memory
+  /// budget.
+  ///
+  /// NOTE: switching encoding is not a good mitigation for immediate memory
+  /// pressure because the switch consumes even more memory than a flush.
   void enterLowMemoryMode();
 
   void abandonDictionaries() {
@@ -160,7 +185,7 @@ class Writer : public dwio::common::Writer {
 
   void createRowIndexEntry() {
     writer_->createIndexEntry();
-    writerBase_->getContext().indexRowCount = 0;
+    writerBase_->getContext().resetIndexRowCount();
   }
 
   const std::shared_ptr<const dwio::common::TypeWithId> schema_;

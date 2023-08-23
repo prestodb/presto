@@ -133,11 +133,11 @@ class E2EFilterTest : public E2EFilterTestBase {
           continue;
         }
         auto& child = schemaWithId->childAt(i);
-        mapFlatCols.push_back(child->column);
+        mapFlatCols.push_back(child->column());
         if (!rowType.childAt(i)->isRow()) {
           continue;
         }
-        flatmapNodeIdsAsStruct_[child->id] = mapFlatColsStructKeys[i];
+        flatmapNodeIdsAsStruct_[child->id()] = mapFlatColsStructKeys[i];
       }
       config->set(dwrf::Config::FLATTEN_MAP, true);
       config->set<const std::vector<uint32_t>>(

@@ -38,6 +38,21 @@ size_t estimateNextWriteSize(const WriterContext& context, size_t numRows) {
   // This is 0 for first slice. We are assuming reasonable input for now.
   return folly::to<size_t>(ceil(context.getAverageRowSize() * numRows));
 }
+
+dwio::common::StripeProgress getStripeProgress(const WriterContext& context) {
+  return dwio::common::StripeProgress{
+      .stripeIndex = context.stripeIndex(),
+      .stripeRowCount = context.stripeRowCount(),
+      .totalMemoryUsage = context.getTotalMemoryUsage(),
+      .stripeSizeEstimate = std::max(
+          context.getEstimatedStripeSize(context.stripeRawSize()),
+          // The stripe size estimate is only more accurate from the second
+          // stripe onward because it uses past stripe states in heuristics.
+          // We need to additionally bound it with output stream size based
+          // estimate for the first stripe.
+          context.stripeIndex() == 0 ? context.getEstimatedOutputStreamSize()
+                                     : 0)};
+}
 } // namespace
 
 void Writer::write(const VectorPtr& slice) {
@@ -50,47 +65,47 @@ void Writer::write(const VectorPtr& slice) {
   const size_t lengthIncrement = std::max<size_t>(
       1UL,
       sliceMemoryEstimate > 0 ? folly::to<size_t>(std::floor(
-                                    1.0 * context.rawDataSizePerBatch /
+                                    1.0 * context.rawDataSizePerBatch() /
                                     sliceMemoryEstimate * sliceRowCount))
                               : folly::to<size_t>(sliceRowCount));
-  if (UNLIKELY(
+  if (FOLLY_UNLIKELY(
           sliceMemoryEstimate == 0 ||
-          sliceMemoryEstimate > context.rawDataSizePerBatch)) {
+          sliceMemoryEstimate > context.rawDataSizePerBatch())) {
     VLOG(1) << fmt::format(
         "Unpopulated or huge vector memory estimate! Micro batch size {} rows. "
         "Slice memory estimate {} bytes. Batching threshold {} bytes.",
         lengthIncrement,
         sliceMemoryEstimate,
-        context.rawDataSizePerBatch);
+        context.rawDataSizePerBatch());
   }
   while (offset < sliceRowCount) {
     size_t length = lengthIncrement;
-    if (context.isIndexEnabled) {
-      length =
-          std::min<size_t>(length, context.indexStride - context.indexRowCount);
+    if (context.indexEnabled()) {
+      length = std::min<size_t>(
+          length, context.indexStride() - context.indexRowCount());
     }
 
     length = std::min(length, sliceRowCount - offset);
     VELOX_CHECK_GT(length, 0);
-    bool flushDecision = shouldFlush(context, length);
-    if (flushDecision) {
-      // Try abandoning inefficiency dictionary encodings early
-      // and see if we can delay the flush.
+    bool doFlush = shouldFlush(context, length);
+    if (doFlush) {
+      // Try abandoning inefficiency dictionary encodings early and see if we
+      // can delay the flush.
       if (writer_->tryAbandonDictionaries(false)) {
-        flushDecision = shouldFlush(context, length);
+        doFlush = shouldFlush(context, length);
       }
-      if (flushDecision) {
+      if (doFlush) {
         flush();
       }
     }
 
-    auto rawSize =
+    const auto rawSize =
         writer_->write(slice, common::Ranges::of(offset, offset + length));
     offset += length;
-    writerBase_->getContext().incRawSize(rawSize);
+    context.incRawSize(rawSize);
 
-    if (context.isIndexEnabled &&
-        context.indexRowCount >= context.indexStride) {
+    if (context.indexEnabled() &&
+        context.indexRowCount() >= context.indexStride()) {
       createRowIndexEntry();
     }
   }
@@ -101,47 +116,19 @@ uint64_t Writer::flushTimeMemoryUsageEstimate(
     size_t nextWriteSize) const {
   return context.getTotalMemoryUsage() +
       context.getEstimatedStripeSize(nextWriteSize) +
-      context.getEstimatedFlushOverhead(context.stripeRawSize + nextWriteSize);
+      context.getEstimatedFlushOverhead(
+          context.stripeRawSize() + nextWriteSize);
 }
 
-// Flush if we cannot take one additional slice/stride based on current stripe
-// raw size.
-bool Writer::overMemoryBudget(const WriterContext& context, size_t writeLength)
+bool Writer::overMemoryBudget(const WriterContext& context, size_t numRows)
     const {
-  size_t nextWriteSize = estimateNextWriteSize(context, writeLength);
+  // Flush if we cannot take one additional slice/stride based on current stripe
+  // raw size.
+  const size_t nextWriteSize = estimateNextWriteSize(context, numRows);
   return flushTimeMemoryUsageEstimate(context, nextWriteSize) >
       context.getMemoryBudget();
 }
 
-dwio::common::StripeProgress getStripeProgress(const WriterContext& context) {
-  return dwio::common::StripeProgress{
-      .stripeIndex = context.stripeIndex,
-      .stripeRowCount = context.stripeRowCount,
-      .totalMemoryUsage = context.getTotalMemoryUsage(),
-      .stripeSizeEstimate = std::max(
-          context.getEstimatedStripeSize(context.stripeRawSize),
-          // The stripe size estimate is only more accurate from the second
-          // stripe onward because it uses past stripe states in heuristics.
-          // We need to additionally bound it with output stream size based
-          // estimate for the first stripe.
-          context.stripeIndex == 0 ? context.getEstimatedOutputStreamSize()
-                                   : 0)};
-}
-
-// Writer will flush to make more memory if the incoming stride would make
-// it exceed memory budget with the default flush policy. Other policies
-// can intentionally throw and expect the application to retry.
-//
-// The current approach is to assume that the customer passes in slices of
-// similar sizes, perhaps even bounded by a configurable amount. We then
-// compute the soft_cap = hard_budget - expected_increment_per_slice, and
-// compare that against a dynamically determined flush_overhead +
-// current_total_usage and try to flush preemptively after writing each
-// slice/stride to bring the current memory usage below the soft_cap again.
-//
-// Using less memory than the soft_cap ensures being able to
-// write a new slice/stride, unless the slice/stride is drastically bigger
-// than the previous ones.
 bool Writer::shouldFlush(const WriterContext& context, size_t nextWriteLength) {
   // TODO: ideally, the heurstics to keep under the memory budget thing
   // shouldn't be a first class concept for writer and should be wrapped in
@@ -153,10 +140,11 @@ bool Writer::shouldFlush(const WriterContext& context, size_t nextWriteLength) {
   bool overBudget = overMemoryBudget(context, nextWriteLength);
   bool stripeProgressDecision =
       flushPolicy_->shouldFlush(getStripeProgress(context));
-  auto dwrfFlushDecision = flushPolicy_->shouldFlushDictionary(
+  auto dictionaryFlushDecision = flushPolicy_->shouldFlushDictionary(
       stripeProgressDecision, overBudget, context);
 
-  if (UNLIKELY(dwrfFlushDecision == FlushDecision::ABANDON_DICTIONARY)) {
+  if (FOLLY_UNLIKELY(
+          dictionaryFlushDecision == FlushDecision::ABANDON_DICTIONARY)) {
     enterLowMemoryMode();
     // Recalculate memory usage due to encoding switch.
     // We can still be over budget either due to not having enough budget to
@@ -167,35 +155,30 @@ bool Writer::shouldFlush(const WriterContext& context, size_t nextWriteLength) {
         flushPolicy_->shouldFlush(getStripeProgress(context));
   }
 
-  const bool decision = overBudget || stripeProgressDecision ||
-      dwrfFlushDecision == FlushDecision::FLUSH_DICTIONARY;
-  if (decision) {
+  const bool shouldFlush = overBudget || stripeProgressDecision ||
+      dictionaryFlushDecision == FlushDecision::FLUSH_DICTIONARY;
+  if (shouldFlush) {
     VLOG(1) << fmt::format(
         "overMemoryBudget: {}, dictionaryMemUsage: {}, outputStreamSize: {}, generalMemUsage: {}, estimatedStripeSize: {}",
         overBudget,
-        context.getMemoryUsage(MemoryUsageCategory::DICTIONARY).currentBytes(),
+        context.getMemoryUsage(MemoryUsageCategory::DICTIONARY),
         context.getEstimatedOutputStreamSize(),
-        context.getMemoryUsage(MemoryUsageCategory::GENERAL).currentBytes(),
-        context.getEstimatedStripeSize(context.stripeRawSize));
+        context.getMemoryUsage(MemoryUsageCategory::GENERAL),
+        context.getEstimatedStripeSize(context.stripeRawSize()));
   }
-  return decision;
+  return shouldFlush;
 }
 
 void Writer::setLowMemoryMode() {
   writerBase_->getContext().setLowMemoryMode();
 }
 
-// Low memory allows for the writer to write the same data with a lower
-// memory budget.
-// Currently this method is only called locally to switch encoding if
-// we couldn't meet flush criteria without exceeding memory budget.
-// NOTE: switching encoding is not a good mitigation for immediate memory
-// pressure because the switch consumes even more memory than a flush.
 void Writer::enterLowMemoryMode() {
   auto& context = writerBase_->getContext();
   // Until we have capability to abandon dictionary after the first
   // stripe, do nothing and rely solely on flush to comply with budget.
-  if (UNLIKELY(context.checkLowMemoryMode() && context.stripeIndex == 0)) {
+  if (FOLLY_UNLIKELY(
+          context.checkLowMemoryMode() && context.stripeIndex() == 0)) {
     // Idempotent call to switch to less memory intensive encodings.
     writer_->tryAbandonDictionaries(true);
   }
@@ -203,9 +186,9 @@ void Writer::enterLowMemoryMode() {
 
 void Writer::flushStripe(bool close) {
   auto& context = writerBase_->getContext();
-  int64_t preFlushStreamMemoryUsage =
-      context.getMemoryUsage(MemoryUsageCategory::OUTPUT_STREAM).currentBytes();
-  if (context.stripeRowCount == 0) {
+  const int64_t preFlushStreamMemoryUsage =
+      context.getMemoryUsage(MemoryUsageCategory::OUTPUT_STREAM);
+  if (context.stripeRowCount() == 0) {
     return;
   }
 
@@ -214,15 +197,15 @@ void Writer::flushStripe(bool close) {
       writerVersionToString(context.getConfig(Config::WRITER_VERSION));
   metrics.outputStreamMemoryEstimate = context.getEstimatedOutputStreamSize();
   metrics.stripeSizeEstimate =
-      context.getEstimatedStripeSize(context.stripeRawSize);
+      context.getEstimatedStripeSize(context.stripeRawSize());
 
-  if (context.isIndexEnabled && context.indexRowCount > 0) {
+  if (context.indexEnabled() && context.indexRowCount() > 0) {
     createRowIndexEntry();
   }
 
-  auto preFlushMem = context.getTotalMemoryUsage();
+  const auto preFlushMem = context.getTotalMemoryUsage();
 
-  auto& handler = context.getEncryptionHandler();
+  const auto& handler = context.getEncryptionHandler();
   EncodingManager encodingManager{handler};
 
   writer_->flush([&](uint32_t nodeId) -> proto::ColumnEncoding& {
@@ -230,25 +213,24 @@ void Writer::flushStripe(bool close) {
   });
 
   // Collects the memory increment from flushing data to output streams.
-  auto flushOverhead =
-      context.getMemoryUsage(MemoryUsageCategory::OUTPUT_STREAM)
-          .currentBytes() -
+  const auto flushOverhead =
+      context.getMemoryUsage(MemoryUsageCategory::OUTPUT_STREAM) -
       preFlushStreamMemoryUsage;
   context.recordFlushOverhead(flushOverhead);
   metrics.flushOverhead = flushOverhead;
 
-  auto postFlushMem = context.getTotalMemoryUsage();
+  const auto postFlushMem = context.getTotalMemoryUsage();
 
   auto& sink = writerBase_->getSink();
   auto stripeOffset = sink.size();
 
   uint32_t lastIndex = 0;
   uint64_t offset = 0;
-  auto addStream = [&](const DwrfStreamIdentifier& stream, const auto& out) {
-    proto::Stream* s;
+  const auto addStream = [&](const DwrfStreamIdentifier& stream,
+                             const auto& out) {
     uint32_t currentIndex;
-    auto nodeId = stream.encodingKey().node;
-    s = encodingManager.addStreamToFooter(nodeId, currentIndex);
+    const auto nodeId = stream.encodingKey().node();
+    proto::Stream* s = encodingManager.addStreamToFooter(nodeId, currentIndex);
 
     // set offset only when needed, ie. when offset of current stream cannot be
     // calculated based on offset and length of previous stream. In that case,
@@ -266,7 +248,7 @@ void Writer::flushStripe(bool close) {
     s->set_kind(static_cast<proto::Stream_Kind>(stream.kind()));
     s->set_node(nodeId);
     s->set_column(stream.column());
-    s->set_sequence(stream.encodingKey().sequence);
+    s->set_sequence(stream.encodingKey().sequence());
     s->set_length(out.size());
     s->set_usevints(context.getConfig(Config::USE_VINTS));
     offset += out.size();
@@ -315,7 +297,7 @@ void Writer::flushStripe(bool close) {
   }
 
   // flush footer
-  uint64_t footerOffset = sink.size();
+  const uint64_t footerOffset = sink.size();
   DWIO_ENSURE_EQ(footerOffset, stripeOffset + dataLength + indexLength);
 
   sink.setMode(WriterSink::Mode::Footer);
@@ -329,7 +311,7 @@ void Writer::flushStripe(bool close) {
   stripe.set_footerlength(sink.size() - footerOffset);
 
   // set encryption key metadata
-  if (handler.isEncrypted() && context.stripeIndex == 0) {
+  if (handler.isEncrypted() && context.stripeIndex() == 0) {
     for (uint32_t i = 0; i < handler.getEncryptionGroupCount(); ++i) {
       *stripe.add_keymetadata() =
           handler.getEncryptionProviderByIndex(i).getKey();
@@ -339,19 +321,18 @@ void Writer::flushStripe(bool close) {
   context.recordAverageRowSize();
   context.recordCompressionRatio(dataLength);
 
-  auto totalMemoryUsage = context.getTotalMemoryUsage();
+  const auto totalMemoryUsage = context.getTotalMemoryUsage();
   metrics.limit = totalMemoryUsage;
   metrics.availableMemory = context.getMemoryBudget() - totalMemoryUsage;
 
-  auto& dictionaryDataMemoryUsage =
-      context.getMemoryUsage(MemoryUsageCategory::DICTIONARY);
-  metrics.dictionaryMemory = dictionaryDataMemoryUsage.currentBytes();
+  auto& dictionaryPool = context.getMemoryPool(MemoryUsageCategory::DICTIONARY);
+  metrics.dictionaryMemory = dictionaryPool.currentBytes();
   // TODO: what does this try to capture?
-  metrics.maxDictSize = dictionaryDataMemoryUsage.stats().peakBytes;
+  metrics.maxDictSize = dictionaryPool.stats().peakBytes;
 
-  metrics.stripeIndex = context.stripeIndex;
-  metrics.rawStripeSize = context.stripeRawSize;
-  metrics.rowsInStripe = context.stripeRowCount;
+  metrics.stripeIndex = context.stripeIndex();
+  metrics.rawStripeSize = context.stripeRawSize();
+  metrics.rowsInStripe = context.stripeRowCount();
   metrics.compressionRatio = context.getCompressionRatio();
   metrics.flushOverheadRatio = context.getFlushOverheadRatio();
   metrics.averageRowSize = context.getAverageRowSize();
@@ -367,7 +348,7 @@ void Writer::flushStripe(bool close) {
       postFlushMem,
       metrics.close);
   // Add flush overhead and other ratio logging.
-  context.metricLogger->logStripeFlush(metrics);
+  context.metricLogger()->logStripeFlush(metrics);
 
   // prepare for next stripe
   context.nextStripe();
@@ -379,18 +360,18 @@ void Writer::flushInternal(bool close) {
   auto& footer = writerBase_->getFooter();
   auto& sink = writerBase_->getSink();
   {
-    CpuWallTimer timer{context.flushTiming};
+    CpuWallTimer timer{context.flushTiming()};
     flushStripe(close);
 
     // if this is the last stripe, add footer
     if (close) {
-      auto& handler = context.getEncryptionHandler();
+      const auto& handler = context.getEncryptionHandler();
       std::vector<std::vector<proto::FileStatistics>> stats;
       proto::Encryption* encryption = nullptr;
 
       // initialize encryption related metadata only when there is data written
       if (handler.isEncrypted() && footer.stripes_size() > 0) {
-        auto count = handler.getEncryptionGroupCount();
+        const auto count = handler.getEncryptionGroupCount();
         stats.resize(count);
         encryption = footer.mutable_encryption();
         encryption->set_keyprovider(
@@ -453,7 +434,7 @@ void Writer::flushInternal(bool close) {
         }
       }
 
-      writerBase_->writeFooter(*schema_->type);
+      writerBase_->writeFooter(*schema_->type());
     }
 
     // flush to sink
@@ -461,7 +442,7 @@ void Writer::flushInternal(bool close) {
   }
 
   if (close) {
-    context.metricLogger->logFileClose(
+    context.metricLogger()->logFileClose(
         dwio::common::MetricsLog::FileCloseMetrics{
             .writerVersion = writerVersionToString(
                 context.getConfig(Config::WRITER_VERSION)),
@@ -470,17 +451,15 @@ void Writer::flushInternal(bool close) {
             .cacheSize = sink.getCacheSize(),
             .numCacheBlocks = sink.getCacheOffsets().size() - 1,
             .cacheMode = static_cast<int32_t>(sink.getCacheMode()),
-            .numOfStripes = context.stripeIndex,
-            .rowCount = context.stripeRowCount,
-            .rawDataSize = context.stripeRawSize,
+            .numOfStripes = context.stripeIndex(),
+            .rowCount = context.stripeRowCount(),
+            .rawDataSize = context.stripeRawSize(),
             .numOfStreams = context.getStreamCount(),
             .totalMemory = context.getTotalMemoryUsage(),
             .dictionaryMemory =
-                context.getMemoryUsage(MemoryUsageCategory::DICTIONARY)
-                    .currentBytes(),
+                context.getMemoryUsage(MemoryUsageCategory::DICTIONARY),
             .generalMemory =
-                context.getMemoryUsage(MemoryUsageCategory::GENERAL)
-                    .currentBytes()});
+                context.getMemoryUsage(MemoryUsageCategory::GENERAL)});
   }
 }
 
@@ -507,7 +486,7 @@ dwrf::WriterOptions getDwrfOptions(const dwio::common::WriterOptions& options) {
   }
   dwrf::WriterOptions dwrfOptions;
   dwrfOptions.config = Config::fromMap(configs);
-  dwrfOptions.schema = std::move(options.schema);
+  dwrfOptions.schema = options.schema;
   dwrfOptions.memoryPool = options.memoryPool;
   return dwrfOptions;
 }

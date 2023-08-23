@@ -71,9 +71,9 @@ TEST_F(ParquetReaderTest, parseSample) {
   auto type = reader.typeWithId();
   EXPECT_EQ(type->size(), 2ULL);
   auto col0 = type->childAt(0);
-  EXPECT_EQ(col0->type->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(col0->type()->kind(), TypeKind::BIGINT);
   auto col1 = type->childAt(1);
-  EXPECT_EQ(col1->type->kind(), TypeKind::DOUBLE);
+  EXPECT_EQ(col1->type()->kind(), TypeKind::DOUBLE);
   EXPECT_EQ(type->childByName("a"), col0);
   EXPECT_EQ(type->childByName("b"), col1);
 
@@ -147,9 +147,9 @@ TEST_F(ParquetReaderTest, parseReadAsLowerCase) {
   auto type = reader.typeWithId();
   EXPECT_EQ(type->size(), 2ULL);
   auto col0 = type->childAt(0);
-  EXPECT_EQ(col0->type->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(col0->type()->kind(), TypeKind::BIGINT);
   auto col1 = type->childAt(1);
-  EXPECT_EQ(col1->type->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(col1->type()->kind(), TypeKind::BIGINT);
   EXPECT_EQ(type->childByName("a"), col0);
   EXPECT_EQ(type->childByName("b"), col1);
 }
@@ -183,31 +183,31 @@ TEST_F(ParquetReaderTest, parseRowMapArrayReadAsLowerCase) {
   EXPECT_EQ(type->size(), 1ULL);
 
   auto col0 = type->childAt(0);
-  EXPECT_EQ(col0->type->kind(), TypeKind::ROW);
+  EXPECT_EQ(col0->type()->kind(), TypeKind::ROW);
   EXPECT_EQ(type->childByName("cc"), col0);
 
   auto col0_0 = col0->childAt(0);
-  EXPECT_EQ(col0_0->type->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(col0_0->type()->kind(), TypeKind::BIGINT);
   EXPECT_EQ(col0->childByName("cclong0"), col0_0);
 
   auto col0_1 = col0->childAt(1);
-  EXPECT_EQ(col0_1->type->kind(), TypeKind::MAP);
+  EXPECT_EQ(col0_1->type()->kind(), TypeKind::MAP);
   EXPECT_EQ(col0->childByName("ccmap1"), col0_1);
 
   auto col0_1_0 = col0_1->childAt(0);
-  EXPECT_EQ(col0_1_0->type->kind(), TypeKind::VARCHAR);
+  EXPECT_EQ(col0_1_0->type()->kind(), TypeKind::VARCHAR);
 
   auto col0_1_1 = col0_1->childAt(1);
-  EXPECT_EQ(col0_1_1->type->kind(), TypeKind::ROW);
+  EXPECT_EQ(col0_1_1->type()->kind(), TypeKind::ROW);
 
   auto col0_1_1_0 = col0_1_1->childAt(0);
-  EXPECT_EQ(col0_1_1_0->type->kind(), TypeKind::ARRAY);
+  EXPECT_EQ(col0_1_1_0->type()->kind(), TypeKind::ARRAY);
   EXPECT_EQ(col0_1_1->childByName("ccarray2"), col0_1_1_0);
 
   auto col0_1_1_0_0 = col0_1_1_0->childAt(0);
-  EXPECT_EQ(col0_1_1_0_0->type->kind(), TypeKind::ROW);
+  EXPECT_EQ(col0_1_1_0_0->type()->kind(), TypeKind::ROW);
   auto col0_1_1_0_0_0 = col0_1_1_0_0->childAt(0);
-  EXPECT_EQ(col0_1_1_0_0_0->type->kind(), TypeKind::INTEGER);
+  EXPECT_EQ(col0_1_1_0_0_0->type()->kind(), TypeKind::INTEGER);
   EXPECT_EQ(col0_1_1_0_0->childByName("ccint3"), col0_1_1_0_0_0);
 }
 
@@ -223,9 +223,9 @@ TEST_F(ParquetReaderTest, parseEmpty) {
   auto type = reader.typeWithId();
   EXPECT_EQ(type->size(), 2ULL);
   auto col0 = type->childAt(0);
-  EXPECT_EQ(col0->type->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(col0->type()->kind(), TypeKind::BIGINT);
   auto col1 = type->childAt(1);
-  EXPECT_EQ(col1->type->kind(), TypeKind::DOUBLE);
+  EXPECT_EQ(col1->type()->kind(), TypeKind::DOUBLE);
   EXPECT_EQ(type->childByName("a"), col0);
   EXPECT_EQ(type->childByName("b"), col1);
 }
@@ -246,9 +246,9 @@ TEST_F(ParquetReaderTest, parseInt) {
   auto type = reader.typeWithId();
   EXPECT_EQ(type->size(), 2ULL);
   auto col0 = type->childAt(0);
-  EXPECT_EQ(col0->type->kind(), TypeKind::INTEGER);
+  EXPECT_EQ(col0->type()->kind(), TypeKind::INTEGER);
   auto col1 = type->childAt(1);
-  EXPECT_EQ(col1->type->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(col1->type()->kind(), TypeKind::BIGINT);
 
   auto rowReaderOpts = getReaderOpts(intSchema());
   auto scanSpec = makeScanSpec(intSchema());
@@ -275,7 +275,7 @@ TEST_F(ParquetReaderTest, parseDate) {
   auto type = reader.typeWithId();
   EXPECT_EQ(type->size(), 1ULL);
   auto col0 = type->childAt(0);
-  EXPECT_EQ(col0->type, DATE());
+  EXPECT_EQ(col0->type(), DATE());
   EXPECT_EQ(type->childByName("date"), col0);
 
   auto rowReaderOpts = getReaderOpts(dateSchema());
@@ -301,25 +301,25 @@ TEST_F(ParquetReaderTest, parseRowMapArray) {
   EXPECT_EQ(type->size(), 1ULL);
 
   auto col0 = type->childAt(0);
-  EXPECT_EQ(col0->type->kind(), TypeKind::ROW);
+  EXPECT_EQ(col0->type()->kind(), TypeKind::ROW);
   EXPECT_EQ(type->childByName("c"), col0);
 
   auto col0_0 = col0->childAt(0);
-  EXPECT_EQ(col0_0->type->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(col0_0->type()->kind(), TypeKind::BIGINT);
   EXPECT_EQ(col0->childByName("c0"), col0_0);
 
   auto col0_1 = col0->childAt(1);
-  EXPECT_EQ(col0_1->type->kind(), TypeKind::MAP);
+  EXPECT_EQ(col0_1->type()->kind(), TypeKind::MAP);
   EXPECT_EQ(col0->childByName("c1"), col0_1);
 
   auto col0_1_0 = col0_1->childAt(0);
-  EXPECT_EQ(col0_1_0->type->kind(), TypeKind::VARCHAR);
+  EXPECT_EQ(col0_1_0->type()->kind(), TypeKind::VARCHAR);
 
   auto col0_1_1 = col0_1->childAt(1);
-  EXPECT_EQ(col0_1_1->type->kind(), TypeKind::ARRAY);
+  EXPECT_EQ(col0_1_1->type()->kind(), TypeKind::ARRAY);
 
   auto col0_1_1_0 = col0_1_1->childAt(0);
-  EXPECT_EQ(col0_1_1_0->type->kind(), TypeKind::INTEGER);
+  EXPECT_EQ(col0_1_1_0->type()->kind(), TypeKind::INTEGER);
 }
 
 TEST_F(ParquetReaderTest, projectNoColumns) {
@@ -364,8 +364,8 @@ TEST_F(ParquetReaderTest, parseIntDecimal) {
   EXPECT_EQ(type->size(), 2ULL);
   auto col0 = type->childAt(0);
   auto col1 = type->childAt(1);
-  EXPECT_EQ(col0->type->kind(), TypeKind::BIGINT);
-  EXPECT_EQ(col1->type->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(col0->type()->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(col1->type()->kind(), TypeKind::BIGINT);
 
   int64_t expectValues[3] = {1111, 2222, 3333};
   auto result = BaseVector::create(rowType, 1, pool_.get());
@@ -592,7 +592,7 @@ TEST_F(ParquetReaderTest, parseLongTagged) {
   auto type = reader.typeWithId();
   EXPECT_EQ(type->size(), 1ULL);
   auto col0 = type->childAt(0);
-  EXPECT_EQ(col0->type->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(col0->type()->kind(), TypeKind::BIGINT);
   EXPECT_EQ(type->childByName("_c0"), col0);
 }
 

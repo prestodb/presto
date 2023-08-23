@@ -171,7 +171,7 @@ class E2EWriterTests : public Test {
     for (auto mapColumn : mapColumnIds) {
       folly::F14FastMap<KeyInfo, uint64_t, folly::transparent<KeyInfoHash>>
           featureStreamSizes;
-      auto mapTypeId = typeWithId->childAt(mapColumn)->id;
+      auto mapTypeId = typeWithId->childAt(mapColumn)->id();
       auto valueTypeId = mapTypeId + 2;
       for (int32_t i = 0; i < reader->getNumberOfStripes(); ++i) {
         auto currentStripeInfo = dwrfRowReader->loadStripe(i, preload);
@@ -202,11 +202,11 @@ class E2EWriterTests : public Test {
         auto allStreams = stripeStreams.getStreamIdentifiers();
         for (const auto& streamIdPerNode : allStreams) {
           for (const auto& streamId : streamIdPerNode.second) {
-            if (streamId.encodingKey().sequence != 0 &&
+            if (streamId.encodingKey().sequence() != 0 &&
                 streamId.column() == mapColumn) {
               // Update the aggregate.
               const auto& keyInfo =
-                  sequenceToKey.at(streamId.encodingKey().sequence);
+                  sequenceToKey.at(streamId.encodingKey().sequence());
               auto streamLength = stripeStreams.getStreamLength(streamId);
               auto it = featureStreamSizes.find(keyInfo);
               if (it == featureStreamSizes.end()) {

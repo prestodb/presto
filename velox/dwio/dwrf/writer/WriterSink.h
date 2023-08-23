@@ -40,14 +40,14 @@ class WriterSink {
       dwio::common::FileSink& sink,
       memory::MemoryPool& pool,
       const Config& configs)
-      : sink_{sink},
+      : sink_{&sink},
         checksum_{
             ChecksumFactory::create(configs.get(Config::CHECKSUM_ALGORITHM))},
         cacheMode_{configs.get(Config::STRIPE_CACHE_MODE)},
-        mode_{Mode::None},
-        shouldBuffer_{!sink_.isBuffered()},
-        size_{0},
+        shouldBuffer_{!sink_->isBuffered()},
         maxCacheSize_{configs.get(Config::STRIPE_CACHE_SIZE)},
+        mode_{Mode::None},
+        size_{0},
         cacheHolder_{pool, SLICE_SIZE, SLICE_SIZE},
         cacheBuffer_{pool},
         exceedsLimit_{false} {
@@ -67,7 +67,7 @@ class WriterSink {
   }
 
   uint64_t size() const {
-    return sink_.size() + size_;
+    return sink_->size() + size_;
   }
 
   void addBuffer(memory::MemoryPool& pool, const char* data, size_t size) {
@@ -87,7 +87,7 @@ class WriterSink {
   }
 
   void flush() {
-    sink_.write(buffers_);
+    sink_->write(buffers_);
     buffers_.clear();
     size_ = 0;
   }
@@ -105,60 +105,44 @@ class WriterSink {
   }
 
   uint32_t getCacheSize() const {
-    auto size = offsets_.size();
-    return size ? offsets_.at(size - 1) : 0;
+    const auto size = offsets_.size();
+    return size > 0 ? offsets_.at(size - 1) : 0;
   }
 
   void writeCache() {
     DWIO_ENSURE_EQ(mode_, Mode::None);
 
-    auto size = getCacheSize();
+    const auto size = getCacheSize();
     DWIO_ENSURE_EQ(size, getCurrentCacheSize());
     if (size > 0) {
       addBuffers(cacheHolder_);
-      if (cacheBuffer_.size()) {
+      if (cacheBuffer_.size() > 0) {
         addBuffer(std::move(cacheBuffer_));
       }
     }
   }
 
   void setMode(Mode mode) {
-    if (mode != mode_ && shouldCache()) {
+    if ((mode != mode_) && shouldCache()) {
       offsets_.push_back(getCurrentCacheSize());
     }
     mode_ = mode;
   }
 
  private:
-  dwio::common::FileSink& sink_;
-  std::unique_ptr<Checksum> checksum_;
-  StripeCacheMode cacheMode_;
-  Mode mode_;
-  bool shouldBuffer_;
-  uint64_t size_;
-
-  // members used by stripe metadata cache
-  uint32_t maxCacheSize_;
-  dwio::common::DataBufferHolder cacheHolder_;
-  dwio::common::DataBuffer<char> cacheBuffer_;
-  std::vector<uint32_t> offsets_;
-  bool exceedsLimit_;
-
-  std::vector<dwio::common::DataBuffer<char>> buffers_;
-
-  bool shouldChecksum() {
+  bool shouldChecksum() const {
     // checksum is captured in all modes except None and if checksum algorithm
     // is available
     return mode_ != Mode::None && checksum_;
   }
 
-  bool shouldCache() {
-    // metadata cache is captured in Index and Footer mode when corresponsing
-    // mode is also enabled thru config, and if cache size is not exceeding
+  bool shouldCache() const {
+    // metadata cache is captured in Index and Footer mode when corresponding
+    // mode is also enabled through config, and if cache size does not exceed
     // configured limit. For example, if current mode is Index and if configured
-    // mode is BOTH, then cache is captured. However, if configuered mode is
-    // FOOTER, then it's not captured.
-    // Below, we do bitwise operator to identify a match in mode
+    // mode is BOTH, then cache is captured. However, if configured mode is
+    // FOOTER, then it's not captured. Below, we do bitwise operator to identify
+    // a match in mode.
     return (mode_ & 0x02) &&
         (((mode_ - 1) & 0x03) & static_cast<uint8_t>(cacheMode_)) &&
         !exceedsLimit_;
@@ -168,7 +152,7 @@ class WriterSink {
     return static_cast<uint32_t>(cacheHolder_.size() + cacheBuffer_.size());
   }
 
-  // Truncate cache data that is beyond the last offset.
+  // Truncates cache data that is beyond the last offset.
   void truncateCache() {
     // Cache can't accommodate all Stripe's index streams and/or Footer and stay
     // within the Cache size limit. Since there are many index streams for a
@@ -185,6 +169,23 @@ class WriterSink {
       }
     }
   }
+
+  dwio::common::FileSink* const sink_;
+  const std::unique_ptr<Checksum> checksum_;
+  const StripeCacheMode cacheMode_;
+  const bool shouldBuffer_;
+  const uint32_t maxCacheSize_;
+
+  Mode mode_;
+  uint64_t size_;
+
+  // members used by stripe metadata cache
+  dwio::common::DataBufferHolder cacheHolder_;
+  dwio::common::DataBuffer<char> cacheBuffer_;
+  std::vector<uint32_t> offsets_;
+  bool exceedsLimit_;
+
+  std::vector<dwio::common::DataBuffer<char>> buffers_;
 };
 
 } // namespace facebook::velox::dwrf

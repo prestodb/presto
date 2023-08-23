@@ -17,9 +17,8 @@
 #include "velox/dwio/dwrf/writer/WriterSink.h"
 
 namespace facebook::velox::dwrf {
-
 void WriterSink::addBuffer(dwio::common::DataBuffer<char> buffer) {
-  auto length = buffer.size();
+  const auto length = buffer.size();
   if (length > 0) {
     if (shouldChecksum()) {
       checksum_->update(buffer.data(), length);
@@ -30,23 +29,23 @@ void WriterSink::addBuffer(dwio::common::DataBuffer<char> buffer) {
         truncateCache();
       } else {
         // capture input to the cache
-        auto len = length;
+        auto remainingSize = length;
         auto src = buffer.data();
         auto capacity = cacheBuffer_.capacity();
         auto size = cacheBuffer_.size();
         // resize the buffer assuming we need to use all of it
         cacheBuffer_.resize(capacity);
-        while (len > 0) {
+        while (remainingSize > 0) {
           DWIO_ENSURE_LT(size, capacity);
-          auto toWrite = std::min(capacity - size, len);
-          std::memcpy(cacheBuffer_.data() + size, src, toWrite);
-          size += toWrite;
+          const auto toWriteSize = std::min(capacity - size, remainingSize);
+          std::memcpy(cacheBuffer_.data() + size, src, toWriteSize);
+          size += toWriteSize;
           if (size == capacity) {
             cacheHolder_.take(cacheBuffer_);
             size = 0;
           }
-          len -= toWrite;
-          src += toWrite;
+          remainingSize -= toWriteSize;
+          src += toWriteSize;
         }
         cacheBuffer_.resize(size);
       }
@@ -56,8 +55,7 @@ void WriterSink::addBuffer(dwio::common::DataBuffer<char> buffer) {
     buffers_.push_back(std::move(buffer));
     size_ += length;
   } else {
-    sink_.write(std::move(buffer));
+    sink_->write(std::move(buffer));
   }
 }
-
 } // namespace facebook::velox::dwrf

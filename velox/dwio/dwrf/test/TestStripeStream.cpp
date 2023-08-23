@@ -527,7 +527,7 @@ class TestStripeStreams : public StripeStreamsBase {
 
   const proto::ColumnEncoding& getEncoding(
       const EncodingKey& ek) const override {
-    return *getEncodingProxy(ek.node, ek.sequence);
+    return *getEncodingProxy(ek.node(), ek.sequence());
   }
 
   std::unique_ptr<SeekableInputStream> getStream(
@@ -535,8 +535,8 @@ class TestStripeStreams : public StripeStreamsBase {
       std::string_view /* label */,
       bool throwIfNotFound) const override {
     return std::unique_ptr<SeekableInputStream>(getStreamProxy(
-        si.encodingKey().node,
-        si.encodingKey().sequence,
+        si.encodingKey().node(),
+        si.encodingKey().sequence(),
         static_cast<proto::Stream_Kind>(si.kind()),
         throwIfNotFound));
   }

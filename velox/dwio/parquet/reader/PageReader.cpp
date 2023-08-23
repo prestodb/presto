@@ -493,8 +493,9 @@ void PageReader::prepareDictionary(const PageHeader& pageHeader) {
           ? sizeof(float)
           : sizeof(double);
       auto numBytes = dictionary_.numValues * typeSize;
-      if (type_->type->isShortDecimal() && parquetType == thrift::Type::INT32) {
-        auto veloxTypeLength = type_->type->cppSizeInBytes();
+      if (type_->type()->isShortDecimal() &&
+          parquetType == thrift::Type::INT32) {
+        auto veloxTypeLength = type_->type()->cppSizeInBytes();
         auto numVeloxBytes = dictionary_.numValues * veloxTypeLength;
         dictionary_.values =
             AlignedBuffer::allocate<char>(numVeloxBytes, &pool_);
@@ -511,7 +512,8 @@ void PageReader::prepareDictionary(const PageHeader& pageHeader) {
             bufferStart_,
             bufferEnd_);
       }
-      if (type_->type->isShortDecimal() && parquetType == thrift::Type::INT32) {
+      if (type_->type()->isShortDecimal() &&
+          parquetType == thrift::Type::INT32) {
         auto values = dictionary_.values->asMutable<int64_t>();
         auto parquetValues = dictionary_.values->asMutable<int32_t>();
         for (auto i = dictionary_.numValues - 1; i >= 0; --i) {
@@ -547,7 +549,7 @@ void PageReader::prepareDictionary(const PageHeader& pageHeader) {
     case thrift::Type::FIXED_LEN_BYTE_ARRAY: {
       auto parquetTypeLength = type_->typeLength_;
       auto numParquetBytes = dictionary_.numValues * parquetTypeLength;
-      auto veloxTypeLength = type_->type->cppSizeInBytes();
+      auto veloxTypeLength = type_->type()->cppSizeInBytes();
       auto numVeloxBytes = dictionary_.numValues * veloxTypeLength;
       dictionary_.values = AlignedBuffer::allocate<char>(numVeloxBytes, &pool_);
       auto data = dictionary_.values->asMutable<char>();
@@ -562,7 +564,7 @@ void PageReader::prepareDictionary(const PageHeader& pageHeader) {
             bufferStart_,
             bufferEnd_);
       }
-      if (type_->type->isShortDecimal()) {
+      if (type_->type()->isShortDecimal()) {
         // Parquet decimal values have a fixed typeLength_ and are in big-endian
         // layout.
         if (numParquetBytes < numVeloxBytes) {
@@ -585,7 +587,7 @@ void PageReader::prepareDictionary(const PageHeader& pageHeader) {
           values[i] = __builtin_bswap64(values[i]);
         }
         break;
-      } else if (type_->type->isLongDecimal()) {
+      } else if (type_->type()->isLongDecimal()) {
         // Parquet decimal values have a fixed typeLength_ and are in big-endian
         // layout.
         if (numParquetBytes < numVeloxBytes) {

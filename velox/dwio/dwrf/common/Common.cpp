@@ -80,7 +80,7 @@ std::string columnEncodingKindToString(ColumnEncodingKind kind) {
 }
 
 DwrfStreamIdentifier EncodingKey::forKind(const proto::Stream_Kind kind) const {
-  return DwrfStreamIdentifier(node, sequence, 0, kind);
+  return DwrfStreamIdentifier(node_, sequence_, 0, kind);
 }
 
 namespace {

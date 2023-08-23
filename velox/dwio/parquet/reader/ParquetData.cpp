@@ -62,8 +62,8 @@ void ParquetData::filterRowGroups(
 bool ParquetData::rowGroupMatches(
     uint32_t rowGroupId,
     common::Filter* FOLLY_NULLABLE filter) {
-  auto column = type_->column;
-  auto type = type_->type;
+  auto column = type_->column();
+  auto type = type_->type();
   auto rowGroup = rowGroups_[rowGroupId];
   assert(!rowGroup.columns.empty());
 
@@ -85,12 +85,12 @@ bool ParquetData::rowGroupMatches(
 void ParquetData::enqueueRowGroup(
     uint32_t index,
     dwio::common::BufferedInput& input) {
-  auto& chunk = rowGroups_[index].columns[type_->column];
+  auto& chunk = rowGroups_[index].columns[type_->column()];
   streams_.resize(rowGroups_.size());
   VELOX_CHECK(
       chunk.__isset.meta_data,
       "ColumnMetaData does not exist for schema Id ",
-      type_->column);
+      type_->column());
   auto& metaData = chunk.meta_data;
 
   uint64_t chunkReadOffset = metaData.data_page_offset;
@@ -105,7 +105,7 @@ void ParquetData::enqueueRowGroup(
       ? metaData.total_uncompressed_size
       : metaData.total_compressed_size;
 
-  auto id = dwio::common::StreamIdentifier(type_->column);
+  auto id = dwio::common::StreamIdentifier(type_->column());
   streams_[index] = input.enqueue({chunkReadOffset, readSize}, &id);
 }
 
@@ -113,7 +113,7 @@ dwio::common::PositionProvider ParquetData::seekToRowGroup(uint32_t index) {
   static std::vector<uint64_t> empty;
   VELOX_CHECK_LT(index, streams_.size());
   VELOX_CHECK(streams_[index], "Stream not enqueued for column");
-  auto& metadata = rowGroups_[index].columns[type_->column].meta_data;
+  auto& metadata = rowGroups_[index].columns[type_->column()].meta_data;
   reader_ = std::make_unique<PageReader>(
       std::move(streams_[index]),
       pool_,

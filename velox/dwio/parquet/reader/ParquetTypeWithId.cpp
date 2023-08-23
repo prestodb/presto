@@ -19,10 +19,10 @@
 namespace facebook::velox::parquet {
 namespace {
 bool containsList(const ParquetTypeWithId& type) {
-  if (type.type->kind() == TypeKind::ARRAY) {
+  if (type.type()->kind() == TypeKind::ARRAY) {
     return true;
   }
-  if (type.type->kind() == TypeKind::ROW) {
+  if (type.type()->kind() == TypeKind::ROW) {
     for (auto i = 0; i < type.getChildren().size(); ++i) {
       if (containsList(type.parquetChildAt(i))) {
         return true;
@@ -35,11 +35,11 @@ bool containsList(const ParquetTypeWithId& type) {
 using ::parquet::internal::LevelInfo;
 
 bool ParquetTypeWithId::hasNonRepeatedLeaf() const {
-  if (type->kind() == TypeKind::ARRAY) {
+  if (type()->kind() == TypeKind::ARRAY) {
     return false;
   }
-  if (type->kind() == TypeKind::ROW) {
-    for (auto i = 0; i < type->size(); ++i) {
+  if (type()->kind() == TypeKind::ROW) {
+    for (auto i = 0; i < type()->size(); ++i) {
       if (parquetChildAt(i).hasNonRepeatedLeaf()) {
         return true;
       }
@@ -54,21 +54,21 @@ LevelMode ParquetTypeWithId::makeLevelInfo(LevelInfo& info) const {
   int16_t repeatedAncestor = 0;
   for (auto parent = parquetParent(); parent;
        parent = parent->parquetParent()) {
-    if (parent->type->kind() == TypeKind::ARRAY ||
-        parent->type->kind() == TypeKind::MAP) {
+    if (parent->type()->kind() == TypeKind::ARRAY ||
+        parent->type()->kind() == TypeKind::MAP) {
       repeatedAncestor = parent->maxDefine_;
       break;
     }
   }
-  bool isList = type->kind() == TypeKind::ARRAY;
-  bool isStruct = type->kind() == TypeKind::ROW;
-  bool isMap = type->kind() == TypeKind::MAP;
+  bool isList = type()->kind() == TypeKind::ARRAY;
+  bool isStruct = type()->kind() == TypeKind::ROW;
+  bool isMap = type()->kind() == TypeKind::MAP;
   bool hasList = false;
   if (isStruct) {
     bool isAllLists = true;
     for (auto i = 0; i < getChildren().size(); ++i) {
       auto child = parquetChildAt(i);
-      if (child.type->kind() != TypeKind ::ARRAY) {
+      if (child.type()->kind() != TypeKind ::ARRAY) {
         isAllLists = false;
       }
       hasList |= hasList || containsList(child);

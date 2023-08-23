@@ -313,8 +313,8 @@ struct SimulatedFlush {
         generalMemoryUsage{generalMemoryUsage} {}
 
   void apply(WriterContext& context) const {
-    context.stripeRawSize = stripeRawSize;
-    ASSERT_EQ(stripeRowCount, context.stripeRowCount);
+    context.setStripeRawSize(stripeRawSize);
+    ASSERT_EQ(stripeRowCount, context.stripeRowCount());
     auto& dictPool = dynamic_cast<MockMemoryPool&>(
         context.getMemoryPool(MemoryUsageCategory::DICTIONARY));
     auto& outputPool = dynamic_cast<MockMemoryPool&>(
@@ -330,10 +330,10 @@ struct SimulatedFlush {
     context.recordFlushOverhead(flushOverhead);
     context.recordCompressionRatio(compressedSize);
 
-    ++context.stripeIndex;
+    context.testingIncStripeIndex();
     // Clear context
-    context.stripeRawSize = 0;
-    context.stripeRowCount = 0;
+    context.setStripeRawSize(0);
+    context.setStripeRowCount(0);
     // Simplified memory footprint modeling for testing.
     dictPool.zeroOutMemoryUsage();
     outputPool.zeroOutMemoryUsage();
@@ -428,15 +428,15 @@ class WriterFlushTestHelper {
             context.getMemoryPool(MemoryUsageCategory::GENERAL).currentBytes();
 
         uint64_t flushOverhead =
-            folly::Random::rand32(0, context.stripeRawSize, gen);
+            folly::Random::rand32(0, context.stripeRawSize(), gen);
         uint64_t compressedSize =
-            folly::Random::rand32(0, context.stripeRawSize, gen);
+            folly::Random::rand32(0, context.stripeRawSize(), gen);
         uint64_t dictMemoryUsage =
             folly::Random::rand32(0, flushOverhead / 3, gen);
         SimulatedFlush{
             flushOverhead,
-            context.stripeRowCount,
-            context.stripeRawSize,
+            context.stripeRowCount(),
+            context.stripeRawSize(),
             compressedSize,
             folly::to<uint64_t>(dictMemoryUsage),
             // Flush overhead is the delta of output stream memory
@@ -451,7 +451,7 @@ class WriterFlushTestHelper {
       }
       write.apply(context);
     }
-    EXPECT_EQ(numStripes, context.stripeIndex);
+    EXPECT_EQ(numStripes, context.stripeIndex());
   }
 
   static std::vector<SimulatedWrite> generateSimulatedWrites(

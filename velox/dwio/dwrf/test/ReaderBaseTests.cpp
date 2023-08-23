@@ -57,10 +57,10 @@ class EncryptedStatsTest : public Test {
     // fake post script
     proto::PostScript ps;
     ps.set_compression(
-        static_cast<proto::CompressionKind>(context.compression));
-    if (context.compression !=
+        static_cast<proto::CompressionKind>(context.compression()));
+    if (context.compression() !=
         facebook::velox::common::CompressionKind::CompressionKind_NONE) {
-      ps.set_compressionblocksize(context.compressionBlockSize);
+      ps.set_compressionblocksize(context.compressionBlockSize());
     }
 
     // fake footer

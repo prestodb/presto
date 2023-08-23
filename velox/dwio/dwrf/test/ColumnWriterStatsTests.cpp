@@ -38,11 +38,11 @@ using folly::Random;
 uint64_t computeCumulativeNodeSize(
     std::unordered_map<uint32_t, uint64_t>& nodeSizes,
     const TypeWithId& type) {
-  auto totalSize = nodeSizes[type.id];
+  auto totalSize = nodeSizes[type.id()];
   for (auto i = 0; i < type.size(); i++) {
     totalSize += computeCumulativeNodeSize(nodeSizes, *type.childAt(i));
   }
-  nodeSizes[type.id] = totalSize;
+  nodeSizes[type.id()] = totalSize;
   return totalSize;
 }
 

@@ -37,7 +37,7 @@ class SelectiveStructColumnReaderBase
             scanSpec,
             isRoot),
         rowsPerRowGroup_(formatData_->rowsPerRowGroup().value()) {
-    VELOX_CHECK_EQ(fileType_->id, dataType->id, "working on the same node");
+    VELOX_CHECK_EQ(fileType_->id(), dataType->id(), "working on the same node");
   }
 
   void seekTo(vector_size_t offset, bool readsNullsOnly) override;

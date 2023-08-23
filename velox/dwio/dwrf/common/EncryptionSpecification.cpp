@@ -42,4 +42,23 @@ EncryptionProvider fromProto(proto::Encryption_KeyProvider provider) {
   }
 }
 
+EncryptionSpecification& EncryptionSpecification::withRootEncryptionProperties(
+    const std::shared_ptr<const dwio::common::encryption::EncryptionProperties>&
+        props) {
+  DWIO_ENSURE(props.get(), "props is required");
+  DWIO_ENSURE(
+      fieldSpecs_.empty(),
+      "only one of encryption properties and encrypted fields is allowed");
+  rootProps_ = props;
+  return *this;
+}
+
+EncryptionSpecification& EncryptionSpecification::withEncryptedField(
+    const FieldEncryptionSpecification& spec) {
+  DWIO_ENSURE(
+      !rootProps_.get(),
+      "only one of encryption properties and encrypted fields is allowed");
+  fieldSpecs_.push_back(spec);
+  return *this;
+}
 } // namespace facebook::velox::dwrf::encryption

@@ -29,7 +29,7 @@ void SelectiveIntegerDirectColumnReader::read(
     RowSet rows,
     const uint64_t* incomingNulls) {
   VELOX_WIDTH_DISPATCH(
-      dwio::common::sizeOfIntKind(fileType_->type->kind()),
+      dwio::common::sizeOfIntKind(fileType_->type()->kind()),
       prepareRead,
       offset,
       rows,

@@ -23,8 +23,8 @@ SelectiveDecimalColumnReader<DataT>::SelectiveDecimalColumnReader(
     const std::shared_ptr<const TypeWithId>& nodeType,
     DwrfParams& params,
     common::ScanSpec& scanSpec)
-    : SelectiveColumnReader(nodeType->type, params, scanSpec, nodeType) {
-  EncodingKey encodingKey{fileType_->id, params.flatMapContext().sequence};
+    : SelectiveColumnReader(nodeType->type(), params, scanSpec, nodeType) {
+  EncodingKey encodingKey{fileType_->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   if constexpr (std::is_same_v<DataT, std::int64_t>) {
     scale_ = requestedType_->asShortDecimal().scale();

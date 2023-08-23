@@ -234,13 +234,13 @@ bool testFilters(
         }
       } else {
         const auto& typeWithId = fileTypeWithId->childByName(name);
-        auto columnStats = reader->columnStatistics(typeWithId->id);
+        auto columnStats = reader->columnStatistics(typeWithId->id());
         if (columnStats != nullptr &&
             !testFilter(
                 child->filter(),
                 columnStats.get(),
                 totalRows.value(),
-                typeWithId->type)) {
+                typeWithId->type())) {
           VLOG(1) << "Skipping " << filePath
                   << " based on stats and filter for column "
                   << child->fieldName();

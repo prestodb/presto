@@ -28,11 +28,11 @@ SelectiveIntegerDictionaryColumnReader::SelectiveIntegerDictionaryColumnReader(
     common::ScanSpec& scanSpec,
     uint32_t numBytes)
     : SelectiveIntegerColumnReader(
-          requestedType->type,
+          requestedType->type(),
           params,
           scanSpec,
           std::move(dataType)) {
-  EncodingKey encodingKey{fileType_->id, params.flatMapContext().sequence};
+  EncodingKey encodingKey{fileType_->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   auto encoding = stripe.getEncoding(encodingKey);
   scanState_.dictionary.numValues = encoding.dictionarysize();
@@ -75,7 +75,7 @@ void SelectiveIntegerDictionaryColumnReader::read(
     RowSet rows,
     const uint64_t* incomingNulls) {
   VELOX_WIDTH_DISPATCH(
-      sizeOfIntKind(fileType_->type->kind()),
+      sizeOfIntKind(fileType_->type()->kind()),
       prepareRead,
       offset,
       rows,

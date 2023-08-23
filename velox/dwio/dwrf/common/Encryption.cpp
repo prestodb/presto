@@ -27,16 +27,16 @@ using dwio::common::encryption::EncryptionPropertiesHash;
 void EncryptionHandler::populateNodeMaps(
     const TypeWithId& root,
     uint32_t groupIndex) {
-  populateChildNodeMap(root.id, root);
-  rootNodes_[root.id] = groupIndex;
+  populateChildNodeMap(root.id(), root);
+  rootNodes_[root.id()] = groupIndex;
 }
 
 void EncryptionHandler::populateChildNodeMap(
     uint32_t root,
     const TypeWithId& node) {
-  auto pos = childNodes_.find(node.id);
+  auto pos = childNodes_.find(node.id());
   DWIO_ENSURE(pos == childNodes_.end(), "node already exists");
-  childNodes_[node.id] = root;
+  childNodes_[node.id()] = root;
   for (size_t i = 0; i < node.size(); ++i) {
     populateChildNodeMap(root, *node.childAt(i));
   }
@@ -57,15 +57,15 @@ std::unique_ptr<EncryptionHandler> EncryptionHandler::create(
     const EncryptionSpecification& spec,
     EncrypterFactory* factory) {
   auto handler = std::make_unique<EncryptionHandler>();
-  if (!spec.rootProps_ && spec.fieldSpecs_.empty()) {
+  if (!spec.rootProps() && spec.fieldSpecs().empty()) {
     return handler;
   }
 
-  DWIO_ENSURE(factory, "factory is required");
-  handler->providerType_ = spec.providerType_;
-  if (spec.rootProps_) {
+  DWIO_ENSURE_NOT_NULL(factory, "factory is required");
+  handler->providerType_ = spec.providerType();
+  if (spec.rootProps() != nullptr) {
     // all fields encrypted using same properties
-    handler->addEncrypter(*factory, *spec.rootProps_);
+    handler->addEncrypter(*factory, *spec.rootProps());
     handler->populateNodeMaps(*schema, 0);
   } else {
     std::unordered_map<
@@ -74,7 +74,7 @@ std::unique_ptr<EncryptionHandler> EncryptionHandler::create(
         EncryptionPropertiesHash,
         EncryptionPropertiesEqual>
         encrypters;
-    for (auto& fs : spec.fieldSpecs_) {
+    for (auto& fs : spec.fieldSpecs()) {
       DWIO_ENSURE(fs.index_, "index not set");
       auto propsPtr = fs.props_.get();
       DWIO_ENSURE_NOT_NULL(propsPtr, "encryption properties not set");

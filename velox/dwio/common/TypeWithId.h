@@ -37,31 +37,50 @@ class TypeWithId : public velox::Tree<std::shared_ptr<const TypeWithId>> {
 
   uint32_t size() const override;
 
+  const std::shared_ptr<const velox::Type>& type() const {
+    return type_;
+  }
+
+  const TypeWithId* parent() const {
+    return parent_;
+  }
+
+  uint32_t id() const {
+    return id_;
+  }
+
+  uint32_t maxId() const {
+    return maxId_;
+  }
+
+  uint32_t column() const {
+    return column_;
+  }
+
   const std::shared_ptr<const TypeWithId>& childAt(uint32_t idx) const override;
 
   const std::shared_ptr<const TypeWithId>& childByName(
       const std::string& name) const {
-    VELOX_CHECK_EQ(type->kind(), velox::TypeKind::ROW);
-    return childAt(type->as<velox::TypeKind::ROW>().getChildIdx(name));
+    VELOX_CHECK_EQ(type_->kind(), velox::TypeKind::ROW);
+    return childAt(type_->as<velox::TypeKind::ROW>().getChildIdx(name));
   }
 
   const std::vector<std::shared_ptr<const TypeWithId>>& getChildren() const {
     return children_;
   }
 
-  const std::shared_ptr<const velox::Type> type;
-  const TypeWithId* const parent;
-  const uint32_t id;
-  const uint32_t maxId;
-  const uint32_t column;
-
  private:
-  const std::vector<std::shared_ptr<const TypeWithId>> children_;
-
-  static std::shared_ptr<const TypeWithId> create_(
+  static std::shared_ptr<const TypeWithId> create(
       const std::shared_ptr<const velox::Type>& type,
       uint32_t& next,
       uint32_t column);
+
+  const std::shared_ptr<const velox::Type> type_;
+  const TypeWithId* const parent_;
+  const uint32_t id_;
+  const uint32_t maxId_;
+  const uint32_t column_;
+  const std::vector<std::shared_ptr<const TypeWithId>> children_;
 };
 
 } // namespace facebook::velox::dwio::common

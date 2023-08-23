@@ -72,7 +72,7 @@ SelectiveFloatingPointColumnReader<TData, TRequested>::
           params,
           scanSpec),
       decoder_(params.stripeStreams().getStream(
-          EncodingKey{this->fileType_->id, params.flatMapContext().sequence}
+          EncodingKey{this->fileType_->id(), params.flatMapContext().sequence}
               .forKind(proto::Stream_Kind_DATA),
           params.streamLabels().label(),
           true)) {}

@@ -26,8 +26,8 @@ SelectiveTimestampColumnReader::SelectiveTimestampColumnReader(
     const std::shared_ptr<const TypeWithId>& nodeType,
     DwrfParams& params,
     common::ScanSpec& scanSpec)
-    : SelectiveColumnReader(nodeType->type, params, scanSpec, nodeType) {
-  EncodingKey encodingKey{fileType_->id, params.flatMapContext().sequence};
+    : SelectiveColumnReader(nodeType->type(), params, scanSpec, nodeType) {
+  EncodingKey encodingKey{fileType_->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   version_ = convertRleVersion(stripe.getEncoding(encodingKey).kind());
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
@@ -156,7 +156,7 @@ void SelectiveTimestampColumnReader::getValues(RowSet rows, VectorPtr* result) {
   fillTimestamps(rawTs, rawNulls, secondsData, nanosData, numValues_);
   values_ = tsValues;
   rawValues_ = values_->asMutable<char>();
-  getFlatValues<Timestamp, Timestamp>(rows, result, fileType_->type, true);
+  getFlatValues<Timestamp, Timestamp>(rows, result, fileType_->type(), true);
 }
 
 } // namespace facebook::velox::dwrf

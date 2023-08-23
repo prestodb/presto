@@ -29,7 +29,7 @@ class BooleanColumnReader : public dwio::common::SelectiveByteRleColumnReader {
       ParquetParams& params,
       common::ScanSpec& scanSpec)
       : SelectiveByteRleColumnReader(
-            nodeType->type,
+            nodeType->type(),
             params,
             scanSpec,
             nodeType) {}

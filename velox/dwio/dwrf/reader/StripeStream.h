@@ -64,11 +64,11 @@ class StreamInformationImpl : public StreamInformation {
   }
 
   uint32_t getNode() const override {
-    return streamId_.encodingKey().node;
+    return streamId_.encodingKey().node();
   }
 
   uint32_t getSequence() const override {
-    return streamId_.encodingKey().sequence;
+    return streamId_.encodingKey().sequence();
   }
 
   uint64_t getOffset() const override {

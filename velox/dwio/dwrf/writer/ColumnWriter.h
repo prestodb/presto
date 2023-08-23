@@ -59,7 +59,7 @@ class ColumnWriter {
       WriterContext& context,
       const uint32_t id,
       const uint32_t sequence)
-      : context_{context}, id_{id}, sequence_{sequence} {}
+      : id_{id}, sequence_{sequence}, context_{context} {}
 
   virtual void setEncoding(proto::ColumnEncoding& encoding) const {
     encoding.set_kind(proto::ColumnEncoding_Kind::ColumnEncoding_Kind_DIRECT);
@@ -68,9 +68,9 @@ class ColumnWriter {
     encoding.set_sequence(sequence_);
   }
 
-  WriterContext& context_;
   const uint32_t id_;
   const uint32_t sequence_;
+  WriterContext& context_;
 };
 
 class BaseColumnWriter : public ColumnWriter {
@@ -123,7 +123,7 @@ class BaseColumnWriter : public ColumnWriter {
                               statsFactory) const override {
     auto& stats = statsFactory(id_);
     fileStatsBuilder_->toProto(stats);
-    uint64_t size = context_.getPhysicalSizeAggregator(id_).getResult();
+    const uint64_t size = context_.getPhysicalSizeAggregator(id_).getResult();
     for (auto& child : children_) {
       child->writeFileStats(statsFactory);
     }
@@ -131,10 +131,10 @@ class BaseColumnWriter : public ColumnWriter {
     return size;
   }
 
-  // Determine whether dictionary is the right encoding to use when writing
-  // the first stripe. We will continue using the same decision for all
-  // subsequent stripes.
-  // Returns true if an encoding change is performed, false otherwise.
+  /// Determines whether dictionary is the right encoding to use when writing
+  /// the first stripe. We will continue using the same decision for all
+  /// subsequent stripes. Returns true if an encoding change is performed, false
+  /// otherwise.
   bool tryAbandonDictionaries(bool force) override {
     bool result = false;
     for (auto& child : children_) {
@@ -157,9 +157,9 @@ class BaseColumnWriter : public ColumnWriter {
   BaseColumnWriter(
       WriterContext& context,
       const dwio::common::TypeWithId& type,
-      const uint32_t sequence,
+      uint32_t sequence,
       std::function<void(IndexBuilder&)> onRecordPosition)
-      : ColumnWriter{context, type.id, sequence},
+      : ColumnWriter{context, type.id(), sequence},
         type_{type},
         indexBuilder_{context_.newIndexBuilder(
             newStream(StreamKind::StreamKind_ROW_INDEX))},
@@ -168,29 +168,30 @@ class BaseColumnWriter : public ColumnWriter {
       present_ =
           createBooleanRleEncoder(newStream(StreamKind::StreamKind_PRESENT));
     }
-    auto options = StatisticsBuilderOptions::fromConfig(context.getConfigs());
-    indexStatsBuilder_ = StatisticsBuilder::create(*type.type, options);
-    fileStatsBuilder_ = StatisticsBuilder::create(*type.type, options);
+    const auto options =
+        StatisticsBuilderOptions::fromConfig(context.getConfigs());
+    indexStatsBuilder_ = StatisticsBuilder::create(*type.type(), options);
+    fileStatsBuilder_ = StatisticsBuilder::create(*type.type(), options);
   }
 
   uint64_t writeNulls(const VectorPtr& slice, const common::Ranges& ranges) {
-    if (UNLIKELY(ranges.size() == 0)) {
+    if (FOLLY_UNLIKELY(ranges.size() == 0)) {
       return 0;
     }
-    auto nulls = slice->rawNulls();
     if (!slice->mayHaveNulls()) {
       present_->add(nullptr, ranges, nullptr);
     } else {
+      auto* nulls = slice->rawNulls();
       present_->addBits(nulls, ranges, nullptr, false);
     }
     return 0;
   }
 
-  // Function used only for the cases dealing with Dictionary vectors
+  /// Function used only for the cases dealing with Dictionary vectors
   uint64_t writeNulls(
       const DecodedVector& decoded,
       const common::Ranges& ranges) {
-    if (UNLIKELY(ranges.size() == 0)) {
+    if (FOLLY_UNLIKELY(ranges.size() == 0)) {
       return 0;
     }
     if (!decoded.mayHaveNulls()) {
@@ -221,12 +222,12 @@ class BaseColumnWriter : public ColumnWriter {
 
   std::unique_ptr<BufferedOutputStream> newStream(StreamKind kind) {
     return context_.newStream(
-        DwrfStreamIdentifier{id_, sequence_, type_.column, kind});
+        DwrfStreamIdentifier{id_, sequence_, type_.column(), kind});
   }
 
   void suppressStream(StreamKind kind, uint32_t sequence) {
     context_.suppressStream(
-        DwrfStreamIdentifier{id_, sequence, type_.column, kind});
+        DwrfStreamIdentifier{id_, sequence, type_.column(), kind});
   }
 
   void suppressStream(StreamKind kind) {
@@ -243,7 +244,7 @@ class BaseColumnWriter : public ColumnWriter {
   }
 
   bool isIndexEnabled() const {
-    return context_.isIndexEnabled;
+    return context_.indexEnabled();
   }
 
   virtual bool useDictionaryEncoding() const {
@@ -261,7 +262,6 @@ class BaseColumnWriter : public ColumnWriter {
   std::unique_ptr<IndexBuilder> indexBuilder_;
   std::unique_ptr<StatisticsBuilder> indexStatsBuilder_;
   std::unique_ptr<StatisticsBuilder> fileStatsBuilder_;
-
   std::unique_ptr<ByteRleEncoder> present_;
   bool hasNull_ = false;
   // callback used to inject the logic that captures positions for flat map

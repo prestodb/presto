@@ -69,7 +69,7 @@ class ValueStatisticsBuilder {
       WriterContext& context,
       const dwio::common::TypeWithId& type,
       const StatisticsBuilderOptions& options) {
-    auto builder = StatisticsBuilder::create(*type.type, options);
+    auto builder = StatisticsBuilder::create(*type.type(), options);
 
     std::vector<std::unique_ptr<ValueStatisticsBuilder>> children{};
     for (size_t i = 0; i < type.size(); ++i) {
@@ -77,7 +77,7 @@ class ValueStatisticsBuilder {
     }
 
     return std::make_unique<ValueStatisticsBuilder>(
-        context, type.id, std::move(builder), std::move(children));
+        context, type.id(), std::move(builder), std::move(children));
   }
 
   WriterContext& context_;
@@ -101,7 +101,10 @@ class ValueWriter {
       : sequence_{sequence},
         keyInfo_{keyInfo},
         inMap_{createBooleanRleEncoder(context.newStream(
-            {type.id, sequence, type.column, StreamKind::StreamKind_IN_MAP}))},
+            {type.id(),
+             sequence,
+             type.column(),
+             StreamKind::StreamKind_IN_MAP}))},
         columnWriter_{BaseColumnWriter::create(
             context,
             type,
@@ -316,7 +319,7 @@ class FlatMapColumnWriter<TypeKind::INVALID> {
       const uint32_t sequence) {
     DWIO_ENSURE_EQ(type.size(), 2, "Map should have exactly two children");
 
-    auto kind = type.childAt(0)->type->kind();
+    const auto kind = type.childAt(0)->type()->kind();
     switch (kind) {
       case TypeKind::TINYINT:
         return std::make_unique<FlatMapColumnWriter<TypeKind::TINYINT>>(

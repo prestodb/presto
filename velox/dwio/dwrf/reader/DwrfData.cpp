@@ -29,7 +29,7 @@ DwrfData::DwrfData(
       nodeType_(std::move(nodeType)),
       flatMapContext_(std::move(flatMapContext)),
       rowsPerRowGroup_{stripe.rowsPerRowGroup()} {
-  EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
+  EncodingKey encodingKey{nodeType_->id(), flatMapContext_.sequence};
   std::unique_ptr<dwio::common::SeekableInputStream> stream = stripe.getStream(
       encodingKey.forKind(proto::Stream_Kind_PRESENT),
       streamLabels.label(),
@@ -162,7 +162,8 @@ void DwrfData::filterRowGroups(
     auto columnStats =
         buildColumnStatisticsFromProto(entry.statistics(), *dwrfContext);
     if (filter &&
-        !testFilter(filter, columnStats.get(), rowGroupSize, nodeType_->type)) {
+        !testFilter(
+            filter, columnStats.get(), rowGroupSize, nodeType_->type())) {
       VLOG(1) << "Drop stride " << i << " on " << scanSpec.toString();
       bits::setBit(result.filterResult.data(), i);
       continue;
@@ -173,7 +174,7 @@ void DwrfData::filterRowGroups(
               metadataFilter,
               columnStats.get(),
               rowGroupSize,
-              nodeType_->type)) {
+              nodeType_->type())) {
         bits::setBit(
             result.metadataFilterResults[metadataFiltersStartIndex + j]
                 .second.data(),

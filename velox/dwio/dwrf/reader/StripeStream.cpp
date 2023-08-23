@@ -41,11 +41,11 @@ void findProjectedNodes(
   // if a leaf node is projected, all the intermediate node from root to the
   // node should also be projected. So we can return as soon as seeing node that
   // is not projected
-  if (!isProjected(expected.id)) {
+  if (!isProjected(expected.id())) {
     return;
   }
-  projectedNodes.insert(actual.id);
-  switch (actual.type->kind()) {
+  projectedNodes.insert(actual.id());
+  switch (actual.type()->kind()) {
     case TypeKind::ROW: {
       uint64_t childCount = std::min(expected.size(), actual.size());
       for (uint64_t i = 0; i < childCount; ++i) {
@@ -124,7 +124,7 @@ StripeStreamsBase::getIntDictionaryInitializerForNode(
       // Ex: "/5/1759392083" -> "/5"
       label = label.substr(0, label.find('/', 1));
     }
-    localEk = EncodingKey(ek.node, 0);
+    localEk = EncodingKey(ek.node(), 0);
     dictData = localEk.forKind(proto::Stream_Kind_DICTIONARY_DATA);
     dataStream = getStream(dictData, label, false);
   }
@@ -252,7 +252,7 @@ StripeStreamsImpl::getEncodingKeys() const {
   folly::F14FastMap<uint32_t, std::vector<uint32_t>> encodingKeys;
   for (const auto& kv : encodings_) {
     const auto ek = kv.first;
-    encodingKeys[ek.node].push_back(ek.sequence);
+    encodingKeys[ek.node()].push_back(ek.sequence());
   }
 
   return encodingKeys;
@@ -264,7 +264,7 @@ StripeStreamsImpl::getStreamIdentifiers() const {
       nodeToStreamIdMap;
 
   for (const auto& kv : streams_) {
-    nodeToStreamIdMap[kv.first.encodingKey().node].push_back(kv.first);
+    nodeToStreamIdMap[kv.first.encodingKey().node()].push_back(kv.first);
   }
 
   return nodeToStreamIdMap;
@@ -299,7 +299,7 @@ std::unique_ptr<dwio::common::SeekableInputStream> StripeStreamsImpl::getStream(
   return reader_.getReader().createDecompressedStream(
       std::move(streamRead),
       streamDebugInfo,
-      getDecrypter(si.encodingKey().node));
+      getDecrypter(si.encodingKey().node()));
 }
 
 uint32_t StripeStreamsImpl::visitStreamsOfNode(
@@ -307,7 +307,7 @@ uint32_t StripeStreamsImpl::visitStreamsOfNode(
     std::function<void(const StreamInformation&)> visitor) const {
   uint32_t count = 0;
   for (auto& item : streams_) {
-    if (item.first.encodingKey().node == node) {
+    if (item.first.encodingKey().node() == node) {
       visitor(item.second);
       ++count;
     }

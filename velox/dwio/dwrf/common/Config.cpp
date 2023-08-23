@@ -132,7 +132,7 @@ Config::Entry<const std::vector<uint32_t>> Config::MAP_FLAT_COLS(
       if (!val.empty()) {
         std::vector<folly::StringPiece> pieces;
         folly::split(',', val, pieces, true);
-        for (auto& p : pieces) {
+        for (const auto& p : pieces) {
           const auto& trimmedCol = folly::trimWhitespace(p);
           if (!trimmedCol.empty()) {
             result.push_back(folly::to<uint32_t>(trimmedCol));

@@ -208,7 +208,7 @@ namespace {
 void fillNodeToColumnMap(
     const dwio::common::TypeWithId& schema,
     folly::F14FastMap<uint32_t, uint32_t>& nodeToColumnMap) {
-  nodeToColumnMap.emplace(schema.id, schema.column);
+  nodeToColumnMap.emplace(schema.id(), schema.column());
   for (size_t i = 0; i < schema.size(); ++i) {
     fillNodeToColumnMap(*schema.childAt(i), nodeToColumnMap);
   }
@@ -244,7 +244,7 @@ LayoutResult LayoutPlanner::plan(
   auto iter = std::partition(streams.begin(), streams.end(), [](auto& stream) {
     return isIndexStream(stream.first->kind());
   });
-  size_t indexCount = iter - streams.begin();
+  const size_t indexCount = iter - streams.begin();
   auto flatMapCols = getFlatMapColumns(encoding, nodeToColumnMap_);
 
   // sort streams
@@ -270,10 +270,10 @@ void LayoutPlanner::sortBySize(
     if (flatMapCols.count(stream.column()) > 0) {
       flatMapNodeSize[{
           .column = stream.column(),
-          .sequence = stream.encodingKey().sequence,
+          .sequence = stream.encodingKey().sequence(),
       }] += size;
     } else {
-      nodeSize[stream.encodingKey().node] += size;
+      nodeSize[stream.encodingKey().node()] += size;
     }
   }
 
@@ -281,12 +281,10 @@ void LayoutPlanner::sortBySize(
     // 1. Sort based on flatmap or not. Place streams of non-flatmaps before
     // those of flatmaps. Within flatmap, sort by column and sequence. Lowest
     // first.
-    auto& streamA = *a.first;
-    auto& streamB = *b.first;
-    auto nodeA = streamA.encodingKey().node;
-    auto nodeB = streamB.encodingKey().node;
-    auto isFlatMapA = flatMapCols.count(streamA.column()) > 0;
-    auto isFlatMapB = flatMapCols.count(streamB.column()) > 0;
+    const auto& streamA = *a.first;
+    const auto& streamB = *b.first;
+    const auto isFlatMapA = flatMapCols.count(streamA.column()) > 0;
+    const auto isFlatMapB = flatMapCols.count(streamB.column()) > 0;
 
     // 1. Sort based on flatmap or not. Place streams of non-flatmaps before
     // those of flatmaps.
@@ -294,20 +292,23 @@ void LayoutPlanner::sortBySize(
       return !isFlatMapA;
     }
 
+    const auto nodeA = streamA.encodingKey().node();
+    const auto nodeB = streamB.encodingKey().node();
+
     // 2. For flatmaps, sort based on column id, smaller column id first. Then
     // sequence 0 (ie. streams shared by all sequences) always before others.
-    uint64_t sizeA = 0;
-    uint64_t sizeB = 0;
+    uint64_t sizeA{0};
+    uint64_t sizeB{0};
     if (isFlatMapA) {
-      auto colA = streamA.column();
-      auto colB = streamB.column();
+      const auto colA = streamA.column();
+      const auto colB = streamB.column();
       // Smaller column id first
       if (colA != colB) {
         return colA < colB;
       }
 
-      auto seqA = streamA.encodingKey().sequence;
-      auto seqB = streamB.encodingKey().sequence;
+      const auto seqA = streamA.encodingKey().sequence();
+      const auto seqB = streamB.encodingKey().sequence();
       // Sequence 0 always before others
       if (seqA != seqB) {
         if (seqA == 0) {
@@ -339,8 +340,8 @@ void LayoutPlanner::sortBySize(
 
     // 4. Flatmap, when sequences have the same size, small sequence goes first.
     if (isFlatMapA) {
-      auto seqA = streamA.encodingKey().sequence;
-      auto seqB = streamB.encodingKey().sequence;
+      auto seqA = streamA.encodingKey().sequence();
+      auto seqB = streamB.encodingKey().sequence();
       if (seqA != seqB) {
         return seqA < seqB;
       }

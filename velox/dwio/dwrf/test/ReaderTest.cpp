@@ -630,12 +630,12 @@ std::unordered_map<uint32_t, std::vector<std::string>> makeStructEncodingOption(
     const std::string& columnName,
     const std::vector<int32_t>& keys) {
   const auto schema = cs.getSchemaWithId();
-  const auto names = schema->type->as<TypeKind::ROW>().names();
+  const auto names = schema->type()->as<TypeKind::ROW>().names();
 
   for (uint32_t i = 0; i < names.size(); ++i) {
     if (columnName == names[i]) {
       std::unordered_map<uint32_t, std::vector<std::string>> config;
-      config[schema->childAt(i)->id] = stringify(keys);
+      config[schema->childAt(i)->id()] = stringify(keys);
       return config;
     }
   }
@@ -1094,31 +1094,31 @@ TEST(TestReader, fileColumnNamesReadAsLowerCaseComplexStruct) {
   auto type = reader->typeWithId();
 
   auto col0 = type->childAt(0);
-  EXPECT_EQ(col0->type->kind(), TypeKind::ROW);
+  EXPECT_EQ(col0->type()->kind(), TypeKind::ROW);
   EXPECT_EQ(type->childByName("cc"), col0);
 
   auto col0_0 = col0->childAt(0);
-  EXPECT_EQ(col0_0->type->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(col0_0->type()->kind(), TypeKind::BIGINT);
   EXPECT_EQ(col0->childByName("cclong0"), col0_0);
 
   auto col0_1 = col0->childAt(1);
-  EXPECT_EQ(col0_1->type->kind(), TypeKind::MAP);
+  EXPECT_EQ(col0_1->type()->kind(), TypeKind::MAP);
   EXPECT_EQ(col0->childByName("ccmap1"), col0_1);
 
   auto col0_1_0 = col0_1->childAt(0);
-  EXPECT_EQ(col0_1_0->type->kind(), TypeKind::VARCHAR);
+  EXPECT_EQ(col0_1_0->type()->kind(), TypeKind::VARCHAR);
 
   auto col0_1_1 = col0_1->childAt(1);
-  EXPECT_EQ(col0_1_1->type->kind(), TypeKind::ROW);
+  EXPECT_EQ(col0_1_1->type()->kind(), TypeKind::ROW);
 
   auto col0_1_1_0 = col0_1_1->childAt(0);
-  EXPECT_EQ(col0_1_1_0->type->kind(), TypeKind::ARRAY);
+  EXPECT_EQ(col0_1_1_0->type()->kind(), TypeKind::ARRAY);
   EXPECT_EQ(col0_1_1->childByName("ccarray2"), col0_1_1_0);
 
   auto col0_1_1_0_0 = col0_1_1_0->childAt(0);
-  EXPECT_EQ(col0_1_1_0_0->type->kind(), TypeKind::ROW);
+  EXPECT_EQ(col0_1_1_0_0->type()->kind(), TypeKind::ROW);
   auto col0_1_1_0_0_0 = col0_1_1_0_0->childAt(0);
-  EXPECT_EQ(col0_1_1_0_0_0->type->kind(), TypeKind::INTEGER);
+  EXPECT_EQ(col0_1_1_0_0_0->type()->kind(), TypeKind::INTEGER);
   EXPECT_EQ(col0_1_1_0_0->childByName("ccint3"), col0_1_1_0_0_0);
 }
 

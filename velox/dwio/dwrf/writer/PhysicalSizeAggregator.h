@@ -29,7 +29,7 @@ class PhysicalSizeAggregator {
 
   virtual void recordSize(const DwrfStreamIdentifier& id, uint64_t streamSize) {
     result_ += streamSize;
-    if (parent_) {
+    if (parent_ != nullptr) {
       parent_->recordSize(id, streamSize);
     }
   }
@@ -39,8 +39,8 @@ class PhysicalSizeAggregator {
   }
 
  private:
+  PhysicalSizeAggregator* const parent_;
   uint64_t result_{0};
-  PhysicalSizeAggregator* parent_;
 };
 
 class MapPhysicalSizeAggregator : public PhysicalSizeAggregator {
@@ -56,9 +56,9 @@ class MapPhysicalSizeAggregator : public PhysicalSizeAggregator {
     if (!mapStatsBuilder_) {
       return;
     }
-    if (id.encodingKey().sequence != 0) {
+    if (id.encodingKey().sequence() != 0) {
       mapStatsBuilder_->incrementSize(
-          sequenceToKey_.at(id.encodingKey().sequence), streamSize);
+          sequenceToKey_.at(id.encodingKey().sequence()), streamSize);
     }
   }
 

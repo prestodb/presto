@@ -23,15 +23,15 @@ bool DataBufferHolder::tryResize(
     uint64_t headerSize,
     uint64_t increment) const {
   auto size = buffer.size();
-  // make sure size is at least header size
-  if (LIKELY(size >= headerSize)) {
+  // Makes sure size is at least header size
+  if (FOLLY_LIKELY(size >= headerSize)) {
     size -= headerSize;
   } else {
     DWIO_ENSURE_EQ(size, 0);
   }
 
   DWIO_ENSURE_LE(size, maxSize_);
-  // if already at max size, return
+  // If already at max size, return
   if (size == maxSize_) {
     return false;
   }
@@ -52,5 +52,4 @@ bool DataBufferHolder::tryResize(
   buffer.resize(size);
   return true;
 }
-
 } // namespace facebook::velox::dwio::common

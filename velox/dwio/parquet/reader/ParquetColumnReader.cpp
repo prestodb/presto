@@ -39,7 +39,7 @@ std::unique_ptr<dwio::common::SelectiveColumnReader> ParquetColumnReader::build(
     common::ScanSpec& scanSpec) {
   auto colName = scanSpec.fieldName();
 
-  switch (dataType->type->kind()) {
+  switch (dataType->type()->kind()) {
     case TypeKind::INTEGER:
     case TypeKind::BIGINT:
     case TypeKind::SMALLINT:
@@ -50,10 +50,10 @@ std::unique_ptr<dwio::common::SelectiveColumnReader> ParquetColumnReader::build(
 
     case TypeKind::REAL:
       return std::make_unique<FloatingPointColumnReader<float, float>>(
-          dataType->type, dataType, params, scanSpec);
+          dataType->type(), dataType, params, scanSpec);
     case TypeKind::DOUBLE:
       return std::make_unique<FloatingPointColumnReader<double, double>>(
-          dataType->type, dataType, params, scanSpec);
+          dataType->type(), dataType, params, scanSpec);
 
     case TypeKind::ROW:
       return std::make_unique<StructColumnReader>(dataType, params, scanSpec);
@@ -74,7 +74,7 @@ std::unique_ptr<dwio::common::SelectiveColumnReader> ParquetColumnReader::build(
     default:
       VELOX_FAIL(
           "buildReader unhandled type: " +
-          mapTypeKindToName(dataType->type->kind()));
+          mapTypeKindToName(dataType->type()->kind()));
   }
 }
 

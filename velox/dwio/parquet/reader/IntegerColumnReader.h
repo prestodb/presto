@@ -29,14 +29,14 @@ class IntegerColumnReader : public dwio::common::SelectiveIntegerColumnReader {
       ParquetParams& params,
       common::ScanSpec& scanSpec)
       : SelectiveIntegerColumnReader(
-            requestedType->type,
+            requestedType->type(),
             params,
             scanSpec,
             std::move(dataType)) {}
 
   bool hasBulkPath() const override {
-    return !this->fileType().type->isLongDecimal() &&
-        ((this->fileType().type->isShortDecimal())
+    return !this->fileType().type()->isLongDecimal() &&
+        ((this->fileType().type()->isShortDecimal())
              ? formatData_->as<ParquetData>().hasDictionary()
              : true);
   }
@@ -59,7 +59,7 @@ class IntegerColumnReader : public dwio::common::SelectiveIntegerColumnReader {
       const uint64_t* /*incomingNulls*/) override {
     auto& data = formatData_->as<ParquetData>();
     VELOX_WIDTH_DISPATCH(
-        parquetSizeOfIntKind(fileType_->type->kind()),
+        parquetSizeOfIntKind(fileType_->type()->kind()),
         prepareRead,
         offset,
         rows,

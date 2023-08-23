@@ -34,11 +34,11 @@ class SelectiveIntegerDirectColumnReader
       uint32_t numBytes,
       common::ScanSpec& scanSpec)
       : SelectiveIntegerColumnReader(
-            requestedType->type,
+            requestedType->type(),
             params,
             scanSpec,
             std::move(dataType)) {
-    EncodingKey encodingKey{fileType_->id, params.flatMapContext().sequence};
+    EncodingKey encodingKey{fileType_->id(), params.flatMapContext().sequence};
     auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
     auto& stripe = params.stripeStreams();
     bool dataVInts = stripe.getUseVInts(data);

@@ -35,7 +35,7 @@ SelectiveStructColumnReader::SelectiveStructColumnReader(
           params,
           scanSpec,
           isRoot) {
-  EncodingKey encodingKey{fileType_->id, params.flatMapContext().sequence};
+  EncodingKey encodingKey{fileType_->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   auto encoding = static_cast<int64_t>(stripe.getEncoding(encodingKey).kind());
   DWIO_ENSURE_EQ(
@@ -62,10 +62,10 @@ SelectiveStructColumnReader::SelectiveStructColumnReader(
         stripe,
         labels,
         FlatMapContext{
-            .sequence = encodingKey.sequence,
+            .sequence = encodingKey.sequence(),
             .inMapDecoder = nullptr,
             .keySelectionCallback = nullptr});
-    VELOX_CHECK(cs.shouldReadNode(childRequestedType->id));
+    VELOX_CHECK(cs.shouldReadNode(childRequestedType->id()));
     addChild(SelectiveDwrfReader::build(
         childRequestedType, childDataType, childParams, *childSpec));
     childSpec->setSubscript(children_.size() - 1);

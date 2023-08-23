@@ -136,7 +136,7 @@ class ColumnReaderTestBase {
     if (useSelectiveReader()) {
       if (!scanSpec) {
         scanSpec_ = std::make_unique<common::ScanSpec>("root");
-        scanSpec_->addAllChildFields(*dataTypeWithId->type);
+        scanSpec_->addAllChildFields(*dataTypeWithId->type());
         scanSpec = scanSpec_.get();
       }
       makeFieldSpecs("", 0, rowType, scanSpec);
@@ -807,7 +807,7 @@ TEST_P(TestColumnReader, testIntegerRLEv2) {
   // create the row type
   auto rowType =
       HiveTypeParser().parse("struct<col_0:int,col_1:int,col_2:int>");
-  auto dataType = TypeWithId::create(rowType)->type;
+  auto dataType = TypeWithId::create(rowType)->type();
   VectorPtr batch = newBatch(rowType);
   if (useSelectiveReader()) {
     auto scanSpec = std::make_unique<common::ScanSpec>("root");

@@ -58,11 +58,11 @@ class MockStreamInformation : public StreamInformation {
   }
 
   uint32_t getNode() const override {
-    return streamIdentifier_.encodingKey().node;
+    return streamIdentifier_.encodingKey().node();
   }
 
   uint32_t getSequence() const override {
-    return streamIdentifier_.encodingKey().sequence;
+    return streamIdentifier_.encodingKey().sequence();
   }
 
   MOCK_CONST_METHOD0(getOffset, uint64_t());
@@ -106,8 +106,8 @@ class TestStripeStreams : public StripeStreamsBase {
       if (throwIfNotFound) {
         DWIO_RAISE(fmt::format(
             "stream (node = {}, seq = {}, column = {}, kind = {}) not found",
-            si.encodingKey().node,
-            si.encodingKey().sequence,
+            si.encodingKey().node(),
+            si.encodingKey().sequence(),
             si.column(),
             si.kind()));
       } else {
@@ -123,9 +123,9 @@ class TestStripeStreams : public StripeStreamsBase {
     buffers_.push_back(std::move(buf));
 
     return createDecompressor(
-        context_.compression,
+        context_.compression(),
         std::move(compressed),
-        context_.compressionBlockSize,
+        context_.compressionBlockSize(),
         getMemoryPool(),
         si.toString());
   }
@@ -133,7 +133,7 @@ class TestStripeStreams : public StripeStreamsBase {
   const proto::ColumnEncoding& getEncoding(
       const EncodingKey& ek) const override {
     for (auto& enc : footer_.encoding()) {
-      if (ek.node == enc.node() && ek.sequence == enc.sequence()) {
+      if (ek.node() == enc.node() && ek.sequence() == enc.sequence()) {
         return enc;
       }
     }
@@ -145,7 +145,7 @@ class TestStripeStreams : public StripeStreamsBase {
       std::function<void(const StreamInformation&)> visitor) const override {
     uint32_t count = 0;
     context_.iterateUnSuppressedStreams([&](auto& pair) {
-      if (pair.first.encodingKey().node == node) {
+      if (pair.first.encodingKey().node() == node) {
         visitor(MockStreamInformation(pair.first));
         ++count;
       }
@@ -869,13 +869,13 @@ void testMapWriter(
           uniqueKeys.cend(),
           std::back_inserter(uniqueKeysString),
           [](const auto& e) { return folly::to<std::string>(e); });
-      ASSERT_EQ(writerDataTypeWithId->column, 0);
+      ASSERT_EQ(writerDataTypeWithId->column(), 0);
       config->set(Config::MAP_FLAT_COLS_STRUCT_KEYS, {uniqueKeysString});
-      structReaderContext[writerDataTypeWithId->id] = uniqueKeysString;
+      structReaderContext[writerDataTypeWithId->id()] = uniqueKeysString;
     }
 
     config->set(Config::FLATTEN_MAP, true);
-    config->set(Config::MAP_FLAT_COLS, {writerDataTypeWithId->column});
+    config->set(Config::MAP_FLAT_COLS, {writerDataTypeWithId->column()});
     config->set(
         Config::MAP_FLAT_DISABLE_DICT_ENCODING, disableDictionaryEncoding);
 
@@ -964,10 +964,10 @@ void testMapWriter(
 
     context.nextStripe();
 
-    auto valueNodeId = dataTypeWithId->childAt(1)->id;
+    auto valueNodeId = dataTypeWithId->childAt(1)->id();
     auto streamCount = 0;
     context.iterateUnSuppressedStreams([&](auto& pair) {
-      if (pair.first.encodingKey().node == valueNodeId) {
+      if (pair.first.encodingKey().node() == valueNodeId) {
         ++streamCount;
       }
     });
@@ -978,7 +978,7 @@ void testMapWriter(
 
     streamCount = 0;
     context.iterateUnSuppressedStreams([&](auto& pair) {
-      if (pair.first.encodingKey().node == valueNodeId) {
+      if (pair.first.encodingKey().node() == valueNodeId) {
         ++streamCount;
       }
     });
@@ -1022,12 +1022,12 @@ void testMapWriterRow(
     uniqueKeysString.push_back(folly::to<std::string>(i));
   }
 
-  ASSERT_EQ(writerDataTypeWithId->column, 0);
+  ASSERT_EQ(writerDataTypeWithId->column(), 0);
   config->set(Config::MAP_FLAT_COLS_STRUCT_KEYS, {uniqueKeysString});
-  structReaderContext[writerDataTypeWithId->id] = uniqueKeysString;
+  structReaderContext[writerDataTypeWithId->id()] = uniqueKeysString;
 
   config->set(Config::FLATTEN_MAP, true);
-  config->set(Config::MAP_FLAT_COLS, {writerDataTypeWithId->column});
+  config->set(Config::MAP_FLAT_COLS, {writerDataTypeWithId->column()});
   config->set(
       Config::MAP_FLAT_DISABLE_DICT_ENCODING, disableDictionaryEncoding);
 
@@ -1093,10 +1093,10 @@ void testMapWriterRow(
 
     context.nextStripe();
 
-    auto valueNodeId = dataTypeWithId->childAt(1)->id;
+    auto valueNodeId = dataTypeWithId->childAt(1)->id();
     auto streamCount = 0;
     context.iterateUnSuppressedStreams([&](auto& pair) {
-      if (pair.first.encodingKey().node == valueNodeId) {
+      if (pair.first.encodingKey().node() == valueNodeId) {
         ++streamCount;
       }
     });
@@ -1107,7 +1107,7 @@ void testMapWriterRow(
 
     streamCount = 0;
     context.iterateUnSuppressedStreams([&](auto& pair) {
-      if (pair.first.encodingKey().node == valueNodeId) {
+      if (pair.first.encodingKey().node() == valueNodeId) {
         ++streamCount;
       }
     });
