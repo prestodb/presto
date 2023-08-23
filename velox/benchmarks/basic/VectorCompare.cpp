@@ -77,7 +77,11 @@ class VectorCompareBenchmark : public functions::test::FunctionBenchmarkBase {
   VectorPtr rowVector_;
 
  private:
-  static constexpr CompareFlags kFlags{true, true, false, false};
+  static constexpr CompareFlags kFlags{
+      true,
+      true,
+      false,
+      CompareFlags::NullHandlingMode::NoStop};
 
   const size_t vectorSize_;
   SelectivityVector rows_;

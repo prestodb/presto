@@ -192,8 +192,8 @@ bool SourceStream::operator<(const MergeStream& other) const {
   for (auto i = 0; i < sortingKeys_.size(); ++i) {
     const auto& [_, compareFlags] = sortingKeys_[i];
     VELOX_DCHECK(
-        !compareFlags.stopAtNull,
-        "stopAtNull not supported for merge compare flags");
+        compareFlags.nullHandlingMode == CompareFlags::NullHandlingMode::NoStop,
+        "not supported null handling mode");
     if (auto result = keyColumns_[i]
                           ->compare(
                               otherCursor.keyColumns_[i],

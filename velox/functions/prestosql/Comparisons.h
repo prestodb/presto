@@ -127,7 +127,10 @@ struct EqFunction : public TimestampWithTimezoneComparisonSupport<T> {
       const arg_type<Generic<T1>>& lhs,
       const arg_type<Generic<T1>>& rhs) {
     static constexpr CompareFlags kFlags = {
-        false, false, /*euqalsOnly*/ true, true /*stopAtNull*/};
+        false,
+        false,
+        /*euqalsOnly*/ true,
+        CompareFlags::NullHandlingMode::StopAtNull /*nullHandlingMode*/};
     auto result = lhs.compare(rhs, kFlags);
     if (!result.has_value()) {
       return false;

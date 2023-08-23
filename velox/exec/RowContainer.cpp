@@ -504,7 +504,7 @@ int RowContainer::compareComplexType(
     const DecodedVector& decoded,
     vector_size_t index,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
   ByteStream stream;
   prepareRead(row, offset, stream);
@@ -525,7 +525,7 @@ int32_t RowContainer::compareComplexType(
     int32_t leftOffset,
     int32_t rightOffset,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
   ByteStream leftStream;
   ByteStream rightStream;

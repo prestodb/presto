@@ -20,7 +20,14 @@ namespace facebook::velox {
 
 // Describes value collation in comparison.
 struct CompareFlags {
-  // This flag will be ignored if stopAtNull is true.
+  // NoStop: The compare doesn't stop at null.
+  // StopAtNull: The compare returns std::nullopt if null is encountered in rhs
+  // or lhs.
+  // StopAtRhsNull: The compare returns std::nullopt only if null encountered on
+  // the right hand side; return false, if it is on the left hand side.
+  enum class NullHandlingMode { NoStop, StopAtNull, StopAtRhsNull };
+
+  // This flag will be ignored if nullHandlingMode is true.
   bool nullsFirst = true;
 
   bool ascending = true;
@@ -28,8 +35,12 @@ struct CompareFlags {
   // When true, comparison should return non-0 early when sizes mismatch.
   bool equalsOnly = false;
 
-  // When true, the compare returns std::nullopt if null encountered.
-  bool stopAtNull = false;
+  NullHandlingMode nullHandlingMode = NullHandlingMode::NoStop;
+
+  bool mayStopAtNull() {
+    return nullHandlingMode == CompareFlags::NullHandlingMode::StopAtNull ||
+        nullHandlingMode == CompareFlags::NullHandlingMode::StopAtRhsNull;
+  }
 };
 
 } // namespace facebook::velox

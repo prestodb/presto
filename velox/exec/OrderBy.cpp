@@ -25,7 +25,11 @@ namespace facebook::velox::exec {
 
 namespace {
 CompareFlags fromSortOrderToCompareFlags(const core::SortOrder& sortOrder) {
-  return {sortOrder.isNullsFirst(), sortOrder.isAscending(), false, false};
+  return {
+      sortOrder.isNullsFirst(),
+      sortOrder.isAscending(),
+      false,
+      CompareFlags::NullHandlingMode::NoStop};
 }
 } // namespace
 

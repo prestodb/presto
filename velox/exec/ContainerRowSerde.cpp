@@ -338,7 +338,7 @@ int32_t compare(
     const BaseVector& right,
     vector_size_t index,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
   using T = typename TypeTraits<Kind>::NativeType;
   auto rightValue = right.asUnchecked<SimpleVector<T>>()->valueAt(index);
   auto leftValue = left.read<T>();
@@ -378,7 +378,7 @@ int compare<TypeKind::VARCHAR>(
     const BaseVector& right,
     vector_size_t index,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
   auto result = compareStringAsc(left, right, index, flags.equalsOnly);
   return flags.ascending ? result : result * -1;
@@ -390,7 +390,7 @@ int compare<TypeKind::VARBINARY>(
     const BaseVector& right,
     vector_size_t index,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
   auto result = compareStringAsc(left, right, index, flags.equalsOnly);
   return flags.ascending ? result : result * -1;
@@ -402,7 +402,7 @@ int compare<TypeKind::ROW>(
     const BaseVector& right,
     vector_size_t index,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
   auto row = right.wrappedVector()->asUnchecked<RowVector>();
   auto wrappedIndex = right.wrappedIndex(index);
@@ -438,7 +438,7 @@ int32_t compareArrays(
     vector_size_t offset,
     vector_size_t rightSize,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
   int leftSize = left.read<int32_t>();
   if (leftSize != rightSize && flags.equalsOnly) {
@@ -472,7 +472,7 @@ int32_t compareArrayIndices(
     BaseVector& elements,
     folly::Range<const vector_size_t*> rightIndices,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
   int32_t leftSize = left.read<int32_t>();
   int32_t rightSize = rightIndices.size();
@@ -508,7 +508,7 @@ int compare<TypeKind::ARRAY>(
     const BaseVector& right,
     vector_size_t index,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
   auto array = right.wrappedVector()->asUnchecked<ArrayVector>();
   VELOX_CHECK_EQ(array->encoding(), VectorEncoding::Simple::ARRAY);
@@ -527,7 +527,7 @@ int compare<TypeKind::MAP>(
     const BaseVector& right,
     vector_size_t index,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
   auto map = right.wrappedVector()->asUnchecked<MapVector>();
   VELOX_CHECK_EQ(map->encoding(), VectorEncoding::Simple::MAP);
@@ -547,7 +547,7 @@ int32_t compareSwitch(
     const BaseVector& vector,
     vector_size_t index,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
   return VELOX_DYNAMIC_TYPE_DISPATCH(
       compare, vector.typeKind(), stream, vector, index, flags);
@@ -582,7 +582,7 @@ int32_t compare(
     ByteStream& right,
     const Type* /*type*/,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
   using T = typename TypeTraits<Kind>::NativeType;
   T leftValue = left.read<T>();
@@ -597,7 +597,7 @@ int32_t compare<TypeKind::VARCHAR>(
     ByteStream& right,
     const Type* /*type*/,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
   std::string leftStorage;
   std::string rightStorage;
@@ -613,7 +613,7 @@ int32_t compare<TypeKind::VARBINARY>(
     ByteStream& right,
     const Type* /*type*/,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
   std::string leftStorage;
   std::string rightStorage;
@@ -628,7 +628,7 @@ int32_t compareArrays(
     ByteStream& right,
     const Type* elementType,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
   auto leftSize = left.read<int32_t>();
   auto rightSize = right.read<int32_t>();
@@ -664,7 +664,7 @@ int32_t compare<TypeKind::ROW>(
     ByteStream& right,
     const Type* type,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
   const auto& rowType = type->as<TypeKind::ROW>();
   int size = rowType.size();
@@ -696,7 +696,7 @@ int32_t compare<TypeKind::ARRAY>(
     ByteStream& right,
     const Type* type,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
   return compareArrays(left, right, type->childAt(0).get(), flags);
 }
@@ -707,7 +707,7 @@ int32_t compare<TypeKind::MAP>(
     ByteStream& right,
     const Type* type,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
   auto result = compareArrays(left, right, type->childAt(0).get(), flags);
   if (result) {
@@ -721,7 +721,7 @@ int32_t compareSwitch(
     ByteStream& right,
     const Type* type,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
   return VELOX_DYNAMIC_TYPE_DISPATCH(
       compare, type->kind(), left, right, type, flags);
@@ -825,8 +825,7 @@ int32_t ContainerRowSerde::compare(
     const DecodedVector& right,
     vector_size_t index,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
-
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
   return compareSwitch(left, *right.base(), right.index(index), flags);
 }
 
@@ -836,7 +835,7 @@ int32_t ContainerRowSerde::compare(
     ByteStream& right,
     const Type* type,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.stopAtNull, "not supported compare flag");
+  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
   return compareSwitch(left, right, type, flags);
 }
