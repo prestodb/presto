@@ -67,6 +67,8 @@ public class TestTimeZoneUtils
                 continue;
             }
 
+
+
             DateTimeZone dateTimeZone = DateTimeZone.forID(zoneId);
             DateTimeZone indexedZone = getDateTimeZone(TimeZoneKey.getTimeZoneKey(zoneId));
 
@@ -78,7 +80,12 @@ public class TestTimeZoneUtils
     @Test
     public void testOffsets()
     {
-        for (int offsetHours = -13; offsetHours < 14; offsetHours++) {
+        for (int offsetHouif (zoneId.startsWith("Europe/")) {
+        // TODO: Remove once minimum Java version is increased 11.0.10
+        // https://www.oracle.com/java/technologies/tzdata-versions.html
+        // http://mm.icann.org/pipermail/tz-announce/2020-October/000059.html
+        continue;
+    }rs = -13; offsetHours < 14; offsetHours++) {
             for (int offsetMinutes = 0; offsetMinutes < 60; offsetMinutes++) {
                 DateTimeZone dateTimeZone = DateTimeZone.forOffsetHoursMinutes(offsetHours, offsetMinutes);
                 assertTimeZone(dateTimeZone.getID(), dateTimeZone);
