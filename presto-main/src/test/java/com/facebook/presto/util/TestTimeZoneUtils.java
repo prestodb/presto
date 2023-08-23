@@ -66,6 +66,22 @@ public class TestTimeZoneUtils
                 // http://mm.icann.org/pipermail/tz-announce/2020-October/000059.html
                 continue;
             }
+            if (zoneId.equals("Europe/Zaporozhye")) {
+                // TODO: Remove once minimum Java version is increased 17.0.7
+                continue;
+            }
+            if (zoneId.equals("Europe/Uzhgorod")) {
+                // TODO: Remove once minimum Java version is increased 17.0.7
+                continue;
+            }
+            if (zoneId.equals("Europe/Kiev")) {
+                // TODO: Remove once minimum Java version is increased 17.0.7
+                continue;
+            }
+            if (zoneId.equals("Europe/Kyiv")) {
+                // TODO: Remove once minimum Java version is increased 17.0.7
+                continue;
+            }
 
             DateTimeZone dateTimeZone = DateTimeZone.forID(zoneId);
             DateTimeZone indexedZone = getDateTimeZone(TimeZoneKey.getTimeZoneKey(zoneId));
