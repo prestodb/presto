@@ -213,27 +213,6 @@ std::string padContent(
   }
 }
 
-void validateTimePoint(const std::chrono::time_point<
-                       std::chrono::system_clock,
-                       std::chrono::milliseconds>& timePoint) {
-  // Due to the limit of std::chrono we can only represent time in
-  // [-32767-01-01, 32767-12-31] date range
-  const auto minTimePoint = date::sys_days{
-      date::year_month_day(date::year::min(), date::month(1), date::day(1))};
-  const auto maxTimePoint = date::sys_days{
-      date::year_month_day(date::year::max(), date::month(12), date::day(31))};
-  if (timePoint < minTimePoint || timePoint > maxTimePoint) {
-    VELOX_USER_FAIL(
-        "Cannot format time out of range of [{}-{}-{}, {}-{}-{}]",
-        (int)date::year::min(),
-        "01",
-        "01",
-        (int)date::year::max(),
-        "12",
-        "31");
-  }
-}
-
 size_t countOccurence(const std::string_view& base, const std::string& target) {
   int occurrences = 0;
   std::string::size_type pos = 0;
@@ -951,10 +930,11 @@ void parseFromPattern(
 std::string DateTimeFormatter::format(
     const Timestamp& timestamp,
     const date::time_zone* timezone) const {
-  const std::chrono::
-      time_point<std::chrono::system_clock, std::chrono::milliseconds>
-          timePoint(std::chrono::milliseconds(timestamp.toMillis()));
-  validateTimePoint(timePoint);
+  Timestamp t = timestamp;
+  if (timezone != nullptr) {
+    t.toTimezone(*timezone);
+  }
+  const auto timePoint = t.toTimePoint();
   const auto daysTimePoint = date::floor<date::days>(timePoint);
 
   const auto durationInTheDay = date::make_time(timePoint - daysTimePoint);

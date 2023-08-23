@@ -127,6 +127,11 @@ struct Timestamp {
     }
   }
 
+  /// Due to the limit of std::chrono, throws if timestamp is outside of
+  /// [-32767-01-01, 32767-12-31] range.
+  std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>
+  toTimePoint() const;
+
   static Timestamp fromMillis(int64_t millis) {
     if (millis >= 0 || millis % 1'000 == 0) {
       return Timestamp(millis / 1'000, (millis % 1'000) * 1'000'000);

@@ -69,9 +69,40 @@ void Timestamp::toGMT(int16_t tzID) {
   }
 }
 
+namespace {
+void validateTimePoint(const std::chrono::time_point<
+                       std::chrono::system_clock,
+                       std::chrono::milliseconds>& timePoint) {
+  // Due to the limit of std::chrono we can only represent time in
+  // [-32767-01-01, 32767-12-31] date range
+  const auto minTimePoint = date::sys_days{
+      date::year_month_day(date::year::min(), date::month(1), date::day(1))};
+  const auto maxTimePoint = date::sys_days{
+      date::year_month_day(date::year::max(), date::month(12), date::day(31))};
+  if (timePoint < minTimePoint || timePoint > maxTimePoint) {
+    VELOX_USER_FAIL(
+        "Timestamp is outside of supported range of [{}-{}-{}, {}-{}-{}]",
+        (int)date::year::min(),
+        "01",
+        "01",
+        (int)date::year::max(),
+        "12",
+        "31");
+  }
+}
+} // namespace
+
+std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>
+Timestamp::toTimePoint() const {
+  auto tp = std::chrono::
+      time_point<std::chrono::system_clock, std::chrono::milliseconds>(
+          std::chrono::milliseconds(toMillis()));
+  validateTimePoint(tp);
+  return tp;
+}
+
 void Timestamp::toTimezone(const date::time_zone& zone) {
-  auto tp = std::chrono::time_point<std::chrono::system_clock>(
-      std::chrono::seconds(seconds_));
+  auto tp = toTimePoint();
   auto epoch = zone.to_local(tp).time_since_epoch();
   seconds_ = std::chrono::duration_cast<std::chrono::seconds>(epoch).count();
 }

@@ -697,7 +697,7 @@ TEST_F(DateTimeFunctionsTest, hour) {
 
   EXPECT_EQ(std::nullopt, hour(std::nullopt));
   EXPECT_EQ(13, hour(Timestamp(0, 0)));
-  EXPECT_EQ(12, hour(Timestamp(-1, Timestamp::kMaxNanos)));
+  EXPECT_EQ(13, hour(Timestamp(-1, Timestamp::kMaxNanos)));
   // Disabled for now because the TZ for Pacific/Apia in 2096 varies between
   // systems.
   // EXPECT_EQ(21, hour(Timestamp(4000000000, 0)));
@@ -2788,12 +2788,12 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
 
   // Multi-specifier and literal formats
   EXPECT_EQ(
-      "AD 19 1970 4 Thu 1970 1 1 1 AM 2 2 2 2 33 11 5 Asia/Kolkata",
+      "AD 19 1970 4 Thu 1970 1 1 1 AM 8 8 8 8 3 11 5 Asia/Kolkata",
       formatDatetime(
           fromTimestampString("1970-01-01 02:33:11.5"),
           "G C Y e E y D M d a K h H k m s S zzzz"));
   EXPECT_EQ(
-      "AD 19 1970 4 asdfghjklzxcvbnmqwertyuiop Thu ' 1970 1 1 1 AM 2 2 2 2 33 11 5 1234567890\\\"!@#$%^&*()-+`~{}[];:,./ Asia/Kolkata",
+      "AD 19 1970 4 asdfghjklzxcvbnmqwertyuiop Thu ' 1970 1 1 1 AM 8 8 8 8 3 11 5 1234567890\\\"!@#$%^&*()-+`~{}[];:,./ Asia/Kolkata",
       formatDatetime(
           fromTimestampString("1970-01-01 02:33:11.5"),
           "G C Y e 'asdfghjklzxcvbnmqwertyuiop' E '' y D M d a K h H k m s S 1234567890\\\"!@#$%^&*()-+`~{}[];:,./ zzzz"));
@@ -3046,21 +3046,43 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
   EXPECT_EQ("z", dateFormat(fromTimestampString("1970-01-01"), "%z"));
   EXPECT_EQ("g", dateFormat(fromTimestampString("1970-01-01"), "%g"));
 
-  // With timezone
+  // With timezone. Indian Standard Time (IST) UTC+5:30.
   setQueryTimeZone("Asia/Kolkata");
+
   EXPECT_EQ(
       "1970-01-01", dateFormat(fromTimestampString("1970-01-01"), "%Y-%m-%d"));
   EXPECT_EQ(
-      "2000-02-29 12:00:00 AM",
+      "2000-02-29 05:30:00 AM",
       dateFormat(
           fromTimestampString("2000-02-29 00:00:00.987"), "%Y-%m-%d %r"));
   EXPECT_EQ(
-      "2000-02-29 00:00:00.987000",
+      "2000-02-29 05:30:00.987000",
       dateFormat(
           fromTimestampString("2000-02-29 00:00:00.987"),
           "%Y-%m-%d %H:%i:%s.%f"));
   EXPECT_EQ(
-      "-2000-02-29 00:00:00.987000",
+      "-2000-02-29 05:53:29.987000",
+      dateFormat(
+          fromTimestampString("-2000-02-29 00:00:00.987"),
+          "%Y-%m-%d %H:%i:%s.%f"));
+
+  // Same timestamps with a different timezone. Pacific Daylight Time (North
+  // America) PDT UTC-8:00.
+  setQueryTimeZone("America/Los_Angeles");
+
+  EXPECT_EQ(
+      "1969-12-31", dateFormat(fromTimestampString("1970-01-01"), "%Y-%m-%d"));
+  EXPECT_EQ(
+      "2000-02-28 04:00:00 PM",
+      dateFormat(
+          fromTimestampString("2000-02-29 00:00:00.987"), "%Y-%m-%d %r"));
+  EXPECT_EQ(
+      "2000-02-28 16:00:00.987000",
+      dateFormat(
+          fromTimestampString("2000-02-29 00:00:00.987"),
+          "%Y-%m-%d %H:%i:%s.%f"));
+  EXPECT_EQ(
+      "-2000-02-28 16:07:03.987000",
       dateFormat(
           fromTimestampString("-2000-02-29 00:00:00.987"),
           "%Y-%m-%d %H:%i:%s.%f"));
