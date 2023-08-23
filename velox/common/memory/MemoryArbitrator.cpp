@@ -24,7 +24,7 @@
 namespace facebook::velox::memory {
 
 namespace {
-class Registry {
+class FactoryRegistry {
  public:
   void registerFactory(
       const std::string& kind,
@@ -60,34 +60,89 @@ class Registry {
   std::unordered_map<std::string, MemoryArbitrator::Factory> map_;
 };
 
-Registry registry;
+FactoryRegistry& arbitratorFactories() {
+  static FactoryRegistry registry;
+  return registry;
+}
+
+// Used to enforce the fixed query memory isolation across running queries.
+// When a memory pool exceeds the fixed capacity limit, the query just
+// fails with memory capacity exceeded error without arbitration. This is
+// used to match the current memory isolation behavior adopted by
+// Prestissimo.
+//
+// TODO: deprecate this legacy policy with kShared policy for Prestissimo
+// later.
+class NoopArbitrator : public MemoryArbitrator {
+ public:
+  explicit NoopArbitrator(const Config& config) : MemoryArbitrator(config) {
+    VELOX_CHECK(config.kind.empty());
+  }
+
+  std::string kind() override {
+    return "NOOP";
+  }
+
+  // Noop arbitrator has no memory capacity limit so no operation needed for
+  // memory pool capacity reserve.
+  void reserveMemory(MemoryPool* pool, uint64_t /*unused*/) override {
+    pool->grow(pool->maxCapacity());
+  }
+
+  // Noop arbitrator has no memory capacity limit so no operation needed for
+  // memory pool capacity release.
+  void releaseMemory(MemoryPool* /*unused*/) override {
+    // No-op
+  }
+
+  // Noop arbitrator has no memory capacity limit so no operation needed for
+  // memory pool capacity grow.
+  bool growMemory(
+      MemoryPool* /*unused*/,
+      const std::vector<std::shared_ptr<MemoryPool>>& /*unused*/,
+      uint64_t /*unused*/) override {
+    return false;
+  }
+
+  // Noop arbitrator has no memory capacity limit so no operation needed for
+  // memory pool capacity shrink.
+  uint64_t shrinkMemory(
+      const std::vector<std::shared_ptr<MemoryPool>>& /*unused*/,
+      uint64_t /*unused*/) override {
+    return 0;
+  }
+
+  Stats stats() const override {
+    Stats stats;
+    stats.maxCapacityBytes = kMaxMemory;
+    return stats;
+  }
+
+  std::string toString() const override {
+    return "NOOP ARBITRATOR";
+  }
+};
+
 } // namespace
 
 std::unique_ptr<MemoryArbitrator> MemoryArbitrator::create(
     const Config& config) {
   if (config.kind.empty()) {
-    /// Used to enforce the fixed query memory isolation across running queries.
-    /// When a memory pool exceeds the fixed capacity limit, the query just
-    /// fails with memory capacity exceeded error without arbitration. This is
-    /// used to match the current memory isolation behavior adopted by
-    /// Prestissimo.
-    ///
-    /// TODO: deprecate this legacy policy with kShared policy for Prestissimo
-    /// later.
-    return nullptr;
+    // if kind is not set, return noop arbitrator.
+    return std::make_unique<NoopArbitrator>(config);
   }
-  auto& factory = registry.getFactory(config.kind);
+  auto& factory = arbitratorFactories().getFactory(config.kind);
   return factory(config);
 }
 
 void MemoryArbitrator::registerFactory(
     const std::string& kind,
     MemoryArbitrator::Factory factory) {
-  registry.registerFactory(kind, std::move(factory));
+  arbitratorFactories().registerFactory(kind, std::move(factory));
 }
 
 void MemoryArbitrator::unregisterFactory(const std::string& kind) {
-  registry.unregisterFactory(kind);
+  arbitratorFactories().unregisterFactory(kind);
 }
 
 void MemoryArbitrator::registerAllFactories() {

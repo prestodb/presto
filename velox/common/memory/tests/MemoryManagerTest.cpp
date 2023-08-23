@@ -58,7 +58,7 @@ TEST_F(MemoryManagerTest, Ctor) {
     ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
     ASSERT_EQ(manager.testingDefaultRoot().capacity(), kMaxMemory);
     ASSERT_EQ(manager.testingDefaultRoot().maxCapacity(), kMaxMemory);
-    ASSERT_EQ(manager.arbitrator(), nullptr);
+    ASSERT_EQ(manager.arbitrator()->kind(), "NOOP");
   }
   {
     const auto kCapacity = 8L * 1024 * 1024;
@@ -120,25 +120,33 @@ class FakeTestArbitrator : public MemoryArbitrator {
              .retryArbitrationFailure = config.retryArbitrationFailure}) {}
 
   void reserveMemory(MemoryPool* pool, uint64_t bytes) override {
-    VELOX_NYI()
+    VELOX_NYI();
   }
 
   void releaseMemory(MemoryPool* pool) override {
-    VELOX_NYI()
+    VELOX_NYI();
   }
 
   bool growMemory(
       MemoryPool* pool,
       const std::vector<std::shared_ptr<MemoryPool>>& candidatePools,
-      uint64_t targetBytes) override{VELOX_NYI()}
+      uint64_t targetBytes) override {
+    VELOX_NYI();
+  }
 
   uint64_t shrinkMemory(
       const std::vector<std::shared_ptr<MemoryPool>>& pools,
-      uint64_t targetBytes) override{VELOX_NYI()}
+      uint64_t targetBytes) override {
+    VELOX_NYI();
+  }
 
-  Stats stats() const override{VELOX_NYI()}
+  Stats stats() const override {
+    VELOX_NYI();
+  }
 
-  std::string toString() const override{VELOX_NYI()}
+  std::string toString() const override {
+    VELOX_NYI();
+  }
 
   std::string kind() override {
     return "FAKE";
@@ -153,6 +161,8 @@ TEST_F(MemoryManagerTest, createWithCustomArbitrator) {
         return std::make_unique<FakeTestArbitrator>(config);
       };
   MemoryArbitrator::registerFactory(kindString, factory);
+  auto guard = folly::makeGuard(
+      [&] { MemoryArbitrator::unregisterFactory(kindString); });
   MemoryManagerOptions options;
   options.arbitratorKind = kindString;
   options.capacity = 8L << 20;
@@ -213,7 +223,7 @@ TEST_F(MemoryManagerTest, addPoolWithArbitrator) {
         "addPoolWithArbitrator", kMaxMemory, MemoryReclaimer::create()));
   }
   {
-    ASSERT_ANY_THROW(manager.addRootPool("addPoolWithArbitrator1", kMaxMemory));
+    ASSERT_NO_THROW(manager.addRootPool("addPoolWithArbitrator1", kMaxMemory));
   }
   auto threadSafeLeafPool = manager.addLeafPool("leafPool", true);
   ASSERT_EQ(threadSafeLeafPool->capacity(), kMaxMemory);

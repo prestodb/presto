@@ -58,6 +58,7 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
               .checkUsageLeak = options.checkUsageLeak,
               .debugEnabled = options.debugEnabled})} {
   VELOX_CHECK_NOT_NULL(allocator_);
+  VELOX_CHECK_NOT_NULL(arbitrator_);
   VELOX_CHECK_EQ(
       allocator_->capacity(),
       capacity_,
@@ -65,12 +66,6 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
       allocator_->capacity(),
       capacity_);
   VELOX_USER_CHECK_GE(capacity_, 0);
-
-  if (arbitrator_ == nullptr && options.queryMemoryCapacity != kMaxMemory) {
-    LOG(WARNING) << "MemoryArbitrator is not set while "
-                    "MemoryManagerOptions::queryMemoryCapacity is set as "
-                 << options.queryMemoryCapacity;
-  }
   MemoryAllocator::alignmentCheck(0, alignment_);
   defaultRoot_->grow(defaultRoot_->maxCapacity());
   const size_t numSharedPools =
@@ -121,12 +116,6 @@ std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
     const std::string& name,
     int64_t capacity,
     std::unique_ptr<MemoryReclaimer> reclaimer) {
-  if (arbitrator_ != nullptr) {
-    VELOX_CHECK_NOT_NULL(
-        reclaimer,
-        "Memory reclaimer must be set when configured with memory arbitrator");
-  }
-
   std::string poolName = name;
   if (poolName.empty()) {
     static std::atomic<int64_t> poolId{0};
@@ -154,13 +143,7 @@ std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
       options);
   pools_.emplace(poolName, pool);
   VELOX_CHECK_EQ(pool->capacity(), 0);
-  if (arbitrator_ != nullptr) {
-    arbitrator_->reserveMemory(pool.get(), capacity);
-  } else {
-    // NOTE: if there is no memory arbitrator, then we set the memory pool's
-    // capacity to its configured max.
-    pool->grow(pool->maxCapacity());
-  }
+  arbitrator_->reserveMemory(pool.get(), capacity);
   return pool;
 }
 
@@ -178,14 +161,10 @@ std::shared_ptr<MemoryPool> MemoryManager::addLeafPool(
 bool MemoryManager::growPool(MemoryPool* pool, uint64_t incrementBytes) {
   VELOX_CHECK_NOT_NULL(pool);
   VELOX_CHECK_NE(pool->capacity(), kMaxMemory);
-  if (arbitrator_ == nullptr) {
-    return false;
-  }
   return arbitrator_->growMemory(pool, getAlivePools(), incrementBytes);
 }
 
 uint64_t MemoryManager::shrinkPools(uint64_t targetBytes) {
-  VELOX_CHECK_NOT_NULL(arbitrator_);
   return arbitrator_->shrinkMemory(getAlivePools(), targetBytes);
 }
 
@@ -197,9 +176,7 @@ void MemoryManager::dropPool(MemoryPool* pool) {
     VELOX_FAIL("The dropped memory pool {} not found", pool->name());
   }
   pools_.erase(it);
-  if (arbitrator_ != nullptr) {
-    arbitrator_->releaseMemory(pool);
-  }
+  arbitrator_->releaseMemory(pool);
 }
 
 MemoryPool& MemoryManager::deprecatedSharedLeafPool() {
