@@ -2310,6 +2310,13 @@ TEST_F(VectorTest, flattenVector) {
   VectorPtr row = makeRowVector({flat, array, map});
   test(row, true);
 
+  VectorPtr lazy = std::make_shared<LazyVector>(
+      pool_.get(),
+      INTEGER(),
+      flat->size(),
+      std::make_unique<TestingLoader>(flat));
+  test(lazy, true);
+
   // Constant
   VectorPtr constant = BaseVector::wrapInConstant(100, 1, flat);
   test(constant, false);
