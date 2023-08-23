@@ -19,8 +19,8 @@
 
 #pragma once
 
+#include "TypeSignatureVisitor.h"
 #include "antlr4-runtime.h"
-#include "presto_cpp/main/types/antlr/TypeSignatureVisitor.h"
 
 namespace facebook::presto::type {
 
