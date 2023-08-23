@@ -906,14 +906,22 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromJoinBuilder) {
           taskPauseWait.notifyAll();
         })));
 
+    // joinQueryCtx and fakeMemoryQueryCtx may be the same and thus share the
+    // same underlying QueryConfig.  We apply the changes here instead of using
+    // the AssertQueryBuilder to avoid a potential race condition caused by
+    // writing the config in the join thread, and reading it in the memThread.
+    std::unordered_map<std::string, std::string> config{
+        {core::QueryConfig::kSpillEnabled, "true"},
+        {core::QueryConfig::kJoinSpillEnabled, "true"},
+        {core::QueryConfig::kJoinSpillPartitionBits, "2"},
+    };
+    joinQueryCtx->testingOverrideConfigUnsafe(std::move(config));
+
     std::thread aggregationThread([&]() {
       auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
       auto task =
           AssertQueryBuilder(duckDbQueryRunner_)
               .spillDirectory(spillDirectory->path)
-              .config(core::QueryConfig::kSpillEnabled, "true")
-              .config(core::QueryConfig::kJoinSpillEnabled, "true")
-              .config(core::QueryConfig::kJoinSpillPartitionBits, "2")
               .queryCtx(joinQueryCtx)
               .plan(PlanBuilder(planNodeIdGenerator)
                         .values(vectors)
@@ -1213,17 +1221,25 @@ DEBUG_ONLY_TEST_F(
         std::function<void(Task*)>(
             [&](Task* /*unused*/) { taskPauseWait.notifyAll(); }));
 
+    // joinQueryCtx and fakeMemoryQueryCtx may be the same and thus share the
+    // same underlying QueryConfig.  We apply the changes here instead of using
+    // the AssertQueryBuilder to avoid a potential race condition caused by
+    // writing the config in the join thread, and reading it in the memThread.
+    std::unordered_map<std::string, std::string> config{
+        {core::QueryConfig::kSpillEnabled, "true"},
+        {core::QueryConfig::kJoinSpillEnabled, "true"},
+        {core::QueryConfig::kJoinSpillPartitionBits, "2"},
+        // NOTE: set an extreme large value to avoid non-reclaimable
+        // section in test.
+        {core::QueryConfig::kSpillableReservationGrowthPct, "8000"},
+    };
+    joinQueryCtx->testingOverrideConfigUnsafe(std::move(config));
+
     std::thread joinThread([&]() {
       auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
       auto task =
           AssertQueryBuilder(duckDbQueryRunner_)
               .spillDirectory(spillDirectory->path)
-              .config(core::QueryConfig::kSpillEnabled, "true")
-              .config(core::QueryConfig::kJoinSpillEnabled, "true")
-              .config(core::QueryConfig::kJoinSpillPartitionBits, "2")
-              // NOTE: set an extreme large value to avoid non-reclaimable
-              // section in test.
-              .config(core::QueryConfig::kSpillableReservationGrowthPct, "8000")
               .maxDrivers(numDrivers)
               .queryCtx(joinQueryCtx)
               .plan(PlanBuilder(planNodeIdGenerator)
