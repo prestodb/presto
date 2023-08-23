@@ -447,24 +447,26 @@ TEST_F(CastExprTest, basics) {
 }
 
 TEST_F(CastExprTest, stringToTimestamp) {
-  testCast<std::string, Timestamp>(
-      "timestamp",
-      {
-          "1970-01-01",
-          "2000-01-01",
-          "1970-01-01 00:00:00",
-          "2000-01-01 12:21:56",
-          "1970-01-01 00:00:00-02:00",
-          std::nullopt,
-      },
-      {
-          Timestamp(0, 0),
-          Timestamp(946684800, 0),
-          Timestamp(0, 0),
-          Timestamp(946729316, 0),
-          Timestamp(7200, 0),
-          std::nullopt,
-      });
+  std::vector<std::optional<std::string>> input{
+      "1970-01-01",
+      "2000-01-01",
+      "1970-01-01 00:00:00",
+      "2000-01-01 12:21:56",
+      "1970-01-01 00:00:00-02:00",
+      std::nullopt,
+  };
+  std::vector<std::optional<Timestamp>> expected{
+      Timestamp(0, 0),
+      Timestamp(946684800, 0),
+      Timestamp(0, 0),
+      Timestamp(946729316, 0),
+      Timestamp(7200, 0),
+      std::nullopt,
+  };
+  testCast<std::string, Timestamp>("timestamp", input, expected);
+
+  setCastIntByTruncate(true);
+  testCast<std::string, Timestamp>("timestamp", input, expected);
 }
 
 TEST_F(CastExprTest, timestampToString) {

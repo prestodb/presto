@@ -404,8 +404,8 @@ struct Converter<TypeKind::VARCHAR, void, TRUNCATE> {
 };
 
 // Allow conversions from string to TIMESTAMP type.
-template <>
-struct Converter<TypeKind::TIMESTAMP> {
+template <bool TRUNCATE>
+struct Converter<TypeKind::TIMESTAMP, void, TRUNCATE> {
   using T = typename TypeTraits<TypeKind::TIMESTAMP>::NativeType;
 
   template <typename From>
