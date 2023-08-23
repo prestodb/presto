@@ -184,6 +184,15 @@ class SystemConfig : public ConfigBase {
       "experimental.spiller-spill-path"};
   static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
   static constexpr std::string_view kSystemMemoryGb{"system-memory-gb"};
+  /// Specifies the total memory capacity that can be used by query execution in
+  /// GB. The query memory capacity should be configured less than the system
+  /// memory capacity ('system-memory-gb') to reserve memory for system usage
+  /// such as disk spilling and cache prefetch which are not counted in query
+  /// memory usage.
+  ///
+  /// NOTE: the query memory capacity is enforced by memory arbitrator so that
+  /// this config only applies if the memory arbitration has been enabled.
+  static constexpr std::string_view kQueryMemoryGb{"query-memory-gb"};
   static constexpr std::string_view kAsyncDataCacheEnabled{
       "async-data-cache-enabled"};
   static constexpr std::string_view kAsyncCacheSsdGb{"async-cache-ssd-gb"};
@@ -213,6 +222,7 @@ class SystemConfig : public ConfigBase {
   /// NOTE: this config only applies if the memory arbitration has been enabled.
   static constexpr std::string_view kMemoryPoolInitCapacity{
       "memory-pool-init-capacity"};
+
   /// The minimal memory capacity in bytes transferred between memory pools
   /// during memory arbitration.
   ///
@@ -225,7 +235,6 @@ class SystemConfig : public ConfigBase {
   /// NOTE: this config only applies if the memory arbitration has been enabled.
   static constexpr std::string_view kReservedMemoryPoolCapacityPct{
       "reserved-memory-pool-capacity-pct"};
-
   static constexpr std::string_view kEnableVeloxTaskLogging{
       "enable_velox_task_logging"};
   static constexpr std::string_view kEnableVeloxExprSetLogging{
@@ -408,6 +417,8 @@ class SystemConfig : public ConfigBase {
   bool useMmapAllocator() const;
 
   std::string memoryArbitratorKind() const;
+
+  int32_t queryMemoryGb() const;
 
   uint64_t memoryPoolInitCapacity() const;
 
