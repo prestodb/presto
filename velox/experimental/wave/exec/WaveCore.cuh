@@ -16,8 +16,9 @@
 
 #pragma once
 
-#include "velox/experimental/wave/common/Block.cuh"
-#include "velox/experimental/wave/exec/ExprKernel.h"
+#include <cuda_runtime.h> // @manual
+
+#include "velox/experimental/wave/vector/Operand.h"
 
 namespace facebook::velox::wave {
 
@@ -45,8 +46,8 @@ __device__ inline T value(Operand* op, int32_t blockBase, char* shared) {
 }
 
 template <typename T>
-T& flatResult(Operand* op, int32_t blockBase) {
-  reinterpret_cast<T*>(op->base)[blockBase + threadIdx.x];
+__device__ T& flatResult(Operand* op, int32_t blockBase) {
+  return flatValue<T>(op->base, blockBase);
 }
 
 } // namespace facebook::velox::wave

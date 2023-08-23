@@ -61,9 +61,10 @@ IdMapHolder<T> createIdMap(GpuAllocator* allocator, int capacity) {
 template <typename T>
 __global__ void
 runMakeIds(IdMap<T>* idMap, const T* values, int size, int32_t* output) {
-  int offset = blockIdx.x * blockDim.x;
-  size = min(blockDim.x, size - offset);
-  idMap->makeIds(values + offset, size, output + offset);
+  int step = gridDim.x * blockDim.x;
+  for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < size; i += step) {
+    output[i] = idMap->makeId(values[i]);
+  }
 }
 
 template <typename T>

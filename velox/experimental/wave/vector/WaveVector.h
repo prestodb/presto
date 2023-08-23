@@ -84,6 +84,10 @@ class WaveVector {
     return *children_[index];
   }
 
+  void setChildAt(int32_t i, std::unique_ptr<WaveVector> child) {
+    children_[i] = std::move(child);
+  }
+
   template <typename T>
   T* values() {
     return values_->as<T>();

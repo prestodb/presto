@@ -37,6 +37,7 @@ class StringView {
       memcpy(inlineData(), data, len);
     } else {
       assert(len <= kMaxSize);
+      assert(!((uintptr_t)data >> (64 - kSizeBits)));
       data_ |= reinterpret_cast<uintptr_t>(data) << kSizeBits;
     }
   }

@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#include "velox/experimental/wave/exec/ExprKernel.h"
+
+#include "velox/experimental/wave/common/Block.cuh"
 #include "velox/experimental/wave/common/CudaUtil.cuh"
 #include "velox/experimental/wave/exec/WaveCore.cuh"
 

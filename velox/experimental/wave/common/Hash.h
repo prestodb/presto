@@ -101,6 +101,7 @@ struct IntHasher32 {
     } else {
       return twang32From64(val);
     }
+    __builtin_unreachable();
   }
 };
 
@@ -110,6 +111,9 @@ struct Hasher<StringView, uint32_t> {
     return Murmur3::hashBytes(val.data(), val.size(), 42);
   }
 };
+
+template <>
+struct Hasher<int32_t, uint32_t> : IntHasher32<int32_t> {};
 
 template <>
 struct Hasher<int64_t, uint32_t> : IntHasher32<int64_t> {};

@@ -26,6 +26,10 @@ class Values : public WaveOperator {
 
   int32_t canAdvance() override;
 
+  bool isStreaming() const override {
+    return true;
+  }
+
   void schedule(WaveStream& stream, int32_t maxRows = 0) override;
 
   vector_size_t outputSize() const override {

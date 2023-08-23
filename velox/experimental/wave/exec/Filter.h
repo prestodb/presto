@@ -24,6 +24,10 @@ class Filter : public WaveOperator {
  public:
   Filter(RowTypePtr inputType, exec::ExprSet exprSet);
 
+  bool isStreaming() const override {
+    return true;
+  }
+
  private:
   std::vector<Subfield> input_;
 };

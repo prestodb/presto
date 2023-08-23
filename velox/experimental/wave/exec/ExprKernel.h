@@ -122,7 +122,9 @@ enum class ErrorCode : int32_t {
   kOk,
 
   // Catchall for runtime errors.
-  kError
+  kError,
+
+  kInsuffcientMemory,
 };
 
 /// Contains a count of active lanes and a per lane error code.

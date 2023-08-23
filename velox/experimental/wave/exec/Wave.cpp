@@ -167,13 +167,10 @@ void WaveStream::installExecutables(
   // get an event. The dependent computes ggo on new streams that first wait for
   // the events.
   folly::F14FastMap<int32_t, Event*> streamEvents;
-  for (auto& pair : dependences) {
+  for (auto& [ids, exeVector] : dependences) {
+    folly::Range<Executable**> exes(exeVector.data(), exeVector.size());
     std::vector<Stream*> required;
-    pair.first.forEach(
-        [&](int32_t id) { required.push_back(streams_[id].get()); });
-    Executable** start = pair.second.data();
-    int32_t count = pair.second.size();
-    auto exes = folly::range(start, start + count);
+    ids.forEach([&](int32_t id) { required.push_back(streams_[id].get()); });
     if (required.empty()) {
       auto stream = newStream();
       launch(stream, exes);
@@ -188,8 +185,7 @@ void WaveStream::installExecutables(
         }
       }
       auto launchStream = newStream();
-      pair.first.forEach(
-          [&](int32_t id) { streamEvents[id]->wait(*launchStream); });
+      ids.forEach([&](int32_t id) { streamEvents[id]->wait(*launchStream); });
       launch(launchStream, exes);
     }
   }

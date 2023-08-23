@@ -52,6 +52,10 @@ class CompileState {
 
   void addExprSet(const exec::ExprSet& set, int32_t begin, int32_t end);
 
+  GpuArena& arena() {
+    return *arena_;
+  }
+
  private:
   bool
   addOperator(exec::Operator* op, int32_t& nodeIndex, RowTypePtr& outputType);

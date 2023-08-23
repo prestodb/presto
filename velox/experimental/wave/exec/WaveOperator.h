@@ -44,6 +44,16 @@ class WaveOperator {
     return isExpanding_;
   }
 
+  virtual bool isStreaming() const = 0;
+
+  virtual void enqueue(WaveVectorPtr) {
+    VELOX_FAIL("Override for blocking operator");
+  }
+
+  virtual void flush() {
+    VELOX_FAIL("Override for blocking operator");
+  }
+
   // If 'this' is a cardinality change (filter, join, unnest...),
   // returns the instruction where the projected through columns get
   // wrapped. Columns that need to be accessed through the change are

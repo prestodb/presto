@@ -35,7 +35,11 @@ class IdMap {
     }
   }
 
-  __device__ void makeIds(const T* values, int64_t size, int32_t* output);
+  __device__ int32_t makeId(T value);
+
+  __device__ int cardinality() const {
+    return lastId_;
+  }
 
  private:
   __device__ static T casValue(T* address, T compare, T val) {
@@ -47,6 +51,7 @@ class IdMap {
     } else {
       return atomicCAS(address, compare, val);
     }
+    __builtin_unreachable();
   }
 
   __device__ void storeNewId(volatile int32_t* id) {
@@ -99,35 +104,29 @@ void IdMap<T, H>::init(int capacity, T* values, int32_t* ids) {
 }
 
 template <typename T, typename H>
-__device__ void
-IdMap<T, H>::makeIds(const T* values, int64_t size, int32_t* output) {
+__device__ int32_t IdMap<T, H>::makeId(T value) {
+  if (value == kEmptyMarker) {
+    if (emptyId_ <= 0) {
+      if (atomicCAS(const_cast<int*>(&emptyId_), 0, -1) == 0) {
+        storeNewId(&emptyId_);
+      }
+      ensureIdReady(&emptyId_, -1);
+    }
+    return emptyId_;
+  }
   auto mask = capacity_ - 1;
   auto maxEntries = capacity_ - capacity_ / 4;
-  for (int64_t i = threadIdx.x; i < size; i += blockDim.x) {
-    if (values[i] == kEmptyMarker) {
-      if (emptyId_ <= 0) {
-        if (atomicCAS(const_cast<int*>(&emptyId_), 0, -1) == 0) {
-          storeNewId(&emptyId_);
-        }
-        ensureIdReady(&emptyId_, -1);
-      }
-      output[i] = emptyId_;
-      continue;
+  for (auto i = H()(value) & mask;; i = (i + 1) & mask) {
+    if (lastId_ > maxEntries) {
+      return -1;
     }
-    for (auto j = H()(values[i]) & mask;; j = (j + 1) & mask) {
-      if (lastId_ > maxEntries) {
-        output[i] = -1;
-        return;
-      }
-      if (values_[j] == kEmptyMarker &&
-          casValue(&values_[j], kEmptyMarker, values[i]) == kEmptyMarker) {
-        storeNewId(&ids_[j]);
-      }
-      if (values_[j] == values[i]) {
-        ensureIdReady(&ids_[j], 0);
-        output[i] = ids_[j];
-        break;
-      }
+    if (values_[i] == kEmptyMarker &&
+        casValue(&values_[i], kEmptyMarker, value) == kEmptyMarker) {
+      storeNewId(&ids_[i]);
+    }
+    if (values_[i] == value) {
+      ensureIdReady(&ids_[i], 0);
+      return ids_[i];
     }
   }
 }
