@@ -146,6 +146,15 @@ TEST_F(TestTypeSignature, sig16) {
   assertSignatureFail("rowxxx(a)");
 }
 
+TEST_F(TestTypeSignature, rowWithNumericFieldName) {
+  assertRowSignature(
+      "row(\"12\" bigint,b bigint,c bigint)",
+      rowSignature(
+          namedParameter("12", false, signature("bigint")),
+          namedParameter("b", false, signature("bigint")),
+          namedParameter("c", false, signature("bigint"))));
+}
+
 TEST_F(TestTypeSignature, TestRow01) {
   assertRowSignature(
       "row(a bigint,b bigint,c bigint)",

@@ -431,6 +431,9 @@ public abstract class AbstractTestNativeGeneralQueries
                 "(DECIMAL'12345678920222426.1234'), (DECIMAL'12345678901214161830.1234567')) as l (c0)");
         assertQuery("SELECT CAST(c0 as REAL) FROM (VALUES (DECIMAL'1234567890121416182022.234'), (NULL), " +
                 "(DECIMAL'12345678920222426.1234'), (DECIMAL'12345678901214162830.1234567')) as l (c0)");
+
+        // Cast to ROW.
+        assertQuery("SELECT cast(row(orderkey, comment) as row(\"123\" varchar, \"456\" varchar)) FROM orders");
     }
 
     @Test
