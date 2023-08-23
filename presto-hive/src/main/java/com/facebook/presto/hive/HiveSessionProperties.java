@@ -295,7 +295,7 @@ public final class HiveSessionProperties
                         ORC_OPTIMIZED_WRITER_FLAT_MAP_WRITER_ENABLED,
                         "ORC: Enable flat map writer",
                         orcFileWriterConfig.isFlatMapWriterEnabled(),
-                        false),
+                        true),
                 integerProperty(
                         ORC_OPTIMIZED_WRITER_COMPRESSION_LEVEL,
                         "Experimental: ORC: Compression level, works only for ZSTD and ZLIB compression kinds",
