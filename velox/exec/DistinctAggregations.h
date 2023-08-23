@@ -23,7 +23,7 @@
 namespace facebook::velox::exec {
 
 /// Computes aggregations over de-duplicated inputs. Supports aggregations with
-/// single input column only.
+/// single (e.g. sum, count) or multiple (e.g. covar_pop) input columns.
 class DistinctAggregations {
  public:
   /// @param aggregates Non-empty list of
