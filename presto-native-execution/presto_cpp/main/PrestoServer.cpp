@@ -474,9 +474,8 @@ void PrestoServer::yieldTasks() {
 }
 
 void PrestoServer::initializeVeloxMemory() {
-  auto nodeConfig = NodeConfig::instance();
-  auto systemConfig = SystemConfig::instance();
-  uint64_t memoryGb = systemConfig->systemMemoryGb();
+  auto* systemConfig = SystemConfig::instance();
+  const uint64_t memoryGb = systemConfig->systemMemoryGb();
   PRESTO_STARTUP_LOG(INFO) << "Starting with node memory " << memoryGb << "GB";
 
   const int64_t memoryBytes = memoryGb << 30;
@@ -532,6 +531,12 @@ void PrestoServer::initializeVeloxMemory() {
   options.checkUsageLeak = systemConfig->enableMemoryLeakCheck();
   if (!systemConfig->memoryArbitratorKind().empty()) {
     options.arbitratorKind = systemConfig->memoryArbitratorKind();
+    const uint64_t queryMemoryGb = systemConfig->queryMemoryGb();
+    VELOX_USER_CHECK_LE(
+        queryMemoryGb,
+        memoryGb,
+        "Query memory capacity must not be larger than system memory capacity");
+    options.queryMemoryCapacity = queryMemoryGb << 30;
     options.memoryPoolInitCapacity = systemConfig->memoryPoolInitCapacity();
     options.memoryPoolTransferCapacity =
         systemConfig->memoryPoolTransferCapacity();
