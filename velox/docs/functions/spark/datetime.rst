@@ -22,6 +22,18 @@ These functions support TIMESTAMP and DATE input types.
 
     num_days can be positive or negative.
 
+.. spark:function:: dayofyear(date) -> integer
+
+    Returns Returns the day of year of the date/timestamp. ::
+
+    SELECT dayofyear('2016-04-09'); -- 100
+
+.. spark:function:: dayofmonth(date) -> integer
+
+    Returns the day of month of the date/timestamp. ::
+
+    SELECT dayofmonth('2009-07-30'); -- 30
+
 .. spark:function:: last_day(date) -> date
 
     Returns the last day of the month which the date belongs to.

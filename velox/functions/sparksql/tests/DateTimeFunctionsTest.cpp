@@ -291,5 +291,24 @@ TEST_F(DateTimeFunctionsTest, dateSub) {
   EXPECT_EQ(parseDate("5881580-07-11"), dateSub("1969-12-31", kMin));
 }
 
+TEST_F(DateTimeFunctionsTest, dayOfYear) {
+  const auto day = [&](std::optional<int32_t> date) {
+    return evaluateOnce<int64_t, int32_t>("dayofyear(c0)", {date}, {DATE()});
+  };
+  EXPECT_EQ(std::nullopt, day(std::nullopt));
+  EXPECT_EQ(100, day(parseDate("2016-04-09")));
+  EXPECT_EQ(235, day(parseDate("2023-08-23")));
+  EXPECT_EQ(1, day(parseDate("1970-01-01")));
+}
+
+TEST_F(DateTimeFunctionsTest, dayOfMonth) {
+  const auto day = [&](std::optional<int32_t> date) {
+    return evaluateOnce<int64_t, int32_t>("dayofmonth(c0)", {date}, {DATE()});
+  };
+  EXPECT_EQ(std::nullopt, day(std::nullopt));
+  EXPECT_EQ(30, day(parseDate("2009-07-30")));
+  EXPECT_EQ(23, day(parseDate("2023-08-23")));
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test
