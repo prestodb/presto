@@ -217,7 +217,7 @@ class TaskManagerTest : public testing::Test {
     options.config = std::make_shared<facebook::velox::dwrf::Config>();
     options.schema = rowType_;
     auto sink = std::make_unique<dwio::common::LocalFileSink>(
-        filePath, dwio::common::MetricsLog::voidLog());
+        filePath, dwio::common::FileSink::Options{});
     dwrf::Writer writer{options, std::move(sink), *rootPool_};
 
     for (size_t i = 0; i < vectors.size(); ++i) {
