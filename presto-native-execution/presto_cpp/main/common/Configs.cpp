@@ -254,6 +254,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kMmapArenaCapacityRatio, 10),
           STR_PROP(kUseMmapAllocator, "true"),
           STR_PROP(kMemoryArbitratorKind, ""),
+          NUM_PROP(kQueryMemoryGb, 38),
           STR_PROP(kEnableVeloxTaskLogging, "false"),
           STR_PROP(kEnableVeloxExprSetLogging, "false"),
           NUM_PROP(kLocalShuffleMaxPartitionBytes, 268435456),
@@ -464,6 +465,10 @@ bool SystemConfig::useMmapAllocator() const {
 
 std::string SystemConfig::memoryArbitratorKind() const {
   return optionalProperty<std::string>(kMemoryArbitratorKind).value_or("");
+}
+
+int32_t SystemConfig::queryMemoryGb() const {
+  return optionalProperty<int32_t>(kQueryMemoryGb).value();
 }
 
 uint64_t SystemConfig::memoryPoolInitCapacity() const {
