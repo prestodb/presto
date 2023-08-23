@@ -22,7 +22,7 @@
 #include "folly/dynamic.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/prestosql/json/JsonPathTokenizer.h"
-#include "velox/functions/prestosql/json/SIMDJson.h"
+#include "velox/functions/prestosql/json/SIMDJsonWrapper.h"
 #include "velox/type/StringView.h"
 
 namespace facebook::velox::functions {
