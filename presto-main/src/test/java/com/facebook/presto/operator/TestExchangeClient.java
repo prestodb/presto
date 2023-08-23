@@ -20,7 +20,9 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
+import com.facebook.presto.server.NodeStatusNotificationManager;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.nodestatus.NodeStatusNotificationProvider;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.ImmutableMap;
@@ -33,6 +35,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.net.InetAddress;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -76,6 +79,7 @@ public class TestExchangeClient
     private ExecutorService testingHttpClientExecutor;
 
     private static final PagesSerde PAGES_SERDE = testingPagesSerde();
+    private ExchangeClientStats exchangeClientStats = new ExchangeClientStats();
 
     @BeforeClass
     public void setUp()
@@ -489,6 +493,320 @@ public class TestExchangeClient
         assertStatus(clientStatusOptional2.get(), "closed", "not scheduled");
     }
 
+    @Test
+    public void testFastDraining()
+            throws Exception
+    {
+        DataSize bufferCapacity = new DataSize(1, BYTE);
+        DataSize maxResponseSize = new DataSize(60, BYTE);
+        CountDownLatch countDownLatch = new CountDownLatch(1);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize) {
+            @Override
+            public Response handle(Request request)
+            {
+                if (!awaitUninterruptibly(countDownLatch, 10, SECONDS)) {
+                    throw new UncheckedTimeoutException();
+                }
+                return super.handle(request);
+            }
+        };
+
+        TestNodeStatusNotifier statusNotifier = new TestNodeStatusNotifier();
+
+        InetAddress workerGoingAway = InetAddress.getByName("localhost");
+        URI location1 = URI.create("http://127.0.0.1:8081/foo.0.0.0.0");
+        TaskId taskId1 = TaskId.valueOf("foo.0.0.0.0");
+        URI location2 = URI.create("http://127.0.0.2:8081/bar.0.0.0.0");
+        TaskId taskId2 = TaskId.valueOf("bar.0.0.0.0");
+
+        for (int i = 1; i <= 10; i++) {
+            processor.addPage(location1, createPage(i));
+        }
+        processor.setComplete(location1);
+
+        // add pages to another source
+        for (int i = 101; i <= 103; i++) {
+            processor.addPage(location2, createPage(i));
+        }
+        processor.setComplete(location2);
+
+        ExchangeClient exchangeClient = createExchangeClientWithWorkStatusNotifier(processor, bufferCapacity, maxResponseSize, statusNotifier);
+
+        exchangeClient.addLocation(location1, taskId1);
+        exchangeClient.addLocation(location2, taskId2);
+        exchangeClient.noMoreLocations();
+        assertFalse(exchangeClient.isClosed());
+
+        // worker is shutting down
+        statusNotifier.workerShutdown(workerGoingAway);
+
+        // unblock the http requests
+        countDownLatch.countDown();
+        assertFalse(exchangeClient.isClosed());
+
+        // it could fetch the 10 + 3 pages without issue.
+        ArrayList<SerializedPage> pages = new ArrayList<>();
+        for (int i = 1; i <= 13; i++) {
+            pages.add(getNextPage(exchangeClient));
+            assertFalse(exchangeClient.isClosed());
+        }
+        assertNull(getNextPage(exchangeClient));
+        assertTrue(exchangeClient.isClosed());
+
+        // The location1 should finish draining before location2
+        SerializedPage lastPage = pages.get(12);
+        assertPageEquals(lastPage, createPage(103));
+
+        ExchangeClientStatus status = exchangeClient.getStatus();
+        assertEquals(status.getBufferedPages(), 0);
+        assertEquals(status.getBufferedBytes(), 0);
+    }
+
+    @Test
+    public void testMultipleFastDraining()
+            throws Exception
+    {
+        DataSize bufferCapacity = new DataSize(1, BYTE);
+        DataSize maxResponseSize = new DataSize(60, BYTE);
+        CountDownLatch countDownLatch = new CountDownLatch(1);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize) {
+            @Override
+            public Response handle(Request request)
+            {
+                if (!awaitUninterruptibly(countDownLatch, 10, SECONDS)) {
+                    throw new UncheckedTimeoutException();
+                }
+                return super.handle(request);
+            }
+        };
+
+        TestNodeStatusNotifier statusNotifier = new TestNodeStatusNotifier();
+
+        int numberOfLocation = 100;
+        ArrayList<URI> locations = new ArrayList<>();
+        ArrayList<TaskId> taskIds = new ArrayList<>();
+        ArrayList<InetAddress> workersGoingAway = new ArrayList<>();
+
+        for (byte i = 1; i <= 5; i++) {
+            byte[] ipAddr = new byte[] {127, 0, 0, i};
+            InetAddress addr = InetAddress.getByAddress(null, ipAddr);
+            workersGoingAway.add(addr);
+        }
+
+        for (int i = 1; i <= numberOfLocation; i++) {
+            URI location = URI.create("http://127.0.0." + i + ":8081/foo" + i + ".0.0.0.0");
+            locations.add(location);
+            TaskId taskId = TaskId.valueOf("foo" + i + ".0.0.0.0");
+            taskIds.add(taskId);
+        }
+
+        for (int i = 0; i < numberOfLocation; i++) {
+            URI location = locations.get(i);
+            for (int j = 1; j <= 9; j++) {
+                processor.addPage(location, createPage(i * 10 + j));
+            }
+
+            processor.setComplete(location);
+        }
+
+        ExchangeClient exchangeClient = createExchangeClientWithWorkStatusNotifier(processor, bufferCapacity, maxResponseSize, statusNotifier);
+
+        for (int i = 0; i < numberOfLocation; i++) {
+            exchangeClient.addLocation(locations.get(i), taskIds.get(i));
+        }
+
+        exchangeClient.noMoreLocations();
+        assertFalse(exchangeClient.isClosed());
+
+        // worker is shutting down
+        for (InetAddress workerGoingAway : workersGoingAway) {
+            statusNotifier.workerShutdown(workerGoingAway);
+        }
+
+        countDownLatch.countDown();
+        assertFalse(exchangeClient.isClosed());
+
+        // it could fetch all the pages without issue.
+        ArrayList<SerializedPage> pages = new ArrayList<>();
+        for (int i = 1; i <= numberOfLocation * 9; i++) {
+            pages.add(getNextPage(exchangeClient));
+            assertFalse(exchangeClient.isClosed());
+        }
+        assertNull(getNextPage(exchangeClient));
+        assertTrue(exchangeClient.isClosed());
+
+        ExchangeClientStatus status = exchangeClient.getStatus();
+        assertEquals(status.getBufferedPages(), 0);
+        assertEquals(status.getBufferedBytes(), 0);
+    }
+
+    @Test
+    public void testFastDrainingThenRemoveRemoteSource()
+            throws Exception
+    {
+        DataSize bufferCapacity = new DataSize(1, BYTE);
+        DataSize maxResponseSize = new DataSize(1, BYTE);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
+
+        new NodeStatusNotificationManager();
+        TestNodeStatusNotifier statusNotifier = new TestNodeStatusNotifier();
+        InetAddress workerGoingAway = InetAddress.getByName("localhost");
+
+        URI location1 = URI.create("http://127.0.0.1:8081/foo.0.0.0.0");
+        TaskId taskId1 = TaskId.valueOf("foo.0.0.0.0");
+        URI location2 = URI.create("http://127.0.0.2:8082/bar.0.0.0.0");
+        TaskId taskId2 = TaskId.valueOf("bar.0.0.0.0");
+
+        processor.addPage(location1, createPage(1));
+        processor.addPage(location1, createPage(2));
+        processor.addPage(location1, createPage(3));
+
+        ExchangeClient exchangeClient = createExchangeClientWithWorkStatusNotifier(processor, bufferCapacity, maxResponseSize, statusNotifier);
+
+        exchangeClient.addLocation(location1, taskId1);
+        exchangeClient.addLocation(location2, taskId2);
+
+        assertFalse(exchangeClient.isClosed());
+
+        statusNotifier.workerShutdown(workerGoingAway);
+
+        // Wait until exactly one page is buffered:
+        //  * We cannot call ExchangeClient#pollPage() directly, since it will schedule the next request to buffer data,
+        //    and this request to buffer data could win the race against the request to remove remote source.
+        //  * Buffer capacity is set to 1 byte, so only one page can be buffered.
+        waitUntilEquals(() -> exchangeClient.getStatus().getBufferedPages(), 1, new Duration(5, SECONDS));
+        assertEquals(exchangeClient.getStatus().getBufferedPages(), 1);
+
+        // remove remote source
+        exchangeClient.removeRemoteSource(taskId1);
+
+        // the previously buffered page will still be read out
+        assertPageEquals(getNextPage(exchangeClient), createPage(1));
+
+        // client should not receive any further pages from removed remote source
+        assertNull(exchangeClient.pollPage());
+        assertEquals(exchangeClient.getStatus().getBufferedPages(), 0);
+
+        // add pages to another source
+        processor.addPage(location2, createPage(4));
+        processor.addPage(location2, createPage(5));
+        processor.addPage(location2, createPage(6));
+        processor.setComplete(location2);
+
+        assertFalse(exchangeClient.isClosed());
+        assertPageEquals(getNextPage(exchangeClient), createPage(4));
+        assertFalse(exchangeClient.isClosed());
+        assertPageEquals(getNextPage(exchangeClient), createPage(5));
+        assertFalse(exchangeClient.isClosed());
+        assertPageEquals(getNextPage(exchangeClient), createPage(6));
+
+        assertFalse(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent());
+        assertFalse(exchangeClient.isClosed());
+
+        exchangeClient.noMoreLocations();
+        // The transition to closed may happen asynchronously, since it requires that all the HTTP clients
+        // receive a final GONE response, so just spin until it's closed or the test times out.
+        while (!exchangeClient.isClosed()) {
+            Thread.sleep(1);
+        }
+
+        ExchangeClientStatus exchangeClientStatus = exchangeClient.getStatus();
+        Optional<PageBufferClientStatus> clientStatusOptional1 = exchangeClientStatus.getPageBufferClientStatuses()
+                .stream()
+                .filter(pageBufferClientStatus -> pageBufferClientStatus.getUri().equals(location1)).findFirst();
+        assertTrue(clientStatusOptional1.isPresent());
+        assertStatus(clientStatusOptional1.get(), "closed", "not scheduled");
+
+        Optional<PageBufferClientStatus> clientStatusOptional2 = exchangeClientStatus.getPageBufferClientStatuses()
+                .stream()
+                .filter(pageBufferClientStatus -> pageBufferClientStatus.getUri().equals(location2)).findFirst();
+        assertTrue(clientStatusOptional2.isPresent());
+        assertStatus(clientStatusOptional2.get(), "closed", "not scheduled");
+    }
+
+    @Test
+    public void testRemoveRemoteSourceThenFastDraining()
+            throws Exception
+    {
+        DataSize bufferCapacity = new DataSize(1, BYTE);
+        DataSize maxResponseSize = new DataSize(1, BYTE);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
+
+        TestNodeStatusNotifier statusNotifier = new TestNodeStatusNotifier();
+        InetAddress workerGoingAway = InetAddress.getByName("localhost");
+
+        URI location1 = URI.create("http://127.0.0.1:8081/foo.0.0.0.0");
+        TaskId taskId1 = TaskId.valueOf("foo.0.0.0.0");
+        URI location2 = URI.create("http://127.0.0.2:8082/bar.0.0.0.0");
+        TaskId taskId2 = TaskId.valueOf("bar.0.0.0.0");
+
+        processor.addPage(location1, createPage(1));
+        processor.addPage(location1, createPage(2));
+        processor.addPage(location1, createPage(3));
+
+        ExchangeClient exchangeClient = createExchangeClientWithWorkStatusNotifier(processor, bufferCapacity, maxResponseSize, statusNotifier);
+
+        exchangeClient.addLocation(location1, taskId1);
+        exchangeClient.addLocation(location2, taskId2);
+
+        assertFalse(exchangeClient.isClosed());
+
+        // Wait until exactly one page is buffered:
+        //  * We cannot call ExchangeClient#pollPage() directly, since it will schedule the next request to buffer data,
+        //    and this request to buffer data could win the race against the request to remove remote source.
+        //  * Buffer capacity is set to 1 byte, so only one page can be buffered.
+        waitUntilEquals(() -> exchangeClient.getStatus().getBufferedPages(), 1, new Duration(5, SECONDS));
+        assertEquals(exchangeClient.getStatus().getBufferedPages(), 1);
+
+        // remove remote source
+        exchangeClient.removeRemoteSource(taskId1);
+
+        // the previously buffered page will still be read out
+        assertPageEquals(getNextPage(exchangeClient), createPage(1));
+
+        // client should not receive any further pages from removed remote source
+        assertNull(exchangeClient.pollPage());
+        assertEquals(exchangeClient.getStatus().getBufferedPages(), 0);
+
+        statusNotifier.workerShutdown(workerGoingAway);
+
+        // add pages to another source
+        processor.addPage(location2, createPage(4));
+        processor.addPage(location2, createPage(5));
+        processor.addPage(location2, createPage(6));
+        processor.setComplete(location2);
+
+        assertFalse(exchangeClient.isClosed());
+        assertPageEquals(getNextPage(exchangeClient), createPage(4));
+        assertFalse(exchangeClient.isClosed());
+        assertPageEquals(getNextPage(exchangeClient), createPage(5));
+        assertFalse(exchangeClient.isClosed());
+        assertPageEquals(getNextPage(exchangeClient), createPage(6));
+
+        assertFalse(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent());
+        assertFalse(exchangeClient.isClosed());
+
+        exchangeClient.noMoreLocations();
+        // The transition to closed may happen asynchronously, since it requires that all the HTTP clients
+        // receive a final GONE response, so just spin until it's closed or the test times out.
+        while (!exchangeClient.isClosed()) {
+            Thread.sleep(1);
+        }
+
+        ExchangeClientStatus exchangeClientStatus = exchangeClient.getStatus();
+        Optional<PageBufferClientStatus> clientStatusOptional1 = exchangeClientStatus.getPageBufferClientStatuses()
+                .stream()
+                .filter(pageBufferClientStatus -> pageBufferClientStatus.getUri().equals(location1)).findFirst();
+        assertTrue(clientStatusOptional1.isPresent());
+        assertStatus(clientStatusOptional1.get(), "closed", "not scheduled");
+
+        Optional<PageBufferClientStatus> clientStatusOptional2 = exchangeClientStatus.getPageBufferClientStatuses()
+                .stream()
+                .filter(pageBufferClientStatus -> pageBufferClientStatus.getUri().equals(location2)).findFirst();
+        assertTrue(clientStatusOptional2.isPresent());
+        assertStatus(clientStatusOptional2.get(), "closed", "not scheduled");
+    }
+
     private static Page createPage(int size)
     {
         return new Page(BlockAssertions.createLongSequenceBlock(0, size));
@@ -553,6 +871,7 @@ public class TestExchangeClient
     private ExchangeClient createExchangeClient(MockExchangeRequestProcessor processor, DataSize bufferCapacity, DataSize maxResponseSize)
     {
         return new ExchangeClient(
+                new DataSize(32, MEGABYTE),
                 bufferCapacity,
                 maxResponseSize,
                 1,
@@ -564,6 +883,30 @@ public class TestExchangeClient
                 new TestingDriftClient<>(),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                new NodeStatusNotificationManager(),
+                exchangeClientStats);
+    }
+
+    private ExchangeClient createExchangeClientWithWorkStatusNotifier(MockExchangeRequestProcessor processor, DataSize bufferCapacity, DataSize maxResponseSize, NodeStatusNotificationProvider statusNotifier)
+    {
+        NodeStatusNotificationManager manager = new NodeStatusNotificationManager();
+        manager.injectNotificationProviderForTest(statusNotifier);
+        return new ExchangeClient(
+                new DataSize(60, BYTE),
+                bufferCapacity,
+                maxResponseSize,
+                1,
+                new Duration(1, MINUTES),
+                true,
+                false,
+                0.2,
+                new TestingHttpClient(processor, testingHttpClientExecutor),
+                new TestingDriftClient<>(),
+                scheduler,
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                pageBufferClientCallbackExecutor,
+                manager,
+                exchangeClientStats);
     }
 }

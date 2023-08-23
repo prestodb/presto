@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.nodestatus;
 
+import java.net.InetAddress;
+
 /**
  * The {@code NodeStatusNotificationProvider} interface provides a registry for node status listeners.
  * Implementations of this interface can listen to node status events and notify all registered listeners,
@@ -26,4 +28,8 @@ public interface NodeStatusNotificationProvider
     void registerGracefulShutdownEventListener(GracefulShutdownEventListener listener);
 
     void removeGracefulShutdownEventListener(GracefulShutdownEventListener listener);
+
+    void registerRemoteHostShutdownEventListener(InetAddress inetAddress, GracefulShutdownEventListener listener);
+
+    void removeRemoteHostShutdownEventListener(InetAddress inetAddress, GracefulShutdownEventListener listener);
 }
