@@ -1048,6 +1048,12 @@ void GroupingSet::toIntermediate(
       continue;
     }
 
+    // Initialize all groups, even if we only need just one, to make sure bulk
+    // free (intermediateRows_->eraseRows) is safe. It is not legal to free a
+    // group that hasn't been initialized.
+    function->initializeNewGroups(
+        intermediateGroups_.data(), intermediateRowNumbers_);
+
     // Check if mask is false for all rows.
     if (!rows.hasSelections()) {
       // The aggregate produces its initial state for all
@@ -1055,10 +1061,6 @@ void GroupingSet::toIntermediate(
       // element of flat result. This is most often a null but for
       // example count produces a zero, so we use the per-aggregate
       // functions.
-      function->initializeNewGroups(
-          intermediateGroups_.data(),
-          folly::Range<const vector_size_t*>(
-              intermediateRowNumbers_.data(), 1));
       firstGroup_.resize(numRows);
       std::fill(firstGroup_.begin(), firstGroup_.end(), intermediateGroups_[0]);
       function->extractAccumulators(
@@ -1067,9 +1069,6 @@ void GroupingSet::toIntermediate(
     }
 
     populateTempVectors(i, input);
-
-    function->initializeNewGroups(
-        intermediateGroups_.data(), intermediateRowNumbers_);
 
     function->addRawInput(
         intermediateGroups_.data(), rows, tempVectors_, false);
