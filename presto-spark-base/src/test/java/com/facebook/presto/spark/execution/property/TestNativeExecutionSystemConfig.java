@@ -40,17 +40,17 @@ public class TestNativeExecutionSystemConfig
         assertRecordedDefaults(ConfigAssertions.recordDefaults(NativeExecutionVeloxConfig.class)
                 .setCodegenEnabled(false)
                 .setSpillEnabled(true)
-                .setAggregationSpillEnabled(false)
-                .setJoinSpillEnabled(false)
-                .setOrderBySpillEnabled(false));
+                .setAggregationSpillEnabled(true)
+                .setJoinSpillEnabled(true)
+                .setOrderBySpillEnabled(true));
 
         // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
         NativeExecutionVeloxConfig expected = new NativeExecutionVeloxConfig()
                 .setCodegenEnabled(true)
                 .setSpillEnabled(false)
-                .setAggregationSpillEnabled(true)
-                .setJoinSpillEnabled(true)
-                .setOrderBySpillEnabled(true);
+                .setAggregationSpillEnabled(false)
+                .setJoinSpillEnabled(false)
+                .setOrderBySpillEnabled(false);
         Map<String, String> properties = expected.getAllProperties();
         assertFullMapping(properties, expected);
     }
@@ -74,12 +74,12 @@ public class TestNativeExecutionSystemConfig
                 .setNumIoThreads(30)
                 .setShutdownOnsetSec(10)
                 .setSystemMemoryGb(10)
-                .setQueryMemoryGb(new DataSize(10, DataSize.Unit.GIGABYTE))
+                .setQueryMemoryGb(new DataSize(8, DataSize.Unit.GIGABYTE))
                 .setUseMmapAllocator(true)
-                .setMemoryArbitratorKind("")
-                .setMemoryPoolInitCapacity(10 << 30)
-                .setMemoryPoolTransferCapacity(512 << 20)
-                .setReservedMemoryPoolCapacityPct(10)
+                .setMemoryArbitratorKind("SHARED")
+                .setMemoryArbitratorCapacityGb(8)
+                .setMemoryPoolInitCapacity(8L << 30)
+                .setMemoryPoolTransferCapacity(2L << 30)
                 .setSpillerSpillPath("")
                 .setConcurrentLifespansPerTask(5)
                 .setMaxDriversPerTask(15)
@@ -108,10 +108,10 @@ public class TestNativeExecutionSystemConfig
                 .setSystemMemoryGb(40)
                 .setQueryMemoryGb(new DataSize(20, DataSize.Unit.GIGABYTE))
                 .setUseMmapAllocator(false)
-                .setMemoryArbitratorKind("SHARED")
-                .setMemoryPoolInitCapacity(32 << 20)
-                .setMemoryPoolTransferCapacity(32 << 20)
-                .setReservedMemoryPoolCapacityPct(20)
+                .setMemoryArbitratorKind("")
+                .setMemoryArbitratorCapacityGb(10)
+                .setMemoryPoolInitCapacity(7L << 30)
+                .setMemoryPoolTransferCapacity(1L << 30)
                 .setSpillerSpillPath("dummy.spill.path")
                 .setMaxDriversPerTask(30)
                 .setShuffleName("custom")
