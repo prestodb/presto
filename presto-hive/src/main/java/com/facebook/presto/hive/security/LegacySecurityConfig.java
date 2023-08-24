@@ -23,6 +23,7 @@ public class LegacySecurityConfig
     private boolean allowDropTable;
     private boolean allowRenameTable;
     private boolean allowRenameColumn;
+    private boolean allowDropConstraint;
 
     public boolean getAllowAddColumn()
     {
@@ -86,6 +87,19 @@ public class LegacySecurityConfig
     public LegacySecurityConfig setAllowRenameColumn(boolean allowRenameColumn)
     {
         this.allowRenameColumn = allowRenameColumn;
+        return this;
+    }
+
+    public boolean getAllowDropConstraint()
+    {
+        return this.allowDropConstraint;
+    }
+
+    @Config("hive.allow-drop-constraint")
+    @ConfigDescription("Allow Hive connector to drop constraint")
+    public LegacySecurityConfig setAllowDropConstraint(boolean allowDropConstraint)
+    {
+        this.allowDropConstraint = allowDropConstraint;
         return this;
     }
 }

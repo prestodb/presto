@@ -512,4 +512,6 @@ public interface Metadata
     {
         return NOT_APPLICABLE;
     }
+
+    void dropConstraint(Session session, TableHandle tableHandle, String constraintName);
 }

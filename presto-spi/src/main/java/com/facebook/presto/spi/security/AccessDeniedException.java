@@ -356,6 +356,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot set role %s", role));
     }
 
+    public static void denyDropConstraint(String tableName)
+    {
+        denyDropConstraint(tableName, null);
+    }
+
+    public static void denyDropConstraint(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot drop a constraint from table %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     private static Object formatExtraInfo(String extraInfo)
     {
         if (extraInfo == null || extraInfo.isEmpty()) {

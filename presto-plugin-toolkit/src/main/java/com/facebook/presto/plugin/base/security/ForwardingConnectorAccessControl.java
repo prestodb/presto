@@ -237,4 +237,10 @@ public abstract class ForwardingConnectorAccessControl
     {
         delegate().checkCanShowRoleGrants(transactionHandle, identity, context, catalogName);
     }
+
+    @Override
+    public void checkCanDropConstraint(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        delegate().checkCanDropConstraint(transactionHandle, identity, context, tableName);
+    }
 }

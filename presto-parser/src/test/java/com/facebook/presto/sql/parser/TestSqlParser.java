@@ -50,6 +50,7 @@ import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropColumn;
+import com.facebook.presto.sql.tree.DropConstraint;
 import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
@@ -2714,6 +2715,16 @@ public class TestSqlParser
 
         assertStatement("Use \"test_schema\"", new Use(Optional.empty(), quotedIdentifier("test_schema")));
         assertStatement("Use \"test_catalog\".\"test_schema\"", new Use(Optional.of(quotedIdentifier("test_catalog")), quotedIdentifier("test_schema")));
+    }
+
+    @Test
+    public void testDropConstraint()
+    {
+        assertStatement("ALTER TABLE foo.t DROP CONSTRAINT cons", new DropConstraint(QualifiedName.of("foo", "t"), "cons", false, false));
+        assertStatement("ALTER TABLE \"t x\" DROP CONSTRAINT \"c d\"", new DropConstraint(QualifiedName.of("t x"), quotedIdentifier("c d").toString(), false, false));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP CONSTRAINT cons", new DropConstraint(QualifiedName.of("foo", "t"), "cons", true, false));
+        assertStatement("ALTER TABLE foo.t DROP CONSTRAINT IF EXISTS cons", new DropConstraint(QualifiedName.of("foo", "t"), "cons", false, true));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP CONSTRAINT IF EXISTS cons", new DropConstraint(QualifiedName.of("foo", "t"), "cons", true, true));
     }
 
     private static void assertCast(String type)
