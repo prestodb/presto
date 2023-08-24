@@ -640,7 +640,7 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
 std::string PrestoTask::toJsonString() const {
   std::lock_guard<std::mutex> l(mutex);
   folly::dynamic obj = folly::dynamic::object;
-  obj["task"] = task ? task->toString() : "null";
+  obj["task"] = task ? task->toJsonString() : "null";
   obj["taskStarted"] = taskStarted;
   obj["lastHeartbeatMs"] = lastHeartbeatMs;
   obj["lastTaskStatsUpdateMs"] = lastTaskStatsUpdateMs;

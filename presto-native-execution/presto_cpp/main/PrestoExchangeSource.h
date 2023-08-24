@@ -112,6 +112,21 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     return {{"prestoExchangeSource.numPages", numPages_}};
   }
 
+  std::string toJsonString() override {
+    folly::dynamic obj = folly::dynamic::object;
+    obj["taskId"] = taskId_;
+    obj["destination"] = destination_;
+    obj["sequence"] = sequence_;
+    obj["requestPending"] = requestPending_.load();
+    obj["basePath"] = basePath_;
+    obj["host"] = host_;
+    obj["numPages"] = numPages_;
+    obj["closed"] = std::to_string(closed_);
+    obj["abortResultsSucceeded"] = std::to_string(abortResultsSucceeded_);
+    obj["atEnd"] = atEnd_;
+    return folly::toPrettyJson(obj);
+  }
+
   int testingFailedAttempts() const {
     return failedAttempts_;
   }
