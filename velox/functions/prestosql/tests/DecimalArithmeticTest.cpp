@@ -123,7 +123,7 @@ TEST_F(DecimalArithmeticTest, add) {
           {makeFlatVector(
               std::vector<int128_t>{DecimalUtil::kLongDecimalMax},
               DECIMAL(38, 0))}),
-      "Value '100000000000000000000000000000000000000' is not in the range of Decimal Type");
+      "Decimal overflow. Value '100000000000000000000000000000000000000' is not in the range of Decimal Type");
 
   // Rescaling LHS overflows.
   VELOX_ASSERT_THROW(
@@ -209,7 +209,7 @@ TEST_F(DecimalArithmeticTest, subtract) {
           {makeFlatVector(
               std::vector<int128_t>{DecimalUtil::kLongDecimalMin},
               DECIMAL(38, 0))}),
-      "Value '-100000000000000000000000000000000000000' is not in the range of Decimal Type");
+      "Decimal overflow. Value '-100000000000000000000000000000000000000' is not in the range of Decimal Type");
   // Rescaling LHS overflows.
   VELOX_ASSERT_THROW(
       testDecimalExpr<TypeKind::HUGEINT>(
@@ -279,7 +279,7 @@ TEST_F(DecimalArithmeticTest, multiply) {
               std::vector<int128_t>{
                   HugeInt::build(0x08FFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF)},
               DECIMAL(38, 0))}),
-      "Value '119630519620642428561342635425231011830' is not in the range of Decimal Type");
+      "Decimal overflow. Value '119630519620642428561342635425231011830' is not in the range of Decimal Type");
 
   // Rescaling the final result overflows.
   VELOX_ASSERT_THROW(
@@ -290,7 +290,7 @@ TEST_F(DecimalArithmeticTest, multiply) {
               std::vector<int128_t>{
                   HugeInt::build(0x08FFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF)},
               DECIMAL(38, 0))}),
-      "Value '119630519620642428561342635425231011830' is not in the range of Decimal Type");
+      "Decimal overflow. Value '119630519620642428561342635425231011830' is not in the range of Decimal Type");
 }
 
 TEST_F(DecimalArithmeticTest, decimalDivTest) {

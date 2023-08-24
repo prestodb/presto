@@ -82,7 +82,7 @@ class DecimalUtil {
   FOLLY_ALWAYS_INLINE static void valueInRange(int128_t value) {
     VELOX_CHECK(
         (value >= kLongDecimalMin && value <= kLongDecimalMax),
-        "Value '{}' is not in the range of Decimal Type",
+        "Decimal overflow. Value '{}' is not in the range of Decimal Type",
         value);
   }
 
