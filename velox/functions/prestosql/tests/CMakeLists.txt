@@ -77,6 +77,7 @@ add_executable(
   SliceTest.cpp
   SequenceTest.cpp
   SplitTest.cpp
+  SplitToMapTest.cpp
   StringFunctionsTest.cpp
   TransformTest.cpp
   TransformKeysTest.cpp

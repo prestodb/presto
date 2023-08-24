@@ -17,6 +17,7 @@
 #include "velox/functions/lib/Re2Functions.h"
 #include "velox/functions/prestosql/RegexpReplace.h"
 #include "velox/functions/prestosql/SplitPart.h"
+#include "velox/functions/prestosql/SplitToMap.h"
 #include "velox/functions/prestosql/StringFunctions.h"
 
 namespace facebook::velox::functions {
@@ -83,6 +84,12 @@ void registerStringFunctions(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_lower, prefix + "lower");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_upper, prefix + "upper");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_split, prefix + "split");
+  registerFunction<
+      SplitToMapFunction,
+      Map<Varchar, Varchar>,
+      Varchar,
+      Varchar,
+      Varchar>({prefix + "split_to_map"});
   VELOX_REGISTER_VECTOR_FUNCTION(udf_concat, prefix + "concat");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_replace, prefix + "replace");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_reverse, prefix + "reverse");
