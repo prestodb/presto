@@ -56,6 +56,33 @@ void markAsFree(HashStringAllocator::Header* FOLLY_NONNULL header) {
 }
 } // namespace
 
+std::string HashStringAllocator::Header::toString() {
+  std::ostringstream out;
+  if (isFree()) {
+    out << "|free| ";
+  }
+  if (isContinued()) {
+    out << "|multipart| ";
+  }
+  out << "size: " << size();
+  if (isContinued()) {
+    auto next = nextContinued();
+    out << " [" << next->size();
+    while (next->isContinued()) {
+      next = next->nextContinued();
+      out << ", " << next->size();
+    }
+    out << "]";
+  }
+  if (isPreviousFree()) {
+    out << ", previous is free (" << *previousFreeSize(this) << " bytes)";
+  }
+  if (next() == nullptr) {
+    out << ", at end";
+  }
+  return out.str();
+}
+
 HashStringAllocator::~HashStringAllocator() {
   clear();
 }

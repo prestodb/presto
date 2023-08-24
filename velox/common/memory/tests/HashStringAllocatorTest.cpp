@@ -95,6 +95,35 @@ class HashStringAllocatorTest : public testing::Test {
   folly::Random::DefaultGenerator rng_;
 };
 
+TEST_F(HashStringAllocatorTest, headerToString) {
+  auto h1 = allocate(123);
+  auto h2 = allocate(456);
+
+  ASSERT_EQ(h1->toString(), "size: 123");
+  ASSERT_EQ(h2->toString(), "size: 456");
+
+  allocator_->free(h1);
+  ASSERT_EQ(h1->toString(), "|free| size: 123");
+  ASSERT_EQ(h2->toString(), "size: 456, previous is free (123 bytes)");
+
+  auto h3 = allocate(123'456);
+  ASSERT_EQ(h3->toString(), "size: 123456");
+
+  ByteStream stream(allocator_.get());
+  auto h4 = allocator_->newWrite(stream).header;
+  std::string data(123'456, 'x');
+  stream.appendStringPiece(folly::StringPiece(data.data(), data.size()));
+  allocator_->finishWrite(stream, 0);
+
+  ASSERT_EQ(h4->toString(), "|multipart| size: 123 [64913, 58436]");
+
+  ASSERT_EQ(
+      h4->nextContinued()->toString(),
+      "|multipart| size: 64913 [58436], at end");
+
+  ASSERT_EQ(h4->nextContinued()->nextContinued()->toString(), "size: 58436");
+}
+
 TEST_F(HashStringAllocatorTest, allocate) {
   for (auto count = 0; count < 3; ++count) {
     std::vector<HSA::Header*> headers;

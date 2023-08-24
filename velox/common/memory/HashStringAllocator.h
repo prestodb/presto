@@ -142,6 +142,8 @@ class HashStringAllocator : public StreamArena {
       return *reinterpret_cast<Header**>(end() - kContinuedPtrSize);
     }
 
+    std::string toString();
+
    private:
     uint32_t data_;
   };
