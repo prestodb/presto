@@ -218,7 +218,7 @@ class WriterContext : public CompressionBufferPool {
   int64_t getTotalMemoryUsage() const;
 
   int64_t getMemoryBudget() const {
-    return pool_->capacity();
+    return pool_->maxCapacity();
   }
 
   const encryption::EncryptionHandler& getEncryptionHandler() const {

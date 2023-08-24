@@ -40,7 +40,7 @@ class MockMemoryPool : public velox::memory::MemoryPool {
       MemoryPool::Kind kind,
       std::shared_ptr<MemoryPool> parent,
       int64_t cap = std::numeric_limits<int64_t>::max())
-      : MemoryPool{name, kind, parent, {.alignment = velox::memory::MemoryAllocator::kMinAlignment}},
+      : MemoryPool{name, kind, parent, {.alignment = velox::memory::MemoryAllocator::kMinAlignment, .maxCapacity = cap}},
         capacity_(cap) {}
 
   ~MockMemoryPool() override {
@@ -169,7 +169,7 @@ class MockMemoryPool : public velox::memory::MemoryPool {
   }
 
   MOCK_CONST_METHOD0(peakBytes, int64_t());
-  MOCK_CONST_METHOD0(getMaxBytes, int64_t());
+  // MOCK_CONST_METHOD0(getMaxBytes, int64_t());
 
   MOCK_METHOD1(updateSubtreeMemoryUsage, int64_t(int64_t));
 
