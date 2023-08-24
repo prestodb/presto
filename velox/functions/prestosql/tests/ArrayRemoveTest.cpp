@@ -1,0 +1,145 @@
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+#include "velox/common/base/tests/GTestUtils.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+
+using namespace facebook::velox;
+using namespace facebook::velox::test;
+using namespace facebook::velox::exec;
+using namespace facebook::velox::functions::test;
+
+namespace {
+
+class ArrayRemoveTest : public FunctionBaseTest {
+ protected:
+  void testExpression(
+      const std::string& expression,
+      const std::vector<VectorPtr>& input,
+      const VectorPtr& expected) {
+    auto result = evaluate(expression, makeRowVector(input));
+    assertEqualVectors(expected, result);
+  }
+
+  void testExpressionWithError(
+      const std::string& expression,
+      const std::vector<VectorPtr>& input,
+      const std::string& expectedError) {
+    VELOX_ASSERT_THROW(
+        evaluate(expression, makeRowVector(input)), expectedError);
+  }
+};
+
+//// Remove simple-type elements from array.
+TEST_F(ArrayRemoveTest, arrayWithSimpleTypes) {
+  const auto arrayVector = makeNullableArrayVector<int64_t>(
+      {{1, std::nullopt, 2, 3, std::nullopt, 4},
+       {3, 4, 5, std::nullopt, 3, 4, 5},
+       {7, 8, 9},
+       {10, 20, 30}});
+  const auto elementVector = makeFlatVector<int64_t>({3, 3, 33, 30});
+  const auto expected = makeNullableArrayVector<int64_t>({
+      {1, std::nullopt, 2, std::nullopt, 4},
+      {4, 5, std::nullopt, 4, 5},
+      {7, 8, 9},
+      {10, 20},
+  });
+  testExpression(
+      "array_remove(c0, c1)", {arrayVector, elementVector}, expected);
+}
+
+//// Remove simple-type elements from array.
+TEST_F(ArrayRemoveTest, arrayWithString) {
+  const auto arrayVector = makeNullableArrayVector<std::string>(
+      {{"a", std::nullopt, "b", "c", std::nullopt, "d"},
+       {"c", "d", "e", std::nullopt, "c", "d", "e"},
+       {"x", "y", "z"},
+       {"aaa", "bbb", "ccc"}});
+  const auto elementVector =
+      makeFlatVector<std::string>({"c", "c", "i", "ccc"});
+  const auto expected = makeNullableArrayVector<std::string>({
+      {"a", std::nullopt, "b", std::nullopt, "d"},
+      {"d", "e", std::nullopt, "d", "e"},
+      {"x", "y", "z"},
+      {"aaa", "bbb"},
+  });
+  testExpression(
+      "array_remove(c0, c1)", {arrayVector, elementVector}, expected);
+}
+
+//// Remove complex-type elements from array.
+TEST_F(ArrayRemoveTest, arrayWithComplexTypes) {
+  VectorPtr baseVector, arrayOfArrays;
+
+  baseVector = makeNullableArrayVector<int64_t>(
+      {{{1, 1}},
+       {{2, 2}},
+       {{3, 3}},
+       {{4, 4}},
+       {{4, 4}},
+       {{5, 5}},
+       std::nullopt,
+       {{6, 6}}});
+
+  // [[1, 1], [2, 2], [3, 3]]
+  // [[4, 4], [4, 4]]
+  // [[5, 5], null, [6, 6]]
+  arrayOfArrays = makeArrayVector({0, 3, 5}, baseVector);
+
+  // [1, 1]
+  // [4, 4]
+  // [5, 5]
+  const auto elementVector = makeArrayVector<int64_t>({{1, 1}, {4, 4}, {5, 5}});
+
+  // [[2, 2], [3, 3]]
+  // []
+  // [null, [6, 6]]
+  const auto expected = makeArrayVector(
+      {0, 2, 2},
+      makeNullableArrayVector<int64_t>(
+          {{{2, 2}}, {{3, 3}}, std::nullopt, {{6, 6}}}));
+  testExpression(
+      "array_remove(c0, c1)", {arrayOfArrays, elementVector}, expected);
+
+  baseVector = makeNullableArrayVector<int64_t>({
+      {1, std::nullopt},
+      {2, 2},
+      {std::nullopt, 3},
+  });
+
+  // [[1, null], [2, 2], [null, 3]]
+  arrayOfArrays = makeArrayVector({0}, baseVector);
+  testExpressionWithError(
+      "array_remove(c0, c1)",
+      {arrayOfArrays, elementVector},
+      "array_remove does not support arrays with elements that are null or contain null");
+}
+
+////  Remove null from array.
+TEST_F(ArrayRemoveTest, arrayWithNull) {
+  // [[1, 2], null, [3, 2], [2, 2, 3], [2, 1, 5]]
+  const auto arrayVector = makeNullableArrayVector<int64_t>(
+      {{1, std::nullopt, 2, 3, std::nullopt, 4},
+       {3, 4, 5, std::nullopt, 3, 4, 5},
+       {7, 8, 9},
+       {10, 20, 30}});
+  const auto elementVector = makeNullableFlatVector<std::int64_t>(
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+  const auto expected = makeNullableArrayVector<int64_t>(
+      {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+  testExpression(
+      "array_remove(c0, c1)", {arrayVector, elementVector}, expected);
+}
+} // namespace

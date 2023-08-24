@@ -127,6 +127,13 @@ Array Functions
 
     If ``instance > 0``, returns the position of the ``instance``-th occurrence of the ``element`` in array ``x``. If ``instance < 0``, returns the position of the ``instance``-to-last occurrence of the ``element`` in array ``x``. If no matching element instance is found, 0 is returned.
 
+.. function:: array_remove(x, element) -> array
+
+    Remove all elements that equal ``element`` from array ``x``.
+
+        SELECT array_remove(ARRAY [1, 2, 3], 3); -- [1, 2]
+        SELECT array_remove(ARRAY [2, 1, NULL], 1); -- [2, NULL]
+
 .. function:: array_sort(array(E)) -> array(E)
 
     Returns an array which has the sorted order of the input array x. The elements of x must
