@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_functions_window NthValue.cpp)
+add_library(velox_functions_window NthValue.cpp RowNumber.cpp)
 
 target_link_libraries(velox_functions_window velox_buffer velox_exec
                       Folly::folly)

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
-#include "velox/functions/lib/window/NthValue.h"
+#include "velox/functions/lib/window/RegistrationFunctions.h"
 
 namespace facebook::velox::window {
 
@@ -32,13 +32,13 @@ extern void registerLag(const std::string& name);
 extern void registerLead(const std::string& name);
 
 void registerAllWindowFunctions(const std::string& prefix) {
-  registerRowNumber(prefix + "row_number");
+  functions::window::registerRowNumberBigint(prefix + "row_number");
   registerRank(prefix + "rank");
   registerDenseRank(prefix + "dense_rank");
   registerPercentRank(prefix + "percent_rank");
   registerCumeDist(prefix + "cume_dist");
   registerNtile(prefix + "ntile");
-  functions::window::registerBigintNthValue(prefix + "nth_value");
+  functions::window::registerNthValueBigint(prefix + "nth_value");
   registerFirstValue(prefix + "first_value");
   registerLastValue(prefix + "last_value");
   registerLag(prefix + "lag");

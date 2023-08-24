@@ -18,7 +18,20 @@
 #include <string>
 
 namespace facebook::velox::functions::window {
-void registerBigintNthValue(const std::string& name);
 
-void registerIntegerNthValue(const std::string& name);
+// Register the Presto function nth_value(x, offset) with the bigint data type
+// for the offset parameter.
+void registerNthValueBigint(const std::string& name);
+
+// Register the Spark function nth_value(x, offset) with the integer data type
+// for the offset parameter.
+void registerNthValueInteger(const std::string& name);
+
+// Register the Presto function row_number() with the bigint data type
+// for the return value.
+void registerRowNumberBigint(const std::string& name);
+
+// Register the Spark function row_number() with the integer data type
+// for the return value.
+void registerRowNumberInteger(const std::string& name);
 } // namespace facebook::velox::functions::window

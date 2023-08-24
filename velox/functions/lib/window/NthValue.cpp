@@ -292,7 +292,7 @@ class NthValueFunction : public exec::WindowFunction {
 };
 } // namespace
 
-void registerNthValue(const std::string& name, const TypeKind& offsetTypeKind) {
+void registerNthValue(const std::string& name, TypeKind offsetTypeKind) {
   std::vector<exec::FunctionSignaturePtr> signatures{
       exec::FunctionSignatureBuilder()
           .typeVariable("T")
@@ -318,11 +318,11 @@ void registerNthValue(const std::string& name, const TypeKind& offsetTypeKind) {
       });
 }
 
-void registerIntegerNthValue(const std::string& name) {
+void registerNthValueInteger(const std::string& name) {
   registerNthValue(name, TypeKind::INTEGER);
 }
 
-void registerBigintNthValue(const std::string& name) {
+void registerNthValueBigint(const std::string& name) {
   registerNthValue(name, TypeKind::BIGINT);
 }
 } // namespace facebook::velox::functions::window

@@ -26,13 +26,13 @@ set(CMAKE_WINDOW_TEST_LINK_LIBRARIES
 
 set(CMAKE_WINDOW_TEST_MAIN_FILES Main.cpp)
 
-add_executable(velox_spark_windows_value_test NthValueTest.cpp
-                                              ${CMAKE_WINDOW_TEST_MAIN_FILES})
+add_executable(velox_spark_windows_test SparkWindowTest.cpp
+                                        ${CMAKE_WINDOW_TEST_MAIN_FILES})
 
 add_test(
-  NAME velox_spark_windows_value_test
-  COMMAND velox_spark_windows_value_test
+  NAME velox_spark_windows_test
+  COMMAND velox_spark_windows_test
   WORKING_DIRECTORY .)
 
-target_link_libraries(velox_spark_windows_value_test
+target_link_libraries(velox_spark_windows_test
                       ${CMAKE_WINDOW_TEST_LINK_LIBRARIES})

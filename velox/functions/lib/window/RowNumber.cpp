@@ -19,13 +19,14 @@
 #include "velox/expression/FunctionSignature.h"
 #include "velox/vector/FlatVector.h"
 
-namespace facebook::velox::window::prestosql {
+namespace facebook::velox::functions::window {
 
 namespace {
 
 class RowNumberFunction : public exec::WindowFunction {
  public:
-  explicit RowNumberFunction() : WindowFunction(BIGINT(), nullptr, nullptr) {}
+  explicit RowNumberFunction(const TypePtr& resultType)
+      : WindowFunction(resultType, nullptr, nullptr) {}
 
   void resetPartition(const exec::WindowPartition* /*partition*/) override {
     rowNumber_ = 1;
@@ -39,8 +40,20 @@ class RowNumberFunction : public exec::WindowFunction {
       const SelectivityVector& validRows,
       vector_size_t resultOffset,
       const VectorPtr& result) override {
+    if (resultType_->isInteger()) {
+      applyTyped<int32_t>(peerGroupStarts, resultOffset, result);
+    } else {
+      applyTyped<int64_t>(peerGroupStarts, resultOffset, result);
+    }
+  }
+
+  template <typename T>
+  void applyTyped(
+      const BufferPtr& peerGroupStarts,
+      vector_size_t resultOffset,
+      const VectorPtr& result) {
     int numRows = peerGroupStarts->size() / sizeof(vector_size_t);
-    auto* rawValues = result->asFlatVector<int64_t>()->mutableRawValues();
+    auto* rawValues = result->asFlatVector<T>()->mutableRawValues();
     for (int i = 0; i < numRows; i++) {
       rawValues[resultOffset + i] = rowNumber_++;
     }
@@ -52,10 +65,11 @@ class RowNumberFunction : public exec::WindowFunction {
 
 } // namespace
 
-// Signature of this function is : row_number() -> bigint.
-void registerRowNumber(const std::string& name) {
+void registerRowNumber(const std::string& name, TypeKind resultTypeKind) {
   std::vector<exec::FunctionSignaturePtr> signatures{
-      exec::FunctionSignatureBuilder().returnType("bigint").build(),
+      exec::FunctionSignatureBuilder()
+          .returnType(mapTypeKindToName(resultTypeKind))
+          .build(),
   };
 
   exec::registerWindowFunction(
@@ -63,13 +77,21 @@ void registerRowNumber(const std::string& name) {
       std::move(signatures),
       [name](
           const std::vector<exec::WindowFunctionArg>& /*args*/,
-          const TypePtr& /*resultType*/,
+          const TypePtr& resultType,
           bool /*ignoreNulls*/,
           velox::memory::MemoryPool* /*pool*/,
           HashStringAllocator* /*stringAllocator*/,
           const core::QueryConfig& /*queryConfig*/)
           -> std::unique_ptr<exec::WindowFunction> {
-        return std::make_unique<RowNumberFunction>();
+        return std::make_unique<RowNumberFunction>(resultType);
       });
 }
-} // namespace facebook::velox::window::prestosql
+
+void registerRowNumberInteger(const std::string& name) {
+  registerRowNumber(name, TypeKind::INTEGER);
+}
+
+void registerRowNumberBigint(const std::string& name) {
+  registerRowNumber(name, TypeKind::BIGINT);
+}
+} // namespace facebook::velox::functions::window
