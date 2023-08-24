@@ -82,4 +82,12 @@ public abstract class AbstractTestNativeProbabilityFunctionQueries
         assertQuery("SELECT inverse_beta_cdf(14.0, nationKey, 0.99) FROM nation WHERE nationKey > 0");
         assertQuery("SELECT inverse_beta_cdf(1.01, 22.0, nationKey) FROM nation WHERE nationKey >= 0 AND nationKey <= 1");
     }
+
+    @Test
+    public void testNormalCDF()
+    {
+        assertQuery("SELECT normal_cdf(nationKey, 7.3, 10.5) FROM nation");
+        assertQuery("SELECT normal_cdf(9.15, nationKey, 5.3) FROM nation");
+        assertQuery("SELECT normal_cdf(2.3, 11.2, nationKey) FROM nation");
+    }
 }
