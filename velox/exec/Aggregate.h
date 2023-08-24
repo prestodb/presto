@@ -312,6 +312,20 @@ class Aggregate {
   }
 
   template <typename T>
+  void destroyAccumulator(char* group) const {
+    auto accumulator = value<T>(group);
+    std::destroy_at(accumulator);
+    memset(accumulator, 0, sizeof(T));
+  }
+
+  template <typename T>
+  void destroyAccumulators(folly::Range<char**> groups) const {
+    for (auto group : groups) {
+      destroyAccumulator<T>(group);
+    }
+  }
+
+  template <typename T>
   static uint64_t* getRawNulls(T* vector) {
     if (vector->mayHaveNulls()) {
       BufferPtr nulls = vector->mutableNulls(vector->size());

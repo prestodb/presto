@@ -287,15 +287,15 @@ class SimpleAggregateAdapter : public Aggregate {
   }
 
   void destroy(folly::Range<char**> groups) override {
-    for (auto group : groups) {
-      auto accumulator = value<typename FUNC::AccumulatorType>(group);
-      if constexpr (accumulator_custom_destroy_) {
+    if constexpr (accumulator_custom_destroy_) {
+      for (auto group : groups) {
+        auto accumulator = value<typename FUNC::AccumulatorType>(group);
         if (!isNull(group)) {
           accumulator->destroy(allocator_);
         }
       }
-      std::destroy_at(accumulator);
     }
+    destroyAccumulators<typename FUNC::AccumulatorType>(groups);
   }
 
  private:

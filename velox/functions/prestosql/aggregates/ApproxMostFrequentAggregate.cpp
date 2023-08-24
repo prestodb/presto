@@ -81,9 +81,7 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
   }
 
   void destroy(folly::Range<char**> groups) override {
-    for (auto group : groups) {
-      std::destroy_at(value<Accumulator<T>>(group));
-    }
+    destroyAccumulators<Accumulator<T>>(groups);
   }
 
   void addRawInput(

@@ -322,10 +322,7 @@ class HistogramAggregate : public exec::Aggregate {
   }
 
   void destroy(folly::Range<char**> groups) override {
-    for (auto group : groups) {
-      auto groupMap = value<AccumulatorType>(group);
-      std::destroy_at(groupMap);
-    }
+    destroyAccumulators<AccumulatorType>(groups);
   }
 
  private:

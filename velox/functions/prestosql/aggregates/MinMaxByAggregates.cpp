@@ -797,10 +797,7 @@ class MinMaxByNAggregate : public exec::Aggregate {
   }
 
   void destroy(folly::Range<char**> groups) override {
-    for (auto group : groups) {
-      auto* accumulator = Aggregate::value<AccumulatorType>(group);
-      std::destroy_at(accumulator);
-    }
+    destroyAccumulators<AccumulatorType>(groups);
   }
 
  private:

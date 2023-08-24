@@ -322,7 +322,7 @@ class MultiMapAggAggregate : public exec::Aggregate {
     for (auto* group : groups) {
       auto accumulator = value<AccumulatorType>(group);
       accumulator->free(*allocator_);
-      std::destroy_at(accumulator);
+      destroyAccumulator<AccumulatorType>(group);
     }
   }
 
