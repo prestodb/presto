@@ -265,4 +265,10 @@ public class UnimplementedHiveMetastore
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

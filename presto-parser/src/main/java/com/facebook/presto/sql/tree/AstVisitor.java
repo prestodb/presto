@@ -592,6 +592,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitDropConstraint(DropConstraint node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitAnalyze(Analyze node, C context)
     {
         return visitStatement(node, context);

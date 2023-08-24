@@ -161,4 +161,6 @@ public interface ExtendedHiveMetastore
     {
         return 10;
     }
+
+    MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName);
 }
