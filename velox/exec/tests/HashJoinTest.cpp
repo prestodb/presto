@@ -3027,6 +3027,88 @@ TEST_P(MultiThreadedHashJoinTest, noSpillLevelLimit) {
       .run();
 }
 
+TEST_F(HashJoinTest, duplicateJoinKeys) {
+  auto leftVectors = makeBatches(3, [&](int32_t /*unused*/) {
+    return makeRowVector({
+        makeNullableFlatVector<int64_t>(
+            {1, 2, 2, 3, 3, std::nullopt, 4, 5, 5, 6, 7}),
+        makeNullableFlatVector<int64_t>(
+            {1, 2, 2, std::nullopt, 3, 3, 4, 5, 5, 6, 8}),
+    });
+  });
+
+  auto rightVectors = makeBatches(3, [&](int32_t /*unused*/) {
+    return makeRowVector({
+        makeNullableFlatVector<int64_t>({1, 1, 3, 4, std::nullopt, 5, 7, 8}),
+        makeNullableFlatVector<int64_t>({1, 1, 3, 4, 5, std::nullopt, 7, 8}),
+    });
+  });
+
+  createDuckDbTable("t", leftVectors);
+  createDuckDbTable("u", rightVectors);
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+
+  auto assertPlan = [&](const std::vector<std::string>& leftProject,
+                        const std::vector<std::string>& leftKeys,
+                        const std::vector<std::string>& rightProject,
+                        const std::vector<std::string>& rightKeys,
+                        const std::vector<std::string>& outputLayout,
+                        core::JoinType joinType,
+                        const std::string& query) {
+    auto plan = PlanBuilder(planNodeIdGenerator)
+                    .values(leftVectors)
+                    .project(leftProject)
+                    .hashJoin(
+                        leftKeys,
+                        rightKeys,
+                        PlanBuilder(planNodeIdGenerator)
+                            .values(rightVectors)
+                            .project(rightProject)
+                            .planNode(),
+                        "",
+                        outputLayout,
+                        joinType)
+                    .planNode();
+    HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+        .planNode(plan)
+        .referenceQuery(query)
+        .run();
+  };
+
+  std::vector<std::pair<core::JoinType, std::string>> joins = {
+      {core::JoinType::kInner, "INNER JOIN"},
+      {core::JoinType::kLeft, "LEFT JOIN"},
+      {core::JoinType::kRight, "RIGHT JOIN"},
+      {core::JoinType::kFull, "FULL OUTER JOIN"}};
+
+  for (const auto& [joinType, joinTypeSql] : joins) {
+    // Duplicate keys on the build side.
+    assertPlan(
+        {"c0 AS t0", "c1 as t1"}, // leftProject
+        {"t0", "t1"}, // leftKeys
+        {"c0 AS u0"}, // rightProject
+        {"u0", "u0"}, // rightKeys
+        {"t0", "t1", "u0"}, // outputLayout
+        joinType,
+        "SELECT t.c0, t.c1, u.c0 FROM t " + joinTypeSql +
+            " u ON t.c0 = u.c0 and t.c1 = u.c0");
+  }
+
+  for (const auto& [joinType, joinTypeSql] : joins) {
+    // Duplicated keys on the probe side.
+    assertPlan(
+        {"c0 AS t0"}, // leftProject
+        {"t0", "t0"}, // leftKeys
+        {"c0 AS u0", "c1 AS u1"}, // rightProject
+        {"u0", "u1"}, // rightKeys
+        {"t0", "u0", "u1"}, // outputLayout
+        joinType,
+        "SELECT t.c0, u.c0, u.c1 FROM t " + joinTypeSql +
+            " u ON t.c0 = u.c0 and t.c0 = u.c1");
+  }
+}
+
 TEST_F(HashJoinTest, semiProject) {
   // Some keys have multiple rows: 2, 3, 5.
   auto probeVectors = makeBatches(3, [&](int32_t /*unused*/) {

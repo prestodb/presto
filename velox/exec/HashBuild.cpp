@@ -74,35 +74,42 @@ HashBuild::HashBuild(
 
   joinBridge_->addBuilder();
 
-  auto outputType = joinNode_->sources()[1]->outputType();
+  auto inputType = joinNode_->sources()[1]->outputType();
 
   auto numKeys = joinNode_->rightKeys().size();
   keyChannels_.reserve(numKeys);
   folly::F14FastMap<column_index_t, column_index_t> keyChannelMap(numKeys);
   std::vector<std::string> names;
-  names.reserve(outputType->size());
+  names.reserve(inputType->size());
   std::vector<TypePtr> types;
-  types.reserve(outputType->size());
+  types.reserve(inputType->size());
 
   for (int i = 0; i < joinNode_->rightKeys().size(); ++i) {
     auto& key = joinNode_->rightKeys()[i];
-    auto channel = exprToChannel(key.get(), outputType);
+    auto channel = exprToChannel(key.get(), inputType);
     keyChannelMap[channel] = i;
     keyChannels_.emplace_back(channel);
-    names.emplace_back(outputType->nameOf(channel));
-    types.emplace_back(outputType->childAt(channel));
+    names.emplace_back(inputType->nameOf(channel));
+    types.emplace_back(inputType->childAt(channel));
   }
 
   // Identify the non-key build side columns and make a decoder for each.
-  const auto numDependents = outputType->size() - numKeys;
-  dependentChannels_.reserve(numDependents);
-  decoders_.reserve(numDependents);
-  for (auto i = 0; i < outputType->size(); ++i) {
+  const int32_t numDependents = inputType->size() - numKeys;
+  if (numDependents > 0) {
+    // Number of join keys (numKeys) may be less then number of input columns
+    // (inputType->size()). In this case numDependents is negative and cannot be
+    // used to call 'reserve'. This happens when we join different probe side
+    // keys with the same build side key: SELECT * FROM t LEFT JOIN u ON t.k1 =
+    // u.k AND t.k2 = u.k.
+    dependentChannels_.reserve(numDependents);
+    decoders_.reserve(numDependents);
+  }
+  for (auto i = 0; i < inputType->size(); ++i) {
     if (keyChannelMap.find(i) == keyChannelMap.end()) {
       dependentChannels_.emplace_back(i);
       decoders_.emplace_back(std::make_unique<DecodedVector>());
-      names.emplace_back(outputType->nameOf(i));
-      types.emplace_back(outputType->childAt(i));
+      names.emplace_back(inputType->nameOf(i));
+      types.emplace_back(inputType->childAt(i));
     }
   }
 
@@ -249,9 +256,9 @@ void HashBuild::setupFilterForAntiJoins(
   const auto& expr = exprs.expr(0);
   filterPropagatesNulls_ = expr->propagatesNulls();
   if (filterPropagatesNulls_) {
-    const auto outputType = joinNode_->sources()[1]->outputType();
+    const auto inputType = joinNode_->sources()[1]->outputType();
     for (const auto& field : expr->distinctFields()) {
-      const auto index = outputType->getChildIdxIfExists(field->field());
+      const auto index = inputType->getChildIdxIfExists(field->field());
       if (!index.has_value()) {
         continue;
       }
