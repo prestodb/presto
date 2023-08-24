@@ -280,6 +280,35 @@ TEST_F(ProbabilityTest, fCDF) {
   VELOX_ASSERT_THROW(fCDF(1, -kInf, -0.1), "value must non-negative");
 }
 
+TEST_F(ProbabilityTest, laplaceCDF) {
+  const auto laplaceCDF = [&](std::optional<double> location,
+                              std::optional<double> scale,
+                              std::optional<double> x) {
+    return evaluateOnce<double>("laplace_cdf(c0, c1, c2)", location, scale, x);
+  };
+
+  EXPECT_DOUBLE_EQ(0.5, laplaceCDF(0.0, 1.0, 0.0).value());
+  EXPECT_DOUBLE_EQ(0.5, laplaceCDF(5.0, 2.0, 5.0).value());
+  EXPECT_DOUBLE_EQ(0.0, laplaceCDF(5.0, 2.0, -kInf).value());
+  EXPECT_THAT(laplaceCDF(kNan, 1.0, 0.5), IsNan());
+  EXPECT_THAT(laplaceCDF(1.0, 1.0, kNan), IsNan());
+  EXPECT_THAT(laplaceCDF(kInf, 1.0, kNan), IsNan());
+  EXPECT_EQ(std::nullopt, laplaceCDF(std::nullopt, 1.0, 0.5));
+  EXPECT_EQ(std::nullopt, laplaceCDF(1.0, std::nullopt, 0.5));
+  EXPECT_EQ(std::nullopt, laplaceCDF(1.0, 1.0, std::nullopt));
+  EXPECT_EQ(0, laplaceCDF(kDoubleMax, 1.0, 0.5));
+  EXPECT_EQ(0.5, laplaceCDF(1.0, kDoubleMax, 0.5));
+  EXPECT_EQ(1, laplaceCDF(1.0, 1.0, kDoubleMax));
+  EXPECT_NEAR(
+      0.69673467014368329, laplaceCDF(kDoubleMin, 1.0, 0.5).value(), 1e-15);
+  EXPECT_EQ(0, laplaceCDF(1.0, kDoubleMin, 0.5));
+  EXPECT_NEAR(
+      0.18393972058572117, laplaceCDF(1.0, 1.0, kDoubleMin).value(), 1e-15);
+  VELOX_ASSERT_THROW(laplaceCDF(1.0, 0.0, 0.5), "scale must be greater than 0");
+  VELOX_ASSERT_THROW(
+      laplaceCDF(1.0, -1.0, 0.5), "scale must be greater than 0");
+}
+
 TEST_F(ProbabilityTest, poissonCDF) {
   const auto poissonCDF = [&](std::optional<double> lambda,
                               std::optional<int64_t> value) {
