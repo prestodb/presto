@@ -39,6 +39,7 @@ class MinMaxTest : public functions::aggregate::test::AggregationTestBase {
   std::vector<RowVectorPtr> fuzzData(const RowTypePtr& rowType) {
     VectorFuzzer::Options options;
     options.vectorSize = 1'000;
+    options.nullRatio = 0.1;
     VectorFuzzer fuzzer(options, pool());
     std::vector<RowVectorPtr> vectors(10);
     for (auto i = 0; i < 10; ++i) {
@@ -49,7 +50,7 @@ class MinMaxTest : public functions::aggregate::test::AggregationTestBase {
 
   template <typename TAgg>
   void doTest(TAgg agg, const TypePtr& inputType) {
-    auto rowType = ROW({"c0", "c1"}, {BIGINT(), inputType});
+    auto rowType = ROW({"c0", "c1", "mask"}, {BIGINT(), inputType, BOOLEAN()});
     auto vectors = fuzzData(rowType);
     createDuckDbTable(vectors);
 
@@ -69,6 +70,19 @@ class MinMaxTest : public functions::aggregate::test::AggregationTestBase {
         {"p0"},
         {agg(c1)},
         fmt::format("SELECT c0 % 10, {} FROM tmp GROUP BY 1", agg(c1)));
+
+    // Masked aggregations.
+    auto maskedAgg = agg(c1) + " filter (where mask)";
+    testAggregations(
+        vectors, {}, {maskedAgg}, fmt::format("SELECT {} FROM tmp", maskedAgg));
+
+    testAggregations(
+        [&](auto& builder) {
+          builder.values(vectors).project({"c0 % 10", "c1", "mask"});
+        },
+        {"p0"},
+        {maskedAgg},
+        fmt::format("SELECT c0 % 10, {} FROM tmp GROUP BY 1", maskedAgg));
 
     // Encodings: use filter to wrap aggregation inputs in a dictionary.
     testAggregations(
