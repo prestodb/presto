@@ -168,4 +168,7 @@ public interface HiveMetastoreClient
 
     Optional<UniqueConstraintsResponse> getUniqueConstraints(String catName, String dbName, String tableName)
             throws TException;
+
+    void dropConstraint(String dbName, String tableName, String constraintName)
+            throws TException;
 }

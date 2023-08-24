@@ -19,6 +19,7 @@ import org.apache.hadoop.hive.metastore.api.ColumnStatistics;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsDesc;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.DropConstraintRequest;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalRequest;
 import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalResponse;
@@ -472,5 +473,13 @@ public class ThriftHiveMetastoreClient
         }
 
         return Optional.of(uniqueConstraintsResponse);
+    }
+
+    @Override
+    public void dropConstraint(String dbName, String tableName, String constraintName)
+            throws TException
+    {
+        DropConstraintRequest dropConstraintRequest = new DropConstraintRequest(dbName, tableName, constraintName);
+        client.drop_constraint(dropConstraintRequest);
     }
 }

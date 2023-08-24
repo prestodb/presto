@@ -34,6 +34,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
@@ -48,6 +49,7 @@ public class LegacyAccessControl
     private final boolean allowAddColumn;
     private final boolean allowDropColumn;
     private final boolean allowRenameColumn;
+    private final boolean allowDropConstraint;
 
     @Inject
     public LegacyAccessControl(
@@ -62,6 +64,7 @@ public class LegacyAccessControl
         allowAddColumn = securityConfig.getAllowAddColumn();
         allowDropColumn = securityConfig.getAllowDropColumn();
         allowRenameColumn = securityConfig.getAllowRenameColumn();
+        allowDropConstraint = securityConfig.getAllowDropConstraint();
     }
 
     @Override
@@ -252,5 +255,13 @@ public class LegacyAccessControl
     @Override
     public void checkCanShowRoleGrants(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String catalogName)
     {
+    }
+
+    @Override
+    public void checkCanDropConstraint(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        if (!allowDropConstraint) {
+            denyDropConstraint(tableName.toString());
+        }
     }
 }

@@ -403,6 +403,12 @@ public class BridgingHiveMetastore
     }
 
     @Override
+    public MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
+    {
+        return delegate.dropConstraint(metastoreContext, databaseName, tableName, constraintName);
+    }
+
+    @Override
     public Optional<Long> lock(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
         return Optional.of(delegate.lock(metastoreContext, databaseName, tableName));
