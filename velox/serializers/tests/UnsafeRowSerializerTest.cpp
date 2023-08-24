@@ -154,6 +154,41 @@ TEST_F(UnsafeRowSerializerTest, null) {
   testDeserialize(data, 20, expected);
 }
 
+// The data result can be obtained by
+// test("decimal serialize") {
+//   val d1 = new
+//   Decimal().set(BigDecimal("123456789012345678901234.57")).toPrecision(38, 2)
+//   val row = InternalRow.apply(d1)
+//   val unsafeRow = UnsafeProjection.create(Array[DataType](DecimalType(38,
+//   2))).apply(row)
+//   assert(unsafeRow.getDecimal(0, 38, 2) === d1)
+//   unsafeRow.getBaseObject().asInstanceOf[Array[Byte]].foreach(b => print(b +
+//   ", ")) print("\n")
+// }
+TEST_F(UnsafeRowSerializerTest, decimal) {
+  // short decimal
+  int8_t data[20] = {0, 0, 0,  16, 0,   0,   0, 0, 0, 0,
+                     0, 0, 62, 28, -36, -33, 2, 0, 0, 0};
+  auto expected =
+      makeRowVector({makeConstant<int64_t>(12345678910, 1, DECIMAL(12, 2))});
+
+  testSerialize(expected, data, 20);
+  testDeserialize(data, 20, expected);
+
+  // long decimal
+  int8_t longData[36] = {0,  0,   0,   32,  0,   0,   0,   0, 0,  0,  0,  0,
+                         11, 0,   0,   0,   16,  0,   0,   0, 10, 54, 76, -104,
+                         34, 126, -86, 106, -36, -70, -63, 0, 0,  0,  0,  0};
+  auto longExpected = makeRowVector({{makeConstant<int128_t>(
+      HugeInt::build(
+          669260, 10962463713375599297U), // 12345678901234567890123457
+      1,
+      DECIMAL(38, 2))}});
+
+  testSerialize(longExpected, longData, 36);
+  testDeserialize(longData, 36, longExpected);
+}
+
 TEST_F(UnsafeRowSerializerTest, manyRows) {
   int8_t data[140] = {0, 0, 0,  24, 0, 0, 0,   0,   0,   0,   0,   0,  4,   0,
                       0, 0, 16, 0,  0, 0, 109, 97,  110, 121, 0,   0,  0,   0,
@@ -183,9 +218,12 @@ TEST_F(UnsafeRowSerializerTest, types) {
        DOUBLE(),
        VARCHAR(),
        TIMESTAMP(),
-       ROW({VARCHAR(), INTEGER()}),
+       DECIMAL(20, 2),
+       ROW({VARCHAR(), INTEGER(), DECIMAL(20, 3)}),
        ARRAY(INTEGER()),
+       ARRAY(DECIMAL(20, 2)),
        ARRAY(INTEGER()),
+       MAP(DECIMAL(20, 3), DECIMAL(20, 3)),
        MAP(VARCHAR(), ARRAY(INTEGER()))});
 
   VectorFuzzer::Options opts;
@@ -254,6 +292,28 @@ TEST_F(UnsafeRowSerializerTest, unknown) {
       makeNullableFlatVector<double>(
           {1.1, 2.2, std::nullopt, 4.4, std::nullopt}),
   });
+}
 
-  testRoundTrip(rowVector);
+TEST_F(UnsafeRowSerializerTest, decimalVector) {
+  auto rowVectorDecimal = makeRowVector({makeFlatVector<int128_t>(
+      {
+          0,
+          123,
+          DecimalUtil::kLongDecimalMin,
+          DecimalUtil::kLongDecimalMax,
+          HugeInt::build(
+              669260, 10962463713375599297U), // 12345678901234567890123457
+      },
+      DECIMAL(20, 2))});
+  testRoundTrip(rowVectorDecimal);
+
+  auto rowVectorArray = makeRowVector({makeArrayVector(
+      {0},
+      makeConstant<int128_t>(
+          HugeInt::build(
+              669260, 10962463713375599297U), // 12345678901234567890123457
+          1,
+          DECIMAL(20, 2)))});
+
+  testRoundTrip(rowVectorArray);
 }

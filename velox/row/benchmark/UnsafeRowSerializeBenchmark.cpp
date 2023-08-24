@@ -262,6 +262,16 @@ SERDE_BENCHMARKS(
         DOUBLE(), DOUBLE(), DOUBLE(), DOUBLE(), BIGINT(), BIGINT(),
     }));
 
+BENCHMARK(decimalsSerialize) {
+  SerializeBenchmark benchmark;
+  benchmark.serializeUnsafe(ROW({BIGINT(), DECIMAL(12, 2), DECIMAL(38, 18)}));
+}
+
+BENCHMARK(decimalsDeserialize) {
+  SerializeBenchmark benchmark;
+  benchmark.deserializeUnsafe(ROW({BIGINT(), DECIMAL(12, 2), DECIMAL(38, 18)}));
+}
+
 SERDE_BENCHMARKS(strings1, ROW({BIGINT(), VARCHAR()}));
 
 SERDE_BENCHMARKS(

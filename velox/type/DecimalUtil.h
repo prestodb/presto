@@ -315,7 +315,9 @@ class DecimalUtil {
   /// significant byte is in the zeroth element. The array will contain the
   /// minimum number of bytes required to represent this BigInteger, including
   /// at least one sign bit, which is (ceil((this.bitLength() + 1)/8)).
-  static void toByteArray(int128_t value, char* out, int32_t& length);
+  ///
+  /// @return The length of out.
+  static int32_t toByteArray(int128_t value, char* out);
 
   static constexpr __uint128_t kOverflowMultiplier = ((__uint128_t)1 << 127);
 }; // DecimalUtil

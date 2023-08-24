@@ -96,6 +96,10 @@ class UnsafeRowDataBatchIterator {
     return *reinterpret_cast<const uint64_t*>(data);
   }
 
+  static bool isFixedWidth(const TypePtr& type) {
+    return type->isFixedWidth() && !type->isLongDecimal();
+  }
+
   /**
    * The data need to be processed. The vector represent a whole column of
    * data over.
@@ -209,7 +213,7 @@ struct StructBatchIterator : UnsafeRowDataBatchIterator {
   const std::vector<std::optional<std::string_view>>& nextColumnBatch() {
     const TypePtr& type = childTypes_[idx_];
     std::size_t fixedSize =
-        type->isFixedWidth() ? serializedSizeInBytes(type) : 0;
+        isFixedWidth(type) ? serializedSizeInBytes(type) : 0;
     std::size_t fieldOffset = UnsafeRow::getNullLength(numElements_) +
         idx_ * UnsafeRow::kFieldWidthBytes;
 
@@ -291,7 +295,7 @@ struct ArrayBatchIterator : UnsafeRowDataBatchIterator {
       const TypePtr& type)
       : UnsafeRowDataBatchIterator(data, type),
         elementType_{type->childAt(0)},
-        isFixedLength_(elementType_->isFixedWidth()),
+        isFixedLength_(isFixedWidth(elementType_)),
         fixedDataWidth_(
             isFixedLength_ ? serializedSizeInBytes(elementType_) : 0) {
     totalNumElements_ = 0L;
@@ -528,6 +532,21 @@ struct UnsafeRowPrimitiveBatchDeserializer {
   static StringView deserializeStringView(std::string_view data) {
     return StringView(data.data(), data.size());
   }
+
+  /// Origins from java side BigInteger(byte[] var).
+  /// The data is assumed to be in <i>big-endian</i> byte-order: the most
+  /// significant byte is the element at index 0. The data is assumed to be
+  /// unchanged.
+  static int128_t deserializeLongDecimal(std::string_view data) {
+    const uint8_t* bytesValue = reinterpret_cast<const uint8_t*>(data.data());
+    int32_t length = data.size();
+    int128_t bigEndianValue = static_cast<int8_t>(bytesValue[0]) >= 0 ? 0 : -1;
+    memcpy(
+        reinterpret_cast<char*>(&bigEndianValue) + sizeof(int128_t) - length,
+        bytesValue,
+        length);
+    return bits::builtin_bswap128(bigEndianValue);
+  }
 };
 
 /**
@@ -729,6 +748,11 @@ struct UnsafeRowDeserializer {
               UnsafeRowPrimitiveBatchDeserializer::deserializeStringView(
                   iterator->next().value());
           TypeTraits::set(flatResult, i, val);
+        } else if constexpr (std::is_same_v<T, int128_t>) {
+          int128_t val =
+              UnsafeRowPrimitiveBatchDeserializer::deserializeLongDecimal(
+                  iterator->next().value());
+          TypeTraits::set(flatResult, i, val);
         } else {
           typename TypeTraits::SerializedType val =
               UnsafeRowPrimitiveBatchDeserializer::deserializeFixedWidth<
@@ -781,7 +805,7 @@ struct UnsafeRowDeserializer {
       return createFlatUnknownVector(dataIterator, pool);
     }
 
-    return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+    return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(
         createFlatVector, type->kind(), dataIterator, type, pool);
   }
 

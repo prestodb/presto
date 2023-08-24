@@ -142,9 +142,8 @@ class Murmur3Hash final {
   }
 
   uint32_t hashLongDecimal(int128_t input, uint32_t seed) {
-    int32_t length;
     char out[sizeof(int128_t)];
-    DecimalUtil::toByteArray(input, out, length);
+    int32_t length = DecimalUtil::toByteArray(input, out);
     return hashBytes(StringView(out, length), seed);
   }
 
@@ -259,9 +258,8 @@ class XxHash64 final {
   }
 
   int64_t hashLongDecimal(int128_t input, uint32_t seed) {
-    int32_t length;
     char out[sizeof(int128_t)];
-    DecimalUtil::toByteArray(input, out, length);
+    int32_t length = DecimalUtil::toByteArray(input, out);
     return hashBytes(StringView(out, length), seed);
   }
 

@@ -20,11 +20,11 @@ The 'null bits' section contains one bit per column. 0 bit indicates a
 non-null value. 1 bit indicates a null value.
 
 The 'fixed-width data' section contains 8 bytes per column. Values of the
-fixed-width columns (booleans, integers, floating point numbers) are stored
-directly. These values must fit within 8 bytes. Long decimal columns are not
-supported.
+fixed-width columns that fit within 8 bytes(booleans, integers, floating point numbers, short decimals)
+are stored directly.
 
-Values of the variable-width columns (strings, arrays, maps) are split between
+Values of the variable-width columns (strings, arrays, maps)
+and fixed-width columns that are wider than 8 bytes (long decimals) are split between
 fixed-width and variable-width sections. 8 bytes of the fixed-width section
 store the size and location of the value in the variable-width section.
 
@@ -69,6 +69,9 @@ types. UNKNOWN values in the top-level columns and as struct fields use 1 bit
 in the nulls section and 8 bytes in the fixed-width section. UNKNOWN value
 serialized as an array element or map value uses 1 bit for null flag and zero
 bytes for the value.
+
+Long decimals are stored as binary, the content is serialized java BigInteger
+which has function ``toByteArray`` to serialize and constructor ``BigInteger(byte[] var)`` to deserialize.
 
 Examples
 --------
