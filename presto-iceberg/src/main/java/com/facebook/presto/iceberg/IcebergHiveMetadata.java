@@ -40,6 +40,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.FileFormat;
@@ -74,10 +75,10 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toList;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
@@ -164,12 +165,17 @@ public class IcebergHiveMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
-        return metastore
-                .getAllTables(metastoreContext, schemaName.get())
-                .orElseGet(() -> metastore.getAllDatabases(metastoreContext))
-                .stream()
-                .map(table -> new SchemaTableName(schemaName.get(), table))
-                .collect(toList());
+        // If schema name is not present, list tables from all schemas
+        List<String> schemaNames = schemaName
+                .map(ImmutableList::of)
+                .orElseGet(() -> ImmutableList.copyOf(listSchemaNames(session)));
+        return schemaNames.stream()
+                .flatMap(schema -> metastore
+                        .getAllTables(metastoreContext, schema)
+                        .orElseGet(() -> metastore.getAllDatabases(metastoreContext))
+                        .stream()
+                        .map(table -> new SchemaTableName(schema, table)))
+                .collect(toImmutableList());
     }
 
     @Override
