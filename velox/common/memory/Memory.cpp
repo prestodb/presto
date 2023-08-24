@@ -220,6 +220,8 @@ std::string MemoryManager::toString() const {
   for (const auto& pool : pools) {
     out << "\t" << pool->name() << "\n";
   }
+  out << allocator_->toString() << "\n";
+  out << arbitrator_->toString();
   out << "]";
   return out.str();
 }

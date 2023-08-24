@@ -159,10 +159,10 @@ bool MmapAllocator::allocateNonContiguousWithoutRetry(
 }
 
 bool MmapAllocator::ensureEnoughMappedPages(int32_t newMappedNeeded) {
-  std::lock_guard<std::mutex> l(sizeClassBalanceMutex_);
   if (testingHasInjectedFailure(InjectedFailure::kMadvise)) {
     return false;
   }
+  std::lock_guard<std::mutex> l(sizeClassBalanceMutex_);
   const auto totalMaps =
       numMapped_.fetch_add(newMappedNeeded) + newMappedNeeded;
   if (totalMaps <= capacity_) {
@@ -985,13 +985,14 @@ bool MmapAllocator::useMalloc(uint64_t bytes) {
 
 std::string MmapAllocator::toString() const {
   std::stringstream out;
-  out << "[Memory capacity " << capacity_ << " allocated " << numAllocated_
-      << " mapped " << numMapped_ << " external mapped " << numExternalMapped_
-      << std::endl;
+  out << "Memory Allocator[" << kindString(kind_) << " capacity "
+      << ((capacity_ == kMaxMemory) ? "UNLIMITED" : succinctBytes(capacity_))
+      << " allocated pages " << numAllocated_ << " mapped pages " << numMapped_
+      << " external mapped pages " << numExternalMapped_ << std::endl;
   for (auto& sizeClass : sizeClasses_) {
     out << sizeClass->toString() << std::endl;
   }
-  out << "]" << std::endl;
+  out << "]";
   return out.str();
 }
 

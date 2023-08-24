@@ -77,9 +77,14 @@ class NoopArbitrator : public MemoryArbitrator {
  public:
   explicit NoopArbitrator(const Config& config) : MemoryArbitrator(config) {
     VELOX_CHECK(config.kind.empty());
+    if (capacity_ != kMaxMemory) {
+      LOG(WARNING) << "Query memory capacity[" << succinctBytes(capacity_)
+                   << "] is set for " << kind()
+                   << " arbitrator which has no capacity enforcement";
+    }
   }
 
-  std::string kind() override {
+  std::string kind() const override {
     return "NOOP";
   }
 
@@ -119,7 +124,10 @@ class NoopArbitrator : public MemoryArbitrator {
   }
 
   std::string toString() const override {
-    return "NOOP ARBITRATOR";
+    return fmt::format(
+        "ARBIRTATOR[{} CAPACITY[{}]]",
+        kind(),
+        capacity_ == kMaxMemory ? "UNLIMITED" : succinctBytes(capacity_));
   }
 };
 

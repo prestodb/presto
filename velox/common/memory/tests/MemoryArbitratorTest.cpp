@@ -136,7 +136,7 @@ class FakeTestArbitrator : public MemoryArbitrator {
     VELOX_NYI();
   }
 
-  std::string kind() override {
+  std::string kind() const override {
     return "USER";
   }
 

@@ -652,8 +652,10 @@ bool AsyncDataCache::makeSpace(
 
 void AsyncDataCache::backoff(int32_t counter) {
   size_t seed = folly::hasher<uint16_t>()(++backoffCounter_);
-  auto usec = (seed & 0xfff) * (counter & 0x1f);
-  VLOG(1) << "Backoff in allocation contention for " << usec << " us.";
+  const auto usec = (seed & 0xfff) * (counter & 0x1f);
+  LOG_EVERY_N(INFO, 1000) << "Backoff in allocation contention for " << usec
+                          << " us.";
+
   std::this_thread::sleep_for(std::chrono::microseconds(usec)); // NOLINT
 }
 

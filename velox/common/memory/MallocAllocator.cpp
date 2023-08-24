@@ -333,10 +333,11 @@ bool MallocAllocator::checkConsistency() const {
 }
 
 std::string MallocAllocator::toString() const {
-  return fmt::format(
-      "[allocated bytes {}, allocated pages {}, mapped pages {}]",
-      allocatedBytes_,
-      numAllocated_,
-      numMapped_);
+  std::stringstream out;
+  out << "Memory Allocator[" << kindString(kind_) << " capacity "
+      << ((capacity_ == kMaxMemory) ? "UNLIMITED" : succinctBytes(capacity_))
+      << " allocated bytes " << allocatedBytes_ << " allocated pages "
+      << numAllocated_ << " mapped pages " << numMapped_ << "]";
+  return out.str();
 }
 } // namespace facebook::velox::memory

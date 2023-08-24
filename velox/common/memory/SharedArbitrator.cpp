@@ -487,7 +487,7 @@ std::string SharedArbitrator::toString() const {
 
 std::string SharedArbitrator::toStringLocked() const {
   return fmt::format(
-      "ARBITRATOR[{}] CAPACITY {} {}",
+      "ARBITRATOR[{} CAPACITY[{}] {}]",
       kind_,
       succinctBytes(capacity_),
       statsLocked().toString());
@@ -561,7 +561,7 @@ void SharedArbitrator::finishArbitration() {
   }
 }
 
-std::string SharedArbitrator::kind() {
+std::string SharedArbitrator::kind() const {
   return kind_;
 }
 

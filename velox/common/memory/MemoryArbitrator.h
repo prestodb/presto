@@ -102,7 +102,7 @@ class MemoryArbitrator {
   /// nullptr, and the memory arbitration function is disabled.
   static std::unique_ptr<MemoryArbitrator> create(const Config& config);
 
-  virtual std::string kind() = 0;
+  virtual std::string kind() const = 0;
 
   uint64_t capacity() const {
     return capacity_;
