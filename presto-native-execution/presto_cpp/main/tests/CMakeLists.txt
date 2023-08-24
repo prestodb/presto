@@ -21,6 +21,8 @@ add_executable(
   ServerOperationTest.cpp
   TaskManagerTest.cpp)
 
+include_directories(${Protobuf_INCLUDE_DIR})
+
 add_test(
   NAME presto_server_test
   COMMAND presto_server_test
