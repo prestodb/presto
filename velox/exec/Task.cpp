@@ -1961,7 +1961,8 @@ std::string Task::toJsonString() const {
   folly::dynamic driverObj = folly::dynamic::object;
   int index = 0;
   for (auto& driver : drivers_) {
-    driverObj[std::to_string(index++)] = driver ? driver->toString() : "null";
+    driverObj[std::to_string(index++)] =
+        driver ? driver->toJsonString() : "null";
   }
   obj["drivers"] = driverObj;
 
@@ -1973,7 +1974,7 @@ std::string Task::toJsonString() const {
 
   folly::dynamic exchangeClients = folly::dynamic::object;
   for (const auto& [id, client] : exchangeClientByPlanNode_) {
-    exchangeClients[id] = client->toString();
+    exchangeClients[id] = client->toJsonString();
   }
   obj["exchangeClientByPlanNode"] = exchangeClients;
 
