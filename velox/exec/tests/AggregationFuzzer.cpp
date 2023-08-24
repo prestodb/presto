@@ -199,24 +199,64 @@ class AggregationFuzzer {
 
   velox::test::ResultOrError execute(
       const core::PlanNodePtr& plan,
-      bool injectSpill);
+      bool injectSpill = false,
+      bool abandonPartial = false);
+
+  static bool hasPartialGroupBy(const core::PlanNodePtr& plan) {
+    auto partialAgg = core::PlanNode::findFirstNode(
+        plan.get(), [](const core::PlanNode* node) {
+          if (auto aggregation =
+                  dynamic_cast<const core::AggregationNode*>(node)) {
+            return aggregation->step() ==
+                core::AggregationNode::Step::kPartial &&
+                !aggregation->groupingKeys().empty();
+          }
+
+          return false;
+        });
+    return partialAgg != nullptr;
+  }
 
   void testPlans(
       const std::vector<core::PlanNodePtr>& plans,
       bool verifyResults,
       const velox::test::ResultOrError& expected) {
     for (auto i = 0; i < plans.size(); ++i) {
+      const auto& plan = plans[i];
+
       LOG(INFO) << "Testing plan #" << i;
-      testPlan(plans[i], false /*injectSpill*/, verifyResults, expected);
+      testPlan(
+          plan,
+          false /*injectSpill*/,
+          false /*abandonPartial*/,
+          verifyResults,
+          expected);
 
       LOG(INFO) << "Testing plan #" << i << " with spilling";
-      testPlan(plans[i], true /*injectSpill*/, verifyResults, expected);
+      testPlan(
+          plan,
+          true /*injectSpill*/,
+          false /*abandonPartial*/,
+          verifyResults,
+          expected);
+
+      if (hasPartialGroupBy(plan)) {
+        LOG(INFO) << "Testing plan #" << i
+                  << " with forced abandon-partial-aggregation";
+        testPlan(
+            plan,
+            false /*injectSpill*/,
+            true /*abandonPartial*/,
+            verifyResults,
+            expected);
+      }
     }
   }
 
   void testPlan(
       const core::PlanNodePtr& plan,
       bool injectSpill,
+      bool abandonPartial,
       bool verifyResults,
       const velox::test::ResultOrError& expected);
 
@@ -659,7 +699,8 @@ void AggregationFuzzer::go() {
 
 velox::test::ResultOrError AggregationFuzzer::execute(
     const core::PlanNodePtr& plan,
-    bool injectSpill) {
+    bool injectSpill,
+    bool abandonPartial) {
   LOG(INFO) << "Executing query plan: " << std::endl
             << plan->toString(true, true);
 
@@ -667,6 +708,7 @@ velox::test::ResultOrError AggregationFuzzer::execute(
   try {
     std::shared_ptr<TempDirectoryPath> spillDirectory;
     AssertQueryBuilder builder(plan);
+
     if (injectSpill) {
       spillDirectory = exec::test::TempDirectoryPath::create();
       builder.spillDirectory(spillDirectory->path)
@@ -674,6 +716,14 @@ velox::test::ResultOrError AggregationFuzzer::execute(
           .config(core::QueryConfig::kAggregationSpillEnabled, "true")
           .config(core::QueryConfig::kTestingSpillPct, "100");
     }
+
+    if (abandonPartial) {
+      builder.config(core::QueryConfig::kAbandonPartialAggregationMinRows, "1")
+          .config(core::QueryConfig::kAbandonPartialAggregationMinPct, "0")
+          .config(core::QueryConfig::kMaxPartialAggregationMemory, "0")
+          .config(core::QueryConfig::kMaxExtendedPartialAggregationMemory, "0");
+    }
+
     resultOrError.result = builder.maxDrivers(2).copyResults(pool_.get());
     LOG(INFO) << resultOrError.result->toString();
   } catch (VeloxUserError& e) {
@@ -892,9 +942,10 @@ void makeStreamingPlans(
 void AggregationFuzzer::testPlan(
     const core::PlanNodePtr& plan,
     bool injectSpill,
+    bool abandonPartial,
     bool verifyResults,
     const velox::test::ResultOrError& expected) {
-  auto actual = execute(plan, injectSpill);
+  auto actual = execute(plan, injectSpill, abandonPartial);
 
   // Compare results or exceptions (if any). Fail is anything is different.
   if (expected.exceptionPtr || actual.exceptionPtr) {
@@ -988,7 +1039,7 @@ void AggregationFuzzer::verifyWindow(
     persistReproInfo({plan}, reproPersistPath_);
   }
   try {
-    auto resultOrError = execute(plan, false /*injectSpill*/);
+    auto resultOrError = execute(plan);
     if (resultOrError.exceptionPtr) {
       ++stats_.numFailed;
     }
@@ -1057,7 +1108,7 @@ void AggregationFuzzer::verifyAggregation(
   }
 
   try {
-    auto resultOrError = execute(plan, false /*injectSpill*/);
+    auto resultOrError = execute(plan);
     if (resultOrError.exceptionPtr) {
       ++stats_.numFailed;
     }
@@ -1139,7 +1190,7 @@ void AggregationFuzzer::verifyAggregation(
     input.insert(input.end(), values.begin(), values.end());
   }
 
-  auto resultOrError = execute(plan, false /*injectSpill*/);
+  auto resultOrError = execute(plan);
   if (resultOrError.exceptionPtr) {
     ++stats_.numFailed;
   }
