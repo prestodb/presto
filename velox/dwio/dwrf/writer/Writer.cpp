@@ -55,53 +55,105 @@ dwio::common::StripeProgress getStripeProgress(const WriterContext& context) {
 }
 } // namespace
 
-void Writer::write(const VectorPtr& slice) {
+Writer::Writer(
+    std::unique_ptr<dwio::common::FileSink> sink,
+    const WriterOptions& options,
+    std::shared_ptr<memory::MemoryPool> pool)
+    : writerBase_(std::make_unique<WriterBase>(std::move(sink))),
+      schema_{dwio::common::TypeWithId::create(options.schema)} {
+  VELOX_CHECK(
+      !pool->isLeaf(),
+      "Memory pool {} for DWRF writer can't be leaf",
+      pool->name());
+  auto handler =
+      (options.encryptionSpec ? encryption::EncryptionHandler::create(
+                                    schema_,
+                                    *options.encryptionSpec,
+                                    options.encrypterFactory.get())
+                              : nullptr);
+  writerBase_->initContext(options.config, std::move(pool), std::move(handler));
   auto& context = writerBase_->getContext();
-  size_t offset = 0;
+  context.buildPhysicalSizeAggregators(*schema_);
+  if (options.flushPolicyFactory == nullptr) {
+    flushPolicy_ = std::make_unique<DefaultFlushPolicy>(
+        context.stripeSizeFlushThreshold(),
+        context.dictionarySizeFlushThreshold());
+  } else {
+    flushPolicy_ = options.flushPolicyFactory();
+  }
+
+  if (options.layoutPlannerFactory != nullptr) {
+    layoutPlanner_ = options.layoutPlannerFactory(*schema_);
+  } else {
+    layoutPlanner_ = std::make_unique<LayoutPlanner>(*schema_);
+  }
+
+  if (options.columnWriterFactory == nullptr) {
+    writer_ = BaseColumnWriter::create(writerBase_->getContext(), *schema_);
+  } else {
+    writer_ = options.columnWriterFactory(writerBase_->getContext(), *schema_);
+  }
+}
+
+Writer::Writer(
+    std::unique_ptr<dwio::common::FileSink> sink,
+    const WriterOptions& options)
+    : Writer{
+          std::move(sink),
+          options,
+          options.memoryPool->addAggregateChild(fmt::format(
+              "writer_node_{}",
+              folly::to<std::string>(folly::Random::rand64())))} {}
+
+void Writer::write(const VectorPtr& input) {
+  auto& context = writerBase_->getContext();
   // Calculate length increment based on linear projection of micro batch size.
   // Total length is capped later.
-  const auto& sliceMemoryEstimate = slice->retainedSize();
-  const auto& sliceRowCount = slice->size();
-  const size_t lengthIncrement = std::max<size_t>(
+  const auto& estimatedInputMemoryBytes = input->estimateFlatSize();
+  const auto inputRowCount = input->size();
+  const size_t writeBatchSize = std::max<size_t>(
       1UL,
-      sliceMemoryEstimate > 0 ? folly::to<size_t>(std::floor(
-                                    1.0 * context.rawDataSizePerBatch() /
-                                    sliceMemoryEstimate * sliceRowCount))
-                              : folly::to<size_t>(sliceRowCount));
+      estimatedInputMemoryBytes > 0
+          ? folly::to<size_t>(std::floor(
+                1.0 * context.rawDataSizePerBatch() /
+                estimatedInputMemoryBytes * inputRowCount))
+          : folly::to<size_t>(inputRowCount));
   if (FOLLY_UNLIKELY(
-          sliceMemoryEstimate == 0 ||
-          sliceMemoryEstimate > context.rawDataSizePerBatch())) {
+          estimatedInputMemoryBytes == 0 ||
+          estimatedInputMemoryBytes > context.rawDataSizePerBatch())) {
     VLOG(1) << fmt::format(
-        "Unpopulated or huge vector memory estimate! Micro batch size {} rows. "
-        "Slice memory estimate {} bytes. Batching threshold {} bytes.",
-        lengthIncrement,
-        sliceMemoryEstimate,
+        "Unpopulated or huge vector memory estimate! Micro write batch size {} rows. "
+        "Input vector memory estimate {} bytes. Batching threshold {} bytes.",
+        writeBatchSize,
+        estimatedInputMemoryBytes,
         context.rawDataSizePerBatch());
   }
-  while (offset < sliceRowCount) {
-    size_t length = lengthIncrement;
+  size_t rowOffset = 0;
+  while (rowOffset < inputRowCount) {
+    size_t numRowsToWrite = writeBatchSize;
     if (context.indexEnabled()) {
-      length = std::min<size_t>(
-          length, context.indexStride() - context.indexRowCount());
+      // Do not write cross an index row block.
+      numRowsToWrite = std::min<size_t>(
+          numRowsToWrite, context.indexStride() - context.indexRowCount());
     }
 
-    length = std::min(length, sliceRowCount - offset);
-    VELOX_CHECK_GT(length, 0);
-    bool doFlush = shouldFlush(context, length);
+    numRowsToWrite = std::min(numRowsToWrite, inputRowCount - rowOffset);
+    VELOX_CHECK_GT(numRowsToWrite, 0);
+    bool doFlush = shouldFlush(context, numRowsToWrite);
     if (doFlush) {
       // Try abandoning inefficiency dictionary encodings early and see if we
       // can delay the flush.
       if (writer_->tryAbandonDictionaries(false)) {
-        doFlush = shouldFlush(context, length);
+        doFlush = shouldFlush(context, numRowsToWrite);
       }
       if (doFlush) {
         flush();
       }
     }
 
-    const auto rawSize =
-        writer_->write(slice, common::Ranges::of(offset, offset + length));
-    offset += length;
+    const auto rawSize = writer_->write(
+        input, common::Ranges::of(rowOffset, rowOffset + numRowsToWrite));
+    rowOffset += numRowsToWrite;
     context.incRawSize(rawSize);
 
     if (context.indexEnabled() &&
@@ -129,7 +181,7 @@ bool Writer::overMemoryBudget(const WriterContext& context, size_t numRows)
       context.getMemoryBudget();
 }
 
-bool Writer::shouldFlush(const WriterContext& context, size_t nextWriteLength) {
+bool Writer::shouldFlush(const WriterContext& context, size_t nextWriteRows) {
   // TODO: ideally, the heurstics to keep under the memory budget thing
   // shouldn't be a first class concept for writer and should be wrapped in
   // flush policy or some other abstraction for pluggability of the additional
@@ -137,7 +189,7 @@ bool Writer::shouldFlush(const WriterContext& context, size_t nextWriteLength) {
 
   // If we are hitting memory budget before satisfying flush criteria, try
   // entering low memory mode to work with less memory-intensive encodings.
-  bool overBudget = overMemoryBudget(context, nextWriteLength);
+  bool overBudget = overMemoryBudget(context, nextWriteRows);
   bool stripeProgressDecision =
       flushPolicy_->shouldFlush(getStripeProgress(context));
   auto dictionaryFlushDecision = flushPolicy_->shouldFlushDictionary(
@@ -150,7 +202,7 @@ bool Writer::shouldFlush(const WriterContext& context, size_t nextWriteLength) {
     // We can still be over budget either due to not having enough budget to
     // switch encoding or switching encoding not reducing memory footprint
     // enough.
-    overBudget = overMemoryBudget(context, nextWriteLength);
+    overBudget = overMemoryBudget(context, nextWriteRows);
     stripeProgressDecision =
         flushPolicy_->shouldFlush(getStripeProgress(context));
   }

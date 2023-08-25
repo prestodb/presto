@@ -64,59 +64,15 @@ class Writer : public dwio::common::Writer {
   Writer(
       std::unique_ptr<dwio::common::FileSink> sink,
       const WriterOptions& options,
-      std::shared_ptr<memory::MemoryPool> pool)
-      : writerBase_(std::make_unique<WriterBase>(std::move(sink))),
-        schema_{dwio::common::TypeWithId::create(options.schema)} {
-    VELOX_CHECK(
-        !pool->isLeaf(),
-        "Memory pool {} for DWRF writer can't be leaf",
-        pool->name());
-    auto handler =
-        (options.encryptionSpec ? encryption::EncryptionHandler::create(
-                                      schema_,
-                                      *options.encryptionSpec,
-                                      options.encrypterFactory.get())
-                                : nullptr);
-    writerBase_->initContext(
-        options.config, std::move(pool), std::move(handler));
-
-    auto& context = writerBase_->getContext();
-    context.buildPhysicalSizeAggregators(*schema_);
-    if (options.flushPolicyFactory == nullptr) {
-      flushPolicy_ = std::make_unique<DefaultFlushPolicy>(
-          context.stripeSizeFlushThreshold(),
-          context.dictionarySizeFlushThreshold());
-    } else {
-      flushPolicy_ = options.flushPolicyFactory();
-    }
-
-    if (options.layoutPlannerFactory != nullptr) {
-      layoutPlanner_ = options.layoutPlannerFactory(*schema_);
-    } else {
-      layoutPlanner_ = std::make_unique<LayoutPlanner>(*schema_);
-    }
-
-    if (options.columnWriterFactory == nullptr) {
-      writer_ = BaseColumnWriter::create(writerBase_->getContext(), *schema_);
-    } else {
-      writer_ =
-          options.columnWriterFactory(writerBase_->getContext(), *schema_);
-    }
-  }
+      std::shared_ptr<memory::MemoryPool> pool);
 
   Writer(
       std::unique_ptr<dwio::common::FileSink> sink,
-      const WriterOptions& options)
-      : Writer{
-            std::move(sink),
-            options,
-            options.memoryPool->addAggregateChild(fmt::format(
-                "writer_node_{}",
-                folly::to<std::string>(folly::Random::rand64())))} {}
+      const WriterOptions& options);
 
   ~Writer() override = default;
 
-  virtual void write(const VectorPtr& slice) override;
+  virtual void write(const VectorPtr& input) override;
 
   // Forces the writer to flush, does not close the writer.
   virtual void flush() override;
@@ -133,7 +89,7 @@ class Writer : public dwio::common::Writer {
 
   bool overMemoryBudget(const WriterContext& context, size_t numRows) const;
 
-  /// Writer will flush to make more memory if the incoming slice would make
+  /// Writer will flush to make more memory if the incoming input would make
   /// it exceed memory budget with the default flush policy. Other policies
   /// can intentionally throw and expect the application to retry.
   ///
@@ -147,7 +103,7 @@ class Writer : public dwio::common::Writer {
   /// Using less memory than the soft_cap ensures being able to
   /// write a new slice/stride, unless the slice/stride is drastically bigger
   /// than the previous ones.
-  bool shouldFlush(const WriterContext& context, size_t nextWriteLength);
+  bool shouldFlush(const WriterContext& context, size_t nextWriteRows);
 
   /// Low memory allows for the writer to write the same data with a lower
   /// memory budget. Currently this method is only called locally to switch
@@ -192,8 +148,6 @@ class Writer : public dwio::common::Writer {
   std::unique_ptr<DWRFFlushPolicy> flushPolicy_;
   std::unique_ptr<LayoutPlanner> layoutPlanner_;
   std::unique_ptr<ColumnWriter> writer_;
-
-  friend class WriterTestHelper;
 };
 
 class DwrfWriterFactory : public dwio::common::WriterFactory {
