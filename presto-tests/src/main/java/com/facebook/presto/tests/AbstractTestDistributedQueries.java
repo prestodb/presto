@@ -1311,6 +1311,6 @@ public abstract class AbstractTestDistributedQueries
 
     private String sanitizePlan(String explain)
     {
-        return explain.replaceAll("hashvalue_[0-9][0-9][0-9]", "hashvalueXXX").replaceAll("Values => .*\n", "\n");
+        return explain.replaceAll("hashvalue_[0-9][0-9][0-9]", "hashvalueXXX").replaceAll("\\[PlanNodeId (\\d+(?:,\\d+)*)\\]", "").replaceAll("Values => .*\n", "\n");
     }
 }
