@@ -29,7 +29,7 @@ Generic Configuration
        average row size is known and preferred_output_batch_bytes is used to compute the number of output rows.
    * - abandon_partial_aggregation_min_rows
      - integer
-     - 10000
+     - 100,000
      - Min number of rows when we check if a partial aggregation is not reducing the cardinality well and might be
        a subject to being abandoned.
    * - abandon_partial_aggregation_min_pct

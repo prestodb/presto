@@ -249,7 +249,7 @@ class QueryConfig {
   }
 
   int32_t abandonPartialAggregationMinRows() const {
-    return get<int32_t>(kAbandonPartialAggregationMinRows, 10000);
+    return get<int32_t>(kAbandonPartialAggregationMinRows, 100'000);
   }
 
   int32_t abandonPartialAggregationMinPct() const {
