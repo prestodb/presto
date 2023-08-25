@@ -64,7 +64,7 @@ TEST_F(LazyVectorTest, lazyInDictionary) {
   assertCopyableVector(wrapped);
 }
 
-TEST_F(LazyVectorTest, nestedLazy) {
+TEST_F(LazyVectorTest, rowVectorWithLazyChild) {
   constexpr vector_size_t size = 1000;
   auto columnType = ROW({"a", "b"}, {INTEGER(), INTEGER()});
 
@@ -85,7 +85,39 @@ TEST_F(LazyVectorTest, nestedLazy) {
   EXPECT_FALSE(isLazyNotLoaded(*rowVector.get()));
 }
 
-TEST_F(LazyVectorTest, selectiveNestedLazy) {
+TEST_F(LazyVectorTest, dictionaryOverRowVectorWithLazyChild) {
+  constexpr vector_size_t size = 1000;
+  auto columnType = ROW({"a", "b"}, {INTEGER(), INTEGER()});
+
+  auto lazyVectorA = vectorMaker_.lazyFlatVector<int32_t>(
+      size,
+      [&](vector_size_t i) { return i % 5; },
+      [](vector_size_t i) { return i % 7 == 0; });
+  auto lazyVectorB = vectorMaker_.lazyFlatVector<int32_t>(
+      size,
+      [&](vector_size_t i) { return i % 3; },
+      [](vector_size_t i) { return i % 11 == 0; });
+
+  VectorPtr rowVector = makeRowVector({lazyVectorA, lazyVectorB});
+  VectorPtr dict = BaseVector::wrapInDictionary(
+      nullptr,
+      makeIndices(size, [](auto row) { return row; }),
+      size,
+      BaseVector::wrapInDictionary(
+          nullptr,
+          makeIndices(size, [](auto row) { return row; }),
+          size,
+          rowVector));
+  EXPECT_TRUE(isLazyNotLoaded(*dict.get()));
+
+  SelectivityVector rows(dict->size(), false);
+  LazyVector::ensureLoadedRows(dict, rows);
+  EXPECT_FALSE(isLazyNotLoaded(*dict.get()));
+  // Ensure encoding layer is correctly initialized after lazy loading.
+  EXPECT_NO_THROW(dict->mayHaveNullsRecursive());
+}
+
+TEST_F(LazyVectorTest, selectiveRowVectorWithLazyChild) {
   constexpr vector_size_t size = 1000;
   auto columnType = ROW({"a", "b"}, {INTEGER(), INTEGER()});
   int loadedA = 0, loadedB = 0;
@@ -121,7 +153,7 @@ TEST_F(LazyVectorTest, selectiveNestedLazy) {
   EXPECT_EQ(loadedB, expectedLoadedB);
 }
 
-TEST_F(LazyVectorTest, nestedLazyRows) {
+TEST_F(LazyVectorTest, lazyRowVectorWithLazyChildren) {
   constexpr vector_size_t size = 1000;
   auto columnType =
       ROW({"inner_row"}, {ROW({"a", "b"}, {INTEGER(), INTEGER()})});
@@ -166,7 +198,7 @@ TEST_F(LazyVectorTest, nestedLazyRows) {
   assertEqualVectors(child, lazyInnerRowVector);
 }
 
-TEST_F(LazyVectorTest, nestedLazyRowsInDictionary) {
+TEST_F(LazyVectorTest, dictionaryOverLazyRowVectorWithLazyChildren) {
   constexpr vector_size_t size = 1000;
   auto columnType =
       ROW({"inner_row"}, {ROW({"a", "b"}, {INTEGER(), INTEGER()})});
@@ -223,7 +255,59 @@ TEST_F(LazyVectorTest, nestedLazyRowsInDictionary) {
   assertEqualVectors(child, lazyInnerRowVector);
 }
 
-TEST_F(LazyVectorTest, nestedLazyRowsPartiallyLoaded) {
+TEST_F(
+    LazyVectorTest,
+    dictionaryOverLazyRowVectorWithDictionaryOverLazyChildren) {
+  // Input: dict(row(lazy(dict(row(lazy)))))
+  constexpr vector_size_t size = 1000;
+
+  auto lazyVectorA = vectorMaker_.lazyFlatVector<int32_t>(
+      size,
+      [](vector_size_t i) { return i % 5; },
+      [](vector_size_t i) { return i % 7 == 0; });
+
+  VectorPtr innerRowVector = vectorMaker_.rowVector({lazyVectorA});
+  VectorPtr innerDict = BaseVector::wrapInDictionary(
+      nullptr,
+      makeIndices(size, [](auto row) { return row; }),
+      size,
+      innerRowVector);
+
+  VectorPtr rowVector = vectorMaker_.rowVector({std::make_shared<LazyVector>(
+      pool_.get(),
+      innerRowVector->type(),
+      size,
+      std::make_unique<SimpleVectorLoader>(
+          [&](RowSet /* rowSet */) { return innerDict; }))});
+
+  VectorPtr dict = BaseVector::wrapInDictionary(
+      nullptr,
+      makeIndices(size, [](auto row) { return row; }),
+      size,
+      rowVector);
+
+  EXPECT_TRUE(isLazyNotLoaded(*dict));
+
+  DecodedVector decodedVector;
+  SelectivityVector baseRows;
+  LazyVector::ensureLoadedRows(
+      dict, SelectivityVector(size, true), decodedVector, baseRows);
+
+  EXPECT_FALSE(isLazyNotLoaded(*dict.get()));
+
+  // Ensure encoding layer is correctly initialized after lazy loading.
+  EXPECT_NO_THROW(dict->mayHaveNullsRecursive());
+  EXPECT_NO_THROW(innerDict->mayHaveNullsRecursive());
+  // Verify that the correct vector is loaded.
+  ASSERT_EQ(
+      innerDict.get(),
+      dict->valueVector()
+          ->asUnchecked<RowVector>()
+          ->childAt(0)
+          ->loadedVector());
+}
+
+TEST_F(LazyVectorTest, lazyRowVectorWithLazyChildrenPartiallyLoaded) {
   constexpr vector_size_t size = 1000;
   auto columnType =
       ROW({"inner_row"}, {ROW({"a", "b"}, {INTEGER(), INTEGER()})});
@@ -270,7 +354,7 @@ TEST_F(LazyVectorTest, nestedLazyRowsPartiallyLoaded) {
 
   RowVector* loadedVector = rowVector->loadedVector()->as<RowVector>();
   auto child = loadedVector->childAt(0);
-  EXPECT_FALSE(child->isLazy());
+  EXPECT_FALSE(isLazyNotLoaded(*child));
   assertEqualVectors(child, lazyInnerRowVector);
 }
 

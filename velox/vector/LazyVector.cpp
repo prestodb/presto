@@ -120,7 +120,7 @@ void LazyVector::ensureLoadedRowsImpl(
         decodedChild.decode(*child, baseRows, false);
         ensureLoadedRowsImpl(child, decodedChild, baseRows, childRows);
       }
-      decoded.base()->loadedVector();
+      vector->loadedVector();
     }
     return;
   }
