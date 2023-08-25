@@ -137,7 +137,20 @@ The implementation of the velox::exec::Aggregate interface can start with *accum
       // width part of the state from the fixed part.
       virtual int32_t accumulatorFixedWidthSize() const = 0;
 
-The HashAggregation operator uses this method during initialization to calculate the total size of the row and figure out offsets at which different aggregates will be storing their data. The operator then calls velox::exec::Aggregate::setOffsets method for each aggregate to specify the location of the accumulator.
+If accumulator requires specific alignment you need to implement *accumulatorAlignmentSize()* method.
+
+.. code-block:: c++
+
+  /// Returns the alignment size of the accumulator.  Some types such as
+  /// int128_t require aligned access.  This value must be a power of 2.
+  virtual int32_t accumulatorAlignmentSize() const {
+    return 1;
+  }
+
+The HashAggregation operator uses these methods during initialization to calculate the total size
+of the row and figure out offsets at which different aggregates will be storing their data. The
+operator then calls velox::exec::Aggregate::setOffsets method for each aggregate to specify the
+location of the accumulator.
 
 .. code-block:: c++
 
@@ -211,9 +224,11 @@ At this point you have accumulatorFixedWidthSize() and initializeNewGroups() met
     * extractValues() method.
 * Logic for adding previously spilled data back to the accumulator:
     * addSingleGroupIntermediateResults() method.
+* Optional logic for converting raw inputs into intermediate results:
+    * supportsToIntermediate() and toIntermediate() methods.
 
 Some methods are only used in a subset of aggregation workflows. The following
-tables shows which methods are used in which workflows.
+table shows which methods are used in which workflows.
 
 .. list-table::
    :widths: 50 25 25 25 25 25
@@ -253,6 +268,12 @@ tables shows which methods are used in which workflows.
      - N
      - Y
      - Y
+     - N
+     - N
+   * - toIntermediate
+     - Y
+     - N
+     - N
      - N
      - N
 
@@ -331,6 +352,43 @@ Finally, we implement the addSingleGroupIntermediateResults() method that is use
           const SelectivityVector& rows,
           const std::vector<VectorPtr>& args,
           bool mayPushdown) = 0;
+
+Finally, we can implement optional methods for converting raw inputs into intermediate
+results. If partial aggregation encounters mostly unique keys and not able to meaningfully
+reduce cardinality, the operator may decide to abandon partial aggregation. In this case,
+the operator first emits already accumulated data (as in the case of flushing due to memory
+pressure), then converts each new batch of input into intermediate results and emit it right
+away. By default, to convert raw inputs into intermediate results, the operator creates fake
+groups, one per input row, initializes these groups by calling initializeNewGroups,
+adds each row to its own group using addRawInput, then calls extractAccumulators. This works,
+but is not very efficient. Individual aggregate functions can provide a more efficient
+implementation by implementing toIntermediate() method. If they decide to do so, they should
+also override supportsToIntermediate() method. For example, min and max aggregate functions
+implement toIntermediate() method which simply returns the input unmodified.
+
+.. code-block:: c++
+
+  /// Returns true if toIntermediate() is supported.
+  virtual bool supportsToIntermediate() const {
+    return false;
+  }
+
+  /// Produces an accumulator initialized from a single value for each
+  /// row in 'rows'. The raw arguments of the aggregate are in 'args',
+  /// which have the same meaning as in addRawInput. The result is
+  /// placed in 'result'. 'result is allocated if nullptr, otherwise
+  /// it is expected to be a writable flat vector of the right type.
+  ///
+  /// @param rows A set of rows to produce intermediate results for. The
+  /// 'result' is expected to have rows.size() rows. Invalid rows represent rows
+  /// that were masked out, these need to have correct intermediate results as
+  /// well. It is possible that all entries in 'rows' are invalid (masked out).
+  virtual void toIntermediate(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      VectorPtr& result) const {
+    VELOX_NYI("toIntermediate not supported");
+  }
 
 GroupBy aggregation code path is done. We proceed to global aggregation.
 
