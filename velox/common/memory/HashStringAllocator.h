@@ -340,11 +340,17 @@ class HashStringAllocator : public StreamArena {
   // payload bytes, excluding headers, continue links and other overhead.
   int64_t checkConsistency() const;
 
+  /// Returns 'true' if this is empty. The implementation includes a call to
+  /// checkConsistency() which makes it slow. Do not use in hot paths.
+  bool isEmpty() const;
+
   /// Throws if 'this' is not empty. Checks consistency of
   /// 'this'. This is a fast check for RowContainer users freeing the
   /// variable length data they store. Can be used in non-debug
   /// builds.
   void checkEmpty() const;
+
+  std::string toString() const;
 
  private:
   static constexpr int32_t kUnitSize = 16 * memory::AllocationTraits::kPageSize;

@@ -96,6 +96,8 @@ class HashStringAllocatorTest : public testing::Test {
 };
 
 TEST_F(HashStringAllocatorTest, headerToString) {
+  ASSERT_NO_THROW(allocator_->toString());
+
   auto h1 = allocate(123);
   auto h2 = allocate(456);
 
@@ -108,6 +110,8 @@ TEST_F(HashStringAllocatorTest, headerToString) {
 
   auto h3 = allocate(123'456);
   ASSERT_EQ(h3->toString(), "size: 123456");
+
+  ASSERT_NO_THROW(allocator_->toString());
 
   ByteStream stream(allocator_.get());
   auto h4 = allocator_->newWrite(stream).header;
@@ -122,6 +126,8 @@ TEST_F(HashStringAllocatorTest, headerToString) {
       "|multipart| size: 64913 [58436], at end");
 
   ASSERT_EQ(h4->nextContinued()->nextContinued()->toString(), "size: 58436");
+
+  ASSERT_NO_THROW(allocator_->toString());
 }
 
 TEST_F(HashStringAllocatorTest, allocate) {
@@ -130,7 +136,7 @@ TEST_F(HashStringAllocatorTest, allocate) {
     for (auto i = 0; i < 10'000; ++i) {
       headers.push_back(allocate((i % 10) * 10));
     }
-    EXPECT_THROW(allocator_->checkEmpty(), VeloxException);
+    EXPECT_FALSE(allocator_->isEmpty());
     allocator_->checkConsistency();
     for (int32_t step = 7; step >= 1; --step) {
       for (auto i = 0; i < headers.size(); i += step) {
@@ -142,7 +148,7 @@ TEST_F(HashStringAllocatorTest, allocate) {
       allocator_->checkConsistency();
     }
   }
-  allocator_->checkEmpty();
+  EXPECT_TRUE(allocator_->isEmpty());
   // We allow for some free overhead for free lists after all is freed.
   EXPECT_LE(allocator_->retainedSize() - allocator_->freeSpace(), 250);
 }

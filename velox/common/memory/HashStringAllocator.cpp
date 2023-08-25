@@ -564,13 +564,53 @@ void HashStringAllocator::ensureAvailable(int32_t bytes, Position& position) {
   position = finishWrite(stream, 0).first;
 }
 
+std::string HashStringAllocator::toString() const {
+  std::ostringstream out;
+
+  out << "allocated: " << cumulativeBytes_ << " bytes" << std::endl;
+  out << "free: " << freeBytes_ << " bytes in " << numFree_ << " blocks"
+      << std::endl;
+  out << "standalone allocations: " << sizeFromPool_ << " bytes in "
+      << allocationsFromPool_.size() << " allocations" << std::endl;
+  out << "ranges: " << pool_.numRanges() << std::endl;
+
+  static const auto kHugePageSize = memory::AllocationTraits::kHugePageSize;
+
+  for (auto i = 0; i < pool_.numRanges(); ++i) {
+    auto topRange = pool_.rangeAt(i);
+    auto topRangeSize = topRange.size();
+
+    out << "range " << i << ": " << topRangeSize << " bytes" << std::endl;
+
+    // Some ranges are short and contain one arena. Some are multiples of huge
+    // page size and contain one arena per huge page.
+    for (int64_t subRangeStart = 0; subRangeStart < topRangeSize;
+         subRangeStart += kHugePageSize) {
+      auto range = folly::Range<char*>(
+          topRange.data() + subRangeStart,
+          std::min<int64_t>(topRangeSize, kHugePageSize));
+      auto size = range.size() - simd::kPadding;
+
+      auto end = reinterpret_cast<Header*>(range.data() + size);
+      auto header = reinterpret_cast<Header*>(range.data());
+      while (header != nullptr && header != end) {
+        out << "\t" << header->toString() << std::endl;
+        header = header->next();
+      }
+    }
+  }
+
+  return out.str();
+}
+
 int64_t HashStringAllocator::checkConsistency() const {
+  static const auto kHugePageSize = memory::AllocationTraits::kHugePageSize;
+
   uint64_t numFree = 0;
   uint64_t freeBytes = 0;
   int64_t allocatedBytes = 0;
   for (auto i = 0; i < pool_.numRanges(); ++i) {
     auto topRange = pool_.rangeAt(i);
-    const auto kHugePageSize = memory::AllocationTraits::kHugePageSize;
     auto topRangeSize = topRange.size();
     if (topRangeSize >= kHugePageSize) {
       VELOX_CHECK_EQ(0, topRangeSize % kHugePageSize);
@@ -642,6 +682,10 @@ int64_t HashStringAllocator::checkConsistency() const {
   VELOX_CHECK_EQ(numInFreeList, numFree_);
   VELOX_CHECK_EQ(bytesInFreeList, freeBytes_);
   return allocatedBytes;
+}
+
+bool HashStringAllocator::isEmpty() const {
+  return sizeFromPool_ == 0 && checkConsistency() == 0;
 }
 
 void HashStringAllocator::checkEmpty() const {
