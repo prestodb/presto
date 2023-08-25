@@ -52,7 +52,10 @@ VectorPtr CastExpr::castFromDate(
           writer.resize(output.size());
           std::memcpy(writer.data(), output.data(), output.size());
           writer.finalize();
-        } catch (const VeloxUserError& ue) {
+        } catch (const VeloxException& ue) {
+          if (!ue.isUserError()) {
+            throw;
+          }
           VELOX_USER_FAIL(
               makeErrorMessage(input, row, toType) + " " + ue.message());
         } catch (const std::exception& e) {
@@ -104,7 +107,10 @@ VectorPtr CastExpr::castToDate(
         try {
           auto inputString = inputVector->valueAt(row);
           resultFlatVector->set(row, DATE()->toDays(inputString));
-        } catch (const VeloxUserError& ue) {
+        } catch (const VeloxException& ue) {
+          if (!ue.isUserError()) {
+            throw;
+          }
           VELOX_USER_FAIL(
               makeErrorMessage(input, row, DATE()) + " " + ue.message());
         } catch (const std::exception& e) {

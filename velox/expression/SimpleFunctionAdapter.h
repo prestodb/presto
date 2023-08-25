@@ -219,6 +219,8 @@ class SimpleFunctionAdapter : public VectorFunction {
     if constexpr (FUNC::udf_has_initialize) {
       try {
         unpackInitialize<0>(config, constantInputs);
+      } catch (const VeloxRuntimeError&) {
+        throw;
       } catch (const std::exception& e) {
         initializeException_ = std::current_exception();
       }

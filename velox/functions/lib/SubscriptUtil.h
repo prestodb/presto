@@ -194,6 +194,8 @@ class SubscriptImpl : public exec::Subscript {
       // If index is invalid, capture the error and mark all rows as failed.
       try {
         adjustedIndex = adjustIndex(decodedIndices->valueAt<I>(0));
+      } catch (const VeloxRuntimeError&) {
+        throw;
       } catch (const std::exception& e) {
         context.setErrors(rows, std::current_exception());
         allFailed = true;

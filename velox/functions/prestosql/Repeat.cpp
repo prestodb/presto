@@ -39,6 +39,8 @@ class RepeatFunction : public exec::VectorFunction {
     if (args[1]->isConstantEncoding()) {
       try {
         localResult = applyConstant(rows, args, outputType, context);
+      } catch (const VeloxRuntimeError&) {
+        throw;
       } catch (const std::exception& e) {
         context.setErrors(rows, std::current_exception());
         return;

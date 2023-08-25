@@ -96,6 +96,9 @@ void CastExpr::applyToSelectedNoThrowLocal(
       try {
         func(row);
       } catch (const VeloxException& e) {
+        if (!e.isUserError()) {
+          throw;
+        }
         // Avoid double throwing.
         context.setVeloxExceptionError(row, std::current_exception());
       } catch (const std::exception& e) {
@@ -358,7 +361,10 @@ void CastExpr::applyCastPrimitives(
         applyCastKernel<ToKind, FromKind, false /*truncate*/>(
             row, context, inputSimpleVector, resultFlatVector);
 
-      } catch (const VeloxUserError& ue) {
+      } catch (const VeloxException& ue) {
+        if (!ue.isUserError()) {
+          throw;
+        }
         setError(row, ue.message());
       } catch (const std::exception& e) {
         setError(row, e.what());
@@ -370,7 +376,10 @@ void CastExpr::applyCastPrimitives(
       try {
         applyCastKernel<ToKind, FromKind, true /*truncate*/>(
             row, context, inputSimpleVector, resultFlatVector);
-      } catch (const VeloxUserError& ue) {
+      } catch (const VeloxException& ue) {
+        if (!ue.isUserError()) {
+          throw;
+        }
         setError(row, ue.message());
       } catch (const std::exception& e) {
         setError(row, e.what());

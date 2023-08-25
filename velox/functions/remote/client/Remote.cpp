@@ -63,6 +63,8 @@ class RemoteFunction : public exec::VectorFunction {
       VectorPtr& result) const override {
     try {
       applyRemote(rows, args, outputType, context, result);
+    } catch (const VeloxRuntimeError&) {
+      throw;
     } catch (const std::exception&) {
       context.setErrors(rows, std::current_exception());
     }

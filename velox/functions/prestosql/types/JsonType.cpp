@@ -99,7 +99,7 @@ void castToJson(
   } else {
     context.applyToSelectedNoThrow(rows, [&](auto row) {
       if (inputVector->isNullAt(row)) {
-        VELOX_FAIL("Map keys cannot be null.");
+        VELOX_USER_FAIL("Map keys cannot be null.");
       } else {
         result.clear();
         generateJsonTyped<T, true>(*inputVector, row, result, input.type());
@@ -197,7 +197,7 @@ struct AsJson {
     if (isMapKey && decoded_->mayHaveNulls()) {
       context.applyToSelectedNoThrow(rows, [&](auto row) {
         if (decoded_->isNullAt(row)) {
-          VELOX_FAIL("Cannot cast map with null keys to JSON.");
+          VELOX_USER_FAIL("Cannot cast map with null keys to JSON.");
         }
       });
     }
@@ -716,6 +716,9 @@ void castFromJson(
         try {
           castFromJsonTyped<kind>(object, writer.current());
         } catch (const VeloxException& ve) {
+          if (!ve.isUserError()) {
+            throw;
+          }
           writer.commitNull();
           VELOX_USER_FAIL(
               "Cannot cast from Json value {} to {}: {}",

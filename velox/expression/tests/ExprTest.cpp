@@ -2264,12 +2264,27 @@ TEST_F(ExprTest, peeledConstant) {
   }
 }
 
+namespace {
+// In general simple functions should not throw runtime errors but only user
+// errors, since runtime errors are not suppressed with try. This is needed for
+// the unit test.
+template <typename T>
+struct ThrowRuntimeError {
+  template <typename TResult, typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TResult&, const TInput&) {
+    // Throw runtime error,
+    VELOX_FAIL();
+  }
+};
+} // namespace
+
 TEST_F(ExprTest, exceptionContext) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3}),
       makeFlatVector<int32_t>({1, 2, 3}),
   });
 
+  registerFunction<ThrowRuntimeError, int32_t, int32_t>({"runtime_error"});
   registerFunction<TestingAlwaysThrowsFunction, int32_t, int32_t>(
       {"always_throws"});
 
@@ -2311,12 +2326,12 @@ TEST_F(ExprTest, exceptionContext) {
       tempDirectory->path;
 
   try {
-    evaluate("always_throws(c0) + c1", data);
+    evaluate("runtime_error(c0) + c1", data);
     FAIL() << "Expected an exception";
   } catch (const VeloxException& e) {
-    ASSERT_EQ("always_throws(c0)", e.context());
+    ASSERT_EQ("runtime_error(c0)", e.context());
     ASSERT_EQ(
-        "plus(always_throws(c0), c1)", trimInputPath(e.topLevelContext()));
+        "plus(runtime_error(c0), c1)", trimInputPath(e.topLevelContext()));
     verifyDataAndSqlPaths(e, data);
   }
 

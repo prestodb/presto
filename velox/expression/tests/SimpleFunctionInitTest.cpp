@@ -202,7 +202,7 @@ struct InitAlwaysThrowsFunction {
   void initialize(
       const core::QueryConfig& /*config*/,
       const arg_type<int32_t>* /*first*/) {
-    VELOX_FAIL("Unconditional throw!");
+    VELOX_USER_FAIL("Unconditional throw!");
   }
 
   void call(out_type<int64_t>& out, const arg_type<int32_t>& first) {
@@ -219,7 +219,7 @@ TEST_F(SimpleFunctionInitTest, initException) {
 
   // Ensure this will normally throw if there are active rows.
   auto rowVector = makeRowVector({makeNullableFlatVector<int32_t>({1, 2, 3})});
-  EXPECT_THROW(evaluate("init_throws(c0)", rowVector), VeloxRuntimeError);
+  EXPECT_THROW(evaluate("init_throws(c0)", rowVector), VeloxUserError);
 
   // Shouldn't throw if the input is a Null constant.
   rowVector = makeRowVector({makeNullConstant(TypeKind::INTEGER, 3)});

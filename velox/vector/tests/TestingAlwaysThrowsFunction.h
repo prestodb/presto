@@ -18,12 +18,11 @@
 #include "velox/expression/VectorFunction.h"
 
 namespace facebook::velox::test {
-
 template <typename T>
 struct TestingAlwaysThrowsFunction {
   template <typename TResult, typename TInput>
   FOLLY_ALWAYS_INLINE void call(TResult&, const TInput&) {
-    VELOX_FAIL();
+    VELOX_USER_FAIL();
   }
 };
 
