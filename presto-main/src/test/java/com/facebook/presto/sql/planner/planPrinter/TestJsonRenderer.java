@@ -106,6 +106,7 @@ public class TestJsonRenderer
                 ImmutableList.of(),
                 ImmutableList.of(),
                 planNodeIds,
+                ImmutableList.of(),
                 ImmutableList.of());
     }
 

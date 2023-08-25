@@ -18,6 +18,7 @@ import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.spi.eventlistener.CTEInformation;
 import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.sql.planner.optimizations.OptimizerResult;
+import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 
@@ -72,6 +73,7 @@ public class TextRenderer
         output.append(indentString(level))
                 .append("- ")
                 .append(node.getName())
+                .append(node.getPlanNodeIds().isEmpty() ? "" : format("[PlanNodeId %s]", Joiner.on(",").join(node.getPlanNodeIds())))
                 .append(node.getSourceLocation().isPresent() ? "(" + node.getSourceLocation().get().toString() + ")" : "")
                 .append(node.getIdentifier())
                 .append(" => [")
