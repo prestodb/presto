@@ -23,7 +23,9 @@ import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.REMO
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.REMOTE_FUNCTION_JSON_SIGNATURES;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.setupJsonFunctionNamespaceManager;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.startRemoteFunctionServer;
+import static java.util.Objects.requireNonNull;
 
+@Test(groups = "remote-function")
 public abstract class AbstractTestNativeRemoteFunctions
         extends AbstractTestQueryFramework
 {
@@ -37,10 +39,8 @@ public abstract class AbstractTestNativeRemoteFunctions
     protected void preInitQueryRunners()
     {
         // Initialize the remote function thrift server process.
-        remoteFunctionServerBinaryPath = System.getProperty("REMOTE_FUNCTION_SERVER");
-        if (remoteFunctionServerBinaryPath != null) {
-            remoteFunctionServerUds = startRemoteFunctionServer(remoteFunctionServerBinaryPath);
-        }
+        requireNonNull(System.getProperty("REMOTE_FUNCTION_SERVER"));
+        remoteFunctionServerUds = startRemoteFunctionServer(remoteFunctionServerBinaryPath);
     }
 
     @Override

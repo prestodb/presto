@@ -192,6 +192,7 @@
                 <configuration>
                     <forkCount>1</forkCount>
                     <reuseForks>false</reuseForks>
+                    <excludedGroups>remote-function</excludedGroups>
                     <systemPropertyVariables>
                         <PRESTO_SERVER>/root/project/build/debug/presto_cpp/main/presto_server</PRESTO_SERVER>
                         <DATA_DIR>/tmp/velox</DATA_DIR>
@@ -199,5 +200,28 @@
                 </configuration>
             </plugin>
         </plugins>
+
     </build>
+    <profiles>
+        <profile>
+            <id>presto-native-execution-remote-functions</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludedGroups combine.self="override" />
+                            <groups>remote-function</groups>
+                            <systemPropertyVariables>
+                                <PRESTO_SERVER>/root/project/build/debug/presto_cpp/main/presto_server</PRESTO_SERVER>
+                                <DATA_DIR>/tmp/velox</DATA_DIR>
+                                <REMOTE_FUNCTION_SERVER>/path/to/remote/function</REMOTE_FUNCTION_SERVER>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
