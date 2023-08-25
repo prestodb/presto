@@ -173,7 +173,7 @@ public class StatisticAggregationsDescriptor<T>
         @VisibleForTesting
         static String serialize(ColumnStatisticMetadata value)
         {
-            return value.getStatisticType().name() + ":" + value.getColumnName();
+            return value.getStatisticType().name() + ":" + value.getFunctionName() + ":" + value.getColumnName();
         }
     }
 
@@ -189,11 +189,9 @@ public class StatisticAggregationsDescriptor<T>
         @VisibleForTesting
         static ColumnStatisticMetadata deserialize(String value)
         {
-            int separatorIndex = value.indexOf(':');
-            checkArgument(separatorIndex >= 0, "separator not found: %s", value);
-            String statisticType = value.substring(0, separatorIndex);
-            String column = value.substring(separatorIndex + 1);
-            return new ColumnStatisticMetadata(column, ColumnStatisticType.valueOf(statisticType));
+            String[] values = value.split(":", 3);
+            checkArgument(values.length == 3, "separator(s) not found: %s", value);
+            return new ColumnStatisticMetadata(values[2], ColumnStatisticType.valueOf(values[0]), values[1]);
         }
     }
 }
