@@ -19,7 +19,7 @@
 #include <folly/Random.h>
 #include <folly/futures/Retrying.h>
 #include <velox/common/memory/Memory.h>
-#include "presto_cpp/external/json/nlohmann/json.hpp"
+#include "presto_cpp/external/json/json.hpp"
 #include "presto_cpp/main/http/HttpClient.h"
 
 namespace facebook::presto {
