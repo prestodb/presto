@@ -79,23 +79,13 @@ class SubscriptImpl : public exec::Subscript {
     }
 
     // map(K,V), K -> V
-    const auto keyTypes = {
-        "tinyint",
-        "smallint",
-        "integer",
-        "bigint",
-        "real",
-        "double",
-        "varchar",
-        "boolean"};
-    for (const auto& keyType : keyTypes) {
-      signatures.push_back(exec::FunctionSignatureBuilder()
-                               .typeVariable("V")
-                               .returnType("V")
-                               .argumentType(fmt::format("map({},V)", keyType))
-                               .argumentType(keyType)
-                               .build());
-    }
+    signatures.push_back(exec::FunctionSignatureBuilder()
+                             .typeVariable("K")
+                             .typeVariable("V")
+                             .returnType("V")
+                             .argumentType("map(K,V)")
+                             .argumentType("K")
+                             .build());
 
     return signatures;
   }
@@ -134,9 +124,11 @@ class SubscriptImpl : public exec::Subscript {
     auto indexArg = args[1];
 
     // Ensure map key type and second argument are the same.
-    VELOX_CHECK_EQ(mapArg->type()->childAt(0), indexArg->type());
+    VELOX_CHECK(mapArg->type()->childAt(0)->equivalent(*indexArg->type()));
 
     switch (indexArg->typeKind()) {
+      case TypeKind::HUGEINT:
+        return applyMapTyped<int128_t>(rows, mapArg, indexArg, context);
       case TypeKind::BIGINT:
         return applyMapTyped<int64_t>(rows, mapArg, indexArg, context);
       case TypeKind::INTEGER:
@@ -149,10 +141,17 @@ class SubscriptImpl : public exec::Subscript {
         return applyMapTyped<float>(rows, mapArg, indexArg, context);
       case TypeKind::DOUBLE:
         return applyMapTyped<double>(rows, mapArg, indexArg, context);
-      case TypeKind::VARCHAR:
-        return applyMapTyped<StringView>(rows, mapArg, indexArg, context);
       case TypeKind::BOOLEAN:
         return applyMapTyped<bool>(rows, mapArg, indexArg, context);
+      case TypeKind::TIMESTAMP:
+        return applyMapTyped<Timestamp>(rows, mapArg, indexArg, context);
+      case TypeKind::VARCHAR:
+      case TypeKind::VARBINARY:
+        return applyMapTyped<StringView>(rows, mapArg, indexArg, context);
+      case TypeKind::ARRAY:
+      case TypeKind::MAP:
+      case TypeKind::ROW:
+        return applyMapComplexType(rows, mapArg, indexArg, context);
       default:
         VELOX_UNSUPPORTED(
             "Unsupported map key type for element_at: {}",
@@ -374,6 +373,75 @@ class SubscriptImpl : public exec::Subscript {
         processRow(row, searchKey);
       });
     }
+
+    // Subscript into empty maps always returns NULLs. Check added at the end to
+    // ensure user error checks for indices are not skipped.
+    if (baseMap->mapValues()->size() == 0) {
+      return BaseVector::createNullConstant(
+          baseMap->mapValues()->type(), rows.end(), context.pool());
+    }
+
+    return BaseVector::wrapInDictionary(
+        nullsBuilder.build(), indices, rows.end(), baseMap->mapValues());
+  }
+
+  VectorPtr applyMapComplexType(
+      const SelectivityVector& rows,
+      const VectorPtr& mapArg,
+      const VectorPtr& indexArg,
+      exec::EvalCtx& context) const {
+    auto* pool = context.pool();
+
+    // Use indices with the mapValues wrapped in a dictionary vector.
+    BufferPtr indices = allocateIndices(rows.end(), pool);
+    auto rawIndices = indices->asMutable<vector_size_t>();
+
+    // Create nulls for lazy initialization.
+    NullsBuilder nullsBuilder(rows.end(), pool);
+
+    // Get base MapVector.
+    exec::LocalDecodedVector mapHolder(context, *mapArg, rows);
+    auto decodedMap = mapHolder.get();
+    auto baseMap = decodedMap->base()->as<MapVector>();
+    auto mapIndices = decodedMap->indices();
+
+    // Get map keys.
+    auto mapKeys = baseMap->mapKeys();
+    exec::LocalSelectivityVector allElementRows(context, mapKeys->size());
+    allElementRows->setAll();
+    exec::LocalDecodedVector mapKeysHolder(context, *mapKeys, *allElementRows);
+    auto mapKeysDecoded = mapKeysHolder.get();
+    auto mapKeysBase = mapKeysDecoded->base();
+
+    // Get index vector (second argument).
+    exec::LocalDecodedVector indexHolder(context, *indexArg, rows);
+    auto decodedIndices = indexHolder.get();
+    auto searchBase = decodedIndices->base();
+    auto searchIndices = decodedIndices->indices();
+
+    auto rawSizes = baseMap->rawSizes();
+    auto rawOffsets = baseMap->rawOffsets();
+
+    // Search the key in each row.
+    rows.applyToSelected([&](vector_size_t row) {
+      size_t mapIndex = mapIndices[row];
+      size_t size = rawSizes[mapIndex];
+      size_t offset = rawOffsets[mapIndex];
+
+      bool found = false;
+      auto searchIndex = searchIndices[row];
+      for (auto i = 0; i < size; i++) {
+        if (mapKeysBase->equalValueAt(searchBase, offset + i, searchIndex)) {
+          rawIndices[row] = offset + i;
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        nullsBuilder.setNull(row);
+      };
+    });
 
     // Subscript into empty maps always returns NULLs. Check added at the end to
     // ensure user error checks for indices are not skipped.

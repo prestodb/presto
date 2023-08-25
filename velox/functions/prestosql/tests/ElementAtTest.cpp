@@ -666,6 +666,111 @@ TEST_F(ElementAtTest, variableInputMap) {
   testVariableInputMap<StringView>(); // VARCHAR
 }
 
+TEST_F(ElementAtTest, timestampAsKey) {
+  const auto keyVector = makeFlatVector<Timestamp>(
+      {Timestamp(1991, 0),
+       Timestamp(1992, 0),
+       Timestamp(1993, 0),
+       Timestamp(1994, 0),
+       Timestamp(1995, 0),
+       Timestamp(1996, 0)});
+  const auto valueVector = makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6});
+  const auto mapVector = makeMapVector({0, 2, 3}, keyVector, valueVector);
+
+  const auto searchVector = makeFlatVector<Timestamp>(
+      {Timestamp(1991, 0), Timestamp(1993, 0), Timestamp(1999, 0)});
+  const auto expected = makeNullableFlatVector<int64_t>({1, 3, std::nullopt});
+  test::assertEqualVectors(
+      expected,
+      evaluate<SimpleVector<int64_t>>(
+          "element_at(C0, C1)", makeRowVector({mapVector, searchVector})));
+}
+
+TEST_F(ElementAtTest, stringAsKey) {
+  const auto keyVector =
+      makeFlatVector<StringView>({"a", "b", "c", "d", "e", "f"});
+  const auto valueVector = makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6});
+  const auto mapVector = makeMapVector({0, 2, 3}, keyVector, valueVector);
+
+  const auto searchVector = makeFlatVector<StringView>({"a", "c", "x"});
+  const auto expected = makeNullableFlatVector<int64_t>({1, 3, std::nullopt});
+  test::assertEqualVectors(
+      expected,
+      evaluate<SimpleVector<int64_t>>(
+          "element_at(C0, C1)", makeRowVector({mapVector, searchVector})));
+}
+
+TEST_F(ElementAtTest, mapWithComplexTypeAsKey) {
+  VectorPtr mapVector, keyVector, searchVector;
+  const auto expected = makeNullableFlatVector<int64_t>({1, 3, std::nullopt});
+  const auto valueVector = makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6});
+
+  auto intVector = makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6});
+  auto strVector = makeFlatVector<StringView>({"a", "b", "c", "d", "e", "f"});
+  keyVector = makeRowVector({intVector, strVector});
+  mapVector = makeMapVector({0, 2, 3}, keyVector, valueVector);
+
+  searchVector = makeRowVector(
+      {makeFlatVector<int64_t>({1, 3, 7}),
+       makeFlatVector<StringView>({"a", "c", "f"})});
+  test::assertEqualVectors(
+      expected,
+      evaluate<SimpleVector<int64_t>>(
+          "element_at(C0, C1)", makeRowVector({mapVector, searchVector})));
+
+  // Constant search vector.
+  searchVector = makeConstantRow(
+      ROW({BIGINT(), VARCHAR()}), variant::row({(int64_t)3, "c"}), 3);
+  test::assertEqualVectors(
+      makeNullableFlatVector<int64_t>({std::nullopt, 3, std::nullopt}),
+      evaluate<SimpleVector<int64_t>>(
+          "element_at(C0, C1)", makeRowVector({mapVector, searchVector})));
+
+  // Map of Arrays:
+  // {ARRAY[1, 2, 3] -> 1, ARRAY[333] -> 2}
+  // {ARRAY[123, 456] -> 3}
+  // {ARRAY[66, 77] -> 4, ARRAY[88] -> 5, ARRAY[99] -> 6}
+  keyVector = makeArrayVector<int64_t>(
+      {{1, 2, 3}, {333}, {123, 456}, {66, 77}, {88}, {99}});
+  mapVector = makeMapVector({0, 2, 3}, keyVector, valueVector);
+  searchVector = makeArrayVector<int64_t>({{1, 2, 3}, {123, 456}, {31415926}});
+  test::assertEqualVectors(
+      expected,
+      evaluate<SimpleVector<int64_t>>(
+          "element_at(C0, C1)", makeRowVector({mapVector, searchVector})));
+
+  // Map of Maps:
+  // {MAP(1->"a", 2->"b") -> 1, MAP(3->"c") -> 2}
+  // {MAP(44->"e", 55->"f") -> 3}
+  // {MAP(666->"w", 777->"x") -> 4, MAP(888->"y") -> 5, MAP(999->"z") -> 6}
+  keyVector = makeMapVector<int64_t, StringView>(
+      {{{1, "a"_sv}, {2, "b"_sv}},
+       {{3, "c"_sv}},
+       {{44, "e"_sv}, {55, "f"_sv}},
+       {{666, "w"_sv}, {777, "x"_sv}},
+       {{888, "y"_sv}},
+       {{999, "z"_sv}}});
+  mapVector = makeMapVector({0, 2, 3}, keyVector, valueVector);
+  searchVector = makeMapVector<int64_t, StringView>(
+      {{{1, "a"_sv}, {2, "b"_sv}},
+       {{44, "e"_sv}, {55, "f"_sv}},
+       {{77777, "xyz"_sv}}});
+  test::assertEqualVectors(
+      expected,
+      evaluate<SimpleVector<int64_t>>(
+          "element_at(C0, C1)", makeRowVector({mapVector, searchVector})));
+
+  // The map entry order doesn't matter.
+  searchVector = makeMapVector<int64_t, StringView>(
+      {{{2, "b"_sv}, {1, "a"_sv}},
+       {{55, "f"_sv}, {44, "e"_sv}},
+       {{77777, "xyz"_sv}}});
+  test::assertEqualVectors(
+      expected,
+      evaluate<SimpleVector<int64_t>>(
+          "element_at(C0, C1)", makeRowVector({mapVector, searchVector})));
+}
+
 TEST_F(ElementAtTest, variableInputArray) {
   {
     auto indicesVector = makeFlatVector<int64_t>(
