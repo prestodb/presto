@@ -35,6 +35,7 @@ class ByteStreamTest : public testing::Test {
         .capacity = kMaxMappedMemory,
         .allocator = MemoryAllocator::getInstance()});
     pool_ = memoryManager_->addLeafPool("ByteStreamTest");
+    rng_.seed(124);
   }
 
   void TearDown() override {
@@ -42,6 +43,11 @@ class ByteStreamTest : public testing::Test {
     MemoryAllocator::setDefaultInstance(nullptr);
   }
 
+  std::unique_ptr<StreamArena> newArena() {
+    return std::make_unique<StreamArena>(pool_.get());
+  }
+
+  folly::Random::DefaultGenerator rng_;
   std::shared_ptr<MmapAllocator> mmapAllocator_;
   std::unique_ptr<MemoryManager> memoryManager_;
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -166,4 +172,121 @@ TEST_F(ByteStreamTest, toString) {
     pool_->free(buffers[i], kBufferSize);
   }
   pool_->free(tempBuffer, kReadBytes);
+}
+
+TEST_F(ByteStreamTest, newRangeAllocation) {
+  const int kPageSize = AllocationTraits::kPageSize;
+  struct {
+    std::vector<int32_t> newRangeSizes;
+    std::vector<int32_t> expectedStreamAllocatedBytes;
+    std::vector<int32_t> expectedArenaAllocationSizes;
+    std::vector<int32_t> expectedAllocationCounts;
+
+    std::string debugString() const {
+      return fmt::format(
+          "newRangeSizes: {}\nexpectedStreamAllocatedBytes: {}\nexpectedArenaAllocationSizes: {}\nexpectedAllocationCount: {}\n",
+          folly::join(",", newRangeSizes),
+          folly::join(",", expectedStreamAllocatedBytes),
+          folly::join(",", expectedArenaAllocationSizes),
+          folly::join(",", expectedAllocationCounts));
+    }
+  } testSettings[] = {
+      {{1, 1, 1},
+       {128, 128, 128},
+       {kPageSize * 2, kPageSize * 2, kPageSize * 2},
+       {1, 1, 1}},
+      {{1, 64, 63},
+       {128, 128, 128},
+       {kPageSize * 2, kPageSize * 2, kPageSize * 2},
+       {1, 1, 1}},
+      {{1, 64, 64},
+       {128, 128, 256},
+       {kPageSize * 2, kPageSize * 2, kPageSize * 2},
+       {1, 1, 1}},
+      {{1,   64,  64,   126,  1,   2,         200,      200, 200,
+        500, 100, 100,  200,  300, 1000,      100,      400, 100,
+        438, 1,   3000, 1095, 1,   kPageSize, kPageSize},
+       {128,           128,           256,           256,
+        256,           384,           512,           1024,
+        1024,          1536,          1536,          2048,
+        2048,          2560,          3072,          3584,
+        3584,          kPageSize,     kPageSize,     kPageSize * 2,
+        kPageSize * 2, kPageSize * 2, kPageSize * 3, kPageSize * 4,
+        kPageSize * 5},
+       {kPageSize * 2, kPageSize * 2, kPageSize * 2, kPageSize * 2,
+        kPageSize * 2, kPageSize * 2, kPageSize * 2, kPageSize * 2,
+        kPageSize * 2, kPageSize * 2, kPageSize * 2, kPageSize * 2,
+        kPageSize * 2, kPageSize * 2, kPageSize * 2, kPageSize * 2,
+        kPageSize * 2, kPageSize * 2, kPageSize * 2, kPageSize * 2,
+        kPageSize * 2, kPageSize * 2, kPageSize * 4, kPageSize * 4,
+        kPageSize * 6},
+       {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3}},
+      {{1023, 64, 64, kPageSize, 5 * kPageSize},
+       {1152, 1152, 1152, kPageSize + 1152, 7 * kPageSize},
+       {kPageSize * 2,
+        kPageSize * 2,
+        kPageSize * 2,
+        kPageSize * 2,
+        kPageSize * 7},
+       {1, 1, 1, 1, 2}}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    ASSERT_EQ(
+        testData.newRangeSizes.size(),
+        testData.expectedArenaAllocationSizes.size());
+    ASSERT_EQ(
+        testData.newRangeSizes.size(),
+        testData.expectedAllocationCounts.size());
+
+    const auto prevAllocCount = pool_->stats().numAllocs;
+    auto arena = newArena();
+    ByteStream byteStream(arena.get());
+    byteStream.startWrite(0);
+    for (int i = 0; i < testData.newRangeSizes.size(); ++i) {
+      const auto newRangeSize = testData.newRangeSizes[i];
+      SCOPED_TRACE(fmt::format(
+          "iteration {} allocation size {}",
+          i,
+          succinctBytes(testData.newRangeSizes[i])));
+      byteStream.appendStringPiece(
+          folly::StringPiece(std::string(newRangeSize, 'a')));
+      ASSERT_EQ(arena->size(), testData.expectedArenaAllocationSizes[i]);
+      ASSERT_EQ(
+          pool_->stats().numAllocs - prevAllocCount,
+          testData.expectedAllocationCounts[i]);
+      ASSERT_EQ(
+          byteStream.testingAllocatedBytes(),
+          testData.expectedStreamAllocatedBytes[i]);
+    }
+  }
+}
+
+TEST_F(ByteStreamTest, randomRangeAllocationFromMultiStreamsTest) {
+  auto arena = newArena();
+  const int numByteStreams = 10;
+  std::vector<std::unique_ptr<ByteStream>> byteStreams;
+  for (int i = 0; i < numByteStreams; ++i) {
+    byteStreams.push_back(std::make_unique<ByteStream>(arena.get()));
+    byteStreams.back()->startWrite(0);
+  }
+  const int testIterations = 1000;
+  for (int i = 0; i < testIterations; ++i) {
+    const int byteStreamIndex = folly::Random::rand32(rng_) % numByteStreams;
+    auto* byteStream = byteStreams[byteStreamIndex].get();
+    const int testMethodIndex = folly::Random::rand32(rng_) % 3;
+    switch (testMethodIndex) {
+      case 0: {
+        byteStream->appendOne<int64_t>(102);
+      } break;
+      case 1: {
+        byteStream->appendOne<int32_t>(102);
+      } break;
+      case 2: {
+        const int size = folly::Random::rand32(rng_) % 8192 + 1;
+        byteStream->appendStringPiece(
+            folly::StringPiece(std::string(size, 'a')));
+      } break;
+    }
+  }
 }

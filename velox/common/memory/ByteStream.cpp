@@ -155,19 +155,19 @@ void ByteStream::appendBool(bool value, int32_t count) {
 }
 
 void ByteStream::appendStringPiece(folly::StringPiece value) {
-  int32_t bytes = value.size();
+  const int32_t bytes = value.size();
   int32_t offset = 0;
   for (;;) {
-    int32_t bytesFit =
+    const int32_t bytesFit =
         std::min(bytes - offset, current_->size - current_->position);
-    memcpy(
+    ::memcpy(
         current_->buffer + current_->position, value.data() + offset, bytesFit);
     current_->position += bytesFit;
     offset += bytesFit;
     if (offset == bytes) {
       return;
     }
-    extend(bits::roundUp(bytes - offset, memory::AllocationTraits::kPageSize));
+    extend(bytes - offset);
   }
 }
 
@@ -234,7 +234,7 @@ void ByteStream::extend(int32_t bytes) {
 
   // Check if rewriting existing content. If so, move to next range and start at
   // 0.
-  if (current_ && current_ != &ranges_.back()) {
+  if ((current_ != nullptr) && (current_ != &ranges_.back())) {
     ++current_;
     current_->position = 0;
     return;
@@ -242,11 +242,27 @@ void ByteStream::extend(int32_t bytes) {
   ranges_.emplace_back();
   current_ = &ranges_.back();
   lastRangeEnd_ = 0;
-  arena_->newRange(bytes, current_);
+  arena_->newRange(newRangeSize(bytes), current_);
+  allocatedBytes_ += current_->size;
+  VELOX_CHECK_GT(allocatedBytes_, 0);
   if (isBits_) {
     // size and position are in units of bits for a bits stream.
     current_->size *= 8;
   }
+}
+
+int32_t ByteStream::newRangeSize(int32_t bytes) const {
+  const int32_t newSize = allocatedBytes_ + bytes;
+  if (newSize < 128) {
+    return 128;
+  }
+  if (newSize < 512) {
+    return bits::roundUp(bytes, 128);
+  }
+  if (newSize < memory::AllocationTraits::kPageSize) {
+    return bits::roundUp(bytes, 512);
+  }
+  return bits::roundUp(bytes, memory::AllocationTraits::kPageSize);
 }
 
 std::string ByteStream::toString() const {
