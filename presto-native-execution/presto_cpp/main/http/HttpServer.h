@@ -18,7 +18,7 @@
 #include <proxygen/httpserver/ResponseBuilder.h>
 #include <re2/re2.h>
 #include <wangle/ssl/SSLContextConfig.h>
-#include "presto_cpp/external/json/nlohmann/json.hpp"
+#include "presto_cpp/external/json/json.hpp"
 #include "presto_cpp/main/http/HttpConstants.h"
 
 namespace facebook::presto::http {
