@@ -15,7 +15,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
-#include "presto_cpp/external/json/nlohmann/json.hpp"
+#include "presto_cpp/external/json/json.hpp"
 #include "velox/common/file/File.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/FlatVector.h"
