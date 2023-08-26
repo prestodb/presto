@@ -158,7 +158,8 @@ void PrestoServer::run() {
     httpExecThreads = systemConfig->httpExecThreads();
     environment_ = nodeConfig->nodeEnvironment();
     nodeId_ = nodeConfig->nodeId();
-    address_ = nodeConfig->nodeIp(std::bind(&PrestoServer::getLocalIp, this));
+    address_ = nodeConfig->nodeInternalAddress(
+        std::bind(&PrestoServer::getLocalIp, this));
     // Add [] to an ipv6 address.
     if (address_.find(':') != std::string::npos && address_.front() != '[') {
       address_ = fmt::format("[{}]", address_);
