@@ -532,7 +532,7 @@ class TaskManagerTest : public testing::Test {
     auto nodeConfigFile = fileSystem->openFileForWrite(nodeConfigFilePath);
     nodeConfigFile->append(fmt::format(
         "{}={}\n{}={}",
-        NodeConfig::kNodeIp,
+        NodeConfig::kNodeInternalAddress,
         "192.16.7.66",
         NodeConfig::kNodeId,
         "12"));

@@ -564,6 +564,7 @@ NodeConfig::NodeConfig() {
           NONE_PROP(kNodeEnvironment),
           NONE_PROP(kNodeId),
           NONE_PROP(kNodeIp),
+          NONE_PROP(kNodeInternalAddress),
           NONE_PROP(kNodeLocation),
           NONE_PROP(kNodeMemoryGb),
       };
@@ -586,16 +587,21 @@ std::string NodeConfig::nodeLocation() const {
   return requiredProperty(kNodeLocation);
 }
 
-std::string NodeConfig::nodeIp(
+std::string NodeConfig::nodeInternalAddress(
     const std::function<std::string()>& defaultIp) const {
-  auto resultOpt = optionalProperty(kNodeIp);
+  auto resultOpt = optionalProperty(kNodeInternalAddress);
+  /// node.ip(kNodeIp) is legacy config replaced with node.internal-address, but
+  /// still valid config in Presto, so handling both.
+  if (!resultOpt.hasValue()) {
+    resultOpt = optionalProperty(kNodeIp);
+  }
   if (resultOpt.has_value()) {
     return resultOpt.value();
   } else if (defaultIp != nullptr) {
     return defaultIp();
   } else {
     VELOX_FAIL(
-        "Node IP was not found in NodeConfigs. Default IP was not provided "
+        "Node Internal Address or IP was not found in NodeConfigs. Default IP was not provided "
         "either.");
   }
 }

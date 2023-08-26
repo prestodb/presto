@@ -21,7 +21,7 @@ namespace facebook::presto::test {
 
 using namespace velox;
 
-class SystemConfigTest : public testing::Test {
+class ConfigTest : public testing::Test {
  protected:
   void setUpConfigFile(bool isMutable) {
     velox::filesystems::registerLocalFileSystem();
@@ -48,7 +48,7 @@ class SystemConfigTest : public testing::Test {
   }
 
   void init(
-      SystemConfig& config,
+      ConfigBase& config,
       std::unordered_map<std::string, std::string> properties) {
     config.initialize(std::make_unique<core::MemConfig>(std::move(properties)));
   }
@@ -58,7 +58,7 @@ class SystemConfigTest : public testing::Test {
   const std::string prestoVersion2{"SystemConfigTest2"};
 };
 
-TEST_F(SystemConfigTest, defaultConfig) {
+TEST_F(ConfigTest, defaultSystemConfig) {
   setUpConfigFile(false);
   auto systemConfig = SystemConfig::instance();
   systemConfig->initialize(configFilePath);
@@ -72,7 +72,7 @@ TEST_F(SystemConfigTest, defaultConfig) {
       VeloxException);
 }
 
-TEST_F(SystemConfigTest, mutableConfig) {
+TEST_F(ConfigTest, mutableSystemConfig) {
   setUpConfigFile(true);
   auto systemConfig = SystemConfig::instance();
   systemConfig->initialize(configFilePath);
@@ -95,7 +95,7 @@ TEST_F(SystemConfigTest, mutableConfig) {
       systemConfig->setValue("unregisteredProp1", "x"), VeloxException);
 }
 
-TEST_F(SystemConfigTest, requiredConfigs) {
+TEST_F(ConfigTest, requiredSystemConfigs) {
   SystemConfig config;
   init(config, {});
 
@@ -111,7 +111,7 @@ TEST_F(SystemConfigTest, requiredConfigs) {
   ASSERT_EQ(config.httpServerHttpPort(), 8080);
 }
 
-TEST_F(SystemConfigTest, optionalConfigs) {
+TEST_F(ConfigTest, optionalSystemConfigs) {
   SystemConfig config;
   init(config, {});
   ASSERT_EQ(folly::none, config.discoveryUri());
@@ -120,7 +120,30 @@ TEST_F(SystemConfigTest, optionalConfigs) {
   ASSERT_EQ(config.discoveryUri(), "my uri");
 }
 
-TEST_F(SystemConfigTest, optionalWithDefault) {
+TEST_F(ConfigTest, optionalNodeConfigs) {
+  NodeConfig config;
+  init(config, {});
+  ASSERT_EQ(config.nodeInternalAddress([]() { return "0.0.0.0"; }), "0.0.0.0");
+
+  init(config, {{std::string(NodeConfig::kNodeInternalAddress), "localhost"}});
+  ASSERT_EQ(
+      config.nodeInternalAddress([]() { return "0.0.0.0"; }), "localhost");
+
+  // "node.internal-address" is the new config replacing legacy config "node.ip"
+  init(
+      config,
+      {{std::string(NodeConfig::kNodeInternalAddress), "localhost"},
+       {std::string(NodeConfig::kNodeIp), "127.0.0.1"}});
+  ASSERT_EQ(
+      config.nodeInternalAddress([]() { return "0.0.0.0"; }), "localhost");
+
+  // make sure "node.ip" works too
+  init(config, {{std::string(NodeConfig::kNodeIp), "127.0.0.1"}});
+  ASSERT_EQ(
+      config.nodeInternalAddress([]() { return "0.0.0.0"; }), "127.0.0.1");
+}
+
+TEST_F(ConfigTest, optionalSystemConfigsWithDefault) {
   SystemConfig config;
   init(config, {});
   ASSERT_EQ(config.maxDriversPerTask(), 16);
@@ -128,7 +151,7 @@ TEST_F(SystemConfigTest, optionalWithDefault) {
   ASSERT_EQ(config.maxDriversPerTask(), 1024);
 }
 
-TEST_F(SystemConfigTest, remoteFunctionServer) {
+TEST_F(ConfigTest, remoteFunctionServer) {
   SystemConfig config;
   init(config, {});
   ASSERT_EQ(folly::none, config.remoteFunctionServerLocation());
