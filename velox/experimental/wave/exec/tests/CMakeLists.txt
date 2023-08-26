@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_wave_exec_test FilterProjectTest.cpp)
+add_executable(velox_wave_exec_test FilterProjectTest.cpp Main.cpp)
 
 set_target_properties(velox_wave_exec_test PROPERTIES CUDA_ARCHITECTURES native)
 

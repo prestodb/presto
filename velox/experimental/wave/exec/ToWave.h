@@ -44,13 +44,30 @@ class CompileState {
       const TypePtr& type,
       const std::string& label = "");
 
+  Program* newProgram();
+
   Value toValue(const exec::Expr& expr);
 
-  AbstractOperand* addIdentityProjections(Value value, Program* definedIn);
+  AbstractOperand* addIdentityProjections(Value value);
   AbstractOperand* findCurrentValue(Value value);
   AbstractOperand* addExpr(const exec::Expr& expr);
 
-  void addExprSet(const exec::ExprSet& set, int32_t begin, int32_t end);
+  void addInstruction(
+      std::unique_ptr<AbstractInstruction> instruction,
+      AbstractOperand* result,
+      const std::vector<Program*>& inputs);
+
+  std::vector<AbstractOperand*>
+  addExprSet(const exec::ExprSet& set, int32_t begin, int32_t end);
+  std::vector<std::vector<ProgramPtr>> makeLevels(int32_t startIndex);
+
+  GpuArena& arena() const {
+    return *arena_;
+  }
+
+  int numOperators() const {
+    return operators_.size();
+  }
 
   GpuArena& arena() {
     return *arena_;
@@ -60,8 +77,24 @@ class CompileState {
   bool
   addOperator(exec::Operator* op, int32_t& nodeIndex, RowTypePtr& outputType);
 
-  void addFilterProject(exec::Operator* op);
+  void addFilterProject(
+      exec::Operator* op,
+      RowTypePtr outputType,
+      int32_t& nodeIndex);
+
   bool reserveMemory();
+
+  // Adds 'instruction' to the suitable program and records the result
+  // of the instruction to the right program. The set of programs
+  // 'instruction's operands depend is in 'programs'. If 'instruction'
+  // depends on all immutable programs, start a new one. If all
+  // dependences are from the same open program, add the instruction
+  // to that. If Only one of the programs is mutable, ad the
+  // instruction to that.
+  void addInstruction(
+      std::unique_ptr<Instruction> instruction,
+      const AbstractOperand* result,
+      const std::vector<Program*>& inputs);
 
   std::unique_ptr<GpuArena> arena_;
   // The operator and output operand where the Value is first defined.
@@ -72,16 +105,13 @@ class CompileState {
   folly::F14FastMap<Value, AbstractOperand*, ValueHasher, ValueComparer>
       projectedTo_;
 
-  folly::F14FastMap<AbstractOperand*, std::shared_ptr<Program>> definedIn_;
-
-  // The programs that cam be added to. Any programs from previous operators
-  // after which there is no cardinality change or shuffle.
-  folly::F14FastMap<Value, std::shared_ptr<Program>, ValueHasher, ValueComparer>
-      openPrograms_;
+  folly::F14FastMap<AbstractOperand*, Program*> definedIn_;
 
   const exec::DriverFactory& driverFactory_;
   exec::Driver& driver_;
   SubfieldMap subfields_;
+
+  std::vector<ProgramPtr> allPrograms_;
 
   // All AbstractOperands. Handed off to WaveDriver after plan conversion.
   std::vector<std::unique_ptr<AbstractOperand>> operands_;

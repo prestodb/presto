@@ -15,6 +15,7 @@
  */
 
 #include "velox/experimental/wave/vector/WaveVector.h"
+#include "velox/common/base/SimdUtil.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::wave {
@@ -50,10 +51,20 @@ void WaveVector::toOperand(Operand* operand) const {
   if (encoding_ == VectorEncoding::Simple::FLAT) {
     operand->indexMask = ~0;
     operand->base = values_->as<int64_t>();
-    operand->base = nulls_ ? nulls_->as<uint8_t>() : nullptr;
+    operand->nulls = nulls_ ? nulls_->as<uint8_t>() : nullptr;
     operand->indices = nullptr;
   } else {
     VELOX_UNSUPPORTED();
+  }
+}
+
+void toBits(uint64_t* words, int32_t numBytes) {
+  auto data = reinterpret_cast<uint8_t*>(words);
+  auto zero = xsimd::broadcast<uint8_t>(0);
+  for (auto i = 0; i < numBytes; i += xsimd::batch<uint8_t>::size) {
+    auto flags = xsimd::batch<uint8_t>::load_unaligned(data) != zero;
+    uint32_t bits = simd::toBitMask(flags);
+    reinterpret_cast<uint32_t*>(words)[i / sizeof(flags)] = bits;
   }
 }
 
@@ -69,6 +80,9 @@ static VectorPtr toVeloxTyped(
   BufferPtr nullsView;
   if (nulls) {
     nullsView = WaveBufferView::create(nulls);
+    toBits(
+        const_cast<uint64_t*>(nullsView->as<uint64_t>()),
+        nullsView->capacity());
   }
   BufferPtr valuesView;
   if (values) {

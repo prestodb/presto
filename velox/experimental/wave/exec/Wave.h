@@ -25,6 +25,7 @@
 #include "velox/experimental/wave/common/GpuArena.h"
 #include "velox/experimental/wave/exec/ExprKernel.h"
 #include "velox/experimental/wave/vector/WaveVector.h"
+
 namespace facebook::velox::wave {
 
 // A value a kernel can depend on. Either a dedupped exec::Expr or a dedupped
@@ -58,13 +59,6 @@ struct ValueComparer {
   }
 };
 
-struct BufferReference {
-  // Ordinal of the instruction that assigns a value to the Operand.
-  int32_t insruction;
-  // Offset of Operand struct in the executable image.
-  int32_t offset;
-};
-
 struct Transfer {
   Transfer(const void* from, void* to, size_t size)
       : from(from), to(to), size(size) {}
@@ -96,22 +90,32 @@ struct Executable {
       std::vector<Transfer>&& transfers,
       WaveStream& stream);
 
+  // Clear state to prepare for reuse.
+  void reuse() {
+    operands = nullptr;
+    stream = nullptr;
+  }
+
+  // The Program this is an invocationn of. nullptr if 'this' represents a data
+  // transfer.
+  std::shared_ptr<Program> programShared;
+
   ThreadBlockProgram* program{nullptr};
 
-  // All device side memory. Instructions, operands, everything except buffers
-  // for input/intermediate/output buffers.
+  // Device memory if not owned by 'programShared_'.
   WaveBufferPtr deviceData;
 
   // Operand ids for inputs.
   OperandSet inputOperands;
 
+  // Operand ids for local intermediates.
+  OperandSet localOperands;
+
   // Operand ids for outputs.
   OperandSet outputOperands;
 
-  // Unified memory Operand structs. First input, then output. the instructions
-  // in 'program' reference these. The device side memory is referenced as raw
-  // pointers and its ownership is managed by 'intermediates' and 'output'
-  // below.
+  // Unified memory Operand structs for intermediates/outputs. These
+  // are a contiguous array of Operand in LaunchControl of 'this'
   Operand* operands;
 
   // Backing memory for intermediate Operands. Free when 'this' arrives. If
@@ -139,56 +143,101 @@ struct Executable {
   std::function<void(std::unique_ptr<Executable>&)> releaser;
 };
 
-class Program {
+class Program : public std::enable_shared_from_this<Program> {
  public:
   void add(std::unique_ptr<AbstractInstruction> instruction) {
     instructions_.push_back(std::move(instruction));
   }
 
-  // Initialized executableImage and relocation information and places for
-  // parameters.
-  void prepareForDevice(GpuArena& arena);
-
-  std::unique_ptr<Executable> instantiate(GpuArena& arena);
-
-  // Patches device side 'instance' to reference newly allocated buffers for up
-  // to 'numRows' of result data starting at instruction at 'continuePoint'.
-  void setBuffers(
-      ThreadBlockProgram* instance,
-      int32_t continuePoint,
-      int32_t numRows);
-
-  const std::vector<Value>& dependsOn() const {
+  const std::vector<Program*>& dependsOn() const {
     return dependsOn_;
   }
 
-  AbstractOperand* findOperand(const Value& value) {
-    return nullptr;
+  void addSource(Program* source) {
+    if (std::find(dependsOn_.begin(), dependsOn_.end(), source) !=
+        dependsOn_.end()) {
+      return;
+    }
+    dependsOn_.push_back(source);
   }
 
-  std::vector<Value> dependsOn_;
+  // Initializes executableImage and relocation information and places for
+  // parameters.
+  void prepareForDevice(GpuArena& arena);
+
+  std::unique_ptr<Executable> getExecutable(
+      int32_t maxRows,
+      const std::vector<std::unique_ptr<AbstractOperand>>& operands);
+
+  ThreadBlockProgram* threadBlockProgram() {
+    return program_;
+  }
+
+  /// True if instructions can be added.
+  bool isMutable() const {
+    return isMutable_;
+  }
+
+  /// Disallows adding instructions to 'this'. For example, a program in an
+  /// operator before a cardinality chaning operator cannot get more
+  /// instructions from code after the cardinality change.
+  void freeze() {
+    isMutable_ = false;
+  }
+
+  void releaseExe(std::unique_ptr<Executable>&& exe) {
+    prepared_.push_back(std::move(exe));
+  }
+
+  int32_t sharedMemorySize() const {
+    return sharedMemorySize_;
+  }
+
+  const folly::F14FastMap<AbstractOperand*, int32_t>& localAndOutput() const {
+    return local_;
+  }
+
+ private:
+  GpuArena* arena_{nullptr};
+  std::vector<Program*> dependsOn_;
   folly::F14FastMap<Value, AbstractOperand*, ValueHasher, ValueComparer>
       produces_;
   std::vector<std::unique_ptr<AbstractInstruction>> instructions_;
+  bool isMutable_{true};
 
-  // Relocation info.The first int is the offset of a pointer in the executable
-  // representation .The secon is the offset it points to inside the
-  // representation.
-  std::vector<std::pair<int32_t, int32_t>> relocation_;
+  // Adds 'op' to 'input' if it is not produced by one in 'local'
+  void markInput(AbstractOperand* op);
+  // Adds 'op' to 'local_'
+  void markResult(AbstractOperand* op);
+  void sortSlots();
 
-  // FDescribes the places in the executable image that need a WaveBuffer's
-  // address to be patched in before execution.
-  std::vector<BufferReference> buffers;
-  // Bytes to copy to device. The relocations and buffer reference patches given
-  // in 'relocations_' and 'buffers_' must be applied to the image before
-  // starting a kernel interpreting the image.
-  std::vector<uint64_t> executableImage_;
+  OperandIndex operandIndex(AbstractOperand* op) const;
 
-  // The size of the device side contiguous memory for 'this'.
-  int32_t sizeOnDevice_{0};
+  // Input Operand  to offset in operands array.
+  folly::F14FastMap<AbstractOperand*, int32_t> input_;
+
+  // Local/output Operand offset in operands array.
+  folly::F14FastMap<AbstractOperand*, int32_t> local_;
+
+  // Owns device side 'threadBlockProgram_'
+  WaveBufferPtr deviceData_;
+
+  // Device resident program.
+  ThreadBlockProgram* program_;
+
+  int32_t sharedMemorySize_{0};
+  // Serializes 'prepared_'. Access on WaveStrea, is single threaded but sharing
+  // Programs across WaveDrivers makes sense, so make the preallocated resource
+  // thread safe.
+  std::mutex mutex_;
+
+  // a pool of ready to run executables.
+  std::vector<std::unique_ptr<Executable>> prepared_;
 };
 
 using ProgramPtr = std::shared_ptr<Program>;
+
+struct LaunchControl;
 
 /// Represents consecutive data dependent kernel launches.
 class WaveStream {
@@ -258,6 +307,35 @@ class WaveStream {
   static std::unique_ptr<Stream> streamFromReserve();
   static void releaseStream(std::unique_ptr<Stream>&& stream);
 
+  /// Takes ownership of 'buffer' and keeps it until return of all kernels. Used
+  /// for keeping working memory passed to kernels live for the duration.
+  void addExtraData(int32_t key, WaveBufferPtr buffer) {
+    extraData_[key] = std::move(buffer);
+  }
+  /// Makes a parameter block for multiple program launch. Sends the
+  /// data to the device on 'stream' Keeps the record associated with
+  /// 'key'. The record contains return status blocks for errors and
+  /// row counts. The LaunchControl is in host memory, the arrays
+  /// referenced from it are in unified memory, owned by
+  /// LaunchControl. 'key' identifies the issuing
+  /// WaveOperator. 'inputRows' is the logical number of input rows,
+  /// not all TBs are necessarily full. 'exes' are the programs
+  /// launched together, e.g. different exprs on different
+  /// columns. 'blocks{PerExe' is the number of TBs running each exe. 'stream'
+  /// enqueus the data transfer.
+  LaunchControl* prepareProgramLaunch(
+      int32_t key,
+      int32_t inputRows,
+      folly::Range<Executable**> exes,
+      int32_t blocksPerExe,
+      bool initstatus,
+      Stream* stream);
+
+  const std::vector<std::unique_ptr<LaunchControl>>& launchControls(
+      int32_t key) {
+    return launchControl_[key];
+  }
+
  private:
   Event* newEvent();
 
@@ -286,6 +364,51 @@ class WaveStream {
   // all events recorded on any stream. Events, once seen realized, are moved
   // back to reserve from here.
   folly::F14FastSet<Event*> allEvents_;
+
+  // invocation record with return status blocks for programs. Used for getting
+  // errors and filter cardinalities on return of  specific exes.
+  folly::F14FastMap<int32_t, std::vector<std::unique_ptr<LaunchControl>>>
+      launchControl_;
+
+  folly::F14FastMap<int32_t, WaveBufferPtr> extraData_;
+};
+
+/// Describes all the control data for launching a kernel executing
+/// ThreadBlockPrograms. This is a single piece of unified memory with several
+/// arrays with one entry per thread block. The arrays are passsed as parameters
+/// to the kernel call. The layout is:
+///
+//// Array of block bases, one per TB. Array of exe indices, one per
+//// TB. Arrray of ThreadBlockProgram, one per exe. Number of input
+//// operands, one per exe. Array of Operand pointers, one array per
+//// exe. Arrray of non input Operands,. The operands array of each
+//// exe points here.  This is filled in by host to refer to
+//// WaveVectors in each exe. Array of TB return status blocks, one
+//// per TB.
+struct LaunchControl {
+  int32_t key;
+
+  int32_t inputRows;
+
+  /// The first thread block with the program.
+  int32_t* blockBase;
+  // The ordinal of the program. All blocks with the same program have the same
+  // number here.
+  int32_t* programIdx;
+
+  // The TB program for each exe.
+  ThreadBlockProgram** programs;
+
+  // For each exe, the start of the array of Operand*. Instructions reference
+  // operands via offset in this array.//
+  Operand*** operands;
+
+  // the status return block for each TB.
+  BlockStatus* status;
+  int32_t sharedMemorySize{0};
+
+  // Storage for all the above in a contiguous unified memory piece.
+  WaveBufferPtr deviceData;
 };
 
 } // namespace facebook::velox::wave

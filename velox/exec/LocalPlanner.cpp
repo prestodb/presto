@@ -612,7 +612,7 @@ std::vector<std::unique_ptr<Operator>> DriverFactory::replaceOperators(
 
   // Set the ids to be consecutive.
   for (auto i = 0; i < driver.operators_.size(); ++i) {
-    driver.operators_[i]->stats().wlock()->operatorId = i;
+    driver.operators_[i]->setOperatorIdFromAdapter(i);
   }
   return replaced;
 }

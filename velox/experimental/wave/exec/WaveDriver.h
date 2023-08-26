@@ -33,6 +33,7 @@ class WaveDriver : public exec::SourceOperator {
       int32_t operatorId,
       std::unique_ptr<GpuArena> arena,
       std::vector<std::unique_ptr<WaveOperator>> waveOperators,
+      std::vector<OperandId> resultOrder_,
       SubfieldMap subfields,
       std::vector<std::unique_ptr<AbstractOperand>> operands);
 
@@ -57,6 +58,15 @@ class WaveDriver : public exec::SourceOperator {
   GpuArena& arena() const {
     return *arena_;
   }
+
+  const std::vector<std::unique_ptr<AbstractOperand>>& operands() {
+    return operands_;
+  }
+
+  /// Returns the control block with thread block level sizes and statuses for
+  /// input of  operator with id 'operator'. This is te control for the source
+  /// or previous cardinality change.
+  LaunchControl* inputControl(WaveStream& stream, int32_t operatorId);
 
   std::string toString() const override;
 
@@ -103,6 +113,10 @@ class WaveDriver : public exec::SourceOperator {
 
   // The replaced Operators from the Driver. Can be used for a CPU fallback.
   std::vector<std::unique_ptr<exec::Operator>> cpuOperators_;
+
+  // Top level column order in getOutput result.
+  std::vector<OperandId> resultOrder_;
+
   // Dedupped Subfields. Handed over by CompileState.
   SubfieldMap subfields_;
   // Operands handed over by compilation.

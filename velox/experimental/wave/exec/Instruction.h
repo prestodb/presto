@@ -50,6 +50,11 @@ struct AbstractOperand {
 struct AbstractInstruction {
   AbstractInstruction(OpCode opCode) : opCode(opCode) {}
 
+  template <typename T>
+  T& as() {
+    return *reinterpret_cast<T*>(this);
+  }
+
   OpCode opCode;
 };
 
@@ -83,6 +88,8 @@ struct AbstractBinary : public AbstractInstruction {
   AbstractOperand* left;
   AbstractOperand* right;
   AbstractOperand* result;
+  AbstractOperand* predicate{nullptr};
+  bool invert{false};
 };
 
 } // namespace facebook::velox::wave

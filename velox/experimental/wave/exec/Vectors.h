@@ -44,6 +44,13 @@ void ensureVectors(
     folly::Range<Operand*> operands,
     GpuArena& arena);
 
+void ensureWaveVector(
+    WaveVectorPtr& waveVector,
+    const TypePtr& type,
+    vector_size_t size,
+    bool nullable,
+    GpuArena& arena);
+
 // Patches the position at 'offset' in 'code' to be a new uninitialized device
 // array of int32_t of at least 'size' elements.
 void allocateIndirection(

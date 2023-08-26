@@ -27,6 +27,7 @@ WaveDriver::WaveDriver(
     int32_t operatorId,
     std::unique_ptr<GpuArena> arena,
     std::vector<std::unique_ptr<WaveOperator>> waveOperators,
+    std::vector<OperandId> resultOrder,
     SubfieldMap subfields,
     std::vector<std::unique_ptr<AbstractOperand>> operands)
     : exec::SourceOperator(
@@ -36,6 +37,7 @@ WaveDriver::WaveDriver(
           planNodeId,
           "Wave"),
       arena_(std::move(arena)),
+      resultOrder_(std::move(resultOrder)),
       subfields_(std::move(subfields)),
       operands_(std::move(operands)) {
   VELOX_CHECK(!waveOperators.empty());
@@ -58,7 +60,7 @@ RowVectorPtr WaveDriver::getOutput() {
         continue;
       }
       auto& op = *pipelines_[i].operators.back();
-      auto& lastSet = op.outputIds();
+      auto& lastSet = op.syncSet();
       auto& streams = pipelines_[i].streams;
       for (auto it = streams.begin(); it != streams.end();) {
         auto& stream = *it;
@@ -88,6 +90,7 @@ RowVectorPtr WaveDriver::getOutput() {
       running = true;
     }
     if (!running) {
+      finished_ = true;
       return nullptr;
     }
   }
@@ -122,16 +125,16 @@ RowVectorPtr WaveDriver::makeResult(
       operatorCtx_->pool(),
       rowType,
       BufferPtr(nullptr),
-      last.outputSize(),
+      last.outputSize(stream),
       std::move(children));
   int32_t nthChild = 0;
-  lastSet.forEach([&](int32_t id) {
+  for (auto id : resultOrder_) {
     auto exe = stream.operandExecutable(id);
     VELOX_CHECK_NOT_NULL(exe);
     auto ordinal = exe->outputOperands.ordinal(id);
     auto waveVector = std::move(exe->output[ordinal]);
     result->childAt(nthChild++) = waveVector->toVelox(operatorCtx_->pool());
-  });
+  };
   return result;
 }
 
@@ -154,6 +157,25 @@ void WaveDriver::startMore() {
 
 void WaveDriver::prefetchReturn(WaveStream& stream) {
   // Schedule return buffers from last op to be on host side.
+}
+
+LaunchControl* WaveDriver::inputControl(
+    WaveStream& stream,
+    int32_t operatorId) {
+  for (auto& pipeline : pipelines_) {
+    if (operatorId > pipeline.operators.back()->operatorId()) {
+      continue;
+    }
+    operatorId -= pipeline.operators[0]->operatorId();
+    VELOX_CHECK_LT(0, operatorId, "Op 0 has no input control");
+    for (auto i = operatorId - 1; i >= 0; --i) {
+      if (i == 0 || pipeline.operators[i]->isFilter() ||
+          pipeline.operators[i]->isExpanding()) {
+        return stream.launchControls(i).back().get();
+      }
+    }
+  }
+  VELOX_FAIL();
 }
 
 std::string WaveDriver::toString() const {

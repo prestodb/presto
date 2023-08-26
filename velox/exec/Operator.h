@@ -203,6 +203,12 @@ class OperatorCtx {
     return operatorId_;
   }
 
+  /// Sets operatorId. The use is limited to renumbering operators from
+  /// DriverAdapter. Do not use outside of this.
+  void setOperatorIdFromAdapter(int32_t id) {
+    operatorId_ = id;
+  }
+
   const std::string& operatorType() const {
     return operatorType_;
   }
@@ -221,7 +227,7 @@ class OperatorCtx {
  private:
   DriverCtx* const driverCtx_;
   const core::PlanNodeId planNodeId_;
-  const int32_t operatorId_;
+  int32_t operatorId_;
   const std::string operatorType_;
   velox::memory::MemoryPool* const pool_;
 
@@ -451,6 +457,13 @@ class Operator : public BaseRuntimeStatWriter {
 
   const int32_t operatorId() const {
     return operatorCtx_->operatorId();
+  }
+
+  /// Sets operator id. Use is limited to renumbering Operators from
+  /// DriverAdapter. Do not use outside of this.
+  void setOperatorIdFromAdapter(int32_t id) {
+    operatorCtx_->setOperatorIdFromAdapter(id);
+    stats().wlock()->operatorId = id;
   }
 
   const std::string& operatorType() const {

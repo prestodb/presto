@@ -100,16 +100,37 @@ class WaveOperator {
     driver_ = driver;
   }
 
-  // Returns the number of non-filtered out result rows. The actual result rows
-  // may be non-contiguous in the result vectors and may need indirection to
-  // access, as seen in output operands of the corresponding executables.
-  virtual vector_size_t outputSize() const = 0;
+  // Returns the number of non-filtered out result rows in the invocation inside
+  // 'stream'. 'this' must have had schedule() called with the same stream and
+  // the stream must have arrived. The actual result rows may be non-contiguous
+  // in the result vectors and may need indirection to access, as seen in output
+  // operands of the corresponding executables.
+  virtual vector_size_t outputSize(WaveStream& stream) const = 0;
 
   const OperandSet& outputIds() const {
     return outputIds_;
   }
 
+  // The set of output operands that must have arrived for there to be a result.
+  virtual const OperandSet& syncSet() const {
+    return outputIds_;
+  }
+
+  /// Called once on each Operator, fiest to last, after no more
+  /// Operators will be added to the WaveDriver plan. Can be used for
+  /// e.g. making executable images of Programs since their content
+  /// and dependences will no longer change.
+  virtual void finalize(CompileState& state) {}
+
+  int32_t operatorId() const {
+    return id_;
+  }
+
  protected:
+  // Sequence number in WaveOperator sequence inside WaveDriver. IUsed to label
+  // states of different oprators in WaveStream.
+  int32_t id_;
+
   WaveDriver* driver_{nullptr};
 
   // The Subfields that are produced. Different ones can arrive at

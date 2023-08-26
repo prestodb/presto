@@ -31,16 +31,26 @@ template <typename T, typename OpFunc>
 __device__ inline void binaryOpKernel(
     OpFunc func,
     IBinary& op,
+    Operand** operands,
     int32_t blockBase,
     char* shared,
-    BlockStatus* status) {}
+    BlockStatus* status) {
+  if (threadIdx.x >= status->numRows) {
+    return;
+  }
+  flatResult<T>(operands, op.result, blockBase, shared) = func(
+      getOperand<T>(operands, op.left, blockBase, shared),
+      getOperand<T>(operands, op.right, blockBase, shared));
+}
 
 __device__ void filterKernel(
     const IFilter& filter,
+    Operand** operands,
     int32_t blockBase,
     char* shared,
     int32_t& numRows) {
-  auto* flags = filter.flags;
+  auto* flags = operands[filter.flags];
+  auto* indices = operands[filter.indices];
   if (flags->nulls) {
     boolBlockToIndices<kBlockSize>(
         [&]() -> uint8_t {
@@ -50,7 +60,7 @@ __device__ void filterKernel(
                   flatValue<uint8_t>(flags->nulls, blockBase);
         },
         blockBase,
-        filter.indices + blockBase,
+        reinterpret_cast<int32_t*>(indices->base) + blockBase,
         shared,
         numRows);
   } else {
@@ -61,46 +71,57 @@ __device__ void filterKernel(
               : flatValue<uint8_t>(flags->base, blockBase);
         },
         blockBase,
-        filter.indices + blockBase,
+        reinterpret_cast<int32_t*>(indices->base) + blockBase,
         shared,
         numRows);
   }
 }
 
-__device__ void wrapKernel(IWrap& wrap, int32_t blockBase, int32_t& numRows) {}
-
-#define OP_MIX(op, t) \
-  static_cast<OpCode>(static_cast<int32_t>(t) + 8 * static_cast<int32_t>(op))
+__device__ void wrapKernel(
+    IWrap& wrap,
+    Operand** operands,
+    int32_t blockBase,
+    int32_t& numRows) {}
 
 #define BINARY_TYPES(opCode, OP)                             \
-  case OP_MIX(opCode, ScalarType::kInt32):                   \
-    binaryOpKernel<int32_t>(                                 \
+  case OP_MIX(opCode, ScalarType::kInt64):                   \
+    binaryOpKernel<int64_t>(                                 \
         [](auto left, auto right) { return left OP right; }, \
         instruction->_.binary,                               \
+        operands,                                            \
         blockBase,                                           \
         shared,                                              \
         status);                                             \
     break;
 
 __global__ void waveBaseKernel(
-    ThreadBlockProgram** programs,
     int32_t* baseIndices,
+    int32_t* programIndices,
+    ThreadBlockProgram** programs,
+    Operand*** programOperands,
     BlockStatus* blockStatusArray) {
   using ScanAlgorithm = cub::BlockScan<int, 256, cub::BLOCK_SCAN_RAKING>;
   extern __shared__ __align__(
       alignof(typename ScanAlgorithm::TempStorage)) char shared[];
-  auto* program = programs[blockIdx.x];
-  auto* status = &blockStatusArray[blockIdx.x];
+  int programIndex = programIndices[blockIdx.x];
+  auto* program = programs[programIndex];
+  auto* operands = programOperands[programIndex];
+  auto* status = &blockStatusArray[blockIdx.x - baseIndices[blockIdx.x]];
   int32_t blockBase = (blockIdx.x - baseIndices[blockIdx.x]) * blockDim.x;
   for (auto i = 0; i < program->numInstructions; ++i) {
     auto instruction = program->instructions[i];
     switch (instruction->opCode) {
       case OpCode::kFilter:
-        filterKernel(instruction->_.filter, blockBase, shared, status->numRows);
+        filterKernel(
+            instruction->_.filter,
+            operands,
+            blockBase,
+            shared,
+            status->numRows);
         break;
 
       case OpCode::kWrap:
-        wrapKernel(instruction->_.wrap, blockBase, status->numRows);
+        wrapKernel(instruction->_.wrap, operands, blockBase, status->numRows);
         break;
 
         BINARY_TYPES(OpCode::kPlus, +);
@@ -111,8 +132,10 @@ __global__ void waveBaseKernel(
 void WaveKernelStream::call(
     Stream* alias,
     int32_t numBlocks,
+    int32_t* bases,
+    int32_t* programIdx,
     ThreadBlockProgram** programs,
-    int32_t* baseIndices,
+    Operand*** operands,
     BlockStatus* status,
     int32_t sharedSize) {
   waveBaseKernel<<<
@@ -120,7 +143,7 @@ void WaveKernelStream::call(
       kBlockSize,
       sharedSize,
       alias ? alias->stream()->stream : stream()->stream>>>(
-      programs, baseIndices, status);
+      bases, programIdx, programs, operands, status);
 }
 
 } // namespace facebook::velox::wave

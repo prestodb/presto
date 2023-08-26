@@ -15,10 +15,18 @@
  */
 
 #include "velox/experimental/wave/exec/Wave.h"
+#include "velox/experimental/wave/exec/Vectors.h"
 
 namespace facebook::velox::wave {
 
 WaveStream::~WaveStream() {
+  // TODO: wait for device side work to finish before freeing associated memory
+  // owned by exes and buffers in 'this'.
+  for (auto& exe : executables_) {
+    if (exe->releaser) {
+      exe->releaser(exe);
+    }
+  }
   for (auto& stream : streams_) {
     releaseStream(std::move(stream));
   }
@@ -236,4 +244,277 @@ bool WaveStream::isArrived(
   return false;
 }
 
+template <typename T, typename U>
+T addBytes(U* p, int32_t bytes) {
+  return reinterpret_cast<T>(reinterpret_cast<uintptr_t>(p) + bytes);
+}
+
+LaunchControl* WaveStream::prepareProgramLaunch(
+    int32_t key,
+    int32_t inputRows,
+    folly::Range<Executable**> exes,
+    int32_t blocksPerExe,
+    bool initStatus,
+    Stream* stream) {
+  static_assert(Operand::kPointersInOperand * sizeof(void*) == sizeof(Operand));
+  int32_t shared = 0;
+
+  //  First calculate total size.
+  // 2 int arrays: blockBase, programIdx.
+  int32_t numBlocks = std::min<int32_t>(1, exes.size()) * blocksPerExe;
+  int32_t size = 2 * numBlocks * sizeof(int32_t);
+  auto exeOffset = size;
+  // 2 pointers per exe: TB program and start of its param array.
+  size += exes.size() * sizeof(void*) * 2;
+  auto operandOffset = size;
+  // Exe dependent sizes for parameters.
+  int32_t numTotalOps = 0;
+  for (auto& exe : exes) {
+    markLaunch(*stream, *exe);
+    shared = std::max(shared, exe->programShared->sharedMemorySize());
+    int32_t numIn = exe->inputOperands.size();
+    int numOps = numIn + exe->intermediates.size() + exe->outputOperands.size();
+    numTotalOps += numOps;
+    size += numOps * sizeof(void*) + (numOps - numIn) * sizeof(Operand);
+  }
+  int32_t statusOffset = 0;
+  if (initStatus) {
+    statusOffset = size;
+    //  Pointer to return block for each tB.
+    size += blocksPerExe * sizeof(BlockStatus);
+  }
+  auto buffer = arena_.allocate<char>(size);
+
+  auto controlUnique = std::make_unique<LaunchControl>();
+  auto& control = *controlUnique;
+
+  control.key = key;
+  control.inputRows = inputRows;
+  control.sharedMemorySize = shared;
+  // Now we fill in the various arrays and put their start addresses in
+  // 'control'.
+  auto start = buffer->as<int32_t>();
+  control.blockBase = start;
+  control.programIdx = start + numBlocks;
+  control.programs = addBytes<ThreadBlockProgram**>(
+      control.programIdx, numBlocks * sizeof(int32_t));
+  control.operands =
+      addBytes<Operand***>(control.programs, exes.size() * sizeof(void*));
+  int32_t fill = 0;
+  Operand** operandPtrBegin = addBytes<Operand**>(start, operandOffset);
+  Operand* operandArrayBegin =
+      addBytes<Operand*>(operandPtrBegin, numTotalOps * sizeof(void*));
+  if (initStatus) {
+    // If the launch produces new statuses (as opposed to updating status of a
+    // previous launch), there is an array with a status for each TB. If there
+    // are multiple exes, they all share the same error codes. A launch can have
+    // a single cardinality change, which will update the row counts in each TB.
+    // Writing errors is not serialized but each lane with at least one error
+    // will show one error.
+    control.status = addBytes<BlockStatus*>(start, statusOffset);
+    memset(control.status, 0, blocksPerExe * sizeof(BlockStatus));
+    for (auto i = 0; i < blocksPerExe; ++i) {
+      auto status = &control.status[i];
+      status->numRows =
+          i == blocksPerExe - 1 ? inputRows % kBlockSize : kBlockSize;
+    }
+  } else {
+    control.status = nullptr;
+  }
+  for (auto exeIdx = 0; exeIdx < exes.size(); ++exeIdx) {
+    auto exe = exes[exeIdx];
+    int32_t numIn = exe->inputOperands.size();
+    int32_t numLocal = exe->intermediates.size() + exe->outputOperands.size();
+    control.programs[exeIdx] = exe->program;
+    control.operands[exeIdx] = operandPtrBegin;
+    // We get the actual input operands for the exe from the exes this depends
+    // on
+    exe->inputOperands.forEach([&](int32_t id) {
+      auto* inputExe = operandToExecutable_[id];
+      int32_t ordinal = inputExe->outputOperands.ordinal(id);
+      *operandPtrBegin = &inputExe->operands[ordinal];
+      ++operandPtrBegin;
+    });
+    // We install the intermediates and outputs from the WaveVectors in the exe.
+    exe->operands = operandArrayBegin;
+    for (auto& vec : exe->intermediates) {
+      *operandPtrBegin = operandArrayBegin;
+      vec->toOperand(operandArrayBegin);
+      ++operandPtrBegin;
+      ++operandArrayBegin;
+    }
+    for (auto& vec : exe->output) {
+      *operandPtrBegin = operandArrayBegin;
+      vec->toOperand(operandArrayBegin);
+      ++operandPtrBegin;
+      ++operandArrayBegin;
+    }
+    for (auto tbIdx = 0; tbIdx < blocksPerExe; ++tbIdx) {
+      control.blockBase[fill] = exeIdx * blocksPerExe;
+      control.programIdx[fill] = exeIdx;
+    }
+  }
+  control.deviceData = std::move(buffer);
+  launchControl_[key].push_back(std::move(controlUnique));
+  return &control;
+}
+
+ScalarType typeKindCode(TypeKind kind) {
+  switch (kind) {
+    case TypeKind::BIGINT:
+      return ScalarType::kInt64;
+    default:
+      VELOX_UNSUPPORTED("Bad TypeKind {}", kind);
+  }
+}
+
+void Program::prepareForDevice(GpuArena& arena) {
+  int32_t codeSize = 0;
+  int32_t sharedMemorySize = 0;
+  for (auto& instruction : instructions_)
+    switch (instruction->opCode) {
+      case OpCode::kPlus: {
+        auto& bin = instruction->as<AbstractBinary>();
+        markInput(bin.left);
+        markInput(bin.right);
+        markResult(bin.result);
+        markInput(bin.predicate);
+        codeSize += sizeof(Instruction);
+        break;
+      }
+      default:
+        VELOX_UNSUPPORTED("OpCode {}", instruction->opCode);
+    }
+  sortSlots();
+  arena_ = &arena;
+  deviceData_ = arena.allocate<char>(
+      codeSize + instructions_.size() * sizeof(void*) +
+      sizeof(ThreadBlockProgram));
+  program_ = deviceData_->as<ThreadBlockProgram>();
+  auto instructionArray = addBytes<Instruction**>(program_, sizeof(*program_));
+  program_->sharedMemorySize = sharedMemorySize;
+  program_->numInstructions = instructions_.size();
+  program_->instructions = instructionArray;
+  Instruction* space = addBytes<Instruction*>(
+      instructionArray, instructions_.size() * sizeof(void*));
+  for (auto& instruction : instructions_) {
+    *instructionArray = space;
+    ++instructionArray;
+    switch (instruction->opCode) {
+      case OpCode::kPlus: {
+        auto& bin = instruction->as<AbstractBinary>();
+        auto typeCode = typeKindCode(bin.left->type->kind());
+        // Comstructed on host, no vtable.
+        space->opCode = OP_MIX(instruction->opCode, typeCode);
+        new (&space->_.binary) IBinary();
+        space->_.binary.left = operandIndex(bin.left);
+        space->_.binary.right = operandIndex(bin.right);
+        space->_.binary.result = operandIndex(bin.result);
+        ++space;
+        break;
+      }
+      default:
+        VELOX_UNSUPPORTED("Bad OpCode");
+    }
+  }
+}
+
+void Program::sortSlots() {
+  // Assigns offsets to input and local/output slots so that all
+  // input is first and output next and within input and output, the
+  // slots are ordered with lower operand id first. So, if inputs
+  // are slots 88 and 22 and outputs are 77 and 33, then the
+  // complete order is 22, 88, 33, 77.
+  std::vector<AbstractOperand*> ids;
+  for (auto& pair : input_) {
+    ids.push_back(pair.first);
+  }
+  std::sort(
+      ids.begin(),
+      ids.end(),
+      [](AbstractOperand*& left, AbstractOperand*& right) {
+        return left->id < right->id;
+      });
+  for (auto i = 0; i < ids.size(); ++i) {
+    input_[ids[i]] = i;
+  }
+  ids.clear();
+  for (auto& pair : local_) {
+    ids.push_back(pair.first);
+  }
+  std::sort(
+      ids.begin(),
+      ids.end(),
+      [](AbstractOperand*& left, AbstractOperand*& right) {
+        return left->id < right->id;
+      });
+  for (auto i = 0; i < ids.size(); ++i) {
+    local_[ids[i]] = i + input_.size();
+  }
+}
+
+OperandIndex Program::operandIndex(AbstractOperand* op) const {
+  auto it = input_.find(op);
+  if (it != input_.end()) {
+    return it->second;
+  }
+  it = local_.find(op);
+  if (it == local_.end()) {
+    VELOX_FAIL("Bad operand, offset not known");
+  }
+  return it->second;
+}
+
+void Program::markInput(AbstractOperand* op) {
+  if (!op) {
+    return;
+  }
+  if (!local_.count(op)) {
+    input_[op] = input_.size();
+  }
+}
+
+void Program::markResult(AbstractOperand* op) {
+  if (!local_.count(op)) {
+    local_[op] = local_.size();
+  }
+}
+
+std::unique_ptr<Executable> Program::getExecutable(
+    int32_t maxRows,
+    const std::vector<std::unique_ptr<AbstractOperand>>& operands) {
+  std::unique_ptr<Executable> exe;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    if (!prepared_.empty()) {
+      exe = std::move(prepared_.back());
+      prepared_.pop_back();
+    }
+  }
+  if (!exe) {
+    exe = std::make_unique<Executable>();
+    exe->programShared = shared_from_this();
+    exe->program = program_;
+    for (auto& pair : input_) {
+      exe->inputOperands.add(pair.first->id);
+    }
+    for (auto& pair : local_) {
+      exe->outputOperands.add(pair.first->id);
+    }
+    exe->output.resize(local_.size());
+    exe->releaser = [](std::unique_ptr<Executable>& ptr) {
+      auto program = ptr->programShared.get();
+      ptr->reuse();
+      program->releaseExe(std::move(ptr));
+    };
+
+  } // We have an exe, whether new or reused. Check the vectors.
+  int32_t nth = 0;
+  exe->outputOperands.forEach([&](int32_t id) {
+    ensureWaveVector(
+        exe->output[nth], operands[id]->type, maxRows, true, *arena_);
+    ++nth;
+  });
+  return exe;
+}
 } // namespace facebook::velox::wave

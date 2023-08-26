@@ -15,9 +15,55 @@
  */
 
 #include "velox/experimental/wave/exec/Project.h"
+#include "velox/experimental/wave/exec/ToWave.h"
+#include "velox/experimental/wave/exec/Wave.h"
+#include "velox/experimental/wave/exec/WaveDriver.h"
 
 namespace facebook::velox::wave {
 
-void Project::schedule(WaveStream& stream, int32_t maxRows) {}
+void Project::schedule(WaveStream& stream, int32_t maxRows) {
+  for (auto& level : levels_) {
+    std::vector<std::unique_ptr<Executable>> exes(level.size());
+    for (auto i = 0; i < level.size(); ++i) {
+      auto& program = level[i];
+      exes[i] = program->getExecutable(maxRows, driver_->operands());
+    }
+    auto blocksPerExe = bits::roundUp(maxRows, kBlockSize) / kBlockSize;
+    auto* data = exes.data();
+    auto range = folly::Range(data, data + exes.size());
+    stream.installExecutables(
+        range, [&](Stream* out, folly::Range<Executable**> exes) {
+          auto inputControl = driver_->inputControl(stream, id_);
+          auto control = stream.prepareProgramLaunch(
+              id_, maxRows, exes, blocksPerExe, false, out);
+          reinterpret_cast<WaveKernelStream*>(out)->call(
+              out,
+              exes.size() * blocksPerExe,
+              control->blockBase,
+              control->programIdx,
+              control->programs,
+              control->operands,
+              inputControl->status,
+              control->sharedMemorySize);
+        });
+  }
+}
+
+void Project::finalize(CompileState& state) {
+  for (auto& level : levels_) {
+    for (auto& program : level) {
+      program->prepareForDevice(state.arena());
+      for (auto& pair : program->localAndOutput()) {
+        computedSet_.add(pair.first->id);
+      }
+    }
+  }
+}
+
+vector_size_t Project::outputSize(WaveStream& stream) const {
+  auto& control = stream.launchControls(id_);
+  VELOX_CHECK(!control.empty());
+  return control[0]->inputRows;
+}
 
 } // namespace facebook::velox::wave

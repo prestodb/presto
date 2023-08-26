@@ -52,6 +52,10 @@ void Values::schedule(WaveStream& stream, int32_t maxRows) {
   for (auto i = 0; i < subfields_.size(); ++i) {
     sources.push_back(data->childAt(i).get());
   }
+  folly::Range<Executable**> empty(nullptr, nullptr);
+  auto numBlocks = bits::roundUp(data->size(), kBlockSize) / kBlockSize;
+  stream.prepareProgramLaunch(
+      id_, data->size(), empty, numBlocks, true, nullptr);
   vectorsToDevice(
       folly::Range(sources.data(), sources.size()), outputIds_, stream);
 }

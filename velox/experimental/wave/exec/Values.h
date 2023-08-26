@@ -32,7 +32,7 @@ class Values : public WaveOperator {
 
   void schedule(WaveStream& stream, int32_t maxRows = 0) override;
 
-  vector_size_t outputSize() const override {
+  vector_size_t outputSize(WaveStream& stream) const override {
     // Must not be called before schedule().
     VELOX_CHECK_LT(0, current_);
     return values_[current_ - 1]->size();

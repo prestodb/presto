@@ -61,32 +61,41 @@ enum class OpCode {
 
 };
 
+#define OP_MIX(op, t) \
+  static_cast<OpCode>(static_cast<int32_t>(t) + 8 * static_cast<int32_t>(op))
+
+using OperandIndex = uint16_t;
+constexpr OperandIndex kEmpty = ~0;
+// operand indices above this are offsets into TB shared memory arrays. The
+// value to use is the item at blockIx.x.
+constexpr OperandIndex kMinSharedMemIndex = 0x8000;
+
 struct IBinary {
-  Operand* left;
-  Operand* right;
-  Operand* result;
+  OperandIndex left;
+  OperandIndex right;
+  OperandIndex result;
   // If set, apply operation to lanes where there is a non-zero byte in this.
-  Operand* predicate;
+  OperandIndex predicate{kEmpty};
   // If true, inverts the meaning of 'predicate', so that the operation is
   // perfformed on lanes with a zero byte bit. Xored with predicate[idx].
-  uint8_t invert;
+  uint8_t invert{0};
 };
 
 struct IFilter {
-  Operand* flags;
-  int32_t* indices;
+  OperandIndex flags;
+  OperandIndex indices;
 };
 
 struct IWrap {
   // The indices to wrap on top of 'columns'.
-  Operand* indices;
+  OperandIndex indices;
 
   // Number of items in 'columns', 'targetColumns', 'nuwIndices',
   // 'mayShareIndices'.
   int32_t numColumns;
 
   // The columns to wrap.
-  Operand** columns;
+  OperandIndex* columns;
   // The post wrap columns. If the original is not wrapped, these
   // have the base of original and indices to wrap and posssibly new
   // nulls from 'newNulls'. If the original is wrapped and
@@ -96,15 +105,15 @@ struct IWrap {
   // targetColumn[i]. If 'newIndices[i]' is nullptr, the new indices
   // overwrite the indices in 'column[i]' and the indices are
   // referenced from targetColunns[i]'.
-  Operand** targetColumns;
+  OperandIndex* targetColumns;
 
-  Operand** newIndices;
+  OperandIndex* newIndices;
 
   // If mayShareIndices[i]' is an index of a previous entry in 'columns' and
   // columns[mayshareIndices[i]] shares indices of columns[i], then
   // targetColumns[i] has indices of targetColumn[mayShareIndices[i]]. If the
   // wrappings were not the same, indices are obtained from newIndices[i].
-  int32_t mayShareIndices;
+  int32_t* mayShareIndices;
 };
 
 struct Instruction {
@@ -117,9 +126,9 @@ struct Instruction {
 };
 
 ///
-enum class ErrorCode : int32_t {
+enum class ErrorCode : uint8_t {
   // All operations completed.
-  kOk,
+  kOk = 0,
 
   // Catchall for runtime errors.
   kError,
@@ -141,19 +150,24 @@ struct ThreadBlockProgram {
 
   Instruction** instructions;
 };
+
 /// A stream for invoking ExprKernel.
 class WaveKernelStream : public Stream {
  public:
-  /// Enqueus an invocation of ExprKernel for 'numBlocks' blocks. 'programs[i]'
-  /// is the program for blockIdx.x == i. 'blockIdx.x - baseIndices[i] is the
-  /// starting index for the TB in its set of peer TBs all running the same
-  /// program. 'status' is set to the return status of the corresponding TB.
-  /// 'sharedSize' is the per TB bytes shared memory to be reserved at launch.
+  /// Enqueus an invocation of ExprKernel for 'numBlocks' b
+  /// tBs. 'blockBase' is the ordinal of the TB within the TBs with
+  /// the same program.  'programIdx[blockIndx.x]' is the index into
+  /// 'programs' for the program of the TB. 'operands[i]' is the start
+  /// of the Operand array for 'programs[i]'. status[blockIdx.x] is
+  /// the return status for each TB. 'sharedSize' is the per TB bytes
+  /// shared memory to be reserved at launch.
   void call(
       Stream* alias,
       int32_t numBlocks,
+      int32_t* blockBase,
+      int32_t* programIndices,
       ThreadBlockProgram** programs,
-      int32_t* bases,
+      Operand*** operands,
       BlockStatus* status,
       int32_t sharedSize);
 };
