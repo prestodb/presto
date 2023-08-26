@@ -145,6 +145,8 @@ class SpillFile {
 struct SpillStats {
   /// The number of times that spilling runs on an operator.
   uint64_t spillRuns{0};
+  // The number of bytes in memory to spill
+  uint64_t spilledInputBytes{0};
   /// The number of bytes spilled to disks.
   ///
   /// NOTE: if compression is enabled, this counts the compressed bytes.
@@ -172,6 +174,7 @@ struct SpillStats {
 
   SpillStats(
       uint64_t _spillRuns,
+      uint64_t _spilledInputBytes,
       uint64_t _spilledBytes,
       uint64_t _spilledRows,
       uint32_t _spilledPartitions,
@@ -649,6 +652,8 @@ class SpillState {
   std::vector<std::string> testingSpilledFilePaths() const;
 
  private:
+  void updateSpilledInputBytes(uint64_t bytes);
+
   const RowTypePtr type_;
   const std::string path_;
   const int32_t maxPartitions_;
@@ -693,6 +698,9 @@ void updateGlobalSpillWriteStats(
     uint64_t spilledBytes,
     uint64_t flushTimeUs,
     uint64_t writeTimeUs);
+// Increment the spill memory bytes.
+void updateGlobalSpillMemoryBytes(uint64_t spilledInputBytes);
+
 /// Increments the spilled files by one.
 void incrementGlobalSpilledFiles();
 

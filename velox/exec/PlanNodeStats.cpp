@@ -71,6 +71,7 @@ void PlanNodeStats::addTotals(const OperatorStats& stats) {
 
   numSplits += stats.numSplits;
 
+  spilledInputBytes += stats.spilledInputBytes;
   spilledBytes += stats.spilledBytes;
   spilledRows += stats.spilledRows;
   spilledPartitions += stats.spilledPartitions;
@@ -147,6 +148,10 @@ folly::dynamic toPlanStatsJson(const facebook::velox::exec::TaskStats& stats) {
       stat["numMemoryAllocations"] = operatorStat.second->numMemoryAllocations;
       stat["numDrivers"] = operatorStat.second->numDrivers;
       stat["numSplits"] = operatorStat.second->numSplits;
+      stat["spilledInputBytes"] = operatorStat.second->spilledInputBytes;
+      stat["spilledBytes"] = operatorStat.second->spilledBytes;
+      stat["spilledRows"] = operatorStat.second->spilledRows;
+      stat["spilledFiles"] = operatorStat.second->spilledFiles;
 
       folly::dynamic cs = folly::dynamic::object;
       for (const auto& cstat : operatorStat.second->customStats) {

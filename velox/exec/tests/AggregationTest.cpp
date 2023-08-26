@@ -1072,9 +1072,9 @@ TEST_F(AggregationTest, spillWithMemoryLimit) {
                     .assertResults(results);
 
     auto stats = task->taskStats().pipelineStats[0].operatorStats[1];
-    ASSERT_EQ(testData.expectSpill, stats.spilledBytes > 0);
     if (testData.expectSpill) {
       ASSERT_GT(stats.spilledRows, 0);
+      ASSERT_GT(stats.spilledInputBytes, 0);
       ASSERT_GT(stats.spilledBytes, 0);
       ASSERT_GT(stats.spilledPartitions, 0);
       ASSERT_GT(stats.spilledFiles, 0);
@@ -1087,6 +1087,7 @@ TEST_F(AggregationTest, spillWithMemoryLimit) {
       ASSERT_GT(stats.runtimeStats["spillWriteTime"].sum, 0);
     } else {
       ASSERT_EQ(stats.spilledRows, 0);
+      ASSERT_EQ(stats.spilledInputBytes, 0);
       ASSERT_EQ(stats.spilledBytes, 0);
       ASSERT_EQ(stats.spilledPartitions, 0);
       ASSERT_EQ(stats.spilledFiles, 0);
@@ -1219,6 +1220,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, spillWithEmptyPartition) {
 
     auto stats = task->taskStats().pipelineStats;
     // Check spilled bytes.
+    EXPECT_LT(0, stats[0].operatorStats[1].spilledInputBytes);
     EXPECT_LT(0, stats[0].operatorStats[1].spilledBytes);
     EXPECT_GE(kNumPartitions - 1, stats[0].operatorStats[1].spilledPartitions);
     OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
@@ -1332,6 +1334,7 @@ TEST_F(AggregationTest, spillWithNonSpillingPartition) {
 
   auto stats = task->taskStats().pipelineStats;
   // Check spilled bytes.
+  EXPECT_LT(0, stats[0].operatorStats[1].spilledInputBytes);
   EXPECT_LT(0, stats[0].operatorStats[1].spilledBytes);
   EXPECT_EQ(1, stats[0].operatorStats[1].spilledPartitions);
   OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
@@ -1618,6 +1621,7 @@ TEST_F(AggregationTest, distinctWithSpilling) {
                             .planNode())
                   .assertResults("SELECT distinct c0 FROM tmp");
   // Verify that spilling is not triggered.
+  ASSERT_EQ(toPlanStats(task->taskStats()).at(aggrNodeId).spilledInputBytes, 0);
   ASSERT_EQ(toPlanStats(task->taskStats()).at(aggrNodeId).spilledBytes, 0);
   OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
 }
@@ -1656,6 +1660,7 @@ TEST_F(AggregationTest, preGroupedAggregationWithSpilling) {
           .assertResults("SELECT c0, c1, sum(c2) FROM tmp GROUP BY c0, c1");
   auto stats = task->taskStats().pipelineStats;
   // Verify that spilling is not triggered.
+  ASSERT_EQ(toPlanStats(task->taskStats()).at(aggrNodeId).spilledInputBytes, 0);
   ASSERT_EQ(toPlanStats(task->taskStats()).at(aggrNodeId).spilledBytes, 0);
   OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
 }

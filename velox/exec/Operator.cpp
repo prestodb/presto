@@ -274,6 +274,7 @@ void Operator::recordBlockingTime(uint64_t start, BlockingReason reason) {
 void Operator::recordSpillStats(const SpillStats& spillStats) {
   VELOX_CHECK(noMoreInput_);
   auto lockedStats = stats_.wlock();
+  lockedStats->spilledInputBytes += spillStats.spilledInputBytes;
   lockedStats->spilledBytes += spillStats.spilledBytes;
   lockedStats->spilledRows += spillStats.spilledRows;
   lockedStats->spilledPartitions += spillStats.spilledPartitions;
@@ -439,6 +440,7 @@ void OperatorStats::add(const OperatorStats& other) {
   }
 
   numDrivers += other.numDrivers;
+  spilledInputBytes += other.spilledInputBytes;
   spilledBytes += other.spilledBytes;
   spilledRows += other.spilledRows;
   spilledPartitions += other.spilledPartitions;
@@ -467,6 +469,13 @@ void OperatorStats::clear() {
   memoryStats.clear();
 
   runtimeStats.clear();
+
+  numDrivers = 0;
+  spilledInputBytes = 0;
+  spilledBytes = 0;
+  spilledRows = 0;
+  spilledPartitions = 0;
+  spilledFiles = 0;
 }
 
 std::unique_ptr<memory::MemoryReclaimer> Operator::MemoryReclaimer::create(
