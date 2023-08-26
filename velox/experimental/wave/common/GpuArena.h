@@ -129,6 +129,12 @@ class GpuArena {
     return allocateBytes(sizeof(T) * items);
   }
 
+  template <typename T>
+  T* allocate(int n, WaveBufferPtr& holder) {
+    holder = allocate<T>(n);
+    return holder->as<T>();
+  }
+
   void free(Buffer* buffer);
 
   const std::map<uint64_t, std::shared_ptr<GpuSlab>>& slabs() const {

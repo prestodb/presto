@@ -19,7 +19,7 @@
 #include <random>
 
 #include "velox/experimental/wave/common/Cuda.h"
-#include "velox/experimental/wave/common/IdMap.h"
+#include "velox/experimental/wave/common/IdMap.cuh"
 
 DEFINE_bool(benchmark, false, "");
 
@@ -43,7 +43,7 @@ struct IdMapHolder {
 
 template <typename T>
 __global__ void initTable(IdMap<T>* idMap) {
-  idMap->initTable();
+  idMap->clearTable();
 }
 
 template <typename T>

@@ -16,6 +16,7 @@
 
 #include "velox/experimental/wave/exec/ToWave.h"
 #include "velox/exec/FilterProject.h"
+#include "velox/experimental/wave/exec/Aggregation.h"
 #include "velox/experimental/wave/exec/Project.h"
 #include "velox/experimental/wave/exec/Values.h"
 #include "velox/experimental/wave/exec/WaveDriver.h"
@@ -281,6 +282,19 @@ bool CompileState::reserveMemory() {
   return true;
 }
 
+const std::shared_ptr<aggregation::AggregateFunctionRegistry>&
+CompileState::aggregateFunctionRegistry() {
+  if (!aggregateFunctionRegistry_) {
+    aggregateFunctionRegistry_ =
+        std::make_shared<aggregation::AggregateFunctionRegistry>(
+            getAllocator(getDevice()));
+    Stream stream;
+    aggregateFunctionRegistry_->addAllBuiltInFunctions(stream);
+    stream.wait();
+  }
+  return aggregateFunctionRegistry_;
+}
+
 bool CompileState::addOperator(
     exec::Operator* op,
     int32_t& nodeIndex,
@@ -295,7 +309,6 @@ bool CompileState::addOperator(
         *reinterpret_cast<const core::ValuesNode*>(
             driverFactory_.planNodes[nodeIndex].get())));
     outputType = driverFactory_.planNodes[nodeIndex]->outputType();
-    return true;
   } else if (name == "FilterProject") {
     if (!reserveMemory()) {
       return false;
@@ -303,6 +316,16 @@ bool CompileState::addOperator(
 
     outputType = driverFactory_.planNodes[nodeIndex]->outputType();
     addFilterProject(op, outputType, nodeIndex);
+  } else if (name == "Aggregation") {
+    if (!reserveMemory()) {
+      return false;
+    }
+    auto* node = dynamic_cast<const core::AggregationNode*>(
+        driverFactory_.planNodes[nodeIndex].get());
+    VELOX_CHECK_NOT_NULL(node);
+    operators_.push_back(std::make_unique<Aggregation>(
+        *this, *node, aggregateFunctionRegistry()));
+    outputType = node->outputType();
   } else {
     return false;
   }

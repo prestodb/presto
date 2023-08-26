@@ -98,7 +98,12 @@ void Stream::addCallback(std::function<void()> callback) {
 
 struct EventImpl {
   ~EventImpl() {
-    CUDA_CHECK(cudaEventDestroy(event));
+    auto err = cudaEventDestroy(event);
+    if (err != cudaSuccess) {
+      // Do not throw because it can shadow other more important exceptions.  As
+      // a rule of thumb, we should not throw in any destructors.
+      LOG(ERROR) << "cudaEventDestroy: " << cudaGetErrorString(err);
+    }
   }
   cudaEvent_t event;
 };

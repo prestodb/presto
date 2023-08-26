@@ -81,6 +81,7 @@ RowVectorPtr WaveDriver::getOutput() {
           ++it;
         }
         if (result) {
+          VLOG(1) << "Output size: " << result->size();
           return result;
         }
       }
@@ -90,6 +91,7 @@ RowVectorPtr WaveDriver::getOutput() {
       running = true;
     }
     if (!running) {
+      VLOG(1) << "No more output";
       finished_ = true;
       return nullptr;
     }
@@ -104,15 +106,15 @@ WaveVectorPtr WaveDriver::makeWaveResult(
     const TypePtr& rowType,
     WaveStream& stream,
     const OperandSet& lastSet) {
-  auto result = WaveVector::create(rowType, *arena_);
+  std::vector<WaveVectorPtr> children(rowType->size());
   int32_t nthChild = 0;
   lastSet.forEach([&](int32_t id) {
     auto exe = stream.operandExecutable(id);
     VELOX_CHECK_NOT_NULL(exe);
     auto ordinal = exe->outputOperands.ordinal(id);
-    result->setChildAt(nthChild++, std::move(exe->output[ordinal]));
+    children[nthChild++] = std::move(exe->output[ordinal]);
   });
-  return result;
+  return std::make_unique<WaveVector>(rowType, *arena_, std::move(children));
 }
 
 RowVectorPtr WaveDriver::makeResult(

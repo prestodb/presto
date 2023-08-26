@@ -17,6 +17,7 @@
 #pragma once
 
 #include "velox/exec/Operator.h"
+#include "velox/experimental/wave/exec/AggregateFunctionRegistry.h"
 #include "velox/experimental/wave/exec/WaveOperator.h"
 #include "velox/expression/Expr.h"
 
@@ -96,6 +97,9 @@ class CompileState {
       const AbstractOperand* result,
       const std::vector<Program*>& inputs);
 
+  const std::shared_ptr<aggregation::AggregateFunctionRegistry>&
+  aggregateFunctionRegistry();
+
   std::unique_ptr<GpuArena> arena_;
   // The operator and output operand where the Value is first defined.
   folly::F14FastMap<Value, AbstractOperand*, ValueHasher, ValueComparer>
@@ -124,6 +128,9 @@ class CompileState {
 
   // Sequence number for operands.
   int32_t operandCounter_{0};
+
+  std::shared_ptr<aggregation::AggregateFunctionRegistry>
+      aggregateFunctionRegistry_;
 };
 
 /// Registers adapter to add Wave operators to Drivers.

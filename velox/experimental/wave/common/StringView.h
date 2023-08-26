@@ -69,13 +69,7 @@ class StringView {
     return !(*this == other);
   }
 
-#if __CUDA_ARCH__ >= 200
-  __device__ StringView cas(StringView compare, StringView val) {
-    StringView old;
-    old.data_ = atomicCAS(&data_, compare.data_, val.data_);
-    return old;
-  }
-#endif
+  __device__ StringView cas(StringView compare, StringView val);
 
   operator std::string_view() const {
     return {data(), size()};

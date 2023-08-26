@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include "velox/experimental/wave/common/Cuda.h"
+#include "velox/experimental/wave/exec/ErrorCode.h"
 #include "velox/experimental/wave/vector/Operand.h"
 
 /// Wave common instruction set. Instructions run a thread block wide
@@ -63,12 +64,6 @@ enum class OpCode {
 
 #define OP_MIX(op, t) \
   static_cast<OpCode>(static_cast<int32_t>(t) + 8 * static_cast<int32_t>(op))
-
-using OperandIndex = uint16_t;
-constexpr OperandIndex kEmpty = ~0;
-// operand indices above this are offsets into TB shared memory arrays. The
-// value to use is the item at blockIx.x.
-constexpr OperandIndex kMinSharedMemIndex = 0x8000;
 
 struct IBinary {
   OperandIndex left;
@@ -123,23 +118,6 @@ struct Instruction {
     IFilter filter;
     IWrap wrap;
   } _;
-};
-
-///
-enum class ErrorCode : uint8_t {
-  // All operations completed.
-  kOk = 0,
-
-  // Catchall for runtime errors.
-  kError,
-
-  kInsuffcientMemory,
-};
-
-/// Contains a count of active lanes and a per lane error code.
-struct BlockStatus {
-  int32_t numRows{0};
-  ErrorCode errors[kBlockSize];
 };
 
 struct ThreadBlockProgram {

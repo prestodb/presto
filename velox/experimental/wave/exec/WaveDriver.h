@@ -47,7 +47,7 @@ class WaveDriver : public exec::SourceOperator {
     return exec::BlockingReason::kNotBlocked;
   }
 
-  bool isFinished() {
+  bool isFinished() override {
     return finished_;
   }
 

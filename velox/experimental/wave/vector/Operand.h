@@ -29,6 +29,13 @@ using OperandId = int32_t;
 
 constexpr OperandId kNoOperand = ~0;
 
+using OperandIndex = uint16_t;
+constexpr OperandIndex kEmpty = ~0;
+
+// operand indices above this are offsets into TB shared memory arrays. The
+// value to use is the item at blockIx.x.
+constexpr OperandIndex kMinSharedMemIndex = 0x8000;
+
 /// Describes an operand for a Wave kernel instruction. The same
 /// insttruction is interpreted by multiple thread blocks in the
 /// kernel invocation. When accessing an operand, we have the base
@@ -45,7 +52,9 @@ constexpr uint8_t kNotNull = 255;
 struct Operand {
   static constexpr int32_t kPointersInOperand = 4;
 
-  int32_t indexMask{~0};
+  int32_t indexMask;
+
+  int32_t size;
 
   // Array of flat base values. Cast to pod type or StringView.
   void* base;
@@ -58,7 +67,7 @@ struct Operand {
 
   // Array of null indicators. No nulls if nullptr.  A 1 means not-null, for
   // consistency with Velox.
-  uint8_t* nulls{nullptr};
+  uint8_t* nulls;
 };
 
 } // namespace facebook::velox::wave

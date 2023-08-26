@@ -601,7 +601,7 @@ void Driver::initializeOperatorStats(std::vector<OperatorStats>& stats) {
   // not always the index into the stats.
   for (auto& op : operators_) {
     auto id = op->operatorId();
-    assert(id < stats.size());
+    VELOX_DCHECK_LT(id, stats.size());
     stats[id] = op->stats(false);
   }
 }

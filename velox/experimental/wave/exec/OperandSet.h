@@ -103,6 +103,8 @@ class OperandSet {
         bits_.data(), 0, sizeof(bits_[0]) * 8 * bits_.size());
   }
 
+  std::string toString() const;
+
  private:
   void ensureSize(int32_t id) {
     ensureWords(velox::bits::nwords(id + 1));

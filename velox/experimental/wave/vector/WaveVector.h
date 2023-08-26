@@ -56,6 +56,11 @@ class WaveVector {
   WaveVector(const TypePtr& type, GpuArena& arena)
       : type_(type), kind_(type_->kind()), arena_(&arena) {}
 
+  WaveVector(
+      const TypePtr& type,
+      GpuArena& arena,
+      std::vector<std::unique_ptr<WaveVector>> children);
+
   const TypePtr& type() const {
     return type_;
   }
@@ -82,10 +87,6 @@ class WaveVector {
 
   WaveVector& childAt(int32_t index) {
     return *children_[index];
-  }
-
-  void setChildAt(int32_t i, std::unique_ptr<WaveVector> child) {
-    children_[i] = std::move(child);
   }
 
   template <typename T>

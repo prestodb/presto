@@ -20,6 +20,32 @@
 
 namespace facebook::velox::wave {
 
+WaveVector::WaveVector(
+    const TypePtr& type,
+    GpuArena& arena,
+    std::vector<std::unique_ptr<WaveVector>> children)
+    : type_(type),
+      kind_(type_->kind()),
+      arena_(&arena),
+      children_(std::move(children)) {
+  switch (kind_) {
+    case TypeKind::ROW:
+      encoding_ = VectorEncoding::Simple::ROW;
+      break;
+    case TypeKind::ARRAY:
+      encoding_ = VectorEncoding::Simple::ARRAY;
+      break;
+    case TypeKind::MAP:
+      encoding_ = VectorEncoding::Simple::MAP;
+      break;
+    default:
+      VELOX_UNSUPPORTED("{}", kind_);
+  }
+  if (!children_.empty()) {
+    size_ = children_[0]->size();
+  }
+}
+
 void WaveVector::resize(vector_size_t size, bool nullable) {
   if (size > size_) {
     int64_t bytes = type_->cppSizeInBytes() * size;
@@ -38,20 +64,17 @@ void WaveVector::resize(vector_size_t size, bool nullable) {
 }
 
 void WaveVector::toOperand(Operand* operand) const {
+  operand->size = size_;
+  operand->nulls = nulls_ ? nulls_->as<uint8_t>() : nullptr;
   if (encoding_ == VectorEncoding::Simple::CONSTANT) {
     operand->indexMask = 0;
-    if (nulls_) {
-      operand->nulls = nulls_->as<uint8_t>();
-    } else {
-      operand->nulls = nullptr;
-    }
     operand->base = values_->as<uint64_t>();
+    operand->indices = nullptr;
     return;
   }
   if (encoding_ == VectorEncoding::Simple::FLAT) {
     operand->indexMask = ~0;
     operand->base = values_->as<int64_t>();
-    operand->nulls = nulls_ ? nulls_->as<uint8_t>() : nullptr;
     operand->indices = nullptr;
   } else {
     VELOX_UNSUPPORTED();

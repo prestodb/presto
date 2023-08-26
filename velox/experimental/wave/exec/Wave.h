@@ -103,7 +103,7 @@ struct Executable {
   ThreadBlockProgram* program{nullptr};
 
   // Device memory if not owned by 'programShared_'.
-  WaveBufferPtr deviceData;
+  std::vector<WaveBufferPtr> deviceData;
 
   // Operand ids for inputs.
   OperandSet inputOperands;

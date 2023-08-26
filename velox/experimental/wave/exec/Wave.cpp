@@ -125,7 +125,7 @@ void Executable::startTransfer(
   exe->outputOperands = outputOperands;
   exe->output = std::move(outputVectors);
   exe->transfers = std::move(transfers);
-  exe->deviceData = operands;
+  exe->deviceData.push_back(operands);
   exe->operands = operands->as<Operand>();
   exe->outputOperands = outputOperands;
   copyData(exe->transfers);

@@ -14,7 +14,10 @@
 
 add_library(
   velox_wave_exec
+  Aggregation.cpp
+  AggregationInstructions.cu
   ExprKernel.cu
+  OperandSet.cpp
   ToWave.cpp
   WaveOperator.cpp
   Vectors.cpp

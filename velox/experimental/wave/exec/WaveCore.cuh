@@ -53,6 +53,22 @@ __device__ inline T getOperand(
 }
 
 template <typename T>
+__device__ inline T value(Operand* op, int32_t blockBase, char* shared) {
+  return getOperand<T>(&op, 0, blockBase, shared);
+}
+
+template <typename T>
+__device__ inline T value(Operand* op, int index) {
+  if (auto indicesInOp = op->indices) {
+    auto indices = indicesInOp[0];
+    if (indices) {
+      index = indices[index];
+    }
+  }
+  return reinterpret_cast<const T*>(op->base)[index];
+}
+
+template <typename T>
 __device__ inline T& flatResult(
     Operand** operands,
     OperandIndex opIdx,
@@ -67,6 +83,11 @@ __device__ inline T& flatResult(
     op->nulls[blockBase + threadIdx.x] = kNotNull;
   }
   return reinterpret_cast<T*>(op->base)[blockBase + threadIdx.x];
+}
+
+template <typename T>
+__device__ inline T& flatResult(Operand* op, int32_t blockBase) {
+  return flatResult<T>(&op, 0, blockBase, nullptr);
 }
 
 } // namespace facebook::velox::wave
