@@ -18,7 +18,6 @@
 
 #include <folly/Range.h>
 #include "velox/experimental/wave/common/Cuda.h"
-#include "velox/experimental/wave/common/CudaUtil.cuh"
 #include "velox/experimental/wave/common/Type.h"
 #include "velox/experimental/wave/exec/AggregateFunction.h"
 

@@ -21,24 +21,33 @@
 namespace facebook::velox::wave {
 
 PhysicalType fromCpuType(const Type& type) {
+  PhysicalType ans{};
   switch (type.kind()) {
     case TypeKind::TINYINT:
-      return {.kind = PhysicalType::kInt8};
+      ans.kind = PhysicalType::kInt8;
+      break;
     case TypeKind::SMALLINT:
-      return {.kind = PhysicalType::kInt16};
+      ans.kind = PhysicalType::kInt16;
+      break;
     case TypeKind::INTEGER:
-      return {.kind = PhysicalType::kInt32};
+      ans.kind = PhysicalType::kInt32;
+      break;
     case TypeKind::BIGINT:
-      return {.kind = PhysicalType::kInt64};
+      ans.kind = PhysicalType::kInt64;
+      break;
     case TypeKind::REAL:
-      return {.kind = PhysicalType::kFloat32};
+      ans.kind = PhysicalType::kFloat32;
+      break;
     case TypeKind::DOUBLE:
-      return {.kind = PhysicalType::kFloat64};
+      ans.kind = PhysicalType::kFloat64;
+      break;
     case TypeKind::VARCHAR:
-      return {.kind = PhysicalType::kString};
+      ans.kind = PhysicalType::kString;
+      break;
     default:
       VELOX_UNSUPPORTED("{}", type.kind());
   }
+  return ans;
 }
 
 } // namespace facebook::velox::wave

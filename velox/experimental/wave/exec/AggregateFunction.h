@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include <cuda_runtime.h> // @manual
-
 #include "velox/experimental/wave/exec/ErrorCode.h"
 #include "velox/experimental/wave/vector/Operand.h"
 
