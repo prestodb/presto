@@ -177,9 +177,15 @@ public class HivePartialAggregationPushdown
                     switch (hiveStorageFormat) {
                         case ORC:
                         case DWRF:
-                            return isSupportedOrcTypeForMinMax(type);
+                            if (isNotSupportedOrcTypeForMinMax(type)) {
+                                return false;
+                            }
+                            break;
                         case PARQUET:
-                            return isSupportedParquetTypeForMinMax(type);
+                            if (isNotSupportedParquetTypeForMinMax(type)) {
+                                return false;
+                            }
+                            break;
                         default:
                             return false;
                     }
@@ -188,29 +194,38 @@ public class HivePartialAggregationPushdown
             return true;
         }
 
-        private boolean isSupportedOrcTypeForMinMax(Type type)
+        private boolean isNotSupportedOrcTypeForMinMax(Type type)
         {
-            return !BOOLEAN.equals(type) &&
-                    type.getJavaType() != boolean.class &&
-                    !isRowType(type) &&
-                    !isArrayType(type) &&
-                    !isMapType(type) &&
-                    !TINYINT.equals(type) &&
-                    !VARBINARY.equals(type) &&
-                    !TIMESTAMP.equals(type) &&
-                    ((!VARBINARY.equals(type) && !VARCHAR.equals(type)) ||
-                            isPartialAggregationPushdownForVariableLengthDatatypesEnabled(session));
+            return BOOLEAN.equals(type) ||
+                    type.getJavaType() == boolean.class ||
+                    isRowType(type) ||
+                    isArrayType(type) ||
+                    isMapType(type) ||
+                    TINYINT.equals(type) ||
+                    VARBINARY.equals(type) ||
+                    TIMESTAMP.equals(type) ||
+                    isNotSupportedOrcTypeForVariableLengthDataType(type);
         }
 
-        private boolean isSupportedParquetTypeForMinMax(Type type)
+        private boolean isNotSupportedParquetTypeForMinMax(Type type)
         {
-            return !BOOLEAN.equals(type) &&
-                    type.getJavaType() != boolean.class &&
-                    !isRowType(type) &&
-                    !isArrayType(type) &&
-                    !isMapType(type) &&
-                    ((!VARBINARY.equals(type) && !VARCHAR.equals(type)) ||
-                            isPartialAggregationPushdownForVariableLengthDatatypesEnabled(session));
+            return BOOLEAN.equals(type) ||
+                    type.getJavaType() == boolean.class ||
+                    isRowType(type) ||
+                    isArrayType(type) ||
+                    isMapType(type) ||
+                    isNotSupportedParquetTypeForVariableLengthDataType(type);
+        }
+
+        private boolean isNotSupportedOrcTypeForVariableLengthDataType(Type type)
+        {
+            return VARCHAR.equals(type) && !isPartialAggregationPushdownForVariableLengthDatatypesEnabled(session);
+        }
+
+        private boolean isNotSupportedParquetTypeForVariableLengthDataType(Type type)
+        {
+            boolean isVariableLengthType = VARBINARY.equals(type) || VARCHAR.equals(type);
+            return isVariableLengthType && !isPartialAggregationPushdownForVariableLengthDatatypesEnabled(session);
         }
 
         private Optional<PlanNode> tryPartialAggregationPushdown(PlanNode plan)
