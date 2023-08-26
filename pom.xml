@@ -1173,7 +1173,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.3.3</version>
+                <version>42.6.0</version>
             </dependency>
 
             <dependency>
@@ -1895,7 +1895,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.20.0</version>
+                <version>3.37.0</version>
             </dependency>
 
             <dependency>
