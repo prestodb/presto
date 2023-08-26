@@ -17,6 +17,7 @@
 #include <exception>
 #include <fstream>
 #include <stdexcept>
+#include <vector>
 #include "glog/logging.h"
 #include "gtest/gtest.h"
 
@@ -1749,6 +1750,71 @@ TEST_F(ExprTest, ifWithConstant) {
   auto result = evaluate("is_null(if(c0 > 0, c0, c1))", makeRowVector({a, b}));
   EXPECT_EQ(VectorEncoding::Simple::CONSTANT, result->encoding());
   EXPECT_EQ(true, result->as<ConstantVector<bool>>()->valueAt(0));
+}
+
+// Make sure that switch do set nulls for rows that are not evaluated by the
+// switch due to a throw.
+TEST_F(ExprTest, switchSetNullsForThrowIndices) {
+  // Build an input with c0 column having nulls at odd row index.
+  registerFunction<TestingAlwaysThrowsFunction, bool, int64_t>(
+      {"always_throws"});
+  registerFunction<TestingThrowsAtOddFunction, bool, int64_t>({"throw_at_odd"});
+
+  auto eval = [&](const std::string& input, auto inputRow) {
+    // Evaluate an expression in a no throw context without using try
+    // expression to verify that the switch sets the nulls. If we use try, try
+    // will add the nulls and we won't be able to check that the switch adds
+    // nulls.
+    auto exprSet = compileMultiple({input}, asRowType(inputRow->type()));
+    exec::EvalCtx context(execCtx_.get(), exprSet.get(), inputRow.get());
+    *context.mutableThrowOnError() = false;
+    std::vector<VectorPtr> results;
+    SelectivityVector rows(inputRow->size());
+    exprSet->eval(rows, context, results);
+    return results[0];
+  };
+
+  // All null.
+  {
+    auto input = vectorMaker_.flatVector<int64_t>({1, 2, 3, 4, 5});
+    auto result =
+        eval("if (always_throws(c0), 7, 1)", vectorMaker_.rowVector({input}));
+    for (int i = 0; i < input->size(); i++) {
+      EXPECT_TRUE(result->isNullAt(i));
+    }
+  }
+  {
+    auto input = vectorMaker_.flatVector<int64_t>({1, 1, 1, 4, 4});
+    auto result = eval(
+        "if(always_throws(c0), row_constructor(1,2), row_constructor(1,2))",
+        vectorMaker_.rowVector({input}));
+    EXPECT_EQ(result->size(), input->size());
+    for (int i = 0; i < input->size(); i++) {
+      EXPECT_TRUE(result->isNullAt(i)) << "index: " << i;
+    }
+  }
+
+  // Null at odd.
+  {
+    auto input = vectorMaker_.flatVector<int64_t>({1, 2, 3, 4, 5});
+    auto result =
+        eval("if(throw_at_odd(c0), 7, 1)", vectorMaker_.rowVector({input}));
+    EXPECT_EQ(result->size(), input->size());
+    for (int i = 0; i < input->size(); i++) {
+      EXPECT_EQ(result->isNullAt(i), input->valueAt(i) % 2);
+    }
+  }
+
+  {
+    auto input = vectorMaker_.flatVector<int64_t>({1, 1, 1, 4, 4});
+    auto result = eval(
+        "if(throw_at_odd(c0), array_constructor(1,2), array_constructor(1,2))",
+        vectorMaker_.rowVector({input}));
+    EXPECT_EQ(result->size(), input->size());
+    for (int i = 0; i < input->size(); i++) {
+      EXPECT_EQ(result->isNullAt(i), input->valueAt(i) % 2);
+    }
+  }
 }
 
 namespace {

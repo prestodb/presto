@@ -21,8 +21,19 @@ namespace facebook::velox::test {
 template <typename T>
 struct TestingAlwaysThrowsFunction {
   template <typename TResult, typename TInput>
-  FOLLY_ALWAYS_INLINE void call(TResult&, const TInput&) {
+  void call(TResult&, const TInput&) {
     VELOX_USER_FAIL();
+  }
+};
+
+template <typename T>
+struct TestingThrowsAtOddFunction {
+  void call(bool& out, const int64_t& input) {
+    if (input % 2) {
+      VELOX_USER_FAIL();
+    } else {
+      out = 1;
+    }
   }
 };
 
