@@ -466,7 +466,10 @@ class NodeConfig : public ConfigBase {
  public:
   static constexpr std::string_view kNodeEnvironment{"node.environment"};
   static constexpr std::string_view kNodeId{"node.id"};
+  // "node.ip" is Legacy Config. It is replaced with "node.internal-address"
   static constexpr std::string_view kNodeIp{"node.ip"};
+  static constexpr std::string_view kNodeInternalAddress{
+      "node.internal-address"};
   static constexpr std::string_view kNodeLocation{"node.location"};
   static constexpr std::string_view kNodeMemoryGb{"node.memory_gb"};
 
@@ -478,7 +481,7 @@ class NodeConfig : public ConfigBase {
 
   std::string nodeId() const;
 
-  std::string nodeIp(
+  std::string nodeInternalAddress(
       const std::function<std::string()>& defaultIp = nullptr) const;
 
   std::string nodeLocation() const;

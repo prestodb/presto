@@ -55,7 +55,7 @@ static void maybeSetupTaskSpillDirectory(
 
   const auto taskSpillDirPath = TaskManager::buildTaskSpillDirectoryPath(
       baseSpillDirectory,
-      nodeConfig->nodeIp(),
+      nodeConfig->nodeInternalAddress(),
       nodeConfig->nodeId(),
       execTask.queryCtx()->queryId(),
       execTask.taskId(),
