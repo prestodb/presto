@@ -566,20 +566,26 @@ void Spiller::fillSpillRuns(SpillRows* rowsFromNonSpillingPartitions) {
     constexpr int32_t kHashBatchSize = 4096;
     std::vector<uint64_t> hashes(kHashBatchSize);
     std::vector<char*> rows(kHashBatchSize);
+    VELOX_CHECK((type_ != Type::kOrderBy) || bits_.numPartitions() == 1);
+    const bool isSinglePartition =
+        (type_ == Type::kOrderBy || bits_.numPartitions() == 1);
     for (;;) {
       auto numRows = container_->listRows(
           &iterator, rows.size(), RowContainer::kUnlimited, rows.data());
       // Calculate hashes for this batch of spill candidates.
       auto rowSet = folly::Range<char**>(rows.data(), numRows);
-      for (auto i = 0; i < container_->keyTypes().size(); ++i) {
-        container_->hash(i, rowSet, i > 0, hashes.data());
+
+      if (!isSinglePartition) {
+        for (auto i = 0; i < container_->keyTypes().size(); ++i) {
+          container_->hash(i, rowSet, i > 0, hashes.data());
+        }
       }
 
       // Put each in its run.
       for (auto i = 0; i < numRows; ++i) {
         // TODO: consider to cache the hash bits in row container so we only
         // need to calculate them once.
-        const auto partition = (type_ == Type::kOrderBy)
+        const auto partition = isSinglePartition
             ? 0
             : bits_.partition(hashes[i], state_.maxPartitions());
         VELOX_DCHECK_GE(partition, 0);
