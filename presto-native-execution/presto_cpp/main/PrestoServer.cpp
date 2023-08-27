@@ -47,7 +47,6 @@
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/connectors/Connector.h"
-#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/core/Config.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
