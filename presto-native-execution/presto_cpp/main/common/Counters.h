@@ -139,15 +139,15 @@ constexpr folly::StringPiece kCounterExchangeSourcePeakQueuedBytes{
 
 /// The number of times that spilling runs on a velox operator.
 constexpr folly::StringPiece kCounterSpillRuns{"presto_cpp.spill_run_count"};
-/// The number of bytes spilled to disks.
-///
-/// NOTE: if compression is enabled, this counts the compressed bytes.
+/// The number of spilled files.
 constexpr folly::StringPiece kCounterSpilledFiles{
     "presto_cpp.spilled_file_count"};
 /// The number of spilled rows.
 constexpr folly::StringPiece kCounterSpilledRows{
     "presto_cpp.spilled_row_count"};
-/// The number of spilled files.
+/// The number of bytes spilled to disks.
+///
+/// NOTE: if compression is enabled, this counts the compressed bytes.
 constexpr folly::StringPiece kCounterSpilledBytes{"presto_cpp.spilled_bytes"};
 /// The time spent on filling rows for spilling.
 constexpr folly::StringPiece kCounterSpillFillTimeUs{
