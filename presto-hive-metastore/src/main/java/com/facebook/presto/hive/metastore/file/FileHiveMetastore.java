@@ -246,7 +246,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
+    public synchronized MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges, List<TableConstraint<String>> constraints)
     {
         checkArgument(!table.getTableType().equals(TEMPORARY_TABLE), "temporary tables must never be committed to the metastore");
 
@@ -295,6 +295,10 @@ public class FileHiveMetastore
         }
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getRolePrivileges().asMap().entrySet()) {
             setTablePrivileges(metastoreContext, new PrestoPrincipal(ROLE, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
+        }
+
+        if (constraints != null && !constraints.isEmpty()) {
+            constraints.forEach(constraint -> addConstraint(metastoreContext, table.getDatabaseName(), table.getTableName(), constraint));
         }
 
         return EMPTY_RESULT;
@@ -447,9 +451,10 @@ public class FileHiveMetastore
             deleteMetadataDirectory(tableMetadataDirectory);
         }
         else {
-            // in this case we only wan to delete the metadata of a managed table
+            // in this case we only want to delete the metadata of a managed table
             deleteSchemaFile("table", tableMetadataDirectory);
             deleteTablePrivileges(table);
+            deleteConstraintsFile(databaseName, tableName);
         }
     }
 
@@ -1172,6 +1177,23 @@ public class FileHiveMetastore
     private Path getConstraintsFile(String databaseName, String tableName)
     {
         return new Path(getTableMetadataDirectory(databaseName, tableName), ".constraints");
+    }
+
+    private void deleteConstraintsFile(String databaseName, String tableName)
+    {
+        Path constraintsFilePath = getConstraintsFile(databaseName, tableName);
+        try {
+            if (!metadataFileSystem.exists(constraintsFilePath)) {
+                return;
+            }
+
+            if (!metadataFileSystem.delete(constraintsFilePath, false)) {
+                throw new PrestoException(HIVE_METASTORE_ERROR, "Could not delete constraints file " + constraintsFilePath);
+            }
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, "Could not delete constraints file" + constraintsFilePath);
+        }
     }
 
     private synchronized void deleteTablePrivileges(Table table)

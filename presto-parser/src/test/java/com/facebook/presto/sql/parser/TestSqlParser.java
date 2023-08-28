@@ -2781,6 +2781,227 @@ public class TestSqlParser
         assertInvalidStatement("ALTER TABLE foo.t ADD PRIMARY KEY (c1) RELY ENABLED", ".*mismatched input.*");
     }
 
+    @Test
+    public void testCreateTableWithConstraints()
+    {
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT pk PRIMARY KEY (c,b))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("c", "b"), PRIMARY_KEY, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, PRIMARY KEY (c,b))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.empty(), ImmutableList.of("c", "b"), PRIMARY_KEY, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c,b))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.empty(), ImmutableList.of("c", "b"), UNIQUE, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        // test constrainnt qualifiers
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) ENABLED RELY ENFORCED)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) ENABLED NOT RELY ENFORCED)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, false, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) DISABLED RELY ENFORCED)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, false, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) DISABLED NOT RELY ENFORCED)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, false, false, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) ENABLED RELY NOT ENFORCED)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, false)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT pk PRIMARY KEY (c,b) ENABLED NOT RELY ENFORCED)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("c", "b"), PRIMARY_KEY, true, false, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT pk PRIMARY KEY (c,b) DISABLED RELY NOT ENFORCED)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("c", "b"), PRIMARY_KEY, false, true, false)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT pk PRIMARY KEY (c,b) DISABLED NOT RELY NOT ENFORCED)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("c", "b"), PRIMARY_KEY, false, false, false)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c,b), PRIMARY KEY (a))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.empty(), ImmutableList.of("c", "b"), UNIQUE, true, true, true),
+                                new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b), CONSTRAINT pk PRIMARY KEY (a))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, true),
+                                new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("a"), PRIMARY_KEY, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b), PRIMARY KEY (a))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, true),
+                                new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c), PRIMARY KEY (a), CONSTRAINT uq UNIQUE (b))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.empty(), ImmutableList.of("c"), UNIQUE, true, true, true),
+                                new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("b"), UNIQUE, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        // The following two cases are illegal since they have duplicate constraints. But they pass the parser and error handling happens later
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c), PRIMARY KEY (a), CONSTRAINT uq UNIQUE (b))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c"), UNIQUE, true, true, true),
+                                new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("b"), UNIQUE, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c), PRIMARY KEY (a), CONSTRAINT uq UNIQUE (b), CONSTRAINT pk PRIMARY KEY (b), CONSTRAINT pk PRIMARY KEY (c))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c"), UNIQUE, true, true, true),
+                                new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("b"), UNIQUE, true, true, true),
+                                new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("b"), PRIMARY_KEY, true, true, true),
+                                new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("c"), PRIMARY_KEY, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        //Negative tests
+        assertInvalidStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c), PRIMARY KEY)", ".*mismatched input.*");
+        assertInvalidStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c), UNIQUE)", ".*mismatched input.*");
+        assertInvalidStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c), UNIQUE (a) ENFORCED DISABLED)", ".*mismatched input.*");
+        assertInvalidStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c), UNIQUE (a) RELY DISABLED)", ".*mismatched input.*");
+    }
+
     private static void assertCast(String type)
     {
         assertCast(type, type);

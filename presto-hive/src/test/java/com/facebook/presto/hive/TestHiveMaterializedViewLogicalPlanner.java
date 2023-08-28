@@ -84,6 +84,7 @@ import static io.airlift.tpch.TpchTable.NATION;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.tpch.TpchTable.SUPPLIER;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -2740,7 +2741,7 @@ public class TestHiveMaterializedViewLogicalPlanner
             Table originalTable = table.get();
             Table alteredTable = Table.builder(originalTable).setParameter(parameterKey, parameterValue).build();
             metastore.dropTable(metastoreContext, originalTable.getDatabaseName(), originalTable.getTableName(), false);
-            metastore.createTable(metastoreContext, alteredTable, new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()));
+            metastore.createTable(metastoreContext, alteredTable, new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()), emptyList());
         }
     }
 }

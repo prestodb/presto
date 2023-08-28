@@ -174,7 +174,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table)
+    public synchronized MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, List<TableConstraint<String>> constraints)
     {
         TableType tableType = TableType.valueOf(table.getTableType());
         checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE, VIRTUAL_VIEW).contains(tableType), "Invalid table type: %s", tableType);

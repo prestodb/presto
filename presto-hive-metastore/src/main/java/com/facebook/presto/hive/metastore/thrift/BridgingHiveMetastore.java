@@ -192,10 +192,10 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
+    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges, List<TableConstraint<String>> constraints)
     {
         checkArgument(!table.getTableType().equals(TEMPORARY_TABLE), "temporary tables must never be stored in the metastore");
-        return delegate.createTable(metastoreContext, toMetastoreApiTable(table, principalPrivileges, metastoreContext.getColumnConverter()));
+        return delegate.createTable(metastoreContext, toMetastoreApiTable(table, principalPrivileges, metastoreContext.getColumnConverter()), constraints);
     }
 
     @Override

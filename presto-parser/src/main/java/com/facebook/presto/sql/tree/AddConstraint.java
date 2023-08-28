@@ -25,7 +25,6 @@ import static java.util.Objects.requireNonNull;
 public final class AddConstraint
         extends Statement
 {
-    // VIVEK TODO: Replace with embedded ConstraintSpecification object
     private final QualifiedName tableName;
     private final boolean tableExists;
     private final ConstraintSpecification constraintSpecification;

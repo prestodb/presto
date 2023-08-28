@@ -549,10 +549,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
+    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges, List<TableConstraint<String>> constraints)
     {
         try {
-            return delegate.createTable(metastoreContext, table, principalPrivileges);
+            return delegate.createTable(metastoreContext, table, principalPrivileges, constraints);
         }
         finally {
             invalidateTable(table.getDatabaseName(), table.getTableName());

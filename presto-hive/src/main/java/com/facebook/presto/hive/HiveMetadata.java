@@ -966,7 +966,8 @@ public class HiveMetadata
                 principalPrivileges,
                 Optional.empty(),
                 ignoreExisting,
-                new PartitionStatistics(basicStatistics, ImmutableMap.of()));
+                new PartitionStatistics(basicStatistics, ImmutableMap.of()),
+                tableMetadata.getTableConstraintsHolder().getTableConstraints());
     }
 
     private Table prepareTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, PrestoTableType tableType)
@@ -1144,7 +1145,8 @@ public class HiveMetadata
                 buildInitialPrivilegeSet(table.getOwner()),
                 Optional.empty(),
                 false,
-                createEmptyPartitionStatistics(columnTypes, columnStatisticTypes));
+                createEmptyPartitionStatistics(columnTypes, columnStatisticTypes),
+                emptyList());
 
         return new HiveTableHandle(schemaName, tableName);
     }
@@ -1701,7 +1703,7 @@ public class HiveMetadata
             tableStatistics = new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of());
         }
 
-        metastore.createTable(session, table, principalPrivileges, Optional.of(writeInfo.getWritePath()), false, tableStatistics);
+        metastore.createTable(session, table, principalPrivileges, Optional.of(writeInfo.getWritePath()), false, tableStatistics, emptyList());
 
         if (handle.getPartitionedBy().isEmpty()) {
             return Optional.of(new HiveWrittenPartitions(ImmutableList.of(UNPARTITIONED_ID)));
@@ -2229,7 +2231,7 @@ public class HiveMetadata
         }
 
         try {
-            metastore.createTable(session, table, principalPrivileges, Optional.empty(), false, new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()));
+            metastore.createTable(session, table, principalPrivileges, Optional.empty(), false, new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()), emptyList());
         }
         catch (TableAlreadyExistsException e) {
             throw new ViewAlreadyExistsException(e.getTableName());
@@ -2416,7 +2418,8 @@ public class HiveMetadata
                     principalPrivileges,
                     Optional.empty(),
                     ignoreExisting,
-                    new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()));
+                    new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()),
+                    emptyList());
         }
         catch (TableAlreadyExistsException e) {
             throw new MaterializedViewAlreadyExistsException(e.getTableName());
