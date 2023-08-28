@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.likematcher.LikeMatcher;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -47,7 +48,6 @@ import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
-import io.airlift.joni.Regex;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
@@ -904,8 +904,8 @@ public class RowExpressionInterpreter
 
             if (!hasUnresolvedValue(value) && !hasUnresolvedValue(nonCompiledPattern) && (!hasEscape || !hasUnresolvedValue(escape))) {
                 // fast path when we know the pattern and escape are constants
-                if (possibleCompiledPattern instanceof Regex) {
-                    return changed(interpretLikePredicate(argumentTypes.get(0), (Slice) value, (Regex) possibleCompiledPattern));
+                if (possibleCompiledPattern instanceof LikeMatcher) {
+                    return changed(interpretLikePredicate(argumentTypes.get(0), (Slice) value, (LikeMatcher) possibleCompiledPattern));
                 }
                 if (possibleCompiledPattern == null) {
                     return changed(null);
@@ -922,8 +922,8 @@ public class RowExpressionInterpreter
                     possibleCompiledPattern = functionInvoker.invoke(((CallExpression) possibleCompiledPattern).getFunctionHandle(), session.getSqlFunctionProperties(), nonCompiledPattern);
                 }
 
-                checkState(possibleCompiledPattern instanceof Regex, "unexpected like pattern type " + possibleCompiledPattern.getClass());
-                return changed(interpretLikePredicate(argumentTypes.get(0), (Slice) value, (Regex) possibleCompiledPattern));
+                checkState(possibleCompiledPattern instanceof LikeMatcher, "unexpected like pattern type " + possibleCompiledPattern.getClass());
+                return changed(interpretLikePredicate(argumentTypes.get(0), (Slice) value, (LikeMatcher) possibleCompiledPattern));
             }
 
             // if pattern is a constant without % or _ replace with a comparison

@@ -15,50 +15,31 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.likematcher.LikeMatcher;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
-import io.airlift.jcodings.specific.NonStrictUTF8Encoding;
-import io.airlift.joni.Matcher;
-import io.airlift.joni.Option;
-import io.airlift.joni.Regex;
-import io.airlift.joni.Syntax;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.Chars.padSpaces;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.facebook.presto.util.Failures.checkCondition;
-import static io.airlift.joni.constants.MetaChar.INEFFECTIVE_META_CHAR;
-import static io.airlift.joni.constants.SyntaxProperties.OP_ASTERISK_ZERO_INF;
-import static io.airlift.joni.constants.SyntaxProperties.OP_DOT_ANYCHAR;
-import static io.airlift.joni.constants.SyntaxProperties.OP_LINE_ANCHOR;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class LikeFunctions
 {
-    private static final Syntax SYNTAX = new Syntax(
-            OP_DOT_ANYCHAR | OP_ASTERISK_ZERO_INF | OP_LINE_ANCHOR,
-            0,
-            0,
-            Option.NONE,
-            new Syntax.MetaCharTable(
-                    '\\',                           /* esc */
-                    INEFFECTIVE_META_CHAR,          /* anychar '.' */
-                    INEFFECTIVE_META_CHAR,          /* anytime '*' */
-                    INEFFECTIVE_META_CHAR,          /* zero or one time '?' */
-                    INEFFECTIVE_META_CHAR,          /* one or more time '+' */
-                    INEFFECTIVE_META_CHAR));        /* anychar anytime */
 
     private LikeFunctions() {}
 
     @ScalarFunction(value = "like", visibility = HIDDEN)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean likeChar(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice value, @SqlType(LikePatternType.NAME) Regex pattern)
+    public static boolean likeChar(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice value, @SqlType(LikePatternType.NAME) LikeMatcher pattern)
     {
         return likeVarchar(padSpaces(value, x.intValue()), pattern);
     }
@@ -67,27 +48,20 @@ public final class LikeFunctions
     @ScalarFunction(value = "like", visibility = HIDDEN)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean likeVarchar(@SqlType("varchar(x)") Slice value, @SqlType(LikePatternType.NAME) Regex pattern)
+    public static boolean likeVarchar(@SqlType("varchar(x)") Slice value, @SqlType(LikePatternType.NAME) LikeMatcher matcher)
     {
-        // Joni can infinite loop with UTF8Encoding when invalid UTF-8 is encountered.
-        // NonStrictUTF8Encoding must be used to avoid this issue.
-        Matcher matcher;
-        int offset;
         if (value.hasByteArray()) {
-            offset = value.byteArrayOffset();
-            matcher = pattern.matcher(value.byteArray(), offset, offset + value.length());
+            return matcher.match(value.byteArray(), value.byteArrayOffset(), value.length());
         }
         else {
-            offset = 0;
-            matcher = pattern.matcher(value.getBytes());
+            return matcher.match(value.getBytes(), 0, value.length());
         }
-        return matcher.match(offset, offset + value.length(), Option.NONE) != -1;
     }
 
     @ScalarOperator(OperatorType.CAST)
     @LiteralParameters("x")
     @SqlType(LikePatternType.NAME)
-    public static Regex castVarcharToLikePattern(@SqlType("varchar(x)") Slice pattern)
+    public static LikeMatcher castVarcharToLikePattern(@SqlType("varchar(x)") Slice pattern)
     {
         return likePattern(pattern);
     }
@@ -95,22 +69,27 @@ public final class LikeFunctions
     @ScalarOperator(OperatorType.CAST)
     @LiteralParameters("x")
     @SqlType(LikePatternType.NAME)
-    public static Regex castCharToLikePattern(@LiteralParameter("x") Long charLength, @SqlType("char(x)") Slice pattern)
+    public static LikeMatcher castCharToLikePattern(@LiteralParameter("x") Long charLength, @SqlType("char(x)") Slice pattern)
     {
         return likePattern(padSpaces(pattern, charLength.intValue()));
     }
 
-    public static Regex likePattern(Slice pattern)
+    public static LikeMatcher likePattern(Slice pattern)
     {
-        return likePattern(pattern.toStringUtf8(), '0', false);
+        return LikeMatcher.compile(pattern.toStringUtf8(), Optional.empty());
     }
 
     @ScalarFunction(visibility = HIDDEN)
     @LiteralParameters({"x", "y"})
     @SqlType(LikePatternType.NAME)
-    public static Regex likePattern(@SqlType("varchar(x)") Slice pattern, @SqlType("varchar(y)") Slice escape)
+    public static LikeMatcher likePattern(@SqlType("varchar(x)") Slice pattern, @SqlType("varchar(y)") Slice escape)
     {
-        return likePattern(pattern.toStringUtf8(), getEscapeChar(escape), true);
+        try {
+            return LikeMatcher.compile(pattern.toStringUtf8(), getEscapeChar(escape));
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
     }
 
     public static boolean isLikePattern(Slice pattern, Slice escape)
@@ -170,61 +149,16 @@ public final class LikeFunctions
         checkCondition(condition, INVALID_FUNCTION_ARGUMENT, "Escape character must be followed by '%%', '_' or the escape character itself");
     }
 
-    @SuppressWarnings("NestedSwitchStatement")
-    private static Regex likePattern(String patternString, char escapeChar, boolean shouldEscape)
-    {
-        StringBuilder regex = new StringBuilder(patternString.length() * 2);
-
-        regex.append('^');
-        boolean escaped = false;
-        for (char currentChar : patternString.toCharArray()) {
-            checkEscape(!escaped || currentChar == '%' || currentChar == '_' || currentChar == escapeChar);
-            if (shouldEscape && !escaped && (currentChar == escapeChar)) {
-                escaped = true;
-            }
-            else {
-                switch (currentChar) {
-                    case '%':
-                        regex.append(escaped ? "%" : ".*");
-                        escaped = false;
-                        break;
-                    case '_':
-                        regex.append(escaped ? "_" : ".");
-                        escaped = false;
-                        break;
-                    default:
-                        // escape special regex characters
-                        switch (currentChar) {
-                            case '\\':
-                            case '^':
-                            case '$':
-                            case '.':
-                            case '*':
-                                regex.append('\\');
-                        }
-
-                        regex.append(currentChar);
-                        escaped = false;
-                }
-            }
-        }
-        checkEscape(!escaped);
-        regex.append('$');
-
-        byte[] bytes = regex.toString().getBytes(UTF_8);
-        return new Regex(bytes, 0, bytes.length, Option.MULTILINE, NonStrictUTF8Encoding.INSTANCE, SYNTAX);
-    }
-
     @SuppressWarnings("NumericCastThatLosesPrecision")
-    private static char getEscapeChar(Slice escape)
+    private static Optional<Character> getEscapeChar(Slice escape)
     {
         String escapeString = escape.toStringUtf8();
         if (escapeString.isEmpty()) {
             // escaping disabled
-            return (char) -1; // invalid character
+            return Optional.empty(); // invalid character
         }
         if (escapeString.length() == 1) {
-            return escapeString.charAt(0);
+            return Optional.of(escapeString.charAt(0));
         }
         throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
     }

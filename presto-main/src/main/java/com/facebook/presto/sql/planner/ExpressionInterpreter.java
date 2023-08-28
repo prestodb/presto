@@ -29,6 +29,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeUtils;
 import com.facebook.presto.expressions.DynamicFilters;
+import com.facebook.presto.likematcher.LikeMatcher;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.scalar.ArraySubscriptOperator;
@@ -98,7 +99,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
-import io.airlift.joni.Regex;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
@@ -176,7 +176,7 @@ public class ExpressionInterpreter
     private final Visitor visitor;
 
     // identity-based cache for LIKE expressions with constant pattern and escape char
-    private final IdentityHashMap<LikePredicate, Regex> likePatternCache = new IdentityHashMap<>();
+    private final IdentityHashMap<LikePredicate, LikeMatcher> likePatternCache = new IdentityHashMap<>();
     private final IdentityHashMap<InListExpression, Set<?>> inListCache = new IdentityHashMap<>();
 
     public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
@@ -1061,15 +1061,15 @@ public class ExpressionInterpreter
             if (value instanceof Slice &&
                     pattern instanceof Slice &&
                     (escape == null || escape instanceof Slice)) {
-                Regex regex;
+                LikeMatcher matcher;
                 if (escape == null) {
-                    regex = LikeFunctions.likePattern((Slice) pattern);
+                    matcher = LikeMatcher.compile(((Slice) pattern).toStringUtf8(), Optional.empty());
                 }
                 else {
-                    regex = LikeFunctions.likePattern((Slice) pattern, (Slice) escape);
+                    matcher = LikeFunctions.likePattern((Slice) pattern, (Slice) escape);
                 }
 
-                return interpretLikePredicate(type(node.getValue()), (Slice) value, regex);
+                return interpretLikePredicate(type(node.getValue()), (Slice) value, matcher);
             }
 
             // if pattern is a constant without % or _ replace with a comparison
@@ -1103,9 +1103,9 @@ public class ExpressionInterpreter
                     optimizedEscape);
         }
 
-        private Regex getConstantPattern(LikePredicate node)
+        private LikeMatcher getConstantPattern(LikePredicate node)
         {
-            Regex result = likePatternCache.get(node);
+            LikeMatcher result = likePatternCache.get(node);
 
             if (result == null) {
                 StringLiteral pattern = (StringLiteral) node.getPattern();
@@ -1115,7 +1115,7 @@ public class ExpressionInterpreter
                     result = LikeFunctions.likePattern(pattern.getSlice(), escape);
                 }
                 else {
-                    result = LikeFunctions.likePattern(pattern.getSlice());
+                    result = LikeMatcher.compile(pattern.getValue(), Optional.empty());
                 }
 
                 likePatternCache.put(node, result);

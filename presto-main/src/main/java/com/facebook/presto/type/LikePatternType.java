@@ -19,8 +19,8 @@ import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.AbstractPrimitiveType;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.likematcher.LikeMatcher;
 import com.facebook.presto.spi.PrestoException;
-import io.airlift.joni.Regex;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
@@ -32,7 +32,7 @@ public class LikePatternType
 
     public LikePatternType()
     {
-        super(new TypeSignature(NAME), Regex.class);
+        super(new TypeSignature(NAME), LikeMatcher.class);
     }
 
     @Override

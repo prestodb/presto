@@ -17,9 +17,9 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.likematcher.LikeMatcher;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.type.LikeFunctions;
-import io.airlift.joni.Regex;
 import io.airlift.slice.Slice;
 
 import java.util.Map;
@@ -58,14 +58,14 @@ public class Interpreters
         throw new UnsupportedOperationException("Dereference a unsupported primitive type: " + javaType.getName());
     }
 
-    static boolean interpretLikePredicate(Type valueType, Slice value, Regex regex)
+    static boolean interpretLikePredicate(Type valueType, Slice value, LikeMatcher matcher)
     {
         if (valueType instanceof VarcharType) {
-            return LikeFunctions.likeVarchar(value, regex);
+            return LikeFunctions.likeVarchar(value, matcher);
         }
 
         checkState(valueType instanceof CharType, "LIKE value is neither VARCHAR or CHAR");
-        return LikeFunctions.likeChar((long) ((CharType) valueType).getLength(), value, regex);
+        return LikeFunctions.likeChar((long) ((CharType) valueType).getLength(), value, matcher);
     }
 
     public static class LambdaVariableResolver

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.likematcher.LikeMatcher;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.PrestoException;
-import io.airlift.joni.Regex;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
@@ -47,9 +47,9 @@ public class TestLikeFunctions
     @Test
     public void testLikeBasic()
     {
-        Regex regex = likePattern(utf8Slice("f%b__"));
-        assertTrue(likeVarchar(utf8Slice("foobar"), regex));
-        assertTrue(likeVarchar(offsetHeapSlice("foobar"), regex));
+        LikeMatcher matcher = likePattern(utf8Slice("f%b__"));
+        assertTrue(likeVarchar(utf8Slice("foobar"), matcher));
+        assertTrue(likeVarchar(offsetHeapSlice("foobar"), matcher));
 
         assertFunction("'foob' LIKE 'f%b__'", BOOLEAN, false);
         assertFunction("'foob' LIKE 'f%b'", BOOLEAN, true);
@@ -58,13 +58,13 @@ public class TestLikeFunctions
     @Test
     public void testLikeChar()
     {
-        Regex regex = likePattern(utf8Slice("f%b__"));
-        assertTrue(likeChar(6L, utf8Slice("foobar"), regex));
-        assertTrue(likeChar(6L, offsetHeapSlice("foobar"), regex));
-        assertTrue(likeChar(6L, utf8Slice("foob"), regex));
-        assertTrue(likeChar(6L, offsetHeapSlice("foob"), regex));
-        assertFalse(likeChar(7L, utf8Slice("foob"), regex));
-        assertFalse(likeChar(7L, offsetHeapSlice("foob"), regex));
+        LikeMatcher matcher = likePattern(utf8Slice("f%b__"));
+        assertTrue(likeChar(6L, utf8Slice("foobar"), matcher));
+        assertTrue(likeChar(6L, offsetHeapSlice("foobar"), matcher));
+        assertTrue(likeChar(6L, utf8Slice("foob"), matcher));
+        assertTrue(likeChar(6L, offsetHeapSlice("foob"), matcher));
+        assertFalse(likeChar(7L, utf8Slice("foob"), matcher));
+        assertFalse(likeChar(7L, offsetHeapSlice("foob"), matcher));
 
         assertFunction("cast('foob' as char(6)) LIKE 'f%b__'", BOOLEAN, true);
         assertFunction("cast('foob' as char(7)) LIKE 'f%b__'", BOOLEAN, false);
@@ -73,41 +73,41 @@ public class TestLikeFunctions
     @Test
     public void testLikeSpacesInPattern()
     {
-        Regex regex = likePattern(utf8Slice("ala  "));
-        assertTrue(likeVarchar(utf8Slice("ala  "), regex));
-        assertFalse(likeVarchar(utf8Slice("ala"), regex));
+        LikeMatcher matcher = likePattern(utf8Slice("ala  "));
+        assertTrue(likeVarchar(utf8Slice("ala  "), matcher));
+        assertFalse(likeVarchar(utf8Slice("ala"), matcher));
 
-        regex = castCharToLikePattern(5L, utf8Slice("ala"));
-        assertTrue(likeVarchar(utf8Slice("ala  "), regex));
-        assertFalse(likeVarchar(utf8Slice("ala"), regex));
+        matcher = castCharToLikePattern(5L, utf8Slice("ala"));
+        assertTrue(likeVarchar(utf8Slice("ala  "), matcher));
+        assertFalse(likeVarchar(utf8Slice("ala"), matcher));
     }
 
     @Test
     public void testLikeNewlineInPattern()
     {
-        Regex regex = likePattern(utf8Slice("%o\nbar"));
-        assertTrue(likeVarchar(utf8Slice("foo\nbar"), regex));
+        LikeMatcher matcher = likePattern(utf8Slice("%o\nbar"));
+        assertTrue(likeVarchar(utf8Slice("foo\nbar"), matcher));
     }
 
     @Test
     public void testLikeNewlineBeforeMatch()
     {
-        Regex regex = likePattern(utf8Slice("%b%"));
-        assertTrue(likeVarchar(utf8Slice("foo\nbar"), regex));
+        LikeMatcher matcher = likePattern(utf8Slice("%b%"));
+        assertTrue(likeVarchar(utf8Slice("foo\nbar"), matcher));
     }
 
     @Test
     public void testLikeNewlineInMatch()
     {
-        Regex regex = likePattern(utf8Slice("f%b%"));
-        assertTrue(likeVarchar(utf8Slice("foo\nbar"), regex));
+        LikeMatcher matcher = likePattern(utf8Slice("f%b%"));
+        assertTrue(likeVarchar(utf8Slice("foo\nbar"), matcher));
     }
 
     @Test(timeOut = 1000)
     public void testLikeUtf8Pattern()
     {
-        Regex regex = likePattern(utf8Slice("%\u540d\u8a89%"), utf8Slice("\\"));
-        assertFalse(likeVarchar(utf8Slice("foo"), regex));
+        LikeMatcher matcher = likePattern(utf8Slice("%\u540d\u8a89%"), utf8Slice("\\"));
+        assertFalse(likeVarchar(utf8Slice("foo"), matcher));
     }
 
     @SuppressWarnings("NumericCastThatLosesPrecision")
@@ -115,29 +115,29 @@ public class TestLikeFunctions
     public void testLikeInvalidUtf8Value()
     {
         Slice value = Slices.wrappedBuffer(new byte[] {'a', 'b', 'c', (byte) 0xFF, 'x', 'y'});
-        Regex regex = likePattern(utf8Slice("%b%"), utf8Slice("\\"));
-        assertTrue(likeVarchar(value, regex));
+        LikeMatcher matcher = likePattern(utf8Slice("%b%"), utf8Slice("\\"));
+        assertTrue(likeVarchar(value, matcher));
     }
 
     @Test
     public void testBackslashesNoSpecialTreatment()
     {
-        Regex regex = likePattern(utf8Slice("\\abc\\/\\\\"));
-        assertTrue(likeVarchar(utf8Slice("\\abc\\/\\\\"), regex));
+        LikeMatcher matcher = likePattern(utf8Slice("\\abc\\/\\\\"));
+        assertTrue(likeVarchar(utf8Slice("\\abc\\/\\\\"), matcher));
     }
 
     @Test
     public void testSelfEscaping()
     {
-        Regex regex = likePattern(utf8Slice("\\\\abc\\%"), utf8Slice("\\"));
-        assertTrue(likeVarchar(utf8Slice("\\abc%"), regex));
+        LikeMatcher matcher = likePattern(utf8Slice("\\\\abc\\%"), utf8Slice("\\"));
+        assertTrue(likeVarchar(utf8Slice("\\abc%"), matcher));
     }
 
     @Test
     public void testAlternateEscapedCharacters()
     {
-        Regex regex = likePattern(utf8Slice("xxx%x_abcxx"), utf8Slice("x"));
-        assertTrue(likeVarchar(utf8Slice("x%_abcx"), regex));
+        LikeMatcher matcher = likePattern(utf8Slice("xxx%x_abcxx"), utf8Slice("x"));
+        assertTrue(likeVarchar(utf8Slice("x%_abcx"), matcher));
     }
 
     @Test
@@ -171,5 +171,45 @@ public class TestLikeFunctions
         assertEquals(unescapeLiteralLikePattern(utf8Slice("abc#_"), utf8Slice("#")), utf8Slice("abc_"));
         assertEquals(unescapeLiteralLikePattern(utf8Slice("a##bc#_"), utf8Slice("#")), utf8Slice("a#bc_"));
         assertEquals(unescapeLiteralLikePattern(utf8Slice("a###_bc"), utf8Slice("#")), utf8Slice("a#_bc"));
+    }
+
+    @Test
+    public void testSimplifiedLikePattern()
+    {
+        // simplify the successive wildcards into one
+        LikeMatcher matcher;
+
+        matcher = likePattern(utf8Slice("%%%%%%%%%%%%%%%%%%%%%bounce"));
+        assertFalse(likeVarchar(utf8Slice("xzsadfjasdkfjsadsfasgsdfgsdfgsdfgsdfgfsdgsdfgsdgsdfg"), matcher));
+        assertTrue(likeVarchar(utf8Slice("xzsadfjasdkfjsadsfasgsdfgsdfgsdfgsdfgfsdgsdfgsdgsdfgbounce"), matcher));
+        assertFalse(likeVarchar(utf8Slice("xzsadfjasdkfjsadsfasgsdfgsdfgsdfgsdfgfsdgsdfgsdgsdfgbouncexxxx"), matcher));
+
+        matcher = likePattern(utf8Slice("%%%%%%%%%%%%%%%%%%%bounce%%%%%%%%%%%%%"));
+        assertFalse(likeVarchar(utf8Slice("xzsadfjasdkfjsadsfasgsdfgsdfgsdfgsdfgfsdgsdfgsdgsdfg"), matcher));
+        assertTrue(likeVarchar(utf8Slice("xzsadfjasdkfjsadsfasgsdfgsdfgsdfgsdfgfsdgsdfgsdgsdfgbounce"), matcher));
+        assertTrue(likeVarchar(utf8Slice("xzsadfjasdkfjsadsfasgsdfgsdfgsdfgsdfgfsdgsdfgsdgsdfgbouncexxxx"), matcher));
+
+        matcher = likePattern(utf8Slice("xzsad%%%%%%%%%%%%%%%%%%%%bounce%%%%%%%%%%%%%x"));
+        assertFalse(likeVarchar(utf8Slice("xzsadfjasdkfjsadsfasgsdfgsdfgsdfgsdfgfsdgsdfgsdgsdfg"), matcher));
+        assertFalse(likeVarchar(utf8Slice("xzsadfjasdkfjsadsfasgsdfgsdfgsdfgsdfgfsdgsdfgsdgsdfgbounce"), matcher));
+        assertTrue(likeVarchar(utf8Slice("xzsadfjasdkfjsadsfasgsdfgsdfgsdfgsdfgfsdgsdfgsdgsdfgbouncexxxx"), matcher));
+
+        matcher = likePattern(utf8Slice("xz%%%%%.*%%%%%bounce%%%%%%%"));
+        assertTrue(likeVarchar(utf8Slice("xzPPPP.*bounce"), matcher));
+        assertFalse(likeVarchar(utf8Slice("xzPPPP.bounce"), matcher));
+        assertTrue(likeVarchar(utf8Slice("xz.*bounce"), matcher));
+        assertFalse(likeVarchar(utf8Slice("xzPPPP*bounce"), matcher));
+
+        for (String escapeChar : new String[] {"%", "#"}) {
+            // xz%%bounce%%"
+            matcher = likePattern(utf8Slice("xz" + escapeChar + "%bounce" + escapeChar + "%"), utf8Slice(escapeChar));
+            assertTrue(likeVarchar(utf8Slice("xz%bounce%"), matcher));
+            assertFalse(likeVarchar(utf8Slice("xz%bounceff%"), matcher));
+
+            // xz%%bou_n%_ce%%"
+            matcher = likePattern(utf8Slice("xz" + escapeChar + "%bou_n" + escapeChar + "_ce" + escapeChar + "%"), utf8Slice(escapeChar));
+            assertTrue(likeVarchar(utf8Slice("xz%bouXn_ce%"), matcher));
+            assertFalse(likeVarchar(utf8Slice("xz%bouXnXce%"), matcher));
+        }
     }
 }
