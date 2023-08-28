@@ -162,6 +162,28 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT cardinality(x.f3) from test_subfield",
                 privilege("x.f3", SELECT_COLUMN));
 
+        assertAccessAllowed(session,
+                "SELECT x.f3 IS NULL from test_subfield",
+                privilege("x.f3", SELECT_COLUMN));
+
+        assertAccessAllowed(session,
+                "SELECT x.f3 IS NOT NULL from test_subfield",
+                privilege("x.f3", SELECT_COLUMN));
+
+        assertAccessAllowed(session,
+                "SELECT x.f3 IS NULL from test_subfield",
+                privilege("x", SELECT_COLUMN));
+        assertAccessAllowed(session,
+                "SELECT x.f3 IS NOT NULL from test_subfield",
+                privilege("x", SELECT_COLUMN));
+
+        assertAccessAllowed(session,
+                "SELECT x IS NULL from test_subfield",
+                privilege("x", SELECT_COLUMN));
+        assertAccessAllowed(session,
+                "SELECT x IS NOT NULL from test_subfield",
+                privilege("x", SELECT_COLUMN));
+
         assertUpdate("DROP TABLE test_subfield");
     }
 
