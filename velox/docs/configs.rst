@@ -108,7 +108,7 @@ Expression Evaluation Configuration
    * - cast_to_int_by_truncate
      - bool
      - false
-     - This flags forces the cast from float/double to integer to be performed by truncating the decimal part instead of rounding.
+     - This flags forces the cast from float/double/decimal to integer to be performed by truncating the decimal part instead of rounding.
 
 Memory Management
 -----------------

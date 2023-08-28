@@ -268,6 +268,25 @@ Invalid examples
   SELECT cast('nan' as bigint); -- Invalid argument
   SELECT cast('infinity' as bigint); -- Invalid argument
 
+From decimal
+^^^^^^^^^^^^
+
+By default, the decimal part is rounded. If cast_to_int_by_truncate is enabled, the decimal part will be truncated for casting to an integer.
+
+Valid examples
+
+::
+
+  SELECT cast(2.56 decimal(6, 2) as integer); -- 2 /* cast_to_int_by_truncate enabled */
+  SELECT cast(2.56 decimal(6, 2) as integer); -- 3 /* cast_to_int_by_truncate disabled */
+  SELECT cast(3.46 decimal(6, 2) as integer); -- 3
+
+Invalid examples
+
+::
+  
+  SELECT cast(214748364890 decimal(12, 2) as integer); -- Out of range
+
 Cast to Boolean
 ---------------
 

@@ -249,14 +249,19 @@ VectorPtr CastExpr::applyDecimalToIntegralCast(
   const auto precisionScale = getDecimalPrecisionScale(*fromType);
   const auto simpleInput = input.as<SimpleVector<FromNativeType>>();
   const auto scaleFactor = DecimalUtil::kPowersOfTen[precisionScale.second];
+  const auto castToIntByTruncate =
+      context.execCtx()->queryCtx()->queryConfig().isCastToIntByTruncate();
   applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
     auto value = simpleInput->valueAt(row);
     auto integralPart = value / scaleFactor;
-    auto fractionPart = value % scaleFactor;
-    auto sign = value >= 0 ? 1 : -1;
-    bool needsRoundUp =
-        (scaleFactor != 1) && (sign * fractionPart >= (scaleFactor >> 1));
-    integralPart += needsRoundUp ? sign : 0;
+    if (!castToIntByTruncate) {
+      auto fractionPart = value % scaleFactor;
+      auto sign = value >= 0 ? 1 : -1;
+      bool needsRoundUp =
+          (scaleFactor != 1) && (sign * fractionPart >= (scaleFactor >> 1));
+      integralPart += needsRoundUp ? sign : 0;
+    }
+
     if (integralPart > std::numeric_limits<To>::max() ||
         integralPart < std::numeric_limits<To>::min()) {
       if (setNullInResultAtError()) {

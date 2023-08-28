@@ -295,6 +295,7 @@ class CastExprTest : public functions::test::CastBaseTest {
 
   template <typename T>
   void testDecimalToIntegralCasts() {
+    setCastIntByTruncate(false);
     auto shortFlat = makeNullableFlatVector<int64_t>(
         {-300,
          -260,
@@ -352,6 +353,41 @@ class CastExprTest : public functions::test::CastBaseTest {
              55,
              55 /* 55.49 rounds to 55*/,
              56 /* 55.99 rounds to 56*/,
+             69,
+             72,
+             std::nullopt}));
+
+    setCastIntByTruncate(true);
+    testComplexCast(
+        "c0",
+        shortFlat,
+        makeNullableFlatVector<T>(
+            {-3,
+             -2 /*-2.6 truncated to -2*/,
+             -2 /*-2.3 truncated to -2*/,
+             -2,
+             -1,
+             0,
+             55,
+             57 /*57.49 truncated to 57*/,
+             57 /*57.55 truncated to 57*/,
+             69,
+             72,
+             std::nullopt}));
+
+    testComplexCast(
+        "c0",
+        longFlat,
+        makeNullableFlatVector<T>(
+            {-3,
+             -2 /*-2.55 truncated to -2*/,
+             -2 /*-2.45 truncated to -2*/,
+             -2,
+             -1,
+             0,
+             55,
+             55 /* 55.49 truncated to 55*/,
+             55 /* 55.99 truncated to 55*/,
              69,
              72,
              std::nullopt}));
