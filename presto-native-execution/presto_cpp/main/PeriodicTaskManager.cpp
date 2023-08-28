@@ -30,6 +30,13 @@
 
 #include <sys/resource.h>
 
+namespace {
+#define REPORT_IF_NOT_ZERO(name, counter)     \
+  if ((counter) != 0) {                       \
+    REPORT_ADD_STAT_VALUE((name), (counter)); \
+  }
+} // namespace
+
 namespace facebook::presto {
 
 // Every two seconds we export server counters.
@@ -48,6 +55,8 @@ static constexpr size_t kConnectorPeriodGlobalCounters{
     60'000'000}; // 60 seconds.
 static constexpr size_t kOsPeriodGlobalCounters{2'000'000}; // 2 seconds
 static constexpr size_t kSpillStatsUpdateIntervalUs{60'000'000}; // 60 seconds
+static constexpr size_t kArbitratorStatsUpdateIntervalUs{
+    60'000'000}; // 60 seconds
 // Every 1 minute we print endpoint latency counters.
 static constexpr size_t kHttpEndpointLatencyPeriodGlobalCounters{
     60'000'000}; // 60 seconds.
@@ -66,6 +75,7 @@ PeriodicTaskManager::PeriodicTaskManager(
       taskManager_(taskManager),
       memoryAllocator_(memoryAllocator),
       asyncDataCache_(asyncDataCache),
+      arbitrator_(velox::memory::MemoryManager::getInstance().arbitrator()),
       connectors_(connectors) {}
 
 void PeriodicTaskManager::start() {
@@ -90,6 +100,11 @@ void PeriodicTaskManager::start() {
   addSpillStatsUpdateTask();
   if (SystemConfig::instance()->enableHttpEndpointLatencyFilter()) {
     addHttpEndpointLatencyStatsTask();
+  }
+
+  VELOX_CHECK_NOT_NULL(arbitrator_);
+  if (arbitrator_->kind() != "NOOP") {
+    addArbitratorStatsTask();
   }
 
   // This should be the last call in this method.
@@ -490,6 +505,43 @@ void PeriodicTaskManager::addOperatingSystemStatsUpdateTask() {
       "os_counters");
 }
 
+void PeriodicTaskManager::addArbitratorStatsTask() {
+  scheduler_.addFunction(
+      [this]() { updateArbitratorStatsTask(); },
+      std::chrono::microseconds{kArbitratorStatsUpdateIntervalUs},
+      "arbitrator_stats");
+}
+
+void PeriodicTaskManager::updateArbitratorStatsTask() {
+  VELOX_CHECK_NOT_NULL(arbitrator_);
+  const auto updatedArbitratorStats = arbitrator_->stats();
+  VELOX_CHECK_GE(updatedArbitratorStats, lastArbitratorStats_);
+  const auto deltaArbitratorStats =
+      updatedArbitratorStats - lastArbitratorStats_;
+  REPORT_IF_NOT_ZERO(
+      kCounterArbitratorNumRequests, deltaArbitratorStats.numRequests);
+  REPORT_IF_NOT_ZERO(
+      kCounterArbitratorNumAborted, deltaArbitratorStats.numAborted);
+  REPORT_IF_NOT_ZERO(
+      kCounterArbitratorNumFailures, deltaArbitratorStats.numFailures);
+  REPORT_IF_NOT_ZERO(
+      kCounterArbitratorQueueTimeUs, deltaArbitratorStats.queueTimeUs);
+  REPORT_IF_NOT_ZERO(
+      kCounterArbitratorArbitrationTimeUs,
+      deltaArbitratorStats.arbitrationTimeUs);
+  REPORT_IF_NOT_ZERO(
+      kCounterArbitratorNumShrunkBytes, deltaArbitratorStats.numShrunkBytes);
+  REPORT_IF_NOT_ZERO(
+      kCounterArbitratorNumReclaimedBytes,
+      deltaArbitratorStats.numReclaimedBytes);
+  REPORT_IF_NOT_ZERO(
+      kCounterArbitratorFreeCapacityBytes,
+      deltaArbitratorStats.freeCapacityBytes);
+  LOG(INFO) << "Memory arbitrator stats update: "
+            << deltaArbitratorStats.toString();
+  lastArbitratorStats_ = updatedArbitratorStats;
+}
+
 void PeriodicTaskManager::addSpillStatsUpdateTask() {
   scheduler_.addFunction(
       [this]() { updateSpillStatsTask(); },
@@ -501,43 +553,20 @@ void PeriodicTaskManager::updateSpillStatsTask() {
   const auto updatedSpillStats = velox::exec::globalSpillStats();
   VELOX_CHECK_GE(updatedSpillStats, lastSpillStats_);
   const auto deltaSpillStats = updatedSpillStats - lastSpillStats_;
-  if (deltaSpillStats.spillRuns != 0) {
-    REPORT_ADD_STAT_VALUE(kCounterSpillRuns, deltaSpillStats.spillRuns);
-  }
-  if (deltaSpillStats.spilledFiles != 0) {
-    REPORT_ADD_STAT_VALUE(kCounterSpilledFiles, deltaSpillStats.spilledFiles);
-  }
-  if (deltaSpillStats.spilledRows != 0) {
-    REPORT_ADD_STAT_VALUE(kCounterSpilledRows, deltaSpillStats.spilledRows);
-  }
-  if (deltaSpillStats.spilledBytes != 0) {
-    REPORT_ADD_STAT_VALUE(kCounterSpilledBytes, deltaSpillStats.spilledBytes);
-  }
-  if (deltaSpillStats.spillFillTimeUs != 0) {
-    REPORT_ADD_STAT_VALUE(
-        kCounterSpillFillTimeUs, deltaSpillStats.spillFillTimeUs);
-  }
-  if (deltaSpillStats.spillSortTimeUs != 0) {
-    REPORT_ADD_STAT_VALUE(
-        kCounterSpillSortTimeUs, deltaSpillStats.spillSortTimeUs);
-  }
-  if (deltaSpillStats.spillSerializationTimeUs != 0) {
-    REPORT_ADD_STAT_VALUE(
-        kCounterSpillSerializationTimeUs,
-        deltaSpillStats.spillSerializationTimeUs);
-  }
-  if (deltaSpillStats.spillDiskWrites != 0) {
-    REPORT_ADD_STAT_VALUE(
-        kCounterSpillDiskWrites, deltaSpillStats.spillDiskWrites);
-  }
-  if (deltaSpillStats.spillFlushTimeUs != 0) {
-    REPORT_ADD_STAT_VALUE(
-        kCounterSpillFlushTimeUs, deltaSpillStats.spillFlushTimeUs);
-  }
-  if (deltaSpillStats.spillWriteTimeUs != 0) {
-    REPORT_ADD_STAT_VALUE(
-        kCounterSpillWriteTimeUs, deltaSpillStats.spillWriteTimeUs);
-  }
+  REPORT_IF_NOT_ZERO(kCounterSpillRuns, deltaSpillStats.spillRuns);
+  REPORT_IF_NOT_ZERO(kCounterSpilledFiles, deltaSpillStats.spilledFiles);
+  REPORT_IF_NOT_ZERO(kCounterSpilledRows, deltaSpillStats.spilledRows);
+  REPORT_IF_NOT_ZERO(kCounterSpilledBytes, deltaSpillStats.spilledBytes);
+  REPORT_IF_NOT_ZERO(kCounterSpillFillTimeUs, deltaSpillStats.spillFillTimeUs);
+  REPORT_IF_NOT_ZERO(kCounterSpillSortTimeUs, deltaSpillStats.spillSortTimeUs);
+  REPORT_IF_NOT_ZERO(
+      kCounterSpillSerializationTimeUs,
+      deltaSpillStats.spillSerializationTimeUs);
+  REPORT_IF_NOT_ZERO(kCounterSpillDiskWrites, deltaSpillStats.spillDiskWrites);
+  REPORT_IF_NOT_ZERO(
+      kCounterSpillFlushTimeUs, deltaSpillStats.spillFlushTimeUs);
+  REPORT_IF_NOT_ZERO(
+      kCounterSpillWriteTimeUs, deltaSpillStats.spillWriteTimeUs);
   LOG(INFO) << "Spill Stats:\n" << deltaSpillStats.toString() << "\n";
   lastSpillStats_ = updatedSpillStats;
 }

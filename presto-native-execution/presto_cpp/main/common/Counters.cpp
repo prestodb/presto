@@ -216,6 +216,23 @@ void registerPrestoCppCounters() {
       kCounterSpillFlushTimeUs, facebook::velox::StatType::SUM);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterSpillWriteTimeUs, facebook::velox::StatType::SUM);
+  // Memory arbitrator stats.
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterArbitratorNumRequests, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterArbitratorNumAborted, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterArbitratorNumFailures, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterArbitratorQueueTimeUs, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterArbitratorArbitrationTimeUs, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterArbitratorNumShrunkBytes, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterArbitratorNumReclaimedBytes, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterArbitratorFreeCapacityBytes, facebook::velox::StatType::AVG);
 
   // NOTE: Metrics type exporting for file handle cache counters are in
   // PeriodicTaskManager because they have dynamic names. The following counters
