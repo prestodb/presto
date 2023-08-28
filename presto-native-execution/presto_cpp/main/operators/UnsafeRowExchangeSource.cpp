@@ -28,12 +28,12 @@ namespace facebook::presto::operators {
     VELOX_FAIL("ShuffleReader::{} failed: {}", methodName, e.what()); \
   }
 
-void UnsafeRowExchangeSource::request() {
+velox::ContinueFuture UnsafeRowExchangeSource::request(uint32_t maxBytes) {
   std::vector<velox::ContinuePromise> promises;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
     if (atEnd_) {
-      return;
+      return folly::makeFuture<folly::Unit>(folly::Unit());
     }
 
     bool hasNext;
@@ -63,6 +63,8 @@ void UnsafeRowExchangeSource::request() {
   for (auto& promise : promises) {
     promise.setValue();
   }
+
+  return folly::makeFuture<folly::Unit>(folly::Unit());
 }
 
 folly::F14FastMap<std::string, int64_t> UnsafeRowExchangeSource::stats() const {
