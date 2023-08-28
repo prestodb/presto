@@ -110,6 +110,11 @@ public final class FunctionSignatureMatcher
             return Optional.of(getOnlyElement(applicableFunctions).getBoundSignature());
         }
 
+        //Hash_counts
+        if (applicableFunctions.size() == 2 && applicableFunctions.get(1).getBoundSignature().getName().getObjectName().equals("hash_counts")) {
+            return Optional.of(applicableFunctions.get(1).getBoundSignature());
+        }
+
         StringBuilder errorMessageBuilder = new StringBuilder();
         errorMessageBuilder.append("Could not choose a best candidate operator. Explicit type casts must be added.\n");
         errorMessageBuilder.append("Candidates are:\n");
