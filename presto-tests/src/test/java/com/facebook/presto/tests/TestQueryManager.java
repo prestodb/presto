@@ -238,7 +238,7 @@ public class TestQueryManager
         }
     }
 
-    @Test(retryAnalyzer = Retry.class)
+    @Test(invocationCount = 5, retryAnalyzer = Retry.class)
     public void testQueryCountMetrics()
             throws Exception
     {
