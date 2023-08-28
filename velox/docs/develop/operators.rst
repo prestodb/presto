@@ -139,6 +139,8 @@ input columns.
    * - expressions
      - Expressions for the output columns.
 
+.. _AggregationNode:
+
 AggregationNode
 ~~~~~~~~~~~~~~~
 
@@ -210,7 +212,7 @@ aggregate functions.
 Finally, note that computing measures over sorted input is only possible if
 aggregation step is 'single'. Such computations cannot be split into partial + final.
 
-.. _group-id-node:
+.. _GroupIdNode:
 
 GroupIdNode
 ~~~~~~~~~~~
@@ -585,7 +587,7 @@ the nodes executing the same query stage in a distributed query execution.
    * - taskUniqueId
      - A 24-bit integer to uniquely identify the task id across all the nodes.
 
-.. _window-node:
+.. _WindowNode:
 
 WindowNode
 ~~~~~~~~~~

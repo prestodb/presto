@@ -13,7 +13,7 @@ Core Library
 * Add support for INTERVAL DAY TO SECOND Presto type.
 * Allow cast between DATE and TIMESTAMP types.
 * Allow cast from JSON to scalar, ARRAY, and MAP types.
-* Add :ref:`GroupIdNode<group-id-node>` and GroupId operator to support aggregations over grouping sets.
+* Add :ref:`GroupIdNode<GroupIdNode>` and GroupId operator to support aggregations over grouping sets.
 * Add support for function signatures with DECIMAL input and return types using flex and bison to evaluate formulas for calculating the return precision and scale based on input precisions and scales.
 * Add support for conversion of DuckDB DECIMALS to Velox DECIMALS.
 * Add support for running tasks on the caller's thread.

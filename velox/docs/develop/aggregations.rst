@@ -13,12 +13,13 @@ grouping keys and zero, one or multiple aggregate functions.
 lists all available aggregate functions and :doc:`How to add an aggregate
 function? <aggregate-functions>` guide explains how to add more.
 
-Use AggregationNode to insert an aggregation into the query plan. Specify
-aggregation step (partial, intermediate, final, or single), grouping keys and
-aggregate functions. You may also specify boolean columns to mask out rows for
-some or all aggregations. Grouping keys must refer to input columns and cannot
-contain expressions. To compute aggregations over expressions add ProjectNode
-just before the AggregationNode.
+Use :ref:`AggregationNode<AggregationNode>` to insert an aggregation into the
+query plan. Specify aggregation step (partial, intermediate, final, or single),
+grouping keys and aggregate functions. You may also specify boolean columns to
+mask out rows for some or all aggregations as well as request aggregations to
+be computed on sorted or distinct inputs. Grouping keys must refer to input
+columns and cannot contain expressions. To compute aggregations over
+expressions add ProjectNode just before the AggregationNode.
 
 Here are examples of aggregation query plans:
 
@@ -48,6 +49,22 @@ Group-by with multiple grouping keys and multiple aggregates:
 
 * AggregationNode: groupingKeys = {a, b}, aggregates = {sum(c), avg(c)}
 
+Group-by over distinct inputs:
+
+.. code-block:: sql
+
+    SELECT a, count(DISTINCT c) FROM t GROUP BY 1
+
+* AggregationNode: groupingKeys = {a}, aggregates = {count(distinct c)}
+
+Group-by over sorted inputs:
+
+.. code-block:: sql
+
+    SELECT a, array_agg(b ORDER BY b) FROM t GROUP BY 1
+
+* AggregationNode: groupingKeys = {a}, aggregates = {array_agg(b ORDER BY b ASC NULLS LAST)}
+
 Distinct aggregation:
 
 .. code-block:: sql
@@ -60,7 +77,7 @@ Aggregation with a mask:
 
 .. code-block:: sql
 
-    SELECT a, sum (b) filter (where c > 10) FROM t GROUP BY 1
+    SELECT a, sum (b) FILTER (WHERE c > 10) FROM t GROUP BY 1
 
 * AggregationNode: groupingKeys = {a}, aggregates = {sum(b, mask: d)}
     * ProjectNode: a, b, d := c > 10
@@ -73,14 +90,27 @@ Global aggregation:
 
 * AggregationNode: groupingKeys = {}, aggregates = {sum(a), avg(b)}
 
-HashAggregation Operator
-------------------------
+HashAggregation and StreamingAggregation Operators
+--------------------------------------------------
 
 AggregationNode is translated to the HashAggregation operator for execution.
 Distinct aggregations, e.g. aggregations with no aggregates, run in streaming
 mode. For each batch of input rows, the operator determines a set of new
 grouping key values and returns these as results. Aggregations with one or more
 aggregate functions need to process all input before producing the results.
+
+AggregationNode may indicate that inputs are pre-grouped on a subset of grouping
+keys. If inputs are pre-grouped on all grouping keys, the plan node is executed
+using StreamingAggregation operator. In this case it is not necessary to
+accumulate all inputs in memory before producing results. StreamingAggregation
+accumulates only a handful of groups at a time and therefore uses much less
+memory than HashAggregation operator.
+
+For the case when inputs are pre-grouped on a strict subset of grouping keys,
+HashAggregation includes an optimization where it flushes groups whenever it
+encounters a row with a different values in pre-grouped keys. This helps reduce
+the total amount of memory used and allows to unblock downstream operators
+faster.
 
 Push-Down into Table Scan
 -------------------------
@@ -243,3 +273,75 @@ table switches to normalized key or hash mode.
 
 Array and normalized key modes are supported only for grouping keys of the
 following types: boolean, tinyint, smallint, integer, bigint, varchar.
+
+Adaptive Disabling of Partial Aggregation
+-----------------------------------------
+
+Sometimes partial aggregation encounters mostly unique keys and is not able to
+meaningfully reduce cardinality of the data. In this case, it is more efficient
+to skip partial aggregation and proceed to shuffle the data and compute final
+aggregation. The main savings come from not needing to hash the inputs, build
+and probe the hash table.
+
+HashAggregation operator includes logic to automatically detect non-productive
+partial aggregations and disable these. This logic is controlled by two
+configuration properties:
+
+* abandon_partial_aggregation_min_pct - Maximum percentage of unique rows to continue partial aggregation. Default: 80%.
+* abandon_partial_aggregation_min_rows - Minimum number of rows to receive before deciding to abandon partial aggregation. Default: 100'000.
+
+After receiving at least abandon_partial_aggregation_min_rows input rows, the
+operator checks the percentage of input rows that are unique, e.g. compares
+number of groups with number of input rows. If percentage of unique rows
+exceeds abandon_partial_aggregation_min_pct, the operator abandons partial
+aggregation. 
+
+It is not possible to simply stop aggregating inputs and pass these as is to
+shuffle and final aggregation because final aggregation expects data type that
+is different from raw input type. For example, partial aggregation
+for :func:`avg` may receive INTEGER inputs, but final aggregation
+for :func:`avg` expects input of type ROW(sum DOUBLE, count BIGINT).
+
+HashAggregation operator needs to convert each row of raw input into a
+single-row intermediate result. For example, for :func:`avg` it needs to
+convert each integer value `n` into a struct of `{n, 1}`. It does this by
+creating "fake" groups (one per input row) and using aggregation function APIs
+to add each row into its own accumulator, then extract intermediate results.
+This helps avoid the CPU cost of hashing inputs and building a hash table and
+also helps reduce memory usage. However, this process still incurs the cost of
+allocating accumulators, adding values to these and extracting results.
+
+Individual aggregate functions may implement an optional
+Aggregate::toIntermediate() API that allows HashAggregation operator to
+efficiently convert raw inputs into intermediate results without using
+accumulators.
+
+.. code-block:: c++
+
+    /// Returns true if toIntermediate() is supported.
+    virtual bool supportsToIntermediate() const {
+        return false;
+    }
+
+    /// Produces an accumulator initialized from a single value for each
+    /// row in 'rows'. The raw arguments of the aggregate are in 'args',
+    /// which have the same meaning as in addRawInput. The result is
+    /// placed in 'result'. 'result' is expected to be a writable flat
+    /// vector of the right type.
+    ///
+    /// @param rows A set of rows to produce intermediate results for. The
+    /// 'result' is expected to have rows.size() rows. Invalid rows represent rows
+    /// that were masked out, these need to have correct intermediate results as
+    /// well. It is possible that all entries in 'rows' are invalid (masked out).
+    virtual void toIntermediate(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      VectorPtr& result) const {
+        VELOX_NYI("toIntermediate not supported");
+    }
+
+Many aggregate functions implement toIntermediate() fast path. Some examples include:
+:func:`min`, :func:`max`, :func:`array_agg`, :func:`set_agg`, :func:`map_agg`, :func:`map_union`.
+
+One can use runtime statistic `abandonedPartialAggregation` to tell whether
+partial aggregation was abandoned.

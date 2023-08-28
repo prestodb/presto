@@ -15,7 +15,7 @@ Core Library
 ============
 
 * Add support for Right Semi Join.
-* Add basic :ref:`Window operator<window-node>`.
+* Add basic :ref:`Window operator<WindowNode>`.
 * Add support for spilling `order by`.
 * Add support for zero-copy `vector view`_.
 * Add support for DECIMAL addition and subtraction functions.
