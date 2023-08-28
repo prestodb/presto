@@ -200,12 +200,29 @@ class StripeStreamsBase : public StripeStreams {
   std::shared_ptr<StripeDictionaryCache> stripeDictionaryCache_;
 };
 
+struct StripeReadState {
+  std::shared_ptr<ReaderBase> readerBase;
+  dwio::common::BufferedInput* stripeInput;
+  const proto::StripeFooter* footer;
+  const encryption::DecryptionHandler& handler;
+
+  StripeReadState(
+      std::shared_ptr<ReaderBase> readerBase,
+      dwio::common::BufferedInput* stripeInput,
+      const proto::StripeFooter* footer,
+      const encryption::DecryptionHandler& handler)
+      : readerBase{std::move(readerBase)},
+        stripeInput{stripeInput},
+        footer{footer},
+        handler{handler} {}
+};
+
 /**
  * StripeStream Implementation
  */
 class StripeStreamsImpl : public StripeStreamsBase {
  private:
-  const StripeReaderBase& reader_;
+  std::shared_ptr<StripeReadState> readState_;
   const dwio::common::ColumnSelector& selector_;
   const dwio::common::RowReaderOptions& opts_;
   const uint64_t stripeStart_;
@@ -227,14 +244,14 @@ class StripeStreamsImpl : public StripeStreamsBase {
 
  public:
   StripeStreamsImpl(
-      const StripeReaderBase& reader,
+      std::shared_ptr<StripeReadState> readState,
       const dwio::common::ColumnSelector& selector,
       const dwio::common::RowReaderOptions& opts,
       uint64_t stripeStart,
       const StrideIndexProvider& provider,
       uint32_t stripeIndex)
-      : StripeStreamsBase{&reader.getReader().getMemoryPool()},
-        reader_(reader),
+      : StripeStreamsBase{&readState->readerBase->getMemoryPool()},
+        readState_(std::move(readState)),
         selector_{selector},
         opts_{opts},
         stripeStart_{stripeStart},
@@ -244,10 +261,33 @@ class StripeStreamsImpl : public StripeStreamsBase {
     loadStreams();
   }
 
+  StripeStreamsImpl(
+      const StripeReaderBase& reader,
+      const dwio::common::ColumnSelector& selector,
+      const dwio::common::RowReaderOptions& opts,
+      uint64_t stripeStart,
+      const StrideIndexProvider& provider,
+      uint32_t stripeIndex)
+      : StripeStreamsBase{&reader.getReader().getMemoryPool()},
+        selector_{selector},
+        opts_{opts},
+        stripeStart_{stripeStart},
+        provider_(provider),
+        stripeIndex_{stripeIndex},
+        readPlanLoaded_{false} {
+    std::shared_ptr<StripeReadState> state = std::make_shared<StripeReadState>(
+        reader.readerBaseShared(),
+        &reader.getStripeInput(),
+        &reader.getStripeFooter(),
+        reader.getDecryptionHandler());
+    readState_ = std::move(state);
+    loadStreams();
+  }
+
   ~StripeStreamsImpl() override = default;
 
   DwrfFormat format() const override {
-    return reader_.getReader().format();
+    return readState_->readerBase->format();
   }
 
   const dwio::common::ColumnSelector& getColumnSelector() const override {
@@ -262,7 +302,7 @@ class StripeStreamsImpl : public StripeStreamsBase {
       const EncodingKey& ek) const override {
     auto index = encodings_.find(ek);
     if (index != encodings_.end()) {
-      return reader_.getStripeFooter().encoding(index->second);
+      return readState_->footer->encoding(index->second);
     }
     auto enc = decryptedEncodings_.find(ek);
     DWIO_ENSURE(
@@ -304,7 +344,7 @@ class StripeStreamsImpl : public StripeStreamsBase {
   }
 
   uint32_t rowsPerRowGroup() const override {
-    return reader_.getReader().getFooter().rowIndexStride();
+    return readState_->readerBase->getFooter().rowIndexStride();
   }
 
  private:
@@ -325,7 +365,7 @@ class StripeStreamsImpl : public StripeStreamsBase {
 
   const dwio::common::encryption::Decrypter* getDecrypter(
       uint32_t nodeId) const {
-    auto& handler = reader_.getDecryptionHandler();
+    auto& handler = readState_->handler;
     return handler.isEncrypted(nodeId)
         ? std::addressof(handler.getEncryptionProvider(nodeId))
         : nullptr;

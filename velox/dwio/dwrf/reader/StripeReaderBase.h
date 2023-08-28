@@ -61,7 +61,7 @@ class StripeReaderBase {
     return *reader_;
   }
 
-  std::shared_ptr<ReaderBase> readerBaseShared() {
+  const std::shared_ptr<ReaderBase>& readerBaseShared() const {
     return reader_;
   }
 
