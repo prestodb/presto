@@ -486,6 +486,8 @@ public class DwrfMetadataReader
     {
         return createColumnStatistics(
                 statistics.getNumberOfValues(),
+                statistics.hasRawSize() ? statistics.getRawSize() : null,
+                statistics.hasSize() ? statistics.getSize() : null,
                 statistics.hasBucketStatistics() ? toBooleanStatistics(statistics.getBucketStatistics()) : null,
                 statistics.hasIntStatistics() ? toIntegerStatistics(statistics.getIntStatistics()) : null,
                 statistics.hasDoubleStatistics() ? toDoubleStatistics(statistics.getDoubleStatistics()) : null,
