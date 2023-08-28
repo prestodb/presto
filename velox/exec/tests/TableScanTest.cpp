@@ -3033,3 +3033,25 @@ TEST_F(TableScanTest, readMissingFieldsWithMoreColumns) {
     ASSERT_EQ(stringCol->valueAt(j), fruitViews[j % fruitViews.size()]);
   }
 }
+
+TEST_F(TableScanTest, varbinaryPartitionKey) {
+  auto vectors = makeVectors(1, 1'000);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, vectors);
+  createDuckDbTable(vectors);
+
+  ColumnHandleMap assignments = {
+      {"a", regularColumn("c0", BIGINT())},
+      {"ds_alias", partitionKey("ds", VARBINARY())}};
+
+  auto split = HiveConnectorSplitBuilder(filePath->path)
+                   .partitionKey("ds", "2021-12-02")
+                   .build();
+
+  auto outputType = ROW({"a", "ds_alias"}, {BIGINT(), VARBINARY()});
+  auto op = PlanBuilder()
+                .tableScan(outputType, makeTableHandle(), assignments)
+                .planNode();
+
+  assertQuery(op, split, "SELECT c0, '2021-12-02' FROM tmp");
+}

@@ -259,6 +259,9 @@ velox::variant convertFromString(const std::optional<std::string>& value) {
     if constexpr (ToKind == TypeKind::VARCHAR) {
       return velox::variant(value.value());
     }
+    if constexpr (ToKind == TypeKind::VARBINARY) {
+      return velox::variant::binary((value.value()));
+    }
     auto result = velox::util::Converter<ToKind>::cast(value.value());
 
     return velox::variant(result);
