@@ -60,6 +60,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static org.apache.thrift.TApplicationException.UNKNOWN_METHOD;
 
@@ -148,6 +149,13 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         client.create_table(table);
+    }
+
+    @Override
+    public void createTableWithConstraints(Table table, List<SQLPrimaryKey> primaryKeys, List<SQLUniqueConstraint> uniqueConstraints)
+            throws TException
+    {
+        client.create_table_with_constraints(table, primaryKeys, emptyList(), uniqueConstraints, emptyList(), emptyList(), emptyList());
     }
 
     @Override

@@ -955,19 +955,67 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table)
+    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, List<TableConstraint<String>> constraints)
     {
+        List<SQLPrimaryKey> primaryKeys = new ArrayList<>();
+        List<SQLUniqueConstraint> uniqueConstraints = new ArrayList<>();
+        String callableName = "createTable";
+        HiveMetastoreApiStats apiStats = stats.getCreateTable();
+        Callable callableClient = apiStats.wrap(() ->
+                getMetastoreClientThenCall(metastoreContext, client -> {
+                    client.createTable(table);
+                    return null;
+                }));
+
+        if (!constraints.isEmpty()) {
+            for (TableConstraint<String> constraint : constraints) {
+                int keySeq = 1;
+                if (constraint instanceof PrimaryKeyConstraint) {
+                    for (String column : constraint.getColumns()) {
+                        primaryKeys.add(
+                                new SQLPrimaryKey(table.getDbName(),
+                                        table.getTableName(),
+                                        column,
+                                        keySeq++,
+                                        constraint.getName().orElse(null),
+                                        constraint.isEnabled(),
+                                        constraint.isEnforced(),
+                                        constraint.isRely()));
+                    }
+                }
+                else if (constraint instanceof UniqueConstraint) {
+                    for (String column : constraint.getColumns()) {
+                        uniqueConstraints.add(
+                                new SQLUniqueConstraint(
+                                        table.getCatName(),
+                                        table.getDbName(),
+                                        table.getTableName(),
+                                        column,
+                                        keySeq++,
+                                        constraint.getName().orElse(null),
+                                        constraint.isEnabled(),
+                                        constraint.isEnforced(),
+                                        constraint.isRely()));
+                    }
+                }
+                else {
+                    throw new PrestoException(NOT_SUPPORTED, format("Constraint %s of unknown type is not supported", constraint.getName().orElse("")));
+                }
+            }
+            callableName = "createTableWithConstraints";
+            apiStats = stats.getCreateTableWithConstraints();
+            callableClient = apiStats.wrap(() ->
+                    getMetastoreClientThenCall(metastoreContext, client -> {
+                        client.createTableWithConstraints(table, primaryKeys, uniqueConstraints);
+                        return null;
+                    }));
+        }
+
         try {
             retry()
                     .stopOn(AlreadyExistsException.class, InvalidObjectException.class, MetaException.class, NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
-                    .run("createTable", stats.getCreateTable().wrap(() ->
-                            getMetastoreClientThenCall(metastoreContext, client -> {
-                                client.createTable(table);
-                                return null;
-                            })));
-
-            return EMPTY_RESULT;
+                    .run(callableName, callableClient);
         }
         catch (AlreadyExistsException e) {
             throw new TableAlreadyExistsException(new SchemaTableName(table.getDbName(), table.getTableName()));
@@ -981,6 +1029,8 @@ public class ThriftHiveMetastore
         catch (Exception e) {
             throw propagate(e);
         }
+
+        return EMPTY_RESULT;
     }
 
     @Override

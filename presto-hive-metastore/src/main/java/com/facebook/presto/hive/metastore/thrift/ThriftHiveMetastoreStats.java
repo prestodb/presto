@@ -36,6 +36,7 @@ public class ThriftHiveMetastoreStats
     private final HiveMetastoreApiStats dropDatabase = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats alterDatabase = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats createTable = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats createTableWithConstraints = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats dropTable = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats alterTable = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats addPartitions = new HiveMetastoreApiStats();
@@ -182,6 +183,13 @@ public class ThriftHiveMetastoreStats
     public HiveMetastoreApiStats getCreateTable()
     {
         return createTable;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getCreateTableWithConstraints()
+    {
+        return createTableWithConstraints;
     }
 
     @Managed
