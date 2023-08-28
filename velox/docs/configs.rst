@@ -381,7 +381,7 @@ Hive Connector
      - The GCS service account configuration as json string.
 
 Presto-specific Configuration
-----------------------------
+-----------------------------
 .. list-table::
    :widths: 20 10 10 70
    :header-rows: 1

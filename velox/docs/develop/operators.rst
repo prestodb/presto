@@ -143,7 +143,8 @@ AggregationNode
 ~~~~~~~~~~~~~~~
 
 The aggregate operation groups input data on a set of grouping keys, calculating
-each measure for each combination of the grouping keys.
+each measure for each combination of the grouping keys. Optionally, inputs for
+individual measures are sorted and de-duplicated.
 
 .. list-table::
    :widths: 10 30
@@ -161,11 +162,53 @@ each measure for each combination of the grouping keys.
    * - aggregateNames
      - Names for the output columns for the measures.
    * - aggregates
-     - Expressions for computing the measures, e.g. count(1), sum(a), avg(b). Expressions must be in the form of aggregate function calls over input columns directly, e.g. sum(c) is ok, but sum(c + d) is not.
-   * - aggregationMasks
-     - For each measure, an optional boolean input column that is used to mask out rows for this particular measure.
+     - One or more measures to compute. Each measure specifies an expression, e.g. count(1), sum(a), avg(b), optional boolean input column that's used to mask out rows for this particular measure, optional list of input columns to sort by before computing the measure, an optional flag to indicate that inputs must be de-deduplicated before computing the measure. Expressions must be in the form of aggregate function calls over input columns directly, e.g. sum(c) is ok, but sum(c + d) is not.
    * - ignoreNullKeys
      - A boolean flag indicating whether the aggregation should drop rows with nulls in any of the grouping keys. Used to avoid unnecessary processing for an aggregation followed by an inner join on the grouping keys.
+
+Properties of individual measures.
+
+.. list-table::
+   :widths: 10 30
+   :align: left
+   :header-rows: 1
+
+   * - Property
+     - Description
+   * - call
+     - An expression for computing the measure, e.g. count(1), sum(a), avg(b). Expressions must be in the form of aggregate function calls over input columns directly, e.g. sum(c) is ok, but sum(c + d) is not.
+   * - mask
+     - An optional boolean input column that's used to mask out rows for this particular measure. Multiple measures may specify same input column as a mask.
+   * - sortingKeys
+     - An optional list of input columns to sort by before computing the measure. If specified, sortingOrders must be used to specify the sort order for each sorting key.
+   * - sortingOrders
+     - A list of sorting orders for each sorting key.
+   * - distinct
+     - A boolean flag indicating that inputs must be de-duplicated before computing the measure.
+
+Note that if measures specify sorting keys, HashAggregation operator accumulates
+all input rows in memory before sorting these and adding to accumulators. This
+requires a lot more memory as compared to when inputs do not need to be sorted.
+
+Similarly, if measures request inputs to be de-duplicated, HashAggregation
+operator accumulates all distinct input rows in memory before adding these to
+accumulators. This requires more memory as compared to when inputs do not need
+to be de-duplicated.
+
+Furthermore, many aggregate functions produce same results on sorted and
+unsorted inputs, e.g. func:`min`, func:`max`, :func:`count`, :func:`sum`.
+The query planner should avoid generating plans that request sorted inputs
+for such aggregate functions. Some examples of aggregate functions that are
+sensitive to the order of inputs include :func:`array_agg` and :func:`min_by`
+(in the presence of ties).
+
+Similarly, some aggregate functions produce same results on unique inputs as well
+as inputs with duplicates, e.g. :func:`min`, :func:`max`. The query planner
+should avoid generating plans that request de-duplicating inputs for such
+aggregate functions.
+
+Finally, note that computing measures over sorted input is only possible if
+aggregation step is 'single'. Such computations cannot be split into partial + final.
 
 .. _group-id-node:
 
