@@ -235,4 +235,10 @@ public abstract class ForwardingSystemAccessControl
     {
         delegate().checkCanDropConstraint(identity, context, table);
     }
+
+    @Override
+    public void checkCanAddConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        delegate().checkCanAddConstraint(identity, context, table);
+    }
 }

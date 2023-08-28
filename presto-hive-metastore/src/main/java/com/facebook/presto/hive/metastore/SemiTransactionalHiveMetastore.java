@@ -57,7 +57,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -109,6 +108,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
@@ -219,7 +219,7 @@ public class SemiTransactionalHiveMetastore
         if (tableAction == null) {
             return delegate.getTableConstraints(metastoreContext, databaseName, tableName);
         }
-        return Collections.emptyList();
+        return emptyList();
     }
 
     public synchronized Set<ColumnStatisticType> getSupportedColumnStatistics(MetastoreContext metastoreContext, Type type)
@@ -1054,6 +1054,14 @@ public class SemiTransactionalHiveMetastore
     {
         setExclusive((delegate, hdfsEnvironment) -> {
             MetastoreOperationResult operationResult = delegate.dropConstraint(metastoreContext, databaseName, tableName, constraintName);
+            return buildCommitHandle(new SchemaTableName(databaseName, tableName), operationResult);
+        });
+    }
+
+    public synchronized void addConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, TableConstraint<String> tableConstraint)
+    {
+        setExclusive((delegate, hdfsEnvironment) -> {
+            MetastoreOperationResult operationResult = delegate.addConstraint(metastoreContext, databaseName, tableName, tableConstraint);
             return buildCommitHandle(new SchemaTableName(databaseName, tableName), operationResult);
         });
     }

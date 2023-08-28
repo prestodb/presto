@@ -23,6 +23,7 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
+import com.facebook.presto.hive.TableConstraintAlreadyExistsException;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
@@ -44,7 +45,9 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableConstraintNotFoundException;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
 import com.facebook.presto.spi.constraints.TableConstraint;
+import com.facebook.presto.spi.constraints.UniqueConstraint;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
@@ -70,6 +73,7 @@ import java.io.OutputStream;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -111,6 +115,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
@@ -1053,6 +1058,48 @@ public class FileHiveMetastore
                 .collect(toSet());
         writeConstraintsFile(updatedConstraints, databaseName, tableName);
         return EMPTY_RESULT;
+    }
+
+    @Override
+    public MetastoreOperationResult addConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, TableConstraint<String> tableConstraint)
+    {
+        Set<TableConstraint> constraints = readConstraintsFile(databaseName, tableName);
+        if (tableConstraint instanceof PrimaryKeyConstraint && constraints.stream().anyMatch(constraint -> (constraint instanceof PrimaryKeyConstraint))) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, "Primary key already exists for: " + databaseName + "." + tableName);
+        }
+        if (tableConstraint.getName().isPresent()) {
+            final TableConstraint<String> finalTableConstraint = tableConstraint;
+            if (constraints.stream().anyMatch(constraint -> (finalTableConstraint.getName().get().equalsIgnoreCase(((String) constraint.getName().get()))))) {
+                throw new TableConstraintAlreadyExistsException(tableConstraint.getName());
+            }
+        }
+        else {
+            if (tableConstraint instanceof PrimaryKeyConstraint) {
+                tableConstraint = new PrimaryKeyConstraint(Optional.of(randomUUID().toString()),
+                        tableConstraint.getColumns(),
+                        tableConstraint.isEnabled(),
+                        tableConstraint.isRely(),
+                        tableConstraint.isEnforced());
+            }
+            else {
+                tableConstraint = new UniqueConstraint(Optional.of(randomUUID().toString()),
+                        tableConstraint.getColumns(),
+                        tableConstraint.isEnabled(),
+                        tableConstraint.isRely(),
+                        tableConstraint.isEnforced());
+            }
+        }
+        constraints.add(tableConstraint);
+        writeConstraintsFile(constraints, databaseName, tableName);
+        return EMPTY_RESULT;
+    }
+
+    public List<TableConstraint<String>> getTableConstraints(MetastoreContext metastoreContext, String schemaName, String tableName)
+    {
+        return readConstraintsFile(schemaName, tableName).stream()
+                .map(constraint -> (TableConstraint<String>) constraint)
+                .sorted(Comparator.comparing(constraint -> constraint.getName().get()))
+                .collect(toImmutableList());
     }
 
     @Override

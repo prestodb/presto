@@ -82,8 +82,8 @@ public class TestHiveTableConstraints
     public void testTableConstraints()
     {
         List<TableConstraint<String>> expectedConstraints = ImmutableList.of(
-                new PrimaryKeyConstraint<>("", new LinkedHashSet<>(ImmutableList.of("c1")), true, true, false),
-                new UniqueConstraint<>("", new LinkedHashSet<>(ImmutableList.of("c2")), true, true, false));
+                new PrimaryKeyConstraint<>(Optional.of("pk"), new LinkedHashSet<>(ImmutableList.of("c1")), true, true, false),
+                new UniqueConstraint<>(Optional.of("uk"), new LinkedHashSet<>(ImmutableList.of("c2")), true, true, false));
 
         List<TableConstraint<String>> tableConstraints = metastore.getTableConstraints(METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
         assertEquals(tableConstraints, expectedConstraints);

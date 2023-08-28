@@ -11,27 +11,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.hive;
+
+import com.facebook.presto.spi.PrestoException;
 
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
-public class TableConstraintNotFoundException
-        extends NotFoundException
+public class TableConstraintAlreadyExistsException
+        extends PrestoException
 {
     private final Optional<String> constraintName;
 
-    public TableConstraintNotFoundException(Optional<String> constraintName)
+    public TableConstraintAlreadyExistsException(Optional<String> constraintName)
     {
-        this(constraintName, format("Constraint '%s' not found", constraintName.get()));
+        this(constraintName, format("Constraint already exists: '%s'", constraintName.get()));
     }
 
-    public TableConstraintNotFoundException(Optional<String> constraintName, String message)
+    public TableConstraintAlreadyExistsException(Optional<String> constraintName, String message)
     {
-        super(message);
-        this.constraintName = requireNonNull(constraintName, "constraintName is null");
+        this(constraintName, message, null);
+    }
+
+    public TableConstraintAlreadyExistsException(Optional<String> constraintName, String message, Throwable cause)
+    {
+        super(ALREADY_EXISTS, message, cause);
+        this.constraintName = constraintName;
     }
 
     public Optional<String> getConstraintName()
