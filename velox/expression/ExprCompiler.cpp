@@ -23,6 +23,7 @@
 #include "velox/expression/FieldReference.h"
 #include "velox/expression/LambdaExpr.h"
 #include "velox/expression/SimpleFunctionRegistry.h"
+#include "velox/expression/SpecialFormRegistry.h"
 #include "velox/expression/SwitchExpr.h"
 #include "velox/expression/TryExpr.h"
 #include "velox/expression/VectorFunction.h"

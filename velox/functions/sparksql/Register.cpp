@@ -15,6 +15,7 @@
  */
 #include "velox/functions/sparksql/Register.h"
 
+#include "velox/expression/RegisterSpecialForm.h"
 #include "velox/functions/lib/IsNull.h"
 #include "velox/functions/lib/Re2Functions.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
@@ -70,7 +71,12 @@ static void workAroundRegistrationMacro(const std::string& prefix) {
 
 namespace sparksql {
 
+void registerAllSpecialFormGeneralFunctions() {
+  exec::registerFunctionCallToSpecialForms();
+}
+
 void registerFunctions(const std::string& prefix) {
+  registerAllSpecialFormGeneralFunctions();
   registerFunction<RandFunction, double>({prefix + "rand"});
 
   // Register size functions

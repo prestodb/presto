@@ -45,7 +45,7 @@ std::shared_ptr<exec::VectorFunction> makeRegexExtract(
 class Re2FunctionsTest : public test::FunctionBaseTest {
  public:
   static void SetUpTestCase() {
-    parse::registerTypeResolver();
+    test::FunctionBaseTest::SetUpTestCase();
     exec::registerStatefulVectorFunction(
         "re2_match", re2MatchSignatures(), makeRe2Match);
     exec::registerStatefulVectorFunction(

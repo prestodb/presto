@@ -34,7 +34,9 @@ add_library(
   FunctionCallToSpecialForm.cpp
   LambdaExpr.cpp
   VectorFunction.cpp
+  RegisterSpecialForm.cpp
   SimpleFunctionRegistry.cpp
+  SpecialFormRegistry.cpp
   SwitchExpr.cpp
   TryExpr.cpp
   GenericWriter.cpp

@@ -20,7 +20,8 @@
 #include "velox/expression/CoalesceExpr.h"
 #include "velox/expression/ConjunctExpr.h"
 #include "velox/expression/ConstantExpr.h"
-#include "velox/expression/FunctionCallToSpecialForm.h"
+#include "velox/expression/RegisterSpecialForm.h"
+#include "velox/expression/SpecialFormRegistry.h"
 #include "velox/expression/SwitchExpr.h"
 #include "velox/expression/TryExpr.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
@@ -31,7 +32,12 @@ using namespace facebook::velox::exec;
 using namespace facebook::velox::test;
 
 class FunctionCallToSpecialFormTest : public testing::Test,
-                                      public VectorTestBase {};
+                                      public VectorTestBase {
+ protected:
+  static void SetUpTestCase() {
+    registerFunctionCallToSpecialForms();
+  }
+};
 
 TEST_F(FunctionCallToSpecialFormTest, andCall) {
   ASSERT_TRUE(isFunctionCallToSpecialFormRegistered("and"));

@@ -53,8 +53,4 @@ ExprPtr constructSpecialForm(
     const TypePtr& type,
     std::vector<ExprPtr>&& compiledChildren,
     bool trackCpuUsage);
-
-/// Returns true iff a FunctionCallToSpeicalForm object has been registered for
-/// the given functionName.
-bool isFunctionCallToSpecialFormRegistered(const std::string& functionName);
 } // namespace facebook::velox::exec
