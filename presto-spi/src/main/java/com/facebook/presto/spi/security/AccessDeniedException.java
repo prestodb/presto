@@ -366,6 +366,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot drop a constraint from table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyAddConstraint(String tableName)
+    {
+        denyAddConstraint(tableName, null);
+    }
+
+    public static void denyAddConstraint(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot add a constraint to table %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     private static Object formatExtraInfo(String extraInfo)
     {
         if (extraInfo == null || extraInfo.isEmpty()) {

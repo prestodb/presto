@@ -26,16 +26,11 @@ public class PrimaryKeyConstraint<T>
         extends UniqueConstraint<T>
 {
     @JsonCreator
-    public PrimaryKeyConstraint(@JsonProperty("name") String name,
+    public PrimaryKeyConstraint(@JsonProperty("name") Optional<String> name,
             @JsonProperty("columns") LinkedHashSet<T> columnNames,
-            @JsonProperty("enforced") boolean enabled,
+            @JsonProperty("enabled") boolean enabled,
             @JsonProperty("rely") boolean rely,
             @JsonProperty("enforced") boolean enforced)
-    {
-        this(Optional.of(name), columnNames, enabled, rely, enforced);
-    }
-
-    private PrimaryKeyConstraint(Optional<String> name, LinkedHashSet<T> columnNames, boolean enabled, boolean rely, boolean enforced)
     {
         super(name, columnNames, enabled, rely, enforced);
     }
