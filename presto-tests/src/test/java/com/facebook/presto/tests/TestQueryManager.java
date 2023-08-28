@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Retry;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -237,8 +238,7 @@ public class TestQueryManager
         }
     }
 
-    // Flaky test: https://github.com/prestodb/presto/issues/20447
-    @Test(enabled = false)
+    @Test(retryAnalyzer = Retry.class)
     public void testQueryCountMetrics()
             throws Exception
     {
@@ -246,6 +246,11 @@ public class TestQueryManager
         // Create a total of 10 queries to test concurrency limit and
         // ensure that some queries are queued as concurrency limit is 3
         createQueries(dispatchManager, 10);
+
+        //Wait for the queries to be in running state
+        while (dispatchManager.getStats().getRunningQueries() != 3) {
+            Thread.sleep(1000);
+        }
 
         List<BasicQueryInfo> queries = dispatchManager.getQueries();
         long queuedQueryCount = dispatchManager.getStats().getQueuedQueries();
