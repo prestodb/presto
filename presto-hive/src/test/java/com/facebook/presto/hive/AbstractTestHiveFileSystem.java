@@ -57,6 +57,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
+import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -515,12 +516,12 @@ public abstract class AbstractTestHiveFileSystem
         }
 
         @Override
-        public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges privileges)
+        public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges privileges, List<TableConstraint<String>> constraints)
         {
             // hack to work around the metastore not being configured for S3 or other FS
             Table.Builder tableBuilder = Table.builder(table);
             tableBuilder.getStorageBuilder().setLocation("/");
-            super.createTable(metastoreContext, tableBuilder.build(), privileges);
+            super.createTable(metastoreContext, tableBuilder.build(), privileges, constraints);
             return EMPTY_RESULT;
         }
 

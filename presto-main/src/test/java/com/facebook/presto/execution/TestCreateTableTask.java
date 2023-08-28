@@ -17,6 +17,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.metadata.AbstractMockMetadata;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
@@ -30,12 +31,16 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
+import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.ColumnDefinition;
+import com.facebook.presto.sql.tree.ConstraintSpecification;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.TableElement;
+import com.facebook.presto.testing.TestingWarningCollector;
+import com.facebook.presto.testing.TestingWarningCollectorConfig;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeMethod;
@@ -50,8 +55,12 @@ import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.PRIMARY_KEY_CONSTRAINT;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.UNIQUE_CONSTRAINT;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.sql.QueryUtil.identifier;
+import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.PRIMARY_KEY;
+import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -77,6 +86,7 @@ public class TestCreateTableTask
     private Catalog testCatalog;
     private Session testSession;
     private MockMetadata metadata;
+    private TestingWarningCollector warningCollector = new TestingWarningCollector(new WarningCollectorConfig(), new TestingWarningCollectorConfig().setAddWarnings(true));
 
     @BeforeMethod
     public void setUp()
@@ -111,7 +121,7 @@ public class TestCreateTableTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
+        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), warningCollector));
         assertEquals(metadata.getCreateTableCallCount(), 1);
     }
 
@@ -125,7 +135,7 @@ public class TestCreateTableTask
                 Optional.empty());
 
         try {
-            getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
+            getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), warningCollector));
             fail("expected exception");
         }
         catch (RuntimeException e) {
@@ -147,7 +157,7 @@ public class TestCreateTableTask
                 new ColumnDefinition(identifier("c"), "VARBINARY", false, emptyList(), Optional.empty()));
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, ImmutableList.of(), Optional.empty());
 
-        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
+        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), warningCollector));
         assertEquals(metadata.getCreateTableCallCount(), 1);
         List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().get(0).getColumns();
         assertEquals(columns.size(), 3);
@@ -179,7 +189,62 @@ public class TestCreateTableTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
+        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), warningCollector));
+    }
+
+    @Test
+    public void testCreateWithTableConstraints()
+    {
+        metadata.setConnectorCapabilities(PRIMARY_KEY_CONSTRAINT, UNIQUE_CONSTRAINT);
+        List<TableElement> inputColumns = ImmutableList.of(
+                new ColumnDefinition(identifier("a"), "DATE", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(identifier("b"), "VARCHAR", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(identifier("c"), "VARBINARY", true, emptyList(), Optional.empty()),
+                new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("a"), PRIMARY_KEY, true, true, false),
+                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("b", "c"), UNIQUE, false, false, false));
+
+        CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, ImmutableList.of(), Optional.empty());
+
+        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), warningCollector));
+        assertEquals(metadata.getCreateTableCallCount(), 1);
+
+        ConnectorTableMetadata createdTableMetadata = metadata.getReceivedTableMetadata().get(0);
+        List<ColumnMetadata> columns = createdTableMetadata.getColumns();
+        assertEquals(columns.size(), 3);
+
+        List<TableConstraint<String>> constraints = metadata.getReceivedTableMetadata().get(0).getTableConstraintsHolder().getTableConstraints();
+        assertEquals(constraints.size(), 2);
+
+        assertEquals(constraints.get(0).getName().get(), "pk");
+        assertEquals(constraints.get(1).getName().get(), "uq");
+    }
+
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*does not support Primary Key constraints")
+    public void testCreateWithPrimaryKeyConstraintWithUnsupportedConnector()
+    {
+        List<TableElement> inputColumns = ImmutableList.of(
+                new ColumnDefinition(identifier("a"), "DATE", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(identifier("b"), "VARCHAR", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(identifier("c"), "VARBINARY", true, emptyList(), Optional.empty()),
+                new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("a"), PRIMARY_KEY, true, true, false));
+
+        CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, ImmutableList.of(), Optional.empty());
+
+        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), warningCollector));
+    }
+
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*does not support Unique constraints")
+    public void testCreateWithUniqueConstraintWithUnsupportedConnector()
+    {
+        List<TableElement> inputColumns = ImmutableList.of(
+                new ColumnDefinition(identifier("a"), "DATE", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(identifier("b"), "VARCHAR", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(identifier("c"), "VARBINARY", true, emptyList(), Optional.empty()),
+                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("b", "c"), UNIQUE, false, false, false));
+
+        CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, ImmutableList.of(), Optional.empty());
+
+        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), warningCollector));
     }
 
     private static class MockMetadata

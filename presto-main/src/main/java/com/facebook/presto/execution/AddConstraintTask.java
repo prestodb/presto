@@ -28,6 +28,7 @@ import com.facebook.presto.spi.constraints.UniqueConstraint;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.AddConstraint;
+import com.facebook.presto.sql.tree.ConstraintSpecification;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -41,35 +42,41 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.ENFORCE_CONSTRAINTS;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.PRIMARY_KEY_CONSTRAINT;
-import static com.facebook.presto.spi.connector.ConnectorCapabilities.UNIQUE_KEY_CONSTRAINT;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.UNIQUE_CONSTRAINT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.lang.String.format;
 import static java.util.stream.Collectors.toCollection;
 
 public class AddConstraintTask
         implements DDLDefinitionTask<AddConstraint>
 {
-    public static TableConstraint<String> convertToTableConstraint(Metadata metadata, AccessControl accessControl, Session session, ConnectorId connectorId, AddConstraint node)
+    public static TableConstraint<String> convertToTableConstraint(Metadata metadata, Session session, ConnectorId connectorId, ConstraintSpecification node, WarningCollector warningCollector)
     {
         TableConstraint<String> tableConstraint;
-        LinkedHashSet<String> constraintColumns = node.getConstraintSpecification().getColumns().stream().collect(toCollection(LinkedHashSet::new));
-        switch (node.getConstraintSpecification().getConstraintType()) {
+        LinkedHashSet<String> constraintColumns = node.getColumns().stream().collect(toCollection(LinkedHashSet::new));
+        switch (node.getConstraintType()) {
             case UNIQUE:
-                if (!metadata.getConnectorCapabilities(session, connectorId).contains(UNIQUE_KEY_CONSTRAINT)) {
+                if (!metadata.getConnectorCapabilities(session, connectorId).contains(UNIQUE_CONSTRAINT)) {
                     throw new SemanticException(NOT_SUPPORTED, node, "Catalog %s does not support Unique constraints", connectorId.getCatalogName());
                 }
-                tableConstraint = new UniqueConstraint<>(node.getConstraintSpecification().getConstraintName(), constraintColumns, node.getConstraintSpecification().isEnabled(), node.getConstraintSpecification().isRely(), node.getConstraintSpecification().isEnforced());
+                tableConstraint = new UniqueConstraint<>(node.getConstraintName(), constraintColumns, node.isEnabled(), node.isRely(), node.isEnforced());
                 break;
             case PRIMARY_KEY:
                 if (!metadata.getConnectorCapabilities(session, connectorId).contains(PRIMARY_KEY_CONSTRAINT)) {
                     throw new SemanticException(NOT_SUPPORTED, node, "Catalog %s does not support Primary Key constraints", connectorId.getCatalogName());
                 }
-                tableConstraint = new PrimaryKeyConstraint<>(node.getConstraintSpecification().getConstraintName(), constraintColumns, node.getConstraintSpecification().isEnabled(), node.getConstraintSpecification().isRely(), node.getConstraintSpecification().isEnforced());
+                tableConstraint = new PrimaryKeyConstraint<>(node.getConstraintName(), constraintColumns, node.isEnabled(), node.isRely(), node.isEnforced());
                 break;
             default:
-                throw new SemanticException(NOT_SUPPORTED, node, "Given constraint type %s is not supported", node.getConstraintSpecification().getConstraintType().toString());
+                throw new SemanticException(NOT_SUPPORTED, node, "Given constraint type %s is not supported", node.getConstraintType().toString());
         }
+
+        if (!metadata.getConnectorCapabilities(session, connectorId).contains(ENFORCE_CONSTRAINTS) && node.isEnforced()) {
+            warningCollector.add(new PrestoWarning(SEMANTIC_WARNING, format("Constraint %s is set to ENFORCED. This connector does not support enforcement of table constraints", node.getConstraintName().orElse(""))));
+        }
+
         return tableConstraint;
     }
 
@@ -104,11 +111,7 @@ public class AddConstraintTask
 
         accessControl.checkCanAddConstraints(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
-        if (!metadata.getConnectorCapabilities(session, connectorId).contains(ENFORCE_CONSTRAINTS) && statement.getConstraintSpecification().isEnforced()) {
-            warningCollector.add(new PrestoWarning(SEMANTIC_WARNING, "This connector does not support enforcement of table constraints"));
-        }
-
-        metadata.addConstraint(session, tableHandle.get(), convertToTableConstraint(metadata, accessControl, session, connectorId, statement));
+        metadata.addConstraint(session, tableHandle.get(), convertToTableConstraint(metadata, session, connectorId, statement.getConstraintSpecification(), warningCollector));
         return immediateFuture(null);
     }
 }

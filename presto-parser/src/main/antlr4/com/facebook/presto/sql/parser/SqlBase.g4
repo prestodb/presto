@@ -156,6 +156,7 @@ with
 tableElement
     : columnDefinition
     | likeClause
+    | constraintSpecification
     ;
 
 columnDefinition

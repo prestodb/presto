@@ -408,13 +408,14 @@ public class SemiTransactionalHiveMetastore
             PrincipalPrivileges principalPrivileges,
             Optional<Path> currentPath,
             boolean ignoreExisting,
-            PartitionStatistics statistics)
+            PartitionStatistics statistics,
+            List<TableConstraint<String>> constraints)
     {
         setShared();
         // When creating a table, it should never have partition actions. This is just a sanity check.
         checkNoPartitionAction(table.getDatabaseName(), table.getTableName());
         Action<TableAndMore> oldTableAction = tableActions.get(table.getSchemaTableName());
-        TableAndMore tableAndMore = new TableAndMore(table, Optional.of(principalPrivileges), currentPath, Optional.empty(), ignoreExisting, statistics, statistics);
+        TableAndMore tableAndMore = new TableAndMore(table, Optional.of(principalPrivileges), currentPath, Optional.empty(), ignoreExisting, statistics, statistics, constraints);
         if (oldTableAction == null) {
             HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), table.getStorage().getLocation(), true);
             tableActions.put(table.getSchemaTableName(), new Action<>(ActionType.ADD, tableAndMore, context));
@@ -532,7 +533,8 @@ public class SemiTransactionalHiveMetastore
                                     Optional.of(fileNames),
                                     false,
                                     merge(currentStatistics, statisticsUpdate),
-                                    statisticsUpdate),
+                                    statisticsUpdate,
+                                    emptyList()),
                             context));
             return;
         }
@@ -1374,7 +1376,7 @@ public class SemiTransactionalHiveMetastore
                     }
                 }
             }
-            addTableOperations.add(new CreateTableOperation(metastoreContext, table, tableAndMore.getPrincipalPrivileges(), tableAndMore.isIgnoreExisting()));
+            addTableOperations.add(new CreateTableOperation(metastoreContext, table, tableAndMore.getPrincipalPrivileges(), tableAndMore.isIgnoreExisting(), tableAndMore.getConstraints()));
             if (!isPrestoView(table)) {
                 updateStatisticsOperations.add(new UpdateStatisticsOperation(metastoreContext,
                         table.getSchemaTableName(),
@@ -2336,6 +2338,7 @@ public class SemiTransactionalHiveMetastore
         private final boolean ignoreExisting;
         private final PartitionStatistics statistics;
         private final PartitionStatistics statisticsUpdate;
+        private final List<TableConstraint<String>> constraints;
 
         public TableAndMore(
                 Table table,
@@ -2344,7 +2347,8 @@ public class SemiTransactionalHiveMetastore
                 Optional<List<String>> fileNames,
                 boolean ignoreExisting,
                 PartitionStatistics statistics,
-                PartitionStatistics statisticsUpdate)
+                PartitionStatistics statisticsUpdate,
+                List<TableConstraint<String>> constraints)
         {
             this.table = requireNonNull(table, "table is null");
             this.principalPrivileges = requireNonNull(principalPrivileges, "principalPrivileges is null");
@@ -2353,6 +2357,7 @@ public class SemiTransactionalHiveMetastore
             this.ignoreExisting = ignoreExisting;
             this.statistics = requireNonNull(statistics, "statistics is null");
             this.statisticsUpdate = requireNonNull(statisticsUpdate, "statisticsUpdate is null");
+            this.constraints = requireNonNull(constraints, "constraints is null");
 
             checkArgument(!table.getTableType().equals(VIRTUAL_VIEW) || !currentLocation.isPresent(), "currentLocation can not be supplied for view");
             checkArgument(!fileNames.isPresent() || currentLocation.isPresent(), "fileNames can be supplied only when currentLocation is supplied");
@@ -2394,6 +2399,11 @@ public class SemiTransactionalHiveMetastore
             return statisticsUpdate;
         }
 
+        public List<TableConstraint<String>> getConstraints()
+        {
+            return constraints;
+        }
+
         public Table getAugmentedTableForInTransactionRead()
         {
             // Don't augment the location for partitioned tables,
@@ -2431,6 +2441,7 @@ public class SemiTransactionalHiveMetastore
                     .add("ignoreExisting", ignoreExisting)
                     .add("statistics", statistics)
                     .add("statisticsUpdate", statisticsUpdate)
+                    .add("constraints", constraints)
                     .toString();
         }
     }
@@ -2727,17 +2738,19 @@ public class SemiTransactionalHiveMetastore
         private final PrincipalPrivileges privileges;
         private boolean tableCreated;
         private final boolean ignoreExisting;
+        private final List<TableConstraint<String>> constraints;
         private final String queryId;
         private final MetastoreContext metastoreContext;
         private Optional<MetastoreOperationResult> operationResult;
 
-        public CreateTableOperation(MetastoreContext metastoreContext, Table newTable, PrincipalPrivileges privileges, boolean ignoreExisting)
+        public CreateTableOperation(MetastoreContext metastoreContext, Table newTable, PrincipalPrivileges privileges, boolean ignoreExisting, List<TableConstraint<String>> constraints)
         {
             requireNonNull(newTable, "newTable is null");
             this.metastoreContext = requireNonNull(metastoreContext, "identity is null");
             this.newTable = newTable;
             this.privileges = requireNonNull(privileges, "privileges is null");
             this.ignoreExisting = ignoreExisting;
+            this.constraints = requireNonNull(constraints, "constraints is null");
             this.queryId = getPrestoQueryId(newTable).orElseThrow(() -> new IllegalArgumentException("Query id is not present"));
             this.operationResult = Optional.empty();
         }
@@ -2761,7 +2774,7 @@ public class SemiTransactionalHiveMetastore
         {
             boolean done = false;
             try {
-                operationResult = Optional.of(metastore.createTable(metastoreContext, newTable, privileges));
+                operationResult = Optional.of(metastore.createTable(metastoreContext, newTable, privileges, constraints));
                 done = true;
             }
             catch (RuntimeException e) {

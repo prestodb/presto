@@ -6255,6 +6255,180 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(getSession(), dropTableStmt);
     }
 
+    @Test
+    public void testCreateTableWithConstraints()
+    {
+        String uniqueConstraint = "UNIQUE";
+        String primaryKey = "PRIMARY KEY";
+        String tableName = "test_table_with_constraints";
+
+        String createTableFormat = "CREATE TABLE %s.%s.%s (\n" +
+                "   %s bigint,\n" +
+                "   %s double,\n" +
+                "   %s varchar,\n" +
+                "   %s bigint\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   format = 'ORC'\n" +
+                ")";
+        String createTableWithOneConstraintFormat = "CREATE TABLE %s.%s.%s (\n" +
+                "   %s bigint,\n" +
+                "   %s double,\n" +
+                "   %s varchar,\n" +
+                "   %s bigint,\n" +
+                "   %s\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   format = 'ORC'\n" +
+                ")";
+        String originalCreateTableSql = format(
+                createTableFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "c1",
+                "c2",
+                "c3",
+                "c4");
+        String expectedOriginalShowCreateTable = format(
+                createTableFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "\"c1\"",
+                "\"c2\"",
+                "\"c3\"",
+                "\"c4\"");
+
+        assertUpdate(getSession(), originalCreateTableSql);
+        MaterializedResult actualResult = computeActual("SHOW CREATE TABLE " + tableName);
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedOriginalShowCreateTable);
+
+        String dropTableStmt = format("DROP TABLE %s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        assertUpdate(getSession(), dropTableStmt);
+
+        String createTableWithOneConstraintSql = format(
+                createTableWithOneConstraintFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "c1",
+                "c2",
+                "c3",
+                "c4",
+                format("CONSTRAINT pk %s (c4) ENFORCED", primaryKey));
+
+        String expectedcreateTableWithOneConstraint = format(
+                createTableWithOneConstraintFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "\"c1\"",
+                "\"c2\"",
+                "\"c3\"",
+                "\"c4\"",
+                format("CONSTRAINT pk %s (c4)", primaryKey));
+
+        assertUpdate(getSession(), createTableWithOneConstraintSql);
+        actualResult = computeActual("SHOW CREATE TABLE " + tableName);
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedcreateTableWithOneConstraint);
+        assertUpdate(getSession(), dropTableStmt);
+
+        String createTableWithTwoConstraintsFormat = "CREATE TABLE %s.%s.%s (\n" +
+                "   %s bigint,\n" +
+                "   %s double,\n" +
+                "   %s varchar,\n" +
+                "   %s bigint,\n" +
+                "   %s,\n" +
+                "   %s\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   format = 'ORC'\n" +
+                ")";
+
+        String createTableWithTwoConstraintsSql = format(
+                createTableWithTwoConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "c1",
+                "c2",
+                "c3",
+                "c4",
+                format("CONSTRAINT pk %s (c4) ENFORCED", primaryKey),
+                format("CONSTRAINT uk %s (c3, c1) DISABLED NOT RELY", uniqueConstraint));
+
+        String expectedcreateTableWithTwoConstraints = format(
+                createTableWithTwoConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "\"c1\"",
+                "\"c2\"",
+                "\"c3\"",
+                "\"c4\"",
+                format("CONSTRAINT pk %s (c4)", primaryKey),
+                format("CONSTRAINT uk %s (c3, c1) DISABLED NOT RELY", uniqueConstraint));
+
+        assertUpdate(getSession(), createTableWithTwoConstraintsSql);
+        actualResult = computeActual("SHOW CREATE TABLE " + tableName);
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedcreateTableWithTwoConstraints);
+        assertUpdate(getSession(), dropTableStmt);
+
+        //Negative tests
+        createTableWithTwoConstraintsSql = format(
+                createTableWithTwoConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "c1",
+                "c2",
+                "c3",
+                "c4",
+                format("CONSTRAINT pk %s (c4) NOT ENFORCED", primaryKey),
+                format("CONSTRAINT pk %s (c3, c1) DISABLED NOT RELY", uniqueConstraint));
+        assertQueryFails(createTableWithTwoConstraintsSql, "Constraint name 'pk' specified more than once");
+
+        createTableWithTwoConstraintsSql = format(
+                createTableWithTwoConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "c1",
+                "c2",
+                "c3",
+                "c4",
+                format("CONSTRAINT uq %s (c4) NOT ENFORCED", uniqueConstraint),
+                format("CONSTRAINT uq %s (c3, c1) DISABLED NOT RELY", uniqueConstraint));
+        assertQueryFails(createTableWithTwoConstraintsSql, "Constraint name 'uq' specified more than once");
+
+        createTableWithTwoConstraintsSql = format(
+                createTableWithTwoConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "c1",
+                "c2",
+                "c3",
+                "c4",
+                format("CONSTRAINT pk1 %s (c4) NOT ENFORCED", primaryKey),
+                format("CONSTRAINT pk2 %s (c3, c1) DISABLED NOT RELY", primaryKey));
+        assertQueryFails(createTableWithTwoConstraintsSql, "Multiple primary key constraints are not allowed");
+
+        createTableWithTwoConstraintsSql = format(
+                createTableWithTwoConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "c1",
+                "c2",
+                "c3",
+                "c4",
+                format("CONSTRAINT pk1 %s (c4) NOT ENFORCED", primaryKey),
+                format("%s (c3, c1) DISABLED NOT RELY", primaryKey));
+        assertQueryFails(createTableWithTwoConstraintsSql, "Multiple primary key constraints are not allowed");
+    }
+
     protected String retentionDays(int days)
     {
         return "";
