@@ -119,6 +119,7 @@ class RowReaderOptions {
   std::function<void(
       facebook::velox::dwio::common::flatmap::FlatMapKeySelectionStats)>
       keySelectionCallback_;
+  bool loadFirstStripeOnCreation = true;
 
  public:
   RowReaderOptions() noexcept
@@ -197,6 +198,24 @@ class RowReaderOptions {
    */
   bool getPreloadStripe() const {
     return preloadStripe;
+  }
+
+  /*
+   * Will load the first stripe on RowReader creation, if true.
+   * This behavior is already happening in DWRF, but isn't desired for some use
+   * cases. So this flag allows us to turn it off.
+   */
+  void setLoadFirstStripeOnCreation(bool load) {
+    loadFirstStripeOnCreation = load;
+  }
+
+  /*
+   * Will load the first stripe on RowReader creation, if true.
+   * This behavior is already happening in DWRF, but isn't desired for some use
+   * cases. So this flag allows us to turn it off.
+   */
+  bool getLoadFirstStripeOnCreation() const {
+    return loadFirstStripeOnCreation;
   }
 
   // For flat map, return flat vector representation
