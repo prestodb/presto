@@ -59,6 +59,8 @@ statement
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ADD COLUMN (IF NOT EXISTS)? column=columnDefinition            #addColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ADD constraintSpecification                                    #addConstraint
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP CONSTRAINT (IF EXISTS)? name=identifier                   #dropConstraint
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE TYPE qualifiedName AS (
@@ -573,28 +575,58 @@ number
     | INTEGER_VALUE  #integerLiteral
     ;
 
+constraintSpecification
+    : namedConstraintSpecification | unnamedConstraintSpecification
+    ;
+
+namedConstraintSpecification
+    : CONSTRAINT name=identifier unnamedConstraintSpecification
+    ;
+
+unnamedConstraintSpecification
+    : constraintType columnAliases constraintEnabled? constraintRely? constraintEnforced?
+    ;
+
+constraintType
+    : UNIQUE
+    | PRIMARY KEY
+    ;
+
+constraintRely
+    : RELY | NOT RELY
+    ;
+
+constraintEnabled
+    : ENABLED | DISABLED
+    ;
+
+constraintEnforced
+    : ENFORCED | NOT ENFORCED
+    ;
+
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ADD | ADMIN | ALL | ANALYZE | ANY | ARRAY | ASC | AT
     | BERNOULLI
     | CALL | CALLED | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CURRENT | CURRENT_ROLE
-    | DATA | DATE | DAY | DEFINER | DESC | DETERMINISTIC | DISTRIBUTED
-    | EXCLUDING | EXPLAIN | EXTERNAL
+    | DATA | DATE | DAY | DEFINER | DESC | DETERMINISTIC | DISABLED | DISTRIBUTED
+    | ENABLED | ENFORCED | EXCLUDING | EXPLAIN | EXTERNAL
     | FETCH | FILTER | FIRST | FOLLOWING | FORMAT | FUNCTION | FUNCTIONS
     | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
     | IF | IGNORE | INCLUDING | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
+    | KEY
     | LANGUAGE | LAST | LATERAL | LEVEL | LIMIT | LOGICAL
     | MAP | MATERIALIZED | MINUTE | MONTH
     | NAME | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | OF | OFFSET | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
     | PARTITION | PARTITIONS | POSITION | PRECEDING | PRIVILEGES | PROPERTIES
-    | RANGE | READ | REFRESH | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
+    | RANGE | READ | REFRESH | RELY | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
     | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS | SQL
     | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM | SYSTEM_TIME | SYSTEM_VERSION
     | TABLES | TABLESAMPLE | TEMPORARY | TEXT | TIME | TIMESTAMP | TO | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
-    | UNBOUNDED | UNCOMMITTED | UPDATE | USE | USER
+    | UNBOUNDED | UNCOMMITTED | UNIQUE | UPDATE | USE | USER
     | VALIDATE | VERBOSE | VERSION | VIEW
     | WORK | WRITE
     | YEAR
@@ -645,11 +677,14 @@ DELETE: 'DELETE';
 DESC: 'DESC';
 DESCRIBE: 'DESCRIBE';
 DETERMINISTIC: 'DETERMINISTIC';
+DISABLED: 'DISABLED';
 DISTINCT: 'DISTINCT';
 DISTRIBUTED: 'DISTRIBUTED';
 DROP: 'DROP';
 ELSE: 'ELSE';
+ENABLED: 'ENABLED';
 END: 'END';
+ENFORCED: 'ENFORCED';
 ESCAPE: 'ESCAPE';
 EXCEPT: 'EXCEPT';
 EXCLUDING: 'EXCLUDING';
@@ -694,6 +729,7 @@ IS: 'IS';
 ISOLATION: 'ISOLATION';
 JSON: 'JSON';
 JOIN: 'JOIN';
+KEY: 'KEY';
 LANGUAGE: 'LANGUAGE';
 LAST: 'LAST';
 LATERAL: 'LATERAL';
@@ -737,12 +773,14 @@ PARTITIONS: 'PARTITIONS';
 POSITION: 'POSITION';
 PRECEDING: 'PRECEDING';
 PREPARE: 'PREPARE';
+PRIMARY: 'PRIMARY';
 PRIVILEGES: 'PRIVILEGES';
 PROPERTIES: 'PROPERTIES';
 RANGE: 'RANGE';
 READ: 'READ';
 RECURSIVE: 'RECURSIVE';
 REFRESH: 'REFRESH';
+RELY: 'RELY';
 RENAME: 'RENAME';
 REPEATABLE: 'REPEATABLE';
 REPLACE: 'REPLACE';
@@ -795,6 +833,7 @@ UESCAPE: 'UESCAPE';
 UNBOUNDED: 'UNBOUNDED';
 UNCOMMITTED: 'UNCOMMITTED';
 UNION: 'UNION';
+UNIQUE: 'UNIQUE';
 UNNEST: 'UNNEST';
 UPDATE: 'UPDATE';
 USE: 'USE';

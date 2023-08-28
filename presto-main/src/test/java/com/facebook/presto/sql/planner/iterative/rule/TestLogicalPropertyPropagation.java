@@ -306,7 +306,7 @@ public class TestLogicalPropertyPropagation
                 .matches(expectedLogicalProperties);
 
         // INVARIANT: define a table with primary key (A,B) and unique key (A) and ensure that the table scan key property only has key (A) (both A and B should have mappings)
-        PrimaryKeyConstraint<ColumnHandle> custkeyCommentPK = new PrimaryKeyConstraint<>("primarykey", custkeyCommentColumnSet, true, true, false);
+        PrimaryKeyConstraint<ColumnHandle> custkeyCommentPK = new PrimaryKeyConstraint<>(Optional.of("primarykey"), custkeyCommentColumnSet, true, true, false);
         UniqueConstraint<ColumnHandle> custkeyUniqueConstraint = new UniqueConstraint<>(new LinkedHashSet<>(ImmutableList.of(customerCustKeyColumn)), true, true, false);
 
         expectedLogicalProperties = new LogicalPropertiesImpl(new EquivalenceClassProperty(),
@@ -359,7 +359,7 @@ public class TestLogicalPropertyPropagation
         ColumnHandle colB = new TpchColumnHandle("B", BIGINT);
         ColumnHandle colC = new TpchColumnHandle("C", BIGINT);
 
-        PrimaryKeyConstraint<ColumnHandle> primaryKeyConstraint = new PrimaryKeyConstraint<>("primarykey", new LinkedHashSet<>(ImmutableList.of(colA)), true, true, false);
+        PrimaryKeyConstraint<ColumnHandle> primaryKeyConstraint = new PrimaryKeyConstraint<>(Optional.of("primarykey"), new LinkedHashSet<>(ImmutableList.of(colA)), true, true, false);
         UniqueConstraint<ColumnHandle> uniqueConstraint = new UniqueConstraint<>(new LinkedHashSet<>(ImmutableList.of(colB, colC)), true, true, false);
         List<TableConstraint<ColumnHandle>> tableConstraints = ImmutableList.of(primaryKeyConstraint, uniqueConstraint);
 
@@ -391,7 +391,7 @@ public class TestLogicalPropertyPropagation
                 .matches(expectedLogicalProperties);
 
         //INVARIANT: define a table with keys (A,C) and (B,C) and apply predicate A=constant and ensure that the filter key property has only has one key (C)
-        PrimaryKeyConstraint<ColumnHandle> primaryKeyConstraint1 = new PrimaryKeyConstraint<>("primarykey", new LinkedHashSet<>(ImmutableList.of(colA, colC)), true, true, false);
+        PrimaryKeyConstraint<ColumnHandle> primaryKeyConstraint1 = new PrimaryKeyConstraint<>(Optional.of("primarykey"), new LinkedHashSet<>(ImmutableList.of(colA, colC)), true, true, false);
         UniqueConstraint<ColumnHandle> uniqueConstraint1 = new UniqueConstraint<>(new LinkedHashSet<>(ImmutableList.of(colB, colC)), true, true, false);
         List<TableConstraint<ColumnHandle>> tableConstraints1 = ImmutableList.of(primaryKeyConstraint1, uniqueConstraint1);
 
@@ -420,7 +420,7 @@ public class TestLogicalPropertyPropagation
 
         //INVARIANT: define a table with key (A,B) and apply predicates A=constant1 and B=constant2 ensure that the filter has maxcard=1 and key property is empty
 
-        List<TableConstraint<ColumnHandle>> tableConstraints2 = ImmutableList.of(new PrimaryKeyConstraint<>("primarykey", new LinkedHashSet<>(ImmutableList.of(colA, colB)), true, true, false));
+        List<TableConstraint<ColumnHandle>> tableConstraints2 = ImmutableList.of(new PrimaryKeyConstraint<>(Optional.of("primarykey"), new LinkedHashSet<>(ImmutableList.of(colA, colB)), true, true, false));
 
         equivalenceClasses = new EquivalenceClassProperty();
         equivalenceClasses = equivalenceClasses.combineWith(varA, constant(100L, BIGINT));
@@ -499,7 +499,7 @@ public class TestLogicalPropertyPropagation
         VariableReferenceExpression varA = new VariableReferenceExpression(Optional.empty(), "A", BIGINT);
         VariableReferenceExpression varB = new VariableReferenceExpression(Optional.empty(), "B", BIGINT);
         VariableReferenceExpression projectedVarA = new VariableReferenceExpression(Optional.empty(), "A1", BIGINT);
-        List<TableConstraint<ColumnHandle>> tableConstraints = ImmutableList.of(new PrimaryKeyConstraint<>("primarykey", new LinkedHashSet<>(ImmutableList.of(colA, colB)), true, true, false));
+        List<TableConstraint<ColumnHandle>> tableConstraints = ImmutableList.of(new PrimaryKeyConstraint<>(Optional.of("primarykey"), new LinkedHashSet<>(ImmutableList.of(colA, colB)), true, true, false));
         Assignments assignments1 = Assignments.builder().put(projectedVarA, varA).build();
 
         expectedLogicalProperties = new LogicalPropertiesImpl(
@@ -522,7 +522,7 @@ public class TestLogicalPropertyPropagation
                 .matches(expectedLogicalProperties);
 
         //TableScan key property has key (A), Filter applies predicate A=B, Project only has a mapping B->B'. Project should have key property with (B').
-        List<TableConstraint<ColumnHandle>> tableConstraints1 = ImmutableList.of(new PrimaryKeyConstraint<>("primarykey", new LinkedHashSet<>(ImmutableList.of(colA)), true, true, false));
+        List<TableConstraint<ColumnHandle>> tableConstraints1 = ImmutableList.of(new PrimaryKeyConstraint<>(Optional.of("primarykey"), new LinkedHashSet<>(ImmutableList.of(colA)), true, true, false));
         VariableReferenceExpression projectedA = new VariableReferenceExpression(Optional.empty(), "A1", BIGINT);
         Assignments assignments2 = Assignments.builder().put(projectedA, varA).build();
 

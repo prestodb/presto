@@ -48,6 +48,7 @@ import static com.facebook.presto.security.CatalogAccessControlRule.AccessMode.A
 import static com.facebook.presto.security.CatalogAccessControlRule.AccessMode.READ_ONLY;
 import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAddConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
@@ -421,6 +422,14 @@ public class FileBasedSystemAccessControl
     {
         if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
             denyDropConstraint(table.toString());
+        }
+    }
+
+    @Override
+    public void checkCanAddConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
+            denyAddConstraint(table.toString());
         }
     }
 

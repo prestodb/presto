@@ -506,6 +506,13 @@ public class RecordingHiveMetastore
         return delegate.dropConstraint(metastoreContext, databaseName, tableName, constraintName);
     }
 
+    @Override
+    public MetastoreOperationResult addConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, TableConstraint<String> tableConstraint)
+    {
+        verifyRecordingMode();
+        return delegate.addConstraint(metastoreContext, databaseName, tableName, tableConstraint);
+    }
+
     private <K, V> V loadValue(Cache<K, V> cache, K key, Supplier<V> valueSupplier)
     {
         if (replay) {

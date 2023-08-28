@@ -65,6 +65,7 @@ import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.AddColumn;
+import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AlterFunction;
@@ -977,6 +978,12 @@ class StatementAnalyzer
 
         @Override
         protected Scope visitDropConstraint(DropConstraint node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitAddConstraint(AddConstraint node, Optional<Scope> scope)
         {
             return createAndAssignScope(node, scope);
         }

@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAddConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
@@ -346,5 +347,15 @@ public interface SystemAccessControl
     default void checkCanDropConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         denyDropConstraint(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to add constraints to the specified table in a catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanAddConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        denyAddConstraint(table.toString());
     }
 }

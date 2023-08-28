@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.tree.AddColumn;
+import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AlterFunction;
@@ -35,6 +36,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ConstraintSpecification;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
@@ -197,6 +199,9 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType;
+import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.PRIMARY_KEY;
+import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.NOT_DETERMINISTIC;
@@ -501,6 +506,54 @@ class AstBuilder
                 visit(context.name).toString(),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.CONSTRAINT().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.CONSTRAINT().getSymbol().getTokenIndex()));
+    }
+
+    @Override
+    public Node visitAddConstraint(SqlBaseParser.AddConstraintContext context)
+    {
+        return new AddConstraint(getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                context.EXISTS() != null,
+                (ConstraintSpecification) visit(context.constraintSpecification()));
+    }
+
+    @Override
+    public Node visitConstraintSpecification(SqlBaseParser.ConstraintSpecificationContext context)
+    {
+        return context.namedConstraintSpecification() != null ?
+                (ConstraintSpecification) visit(context.namedConstraintSpecification()) :
+                (ConstraintSpecification) visit(context.unnamedConstraintSpecification());
+    }
+
+    @Override
+    public Node visitNamedConstraintSpecification(SqlBaseParser.NamedConstraintSpecificationContext context)
+    {
+        ConstraintSpecification unnamedConstraint = (ConstraintSpecification) visit(context.unnamedConstraintSpecification());
+        return new ConstraintSpecification(getLocation(context),
+                Optional.of(visit(context.name).toString()),
+                unnamedConstraint.getColumns(),
+                unnamedConstraint.getConstraintType(),
+                unnamedConstraint.isEnabled(),
+                unnamedConstraint.isRely(),
+                unnamedConstraint.isEnforced());
+    }
+
+    @Override
+    public Node visitUnnamedConstraintSpecification(SqlBaseParser.UnnamedConstraintSpecificationContext context)
+    {
+        List<Identifier> columnAliases = visit(context.columnAliases().identifier(), Identifier.class);
+
+        boolean enabled = context.constraintEnabled() == null || context.constraintEnabled().DISABLED() == null;
+        boolean rely = context.constraintRely() == null || context.constraintRely().NOT() == null;
+        boolean enforced = context.constraintEnforced() == null || context.constraintEnforced().NOT() == null;
+
+        return new ConstraintSpecification(getLocation(context),
+                Optional.empty(),
+                columnAliases.stream().map(Identifier::toString).collect(toImmutableList()),
+                getConstraintType((Token) context.constraintType().getChild(0).getPayload()),
+                enabled,
+                rely,
+                enforced);
     }
 
     @Override
@@ -2226,9 +2279,16 @@ class AstBuilder
                 .map(Token::getText);
     }
 
-    private Optional<Identifier> getIdentifierIfPresent(ParserRuleContext context)
+    private static ConstraintType getConstraintType(Token token)
     {
-        return Optional.ofNullable(context).map(c -> (Identifier) visit(c));
+        switch (token.getType()) {
+            case SqlBaseLexer.UNIQUE:
+                return UNIQUE;
+            case SqlBaseLexer.PRIMARY:
+                return PRIMARY_KEY;
+        }
+
+        throw new IllegalArgumentException("Unsupported constraint type: " + token.getText());
     }
 
     private static ArithmeticBinaryExpression.Operator getArithmeticBinaryOperator(Token operator)
@@ -2247,6 +2307,11 @@ class AstBuilder
         }
 
         throw new UnsupportedOperationException("Unsupported operator: " + operator.getText());
+    }
+
+    private Optional<Identifier> getIdentifierIfPresent(ParserRuleContext context)
+    {
+        return Optional.ofNullable(context).map(c -> (Identifier) visit(c));
     }
 
     private static ComparisonExpression.Operator getComparisonOperator(Token symbol)

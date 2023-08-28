@@ -32,16 +32,11 @@ public class UniqueConstraint<T>
 
     @JsonCreator
     public UniqueConstraint(
-            @JsonProperty("name") String name,
+            @JsonProperty("name") Optional<String> name,
             @JsonProperty("columns") LinkedHashSet<T> columnNames,
             @JsonProperty("enabled") boolean enabled,
             @JsonProperty("rely") boolean rely,
             @JsonProperty("enforced") boolean enforced)
-    {
-        super(Optional.of(name), columnNames, enabled, rely, enforced);
-    }
-
-    protected UniqueConstraint(Optional<String> name, LinkedHashSet<T> columnNames, boolean enabled, boolean rely, boolean enforced)
     {
         super(name, columnNames, enabled, rely, enforced);
     }

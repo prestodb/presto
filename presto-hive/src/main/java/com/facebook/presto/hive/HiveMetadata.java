@@ -650,14 +650,6 @@ public class HiveMetadata
             columnNameToHandleAssignments.put(columnHandle.getName(), columnHandle);
         }
 
-        List<TableConstraint<ColumnHandle>> tableConstraints = ImmutableList.of();
-
-        if (session.isReadConstraints()) {
-            // Get table constraints and rebase on column handles from column names
-            List<TableConstraint<String>> metastoreTableConstraints = metastore.getTableConstraints(metastoreContext, tableName.getSchemaName(), tableName.getTableName());
-            tableConstraints = ConnectorTableMetadata.rebaseTableConstraints(metastoreTableConstraints, columnNameToHandleAssignments);
-        }
-
         // External location property
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         if (table.get().getTableType().equals(EXTERNAL_TABLE)) {
@@ -730,7 +722,8 @@ public class HiveMetadata
 
         Optional<String> comment = Optional.ofNullable(table.get().getParameters().get(TABLE_COMMENT));
 
-        return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), comment, tableConstraints);
+        List<TableConstraint<String>> tableConstraints = metastore.getTableConstraints(metastoreContext, tableName.getSchemaName(), tableName.getTableName());
+        return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), comment, tableConstraints, columnNameToHandleAssignments);
     }
 
     private static Optional<String> getCsvSerdeProperty(Table table, String key)
@@ -3678,6 +3671,30 @@ public class HiveMetadata
                 .findAny();
     }
 
+    private static SystemTable createSystemTable(ConnectorTableMetadata metadata, Function<TupleDomain<Integer>, RecordCursor> cursor)
+    {
+        return new SystemTable()
+        {
+            @Override
+            public Distribution getDistribution()
+            {
+                return Distribution.SINGLE_COORDINATOR;
+            }
+
+            @Override
+            public ConnectorTableMetadata getTableMetadata()
+            {
+                return metadata;
+            }
+
+            @Override
+            public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
+            {
+                return cursor.apply(constraint);
+            }
+        };
+    }
+
     @Override
     public TableLayoutFilterCoverage getTableLayoutFilterCoverage(ConnectorTableLayoutHandle connectorTableLayoutHandle, Set<String> relevantPartitionColumns)
     {
@@ -3701,28 +3718,12 @@ public class HiveMetadata
         metastore.dropConstraint(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), constraintName);
     }
 
-    private static SystemTable createSystemTable(ConnectorTableMetadata metadata, Function<TupleDomain<Integer>, RecordCursor> cursor)
+    @Override
+    public void addConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, TableConstraint<String> tableConstraint)
     {
-        return new SystemTable()
-        {
-            @Override
-            public Distribution getDistribution()
-            {
-                return Distribution.SINGLE_COORDINATOR;
-            }
-
-            @Override
-            public ConnectorTableMetadata getTableMetadata()
-            {
-                return metadata;
-            }
-
-            @Override
-            public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
-            {
-                return cursor.apply(constraint);
-            }
-        };
+        HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
+        MetastoreContext metastoreContext = getMetastoreContext(session);
+        metastore.addConstraint(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), tableConstraint);
     }
 
     private enum SystemTableHandler

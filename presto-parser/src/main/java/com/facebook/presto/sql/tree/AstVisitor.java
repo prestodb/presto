@@ -597,6 +597,16 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitAddConstraint(AddConstraint node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitConstraintSpecification(ConstraintSpecification node, C context)
+    {
+        return visitTableElement(node, context);
+    }
+
     protected R visitAnalyze(Analyze node, C context)
     {
         return visitStatement(node, context);
