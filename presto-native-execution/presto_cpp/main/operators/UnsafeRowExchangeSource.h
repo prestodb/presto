@@ -34,7 +34,7 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
     return !atEnd_;
   }
 
-  void request() override;
+  velox::ContinueFuture request(uint32_t maxBytes) override;
 
   void close() override {}
 
