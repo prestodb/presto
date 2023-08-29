@@ -20,25 +20,30 @@ namespace facebook::velox::dwrf {
 
 using dwio::common::LogType;
 
-StripeInformationWrapper StripeReaderBase::loadStripe(
-    uint32_t index,
-    bool& preload) {
+// preload is not considered or mutated if stripe has already been fetched. e.g.
+// if fetchStripe(0, false) is called, result will be cached and fetchStripe(0,
+// true) will reuse the result without considering the new preload directive
+bool StripeReaderBase::fetchStripe(uint32_t index, bool& preload) {
   DWIO_ENSURE(canLoad_);
+  if (prefetchedStripes_.rlock()->contains(index)) {
+    VLOG(1) << "Stripe data already fetched at index: " << index;
+    return false;
+  }
   auto& footer = reader_->getFooter();
   DWIO_ENSURE_LT(index, footer.stripesSize(), "invalid stripe index");
   auto stripe = footer.stripes(index);
   auto& cache = reader_->getMetadataCache();
 
-  stripeInput_.reset();
   uint64_t offset = stripe.offset();
   uint64_t length =
       stripe.indexLength() + stripe.dataLength() + stripe.footerLength();
-  if (reader_->getBufferedInput().isBuffered(offset, length)) {
-    // if file is preloaded, return stripe is preloaded
-    preload = true;
-  } else {
-    stripeInput_ = reader_->getBufferedInput().clone();
 
+  std::unique_ptr<dwio::common::BufferedInput> prefetchedStripe;
+  if (reader_->getBufferedInput().isBuffered(offset, length)) {
+    preload = true;
+    prefetchedStripe = nullptr;
+  } else {
+    prefetchedStripe = reader_->getBufferedInput().clone();
     if (preload) {
       // If metadata cache exists, adjust read position to avoid re-reading
       // metadata sections
@@ -52,8 +57,8 @@ StripeInformationWrapper StripeReaderBase::loadStripe(
         }
       }
 
-      stripeInput_->enqueue({offset, length, "stripe"});
-      stripeInput_->load(LogType::STRIPE);
+      prefetchedStripe->enqueue({offset, length, "stripe"});
+      prefetchedStripe->load(LogType::STRIPE);
     }
   }
 
@@ -64,26 +69,57 @@ StripeInformationWrapper StripeReaderBase::loadStripe(
   }
 
   if (!stream) {
-    stream = getStripeInput().read(
+    dwio::common::BufferedInput& bi =
+        prefetchedStripe ? *prefetchedStripe : reader_->getBufferedInput();
+    stream = bi.read(
         stripe.offset() + stripe.indexLength() + stripe.dataLength(),
         stripe.footerLength(),
         LogType::STRIPE_FOOTER);
   }
 
-  // Reuse footer_'s memory to avoid expensive destruction
-  if (!footer_) {
-    footer_ = google::protobuf::Arena::CreateMessage<proto::StripeFooter>(
-        reader_->arena());
-  }
+  proto::StripeFooter* stripeFooter;
+
+  // todo: reuse footer memory in cases where prefetch does not occur, or we
+  // have finished processing a stripe and can reuse its footer's memory
+  stripeFooter = google::protobuf::Arena::CreateMessage<proto::StripeFooter>(
+      reader_->arena());
 
   auto streamDebugInfo = fmt::format("Stripe {} Footer ", index);
   ProtoUtils::readProtoInto<proto::StripeFooter>(
       reader_->createDecompressedStream(std::move(stream), streamDebugInfo),
-      footer_);
+      stripeFooter);
 
-  // refresh stripe encryption key if necessary
-  loadEncryptionKeys(index);
-  lastStripeIndex_ = index;
+  auto prefetchedStripeBase = std::make_shared<PrefetchedStripeBase>();
+
+  prefetchedStripeBase->footer = stripeFooter;
+  prefetchedStripeBase->stripeInput = std::move(prefetchedStripe);
+
+  prefetchedStripes_.wlock()->operator[](index) = prefetchedStripeBase;
+
+  return true;
+}
+
+// Sets stripeInput_ to a new BufferedInput (or null, if data is already
+// buffered in ReaderBase), and loads stripe footer and encryption keys
+StripeInformationWrapper StripeReaderBase::loadStripe(
+    uint32_t index,
+    bool& preload /* load the whole stripe if true*/) {
+  DWIO_ENSURE(canLoad_);
+  auto& footer = reader_->getFooter();
+  DWIO_ENSURE_LT(index, footer.stripesSize(), "invalid stripe index");
+  auto stripe = footer.stripes(index);
+
+  fetchStripe(index, preload);
+  prefetchedStripes_.withWLock([&](auto& prefetchedStripes) {
+    auto prefetchedStatesIt = prefetchedStripes.find(index);
+    DWIO_ENSURE(prefetchedStatesIt != prefetchedStripes.end());
+    auto prefetchedStripeBase = prefetchedStatesIt->second;
+    footer_ = prefetchedStripeBase->footer;
+    stripeInput_ = std::move(prefetchedStripeBase->stripeInput);
+    // refresh stripe encryption key if necessary
+    loadEncryptionKeys(index);
+    lastStripeIndex_ = index;
+  });
 
   return stripe;
 }
