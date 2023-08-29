@@ -106,6 +106,7 @@ void SelectiveTimestampColumnReader::read(
     const uint64_t* incomingNulls) {
   prepareRead<int64_t>(offset, rows, incomingNulls);
   VELOX_CHECK(!scanSpec_->filter());
+  VELOX_CHECK(!scanSpec_->valueHook());
   bool isDense = rows.back() == rows.size() - 1;
   if (isDense) {
     readHelper<true>(rows);
