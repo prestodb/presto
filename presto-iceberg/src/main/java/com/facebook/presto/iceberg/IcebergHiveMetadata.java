@@ -33,15 +33,14 @@ import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.Path;
@@ -50,7 +49,6 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
-import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 
@@ -100,9 +98,10 @@ public class IcebergHiveMetadata
             ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
-            JsonCodec<CommitTaskData> commitTaskCodec)
+            JsonCodec<CommitTaskData> commitTaskCodec,
+            Cache<IcebergTableHandle, TableStatistics> statsCache)
     {
-        super(typeManager, commitTaskCodec, hdfsEnvironment);
+        super(typeManager, commitTaskCodec, hdfsEnvironment, statsCache);
         this.metastore = requireNonNull(metastore, "metastore is null");
     }
 
@@ -132,7 +131,7 @@ public class IcebergHiveMetadata
         if (name.getTableType() == SAMPLES) {
             table = SampleUtil.getSampleTableFromActual(table, tableName.getSchemaName(), hdfsEnvironment, session);
         }
-        Optional<Long> snapshotId = getSnapshotId(table, name.getSnapshotId());
+        Optional<Long> snapshotId = IcebergUtil.resolveSnapshotIdByName(table, name);
 
         validateTableMode(session, table);
 
@@ -377,24 +376,5 @@ public class IcebergHiveMetadata
     public ExtendedHiveMetastore getMetastore()
     {
         return metastore;
-    }
-
-    @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> tableLayoutHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
-    {
-        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getHiveIcebergTable(metastore, hdfsEnvironment, session, handle.getSchemaTableName());
-        if (handle.getTableType() == SAMPLES) {
-            icebergTable = SampleUtil.getSampleTableFromActual(icebergTable, handle.getSchemaName(), hdfsEnvironment, session);
-        }
-        return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable, session, hdfsEnvironment);
-    }
-
-    private Optional<Long> getSnapshotId(org.apache.iceberg.Table table, Optional<Long> snapshotId)
-    {
-        if (snapshotId.isPresent()) {
-            return Optional.of(IcebergUtil.resolveSnapshotId(table, snapshotId.get()));
-        }
-        return Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId);
     }
 }
