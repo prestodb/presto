@@ -403,6 +403,11 @@
             <scope>compile</scope>
         </dependency>
 
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+        </dependency>
+
         <!-- used by tests but also needed transitively -->
         <dependency>
             <groupId>com.facebook.airlift</groupId>

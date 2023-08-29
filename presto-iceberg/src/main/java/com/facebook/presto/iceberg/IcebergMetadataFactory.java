@@ -19,6 +19,9 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.statistics.TableStatistics;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 
 import javax.inject.Inject;
 
@@ -33,6 +36,7 @@ public class IcebergMetadataFactory
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final IcebergResourceFactory resourceFactory;
     private final CatalogType catalogType;
+    private final Cache<IcebergTableHandle, TableStatistics> statsCache;
 
     @Inject
     public IcebergMetadataFactory(
@@ -50,6 +54,10 @@ public class IcebergMetadataFactory
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         requireNonNull(config, "config is null");
         this.catalogType = config.getCatalogType();
+        this.statsCache = CacheBuilder.newBuilder()
+                .maximumSize(1000)
+                .recordStats()
+                .build();
     }
 
     public ConnectorMetadata create()
@@ -57,9 +65,9 @@ public class IcebergMetadataFactory
         switch (catalogType) {
             case HADOOP:
             case NESSIE:
-                return new IcebergNativeMetadata(resourceFactory, hdfsEnvironment, typeManager, commitTaskCodec, catalogType);
+                return new IcebergNativeMetadata(resourceFactory, hdfsEnvironment, typeManager, commitTaskCodec, catalogType, statsCache);
             case HIVE:
-                return new IcebergHiveMetadata(metastore, hdfsEnvironment, typeManager, commitTaskCodec);
+                return new IcebergHiveMetadata(metastore, hdfsEnvironment, typeManager, commitTaskCodec, statsCache);
         }
         throw new PrestoException(NOT_SUPPORTED, "Unsupported Presto Iceberg catalog type " + catalogType);
     }

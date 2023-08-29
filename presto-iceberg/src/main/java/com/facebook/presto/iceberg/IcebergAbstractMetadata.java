@@ -16,9 +16,13 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveWrittenPartitions;
+import com.facebook.presto.hive.metastore.HiveColumnStatistics;
+import com.facebook.presto.hive.metastore.MetastoreUtil;
+import com.facebook.presto.hive.metastore.Statistics;
 import com.facebook.presto.iceberg.changelog.ChangelogUtil;
 import com.facebook.presto.iceberg.samples.SampleUtil;
 import com.facebook.presto.spi.ColumnHandle;
@@ -40,10 +44,19 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
+import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
+import com.facebook.presto.spi.statistics.DoubleRange;
+import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.TableStatisticType;
+import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.google.common.base.VerifyException;
+import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.DataFiles;
@@ -58,10 +71,12 @@ import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
+import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,8 +85,15 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
 import static com.facebook.presto.iceberg.IcebergUtil.createMetadataProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumnMetadatas;
@@ -87,8 +109,11 @@ import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getRowTypeFrom
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -105,13 +130,16 @@ public abstract class IcebergAbstractMetadata
 
     protected final Map<String, Optional<Long>> snapshotIds = new ConcurrentHashMap<>();
 
+    protected final Cache<IcebergTableHandle, TableStatistics> statsCache;
+
     protected Transaction transaction;
 
-    public IcebergAbstractMetadata(TypeManager typeManager, JsonCodec<CommitTaskData> commitTaskCodec, HdfsEnvironment hdfsEnvironment)
+    public IcebergAbstractMetadata(TypeManager typeManager, JsonCodec<CommitTaskData> commitTaskCodec, HdfsEnvironment hdfsEnvironment, Cache<IcebergTableHandle, TableStatistics> statsCache)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.statsCache = requireNonNull(statsCache);
     }
 
     @Override
@@ -416,6 +444,147 @@ public abstract class IcebergAbstractMetadata
         AtomicInteger nextFieldId = new AtomicInteger(1);
         icebergSchema = TypeUtil.assignFreshIds(icebergSchema, nextFieldId::getAndIncrement);
         return new Schema(icebergSchema.asStructType().fields());
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> tableLayoutHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
+    {
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        if (handle.getTableType() == SAMPLES) {
+            icebergTable = SampleUtil.getSampleTableFromActual(icebergTable, handle.getSchemaName(), hdfsEnvironment, session);
+        }
+        Table finalIcebergTable = icebergTable;
+        return Optional.ofNullable(statsCache.getIfPresent(tableHandle)).orElseGet(() -> TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, finalIcebergTable, session, hdfsEnvironment));
+    }
+
+    /**
+     * Returns a table handle for the specified table name, or null if the connector does not contain the table.
+     * The returned table handle can contain information in analyzeProperties.
+     */
+    public ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
+    {
+        if (IcebergSessionProperties.useSampleStatistics(session)) {
+            IcebergTableName itn = IcebergTableName.from(tableName.getTableName());
+            org.apache.iceberg.Table table = getIcebergTable(session, tableName);
+            table = SampleUtil.getSampleTableFromActual(table, tableName.getSchemaName(), hdfsEnvironment, session);
+            Optional<Long> snapshotId = resolveSnapshotIdByName(table, itn);
+
+            return new IcebergTableHandle(
+                    tableName.getSchemaName(),
+                    tableName.getTableName(),
+                    SAMPLES,
+                    snapshotId,
+                    TupleDomain.all());
+        }
+        return getTableHandle(session, tableName);
+    }
+
+    /**
+     * Describe statistics that must be collected during a statistics collection
+     */
+    @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        Set<ColumnStatisticMetadata> columnStatistics = tableMetadata.getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .map(meta -> this.getColumnStatisticMetadata(session, meta))
+                .flatMap(List::stream)
+                .collect(toImmutableSet());
+
+        Set<TableStatisticType> tableStatistics = ImmutableSet.of(ROW_COUNT);
+        return new TableStatisticsMetadata(columnStatistics, tableStatistics, Collections.emptyList());
+    }
+
+    private List<ColumnStatisticMetadata> getColumnStatisticMetadata(ConnectorSession session, ColumnMetadata col)
+    {
+        return MetastoreUtil.getSupportedColumnStatistics(col.getType()).stream().map(x -> new ColumnStatisticMetadata(col.getName(), x)).collect(Collectors.toList());
+    }
+
+    /**
+     * Begin statistics collection
+     */
+    @Override
+    public ConnectorTableHandle beginStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return tableHandle;
+    }
+
+    /**
+     * Finish statistics collection
+     */
+    public void finishStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
+    {
+        TableStatistics.Builder builder = TableStatistics.builder();
+        Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
+        Map<String, com.facebook.presto.common.type.Type> types = columns.values().stream()
+                .map(c -> (IcebergColumnHandle) c)
+                .collect(toImmutableMap(IcebergColumnHandle::getName, IcebergColumnHandle::getType));
+        computedStatistics.forEach(stat -> {
+            AtomicLong rowCount = new AtomicLong(0);
+            stat.getTableStatistics().forEach((key, value) -> {
+                if (key.equals(ROW_COUNT)) {
+                    verify(!value.isNull(0), "row count must not be nul");
+                    rowCount.set(value.getLong(0));
+                    builder.setRowCount(Estimate.of(rowCount.get()));
+                }
+            });
+            Map<String, HiveColumnStatistics> columnStats =
+                    Statistics.fromComputedStatistics(session, DateTimeZone.UTC, stat.getColumnStatistics(), types, rowCount.get());
+            columnStats.forEach((key, value) -> {
+                IcebergColumnHandle ch = (IcebergColumnHandle) columns.get(key);
+                ColumnStatistics.Builder colBuilder = ColumnStatistics.builder();
+                value.getNullsCount().ifPresent(nullCount -> colBuilder.setNullsFraction(Estimate.of((double) nullCount / rowCount.get())));
+                value.getDistinctValuesCount().ifPresent(ndvs -> colBuilder.setDistinctValuesCount(Estimate.of(ndvs)));
+                value.getTotalSizeInBytes().ifPresent(totalDataSize -> colBuilder.setDataSize(Estimate.of((double) totalDataSize / rowCount.get())));
+                if (isRangeSupported(ch.getType())) {
+                    colBuilder.setRange(createRange(ch.getType(), value));
+                }
+                builder.setColumnStatistics(ch, colBuilder.build());
+            });
+        });
+        statsCache.put((IcebergTableHandle) tableHandle, builder.build());
+    }
+
+    private static Optional<DoubleRange> createRange(com.facebook.presto.common.type.Type type, HiveColumnStatistics statistics)
+    {
+        if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
+            return statistics.getIntegerStatistics()
+                    .filter(is -> is.getMin().isPresent())
+                    .filter(is -> is.getMax().isPresent())
+                    .map(is -> new DoubleRange(is.getMin().getAsLong(), is.getMax().getAsLong()));
+        }
+        if (type.equals(DOUBLE) || type.equals(REAL)) {
+            return statistics.getDoubleStatistics()
+                    .filter(ds -> ds.getMin().isPresent())
+                    .filter(ds -> ds.getMax().isPresent())
+                    .map(ds -> new DoubleRange(ds.getMin().getAsDouble(), ds.getMax().getAsDouble()));
+        }
+        if (type.equals(DATE)) {
+            return statistics.getDateStatistics()
+                    .filter(ds -> ds.getMin().isPresent())
+                    .filter(ds -> ds.getMax().isPresent())
+                    .map(ds -> new DoubleRange(ds.getMin().get().toEpochDay(), ds.getMax().get().toEpochDay()));
+        }
+        if (type instanceof DecimalType) {
+            return statistics.getDecimalStatistics()
+                    .filter(ds -> ds.getMin().isPresent())
+                    .filter(ds -> ds.getMax().isPresent())
+                    .map(ds -> new DoubleRange(ds.getMin().get().doubleValue(), ds.getMax().get().doubleValue()));
+        }
+        throw new IllegalArgumentException("Unexpected type: " + type);
+    }
+
+    private static boolean isRangeSupported(com.facebook.presto.common.type.Type type)
+    {
+        return type.equals(TINYINT)
+                || type.equals(SMALLINT)
+                || type.equals(INTEGER)
+                || type.equals(BIGINT)
+                || type.equals(REAL)
+                || type.equals(DOUBLE)
+                || type.equals(DATE)
+                || type instanceof DecimalType;
     }
 
     public void rollback()
