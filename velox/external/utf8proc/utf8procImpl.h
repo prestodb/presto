@@ -630,7 +630,7 @@ UTF8PROC_DLLEXPORT utf8proc_ssize_t utf8proc_decompose_custom(
         if (uc < 0)
           return UTF8PROC_ERROR_INVALIDUTF8;
       }
-      if (custom_func != NULL) {
+      if (custom_func != nullptr) {
         uc = custom_func(uc, custom_data); /* user-specified custom mapping */
       }
       decomp_result = utf8proc_decompose_char(
@@ -713,9 +713,9 @@ UTF8PROC_DLLEXPORT utf8proc_ssize_t utf8proc_normalize_utf32(
     length = wpos;
   }
   if (options & UTF8PROC_COMPOSE) {
-    utf8proc_int32_t* starter = NULL;
+    utf8proc_int32_t* starter = nullptr;
     utf8proc_int32_t current_char;
-    const utf8proc_property_t *starter_property = NULL, *current_property;
+    const utf8proc_property_t *starter_property = nullptr, *current_property;
     utf8proc_propval_t max_combining_class = -1;
     utf8proc_ssize_t rpos;
     utf8proc_ssize_t wpos = 0;
@@ -735,7 +735,7 @@ UTF8PROC_DLLEXPORT utf8proc_ssize_t utf8proc_normalize_utf32(
             *starter = UTF8PROC_HANGUL_SBASE +
                 (hangul_lindex * UTF8PROC_HANGUL_VCOUNT + hangul_vindex) *
                     UTF8PROC_HANGUL_TCOUNT;
-            starter_property = NULL;
+            starter_property = nullptr;
             continue;
           }
         }
@@ -746,7 +746,7 @@ UTF8PROC_DLLEXPORT utf8proc_ssize_t utf8proc_normalize_utf32(
           hangul_tindex = current_char - UTF8PROC_HANGUL_TBASE;
           if (hangul_tindex >= 0 && hangul_tindex < UTF8PROC_HANGUL_TCOUNT) {
             *starter += hangul_tindex;
-            starter_property = NULL;
+            starter_property = nullptr;
             continue;
           }
         }
@@ -771,7 +771,7 @@ UTF8PROC_DLLEXPORT utf8proc_ssize_t utf8proc_normalize_utf32(
                 (!(options & UTF8PROC_STABLE) ||
                  !(unsafe_get_property(composition)->comp_exclusion))) {
               *starter = composition;
-              starter_property = NULL;
+              starter_property = nullptr;
               continue;
             }
           }
@@ -784,7 +784,7 @@ UTF8PROC_DLLEXPORT utf8proc_ssize_t utf8proc_normalize_utf32(
         }
       } else {
         starter = buffer + wpos;
-        starter_property = NULL;
+        starter_property = nullptr;
         max_combining_class = -1;
       }
       wpos++;
@@ -827,7 +827,7 @@ UTF8PROC_DLLEXPORT utf8proc_ssize_t utf8proc_map(
     utf8proc_ssize_t strlen,
     utf8proc_uint8_t** dstptr,
     utf8proc_int16_t options) {
-  return utf8proc_map_custom(str, strlen, dstptr, options, NULL, NULL);
+  return utf8proc_map_custom(str, strlen, dstptr, options, nullptr, nullptr);
 }
 
 UTF8PROC_DLLEXPORT utf8proc_ssize_t utf8proc_map_custom(
@@ -839,9 +839,9 @@ UTF8PROC_DLLEXPORT utf8proc_ssize_t utf8proc_map_custom(
     void* custom_data) {
   utf8proc_int32_t* buffer;
   utf8proc_ssize_t result;
-  *dstptr = NULL;
+  *dstptr = nullptr;
   result = utf8proc_decompose_custom(
-      str, strlen, NULL, 0, options, custom_func, custom_data);
+      str, strlen, nullptr, 0, options, custom_func, custom_data);
   if (result < 0)
     return result;
   buffer = (utf8proc_int32_t*)malloc(result * sizeof(utf8proc_int32_t) + 1);
