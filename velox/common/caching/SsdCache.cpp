@@ -61,7 +61,7 @@ SsdCache::SsdCache(
 }
 
 SsdFile& SsdCache::file(uint64_t fileId) {
-  auto index = fileId % numShards_;
+  const auto index = fileId % numShards_;
   return *files_[index];
 }
 
@@ -69,7 +69,7 @@ bool SsdCache::startWrite() {
   if (isShutdown_) {
     return false;
   }
-  if (0 == writesInProgress_.fetch_add(numShards_)) {
+  if (writesInProgress_.fetch_add(numShards_) == 0) {
     // No write was pending, so now all shards are counted as writing.
     return true;
   }
@@ -80,14 +80,17 @@ bool SsdCache::startWrite() {
 
 void SsdCache::write(std::vector<CachePin> pins) {
   VELOX_CHECK_LE(numShards_, writesInProgress_);
+
+  const auto startTimeUs = getCurrentTimeMicro();
+
   uint64_t bytes = 0;
-  auto start = getCurrentTimeMicro();
   std::vector<std::vector<CachePin>> shards(numShards_);
   for (auto& pin : pins) {
     bytes += pin.checkedEntry()->size();
-    auto& target = file(pin.checkedEntry()->key().fileNum.id());
+    const auto& target = file(pin.checkedEntry()->key().fileNum.id());
     shards[target.shardId()].push_back(std::move(pin));
   }
+
   int32_t numNoStore = 0;
   for (auto i = 0; i < numShards_; ++i) {
     if (shards[i].empty()) {
@@ -104,7 +107,7 @@ void SsdCache::write(std::vector<CachePin> pins) {
     // We move the mutable vector of pins to the executor. These must
     // be wrapped in a shared struct to be passed via lambda capture.
     auto pinHolder = std::make_shared<PinHolder>(std::move(shards[i]));
-    executor_->add([this, i, pinHolder, bytes, start]() {
+    executor_->add([this, i, pinHolder, bytes, startTimeUs]() {
       try {
         files_[i]->write(pinHolder->pins);
       } catch (const std::exception& e) {
@@ -118,7 +121,7 @@ void SsdCache::write(std::vector<CachePin> pins) {
         LOG(INFO) << fmt::format(
             "SSDCA: Wrote {}MB, {} MB/s",
             bytes >> 20,
-            static_cast<float>(bytes) / (getCurrentTimeMicro() - start));
+            static_cast<float>(bytes) / (getCurrentTimeMicro() - startTimeUs));
       }
     });
   }
@@ -151,7 +154,7 @@ std::string SsdCache::toString() const {
   return out.str();
 }
 
-void SsdCache::deleteFiles() {
+void SsdCache::testingDeleteFiles() {
   for (auto& file : files_) {
     file->deleteFile();
   }

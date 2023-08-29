@@ -46,21 +46,15 @@ struct Request {
 
 class AsyncDataCacheTest : public testing::Test {
  public:
-  // Deterministically fills 'allocation'  based on 'sequence'
+  // Deterministically fills 'allocation' based on 'sequence'
   static void initializeContents(int64_t sequence, memory::Allocation& alloc) {
-    bool first = true;
     for (int32_t i = 0; i < alloc.numRuns(); ++i) {
       memory::Allocation::PageRun run = alloc.runAt(i);
       int64_t* ptr = reinterpret_cast<int64_t*>(run.data());
-      int32_t numWords =
-          run.numPages() * memory::AllocationTraits::kPageSize / sizeof(void*);
-      for (int32_t offset = 0; offset < numWords; offset++) {
-        if (first) {
-          ptr[offset] = sequence;
-          first = false;
-        } else {
-          ptr[offset] = offset + sequence;
-        }
+      const int32_t numWords =
+          memory::AllocationTraits::pageBytes(run.numPages()) / sizeof(void*);
+      for (int32_t offset = 0; offset < numWords; ++offset) {
+        ptr[offset] = sequence + offset;
       }
     }
   }
@@ -79,7 +73,7 @@ class AsyncDataCacheTest : public testing::Test {
     if (cache_) {
       auto ssdCache = cache_->ssdCache();
       if (ssdCache) {
-        ssdCache->deleteFiles();
+        ssdCache->testingDeleteFiles();
       }
       cache_->shutdown();
     }
@@ -87,13 +81,13 @@ class AsyncDataCacheTest : public testing::Test {
 
   void initializeCache(uint64_t maxBytes, int64_t ssdBytes = 0) {
     std::unique_ptr<SsdCache> ssdCache;
-    if (ssdBytes) {
+    if (ssdBytes > 0) {
       // tmpfs does not support O_DIRECT, so turn this off for testing.
       FLAGS_ssd_odirect = false;
       // Make a new tempDirectory only if one is not already set. The
       // second creation of cache must find the checkpoint of the
       // previous one.
-      if (!tempDirectory_) {
+      if (tempDirectory_ == nullptr) {
         tempDirectory_ = exec::test::TempDirectoryPath::create();
       }
       ssdCache = std::make_unique<SsdCache>(
@@ -103,13 +97,15 @@ class AsyncDataCacheTest : public testing::Test {
           executor(),
           ssdBytes / 20);
     }
-    memory::MmapAllocator::Options options;
-    options.capacity = maxBytes;
-    if (cache_) {
+
+    if (cache_ != nullptr) {
       cache_->shutdown();
     }
     cache_.reset();
     allocator_.reset();
+
+    memory::MmapAllocator::Options options;
+    options.capacity = maxBytes;
     allocator_ = std::make_shared<memory::MmapAllocator>(options);
     cache_ = AsyncDataCache::create(allocator_.get(), std::move(ssdCache));
     if (filenames_.empty()) {
@@ -132,8 +128,8 @@ class AsyncDataCacheTest : public testing::Test {
   void
   loadBatch(uint64_t fileNum, std::vector<Request>& requests, bool injectError);
 
-  // Gets a pin on each of 'requests'individually. This checks the
-  // contents via cache_'s verifyHook.
+  // Gets a pin on each of 'requests' individually. This checks the contents via
+  // cache_'s verifyHook.
   void checkBatch(
       uint64_t fileNum,
       std::vector<Request>& requests,
@@ -171,29 +167,20 @@ class AsyncDataCacheTest : public testing::Test {
   // initializeContents.
   static void checkContents(const AsyncDataCacheEntry& entry) {
     const auto& alloc = entry.data();
-    int32_t numBytes = entry.size();
-    int64_t expectedSequence = entry.key().fileNum.id() + entry.offset();
-    bool first = true;
-    int64_t sequence;
+    const int32_t numBytes = entry.size();
+    const int64_t expectedSequence = entry.key().fileNum.id() + entry.offset();
     int32_t bytesChecked = sizeof(int64_t);
     for (int32_t i = 0; i < alloc.numRuns(); ++i) {
-      memory::Allocation::PageRun run = alloc.runAt(i);
+      const memory::Allocation::PageRun run = alloc.runAt(i);
       int64_t* ptr = reinterpret_cast<int64_t*>(run.data());
-      int32_t numWords =
-          run.numPages() * memory::AllocationTraits::kPageSize / sizeof(void*);
-      for (int32_t offset = 0; offset < numWords; offset++) {
-        if (first) {
-          sequence = ptr[offset];
-          ASSERT_EQ(expectedSequence, sequence)
-              << entry.toString() << " " << entry.ssdOffset();
-          first = false;
-        } else {
-          bytesChecked += sizeof(int64_t);
-          if (bytesChecked >= numBytes) {
-            return;
-          }
-          ASSERT_EQ(ptr[offset], offset + sequence)
-              << fmt::format("{} {} + {}", entry.toString(), sequence, offset);
+      const int32_t numWords =
+          memory::AllocationTraits::pageBytes(run.numPages()) / sizeof(void*);
+      for (int32_t offset = 0; offset < numWords; ++offset) {
+        ASSERT_EQ(ptr[offset], expectedSequence + offset) << fmt::format(
+            "{} {} + {}", entry.toString(), expectedSequence + offset, offset);
+        bytesChecked += sizeof(int64_t);
+        if (bytesChecked >= numBytes) {
+          return;
         }
       }
     }
@@ -213,7 +200,7 @@ class AsyncDataCacheTest : public testing::Test {
     };
   }
 
-  folly::IOThreadPoolExecutor* FOLLY_NONNULL executor() {
+  folly::IOThreadPoolExecutor* executor() {
     static std::mutex mutex;
     std::lock_guard<std::mutex> l(mutex);
     if (!executor_) {
@@ -243,12 +230,11 @@ class TestingCoalescedLoad : public CoalescedLoad {
   TestingCoalescedLoad(
       std::vector<RawFileCacheKey> keys,
       std::vector<int32_t> sizes,
-      const std::shared_ptr<AsyncDataCache>& cache)
-      : CoalescedLoad(std::move(keys), std::move(sizes)), cache_(cache) {}
-
-  void injectError(bool error) {
-    injectError_ = error;
-  }
+      const std::shared_ptr<AsyncDataCache>& cache,
+      bool injectError)
+      : CoalescedLoad(std::move(keys), std::move(sizes)),
+        cache_(cache),
+        injectError_(injectError) {}
 
   std::vector<CachePin> loadData(bool /*isPrefetch*/) override {
     std::vector<CachePin> pins;
@@ -258,7 +244,7 @@ class TestingCoalescedLoad : public CoalescedLoad {
         [&](int32_t /*index*/, CachePin pin) {
           pins.push_back(std::move(pin));
         });
-    for (auto& pin : pins) {
+    for (const auto& pin : pins) {
       auto& buffer = pin.entry()->data();
       AsyncDataCacheTest::initializeContents(
           pin.entry()->key().offset + pin.entry()->key().fileNum.id(), buffer);
@@ -276,9 +262,9 @@ class TestingCoalescedLoad : public CoalescedLoad {
   }
 
  protected:
-  std::shared_ptr<AsyncDataCache> cache_;
-  std::vector<Request> requests_;
-  bool injectError_{false};
+  const std::shared_ptr<AsyncDataCache> cache_;
+  const std::vector<Request> requests_;
+  const bool injectError_{false};
 };
 
 class TestingCoalescedSsdLoad : public TestingCoalescedLoad {
@@ -287,12 +273,17 @@ class TestingCoalescedSsdLoad : public TestingCoalescedLoad {
       std::vector<RawFileCacheKey> keys,
       std::vector<int32_t> sizes,
       std::vector<SsdPin> ssdPins,
-      const std::shared_ptr<AsyncDataCache>& cache)
-      : TestingCoalescedLoad(std::move(keys), std::move(sizes), cache),
+      const std::shared_ptr<AsyncDataCache>& cache,
+      bool injectError)
+      : TestingCoalescedLoad(
+            std::move(keys),
+            std::move(sizes),
+            cache,
+            injectError),
         ssdPins_(std::move(ssdPins)) {}
 
   std::vector<CachePin> loadData(bool /*isPrefetch*/) override {
-    auto fileNum = keys_[0].fileNum;
+    const auto fileNum = keys_[0].fileNum;
     auto& file = cache_->ssdCache()->file(fileNum);
     std::vector<CachePin> pins;
     std::vector<SsdPin> toLoad;
@@ -312,7 +303,7 @@ class TestingCoalescedSsdLoad : public TestingCoalescedLoad {
       VELOX_CHECK(!injectError_, "Testing error");
     } catch (std::exception& e) {
       try {
-        for (auto& ssdPin : toLoad) {
+        for (const auto& ssdPin : toLoad) {
           file.erase(RawFileCacheKey{fileNum, ssdPin.run().offset()});
         }
       } catch (const std::exception& e2) {
@@ -329,7 +320,7 @@ class TestingCoalescedSsdLoad : public TestingCoalescedLoad {
 
 namespace {
 int64_t sizeAtOffset(int64_t offset) {
-  return offset % 100000;
+  return offset % 100'000;
 }
 } // namespace
 
@@ -349,7 +340,7 @@ void AsyncDataCacheTest::loadOne(
       std::move(loadFuture).via(&exec).wait();
       continue;
     }
-    auto entry = pin.checkedEntry();
+    auto* entry = pin.checkedEntry();
     if (entry->isShared()) {
       // Already in RAM. Check the data.
       checkContents(*entry);
@@ -359,7 +350,7 @@ void AsyncDataCacheTest::loadOne(
     // We have an uninitialized entry in exclusive mode. We fill it with data
     // and set it to shared. If we release this pin while still in exclusive
     // mode, the entry will be erased.
-    if (cache_->ssdCache()) {
+    if (cache_->ssdCache() != nullptr) {
       auto& ssdFile = cache_->ssdCache()->file(key.fileNum);
       auto ssdPin = ssdFile.find(key);
       if (!ssdPin.empty()) {
@@ -386,8 +377,7 @@ void AsyncDataCacheTest::loadBatch(
     std::vector<Request>& requests,
     bool injectError) {
   // Pattern for loading a set of buffers from a file: Divide the requested
-  // ranges between already loaded and loadeable from
-  // storage.
+  // ranges between already loaded and loadable from storage.
   std::vector<Request*> fromStorage;
   std::vector<Request*> fromSsd;
   for (auto& request : requests) {
@@ -397,7 +387,7 @@ void AsyncDataCacheTest::loadBatch(
     }
     // Schedule a CoalescedLoad with other keys that need loading from the same
     // source.
-    if (cache_->ssdCache()) {
+    if (cache_->ssdCache() != nullptr) {
       auto& file = cache_->ssdCache()->file(key.fileNum);
       request.ssdPin = file.find(key);
       if (!request.ssdPin.empty()) {
@@ -417,8 +407,7 @@ void AsyncDataCacheTest::loadBatch(
       sizes.push_back(request->size);
     }
     auto load = std::make_shared<TestingCoalescedLoad>(
-        std::move(keys), std::move(sizes), cache_);
-    load->injectError(injectError);
+        std::move(keys), std::move(sizes), cache_, injectError);
     executor()->add([load]() {
       try {
         load->loadOrFuture(nullptr);
@@ -427,18 +416,22 @@ void AsyncDataCacheTest::loadBatch(
       };
     });
   }
+
   if (!fromSsd.empty()) {
     std::vector<SsdPin> ssdPins;
     std::vector<RawFileCacheKey> keys;
     std::vector<int32_t> sizes;
-    for (auto request : fromSsd) {
+    for (auto* request : fromSsd) {
       keys.push_back(RawFileCacheKey{fileNum, request->offset});
       sizes.push_back(request->size);
       ssdPins.push_back(std::move(request->ssdPin));
     }
     auto load = std::make_shared<TestingCoalescedSsdLoad>(
-        std::move(keys), std::move(sizes), std::move(ssdPins), cache_);
-    load->injectError(injectError);
+        std::move(keys),
+        std::move(sizes),
+        std::move(ssdPins),
+        cache_,
+        injectError);
     executor()->add([load]() {
       try {
         load->loadOrFuture(nullptr);
@@ -453,16 +446,16 @@ void AsyncDataCacheTest::loadLoop(
     int64_t startOffset,
     int64_t loadBytes,
     int32_t errorEveryNBatches) {
-  int64_t maxOffset =
-      std::max<int64_t>(100000, (startOffset + loadBytes) / filenames_.size());
+  const int64_t maxOffset =
+      std::max<int64_t>(100'000, (startOffset + loadBytes) / filenames_.size());
   int64_t skippedBytes = 0;
   int32_t errorCounter = 0;
   std::vector<Request> batch;
-  for (auto file = 0; file < filenames_.size(); ++file) {
-    auto fileNum = filenames_[file].id();
+  for (auto i = 0; i < filenames_.size(); ++i) {
+    const auto fileNum = filenames_[i].id();
     for (uint64_t offset = 100; offset < maxOffset;
          offset += sizeAtOffset(offset)) {
-      auto size = sizeAtOffset(offset);
+      const auto size = sizeAtOffset(offset);
       if (skippedBytes < startOffset) {
         skippedBytes += size;
         continue;
@@ -471,8 +464,8 @@ void AsyncDataCacheTest::loadLoop(
       batch.emplace_back(offset, size);
       if (batch.size() >= 8) {
         for (;;) {
-          bool injectError =
-              errorEveryNBatches && (++errorCounter % errorEveryNBatches == 0);
+          const bool injectError = (errorEveryNBatches > 0) &&
+              (++errorCounter % errorEveryNBatches == 0);
           loadBatch(fileNum, batch, injectError);
           try {
             checkBatch(fileNum, batch, injectError);
@@ -616,10 +609,10 @@ TEST_F(AsyncDataCacheTest, outOfCapacity) {
 namespace {
 // Cuts off the last 1/10th of file at 'path'.
 void corruptFile(const std::string& path) {
-  auto fd = open(path.c_str(), O_WRONLY);
-  auto size = lseek(fd, 0, SEEK_END);
-  auto rc = ftruncate(fd, size / 10 * 9);
-  EXPECT_EQ(0, rc);
+  const auto fd = ::open(path.c_str(), O_WRONLY);
+  const auto size = ::lseek(fd, 0, SEEK_END);
+  const auto rc = ftruncate(fd, size / 10 * 9);
+  ASSERT_EQ(rc, 0);
 }
 } // namespace
 

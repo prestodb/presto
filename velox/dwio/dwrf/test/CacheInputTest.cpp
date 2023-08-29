@@ -112,7 +112,7 @@ class CacheTest : public testing::Test {
     executor_->join();
     auto ssdCache = cache_->ssdCache();
     if (ssdCache) {
-      ssdCache->deleteFiles();
+      ssdCache->testingDeleteFiles();
     }
     if (cache_) {
       cache_->shutdown();

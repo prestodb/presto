@@ -95,7 +95,7 @@ struct FileCacheKey {
   }
 };
 
-// Non-owning reference to a file number and offset.
+/// Non-owning reference to a file number and offset.
 struct RawFileCacheKey {
   uint64_t fileNum;
   uint64_t offset;
@@ -105,6 +105,7 @@ struct RawFileCacheKey {
   }
 };
 } // namespace facebook::velox::cache
+
 namespace std {
 template <>
 struct hash<::facebook::velox::cache::FileCacheKey> {
@@ -141,7 +142,7 @@ class AsyncDataCacheEntry {
   static constexpr int32_t kExclusive = -10000;
   static constexpr int32_t kTinyDataSize = 2048;
 
-  explicit AsyncDataCacheEntry(CacheShard* FOLLY_NONNULL shard);
+  explicit AsyncDataCacheEntry(CacheShard* shard);
   ~AsyncDataCacheEntry();
 
   // Sets the key and allocates the entry's memory.  Resets
@@ -197,19 +198,19 @@ class AsyncDataCacheEntry {
     return numPins_;
   }
 
-  // Sets the 'isPrefetch_' and updates the cache's total prefetch count.
-  // Returns the new prefetch pages count.
+  /// Sets the 'isPrefetch_' and updates the cache's total prefetch count.
+  /// Returns the new prefetch pages count.
   memory::MachinePageCount setPrefetch(bool flag = true);
 
   bool isPrefetch() const {
     return isPrefetch_;
   }
 
-  // Distinguishes between a reuse of a cached entry from first
-  // retrieval of a prefetched entry. If this is false, we have an
-  // actual reuse of cached data.
+  /// Distinguishes between a reuse of a cached entry from first retrieval of a
+  /// prefetched entry. If this is false, we have an actual reuse of cached
+  /// data.
   bool getAndClearFirstUseFlag() {
-    bool value = isFirstUse_;
+    const bool value = isFirstUse_;
     isFirstUse_ = false;
     return value;
   }
@@ -254,10 +255,10 @@ class AsyncDataCacheEntry {
   void release();
   void addReference();
 
-  // Returns a future that will be realized when a caller can retry
-  // getting 'this'. Must be called inside the mutex of 'shard_'.
+  // Returns a future that will be realized when a caller can retry getting
+  // 'this'. Must be called inside the mutex of 'shard_'.
   folly::SemiFuture<bool> getFuture() {
-    if (!promise_) {
+    if (promise_ == nullptr) {
       promise_ = std::make_unique<folly::SharedPromise<bool>>();
     }
     return promise_->getSemiFuture();
@@ -288,7 +289,7 @@ class AsyncDataCacheEntry {
   // evicted before they are hit.
   bool isPrefetch_{false};
 
-  // Set after first use of a prefetched entry. Cleared by
+  // Sets after first use of a prefetched entry. Cleared by
   // getAndClearFirstUseFlag(). Does not require synchronization since used for
   // statistics only.
   std::atomic<bool> isFirstUse_{false};
@@ -345,7 +346,7 @@ class CachePin {
   }
 
   bool empty() const {
-    return !entry_;
+    return entry_ == nullptr;
   }
 
   void clear() {
@@ -372,12 +373,12 @@ class CachePin {
 
  private:
   void addReference() const {
-    VELOX_CHECK(entry_);
+    VELOX_CHECK_NOT_NULL(entry_);
     entry_->addReference();
   }
 
   void release() {
-    if (entry_) {
+    if (entry_ != nullptr) {
       entry_->release();
     }
     entry_ = nullptr;
@@ -394,37 +395,36 @@ class CachePin {
   friend class CacheShard;
 };
 
-// State of a CoalescedLoad
-enum class LoadState { kPlanned, kLoading, kCancelled, kLoaded };
-
-// Represents a possibly multi-entry load from a file system. The
-// cache expects to load multiple entries in most IOs. The IO is
-// either done by a background prefetch thread or if the query
-// thread gets there first, then the query thread will do the
-// IO. The IO is also cancelled as a unit.
+/// Represents a possibly multi-entry load from a file system. The cache expects
+/// to load multiple entries in most IOs. The IO is either done by a background
+/// prefetch thread or if the query thread gets there first, then the query
+/// thread will do the IO. The IO is also cancelled as a unit.
 class CoalescedLoad {
  public:
+  /// State of a CoalescedLoad
+  enum class State { kPlanned, kLoading, kCancelled, kLoaded };
+
   CoalescedLoad(std::vector<RawFileCacheKey> keys, std::vector<int32_t> sizes)
-      : state_(LoadState::kPlanned),
+      : state_(State::kPlanned),
         keys_(std::move(keys)),
         sizes_(std::move(sizes)) {}
 
   virtual ~CoalescedLoad();
 
-  // Makes entries for the keys that are not yet loaded and does a coalesced
-  // load of the entries that are not yet present. If another thread is in the
-  // process of doing this and 'wait' is null, returns immediately. If another
-  // thread is in the process of doing this and 'wait' is not null, waits for
-  // the other thread to be done.
+  /// Makes entries for the keys that are not yet loaded and does a coalesced
+  /// load of the entries that are not yet present. If another thread is in the
+  /// process of doing this and 'wait' is null, returns immediately. If another
+  /// thread is in the process of doing this and 'wait' is not null, waits for
+  /// the other thread to be done.
   bool loadOrFuture(folly::SemiFuture<bool>* wait);
 
-  LoadState state() const {
+  State state() const {
     tsan_lock_guard<std::mutex> l(mutex_);
     return state_;
   }
 
   void cancel() {
-    setEndState(LoadState::kCancelled);
+    setEndState(State::kCancelled);
   }
 
   /// Returns the cache space 'this' will occupy after loaded.
@@ -445,12 +445,12 @@ class CoalescedLoad {
   virtual std::vector<CachePin> loadData(bool isPrefetch) = 0;
 
   // Sets a final state and resumes waiting threads.
-  void setEndState(LoadState endState);
+  void setEndState(State endState);
 
   // Serializes access to all members.
   mutable std::mutex mutex_;
 
-  LoadState state_;
+  State state_;
 
   // Allows waiting for load or cancellation.
   std::unique_ptr<folly::SharedPromise<bool>> promise_;
@@ -513,7 +513,7 @@ struct CacheStats {
 /// and other housekeeping.
 class CacheShard {
  public:
-  explicit CacheShard(AsyncDataCache* FOLLY_NONNULL cache) : cache_(cache) {}
+  explicit CacheShard(AsyncDataCache* cache) : cache_(cache) {}
 
   /// See AsyncDataCache::findOrCreate.
   CachePin findOrCreate(
@@ -571,15 +571,19 @@ class CacheShard {
 
   void removeEntryLocked(AsyncDataCacheEntry* entry);
 
-  // Returns an unused entry if found. 'size' is a hint for selecting an entry
-  // that already has the right amount of memory associated with it.
-  std::unique_ptr<AsyncDataCacheEntry> getFreeEntryWithSize(uint64_t sizeHint);
+  // Returns an unused entry if found.
+  //
+  // TODO: consider to pass a size hint so as to select the a free entry which
+  // already has the right amount of memory associated with it.
+  std::unique_ptr<AsyncDataCacheEntry> getFreeEntry();
 
   CachePin initEntry(RawFileCacheKey key, AsyncDataCacheEntry* entry);
 
   void freeAllocations(std::vector<memory::Allocation>& allocations);
 
   void tryAddFreeEntry(std::unique_ptr<AsyncDataCacheEntry>&& entry);
+
+  AsyncDataCache* const cache_;
 
   mutable std::mutex mutex_;
   folly::F14FastMap<RawFileCacheKey, AsyncDataCacheEntry*> entryMap_;
@@ -590,10 +594,10 @@ class CacheShard {
   // A reserve of entries that are not associated to a key. Keeps a
   // few around to avoid allocating one inside 'mutex_'.
   std::vector<std::unique_ptr<AsyncDataCacheEntry>> freeEntries_;
-  AsyncDataCache* const cache_;
+
   // Index in 'entries_' for the next eviction candidate.
   uint32_t clockHand_{};
-  // Number of gets  since last stats sampling.
+  // Number of gets since last stats sampling.
   uint32_t eventCounter_{};
   // Maximum retainable entry score(). Anything above this is evictable.
   int32_t evictionThreshold_{kNoThreshold};
@@ -837,8 +841,11 @@ CoalesceIoStats readPins(
 } // namespace facebook::velox::cache
 
 template <>
-struct fmt::formatter<facebook::velox::cache::LoadState> : formatter<int> {
-  auto format(facebook::velox::cache::LoadState s, format_context& ctx) {
+struct fmt::formatter<facebook::velox::cache::CoalescedLoad::State>
+    : formatter<int> {
+  auto format(
+      facebook::velox::cache::CoalescedLoad::State s,
+      format_context& ctx) {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }
 };

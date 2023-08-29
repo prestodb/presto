@@ -23,30 +23,29 @@ namespace facebook::velox {
 // IOs. This may increase data transfer but generally reduces
 // latency and may reduce throttling.
 
-// Describes the outcome of coalescedIo().
+/// Describes the outcome of coalescedIo().
 struct CoalesceIoStats {
-  // Number of distinct IOs.
+  /// Number of distinct IOs.
   int32_t numIos{0};
 
-  // Number of bytes read into pins.
+  /// Number of bytes read into pins.
   int64_t payloadBytes{0};
-  // Number of bytes read and discarded due to coalescing.
+  /// Number of bytes read and discarded due to coalescing.
   int64_t extraBytes{0};
 };
 
 static constexpr int32_t kNoCoalesce = -1;
 
-// Generic template for grouping IOs into batches of <
-// rangesPerIo ranges separated by gaps of size >= maxGap. Element
-// represents the object of the IO, Range is the type representing the
-// IO, e.g. pointer + size, offsetFunc and SizeFunc return the offset
-// and size of an Element.  numRanges returns the number of ranges to
-// process for an element. It may return the special value kNoCoalesce
-// if the entry should not be coalesced.  AddRange adds the ranges
-// that correspond to an Element, skipRange adds a gap between
-// neighboring items, ioFunc takes the items, the first item to
-// process, the first item not to process, the offset of the first
-// item and a vector of Ranges.
+/// Generic template for grouping IOs into batches of < rangesPerIo ranges
+/// separated by gaps of size >= maxGap. Element represents the object of the
+/// IO, Range is the type representing the IO, e.g. pointer + size, offsetFunc
+/// and SizeFunc return the offset and size of an Element.  numRanges returns
+/// the number of ranges to process for an element. It may return the special
+/// value kNoCoalesce if the entry should not be coalesced.  AddRange adds the
+/// ranges that correspond to an Element, skipRange adds a gap between
+/// neighboring items, ioFunc takes the items, the first item to process, the
+/// first item not to process, the offset of the first item and a vector of
+/// Ranges.
 template <
     typename Item,
     typename Range,
@@ -67,39 +66,40 @@ CoalesceIoStats coalesceIo(
     SkipRange skipRange,
     IoFunc ioFunc) {
   std::vector<Range> buffers;
-  auto start = offsetFunc(0);
-  auto lastOffset = start;
+  int32_t startItem = 0;
+  auto startOffset = offsetFunc(startItem);
+  auto lastEndOffset = startOffset;
   std::vector<Range> ranges;
   CoalesceIoStats result;
-  int32_t firstItem = 0;
   for (int32_t i = 0; i < items.size(); ++i) {
     auto& item = items[i];
-    auto startOffset = offsetFunc(i);
-    auto size = sizeFunc(i);
-    result.payloadBytes += size;
-    int32_t rangesForItem = numRanges(i);
-    bool enoughRanges = (rangesForItem == kNoCoalesce ||
-                         ranges.size() + rangesForItem >= rangesPerIo) &&
+    const auto itemOffset = offsetFunc(i);
+    const auto itemSize = sizeFunc(i);
+    result.payloadBytes += itemSize;
+    const int32_t numRangesForItem = numRanges(i);
+    const bool enoughRanges =
+        (numRangesForItem == kNoCoalesce ||
+         ranges.size() + numRangesForItem >= rangesPerIo) &&
         !ranges.empty();
-    if (lastOffset != startOffset || enoughRanges) {
-      int64_t gap = startOffset - lastOffset;
+    if ((lastEndOffset != itemOffset) || enoughRanges) {
+      const int64_t gap = itemOffset - lastEndOffset;
       if (gap > 0 && gap < maxGap && !enoughRanges) {
         // The next one is after the previous and no farther than maxGap bytes,
         // we read the gap but drop the bytes.
         result.extraBytes += gap;
         skipRange(gap, ranges);
       } else {
-        ioFunc(items, firstItem, i, start, ranges);
+        ioFunc(items, startItem, i, startOffset, ranges);
         ranges.clear();
-        firstItem = i;
+        startItem = i;
         ++result.numIos;
-        start = startOffset;
+        startOffset = itemOffset;
       }
     }
     addRanges(item, ranges);
-    lastOffset = startOffset + size;
+    lastEndOffset = itemOffset + itemSize;
   }
-  ioFunc(items, firstItem, items.size(), start, ranges);
+  ioFunc(items, startItem, items.size(), startOffset, ranges);
   ++result.numIos;
   return result;
 }

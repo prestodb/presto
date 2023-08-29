@@ -18,6 +18,7 @@
 #include <folly/Executor.h>
 #include <folly/portability/SysUio.h>
 #include "velox/common/base/AsyncSource.h"
+#include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/caching/FileIds.h"
 
 #include <fcntl.h>
@@ -58,6 +59,25 @@ void disableCow(int32_t fd) {
       folly::errnoStr(errno));
 #endif // linux
 }
+
+void addEntryToIovecs(AsyncDataCacheEntry& entry, std::vector<iovec>& iovecs) {
+  if (entry.tinyData() != nullptr) {
+    iovecs.push_back({entry.tinyData(), static_cast<size_t>(entry.size())});
+    return;
+  }
+  const auto& data = entry.data();
+  iovecs.reserve(iovecs.size() + data.numRuns());
+  int64_t bytesLeft = entry.size();
+  for (auto i = 0; i < data.numRuns(); ++i) {
+    auto run = data.runAt(i);
+    iovecs.push_back(
+        {run.data<char>(), std::min<size_t>(bytesLeft, run.numBytes())});
+    bytesLeft -= run.numBytes();
+    if (bytesLeft <= 0) {
+      break;
+    };
+  }
+}
 } // namespace
 
 SsdPin::SsdPin(SsdFile& file, SsdRun run) : file_(&file), run_(run) {
@@ -76,7 +96,7 @@ void SsdPin::clear() {
 }
 
 void SsdPin::operator=(SsdPin&& other) {
-  if (file_) {
+  if (file_ != nullptr) {
     file_->unpinRegion(run_.offset());
   }
   file_ = other.file_;
@@ -101,18 +121,17 @@ SsdFile::SsdFile(
     int32_t maxRegions,
     int64_t checkpointIntervalBytes,
     bool disableFileCow,
-    folly::Executor* FOLLY_NULLABLE executor)
+    folly::Executor* executor)
     : fileName_(filename),
-      shardId_(shardId),
       maxRegions_(maxRegions),
-      filename_(filename),
+      shardId_(shardId),
       checkpointIntervalBytes_(checkpointIntervalBytes),
       executor_(executor) {
   int32_t oDirect = 0;
 #ifdef linux
   oDirect = FLAGS_ssd_odirect ? O_DIRECT : 0;
 #endif // linux
-  fd_ = open(filename_.c_str(), O_CREAT | O_RDWR | oDirect, S_IRUSR | S_IWUSR);
+  fd_ = open(fileName_.c_str(), O_CREAT | O_RDWR | oDirect, S_IRUSR | S_IWUSR);
   if (FOLLY_UNLIKELY(fd_ < 0)) {
     ++stats_.openFileErrors;
   }
@@ -142,7 +161,7 @@ SsdFile::SsdFile(
   writableRegions_.resize(numRegions_);
   std::iota(writableRegions_.begin(), writableRegions_.end(), 0);
   tracker_.resize(maxRegions_);
-  regionSize_.resize(maxRegions_);
+  regionSizes_.resize(maxRegions_);
   regionPins_.resize(maxRegions_);
   if (checkpointIntervalBytes_) {
     initializeCheckpoint();
@@ -156,33 +175,12 @@ void SsdFile::pinRegion(uint64_t offset) {
 
 void SsdFile::unpinRegion(uint64_t offset) {
   std::lock_guard<std::shared_mutex> l(mutex_);
-  auto count = --regionPins_[regionIndex(offset)];
-  VELOX_CHECK_LE(0, count);
+  const auto count = --regionPins_[regionIndex(offset)];
+  VELOX_CHECK_GE(count, 0);
   if (suspended_ && count == 0) {
     growOrEvictLocked();
   }
 }
-
-namespace {
-void addEntryToIovecs(AsyncDataCacheEntry& entry, std::vector<iovec>& iovecs) {
-  if (entry.tinyData()) {
-    iovecs.push_back({entry.tinyData(), static_cast<size_t>(entry.size())});
-    return;
-  }
-  auto& data = entry.data();
-  iovecs.reserve(iovecs.size() + data.numRuns());
-  int64_t bytesLeft = entry.size();
-  for (auto i = 0; i < data.numRuns(); ++i) {
-    auto run = data.runAt(i);
-    iovecs.push_back(
-        {run.data<char>(), std::min<size_t>(bytesLeft, run.numBytes())});
-    bytesLeft -= run.numBytes();
-    if (bytesLeft <= 0) {
-      break;
-    };
-  }
-}
-} // namespace
 
 SsdPin SsdFile::find(RawFileCacheKey key) {
   FileCacheKey ssdKey{StringIdLease(fileIds(), key.fileNum), key.offset};
@@ -206,7 +204,7 @@ SsdPin SsdFile::find(RawFileCacheKey key) {
 bool SsdFile::erase(RawFileCacheKey key) {
   FileCacheKey ssdKey{StringIdLease(fileIds(), key.fileNum), key.offset};
   std::lock_guard<std::shared_mutex> l(mutex_);
-  auto it = entries_.find(ssdKey);
+  const auto it = entries_.find(ssdKey);
   if (it == entries_.end()) {
     return false;
   }
@@ -223,31 +221,30 @@ CoalesceIoStats SsdFile::load(
   }
   int payloadTotal = 0;
   for (auto i = 0; i < pins.size(); ++i) {
-    auto runSize = ssdPins[i].run().size();
-    auto entry = pins[i].checkedEntry();
+    const auto runSize = ssdPins[i].run().size();
+    auto* entry = pins[i].checkedEntry();
     if (FOLLY_UNLIKELY(runSize < entry->size())) {
       ++stats_.readSsdErrors;
-      LOG(ERROR) << "IOERR: Requested prefix of SSD cache entry: " << runSize
-                 << " entry: " << entry->size();
+      VELOX_FAIL(
+          "IOERR: SSD cache cache entry {} short than requested range {}",
+          succinctBytes(runSize),
+          succinctBytes(entry->size()));
     }
-    VELOX_CHECK_GE(
-        runSize,
-        entry->size(),
-        "IOERR SSd cache entry shorter than requested range");
     payloadTotal += entry->size();
     regionRead(regionIndex(ssdPins[i].run().offset()), runSize);
     ++stats_.entriesRead;
     stats_.bytesRead += entry->size();
   }
-  // Do coalesced IO for the pins. For short payloads, the break-even
-  // between discrete pread calls and a single preadv that discards
-  // gaps is ~25K per gap. For longer payloads this is ~50-100K.
+
+  // Do coalesced IO for the pins. For short payloads, the break-even between
+  // discrete pread calls and a single preadv that discards gaps is ~25K per
+  // gap. For longer payloads this is ~50-100K.
   auto stats = readPins(
       pins,
       payloadTotal / pins.size() < 10000 ? 25000 : 50000,
-      // Max ranges in one preadv call. Longest gap + longest cache
-      // entry are under 12 ranges. If a system has a limit of 1K
-      // ranges, coalesce limit of 1000 is safe.
+      // Max ranges in one preadv call. Longest gap + longest cache entry are
+      // under 12 ranges. If a system has a limit of 1K ranges, coalesce limit
+      // of 1000 is safe.
       900,
       [&](int32_t index) { return ssdPins[index].run().offset(); },
       [&](const std::vector<CachePin>& /*pins*/,
@@ -273,31 +270,31 @@ void SsdFile::read(
 std::optional<std::pair<uint64_t, int32_t>> SsdFile::getSpace(
     const std::vector<CachePin>& pins,
     int32_t begin) {
+  int32_t next = begin;
   std::lock_guard<std::shared_mutex> l(mutex_);
   for (;;) {
     if (writableRegions_.empty()) {
       if (!growOrEvictLocked()) {
         return std::nullopt;
-        ;
       }
     }
     assert(!writableRegions_.empty());
-    auto region = writableRegions_[0];
-    auto offset = regionSize_[region];
+    const auto region = writableRegions_[0];
+    const auto offset = regionSizes_[region];
     auto available = kRegionSize - offset;
     int64_t toWrite = 0;
-    for (; begin < pins.size(); ++begin) {
-      auto entry = pins[begin].checkedEntry();
+    for (; next < pins.size(); ++next) {
+      auto* entry = pins[next].checkedEntry();
       if (entry->size() > available) {
         break;
       }
       available -= entry->size();
       toWrite += entry->size();
     }
-    if (toWrite) {
+    if (toWrite > 0) {
       // At least some pins got space from this region. If the region is full
       // the next call will get space from another region.
-      regionSize_[region] += toWrite;
+      regionSizes_[region] += toWrite;
       return std::make_pair<uint64_t, int32_t>(
           region * kRegionSize + offset, toWrite);
     }
@@ -309,26 +306,28 @@ std::optional<std::pair<uint64_t, int32_t>> SsdFile::getSpace(
 
 bool SsdFile::growOrEvictLocked() {
   if (numRegions_ < maxRegions_) {
-    auto newSize = (numRegions_ + 1) * kRegionSize;
-    auto rc = ftruncate(fd_, newSize);
+    const auto newSize = (numRegions_ + 1) * kRegionSize;
+    const auto rc = ::ftruncate(fd_, newSize);
     if (rc >= 0) {
       fileSize_ = newSize;
       writableRegions_.push_back(numRegions_);
-      regionSize_[numRegions_] = 0;
+      regionSizes_[numRegions_] = 0;
       ++numRegions_;
       return true;
-    } else {
-      ++stats_.growFileErrors;
-      LOG(ERROR) << "Failed to grow cache file " << filename_ << " to "
-                 << newSize;
     }
+
+    ++stats_.growFileErrors;
+    LOG(ERROR) << "Failed to grow cache file " << fileName_ << " to "
+               << newSize;
   }
+
   auto candidates =
       tracker_.findEvictionCandidates(3, numRegions_, regionPins_);
   if (candidates.empty()) {
     suspended_ = true;
     return false;
   }
+
   logEviction(candidates);
   clearRegionEntriesLocked(candidates);
   writableRegions_ = std::move(candidates);
@@ -336,53 +335,52 @@ bool SsdFile::growOrEvictLocked() {
   return true;
 }
 
-void SsdFile::clearRegionEntriesLocked(
-    const std::vector<int32_t>& regionIndices) {
+void SsdFile::clearRegionEntriesLocked(const std::vector<int32_t>& regions) {
+  std::unordered_set<int32_t> regionSet{regions.begin(), regions.end()};
   // Remove all 'entries_' where the dependent points one of 'regionIndices'.
   auto it = entries_.begin();
   while (it != entries_.end()) {
-    auto region = regionIndex(it->second.offset());
-    if (std::find(regionIndices.begin(), regionIndices.end(), region) !=
-        regionIndices.end()) {
+    const auto region = regionIndex(it->second.offset());
+    if (regionSet.count(region) != 0) {
       it = entries_.erase(it);
     } else {
       ++it;
     }
   }
-  for (auto region : regionIndices) {
-    // While the region is being filled it may get score from
-    // hits. When it is full, it will get a score boost to be a little
-    // ahead of the best.
+  for (const auto region : regions) {
+    // While the region is being filled, it may get score from hits. When it is
+    // full, it will get a score boost to be a little ahead of the best.
     tracker_.regionCleared(region);
-    regionSize_[region] = 0;
+    regionSizes_[region] = 0;
   }
 }
 
 void SsdFile::write(std::vector<CachePin>& pins) {
-  // Sorts the pins by their file/offset. In this way what is ajacent
-  // in storage is likely adjacent on SSD.
+  // Sorts the pins by their file/offset. In this way what is adjacent in
+  // storage is likely adjacent on SSD.
   std::sort(pins.begin(), pins.end());
   uint64_t total = 0;
-  for (auto& pin : pins) {
-    auto entry = pin.checkedEntry();
+  for (const auto& pin : pins) {
+    auto* entry = pin.checkedEntry();
     VELOX_CHECK_NULL(entry->ssdFile());
     total += entry->size();
   }
+
   int32_t storeIndex = 0;
   while (storeIndex < pins.size()) {
     auto space = getSpace(pins, storeIndex);
-
     if (!space.has_value()) {
       // No space can be reclaimed. The pins are freed when the caller is freed.
       return;
     }
+
     auto [offset, available] = space.value();
     int32_t numWritten = 0;
     int32_t bytes = 0;
     std::vector<iovec> iovecs;
     for (auto i = storeIndex; i < pins.size(); ++i) {
-      auto entry = pins[i].checkedEntry();
-      auto entrySize = entry->size();
+      auto* entry = pins[i].checkedEntry();
+      const auto entrySize = entry->size();
       if (bytes + entrySize > available) {
         break;
       }
@@ -391,23 +389,25 @@ void SsdFile::write(std::vector<CachePin>& pins) {
       ++numWritten;
     }
     VELOX_CHECK_GE(fileSize_, offset + bytes);
-    auto rc = folly::pwritev(fd_, iovecs.data(), iovecs.size(), offset);
+
+    const auto rc = folly::pwritev(fd_, iovecs.data(), iovecs.size(), offset);
     if (rc != bytes) {
       LOG(ERROR) << "Failed to write to SSD, file name: " << fileName_
                  << ", fd: " << fd_ << ", size: " << iovecs.size()
                  << ", offset: " << offset << ", error code: " << errno
                  << ", error string: " << folly::errnoStr(errno);
       ++stats_.writeSsdErrors;
-      // If the write fails we return without adding the pins to the cache. The
+      // If write fails, we return without adding the pins to the cache. The
       // entries are unchanged.
       return;
     }
+
     {
       std::lock_guard<std::shared_mutex> l(mutex_);
       for (auto i = storeIndex; i < storeIndex + numWritten; ++i) {
-        auto entry = pins[i].checkedEntry();
+        auto* entry = pins[i].checkedEntry();
         entry->setSsdFile(this, offset);
-        auto size = entry->size();
+        const auto size = entry->size();
         FileCacheKey key = {
             entry->key().fileNum, static_cast<uint64_t>(entry->offset())};
         entries_[std::move(key)] = SsdRun(offset, size);
@@ -423,8 +423,8 @@ void SsdFile::write(std::vector<CachePin>& pins) {
     storeIndex += numWritten;
   }
 
-  if (checkpointIntervalBytes_ &&
-      bytesAfterCheckpoint_ > checkpointIntervalBytes_) {
+  if ((checkpointIntervalBytes_ > 0) &&
+      (bytesAfterCheckpoint_ >= checkpointIntervalBytes_)) {
     checkpoint();
   }
 }
@@ -442,19 +442,19 @@ int32_t indexOfFirstMismatch(char* x, char* y, int n) {
 
 void SsdFile::verifyWrite(AsyncDataCacheEntry& entry, SsdRun ssdRun) {
   auto testData = std::make_unique<char[]>(entry.size());
-  auto rc = pread(fd_, testData.get(), entry.size(), ssdRun.offset());
+  const auto rc = ::pread(fd_, testData.get(), entry.size(), ssdRun.offset());
   VELOX_CHECK_EQ(rc, entry.size());
-  if (entry.tinyData()) {
-    if (0 != memcmp(testData.get(), entry.tinyData(), entry.size())) {
+  if (entry.tinyData() != 0) {
+    if (::memcmp(testData.get(), entry.tinyData(), entry.size()) != 0) {
       VELOX_FAIL("bad read back");
     }
   } else {
-    auto& data = entry.data();
+    const auto& data = entry.data();
     int64_t bytesLeft = entry.size();
     int64_t offset = 0;
     for (auto i = 0; i < data.numRuns(); ++i) {
-      auto run = data.runAt(i);
-      auto compareSize = std::min<int64_t>(bytesLeft, run.numBytes());
+      const auto run = data.runAt(i);
+      const auto compareSize = std::min<int64_t>(bytesLeft, run.numBytes());
       auto badIndex = indexOfFirstMismatch(
           run.data<char>(), testData.get() + offset, compareSize);
       if (badIndex != -1) {
@@ -478,7 +478,7 @@ void SsdFile::updateStats(SsdCacheStats& stats) const {
   stats.entriesRead += stats_.entriesRead;
   stats.bytesRead += stats_.bytesRead;
   stats.entriesCached += entries_.size();
-  for (auto& regionSize : regionSize_) {
+  for (auto& regionSize : regionSizes_) {
     stats.bytesCached += regionSize;
   }
   for (auto pins : regionPins_) {
@@ -499,7 +499,7 @@ void SsdFile::updateStats(SsdCacheStats& stats) const {
 void SsdFile::clear() {
   std::lock_guard<std::shared_mutex> l(mutex_);
   entries_.clear();
-  std::fill(regionSize_.begin(), regionSize_.end(), 0);
+  std::fill(regionSizes_.begin(), regionSizes_.end(), 0);
   writableRegions_.resize(numRegions_);
   std::iota(writableRegions_.begin(), writableRegions_.end(), 0);
 }
@@ -509,15 +509,15 @@ void SsdFile::deleteFile() {
     close(fd_);
     fd_ = 0;
   }
-  auto rc = unlink(filename_.c_str());
+  auto rc = unlink(fileName_.c_str());
   if (rc < 0) {
-    LOG(ERROR) << "Error deleting cache file " << filename_ << " rc: " << rc;
+    LOG(ERROR) << "Error deleting cache file " << fileName_ << " rc: " << rc;
   }
 }
 
 void SsdFile::logEviction(const std::vector<int32_t>& regions) {
-  if (checkpointIntervalBytes_) {
-    int32_t rc = ::write(
+  if (checkpointIntervalBytes_ > 0) {
+    const int32_t rc = ::write(
         evictLogFd_, regions.data(), regions.size() * sizeof(regions[0]));
     if (rc != regions.size() * sizeof(regions[0])) {
       checkpointError(rc, "Failed to log eviction");
@@ -529,25 +529,26 @@ void SsdFile::deleteCheckpoint(bool keepLog) {
   if (checkpointDeleted_) {
     return;
   }
-  if (evictLogFd_) {
+  if (evictLogFd_ >= 0) {
     if (keepLog) {
-      lseek(evictLogFd_, 0, SEEK_SET);
-      ftruncate(evictLogFd_, 0);
-      fsync(evictLogFd_);
+      ::lseek(evictLogFd_, 0, SEEK_SET);
+      ::ftruncate(evictLogFd_, 0);
+      ::fsync(evictLogFd_);
     } else {
-      close(evictLogFd_);
-      evictLogFd_ = 0;
+      ::close(evictLogFd_);
+      evictLogFd_ = -1;
     }
   }
+
   checkpointDeleted_ = true;
-  auto logPath = fileName_ + kLogExtension;
+  const auto logPath = fileName_ + kLogExtension;
   int32_t logRc = 0;
   if (!keepLog) {
-    logRc = unlink(logPath.c_str());
+    logRc = ::unlink(logPath.c_str());
   }
-  auto checkpointPath = fileName_ + kCheckpointExtension;
-  auto checkpointRc = unlink(checkpointPath.c_str());
-  if (logRc || checkpointRc) {
+  const auto checkpointPath = fileName_ + kCheckpointExtension;
+  const auto checkpointRc = ::unlink(checkpointPath.c_str());
+  if ((logRc != 0) || (checkpointRc != 0)) {
     ++stats_.deleteCheckpointErrors;
     LOG(ERROR) << "Error in deleting log and checkpoint. log:  " << logRc
                << " checkpoint: " << checkpointRc;
@@ -575,20 +576,22 @@ inline const char* asChar(const T* ptr) {
 
 void SsdFile::checkpoint(bool force) {
   std::lock_guard<std::shared_mutex> l(mutex_);
-  if (!force && bytesAfterCheckpoint_ < checkpointIntervalBytes_) {
+  if (!force && (bytesAfterCheckpoint_ < checkpointIntervalBytes_)) {
     return;
   }
+
   checkpointDeleted_ = false;
   bytesAfterCheckpoint_ = 0;
   try {
-    // We schedule the potentially ;long fsync of the cache file on
-    // another thread of the cache write executor, if available. If
-    // there is none, we do the sync on this thread at the end.
+    // We schedule the potentially long fsync of the cache file on another
+    // thread of the cache write executor, if available. If there is none, we do
+    // the sync on this thread at the end.
     auto sync = std::make_shared<AsyncSource<int>>(
-        [fd = fd_]() { return std::make_unique<int>(fsync(fd)); });
-    if (executor_) {
+        [fd = fd_]() { return std::make_unique<int>(::fsync(fd)); });
+    if (executor_ != nullptr) {
       executor_->add([sync]() { sync->prepare(); });
     }
+
     std::ofstream state;
     auto checkpointPath = fileName_ + kCheckpointExtension;
     state.exceptions(std::ofstream::failbit);
@@ -607,19 +610,20 @@ void SsdFile::checkpoint(bool force) {
     state.write(asChar(&numRegions_), sizeof(numRegions_));
 
     // Copy the region scores before writing out for tsan.
-    auto scoresCopy = tracker_.copyScores();
+    const auto scoresCopy = tracker_.copyScores();
     state.write(asChar(scoresCopy.data()), maxRegions_ * sizeof(uint64_t));
     std::unordered_set<uint64_t> fileNums;
-    for (auto pair : entries_) {
-      auto fileNum = pair.first.fileNum.id();
+    for (const auto& entry : entries_) {
+      const auto fileNum = entry.first.fileNum.id();
       if (fileNums.insert(fileNum).second) {
         state.write(asChar(&fileNum), sizeof(fileNum));
-        auto name = fileIds().string(fileNum);
-        int32_t length = name.size();
+        const auto name = fileIds().string(fileNum);
+        const int32_t length = name.size();
         state.write(asChar(&length), sizeof(length));
         state.write(name.data(), length);
       }
     }
+
     const auto mapMarker = kCheckpointMapMarker;
     state.write(asChar(&mapMarker), sizeof(mapMarker));
     for (auto& pair : entries_) {
@@ -629,11 +633,13 @@ void SsdFile::checkpoint(bool force) {
       auto offsetAndSize = pair.second.bits();
       state.write(asChar(&offsetAndSize), sizeof(offsetAndSize));
     }
+
     const auto endMarker = kCheckpointEndMarker;
     state.write(asChar(&endMarker), sizeof(endMarker));
-    auto checkRc = [&](int32_t rc, const std::string& message) {
+
+    auto checkRc = [&](int32_t rc, const std::string& errMsg) {
       if (rc < 0) {
-        throw std::runtime_error(fmt::format("{} with rc {}", message, rc));
+        VELOX_FAIL("{} with rc {}", errMsg, rc);
       }
       return rc;
     };
@@ -642,21 +648,22 @@ void SsdFile::checkpoint(bool force) {
       checkRc(-1, "Writing checkpoint file");
     }
     state.close();
-    ftruncate(evictLogFd_, 0);
-    checkRc(fsync(evictLogFd_), "Sync of evict log");
+
+    ::ftruncate(evictLogFd_, 0);
+    checkRc(::fsync(evictLogFd_), "Sync of evict log");
+
     auto syncRc = sync->move();
     checkRc(*syncRc, fmt::format("Error in cache file fsync {}", *syncRc));
 
     // Sync checkpoint data file. ofstream does not have a sync method, so open
     // as fd and sync that.
     auto fd = checkRc(
-        open(checkpointPath.c_str(), O_WRONLY),
+        ::open(checkpointPath.c_str(), O_WRONLY),
         "Open of checkpoint file for sync");
     if (fd > 0) {
-      checkRc(fsync(fd), "Sync checkpoint file");
-      close(fd);
+      checkRc(::fsync(fd), "Sync checkpoint file");
+      ::close(fd);
     }
-
   } catch (const std::exception& e) {
     try {
       checkpointError(-1, e.what());
@@ -667,7 +674,7 @@ void SsdFile::checkpoint(bool force) {
 }
 
 void SsdFile::initializeCheckpoint() {
-  if (!checkpointIntervalBytes_) {
+  if (checkpointIntervalBytes_ == 0) {
     return;
   }
   bool hasCheckpoint = true;
@@ -677,18 +684,17 @@ void SsdFile::initializeCheckpoint() {
     ++stats_.openCheckpointErrors;
     LOG(INFO) << "Starting shard " << shardId_ << " without checkpoint";
   }
-  auto logPath = fileName_ + kLogExtension;
-  evictLogFd_ = open(logPath.c_str(), O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+  const auto logPath = fileName_ + kLogExtension;
+  evictLogFd_ = ::open(logPath.c_str(), O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
   if (evictLogFd_ < 0) {
     ++stats_.openLogErrors;
+    // Failure to open the log at startup is a process terminating error.
+    VELOX_FAIL(
+        "Could not open evict log {}, rc {}: {}",
+        logPath,
+        evictLogFd_,
+        folly::errnoStr(errno));
   }
-  // Failure to open the log at startup is a process terminating error.
-  VELOX_CHECK_GE(
-      evictLogFd_,
-      0,
-      "Could not open evict log {}, rc {}.",
-      logPath,
-      evictLogFd_);
 
   try {
     if (hasCheckpoint) {
@@ -736,8 +742,8 @@ T readNumber(std::ifstream& stream) {
 void SsdFile::readCheckpoint(std::ifstream& state) {
   char magic[4];
   state.read(magic, sizeof(magic));
-  VELOX_CHECK(strncmp(magic, kCheckpointMagic, 4) == 0);
-  auto maxRegions = readNumber<int32_t>(state);
+  VELOX_CHECK_EQ(strncmp(magic, kCheckpointMagic, 4), 0);
+  const auto maxRegions = readNumber<int32_t>(state);
   VELOX_CHECK_EQ(
       maxRegions,
       maxRegions_,
@@ -757,21 +763,22 @@ void SsdFile::readCheckpoint(std::ifstream& state) {
     auto lease = StringIdLease(fileIds(), name);
     idMap[id] = std::move(lease);
   }
-  auto logSize = lseek(evictLogFd_, 0, SEEK_END);
+
+  const auto logSize = ::lseek(evictLogFd_, 0, SEEK_END);
   std::vector<uint32_t> evicted(logSize / sizeof(uint32_t));
-  auto rc = ::pread(evictLogFd_, evicted.data(), logSize, 0);
+  const auto rc = ::pread(evictLogFd_, evicted.data(), logSize, 0);
   VELOX_CHECK_EQ(logSize, rc, "Failed to read eviction log");
   std::unordered_set<uint32_t> evictedMap;
   for (auto region : evicted) {
     evictedMap.insert(region);
   }
   for (;;) {
-    uint64_t fileNum = readNumber<uint64_t>(state);
+    const uint64_t fileNum = readNumber<uint64_t>(state);
     if (fileNum == kCheckpointEndMarker) {
       break;
     }
-    uint64_t offset = readNumber<uint64_t>(state);
-    auto run = SsdRun(readNumber<uint64_t>(state));
+    const uint64_t offset = readNumber<uint64_t>(state);
+    const auto run = SsdRun(readNumber<uint64_t>(state));
     // Check that the recovered entry does not fall in an evicted region.
     if (evictedMap.find(regionIndex(run.offset())) == evictedMap.end()) {
       // The file may have a different id on restore.

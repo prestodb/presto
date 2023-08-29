@@ -29,7 +29,7 @@ using ::facebook::velox::common::Region;
 namespace facebook::velox::dwio::common {
 
 using cache::CachePin;
-using cache::LoadState;
+using cache::CoalescedLoad;
 using cache::RawFileCacheKey;
 using cache::ScanTracker;
 using cache::SsdFile;
@@ -270,7 +270,7 @@ void CachedBufferedInput::makeLoads(
     std::vector<int32_t> doneIndices;
     for (auto i = 0; i < allCoalescedLoads_.size(); ++i) {
       auto& load = allCoalescedLoads_[i];
-      if (load->state() == LoadState::kPlanned) {
+      if (load->state() == CoalescedLoad::State::kPlanned) {
         prefetchSize_ += load->size();
         executor_->add([pendingLoad = load]() {
           process::TraceContext trace("Read Ahead");

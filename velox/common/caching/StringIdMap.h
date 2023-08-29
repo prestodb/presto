@@ -80,7 +80,7 @@ class StringIdMap {
 // Keeps a string-id association live for the duration of this.
 class StringIdLease {
  public:
-  StringIdLease() {}
+  StringIdLease() = default;
 
   // Makes a lease for 'string' and makes sure it has an id.
   StringIdLease(StringIdMap& ids, std::string_view string)

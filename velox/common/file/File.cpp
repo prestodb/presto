@@ -45,7 +45,8 @@ uint64_t ReadFile::preadv(
   }
   for (auto& range : buffers) {
     auto copySize = std::min<size_t>(range.size(), fileSize - offset);
-    if (range.data()) {
+    // NOTE: skip the gap in case of coalesce io.
+    if (range.data() != nullptr) {
       pread(offset, copySize, range.data());
     }
     offset += copySize;
