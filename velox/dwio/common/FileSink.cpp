@@ -25,16 +25,22 @@
 
 namespace facebook::velox::dwio::common {
 namespace {
+constexpr std::string_view kFileScheme("file:");
+constexpr std::string_view kFileSep("/");
+
 std::vector<FileSink::Factory>& factories() {
   static std::vector<FileSink::Factory> factories;
   return factories;
 }
 
 std::unique_ptr<FileSink> localFileSink(
-    const std::string& filename,
+    const std::string& filePath,
     const FileSink::Options& options) {
-  if (::strncmp(filename.c_str(), "file:", 5) == 0) {
-    return std::make_unique<LocalFileSink>(filename.substr(5), options);
+  if (filePath.find(kFileScheme) == 0) {
+    return std::make_unique<LocalFileSink>(filePath.substr(5), options);
+  }
+  if (filePath.find(kFileSep) == 0) {
+    return std::make_unique<LocalFileSink>(filePath, options);
   }
   return nullptr;
 }
@@ -90,9 +96,7 @@ std::unique_ptr<FileSink> FileSink::create(
       return result;
     }
   }
-  // TODO: remove this fallback once file data sink all switch to use velox
-  // filesystem for io operation.
-  return std::make_unique<LocalFileSink>(filePath, options);
+  VELOX_FAIL("FileSink is not registered for {}", filePath);
 }
 
 WriteFileSink::WriteFileSink(

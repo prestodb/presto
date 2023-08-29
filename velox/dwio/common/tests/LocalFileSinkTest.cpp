@@ -15,6 +15,7 @@
  */
 
 #include "velox/common/base/Fs.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/common/FileSink.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
@@ -38,6 +39,10 @@ void runTest() {
   localFileSink->close();
 
   EXPECT_TRUE(fs::exists(filePath.string()));
+}
+
+TEST(LocalFileSinkTest, missingRegistration) {
+  VELOX_ASSERT_THROW(runTest(), "FileSink is not registered for file:");
 }
 
 TEST(LocalFileSinkTest, create) {
