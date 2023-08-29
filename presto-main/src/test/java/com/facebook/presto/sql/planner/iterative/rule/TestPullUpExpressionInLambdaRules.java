@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
 
+import static com.facebook.presto.SystemSessionProperties.PULL_EXPRESSION_FROM_LAMBDA_ENABLED;
 import static com.facebook.presto.common.block.MethodHandleUtil.compose;
 import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -45,6 +46,7 @@ public class TestPullUpExpressionInLambdaRules
     public void testProjection()
     {
         tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).projectNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
                 .on(p ->
                 {
                     p.variable("idmap", new MapType(BIGINT, BIGINT, KEY_BLOCK_EQUALS, KEY_BLOCK_HASH_CODE));
@@ -63,6 +65,7 @@ public class TestPullUpExpressionInLambdaRules
     public void testFilter()
     {
         tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).filterNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
                 .on(p ->
                 {
                     p.variable("idmap", new MapType(BIGINT, BIGINT, KEY_BLOCK_EQUALS, KEY_BLOCK_HASH_CODE));
@@ -83,6 +86,7 @@ public class TestPullUpExpressionInLambdaRules
     public void testNonDeterministicProjection()
     {
         tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).projectNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
                 .on(p ->
                 {
                     p.variable("idmap", new MapType(BIGINT, BIGINT, KEY_BLOCK_EQUALS, KEY_BLOCK_HASH_CODE));
@@ -96,6 +100,7 @@ public class TestPullUpExpressionInLambdaRules
     public void testNonDeterministicFilter()
     {
         tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).filterNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
                 .on(p ->
                 {
                     p.variable("idmap", new MapType(BIGINT, BIGINT, KEY_BLOCK_EQUALS, KEY_BLOCK_HASH_CODE));
@@ -109,6 +114,7 @@ public class TestPullUpExpressionInLambdaRules
     public void testNoValidProjection()
     {
         tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).projectNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
                 .on(p ->
                 {
                     p.variable("idmap", new MapType(BIGINT, BIGINT, KEY_BLOCK_EQUALS, KEY_BLOCK_HASH_CODE));
@@ -123,6 +129,7 @@ public class TestPullUpExpressionInLambdaRules
     public void testNoValidFilter()
     {
         tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).filterNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
                 .on(p ->
                 {
                     p.variable("idmap", new MapType(BIGINT, BIGINT, KEY_BLOCK_EQUALS, KEY_BLOCK_HASH_CODE));
@@ -136,6 +143,7 @@ public class TestPullUpExpressionInLambdaRules
     public void testNestedLambdaInProjection()
     {
         tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).projectNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
                 .on(p ->
                 {
                     p.variable("expr", new ArrayType(new ArrayType(BIGINT)));
@@ -158,6 +166,7 @@ public class TestPullUpExpressionInLambdaRules
     public void testInvalidNestedLambdaInProjection()
     {
         tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).projectNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
                 .on(p ->
                 {
                     p.variable("expr", new ArrayType(new ArrayType(BIGINT)));
@@ -173,6 +182,7 @@ public class TestPullUpExpressionInLambdaRules
     public void testSkipTryFunction()
     {
         tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).projectNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
                 .on(p ->
                 {
                     p.variable("x");
