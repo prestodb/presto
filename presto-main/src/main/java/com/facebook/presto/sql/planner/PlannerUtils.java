@@ -16,8 +16,10 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -63,6 +65,9 @@ import java.util.Set;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -169,6 +174,21 @@ public class PlannerUtils
             assignments.put(variableReferenceExpression, variableReferenceExpression);
         }
         variableMap.forEach(assignments::put);
+
+        return new ProjectNode(
+                source.getSourceLocation(),
+                planNodeIdAllocator.getNextId(),
+                source,
+                assignments.build(),
+                LOCAL);
+    }
+
+    public static PlanNode restrictOutput(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> outputVariables)
+    {
+        Assignments.Builder assignments = Assignments.builder();
+        for (VariableReferenceExpression variableReferenceExpression : outputVariables) {
+            assignments.put(variableReferenceExpression, variableReferenceExpression);
+        }
 
         return new ProjectNode(
                 source.getSourceLocation(),
@@ -419,5 +439,29 @@ public class PlannerUtils
     public static RowExpression coalesce(List<RowExpression> expressions)
     {
         return new SpecialFormExpression(SpecialFormExpression.Form.COALESCE, expressions.get(0).getType(), expressions);
+    }
+
+    public static boolean isSupportedArrayContainsFilter(FunctionResolution functionResolution, RowExpression filterExpression, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right)
+    {
+        List<Type> supportedTypes = ImmutableList.of(BIGINT, INTEGER, VARCHAR, DATE);
+
+        if (filterExpression instanceof CallExpression) {
+            CallExpression callExpression = (CallExpression) filterExpression;
+            if (functionResolution.isArrayContainsFunction(callExpression.getFunctionHandle())) {
+                RowExpression array = callExpression.getArguments().get(0);
+                RowExpression element = callExpression.getArguments().get(1);
+                checkState(array.getType() instanceof ArrayType && ((ArrayType) array.getType()).getElementType().equals(element.getType()));
+                List<VariableReferenceExpression> arrayExpressionColumns = VariablesExtractor.extractAll(array);
+                boolean isSupportedType = supportedTypes.contains(element.getType()) || element.getType() instanceof VarcharType;
+                return (isSupportedType &&
+                        ((left.contains(array) && right.contains(element)) || (right.contains(array) && left.contains(element))));
+            }
+        }
+        return false;
+    }
+
+    public static boolean isNegationExpression(FunctionResolution functionResolution, RowExpression expression)
+    {
+        return expression instanceof CallExpression && functionResolution.isNotFunction(((CallExpression) expression).getFunctionHandle());
     }
 }
