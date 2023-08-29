@@ -113,13 +113,14 @@ void SsdCache::write(std::vector<CachePin> pins) {
       } catch (const std::exception& e) {
         // Catch so as not to miss updating 'writesInProgress_'. Could
         // theoretically happen for std::bad_alloc or such.
-        LOG(INFO) << "Ignoring error in SsdFile::write: " << e.what();
+        VELOX_SSD_CACHE_LOG(WARNING)
+            << "Ignoring error in SsdFile::write: " << e.what();
       }
       if (--writesInProgress_ == 0) {
         // Typically occurs every few GB. Allows detecting unusually slow rates
         // from failing devices.
-        LOG(INFO) << fmt::format(
-            "SSDCA: Wrote {}MB, {} MB/s",
+        VELOX_SSD_CACHE_LOG(INFO) << fmt::format(
+            "Wrote {}MB, {} MB/s",
             bytes >> 20,
             static_cast<float>(bytes) / (getCurrentTimeMicro() - startTimeUs));
       }

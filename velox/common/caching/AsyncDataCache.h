@@ -21,6 +21,7 @@
 #include <fmt/format.h>
 #include <folly/chrono/Hardware.h>
 #include <folly/futures/SharedPromise.h>
+#include "folly/GLog.h"
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/CoalesceIo.h"
 #include "velox/common/base/Portability.h"
@@ -32,6 +33,11 @@
 #include "velox/common/memory/MemoryAllocator.h"
 
 namespace facebook::velox::cache {
+
+#define VELOX_CACHE_LOG_PREFIX "[CACHE] "
+#define VELOX_CACHE_LOG(severity) LOG(severity) << VELOX_CACHE_LOG_PREFIX
+#define VELOX_CACHE_LOG_EVERY_MS(severity, ms) \
+  FB_LOG_EVERY_MS(severity, ms) << VELOX_CACHE_LOG_PREFIX
 
 class AsyncDataCache;
 class CacheShard;

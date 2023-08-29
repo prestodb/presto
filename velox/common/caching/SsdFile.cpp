@@ -20,6 +20,7 @@
 #include "velox/common/base/AsyncSource.h"
 #include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/caching/FileIds.h"
+#include "velox/common/caching/SsdCache.h"
 
 #include <fcntl.h>
 #ifdef linux
@@ -392,10 +393,11 @@ void SsdFile::write(std::vector<CachePin>& pins) {
 
     const auto rc = folly::pwritev(fd_, iovecs.data(), iovecs.size(), offset);
     if (rc != bytes) {
-      LOG(ERROR) << "Failed to write to SSD, file name: " << fileName_
-                 << ", fd: " << fd_ << ", size: " << iovecs.size()
-                 << ", offset: " << offset << ", error code: " << errno
-                 << ", error string: " << folly::errnoStr(errno);
+      VELOX_SSD_CACHE_LOG(ERROR)
+          << "Failed to write to SSD, file name: " << fileName_
+          << ", fd: " << fd_ << ", size: " << iovecs.size()
+          << ", offset: " << offset << ", error code: " << errno
+          << ", error string: " << folly::errnoStr(errno);
       ++stats_.writeSsdErrors;
       // If write fails, we return without adding the pins to the cache. The
       // entries are unchanged.
@@ -511,7 +513,8 @@ void SsdFile::deleteFile() {
   }
   auto rc = unlink(fileName_.c_str());
   if (rc < 0) {
-    LOG(ERROR) << "Error deleting cache file " << fileName_ << " rc: " << rc;
+    VELOX_SSD_CACHE_LOG(ERROR)
+        << "Error deleting cache file " << fileName_ << " rc: " << rc;
   }
 }
 
@@ -550,14 +553,16 @@ void SsdFile::deleteCheckpoint(bool keepLog) {
   const auto checkpointRc = ::unlink(checkpointPath.c_str());
   if ((logRc != 0) || (checkpointRc != 0)) {
     ++stats_.deleteCheckpointErrors;
-    LOG(ERROR) << "Error in deleting log and checkpoint. log:  " << logRc
-               << " checkpoint: " << checkpointRc;
+    VELOX_SSD_CACHE_LOG(ERROR)
+        << "Error in deleting log and checkpoint. log:  " << logRc
+        << " checkpoint: " << checkpointRc;
   }
 }
 
 void SsdFile::checkpointError(int32_t rc, const std::string& error) {
-  LOG(ERROR) << error << " with rc=" << rc
-             << " Deleting checkpoint and continuing with checkpointing off";
+  VELOX_SSD_CACHE_LOG(ERROR)
+      << error << " with rc=" << rc
+      << ", deleting checkpoint and continuing with checkpointing off";
   deleteCheckpoint();
   checkpointIntervalBytes_ = 0;
 }
@@ -682,7 +687,8 @@ void SsdFile::initializeCheckpoint() {
   if (!state.is_open()) {
     hasCheckpoint = false;
     ++stats_.openCheckpointErrors;
-    LOG(INFO) << "Starting shard " << shardId_ << " without checkpoint";
+    VELOX_SSD_CACHE_LOG(INFO)
+        << "Starting shard " << shardId_ << " without checkpoint";
   }
   const auto logPath = fileName_ + kLogExtension;
   evictLogFd_ = ::open(logPath.c_str(), O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
@@ -704,8 +710,8 @@ void SsdFile::initializeCheckpoint() {
   } catch (const std::exception& e) {
     ++stats_.readCheckpointErrors;
     try {
-      LOG(ERROR) << "Error recovering from checkpoint " << e.what()
-                 << ": Starting without checkpoint";
+      VELOX_SSD_CACHE_LOG(ERROR) << "Error recovering from checkpoint "
+                                 << e.what() << ": Starting without checkpoint";
       entries_.clear();
       deleteCheckpoint(true);
     } catch (const std::exception& e) {
@@ -797,7 +803,7 @@ void SsdFile::readCheckpoint(std::ifstream& state) {
     writableRegions_.push_back(region);
   }
   tracker_.setRegionScores(scores);
-  LOG(INFO) << fmt::format(
+  VELOX_SSD_CACHE_LOG(INFO) << fmt::format(
       "Starting shard {} from checkpoint with {} entries, {} regions with {} free.",
       shardId_,
       entries_.size(),

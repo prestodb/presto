@@ -187,8 +187,9 @@ CachePin CacheShard::findOrCreate(
 
       // This can happen if different load quanta apply to access via different
       // connectors. This is not an error but still worth logging.
-      LOG_EVERY_N(WARNING, 100) << "Requested larger entry. Found size "
-                                << found->size() << " requested size " << size;
+      VELOX_CACHE_LOG_EVERY_MS(WARNING, 1'000)
+          << "Requested larger entry. Found size " << found->size()
+          << " requested size " << size;
       // The old entry is superseded. Possible readers of the old entry still
       // retain a valid read pin.
       found->key_.fileNum.clear();
@@ -403,8 +404,8 @@ void CacheShard::evict(uint64_t bytesToFree, bool evictAllUnpinned) {
       -largeFreed / static_cast<int32_t>(memory::AllocationTraits::kPageSize));
   if (evictSaveableSkipped && ssdCache && ssdCache->startWrite()) {
     // Rare. May occur if SSD is unusually slow. Useful for  diagnostics.
-    LOG(INFO) << "SSDCA: Start save for old saveable, skipped "
-              << cache_->numSkippedSaves();
+    VELOX_SSD_CACHE_LOG(INFO)
+        << "Start save for old saveable, skipped " << cache_->numSkippedSaves();
     cache_->numSkippedSaves() = 0;
     cache_->saveToSsd();
   } else if (evictSaveableSkipped) {
@@ -496,8 +497,8 @@ void CacheShard::appendSsdSaveable(std::vector<CachePin>& pins) {
       pin.setEntry(entry.get());
       pins.push_back(std::move(pin));
       if (pins.size() >= limit) {
-        LOG(INFO) << "SSDCA: Limiting SSD save batch to " << limit
-                  << " entries";
+        VELOX_SSD_CACHE_LOG(INFO)
+            << "Limiting SSD save batch to " << limit << " entries";
         break;
       }
     }
@@ -619,8 +620,8 @@ bool AsyncDataCache::makeSpace(
       throw;
     }
     if (nthAttempt > 2 && ssdCache_ && ssdCache_->writeInProgress()) {
-      LOG(INFO) << "SSDCA: Pause 0.5s after failed eviction waiting for SSD "
-                << "cach write to unpin memory";
+      VELOX_SSD_CACHE_LOG(INFO)
+          << "Pause 0.5s after failed eviction waiting for SSD cache write to unpin memory";
       std::this_thread::sleep_for(std::chrono::milliseconds(500)); // NOLINT
     }
     if (nthAttempt > kMaxAttempts / 2) {
@@ -652,8 +653,8 @@ bool AsyncDataCache::makeSpace(
 void AsyncDataCache::backoff(int32_t counter) {
   size_t seed = folly::hasher<uint16_t>()(++backoffCounter_);
   const auto usec = (seed & 0xfff) * (counter & 0x1f);
-  LOG_EVERY_N(INFO, 1000) << "Backoff in allocation contention for " << usec
-                          << " us.";
+  VELOX_CACHE_LOG_EVERY_MS(INFO, 1'000)
+      << "Backoff in allocation contention for " << usec << " us.";
 
   std::this_thread::sleep_for(std::chrono::microseconds(usec)); // NOLINT
 }
