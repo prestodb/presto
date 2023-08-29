@@ -13,42 +13,129 @@
  */
 package com.facebook.presto.operator.aggregation.estimatendv;
 
+import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.spi.function.AggregationFunction;
-import com.facebook.presto.spi.function.AggregationState;
-import com.facebook.presto.spi.function.CombineFunction;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.InputFunction;
-import com.facebook.presto.spi.function.OutputFunction;
-import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.SqlAggregationFunction;
+import com.facebook.presto.operator.aggregation.AccumulatorCompiler;
+import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplementation;
+import com.facebook.presto.operator.aggregation.histogram.Histogram;
+import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
+import com.facebook.presto.operator.aggregation.histogram.HistogramStateFactory;
+import com.facebook.presto.operator.aggregation.histogram.HistogramStateSerializer;
+import com.facebook.presto.spi.function.aggregation.Accumulator;
+import com.facebook.presto.spi.function.aggregation.AggregationMetadata;
+import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
+import com.google.common.collect.ImmutableList;
 
-@AggregationFunction("ndv_estimator")
-@Description("Estimate ndv based on frequencies of distinct values in the sample")
+import java.lang.invoke.MethodHandle;
+import java.util.List;
 
-public final class NDVEstimatorFunction
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.spi.function.Signature.comparableTypeParameter;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+public class NDVEstimatorFunction
+        extends SqlAggregationFunction
 {
-    private NDVEstimatorFunction() {}
-    @InputFunction
-    public static void input(
-            @AggregationState NDVEstimatorState state,
-            @SqlType(StandardTypes.BIGINT) long freq)
+    public static final NDVEstimatorFunction NDV_ESTIMATOR_FUNCTION = new NDVEstimatorFunction();
+
+    public static final String NAME = "ndv_estimator";
+    public static final int EXPECTED_SIZE_FOR_HASHING = 10;
+    public static final HistogramGroupImplementation HISTOGRAM_GROUP_MODE = HistogramGroupImplementation.NEW;
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(NDVEstimatorFunction.class, "output", NDVEstimatorState.class, BlockBuilder.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(NDVEstimatorFunction.class, "input", Type.class, NDVEstimatorState.class, Block.class, int.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(NDVEstimatorFunction.class, "combine", NDVEstimatorState.class, NDVEstimatorState.class);
+
+    public NDVEstimatorFunction()
     {
-        state.add(freq);
+        super(NAME,
+                ImmutableList.of(comparableTypeParameter("K")),
+                ImmutableList.of(),
+                parseTypeSignature("bigint"),
+                ImmutableList.of(parseTypeSignature("K")));
     }
 
-    @CombineFunction
-    public static void combine(
-            @AggregationState NDVEstimatorState state,
-            @AggregationState NDVEstimatorState otherState)
+    private static BuiltInAggregationFunctionImplementation generateAggregation(Type type, Type intermediateMapType)
     {
-        state.merge(otherState);
+        DynamicClassLoader classLoader = new DynamicClassLoader(NDVEstimatorFunction.class.getClassLoader());
+        List<Type> inputTypes = ImmutableList.of(type);
+        HistogramStateSerializer stateSerializer = new HistogramStateSerializer(type, intermediateMapType);
+        Type intermediateType = stateSerializer.getSerializedType();
+        MethodHandle inputFunction = INPUT_FUNCTION.bindTo(type);
+        List<AggregationMetadata.ParameterMetadata> inputParameterMetadata = createInputParameterMetadata(type);
+
+        AggregationMetadata metadata = new AggregationMetadata(
+                generateAggregationName(NAME, BigintType.BIGINT.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
+                inputParameterMetadata,
+                inputFunction,
+                COMBINE_FUNCTION,
+                OUTPUT_FUNCTION,
+                ImmutableList.of(new AggregationMetadata.AccumulatorStateDescriptor(
+                        NDVEstimatorState.class,
+                        stateSerializer,
+                        new HistogramStateFactory(type, EXPECTED_SIZE_FOR_HASHING, HISTOGRAM_GROUP_MODE, true))),
+                BigintType.BIGINT);
+
+        Class<? extends Accumulator> accumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
+                Accumulator.class,
+                metadata,
+                classLoader);
+        Class<? extends GroupedAccumulator> groupedAccumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
+                GroupedAccumulator.class,
+                metadata,
+                classLoader);
+        return new BuiltInAggregationFunctionImplementation(NAME, inputTypes, ImmutableList.of(intermediateType),
+                BigintType.BIGINT, true, false, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 
-    @OutputFunction("bigint")
-    public static void output(@AggregationState NDVEstimatorState state, BlockBuilder out)
+    private static List<ParameterMetadata> createInputParameterMetadata(Type type)
+    {
+        return ImmutableList.of(new ParameterMetadata(STATE),
+                new ParameterMetadata(BLOCK_INPUT_CHANNEL, type),
+                new ParameterMetadata(BLOCK_INDEX));
+    }
+
+    public static void input(Type type, NDVEstimatorState state, Block key, int position)
+    {
+        Histogram.input(type, state, key, position);
+    }
+
+    public static void combine(NDVEstimatorState state, NDVEstimatorState otherState)
+    {
+        Histogram.combine(state, otherState);
+    }
+
+    public static void output(NDVEstimatorState state, BlockBuilder out)
     {
         BigintType.BIGINT.writeLong(out, state.estimate());
+    }
+
+    @Override
+    public BuiltInAggregationFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
+    {
+        Type keyType = boundVariables.getTypeVariable("K");
+        Type intermediateMapType = functionAndTypeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                TypeSignatureParameter.of(keyType.getTypeSignature()),
+                TypeSignatureParameter.of(BigintType.BIGINT.getTypeSignature())));
+        return generateAggregation(keyType, intermediateMapType);
+    }
+
+    @Override
+    public String getDescription()
+    {
+        return "Implement Chao estimator to estimate ndv based on sample";
     }
 }

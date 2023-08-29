@@ -13,11 +13,21 @@
  */
 package com.facebook.presto.operator.aggregation.estimatendv;
 
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.operator.aggregation.histogram.GroupedHistogramState;
+
 public class GroupNDVEstimatorState
-        extends NDVEstimatorState
+        extends GroupedHistogramState
+        implements NDVEstimatorState
 {
-    public GroupNDVEstimatorState()
+    public GroupNDVEstimatorState(Type keyType, int expectedEntriesCount)
     {
-        super();
+        super(keyType, expectedEntriesCount);
+    }
+
+    @Override
+    public long estimate()
+    {
+        return 0;
     }
 }
