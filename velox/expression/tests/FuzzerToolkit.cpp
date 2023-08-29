@@ -49,6 +49,8 @@ void sortCallableSignatures(std::vector<CallableSignature>& signatures) {
                 return lhs.args[i]->toString() < rhs.args[i]->toString();
               }
             }
+
+            return lhs.returnType->toString() < rhs.returnType->toString();
           }
           return lhs.args.size() < rhs.args.size();
         }
