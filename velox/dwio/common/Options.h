@@ -119,7 +119,7 @@ class RowReaderOptions {
   std::function<void(
       facebook::velox::dwio::common::flatmap::FlatMapKeySelectionStats)>
       keySelectionCallback_;
-  bool loadFirstStripeOnCreation = true;
+  bool eagerFirstStripeLoad = true;
 
  public:
   RowReaderOptions() noexcept
@@ -205,8 +205,8 @@ class RowReaderOptions {
    * This behavior is already happening in DWRF, but isn't desired for some use
    * cases. So this flag allows us to turn it off.
    */
-  void setLoadFirstStripeOnCreation(bool load) {
-    loadFirstStripeOnCreation = load;
+  void setEagerFirstStripeLoad(bool load) {
+    eagerFirstStripeLoad = load;
   }
 
   /*
@@ -214,8 +214,8 @@ class RowReaderOptions {
    * This behavior is already happening in DWRF, but isn't desired for some use
    * cases. So this flag allows us to turn it off.
    */
-  bool getLoadFirstStripeOnCreation() const {
-    return loadFirstStripeOnCreation;
+  bool getEagerFirstStripeLoad() const {
+    return eagerFirstStripeLoad;
   }
 
   // For flat map, return flat vector representation
