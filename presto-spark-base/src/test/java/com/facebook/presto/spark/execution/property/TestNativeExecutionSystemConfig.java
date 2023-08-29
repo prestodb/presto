@@ -39,7 +39,7 @@ public class TestNativeExecutionSystemConfig
         // Test defaults
         assertRecordedDefaults(ConfigAssertions.recordDefaults(NativeExecutionVeloxConfig.class)
                 .setCodegenEnabled(false)
-                .setSpillEnabled(true)
+                .setSpillEnabled(false)
                 .setAggregationSpillEnabled(true)
                 .setJoinSpillEnabled(true)
                 .setOrderBySpillEnabled(true));
@@ -47,7 +47,7 @@ public class TestNativeExecutionSystemConfig
         // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
         NativeExecutionVeloxConfig expected = new NativeExecutionVeloxConfig()
                 .setCodegenEnabled(true)
-                .setSpillEnabled(false)
+                .setSpillEnabled(true)
                 .setAggregationSpillEnabled(false)
                 .setJoinSpillEnabled(false)
                 .setOrderBySpillEnabled(false);

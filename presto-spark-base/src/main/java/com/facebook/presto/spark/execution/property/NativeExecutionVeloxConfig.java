@@ -31,7 +31,7 @@ public class NativeExecutionVeloxConfig
     private static final String ORDER_BY_SPILL_ENABLED = "order_by_spill_enabled";
 
     private boolean codegenEnabled;
-    private boolean spillEnabled = true;
+    private boolean spillEnabled = false;
     private boolean aggregationSpillEnabled = true;
     private boolean joinSpillEnabled = true;
     private boolean orderBySpillEnabled = true;
