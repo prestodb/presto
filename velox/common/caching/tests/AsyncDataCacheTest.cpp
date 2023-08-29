@@ -651,55 +651,51 @@ TEST_F(AsyncDataCacheTest, ssd) {
   // write does not wait for the workload.
   runThreads(16, [&](int32_t /*i*/) { loadLoop(0, kSsdBytes, 11); });
   LOG(INFO) << "Stats after first pass: " << cache_->toString();
-  auto stats = cache_->ssdCache()->stats();
+  auto ssdStats = cache_->ssdCache()->stats();
+  ASSERT_LE(kRamBytes, ssdStats.bytesWritten);
 
   // We allow writes to proceed faster.
   FLAGS_ssd_verify_write = false;
-
-  ASSERT_LE(kRamBytes, stats.bytesWritten);
   // We read the data back. The verify hook checks correct values. Error every
   // 13 batch loads.
   runThreads(16, [&](int32_t /*i*/) { loadLoop(0, kSsdBytes, 13); });
-
   LOG(INFO) << "Stats after second pass:" << cache_->toString();
-  stats = cache_->ssdCache()->stats();
-  ASSERT_LE(kRamBytes, stats.bytesRead);
+  ssdStats = cache_->ssdCache()->stats();
+  ASSERT_LE(kRamBytes, ssdStats.bytesRead);
 
-  // We re-read the second half and add another half capacity of new
-  // entries. We expect some of the oldest entries to get evicted. Error every
-  // 17 batch loads.
+  // We re-read the second half and add another half capacity of new entries. We
+  // expect some of the oldest entries to get evicted. Error every 17 batch
+  // loads.
   runThreads(
       16, [&](int32_t /*i*/) { loadLoop(kSsdBytes / 2, kSsdBytes * 1.5, 17); });
-
   LOG(INFO) << "Stats after third pass:" << cache_->toString();
+
   // Wait for writes to finish and make a checkpoint.
   cache_->ssdCache()->shutdown();
-  auto stats2 = cache_->ssdCache()->stats();
-  ASSERT_GT(stats2.bytesWritten, stats.bytesWritten);
-  ASSERT_GT(stats2.bytesRead, stats.bytesRead);
+  auto ssdStatsAfterShutdown = cache_->ssdCache()->stats();
+  ASSERT_GT(ssdStatsAfterShutdown.bytesWritten, ssdStats.bytesWritten);
+  ASSERT_GT(ssdStatsAfterShutdown.bytesRead, ssdStats.bytesRead);
 
   // Check that no pins are leaked.
-  ASSERT_EQ(0, stats2.numPins);
+  ASSERT_EQ(ssdStatsAfterShutdown.numPins, 0);
+
   auto ramStats = cache_->refreshStats();
-  ASSERT_EQ(0, ramStats.numShared);
-  ASSERT_EQ(0, ramStats.numExclusive);
+  ASSERT_EQ(ramStats.numShared, 0);
+  ASSERT_EQ(ramStats.numExclusive, 0);
+
   cache_->ssdCache()->clear();
   // We cut the tail off one of the cache shards.
   corruptFile(fmt::format("{}/cache0.cpt", tempDirectory_->path));
-  // We open the cache from checkpoint. Reading checks the data
-  // integrity, here we check that more data was read than written.
+  // We open the cache from checkpoint. Reading checks the data integrity, here
+  // we check that more data was read than written.
   initializeCache(kRamBytes, kSsdBytes);
   runThreads(16, [&](int32_t /*i*/) {
     loadLoop(kSsdBytes / 2, kSsdBytes * 1.5, 113);
   });
   LOG(INFO) << "State after starting 3/4 shards from checkpoint: "
             << cache_->toString();
-  auto ssdStats = cache_->ssdCache()->stats();
-
-  // The exact number of hits after recovery is not deterministic due to
-  // threading. Hitting at least 1/2 of the capacity when 3/4 are available
-  // since one of the shards was deliberately corrupted, is a safe bet.
-  ASSERT_LT(kSsdBytes / 2, stats2.bytesRead);
+  const auto ssdStatsFromCP = cache_->ssdCache()->stats();
+  ASSERT_EQ(ssdStatsFromCP.readCheckpointErrors, 1);
 }
 
 TEST_F(AsyncDataCacheTest, invalidSsdPath) {
