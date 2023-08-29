@@ -74,6 +74,7 @@ import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_N
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CASE_TO_MAP_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN;
+import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_ARRAY_NOT_CONTAINS_TO_ANTI_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
@@ -6923,6 +6924,66 @@ public abstract class AbstractTestQueries
         sql = "with t1 as (select * from (values (array[cast(1 as integer), 2, 3], 10), (array[4, 5, 6], 11)) t(arr, k)), t2 as (select * from (values (cast(1 as bigint), 'a'), (4, 'b')) t(k, v)) " +
                 "select t1.k, t2.k, t2.v from t1 join t2 on contains(t1.arr, t2.k)";
         assertQuery(enableOptimization, sql, "values (11, 4, 'b'), (10, 1, 'a')");
+
+        sql = "with t1 as (select * from (values (1, 'JAPAN'), (2, 'invalid_nation')) t(k, nation)) " +
+                "select t1.k, t1.nation from t1 where contains((select array_agg(name) from nation), t1.nation)";
+        assertQuery(enableOptimization, sql, "values (1, 'JAPAN')");
+
+        sql = "with t1 as (select * from (values (1, 'JAPAN'), (2, 'invalid_nation')) t(k, nation)) " +
+                "select t1.k, t1.nation from t1 where contains(transform((select array_agg(name) from nation), (x) ->lower(x)), lower(t1.nation))";
+        assertQuery(enableOptimization, sql, "values (1, 'JAPAN')");
+    }
+
+    @Test
+    public void testCrossJoinWithArrayNotContainsCondition()
+    {
+        Session enableOptimization = Session.builder(getSession())
+                .setSystemProperty(PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN, "REWRITTEN_TO_INNER_JOIN")
+                .setSystemProperty(REWRITE_CROSS_JOIN_ARRAY_NOT_CONTAINS_TO_ANTI_JOIN, "true")
+                .build();
+
+        String sql = "with t1 as (select * from (values (array[1, 2, 3])) t(arr)), t2 as (select * from (values (1, 'a'), (4, 'b')) t(k, v)) " +
+                "select t2.k, t2.v from t2 where not contains((select t1.arr from t1), t2.k)";
+        assertQuery(enableOptimization, sql, "values (4, 'b')");
+
+        sql = "with t1 as (select * from (values (array[1, 2, 3, 3, null])) t(arr)), t2 as (select * from (values (1, 'a'), (4, 'b')) t(k, v)) " +
+                "select t2.k, t2.v from t2 where not contains((select t1.arr from t1), t2.k)";
+        assertQuery(enableOptimization, sql, "values (4, 'b')");
+
+        sql = "with t1 as (select * from (values (1, 'JAPAN'), (2, 'invalid_nation')) t(k, nation)) " +
+                "select t1.k, t1.nation from t1 where not contains((select array_agg(name) from nation), t1.nation)";
+        assertQuery(enableOptimization, sql, "values (2, 'invalid_nation')");
+
+        // array is an expression that needs to be pushed down
+        sql = "with t1 as (select * from (values (1, 'JAPAN'), (2, 'invalid_nation')) t(k, nation)) " +
+                "select t1.k, t1.nation from t1 where not contains(array_distinct((select array_agg(name) from nation)), t1.nation)";
+        assertQuery(enableOptimization, sql, "values (2, 'invalid_nation')");
+
+        // check not applicable cases for optimization
+
+        // optimization doesn't apply when there are additional columns on array side
+        sql = "with t1 as (select * from (values (array[1, 1, 3], 10)) t(arr, k)), t2 as (select * from (values (1, 'a'), (4, 'b')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t1 join t2 on not contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (10, 4, 'b')");
+
+        // optimization doesn't apply for multi-row array tables
+        sql = "with t1 as (select * from (values (array[1, 2, 3]), (array[4, 5, 6])) t(arr)), t2 as (select * from (values (1, 'a'), (4, 'b')) t(k, v)) " +
+                "select t1.arr, t2.k, t2.v from t1 join t2 on not contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (array[1,2,3], 4, 'b'), (array[4,5,6], 1, 'a')");
+
+        // we currently don't support the optimization for cases that didn't come from a subquery
+        sql = "with t1 as (select * from (values (array[1, 2, 3])) t(arr)), t2 as (select * from (values (1, 'a'), (4, 'b')) t(k, v)) " +
+                "select t2.k, t2.v from t1 join t2 on not contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (4, 'b')");
+
+        sql = "with t1 as (select * from (values (array[1, 2, 3])) t(arr)), t2 as (select * from (values (1, 'a'), (4, 'b')) t(k, v)) " +
+                "select t1.arr, t2.k, t2.v from t1 join t2 on not contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (array[1,2,3], 4, 'b')");
+
+        // transform function considered non-deterministic and doesn't get pushed down
+        sql = "with t1 as (select * from (values (1, 'JAPAN'), (2, 'invalid_nation')) t(k, nation)) " +
+                "select t1.k, t1.nation from t1 where not contains(transform((select array_agg(name) from nation), (x) ->lower(x)), lower(t1.nation))";
+        assertQuery(enableOptimization, sql, "values (2, 'invalid_nation')");
     }
 
     @Test

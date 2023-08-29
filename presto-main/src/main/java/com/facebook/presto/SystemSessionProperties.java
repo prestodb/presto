@@ -279,6 +279,7 @@ public final class SystemSessionProperties
     public static final String PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN = "push_down_filter_expression_evaluation_through_cross_join";
     public static final String REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN = "rewrite_cross_join_or_to_inner_join";
     public static final String REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN = "rewrite_cross_join_array_contains_to_inner_join";
+    public static final String REWRITE_CROSS_JOIN_ARRAY_NOT_CONTAINS_TO_ANTI_JOIN = "rewrite_cross_join_array_not_contains_to_anti_join";
     public static final String REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN = "rewrite_left_join_null_filter_to_semi_join";
     public static final String USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN = "use_broadcast_when_buildsize_small_probeside_unknown";
     public static final String ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT = "add_partial_node_for_row_number_with_limit";
@@ -1627,6 +1628,11 @@ public final class SystemSessionProperties
                         "Rewrite cross join with array contains filter to inner join",
                         featuresConfig.isRewriteCrossJoinWithArrayContainsFilterToInnerJoin(),
                         false),
+                booleanProperty(
+                        REWRITE_CROSS_JOIN_ARRAY_NOT_CONTAINS_TO_ANTI_JOIN,
+                        "Rewrite cross join with array not contains filter to anti join",
+                        featuresConfig.isRewriteCrossJoinWithArrayNotContainsFilterToAntiJoin(),
+                        false),
                 new PropertyMetadata<>(
                         JOINS_NOT_NULL_INFERENCE_STRATEGY,
                         format("Set the strategy used NOT NULL filter inference on Join Nodes. Options are: %s",
@@ -2785,6 +2791,11 @@ public final class SystemSessionProperties
     public static boolean isRewriteCrossJoinArrayContainsToInnerJoinEnabled(Session session)
     {
         return session.getSystemProperty(REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN, Boolean.class);
+    }
+
+    public static boolean isRewriteCrossJoinArrayNotContainsToAntiJoinEnabled(Session session)
+    {
+        return session.getSystemProperty(REWRITE_CROSS_JOIN_ARRAY_NOT_CONTAINS_TO_ANTI_JOIN, Boolean.class);
     }
 
     public static boolean isRewriteLeftJoinNullFilterToSemiJoinEnabled(Session session)
