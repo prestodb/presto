@@ -49,6 +49,9 @@ using OrderBy and StreamingAggregation.
   -> Final streaming aggregation.
 - All of the above using flattened input vectors.
 
+Fuzzer iterations alternate between generating plans using Values or TableScan
+nodes.
+
 When testing aggregate functions whose results depend on the order of inputs
 (e.g. map_agg, map_union, arbitrary, etc.), the Fuzzer verifies that all plans
 succeed or fail with compatible user exceptions. When plans succeed, the Fuzzer

@@ -133,6 +133,11 @@ class MaxAggregate : public MinMaxAggregate<T> {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
+    // Re-enable pushdown for TIMESTAMP after
+    // https://github.com/facebookincubator/velox/issues/6297 is fixed.
+    if (args[0]->typeKind() == TypeKind::TIMESTAMP) {
+      mayPushdown = false;
+    }
     if (mayPushdown && args[0]->isLazy()) {
       BaseAggregate::template pushdown<MinMaxHook<T, false>>(
           groups, rows, args[0]);
@@ -213,6 +218,11 @@ class MinAggregate : public MinMaxAggregate<T> {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
+    // Re-enable pushdown for TIMESTAMP after
+    // https://github.com/facebookincubator/velox/issues/6297 is fixed.
+    if (args[0]->typeKind() == TypeKind::TIMESTAMP) {
+      mayPushdown = false;
+    }
     if (mayPushdown && args[0]->isLazy()) {
       BaseAggregate::template pushdown<MinMaxHook<T, true>>(
           groups, rows, args[0]);

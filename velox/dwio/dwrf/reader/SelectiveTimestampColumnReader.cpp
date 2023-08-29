@@ -105,8 +105,12 @@ void SelectiveTimestampColumnReader::read(
     RowSet rows,
     const uint64_t* incomingNulls) {
   prepareRead<int64_t>(offset, rows, incomingNulls);
-  VELOX_CHECK(!scanSpec_->filter());
-  VELOX_CHECK(!scanSpec_->valueHook());
+  VELOX_CHECK(
+      !scanSpec_->filter(),
+      "Selective reader for TIMESTAMP doesn't support filter pushdown yet");
+  VELOX_CHECK(
+      !scanSpec_->valueHook(),
+      "Selective reader for TIMESTAMP doesn't support aggregation pushdown yet");
   bool isDense = rows.back() == rows.size() - 1;
   if (isDense) {
     readHelper<true>(rows);
