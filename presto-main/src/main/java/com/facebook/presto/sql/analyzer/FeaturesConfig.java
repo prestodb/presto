@@ -272,8 +272,8 @@ public class FeaturesConfig
     private boolean leftJoinNullFilterToSemiJoin = true;
     private boolean broadcastJoinWithSmallBuildUnknownProbe;
     private boolean addPartialNodeForRowNumberWithLimit = true;
-    private boolean pullUpExpressionFromLambda = true;
     private boolean inferInequalityPredicates;
+    private boolean pullUpExpressionFromLambda;
 
     private boolean preProcessMetadataCalls;
 
