@@ -517,6 +517,13 @@ bool isValidDayOfYear(int32_t year, int32_t dayOfYear) {
   return true;
 }
 
+int64_t lastDayOfMonthSinceEpochFromDate(const std::tm& dateTime) {
+  auto year = dateTime.tm_year + 1900;
+  auto month = dateTime.tm_mon + 1;
+  auto day = util::getMaxDayOfMonth(year, month);
+  return util::daysSinceEpochFromDate(year, month, day);
+}
+
 int32_t getMaxDayOfMonth(int32_t year, int32_t month) {
   return isLeapYear(year) ? kLeapDays[month] : kNormalDays[month];
 }

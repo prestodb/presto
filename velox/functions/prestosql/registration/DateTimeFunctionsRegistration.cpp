@@ -92,6 +92,12 @@ void registerSimpleFunctions(const std::string& prefix) {
   registerFunction<HourFunction, int64_t, Date>({prefix + "hour"});
   registerFunction<HourFunction, int64_t, TimestampWithTimezone>(
       {prefix + "hour"});
+  registerFunction<LastDayOfMonthFunction, Date, Timestamp>(
+      {prefix + "last_day_of_month"});
+  registerFunction<LastDayOfMonthFunction, Date, Date>(
+      {prefix + "last_day_of_month"});
+  registerFunction<LastDayOfMonthFunction, Date, TimestampWithTimezone>(
+      {prefix + "last_day_of_month"});
   registerFunction<MinuteFunction, int64_t, Timestamp>({prefix + "minute"});
   registerFunction<MinuteFunction, int64_t, Date>({prefix + "minute"});
   registerFunction<MinuteFunction, int64_t, TimestampWithTimezone>(

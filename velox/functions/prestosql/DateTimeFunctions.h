@@ -330,6 +330,34 @@ struct DayFunction : public InitSessionTimezone<T>,
   }
 };
 
+template <typename T>
+struct LastDayOfMonthFunction : public InitSessionTimezone<T>,
+                                public TimestampWithTimezoneSupport<T> {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Date>& result,
+      const arg_type<Timestamp>& timestamp) {
+    auto dt = getDateTime(timestamp, this->timeZone_);
+    result = util::lastDayOfMonthSinceEpochFromDate(dt);
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Date>& result,
+      const arg_type<Date>& date) {
+    auto dt = getDateTime(date);
+    result = util::lastDayOfMonthSinceEpochFromDate(dt);
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Date>& result,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    auto timestamp = this->toTimestamp(timestampWithTimezone);
+    auto dt = getDateTime(timestamp, nullptr);
+    result = util::lastDayOfMonthSinceEpochFromDate(dt);
+  }
+};
+
 namespace {
 
 bool isIntervalWholeDays(int64_t milliseconds) {

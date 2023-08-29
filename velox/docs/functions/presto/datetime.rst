@@ -187,6 +187,10 @@ arbitrary large timestamps.
 
     Returns the hour of the day from ``x``. The value ranges from 0 to 23.
 
+.. function:: last_day_of_month(x) -> date
+
+    Returns the last day of the month.
+
 .. function:: millisecond(x) -> int64
 
     Returns the millisecond of the second from ``x``.

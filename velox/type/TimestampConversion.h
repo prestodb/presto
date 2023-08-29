@@ -55,6 +55,9 @@ bool isValidDayOfYear(int32_t year, int32_t dayOfYear);
 // Returns max day of month for inputted month of inputted year
 int32_t getMaxDayOfMonth(int32_t year, int32_t month);
 
+// Returns last day of month since unix epoch (1970-01-01).
+int64_t lastDayOfMonthSinceEpochFromDate(const std::tm& dateTime);
+
 /// Date conversions.
 
 /// Returns the (signed) number of days since unix epoch (1970-01-01).
