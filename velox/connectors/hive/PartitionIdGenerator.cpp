@@ -37,11 +37,16 @@ PartitionIdGenerator::PartitionIdGenerator(
         exec::VectorHasher::create(inputType->childAt(channel), channel));
   }
 
-  std::vector<std::string> partitionKeyNames;
   std::vector<TypePtr> partitionKeyTypes;
+  std::vector<std::string> partitionKeyNames;
   for (auto channel : partitionChannels_) {
-    partitionKeyNames.push_back(inputType->nameOf(channel));
+    VELOX_USER_CHECK(
+        exec::VectorHasher::typeKindSupportsValueIds(
+            inputType->childAt(channel)->kind()),
+        "Unsupported partition type: {}.",
+        inputType->childAt(channel)->toString());
     partitionKeyTypes.push_back(inputType->childAt(channel));
+    partitionKeyNames.push_back(inputType->nameOf(channel));
   }
 
   partitionValues_ = BaseVector::create<RowVector>(
@@ -117,7 +122,9 @@ void PartitionIdGenerator::computeValueIds(
 
   uint64_t multiplier = 1;
   for (auto& hasher : hashers_) {
-    multiplier = hasher->enableValueIds(multiplier, 50);
+    multiplier = hasher->typeKind() == TypeKind::BOOLEAN
+        ? hasher->enableValueRange(multiplier, 50)
+        : hasher->enableValueIds(multiplier, 50);
 
     VELOX_CHECK_NE(
         multiplier,
