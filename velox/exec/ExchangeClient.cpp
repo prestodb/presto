@@ -46,9 +46,6 @@ void ExchangeClient::addRemoteTaskId(const std::string& taskId) {
     if (closed_) {
       toClose = std::move(source);
     } else {
-      if (!source->supportsFlowControl()) {
-        allSourcesSupportFlowControl_ = false;
-      }
       sources_.push_back(source);
       queue_->addSourceLocked();
 
@@ -133,16 +130,15 @@ std::unique_ptr<SerializedPage> ExchangeClient::next(
 void ExchangeClient::request(const RequestSpec& requestSpec) {
   for (auto& source : requestSpec.sources) {
     auto future = source->request(requestSpec.maxBytes);
-    if (future.valid()) {
-      auto& exec = folly::QueuedImmediateExecutor::instance();
-      std::move(future)
-          .via(&exec)
-          .thenValue(
-              [&](auto&& /* unused */) { request(pickSourcesToRequest()); })
-          .thenError(
-              folly::tag_t<std::exception>{},
-              [&](const std::exception& e) { queue_->setError(e.what()); });
-    }
+    VELOX_CHECK(future.valid());
+    auto& exec = folly::QueuedImmediateExecutor::instance();
+    std::move(future)
+        .via(&exec)
+        .thenValue(
+            [&](auto&& /* unused */) { request(pickSourcesToRequest()); })
+        .thenError(
+            folly::tag_t<std::exception>{},
+            [&](const std::exception& e) { queue_->setError(e.what()); });
   }
 }
 
@@ -172,10 +168,6 @@ int64_t ExchangeClient::getAveragePageSize() {
 }
 
 int32_t ExchangeClient::getNumSourcesToRequestLocked(int64_t averagePageSize) {
-  if (!allSourcesSupportFlowControl_) {
-    return sources_.size();
-  }
-
   // Figure out how many more 'averagePageSize' fit into 'maxQueuedBytes_'.
   // Make sure to leave room for 'numPending' pages.
   const auto numPending = countPendingSourcesLocked();

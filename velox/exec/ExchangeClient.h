@@ -100,7 +100,6 @@ class ExchangeClient {
   std::shared_ptr<ExchangeQueue> queue_;
   std::unordered_set<std::string> taskIds_;
   std::vector<std::shared_ptr<ExchangeSource>> sources_;
-  bool allSourcesSupportFlowControl_{true};
   uint32_t nextSourceIndex_{0};
   bool closed_{false};
 };
