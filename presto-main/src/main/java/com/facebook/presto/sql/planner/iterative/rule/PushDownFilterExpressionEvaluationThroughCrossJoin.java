@@ -28,6 +28,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -91,9 +92,9 @@ public class PushDownFilterExpressionEvaluationThroughCrossJoin
         this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
     }
 
-    private static boolean canRewrittenToInnerJoin(RowExpression filter, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right)
+    private static boolean canRewrittenToInnerJoin(FunctionResolution functionResolution, RowExpression filter, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right)
     {
-        return getCandidateOrExpression(filter, left, right) != null || getCandidateArrayContainsExpression(filter, left, right) != null;
+        return getCandidateOrExpression(filter, left, right) != null || getCandidateArrayContainsExpression(functionResolution, filter, left, right) != null;
     }
 
     @Override
@@ -133,8 +134,10 @@ public class PushDownFilterExpressionEvaluationThroughCrossJoin
         }
 
         // Only enable if the cross join can be rewritten to inner join after the rewrite
+        FunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
+
         if (getPushdownFilterExpressionEvaluationThroughCrossJoinStrategy(context.getSession()).equals(REWRITTEN_TO_INNER_JOIN)
-                && !canRewrittenToInnerJoin(rewrittenFilter, leftInput.getOutputVariables(), rightInput.getOutputVariables())) {
+                && !canRewrittenToInnerJoin(functionResolution, rewrittenFilter, leftInput.getOutputVariables(), rightInput.getOutputVariables())) {
             return Result.empty();
         }
 
