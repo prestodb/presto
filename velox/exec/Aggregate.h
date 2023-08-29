@@ -328,7 +328,7 @@ class Aggregate {
   template <typename T>
   static uint64_t* getRawNulls(T* vector) {
     if (vector->mayHaveNulls()) {
-      BufferPtr nulls = vector->mutableNulls(vector->size());
+      BufferPtr& nulls = vector->mutableNulls(vector->size());
       return nulls->asMutable<uint64_t>();
     } else {
       return nullptr;

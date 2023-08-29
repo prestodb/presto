@@ -263,14 +263,15 @@ void ByteRleColumnReader<DataType, RequestedType>::next(
     VectorPtr& result,
     const uint64_t* incomingNulls) {
   auto flatVector = resetIfWrongFlatVectorType<RequestedType>(result);
+
+  if (result) {
+    result->resize(numValues, false);
+  }
+
   BufferPtr values;
   if (flatVector) {
     values = flatVector->mutableValues(numValues);
   }
-
-  BufferPtr nulls = readNulls(numValues, result, incomingNulls);
-  const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
-  uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
 
   if (flatVector) {
     detail::resetIfNotWritable(result, values);
@@ -280,8 +281,11 @@ void ByteRleColumnReader<DataType, RequestedType>::next(
   }
   values->setSize(BaseVector::byteSize<RequestedType>(numValues));
 
+  BufferPtr nulls = readNulls(numValues, result, incomingNulls);
+  const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
+  uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
   if (result) {
-    result->resize(numValues, false);
+    // This resize will re-allocate nulls
     result->setNullCount(nullCount);
   } else {
     result = makeFlatVector<RequestedType>(
@@ -436,6 +440,9 @@ void DecimalColumnReader<DataT>::next(
     VectorPtr& result,
     const uint64_t* incomingNulls) {
   auto flatVector = resetIfWrongFlatVectorType<DataT>(result);
+  if (result) {
+    result->resize(numValues, false);
+  }
   BufferPtr values;
   if (flatVector) {
     values = flatVector->mutableValues(numValues);
@@ -453,7 +460,6 @@ void DecimalColumnReader<DataT>::next(
   }
 
   if (result) {
-    result->resize(numValues, false);
     result->setNullCount(nullCount);
   } else {
     result = makeFlatVector<DataT>(
@@ -700,8 +706,8 @@ void IntegerDictionaryColumnReader<ReqT>::next(
   auto flatVector = resetIfWrongFlatVectorType<ReqT>(result);
   BufferPtr values;
   if (result) {
-    values = flatVector->mutableValues(numValues);
     result->resize(numValues, false);
+    values = flatVector->mutableValues(numValues);
   }
 
   BufferPtr nulls = readNulls(numValues, result, incomingNulls);
@@ -964,6 +970,9 @@ void FloatingPointColumnReader<DataT, ReqT>::next(
     VectorPtr& result,
     const uint64_t* incomingNulls) {
   auto flatVector = resetIfWrongFlatVectorType<ReqT>(result);
+  if (result) {
+    result->resize(numValues, false);
+  }
   BufferPtr values;
   if (flatVector) {
     values = flatVector->mutableValues(numValues);
@@ -981,7 +990,6 @@ void FloatingPointColumnReader<DataT, ReqT>::next(
   }
 
   if (result) {
-    result->resize(numValues, false);
     result->setNullCount(nullCount);
   } else {
     result = makeFlatVector<ReqT>(
@@ -1450,6 +1458,11 @@ void StringDictionaryColumnReader::readFlatVector(
     VectorPtr& result,
     const uint64_t* incomingNulls) {
   auto flatVector = resetIfWrongFlatVectorType<StringView>(result);
+
+  if (result) {
+    result->resize(numValues, false);
+  }
+
   BufferPtr data;
   if (flatVector) {
     data = flatVector->mutableValues(numValues);
@@ -1460,7 +1473,6 @@ void StringDictionaryColumnReader::readFlatVector(
   uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
 
   if (result) {
-    result->resize(numValues, false);
     detail::resetIfNotWritable(result, data);
   }
   if (!data) {
@@ -1835,6 +1847,10 @@ void StructColumnReader::next(
     DWIO_ENSURE_GE(childrenVectors.size(), children_.size());
   }
 
+  if (result) {
+    result->resize(numValues, false);
+  }
+
   BufferPtr nulls = readNulls(numValues, result, incomingNulls);
   const auto nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
   uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
@@ -1858,7 +1874,6 @@ void StructColumnReader::next(
   }
 
   if (result) {
-    result->resize(numValues, false);
     result->setNullCount(nullCount);
   } else {
     // When read-string-as-row flag is on, string readers produce ROW(BIGINT,

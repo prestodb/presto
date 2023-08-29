@@ -321,7 +321,7 @@ void SelectiveStructColumnReaderBase::getValues(
   }
   if (nullsInReadRange_) {
     auto readerNulls = nullsInReadRange_->as<uint64_t>();
-    auto nulls = resultRow->mutableNulls(rows.size())->asMutable<uint64_t>();
+    auto* nulls = resultRow->mutableNulls(rows.size())->asMutable<uint64_t>();
     for (size_t i = 0; i < rows.size(); ++i) {
       bits::setBit(nulls, i, bits::isBitSet(readerNulls, rows[i]));
     }

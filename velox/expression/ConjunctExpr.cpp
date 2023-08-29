@@ -104,7 +104,7 @@ void ConjunctExpr::evalSpecialForm(
   auto flatResult = result->asFlatVector<bool>();
   // clear nulls from the result for the active rows.
   if (flatResult->mayHaveNulls()) {
-    auto nulls = flatResult->mutableNulls(rows.end());
+    auto& nulls = flatResult->mutableNulls(rows.end());
     rows.clearNulls(nulls);
   }
   // Initialize result to all true for AND and all false for OR.

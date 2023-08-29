@@ -17,6 +17,7 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 #include <functional>
+#include <optional>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/ByteStream.h"
 #include "velox/serializers/PrestoSerializer.h"
@@ -2208,10 +2209,22 @@ TEST_F(VectorTest, lifetime) {
 
 TEST_F(VectorTest, ensureNullsCapacity) {
   // Has to be more than 1 byte's worth of bits.
-  size_t size = 100;
-  auto vec = makeFlatVector<int64_t>(size, [](vector_size_t i) { return i; });
-  auto nulls = vec->mutableNulls(2);
-  ASSERT_GE(nulls->size(), bits::nbytes(size));
+  {
+    size_t size = 100;
+    auto vec = makeFlatVector<int64_t>(size, [](vector_size_t i) { return i; });
+    auto nulls = vec->mutableNulls(2);
+    ASSERT_GE(nulls->size(), bits::nbytes(size));
+  }
+
+  // Mutli-referenced nulls.
+  {
+    auto vector =
+        makeNullableFlatVector<int32_t>({std::nullopt, 1, std::nullopt, 2});
+    auto nulls = vector->nulls();
+    ASSERT_FALSE(vector->nulls()->unique());
+    vector->mutableRawNulls();
+    ASSERT_TRUE(vector->nulls()->unique());
+  }
 }
 
 TEST_F(VectorTest, createVectorWithNullType) {

@@ -71,7 +71,7 @@ void BaseVector::ensureNullsCapacity(
   auto fill = setNotNull ? bits::kNotNull : bits::kNull;
   // Ensure the size of nulls_ is always at least as large as length_.
   auto size = std::max(minimumSize, length_);
-  if (nulls_ && nulls_->isMutable()) {
+  if (nulls_ && !nulls_->isView() && nulls_->unique()) {
     if (nulls_->capacity() < bits::nbytes(size)) {
       AlignedBuffer::reallocate<bool>(&nulls_, size, fill);
     }

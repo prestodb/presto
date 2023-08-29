@@ -175,12 +175,14 @@ class BaseVector {
     return rawNulls_;
   }
 
+  // Ensures that nulls are writable (mutable and single referenced for
+  // BaseVector::length_).
   uint64_t* mutableRawNulls() {
     ensureNulls();
     return const_cast<uint64_t*>(rawNulls_);
   }
 
-  virtual BufferPtr mutableNulls(vector_size_t size) {
+  BufferPtr& mutableNulls(vector_size_t size) {
     ensureNullsCapacity(size);
     return nulls_;
   }
@@ -766,6 +768,8 @@ class BaseVector {
   /*
    * Allocates or reallocates nulls_ with at least the given size if nulls_
    * hasn't been allocated yet or has been allocated with a smaller capacity.
+   * Ensures that nulls are writable (mutable and single referenced for
+   * minimumSize).
    */
   void ensureNullsCapacity(vector_size_t minimumSize, bool setNotNull = false);
 
