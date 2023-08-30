@@ -362,15 +362,32 @@ class MultiMapAggAggregate : public exec::Aggregate {
 };
 
 exec::AggregateRegistrationResult registerMultiMapAgg(const std::string& name) {
-  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
-      exec::AggregateFunctionSignatureBuilder()
-          .typeVariable("K")
-          .typeVariable("V")
-          .returnType("map(K,array(V))")
-          .intermediateType("map(K,array(V))")
-          .argumentType("K")
-          .argumentType("V")
-          .build()};
+  static const std::vector<std::string> kSupportedKeyTypes = {
+      "boolean",
+      "tinyint",
+      "smallint",
+      "integer",
+      "bigint",
+      "real",
+      "double",
+      "timestamp",
+      "date",
+      "varbinary",
+      "varchar",
+      "unknown",
+  };
+
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
+  for (const auto& keyType : kSupportedKeyTypes) {
+    signatures.emplace_back(
+        exec::AggregateFunctionSignatureBuilder()
+            .typeVariable("V")
+            .returnType(fmt::format("map({},array(V))", keyType))
+            .intermediateType(fmt::format("map({},array(V))", keyType))
+            .argumentType(keyType)
+            .argumentType("V")
+            .build());
+  }
 
   return exec::registerAggregateFunction(
       name,
@@ -400,6 +417,8 @@ exec::AggregateRegistrationResult registerMultiMapAgg(const std::string& name) {
           case TypeKind::TIMESTAMP:
             return std::make_unique<MultiMapAggAggregate<Timestamp>>(
                 resultType);
+          case TypeKind::VARBINARY:
+            [[fallthrough]];
           case TypeKind::VARCHAR:
             return std::make_unique<MultiMapAggAggregate<StringView>>(
                 resultType);

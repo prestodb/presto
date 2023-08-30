@@ -337,4 +337,12 @@ class VectorFuzzer {
   FuzzerGenerator rng_;
 };
 
+/// Generates a random type, including maps, vectors, and arrays. maxDepth
+/// limits the maximum level of nesting for complex types. maxDepth <= 1 means
+/// no complex types are allowed.
+TypePtr randType(FuzzerGenerator& rng, int maxDepth = 5);
+
+/// Generates a random ROW type.
+RowTypePtr randRowType(FuzzerGenerator& rng, int maxDepth = 5);
+
 } // namespace facebook::velox

@@ -1057,6 +1057,8 @@ std::unique_ptr<exec::Aggregate> createNArg(
     case TypeKind::DOUBLE:
       return createNArg<NAggregate, double>(
           resultType, compareType, errorMessage);
+    case TypeKind::VARBINARY:
+      [[fallthrough]];
     case TypeKind::VARCHAR:
       return createNArg<NAggregate, StringView>(
           resultType, compareType, errorMessage);

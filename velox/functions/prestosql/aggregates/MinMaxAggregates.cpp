@@ -901,8 +901,7 @@ exec::AggregateRegistrationResult registerMinMax(const std::string& name) {
           const TypePtr& resultType,
           const core::QueryConfig& /*config*/)
           -> std::unique_ptr<exec::Aggregate> {
-        const bool nAgg = (argTypes.size() == 2) ||
-            (argTypes.size() == 1 && argTypes[0]->size() == 2);
+        const bool nAgg = !resultType->equivalent(*argTypes[0]);
 
         if (nAgg) {
           // We have either 2 arguments: T, bigint (partial aggregation)
@@ -957,9 +956,14 @@ exec::AggregateRegistrationResult registerMinMax(const std::string& name) {
               return std::make_unique<TNumeric<Timestamp>>(resultType);
             case TypeKind::HUGEINT:
               return std::make_unique<TNumeric<int128_t>>(resultType);
+            case TypeKind::VARBINARY:
+              [[fallthrough]];
             case TypeKind::VARCHAR:
+              [[fallthrough]];
             case TypeKind::ARRAY:
+              [[fallthrough]];
             case TypeKind::MAP:
+              [[fallthrough]];
             case TypeKind::ROW:
               return std::make_unique<TNonNumeric>(inputType);
             default:

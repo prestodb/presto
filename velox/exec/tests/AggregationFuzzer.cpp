@@ -876,9 +876,12 @@ std::string makeDuckAggregationSql(
 }
 
 bool isDuckSupported(const TypePtr& type) {
+  // DuckDB doesn't support nanosecond precision for timestamps.
+  if (type->kind() == TypeKind::TIMESTAMP) {
+    return false;
+  }
   for (auto i = 0; i < type->size(); ++i) {
-    // DuckDB doesn't support nanosecond precision for timestamps.
-    if (type->childAt(i)->isTimestamp()) {
+    if (!isDuckSupported(type->childAt(i))) {
       return false;
     }
   }
@@ -1260,6 +1263,23 @@ void writeToFile(
   writer.write(vector);
   writer.close();
 }
+
+bool isTableScanSupported(const TypePtr& type) {
+  if (type->kind() == TypeKind::ROW && type->size() == 0) {
+    return false;
+  }
+  if (type->kind() == TypeKind::UNKNOWN) {
+    return false;
+  }
+
+  for (auto i = 0; i < type->size(); ++i) {
+    if (!isTableScanSupported(type->childAt(i))) {
+      return false;
+    }
+  }
+
+  return true;
+}
 } // namespace
 
 void AggregationFuzzer::verifyAggregation(
@@ -1283,9 +1303,10 @@ void AggregationFuzzer::verifyAggregation(
 
   // Alternate between using Values and TableScan node.
 
-  // Sometimes we generate zero-column input of type ROW({}). Such data cannot
-  // be written to a file and therefore cannot be tested with TableScan.
-  if (input[0]->type()->size() > 0 && vectorFuzzer_.coinToss(0.5)) {
+  // Sometimes we generate zero-column input of type ROW({}) or a column of type
+  // UNKNOWN(). Such data cannot be written to a file and therefore cannot
+  // be tested with TableScan.
+  if (isTableScanSupported(input[0]->type()) && vectorFuzzer_.coinToss(0.5)) {
     std::vector<exec::Split> splits;
     auto writerPool = rootPool_->addAggregateChild("writer");
     for (auto i = 0; i < input.size(); ++i) {

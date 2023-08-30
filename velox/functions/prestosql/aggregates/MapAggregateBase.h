@@ -220,6 +220,8 @@ std::unique_ptr<exec::Aggregate> createMapAggregate(const TypePtr& resultType) {
       return std::make_unique<TAggregate<double>>(resultType);
     case TypeKind::TIMESTAMP:
       return std::make_unique<TAggregate<Timestamp>>(resultType);
+    case TypeKind::VARBINARY:
+      [[fallthrough]];
     case TypeKind::VARCHAR:
       return std::make_unique<TAggregate<StringView>>(resultType);
     case TypeKind::ARRAY:

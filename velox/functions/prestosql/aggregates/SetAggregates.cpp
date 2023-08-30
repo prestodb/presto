@@ -332,10 +332,14 @@ std::unique_ptr<exec::Aggregate> create(
       return std::make_unique<Aggregate<double>>(resultType);
     case TypeKind::TIMESTAMP:
       return std::make_unique<Aggregate<Timestamp>>(resultType);
+    case TypeKind::VARBINARY:
+      [[fallthrough]];
     case TypeKind::VARCHAR:
       return std::make_unique<Aggregate<StringView>>(resultType);
     case TypeKind::ARRAY:
+      [[fallthrough]];
     case TypeKind::MAP:
+      [[fallthrough]];
     case TypeKind::ROW:
       return std::make_unique<Aggregate<ComplexType>>(resultType);
     default:

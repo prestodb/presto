@@ -61,6 +61,10 @@ int main(int argc, char** argv) {
       "in",
       "element_at",
       "width_bucket",
+      // https://github.com/facebookincubator/velox/issues/6346
+      "contains",
+      "subscript",
+      "array_position",
   };
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   return FuzzerRunner::run(
