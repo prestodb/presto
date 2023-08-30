@@ -117,6 +117,35 @@ TEST_F(MemoryArbitrationTest, queryMemoryCapacity) {
   }
 }
 
+TEST_F(MemoryArbitrationTest, arbitratorStats) {
+  MemoryArbitrator::Stats anchorStats(5, 5, 5, 5, 5, 5, 5, 5, 5);
+  MemoryArbitrator::Stats largeStats(8, 8, 8, 8, 8, 8, 8, 8, 8);
+  ASSERT_TRUE(!(anchorStats == largeStats));
+  ASSERT_TRUE(anchorStats != largeStats);
+  ASSERT_TRUE(anchorStats < largeStats);
+  ASSERT_TRUE(!(anchorStats > largeStats));
+  ASSERT_TRUE(anchorStats <= largeStats);
+  ASSERT_TRUE(!(anchorStats >= largeStats));
+  auto delta = largeStats - anchorStats;
+  ASSERT_EQ(delta, MemoryArbitrator::Stats(3, 3, 3, 3, 3, 3, 3, 8, 8));
+
+  MemoryArbitrator::Stats smallStats(2, 2, 2, 2, 2, 2, 2, 2, 2);
+  ASSERT_TRUE(!(anchorStats == smallStats));
+  ASSERT_TRUE(anchorStats != smallStats);
+  ASSERT_TRUE(!(anchorStats < smallStats));
+  ASSERT_TRUE(anchorStats > smallStats);
+  ASSERT_TRUE(!(anchorStats <= smallStats));
+  ASSERT_TRUE(anchorStats >= smallStats);
+
+  MemoryArbitrator::Stats invalidStats(2, 2, 2, 2, 2, 8, 8, 8, 8);
+  ASSERT_TRUE(!(anchorStats == invalidStats));
+  ASSERT_TRUE(anchorStats != invalidStats);
+  ASSERT_THROW(anchorStats < invalidStats, VeloxException);
+  ASSERT_THROW(anchorStats > invalidStats, VeloxException);
+  ASSERT_THROW(anchorStats <= invalidStats, VeloxException);
+  ASSERT_THROW(anchorStats >= invalidStats, VeloxException);
+}
+
 namespace {
 class FakeTestArbitrator : public MemoryArbitrator {
  public:

@@ -170,9 +170,31 @@ class MemoryArbitrator {
     /// The free memory capacity in bytes.
     uint64_t freeCapacityBytes{0};
 
+    Stats(
+        uint64_t _numRequests,
+        uint64_t _numAborted,
+        uint64_t _numFailures,
+        uint64_t _queueTimeUs,
+        uint64_t _arbitrationTimeUs,
+        uint64_t _numShrunkBytes,
+        uint64_t _numReclaimedBytes,
+        uint64_t _maxCapacityBytes,
+        uint64_t _freeCapacityBytes);
+
+    Stats() = default;
+
+    Stats operator-(const Stats& other) const;
+    bool operator==(const Stats& other) const;
+    bool operator!=(const Stats& other) const;
+    bool operator<(const Stats& other) const;
+    bool operator>(const Stats& other) const;
+    bool operator>=(const Stats& other) const;
+    bool operator<=(const Stats& other) const;
+
     /// Returns the debug string of this stats.
     std::string toString() const;
   };
+
   virtual Stats stats() const = 0;
 
   /// Returns the debug string of this memory arbitrator.
@@ -188,6 +210,12 @@ class MemoryArbitrator {
   const uint64_t memoryPoolInitCapacity_;
   const uint64_t memoryPoolTransferCapacity_;
 };
+
+FOLLY_ALWAYS_INLINE std::ostream& operator<<(
+    std::ostream& o,
+    const MemoryArbitrator::Stats& stats) {
+  return o << stats.toString();
+}
 
 /// The memory reclaimer interface is used by memory pool to participate in
 /// the memory arbitration execution (enter/leave arbitration process) as well
