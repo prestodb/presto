@@ -164,7 +164,10 @@ class DictionaryVector : public SimpleVector<T> {
     return dictionaryValues_->wrappedVector();
   }
 
+  // Should not be called if the index is null in the top level dictionary
+  // vector.
   vector_size_t wrappedIndex(vector_size_t index) const override {
+    VELOX_CHECK(!BaseVector::isNullAt(index));
     return dictionaryValues_->wrappedIndex(rawIndices_[index]);
   }
 

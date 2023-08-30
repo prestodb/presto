@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <optional>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/functions/lib/CheckDuplicateKeys.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/vector/tests/TestingDictionaryArrayElementsFunction.h"
 
@@ -260,4 +262,24 @@ TEST_F(MapFromEntriesTest, outputSizeIsBoundBySelectedRows) {
   exprSet.eval(rows, evalCtx, results);
 
   ASSERT_EQ(results[0]->size(), 2);
+}
+
+TEST_F(MapFromEntriesTest, rowsWithNullsNotPassedToCheckDuplicateKey) {
+  auto innerRowVector = makeRowVector(
+      {makeNullableFlatVector<int32_t>({std::nullopt, 2, 3, 4}),
+       makeNullableFlatVector<int32_t>({1, 2, 3, 4})});
+
+  auto offsets = makeIndices({0, 2});
+  auto sizes = makeIndices({2, 2});
+
+  auto arrayVector = std::make_shared<ArrayVector>(
+      pool(),
+      ARRAY(ROW({INTEGER(), INTEGER()})),
+      nullptr,
+      2,
+      offsets,
+      sizes,
+      innerRowVector);
+  ASSERT_NO_THROW(
+      evaluate("try(map_from_entries(c0))", makeRowVector({arrayVector})));
 }

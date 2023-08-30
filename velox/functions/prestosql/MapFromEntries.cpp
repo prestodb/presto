@@ -84,6 +84,7 @@ class MapFromEntriesFunction : public exec::VectorFunction {
     auto valueRowVector = decodedValueVector->base()->as<RowVector>();
     auto keyValueVector = valueRowVector->childAt(0);
 
+    exec::LocalSelectivityVector remianingRows(context, rows);
     BufferPtr changedSizes = nullptr;
     vector_size_t* mutableSizes = nullptr;
 
@@ -118,6 +119,8 @@ class MapFromEntriesFunction : public exec::VectorFunction {
       });
     }
 
+    context.deselectErrors(*remianingRows.get());
+
     VectorPtr wrappedKeys;
     VectorPtr wrappedValues;
     if (decodedValueVector->isIdentityMapping()) {
@@ -146,7 +149,7 @@ class MapFromEntriesFunction : public exec::VectorFunction {
         wrappedKeys,
         wrappedValues);
 
-    checkDuplicateKeys(mapVector, rows, context);
+    checkDuplicateKeys(mapVector, *remianingRows, context);
     return mapVector;
   }
 };

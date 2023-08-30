@@ -32,6 +32,9 @@ void checkDuplicateKeys(
     auto offset = offsets[row];
     auto size = sizes[row];
     for (auto i = 1; i < size; i++) {
+      VELOX_DCHECK(
+          !mapKeys->isNullAt(offset + i - 1),
+          "checkDuplicateKeys should not receive null keys");
       if (mapKeys->equalValueAt(mapKeys.get(), offset + i, offset + i - 1)) {
         auto duplicateKey = mapKeys->wrappedVector()->toString(
             mapKeys->wrappedIndex(offset + i));

@@ -42,6 +42,12 @@ class MapFunction : public exec::VectorFunction {
         "Key and value arrays must be the same length";
     static const char* kNullKey = "map key cannot be null";
 
+    // When context.throwOnError is false, some rows will be marked as
+    // 'failed'. These rows should not be processed further. 'remainingRows'
+    // will contain a subset of 'rows' that have passed all the checks (e.g.
+    // keys are not nulls and number of keys and values is the same).
+    exec::LocalSelectivityVector remainingRows(context, rows);
+
     // If both vectors have identity mapping, check if we can take the zero-copy
     // fast-path.
     if (decodedKeys->isIdentityMapping() &&
@@ -62,6 +68,7 @@ class MapFunction : public exec::VectorFunction {
           }
         });
       }
+      context.deselectErrors(*remainingRows);
 
       auto mapVector = std::make_shared<MapVector>(
           context.pool(),
@@ -74,7 +81,7 @@ class MapFunction : public exec::VectorFunction {
           valuesArray->elements());
 
       if constexpr (!AllowDuplicateKeys) {
-        checkDuplicateKeys(mapVector, rows, context);
+        checkDuplicateKeys(mapVector, *remainingRows, context);
       }
       context.moveOrCopyResult(mapVector, rows, result);
     } else if (decodedKeys->isConstantMapping()) {
@@ -110,14 +117,8 @@ class MapFunction : public exec::VectorFunction {
         context.setErrors(rows, std::current_exception());
       }
 
-      // When context.throwOnError is false, some rows will be marked as
-      // 'failed'. These rows should not be processed further. 'remainingRows'
-      // will contain a subset of 'rows' that have passed all the checks (e.g.
-      // keys are not nulls and number of keys and values is the same).
-      SelectivityVector remainingRows = rows;
-
       // Check array lengths
-      context.applyToSelectedNoThrow(remainingRows, [&](vector_size_t row) {
+      context.applyToSelectedNoThrow(*remainingRows, [&](vector_size_t row) {
         VELOX_USER_CHECK_EQ(
             numKeys,
             valuesArray->sizeAt(valueIndices[row]),
@@ -125,9 +126,9 @@ class MapFunction : public exec::VectorFunction {
             kArrayLengthsMismatch);
       });
 
-      context.deselectErrors(remainingRows);
+      context.deselectErrors(*remainingRows);
 
-      vector_size_t totalElements = remainingRows.countSelected() * numKeys;
+      vector_size_t totalElements = remainingRows->countSelected() * numKeys;
 
       BufferPtr offsets = allocateOffsets(rows.end(), context.pool());
       auto rawOffsets = offsets->asMutable<vector_size_t>();
@@ -142,7 +143,7 @@ class MapFunction : public exec::VectorFunction {
       auto rawValuesIndices = valuesIndices->asMutable<vector_size_t>();
 
       vector_size_t offset = 0;
-      remainingRows.applyToSelected([&](vector_size_t row) {
+      remainingRows->applyToSelected([&](vector_size_t row) {
         rawOffsets[row] = offset;
         rawSizes[row] = numKeys;
 
@@ -175,7 +176,7 @@ class MapFunction : public exec::VectorFunction {
           wrappedValues,
           std::nullopt,
           true);
-      context.moveOrCopyResult(mapVector, remainingRows, result);
+      context.moveOrCopyResult(mapVector, *remainingRows, result);
     } else {
       auto keyIndices = decodedKeys->indices();
       auto valueIndices = decodedValues->indices();
@@ -183,27 +184,21 @@ class MapFunction : public exec::VectorFunction {
       auto keysArray = decodedKeys->base()->as<ArrayVector>();
       auto valuesArray = decodedValues->base()->as<ArrayVector>();
 
-      // When context.throwOnError is false, some rows will be marked as
-      // 'failed'. These rows should not be processed further. 'remainingRows'
-      // will contain a subset of 'rows' that have passed all the checks (e.g.
-      // keys are not nulls and number of keys and values is the same).
-      SelectivityVector remainingRows = rows;
-
       // Verify there are no null keys.
       auto keysElements = keysArray->elements();
       if (keysElements->mayHaveNulls()) {
-        context.applyToSelectedNoThrow(remainingRows, [&](auto row) {
+        context.applyToSelectedNoThrow(*remainingRows, [&](auto row) {
           auto offset = keysArray->offsetAt(keyIndices[row]);
           auto size = keysArray->sizeAt(keyIndices[row]);
           for (auto i = 0; i < size; ++i) {
             VELOX_USER_CHECK(!keysElements->isNullAt(offset + i), kNullKey);
           }
         });
-        context.deselectErrors(remainingRows);
+        context.deselectErrors(*remainingRows);
       }
 
       // Check array lengths
-      context.applyToSelectedNoThrow(remainingRows, [&](vector_size_t row) {
+      context.applyToSelectedNoThrow(*remainingRows, [&](vector_size_t row) {
         VELOX_USER_CHECK_EQ(
             keysArray->sizeAt(keyIndices[row]),
             valuesArray->sizeAt(valueIndices[row]),
@@ -211,10 +206,10 @@ class MapFunction : public exec::VectorFunction {
             kArrayLengthsMismatch);
       });
 
-      context.deselectErrors(remainingRows);
+      context.deselectErrors(*remainingRows);
 
       vector_size_t totalElements = 0;
-      remainingRows.applyToSelected([&](auto row) {
+      remainingRows->applyToSelected([&](auto row) {
         totalElements += keysArray->sizeAt(keyIndices[row]);
       });
 
@@ -231,7 +226,7 @@ class MapFunction : public exec::VectorFunction {
       auto rawKeysIndices = keysIndices->asMutable<vector_size_t>();
 
       vector_size_t offset = 0;
-      remainingRows.applyToSelected([&](vector_size_t row) {
+      remainingRows->applyToSelected([&](vector_size_t row) {
         auto size = keysArray->sizeAt(keyIndices[row]);
         rawOffsets[row] = offset;
         rawSizes[row] = size;
@@ -262,9 +257,9 @@ class MapFunction : public exec::VectorFunction {
           wrappedKeys,
           wrappedValues);
       if constexpr (!AllowDuplicateKeys) {
-        checkDuplicateKeys(mapVector, remainingRows, context);
+        checkDuplicateKeys(mapVector, *remainingRows, context);
       }
-      context.moveOrCopyResult(mapVector, remainingRows, result);
+      context.moveOrCopyResult(mapVector, *remainingRows, result);
     }
   }
 

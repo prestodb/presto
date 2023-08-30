@@ -38,8 +38,7 @@ TEST_F(MapTest, noNulls) {
   auto expectedMap =
       makeMapVector<int64_t, int32_t>(size, sizeAt, keyAt, valueAt);
 
-  auto result =
-      evaluate<MapVector>("map(c0, c1)", makeRowVector({keys, values}));
+  auto result = evaluate("map(c0, c1)", makeRowVector({keys, values}));
   assertEqualVectors(expectedMap, result);
 }
 
@@ -55,8 +54,7 @@ TEST_F(MapTest, someNulls) {
   auto expectedMap = makeMapVector<int64_t, int32_t>(
       size, sizeAt, keyAt, valueAt, nullEvery(7));
 
-  auto result =
-      evaluate<MapVector>("map(c0, c1)", makeRowVector({keys, values}));
+  auto result = evaluate("map(c0, c1)", makeRowVector({keys, values}));
   assertEqualVectors(expectedMap, result);
 }
 
@@ -77,7 +75,7 @@ TEST_F(MapTest, partiallyPopulated) {
   auto expectedOddMap =
       makeMapVector<int64_t, int64_t>(size, sizeAt, valueAt, keyAt);
 
-  auto result = evaluate<MapVector>(
+  auto result = evaluate(
       "if(c2 = 0, map(c0, c1), map(c1, c0))",
       makeRowVector({keys, values, condition}));
   ASSERT_EQ(result->size(), size);
@@ -108,11 +106,10 @@ TEST_F(MapTest, nullKeys) {
   });
 
   VELOX_ASSERT_THROW(
-      evaluate<MapVector>("map(c0, c1)", makeRowVector({keys, values})),
+      evaluate("map(c0, c1)", makeRowVector({keys, values})),
       "map key cannot be null");
 
-  auto result =
-      evaluate<MapVector>("try(map(c0, c1))", makeRowVector({keys, values}));
+  auto result = evaluate("try(map(c0, c1))", makeRowVector({keys, values}));
   assertEqualVectors(
       makeNullableMapVector<int64_t, int64_t>({
           std::nullopt,
@@ -132,16 +129,14 @@ TEST_F(MapTest, duplicateKeys) {
       size, sizeAt, [](vector_size_t row) { return row % 5; });
 
   VELOX_ASSERT_THROW(
-      evaluate<MapVector>("map(c0, c1)", makeRowVector({keys, values})),
+      evaluate("map(c0, c1)", makeRowVector({keys, values})),
       "Duplicate map keys (10) are not allowed");
 
-  ASSERT_NO_THROW(
-      evaluate<MapVector>("try(map(c0, c1))", makeRowVector({keys, values})));
+  ASSERT_NO_THROW(evaluate("try(map(c0, c1))", makeRowVector({keys, values})));
 
   // Trying the map version with allowing duplicates.
   functions::prestosql::registerMapAllowingDuplicates("map2");
-  ASSERT_NO_THROW(
-      evaluate<MapVector>("map2(c0, c1)", makeRowVector({keys, values})));
+  ASSERT_NO_THROW(evaluate("map2(c0, c1)", makeRowVector({keys, values})));
 }
 
 TEST_F(MapTest, fewerValuesThanKeys) {
@@ -158,11 +153,10 @@ TEST_F(MapTest, fewerValuesThanKeys) {
       [](vector_size_t row) { return row % 13; });
 
   VELOX_ASSERT_THROW(
-      evaluate<MapVector>("map(c0, c1)", makeRowVector({keys, values})),
+      evaluate("map(c0, c1)", makeRowVector({keys, values})),
       "(5 vs. 0) Key and value arrays must be the same length");
 
-  ASSERT_NO_THROW(
-      evaluate<MapVector>("try(map(c0, c1))", makeRowVector({keys, values})));
+  ASSERT_NO_THROW(evaluate("try(map(c0, c1))", makeRowVector({keys, values})));
 }
 
 TEST_F(MapTest, fewerValuesThanKeysInLast) {
@@ -181,7 +175,7 @@ TEST_F(MapTest, fewerValuesThanKeysInLast) {
       [](vector_size_t row) { return row % 13; });
 
   VELOX_ASSERT_THROW(
-      evaluate<MapVector>("map(c0, c1)", makeRowVector({keys, values})),
+      evaluate("map(c0, c1)", makeRowVector({keys, values})),
       "(10 vs. 1) Key and value arrays must be the same length");
 
   auto map =
@@ -226,11 +220,10 @@ TEST_F(MapTest, fewerKeysThanValues) {
       [](vector_size_t row) { return row % 13; });
 
   VELOX_ASSERT_THROW(
-      evaluate<MapVector>("map(c0, c1)", makeRowVector({keys, values})),
+      evaluate("map(c0, c1)", makeRowVector({keys, values})),
       "(0 vs. 5) Key and value arrays must be the same length");
 
-  ASSERT_NO_THROW(
-      evaluate<MapVector>("try(map(c0, c1))", makeRowVector({keys, values})));
+  ASSERT_NO_THROW(evaluate("try(map(c0, c1))", makeRowVector({keys, values})));
 }
 
 TEST_F(MapTest, encodings) {
@@ -263,8 +256,7 @@ TEST_F(MapTest, encodings) {
       flatKeys->elements(),
       flatValues->elements());
 
-  auto result =
-      evaluate<MapVector>("map(c0, c1)", makeRowVector({keys, values}));
+  auto result = evaluate("map(c0, c1)", makeRowVector({keys, values}));
   assertEqualVectors(expectedMap, result);
 }
 
@@ -289,7 +281,7 @@ TEST_F(MapTest, constantKeys) {
 
   // Duplicate key.
   VELOX_ASSERT_THROW(
-      evaluate<MapVector>(
+      evaluate(
           "map(array['key', 'key'], array_constructor(c0, c0))",
           makeRowVector({
               makeFlatVector<int32_t>(size, valueAt),
@@ -343,7 +335,7 @@ TEST_F(MapTest, constantValues) {
   auto expectedMap =
       makeMapVector<int32_t, StringView>(size, sizeAt, keyAt, valueAt);
 
-  auto result = evaluate<MapVector>(
+  auto result = evaluate(
       "map(array_constructor(c0), array['value'])",
       makeRowVector({
           makeFlatVector<int32_t>(size, keyAt),
@@ -370,10 +362,18 @@ TEST_F(MapTest, outOfOrder) {
   auto expectedMap =
       makeMapVector<int64_t, int32_t>(size, sizeAt, keyAt, valueAt);
 
-  auto result = evaluate<MapVector>(
+  auto result = evaluate(
       "map(if(c0 \% 2 = 1, c1, c2), if(c0 \% 3 = 0, c3, c4))",
       makeRowVector({intVector, keys1, keys2, values1, values2}));
   assertEqualVectors(expectedMap, result);
+}
+
+TEST_F(MapTest, rowsWithNullsNotPassedToCheckDuplicateKey) {
+  // Make sure that some rows have fewer 'keys' than 'values'.
+  auto keys = makeNullableArrayVector<int32_t>({{std::nullopt, 1}, {1, 2}});
+  auto values = makeNullableArrayVector<int32_t>({{1, 2}, {1, 2}});
+
+  ASSERT_NO_THROW(evaluate("try(map(c0, c1))", makeRowVector({keys, values})));
 }
 
 } // namespace
