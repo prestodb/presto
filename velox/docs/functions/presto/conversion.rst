@@ -242,9 +242,13 @@ From strings
 ^^^^^^^^^^^^
 
 Casting a string to an integral type is allowed if the string represents an
-integral number within the range of the result type. Casting from strings that
-represent floating-point numbers is not allowed. Casting from invalid input
-values throws.
+integral number within the range of the result type. By default, casting from
+strings that represent floating-point numbers is not allowed.
+
+If cast_to_int_by_truncate is set to true, and the string represents a floating-point number,
+the decimal part will be truncated for casting to an integer.
+
+Casting from invalid input values throws.
 
 Valid examples
 
@@ -254,19 +258,43 @@ Valid examples
   SELECT cast('+1' as tinyint); -- 1
   SELECT cast('-1' as tinyint); -- -1
 
+Valid examples if cast_to_int_by_truncate=true
+
+::
+
+  SELECT cast('12345.67' as tinyint); -- 12345
+  SELECT cast('1.2' as tinyint); -- 1
+  SELECT cast('-1.8' as tinyint); -- -1
+  SELECT cast('1.' as tinyint); -- 1
+  SELECT cast('-1.' as tinyint); -- -1
+  SELECT cast('0.' as tinyint); -- 0
+  SELECT cast('.' as tinyint); -- 0
+  SELECT cast('-.' as tinyint); -- 0
+
 Invalid examples
 
 ::
 
   SELECT cast('1234567' as tinyint); -- Out of range
-  SELECT cast('12345.67' as tinyint); -- Invalid argument
-  SELECT cast('1.2' as tinyint); -- Invalid argument
   SELECT cast('1a' as tinyint); -- Invalid argument
   SELECT cast('' as tinyint); -- Invalid argument
   SELECT cast('1,234,567' as bigint); -- Invalid argument
   SELECT cast('1'234'567' as bigint); -- Invalid argument
   SELECT cast('nan' as bigint); -- Invalid argument
   SELECT cast('infinity' as bigint); -- Invalid argument
+
+Invalid examples if cast_to_int_by_truncate=false
+
+::
+
+  SELECT cast('12345.67' as tinyint); -- Invalid argument
+  SELECT cast('1.2' as tinyint); -- Invalid argument
+  SELECT cast('-1.8' as tinyint); -- Invalid argument
+  SELECT cast('1.' as tinyint); -- Invalid argument
+  SELECT cast('-1.' as tinyint); -- Invalid argument
+  SELECT cast('0.' as tinyint); -- Invalid argument
+  SELECT cast('.' as tinyint); -- Invalid argument
+  SELECT cast('-.' as tinyint); -- Invalid argument
 
 From decimal
 ^^^^^^^^^^^^

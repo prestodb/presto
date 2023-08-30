@@ -95,6 +95,8 @@ struct Converter<
 
       // Setting negative flag
       bool negative = false;
+      // Setting decimalPoint flag
+      bool decimalPoint = false;
       if (v[0] == '-') {
         if (len == 1) {
           VELOX_USER_FAIL("Cannot cast an '-' string to an integral value.");
@@ -104,10 +106,19 @@ struct Converter<
       }
       if (negative) {
         for (; index < len; index++) {
+          // Truncate the decimal
+          if (!decimalPoint && v[index] == '.') {
+            decimalPoint = true;
+            if (++index == len) {
+              break;
+            }
+          }
           if (!std::isdigit(v[index])) {
             VELOX_USER_FAIL("Encountered a non-digit character");
           }
-          result = result * 10 - (v[index] - '0');
+          if (!decimalPoint) {
+            result = result * 10 - (v[index] - '0');
+          }
           // Overflow check
           if (result > 0) {
             VELOX_USER_FAIL("Value is too large for type");
@@ -115,10 +126,19 @@ struct Converter<
         }
       } else {
         for (; index < len; index++) {
+          // Truncate the decimal
+          if (!decimalPoint && v[index] == '.') {
+            decimalPoint = true;
+            if (++index == len) {
+              break;
+            }
+          }
           if (!std::isdigit(v[index])) {
             VELOX_USER_FAIL("Encountered a non-digit character");
           }
-          result = result * 10 + (v[index] - '0');
+          if (!decimalPoint) {
+            result = result * 10 + (v[index] - '0');
+          }
           // Overflow check
           if (result < 0) {
             VELOX_USER_FAIL("Value is too large for type");

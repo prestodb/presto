@@ -76,8 +76,8 @@ class QueryConfig {
   static constexpr const char* kCastMatchStructByName =
       "cast_match_struct_by_name";
 
-  // If set, cast from float/double/decimal to integer truncates the decimal
-  // part, otherwise rounds.
+  // If set, cast from float/double/decimal/string to integer truncates the
+  // decimal part, otherwise rounds.
   static constexpr const char* kCastToIntByTruncate = "cast_to_int_by_truncate";
 
   /// Used for backpressure to block local exchange producers when the local

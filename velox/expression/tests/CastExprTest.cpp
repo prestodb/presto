@@ -718,6 +718,8 @@ TEST_F(CastExprTest, primitiveInvalidCornerCases) {
     // Invalid strings.
     testCast<std::string, int8_t>("tinyint", {"1234567"}, {0}, true);
     testCast<std::string, int8_t>("tinyint", {"1.2"}, {0}, true);
+    testCast<std::string, int8_t>("tinyint", {"1.23444"}, {0}, true);
+    testCast<std::string, int8_t>("tinyint", {".2355"}, {0}, true);
     testCast<std::string, int8_t>("tinyint", {"1a"}, {0}, true);
     testCast<std::string, int8_t>("tinyint", {""}, {0}, true);
     testCast<std::string, int32_t>("integer", {"1'234'567"}, {0}, true);
@@ -752,7 +754,6 @@ TEST_F(CastExprTest, primitiveInvalidCornerCases) {
   {
     // Invalid strings.
     testCast<std::string, int8_t>("tinyint", {"1234567"}, {0}, true);
-    testCast<std::string, int8_t>("tinyint", {"1.2"}, {0}, true);
     testCast<std::string, int8_t>("tinyint", {"1a"}, {0}, true);
     testCast<std::string, int8_t>("tinyint", {""}, {0}, true);
     testCast<std::string, int32_t>("integer", {"1'234'567"}, {0}, true);
@@ -836,6 +837,17 @@ TEST_F(CastExprTest, primitiveValidCornerCases) {
   setCastIntByTruncate(true);
   // To integer.
   {
+    // Valid strings.
+    testCast<std::string, int8_t>("tinyint", {"1.2"}, {1}, false);
+    testCast<std::string, int8_t>("tinyint", {"1.23444"}, {1}, false);
+    testCast<std::string, int8_t>("tinyint", {".2355"}, {0}, false);
+    testCast<std::string, int8_t>("tinyint", {"-1.8"}, {-1}, false);
+    testCast<std::string, int8_t>("tinyint", {"1."}, {1}, false);
+    testCast<std::string, int8_t>("tinyint", {"-1."}, {-1}, false);
+    testCast<std::string, int8_t>("tinyint", {"0."}, {0}, false);
+    testCast<std::string, int8_t>("tinyint", {"."}, {0}, false);
+    testCast<std::string, int8_t>("tinyint", {"-."}, {0}, false);
+
     testCast<int32_t, int8_t>("tinyint", {1234567}, {-121}, false);
     testCast<int32_t, int8_t>("tinyint", {-1234567}, {121}, false);
     testCast<double, int8_t>("tinyint", {12345.67}, {57}, false);
@@ -965,9 +977,14 @@ TEST_F(CastExprTest, errorHandling) {
        "  122",
        "",
        "-12-3",
-       "125.5",
        "1234",
        "-129",
+       "1.1.1",
+       "1..",
+       "1.abc",
+       "..",
+       "-..",
+       "125.5",
        "127",
        "-128"},
       {std::nullopt,
@@ -980,6 +997,11 @@ TEST_F(CastExprTest, errorHandling) {
        std::nullopt,
        std::nullopt,
        std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       125,
        127,
        -128},
       false,
