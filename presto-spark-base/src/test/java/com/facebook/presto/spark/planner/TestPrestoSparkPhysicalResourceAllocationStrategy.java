@@ -56,15 +56,22 @@ import static org.testng.Assert.assertFalse;
 
 public class TestPrestoSparkPhysicalResourceAllocationStrategy
 {
-    // mocked metadata with table statistics generating random estimate count for the purpose of testing
-    // no other method is stubbed so will likely throw UnsupportedOperationException
+    // Mocked metadata with table statistics generating estimate count for the purpose of testing.
+    // No other method is stubbed so will likely throw UnsupportedOperationException.
     private static class MockedMetadata
             extends AbstractMockMetadata
     {
+        private final Estimate tableSizeEstimate;
+
+        public MockedMetadata(Estimate mockedTableSizeEstimate)
+        {
+            this.tableSizeEstimate = mockedTableSizeEstimate;
+        }
+
         @Override
         public TableStatistics getTableStatistics(Session session, TableHandle tableHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
         {
-            return TableStatistics.builder().setRowCount(Estimate.of(100)).setTotalSize(Estimate.of(1000)).build();
+            return TableStatistics.builder().setRowCount(Estimate.of(100)).setTotalSize(tableSizeEstimate).build();
         }
     }
 
@@ -90,7 +97,8 @@ public class TestPrestoSparkPhysicalResourceAllocationStrategy
                     PropertyMetadata.booleanProperty(SPARK_HASH_PARTITION_COUNT_ALLOCATION_STRATEGY_ENABLED, "SPARK_HASH_PARTITION_COUNT_ALLOCATION_STRATEGY_ENABLED", false, false),
                     PropertyMetadata.booleanProperty(SPARK_EXECUTOR_ALLOCATION_STRATEGY_ENABLED, "SPARK_EXECUTOR_ALLOCATION_STRATEGY_ENABLED", false, false)
             ).build())).build();
-    private static final Metadata mockedMetadata = new MockedMetadata();
+    private static final Metadata mockedMetadata = new MockedMetadata(Estimate.of(1000));
+    private static final Metadata mockedUnknownMetadata = new MockedMetadata(Estimate.unknown());
 
     /**
      * Return any plan node, the node does not even need to be "correct",
@@ -108,26 +116,34 @@ public class TestPrestoSparkPhysicalResourceAllocationStrategy
         return planBuilder.join(JoinNode.Type.LEFT, a, b);
     }
 
+    private PhysicalResourceSettings getSettingsHolder(Session session, Metadata metadata)
+    {
+        PrestoSparkSourceStatsCollector prestoSparkSourceStatsCollector = new PrestoSparkSourceStatsCollector(metadata, session);
+        PlanNode nodeToTest = getPlanToTest(session, metadata);
+
+        return new PrestoSparkPhysicalResourceCalculator().calculate(nodeToTest, prestoSparkSourceStatsCollector, session);
+    }
+
     @Test
     public void testHashPartitionCountAllocationStrategy()
     {
-        PrestoSparkSourceStatsCollector prestoSparkSourceStatsCollector = new PrestoSparkSourceStatsCollector(mockedMetadata, testSessionWithAllocation);
-        PlanNode nodeToTest = getPlanToTest(testSessionWithAllocation, mockedMetadata);
-
-        PhysicalResourceSettings settingsHolder = new PrestoSparkPhysicalResourceCalculator()
-                .calculate(nodeToTest, prestoSparkSourceStatsCollector, testSessionWithAllocation);
+        PhysicalResourceSettings settingsHolder = getSettingsHolder(testSessionWithAllocation, mockedMetadata);
         assertEquals(settingsHolder.getHashPartitionCount(), 20);
         assertEquals(settingsHolder.getMaxExecutorCount().getAsInt(), 10);
     }
 
     @Test
+    public void testStrategyWithUnknownEstimate()
+    {
+        PhysicalResourceSettings settingsHolder = getSettingsHolder(testSessionWithAllocation, mockedUnknownMetadata);
+        assertEquals(settingsHolder.getHashPartitionCount(), 150);
+        assertFalse(settingsHolder.getMaxExecutorCount().isPresent());
+    }
+
+    @Test
     public void testHashPartitionCountWithoutAllocationStrategy()
     {
-        PrestoSparkSourceStatsCollector prestoSparkSourceStatsCollector = new PrestoSparkSourceStatsCollector(mockedMetadata, testSessionWithoutAllocation);
-        PlanNode nodeToTest = getPlanToTest(testSessionWithoutAllocation, mockedMetadata);
-
-        PhysicalResourceSettings settingsHolder = new PrestoSparkPhysicalResourceCalculator()
-                .calculate(nodeToTest, prestoSparkSourceStatsCollector, testSessionWithoutAllocation);
+        PhysicalResourceSettings settingsHolder = getSettingsHolder(testSessionWithoutAllocation, mockedMetadata);
         assertEquals(settingsHolder.getHashPartitionCount(), 150);
         assertFalse(settingsHolder.getMaxExecutorCount().isPresent());
     }

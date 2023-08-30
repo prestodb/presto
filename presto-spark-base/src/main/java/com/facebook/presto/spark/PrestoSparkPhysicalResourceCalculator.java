@@ -71,7 +71,6 @@ public class PrestoSparkPhysicalResourceCalculator
         }
 
         double inputDataInBytes = prestoSparkSourceStatsCollector.collectSourceStats(plan);
-        DataSize inputSize = new DataSize(inputDataInBytes, BYTE);
         if (inputDataInBytes < 0) {
             log.warn(String.format("Input data statistics missing, inputDataInBytes=%.2f skipping automatic resource tuning. Executing query %s with %s",
                     inputDataInBytes, session.getQueryId(), defaultResourceSettings));
@@ -82,6 +81,8 @@ public class PrestoSparkPhysicalResourceCalculator
                     inputDataInBytes, session.getQueryId(), defaultResourceSettings));
             return defaultResourceSettings;
         }
+        DataSize inputSize = new DataSize(inputDataInBytes, BYTE);
+
         // update hashPartitionCount only if resource allocation or hash partition allocation is enabled
         if (isSparkResourceAllocationStrategyEnabled(session) || isSparkHashPartitionCountAllocationStrategyEnabled(session)) {
             hashPartitionCount = calculateHashPartitionCount(session, inputSize);
