@@ -21,6 +21,7 @@ import com.facebook.airlift.stats.Distribution.DistributionSnapshot;
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
@@ -64,6 +65,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
+import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -71,6 +73,7 @@ import org.joda.time.DateTime;
 
 import javax.inject.Inject;
 
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -223,6 +226,7 @@ public class QueryMonitor
                 ImmutableList.of(),
                 ImmutableList.of(),
                 ImmutableList.of(),
+                ImmutableMap.of(),
                 Optional.empty(),
                 ImmutableList.of(),
                 ImmutableList.of(),
@@ -260,6 +264,7 @@ public class QueryMonitor
                         createOperatorStatistics(queryInfo),
                         createPlanStatistics(queryInfo.getPlanStatsAndCosts()),
                         historyBasedPlanStatisticsTracker.getQueryStats(queryInfo).values().stream().collect(toImmutableList()),
+                        getPlanHash(queryInfo.getPlanCanonicalInfo()),
                         queryInfo.getExpandedQuery(),
                         queryInfo.getOptimizerInformation(),
                         queryInfo.getCteInformationList(),
@@ -273,6 +278,21 @@ public class QueryMonitor
     private List<PlanStatisticsWithSourceInfo> createPlanStatistics(StatsAndCosts planStatsAndCosts)
     {
         return planStatsAndCosts.getStats().entrySet().stream().map(entry -> entry.getValue().toPlanStatisticsWithSourceInfo(entry.getKey())).collect(toImmutableList());
+    }
+
+    private Map<PlanNodeId, Map<PlanCanonicalizationStrategy, String>> getPlanHash(List<CanonicalPlanWithInfo> canonicalPlanWithInfos)
+    {
+        Map<PlanNodeId, Map<PlanCanonicalizationStrategy, String>> planNodeIdStrategyHashMap = new HashMap<>();
+        for (CanonicalPlanWithInfo canonicalPlanWithInfo : canonicalPlanWithInfos) {
+            PlanCanonicalizationStrategy strategy = canonicalPlanWithInfo.getCanonicalPlan().getStrategy();
+            PlanNodeId planNodeId = canonicalPlanWithInfo.getCanonicalPlan().getPlan().getId();
+            String hash = canonicalPlanWithInfo.getInfo().getHash();
+            if (!planNodeIdStrategyHashMap.containsKey(planNodeId)) {
+                planNodeIdStrategyHashMap.put(planNodeId, new HashMap<>());
+            }
+            planNodeIdStrategyHashMap.get(planNodeId).put(strategy, hash);
+        }
+        return planNodeIdStrategyHashMap;
     }
 
     private QueryMetadata createQueryMetadata(QueryInfo queryInfo)

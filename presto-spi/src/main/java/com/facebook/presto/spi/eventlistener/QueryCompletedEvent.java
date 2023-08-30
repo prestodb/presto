@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -38,6 +41,7 @@ public class QueryCompletedEvent
     private final List<OperatorStatistics> operatorStatistics;
     private final List<PlanStatisticsWithSourceInfo> planStatisticsRead;
     private final List<PlanStatisticsWithSourceInfo> planStatisticsWritten;
+    private final Map<PlanNodeId, Map<PlanCanonicalizationStrategy, String>> planNodeHash;
 
     private final Instant createTime;
     private final Instant executionStartTime;
@@ -65,6 +69,7 @@ public class QueryCompletedEvent
             List<OperatorStatistics> operatorStatistics,
             List<PlanStatisticsWithSourceInfo> planStatisticsRead,
             List<PlanStatisticsWithSourceInfo> planStatisticsWritten,
+            Map<PlanNodeId, Map<PlanCanonicalizationStrategy, String>> planNodeHash,
             Optional<String> expandedQuery,
             List<PlanOptimizerInformation> optimizerInformation,
             List<CTEInformation> cteInformationList,
@@ -86,6 +91,7 @@ public class QueryCompletedEvent
         this.stageStatistics = requireNonNull(stageStatistics, "stageStatistics is null");
         this.operatorStatistics = requireNonNull(operatorStatistics, "operatorStatistics is null");
         this.planStatisticsRead = requireNonNull(planStatisticsRead, "planStatisticsRead is null");
+        this.planNodeHash = requireNonNull(planNodeHash, "planNodeHash is null");
         this.planStatisticsWritten = requireNonNull(planStatisticsWritten, "planStatisticsWritten is null");
         this.expandedQuery = requireNonNull(expandedQuery, "expandedQuery is null");
         this.optimizerInformation = requireNonNull(optimizerInformation, "optimizerInformation is null");
@@ -168,6 +174,11 @@ public class QueryCompletedEvent
     public List<PlanStatisticsWithSourceInfo> getPlanStatisticsWritten()
     {
         return planStatisticsWritten;
+    }
+
+    public Map<PlanNodeId, Map<PlanCanonicalizationStrategy, String>> getPlanNodeHash()
+    {
+        return planNodeHash;
     }
 
     public Optional<String> getExpandedQuery()
