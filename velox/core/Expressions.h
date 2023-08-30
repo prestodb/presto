@@ -209,6 +209,9 @@ class CallTypedExpr : public ITypedExpr {
     if (casted->name() != this->name()) {
       return false;
     }
+    if (*casted->type() != *this->type()) {
+      return false;
+    }
     return std::equal(
         this->inputs().begin(),
         this->inputs().end(),
@@ -303,6 +306,9 @@ class FieldAccessTypedExpr : public ITypedExpr {
     if (casted->name_ != this->name_) {
       return false;
     }
+    if (*casted->type() != *this->type()) {
+      return false;
+    }
     return std::equal(
         this->inputs().begin(),
         this->inputs().end(),
@@ -366,6 +372,9 @@ class ConcatTypedExpr : public ITypedExpr {
   bool operator==(const ITypedExpr& other) const override {
     const auto* casted = dynamic_cast<const ConcatTypedExpr*>(&other);
     if (!casted) {
+      return false;
+    }
+    if (*casted->type() != *this->type()) {
       return false;
     }
     return std::equal(
@@ -436,6 +445,9 @@ class LambdaTypedExpr : public ITypedExpr {
   bool operator==(const ITypedExpr& other) const override {
     const auto* casted = dynamic_cast<const LambdaTypedExpr*>(&other);
     if (!casted) {
+      return false;
+    }
+    if (*casted->type() != *this->type()) {
       return false;
     }
     return *signature_ == *casted->signature_ && *body_ == *casted->body_;
