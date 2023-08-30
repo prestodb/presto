@@ -90,6 +90,15 @@ void enableChecksum() {
       });
 }
 
+std::string stringifyConnectorConfig(
+    const std::unordered_map<std::string, std::string>& configs) {
+  std::stringstream out;
+  for (auto const& [key, value] : configs) {
+    out << "  " << key << "=" << value << "\n";
+  }
+  return out.str();
+}
+
 } // namespace
 
 PrestoServer::PrestoServer(const std::string& configDirectoryPath)
@@ -675,6 +684,10 @@ std::vector<std::string> PrestoServer::registerConnectors(
           fileName.substr(0, fileName.size() - kPropertiesExtension.size());
 
       auto connectorConf = util::readConfig(entry.path());
+      PRESTO_STARTUP_LOG(INFO)
+          << "Registered properties from " << entry.path() << ":\n"
+          << stringifyConnectorConfig(connectorConf);
+
       std::shared_ptr<const velox::Config> properties =
           std::make_shared<const velox::core::MemConfig>(
               std::move(connectorConf));
