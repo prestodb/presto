@@ -90,4 +90,13 @@ public abstract class AbstractTestNativeProbabilityFunctionQueries
         assertQuery("SELECT normal_cdf(9.15, nationKey, 5.3) FROM nation");
         assertQuery("SELECT normal_cdf(2.3, 11.2, nationKey) FROM nation");
     }
+
+    @Test
+    public void testWilsonInterval()
+    {
+        assertQuery("SELECT wilson_interval_upper(3, 7, acctbal / 200) FROM supplier WHERE acctbal > 0.0 AND acctbal < 1000.0");
+        assertQuery("SELECT wilson_interval_lower(nationkey, nationkey + 10, 1.5) FROM nation WHERE nationkey > 0 AND nationkey < 1000");
+        assertQuery("SELECT wilson_interval_upper(suppkey, suppkey + 5, 0.8) FROM supplier WHERE suppkey > 0 AND suppkey < 1000");
+        assertQuery("SELECT wilson_interval_lower(10, 12, acctbal / 200) FROM supplier WHERE acctbal > 0.0 AND acctbal < 1000.0");
+    }
 }
