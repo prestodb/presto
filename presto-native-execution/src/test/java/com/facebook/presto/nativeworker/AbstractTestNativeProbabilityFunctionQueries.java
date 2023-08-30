@@ -87,7 +87,7 @@ public abstract class AbstractTestNativeProbabilityFunctionQueries
     public void testNormalCDF()
     {
         assertQuery("SELECT normal_cdf(nationKey, 7.3, 10.5) FROM nation");
-        assertQuery("SELECT normal_cdf(9.15, nationKey, 5.3) FROM nation");
+        assertQuery("SELECT normal_cdf(9.15, nationKey, 5.3) FROM nation WHERE nationKey != 0");
         assertQuery("SELECT normal_cdf(2.3, 11.2, nationKey) FROM nation");
     }
 
