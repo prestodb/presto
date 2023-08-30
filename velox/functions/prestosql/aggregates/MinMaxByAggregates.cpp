@@ -1064,9 +1064,9 @@ std::unique_ptr<exec::Aggregate> createNArg(
       return createNArg<NAggregate, Timestamp>(
           resultType, compareType, errorMessage);
     case TypeKind::ARRAY:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::MAP:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::ROW:
       return createNArg<NAggregate, ComplexType>(
           resultType, compareType, errorMessage);

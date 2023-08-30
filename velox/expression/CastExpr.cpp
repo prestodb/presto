@@ -479,6 +479,7 @@ VectorPtr CastExpr::applyDecimal(
             rows, input, context, fromType, toType, castResult);
         break;
       }
+      [[fallthrough]];
     }
     default:
       VELOX_UNSUPPORTED(

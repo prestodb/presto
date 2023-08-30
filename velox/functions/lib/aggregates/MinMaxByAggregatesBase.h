@@ -630,9 +630,9 @@ std::unique_ptr<exec::Aggregate> create(
       return create<Aggregate, isMaxFunc, Comparator, Timestamp>(
           resultType, compareType, errorMessage);
     case TypeKind::ARRAY:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::MAP:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::ROW:
       return create<Aggregate, isMaxFunc, Comparator, ComplexType>(
           resultType, compareType, errorMessage);

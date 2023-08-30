@@ -612,11 +612,11 @@ std::unique_ptr<common::Filter> VectorHasher::getFilter(
     bool nullAllowed) const {
   switch (typeKind_) {
     case TypeKind::TINYINT:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::SMALLINT:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::INTEGER:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::BIGINT:
       if (!distinctOverflow_) {
         std::vector<int64_t> values;
@@ -627,7 +627,7 @@ std::unique_ptr<common::Filter> VectorHasher::getFilter(
 
         return common::createBigintValues(values, nullAllowed);
       }
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     default:
       // TODO Add support for strings.
       return nullptr;

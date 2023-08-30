@@ -62,17 +62,17 @@ void CompactRow::initialize(const TypePtr& type) {
       fixedWidthTypeKind_ = true;
       break;
     case TypeKind::TINYINT:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::SMALLINT:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::INTEGER:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::BIGINT:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::HUGEINT:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::REAL:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::DOUBLE:
       valueBytes_ = type->cppSizeInBytes();
       fixedWidthTypeKind_ = true;
@@ -83,7 +83,7 @@ void CompactRow::initialize(const TypePtr& type) {
       fixedWidthTypeKind_ = true;
       break;
     case TypeKind::VARCHAR:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::VARBINARY:
       // Nothing to do.
       break;
@@ -191,7 +191,7 @@ bool CompactRow::isNullAt(vector_size_t index) {
 int32_t CompactRow::variableWidthRowSize(vector_size_t index) {
   switch (typeKind_) {
     case TypeKind::VARCHAR:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::VARBINARY: {
       auto value = decoded_.valueAt<StringView>(index);
       return sizeof(int32_t) + value.size();
@@ -456,7 +456,7 @@ void CompactRow::serializeFixedWidth(
 int32_t CompactRow::serializeVariableWidth(vector_size_t index, char* buffer) {
   switch (typeKind_) {
     case TypeKind::VARCHAR:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::VARBINARY: {
       auto value = decoded_.valueAt<StringView>(index);
       writeInt32(buffer, value.size());

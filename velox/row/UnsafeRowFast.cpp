@@ -89,17 +89,17 @@ void UnsafeRowFast::initialize(const TypePtr& type) {
       fixedWidthTypeKind_ = true;
       break;
     case TypeKind::TINYINT:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::SMALLINT:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::INTEGER:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::BIGINT:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::REAL:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::DOUBLE:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::UNKNOWN:
       valueBytes_ = type->cppSizeInBytes();
       fixedWidthTypeKind_ = true;
@@ -110,9 +110,9 @@ void UnsafeRowFast::initialize(const TypePtr& type) {
       fixedWidthTypeKind_ = true;
       break;
     case TypeKind::HUGEINT:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::VARCHAR:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::VARBINARY:
       // Nothing to do.
       break;
@@ -128,7 +128,7 @@ int32_t UnsafeRowFast::rowSize(vector_size_t index) {
 int32_t UnsafeRowFast::variableWidthRowSize(vector_size_t index) {
   switch (typeKind_) {
     case TypeKind::VARCHAR:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::VARBINARY: {
       auto value = decoded_.valueAt<StringView>(index);
       return alignBytes(value.size());
@@ -192,7 +192,7 @@ int32_t UnsafeRowFast::serializeVariableWidth(
     char* buffer) {
   switch (typeKind_) {
     case TypeKind::VARCHAR:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case TypeKind::VARBINARY: {
       auto value = decoded_.valueAt<StringView>(index);
       memcpy(buffer, value.data(), value.size());

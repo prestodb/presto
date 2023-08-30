@@ -77,7 +77,7 @@ void extractColumns(
 BlockingReason fromStateToBlockingReason(ProbeOperatorState state) {
   switch (state) {
     case ProbeOperatorState::kRunning:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case ProbeOperatorState::kFinish:
       return BlockingReason::kNotBlocked;
     case ProbeOperatorState::kWaitForBuild:
@@ -826,9 +826,9 @@ void HashProbe::checkStateTransition(ProbeOperatorState state) {
       break;
     case ProbeOperatorState::kWaitForPeers:
       VELOX_CHECK(hasMoreSpillData());
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case ProbeOperatorState::kWaitForBuild:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case ProbeOperatorState::kFinish:
       VELOX_CHECK_EQ(state_, ProbeOperatorState::kRunning);
       break;

@@ -72,7 +72,7 @@ NestedLoopJoinProbe::NestedLoopJoinProbe(
 BlockingReason NestedLoopJoinProbe::isBlocked(ContinueFuture* future) {
   switch (state_) {
     case ProbeOperatorState::kRunning:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case ProbeOperatorState::kFinish:
       return BlockingReason::kNotBlocked;
     case ProbeOperatorState::kWaitForBuild: {
