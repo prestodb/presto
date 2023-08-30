@@ -245,10 +245,15 @@ TypedExprPtr Expressions::inferTypes(
     auto input = children.at(0)->type();
     auto& row = input->asRow();
     auto childIndex = row.getChildIdx(fae->getFieldName());
-    return std::make_shared<FieldAccessTypedExpr>(
-        input->childAt(childIndex),
-        children.at(0),
-        std::string{fae->getFieldName()});
+    if (fae->isRootColumn()) {
+      return std::make_shared<FieldAccessTypedExpr>(
+          input->childAt(childIndex),
+          children.at(0),
+          std::string{fae->getFieldName()});
+    } else {
+      return std::make_shared<DereferenceTypedExpr>(
+          input->childAt(childIndex), children.at(0), childIndex);
+    }
   }
   if (auto fun = std::dynamic_pointer_cast<const CallExpr>(expr)) {
     return createWithImplicitCast(fun, std::move(children));

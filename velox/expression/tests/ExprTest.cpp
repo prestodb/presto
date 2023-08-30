@@ -4164,6 +4164,29 @@ auto makeRow = [](const std::string& fieldName) {
       "cast(row_constructor(1) as struct({} BOOLEAN))", fieldName);
 };
 
+TEST_F(ExprTest, extractSubfieldsWithDereference) {
+  // Tests extracting subfields from expressions using DeferenceTypedExpr to
+  // access fields without the field names initialized (all empty string).  In
+  // this case, the field's parent should be extracted.
+  std::vector<core::TypedExprPtr> expr = {
+      std::make_shared<core::DereferenceTypedExpr>(
+          REAL(),
+          std::make_shared<core::FieldAccessTypedExpr>(
+              ROW({{"", DOUBLE()}, {"", REAL()}, {"", BIGINT()}}),
+              std::make_shared<core::InputTypedExpr>(ROW(
+                  {{"c0",
+                    ROW({{"", DOUBLE()}, {"", REAL()}, {"", BIGINT()}})}})),
+              "c0"),
+          1)};
+
+  auto exprSet =
+      std::make_unique<exec::ExprSet>(std::move(expr), execCtx_.get());
+  auto subfields = exprSet->expr(0)->extractSubfields();
+
+  ASSERT_EQ(subfields.size(), 1);
+  ASSERT_EQ(subfields[0].toString(), "c0");
+}
+
 TEST_F(ExprTest, switchRowInputTypesAreTheSame) {
   assertErrorSimplified(
       fmt::format("switch(c0, {},  {})", makeRow("f1"), makeRow("f2")),

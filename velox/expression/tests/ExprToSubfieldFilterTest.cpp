@@ -230,5 +230,24 @@ TEST_F(ExprToSubfieldFilterTest, userError) {
   ASSERT_FALSE(filter);
 }
 
+TEST_F(ExprToSubfieldFilterTest, dereferenceWithEmptyField) {
+  auto call = std::make_shared<core::CallTypedExpr>(
+      BOOLEAN(),
+      std::vector<core::TypedExprPtr>{
+          std::make_shared<core::DereferenceTypedExpr>(
+              REAL(),
+              std::make_shared<core::FieldAccessTypedExpr>(
+                  ROW({{"", DOUBLE()}, {"", REAL()}, {"", BIGINT()}}),
+                  std::make_shared<core::InputTypedExpr>(ROW(
+                      {{"c0",
+                        ROW({{"", DOUBLE()}, {"", REAL()}, {"", BIGINT()}})}})),
+                  "c0"),
+              1)},
+      "is_null");
+  Subfield subfield;
+  auto filter = leafCallToSubfieldFilter(*call, subfield, evaluator());
+  ASSERT_FALSE(filter);
+}
+
 } // namespace
 } // namespace facebook::velox::exec

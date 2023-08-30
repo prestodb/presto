@@ -61,6 +61,7 @@ void ITypedExpr::registerSerDe() {
   registry.Register("CastTypedExpr", core::CastTypedExpr::create);
   registry.Register("ConcatTypedExpr", core::ConcatTypedExpr::create);
   registry.Register("ConstantTypedExpr", core::ConstantTypedExpr::create);
+  registry.Register("DereferenceTypedExpr", core::DereferenceTypedExpr::create);
   registry.Register("FieldAccessTypedExpr", core::FieldAccessTypedExpr::create);
   registry.Register("InputTypedExpr", core::InputTypedExpr::create);
   registry.Register("LambdaTypedExpr", core::LambdaTypedExpr::create);
@@ -149,6 +150,26 @@ TypedExprPtr FieldAccessTypedExpr::create(
     return std::make_shared<FieldAccessTypedExpr>(
         std::move(type), std::move(inputs[0]), name);
   }
+}
+
+folly::dynamic DereferenceTypedExpr::serialize() const {
+  auto obj = ITypedExpr::serializeBase("DereferenceTypedExpr");
+  obj["fieldIndex"] = index_;
+  return obj;
+}
+
+// static
+TypedExprPtr DereferenceTypedExpr::create(
+    const folly::dynamic& obj,
+    void* context) {
+  auto type = core::deserializeType(obj, context);
+  auto inputs = deserializeInputs(obj, context);
+  VELOX_CHECK_EQ(inputs.size(), 1);
+
+  uint32_t index = obj["fieldIndex"].asInt();
+
+  return std::make_shared<DereferenceTypedExpr>(
+      std::move(type), std::move(inputs[0]), index);
 }
 
 folly::dynamic ConcatTypedExpr::serialize() const {

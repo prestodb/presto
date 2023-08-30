@@ -71,7 +71,9 @@ class Subfield {
 
   class NestedField final : public PathElement {
    public:
-    explicit NestedField(const std::string& name) : name_(name) {}
+    explicit NestedField(const std::string& name) : name_(name) {
+      VELOX_USER_CHECK_NE(name, "", "NestedFields must have non-empty names.");
+    }
 
     SubfieldKind kind() const override {
       return kNestedField;

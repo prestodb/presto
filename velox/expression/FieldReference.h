@@ -33,6 +33,19 @@ class FieldReference : public SpecialForm {
             false /* trackCpuUsage */),
         field_(field) {}
 
+  FieldReference(
+      TypePtr type,
+      const std::vector<ExprPtr>& inputs,
+      int32_t index)
+      : SpecialForm(
+            std::move(type),
+            inputs,
+            inputs.at(0)->type()->asRow().nameOf(index),
+            false, /* supportsFlatNoNullsFastPath */
+            false /* trackCpuUsage */),
+        field_(inputs.at(0)->type()->asRow().nameOf(index)),
+        index_(index) {}
+
   const std::string& field() const {
     return field_;
   }
