@@ -1345,6 +1345,23 @@ TEST_P(AllTableWriterTest, constantVectors) {
   verifyTableWriterOutput(outputDirectory->path);
 }
 
+TEST_P(AllTableWriterTest, emptyInput) {
+  auto outputDirectory = TempDirectoryPath::create();
+  auto vector = makeConstantVector(0);
+  auto op = createInsertPlan(
+      PlanBuilder().values({vector}),
+      rowType_,
+      outputDirectory->path,
+      partitionedBy_,
+      bucketProperty_,
+      compressionKind_,
+      getNumWriters(),
+      connector::hive::LocationHandle::TableType::kNew,
+      commitStrategy_);
+
+  assertQuery(op, "SELECT 0");
+}
+
 TEST_P(AllTableWriterTest, commitStrategies) {
   auto filePaths = makeFilePaths(10);
   auto vectors = makeVectors(filePaths.size(), 1000);

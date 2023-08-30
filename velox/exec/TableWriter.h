@@ -125,7 +125,7 @@ class TableWriter : public Operator {
 
   void close() override {
     if (!closed_) {
-      if (dataSink_) {
+      if (dataSink_ != nullptr) {
         dataSink_->close();
       }
       closed_ = true;
