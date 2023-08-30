@@ -207,13 +207,14 @@ void ConfigBase::checkRegisteredProperties(
   }
   auto str = supported.str();
   if (!str.empty()) {
-    PRESTO_STARTUP_LOG(INFO) << "Registered '" << filePath_ << "' properties:\n"
-                             << str;
+    PRESTO_STARTUP_LOG(INFO)
+        << "Registered properties from '" << filePath_ << "':\n"
+        << str;
   }
   str = unsupported.str();
   if (!str.empty()) {
     PRESTO_STARTUP_LOG(WARNING)
-        << "Unregistered '" << filePath_ << "' properties:\n"
+        << "Unregistered properties from '" << filePath_ << "':\n"
         << str;
   }
 }
