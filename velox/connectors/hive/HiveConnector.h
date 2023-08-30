@@ -15,14 +15,6 @@
  */
 #pragma once
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-#include "velox/common/caching/SsdFile.h" // Needed by presto_cpp
-#include "velox/connectors/hive/HiveConfig.h"
-#include "velox/connectors/hive/HiveDataSink.h"
-#include "velox/connectors/hive/HiveDataSource.h"
-#include "velox/dwio/common/FileSink.h"
-#endif
-
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/FileHandle.h"
 #include "velox/core/PlanNode.h"

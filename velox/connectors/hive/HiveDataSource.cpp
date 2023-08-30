@@ -25,10 +25,6 @@
 #include "velox/expression/ExprToSubfieldFilter.h"
 #include "velox/expression/FieldReference.h"
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-#include "velox/connectors/hive/HiveConnectorSplit.h"
-#endif
-
 namespace facebook::velox::connector::hive {
 
 class HiveTableHandle;

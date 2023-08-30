@@ -22,12 +22,8 @@
 #include "velox/core/ITypedExpr.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-#include "velox/connectors/hive/HiveConnector.h"
-#else
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/exec/OperatorUtils.h"
-#endif
 
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>

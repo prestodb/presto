@@ -24,9 +24,7 @@
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/type/tests/SubfieldFiltersBuilder.h"
 
-#ifndef VELOX_ENABLE_BACKWARD_COMPATIBILITY
 #include "velox/connectors/hive/HiveConfig.h"
-#endif
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
