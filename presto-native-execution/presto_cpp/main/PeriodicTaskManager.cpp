@@ -538,6 +538,7 @@ void PeriodicTaskManager::updateSpillStatsTask() {
     REPORT_ADD_STAT_VALUE(
         kCounterSpillWriteTimeUs, deltaSpillStats.spillWriteTimeUs);
   }
+  LOG(INFO) << "Spill Stats:\n" << deltaSpillStats.toString() << "\n";
   lastSpillStats_ = updatedSpillStats;
 }
 
