@@ -1660,8 +1660,8 @@ public final class SystemSessionProperties
                         false),
                 booleanProperty(
                         REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION,
-                        "Rewrite contant array contains to IN expression",
-                        true,
+                        "Rewrite contsant array contains to IN expression",
+                        featuresConfig.isRewriteConstantArrayContainsToInEnabled(),
                         false),
                 booleanProperty(
                         INFER_INEQUALITY_PREDICATES,
