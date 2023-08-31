@@ -100,7 +100,7 @@ public class RewriteConstantArrayContainsToInExpression
         @Override
         public RowExpression rewriteCall(CallExpression node, Void context, RowExpressionTreeRewriter<Void> treeRewriter)
         {
-            if (functionResolution.isArrayContainsFunction(node.getFunctionHandle()) && node.getArguments().get(0) instanceof ConstantExpression) {
+            if (functionResolution.isArrayContainsFunction(node.getFunctionHandle()) && node.getArguments().get(0) instanceof ConstantExpression && !((ConstantExpression) node.getArguments().get(0)).isNull()) {
                 checkState(((ConstantExpression) node.getArguments().get(0)).getValue() instanceof Block && node.getArguments().get(0).getType() instanceof ArrayType);
                 Block arrayValue = (Block) ((ConstantExpression) node.getArguments().get(0)).getValue();
                 if (arrayValue.getPositionCount() == 0) {
