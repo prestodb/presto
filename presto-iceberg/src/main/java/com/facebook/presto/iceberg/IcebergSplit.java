@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.hive.HivePartitionKey;
+import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeProvider;
@@ -44,7 +45,7 @@ public class IcebergSplit
     private final Map<Integer, HivePartitionKey> partitionKeys;
     private final NodeSelectionStrategy nodeSelectionStrategy;
     private final SplitWeight splitWeight;
-
+    private final List<DeleteFile> deletes;
     @JsonCreator
     public IcebergSplit(
             @JsonProperty("path") String path,
@@ -54,7 +55,8 @@ public class IcebergSplit
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("partitionKeys") Map<Integer, HivePartitionKey> partitionKeys,
             @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy,
-            @JsonProperty("splitWeight") SplitWeight splitWeight)
+            @JsonProperty("splitWeight") SplitWeight splitWeight,
+            @JsonProperty("deletes") List<DeleteFile> deletes)
     {
         requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
         this.path = requireNonNull(path, "path is null");
@@ -65,6 +67,7 @@ public class IcebergSplit
         this.partitionKeys = Collections.unmodifiableMap(requireNonNull(partitionKeys, "partitionKeys is null"));
         this.nodeSelectionStrategy = nodeSelectionStrategy;
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
+        this.deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
     }
 
     @JsonProperty
@@ -123,6 +126,12 @@ public class IcebergSplit
     public SplitWeight getSplitWeight()
     {
         return splitWeight;
+    }
+
+    @JsonProperty
+    public List<DeleteFile> getDeletes()
+    {
+        return deletes;
     }
 
     @Override
