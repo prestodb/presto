@@ -19,15 +19,18 @@ target_link_libraries(
   presto_common
   velox_memory
   velox_exception
-  ${PROXYGEN_LIBRARIES}
-  ${LIBSODIUM_LIBRARY}
+  proxygen::proxygenhttpserver
+  proxygen::proxygen
+  fizz::fizz
+  wangle::wangle
+  sodium
   ${OPENSSL_SSL_LIBRARY}
   ${OPENSSL_CRYPTO_LIBRARY}
-  ${FOLLY_WITH_DEPENDENCIES}
-  ${GLOG}
-  ${GFLAGS_LIBRARIES}
-  ${FMT}
-  ${RE2})
+  Folly::folly
+  glog::glog
+  gflags::gflags
+  fmt::fmt
+  re2::re2)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)

@@ -27,7 +27,7 @@ target_link_libraries(
   presto_type_converter
   presto_types
   velox_type_fbhive
-  ${ANTLR4_RUNTIME}
+  antlr4-runtime::antlr4-runtime
   velox_hive_partition_function)
 
 add_executable(
@@ -72,9 +72,9 @@ target_link_libraries(
   velox_serialization
   velox_type
   Boost::filesystem
-  ${RE2}
-  ${ANTLR4_RUNTIME}
-  ${FOLLY_WITH_DEPENDENCIES}
-  ${GLOG}
-  ${GFLAGS_LIBRARIES}
+  re2::re2
+  antlr4-runtime::antlr4-runtime
+  Folly::folly
+  glog::glog
+  gflags::gflags
   pthread)

@@ -14,7 +14,10 @@ cmake_minimum_required(VERSION 3.10)
 # set the project name
 project(PrestoCpp)
 
-set(VELOX_ROOT ${CMAKE_BINARY_DIR}/velox)
+# Note: these are not the same when doing out-of-tree build from src root dir,
+# like `cmake -B _build/release`
+set(VELOX_ROOT_SRC ${CMAKE_SOURCE_DIR}/velox)
+set(VELOX_ROOT_BIN ${CMAKE_BINARY_DIR}/velox)
 
 execute_process(
   COMMAND
@@ -22,6 +25,12 @@ execute_process(
     "( source ${CMAKE_CURRENT_SOURCE_DIR}/velox/scripts/setup-helper-functions.sh && echo -n $(get_cxx_flags $ENV{CPU_TARGET}))"
   OUTPUT_VARIABLE SCRIPT_CXX_FLAGS
   RESULT_VARIABLE COMMAND_STATUS)
+
+# Include velox's dependency macros, see:
+# velox/CMake/resolve_dependency_modules/README.md
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake"
+     "${VELOX_ROOT_SRC}/CMake" "${VELOX_ROOT_SRC}/CMake/third-party")
+include(ResolveDependency)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -58,8 +67,6 @@ option(PRESTO_ENABLE_REMOTE_FUNCTIONS "Enable remote function support" OFF)
 option(PRESTO_ENABLE_TESTING "Enable tests" ON)
 
 # Set all Velox options below
-add_compile_definitions(FOLLY_HAVE_INT128_T=1)
-
 if(PRESTO_ENABLE_S3)
   set(VELOX_ENABLE_S3
       ON
@@ -103,95 +110,69 @@ set(VELOX_BUILD_TEST_UTILS
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(Boost_USE_MULTITHREADED TRUE)
-find_package(
-  Boost
-  1.66.0
-  REQUIRED
-  program_options
-  context
-  filesystem
-  regex
-  thread
-  system
-  date_time
-  atomic)
-include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
+# Set this for backwards compatibility, will be overwritten in velox/
+set(VELOX_GTEST_INCUDE_DIR "velox/third_party/googletest/googletest/include")
+include_directories(.)
+include_directories(${CMAKE_BINARY_DIR})
+include_directories(${VELOX_ROOT_SRC})
+include_directories(${VELOX_ROOT_BIN})
+# Before doing anything else, we add velox and any includes it might need. This
+# allows us to bundle the same Find modules that are shipped with velox, but
+# with our own modifications. For instance, our modules can detect if the target
+# dependency is already defined.
+add_subdirectory(${VELOX_ROOT_SRC})
 
-find_package(gflags COMPONENTS shared)
+set(BOOST_INCLUDE_LIBRARIES
+    atomic
+    context
+    date_time
+    filesystem
+    program_options
+    regex
+    system
+    thread)
+set(Boost_USE_MULTITHREADED ON)
+set_source(Boost)
+resolve_dependency(Boost 1.66.0 COMPONENTS ${BOOST_INCLUDE_LIBRARIES})
 
-find_library(ANTLR4_RUNTIME antlr4-runtime)
-find_path(
-  ANTLR4_RUNTIME_INCLUDE_DIR
-  NAMES antlr4-runtime.h
-  PATH_SUFFIXES antlr4-runtime)
-include_directories(SYSTEM ${ANTLR4_RUNTIME_INCLUDE_DIR})
+set_source(gflags)
+resolve_dependency(gflags COMPONENTS shared)
 
-find_library(GLOG glog)
+set_source(antlr4-runtime)
+resolve_dependency(antlr4-runtime)
 
-find_library(FMT fmt)
+set_source(glog)
+resolve_dependency(glog)
 
-find_library(EVENT event)
+set_source(fmt)
+resolve_dependency(fmt)
 
-find_library(DOUBLE_CONVERSION double-conversion)
-
-find_library(LZ4 lz4)
-find_library(LZO lzo2)
-find_library(ZSTD zstd)
-find_package(ZLIB)
-find_library(SNAPPY snappy)
-
-find_package(folly CONFIG REQUIRED)
-set(FOLLY_WITH_DEPENDENCIES
-    ${FOLLY_LIBRARIES}
-    ${DOUBLE_CONVERSION}
-    Boost::context
-    dl
-    ${EVENT}
-    ${SNAPPY}
-    ${LZ4}
-    ${ZSTD}
-    ${ZLIB_LIBRARIES})
-
-find_package(BZip2 MODULE)
-if(BZIP2_FOUND)
-  list(APPEND FOLLY_WITH_DEPENDENCIES ${BZIP2_LIBRARIES})
-endif()
-include_directories(SYSTEM ${FOLLY_INCLUDE_DIRS})
+add_compile_definitions(FOLLY_HAVE_INT128_T=1)
+set_source(folly)
+resolve_dependency(folly)
 
 # Include third party header files
 find_path(OPT_OPENSSL_DIR NAMES opt/openssl@1.1)
 set(OPENSSL_ROOT_DIR "${OPT_OPENSSL_DIR}/opt/openssl@1.1")
-find_package(OpenSSL REQUIRED)
+set_source(OpenSSL)
+resolve_dependency(OpenSSL REQUIRED)
 
-find_library(LIBSODIUM_LIBRARY NAMES sodium)
-find_library(PROXYGEN proxygen)
-find_library(PROXYGEN_HTTP_SERVER proxygenhttpserver)
-find_library(FIZZ fizz)
-find_library(WANGLE wangle)
+# Note: the uppercase name here is correct
+set_source(Sodium)
+resolve_dependency(Sodium)
+set_source(fizz)
+resolve_dependency(fizz)
+set_source(wangle)
+resolve_dependency(wangle)
+set_source(proxygen)
+resolve_dependency(proxygen)
+set_source(re2)
+resolve_dependency(re2)
+set_source(FBThrift)
+resolve_dependency(FBThrift)
 
-find_library(RE2 re2)
-
-find_package(fizz CONFIG)
-find_package(wangle CONFIG)
-find_package(FBThrift)
-include_directories(SYSTEM ${FBTHRIFT_INCLUDE_DIR})
-
-set(PROXYGEN_LIBRARIES ${PROXYGEN_HTTP_SERVER} ${PROXYGEN} ${WANGLE} ${FIZZ})
-find_path(PROXYGEN_DIR NAMES include/proxygen)
-set(PROXYGEN_INCLUDE_DIR "${PROXYGEN_DIR}/include/proxygen")
-
-include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR} ${PROXYGEN_INCLUDE_DIR})
-include_directories(.)
-include_directories(velox)
-include_directories(velox/velox/external/xxhash)
-include_directories(${VELOX_ROOT})
-include_directories(${CMAKE_BINARY_DIR})
-
-# set this for backwards compatibility, will be overwritten in velox/
-set(VELOX_GTEST_INCUDE_DIR "velox/third_party/googletest/googletest/include")
-
-add_subdirectory(velox)
+include_directories(SYSTEM ${FBTHRIFT_INCLUDE_DIR} ${OPENSSL_INCLUDE_DIR}
+                    ${PROXYGEN_INCLUDE_DIR} ${ANTLR4_RUNTIME_INCLUDE_DIR})
 
 if(PRESTO_ENABLE_TESTING)
   include(CTest) # include after project() but before add_subdirectory()

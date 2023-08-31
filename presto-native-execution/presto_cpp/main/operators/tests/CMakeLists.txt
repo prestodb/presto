@@ -36,5 +36,5 @@ target_link_libraries(
   velox_exec
   gmock
   gtest
-  ${ANTLR4_RUNTIME}
+  antlr4-runtime::antlr4-runtime
   gtest_main)

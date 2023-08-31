@@ -13,7 +13,8 @@
 add_library(http_filters AccessLogFilter.cpp HttpEndpointLatencyFilter.cpp
                          StatsFilter.cpp)
 
-target_link_libraries(http_filters presto_common ${PROXYGEN_LIBRARIES})
+target_link_libraries(http_filters presto_common proxygen::proxygenhttpserver
+                      proxygen::proxygen fizz::fizz wangle::wangle)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
