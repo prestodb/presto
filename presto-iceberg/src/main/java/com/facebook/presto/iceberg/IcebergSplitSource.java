@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -38,6 +39,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getNodeSelectionStrategy;
@@ -123,30 +125,31 @@ public class IcebergSplitSource
                 SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)));
     }
 
-    private static Map<Integer, String> getPartitionKeys(FileScanTask scanTask)
+    private static Map<Integer, HivePartitionKey> getPartitionKeys(FileScanTask scanTask)
     {
         StructLike partition = scanTask.file().partition();
         PartitionSpec spec = scanTask.spec();
         Map<PartitionField, Integer> fieldToIndex = getIdentityPartitions(spec);
-        Map<Integer, String> partitionKeys = new HashMap<>();
+        Map<Integer, HivePartitionKey> partitionKeys = new HashMap<>();
 
         fieldToIndex.forEach((field, index) -> {
             int id = field.sourceId();
+            String colName = field.name();
             Type type = spec.schema().findType(id);
             Class<?> javaClass = type.typeId().javaClass();
             Object value = partition.get(index, javaClass);
 
             if (value == null) {
-                partitionKeys.put(id, null);
+                partitionKeys.put(id, new HivePartitionKey(colName, Optional.empty()));
             }
             else {
-                String partitionValue;
+                HivePartitionKey partitionValue;
                 if (type.typeId() == FIXED || type.typeId() == BINARY) {
                     // this is safe because Iceberg PartitionData directly wraps the byte array
-                    partitionValue = new String(((ByteBuffer) value).array(), UTF_8);
+                    partitionValue = new HivePartitionKey(colName, Optional.of(new String(((ByteBuffer) value).array(), UTF_8)));
                 }
                 else {
-                    partitionValue = value.toString();
+                    partitionValue = new HivePartitionKey(colName, Optional.of(value.toString()));
                 }
                 partitionKeys.put(id, partitionValue);
             }
