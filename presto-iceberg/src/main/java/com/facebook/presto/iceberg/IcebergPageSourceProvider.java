@@ -29,6 +29,7 @@ import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveDwrfEncryptionProvider;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveOrcAggregatedMemoryContext;
+import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
 import com.facebook.presto.hive.orc.OrcBatchPageSource;
@@ -658,7 +659,7 @@ public class IcebergPageSourceProvider
                 .map(IcebergColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        Map<Integer, String> partitionKeys = split.getPartitionKeys();
+        Map<Integer, HivePartitionKey> partitionKeys = split.getPartitionKeys();
 
         List<IcebergColumnHandle> regularColumns = columns.stream()
                 .map(IcebergColumnHandle.class::cast)
