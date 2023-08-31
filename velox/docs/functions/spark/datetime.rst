@@ -34,6 +34,18 @@ These functions support TIMESTAMP and DATE input types.
 
     SELECT dayofmonth('2009-07-30'); -- 30
 
+.. spark:function:: dayofweek(date/timestamp) -> integer
+
+    Returns the day of the week for date/timestamp (1 = Sunday, 2 = Monday, ..., 7 = Saturday).
+    We can use `dow` as alias for ::
+
+    SELECT dayofweek('2009-07-30'); -- 5
+    SELECT dayofweek('2023-08-22 11:23:00.100'); -- 3
+
+.. function:: dow(x) -> integer
+
+    This is an alias for :func:`day_of_week`.
+
 .. spark:function:: last_day(date) -> date
 
     Returns the last day of the month which the date belongs to.

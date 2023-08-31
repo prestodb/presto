@@ -231,6 +231,11 @@ void registerFunctions(const std::string& prefix) {
   registerFunction<DayOfYearFunction, int64_t, Date>(
       {prefix + "doy", prefix + "dayofyear"});
 
+  registerFunction<DayOfWeekFunction, int32_t, Timestamp>(
+      {prefix + "dow", prefix + "dayofweek"});
+  registerFunction<DayOfWeekFunction, int32_t, Date>(
+      {prefix + "dow", prefix + "dayofweek"});
+
   // Register bloom filter function
   registerFunction<BloomFilterMightContainFunction, bool, Varbinary, int64_t>(
       {prefix + "might_contain"});
