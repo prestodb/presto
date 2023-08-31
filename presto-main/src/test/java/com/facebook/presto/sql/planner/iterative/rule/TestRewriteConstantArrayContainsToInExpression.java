@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
@@ -37,6 +38,7 @@ public class TestRewriteConstantArrayContainsToInExpression
         tester().assertThat(
                 ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata()).rules()).addAll(
                         new RewriteConstantArrayContainsToInExpression(getFunctionManager()).rules()).build())
+                .setSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, "true")
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a", BOOLEAN);
                     VariableReferenceExpression b = p.variable("b");
@@ -54,6 +56,7 @@ public class TestRewriteConstantArrayContainsToInExpression
     public void testDoesNotFireForNestedArray()
     {
         tester().assertThat(new RewriteConstantArrayContainsToInExpression(getFunctionManager()).projectRowExpressionRewriteRule())
+                .setSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, "true")
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a", BOOLEAN);
                     VariableReferenceExpression b = p.variable("b", new ArrayType(BIGINT));
@@ -65,11 +68,42 @@ public class TestRewriteConstantArrayContainsToInExpression
     }
 
     @Test
+    public void testDoesNotFireForNull()
+    {
+        tester().assertThat(new RewriteConstantArrayContainsToInExpression(getFunctionManager()).projectRowExpressionRewriteRule())
+                .setSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, "true")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a", BOOLEAN);
+                    VariableReferenceExpression b = p.variable("b", BIGINT);
+                    return p.project(
+                            assignment(a, p.rowExpression("contains(cast(null as array<bigint>), b)")),
+                            p.values(b));
+                })
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireForEmpty()
+    {
+        tester().assertThat(new RewriteConstantArrayContainsToInExpression(getFunctionManager()).projectRowExpressionRewriteRule())
+                .setSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, "true")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a", BOOLEAN);
+                    VariableReferenceExpression b = p.variable("b", new ArrayType(BIGINT));
+                    return p.project(
+                            assignment(a, p.rowExpression("contains(array[], b)")),
+                            p.values(b));
+                })
+                .doesNotFire();
+    }
+
+    @Test
     public void testNotFire()
     {
         tester().assertThat(
                 ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata()).rules()).addAll(
                         new RewriteConstantArrayContainsToInExpression(getFunctionManager()).rules()).build())
+                .setSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, "true")
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a", BOOLEAN);
                     VariableReferenceExpression b = p.variable("b");
@@ -90,6 +124,7 @@ public class TestRewriteConstantArrayContainsToInExpression
         tester().assertThat(
                 ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata()).rules()).addAll(
                         new RewriteConstantArrayContainsToInExpression(getFunctionManager()).rules()).build())
+                .setSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, "true")
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a", BOOLEAN);
                     VariableReferenceExpression b = p.variable("b");
@@ -109,6 +144,7 @@ public class TestRewriteConstantArrayContainsToInExpression
         tester().assertThat(
                 ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata()).rules()).addAll(
                         new RewriteConstantArrayContainsToInExpression(getFunctionManager()).rules()).build())
+                .setSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, "true")
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a", BOOLEAN);
                     VariableReferenceExpression b = p.variable("b", new ArrayType(BIGINT));

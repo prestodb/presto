@@ -70,6 +70,7 @@ import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_E
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CASE_TO_MAP_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN;
@@ -7099,10 +7100,14 @@ public abstract class AbstractTestQueries
     @Test
     public void testRewriteContainsToIn()
     {
-        assertQuery("select k from (values 1, 2, 3, 4, 5) t(k) where contains(array[1, 3, 4], k)", "values 1, 3, 4");
-        assertQuery("select filter(arr, x -> contains(array[1,5], x)) from (values array[1, 2, 3, 4], array[1,3,5,7]) t(arr)", "values array[1], array[1, 5]");
-        assertQuery("select x, contains(array[null], x) from (values 1, 2, 3, 4, null) t(x)", "values (1, null), (2, null), (3, null), (4, null), (null, null)");
-        assertQuery("select x, contains(array[null, 1], x) from (values 1, 2, 3, 4, null) t(x)", "values (1, true), (2, null), (3, null), (4, null), (null, null)");
-        assertQuery("select x, contains(array[], x) from (values 1, 2, 3, 4, null) t(x)", "values (1, false), (2, false), (3, false), (4, false), (null, null)");
+        Session session = Session.builder(getSession())
+                .setSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, "true")
+                .build();
+        assertQuery(session, "select k from (values 1, 2, 3, 4, 5) t(k) where contains(array[1, 3, 4], k)", "values 1, 3, 4");
+        assertQuery(session, "select filter(arr, x -> contains(array[1,5], x)) from (values array[1, 2, 3, 4], array[1,3,5,7]) t(arr)", "values array[1], array[1, 5]");
+        assertQuery(session, "select x, contains(array[null], x) from (values 1, 2, 3, 4, null) t(x)", "values (1, null), (2, null), (3, null), (4, null), (null, null)");
+        assertQuery(session, "select x, contains(array[null, 1], x) from (values 1, 2, 3, 4, null) t(x)", "values (1, true), (2, null), (3, null), (4, null), (null, null)");
+        assertQuery(session, "select x, contains(array[], x) from (values 1, 2, 3, 4, null) t(x)", "values (1, false), (2, false), (3, false), (4, false), (null, null)");
+        assertQuery(session, "select x, contains(cast(null as array<bigint>), x) from (values 1, 2, 3, 4, null) t(x)", "values (1, null), (2, null), (3, null), (4, null), (null, null)");
     }
 }

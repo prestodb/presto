@@ -274,6 +274,7 @@ public class FeaturesConfig
     private boolean addPartialNodeForRowNumberWithLimit = true;
     private boolean inferInequalityPredicates;
     private boolean pullUpExpressionFromLambda;
+    private boolean rewriteConstantArrayContainsToIn;
 
     private boolean preProcessMetadataCalls;
 
@@ -2721,6 +2722,19 @@ public class FeaturesConfig
     public FeaturesConfig setInferInequalityPredicates(boolean inferInequalityPredicates)
     {
         this.inferInequalityPredicates = inferInequalityPredicates;
+        return this;
+    }
+
+    public boolean isRewriteConstantArrayContainsToInEnabled()
+    {
+        return this.rewriteConstantArrayContainsToIn;
+    }
+
+    @Config("optimizer.rewrite-constant-array-contains-to-in")
+    @ConfigDescription("Rewrite constant array contains function to IN expression")
+    public FeaturesConfig setRewriteConstantArrayContainsToInEnabled(boolean rewriteConstantArrayContainsToIn)
+    {
+        this.rewriteConstantArrayContainsToIn = rewriteConstantArrayContainsToIn;
         return this;
     }
 }
