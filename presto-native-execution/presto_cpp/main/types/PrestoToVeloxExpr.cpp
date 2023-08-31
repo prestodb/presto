@@ -619,17 +619,8 @@ TypedExprPtr convertDereferenceExpr(
   auto childIndex = childIndexExpr->value().value<int32_t>();
 
   VELOX_USER_CHECK_LT(childIndex, inputType.size());
-  auto childName = inputType.names()[childIndex];
 
-  VELOX_USER_CHECK_EQ(
-      childIndex,
-      inputType.getChildIdx(childName),
-      "Cannot map field index to name in dereference expression: {}. "
-      "Input struct may have duplicate or empty field names: {}.",
-      childIndex,
-      inputType.toString())
-
-  return std::make_shared<FieldAccessTypedExpr>(returnType, input, childName);
+  return std::make_shared<DereferenceTypedExpr>(returnType, input, childIndex);
 }
 } // namespace
 

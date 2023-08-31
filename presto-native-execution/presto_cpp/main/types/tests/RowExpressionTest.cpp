@@ -922,7 +922,7 @@ TEST_F(RowExpressionTest, dereference) {
   auto expr = converter_->toVeloxExpr(p);
 
   auto fieldAccess =
-      std::dynamic_pointer_cast<const FieldAccessTypedExpr>(expr);
+      std::dynamic_pointer_cast<const DereferenceTypedExpr>(expr);
   ASSERT_NE(fieldAccess, nullptr);
 
   ASSERT_EQ(fieldAccess->name(), "partkey");
