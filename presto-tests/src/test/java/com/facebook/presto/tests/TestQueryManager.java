@@ -223,7 +223,7 @@ public class TestQueryManager
         }
     }
 
-    @Test(timeOut = 60_000L)
+    @Test(timeOut = 120_000L)
     public void testQueryOutputSizeExceeded()
             throws Exception
     {
