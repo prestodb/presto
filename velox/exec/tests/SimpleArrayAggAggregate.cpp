@@ -61,6 +61,17 @@ class ArrayAggAggregate {
 
   static constexpr bool default_null_behavior_ = false;
 
+  static bool toIntermediate(
+      exec::out_type<Array<Generic<T1>>>& out,
+      exec::optional_arg_type<Generic<T1>> in) {
+    if (in.has_value()) {
+      out.add_item().copy_from(in.value());
+    } else {
+      out.add_null();
+    }
+    return true;
+  }
+
   struct AccumulatorType {
     ValueList elements_;
 

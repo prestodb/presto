@@ -42,6 +42,13 @@ class AverageAggregate {
   using OutputType =
       std::conditional_t<std::is_same_v<T, float>, float, double>;
 
+  static bool toIntermediate(
+      exec::out_type<Row<double, int64_t>>& out,
+      exec::arg_type<T> in) {
+    out.copy_from(std::make_tuple(static_cast<double>(in), 1));
+    return true;
+  }
+
   struct AccumulatorType {
     double sum_;
     int64_t count_;
