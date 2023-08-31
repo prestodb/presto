@@ -15,33 +15,45 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.intellij.lang.annotations.Language;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_PAYLOAD_JOINS;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_RESULTS;
+import static com.facebook.presto.testing.TestingSession.DEFAULT_TIME_ZONE_KEY;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestVerboseOptimizerInfo
         extends AbstractTestQueries
 {
+
+    private static final String CATALOG = "local";
+    private static final String SCHEMA = TINY_SCHEMA_NAME;
+
     @Override
     protected QueryRunner createQueryRunner()
     {
@@ -51,8 +63,8 @@ public class TestVerboseOptimizerInfo
     public static LocalQueryRunner createLocalQueryRunner()
     {
         Session defaultSession = testSessionBuilder()
-                .setCatalog("local")
-                .setSchema(TINY_SCHEMA_NAME)
+                .setCatalog(CATALOG)
+                .setSchema(SCHEMA)
                 .build();
 
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
@@ -124,19 +136,62 @@ public class TestVerboseOptimizerInfo
         checkOptimizerResults(explain, ImmutableList.of("PayloadJoinOptimizer", "RemoveRedundantIdentityProjections"), ImmutableList.of("PruneUnreferencedOutputs"));
     }
 
-    @Test
-    public void testVerboseCTEResults()
+    @DataProvider
+    public Object[][] cteSpecificationVariants()
     {
-        Session sessionPrintAll = Session.builder(getSession())
-                .setSystemProperty(VERBOSE_OPTIMIZER_INFO_ENABLED, "true")
-                .build();
+        String fullQualifiedTablePrefix = String.format("%s.%s.", CATALOG, SCHEMA);
+        String schemaOnlyPrefix = String.format("%s.", SCHEMA);
 
-        String query = "with tbl as (select * from lineitem), tbl2 as (select * from tbl) select * from tbl, tbl2";
-        MaterializedResult materializedResult = computeActual(sessionPrintAll, "explain " + query);
+        return new Object[][] {
+                {Optional.of(CATALOG), Optional.of(SCHEMA),
+                        "EXPLAIN with tbl as (select * from lineitem), tbl2 as (select * from tbl) select * from tbl, tbl2",
+                        (Consumer<String>) (String explain) -> {
+                            checkCTEInfo(explain, "tbl", 2, false);
+                            checkCTEInfo(explain, "tbl2", 1, false);
+                        }},
+                {Optional.of(CATALOG), Optional.empty(),
+                        "EXPLAIN with tbl as (select * from " + schemaOnlyPrefix + "lineitem), tbl2 as (select * from tbl) select * from tbl, tbl2",
+                        (Consumer<String>) (String explain) -> {
+                            checkCTEInfo(explain, "tbl", 2, false);
+                            checkCTEInfo(explain, "tbl2", 1, false);
+                        }},
+                {Optional.empty(), Optional.empty(),
+                        "EXPLAIN with tbl as (select * from " + fullQualifiedTablePrefix + "lineitem), tbl2 as (select * from tbl) select * from tbl, tbl2",
+                        (Consumer<String>) (String explain) -> {
+                            checkCTEInfo(explain, "tbl", 2, false);
+                            checkCTEInfo(explain, "tbl2", 1, false);
+                        }},
+                {Optional.of(CATALOG), Optional.empty(),
+                        // No name collisions occur for CTEs when intermixed with fully or partially specified tables
+                        "EXPLAIN with tbl as (select * from " + schemaOnlyPrefix + "lineitem), lineitem as (select * from tbl) select * from tbl, lineitem",
+                        (Consumer<String>) (String explain) -> {
+                            checkCTEInfo(explain, "tbl", 2, false);
+                            checkCTEInfo(explain, "lineitem", 1, false);
+                        }},
+        };
+    }
+
+    @Test(dataProvider = "cteSpecificationVariants")
+    public void testVerboseCTEResults(Optional<String> sessionCatalog, Optional<String> sessionSchema, @Language("SQL") String explainQuery, Consumer<String> explainAssertions)
+    {
+        Session.SessionBuilder sessionBuilder = Session.builder(new SessionPropertyManager())
+                .setQueryId(new QueryIdGenerator().createNextQueryId())
+                .setIdentity(new Identity("user", Optional.empty()))
+                .setTimeZoneKey(DEFAULT_TIME_ZONE_KEY)
+                .setLocale(ENGLISH)
+                .setRemoteUserAddress("address")
+                .setUserAgent("agent")
+                .setSystemProperty(VERBOSE_OPTIMIZER_INFO_ENABLED, "true");
+
+        sessionCatalog.ifPresent(sessionBuilder::setCatalog);
+        sessionSchema.ifPresent(sessionBuilder::setSchema);
+
+        Session sessionPrintAll = sessionBuilder.build();
+
+        MaterializedResult materializedResult = computeActual(sessionPrintAll, explainQuery);
         String explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
 
-        checkCTEInfo(explain, "tbl", 2, false);
-        checkCTEInfo(explain, "tbl2", 1, false);
+        explainAssertions.accept(explain);
     }
 
     private void checkOptimizerInfo(String explain, boolean checkTriggered, List<String> optimizers)

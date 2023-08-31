@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.memory;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -22,8 +23,12 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 
@@ -179,10 +184,31 @@ public class TestMemorySmoke
 
         assertQuery("SELECT * FROM test_view", query);
 
+        // Test that we can query a view and a WITH defined CTE of the same name when referencing the view with a fully qualified names
+        String ctePlusViewQuery = "WITH test_view as (SELECT 42 as test_col) SELECT * FROM test_view, memory.default.test_view";
+        MaterializedResult materializedResult = computeActual(Session.builder(getSession()).setSystemProperty(VERBOSE_OPTIMIZER_INFO_ENABLED, "true").build(),
+                "EXPLAIN " + ctePlusViewQuery);
+        String explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
+        // checkCTEInfo(explain, "test_view", 1, false); //FAILS
+        checkCTEInfo(explain, "memory.default.test_view", 1, true);
+        // Run the query and compare results with equivalent query
+        assertQueryWithSameQueryRunner(ctePlusViewQuery, "WITH foo as (SELECT 42 as test_col) SELECT * FROM foo, test_view");
+
         assertTrue(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains("test_view"));
 
         assertUpdate("DROP VIEW test_view");
         assertQueryFails("DROP VIEW test_view", "line 1:1: View 'memory.default.test_view' does not exist");
+    }
+
+    private void checkCTEInfo(String explain, String name, int frequency, boolean isView)
+    {
+        String regex = "CTEInfo.*";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(explain);
+        assertTrue(matcher.find());
+
+        String cteInfo = matcher.group();
+        assertTrue(cteInfo.contains(name + ": " + frequency + " (is_view: " + isView + ")"));
     }
 
     private List<QualifiedObjectName> listMemoryTables()

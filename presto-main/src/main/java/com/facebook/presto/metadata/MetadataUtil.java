@@ -139,6 +139,28 @@ public final class MetadataUtil
         return new CatalogSchemaName(catalogName, schemaName);
     }
 
+    public static boolean hasQualifiedObjectName(Session session, QualifiedName name)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(name, "name is null");
+
+        int partsLength = name.getParts().size();
+        if (partsLength > 3) {
+            throw new PrestoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
+        }
+
+        switch (partsLength) {
+            case 0:
+                return false;
+            case 1:
+                return session.getCatalog().isPresent() && session.getSchema().isPresent();
+            case 2:
+                return session.getSchema().isPresent();
+            default:
+                return true;
+        }
+    }
+
     public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name)
     {
         requireNonNull(session, "session is null");
