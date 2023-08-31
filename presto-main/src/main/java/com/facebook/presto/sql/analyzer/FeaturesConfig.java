@@ -273,6 +273,7 @@ public class FeaturesConfig
     private boolean broadcastJoinWithSmallBuildUnknownProbe;
     private boolean addPartialNodeForRowNumberWithLimit = true;
     private boolean pullUpExpressionFromLambda;
+    private boolean rewriteConstantArrayContainsToIn;
 
     private boolean preProcessMetadataCalls;
 
@@ -2707,6 +2708,19 @@ public class FeaturesConfig
     public FeaturesConfig setPullUpExpressionFromLambdaEnabled(boolean pullUpExpressionFromLambda)
     {
         this.pullUpExpressionFromLambda = pullUpExpressionFromLambda;
+        return this;
+    }
+
+    public boolean isRewriteConstantArrayContainsToInEnabled()
+    {
+        return this.rewriteConstantArrayContainsToIn;
+    }
+
+    @Config("optimizer.rewrite-constant-array-contains-to-in")
+    @ConfigDescription("Rewrite constant array contains function to IN expression")
+    public FeaturesConfig setRewriteConstantArrayContainsToInEnabled(boolean rewriteConstantArrayContainsToIn)
+    {
+        this.rewriteConstantArrayContainsToIn = rewriteConstantArrayContainsToIn;
         return this;
     }
 }
