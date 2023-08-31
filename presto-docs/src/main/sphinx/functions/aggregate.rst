@@ -333,6 +333,33 @@ Approximate Aggregate Functions
     :func:`numeric_histogram` that takes a ``weight``, with a per-item weight of ``1``.
     In this case, the total weight in the returned map is the count of items in the bin.
 
+.. function:: noisy_count_gaussian(x, noise_scale) -> bigint
+
+    Counts the non-null values and then adds a random Gaussian noise
+    with 0 mean and standard deviation of ``noise_scale`` to the true count.
+    The noisy count is post-processed to be non-negative and rounded to bigint.
+
+    When there are no input rows, this function returns ``NULL``.
+
+    Noise is from a secure random. ::
+
+        SELECT noisy_count_gaussian(orderkey, 20.0) FROM tpch.tiny.lineitem WHERE false; -- NULL (1 row)
+        SELECT noisy_count_gaussian(orderkey, 20.0) FROM tpch.tiny.lineitem WHERE false  GROUP BY orderkey; -- (0 row)
+
+.. function:: noisy_count_gaussian(x, noise_scale, random_seed) -> bigint
+
+    Counts the non-null values and then adds a random Gaussian noise
+    with 0 mean and standard deviation of ``noise_scale`` to the true count.
+    The noisy count is post-processed to be non-negative and rounded to bigint.
+
+    When there are no input rows, this function returns ``NULL``.
+
+    Random seed is used to seed the random generator.
+    This method does not use a secure random. ::
+
+        SELECT noisy_count_gaussian(orderkey, 20.0, 321) FROM tpch.tiny.lineitem WHERE false; -- NULL (1 row)
+        SELECT noisy_count_gaussian(orderkey, 20.0, 321) FROM tpch.tiny.lineitem WHERE false  GROUP BY orderkey; --  (0 row)
+
 
 Statistical Aggregate Functions
 -------------------------------
