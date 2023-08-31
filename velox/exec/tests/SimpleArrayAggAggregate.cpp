@@ -87,7 +87,7 @@ class ArrayAggAggregate {
         HashStringAllocator* allocator,
         exec::optional_arg_type<Array<Generic<T1>>> other) {
       if (!other.has_value()) {
-        return true;
+        return false;
       }
       for (auto element : other.value()) {
         elements_.appendValue(element, allocator);
@@ -98,7 +98,7 @@ class ArrayAggAggregate {
     bool writeFinalResult(
         bool nonNullGroup,
         exec::out_type<Array<Generic<T1>>>& out) {
-      if (!nonNullGroup || elements_.size() == 0) {
+      if (!nonNullGroup) {
         return false;
       }
       copyValueListToArrayWriter(out, elements_);
@@ -110,7 +110,7 @@ class ArrayAggAggregate {
         exec::out_type<Array<Generic<T1>>>& out) {
       // If the group's accumulator is null, the corresponding intermediate
       // result is null too.
-      if (!nonNullGroup || elements_.size() == 0) {
+      if (!nonNullGroup) {
         return false;
       }
       copyValueListToArrayWriter(out, elements_);
