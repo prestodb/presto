@@ -652,10 +652,13 @@ size_t TaskManager::cleanOldTasks() {
 
   const auto elapsedMs = (getCurrentTimeMs() - startTimeMs);
   if (not taskIdsToClean.empty()) {
+    std::vector<std::shared_ptr<PrestoTask>> tasksToDelete;
+    tasksToDelete.reserve(taskIdsToClean.size());
     {
       // Remove tasks from the task map. We briefly lock for write here.
       auto writableTaskMap = taskMap_.wlock();
       for (const auto& taskId : taskIdsToClean) {
+        tasksToDelete.push_back(std::move(writableTaskMap->at(taskId)));
         writableTaskMap->erase(taskId);
       }
     }
