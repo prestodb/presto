@@ -77,7 +77,8 @@ add_executable(
   UnnestTest.cpp
   VectorHasherTest.cpp
   ValuesTest.cpp
-  WindowFunctionRegistryTest.cpp)
+  WindowFunctionRegistryTest.cpp
+  SortBufferTest.cpp)
 
 add_executable(
   velox_exec_infra_test

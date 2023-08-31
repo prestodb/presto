@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <fmt/core.h>
+#include <sstream>
+#include <string>
 
 #pragma once
 
@@ -40,6 +43,29 @@ struct CompareFlags {
   bool mayStopAtNull() {
     return nullHandlingMode == CompareFlags::NullHandlingMode::StopAtNull ||
         nullHandlingMode == CompareFlags::NullHandlingMode::StopAtRhsNull;
+  }
+
+  static std::string nullHandlingModeToStr(NullHandlingMode mode) {
+    switch (mode) {
+      case CompareFlags::NullHandlingMode::NoStop:
+        return "NoStop";
+      case CompareFlags::NullHandlingMode::StopAtNull:
+        return "StopAtNull";
+      case CompareFlags::NullHandlingMode::StopAtRhsNull:
+        return "StopAtRhsNull";
+      default:
+        return fmt::format(
+            "Unknown Null Handling mode {}", static_cast<int>(mode));
+    }
+  }
+
+  std::string toString() const {
+    return fmt::format(
+        "[NullFirst[{}] Ascending[{}] EqualsOnly[{}] NullHandleMode[{}]]",
+        nullsFirst,
+        ascending,
+        equalsOnly,
+        nullHandlingModeToStr(nullHandlingMode));
   }
 };
 

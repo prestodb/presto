@@ -58,6 +58,7 @@ add_library(
   ProbeOperatorState.cpp
   RowContainer.cpp
   RowNumber.cpp
+  SortBuffer.cpp
   SortedAggregations.cpp
   Spill.cpp
   SpillOperatorGroup.cpp
