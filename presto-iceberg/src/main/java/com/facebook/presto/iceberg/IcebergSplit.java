@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeProvider;
@@ -40,7 +41,7 @@ public class IcebergSplit
     private final long length;
     private final FileFormat fileFormat;
     private final List<HostAddress> addresses;
-    private final Map<Integer, String> partitionKeys;
+    private final Map<Integer, HivePartitionKey> partitionKeys;
     private final NodeSelectionStrategy nodeSelectionStrategy;
     private final SplitWeight splitWeight;
 
@@ -51,7 +52,7 @@ public class IcebergSplit
             @JsonProperty("length") long length,
             @JsonProperty("fileFormat") FileFormat fileFormat,
             @JsonProperty("addresses") List<HostAddress> addresses,
-            @JsonProperty("partitionKeys") Map<Integer, String> partitionKeys,
+            @JsonProperty("partitionKeys") Map<Integer, HivePartitionKey> partitionKeys,
             @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy,
             @JsonProperty("splitWeight") SplitWeight splitWeight)
     {
@@ -97,7 +98,7 @@ public class IcebergSplit
     }
 
     @JsonProperty
-    public Map<Integer, String> getPartitionKeys()
+    public Map<Integer, HivePartitionKey> getPartitionKeys()
     {
         return partitionKeys;
     }
