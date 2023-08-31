@@ -41,9 +41,6 @@ void copyValueListToArrayWriter(ArrayWriter<T>& writer, ValueList& elements) {
   ValueListReader reader(elements);
   for (vector_size_t i = 0; i < size; ++i) {
     reader.next(*writer.elementsVector(), writer.valuesOffset() + i);
-    writer.elementsVector()->setNull(
-        writer.valuesOffset() + i,
-        writer.elementsVector()->isNullAt(writer.valuesOffset() + i));
   }
   writer.resize(size);
 }
