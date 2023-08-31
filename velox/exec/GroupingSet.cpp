@@ -1044,6 +1044,7 @@ void GroupingSet::toIntermediate(
 
     if (function->supportsToIntermediate()) {
       populateTempVectors(i, input);
+      VELOX_DCHECK(aggregateVector);
       function->toIntermediate(rows, tempVectors_, aggregateVector);
       continue;
     }

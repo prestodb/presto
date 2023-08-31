@@ -207,8 +207,8 @@ class Aggregate {
   /// Produces an accumulator initialized from a single value for each
   /// row in 'rows'. The raw arguments of the aggregate are in 'args',
   /// which have the same meaning as in addRawInput. The result is
-  /// placed in 'result'. 'result is allocated if nullptr, otherwise
-  /// it is expected to be a writable flat vector of the right type.
+  /// placed in 'result'. 'result' is expected to be a writable flat vector of
+  /// the right type.
   ///
   /// @param rows A set of rows to produce intermediate results for. The
   /// 'result' is expected to have rows.size() rows. Invalid rows represent rows
