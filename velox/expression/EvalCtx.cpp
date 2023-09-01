@@ -219,11 +219,13 @@ void EvalCtx::convertElementErrorsToTopLevelNulls(
     return;
   }
 
+  auto rawNulls = result->mutableRawNulls();
+
   const auto* rawElementToTopLevelRows =
       elementToTopLevelRows->as<vector_size_t>();
   elementRows.applyToSelected([&](auto row) {
     if (errors_->isIndexInRange(row) && !errors_->isNullAt(row)) {
-      result->setNull(rawElementToTopLevelRows[row], true);
+      bits::setNull(rawNulls, rawElementToTopLevelRows[row], true);
     }
   });
 }

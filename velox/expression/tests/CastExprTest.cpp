@@ -33,6 +33,16 @@ namespace {
 constexpr float kInf = std::numeric_limits<float>::infinity();
 constexpr float kNan = std::numeric_limits<float>::quiet_NaN();
 
+namespace {
+auto createCopy(const VectorPtr& input) {
+  VectorPtr result;
+  SelectivityVector rows(input->size());
+  BaseVector::ensureWritable(rows, input->type(), input->pool(), result);
+  result->copy(input.get(), rows, nullptr);
+  return result;
+}
+} // namespace
+
 class CastExprTest : public functions::test::CastBaseTest {
  protected:
   CastExprTest() {
@@ -86,7 +96,7 @@ class CastExprTest : public functions::test::CastBaseTest {
         expected->type(),
         nullOnFailure);
     exec::ExprSet exprSet({castExpr}, &execCtx_);
-
+    auto copy = createCopy(data);
     const auto size = data->size();
     SelectivityVector rows(size);
     std::vector<VectorPtr> result(1);
@@ -95,6 +105,9 @@ class CastExprTest : public functions::test::CastBaseTest {
       exprSet.eval(rows, evalCtx, result);
 
       assertEqualVectors(expected, result[0]);
+
+      // Make sure the input vector does not change.
+      assertEqualVectors(data, copy);
     }
 
     // Test constant input.
@@ -103,8 +116,13 @@ class CastExprTest : public functions::test::CastBaseTest {
       const auto index = size - 1;
       auto constantData = BaseVector::wrapInConstant(size, index, data);
       auto constantRow = makeRowVector({constantData});
+      auto localCopy = createCopy(constantRow);
       exec::EvalCtx evalCtx(&execCtx_, &exprSet, constantRow.get());
       exprSet.eval(rows, evalCtx, result);
+
+      // Make sure the input vector does not change.
+      assertEqualVectors(constantRow, localCopy);
+      assertEqualVectors(data, copy);
 
       assertEqualVectors(
           BaseVector::wrapInConstant(size, index, expected), result[0]);
@@ -123,6 +141,9 @@ class CastExprTest : public functions::test::CastBaseTest {
       exec::ExprSet dictionaryExprSet({dictionaryCastExpr}, &execCtx_);
       exec::EvalCtx evalCtx(&execCtx_, &dictionaryExprSet, rowVector.get());
       dictionaryExprSet.eval(rows, evalCtx, result);
+
+      // Make sure the input vector does not change.
+      assertEqualVectors(data, copy);
 
       auto indices = functions::test::makeIndicesInReverse(size, pool());
       assertEqualVectors(wrapInDictionary(indices, size, expected), result[0]);
@@ -1148,6 +1169,7 @@ TEST_F(CastExprTest, mapCast) {
   {
     auto data = makeRowVector(
         {makeMapVector<StringView, StringView>({{{"1", "2"}}, {{"", "1"}}})});
+    auto copy = createCopy(data);
     auto result1 = evaluate("try_cast(c0 as map(int, int))", data);
     auto result2 = evaluate("try(cast(c0 as map(int, int)))", data);
     ASSERT_FALSE(result1->isNullAt(0));
@@ -1156,12 +1178,16 @@ TEST_F(CastExprTest, mapCast) {
     ASSERT_FALSE(result2->isNullAt(0));
     ASSERT_TRUE(result2->isNullAt(1));
     ASSERT_THROW(evaluate("cast(c0 as map(int, int)", data), VeloxException);
+
+    // Make sure the input vector does not change.
+    assertEqualVectors(data, copy);
   }
 
   {
     auto result = evaluate(
         "try_cast(map(array_constructor('1'), array_constructor(''))  as map(int, int))",
         makeRowVector({makeFlatVector<int32_t>({1, 2})}));
+
     ASSERT_TRUE(result->isNullAt(0));
     ASSERT_TRUE(result->isNullAt(1));
   }
@@ -1230,6 +1256,7 @@ TEST_F(CastExprTest, arrayCast) {
   {
     auto data =
         makeRowVector({makeArrayVector<StringView>({{"1", "2"}, {"", "1"}})});
+    auto copy = createCopy(data);
     auto result1 = evaluate("try_cast(c0 as bigint[])", data);
     auto result2 = evaluate("try(cast(c0 as bigint[]))", data);
 
@@ -1239,6 +1266,9 @@ TEST_F(CastExprTest, arrayCast) {
     assertEqualVectors(result2, expected);
 
     ASSERT_THROW(evaluate("cast(c0 as bigint[])", data), VeloxException);
+
+    // Make sure the input vector does not change.
+    assertEqualVectors(data, copy);
   }
 
   {
