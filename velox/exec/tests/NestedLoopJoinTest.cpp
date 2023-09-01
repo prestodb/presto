@@ -24,27 +24,6 @@ using namespace facebook::velox::exec::test;
 
 class NestedLoopJoinTest : public HiveConnectorTestBase {
  protected:
-  RowTypePtr probeType_;
-  RowTypePtr buildType_;
-  std::vector<std::string> comparisons_;
-  std::vector<core::JoinType> joinTypes_;
-  std::string joinConditionStr_;
-  std::string queryStr_;
-
-  void SetUp() override {
-    HiveConnectorTestBase::SetUp();
-    probeType_ = ROW({{"t0", BIGINT()}});
-    buildType_ = ROW({{"u0", BIGINT()}});
-    comparisons_ = {"=", "<", "<=", "<>"};
-    joinTypes_ = {
-        core::JoinType::kInner,
-        core::JoinType::kLeft,
-        core::JoinType::kRight,
-        core::JoinType::kFull};
-    joinConditionStr_ = "t0 {} u0";
-    queryStr_ = "SELECT t0, u0 FROM t {} JOIN u ON t.t0 {} u.u0";
-  }
-
   void setProbeType(const RowTypePtr& probeType) {
     probeType_ = probeType;
   }
@@ -57,12 +36,20 @@ class NestedLoopJoinTest : public HiveConnectorTestBase {
     comparisons_ = std::move(comparisons);
   }
 
+  void setOutputLayout(std::vector<std::string> outputLayout) {
+    outputLayout_ = std::move(outputLayout);
+  }
+
   void setJoinConditionStr(std::string joinConditionStr) {
     joinConditionStr_ = std::move(joinConditionStr);
   }
 
   void setQueryStr(std::string queryStr) {
     queryStr_ = std::move(queryStr);
+  }
+
+  void setJoinTypes(std::vector<core::JoinType> joinTypes) {
+    joinTypes_ = std::move(joinTypes);
   }
 
   template <typename T>
@@ -77,19 +64,19 @@ class NestedLoopJoinTest : public HiveConnectorTestBase {
         size, [start](auto row) { return start + row; });
   }
 
+  void runSingleAndMultiDriverTest(
+      const std::vector<RowVectorPtr>& probeVectors,
+      const std::vector<RowVectorPtr>& buildVectors) {
+    runTest(probeVectors, buildVectors, 1);
+    runTest(probeVectors, buildVectors, 4);
+  }
+
   void runTest(
       const std::vector<RowVectorPtr>& probeVectors,
       const std::vector<RowVectorPtr>& buildVectors,
-      int32_t numDrivers = 1) {
-    if (numDrivers == 1) {
-      createDuckDbTable("t", probeVectors);
-      createDuckDbTable("u", buildVectors);
-    } else {
-      auto allProbeVectors = makeCopies(probeVectors, numDrivers);
-      auto allBuildVectors = makeCopies(buildVectors, numDrivers);
-      createDuckDbTable("t", allProbeVectors);
-      createDuckDbTable("u", allBuildVectors);
-    }
+      int32_t numDrivers) {
+    createDuckDbTable("t", probeVectors);
+    createDuckDbTable("u", buildVectors);
 
     CursorParameters params;
     params.maxDrivers = numDrivers;
@@ -105,13 +92,15 @@ class NestedLoopJoinTest : public HiveConnectorTestBase {
 
         params.planNode =
             PlanBuilder(planNodeIdGenerator)
-                .values(probeVectors, numDrivers > 1)
+                .values(probeVectors)
+                .localPartition({probeKeyName_})
                 .nestedLoopJoin(
                     PlanBuilder(planNodeIdGenerator)
-                        .values(buildVectors, numDrivers > 1)
+                        .values(buildVectors)
+                        .localPartition({buildKeyName_})
                         .planNode(),
                     fmt::format(fmt::runtime(joinConditionStr_), comparison),
-                    {"t0", "u0"},
+                    outputLayout_,
                     joinType)
                 .planNode();
 
@@ -122,24 +111,42 @@ class NestedLoopJoinTest : public HiveConnectorTestBase {
       }
     }
   }
+
+ protected:
+  const std::string probeKeyName_{"t0"};
+  const std::string buildKeyName_{"u0"};
+  RowTypePtr probeType_{ROW({{probeKeyName_, BIGINT()}})};
+  RowTypePtr buildType_{ROW({{buildKeyName_, BIGINT()}})};
+  std::vector<std::string> comparisons_{"=", "<", "<=", "<>"};
+  std::vector<core::JoinType> joinTypes_{
+      core::JoinType::kInner,
+      core::JoinType::kLeft,
+      core::JoinType::kRight,
+      core::JoinType::kFull};
+  std::vector<std::string> outputLayout_{probeKeyName_, buildKeyName_};
+  std::string joinConditionStr_{probeKeyName_ + " {} " + buildKeyName_};
+  std::string queryStr_{fmt::format(
+      "SELECT {0}, {1} FROM t {{}} JOIN u ON t.{0} {{}} u.{1}",
+      probeKeyName_,
+      buildKeyName_)};
 };
 
 TEST_F(NestedLoopJoinTest, basic) {
   auto probeVectors = makeBatches(20, 5, probeType_, pool_.get());
   auto buildVectors = makeBatches(18, 5, buildType_, pool_.get());
-  runTest(probeVectors, buildVectors);
+  runSingleAndMultiDriverTest(probeVectors, buildVectors);
 }
 
 TEST_F(NestedLoopJoinTest, emptyProbe) {
   auto probeVectors = makeBatches(0, 5, probeType_, pool_.get());
   auto buildVectors = makeBatches(18, 5, buildType_, pool_.get());
-  runTest(probeVectors, buildVectors);
+  runSingleAndMultiDriverTest(probeVectors, buildVectors);
 }
 
 TEST_F(NestedLoopJoinTest, emptyBuild) {
   auto probeVectors = makeBatches(20, 5, probeType_, pool_.get());
   auto buildVectors = makeBatches(0, 5, buildType_, pool_.get());
-  runTest(probeVectors, buildVectors);
+  runSingleAndMultiDriverTest(probeVectors, buildVectors);
 }
 
 TEST_F(NestedLoopJoinTest, basicCrossJoin) {
@@ -373,30 +380,12 @@ TEST_F(NestedLoopJoinTest, zeroColumnBuild) {
   assertQuery(op, "SELECT * FROM t");
 }
 
-TEST_F(NestedLoopJoinTest, parallel) {
-  auto probeVectors = makeBatches(10, 5, probeType_, pool_.get());
-  auto buildVectors = makeBatches(7, 5, buildType_, pool_.get());
-  runTest(probeVectors, buildVectors, 5);
-}
-
 TEST_F(NestedLoopJoinTest, bigintArray) {
   auto probeVectors = makeBatches(1000, 5, probeType_, pool_.get());
   auto buildVectors = makeBatches(900, 5, buildType_, pool_.get());
-  createDuckDbTable("t", probeVectors);
-  createDuckDbTable("u", buildVectors);
-
-  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  auto plan =
-      PlanBuilder(planNodeIdGenerator)
-          .values(probeVectors)
-          .nestedLoopJoin(
-              PlanBuilder(planNodeIdGenerator).values(buildVectors).planNode(),
-              "t0 = u0",
-              {"t0", "u0"},
-              core::JoinType::kFull)
-          .planNode();
-
-  assertQuery(plan, "SELECT t0, u0 FROM t FULL JOIN u ON t.t0 = u.u0");
+  setComparisons({"="});
+  setJoinTypes({core::JoinType::kFull});
+  runSingleAndMultiDriverTest(probeVectors, buildVectors);
 }
 
 TEST_F(NestedLoopJoinTest, allTypes) {
@@ -430,5 +419,5 @@ TEST_F(NestedLoopJoinTest, allTypes) {
       "t0 {0} u0 AND t1 {0} u1 AND t2 {0} u2 AND t3 {0} u3 AND t4 {0} u4 AND t5 {0} u5 AND t6 {0} u6");
   setQueryStr(
       "SELECT t0, u0 FROM t {0} JOIN u ON t.t0 {1} u0 AND t1 {1} u1 AND t2 {1} u2 AND t3 {1} u3 AND t4 {1} u4 AND t5 {1} u5 AND t6 {1} u6");
-  runTest(probeVectors, buildVectors);
+  runSingleAndMultiDriverTest(probeVectors, buildVectors);
 }
