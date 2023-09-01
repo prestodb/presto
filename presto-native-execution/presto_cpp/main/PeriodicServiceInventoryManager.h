@@ -42,7 +42,7 @@ class PeriodicServiceInventoryManager {
 
   // For every N requests, we update the service address. This might be
   // needed for cases where we need to send requests so often that we cannot
-  // affort to update service each time.
+  // afford to update service each time.
   virtual int updateServiceTimes() {
     return 1;
   }
@@ -72,5 +72,7 @@ class PeriodicServiceInventoryManager {
   std::atomic_bool stopped_{true};
   uint64_t failedAttempts_{0};
   uint64_t attempts_{0};
+
+  virtual ~PeriodicServiceInventoryManager() {}
 };
 } // namespace facebook::presto
