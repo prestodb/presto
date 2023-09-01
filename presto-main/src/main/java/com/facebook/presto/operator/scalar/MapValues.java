@@ -18,12 +18,10 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.ScalarFunctionDescriptor;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 
-@ScalarFunction(value = "map_values", descriptor = @ScalarFunctionDescriptor(
-        isAccessingInputValues = false))
+@ScalarFunction("map_values")
 @Description("Returns the values of the given map(K,V) as an array")
 public final class MapValues
 {

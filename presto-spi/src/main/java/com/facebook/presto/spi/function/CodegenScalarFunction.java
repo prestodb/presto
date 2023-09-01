@@ -33,6 +33,4 @@ public @interface CodegenScalarFunction
     boolean deterministic() default true;
 
     boolean calledOnNullInput() default false;
-
-    ScalarFunctionDescriptor descriptor() default @ScalarFunctionDescriptor;
 }
