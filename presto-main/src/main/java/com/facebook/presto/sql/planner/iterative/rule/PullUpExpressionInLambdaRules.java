@@ -33,6 +33,7 @@ import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -113,15 +114,15 @@ public class PullUpExpressionInLambdaRules
 
     public Rule<FilterNode> filterNodeRule()
     {
-        return new FilterNodeRule();
+        return new PullUpExpressionInLambdaFilterNodeRule();
     }
 
     public Rule<ProjectNode> projectNodeRule()
     {
-        return new ProjectNodeRule();
+        return new PullUpExpressionInLambdaProjectNodeRule();
     }
 
-    private final class ProjectNodeRule
+    private final class PullUpExpressionInLambdaProjectNodeRule
             implements Rule<ProjectNode>
     {
         @Override
@@ -166,7 +167,7 @@ public class PullUpExpressionInLambdaRules
         }
     }
 
-    private final class FilterNodeRule
+    private final class PullUpExpressionInLambdaFilterNodeRule
             implements Rule<FilterNode>
     {
         @Override
@@ -206,6 +207,10 @@ public class PullUpExpressionInLambdaRules
     private static class ValidExpressionExtractor
             implements RowExpressionVisitor<Boolean, Boolean>
     {
+        // Bind expression will complicate the lambda expression, we apply this optimization before DesugarLambdaRule. And if there are bind expression, skip
+        // SWITCH, COALESCE, IF are conditional expressions, some of their expressions may not be executed, but will always be executed if pulled out
+        private static final List<SpecialFormExpression.Form> UNSUPPORTED_TYPES = ImmutableList.of(SpecialFormExpression.Form.SWITCH, SpecialFormExpression.Form.BIND,
+                SpecialFormExpression.Form.COALESCE, SpecialFormExpression.Form.WHEN, SpecialFormExpression.Form.IF);
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
         private final FunctionResolution functionResolution;
         private final List<VariableReferenceExpression> inputVariables;
@@ -225,7 +230,9 @@ public class PullUpExpressionInLambdaRules
         @Override
         public Boolean visitCall(CallExpression call, Boolean context)
         {
-            if (functionResolution.isTryFunction(call.getFunctionHandle())) {
+            // Skip try function as pulling out function within try function can throw exception.
+            // Skip subscript function as it can throw exception when pull out
+            if (functionResolution.isTryFunction(call.getFunctionHandle()) || functionResolution.isSubscriptFunction(call.getFunctionHandle())) {
                 return false;
             }
             Map<RowExpression, Boolean> validRowExpressionMap = call.getArguments().stream().distinct().collect(toImmutableMap(identity(), x -> x.accept(this, context)));
@@ -234,7 +241,7 @@ public class PullUpExpressionInLambdaRules
                 if (!allArgumentsValid) {
                     candidates.addAll(validRowExpressionMap.entrySet().stream()
                             .filter(x -> x.getValue().equals(Boolean.TRUE))
-                            .filter(x -> x.getKey() instanceof CallExpression || x.getKey() instanceof SpecialFormExpression)
+                            .filter(x -> isSupportedExpression(x.getKey()))
                             .map(Map.Entry::getKey)
                             .collect(toImmutableList()));
                 }
@@ -246,8 +253,7 @@ public class PullUpExpressionInLambdaRules
         @Override
         public Boolean visitSpecialForm(SpecialFormExpression specialForm, Boolean context)
         {
-            // Bind expression will complicate the lambda expression, we apply this optimization before DesugarLambdaRule. And if there are bind expression, skip
-            if (specialForm.getForm().equals(SpecialFormExpression.Form.BIND)) {
+            if (UNSUPPORTED_TYPES.contains(specialForm.getForm())) {
                 return false;
             }
             Map<RowExpression, Boolean> validRowExpressionMap = specialForm.getArguments().stream().distinct().collect(toImmutableMap(identity(), x -> x.accept(this, context)));
@@ -256,7 +262,7 @@ public class PullUpExpressionInLambdaRules
                 if (!allArgumentsValid) {
                     candidates.addAll(validRowExpressionMap.entrySet().stream()
                             .filter(x -> x.getValue().equals(Boolean.TRUE))
-                            .filter(x -> x.getKey() instanceof CallExpression || x.getKey() instanceof SpecialFormExpression)
+                            .filter(x -> isSupportedExpression(x.getKey()))
                             .map(Map.Entry::getKey)
                             .collect(toImmutableList()));
                 }
@@ -268,7 +274,7 @@ public class PullUpExpressionInLambdaRules
         @Override
         public Boolean visitLambda(LambdaDefinitionExpression lambda, Boolean context)
         {
-            if (lambda.getBody().accept(this, true) && (lambda.getBody() instanceof CallExpression || lambda.getBody() instanceof SpecialFormExpression)) {
+            if (lambda.getBody().accept(this, true) && isSupportedExpression(lambda.getBody())) {
                 candidates.add(lambda.getBody());
             }
             // For simplicity, we do not pull out lambda expressions
@@ -291,6 +297,12 @@ public class PullUpExpressionInLambdaRules
         public Boolean visitInputReference(InputReferenceExpression reference, Boolean context)
         {
             return false;
+        }
+
+        // WHEN expression should only exist within SWITCH expression, and will throw exception in RowExpressionInterpreter, also no byte code generator for standalone WHEN expression
+        private boolean isSupportedExpression(RowExpression expression)
+        {
+            return expression instanceof CallExpression || (expression instanceof SpecialFormExpression && !((SpecialFormExpression) expression).getForm().equals(SpecialFormExpression.Form.WHEN));
         }
     }
 
