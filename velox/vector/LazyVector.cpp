@@ -224,4 +224,12 @@ void LazyVector::ensureLoadedRows(
   ensureLoadedRowsImpl(vector, decoded, rows, baseRows);
 }
 
+void LazyVector::validate(const VectorValidateOptions& options) const {
+  if (isLoaded() || options.loadLazy) {
+    auto loadedVector = this->loadedVector();
+    VELOX_CHECK_NOT_NULL(loadedVector);
+    loadedVector->validate(options);
+  }
+}
+
 } // namespace facebook::velox

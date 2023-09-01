@@ -52,6 +52,17 @@ class VectorPool;
 class BaseVector;
 using VectorPtr = std::shared_ptr<BaseVector>;
 
+// Set of options that validate() accepts.
+struct VectorValidateOptions {
+  // If set to true then an unloaded lazy vector is loaded and validate is
+  // called on the loaded vector. NOTE: loading a vector is non-trivial and
+  // can modify how it's handled by downstream code-paths.
+  bool loadLazy = false;
+
+  // Any optional checks you want to execute on the vector.
+  std::function<void(const BaseVector&)> callback;
+};
+
 /**
  * Base class for all columnar-based vectors of any type.
  */
@@ -755,6 +766,11 @@ class BaseVector {
   void disableMemo() {
     memoDisabled_ = true;
   }
+
+  /// Used to check internal state of a vector like sizes of the buffers,
+  /// enclosed child vectors, values in indices. Currently, its only used in
+  /// debug builds to check the result of expressions and some interim results.
+  virtual void validate(const VectorValidateOptions& options = {}) const;
 
  protected:
   /// Returns a brief summary of the vector. The default implementation includes

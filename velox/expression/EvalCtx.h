@@ -251,6 +251,12 @@ class EvalCtx {
       const VectorPtr& localResult,
       const SelectivityVector& rows,
       VectorPtr& result) const {
+#ifndef NDEBUG
+    if (localResult != nullptr) {
+      // Make sure local/temporary vectors have consistent state.
+      localResult->validate();
+    }
+#endif
     if (result && !isFinalSelection() && *finalSelection() != rows) {
       BaseVector::ensureWritable(rows, result->type(), result->pool(), result);
       result->copy(localResult.get(), rows, nullptr);

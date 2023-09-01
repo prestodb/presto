@@ -269,6 +269,8 @@ class LazyVector : public BaseVector {
       DecodedVector& decoded,
       SelectivityVector& baseRows);
 
+  void validate(const VectorValidateOptions& options) const override;
+
  private:
   static void ensureLoadedRowsImpl(
       VectorPtr& vector,
