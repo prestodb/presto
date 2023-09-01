@@ -16,6 +16,7 @@
 #include "velox/serializers/PrestoSerializer.h"
 #include <folly/Random.h>
 #include <gtest/gtest.h>
+#include <vector>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/ByteStream.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
@@ -135,8 +136,11 @@ class PrestoSerializerTest
         size, [](vector_size_t row) { return row; });
     auto b = vectorMaker_->flatVector<double>(
         size, [](vector_size_t row) { return row * 0.1; });
+    auto c = vectorMaker_->flatVector<std::string>(size, [](vector_size_t row) {
+      return row % 2 == 0 ? "LaaaaaaaaargeString" : "inlineStr";
+    });
 
-    std::vector<VectorPtr> childVectors = {a, b};
+    std::vector<VectorPtr> childVectors = {a, b, c};
 
     return vectorMaker_->rowVector(childVectors);
   }
@@ -288,40 +292,35 @@ TEST_P(PrestoSerializerTest, unknown) {
 
 TEST_P(PrestoSerializerTest, multiPage) {
   std::ostringstream out;
-
-  // page 1
-  auto a = makeTestVector(1'234);
-  serialize(a, &out, nullptr);
-
-  // page 2
-  auto b = makeTestVector(538);
-  serialize(b, &out, nullptr);
-
-  // page 3
-  auto c = makeTestVector(2'048);
-  serialize(c, &out, nullptr);
+  std::vector<RowVectorPtr> testVectors;
+  // Note: Page of size 1250 is a slight increase in size that initiates string
+  // buffer re-use.
+  for (int size : {1234, 1250, 538, 2408}) {
+    auto vec = makeTestVector(size);
+    serialize(vec, &out, nullptr);
+    testVectors.push_back(std::move(vec));
+  }
 
   auto bytes = out.str();
 
-  auto rowType = asRowType(a->type());
+  auto rowType = asRowType(testVectors[0]->type());
   auto byteStream = toByteStream(bytes);
 
   RowVectorPtr deserialized;
   auto paramOptions = getParamSerdeOptions(nullptr);
-  serde_->deserialize(
-      byteStream.get(), pool_.get(), rowType, &deserialized, &paramOptions);
-  ASSERT_FALSE(byteStream->atEnd());
-  assertEqualVectors(deserialized, a);
 
-  serde_->deserialize(
-      byteStream.get(), pool_.get(), rowType, &deserialized, &paramOptions);
-  assertEqualVectors(deserialized, b);
-  ASSERT_FALSE(byteStream->atEnd());
-
-  serde_->deserialize(
-      byteStream.get(), pool_.get(), rowType, &deserialized, &paramOptions);
-  assertEqualVectors(deserialized, c);
-  ASSERT_TRUE(byteStream->atEnd());
+  for (int i = 0; i < testVectors.size(); i++) {
+    RowVectorPtr& vec = testVectors[i];
+    serde_->deserialize(
+        byteStream.get(), pool_.get(), rowType, &deserialized, &paramOptions);
+    if (i < testVectors.size() - 1) {
+      ASSERT_FALSE(byteStream->atEnd());
+    } else {
+      ASSERT_TRUE(byteStream->atEnd());
+    }
+    assertEqualVectors(deserialized, vec);
+    deserialized->validate({});
+  }
 }
 
 TEST_P(PrestoSerializerTest, timestampWithNanosecondPrecision) {

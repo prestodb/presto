@@ -359,6 +359,9 @@ BufferPtr findOrAllocateStringBuffer(
     }
   }
   if (smallestBuffer) {
+    if (smallestBuffer->size() < size) {
+      smallestBuffer->setSize(size);
+    }
     return smallestBuffer;
   }
 
