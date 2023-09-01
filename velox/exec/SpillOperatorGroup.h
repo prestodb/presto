@@ -23,6 +23,7 @@
 namespace facebook::velox::exec {
 
 class Operator;
+class Driver;
 
 /// Used to coordinate the disk spill operation among multiple operator
 /// instances of the same plan node within a task (split group). Take hash
@@ -70,7 +71,10 @@ class SpillOperatorGroup {
   ///
   /// NOTE: the group of operators are instantiated from the same plan node in a
   /// task pipeline, such as all the build operators for a hash join node.
-  void addOperator(Operator& op, SpillRunner spillRunner);
+  void addOperator(
+      Operator& op,
+      const std::shared_ptr<Driver>& driver,
+      SpillRunner spillRunner);
 
   /// Invoked to indicate a driver won't trigger any more spill request and
   /// it will also not involve in the future group spill operation. The function
@@ -124,6 +128,13 @@ class SpillOperatorGroup {
   // fulfilling 'promises'.
   void runSpill(std::vector<ContinuePromise>& promises);
 
+  // Invoked to grab a shared reference to each operator driver to ensure all
+  // the participating operators alive while running spilling. The function
+  // throws if it fails to get the shared reference to any one of the operator
+  // driver. The latter could only happen if the associated query task has
+  // failed, and there is no need to run spilling in that case.
+  std::vector<std::shared_ptr<Driver>> ensureDrivers();
+
   bool waitSpillLocked(
       Operator& op,
       std::vector<ContinuePromise>& promises,
@@ -141,6 +152,9 @@ class SpillOperatorGroup {
   // The participating spill operators which won't change after starts the
   // group.
   std::vector<Operator*> operators_;
+  // Used to hold the shared reference on the associated drivers to keep the
+  // operators alive while running spilling.
+  std::vector<std::weak_ptr<Driver>> drivers_;
   // Invoked to run spill on all 'operators_' no matter it has stopped or not.
   SpillRunner spillRunner_;
 

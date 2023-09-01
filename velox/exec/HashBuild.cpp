@@ -201,6 +201,7 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
   if (spillPartition == nullptr) {
     spillGroup_->addOperator(
         *this,
+        operatorCtx_->driver()->shared_from_this(),
         [&](const std::vector<Operator*>& operators) { runSpill(operators); });
   } else {
     spillInputReader_ = spillPartition->createReader();

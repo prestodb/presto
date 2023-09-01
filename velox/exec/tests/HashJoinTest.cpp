@@ -20,6 +20,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
+#include "velox/exec/HashBuild.h"
 #include "velox/exec/HashJoinBridge.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
@@ -198,7 +199,7 @@ class HashJoinBuilder {
   HashJoinBuilder(
       memory::MemoryPool& pool,
       DuckDbQueryRunner& duckDbQueryRunner,
-      folly::Executor* FOLLY_NONNULL executor)
+      folly::Executor* executor)
       : pool_(pool),
         duckDbQueryRunner_(duckDbQueryRunner),
         executor_(executor) {
@@ -408,7 +409,6 @@ class HashJoinBuilder {
 
   void run() {
     if (planNode_ != nullptr) {
-      ASSERT_EQ(numDrivers_, 1);
       runTest(planNode_);
       return;
     }
@@ -664,7 +664,7 @@ class HashJoinBuilder {
   VectorFuzzer::Options fuzzerOpts_;
   memory::MemoryPool& pool_;
   DuckDbQueryRunner& duckDbQueryRunner_;
-  folly::Executor* FOLLY_NONNULL executor_;
+  folly::Executor* executor_;
 
   int32_t numDrivers_{1};
   core::JoinType joinType_{core::JoinType::kInner};
@@ -969,6 +969,79 @@ TEST_P(MultiThreadedHashJoinTest, emptyProbeWithSpillMemoryThreshold) {
         ASSERT_EQ(statsPair.second.spilledFiles, 0);
       })
       .run();
+}
+
+DEBUG_ONLY_TEST_P(
+    MultiThreadedHashJoinTest,
+    raceBetweenTaskTerminationAndThesholdTriggeredSpill) {
+  std::atomic<Task*> task{nullptr};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::addInput",
+      std::function<void(Operator*)>([&](Operator* op) {
+        if (op->operatorType() != "HashBuild") {
+          return;
+        }
+        task = op->testingOperatorCtx()->task().get();
+      }));
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::SpillOperatorGroup::runSpill",
+      std::function<void(Operator*)>([&](Operator* op) {
+        ASSERT_TRUE(task.load() != nullptr);
+        task.load()->requestAbort();
+        // Wait a bit to ensure the other peer hash build drivers have been
+        // closed.
+        std::this_thread::sleep_for(std::chrono::milliseconds(1'000));
+      }));
+
+  VectorFuzzer fuzzer({.vectorSize = 10}, pool());
+  const int32_t numBuildVectors = 2;
+  std::vector<RowVectorPtr> buildVectors;
+  for (int32_t i = 0; i < numBuildVectors; ++i) {
+    auto vector = fuzzer.fuzzRow(buildType_);
+    // Build the build vector with the same join key to make sure there is only
+    // one hash build operator running.
+    vector->childAt(0) = makeFlatVector<int32_t>(
+        vector->size(), [](auto /*unused*/) { return 1; });
+    buildVectors.push_back(std::move(vector));
+  }
+  const int32_t numProbeVectors = 2;
+  std::vector<RowVectorPtr> probeVectors;
+  for (int32_t i = 0; i < numProbeVectors; ++i) {
+    probeVectors.push_back(fuzzer.fuzzRow(probeType_));
+  }
+
+  createDuckDbTable("t", probeVectors);
+  createDuckDbTable("u", buildVectors);
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .values(probeVectors, true)
+                  .hashJoin(
+                      {"t_k1"},
+                      {"u_k1"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .values(buildVectors, true)
+                          // NOTE: add local partition here to ensure all the
+                          // build inputs go to the same hash build operator.
+                          .localPartition({"u_k1"})
+                          .planNode(),
+                      "",
+                      {"t_k1", "t_k2"},
+                      core::JoinType::kInner)
+                  .planNode();
+
+  VELOX_ASSERT_THROW(
+      HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+          .planNode(plan)
+          .injectSpill(false)
+          .checkSpillStats(false)
+          .spillMemoryThreshold(1)
+          .maxSpillLevel(0)
+          .numDrivers(numDrivers_)
+          .referenceQuery(
+              "SELECT t.t_k1, t.t_k2 from t, u WHERE t.t_k1 = u.u_k1")
+          .run(),
+      "Aborted for external error");
 }
 
 TEST_P(MultiThreadedHashJoinTest, normalizedKey) {

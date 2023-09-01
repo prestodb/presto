@@ -15,7 +15,10 @@
  */
 
 #include "velox/exec/SpillOperatorGroup.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/Operator.h"
+
+using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
 
@@ -39,6 +42,7 @@ std::string SpillOperatorGroup::stateName(State state) {
 
 void SpillOperatorGroup::addOperator(
     Operator& op,
+    const std::shared_ptr<Driver>& driver,
     SpillOperatorGroup::SpillRunner runner) {
   VELOX_CHECK_NOT_NULL(runner);
   std::lock_guard<std::mutex> l(mutex_);
@@ -48,6 +52,8 @@ void SpillOperatorGroup::addOperator(
       "Can only add an operator before group starts: {}",
       toStringLocked());
   operators_.push_back(&op);
+  drivers_.push_back(driver);
+  VELOX_CHECK_EQ(operators_.size(), drivers_.size());
   // Set 'spillRunner_' to the callback provided by the first added operator.
   if (spillRunner_ == nullptr) {
     spillRunner_ = std::move(runner);
@@ -168,21 +174,41 @@ bool SpillOperatorGroup::waitSpillLocked(
 }
 
 void SpillOperatorGroup::runSpill(std::vector<ContinuePromise>& promises) {
+  TestValue::adjust(
+      "facebook::velox::exec::SpillOperatorGroup::runSpill", this);
+
   VELOX_CHECK(needSpill_);
+  auto guard = folly::makeGuard([&]() {
+    {
+      std::lock_guard<std::mutex> l(mutex_);
+      VELOX_CHECK_EQ(
+          state_,
+          State::kRunning,
+          "Can only run spill when group is running: {}",
+          toStringLocked());
+      needSpill_ = false;
+      numWaitingOperators_ = 0;
+    }
+    for (auto& promise : promises) {
+      promise.setValue();
+    }
+  });
+
+  std::vector<std::shared_ptr<Driver>> holders = ensureDrivers();
   spillRunner_(operators_);
-  {
-    std::lock_guard<std::mutex> l(mutex_);
-    VELOX_CHECK_EQ(
-        state_,
-        State::kRunning,
-        "Can only run spill when group is running: {}",
-        toStringLocked());
-    needSpill_ = false;
-    numWaitingOperators_ = 0;
+}
+
+std::vector<std::shared_ptr<Driver>> SpillOperatorGroup::ensureDrivers() {
+  std::vector<std::shared_ptr<Driver>> holders;
+  holders.reserve(drivers_.size());
+  for (auto& driver : drivers_) {
+    auto holder = driver.lock();
+    // NOTE: if some driver has gone, the associated query task should have been
+    // terminated so no need to run spilling.
+    VELOX_CHECK_NOT_NULL(holder, "Task has already terminated");
+    holders.push_back(std::move(holder));
   }
-  for (auto& promise : promises) {
-    promise.setValue();
-  }
+  return holders;
 }
 
 void SpillOperatorGroup::checkStoppedStateLocked() const {

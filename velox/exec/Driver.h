@@ -318,6 +318,10 @@ class Driver : public std::enable_shared_from_this<Driver> {
     return blockingReason_;
   }
 
+  static std::shared_ptr<Driver> testingCreate() {
+    return std::shared_ptr<Driver>(new Driver());
+  }
+
  private:
   Driver() = default;
 

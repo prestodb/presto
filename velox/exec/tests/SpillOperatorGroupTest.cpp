@@ -44,7 +44,9 @@ class SpillOperatorGroupTest : public testing::Test {
         std::move(planFragment),
         0,
         std::make_shared<core::QueryCtx>());
+    driver_ = Driver::testingCreate();
     driverCtx_ = std::make_unique<DriverCtx>(task_, 0, 0, 0, 0);
+    driverCtx_->driver = driver_.get();
   }
 
   void SetUp() override {
@@ -60,9 +62,9 @@ class SpillOperatorGroupTest : public testing::Test {
   class MockOperator : public Operator {
    public:
     explicit MockOperator(
-        DriverCtx* FOLLY_NONNULL driverCtx,
+        DriverCtx* driverCtx,
         int32_t operatorId,
-        SpillOperatorGroup* FOLLY_NONNULL spillGroup)
+        SpillOperatorGroup* spillGroup)
         : Operator(
               driverCtx,
               nullptr,
@@ -72,17 +74,20 @@ class SpillOperatorGroupTest : public testing::Test {
               "SpillOperator"),
           spillGroup_(spillGroup),
           spillFuture_(ContinueFuture::makeEmpty()) {
-      spillGroup_->addOperator(*this, [&](const std::vector<Operator*>& ops) {
-        std::unordered_set<uint32_t> opIds;
-        for (const auto& op : ops) {
-          opIds.insert(op->stats().rlock()->operatorId);
-        }
-        ASSERT_EQ(opIds.size(), ops.size());
-        for (auto& op : ops) {
-          auto* spillOp = dynamic_cast<MockOperator*>(op);
-          ++spillOp->numSpillRuns_;
-        }
-      });
+      spillGroup_->addOperator(
+          *this,
+          driverCtx->driver->shared_from_this(),
+          [&](const std::vector<Operator*>& ops) {
+            std::unordered_set<uint32_t> opIds;
+            for (const auto& op : ops) {
+              opIds.insert(op->stats().rlock()->operatorId);
+            }
+            ASSERT_EQ(opIds.size(), ops.size());
+            for (auto& op : ops) {
+              auto* spillOp = dynamic_cast<MockOperator*>(op);
+              ++spillOp->numSpillRuns_;
+            }
+          });
     }
 
     bool needsInput() const override {
@@ -146,7 +151,7 @@ class SpillOperatorGroupTest : public testing::Test {
   };
 
   std::unique_ptr<MockOperator> newSpillOperator(
-      SpillOperatorGroup* FOLLY_NONNULL spillGroup) {
+      SpillOperatorGroup* spillGroup) {
     return std::make_unique<MockOperator>(
         driverCtx_.get(), operatorId_++, spillGroup);
   }
@@ -308,6 +313,7 @@ class SpillOperatorGroupTest : public testing::Test {
   std::vector<std::unique_ptr<MockOperator>> spillOps_;
   std::shared_ptr<memory::MemoryPool> pool_;
   std::shared_ptr<Task> task_;
+  std::shared_ptr<Driver> driver_;
   std::unique_ptr<DriverCtx> driverCtx_;
 };
 
@@ -341,6 +347,22 @@ TEST_P(MultiSpillOperatorGroupTest, spillRun) {
     while (hasRunningOperators()) {
       runSpillOperators(true, true);
     }
+  }
+}
+
+TEST_P(MultiSpillOperatorGroupTest, spillRunWithDriverGone) {
+  setupSpillGroup();
+  startSpillGroup();
+  for (int32_t i = 0; i < spillOps_.size() - 1; ++i) {
+    ASSERT_TRUE(spillOps_[i]->requestSpill());
+  }
+  driver_.reset();
+  VELOX_ASSERT_THROW(
+      spillOps_.back()->requestSpill(), "Task has already terminated");
+  // Verify the spill promises have been set by failed spill run.
+  for (int32_t i = 0; i < spillOps_.size() - 1; ++i) {
+    spillOps_[i]->spillFuture().valid();
+    spillOps_[i]->spillFuture().wait();
   }
 }
 
