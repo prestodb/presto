@@ -17,7 +17,6 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.CodegenScalarFunction;
-import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
@@ -176,8 +175,7 @@ public final class SqlInvokedScalarFromAnnotationsParser
                         body,
                         notVersioned(),
                         SCALAR,
-                        Optional.empty(),
-                        ComplexTypeFunctionDescriptor.defaultFunctionDescriptor()))
+                        Optional.empty()))
                 .collect(toImmutableList());
     }
 

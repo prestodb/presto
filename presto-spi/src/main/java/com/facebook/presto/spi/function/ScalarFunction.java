@@ -34,6 +34,4 @@ public @interface ScalarFunction
     boolean deterministic() default true;
 
     boolean calledOnNullInput() default false;
-
-    ScalarFunctionDescriptor descriptor() default @ScalarFunctionDescriptor;
 }
