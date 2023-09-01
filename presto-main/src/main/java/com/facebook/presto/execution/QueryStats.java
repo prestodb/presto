@@ -381,10 +381,10 @@ public class QueryStats
                     else if (operatorType.equals(TableScanOperator.class.getSimpleName()) || operatorType.equals(ScanFilterAndProjectOperator.class.getSimpleName())) {
                         rawInputDataSize += operatorStats.getRawInputDataSize().toBytes();
                         rawInputPositions += operatorStats.getRawInputPositions();
-                        processedInputDataSize += stageExecutionStats.getProcessedInputDataSize().toBytes();
-                        processedInputPositions += stageExecutionStats.getProcessedInputPositions();
                     }
                 }
+                processedInputDataSize += stageExecutionStats.getProcessedInputDataSize().toBytes();
+                processedInputPositions += stageExecutionStats.getProcessedInputPositions();
 
                 if (plan.isOutputTableWriterFragment()) {
                     writtenOutputPositions += stageExecutionStats.getOperatorSummaries().stream()
