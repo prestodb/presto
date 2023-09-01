@@ -75,7 +75,7 @@ void runBenchmark(int nullEvery) {
   braces.dismiss();
 
   for (auto i = 0; i < kNumIterations; i++) {
-    auto config = std::make_shared<Config>();
+    auto config = std::make_shared<dwrf::Config>();
     WriterContext context{
         config,
         memory::defaultMemoryManager().addRootPool(

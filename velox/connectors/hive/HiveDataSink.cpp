@@ -272,11 +272,13 @@ HiveDataSink::HiveDataSink(
     RowTypePtr inputType,
     std::shared_ptr<const HiveInsertTableHandle> insertTableHandle,
     const ConnectorQueryCtx* connectorQueryCtx,
-    CommitStrategy commitStrategy)
+    CommitStrategy commitStrategy,
+    const std::shared_ptr<const Config>& connectorProperties)
     : inputType_(std::move(inputType)),
       insertTableHandle_(std::move(insertTableHandle)),
       connectorQueryCtx_(connectorQueryCtx),
       commitStrategy_(commitStrategy),
+      connectorProperties_(connectorProperties),
       maxOpenWriters_(
           HiveConfig::maxPartitionsPerWriters(connectorQueryCtx_->config())),
       partitionChannels_(getPartitionChannels(insertTableHandle_)),
@@ -446,6 +448,7 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
       dwio::common::FileSink::create(
           writePath,
           {.bufferWrite = false,
+           .connectorProperties = connectorProperties_,
            .pool = connectorQueryCtx_->memoryPool(),
            .metricLogger = dwio::common::MetricsLog::voidLog(),
            .stats = ioStats_.back().get()}),

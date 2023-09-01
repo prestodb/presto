@@ -105,7 +105,11 @@ std::unique_ptr<DataSink> HiveConnector::createDataSink(
   VELOX_CHECK_NOT_NULL(
       hiveInsertHandle, "Hive connector expecting hive write handle!");
   return std::make_unique<HiveDataSink>(
-      inputType, hiveInsertHandle, connectorQueryCtx, commitStrategy);
+      inputType,
+      hiveInsertHandle,
+      connectorQueryCtx,
+      commitStrategy,
+      connectorProperties());
 }
 
 std::unique_ptr<core::PartitionFunction> HivePartitionFunctionSpec::create(

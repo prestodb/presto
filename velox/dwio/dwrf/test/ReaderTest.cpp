@@ -1448,7 +1448,7 @@ iterateVector(const VectorPtr& vector, IteraterCallback cb, size_t index = 0) {
 
 void testBufferLifeCycle(
     const std::shared_ptr<const RowType>& schema,
-    const std::shared_ptr<Config>& config,
+    const std::shared_ptr<dwrf::Config>& config,
     std::mt19937& rng,
     size_t batchSize,
     bool hasNull) {
@@ -1506,7 +1506,7 @@ void testBufferLifeCycle(
 
 void testFlatmapAsMapFieldLifeCycle(
     const std::shared_ptr<const RowType>& schema,
-    const std::shared_ptr<Config>& config,
+    const std::shared_ptr<dwrf::Config>& config,
     std::mt19937& rng,
     size_t batchSize,
     bool hasNull) {
@@ -1622,9 +1622,9 @@ TEST(TestReader, testBufferLifeCycle) {
       ROW({DOUBLE(), BIGINT()}),
   });
 
-  auto config = std::make_shared<Config>();
-  config->set(Config::FLATTEN_MAP, true);
-  config->set(Config::MAP_FLAT_COLS, {0, 1, 2, 3});
+  auto config = std::make_shared<dwrf::Config>();
+  config->set(dwrf::Config::FLATTEN_MAP, true);
+  config->set(dwrf::Config::MAP_FLAT_COLS, {0, 1, 2, 3});
 
   auto seed = folly::Random::rand32();
   LOG(INFO) << "seed: " << seed;
@@ -1642,9 +1642,9 @@ TEST(TestReader, testFlatmapAsMapFieldLifeCycle) {
       MAP(VARCHAR(), INTEGER()),
   });
 
-  auto config = std::make_shared<Config>();
-  config->set(Config::FLATTEN_MAP, true);
-  config->set(Config::MAP_FLAT_COLS, {0});
+  auto config = std::make_shared<dwrf::Config>();
+  config->set(dwrf::Config::FLATTEN_MAP, true);
+  config->set(dwrf::Config::MAP_FLAT_COLS, {0});
 
   auto seed = folly::Random::rand32();
   LOG(INFO) << "seed: " << seed;
@@ -1840,7 +1840,7 @@ createWriterReader(
       std::move(sink),
       asRowType(batches[0]->type()),
       batches,
-      std::make_shared<Config>(),
+      std::make_shared<dwrf::Config>(),
       E2EWriterTestUtil::simpleFlushPolicyFactory(true));
   std::string_view data(sinkPtr->data(), sinkPtr->size());
   auto input = std::make_unique<BufferedInput>(

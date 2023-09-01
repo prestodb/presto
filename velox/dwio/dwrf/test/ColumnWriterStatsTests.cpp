@@ -156,11 +156,13 @@ class ColumnWriterStatsTest : public ::testing::Test {
         dwio::common::FileSink::Options{.pool = leafPool_.get()});
     auto sinkPtr = sink.get();
 
-    auto config = std::make_shared<Config>();
-    config->set(Config::ROW_INDEX_STRIDE, folly::to<uint32_t>(batch->size()));
+    auto config = std::make_shared<dwrf::Config>();
+    config->set(
+        dwrf::Config::ROW_INDEX_STRIDE, folly::to<uint32_t>(batch->size()));
     if (flatMapColId >= 0) {
-      config->set(Config::FLATTEN_MAP, true);
-      config->set(Config::MAP_FLAT_COLS, {folly::to<uint32_t>(flatMapColId)});
+      config->set(dwrf::Config::FLATTEN_MAP, true);
+      config->set(
+          dwrf::Config::MAP_FLAT_COLS, {folly::to<uint32_t>(flatMapColId)});
     }
     dwrf::WriterOptions options;
     options.config = config;

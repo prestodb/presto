@@ -24,6 +24,10 @@
 #include "velox/dwio/common/IoStatistics.h"
 #include "velox/dwio/common/MetricsLog.h"
 
+namespace facebook::velox {
+class Config;
+}
+
 namespace facebook::velox::dwio::common {
 
 /// An abstract interface for providing a file write sink to different storage
@@ -33,6 +37,9 @@ class FileSink : public Closeable {
   struct Options {
     /// If true, allows file sink to buffer data before persist to storage.
     bool bufferWrite{true};
+    /// Connector properties are required to create a FileSink on FileSystems
+    /// such as S3.
+    const std::shared_ptr<const Config>& connectorProperties{nullptr};
     memory::MemoryPool* pool{nullptr};
     MetricsLogPtr metricLogger{MetricsLog::voidLog()};
     IoStatistics* stats{nullptr};
@@ -40,6 +47,7 @@ class FileSink : public Closeable {
 
   FileSink(std::string name, const Options& options)
       : name_{std::move(name)},
+        connectorProperties_{options.connectorProperties},
         pool_(options.pool),
         metricLogger_{options.metricLogger},
         stats_{options.stats},
@@ -98,6 +106,7 @@ class FileSink : public Closeable {
       const std::function<uint64_t(const DataBuffer<char>&)>& callback);
 
   const std::string name_;
+  const std::shared_ptr<const Config> connectorProperties_;
   memory::MemoryPool* const pool_;
   const MetricsLogPtr metricLogger_;
   IoStatistics* const stats_;
