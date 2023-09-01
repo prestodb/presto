@@ -14,6 +14,7 @@
 package com.facebook.presto.parquet.reader;
 
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 
@@ -31,6 +32,10 @@ public class FloatColumnReader
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
+            if (type instanceof DoubleType) {
+                type.writeDouble(blockBuilder, Float.valueOf(valuesReader.readFloat()).doubleValue());
+                return;
+            }
             type.writeLong(blockBuilder, floatToRawIntBits(valuesReader.readFloat()));
         }
         else if (isValueNull()) {
