@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
@@ -108,7 +107,6 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryAnalyzerTimeout;
 import static com.facebook.presto.common.type.TypeUtils.isEnumType;
-import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_PLANNING_TIMEOUT;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
@@ -176,8 +174,6 @@ class RelationPlanner
         Scope scope = analysis.getScope(node);
 
         if (namedQuery != null) {
-            QualifiedObjectName name = createQualifiedObjectName(session, node, node.getName());
-            session.getCteInformationCollector().addCTEReference(node.getName(), analysis.isView(name));
             RelationPlan subPlan = process(namedQuery, context);
 
             // Add implicit coercions if view query produces types that don't match the declared output types

@@ -1368,7 +1368,7 @@ class StatementAnalyzer
             analysis.registerTableForView(table);
             RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
             analysis.unregisterTableForView();
-            analysis.addView(name);
+
             if (isViewStale(view.getColumns(), descriptor.getVisibleFields())) {
                 throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
             }

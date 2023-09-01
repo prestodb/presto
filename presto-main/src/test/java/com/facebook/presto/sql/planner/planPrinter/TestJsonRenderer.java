@@ -89,7 +89,6 @@ public class TestJsonRenderer
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),
-                ImmutableList.of(),
                 ImmutableList.of());
     }
 

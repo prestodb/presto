@@ -225,7 +225,6 @@ public class QueryMonitor
                 ImmutableList.of(),
                 Optional.empty(),
                 ImmutableList.of(),
-                ImmutableList.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of()));
@@ -262,7 +261,6 @@ public class QueryMonitor
                         historyBasedPlanStatisticsTracker.getQueryStats(queryInfo).values().stream().collect(toImmutableList()),
                         queryInfo.getExpandedQuery(),
                         queryInfo.getOptimizerInformation(),
-                        queryInfo.getCteInformationList(),
                         queryInfo.getScalarFunctions(),
                         queryInfo.getAggregateFunctions(),
                         queryInfo.getWindowsFunctions()));
