@@ -851,9 +851,12 @@ void HashBuild::ensureTableFits(uint64_t numRows) {
     return;
   }
 
+  // TODO: add spilling support here in case of threshold triggered spilling.
+#if 0
   // NOTE: the memory arbitrator must have spilled everything from this hash
   // build operator and all its peers.
   VELOX_CHECK(spiller_->isAllSpilled());
+#endif
 
   // Throw a memory cap exceeded error to fail this query.
   VELOX_MEM_POOL_CAP_EXCEEDED(fmt::format(
