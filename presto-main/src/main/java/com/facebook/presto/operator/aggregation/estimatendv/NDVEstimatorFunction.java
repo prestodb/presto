@@ -26,8 +26,6 @@ import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.AccumulatorCompiler;
 import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplementation;
 import com.facebook.presto.operator.aggregation.histogram.Histogram;
-import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
-import com.facebook.presto.operator.aggregation.histogram.HistogramStateFactory;
 import com.facebook.presto.operator.aggregation.histogram.HistogramStateSerializer;
 import com.facebook.presto.spi.function.aggregation.Accumulator;
 import com.facebook.presto.spi.function.aggregation.AggregationMetadata;
@@ -47,6 +45,16 @@ import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.P
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+/**
+ * Implementation of Chao's estimator from Chao 1984, using counts of values that appear exactly once and twice
+ * Before running NDV estimator, first run a select count(*) group by col query to get the frequency of each
+ * distinct value in col.
+ * Collect the counts of values with each frequency and store in the Map field freqDict
+ * Use the counts of values with frequency 1 and 2 to do the computation:
+ * d_chao = d + (f_1)^2/(2*(f_2))
+ * Return birthday problem solution if there are no values observed of frequency 2
+ * Also make insane bets (10x) when every point observed is almost unique, which could be good or bad
+ */
 public class NDVEstimatorFunction
         extends SqlAggregationFunction
 {
@@ -54,7 +62,6 @@ public class NDVEstimatorFunction
 
     public static final String NAME = "ndv_estimator";
     public static final int EXPECTED_SIZE_FOR_HASHING = 10;
-    public static final HistogramGroupImplementation HISTOGRAM_GROUP_MODE = HistogramGroupImplementation.NEW;
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(NDVEstimatorFunction.class, "output", NDVEstimatorState.class, BlockBuilder.class);
     private static final MethodHandle INPUT_FUNCTION = methodHandle(NDVEstimatorFunction.class, "input", Type.class, NDVEstimatorState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(NDVEstimatorFunction.class, "combine", NDVEstimatorState.class, NDVEstimatorState.class);
@@ -86,7 +93,7 @@ public class NDVEstimatorFunction
                 ImmutableList.of(new AggregationMetadata.AccumulatorStateDescriptor(
                         NDVEstimatorState.class,
                         stateSerializer,
-                        new HistogramStateFactory(type, EXPECTED_SIZE_FOR_HASHING, HISTOGRAM_GROUP_MODE, true))),
+                        new NDVEstimatorStateFactory(type, EXPECTED_SIZE_FOR_HASHING))),
                 BigintType.BIGINT);
 
         Class<? extends Accumulator> accumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
@@ -136,6 +143,6 @@ public class NDVEstimatorFunction
     @Override
     public String getDescription()
     {
-        return "Implement Chao estimator to estimate ndv based on sample";
+        return "an estimate of the number of distinct values in a larger dataset using a subset of the data";
     }
 }

@@ -14,8 +14,6 @@
 package com.facebook.presto.operator.aggregation.histogram;
 
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.operator.aggregation.estimatendv.GroupNDVEstimatorState;
-import com.facebook.presto.operator.aggregation.estimatendv.SingleNDVEstimatorState;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 
@@ -30,7 +28,16 @@ public class HistogramStateFactory
     private final Type keyType;
     private final int expectedEntriesCount;
     private final HistogramGroupImplementation mode;
-    private boolean ndvEstimate;
+
+    public Type getKeyType()
+    {
+        return keyType;
+    }
+
+    public int getExpectedEntriesCount()
+    {
+        return expectedEntriesCount;
+    }
 
     public HistogramStateFactory(
             Type keyType, int
@@ -42,41 +49,21 @@ public class HistogramStateFactory
         this.mode = mode;
     }
 
-    public HistogramStateFactory(
-            Type keyType, int
-            expectedEntriesCount,
-            HistogramGroupImplementation mode,
-            boolean ndvEstimate)
-    {
-        this(keyType, expectedEntriesCount, mode);
-        this.ndvEstimate = ndvEstimate;
-    }
-
     @Override
     public HistogramState createSingleState()
     {
-        if (ndvEstimate) {
-            return new SingleNDVEstimatorState(keyType, expectedEntriesCount);
-        }
         return new SingleHistogramState(keyType, expectedEntriesCount);
     }
 
     @Override
     public Class<? extends HistogramState> getSingleStateClass()
     {
-        if (ndvEstimate) {
-            return SingleNDVEstimatorState.class;
-        }
         return SingleHistogramState.class;
     }
 
     @Override
     public HistogramState createGroupedState()
     {
-        if (ndvEstimate) {
-            return new GroupNDVEstimatorState(keyType, expectedEntriesCount);
-        }
-
         if (mode == NEW) {
             return new GroupedHistogramState(keyType, expectedEntriesCount);
         }
@@ -91,9 +78,6 @@ public class HistogramStateFactory
     @Override
     public Class<? extends HistogramState> getGroupedStateClass()
     {
-        if (ndvEstimate) {
-            return GroupNDVEstimatorState.class;
-        }
         if (mode == NEW) {
             return GroupedHistogramState.class;
         }

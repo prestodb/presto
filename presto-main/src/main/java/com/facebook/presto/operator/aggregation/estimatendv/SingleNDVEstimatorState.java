@@ -43,6 +43,16 @@ public class SingleNDVEstimatorState
         return freqDict;
     }
 
+    /**
+     * Suppose we draw N samples and all are distinct values. We can compute the probability of this event happening
+     * (N unique values in N draws) for specific R number of distinct values within a population, this helps us put a
+     * bound on the estimated number of distinct values.
+     * We estimate the number of distinct values as the population number where there is a 10% chance
+     * that these N distinct draws could happen due to random chance alone
+     *
+     * @param d: number of distinct values
+     * @return estimated lower bound for distinct number of integers
+     */
     private long computeBirthdayProblemProbability(long d)
     {
         long i = d;
@@ -85,6 +95,6 @@ public class SingleNDVEstimatorState
             return computeBirthdayProblemProbability(distinctValues);
         }
         long f2 = freqDict.get(2L);
-        return distinctValues + (f1 ^ 2) / (2L * f2);
+        return distinctValues + (f1 * f1) / (2L * f2);
     }
 }
