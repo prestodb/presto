@@ -161,9 +161,28 @@ public class InternalResourceGroup
 
     // Modifying the following values need to be guarded by "root", but reading the values does not need.
     // These stats are updated periodically in between query scheduling cycle.
-    private AtomicInteger queriesQueuedOnInternal = new AtomicInteger();
     private AtomicInteger descendantRunningQueries = new AtomicInteger();
     private AtomicInteger descendantQueuedQueries = new AtomicInteger();
+    /**
+     * About AdjustedQueueSize
+     *
+     * The QueriesQueuedInternal is also referred as AdjustedQueuedQueries. It is defined as if each leaf
+     * node is allowed to run queries up to its concurrency limit, the number of the queued queries could
+     * have been executing. This concurrency limit is considered as "fair share" for this leaf node.
+     *
+     * For leaf ResourceGroup node, it is defined as: Min(queuedQueries, (limit - runningQueries)
+     *
+     * For example,
+     * a) limit = 5, running queries = 5, queued queries = 100 -> AdjustedQueueSize = 0
+     * b) limit = 5, running queries = 2, queued queries = 100 -> AdjustedQueueSize = 3
+     * c) limit = 5, running queries = 2, queued queries = 2 -> AdjustedQueueSize = 2
+     *
+     * For non-leaf ResourceGroup node, the AdjustedQueueSize is the sum of its direct
+     * children node.
+     */
+    private AtomicInteger queriesQueuedOnInternal = new AtomicInteger();
+
+    @Deprecated
     private AtomicInteger waitingQueuedQueries = new AtomicInteger();
 
     protected InternalResourceGroup(
@@ -358,7 +377,7 @@ public class InternalResourceGroup
                 queuedQueries += resourceGroupRuntimeInfo.get().getQueuedQueries();
                 runningQueries += resourceGroupRuntimeInfo.get().getRunningQueries();
             }
-            queriesQueuedOnInternal.set(Math.max(Math.min(queuedQueries, this.getSoftConcurrencyLimit() - runningQueries), 0));
+            queriesQueuedOnInternal.set(Math.max(Math.min(queuedQueries, this.getHardConcurrencyLimit() - runningQueries), 0));
         }
         else {
             int tempQueriesQueuedInternal = 0;
@@ -376,6 +395,7 @@ public class InternalResourceGroup
         return queuedQueries.size() + descendantQueuedQueries.get();
     }
 
+    @Deprecated
     @Managed
     public int getWaitingQueuedQueries()
     {
@@ -929,8 +949,8 @@ public class InternalResourceGroup
         checkState(Thread.holdsLock(root), "Must hold lock to refresh stats");
         synchronized (root) {
             updateMemoryUsageInfo();
-            updateWaitingQueuedQueries();
             updateQueriesQueuedOnInternal();
+            updateWaitingQueuedQueries();
         }
     }
 
