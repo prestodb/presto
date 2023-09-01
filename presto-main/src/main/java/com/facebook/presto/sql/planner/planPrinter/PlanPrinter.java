@@ -186,7 +186,6 @@ public class PlanPrinter
                 totalCpuTime,
                 totalScheduledTime,
                 session.getOptimizerInformationCollector().getOptimizationInfo(),
-                session.getCteInformationCollector().getCTEInformationList(),
                 session.getOptimizerResultCollector().getOptimizerResults());
 
         RowExpressionFormatter rowExpressionFormatter = new RowExpressionFormatter(functionAndTypeManager);

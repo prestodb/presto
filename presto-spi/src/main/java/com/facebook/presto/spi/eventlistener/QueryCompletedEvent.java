@@ -44,7 +44,6 @@ public class QueryCompletedEvent
     private final Instant endTime;
     private final Optional<String> expandedQuery;
     private final List<PlanOptimizerInformation> optimizerInformation;
-    private final List<CTEInformation> cteInformationList;
     private final Set<String> scalarFunctions;
     private final Set<String> aggregateFunctions;
     private final Set<String> windowsFunctions;
@@ -67,7 +66,6 @@ public class QueryCompletedEvent
             List<PlanStatisticsWithSourceInfo> planStatisticsWritten,
             Optional<String> expandedQuery,
             List<PlanOptimizerInformation> optimizerInformation,
-            List<CTEInformation> cteInformationList,
             Set<String> scalarFunctions,
             Set<String> aggregateFunctions,
             Set<String> windowsFunctions)
@@ -89,7 +87,6 @@ public class QueryCompletedEvent
         this.planStatisticsWritten = requireNonNull(planStatisticsWritten, "planStatisticsWritten is null");
         this.expandedQuery = requireNonNull(expandedQuery, "expandedQuery is null");
         this.optimizerInformation = requireNonNull(optimizerInformation, "optimizerInformation is null");
-        this.cteInformationList = requireNonNull(cteInformationList, "cteInformationList is null");
         this.scalarFunctions = requireNonNull(scalarFunctions, "scalarFunctions is null");
         this.aggregateFunctions = requireNonNull(aggregateFunctions, "aggregateFunctions is null");
         this.windowsFunctions = requireNonNull(windowsFunctions, "windowsFunctions is null");
@@ -178,11 +175,6 @@ public class QueryCompletedEvent
     public List<PlanOptimizerInformation> getOptimizerInformation()
     {
         return optimizerInformation;
-    }
-
-    public List<CTEInformation> getCteInformationList()
-    {
-        return cteInformationList;
     }
 
     public Set<String> getScalarFunctions()
