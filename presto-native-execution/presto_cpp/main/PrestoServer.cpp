@@ -175,8 +175,7 @@ void PrestoServer::run() {
     }
     nodeLocation_ = nodeConfig->nodeLocation();
   } catch (const VeloxUserError& e) {
-    // VeloxUserError is always logged as an error.
-    // Avoid logging again.
+    PRESTO_STARTUP_LOG(ERROR) << "Failed to start server due to " << e.what();
     exit(EXIT_FAILURE);
   }
 
