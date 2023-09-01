@@ -27,6 +27,7 @@ import static com.facebook.presto.SystemSessionProperties.PULL_EXPRESSION_FROM_L
 import static com.facebook.presto.common.block.MethodHandleUtil.compose;
 import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
@@ -189,6 +190,38 @@ public class TestPullUpExpressionInLambdaRules
                     return p.project(
                             Assignments.builder().put(p.variable("expr", VARCHAR), p.rowExpression("JSON_FORMAT(CAST(TRY(MAP(ARRAY[NULL], ARRAY[x])) AS JSON))")).build(),
                             p.values(p.variable("x")));
+                }).doesNotFire();
+    }
+
+    @Test
+    public void testSwitchWhenExpression()
+    {
+        tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).projectNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
+                .on(p ->
+                {
+                    p.variable("arr", new ArrayType(VARCHAR));
+                    p.variable("arr2", new ArrayType(VARCHAR));
+                    return p.project(
+                            Assignments.builder().put(p.variable("expr", VARCHAR), p.rowExpression(
+                                    "transform(arr, x -> concat(case when arr2 is null then '*' when contains(arr2, x) then '+' else ' ' end, x))")).build(),
+                            p.values(p.variable("arr", new ArrayType(VARCHAR)), p.variable("arr2", new ArrayType(VARCHAR))));
+                }).doesNotFire();
+    }
+
+    @Test
+    public void testConditionalExpression()
+    {
+        tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).projectNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
+                .on(p ->
+                {
+                    p.variable("col1", new ArrayType(BOOLEAN));
+                    p.variable("col2", new ArrayType(BIGINT));
+                    return p.project(
+                            Assignments.builder().put(p.variable("expr", VARCHAR), p.rowExpression(
+                                    "transform(col1, x -> if(x, col2[2], 0))")).build(),
+                            p.values(p.variable("col1", new ArrayType(BOOLEAN)), p.variable("col2", new ArrayType(BIGINT))));
                 }).doesNotFire();
     }
 }

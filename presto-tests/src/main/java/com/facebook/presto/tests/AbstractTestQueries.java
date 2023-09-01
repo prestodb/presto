@@ -64,6 +64,7 @@ import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSI
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS;
 import static com.facebook.presto.SystemSessionProperties.PRE_PROCESS_METADATA_CALLS;
+import static com.facebook.presto.SystemSessionProperties.PULL_EXPRESSION_FROM_LAMBDA_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN;
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
@@ -7087,14 +7088,21 @@ public abstract class AbstractTestQueries
     @Test
     public void testLambdaExpressionPullUp()
     {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
+                .build();
         // H2 runner does not have map, run with the same query runner for this query
-        assertQueryWithSameQueryRunner("select map_filter(idmap, (k, v) -> array_position(array_sort(map_keys(idmap)), k) <= 3) from (values map(array[1, 4, 2, 8, 0], " +
+        assertQueryWithSameQueryRunner(session, "select map_filter(idmap, (k, v) -> array_position(array_sort(map_keys(idmap)), k) <= 3) from (values map(array[1, 4, 2, 8, 0], " +
                 "array['a', 'a', 'a', 'a', 'a'])) t(idmap)", "values map(array[0, 1, 2], array['a', 'a', 'a'])");
-        assertQuery("select * from (values (1, 1, array[1, 2, 3]), (1, 2, array[0, 1, 4]), (2, 2, array[1, 2, 3]), (5, 0, array[1, 2, 3]))t(id1, id2, array) where any_match(array, x -> x > id1 + id2)",
+        assertQuery(session, "select * from (values (1, 1, array[1, 2, 3]), (1, 2, array[0, 1, 4]), (2, 2, array[1, 2, 3]), (5, 0, array[1, 2, 3]))t(id1, id2, array) where any_match(array, x -> x > id1 + id2)",
                 "values (1, 1, array[1, 2, 3]), (1, 2, array[0, 1, 4])");
-        assertQueryWithSameQueryRunner("select transform(arr1, x->transform(arr2, y->slice(arr2, 1, 3))) from (values (array[1, 2], array[1,2,3,4,5]), (array[1,2,3], array[0,1,2,3])) t(arr1, arr2)",
+        assertQueryWithSameQueryRunner(session, "select transform(arr1, x->transform(arr2, y->slice(arr2, 1, 3))) from (values (array[1, 2], array[1,2,3,4,5]), (array[1,2,3], array[0,1,2,3])) t(arr1, arr2)",
                 "values array[array[array[1, 2, 3], array[1, 2, 3], array[1, 2, 3], array[1, 2, 3], array[1, 2, 3]], array[array[1, 2, 3], array[1, 2, 3], array[1, 2, 3], array[1, 2, 3], array[1, 2, 3]]], " +
                         "array[array[array[0, 1, 2], array[0, 1, 2], array[0, 1, 2], array[0, 1, 2]], array[array[0, 1, 2], array[0, 1, 2], array[0, 1, 2], array[0, 1, 2]], array[array[0, 1, 2], array[0, 1, 2], array[0, 1, 2], array[0, 1, 2]]]");
+        assertQuery(session, "select transform(col1, x -> concat(case when col2 is null then '*' when contains(col2, x) then '+' else ' ' end, x)) from (values (array['1'], array['1'])) t(col1, col2)",
+                "values ('+1')");
+        assertQuery(session, "select transform(col1, x -> if(x, col2[2], 0)) from (values (array[false], array[0])) t(col1, col2)", "values array[0]");
+        assertQuery(session, "select transform(arr1, x -> arr2[2]) from (values (array[], array[0])) t(arr1, arr2)", "values array[]");
     }
 
     @Test
