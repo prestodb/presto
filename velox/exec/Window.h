@@ -17,6 +17,7 @@
 
 #include "velox/exec/Operator.h"
 #include "velox/exec/RowContainer.h"
+#include "velox/exec/WindowBuild.h"
 #include "velox/exec/WindowFunction.h"
 #include "velox/exec/WindowPartition.h"
 
@@ -46,7 +47,7 @@ class Window : public Operator {
   RowVectorPtr getOutput() override;
 
   bool needsInput() const override {
-    return !noMoreInput_;
+    return !noMoreInput_ && windowBuild_->needsInput();
   }
 
   void noMoreInput() override;
@@ -56,7 +57,7 @@ class Window : public Operator {
   }
 
   bool isFinished() override {
-    return finished_;
+    return noMoreInput_ && numRows_ == numProcessedRows_;
   }
 
  private:
@@ -80,68 +81,54 @@ class Window : public Operator {
     const std::optional<FrameChannelArg> end;
   };
 
-  // Helper function to create WindowFunction and frame objects
-  // for this operator.
+  // Creates WindowFunction and frame objects for this operator.
   void createWindowFunctions(
       const std::shared_ptr<const core::WindowNode>& windowNode,
       const RowTypePtr& inputType,
       const core::QueryConfig& config);
 
-  // Helper function to create the buffers for peer and frame
-  // row indices to send in window function apply invocations.
+  // Creates the buffers for peer and frame row
+  // indices to send in window function apply invocations.
   void createPeerAndFrameBuffers();
 
-  // Function to compute the partitionStartRows_ structure.
-  // partitionStartRows_ is vector of the starting rows index
-  // of each partition in the data. This is an auxiliary
-  // structure that helps simplify the window function computations.
-  void computePartitionStartRows();
+  // Compute the peer and frame buffers for rows between
+  // startRow and endRow in the current partition.
+  void computePeerAndFrameBuffers(vector_size_t startRow, vector_size_t endRow);
 
-  // This function is invoked after receiving all the input data.
-  // The input data needs to be separated into partitions and
-  // ordered within it (as that is the order in which the rows
-  // will be output for the partition).
-  // This function achieves this by ordering the input rows by
-  // (partition keys + order by keys). Doing so orders all rows
-  // of a partition adjacent to each other and sorted by the
-  // ORDER BY clause.
-  void sortPartitions();
+  // Updates all the state for the next partition.
+  void callResetPartition();
 
-  // Helper function to call WindowFunction::resetPartition() for
-  // all WindowFunctions.
-  void callResetPartition(vector_size_t partitionNumber);
-
-  // Helper method to call WindowFunction::apply to all the rows
-  // of a partition between startRow and endRow. The outputs
-  // will be written to the vectors in windowFunctionOutputs
-  // starting at offset resultIndex.
+  // Computes the result vector for a subset of the current
+  // partition rows starting from startRow to endRow. A single partition
+  // could span multiple output blocks and a single output block could
+  // also have multiple partitions in it. So resultOffset is the
+  // offset in the result vector corresponding to the current range of
+  // partition rows.
   void callApplyForPartitionRows(
       vector_size_t startRow,
       vector_size_t endRow,
-      const std::vector<VectorPtr>& result,
-      vector_size_t resultOffset);
+      vector_size_t resultOffset,
+      const RowVectorPtr& result);
 
-  // Helper function to compare the rows at lhs and rhs pointers
-  // using the keyInfo in keys. This can be used to compare the
-  // rows for partitionKeys, orderByKeys or a combination of both.
-  inline bool compareRowsWithKeys(
-      const char* lhs,
-      const char* rhs,
-      const std::vector<std::pair<column_index_t, core::SortOrder>>& keys);
+  // Gets the input columns of the current window partition
+  // between startRow and endRow in result at resultOffset.
+  void getInputColumns(
+      vector_size_t startRow,
+      vector_size_t endRow,
+      vector_size_t resultOffset,
+      const RowVectorPtr& result);
 
-  // Function to compute window function values for the current output
-  // buffer. The buffer has numOutputRows number of rows. windowOutputs
-  // has the vectors for window function columns.
-  void callApplyLoop(
-      vector_size_t numOutputRows,
-      const std::vector<VectorPtr>& windowOutputs);
+  // Computes the result vector for a single output block. The result
+  // consists of all the input columns followed by the results of the
+  // window function.
+  void callApplyLoop(vector_size_t numOutputRows, const RowVectorPtr& result);
 
-  // Helper function to convert WindowNode::Frame to Window::WindowFrame.
+  // Converts WindowNode::Frame to Window::WindowFrame.
   WindowFrame createWindowFrame(
       core::WindowNode::Frame frame,
       const RowTypePtr& inputType);
 
-  // Helper function to update frame bounds for kPreceding, kFollowing frames.
+  // Update frame bounds for kPreceding, kFollowing row frames.
   void updateKRowsFrameBounds(
       bool isKPreceding,
       const FrameChannelArg& frameArg,
@@ -149,7 +136,6 @@ class Window : public Operator {
       vector_size_t numRows,
       vector_size_t* rawFrameBounds);
 
-  // Helper function to update frame bounds.
   void updateFrameBounds(
       const WindowFrame& windowFrame,
       const bool isStartBound,
@@ -159,34 +145,19 @@ class Window : public Operator {
       const vector_size_t* rawPeerEnds,
       vector_size_t* rawFrameBounds);
 
-  bool finished_ = false;
   const vector_size_t numInputColumns_;
 
-  // The Window operator needs to see all the input rows before starting
-  // any function computation. As the Window operators gets input rows
-  // we store the rows in the RowContainer (data_).
-  std::unique_ptr<RowContainer> data_;
+  // WindowBuild is used to store input rows and return WindowPartitions
+  // for the processing.
+  std::unique_ptr<WindowBuild> windowBuild_;
 
-  // The decodedInputVectors_ are reused across addInput() calls to decode
-  // the partition and sort keys for the above RowContainer.
-  std::vector<DecodedVector> decodedInputVectors_;
+  // Used to access window partition rows and columns by the window
+  // operator and functions. This structure is owned by the WindowBuild.
+  std::unique_ptr<WindowPartition> currentPartition_;
 
   // HashStringAllocator required by functions that allocate out of line
   // buffers.
   HashStringAllocator stringAllocator_;
-
-  // The below 3 vectors represent the ChannelIndex of the partition keys,
-  // the order by keys and the concatenation of the 2. These keyInfo are
-  // used for sorting by those key combinations during the processing.
-  // partitionKeyInfo_ is used to separate partitions in the rows.
-  // sortKeyInfo_ is used to identify peer rows in a partition.
-  // allKeyInfo_ is a combination of (partitionKeyInfo_ and sortKeyInfo_).
-  // It is used to perform a full sorting of the input rows to be able to
-  // separate partitions and sort the rows in it. The rows are output in
-  // this order by the operator.
-  std::vector<std::pair<column_index_t, core::SortOrder>> partitionKeyInfo_;
-  std::vector<std::pair<column_index_t, core::SortOrder>> sortKeyInfo_;
-  std::vector<std::pair<column_index_t, core::SortOrder>> allKeyInfo_;
 
   // Vector of WindowFunction objects required by this operator.
   // WindowFunction is the base API implemented by all the window functions.
@@ -199,24 +170,8 @@ class Window : public Operator {
   // Number of input rows.
   vector_size_t numRows_ = 0;
 
-  // Vector of pointers to each input row in the data_ RowContainer.
-  // The rows are sorted by partitionKeys + sortKeys. This total
-  // ordering can be used to split partitions (with the correct
-  // order by) for the processing.
-  std::vector<char*> sortedRows_;
-
-  // Window partition object used to provide per-partition
-  // data to the window function.
-  std::unique_ptr<WindowPartition> windowPartition_;
-
   // Number of rows that be fit into an output block.
   vector_size_t numRowsPerOutput_;
-
-  // This is a vector that gives the index of the start row
-  // (in sortedRows_) of each partition in the RowContainer data_.
-  // This auxiliary structure helps demarcate partitions in
-  // getOutput calls.
-  std::vector<vector_size_t> partitionStartRows_;
 
   // The following 4 Buffers are used to pass peer and frame start and
   // end values to the WindowFunction::apply method. These
@@ -247,10 +202,9 @@ class Window : public Operator {
   // value is updated as the WindowFunction::apply() function is
   // called on the partition blocks.
   vector_size_t numProcessedRows_ = 0;
-  // Current partition being output. The partition might be
-  // output across multiple getOutput() calls so this needs to
-  // be tracked in the operator.
-  vector_size_t currentPartition_;
+
+  // Tracks how far along the partition rows have been output.
+  vector_size_t partitionOffset_ = 0;
 
   // When traversing input partition rows, the peers are the rows
   // with the same values for the ORDER BY clause. These rows
@@ -258,12 +212,10 @@ class Window : public Operator {
   // Since all rows between the peerStartRow_ and peerEndRow_ have the same
   // values for peerStartRow_ and peerEndRow_, we needn't compute
   // them for each row independently. Since these rows might
-  // cross getOutput boundaries they are saved in the operator.
+  // cross getOutput boundaries and be called in subsequent calls to
+  // computePeerBuffers they are saved here.
   vector_size_t peerStartRow_ = 0;
   vector_size_t peerEndRow_ = 0;
-
-  // Tracks how far along the partition rows have been output.
-  vector_size_t partitionOffset_ = 0;
 };
 
 } // namespace facebook::velox::exec
