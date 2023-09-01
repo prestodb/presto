@@ -18,14 +18,13 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.ScalarFunctionDescriptor;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 
 import java.util.concurrent.ThreadLocalRandom;
 
+@ScalarFunction(value = "shuffle", deterministic = false)
 @Description("Generates a random permutation of the given array.")
-@ScalarFunction(value = "shuffle", deterministic = false, descriptor = @ScalarFunctionDescriptor(isAccessingInputValues = false))
 public final class ArrayShuffleFunction
 {
     private static final int INITIAL_LENGTH = 128;

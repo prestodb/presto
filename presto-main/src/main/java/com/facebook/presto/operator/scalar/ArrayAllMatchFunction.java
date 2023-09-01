@@ -16,15 +16,10 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.ScalarFunctionDescriptor;
-import com.facebook.presto.spi.function.ScalarFunctionLambdaArgumentDescriptor;
-import com.facebook.presto.spi.function.ScalarFunctionLambdaDescriptor;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.function.StaticMethodPointer;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import io.airlift.slice.Slice;
@@ -32,15 +27,7 @@ import io.airlift.slice.Slice;
 import static java.lang.Boolean.FALSE;
 
 @Description("Returns true if all elements of the array match the given predicate")
-@ScalarFunction(value = "all_match", descriptor = @ScalarFunctionDescriptor(
-        outputToInputTransformationFunction = {@StaticMethodPointer(clazz = ComplexTypeFunctionDescriptor.class, method = "clearRequiredSubfields")},
-        lambdaDescriptors = {
-                @ScalarFunctionLambdaDescriptor(
-                        callArgumentIndex = 1,
-                        lambdaArgumentDescriptors = {
-                            @ScalarFunctionLambdaArgumentDescriptor(
-                                    lambdaArgumentIndex = 0,
-                                    callArgumentIndex = 0)})}))
+@ScalarFunction(value = "all_match")
 public final class ArrayAllMatchFunction
 {
     private ArrayAllMatchFunction() {}
