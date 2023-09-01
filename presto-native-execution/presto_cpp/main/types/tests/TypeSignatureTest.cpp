@@ -400,8 +400,14 @@ TEST_F(TestTypeSignature, functionType) {
 }
 
 TEST_F(TestTypeSignature, decimalType) {
-  assertSignature("decimal(10, 5)", "DECIMAL(10,5)");
-  assertSignature("decimal(20,10)", "DECIMAL(20,10)");
+  // https://github.com/facebookincubator/velox/pull/6295 changes the output of
+  // DecimalType::toString() in Velox to add a space after comma. To avoid
+  // breakages, temporarily, allow both formats.
+  auto signature1 = parseTypeSignature("decimal(10, 5)")->toString();
+  ASSERT_TRUE(signature1 == "DECIMAL(10, 5)" || signature1 == "DECIMAL(10,5)");
+  auto signature2 = parseTypeSignature("decimal(20,10)")->toString();
+  ASSERT_TRUE(
+      signature2 == "DECIMAL(20, 10)" || signature2 == "DECIMAL(20,10)");
   ASSERT_THROWS_CONTAINS_MESSAGE(
       parseTypeSignature("decimal");
       , VeloxUserError, "Failed to parse type [decimal]");
