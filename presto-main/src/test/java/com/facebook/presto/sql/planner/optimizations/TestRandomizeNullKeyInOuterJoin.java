@@ -29,6 +29,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
@@ -70,6 +71,52 @@ public class TestRandomizeNullKeyInOuterJoin
                                         project(
                                                 ImmutableMap.of("rightCol", expression("rightCol"), "rightRandom", expression("coalesce(cast(rightCol as varchar), 'r' || cast(random(100) as varchar))")),
                                                 tableScan("lineitem", ImmutableMap.of("rightCol", "orderkey")))))),
+                false);
+    }
+
+    @Test
+    public void testLeftJoinVarchar()
+    {
+        assertPlan("SELECT * FROM (values '3') t1(k) LEFT JOIN (values '2', '3')t2(k) ON t1.k = t2.k",
+                getSessionAlwaysEnabled(),
+                anyTree(
+                        join(
+                                LEFT,
+                                ImmutableList.of(equiJoinClause("leftRandom", "rightRandom"), equiJoinClause("leftIsNull", "rightIsNull")),
+                                anyTree(
+                                        project(
+                                                ImmutableMap.of("leftCol", expression("leftCol"), "leftRandom", expression("coalesce(leftCol, 'l' || cast(random(100) as varchar))"), "leftIsNull", expression("leftCol is NULL")),
+                                                values("leftCol"))),
+                                anyTree(
+                                        project(
+                                                ImmutableMap.of("rightCol", expression("rightCol"), "rightRandom", expression("coalesce(rightCol, 'r' || cast(random(100) as varchar))"), "rightIsNull", expression("rightCol is NULL")),
+                                                values("rightCol"))))),
+                false);
+    }
+
+    @Test
+    public void testMixedVarcharAndIntKeys()
+    {
+        assertPlan("SELECT * FROM (values ('3', cast(0 as bigint))) t1(k1, k2) LEFT JOIN (values ('2', cast(1 as bigint)), ('3', 1))t2(k1, k2) ON t1.k1 = t2.k1 and t1.k2 = t2.k2",
+                getSessionAlwaysEnabled(),
+                anyTree(
+                        join(
+                                LEFT,
+                                ImmutableList.of(equiJoinClause("leftVarcharRandom", "rightVarcharRandom"),
+                                        equiJoinClause("leftVarcharIsNull", "rightVarcharIsNull"),
+                                        equiJoinClause("leftBigIntRandom", "rightBigIntRandom")),
+                                anyTree(
+                                        project(
+                                                ImmutableMap.of("leftVarcharRandom", expression("coalesce(leftColVarchar, 'l' || cast(random(100) as varchar))"),
+                                                        "leftVarcharIsNull", expression("leftColVarchar is NULL"),
+                                                        "leftBigIntRandom", expression("coalesce(cast(leftColBigInt as varchar), 'l' || cast(random(100) as varchar))")),
+                                                values("leftColVarchar", "leftColBigInt"))),
+                                anyTree(
+                                        project(
+                                                ImmutableMap.of("rightVarcharRandom", expression("coalesce(rightColVarchar, 'r' || cast(random(100) as varchar))"),
+                                                        "rightVarcharIsNull", expression("rightColVarchar is NULL"),
+                                                        "rightBigIntRandom", expression("coalesce(cast(rightColBigInt as varchar), 'r' || cast(random(100) as varchar))")),
+                                                values("rightColVarchar", "rightColBigInt"))))),
                 false);
     }
 
