@@ -60,6 +60,7 @@ class JoinFuzzer {
     opts.stringVariableLength = true;
     opts.stringLength = 100;
     opts.nullRatio = FLAGS_null_ratio;
+    opts.allowIntervalType = false;
     return opts;
   }
 
