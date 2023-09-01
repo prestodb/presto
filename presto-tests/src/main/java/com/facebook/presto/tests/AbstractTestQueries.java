@@ -53,6 +53,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.SystemSessionProperties.ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.ENABLE_INTERMEDIATE_AGGREGATIONS;
 import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_FUNCTION;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_PERCENTAGE;
@@ -6282,6 +6283,13 @@ public abstract class AbstractTestQueries
                 .setSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY, "key_from_outer_join")
                 .build();
         assertQuery(enableKeyFromOuterJoin, multipleJoin, getSession(), multipleJoin);
+
+        Session enableRandomizeFourPartition = Session.builder(getSession())
+                .setSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY, "true")
+                .setSystemProperty(HASH_PARTITION_COUNT, "1")
+                .build();
+        String varcharJoinKey = "select t.k, t2.k, t2.v from (values 'r0', 'r1', 'r2', 'r3') t(k) left join (values (null, 1), (null, 2), (null, 3), (null, 4)) t2(k, v) on t.k = t2.k";
+        assertQuery(enableRandomizeFourPartition, varcharJoinKey, "values ('r0', null, null), ('r1', null, null), ('r2', null, null), ('r3', null, null)");
     }
 
     @Test

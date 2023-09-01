@@ -47,11 +47,13 @@ import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.SystemSessionProperties.getRandomizeOuterJoinNullKeyStrategy;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy.ALWAYS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy.DISABLED;
@@ -63,6 +65,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -296,13 +299,29 @@ public class RandomizeNullKeyInOuterJoin
                     .collect(toImmutableList());
             joinClauseBuilder.addAll(unchangedJoinClauses);
 
+            // If the join key is varchar, add additional null check
+            Map<VariableReferenceExpression, RowExpression> leftIsNullCheckExpression = candidateEquiJoinClauses.stream()
+                    .filter(x -> x.getLeft().getType() instanceof VarcharType).map(x -> x.getLeft()).distinct().collect(toImmutableMap(identity(), x -> specialForm(IS_NULL, BOOLEAN, x)));
+            Map<RowExpression, VariableReferenceExpression> leftIsNullCheckAssignment = leftIsNullCheckExpression.values().stream().collect(toImmutableMap(identity(), x -> planVariableAllocator.newVariable(x)));
+            Map<VariableReferenceExpression, RowExpression> rightIsNullCheckExpression = candidateEquiJoinClauses.stream()
+                    .filter(x -> x.getRight().getType() instanceof VarcharType).map(x -> x.getRight()).distinct().collect(toImmutableMap(identity(), x -> specialForm(IS_NULL, BOOLEAN, x)));
+            Map<RowExpression, VariableReferenceExpression> rightIsNullCheckAssignment = rightIsNullCheckExpression.values().stream().collect(toImmutableMap(identity(), x -> planVariableAllocator.newVariable(x)));
+
+            List<JoinNode.EquiJoinClause> isNullCheck = candidateEquiJoinClauses.stream()
+                    .filter(x -> x.getLeft().getType() instanceof VarcharType && x.getRight().getType() instanceof VarcharType)
+                    .map(x -> new JoinNode.EquiJoinClause(leftIsNullCheckAssignment.get(leftIsNullCheckExpression.get(x.getLeft())), rightIsNullCheckAssignment.get(rightIsNullCheckExpression.get(x.getRight()))))
+                    .collect(toImmutableList());
+            joinClauseBuilder.addAll(isNullCheck);
+
             Assignments.Builder leftAssignments = Assignments.builder();
             leftAssignments.putAll(leftKeyRandomVariableMap);
             leftAssignments.putAll(rewrittenLeft.getOutputVariables().stream().collect(toImmutableMap(identity(), identity())));
+            leftAssignments.putAll(leftIsNullCheckAssignment.entrySet().stream().collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey)));
 
             Assignments.Builder rightAssignments = Assignments.builder();
             rightAssignments.putAll(rightKeyRandomVariableMap);
             rightAssignments.putAll(rewrittenRight.getOutputVariables().stream().collect(toImmutableMap(identity(), identity())));
+            rightAssignments.putAll(rightIsNullCheckAssignment.entrySet().stream().collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey)));
 
             ProjectNode newLeft = new ProjectNode(rewrittenLeft.getSourceLocation(), planNodeIdAllocator.getNextId(), rewrittenLeft, leftAssignments.build(), LOCAL);
             ProjectNode newRight = new ProjectNode(rewrittenRight.getSourceLocation(), planNodeIdAllocator.getNextId(), rewrittenRight, rightAssignments.build(), LOCAL);
