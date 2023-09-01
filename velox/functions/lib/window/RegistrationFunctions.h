@@ -34,4 +34,24 @@ void registerRowNumberBigint(const std::string& name);
 // Register the Spark function row_number() with the integer data type
 // for the return value.
 void registerRowNumberInteger(const std::string& name);
+
+// Register the Presto function rank() with the bigint data type
+// for the return value.
+void registerRankBigint(const std::string& name);
+
+// Register the Spark function rank() with the integer data type
+// for the return value.
+void registerRankInteger(const std::string& name);
+
+// Register the Presto function dense_rank() with the bigint data type
+// for the return value.
+void registerDenseRankBigint(const std::string& name);
+
+// Register the Spark function dense_rank() with the integer data type
+// for the return value.
+void registerDenseRankInteger(const std::string& name);
+
+// Returns the percentage ranking of a value in a group of values.
+void registerPercentRank(const std::string& name);
+
 } // namespace facebook::velox::functions::window

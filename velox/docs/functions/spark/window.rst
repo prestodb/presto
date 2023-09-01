@@ -20,3 +20,12 @@ Rank functions
 .. spark:function:: row_number() -> integer
 
 Returns a unique, sequential number to each row, starting with one, according to the ordering of rows within the window partition.
+
+.. spark:function:: rank() -> integer
+
+Returns the rank of a value in a group of values. The rank is one plus the number of rows preceding the row that are not peer with the row. Thus, the values in the ordering will produce gaps in the sequence. The ranking is performed for each window partition.
+
+.. spark:function:: dense_rank() -> integer
+
+Returns the rank of a value in a group of values. This is similar to rank(), except that tie values do not produce gaps in the sequence.
+

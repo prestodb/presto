@@ -21,6 +21,8 @@ namespace facebook::velox::functions::window::sparksql {
 void registerWindowFunctions(const std::string& prefix) {
   functions::window::registerNthValueInteger(prefix + "nth_value");
   functions::window::registerRowNumberInteger(prefix + "row_number");
+  functions::window::registerRankInteger(prefix + "rank");
+  functions::window::registerDenseRankInteger(prefix + "dense_rank");
 }
 
 } // namespace facebook::velox::functions::window::sparksql
