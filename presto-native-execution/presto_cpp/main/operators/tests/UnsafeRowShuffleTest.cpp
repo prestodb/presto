@@ -13,7 +13,7 @@
  */
 #include <folly/Uri.h>
 #include "folly/init/Init.h"
-#include "presto_cpp/external/json/json.hpp"
+#include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/operators/LocalPersistentShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
