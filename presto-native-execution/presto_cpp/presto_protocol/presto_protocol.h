@@ -28,7 +28,7 @@
 
 #include <folly/Format.h>
 #include <utility>
-#include "presto_cpp/external/json/json.hpp"
+#include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/presto_protocol/DataSize.h"
 #include "presto_cpp/presto_protocol/Duration.h"
 #include "velox/common/encode/Base64.h"

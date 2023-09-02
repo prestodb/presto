@@ -14,7 +14,7 @@
 #include <boost/algorithm/string/join.hpp>
 #include <folly/Uri.h>
 #include "folly/init/Init.h"
-#include "presto_cpp/external/json/json.hpp"
+#include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
