@@ -150,6 +150,7 @@ public class HiveClientModule
 
         newSetBinder(binder, EventClient.class).addBinding().to(HiveEventClient.class).in(Scopes.SINGLETON);
         binder.bind(HivePartitionManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(HivePartitionManager.class).withGeneratedName();
         binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
         binder.bind(TableParameterCodec.class).in(Scopes.SINGLETON);
         binder.bind(HivePartitionStats.class).in(Scopes.SINGLETON);
