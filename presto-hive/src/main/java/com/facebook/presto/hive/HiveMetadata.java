@@ -3300,7 +3300,7 @@ public class HiveMetadata
     private List<ColumnStatisticMetadata> getColumnStatisticMetadata(String columnName, Set<ColumnStatisticType> statisticTypes)
     {
         return statisticTypes.stream()
-                .map(type -> new ColumnStatisticMetadata(columnName, type))
+                .map(type -> type.getColumnStatisticMetadata(columnName))
                 .collect(toImmutableList());
     }
 

@@ -92,7 +92,7 @@ public class TestStatisticsWriterNode
         VariableAllocator variableAllocator = new VariableAllocator();
         for (String column : COLUMNS) {
             for (ColumnStatisticType type : ColumnStatisticType.values()) {
-                builder.addColumnStatistic(new ColumnStatisticMetadata(column, type), testVariable(variableAllocator));
+                builder.addColumnStatistic(type.getColumnStatisticMetadata(column), testVariable(variableAllocator));
             }
             builder.addGrouping(column, testVariable(variableAllocator));
         }

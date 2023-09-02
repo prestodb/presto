@@ -95,6 +95,7 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.useSampleStatistics;
 import static com.facebook.presto.iceberg.IcebergUtil.createMetadataProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumnMetadatas;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
@@ -109,6 +110,8 @@ import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getRowTypeFrom
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -132,6 +135,7 @@ public abstract class IcebergAbstractMetadata
 
     protected final Cache<IcebergTableHandle, TableStatistics> statsCache;
 
+    private boolean useSampleForAnalyze = false;
     protected Transaction transaction;
 
     public IcebergAbstractMetadata(TypeManager typeManager, JsonCodec<CommitTaskData> commitTaskCodec, HdfsEnvironment hdfsEnvironment, Cache<IcebergTableHandle, TableStatistics> statsCache)
@@ -464,18 +468,24 @@ public abstract class IcebergAbstractMetadata
      */
     public ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
     {
-        if (IcebergSessionProperties.useSampleStatistics(session)) {
+        if (useSampleStatistics(session)) {
             IcebergTableName itn = IcebergTableName.from(tableName.getTableName());
             org.apache.iceberg.Table table = getIcebergTable(session, tableName);
-            table = SampleUtil.getSampleTableFromActual(table, tableName.getSchemaName(), hdfsEnvironment, session);
-            Optional<Long> snapshotId = resolveSnapshotIdByName(table, itn);
-
-            return new IcebergTableHandle(
-                    tableName.getSchemaName(),
-                    tableName.getTableName(),
-                    SAMPLES,
-                    snapshotId,
-                    TupleDomain.all());
+            boolean isSampleExist = SampleUtil.sampleTableExists(table, tableName.getSchemaName(), hdfsEnvironment, session);
+            if (isSampleExist) {
+                this.useSampleForAnalyze = true;
+                table = SampleUtil.getSampleTableFromActual(table, tableName.getSchemaName(), hdfsEnvironment, session);
+                Optional<Long> snapshotId = resolveSnapshotIdByName(table, itn);
+                return new IcebergTableHandle(
+                        tableName.getSchemaName(),
+                        tableName.getTableName(),
+                        SAMPLES,
+                        snapshotId,
+                        TupleDomain.all());
+            }
+            else {
+                return getTableHandle(session, tableName);
+            }
         }
         return getTableHandle(session, tableName);
     }
@@ -498,7 +508,15 @@ public abstract class IcebergAbstractMetadata
 
     private List<ColumnStatisticMetadata> getColumnStatisticMetadata(ConnectorSession session, ColumnMetadata col)
     {
-        return MetastoreUtil.getSupportedColumnStatistics(col.getType()).stream().map(x -> new ColumnStatisticMetadata(col.getName(), x)).collect(Collectors.toList());
+        return MetastoreUtil.getSupportedColumnStatistics(col.getType()).stream().map(x ->
+                {
+                    if (this.useSampleForAnalyze && useSampleStatistics(session) && x.name().equals("NUMBER_OF_DISTINCT_VALUES")) {
+                        return x.getColumnStatisticMetadataWithCustomFunction(col.getName(), "ndv_estimator");
+                    }
+                    else {
+                        return x.getColumnStatisticMetadata(col.getName());
+                    }
+                }).collect(Collectors.toList());
     }
 
     /**

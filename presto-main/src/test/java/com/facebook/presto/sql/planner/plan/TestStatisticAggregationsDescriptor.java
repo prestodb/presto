@@ -31,7 +31,7 @@ public class TestStatisticAggregationsDescriptor
     {
         for (String column : COLUMNS) {
             for (ColumnStatisticType type : ColumnStatisticType.values()) {
-                ColumnStatisticMetadata expected = new ColumnStatisticMetadata(column, type);
+                ColumnStatisticMetadata expected = type.getColumnStatisticMetadata(column);
                 assertEquals(deserialize(serialize(expected)), expected);
             }
         }
