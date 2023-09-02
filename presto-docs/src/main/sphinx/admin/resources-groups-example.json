@@ -1,0 +1,40 @@
+{
+  "rootGroups": [
+    {
+      "name": "global",
+      "softMemoryLimit": "80%",
+      "hardConcurrencyLimit": 100,
+      "maxQueued": 1000,
+      "schedulingPolicy": "weighted",
+      "jmxExport": true,
+      "subGroups": [
+        {
+          "name": "user_${USER}",
+          "softMemoryLimit": "50%",
+          "hardConcurrencyLimit": 50,
+          "maxQueued": 500,
+          "schedulingWeight": 1
+        },
+        {
+          "name": "adhoc",
+          "softMemoryLimit": "30%",
+          "hardConcurrencyLimit": 50,
+          "maxQueued": 500,
+          "schedulingWeight": 2
+        }
+      ]
+    }
+  ],
+  "selectors": [
+    {
+      "user": "${USER}",
+      "source": ".*",
+      "group": "global.user_${USER}"
+    },
+    {
+      "user": ".*",
+      "source": "adhoc",
+      "group": "global.adhoc"
+    }
+  ]
+}
