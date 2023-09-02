@@ -87,6 +87,11 @@ public class PrimitiveColumnWriterV1
 
     private final int pageSizeThreshold;
 
+    // Total size of compressed parquet pages and the current uncompressed page buffered in memory
+    // Used by ParquetWriter to decide when a row group is big enough to flush
+    private long bufferedBytes;
+    private long pageBufferedBytes;
+
     public PrimitiveColumnWriterV1(Type type, ColumnDescriptor columnDescriptor, PrimitiveValueWriter primitiveValueWriter, RunLengthBitPackingHybridEncoder definitionLevelEncoder, RunLengthBitPackingHybridEncoder repetitionLevelEncoder, CompressionCodecName compressionCodecName, int pageSizeThreshold)
     {
         this.type = requireNonNull(type, "type is null");
@@ -164,7 +169,7 @@ public class PrimitiveColumnWriterV1
     }
 
     // Returns ColumnMetaData that offset is invalid
-    private ColumnMetaData getColumnMetaData()
+    private ColumnMetaData getColumnMetaData() // ??
     {
         checkState(getDataStreamsCalled);
 
@@ -297,30 +302,28 @@ public class PrimitiveColumnWriterV1
     @Override
     public long getBufferedBytes()
     {
-        return pageBuffer.stream().mapToLong(ParquetDataOutput::size).sum() +
-                definitionLevelEncoder.getBufferedSize() +
-                repetitionLevelEncoder.getBufferedSize() +
-                primitiveValueWriter.getBufferedSize();
+        return bufferedBytes;
     }
 
     @Override
     public long getRetainedBytes()
     {
-        return 0;
+        return INSTANCE_SIZE +
+                compressedOutputStream.getRetainedSize() +
+                primitiveValueWriter.getAllocatedSize() +
+                definitionLevelWriter.getAllocatedSize() +
+                repetitionLevelWriter.getAllocatedSize();
     }
 
-    @Override
-    public void reset()
+    private void updateBufferedBytes(long currentPageBufferedBytes)
     {
-        pageBuffer.clear();
-        closed = false;
+        bufferedBytes = pageBufferedBytes + currentPageBufferedBytes;
+    }
 
-        totalCompressedSize = 0;
-        totalUnCompressedSize = 0;
-        totalRows = 0;
-        encodings.clear();
-        this.columnStatistics = Statistics.createStats(columnDescriptor.getPrimitiveType());
-
-        getDataStreamsCalled = false;
+    private long getCurrentPageBufferedBytes()
+    {
+        return definitionLevelWriter.getBufferedSize() +
+                repetitionLevelWriter.getBufferedSize() +
+                primitiveValueWriter.getBufferedSize();
     }
 }
