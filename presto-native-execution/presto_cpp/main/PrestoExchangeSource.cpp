@@ -83,7 +83,7 @@ PrestoExchangeSource::PrestoExchangeSource(
       clientCertAndKeyPath_(clientCertAndKeyPath),
       ciphers_(ciphers),
       exchangeExecutor_(executor) {
-  folly::SocketAddress address(host_, port_, true);
+  folly::SocketAddress address(folly::IPAddress(host_).str(), port_);
   auto timeoutMs = std::chrono::duration_cast<std::chrono::milliseconds>(
       SystemConfig::instance()->exchangeRequestTimeout());
   VELOX_CHECK_NOT_NULL(exchangeExecutor_.get());
