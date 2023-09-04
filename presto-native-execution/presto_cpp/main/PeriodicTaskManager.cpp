@@ -567,7 +567,6 @@ void PeriodicTaskManager::updateSpillStatsTask() {
       kCounterSpillFlushTimeUs, deltaSpillStats.spillFlushTimeUs);
   REPORT_IF_NOT_ZERO(
       kCounterSpillWriteTimeUs, deltaSpillStats.spillWriteTimeUs);
-  LOG(INFO) << "Spill Stats:\n" << deltaSpillStats.toString() << "\n";
   lastSpillStats_ = updatedSpillStats;
 }
 
