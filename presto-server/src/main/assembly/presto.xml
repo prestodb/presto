@@ -125,6 +125,10 @@
             <outputDirectory>plugin/mysql</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>${project.build.directory}/dependency/presto-singlestore-${project.version}</directory>
+            <outputDirectory>plugin/singlestore</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>${project.build.directory}/dependency/presto-oracle-${project.version}</directory>
             <outputDirectory>plugin/oracle</outputDirectory>
         </fileSet>
