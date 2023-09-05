@@ -189,6 +189,7 @@
         <module>presto-router</module>
         <module>presto-open-telemetry</module>
         <module>redis-hbo-provider</module>
+        <module>presto-singlestore</module>
     </modules>
 
     <dependencyManagement>
@@ -405,6 +406,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-mysql</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-singlestore</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1161,6 +1168,12 @@
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
                 <version>5.1.48</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.singlestore</groupId>
+                <artifactId>singlestore-jdbc-client</artifactId>
+                <version>1.1.9</version>
             </dependency>
 
             <dependency>
