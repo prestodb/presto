@@ -431,7 +431,7 @@ void HashTable<ignoreNullKeys>::groupProbe(HashLookup& lookup) {
   }
   // Do size-based rehash before mixing hashes from normalized keys
   // because the size of the table affects the mixing.
-  checkSize(lookup.rows.size());
+  checkSize(lookup.rows.size(), false);
   if (hashMode_ == HashMode::kNormalizedKey) {
     populateNormalizedKeys(lookup, sizeBits_);
     groupNormalizedKeyProbe(lookup);
@@ -718,7 +718,9 @@ void HashTable<ignoreNullKeys>::clear() {
 }
 
 template <bool ignoreNullKeys>
-void HashTable<ignoreNullKeys>::checkSize(int32_t numNew) {
+void HashTable<ignoreNullKeys>::checkSize(
+    int32_t numNew,
+    bool initNormalizedKeys) {
   // NOTE: the way we decide the table size and trigger rehash, guarantees the
   // table should always have free slots after the insertion.
   VELOX_CHECK(
@@ -734,7 +736,7 @@ void HashTable<ignoreNullKeys>::checkSize(int32_t numNew) {
     const auto newSize = newHashTableEntries(numDistinct_, numNew);
     allocateTables(newSize);
     if (numDistinct_ > 0) {
-      rehash();
+      rehash(initNormalizedKeys);
     }
     // We are not always able to reuse a tombstone slot as a free one for hash
     // collision handling purpose. For example, if all the table slots are
@@ -747,7 +749,7 @@ void HashTable<ignoreNullKeys>::checkSize(int32_t numNew) {
     const auto newCapacity = bits::nextPowerOfTwo(
         std::max(newNumDistincts, capacity_ - numTombstones_) + 1);
     allocateTables(newCapacity);
-    rehash();
+    rehash(initNormalizedKeys);
   }
 }
 
@@ -1008,8 +1010,9 @@ template <bool ignoreNullKeys>
 bool HashTable<ignoreNullKeys>::insertBatch(
     char** groups,
     int32_t numGroups,
-    raw_vector<uint64_t>& hashes) {
-  if (!hashRows(folly::Range(groups, numGroups), true, hashes)) {
+    raw_vector<uint64_t>& hashes,
+    bool initNormalizedKeys) {
+  if (!hashRows(folly::Range(groups, numGroups), initNormalizedKeys, hashes)) {
     return false;
   }
   if (isJoinBuild_) {
@@ -1181,7 +1184,7 @@ void HashTable<ignoreNullKeys>::insertForJoin(
 }
 
 template <bool ignoreNullKeys>
-void HashTable<ignoreNullKeys>::rehash() {
+void HashTable<ignoreNullKeys>::rehash(bool initNormalizedKeys) {
   ++numRehashes_;
   constexpr int32_t kHashBatchSize = 1024;
   if (canApplyParallelJoinBuild()) {
@@ -1201,7 +1204,8 @@ void HashTable<ignoreNullKeys>::rehash() {
       numGroups = (i == 0 ? this : otherTables_[i - 1].get())
                       ->rows()
                       ->listRows(&iterator, kHashBatchSize, groups);
-      if (!insertBatch(groups, numGroups, hashes)) {
+      if (!insertBatch(
+              groups, numGroups, hashes, initNormalizedKeys || i != 0)) {
         VELOX_CHECK_NE(hashMode_, HashMode::kHash);
         setHashMode(HashMode::kHash, 0);
         return;
@@ -1220,7 +1224,7 @@ void HashTable<ignoreNullKeys>::setHashMode(HashMode mode, int32_t numNew) {
     table_ = tableAllocation_.data<char*>();
     memset(table_, 0, bytes);
     hashMode_ = HashMode::kArray;
-    rehash();
+    rehash(true);
   } else if (mode == HashMode::kHash) {
     hashMode_ = HashMode::kHash;
     for (auto& hasher : hashers_) {
@@ -1229,12 +1233,12 @@ void HashTable<ignoreNullKeys>::setHashMode(HashMode mode, int32_t numNew) {
     rows_->disableNormalizedKeys();
     capacity_ = 0;
     // Makes tables of the right size and rehashes.
-    checkSize(numNew);
+    checkSize(numNew, true);
   } else if (mode == HashMode::kNormalizedKey) {
     hashMode_ = HashMode::kNormalizedKey;
     capacity_ = 0;
     // Makes tables of the right size and rehashes.
-    checkSize(numNew);
+    checkSize(numNew, true);
   }
 }
 
@@ -1553,7 +1557,7 @@ void HashTable<ignoreNullKeys>::prepareJoinTable(
     if (hashMode_ != HashMode::kHash) {
       setHashMode(HashMode::kHash, 0);
     } else {
-      checkSize(0);
+      checkSize(0, true);
     }
   } else {
     decideHashMode(0);
