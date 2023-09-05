@@ -65,7 +65,7 @@ class AverageAggregate {
     // wrapped in InputType.
     void addInput(HashStringAllocator* /*allocator*/, exec::arg_type<T> data) {
       sum_ += data;
-      count_++;
+      count_ = checkedPlus<int64_t>(count_, 1);
     }
 
     // combine expects one parameter of exec::arg_type<IntermediateType>.
@@ -78,7 +78,7 @@ class AverageAggregate {
       VELOX_CHECK(other.at<0>().has_value());
       VELOX_CHECK(other.at<1>().has_value());
       sum_ += other.at<0>().value();
-      count_ += other.at<1>().value();
+      count_ = checkedPlus<int64_t>(count_, other.at<1>().value());
     }
 
     bool writeFinalResult(exec::out_type<OutputType>& out) {

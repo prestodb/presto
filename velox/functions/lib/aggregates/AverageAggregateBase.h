@@ -247,7 +247,8 @@ class AverageAggregateBase : public exec::Aggregate {
       exec::Aggregate::clearNull(group);
     }
     accumulator(group)->sum += value;
-    accumulator(group)->count += 1;
+    accumulator(group)->count =
+        checkedPlus<int64_t>(accumulator(group)->count, 1);
   }
 
   template <bool tableHasNulls = true>
@@ -256,7 +257,8 @@ class AverageAggregateBase : public exec::Aggregate {
       exec::Aggregate::clearNull(group);
     }
     accumulator(group)->sum += sum;
-    accumulator(group)->count += count;
+    accumulator(group)->count =
+        checkedPlus<int64_t>(accumulator(group)->count, count);
   }
 
   inline SumCount<TAccumulator>* accumulator(char* group) {
@@ -374,7 +376,9 @@ class AverageAggregateBase : public exec::Aggregate {
               !baseSumDecoded.isNullAt(decodedIndex) &&
               !baseCountDecoded.isNullAt(decodedIndex));
         }
-        totalCount += baseCountDecoded.template valueAt<int64_t>(decodedIndex);
+        totalCount = checkedPlus<int64_t>(
+            totalCount,
+            baseCountDecoded.template valueAt<int64_t>(decodedIndex));
         totalSum += baseSumDecoded.template valueAt<TAccumulator>(decodedIndex);
       });
       updateNonNullValue(group, totalCount, totalSum);

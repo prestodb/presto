@@ -333,6 +333,64 @@ TEST_F(AverageAggregationTest, avg) {
   testFunction("simple_avg");
 }
 
+TEST_F(AverageAggregationTest, overflow) {
+  auto testFunction = [this](
+                          const std::string& functionName, bool singleGroup) {
+    auto vector = makeRowVector(
+        {makeFlatVector<double>({100.0, 200.0}),
+         makeFlatVector<int64_t>({8490071280492378624, 8490071280492378624})});
+
+    auto plan =
+        PlanBuilder()
+            .values(
+                {makeRowVector({makeFlatVector<bool>({true, true}), vector})})
+            .singleAggregation(
+                singleGroup ? std::vector<std::string>{}
+                            : std::vector<std::string>{"c0"},
+                {fmt::format("{}(c1)", functionName)})
+            .planNode();
+
+    auto expected = makeRowVector(
+        {makeNullableFlatVector<double>({std::nullopt, std::nullopt})});
+    assertQuery(plan, expected);
+
+    plan = PlanBuilder()
+               .values({makeRowVector({vector})})
+               .partialAggregation(
+                   singleGroup ? std::vector<std::string>{}
+                               : std::vector<std::string>{"c0"},
+                   {fmt::format("{}(c1)", functionName)})
+               .intermediateAggregation()
+               .finalAggregation()
+               .planNode();
+    assertQuery(plan, expected);
+  };
+  VELOX_ASSERT_THROW(testFunction("avg_merge", true), "integer overflow");
+  VELOX_ASSERT_THROW(testFunction("avg_merge", false), "integer overflow");
+  VELOX_ASSERT_THROW(
+      testFunction("avg_merge_extract_real", true), "integer overflow");
+  VELOX_ASSERT_THROW(
+      testFunction("avg_merge_extract_real", false), "integer overflow");
+  VELOX_ASSERT_THROW(
+      testFunction("avg_merge_extract_double", true), "integer overflow");
+  VELOX_ASSERT_THROW(
+      testFunction("avg_merge_extract_double", false), "integer overflow");
+  VELOX_ASSERT_THROW(
+      testFunction("simple_avg_merge", true), "integer overflow");
+  VELOX_ASSERT_THROW(
+      testFunction("simple_avg_merge", false), "integer overflow");
+  VELOX_ASSERT_THROW(
+      testFunction("simple_avg_merge_extract_real", true), "integer overflow");
+  VELOX_ASSERT_THROW(
+      testFunction("simple_avg_merge_extract_real", false), "integer overflow");
+  VELOX_ASSERT_THROW(
+      testFunction("simple_avg_merge_extract_double", true),
+      "integer overflow");
+  VELOX_ASSERT_THROW(
+      testFunction("simple_avg_merge_extract_double", false),
+      "integer overflow");
+}
+
 TEST_F(AverageAggregationTest, partialResults) {
   auto testFunction = [this](const std::string& functionName) {
     auto data = makeRowVector(
