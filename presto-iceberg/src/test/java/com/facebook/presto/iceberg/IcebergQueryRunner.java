@@ -105,10 +105,9 @@ public final class IcebergQueryRunner
 
         queryRunner.installPlugin(new IcebergPlugin());
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
+                .put("iceberg.file-format", format.name())
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString())
-                .put("iceberg.file-format", format.name())
-                .put("iceberg.catalog.warehouse", dataDirectory.getParent().toFile().toURI().toString())
                 .putAll(extraConnectorProperties)
                 .build();
 
