@@ -139,6 +139,9 @@ class HiveDataSource : public DataSource {
       dwio::common::RowReaderOptions&,
       const RowTypePtr& rowType) const;
 
+  void parseSerdeParameters(
+      const std::unordered_map<std::string, std::string>& serdeParameters);
+
   const RowTypePtr outputType_;
   // Column handles for the partition key columns keyed on partition key column
   // name.

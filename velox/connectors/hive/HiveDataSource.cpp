@@ -533,6 +533,49 @@ HiveDataSource::HiveDataSource(
   ioStats_ = std::make_shared<dwio::common::IoStatistics>();
 }
 
+inline uint8_t parseDelimiter(const std::string& delim) {
+  for (char const& ch : delim) {
+    if (!std::isdigit(ch)) {
+      return delim[0];
+    }
+  }
+  return stoi(delim);
+}
+
+void HiveDataSource::parseSerdeParameters(
+    const std::unordered_map<std::string, std::string>& serdeParameters) {
+  auto fieldIt = serdeParameters.find(dwio::common::SerDeOptions::kFieldDelim);
+  if (fieldIt == serdeParameters.end()) {
+    fieldIt = serdeParameters.find("serialization.format");
+  }
+  auto collectionIt =
+      serdeParameters.find(dwio::common::SerDeOptions::kCollectionDelim);
+  auto mapKeyIt =
+      serdeParameters.find(dwio::common::SerDeOptions::kMapKeyDelim);
+
+  if (fieldIt == serdeParameters.end() &&
+      collectionIt == serdeParameters.end() &&
+      mapKeyIt == serdeParameters.end()) {
+    return;
+  }
+
+  uint8_t fieldDelim = '\1';
+  uint8_t collectionDelim = '\2';
+  uint8_t mapKeyDelim = '\3';
+  if (fieldIt != serdeParameters.end()) {
+    fieldDelim = parseDelimiter(fieldIt->second);
+  }
+  if (collectionIt != serdeParameters.end()) {
+    collectionDelim = parseDelimiter(collectionIt->second);
+  }
+  if (mapKeyIt != serdeParameters.end()) {
+    mapKeyDelim = parseDelimiter(mapKeyIt->second);
+  }
+  dwio::common::SerDeOptions serDeOptions(
+      fieldDelim, collectionDelim, mapKeyDelim);
+  readerOpts_.setSerDeOptions(serDeOptions);
+}
+
 void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   VELOX_CHECK(
       split_ == nullptr,
@@ -552,6 +595,7 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
         toString(readerOpts_.getFileFormat()),
         toString(split_->fileFormat));
   } else {
+    parseSerdeParameters(split_->serdeParameters);
     readerOpts_.setFileFormat(split_->fileFormat);
   }
 
