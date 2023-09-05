@@ -99,4 +99,12 @@ public abstract class AbstractTestNativeProbabilityFunctionQueries
         assertQuery("SELECT wilson_interval_upper(suppkey, suppkey + 5, 0.8) FROM supplier WHERE suppkey > 0 AND suppkey < 1000");
         assertQuery("SELECT wilson_interval_lower(10, 12, acctbal / 200) FROM supplier WHERE acctbal > 0.0 AND acctbal < 1000.0");
     }
+
+    @Test
+    public void testLaplaceCDF()
+    {
+        assertQuery("SELECT laplace_cdf(acctbal, 0.0, 1.0) FROM supplier WHERE acctbal > 0.0 AND acctbal < 999.0");
+        assertQuery("SELECT laplace_cdf(1.0, acctbal, 1.5) FROM supplier WHERE acctbal > 0.0 AND acctbal < 999.0");
+        assertQuery("SELECT laplace_cdf(11.0, -1.0, acctbal) FROM supplier WHERE acctbal > 0.0 AND acctbal < 999.0");
+    }
 }
