@@ -73,10 +73,6 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       const std::string& clientCertAndKeyPath_ = "",
       const std::string& ciphers_ = "");
 
-  bool supportsFlowControl() const override {
-    return true;
-  }
-
   /// Returns 'true' is there is no request in progress, this source is not at
   /// end and most recent request hasn't failed. Transitions into
   /// 'request-pending' state if not there already. The caller must follow up
