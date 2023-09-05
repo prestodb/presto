@@ -289,9 +289,22 @@ class SelectiveFlatMapReader : public SelectiveStructColumnReaderBase {
         AlignedBuffer::allocate<vector_size_t>(rows.size(), &memoryPool_);
     auto* rawOffsets = offsets->template asMutable<vector_size_t>();
     auto* rawSizes = sizes->template asMutable<vector_size_t>();
+    auto* nulls =
+        nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
     vector_size_t totalSize = 0;
     for (vector_size_t i = 0; i < rows.size(); ++i) {
-      if (anyNulls_ && bits::isBitNull(rawResultNulls_, i)) {
+      if (nulls && bits::isBitNull(nulls, rows[i])) {
+        rawSizes[i] = 0;
+
+        if (!returnReaderNulls_) {
+          if (!rawResultNulls_) {
+            mutableNulls(rows.size());
+          }
+          bits::setNull(rawResultNulls_, i);
+        }
+
+        anyNulls_ = true;
+
         continue;
       }
       int currentRowSize = 0;
@@ -308,17 +321,9 @@ class SelectiveFlatMapReader : public SelectiveStructColumnReaderBase {
         });
         ++currentRowSize;
       }
-      if (currentRowSize > 0) {
-        rawOffsets[i] = totalSize;
-        rawSizes[i] = currentRowSize;
-        totalSize += currentRowSize;
-      } else {
-        if (!rawResultNulls_) {
-          setNulls(AlignedBuffer::allocate<bool>(rows.size(), &memoryPool_));
-        }
-        bits::setNull(rawResultNulls_, i);
-        anyNulls_ = true;
-      }
+      rawOffsets[i] = totalSize;
+      rawSizes[i] = currentRowSize;
+      totalSize += currentRowSize;
     }
     auto& mapType = requestedType_->type()->asMap();
     VectorPtr keys =
@@ -374,7 +379,8 @@ class SelectiveFlatMapReader : public SelectiveStructColumnReaderBase {
     *result = std::make_shared<MapVector>(
         &memoryPool_,
         requestedType_->type(),
-        anyNulls_ ? resultNulls_ : nullptr,
+        anyNulls_ ? (returnReaderNulls_ ? nullsInReadRange_ : resultNulls_)
+                  : nullptr,
         rows.size(),
         std::move(offsets),
         std::move(sizes),

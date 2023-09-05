@@ -1832,7 +1832,9 @@ void verifyRowNumbers(
 std::pair<std::unique_ptr<dwrf::Writer>, std::unique_ptr<DwrfReader>>
 createWriterReader(
     const std::vector<VectorPtr>& batches,
-    memory::MemoryPool& pool) {
+    memory::MemoryPool& pool,
+    const std::shared_ptr<dwrf::Config>& config =
+        std::make_shared<dwrf::Config>()) {
   auto sink =
       std::make_unique<MemorySink>(1 << 20, FileSink::Options{.pool = &pool});
   auto* sinkPtr = sink.get();
@@ -1840,7 +1842,7 @@ createWriterReader(
       std::move(sink),
       asRowType(batches[0]->type()),
       batches,
-      std::make_shared<dwrf::Config>(),
+      config,
       E2EWriterTestUtil::simpleFlushPolicyFactory(true));
   std::string_view data(sinkPtr->data(), sinkPtr->size());
   auto input = std::make_unique<BufferedInput>(
@@ -1978,5 +1980,157 @@ TEST(TestReader, failToReuseReaderNulls) {
   ASSERT_EQ(result->size(), 5);
   for (int i = 0; i < result->size(); ++i) {
     ASSERT_TRUE(result->equalValueAt(data.get(), i, i)) << result->toString(i);
+  }
+}
+
+TEST(TestReader, readFlatMapsSomeEmpty) {
+  // Test reading a flat map where the key filter means that some maps are
+  // empty.
+  auto* pool = defaultPool.get();
+  VectorMaker maker(pool);
+
+  auto keys = maker.flatVector(std::vector<int64_t>{
+      1,
+      2,
+      3,
+      4,
+      5,
+      6, // map 1 has more than just the selected keys.
+      1,
+      2,
+      3, // map 2 has only selected keys.
+      4,
+      5,
+      6, // map 3 has no selected keys.
+      1,
+      2,
+      5,
+      6 // map 4 has some selected keys.
+  });
+  auto values = maker.flatVector<int64_t>(16, folly::identity);
+  auto maps = maker.mapVector(
+      std::vector<vector_size_t>{0, 6, 9, 12, 16}, keys, values);
+  auto row = maker.rowVector({"a"}, {maps});
+
+  // Set up the config so that the maps are flattened.
+  std::shared_ptr<dwrf::Config> config = std::make_shared<dwrf::Config>();
+  config->set(dwrf::Config::FLATTEN_MAP, true);
+  config->set(dwrf::Config::MAP_FLAT_COLS, {0});
+
+  auto [writer, reader] = createWriterReader({row}, *pool, config);
+
+  auto schema = asRowType(row->type());
+  auto spec = std::make_shared<common::ScanSpec>("<root>");
+  spec->addAllChildFields(*schema);
+  spec->childByName("a")
+      ->childByName(common::ScanSpec::kMapKeysFieldName)
+      ->setFilter(common::createBigintValues({1, 2, 3}, false));
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setScanSpec(spec);
+
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+  VectorPtr batch = BaseVector::create(schema, 0, pool);
+
+  ASSERT_TRUE(rowReader->next(4, batch));
+  auto rowVector = batch->as<RowVector>();
+  auto resultMaps = rowVector->childAt(0)->loadedVector()->as<MapVector>();
+  ASSERT_EQ(resultMaps->size(), 4);
+  auto resultKeys = resultMaps->mapKeys()->as<SimpleVector<int64_t>>();
+  auto resultValues = resultMaps->mapValues()->as<SimpleVector<int64_t>>();
+
+  auto validate = [&](vector_size_t index,
+                      vector_size_t expectedSize,
+                      const std::unordered_set<int64_t>& expectedKeys,
+                      const std::unordered_set<int64_t>& expectedValues) {
+    ASSERT_FALSE(resultMaps->isNullAt(index));
+
+    vector_size_t offset = resultMaps->offsetAt(index);
+    vector_size_t size = resultMaps->sizeAt(index);
+    ASSERT_EQ(size, expectedSize);
+
+    std::unordered_set<int64_t> keySet;
+    std::unordered_set<int64_t> valueSet;
+    for (int i = offset; i < offset + size; i++) {
+      keySet.insert(resultKeys->valueAt(i));
+      valueSet.insert(resultValues->valueAt(i));
+    }
+
+    EXPECT_EQ(keySet, expectedKeys);
+    EXPECT_EQ(valueSet, expectedValues);
+  };
+
+  validate(0, 3, {1, 2, 3}, {0, 1, 2});
+  validate(1, 3, {1, 2, 3}, {6, 7, 8});
+  validate(2, 0, {}, {});
+  validate(3, 2, {1, 2}, {12, 13});
+}
+
+TEST(TestReader, readFlatMapsWithNullMaps) {
+  // Test reading a flat map where the key filter means that some maps are
+  // empty.
+  auto* pool = defaultPool.get();
+  VectorMaker maker(pool);
+
+  auto keys =
+      maker.flatVector<int64_t>(16, [](vector_size_t row) { return row % 4; });
+  auto values = maker.flatVector<int64_t>(16, folly::identity);
+  auto maps = maker.mapVector(
+      std::vector<vector_size_t>{0, 4, 4, 8, 8, 12, 12, 16, 16},
+      keys,
+      values,
+      {1, 3, 5, 7});
+  auto row = maker.rowVector({"a"}, {maps});
+
+  // Set up the config so that the maps are flattened.
+  std::shared_ptr<dwrf::Config> config = std::make_shared<dwrf::Config>();
+  config->set(dwrf::Config::FLATTEN_MAP, true);
+  config->set(dwrf::Config::MAP_FLAT_COLS, {0});
+
+  auto [writer, reader] = createWriterReader({row}, *pool, config);
+
+  auto schema = asRowType(row->type());
+  auto spec = std::make_shared<common::ScanSpec>("<root>");
+  spec->addAllChildFields(*schema);
+  spec->childByName("a")
+      ->childByName(common::ScanSpec::kMapKeysFieldName)
+      ->setFilter(common::createBigintValues({1, 2, 3}, false));
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setScanSpec(spec);
+
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+  VectorPtr batch = BaseVector::create(schema, 0, pool);
+
+  ASSERT_TRUE(rowReader->next(8, batch));
+  auto rowVector = batch->as<RowVector>();
+  auto resultMaps = rowVector->childAt(0)->loadedVector()->as<MapVector>();
+  ASSERT_EQ(resultMaps->size(), 8);
+  auto resultKeys = resultMaps->mapKeys()->as<SimpleVector<int64_t>>();
+  auto resultValues = resultMaps->mapValues()->as<SimpleVector<int64_t>>();
+
+  for (int mapIndex = 0; mapIndex < 8; mapIndex++) {
+    if (mapIndex % 2 != 0) {
+      ASSERT_TRUE(resultMaps->isNullAt(mapIndex));
+    } else {
+      ASSERT_FALSE(resultMaps->isNullAt(mapIndex));
+
+      vector_size_t offset = resultMaps->offsetAt(mapIndex);
+      vector_size_t size = resultMaps->sizeAt(mapIndex);
+      ASSERT_EQ(size, 3);
+
+      std::unordered_set<int64_t> keySet;
+      std::unordered_set<int64_t> valueSet;
+      for (int i = offset; i < offset + size; i++) {
+        keySet.insert(resultKeys->valueAt(i));
+        valueSet.insert(resultValues->valueAt(i));
+      }
+
+      EXPECT_EQ(keySet, (std::unordered_set<int64_t>{1, 2, 3}));
+      EXPECT_EQ(
+          valueSet,
+          (std::unordered_set<int64_t>{
+              4 * mapIndex / 2 + 1,
+              4 * mapIndex / 2 + 2,
+              4 * mapIndex / 2 + 3}));
+    }
   }
 }
