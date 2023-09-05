@@ -25,5 +25,5 @@ public interface NDVEstimatorState
 {
     double LOWER_BOUND_PROBABILITY = 0.1;
 
-    long estimate();
+    Object[] estimate();
 }

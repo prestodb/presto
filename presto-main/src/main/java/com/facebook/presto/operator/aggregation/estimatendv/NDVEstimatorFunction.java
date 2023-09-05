@@ -17,6 +17,7 @@ import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
@@ -33,8 +34,12 @@ import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.function.Signature.comparableTypeParameter;
@@ -65,13 +70,15 @@ public class NDVEstimatorFunction
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(NDVEstimatorFunction.class, "output", NDVEstimatorState.class, BlockBuilder.class);
     private static final MethodHandle INPUT_FUNCTION = methodHandle(NDVEstimatorFunction.class, "input", Type.class, NDVEstimatorState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(NDVEstimatorFunction.class, "combine", NDVEstimatorState.class, NDVEstimatorState.class);
+    static final Type NDVEstimatorOutputType = RowType.from(Arrays.asList(
+            new RowType.Field(Optional.of("ndv"), BIGINT), new RowType.Field(Optional.of("errorBound"), DOUBLE)));
 
     public NDVEstimatorFunction()
     {
         super(NAME,
                 ImmutableList.of(comparableTypeParameter("K")),
                 ImmutableList.of(),
-                parseTypeSignature("bigint"),
+                parseTypeSignature("row(ndv bigint, errorBound double)"),
                 ImmutableList.of(parseTypeSignature("K")));
     }
 
@@ -94,7 +101,7 @@ public class NDVEstimatorFunction
                         NDVEstimatorState.class,
                         stateSerializer,
                         new NDVEstimatorStateFactory(type, EXPECTED_SIZE_FOR_HASHING))),
-                BigintType.BIGINT);
+                NDVEstimatorOutputType);
 
         Class<? extends Accumulator> accumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 Accumulator.class,
@@ -127,7 +134,11 @@ public class NDVEstimatorFunction
 
     public static void output(NDVEstimatorState state, BlockBuilder out)
     {
-        BigintType.BIGINT.writeLong(out, state.estimate());
+        BlockBuilder entryBuilder = out.beginBlockEntry();
+        Object[] result = state.estimate();
+        BIGINT.writeLong(entryBuilder, (Long) result[0]);
+        DOUBLE.writeDouble(entryBuilder, result.length == 2 ? (Double) result[1] : Double.NaN);
+        out.closeEntry();
     }
 
     @Override

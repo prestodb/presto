@@ -26,8 +26,8 @@ public class GroupNDVEstimatorState
     }
 
     @Override
-    public long estimate()
+    public Object[] estimate()
     {
-        return 0;
+        return null;
     }
 }

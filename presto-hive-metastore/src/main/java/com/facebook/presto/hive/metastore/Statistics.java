@@ -15,7 +15,9 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.RowBlock;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.SqlDate;
 import com.facebook.presto.common.type.SqlDecimal;
 import com.facebook.presto.common.type.Type;
@@ -30,6 +32,7 @@ import org.joda.time.DateTimeZone;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -381,12 +384,22 @@ public final class Statistics
         if (computedStatistics.containsKey(NUMBER_OF_DISTINCT_VALUES) && computedStatistics.containsKey(NUMBER_OF_NON_NULL_VALUES)) {
             // number of distinct value is estimated using HLL, and can be higher than the number of non null values
             long numberOfNonNullValues = BIGINT.getLong(computedStatistics.get(NUMBER_OF_NON_NULL_VALUES), 0);
-            long numberOfDistinctValues = BIGINT.getLong(computedStatistics.get(NUMBER_OF_DISTINCT_VALUES), 0);
-            if (numberOfDistinctValues > numberOfNonNullValues) {
-                result.setDistinctValuesCount(numberOfNonNullValues);
+            long numberOfDistinctValues;
+            Block ndvBlock = computedStatistics.get(NUMBER_OF_DISTINCT_VALUES);
+            if (computedStatistics.get(NUMBER_OF_DISTINCT_VALUES) instanceof RowBlock) {
+                Type ndvEstimatorOutputType = RowType.from(Arrays.asList(
+                        new RowType.Field(Optional.of("ndv"), BIGINT), new RowType.Field(Optional.of("errorBound"), DOUBLE)));
+                Block ndvRowBlock = (Block) ndvEstimatorOutputType.getObject(ndvBlock, 0);
+                result.setDistinctValuesCount(ndvRowBlock.getLong(0));
             }
             else {
-                result.setDistinctValuesCount(numberOfDistinctValues);
+                numberOfDistinctValues = BIGINT.getLong(ndvBlock, 0);
+                if (numberOfDistinctValues > numberOfNonNullValues) {
+                    result.setDistinctValuesCount(numberOfNonNullValues);
+                }
+                else {
+                    result.setDistinctValuesCount(numberOfDistinctValues);
+                }
             }
         }
 

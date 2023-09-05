@@ -44,14 +44,21 @@ public class SingleNDVEstimatorState
     }
 
     /**
-     * Suppose we draw N samples and all are distinct values. We can compute the probability of this event happening
-     * (N unique values in N draws) for specific R number of distinct values within a population, this helps us put a
-     * bound on the estimated number of distinct values.
-     * We estimate the number of distinct values as the population number where there is a 10% chance
-     * that these N distinct draws could happen due to random chance alone
+     * Estimates the lower bound for the number of distinct values in a population
+     * using a probability-based approach inspired by the Chao estimator implementation
+     * in the Python package Pydistinct.
      *
-     * @param d: number of distinct values
-     * @return estimated lower bound for distinct number of integers
+     * The Chao estimator helps us approximate the number of distinct values in a population
+     * when we draw N samples, and all of them are unique values. It calculates the probability
+     * of this event happening for a specific number (R) of distinct values within the population,
+     * allowing us to place a lower bound on the estimated number of distinct values.
+     *
+     * This method estimates the number of distinct values as the population size at which
+     * there is a 10% chance that drawing N distinct values could happen due to random chance alone.
+     *
+     * @param d The number of distinct values observed in the sample.
+     * @return An estimated lower bound for the number of distinct values in the population.
+     * @see <a href="https://github.com/chanedwin/pydistinct">Pydistinct on GitHub</a>
      */
     private long computeBirthdayProblemProbability(long d)
     {
@@ -70,11 +77,18 @@ public class SingleNDVEstimatorState
     }
 
     /**
-     * Use Chao estimator to estimate NDV
+     * Use Chao estimator to estimate NDV.
+     * Also compute error bound with 95% CI:
+     * Error Bound (E) = Z * sqrt((f_1 * (n - 1) * (n - 2)) / (2 * (f_2 * n - 1)))
+     * Z is the critical value from the standard normal distribution corresponding to the desired level of confidence (e.g., 1.96 for 95% confidence).
+     * f_1 is the number of singletons (items observed only once) in the sample.
+     * f_2 is the number of doubletons (items observed exactly twice) in the sample.
+     * n is the size of the sample.
+     * If R_1 or R_2 is 0, then only return estimated NDV, else return estimated NDV with the error bound
      *
-     * @return Estimate of the NDV in the specific column in the original table
+     * @return Estimate of the NDV in the specific column in the original table with error bound
      */
-    public long estimate()
+    public Object[] estimate()
     {
         Map<Long, Long> freqDict = computeFreqDict((SingleTypedHistogram) this.get());
         // get frequency map and compute freq dict
@@ -84,17 +98,21 @@ public class SingleNDVEstimatorState
             totalValues += key * freqDict.get(key);
         }
         if (distinctValues == totalValues) {
-            return computeBirthdayProblemProbability(distinctValues);
+            return new Object[] {computeBirthdayProblemProbability(distinctValues)};
         }
         // if 1 not in freqDict
         if (!freqDict.containsKey(1L)) {
-            return distinctValues;
+            return new Object[] {distinctValues};
         }
         long f1 = freqDict.get(1L);
+        // if 2 not in freqDict
         if (!freqDict.containsKey(2L)) {
-            return computeBirthdayProblemProbability(distinctValues);
+            return new Object[] {computeBirthdayProblemProbability(distinctValues)};
         }
         long f2 = freqDict.get(2L);
-        return distinctValues + (f1 * f1) / (2L * f2);
+        Object[] ndvWithErrorBound = new Object[2];
+        ndvWithErrorBound[0] = distinctValues + (f1 * f1) / (2L * f2);
+        ndvWithErrorBound[1] = 1.96 * Math.sqrt((f1 * (totalValues - 1) * (totalValues - 2)) / (2.0 * (f2 * totalValues - 1)));
+        return ndvWithErrorBound;
     }
 }
