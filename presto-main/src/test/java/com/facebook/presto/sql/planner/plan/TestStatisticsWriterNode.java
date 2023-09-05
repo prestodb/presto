@@ -28,7 +28,6 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.testing.TestingHandleResolver;
