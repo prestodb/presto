@@ -56,6 +56,18 @@ public class TestFixJsonDataUtils
         assertQueryResult("ipprefix", "1.2.3.4/32", "1.2.3.4/32");
         assertQueryResult("Geometry", "POINT (1.2 3.4)", "POINT (1.2 3.4)");
         assertQueryResult("map(BingTile,bigint)", ImmutableMap.of("BingTile{x=1, y=2, zoom_level=10}", 1), ImmutableMap.of("BingTile{x=1, y=2, zoom_level=10}", 1L));
+        // test nested map structure
+        assertQueryResult("map(map(bigint,bigint),bigint)", ImmutableMap.of("{\n  \"1\" : \"2\",\n  \"3\" : \"4\",\n  \"5\" : \"6\"\n}", "3"), ImmutableMap.of(ImmutableMap.of(1L, 2L, 3L, 4L, 5L, 6L), 3L));
+        assertQueryResult("map(row(foo bigint,bar double),bigint)", ImmutableMap.of("[ \"4\", \"5.0\" ]", "6", "[ \"1\", \"2.0\" ]", "3"), ImmutableMap.of(ImmutableMap.of("foo", 1L, "bar", 2.0), 3L, ImmutableMap.of("foo", 4L, "bar", 5.0), 6L));
+        assertQueryResult("map(array(bigint),bigint)", ImmutableMap.of("[ \"1\", \"3\", \"2\", \"3\" ]", "3"), ImmutableMap.of(ImmutableList.of(1L, 3L, 2L, 3L), 3L));
+        // test nested array structure
+        assertQueryResult("array(array(bigint))", ImmutableList.of("[ \"1\", \"2\", \"3\" ]", "[ \"4\", \"5\", \"6\" ]"), ImmutableList.of(ImmutableList.of(1L, 2L, 3L), ImmutableList.of(4L, 5L, 6L)));
+        assertQueryResult("array(map(bigint,bigint))", ImmutableList.of("{\n  \"1\" : \"2\",\n  \"3\" : \"4\"\n}", "{\n  \"5\" : \"6\",\n  \"7\" : \"8\"\n}"), ImmutableList.of(ImmutableMap.of(1L, 2L, 3L, 4L), ImmutableMap.of(5L, 6L, 7L, 8L)));
+        assertQueryResult("array(row(foo bigint,bar double))", ImmutableList.of("[ \"1\", \"2.0\" ]", "[ \"3\", \"4.0\" ]"), ImmutableList.of(ImmutableMap.of("foo", 1L, "bar", 2.0), ImmutableMap.of("foo", 3L, "bar", 4.0)));
+        // test nested row structure
+        assertQueryResult("row(foo array(bigint),bar double)", ImmutableList.of("[ \"1\", \"2\" ]", "3.0"), ImmutableMap.of("foo", ImmutableList.of(1L, 2L), "bar", 3.0));
+        assertQueryResult("row(foo map(bigint,bigint),bar double)", ImmutableList.of("{\n  \"1\" : \"2\"\n}", "3.0"), ImmutableMap.of("foo", ImmutableMap.of(1L, 2L), "bar", 3.0));
+        assertQueryResult("row(foo row(x bigint,y double),bar double)", ImmutableList.of("[ \"1\", \"2.0\" ]", "3.0"), ImmutableMap.of("foo", ImmutableMap.of("x", 1L, "y", 2.0), "bar", 3.0));
     }
 
     private void assertQueryResult(String type, Object data, Object expected)
