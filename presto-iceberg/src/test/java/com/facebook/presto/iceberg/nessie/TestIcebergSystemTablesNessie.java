@@ -74,8 +74,6 @@ public class TestIcebergSystemTablesNessie
         queryRunner.installPlugin(new IcebergPlugin());
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .putAll(nessieConnectorProperties(nessieContainer.getRestApiUri()))
-                .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString())
                 .put("iceberg.catalog.warehouse", catalogDirectory.getParent().toFile().toURI().toString())
                 .build();
 
