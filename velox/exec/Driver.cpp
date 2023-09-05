@@ -143,7 +143,7 @@ class CancelGuard {
       Task* task,
       ThreadState* state,
       std::function<void(StopReason)> onTerminate)
-      : task_(task), state_(state), onTerminate_(onTerminate) {}
+      : task_(task), state_(state), onTerminate_(std::move(onTerminate)) {}
 
   void notThrown() {
     isThrow_ = false;
