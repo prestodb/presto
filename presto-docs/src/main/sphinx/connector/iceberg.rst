@@ -150,15 +150,8 @@ Iceberg connector supports Hadoop catalog
 .. code-block:: none
 
     connector.name=iceberg
-    hive.metastore.uri=hostname:port
     iceberg.catalog.type=hadoop
-
-.. note::
-
-    To use the Hadoop catalog with the Iceberg table, it requires the ``hive.metastore.uri`` property, even
-    though it doesn't rely on the metastore to provide the actual URI when using the Hadoop Catalog.
-    You can provide any value to this property, for example, ``hive.metastore.uri=thrift://localhost:9083``.
-    This will be fixed in a future release of Presto (:issue:`20579`).
+    iceberg.catalog.warehouse=hdfs://hostname:port
 
 Configuration Properties
 ------------------------
@@ -177,9 +170,12 @@ Property Name                                      Description                  
 ``hive.metastore.uri``                             The URI(s) of the Hive metastore to connect to using the
                                                    Thrift protocol. If multiple URIs are provided, the first
                                                    URI is used by default, and the rest of the URIs are
-                                                   fallback metastores. This property is required.
+                                                   fallback metastores.
                                                    Example: ``thrift://192.0.2.3:9083`` or
                                                    ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
+                                                   This property is required if the
+                                                   ``iceberg.catalog.type`` is ``hive``. Otherwise, it will
+                                                   be ignored.
 
 ``iceberg.file-format``                            The storage file format for Iceberg tables. The available     ``ORC``
                                                    values are ``PARQUET`` and ``ORC``.
@@ -194,12 +190,12 @@ Property Name                                      Description                  
 
 ``iceberg.catalog.warehouse``                      The catalog warehouse root path for Iceberg tables.
                                                    ``Example: hdfs://nn:8020/warehouse/path``
-                                                   This property is required if the iceberg.catalog.type is
-                                                   hadoop. Otherwise, it will be ignored.
+                                                   This property is required if the ``iceberg.catalog.type`` is
+                                                   ``hadoop``. Otherwise, it will be ignored.
 
 ``iceberg.catalog.cached-catalog-num``             The number of Iceberg catalogs to cache. This property is     ``10``
-                                                   required if the iceberg.catalog.type is hadoop. Otherwise,
-                                                   it will be ignored.
+                                                   required if the ``iceberg.catalog.type`` is ``hadoop``.
+                                                   Otherwise, it will be ignored.
 
 ``iceberg.hadoop.config.resources``                The path(s) for Hadoop configuration resources.
                                                    ``Example: /etc/hadoop/conf/core-site.xml.`` This property

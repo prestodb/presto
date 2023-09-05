@@ -13,26 +13,16 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.google.inject.Binder;
-import com.google.inject.Module;
+import com.google.inject.Scopes;
 
-import javax.inject.Inject;
-
-public class IcebergMetastoreModule
-        implements Module
+public class IcebergNativeModule
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
-        binder.bind(MetastoreValidator.class).asEagerSingleton();
-    }
-
-    public static class MetastoreValidator
-    {
-        @Inject
-        public MetastoreValidator(ExtendedHiveMetastore metastore)
-        {
-        }
+        binder.bind(IcebergMetadataFactory.class).to(IcebergNativeMetadataFactory.class).in(Scopes.SINGLETON);
     }
 }
