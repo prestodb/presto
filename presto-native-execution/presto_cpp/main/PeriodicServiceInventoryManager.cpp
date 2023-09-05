@@ -85,7 +85,9 @@ void PeriodicServiceInventoryManager::sendRequest() {
       .via(eventBaseThread_.getEventBase())
       .thenValue([this](auto response) {
         auto message = response->headers();
-        if (message->getStatusCode() != http::kHttpAccepted) {
+        // Treat both 202 and 204 as success.
+        if (message->getStatusCode() != http::kHttpAccepted &&
+            message->getStatusCode() != http::kHttpNoContent) {
           ++failedAttempts_;
           LOG(WARNING) << id_ << " failed: HTTP " << message->getStatusCode()
                        << " - " << response->dumpBodyChain();
