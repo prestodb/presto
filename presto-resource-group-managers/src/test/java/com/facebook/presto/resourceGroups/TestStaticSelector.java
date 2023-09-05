@@ -46,6 +46,7 @@ public class TestStaticSelector
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 new ResourceGroupIdTemplate("global.foo"));
         assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
         assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
@@ -59,6 +60,7 @@ public class TestStaticSelector
         StaticSelector selector = new StaticSelector(
                 Optional.empty(),
                 Optional.of(Pattern.compile(".*source.*")),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -83,6 +85,7 @@ public class TestStaticSelector
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 new ResourceGroupIdTemplate("global.foo"));
         assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1", "tag2"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
         assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
@@ -102,6 +105,7 @@ public class TestStaticSelector
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of("schema1"),
+                Optional.empty(),
                 new ResourceGroupIdTemplate("global.${SCHEMA}"));
         assertEquals(selector.match(newSelectionCriteria("userA", null, "schema1", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
         assertEquals(selector.match(newSelectionCriteria("userB", "source", "schema2", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
@@ -125,6 +129,7 @@ public class TestStaticSelector
                         Optional.of(new Range<>(
                                 Optional.empty(),
                                 Optional.of(DataSize.valueOf("500MB")))))),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -185,6 +190,7 @@ public class TestStaticSelector
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 new ResourceGroupIdTemplate("global.foo"));
 
         assertEquals(
@@ -242,24 +248,52 @@ public class TestStaticSelector
                 Optional.empty(),
                 Optional.of(Pattern.compile("client1.*")),
                 Optional.empty(),
+                Optional.empty(),
                 new ResourceGroupIdTemplate("global.foo"));
         assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES, Optional.of("client123"))).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
         assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of("client1"))).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
         assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES, Optional.of("A.client123"))), Optional.empty());
     }
 
+    @Test
+    public void testSourcePrincipalRegex()
+    {
+        ResourceGroupId resourceGroupId = new ResourceGroupId(new ResourceGroupId("global"), "foo");
+        String princiaplRegex = ".*test:principal.*";
+        String principal = "test:principal";
+        StaticSelector selector = new StaticSelector(
+                Optional.empty(),
+                Optional.of(Pattern.compile(".*source.*")),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(Pattern.compile(princiaplRegex)),
+                new ResourceGroupIdTemplate("global.foo"));
+
+        assertEquals(selector.match(newSelectionCriteria("userA", null, "", EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
+        assertEquals(selector.match(newSelectionCriteria("userB", "source", principal, EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", "a " + principal + " b", EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+    }
+
     private SelectionCriteria newSelectionCriteria(String user, String source, Set<String> tags, ResourceEstimates resourceEstimates)
     {
-        return new SelectionCriteria(true, user, Optional.ofNullable(source), tags, resourceEstimates, Optional.empty(), Optional.empty(), Optional.empty());
+        return new SelectionCriteria(true, user, Optional.ofNullable(source), tags, resourceEstimates, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     private SelectionCriteria newSelectionCriteria(String user, String source, Set<String> tags, ResourceEstimates resourceEstimates, Optional<String> clientInfo)
     {
-        return new SelectionCriteria(true, user, Optional.ofNullable(source), tags, resourceEstimates, Optional.empty(), clientInfo, Optional.empty());
+        return new SelectionCriteria(true, user, Optional.ofNullable(source), tags, resourceEstimates, Optional.empty(), clientInfo, Optional.empty(), Optional.empty());
     }
 
     private SelectionCriteria newSelectionCriteria(String user, String source, String schema, Set<String> tags, ResourceEstimates resourceEstimates)
     {
-        return new SelectionCriteria(true, user, Optional.ofNullable(source), tags, resourceEstimates, Optional.empty(), Optional.empty(), Optional.of(schema));
+        return new SelectionCriteria(true, user, Optional.ofNullable(source), tags, resourceEstimates, Optional.empty(), Optional.empty(), Optional.of(schema), Optional.empty());
+    }
+
+    private SelectionCriteria newSelectionCriteria(String user, String source, String principal, ResourceEstimates resourceEstimates)
+    {
+        return new SelectionCriteria(true, user, Optional.ofNullable(source), ImmutableSet.of(), resourceEstimates, Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(principal));
     }
 }
