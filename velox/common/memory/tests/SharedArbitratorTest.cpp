@@ -44,7 +44,6 @@ using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
 
 namespace facebook::velox::memory {
-namespace {
 constexpr int64_t KB = 1024L;
 constexpr int64_t MB = 1024L * KB;
 
@@ -52,7 +51,7 @@ constexpr uint64_t kMemoryCapacity = 512 * MB;
 constexpr uint64_t kMemoryPoolInitCapacity = 16 * MB;
 constexpr uint64_t kMemoryPoolTransferCapacity = 8 * MB;
 
-struct Allocation {
+struct TestAllocation {
   MemoryPool* pool{nullptr};
   void* buffer{nullptr};
   size_t size{0};
@@ -96,7 +95,7 @@ class FakeMemoryNode : public core::PlanNode {
   std::vector<core::PlanNodePtr> sources_;
 };
 
-using AllocationCallback = std::function<Allocation(Operator* op)>;
+using AllocationCallback = std::function<TestAllocation(Operator* op)>;
 using ReclaimInjectionCallback =
     std::function<void(MemoryPool* pool, uint64_t targetByte)>;
 
@@ -126,7 +125,7 @@ class FakeMemoryOperator : public Operator {
   void addInput(RowVectorPtr input) override {
     input_ = std::move(input);
     if (allocationCb_ != nullptr) {
-      Allocation allocation = allocationCb_(this);
+      TestAllocation allocation = allocationCb_(this);
       if (allocation.buffer != nullptr) {
         allocations_.push_back(allocation);
       }
@@ -198,7 +197,7 @@ class FakeMemoryOperator : public Operator {
   const ReclaimInjectionCallback reclaimCb_{nullptr};
 
   std::atomic<size_t> totalBytes_{0};
-  std::vector<Allocation> allocations_;
+  std::vector<TestAllocation> allocations_;
 };
 
 // Custom factory that creates fake memory operator.
@@ -306,10 +305,14 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
   }
 
   std::shared_ptr<core::QueryCtx> newQueryCtx(
-      int64_t memoryCapacity = kMaxMemory) {
+      int64_t memoryCapacity = kMaxMemory,
+      std::unique_ptr<MemoryReclaimer>&& reclaimer = nullptr) {
     std::unordered_map<std::string, std::shared_ptr<Config>> configs;
     std::shared_ptr<MemoryPool> pool = memoryManager_->addRootPool(
-        "", memoryCapacity, MemoryReclaimer::create());
+        "",
+        memoryCapacity,
+        reclaimer != nullptr ? std::move(reclaimer)
+                             : MemoryReclaimer::create());
     auto queryCtx = std::make_shared<core::QueryCtx>(
         executor_.get(),
         std::unordered_map<std::string, std::string>{},
@@ -360,11 +363,11 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromOrderBy) {
     std::atomic<bool> injectAllocationOnce{true};
     fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
       if (!injectAllocationOnce.exchange(false)) {
-        return Allocation{};
+        return TestAllocation{};
       }
       fakeAllocationWait.wait(fakeAllocationWaitKey);
       auto buffer = op->pool()->allocate(fakeAllocationSize);
-      return Allocation{op->pool(), buffer, fakeAllocationSize};
+      return TestAllocation{op->pool(), buffer, fakeAllocationSize};
     });
 
     std::atomic<bool> injectOrderByOnce{true};
@@ -426,6 +429,153 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromOrderBy) {
   }
 }
 
+class TestMemoryReclaimer : public MemoryReclaimer {
+ public:
+  TestMemoryReclaimer(std::function<void(MemoryPool*)> reclaimCb)
+      : reclaimCb_(std::move(reclaimCb)) {}
+
+  uint64_t reclaim(MemoryPool* pool, uint64_t targetBytes) override {
+    if (pool->kind() == MemoryPool::Kind::kLeaf) {
+      return 0;
+    }
+    std::vector<std::shared_ptr<MemoryPool>> children;
+    {
+      children.reserve(pool->children_.size());
+      for (auto& entry : pool->children_) {
+        auto child = entry.second.lock();
+        if (child != nullptr) {
+          children.push_back(std::move(child));
+        }
+      }
+    }
+
+    std::vector<ArbitrationCandidate> candidates(children.size());
+    for (uint32_t i = 0; i < children.size(); ++i) {
+      candidates[i].pool = children[i].get();
+      children[i]->reclaimableBytes(candidates[i].reclaimableBytes);
+    }
+    sortCandidatesByReclaimableMemoryAsc(candidates);
+
+    uint64_t reclaimedBytes{0};
+    for (const auto& candidate : candidates) {
+      const auto bytes = candidate.pool->reclaim(targetBytes);
+      if (reclaimCb_ != nullptr) {
+        reclaimCb_(candidate.pool);
+      }
+      reclaimedBytes += bytes;
+      if (targetBytes != 0) {
+        if (bytes >= targetBytes) {
+          break;
+        }
+        targetBytes -= bytes;
+      }
+    }
+    return reclaimedBytes;
+  }
+
+ private:
+  struct ArbitrationCandidate {
+    uint64_t reclaimableBytes{0};
+    MemoryPool* pool{nullptr};
+  };
+
+  void sortCandidatesByReclaimableMemoryAsc(
+      std::vector<ArbitrationCandidate>& candidates) {
+    std::sort(
+        candidates.begin(),
+        candidates.end(),
+        [](const ArbitrationCandidate& lhs, const ArbitrationCandidate& rhs) {
+          return lhs.reclaimableBytes < rhs.reclaimableBytes;
+        });
+  }
+
+  std::function<void(MemoryPool*)> reclaimCb_{nullptr};
+};
+
+DEBUG_ONLY_TEST_F(
+    SharedArbitrationTest,
+    filterProjectInitTriggeredArbitration) {
+  setupMemory(1.5 * MB, 0);
+  const int numVectors = 32;
+  std::vector<RowVectorPtr> vectors;
+  for (int i = 0; i < numVectors; ++i) {
+    vectors.push_back(newVector());
+  }
+  createDuckDbTable(vectors);
+
+  std::atomic_bool filterProjectDriverInitHit{false};
+  folly::EventCount fakeMemoryTaskCreationWait;
+  std::atomic_bool filterProjectDriverInitUnblocked{false};
+  folly::EventCount filterProjectDriverInitWait;
+  std::atomic_bool filterProjectReclaimFinished{false};
+  folly::EventCount fakeOperatorAllocCbWait;
+  std::shared_ptr<core::QueryCtx> queryCtx = newQueryCtx(
+      2 * MB, std::make_unique<TestMemoryReclaimer>([&](MemoryPool* pool) {
+        if (pool->reservedBytes() == 0) {
+          filterProjectReclaimFinished = true;
+          fakeOperatorAllocCbWait.notifyAll();
+        }
+      }));
+
+  std::atomic_bool createDriverBlockedOnce{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::createDriversLocked",
+      std::function<void(void*)>([&](void* /*unused*/) {
+        if (!createDriverBlockedOnce.exchange(true)) {
+          filterProjectDriverInitHit = true;
+          fakeMemoryTaskCreationWait.notifyAll();
+          filterProjectDriverInitWait.await(
+              [&]() { return filterProjectDriverInitUnblocked.load(); });
+        }
+      }));
+
+  std::thread filterProjectThread([&]() {
+    auto task1 =
+        AssertQueryBuilder(duckDbQueryRunner_)
+            .queryCtx(queryCtx)
+            .plan(
+                PlanBuilder()
+                    .values(vectors)
+                    .project(
+                        {"c0 / c1 as x",
+                         "c1 / c0 as y",
+                         "'need 12 chars to be larger than inline size (StringView::kInlineSize) to trigger pool allocation from expr compiling' as z"})
+                    .planNode())
+            .assertResults(
+                "SELECT c0 / c1 as x, c1 / c0 as y, 'need 12 chars to be larger than inline size (StringView::kInlineSize) to trigger pool allocation from expr compiling' as z FROM tmp");
+  });
+
+  fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
+    auto buffer = op->pool()->allocate(1 * MB);
+    filterProjectDriverInitUnblocked = true;
+    filterProjectDriverInitWait.notifyAll();
+    fakeOperatorAllocCbWait.await(
+        [&]() { return filterProjectReclaimFinished.load(); });
+    return TestAllocation{op->pool(), buffer, 1 * MB};
+  });
+  std::thread fakeMemoryThread([&]() {
+    fakeMemoryTaskCreationWait.await(
+        [&]() { return filterProjectDriverInitHit.load(); });
+    try {
+      auto task2 =
+          AssertQueryBuilder(duckDbQueryRunner_)
+              .queryCtx(queryCtx)
+              .plan(PlanBuilder()
+                        .values(vectors)
+                        .addNode([&](std::string id, core::PlanNodePtr input) {
+                          return std::make_shared<FakeMemoryNode>(id, input);
+                        })
+                        .planNode())
+              .assertResults("SELECT * FROM tmp");
+    } catch (const VeloxRuntimeError& e) {
+      ASSERT_EQ(e.errorCode(), error_code::kMemCapExceeded);
+    }
+  });
+  waitForAllTasksToBeDeleted(10'000'000);
+  filterProjectThread.join();
+  fakeMemoryThread.join();
+}
+
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToOrderBy) {
   const int numVectors = 32;
   std::vector<RowVectorPtr> vectors;
@@ -456,13 +606,13 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToOrderBy) {
     std::atomic<bool> injectAllocationOnce{true};
     fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
       if (!injectAllocationOnce.exchange(false)) {
-        return Allocation{};
+        return TestAllocation{};
       }
       auto buffer = op->pool()->allocate(fakeAllocationSize);
       orderByWait.notify();
       // Wait for pause to be triggered.
       taskPauseWait.wait(taskPauseWaitKey);
-      return Allocation{op->pool(), buffer, fakeAllocationSize};
+      return TestAllocation{op->pool(), buffer, fakeAllocationSize};
     });
 
     std::atomic<bool> injectOrderByOnce{true};
@@ -544,11 +694,11 @@ TEST_F(SharedArbitrationTest, reclaimFromCompletedOrderBy) {
     std::atomic<bool> injectAllocationOnce{true};
     fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
       if (!injectAllocationOnce.exchange(false)) {
-        return Allocation{};
+        return TestAllocation{};
       }
       fakeAllocationWait.wait(fakeAllocationWaitKey);
       auto buffer = op->pool()->allocate(fakeAllocationSize);
-      return Allocation{op->pool(), buffer, fakeAllocationSize};
+      return TestAllocation{op->pool(), buffer, fakeAllocationSize};
     });
 
     std::thread orderByThread([&]() {
@@ -616,11 +766,11 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromAggregation) {
     std::atomic<bool> injectAllocationOnce{true};
     fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
       if (!injectAllocationOnce.exchange(false)) {
-        return Allocation{};
+        return TestAllocation{};
       }
       fakeAllocationWait.wait(fakeAllocationWaitKey);
       auto buffer = op->pool()->allocate(fakeAllocationSize);
-      return Allocation{op->pool(), buffer, fakeAllocationSize};
+      return TestAllocation{op->pool(), buffer, fakeAllocationSize};
     });
 
     std::atomic<bool> injectAggregationByOnce{true};
@@ -713,13 +863,13 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToAggregation) {
     std::atomic<bool> injectAllocationOnce{true};
     fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
       if (!injectAllocationOnce.exchange(false)) {
-        return Allocation{};
+        return TestAllocation{};
       }
       auto buffer = op->pool()->allocate(fakeAllocationSize);
       aggregationWait.notify();
       // Wait for pause to be triggered.
       taskPauseWait.wait(taskPauseWaitKey);
-      return Allocation{op->pool(), buffer, fakeAllocationSize};
+      return TestAllocation{op->pool(), buffer, fakeAllocationSize};
     });
 
     std::atomic<bool> injectAggregationOnce{true};
@@ -802,11 +952,11 @@ TEST_F(SharedArbitrationTest, reclaimFromCompletedAggregation) {
     std::atomic<bool> injectAllocationOnce{true};
     fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
       if (!injectAllocationOnce.exchange(false)) {
-        return Allocation{};
+        return TestAllocation{};
       }
       fakeAllocationWait.wait(fakeAllocationWaitKey);
       auto buffer = op->pool()->allocate(fakeAllocationSize);
-      return Allocation{op->pool(), buffer, fakeAllocationSize};
+      return TestAllocation{op->pool(), buffer, fakeAllocationSize};
     });
 
     std::thread aggregationThread([&]() {
@@ -873,11 +1023,11 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromJoinBuilder) {
     std::atomic<bool> injectAllocationOnce{true};
     fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
       if (!injectAllocationOnce.exchange(false)) {
-        return Allocation{};
+        return TestAllocation{};
       }
       fakeAllocationWait.await([&]() { return fakeAllocationReady.load(); });
       auto buffer = op->pool()->allocate(fakeAllocationSize);
-      return Allocation{op->pool(), buffer, fakeAllocationSize};
+      return TestAllocation{op->pool(), buffer, fakeAllocationSize};
     });
 
     std::atomic<bool> injectAggregationByOnce{true};
@@ -992,13 +1142,13 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToJoinBuilder) {
     std::atomic<bool> injectAllocationOnce{true};
     fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
       if (!injectAllocationOnce.exchange(false)) {
-        return Allocation{};
+        return TestAllocation{};
       }
       auto buffer = op->pool()->allocate(fakeAllocationSize);
       joinWait.notify();
       // Wait for pause to be triggered.
       taskPauseWait.wait(taskPauseWaitKey);
-      return Allocation{op->pool(), buffer, fakeAllocationSize};
+      return TestAllocation{op->pool(), buffer, fakeAllocationSize};
     });
 
     std::atomic<bool> injectJoinOnce{true};
@@ -1093,11 +1243,11 @@ TEST_F(SharedArbitrationTest, reclaimFromCompletedJoinBuilder) {
     std::atomic<bool> injectAllocationOnce{true};
     fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
       if (!injectAllocationOnce.exchange(false)) {
-        return Allocation{};
+        return TestAllocation{};
       }
       fakeAllocationWait.wait(fakeAllocationWaitKey);
       auto buffer = op->pool()->allocate(fakeAllocationSize);
-      return Allocation{op->pool(), buffer, fakeAllocationSize};
+      return TestAllocation{op->pool(), buffer, fakeAllocationSize};
     });
 
     std::thread joinThread([&]() {
@@ -1183,11 +1333,11 @@ DEBUG_ONLY_TEST_F(
     std::atomic<bool> injectAllocationOnce{true};
     fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
       if (!injectAllocationOnce.exchange(false)) {
-        return Allocation{};
+        return TestAllocation{};
       }
       fakeAllocationWait.wait(fakeAllocationWaitKey);
       auto buffer = op->pool()->allocate(fakeAllocationSize);
-      return Allocation{op->pool(), buffer, fakeAllocationSize};
+      return TestAllocation{op->pool(), buffer, fakeAllocationSize};
     });
 
     std::atomic<int> injectCount{0};
@@ -1309,12 +1459,12 @@ DEBUG_ONLY_TEST_F(
   std::atomic<bool> injectAllocationOnce{true};
   fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
     if (!injectAllocationOnce.exchange(false)) {
-      return Allocation{};
+      return TestAllocation{};
     }
     allocationWait.wait(allocationWaitKey);
     EXPECT_ANY_THROW(op->pool()->allocate(fakeAllocationSize));
     allocationDoneWait.notify();
-    return Allocation{};
+    return TestAllocation{};
   });
 
   std::atomic<int> injectCount{0};
@@ -1462,13 +1612,13 @@ DEBUG_ONLY_TEST_F(
 
   fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
     if (!injectFakeAllocationOnce.exchange(false)) {
-      return Allocation{};
+      return TestAllocation{};
     }
     fakeAllocationWait.await([&]() { return fakeAllocationUnblock.load(); });
     // Set the fake allocation size to trigger memory reclaim.
     const auto fakeAllocationSize = arbitrator_->stats().freeCapacityBytes +
         joinQueryCtx->pool()->freeBytes() + 1;
-    return Allocation{
+    return TestAllocation{
         op->pool(),
         op->pool()->allocate(fakeAllocationSize),
         fakeAllocationSize};
@@ -1658,7 +1808,7 @@ DEBUG_ONLY_TEST_F(
   std::shared_ptr<core::QueryCtx> queryCtx = newQueryCtx(kMemoryCapacity);
   std::shared_ptr<core::QueryCtx> fakeCtx = newQueryCtx(kMemoryCapacity);
   auto fakePool = fakeCtx->pool()->addLeafChild("fakePool");
-  std::vector<std::unique_ptr<Allocation>> injectAllocations;
+  std::vector<std::unique_ptr<TestAllocation>> injectAllocations;
   std::atomic<bool> injectAllocationOnce{true};
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::HashBuild::ensureTableFits",
@@ -1671,14 +1821,14 @@ DEBUG_ONLY_TEST_F(
         auto* buildPool = buildOp->pool();
         // Free up available reservation from the leaf build memory pool.
         uint64_t injectAllocationSize = buildPool->availableReservation();
-        injectAllocations.emplace_back(new Allocation{
+        injectAllocations.emplace_back(new TestAllocation{
             buildPool,
             buildPool->allocate(injectAllocationSize),
             injectAllocationSize});
         // Free up available memory from the system.
         injectAllocationSize = arbitrator_->stats().freeCapacityBytes +
             queryCtx->pool()->freeBytes();
-        injectAllocations.emplace_back(new Allocation{
+        injectAllocations.emplace_back(new TestAllocation{
             fakePool.get(),
             fakePool->allocate(injectAllocationSize),
             injectAllocationSize});
@@ -1796,7 +1946,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimDuringJoinTableBuild) {
         taskPauseWait.notifyAll();
       })));
 
-  std::unique_ptr<Allocation> fakeAllocation;
+  std::unique_ptr<TestAllocation> fakeAllocation;
   std::thread memThread([&]() {
     std::shared_ptr<core::QueryCtx> fakeCtx = newQueryCtx(kMemoryCapacity);
     auto fakePool = fakeCtx->pool()->addLeafChild("fakePool");
@@ -1870,7 +2020,7 @@ DEBUG_ONLY_TEST_F(
   // execution.
   auto fakeLeafPool = queryCtx->pool()->addLeafChild("fakeLeaf");
   const size_t fakeAllocationSize = kMemoryCapacity / 2;
-  Allocation fakeAllocation{
+  TestAllocation fakeAllocation{
       fakeLeafPool.get(),
       fakeLeafPool->allocate(fakeAllocationSize),
       fakeAllocationSize};
@@ -1963,12 +2113,12 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenMaybeReserveAndTaskAbort) {
   // Create a fake query to hold some memory to trigger memory arbitration.
   auto fakeQueryCtx = newQueryCtx(kMemoryCapacity);
   auto fakeLeafPool = fakeQueryCtx->pool()->addLeafChild("fakeLeaf");
-  Allocation fakeAllocation{
+  TestAllocation fakeAllocation{
       fakeLeafPool.get(),
       fakeLeafPool->allocate(kMemoryCapacity / 3),
       kMemoryCapacity / 3};
 
-  std::unique_ptr<Allocation> injectAllocation;
+  std::unique_ptr<TestAllocation> injectAllocation;
   std::atomic<bool> injectAllocationOnce{true};
   SCOPED_TESTVALUE_SET(
       "facebook::velox::common::memory::MemoryPoolImpl::maybeReserve",
@@ -1980,7 +2130,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenMaybeReserveAndTaskAbort) {
         // maybeReserve fails and abort this query itself.
         const size_t injectAllocationSize =
             pool->freeBytes() + arbitrator_->stats().freeCapacityBytes;
-        injectAllocation.reset(new Allocation{
+        injectAllocation.reset(new TestAllocation{
             fakeLeafPool.get(),
             fakeLeafPool->allocate(injectAllocationSize),
             injectAllocationSize});
@@ -2073,7 +2223,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, asyncArbitratonFromNonDriverContext) {
   // Trigger the memory arbitration with memory pool whose associated driver is
   // running on driver thread.
   const size_t fakeAllocationSize = arbitrator_->stats().freeCapacityBytes / 2;
-  Allocation fakeAllocation = {
+  TestAllocation fakeAllocation = {
       injectPool.load(),
       injectPool.load()->allocate(fakeAllocationSize),
       fakeAllocationSize};
@@ -2128,7 +2278,7 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
     const size_t allocationSize = std::max(
         kMemoryCapacity / 16, folly::Random::rand32() % kMemoryCapacity);
     auto buffer = op->pool()->allocate(allocationSize);
-    return Allocation{op->pool(), buffer, allocationSize};
+    return TestAllocation{op->pool(), buffer, allocationSize};
   });
   fakeOperatorFactory_->setMaxDrivers(numDrivers);
   const std::string injectReclaimErrorMessage("Inject reclaim failure");
@@ -2215,7 +2365,6 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
 
 // TODO: add more tests.
 
-} // namespace
 } // namespace facebook::velox::memory
 
 int main(int argc, char** argv) {

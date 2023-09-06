@@ -848,6 +848,7 @@ void Task::createDriversLocked(
     std::shared_ptr<Task>& self,
     uint32_t splitGroupId,
     std::vector<std::shared_ptr<Driver>>& out) {
+  TestValue::adjust("facebook::velox::exec::Task::createDriversLocked", this);
   const bool groupedExecutionDrivers = (splitGroupId != kUngroupedGroupId);
   auto& splitGroupState = self->splitGroupStates_[splitGroupId];
   const auto numPipelines = driverFactories_.size();

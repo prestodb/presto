@@ -532,6 +532,8 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   // visitChildren() cost as we don't have to upgrade the weak pointer and copy
   // out the upgraded shared pointers.git
   std::unordered_map<std::string, std::weak_ptr<MemoryPool>> children_;
+
+  friend class TestMemoryReclaimer;
 };
 
 std::ostream& operator<<(std::ostream& out, MemoryPool::Kind kind);

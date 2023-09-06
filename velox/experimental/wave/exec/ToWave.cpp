@@ -352,6 +352,10 @@ bool CompileState::compile() {
   int32_t nodeIndex = 0;
   RowTypePtr outputType;
   for (; operatorIndex < operators.size(); ++operatorIndex) {
+    if (auto filterProject = dynamic_cast<velox::exec::FilterProject*>(
+            operators[operatorIndex])) {
+      filterProject->ensureInitialized();
+    }
     if (!addOperator(operators[operatorIndex], nodeIndex, outputType)) {
       break;
     }
