@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cstdint>
 #include "velox/expression/EvalCtx.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
@@ -126,15 +127,55 @@ class MapFromEntriesFunction : public exec::VectorFunction {
     if (decodedValueVector->isIdentityMapping()) {
       wrappedKeys = valueRowVector->childAt(0);
       wrappedValues = valueRowVector->childAt(1);
+    } else if (decodedValueVector->isConstantMapping()) {
+      if (decodedValueVector->isNullAt(0)) {
+        // If top level row is null, child might not be addressable at index 0
+        // so we do not try to read it.
+        wrappedKeys = BaseVector::createNullConstant(
+            valueRowVector->childAt(0)->type(),
+            decodedValueVector->size(),
+            context.pool());
+        wrappedValues = BaseVector::createNullConstant(
+            valueRowVector->childAt(1)->type(),
+            decodedValueVector->size(),
+            context.pool());
+      } else {
+        wrappedKeys = BaseVector::wrapInConstant(
+            decodedValueVector->size(),
+            decodedValueVector->index(0),
+            valueRowVector->childAt(0));
+        wrappedValues = BaseVector::wrapInConstant(
+            decodedValueVector->size(),
+            decodedValueVector->index(0),
+            valueRowVector->childAt(1));
+      }
     } else {
-      wrappedKeys = decodedValueVector->wrap(
-          valueRowVector->childAt(0),
-          *inputValueVector,
-          inputValueVector->size());
-      wrappedValues = decodedValueVector->wrap(
-          valueRowVector->childAt(1),
-          *inputValueVector,
-          inputValueVector->size());
+      // Dictionary.
+      auto indices =
+          allocateIndices(decodedValueVector->size(), context.pool());
+      auto nulls = allocateNulls(decodedValueVector->size(), context.pool());
+      auto* mutableNulls = nulls->asMutable<uint64_t>();
+      memcpy(
+          indices->asMutable<vector_size_t>(),
+          decodedValueVector->indices(),
+          BaseVector::byteSize<vector_size_t>(decodedValueVector->size()));
+      // Any null in the top row(X, Y) should be marked as null since its
+      // not guranteed to be addressable at X or Y.
+      for (auto i = 0; i < decodedValueVector->size(); i++) {
+        if (decodedValueVector->isNullAt(i)) {
+          bits::setNull(mutableNulls, i);
+        }
+      }
+      wrappedKeys = BaseVector::wrapInDictionary(
+          nulls,
+          indices,
+          decodedValueVector->size(),
+          valueRowVector->childAt(0));
+      wrappedValues = BaseVector::wrapInDictionary(
+          nulls,
+          indices,
+          decodedValueVector->size(),
+          valueRowVector->childAt(1));
     }
 
     // To avoid creating new buffers, we try to reuse the input's buffers
