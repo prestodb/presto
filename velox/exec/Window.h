@@ -42,6 +42,10 @@ class Window : public Operator {
       DriverCtx* driverCtx,
       const std::shared_ptr<const core::WindowNode>& windowNode);
 
+  /// Initialize the window functions from 'windowNode_' once by driver operator
+  /// initialization. 'windowNode_' is reset after this call.
+  void initialize() override;
+
   void addInput(RowVectorPtr input) override;
 
   RowVectorPtr getOutput() override;
@@ -82,10 +86,7 @@ class Window : public Operator {
   };
 
   // Creates WindowFunction and frame objects for this operator.
-  void createWindowFunctions(
-      const std::shared_ptr<const core::WindowNode>& windowNode,
-      const RowTypePtr& inputType,
-      const core::QueryConfig& config);
+  void createWindowFunctions();
 
   // Creates the buffers for peer and frame row
   // indices to send in window function apply invocations.
@@ -149,7 +150,11 @@ class Window : public Operator {
 
   // WindowBuild is used to store input rows and return WindowPartitions
   // for the processing.
-  std::unique_ptr<WindowBuild> windowBuild_;
+  const std::unique_ptr<WindowBuild> windowBuild_;
+
+  // The cached window plan node used for window function initialization. It is
+  // reset after the initialization.
+  std::shared_ptr<const core::WindowNode> windowNode_;
 
   // Used to access window partition rows and columns by the window
   // operator and functions. This structure is owned by the WindowBuild.

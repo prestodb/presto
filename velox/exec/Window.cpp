@@ -32,12 +32,16 @@ Window::Window(
           "Window"),
       numInputColumns_(windowNode->sources()[0]->outputType()->size()),
       windowBuild_(std::make_unique<SortWindowBuild>(windowNode, pool())),
+      windowNode_(windowNode),
       currentPartition_(nullptr),
-      stringAllocator_(pool()) {
-  auto inputType = windowNode->sources()[0]->outputType();
-  createWindowFunctions(windowNode, inputType, driverCtx->queryConfig());
+      stringAllocator_(pool()) {}
 
+void Window::initialize() {
+  Operator::initialize();
+  VELOX_CHECK_NOT_NULL(windowNode_);
+  createWindowFunctions();
   createPeerAndFrameBuffers();
+  windowNode_.reset();
 }
 
 Window::WindowFrame Window::createWindowFrame(
@@ -91,11 +95,13 @@ Window::WindowFrame Window::createWindowFrame(
        createFrameChannelArg(frame.endValue)});
 }
 
-void Window::createWindowFunctions(
-    const std::shared_ptr<const core::WindowNode>& windowNode,
-    const RowTypePtr& inputType,
-    const core::QueryConfig& config) {
-  for (const auto& windowNodeFunction : windowNode->windowFunctions()) {
+void Window::createWindowFunctions() {
+  VELOX_CHECK_NOT_NULL(windowNode_);
+  VELOX_CHECK(windowFunctions_.empty());
+  VELOX_CHECK(windowFrames_.empty());
+
+  const auto& inputType = windowNode_->sources()[0]->outputType();
+  for (const auto& windowNodeFunction : windowNode_->windowFunctions()) {
     std::vector<WindowFunctionArg> functionArgs;
     functionArgs.reserve(windowNodeFunction.functionCall->inputs().size());
     for (auto& arg : windowNodeFunction.functionCall->inputs()) {
@@ -117,7 +123,7 @@ void Window::createWindowFunctions(
         windowNodeFunction.ignoreNulls,
         operatorCtx_->pool(),
         &stringAllocator_,
-        config));
+        operatorCtx_->driverCtx()->queryConfig()));
 
     windowFrames_.push_back(
         createWindowFrame(windowNodeFunction.frame, inputType));
