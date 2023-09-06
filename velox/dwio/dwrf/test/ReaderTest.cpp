@@ -417,27 +417,42 @@ TEST(TestRowReaderPrefetch, testPrefetchWholeFile) {
       {true, true, true, true});
 }
 
-TEST(TestRowReaderPrefetch, testPrefetchAndSeekFails) {
+TEST(TestRowReaderPfetch, testSeekBeforePrefetch) {
   const std::string fmSmall(getExampleFilePath("fm_small.orc"));
 
   // batch size is set as 1000 in reading
-  const std::array<int32_t, 4> seeks{100, 700, 0};
-  const std::array<int32_t, 3> expectedBatchSize{200, 200, 100};
-  try {
-    verifyFlatMapReading(
-        fmSmall,
-        seeks.data(), // Attempt seek
-        expectedBatchSize.data(),
-        expectedBatchSize.size(),
-        false,
-        {300, 300, 300, 100},
-        {true, true, false, false}); // Also attempt prefetch
-    FAIL() << "Expected failure when trying to prefetch and seek";
-  } catch (const VeloxException& e) {
-    EXPECT_THAT(
-        e.what(),
-        testing::HasSubstr("seek and prefetch are mutually exclusive"));
+  std::array<int32_t, 5> seeks;
+  seeks.fill(0);
+
+  ReaderOptions readerOpts{defaultPool.get()};
+  RowReaderOptions rowReaderOpts;
+  std::shared_ptr<const RowType> requestedType =
+      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
+          id:int,\
+      map1:map<int, array<float>>,\
+      map2:map<string, map<smallint,bigint>>,\
+      map3:map<int,int>,\
+      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
+      memo:string>"));
+  rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(fmSmall, readerOpts.getMemoryPool()), readerOpts);
+  auto rowReaderOwner = reader->createRowReader(rowReaderOpts);
+  auto rowReader = dynamic_cast<DwrfRowReader*>(rowReaderOwner.get());
+
+  rowReader->seekToRow(100);
+  // First stripe has 300 rows, but expect 200 due to seeking past first 100
+  const std::array<int32_t, 4> expectedBatchSize{200, 300, 300, 100};
+  auto prefetches = rowReader->prefetchUnits().value();
+  for (auto& prefetch : prefetches) {
+    prefetch.prefetch();
   }
+
+  verifyFlatMapReading(
+      rowReader,
+      seeks.data(),
+      expectedBatchSize.data(),
+      expectedBatchSize.size());
 }
 
 // Synchronous interleaving

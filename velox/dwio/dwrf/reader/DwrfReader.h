@@ -168,10 +168,9 @@ class DwrfRowReader : public StrideIndexProvider,
       prefetchedStripeStates_;
 
   // Currently, seek logic relies on reloading the stripe every time the row is
-  // seeked to, even if the row was present in the already loaded stripe. These
-  // are temporary flags to disallow seek and prefetch on same reader, until we
-  // implement a good way to support both.
-  bool seekHasOccurred_{false};
+  // seeked to, even if the row was present in the already loaded stripe. This
+  // is a temporary flag to disable seek on a reader which has already
+  // prefetched, until we implement a good way to support both.
   bool prefetchHasOccurred_{false};
 
   // Used to indicate which stripes are finished loading. If stripeLoadBatons[i]

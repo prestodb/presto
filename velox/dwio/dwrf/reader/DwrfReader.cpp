@@ -103,9 +103,7 @@ uint64_t DwrfRowReader::seekToRow(uint64_t rowNumber) {
   std::unique_lock<std::mutex> lock(prefetchAndSeekMutex_);
   DWIO_ENSURE(
       !prefetchHasOccurred_,
-      "Prefetch already called. Currently, seek and prefetch are mutually exclusive in DwrfRowReader");
-  seekHasOccurred_ = true;
-  lock.unlock();
+      "Prefetch already called. Currently, seek after prefetch is disallowed in DwrfRowReader");
 
   // If we are reading only a portion of the file
   // (bounded by firstStripe and lastStripe),
@@ -410,7 +408,6 @@ void DwrfRowReader::resetFilterCaches() {
 
 std::optional<std::vector<velox::dwio::common::RowReader::PrefetchUnit>>
 DwrfRowReader::prefetchUnits() {
-  DWIO_ENSURE(!seekHasOccurred_);
   auto rowsInStripe = getReader().getRowsPerStripe();
   DWIO_ENSURE(rowsInStripe.size() == lastStripe);
   std::vector<PrefetchUnit> res;
@@ -541,9 +538,6 @@ DwrfRowReader::FetchResult DwrfRowReader::prefetch(uint32_t stripeToFetch) {
   DWIO_ENSURE(stripeToFetch < lastStripe && stripeToFetch >= 0);
 
   std::unique_lock<std::mutex> lock(prefetchAndSeekMutex_);
-  DWIO_ENSURE(
-      !seekHasOccurred_,
-      "Seek already called. Currently, seek and prefetch are mutually exclusive in DwrfRowReader");
   prefetchHasOccurred_ = true;
   lock.unlock();
 
