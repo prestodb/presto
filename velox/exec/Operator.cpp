@@ -135,6 +135,11 @@ std::unique_ptr<JoinBridge> Operator::joinBridgeFromPlanNode(
   return nullptr;
 }
 
+void Operator::initialize() {
+  VELOX_CHECK(!initialized_);
+  initialized_ = true;
+}
+
 // static
 OperatorSupplier Operator::operatorSupplierFromPlanNode(
     const core::PlanNodePtr& planNode) {

@@ -291,6 +291,11 @@ class Operator : public BaseRuntimeStatWriter {
   /// 'planNodeId' is a query-level unique identifier of the PlanNode to which
   /// 'this' corresponds. 'operatorType' is a label for use in stats. If
   /// 'canSpill' is true, then disk spilling is allowed for this operator.
+  ///
+  /// NOTE: the operator (and any derived operator class) constructor should
+  /// not allocate memory from memory pool. The latter might trigger memory
+  /// arbitration operation that can lead to deadlock as both operator
+  /// construction and operator memory reclaim need to acquire task lock.
   Operator(
       DriverCtx* driverCtx,
       RowTypePtr outputType,
@@ -301,69 +306,78 @@ class Operator : public BaseRuntimeStatWriter {
 
   virtual ~Operator() = default;
 
-  // Returns true if 'this' can accept input. Not used if operator is a source
-  // operator, e.g. the first operator in the pipeline.
+  /// Does initialization work for this operator which requires memory
+  /// allocation from memory pool that can't be done under operator constructor.
+  virtual void initialize();
+
+  /// Indicates if this operator has been initialized or not.
+  bool isInitialized() const {
+    return initialized_;
+  }
+
+  /// Returns true if 'this' can accept input. Not used if operator is a source
+  /// operator, e.g. the first operator in the pipeline.
   virtual bool needsInput() const = 0;
 
-  // Adds input. Not used if operator is a source operator, e.g. the first
-  // operator in the pipeline.
-  // @param input Non-empty input vector.
+  /// Adds input. Not used if operator is a source operator, e.g. the first
+  /// operator in the pipeline.
+  /// @param input Non-empty input vector.
   virtual void addInput(RowVectorPtr input) = 0;
 
-  // Informs 'this' that addInput will no longer be called. This means
-  // that any partial state kept by 'this' should be returned by
-  // the next call(s) to getOutput. Not used if operator is a source operator,
-  // e.g. the first operator in the pipeline.
+  /// Informs 'this' that addInput will no longer be called. This means
+  /// that any partial state kept by 'this' should be returned by
+  /// the next call(s) to getOutput. Not used if operator is a source operator,
+  /// e.g. the first operator in the pipeline.
   virtual void noMoreInput() {
     noMoreInput_ = true;
   }
 
-  // Returns a RowVector with the result columns. Returns nullptr if
-  // no more output can be produced without more input or if blocked
-  // for outside causes. isBlocked distinguishes between the
-  // cases. Sink operator, e.g. the last operator in the pipeline, must return
-  // nullptr and pass results to the consumer through a custom mechanism.
-  // @return nullptr or a non-empty output vector.
+  /// Returns a RowVector with the result columns. Returns nullptr if
+  /// no more output can be produced without more input or if blocked
+  /// for outside causes. isBlocked distinguishes between the
+  /// cases. Sink operator, e.g. the last operator in the pipeline, must return
+  /// nullptr and pass results to the consumer through a custom mechanism.
+  /// @return nullptr or a non-empty output vector.
   virtual RowVectorPtr getOutput() = 0;
 
-  // Returns kNotBlocked if 'this' is not prevented from
-  // advancing. Otherwise, returns a reason and sets 'future' to a
-  // future that will be realized when the reason is no longer present.
-  // The caller must wait for the `future` to complete before making
-  // another call.
+  /// Returns kNotBlocked if 'this' is not prevented from
+  /// advancing. Otherwise, returns a reason and sets 'future' to a
+  /// future that will be realized when the reason is no longer present.
+  /// The caller must wait for the `future` to complete before making
+  /// another call.
   virtual BlockingReason isBlocked(ContinueFuture* future) = 0;
 
-  // Returns true if completely finished processing and no more output will be
-  // produced. Some operators may finish early before receiving all input and
-  // noMoreInput() message. For example, Limit operator finishes as soon as it
-  // receives specified number of rows and HashProbe finishes early if the build
-  // side is empty.
+  /// Returns true if completely finished processing and no more output will be
+  /// produced. Some operators may finish early before receiving all input and
+  /// noMoreInput() message. For example, Limit operator finishes as soon as it
+  /// receives specified number of rows and HashProbe finishes early if the
+  /// build side is empty.
   virtual bool isFinished() = 0;
 
-  // Returns single-column dynamically generated filters to be pushed down to
-  // upstream operators. Used to push down filters on join keys from broadcast
-  // hash join into probe-side table scan. Can also be used to push down TopN
-  // cutoff.
+  /// Returns single-column dynamically generated filters to be pushed down to
+  /// upstream operators. Used to push down filters on join keys from broadcast
+  /// hash join into probe-side table scan. Can also be used to push down TopN
+  /// cutoff.
   virtual const std::
       unordered_map<column_index_t, std::shared_ptr<common::Filter>>&
       getDynamicFilters() const {
     return dynamicFilters_;
   }
 
-  // Clears dynamically generated filters. Called after filters were pushed
-  // down.
+  /// Clears dynamically generated filters. Called after filters were pushed
+  /// down.
   virtual void clearDynamicFilters() {
     dynamicFilters_.clear();
   }
 
-  // Returns true if this operator would accept a filter dynamically generated
-  // by a downstream operator.
+  /// Returns true if this operator would accept a filter dynamically generated
+  /// by a downstream operator.
   virtual bool canAddDynamicFilter() const {
     return false;
   }
 
-  // Adds a filter dynamically generated by a downstream operator. Called only
-  // if canAddFilter() returns true.
+  /// Adds a filter dynamically generated by a downstream operator. Called only
+  /// if canAddFilter() returns true.
   virtual void addDynamicFilter(
       column_index_t /*outputChannel*/,
       const std::shared_ptr<common::Filter>& /*filter*/) {
@@ -372,14 +386,14 @@ class Operator : public BaseRuntimeStatWriter {
         toString());
   }
 
-  // Returns a list of identify projections, e.g. columns that are projected
-  // as-is possibly after applying a filter.
+  /// Returns a list of identify projections, e.g. columns that are projected
+  /// as-is possibly after applying a filter.
   const std::vector<IdentityProjection>& identityProjections() const {
     return identityProjections_;
   }
 
-  // Frees all resources associated with 'this'. No other methods
-  // should be called after this.
+  /// Frees all resources associated with 'this'. No other methods
+  /// should be called after this.
   virtual void close() {
     input_ = nullptr;
     results_.clear();
@@ -608,6 +622,8 @@ class Operator : public BaseRuntimeStatWriter {
   /// Contains the disk spilling related configs if spilling is enabled (e.g.
   /// the fs dir path to store spill files), otherwise null.
   const std::optional<Spiller::Config> spillConfig_;
+
+  bool initialized_{false};
 
   folly::Synchronized<OperatorStats> stats_;
 

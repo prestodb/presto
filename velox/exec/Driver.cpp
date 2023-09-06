@@ -232,6 +232,16 @@ std::optional<column_index_t> getIdentityProjection(
 }
 } // namespace
 
+void Driver::initializeOperators() {
+  if (operatorsInitialized_) {
+    return;
+  }
+  operatorsInitialized_ = true;
+  for (auto& op : operators_) {
+    op->initialize();
+  }
+}
+
 void Driver::pushdownFilters(int operatorIndex) {
   auto op = operators_[operatorIndex].get();
   const auto& filters = op->getDynamicFilters();
@@ -370,7 +380,10 @@ StopReason Driver::runInternal(
   });
 
   try {
-    int32_t numOperators = operators_.size();
+    // Invoked to initialize the operators once before driver starts execution.
+    self->initializeOperators();
+
+    const int32_t numOperators = operators_.size();
     ContinueFuture future;
 
     for (;;) {
@@ -382,6 +395,8 @@ StopReason Driver::runInternal(
         }
 
         auto op = operators_[i].get();
+        VELOX_CHECK(op->isInitialized());
+
         // In case we are blocked, this index will point to the operator, whose
         // queuedTime we should update.
         curOpIndex_ = i;

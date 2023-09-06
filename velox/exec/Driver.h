@@ -259,6 +259,10 @@ class Driver : public std::enable_shared_from_this<Driver> {
   /// operator must produce data that will be returned to caller.
   RowVectorPtr next(std::shared_ptr<BlockingState>& blockingState);
 
+  /// Invoked to initialize the operators from this driver once on its first
+  /// execution.
+  void initializeOperators();
+
   bool isOnThread() const {
     return state_.isOnThread();
   }
@@ -356,6 +360,9 @@ class Driver : public std::enable_shared_from_this<Driver> {
   }
 
   std::unique_ptr<DriverCtx> ctx_;
+
+  bool operatorsInitialized_{false};
+
   std::atomic_bool closed_{false};
 
   // Set via Task and serialized by Task's mutex.
