@@ -15,7 +15,6 @@
  */
 
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
-#include <cstdlib>
 #include "velox/dwio/common/TypeUtils.h"
 #include "velox/dwio/common/exception/Exception.h"
 #include "velox/dwio/dwrf/reader/ColumnReader.h"
@@ -91,8 +90,8 @@ DwrfRowReader::DwrfRowReader(
   for (int i = 0; i < numberOfStripes; i++) {
     stripeLoadBatons_.emplace_back(std::make_unique<folly::Baton<>>());
   }
-  loadRequestIssued_ =
-      folly::Synchronized(std::vector<bool>(numberOfStripes, false));
+  stripeLoadStatuses_ = folly::Synchronized(
+      std::vector<FetchStatus>(numberOfStripes, FetchStatus::NOT_STARTED));
 }
 
 uint64_t DwrfRowReader::seekToRow(uint64_t rowNumber) {
@@ -148,7 +147,8 @@ uint64_t DwrfRowReader::seekToRow(uint64_t rowNumber) {
   // synchronous for now.
   VLOG(1) << "Resetting baton at " << currentStripe;
   stripeLoadBatons_[currentStripe] = std::make_unique<folly::Baton<>>();
-  loadRequestIssued_.wlock()->operator[](currentStripe) = false;
+  stripeLoadStatuses_.wlock()->operator[](currentStripe) =
+      FetchStatus::NOT_STARTED;
 
   VLOG(1) << "rowNumber: " << rowNumber << " currentStripe: " << currentStripe
           << " firstStripe: " << firstStripe << " lastStripe: " << lastStripe;
@@ -424,26 +424,29 @@ DwrfRowReader::prefetchUnits() {
   return res;
 }
 
-// return true if this call did the IO for the given stripe
-bool DwrfRowReader::fetch(uint32_t stripeIndex) {
-  bool alreadyIssued = false;
-  loadRequestIssued_.withWLock([&](auto& loadRequestIssued) {
+DwrfRowReader::FetchResult DwrfRowReader::fetch(uint32_t stripeIndex) {
+  FetchStatus prevStatus;
+  stripeLoadStatuses_.withWLock([&](auto& loadRequestIssued) {
     if (stripeIndex < 0 || stripeIndex >= loadRequestIssued.size()) {
-      VLOG(1) << "fetch request OOB";
-      alreadyIssued = true;
+      prevStatus = FetchStatus::ERROR;
     }
 
-    if (loadRequestIssued[stripeIndex]) {
-      VLOG(1) << "prefetchedStripeStates_ already populated for stripeIndex "
-              << stripeIndex;
-      alreadyIssued = true;
+    prevStatus = loadRequestIssued[stripeIndex];
+    if (prevStatus == FetchStatus::NOT_STARTED) {
+      loadRequestIssued[stripeIndex] = FetchStatus::IN_PROGRESS;
     }
-
-    loadRequestIssued[stripeIndex] = true;
   });
 
-  if (alreadyIssued) {
-    return false;
+  DWIO_ENSURE(
+      prevStatus != FetchStatus::ERROR, "Fetch request was out of bounds");
+
+  if (prevStatus != FetchStatus::NOT_STARTED) {
+    bool finishedLoading = prevStatus == FetchStatus::FINISHED;
+
+    VLOG(1) << "Stripe " << stripeIndex << " was not loaded, as it was already "
+            << (finishedLoading ? "finished loading" : "in progress");
+    return finishedLoading ? FetchResult::kAlreadyFetched
+                           : FetchResult::kInProgress;
   }
 
   DWIO_ENSURE(
@@ -454,7 +457,7 @@ bool DwrfRowReader::fetch(uint32_t stripeIndex) {
   auto startTime = std::chrono::high_resolution_clock::now();
   bool preload = options_.getPreloadStripe();
 
-  // Currently we only call prefetchStripe through here. If loadRequestIssued_
+  // Currently we only call prefetchStripe through here. If stripeLoadStatuses_
   // says we haven't started a load here yet, then this should always succeed
   DWIO_ENSURE(fetchStripe(stripeIndex, preload));
 
@@ -529,7 +532,9 @@ bool DwrfRowReader::fetch(uint32_t stripeIndex) {
   stripeLoadBatons_[stripeIndex]->post();
   VLOG(1) << "done in fetch and baton posted for " << stripeIndex << ", thread "
           << std::this_thread::get_id();
-  return true;
+
+  stripeLoadStatuses_.wlock()->operator[](stripeIndex) = FetchStatus::FINISHED;
+  return FetchResult::kFetched;
 }
 
 DwrfRowReader::FetchResult DwrfRowReader::prefetch(uint32_t stripeToFetch) {
@@ -544,22 +549,16 @@ DwrfRowReader::FetchResult DwrfRowReader::prefetch(uint32_t stripeToFetch) {
 
   VLOG(1) << "Unlocked lock and calling fetch for " << stripeToFetch
           << ", thread " << std::this_thread::get_id();
-  // fixme: move to a model where we have a single vector of fetchResults that
-  // is accessed synchronously and always consistent with global state
-  return fetch(stripeToFetch)
-      ? DwrfRowReader::RowReader::FetchResult::kFetched
-      : DwrfRowReader::RowReader::FetchResult::kAlreadyFetched;
+  return fetch(stripeToFetch);
 }
 
 // Guarantee stripe we are currently on is available and loaded
 void DwrfRowReader::safeFetchNextStripe() {
-  // Store result of fetch to avoid synchronization if we fetched on this
+  // Check result of fetch to avoid synchronization if we fetched on this
   // thread.
-  auto res = fetch(currentStripe);
-
-  // Now we know the stripe was or is being loaded on another thread,
-  // Await the baton for this stripe before we return to ensure load is done.
-  if (!res) {
+  if (fetch(currentStripe) != FetchResult::kFetched) {
+    // Now we know the stripe was or is being loaded on another thread,
+    // Await the baton for this stripe before we return to ensure load is done.
     VLOG(1) << "Waiting on baton for stripe: " << currentStripe;
     stripeLoadBatons_[currentStripe]->wait();
     VLOG(1) << "Acquired baton for stripe " << currentStripe;

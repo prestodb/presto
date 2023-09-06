@@ -122,7 +122,10 @@ class DwrfRowReader : public StrideIndexProvider,
   int64_t nextReadSize(uint64_t size) override;
 
  private:
-  bool fetch(uint32_t stripeIndex);
+  // Represents the status of a stripe being fetched.
+  enum class FetchStatus { NOT_STARTED, IN_PROGRESS, FINISHED, ERROR };
+
+  FetchResult fetch(uint32_t stripeIndex);
   FetchResult prefetch(uint32_t stripeToFetch);
 
   // footer
@@ -175,9 +178,9 @@ class DwrfRowReader : public StrideIndexProvider,
   // is posted, it means the ith stripe has finished loading
   std::vector<std::unique_ptr<folly::Baton<>>> stripeLoadBatons_;
 
-  // Used to indicate which stripes have had a load command issued. If
-  // loaded_[i] is true, it means stripe i is in the process of being loaded
-  folly::Synchronized<std::vector<bool>> loadRequestIssued_;
+  // Indicates the status of load requests. The ith element in
+  // stripeLoadStatuses_ represents the status of the ith stripe.
+  folly::Synchronized<std::vector<FetchStatus>> stripeLoadStatuses_;
 
   // Used to lock when altering state in startNextStripe
   std::mutex startNextStripeMutex_;
