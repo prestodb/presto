@@ -70,6 +70,12 @@ TableWriter::TableWriter(
   mappedType_ = ROW(std::move(names), std::move(types));
 }
 
+void TableWriter::initialize() {
+  Operator::initialize();
+  VELOX_CHECK_NULL(dataSink_);
+  createDataSink();
+}
+
 void TableWriter::createDataSink() {
   dataSink_ = connector_->createDataSink(
       mappedType_,
@@ -97,9 +103,6 @@ void TableWriter::addInput(RowVectorPtr input) {
       mappedChildren,
       input->getNullCount());
 
-  if (dataSink_ == nullptr) {
-    createDataSink();
-  }
   dataSink_->appendData(mappedInput);
   numWrittenRows_ += input->size();
   updateWrittenBytes();
@@ -138,10 +141,7 @@ RowVectorPtr TableWriter::getOutput() {
             pool(), 1, false /*isNull*/, BIGINT(), numWrittenRows_)});
   }
 
-  std::vector<std::string> fragments;
-  if (dataSink_ != nullptr) {
-    fragments = dataSink_->finish();
-  }
+  const std::vector<std::string> fragments = dataSink_->finish();
 
   vector_size_t numOutputRows = fragments.size() + 1;
 
@@ -205,11 +205,9 @@ std::string TableWriter::createTableCommitContext(bool lastOutput) {
 }
 
 void TableWriter::updateWrittenBytes() {
-  if (dataSink_ != nullptr) {
-    const auto writtenBytes = dataSink_->getCompletedBytes();
-    auto lockedStats = stats_.wlock();
-    lockedStats->physicalWrittenBytes = writtenBytes;
-  }
+  const auto writtenBytes = dataSink_->getCompletedBytes();
+  auto lockedStats = stats_.wlock();
+  lockedStats->physicalWrittenBytes = writtenBytes;
 }
 
 // static

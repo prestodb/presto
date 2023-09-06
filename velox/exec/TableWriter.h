@@ -109,6 +109,8 @@ class TableWriter : public Operator {
     return BlockingReason::kNotBlocked;
   }
 
+  void initialize() override;
+
   void addInput(RowVectorPtr input) override;
 
   void noMoreInput() override {
