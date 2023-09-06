@@ -726,7 +726,7 @@ struct ArrayRemoveFunction {
       const arg_type<Array<Generic<T1>>>& array,
       const arg_type<Generic<T1>>& element) {
     static constexpr CompareFlags kFlags = {
-        false, false, true, CompareFlags::NullHandlingMode::StopAtRhsNull};
+        false, false, true, CompareFlags::NullHandlingMode::StopAtNull};
     std::vector<std::optional<exec::GenericView>> toCopyItems;
     for (const auto& item : array) {
       if (item.has_value()) {
