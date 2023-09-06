@@ -519,7 +519,14 @@ void VectorHasher::hash(
     const SelectivityVector& rows,
     bool mix,
     raw_vector<uint64_t>& result) {
-  VELOX_DYNAMIC_TYPE_DISPATCH(hashValues, typeKind_, rows, mix, result.data());
+  if (typeKind_ == TypeKind::UNKNOWN) {
+    rows.applyToSelected([&](auto row) {
+      result[row] = mix ? bits::hashMix(result[row], kNullHash) : kNullHash;
+    });
+  } else {
+    VELOX_DYNAMIC_TYPE_DISPATCH(
+        hashValues, typeKind_, rows, mix, result.data());
+  }
 }
 
 void VectorHasher::hashPrecomputed(

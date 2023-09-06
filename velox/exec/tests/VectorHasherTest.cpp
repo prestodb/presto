@@ -265,6 +265,35 @@ TEST_F(VectorHasherTest, nullConstant) {
   }
 }
 
+TEST_F(VectorHasherTest, unknown) {
+  auto hasher = exec::VectorHasher::create(UNKNOWN(), 1);
+  auto vector = vectorMaker_->allNullFlatVector<UnknownValue>(100);
+
+  // Test hashing without mixing.
+  raw_vector<uint64_t> hashes(100);
+  std::fill(hashes.begin(), hashes.end(), 0);
+  hasher->decode(*vector, oddRows_);
+  hasher->hash(oddRows_, false, hashes);
+  for (int32_t i = 0; i < 100; i++) {
+    EXPECT_EQ(hashes[i], (i % 2 == 0) ? 0 : exec::VectorHasher::kNullHash)
+        << "at " << i;
+  }
+
+  hasher->decode(*vector, allRows_);
+  hasher->hash(allRows_, false, hashes);
+  for (int32_t i = 0; i < 100; i++) {
+    EXPECT_EQ(hashes[i], exec::VectorHasher::kNullHash) << "at " << i;
+  }
+
+  // Test mixing.
+  std::iota(hashes.begin(), hashes.end(), 0);
+  hasher->hash(allRows_, true, hashes);
+  for (int32_t i = 0; i < 100; i++) {
+    auto expected = bits::hashMix(i, exec::VectorHasher::kNullHash);
+    EXPECT_EQ(hashes[i], expected) << "at " << i;
+  }
+}
+
 TEST_F(VectorHasherTest, dictionary) {
   auto hasher = exec::VectorHasher::create(BIGINT(), 1);
 
