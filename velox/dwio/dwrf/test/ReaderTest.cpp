@@ -613,6 +613,45 @@ TEST(TestRowReaderPrefetch, testParallelPrefetchNoPreload) {
       expectedBatchSize.size());
 }
 
+// This test just verifies read correctness with the eager first stripe load
+// config off for regression purposes. It does not ensure the first stripe is
+// not loaded before we explicitly prefetch or start reading.
+TEST(TestRowReaderPrefetch, testNoEagerFirstStripeLoad) {
+  const std::string fmSmall(getExampleFilePath("fm_small.orc"));
+
+  // batch size is set as 1000 in reading
+  std::array<int32_t, 5> seeks;
+  seeks.fill(0);
+  const std::array<int32_t, 4> expectedBatchSize{300, 300, 300, 100};
+  ReaderOptions readerOpts{defaultPool.get()};
+  RowReaderOptions rowReaderOpts;
+
+  // If we ever change default to false, let us fail this test so we can change
+  // tests in this file accordingly.
+  ASSERT_TRUE(rowReaderOpts.getEagerFirstStripeLoad());
+  rowReaderOpts.setEagerFirstStripeLoad(false);
+  std::shared_ptr<const RowType> requestedType =
+      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
+          id:int,\
+      map1:map<int, array<float>>,\
+      map2:map<string, map<smallint,bigint>>,\
+      map3:map<int,int>,\
+      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
+      memo:string>"));
+  rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(fmSmall, readerOpts.getMemoryPool()), readerOpts);
+  auto rowReaderOwner = reader->createRowReader(rowReaderOpts);
+  auto rowReader = dynamic_cast<DwrfRowReader*>(rowReaderOwner.get());
+
+  // Verify reads are correct
+  verifyFlatMapReading(
+      rowReader,
+      seeks.data(),
+      expectedBatchSize.data(),
+      expectedBatchSize.size());
+}
+
 class TestFlatMapReaderFlatLayout
     : public TestWithParam<std::tuple<bool, size_t>> {};
 
