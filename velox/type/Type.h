@@ -662,7 +662,7 @@ class DecimalType : public ScalarType<KIND> {
   }
 
   std::string toString() const override {
-    return fmt::format("DECIMAL({},{})", precision(), scale());
+    return fmt::format("DECIMAL({}, {})", precision(), scale());
   }
 
   folly::dynamic serialize() const override {

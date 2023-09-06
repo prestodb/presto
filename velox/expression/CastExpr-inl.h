@@ -30,10 +30,10 @@ inline std::string makeErrorMessage(
     const TypePtr& toType,
     const std::string& details = "") {
   return fmt::format(
-      "Failed to cast from {} to {}: {}. {}",
+      "Cannot cast {} '{}' to {}. {}",
       input.type()->toString(),
-      toType->toString(),
       input.toString(row),
+      toType->toString(),
       details);
 }
 

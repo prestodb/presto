@@ -128,7 +128,7 @@ TEST_F(VeloxSubstraitRoundTripTest, cast) {
              .values(vectors)
              .project({"cast('abc' as bigint)"})
              .planNode();
-  assertFailingPlanConversion(plan, "Failed to cast from VARCHAR to BIGINT");
+  assertFailingPlanConversion(plan, "Cannot cast VARCHAR 'abc' to BIGINT");
 }
 
 TEST_F(VeloxSubstraitRoundTripTest, filter) {

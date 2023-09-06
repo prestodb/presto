@@ -158,7 +158,7 @@ TEST_F(ComparisonsTest, betweenDecimal) {
   VELOX_ASSERT_THROW(
       runAndCompare("c0 between 2.00 and 3.00", longFlat, expectedResult),
       "Scalar function signature is not supported: "
-      "between(DECIMAL(20,2), DECIMAL(3,2), DECIMAL(3,2)).");
+      "between(DECIMAL(20, 2), DECIMAL(3, 2), DECIMAL(3, 2)).");
 }
 
 TEST_F(ComparisonsTest, betweenDecimalNonConstantVectors) {
@@ -332,11 +332,11 @@ TEST_F(ComparisonsTest, eqNeqDecimal) {
   VELOX_ASSERT_THROW(
       runAndCompare(inputs, expected, "="),
       "Scalar function signature is not supported: "
-      "eq(DECIMAL(10,5), DECIMAL(10,4))");
+      "eq(DECIMAL(10, 5), DECIMAL(10, 4))");
   VELOX_ASSERT_THROW(
       runAndCompare(inputs, expected, "!="),
       "Scalar function signature is not supported: "
-      "neq(DECIMAL(10,5), DECIMAL(10,4))");
+      "neq(DECIMAL(10, 5), DECIMAL(10, 4))");
 }
 
 TEST_F(ComparisonsTest, gtLtDecimal) {

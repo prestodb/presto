@@ -66,13 +66,13 @@ TEST(FbHive, decimal) {
   auto shortType = t->asShortDecimal();
   ASSERT_EQ(shortType.precision(), 10);
   ASSERT_EQ(shortType.scale(), 5);
-  ASSERT_EQ(t->toString(), "DECIMAL(10,5)");
+  ASSERT_EQ(t->toString(), "DECIMAL(10, 5)");
   t = parser.parse("decimal(21, 3)");
   ASSERT_EQ(t->kind(), TypeKind::HUGEINT);
   auto longType = t->asLongDecimal();
   ASSERT_EQ(longType.precision(), 21);
   ASSERT_EQ(longType.scale(), 3);
-  ASSERT_EQ(t->toString(), "DECIMAL(21,3)");
+  ASSERT_EQ(t->toString(), "DECIMAL(21, 3)");
 }
 
 TEST(FbHive, date) {

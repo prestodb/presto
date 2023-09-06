@@ -2863,14 +2863,14 @@ TEST_F(ExprTest, castExceptionContext) {
       makeFlatVector<std::string>({"1a"}),
       "cast((c0) as BIGINT)",
       "Same as context.",
-      "Failed to cast from VARCHAR to BIGINT: 1a. Non-whitespace character found after end of conversion: \"a\"");
+      "Cannot cast VARCHAR '1a' to BIGINT. Non-whitespace character found after end of conversion: \"a\"");
 
   assertError(
       "cast(c0 as timestamp)",
       makeFlatVector(std::vector<int8_t>{1}),
       "cast((c0) as TIMESTAMP)",
       "Same as context.",
-      "Failed to cast from TINYINT to TIMESTAMP: 1. Conversion to Timestamp is not supported");
+      "Cannot cast TINYINT '1' to TIMESTAMP. Conversion to Timestamp is not supported");
 }
 
 TEST_F(ExprTest, switchExceptionContext) {

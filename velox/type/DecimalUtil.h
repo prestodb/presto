@@ -164,7 +164,7 @@ class DecimalUtil {
     if (rescaledValue < -DecimalUtil::kPowersOfTen[toPrecision] ||
         rescaledValue > DecimalUtil::kPowersOfTen[toPrecision] || isOverflow) {
       VELOX_USER_FAIL(
-          "Cannot cast DECIMAL '{}' to DECIMAL({},{})",
+          "Cannot cast DECIMAL '{}' to DECIMAL({}, {})",
           DecimalUtil::toString(inputValue, DECIMAL(fromPrecision, fromScale)),
           toPrecision,
           toScale);
@@ -184,7 +184,7 @@ class DecimalUtil {
     if (rescaledValue < -DecimalUtil::kPowersOfTen[toPrecision] ||
         rescaledValue > DecimalUtil::kPowersOfTen[toPrecision] || isOverflow) {
       VELOX_USER_FAIL(
-          "Cannot cast {} '{}' to DECIMAL({},{})",
+          "Cannot cast {} '{}' to DECIMAL({}, {})",
           SimpleTypeTrait<TInput>::name,
           inputValue,
           toPrecision,
