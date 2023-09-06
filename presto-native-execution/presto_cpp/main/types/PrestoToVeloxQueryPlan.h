@@ -24,7 +24,7 @@
 #include "presto_cpp/main/types/PrestoTaskId.h"
 // TypeSignatureTypeConverter.h must be included after presto_protocol.h
 // because it changes the macro EOF in some way (maybe deleting it?) which
-// is used in third_party/json/json.hpp
+// is used in external/json/nlohmann/json.hpp
 //
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 
