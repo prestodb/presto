@@ -603,6 +603,12 @@ TEST_F(ArithmeticTest, toBase) {
   EXPECT_EQ("20a2", to_base(3578, 12));
   EXPECT_EQ("-20a2", to_base(-3578, 12));
 
+  EXPECT_EQ(
+      "-1104332401304422434310311213",
+      to_base(std::numeric_limits<int64_t>::min(), 5));
+  EXPECT_EQ(
+      "1104332401304422434310311212",
+      to_base(std::numeric_limits<int64_t>::max(), 5));
   ASSERT_THROW(to_base(1, 37), velox::VeloxUserError);
 }
 

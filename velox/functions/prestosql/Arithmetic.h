@@ -19,8 +19,10 @@
 #include <charconv>
 #include <climits>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <functional>
+#include <limits>
 #include <system_error>
 
 #include "folly/CPortability.h"
@@ -438,19 +440,18 @@ template <typename T>
 struct ToBaseFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE void
-  call(out_type<Varchar>& result, const int64_t& value, const int64_t& radix) {
-    checkRadix(radix);
-
+  template <typename B>
+  void
+  applyToBase(out_type<Varchar>& result, const B& value, const int64_t& radix) {
     if (value == 0) {
       result.resize(1);
       result.data()[0] = '0';
     } else {
-      int64_t runningValue = std::abs(value);
-      int64_t remainder;
+      B runningValue = value < 0 ? -1 * value : value;
+      B remainder;
       char* resultPtr;
-      int64_t resultSize =
-          (int64_t)std::floor(std::log(runningValue) / std::log(radix)) + 1;
+      int128_t resultSize =
+          (int128_t)std::floor(std::log(runningValue) / std::log(radix)) + 1;
       if (value < 0) {
         resultSize += 1;
         result.resize(resultSize);
@@ -466,6 +467,19 @@ struct ToBaseFunction {
         resultPtr[--index] = digits[remainder];
         runningValue /= radix;
       }
+    }
+  }
+
+  void call(
+      out_type<Varchar>& result,
+      const int64_t& inputValue,
+      const int64_t& radix) {
+    checkRadix(radix);
+    if (inputValue == std::numeric_limits<int64_t>::min()) {
+      // Special case for min inputValue to avoid overflow.
+      applyToBase<int128_t>(result, inputValue, radix);
+    } else {
+      applyToBase<int64_t>(result, inputValue, radix);
     }
   }
 };
