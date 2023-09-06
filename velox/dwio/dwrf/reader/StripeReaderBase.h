@@ -35,9 +35,9 @@ class StripeReaderBase {
       const std::shared_ptr<ReaderBase>& reader,
       const proto::StripeFooter* footer)
       : reader_{reader},
-        footer_{const_cast<proto::StripeFooter*>(footer)},
         handler_{std::make_unique<encryption::DecryptionHandler>(
             reader_->getDecryptionHandler())},
+        footer_{const_cast<proto::StripeFooter*>(footer)},
         canLoad_{false} {
     // The footer is expected to be arena allocated and to stay
     // live for the lifetime of 'this'.
@@ -110,11 +110,11 @@ class StripeReaderBase {
   }
 
  private:
-  std::shared_ptr<ReaderBase> reader_;
+  const std::shared_ptr<ReaderBase> reader_;
+  const std::unique_ptr<encryption::DecryptionHandler> handler_;
   std::unique_ptr<dwio::common::BufferedInput> stripeInput_;
-  proto::StripeFooter* footer_ = nullptr;
-  std::unique_ptr<encryption::DecryptionHandler> handler_;
   std::optional<uint32_t> lastStripeIndex_;
+  proto::StripeFooter* footer_ = nullptr;
   bool canLoad_{true};
 
   // Map containing stripe blobs which have already been loaded.
