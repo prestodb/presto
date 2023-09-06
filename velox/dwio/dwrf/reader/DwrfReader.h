@@ -115,7 +115,7 @@ class DwrfRowReader : public StrideIndexProvider,
 
   void safeFetchNextStripe();
 
-  bool prefetch(uint32_t stripeToFetch);
+  std::optional<std::vector<PrefetchUnit>> prefetchUnits() override;
 
   int64_t nextRowNumber() override;
 
@@ -123,6 +123,7 @@ class DwrfRowReader : public StrideIndexProvider,
 
  private:
   bool fetch(uint32_t stripeIndex);
+  FetchResult prefetch(uint32_t stripeToFetch);
 
   // footer
   std::vector<uint64_t> firstRowOfStripe;

@@ -159,6 +159,40 @@ void verifyFlatMapReading(
   EXPECT_EQ(batchId, numBatches);
 }
 
+void verifyPrefetch(
+    DwrfRowReader* rowReader,
+    const std::vector<uint32_t>& expectedPrefetchRowSizes = {},
+    const std::vector<bool>& shouldTryPrefetch = {}) {
+  auto prefetchUnitsOpt = rowReader->prefetchUnits();
+  ASSERT_TRUE(prefetchUnitsOpt.has_value());
+  auto prefetchUnits = std::move(prefetchUnitsOpt.value());
+  auto numFetches = prefetchUnits.size();
+  auto expectedResultsSize = shouldTryPrefetch.size();
+  auto expectedRowsSize = expectedPrefetchRowSizes.size();
+  bool shouldCheckResults = expectedResultsSize != 0;
+  bool shouldCheckRowCount = expectedRowsSize != 0;
+
+  // Empty vector will skip the check, but they should never been different than
+  // actual expected prefetchUnits vector
+  DWIO_ENSURE(expectedResultsSize == numFetches || !shouldCheckResults);
+  DWIO_ENSURE(expectedRowsSize == numFetches || !shouldCheckRowCount);
+
+  for (int i = 0; i < numFetches; i++) {
+    if (shouldCheckRowCount) {
+      EXPECT_EQ(prefetchUnits[i].rowCount, expectedPrefetchRowSizes[i]);
+    }
+    if (shouldCheckResults && shouldTryPrefetch[i]) {
+      RowReader::FetchResult result = prefetchUnits[i].prefetch();
+      EXPECT_EQ(
+          result,
+          // A prefetch request for the first stripe should be already fetched,
+          // because createDwrfRowReader calls startNextStripe() synchronously.
+          i == 0 ? RowReader::FetchResult::kAlreadyFetched
+                 : RowReader::FetchResult::kFetched);
+    }
+  }
+}
+
 // schema of flat map sample file
 // struct {
 //   id int,
@@ -174,7 +208,8 @@ void verifyFlatMapReading(
     const int32_t expectedBatchSize[],
     const int32_t numBatches,
     bool returnFlatVector,
-    const int32_t prefetches = 0) {
+    const std::vector<uint32_t>& expectedPrefetchRowSizes = {},
+    const std::vector<bool>& shouldTryPrefetch = {}) {
   ReaderOptions readerOpts{defaultPool.get()};
 
   /* If an extra sanity check is desired you can uncomment the 2 below lines and
@@ -199,9 +234,7 @@ void verifyFlatMapReading(
   auto rowReader = dynamic_cast<DwrfRowReader*>(rowReaderOwner.get());
 
   // Prefetch the requested # of times
-  for (int i = 0; i < prefetches; i++) {
-    rowReader->prefetch(i);
-  }
+  verifyPrefetch(rowReader, expectedPrefetchRowSizes, shouldTryPrefetch);
   verifyFlatMapReading(rowReader, seeks, expectedBatchSize, numBatches);
 }
 
@@ -361,7 +394,9 @@ TEST(TestRowReaderPrefetch, testPartialPrefetch) {
       expectedBatchSize.data(),
       expectedBatchSize.size(),
       false,
-      1 /* file has 4 stripes, prefetch only some and verify whole read */);
+      {300, 300, 300, 100},
+      /* file has 4 stripes, prefetch only some and verify whole read */
+      {true, false, true, false});
 }
 
 TEST(TestRowReaderPrefetch, testPrefetchWholeFile) {
@@ -377,15 +412,17 @@ TEST(TestRowReaderPrefetch, testPrefetchWholeFile) {
       expectedBatchSize.data(),
       expectedBatchSize.size(),
       false,
-      5 /* file has 4 stripes, issue more prefetches than this */);
+      {300, 300, 300, 100},
+      /* file has 4 stripes, issue prefetch for each one */
+      {true, true, true, true});
 }
 
 TEST(TestRowReaderPrefetch, testPrefetchAndSeekFails) {
   const std::string fmSmall(getExampleFilePath("fm_small.orc"));
 
   // batch size is set as 1000 in reading
-  const std::array<int32_t, 4> seeks{100, 700, 0, 0};
-  const std::array<int32_t, 4> expectedBatchSize{300, 300, 300, 100};
+  const std::array<int32_t, 4> seeks{100, 700, 0};
+  const std::array<int32_t, 3> expectedBatchSize{200, 200, 100};
   try {
     verifyFlatMapReading(
         fmSmall,
@@ -393,7 +430,8 @@ TEST(TestRowReaderPrefetch, testPrefetchAndSeekFails) {
         expectedBatchSize.data(),
         expectedBatchSize.size(),
         false,
-        2); // Also attempt prefetch
+        {300, 300, 300, 100},
+        {true, true, false, false}); // Also attempt prefetch
     FAIL() << "Expected failure when trying to prefetch and seek";
   } catch (const VeloxException& e) {
     EXPECT_THAT(
@@ -402,6 +440,7 @@ TEST(TestRowReaderPrefetch, testPrefetchAndSeekFails) {
   }
 }
 
+// Synchronous interleaving
 TEST(TestRowReaderPrefetch, testPrefetchAndStartNextStripeInterleaved) {
   const std::string fmSmall(getExampleFilePath("fm_small.orc"));
 
@@ -430,20 +469,26 @@ TEST(TestRowReaderPrefetch, testPrefetchAndStartNextStripeInterleaved) {
   // ahead of its place
   rowReader->startNextStripe();
 
+  // std::optional<std::vector<DwrfRowReader::PrefetchUnit>> units =
+  // rowReader->prefetchUnits();
+  auto units = rowReader->prefetchUnits().value();
+  EXPECT_EQ(units.size(), 4);
+
   // startNextStripe should not interfere with prefetch- it should just be
-  // continuously re-loading the stripe its row index is on.
-  EXPECT_TRUE(rowReader->prefetch(1));
-  EXPECT_TRUE(rowReader->prefetch(2));
+  // continuously re-loading the stripe its row index is on (currently 0).
+  EXPECT_EQ(units[0].prefetch(), DwrfRowReader::FetchResult::kAlreadyFetched);
+  EXPECT_EQ(units[1].prefetch(), DwrfRowReader::FetchResult::kFetched);
+  EXPECT_EQ(units[1].prefetch(), DwrfRowReader::FetchResult::kAlreadyFetched);
   rowReader->startNextStripe();
   rowReader->startNextStripe();
+  EXPECT_EQ(units[1].prefetch(), DwrfRowReader::FetchResult::kAlreadyFetched);
 
   // Prefetch rest of stripe and call again (expecting no-op)
-  EXPECT_TRUE(rowReader->prefetch(3));
-  EXPECT_FALSE(rowReader->prefetch(4));
+  EXPECT_EQ(units[2].prefetch(), DwrfRowReader::FetchResult::kFetched);
+  EXPECT_EQ(units[3].prefetch(), DwrfRowReader::FetchResult::kFetched);
 
   // DwrfRowReader still should register having no prefetching to do
   rowReader->startNextStripe();
-  EXPECT_FALSE(rowReader->prefetch(4));
 
   // Verify reads are correct
   verifyFlatMapReading(
@@ -468,7 +513,8 @@ TEST(TestRowReaderPrefetch, testReadLargePrefetch) {
       expectedBatchSize.data(),
       expectedBatchSize.size(),
       false,
-      2);
+      {3000, 3000, 3000, 1000},
+      {true, true, false, false});
 }
 
 TEST(TestRowReaderPrefetch, testParallelPrefetch) {
@@ -479,7 +525,6 @@ TEST(TestRowReaderPrefetch, testParallelPrefetch) {
   seeks.fill(0);
   const std::array<int32_t, 4> expectedBatchSize{300, 300, 300, 100};
   ReaderOptions readerOpts{defaultPool.get()};
-  readerOpts.setFilePreloadThreshold(0);
   RowReaderOptions rowReaderOpts;
   std::shared_ptr<const RowType> requestedType =
       std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
@@ -495,15 +540,11 @@ TEST(TestRowReaderPrefetch, testParallelPrefetch) {
   auto rowReaderOwner = reader->createRowReader(rowReaderOpts);
   auto rowReader = dynamic_cast<DwrfRowReader*>(rowReaderOwner.get());
 
-  std::vector<std::future<bool>> prefetches;
+  auto units = rowReader->prefetchUnits().value();
+  std::vector<std::future<DwrfRowReader::FetchResult>> prefetches;
   prefetches.reserve(4);
   for (int i = 0; i < 4; i++) {
-    prefetches.push_back(
-        std::async(std::launch::async, &DwrfRowReader::prefetch, rowReader, i));
-  }
-
-  for (auto& prefetch : prefetches) {
-    LOG(INFO) << prefetch.get();
+    prefetches.push_back(std::async(units[i].prefetch));
   }
 
   // Verify reads are correct
@@ -513,25 +554,48 @@ TEST(TestRowReaderPrefetch, testParallelPrefetch) {
       expectedBatchSize.data(),
       expectedBatchSize.size());
 }
-// fm_large.orc is still below default preload threshold (though large enough it
-// does not get read in full by initial footer IO). Explicitly disable this to
-// test code path where we store non-null streams.
-TEST(TestRowReaderPrefetch, testReadLargeNoPreload) {
+
+// Use large file and disable preload to test
+TEST(TestRowReaderPrefetch, testParallelPrefetchNoPreload) {
   const std::string fmLarge(getExampleFilePath("fm_large.orc"));
 
   // batch size is set as 1000 in reading
-  // 3000 per stripe
   std::array<int32_t, 11> seeks;
   seeks.fill(0);
   const std::array<int32_t, 10> expectedBatchSize{
       1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000};
+  ReaderOptions readerOpts{defaultPool.get()};
+  // Explicitly disable so IO takes some time
+  readerOpts.setFilePreloadThreshold(0);
+  readerOpts.setDirectorySizeGuess(4);
+  RowReaderOptions rowReaderOpts;
+  std::shared_ptr<const RowType> requestedType =
+      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
+          id:int,\
+      map1:map<int, array<float>>,\
+      map2:map<string, map<smallint,bigint>>,\
+      map3:map<int,int>,\
+      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
+      memo:string>"));
+  rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(fmLarge, readerOpts.getMemoryPool()), readerOpts);
+  auto rowReaderOwner = reader->createRowReader(rowReaderOpts);
+  auto rowReader = dynamic_cast<DwrfRowReader*>(rowReaderOwner.get());
+
+  auto units = rowReader->prefetchUnits().value();
+  std::vector<std::future<DwrfRowReader::FetchResult>> prefetches;
+  prefetches.reserve(4);
+  for (int i = 0; i < 4; i++) {
+    prefetches.push_back(std::async(units[i].prefetch));
+  }
+
+  // Verify reads are correct
   verifyFlatMapReading(
-      fmLarge,
+      rowReader,
       seeks.data(),
       expectedBatchSize.data(),
-      expectedBatchSize.size(),
-      false,
-      2);
+      expectedBatchSize.size());
 }
 
 class TestFlatMapReaderFlatLayout

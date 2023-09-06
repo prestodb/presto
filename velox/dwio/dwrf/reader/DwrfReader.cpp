@@ -408,6 +408,22 @@ void DwrfRowReader::resetFilterCaches() {
   // For columnReader_, this is no-op.
 }
 
+std::optional<std::vector<velox::dwio::common::RowReader::PrefetchUnit>>
+DwrfRowReader::prefetchUnits() {
+  DWIO_ENSURE(!seekHasOccurred_);
+  auto rowsInStripe = getReader().getRowsPerStripe();
+  DWIO_ENSURE(rowsInStripe.size() == lastStripe);
+  std::vector<PrefetchUnit> res;
+  res.reserve(lastStripe);
+
+  for (int i = 0; i < rowsInStripe.size(); i++) {
+    res.push_back(
+        {.rowCount = rowsInStripe[i],
+         .prefetch = std::bind(&DwrfRowReader::prefetch, this, i)});
+  }
+  return res;
+}
+
 // return true if this call did the IO for the given stripe
 bool DwrfRowReader::fetch(uint32_t stripeIndex) {
   bool alreadyIssued = false;
@@ -516,12 +532,8 @@ bool DwrfRowReader::fetch(uint32_t stripeIndex) {
   return true;
 }
 
-bool DwrfRowReader::prefetch(uint32_t stripeToFetch) {
-  if (stripeToFetch >= loadRequestIssued_.rlock()->size() ||
-      stripeToFetch < 0) {
-    VLOG(1) << "prefetch request OOB";
-    return false;
-  }
+DwrfRowReader::FetchResult DwrfRowReader::prefetch(uint32_t stripeToFetch) {
+  DWIO_ENSURE(stripeToFetch < lastStripe && stripeToFetch >= 0);
 
   std::unique_lock<std::mutex> lock(prefetchAndSeekMutex_);
   DWIO_ENSURE(
@@ -532,7 +544,11 @@ bool DwrfRowReader::prefetch(uint32_t stripeToFetch) {
 
   VLOG(1) << "Unlocked lock and calling fetch for " << stripeToFetch
           << ", thread " << std::this_thread::get_id();
-  return fetch(stripeToFetch);
+  // fixme: move to a model where we have a single vector of fetchResults that
+  // is accessed synchronously and always consistent with global state
+  return fetch(stripeToFetch)
+      ? DwrfRowReader::RowReader::FetchResult::kFetched
+      : DwrfRowReader::RowReader::FetchResult::kAlreadyFetched;
 }
 
 // Guarantee stripe we are currently on is available and loaded
