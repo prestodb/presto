@@ -319,6 +319,9 @@ RowType::RowType(std::vector<std::string>&& names, std::vector<TypePtr>&& types)
       childrenIndices_{createdChildrenIndex(names_)} {
   VELOX_USER_CHECK_EQ(
       names_.size(), children_.size(), "Mismatch names/types sizes");
+  for (auto& child : children_) {
+    VELOX_CHECK_NOT_NULL(child, "Child types cannot be null");
+  }
 }
 
 uint32_t RowType::size() const {
