@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.likematcher;
 
+import com.google.common.base.Strings;
+
+import java.util.Objects;
+
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 
 public interface Pattern
 {
-
     class Literal
             implements Pattern
     {
@@ -43,33 +45,56 @@ public interface Pattern
         // You can add equals, hashCode, and other utility methods if required
     }
 
+    public class ZeroOrMore
+            implements Pattern
+    {
+        @Override
+        public String toString()
+        {
+            return "%";
+        }
+
+        // Equals and hashCode methods might be required based on usage,
+        // the record provided them by default
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            return true;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(); // No fields to hash in this case
+        }
+    }
+
     class Any
             implements Pattern
     {
-        private final int min;
-        private final boolean unbounded;
+        private final int length;
 
-        public Any(int min, boolean unbounded)
+        public Any(int length)
         {
-            checkArgument(min > 0 || unbounded, "Any must be unbounded or require at least 1 character");
-            this.min = min;
-            this.unbounded = unbounded;
+            checkArgument(length > 0, "Length must be > 0");
+            this.length = length;
         }
 
-        public int getMin()
+        public int getLength()
         {
-            return min;
-        }
-
-        public boolean isUnbounded()
-        {
-            return unbounded;
+            return length;
         }
 
         @Override
         public String toString()
         {
-            return format("{%s%s}", min, unbounded ? "+" : "");
+            return Strings.repeat("_", length);
         }
 
         // You can add equals, hashCode, and other utility methods if required

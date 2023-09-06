@@ -1,45 +1,49 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.facebook.presto.likematcher;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 
 public class DFA
 {
-    private final State start;
-    private final State failed;
-    private List<State> states;
-    private Map<Integer, List<Transition>> transitions;
+    private final int start;
+    private final IntArrayList acceptStates;
+    private final List<List<Transition>> transitions;
 
-    public DFA(State start, State failed, List<State> states, Map<Integer, List<Transition>> transitions)
+    // Constructor
+    public DFA(int start, IntArrayList acceptStates, List<List<Transition>> transitions)
     {
-        this.start = Objects.requireNonNull(start, "start is null");
-        this.failed = Objects.requireNonNull(failed, "failed is null");
-        this.states = ImmutableList.copyOf(states);
-        this.transitions = ImmutableMap.copyOf(transitions);
+        this.start = start;
+        this.acceptStates = acceptStates;
+        this.transitions = transitions;
     }
 
-    public State getStart()
+    // Getters
+    public int getStart()
     {
         return start;
     }
 
-    public State getFailed()
+    public IntArrayList getAcceptStates()
     {
-        return failed;
+        return acceptStates;
     }
 
-    public List<State> getStates()
-    {
-        return states;
-    }
-
-    public Map<Integer, List<Transition>> getTransitions()
+    public List<List<Transition>> getTransitions()
     {
         return transitions;
     }
@@ -87,9 +91,9 @@ public class DFA
     public static class Transition
     {
         private final int value;
-        private final State target;
+        private final int target;
 
-        public Transition(int value, State target)
+        public Transition(int value, int target)
         {
             this.value = value;
             this.target = target;
@@ -100,7 +104,7 @@ public class DFA
             return value;
         }
 
-        public State getTarget()
+        public int getTarget()
         {
             return target;
         }
@@ -115,47 +119,34 @@ public class DFA
     public static class Builder
     {
         private int nextId;
-        private State start;
-        private State failed;
-        private final List<State> states = new ArrayList<>();
-        private final Map<Integer, List<Transition>> transitions = new HashMap<>();
+        private int start;
+        private final IntArrayList acceptStates = new IntArrayList();
+        private final List<List<Transition>> transitions = new ArrayList<>();
 
-        public State addState(String label, boolean accept)
+        public int addState(boolean accept)
         {
-            State state = new State(nextId++, label, accept);
-            states.add(state);
-            return state;
-        }
-
-        public State addStartState(String label, boolean accept)
-        {
-            if (start != null) {
-                throw new IllegalStateException("Start state already set");
+            int state = nextId++;
+            transitions.add(new ArrayList<>());
+            if (accept) {
+                acceptStates.add(state);
             }
-            State state = addState(label, accept);
-            start = state;
             return state;
         }
 
-        public State addFailState()
+        public int addStartState(boolean accept)
         {
-            if (failed != null) {
-                throw new IllegalStateException("Fail state already set");
-            }
-            State state = addState("fail", false);
-            failed = state;
-            return state;
+            start = addState(accept);
+            return start;
         }
 
-        public void addTransition(State from, int value, State to)
+        public void addTransition(int from, int value, int to)
         {
-            transitions.computeIfAbsent(from.getId(), key -> new ArrayList<>())
-                    .add(new Transition(value, to));
+            transitions.get(from).add(new Transition(value, to));
         }
 
         public DFA build()
         {
-            return new DFA(start, failed, states, transitions);
+            return new DFA(start, acceptStates, transitions);
         }
     }
 }

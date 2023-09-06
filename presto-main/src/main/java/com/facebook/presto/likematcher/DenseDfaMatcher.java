@@ -13,102 +13,206 @@
  */
 package com.facebook.presto.likematcher;
 
+import java.util.Arrays;
+import java.util.List;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
+
 class DenseDfaMatcher
+        implements Matcher
 {
-    // The DFA is encoded as a sequence of transitions for each possible byte value for each state.
-    // I.e., 256 transitions per state.
-    // The content of the transitions array is the base offset into
-    // the next state to follow. I.e., the desired state * 256
-    private final int[] transitions;
+    public static final int FAIL_STATE = -1;
 
-    // The starting state
+    private final List<Pattern> pattern;
     private final int start;
-
-    // For each state, whether it's an accepting state
-    private final boolean[] accept;
-
-    // Artificial state to sink all invalid matches
-    private final int fail;
-
+    private final int end;
     private final boolean exact;
 
-    /**
-     * @param exact whether to match to the end of the input
-     */
-    public static DenseDfaMatcher newInstance(DFA dfa, boolean exact)
+    private volatile DenseDfa matcher;
+
+    public DenseDfaMatcher(List<Pattern> pattern, int start, int end, boolean exact)
     {
-        int[] transitions = new int[dfa.getStates().size() * 256];
-        boolean[] accept = new boolean[dfa.getStates().size()];
-
-        for (DFA.State state : dfa.getStates()) {
-            for (DFA.Transition transition : dfa.transitions(state)) {
-                transitions[state.getId() * 256 + transition.getValue()] = transition.getTarget().getId() * 256;
-            }
-
-            if (state.isAccept()) {
-                accept[state.getId()] = true;
-            }
-        }
-
-        return new DenseDfaMatcher(transitions, dfa.getStart().getId(), accept, 0, exact);
-    }
-
-    private DenseDfaMatcher(int[] transitions, int start, boolean[] accept, int fail, boolean exact)
-    {
-        this.transitions = transitions;
+        this.pattern = requireNonNull(pattern, "pattern is null");
         this.start = start;
-        this.accept = accept;
-        this.fail = fail;
+        this.end = end;
         this.exact = exact;
     }
 
+    @Override
     public boolean match(byte[] input, int offset, int length)
     {
+        DenseDfa matcher = this.matcher;
+        if (matcher == null) {
+            matcher = DenseDfa.newInstance(pattern, start, end);
+            this.matcher = matcher;
+        }
+
         if (exact) {
-            return exactMatch(input, offset, length);
+            return matcher.exactMatch(input, offset, length);
         }
 
-        return prefixMatch(input, offset, length);
+        return matcher.prefixMatch(input, offset, length);
     }
 
-    /**
-     * Returns a positive match when the final state after all input has been consumed is an accepting state
-     */
-    private boolean exactMatch(byte[] input, int offset, int length)
+    private static class DenseDfa
     {
-        int state = start << 8;
-        for (int i = offset; i < offset + length; i++) {
-            byte inputByte = input[i];
-            state = transitions[state | (inputByte & 0xFF)];
+        // The DFA is encoded as a sequence of transitions for each possible byte value for each state.
+        // I.e., 256 transitions per state.
+        // The content of the transitions array is the base offset into
+        // the next state to follow. I.e., the desired state * 256
+        private final int[] transitions;
 
-            if (state == fail) {
-                return false;
+        // The starting state
+        private final int start;
+
+        // For each state, whether it's an accepting state
+        private final boolean[] accept;
+
+        public static DenseDfa newInstance(List<Pattern> pattern, int start, int end)
+        {
+            DFA dfa = makeNfa(pattern, start, end).toDfa();
+
+            int[] transitions = new int[dfa.getTransitions().size() * 256];
+            Arrays.fill(transitions, FAIL_STATE);
+
+            for (int state = 0; state < dfa.getTransitions().size(); state++) {
+                for (DFA.Transition transition : dfa.getTransitions().get(state)) {
+                    transitions[state * 256 + transition.getValue()] = transition.getTarget() * 256;
+                }
             }
+            boolean[] accept = new boolean[dfa.getTransitions().size()];
+            for (int state : dfa.getAcceptStates()) {
+                accept[state] = true;
+            }
+
+            return new DenseDfa(transitions, dfa.getStart(), accept);
         }
 
-        return accept[state >>> 8];
-    }
-
-    /**
-     * Returns a positive match as soon as the DFA reaches an accepting state, regardless of whether
-     * the whole input has been consumed
-     */
-    private boolean prefixMatch(byte[] input, int offset, int length)
-    {
-        int state = start << 8;
-        for (int i = offset; i < offset + length; i++) {
-            byte inputByte = input[i];
-            state = transitions[state | (inputByte & 0xFF)];
-
-            if (state == fail) {
-                return false;
-            }
-
-            if (accept[state >>> 8]) {
-                return true;
-            }
+        private DenseDfa(int[] transitions, int start, boolean[] accept)
+        {
+            this.transitions = transitions;
+            this.start = start;
+            this.accept = accept;
         }
 
-        return accept[state >>> 8];
+        /**
+         * Returns a positive match when the final state after all input has been consumed is an accepting state
+         */
+        public boolean exactMatch(byte[] input, int offset, int length)
+        {
+            int state = start << 8;
+            for (int i = offset; i < offset + length; i++) {
+                byte inputByte = input[i];
+                state = transitions[state | (inputByte & 0xFF)];
+
+                if (state == FAIL_STATE) {
+                    return false;
+                }
+            }
+
+            return accept[state >>> 8];
+        }
+
+        /**
+         * Returns a positive match as soon as the DFA reaches an accepting state, regardless of whether
+         * the whole input has been consumed
+         */
+        public boolean prefixMatch(byte[] input, int offset, int length)
+        {
+            int state = start << 8;
+            for (int i = offset; i < offset + length; i++) {
+                byte inputByte = input[i];
+                state = transitions[state | (inputByte & 0xFF)];
+
+                if (state == FAIL_STATE) {
+                    return false;
+                }
+
+                if (accept[state >>> 8]) {
+                    return true;
+                }
+            }
+
+            return accept[state >>> 8];
+        }
+
+        private static NFA makeNfa(List<Pattern> pattern, int start, int end)
+        {
+            checkArgument(!pattern.isEmpty(), "pattern is empty");
+
+            NFA.Builder builder = new NFA.Builder();
+
+            int state = builder.addStartState();
+
+            for (int e = start; e <= end; e++) {
+                Pattern item = pattern.get(e);
+                if (item instanceof Pattern.Literal) {
+                    Pattern.Literal literal = (Pattern.Literal) item;
+                    for (byte current : literal.getValue().getBytes(UTF_8)) {
+                        state = matchByte(builder, state, current);
+                    }
+                }
+                else if (item instanceof Pattern.Any) {
+                    Pattern.Any any = (Pattern.Any) item;
+                    for (int i = 0; i < any.getLength(); i++) {
+                        int next = builder.addState();
+                        matchSingleUtf8(builder, state, next);
+                        state = next;
+                    }
+                }
+                else if (item instanceof Pattern.ZeroOrMore) {
+                    matchSingleUtf8(builder, state, state);
+                }
+                else {
+                    throw new UnsupportedOperationException("Not supported: " + item.getClass().getName());
+                }
+            }
+
+            builder.setAccept(state);
+
+            return builder.build();
+        }
+
+        private static int matchByte(NFA.Builder builder, int state, byte value)
+        {
+            int next = builder.addState();
+            builder.addTransition(state, new NFA.Value(value), next);
+            return next;
+        }
+
+        private static void matchSingleUtf8(NFA.Builder builder, int from, int to)
+        {
+            /*
+            Implements a state machine to recognize UTF-8 characters.
+
+                  11110xxx       10xxxxxx       10xxxxxx       10xxxxxx
+              O ───────────► O ───────────► O ───────────► O ───────────► O
+              │                             ▲              ▲              ▲
+              ├─────────────────────────────┘              │              │
+              │          1110xxxx                          │              │
+              │                                            │              │
+              ├────────────────────────────────────────────┘              │
+              │                   110xxxxx                                │
+              │                                                           │
+              └───────────────────────────────────────────────────────────┘
+                                        0xxxxxxx
+            */
+
+            builder.addTransition(from, new NFA.Prefix(0, 1), to);
+
+            int state1 = builder.addState();
+            int state2 = builder.addState();
+            int state3 = builder.addState();
+
+            builder.addTransition(from, new NFA.Prefix(0b11110, 5), state1);
+            builder.addTransition(from, new NFA.Prefix(0b1110, 4), state2);
+            builder.addTransition(from, new NFA.Prefix(0b110, 3), state3);
+
+            builder.addTransition(state1, new NFA.Prefix(0b10, 2), state2);
+            builder.addTransition(state2, new NFA.Prefix(0b10, 2), state3);
+            builder.addTransition(state3, new NFA.Prefix(0b10, 2), to);
+        }
     }
 }

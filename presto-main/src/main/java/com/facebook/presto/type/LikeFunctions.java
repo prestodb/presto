@@ -33,7 +33,6 @@ import static com.facebook.presto.util.Failures.checkCondition;
 
 public final class LikeFunctions
 {
-
     private LikeFunctions() {}
 
     @ScalarFunction(value = "like", visibility = HIDDEN)
@@ -76,7 +75,7 @@ public final class LikeFunctions
 
     public static LikeMatcher likePattern(Slice pattern)
     {
-        return LikeMatcher.compile(pattern.toStringUtf8(), Optional.empty());
+        return LikeMatcher.compile(pattern.toStringUtf8(), Optional.empty(), false);
     }
 
     @ScalarFunction(visibility = HIDDEN)
@@ -85,7 +84,7 @@ public final class LikeFunctions
     public static LikeMatcher likePattern(@SqlType("varchar(x)") Slice pattern, @SqlType("varchar(y)") Slice escape)
     {
         try {
-            return LikeMatcher.compile(pattern.toStringUtf8(), getEscapeChar(escape));
+            return LikeMatcher.compile(pattern.toStringUtf8(), getEscapeChar(escape), false);
         }
         catch (RuntimeException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
