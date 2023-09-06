@@ -591,11 +591,18 @@ void SsdFile::checkpoint(bool force) {
     // We schedule the potentially long fsync of the cache file on another
     // thread of the cache write executor, if available. If there is none, we do
     // the sync on this thread at the end.
-    auto sync = std::make_shared<AsyncSource<int>>(
+    auto fileSync = std::make_shared<AsyncSource<int>>(
         [fd = fd_]() { return std::make_unique<int>(::fsync(fd)); });
     if (executor_ != nullptr) {
-      executor_->add([sync]() { sync->prepare(); });
+      executor_->add([fileSync]() { fileSync->prepare(); });
     }
+
+    const auto checkRc = [&](int32_t rc, const std::string& errMsg) {
+      if (rc < 0) {
+        VELOX_FAIL("{} with rc {} :{}", errMsg, rc, folly::errnoStr(errno));
+      }
+      return rc;
+    };
 
     std::ofstream state;
     auto checkpointPath = fileName_ + kCheckpointExtension;
@@ -639,36 +646,34 @@ void SsdFile::checkpoint(bool force) {
       state.write(asChar(&offsetAndSize), sizeof(offsetAndSize));
     }
 
+    // NOTE: we need to ensure cache file data sync update completes before
+    // updating checkpoint file.
+    const auto fileSyncRc = fileSync->move();
+    checkRc(*fileSyncRc, "Sync of cache data file");
+
     const auto endMarker = kCheckpointEndMarker;
     state.write(asChar(&endMarker), sizeof(endMarker));
 
-    auto checkRc = [&](int32_t rc, const std::string& errMsg) {
-      if (rc < 0) {
-        VELOX_FAIL("{} with rc {}", errMsg, rc);
-      }
-      return rc;
-    };
     if (state.bad()) {
       ++stats_.writeCheckpointErrors;
-      checkRc(-1, "Writing checkpoint file");
+      checkRc(-1, "Write of checkpoint file");
     }
     state.close();
 
-    ::ftruncate(evictLogFd_, 0);
-    checkRc(::fsync(evictLogFd_), "Sync of evict log");
-
-    auto syncRc = sync->move();
-    checkRc(*syncRc, fmt::format("Error in cache file fsync {}", *syncRc));
-
     // Sync checkpoint data file. ofstream does not have a sync method, so open
     // as fd and sync that.
-    auto fd = checkRc(
+    const auto checkpointFd = checkRc(
         ::open(checkpointPath.c_str(), O_WRONLY),
         "Open of checkpoint file for sync");
-    if (fd > 0) {
-      checkRc(::fsync(fd), "Sync checkpoint file");
-      ::close(fd);
-    }
+    VELOX_CHECK_GE(checkpointFd, 0);
+    checkRc(::fsync(checkpointFd), "Sync of checkpoint file");
+    ::close(checkpointFd);
+
+    // NOTE: we shall truncate eviction log after checkpoint file sync
+    // completes so that we never recover from an old checkpoint file without
+    // log evictions. The latter might lead to data consistent issue.
+    checkRc(::ftruncate(evictLogFd_, 0), "Truncate of event log");
+    checkRc(::fsync(evictLogFd_), "Sync of evict log");
   } catch (const std::exception& e) {
     try {
       checkpointError(-1, e.what());
