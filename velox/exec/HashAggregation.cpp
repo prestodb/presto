@@ -118,10 +118,11 @@ HashAggregation::HashAggregation(
       info.intermediateType =
           Aggregate::intermediateType(aggregate.call->name(), argTypes);
     } else {
-      VELOX_CHECK_EQ(
+      VELOX_USER_CHECK_EQ(
           argTypes.size(),
           1,
-          "Intermediate aggregates must have a single argument");
+          "Intermediate aggregates must have a single argument: {}",
+          aggregate.call->name());
       info.intermediateType = argTypes[0];
     }
     // Setup aggregation mask: convert the Variable Reference name to the
