@@ -831,6 +831,55 @@ RowVectorPtr VectorFuzzer::fuzzRowChildrenToLazy(RowVectorPtr rowVector) {
       std::move(children));
 }
 
+// Utility function to check if a RowVector can have nested lazy children.
+// This is only possible if the rows for its children map 1-1 with the top level
+// rows (Rows of 'baseRowVector''s parent). For this to be true, the row vector
+// cannot have any encoding layers over it, and it cannot have nulls.
+bool canWrapRowChildInLazy(const VectorPtr& baseRowVector) {
+  if (baseRowVector->typeKind() == TypeKind::ROW) {
+    RowVector* rowVector = baseRowVector->as<RowVector>();
+    if (rowVector) {
+      return rowVector->nulls() == nullptr;
+    }
+  }
+  return false;
+}
+
+// Utility function That only takes a row vector that passes the check in
+// canWrapChildrenInLazy() and either picks the first child to be wrapped in
+// lazy OR picks the first row vector child that passes canWrapChildrenInLazy()
+// and traverses its children recursively.
+VectorPtr wrapRowChildInLazyRecursive(VectorPtr& baseVector) {
+  RowVector* rowVector = baseVector->as<RowVector>();
+  VELOX_CHECK_NOT_NULL(rowVector);
+  std::vector<VectorPtr> children;
+  children.reserve(rowVector->childrenSize());
+  bool foundChildVectorToWrap = false;
+  for (column_index_t i = 0; i < rowVector->childrenSize(); i++) {
+    auto child = rowVector->childAt(i);
+    if (!foundChildVectorToWrap && canWrapRowChildInLazy(child)) {
+      child = wrapRowChildInLazyRecursive(child);
+      foundChildVectorToWrap = true;
+    }
+    children.push_back(child);
+  }
+  if (!foundChildVectorToWrap && !children.empty()) {
+    children[0] = VectorFuzzer::wrapInLazyVector(children[0]);
+  }
+
+  BufferPtr newNulls = nullptr;
+  if (rowVector->nulls()) {
+    newNulls = AlignedBuffer::copy(rowVector->pool(), rowVector->nulls());
+  }
+
+  return std::make_shared<RowVector>(
+      rowVector->pool(),
+      rowVector->type(),
+      std::move(newNulls),
+      rowVector->size(),
+      std::move(children));
+}
+
 RowVectorPtr VectorFuzzer::fuzzRowChildrenToLazy(
     RowVectorPtr rowVector,
     const std::vector<int>& columnsToWrapInLazy) {
@@ -845,7 +894,9 @@ RowVectorPtr VectorFuzzer::fuzzRowChildrenToLazy(
     VELOX_USER_CHECK(!child->isLazy());
     if (listIndex < columnsToWrapInLazy.size() &&
         i == (column_index_t)std::abs(columnsToWrapInLazy[listIndex])) {
-      child = VectorFuzzer::wrapInLazyVector(child);
+      child = canWrapRowChildInLazy(child)
+          ? wrapRowChildInLazyRecursive(child)
+          : VectorFuzzer::wrapInLazyVector(child);
       if (columnsToWrapInLazy[listIndex] < 0) {
         // Negative index represents a lazy vector that is loaded.
         child->loadedVector();
@@ -863,7 +914,7 @@ RowVectorPtr VectorFuzzer::fuzzRowChildrenToLazy(
   return std::make_shared<RowVector>(
       rowVector->pool(),
       rowVector->type(),
-      newNulls,
+      std::move(newNulls),
       rowVector->size(),
       std::move(children));
 }
