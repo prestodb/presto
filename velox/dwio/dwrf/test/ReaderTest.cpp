@@ -34,6 +34,8 @@
 
 #include <fmt/core.h>
 #include <array>
+#include <future>
+#include <memory>
 #include <numeric>
 
 using namespace ::testing;
@@ -64,39 +66,12 @@ std::unique_ptr<BufferedInput> createFileBufferedInput(
       std::make_shared<LocalReadFile>(path), pool);
 }
 
-// schema of flat map sample file
-// struct {
-//   id int,
-//   map1 map<int, array<float>>,
-//   map2 map<varchar, map<smallint, bigint>>,
-//   map3 map<int, int>,
-//   map4 map<int, struct<field1 int, field2 float, field3 varchar>>,
-//   memo varchar
-// }
 void verifyFlatMapReading(
-    const std::string& file,
+    DwrfRowReader* rowReader,
     const int32_t seeks[],
     const int32_t expectedBatchSize[],
-    const int32_t numBatches,
-    bool returnFlatVector) {
-  ReaderOptions readerOpts{defaultPool.get()};
-  RowReaderOptions rowReaderOpts;
-  rowReaderOpts.setReturnFlatVector(returnFlatVector);
-  std::shared_ptr<const RowType> requestedType =
-      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
-          id:int,\
-      map1:map<int, array<float>>,\
-      map2:map<string, map<smallint,bigint>>,\
-      map3:map<int,int>,\
-      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
-      memo:string>"));
-  rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
-  auto reader = DwrfReader::create(
-      createFileBufferedInput(file, readerOpts.getMemoryPool()), readerOpts);
-  auto rowReaderOwner = reader->createRowReader(rowReaderOpts);
-  auto rowReader = dynamic_cast<DwrfRowReader*>(rowReaderOwner.get());
+    const int32_t numBatches) {
   VectorPtr batch;
-
   int32_t batchId = 0;
   do {
     // for every read, it seek to the specified row
@@ -182,6 +157,52 @@ void verifyFlatMapReading(
 
   // number of batches should match
   EXPECT_EQ(batchId, numBatches);
+}
+
+// schema of flat map sample file
+// struct {
+//   id int,
+//   map1 map<int, array<float>>,
+//   map2 map<varchar, map<smallint, bigint>>,
+//   map3 map<int, int>,
+//   map4 map<int, struct<field1 int, field2 float, field3 varchar>>,
+//   memo varchar
+// }
+void verifyFlatMapReading(
+    const std::string& file,
+    const int32_t seeks[],
+    const int32_t expectedBatchSize[],
+    const int32_t numBatches,
+    bool returnFlatVector,
+    const int32_t prefetches = 0) {
+  ReaderOptions readerOpts{defaultPool.get()};
+
+  /* If an extra sanity check is desired you can uncomment the 2 below lines and
+   * re-run */
+  // readerOpts.setDirectorySizeGuess(257);
+  // readerOpts.setFilePreloadThreshold(0);
+
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setReturnFlatVector(returnFlatVector);
+  std::shared_ptr<const RowType> requestedType =
+      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
+          id:int,\
+      map1:map<int, array<float>>,\
+      map2:map<string, map<smallint,bigint>>,\
+      map3:map<int,int>,\
+      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
+      memo:string>"));
+  rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(file, readerOpts.getMemoryPool()), readerOpts);
+  auto rowReaderOwner = reader->createRowReader(rowReaderOpts);
+  auto rowReader = dynamic_cast<DwrfRowReader*>(rowReaderOwner.get());
+
+  // Prefetch the requested # of times
+  for (int i = 0; i < prefetches; i++) {
+    rowReader->prefetch(i);
+  }
+  verifyFlatMapReading(rowReader, seeks, expectedBatchSize, numBatches);
 }
 
 class TestFlatMapReader : public TestWithParam<bool> {};
@@ -308,10 +329,9 @@ TEST_P(TestFlatMapReader, testReadFlatMapSampleSmall) {
 TEST_P(TestFlatMapReader, testReadFlatMapSampleLarge) {
   const std::string fmLarge(getExampleFilePath("fm_large.orc"));
 
-  // batch size is set as 1000 in reading
-  // 3000 per stripe
   std::array<int32_t, 11> seeks;
   seeks.fill(0);
+  // batch size is set as 1000 in reading
   const std::array<int32_t, 10> expectedBatchSize{
       1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000};
   auto returnFlatVector = GetParam();
@@ -327,6 +347,192 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     FlatMapReaderTests,
     TestFlatMapReader,
     Values(true, false));
+
+TEST(TestRowReaderPrefetch, testPartialPrefetch) {
+  const std::string fmSmall(getExampleFilePath("fm_small.orc"));
+
+  // batch size is set as 1000 in reading
+  std::array<int32_t, 5> seeks;
+  seeks.fill(0);
+  const std::array<int32_t, 4> expectedBatchSize{300, 300, 300, 100};
+  verifyFlatMapReading(
+      fmSmall,
+      seeks.data(),
+      expectedBatchSize.data(),
+      expectedBatchSize.size(),
+      false,
+      1 /* file has 4 stripes, prefetch only some and verify whole read */);
+}
+
+TEST(TestRowReaderPrefetch, testPrefetchWholeFile) {
+  const std::string fmSmall(getExampleFilePath("fm_small.orc"));
+
+  // batch size is set as 1000 in reading
+  std::array<int32_t, 5> seeks;
+  seeks.fill(0);
+  const std::array<int32_t, 4> expectedBatchSize{300, 300, 300, 100};
+  verifyFlatMapReading(
+      fmSmall,
+      seeks.data(),
+      expectedBatchSize.data(),
+      expectedBatchSize.size(),
+      false,
+      5 /* file has 4 stripes, issue more prefetches than this */);
+}
+
+TEST(TestRowReaderPrefetch, testPrefetchAndSeekFails) {
+  const std::string fmSmall(getExampleFilePath("fm_small.orc"));
+
+  // batch size is set as 1000 in reading
+  const std::array<int32_t, 4> seeks{100, 700, 0, 0};
+  const std::array<int32_t, 4> expectedBatchSize{300, 300, 300, 100};
+  try {
+    verifyFlatMapReading(
+        fmSmall,
+        seeks.data(), // Attempt seek
+        expectedBatchSize.data(),
+        expectedBatchSize.size(),
+        false,
+        2); // Also attempt prefetch
+    FAIL() << "Expected failure when trying to prefetch and seek";
+  } catch (const VeloxException& e) {
+    EXPECT_THAT(
+        e.what(),
+        testing::HasSubstr("seek and prefetch are mutually exclusive"));
+  }
+}
+
+TEST(TestRowReaderPrefetch, testPrefetchAndStartNextStripeInterleaved) {
+  const std::string fmSmall(getExampleFilePath("fm_small.orc"));
+
+  // batch size is set as 1000 in reading
+  std::array<int32_t, 5> seeks;
+  seeks.fill(0);
+  const std::array<int32_t, 4> expectedBatchSize{300, 300, 300, 100};
+  ReaderOptions readerOpts{defaultPool.get()};
+  readerOpts.setFilePreloadThreshold(0);
+  RowReaderOptions rowReaderOpts;
+  std::shared_ptr<const RowType> requestedType =
+      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
+          id:int,\
+      map1:map<int, array<float>>,\
+      map2:map<string, map<smallint,bigint>>,\
+      map3:map<int,int>,\
+      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
+      memo:string>"));
+  rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(fmSmall, readerOpts.getMemoryPool()), readerOpts);
+  auto rowReaderOwner = reader->createRowReader(rowReaderOpts);
+  auto rowReader = dynamic_cast<DwrfRowReader*>(rowReaderOwner.get());
+
+  // startNextStripe just loads state for current row- it shouldn't prefetch
+  // ahead of its place
+  rowReader->startNextStripe();
+
+  // startNextStripe should not interfere with prefetch- it should just be
+  // continuously re-loading the stripe its row index is on.
+  EXPECT_TRUE(rowReader->prefetch(1));
+  EXPECT_TRUE(rowReader->prefetch(2));
+  rowReader->startNextStripe();
+  rowReader->startNextStripe();
+
+  // Prefetch rest of stripe and call again (expecting no-op)
+  EXPECT_TRUE(rowReader->prefetch(3));
+  EXPECT_FALSE(rowReader->prefetch(4));
+
+  // DwrfRowReader still should register having no prefetching to do
+  rowReader->startNextStripe();
+  EXPECT_FALSE(rowReader->prefetch(4));
+
+  // Verify reads are correct
+  verifyFlatMapReading(
+      rowReader,
+      seeks.data(),
+      expectedBatchSize.data(),
+      expectedBatchSize.size());
+}
+
+TEST(TestRowReaderPrefetch, testReadLargePrefetch) {
+  const std::string fmLarge(getExampleFilePath("fm_large.orc"));
+
+  // batch size is set as 1000 in reading
+  // 3000 per stripe
+  std::array<int32_t, 11> seeks;
+  seeks.fill(0);
+  const std::array<int32_t, 10> expectedBatchSize{
+      1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000};
+  verifyFlatMapReading(
+      fmLarge,
+      seeks.data(),
+      expectedBatchSize.data(),
+      expectedBatchSize.size(),
+      false,
+      2);
+}
+
+TEST(TestRowReaderPrefetch, testParallelPrefetch) {
+  const std::string fmSmall(getExampleFilePath("fm_small.orc"));
+
+  // batch size is set as 1000 in reading
+  std::array<int32_t, 5> seeks;
+  seeks.fill(0);
+  const std::array<int32_t, 4> expectedBatchSize{300, 300, 300, 100};
+  ReaderOptions readerOpts{defaultPool.get()};
+  readerOpts.setFilePreloadThreshold(0);
+  RowReaderOptions rowReaderOpts;
+  std::shared_ptr<const RowType> requestedType =
+      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
+          id:int,\
+      map1:map<int, array<float>>,\
+      map2:map<string, map<smallint,bigint>>,\
+      map3:map<int,int>,\
+      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
+      memo:string>"));
+  rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(fmSmall, readerOpts.getMemoryPool()), readerOpts);
+  auto rowReaderOwner = reader->createRowReader(rowReaderOpts);
+  auto rowReader = dynamic_cast<DwrfRowReader*>(rowReaderOwner.get());
+
+  std::vector<std::future<bool>> prefetches;
+  prefetches.reserve(4);
+  for (int i = 0; i < 4; i++) {
+    prefetches.push_back(
+        std::async(std::launch::async, &DwrfRowReader::prefetch, rowReader, i));
+  }
+
+  for (auto& prefetch : prefetches) {
+    LOG(INFO) << prefetch.get();
+  }
+
+  // Verify reads are correct
+  verifyFlatMapReading(
+      rowReader,
+      seeks.data(),
+      expectedBatchSize.data(),
+      expectedBatchSize.size());
+}
+// fm_large.orc is still below default preload threshold (though large enough it
+// does not get read in full by initial footer IO). Explicitly disable this to
+// test code path where we store non-null streams.
+TEST(TestRowReaderPrefetch, testReadLargeNoPreload) {
+  const std::string fmLarge(getExampleFilePath("fm_large.orc"));
+
+  // batch size is set as 1000 in reading
+  // 3000 per stripe
+  std::array<int32_t, 11> seeks;
+  seeks.fill(0);
+  const std::array<int32_t, 10> expectedBatchSize{
+      1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000};
+  verifyFlatMapReading(
+      fmLarge,
+      seeks.data(),
+      expectedBatchSize.data(),
+      expectedBatchSize.size(),
+      false,
+      2);
+}
 
 class TestFlatMapReaderFlatLayout
     : public TestWithParam<std::tuple<bool, size_t>> {};

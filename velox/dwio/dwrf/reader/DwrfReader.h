@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "folly/synchronization/Baton.h"
 #include "velox/dwio/common/ReaderFactory.h"
 #include "velox/dwio/dwrf/reader/SelectiveDwrfReader.h"
 
@@ -112,11 +113,17 @@ class DwrfRowReader : public StrideIndexProvider,
   // columns.
   void startNextStripe();
 
+  void safeFetchNextStripe();
+
+  bool prefetch(uint32_t stripeToFetch);
+
   int64_t nextRowNumber() override;
 
   int64_t nextReadSize(uint64_t size) override;
 
  private:
+  bool fetch(uint32_t stripeIndex);
+
   // footer
   std::vector<uint64_t> firstRowOfStripe;
   mutable std::shared_ptr<const dwio::common::TypeWithId> selectedSchema;
@@ -127,11 +134,54 @@ class DwrfRowReader : public StrideIndexProvider,
   uint32_t currentStripe;
   uint32_t lastStripe; // the stripe AFTER the last one
   uint64_t currentRowInStripe;
-  bool newStripeLoaded;
+  bool newStripeReadyForRead;
   uint64_t rowsInCurrentStripe;
   uint64_t strideIndex_;
   std::shared_ptr<StripeDictionaryCache> stripeDictionaryCache_;
   dwio::common::RowReaderOptions options_;
+
+  struct PrefetchedStripeState {
+    bool preloaded;
+    std::unique_ptr<ColumnReader> columnReader;
+    std::unique_ptr<dwio::common::SelectiveColumnReader> selectiveColumnReader;
+    std::shared_ptr<StripeDictionaryCache> stripeDictionaryCache;
+  };
+
+  /*
+  Lock hierarchy is as such:
+  - Any synchronized member can be read to or written from when
+  prefetchAndSeekMutex_ is held, through the client calling other functions
+  asynchronously during a call to seekToRow or prefetch.
+  - loadRequestIssued_ is locked for write, prefetchedStripeStates_ is locked
+  for read and write, and a baton is posted when startNextStripeMutex_ is held.
+  - Any of the synchronized members can be acquired while another synchronized
+  member has been acquired, via asynchronous calls to startNextStripe() or
+  prefetch()
+  */
+
+  // Key is stripe index
+  folly::Synchronized<folly::F14FastMap<uint32_t, PrefetchedStripeState>>
+      prefetchedStripeStates_;
+
+  // Currently, seek logic relies on reloading the stripe every time the row is
+  // seeked to, even if the row was present in the already loaded stripe. These
+  // are temporary flags to disallow seek and prefetch on same reader, until we
+  // implement a good way to support both.
+  bool seekHasOccurred_{false};
+  bool prefetchHasOccurred_{false};
+
+  // Used to indicate which stripes are finished loading. If stripeLoadBatons[i]
+  // is posted, it means the ith stripe has finished loading
+  std::vector<std::unique_ptr<folly::Baton<>>> stripeLoadBatons_;
+
+  // Used to indicate which stripes have had a load command issued. If
+  // loaded_[i] is true, it means stripe i is in the process of being loaded
+  folly::Synchronized<std::vector<bool>> loadRequestIssued_;
+
+  // Used to lock when altering state in startNextStripe
+  std::mutex startNextStripeMutex_;
+  // Used to ensure we do not issue a prefetch during a seek, or vice versa
+  std::mutex prefetchAndSeekMutex_;
 
   // column selector
   std::shared_ptr<dwio::common::ColumnSelector> columnSelector_;
@@ -145,7 +195,7 @@ class DwrfRowReader : public StrideIndexProvider,
   // Number of skipped strides.
   int64_t skippedStrides_{0};
 
-  // Set to true after clearing filter caches, i.e.  adding a dynamic
+  // Set to true after clearing filter caches, i.e. adding a dynamic
   // filter. Causes filters to be re-evaluated against stride stats on
   // next stride instead of next stripe.
   bool recomputeStridesToSkip_{false};
