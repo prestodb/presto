@@ -588,51 +588,110 @@ TEST_F(TableScanTest, subfieldPruningArrayType) {
 // Test reading files written before schema change, e.g. missing newly added
 // columns.
 TEST_F(TableScanTest, missingColumns) {
+  // Disable preload so that we test one single data source.
+  auto oldSplitPreload = FLAGS_split_preload_per_driver;
+  FLAGS_split_preload_per_driver = 0;
+
   // Simulate schema change of adding a new column.
-  // - Create an "old" file with one column.
-  // - Create a "new" file with two columns.
-  vector_size_t size = 1'000;
-  auto oldData = makeRowVector(
-      {makeFlatVector<int64_t>(size, [](auto row) { return row; })});
-  auto newData = makeRowVector({
-      makeFlatVector<int64_t>(size, [](auto row) { return -row; }),
-      makeFlatVector<double>(size, [](auto row) { return row * 0.1; }),
-  });
+  // Create even files (old) with one column, odd ones (new) with two columns.
+  const vector_size_t size = 1'000;
+  std::vector<RowVectorPtr> rows;
+  const size_t numFiles{10};
+  auto filePaths = makeFilePaths(numFiles);
+  for (size_t i = 0; i < numFiles; ++i) {
+    if (i % 2 == 0) {
+      rows.emplace_back(makeRowVector({makeFlatVector<int64_t>(
+          size, [&](auto row) { return row + i * size; })}));
+    } else {
+      rows.emplace_back(makeRowVector({
+          makeFlatVector<int64_t>(
+              size, [&](auto row) { return -(row + i * size); }),
+          makeFlatVector<double>(
+              size, [&](auto row) { return row * 0.1 + i * size; }),
+      }));
+    }
+    writeToFile(filePaths[i]->path, {rows.back()});
+  }
 
-  auto filePaths = makeFilePaths(2);
-  writeToFile(filePaths[0]->path, {oldData});
-  writeToFile(filePaths[1]->path, {newData});
+  // For duckdb ensure we have nulls for the missing column.
+  // Overwrite 'rows' and also reuse its 1st column vector.
+  auto constNull{BaseVector::createNullConstant(DOUBLE(), size, pool_.get())};
+  for (size_t i = 0; i < numFiles; ++i) {
+    if (i % 2 == 0) {
+      rows[i] = makeRowVector({rows[i]->childAt(0), constNull});
+    }
+  }
+  createDuckDbTable(rows);
 
-  auto oldDataWithNull = makeRowVector({
-      makeFlatVector<int64_t>(size, [](auto row) { return row; }),
-      BaseVector::createNullConstant(DOUBLE(), size, pool_.get()),
-  });
-  createDuckDbTable({oldDataWithNull, newData});
+  auto dataColumns = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
+  auto outputType = dataColumns;
+  auto outputTypeC0 = ROW({"c0"}, {BIGINT()});
 
-  auto outputType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
-
-  auto op = PlanBuilder(pool_.get()).tableScan(outputType).planNode();
+  auto op = PlanBuilder(pool_.get())
+                .tableScan(outputType, {}, "", dataColumns)
+                .planNode();
   assertQuery(op, filePaths, "SELECT * FROM tmp");
 
   // Use missing column in a tuple domain filter.
   op = PlanBuilder(pool_.get())
-           .tableScan(outputType, {"c1 <= 100.1"})
+           .tableScan(outputType, {"c1 <= 100.1"}, "", dataColumns)
            .planNode();
   assertQuery(op, filePaths, "SELECT * FROM tmp WHERE c1 <= 100.1");
+
+  // Use missing column in a tuple domain filter. Select *.
+  op = PlanBuilder(pool_.get())
+           .tableScan(outputType, {"c1 <= 2000.1"}, "", dataColumns)
+           .planNode();
+  assertQuery(op, filePaths, "SELECT * FROM tmp WHERE c1 <= 2000.1");
+
+  // Use missing column in a tuple domain filter. Select c0.
+  op = PlanBuilder(pool_.get())
+           .tableScan(outputTypeC0, {"c1 <= 3000.1"}, "", dataColumns)
+           .planNode();
+  assertQuery(op, filePaths, "SELECT c0 FROM tmp WHERE c1 <= 3000.1");
+
+  // Use missing column in a tuple domain filter. Select count(*).
+  op = PlanBuilder(pool_.get())
+           .tableScan(ROW({}, {}), {"c1 <= 4000.1"}, "", dataColumns)
+           .singleAggregation({}, {"count(1)"})
+           .planNode();
+  assertQuery(op, filePaths, "SELECT count(*) FROM tmp WHERE c1 <= 4000.1");
+
+  // Use missing column 'c1' in 'is null' filter, while not selecting 'c1'.
+  SubfieldFilters filters;
+  filters[common::Subfield("c1")] = lessThanOrEqualDouble(1050.0, true);
+  auto tableHandle = std::make_shared<HiveTableHandle>(
+      kHiveConnectorId, "tmp", true, std::move(filters), nullptr, dataColumns);
+  ColumnHandleMap assignments;
+  assignments["c0"] = regularColumn("c0", BIGINT());
+  op = PlanBuilder(pool_.get())
+           .tableScan(outputTypeC0, tableHandle, assignments)
+           .planNode();
+  assertQuery(
+      op, filePaths, "SELECT c0 FROM tmp WHERE c1 is null or c1 <= 1050.0");
+
+  // Use missing column 'c1' in 'is null' filter, while not selecting anything.
+  op = PlanBuilder(pool_.get())
+           .tableScan(ROW({}, {}), {"c1 is null"}, "", dataColumns)
+           .singleAggregation({}, {"count(1)"})
+           .planNode();
+  assertQuery(op, filePaths, "SELECT count(*) FROM tmp WHERE c1 is null");
 
   // Use column aliases.
   outputType = ROW({"a", "b"}, {BIGINT(), DOUBLE()});
 
-  ColumnHandleMap assignments;
+  assignments.clear();
   assignments["a"] = regularColumn("c0", BIGINT());
   assignments["b"] = regularColumn("c1", DOUBLE());
 
-  auto tableHandle = makeTableHandle();
+  tableHandle = makeTableHandle({}, nullptr, "hive_table", dataColumns);
 
   op = PlanBuilder(pool_.get())
            .tableScan(outputType, tableHandle, assignments)
            .planNode();
   assertQuery(op, filePaths, "SELECT * FROM tmp");
+
+  FLAGS_split_preload_per_driver = oldSplitPreload;
 }
 
 // Tests queries that use Lazy vectors with multiple layers of wrapping.

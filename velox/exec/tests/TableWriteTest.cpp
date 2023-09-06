@@ -764,7 +764,7 @@ class TableWriteTest : public HiveConnectorTestBase {
     // Read data from bucketed file on disk into 'rowVector'.
     core::PlanNodeId scanNodeId;
     auto plan = PlanBuilder()
-                    .tableScan(tableSchema_)
+                    .tableScan(tableSchema_, {}, "", tableSchema_)
                     .capturePlanNodeId(scanNodeId)
                     .planNode();
     const auto resultVector =

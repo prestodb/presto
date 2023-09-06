@@ -71,9 +71,11 @@ void SelectiveStructColumnReaderBase::next(
     auto& childSpecs = scanSpec_->children();
     for (auto& childSpec : childSpecs) {
       VELOX_CHECK(childSpec->isConstant());
-      auto channel = childSpec->channel();
-      resultRowVector->childAt(channel) =
-          BaseVector::wrapInConstant(numValues, 0, childSpec->constantValue());
+      if (childSpec->projectOut()) {
+        auto channel = childSpec->channel();
+        resultRowVector->childAt(channel) = BaseVector::wrapInConstant(
+            numValues, 0, childSpec->constantValue());
+      }
     }
     return;
   }

@@ -622,10 +622,11 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   }
 
   auto& fileType = reader_->rowType();
-  std::vector<TypePtr> fileColumnTypes = fileType->children();
+  // Keep track of schema types for columns in file, used by ColumnSelector.
+  std::vector<TypePtr> columnTypes = fileType->children();
 
   auto& childrenSpecs = scanSpec_->children();
-  for (int i = 0; i < childrenSpecs.size(); i++) {
+  for (size_t i = 0; i < childrenSpecs.size(); ++i) {
     auto* childSpec = childrenSpecs[i].get();
     const std::string& fieldName = childSpec->fieldName();
 
@@ -642,20 +643,21 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
             velox::variant(split_->tableBucketNumber.value()));
       }
     } else {
-      auto outputTypeIdx = readerOutputType_->getChildIdxIfExists(fieldName);
-      if (outputTypeIdx.has_value()) {
-        auto outputIdx = outputTypeIdx.value();
-        auto fileTypeIdx = fileType->getChildIdxIfExists(fieldName);
-        if (!fileTypeIdx.has_value()) {
-          // Column is missing. Most likely due to schema evolution.
-          setNullConstantValue(
-              childSpec, readerOutputType_->childAt(outputIdx));
-        } else {
+      auto fileTypeIdx = fileType->getChildIdxIfExists(fieldName);
+      if (!fileTypeIdx.has_value()) {
+        // Column is missing. Most likely due to schema evolution.
+        VELOX_CHECK(readerOpts_.getFileSchema());
+        setNullConstantValue(
+            childSpec, readerOpts_.getFileSchema()->findChild(fieldName));
+      } else {
+        // Column no longer missing, reset constant value set on the spec.
+        childSpec->setConstantValue(nullptr);
+        auto outputTypeIdx = readerOutputType_->getChildIdxIfExists(fieldName);
+        if (outputTypeIdx.has_value()) {
           // We know the fieldName exists in the file, make the type at that
           // position match what we expect in the output.
-          fileColumnTypes[fileTypeIdx.value()] =
-              readerOutputType_->childAt(outputIdx);
-          childSpec->setConstantValue(nullptr);
+          columnTypes[fileTypeIdx.value()] =
+              readerOutputType_->childAt(*outputTypeIdx);
         }
       }
     }
@@ -664,8 +666,7 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   scanSpec_->resetCachedValues(false);
   configureRowReaderOptions(
       rowReaderOpts_,
-      ROW(std::vector<std::string>(fileType->names()),
-          std::move(fileColumnTypes)));
+      ROW(std::vector<std::string>(fileType->names()), std::move(columnTypes)));
   rowReader_ = createRowReader(rowReaderOpts_);
 }
 

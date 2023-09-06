@@ -105,10 +105,17 @@ class PlanBuilder {
   /// @param remainingFilter SQL expression for the additional conjunct. May
   /// include multiple columns and SQL functions. The remainingFilter is AND'ed
   /// with all the subfieldFilters.
+  /// @param dataColumns can be different from 'outputType' for the purposes
+  /// of testing queries using missing columns. It is used, if specified, for
+  /// parseExpr call and as 'dataColumns' for the TableHandle. You supply more
+  /// types (for all columns) in this argument as opposed to 'outputType', where
+  /// you define the output types only. See 'missingColumns' test in
+  /// 'TableScanTest'.
   PlanBuilder& tableScan(
       const RowTypePtr& outputType,
       const std::vector<std::string>& subfieldFilters = {},
-      const std::string& remainingFilter = "");
+      const std::string& remainingFilter = "",
+      const RowTypePtr& dataColumns = nullptr);
 
   /// Add a TableScanNode to scan a Hive table.
   ///
@@ -125,12 +132,19 @@ class PlanBuilder {
   /// include multiple columns and SQL functions. Should use column name
   /// aliases, not column names in the files. The remainingFilter is AND'ed
   /// with all the subfieldFilters.
+  /// @param dataColumns can be different from 'outputType' for the purposes
+  /// of testing queries using missing columns. It is used, if specified, for
+  /// parseExpr call and as 'dataColumns' for the TableHandle. You supply more
+  /// types (for all columns) in this argument as opposed to 'outputType', where
+  /// you define the output types only. See 'missingColumns' test in
+  /// 'TableScanTest'.
   PlanBuilder& tableScan(
       const std::string& tableName,
       const RowTypePtr& outputType,
       const std::unordered_map<std::string, std::string>& columnAliases = {},
       const std::vector<std::string>& subfieldFilters = {},
-      const std::string& remainingFilter = "");
+      const std::string& remainingFilter = "",
+      const RowTypePtr& dataColumns = nullptr);
 
   /// Add a TableScanNode using a connector-specific table handle and
   /// assignments. Supports any connector, not just Hive connector.
