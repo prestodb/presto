@@ -66,6 +66,7 @@ jobs:
           && echo -e "\n\nFuzzer run finished successfully."
 
       - name: Archive production artifacts
+        if: always()
         uses: actions/upload-artifact@v3
         with:
           name: presto-fuzzer-failure-artifacts
@@ -115,6 +116,7 @@ jobs:
             && echo -e "\n\nSpark Fuzzer run finished successfully."
 
       - name: Archive Spark production artifacts
+        if: always()
         uses: actions/upload-artifact@v3
         with:
           name: spark-fuzzer-failure-artifacts
@@ -134,6 +136,7 @@ jobs:
           && echo -e "\n\nSpark Aggregation Fuzzer run finished successfully."
         
       - name: Archive Spark aggregate production artifacts
+        if: always()
         uses: actions/upload-artifact@v3
         with:
           name: spark-agg-fuzzer-failure-artifacts
@@ -177,6 +180,7 @@ jobs:
             && echo -e "\n\nAggregation fuzzer run finished successfully."
 
       - name: Archive aggregate production artifacts
+        if: always()
         uses: actions/upload-artifact@v3
         with:
           name: aggregate-fuzzer-failure-artifacts
@@ -218,6 +222,7 @@ jobs:
             && echo -e "\n\nAggregation fuzzer run finished successfully."
 
       - name: Archive aggregate production artifacts
+        if: always()
         uses: actions/upload-artifact@v3
         with:
           name: join-fuzzer-failure-artifacts
