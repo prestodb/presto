@@ -549,7 +549,7 @@ TEST_F(JsonFunctionsTest, jsonExtract) {
   EXPECT_EQ(
       "3", jsonExtract("{\"x\": {\"a\" : 1, \"b\" : [2, 3]} }", "$.x.b[1]"));
   EXPECT_EQ("2", jsonExtract("[1,2,3]", "$[1]"));
-  EXPECT_EQ(std::nullopt, jsonExtract("[1,null,3]", "$[1]"));
+  EXPECT_EQ("null", jsonExtract("[1,null,3]", "$[1]"));
   EXPECT_EQ(std::nullopt, jsonExtract("INVALID_JSON", "$"));
   VELOX_ASSERT_THROW(jsonExtract("{\"\":\"\"}", ""), "Invalid JSON path");
 

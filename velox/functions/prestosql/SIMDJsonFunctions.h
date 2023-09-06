@@ -256,12 +256,6 @@ struct SIMDJsonExtractFunction {
     }
 
     if (resultSize == 1) {
-      if (results == kNullString) {
-        // If there was only one value mapped to by the path and it was null,
-        // return null directly.
-        return false;
-      }
-
       // If there was only one value mapped to by the path, don't wrap it in an
       // array.
       result.copy_from(results);
