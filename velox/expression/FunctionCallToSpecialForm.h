@@ -35,7 +35,8 @@ class FunctionCallToSpecialForm {
   virtual ExprPtr constructSpecialForm(
       const TypePtr& type,
       std::vector<ExprPtr>&& compiledChildren,
-      bool trackCpuUsage) = 0;
+      bool trackCpuUsage,
+      const core::QueryConfig& config) = 0;
 };
 
 /// Returns the output Type of the SpecialForm associated with the functionName
@@ -52,5 +53,10 @@ ExprPtr constructSpecialForm(
     const std::string& functionName,
     const TypePtr& type,
     std::vector<ExprPtr>&& compiledChildren,
-    bool trackCpuUsage);
+    bool trackCpuUsage,
+    const core::QueryConfig& config);
+
+/// Returns true iff a FunctionCallToSpeicalForm object has been registered for
+/// the given functionName.
+bool isFunctionCallToSpecialFormRegistered(const std::string& functionName);
 } // namespace facebook::velox::exec

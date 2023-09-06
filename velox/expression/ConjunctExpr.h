@@ -108,7 +108,8 @@ class ConjunctCallToSpecialForm : public FunctionCallToSpecialForm {
   ExprPtr constructSpecialForm(
       const TypePtr& type,
       std::vector<ExprPtr>&& compiledChildren,
-      bool trackCpuUsage) override;
+      bool trackCpuUsage,
+      const core::QueryConfig& config) override;
 
  private:
   bool isAnd_;

@@ -165,7 +165,8 @@ TypePtr TryCallToSpecialForm::resolveType(
 ExprPtr TryCallToSpecialForm::constructSpecialForm(
     const TypePtr& type,
     std::vector<ExprPtr>&& compiledChildren,
-    bool /* trackCpuUsage */) {
+    bool /* trackCpuUsage */,
+    const core::QueryConfig& /*config*/) {
   VELOX_CHECK_EQ(
       compiledChildren.size(),
       1,

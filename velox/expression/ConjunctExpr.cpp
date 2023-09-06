@@ -307,7 +307,8 @@ TypePtr ConjunctCallToSpecialForm::resolveType(
 ExprPtr ConjunctCallToSpecialForm::constructSpecialForm(
     const TypePtr& type,
     std::vector<ExprPtr>&& compiledChildren,
-    bool /* trackCpuUsage */) {
+    bool /* trackCpuUsage */,
+    const core::QueryConfig& /*config*/) {
   bool inputsSupportFlatNoNullsFastPath =
       Expr::allSupportFlatNoNullsFastPath(compiledChildren);
 

@@ -22,6 +22,7 @@
 #include "velox/expression/Expr.h"
 #include "velox/expression/FieldReference.h"
 #include "velox/expression/LambdaExpr.h"
+#include "velox/expression/RowConstructor.h"
 #include "velox/expression/SimpleFunctionRegistry.h"
 #include "velox/expression/SpecialFormRegistry.h"
 #include "velox/expression/SwitchExpr.h"
@@ -37,7 +38,6 @@ using core::TypedExprPtr;
 
 const char* const kAnd = "and";
 const char* const kOr = "or";
-const char* const kRowConstructor = "row_constructor";
 
 struct ITypedExprHasher {
   size_t operator()(const ITypedExpr* expr) const {
@@ -218,43 +218,18 @@ std::vector<TypePtr> getTypes(const std::vector<ExprPtr>& exprs) {
   return types;
 }
 
-ExprPtr getRowConstructorExpr(
-    const core::QueryConfig& config,
-    const TypePtr& type,
-    std::vector<ExprPtr>&& compiledChildren,
-    bool trackCpuUsage) {
-  static auto rowConstructorVectorFunction =
-      vectorFunctionFactories().withRLock([&config](auto& functionMap) {
-        auto functionIterator = functionMap.find(exec::kRowConstructor);
-        return functionIterator->second.factory(
-            exec::kRowConstructor, {}, config);
-      });
-
-  return std::make_shared<Expr>(
-      type,
-      std::move(compiledChildren),
-      rowConstructorVectorFunction,
-      "row_constructor",
-      trackCpuUsage);
-}
-
 ExprPtr getSpecialForm(
     const core::QueryConfig& config,
     const std::string& name,
     const TypePtr& type,
     std::vector<ExprPtr>&& compiledChildren,
     bool trackCpuUsage) {
-  if (name == kRowConstructor) {
-    return getRowConstructorExpr(
-        config, type, std::move(compiledChildren), trackCpuUsage);
-  }
-
   // If we just check the output of constructSpecialForm we'll have moved
   // compiledChildren, and if the function isn't a special form we'll still need
   // compiledChildren. Splitting the check in two avoids this use after move.
   if (isFunctionCallToSpecialFormRegistered(name)) {
     return constructSpecialForm(
-        name, type, std::move(compiledChildren), trackCpuUsage);
+        name, type, std::move(compiledChildren), trackCpuUsage, config);
   }
 
   return nullptr;
@@ -408,8 +383,12 @@ ExprPtr compileRewrittenExpression(
   auto inputTypes = getTypes(compiledInputs);
   bool isConstantExpr = false;
   if (dynamic_cast<const core::ConcatTypedExpr*>(expr.get())) {
-    result = getRowConstructorExpr(
-        config, resultType, std::move(compiledInputs), trackCpuUsage);
+    result = getSpecialForm(
+        config,
+        RowConstructorCallToSpecialForm::kRowConstructor,
+        resultType,
+        std::move(compiledInputs),
+        trackCpuUsage);
   } else if (auto cast = dynamic_cast<const core::CastTypedExpr*>(expr.get())) {
     VELOX_CHECK(!compiledInputs.empty());
     auto castExpr = std::make_shared<CastExpr>(

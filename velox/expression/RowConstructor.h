@@ -19,32 +19,7 @@
 #include "velox/expression/SpecialForm.h"
 
 namespace facebook::velox::exec {
-
-const char* const kCoalesce = "coalesce";
-
-class CoalesceExpr : public SpecialForm {
- public:
-  CoalesceExpr(
-      TypePtr type,
-      std::vector<ExprPtr>&& inputs,
-      bool inputsSupportFlatNoNullsFastPath);
-
-  void evalSpecialForm(
-      const SelectivityVector& rows,
-      EvalCtx& context,
-      VectorPtr& result) override;
-
- private:
-  void computePropagatesNulls() override {
-    propagatesNulls_ = false;
-  }
-
-  static TypePtr resolveType(const std::vector<TypePtr>& argTypes);
-
-  friend class CoalesceCallToSpecialForm;
-};
-
-class CoalesceCallToSpecialForm : public FunctionCallToSpecialForm {
+class RowConstructorCallToSpecialForm : public FunctionCallToSpecialForm {
  public:
   TypePtr resolveType(const std::vector<TypePtr>& argTypes) override;
 
@@ -53,6 +28,15 @@ class CoalesceCallToSpecialForm : public FunctionCallToSpecialForm {
       std::vector<ExprPtr>&& compiledChildren,
       bool trackCpuUsage,
       const core::QueryConfig& config) override;
-};
 
+  static constexpr const char* kRowConstructor = "row_constructor";
+
+ protected:
+  ExprPtr constructSpecialForm(
+      const std::string& name,
+      const TypePtr& type,
+      std::vector<ExprPtr>&& compiledChildren,
+      bool trackCpuUsage,
+      const core::QueryConfig& config);
+};
 } // namespace facebook::velox::exec

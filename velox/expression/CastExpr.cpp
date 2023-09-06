@@ -672,7 +672,8 @@ TypePtr CastCallToSpecialForm::resolveType(
 ExprPtr CastCallToSpecialForm::constructSpecialForm(
     const TypePtr& type,
     std::vector<ExprPtr>&& compiledChildren,
-    bool trackCpuUsage) {
+    bool trackCpuUsage,
+    const core::QueryConfig& /*config*/) {
   VELOX_CHECK_EQ(
       compiledChildren.size(),
       1,
@@ -690,7 +691,8 @@ TypePtr TryCastCallToSpecialForm::resolveType(
 ExprPtr TryCastCallToSpecialForm::constructSpecialForm(
     const TypePtr& type,
     std::vector<ExprPtr>&& compiledChildren,
-    bool trackCpuUsage) {
+    bool trackCpuUsage,
+    const core::QueryConfig& /*config*/) {
   VELOX_CHECK_EQ(
       compiledChildren.size(),
       1,

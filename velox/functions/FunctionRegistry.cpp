@@ -108,18 +108,6 @@ std::shared_ptr<const Type> resolveFunctionOrCallableSpecialForm(
 std::shared_ptr<const Type> resolveCallableSpecialForm(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes) {
-  // TODO Replace with struct_pack
-  if (functionName == "row_constructor") {
-    auto numInput = argTypes.size();
-    std::vector<TypePtr> types(numInput);
-    std::vector<std::string> names(numInput);
-    for (auto i = 0; i < numInput; i++) {
-      types[i] = argTypes[i];
-      names[i] = fmt::format("c{}", i + 1);
-    }
-    return ROW(std::move(names), std::move(types));
-  }
-
   return exec::resolveTypeForSpecialForm(functionName, argTypes);
 }
 

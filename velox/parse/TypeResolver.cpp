@@ -56,18 +56,6 @@ TypePtr resolveType(
     const std::vector<std::shared_ptr<const core::ITypedExpr>>& inputs,
     const std::shared_ptr<const core::CallExpr>& expr,
     bool nullOnFailure) {
-  // TODO Replace with struct_pack
-  if (expr->getFunctionName() == "row_constructor") {
-    auto numInput = inputs.size();
-    std::vector<TypePtr> types(numInput);
-    std::vector<std::string> names(numInput);
-    for (auto i = 0; i < numInput; i++) {
-      types[i] = inputs[i]->type();
-      names[i] = fmt::format("c{}", i + 1);
-    }
-    return ROW(std::move(names), std::move(types));
-  }
-
   std::vector<TypePtr> inputTypes;
   inputTypes.reserve(inputs.size());
   for (auto& input : inputs) {

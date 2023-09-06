@@ -35,6 +35,7 @@ add_library(
   LambdaExpr.cpp
   VectorFunction.cpp
   RegisterSpecialForm.cpp
+  RowConstructor.cpp
   SimpleFunctionRegistry.cpp
   SpecialFormRegistry.cpp
   SwitchExpr.cpp

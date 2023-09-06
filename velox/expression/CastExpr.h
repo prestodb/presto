@@ -293,7 +293,8 @@ class CastCallToSpecialForm : public FunctionCallToSpecialForm {
   ExprPtr constructSpecialForm(
       const TypePtr& type,
       std::vector<ExprPtr>&& compiledChildren,
-      bool trackCpuUsage) override;
+      bool trackCpuUsage,
+      const core::QueryConfig& config) override;
 };
 
 class TryCastCallToSpecialForm : public FunctionCallToSpecialForm {
@@ -303,7 +304,8 @@ class TryCastCallToSpecialForm : public FunctionCallToSpecialForm {
   ExprPtr constructSpecialForm(
       const TypePtr& type,
       std::vector<ExprPtr>&& compiledChildren,
-      bool trackCpuUsage) override;
+      bool trackCpuUsage,
+      const core::QueryConfig& config) override;
 };
 } // namespace facebook::velox::exec
 
