@@ -95,7 +95,7 @@ public final class SqlStageExecution
             REMOTE_TASK_ERROR.toErrorCode());
     private Optional<Set<ErrorCode>> recoveryErrorCodes = Optional.empty();
     public static final int DEFAULT_TASK_ATTEMPT_NUMBER = 0;
-    private static final int DELAY_NO_MORE_RETRY = 60_000;
+    private static final int DELAY_NO_MORE_RETRY = 5_000;
 
     private final Session session;
     private final StageExecutionStateMachine stateMachine;
@@ -487,6 +487,7 @@ public final class SqlStageExecution
         splitsScheduled.set(true);
 
         checkArgument(planFragment.getTableScanSchedulingOrder().containsAll(splits.keySet()), "Invalid splits");
+        checkArgument(!planFragment.getStageExecutionDescriptor().isStageGroupedExecution(), "Unsupported Grouped Execution");
 
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
         Collection<RemoteTask> tasks = this.tasks.get(node);
