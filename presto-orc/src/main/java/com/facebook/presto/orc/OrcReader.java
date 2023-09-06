@@ -32,12 +32,14 @@ import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
+import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.orc.stream.SharedBuffer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 
@@ -489,5 +491,24 @@ public class OrcReader
     public OrcDataSource getOrcDataSource()
     {
         return orcDataSource;
+    }
+
+    public StripeFooter readStripeFooter(StripeInformation stripe)
+            throws IOException
+    {
+        requireNonNull(stripe, "stripe is null");
+
+        byte[] tailBuffer = new byte[toIntExact(stripe.getFooterLength())];
+        orcDataSource.readFully(stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength(), tailBuffer);
+        try (InputStream inputStream = new OrcInputStream(
+                orcDataSource.getId(),
+                new SharedBuffer(NOOP_ORC_LOCAL_MEMORY_CONTEXT),
+                Slices.wrappedBuffer(tailBuffer).getInput(),
+                decompressor,
+                Optional.empty(),
+                NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
+                tailBuffer.length)) {
+            return this.metadataReader.readStripeFooter(orcDataSource.getId(), footer.getTypes(), inputStream);
+        }
     }
 }
