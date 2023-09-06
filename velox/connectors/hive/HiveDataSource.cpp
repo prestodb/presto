@@ -622,62 +622,50 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   }
 
   auto& fileType = reader_->rowType();
+  std::vector<TypePtr> fileColumnTypes = fileType->children();
 
-  std::vector<TypePtr> columnTypes = fileType->children();
-  for (int i = 0; i < readerOutputType_->size(); i++) {
-    auto fieldName = readerOutputType_->nameOf(i);
-    auto scanChildSpec = scanSpec_->childByName(fieldName);
+  auto& childrenSpecs = scanSpec_->children();
+  for (int i = 0; i < childrenSpecs.size(); i++) {
+    auto* childSpec = childrenSpecs[i].get();
+    const std::string& fieldName = childSpec->fieldName();
 
-    auto keyIt = split_->partitionKeys.find(fieldName);
-    if (keyIt != split_->partitionKeys.end()) {
-      setPartitionValue(scanChildSpec, fieldName, keyIt->second);
+    auto iter = split_->partitionKeys.find(fieldName);
+    if (iter != split_->partitionKeys.end()) {
+      setPartitionValue(childSpec, fieldName, iter->second);
     } else if (fieldName == kPath) {
-      setConstantValue(
-          scanChildSpec, VARCHAR(), velox::variant(split_->filePath));
+      setConstantValue(childSpec, VARCHAR(), velox::variant(split_->filePath));
     } else if (fieldName == kBucket) {
       if (split_->tableBucketNumber.has_value()) {
         setConstantValue(
-            scanChildSpec,
+            childSpec,
             INTEGER(),
             velox::variant(split_->tableBucketNumber.value()));
       }
-    } else if (!fileType->containsChild(fieldName)) {
-      // Column is missing. Most likely due to schema evolution.
-      setNullConstantValue(scanChildSpec, readerOutputType_->childAt(i));
     } else {
-      // We know the fieldName exists in the file, make the type at that
-      // position match what we expect in the output.
-      columnTypes[fileType->getChildIdx(fieldName)] =
-          readerOutputType_->childAt(i);
-      scanChildSpec->setConstantValue(nullptr);
+      auto outputTypeIdx = readerOutputType_->getChildIdxIfExists(fieldName);
+      if (outputTypeIdx.has_value()) {
+        auto outputIdx = outputTypeIdx.value();
+        auto fileTypeIdx = fileType->getChildIdxIfExists(fieldName);
+        if (!fileTypeIdx.has_value()) {
+          // Column is missing. Most likely due to schema evolution.
+          setNullConstantValue(
+              childSpec, readerOutputType_->childAt(outputIdx));
+        } else {
+          // We know the fieldName exists in the file, make the type at that
+          // position match what we expect in the output.
+          fileColumnTypes[fileTypeIdx.value()] =
+              readerOutputType_->childAt(outputIdx);
+          childSpec->setConstantValue(nullptr);
+        }
+      }
     }
   }
 
-  // Set constant values for partition keys and $path column. If these are
-  // used in filters only, the loop above will miss them.
-  for (const auto& entry : split_->partitionKeys) {
-    auto childSpec = scanSpec_->childByName(entry.first);
-    if (childSpec) {
-      setPartitionValue(childSpec, entry.first, entry.second);
-    }
-  }
-
-  auto pathSpec = scanSpec_->childByName(kPath);
-  if (pathSpec) {
-    setConstantValue(pathSpec, VARCHAR(), velox::variant(split_->filePath));
-  }
-
-  auto bucketSpec = scanSpec_->childByName(kBucket);
-  if (bucketSpec && split_->tableBucketNumber.has_value()) {
-    setConstantValue(
-        bucketSpec,
-        INTEGER(),
-        velox::variant(split_->tableBucketNumber.value()));
-  }
   scanSpec_->resetCachedValues(false);
   configureRowReaderOptions(
       rowReaderOpts_,
-      ROW(std::vector<std::string>(fileType->names()), std::move(columnTypes)));
+      ROW(std::vector<std::string>(fileType->names()),
+          std::move(fileColumnTypes)));
   rowReader_ = createRowReader(rowReaderOpts_);
 }
 
@@ -694,9 +682,9 @@ std::optional<RowVectorPtr> HiveDataSource::next(
     output_ = BaseVector::create(readerOutputType_, 0, pool_);
   }
 
-  // TODO Check if remaining filter has a conjunct that doesn't depend on any
-  // column, e.g. rand() < 0.1. Evaluate that conjunct first, then scan only
-  // rows that passed.
+  // TODO Check if remaining filter has a conjunct that doesn't depend on
+  // any column, e.g. rand() < 0.1. Evaluate that conjunct first, then scan
+  // only rows that passed.
 
   auto rowsScanned = readNext(size);
   completedRows_ += rowsScanned;
@@ -712,10 +700,10 @@ std::optional<RowVectorPtr> HiveDataSource::next(
 
     auto rowVector = std::dynamic_pointer_cast<RowVector>(output_);
 
-    // In case there is a remaining filter that excludes some but not all rows,
-    // collect the indices of the passing rows. If there is no filter, or it
-    // passes on all rows, leave this as null and let exec::wrap skip wrapping
-    // the results.
+    // In case there is a remaining filter that excludes some but not all
+    // rows, collect the indices of the passing rows. If there is no filter,
+    // or it passes on all rows, leave this as null and let exec::wrap skip
+    // wrapping the results.
     BufferPtr remainingIndices;
     if (remainingFilterExprSet_) {
       rowsRemaining = evaluateRemainingFilter(rowVector);
@@ -740,8 +728,8 @@ std::optional<RowVectorPtr> HiveDataSource::next(
     for (int i = 0; i < outputType_->size(); i++) {
       auto& child = rowVector->childAt(i);
       if (remainingIndices) {
-        // Disable dictionary values caching in expression eval so that we don't
-        // need to reallocate the result for every batch.
+        // Disable dictionary values caching in expression eval so that we
+        // don't need to reallocate the result for every batch.
         child->disableMemo();
       }
       outputColumns.emplace_back(
@@ -890,8 +878,8 @@ std::shared_ptr<common::ScanSpec> HiveDataSource::makeScanSpec(
     // SelectiveColumnReader doesn't support constant columns with filters,
     // hence, we can't have a filter for a $path or $bucket column.
     //
-    // Unfortunately, Presto happens to specify a filter for $path or $bucket
-    // column. This filter is redundant and needs to be removed.
+    // Unfortunately, Presto happens to specify a filter for $path or
+    // $bucket column. This filter is redundant and needs to be removed.
     // TODO Remove this check when Presto is fixed to not specify a filter
     // on $path and $bucket column.
     if (auto name = pair.first.toString(); name == kPath || name == kBucket) {
