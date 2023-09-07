@@ -102,6 +102,15 @@ folly::F14FastMap<std::string, RuntimeMetric> ExchangeClient::stats() const {
   return stats;
 }
 
+uint64_t ExchangeClient::backgroundCpuTimeMs() const {
+  uint64_t backgroundCpuTimeMs = 0;
+  for (const auto& source : sources_) {
+    backgroundCpuTimeMs += source->backgroundCpuTimeMs();
+  }
+
+  return backgroundCpuTimeMs;
+}
+
 std::unique_ptr<SerializedPage> ExchangeClient::next(
     bool* atEnd,
     ContinueFuture* future) {

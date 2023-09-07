@@ -135,6 +135,10 @@ void Exchange::close() {
   exchangeClient_ = nullptr;
 }
 
+uint64_t Exchange::backgroundCpuTimeMs() const {
+  return exchangeClient_ ? exchangeClient_->backgroundCpuTimeMs() : 0;
+}
+
 void Exchange::recordExchangeClientStats() {
   if (!processSplits_) {
     return;

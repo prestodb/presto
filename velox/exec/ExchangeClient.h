@@ -59,6 +59,8 @@ class ExchangeClient {
   // Closes exchange sources.
   void close();
 
+  uint64_t backgroundCpuTimeMs() const;
+
   // Returns runtime statistics aggregated across all of the exchange sources.
   folly::F14FastMap<std::string, RuntimeMetric> stats() const;
 

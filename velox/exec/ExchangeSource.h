@@ -72,6 +72,10 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
   // Returns runtime statistics.
   virtual folly::F14FastMap<std::string, int64_t> stats() const = 0;
 
+  virtual uint64_t backgroundCpuTimeMs() const {
+    return 0L;
+  }
+
   virtual std::string toString() {
     std::stringstream out;
     out << "[ExchangeSource " << taskId_ << ":" << destination_
