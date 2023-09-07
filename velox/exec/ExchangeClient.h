@@ -26,6 +26,7 @@ namespace facebook::velox::exec {
 class ExchangeClient {
  public:
   static constexpr int32_t kDefaultMaxQueuedBytes = 32 << 20; // 32 MB.
+  static constexpr int32_t kDefaultMaxWaitSeconds = 2;
 
   ExchangeClient(
       std::string taskId,
@@ -86,9 +87,12 @@ class ExchangeClient {
 
   int32_t getNumSourcesToRequestLocked(int64_t averagePageSize);
 
-  RequestSpec pickSourcesToRequest();
-
   RequestSpec pickSourcesToRequestLocked();
+
+  void pickSourcesToRequestLocked(
+      RequestSpec& requestSpec,
+      int32_t numToRequest,
+      std::queue<std::shared_ptr<ExchangeSource>>& sources);
 
   int32_t countPendingSourcesLocked();
 
@@ -102,8 +106,13 @@ class ExchangeClient {
   std::shared_ptr<ExchangeQueue> queue_;
   std::unordered_set<std::string> taskIds_;
   std::vector<std::shared_ptr<ExchangeSource>> sources_;
-  uint32_t nextSourceIndex_{0};
   bool closed_{false};
+
+  // A queue of sources that have returned non-empty response from the latest
+  // request.
+  std::queue<std::shared_ptr<ExchangeSource>> producingSources_;
+  // A queue of sources that returned empty response from the latest request.
+  std::queue<std::shared_ptr<ExchangeSource>> emptySources_;
 };
 
 } // namespace facebook::velox::exec

@@ -18,7 +18,7 @@
 namespace facebook::velox::exec {
 
 void ExchangeClient::addRemoteTaskId(const std::string& taskId) {
-  RequestSpec toRequest;
+  RequestSpec requestSpec;
   std::shared_ptr<ExchangeSource> toClose;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
@@ -48,8 +48,11 @@ void ExchangeClient::addRemoteTaskId(const std::string& taskId) {
     } else {
       sources_.push_back(source);
       queue_->addSourceLocked();
+      // Put new source into 'producingSources_' queue to prioritise fetching
+      // from these to find out whether these are productive or not.
+      producingSources_.push(source);
 
-      toRequest = pickSourcesToRequestLocked();
+      requestSpec = pickSourcesToRequestLocked();
     }
   }
 
@@ -57,7 +60,7 @@ void ExchangeClient::addRemoteTaskId(const std::string& taskId) {
   if (toClose) {
     toClose->close();
   } else {
-    request(toRequest);
+    request(requestSpec);
   }
 }
 
@@ -114,7 +117,7 @@ uint64_t ExchangeClient::backgroundCpuTimeMs() const {
 std::unique_ptr<SerializedPage> ExchangeClient::next(
     bool* atEnd,
     ContinueFuture* future) {
-  RequestSpec toRequest;
+  RequestSpec requestSpec;
   std::unique_ptr<SerializedPage> page;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
@@ -128,26 +131,59 @@ std::unique_ptr<SerializedPage> ExchangeClient::next(
       return page;
     }
 
-    toRequest = pickSourcesToRequestLocked();
+    requestSpec = pickSourcesToRequestLocked();
   }
 
   // Outside of lock
-  request(toRequest);
+  request(requestSpec);
   return page;
 }
 
 void ExchangeClient::request(const RequestSpec& requestSpec) {
+  auto& exec = folly::QueuedImmediateExecutor::instance();
   for (auto& source : requestSpec.sources) {
-    auto future = source->request(requestSpec.maxBytes);
-    VELOX_CHECK(future.valid());
-    auto& exec = folly::QueuedImmediateExecutor::instance();
-    std::move(future)
-        .via(&exec)
-        .thenValue(
-            [&](auto&& /* unused */) { request(pickSourcesToRequest()); })
-        .thenError(
-            folly::tag_t<std::exception>{},
-            [&](const std::exception& e) { queue_->setError(e.what()); });
+    if (source->supportsFlowControlV2()) {
+      auto future =
+          source->request(requestSpec.maxBytes, kDefaultMaxWaitSeconds);
+      VELOX_CHECK(future.valid());
+      std::move(future)
+          .via(&exec)
+          .thenValue([this, requestSource = source](auto&& response) {
+            RequestSpec requestSpec;
+            {
+              std::lock_guard<std::mutex> l(queue_->mutex());
+              if (!response.atEnd) {
+                if (response.bytes > 0) {
+                  producingSources_.push(requestSource);
+                } else {
+                  emptySources_.push(requestSource);
+                }
+              }
+              requestSpec = pickSourcesToRequestLocked();
+            }
+            request(requestSpec);
+          })
+          .thenError(
+              folly::tag_t<std::exception>{},
+              [&](const std::exception& e) { queue_->setError(e.what()); });
+    } else {
+      auto future = source->request(requestSpec.maxBytes);
+      VELOX_CHECK(future.valid());
+      std::move(future)
+          .via(&exec)
+          .thenValue([this, requestSource = source](auto&& /*unused*/) {
+            RequestSpec requestSpec;
+            {
+              std::lock_guard<std::mutex> l(queue_->mutex());
+              emptySources_.push(requestSource);
+              requestSpec = pickSourcesToRequestLocked();
+            }
+            request(requestSpec);
+          })
+          .thenError(
+              folly::tag_t<std::exception>{},
+              [&](const std::exception& e) { queue_->setError(e.what()); });
+    }
   }
 }
 
@@ -159,11 +195,6 @@ int32_t ExchangeClient::countPendingSourcesLocked() {
     }
   }
   return numPending;
-}
-
-ExchangeClient::RequestSpec ExchangeClient::pickSourcesToRequest() {
-  std::lock_guard<std::mutex> l(queue_->mutex());
-  return pickSourcesToRequestLocked();
 }
 
 int64_t ExchangeClient::getAveragePageSize() {
@@ -190,6 +221,19 @@ int32_t ExchangeClient::getNumSourcesToRequestLocked(int64_t averagePageSize) {
   return numToRequest - numPending;
 }
 
+void ExchangeClient::pickSourcesToRequestLocked(
+    RequestSpec& requestSpec,
+    int32_t numToRequest,
+    std::queue<std::shared_ptr<ExchangeSource>>& sources) {
+  while (requestSpec.sources.size() < numToRequest && !sources.empty()) {
+    auto& source = sources.front();
+    if (source->shouldRequestLocked()) {
+      requestSpec.sources.push_back(source);
+    }
+    sources.pop();
+  }
+}
+
 ExchangeClient::RequestSpec ExchangeClient::pickSourcesToRequestLocked() {
   if (closed_ || queue_->totalBytes() >= maxQueuedBytes_) {
     return {};
@@ -202,24 +246,15 @@ ExchangeClient::RequestSpec ExchangeClient::pickSourcesToRequestLocked() {
     return {};
   }
 
-  RequestSpec toRequest;
-  toRequest.maxBytes = averagePageSize;
+  RequestSpec requestSpec;
+  requestSpec.maxBytes = averagePageSize;
 
-  // Pick up to 'numToRequest' next sources to request data from.
-  for (auto i = 0; i < sources_.size(); ++i) {
-    auto& source = sources_[nextSourceIndex_];
+  // Pick up to 'numToRequest' next sources to request data from. Prioritize
+  // sources that return data.
+  pickSourcesToRequestLocked(requestSpec, numToRequest, producingSources_);
+  pickSourcesToRequestLocked(requestSpec, numToRequest, emptySources_);
 
-    nextSourceIndex_ = (nextSourceIndex_ + 1) % sources_.size();
-
-    if (source->shouldRequestLocked()) {
-      toRequest.sources.push_back(source);
-      if (toRequest.sources.size() == numToRequest) {
-        break;
-      }
-    }
-  }
-
-  return toRequest;
+  return requestSpec;
 }
 
 ExchangeClient::~ExchangeClient() {
