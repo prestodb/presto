@@ -51,6 +51,29 @@ class ArrayPositionTest : public FunctionBaseTest {
         makeNullableFlatVector<int64_t>(expected));
   }
 
+  void testPosition(
+      const ArrayVectorPtr& arrayVector,
+      const std::vector<int64_t>& search,
+      const std::vector<std::optional<int64_t>>& expected,
+      std::optional<int64_t> instanceOpt = std::nullopt) {
+    auto constSearch =
+        BaseVector::wrapInConstant(1, 0, makeArrayVector<int64_t>({search}));
+    if (instanceOpt.has_value()) {
+      auto instanceResult = evaluate(
+          "array_position(c0, c1, c2)",
+          makeRowVector(
+              {arrayVector,
+               constSearch,
+               makeConstant(instanceOpt.value(), arrayVector->size())}));
+      assertEqualVectors(
+          makeNullableFlatVector<int64_t>(expected), instanceResult);
+    } else {
+      auto result = evaluate(
+          "array_position(c0, c1)", makeRowVector({arrayVector, constSearch}));
+      assertEqualVectors(makeNullableFlatVector<int64_t>(expected), result);
+    }
+  }
+
   template <typename T>
   void testPositionDictEncoding(
       const TwoDimVector<T>& array,
@@ -834,4 +857,50 @@ TEST_F(ArrayPositionTest, invalidInstance) {
   result = evaluate("try(array_position(c0, 1, 0))", input);
   assertEqualVectors(makeNullConstant(TypeKind::BIGINT, 2), result);
 }
+
+TEST_F(ArrayPositionTest, constantEncodingElements) {
+  // ArrayVector with ConstantVector<Array> elements.
+  auto baseVector = makeArrayVector<int64_t>(
+      {{1, 2, 3, 4},
+       {3, 4, 5},
+       {},
+       {5, 6, 7, 8, 9},
+       {1, 2, 3, 4},
+       {10, 9, 8, 7}});
+  const vector_size_t kTopLevelVectorSize = baseVector->size() * 2;
+  auto constantVector =
+      BaseVector::wrapInConstant(kTopLevelVectorSize, 0, baseVector);
+  auto arrayVector = makeArrayVector({0, 2, 7}, constantVector);
+
+  testPosition(arrayVector, {1, 2, 3, 4}, {1, 1, 1});
+  testPosition(arrayVector, {3, 4, 5}, {0, 0, 0});
+  testPosition(arrayVector, {1, 2, 3, 4}, {1, 1, 1}, 1);
+  testPosition(arrayVector, {1, 2, 3, 4}, {2, 5, kTopLevelVectorSize - 7}, -1);
+}
+
+TEST_F(ArrayPositionTest, dictionaryEncodingElements) {
+  // ArrayVector with DictionaryVector<Array> elements.
+  auto baseVector = makeArrayVector<int64_t>(
+      {{1, 2, 3, 4}, {3, 4, 5}, {1, 2, 3, 4}, {10, 9, 8, 7}});
+  auto baseVectorSize = baseVector->size();
+  const vector_size_t kTopLevelVectorSize = baseVectorSize * 2;
+  BufferPtr indices = allocateIndices(kTopLevelVectorSize, pool_.get());
+  auto rawIndices = indices->asMutable<vector_size_t>();
+  for (size_t i = 0; i < kTopLevelVectorSize; ++i) {
+    rawIndices[i] = i % baseVectorSize;
+  }
+  auto dictVector = BaseVector::wrapInDictionary(
+      nullptr, indices, kTopLevelVectorSize, baseVector);
+  auto arrayVector = makeArrayVector({0, baseVectorSize + 1}, dictVector);
+  // arrayVector is
+  // {
+  //    [[1, 2, 3, 4], [3, 4, 5], [1, 2, 3, 4], [10, 9, 8, 7], [1, 2, 3, 4]],
+  //    [[3, 4, 5], [1, 2, 3, 4], [10, 9, 8, 7]]
+  // }
+  testPosition(arrayVector, {1, 2, 3, 4}, {1, 2}, std::nullopt);
+  testPosition(arrayVector, {3, 4, 5}, {2, 1}, std::nullopt);
+  testPosition(arrayVector, {1, 2, 3, 4}, {1, 2}, 1);
+  testPosition(arrayVector, {1, 2, 3, 4}, {5, 2}, -1);
+}
+
 } // namespace

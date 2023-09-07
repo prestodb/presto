@@ -92,7 +92,7 @@ void applyComplexType(
   auto indices = arrayDecoded.indices();
 
   auto elementsBase = elementsDecoded.base();
-
+  auto elementIndices = elementsDecoded.indices();
   auto searchBase = searchDecoded.base();
   auto searchIndices = searchDecoded.indices();
 
@@ -104,10 +104,10 @@ void applyComplexType(
 
     auto searchIndex = searchIndices[row];
     for (auto i = 0; i < size; i++) {
-      if (elementsBase->isNullAt(offset + i)) {
+      if (elementsDecoded.isNullAt(offset + i)) {
         foundNull = true;
       } else if (elementsBase->equalValueAt(
-                     searchBase, offset + i, searchIndex)) {
+                     searchBase, elementIndices[offset + i], searchIndex)) {
         flatResult.set(row, true);
         return;
       }
