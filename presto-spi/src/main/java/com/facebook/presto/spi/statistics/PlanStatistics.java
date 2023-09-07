@@ -26,16 +26,18 @@ import static java.util.Objects.requireNonNull;
 @ThriftStruct
 public class PlanStatistics
 {
-    private static final PlanStatistics EMPTY = new PlanStatistics(Estimate.unknown(), Estimate.unknown(), 0, Estimate.unknown(), Estimate.unknown());
+    private static final PlanStatistics EMPTY = new PlanStatistics(Estimate.unknown(), Estimate.unknown(), 0, Estimate.unknown(), Estimate.unknown(), JoinNodeStatistics.empty());
 
     private final Estimate rowCount;
     private final Estimate outputSize;
     // A number ranging between 0 and 1, reflecting our confidence in the statistics
     private final double confidence;
-    // Number of input rows from build side of a join which has at least one join column to be NULL
+    // Deprecated, use joinNodeStatistics
     private final Estimate nullJoinBuildKeyCount;
-    // Number of input rows from build side of a join
+    // Deprecated, use joinNodeStatistics
     private final Estimate joinBuildKeyCount;
+    // Join node specific statistics
+    private final JoinNodeStatistics joinNodeStatistics;
 
     public static PlanStatistics empty()
     {
@@ -48,7 +50,8 @@ public class PlanStatistics
             @JsonProperty("outputSize") Estimate outputSize,
             @JsonProperty("confidence") double confidence,
             @JsonProperty("nullJoinBuildKeyCount") Estimate nullJoinBuildKeyCount,
-            @JsonProperty("joinBuildKeyCount") Estimate joinBuildKeyCount)
+            @JsonProperty("joinBuildKeyCount") Estimate joinBuildKeyCount,
+            @JsonProperty("joinNodeStatistics") JoinNodeStatistics joinNodeStatistics)
     {
         this.rowCount = requireNonNull(rowCount, "rowCount is null");
         this.outputSize = requireNonNull(outputSize, "outputSize is null");
@@ -56,6 +59,7 @@ public class PlanStatistics
         this.confidence = confidence;
         this.nullJoinBuildKeyCount = requireNonNull(nullJoinBuildKeyCount, "nullJoinBuildKeyCount is null");
         this.joinBuildKeyCount = requireNonNull(joinBuildKeyCount, "joinBuildKeyCount is null");
+        this.joinNodeStatistics = requireNonNull(joinNodeStatistics, "joinNodeStatistics is null");
     }
 
     @JsonProperty
@@ -79,6 +83,7 @@ public class PlanStatistics
         return confidence;
     }
 
+    @Deprecated
     @JsonProperty
     @ThriftField(4)
     public Estimate getNullJoinBuildKeyCount()
@@ -86,11 +91,19 @@ public class PlanStatistics
         return nullJoinBuildKeyCount;
     }
 
+    @Deprecated
     @JsonProperty
     @ThriftField(5)
     public Estimate getJoinBuildKeyCount()
     {
         return joinBuildKeyCount;
+    }
+
+    @JsonProperty
+    @ThriftField(6)
+    public JoinNodeStatistics getJoinNodeStatistics()
+    {
+        return joinNodeStatistics;
     }
 
     private static void checkArgument(boolean condition, String message)
@@ -111,13 +124,13 @@ public class PlanStatistics
         }
         PlanStatistics that = (PlanStatistics) o;
         return Double.compare(that.confidence, confidence) == 0 && Objects.equals(rowCount, that.rowCount) && Objects.equals(outputSize, that.outputSize)
-                && Objects.equals(nullJoinBuildKeyCount, that.nullJoinBuildKeyCount) && Objects.equals(joinBuildKeyCount, that.joinBuildKeyCount);
+                && Objects.equals(joinNodeStatistics, that.joinNodeStatistics);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(rowCount, outputSize, confidence, nullJoinBuildKeyCount, joinBuildKeyCount);
+        return Objects.hash(rowCount, outputSize, confidence, joinNodeStatistics);
     }
 
     @Override
@@ -127,8 +140,7 @@ public class PlanStatistics
                 "rowCount=" + rowCount +
                 ", outputSize=" + outputSize +
                 ", confidence=" + confidence +
-                ", nullJoinBuildKeyCount=" + nullJoinBuildKeyCount +
-                ", joinBuildKeyCount=" + joinBuildKeyCount +
+                ", joinNodeStatistics=" + joinNodeStatistics +
                 '}';
     }
 }

@@ -39,8 +39,8 @@ public class StatsJoinBuildKeyCountMatcher
     @Override
     public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        return new MatchResult(Double.compare(stats.getStats(node).getJoinBuildKeyCount(), expectedJoinBuildKeyCount) == 0
-                && Double.compare(stats.getStats(node).getNullJoinBuildKeyCount(), expectedNullJoinBuildKeyCount) == 0);
+        return new MatchResult(Double.compare(stats.getStats(node).getJoinNodeSpecificStatsEstimate().getJoinBuildKeyCount(), expectedJoinBuildKeyCount) == 0
+                && Double.compare(stats.getStats(node).getJoinNodeSpecificStatsEstimate().getNullJoinBuildKeyCount(), expectedNullJoinBuildKeyCount) == 0);
     }
 
     @Override

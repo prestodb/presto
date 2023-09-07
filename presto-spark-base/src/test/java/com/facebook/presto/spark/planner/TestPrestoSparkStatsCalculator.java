@@ -30,6 +30,7 @@ import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntry;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
+import com.facebook.presto.spi.statistics.JoinNodeStatistics;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -122,7 +123,7 @@ public class TestPrestoSparkStatsCalculator
                 new HistoricalPlanStatistics(
                         ImmutableList.of(
                                 new HistoricalPlanStatisticsEntry(
-                                        new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1, Estimate.unknown(), Estimate.unknown()),
+                                        new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1, Estimate.unknown(), Estimate.unknown(), JoinNodeStatistics.empty()),
                                         ImmutableList.of())))));
 
         tester.assertStatsFor(pb -> pb.remoteSource(ImmutableList.of(new PlanFragmentId(1)), statsEquivalentRemoteSource))
@@ -171,7 +172,7 @@ public class TestPrestoSparkStatsCalculator
                 new HistoricalPlanStatistics(
                         ImmutableList.of(
                                 new HistoricalPlanStatisticsEntry(
-                                        new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1, Estimate.unknown(), Estimate.unknown()),
+                                        new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1, Estimate.unknown(), Estimate.unknown(), JoinNodeStatistics.empty()),
                                         ImmutableList.of())))));
 
         tester.assertStatsFor(pb -> pb.remoteSource(ImmutableList.of(new PlanFragmentId(1))))
@@ -198,7 +199,7 @@ public class TestPrestoSparkStatsCalculator
                 new HistoricalPlanStatistics(
                         ImmutableList.of(
                                 new HistoricalPlanStatisticsEntry(
-                                        new PlanStatistics(Estimate.of(10), Estimate.of(100), 1, Estimate.unknown(), Estimate.unknown()),
+                                        new PlanStatistics(Estimate.of(10), Estimate.of(100), 1, Estimate.unknown(), Estimate.unknown(), JoinNodeStatistics.empty()),
                                         ImmutableList.of())))));
 
         tester.assertStatsFor(pb -> pb.remoteSource(ImmutableList.of(new PlanFragmentId(1))))

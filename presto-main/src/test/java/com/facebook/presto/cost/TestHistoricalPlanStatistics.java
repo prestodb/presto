@@ -15,6 +15,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
+import com.facebook.presto.spi.statistics.JoinNodeStatistics;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -82,7 +83,7 @@ public class TestHistoricalPlanStatistics
 
     private PlanStatistics stats(double rows, double size)
     {
-        return new PlanStatistics(Estimate.of(rows), Estimate.of(size), 1, Estimate.unknown(), Estimate.unknown());
+        return new PlanStatistics(Estimate.of(rows), Estimate.of(size), 1, Estimate.unknown(), Estimate.unknown(), JoinNodeStatistics.empty());
     }
 
     private static HistoricalPlanStatistics updatePlanStatistics(
