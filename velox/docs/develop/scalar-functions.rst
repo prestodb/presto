@@ -828,7 +828,7 @@ evaluating. Consider some examples.
     a > 5 AND b > 7
 
 Here, a > 5 is evaluated on all rows where “a” is not null, but b > 7 is
-evaluated on rows where b is not null and a is either null or not > 5.
+evaluated on rows where b is not null and a > 5 is true.
 
 .. code-block:: c++
 
@@ -1307,14 +1307,14 @@ result. Here is an example of a test for simple function “sqrt”:
       };
 
       EXPECT_EQ(1.0, sqrt(1));
-      EXPECT_TRUE(std::isnan(sqrt(-1.0).value_or(-1)));
+      EXPECT_THAT(sqrt(-1.0), IsNan());
       EXPECT_EQ(0, sqrt(0));
 
       EXPECT_EQ(2, sqrt(4));
       EXPECT_EQ(3, sqrt(9));
       EXPECT_FLOAT_EQ(1.34078e+154, sqrt(kDoubleMax).value_or(-1));
       EXPECT_EQ(std::nullopt, sqrt(std::nullopt));
-      EXPECT_TRUE(std::isnan(sqrt(kNan).value_or(-1)));
+      EXPECT_THAT(sqrt(kNan), IsNan());
     }
 
 Function names
@@ -1350,7 +1350,7 @@ multiple implementations, then the order in which function resolution will proce
 
 The available function with lowest rank is picked during function resolution.
 If there is more than one function with the same lowest rank, we count the number of concrete types in the signature
-and return the signature with highest concrete types count. (a concrete type is any type other variadic or generic).
+and return the signature with highest concrete types count. (a concrete type is any type other than variadic or generic).
 
 For example: consider the two signatures bellow which are both of type 4.
 
