@@ -26,9 +26,7 @@ struct CompareFlags {
   // NoStop: The compare doesn't stop at null.
   // StopAtNull: The compare returns std::nullopt if null is encountered in rhs
   // or lhs.
-  // StopAtRhsNull: The compare returns std::nullopt only if null encountered on
-  // the right hand side; return false, if it is on the left hand side.
-  enum class NullHandlingMode { NoStop, StopAtNull, StopAtRhsNull };
+  enum class NullHandlingMode { NoStop, StopAtNull };
 
   // This flag will be ignored if nullHandlingMode is true.
   bool nullsFirst = true;
@@ -41,8 +39,7 @@ struct CompareFlags {
   NullHandlingMode nullHandlingMode = NullHandlingMode::NoStop;
 
   bool mayStopAtNull() {
-    return nullHandlingMode == CompareFlags::NullHandlingMode::StopAtNull ||
-        nullHandlingMode == CompareFlags::NullHandlingMode::StopAtRhsNull;
+    return nullHandlingMode == CompareFlags::NullHandlingMode::StopAtNull;
   }
 
   static std::string nullHandlingModeToStr(NullHandlingMode mode) {
@@ -51,8 +48,6 @@ struct CompareFlags {
         return "NoStop";
       case CompareFlags::NullHandlingMode::StopAtNull:
         return "StopAtNull";
-      case CompareFlags::NullHandlingMode::StopAtRhsNull:
-        return "StopAtRhsNull";
       default:
         return fmt::format(
             "Unknown Null Handling mode {}", static_cast<int>(mode));

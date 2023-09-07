@@ -28,19 +28,15 @@ class VectorCompareTest : public testing::Test,
   bool static constexpr kExpectNull = true;
   bool static constexpr kExpectNotNull = false;
   bool static constexpr kEqualsOnly = true;
-  bool static constexpr kStopAtNullRhs = true;
 
   void testCompareWithStopAtNull(
       const VectorPtr& vector,
       vector_size_t index1,
       vector_size_t index2,
       bool expectNull,
-      bool equalsOnly = false,
-      bool stopAtNullRhs = false) {
+      bool equalsOnly = false) {
     CompareFlags testFlags;
-    testFlags.nullHandlingMode = stopAtNullRhs
-        ? CompareFlags::NullHandlingMode::StopAtRhsNull
-        : CompareFlags::NullHandlingMode::StopAtNull;
+    testFlags.nullHandlingMode = CompareFlags::NullHandlingMode::StopAtNull;
     testFlags.equalsOnly = equalsOnly;
 
     ASSERT_EQ(
@@ -102,11 +98,9 @@ TEST_F(VectorCompareTest, compareStopAtNullArray) {
                   const std::optional<std::vector<std::optional<int64_t>>>&
                       array2,
                   bool expectNull,
-                  bool stopAtNullRhsOnly = false,
                   bool equalsOnly = false) {
     auto vector = vectorMaker_.arrayVectorNullable<int64_t>({array1, array2});
-    testCompareWithStopAtNull(
-        vector, 0, 1, expectNull, equalsOnly, stopAtNullRhsOnly);
+    testCompareWithStopAtNull(vector, 0, 1, expectNull, equalsOnly);
   };
 
   test(std::nullopt, std::nullopt, kExpectNull);
@@ -134,7 +128,6 @@ TEST_F(VectorCompareTest, compareStopAtNullArray) {
       {{std::nullopt, std::nullopt}},
       {{std::nullopt, std::nullopt, std::nullopt}},
       kExpectNotNull,
-      false,
       kEqualsOnly);
 
   // Since kEqualsOnly = false, the first two elements will be read.
@@ -147,19 +140,12 @@ TEST_F(VectorCompareTest, compareStopAtNullArray) {
       {{std::nullopt, std::nullopt}},
       {{std::nullopt, std::nullopt}},
       kExpectNull,
-      false,
       kEqualsOnly);
 
   test(
       {{std::nullopt, std::nullopt}},
       {{std::nullopt, std::nullopt}},
       kExpectNull);
-
-  // Stops if null is on the right hand side.
-  test({{1, std::nullopt}}, {{1, 1}}, kExpectNull);
-  test({{1, std::nullopt}}, {{1, 1}}, kExpectNotNull, kStopAtNullRhs);
-  test({{1, 1}}, {{1, std::nullopt}}, kExpectNull);
-  test({{1, 1}}, {{1, std::nullopt}}, kExpectNull, kStopAtNullRhs);
 }
 
 TEST_F(VectorCompareTest, compareStopAtNullMap) {
@@ -168,11 +154,9 @@ TEST_F(VectorCompareTest, compareStopAtNullMap) {
   auto test = [&](const map_t& map1,
                   const map_t& map2,
                   bool expectNull,
-                  bool stopAtNullRhsOnly = false,
                   bool equalsOnly = false) {
     auto vector = makeNullableMapVector<int64_t, int64_t>({map1, map2});
-    testCompareWithStopAtNull(
-        vector, 0, 1, expectNull, equalsOnly, stopAtNullRhsOnly);
+    testCompareWithStopAtNull(vector, 0, 1, expectNull, equalsOnly);
   };
 
   test({{{1, 2}, {3, 4}}}, {{{1, 2}, {3, 4}}}, kExpectNotNull);
@@ -207,22 +191,7 @@ TEST_F(VectorCompareTest, compareStopAtNullMap) {
       {{{1, 2}, {1, std::nullopt}}},
       {{{1, std::nullopt}}},
       kExpectNotNull,
-      false,
       kEqualsOnly);
-
-  // Stops if null is on the right hand side.
-  test({{{1, std::nullopt}, {3, 4}}}, {{{1, 2}, {3, 4}}}, kExpectNull);
-  test(
-      {{{1, std::nullopt}, {3, 4}}},
-      {{{1, 2}, {3, 4}}},
-      kExpectNotNull,
-      kStopAtNullRhs);
-  test({{{1, 2}, {3, 4}}}, {{{1, 2}, {3, std::nullopt}}}, kExpectNull);
-  test(
-      {{{1, 2}, {3, 4}}},
-      {{{1, 2}, {3, std::nullopt}}},
-      kExpectNull,
-      kStopAtNullRhs);
 }
 
 TEST_F(VectorCompareTest, compareStopAtNullRow) {
@@ -232,7 +201,6 @@ TEST_F(VectorCompareTest, compareStopAtNullRow) {
           const std::tuple<std::optional<int64_t>, std::optional<int64_t>>&
               row2,
           bool expectNull,
-          bool stopAtNullRhsOnly = false,
           bool equalsOnly = false) {
         auto vector = vectorMaker_.rowVector(
             {vectorMaker_.flatVectorNullable<int64_t>(
@@ -240,8 +208,7 @@ TEST_F(VectorCompareTest, compareStopAtNullRow) {
              vectorMaker_.flatVectorNullable<int64_t>(
                  {std::get<1>(row1), std::get<1>(row2)})});
 
-        testCompareWithStopAtNull(
-            vector, 0, 1, expectNull, equalsOnly, stopAtNullRhsOnly);
+        testCompareWithStopAtNull(vector, 0, 1, expectNull, equalsOnly);
       };
 
   test({1, 2}, {2, 3}, kExpectNotNull);
@@ -251,12 +218,6 @@ TEST_F(VectorCompareTest, compareStopAtNullRow) {
   test({1, 2}, {1, std::nullopt}, kExpectNull);
   test({1, std::nullopt}, {1, 2}, kExpectNull);
   test({1, 2}, {std::nullopt, 2}, kExpectNull);
-
-  // Stops if null is on the right hand side.
-  test({std::nullopt, 2}, {1, 2}, kExpectNull);
-  test({std::nullopt, 2}, {1, 2}, kExpectNotNull, kStopAtNullRhs);
-  test({1, 2}, {1, std::nullopt}, kExpectNull);
-  test({1, 2}, {1, std::nullopt}, kExpectNull, kStopAtNullRhs);
 }
 
 TEST_F(VectorCompareTest, CompareWithNullChildVector) {

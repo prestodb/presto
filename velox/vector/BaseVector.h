@@ -793,11 +793,6 @@ class BaseVector {
   compareNulls(bool thisNull, bool otherNull, CompareFlags flags) {
     DCHECK(thisNull || otherNull);
     switch (flags.nullHandlingMode) {
-      case CompareFlags::NullHandlingMode::StopAtRhsNull:
-        if (!otherNull) {
-          return false;
-        }
-        [[fallthrough]];
       case CompareFlags::NullHandlingMode::StopAtNull:
         return std::nullopt;
       case CompareFlags::NullHandlingMode::NoStop:

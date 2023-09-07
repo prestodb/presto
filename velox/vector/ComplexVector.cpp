@@ -616,10 +616,7 @@ std::optional<int32_t> compareArrays(
   for (auto i = 0; i < compareSize; ++i) {
     auto result =
         left.compare(&right, leftRange.begin + i, rightRange.begin + i, flags);
-    if ((flags.nullHandlingMode == CompareFlags::NullHandlingMode::StopAtNull ||
-         flags.nullHandlingMode ==
-             CompareFlags::NullHandlingMode::StopAtRhsNull) &&
-        !result.has_value()) {
+    if (flags.mayStopAtNull() && !result.has_value()) {
       // Null is encountered.
       return std::nullopt;
     }
@@ -644,10 +641,7 @@ std::optional<int32_t> compareArrays(
   auto compareSize = std::min(leftRange.size(), rightRange.size());
   for (auto i = 0; i < compareSize; ++i) {
     auto result = left.compare(&right, leftRange[i], rightRange[i], flags);
-    if ((flags.nullHandlingMode == CompareFlags::NullHandlingMode::StopAtNull ||
-         flags.nullHandlingMode ==
-             CompareFlags::NullHandlingMode::StopAtRhsNull) &&
-        !result.has_value()) {
+    if (flags.mayStopAtNull() && !result.has_value()) {
       // Null is encountered.
       return std::nullopt;
     }
@@ -886,10 +880,7 @@ std::optional<int32_t> MapVector::compare(
       compareArrays(*keys_, *otherMap->keys_, leftIndices, rightIndices, flags);
   VELOX_DCHECK(result.has_value(), "keys can not have null");
 
-  if ((flags.nullHandlingMode == CompareFlags::NullHandlingMode::StopAtNull ||
-       flags.nullHandlingMode ==
-           CompareFlags::NullHandlingMode::StopAtRhsNull) &&
-      !result.has_value()) {
+  if (flags.mayStopAtNull() && !result.has_value()) {
     return std::nullopt;
   }
 

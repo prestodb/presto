@@ -146,11 +146,6 @@ TEST_F(GenericViewTest, compare) {
   flags.nullHandlingMode = CompareFlags::NullHandlingMode::StopAtNull;
   ASSERT_FALSE(reader[0].compare(reader[2], flags).has_value());
   ASSERT_TRUE(reader[0].compare(reader[1], flags).has_value());
-
-  flags.nullHandlingMode = CompareFlags::NullHandlingMode::StopAtRhsNull;
-  ASSERT_TRUE(reader[2].compare(reader[0], flags).has_value());
-  ASSERT_FALSE(reader[0].compare(reader[2], flags).has_value());
-  ASSERT_FALSE(reader[2].compare(reader[2], flags).has_value());
 }
 
 // Test reader<Generic> where generic elements are arrays<ints>
