@@ -2587,3 +2587,26 @@ TEST_F(VectorTest, toCopyRanges) {
   rows.updateBounds();
   testRoundTrip();
 }
+
+TEST_F(VectorTest, rowCopyRanges) {
+  RowVectorPtr RowVectorDest = makeRowVector(
+      {makeFlatVector<int32_t>({1, 2}), makeFlatVector<int32_t>({1, 2})});
+  RowVectorPtr RowVectorSrc = makeRowVector(
+      {makeFlatVector<int32_t>({3, 4}), makeFlatVector<int32_t>({3, 4})});
+  std::vector<BaseVector::CopyRange> baseRanges{{
+      .sourceIndex = 0,
+      .targetIndex = 2,
+      .count = 2,
+  }};
+  RowVectorDest->resize(4);
+
+  // Make sure nulls overwritten.
+  RowVectorDest->setNull(2, true);
+  RowVectorDest->setNull(3, true);
+
+  RowVectorDest->copyRanges(RowVectorSrc.get(), baseRanges);
+  auto expected = makeRowVector(
+      {makeFlatVector<int32_t>({1, 2, 3, 4}),
+       makeFlatVector<int32_t>({1, 2, 3, 4})});
+  test::assertEqualVectors(expected, RowVectorDest);
+}

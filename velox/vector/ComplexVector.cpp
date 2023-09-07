@@ -273,7 +273,8 @@ void RowVector::copyRanges(
     if (rawNulls_) {
       auto* rawNulls = mutableRawNulls();
       for (auto& r : ranges) {
-        bits::fillBits(rawNulls, r.targetIndex, r.count, bits::kNotNull);
+        bits::fillBits(
+            rawNulls, r.targetIndex, r.targetIndex + r.count, bits::kNotNull);
       }
     }
     auto* rowSource = source->loadedVector()->as<RowVector>();
