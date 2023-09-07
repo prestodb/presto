@@ -550,6 +550,12 @@ void HiveDataSource::parseSerdeParameters(
   }
   auto collectionIt =
       serdeParameters.find(dwio::common::SerDeOptions::kCollectionDelim);
+  if (collectionIt == serdeParameters.end()) {
+    // For collection delimiter, Hive 1.x, 2.x uses "colelction.delim", but
+    // Hive 3.x uses "collection.delim".
+    // See: https://issues.apache.org/jira/browse/HIVE-16922)
+    collectionIt = serdeParameters.find("colelction.delim");
+  }
   auto mapKeyIt =
       serdeParameters.find(dwio::common::SerDeOptions::kMapKeyDelim);
 
