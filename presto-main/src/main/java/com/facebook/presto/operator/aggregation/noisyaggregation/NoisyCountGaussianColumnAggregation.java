@@ -73,9 +73,9 @@ public class NoisyCountGaussianColumnAggregation
 {
     public static final NoisyCountGaussianColumnAggregation NOISY_COUNT_GAUSSIAN_AGGREGATION = new NoisyCountGaussianColumnAggregation();
     private static final String NAME = "noisy_count_gaussian";
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(NoisyCountGaussianColumnAggregation.class, "input", CountScaleState.class, Block.class, Block.class, int.class);
-    private static final MethodHandle COMBINE_FUNCTION = methodHandle(NoisyCountGaussianColumnAggregation.class, "combine", CountScaleState.class, CountScaleState.class);
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(NoisyCountGaussianColumnAggregation.class, "output", CountScaleState.class, BlockBuilder.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(NoisyCountGaussianColumnAggregation.class, "input", NoisyCountState.class, Block.class, Block.class, int.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(NoisyCountGaussianColumnAggregation.class, "combine", NoisyCountState.class, NoisyCountState.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(NoisyCountGaussianColumnAggregation.class, "output", NoisyCountState.class, BlockBuilder.class);
 
     public NoisyCountGaussianColumnAggregation()
     {
@@ -103,8 +103,8 @@ public class NoisyCountGaussianColumnAggregation
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(NoisyCountGaussianColumnAggregation.class.getClassLoader());
 
-        AccumulatorStateSerializer<CountScaleState> stateSerializer = StateCompiler.generateStateSerializer(CountScaleState.class, classLoader);
-        AccumulatorStateFactory<CountScaleState> stateFactory = StateCompiler.generateStateFactory(CountScaleState.class, classLoader);
+        AccumulatorStateSerializer<NoisyCountState> stateSerializer = StateCompiler.generateStateSerializer(NoisyCountState.class, classLoader);
+        AccumulatorStateFactory<NoisyCountState> stateFactory = StateCompiler.generateStateFactory(NoisyCountState.class, classLoader);
         Type intermediateType = stateSerializer.getSerializedType();
 
         List<Type> inputTypes = ImmutableList.of(type, DOUBLE);
@@ -116,7 +116,7 @@ public class NoisyCountGaussianColumnAggregation
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
                 ImmutableList.of(new AccumulatorStateDescriptor(
-                        CountScaleState.class,
+                        NoisyCountState.class,
                         stateSerializer,
                         stateFactory)),
                 BIGINT);
@@ -142,7 +142,7 @@ public class NoisyCountGaussianColumnAggregation
                 new ParameterMetadata(BLOCK_INDEX));
     }
 
-    public static void input(CountScaleState state, Block valueBlock, Block noiseScaleBlock, int index)
+    public static void input(NoisyCountState state, Block valueBlock, Block noiseScaleBlock, int index)
     {
         double noiseScale = DOUBLE.getDouble(noiseScaleBlock, index);
         if (noiseScale < 0) {
@@ -153,13 +153,13 @@ public class NoisyCountGaussianColumnAggregation
         state.setNoiseScale(noiseScale);
     }
 
-    public static void combine(CountScaleState state, CountScaleState otherState)
+    public static void combine(NoisyCountState state, NoisyCountState otherState)
     {
         state.setCount(state.getCount() + otherState.getCount());
         state.setNoiseScale(state.getNoiseScale() > 0 ? state.getNoiseScale() : otherState.getNoiseScale()); // noise scale should be > 0
     }
 
-    public static void output(CountScaleState state, BlockBuilder out)
+    public static void output(NoisyCountState state, BlockBuilder out)
     {
         if (state.getCount() == 0) {
             out.appendNull();
