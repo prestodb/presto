@@ -176,5 +176,22 @@ TEST(DecimalTest, toByteArray) {
   testToByteArray(DecimalUtil::kLongDecimalMax, expected8, 16);
 }
 
+TEST(DecimalTest, valueInPrecisionRange) {
+  ASSERT_TRUE(DecimalUtil::valueInPrecisionRange<int64_t>(12, 3));
+  ASSERT_TRUE(DecimalUtil::valueInPrecisionRange<int64_t>(999, 3));
+  ASSERT_FALSE(DecimalUtil::valueInPrecisionRange<int64_t>(1000, 3));
+  ASSERT_FALSE(DecimalUtil::valueInPrecisionRange<int64_t>(1234, 3));
+  ASSERT_TRUE(DecimalUtil::valueInPrecisionRange<int64_t>(
+      DecimalUtil::kShortDecimalMax, ShortDecimalType::kMaxPrecision));
+  ASSERT_FALSE(DecimalUtil::valueInPrecisionRange<int64_t>(
+      DecimalUtil::kShortDecimalMax + 1, ShortDecimalType::kMaxPrecision));
+  ASSERT_TRUE(DecimalUtil::valueInPrecisionRange<int128_t>(
+      DecimalUtil::kLongDecimalMax, LongDecimalType::kMaxPrecision));
+  ASSERT_FALSE(DecimalUtil::valueInPrecisionRange<int128_t>(
+      DecimalUtil::kLongDecimalMax + 1, LongDecimalType::kMaxPrecision));
+  ASSERT_FALSE(DecimalUtil::valueInPrecisionRange<int128_t>(
+      DecimalUtil::kLongDecimalMin - 1, LongDecimalType::kMaxPrecision));
+}
+
 } // namespace
 } // namespace facebook::velox

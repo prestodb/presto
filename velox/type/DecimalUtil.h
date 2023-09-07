@@ -86,6 +86,14 @@ class DecimalUtil {
         value);
   }
 
+  // Returns true if the precision can represent the value.
+  template <typename T>
+  FOLLY_ALWAYS_INLINE static bool valueInPrecisionRange(
+      T value,
+      uint8_t precision) {
+    return value < kPowersOfTen[precision] && value > -kPowersOfTen[precision];
+  }
+
   /// Helper function to convert a decimal value to string.
   static std::string toString(const int128_t value, const TypePtr& type);
 
@@ -161,8 +169,7 @@ class DecimalUtil {
       }
     }
     // Check overflow.
-    if (rescaledValue < -DecimalUtil::kPowersOfTen[toPrecision] ||
-        rescaledValue > DecimalUtil::kPowersOfTen[toPrecision] || isOverflow) {
+    if (!valueInPrecisionRange(rescaledValue, toPrecision) || isOverflow) {
       VELOX_USER_FAIL(
           "Cannot cast DECIMAL '{}' to DECIMAL({}, {})",
           DecimalUtil::toString(inputValue, DECIMAL(fromPrecision, fromScale)),
@@ -181,8 +188,7 @@ class DecimalUtil {
     bool isOverflow = __builtin_mul_overflow(
         rescaledValue, DecimalUtil::kPowersOfTen[toScale], &rescaledValue);
     // Check overflow.
-    if (rescaledValue < -DecimalUtil::kPowersOfTen[toPrecision] ||
-        rescaledValue > DecimalUtil::kPowersOfTen[toPrecision] || isOverflow) {
+    if (!valueInPrecisionRange(rescaledValue, toPrecision) || isOverflow) {
       VELOX_USER_FAIL(
           "Cannot cast {} '{}' to DECIMAL({}, {})",
           SimpleTypeTrait<TInput>::name,
