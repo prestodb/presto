@@ -35,6 +35,7 @@ ScanSpec& ScanSpec::operator=(const ScanSpec& other) {
     enableFilterReorder_ = other.enableFilterReorder_;
     children_ = other.children_;
     stableChildren_ = other.stableChildren_;
+    childByFieldName_ = other.childByFieldName_;
     valueHook_ = other.valueHook_;
     isArrayElementOrMapEntry_ = other.isArrayElementOrMapEntry_;
     maxArrayElementsCount_ = other.maxArrayElementsCount_;
@@ -47,17 +48,16 @@ ScanSpec* ScanSpec::getOrCreateChild(const Subfield& subfield) {
   auto& path = subfield.path();
   for (size_t depth = 0; depth < path.size(); ++depth) {
     auto element = path[depth].get();
-    bool found = false;
-    for (auto& field : container->children_) {
-      if (field->matches(*element)) {
-        container = field.get();
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
+    VELOX_CHECK_EQ(element->kind(), kNestedField);
+    auto* nestedField = static_cast<const Subfield::NestedField*>(element);
+    auto it = container->childByFieldName_.find(nestedField->name());
+    if (it != container->childByFieldName_.end()) {
+      container = it->second;
+    } else {
       container->children_.push_back(std::make_unique<ScanSpec>(*element));
-      container = container->children_.back().get();
+      auto* child = container->children_.back().get();
+      container->childByFieldName_[child->fieldName()] = child;
+      container = child;
     }
   }
   return container;
@@ -156,6 +156,7 @@ bool ScanSpec::hasFilter() const {
 void ScanSpec::moveAdaptationFrom(ScanSpec& other) {
   // moves the filters and filter order from 'other'.
   std::vector<std::shared_ptr<ScanSpec>> newChildren;
+  childByFieldName_.clear();
   for (auto& otherChild : other.children_) {
     bool found = false;
     for (auto& child : children_) {
@@ -168,6 +169,7 @@ void ScanSpec::moveAdaptationFrom(ScanSpec& other) {
           child->filter_ = std::move(otherChild->filter_);
           child->selectivity_ = otherChild->selectivity_;
         }
+        childByFieldName_[child->fieldName_] = child.get();
         newChildren.push_back(std::move(child));
         found = true;
         break;
@@ -410,6 +412,7 @@ std::shared_ptr<ScanSpec> ScanSpec::removeChild(const ScanSpec* child) {
     if (it->get() == child) {
       auto removed = std::move(*it);
       children_.erase(it);
+      childByFieldName_.erase(removed->fieldName());
       return removed;
     }
   }
