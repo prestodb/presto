@@ -30,6 +30,7 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -58,8 +59,9 @@ import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.operator.aggregation.noisyaggregation.TestNoisyCountGaussianAggregationUtils.buildColumnName;
-import static com.facebook.presto.operator.aggregation.noisyaggregation.TestNoisyCountGaussianAggregationUtils.buildData;
+import static com.facebook.presto.operator.aggregation.noisyaggregation.TestNoisyAggregationUtils.buildColumnName;
+import static com.facebook.presto.operator.aggregation.noisyaggregation.TestNoisyAggregationUtils.buildData;
+import static com.facebook.presto.operator.aggregation.noisyaggregation.TestNoisyAggregationUtils.createTestValues;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -124,7 +126,7 @@ public class TestNoisyCountGaussianRandomSeedAggregation
         JavaAggregationFunctionImplementation noisyCountGaussian = getFunction(BIGINT, DOUBLE, BIGINT);
 
         int numRows = 1000;
-        List<Long> values = TestNoisyCountGaussianAggregationUtils.createTestValues(numRows, false);
+        List<Long> values = createTestValues(numRows, false, 1L, true);
         assertAggregation(
                 noisyCountGaussian,
                 equalAssertion,
@@ -143,7 +145,7 @@ public class TestNoisyCountGaussianRandomSeedAggregation
         JavaAggregationFunctionImplementation noisyCountGaussian = getFunction(BIGINT, DOUBLE, BIGINT);
 
         int numRows = 1000;
-        List<Long> values = TestNoisyCountGaussianAggregationUtils.createTestValues(numRows, false);
+        List<Long> values = createTestValues(numRows, false, 1L, true);
         assertAggregation(
                 noisyCountGaussian,
                 equalAssertion,
@@ -162,7 +164,7 @@ public class TestNoisyCountGaussianRandomSeedAggregation
         JavaAggregationFunctionImplementation noisyCountGaussian = getFunction(BIGINT, DOUBLE, BIGINT);
 
         int numRows = 1000;
-        List<Long> values = TestNoisyCountGaussianAggregationUtils.createTestValues(numRows, false);
+        List<Long> values = createTestValues(numRows, false, 1L, true);
         assertAggregation(
                 noisyCountGaussian,
                 equalAssertion,
@@ -187,7 +189,7 @@ public class TestNoisyCountGaussianRandomSeedAggregation
         };
 
         int numRows = 1000;
-        List<Long> values = TestNoisyCountGaussianAggregationUtils.createTestValues(numRows, false);
+        List<Long> values = createTestValues(numRows, false, 1L, true);
         assertAggregation(
                 noisyCountGaussian,
                 withinSomeStdAssertion,
@@ -203,7 +205,7 @@ public class TestNoisyCountGaussianRandomSeedAggregation
     public void testNoisyCountGaussianRandomSeedNoInputRowsWithoutGroupBy()
     {
         int numRows = 100;
-        String data = buildData(numRows, true);
+        String data = buildData(numRows, true, Arrays.asList(StandardTypes.BIGINT, StandardTypes.VARCHAR));
         String columnName = buildColumnName(StandardTypes.BIGINT);
         String query = "SELECT " + FUNCTION_NAME + "(" + columnName + ", 0, 1) + 1 FROM " + data
                 + " WHERE false";
@@ -217,7 +219,7 @@ public class TestNoisyCountGaussianRandomSeedAggregation
     public void testNoisyCountGaussianRandomSeedNoInputRowsWithGroupBy()
     {
         int numRows = 100;
-        String data = buildData(numRows, true);
+        String data = buildData(numRows, true, Arrays.asList(StandardTypes.BIGINT, StandardTypes.VARCHAR));
         String columnName = buildColumnName(StandardTypes.BIGINT);
         String query = "SELECT " + FUNCTION_NAME + "(" + columnName + ", 0, 1) + 1 FROM " + data
                 + " WHERE false GROUP BY " + columnName;
