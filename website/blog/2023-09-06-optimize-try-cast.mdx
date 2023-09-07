@@ -1,0 +1,111 @@
+---
+slug: optimize-try_cast.
+title: "Learnings from optimizing try_cast"
+authors: [lsakka]
+tags: [tech-blog, performance]
+---
+
+One of the queries shadowed internally at Meta was much slower in Velox compared to presto(2 CPU days vs. 4.5 CPU hours). Initial investigation identified that the overhead is related to casting empty strings inside a try_cast.
+
+In this blogpost I summarize my learnings from investigating and optimizing try_cast.
+
+--------------------------------------------------------------------------------------------
+
+### Start and end results
+
+Initial benchmark:
+```
+name                                             total time
+try_cast(empty_string_col as int)                     4.88s
+try_cast(valid_string_col as int)                    2.15ms
+```
+
+The difference between casting a valid and invalid input is huge (>1000X), although ideally casting an invalid string should be
+just setting a null and should not be that expensive.
+
+Benchmark results after optimization:
+```
+name                                             total time
+try_cast(empty_string_col as int)                    1.24ms
+try_cast(valid_string_col as int)                    2.15ms
+```
+--------------------------------------------------------------------------------------------
+
+### Sources of regression
+The investigation revealed several factors that contributed to the huge gap, summarized in the points below in addition to
+their approximate significance.
+
+
+**Error logs overhead.**
+
+Whenever a VeloxUserError is thrown an error log used to be generated, however those errors are expected to, (1) either get converted to null if is
+thrown from within a try, (2) or show up to the user otherwise. Hence, no need for that expensive logging .
+
+Moreover, each failing row used to generate two log message because VELOX_USER_FAIL was called twice. Disabling logging for user error helped save 2.6s of the 4.88s.
+
+
+**Throwing overhead.**
+
+Each time a row is casted **four** exception were thrown:
+
+1. From within Folly library.
+2. From Cast in Conversions.h, the function catch the exception thrown by Folly and convert it to Velox exception and throw it.
+3. From castToPrimitive function, which catch the exception and threw a new exception with more context.
+4. Finally, a forth throw came from applyToSelectedNoThrow which caught an exception and called toVeloxException
+to check exception type and re-throw.
+
+Those are addressed and avoided using the following:
+
+1. When the input is an empty string, avoid calling folly by directly checking if the input is empty.
+2. Remove the catch and re-throw from Conversions.h
+3. Introduce setVeloxExceptionError, which can be used to set the error directly in evalContext without throwing (does not call toVeloxException).
+4. Optimize applyToSelectedNoThrow to call setVeloxExceptionError if it catches Velox exception.
+
+With all those changes throwing exceptions is completely avoided when casting empty strings. This takes the runtime down to 382.07ms,
+but its still much higher than 2.15ms.
+
+
+** Velox exception construction overhead.**
+
+Constructing Velox exception is expensive, even when there is no throw at all! Luckily this can be avoided for try_cast, since
+the output can be directly set to null without having to use the errorVector to track errors. By doing so the benchmark runtime goes
+down to  1.24ms.
+
+--------------------------------------------------------------------------------------------
+
+
+### Follow up tasks
+After all the changes we have the following performance numbers for other patterns of similar expressions
+(much better than before but still can be optimized a lot).
+```
+try_cast(empty_string_col as int)                     1.24ms    808.79
+
+try_cast(invalid_string_col as int)                  393.61ms     2.54
+
+try(cast(empty_string_col as int))                   375.82ms     2.66
+
+try(cast(invalid_string_col as int))                767.74ms      1.30
+```
+
+All these can be optimized to have the same runtime cost of the first expression 1.24ms.
+
+To do that two thing are needed:
+
+
+**1) Tracking errors for try, should not require constructing exceptions**
+
+The way errors are tracked when evaluating a try expression is by setting values in an  ErrorVector; which is a vector of VeloxException pointers.
+This forces the construction of a Velox exception for each row,  but that is not needed (for try expressions) since only row numbers need to be
+tracked to be converted eventually to nulls, but not the actual errors.
+
+This can be changed such that errors are tracked using a selectivity vector. Its worth noting that for other expressions such as conjunct
+expressions this tracking is needed, hence we need to distinguish between both.
+
+This would help optimize any try(x) expression where x throws for large number of rows.
+
+**2)Use throw-free cast library**
+
+Avoiding throw and instead returning a boolean should allow us to directly set null in try_cast and avoid construction of exceptions completely.
+
+While this is done now for empty strings, its not done for all other types of errors. Folly provides a non-throwing API (folly::tryTo) that can be tried for that purpose.
+folly::tryTo. According to the folly documentation *On the error path, you can expect tryTo to be roughly three orders of magnitude faster than the throwing to and to completely avoid any lock contention arising from stack unwinding*.
