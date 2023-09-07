@@ -14,6 +14,7 @@
 
 package com.facebook.presto.plugin.singlestore;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.testing.docker.DockerContainer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -25,11 +26,12 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 import static java.lang.String.format;
-import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 public class DockerizedSingleStoreServer
         implements Closeable
 {
+    private static final Logger LOG = Logger.get(DockerizedSingleStoreServer.class);
     private static final int SINGLESTORE_PORT = 3306;
     private static final String SINGLESTORE_USER = "root";
     private static final String ROOT_PASSWORD = "LbRootPass1";
@@ -39,8 +41,12 @@ public class DockerizedSingleStoreServer
 
     public DockerizedSingleStoreServer()
     {
-        final String license = System.getenv(SINGLESTORE_LICENSE_PROPERTY);
-        assertNotNull(license, "Missed environment variable '" + SINGLESTORE_LICENSE_PROPERTY + "'");
+        String license = System.getenv(SINGLESTORE_LICENSE_PROPERTY);
+        if (license == null || license.isEmpty()) {
+            LOG.info("Missed environment variable: '" + SINGLESTORE_LICENSE_PROPERTY + "'");
+            license = "BGNkNGNlYzFlYWYwYjQ0Yjc5ZGQ5ZTUwM2NjZTc3OWMxAAAAAAAAAAAEAAAAAAAAACgwNQIYK8UIk2TShKVDLkN3bRKbH/JMFGURGStoAhkAtCoka/omJzS5DWPltpVhJMjqh4ZV2bYEAA==";
+        }
+        assertTrue(license != null && !license.isEmpty(), "Missed environment variable: '" + SINGLESTORE_LICENSE_PROPERTY + "'");
         this.dockerContainer = new DockerContainer(
                 "ghcr.io/singlestore-labs/singlestoredb-dev:latest",
                 ImmutableList.of(SINGLESTORE_PORT),

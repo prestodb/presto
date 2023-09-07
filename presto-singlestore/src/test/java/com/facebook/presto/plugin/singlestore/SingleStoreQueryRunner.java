@@ -40,6 +40,7 @@ public final class SingleStoreQueryRunner
     }
 
     private static final String TPCH_SCHEMA = "tpch";
+    private static final String SINGLE_STORE = "singlestore";
 
     public static QueryRunner createSingleStoreQueryRunner(DockerizedSingleStoreServer server, TpchTable<?>... tables)
             throws Exception
@@ -64,7 +65,7 @@ public final class SingleStoreQueryRunner
             createSchema(server.getJdbcUrl(), TPCH_SCHEMA);
 
             queryRunner.installPlugin(new SingleStorePlugin());
-            queryRunner.createCatalog("singlestore", "singlestore", connectorProperties);
+            queryRunner.createCatalog(SINGLE_STORE, SINGLE_STORE, connectorProperties);
 
             copyTpchTables(queryRunner, TPCH_SCHEMA, TINY_SCHEMA_NAME, createSession(), tables);
 
@@ -88,7 +89,7 @@ public final class SingleStoreQueryRunner
     public static Session createSession()
     {
         return testSessionBuilder()
-                .setCatalog("singlestore")
+                .setCatalog(SINGLE_STORE)
                 .setSchema(TPCH_SCHEMA)
                 .build();
     }
