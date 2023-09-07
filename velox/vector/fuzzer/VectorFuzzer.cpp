@@ -788,7 +788,7 @@ TypePtr VectorFuzzer::randScalarNonFloatingPointType() {
 }
 
 TypePtr VectorFuzzer::randType(int maxDepth) {
-  return velox::randType(rng_, maxDepth, opts_.allowIntervalType);
+  return velox::randType(rng_, maxDepth);
 }
 
 RowTypePtr VectorFuzzer::randRowType(int maxDepth) {
@@ -968,7 +968,7 @@ VectorPtr VectorLoaderWrap::makeEncodingPreservedCopy(SelectivityVector& rows) {
       std::move(nulls), std::move(indices), rows.end(), result);
 }
 
-TypePtr randType(FuzzerGenerator& rng, int maxDepth, bool allowIntervalType) {
+TypePtr randType(FuzzerGenerator& rng, int maxDepth) {
   // @TODO Add decimal TypeKinds to randType.
   // Refer https://github.com/facebookincubator/velox/issues/3942
   static TypePtr kScalarTypes[]{
@@ -983,35 +983,31 @@ TypePtr randType(FuzzerGenerator& rng, int maxDepth, bool allowIntervalType) {
       VARBINARY(),
       TIMESTAMP(),
       DATE(),
-      INTERVAL_DAY_TIME(), // Keep INTERVAL type at the end to allow skipping.
+      INTERVAL_DAY_TIME(),
   };
   static constexpr int kNumScalarTypes =
       sizeof(kScalarTypes) / sizeof(kScalarTypes[0]);
   // Should we generate a scalar type?
-  auto range = allowIntervalType ? kNumScalarTypes : kNumScalarTypes - 1;
   if (maxDepth <= 1 || rand<bool>(rng)) {
-    return kScalarTypes[rand<uint32_t>(rng) % range];
+    return kScalarTypes[rand<uint32_t>(rng) % kNumScalarTypes];
   }
   switch (rand<uint32_t>(rng) % 3) {
     case 0:
-      return MAP(
-          randType(rng, 0, allowIntervalType),
-          randType(rng, maxDepth - 1, allowIntervalType));
+      return MAP(randType(rng, 0), randType(rng, maxDepth - 1));
     case 1:
-      return ARRAY(randType(rng, maxDepth - 1, allowIntervalType));
+      return ARRAY(randType(rng, maxDepth - 1));
     default:
-      return randRowType(rng, maxDepth - 1, allowIntervalType);
+      return randRowType(rng, maxDepth - 1);
   }
 }
 
-RowTypePtr
-randRowType(FuzzerGenerator& rng, int maxDepth, bool allowIntervalType) {
+RowTypePtr randRowType(FuzzerGenerator& rng, int maxDepth) {
   int numFields = 1 + rand<uint32_t>(rng) % 7;
   std::vector<std::string> names;
   std::vector<TypePtr> fields;
   for (int i = 0; i < numFields; ++i) {
     names.push_back(fmt::format("f{}", i));
-    fields.push_back(randType(rng, maxDepth, allowIntervalType));
+    fields.push_back(randType(rng, maxDepth));
   }
   return ROW(std::move(names), std::move(fields));
 }

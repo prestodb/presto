@@ -140,10 +140,6 @@ class VectorFuzzer {
     /// vectors. The generated lazy vectors can also have any number of
     /// dictionary layers on top of them.
     bool allowLazyVector{false};
-
-    // If true, randType can generate INTERVAL_DAY_TIME type.
-    // (https://github.com/facebookincubator/velox/issues/6375).
-    bool allowIntervalType{true};
   };
 
   VectorFuzzer(
@@ -343,17 +339,10 @@ class VectorFuzzer {
 
 /// Generates a random type, including maps, vectors, and arrays. maxDepth
 /// limits the maximum level of nesting for complex types. maxDepth <= 1 means
-/// no complex types are allowed. allowIntervalType indicates whether
-/// INTERVAL_DAY_TIME type can be generated.
-/// (https://github.com/facebookincubator/velox/issues/6375)
-TypePtr
-randType(FuzzerGenerator& rng, int maxDepth = 5, bool allowIntervalType = true);
+/// no complex types are allowed.
+TypePtr randType(FuzzerGenerator& rng, int maxDepth = 5);
 
-/// Generates a random ROW type. allowIntervalType indicates whether the ROW
-/// type can contain INTERVAL_DAY_TIME type.
-RowTypePtr randRowType(
-    FuzzerGenerator& rng,
-    int maxDepth = 5,
-    bool allowIntervalType = true);
+/// Generates a random ROW type.
+RowTypePtr randRowType(FuzzerGenerator& rng, int maxDepth = 5);
 
 } // namespace facebook::velox

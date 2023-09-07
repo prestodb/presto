@@ -60,7 +60,6 @@ class JoinFuzzer {
     opts.stringVariableLength = true;
     opts.stringLength = 100;
     opts.nullRatio = FLAGS_null_ratio;
-    opts.allowIntervalType = false;
     return opts;
   }
 
@@ -330,20 +329,38 @@ bool containsTypeKind(const TypePtr& type, const TypeKind& search) {
   return false;
 }
 
+bool containsType(const TypePtr& type, const TypePtr& search) {
+  if (type->equivalent(*search)) {
+    return true;
+  }
+
+  for (auto i = 0; i < type->size(); ++i) {
+    if (containsType(type->childAt(i), search)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool containsUnsupportedTypes(const TypePtr& type) {
+  // Skip queries that use Timestamp, Varbinary, and IntervalDayTime types.
+  // DuckDB doesn't support nanosecond precision for timestamps or casting from
+  // Bigint to Interval.
+  // TODO Investigate mismatches reported when comparing Varbinary.
+  return containsTypeKind(type, TypeKind::TIMESTAMP) ||
+      containsTypeKind(type, TypeKind::VARBINARY) ||
+      containsType(type, INTERVAL_DAY_TIME());
+}
+
 std::optional<MaterializedRowMultiset> JoinFuzzer::computeDuckDbResult(
     const std::vector<RowVectorPtr>& probeInput,
     const std::vector<RowVectorPtr>& buildInput,
     const core::PlanNodePtr& plan) {
-  // Skip queries that use Timestamp and Varbinary type.
-  // DuckDB doesn't support nanosecond precision for timestamps.
-  // TODO Investigate mismatches reported when comparing Varbinary.
-  if (containsTypeKind(probeInput[0]->type(), TypeKind::TIMESTAMP) ||
-      containsTypeKind(probeInput[0]->type(), TypeKind::VARBINARY)) {
+  if (containsUnsupportedTypes(probeInput[0]->type())) {
     return std::nullopt;
   }
 
-  if (containsTypeKind(buildInput[0]->type(), TypeKind::TIMESTAMP) ||
-      containsTypeKind(buildInput[0]->type(), TypeKind::VARBINARY)) {
+  if (containsUnsupportedTypes(buildInput[0]->type())) {
     return std::nullopt;
   }
 
