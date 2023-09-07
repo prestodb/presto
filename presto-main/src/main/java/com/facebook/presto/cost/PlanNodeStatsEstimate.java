@@ -21,6 +21,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.CostBasedSourceInfo;
 import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.JoinNodeStatistics;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import com.facebook.presto.spi.statistics.SourceInfo;
@@ -56,8 +57,7 @@ public class PlanNodeStatsEstimate
 
     private final SourceInfo sourceInfo;
 
-    private final double nullJoinBuildKeyCount;
-    private final double joinBuildKeyCount;
+    private final JoinNodeSpecificStatsEstimate joinNodeSpecificStatsEstimate;
 
     public static PlanNodeStatsEstimate unknown()
     {
@@ -81,19 +81,18 @@ public class PlanNodeStatsEstimate
 
     public PlanNodeStatsEstimate(double outputRowCount, double totalSize, PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics, SourceInfo sourceInfo)
     {
-        this(outputRowCount, totalSize, variableStatistics, sourceInfo, NaN, NaN);
+        this(outputRowCount, totalSize, variableStatistics, sourceInfo, JoinNodeSpecificStatsEstimate.unknown());
     }
 
     public PlanNodeStatsEstimate(double outputRowCount, double totalSize, PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics, SourceInfo sourceInfo,
-            double nullJoinBuildKeyCount, double joinBuildKeyCount)
+            JoinNodeSpecificStatsEstimate joinNodeSpecificStatsEstimate)
     {
         checkArgument(isNaN(outputRowCount) || outputRowCount >= 0, "outputRowCount cannot be negative");
         this.outputRowCount = outputRowCount;
         this.totalSize = totalSize;
         this.variableStatistics = variableStatistics;
         this.sourceInfo = requireNonNull(sourceInfo, "SourceInfo is null");
-        this.nullJoinBuildKeyCount = nullJoinBuildKeyCount;
-        this.joinBuildKeyCount = joinBuildKeyCount;
+        this.joinNodeSpecificStatsEstimate = requireNonNull(joinNodeSpecificStatsEstimate, "joinNodeSpecificStatsEstimate is null");
     }
 
     /**
@@ -118,19 +117,14 @@ public class PlanNodeStatsEstimate
         return sourceInfo.isConfident();
     }
 
-    public double getNullJoinBuildKeyCount()
-    {
-        return nullJoinBuildKeyCount;
-    }
-
-    public double getJoinBuildKeyCount()
-    {
-        return joinBuildKeyCount;
-    }
-
     public SourceInfo getSourceInfo()
     {
         return sourceInfo;
+    }
+
+    public JoinNodeSpecificStatsEstimate getJoinNodeSpecificStatsEstimate()
+    {
+        return joinNodeSpecificStatsEstimate;
     }
 
     /**
@@ -247,8 +241,9 @@ public class PlanNodeStatsEstimate
                     planStatistics.getOutputSize().getValue(),
                     variableStatistics,
                     statsSourceInfo,
-                    planStatistics.getNullJoinBuildKeyCount().getValue(),
-                    planStatistics.getJoinBuildKeyCount().getValue());
+                    new JoinNodeSpecificStatsEstimate(
+                            planStatistics.getJoinNodeStatistics().getNullJoinBuildKeyCount().getValue(),
+                            planStatistics.getJoinNodeStatistics().getJoinBuildKeyCount().getValue()));
         }
         return this;
     }
@@ -261,6 +256,7 @@ public class PlanNodeStatsEstimate
                 .add("totalSize", totalSize)
                 .add("variableStatistics", variableStatistics)
                 .add("sourceInfo", sourceInfo)
+                .add("joinNodeSpecificStatsEstimate", joinNodeSpecificStatsEstimate)
                 .toString();
     }
 
@@ -277,13 +273,14 @@ public class PlanNodeStatsEstimate
         return Double.compare(outputRowCount, that.outputRowCount) == 0 &&
                 Double.compare(totalSize, that.totalSize) == 0 &&
                 Objects.equals(variableStatistics, that.variableStatistics) &&
-                Objects.equals(sourceInfo, that.sourceInfo);
+                Objects.equals(sourceInfo, that.sourceInfo) &&
+                Objects.equals(joinNodeSpecificStatsEstimate, that.joinNodeSpecificStatsEstimate);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(outputRowCount, totalSize, variableStatistics, sourceInfo);
+        return Objects.hash(outputRowCount, totalSize, variableStatistics, sourceInfo, joinNodeSpecificStatsEstimate);
     }
 
     public PlanStatisticsWithSourceInfo toPlanStatisticsWithSourceInfo(PlanNodeId id)
@@ -294,8 +291,9 @@ public class PlanNodeStatsEstimate
                         Estimate.estimateFromDouble(outputRowCount),
                         Estimate.estimateFromDouble(totalSize),
                         sourceInfo.isConfident() ? 1 : 0,
-                        Estimate.estimateFromDouble(nullJoinBuildKeyCount),
-                        Estimate.estimateFromDouble(joinBuildKeyCount)),
+                        new JoinNodeStatistics(
+                                Estimate.estimateFromDouble(joinNodeSpecificStatsEstimate.getNullJoinBuildKeyCount()),
+                                Estimate.estimateFromDouble(joinNodeSpecificStatsEstimate.getJoinBuildKeyCount()))),
                 sourceInfo);
     }
 

@@ -22,7 +22,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.JoinNodeStatistics;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -102,7 +102,7 @@ public class CachingPlanCanonicalInfoProvider
             return planStatistics;
         }
         TableStatistics tableStatistics = metadata.getTableStatistics(session, key.getTableHandle(), key.getColumnHandles(), key.getConstraint());
-        planStatistics = new PlanStatistics(tableStatistics.getRowCount(), tableStatistics.getTotalSize(), 1, Estimate.unknown(), Estimate.unknown());
+        planStatistics = new PlanStatistics(tableStatistics.getRowCount(), tableStatistics.getTotalSize(), 1, JoinNodeStatistics.empty());
         cache.put(key, planStatistics);
         return planStatistics;
     }
