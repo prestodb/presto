@@ -25,6 +25,8 @@ class MergeJoin : public Operator {
       DriverCtx* driverCtx,
       const std::shared_ptr<const core::MergeJoinNode>& joinNode);
 
+  void initialize() override;
+
   BlockingReason isBlocked(ContinueFuture* future) override;
 
   bool needsInput() const override;
@@ -299,101 +301,104 @@ class MergeJoin : public Operator {
     }
 
    private:
-    /// A subset of output rows where left side matched right side on the join
-    /// keys. Used in filter evaluation.
+    // A subset of output rows where left side matched right side on the join
+    // keys. Used in filter evaluation.
     SelectivityVector matchingRows_;
 
-    /// The left-side vector and index of the last added row. Used to identify
-    /// the end of a block of output rows that correspond to the same left-side
-    /// row.
+    // The left-side vector and index of the last added row. Used to identify
+    // the end of a block of output rows that correspond to the same left-side
+    // row.
     VectorPtr lastVector_{nullptr};
     vector_size_t lastIndex_{-1};
 
-    /// Synthetic numbers used to uniquely identify a left-side row. We cannot
-    /// use row number from the left-side vector because a given batch of output
-    /// may contains rows from multiple left-side batches. Only "match" rows
-    /// added via addMatch are being tracked. The values for "miss" rows are
-    /// not defined.
+    // Synthetic numbers used to uniquely identify a left-side row. We cannot
+    // use row number from the left-side vector because a given batch of output
+    // may contains rows from multiple left-side batches. Only "match" rows
+    // added via addMatch are being tracked. The values for "miss" rows are
+    // not defined.
     BufferPtr leftRowNumbers_;
     vector_size_t* rawLeftRowNumbers_;
 
-    /// Synthetic number assigned to the last added "match" row or zero if
-    /// no row has been added yet.
+    // Synthetic number assigned to the last added "match" row or zero if no row
+    // has been added yet.
     vector_size_t lastLeftRowNumber_{0};
 
-    /// Output index of the last output row for which filter result was
-    /// recorded.
+    // Output index of the last output row for which filter result was recorded.
     vector_size_t currentRow_{-1};
 
-    /// Synthetic number for the 'currentRow'.
+    // Synthetic number for the 'currentRow'.
     vector_size_t currentLeftRowNumber_{-1};
 
-    /// True if at least one row in a block of output rows corresponding a
-    /// single left-side row identified by 'currentRowNumber' passed the filter.
+    // True if at least one row in a block of output rows corresponding a single
+    // left-side row identified by 'currentRowNumber' passed the filter.
     bool currentRowPassed_{false};
   };
 
   std::optional<LeftJoinTracker> leftJoinTracker_{std::nullopt};
 
-  /// Maximum number of rows in the output batch.
+  // Maximum number of rows in the output batch.
   const uint32_t outputBatchSize_;
 
-  /// Type of join.
+  // Type of join.
   const core::JoinType joinType_;
 
-  /// Number of join keys.
+  // Number of join keys.
   const size_t numKeys_;
+
+  // The cached merge join plan node used to initialize this operator after the
+  // driver has started execution. It is reset after the initialization.
+  std::shared_ptr<const core::MergeJoinNode> joinNode_;
 
   std::vector<column_index_t> leftKeys_;
   std::vector<column_index_t> rightKeys_;
   std::vector<IdentityProjection> leftProjections_;
   std::vector<IdentityProjection> rightProjections_;
 
-  /// Join filter.
+  // Join filter.
   std::unique_ptr<ExprSet> filter_;
 
-  /// Join filter input type.
+  // Join filter input type.
   RowTypePtr filterInputType_;
 
-  /// Maps left-side input channels to channels in 'filterInputType_'.
+  // Maps left-side input channels to channels in 'filterInputType_'.
   std::vector<IdentityProjection> filterLeftInputs_;
 
-  /// Maps right-side input channels to channels in 'filterInputType_'.
+  // Maps right-side input channels to channels in 'filterInputType_'.
   std::vector<IdentityProjection> filterRightInputs_;
 
-  /// Reusable memory for filter evaluation.
+  // Reusable memory for filter evaluation.
   RowVectorPtr filterInput_;
   SelectivityVector filterRows_;
   std::vector<VectorPtr> filterResult_;
   DecodedVector decodedFilterResult_;
 
-  /// An instance of MergeJoinSource to pull batches of right side input from.
+  // An instance of MergeJoinSource to pull batches of right side input from.
   std::shared_ptr<MergeJoinSource> rightSource_;
 
-  /// Latest batch of input from the right side.
+  // Latest batch of input from the right side.
   RowVectorPtr rightInput_;
 
-  /// Row number on the left side (input_) to process next.
+  // Row number on the left side (input_) to process next.
   vector_size_t index_{0};
 
-  /// Row number on the right side (rightInput_) to process next.
+  // Row number on the right side (rightInput_) to process next.
   vector_size_t rightIndex_{0};
 
-  /// A set of rows with matching keys on the left side.
+  // A set of rows with matching keys on the left side.
   std::optional<Match> leftMatch_;
 
-  /// A set of rows with matching keys on the right side.
+  // A set of rows with matching keys on the right side.
   std::optional<Match> rightMatch_;
 
   RowVectorPtr output_;
 
-  /// Number of rows accumulated in the output_.
+  // Number of rows accumulated in the output_.
   vector_size_t outputSize_;
 
-  /// A future that will be completed when right side input becomes available.
+  // A future that will be completed when right side input becomes available.
   ContinueFuture futureRightSideInput_{ContinueFuture::makeEmpty()};
 
-  /// True if all the right side data has been received.
+  // True if all the right side data has been received.
   bool noMoreRightInput_{false};
 };
 } // namespace facebook::velox::exec

@@ -32,21 +32,27 @@ MergeJoin::MergeJoin(
           "MergeJoin"),
       outputBatchSize_{outputBatchRows()},
       joinType_{joinNode->joinType()},
-      numKeys_{joinNode->leftKeys().size()} {
+      numKeys_{joinNode->leftKeys().size()},
+      joinNode_(joinNode) {
   VELOX_USER_CHECK(
-      joinNode->isInnerJoin() || joinNode->isLeftJoin(),
+      joinNode_->isInnerJoin() || joinNode_->isLeftJoin(),
       "Merge join supports only inner and left joins. Other join types are not supported yet.");
+}
+
+void MergeJoin::initialize() {
+  Operator::initialize();
+  VELOX_CHECK_NOT_NULL(joinNode_);
 
   leftKeys_.reserve(numKeys_);
   rightKeys_.reserve(numKeys_);
 
-  auto leftType = joinNode->sources()[0]->outputType();
-  for (auto& key : joinNode->leftKeys()) {
+  auto leftType = joinNode_->sources()[0]->outputType();
+  for (auto& key : joinNode_->leftKeys()) {
     leftKeys_.push_back(leftType->getChildIdx(key->name()));
   }
 
-  auto rightType = joinNode->sources()[1]->outputType();
-  for (auto& key : joinNode->rightKeys()) {
+  auto rightType = joinNode_->sources()[1]->outputType();
+  for (auto& key : joinNode_->rightKeys()) {
     rightKeys_.push_back(rightType->getChildIdx(key->name()));
   }
 
@@ -66,13 +72,14 @@ MergeJoin::MergeJoin(
     }
   }
 
-  if (joinNode->filter()) {
-    initializeFilter(joinNode->filter(), leftType, rightType);
+  if (joinNode_->filter()) {
+    initializeFilter(joinNode_->filter(), leftType, rightType);
 
-    if (joinNode->isLeftJoin()) {
+    if (joinNode_->isLeftJoin()) {
       leftJoinTracker_ = LeftJoinTracker(outputBatchSize_, pool());
     }
   }
+  joinNode_.reset();
 }
 
 void MergeJoin::initializeFilter(
