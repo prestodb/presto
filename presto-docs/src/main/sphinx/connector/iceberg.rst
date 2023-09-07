@@ -97,6 +97,51 @@ Property Name                                        Description
 
 ==================================================== ============================================================
 
+Setting Up Nessie With Docker
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To set up a Nessie instance locally using the Docker image, see `Setting up Nessie <https://projectnessie.org/try/docker/>`_. Once the Docker instance is up and running, you should see logs similar to the following example:
+
+.. code-block:: none
+
+    2023-09-05 13:11:37,905 INFO  [io.quarkus] (main) nessie-quarkus 0.69.0 on JVM (powered by Quarkus 3.2.4.Final) started in 1.921s. Listening on: http://0.0.0.0:19120
+    2023-09-05 13:11:37,906 INFO  [io.quarkus] (main) Profile prod activated.
+    2023-09-05 13:11:37,906 INFO  [io.quarkus] (main) Installed features: [agroal, amazon-dynamodb, cassandra-client, cdi, google-cloud-bigtable, hibernate-validator, jdbc-postgresql, logging-sentry, micrometer, mongodb-client, narayana-jta, oidc, opentelemetry, reactive-routes, resteasy, resteasy-jackson, security, security-properties-file, smallrye-context-propagation, smallrye-health, smallrye-openapi, swagger-ui, vertx]
+
+
+If log messages related to Nessie's OpenTelemetry collector appear similar to the following example, you can disable OpenTelemetry using the configuration option ``quarkus.otel.sdk.disabled=true``.
+
+.. code-block:: none
+
+    2023-08-27 11:10:02,492 INFO  [io.qua.htt.access-log] (executor-thread-1) 172.17.0.1 - - [27/Aug/2023:11:10:02 +0000] "GET /api/v1/config HTTP/1.1" 200 62
+    2023-08-27 11:10:05,007 SEVERE [io.ope.exp.int.grp.OkHttpGrpcExporter] (OkHttp http://localhost:4317/...) Failed to export spans. The request could not be executed. Full error message: Failed to connect to localhost/127.0.0.1:4317
+
+For example, start the Docker image using the following command:
+``docker run -p 19120:19120 -e QUARKUS_OTEL_SDK_DISABLED=true ghcr.io/projectnessie/nessie``
+
+For more information about this configuration option and other related options, see the `OpenTelemetry Configuration Reference <https://quarkus.io/guides/opentelemetry#quarkus-opentelemetry_quarkus.otel.sdk.disabled>`_.
+
+For more information about troubleshooting OpenTelemetry traces, see `Troubleshooting traces <https://projectnessie.org/try/configuration/#troubleshooting-traces>`_.
+
+If an error similar to the following example is displayed, this is probably because you are interacting with an http server, and not https server. You need to set ``iceberg.nessie.uri`` to ``http://localhost:19120/api/v1``.
+
+.. code-block:: none
+
+    Caused by: javax.net.ssl.SSLException: Unsupported or unrecognized SSL message
+    	at sun.security.ssl.SSLSocketInputRecord.handleUnknownRecord(SSLSocketInputRecord.java:448)
+    	at sun.security.ssl.SSLSocketInputRecord.decode(SSLSocketInputRecord.java:174)
+    	at sun.security.ssl.SSLTransport.decode(SSLTransport.java:111)
+    	at sun.security.ssl.SSLSocketImpl.decode(SSLSocketImpl.java:1320)
+    	at sun.security.ssl.SSLSocketImpl.readHandshakeRecord(SSLSocketImpl.java:1233)
+    	at sun.security.ssl.SSLSocketImpl.startHandshake(SSLSocketImpl.java:417)
+    	at sun.security.ssl.SSLSocketImpl.startHandshake(SSLSocketImpl.java:389)
+    	at sun.net.www.protocol.https.HttpsClient.afterConnect(HttpsClient.java:558)
+    	at sun.net.www.protocol.https.AbstractDelegateHttpsURLConnection.connect(AbstractDelegateHttpsURLConnection.java:201)
+    	at sun.net.www.protocol.https.HttpsURLConnectionImpl.connect(HttpsURLConnectionImpl.java:167)
+    	at org.projectnessie.client.http.impl.jdk8.UrlConnectionRequest.executeRequest(UrlConnectionRequest.java:71)
+    	... 42 more
+
+
 Hadoop catalog
 ^^^^^^^^^^^^^^
 
