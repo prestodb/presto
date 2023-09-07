@@ -26,20 +26,23 @@ SortBuffer::SortBuffer(
     uint32_t outputBatchSize,
     velox::memory::MemoryPool* pool,
     tsan_atomic<bool>* nonReclaimableSection,
-    Spiller::Config* spillConfig,
+    uint32_t* numSpillRuns,
+    const Spiller::Config* spillConfig,
     uint64_t spillMemoryThreshold)
     : input_(input),
       sortCompareFlags_(sortCompareFlags),
       outputBatchSize_(outputBatchSize),
       pool_(pool),
       nonReclaimableSection_(nonReclaimableSection),
+      numSpillRuns_(numSpillRuns),
       spillConfig_(spillConfig),
       spillMemoryThreshold_(spillMemoryThreshold) {
-  VELOX_CHECK_GT(input_->size(), sortCompareFlags_.size());
+  VELOX_CHECK_GE(input_->size(), sortCompareFlags_.size());
   VELOX_CHECK_GT(sortCompareFlags_.size(), 0);
   VELOX_CHECK_EQ(sortColumnIndices.size(), sortCompareFlags_.size());
   VELOX_CHECK_GT(outputBatchSize_, 0);
   VELOX_CHECK_NOT_NULL(nonReclaimableSection_);
+  VELOX_CHECK_NOT_NULL(numSpillRuns_);
 
   std::vector<TypePtr> sortedColumnTypes;
   std::vector<TypePtr> nonSortedColumnTypes;
@@ -109,6 +112,11 @@ void SortBuffer::noMoreInput() {
   VELOX_CHECK(!noMoreInput_);
   noMoreInput_ = true;
 
+  // No data.
+  if (numInputRows_ == 0) {
+    return;
+  }
+
   if (spiller_ == nullptr) {
     VELOX_CHECK_EQ(numInputRows_, data_->numRows());
     // Sort the pointers to the rows in RowContainer (data_) instead of sorting
@@ -159,10 +167,12 @@ RowVectorPtr SortBuffer::getOutput() {
 }
 
 void SortBuffer::spill(int64_t targetRows, int64_t targetBytes) {
-  VELOX_CHECK_NOT_NULL(spillConfig_);
+  VELOX_CHECK_NOT_NULL(
+      spillConfig_, "spill config is null when SortBuffer spill is called");
   VELOX_CHECK_GE(targetRows, 0);
   VELOX_CHECK_GE(targetBytes, 0);
 
+  ++(*numSpillRuns_);
   if (spiller_ == nullptr) {
     spiller_ = std::make_unique<Spiller>(
         Spiller::Type::kOrderBy,

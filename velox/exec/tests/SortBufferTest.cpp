@@ -16,7 +16,8 @@
 
 #include "velox/exec/SortBuffer.h"
 #include <gtest/gtest.h>
-#include <filesystem>
+
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
@@ -63,6 +64,7 @@ class SortBufferTest : public OperatorTestBase {
       std::make_shared<folly::CPUThreadPoolExecutor>(
           std::thread::hardware_concurrency())};
   tsan_atomic<bool> nonReclaimableSection_{false};
+  uint32_t numSpillRuns_;
 
   folly::Random::DefaultGenerator rng_;
 };
@@ -105,7 +107,8 @@ TEST_F(SortBufferTest, singleKey) {
         testData.sortCompareFlags,
         10000,
         pool_.get(),
-        &nonReclaimableSection_);
+        &nonReclaimableSection_,
+        &numSpillRuns_);
 
     RowVectorPtr data = makeRowVector(
         {makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
@@ -136,7 +139,8 @@ TEST_F(SortBufferTest, multipleKeys) {
       sortCompareFlags_,
       10000,
       pool_.get(),
-      &nonReclaimableSection_);
+      &nonReclaimableSection_,
+      &numSpillRuns_);
 
   RowVectorPtr data = makeRowVector(
       {makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
@@ -217,7 +221,8 @@ TEST_F(SortBufferTest, DISABLED_randomData) {
         testData.sortCompareFlags,
         1000,
         pool_.get(),
-        &nonReclaimableSection_);
+        &nonReclaimableSection_,
+        &numSpillRuns_);
 
     const std::shared_ptr<memory::MemoryPool> fuzzerPool =
         memory::addDefaultLeafMemoryPool("VectorFuzzer");
@@ -287,6 +292,7 @@ TEST_F(SortBufferTest, batchOutput) {
         testData.outputBatchSize,
         pool_.get(),
         &nonReclaimableSection_,
+        &numSpillRuns_,
         testData.triggerSpill ? &spillConfig : nullptr,
         0);
 
@@ -378,6 +384,7 @@ TEST_F(SortBufferTest, spill) {
         1000,
         pool_.get(),
         &nonReclaimableSection_,
+        &numSpillRuns_,
         testData.spillEnabled ? &spillConfig : nullptr,
         testData.spillMemoryThreshold);
 
@@ -402,6 +409,10 @@ TEST_F(SortBufferTest, spill) {
       ASSERT_GT(spillStats->spilledBytes, 0);
       ASSERT_EQ(spillStats->spilledPartitions, 1);
       ASSERT_GT(spillStats->spilledFiles, 0);
+    }
+
+    if (!testData.spillEnabled) {
+      VELOX_ASSERT_THROW(sortBuffer->spill(0, 0), "spill config is null");
     }
   }
 }
