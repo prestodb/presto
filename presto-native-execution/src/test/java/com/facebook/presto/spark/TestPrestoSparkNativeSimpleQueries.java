@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spark;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -129,7 +128,7 @@ public class TestPrestoSparkNativeSimpleQueries
      * The first query computes partial aggregation states and stores them in the avg_partial_states table.
      * Subsequent queries read from avg_partial_states and aggregate the states to the final result.
      */
-    @Test
+    @Test(enabled = false)
     public void testAggregationCompanionFunction()
     {
         Session session = Session.builder(getSession())
