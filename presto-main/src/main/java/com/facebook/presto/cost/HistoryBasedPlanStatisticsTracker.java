@@ -29,6 +29,7 @@ import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.HistoryBasedSourceInfo;
+import com.facebook.presto.spi.statistics.JoinNodeStatistics;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import com.facebook.presto.sql.planner.CanonicalPlan;
@@ -162,8 +163,7 @@ public class HistoryBasedPlanStatisticsTracker
                                                     Estimate.of(outputPositions),
                                                     Double.isNaN(outputBytes) ? Estimate.unknown() : Estimate.of(outputBytes),
                                                     1.0,
-                                                    Estimate.of(nullJoinBuildKeyCount),
-                                                    Estimate.of(joinBuildKeyCount)),
+                                                    new JoinNodeStatistics(Estimate.of(nullJoinBuildKeyCount), Estimate.of(joinBuildKeyCount))),
                                             new HistoryBasedSourceInfo(Optional.of(hash), Optional.of(inputTableStatistics))));
                         }
                     }

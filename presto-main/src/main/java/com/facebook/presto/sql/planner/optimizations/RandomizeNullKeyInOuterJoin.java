@@ -275,8 +275,8 @@ public class RandomizeNullKeyInOuterJoin
             PlanNode rewrittenRight = context.rewrite(joinNode.getRight(), context.get());
 
             PlanNodeStatsEstimate joinEstimate = statsProvider.getStats(joinNode);
-            boolean enabledByCostModel = strategy.equals(COST_BASED) && joinEstimate.getNullJoinBuildKeyCount() > NULL_BUILD_KEY_COUNT_THRESHOLD
-                    && joinEstimate.getNullJoinBuildKeyCount() / joinEstimate.getJoinBuildKeyCount() > getRandomizeOuterJoinNullKeyNullRatioThreshold(session);
+            boolean enabledByCostModel = strategy.equals(COST_BASED) && joinEstimate.getJoinNodeStatsEstimate().getNullJoinBuildKeyCount() > NULL_BUILD_KEY_COUNT_THRESHOLD
+                    && joinEstimate.getJoinNodeStatsEstimate().getNullJoinBuildKeyCount() / joinEstimate.getJoinNodeStatsEstimate().getJoinBuildKeyCount() > getRandomizeOuterJoinNullKeyNullRatioThreshold(session);
             List<JoinNode.EquiJoinClause> candidateEquiJoinClauses = joinNode.getCriteria().stream()
                     .filter(x -> isSupportedType(x.getLeft()) && isSupportedType(x.getRight()))
                     .filter(x -> enabledByCostModel || strategy.equals(ALWAYS) || enabledForJoinKeyFromOuterJoin(context.get(), x))

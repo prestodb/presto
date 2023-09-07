@@ -236,7 +236,7 @@ public class TextRenderer
             PlanNodeStatsEstimate stats = node.getEstimatedStats().get(i);
             PlanCostEstimate cost = node.getEstimatedCost().get(i);
             String formatStr = "{source: %s, rows: %s (%s), cpu: %s, memory: %s, network: %s%s%s}";
-            boolean hasHashtableStats = stats.getJoinBuildKeyCount() > 0 || stats.getNullJoinBuildKeyCount() > 0;
+            boolean hasHashtableStats = stats.getJoinNodeStatsEstimate().getJoinBuildKeyCount() > 0 || stats.getJoinNodeStatsEstimate().getNullJoinBuildKeyCount() > 0;
             if (hasHashtableStats) {
                 formatStr = "{source: %s, rows: %s (%s), cpu: %s, memory: %s, network: %s, hashtable size: %s, hashtable null: %s}";
             }
@@ -247,8 +247,8 @@ public class TextRenderer
                     formatDouble(cost.getCpuCost()),
                     formatDouble(cost.getMaxMemory()),
                     formatDouble(cost.getNetworkCost()),
-                    hasHashtableStats ? formatDouble(stats.getJoinBuildKeyCount()) : "",
-                    hasHashtableStats ? formatDouble(stats.getNullJoinBuildKeyCount()) : ""));
+                    hasHashtableStats ? formatDouble(stats.getJoinNodeStatsEstimate().getJoinBuildKeyCount()) : "",
+                    hasHashtableStats ? formatDouble(stats.getJoinNodeStatsEstimate().getNullJoinBuildKeyCount()) : ""));
 
             if (i < estimateCount - 1) {
                 output.append("/");
