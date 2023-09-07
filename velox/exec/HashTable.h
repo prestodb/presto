@@ -33,7 +33,6 @@ struct HashLookup {
     rows.resize(size);
     hashes.resize(size);
     hits.resize(size);
-    std::fill(hits.begin(), hits.end(), nullptr);
     newGroups.clear();
   }
 
@@ -44,8 +43,7 @@ struct HashLookup {
   raw_vector<uint64_t> hashes;
   // If using valueIds, list of concatenated valueIds. 1:1 with 'hashes'.
   raw_vector<uint64_t> normalizedKeys;
-  // Hit for each row of input. nullptr if no hit. Points to the
-  // corresponding group row.
+  // Hit for each row of input corresponding group row or join row.
   raw_vector<char*> hits;
   // Indices of newly inserted rows (not found during probe).
   std::vector<vector_size_t> newGroups;
