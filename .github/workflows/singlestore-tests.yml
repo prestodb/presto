@@ -1,4 +1,4 @@
-name: test other modules
+name: singlestore tests
 
 on:
   pull_request:
@@ -22,20 +22,21 @@ jobs:
     outputs:
       codechange: ${{ steps.filter.outputs.codechange }}
     steps:
-    # For pull requests it's not necessary to checkout the code
-    - uses: dorny/paths-filter@v2
-      id: filter
-      with:
-        filters: |
-          codechange:
-            - '!presto-docs/**'
-  test-other-modules:
+      # For pull requests it's not necessary to checkout the code
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            codechange:
+              - '!presto-docs/**'
+  singlestore-dockerized-tests:
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.codechange == 'true'
-    timeout-minutes: 60
+
+    timeout-minutes: 30
     concurrency:
-      group: ${{ github.workflow }}-test-other-modules-${{ github.event.pull_request.number }}
+      group: ${{ github.workflow }}-singlestore-dockerized-tests-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v2
@@ -53,31 +54,11 @@ jobs:
       - name: Populate maven cache
         if: steps.cache-maven.outputs.cache-hit != 'true'
         run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
-      - name: Maven Install
+      - name: Install SingleStore Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:presto-docs,!:presto-server,!presto-test-coverage'
-      - name: Maven Tests
-        run: |
-          ./mvnw test ${MAVEN_TEST} -pl '
-            !presto-tests, 
-            !presto-accumulo,
-            !presto-cassandra,
-            !presto-hive,
-            !presto-kudu,
-            !presto-docs,
-            !presto-server,
-            !presto-main,
-            !presto-mongodb,
-            !presto-spark-package,
-            !presto-spark-launcher,
-            !presto-spark-testing,
-            !presto-spark-base,
-            !presto-redis,
-            !presto-elasticsearch,
-            !presto-orc,
-            !presto-thrift-connector,
-            !presto-native-execution,
-            !presto-test-coverage,
-            !presto-iceberg,
-            !presto-singlestore'
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-singlestore
+      - name: Run SingleStore Dockerized Tests
+        env:
+          SINGLESTORE_LICENSE: ${{ secrets.SINGLESTORE_LICENSE }}
+        run: ./mvnw test ${MAVEN_TEST} -pl :presto-singlestore
