@@ -81,8 +81,8 @@ struct SIMDJsonArrayContainsFunction {
       return false;
     }
 
-    try {
-      for (auto&& v : ctx.jsonDoc) {
+    for (auto&& v : ctx.jsonDoc) {
+      try {
         if constexpr (std::is_same_v<TInput, bool>) {
           if (v.type() == simdjson::ondemand::json_type::boolean &&
               v.get_bool() == value) {
@@ -91,12 +91,9 @@ struct SIMDJsonArrayContainsFunction {
           }
         } else if constexpr (std::is_same_v<TInput, int64_t>) {
           if (v.type() == simdjson::ondemand::json_type::number &&
-              ((v.get_number_type() ==
-                    simdjson::ondemand::number_type::signed_integer &&
-                v.get_int64() == value) ||
-               (v.get_number_type() ==
-                    simdjson::ondemand::number_type::unsigned_integer &&
-                v.get_uint64() == value))) {
+              v.get_number_type() ==
+                  simdjson::ondemand::number_type::signed_integer &&
+              v.get_int64() == value) {
             result = true;
             break;
           }
@@ -118,10 +115,23 @@ struct SIMDJsonArrayContainsFunction {
             }
           }
         }
+      } catch (const simdjson::simdjson_error& e) {
+        // For bool/int64_t/double type, "get_bool()/get_int64()/get_double()"
+        // may throw an exception if the conversion of json value to the
+        // specified type failed, and the corresponding error code is
+        // "INCORRECT_TYPE" or "NUMBER_ERROR".
+        // If there are multiple json values in the json array, and some of them
+        // cannot be converted to the type of input `value`, it should not
+        // return null directly. It should continue to judge whether there is a
+        // json value that matches the input value, e.g.
+        // jsonArrayContains("[truet, false]", false) => true.
+        if (e.error() != simdjson::INCORRECT_TYPE &&
+            e.error() != simdjson::NUMBER_ERROR) {
+          return false;
+        }
       }
-    } catch (const simdjson::simdjson_error&) {
-      return false;
     }
+
     return true;
   }
 };

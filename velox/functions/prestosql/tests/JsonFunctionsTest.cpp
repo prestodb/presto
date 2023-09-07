@@ -369,9 +369,14 @@ false, false, false, false, false, false, true, false, false, false, false])",
 true, true, true, true, true, true, true, true, true, true, true])",
           false),
       false);
+
+  // Test errors of getting the specified type of json value.
+  // Error code is "INCORRECT_TYPE".
+  EXPECT_EQ(jsonArrayContains<bool>(R"([truet])", false), false);
+  EXPECT_EQ(jsonArrayContains<bool>(R"([truet, false])", false), true);
 }
 
-TEST_F(JsonFunctionsTest, jsonArrayContainsInt) {
+TEST_F(JsonFunctionsTest, jsonArrayContainsBigint) {
   EXPECT_EQ(jsonArrayContains<int64_t>(R"([])", 0), false);
   EXPECT_EQ(jsonArrayContains<int64_t>(R"([1.2, 2.3, 3.4])", 2), false);
   EXPECT_EQ(jsonArrayContains<int64_t>(R"([1.2, 2.0, 3.4])", 2), false);
@@ -404,6 +409,16 @@ TEST_F(JsonFunctionsTest, jsonArrayContainsInt) {
           R"([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])",
           23),
       false);
+  EXPECT_EQ(jsonArrayContains<int64_t>(R"([92233720368547758071])", -9), false);
+
+  // Test errors of getting the specified type of json value.
+  // Error code is "INCORRECT_TYPE".
+  EXPECT_EQ(jsonArrayContains<int64_t>(R"([-9223372036854775809])", -9), false);
+  EXPECT_EQ(
+      jsonArrayContains<int64_t>(R"([-9223372036854775809,-9])", -9), true);
+  // Error code is "NUMBER_ERROR".
+  EXPECT_EQ(jsonArrayContains<int64_t>(R"([01])", 4), false);
+  EXPECT_EQ(jsonArrayContains<int64_t>(R"([01, 4])", 4), true);
 }
 
 TEST_F(JsonFunctionsTest, jsonArrayContainsDouble) {
@@ -441,6 +456,11 @@ TEST_F(JsonFunctionsTest, jsonArrayContainsDouble) {
           R"([1.2, 2.3, 3.4, 4.5, 1.2, 2.3, 3.4, 4.5, 1.2, 2.3, 3.4, 4.5, 1.2, 2.3, 3.4, 4.5, 1.2, 2.3, 3.4, 4.5])",
           4.3),
       false);
+
+  // Test errors of getting the specified type of json value.
+  // Error code is "NUMBER_ERROR".
+  EXPECT_EQ(jsonArrayContains<double>(R"([9.6E400])", 4.2), false);
+  EXPECT_EQ(jsonArrayContains<double>(R"([9.6E400,4.2])", 4.2), true);
 }
 
 TEST_F(JsonFunctionsTest, jsonArrayContainsString) {
