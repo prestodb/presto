@@ -346,6 +346,10 @@ import static com.facebook.presto.operator.aggregation.minmaxby.MinByAggregation
 import static com.facebook.presto.operator.aggregation.minmaxby.MinByNAggregationFunction.MIN_BY_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisyCountGaussianColumnAggregation.NOISY_COUNT_GAUSSIAN_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisyCountGaussianColumnRandomSeedAggregation.NOISY_COUNT_GAUSSIAN_RANDOM_SEED_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySumGaussianAggregation.NOISY_SUM_GAUSSIAN_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySumGaussianClippingAggregation.NOISY_SUM_GAUSSIAN_CLIPPING_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySumGaussianClippingRandomSeedAggregation.NOISY_SUM_GAUSSIAN_CLIPPING_RANDOM_SEED_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySumGaussianRandomSeedAggregation.NOISY_SUM_GAUSSIAN_RANDOM_SEED_AGGREGATION;
 import static com.facebook.presto.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static com.facebook.presto.operator.scalar.ArrayFlattenFunction.ARRAY_FLATTEN_FUNCTION;
@@ -661,6 +665,10 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregates(IntervalDayToSecondSumAggregation.class)
                 .aggregates(IntervalYearToMonthSumAggregation.class)
                 .aggregates(AverageAggregations.class)
+                .function(NOISY_SUM_GAUSSIAN_AGGREGATION)
+                .function(NOISY_SUM_GAUSSIAN_RANDOM_SEED_AGGREGATION)
+                .function(NOISY_SUM_GAUSSIAN_CLIPPING_AGGREGATION)
+                .function(NOISY_SUM_GAUSSIAN_CLIPPING_RANDOM_SEED_AGGREGATION)
                 .function(REAL_AVERAGE_AGGREGATION)
                 .aggregates(IntervalDayToSecondAverageAggregation.class)
                 .aggregates(IntervalYearToMonthAverageAggregation.class)

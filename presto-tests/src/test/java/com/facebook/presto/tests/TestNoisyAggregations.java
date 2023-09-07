@@ -13,9 +13,14 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
+
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestNoisyAggregations
         extends AbstractTestQueryFramework
@@ -47,5 +52,37 @@ public class TestNoisyAggregations
         assertQuery("SELECT noisy_count_gaussian(quantity, 0, 10) FROM lineitem", "SELECT count(quantity) FROM lineitem");
         assertQuery("SELECT noisy_count_gaussian(linestatus, 0, 10) FROM lineitem", "SELECT count(linestatus) FROM lineitem");
         assertQuery("SELECT noisy_count_gaussian(shipdate, 0, 10) FROM lineitem", "SELECT count(shipdate) FROM lineitem");
+    }
+
+    @Test
+    public void testNoisySumGaussianZeroNoiseScaleVsNormalSum()
+    {
+        assertQueryWithSingleDoubleRow("SELECT noisy_sum_gaussian(1, 0) FROM lineitem", "SELECT sum(1.0) FROM lineitem");
+        assertQueryWithSingleDoubleRow("SELECT noisy_sum_gaussian(linenumber, 0) FROM lineitem", "SELECT sum(linenumber) FROM lineitem"); // BIGINT
+        assertQueryWithSingleDoubleRow("SELECT noisy_sum_gaussian(quantity, 0) FROM lineitem", "SELECT sum(quantity) FROM lineitem"); // DOUBLE
+        assertQueryWithSingleDoubleRow("SELECT noisy_sum_gaussian(nationkey, 0) FROM nation", "SELECT sum(nationkey) FROM nation"); // INTEGER
+    }
+
+    @Test
+    public void testNoisySumGaussianZeroNoiseScaleRandomSeedVsNormalCount()
+    {
+        assertQueryWithSingleDoubleRow("SELECT noisy_sum_gaussian(1, 0, 10) FROM lineitem", "SELECT sum(1.0) FROM lineitem");
+        assertQueryWithSingleDoubleRow("SELECT noisy_sum_gaussian(linenumber, 0, 10) FROM lineitem", "SELECT sum(linenumber) FROM lineitem"); // BIGINT
+        assertQueryWithSingleDoubleRow("SELECT noisy_sum_gaussian(quantity, 0, 10) FROM lineitem", "SELECT sum(quantity) FROM lineitem"); // DOUBLE
+        assertQueryWithSingleDoubleRow("SELECT noisy_sum_gaussian(nationkey, 0, 10) FROM nation", "SELECT sum(nationkey) FROM nation"); // INTEGER
+    }
+
+    private void assertQueryWithSingleDoubleRow(@Language("SQL") String actual, @Language("SQL") String expected)
+    {
+        MaterializedResult actualResult = computeActual(actual);
+        MaterializedResult expectedResult = computeExpected(expected, actualResult.getTypes());
+
+        assertEquals(actualResult.getRowCount(), 1);
+        assertEquals(expectedResult.getRowCount(), 1);
+
+        double actualValue = Double.parseDouble(actualResult.getMaterializedRows().get(0).getField(0).toString());
+        double expectedValue = Double.parseDouble(expectedResult.getMaterializedRows().get(0).getField(0).toString());
+
+        assertTrue(Math.abs(actualValue - expectedValue) <= 1e-12);
     }
 }

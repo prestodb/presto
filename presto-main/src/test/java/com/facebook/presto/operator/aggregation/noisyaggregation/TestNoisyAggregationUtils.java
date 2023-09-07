@@ -16,19 +16,41 @@ package com.facebook.presto.operator.aggregation.noisyaggregation;
 import com.facebook.presto.common.type.StandardTypes;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 
-public class TestNoisyCountGaussianAggregationUtils
+import static com.facebook.presto.common.type.Decimals.MAX_PRECISION;
+
+public class TestNoisyAggregationUtils
 {
-    private TestNoisyCountGaussianAggregationUtils()
+    public static BiFunction<Object, Object, Boolean> notEqualDoubleAssertion = (actual, expected) -> !new Double(actual.toString()).equals(new Double(expected.toString()));
+
+    public static final BiFunction<Object, Object, Boolean> equalDoubleAssertion =
+            (actual, expected) -> Math.abs(new Double(actual.toString()) - new Double(expected.toString())) <= 1e-12;
+
+    private TestNoisyAggregationUtils()
     {
     }
-    public static List<Long> createTestValues(int numRows, boolean includeNull)
+
+    public static <T> List<T> createTestValues(int numRows, boolean includeNull, T value, boolean fixedValue)
     {
-        ArrayList<Long> values = new ArrayList<>();
+        ArrayList<T> values = new ArrayList<>();
         for (int i = 0; i < numRows; i++) {
-            values.add((long) i);
+            if (fixedValue) {
+                values.add(value);
+            }
+            else {
+                if (value instanceof Double) {
+                    values.add((T) Double.valueOf(i));
+                }
+                else if (value instanceof Integer) {
+                    values.add((T) Integer.valueOf(i));
+                }
+                else if (value instanceof Long) {
+                    values.add((T) Long.valueOf(i));
+                }
+            }
         }
         if (includeNull) {
             values.remove(0);
@@ -52,23 +74,21 @@ public class TestNoisyCountGaussianAggregationUtils
      * <p>
      * CASTs is to make sure data type is explicitly provided, not inferred
      */
-    public static String buildData(int numRows, boolean includeNullValue)
+    public static String buildData(int numRows, boolean includeNullValue, List<String> types)
     {
         int finalNumRows = numRows;
         if (includeNullValue) {
             finalNumRows = numRows - 1;
         }
-        List<String> types = Arrays.asList(
-                StandardTypes.BIGINT,
-                StandardTypes.VARCHAR);
         // Build CASTs to make sure data type is explicitly provided, not inferred
         StringBuilder sb = new StringBuilder();
         sb.append("(SELECT ");
         sb.append("CAST(index AS bigint) AS index, ");
         for (int i = 0; i < types.size(); i++) {
             String type = types.get(i);
+            String typeString = type.equals(StandardTypes.DECIMAL) ? "DECIMAL(" + MAX_PRECISION + ")" : type;
             String column = buildColumnName(type);
-            sb.append("CAST(").append(column).append(" AS ").append(type).append(") AS ").append(column);
+            sb.append("CAST(").append(column).append(" AS ").append(typeString).append(") AS ").append(column);
             if (i < types.size() - 1) {
                 sb.append(",");
             }
@@ -111,18 +131,42 @@ public class TestNoisyCountGaussianAggregationUtils
                 sb.append("NULL");
             }
             else {
-                if (type.equals(StandardTypes.TINYINT) || type.equals(StandardTypes.SMALLINT) || type.equals(StandardTypes.INTEGER) || type.equals(StandardTypes.BIGINT)
-                        || type.equals(StandardTypes.REAL) || type.equals(StandardTypes.DOUBLE)) {
-                    sb.append(index);
-                }
-                if (type.equals(StandardTypes.REAL) || type.equals(StandardTypes.DOUBLE) || type.equals(StandardTypes.DECIMAL)) {
-                    sb.append(index).append(".0");
-                }
-                else if (type.equals(StandardTypes.VARCHAR) || type.equals(StandardTypes.CHAR) || type.equals(StandardTypes.VARBINARY) || type.equals(StandardTypes.JSON)) {
-                    sb.append("'{}'");
+                switch (type) {
+                    case StandardTypes.TINYINT:
+                    case StandardTypes.SMALLINT:
+                    case StandardTypes.INTEGER:
+                    case StandardTypes.BIGINT:
+                        sb.append(index);
+                        break;
+                    case StandardTypes.REAL:
+                    case StandardTypes.DOUBLE:
+                    case StandardTypes.DECIMAL:
+                        sb.append(index).append(".0");
+                        break;
+                    case StandardTypes.VARCHAR:
+                    case StandardTypes.CHAR:
+                    case StandardTypes.VARBINARY:
+                    case StandardTypes.JSON:
+                        sb.append("'{}'");
+                        break;
                 }
             }
         }
         sb.append(")");
+    }
+
+    public static double sum(List<Double> values)
+    {
+        return values.stream().mapToDouble(f -> f == null ? 0 : f).sum();
+    }
+
+    public static long sumLong(List<Long> values)
+    {
+        return values.stream().mapToLong(v -> v == null ? 0 : v).sum();
+    }
+
+    public static List<String> toNullableStringList(List<Long> values)
+    {
+        return values.stream().map(v -> v == null ? null : String.valueOf(v)).collect(Collectors.toList());
     }
 }

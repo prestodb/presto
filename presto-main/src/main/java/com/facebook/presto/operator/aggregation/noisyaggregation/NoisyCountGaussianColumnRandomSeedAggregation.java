@@ -56,9 +56,9 @@ public class NoisyCountGaussianColumnRandomSeedAggregation
 {
     public static final NoisyCountGaussianColumnRandomSeedAggregation NOISY_COUNT_GAUSSIAN_RANDOM_SEED_AGGREGATION = new NoisyCountGaussianColumnRandomSeedAggregation();
     private static final String NAME = "noisy_count_gaussian";
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(NoisyCountGaussianColumnRandomSeedAggregation.class, "input", CountScaleRandomSeedState.class, Block.class, Block.class, Block.class, int.class);
-    private static final MethodHandle COMBINE_FUNCTION = methodHandle(NoisyCountGaussianColumnRandomSeedAggregation.class, "combine", CountScaleRandomSeedState.class, CountScaleRandomSeedState.class);
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(NoisyCountGaussianColumnRandomSeedAggregation.class, "output", CountScaleRandomSeedState.class, BlockBuilder.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(NoisyCountGaussianColumnRandomSeedAggregation.class, "input", NoisyCountState.class, Block.class, Block.class, Block.class, int.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(NoisyCountGaussianColumnRandomSeedAggregation.class, "combine", NoisyCountState.class, NoisyCountState.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(NoisyCountGaussianColumnRandomSeedAggregation.class, "output", NoisyCountState.class, BlockBuilder.class);
 
     public NoisyCountGaussianColumnRandomSeedAggregation()
     {
@@ -86,8 +86,8 @@ public class NoisyCountGaussianColumnRandomSeedAggregation
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(NoisyCountGaussianColumnRandomSeedAggregation.class.getClassLoader());
 
-        AccumulatorStateSerializer<CountScaleRandomSeedState> stateSerializer = StateCompiler.generateStateSerializer(CountScaleRandomSeedState.class, classLoader);
-        AccumulatorStateFactory<CountScaleRandomSeedState> stateFactory = StateCompiler.generateStateFactory(CountScaleRandomSeedState.class, classLoader);
+        AccumulatorStateSerializer<NoisyCountState> stateSerializer = StateCompiler.generateStateSerializer(NoisyCountState.class, classLoader);
+        AccumulatorStateFactory<NoisyCountState> stateFactory = StateCompiler.generateStateFactory(NoisyCountState.class, classLoader);
         Type intermediateType = stateSerializer.getSerializedType();
 
         List<Type> inputTypes = ImmutableList.of(type, DOUBLE, BIGINT);
@@ -99,7 +99,7 @@ public class NoisyCountGaussianColumnRandomSeedAggregation
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
                 ImmutableList.of(new AccumulatorStateDescriptor(
-                        CountScaleRandomSeedState.class,
+                        NoisyCountState.class,
                         stateSerializer,
                         stateFactory)),
                 BIGINT);
@@ -126,7 +126,7 @@ public class NoisyCountGaussianColumnRandomSeedAggregation
                 new ParameterMetadata(BLOCK_INDEX));
     }
 
-    public static void input(CountScaleRandomSeedState state, Block valueBlock, Block noiseScaleBlock, Block randomSeedBlock, int index)
+    public static void input(NoisyCountState state, Block valueBlock, Block noiseScaleBlock, Block randomSeedBlock, int index)
     {
         double noiseScale = DOUBLE.getDouble(noiseScaleBlock, index);
         if (noiseScale < 0) {
@@ -138,14 +138,14 @@ public class NoisyCountGaussianColumnRandomSeedAggregation
         state.setRandomSeed(BIGINT.getLong(randomSeedBlock, index));
     }
 
-    public static void combine(CountScaleRandomSeedState state, CountScaleRandomSeedState otherState)
+    public static void combine(NoisyCountState state, NoisyCountState otherState)
     {
         state.setCount(state.getCount() + otherState.getCount());
         state.setNoiseScale(state.getNoiseScale() > 0 ? state.getNoiseScale() : otherState.getNoiseScale()); // noise scale should be > 0
         state.setRandomSeed(otherState.getRandomSeed());
     }
 
-    public static void output(CountScaleRandomSeedState state, BlockBuilder out)
+    public static void output(NoisyCountState state, BlockBuilder out)
     {
         if (state.getCount() == 0) {
             out.appendNull();

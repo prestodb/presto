@@ -14,8 +14,13 @@
 package com.facebook.presto.operator.aggregation.noisyaggregation;
 
 import com.facebook.presto.spi.function.AccumulatorState;
+import io.airlift.slice.SliceInput;
+import io.airlift.slice.SliceOutput;
 
-public interface CountScaleRandomSeedState
+import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+
+public interface NoisyCountState
         extends AccumulatorState
 {
     long getCount();
@@ -29,4 +34,25 @@ public interface CountScaleRandomSeedState
     long getRandomSeed();
 
     void setRandomSeed(long value);
+
+    static int calculateSerializationCapacity()
+    {
+        return SIZE_OF_LONG + // count
+                SIZE_OF_DOUBLE + // noiseScale
+                SIZE_OF_LONG; // randomSeed
+    }
+
+    static void writeToSerializer(NoisyCountState state, SliceOutput output)
+    {
+        output.appendLong(state.getCount());
+        output.appendDouble(state.getNoiseScale());
+        output.appendLong(state.getRandomSeed());
+    }
+
+    static void readFromSerializer(NoisyCountState state, SliceInput input)
+    {
+        state.setCount(input.readLong());
+        state.setNoiseScale(input.readDouble());
+        state.setRandomSeed(input.readLong());
+    }
 }
