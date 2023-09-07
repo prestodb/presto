@@ -16,6 +16,7 @@
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
 #include "velox/exec/VectorHasher.h"
+#include "velox/vector/BaseVector.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
 
 using namespace facebook::velox;
@@ -49,6 +50,10 @@ class BenchmarkBase {
             size, [baseSize](vector_size_t row) { return row % baseSize; }),
         size,
         base);
+  }
+
+  memory::MemoryPool* pool() {
+    return pool_.get();
   }
 
  private:
@@ -175,6 +180,62 @@ BENCHMARK(computeValueIdsDictionaryStrings) {
 
 BENCHMARK_RELATIVE(computeValueIdsFlatStrings) {
   benchmarkComputeValueIdsForStrings(true);
+}
+
+BENCHMARK(computeValueIdsLowCardinalityLargeBatchSize) {
+  folly::BenchmarkSuspender suspender;
+
+  vector_size_t cardinality = 300;
+  vector_size_t batchSize = 30'000'000;
+  BenchmarkBase base;
+
+  std::vector<std::optional<int64_t>> data(batchSize);
+  for (int i = 0; i < batchSize; i++) {
+    data[i] = i % cardinality;
+  }
+  auto values = base.vectorMaker().dictionaryVector<int64_t>(data);
+
+  for (int i = 0; i < 10; i++) {
+    raw_vector<uint64_t> hashes(batchSize);
+    SelectivityVector rows(batchSize);
+    VectorHasher hasher(BIGINT(), 0);
+    hasher.decode(*values, rows);
+    suspender.dismiss();
+
+    bool ok = hasher.computeValueIds(rows, hashes);
+    folly::doNotOptimizeAway(ok);
+    suspender.rehire();
+  }
+}
+
+BENCHMARK(computeValueIdsLowCardinalityNotAllUsed) {
+  folly::BenchmarkSuspender suspender;
+
+  vector_size_t cardinality = 300;
+  vector_size_t batchSize = 30'000'000;
+  BenchmarkBase base;
+
+  auto data = base.vectorMaker().flatVector<int64_t>(
+      cardinality, [](vector_size_t row) { return row; });
+  BufferPtr indices = allocateIndices(batchSize, base.pool());
+  auto rawIndices = indices->asMutable<vector_size_t>();
+  // Assign indices such that array is reversed.
+  for (size_t i = 0; i < batchSize; ++i) {
+    rawIndices[i] = i % (cardinality - 1);
+  }
+  auto values = BaseVector::wrapInDictionary(nullptr, indices, batchSize, data);
+
+  for (int i = 0; i < 10; i++) {
+    raw_vector<uint64_t> hashes(batchSize);
+    SelectivityVector rows(batchSize);
+    VectorHasher hasher(BIGINT(), 0);
+    hasher.decode(*values, rows);
+    suspender.dismiss();
+
+    bool ok = hasher.computeValueIds(rows, hashes);
+    folly::doNotOptimizeAway(ok);
+    suspender.rehire();
+  }
 }
 
 int main(int argc, char** argv) {
