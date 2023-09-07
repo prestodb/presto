@@ -1907,5 +1907,23 @@ TEST_F(CastExprTest, tryCastDoesNotHideInputsAndExistingErrors) {
     }
   }
 }
+
+TEST_F(CastExprTest, lazyInput) {
+  auto lazy =
+      vectorMaker_.lazyFlatVector<int64_t>(5, [](auto row) { return row; });
+  auto indices = makeIndices({0, 1, 2, 3, 4});
+  auto dictionary = BaseVector::wrapInDictionary(nullptr, indices, 5, lazy);
+  dictionary->loadedVector();
+  auto data = makeRowVector(
+      {dictionary,
+       makeNullableFlatVector<int64_t>(
+           {std::nullopt,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt})});
+
+  evaluate("cast(switch(gt(c0, c1), c1, c0) as double)", data);
+}
 } // namespace
 } // namespace facebook::velox::test
