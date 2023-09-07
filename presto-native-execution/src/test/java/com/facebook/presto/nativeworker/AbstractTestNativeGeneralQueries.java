@@ -1339,6 +1339,13 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("select cardinality(merge(empty_approx_set(0.1))) from orders");
     }
 
+    @Test
+    public void testDereference()
+    {
+        assertQuery("SELECT transform(array[row(orderkey, comment)], x -> x[2]) FROM orders");
+        assertQuery("SELECT transform(array[row(orderkey, orderkey * 10)], x -> x[2]) FROM orders");
+    }
+
     private void assertQueryResultCount(String sql, int expectedResultCount)
     {
         assertEquals(getQueryRunner().execute(sql).getRowCount(), expectedResultCount);
