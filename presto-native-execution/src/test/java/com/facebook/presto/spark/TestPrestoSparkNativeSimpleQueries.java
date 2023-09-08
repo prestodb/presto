@@ -106,6 +106,7 @@ public class TestPrestoSparkNativeSimpleQueries
     {
         assertQuery("SELECT transform(array[row(orderkey, comment)], x -> x[2]) FROM orders");
         assertQuery("SELECT transform(array[row(orderkey, orderkey * 10)], x -> x[2]) FROM orders");
+        assertQuery("SELECT r[2] FROM (VALUES (ROW (ROW (1, 'a', true)))) AS v(r)");
     }
 
     @Test
