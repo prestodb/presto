@@ -73,6 +73,10 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       const std::string& clientCertAndKeyPath_ = "",
       const std::string& ciphers_ = "");
 
+  bool supportsFlowControlV2() const override {
+    return true;
+  }
+
   /// Returns 'true' is there is no request in progress, this source is not at
   /// end and most recent request hasn't failed. Transitions into
   /// 'request-pending' state if not there already. The caller must follow up
@@ -91,7 +95,9 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   /// This method should not be called concurrently. The caller must receive
   /// 'true' from shouldRequestLocked() before calling this method. The caller
   /// should not hold a lock over queue's mutex when making this call.
-  velox::ContinueFuture request(uint32_t maxBytes) override;
+  folly::SemiFuture<Response> request(
+      uint32_t maxBytes,
+      uint32_t maxWaitSeconds) override;
 
   static std::unique_ptr<ExchangeSource> create(
       const std::string& url,
@@ -105,7 +111,10 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   void close() override;
 
   folly::F14FastMap<std::string, int64_t> stats() const override {
-    return {{"prestoExchangeSource.numPages", numPages_}};
+    return {
+        {"prestoExchangeSource.numPages", numPages_},
+        {"prestoExchangeSource.totalBytes", totalBytes_},
+    };
   }
 
   std::string toJsonString() override {
@@ -117,6 +126,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     obj["basePath"] = basePath_;
     obj["host"] = host_;
     obj["numPages"] = numPages_;
+    obj["totalBytes"] = totalBytes_;
     obj["closed"] = std::to_string(closed_);
     obj["abortResultsSucceeded"] = std::to_string(abortResultsSucceeded_);
     obj["atEnd"] = atEnd_;
@@ -146,7 +156,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   static void testingClearMemoryUsage();
 
  private:
-  void doRequest(int64_t delayMs, uint32_t maxBytes);
+  void doRequest(int64_t delayMs, uint32_t maxBytes, uint32_t maxWaitSeconds);
 
   /// Handles successful, possibly empty, response. Adds received data to the
   /// queue. If received an end marker, notifies the queue by adding null page.
@@ -166,6 +176,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   void processDataError(
       const std::string& path,
       uint32_t maxBytes,
+      uint32_t maxWaitSeconds,
       const std::string& error,
       bool retry = true);
 
@@ -205,10 +216,12 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   int failedAttempts_;
   // The number of pages received from this presto exchange source.
   uint64_t numPages_{0};
+  uint64_t totalBytes_{0};
   std::atomic_bool closed_{false};
   // A boolean indicating whether abortResults() call was issued and was
   // successfully processed by the remote server.
   std::atomic_bool abortResultsSucceeded_{false};
-  velox::ContinuePromise promise_{velox::ContinuePromise::makeEmpty()};
+  velox::VeloxPromise<Response> promise_{
+      velox::VeloxPromise<Response>::makeEmpty()};
 };
 } // namespace facebook::presto
