@@ -48,12 +48,19 @@ public class MockHttpServletRequest
     private final ListMultimap<String, String> headers;
     private final String remoteAddress;
     private final Map<String, Object> attributes;
+    private final boolean isSecure;
 
     public MockHttpServletRequest(ListMultimap<String, String> headers, String remoteAddress, Map<String, Object> attributes)
+    {
+        this(headers, remoteAddress, attributes, false);
+    }
+
+    public MockHttpServletRequest(ListMultimap<String, String> headers, String remoteAddress, Map<String, Object> attributes, boolean isSecure)
     {
         this.headers = ImmutableListMultimap.copyOf(requireNonNull(headers, "headers is null"));
         this.remoteAddress = requireNonNull(remoteAddress, "remoteAddress is null");
         this.attributes = ImmutableMap.copyOf(requireNonNull(attributes, "attributes is null"));
+        this.isSecure = isSecure;
     }
 
     @Override
@@ -395,7 +402,7 @@ public class MockHttpServletRequest
     @Override
     public boolean isSecure()
     {
-        throw new UnsupportedOperationException();
+        return isSecure;
     }
 
     @Override

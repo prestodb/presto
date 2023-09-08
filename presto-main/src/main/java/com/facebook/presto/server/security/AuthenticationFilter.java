@@ -16,6 +16,7 @@ package com.facebook.presto.server.security;
 import com.facebook.airlift.http.server.AuthenticationException;
 import com.facebook.airlift.http.server.Authenticator;
 import com.facebook.presto.server.InternalAuthenticationManager;
+import com.facebook.presto.server.InternalCommunicationConfig;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
@@ -48,12 +49,26 @@ public class AuthenticationFilter
 {
     private final List<Authenticator> authenticators;
     private final InternalAuthenticationManager internalAuthenticationManager;
+    private final boolean internalJwtEnabled;
+    private final AuthenticationFailedHandler authenticationFailedHandler;
 
     @Inject
-    public AuthenticationFilter(List<Authenticator> authenticators, InternalAuthenticationManager internalAuthenticationManager)
+    public AuthenticationFilter(List<Authenticator> authenticators,
+            InternalAuthenticationManager internalAuthenticationManager,
+            InternalCommunicationConfig internalCommunicationConfig)
+    {
+        this(authenticators, internalAuthenticationManager, internalCommunicationConfig, AuthenticationFilter::skipRequestBody);
+    }
+
+    public AuthenticationFilter(List<Authenticator> authenticators,
+            InternalAuthenticationManager internalAuthenticationManager,
+            InternalCommunicationConfig internalCommunicationConfig,
+            AuthenticationFailedHandler authenticationFailedHandler)
     {
         this.authenticators = ImmutableList.copyOf(requireNonNull(authenticators, "authenticators is null"));
         this.internalAuthenticationManager = requireNonNull(internalAuthenticationManager, "internalAuthenticationManager is null");
+        this.internalJwtEnabled = requireNonNull(internalCommunicationConfig, "internalCommunicationConfig is null").isInternalJwtEnabled();
+        this.authenticationFailedHandler = requireNonNull(authenticationFailedHandler, "authenticationFailedHandler is null");
     }
 
     @Override
@@ -108,7 +123,7 @@ public class AuthenticationFilter
         }
 
         // authentication failed
-        skipRequestBody(request);
+        authenticationFailedHandler.consume(request);
 
         for (String value : authenticateHeaders) {
             response.addHeader(WWW_AUTHENTICATE, value);
@@ -122,7 +137,7 @@ public class AuthenticationFilter
 
     private boolean doesRequestSupportAuthentication(HttpServletRequest request)
     {
-        if (!authenticators.isEmpty() && request.isSecure()) {
+        if ((!authenticators.isEmpty() || internalJwtEnabled) && request.isSecure()) {
             return true;
         }
 
@@ -154,5 +169,11 @@ public class AuthenticationFilter
         try (InputStream inputStream = request.getInputStream()) {
             copy(inputStream, nullOutputStream());
         }
+    }
+
+    interface AuthenticationFailedHandler
+    {
+        void consume(HttpServletRequest request)
+                throws IOException;
     }
 }

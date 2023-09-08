@@ -41,7 +41,7 @@ public class InternalAuthenticationManager
 {
     private static final Logger log = Logger.get(InternalAuthenticationManager.class);
 
-    private static final String PRESTO_INTERNAL_BEARER = "X-Presto-Internal-Bearer";
+    public static final String PRESTO_INTERNAL_BEARER = "X-Presto-Internal-Bearer";
 
     private final boolean internalJwtEnabled;
     private final byte[] hmac;
