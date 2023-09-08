@@ -398,16 +398,16 @@ TEST(TypeTest, row) {
   }
 
   auto row1 =
-      ROW({{"a,b", INTEGER()}, {"my \"column\"", ROW({{"#1", BIGINT()}})}});
+      ROW({{"a,b", INTEGER()}, {R"(my "column")", ROW({{"#1", BIGINT()}})}});
   EXPECT_EQ(
       row1->toString(),
-      "ROW<\"a,b\":INTEGER,\"my \"\"column\"\"\":ROW<\"#1\":BIGINT>>");
+      R"(ROW<"a,b":INTEGER,"my ""column""":ROW<"#1":BIGINT>>)");
   EXPECT_EQ(row1->nameOf(0), "a,b");
-  EXPECT_EQ(row1->nameOf(1), "my \"column\"");
-  EXPECT_EQ(row1->childAt(1)->toString(), "ROW<\"#1\":BIGINT>");
+  EXPECT_EQ(row1->nameOf(1), R"(my "column")");
+  EXPECT_EQ(row1->childAt(1)->toString(), R"(ROW<"#1":BIGINT>)");
 
   auto row2 = ROW({{"", INTEGER()}});
-  EXPECT_EQ(row2->toString(), "ROW<\"\":INTEGER>");
+  EXPECT_EQ(row2->toString(), R"(ROW<"":INTEGER>)");
   EXPECT_EQ(row2->nameOf(0), "");
 
   VELOX_ASSERT_THROW(createScalarType(TypeKind::ROW), "not a scalar type");
