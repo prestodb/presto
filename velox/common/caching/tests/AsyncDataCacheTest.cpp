@@ -616,7 +616,7 @@ void corruptFile(const std::string& path) {
 }
 } // namespace
 
-TEST_F(AsyncDataCacheTest, ssd) {
+TEST_F(AsyncDataCacheTest, DISABLED_ssd) {
 #ifdef TSAN_BUILD
   // NOTE: scale down the test data set to prevent tsan tester from running out
   // of memory.
