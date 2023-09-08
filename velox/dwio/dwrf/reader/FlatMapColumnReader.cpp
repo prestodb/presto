@@ -16,6 +16,7 @@
 
 #include "velox/dwio/dwrf/reader/FlatMapColumnReader.h"
 #include <folly/Conv.h>
+#include <folly/container/F14Set.h>
 #include <folly/json.h>
 
 #include "velox/common/base/BitUtil.h"
@@ -77,7 +78,7 @@ uint32_t visitUniqueStreamsOfNode(
     StripeStreams& stripe,
     std::function<void(const StreamInformation&)> visitor) {
   const auto dataValueType = dataType->childAt(1);
-  std::unordered_set<size_t> processed;
+  folly::F14FastSet<size_t> processed;
 
   auto streams = stripe.visitStreamsOfNode(
       dataValueType->id(), [&](const StreamInformation& stream) {
@@ -120,7 +121,7 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesFiltered(
 
   const auto requestedValueType = requestedType->childAt(1);
   const auto dataValueType = dataType->childAt(1);
-  std::unordered_set<size_t> processed;
+  folly::F14FastSet<size_t> processed;
 
   // load all sub streams
   // fetch reader, in map bitmap and key object.
