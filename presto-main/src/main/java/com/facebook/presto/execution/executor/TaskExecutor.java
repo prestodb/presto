@@ -243,12 +243,17 @@ public class TaskExecutor
                         TaskShutdownStats waitingForSplitStats = new TaskShutdownStats(Optional.of("done"), OptionalLong.of(System.nanoTime() - startTime), Optional.empty(), OptionalLong.empty());
                         taskHandle.updateTaskShutdownState(waitingForSplitStats);
 
+                        Optional<OutputBuffer> taskHandleOutputBuffer = taskHandle.getOutputBuffer();
+                        if (taskHandleOutputBuffer.isPresent()) {
+                            log.info("Sending no more pages to output buffer %s", taskHandleOutputBuffer.get().getInfo());
+                            taskHandleOutputBuffer.get().setNoMorePages();
+                        }
                         waitForRunningSplitTime.add(Duration.nanosSince(startTime));
                         //wait for output buffer to be empty
                         startTime = System.nanoTime();
                         while (!taskHandle.isOutputBufferEmpty()) {
                             try {
-                                log.warn("GracefulShutdown:: Waiting for output buffer to be empty for task- %s, outputbuffer type = %s", taskHandle.getTaskId(), taskHandle.getOutputBuffer().get().getClass());
+                                log.warn("GracefulShutdown:: Waiting for output buffer to be empty for task- %s, outputbuffer info = %s", taskHandle.getTaskId(), taskHandle.getOutputBuffer().get().getInfo());
                                 TaskShutdownStats waitingForOutputBufferStats = new TaskShutdownStats(Optional.empty(), OptionalLong.empty(), Optional.of("wait"), OptionalLong.of(System.nanoTime() - startTime));
                                 taskHandle.updateTaskShutdownState(waitingForOutputBufferStats);
                                 Thread.sleep(waitTimeMillis);
