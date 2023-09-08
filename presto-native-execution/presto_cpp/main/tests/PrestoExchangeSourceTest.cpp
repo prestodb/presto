@@ -381,7 +381,7 @@ struct Params {
 
 } // namespace
 
-class PrestoExchangeSourceTestSuite : public ::testing::TestWithParam<Params> {
+class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
  public:
   void SetUp() override {
     pool_ = memory::addDefaultLeafMemoryPool();
@@ -433,7 +433,7 @@ class PrestoExchangeSourceTestSuite : public ::testing::TestWithParam<Params> {
       std::lock_guard<std::mutex> l(queue->mutex());
       ASSERT_TRUE(exchangeSource->shouldRequestLocked());
     }
-    exchangeSource->request(1 << 20);
+    exchangeSource->request(1 << 20, 2);
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -441,10 +441,19 @@ class PrestoExchangeSourceTestSuite : public ::testing::TestWithParam<Params> {
   std::shared_ptr<folly::IOThreadPoolExecutor> exchangeExecutor_;
 };
 
-TEST_P(PrestoExchangeSourceTestSuite, basic) {
+int64_t totalBytes(const std::vector<std::string>& pages) {
+  int64_t totalBytes = 0;
+  for (const auto& page : pages) {
+    totalBytes += 4 + page.size();
+  }
+  return totalBytes;
+}
+
+TEST_P(PrestoExchangeSourceTest, basic) {
   std::vector<std::string> pages = {"page1 - xx", "page2 - xxxxx"};
   const auto useHttps = GetParam().useHttps;
   auto producer = std::make_unique<Producer>();
+
   for (const auto& page : pages) {
     producer->enqueue(page);
   }
@@ -479,11 +488,12 @@ TEST_P(PrestoExchangeSourceTestSuite, basic) {
   EXPECT_EQ(pool_->currentBytes(), 0);
 
   const auto stats = exchangeSource->stats();
-  ASSERT_EQ(stats.size(), 1);
-  ASSERT_EQ(stats.at("prestoExchangeSource.numPages"), 2);
+  ASSERT_EQ(stats.size(), 2);
+  ASSERT_EQ(stats.at("prestoExchangeSource.numPages"), pages.size());
+  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes"), totalBytes(pages));
 }
 
-TEST_P(PrestoExchangeSourceTestSuite, retryState) {
+TEST_P(PrestoExchangeSourceTest, retryState) {
   PrestoExchangeSource::RetryState state(1000);
   ASSERT_FALSE(state.isExhausted());
   ASSERT_EQ(state.nextDelayMs(), 0);
@@ -497,7 +507,7 @@ TEST_P(PrestoExchangeSourceTestSuite, retryState) {
   ASSERT_TRUE(state.isExhausted());
 }
 
-TEST_P(PrestoExchangeSourceTestSuite, retries) {
+TEST_P(PrestoExchangeSourceTest, retries) {
   SystemConfig::instance()->setValue(
       std::string(SystemConfig::kExchangeRequestTimeout), "1s");
   SystemConfig::instance()->setValue(
@@ -547,7 +557,7 @@ TEST_P(PrestoExchangeSourceTestSuite, retries) {
       ThrowsMessage<std::exception>(HasSubstr("Connection reset by peer")));
 }
 
-TEST_P(PrestoExchangeSourceTestSuite, earlyTerminatingConsumer) {
+TEST_P(PrestoExchangeSourceTest, earlyTerminatingConsumer) {
   std::vector<std::string> pages = {"page1 - xx", "page2 - xxxxx"};
   const bool useHttps = GetParam().useHttps;
 
@@ -573,11 +583,12 @@ TEST_P(PrestoExchangeSourceTestSuite, earlyTerminatingConsumer) {
   EXPECT_EQ(pool_->currentBytes(), 0);
 
   const auto stats = exchangeSource->stats();
-  ASSERT_EQ(stats.size(), 1);
+  ASSERT_EQ(stats.size(), 2);
   ASSERT_EQ(stats.at("prestoExchangeSource.numPages"), 0);
+  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes"), 0);
 }
 
-TEST_P(PrestoExchangeSourceTestSuite, slowProducer) {
+TEST_P(PrestoExchangeSourceTest, slowProducer) {
   std::vector<std::string> pages = {"page1 - xx", "page2 - xxxxx"};
   const bool useHttps = GetParam().useHttps;
 
@@ -595,6 +606,7 @@ TEST_P(PrestoExchangeSourceTestSuite, slowProducer) {
   size_t beforePoolSize = pool_->currentBytes();
   size_t beforeQueueSize = queue->totalBytes();
   requestNextPage(queue, exchangeSource);
+
   for (int i = 0; i < pages.size(); i++) {
     producer->enqueue(pages[i]);
     auto page = waitForNextPage(queue);
@@ -613,11 +625,12 @@ TEST_P(PrestoExchangeSourceTestSuite, slowProducer) {
   EXPECT_EQ(pool_->currentBytes(), 0);
 
   const auto stats = exchangeSource->stats();
-  ASSERT_EQ(stats.size(), 1);
+  ASSERT_EQ(stats.size(), 2);
   ASSERT_EQ(stats.at("prestoExchangeSource.numPages"), pages.size());
+  ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes"), totalBytes(pages));
 }
 
-TEST_P(PrestoExchangeSourceTestSuite, slowProducerAndEarlyTerminatingConsumer) {
+TEST_P(PrestoExchangeSourceTest, slowProducerAndEarlyTerminatingConsumer) {
   const bool useHttps = GetParam().useHttps;
   std::atomic<bool> codePointHit{false};
   SCOPED_TESTVALUE_SET(
@@ -667,7 +680,7 @@ TEST_P(PrestoExchangeSourceTestSuite, slowProducerAndEarlyTerminatingConsumer) {
   serverWrapper.stop();
 }
 
-TEST_P(PrestoExchangeSourceTestSuite, failedProducer) {
+TEST_P(PrestoExchangeSourceTest, failedProducer) {
   SystemConfig::instance()->setValue(
       std::string(SystemConfig::kExchangeMaxErrorDuration), "3s");
 
@@ -693,7 +706,7 @@ TEST_P(PrestoExchangeSourceTestSuite, failedProducer) {
   EXPECT_THROW(waitForNextPage(queue), std::exception);
 }
 
-TEST_P(PrestoExchangeSourceTestSuite, exceedingMemoryCapacityForHttpResponse) {
+TEST_P(PrestoExchangeSourceTest, exceedingMemoryCapacityForHttpResponse) {
   const int64_t memoryCapBytes = 1 << 10;
   const bool useHttps = GetParam().useHttps;
   auto rootPool = defaultMemoryManager().addRootPool("", memoryCapBytes);
@@ -724,7 +737,7 @@ TEST_P(PrestoExchangeSourceTestSuite, exceedingMemoryCapacityForHttpResponse) {
   ASSERT_EQ(leafPool->currentBytes(), 0);
 }
 
-TEST_P(PrestoExchangeSourceTestSuite, memoryAllocationAndUsageCheck) {
+TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
   std::vector<bool> resetPeaks = {false, true};
   for (const auto resetPeak : resetPeaks) {
     SCOPED_TRACE(fmt::format("resetPeak {}", resetPeak));
@@ -859,7 +872,7 @@ TEST_P(PrestoExchangeSourceTestSuite, memoryAllocationAndUsageCheck) {
 
 INSTANTIATE_TEST_CASE_P(
     PrestoExchangeSourceTest,
-    PrestoExchangeSourceTestSuite,
+    PrestoExchangeSourceTest,
     ::testing::Values(
         Params{true, 1},
         Params{false, 1},
