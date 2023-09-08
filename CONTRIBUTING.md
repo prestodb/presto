@@ -51,10 +51,9 @@ Committers for this project are documented in the project's [CODEOWNERS](CODEOWN
 
 - Make sure you follow the [review and commit guidelines](https://github.com/prestodb/presto/wiki/Review-and-Commit-guidelines), in particular:
 
-    - Ensure that each commit is correct independently (i.e., each commit should compile and pass tests).
-      When possible, the size of the commit should be reduced for ease of review, while still ensuring
-      that it is independently correct.
-
+    - Ensure that each commit is correct independently. Each commit should compile and pass tests.
+    - When possible, reduce the size of the commit for ease of review.
+    - Squash all merge commits before the PR is rebased and merged.
     - Make sure commit messages [follow these guidelines](https://chris.beams.io/posts/git-commit/).  In particular (from the guidelines):
 
         * Separate subject from body with a blank line
