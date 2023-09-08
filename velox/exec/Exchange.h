@@ -60,8 +60,6 @@ class Exchange : public SourceOperator {
 
   bool isFinished() override;
 
-  uint64_t backgroundCpuTimeMs() const override;
-
  protected:
   virtual VectorSerde* getSerde();
 

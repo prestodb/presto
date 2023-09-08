@@ -434,8 +434,6 @@ void OperatorStats::add(const OperatorStats& other) {
 
   finishTiming.add(other.finishTiming);
 
-  backgroundTiming.add(other.backgroundTiming);
-
   memoryStats.add(other.memoryStats);
 
   for (const auto& [name, stats] : other.runtimeStats) {
@@ -472,8 +470,6 @@ void OperatorStats::clear() {
   blockedWallNanos = 0;
 
   finishTiming.clear();
-
-  backgroundTiming.clear();
 
   memoryStats.clear();
 
