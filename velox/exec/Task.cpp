@@ -470,6 +470,12 @@ RowVectorPtr Task::next(ContinueFuture* future) {
     drivers.reserve(numDriversUngrouped_);
     createSplitGroupStateLocked(kUngroupedGroupId);
     createDriversLocked(self, kUngroupedGroupId, drivers);
+    if (self->pool_->stats().currentBytes != 0) {
+      VELOX_FAIL(
+          "Unexpected memory pool allocations during task[{}] driver initialization: {}",
+          self->taskId_,
+          self->pool_->treeMemoryUsage());
+    }
 
     drivers_ = std::move(drivers);
   }
@@ -665,6 +671,12 @@ void Task::start(
       drivers.reserve(self->numDriversUngrouped_);
       self->createSplitGroupStateLocked(kUngroupedGroupId);
       self->createDriversLocked(self, kUngroupedGroupId, drivers);
+      if (self->pool_->stats().currentBytes != 0) {
+        VELOX_FAIL(
+            "Unexpected memory pool allocations during task[{}] driver initialization: {}",
+            self->taskId_,
+            self->pool_->treeMemoryUsage());
+      }
 
       // Prevent the connecting structures from being cleaned up before all
       // split groups are finished during the grouped execution mode.
