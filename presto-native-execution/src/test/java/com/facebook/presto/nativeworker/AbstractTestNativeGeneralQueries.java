@@ -223,7 +223,13 @@ public abstract class AbstractTestNativeGeneralQueries
                             "('regionkey', NULL, 5.0, 0.0, NULL, '0', '4')," +
                             "('nationkey', NULL, 25.0, 0.0, NULL, '0', '24')," +
                             "(NULL, NULL, NULL, NULL, 25.0, NULL, NULL))");
-            // @TODO Add test for Analyze on table partitions. Refer: https://github.com/prestodb/presto/issues/20232
+            assertUpdate(String.format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['0','0'],ARRAY['4', '11']])", tmpTableName), 2);
+            assertQuery(String.format("SHOW STATS for (SELECT * FROM %s where regionkey=4 and nationkey=11)", tmpTableName),
+                    "SELECT * FROM (VALUES" +
+                            "('name', 8.0, 1.0, 0.0, NULL, NULL, NULL)," +
+                            "('regionkey', NULL, 1.0, 0.0, NULL, '4', '4')," +
+                            "('nationkey', NULL, 1.0, 0.0, NULL, '11', '11')," +
+                            "(NULL, NULL, NULL, NULL, 1.0, NULL, NULL))");
         }
         finally {
             dropTableIfExists(tmpTableName);
