@@ -223,6 +223,7 @@ void MemoryReclaimer::abort(MemoryPool* pool, const std::exception_ptr& error) {
 
 MemoryArbitrator::Stats::Stats(
     uint64_t _numRequests,
+    uint64_t _numSucceeded,
     uint64_t _numAborted,
     uint64_t _numFailures,
     uint64_t _queueTimeUs,
@@ -232,6 +233,7 @@ MemoryArbitrator::Stats::Stats(
     uint64_t _maxCapacityBytes,
     uint64_t _freeCapacityBytes)
     : numRequests(_numRequests),
+      numSucceeded(_numSucceeded),
       numAborted(_numAborted),
       numFailures(_numFailures),
       queueTimeUs(_queueTimeUs),
@@ -243,8 +245,9 @@ MemoryArbitrator::Stats::Stats(
 
 std::string MemoryArbitrator::Stats::toString() const {
   return fmt::format(
-      "STATS[numRequests {} numAborted {} numFailures {} queueTime {} arbitrationTime {} shrunkMemory {} reclaimedMemory {} maxCapacity {} freeCapacity {}]",
+      "STATS[numRequests {} numSucceeded {} numAborted {} numFailures {} queueTime {} arbitrationTime {} shrunkMemory {} reclaimedMemory {} maxCapacity {} freeCapacity {}]",
       numRequests,
+      numSucceeded,
       numAborted,
       numFailures,
       succinctMicros(queueTimeUs),
@@ -259,6 +262,7 @@ MemoryArbitrator::Stats MemoryArbitrator::Stats::operator-(
     const Stats& other) const {
   Stats result;
   result.numRequests = numRequests - other.numRequests;
+  result.numSucceeded = numSucceeded - other.numSucceeded;
   result.numAborted = numAborted - other.numAborted;
   result.numFailures = numFailures - other.numFailures;
   result.queueTimeUs = queueTimeUs - other.queueTimeUs;
@@ -273,6 +277,7 @@ MemoryArbitrator::Stats MemoryArbitrator::Stats::operator-(
 bool MemoryArbitrator::Stats::operator==(const Stats& other) const {
   return std::tie(
              numRequests,
+             numSucceeded,
              numAborted,
              numFailures,
              queueTimeUs,
@@ -283,6 +288,7 @@ bool MemoryArbitrator::Stats::operator==(const Stats& other) const {
              freeCapacityBytes) ==
       std::tie(
              other.numRequests,
+             other.numSucceeded,
              other.numAborted,
              other.numFailures,
              other.queueTimeUs,
@@ -313,6 +319,7 @@ bool MemoryArbitrator::Stats::operator<(const Stats& other) const {
   } while (0);
 
   UPDATE_COUNTER(numRequests);
+  UPDATE_COUNTER(numSucceeded);
   UPDATE_COUNTER(numAborted);
   UPDATE_COUNTER(numFailures);
   UPDATE_COUNTER(queueTimeUs);

@@ -467,12 +467,14 @@ void verifyArbitratorStats(
     uint64_t maxCapacityBytes,
     uint64_t freeCapacityBytes = 0,
     uint64_t numRequests = 0,
+    uint64_t numSucceeded = 0,
     uint64_t numFailures = 0,
     uint64_t numReclaimedBytes = 0,
     uint64_t numShrunkBytes = 0,
     uint64_t arbitrationTimeUs = 0,
     uint64_t queueTimeUs = 0) {
   ASSERT_EQ(stats.numRequests, numRequests);
+  ASSERT_EQ(stats.numSucceeded, numSucceeded);
   ASSERT_EQ(stats.numFailures, numFailures);
   ASSERT_EQ(stats.numReclaimedBytes, numReclaimedBytes);
   ASSERT_EQ(stats.numShrunkBytes, numShrunkBytes);
@@ -556,6 +558,7 @@ TEST_F(MockSharedArbitrationTest, singlePoolGrowWithoutArbitration) {
       arbitrator_->stats(),
       kMemoryCapacity,
       0,
+      (kMemoryCapacity - kMemoryPoolInitCapacity) / kMemoryPoolTransferCapacity,
       (kMemoryCapacity - kMemoryPoolInitCapacity) /
           kMemoryPoolTransferCapacity);
 
@@ -570,6 +573,7 @@ TEST_F(MockSharedArbitrationTest, singlePoolGrowWithoutArbitration) {
       arbitrator_->stats(),
       kMemoryCapacity,
       kMemoryCapacity,
+      (kMemoryCapacity - kMemoryPoolInitCapacity) / kMemoryPoolTransferCapacity,
       (kMemoryCapacity - kMemoryPoolInitCapacity) /
           kMemoryPoolTransferCapacity);
 }
@@ -824,7 +828,7 @@ TEST_F(MockSharedArbitrationTest, failedArbitration) {
   verifyReclaimerStats(reclaimableOp->reclaimer()->stats(), 1);
   verifyReclaimerStats(arbitrateOp->reclaimer()->stats(), 1, 1);
   verifyArbitratorStats(
-      arbitrator_->stats(), memCapacity, 260046848, 1, 1, 8388608, 8388608);
+      arbitrator_->stats(), memCapacity, 260046848, 1, 0, 1, 8388608, 8388608);
   ASSERT_EQ(arbitrator_->stats().queueTimeUs, 0);
 }
 
@@ -838,12 +842,13 @@ TEST_F(MockSharedArbitrationTest, singlePoolGrowCapacityWithArbitration) {
     while (op->pool()->currentBytes() < kMemoryCapacity) {
       op->allocate(allocateSize);
     }
-    verifyArbitratorStats(arbitrator_->stats(), kMemoryCapacity, 0, 62);
+    verifyArbitratorStats(arbitrator_->stats(), kMemoryCapacity, 0, 62, 62);
     verifyReclaimerStats(op->reclaimer()->stats(), 0, 62);
 
     if (!isLeafReclaimable) {
       ASSERT_ANY_THROW(op->allocate(allocateSize));
-      verifyArbitratorStats(arbitrator_->stats(), kMemoryCapacity, 0, 63, 1);
+      verifyArbitratorStats(
+          arbitrator_->stats(), kMemoryCapacity, 0, 63, 62, 1);
       verifyReclaimerStats(op->reclaimer()->stats(), 1, 63);
       continue;
     }
@@ -853,12 +858,18 @@ TEST_F(MockSharedArbitrationTest, singlePoolGrowCapacityWithArbitration) {
       op->allocate(allocateSize);
     }
     verifyArbitratorStats(
-        arbitrator_->stats(), kMemoryCapacity, 0, 63, 0, 8388608);
+        arbitrator_->stats(), kMemoryCapacity, 0, 63, 63, 0, 8388608);
     verifyReclaimerStats(op->reclaimer()->stats(), 1, 63);
 
     clearTasks();
     verifyArbitratorStats(
-        arbitrator_->stats(), kMemoryCapacity, kMemoryCapacity, 63, 0, 8388608);
+        arbitrator_->stats(),
+        kMemoryCapacity,
+        kMemoryCapacity,
+        63,
+        63,
+        0,
+        8388608);
   }
 }
 
@@ -918,7 +929,7 @@ TEST_F(MockSharedArbitrationTest, arbitrateWithMemoryReclaim) {
     arbitrateOp->allocate(allocateSize);
 
     verifyArbitratorStats(
-        arbitrator_->stats(), memoryCapacity, 0, 32, 0, 8388608);
+        arbitrator_->stats(), memoryCapacity, 0, 32, 32, 0, 8388608);
 
     verifyReclaimerStats(
         arbitrateOp->reclaimer()->stats(), 0, 1, kMemoryPoolTransferCapacity);
@@ -1094,7 +1105,11 @@ TEST_F(MockSharedArbitrationTest, poolCapacityTransferWithFreeCapacity) {
   verifyReclaimerStats(
       memOp->reclaimer()->stats(), 0, expectedArbitrationRequests);
   verifyArbitratorStats(
-      arbitrator_->stats(), memCapacity, 0, expectedArbitrationRequests);
+      arbitrator_->stats(),
+      memCapacity,
+      0,
+      expectedArbitrationRequests,
+      expectedArbitrationRequests);
   ASSERT_EQ(arbitrator_->stats().queueTimeUs, 0);
 }
 

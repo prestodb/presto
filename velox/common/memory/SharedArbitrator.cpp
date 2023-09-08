@@ -210,6 +210,7 @@ bool SharedArbitrator::growMemory(
     // Get refreshed stats before the memory arbitration retry.
     candidates = getCandidateStats(candidatePools);
     if (arbitrateMemory(requestor, candidates, targetBytes)) {
+      ++numSucceeded_;
       return true;
     }
     if (numRetries > 0) {
@@ -469,6 +470,7 @@ MemoryArbitrator::Stats SharedArbitrator::stats() const {
 MemoryArbitrator::Stats SharedArbitrator::statsLocked() const {
   Stats stats;
   stats.numRequests = numRequests_;
+  stats.numSucceeded = numSucceeded_;
   stats.numAborted = numAborted_;
   stats.numFailures = numFailures_;
   stats.queueTimeUs = queueTimeUs_;

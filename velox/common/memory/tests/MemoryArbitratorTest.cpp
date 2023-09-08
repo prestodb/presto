@@ -46,7 +46,7 @@ TEST_F(MemoryArbitrationTest, stats) {
   stats.numReclaimedBytes = 10'000;
   ASSERT_EQ(
       stats.toString(),
-      "STATS[numRequests 2 numAborted 3 numFailures 100 queueTime 230.00ms arbitrationTime 1.02ms shrunkMemory 95.37MB reclaimedMemory 9.77KB maxCapacity 0B freeCapacity 0B]");
+      "STATS[numRequests 2 numSucceeded 0 numAborted 3 numFailures 100 queueTime 230.00ms arbitrationTime 1.02ms shrunkMemory 95.37MB reclaimedMemory 9.77KB maxCapacity 0B freeCapacity 0B]");
 }
 
 TEST_F(MemoryArbitrationTest, create) {
@@ -118,18 +118,18 @@ TEST_F(MemoryArbitrationTest, queryMemoryCapacity) {
 }
 
 TEST_F(MemoryArbitrationTest, arbitratorStats) {
-  MemoryArbitrator::Stats anchorStats(5, 5, 5, 5, 5, 5, 5, 5, 5);
-  MemoryArbitrator::Stats largeStats(8, 8, 8, 8, 8, 8, 8, 8, 8);
+  const MemoryArbitrator::Stats anchorStats(5, 5, 5, 5, 5, 5, 5, 5, 5, 5);
+  const MemoryArbitrator::Stats largeStats(8, 8, 8, 8, 8, 8, 8, 8, 8, 8);
   ASSERT_TRUE(!(anchorStats == largeStats));
   ASSERT_TRUE(anchorStats != largeStats);
   ASSERT_TRUE(anchorStats < largeStats);
   ASSERT_TRUE(!(anchorStats > largeStats));
   ASSERT_TRUE(anchorStats <= largeStats);
   ASSERT_TRUE(!(anchorStats >= largeStats));
-  auto delta = largeStats - anchorStats;
-  ASSERT_EQ(delta, MemoryArbitrator::Stats(3, 3, 3, 3, 3, 3, 3, 8, 8));
+  const auto delta = largeStats - anchorStats;
+  ASSERT_EQ(delta, MemoryArbitrator::Stats(3, 3, 3, 3, 3, 3, 3, 3, 8, 8));
 
-  MemoryArbitrator::Stats smallStats(2, 2, 2, 2, 2, 2, 2, 2, 2);
+  const MemoryArbitrator::Stats smallStats(2, 2, 2, 2, 2, 2, 2, 2, 2, 2);
   ASSERT_TRUE(!(anchorStats == smallStats));
   ASSERT_TRUE(anchorStats != smallStats);
   ASSERT_TRUE(!(anchorStats < smallStats));
@@ -137,7 +137,7 @@ TEST_F(MemoryArbitrationTest, arbitratorStats) {
   ASSERT_TRUE(!(anchorStats <= smallStats));
   ASSERT_TRUE(anchorStats >= smallStats);
 
-  MemoryArbitrator::Stats invalidStats(2, 2, 2, 2, 2, 8, 8, 8, 8);
+  const MemoryArbitrator::Stats invalidStats(2, 2, 2, 2, 2, 2, 8, 8, 8, 8);
   ASSERT_TRUE(!(anchorStats == invalidStats));
   ASSERT_TRUE(anchorStats != invalidStats);
   ASSERT_THROW(anchorStats < invalidStats, VeloxException);

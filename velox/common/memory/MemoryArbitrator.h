@@ -152,6 +152,8 @@ class MemoryArbitrator {
   struct Stats {
     /// The number of arbitration requests.
     uint64_t numRequests{0};
+    /// The number of succeeded arbitration requests.
+    uint64_t numSucceeded{0};
     /// The number of aborted arbitration requests.
     uint64_t numAborted{0};
     /// The number of arbitration request failures.
@@ -172,6 +174,7 @@ class MemoryArbitrator {
 
     Stats(
         uint64_t _numRequests,
+        uint64_t _numSucceeded,
         uint64_t _numAborted,
         uint64_t _numFailures,
         uint64_t _queueTimeUs,
