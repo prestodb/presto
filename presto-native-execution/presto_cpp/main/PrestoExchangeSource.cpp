@@ -117,7 +117,9 @@ bool PrestoExchangeSource::shouldRequestLocked() {
   return false;
 }
 
-velox::ContinueFuture PrestoExchangeSource::request(uint32_t maxBytes) {
+folly::SemiFuture<PrestoExchangeSource::Response> PrestoExchangeSource::request(
+    uint32_t maxBytes,
+    uint32_t maxWaitSeconds) {
   // Before calling 'request', the caller should have called
   // 'shouldRequestLocked' and received 'true' response. Hence, we expect
   // requestPending_ == true, atEnd_ == false.
@@ -125,8 +127,8 @@ velox::ContinueFuture PrestoExchangeSource::request(uint32_t maxBytes) {
   VELOX_CHECK(requestPending_);
   VELOX_CHECK(!promise_.valid() || promise_.isFulfilled());
 
-  auto [promise, future] =
-      makeVeloxContinuePromiseContract("PrestoExchangeSource::request");
+  auto promise = VeloxPromise<Response>("PrestoExchangeSource::request");
+  auto future = promise.getSemiFuture();
 
   promise_ = std::move(promise);
   failedAttempts_ = 0;
@@ -134,12 +136,15 @@ velox::ContinueFuture PrestoExchangeSource::request(uint32_t maxBytes) {
       RetryState(std::chrono::duration_cast<std::chrono::milliseconds>(
                      SystemConfig::instance()->exchangeMaxErrorDuration())
                      .count());
-  doRequest(retryState_.nextDelayMs(), maxBytes);
+  doRequest(retryState_.nextDelayMs(), maxBytes, maxWaitSeconds);
 
-  return std::move(future);
+  return future;
 }
 
-void PrestoExchangeSource::doRequest(int64_t delayMs, uint32_t maxBytes) {
+void PrestoExchangeSource::doRequest(
+    int64_t delayMs,
+    uint32_t maxBytes,
+    uint32_t maxWaitSeconds) {
   if (closed_.load()) {
     queue_->setError("PrestoExchangeSource closed");
     return;
@@ -154,9 +159,13 @@ void PrestoExchangeSource::doRequest(int64_t delayMs, uint32_t maxBytes) {
       .header(
           protocol::PRESTO_MAX_SIZE_HTTP_HEADER,
           protocol::DataSize(maxBytes, protocol::DataUnit::BYTE).toString())
+      .header(
+          protocol::PRESTO_MAX_WAIT_HTTP_HEADER,
+          protocol::Duration(maxWaitSeconds, protocol::TimeUnit::SECONDS)
+              .toString())
       .send(httpClient_.get(), "", delayMs)
       .via(exchangeExecutor_.get())
-      .thenValue([path, maxBytes, self](
+      .thenValue([path, maxBytes, maxWaitSeconds, self](
                      std::unique_ptr<http::HttpResponse> response) {
         velox::common::testutil::TestValue::adjust(
             "facebook::presto::PrestoExchangeSource::doRequest", self.get());
@@ -170,21 +179,23 @@ void PrestoExchangeSource::doRequest(int64_t delayMs, uint32_t maxBytes) {
           self->processDataError(
               path,
               maxBytes,
+              maxWaitSeconds,
               fmt::format(
                   "Received HTTP {} {} {}",
                   headers->getStatusCode(),
                   headers->getStatusMessage(),
                   bodyAsString(*response, self->pool_.get())));
         } else if (response->hasError()) {
-          self->processDataError(path, maxBytes, response->error(), false);
+          self->processDataError(
+              path, maxBytes, maxWaitSeconds, response->error(), false);
         } else {
           self->processDataResponse(std::move(response));
         }
       })
       .thenError(
           folly::tag_t<std::exception>{},
-          [path, maxBytes, self](const std::exception& e) {
-            self->processDataError(path, maxBytes, e.what());
+          [path, maxBytes, maxWaitSeconds, self](const std::exception& e) {
+            self->processDataError(path, maxBytes, maxWaitSeconds, e.what());
           });
 };
 
@@ -222,11 +233,11 @@ void PrestoExchangeSource::processDataResponse(
                .c_str());
 
   std::unique_ptr<exec::SerializedPage> page;
-  std::unique_ptr<folly::IOBuf> singleChain;
   const bool empty = response->empty();
-  int64_t totalBytes{0};
   if (!empty) {
     auto iobufs = response->consumeBody();
+    int64_t totalBytes{0};
+    std::unique_ptr<folly::IOBuf> singleChain;
     for (auto& buf : iobufs) {
       totalBytes += buf->capacity();
       if (!singleChain) {
@@ -252,18 +263,21 @@ void PrestoExchangeSource::processDataResponse(
         });
   }
 
+  const int64_t pageSize = empty ? 0 : page->size();
+
   REPORT_ADD_HISTOGRAM_VALUE(
-      kCounterPrestoExchangeSerializedPageSize, page ? page->size() : 0);
+      kCounterPrestoExchangeSerializedPageSize, pageSize);
 
   {
-    ContinuePromise requestPromise;
+    VeloxPromise<Response> requestPromise;
     std::vector<ContinuePromise> queuePromises;
     {
       std::lock_guard<std::mutex> l(queue_->mutex());
       if (page) {
         VLOG(1) << "Enqueuing page for " << basePath_ << "/" << sequence_
-                << ": " << page->size() << " bytes";
+                << ": " << pageSize << " bytes";
         ++numPages_;
+        totalBytes_ += pageSize;
         queue_->enqueueLocked(std::move(page), queuePromises);
       }
       if (complete) {
@@ -281,7 +295,7 @@ void PrestoExchangeSource::processDataResponse(
     }
 
     if (requestPromise.valid() && !requestPromise.isFulfilled()) {
-      requestPromise.setValue();
+      requestPromise.setValue(Response{pageSize, complete});
     } else {
       // The source must have been closed.
       VELOX_CHECK(closed_.load());
@@ -299,6 +313,7 @@ void PrestoExchangeSource::processDataResponse(
 void PrestoExchangeSource::processDataError(
     const std::string& path,
     uint32_t maxBytes,
+    uint32_t maxWaitSeconds,
     const std::string& error,
     bool retry) {
   ++failedAttempts_;
@@ -306,7 +321,7 @@ void PrestoExchangeSource::processDataError(
     VLOG(1) << "Failed to fetch data from " << host_ << ":" << port_ << " "
             << path << " - Retrying: " << error;
 
-    doRequest(retryState_.nextDelayMs(), maxBytes);
+    doRequest(retryState_.nextDelayMs(), maxBytes, maxWaitSeconds);
     return;
   }
 
@@ -326,13 +341,13 @@ void PrestoExchangeSource::processDataError(
 }
 
 bool PrestoExchangeSource::checkSetRequestPromise() {
-  ContinuePromise promise;
+  VeloxPromise<Response> promise;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
     promise = std::move(promise_);
   }
   if (promise.valid() && !promise.isFulfilled()) {
-    promise.setValue();
+    promise.setValue(Response{0, false});
     return true;
   }
 
