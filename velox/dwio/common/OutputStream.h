@@ -53,7 +53,7 @@ class BufferedOutputStream : public google::protobuf::io::ZeroCopyOutputStream {
 
   bool WriteAliasedRaw(const void* /* unused */, int32_t /* unused */)
       override {
-    DWIO_RAISE("WriteAliasedRaw is not supported");
+    VELOX_NYI("WriteAliasedRaw is not supported");
     return false;
   }
 
@@ -61,8 +61,8 @@ class BufferedOutputStream : public google::protobuf::io::ZeroCopyOutputStream {
     return false;
   }
 
-  // Similar to Next(data, size), but in addition, allows callers to specify
-  // expected increment so buffer allocation is more efficient
+  /// Similar to Next(data, size), but in addition, allows callers to specify
+  /// expected increment so buffer allocation is more efficient
   virtual bool Next(void** data, int32_t* size, uint64_t increment);
 
   virtual uint64_t flush();
@@ -82,16 +82,13 @@ class BufferedOutputStream : public google::protobuf::io::ZeroCopyOutputStream {
       int32_t bufferOffset,
       int32_t strideIndex = -1) const {
     auto streamSize = size();
-    if (streamSize) {
+    if (streamSize > 0) {
       streamSize -= (bufferLength - bufferOffset);
     }
     recorder.add(streamSize, strideIndex);
   }
 
  protected:
-  DataBufferHolder& bufferHolder_;
-  dwio::common::DataBuffer<char> buffer_;
-
   // try increase buffer size, and then assign to output buffer/size. Returns
   // false if buffer size remained the same
   bool tryResize(
@@ -103,7 +100,7 @@ class BufferedOutputStream : public google::protobuf::io::ZeroCopyOutputStream {
     if (bufferHolder_.tryResize(buffer_, headerSize, increment)) {
       // if original buffer is empty. need to adjust buffer position/size to
       // accommodate header
-      if (UNLIKELY(!origSize && headerSize)) {
+      if (FOLLY_UNLIKELY(!origSize && headerSize)) {
         origSize = headerSize;
       }
       *buffer = buffer_.data() + origSize;
@@ -124,42 +121,45 @@ class BufferedOutputStream : public google::protobuf::io::ZeroCopyOutputStream {
     *buffer = buffer_.data() + headerSize;
     *size = static_cast<int32_t>(buffer_.size() - headerSize);
   }
+
+  DataBufferHolder& bufferHolder_;
+  dwio::common::DataBuffer<char> buffer_;
 };
 
 /**
- * An append only buffered stream that allows
- * buffer, and flushing to OutputStream.
- * By extending Google's class, we get the ability to pass it directly
- * to the protobuf writers.
+ * An append only buffered stream that allows buffer, and flushing to
+ * OutputStream. By extending Google's class, we get the ability to pass it
+ * directly to the protobuf writers.
  */
 class AppendOnlyBufferedStream {
- private:
-  std::unique_ptr<BufferedOutputStream> outStream_;
-  char* buffer_{nullptr};
-  int32_t bufferLength_{0};
-  int32_t bufferOffset_{0};
-
  public:
   explicit AppendOnlyBufferedStream(
       std::unique_ptr<BufferedOutputStream> outStream)
       : outStream_(std::move(outStream)) {
-    DWIO_ENSURE_NOT_NULL(outStream_);
+    VELOX_CHECK_NOT_NULL(outStream_);
   }
 
   void write(const char* data, size_t size);
+
   uint64_t flush();
 
   uint64_t size() const {
     // size of written content, not size of allocated. So need to subtract size
     // that is not in use
-    return outStream_->size() - bufferLength_ + bufferOffset_;
+    return outStream_->size() - (bufferLength_ - bufferOffset_);
   }
 
-  void recordPosition(PositionRecorder& recorder, int32_t strideOffset = -1)
+  void recordPosition(PositionRecorder& recorder, int32_t strideIndex = -1)
       const {
     outStream_->recordPosition(
-        recorder, bufferLength_, bufferOffset_, strideOffset);
+        recorder, bufferLength_, bufferOffset_, strideIndex);
   }
+
+ private:
+  std::unique_ptr<BufferedOutputStream> outStream_;
+  char* buffer_{nullptr};
+  int32_t bufferLength_{0};
+  int32_t bufferOffset_{0};
 };
 
 } // namespace facebook::velox::dwio::common

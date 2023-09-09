@@ -15,18 +15,18 @@
  */
 
 #include <gtest/gtest.h>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/common/DataBufferHolder.h"
 
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::memory;
+using facebook::velox::VeloxException;
 
 TEST(DataBufferHolderTests, InputCheck) {
   auto pool = addDefaultLeafMemoryPool();
-  ASSERT_THROW((DataBufferHolder{*pool, 0}), exception::LoggedException);
-  ASSERT_THROW(
-      (DataBufferHolder{*pool, 1024, 2048}), exception::LoggedException);
-  ASSERT_THROW(
-      (DataBufferHolder{*pool, 1024, 1024, 1.1f}), exception::LoggedException);
+  VELOX_ASSERT_THROW((DataBufferHolder{*pool, 0}), "");
+  VELOX_ASSERT_THROW((DataBufferHolder{*pool, 1024, 2048}), "");
+  VELOX_ASSERT_THROW((DataBufferHolder{*pool, 1024, 1024, 1.1f}), "");
 
   { DataBufferHolder holder{*pool, 1024}; }
   { DataBufferHolder holder{*pool, 1024, 512}; }

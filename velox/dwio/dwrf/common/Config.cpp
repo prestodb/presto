@@ -57,7 +57,7 @@ Config::Entry<bool> Config::CREATE_INDEX{"hive.exec.orc.create.index", true};
 
 Config::Entry<uint32_t> Config::ROW_INDEX_STRIDE{
     "hive.exec.orc.row.index.stride",
-    10000};
+    10'000};
 
 Config::Entry<proto::ChecksumAlgorithm> Config::CHECKSUM_ALGORITHM{
     "orc.checksum.algorithm",

@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_dwio_dwrf_utils_test ProtoUtilsTests.cpp
-                                          BitIteratorTests.cpp)
+add_executable(velox_dwio_dwrf_utils_test
+               ProtoUtilsTests.cpp BitIteratorTests.cpp BufferedWriterTest.cpp)
 
 add_test(velox_dwio_dwrf_utils_test velox_dwio_dwrf_utils_test)
 

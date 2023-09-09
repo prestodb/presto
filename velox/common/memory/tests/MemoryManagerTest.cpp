@@ -38,7 +38,6 @@ MemoryManager& toMemoryManager(MemoryManager& manager) {
 } // namespace
 
 class MemoryManagerTest : public testing::Test {
- public:
  protected:
   static void SetUpTestCase() {
     MemoryArbitrator::registerAllFactories();

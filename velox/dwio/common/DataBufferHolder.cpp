@@ -15,8 +15,41 @@
  */
 
 #include "velox/dwio/common/DataBufferHolder.h"
+#include "velox/common/testutil/TestValue.h"
+
+using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::dwio::common {
+
+void DataBufferHolder::take(const std::vector<folly::StringPiece>& buffers) {
+  // compute size
+  uint64_t totalSize = 0;
+  for (auto& buf : buffers) {
+    totalSize += buf.size();
+  }
+  if (totalSize == 0) {
+    return;
+  }
+
+  TestValue::adjust(
+      "facebook::velox::dwio::common::DataBufferHolder::take", pool_);
+
+  dwio::common::DataBuffer<char> buf(*pool_, totalSize);
+  auto* data = buf.data();
+  for (auto& buffer : buffers) {
+    const auto size = buffer.size();
+    ::memcpy(data, buffer.begin(), size);
+    data += size;
+  }
+  // If possibly, write content of the data to output immediately. Otherwise,
+  // make a copy and add it to buffer list
+  if (sink_ != nullptr) {
+    sink_->write(std::move(buf));
+  } else {
+    buffers_.push_back(std::move(buf));
+  }
+  size_ += totalSize;
+}
 
 bool DataBufferHolder::tryResize(
     dwio::common::DataBuffer<char>& buffer,
@@ -27,11 +60,11 @@ bool DataBufferHolder::tryResize(
   if (FOLLY_LIKELY(size >= headerSize)) {
     size -= headerSize;
   } else {
-    DWIO_ENSURE_EQ(size, 0);
+    VELOX_CHECK_EQ(size, 0);
   }
 
-  DWIO_ENSURE_LE(size, maxSize_);
-  // If already at max size, return
+  VELOX_CHECK_LE(size, maxSize_);
+  // If already at max size, return.
   if (size == maxSize_) {
     return false;
   }

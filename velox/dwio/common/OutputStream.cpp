@@ -33,13 +33,13 @@ bool BufferedOutputStream::Next(
 void BufferedOutputStream::BackUp(int32_t count) {
   if (count > 0) {
     uint64_t unsignedCount = static_cast<uint64_t>(count);
-    DWIO_ENSURE_LE(unsignedCount, buffer_.size(), "Can't backup that much!");
+    VELOX_CHECK_LE(unsignedCount, buffer_.size(), "Can't backup that much!");
     buffer_.resize(buffer_.size() - unsignedCount);
   }
 }
 
 uint64_t BufferedOutputStream::flush() {
-  uint64_t dataSize = buffer_.size();
+  const uint64_t dataSize = buffer_.size();
   if (dataSize > 0) {
     bufferHolder_.take(folly::Range(buffer_.data(), buffer_.size()));
     // resize to 0 is needed to make sure size() returns correct value
@@ -50,16 +50,16 @@ uint64_t BufferedOutputStream::flush() {
 
 void AppendOnlyBufferedStream::write(const char* data, size_t size) {
   while (size > 0) {
-    if (UNLIKELY(bufferOffset_ == bufferLength_)) {
-      DWIO_ENSURE(
+    if (FOLLY_UNLIKELY(bufferOffset_ == bufferLength_)) {
+      VELOX_CHECK(
           outStream_->Next(
               reinterpret_cast<void**>(&buffer_), &bufferLength_, size),
           "Failed to allocate buffer.");
       bufferOffset_ = 0;
     }
-    size_t len =
+    const size_t len =
         std::min(static_cast<size_t>(bufferLength_ - bufferOffset_), size);
-    std::memcpy(buffer_ + bufferOffset_, data, len);
+    ::memcpy(buffer_ + bufferOffset_, data, len);
     bufferOffset_ += static_cast<int32_t>(len);
     data += len;
     size -= len;
@@ -68,7 +68,8 @@ void AppendOnlyBufferedStream::write(const char* data, size_t size) {
 
 uint64_t AppendOnlyBufferedStream::flush() {
   outStream_->BackUp(bufferLength_ - bufferOffset_);
-  bufferOffset_ = bufferLength_ = 0;
+  bufferOffset_ = 0;
+  bufferLength_ = 0;
   buffer_ = nullptr;
   return outStream_->flush();
 }

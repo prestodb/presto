@@ -40,39 +40,14 @@ class DataBufferHolder {
         maxSize_{maxSize},
         initialSize_{(initialSize > 0) ? initialSize : maxSize},
         growRatio_{growRatio} {
-    DWIO_ENSURE_GT(initialSize_, 0);
-    DWIO_ENSURE_LE(initialSize_, maxSize_);
-    DWIO_ENSURE_GE(growRatio_, MIN_PAGE_GROW_RATIO);
+    VELOX_CHECK_GT(initialSize_, 0);
+    VELOX_CHECK_LE(initialSize_, maxSize_);
+    VELOX_CHECK_GE(growRatio_, MIN_PAGE_GROW_RATIO);
   }
 
   /// Takes content of the incoming data buffer. It is the caller's
   /// responsibility to resize the buffer (if required).
-  void take(const std::vector<folly::StringPiece>& buffers) {
-    // compute size
-    uint64_t totalSize = 0;
-    for (auto& buf : buffers) {
-      totalSize += buf.size();
-    }
-    if (totalSize == 0) {
-      return;
-    }
-
-    dwio::common::DataBuffer<char> buf(*pool_, totalSize);
-    auto* data = buf.data();
-    for (auto& buffer : buffers) {
-      const auto size = buffer.size();
-      std::memcpy(data, buffer.begin(), size);
-      data += size;
-    }
-    // If possibly, write content of the data to output immediately. Otherwise,
-    // make a copy and add it to buffer list
-    if (sink_ != nullptr) {
-      sink_->write(std::move(buf));
-    } else {
-      buffers_.push_back(std::move(buf));
-    }
-    size_ += totalSize;
-  }
+  void take(const std::vector<folly::StringPiece>& buffers);
 
   void take(folly::StringPiece buffer) {
     take(std::vector<folly::StringPiece>{buffer});
@@ -87,8 +62,8 @@ class DataBufferHolder {
   }
 
   void truncate(size_t newSize) {
-    DWIO_ENSURE_LE(newSize, size_);
-    DWIO_ENSURE(sink_ == nullptr, "Only non sink buffers can be truncated");
+    VELOX_CHECK_LE(newSize, size_);
+    VELOX_CHECK_NULL(sink_, "Only non sink buffers can be truncated");
 
     size_t newCount = 0;
     size_t sizeRemaining = newSize;
@@ -110,18 +85,17 @@ class DataBufferHolder {
     size_ = newSize;
   }
 
-  // Spill buffered data to another data buffer
+  /// Spill buffered data to another data buffer
   void spill(dwio::common::DataBuffer<char>& out) const {
-    DWIO_ENSURE(!sink_);
+    VELOX_CHECK_NULL(sink_);
     out.resize(size_);
     size_t offset = 0;
-    auto data = out.data();
-    for (auto& buf : buffers_) {
-      std::memcpy(data + offset, buf.data(), buf.size());
+    auto* const data = out.data();
+    for (const auto& buf : buffers_) {
+      ::memcpy(data + offset, buf.data(), buf.size());
       offset += buf.size();
     }
   }
-
   void reset() {
     buffers_.clear();
     size_ = 0;
@@ -165,8 +139,8 @@ class DataBufferHolder {
   const uint64_t maxSize_;
 
   // members used for controlling allocated buffer size
-  uint64_t initialSize_;
-  float growRatio_;
+  const uint64_t initialSize_;
+  const float growRatio_;
 
   // state
   uint64_t size_{0};

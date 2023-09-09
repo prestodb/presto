@@ -442,7 +442,7 @@ std::unique_ptr<BufferedOutputStream> createCompressor(
     uint8_t pageHeaderSize,
     const Encrypter* encrypter) {
   std::unique_ptr<Compressor> compressor;
-  switch (static_cast<int64_t>(kind)) {
+  switch (kind) {
     case CompressionKind::CompressionKind_NONE:
       if (!encrypter) {
         return std::make_unique<BufferedOutputStream>(bufferHolder);

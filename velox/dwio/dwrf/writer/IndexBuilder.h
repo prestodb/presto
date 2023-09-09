@@ -52,8 +52,8 @@ class IndexBuilder : public PositionRecorder {
   }
 
   virtual size_t getEntrySize() const {
-    int32_t size = index_.entry_size() + 1;
-    DWIO_ENSURE_GT(size, 0, "Invalid entry size or missing current entry.");
+    const int32_t size = index_.entry_size() + 1;
+    VELOX_CHECK_GT(size, 0, "Invalid entry size or missing current entry.");
     return size;
   }
 
@@ -92,12 +92,12 @@ class IndexBuilder : public PositionRecorder {
     } else if (index < index_.entry_size()) {
       return index_.mutable_entry(index);
     } else {
-      DWIO_ENSURE_EQ(index, index_.entry_size());
+      VELOX_CHECK_EQ(index, index_.entry_size());
       return &entry_;
     }
   }
 
-  std::unique_ptr<BufferedOutputStream> out_;
+  const std::unique_ptr<BufferedOutputStream> out_;
   proto::RowIndex index_;
   proto::RowIndexEntry entry_;
   std::optional<int32_t> presentStreamOffset_;

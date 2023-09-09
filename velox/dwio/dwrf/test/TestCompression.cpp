@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/common/base/VeloxException.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/common/encryption/TestProvider.h"
 #include "velox/dwio/dwrf/common/Compression.h"
@@ -33,6 +34,7 @@ using namespace facebook::velox::dwio::common::encryption;
 using namespace facebook::velox::dwio::common::encryption::test;
 using namespace facebook::velox::dwrf;
 using namespace facebook::velox::memory;
+using facebook::velox::VeloxException;
 
 const int32_t DEFAULT_MEM_STREAM_SIZE = 1024 * 1024 * 2; // 2M
 
@@ -44,10 +46,13 @@ class TestBufferPool : public CompressionBufferPool {
             blockSize + PAGE_HEADER_SIZE)} {}
 
   std::unique_ptr<DataBuffer<char>> getBuffer(uint64_t /* unused */) override {
+    VELOX_CHECK_NOT_NULL(buffer_);
     return std::move(buffer_);
   }
 
   void returnBuffer(std::unique_ptr<DataBuffer<char>> buffer) override {
+    VELOX_CHECK_NULL(buffer_);
+    VELOX_CHECK_NOT_NULL(buffer);
     buffer_ = std::move(buffer);
   }
 
@@ -372,6 +377,69 @@ TEST_P(RecordPositionTest, testRecordPosition) {
   EXPECT_EQ(pos.size(), 2);
   EXPECT_EQ(pos.at(0), stream->size());
   EXPECT_EQ(pos.at(1), 100);
+}
+
+TEST_P(CompressionTest, getCompressionBufferOOM) {
+  auto pool = addDefaultLeafMemoryPool();
+  MemorySink memSink(10L << 20, {.pool = pool.get()});
+  const uint64_t compressBlockSize{2L << 20};
+
+  struct {
+    bool oomOnNextCall;
+    bool hasSink;
+
+    std::string debugString() const {
+      return fmt::format("oomOnNextCall:{} hasSink:{}", oomOnNextCall, hasSink);
+    }
+  } testSettings[] = {
+      {true, true}, {true, false}, {false, true}, {false, false}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(
+        fmt::format("{} compression {}", testData.debugString(), kind_));
+
+    auto config = std::make_shared<Config>();
+    config->set<CompressionKind>(Config::COMPRESSION, kind_);
+    config->set<uint32_t>(Config::COMPRESSION_THRESHOLD, compressBlockSize / 2);
+    config->set<uint64_t>(Config::COMPRESSION_BLOCK_SIZE, compressBlockSize);
+    WriterContext context{
+        config,
+        defaultMemoryManager().addRootPool(
+            "oomOnCompression",
+            kind_ == facebook::velox::common::CompressionKind_NONE ? 3L << 20
+                                                                   : 6L << 20)};
+    DataBufferHolder holder{
+        context.getMemoryPool(MemoryUsageCategory::OUTPUT_STREAM),
+        context.compressionBlockSize(),
+        context.getConfigs().get(Config::COMPRESSION_BLOCK_SIZE_MIN),
+        context.getConfigs().get(Config::COMPRESSION_BLOCK_SIZE_EXTEND_RATIO),
+        testData.hasSink ? &memSink : nullptr};
+
+    std::unique_ptr<BufferedOutputStream> compressStream = createCompressor(
+        kind_, context, holder, context.getConfigs(), encrypter_);
+    void* buffer;
+    int32_t nextBufferSize;
+    ASSERT_TRUE(
+        compressStream->Next(&buffer, &nextBufferSize, compressBlockSize));
+    char* data = static_cast<char*>(buffer);
+    for (int i = 0; i < compressBlockSize; ++i) {
+      data[i] = folly::Random::rand32() % 256;
+    }
+    if (testData.oomOnNextCall) {
+      VELOX_ASSERT_THROW(
+          compressStream->Next(&buffer, &nextBufferSize, compressBlockSize),
+          "Exceeded memory pool cap");
+    } else {
+      VELOX_ASSERT_THROW(compressStream->flush(), "Exceeded memory pool cap");
+    }
+    if (kind_ != facebook::velox::common::CompressionKind_NONE) {
+      auto compressionBuffer = context.getBuffer(0);
+      ASSERT_TRUE(compressionBuffer != nullptr);
+      context.returnBuffer(std::move(compressionBuffer));
+    } else {
+      ASSERT_TRUE(context.testingCompressionBuffer() == nullptr);
+    }
+  }
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(

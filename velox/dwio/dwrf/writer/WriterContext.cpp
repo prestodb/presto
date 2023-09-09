@@ -20,21 +20,20 @@ namespace facebook::velox::dwrf {
 namespace {
 constexpr uint32_t MIN_INDEX_STRIDE = 1000;
 }
-
 void WriterContext::validateConfigs() const {
   // the writer is implemented with strong assumption that index is enabled.
   // Things like dictionary encoding will fail if not. Before we clean that up,
   // always require index to be enabled.
-  DWIO_ENSURE(indexEnabled(), "index is required");
+  VELOX_CHECK(indexEnabled(), "index is required");
   if (indexEnabled()) {
-    DWIO_ENSURE_GE(indexStride_, MIN_INDEX_STRIDE);
+    VELOX_CHECK_GE(indexStride_, MIN_INDEX_STRIDE);
     // Java works with signed integer and setting anything above the int32_max
     // will make the java reader fail.
-    DWIO_ENSURE_LE(indexStride_, INT32_MAX);
+    VELOX_CHECK_LE(indexStride_, INT32_MAX);
   }
-  DWIO_ENSURE_GE(
+  VELOX_CHECK_GE(
       compressionBlockSize_, getConfig(Config::COMPRESSION_BLOCK_SIZE_MIN));
-  DWIO_ENSURE_GE(
+  VELOX_CHECK_GE(
       getConfig(Config::COMPRESSION_BLOCK_SIZE_EXTEND_RATIO),
       dwio::common::MIN_PAGE_GROW_RATIO);
 }

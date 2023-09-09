@@ -28,14 +28,16 @@ class PagedOutputStream : public BufferedOutputStream {
       uint32_t compressionThreshold,
       uint8_t pageHeaderSize,
       std::unique_ptr<Compressor> compressor,
-      const dwio::common::encryption::Encrypter* encrypter)
+      const dwio::common::encryption::Encrypter* encryptor)
       : BufferedOutputStream(bufferHolder),
-        pool_{pool},
+        pool_{&pool},
         compressor_{std::move(compressor)},
-        encrypter_{encrypter},
+        encryptor_{encryptor},
         threshold_{compressionThreshold},
         pageHeaderSize_{pageHeaderSize} {
-    DWIO_ENSURE(compressor_ || encrypter_, "invalid paged output stream");
+    VELOX_CHECK(
+        compressor_ || encryptor_,
+        "Neither compressor or encryptor is set for paged output stream");
   }
 
   bool Next(void** data, int32_t* size, uint64_t increment) override;
@@ -57,10 +59,10 @@ class PagedOutputStream : public BufferedOutputStream {
       PositionRecorder& recorder,
       int32_t bufferLength,
       int32_t bufferOffset,
-      int32_t strideOffset = -1) const override;
+      int32_t strideIndex = -1) const override;
 
  private:
-  // create page using compressor and encrypter
+  // create page using compressor and encryptor
   std::vector<folly::StringPiece> createPage();
 
   void writeHeader(char* buffer, size_t compressedSize, bool original);
@@ -69,23 +71,23 @@ class PagedOutputStream : public BufferedOutputStream {
 
   void resetBuffers();
 
-  CompressionBufferPool& pool_;
+  CompressionBufferPool* const pool_;
 
-  std::unique_ptr<Compressor> compressor_;
+  const std::unique_ptr<Compressor> compressor_;
+
+  // Encryption provider
+  const dwio::common::encryption::Encrypter* const encryptor_;
+
+  // threshold below which, we skip compression
+  const uint32_t threshold_;
+
+  const uint8_t pageHeaderSize_;
 
   // Buffer to hold compressed data
   std::unique_ptr<dwio::common::DataBuffer<char>> compressionBuffer_{nullptr};
 
   // buffer that holds encrypted data
   std::unique_ptr<folly::IOBuf> encryptionBuffer_{nullptr};
-
-  // Encryption provider
-  const dwio::common::encryption::Encrypter* encrypter_;
-
-  // threshold below which, we skip compression
-  uint32_t threshold_;
-
-  uint8_t pageHeaderSize_;
 };
 
 } // namespace facebook::velox::dwio::common::compression

@@ -1259,7 +1259,8 @@ void StringColumnWriter::populateDictionaryEncodingStreams() {
                 ++strideDictSize;
               }
             }
-            DWIO_ENSURE_EQ(strideDictSize, strideDictKeyCount);
+            inDictWriter.close();
+            VELOX_CHECK_EQ(strideDictSize, strideDictKeyCount);
           }
 
           // StrideDictKey can be empty, when all keys for stride are in
@@ -1272,11 +1273,13 @@ void StringColumnWriter::populateDictionaryEncodingStreams() {
                   strideDictionaryDataLength_->add(
                       buf, common::Ranges::of(0, size), nullptr);
                 });
+
             for (size_t i = 0; i < strideDictKeyCount; ++i) {
               auto val = dictEncoder_.getKey(sortedStrideDictKeyIndexBuffer[i]);
               strideDictionaryData_->write(val.data(), val.size());
               strideLengthWriter.add(val.size());
             }
+            strideLengthWriter.close();
           }
         }
 
@@ -1315,11 +1318,13 @@ void StringColumnWriter::convertToDirectEncoding() {
             [&](auto buf, auto size) {
               dataDirectLength_->add(buf, common::Ranges::of(0, size), nullptr);
             });
+
         for (size_t i = start; i != end; ++i) {
           auto key = dictEncoder_.getKey(rows_[i]);
           dataDirect_->write(key.data(), key.size());
           lengthWriter.add(key.size());
         }
+        lengthWriter.close();
       };
 
   populateStrides(
@@ -1372,7 +1377,7 @@ uint64_t FloatColumnWriter<T>::write(
   uint64_t nullCount = 0;
   if (slice->encoding() == VectorEncoding::Simple::FLAT) {
     auto flatVector = slice->asFlatVector<T>();
-    DWIO_ENSURE(flatVector, "unexpected vector type");
+    VELOX_CHECK_NOT_NULL(flatVector, "unexpected vector type");
     writeNulls(slice, ranges);
     auto nulls = slice->rawNulls();
     auto data = flatVector->rawValues();
@@ -1398,6 +1403,7 @@ uint64_t FloatColumnWriter<T>::write(
           processRow(pos);
         }
       }
+      writer.close();
     } else {
       for (auto& pos : ranges) {
         statsBuilder.addValues(data[pos]);
@@ -1420,7 +1426,6 @@ uint64_t FloatColumnWriter<T>::write(
         [&](auto buf, auto size) {
           data_.write(reinterpret_cast<const char*>(buf), size * sizeof(T));
         });
-
     auto processRow = [&](size_t pos) {
       auto val = decodedVector.template valueAt<T>(pos);
       writer.add(val);
@@ -1440,6 +1445,7 @@ uint64_t FloatColumnWriter<T>::write(
         processRow(pos);
       }
     }
+    writer.close();
   }
 
   uint64_t rawSize = (ranges.size() - nullCount) * sizeof(T);

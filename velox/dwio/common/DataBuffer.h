@@ -98,11 +98,11 @@ class DataBuffer {
   void reserve(uint64_t capacity) {
     if (capacity <= capacity_) {
       // After resetting the buffer, capacity always resets to zero.
-      DWIO_ENSURE_NOT_NULL(buf_);
+      VELOX_CHECK_NOT_NULL(buf_);
       return;
     }
     if (veloxRef_ != nullptr) {
-      DWIO_RAISE("Can't reserve on a referenced buffer");
+      VELOX_FAIL("Can't reserve on a referenced buffer");
     }
     const auto newSize = sizeInBytes(capacity);
     if (buf_ == nullptr) {
@@ -111,7 +111,7 @@ class DataBuffer {
       buf_ = reinterpret_cast<T*>(
           pool_->reallocate(buf_, sizeInBytes(capacity_), newSize));
     }
-    DWIO_ENSURE(buf_ != nullptr || newSize == 0);
+    VELOX_CHECK(buf_ != nullptr || newSize == 0);
     capacity_ = capacity;
   }
 
