@@ -800,3 +800,25 @@ TEST(HashTableTest, modeString) {
       "Unknown HashTable mode:100",
       BaseHashTable::modeString(static_cast<BaseHashTable::HashMode>(100)));
 }
+
+/// This tests an issue only seen when the number of unique entries
+/// in the HashTable, crosses over int32 limit. The HashTable::loadTag()
+/// offset argument was int32 and for positions greater than int32 max,
+/// it would seg fault.
+TEST_P(HashTableTest, offsetOverflowLoadTags) {
+  GTEST_SKIP() << "Skipping as it takes long time to converge,"
+                  " re-enable to reproduce the issue";
+  if (GetParam() == true) {
+    return;
+  }
+  auto rowType = ROW({"a"}, {BIGINT()});
+  auto table = createHashTableForAggregation(rowType, rowType->size());
+  table->hashMode();
+  auto lookup = std::make_unique<HashLookup>(table->hashers());
+  auto batchSize = 1 << 25;
+  for (auto i = 0; i < 64; ++i) {
+    std::vector<RowVectorPtr> batches;
+    makeRows(batchSize, 1, i * batchSize, rowType, batches);
+    insertGroups(*batches.back(), *lookup, *table);
+  }
+}

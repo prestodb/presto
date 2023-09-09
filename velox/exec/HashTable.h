@@ -280,7 +280,7 @@ class BaseHashTable {
 #endif
 #endif
   static TagVector
-  loadTags(uint8_t* tags, int32_t tagIndex) {
+  loadTags(uint8_t* tags, int64_t tagIndex) {
     // Cannot use xsimd::batch::unaligned here because we need to skip TSAN.
     auto src = tags + tagIndex;
 #if XSIMD_WITH_SSE2
@@ -772,7 +772,7 @@ class HashTable : public BaseHashTable {
   }
 
   // Returns the tag vector for bucket at 'bucketOffset'.
-  TagVector loadTags(int32_t bucketOffset) const {
+  TagVector loadTags(int64_t bucketOffset) const {
     return BaseHashTable::loadTags(
         reinterpret_cast<uint8_t*>(table_), bucketOffset);
   }
