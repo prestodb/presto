@@ -41,8 +41,15 @@ class SelectiveTimestampColumnReader
   void getValues(RowSet rows, VectorPtr* result) override;
 
  private:
-  template <bool dense>
-  void readHelper(RowSet rows);
+  template <bool isDense>
+  void readHelper(common::Filter* filter, RowSet rows);
+
+  void
+  processNulls(const bool isNull, const RowSet rows, const uint64_t* rawNulls);
+  void processFilter(
+      const common::Filter* filter,
+      const RowSet rows,
+      const uint64_t* rawNulls);
 
   std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ true>> seconds_;
   std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> nano_;

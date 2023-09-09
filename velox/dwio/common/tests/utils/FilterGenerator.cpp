@@ -211,12 +211,56 @@ std::unique_ptr<Filter> ColumnStats<StringView>::makeRangeFilter(
 }
 
 template <>
+std::unique_ptr<Filter> ColumnStats<Timestamp>::makeRangeFilter(
+    const FilterSpec& filterSpec) {
+  if (values_.empty()) {
+    return std::make_unique<velox::common::IsNull>();
+  }
+  int32_t lowerIndex;
+  int32_t upperIndex;
+  Timestamp lower = valueAtPct(filterSpec.startPct, &lowerIndex);
+  Timestamp upper =
+      valueAtPct(filterSpec.startPct + filterSpec.selectPct, &upperIndex);
+
+  return std::make_unique<velox::common::TimestampRange>(
+      lower, upper, filterSpec.selectPct > 25);
+}
+
+template <>
 std::unique_ptr<Filter> ColumnStats<StringView>::makeRowGroupSkipRangeFilter(
     const std::vector<RowVectorPtr>& /*batches*/,
     const Subfield& /*subfield*/) {
   static std::string max = kMaxString;
   return std::make_unique<velox::common::BytesRange>(
       max, false, false, max, false, false, false);
+}
+
+template <>
+std::unique_ptr<Filter> ColumnStats<Timestamp>::makeRowGroupSkipRangeFilter(
+    const std::vector<RowVectorPtr>& batches,
+    const Subfield& subfield) {
+  Timestamp max;
+  bool hasMax = false;
+  for (const auto& batch : batches) {
+    auto values = getChildBySubfield(batch.get(), subfield, rootType_)
+                      ->as<SimpleVector<Timestamp>>();
+    DWIO_ENSURE_NOT_NULL(
+        values,
+        "Failed to convert to SimpleVector<Timestamp> for batch of kind ",
+        batch->type()->kindName());
+    for (auto i = 0; i < values->size(); ++i) {
+      if (values->isNullAt(i)) {
+        continue;
+      }
+      if (hasMax && max < values->valueAt(i)) {
+        max = values->valueAt(i);
+      } else if (!hasMax) {
+        max = values->valueAt(i);
+        hasMax = true;
+      }
+    }
+  }
+  return std::make_unique<velox::common::TimestampRange>(max, max, false);
 }
 
 std::string FilterGenerator::specsToString(
@@ -420,6 +464,9 @@ SubfieldFilters FilterGenerator::makeSubfieldFilters(
       case TypeKind::DOUBLE:
         stats = makeStats<TypeKind::DOUBLE>(vector->type(), rowType_);
         break;
+      case TypeKind::TIMESTAMP:
+        stats = makeStats<TypeKind::TIMESTAMP>(vector->type(), rowType_);
+        break;
       case TypeKind::ROW:
         stats = makeStats<TypeKind::ROW>(vector->type(), rowType_);
         break;
@@ -429,8 +476,6 @@ SubfieldFilters FilterGenerator::makeSubfieldFilters(
       case TypeKind::MAP:
         stats = makeStats<TypeKind::MAP>(vector->type(), rowType_);
         break;
-      // TODO:
-      // Add support for TypeKind::TIMESTAMP.
       default:
         VELOX_CHECK(
             false,

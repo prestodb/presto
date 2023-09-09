@@ -64,16 +64,35 @@ void SelectiveTimestampColumnReader::seekToRowGroup(uint32_t index) {
   VELOX_CHECK(!positionsProvider.hasNext());
 }
 
-template <bool dense>
-void SelectiveTimestampColumnReader::readHelper(RowSet rows) {
+void SelectiveTimestampColumnReader::read(
+    vector_size_t offset,
+    RowSet rows,
+    const uint64_t* incomingNulls) {
+  prepareRead<int64_t>(offset, rows, incomingNulls);
+  VELOX_CHECK(
+      !scanSpec_->valueHook(),
+      "Selective reader for TIMESTAMP doesn't support aggregation pushdown yet");
+  bool isDense = rows.back() == rows.size() - 1;
+  if (isDense) {
+    readHelper<true>(scanSpec_->filter(), rows);
+  } else {
+    readHelper<false>(scanSpec_->filter(), rows);
+  }
+  readOffset_ += rows.back() + 1;
+}
+
+template <bool isDense>
+void SelectiveTimestampColumnReader::readHelper(
+    common::Filter* filter,
+    RowSet rows) {
   ExtractToReader extractValues(this);
-  common::AlwaysTrue filter;
+  common::AlwaysTrue alwaysTrue;
   DirectRleColumnVisitor<
       int64_t,
       common::AlwaysTrue,
       decltype(extractValues),
-      dense>
-      visitor(filter, this, rows, extractValues);
+      isDense>
+      visitor(alwaysTrue, this, rows, extractValues);
 
   if (version_ == velox::dwrf::RleVersion_1) {
     decodeWithVisitor<velox::dwrf::RleDecoderV1<true>>(seconds_.get(), visitor);
@@ -98,38 +117,19 @@ void SelectiveTimestampColumnReader::readHelper(RowSet rows) {
   } else {
     decodeWithVisitor<velox::dwrf::RleDecoderV2<false>>(nano_.get(), visitor);
   }
-}
 
-void SelectiveTimestampColumnReader::read(
-    vector_size_t offset,
-    RowSet rows,
-    const uint64_t* incomingNulls) {
-  prepareRead<int64_t>(offset, rows, incomingNulls);
-  VELOX_CHECK(
-      !scanSpec_->filter(),
-      "Selective reader for TIMESTAMP doesn't support filter pushdown yet");
-  VELOX_CHECK(
-      !scanSpec_->valueHook(),
-      "Selective reader for TIMESTAMP doesn't support aggregation pushdown yet");
-  bool isDense = rows.back() == rows.size() - 1;
-  if (isDense) {
-    readHelper<true>(rows);
-  } else {
-    readHelper<false>(rows);
-  }
-  readOffset_ += rows.back() + 1;
-}
+  // Merge the seconds and nanos into 'values_'
+  auto secondsData = secondsValues_->as<int64_t>();
+  auto nanosData = values_->as<uint64_t>();
+  const auto rawNulls = nullsInReadRange_
+      ? (isDense ? nullsInReadRange_->as<uint64_t>() : rawResultNulls_)
+      : nullptr;
+  auto tsValues = AlignedBuffer::allocate<Timestamp>(numValues_, &memoryPool_);
+  auto rawTs = tsValues->asMutable<Timestamp>();
 
-namespace {
-void fillTimestamps(
-    Timestamp* timestamps,
-    const uint64_t* nullsPtr,
-    const int64_t* secondsPtr,
-    const uint64_t* nanosPtr,
-    vector_size_t numValues) {
-  for (vector_size_t i = 0; i < numValues; i++) {
-    if (!nullsPtr || !bits::isBitNull(nullsPtr, i)) {
-      auto nanos = nanosPtr[i];
+  for (vector_size_t i = 0; i < numValues_; i++) {
+    if (!rawNulls || !bits::isBitNull(rawNulls, i)) {
+      auto nanos = nanosData[i];
       uint64_t zeros = nanos & 0x7;
       nanos >>= 3;
       if (zeros != 0) {
@@ -137,30 +137,108 @@ void fillTimestamps(
           nanos *= 10;
         }
       }
-      auto seconds = secondsPtr[i] + EPOCH_OFFSET;
+      auto seconds = secondsData[i] + EPOCH_OFFSET;
       if (seconds < 0 && nanos != 0) {
         seconds -= 1;
       }
-      timestamps[i] = Timestamp(seconds, nanos);
+      rawTs[i] = Timestamp(seconds, nanos);
+    }
+  }
+  values_ = tsValues;
+  rawValues_ = values_->asMutable<char>();
+
+  // Treat the filter as kAlwaysTrue if any of the following conditions are met:
+  // 1) No filter found;
+  // 2) Filter is kIsNotNull but rawNulls==NULL (no elements is null).
+  switch (
+      !filter || (filter->kind() == common::FilterKind::kIsNotNull && !rawNulls)
+          ? common::FilterKind::kAlwaysTrue
+          : filter->kind()) {
+    case common::FilterKind::kAlwaysTrue:
+      // Simply add all rows to output.
+      for (vector_size_t i = 0; i < numValues_; i++) {
+        addOutputRow(rows[i]);
+      }
+      break;
+    case common::FilterKind::kIsNull:
+      processNulls(true, rows, rawNulls);
+      break;
+    case common::FilterKind::kIsNotNull:
+      processNulls(false, rows, rawNulls);
+      break;
+    case common::FilterKind::kTimestampRange:
+    case common::FilterKind::kMultiRange:
+      processFilter(filter, rows, rawNulls);
+      break;
+    default:
+      VELOX_UNSUPPORTED("Unsupported filter.");
+  }
+}
+
+void SelectiveTimestampColumnReader::processNulls(
+    const bool isNull,
+    const RowSet rows,
+    const uint64_t* rawNulls) {
+  if (!rawNulls) {
+    return;
+  }
+  auto rawTs = values_->asMutable<Timestamp>();
+
+  returnReaderNulls_ = false;
+  anyNulls_ = !isNull;
+  allNull_ = isNull;
+  vector_size_t idx = 0;
+  for (vector_size_t i = 0; i < numValues_; i++) {
+    if (isNull) {
+      if (bits::isBitNull(rawNulls, i)) {
+        bits::setNull(rawResultNulls_, idx);
+        addOutputRow(rows[i]);
+        idx++;
+      }
+    } else {
+      if (!bits::isBitNull(rawNulls, i)) {
+        bits::setNull(rawResultNulls_, idx, false);
+        rawTs[idx] = rawTs[i];
+        addOutputRow(rows[i]);
+        idx++;
+      }
     }
   }
 }
 
-} // namespace
+void SelectiveTimestampColumnReader::processFilter(
+    const common::Filter* filter,
+    const RowSet rows,
+    const uint64_t* rawNulls) {
+  auto rawTs = values_->asMutable<Timestamp>();
+
+  returnReaderNulls_ = false;
+  anyNulls_ = false;
+  allNull_ = true;
+  vector_size_t idx = 0;
+  for (vector_size_t i = 0; i < numValues_; i++) {
+    if (rawNulls && bits::isBitNull(rawNulls, i)) {
+      if (filter->testNull()) {
+        bits::setNull(rawResultNulls_, idx);
+        addOutputRow(rows[i]);
+        anyNulls_ = true;
+        idx++;
+      }
+    } else {
+      if (filter->testTimestamp(rawTs[i])) {
+        if (rawNulls) {
+          bits::setNull(rawResultNulls_, idx, false);
+        }
+        rawTs[idx] = rawTs[i];
+        addOutputRow(rows[i]);
+        allNull_ = false;
+        idx++;
+      }
+    }
+  }
+}
 
 void SelectiveTimestampColumnReader::getValues(RowSet rows, VectorPtr* result) {
-  // We merge the seconds and nanos into 'values_'
-  auto tsValues = AlignedBuffer::allocate<Timestamp>(numValues_, &memoryPool_);
-  auto rawTs = tsValues->asMutable<Timestamp>();
-  auto secondsData = secondsValues_->as<int64_t>();
-  auto nanosData = values_->as<uint64_t>();
-  auto rawNulls = nullsInReadRange_
-      ? (returnReaderNulls_ ? nullsInReadRange_->as<uint64_t>()
-                            : rawResultNulls_)
-      : nullptr;
-  fillTimestamps(rawTs, rawNulls, secondsData, nanosData, numValues_);
-  values_ = tsValues;
-  rawValues_ = values_->asMutable<char>();
   getFlatValues<Timestamp, Timestamp>(rows, result, fileType_->type(), true);
 }
 

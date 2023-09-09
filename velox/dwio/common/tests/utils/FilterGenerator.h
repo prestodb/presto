@@ -439,7 +439,16 @@ std::unique_ptr<Filter> ColumnStats<StringView>::makeRangeFilter(
     const FilterSpec& filterSpec);
 
 template <>
+std::unique_ptr<Filter> ColumnStats<Timestamp>::makeRangeFilter(
+    const FilterSpec& filterSpec);
+
+template <>
 std::unique_ptr<Filter> ColumnStats<StringView>::makeRowGroupSkipRangeFilter(
+    const std::vector<RowVectorPtr>& /*batches*/,
+    const Subfield& /*subfield*/);
+
+template <>
+std::unique_ptr<Filter> ColumnStats<Timestamp>::makeRowGroupSkipRangeFilter(
     const std::vector<RowVectorPtr>& /*batches*/,
     const Subfield& /*subfield*/);
 

@@ -1479,6 +1479,15 @@ bool MultiRange::testBytes(const char* value, int32_t length) const {
   return false;
 }
 
+bool MultiRange::testTimestamp(Timestamp timestamp) const {
+  for (const auto& filter : filters_) {
+    if (filter->testTimestamp(timestamp)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool MultiRange::testLength(int32_t length) const {
   for (const auto& filter : filters_) {
     if (filter->testLength(length)) {
