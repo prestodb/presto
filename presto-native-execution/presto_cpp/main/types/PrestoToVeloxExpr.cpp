@@ -537,6 +537,39 @@ TypedExprPtr convertBindExpr(const std::vector<TypedExprPtr>& args) {
       newSignature, lambda->body()->rewriteInputNames(mapping));
 }
 
+velox::ArrayVectorPtr wrapInArray(const velox::VectorPtr& elements) {
+  auto* pool = elements->pool();
+  auto size = elements->size();
+  auto offsets = velox::allocateOffsets(size, pool);
+  auto sizes = velox::allocateSizes(size, pool);
+
+  auto rawSizes = sizes->asMutable<velox::vector_size_t>();
+  rawSizes[0] = size;
+
+  return std::make_shared<velox::ArrayVector>(
+      pool, ARRAY(elements->type()), nullptr, 1, offsets, sizes, elements);
+}
+
+velox::ArrayVectorPtr toArrayOfComplexTypeVector(
+    const velox::TypePtr& elementType,
+    std::vector<TypedExprPtr>::const_iterator begin,
+    std::vector<TypedExprPtr>::const_iterator end,
+    velox::memory::MemoryPool* pool) {
+  const auto size = end - begin;
+  auto elements = velox::BaseVector::create(elementType, size, pool);
+
+  for (auto i = 0; i < size; ++i) {
+    auto constant =
+        dynamic_cast<const ConstantTypedExpr*>((*(begin + i)).get());
+    if (constant == nullptr) {
+      VELOX_UNSUPPORTED("IN predicate supports only constant list of values");
+    }
+    elements->copy(constant->valueVector().get(), i, 0, 1);
+  }
+
+  return wrapInArray(elements);
+}
+
 template <TypeKind KIND>
 velox::ArrayVectorPtr toArrayVector(
     const velox::TypePtr& elementType,
@@ -567,14 +600,7 @@ velox::ArrayVectorPtr toArrayVector(
     }
   }
 
-  auto offsets = velox::allocateOffsets(size, pool);
-  auto sizes = velox::allocateSizes(size, pool);
-
-  auto rawSizes = sizes->asMutable<velox::vector_size_t>();
-  rawSizes[0] = size;
-
-  return std::make_shared<velox::ArrayVector>(
-      pool, ARRAY(elementType), nullptr, 1, offsets, sizes, elements);
+  return wrapInArray(elements);
 }
 
 TypedExprPtr convertInExpr(
@@ -583,13 +609,28 @@ TypedExprPtr convertInExpr(
   auto numArgs = args.size();
   VELOX_USER_CHECK_GE(numArgs, 2);
 
-  auto arrayVector = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      toArrayVector,
-      args[0]->type()->kind(),
-      args[0]->type(),
-      args.begin() + 1,
-      args.end(),
-      pool);
+  const auto typeKind = args[0]->type()->kind();
+
+  velox::ArrayVectorPtr arrayVector;
+  switch (typeKind) {
+    case velox::TypeKind::ARRAY:
+      [[fallthrough]];
+    case velox::TypeKind::MAP:
+      [[fallthrough]];
+    case velox::TypeKind::ROW:
+      arrayVector = toArrayOfComplexTypeVector(
+          args[0]->type(), args.begin() + 1, args.end(), pool);
+      break;
+    default:
+      arrayVector = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+          toArrayVector,
+          typeKind,
+          args[0]->type(),
+          args.begin() + 1,
+          args.end(),
+          pool);
+  }
+
   auto constantVector =
       std::make_shared<velox::ConstantVector<velox::ComplexType>>(
           pool, 1, 0, arrayVector);
