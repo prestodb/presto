@@ -76,11 +76,8 @@ if(VELOX_ENABLE_ARROW)
   add_executable(velox_dwio_common_bitpack_decoder_benchmark
                  BitPackDecoderBenchmark.cpp)
 
-  # The duckdb include on BitPackDecoderTest.cpp triggers this error in gcc.
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    target_compile_options(velox_dwio_common_bitpack_decoder_benchmark
-                           PRIVATE -Wno-deprecated-declarations)
-  endif()
+  target_compile_options(velox_dwio_common_bitpack_decoder_benchmark
+                         PRIVATE -Wno-deprecated-declarations)
 
   target_link_libraries(
     velox_dwio_common_bitpack_decoder_benchmark velox_dwio_common arrow duckdb
