@@ -32,7 +32,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 
-public class MergingHashAggregationBuilder
+public class MergingInMemoryHashAggregationBuilder
         implements Closeable
 {
     private final List<AccumulatorFactory> accumulatorFactories;
@@ -49,7 +49,7 @@ public class MergingHashAggregationBuilder
     private final int overwriteIntermediateChannelOffset;
     private final JoinCompiler joinCompiler;
 
-    public MergingHashAggregationBuilder(
+    public MergingInMemoryHashAggregationBuilder(
             List<AccumulatorFactory> accumulatorFactories,
             AggregationNode.Step step,
             int expectedGroups,

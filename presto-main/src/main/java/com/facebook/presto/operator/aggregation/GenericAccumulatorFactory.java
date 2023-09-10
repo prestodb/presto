@@ -1121,6 +1121,7 @@ public class GenericAccumulatorFactory
                     }
                 }
                 delegate.addInput(groupIdPage.getGroupByIdBlock(), wrapBlocksWithoutCopy(page.getPositionCount(), blocks));
+                rawInputs.set(i, null);
             }
 
             rawInputs = null;
