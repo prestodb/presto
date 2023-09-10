@@ -187,6 +187,7 @@ public class SimpleNodeSelector
             }
 
             SplitWeight splitWeight = split.getSplitWeight();
+            nodeSelectionStats.recordSplitWeight(splitWeight);
             Optional<InternalNodeInfo> chosenNodeInfo = chooseLeastBusyNode(splitWeight, candidateNodes, assignmentStats::getTotalSplitsWeight, preferredNodeCount, maxSplitsWeightPerNode, assignmentStats);
             if (!chosenNodeInfo.isPresent()) {
                 chosenNodeInfo = chooseLeastBusyNode(splitWeight, candidateNodes, assignmentStats::getQueuedSplitsWeightForStage, preferredNodeCount, maxPendingSplitsWeightPerTask, assignmentStats);

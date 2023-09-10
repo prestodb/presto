@@ -1086,6 +1086,12 @@ public class SqlTaskExecution
         }
 
         @Override
+        public synchronized Optional<DriverProcessStats> getProcessInfo()
+        {
+            return Optional.ofNullable(driver).map(Driver::getDriverProcessStats);
+        }
+
+        @Override
         public void close()
         {
             Driver driver;

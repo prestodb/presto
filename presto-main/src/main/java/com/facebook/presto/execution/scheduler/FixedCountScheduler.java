@@ -61,6 +61,6 @@ public class FixedCountScheduler
 
         // no need to call stage.transitionToSchedulingSplits() since there is no table splits
 
-        return ScheduleResult.nonBlocked(true, newTasks, 0);
+        return ScheduleResult.nonBlocked(true, newTasks, 0, 0);
     }
 }

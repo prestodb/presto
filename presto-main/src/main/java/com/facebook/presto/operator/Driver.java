@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.execution.DriverProcessStats;
 import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
@@ -102,9 +103,16 @@ public class Driver
     private final AtomicReference<Split> split = new AtomicReference<>();
     private final List<Page> outputPages = new ArrayList<>();
 
+    private final DriverProcessStats driverProcessStats = new DriverProcessStats();
+
     private enum State
     {
         ALIVE, NEED_DESTRUCTION, DESTROYED
+    }
+
+    public DriverProcessStats getDriverProcessStats()
+    {
+        return new DriverProcessStats(driverProcessStats);
     }
 
     public static Driver createDriver(DriverContext driverContext, List<Operator> operators)
@@ -305,13 +313,20 @@ public class Driver
             OperationTimer operationTimer = createTimer();
             driverContext.startProcessTimer();
             driverContext.getYieldSignal().setWithDelay(maxRuntime, driverContext.getYieldExecutor());
+            ListenableFuture<?> ret = NOT_BLOCKED;
+            int numIterations = 0;
+            long start = System.nanoTime();
             try {
-                long start = System.nanoTime();
                 do {
+                    ++numIterations;
                     ListenableFuture<?> future = processInternal(operationTimer);
                     if (!future.isDone()) {
-                        return updateDriverBlockedFuture(future);
+                        ret = updateDriverBlockedFuture(future);
+                        break;
                     }
+                    // DA: Add some accounting here for when does processInternal return early but not blocked
+                    // Is Yielding considered blocking ?
+                    // Does this mean that we can call it multiple times until the quanta is hit ?
                 }
                 while (System.nanoTime() - start < maxRuntime && !isFinishedInternal());
             }
@@ -319,7 +334,8 @@ public class Driver
                 driverContext.getYieldSignal().reset();
                 driverContext.recordProcessed(operationTimer);
             }
-            return NOT_BLOCKED;
+            driverProcessStats.recordProcessCall(ret, numIterations, System.nanoTime() - start);
+            return ret;
         });
         return result.orElse(NOT_BLOCKED);
     }
@@ -385,6 +401,9 @@ public class Driver
 
         handleMemoryRevoke();
 
+        int numCachedPagesUsed = 0;
+        int numPagesMoved = 0;
+
         try {
             processNewSources();
 
@@ -405,6 +424,7 @@ public class Driver
                 if (remainingPages.hasNext()) {
                     Page outputPage = remainingPages.next();
                     outputPages.add(outputPage);
+                    ++numCachedPagesUsed;
                     outputOperator.addInput(outputPage);
                 }
                 else {
@@ -437,6 +457,7 @@ public class Driver
                         if (page != null && page.getPositionCount() != 0) {
                             next.addInput(page);
                             next.getOperatorContext().recordAddInput(operationTimer, page);
+                            ++numPagesMoved;
                             movedPage = true;
                         }
 
@@ -482,15 +503,18 @@ public class Driver
                 }
             }
 
+            ListenableFuture<?> ret = NOT_BLOCKED;
+            ImmutableList.Builder<OperatorBlockedReason> blockedReasonBuilder = new ImmutableList.Builder<>();
             // if we did not move any pages, check if we are blocked
             if (!movedPage) {
                 List<Operator> blockedOperators = new ArrayList<>();
                 List<ListenableFuture<?>> blockedFutures = new ArrayList<>();
                 for (Operator operator : activeOperators) {
-                    Optional<ListenableFuture<?>> blocked = getBlockedFuture(operator);
+                    Optional<BlockedFuture> blocked = getBlockedFuture(operator);
                     if (blocked.isPresent()) {
                         blockedOperators.add(operator);
-                        blockedFutures.add(blocked.get());
+                        blockedReasonBuilder.add(blocked.get().reason);
+                        blockedFutures.add(blocked.get().future);
                     }
                 }
 
@@ -504,11 +528,13 @@ public class Driver
                     for (Operator operator : blockedOperators) {
                         operator.getOperatorContext().recordBlocked(blocked);
                     }
-                    return blocked;
+                    ret = blocked;
                 }
             }
 
-            return NOT_BLOCKED;
+            driverProcessStats.recordProcessInternalCall(numPagesMoved, numCachedPagesUsed, ret, blockedReasonBuilder.build());
+
+            return ret;
         }
         catch (Throwable t) {
             List<StackTraceElement> interrupterStack = exclusiveLock.getInterrupterStack();
@@ -642,24 +668,36 @@ public class Driver
         return inFlightException;
     }
 
-    private Optional<ListenableFuture<?>> getBlockedFuture(Operator operator)
+    private static class BlockedFuture
+    {
+        public final ListenableFuture<?> future;
+        public final OperatorBlockedReason reason;
+
+        public BlockedFuture(ListenableFuture<?> future, OperatorBlockedReason reason)
+        {
+            this.future = future;
+            this.reason = reason;
+        }
+    }
+
+    private Optional<BlockedFuture> getBlockedFuture(Operator operator)
     {
         ListenableFuture<?> blocked = revokingOperators.get(operator);
         if (blocked != null) {
             // We mark operator as blocked regardless of blocked.isDone(), because finishMemoryRevoke has not been called yet.
-            return Optional.of(blocked);
+            return Optional.of(new BlockedFuture(blocked, OperatorBlockedReason.REVOKING));
         }
         blocked = operator.isBlocked();
         if (!blocked.isDone()) {
-            return Optional.of(blocked);
+            return Optional.of(new BlockedFuture(blocked, OperatorBlockedReason.IS_BLOCKED));
         }
         blocked = operator.getOperatorContext().isWaitingForMemory();
         if (!blocked.isDone()) {
-            return Optional.of(blocked);
+            return Optional.of(new BlockedFuture(blocked, OperatorBlockedReason.WAITING_FOR_MEMORY));
         }
         blocked = operator.getOperatorContext().isWaitingForRevocableMemory();
         if (!blocked.isDone()) {
-            return Optional.of(blocked);
+            return Optional.of(new BlockedFuture(blocked, OperatorBlockedReason.WAITING_FOR_REVOCABLE_MEMORY));
         }
         return Optional.empty();
     }

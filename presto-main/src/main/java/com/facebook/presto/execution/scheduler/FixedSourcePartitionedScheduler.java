@@ -222,6 +222,7 @@ public class FixedSourcePartitionedScheduler
         }
 
         int splitsScheduled = 0;
+        int splitsObtained = 0;
         Iterator<SourceScheduler> schedulerIterator = sourceSchedulers.iterator();
         List<Lifespan> driverGroupsToStart = ImmutableList.of();
         while (schedulerIterator.hasNext()) {
@@ -242,6 +243,7 @@ public class FixedSourcePartitionedScheduler
                     stage.transitionToSchedulingSplits();
                 }
                 splitsScheduled += schedule.getSplitsScheduled();
+                splitsObtained += schedule.getSplitsObtained();
                 if (schedule.getBlockedReason().isPresent()) {
                     blocked.add(schedule.getBlocked());
                     blockedReason = blockedReason.combineWith(schedule.getBlockedReason().get());
@@ -263,10 +265,10 @@ public class FixedSourcePartitionedScheduler
         }
 
         if (allBlocked) {
-            return ScheduleResult.blocked(sourceSchedulers.isEmpty(), newTasks, whenAnyComplete(blocked), blockedReason, splitsScheduled);
+            return ScheduleResult.blocked(sourceSchedulers.isEmpty(), newTasks, whenAnyComplete(blocked), blockedReason, splitsScheduled, splitsObtained);
         }
         else {
-            return ScheduleResult.nonBlocked(sourceSchedulers.isEmpty(), newTasks, splitsScheduled);
+            return ScheduleResult.nonBlocked(sourceSchedulers.isEmpty(), newTasks, splitsScheduled, splitsObtained);
         }
     }
 

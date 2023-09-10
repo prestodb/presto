@@ -291,7 +291,7 @@ public class TaskManagerConfig
         return this;
     }
 
-    @MinDuration("1ms")
+    @MinDuration("0ms")
     public Duration getSplitConcurrencyAdjustmentInterval()
     {
         return splitConcurrencyAdjustmentInterval;

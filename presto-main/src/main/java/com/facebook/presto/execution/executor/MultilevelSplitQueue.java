@@ -26,8 +26,10 @@ import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.PriorityQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -44,7 +46,7 @@ public class MultilevelSplitQueue
     static final long LEVEL_CONTRIBUTION_CAP = SECONDS.toNanos(30);
 
     @GuardedBy("lock")
-    private final List<PriorityQueue<PrioritizedSplitRunner>> levelWaitingSplits;
+    private final List<WaitingSplits> levelWaitingSplits;
 
     private final AtomicLong[] levelScheduledTime = new AtomicLong[LEVEL_THRESHOLD_SECONDS.length];
 
@@ -71,7 +73,7 @@ public class MultilevelSplitQueue
         for (int i = 0; i < LEVEL_THRESHOLD_SECONDS.length; i++) {
             levelScheduledTime[i] = new AtomicLong();
             levelMinPriority[i] = new AtomicLong(-1);
-            levelWaitingSplits.add(new PriorityQueue<>());
+            levelWaitingSplits.add(new WaitingSplits());
             counters.add(new CounterStat());
         }
 
@@ -249,7 +251,7 @@ public class MultilevelSplitQueue
         checkArgument(split != null, "split is null");
         lock.lock();
         try {
-            for (PriorityQueue<PrioritizedSplitRunner> level : levelWaitingSplits) {
+            for (WaitingSplits level : levelWaitingSplits) {
                 level.remove(split);
             }
         }
@@ -262,7 +264,7 @@ public class MultilevelSplitQueue
     {
         lock.lock();
         try {
-            for (PriorityQueue<PrioritizedSplitRunner> level : levelWaitingSplits) {
+            for (WaitingSplits level : levelWaitingSplits) {
                 level.removeAll(splits);
             }
         }
@@ -277,12 +279,36 @@ public class MultilevelSplitQueue
         return levelMinPriority[level].get();
     }
 
+    @Managed
+    public int getNumLeafSplits()
+    {
+        lock.lock();
+        try {
+            return levelWaitingSplits.stream().mapToInt(l -> l.getNumLeafSplits()).sum();
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+
+    @Managed
+    public int getNumIntermediateSplits()
+    {
+        lock.lock();
+        try {
+            return levelWaitingSplits.stream().mapToInt(l -> l.getNumIntermediateSplits()).sum();
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+
     public int size()
     {
         lock.lock();
         try {
             int total = 0;
-            for (PriorityQueue<PrioritizedSplitRunner> level : levelWaitingSplits) {
+            for (WaitingSplits level : levelWaitingSplits) {
                 total += level.size();
             }
             return total;
@@ -373,5 +399,97 @@ public class MultilevelSplitQueue
     public CounterStat getSelectedCountLevel4()
     {
         return selectedLevelCounters.get(4);
+    }
+
+    private static class WaitingSplits
+    {
+        private final PriorityQueue<PrioritizedSplitRunner> queue = new PriorityQueue<>();
+        private final AtomicInteger numLeafSplits = new AtomicInteger();
+        private final AtomicInteger numIntermediateSplits = new AtomicInteger();
+
+        public int size()
+        {
+            checkState(numLeafSplits.get() + numIntermediateSplits.get() == queue.size());
+            return queue.size();
+        }
+
+        public int getNumLeafSplits()
+        {
+            return numLeafSplits.get();
+        }
+
+        public int getNumIntermediateSplits()
+        {
+            return numIntermediateSplits.get();
+        }
+
+        public boolean isEmpty()
+        {
+            checkState(queue.isEmpty() == (size() == 0));
+            return queue.isEmpty();
+        }
+
+        public void offer(PrioritizedSplitRunner split)
+        {
+            if (split.isIntermediate()) {
+                numIntermediateSplits.incrementAndGet();
+            }
+            else {
+                numLeafSplits.incrementAndGet();
+            }
+            queue.offer(split);
+        }
+
+        private void recordRemoval(PrioritizedSplitRunner split)
+        {
+            if (split.isIntermediate()) {
+                numIntermediateSplits.decrementAndGet();
+            }
+            else {
+                numLeafSplits.decrementAndGet();
+            }
+        }
+
+        public PrioritizedSplitRunner poll()
+        {
+            PrioritizedSplitRunner split = queue.poll();
+            if (split != null) {
+                recordRemoval(split);
+            }
+            return split;
+        }
+
+        public boolean remove(PrioritizedSplitRunner split)
+        {
+            boolean ret = queue.remove(split);
+            if (ret) {
+                recordRemoval(split);
+            }
+            return ret;
+        }
+
+        public boolean removeAll(Collection<PrioritizedSplitRunner> c)
+        {
+            boolean modified = false;
+            Iterator<PrioritizedSplitRunner> it = queue.iterator();
+            int numLeafSplitsRemoved = 0;
+            int numIntermediateSplitsRemoved = 0;
+            while (it.hasNext()) {
+                PrioritizedSplitRunner split = it.next();
+                if (c.contains(split)) {
+                    it.remove();
+                    if (split.isIntermediate()) {
+                        ++numIntermediateSplitsRemoved;
+                    }
+                    else {
+                        ++numLeafSplitsRemoved;
+                    }
+                    modified = true;
+                }
+            }
+            numLeafSplits.addAndGet(-numLeafSplitsRemoved);
+            numIntermediateSplits.addAndGet(-numIntermediateSplitsRemoved);
+            return modified;
+        }
     }
 }

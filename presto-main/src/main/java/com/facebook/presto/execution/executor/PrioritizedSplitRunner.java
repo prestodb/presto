@@ -74,6 +74,8 @@ public class PrioritizedSplitRunner
     private final TimeStat blockedQuantaWallTime;
     private final TimeStat unblockedQuantaWallTime;
 
+    private final boolean intermediate;
+
     PrioritizedSplitRunner(
             TaskHandle taskHandle,
             SplitRunner split,
@@ -81,12 +83,14 @@ public class PrioritizedSplitRunner
             CounterStat globalCpuTimeMicros,
             CounterStat globalScheduledTimeMicros,
             TimeStat blockedQuantaWallTime,
-            TimeStat unblockedQuantaWallTime)
+            TimeStat unblockedQuantaWallTime,
+            boolean intermediate)
     {
         this.taskHandle = taskHandle;
         this.splitId = taskHandle.getNextSplitId();
         this.split = split;
         this.ticker = ticker;
+        this.intermediate = intermediate;
         this.workerId = NEXT_WORKER_ID.getAndIncrement();
         this.globalCpuTimeMicros = globalCpuTimeMicros;
         this.globalScheduledTimeMicros = globalScheduledTimeMicros;
@@ -109,6 +113,11 @@ public class PrioritizedSplitRunner
     public boolean isDestroyed()
     {
         return destroyed.get();
+    }
+
+    public boolean isIntermediate()
+    {
+        return intermediate;
     }
 
     public void destroy()
@@ -149,6 +158,11 @@ public class PrioritizedSplitRunner
     public long getWaitNanos()
     {
         return waitNanos.get();
+    }
+
+    public SplitRunner getSplit()
+    {
+        return split;
     }
 
     public ListenableFuture<?> process()
@@ -241,6 +255,11 @@ public class PrioritizedSplitRunner
     public Priority getPriority()
     {
         return priority.get();
+    }
+
+    public long getProcessCalls()
+    {
+        return processCalls.get();
     }
 
     public String getInfo()

@@ -17,8 +17,10 @@ import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
-import com.facebook.airlift.stats.TimeDistribution;
+import com.facebook.airlift.stats.DistributionStat;
 import com.facebook.airlift.stats.TimeStat;
+import com.facebook.presto.execution.DriverProcessStats;
+import com.facebook.presto.execution.MergedDriverProcessStats;
 import com.facebook.presto.execution.SplitRunner;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -36,6 +38,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -51,6 +54,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.SortedSet;
@@ -146,12 +150,15 @@ public class TaskExecutor
     /**
      * Splits running on a thread.
      */
-    private final Set<PrioritizedSplitRunner> runningSplits = newConcurrentHashSet();
+    private final Set<PrioritizedSplitRunner> leafRunningSplits = newConcurrentHashSet();
+    private final Set<PrioritizedSplitRunner> intermediateRunningSplits = newConcurrentHashSet();
 
     /**
      * Splits blocked by the driver.
      */
-    private final Map<PrioritizedSplitRunner, Future<?>> blockedSplits = new ConcurrentHashMap<>();
+    private final Map<PrioritizedSplitRunner, Future<?>> leafBlockedSplits = new ConcurrentHashMap<>();
+
+    private final Map<PrioritizedSplitRunner, Future<?>> intermediateBlockedSplits = new ConcurrentHashMap<>();
 
     private final AtomicLongArray completedTasksPerLevel = new AtomicLongArray(5);
     private final AtomicLongArray completedSplitsPerLevel = new AtomicLongArray(5);
@@ -159,17 +166,17 @@ public class TaskExecutor
     private final TimeStat splitQueuedTime = new TimeStat(NANOSECONDS);
     private final TimeStat splitWallTime = new TimeStat(NANOSECONDS);
 
-    private final TimeDistribution leafSplitWallTime = new TimeDistribution(MICROSECONDS);
-    private final TimeDistribution intermediateSplitWallTime = new TimeDistribution(MICROSECONDS);
+    private final TimeStat leafSplitWallTime = new TimeStat(MICROSECONDS);
+    private final TimeStat intermediateSplitWallTime = new TimeStat(MICROSECONDS);
 
-    private final TimeDistribution leafSplitScheduledTime = new TimeDistribution(MICROSECONDS);
-    private final TimeDistribution intermediateSplitScheduledTime = new TimeDistribution(MICROSECONDS);
+    private final TimeStat leafSplitScheduledTime = new TimeStat(MICROSECONDS);
+    private final TimeStat intermediateSplitScheduledTime = new TimeStat(MICROSECONDS);
 
-    private final TimeDistribution leafSplitWaitTime = new TimeDistribution(MICROSECONDS);
-    private final TimeDistribution intermediateSplitWaitTime = new TimeDistribution(MICROSECONDS);
+    private final TimeStat leafSplitWaitTime = new TimeStat(MICROSECONDS);
+    private final TimeStat intermediateSplitWaitTime = new TimeStat(MICROSECONDS);
 
-    private final TimeDistribution leafSplitCpuTime = new TimeDistribution(MICROSECONDS);
-    private final TimeDistribution intermediateSplitCpuTime = new TimeDistribution(MICROSECONDS);
+    private final TimeStat leafSplitCpuTime = new TimeStat(MICROSECONDS);
+    private final TimeStat intermediateSplitCpuTime = new TimeStat(MICROSECONDS);
 
     // shared between SplitRunners
     private final CounterStat globalCpuTimeMicros = new CounterStat();
@@ -177,6 +184,17 @@ public class TaskExecutor
 
     private final TimeStat blockedQuantaWallTime = new TimeStat(MICROSECONDS);
     private final TimeStat unblockedQuantaWallTime = new TimeStat(MICROSECONDS);
+
+    private final DistributionStat numLeafSplitProcessCalls = new DistributionStat();
+    private final DistributionStat numIntermediateSplitProcessCalls = new DistributionStat();
+
+    private final DistributionStat targetConcurrencyDistribution = new DistributionStat();
+
+    private final DistributionStat targetConcurrencyDistributionWhenLimitReached = new DistributionStat();
+
+    private final DistributionStat numSplitsEnqueued = new DistributionStat();
+
+    private final MergedDriverProcessStats mergedDriverProcessStats = new MergedDriverProcessStats();
 
     private volatile boolean closed;
 
@@ -325,8 +343,10 @@ public class TaskExecutor
                 .add("allSplits", allSplits.size())
                 .add("intermediateSplits", intermediateSplits.size())
                 .add("waitingSplits", waitingSplits.size())
-                .add("runningSplits", runningSplits.size())
-                .add("blockedSplits", blockedSplits.size())
+                .add("leafRunningSplits", leafRunningSplits.size())
+                .add("intermediateRunningSplits", intermediateRunningSplits.size())
+                .add("leafBlockedSplits", leafBlockedSplits.size())
+                .add("intermediateBlockedSplits", intermediateBlockedSplits.size())
                 .toString();
     }
 
@@ -385,7 +405,8 @@ public class TaskExecutor
             // stop tracking splits (especially blocked splits which may never unblock)
             allSplits.removeAll(splits);
             intermediateSplits.removeAll(splits);
-            blockedSplits.keySet().removeAll(splits);
+            leafBlockedSplits.keySet().removeAll(splits);
+            intermediateBlockedSplits.keySet().removeAll(splits);
             waitingSplits.removeAll(splits);
         }
 
@@ -405,6 +426,7 @@ public class TaskExecutor
     {
         List<PrioritizedSplitRunner> splitsToDestroy = new ArrayList<>();
         List<ListenableFuture<?>> finishedFutures = new ArrayList<>(taskSplits.size());
+        numSplitsEnqueued.add(taskSplits.size());
         synchronized (this) {
             for (SplitRunner taskSplit : taskSplits) {
                 PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(
@@ -414,7 +436,8 @@ public class TaskExecutor
                         globalCpuTimeMicros,
                         globalScheduledTimeMicros,
                         blockedQuantaWallTime,
-                        unblockedQuantaWallTime);
+                        unblockedQuantaWallTime,
+                        intermediate);
 
                 if (intermediate) {
                     // add the runner to the handle so it can be destroyed if the task is canceled
@@ -428,6 +451,8 @@ public class TaskExecutor
                 }
                 else {
                     // add this to the work queue for the task
+                    // DA: We need some metrics for how many splits are enqueued in total inside task-handles
+                    // All we have are "queued time" but that too has issues with the TimeStat reporting.
                     if (taskHandle.enqueueSplit(prioritizedSplitRunner)) {
                         // if task is under the limit for guaranteed splits, start one
                         scheduleTaskIfNecessary(taskHandle);
@@ -458,16 +483,20 @@ public class TaskExecutor
             splitWallTime.add(Duration.succinctNanos(wallNanos));
 
             if (intermediateSplits.remove(split)) {
-                intermediateSplitWallTime.add(wallNanos);
-                intermediateSplitScheduledTime.add(split.getScheduledNanos());
-                intermediateSplitWaitTime.add(split.getWaitNanos());
-                intermediateSplitCpuTime.add(split.getCpuTimeNanos());
+                checkState(split.isIntermediate());
+                intermediateSplitWallTime.add(wallNanos, NANOSECONDS);
+                intermediateSplitScheduledTime.add(split.getScheduledNanos(), NANOSECONDS);
+                intermediateSplitWaitTime.add(split.getWaitNanos(), NANOSECONDS);
+                intermediateSplitCpuTime.add(split.getCpuTimeNanos(), NANOSECONDS);
+                numIntermediateSplitProcessCalls.add(split.getProcessCalls());
             }
             else {
-                leafSplitWallTime.add(wallNanos);
-                leafSplitScheduledTime.add(split.getScheduledNanos());
-                leafSplitWaitTime.add(split.getWaitNanos());
-                leafSplitCpuTime.add(split.getCpuTimeNanos());
+                checkState(!split.isIntermediate());
+                leafSplitWallTime.add(wallNanos, NANOSECONDS);
+                leafSplitScheduledTime.add(split.getScheduledNanos(), NANOSECONDS);
+                leafSplitWaitTime.add(split.getWaitNanos(), NANOSECONDS);
+                leafSplitCpuTime.add(split.getCpuTimeNanos(), NANOSECONDS);
+                numLeafSplitProcessCalls.add(split.getProcessCalls());
             }
 
             TaskHandle taskHandle = split.getTaskHandle();
@@ -488,7 +517,7 @@ public class TaskExecutor
         // that a task gets its fair amount of consideration (you have to
         // have splits to be considered for running on a thread).
         if (taskHandle.getRunningLeafSplits() < min(guaranteedNumberOfDriversPerTask, taskHandle.getMaxDriversPerTask().orElse(Integer.MAX_VALUE))) {
-            PrioritizedSplitRunner split = taskHandle.pollNextSplit();
+            PrioritizedSplitRunner split = pollNextSplit(taskHandle);
             if (split != null) {
                 startSplit(split);
                 splitQueuedTime.add(Duration.nanosSince(split.getCreatedNanos()));
@@ -496,15 +525,35 @@ public class TaskExecutor
         }
     }
 
+    private synchronized PrioritizedSplitRunner pollNextSplit(TaskHandle taskHandle)
+    {
+        TaskHandle.PollNextSplitResult pollNextSplitResult = taskHandle.pollNextSplit();
+        int targetConcurrency = pollNextSplitResult.targetConcurrency;
+        targetConcurrencyDistribution.add(targetConcurrency);
+        if (pollNextSplitResult.errorCode == TaskHandle.PollNextSplitResultError.TARGET_CONCURRENCY_REACHED) {
+            targetConcurrencyDistributionWhenLimitReached.add(targetConcurrency);
+        }
+        PrioritizedSplitRunner split = pollNextSplitResult.splitRunner;
+        return split;
+    }
+
     private synchronized void addNewEntrants()
     {
+        // DA: Danger Will Robinson !: This is ensuring that only minimumNumberOfDrivers leaf splits are actually running.
+        // But this includes splits waiting in MLSQ and also BLOCKED. So if all of minimumNumberOFDrivers leafSplits are blocked
+        // Then this method may be a NOOP.
         // Ignore intermediate splits when checking minimumNumberOfDrivers.
         // Otherwise with (for example) minimumNumberOfDrivers = 100, 200 intermediate splits
         // and 100 leaf splits, depending on order of appearing splits, number of
         // simultaneously running splits may vary. If leaf splits start first, there will
         // be 300 running splits. If intermediate splits start first, there will be only
         // 200 running splits.
+        // DA: This is the number of leaf splits sitting in the MLSQ
         int running = allSplits.size() - intermediateSplits.size();
+        // DA: So we are allowing 2 * maxThreads - leaves in MLSQ to be added more to the MLSQ
+        // DA: Which means that the MLSQ can contain uptil 2 * maxThreads worth of leaves (plus all intermediate)
+        // DA: So total splits can be probably 2 * maxThreads + intermediate (unbounded)
+        // DA: The MLSQ does not distinguish b/w intermediate or leaf.
         for (int i = 0; i < minimumNumberOfDrivers - running; i++) {
             PrioritizedSplitRunner split = pollNextSplitWorker();
             if (split == null) {
@@ -539,7 +588,7 @@ public class TaskExecutor
             if (task.getRunningLeafSplits() >= task.getMaxDriversPerTask().orElse(maximumNumberOfDriversPerTask)) {
                 continue;
             }
-            PrioritizedSplitRunner split = task.pollNextSplit();
+            PrioritizedSplitRunner split = pollNextSplit(task);
             if (split != null) {
                 // move task to end of list
                 iterator.remove();
@@ -592,6 +641,8 @@ public class TaskExecutor
                         return;
                     }
 
+                    Map<PrioritizedSplitRunner, Future<?>> blockedSplits = split.isIntermediate() ? intermediateBlockedSplits : leafBlockedSplits;
+                    Set<PrioritizedSplitRunner> runningSplits = split.isIntermediate() ? intermediateRunningSplits : leafRunningSplits;
                     String threadId = split.getTaskHandle().getTaskId() + "-" + split.getSplitId();
                     try (SetThreadName splitName = new SetThreadName(threadId)) {
                         RunningSplitInfo splitInfo = new RunningSplitInfo(ticker.read(), threadId, Thread.currentThread(), split);
@@ -599,14 +650,19 @@ public class TaskExecutor
                         runningSplits.add(split);
 
                         ListenableFuture<?> blocked;
+                        Optional<DriverProcessStats> beforeProcess;
+                        Optional<DriverProcessStats> afterProcess;
                         try {
+                            beforeProcess = split.getSplit().getProcessInfo();
                             blocked = split.process();
+                            afterProcess = split.getSplit().getProcessInfo();
                         }
                         finally {
                             runningSplitInfos.remove(splitInfo);
                             runningSplits.remove(split);
                         }
 
+                        mergedDriverProcessStats.record(beforeProcess, afterProcess);
                         if (split.isFinished()) {
                             // Avoid calling split.getInfo() when debug logging is not enabled
                             if (log.isDebugEnabled()) {
@@ -707,13 +763,37 @@ public class TaskExecutor
     @Managed
     public int getRunningSplits()
     {
-        return runningSplits.size();
+        return leafRunningSplits.size() + intermediateRunningSplits.size();
+    }
+
+    @Managed
+    public int getLeafRunningSplits()
+    {
+        return leafRunningSplits.size();
+    }
+
+    @Managed
+    public int getIntermediateRunningSplits()
+    {
+        return intermediateRunningSplits.size();
     }
 
     @Managed
     public int getBlockedSplits()
     {
-        return blockedSplits.size();
+        return leafBlockedSplits.size() + intermediateBlockedSplits.size();
+    }
+
+    @Managed
+    public int getIntermediateBlockedSplits()
+    {
+        return intermediateBlockedSplits.size();
+    }
+
+    @Managed
+    public int getLeafBlockedSplits()
+    {
+        return leafBlockedSplits.size();
     }
 
     @Managed
@@ -836,56 +916,56 @@ public class TaskExecutor
 
     @Managed
     @Nested
-    public TimeDistribution getLeafSplitScheduledTime()
+    public TimeStat getLeafSplitScheduledTime()
     {
         return leafSplitScheduledTime;
     }
 
     @Managed
     @Nested
-    public TimeDistribution getIntermediateSplitScheduledTime()
+    public TimeStat getIntermediateSplitScheduledTime()
     {
         return intermediateSplitScheduledTime;
     }
 
     @Managed
     @Nested
-    public TimeDistribution getLeafSplitWallTime()
+    public TimeStat getLeafSplitWallTime()
     {
         return leafSplitWallTime;
     }
 
     @Managed
     @Nested
-    public TimeDistribution getIntermediateSplitWallTime()
+    public TimeStat getIntermediateSplitWallTime()
     {
         return intermediateSplitWallTime;
     }
 
     @Managed
     @Nested
-    public TimeDistribution getLeafSplitWaitTime()
+    public TimeStat getLeafSplitWaitTime()
     {
         return leafSplitWaitTime;
     }
 
     @Managed
     @Nested
-    public TimeDistribution getIntermediateSplitWaitTime()
+    public TimeStat getIntermediateSplitWaitTime()
     {
         return intermediateSplitWaitTime;
     }
 
     @Managed
     @Nested
-    public TimeDistribution getLeafSplitCpuTime()
+    public TimeStat getLeafSplitCpuTime()
     {
         return leafSplitCpuTime;
     }
 
     @Managed
     @Nested
-    public TimeDistribution getIntermediateSplitCpuTime()
+    public TimeStat getIntermediateSplitCpuTime()
     {
         return intermediateSplitCpuTime;
     }
@@ -902,6 +982,66 @@ public class TaskExecutor
     public CounterStat getGlobalCpuTimeMicros()
     {
         return globalCpuTimeMicros;
+    }
+
+    @Managed
+    public synchronized long getNumSplitsQueued()
+    {
+        return tasks.stream().filter(t -> !t.isDestroyed()).mapToLong(t -> t.getNumQueuedLeafSplits()).sum();
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getTargetConcurrencyDistribution()
+    {
+        return targetConcurrencyDistribution;
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getTargetConcurrencyDistributionWhenLimitReached()
+    {
+        return targetConcurrencyDistributionWhenLimitReached;
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getNumSplitsEnqueued()
+    {
+        return numSplitsEnqueued;
+    }
+
+    @Managed
+    public int getGuaranteedNumberOfDriversPerTask()
+    {
+        return guaranteedNumberOfDriversPerTask;
+    }
+
+    @Managed
+    @Flatten
+    public MergedDriverProcessStats getMergedDriverProcessStats()
+    {
+        return mergedDriverProcessStats;
+    }
+
+    @Managed
+    public int getMaximumNumberOfDriversPerTask()
+    {
+        return maximumNumberOfDriversPerTask;
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getNumLeafSplitProcessCalls()
+    {
+        return numLeafSplitProcessCalls;
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getNumIntermediateSplitProcessCalls()
+    {
+        return numIntermediateSplitProcessCalls;
     }
 
     private synchronized int getRunningTasksForLevel(int level)
