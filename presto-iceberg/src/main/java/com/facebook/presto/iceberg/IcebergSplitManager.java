@@ -32,7 +32,6 @@ import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.CatalogType.NESSIE;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
-import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static java.util.Objects.requireNonNull;
 
@@ -78,7 +77,7 @@ public class IcebergSplitManager
         }
         else {
             ExtendedHiveMetastore metastore = ((IcebergHiveMetadata) transactionManager.get(transaction)).getMetastore();
-            icebergTable = getHiveIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
+            icebergTable = ((IcebergHiveMetadata) transactionManager.get(transaction)).getHiveIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
         }
 
         TableScan tableScan = icebergTable.newScan()

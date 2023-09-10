@@ -348,6 +348,15 @@ public class HiveTableOperations
         return LocationProviders.locationsFor(metadata.location(), metadata.properties());
     }
 
+    public void initializeFromMetadata(TableMetadata tableMetadata)
+    {
+        checkState(currentMetadata == null, "already initialized");
+        currentMetadata = tableMetadata;
+        currentMetadataLocation = tableMetadata.metadataFileLocation();
+        shouldRefresh = false;
+        version = parseVersion(currentMetadataLocation);
+    }
+
     private Table getTable()
     {
         return metastore.getTable(metastoreContext, database, tableName)
