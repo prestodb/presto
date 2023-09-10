@@ -43,7 +43,7 @@ import static org.testng.Assert.assertEquals;
 public abstract class AbstractTestNativeGeneralQueries
         extends AbstractTestQueryFramework
 {
-    private static final String[] TABLE_FORMATS = {"DWRF"};
+    private static final String[] TABLE_FORMATS = {"DWRF", "PARQUET"};
 
     @Override
     protected void createTables()
