@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.ErrorCause;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spiller.SingleStreamSpiller;
@@ -297,25 +298,30 @@ public class HashBuilderOperator
     {
         switch (state) {
             case CONSUMING_INPUT:
-                return NOT_BLOCKED;
-
-            case SPILLING_INPUT:
-                return spillInProgress;
-
-            case LOOKUP_SOURCE_BUILT:
-                return lookupSourceNotNeeded.orElseThrow(() -> new IllegalStateException("Lookup source built, but disposal future not set"));
-
-            case INPUT_SPILLED:
-                return spilledLookupSourceHandle.getUnspillingOrDisposeRequested();
-
-            case INPUT_UNSPILLING:
-                return unspillInProgress.orElseThrow(() -> new IllegalStateException("Unspilling in progress, but unspilling future not set"));
-
-            case INPUT_UNSPILLED_AND_BUILT:
-                return spilledLookupSourceHandle.getDisposeRequested();
 
             case CLOSED:
                 return NOT_BLOCKED;
+
+            case SPILLING_INPUT:
+                return new Driver.BlockedFuture(spillInProgress, SplitBlockedReason.HASH_BUILD);
+
+            case LOOKUP_SOURCE_BUILT:
+                if (lookupSourceNotNeeded.isPresent()) {
+                    return new Driver.BlockedFuture(lookupSourceNotNeeded.get(), SplitBlockedReason.HASH_BUILD);
+                }
+                throw new IllegalStateException("Lookup source built, but disposal future not set");
+
+            case INPUT_SPILLED:
+                return new Driver.BlockedFuture(spilledLookupSourceHandle.getUnspillingOrDisposeRequested(), SplitBlockedReason.HASH_BUILD);
+
+            case INPUT_UNSPILLING:
+                if (unspillInProgress.isPresent()) {
+                    return new Driver.BlockedFuture(unspillInProgress.get(), SplitBlockedReason.HASH_BUILD);
+                }
+                throw new IllegalStateException("Unspilling in progress, but unspilling future not set");
+
+            case INPUT_UNSPILLED_AND_BUILT:
+                return new Driver.BlockedFuture(spilledLookupSourceHandle.getDisposeRequested(), SplitBlockedReason.HASH_BUILD);
         }
         throw new IllegalStateException("Unhandled state: " + state);
     }

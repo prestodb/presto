@@ -18,6 +18,7 @@ import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.TableHandle;
@@ -232,11 +233,11 @@ public class TableScanOperator
     public ListenableFuture<?> isBlocked()
     {
         if (!blocked.isDone()) {
-            return blocked;
+            return new Driver.BlockedFuture(blocked, SplitBlockedReason.TABLE_SCAN);
         }
         if (source != null) {
             CompletableFuture<?> pageSourceBlocked = source.isBlocked();
-            return pageSourceBlocked.isDone() ? NOT_BLOCKED : toListenableFuture(pageSourceBlocked);
+            return pageSourceBlocked.isDone() ? NOT_BLOCKED : new Driver.BlockedFuture(toListenableFuture(pageSourceBlocked), SplitBlockedReason.TABLE_SCAN);
         }
         return NOT_BLOCKED;
     }

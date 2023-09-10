@@ -32,6 +32,7 @@ import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.RefreshMate
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.PageSinkContext;
@@ -305,7 +306,7 @@ public class TableWriterOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return blocked;
+        return new Driver.BlockedFuture(blocked, SplitBlockedReason.TABLE_WRITER);
     }
 
     @Override

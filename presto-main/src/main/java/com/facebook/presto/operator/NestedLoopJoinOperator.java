@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -152,7 +153,7 @@ public class NestedLoopJoinOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return nestedLoopJoinPagesFuture;
+        return new Driver.BlockedFuture(nestedLoopJoinPagesFuture, SplitBlockedReason.NESTED_LOOP_JOIN);
     }
 
     @Override

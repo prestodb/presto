@@ -19,6 +19,7 @@ import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -33,6 +34,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
+import javax.validation.constraints.NotNull;
 
 import java.io.Closeable;
 import java.util.ArrayList;
@@ -42,7 +44,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
@@ -96,7 +101,7 @@ public class Driver
     @GuardedBy("exclusiveLock")
     private TaskSource currentTaskSource;
 
-    private final AtomicReference<SettableFuture<?>> driverBlockedFuture = new AtomicReference<>();
+    private final AtomicReference<SettableFuture<SplitBlockedReason>> driverBlockedFuture = new AtomicReference<>();
 
     private final AtomicReference<Optional<Iterator<Page>>> cachedResult = new AtomicReference<>(Optional.empty());
     private final AtomicReference<Split> split = new AtomicReference<>();
@@ -155,7 +160,7 @@ public class Driver
 
         currentTaskSource = sourceOperator.map(operator -> new TaskSource(operator.getSourceId(), ImmutableSet.of(), false)).orElse(null);
         // initially the driverBlockedFuture is not blocked (it is completed)
-        SettableFuture<?> future = SettableFuture.create();
+        SettableFuture<SplitBlockedReason> future = SettableFuture.create();
         future.set(null);
         driverBlockedFuture.set(future);
     }
@@ -294,7 +299,7 @@ public class Driver
         requireNonNull(duration, "duration is null");
 
         // if the driver is blocked we don't need to continue
-        SettableFuture<?> blockedFuture = driverBlockedFuture.get();
+        SettableFuture<SplitBlockedReason> blockedFuture = driverBlockedFuture.get();
         if (!blockedFuture.isDone()) {
             return blockedFuture;
         }
@@ -354,9 +359,21 @@ public class Driver
     {
         // driverBlockedFuture will be completed as soon as the sourceBlockedFuture is completed
         // or any of the operators gets a memory revocation request
-        SettableFuture<?> newDriverBlockedFuture = SettableFuture.create();
+        SettableFuture<SplitBlockedReason> newDriverBlockedFuture = SettableFuture.create();
         driverBlockedFuture.set(newDriverBlockedFuture);
-        sourceBlockedFuture.addListener(() -> newDriverBlockedFuture.set(null), directExecutor());
+        sourceBlockedFuture.addListener(() -> {
+            try {
+                if (sourceBlockedFuture.get() instanceof SplitBlockedReason) {
+                    newDriverBlockedFuture.set((SplitBlockedReason) sourceBlockedFuture.get());
+                }
+                else {
+                    newDriverBlockedFuture.set(null);
+                }
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        }, directExecutor());
 
         // it's possible that memory revoking is requested for some operator
         // before we update driverBlockedFuture above and we don't want to miss that
@@ -367,7 +384,7 @@ public class Driver
                 .anyMatch(OperatorContext::isMemoryRevokingRequested);
 
         if (memoryRevokingRequested) {
-            newDriverBlockedFuture.set(null);
+            newDriverBlockedFuture.set(SplitBlockedReason.REVOKE);
         }
 
         return newDriverBlockedFuture;
@@ -496,7 +513,7 @@ public class Driver
 
                 if (!blockedFutures.isEmpty()) {
                     // unblock when the first future is complete
-                    ListenableFuture<?> blocked = firstFinishedFuture(blockedFutures);
+                    ListenableFuture<SplitBlockedReason> blocked = firstFinishedFuture(blockedFutures);
                     // driver records serial blocked time
                     driverContext.recordBlocked(blocked);
                     // each blocked operator is responsible for blocking the execution
@@ -647,7 +664,7 @@ public class Driver
         ListenableFuture<?> blocked = revokingOperators.get(operator);
         if (blocked != null) {
             // We mark operator as blocked regardless of blocked.isDone(), because finishMemoryRevoke has not been called yet.
-            return Optional.of(blocked);
+            return Optional.of(new BlockedFuture(blocked, SplitBlockedReason.REVOKE));
         }
         blocked = operator.isBlocked();
         if (!blocked.isDone()) {
@@ -655,11 +672,11 @@ public class Driver
         }
         blocked = operator.getOperatorContext().isWaitingForMemory();
         if (!blocked.isDone()) {
-            return Optional.of(blocked);
+            return Optional.of(new BlockedFuture(blocked, SplitBlockedReason.MEMORY));
         }
         blocked = operator.getOperatorContext().isWaitingForRevocableMemory();
         if (!blocked.isDone()) {
-            return Optional.of(blocked);
+            return Optional.of(new BlockedFuture(blocked, SplitBlockedReason.REVOCABLE_MEMORY));
         }
         return Optional.empty();
     }
@@ -695,16 +712,12 @@ public class Driver
         checkState(exclusiveLock.isHeldByCurrentThread(), message);
     }
 
-    private static ListenableFuture<?> firstFinishedFuture(List<ListenableFuture<?>> futures)
+    private static ListenableFuture<SplitBlockedReason> firstFinishedFuture(List<ListenableFuture<?>> futures)
     {
-        if (futures.size() == 1) {
-            return futures.get(0);
-        }
-
-        SettableFuture<?> result = SettableFuture.create();
+        SettableFuture<SplitBlockedReason> result = SettableFuture.create();
 
         for (ListenableFuture<?> future : futures) {
-            future.addListener(() -> result.set(null), directExecutor());
+            future.addListener(() -> result.set(((BlockedFuture) future).reason), directExecutor());
         }
 
         return result;
@@ -839,6 +852,57 @@ public class Driver
             if (currentOwner != null) {
                 currentOwner.interrupt();
             }
+        }
+    }
+
+    public static class BlockedFuture
+            implements ListenableFuture
+    {
+        private ListenableFuture<?> future;
+        private SplitBlockedReason reason;
+
+        public BlockedFuture(ListenableFuture<?> future, SplitBlockedReason reason)
+        {
+            this.future = future;
+            this.reason = reason;
+        }
+
+        @Override
+        public void addListener(Runnable listener, Executor executor)
+        {
+            future.addListener(listener, executor);
+        }
+
+        @Override
+        public boolean cancel(boolean mayInterruptIfRunning)
+        {
+            return future.cancel(mayInterruptIfRunning);
+        }
+
+        @Override
+        public boolean isCancelled()
+        {
+            return future.isCancelled();
+        }
+
+        @Override
+        public boolean isDone()
+        {
+            return future.isDone();
+        }
+
+        @Override
+        public Object get()
+                throws InterruptedException, ExecutionException
+        {
+            return future.get();
+        }
+
+        @Override
+        public Object get(long timeout, @NotNull TimeUnit unit)
+                throws InterruptedException, ExecutionException, TimeoutException
+        {
+            return future.get(timeout, unit);
         }
     }
 }

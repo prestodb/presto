@@ -17,6 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -145,7 +146,7 @@ public class LookupOuterOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return outerPositionsFuture;
+        return new Driver.BlockedFuture(outerPositionsFuture, SplitBlockedReason.LOOKUP_OUTER);
     }
 
     @Override

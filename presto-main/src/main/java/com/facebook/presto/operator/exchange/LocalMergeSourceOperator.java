@@ -16,6 +16,7 @@ package com.facebook.presto.operator.exchange;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
@@ -23,6 +24,7 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PageWithPositionComparator;
 import com.facebook.presto.operator.WorkProcessor;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.google.common.collect.ImmutableList;
@@ -140,7 +142,7 @@ public class LocalMergeSourceOperator
     public ListenableFuture<?> isBlocked()
     {
         if (mergedPages.isBlocked()) {
-            return mergedPages.getBlockedFuture();
+            return new Driver.BlockedFuture(mergedPages.getBlockedFuture(), SplitBlockedReason.LOCAL_MERGE_SOURCE);
         }
 
         return NOT_BLOCKED;

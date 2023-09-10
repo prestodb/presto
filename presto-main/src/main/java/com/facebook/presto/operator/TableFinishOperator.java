@@ -23,6 +23,7 @@ import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -227,7 +228,7 @@ public class TableFinishOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return statisticsAggregationOperator.isBlocked();
+        return new Driver.BlockedFuture(statisticsAggregationOperator.isBlocked(), SplitBlockedReason.TABLE_FINISH);
     }
 
     @Override

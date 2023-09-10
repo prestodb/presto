@@ -150,6 +150,34 @@ public class MultilevelSplitQueue
         }
     }
 
+    public PrioritizedSplitRunner takeIntermediate()
+            throws InterruptedException
+    {
+        while (true) {
+            lock.lockInterruptibly();
+            try {
+                PrioritizedSplitRunner result;
+                while ((result = pollSplit()) == null) {
+                    notEmpty.await();
+                }
+
+                if (result.updateLevelPriority() || result.isLeaf()) {
+                    offer(result);
+                    continue;
+                }
+
+                int selectedLevel = result.getPriority().getLevel();
+                levelMinPriority[selectedLevel].set(result.getPriority().getLevelPriority());
+                selectedLevelCounters.get(selectedLevel).update(1);
+
+                return result;
+            }
+            finally {
+                lock.unlock();
+            }
+        }
+    }
+
     /**
      * Presto attempts to give each level a target amount of scheduled time, which is configurable
      * using levelTimeMultiplier.

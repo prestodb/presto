@@ -32,6 +32,7 @@ import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
@@ -39,6 +40,7 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.operator.UncheckedStackArrayAllocator;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -152,10 +154,10 @@ public class OptimizedPartitionedOutputOperator
         if (isBlocked.isDone()) {
             isBlocked = pagePartitioner.isFull();
             if (isBlocked.isDone()) {
-                isBlocked = NOT_BLOCKED;
+                return NOT_BLOCKED;
             }
         }
-        return isBlocked;
+        return new Driver.BlockedFuture(isBlocked, SplitBlockedReason.OPTIMIZED_PARTITION);
     }
 
     @Override

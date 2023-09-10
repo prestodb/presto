@@ -24,6 +24,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking;
 import com.facebook.presto.operator.scalar.JoniRegexpFunctions;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -148,10 +149,18 @@ public class TaskExecutor
      */
     private final Set<PrioritizedSplitRunner> runningSplits = newConcurrentHashSet();
 
+    // Total unfinished leaf splits (waitingSplitsQueue + taskHandle.queue + running)
+    private final Set<PrioritizedSplitRunner> totalLeafSplit = newConcurrentHashSet();
+
+    private final AtomicLong runningLeafSplit = new AtomicLong(0);
+
     /**
      * Splits blocked by the driver.
      */
     private final Map<PrioritizedSplitRunner, Future<?>> blockedSplits = new ConcurrentHashMap<>();
+
+    private final Map<SplitBlockedReason, Integer> leafUnblockedByMap = new ConcurrentHashMap<>();
+    private final Map<SplitBlockedReason, Integer> intermediateUnblockedByMap = new ConcurrentHashMap<>();
 
     private final AtomicLongArray completedTasksPerLevel = new AtomicLongArray(5);
     private final AtomicLongArray completedSplitsPerLevel = new AtomicLongArray(5);
@@ -177,6 +186,8 @@ public class TaskExecutor
 
     private final TimeStat blockedQuantaWallTime = new TimeStat(MICROSECONDS);
     private final TimeStat unblockedQuantaWallTime = new TimeStat(MICROSECONDS);
+    private final AtomicLong totalLeafSplitsOfAllTime = new AtomicLong(0);
+    private final AtomicLong totalIntermediateSplitsOfAllTime = new AtomicLong(0);
 
     private volatile boolean closed;
 
@@ -303,6 +314,9 @@ public class TaskExecutor
         for (int i = 0; i < runnerThreads; i++) {
             addRunnerThread();
         }
+        for (int i = 0; i < runnerThreads / 2; i++) {
+            addIntermediateRunnerThread();
+        }
         if (interruptRunawaySplitsTimeout != null) {
             long interval = (long) interruptSplitInterval.getValue(SECONDS);
             splitMonitorExecutor.scheduleAtFixedRate(this::interruptRunawaySplits, interval, interval, SECONDS);
@@ -333,7 +347,16 @@ public class TaskExecutor
     private synchronized void addRunnerThread()
     {
         try {
-            executor.execute(embedVersion.embedVersion(new TaskRunner()));
+            executor.execute(embedVersion.embedVersion(new TaskRunner(true)));
+        }
+        catch (RejectedExecutionException ignored) {
+        }
+    }
+
+    private synchronized void addIntermediateRunnerThread()
+    {
+        try {
+            executor.execute(embedVersion.embedVersion(new TaskRunner(false)));
         }
         catch (RejectedExecutionException ignored) {
         }
@@ -387,6 +410,7 @@ public class TaskExecutor
             intermediateSplits.removeAll(splits);
             blockedSplits.keySet().removeAll(splits);
             waitingSplits.removeAll(splits);
+            totalLeafSplit.removeAll(splits);
         }
 
         // call destroy outside of synchronized block as it is expensive and doesn't need a lock on the task executor
@@ -414,13 +438,15 @@ public class TaskExecutor
                         globalCpuTimeMicros,
                         globalScheduledTimeMicros,
                         blockedQuantaWallTime,
-                        unblockedQuantaWallTime);
+                        unblockedQuantaWallTime,
+                        !intermediate);
 
                 if (intermediate) {
                     // add the runner to the handle so it can be destroyed if the task is canceled
                     if (taskHandle.recordIntermediateSplit(prioritizedSplitRunner)) {
                         // Note: we do not record queued time for intermediate splits
                         startIntermediateSplit(prioritizedSplitRunner);
+                        totalIntermediateSplitsOfAllTime.incrementAndGet();
                     }
                     else {
                         splitsToDestroy.add(prioritizedSplitRunner);
@@ -429,6 +455,8 @@ public class TaskExecutor
                 else {
                     // add this to the work queue for the task
                     if (taskHandle.enqueueSplit(prioritizedSplitRunner)) {
+                        totalLeafSplit.add(prioritizedSplitRunner);
+                        totalLeafSplitsOfAllTime.incrementAndGet();
                         // if task is under the limit for guaranteed splits, start one
                         scheduleTaskIfNecessary(taskHandle);
                         // if globally we have more resources, start more
@@ -463,7 +491,7 @@ public class TaskExecutor
                 intermediateSplitWaitTime.add(split.getWaitNanos());
                 intermediateSplitCpuTime.add(split.getCpuTimeNanos());
             }
-            else {
+            if (totalLeafSplit.remove(split)) {
                 leafSplitWallTime.add(wallNanos);
                 leafSplitScheduledTime.add(split.getScheduledNanos());
                 leafSplitWaitTime.add(split.getWaitNanos());
@@ -576,6 +604,12 @@ public class TaskExecutor
             implements Runnable
     {
         private final long runnerId = NEXT_RUNNER_ID.getAndIncrement();
+        private final boolean runLeafSplits;
+
+        public TaskRunner(boolean runLeafSplits)
+        {
+            this.runLeafSplits = runLeafSplits;
+        }
 
         @Override
         public void run()
@@ -585,7 +619,12 @@ public class TaskExecutor
                     // select next worker
                     final PrioritizedSplitRunner split;
                     try {
-                        split = waitingSplits.take();
+                        if (runLeafSplits) {
+                            split = waitingSplits.take();
+                        }
+                        else {
+                            split = waitingSplits.takeIntermediate();
+                        }
                     }
                     catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
@@ -597,6 +636,9 @@ public class TaskExecutor
                         RunningSplitInfo splitInfo = new RunningSplitInfo(ticker.read(), threadId, Thread.currentThread(), split);
                         runningSplitInfos.add(splitInfo);
                         runningSplits.add(split);
+                        if (runLeafSplits) {
+                            runningLeafSplit.incrementAndGet();
+                        }
 
                         ListenableFuture<?> blocked;
                         try {
@@ -605,6 +647,9 @@ public class TaskExecutor
                         finally {
                             runningSplitInfos.remove(splitInfo);
                             runningSplits.remove(split);
+                            if (runLeafSplits) {
+                                runningLeafSplit.decrementAndGet();
+                            }
                         }
 
                         if (split.isFinished()) {
@@ -625,6 +670,19 @@ public class TaskExecutor
                                     // reset the level priority to prevent previously-blocked splits from starving existing splits
                                     split.resetLevelPriority();
                                     waitingSplits.offer(split);
+                                    try {
+                                        if (blocked.get() instanceof SplitBlockedReason) {
+                                            SplitBlockedReason reason = (SplitBlockedReason) blocked.get();
+                                            if (runLeafSplits) {
+                                                leafUnblockedByMap.put(reason, leafUnblockedByMap.getOrDefault(reason, 0) + 1);
+                                            }
+                                            else {
+                                                intermediateUnblockedByMap.put(reason, intermediateUnblockedByMap.getOrDefault(reason, 0) + 1);
+                                            }
+                                        }
+                                    }
+                                    catch (Exception e) {
+                                    }
                                 }, executor);
                             }
                         }
@@ -963,6 +1021,18 @@ public class TaskExecutor
         return count;
     }
 
+    @Managed
+    public long getTotalIntermediateSplitsOfAllTime()
+    {
+        return totalIntermediateSplitsOfAllTime.get();
+    }
+
+    @Managed
+    public long getTotalLeafSplitsOfAllTime()
+    {
+        return totalLeafSplitsOfAllTime.get();
+    }
+
     private static class RunningSplitInfo
             implements Comparable<RunningSplitInfo>
     {
@@ -1031,5 +1101,221 @@ public class TaskExecutor
     public ThreadPoolExecutorMBean getProcessorExecutor()
     {
         return executorMBean;
+    }
+
+    @Managed
+    public int getTotalLeafSplit()
+    {
+        return totalLeafSplit.size();
+    }
+
+    @Managed
+    public long getRunningLeafSplit()
+    {
+        return runningLeafSplit.get();
+    }
+
+    @Managed
+    public int getLeafBlockedByRevoke()
+    {
+        return leafUnblockedByMap.getOrDefault(SplitBlockedReason.REVOKE, 0);
+    }
+
+    @Managed
+    public int getLeafBlockedByExchange()
+    {
+        return leafUnblockedByMap.getOrDefault(SplitBlockedReason.EXCHANGE, 0);
+    }
+
+    @Managed
+    public int getLeafBlockedByLocalExchangeSink()
+    {
+        return leafUnblockedByMap.getOrDefault(SplitBlockedReason.LOCAL_EXCHANGE_SINK, 0);
+    }
+
+    @Managed
+    public int getLeafBlockedByLocalExchangeSource()
+    {
+        return leafUnblockedByMap.getOrDefault(SplitBlockedReason.LOCAL_EXCHANGE_SOURCE, 0);
+    }
+
+    @Managed
+    public int getLeafBlockedByLocalMergeSource()
+    {
+        return leafUnblockedByMap.getOrDefault(SplitBlockedReason.LOCAL_MERGE_SOURCE, 0);
+    }
+
+    @Managed
+    public int getLeafBlockedByPageBuffer()
+    {
+        return leafUnblockedByMap.getOrDefault(SplitBlockedReason.PAGE_BUFFER, 0);
+    }
+
+    @Managed
+    public int getLeafBlockedByPageSource()
+    {
+        return leafUnblockedByMap.getOrDefault(SplitBlockedReason.PAGE_SOURCE, 0);
+    }
+
+    @Managed
+    public int getLeafBlockedByPartitionedOutput()
+    {
+        return leafUnblockedByMap.getOrDefault(SplitBlockedReason.PARTITIONED_OUTPUT, 0);
+    }
+
+    @Managed
+    public int getLeafBlockedByScanFilterProject()
+    {
+        return leafUnblockedByMap.getOrDefault(SplitBlockedReason.SCAN_FILTER_PROJECT, 0);
+    }
+
+    @Managed
+    public int getLeafBlockedByTableFinish()
+    {
+        return leafUnblockedByMap.getOrDefault(SplitBlockedReason.TABLE_FINISH, 0);
+    }
+
+    @Managed
+    public int getLeafBlockedByTableScan()
+    {
+        return leafUnblockedByMap.getOrDefault(SplitBlockedReason.TABLE_SCAN, 0);
+    }
+
+    @Managed
+    public int getLeafBlockedByTaskOutput()
+    {
+        return leafUnblockedByMap.getOrDefault(SplitBlockedReason.TASK_OUTPUT, 0);
+    }
+
+    @Managed
+    public int getLeafBlockedByMemory()
+    {
+        return leafUnblockedByMap.getOrDefault(SplitBlockedReason.MEMORY, 0);
+    }
+
+    @Managed
+    public int getLeafBlockedByHashBuild()
+    {
+        return leafUnblockedByMap.getOrDefault(SplitBlockedReason.HASH_BUILD, 0);
+    }
+
+    @Managed
+    public int getLeafBlockedByHashSemi()
+    {
+        return leafUnblockedByMap.getOrDefault(SplitBlockedReason.HASH_SEMI_JOIN, 0);
+    }
+
+    @Managed
+    public int getLeafBlockedByOptimizedPartition()
+    {
+        return leafUnblockedByMap.getOrDefault(SplitBlockedReason.OPTIMIZED_PARTITION, 0);
+    }
+
+    @Managed
+    public int getLeafBlockedByMerge()
+    {
+        return leafUnblockedByMap.getOrDefault(SplitBlockedReason.MERGE, 0);
+    }
+
+    @Managed
+    public int getBlockedByRevoke()
+    {
+        return intermediateUnblockedByMap.getOrDefault(SplitBlockedReason.REVOKE, 0);
+    }
+
+    @Managed
+    public int getBlockedByExchange()
+    {
+        return intermediateUnblockedByMap.getOrDefault(SplitBlockedReason.EXCHANGE, 0);
+    }
+
+    @Managed
+    public int getBlockedByLocalExchangeSink()
+    {
+        return intermediateUnblockedByMap.getOrDefault(SplitBlockedReason.LOCAL_EXCHANGE_SINK, 0);
+    }
+
+    @Managed
+    public int getBlockedByLocalExchangeSource()
+    {
+        return intermediateUnblockedByMap.getOrDefault(SplitBlockedReason.LOCAL_EXCHANGE_SOURCE, 0);
+    }
+
+    @Managed
+    public int getBlockedByLocalMergeSource()
+    {
+        return intermediateUnblockedByMap.getOrDefault(SplitBlockedReason.LOCAL_MERGE_SOURCE, 0);
+    }
+
+    @Managed
+    public int getBlockedByPageBuffer()
+    {
+        return intermediateUnblockedByMap.getOrDefault(SplitBlockedReason.PAGE_BUFFER, 0);
+    }
+
+    @Managed
+    public int getBlockedByPageSource()
+    {
+        return intermediateUnblockedByMap.getOrDefault(SplitBlockedReason.PAGE_SOURCE, 0);
+    }
+
+    @Managed
+    public int getBlockedByPartitionedOutput()
+    {
+        return intermediateUnblockedByMap.getOrDefault(SplitBlockedReason.PARTITIONED_OUTPUT, 0);
+    }
+
+    @Managed
+    public int getBlockedByScanFilterProject()
+    {
+        return intermediateUnblockedByMap.getOrDefault(SplitBlockedReason.SCAN_FILTER_PROJECT, 0);
+    }
+
+    @Managed
+    public int getBlockedByTableFinish()
+    {
+        return intermediateUnblockedByMap.getOrDefault(SplitBlockedReason.TABLE_FINISH, 0);
+    }
+
+    @Managed
+    public int getBlockedByTableScan()
+    {
+        return intermediateUnblockedByMap.getOrDefault(SplitBlockedReason.TABLE_SCAN, 0);
+    }
+
+    @Managed
+    public int getBlockedByTaskOutput()
+    {
+        return intermediateUnblockedByMap.getOrDefault(SplitBlockedReason.TASK_OUTPUT, 0);
+    }
+
+    @Managed
+    public int getBlockedByMemory()
+    {
+        return intermediateUnblockedByMap.getOrDefault(SplitBlockedReason.MEMORY, 0);
+    }
+
+    @Managed
+    public int getBlockedByHashBuild()
+    {
+        return intermediateUnblockedByMap.getOrDefault(SplitBlockedReason.HASH_BUILD, 0);
+    }
+
+    @Managed
+    public int getBlockedByHashSemi()
+    {
+        return intermediateUnblockedByMap.getOrDefault(SplitBlockedReason.HASH_SEMI_JOIN, 0);
+    }
+
+    @Managed
+    public int getBlockedByOptimizedPartition()
+    {
+        return intermediateUnblockedByMap.getOrDefault(SplitBlockedReason.OPTIMIZED_PARTITION, 0);
+    }
+
+    @Managed
+    public int getBlockedByMerge()
+    {
+        return intermediateUnblockedByMap.getOrDefault(SplitBlockedReason.MERGE, 0);
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -66,7 +67,7 @@ public class PageSourceOperator
     public ListenableFuture<?> isBlocked()
     {
         CompletableFuture<?> pageSourceBlocked = pageSource.isBlocked();
-        return pageSourceBlocked.isDone() ? NOT_BLOCKED : toListenableFuture(pageSourceBlocked);
+        return pageSourceBlocked.isDone() ? NOT_BLOCKED : new Driver.BlockedFuture(toListenableFuture(pageSourceBlocked), SplitBlockedReason.PAGE_SOURCE);
     }
 
     @Override

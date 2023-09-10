@@ -14,11 +14,13 @@
 package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
+import com.facebook.presto.operator.window.SplitBlockedReason;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -107,10 +109,10 @@ public class LocalExchangeSourceOperator
         if (isBlocked.isDone()) {
             isBlocked = source.waitForReading();
             if (isBlocked.isDone()) {
-                isBlocked = NOT_BLOCKED;
+                return NOT_BLOCKED;
             }
         }
-        return isBlocked;
+        return new Driver.BlockedFuture(isBlocked, SplitBlockedReason.LOCAL_EXCHANGE_SOURCE);
     }
 
     @Override
