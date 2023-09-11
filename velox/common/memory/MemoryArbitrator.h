@@ -171,6 +171,9 @@ class MemoryArbitrator {
     uint64_t maxCapacityBytes{0};
     /// The free memory capacity in bytes.
     uint64_t freeCapacityBytes{0};
+    /// The sum of all reclaim operation durations during arbitration in
+    /// microseconds.
+    uint64_t reclaimTimeUs{0};
 
     Stats(
         uint64_t _numRequests,
@@ -182,7 +185,8 @@ class MemoryArbitrator {
         uint64_t _numShrunkBytes,
         uint64_t _numReclaimedBytes,
         uint64_t _maxCapacityBytes,
-        uint64_t _freeCapacityBytes);
+        uint64_t _freeCapacityBytes,
+        uint64_t _reclaimTimeUs);
 
     Stats() = default;
 

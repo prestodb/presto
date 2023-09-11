@@ -231,7 +231,8 @@ MemoryArbitrator::Stats::Stats(
     uint64_t _numShrunkBytes,
     uint64_t _numReclaimedBytes,
     uint64_t _maxCapacityBytes,
-    uint64_t _freeCapacityBytes)
+    uint64_t _freeCapacityBytes,
+    uint64_t _reclaimTimeUs)
     : numRequests(_numRequests),
       numSucceeded(_numSucceeded),
       numAborted(_numAborted),
@@ -241,17 +242,19 @@ MemoryArbitrator::Stats::Stats(
       numShrunkBytes(_numShrunkBytes),
       numReclaimedBytes(_numReclaimedBytes),
       maxCapacityBytes(_maxCapacityBytes),
-      freeCapacityBytes(_freeCapacityBytes) {}
+      freeCapacityBytes(_freeCapacityBytes),
+      reclaimTimeUs(_reclaimTimeUs) {}
 
 std::string MemoryArbitrator::Stats::toString() const {
   return fmt::format(
-      "STATS[numRequests {} numSucceeded {} numAborted {} numFailures {} queueTime {} arbitrationTime {} shrunkMemory {} reclaimedMemory {} maxCapacity {} freeCapacity {}]",
+      "STATS[numRequests {} numSucceeded {} numAborted {} numFailures {} queueTime {} arbitrationTime {} reclaimTime {} shrunkMemory {} reclaimedMemory {} maxCapacity {} freeCapacity {}]",
       numRequests,
       numSucceeded,
       numAborted,
       numFailures,
       succinctMicros(queueTimeUs),
       succinctMicros(arbitrationTimeUs),
+      succinctMicros(reclaimTimeUs),
       succinctBytes(numShrunkBytes),
       succinctBytes(numReclaimedBytes),
       succinctBytes(maxCapacityBytes),
@@ -271,6 +274,7 @@ MemoryArbitrator::Stats MemoryArbitrator::Stats::operator-(
   result.numReclaimedBytes = numReclaimedBytes - other.numReclaimedBytes;
   result.maxCapacityBytes = maxCapacityBytes;
   result.freeCapacityBytes = freeCapacityBytes;
+  result.reclaimTimeUs = reclaimTimeUs - other.reclaimTimeUs;
   return result;
 }
 
@@ -285,7 +289,8 @@ bool MemoryArbitrator::Stats::operator==(const Stats& other) const {
              numShrunkBytes,
              numReclaimedBytes,
              maxCapacityBytes,
-             freeCapacityBytes) ==
+             freeCapacityBytes,
+             reclaimTimeUs) ==
       std::tie(
              other.numRequests,
              other.numSucceeded,
@@ -296,7 +301,8 @@ bool MemoryArbitrator::Stats::operator==(const Stats& other) const {
              other.numShrunkBytes,
              other.numReclaimedBytes,
              other.maxCapacityBytes,
-             other.freeCapacityBytes);
+             other.freeCapacityBytes,
+             other.reclaimTimeUs);
 }
 
 bool MemoryArbitrator::Stats::operator!=(const Stats& other) const {
@@ -326,6 +332,7 @@ bool MemoryArbitrator::Stats::operator<(const Stats& other) const {
   UPDATE_COUNTER(arbitrationTimeUs);
   UPDATE_COUNTER(numShrunkBytes);
   UPDATE_COUNTER(numReclaimedBytes);
+  UPDATE_COUNTER(reclaimTimeUs);
 #undef UPDATE_COUNTER
   VELOX_CHECK(
       !((gtCount > 0) && (ltCount > 0)),

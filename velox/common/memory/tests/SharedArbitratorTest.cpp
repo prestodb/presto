@@ -663,6 +663,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToOrderBy) {
     waitForAllTasksToBeDeleted();
     const auto newStats = arbitrator_->stats();
     ASSERT_GT(newStats.numReclaimedBytes, oldStats.numReclaimedBytes);
+    ASSERT_GT(newStats.reclaimTimeUs, oldStats.reclaimTimeUs);
   }
 }
 
@@ -921,6 +922,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToAggregation) {
 
     const auto newStats = arbitrator_->stats();
     ASSERT_GT(newStats.numReclaimedBytes, oldStats.numReclaimedBytes);
+    ASSERT_GT(newStats.reclaimTimeUs, oldStats.reclaimTimeUs);
   }
 }
 
@@ -1211,6 +1213,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToJoinBuilder) {
 
     const auto newStats = arbitrator_->stats();
     ASSERT_GT(newStats.numReclaimedBytes, oldStats.numReclaimedBytes);
+    ASSERT_GT(newStats.reclaimTimeUs, oldStats.reclaimTimeUs);
   }
 }
 

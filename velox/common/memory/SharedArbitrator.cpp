@@ -395,27 +395,33 @@ uint64_t SharedArbitrator::reclaimUsedMemoryFromCandidates(
 uint64_t SharedArbitrator::reclaim(
     MemoryPool* pool,
     uint64_t targetBytes) noexcept {
-  const uint64_t oldCapacity = pool->capacity();
+  uint64_t reclaimDurationUs{0};
+  uint64_t reclaimedBytes{0};
   uint64_t freedBytes{0};
-  try {
-    freedBytes = pool->shrink(targetBytes);
-    if (freedBytes < targetBytes) {
-      pool->reclaim(targetBytes - freedBytes);
+  {
+    MicrosecondTimer reclaimTimer(&reclaimDurationUs);
+    const uint64_t oldCapacity = pool->capacity();
+    try {
+      freedBytes = pool->shrink(targetBytes);
+      if (freedBytes < targetBytes) {
+        pool->reclaim(targetBytes - freedBytes);
+      }
+    } catch (const std::exception& e) {
+      VELOX_MEM_LOG(ERROR) << "Failed to reclaim from memory pool "
+                           << pool->name() << ", aborting it!";
+      abort(pool, std::current_exception());
+      // Free up all the free capacity from the aborted pool as the associated
+      // query has failed at this point.
+      pool->shrink();
     }
-  } catch (const std::exception& e) {
-    VELOX_MEM_LOG(ERROR) << "Failed to reclaim from memory pool "
-                         << pool->name() << ", aborting it!";
-    abort(pool, std::current_exception());
-    // Free up all the free capacity from the aborted pool as the associated
-    // query has failed at this point.
-    pool->shrink();
+    const uint64_t newCapacity = pool->capacity();
+    VELOX_CHECK_GE(oldCapacity, newCapacity);
+    reclaimedBytes = oldCapacity - newCapacity;
   }
-  const uint64_t newCapacity = pool->capacity();
-  VELOX_CHECK_GE(oldCapacity, newCapacity);
-  const uint64_t reclaimedbytes = oldCapacity - newCapacity;
+  numReclaimedBytes_ += reclaimedBytes - freedBytes;
   numShrunkBytes_ += freedBytes;
-  numReclaimedBytes_ += reclaimedbytes - freedBytes;
-  return reclaimedbytes;
+  reclaimTimeUs_ += reclaimDurationUs;
+  return reclaimedBytes;
 }
 
 void SharedArbitrator::abort(
@@ -479,6 +485,7 @@ MemoryArbitrator::Stats SharedArbitrator::statsLocked() const {
   stats.numReclaimedBytes = numReclaimedBytes_;
   stats.maxCapacityBytes = capacity_;
   stats.freeCapacityBytes = freeCapacity_;
+  stats.reclaimTimeUs = reclaimTimeUs_;
   return stats;
 }
 
