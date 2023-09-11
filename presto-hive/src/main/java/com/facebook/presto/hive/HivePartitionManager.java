@@ -185,7 +185,7 @@ public class HivePartitionManager
                         return result.iterator();
                     }
                     catch (InterruptedException | ExecutionException e) {
-                        log.error("Parallel parsing of partition values failed with error message:%s", e.getMessage());
+                        log.error(e, "Parallel parsing of partition values failed");
                     }
                 }
                 return getPartitionListFromPartitionNames(partitionNames, tableName, partitionColumns, partitionTypes, constraint).iterator();
