@@ -141,10 +141,6 @@ struct OperatorStats {
   // Total current spilled files.
   uint32_t spilledFiles{0};
 
-  // Last recorded values for lazy loading times for loads triggered by 'this'.
-  int64_t lastLazyCpuNanos{0};
-  int64_t lastLazyWallNanos{0};
-
   std::unordered_map<std::string, RuntimeMetric> runtimeStats;
 
   int numDrivers = 0;

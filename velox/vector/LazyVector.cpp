@@ -17,29 +17,26 @@
 #include "velox/vector/LazyVector.h"
 #include "velox/common/base/RawVector.h"
 #include "velox/common/base/RuntimeMetrics.h"
-#include "velox/common/time/CpuWallTimer.h"
+#include "velox/common/time/Timer.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/SelectivityVector.h"
 
 namespace facebook::velox {
 
-namespace {
-void writeIOTiming(const CpuWallTiming& delta) {
+static void writeIOWallTimeStat(size_t ioTimeStartMicros) {
   addThreadLocalRuntimeStat(
-      LazyVector::kWallNanos,
-      RuntimeCounter(delta.wallNanos, RuntimeCounter::Unit::kNanos));
-  addThreadLocalRuntimeStat(
-      LazyVector::kCpuNanos,
-      RuntimeCounter(delta.cpuNanos, RuntimeCounter::Unit::kNanos));
+      "dataSourceLazyWallNanos",
+      RuntimeCounter(
+          (getCurrentTimeMicro() - ioTimeStartMicros) * 1'000,
+          RuntimeCounter::Unit::kNanos));
 }
-} // namespace
 
 void VectorLoader::load(RowSet rows, ValueHook* hook, VectorPtr* result) {
-  {
-    DeltaCpuWallTimer timer([&](auto& delta) { writeIOTiming(delta); });
-    loadInternal(rows, hook, result);
-  }
+  const auto ioTimeStartMicros = getCurrentTimeMicro();
+  loadInternal(rows, hook, result);
+  writeIOWallTimeStat(ioTimeStartMicros);
+
   if (hook) {
     // Record number of rows loaded directly into ValueHook bypassing
     // materialization into vector. This counter can be used to understand
@@ -52,10 +49,9 @@ void VectorLoader::load(
     const SelectivityVector& rows,
     ValueHook* hook,
     VectorPtr* result) {
-  {
-    DeltaCpuWallTimer timer([&](auto& delta) { writeIOTiming(delta); });
-    loadInternal(rows, hook, result);
-  }
+  const auto ioTimeStartMicros = getCurrentTimeMicro();
+  loadInternal(rows, hook, result);
+  writeIOWallTimeStat(ioTimeStartMicros);
 
   if (hook) {
     // Record number of rows loaded directly into ValueHook bypassing
