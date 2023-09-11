@@ -28,7 +28,7 @@ public class TestMySqlSourceQueryConfig
     public void testDefault()
     {
         assertRecordedDefaults(recordDefaults(MySqlSourceQueryConfig.class)
-                .setDatabase(null)
+                .setDatabase("jdbc:mysql://localhost:3306")
                 .setTableName("verifier_queries")
                 .setSnapshotTableName("verifier_snapshots")
                 .setSuites("")
