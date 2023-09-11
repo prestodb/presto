@@ -29,6 +29,16 @@ public class HistogramStateFactory
     private final int expectedEntriesCount;
     private final HistogramGroupImplementation mode;
 
+    public Type getKeyType()
+    {
+        return keyType;
+    }
+
+    public int getExpectedEntriesCount()
+    {
+        return expectedEntriesCount;
+    }
+
     public HistogramStateFactory(
             Type keyType, int
             expectedEntriesCount,

@@ -38,15 +38,13 @@ public class SingleTypedHistogram
     private static final float FILL_RATIO = 0.75f;
 
     private final int expectedSize;
+    private final Type type;
+    private final BlockBuilder values;
+    private final LongBigArray counts;
     private int hashCapacity;
     private int maxFill;
     private int mask;
-
-    private final Type type;
-    private final BlockBuilder values;
-
     private IntBigArray hashPositions;
-    private final LongBigArray counts;
 
     private SingleTypedHistogram(Type type, int expectedSize, int hashCapacity, BlockBuilder values)
     {
@@ -168,6 +166,16 @@ public class SingleTypedHistogram
     public boolean isEmpty()
     {
         return values.getPositionCount() == 0;
+    }
+
+    public LongBigArray getCounts()
+    {
+        return counts;
+    }
+
+    public int getDistinctValueCount()
+    {
+        return values.getPositionCount();
     }
 
     private void addNewGroup(int hashPosition, int position, Block block, long count)
