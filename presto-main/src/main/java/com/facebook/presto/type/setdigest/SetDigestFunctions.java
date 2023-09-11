@@ -55,6 +55,30 @@ public final class SetDigestFunctions
 
         long cardinality1 = digest1.cardinality();
         long cardinality2 = digest2.cardinality();
+        double jaccard = SetDigest.jaccardIndex_new(digest1, digest2);
+        digest1.mergeWith(digest2);
+        long result = Math.round(jaccard * digest1.cardinality());
+
+        // When one of the sets is much smaller than the other and approaches being a true
+        // subset of the other, the computed cardinality may exceed the cardinality estimate
+        // of the smaller set. When this happens the cardinality of the smaller set is obviously
+        // a better estimate of the one computed with the Jaccard Index.
+        return Math.min(result, Math.min(cardinality1, cardinality2));
+    }
+
+    @ScalarFunction
+    @SqlType(StandardTypes.BIGINT)
+    public static long intersectionCardinality_new(@SqlType(SetDigestType.NAME) Slice slice1, @SqlType(SetDigestType.NAME) Slice slice2)
+    {
+        SetDigest digest1 = SetDigest.newInstance(slice1);
+        SetDigest digest2 = SetDigest.newInstance(slice2);
+
+        if (digest1.isExact() && digest2.isExact()) {
+            return exactIntersectionCardinality(digest1, digest2);
+        }
+
+        long cardinality1 = digest1.cardinality();
+        long cardinality2 = digest2.cardinality();
         double jaccard = SetDigest.jaccardIndex(digest1, digest2);
         digest1.mergeWith(digest2);
         long result = Math.round(jaccard * digest1.cardinality());

@@ -55,7 +55,20 @@ public class TestSetDigestFunctions
     {
         assertions.assertQuery(
                 "SELECT jaccard_index(make_set_digest(v1), make_set_digest(v2)) " +
-                        "FROM (VALUES (1, 1), (NULL,2), (2, 3), (NULL, 4)) T(v1, v2)", "VALUES CAST(0.5 AS DOUBLE)");
+                        "FROM (VALUES (2, NULL), (3, 4)) T(v1, v2)", "VALUES CAST(0.0 AS DOUBLE)");
+
+        assertions.assertQuery(
+                "SELECT jaccard_index(make_set_digest(v1), make_set_digest(v2)) " +
+                        "FROM (VALUES (NULL, NULL), (2, 4)) T(v1, v2)", "VALUES CAST(0.0 AS DOUBLE)", false);
+        assertions.assertQuery(
+                "SELECT jaccard_index(make_set_digest(v1), make_set_digest(v2)) " +
+                        "FROM (VALUES (1, NULL), (1, 4)) T(v1, v2)", "VALUES CAST(0.0 AS DOUBLE)", false);
+        assertions.assertQuery(
+                "SELECT jaccard_index(make_set_digest(value), make_set_digest(value1)) FROM " +
+                        "(VALUES (1, 2), (2, 1)) T(value,value1)", "VALUES CAST(1.0 AS DOUBLE)", false);
+        assertions.assertQuery(
+                "SELECT jaccard_index(make_set_digest(value), make_set_digest(value1)) " +
+                        "FROM (VALUES (2, 2), (3, 3)) T(value,value1)", "VALUES CAST(1.0 AS DOUBLE)", false);
     }
 
     @Test

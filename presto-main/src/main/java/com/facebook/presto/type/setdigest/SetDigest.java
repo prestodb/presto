@@ -183,6 +183,34 @@ public class SetDigest
         return intersection / (double) sizeOfSmallerSet;
     }
 
+    public static double jaccardIndex_new(SetDigest a, SetDigest b)
+    {
+        SetDigest smaller;
+        SetDigest larger;
+        if (a.minhash.size() < b.minhash.size()) {
+            smaller = a;
+            larger = b;
+        }
+        else {
+            smaller = b;
+            larger = a;
+        }
+
+        LongSortedSet smallerSet = new LongRBTreeSet(smaller.minhash.keySet());
+        LongSortedSet largerSet = new LongRBTreeSet(larger.minhash.keySet());
+
+        int intersection = 0;
+        for (long key : smallerSet) {
+            if (largerSet.contains(key)) {
+                intersection++;
+            }
+        }
+        LongSortedSet union = new LongRBTreeSet(largerSet);
+        union.addAll(smallerSet);
+
+        return intersection / (double) union.size();
+    }
+
     public void add(long value)
     {
         addHash(Murmur3Hash128.hash64(value));

@@ -38,7 +38,7 @@ import static com.facebook.presto.testing.TestingEnvironment.getOperatorMethodHa
 import static com.facebook.presto.type.setdigest.SetDigest.DEFAULT_MAX_HASHES;
 import static com.facebook.presto.type.setdigest.SetDigest.NUMBER_OF_BUCKETS;
 import static com.facebook.presto.type.setdigest.SetDigestFunctions.hashCounts;
-import static com.facebook.presto.type.setdigest.SetDigestFunctions.intersectionCardinality;
+import static com.facebook.presto.type.setdigest.SetDigestFunctions.intersectionCardinality_new;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -96,7 +96,7 @@ public class TestSetDigest
                 }
             }
 
-            long estimatedCardinality = intersectionCardinality(digest1.serialize(), digest2.serialize());
+            long estimatedCardinality = intersectionCardinality_new(digest1.serialize(), digest2.serialize());
             assertTrue(Math.abs(expectedCardinality - estimatedCardinality) / (double) expectedCardinality < 0.10,
                     format("Expected intersection cardinality %d +/- 10%%, got %d, for set of size %d", expectedCardinality, estimatedCardinality, size));
         }
@@ -177,7 +177,7 @@ public class TestSetDigest
             for (Map.Entry<SetDigest, Integer> pair : smallerSets.entrySet()) {
                 SetDigest digest2 = pair.getKey();
                 long estIntersectionCardinality =
-                        intersectionCardinality(digest1.serialize(), digest2.serialize());
+                        intersectionCardinality_new(digest1.serialize(), digest2.serialize());
                 double size2 = digest2.cardinality();
                 assertTrue(estIntersectionCardinality <= size2);
                 int expectedCardinality = pair.getValue();
