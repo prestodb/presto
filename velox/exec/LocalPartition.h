@@ -82,14 +82,6 @@ class LocalExchangeQueue {
   BlockingReason
   next(ContinueFuture* future, memory::MemoryPool* pool, RowVectorPtr* data);
 
-  /// Used by producers to get notified when all data has been fetched. Returns
-  /// kNotBlocked if all data has been fetched. Otherwise, returns
-  /// kWaitForConsumer and sets future that will be competed when all data is
-  /// fetched. Producers must stay alive until all data has been fetched.
-  /// Otherwise, the memory backing the data may get freed before the data was
-  /// copied into the consumers memory pool.
-  BlockingReason isFinished(ContinueFuture* future);
-
   bool isFinished();
 
   /// Drop remaining data from the queue and notify consumers and producers if
@@ -106,10 +98,6 @@ class LocalExchangeQueue {
   // finished producing, e.g. queue_ is not empty or noMoreProducers_ is true
   // and pendingProducers_ is zero.
   std::vector<ContinuePromise> consumerPromises_;
-  // Satisfied when all data has been fetched and no more data will be produced,
-  // e.g. queue_ is empty, noMoreProducers_ is true and pendingProducers_ is
-  // zero.
-  std::vector<ContinuePromise> producerPromises_;
   int pendingProducers_{0};
   bool noMoreProducers_{false};
   bool closed_{false};

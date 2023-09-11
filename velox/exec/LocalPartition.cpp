@@ -64,22 +64,15 @@ void LocalExchangeQueue::addProducer() {
 
 void LocalExchangeQueue::noMoreProducers() {
   std::vector<ContinuePromise> consumerPromises;
-  std::vector<ContinuePromise> producerPromises;
   queue_.withWLock([&](auto& queue) {
     VELOX_CHECK(!noMoreProducers_, "noMoreProducers can be called only once");
     noMoreProducers_ = true;
     if (pendingProducers_ == 0) {
       // No more data will be produced.
       consumerPromises = std::move(consumerPromises_);
-
-      if (queue.empty()) {
-        // All data has been consumed.
-        producerPromises = std::move(producerPromises_);
-      }
     }
   });
   notify(consumerPromises);
-  notify(producerPromises);
 }
 
 BlockingReason LocalExchangeQueue::enqueue(
@@ -118,26 +111,20 @@ BlockingReason LocalExchangeQueue::enqueue(
 
 void LocalExchangeQueue::noMoreData() {
   std::vector<ContinuePromise> consumerPromises;
-  std::vector<ContinuePromise> producerPromises;
   queue_.withWLock([&](auto& queue) {
     VELOX_CHECK_GT(pendingProducers_, 0);
     --pendingProducers_;
     if (noMoreProducers_ && pendingProducers_ == 0) {
       consumerPromises = std::move(consumerPromises_);
-      if (queue.empty()) {
-        producerPromises = std::move(producerPromises_);
-      }
     }
   });
   notify(consumerPromises);
-  notify(producerPromises);
 }
 
 BlockingReason LocalExchangeQueue::next(
     ContinueFuture* future,
     memory::MemoryPool* pool,
     RowVectorPtr* data) {
-  std::vector<ContinuePromise> producerPromises;
   std::vector<ContinuePromise> memoryPromises;
   auto blockingReason = queue_.withWLock([&](auto& queue) {
     *data = nullptr;
@@ -158,14 +145,9 @@ BlockingReason LocalExchangeQueue::next(
     memoryPromises =
         memoryManager_->decreaseMemoryUsage((*data)->estimateFlatSize());
 
-    if (noMoreProducers_ && pendingProducers_ == 0 && queue.empty()) {
-      producerPromises = std::move(producerPromises_);
-    }
-
     return BlockingReason::kNotBlocked;
   });
   notify(memoryPromises);
-  notify(producerPromises);
   return blockingReason;
 }
 
@@ -182,25 +164,11 @@ bool LocalExchangeQueue::isFinishedLocked(
   return false;
 }
 
-BlockingReason LocalExchangeQueue::isFinished(ContinueFuture* future) {
-  return queue_.withWLock([&](auto& queue) {
-    if (isFinishedLocked(queue)) {
-      return BlockingReason::kNotBlocked;
-    }
-
-    producerPromises_.emplace_back("LocalExchangeQueue::isFinished");
-    *future = producerPromises_.back().getSemiFuture();
-
-    return BlockingReason::kWaitForConsumer;
-  });
-}
-
 bool LocalExchangeQueue::isFinished() {
   return queue_.withWLock([&](auto& queue) { return isFinishedLocked(queue); });
 }
 
 void LocalExchangeQueue::close() {
-  std::vector<ContinuePromise> producerPromises;
   std::vector<ContinuePromise> consumerPromises;
   std::vector<ContinuePromise> memoryPromises;
   queue_.withWLock([&](auto& queue) {
@@ -214,11 +182,9 @@ void LocalExchangeQueue::close() {
       memoryPromises = memoryManager_->decreaseMemoryUsage(freedBytes);
     }
 
-    producerPromises = std::move(producerPromises_);
     consumerPromises = std::move(consumerPromises_);
     closed_ = true;
   });
-  notify(producerPromises);
   notify(consumerPromises);
   notify(memoryPromises);
 }
