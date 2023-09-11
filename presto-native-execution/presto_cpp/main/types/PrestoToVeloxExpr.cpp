@@ -429,8 +429,7 @@ std::shared_ptr<const ConstantTypedExpr> VeloxExprConverter::toVeloxExpr(
       auto valueVector =
           protocol::readBlock(type, pexpr->valueBlock.data, pool_);
       return std::make_shared<ConstantTypedExpr>(
-          std::make_shared<velox::ConstantVector<velox::ComplexType>>(
-              pool_, 1, 0, valueVector));
+          velox::BaseVector::wrapInConstant(1, 0, valueVector));
     }
     default: {
       const auto value = getConstantValue(type, pexpr->valueBlock);
