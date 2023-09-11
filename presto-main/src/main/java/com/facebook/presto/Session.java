@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.NodePoolType;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
@@ -35,6 +36,7 @@ import com.facebook.presto.spi.tracing.Tracer;
 import com.facebook.presto.sql.analyzer.CTEInformationCollector;
 import com.facebook.presto.sql.planner.optimizations.OptimizerInformationCollector;
 import com.facebook.presto.sql.planner.optimizations.OptimizerResultCollector;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -50,6 +52,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isFieldNameInJsonCastEnabled;
@@ -93,6 +96,7 @@ public final class Session
     private final AccessControlContext context;
     private final Optional<Tracer> tracer;
     private final WarningCollector warningCollector;
+    private final ConcurrentHashMap<PlanFragmentId, Pair<NodePoolType, String>> fragmentToPoolTypeMapping = new ConcurrentHashMap<>();
 
     private final RuntimeStats runtimeStats = new RuntimeStats();
     private final OptimizerInformationCollector optimizerInformationCollector = new OptimizerInformationCollector();
@@ -547,6 +551,11 @@ public final class Session
                 sessionFunctions);
     }
 
+    public ConcurrentHashMap<PlanFragmentId, Pair<NodePoolType, String>> getFragmentToPoolTypeMapping()
+    {
+        return fragmentToPoolTypeMapping;
+    }
+
     @Override
     public String toString()
     {
@@ -858,6 +867,28 @@ public final class Session
         public ResourceEstimates build()
         {
             return new ResourceEstimates(executionTime, cpuTime, peakMemory, peakTaskMemory);
+        }
+    }
+
+    public static class Pair<K, V>
+    {
+        private final K key;
+        private final V value;
+
+        public Pair(K key, V value)
+        {
+            this.key = requireNonNull(key, "key is null");
+            this.value = requireNonNull(value, "value is null");
+        }
+
+        public K getKey()
+        {
+            return key;
+        }
+
+        public V getValue()
+        {
+            return value;
         }
     }
 }

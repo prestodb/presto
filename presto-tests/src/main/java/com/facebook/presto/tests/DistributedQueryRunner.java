@@ -941,7 +941,7 @@ public class DistributedQueryRunner
         private boolean catalogServerEnabled;
         private List<Module> extraModules = ImmutableList.of();
         private int resourceManagerCount = 1;
-        private Optional<String> nodeType;
+        private Optional<String> nodeType = Optional.empty();
 
         protected Builder(Session defaultSession)
         {

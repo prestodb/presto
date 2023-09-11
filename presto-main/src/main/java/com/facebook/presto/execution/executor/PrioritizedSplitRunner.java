@@ -273,20 +273,12 @@ public class PrioritizedSplitRunner
         return String.format("Split %-15s-%d %s (start = %s, wall = %s ms, cpu = %s ms, wait = %s ms, calls = %s)",
                 taskHandle.getTaskId(),
                 splitId,
-                getSplitInfo(),
+                split.getInfo(),
                 start.get() / 1.0e6,
                 (int) ((ticker.read() - start.get()) / 1.0e6),
                 (int) (cpuTimeNanos.get() / 1.0e6),
                 (int) (waitNanos.get() / 1.0e6),
                 processCalls.get());
-    }
-
-    private String getSplitInfo()
-    {
-        if (split == null) {
-            return "";
-        }
-        return split.getInfo();
     }
 
     @Override
