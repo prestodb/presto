@@ -25,14 +25,15 @@ namespace {
 constexpr char const* kMinioExecutableName{"minio"};
 constexpr char const* kMinioAccessKey{"minio"};
 constexpr char const* kMinioSecretKey{"miniopass"};
-constexpr char const* kMinioConnectionString{"127.0.0.1:9000"};
 } // namespace
 
 // A minio server, managed as a child process.
 // Adapted from the Apache Arrow library.
 class MinioServer {
  public:
-  MinioServer() : tempPath_(::exec::test::TempDirectoryPath::create()) {}
+  MinioServer(const std::string_view& connectionString)
+      : tempPath_(::exec::test::TempDirectoryPath::create()),
+        connectionString_(connectionString) {}
 
   void start();
 
@@ -68,7 +69,7 @@ class MinioServer {
 
  private:
   const std::shared_ptr<exec::test::TempDirectoryPath> tempPath_;
-  const std::string connectionString_ = kMinioConnectionString;
+  const std::string connectionString_;
   const std::string accessKey_ = kMinioAccessKey;
   const std::string secretKey_ = kMinioSecretKey;
   std::shared_ptr<::boost::process::child> serverProcess_;

@@ -14,28 +14,23 @@
  * limitations under the License.
  */
 
-#include "connectors/hive/storage_adapters/s3fs/S3FileSystem.h"
-#include "connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
-#include "connectors/hive/storage_adapters/s3fs/S3Util.h"
-#include "connectors/hive/storage_adapters/s3fs/tests/MinioServer.h"
-#include "velox/common/base/tests/GTestUtils.h"
-#include "velox/common/file/File.h"
-#include "velox/connectors/hive/FileHandle.h"
-#include "velox/exec/tests/utils/TempFilePath.h"
+#include "velox/connectors/hive/storage_adapters/s3fs/tests/S3Test.h"
 
 #include "gtest/gtest.h"
 
 using namespace facebook::velox;
 
-constexpr int kOneMB = 1 << 20;
+static constexpr std::string_view kMinioConnectionString = "127.0.0.1:9000";
 
-class S3FileSystemTest : public testing::Test {
+class S3FileSystemTest : public S3Test {
  protected:
   static void SetUpTestSuite() {
     if (minioServer_ == nullptr) {
-      minioServer_ = std::make_shared<MinioServer>();
+      minioServer_ = std::make_shared<MinioServer>(kMinioConnectionString);
       minioServer_->start();
     }
+    auto hiveConfig = minioServer_->hiveConfig({{"hive.s3.log-level", "Info"}});
+    filesystems::initializeS3(hiveConfig.get());
   }
 
   static void TearDownTestSuite() {
@@ -44,63 +39,7 @@ class S3FileSystemTest : public testing::Test {
       minioServer_ = nullptr;
     }
   }
-
-  void addBucket(const char* bucket) {
-    minioServer_->addBucket(bucket);
-  }
-
-  std::string localPath(const char* directory) {
-    return minioServer_->path() + "/" + directory;
-  }
-
-  void writeData(WriteFile* writeFile) {
-    writeFile->append("aaaaa");
-    writeFile->append("bbbbb");
-    writeFile->append(std::string(kOneMB, 'c'));
-    writeFile->append("ddddd");
-    ASSERT_EQ(writeFile->size(), 15 + kOneMB);
-  }
-
-  void readData(ReadFile* readFile) {
-    ASSERT_EQ(readFile->size(), 15 + kOneMB);
-    char buffer1[5];
-    ASSERT_EQ(readFile->pread(10 + kOneMB, 5, &buffer1), "ddddd");
-    char buffer2[10];
-    ASSERT_EQ(readFile->pread(0, 10, &buffer2), "aaaaabbbbb");
-    char buffer3[kOneMB];
-    ASSERT_EQ(readFile->pread(10, kOneMB, &buffer3), std::string(kOneMB, 'c'));
-    ASSERT_EQ(readFile->size(), 15 + kOneMB);
-    char buffer4[10];
-    const std::string_view arf = readFile->pread(5, 10, &buffer4);
-    const std::string zarf = readFile->pread(kOneMB, 15);
-    auto buf = std::make_unique<char[]>(8);
-    const std::string_view warf = readFile->pread(4, 8, buf.get());
-    const std::string_view warfFromBuf(buf.get(), 8);
-    ASSERT_EQ(arf, "bbbbbccccc");
-    ASSERT_EQ(zarf, "ccccccccccddddd");
-    ASSERT_EQ(warf, "abbbbbcc");
-    ASSERT_EQ(warfFromBuf, "abbbbbcc");
-    char head[12];
-    char middle[4];
-    char tail[7];
-    std::vector<folly::Range<char*>> buffers = {
-        folly::Range<char*>(head, sizeof(head)),
-        folly::Range<char*>(nullptr, (char*)(uint64_t)500000),
-        folly::Range<char*>(middle, sizeof(middle)),
-        folly::Range<char*>(
-            nullptr,
-            (char*)(uint64_t)(15 + kOneMB - 500000 - sizeof(head) - sizeof(middle) - sizeof(tail))),
-        folly::Range<char*>(tail, sizeof(tail))};
-    ASSERT_EQ(15 + kOneMB, readFile->preadv(0, buffers));
-    ASSERT_EQ(std::string_view(head, sizeof(head)), "aaaaabbbbbcc");
-    ASSERT_EQ(std::string_view(middle, sizeof(middle)), "cccc");
-    ASSERT_EQ(std::string_view(tail, sizeof(tail)), "ccddddd");
-  }
-
-  static std::shared_ptr<MinioServer> minioServer_;
 };
-
-std::shared_ptr<MinioServer> S3FileSystemTest::minioServer_ = nullptr;
 
 TEST_F(S3FileSystemTest, writeAndRead) {
   const char* bucketName = "data";
@@ -114,44 +53,8 @@ TEST_F(S3FileSystemTest, writeAndRead) {
   }
   auto hiveConfig = minioServer_->hiveConfig();
   filesystems::S3FileSystem s3fs(hiveConfig);
-  s3fs.initializeClient();
   auto readFile = s3fs.openFileForRead(s3File);
   readData(readFile.get());
-}
-
-TEST_F(S3FileSystemTest, viaRegistry) {
-  const char* bucketName = "data2";
-  const char* file = "test.txt";
-  const std::string filename = localPath(bucketName) + "/" + file;
-  const std::string s3File = s3URI(bucketName, file);
-  addBucket(bucketName);
-  {
-    LocalWriteFile writeFile(filename);
-    writeData(&writeFile);
-  }
-  auto hiveConfig = minioServer_->hiveConfig();
-  auto s3fs = filesystems::getFileSystem(s3File, hiveConfig);
-  auto readFile = s3fs->openFileForRead(s3File);
-  readData(readFile.get());
-}
-
-TEST_F(S3FileSystemTest, fileHandle) {
-  const char* bucketName = "data3";
-  const char* file = "test.txt";
-  const std::string filename = localPath(bucketName) + "/" + file;
-  const std::string s3File = s3URI(bucketName, file);
-  addBucket(bucketName);
-  {
-    LocalWriteFile writeFile(filename);
-    writeData(&writeFile);
-  }
-  auto hiveConfig = minioServer_->hiveConfig();
-  FileHandleFactory factory(
-      std::make_unique<
-          SimpleLRUCache<std::string, std::shared_ptr<FileHandle>>>(1000),
-      std::make_unique<FileHandleGenerator>(hiveConfig));
-  auto fileHandle = factory.generate(s3File).second;
-  readData(fileHandle->file.get());
 }
 
 TEST_F(S3FileSystemTest, invalidCredentialsConfig) {
@@ -161,10 +64,10 @@ TEST_F(S3FileSystemTest, invalidCredentialsConfig) {
          {"hive.s3.iam-role", "dummy-iam-role"}});
     auto hiveConfig =
         std::make_shared<const core::MemConfig>(std::move(config));
-    filesystems::S3FileSystem s3fs(hiveConfig);
+
     // Both instance credentials and iam-role cannot be specified
     VELOX_ASSERT_THROW(
-        s3fs.initializeClient(),
+        filesystems::S3FileSystem(hiveConfig),
         "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'");
   }
   {
@@ -174,10 +77,9 @@ TEST_F(S3FileSystemTest, invalidCredentialsConfig) {
          {"hive.s3.iam-role", "dummy-iam-role"}});
     auto hiveConfig =
         std::make_shared<const core::MemConfig>(std::move(config));
-    filesystems::S3FileSystem s3fs(hiveConfig);
     // Both access/secret keys and iam-role cannot be specified
     VELOX_ASSERT_THROW(
-        s3fs.initializeClient(),
+        filesystems::S3FileSystem(hiveConfig),
         "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'");
   }
   {
@@ -187,10 +89,9 @@ TEST_F(S3FileSystemTest, invalidCredentialsConfig) {
          {"hive.s3.use-instance-credentials", "true"}});
     auto hiveConfig =
         std::make_shared<const core::MemConfig>(std::move(config));
-    filesystems::S3FileSystem s3fs(hiveConfig);
     // Both access/secret keys and instance credentials cannot be specified
     VELOX_ASSERT_THROW(
-        s3fs.initializeClient(),
+        filesystems::S3FileSystem(hiveConfig),
         "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'");
   }
   {
@@ -198,10 +99,9 @@ TEST_F(S3FileSystemTest, invalidCredentialsConfig) {
         {{"hive.s3.aws-secret-key", "dummy"}});
     auto hiveConfig =
         std::make_shared<const core::MemConfig>(std::move(config));
-    filesystems::S3FileSystem s3fs(hiveConfig);
     // Both access key and secret key must be specified
     VELOX_ASSERT_THROW(
-        s3fs.initializeClient(),
+        filesystems::S3FileSystem(hiveConfig),
         "Invalid configuration: both access key and secret key must be specified");
   }
 }
@@ -213,7 +113,6 @@ TEST_F(S3FileSystemTest, missingFile) {
   addBucket(bucketName);
   auto hiveConfig = minioServer_->hiveConfig();
   filesystems::S3FileSystem s3fs(hiveConfig);
-  s3fs.initializeClient();
   VELOX_ASSERT_THROW(
       s3fs.openFileForRead(s3File),
       "Failed to get metadata for S3 object due to: 'Resource not found'. Path:'s3://data1/i-do-not-exist.txt', SDK Error Type:16, HTTP Status Code:404, S3 Service:'MinIO', Message:'No response body.'");
@@ -222,9 +121,8 @@ TEST_F(S3FileSystemTest, missingFile) {
 TEST_F(S3FileSystemTest, missingBucket) {
   auto hiveConfig = minioServer_->hiveConfig();
   filesystems::S3FileSystem s3fs(hiveConfig);
-  s3fs.initializeClient();
   VELOX_ASSERT_THROW(
-      s3fs.openFileForRead("s3://dummy/foo.txt"),
+      s3fs.openFileForRead(kDummyPath),
       "Failed to get metadata for S3 object due to: 'Resource not found'. Path:'s3://dummy/foo.txt', SDK Error Type:16, HTTP Status Code:404, S3 Service:'MinIO', Message:'No response body.'");
 }
 
@@ -232,10 +130,9 @@ TEST_F(S3FileSystemTest, invalidAccessKey) {
   auto hiveConfig =
       minioServer_->hiveConfig({{"hive.s3.aws-access-key", "dummy-key"}});
   filesystems::S3FileSystem s3fs(hiveConfig);
-  s3fs.initializeClient();
   // Minio credentials are wrong and this should throw
   VELOX_ASSERT_THROW(
-      s3fs.openFileForRead("s3://dummy/foo.txt"),
+      s3fs.openFileForRead(kDummyPath),
       "Failed to get metadata for S3 object due to: 'Access denied'. Path:'s3://dummy/foo.txt', SDK Error Type:15, HTTP Status Code:403, S3 Service:'MinIO', Message:'No response body.'");
 }
 
@@ -243,7 +140,6 @@ TEST_F(S3FileSystemTest, invalidSecretKey) {
   auto hiveConfig =
       minioServer_->hiveConfig({{"hive.s3.aws-secret-key", "dummy-key"}});
   filesystems::S3FileSystem s3fs(hiveConfig);
-  s3fs.initializeClient();
   // Minio credentials are wrong and this should throw.
   VELOX_ASSERT_THROW(
       s3fs.openFileForRead("s3://dummy/foo.txt"),
@@ -254,11 +150,10 @@ TEST_F(S3FileSystemTest, noBackendServer) {
   auto hiveConfig =
       minioServer_->hiveConfig({{"hive.s3.aws-secret-key", "dummy-key"}});
   filesystems::S3FileSystem s3fs(hiveConfig);
-  s3fs.initializeClient();
   // Stop Minio and check error.
   minioServer_->stop();
   VELOX_ASSERT_THROW(
-      s3fs.openFileForRead("s3://dummy/foo.txt"),
+      s3fs.openFileForRead(kDummyPath),
       "Failed to get metadata for S3 object due to: 'Network connection'. Path:'s3://dummy/foo.txt', SDK Error Type:99, HTTP Status Code:-1, S3 Service:'Unknown', Message:'curlCode: 7, Couldn't connect to server'");
   // Start Minio again.
   minioServer_->start();
@@ -271,21 +166,27 @@ TEST_F(S3FileSystemTest, logLevel) {
     filesystems::S3FileSystem s3fs(s3Config);
     EXPECT_EQ(s3fs.getLogLevelName(), expected);
   };
-  // Default is Fatal.
-  checkLogLevelName("FATAL");
 
+  // Test is configured with INFO.
+  checkLogLevelName("INFO");
+
+  // S3 log level is set once during initialization.
+  // It does not change with a new config.
   config["hive.s3.log-level"] = "Trace";
-  checkLogLevelName("TRACE");
+  checkLogLevelName("INFO");
+}
 
-  config["hive.s3.log-level"] = "error";
-  checkLogLevelName("ERROR");
-
-  config["hive.s3.log-level"] = "WARN";
-  checkLogLevelName("WARN");
-
-  config["hive.s3.log-level"] = "DeBUG";
-  checkLogLevelName("DEBUG");
-
-  config["hive.s3.log-level"] = "FATAl";
-  checkLogLevelName("FATAL");
+// This test has to be the last one as it invokes finalizeS3.
+TEST_F(S3FileSystemTest, finalize) {
+  auto s3Config = minioServer_->hiveConfig();
+  ASSERT_FALSE(filesystems::initializeS3(s3Config.get()));
+  {
+    filesystems::S3FileSystem s3fs(s3Config);
+    VELOX_ASSERT_THROW(
+        filesystems::finalizeS3(), "Cannot finalize S3 while in use");
+  }
+  filesystems::finalizeS3();
+  VELOX_ASSERT_THROW(
+      filesystems::initializeS3(s3Config.get()),
+      "Attempt to initialize S3 after it has been finalized.");
 }

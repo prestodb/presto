@@ -20,29 +20,32 @@
 #include "velox/core/Config.h"
 #endif
 
+#include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
+
 namespace facebook::velox::filesystems {
 
 #ifdef VELOX_ENABLE_S3
 folly::once_flag S3FSInstantiationFlag;
+
+// Only one instance of S3FileSystem is supported for now.
+// TODO: Support multiple S3FileSystem instances using a cache
+static std::shared_ptr<S3FileSystem> s3fs = nullptr;
 
 std::function<std::shared_ptr<
     FileSystem>(std::shared_ptr<const Config>, std::string_view)>
 fileSystemGenerator() {
   static auto filesystemGenerator = [](std::shared_ptr<const Config> properties,
                                        std::string_view filePath) {
-    // Only one instance of S3FileSystem is supported for now.
-    // TODO: Support multiple S3FileSystem instances using a cache
-    // Initialize on first access and reuse after that.
-    static std::shared_ptr<FileSystem> s3fs;
     folly::call_once(S3FSInstantiationFlag, [&properties]() {
       std::shared_ptr<S3FileSystem> fs;
       if (properties != nullptr) {
+        initializeS3(properties.get());
         fs = std::make_shared<S3FileSystem>(properties);
       } else {
-        fs =
-            std::make_shared<S3FileSystem>(std::make_shared<core::MemConfig>());
+        auto config = std::make_shared<core::MemConfig>();
+        initializeS3(config.get());
+        fs = std::make_shared<S3FileSystem>(config);
       }
-      fs->initializeClient();
       s3fs = fs;
     });
     return s3fs;
@@ -53,7 +56,19 @@ fileSystemGenerator() {
 
 void registerS3FileSystem() {
 #ifdef VELOX_ENABLE_S3
-  registerFileSystem(isS3File, fileSystemGenerator());
+  if (!s3fs) {
+    registerFileSystem(isS3File, fileSystemGenerator());
+  }
+#endif
+}
+
+void finalizeS3FileSystem() {
+#ifdef VELOX_ENABLE_S3
+  VELOX_CHECK(
+      !s3fs || (s3fs && s3fs.use_count() == 1),
+      "Cannot finalize S3FileSystem while in use");
+  s3fs.reset();
+  finalizeS3();
 #endif
 }
 

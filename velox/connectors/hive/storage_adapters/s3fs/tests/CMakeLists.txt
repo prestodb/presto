@@ -20,7 +20,19 @@ target_link_libraries(
   velox_s3fs
   velox_core
   velox_exec_test_lib
-  velox_hive_connector
+  velox_dwio_common_exception
+  velox_exec
+  gtest
+  gtest_main)
+
+add_executable(velox_s3registration_test S3FileSystemRegistrationTest.cpp)
+add_test(velox_s3registration_test velox_s3registration_test)
+target_link_libraries(
+  velox_s3registration_test
+  velox_file
+  velox_s3fs
+  velox_core
+  velox_exec_test_lib
   velox_dwio_common_exception
   velox_exec
   gtest

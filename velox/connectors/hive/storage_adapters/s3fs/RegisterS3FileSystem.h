@@ -21,4 +21,14 @@ namespace facebook::velox::filesystems {
 // Register the S3 filesystem.
 void registerS3FileSystem();
 
+/// Teardown the AWS SDK C++.
+/// Velox users need to manually invoke this before exiting an application.
+/// This is because Velox uses a static object to hold the S3 FileSystem
+/// instance. AWS C++ SDK library also uses static global objects in its code.
+/// The order of static object destruction is not determined by the C++
+/// standard.
+/// This could lead to a segmentation fault during the program exit.
+/// Ref https://github.com/aws/aws-sdk-cpp/issues/1550#issuecomment-1412601061
+void finalizeS3FileSystem();
+
 } // namespace facebook::velox::filesystems

@@ -199,35 +199,118 @@ Aws::Utils::Logging::LogLevel inferS3LogLevel(std::string level) {
 
 namespace filesystems {
 using namespace connector::hive;
-class S3FileSystem::Impl {
- public:
-  Impl(const Config* config) : config_(config) {
-    const size_t origCount = initCounter_++;
-    if (origCount == 0) {
-      Aws::SDKOptions awsOptions;
-      awsOptions.loggingOptions.logLevel =
-          inferS3LogLevel(HiveConfig::s3GetLogLevel(config_));
-      // In some situations, curl triggers a SIGPIPE signal causing the entire
-      // process to be terminated without any notification.
-      // This behavior is seen via Prestissimo on AmazonLinux2 on AWS EC2.
-      // Relevant documentation in AWS SDK C++
-      // https://github.com/aws/aws-sdk-cpp/blob/276ee83080fcc521d41d456dbbe61d49392ddf77/src/aws-cpp-sdk-core/include/aws/core/Aws.h#L96
-      // This option allows the AWS SDK C++ to catch the SIGPIPE signal and
-      // log a message.
-      awsOptions.httpOptions.installSigPipeHandler = true;
-      Aws::InitAPI(awsOptions);
+
+// Initialize and Finalize the AWS SDK C++ library.
+// Initialization must be done before creating a S3FileSystem.
+// Finalization must be done after all S3FileSystem instances have been deleted.
+// After Finalize, no new S3FileSystem can be created.
+struct AwsInstance {
+  AwsInstance() : isInitialized_(false), isFinalized_(false) {}
+  ~AwsInstance() {
+    finalize(/*from_destructor=*/true);
+  }
+
+  // Returns true iff the instance was newly initialized with config.
+  bool initialize(const Config* config) {
+    if (isFinalized_.load()) {
+      VELOX_FAIL("Attempt to initialize S3 after it has been finalized.");
+    }
+    if (!isInitialized_.exchange(true)) {
+      // Not already initialized.
+      doInitialize(config);
+      return true;
+    }
+    return false;
+  }
+
+  bool isInitialized() {
+    return !isFinalized_ && isInitialized_;
+  }
+
+  void finalize(bool fromDestructor = false) {
+    if (isFinalized_.exchange(true)) {
+      // Already finalized.
+      return;
+    }
+    if (isInitialized_.exchange(false)) {
+      // Was initialized.
+      if (fromDestructor) {
+        VLOG(0)
+            << "finalizeS3FileSystem() was not called even though S3 was initialized."
+               "This could lead to a segmentation fault at exit";
+      }
+      Aws::ShutdownAPI(awsOptions_);
     }
   }
 
-  ~Impl() {
-    const size_t newCount = --initCounter_;
-    if (newCount == 0) {
-      client_.reset();
-      Aws::SDKOptions awsOptions;
-      awsOptions.loggingOptions.logLevel =
-          inferS3LogLevel(HiveConfig::s3GetLogLevel(config_));
-      Aws::ShutdownAPI(awsOptions);
+  std::string getLogLevelName() {
+    return Aws::Utils::Logging::GetLogLevelName(
+        awsOptions_.loggingOptions.logLevel);
+  }
+
+ private:
+  void doInitialize(const Config* config) {
+    awsOptions_.loggingOptions.logLevel =
+        inferS3LogLevel(HiveConfig::s3GetLogLevel(config));
+    // In some situations, curl triggers a SIGPIPE signal causing the entire
+    // process to be terminated without any notification.
+    // This behavior is seen via Prestissimo on AmazonLinux2 on AWS EC2.
+    // Relevant documentation in AWS SDK C++
+    // https://github.com/aws/aws-sdk-cpp/blob/276ee83080fcc521d41d456dbbe61d49392ddf77/src/aws-cpp-sdk-core/include/aws/core/Aws.h#L96
+    // This option allows the AWS SDK C++ to catch the SIGPIPE signal and
+    // log a message.
+    awsOptions_.httpOptions.installSigPipeHandler = true;
+    Aws::InitAPI(awsOptions_);
+  }
+
+  Aws::SDKOptions awsOptions_;
+  std::atomic<bool> isInitialized_;
+  std::atomic<bool> isFinalized_;
+};
+
+// Singleton to initialize AWS S3.
+AwsInstance* getAwsInstance() {
+  static auto instance = std::make_unique<AwsInstance>();
+  return instance.get();
+}
+
+bool initializeS3(const Config* config) {
+  return getAwsInstance()->initialize(config);
+}
+
+static std::atomic<int> fileSystemCount = 0;
+
+void finalizeS3() {
+  VELOX_CHECK((fileSystemCount == 0), "Cannot finalize S3 while in use");
+  getAwsInstance()->finalize();
+}
+
+class S3FileSystem::Impl {
+ public:
+  Impl(const Config* config) : config_(config) {
+    VELOX_CHECK(getAwsInstance()->isInitialized(), "S3 is not initialized");
+    Aws::Client::ClientConfiguration clientConfig;
+    clientConfig.endpointOverride = HiveConfig::s3Endpoint(config_);
+
+    if (HiveConfig::s3UseSSL(config_)) {
+      clientConfig.scheme = Aws::Http::Scheme::HTTPS;
+    } else {
+      clientConfig.scheme = Aws::Http::Scheme::HTTP;
     }
+
+    auto credentialsProvider = getCredentialsProvider();
+
+    client_ = std::make_shared<Aws::S3::S3Client>(
+        credentialsProvider,
+        clientConfig,
+        Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
+        HiveConfig::s3UseVirtualAddressing(config_));
+    ++fileSystemCount;
+  }
+
+  ~Impl() {
+    client_.reset();
+    --fileSystemCount;
   }
 
   // Configure and return an AWSCredentialsProvider with access key and secret
@@ -293,27 +376,6 @@ class S3FileSystem::Impl {
     return getDefaultCredentialsProvider();
   }
 
-  // Use the input Config parameters and initialize the S3Client.
-  void initializeClient() {
-    Aws::Client::ClientConfiguration clientConfig;
-
-    clientConfig.endpointOverride = HiveConfig::s3Endpoint(config_);
-
-    if (HiveConfig::s3UseSSL(config_)) {
-      clientConfig.scheme = Aws::Http::Scheme::HTTPS;
-    } else {
-      clientConfig.scheme = Aws::Http::Scheme::HTTP;
-    }
-
-    auto credentialsProvider = getCredentialsProvider();
-
-    client_ = std::make_shared<Aws::S3::S3Client>(
-        credentialsProvider,
-        clientConfig,
-        Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
-        HiveConfig::s3UseVirtualAddressing(config_));
-  }
-
   // Make it clear that the S3FileSystem instance owns the S3Client.
   // Once the S3FileSystem is destroyed, the S3Client fails to work
   // due to the Aws::ShutdownAPI invocation in the destructor.
@@ -322,24 +384,17 @@ class S3FileSystem::Impl {
   }
 
   std::string getLogLevelName() const {
-    return GetLogLevelName(inferS3LogLevel(HiveConfig::s3GetLogLevel(config_)));
+    return getAwsInstance()->getLogLevelName();
   }
 
  private:
   const Config* config_;
   std::shared_ptr<Aws::S3::S3Client> client_;
-  static std::atomic<size_t> initCounter_;
 };
-
-std::atomic<size_t> S3FileSystem::Impl::initCounter_(0);
 
 S3FileSystem::S3FileSystem(std::shared_ptr<const Config> config)
     : FileSystem(config) {
   impl_ = std::make_shared<Impl>(config.get());
-}
-
-void S3FileSystem::initializeClient() {
-  impl_->initializeClient();
 }
 
 std::string S3FileSystem::getLogLevelName() const {
