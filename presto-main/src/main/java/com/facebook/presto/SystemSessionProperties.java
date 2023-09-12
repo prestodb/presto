@@ -287,6 +287,7 @@ public final class SystemSessionProperties
     public static final String PULL_EXPRESSION_FROM_LAMBDA_ENABLED = "pull_expression_from_lambda_enabled";
     public static final String REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION = "rewrite_constant_array_contains_to_in_expression";
     public static final String INFER_INEQUALITY_PREDICATES = "infer_inequality_predicates";
+    public static final String HANDLE_COMPLEX_EQUI_JOINS = "handle_complex_equi_joins";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1673,6 +1674,11 @@ public final class SystemSessionProperties
                         INFER_INEQUALITY_PREDICATES,
                         "Infer nonequality predicates for joins",
                         featuresConfig.getInferInequalityPredicates(),
+                        false),
+                booleanProperty(
+                        HANDLE_COMPLEX_EQUI_JOINS,
+                        "Handle complex equi-join conditions to open up join space for join reordering",
+                        featuresConfig.getHandleComplexEquiJoins(),
                         false));
     }
 
@@ -2820,5 +2826,10 @@ public final class SystemSessionProperties
     public static boolean shouldInferInequalityPredicates(Session session)
     {
         return session.getSystemProperty(INFER_INEQUALITY_PREDICATES, Boolean.class);
+    }
+
+    public static boolean shouldHandleComplexEquiJoins(Session session)
+    {
+        return session.getSystemProperty(HANDLE_COMPLEX_EQUI_JOINS, Boolean.class);
     }
 }
