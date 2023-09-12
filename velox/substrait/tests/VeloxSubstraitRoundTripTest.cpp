@@ -485,7 +485,7 @@ TEST_F(VeloxSubstraitRoundTripTest, arrayLiteral) {
       plan,
       "SELECT array[true, null], array[0, null], array[1, null], "
       "array[2, null], array[3, null], array[4.4, null], array[5.5, null], "
-      "array[6],"
+      "array['6'],"
       "array['1970-01-02T10:17:36.000123000'::TIMESTAMP],"
       "array['1992-01-01'::DATE],"
       "array[INTERVAL 54 MILLISECONDS], "

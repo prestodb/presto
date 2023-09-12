@@ -49,6 +49,16 @@ template <>
 }
 
 template <>
+::duckdb::Value duckValueAt<TypeKind::VARBINARY>(
+    const VectorPtr& vector,
+    vector_size_t index) {
+  // DuckDB requires zero-ending string
+  auto stringView = vector->as<SimpleVector<StringView>>()->valueAt(index);
+  return ::duckdb::Value::BLOB(
+      reinterpret_cast<const uint8_t*>(stringView.begin()), stringView.size());
+}
+
+template <>
 ::duckdb::Value duckValueAt<TypeKind::TIMESTAMP>(
     const VectorPtr& vector,
     vector_size_t index) {
@@ -229,6 +239,16 @@ template <>
 velox::variant variantAt<TypeKind::TIMESTAMP>(const ::duckdb::Value& value) {
   return velox::variant::timestamp(
       duckdbTimestampToVelox(value.GetValue<::duckdb::timestamp_t>()));
+}
+
+template <>
+velox::variant variantAt<TypeKind::VARCHAR>(const ::duckdb::Value& value) {
+  return velox::variant(StringView(::duckdb::StringValue::Get(value)));
+}
+
+template <>
+velox::variant variantAt<TypeKind::VARBINARY>(const ::duckdb::Value& value) {
+  return velox::variant(StringView(::duckdb::StringValue::Get(value)));
 }
 
 variant nullVariant(const TypePtr& type) {
