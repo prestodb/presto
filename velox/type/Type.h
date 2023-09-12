@@ -491,7 +491,7 @@ class Type : public Tree<const std::shared_ptr<const Type>>,
   // todo(youknowjack): avoid expensive virtual function calls for these
   // simple functions
   virtual size_t cppSizeInBytes() const {
-    throw std::invalid_argument{"Not a fixed width type: " + toString()};
+    VELOX_FAIL("Not a fixed width type: {}", toString());
   }
 
   virtual bool isFixedWidth() const = 0;

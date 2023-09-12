@@ -52,6 +52,7 @@ WaveDriver::WaveDriver(
 }
 
 RowVectorPtr WaveDriver::getOutput() {
+  VLOG(1) << "Getting output";
   for (;;) {
     startMore();
     bool running = false;
@@ -70,10 +71,13 @@ RowVectorPtr WaveDriver::getOutput() {
         }
         RowVectorPtr result;
         if (i + 1 < pipelines_.size()) {
-          pipelines_[i + 1].operators[0]->enqueue(
-              makeWaveResult(op.outputType(), *stream, lastSet));
+          auto waveResult = makeWaveResult(op.outputType(), *stream, lastSet);
+          VLOG(1) << "Enqueue " << waveResult->size() << " rows to pipeline "
+                  << i + 1;
+          pipelines_[i + 1].operators[0]->enqueue(std::move(waveResult));
         } else {
           result = makeResult(*stream, lastSet);
+          VLOG(1) << "Final output size: " << result->size();
         }
         if (streamAtEnd(*stream)) {
           it = streams.erase(it);
@@ -81,12 +85,13 @@ RowVectorPtr WaveDriver::getOutput() {
           ++it;
         }
         if (result) {
-          VLOG(1) << "Output size: " << result->size();
+          VLOG(1) << "Got output";
           return result;
         }
       }
       if (i + 1 < pipelines_.size()) {
-        pipelines_[i + 1].operators[0]->flush();
+        pipelines_[i + 1].operators[0]->flush(
+            streams.empty() && pipelines_[i].operators[0]->isFinished());
       }
       running = true;
     }
@@ -144,6 +149,7 @@ void WaveDriver::startMore() {
   for (int i = 0; i < pipelines_.size(); ++i) {
     auto& ops = pipelines_[i].operators;
     if (auto rows = ops[0]->canAdvance()) {
+      VLOG(1) << "Advance " << rows << " rows in pipeline " << i;
       auto stream = std::make_unique<WaveStream>(*arena_);
       for (auto& op : ops) {
         op->schedule(*stream, rows);

@@ -50,7 +50,7 @@ class WaveOperator {
     VELOX_FAIL("Override for blocking operator");
   }
 
-  virtual void flush() {
+  virtual void flush(bool /*noMoreInput*/) {
     VELOX_FAIL("Override for blocking operator");
   }
 
@@ -79,6 +79,10 @@ class WaveOperator {
   /// must specify this count. This is the number returned by
   /// canAdvance() for a source WaveOperator.
   virtual void schedule(WaveStream& stream, int32_t maxRows = 0) = 0;
+
+  virtual bool isFinished() const {
+    VELOX_FAIL("Override for source or blocking operator");
+  }
 
   virtual std::string toString() const = 0;
 

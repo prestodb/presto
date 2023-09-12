@@ -37,14 +37,19 @@ class Aggregation : public WaveOperator {
   }
 
   void enqueue(WaveVectorPtr input) override {
+    VELOX_CHECK(!noMoreInput_);
     buffered_.push_back(std::move(input));
   }
 
-  void flush() override;
+  void flush(bool noMoreInput) override;
 
   int32_t canAdvance() override;
 
   void schedule(WaveStream& stream, int32_t maxRows) override;
+
+  bool isFinished() const override {
+    return finished_;
+  }
 
   vector_size_t outputSize(WaveStream&) const override;
 
@@ -77,8 +82,10 @@ class Aggregation : public WaveOperator {
     std::vector<WaveVectorPtr> results;
   };
 
+  BlockStatus* getStatus(int size, WaveBufferPtr& holder);
   void normalizeKeys();
   void doAggregates();
+  void waitFlushDone();
 
   GpuArena* arena_;
   std::shared_ptr<aggregation::AggregateFunctionRegistry> functionRegistry_;
@@ -104,8 +111,14 @@ class Aggregation : public WaveOperator {
   std::vector<WaveVectorPtr> buffered_;
   std::vector<WaveVectorPtr> inputs_;
   std::unique_ptr<Stream> flushStream_;
-  Event flushDone_;
+  Event flushStart_{true}, flushDone_{true};
 
+  struct {
+    int64_t ingestedRowCount;
+    float gpuTimeMs;
+  } stats_{};
+
+  bool noMoreInput_ = false;
   bool finished_ = false;
 };
 

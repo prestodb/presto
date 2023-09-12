@@ -16,6 +16,7 @@
 
 #include "velox/experimental/wave/vector/WaveVector.h"
 #include "velox/common/base/SimdUtil.h"
+#include "velox/experimental/wave/common/StringView.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::wave {
@@ -48,7 +49,12 @@ WaveVector::WaveVector(
 
 void WaveVector::resize(vector_size_t size, bool nullable) {
   if (size > size_) {
-    int64_t bytes = type_->cppSizeInBytes() * size;
+    int64_t bytes;
+    if (type_->kind() == TypeKind::VARCHAR) {
+      bytes = sizeof(StringView) * size;
+    } else {
+      bytes = type_->cppSizeInBytes() * size;
+    }
     if (!values_ || bytes > values_->capacity()) {
       values_ = arena_->allocateBytes(bytes);
     }

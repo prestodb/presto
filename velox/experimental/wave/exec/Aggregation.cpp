@@ -18,6 +18,7 @@
 
 #include "velox/experimental/wave/common/IdMap.h"
 #include "velox/experimental/wave/exec/ToWave.h"
+#include "velox/experimental/wave/exec/Vectors.h"
 
 #define KEY_TYPE_DISPATCH(_func, _kindExpr, ...) \
   [&]() {                                        \
@@ -158,6 +159,15 @@ Aggregation::~Aggregation() {
   }
 }
 
+BlockStatus* Aggregation::getStatus(int size, WaveBufferPtr& holder) {
+  if (holder && holder->capacity() >= size * sizeof(BlockStatus)) {
+    return holder->as<BlockStatus>();
+  }
+  auto* status = arena_->allocate<BlockStatus>(size, holder);
+  bzero(status, size * sizeof(BlockStatus));
+  return status;
+}
+
 void Aggregation::normalizeKeys() {
   auto& holder = normalizeKeysHolder_;
   int numBlocks = 0;
@@ -170,7 +180,9 @@ void Aggregation::normalizeKeys() {
   auto* instructions = arena_->allocate<aggregation::Instruction>(
       inputs_.size(), holder.instructions);
   holder.operands.resize(inputs_.size());
-  holder.results.resize(inputs_.size());
+  if (holder.results.size() < inputs_.size()) {
+    holder.results.resize(inputs_.size());
+  }
   for (int i = 0; i < inputs_.size(); ++i) {
     instructions[i].opCode = aggregation::OpCode::kNormalizeKeys;
     auto& normalizeKeys = instructions[i]._.normalizeKeys;
@@ -182,16 +194,15 @@ void Aggregation::normalizeKeys() {
     for (int j = 0; j < keyChannels_.size(); ++j) {
       inputs_[i]->childAt(keyChannels_[j]).toOperand(&normalizeKeys.inputs[j]);
     }
-    holder.results[i] = WaveVector::create(INTEGER(), *arena_);
-    holder.results[i]->resize(inputs_[i]->size(), false);
+    ensureWaveVector(
+        holder.results[i], INTEGER(), inputs_[i]->size(), false, *arena_);
     holder.results[i]->toOperand(normalizeKeys.result);
   }
   for (int j = 0; j < numBlocks; ++j) {
     programs[j].numInstructions = inputs_.size();
     programs[j].instructions = instructions;
   }
-  auto* status = arena_->allocate<BlockStatus>(numBlocks, holder.status);
-  bzero(status, numBlocks * sizeof(BlockStatus));
+  auto* status = getStatus(numBlocks, holder.status);
   aggregation::call(*flushStream_, numBlocks, programs, nullptr, status, 0);
 }
 
@@ -203,7 +214,6 @@ void Aggregation::doAggregates() {
   auto* instructions = arena_->allocate<aggregation::Instruction>(
       numInstructions, holder.instructions);
   holder.operands.resize(numInstructions);
-  holder.results.resize(numInstructions);
   for (int i = 0; i < aggregates_.size(); ++i) {
     programs[i].numInstructions = inputs_.size();
     programs[i].instructions = &instructions[i * inputs_.size()];
@@ -224,16 +234,33 @@ void Aggregation::doAggregates() {
       }
     }
   }
-  auto* status =
-      arena_->allocate<BlockStatus>(aggregates_.size(), holder.status);
-  bzero(status, aggregates_.size() * sizeof(BlockStatus));
+  auto* status = getStatus(aggregates_.size(), holder.status);
   aggregation::call(
       *flushStream_, aggregates_.size(), programs, nullptr, status, 0);
 }
 
-void Aggregation::flush() {
+void Aggregation::waitFlushDone() {
+  flushDone_.wait();
+  for (auto& input : inputs_) {
+    stats_.ingestedRowCount += input->size();
+  }
+  stats_.gpuTimeMs += flushDone_.elapsedTime(flushStart_);
+}
+
+void Aggregation::flush(bool noMoreInput) {
+  if (noMoreInput) {
+    if (!noMoreInput_) {
+      VLOG(1) << "No more input";
+      noMoreInput_ = true;
+    }
+  } else {
+    VELOX_CHECK(!noMoreInput_);
+  }
   if (!inputs_.empty()) {
-    if (!flushDone_.query()) {
+    VELOX_CHECK(flushStream_);
+    if (noMoreInput) {
+      waitFlushDone();
+    } else if (!flushDone_.query()) {
       return;
     }
     inputs_.clear();
@@ -244,24 +271,28 @@ void Aggregation::flush() {
   if (!flushStream_) {
     flushStream_ = WaveStream::streamFromReserve();
   }
+  VLOG(1) << "Flush " << buffered_.size() << " batches";
   inputs_ = std::move(buffered_);
+  flushStart_.record(*flushStream_);
   normalizeKeys();
   doAggregates();
   flushDone_.record(*flushStream_);
 }
 
 int32_t Aggregation::canAdvance() {
-  if (finished_) {
+  if (!noMoreInput_ || finished_) {
     return 0;
   }
   while (!inputs_.empty()) {
-    flushDone_.wait();
-    flush();
+    waitFlushDone();
+    flush(true);
   }
   return container_->actualNumGroups;
 }
 
 void Aggregation::schedule(WaveStream& waveStream, int32_t maxRows) {
+  VELOX_CHECK(buffered_.empty());
+  VELOX_CHECK(inputs_.empty());
   int numColumns = container_->numKeys + container_->numAggregates;
   auto exec = std::make_unique<Executable>();
   auto* programs = arena_->allocate<aggregation::ThreadBlockProgram>(
@@ -307,6 +338,8 @@ void Aggregation::schedule(WaveStream& waveStream, int32_t maxRows) {
         waveStream.markLaunch(*stream, *exes[0]);
       });
   finished_ = true;
+  VLOG(1) << "Average throughput "
+          << stats_.ingestedRowCount / stats_.gpuTimeMs * 1000 << " rows/s";
 }
 
 vector_size_t Aggregation::outputSize(WaveStream&) const {
