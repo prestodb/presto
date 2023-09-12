@@ -422,7 +422,7 @@ HiveDataSource::HiveDataSource(
   auto readerRowTypes = outputType_->children();
   folly::F14FastMap<std::string, std::vector<const common::Subfield*>>
       subfields;
-  for (auto& outputName : outputType->names()) {
+  for (auto& outputName : outputType_->names()) {
     auto it = columnHandles.find(outputName);
     VELOX_CHECK(
         it != columnHandles.end(),
@@ -446,7 +446,7 @@ HiveDataSource::HiveDataSource(
       hiveTableHandle != nullptr,
       "TableHandle must be an instance of HiveTableHandle");
   if (readerOpts_.isFileColumnNamesReadAsLowerCase()) {
-    checkColumnNameLowerCase(outputType);
+    checkColumnNameLowerCase(outputType_);
     checkColumnNameLowerCase(hiveTableHandle->subfieldFilters());
     checkColumnNameLowerCase(hiveTableHandle->remainingFilter());
   }
@@ -510,7 +510,15 @@ HiveDataSource::HiveDataSource(
           fmt::join(remainingFilterSubfields, ", "));
     }
     for (auto& subfield : remainingFilterSubfields) {
-      subfields[getColumnName(subfield)].push_back(&subfield);
+      auto& name = getColumnName(subfield);
+      auto it = subfields.find(name);
+      if (it != subfields.end()) {
+        // Only subfields of the column are projected out.
+        it->second.push_back(&subfield);
+      } else if (columnNames.count(name) == 0) {
+        // Column appears only in remaining filter.
+        subfields[name].push_back(&subfield);
+      }
     }
   }
 

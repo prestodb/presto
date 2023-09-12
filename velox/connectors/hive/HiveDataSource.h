@@ -107,7 +107,12 @@ class HiveDataSource : public DataSource {
   dwio::common::ReaderOptions readerOpts_;
   memory::MemoryPool* pool_;
   VectorPtr output_;
+
+  // Output type from file reader.  This is different from outputType_ that it
+  // contains column names before assignment, and columns that only used in
+  // remaining filter.
   RowTypePtr readerOutputType_;
+
   std::unique_ptr<dwio::common::RowReader> rowReader_;
 
  private:
