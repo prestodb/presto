@@ -43,6 +43,7 @@
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
+#include "velox/common/caching/FileInfoMap.h"
 #include "velox/common/caching/SsdCache.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/MmapAllocator.h"
@@ -514,6 +515,7 @@ void PrestoServer::initializeVeloxMemory() {
     allocator_ = memory::MemoryAllocator::createDefaultInstance();
   }
   if (systemConfig->asyncDataCacheEnabled()) {
+    cache::FileInfoMap::create();
     std::unique_ptr<cache::SsdCache> ssd;
     const auto asyncCacheSsdGb = systemConfig->asyncCacheSsdGb();
     if (asyncCacheSsdGb > 0) {
