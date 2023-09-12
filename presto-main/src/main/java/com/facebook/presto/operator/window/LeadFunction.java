@@ -44,7 +44,13 @@ public class LeadFunction
     public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition)
     {
         if ((offsetChannel >= 0) && windowIndex.isNull(offsetChannel, currentPosition)) {
-            output.appendNull();
+            // If defaultValue is specified then return default value.
+            if (defaultChannel >= 0) {
+                windowIndex.appendTo(defaultChannel, currentPosition, output);
+            }
+            else {
+                output.appendNull();
+            }
         }
         else {
             long offset = (offsetChannel < 0) ? 1 : windowIndex.getLong(offsetChannel, currentPosition);

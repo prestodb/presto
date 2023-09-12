@@ -152,16 +152,16 @@ public class TestLagFunction
 
         assertWindowQuery("lag(orderkey, null, -1) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
-                        .row(3, "F", null)
-                        .row(5, "F", null)
-                        .row(6, "F", null)
-                        .row(33, "F", null)
-                        .row(1, "O", null)
-                        .row(2, "O", null)
-                        .row(4, "O", null)
-                        .row(7, "O", null)
-                        .row(32, "O", null)
-                        .row(34, "O", null)
+                        .row(3, "F", -1)
+                        .row(5, "F", -1)
+                        .row(6, "F", -1)
+                        .row(33, "F", -1)
+                        .row(1, "O", -1)
+                        .row(2, "O", -1)
+                        .row(4, "O", -1)
+                        .row(7, "O", -1)
+                        .row(32, "O", -1)
+                        .row(34, "O", -1)
                         .build());
 
         assertWindowQuery("lag(orderkey, 0) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
