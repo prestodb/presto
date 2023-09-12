@@ -637,10 +637,13 @@ class SpillerTest : public exec::test::RowContainerTestBase {
         0,
         numPartitionInputs_.size() * sizeof(vector_size_t));
 
-    partitionFn.partition(*input, spillPartitions_);
+    const auto singlePartition =
+        partitionFn.partition(*input, spillPartitions_);
 
     for (auto i = 0; i < input->size(); ++i) {
-      auto partition = spillPartitions_[i];
+      const auto partition = singlePartition.has_value()
+          ? singlePartition.value()
+          : spillPartitions_[i];
       spillIndicesBuffers_[partition]
           ->asMutable<vector_size_t>()[numPartitionInputs_[partition]++] = i;
     }
