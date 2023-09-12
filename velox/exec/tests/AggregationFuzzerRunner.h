@@ -75,6 +75,8 @@ class AggregationFuzzerRunner {
       "avg_merge",
       "avg_merge_extract_double",
       "avg_merge_extract_real",
+      // Lambda functions are not supported yet.
+      "reduce_agg",
   };
 
   // Functions whose results verification should be skipped. These can be

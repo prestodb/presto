@@ -546,7 +546,7 @@ VectorPtr VectorFuzzer::fuzzComplex(const TypePtr& type, vector_size_t size) {
     }
 
     default:
-      VELOX_UNREACHABLE();
+      VELOX_UNREACHABLE("Unexpected type: {}", type->toString());
   }
   return nullptr; // no-op.
 }

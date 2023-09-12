@@ -19,10 +19,24 @@
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/SortedAggregations.h"
 #include "velox/exec/Task.h"
+#include "velox/expression/Expr.h"
 
 namespace facebook::velox::exec {
 
 namespace {
+std::vector<core::LambdaTypedExprPtr> extractLambdaInputs(
+    const core::AggregationNode::Aggregate& aggregate) {
+  std::vector<core::LambdaTypedExprPtr> lambdas;
+  for (const auto& arg : aggregate.call->inputs()) {
+    if (auto lambda =
+            std::dynamic_pointer_cast<const core::LambdaTypedExpr>(arg)) {
+      lambdas.push_back(lambda);
+    }
+  }
+
+  return lambdas;
+}
+
 std::vector<TypePtr> populateAggregateInputs(
     const core::AggregationNode::Aggregate& aggregate,
     const RowType& inputType,
@@ -58,6 +72,28 @@ std::vector<TypePtr> populateAggregateInputs(
   }
 
   return argTypes;
+}
+
+void verifyIntermediateInputs(
+    const std::string& name,
+    const std::vector<TypePtr>& types) {
+  VELOX_USER_CHECK_GE(
+      types.size(),
+      1,
+      "Intermediate aggregates must have at least one argument: {}",
+      name);
+  VELOX_USER_CHECK_NE(
+      types[0]->kind(),
+      TypeKind::FUNCTION,
+      "First argument of an intermediate aggregate cannot be a lambda: {}",
+      name);
+  for (auto i = 1; i < types.size(); ++i) {
+    VELOX_USER_CHECK_EQ(
+        types[i]->kind(),
+        TypeKind::FUNCTION,
+        "Non-first argument of an intermediate aggregate must be a lambda: {}",
+        name);
+  }
 }
 } // namespace
 
@@ -106,6 +142,8 @@ HashAggregation::HashAggregation(
   std::vector<AggregateInfo> aggregateInfos;
   aggregateInfos.reserve(numAggregates);
 
+  std::shared_ptr<core::ExpressionEvaluator> expressionEvaluator;
+
   for (auto i = 0; i < numAggregates; i++) {
     const auto& aggregate = aggregationNode->aggregates()[i];
 
@@ -118,11 +156,7 @@ HashAggregation::HashAggregation(
       info.intermediateType =
           Aggregate::intermediateType(aggregate.call->name(), argTypes);
     } else {
-      VELOX_USER_CHECK_EQ(
-          argTypes.size(),
-          1,
-          "Intermediate aggregates must have a single argument: {}",
-          aggregate.call->name());
+      verifyIntermediateInputs(aggregate.call->name(), argTypes);
       info.intermediateType = argTypes[0];
     }
     // Setup aggregation mask: convert the Variable Reference name to the
@@ -140,6 +174,17 @@ HashAggregation::HashAggregation(
         argTypes,
         resultType,
         driverCtx->queryConfig());
+
+    auto lambdas = extractLambdaInputs(aggregate);
+    if (!lambdas.empty()) {
+      if (expressionEvaluator == nullptr) {
+        expressionEvaluator = std::make_shared<SimpleExpressionEvaluator>(
+            operatorCtx_->execCtx()->queryCtx(),
+            operatorCtx_->execCtx()->pool());
+      }
+      info.function->setLambdaExpressions(lambdas, expressionEvaluator);
+    }
+
     info.output = numHashers + i;
 
     // Sorting keys and orders.

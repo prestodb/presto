@@ -13,7 +13,7 @@
 # limitations under the License.
 add_library(velox_parse_expression Expressions.cpp)
 target_link_libraries(velox_parse_expression velox_type velox_parse_utils
-                      velox_expression)
+                      velox_expression velox_exec)
 
 add_library(velox_parse_parser ExpressionsParser.cpp QueryPlanner.cpp)
 target_link_libraries(velox_parse_parser velox_parse_expression velox_type

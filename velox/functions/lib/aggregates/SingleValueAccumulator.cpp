@@ -63,6 +63,7 @@ int32_t SingleValueAccumulator::compare(
 void SingleValueAccumulator::destroy(HashStringAllocator* allocator) {
   if (start_.header != nullptr) {
     allocator->free(start_.header);
+    start_.header = nullptr;
   }
 }
 

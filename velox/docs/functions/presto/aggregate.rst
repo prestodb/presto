@@ -119,6 +119,65 @@ General Aggregate Functions
     Returns a multimap created from the input ``key`` / ``value`` pairs.
     Each key can be associated with multiple values.
 
+.. function:: reduce_agg(inputValue T, initialState S, inputFunction(S,T,S), combineFunction(S,S,S)) -> S
+
+    Reduces all non-NULL input values into a single value. ``inputFunction``
+    will be invoked for each non-NULL input value. If all inputs are NULL, the
+    result is NULL. In addition to taking the input value, ``inputFunction``
+    takes the current state, initially ``initialState``, and returns the new state.
+    ``combineFunction`` will be invoked to combine two states into a new state.
+    The final state is returned. Throws an error if ``initialState`` is NULL or
+    ``inputFunction`` or ``combineFunction`` returns a NULL.::
+
+        -- Compute sum (for illustration purposes only; use SUM aggregate function in production queries).
+        SELECT id, reduce_agg(value, 0, (a, b) -> a + b, (a, b) -> a + b)
+        FROM (
+            VALUES
+                (1, 2),
+                (1, 3),
+                (1, 4),
+                (2, 20),
+                (2, 30),
+                (2, 40)
+        ) AS t(id, value)
+        GROUP BY id;
+        -- (1, 9)
+        -- (2, 90)
+
+        -- Compute product.
+        SELECT id, reduce_agg(value, 1, (a, b) -> a * b, (a, b) -> a * b)
+        FROM (
+            VALUES
+                (1, 2),
+                (1, 3),
+                (1, 4),
+                (2, 20),
+                (2, 30),
+                (2, 40)
+        ) AS t(id, value)
+        GROUP BY id;
+        -- (1, 24)
+        -- (2, 24000)
+
+        -- Compute avg (for illustration purposes only; use AVG aggregate function in production queries).
+        SELECT id, sum_and_count.sum / sum_and_count.count FROM (
+          SELECT id, reduce_agg(value, CAST(row(0, 0) AS row(sum double, count bigint)),
+            (s, x) -> CAST(row(s.sum + x, s.count + 1) AS row(sum double, count bigint)),
+            (s, s2) -> CAST(row(s.sum + s2.sum, s.count + s2.count) AS row(sum double, count bigint))) AS sum_and_count
+          FROM (
+               VALUES
+                   (1, 2),
+                   (1, 3),
+                   (1, 4),
+                   (2, 20),
+                   (2, 30),
+                   (2, 40)
+           ) AS t(id, value)
+           GROUP BY id
+        );
+        -- (1, 3.0)
+        -- (2, 30.0)
+
 .. function:: set_agg(x) -> array<[same as input]>
 
     Returns an array created from the distinct input ``x`` elements.

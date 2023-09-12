@@ -24,6 +24,10 @@
 #include "velox/expression/FunctionSignature.h"
 #include "velox/vector/BaseVector.h"
 
+namespace facebook::velox::core {
+class ExpressionEvaluator;
+}
+
 namespace facebook::velox::exec {
 
 class AggregateFunctionSignature;
@@ -84,6 +88,18 @@ class Aggregate {
   void setAllocator(HashStringAllocator* allocator) {
     setAllocatorInternal(allocator);
   }
+
+  /// Called for functions that take one or more lambda expression as input.
+  /// These expressions must appear after all non-lambda inputs.
+  /// These expressions cannot use captures.
+  ///
+  /// @param lambdaExpressions A list of lambda inputs (in the order they appear
+  /// in function call).
+  /// @param expressionEvaluator An instance of ExpressionEvaluator to use for
+  /// evaluating lambda expressions.
+  void setLambdaExpressions(
+      std::vector<core::LambdaTypedExprPtr> lambdaExpressions,
+      std::shared_ptr<core::ExpressionEvaluator> expressionEvaluator);
 
   // Sets the offset and null indicator position of 'this'.
   // @param offset Offset in bytes from the start of the row of the accumulator
@@ -361,7 +377,9 @@ class Aggregate {
   // operator for this aggregate. If 0, clearing the null as part of update
   // is not needed.
   uint64_t numNulls_ = 0;
-  HashStringAllocator* allocator_;
+  HashStringAllocator* allocator_{nullptr};
+  std::shared_ptr<core::ExpressionEvaluator> expressionEvaluator_{nullptr};
+  std::vector<core::LambdaTypedExprPtr> lambdaExpressions_;
 
   // When selectivity vector has holes, in the pushdown, we need to generate a
   // different indices vector as the one we get from the DecodedVector is simply

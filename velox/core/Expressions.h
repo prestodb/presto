@@ -525,6 +525,8 @@ class LambdaTypedExpr : public ITypedExpr {
   const TypedExprPtr body_;
 };
 
+using LambdaTypedExprPtr = std::shared_ptr<const LambdaTypedExpr>;
+
 class CastTypedExpr : public ITypedExpr {
  public:
   CastTypedExpr(

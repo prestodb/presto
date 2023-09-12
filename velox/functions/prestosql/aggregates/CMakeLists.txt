@@ -36,6 +36,7 @@ add_library(
   MultiMapAggAggregate.cpp
   CountAggregate.cpp
   PrestoHasher.cpp
+  ReduceAgg.cpp
   SetAggregates.cpp
   SumAggregate.cpp
   ValueList.cpp

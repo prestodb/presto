@@ -267,6 +267,13 @@ TypePtr Aggregate::intermediateType(
   VELOX_USER_FAIL(error.str());
 }
 
+void Aggregate::setLambdaExpressions(
+    std::vector<core::LambdaTypedExprPtr> lambdaExpressions,
+    std::shared_ptr<core::ExpressionEvaluator> expressionEvaluator) {
+  lambdaExpressions_ = std::move(lambdaExpressions);
+  expressionEvaluator_ = std::move(expressionEvaluator);
+}
+
 void Aggregate::setAllocatorInternal(HashStringAllocator* allocator) {
   allocator_ = allocator;
 }
