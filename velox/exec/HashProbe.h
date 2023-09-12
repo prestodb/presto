@@ -32,6 +32,8 @@ class HashProbe : public Operator {
       DriverCtx* driverCtx,
       const std::shared_ptr<const core::HashJoinNode>& hashJoinNode);
 
+  void initialize() override;
+
   bool needsInput() const override {
     if (state_ == ProbeOperatorState::kFinish || noMoreInput_ ||
         noMoreSpillInput_ || input_ != nullptr) {

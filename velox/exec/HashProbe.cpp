@@ -125,7 +125,12 @@ HashProbe::HashProbe(
       filterResult_(1),
       outputTableRows_(outputBatchSize_) {
   VELOX_CHECK_NOT_NULL(joinBridge_);
+}
 
+void HashProbe::initialize() {
+  Operator::initialize();
+
+  VELOX_CHECK(hashers_.empty());
   hashers_ = createVectorHashers(probeType_, joinNode_->leftKeys());
 
   const auto numKeys = hashers_.size();
@@ -134,6 +139,7 @@ HashProbe::HashProbe(
     keyChannels_.push_back(hasher->channel());
   }
 
+  VELOX_CHECK_NULL(lookup_);
   lookup_ = std::make_unique<HashLookup>(hashers_);
   auto buildType = joinNode_->sources()[1]->outputType();
   auto tableType = makeTableType(buildType.get(), joinNode_->rightKeys());
