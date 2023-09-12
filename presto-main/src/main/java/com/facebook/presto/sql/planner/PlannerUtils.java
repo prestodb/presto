@@ -62,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -470,5 +471,10 @@ public class PlannerUtils
     public static boolean isBroadcastJoin(JoinNode joinNode)
     {
         return joinNode.getDistributionType().isPresent() && joinNode.getDistributionType().get() == REPLICATED;
+    }
+
+    public static ImmutableList<VariableReferenceExpression> concatVariableLists(List<VariableReferenceExpression> leftCols, List<VariableReferenceExpression> rightCols)
+    {
+        return Stream.concat(leftCols.stream(), rightCols.stream()).collect(toImmutableList());
     }
 }
