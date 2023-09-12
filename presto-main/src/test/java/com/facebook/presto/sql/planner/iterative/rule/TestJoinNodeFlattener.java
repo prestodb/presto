@@ -15,7 +15,9 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -86,7 +88,7 @@ public class TestJoinNodeFlattener
                 ImmutableList.of(equiJoinClause(a1, b1)),
                 ImmutableList.of(a1, b1),
                 Optional.empty());
-        toMultiJoinNode(outerJoin, noLookup(), DEFAULT_JOIN_LIMIT, functionResolution, determinismEvaluator);
+        toMultiJoinNode(outerJoin, noLookup(), DEFAULT_JOIN_LIMIT, true, functionResolution, determinismEvaluator);
     }
 
     @Test
@@ -116,7 +118,7 @@ public class TestJoinNodeFlattener
                 .setSources(leftJoin, valuesC).setFilter(createEqualsExpression(a1, c1))
                 .setOutputVariables(a1, b1, c1)
                 .build();
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT, functionResolution, determinismEvaluator), expected);
+        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT, true, functionResolution, determinismEvaluator), expected);
     }
 
     @Test
@@ -149,7 +151,7 @@ public class TestJoinNodeFlattener
                 .setFilter(and(createEqualsExpression(b1, c1), createEqualsExpression(a1, b1)))
                 .setOutputVariables(a1, b1)
                 .build();
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT, functionResolution, determinismEvaluator), expected);
+        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT, true, functionResolution, determinismEvaluator), expected);
     }
 
     @Test
@@ -206,8 +208,9 @@ public class TestJoinNodeFlattener
         MultiJoinNode expected = new MultiJoinNode(
                 new LinkedHashSet<>(ImmutableList.of(valuesA, valuesB, valuesC)),
                 and(createEqualsExpression(b1, c1), createEqualsExpression(a1, b1), bcFilter, abcFilter),
-                ImmutableList.of(a1, b1, b2, c1, c2));
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT, functionResolution, determinismEvaluator), expected);
+                ImmutableList.of(a1, b1, b2, c1, c2),
+                Assignments.builder().build());
+        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT, true, functionResolution, determinismEvaluator), expected);
     }
 
     @Test
@@ -258,7 +261,7 @@ public class TestJoinNodeFlattener
                 .setFilter(and(createEqualsExpression(a1, b1), createEqualsExpression(a1, c1), createEqualsExpression(d1, e1), createEqualsExpression(d2, e2), createEqualsExpression(b1, e1)))
                 .setOutputVariables(a1, b1, c1, d1, d2, e1, e2)
                 .build();
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), 5, functionResolution, determinismEvaluator), expected);
+        assertEquals(toMultiJoinNode(joinNode, noLookup(), 5, true, functionResolution, determinismEvaluator), expected);
     }
 
     @Test
@@ -311,15 +314,70 @@ public class TestJoinNodeFlattener
                 .setFilter(and(createEqualsExpression(a1, c1), createEqualsExpression(b1, e1)))
                 .setOutputVariables(a1, b1, c1, d1, d2, e1, e2)
                 .build();
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), 2, functionResolution, determinismEvaluator), expected);
+        assertEquals(toMultiJoinNode(joinNode, noLookup(), 2, true, functionResolution, determinismEvaluator), expected);
     }
 
-    private RowExpression createEqualsExpression(VariableReferenceExpression left, VariableReferenceExpression right)
+    @Test
+    public void testProjectNodesBetweenJoinNodesAreFlattenedForComplexEquiJoins()
+    {
+        PlanBuilder p = planBuilder();
+        VariableReferenceExpression a1 = p.variable("A1");
+        VariableReferenceExpression b1 = p.variable("B1");
+        VariableReferenceExpression c1 = p.variable("C1");
+        VariableReferenceExpression sum = p.variable("SUM");
+
+        ValuesNode valuesA = p.values(a1);
+        ValuesNode valuesB = p.values(b1);
+        ValuesNode valuesC = p.values(c1);
+        Assignments sumAssignment = Assignments.builder().put(sum, createAddExpression(a1, b1)).build();
+
+        ProjectNode intermediateProject = p.project(sumAssignment, p.join(
+                INNER,
+                valuesA,
+                valuesB,
+                ImmutableList.of(equiJoinClause(a1, b1)),
+                ImmutableList.of(a1, b1),
+                Optional.empty()));
+        JoinNode joinNode = p.join(
+                INNER,
+                intermediateProject,
+                valuesC,
+                ImmutableList.of(equiJoinClause(sum, c1)),
+                ImmutableList.of(),
+                Optional.empty());
+
+        MultiJoinNode expected = MultiJoinNode.builder()
+                .setSources(valuesA, valuesB, valuesC)
+                .setFilter(and(createEqualsExpression(a1, b1), createEqualsExpression(createAddExpression(a1, b1), c1)))
+                .setOutputVariables()
+                .build();
+        assertEquals(toMultiJoinNode(joinNode, noLookup(), 5, /*handleComplexEquiJoins*/ true, functionResolution, determinismEvaluator), expected);
+
+        // Negative test - when handleComplexEquiJoins = false, we have a split join space; the ProjectNode is not flattened
+        expected = MultiJoinNode.builder()
+                .setSources(intermediateProject, valuesC)
+                .setFilter(createEqualsExpression(sum, c1))
+                .setOutputVariables()
+                .build();
+
+        assertEquals(toMultiJoinNode(joinNode, noLookup(), 5, /*handleComplexEquiJoins*/ false, functionResolution, determinismEvaluator), expected);
+    }
+
+    private RowExpression createEqualsExpression(RowExpression left, RowExpression right)
     {
         return call(
                 OperatorType.EQUAL.name(),
                 functionResolution.comparisonFunction(OperatorType.EQUAL, left.getType(), right.getType()),
                 BOOLEAN,
+                ImmutableList.of(left, right));
+    }
+
+    private RowExpression createAddExpression(RowExpression left, RowExpression right)
+    {
+        return call(
+                OperatorType.ADD.name(),
+                functionResolution.arithmeticFunction(OperatorType.ADD, left.getType(), right.getType()),
+                BIGINT,
                 ImmutableList.of(left, right));
     }
 
