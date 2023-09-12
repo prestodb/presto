@@ -13,9 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "velox/type/Variant.h"
 #include <gtest/gtest.h>
 #include <velox/type/Type.h>
+#include "velox/common/base/tests/GTestUtils.h"
+
 #include <numeric>
 
 using namespace facebook::velox;
@@ -42,6 +45,9 @@ TEST(VariantTest, arrayInferType) {
       *ARRAY(ARRAY(DOUBLE())),
       *variant::array({variant::array({variant(TypeKind::DOUBLE)})})
            .inferType());
+  VELOX_ASSERT_THROW(
+      variant::array({variant(123456789), variant("velox")}),
+      "All array elements must be of the same kind");
 }
 
 TEST(VariantTest, mapInferType) {

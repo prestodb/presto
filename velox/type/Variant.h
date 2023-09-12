@@ -274,7 +274,31 @@ class variant {
     return {TypeKind::OPAQUE, new detail::OpaqueCapsule{type, input}};
   }
 
+  static inline void verifyArrayElements(const std::vector<variant>& inputs) {
+    if (!inputs.empty()) {
+      auto elementTypeKind = TypeKind::UNKNOWN;
+      // Find the typeKind from the first non-null element.
+      int i = 0;
+      for (; i < inputs.size(); ++i) {
+        if (!inputs[i].isNull()) {
+          elementTypeKind = inputs[i].kind();
+          break;
+        }
+      }
+      // Verify that the remaining non-null elements match.
+      for (; i < inputs.size(); ++i) {
+        if (!inputs[i].isNull()) {
+          VELOX_CHECK_EQ(
+              elementTypeKind,
+              inputs[i].kind(),
+              "All array elements must be of the same kind");
+        }
+      }
+    }
+  }
+
   static variant array(const std::vector<variant>& inputs) {
+    verifyArrayElements(inputs);
     return {
         TypeKind::ARRAY,
         new typename detail::VariantTypeTraits<TypeKind::ARRAY>::stored_type{
@@ -282,6 +306,7 @@ class variant {
   }
 
   static variant array(std::vector<variant>&& inputs) {
+    verifyArrayElements(inputs);
     return {
         TypeKind::ARRAY,
         new typename detail::VariantTypeTraits<TypeKind::ARRAY>::stored_type{
