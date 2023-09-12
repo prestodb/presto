@@ -56,7 +56,7 @@ import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unsca
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisyCountAndSumAggregationUtils.combineStates;
 import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisyCountAndSumAggregationUtils.updateState;
-import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisyCountAndSumAggregationUtils.writeNoisySumOutput;
+import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisyCountAndSumAggregationUtils.writeNoisyAvgOutput;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -66,29 +66,29 @@ import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Float.intBitsToFloat;
 
-public class NoisySumGaussianClippingRandomSeedAggregation
+public class NoisyAverageGaussianClippingAggregation
         extends SqlAggregationFunction
 {
     // Constant references for short/long decimal types for use in operations that only manipulate unscaled values
     private static final DecimalType LONG_DECIMAL_TYPE = DecimalType.createDecimalType(MAX_PRECISION, 0);
     private static final DecimalType SHORT_DECIMAL_TYPE = DecimalType.createDecimalType(MAX_SHORT_PRECISION, 0);
 
-    public static final NoisySumGaussianClippingRandomSeedAggregation NOISY_SUM_GAUSSIAN_CLIPPING_RANDOM_SEED_AGGREGATION = new NoisySumGaussianClippingRandomSeedAggregation();
-    private static final String NAME = "noisy_sum_gaussian";
-    private static final MethodHandle SHORT_DECIMAL_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingRandomSeedAggregation.class, "inputShortDecimal", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, Block.class, int.class);
-    private static final MethodHandle LONG_DECIMAL_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingRandomSeedAggregation.class, "inputLongDecimal", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, Block.class, int.class);
-    private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingRandomSeedAggregation.class, "inputDouble", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, Block.class, int.class);
-    private static final MethodHandle REAL_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingRandomSeedAggregation.class, "inputReal", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, Block.class, int.class);
-    private static final MethodHandle BIGINT_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingRandomSeedAggregation.class, "inputBigInt", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, Block.class, int.class);
-    private static final MethodHandle INTEGER_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingRandomSeedAggregation.class, "inputInteger", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, Block.class, int.class);
-    private static final MethodHandle SMALLINT_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingRandomSeedAggregation.class, "inputSmallInt", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, Block.class, int.class);
-    private static final MethodHandle TINYINT_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingRandomSeedAggregation.class, "inputTinyInt", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, Block.class, int.class);
+    public static final NoisyAverageGaussianClippingAggregation NOISY_AVERAGE_GAUSSIAN_CLIPPING_AGGREGATION = new NoisyAverageGaussianClippingAggregation();
+    private static final String NAME = "noisy_avg_gaussian";
+    private static final MethodHandle SHORT_DECIMAL_INPUT_FUNCTION = methodHandle(NoisyAverageGaussianClippingAggregation.class, "inputShortDecimal", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
+    private static final MethodHandle LONG_DECIMAL_INPUT_FUNCTION = methodHandle(NoisyAverageGaussianClippingAggregation.class, "inputLongDecimal", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
+    private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(NoisyAverageGaussianClippingAggregation.class, "inputDouble", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
+    private static final MethodHandle REAL_INPUT_FUNCTION = methodHandle(NoisyAverageGaussianClippingAggregation.class, "inputReal", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
+    private static final MethodHandle BIGINT_INPUT_FUNCTION = methodHandle(NoisyAverageGaussianClippingAggregation.class, "inputBigInt", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
+    private static final MethodHandle INTEGER_INPUT_FUNCTION = methodHandle(NoisyAverageGaussianClippingAggregation.class, "inputInteger", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
+    private static final MethodHandle SMALLINT_INPUT_FUNCTION = methodHandle(NoisyAverageGaussianClippingAggregation.class, "inputSmallInt", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
+    private static final MethodHandle TINYINT_INPUT_FUNCTION = methodHandle(NoisyAverageGaussianClippingAggregation.class, "inputTinyInt", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
 
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(NoisySumGaussianClippingRandomSeedAggregation.class, "output", NoisyCountAndSumState.class, BlockBuilder.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(NoisyAverageGaussianClippingAggregation.class, "output", NoisyCountAndSumState.class, BlockBuilder.class);
 
-    private static final MethodHandle COMBINE_FUNCTION = methodHandle(NoisySumGaussianClippingRandomSeedAggregation.class, "combine", NoisyCountAndSumState.class, NoisyCountAndSumState.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(NoisyAverageGaussianClippingAggregation.class, "combine", NoisyCountAndSumState.class, NoisyCountAndSumState.class);
 
-    public NoisySumGaussianClippingRandomSeedAggregation()
+    public NoisyAverageGaussianClippingAggregation()
     {
         super(NAME,
                 ImmutableList.of(typeVariable("T")),
@@ -97,15 +97,14 @@ public class NoisySumGaussianClippingRandomSeedAggregation
                 ImmutableList.of(parseTypeSignature("T"),
                         parseTypeSignature(StandardTypes.DOUBLE),
                         parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.BIGINT)),
+                        parseTypeSignature(StandardTypes.DOUBLE)),
                 FunctionKind.AGGREGATE);
     }
 
     @Override
     public String getDescription()
     {
-        return "Calculates the sum over the input values where values are clipped to [lower, upper] range and then adds random Gaussian noise.  Random seed is used to seed random generator. This method does not use a secure random.";
+        return "Calculates the average (arithmetic mean) of all the input values where values are clipped to [lower, upper] range and then adds random Gaussian noise.";
     }
 
     @Override
@@ -117,11 +116,11 @@ public class NoisySumGaussianClippingRandomSeedAggregation
 
     private static BuiltInAggregationFunctionImplementation generateAggregation(Type type)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(NoisySumGaussianClippingRandomSeedAggregation.class.getClassLoader());
+        DynamicClassLoader classLoader = new DynamicClassLoader(NoisyAverageGaussianClippingAggregation.class.getClassLoader());
 
         AccumulatorStateSerializer<?> stateSerializer = new NoisyCountAndSumStateSerializer();
         AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(NoisyCountAndSumState.class, classLoader);
-        List<Type> inputTypes = ImmutableList.of(type, DOUBLE, DOUBLE, DOUBLE, BIGINT);
+        List<Type> inputTypes = ImmutableList.of(type, DOUBLE, DOUBLE, DOUBLE);
 
         MethodHandle inputFunction;
         if (type instanceof DecimalType) {
@@ -180,70 +179,68 @@ public class NoisySumGaussianClippingRandomSeedAggregation
                 new ParameterMetadata(BLOCK_INPUT_CHANNEL, DOUBLE),
                 new ParameterMetadata(BLOCK_INPUT_CHANNEL, DOUBLE),
                 new ParameterMetadata(BLOCK_INPUT_CHANNEL, DOUBLE),
-                new ParameterMetadata(BLOCK_INPUT_CHANNEL, BIGINT),
                 new ParameterMetadata(BLOCK_INDEX));
     }
 
-    public static void inputShortDecimal(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, Block randomSeedBlock, int position)
+    public static void inputShortDecimal(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
     {
         double value = unscaledDecimalToBigInteger(
                 unscaledDecimal(SHORT_DECIMAL_TYPE.getLong(valueBlock, position)))
                 .doubleValue();
-        input(state, value, noiseScaleBlock, lowerBlock, upperBlock, randomSeedBlock, position);
+        input(state, value, noiseScaleBlock, lowerBlock, upperBlock, position);
     }
 
-    public static void inputLongDecimal(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, Block randomSeedBlock, int position)
+    public static void inputLongDecimal(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
     {
         double value = unscaledDecimalToBigInteger(
                 unscaledDecimal(LONG_DECIMAL_TYPE.getSlice(valueBlock, position)))
                 .doubleValue();
-        input(state, value, noiseScaleBlock, lowerBlock, upperBlock, randomSeedBlock, position);
+        input(state, value, noiseScaleBlock, lowerBlock, upperBlock, position);
     }
 
-    public static void inputDouble(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, Block randomSeedBlock, int position)
+    public static void inputDouble(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
     {
         double value = DOUBLE.getDouble(valueBlock, position);
-        input(state, value, noiseScaleBlock, lowerBlock, upperBlock, randomSeedBlock, position);
+        input(state, value, noiseScaleBlock, lowerBlock, upperBlock, position);
     }
 
-    public static void inputReal(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, Block randomSeedBlock, int position)
+    public static void inputReal(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
     {
         double value = intBitsToFloat((int) REAL.getLong(valueBlock, position));
-        input(state, value, noiseScaleBlock, lowerBlock, upperBlock, randomSeedBlock, position);
+        input(state, value, noiseScaleBlock, lowerBlock, upperBlock, position);
     }
 
-    public static void inputBigInt(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, Block randomSeedBlock, int position)
+    public static void inputBigInt(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
     {
         double value = BIGINT.getLong(valueBlock, position);
-        input(state, value, noiseScaleBlock, lowerBlock, upperBlock, randomSeedBlock, position);
+        input(state, value, noiseScaleBlock, lowerBlock, upperBlock, position);
     }
 
-    public static void inputInteger(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, Block randomSeedBlock, int position)
+    public static void inputInteger(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
     {
         double value = INTEGER.getLong(valueBlock, position);
-        input(state, value, noiseScaleBlock, lowerBlock, upperBlock, randomSeedBlock, position);
+        input(state, value, noiseScaleBlock, lowerBlock, upperBlock, position);
     }
 
-    public static void inputSmallInt(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, Block randomSeedBlock, int position)
+    public static void inputSmallInt(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
     {
         double value = SMALLINT.getLong(valueBlock, position);
-        input(state, value, noiseScaleBlock, lowerBlock, upperBlock, randomSeedBlock, position);
+        input(state, value, noiseScaleBlock, lowerBlock, upperBlock, position);
     }
 
-    public static void inputTinyInt(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, Block randomSeedBlock, int position)
+    public static void inputTinyInt(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
     {
         double value = TINYINT.getLong(valueBlock, position);
-        input(state, value, noiseScaleBlock, lowerBlock, upperBlock, randomSeedBlock, position);
+        input(state, value, noiseScaleBlock, lowerBlock, upperBlock, position);
     }
 
-    private static void input(NoisyCountAndSumState state, double value, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, Block randomSeedBlock, int position)
+    private static void input(NoisyCountAndSumState state, double value, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
     {
         double noiseScale = DOUBLE.getDouble(noiseScaleBlock, position);
         double lower = DOUBLE.getDouble(lowerBlock, position);
         double upper = DOUBLE.getDouble(upperBlock, position);
-        long randomSeed = BIGINT.getLong(randomSeedBlock, position);
 
-        updateState(state, value, noiseScale, lower, upper, randomSeed);
+        updateState(state, value, noiseScale, lower, upper, null);
     }
 
     public static void combine(NoisyCountAndSumState state, NoisyCountAndSumState otherState)
@@ -253,6 +250,6 @@ public class NoisySumGaussianClippingRandomSeedAggregation
 
     public static void output(NoisyCountAndSumState state, BlockBuilder out)
     {
-        writeNoisySumOutput(state, out);
+        writeNoisyAvgOutput(state, out);
     }
 }

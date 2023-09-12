@@ -24,10 +24,18 @@ import static com.facebook.presto.common.type.Decimals.MAX_PRECISION;
 
 public class TestNoisyAggregationUtils
 {
-    public static BiFunction<Object, Object, Boolean> notEqualDoubleAssertion = (actual, expected) -> !new Double(actual.toString()).equals(new Double(expected.toString()));
+    public static final BiFunction<Object, Object, Boolean> notEqualDoubleAssertion = (actual, expected) -> !new Double(actual.toString()).equals(new Double(expected.toString()));
 
     public static final BiFunction<Object, Object, Boolean> equalDoubleAssertion =
             (actual, expected) -> Math.abs(new Double(actual.toString()) - new Double(expected.toString())) <= 1e-12;
+
+    public static final double DEFAULT_TEST_STANDARD_DEVIATION = 1.0;
+
+    public static final BiFunction<Object, Object, Boolean> withinSomeStdAssertion = (actual, expected) -> {
+        double actualValue = new Double(actual.toString());
+        double expectedValue = new Double(expected.toString());
+        return expectedValue - 50 * DEFAULT_TEST_STANDARD_DEVIATION <= actualValue && actualValue <= expectedValue + 50 * DEFAULT_TEST_STANDARD_DEVIATION;
+    };
 
     private TestNoisyAggregationUtils()
     {
@@ -160,9 +168,29 @@ public class TestNoisyAggregationUtils
         return values.stream().mapToDouble(f -> f == null ? 0 : f).sum();
     }
 
-    public static long sumLong(List<Long> values)
+    public static double sumLong(List<Long> values)
     {
         return values.stream().mapToLong(v -> v == null ? 0 : v).sum();
+    }
+
+    public static double avg(List<Double> values)
+    {
+        return sum(values) / countNonNull(values);
+    }
+
+    public static double avgLong(List<Long> values)
+    {
+        return sumLong(values) / countNonNullLong(values);
+    }
+
+    public static double countNonNull(List<Double> values)
+    {
+        return values.stream().mapToLong(f -> f == null ? 0 : 1).sum();
+    }
+
+    public static long countNonNullLong(List<Long> values)
+    {
+        return values.stream().mapToLong(v -> v == null ? 0 : 1).sum();
     }
 
     public static List<String> toNullableStringList(List<Long> values)
