@@ -53,7 +53,9 @@ add_library(
   SeekableInputStream.cpp
   TypeUtils.cpp
   TypeWithId.cpp
-  WriterFactory.cpp)
+  WriterFactory.cpp
+  SortingWriter.cpp
+  SortingWriter.h)
 
 target_include_directories(velox_dwio_common PRIVATE ${Protobuf_INCLUDE_DIRS})
 
@@ -68,6 +70,7 @@ target_link_libraries(
   velox_exception
   velox_expression
   velox_memory
+  velox_exec
   Boost::regex
   Folly::folly
   glog::glog)

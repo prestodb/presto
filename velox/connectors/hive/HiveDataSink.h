@@ -438,6 +438,10 @@ class HiveDataSink : public DataSink {
   // the newly created writer in 'writers_'.
   uint32_t appendWriter(const HiveWriterId& id);
 
+  std::unique_ptr<facebook::velox::dwio::common::Writer>
+  maybeCreateBucketSortWriter(
+      std::unique_ptr<facebook::velox::dwio::common::Writer> writer);
+
   HiveWriterParameters getWriterParameters(
       const std::optional<std::string>& partition,
       std::optional<uint32_t> bucketId) const;
@@ -465,6 +469,14 @@ class HiveDataSink : public DataSink {
   const int32_t bucketCount_{0};
   const std::unique_ptr<core::PartitionFunction> bucketFunction_;
   std::shared_ptr<dwio::common::WriterFactory> writerFactory_;
+  const common::SpillConfig* const spillConfig_;
+
+  std::vector<column_index_t> sortColumnIndices_;
+  std::vector<CompareFlags> sortCompareFlags_;
+
+  // TODO: combine with numSpillRuns_ in Operator
+  uint32_t numSpillRuns_{0};
+  tsan_atomic<bool> nonReclaimableSection_{false};
 
   // The map from writer id to the writer index in 'writers_' and 'writerInfo_'.
   folly::F14FastMap<HiveWriterId, uint32_t, HiveWriterIdHasher, HiveWriterIdEq>

@@ -36,7 +36,7 @@ class GroupingSet {
       bool ignoreNullKeys,
       bool isPartial,
       bool isRawInput,
-      const Spiller::Config* spillConfig,
+      const common::SpillConfig* spillConfig,
       uint32_t* numSpillRuns,
       tsan_atomic<bool>* nonReclaimableSection,
       OperatorCtx* operatorCtx);
@@ -222,7 +222,7 @@ class GroupingSet {
   // If it is zero, then there is no such limit.
   const uint64_t spillMemoryThreshold_;
 
-  const Spiller::Config* const spillConfig_;
+  const common::SpillConfig* const spillConfig_;
 
   uint32_t* const numSpillRuns_;
 

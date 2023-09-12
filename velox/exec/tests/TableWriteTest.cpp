@@ -182,6 +182,8 @@ class TableWriteTest : public HiveConnectorTestBase {
                 "c4", core::SortOrder{true, true}),
             std::make_shared<const HiveSortingColumn>(
                 "c1", core::SortOrder{false, false})};
+        sortColumnIndices_ = {4, 1};
+        sortedFlags_ = {{true, true}, {false, false}};
       }
       bucketProperty_ = std::make_shared<HiveBucketProperty>(
           testParam_.bucketKind(), 4, bucketedBy, bucketedTypes, sortedBy);
@@ -786,6 +788,29 @@ class TableWriteTest : public HiveConnectorTestBase {
     for (const auto bucketId : bucketIds) {
       ASSERT_EQ(expectedBucketId, bucketId);
     }
+
+    if (!testParam_.bucketSort()) {
+      return;
+    }
+    // Verifies the sorting behavior
+    for (int i = 0; i < resultVector->size() - 1; ++i) {
+      for (int j = 0; j < sortColumnIndices_.size(); ++j) {
+        auto compareResult =
+            resultVector->childAt(sortColumnIndices_.at(j))
+                ->compare(
+                    resultVector->childAt(sortColumnIndices_.at(j))
+                        ->wrappedVector(),
+                    i,
+                    i + 1,
+                    sortedFlags_[j]);
+        if (compareResult.has_value()) {
+          if (compareResult.value() < 0) {
+            break;
+          }
+          ASSERT_EQ(compareResult.value(), 0);
+        }
+      }
+    }
   }
 
   // Verifies the file layout and data produced by a table writer.
@@ -879,6 +904,8 @@ class TableWriteTest : public HiveConnectorTestBase {
   std::vector<TypePtr> partitionTypes_;
   std::vector<column_index_t> partitionChannels_;
   std::vector<uint32_t> numPartitionKeyValues_;
+  std::vector<column_index_t> sortColumnIndices_;
+  std::vector<CompareFlags> sortedFlags_;
   std::shared_ptr<HiveBucketProperty> bucketProperty_{nullptr};
   core::PlanNodeId tableWriteNodeId_;
 };
@@ -1020,9 +1047,27 @@ class BucketedTableOnlyWriteTest
         testParams.push_back(TestParam{
             fileFormat,
             TestMode::kBucketed,
+            CommitStrategy::kNoCommit,
+            HiveBucketProperty::Kind::kHiveCompatible,
+            true,
+            multiDrivers,
+            CompressionKind_ZSTD}
+                                 .value);
+        testParams.push_back(TestParam{
+            fileFormat,
+            TestMode::kBucketed,
             CommitStrategy::kTaskCommit,
             HiveBucketProperty::Kind::kHiveCompatible,
             false,
+            multiDrivers,
+            CompressionKind_ZSTD}
+                                 .value);
+        testParams.push_back(TestParam{
+            fileFormat,
+            TestMode::kBucketed,
+            CommitStrategy::kTaskCommit,
+            HiveBucketProperty::Kind::kHiveCompatible,
+            true,
             multiDrivers,
             CompressionKind_ZSTD}
                                  .value);
@@ -1038,9 +1083,27 @@ class BucketedTableOnlyWriteTest
         testParams.push_back(TestParam{
             fileFormat,
             TestMode::kBucketed,
+            CommitStrategy::kNoCommit,
+            HiveBucketProperty::Kind::kPrestoNative,
+            true,
+            multiDrivers,
+            CompressionKind_ZSTD}
+                                 .value);
+        testParams.push_back(TestParam{
+            fileFormat,
+            TestMode::kBucketed,
             CommitStrategy::kTaskCommit,
             HiveBucketProperty::Kind::kPrestoNative,
             false,
+            multiDrivers,
+            CompressionKind_ZSTD}
+                                 .value);
+        testParams.push_back(TestParam{
+            fileFormat,
+            TestMode::kBucketed,
+            CommitStrategy::kNoCommit,
+            HiveBucketProperty::Kind::kPrestoNative,
+            true,
             multiDrivers,
             CompressionKind_ZSTD}
                                  .value);

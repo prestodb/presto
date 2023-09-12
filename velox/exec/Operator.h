@@ -225,7 +225,8 @@ class OperatorCtx {
   std::shared_ptr<connector::ConnectorQueryCtx> createConnectorQueryCtx(
       const std::string& connectorId,
       const std::string& planNodeId,
-      memory::MemoryPool* connectorPool) const;
+      memory::MemoryPool* connectorPool,
+      const common::SpillConfig* spillConfig = nullptr) const;
 
  private:
   DriverCtx* const driverCtx_;
@@ -302,7 +303,7 @@ class Operator : public BaseRuntimeStatWriter {
       int32_t operatorId,
       std::string planNodeId,
       std::string operatorType,
-      std::optional<Spiller::Config> spillConfig = std::nullopt);
+      std::optional<common::SpillConfig> spillConfig = std::nullopt);
 
   virtual ~Operator() = default;
 
@@ -624,7 +625,7 @@ class Operator : public BaseRuntimeStatWriter {
   const RowTypePtr outputType_;
   /// Contains the disk spilling related configs if spilling is enabled (e.g.
   /// the fs dir path to store spill files), otherwise null.
-  const std::optional<Spiller::Config> spillConfig_;
+  const std::optional<common::SpillConfig> spillConfig_;
 
   bool initialized_{false};
 

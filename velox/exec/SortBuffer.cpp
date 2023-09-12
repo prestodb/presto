@@ -27,7 +27,7 @@ SortBuffer::SortBuffer(
     velox::memory::MemoryPool* pool,
     tsan_atomic<bool>* nonReclaimableSection,
     uint32_t* numSpillRuns,
-    const Spiller::Config* spillConfig,
+    const common::SpillConfig* spillConfig,
     uint64_t spillMemoryThreshold)
     : input_(input),
       sortCompareFlags_(sortCompareFlags),
@@ -81,7 +81,7 @@ SortBuffer::SortBuffer(
       ROW(std::move(sortedSpillColumnNames), std::move(sortedSpillColumnTypes));
 }
 
-void SortBuffer::addInput(const RowVectorPtr& input) {
+void SortBuffer::addInput(const VectorPtr& input) {
   VELOX_CHECK(!noMoreInput_);
   ensureInputFits(input);
 
@@ -98,9 +98,10 @@ void SortBuffer::addInput(const RowVectorPtr& input) {
   for (int row = 0; row < input->size(); ++row) {
     rows[row] = data_->newRow();
   }
+  auto* inputRow = input->as<RowVector>();
   for (const auto& columnProjection : columnMap_) {
     DecodedVector decoded(
-        *input->childAt(columnProjection.outputChannel), allRows);
+        *inputRow->childAt(columnProjection.outputChannel), allRows);
     for (int i = 0; i < input->size(); ++i) {
       data_->store(decoded, i, rows[i], columnProjection.inputChannel);
     }
@@ -203,7 +204,7 @@ void SortBuffer::spill(int64_t targetRows, int64_t targetBytes) {
   }
 }
 
-void SortBuffer::ensureInputFits(const RowVectorPtr& input) {
+void SortBuffer::ensureInputFits(const VectorPtr& input) {
   // Check if spilling is enabled or not.
   if (spillConfig_ == nullptr) {
     return;

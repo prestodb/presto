@@ -267,9 +267,12 @@ class BaseVector {
     return compare(other, index, otherIndex, CompareFlags()).value();
   }
 
-  // Returns < 0 if 'this' at 'index' is less than 'other' at 'otherIndex', 0 if
-  // equal and > 0 otherwise. If flags.nullHandlingMode is not NoStop, the
-  // function may returns std::nullopt if null encountered.
+  /// When CompareFlags is ASCENDING, returns < 0 if 'this' at 'index' is less
+  /// than 'other' at 'otherIndex', 0 if equal and > 0 otherwise.
+  /// When CompareFlags is DESCENDING, returns < 0 if 'this' at 'index' is
+  /// larger than 'other' at 'otherIndex', 0 if equal and < 0 otherwise. If
+  /// flags.nullHandlingMode is not NoStop, the function may returns
+  /// std::nullopt if null encountered.
   virtual std::optional<int32_t> compare(
       const BaseVector* other,
       vector_size_t index,

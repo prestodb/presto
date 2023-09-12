@@ -53,7 +53,7 @@ velox::memory::MemoryPool* DriverCtx::addOperatorPool(
   return task->addOperatorPool(planNodeId, pipelineId, driverId, operatorType);
 }
 
-std::optional<Spiller::Config> DriverCtx::makeSpillConfig(
+std::optional<common::SpillConfig> DriverCtx::makeSpillConfig(
     int32_t operatorId) const {
   const auto& queryConfig = task->queryCtx()->queryConfig();
   if (!queryConfig.spillEnabled()) {
@@ -62,7 +62,7 @@ std::optional<Spiller::Config> DriverCtx::makeSpillConfig(
   if (task->spillDirectory().empty()) {
     return std::nullopt;
   }
-  return Spiller::Config(
+  return common::SpillConfig(
       makeOperatorSpillPath(
           task->spillDirectory(), pipelineId, driverId, operatorId),
       queryConfig.maxSpillFileSize(),

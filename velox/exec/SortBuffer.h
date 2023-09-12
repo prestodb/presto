@@ -38,10 +38,10 @@ class SortBuffer {
       velox::memory::MemoryPool* pool,
       tsan_atomic<bool>* nonReclaimableSection,
       uint32_t* numSpillRuns,
-      const Spiller::Config* spillConfig = nullptr,
+      const common::SpillConfig* spillConfig = nullptr,
       uint64_t spillMemoryThreshold = 0);
 
-  void addInput(const RowVectorPtr& input);
+  void addInput(const VectorPtr& input);
 
   /// Indicates no more input and triggers either of:
   ///  - In-memory sorting on rows stored in 'data_' if spilling is not enabled.
@@ -68,7 +68,7 @@ class SortBuffer {
 
  private:
   // Ensures there is sufficient memory reserved to process 'input'.
-  void ensureInputFits(const RowVectorPtr& input);
+  void ensureInputFits(const VectorPtr& input);
   // Invoked to initialize or reset the reusable output buffer to get output.
   void prepareOutput();
   void getOutputWithoutSpill();
@@ -85,7 +85,7 @@ class SortBuffer {
   tsan_atomic<bool>* const nonReclaimableSection_;
   // A recorder for number of spill runs passed in from order by operator.
   uint32_t* const numSpillRuns_;
-  const Spiller::Config* const spillConfig_;
+  const common::SpillConfig* const spillConfig_;
   // The maximum size that an SortBuffer can hold in memory before spilling.
   // Zero indicates no limit.
   //

@@ -55,7 +55,7 @@ GroupingSet::GroupingSet(
     bool ignoreNullKeys,
     bool isPartial,
     bool isRawInput,
-    const Spiller::Config* spillConfig,
+    const common::SpillConfig* spillConfig,
     uint32_t* numSpillRuns,
     tsan_atomic<bool>* nonReclaimableSection,
     OperatorCtx* operatorCtx)

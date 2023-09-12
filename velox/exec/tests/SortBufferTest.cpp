@@ -273,7 +273,7 @@ TEST_F(SortBufferTest, batchOutput) {
     SCOPED_TRACE(testData.debugString());
     auto spillDirectory = exec::test::TempDirectoryPath::create();
     auto filePath = makeOperatorSpillPath(spillDirectory->path, 0, 0, 0);
-    auto spillConfig = Spiller::Config(
+    auto spillConfig = common::SpillConfig(
         filePath,
         1000,
         1000,
@@ -365,7 +365,7 @@ TEST_F(SortBufferTest, spill) {
     // memory reservation failure and thus trigger disk spilling.
     auto spillableReservationGrowthPct =
         testData.memoryReservationFailure ? 100000 : 100;
-    auto spillConfig = Spiller::Config(
+    auto spillConfig = common::SpillConfig(
         filePath,
         1000,
         1000,
