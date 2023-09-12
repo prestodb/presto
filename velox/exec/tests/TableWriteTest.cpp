@@ -16,6 +16,7 @@
 #include "folly/dynamic.h"
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/dwio/common/WriterFactory.h"
@@ -37,6 +38,7 @@ using namespace facebook::velox::exec::test;
 using namespace facebook::velox::connector;
 using namespace facebook::velox::connector::hive;
 using namespace facebook::velox::dwio::common;
+using namespace facebook::velox::common::testutil;
 
 enum class TestMode {
   kUnpartitioned,
@@ -2518,6 +2520,68 @@ TEST_P(AllTableWriterTest, tableWrittenBytes) {
       ASSERT_GT(operatorStats.at(i).physicalWrittenBytes, 0);
     }
   }
+}
+
+DEBUG_ONLY_TEST_P(
+    UnpartitionedTableWriterTest,
+    fileWriterFlushErrorOnDriverClose) {
+  VectorFuzzer::Options options;
+  const int batchSize = 1000;
+  options.vectorSize = batchSize;
+  VectorFuzzer fuzzer(options, pool());
+  const int numBatches = 10;
+  std::vector<RowVectorPtr> vectors;
+  int numRows{0};
+  for (int i = 0; i < numBatches; ++i) {
+    numRows += batchSize;
+    vectors.push_back(fuzzer.fuzzRow(rowType_));
+  }
+  std::atomic<int> writeInputs{0};
+  std::atomic<bool> triggerWriterOOM{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::addInput",
+      std::function<void(Operator*)>([&](Operator* op) {
+        if (op->operatorType() != "TableWrite") {
+          return;
+        }
+        if (++writeInputs != 3) {
+          return;
+        }
+        op->testingOperatorCtx()->task()->requestAbort();
+        triggerWriterOOM = true;
+      }));
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::memory::MemoryPoolImpl::reserveThreadSafe",
+      std::function<void(memory::MemoryPool*)>([&](memory::MemoryPool* pool) {
+        const std::string dictPoolRe(".*dictionary");
+        const std::string generalPoolRe(".*general");
+        const std::string compressionPoolRe(".*compression");
+        if (!RE2::FullMatch(pool->name(), dictPoolRe) &&
+            !RE2::FullMatch(pool->name(), generalPoolRe) &&
+            !RE2::FullMatch(pool->name(), compressionPoolRe)) {
+          return;
+        }
+        if (!triggerWriterOOM) {
+          return;
+        }
+        VELOX_MEM_POOL_CAP_EXCEEDED("Inject write OOM");
+      }));
+
+  auto outputDirectory = TempDirectoryPath::create();
+  auto op = createInsertPlan(
+      PlanBuilder().values(vectors),
+      rowType_,
+      outputDirectory->path,
+      partitionedBy_,
+      bucketProperty_,
+      compressionKind_,
+      getNumWriters(),
+      connector::hive::LocationHandle::TableType::kNew,
+      commitStrategy_);
+
+  VELOX_ASSERT_THROW(
+      assertQuery(op, fmt::format("SELECT {}", numRows)),
+      "Aborted for external error");
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(

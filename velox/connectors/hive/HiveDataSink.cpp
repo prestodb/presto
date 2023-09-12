@@ -335,6 +335,9 @@ HiveDataSink::HiveDataSink(
 }
 
 void HiveDataSink::appendData(RowVectorPtr input) {
+  checkNotAborted();
+  checkNotClosed();
+
   // Write to unpartitioned table.
   if (!isPartitioned()) {
     const auto index = ensureWriter(HiveWriterId::unpartitionedId());
@@ -385,6 +388,8 @@ void HiveDataSink::computePartitionAndBucketIds(const RowVectorPtr& input) {
 }
 
 int64_t HiveDataSink::getCompletedBytes() const {
+  checkNotAborted();
+
   int64_t completedBytes{0};
   for (const auto& ioStats : ioStats_) {
     completedBytes += ioStats->rawBytesWritten();
@@ -392,7 +397,14 @@ int64_t HiveDataSink::getCompletedBytes() const {
   return completedBytes;
 }
 
-std::vector<std::string> HiveDataSink::finish() const {
+std::vector<std::string> HiveDataSink::close(bool success) {
+  closeInternal(!success);
+  if (!success) {
+    VELOX_CHECK(aborted_);
+    return {};
+  }
+  VELOX_CHECK(closed_);
+
   std::vector<std::string> partitionUpdates;
   partitionUpdates.reserve(writerInfo_.size());
 
@@ -425,9 +437,28 @@ std::vector<std::string> HiveDataSink::finish() const {
   return partitionUpdates;
 }
 
-void HiveDataSink::close() {
-  for (const auto& writer : writers_) {
-    writer->close();
+void HiveDataSink::closeInternal(bool abort) {
+  if (closedOrAborted()) {
+    if (abort) {
+      // We can't call abort on a closed data sink.
+      VELOX_CHECK(aborted_, "Can't abort a closed hive data sink");
+    } else {
+      // We can't call close on an aborted data sink.
+      VELOX_CHECK(closed_, "Can't close an aborted hive data sink");
+    }
+    return;
+  }
+
+  if (!abort) {
+    closed_ = true;
+    for (const auto& writer : writers_) {
+      writer->close();
+    }
+  } else {
+    aborted_ = true;
+    for (const auto& writer : writers_) {
+      writer->abort();
+    }
   }
 }
 

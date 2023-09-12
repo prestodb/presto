@@ -130,6 +130,9 @@ FOLLY_ALWAYS_INLINE std::ostream& operator<<(
 /// Return a commit strategy of the given string encoding.
 CommitStrategy stringToCommitStrategy(const std::string& strategy);
 
+/// Writes data received from table writer operator into different partitions
+/// based on the specific table layout. The actual implementation doesn't need
+/// to be thread-safe.
 class DataSink {
  public:
   virtual ~DataSink() = default;
@@ -144,11 +147,12 @@ class DataSink {
   }
 
   /// Called once after all data has been added via possibly multiple calls to
-  /// appendData(). Could return data in the string form that would be included
-  /// in the output. After calling this function, only close() could be called.
-  virtual std::vector<std::string> finish() const = 0;
-
-  virtual void close() = 0;
+  /// appendData(). The function returns the metadata of written data in string
+  /// form on success. If 'success' is false, this function aborts any pending
+  /// data processing inside this data sink.
+  ///
+  /// NOTE: we don't expect any appendData() calls on a closed data sink object.
+  virtual std::vector<std::string> close(bool success) = 0;
 };
 
 class DataSource {
@@ -241,7 +245,9 @@ class ConnectorQueryCtx {
         queryId_(queryId),
         taskId_(taskId),
         driverId_(driverId),
-        planNodeId_(planNodeId) {}
+        planNodeId_(planNodeId) {
+    VELOX_CHECK_NOT_NULL(connectorConfig);
+  }
 
   /// Returns the associated operator's memory pool which is a leaf kind of
   /// memory pool, used for direct memory allocation use.

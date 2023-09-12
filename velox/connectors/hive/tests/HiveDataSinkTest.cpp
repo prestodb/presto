@@ -17,7 +17,15 @@
 #include <gtest/gtest.h>
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 
+#include <folly/Singleton.h>
+#include <folly/init/Init.h>
+#include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/core/Config.h"
+#include "velox/dwio/common/Options.h"
+#include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::connector::hive {
 namespace {
@@ -25,15 +33,97 @@ namespace {
 using namespace facebook::velox::common;
 using namespace facebook::velox::exec::test;
 
+constexpr const char* kHiveConnectorId = "test-hive";
+
 class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
  protected:
   void SetUp() override {
     Type::registerSerDe();
     HiveSortingColumn::registerSerDe();
     HiveBucketProperty::registerSerDe();
+
+    rowType_ =
+        ROW({"c0", "c1", "c2", "c3", "c4", "c5"},
+            {BIGINT(), INTEGER(), SMALLINT(), REAL(), DOUBLE(), VARCHAR()});
+    connectorQueryCtx_ = std::make_unique<connector::ConnectorQueryCtx>(
+        opPool_.get(),
+        connectorPool_.get(),
+        connectorConfig_.get(),
+        nullptr,
+        nullptr,
+        nullptr,
+        "query.HiveDataSinkTest",
+        "task.HiveDataSinkTest",
+        "planNodeId.HiveDataSinkTest",
+        0);
+
+    auto hiveConnector =
+        connector::getConnectorFactory(
+            connector::hive::HiveConnectorFactory::kHiveConnectorName)
+            ->newConnector(kHiveConnectorId, nullptr);
+    connector::registerConnector(std::move(hiveConnector));
   }
-  std::shared_ptr<memory::MemoryPool> pool_ =
+
+  std::shared_ptr<connector::hive::HiveInsertTableHandle>
+  createHiveInsertTableHandle(
+      const RowTypePtr& outputRowType,
+      const std::string& outputDirectoryPath) {
+    return makeHiveInsertTableHandle(
+        outputRowType->names(),
+        outputRowType->children(),
+        {},
+        nullptr,
+        makeLocationHandle(
+            outputDirectoryPath,
+            std::nullopt,
+            connector::hive::LocationHandle::TableType::kNew),
+        dwio::common::FileFormat::DWRF,
+        CompressionKind::CompressionKind_ZSTD);
+  }
+
+  std::shared_ptr<HiveDataSink> createDataSink(
+      const RowTypePtr& rowType,
+      const std::string& outputDirectoryPath) {
+    return std::make_shared<HiveDataSink>(
+        rowType,
+        createHiveInsertTableHandle(rowType, outputDirectoryPath),
+        connectorQueryCtx_.get(),
+        CommitStrategy::kNoCommit,
+        connectorConfig_);
+  }
+
+  std::vector<std::string> listFiles(const std::string& dirPath) {
+    std::vector<std::string> files;
+    for (auto& dirEntry : fs::recursive_directory_iterator(dirPath)) {
+      if (dirEntry.is_regular_file()) {
+        files.push_back(dirEntry.path().string());
+      }
+    }
+    return files;
+  }
+
+  void verifyWrittenData(const std::string& dirPath) {
+    const std::vector<std::string> filePaths = listFiles(dirPath);
+    ASSERT_EQ(filePaths.size(), 1);
+    HiveConnectorTestBase::assertQuery(
+        PlanBuilder().tableScan(rowType_).planNode(),
+        {makeHiveConnectorSplit(filePaths[0])},
+        fmt::format("SELECT * FROM tmp"));
+  }
+
+  const std::shared_ptr<memory::MemoryPool> pool_ =
       memory::addDefaultLeafMemoryPool();
+  const std::shared_ptr<memory::MemoryPool> root_ =
+      memory::defaultMemoryManager().addRootPool("HiveDataSinkTest");
+  const std::shared_ptr<memory::MemoryPool> opPool_ =
+      root_->addLeafChild("operator");
+  const std::shared_ptr<memory::MemoryPool> connectorPool_ =
+      root_->addAggregateChild("connector");
+  const std::shared_ptr<const Config> connectorConfig_{
+      std::make_unique<core::MemConfig>()};
+
+  RowTypePtr rowType_;
+  std::unique_ptr<ConnectorQueryCtx> connectorQueryCtx_;
 };
 
 TEST_F(HiveDataSinkTest, hiveSortingColumn) {
@@ -305,5 +395,103 @@ TEST_F(HiveDataSinkTest, hiveBucketProperty) {
     ASSERT_EQ(obj, deserializedProperty->serialize());
   }
 }
+
+TEST_F(HiveDataSinkTest, basic) {
+  const int numBatches = 10;
+  const auto outputDirectory = TempDirectoryPath::create();
+  auto dataSink = createDataSink(rowType_, outputDirectory->path);
+
+  VectorFuzzer::Options options;
+  options.vectorSize = 500;
+  VectorFuzzer fuzzer(options, pool());
+  std::vector<RowVectorPtr> vectors;
+  for (int i = 0; i < numBatches; ++i) {
+    vectors.push_back(fuzzer.fuzzRow(rowType_));
+    dataSink->appendData(vectors.back());
+  }
+  const auto results = dataSink->close(true);
+  ASSERT_EQ(results.size(), 1);
+
+  createDuckDbTable(vectors);
+  verifyWrittenData(outputDirectory->path);
+}
+
+TEST_F(HiveDataSinkTest, close) {
+  for (bool empty : {true, false}) {
+    SCOPED_TRACE(fmt::format("Data sink is empty: {}", empty));
+    const auto outputDirectory = TempDirectoryPath::create();
+    auto dataSink = createDataSink(rowType_, outputDirectory->path);
+
+    std::vector<RowVectorPtr> vectors;
+    VectorFuzzer::Options options;
+    options.vectorSize = 1;
+    VectorFuzzer fuzzer(options, pool());
+    vectors.push_back(fuzzer.fuzzRow(rowType_));
+    if (!empty) {
+      dataSink->appendData(vectors.back());
+      ASSERT_GT(dataSink->getCompletedBytes(), 0);
+    } else {
+      ASSERT_EQ(dataSink->getCompletedBytes(), 0);
+    }
+    const auto results = dataSink->close(true);
+    // Can't append after close.
+    VELOX_ASSERT_THROW(
+        dataSink->appendData(vectors.back()), "Hive data sink has been closed");
+    ASSERT_EQ(dataSink->close(true), results);
+    VELOX_ASSERT_THROW(
+        dataSink->close(false), "Can't abort a closed hive data sink");
+
+    if (!empty) {
+      ASSERT_EQ(results.size(), 1);
+      ASSERT_GT(dataSink->getCompletedBytes(), 0);
+      createDuckDbTable(vectors);
+      verifyWrittenData(outputDirectory->path);
+    } else {
+      ASSERT_TRUE(results.empty());
+      ASSERT_EQ(dataSink->getCompletedBytes(), 0);
+    }
+  }
+}
+
+TEST_F(HiveDataSinkTest, abort) {
+  for (bool empty : {true, false}) {
+    SCOPED_TRACE(fmt::format("Data sink is empty: {}", empty));
+    const auto outputDirectory = TempDirectoryPath::create();
+    auto dataSink = createDataSink(rowType_, outputDirectory->path);
+
+    std::vector<RowVectorPtr> vectors;
+    VectorFuzzer::Options options;
+    options.vectorSize = 1;
+    VectorFuzzer fuzzer(options, pool());
+    vectors.push_back(fuzzer.fuzzRow(rowType_));
+    int initialBytes = 0;
+    if (!empty) {
+      dataSink->appendData(vectors.back());
+      initialBytes = dataSink->getCompletedBytes();
+      ASSERT_GT(initialBytes, 0);
+    } else {
+      initialBytes = dataSink->getCompletedBytes();
+      ASSERT_EQ(initialBytes, 0);
+    }
+    ASSERT_TRUE(dataSink->close(false).empty());
+    // Can't close after abort.
+    VELOX_ASSERT_THROW(
+        dataSink->close(true), "Can't close an aborted hive data sink");
+    ASSERT_TRUE(dataSink->close(false).empty());
+    // Can't append after abort.
+    VELOX_ASSERT_THROW(
+        dataSink->appendData(vectors.back()),
+        "Hive data sink hash been aborted");
+  }
+}
 } // namespace
 } // namespace facebook::velox::connector::hive
+
+// This main is needed for some tests on linux.
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
+  // Signal handler required for ThreadDebugInfoTest
+  facebook::velox::process::addDefaultFatalSignalHandler();
+  folly::init(&argc, &argv, false);
+  return RUN_ALL_TESTS();
+}

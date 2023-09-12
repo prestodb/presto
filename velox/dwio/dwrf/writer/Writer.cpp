@@ -526,6 +526,9 @@ void Writer::close() {
 }
 
 void Writer::abort() {
+  // NOTE: we need to reset column writer as all its dependent objects (e.g.
+  // writer context) will be reset by writer base abort.
+  writer_.reset();
   writerBase_->abort();
 }
 

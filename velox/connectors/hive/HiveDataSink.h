@@ -402,9 +402,7 @@ class HiveDataSink : public DataSink {
 
   int64_t getCompletedBytes() const override;
 
-  std::vector<std::string> finish() const override;
-
-  void close() override;
+  std::vector<std::string> close(bool success) override;
 
  private:
   // Returns true if the table is partitioned.
@@ -458,6 +456,21 @@ class HiveDataSink : public DataSink {
 
   HiveWriterParameters::UpdateMode getUpdateMode() const;
 
+  FOLLY_ALWAYS_INLINE bool closedOrAborted() const {
+    VELOX_CHECK(!(closed_ && aborted_));
+    return closed_ || aborted_;
+  }
+
+  FOLLY_ALWAYS_INLINE void checkNotClosed() const {
+    VELOX_CHECK(!closed_, "Hive data sink has been closed");
+  }
+
+  FOLLY_ALWAYS_INLINE void checkNotAborted() const {
+    VELOX_CHECK(!aborted_, "Hive data sink hash been aborted");
+  }
+
+  void closeInternal(bool abort);
+
   const RowTypePtr inputType_;
   const std::shared_ptr<const HiveInsertTableHandle> insertTableHandle_;
   const ConnectorQueryCtx* const connectorQueryCtx_;
@@ -468,13 +481,15 @@ class HiveDataSink : public DataSink {
   const std::unique_ptr<PartitionIdGenerator> partitionIdGenerator_;
   const int32_t bucketCount_{0};
   const std::unique_ptr<core::PartitionFunction> bucketFunction_;
-  std::shared_ptr<dwio::common::WriterFactory> writerFactory_;
+  const std::shared_ptr<dwio::common::WriterFactory> writerFactory_;
   const common::SpillConfig* const spillConfig_;
 
   std::vector<column_index_t> sortColumnIndices_;
   std::vector<CompareFlags> sortCompareFlags_;
 
-  // TODO: combine with numSpillRuns_ in Operator
+  bool closed_{false};
+  bool aborted_{false};
+
   uint32_t numSpillRuns_{0};
   tsan_atomic<bool> nonReclaimableSection_{false};
 

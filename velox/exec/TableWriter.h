@@ -113,26 +113,13 @@ class TableWriter : public Operator {
 
   void addInput(RowVectorPtr input) override;
 
-  void noMoreInput() override {
-    Operator::noMoreInput();
-    if (aggregation_ != nullptr) {
-      aggregation_->noMoreInput();
-    }
-    close();
-  }
+  void noMoreInput() override;
 
   virtual bool needsInput() const override {
     return true;
   }
 
-  void close() override {
-    if (!closed_) {
-      if (dataSink_ != nullptr) {
-        dataSink_->close();
-      }
-      closed_ = true;
-    }
-  }
+  void close() override;
 
   RowVectorPtr getOutput() override;
 
@@ -142,6 +129,10 @@ class TableWriter : public Operator {
 
  private:
   void createDataSink();
+
+  std::vector<std::string> closeDataSink();
+
+  void abortDataSink();
 
   // Updates physicalWrittenBytes in OperatorStats with current written bytes.
   void updateWrittenBytes();
