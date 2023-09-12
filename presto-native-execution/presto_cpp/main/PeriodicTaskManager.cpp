@@ -513,7 +513,6 @@ void PeriodicTaskManager::addArbitratorStatsTask() {
 }
 
 void PeriodicTaskManager::updateArbitratorStatsTask() {
-  VELOX_CHECK_NOT_NULL(arbitrator_);
   const auto updatedArbitratorStats = arbitrator_->stats();
   VELOX_CHECK_GE(updatedArbitratorStats, lastArbitratorStats_);
   const auto deltaArbitratorStats =
