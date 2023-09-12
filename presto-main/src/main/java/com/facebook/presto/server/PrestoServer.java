@@ -40,6 +40,7 @@ import com.facebook.presto.eventlistener.EventListenerModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorModule;
+import com.facebook.presto.features.config.FeatureToggleConfigurationManager;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
@@ -201,6 +202,7 @@ public class PrestoServer
             injector.getInstance(ClientRequestFilterManager.class).loadClientRequestFilters();
             injector.getInstance(ExpressionOptimizerManager.class).loadExpressionOptimizerFactories();
 
+            injector.getInstance(FeatureToggleConfigurationManager.class).loadConfigurationSources();
             startAssociatedProcesses(injector);
 
             injector.getInstance(Announcer.class).start();
