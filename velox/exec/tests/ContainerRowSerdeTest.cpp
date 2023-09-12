@@ -25,6 +25,8 @@ namespace {
 class ContainerRowSerdeTest : public testing::Test,
                               public velox::test::VectorTestBase {
  protected:
+  // Writes all rows together and returns a position at the start of this
+  // combined write.
   HashStringAllocator::Position serialize(const VectorPtr& data) {
     ByteStream out(&allocator_);
     auto position = allocator_.newWrite(out);
@@ -33,6 +35,24 @@ class ContainerRowSerdeTest : public testing::Test,
     }
     allocator_.finishWrite(out, 0);
     return position;
+  }
+
+  // Writes each row individually and returns positions for individual rows.
+  std::vector<HashStringAllocator::Position> serializeWithPositions(
+      const VectorPtr& data) {
+    std::vector<HashStringAllocator::Position> positions;
+    auto size = data->size();
+    positions.reserve(size);
+
+    for (auto i = 0; i < size; ++i) {
+      ByteStream out(&allocator_);
+      auto position = allocator_.newWrite(out);
+      ContainerRowSerde::serialize(*data, i, out);
+      allocator_.finishWrite(out, 0);
+      positions.emplace_back(position);
+    }
+
+    return positions;
   }
 
   VectorPtr deserialize(
@@ -60,6 +80,28 @@ class ContainerRowSerdeTest : public testing::Test,
     test::assertEqualVectors(data, copy);
 
     allocator_.clear();
+  }
+
+  void testCompareWithNulls(
+      const DecodedVector& decodedVector,
+      const std::vector<HashStringAllocator::Position>& positions,
+      const std::vector<std::optional<int32_t>>& expected,
+      bool equalsOnly,
+      CompareFlags::NullHandlingMode mode) {
+    CompareFlags compareFlags{
+        true, // nullsFirst
+        true, // ascending
+        equalsOnly,
+        mode};
+
+    for (auto i = 0; i < expected.size(); ++i) {
+      ByteStream stream;
+      HashStringAllocator::prepareRead(positions.at(i).header, stream);
+      ASSERT_EQ(
+          expected.at(i),
+          ContainerRowSerde::compareWithNulls(
+              stream, decodedVector, i, compareFlags));
+    }
   }
 
   HashStringAllocator allocator_{pool()};
@@ -142,6 +184,119 @@ TEST_F(ContainerRowSerdeTest, nested) {
       {{map, std::nullopt}, {std::nullopt}});
 
   testRoundTrip(nestedArray);
+}
+
+TEST_F(ContainerRowSerdeTest, compareNullsInArrayVector) {
+  auto data = makeNullableArrayVector<int64_t>({
+      {1, 2},
+      {1, 5},
+      {1, 3, 5},
+      {1, 2, 3, 4},
+      {1, 2, std::nullopt, 4},
+      {1, std::nullopt, 5},
+  });
+  auto positions = serializeWithPositions(data);
+  auto arrayVector = makeNullableArrayVector<int64_t>({
+      {1, 2},
+      {1, 3},
+      {1, 5},
+      {std::nullopt, 1},
+      {1, 2, std::nullopt, 4},
+      {1, 5},
+  });
+  DecodedVector decodedVector(*arrayVector);
+
+  testCompareWithNulls(
+      decodedVector,
+      positions,
+      {{0}, {1}, {-1}, std::nullopt, std::nullopt, std::nullopt},
+      false,
+      CompareFlags::NullHandlingMode::StopAtNull);
+  testCompareWithNulls(
+      decodedVector,
+      positions,
+      {{0}, {1}, {1}, {1}, std::nullopt, {1}},
+      true,
+      CompareFlags::NullHandlingMode::StopAtNull);
+  testCompareWithNulls(
+      decodedVector,
+      positions,
+      {{0}, {1}, {-1}, {1}, {0}, {-1}},
+      false,
+      CompareFlags::NullHandlingMode::NoStop);
+
+  allocator_.clear();
+}
+
+TEST_F(ContainerRowSerdeTest, compareNullsInMapVector) {
+  auto data = makeNullableMapVector<int64_t, int64_t>({
+      {{{1, 10}, {4, 30}, {2, 3}}},
+      {{{2, 20}}},
+      {{{3, 50}}},
+      {{{4, std::nullopt}}},
+  });
+  auto positions = serializeWithPositions(data);
+  auto mapVector = makeNullableMapVector<int64_t, int64_t>({
+      {{{1, 10}, {3, 20}}},
+      {{{2, 20}}},
+      {{{3, 40}}},
+      {{{4, std::nullopt}}},
+  });
+  DecodedVector decodedVector(*mapVector);
+
+  testCompareWithNulls(
+      decodedVector,
+      positions,
+      {{-1}, {0}, {1}, std::nullopt},
+      false,
+      CompareFlags::NullHandlingMode::StopAtNull);
+  testCompareWithNulls(
+      decodedVector,
+      positions,
+      {{1}, {0}, {1}, std::nullopt},
+      true,
+      CompareFlags::NullHandlingMode::StopAtNull);
+  testCompareWithNulls(
+      decodedVector,
+      positions,
+      {{1}, {0}, {1}, {0}},
+      true,
+      CompareFlags::NullHandlingMode::NoStop);
+
+  allocator_.clear();
+}
+
+TEST_F(ContainerRowSerdeTest, compareNullsInRowVector) {
+  auto data = makeRowVector({makeFlatVector<int32_t>({
+      1,
+      2,
+      3,
+      4,
+  })});
+  auto positions = serializeWithPositions(data);
+  auto someNulls = makeNullableFlatVector<int32_t>({
+      1,
+      3,
+      2,
+      std::nullopt,
+  });
+  auto rowVector = makeRowVector({someNulls});
+  DecodedVector decodedVector(*rowVector);
+
+  testCompareWithNulls(
+      decodedVector,
+      positions,
+      {{0}, {-1}, {1}, std::nullopt},
+      false,
+      CompareFlags::NullHandlingMode::StopAtNull);
+  testCompareWithNulls(
+      decodedVector,
+      positions,
+      {{0}, {-1}, {1}, {1}},
+      false,
+      CompareFlags::NullHandlingMode::NoStop);
+
+  allocator_.clear();
 }
 
 } // namespace

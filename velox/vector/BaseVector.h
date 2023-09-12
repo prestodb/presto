@@ -783,23 +783,6 @@ class BaseVector {
   /// debug builds to check the result of expressions and some interim results.
   virtual void validate(const VectorValidateOptions& options = {}) const;
 
- protected:
-  /// Returns a brief summary of the vector. The default implementation includes
-  /// encoding, type, number of rows and number of nulls.
-  ///
-  /// For example,
-  ///     [FLAT INTEGER: 3 elements, no nulls]
-  ///     [DICTIONARY INTEGER: 5 elements, 1 nulls]
-  virtual std::string toSummaryString() const;
-
-  /*
-   * Allocates or reallocates nulls_ with at least the given size if nulls_
-   * hasn't been allocated yet or has been allocated with a smaller capacity.
-   * Ensures that nulls are writable (mutable and single referenced for
-   * minimumSize).
-   */
-  void ensureNullsCapacity(vector_size_t minimumSize, bool setNotNull = false);
-
   FOLLY_ALWAYS_INLINE static std::optional<int32_t>
   compareNulls(bool thisNull, bool otherNull, CompareFlags flags) {
     DCHECK(thisNull || otherNull);
@@ -824,6 +807,23 @@ class BaseVector {
     VELOX_UNREACHABLE(
         "The function should be called only if one of the inputs is null");
   }
+
+ protected:
+  /// Returns a brief summary of the vector. The default implementation includes
+  /// encoding, type, number of rows and number of nulls.
+  ///
+  /// For example,
+  ///     [FLAT INTEGER: 3 elements, no nulls]
+  ///     [DICTIONARY INTEGER: 5 elements, 1 nulls]
+  virtual std::string toSummaryString() const;
+
+  /*
+   * Allocates or reallocates nulls_ with at least the given size if nulls_
+   * hasn't been allocated yet or has been allocated with a smaller capacity.
+   * Ensures that nulls are writable (mutable and single referenced for
+   * minimumSize).
+   */
+  void ensureNullsCapacity(vector_size_t minimumSize, bool setNotNull = false);
 
   void ensureNulls() {
     ensureNullsCapacity(length_, true);

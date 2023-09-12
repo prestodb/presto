@@ -32,16 +32,33 @@ class ContainerRowSerde {
   static void
   deserialize(ByteStream& in, vector_size_t index, BaseVector* result);
 
+  /// Returns < 0 if 'left' is less than 'right' at 'index', 0 if
+  /// equal and > 0 otherwise. flags.nullHandlingMode can be only NoStop and
+  /// support null-safe equal.
   static int32_t compare(
       ByteStream& left,
       const DecodedVector& right,
       vector_size_t index,
       CompareFlags flags);
 
+  /// Returns < 0 if 'left' is less than 'right' at 'index', 0 if
+  /// equal and > 0 otherwise. flags.nullHandlingMode can be only NoStop and
+  /// support null-safe equal.
   static int32_t compare(
       ByteStream& left,
       ByteStream& right,
       const Type* type,
+      CompareFlags flags);
+
+  /// Returns < 0 if 'left' is less than 'right' at 'index', 0 if
+  /// equal and > 0 otherwise. If flags.nullHandlingMode is StopAtNull,
+  /// returns std::nullopt if either 'left' or 'right' value is null or contains
+  /// a null. If flags.nullHandlingMode is NoStop then NULL is considered equal
+  /// to NULL.
+  static std::optional<int32_t> compareWithNulls(
+      ByteStream& left,
+      const DecodedVector& right,
+      vector_size_t index,
       CompareFlags flags);
 
   static uint64_t hash(ByteStream& data, const Type* type);
