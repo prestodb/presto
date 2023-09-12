@@ -153,6 +153,10 @@ class FunctionVector : public BaseVector {
     functions_.push_back(callable);
   }
 
+  bool containsNullAt(vector_size_t idx) const override {
+    return false;
+  }
+
   std::optional<int32_t> compare(
       const BaseVector* /*other*/,
       vector_size_t /*index*/,

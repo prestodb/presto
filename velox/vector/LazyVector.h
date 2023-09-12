@@ -236,6 +236,10 @@ class LazyVector : public BaseVector {
     return loadedVector()->isNullAt(index);
   }
 
+  bool containsNullAt(vector_size_t index) const override {
+    return loadedVector()->containsNullAt(index);
+  }
+
   uint64_t retainedSize() const override {
     return isLoaded() ? loadedVector()->retainedSize()
                       : BaseVector::retainedSize();

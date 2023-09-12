@@ -80,6 +80,19 @@ class DictionaryVector : public SimpleVector<T> {
 
   bool isNullAt(vector_size_t idx) const override;
 
+  bool containsNullAt(vector_size_t idx) const override {
+    if constexpr (std::is_same_v<T, ComplexType>) {
+      if (isNullAt(idx)) {
+        return true;
+      }
+
+      auto innerIndex = getDictionaryIndex(idx);
+      return dictionaryValues_->containsNullAt(innerIndex);
+    } else {
+      return isNullAt(idx);
+    }
+  }
+
   const T valueAtFast(vector_size_t idx) const;
 
   /**

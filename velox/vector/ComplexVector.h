@@ -85,6 +85,8 @@ class RowVector : public BaseVector {
 
   virtual ~RowVector() override {}
 
+  bool containsNullAt(vector_size_t idx) const override;
+
   std::optional<int32_t> compare(
       const BaseVector* other,
       vector_size_t index,
@@ -376,6 +378,8 @@ class ArrayVector : public ArrayVectorBase {
         type->childAt(0)->toString());
   }
 
+  bool containsNullAt(vector_size_t idx) const override;
+
   std::optional<int32_t> compare(
       const BaseVector* other,
       vector_size_t index,
@@ -499,6 +503,8 @@ class MapVector : public ArrayVectorBase {
   }
 
   virtual ~MapVector() override {}
+
+  bool containsNullAt(vector_size_t idx) const override;
 
   std::optional<int32_t> compare(
       const BaseVector* other,

@@ -2589,7 +2589,7 @@ TEST_F(VectorTest, toCopyRanges) {
 }
 
 TEST_F(VectorTest, rowCopyRanges) {
-  RowVectorPtr RowVectorDest = makeRowVector(
+  RowVectorPtr rowVectorDest = makeRowVector(
       {makeFlatVector<int32_t>({1, 2}), makeFlatVector<int32_t>({1, 2})});
   RowVectorPtr RowVectorSrc = makeRowVector(
       {makeFlatVector<int32_t>({3, 4}), makeFlatVector<int32_t>({3, 4})});
@@ -2598,15 +2598,143 @@ TEST_F(VectorTest, rowCopyRanges) {
       .targetIndex = 2,
       .count = 2,
   }};
-  RowVectorDest->resize(4);
+  rowVectorDest->resize(4);
 
   // Make sure nulls overwritten.
-  RowVectorDest->setNull(2, true);
-  RowVectorDest->setNull(3, true);
+  rowVectorDest->setNull(2, true);
+  rowVectorDest->setNull(3, true);
 
-  RowVectorDest->copyRanges(RowVectorSrc.get(), baseRanges);
+  rowVectorDest->copyRanges(RowVectorSrc.get(), baseRanges);
   auto expected = makeRowVector(
       {makeFlatVector<int32_t>({1, 2, 3, 4}),
        makeFlatVector<int32_t>({1, 2, 3, 4})});
-  test::assertEqualVectors(expected, RowVectorDest);
+  test::assertEqualVectors(expected, rowVectorDest);
+}
+
+TEST_F(VectorTest, containsNullAtIntegers) {
+  VectorPtr data = makeFlatVector<int32_t>({1, 2, 3});
+  for (auto i = 0; i < data->size(); ++i) {
+    EXPECT_FALSE(data->containsNullAt(i));
+  }
+
+  auto indices = makeIndices({0, 0, 1, 1, 2, 2});
+  auto dictionary = wrapInDictionary(indices, data);
+
+  for (auto i = 0; i < dictionary->size(); ++i) {
+    EXPECT_FALSE(dictionary->containsNullAt(i));
+  }
+
+  auto nulls = makeNulls({true, false, true, false, true, false});
+  dictionary = BaseVector::wrapInDictionary(nulls, indices, 6, data);
+  for (auto i = 0; i < dictionary->size(); i += 2) {
+    EXPECT_TRUE(dictionary->containsNullAt(i));
+  }
+
+  for (auto i = 1; i < dictionary->size(); i += 2) {
+    EXPECT_FALSE(dictionary->containsNullAt(i));
+  }
+
+  data = makeNullableFlatVector<int32_t>({1, std::nullopt, 3});
+  EXPECT_FALSE(data->containsNullAt(0));
+  EXPECT_TRUE(data->containsNullAt(1));
+  EXPECT_FALSE(data->containsNullAt(2));
+
+  dictionary = wrapInDictionary(indices, data);
+  EXPECT_FALSE(dictionary->containsNullAt(0));
+  EXPECT_FALSE(dictionary->containsNullAt(1));
+  EXPECT_TRUE(dictionary->containsNullAt(2));
+  EXPECT_TRUE(dictionary->containsNullAt(3));
+  EXPECT_FALSE(dictionary->containsNullAt(4));
+  EXPECT_FALSE(dictionary->containsNullAt(5));
+
+  dictionary = BaseVector::wrapInDictionary(nulls, indices, 6, data);
+  EXPECT_TRUE(dictionary->containsNullAt(0));
+  EXPECT_FALSE(dictionary->containsNullAt(1));
+  EXPECT_TRUE(dictionary->containsNullAt(2));
+  EXPECT_TRUE(dictionary->containsNullAt(3));
+  EXPECT_TRUE(dictionary->containsNullAt(4));
+  EXPECT_FALSE(dictionary->containsNullAt(5));
+
+  data = makeConstant(10, 3);
+  for (auto i = 0; i < data->size(); ++i) {
+    EXPECT_FALSE(data->containsNullAt(i));
+  }
+
+  data = makeNullConstant(TypeKind::INTEGER, 3);
+  for (auto i = 0; i < data->size(); ++i) {
+    EXPECT_TRUE(data->containsNullAt(i));
+  }
+}
+
+TEST_F(VectorTest, containsNullAtArrays) {
+  auto data = makeNullableArrayVector<int32_t>({
+      {{1, 2}},
+      {{1, 2, std::nullopt, 3}},
+      {{}},
+      std::nullopt,
+      {{1, 2, 3, 4}},
+  });
+
+  EXPECT_FALSE(data->containsNullAt(0));
+  EXPECT_TRUE(data->containsNullAt(1));
+  EXPECT_FALSE(data->containsNullAt(2));
+  EXPECT_TRUE(data->containsNullAt(3));
+  EXPECT_FALSE(data->containsNullAt(4));
+}
+
+TEST_F(VectorTest, containsNullAtMaps) {
+  auto data = makeNullableMapVector<int32_t, int64_t>({
+      {{{1, 10}, {2, 20}}},
+      {{{3, 30}}},
+      {{{1, 10}, {2, 20}, {3, std::nullopt}, {4, 40}}},
+      {{}},
+      std::nullopt,
+      {{{1, 10}, {2, 20}, {3, 30}, {4, 40}}},
+  });
+
+  EXPECT_FALSE(data->containsNullAt(0));
+  EXPECT_FALSE(data->containsNullAt(1));
+  EXPECT_TRUE(data->containsNullAt(2));
+  EXPECT_FALSE(data->containsNullAt(3));
+  EXPECT_TRUE(data->containsNullAt(4));
+  EXPECT_FALSE(data->containsNullAt(5));
+}
+
+TEST_F(VectorTest, containsNullAtStructs) {
+  auto data = makeRowVector(
+      {
+          makeNullableFlatVector<int32_t>({1, 2, std::nullopt, 4, 5}),
+          makeNullableFlatVector<int64_t>(
+              {10, std::nullopt, std::nullopt, 40, 50}),
+          makeNullableFlatVector<int16_t>({1, 2, 3, 4, 5}),
+          makeNullableFlatVector<int16_t>({10, 20, 30, 40, 50}),
+      },
+      [](auto row) { return row == 3; });
+
+  EXPECT_FALSE(data->containsNullAt(0));
+  EXPECT_TRUE(data->containsNullAt(1));
+  EXPECT_TRUE(data->containsNullAt(2));
+  EXPECT_TRUE(data->containsNullAt(3));
+  EXPECT_FALSE(data->containsNullAt(4));
+
+  data = makeRowVector(
+      {
+          makeNullableFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
+          makeNullableArrayVector<int64_t>({
+              {{1, 2}},
+              {{1, 2, std::nullopt, 3}},
+              {{}},
+              {{1, 2, 3}},
+              std::nullopt,
+              {{1, 2, 3, 4, 5}},
+          }),
+      },
+      [](auto row) { return row == 3; });
+
+  EXPECT_FALSE(data->containsNullAt(0));
+  EXPECT_TRUE(data->containsNullAt(1));
+  EXPECT_FALSE(data->containsNullAt(2));
+  EXPECT_TRUE(data->containsNullAt(3));
+  EXPECT_TRUE(data->containsNullAt(4));
+  EXPECT_FALSE(data->containsNullAt(5));
 }

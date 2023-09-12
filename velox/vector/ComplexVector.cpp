@@ -68,6 +68,20 @@ std::shared_ptr<RowVector> RowVector::createEmpty(
   return std::static_pointer_cast<RowVector>(BaseVector::create(type, 0, pool));
 }
 
+bool RowVector::containsNullAt(vector_size_t idx) const {
+  if (BaseVector::isNullAt(idx)) {
+    return true;
+  }
+
+  for (const auto& child : children_) {
+    if (child != nullptr && child->containsNullAt(idx)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 std::optional<int32_t> RowVector::compare(
     const BaseVector* other,
     vector_size_t index,
@@ -655,6 +669,22 @@ std::optional<int32_t> compareArrays(
 }
 } // namespace
 
+bool ArrayVector::containsNullAt(vector_size_t idx) const {
+  if (BaseVector::isNullAt(idx)) {
+    return true;
+  }
+
+  const auto offset = rawOffsets_[idx];
+  const auto size = rawSizes_[idx];
+  for (auto i = 0; i < size; ++i) {
+    if (elements_->containsNullAt(offset + i)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 std::optional<int32_t> ArrayVector::compare(
     const BaseVector* other,
     vector_size_t index,
@@ -837,6 +867,26 @@ VectorPtr ArrayVector::slice(vector_size_t offset, vector_size_t length) const {
 void ArrayVector::validate(const VectorValidateOptions& options) const {
   ArrayVectorBase::validateArrayVectorBase(options, elements_->size());
   elements_->validate(options);
+}
+
+bool MapVector::containsNullAt(vector_size_t idx) const {
+  if (BaseVector::isNullAt(idx)) {
+    return true;
+  }
+
+  const auto offset = rawOffsets_[idx];
+  const auto size = rawSizes_[idx];
+  for (auto i = 0; i < size; ++i) {
+    if (keys_->containsNullAt(offset + i)) {
+      return true;
+    }
+
+    if (values_->containsNullAt(offset + i)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 std::optional<int32_t> MapVector::compare(

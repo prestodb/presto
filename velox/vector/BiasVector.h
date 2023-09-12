@@ -112,6 +112,10 @@ class BiasVector : public SimpleVector<T> {
 
   ~BiasVector() override {}
 
+  bool containsNullAt(vector_size_t idx) const override {
+    return BaseVector::isNullAt(idx);
+  }
+
   const T valueAtFast(vector_size_t idx) const;
 
   const T valueAt(vector_size_t idx) const override {

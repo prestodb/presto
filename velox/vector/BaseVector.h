@@ -157,6 +157,14 @@ class BaseVector {
     return rawNulls_ ? bits::isBitNull(rawNulls_, idx) : false;
   }
 
+  /// Returns true if value at specified index is null or contains null.
+  /// Primitive type values can be null, but cannot contain nulls. Arrays, maps
+  /// and structs can be null and can contains nulls. Non-null array may contain
+  /// one or more elements that are null or contain nulls themselves. Non-null
+  /// maps may contain one more entry with key or value that's null or contains
+  /// null. Non-null struct may contain a field that's null or contains null.
+  virtual bool containsNullAt(vector_size_t idx) const = 0;
+
   std::optional<vector_size_t> getNullCount() const {
     return nullCount_;
   }

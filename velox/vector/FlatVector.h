@@ -243,6 +243,10 @@ class FlatVector final : public SimpleVector<T> {
 
   VectorPtr slice(vector_size_t offset, vector_size_t length) const override;
 
+  bool containsNullAt(vector_size_t idx) const override {
+    return BaseVector::isNullAt(idx);
+  }
+
   std::optional<int32_t> compare(
       const BaseVector* other,
       vector_size_t index,
