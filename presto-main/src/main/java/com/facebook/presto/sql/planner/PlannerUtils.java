@@ -59,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -169,6 +170,21 @@ public class PlannerUtils
             assignments.put(variableReferenceExpression, variableReferenceExpression);
         }
         variableMap.forEach(assignments::put);
+
+        return new ProjectNode(
+                source.getSourceLocation(),
+                planNodeIdAllocator.getNextId(),
+                source,
+                assignments.build(),
+                LOCAL);
+    }
+
+    public static PlanNode restrictOutput(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> outputVariables)
+    {
+        Assignments.Builder assignments = Assignments.builder();
+        for (VariableReferenceExpression variableReferenceExpression : outputVariables) {
+            assignments.put(variableReferenceExpression, variableReferenceExpression);
+        }
 
         return new ProjectNode(
                 source.getSourceLocation(),
@@ -419,5 +435,10 @@ public class PlannerUtils
     public static RowExpression coalesce(List<RowExpression> expressions)
     {
         return new SpecialFormExpression(SpecialFormExpression.Form.COALESCE, expressions.get(0).getType(), expressions);
+    }
+
+    public static ImmutableList<VariableReferenceExpression> concatVariableLists(List<VariableReferenceExpression> leftCols, List<VariableReferenceExpression> rightCols)
+    {
+        return Stream.concat(leftCols.stream(), rightCols.stream()).collect(toImmutableList());
     }
 }

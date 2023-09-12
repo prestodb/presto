@@ -29,6 +29,7 @@ import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.EliminateJoinSkewByShardingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinNotNullInferenceStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
@@ -259,6 +260,7 @@ public final class SystemSessionProperties
     public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY = "randomize_outer_join_null_key";
     public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY = "randomize_outer_join_null_key_strategy";
     public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY_NULL_RATIO_THRESHOLD = "randomize_outer_join_null_key_null_ratio_threshold";
+    public static final String ELIMINATE_JOIN_SKEW_BY_SHARDING = "eliminate_join_skew_by_sharding";
     public static final String IN_PREDICATES_AS_INNER_JOINS_ENABLED = "in_predicates_as_inner_joins_enabled";
     public static final String PUSH_AGGREGATION_BELOW_JOIN_BYTE_REDUCTION_THRESHOLD = "push_aggregation_below_join_byte_reduction_threshold";
     public static final String KEY_BASED_SAMPLING_ENABLED = "key_based_sampling_enabled";
@@ -1546,6 +1548,18 @@ public final class SystemSessionProperties
                         "Enable randomizing null join key for outer join when ratio of null join keys exceed the threshold",
                         0.02,
                         false),
+                new PropertyMetadata<>(
+                        ELIMINATE_JOIN_SKEW_BY_SHARDING,
+                        format("When to apply sharding to join keys to eliminate join key skew",
+                                Stream.of(FeaturesConfig.EliminateJoinSkewByShardingStrategy.values())
+                                        .map(EliminateJoinSkewByShardingStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        EliminateJoinSkewByShardingStrategy.class,
+                        featuresConfig.getEliminateJoinSkewByShardingStrategy(),
+                        false,
+                        value -> EliminateJoinSkewByShardingStrategy.valueOf(((String) value).toUpperCase()),
+                        EliminateJoinSkewByShardingStrategy::name),
                 booleanProperty(
                         OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED,
                         "Enable rewriting IF(condition, AGG(x)) to AGG(x) with condition included in mask",
@@ -2715,6 +2729,11 @@ public final class SystemSessionProperties
     public static double getRandomizeOuterJoinNullKeyNullRatioThreshold(Session session)
     {
         return session.getSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY_NULL_RATIO_THRESHOLD, Double.class);
+    }
+
+    public static EliminateJoinSkewByShardingStrategy getEliminateJoinSkewByShardingStrategy(Session session)
+    {
+        return session.getSystemProperty(ELIMINATE_JOIN_SKEW_BY_SHARDING, EliminateJoinSkewByShardingStrategy.class);
     }
 
     public static boolean isOptimizeConditionalAggregationEnabled(Session session)

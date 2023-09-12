@@ -157,6 +157,7 @@ import com.facebook.presto.sql.planner.optimizations.RemoveRedundantDistinctAggr
 import com.facebook.presto.sql.planner.optimizations.ReplicateSemiJoinInDelete;
 import com.facebook.presto.sql.planner.optimizations.RewriteIfOverAggregation;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
+import com.facebook.presto.sql.planner.optimizations.ShardedJoin;
 import com.facebook.presto.sql.planner.optimizations.SimplifyPlanWithEmptyInput;
 import com.facebook.presto.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.TransformQuantifiedComparisonApplyToLateralJoin;
@@ -716,6 +717,17 @@ public class PlanOptimizers
                             // to avoid temporarily having an invalid plan
                             new DetermineSemiJoinDistributionType(costComparator, taskCountEstimator))));
             builder.add(new RandomizeNullKeyInOuterJoin(metadata.getFunctionAndTypeManager(), statsCalculator),
+                    new PruneUnreferencedOutputs(),
+                    new IterativeOptimizer(
+                            metadata,
+                            ruleStats,
+                            statsCalculator,
+                            estimatedExchangesCostCalculator,
+                            ImmutableSet.of(
+                                    new PruneRedundantProjectionAssignments(),
+                                    new InlineProjections(metadata.getFunctionAndTypeManager()),
+                                    new RemoveRedundantIdentityProjections())));
+            builder.add(new ShardedJoin(metadata, metadata.getFunctionAndTypeManager()),
                     new PruneUnreferencedOutputs(),
                     new IterativeOptimizer(
                             metadata,

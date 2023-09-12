@@ -254,6 +254,7 @@ public class FeaturesConfig
     private boolean nativeExecutionProcessReuseEnabled = true;
     private boolean randomizeOuterJoinNullKey;
     private RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy = RandomizeOuterJoinNullKeyStrategy.DISABLED;
+    private EliminateJoinSkewByShardingStrategy eliminateJoinSkewByShardingStrategy = EliminateJoinSkewByShardingStrategy.DISABLED;
     private boolean isOptimizeConditionalAggregationEnabled;
     private boolean isRemoveRedundantDistinctAggregationEnabled = true;
     private boolean inPredicatesAsInnerJoinsEnabled;
@@ -367,6 +368,13 @@ public class FeaturesConfig
         KEY_FROM_OUTER_JOIN, // Enabled only when join keys are from output of outer joins
         COST_BASED,
         ALWAYS
+    }
+
+    public enum EliminateJoinSkewByShardingStrategy
+    {
+        DISABLED,
+        ALWAYS,
+        COST_BASED
     }
 
     public enum PushDownFilterThroughCrossJoinStrategy
@@ -2489,6 +2497,19 @@ public class FeaturesConfig
     public FeaturesConfig setRandomizeOuterJoinNullKeyStrategy(RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy)
     {
         this.randomizeOuterJoinNullKeyStrategy = randomizeOuterJoinNullKeyStrategy;
+        return this;
+    }
+
+    public EliminateJoinSkewByShardingStrategy getEliminateJoinSkewByShardingStrategy()
+    {
+        return eliminateJoinSkewByShardingStrategy;
+    }
+
+    @Config("optimizer.eliminate-join-skew-by-sharding-strategy")
+    @ConfigDescription("When to apply sharding to join keys to eliminate skew")
+    public FeaturesConfig setEliminateJoinSkewByShardingStrategy(EliminateJoinSkewByShardingStrategy eliminateJoinSkewByShardingStrategy)
+    {
+        this.eliminateJoinSkewByShardingStrategy = eliminateJoinSkewByShardingStrategy;
         return this;
     }
 

@@ -62,6 +62,7 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NUL
 import static com.facebook.presto.sql.planner.PlannerUtils.addProjections;
 import static com.facebook.presto.sql.planner.PlannerUtils.clonePlanNode;
 import static com.facebook.presto.sql.planner.PlannerUtils.coalesce;
+import static com.facebook.presto.sql.planner.PlannerUtils.concatVariableLists;
 import static com.facebook.presto.sql.planner.PlannerUtils.equalityPredicate;
 import static com.facebook.presto.sql.planner.PlannerUtils.isScanFilterProject;
 import static com.facebook.presto.sql.relational.Expressions.constant;
@@ -213,7 +214,7 @@ public class PayloadJoinOptimizer
 
             List<VariableReferenceExpression> leftCols = newLeftNode.getOutputVariables();
             List<VariableReferenceExpression> rightCols = rightNode.getOutputVariables();
-            List<VariableReferenceExpression> allCols = Stream.concat(leftCols.stream(), rightCols.stream()).collect(toImmutableList());
+            List<VariableReferenceExpression> allCols = concatVariableLists(leftCols, rightCols);
 
             JoinNode newJoinNode = new JoinNode(
                     joinNode.getSourceLocation(),
@@ -409,7 +410,7 @@ public class PayloadJoinOptimizer
             }
 
             ProjectNode projectNode = new ProjectNode(planNodeIdAllocator.getNextId(), keysNode, assignments.build());
-            List<VariableReferenceExpression> resultOutputCols = Stream.concat(payloadPlanNode.getOutputVariables().stream(), projectNode.getOutputVariables().stream()).collect(toImmutableList());
+            List<VariableReferenceExpression> resultOutputCols = concatVariableLists(payloadPlanNode.getOutputVariables(), projectNode.getOutputVariables());
 
             List<RowExpression> joinCriteria = Stream.concat(nullComparisonBuilder.build().stream(), coalesceComparisonBuilder.build().stream()).collect(toImmutableList());
 
