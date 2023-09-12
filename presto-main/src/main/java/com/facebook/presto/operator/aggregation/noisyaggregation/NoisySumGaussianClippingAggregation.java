@@ -54,9 +54,9 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySumAggregationUtils.combineNoisySumStates;
-import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySumAggregationUtils.updateNoisySumState;
-import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySumAggregationUtils.writeNoisySumStateOutput;
+import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisyCountAndSumAggregationUtils.combineStates;
+import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisyCountAndSumAggregationUtils.updateState;
+import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisyCountAndSumAggregationUtils.writeNoisySumOutput;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -75,18 +75,18 @@ public class NoisySumGaussianClippingAggregation
 
     public static final NoisySumGaussianClippingAggregation NOISY_SUM_GAUSSIAN_CLIPPING_AGGREGATION = new NoisySumGaussianClippingAggregation();
     private static final String NAME = "noisy_sum_gaussian";
-    private static final MethodHandle SHORT_DECIMAL_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "inputShortDecimal", NoisySumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
-    private static final MethodHandle LONG_DECIMAL_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "inputLongDecimal", NoisySumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
-    private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "inputDouble", NoisySumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
-    private static final MethodHandle REAL_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "inputReal", NoisySumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
-    private static final MethodHandle BIGINT_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "inputBigInt", NoisySumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
-    private static final MethodHandle INTEGER_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "inputInteger", NoisySumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
-    private static final MethodHandle SMALLINT_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "inputSmallInt", NoisySumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
-    private static final MethodHandle TINYINT_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "inputTinyInt", NoisySumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
+    private static final MethodHandle SHORT_DECIMAL_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "inputShortDecimal", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
+    private static final MethodHandle LONG_DECIMAL_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "inputLongDecimal", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
+    private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "inputDouble", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
+    private static final MethodHandle REAL_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "inputReal", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
+    private static final MethodHandle BIGINT_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "inputBigInt", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
+    private static final MethodHandle INTEGER_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "inputInteger", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
+    private static final MethodHandle SMALLINT_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "inputSmallInt", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
+    private static final MethodHandle TINYINT_INPUT_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "inputTinyInt", NoisyCountAndSumState.class, Block.class, Block.class, Block.class, Block.class, int.class);
 
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "output", NoisySumState.class, BlockBuilder.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "output", NoisyCountAndSumState.class, BlockBuilder.class);
 
-    private static final MethodHandle COMBINE_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "combine", NoisySumState.class, NoisySumState.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(NoisySumGaussianClippingAggregation.class, "combine", NoisyCountAndSumState.class, NoisyCountAndSumState.class);
 
     public NoisySumGaussianClippingAggregation()
     {
@@ -118,8 +118,8 @@ public class NoisySumGaussianClippingAggregation
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(NoisySumGaussianClippingAggregation.class.getClassLoader());
 
-        AccumulatorStateSerializer<?> stateSerializer = new NoisySumStateSerializer();
-        AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(NoisySumState.class, classLoader);
+        AccumulatorStateSerializer<?> stateSerializer = new NoisyCountAndSumStateSerializer();
+        AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(NoisyCountAndSumState.class, classLoader);
         List<Type> inputTypes = ImmutableList.of(type, DOUBLE, DOUBLE, DOUBLE);
 
         MethodHandle inputFunction;
@@ -152,7 +152,7 @@ public class NoisySumGaussianClippingAggregation
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
                 ImmutableList.of(new AccumulatorStateDescriptor(
-                        NoisySumState.class,
+                        NoisyCountAndSumState.class,
                         stateSerializer,
                         stateFactory)),
                 DOUBLE);
@@ -182,7 +182,7 @@ public class NoisySumGaussianClippingAggregation
                 new ParameterMetadata(BLOCK_INDEX));
     }
 
-    public static void inputShortDecimal(NoisySumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
+    public static void inputShortDecimal(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
     {
         double value = unscaledDecimalToBigInteger(
                 unscaledDecimal(SHORT_DECIMAL_TYPE.getLong(valueBlock, position)))
@@ -190,7 +190,7 @@ public class NoisySumGaussianClippingAggregation
         input(state, value, noiseScaleBlock, lowerBlock, upperBlock, position);
     }
 
-    public static void inputLongDecimal(NoisySumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
+    public static void inputLongDecimal(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
     {
         double value = unscaledDecimalToBigInteger(
                 unscaledDecimal(LONG_DECIMAL_TYPE.getSlice(valueBlock, position)))
@@ -198,58 +198,58 @@ public class NoisySumGaussianClippingAggregation
         input(state, value, noiseScaleBlock, lowerBlock, upperBlock, position);
     }
 
-    public static void inputDouble(NoisySumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
+    public static void inputDouble(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
     {
         double value = DOUBLE.getDouble(valueBlock, position);
         input(state, value, noiseScaleBlock, lowerBlock, upperBlock, position);
     }
 
-    public static void inputReal(NoisySumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
+    public static void inputReal(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
     {
         double value = intBitsToFloat((int) REAL.getLong(valueBlock, position));
         input(state, value, noiseScaleBlock, lowerBlock, upperBlock, position);
     }
 
-    public static void inputBigInt(NoisySumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
+    public static void inputBigInt(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
     {
         double value = BIGINT.getLong(valueBlock, position);
         input(state, value, noiseScaleBlock, lowerBlock, upperBlock, position);
     }
 
-    public static void inputInteger(NoisySumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
+    public static void inputInteger(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
     {
         double value = INTEGER.getLong(valueBlock, position);
         input(state, value, noiseScaleBlock, lowerBlock, upperBlock, position);
     }
 
-    public static void inputSmallInt(NoisySumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
+    public static void inputSmallInt(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
     {
         double value = SMALLINT.getLong(valueBlock, position);
         input(state, value, noiseScaleBlock, lowerBlock, upperBlock, position);
     }
 
-    public static void inputTinyInt(NoisySumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
+    public static void inputTinyInt(NoisyCountAndSumState state, Block valueBlock, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
     {
         double value = TINYINT.getLong(valueBlock, position);
         input(state, value, noiseScaleBlock, lowerBlock, upperBlock, position);
     }
 
-    private static void input(NoisySumState state, double value, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
+    private static void input(NoisyCountAndSumState state, double value, Block noiseScaleBlock, Block lowerBlock, Block upperBlock, int position)
     {
         double noiseScale = DOUBLE.getDouble(noiseScaleBlock, position);
         double lower = DOUBLE.getDouble(lowerBlock, position);
         double upper = DOUBLE.getDouble(upperBlock, position);
 
-        updateNoisySumState(state, value, noiseScale, lower, upper, null);
+        updateState(state, value, noiseScale, lower, upper, null);
     }
 
-    public static void combine(NoisySumState state, NoisySumState otherState)
+    public static void combine(NoisyCountAndSumState state, NoisyCountAndSumState otherState)
     {
-        combineNoisySumStates(state, otherState);
+        combineStates(state, otherState);
     }
 
-    public static void output(NoisySumState state, BlockBuilder out)
+    public static void output(NoisyCountAndSumState state, BlockBuilder out)
     {
-        writeNoisySumStateOutput(state, out);
+        writeNoisySumOutput(state, out);
     }
 }
