@@ -344,6 +344,10 @@ import static com.facebook.presto.operator.aggregation.minmaxby.MaxByAggregation
 import static com.facebook.presto.operator.aggregation.minmaxby.MaxByNAggregationFunction.MAX_BY_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.minmaxby.MinByAggregationFunction.MIN_BY;
 import static com.facebook.presto.operator.aggregation.minmaxby.MinByNAggregationFunction.MIN_BY_N_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisyAverageGaussianAggregation.NOISY_AVERAGE_GAUSSIAN_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisyAverageGaussianClippingAggregation.NOISY_AVERAGE_GAUSSIAN_CLIPPING_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisyAverageGaussianClippingRandomSeedAggregation.NOISY_AVERAGE_GAUSSIAN_CLIPPING_RANDOM_SEED_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisyAverageGaussianRandomSeedAggregation.NOISY_AVERAGE_GAUSSIAN_RANDOM_SEED_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisyCountGaussianColumnAggregation.NOISY_COUNT_GAUSSIAN_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisyCountGaussianColumnRandomSeedAggregation.NOISY_COUNT_GAUSSIAN_RANDOM_SEED_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySumGaussianAggregation.NOISY_SUM_GAUSSIAN_AGGREGATION;
@@ -669,6 +673,10 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .function(NOISY_SUM_GAUSSIAN_RANDOM_SEED_AGGREGATION)
                 .function(NOISY_SUM_GAUSSIAN_CLIPPING_AGGREGATION)
                 .function(NOISY_SUM_GAUSSIAN_CLIPPING_RANDOM_SEED_AGGREGATION)
+                .function(NOISY_AVERAGE_GAUSSIAN_AGGREGATION)
+                .function(NOISY_AVERAGE_GAUSSIAN_CLIPPING_AGGREGATION)
+                .function(NOISY_AVERAGE_GAUSSIAN_CLIPPING_RANDOM_SEED_AGGREGATION)
+                .function(NOISY_AVERAGE_GAUSSIAN_RANDOM_SEED_AGGREGATION)
                 .function(REAL_AVERAGE_AGGREGATION)
                 .aggregates(IntervalDayToSecondAverageAggregation.class)
                 .aggregates(IntervalYearToMonthAverageAggregation.class)

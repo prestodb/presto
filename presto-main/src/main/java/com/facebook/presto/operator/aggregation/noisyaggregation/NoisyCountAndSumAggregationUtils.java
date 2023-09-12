@@ -22,13 +22,13 @@ import java.util.Random;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
-public class NoisySumAggregationUtils
+public class NoisyCountAndSumAggregationUtils
 {
-    private NoisySumAggregationUtils()
+    private NoisyCountAndSumAggregationUtils()
     {
     }
 
-    public static void updateNoisySumState(NoisySumState state, double value, double noiseScale, Double lower, Double upper, Long randomSeed)
+    public static void updateState(NoisyCountAndSumState state, double value, double noiseScale, Double lower, Double upper, Long randomSeed)
     {
         state.setNoiseScale(noiseScale);
         checkNoiseScale(state.getNoiseScale());
@@ -56,7 +56,7 @@ public class NoisySumAggregationUtils
         state.setSum(state.getSum() + clippedValue);
     }
 
-    public static void combineNoisySumStates(NoisySumState state, NoisySumState otherState)
+    public static void combineStates(NoisyCountAndSumState state, NoisyCountAndSumState otherState)
     {
         state.setNoiseScale(state.getNoiseScale() > 0 ? state.getNoiseScale() : otherState.getNoiseScale()); // noise scale should be > 0
         checkNoiseScale(state.getNoiseScale());
@@ -76,24 +76,43 @@ public class NoisySumAggregationUtils
         state.setSum(state.getSum() + otherState.getSum());
     }
 
-    public static void writeNoisySumStateOutput(NoisySumState state, BlockBuilder out)
+    public static void writeNoisySumOutput(NoisyCountAndSumState state, BlockBuilder out)
     {
         if (state.getCount() == 0) {
             out.appendNull();
             return;
         }
 
+        double noise = getNoise(state);
+        double trueSum = state.getSum();
+        double noisySum = trueSum + noise;
+
+        DOUBLE.writeDouble(out, noisySum);
+    }
+
+    public static void writeNoisyAvgOutput(NoisyCountAndSumState state, BlockBuilder out)
+    {
+        if (state.getCount() == 0) {
+            out.appendNull();
+            return;
+        }
+
+        double noise = getNoise(state);
+        double trueAvg = state.getSum() / state.getCount();
+        double noisyAvg = trueAvg + noise;
+
+        DOUBLE.writeDouble(out, noisyAvg);
+    }
+
+    private static double getNoise(NoisyCountAndSumState state)
+    {
         Random random = new SecureRandom();
         if (!state.isNullRandomSeed()) {
             random = new Random(state.getRandomSeed());
         }
         // add noise
         double noiseSdv = state.getNoiseScale();
-        double noise = random.nextGaussian() * noiseSdv;
-        double trueSum = state.getSum();
-        double noisySum = trueSum + noise;
-
-        DOUBLE.writeDouble(out, noisySum);
+        return random.nextGaussian() * noiseSdv;
     }
 
     /**
