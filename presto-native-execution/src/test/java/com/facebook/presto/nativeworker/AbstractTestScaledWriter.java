@@ -66,13 +66,13 @@ public abstract class AbstractTestScaledWriter
         Session session = buildSessionForTableWrite();
         String tmpTableName = generateRandomTableName();
         getQueryRunner().execute(session, String.format(
-                "CREATE TABLE %s AS SELECT * FROM tpchstandard.tiny.orders", tmpTableName));
+                "CREATE TABLE %s AS SELECT o_orderkey, o_custkey, o_orderstatus, o_totalprice, CAST(o_orderdate as VARCHAR) as o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment FROM tpchstandard.tiny.orders", tmpTableName));
         assertEquals(computeActual("SELECT count(DISTINCT \"$path\") FROM " + tmpTableName).getOnlyValue(), 1L);
         dropTableIfExists(tmpTableName);
 
         tmpTableName = generateRandomTableName();
         getQueryRunner().execute(session, String.format(
-                "CREATE TABLE %s AS SELECT * FROM tpchstandard.sf100.orders where o_orderdate > Date('1997-01-10')", tmpTableName));
+                "CREATE TABLE %s AS SELECT o_orderkey, o_custkey, o_orderstatus, o_totalprice, CAST(o_orderdate as VARCHAR) as o_orderdate, o_orderpriority, o_clerk, o_shippriority, o_comment FROM tpchstandard.sf100.orders where o_orderdate > Date('1997-01-10')", tmpTableName));
         long files = (long) computeActual("SELECT count(DISTINCT \"$path\") FROM " + tmpTableName).getOnlyValue();
         long workers = (long) computeScalar("SELECT count(*) FROM system.runtime.nodes");
         assertThat(files).isBetween(2L, workers);
