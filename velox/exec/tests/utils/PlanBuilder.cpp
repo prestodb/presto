@@ -24,6 +24,7 @@
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/WindowFunction.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
+#include "velox/expression/FunctionCallToSpecialForm.h"
 #include "velox/expression/SignatureBinder.h"
 #include "velox/parse/Expressions.h"
 #include "velox/parse/TypeResolver.h"
@@ -391,6 +392,11 @@ TypePtr resolveAggregateType(
   //
   // TODO Enhance the parser to allow for specifying separate resolver for
   // lambda expressions.
+  if (auto type =
+          exec::resolveTypeForSpecialForm(aggregateName, rawInputTypes)) {
+    return type;
+  }
+
   if (auto type = parse::resolveScalarFunctionType(
           aggregateName, rawInputTypes, true)) {
     return type;

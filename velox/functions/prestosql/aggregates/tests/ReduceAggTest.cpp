@@ -16,6 +16,7 @@
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/lib/aggregates/tests/AggregationTestBase.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using facebook::velox::exec::test::AssertQueryBuilder;
 using facebook::velox::exec::test::PlanBuilder;
@@ -29,6 +30,21 @@ class ReduceAggTest : public functions::aggregate::test::AggregationTestBase {
     AggregationTestBase::SetUp();
     allowInputShuffle();
     disableTestStreaming();
+  }
+
+  std::vector<RowVectorPtr> fuzzData() {
+    VectorFuzzer::Options opts;
+    opts.vectorSize = 1'000;
+    opts.nullRatio = 0.1;
+    VectorFuzzer fuzzer(opts, pool());
+
+    auto rowType = ROW({{"c0", SMALLINT()}});
+    std::vector<RowVectorPtr> data;
+    for (auto i = 0; i < 10; ++i) {
+      data.emplace_back(fuzzer.fuzzInputRow(rowType));
+    }
+
+    return data;
   }
 };
 
@@ -274,6 +290,89 @@ TEST_F(ReduceAggTest, differentInputAndCombine) {
        "(s, s2) -> array_sort(array_distinct(concat(s, s2)))) "
        "FILTER (WHERE m)"},
       {expected});
+}
+
+TEST_F(ReduceAggTest, fuzzGlobalSum) {
+  auto data = fuzzData();
+  auto plan =
+      PlanBuilder().values(data).singleAggregation({}, {"sum(c0)"}).planNode();
+
+  auto sumResults = AssertQueryBuilder(plan).copyResults(pool());
+
+  testAggregations(
+      data,
+      {},
+      {"reduce_agg(c0, 0, (x, y) -> (x + y), (x, y) -> (x + y))"},
+      {},
+      {sumResults});
+}
+
+TEST_F(ReduceAggTest, fuzzGroupBySum) {
+  auto data = fuzzData();
+  auto plan = PlanBuilder()
+                  .values(data)
+                  .project({"c0 % 1234 as key", "c0"})
+                  .singleAggregation({"key"}, {"sum(c0)"})
+                  .planNode();
+
+  auto sumResults = AssertQueryBuilder(plan).copyResults(pool());
+
+  testAggregations(
+      [&](PlanBuilder& builder) {
+        builder.values(data).project({"c0 % 1234 as key", "c0"});
+      },
+      {"key"},
+      {"reduce_agg(c0, 0, (x, y) -> (x + y), (x, y) -> (x + y))"},
+      {},
+      [&](auto& builder) { return builder.assertResults(sumResults); });
+}
+
+TEST_F(ReduceAggTest, fuzzGlobalAvg) {
+  auto data = fuzzData();
+  auto plan =
+      PlanBuilder().values(data).singleAggregation({}, {"avg(c0)"}).planNode();
+
+  auto avgResults = AssertQueryBuilder(plan).copyResults(pool());
+
+  testAggregations(
+      [&](PlanBuilder& builder) {
+        builder.values(data).project({
+            "c0",
+            "cast(row_constructor(0, 0) as row(sum double, count bigint)) as c1",
+        });
+      },
+      {},
+      {"reduce_agg(c0, c1, "
+       "(s, x) -> (row_constructor(s.sum + x, s.count + 1)), "
+       "(s, s2) -> (row_constructor(s.sum + s2.sum, s.count + s2.count)))"},
+      {"a0.sum / cast(a0.count as double)"},
+      [&](auto& builder) { return builder.assertResults(avgResults); });
+}
+
+TEST_F(ReduceAggTest, fuzzGroupByAvg) {
+  auto data = fuzzData();
+  auto plan = PlanBuilder()
+                  .values(data)
+                  .project({"c0 % 1234 as key", "c0"})
+                  .singleAggregation({"key"}, {"avg(c0)"})
+                  .planNode();
+
+  auto avgResults = AssertQueryBuilder(plan).copyResults(pool());
+
+  testAggregations(
+      [&](PlanBuilder& builder) {
+        builder.values(data).project({
+            "c0",
+            "cast(row_constructor(0, 0) as row(sum double, count bigint)) as c1",
+            "c0 % 1234 as key",
+        });
+      },
+      {"key"},
+      {"reduce_agg(c0, c1, "
+       "(s, x) -> (row_constructor(s.sum + x, s.count + 1)), "
+       "(s, s2) -> (row_constructor(s.sum + s2.sum, s.count + s2.count)))"},
+      {"key", "a0.sum / cast(a0.count as double)"},
+      [&](auto& builder) { return builder.assertResults(avgResults); });
 }
 
 } // namespace

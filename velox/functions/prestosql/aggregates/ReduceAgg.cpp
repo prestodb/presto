@@ -348,21 +348,26 @@ class ReduceAgg : public exec::Aggregate {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       VectorPtr& result) const override {
+    const auto& input = args[0];
+
+    bool allResultNull = false;
     if (!rows.hasSelections()) {
+      allResultNull = true;
+    } else if (input->isConstantEncoding() && input->isNullAt(0)) {
+      allResultNull = true;
+    }
+
+    if (allResultNull) {
       // Set all rows in 'result' to null.
       result->resize(rows.size());
       ::memset(
           result->mutableRawNulls(),
-          bits::nbytes(rows.size()),
-          bits::kNullByte);
+          bits::kNullByte,
+          bits::nbytes(rows.size()));
       return;
     }
 
-    const auto& lambda = initializeInputLambda();
-
-    const auto& input = args[0];
     const auto& initialValue = args[1];
-
     verifyInitialValueArg(initialValue, rows);
 
     // Do not evaluate on null input.
@@ -371,6 +376,7 @@ class ReduceAgg : public exec::Aggregate {
       remainingRows.deselectNulls(input->rawNulls(), 0, rows.size());
     }
 
+    const auto& lambda = initializeInputLambda();
     auto lambdaInput = std::make_shared<RowVector>(
         allocator_->pool(),
         lambda->signature(),
