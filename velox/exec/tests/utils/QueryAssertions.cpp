@@ -720,6 +720,20 @@ bool MaterializedRowEpsilonComparator::sortByUniqueKey(
   return hasUniqueKeys(expectedSorted_) && hasUniqueKeys(actualSorted_);
 }
 
+std::string toTypeString(const MaterializedRow& row) {
+  std::ostringstream out;
+  out << "ROW(";
+  const auto numColumns = row.size();
+  for (auto i = 0; i < numColumns; ++i) {
+    if (i > 0) {
+      out << ", ";
+    }
+    out << mapTypeKindToName(row[i].kind());
+  }
+  out << ")";
+  return out.str();
+}
+
 bool equalTypeKinds(const MaterializedRow& left, const MaterializedRow& right) {
   if (left.size() != right.size()) {
     return false;
@@ -1005,7 +1019,9 @@ bool assertEqualResults(
   }
 
   if (!equalTypeKinds(*expectedRows.begin(), *actualRows.begin())) {
-    ADD_FAILURE() << "Types of expected and actual results do not match";
+    ADD_FAILURE() << "Types of expected and actual results do not match: "
+                  << toTypeString(*expectedRows.begin()) << " vs. "
+                  << toTypeString(*actualRows.begin());
     return false;
   }
 
