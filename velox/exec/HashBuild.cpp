@@ -226,6 +226,7 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
       std::vector<CompareFlags>(),
       spillConfig.filePath,
       spillConfig.maxFileSize,
+      spillConfig.writeBufferSize,
       spillConfig.minSpillRunSize,
       spillConfig.compressionKind,
       Spiller::pool(),

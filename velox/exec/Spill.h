@@ -188,6 +188,8 @@ struct SpillStats {
 
   SpillStats() = default;
 
+  bool empty() const;
+
   SpillStats& operator+=(const SpillStats& other);
   SpillStats operator-(const SpillStats& other) const;
   bool operator==(const SpillStats& other) const;
@@ -231,6 +233,7 @@ class SpillFileList {
       const std::vector<CompareFlags>& sortCompareFlags,
       const std::string& path,
       uint64_t targetFileSize,
+      uint64_t writeBufferSize,
       common::CompressionKind compressionKind,
       memory::MemoryPool* pool,
       folly::Synchronized<SpillStats>* stats);
@@ -249,7 +252,7 @@ class SpillFileList {
   void finishFile();
 
   SpillFiles files() {
-    VELOX_CHECK(!files_.empty());
+    VELOX_CHECK(!files_.empty() || (batch_ != nullptr));
     finishFile();
     return std::move(files_);
   }
@@ -280,6 +283,7 @@ class SpillFileList {
   const std::vector<CompareFlags> sortCompareFlags_;
   const std::string path_;
   const uint64_t targetFileSize_;
+  const uint64_t writeBufferSize_;
   const common::CompressionKind compressionKind_;
   memory::MemoryPool* const pool_;
   folly::Synchronized<SpillStats>* const stats_;
@@ -576,6 +580,7 @@ class SpillState {
       int32_t numSortingKeys,
       const std::vector<CompareFlags>& sortCompareFlags,
       uint64_t targetFileSize,
+      uint64_t writeBufferSize,
       common::CompressionKind compressionKind,
       memory::MemoryPool* pool,
       folly::Synchronized<SpillStats>* stats);
@@ -651,6 +656,9 @@ class SpillState {
 
   std::vector<std::string> testingSpilledFilePaths() const;
 
+  /// Returns the set of partitions that have spilled data.
+  SpillPartitionNumSet testingNonEmptySpilledPartitionSet() const;
+
  private:
   void updateSpilledInputBytes(uint64_t bytes);
 
@@ -660,6 +668,7 @@ class SpillState {
   const int32_t numSortingKeys_;
   const std::vector<CompareFlags> sortCompareFlags_;
   const uint64_t targetFileSize_;
+  const uint64_t writeBufferSize_;
   const common::CompressionKind compressionKind_;
   memory::MemoryPool* const pool_;
   folly::Synchronized<SpillStats>* const stats_;

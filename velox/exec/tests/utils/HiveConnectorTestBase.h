@@ -35,6 +35,7 @@ using ColumnHandleMap =
 class HiveConnectorTestBase : public OperatorTestBase {
  public:
   HiveConnectorTestBase();
+
   void SetUp() override;
   void TearDown() override;
 

@@ -33,6 +33,7 @@
 #include "velox/vector/tests/utils/VectorMaker.h"
 #endif
 
+using facebook::velox::exec::Spiller;
 using facebook::velox::exec::test::AssertQueryBuilder;
 using facebook::velox::exec::test::CursorParameters;
 using facebook::velox::exec::test::PlanBuilder;
@@ -698,6 +699,8 @@ void AggregationTestBase::testAggregations(
 
     auto spillDirectory = exec::test::TempDirectoryPath::create();
 
+    ASSERT_EQ(Spiller::pool()->stats().currentBytes, 0);
+    const auto peakSpillMemoryUsage = Spiller::pool()->stats().peakBytes;
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
     queryBuilder.configs(config)
         .config(core::QueryConfig::kTestingSpillPct, "100")
@@ -712,6 +715,9 @@ void AggregationTestBase::testAggregations(
     auto inputRows = toPlanStats(task->taskStats()).at(partialNodeId).inputRows;
     if (inputRows > 1) {
       EXPECT_LT(0, spilledBytes(*task));
+      ASSERT_EQ(Spiller::pool()->stats().currentBytes, 0);
+      ASSERT_GT(Spiller::pool()->stats().peakBytes, 0);
+      ASSERT_GE(Spiller::pool()->stats().peakBytes, peakSpillMemoryUsage);
     } else {
       EXPECT_EQ(0, spilledBytes(*task));
     }

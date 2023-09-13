@@ -32,6 +32,8 @@
 
 using namespace facebook::velox::common::testutil;
 
+DECLARE_bool(velox_enable_memory_usage_track_in_default_memory_pool);
+
 namespace facebook::velox::exec::test {
 
 OperatorTestBase::OperatorTestBase() {
@@ -50,6 +52,7 @@ OperatorTestBase::~OperatorTestBase() {
 }
 
 void OperatorTestBase::SetUpTestCase() {
+  FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
   memory::MemoryArbitrator::registerAllFactories();
   functions::prestosql::registerAllScalarFunctions();
   aggregate::prestosql::registerAllAggregateFunctions();

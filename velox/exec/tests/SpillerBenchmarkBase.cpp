@@ -25,6 +25,10 @@ DEFINE_uint64(
     1 << 30,
     "The max spill file size");
 DEFINE_uint64(
+    spiller_benchmark_write_buffer_size,
+    1 << 20,
+    "The spill write buffer size");
+DEFINE_uint64(
     spiller_benchmark_min_spill_run_size,
     1 << 30,
     "The file directory path for spiller benchmark");
@@ -95,6 +99,7 @@ void JoinSpillInputTest::setUp() {
       HashBitRange{29, 29},
       fmt::format("{}/{}", spillDir_, "JoinSpillInputTest"),
       FLAGS_spiller_benchmark_max_spill_file_size,
+      FLAGS_spiller_benchmark_write_buffer_size,
       FLAGS_spiller_benchmark_min_spill_run_size,
       stringToCompressionKind(FLAGS_spiller_benchmark_compression_kind),
       Spiller::pool(),

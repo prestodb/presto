@@ -36,6 +36,7 @@ Spiller::Spiller(
     const std::vector<CompareFlags>& sortCompareFlags,
     const std::string& path,
     uint64_t targetFileSize,
+    uint64_t writeBufferSize,
     uint64_t minSpillRunSize,
     common::CompressionKind compressionKind,
     memory::MemoryPool* pool,
@@ -50,6 +51,7 @@ Spiller::Spiller(
           sortCompareFlags,
           path,
           targetFileSize,
+          writeBufferSize,
           minSpillRunSize,
           compressionKind,
           pool,
@@ -63,6 +65,7 @@ Spiller::Spiller(
     HashBitRange bits,
     const std::string& path,
     uint64_t targetFileSize,
+    uint64_t writeBufferSize,
     uint64_t minSpillRunSize,
     common::CompressionKind compressionKind,
     memory::MemoryPool* pool,
@@ -77,6 +80,7 @@ Spiller::Spiller(
           {},
           path,
           targetFileSize,
+          writeBufferSize,
           minSpillRunSize,
           compressionKind,
           pool,
@@ -94,6 +98,7 @@ Spiller::Spiller(
     const std::vector<CompareFlags>& sortCompareFlags,
     const std::string& path,
     uint64_t targetFileSize,
+    uint64_t writeBufferSize,
     uint64_t minSpillRunSize,
     common::CompressionKind compressionKind,
     memory::MemoryPool* pool,
@@ -112,6 +117,7 @@ Spiller::Spiller(
           numSortingKeys,
           sortCompareFlags,
           targetFileSize,
+          writeBufferSize,
           compressionKind,
           pool_,
           &stats_) {
@@ -664,7 +670,7 @@ SpillStats Spiller::stats() const {
 
 // static
 memory::MemoryPool* Spiller::pool() {
-  static auto pool = memory::addDefaultLeafMemoryPool("spilling");
+  static auto pool = memory::addDefaultLeafMemoryPool("_sys.spilling");
   return pool.get();
 }
 } // namespace facebook::velox::exec

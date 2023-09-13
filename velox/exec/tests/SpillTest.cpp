@@ -87,6 +87,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
 
   void setupSpillState(
       int64_t targetFileSize,
+      uint64_t writeBufferSize,
       int numPartitions,
       int numBatches,
       int numRowsPerBatch = 1000,
@@ -153,6 +154,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
         1,
         compareFlags,
         targetFileSize,
+        writeBufferSize,
         compressionKind_,
         pool(),
         &stats_);
@@ -256,6 +258,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
     const auto prevGStats = globalSpillStats();
     setupSpillState(
         targetFileSize,
+        0,
         numPartitions,
         numBatches,
         numRowsPerBatch,
@@ -429,6 +432,7 @@ TEST_P(SpillTest, spillTimestamp) {
       1,
       emptyCompareFlags,
       1024,
+      0,
       compressionKind_,
       pool(),
       &stats_);
@@ -685,6 +689,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST(SpillTest, spillStats) {
   SpillStats stats1;
+  ASSERT_TRUE(stats1.empty());
   stats1.spillRuns = 100;
   stats1.spilledInputBytes = 2048;
   stats1.spilledBytes = 1024;
@@ -697,6 +702,7 @@ TEST(SpillTest, spillStats) {
   stats1.spillFillTimeUs = 1023;
   stats1.spilledRows = 1023;
   stats1.spillSerializationTimeUs = 1023;
+  ASSERT_FALSE(stats1.empty());
   SpillStats stats2;
   stats2.spillRuns = 100;
   stats2.spilledInputBytes = 2048;

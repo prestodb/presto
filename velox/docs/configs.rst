@@ -198,6 +198,11 @@ Spilling
      - integer
      - 0
      - The maximum allowed spill file size. Zero means unlimited.
+   * - spill_write_buffer_size
+     - integer
+     - 4MB
+     - The maximum size in bytes to buffer the serialized spill data before write to disk for IO efficiency.
+       If set to zero, buffering is disabled.
    * - min_spill_run_size
      - integer
      - 256MB
@@ -206,6 +211,12 @@ Spilling
        If the limit is zero, then the spiller always spills a previously spilled partition if it has any data. This is
        to avoid spill from a partition with a small amount of data which might result in generating too many small
        spilled files.
+   * - spill_compression_codec
+     - string
+     - none
+     - Specifies the compression algorithm type to compress the spilled data before write to disk to trade CPU for IO
+       efficiency. The supported compression codecs are: ZLIB, SNAPPY, LZO, ZSTD, LZ4 and GZIP.
+       NONE means no compression.
    * - spiller_start_partition_bit
      - integer
      - 29

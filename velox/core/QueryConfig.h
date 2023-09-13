@@ -69,15 +69,15 @@ class QueryConfig {
   static constexpr const char* kOperatorTrackCpuUsage =
       "track_operator_cpu_usage";
 
-  // Flags used to configure the CAST operator:
+  /// Flags used to configure the CAST operator:
 
-  // This flag makes the Row conversion to by applied in a way that the casting
-  // row field are matched by name instead of position.
+  /// This flag makes the Row conversion to by applied in a way that the casting
+  /// row field are matched by name instead of position.
   static constexpr const char* kCastMatchStructByName =
       "cast_match_struct_by_name";
 
-  // If set, cast from float/double/decimal/string to integer truncates the
-  // decimal part, otherwise rounds.
+  /// If set, cast from float/double/decimal/string to integer truncates the
+  /// decimal part, otherwise rounds.
   static constexpr const char* kCastToIntByTruncate = "cast_to_int_by_truncate";
 
   /// Used for backpressure to block local exchange producers when the local
@@ -187,6 +187,13 @@ class QueryConfig {
 
   static constexpr const char* kSpillCompressionKind =
       "spill_compression_codec";
+
+  /// Specifies spill write buffer size in bytes. The spiller tries to buffer
+  /// serialized spill data up to the specified size before write to storage
+  /// underneath for io efficiency. If it is set to zero, then spill write
+  /// buffering is disabled.
+  static constexpr const char* kSpillWriteBufferSize =
+      "spill_write_buffer_size";
 
   static constexpr const char* kSpillStartPartitionBit =
       "spiller_start_partition_bit";
@@ -431,6 +438,11 @@ class QueryConfig {
 
   std::string spillCompressionKind() const {
     return get<std::string>(kSpillCompressionKind, "none");
+  }
+
+  uint64_t spillWriteBufferSize() const {
+    // The default write buffer size set to 1MB.
+    return get<uint64_t>(kSpillWriteBufferSize, 1L << 20);
   }
 
   /// Returns the spillable memory reservation growth percentage of the previous

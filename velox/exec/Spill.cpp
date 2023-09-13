@@ -148,6 +148,7 @@ SpillFileList::SpillFileList(
     const std::vector<CompareFlags>& sortCompareFlags,
     const std::string& path,
     uint64_t targetFileSize,
+    uint64_t writeBufferSize,
     common::CompressionKind compressionKind,
     memory::MemoryPool* pool,
     folly::Synchronized<SpillStats>* stats)
@@ -156,6 +157,7 @@ SpillFileList::SpillFileList(
       sortCompareFlags_(sortCompareFlags),
       path_(path),
       targetFileSize_(targetFileSize),
+      writeBufferSize_(writeBufferSize),
       compressionKind_(compressionKind),
       pool_(pool),
       stats_(stats) {
@@ -231,6 +233,9 @@ uint64_t SpillFileList::write(
     batch_->append(rows, indices);
   }
   updateAppendStats(rows->size(), timeUs);
+  if (batch_->size() < writeBufferSize_) {
+    return 0;
+  }
   return flush();
 }
 
@@ -289,6 +294,7 @@ SpillState::SpillState(
     int32_t numSortingKeys,
     const std::vector<CompareFlags>& sortCompareFlags,
     uint64_t targetFileSize,
+    uint64_t writeBufferSize,
     common::CompressionKind compressionKind,
     memory::MemoryPool* pool,
     folly::Synchronized<SpillStats>* stats)
@@ -297,6 +303,7 @@ SpillState::SpillState(
       numSortingKeys_(numSortingKeys),
       sortCompareFlags_(sortCompareFlags),
       targetFileSize_(targetFileSize),
+      writeBufferSize_(writeBufferSize),
       compressionKind_(compressionKind),
       pool_(pool),
       stats_(stats),
@@ -330,6 +337,7 @@ uint64_t SpillState::appendToPartition(
         sortCompareFlags_,
         fmt::format("{}-spill-{}", path_, partition),
         targetFileSize_,
+        writeBufferSize_,
         compressionKind_,
         pool_,
         stats_);
@@ -390,6 +398,16 @@ std::vector<std::string> SpillState::testingSpilledFilePaths() const {
   return spilledFiles;
 }
 
+SpillPartitionNumSet SpillState::testingNonEmptySpilledPartitionSet() const {
+  SpillPartitionNumSet partitionSet;
+  for (uint32_t partition = 0; partition < maxPartitions_; ++partition) {
+    if (files_[partition] != nullptr) {
+      partitionSet.insert(partition);
+    }
+  }
+  return partitionSet;
+}
+
 std::vector<std::unique_ptr<SpillPartition>> SpillPartition::split(
     int numShards) {
   const int32_t numFilesPerShard = bits::roundUp(files_.size(), numShards);
@@ -445,6 +463,10 @@ SpillStats::SpillStats(
       spillDiskWrites(_spillDiskWrites),
       spillFlushTimeUs(_spillFlushTimeUs),
       spillWriteTimeUs(_spillWriteTimeUs) {}
+
+bool SpillStats::empty() const {
+  return spilledBytes == 0;
+}
 
 SpillStats& SpillStats::operator+=(const SpillStats& other) {
   spillRuns += other.spillRuns;

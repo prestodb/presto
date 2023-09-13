@@ -586,6 +586,9 @@ class HashJoinBuilder {
       config(core::QueryConfig::kSpillEnabled, "true");
       config(core::QueryConfig::kMaxSpillLevel, std::to_string(maxSpillLevel));
       config(core::QueryConfig::kJoinSpillEnabled, "true");
+      // Disable write buffering to ease test verification. For example, we want
+      // many spilled vectors in a spilled file to trigger recursive spilling.
+      config(core::QueryConfig::kSpillWriteBufferSize, std::to_string(0));
       config(core::QueryConfig::kTestingSpillPct, "100");
     } else if (spillMemoryThreshold_ != 0) {
       spillDirectory = exec::test::TempDirectoryPath::create();
@@ -619,6 +622,8 @@ class HashJoinBuilder {
     SCOPED_TRACE(
         injectSpill ? fmt::format("With Max Spill Level: {}", maxSpillLevel)
                     : "Without Spill");
+    ASSERT_EQ(Spiller::pool()->stats().currentBytes, 0);
+    const uint64_t peakSpillMemoryUsage = Spiller::pool()->stats().peakBytes;
     auto task = builder.assertResults(referenceQuery_);
     const auto statsPair = taskSpilledStats(*task);
     if (injectSpill) {
@@ -638,6 +643,11 @@ class HashJoinBuilder {
         }
         verifyTaskSpilledRuntimeStats(*task, true);
       }
+      ASSERT_EQ(Spiller::pool()->stats().currentBytes, 0);
+      if (statsPair.first.spilledBytes > 0 && Spiller::pool()->trackUsage()) {
+        ASSERT_GT(Spiller::pool()->stats().peakBytes, 0);
+        ASSERT_GE(Spiller::pool()->stats().peakBytes, peakSpillMemoryUsage);
+      }
       // NOTE: if 'spillDirectory_' is not empty and spill threshold is not
       // set, the test might trigger spilling by its own.
     } else if (spillDirectory_.empty() && spillMemoryThreshold_ == 0) {
@@ -653,6 +663,7 @@ class HashJoinBuilder {
       ASSERT_EQ(statsPair.second.spilledFiles, 0);
       verifyTaskSpilledRuntimeStats(*task, false);
     }
+    ASSERT_EQ(Spiller::pool()->stats().currentBytes, 0);
     // Customized test verification.
     if (testVerifier_ != nullptr) {
       testVerifier_(task, injectSpill);

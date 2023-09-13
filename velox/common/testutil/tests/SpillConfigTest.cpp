@@ -29,6 +29,7 @@ TEST(SpillConfig, spillLevel) {
       "fakeSpillPath",
       0,
       0,
+      0,
       nullptr,
       0,
       kInitialBitOffset,
@@ -109,6 +110,7 @@ TEST(SpillConfig, spillLevelLimit) {
         testData.startBitOffset, testData.startBitOffset + testData.numBits);
     const SpillConfig config(
         "fakeSpillPath",
+        0,
         0,
         0,
         nullptr,

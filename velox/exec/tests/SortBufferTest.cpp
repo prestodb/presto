@@ -276,6 +276,7 @@ TEST_F(SortBufferTest, batchOutput) {
     auto spillConfig = common::SpillConfig(
         filePath,
         1000,
+        0,
         1000,
         executor_.get(),
         100,
@@ -368,6 +369,7 @@ TEST_F(SortBufferTest, spill) {
     auto spillConfig = common::SpillConfig(
         filePath,
         1000,
+        0,
         1000,
         executor_.get(),
         spillableReservationGrowthPct,
@@ -393,6 +395,9 @@ TEST_F(SortBufferTest, spill) {
     VectorFuzzer fuzzer({.vectorSize = 1024}, fuzzerPool.get());
     uint64_t totalNumInput = 0;
 
+    ASSERT_EQ(Spiller::pool()->stats().currentBytes, 0);
+    const auto peakSpillMemoryUsage = Spiller::pool()->stats().peakBytes;
+
     for (int i = 0; i < 3; ++i) {
       sortBuffer->addInput(fuzzer.fuzzRow(inputType_));
       totalNumInput += 1024;
@@ -402,6 +407,9 @@ TEST_F(SortBufferTest, spill) {
 
     if (!testData.spillTriggered) {
       ASSERT_FALSE(spillStats.has_value());
+      if (!testData.spillEnabled) {
+        VELOX_ASSERT_THROW(sortBuffer->spill(0, 0), "spill config is null");
+      }
     } else {
       ASSERT_TRUE(spillStats.has_value());
       ASSERT_GT(spillStats->spilledRows, 0);
@@ -409,12 +417,13 @@ TEST_F(SortBufferTest, spill) {
       ASSERT_GT(spillStats->spilledBytes, 0);
       ASSERT_EQ(spillStats->spilledPartitions, 1);
       ASSERT_GT(spillStats->spilledFiles, 0);
-    }
-
-    if (!testData.spillEnabled) {
-      VELOX_ASSERT_THROW(sortBuffer->spill(0, 0), "spill config is null");
+      sortBuffer.reset();
+      ASSERT_EQ(Spiller::pool()->stats().currentBytes, 0);
+      if (Spiller::pool()->trackUsage()) {
+        ASSERT_GT(Spiller::pool()->stats().peakBytes, 0);
+        ASSERT_GE(Spiller::pool()->stats().peakBytes, peakSpillMemoryUsage);
+      }
     }
   }
 }
-
 } // namespace facebook::velox::functions::test
