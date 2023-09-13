@@ -19,6 +19,7 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.StateMachine;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.PartitionedOutputBuffer;
@@ -196,6 +197,7 @@ public class TestPartitionedOutputOperator
             buffers = buffers.withBuffer(new OutputBuffers.OutputBufferId(partition), partition);
         }
         PartitionedOutputBuffer buffer = new PartitionedOutputBuffer(
+                new TaskId("queryId", 1, 1, 1, 1),
                 "task-instance-id",
                 new StateMachine<>("bufferState", SCHEDULER, OPEN, TERMINAL_BUFFER_STATES),
                 buffers.withNoMoreBufferIds(),

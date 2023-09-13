@@ -24,7 +24,6 @@ import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
-import com.facebook.presto.execution.executor.TaskShutdownStats;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.MetadataUpdates;
@@ -287,7 +286,7 @@ public class SqlTask
         long fullGcCount = 0;
         long fullGcTimeInMillis = 0L;
         long totalCpuTimeInNanos = 0L;
-        Optional<TaskShutdownStats> hostShutdownStats = Optional.empty();
+        long retryableSplitCount = 0L;
         LongSet completedSplits = LongArraySet.of();
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskStats taskStats = taskHolder.getFinalTaskInfo().getStats();
@@ -301,6 +300,7 @@ public class SqlTask
             fullGcCount = taskStats.getFullGcCount();
             fullGcTimeInMillis = taskStats.getFullGcTimeInMillis();
             totalCpuTimeInNanos = taskStats.getTotalCpuTimeInNanos();
+            retryableSplitCount = taskStats.getRetryableSplitCount();
         }
         else if (taskHolder.getTaskExecution() != null) {
             long physicalWrittenBytes = 0;
@@ -321,7 +321,7 @@ public class SqlTask
             fullGcCount = taskContext.getFullGcCount();
             fullGcTimeInMillis = taskContext.getFullGcTime().toMillis();
             completedSplits = taskContext.getCompletedSplitSequenceIds();
-            hostShutdownStats = taskContext.getHostShutdownStats();
+            retryableSplitCount = taskContext.getRetryableSplitCount();
         }
         return new TaskStatus(
                 taskInstanceId.getUuidLeastSignificantBits(),
@@ -345,7 +345,8 @@ public class SqlTask
                 totalCpuTimeInNanos,
                 taskStatusAgeInMillis,
                 queuedPartitionedSplitsWeight,
-                runningPartitionedSplitsWeight);
+                runningPartitionedSplitsWeight,
+                retryableSplitCount);
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)

@@ -101,21 +101,25 @@ public class TaskStateMachine
 
     public void finished()
     {
+        log.info("Task %s is transitioning into finish state", taskId);
         transitionToDoneState(TaskState.FINISHED);
     }
 
     public void cancel()
     {
+        log.info("Task %s is transitioning into cancel state", taskId);
         transitionToDoneState(TaskState.CANCELED);
     }
 
     public void abort()
     {
+        log.info("Task %s is transitioning into abort state", taskId);
         transitionToDoneState(TaskState.ABORTED);
     }
 
     public void failed(Throwable cause)
     {
+        log.info("Task %s is transitioning into failed state with cause =%s", taskId, cause);
         failureCauses.add(cause);
         transitionToDoneState(TaskState.FAILED);
     }
@@ -124,7 +128,7 @@ public class TaskStateMachine
     {
         requireNonNull(doneState, "doneState is null");
         checkArgument(doneState.isDone(), "doneState %s is not a done state", doneState);
-
+        log.info("Task %s is transitioning into done state, current state = %s", taskId, taskState.get());
         taskState.setIf(doneState, currentState -> !currentState.isDone());
     }
 

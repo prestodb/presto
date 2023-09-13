@@ -110,7 +110,8 @@ public class TaskResourceUtils
                 taskStats.getFullGcCount(),
                 taskStats.getFullGcTimeInMillis(),
                 convertToThriftPipeLineStatsList(taskStats.getPipelines()),
-                taskStats.getRuntimeStats());
+                taskStats.getRuntimeStats(),
+                taskStats.getRetryableSplitCount());
     }
 
     private static List<PipelineStats> convertToThriftPipeLineStatsList(List<PipelineStats> pipelines)
@@ -343,7 +344,8 @@ public class TaskResourceUtils
                 thriftTaskStats.getFullGcCount(),
                 thriftTaskStats.getFullGcTimeInMillis(),
                 convertFromThriftPipeLineStatsList(thriftTaskStats.getPipelines()),
-                thriftTaskStats.getRuntimeStats());
+                thriftTaskStats.getRuntimeStats(),
+                thriftTaskStats.getRetryableSplitCount());
     }
 
     private static List<PipelineStats> convertFromThriftPipeLineStatsList(List<PipelineStats> pipelines)

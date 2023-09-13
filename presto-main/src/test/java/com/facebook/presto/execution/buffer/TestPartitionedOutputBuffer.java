@@ -16,6 +16,7 @@ package com.facebook.presto.execution.buffer;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.execution.StateMachine;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.google.common.collect.ImmutableList;
@@ -840,6 +841,7 @@ public class TestPartitionedOutputBuffer
     private PartitionedOutputBuffer createPartitionedBuffer(OutputBuffers buffers, DataSize dataSize)
     {
         PartitionedOutputBuffer buffer = new PartitionedOutputBuffer(
+                new TaskId("20230918_221616_10757_7ki5g", 1, 1, 1, 1),
                 TASK_INSTANCE_ID,
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 buffers,

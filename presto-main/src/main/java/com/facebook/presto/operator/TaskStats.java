@@ -89,6 +89,7 @@ public class TaskStats
 
     // RuntimeStats aggregated at the task level including the metrics exposed in this task and each operator of this task.
     private final RuntimeStats runtimeStats;
+    private final long retryableSplitCount;
 
     public TaskStats(DateTime createTime, DateTime endTime)
     {
@@ -133,7 +134,8 @@ public class TaskStats
                 0,
                 0L,
                 ImmutableList.of(),
-                new RuntimeStats());
+                new RuntimeStats(),
+                0L);
     }
 
     @JsonCreator
@@ -190,7 +192,8 @@ public class TaskStats
             @JsonProperty("fullGcTimeInMillis") long fullGcTimeInMillis,
 
             @JsonProperty("pipelines") List<PipelineStats> pipelines,
-            @JsonProperty("runtimeStats") RuntimeStats runtimeStats)
+            @JsonProperty("runtimeStats") RuntimeStats runtimeStats,
+            @JsonProperty("retryableSplitCount") long retryableSplitCount)
     {
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.firstStartTime = firstStartTime;
@@ -260,6 +263,7 @@ public class TaskStats
 
         this.pipelines = ImmutableList.copyOf(requireNonNull(pipelines, "pipelines is null"));
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
+        this.retryableSplitCount = retryableSplitCount;
     }
 
     @JsonProperty
@@ -553,6 +557,13 @@ public class TaskStats
         return runtimeStats;
     }
 
+    @JsonProperty
+    @ThriftField(42)
+    public long getRetryableSplitCount()
+    {
+        return retryableSplitCount;
+    }
+
     public TaskStats summarize()
     {
         return new TaskStats(
@@ -596,7 +607,8 @@ public class TaskStats
                 fullGcCount,
                 fullGcTimeInMillis,
                 ImmutableList.of(),
-                runtimeStats);
+                runtimeStats,
+                retryableSplitCount);
     }
 
     public TaskStats summarizeFinal()
@@ -642,7 +654,8 @@ public class TaskStats
                 fullGcCount,
                 fullGcTimeInMillis,
                 summarizePipelineStats(pipelines),
-                runtimeStats);
+                runtimeStats,
+                retryableSplitCount);
     }
 
     private static List<PipelineStats> summarizePipelineStats(List<PipelineStats> pipelines)

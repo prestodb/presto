@@ -18,6 +18,7 @@ import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.server.testing.TestingPrestoServer.TestShutdownAction;
+import com.facebook.presto.spi.NodePoolType;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
@@ -32,6 +33,7 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -44,6 +46,8 @@ import static org.testng.Assert.assertTrue;
 public class TestGracefulShutdown
 {
     private static final long SHUTDOWN_TIMEOUT_MILLIS = 240_000;
+    private static final long SHUTDOWN_LEAF_TIMEOUT_MILLIS = 600_000;
+
     private static final Session TINY_SESSION = testSessionBuilder()
             .setCatalog("tpch")
             .setSchema("tiny")
@@ -84,7 +88,18 @@ public class TestGracefulShutdown
         };
     }
 
-    @Test(timeOut = SHUTDOWN_TIMEOUT_MILLIS, dataProvider = "testServerInfo")
+    @DataProvider(name = "testHybridServerInfo")
+    public static Object[][] testHybridServerInfo()
+    {
+        return new Object[][] {
+                {ImmutableMap.<String, String>builder()
+                        .put("node-scheduler.include-coordinator", "false")
+                        .put("shutdown.grace-period", "10s")
+                        .build()}
+        };
+    }
+
+    @Test(timeOut = SHUTDOWN_LEAF_TIMEOUT_MILLIS, dataProvider = "testServerInfo")
     public void testShutdown(String serverInstanceType, Map<String, String> properties)
             throws Exception
     {
@@ -120,6 +135,70 @@ public class TestGracefulShutdown
         }
     }
 
+    @Test(timeOut = SHUTDOWN_LEAF_TIMEOUT_MILLIS, dataProvider = "testHybridServerInfo", invocationCount = 10)
+    public void testShutdownLeaf(Map<String, String> properties)
+            throws Exception
+    {
+        try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
+            List<ListenableFuture<?>> queryFutures = new ArrayList<>();
+            for (int i = 0; i < 10; i++) {
+                queryFutures.add(executor.submit(() -> queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk")));
+            }
+
+            TestingPrestoServer worker = queryRunner.getServers()
+                    .stream()
+                    .filter(server -> !server.isCoordinator())
+                    .filter(server -> server.getNodePoolType() == NodePoolType.LEAF)
+                    .findFirst()
+                    .get();
+
+            TaskManager taskManager = worker.getTaskManager();
+
+            // wait until tasks show up on the worker
+            while (taskManager.getAllTaskInfo().isEmpty()) {
+                MILLISECONDS.sleep(100);
+            }
+            while (getQueuedDrivers(taskManager) == 0 || getRunningDrivers(taskManager) == 0) {
+                MILLISECONDS.sleep(100);
+            }
+            worker.getGracefulShutdownHandler().requestShutdown();
+            while (!worker.getGracefulShutdownHandler().isGracefulShutdownCompleted()) {
+                // System.out.println("Waiting for graceful shutdown to be completed");
+                //log.info("Waiting for graceful shutdown to be completed, queued driver=%s, running driver=%s, blocked drivers=%s", getQueuedDrivers(taskManager), getRunningDrivers(taskManager), getBlockedDrivers(taskManager));
+                MILLISECONDS.sleep(100);
+            }
+            long pendingSplits = worker.getGracefulShutdownSplitTracker().getPendingSplits().values().stream().mapToLong(Set::size).sum();
+            //log.info("queued driver=%s, running driver=%s, blocked drivers=%s", getQueuedDrivers(taskManager), getRunningDrivers(taskManager), getBlockedDrivers(taskManager));
+            //assertEquals(getCompletedSplits(taskManager), getCompletedDrivers(taskManager));
+            assertEquals(pendingSplits, getQueuedDrivers(taskManager));
+        }
+    }
+
+    private long getQueuedDrivers(TaskManager taskManager)
+    {
+        return taskManager.getAllTaskInfo().stream().mapToLong(taskInfo -> taskInfo.getStats().getQueuedDrivers()).sum();
+    }
+
+    private long getBlockedDrivers(TaskManager taskManager)
+    {
+        return taskManager.getAllTaskInfo().stream().mapToLong(taskInfo -> taskInfo.getStats().getBlockedDrivers()).sum();
+    }
+
+    private long getCompletedDrivers(TaskManager taskManager)
+    {
+        return taskManager.getAllTaskInfo().stream().mapToLong(taskInfo -> taskInfo.getStats().getCompletedDrivers()).sum();
+    }
+
+    private long getCompletedSplits(TaskManager taskManager)
+    {
+        return taskManager.getAllTaskInfo().stream().mapToLong(taskInfo -> taskInfo.getTaskStatus().getCompletedSplitSequenceIds().size()).sum();
+    }
+
+    private long getRunningDrivers(TaskManager taskManager)
+    {
+        return taskManager.getAllTaskInfo().stream().mapToLong(taskInfo -> taskInfo.getStats().getRunningDrivers()).sum();
+    }
+
     @Test(timeOut = SHUTDOWN_TIMEOUT_MILLIS)
     public void testCoordinatorShutdown()
             throws Exception
@@ -141,11 +220,12 @@ public class TestGracefulShutdown
     public static DistributedQueryRunner createQueryRunner(Session session, Map<String, String> properties)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 2, properties);
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 3, properties);
 
         try {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
+            //queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of("tpch.splits-per-node", "100"));
             return queryRunner;
         }
         catch (Exception e) {

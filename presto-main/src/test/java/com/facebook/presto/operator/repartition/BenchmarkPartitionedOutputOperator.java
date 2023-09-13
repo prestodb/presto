@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.StateMachine;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
@@ -377,7 +378,7 @@ public class BenchmarkPartitionedOutputOperator
                     Supplier<LocalMemoryContext> systemMemoryContextSupplier,
                     Executor notificationExecutor)
             {
-                super(taskInstanceId, state, outputBuffers, maxBufferSize, systemMemoryContextSupplier, notificationExecutor);
+                super(new TaskId("q", 1, 1, 1, 1), taskInstanceId, state, outputBuffers, maxBufferSize, systemMemoryContextSupplier, notificationExecutor);
             }
 
             // Use a dummy enqueue method to avoid OutOfMemory error

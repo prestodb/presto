@@ -80,6 +80,7 @@ public class TaskStatus
 
     private final long totalCpuTimeInNanos;
     private final long taskAgeInMillis;
+    private final long retryableSplitCount;
 
     @JsonCreator
     @ThriftConstructor
@@ -105,7 +106,8 @@ public class TaskStatus
             @JsonProperty("totalCpuTimeInNanos") long totalCpuTimeInNanos,
             @JsonProperty("taskAgeInMillis") long taskAgeInMillis,
             @JsonProperty("queuedPartitionedSplitsWeight") long queuedPartitionedSplitsWeight,
-            @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight)
+            @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight,
+            @JsonProperty("retryableSplitCount") long retryableSplitCount)
     {
         this.taskInstanceIdLeastSignificantBits = taskInstanceIdLeastSignificantBits;
         this.taskInstanceIdMostSignificantBits = taskInstanceIdMostSignificantBits;
@@ -141,6 +143,7 @@ public class TaskStatus
         this.fullGcTimeInMillis = fullGcTimeInMillis;
         this.totalCpuTimeInNanos = totalCpuTimeInNanos;
         this.taskAgeInMillis = taskAgeInMillis;
+        this.retryableSplitCount = retryableSplitCount;
     }
 
     @JsonProperty
@@ -297,6 +300,13 @@ public class TaskStatus
         return runningPartitionedSplitsWeight;
     }
 
+    @JsonProperty
+    @ThriftField(23)
+    public long getRetryableSplitCount()
+    {
+        return retryableSplitCount;
+    }
+
     @Override
     public String toString()
     {
@@ -328,6 +338,7 @@ public class TaskStatus
                 0,
                 0,
                 0L,
+                0L,
                 0L);
     }
 
@@ -354,6 +365,7 @@ public class TaskStatus
                 taskStatus.getTotalCpuTimeInNanos(),
                 taskStatus.getTaskAgeInMillis(),
                 taskStatus.getQueuedPartitionedSplitsWeight(),
-                taskStatus.getRunningPartitionedSplitsWeight());
+                taskStatus.getRunningPartitionedSplitsWeight(),
+                taskStatus.getRetryableSplitCount());
     }
 }

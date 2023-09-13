@@ -212,6 +212,7 @@ public class SpoolingOutputBuffer
     public void enqueue(Lifespan lifespan, List<SerializedPage> pages)
     {
         if (!state.get().canAddPages()) {
+            log.error("discarding page for task %s , state =%s, buffer state =%s", taskId, state.get(), getInfo());
             return;
         }
         PendingRead pendingRead;

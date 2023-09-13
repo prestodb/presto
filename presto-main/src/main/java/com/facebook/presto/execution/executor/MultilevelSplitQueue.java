@@ -281,10 +281,10 @@ public class MultilevelSplitQueue
     public boolean isEligibleForGracefulShutdown(TaskId taskId, Set<PrioritizedSplitRunner> blockedSplit, Set<PrioritizedSplitRunner> runningSplits)
     {
         lock.lock();
-        if (containsTaskSplit(taskId, blockedSplit) || containsTaskSplit(taskId, runningSplits)) {
-            return false;
-        }
         try {
+            if (containsTaskSplit(taskId, blockedSplit) || containsTaskSplit(taskId, runningSplits)) {
+                return false;
+            }
             for (PriorityQueue<PrioritizedSplitRunner> level : levelWaitingSplits) {
                 for (PrioritizedSplitRunner split : level) {
                     if (!split.getTaskHandle().getTaskId().equals(taskId)) {
@@ -307,7 +307,7 @@ public class MultilevelSplitQueue
         return splitRunners.stream().filter(split -> split.getTaskHandle().getTaskId().equals(taskId)).count() > 0;
     }
 
-    public String getSplitViewSnapshot()
+    public String getSplitViewSnapshot(TaskId taskId)
     {
         lock.lock();
         try {
@@ -315,6 +315,9 @@ public class MultilevelSplitQueue
             List<String> levelData = new ArrayList<>();
             for (PriorityQueue<PrioritizedSplitRunner> level : levelWaitingSplits) {
                 for (PrioritizedSplitRunner split : level) {
+                    if (!split.getTaskHandle().getTaskId().equals(taskId)) {
+                        continue;
+                    }
                     StringBuilder levelBuilder = new StringBuilder();
                     String state = isSplitAlreadyStarted(split) ? "started" : "not_started";
                     levelBuilder.append(state);

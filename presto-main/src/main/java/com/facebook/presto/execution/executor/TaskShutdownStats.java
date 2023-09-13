@@ -13,62 +13,108 @@
  */
 package com.facebook.presto.execution.executor;
 
-import com.facebook.drift.annotations.ThriftConstructor;
-import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableMap;
 
-import java.util.Optional;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.OptionalLong;
+
+import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
 public class TaskShutdownStats
 {
-    private final Optional<String> outputBufferState;
-    private final Optional<String> pendingRunningSplitState;
-    private final OptionalLong outputBufferWaitTime;
-    private final OptionalLong pendingRunningSplitStateTime;
+    private final OptionalLong splitsToBeRetried;
+    private final String shuttingdownNode;
+    private final Map<String, Long> bufferStageToTime;
+    private final Map<String, Long> splitWaitStageToTime;
+    private final Map<String, Long> outputBufferInfoValues;
 
-    @JsonCreator
-    @ThriftConstructor
-    public TaskShutdownStats(
-            @JsonProperty("pendingRunningSplitState") Optional<String> pendingRunningSplitState,
-            @JsonProperty("pendingRunningSplitStateTime") OptionalLong pendingRunningSplitStateTime,
-            @JsonProperty("outputBufferState") Optional<String> outputBufferState,
-            @JsonProperty("outputBufferWaitTime") OptionalLong outputBufferWaitTime)
+    private TaskShutdownStats(Map<String, Long> bufferStageToTime, Map<String, Long> splitWaitStageToTime, OptionalLong splitsToBeRetried, String shuttingdownNode, Map<String, Long> outputBufferInfoValues)
     {
-        this.pendingRunningSplitState = pendingRunningSplitState;
-        this.pendingRunningSplitStateTime = pendingRunningSplitStateTime;
-        this.outputBufferState = outputBufferState;
-        this.outputBufferWaitTime = outputBufferWaitTime;
+        this.bufferStageToTime = requireNonNull(bufferStageToTime, "bufferStageToTime is null");
+        this.splitWaitStageToTime = requireNonNull(splitWaitStageToTime, "splitWaitStageToTime is null");
+        this.splitsToBeRetried = requireNonNull(splitsToBeRetried, "splitsToBeRetried is null");
+        this.shuttingdownNode = requireNonNull(shuttingdownNode, "shuttingdownNode is null");
+        this.outputBufferInfoValues = ImmutableMap.copyOf(requireNonNull(outputBufferInfoValues, "outputBufferStates is null"));
     }
 
-    @JsonProperty
-    @ThriftField(1)
-    public Optional<String> getOutputBufferState()
+    public static Builder builder(String shuttingdownNode)
     {
-        return outputBufferState;
+        return new Builder(shuttingdownNode);
     }
 
-    @JsonProperty
-    @ThriftField(2)
-    public Optional<String> getPendingRunningSplitState()
+    public static final class Builder
     {
-        return pendingRunningSplitState;
+        private final Map<String, Long> bufferStageToTime = new HashMap<>();
+        private final Map<String, Long> splitWaitStageToTime = new HashMap<>();
+        private OptionalLong splitsToBeRetried = OptionalLong.empty();
+        private final String shuttingdownNode;
+        private final Map<String, Long> outputBufferStates = new HashMap<>();
+
+        private Builder(String shuttingdownNode)
+        {
+            this.shuttingdownNode = requireNonNull(shuttingdownNode, "shuttingdownNode is null");
+        }
+
+        public Builder setOutputBufferStage(String outputBufferState, long durationNanos)
+        {
+            this.bufferStageToTime.put(outputBufferState, durationNanos);
+            return this;
+        }
+
+        public Builder setPendingRunningSplitState(String splitWaitState, long durationNanos)
+        {
+            this.splitWaitStageToTime.put(splitWaitState, durationNanos);
+            return this;
+        }
+
+        public Builder setSplitsToBeRetried(long splitsToBeRetried)
+        {
+            this.splitsToBeRetried = OptionalLong.of(splitsToBeRetried);
+            return this;
+        }
+
+        public Builder setOutputBufferInfo(String outputBufferInfoKey, Long outputBufferInfoValue)
+        {
+            this.outputBufferStates.put(outputBufferInfoKey, outputBufferInfoValue);
+            return this;
+        }
+
+        public TaskShutdownStats build()
+        {
+            return new TaskShutdownStats(
+                    bufferStageToTime,
+                    splitWaitStageToTime,
+                    splitsToBeRetried,
+                    shuttingdownNode,
+                    outputBufferStates);
+        }
     }
 
-    @JsonProperty
-    @ThriftField(3)
-    public OptionalLong getOutputBufferWaitTime()
+    public Map<String, Long> getBufferStageToTime()
     {
-        return outputBufferWaitTime;
+        return bufferStageToTime;
     }
 
-    @JsonProperty
-    @ThriftField(4)
-    public OptionalLong getPendingRunningSplitStateTime()
+    public Map<String, Long> getSplitWaitStageToTime()
     {
-        return pendingRunningSplitStateTime;
+        return splitWaitStageToTime;
+    }
+
+    public OptionalLong getSplitsToBeRetried()
+    {
+        return splitsToBeRetried;
+    }
+
+    public String getShuttingdownNode()
+    {
+        return shuttingdownNode;
+    }
+
+    public Map<String, Long> getOutputBufferInfoValues()
+    {
+        return outputBufferInfoValues;
     }
 }

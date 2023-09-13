@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.executor;
 
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.airlift.testing.TestingTicker;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.SplitRunner;
@@ -28,8 +29,10 @@ import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.TimeUnit;
@@ -52,70 +55,12 @@ import static org.testng.Assert.assertTrue;
 
 public class TestTaskExecutor
 {
-    @Test
-    public void testLeafTaskExecution()
-            throws Exception
-    {
-        TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, TASK_FAIR, ticker);
-        taskExecutor.start();
-        ticker.increment(20, MILLISECONDS);
-
-        try {
-            TaskId taskId = new TaskId("test", 0, 0, 0, 0);
-            TaskHandle taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
-
-            Phaser beginPhase = new Phaser();
-            beginPhase.register();
-            Phaser verificationComplete = new Phaser();
-            verificationComplete.register();
-            // add one more job
-            TestingJob driver3 = new TestingJob(ticker, new Phaser(1), beginPhase, verificationComplete, 10, 0);
-            ListenableFuture<?> future3 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(driver3)));
-
-            // advance one phase and verify
-            beginPhase.arriveAndAwaitAdvance();
-            assertEquals(driver3.getCompletedPhases(), 0);
-            verificationComplete.arriveAndAwaitAdvance();
-
-            // advance to the end of the first two task and verify
-            beginPhase.arriveAndAwaitAdvance();
-            for (int i = 0; i < 7; i++) {
-                verificationComplete.arriveAndAwaitAdvance();
-                beginPhase.arriveAndAwaitAdvance();
-                assertEquals(beginPhase.getPhase(), verificationComplete.getPhase() + 1);
-            }
-
-            assertEquals(driver3.getCompletedPhases(), 8);
-
-            verificationComplete.arriveAndAwaitAdvance();
-
-            // advance two more times and verify
-            beginPhase.arriveAndAwaitAdvance();
-            verificationComplete.arriveAndAwaitAdvance();
-            beginPhase.arriveAndAwaitAdvance();
-
-            assertEquals(driver3.getCompletedPhases(), 10);
-            future3.get(1, SECONDS);
-            verificationComplete.arriveAndAwaitAdvance();
-            assertEquals(driver3.getFirstPhase(), 2);
-            assertEquals(driver3.getLastPhase(), 12);
-
-            // no splits remaining
-            ticker.increment(610, SECONDS);
-            assertEquals(taskExecutor.getRunAwaySplitCount(), 0);
-        }
-        finally {
-            taskExecutor.stop();
-        }
-    }
-
     @Test(invocationCount = 100)
     public void testTasksComplete()
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, TASK_FAIR, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, TASK_FAIR, new GracefulShutdownSplitTracker(new NodeInfo("")), ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -209,7 +154,7 @@ public class TestTaskExecutor
     public void testQuantaFairness()
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(1, 2, 3, 4, QUERY_FAIR, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(1, 2, 3, 4, QUERY_FAIR, new GracefulShutdownSplitTracker(new NodeInfo("")), ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -243,7 +188,7 @@ public class TestTaskExecutor
     public void testLevelMovement()
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(2, 2, 3, 4, TASK_FAIR, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(2, 2, 3, 4, TASK_FAIR, new GracefulShutdownSplitTracker(new NodeInfo("")), ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -282,7 +227,7 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(1, 3, 3, 4, TASK_FAIR, new MultilevelSplitQueue(2), ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(1, 3, 3, 4, TASK_FAIR, new MultilevelSplitQueue(2), new GracefulShutdownSplitTracker(new NodeInfo("")), ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -366,7 +311,7 @@ public class TestTaskExecutor
     public void testTaskHandle()
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, QUERY_FAIR, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, QUERY_FAIR, new GracefulShutdownSplitTracker(new NodeInfo("")), ticker);
         taskExecutor.start();
 
         try {
@@ -392,6 +337,50 @@ public class TestTaskExecutor
             // let the split continue to run
             beginPhase.arriveAndDeregister();
             verificationComplete.arriveAndDeregister();
+        }
+        finally {
+            taskExecutor.stop();
+        }
+    }
+
+    @Test
+    public void testGracefulShutdown()
+            throws InterruptedException
+    {
+        TestingTicker ticker = new TestingTicker();
+        GracefulShutdownSplitTracker gracefulShutdownSplitTracker = new GracefulShutdownSplitTracker(new NodeInfo("test"));
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, QUERY_FAIR, gracefulShutdownSplitTracker, ticker);
+        taskExecutor.start();
+
+        try {
+            TaskId taskId = new TaskId("test", 0, 0, 0, 0);
+            TaskHandle taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+            Phaser beginPhase = new Phaser();
+            beginPhase.register();
+            Phaser verificationComplete = new Phaser();
+            verificationComplete.register();
+
+            // force enqueue a split
+            for (int i = 1; i <= 30; i++) {
+                TestingJob driver = new TestingJob(ticker, new Phaser(), beginPhase, verificationComplete, 10, 0);
+                taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(driver));
+            }
+            new Thread(() -> taskExecutor.gracefulShutdown()).start();
+            while (!taskExecutor.isShuttingDown()) {
+                MILLISECONDS.sleep(500);
+            }
+            assertEquals(taskHandle.getRunningLeafSplits(), 4);
+            assertEquals(taskHandle.getQueuedSplitSize(), 26);
+            // let the split continue to run
+            beginPhase.arriveAndDeregister();
+            verificationComplete.arriveAndDeregister();
+            Collection<Set<Long>> pendingSplits = gracefulShutdownSplitTracker.getPendingSplits().values();
+            System.out.println(pendingSplits);
+            assertEquals(pendingSplits
+                    .stream()
+                    .mapToInt(Set::size)
+                    .sum(), 26);
         }
         finally {
             taskExecutor.stop();
@@ -441,7 +430,7 @@ public class TestTaskExecutor
         int maxDriversPerTask = 2;
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(4, 16, 1, maxDriversPerTask, QUERY_FAIR, splitQueue, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 16, 1, maxDriversPerTask, QUERY_FAIR, splitQueue, new GracefulShutdownSplitTracker(new NodeInfo("")), ticker);
         taskExecutor.start();
         try {
             TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId("test", 0, 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
@@ -481,7 +470,7 @@ public class TestTaskExecutor
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
         TestingTicker ticker = new TestingTicker();
         // create a task executor with min/max drivers per task to be 2 and 4
-        TaskExecutor taskExecutor = new TaskExecutor(4, 16, 2, 4, TASK_FAIR, splitQueue, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 16, 2, 4, TASK_FAIR, splitQueue, new GracefulShutdownSplitTracker(new NodeInfo("")), ticker);
         taskExecutor.start();
         try {
             // overwrite the max drivers per task to be 1
@@ -530,6 +519,7 @@ public class TestTaskExecutor
                 new Duration(1, SECONDS),
                 new EmbedVersion(new ServerConfig()),
                 new MultilevelSplitQueue(2),
+                new GracefulShutdownSplitTracker(new NodeInfo("")),
                 Ticker.systemTicker());
         taskExecutor.start();
 

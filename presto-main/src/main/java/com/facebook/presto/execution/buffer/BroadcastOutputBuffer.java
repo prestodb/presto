@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.page.SerializedPage;
@@ -60,6 +62,7 @@ public class BroadcastOutputBuffer
     private final StateMachine<BufferState> state;
     private final OutputBufferMemoryManager memoryManager;
     private final LifespanSerializedPageTracker pageTracker;
+    private static final Logger log = Logger.get(BroadcastOutputBuffer.class);
 
     @GuardedBy("this")
     private OutputBuffers outputBuffers = OutputBuffers.createInitialEmptyOutputBuffers(BROADCAST);
@@ -73,14 +76,17 @@ public class BroadcastOutputBuffer
     private final AtomicLong totalPagesAdded = new AtomicLong();
     private final AtomicLong totalRowsAdded = new AtomicLong();
     private final AtomicLong totalBufferedPages = new AtomicLong();
+    private final TaskId taskId;
 
     public BroadcastOutputBuffer(
+            TaskId taskId,
             String taskInstanceId,
             StateMachine<BufferState> state,
             DataSize maxBufferSize,
             Supplier<LocalMemoryContext> systemMemoryContextSupplier,
             Executor notificationExecutor)
     {
+        this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.state = requireNonNull(state, "state is null");
         this.memoryManager = new OutputBufferMemoryManager(
@@ -209,6 +215,7 @@ public class BroadcastOutputBuffer
         // ignore pages after "no more pages" is set
         // this can happen with a limit query
         if (!state.get().canAddPages() || pageTracker.isNoMorePagesForLifespan(lifespan)) {
+            log.error("discarding page for task %s , state =%s, buffer state =%s", taskId, state.get(), getInfo());
             return;
         }
 

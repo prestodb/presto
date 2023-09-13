@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.spark.task;
 
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.execution.TaskTestUtils;
+import com.facebook.presto.execution.executor.GracefulShutdownSplitTracker;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.Split;
@@ -81,7 +83,7 @@ public class TestPrestoSparkTaskExecution
     {
         taskNotificationExecutor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
-        taskExecutor = new TaskExecutor(8, 16, 3, 4, TASK_FAIR, Ticker.systemTicker());
+        taskExecutor = new TaskExecutor(8, 16, 3, 4, TASK_FAIR, new GracefulShutdownSplitTracker(new NodeInfo("")), Ticker.systemTicker());
 
         nativeTestSession = testSessionBuilder()
                 .setSystemProperty(NATIVE_EXECUTION_ENABLED, "true")

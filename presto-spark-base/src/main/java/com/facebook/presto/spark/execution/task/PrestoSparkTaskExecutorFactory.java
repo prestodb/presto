@@ -211,6 +211,7 @@ public class PrestoSparkTaskExecutorFactory
 
     private final AtomicBoolean memoryRevokePending = new AtomicBoolean();
     private final AtomicBoolean memoryRevokeRequestInProgress = new AtomicBoolean();
+
     @Inject
     public PrestoSparkTaskExecutorFactory(
             SessionPropertyManager sessionPropertyManager,
@@ -929,7 +930,8 @@ public class PrestoSparkTaskExecutorFactory
                     taskStats.getTotalCpuTimeInNanos(),
                     System.currentTimeMillis() - taskStats.getCreateTime().getMillis(),
                     taskStats.getQueuedPartitionedSplitsWeight(),
-                    taskStats.getRunningPartitionedSplitsWeight());
+                    taskStats.getRunningPartitionedSplitsWeight(),
+                    0L);
 
             OutputBufferInfo outputBufferInfo = new OutputBufferInfo(
                     outputBufferType.name(),

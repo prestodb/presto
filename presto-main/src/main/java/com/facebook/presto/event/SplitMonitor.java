@@ -16,6 +16,7 @@ package com.facebook.presto.event;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.executor.GracefulShutdownSplitTracker;
 import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.facebook.presto.spi.eventlistener.SplitFailureInfo;
@@ -38,12 +39,14 @@ public class SplitMonitor
 
     private final ObjectMapper objectMapper;
     private final EventListenerManager eventListenerManager;
+    private final GracefulShutdownSplitTracker gracefulShutdownSplitTracker;
 
     @Inject
-    public SplitMonitor(EventListenerManager eventListenerManager, ObjectMapper objectMapper)
+    public SplitMonitor(EventListenerManager eventListenerManager, ObjectMapper objectMapper, GracefulShutdownSplitTracker gracefulShutdownSplitTracker)
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        this.gracefulShutdownSplitTracker = requireNonNull(gracefulShutdownSplitTracker, "gracefulShutdownSplitTracker is null");
     }
 
     public void splitCompletedEvent(TaskId taskId, DriverStats driverStats)
@@ -98,5 +101,12 @@ public class SplitMonitor
         catch (JsonProcessingException e) {
             log.error(e, "Error processing split completion event for task %s", taskId);
         }
+    }
+
+    public void splitCompletedEvent(TaskId taskId, DriverStats driverStats, long splitID)
+    {
+        log.warn("Removing split %s from pending split tracker for task %s", splitID, taskId);
+        gracefulShutdownSplitTracker.getPendingSplits().get(taskId).remove(splitID);
+        splitCompletedEvent(taskId, driverStats);
     }
 }

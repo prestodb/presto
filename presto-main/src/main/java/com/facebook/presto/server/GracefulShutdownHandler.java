@@ -76,6 +76,8 @@ public class GracefulShutdownHandler
     private final TimeStat gracefulShutdownTime = new TimeStat(NANOSECONDS);
     @GuardedBy("this")
     private boolean shutdownRequested;
+    @GuardedBy("this")
+    private boolean isGracefulShutdownCompleted;
 
     @Inject
     public GracefulShutdownHandler(
@@ -145,6 +147,7 @@ public class GracefulShutdownHandler
                     log.info("poolType = %s", poolType);
                     if (enableRetryForFailedSplits && poolType == LEAF) {
                         taskExecutor.gracefulShutdown();
+                        isGracefulShutdownCompleted = true;
                     }
                     gracefulShutdownCounter.update(1);
                     gracefulShutdownTime.add(Duration.nanosSince(timeBeforeTaskExecutorShutdown));
@@ -286,5 +289,10 @@ public class GracefulShutdownHandler
     public synchronized void destroy()
     {
         this.nodeStatusNotificationManager.getNotificationProvider().removeGracefulShutdownEventListener(this::initiateShutdown);
+    }
+
+    public boolean isGracefulShutdownCompleted()
+    {
+        return isGracefulShutdownCompleted;
     }
 }

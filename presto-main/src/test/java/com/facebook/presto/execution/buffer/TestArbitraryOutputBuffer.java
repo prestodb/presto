@@ -17,6 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.StateMachine;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.google.common.collect.ImmutableList;
@@ -456,9 +457,9 @@ public class TestArbitraryOutputBuffer
             addPage(buffer, createPage(33));
             assertThat(secondReads).allMatch(future -> !future.isDone(), "No secondary reads should complete until after all first reads");
             List<OutputBufferId> completedIds = firstReads.entrySet().stream()
-                                                        .filter(entry -> entry.getValue().isDone())
-                                                        .map(Map.Entry::getKey)
-                                                        .collect(toList());
+                    .filter(entry -> entry.getValue().isDone())
+                    .map(Map.Entry::getKey)
+                    .collect(toList());
             assertEquals(completedIds.size(), 1, "One completed buffer read per page addition");
             OutputBufferId completed = completedIds.get(0);
 
@@ -1074,6 +1075,7 @@ public class TestArbitraryOutputBuffer
     private ArbitraryOutputBuffer createArbitraryBuffer(OutputBuffers buffers, DataSize dataSize)
     {
         ArbitraryOutputBuffer buffer = new ArbitraryOutputBuffer(
+                new TaskId("q", 1, 1, 1, 1),
                 TASK_INSTANCE_ID,
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 dataSize,

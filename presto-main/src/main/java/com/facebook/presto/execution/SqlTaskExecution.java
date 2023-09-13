@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.concurrent.SetThreadName;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferState;
@@ -109,6 +110,7 @@ public class SqlTaskExecution
     // In this case,
     // * a driver could belong to pipeline 1 and driver life cycle 42.
     // * another driver could belong to pipeline 3 and task-wide driver life cycle.
+    private static final Logger log = Logger.get(SqlTaskExecution.class);
 
     private final TaskId taskId;
     private final TaskStateMachine taskStateMachine;
@@ -575,10 +577,13 @@ public class SqlTaskExecution
                         checkTaskCompletion();
 
                         if (result != null) {
+                            log.warn("Marking split %s as completed for task %s", result, taskId);
                             taskContext.addCompletedSplit(result);
+                            splitMonitor.splitCompletedEvent(taskId, getDriverStats(), result);
                         }
-
-                        splitMonitor.splitCompletedEvent(taskId, getDriverStats());
+                        else {
+                            splitMonitor.splitCompletedEvent(taskId, getDriverStats());
+                        }
                     }
                 }
 
@@ -652,6 +657,10 @@ public class SqlTaskExecution
 
         // are there still pages in the output buffer?
         if (!outputBuffer.isFinished()) {
+            return;
+        }
+
+        if (taskHandle.isShutdownInProgress()) {
             return;
         }
 

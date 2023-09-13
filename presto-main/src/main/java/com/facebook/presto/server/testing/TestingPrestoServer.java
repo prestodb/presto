@@ -41,6 +41,7 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.execution.executor.GracefulShutdownSplitTracker;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.memory.ClusterMemoryManager;
@@ -59,6 +60,7 @@ import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.NodePoolType;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
@@ -162,6 +164,7 @@ public class TestingPrestoServer
     private final QueryManager queryManager;
     private final TaskManager taskManager;
     private final GracefulShutdownHandler gracefulShutdownHandler;
+    private final GracefulShutdownSplitTracker gracefulShutdownSplitTracker;
     private final ShutdownAction shutdownAction;
     private final RequestBlocker requestBlocker;
     private final boolean resourceManager;
@@ -170,6 +173,7 @@ public class TestingPrestoServer
     private final boolean nodeSchedulerIncludeCoordinator;
     private final ServerInfoResource serverInfoResource;
     private final ResourceManagerClusterStateProvider clusterStateProvider;
+    private final NodePoolType nodePoolType;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -273,7 +277,13 @@ public class TestingPrestoServer
         if (coordinatorPort == null) {
             coordinatorPort = "0";
         }
-
+        String poolType = properties.get("pool-type");
+        if (poolType == null) {
+            this.nodePoolType = NodePoolType.DEFAULT;
+        }
+        else {
+            this.nodePoolType = NodePoolType.valueOf(poolType);
+        }
         Map<String, String> serverProperties = getServerProperties(resourceManagerEnabled, catalogServerEnabled, properties, environment, discoveryUri);
 
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
@@ -405,6 +415,8 @@ public class TestingPrestoServer
         nodeManager = injector.getInstance(InternalNodeManager.class);
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
         gracefulShutdownHandler = injector.getInstance(GracefulShutdownHandler.class);
+        gracefulShutdownSplitTracker = injector.getInstance(GracefulShutdownSplitTracker.class);
+
         taskManager = injector.getInstance(TaskManager.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
         announcer = injector.getInstance(Announcer.class);
@@ -419,6 +431,11 @@ public class TestingPrestoServer
         announcer.forceAnnounce();
 
         refreshNodes();
+    }
+
+    public NodePoolType getNodePoolType()
+    {
+        return nodePoolType;
     }
 
     private Map<String, String> getServerProperties(
@@ -804,5 +821,10 @@ public class TestingPrestoServer
     private static int driftServerPort(DriftServer server)
     {
         return ((DriftNettyServerTransport) server.getServerTransport()).getPort();
+    }
+
+    public GracefulShutdownSplitTracker getGracefulShutdownSplitTracker()
+    {
+        return gracefulShutdownSplitTracker;
     }
 }

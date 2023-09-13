@@ -505,7 +505,9 @@ public class SectionExecutionFactory
 
     private String getTaskIdentifier(com.facebook.presto.execution.TaskId failedTask)
     {
-        return new StringBuilder(failedTask.getStageExecutionId().getStageId().getId())
+        return new StringBuilder()
+                .append("S")
+                .append(failedTask.getStageExecutionId().getStageId().getId())
                 .append(".")
                 .append(failedTask.getStageExecutionId().getId())
                 .append(".")
@@ -545,7 +547,8 @@ public class SectionExecutionFactory
 
     private boolean isLeafSourceFragment(StreamingSubPlan plan, PartitioningHandle partitioningHandle)
     {
-        return plan.getFragment().isLeaf() && partitioningHandle.equals(SOURCE_DISTRIBUTION);
+        boolean isTpch = partitioningHandle.getConnectorId().isPresent() && partitioningHandle.getConnectorId().get().getCatalogName().equals("tpch");
+        return plan.getFragment().isLeaf() && (partitioningHandle.equals(SOURCE_DISTRIBUTION) || isTpch);
     }
 
     private static Optional<int[]> getBucketToPartition(

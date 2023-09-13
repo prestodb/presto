@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.executor;
 
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.execution.executor.SimulationController.TaskSpecification;
 import com.facebook.presto.execution.executor.SplitGenerators.AggregatedLeafSplitGenerator;
 import com.facebook.presto.execution.executor.SplitGenerators.FastLeafSplitGenerator;
@@ -79,7 +80,7 @@ public class TaskExecutorSimulator
     private TaskExecutorSimulator()
     {
         splitQueue = new MultilevelSplitQueue(2);
-        taskExecutor = new TaskExecutor(36, 72, 3, 8, TASK_FAIR, splitQueue, Ticker.systemTicker());
+        taskExecutor = new TaskExecutor(36, 72, 3, 8, TASK_FAIR, splitQueue, new GracefulShutdownSplitTracker(new NodeInfo("")), Ticker.systemTicker());
         taskExecutor.start();
     }
 

@@ -132,7 +132,10 @@ public class TaskHandle
         ImmutableList.Builder<PrioritizedSplitRunner> builder = ImmutableList.builderWithExpectedSize(runningIntermediateSplits.size() + runningLeafSplits.size() + queuedLeafSplits.size());
         builder.addAll(runningIntermediateSplits);
         builder.addAll(runningLeafSplits);
-        builder.addAll(queuedLeafSplits);
+        //FIXME hack to avoid queued split marked as completed splits to pollute the retryable splits
+        if (isShuttingDown.get()) {
+            builder.addAll(queuedLeafSplits);
+        }
         runningIntermediateSplits.clear();
         runningLeafSplits.clear();
         queuedLeafSplits.clear();
@@ -245,7 +248,7 @@ public class TaskHandle
 
     public boolean isOutputBufferEmpty()
     {
-        return outputBuffer.get().isAllPagesConsumed();
+        return outputBuffer.get().isAllPagesConsumed() && outputBuffer.get().getInfo().getState().isTerminal();
     }
 
     public Optional<OutputBuffer> getOutputBuffer()

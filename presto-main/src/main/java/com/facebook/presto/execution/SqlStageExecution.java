@@ -16,6 +16,8 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.RuntimeUnit;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
@@ -593,6 +595,16 @@ public final class SqlStageExecution
         if (taskState == TaskState.FAILED) {
             // no matter if it is possible to recover - the task is failed
             failedTasks.add(taskId);
+            if (taskStatus.getRetryableSplitCount() > 0) {
+                RuntimeStats splitRetryStats = new RuntimeStats();
+                //node and task we are retrying from and destination node and task we are retrying to
+                String retryMetricName = new StringBuilder()
+                        .append("coord:pending-splits-task:" + getTaskIdentifier(taskId))
+                        .toString();
+                //track how many splits we are retrying from the source task
+                splitRetryStats.addMetricValue(retryMetricName, RuntimeUnit.NONE, taskStatus.getRetryableSplitCount());
+                session.getRuntimeStats().update(splitRetryStats);
+            }
 
             RuntimeException failure = taskStatus.getFailures().stream()
                     .findFirst()
@@ -828,5 +840,19 @@ public final class SqlStageExecution
                 executor.execute(() -> listener.accept(payload));
             }
         }
+    }
+
+    public String getTaskIdentifier(com.facebook.presto.execution.TaskId taskId)
+    {
+        return new StringBuilder()
+                .append("S")
+                .append(taskId.getStageExecutionId().getStageId().getId())
+                .append(".")
+                .append(taskId.getStageExecutionId().getId())
+                .append(".")
+                .append(taskId.getId())
+                .append(".")
+                .append(taskId.getAttemptNumber())
+                .toString();
     }
 }

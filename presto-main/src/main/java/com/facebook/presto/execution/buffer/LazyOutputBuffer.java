@@ -161,16 +161,16 @@ public class LazyOutputBuffer
                     }
                     switch (newOutputBuffers.getType()) {
                         case PARTITIONED:
-                            outputBuffer = new PartitionedOutputBuffer(taskInstanceId, state, newOutputBuffers, maxBufferSize, systemMemoryContextSupplier, executor);
+                            outputBuffer = new PartitionedOutputBuffer(taskId, taskInstanceId, state, newOutputBuffers, maxBufferSize, systemMemoryContextSupplier, executor);
                             break;
                         case BROADCAST:
-                            outputBuffer = new BroadcastOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor);
+                            outputBuffer = new BroadcastOutputBuffer(taskId, taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor);
                             break;
                         case ARBITRARY:
-                            outputBuffer = new ArbitraryOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor);
+                            outputBuffer = new ArbitraryOutputBuffer(taskId, taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor);
                             break;
                         case DISCARDING:
-                            outputBuffer = new DiscardingOutputBuffer(newOutputBuffers, state);
+                            outputBuffer = new DiscardingOutputBuffer(taskId, newOutputBuffers, state);
                             break;
                         case SPOOLING:
                             outputBuffer = spoolingOutputBufferFactory.createSpoolingOutputBuffer(taskId, taskInstanceId, newOutputBuffers, state);

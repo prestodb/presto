@@ -15,11 +15,15 @@ package com.facebook.presto.server.testing;
 
 import com.facebook.airlift.node.NodeConfig;
 import com.facebook.airlift.node.NodeInfo;
+import com.facebook.presto.server.LongSetCodec;
+import com.facebook.presto.server.LongSetDeserializer;
+import com.facebook.presto.server.LongSetSerializer;
 import com.google.common.base.Strings;
 import com.google.common.net.InetAddresses;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import org.weakref.jmx.guice.ExportBinder;
 
 import java.net.InetAddress;
@@ -29,6 +33,8 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.airlift.json.JsonBinder.jsonBinder;
+import static com.facebook.drift.codec.guice.ThriftCodecBinder.thriftCodecBinder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -88,6 +94,9 @@ public class TestPrestoServerNodeModule
 
         binder.bind(NodeConfig.class).toInstance(nodeConfig);
         ExportBinder.newExporter(binder).export(NodeInfo.class).withGeneratedName();
+        thriftCodecBinder(binder).bindCustomThriftCodec(LongSetCodec.class);
+        jsonBinder(binder).addSerializerBinding(LongSet.class).to(LongSetSerializer.class);
+        jsonBinder(binder).addDeserializerBinding(LongSet.class).to(LongSetDeserializer.class);
     }
 
     private static InetAddress getV4Localhost()

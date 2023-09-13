@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.StateMachine;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -33,6 +35,7 @@ import static java.util.Objects.requireNonNull;
 public class DiscardingOutputBuffer
         implements OutputBuffer
 {
+    private static final Logger log = Logger.get(DiscardingOutputBuffer.class);
     private static final ListenableFuture<?> NON_BLOCKED = immediateFuture(null);
 
     private final OutputBuffers outputBuffers;
@@ -40,11 +43,13 @@ public class DiscardingOutputBuffer
 
     private final AtomicLong totalPagesAdded = new AtomicLong();
     private final AtomicLong totalRowsAdded = new AtomicLong();
+    private final TaskId taskId;
 
-    public DiscardingOutputBuffer(OutputBuffers outputBuffers, StateMachine<BufferState> state)
+    public DiscardingOutputBuffer(TaskId taskId, OutputBuffers outputBuffers, StateMachine<BufferState> state)
     {
         this.outputBuffers = requireNonNull(outputBuffers, "outputBuffers is null");
         this.state = requireNonNull(state, "state is null");
+        this.taskId = requireNonNull(taskId, "taskId is null");
     }
 
     @Override
@@ -127,6 +132,7 @@ public class DiscardingOutputBuffer
     @Override
     public void enqueue(Lifespan lifespan, List<SerializedPage> pages)
     {
+        log.error("discarding page for task %s , state =%s, buffer state =%s", taskId, state.get(), getInfo());
         // update stats
         long rowCount = pages.stream().mapToLong(SerializedPage::getPositionCount).sum();
         totalRowsAdded.addAndGet(rowCount);

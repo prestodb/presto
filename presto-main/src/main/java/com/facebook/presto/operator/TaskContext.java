@@ -55,8 +55,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -144,7 +147,12 @@ public class TaskContext
     private final RuntimeStats runtimeStats = new RuntimeStats();
 
     private final BlockingDeque<Long> completedSplitSequenceIds = new LinkedBlockingDeque<>();
-    private Optional<TaskShutdownStats> hostShutdownStats = Optional.empty();
+    private OptionalLong retryableSplitCount = OptionalLong.empty();
+    private Optional<String> shuttingdownNode = Optional.empty();
+
+    private ConcurrentMap<String, Long> outputBufferStateToTime = new ConcurrentHashMap<>();
+    private ConcurrentMap<String, Long> splitStateToTime = new ConcurrentHashMap<>();
+    private ConcurrentMap<String, Long> outputBufferInfoMap = new ConcurrentHashMap<>();
 
     public static TaskContext createTaskContext(
             QueryContext queryContext,
@@ -586,26 +594,20 @@ public class TaskContext
         }
 
         boolean fullyBlocked = hasRunningPipelines && runningPipelinesFullyBlocked;
-        if (hostShutdownStats.isPresent()) {
-            TaskId taskId = getTaskId();
-            StringBuilder taskIdentifier = new StringBuilder();
-            taskIdentifier.append(taskId.getStageExecutionId().getStageId().getId());
-            taskIdentifier.append(".");
-            taskIdentifier.append(taskId.getStageExecutionId().getId());
-            taskIdentifier.append(".");
-            taskIdentifier.append(taskId.getId());
-            taskIdentifier.append(".");
-            taskIdentifier.append(taskId.getAttemptNumber());
-            TaskShutdownStats taskShutdownStats = hostShutdownStats.get();
-            if (taskShutdownStats.getOutputBufferState().isPresent()) {
-                checkState(taskShutdownStats.getOutputBufferWaitTime().isPresent(), "Output buffer wait time is not recorded");
-                mergedRuntimeStats.addMetricValue(taskIdentifier + "-ob-" + taskShutdownStats.getOutputBufferState().get(), RuntimeUnit.NANO, taskShutdownStats.getOutputBufferWaitTime().getAsLong());
-            }
-            if (taskShutdownStats.getPendingRunningSplitState().isPresent()) {
-                checkState(taskShutdownStats.getPendingRunningSplitStateTime().isPresent(), "Split wait time is not recorded");
-                mergedRuntimeStats.addMetricValue(taskIdentifier + "-split-" + taskShutdownStats.getPendingRunningSplitState().get(), RuntimeUnit.NANO, taskShutdownStats.getPendingRunningSplitStateTime().getAsLong());
-            }
+        String taskIdentifier = getTaskIdentifier();
+        outputBufferStateToTime.entrySet().forEach(entry -> {
+            mergedRuntimeStats.addMetricValue(entry.getKey(), RuntimeUnit.NANO, entry.getValue());
+        });
+        splitStateToTime.entrySet().forEach(entry -> {
+            mergedRuntimeStats.addMetricValue(entry.getKey(), RuntimeUnit.NANO, entry.getValue());
+        });
+        if (retryableSplitCount.isPresent()) {
+            mergedRuntimeStats.addMetricValue(taskIdentifier + "[" + shuttingdownNode.orElse("") + "]-pending-split", RuntimeUnit.NONE, retryableSplitCount.getAsLong());
         }
+        if (shuttingdownNode.isPresent()) {
+            mergedRuntimeStats.addMetricValue(String.format("worker-%s-shutting-down", shuttingdownNode.get()), RuntimeUnit.NONE, 1);
+        }
+        outputBufferInfoMap.entrySet().forEach(entry -> mergedRuntimeStats.addMetricValue(entry.getKey(), RuntimeUnit.NONE, entry.getValue()));
         return new TaskStats(
                 taskStateMachine.getCreatedTime(),
                 executionStartTime.get(),
@@ -647,7 +649,22 @@ public class TaskContext
                 fullGcCount,
                 fullGcTime.toMillis(),
                 pipelineStats,
-                mergedRuntimeStats);
+                mergedRuntimeStats,
+                getRetryableSplitCount());
+    }
+
+    private String getTaskIdentifier()
+    {
+        TaskId taskId = getTaskId();
+        StringBuilder taskIdentifier = new StringBuilder();
+        taskIdentifier.append(taskId.getStageExecutionId().getStageId().getId());
+        taskIdentifier.append(".");
+        taskIdentifier.append(taskId.getStageExecutionId().getId());
+        taskIdentifier.append(".");
+        taskIdentifier.append(taskId.getId());
+        taskIdentifier.append(".");
+        taskIdentifier.append(taskId.getAttemptNumber());
+        return taskIdentifier.toString();
     }
 
     public void updatePeakMemory()
@@ -806,11 +823,31 @@ public class TaskContext
 
     public void updateHostShutdownStats(TaskShutdownStats hostShutdownStats)
     {
-        this.hostShutdownStats = Optional.of(hostShutdownStats);
+        if (hostShutdownStats.getSplitsToBeRetried().isPresent()) {
+            retryableSplitCount = hostShutdownStats.getSplitsToBeRetried();
+        }
+        hostShutdownStats.getBufferStageToTime().entrySet().forEach(entry -> outputBufferStateToTime.put(buildKeyWithTaskState("obStage", entry.getKey()), entry.getValue()));
+        hostShutdownStats.getSplitWaitStageToTime().entrySet().forEach(entry -> splitStateToTime.put(buildKeyWithTaskState("splitStage", entry.getKey()), entry.getValue()));
+        shuttingdownNode = Optional.of(hostShutdownStats.getShuttingdownNode());
+        hostShutdownStats.getOutputBufferInfoValues().entrySet().forEach(entry -> outputBufferInfoMap.put(buildKeyWithTaskState("obInfo", entry.getKey()), entry.getValue()));
     }
 
-    public Optional<TaskShutdownStats> getHostShutdownStats()
+    private String buildKeyWithTaskState(String stageName, String key)
     {
-        return hostShutdownStats;
+        return new StringBuilder()
+                .append(getTaskIdentifier())
+                .append("[")
+                .append(taskStateMachine.getState())
+                .append("]")
+                .append("-")
+                .append(stageName)
+                .append("-")
+                .append(key)
+                .toString();
+    }
+
+    public long getRetryableSplitCount()
+    {
+        return retryableSplitCount.orElse(0L);
     }
 }

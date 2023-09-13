@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.page.SerializedPage;
@@ -45,17 +47,20 @@ import static java.util.Objects.requireNonNull;
 public class PartitionedOutputBuffer
         implements OutputBuffer
 {
+    private static final Logger log = Logger.get(PartitionedOutputBuffer.class);
     private final StateMachine<BufferState> state;
     private final OutputBuffers outputBuffers;
     private final OutputBufferMemoryManager memoryManager;
     private final LifespanSerializedPageTracker pageTracker;
 
     private final List<ClientBuffer> partitions;
+    private final TaskId taskId;
 
     private final AtomicLong totalPagesAdded = new AtomicLong();
     private final AtomicLong totalRowsAdded = new AtomicLong();
 
     public PartitionedOutputBuffer(
+            TaskId taskId,
             String taskInstanceId,
             StateMachine<BufferState> state,
             OutputBuffers outputBuffers,
@@ -63,6 +68,7 @@ public class PartitionedOutputBuffer
             Supplier<LocalMemoryContext> systemMemoryContextSupplier,
             Executor notificationExecutor)
     {
+        this.taskId = requireNonNull(taskId, "taskId is null");
         this.state = requireNonNull(state, "state is null");
 
         requireNonNull(outputBuffers, "outputBuffers is null");
@@ -187,6 +193,8 @@ public class PartitionedOutputBuffer
         // ignore pages after "no more pages" is set
         // this can happen with a limit query
         if (!state.get().canAddPages() || pageTracker.isNoMorePagesForLifespan(lifespan)) {
+            //FIXME put some debuggability
+            log.error("discarding page for task %s , state =%s, buffer state =%s", taskId, state.get(), getInfo());
             return;
         }
 

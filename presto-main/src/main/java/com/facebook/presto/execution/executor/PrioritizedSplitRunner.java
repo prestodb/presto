@@ -114,6 +114,7 @@ public class PrioritizedSplitRunner
 
     public void destroy()
     {
+        log.info("Destroying split of task %s, split =%s", taskHandle.getTaskId(), getSplitSequenceID());
         destroyed.set(true);
         try {
             split.close();
@@ -200,6 +201,7 @@ public class PrioritizedSplitRunner
             return blocked;
         }
         catch (Throwable e) {
+            log.error(e, "Error processing split of task %s", taskHandle.getTaskId());
             finishedFuture.setException(e);
             throw e;
         }
