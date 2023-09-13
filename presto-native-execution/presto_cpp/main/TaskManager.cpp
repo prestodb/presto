@@ -282,7 +282,13 @@ void TaskManager::setNodeId(const std::string& nodeId) {
 
 void TaskManager::setBaseSpillDirectory(const std::string& baseSpillDirectory) {
   VELOX_CHECK(!baseSpillDirectory.empty());
-  baseSpillDir_ = baseSpillDirectory;
+  baseSpillDir_.withWLock(
+      [&](auto& baseSpillDir) { baseSpillDir = baseSpillDirectory; });
+}
+
+bool TaskManager::emptyBaseSpillDirectory() const {
+  return baseSpillDir_.withRLock(
+      [](const auto& baseSpillDir) { return baseSpillDir.empty(); });
 }
 
 void TaskManager::setOldTaskCleanUpMs(int32_t oldTaskCleanUpMs) {
@@ -434,7 +440,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
 
       execTask = exec::Task::create(
           taskId, planFragment, prestoTask->id.id(), std::move(queryCtx));
-      maybeSetupTaskSpillDirectory(planFragment, *execTask, baseSpillDir_);
+      auto baseSpillDir = *(baseSpillDir_.rlock());
+      maybeSetupTaskSpillDirectory(planFragment, *execTask, baseSpillDir);
 
       prestoTask->task = execTask;
       prestoTask->info.needsPlan = false;
@@ -443,7 +450,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
       execTask = prestoTask->task;
     }
   }
-  // outside of prestoTask->mutex.
+  // Outside of prestoTask->mutex.
   VELOX_CHECK(
       execTask,
       "Task update received before setting a plan. The splits in "
