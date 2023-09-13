@@ -18,6 +18,10 @@
 
 namespace facebook::velox {
 
+std::string ByteRange::toString() const {
+  return fmt::format("[{} starting at {}]", succinctBytes(size), position);
+}
+
 size_t ByteStream::size() const {
   if (ranges_.empty()) {
     return 0;

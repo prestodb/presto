@@ -46,6 +46,11 @@ struct AllocationTraits {
     return bits::roundUp(bytes, kPageSize) / kPageSize;
   }
 
+  /// Returns the round up page bytes.
+  FOLLY_ALWAYS_INLINE static MachinePageCount roundUpPageBytes(uint64_t bytes) {
+    return bits::roundUp(bytes, kPageSize);
+  }
+
   /// The number of pages in a huge page.
   FOLLY_ALWAYS_INLINE static MachinePageCount numPagesInHugePage() {
     VELOX_DCHECK_GE(kHugePageSize, kPageSize);

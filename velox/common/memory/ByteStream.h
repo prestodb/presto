@@ -23,14 +23,16 @@
 namespace facebook::velox {
 
 struct ByteRange {
-  // Start of buffer. Not owned.
+  /// Start of buffer. Not owned.
   uint8_t* buffer;
 
-  // Number of bytes or bits starting at 'buffer'.
+  /// Number of bytes or bits starting at 'buffer'.
   int32_t size;
 
-  // Index of next byte/bit to be read/written in 'buffer'.
+  /// Index of next byte/bit to be read/written in 'buffer'.
   int32_t position;
+
+  std::string toString() const;
 };
 
 class OutputStreamListener {

@@ -25,7 +25,8 @@ add_executable(
   MemoryManagerTest.cpp
   MemoryPoolTest.cpp
   MockSharedArbitratorTest.cpp
-  SharedArbitratorTest.cpp)
+  SharedArbitratorTest.cpp
+  StreamArenaTest.cpp)
 
 target_link_libraries(
   velox_memory_test

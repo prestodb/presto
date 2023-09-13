@@ -21,9 +21,22 @@ namespace facebook::velox {
 StreamArena::StreamArena(memory::MemoryPool* pool) : pool_(pool) {}
 
 void StreamArena::newRange(int32_t bytes, ByteRange* range) {
-  VELOX_CHECK_GT(bytes, 0);
+  VELOX_CHECK_GT(bytes, 0, "StreamArena::newRange can't be zero length");
   const memory::MachinePageCount numPages =
       memory::AllocationTraits::numPages(bytes);
+  // If new range 'bytes' is larger than the largest class page size, then we
+  // allocate a large chunk of contiguous memory for this range.
+  if (numPages > pool_->largestSizeClass()) {
+    memory::ContiguousAllocation largeAllocation;
+    pool_->allocateContiguous(numPages, largeAllocation);
+    range->buffer = largeAllocation.data();
+    range->size = largeAllocation.size();
+    range->position = 0;
+    size_ += range->size;
+    largeAllocations_.push_back(std::move(largeAllocation));
+    return;
+  }
+
   const int32_t numRuns = allocation_.numRuns();
   if (currentRun_ >= numRuns) {
     if (numRuns > 0) {
@@ -50,6 +63,7 @@ void StreamArena::newRange(int32_t bytes, ByteRange* range) {
 }
 
 void StreamArena::newTinyRange(int32_t bytes, ByteRange* range) {
+  VELOX_CHECK_GT(bytes, 0, "StreamArena::newTinyRange can't be zero length");
   tinyRanges_.emplace_back();
   tinyRanges_.back().resize(bytes);
   range->position = 0;

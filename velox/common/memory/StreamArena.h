@@ -31,6 +31,9 @@ class StreamArena {
   virtual ~StreamArena() = default;
 
   /// Sets range to the request 'bytes' of writable memory owned by 'this'.
+  /// We allocate non-contiguous memory to store range bytes if requested
+  /// 'bytes' is equal or less than the largest class page size. Otherwise, we
+  /// allocate from contiguous memory.
   virtual void newRange(int32_t bytes, ByteRange* range);
 
   /// sets 'range' to point to a small piece of memory owned by this. These
@@ -51,14 +54,25 @@ class StreamArena {
   memory::MemoryPool* const pool_;
   const memory::MachinePageCount allocationQuantum_{2};
 
-  // All allocations.
+  // All non-contiguous allocations.
   std::vector<std::unique_ptr<memory::Allocation>> allocations_;
+
   // The allocation from which pages are given out. Moved to 'allocations_' when
   // used up.
   memory::Allocation allocation_;
+
+  // The index of page run in 'allocation_' for next allocation.
   int32_t currentRun_ = 0;
+
+  // The byte offset in page run indexed by 'currentRun_' for next allocation.
   int32_t currentOffset_ = 0;
+
+  // All contiguous allocations.
+  std::vector<memory::ContiguousAllocation> largeAllocations_;
+
+  // Tracks all the contiguous and non-contiguous allocations in bytes.
   size_t size_ = 0;
+
   std::vector<std::string> tinyRanges_;
 };
 
