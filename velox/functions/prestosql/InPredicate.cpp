@@ -53,37 +53,21 @@ class ComplexTypeInPredicate : public exec::VectorFunction {
         hasNull_{hasNull},
         originalValues_{std::move(originalValues)} {}
 
-  static std::shared_ptr<ComplexTypeInPredicate> create(
-      const VectorPtr& values) {
+  static std::shared_ptr<exec::VectorFunction>
+  create(const VectorPtr& values, vector_size_t offset, vector_size_t size) {
     ComplexSet uniqueValues;
     bool hasNull = false;
 
-    VELOX_CHECK_EQ(values->typeKind(), TypeKind::ARRAY);
-
-    auto constantInput =
-        std::dynamic_pointer_cast<ConstantVector<ComplexType>>(values);
-    VELOX_CHECK(!constantInput->isNullAt(0));
-
-    auto arrayVector = dynamic_cast<const ArrayVector*>(
-        constantInput->valueVector()->wrappedVector());
-    vector_size_t arrayIndex =
-        constantInput->valueVector()->wrappedIndex(constantInput->index());
-    auto offset = arrayVector->offsetAt(arrayIndex);
-    auto size = arrayVector->sizeAt(arrayIndex);
-    VELOX_USER_CHECK_GT(size, 0, "IN list must not be empty");
-
-    const auto& elementsVector = arrayVector->elements();
-
     for (auto i = offset; i < offset + size; i++) {
-      if (elementsVector->containsNullAt(i)) {
+      if (values->containsNullAt(i)) {
         hasNull = true;
       } else {
-        uniqueValues.insert({elementsVector.get(), i});
+        uniqueValues.insert({values.get(), i});
       }
     }
 
     return std::make_shared<ComplexTypeInPredicate>(
-        std::move(uniqueValues), hasNull, elementsVector);
+        std::move(uniqueValues), hasNull, values);
   }
 
   void apply(
@@ -124,36 +108,29 @@ class ComplexTypeInPredicate : public exec::VectorFunction {
   const VectorPtr originalValues_;
 };
 
-// Read from innermost vector of type SimpleVector<U> and return vector<T>
-// Results are de-duped
+// Read 'size' values from 'valuesVector' starting at 'offset', de-duplicate
+// remove nulls and sort. Return a list of unique non-null values sorted in
+// ascending order and a boolean indicating whether there were any null values.
 template <typename T, typename U = T>
 std::pair<std::vector<T>, bool> toValues(
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
-  const auto& constantValue = inputArgs[1].constantValue;
-  VELOX_CHECK_NOT_NULL(constantValue)
-
-  auto constantInput =
-      std::dynamic_pointer_cast<ConstantVector<ComplexType>>(constantValue);
-  if (constantInput->isNullAt(0)) {
-    // The whole list is null. In will always be null.
-    return {{}, true};
-  }
-  auto arrayVector = dynamic_cast<const ArrayVector*>(
-      constantInput->valueVector()->wrappedVector());
-  auto elementsVector = arrayVector->elements()->as<SimpleVector<U>>();
-  auto offset = arrayVector->offsetAt(constantInput->index());
-  auto size = arrayVector->sizeAt(constantInput->index());
-  VELOX_USER_CHECK_GT(size, 0, "IN list must not be empty");
+    const VectorPtr& valuesVector,
+    vector_size_t offset,
+    vector_size_t size) {
+  auto simpleValues = valuesVector->as<SimpleVector<U>>();
 
   bool nullAllowed = false;
   std::vector<T> values;
   values.reserve(size);
 
   for (auto i = offset; i < offset + size; i++) {
-    if (elementsVector->isNullAt(i)) {
+    if (simpleValues->isNullAt(i)) {
       nullAllowed = true;
     } else {
-      values.emplace_back(elementsVector->valueAt(i));
+      if constexpr (std::is_same_v<U, Timestamp>) {
+        values.emplace_back(simpleValues->valueAt(i).toMillis());
+      } else {
+        values.emplace_back(simpleValues->valueAt(i));
+      }
     }
   }
 
@@ -170,8 +147,10 @@ std::pair<std::vector<T>, bool> toValues(
 // non-empty and consists of nulls only.
 template <typename T>
 std::pair<std::unique_ptr<common::Filter>, bool> createBigintValuesFilter(
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
-  auto valuesPair = toValues<int64_t, T>(inputArgs);
+    const VectorPtr& valuesVector,
+    vector_size_t offset,
+    vector_size_t size) {
+  auto valuesPair = toValues<int64_t, T>(valuesVector, offset, size);
 
   const auto& values = valuesPair.first;
   bool nullAllowed = valuesPair.second;
@@ -197,8 +176,10 @@ std::pair<std::unique_ptr<common::Filter>, bool> createBigintValuesFilter(
 template <typename T>
 std::pair<std::unique_ptr<common::Filter>, bool>
 createFloatingPointValuesFilter(
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
-  auto valuesPair = toValues<T, T>(inputArgs);
+    const VectorPtr& valuesVector,
+    vector_size_t offset,
+    vector_size_t size) {
+  auto valuesPair = toValues<T, T>(valuesVector, offset, size);
 
   auto& values = valuesPair.first;
   bool nullAllowed = valuesPair.second;
@@ -238,8 +219,10 @@ createFloatingPointValuesFilter(
 // See createBigintValuesFilter.
 template <typename T>
 std::pair<std::unique_ptr<common::Filter>, bool> createHugeintValuesFilter(
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
-  auto valuesPair = toValues<int128_t, T>(inputArgs);
+    const VectorPtr& valuesVector,
+    vector_size_t offset,
+    vector_size_t size) {
+  auto valuesPair = toValues<int128_t, T>(valuesVector, offset, size);
 
   const auto& values = valuesPair.first;
   bool nullAllowed = valuesPair.second;
@@ -262,8 +245,11 @@ std::pair<std::unique_ptr<common::Filter>, bool> createHugeintValuesFilter(
 
 // See createBigintValuesFilter.
 std::pair<std::unique_ptr<common::Filter>, bool> createBytesValuesFilter(
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
-  auto valuesPair = toValues<std::string, StringView>(inputArgs);
+    const VectorPtr& valuesVector,
+    vector_size_t offset,
+    vector_size_t size) {
+  auto valuesPair =
+      toValues<std::string, StringView>(valuesVector, offset, size);
 
   const auto& values = valuesPair.first;
   bool nullAllowed = valuesPair.second;
@@ -296,45 +282,70 @@ class InPredicate : public exec::VectorFunction {
     VELOX_CHECK_EQ(inputArgs.size(), 2);
     auto inListType = inputArgs[1].type;
     VELOX_CHECK_EQ(inListType->kind(), TypeKind::ARRAY);
-    VELOX_USER_CHECK_NOT_NULL(
-        inputArgs[1].constantValue,
-        "IN predicate supports only constant IN list");
 
-    if (inputArgs[1].constantValue->isNullAt(0)) {
+    const auto& values = inputArgs[1].constantValue;
+    VELOX_USER_CHECK_NOT_NULL(
+        values, "IN predicate supports only constant IN list");
+
+    if (values->isNullAt(0)) {
       return std::make_shared<InPredicate>(nullptr, true);
     }
+
+    VELOX_CHECK_EQ(values->typeKind(), TypeKind::ARRAY);
+
+    auto constantInput =
+        std::dynamic_pointer_cast<ConstantVector<ComplexType>>(values);
+
+    auto arrayVector = dynamic_cast<const ArrayVector*>(
+        constantInput->valueVector()->wrappedVector());
+    vector_size_t arrayIndex =
+        constantInput->valueVector()->wrappedIndex(constantInput->index());
+    auto offset = arrayVector->offsetAt(arrayIndex);
+    auto size = arrayVector->sizeAt(arrayIndex);
+    try {
+      VELOX_USER_CHECK_GT(size, 0, "IN list must not be empty");
+    } catch (...) {
+      return std::make_shared<exec::AlwaysFailingVectorFunction>(
+          std::current_exception());
+    }
+
+    const auto& elements = arrayVector->elements();
 
     std::pair<std::unique_ptr<common::Filter>, bool> filter;
 
     switch (inListType->childAt(0)->kind()) {
       case TypeKind::HUGEINT:
-        filter = createHugeintValuesFilter<int128_t>(inputArgs);
+        filter = createHugeintValuesFilter<int128_t>(elements, offset, size);
         break;
       case TypeKind::BIGINT:
-        filter = createBigintValuesFilter<int64_t>(inputArgs);
+        filter = createBigintValuesFilter<int64_t>(elements, offset, size);
         break;
       case TypeKind::INTEGER:
-        filter = createBigintValuesFilter<int32_t>(inputArgs);
+        filter = createBigintValuesFilter<int32_t>(elements, offset, size);
         break;
       case TypeKind::SMALLINT:
-        filter = createBigintValuesFilter<int16_t>(inputArgs);
+        filter = createBigintValuesFilter<int16_t>(elements, offset, size);
         break;
       case TypeKind::TINYINT:
-        filter = createBigintValuesFilter<int8_t>(inputArgs);
+        filter = createBigintValuesFilter<int8_t>(elements, offset, size);
         break;
       case TypeKind::REAL:
-        filter = createFloatingPointValuesFilter<float>(inputArgs);
+        filter = createFloatingPointValuesFilter<float>(elements, offset, size);
         break;
       case TypeKind::DOUBLE:
-        filter = createFloatingPointValuesFilter<double>(inputArgs);
+        filter =
+            createFloatingPointValuesFilter<double>(elements, offset, size);
         break;
       case TypeKind::BOOLEAN:
         // Hack: using BIGINT filter for bool, which is essentially "int1_t".
-        filter = createBigintValuesFilter<bool>(inputArgs);
+        filter = createBigintValuesFilter<bool>(elements, offset, size);
+        break;
+      case TypeKind::TIMESTAMP:
+        filter = createBigintValuesFilter<Timestamp>(elements, offset, size);
         break;
       case TypeKind::VARCHAR:
       case TypeKind::VARBINARY:
-        filter = createBytesValuesFilter(inputArgs);
+        filter = createBytesValuesFilter(elements, offset, size);
         break;
       case TypeKind::UNKNOWN:
         filter = {nullptr, true};
@@ -344,7 +355,7 @@ class InPredicate : public exec::VectorFunction {
       case TypeKind::MAP:
         [[fallthrough]];
       case TypeKind::ROW:
-        return ComplexTypeInPredicate::create(inputArgs[1].constantValue);
+        return ComplexTypeInPredicate::create(elements, offset, size);
       default:
         VELOX_UNSUPPORTED(
             "Unsupported in-list type for IN predicate: {}",
@@ -429,6 +440,12 @@ class InPredicate : public exec::VectorFunction {
         applyTyped<bool>(rows, input, context, result, [&](bool value) {
           return filter_->testInt64(value);
         });
+        break;
+      case TypeKind::TIMESTAMP:
+        applyTyped<Timestamp>(
+            rows, input, context, result, [&](Timestamp value) {
+              return filter_->testInt64(value.toMillis());
+            });
         break;
       case TypeKind::VARCHAR:
       case TypeKind::VARBINARY:

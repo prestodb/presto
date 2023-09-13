@@ -58,7 +58,6 @@ int main(int argc, char** argv) {
       // cardinality passing a VARBINARY (since HLL's implementation uses an
       // alias to VARBINARY).
       "cardinality",
-      "in",
       "element_at",
       "width_bucket",
   };

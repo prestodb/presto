@@ -241,6 +241,16 @@ class InPredicateTest : public FunctionBaseTest {
         },
         "in");
   }
+
+  VectorPtr makeTimestampVector(const std::vector<int64_t>& millis) {
+    std::vector<Timestamp> timestamps;
+    timestamps.reserve(millis.size());
+    for (auto n : millis) {
+      timestamps.push_back(Timestamp::fromMillis(n));
+    }
+
+    return makeFlatVector(timestamps);
+  }
 };
 
 TEST_F(InPredicateTest, bigint) {
@@ -261,6 +271,17 @@ TEST_F(InPredicateTest, smallint) {
 TEST_F(InPredicateTest, tinyint) {
   testValues<int8_t>();
   testConstantValues<int8_t>();
+}
+
+TEST_F(InPredicateTest, timestamp) {
+  auto inValues = makeTimestampVector({0, 1, 1'133, 12'345});
+
+  auto data =
+      makeRowVector({makeTimestampVector({0, 2, 123, 1'133, 78, 12'345})});
+  auto expected = makeFlatVector<bool>({true, false, false, true, false, true});
+
+  auto result = evaluate(makeInExpression(inValues), {data});
+  assertEqualVectors(expected, result);
 }
 
 TEST_F(InPredicateTest, shortDecimal) {
