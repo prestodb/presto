@@ -77,7 +77,7 @@ inline bool isS3File(const std::string_view filename) {
       isOssFile(filename) || isCosFile(filename) || isCosNFile(filename);
 }
 
-inline void bucketAndKeyFromS3Path(
+inline void getBucketAndKeyFromS3Path(
     const std::string& path,
     std::string& bucket,
     std::string& key) {

@@ -18,6 +18,7 @@ target_link_libraries(
   velox_s3file_test
   velox_file
   velox_s3fs
+  velox_hive_config
   velox_core
   velox_exec_test_lib
   velox_dwio_common_exception
@@ -31,9 +32,21 @@ target_link_libraries(
   velox_s3registration_test
   velox_file
   velox_s3fs
+  velox_hive_config
   velox_core
   velox_exec_test_lib
   velox_dwio_common_exception
   velox_exec
+  gtest
+  gtest_main)
+
+add_executable(velox_s3finalize_test S3FileSystemFinalizeTest.cpp)
+add_test(velox_s3finalize_test velox_s3finalize_test)
+target_link_libraries(
+  velox_s3finalize_test
+  velox_s3fs
+  velox_hive_config
+  velox_file
+  velox_core
   gtest
   gtest_main)

@@ -64,7 +64,7 @@ class S3ReadFile final : public ReadFile {
  public:
   S3ReadFile(const std::string& path, Aws::S3::S3Client* client)
       : client_(client) {
-    bucketAndKeyFromS3Path(path, bucket_, key_);
+    getBucketAndKeyFromS3Path(path, bucket_, key_);
   }
 
   // Gets the length of the file.

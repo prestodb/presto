@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+add_library(velox_hive_config OBJECT HiveConfig.cpp)
+
+target_link_libraries(velox_hive_config velox_exception)
+
 add_library(
   velox_hive_connector OBJECT
   FileHandle.cpp

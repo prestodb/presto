@@ -38,6 +38,7 @@ class S3FileSystemTest : public S3Test {
       minioServer_->stop();
       minioServer_ = nullptr;
     }
+    filesystems::finalizeS3();
   }
 };
 
@@ -174,19 +175,4 @@ TEST_F(S3FileSystemTest, logLevel) {
   // It does not change with a new config.
   config["hive.s3.log-level"] = "Trace";
   checkLogLevelName("INFO");
-}
-
-// This test has to be the last one as it invokes finalizeS3.
-TEST_F(S3FileSystemTest, finalize) {
-  auto s3Config = minioServer_->hiveConfig();
-  ASSERT_FALSE(filesystems::initializeS3(s3Config.get()));
-  {
-    filesystems::S3FileSystem s3fs(s3Config);
-    VELOX_ASSERT_THROW(
-        filesystems::finalizeS3(), "Cannot finalize S3 while in use");
-  }
-  filesystems::finalizeS3();
-  VELOX_ASSERT_THROW(
-      filesystems::initializeS3(s3Config.get()),
-      "Attempt to initialize S3 after it has been finalized.");
 }
