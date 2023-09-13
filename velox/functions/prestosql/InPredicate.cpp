@@ -19,21 +19,124 @@
 namespace facebook::velox::functions {
 namespace {
 
+// Returns NULL if
+// - input value is NULL or contains NULL;
+// - input value doesn't match any of the in-list values, but some of in-list
+// values are NULL or contain NULL.
+class ComplexTypeInPredicate : public exec::VectorFunction {
+ public:
+  struct ComplexValue {
+    BaseVector* vector;
+    vector_size_t index;
+  };
+
+  struct ComplexValueHash {
+    size_t operator()(ComplexValue value) const {
+      return value.vector->hashValueAt(value.index);
+    }
+  };
+
+  struct ComplexValueEqualTo {
+    bool operator()(ComplexValue left, ComplexValue right) const {
+      return left.vector->equalValueAt(right.vector, left.index, right.index);
+    }
+  };
+
+  using ComplexSet =
+      folly::F14FastSet<ComplexValue, ComplexValueHash, ComplexValueEqualTo>;
+
+  ComplexTypeInPredicate(
+      ComplexSet uniqueValues,
+      bool hasNull,
+      VectorPtr originalValues)
+      : uniqueValues_{std::move(uniqueValues)},
+        hasNull_{hasNull},
+        originalValues_{std::move(originalValues)} {}
+
+  static std::shared_ptr<ComplexTypeInPredicate> create(
+      const VectorPtr& values) {
+    ComplexSet uniqueValues;
+    bool hasNull = false;
+
+    VELOX_CHECK_EQ(values->typeKind(), TypeKind::ARRAY);
+
+    auto constantInput =
+        std::dynamic_pointer_cast<ConstantVector<ComplexType>>(values);
+    VELOX_CHECK(!constantInput->isNullAt(0));
+
+    auto arrayVector = dynamic_cast<const ArrayVector*>(
+        constantInput->valueVector()->wrappedVector());
+    vector_size_t arrayIndex =
+        constantInput->valueVector()->wrappedIndex(constantInput->index());
+    auto offset = arrayVector->offsetAt(arrayIndex);
+    auto size = arrayVector->sizeAt(arrayIndex);
+    VELOX_USER_CHECK_GT(size, 0, "IN list must not be empty");
+
+    const auto& elementsVector = arrayVector->elements();
+
+    for (auto i = offset; i < offset + size; i++) {
+      if (elementsVector->containsNullAt(i)) {
+        hasNull = true;
+      } else {
+        uniqueValues.insert({elementsVector.get(), i});
+      }
+    }
+
+    return std::make_shared<ComplexTypeInPredicate>(
+        std::move(uniqueValues), hasNull, elementsVector);
+  }
+
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      const TypePtr& /* outputType */,
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
+    const auto& arg = args[0];
+
+    context.ensureWritable(rows, BOOLEAN(), result);
+    result->clearNulls(rows);
+    auto* boolResult = result->asUnchecked<FlatVector<bool>>();
+
+    rows.applyToSelected([&](vector_size_t row) {
+      if (arg->containsNullAt(row)) {
+        boolResult->setNull(row, true);
+      } else {
+        const bool found = uniqueValues_.contains({arg.get(), row});
+        if (!found && hasNull_) {
+          boolResult->setNull(row, true);
+        } else {
+          boolResult->set(row, found);
+        }
+      }
+    });
+  }
+
+ private:
+  // Set of unique values to check against. This set doesn't include any value
+  // that is null or contains null.
+  const ComplexSet uniqueValues_;
+
+  // Boolean indicating whether one of the value was null or contained null.
+  const bool hasNull_;
+
+  // Vector being referenced by the 'uniqueValues_'.
+  const VectorPtr originalValues_;
+};
+
 // Read from innermost vector of type SimpleVector<U> and return vector<T>
 // Results are de-duped
 template <typename T, typename U = T>
-std::optional<std::pair<std::vector<T>, bool>> toValues(
+std::pair<std::vector<T>, bool> toValues(
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
   const auto& constantValue = inputArgs[1].constantValue;
-  if (!constantValue) {
-    return std::nullopt;
-  }
+  VELOX_CHECK_NOT_NULL(constantValue)
 
   auto constantInput =
       std::dynamic_pointer_cast<ConstantVector<ComplexType>>(constantValue);
   if (constantInput->isNullAt(0)) {
     // The whole list is null. In will always be null.
-    return std::optional<std::pair<std::vector<T>, bool>>({{}, true});
+    return {{}, true};
   }
   auto arrayVector = dynamic_cast<const ArrayVector*>(
       constantInput->valueVector()->wrappedVector());
@@ -59,8 +162,7 @@ std::optional<std::pair<std::vector<T>, bool>> toValues(
   auto last = std::unique(values.begin(), values.end());
   values.resize(std::distance(values.begin(), last));
 
-  return std::optional<std::pair<std::vector<T>, bool>>(
-      {std::move(values), nullAllowed});
+  return {std::move(values), nullAllowed};
 }
 
 // Creates a filter for constant values. A null filter means either
@@ -70,12 +172,9 @@ template <typename T>
 std::pair<std::unique_ptr<common::Filter>, bool> createBigintValuesFilter(
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
   auto valuesPair = toValues<int64_t, T>(inputArgs);
-  if (!valuesPair.has_value()) {
-    return {nullptr, false};
-  }
 
-  const auto& values = valuesPair.value().first;
-  bool nullAllowed = valuesPair.value().second;
+  const auto& values = valuesPair.first;
+  bool nullAllowed = valuesPair.second;
 
   if (values.empty() && nullAllowed) {
     return {nullptr, true};
@@ -100,12 +199,9 @@ std::pair<std::unique_ptr<common::Filter>, bool>
 createFloatingPointValuesFilter(
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
   auto valuesPair = toValues<T, T>(inputArgs);
-  if (!valuesPair.has_value()) {
-    return {nullptr, false};
-  }
 
-  auto& values = valuesPair.value().first;
-  bool nullAllowed = valuesPair.value().second;
+  auto& values = valuesPair.first;
+  bool nullAllowed = valuesPair.second;
 
   if (values.empty() && nullAllowed) {
     return {nullptr, true};
@@ -144,12 +240,9 @@ template <typename T>
 std::pair<std::unique_ptr<common::Filter>, bool> createHugeintValuesFilter(
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
   auto valuesPair = toValues<int128_t, T>(inputArgs);
-  if (!valuesPair.has_value()) {
-    return {nullptr, false};
-  }
 
-  const auto& values = valuesPair.value().first;
-  bool nullAllowed = valuesPair.value().second;
+  const auto& values = valuesPair.first;
+  bool nullAllowed = valuesPair.second;
 
   if (values.empty() && nullAllowed) {
     return {nullptr, true};
@@ -171,12 +264,9 @@ std::pair<std::unique_ptr<common::Filter>, bool> createHugeintValuesFilter(
 std::pair<std::unique_ptr<common::Filter>, bool> createBytesValuesFilter(
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
   auto valuesPair = toValues<std::string, StringView>(inputArgs);
-  if (!valuesPair.has_value()) {
-    return {nullptr, false};
-  }
 
-  const auto& values = valuesPair.value().first;
-  bool nullAllowed = valuesPair.value().second;
+  const auto& values = valuesPair.first;
+  bool nullAllowed = valuesPair.second;
   if (values.empty() && nullAllowed) {
     return {nullptr, true};
   }
@@ -199,13 +289,21 @@ class InPredicate : public exec::VectorFunction {
   explicit InPredicate(std::unique_ptr<common::Filter> filter, bool alwaysNull)
       : filter_{std::move(filter)}, alwaysNull_(alwaysNull) {}
 
-  static std::shared_ptr<InPredicate> create(
+  static std::shared_ptr<exec::VectorFunction> create(
       const std::string& /*name*/,
       const std::vector<exec::VectorFunctionArg>& inputArgs,
       const core::QueryConfig& /*config*/) {
     VELOX_CHECK_EQ(inputArgs.size(), 2);
     auto inListType = inputArgs[1].type;
     VELOX_CHECK_EQ(inListType->kind(), TypeKind::ARRAY);
+    VELOX_USER_CHECK_NOT_NULL(
+        inputArgs[1].constantValue,
+        "IN predicate supports only constant IN list");
+
+    if (inputArgs[1].constantValue->isNullAt(0)) {
+      return std::make_shared<InPredicate>(nullptr, true);
+    }
+
     std::pair<std::unique_ptr<common::Filter>, bool> filter;
 
     switch (inListType->childAt(0)->kind()) {
@@ -241,6 +339,12 @@ class InPredicate : public exec::VectorFunction {
       case TypeKind::UNKNOWN:
         filter = {nullptr, true};
         break;
+      case TypeKind::ARRAY:
+        [[fallthrough]];
+      case TypeKind::MAP:
+        [[fallthrough]];
+      case TypeKind::ROW:
+        return ComplexTypeInPredicate::create(inputArgs[1].constantValue);
       default:
         VELOX_UNSUPPORTED(
             "Unsupported in-list type for IN predicate: {}",
@@ -262,6 +366,12 @@ class InPredicate : public exec::VectorFunction {
       const TypePtr& /* outputType */,
       exec::EvalCtx& context,
       VectorPtr& result) const override {
+    if (alwaysNull_) {
+      auto localResult = createBoolConstantNull(rows.end(), context);
+      context.moveOrCopyResult(localResult, rows, result);
+      return;
+    }
+
     const auto& input = args[0];
     switch (input->typeKind()) {
       case TypeKind::HUGEINT:
@@ -335,47 +445,20 @@ class InPredicate : public exec::VectorFunction {
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
-    // boolean|tinyint|smallint|integer|bigint|varchar... -> boolean
-    std::vector<std::shared_ptr<exec::FunctionSignature>> signatures;
-    for (auto& type :
-         {"boolean",
-          "tinyint",
-          "smallint",
-          "integer",
-          "bigint",
-          "varchar",
-          "varbinary",
-          "double",
-          "real",
-          "date"}) {
-      signatures.emplace_back(exec::FunctionSignatureBuilder()
-                                  .returnType("boolean")
-                                  .argumentType(type)
-                                  .argumentType(fmt::format("array({})", type))
-                                  .build());
-      signatures.emplace_back(exec::FunctionSignatureBuilder()
-                                  .returnType("boolean")
-                                  .argumentType(type)
-                                  .argumentType("array(unknown)")
-                                  .build());
-    }
-    signatures.emplace_back(
+    return {
         exec::FunctionSignatureBuilder()
+            .typeVariable("T")
             .returnType("boolean")
-            .integerVariable("precision")
-            .integerVariable("scale")
-            .argumentType("DECIMAL(precision, scale)")
-            .argumentType("array(DECIMAL(precision, scale))")
-            .build());
-    signatures.emplace_back(exec::FunctionSignatureBuilder()
-                                .returnType("boolean")
-                                .integerVariable("precision")
-                                .integerVariable("scale")
-                                .argumentType("DECIMAL(precision, scale)")
-                                .argumentType("array(unknown)")
-                                .build());
-
-    return signatures;
+            .argumentType("T")
+            .constantArgumentType("array(T)")
+            .build(),
+        exec::FunctionSignatureBuilder()
+            .typeVariable("T")
+            .returnType("boolean")
+            .argumentType("T")
+            .constantArgumentType("array(unknown)")
+            .build(),
+    };
   }
 
  private:
@@ -399,11 +482,6 @@ class InPredicate : public exec::VectorFunction {
       exec::EvalCtx& context,
       VectorPtr& result,
       F&& testFunction) const {
-    if (alwaysNull_) {
-      auto localResult = createBoolConstantNull(rows.end(), context);
-      context.moveOrCopyResult(localResult, rows, result);
-      return;
-    }
     VELOX_CHECK(filter_, "IN predicate supports only constant IN list");
 
     // Indicates whether result can be true or null only, e.g. no false results.

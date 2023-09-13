@@ -15,9 +15,11 @@
  */
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
-using namespace facebook::velox;
 using namespace facebook::velox::test;
 using namespace facebook::velox::functions::test;
+
+namespace facebook::velox::functions {
+namespace {
 
 class InPredicateTest : public FunctionBaseTest {
  protected:
@@ -215,6 +217,29 @@ class InPredicateTest : public FunctionBaseTest {
     result = evaluate<SimpleVector<bool>>(
         fmt::format("c0 IN ({})", inList), rowVector);
     assertEqualVectors(constNull, result);
+  }
+
+  core::TypedExprPtr makeInExpression(const VectorPtr& values) {
+    BufferPtr offsets = allocateOffsets(1, pool());
+    BufferPtr sizes = allocateSizes(1, pool());
+    auto* rawSizes = sizes->asMutable<vector_size_t>();
+    rawSizes[0] = values->size();
+
+    return std::make_shared<core::CallTypedExpr>(
+        BOOLEAN(),
+        std::vector<core::TypedExprPtr>{
+            std::make_shared<core::FieldAccessTypedExpr>(values->type(), "c0"),
+            std::make_shared<core::ConstantTypedExpr>(
+                std::make_shared<ArrayVector>(
+                    pool(),
+                    ARRAY(values->type()),
+                    nullptr,
+                    1,
+                    offsets,
+                    sizes,
+                    values)),
+        },
+        "in");
   }
 };
 
@@ -772,3 +797,102 @@ TEST_F(InPredicateTest, floatDuplicateWithBigintValuesUsingHashTable) {
   auto result = evaluate<SimpleVector<bool>>(predicate, input);
   assertEqualVectors(expected, result);
 }
+
+TEST_F(InPredicateTest, arrays) {
+  auto inValues = makeArrayVector<int32_t>({
+      {1},
+      {1, 2},
+      {1, 2, 3},
+      {},
+  });
+
+  auto data = makeRowVector({
+      makeNullableArrayVector<int32_t>({
+          {{1, 2, 3}},
+          {{}},
+          {{1, 3}},
+          std::nullopt,
+          {{2, 4, 5, 6}},
+          {{1, std::nullopt, 2}},
+          {{1, 2, 3, 4}},
+      }),
+  });
+
+  auto expected = makeNullableFlatVector<bool>({
+      true,
+      true,
+      false,
+      std::nullopt,
+      false,
+      std::nullopt,
+      false,
+  });
+  auto result = evaluate(makeInExpression(inValues), {data});
+  assertEqualVectors(expected, result);
+
+  auto inValuesWithNulls = makeNullableArrayVector<int32_t>({
+      {1},
+      {1, std::nullopt, 2},
+      {1, 2, 3},
+      {},
+  });
+
+  expected = makeNullableFlatVector<bool>(
+      {true,
+       true,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt});
+  result = evaluate(makeInExpression(inValuesWithNulls), {data});
+  assertEqualVectors(expected, result);
+}
+
+TEST_F(InPredicateTest, maps) {
+  auto inValues = makeMapVector<int32_t, int64_t>({
+      {{1, 10}},
+      {{1, 10}, {2, 20}},
+      {},
+  });
+
+  auto inExpr = makeInExpression(inValues);
+
+  auto data = makeRowVector({
+      makeMapVector<int32_t, int64_t>({
+          {{1, 10}},
+          {{1, 10}, {2, 12}, {3, 13}},
+          {{1, 10}, {2, 20}},
+          {{1, 10}, {2, 20}, {3, 30}},
+          {},
+          {{1, 5}},
+      }),
+  });
+
+  auto expected = makeFlatVector<bool>({true, false, true, false, true, false});
+  auto result = evaluate(inExpr, {data});
+  assertEqualVectors(expected, result);
+}
+
+TEST_F(InPredicateTest, structs) {
+  auto inValues = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3}),
+      makeFlatVector<std::string>({"a", "b", "c"}),
+  });
+
+  auto inExpr = makeInExpression(inValues);
+
+  auto data = makeRowVector({
+      makeRowVector({
+          makeFlatVector<int32_t>({1, 1, 2, 2, 3, 4}),
+          makeFlatVector<std::string>({"a", "zzz", "b", "abc", "c", "c"}),
+      }),
+  });
+
+  auto expected = makeFlatVector<bool>({true, false, true, false, true, false});
+  auto result = evaluate(inExpr, {data});
+  assertEqualVectors(expected, result);
+}
+
+} // namespace
+} // namespace facebook::velox::functions
