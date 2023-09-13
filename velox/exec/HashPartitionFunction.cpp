@@ -33,6 +33,8 @@ HashPartitionFunction::HashPartitionFunction(
     const std::vector<VectorPtr>& constValues)
     : numPartitions_{hashBitRange.numPartitions()},
       hashBitRange_(hashBitRange) {
+  VELOX_CHECK_GT(hashBitRange.numPartitions(), 0);
+  VELOX_CHECK(!keyChannels.empty());
   init(inputType, keyChannels, constValues);
 }
 
@@ -57,8 +59,11 @@ void HashPartitionFunction::init(
 std::optional<uint32_t> HashPartitionFunction::partition(
     const RowVector& input,
     std::vector<uint32_t>& partitions) {
-  auto size = input.size();
+  if (hashers_.empty()) {
+    return 0u;
+  }
 
+  const auto size = input.size();
   rows_.resize(size);
   rows_.setAll();
 
