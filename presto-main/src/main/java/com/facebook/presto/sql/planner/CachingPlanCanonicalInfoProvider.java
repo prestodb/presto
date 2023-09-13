@@ -34,11 +34,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.hash.Hashing.sha256;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class CachingPlanCanonicalInfoProvider
         implements PlanCanonicalInfoProvider
@@ -70,6 +71,8 @@ public class CachingPlanCanonicalInfoProvider
 
     private Optional<PlanNodeCanonicalInfo> loadValue(Session session, CacheKey key)
     {
+        long startTimeInNano = System.nanoTime();
+        long timeoutInMilliseconds = getHistoryBasedOptimizerTimeoutLimit(session).toMillis();
         Map<CacheKey, PlanNodeCanonicalInfo> cache = historyBasedStatisticsCacheManager.getCanonicalInfoCache(session.getQueryId());
         PlanNodeCanonicalInfo result = cache.get(key);
         if (result != null) {
@@ -77,16 +80,30 @@ public class CachingPlanCanonicalInfoProvider
         }
         CanonicalPlanGenerator.Context context = new CanonicalPlanGenerator.Context();
         key.getNode().accept(new CanonicalPlanGenerator(key.getStrategy(), objectMapper, session), context);
-        context.getCanonicalPlans().forEach((plan, canonicalPlan) -> {
+        for (Map.Entry<PlanNode, CanonicalPlan> entry : context.getCanonicalPlans().entrySet()) {
+            CanonicalPlan canonicalPlan = entry.getValue();
+            PlanNode plan = entry.getKey();
             String hashValue = hashCanonicalPlan(canonicalPlan, objectMapper);
             // Compute input table statistics for the plan node. This is useful in history based optimizations,
             // where historical plan statistics are reused if input tables are similar in size across runs.
-            List<PlanStatistics> inputTableStatistics = context.getInputTables().get(plan).stream()
-                    .map(table -> getPlanStatisticsForTable(session, table))
-                    .collect(toImmutableList());
-            cache.put(new CacheKey(plan, key.getStrategy()), new PlanNodeCanonicalInfo(hashValue, inputTableStatistics));
-        });
+            ImmutableList.Builder<PlanStatistics> inputTableStatisticsBuilder = ImmutableList.builder();
+            for (TableScanNode scanNode : context.getInputTables().get(plan)) {
+                if (loadValueTimeout(startTimeInNano, timeoutInMilliseconds)) {
+                    break;
+                }
+                inputTableStatisticsBuilder.add(getPlanStatisticsForTable(session, scanNode));
+            }
+            cache.put(new CacheKey(plan, key.getStrategy()), new PlanNodeCanonicalInfo(hashValue, inputTableStatisticsBuilder.build()));
+        }
         return Optional.ofNullable(cache.get(key));
+    }
+
+    private boolean loadValueTimeout(long startTimeInNano, long timeoutInMilliseconds)
+    {
+        if (timeoutInMilliseconds == 0) {
+            return false;
+        }
+        return NANOSECONDS.toMillis(System.nanoTime() - startTimeInNano) > timeoutInMilliseconds;
     }
 
     private PlanStatistics getPlanStatisticsForTable(Session session, TableScanNode table)
