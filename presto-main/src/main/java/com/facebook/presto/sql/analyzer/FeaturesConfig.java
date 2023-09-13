@@ -268,7 +268,6 @@ public class FeaturesConfig
     private PushDownFilterThroughCrossJoinStrategy pushDownFilterExpressionEvaluationThroughCrossJoin = PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN;
     private boolean rewriteCrossJoinWithOrFilterToInnerJoin = true;
     private boolean rewriteCrossJoinWithArrayContainsFilterToInnerJoin = true;
-    private boolean rewriteCrossJoinWithArrayNotContainsFilterToAntiJoin = true;
     private JoinNotNullInferenceStrategy joinNotNullInferenceStrategy = NONE;
     private boolean leftJoinNullFilterToSemiJoin = true;
     private boolean broadcastJoinWithSmallBuildUnknownProbe;
@@ -2659,19 +2658,6 @@ public class FeaturesConfig
     public FeaturesConfig setRewriteCrossJoinWithArrayContainsFilterToInnerJoin(boolean rewriteCrossJoinWithArrayContainsFilterToInnerJoin)
     {
         this.rewriteCrossJoinWithArrayContainsFilterToInnerJoin = rewriteCrossJoinWithArrayContainsFilterToInnerJoin;
-        return this;
-    }
-
-    public boolean isRewriteCrossJoinWithArrayNotContainsFilterToAntiJoin()
-    {
-        return this.rewriteCrossJoinWithArrayNotContainsFilterToAntiJoin;
-    }
-
-    @Config("optimizer.rewrite-cross-join-with-array-not-contains-filter-to-anti-join")
-    @ConfigDescription("Enable optimization to rewrite cross join with array not contains filter to anti join")
-    public FeaturesConfig setRewriteCrossJoinWithArrayNotContainsFilterToAntiJoin(boolean rewriteCrossJoinWithArrayNotContainsFilterToAntiJoin)
-    {
-        this.rewriteCrossJoinWithArrayNotContainsFilterToAntiJoin = rewriteCrossJoinWithArrayNotContainsFilterToAntiJoin;
         return this;
     }
 
