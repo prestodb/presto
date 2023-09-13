@@ -42,6 +42,8 @@ class TaskManager {
 
   void setBaseSpillDirectory(const std::string& baseSpillDirectory);
 
+  bool emptyBaseSpillDirectory() const;
+
   /// Sets the time (ms) that a task is considered to be old for cleanup since
   /// its completion.
   void setOldTaskCleanUpMs(int32_t oldTaskCleanUpMs);
@@ -172,7 +174,7 @@ class TaskManager {
 
   std::string baseUri_;
   std::string nodeId_;
-  std::string baseSpillDir_;
+  folly::Synchronized<std::string> baseSpillDir_;
   int32_t oldTaskCleanUpMs_;
   std::shared_ptr<velox::exec::PartitionedOutputBufferManager> bufferManager_;
   folly::Synchronized<TaskMap> taskMap_;
