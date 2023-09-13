@@ -16,6 +16,7 @@ package com.facebook.presto.nativeworker;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.SkipException;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
@@ -34,7 +35,16 @@ public abstract class AbstractTestNativeRemoteFunctions
     // The path to the compiled remote function server binary.
     private String remoteFunctionServerBinaryPath;
 
+    @BeforeClass
     @Override
+    public void init()
+            throws Exception
+    {
+        preInitQueryRunners();
+        super.init();
+        postInitQueryRunners();
+    }
+
     protected void preInitQueryRunners()
     {
         // Initialize the remote function thrift server process.
@@ -44,7 +54,6 @@ public abstract class AbstractTestNativeRemoteFunctions
         }
     }
 
-    @Override
     protected void postInitQueryRunners()
     {
         // Install json function registration namespace manager.

@@ -158,7 +158,8 @@ jobs:
               mvn test \
                 ${MAVEN_TEST} \
                 -pl 'presto-native-execution' \
-                -Dtest="com.facebook.presto.nativeworker.TestPrestoNativeRemoteFunctions" \
+                -Ppresto-native-execution-remote-functions
+                -Dtest="${TESTCLASSES}" \
                 -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
                 -DREMOTE_FUNCTION_SERVER=${REMOTE_FUNCTION_SERVER_PATH} \
                 -DDATA_DIR=${TEMP_PATH} \

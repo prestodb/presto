@@ -80,17 +80,11 @@ public abstract class AbstractTestQueryFramework
     public void init()
             throws Exception
     {
-        preInitQueryRunners();
         queryRunner = createQueryRunner();
         expectedQueryRunner = createExpectedQueryRunner();
-        postInitQueryRunners();
         sqlParser = new SqlParser();
         createTables();
     }
-
-    protected void preInitQueryRunners() {}
-
-    protected void postInitQueryRunners() {}
 
     protected void createTables() {}
 
