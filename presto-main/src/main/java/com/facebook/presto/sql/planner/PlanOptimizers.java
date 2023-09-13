@@ -30,7 +30,6 @@ import com.facebook.presto.sql.planner.iterative.rule.AddNotNullFiltersToJoinNod
 import com.facebook.presto.sql.planner.iterative.rule.CombineApproxPercentileFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.CreatePartialTopN;
 import com.facebook.presto.sql.planner.iterative.rule.CrossJoinWithArrayContainsToInnerJoin;
-import com.facebook.presto.sql.planner.iterative.rule.CrossJoinWithArrayNotContainsToAntiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.CrossJoinWithOrFilterToInnerJoin;
 import com.facebook.presto.sql.planner.iterative.rule.DesugarLambdaExpression;
 import com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType;
@@ -506,15 +505,6 @@ public class PlanOptimizers
                                 new PushDownFilterExpressionEvaluationThroughCrossJoin(metadata.getFunctionAndTypeManager()),
                                 new CrossJoinWithOrFilterToInnerJoin(metadata.getFunctionAndTypeManager()),
                                 new CrossJoinWithArrayContainsToInnerJoin(metadata.getFunctionAndTypeManager()))),
-                new IterativeOptimizer(
-                        metadata,
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        ImmutableSet.of(
-                                new PushDownFilterExpressionEvaluationThroughCrossJoin(metadata.getFunctionAndTypeManager()),
-                                new CrossJoinWithOrFilterToInnerJoin(metadata.getFunctionAndTypeManager()),
-                                new CrossJoinWithArrayNotContainsToAntiJoin(metadata, metadata.getFunctionAndTypeManager()))),
                 new IterativeOptimizer(
                         metadata,
                         ruleStats,

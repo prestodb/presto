@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
@@ -28,7 +29,6 @@ import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
-import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -36,14 +36,18 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isRewriteCrossJoinArrayContainsToInnerJoinEnabled;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.PlannerUtils.isSupportedArrayContainsFilter;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -73,6 +77,8 @@ import static java.util.Objects.requireNonNull;
 public class CrossJoinWithArrayContainsToInnerJoin
         implements Rule<FilterNode>
 {
+    private static final String CONTAINS_FUNCTION_NAME = "presto.default.contains";
+    private static final List<Type> SUPPORTED_JOIN_KEY_TYPE = ImmutableList.of(BIGINT, INTEGER, VARCHAR, DATE);
     private static final Capture<JoinNode> CHILD = newCapture();
     private static final Pattern<FilterNode> PATTERN = filter()
             .with(source().matching(join().matching(x -> x.getType().equals(JoinNode.Type.INNER) && x.getCriteria().isEmpty()).capturedAs(CHILD)));
@@ -84,15 +90,29 @@ public class CrossJoinWithArrayContainsToInnerJoin
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
     }
 
-    public static RowExpression getCandidateArrayContainsExpression(FunctionResolution functionResolution, RowExpression filterPredicate, List<VariableReferenceExpression> leftInput, List<VariableReferenceExpression> rightInput)
+    public static RowExpression getCandidateArrayContainsExpression(RowExpression filterPredicate, List<VariableReferenceExpression> leftInput, List<VariableReferenceExpression> rightInput)
     {
         List<RowExpression> andConjuncts = extractConjuncts(filterPredicate);
         for (RowExpression conjunct : andConjuncts) {
-            if (isSupportedArrayContainsFilter(functionResolution, conjunct, leftInput, rightInput)) {
+            if (isValidArrayContainsFilter(conjunct, leftInput, rightInput)) {
                 return conjunct;
             }
         }
         return null;
+    }
+
+    private static boolean isValidArrayContainsFilter(RowExpression filterExpression, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right)
+    {
+        if (filterExpression instanceof CallExpression) {
+            CallExpression callExpression = (CallExpression) filterExpression;
+            if (callExpression.getFunctionHandle().getName().equals(CONTAINS_FUNCTION_NAME)) {
+                RowExpression array = callExpression.getArguments().get(0);
+                RowExpression element = callExpression.getArguments().get(1);
+                checkState(array.getType() instanceof ArrayType && ((ArrayType) array.getType()).getElementType().equals(element.getType()));
+                return (SUPPORTED_JOIN_KEY_TYPE.contains(element.getType())) && ((left.contains(array) && right.contains(element)) || (right.contains(array) && left.contains(element)));
+            }
+        }
+        return false;
     }
 
     @Override
@@ -117,9 +137,7 @@ public class CrossJoinWithArrayContainsToInnerJoin
         List<VariableReferenceExpression> leftInput = joinNode.getLeft().getOutputVariables();
         List<VariableReferenceExpression> rightInput = joinNode.getRight().getOutputVariables();
         RowExpression filterExpression = node.getPredicate();
-        FunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
-
-        RowExpression arrayContainsExpression = getCandidateArrayContainsExpression(functionResolution, filterExpression, leftInput, rightInput);
+        RowExpression arrayContainsExpression = getCandidateArrayContainsExpression(filterExpression, leftInput, rightInput);
         if (arrayContainsExpression == null) {
             return Result.empty();
         }
