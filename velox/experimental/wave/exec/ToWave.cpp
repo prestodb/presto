@@ -412,7 +412,7 @@ bool waveDriverAdapter(
 }
 
 void registerWave() {
-  exec::DriverAdapter waveAdapter{"Wave", waveDriverAdapter};
+  exec::DriverAdapter waveAdapter{"Wave", {}, waveDriverAdapter};
   exec::DriverFactory::registerAdapter(waveAdapter);
 }
 } // namespace facebook::velox::wave

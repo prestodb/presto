@@ -262,6 +262,11 @@ void LocalPlanner::plan(
     std::vector<std::unique_ptr<DriverFactory>>* driverFactories,
     const core::QueryConfig& queryConfig,
     uint32_t maxDrivers) {
+  for (auto& adapter : DriverFactory::adapters) {
+    if (adapter.inspect) {
+      adapter.inspect(planFragment);
+    }
+  }
   detail::plan(
       planFragment.planNode,
       nullptr,

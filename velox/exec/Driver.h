@@ -23,6 +23,7 @@
 #include "velox/common/process/ThreadDebugInfo.h"
 #include "velox/common/time/CpuWallTimer.h"
 #include "velox/connectors/Connector.h"
+#include "velox/core/PlanFragment.h"
 #include "velox/core/PlanNode.h"
 #include "velox/core/QueryCtx.h"
 #include "velox/exec/Spiller.h"
@@ -400,6 +401,7 @@ using AdaptDriverFunction =
 
 struct DriverAdapter {
   std::string label;
+  std::function<void(const core::PlanFragment&)> inspect;
   AdaptDriverFunction adapt;
 };
 
