@@ -43,10 +43,46 @@ class CudaManagedAllocator : public GpuAllocator {
     cudaFree(ptr);
   }
 };
+
+class CudaDeviceAllocator : public GpuAllocator {
+ public:
+  void* allocate(size_t size) override {
+    void* ret;
+    CUDA_CHECK(cudaMalloc(&ret, size));
+    return ret;
+  }
+
+  void free(void* ptr, size_t /*size*/) override {
+    cudaFree(ptr);
+  }
+};
+
+class CudaHostAllocator : public GpuAllocator {
+ public:
+  void* allocate(size_t size) override {
+    void* ret;
+    CUDA_CHECK(cudaMallocHost(&ret, size));
+    return ret;
+  }
+
+  void free(void* ptr, size_t /*size*/) override {
+    cudaFreeHost(ptr);
+  };
+};
+
 } // namespace
 
 GpuAllocator* getAllocator(Device* /*device*/) {
   static auto* allocator = new CudaManagedAllocator();
+  return allocator;
+}
+
+GpuAllocator* getDeviceAllocator(Device* /*device*/) {
+  static auto* allocator = new CudaDeviceAllocator();
+  return allocator;
+}
+GpuAllocator* getHostAllocator(Device* /*device*/) {
+  static auto* allocator = new CudaHostAllocator();
   return allocator;
 }
 
@@ -76,6 +112,30 @@ void Stream::wait() {
 void Stream::prefetch(Device* device, void* ptr, size_t size) {
   CUDA_CHECK(cudaMemPrefetchAsync(
       ptr, size, device ? device->deviceId : cudaCpuDeviceId, stream_->stream));
+}
+
+void Stream::hostToDeviceAsync(
+    void* deviceAddress,
+    const void* hostAddress,
+    size_t size) {
+  CUDA_CHECK(cudaMemcpyAsync(
+      deviceAddress,
+      hostAddress,
+      size,
+      cudaMemcpyHostToDevice,
+      stream_->stream));
+}
+
+void Stream::deviceToHostAsync(
+    void* hostAddress,
+    const void* deviceAddress,
+    size_t size) {
+  CUDA_CHECK(cudaMemcpyAsync(
+      hostAddress,
+      deviceAddress,
+      size,
+      cudaMemcpyDeviceToHost,
+      stream_->stream));
 }
 
 namespace {

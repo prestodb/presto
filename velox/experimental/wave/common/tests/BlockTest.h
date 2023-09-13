@@ -34,6 +34,10 @@ class BlockTestStream : public Stream {
       int32_t* sizes,
       int64_t* times);
 
+  // calculates the sum over blocks of 256 int64s and returns the result for
+  // numbers[i * 256] ... numbers[(i + 1) * 256 - 1] inclusive  in results[i].
+  void testSum64(int32_t numBlocks, int64_t* numbers, int64_t* results);
+
   /// Sorts 'rows'[i] using ids[i] as keys and stores the sorted order in
   /// 'result[i]'.
   // void dedup(int32_t numBlocks, uint16_t** ids, uint16_t** rows, uint16_t**

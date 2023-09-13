@@ -23,6 +23,7 @@ add_test(velox_wave_common_test velox_wave_common_test)
 target_link_libraries(
   velox_wave_common_test
   velox_wave_common
+  velox_memory
   velox_time
   velox_exception
   gtest

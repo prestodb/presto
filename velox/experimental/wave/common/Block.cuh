@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cub/block/block_reduce.cuh>
 #include <cub/block/block_scan.cuh>
 
 /// Utilities for  booleans and indices and thread blocks.
@@ -47,6 +48,20 @@ __device__ inline void boolBlockToIndices(
   }
   if (threadIdx.x == 0) {
     size = aggregate;
+  }
+}
+
+template <int32_t blockSize, typename T, typename Getter>
+__device__ inline void blockSum(Getter getter, void* shmem, T* result) {
+  typedef cub::BlockReduce<T, blockSize> BlockReduceT;
+
+  auto* temp = reinterpret_cast<typename BlockReduceT::TempStorage*>(shmem);
+  T data[1];
+  data[0] = getter();
+  T aggregate = BlockReduceT(*temp).Reduce(data, cub::Sum());
+
+  if (threadIdx.x == 0) {
+    result[blockIdx.x] = aggregate;
   }
 }
 

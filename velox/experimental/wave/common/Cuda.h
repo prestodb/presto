@@ -50,6 +50,14 @@ class Stream {
   /// to 'device'.
   void prefetch(Device* device, void* address, size_t size);
 
+  // Enqueues a copy from host to device.
+  void
+  hostToDeviceAsync(void* deviceAddress, const void* hostAddress, size_t size);
+
+  // Enqueues a copy from device to host.
+  void
+  deviceToHostAsync(void* hostAddress, const void* deviceAddress, size_t size);
+
   /// Adds a callback to be invoked after pending processing is done.
   void addCallback(std::function<void()> callback);
 
@@ -132,7 +140,14 @@ class GpuAllocator {
   UniquePtr<T[]> allocate(size_t n);
 };
 
+// Returns an allocator that produces unified memory.
 GpuAllocator* getAllocator(Device* device);
+
+// Returns an allocator that produces device memory on current device.
+GpuAllocator* getDeviceAllocator(Device* device);
+
+/// Returns an allocator that produces pinned host memory.
+GpuAllocator* getHostAllocator(Device* device);
 
 class GpuAllocator::Deleter {
  public:

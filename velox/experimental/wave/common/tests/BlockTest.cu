@@ -40,4 +40,21 @@ void BlockTestStream::testBoolToIndices(
   CUDA_CHECK(cudaGetLastError());
 }
 
+__global__ void sum64(int64_t* numbers, int64_t* results) {
+  extern __shared__ __align__(
+      alignof(cub::BlockReduce<int64_t, 256>::TempStorage)) char smem[];
+  int32_t idx = blockIdx.x;
+  blockSum<256>(
+      [&]() { return numbers[idx * 256 + threadIdx.x]; }, smem, results);
+}
+
+void BlockTestStream::testSum64(
+    int32_t numBlocks,
+    int64_t* numbers,
+    int64_t* results) {
+  auto tempBytes = sizeof(typename cub::BlockReduce<int64_t, 256>::TempStorage);
+  sum64<<<numBlocks, 256, tempBytes, stream_->stream>>>(numbers, results);
+  CUDA_CHECK(cudaGetLastError());
+}
+
 } // namespace facebook::velox::wave
