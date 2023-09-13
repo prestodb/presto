@@ -41,7 +41,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.Analysis;
-import com.facebook.presto.sql.analyzer.Analysis.NamedQuery;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
@@ -108,7 +107,6 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryAnalyzerTimeout;
 import static com.facebook.presto.common.type.TypeUtils.isEnumType;
-import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_PLANNING_TIMEOUT;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
@@ -172,16 +170,11 @@ class RelationPlanner
     @Override
     protected RelationPlan visitTable(Table node, SqlPlannerContext context)
     {
-        NamedQuery namedQuery = analysis.getNamedQuery(node);
+        Query namedQuery = analysis.getNamedQuery(node);
         Scope scope = analysis.getScope(node);
 
         if (namedQuery != null) {
-            String cteName = node.getName().toString();
-            if (namedQuery.isFromView()) {
-                cteName = createQualifiedObjectName(session, node, node.getName()).toString();
-            }
-            session.getCteInformationCollector().addCTEReference(cteName, namedQuery.isFromView());
-            RelationPlan subPlan = process(namedQuery.getQuery(), context);
+            RelationPlan subPlan = process(namedQuery, context);
 
             // Add implicit coercions if view query produces types that don't match the declared output types
             // of the view (e.g., if the underlying tables referenced by the view changed)

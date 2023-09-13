@@ -792,7 +792,7 @@ class StatementAnalyzer
             SchemaTableName baseTableName = toSchemaTableName(createQualifiedObjectName(session, baseTable, baseTable.getName()));
             if (tablePredicates.containsKey(baseTableName)) {
                 Query tableSubquery = buildQueryWithPredicate(baseTable, tablePredicates.get(baseTableName));
-                analysis.registerNamedQuery(baseTable, tableSubquery, true);
+                analysis.registerNamedQuery(baseTable, tableSubquery);
 
                 Scope subqueryScope = process(tableSubquery, scope);
 
@@ -1196,7 +1196,7 @@ class StatementAnalyzer
                 Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(name);
                 if (withQuery.isPresent()) {
                     Query query = withQuery.get().getQuery();
-                    analysis.registerNamedQuery(table, query, false);
+                    analysis.registerNamedQuery(table, query);
 
                     // re-alias the fields with the name assigned to the query in the WITH declaration
                     RelationType queryDescriptor = analysis.getOutputDescriptor(query);
@@ -1364,10 +1364,11 @@ class StatementAnalyzer
 
             Query query = parseView(view.getOriginalSql(), name, table);
 
-            analysis.registerNamedQuery(table, query, true);
+            analysis.registerNamedQuery(table, query);
             analysis.registerTableForView(table);
             RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
             analysis.unregisterTableForView();
+
             if (isViewStale(view.getColumns(), descriptor.getVisibleFields())) {
                 throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
             }
@@ -1404,7 +1405,7 @@ class StatementAnalyzer
             String newSql = getMaterializedViewSQL(materializedView, materializedViewName, materializedViewDefinition, scope);
 
             Query query = (Query) sqlParser.createStatement(newSql, createParsingOptions(session, warningCollector));
-            analysis.registerNamedQuery(materializedView, query, true);
+            analysis.registerNamedQuery(materializedView, query);
 
             Scope queryScope = process(query, scope);
             RelationType relationType = queryScope.getRelationType().withAlias(materializedViewName.getObjectName(), null);

@@ -229,7 +229,6 @@ public class QueryMonitor
                 ImmutableMap.of(),
                 Optional.empty(),
                 ImmutableList.of(),
-                ImmutableList.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of()));
@@ -267,7 +266,6 @@ public class QueryMonitor
                         getPlanHash(queryInfo.getPlanCanonicalInfo()),
                         queryInfo.getExpandedQuery(),
                         queryInfo.getOptimizerInformation(),
-                        queryInfo.getCteInformationList(),
                         queryInfo.getScalarFunctions(),
                         queryInfo.getAggregateFunctions(),
                         queryInfo.getWindowsFunctions()));
