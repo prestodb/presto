@@ -269,6 +269,17 @@ uint8_t gather8Bits(
 
 namespace detail {
 template <typename T, typename A, size_t kSizeT = sizeof(T)>
+struct MaskLoad;
+}
+
+template <typename T, typename A = xsimd::default_arch>
+xsimd::batch<T, A>
+maskLoad(const T* addr, xsimd::batch_bool<T, A> mask, const A& arch = {}) {
+  return detail::MaskLoad<T, A>::apply(addr, mask, arch);
+}
+
+namespace detail {
+template <typename T, typename A, size_t kSizeT = sizeof(T)>
 struct BitMask;
 }
 

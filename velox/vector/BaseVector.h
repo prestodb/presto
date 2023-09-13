@@ -808,6 +808,22 @@ class BaseVector {
         "The function should be called only if one of the inputs is null");
   }
 
+  // Reset data-dependent flags to the "unknown" status. This is needed whenever
+  // a vector is mutated because the modification may invalidate these flags.
+  // Currently, we call this function in BaseVector::ensureWritable() and
+  // BaseVector::prepareForReuse() that are expected to be called before any
+  // vector mutation.
+  //
+  // Per-vector flags are reset to default values. Per-row flags are reset only
+  // at the selected rows. If rows is a nullptr, per-row flags are reset at all
+  // rows.
+  virtual void resetDataDependentFlags(const SelectivityVector* /*rows*/) {
+    nullCount_ = std::nullopt;
+    distinctValueCount_ = std::nullopt;
+    representedByteCount_ = std::nullopt;
+    storageByteCount_ = std::nullopt;
+  }
+
  protected:
   /// Returns a brief summary of the vector. The default implementation includes
   /// encoding, type, number of rows and number of nulls.
@@ -843,22 +859,6 @@ class BaseVector {
 
   BufferPtr sliceNulls(vector_size_t offset, vector_size_t length) const {
     return sliceBuffer(*BOOLEAN(), nulls_, offset, length, pool_);
-  }
-
-  // Reset data-dependent flags to the "unknown" status. This is needed whenever
-  // a vector is mutated because the modification may invalidate these flags.
-  // Currently, we call this function in BaseVector::ensureWritable() and
-  // BaseVector::prepareForReuse() that are expected to be called before any
-  // vector mutation.
-  //
-  // Per-vector flags are reset to default values. Per-row flags are reset only
-  // at the selected rows. If rows is a nullptr, per-row flags are reset at all
-  // rows.
-  virtual void resetDataDependentFlags(const SelectivityVector* /*rows*/) {
-    nullCount_ = std::nullopt;
-    distinctValueCount_ = std::nullopt;
-    representedByteCount_ = std::nullopt;
-    storageByteCount_ = std::nullopt;
   }
 
   const TypePtr type_;

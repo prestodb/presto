@@ -863,6 +863,48 @@ uint8_t gather8Bits(
 
 namespace detail {
 
+template <typename T, typename A>
+xsimd::batch<T, A> genericMaskLoad(
+    const T* addr,
+    xsimd::batch_bool<T, A> mask) {
+  return xsimd::select<T, A>(
+      mask, xsimd::load_unaligned<A, T>(addr), xsimd::broadcast<T, A>(0));
+}
+
+template <typename T, typename A>
+struct MaskLoad<T, A, 4> {
+  static xsimd::batch<T, A>
+  apply(const T* addr, xsimd::batch_bool<T, A> mask, const xsimd::generic&) {
+    return genericMaskLoad(addr, mask);
+  }
+
+#if XSIMD_WITH_AVX2
+  static xsimd::batch<T, A>
+  apply(const T* addr, xsimd::batch_bool<T, A> mask, const xsimd::avx2&) {
+    return _mm256_maskload_epi32(addr, mask);
+  }
+#endif
+};
+
+template <typename T, typename A>
+struct MaskLoad<T, A, 8> {
+  static xsimd::batch<T, A>
+  apply(const T* addr, xsimd::batch_bool<T, A> mask, const xsimd::generic&) {
+    return genericMaskLoad(addr, mask);
+  }
+
+#if XSIMD_WITH_AVX2
+  static xsimd::batch<T, A>
+  apply(const T* addr, xsimd::batch_bool<T, A> mask, const xsimd::avx2&) {
+    return _mm256_maskload_epi64(addr, mask);
+  }
+#endif
+};
+
+} // namespace detail
+
+namespace detail {
+
 template <typename A>
 struct GetHalf<int64_t, int32_t, A> {
 #if XSIMD_WITH_AVX2

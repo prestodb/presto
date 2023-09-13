@@ -134,8 +134,6 @@ SelectiveMapColumnReader::SelectiveMapColumnReader(
       elementParams,
       *scanSpec_->children()[1]);
   children_ = {keyReader_.get(), elementReader_.get()};
-
-  VLOG(1) << "[Map] Initialized map column reader for node " << fileType_->id();
 }
 
 } // namespace facebook::velox::dwrf
