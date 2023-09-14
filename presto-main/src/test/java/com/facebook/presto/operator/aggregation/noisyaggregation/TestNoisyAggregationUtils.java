@@ -29,6 +29,8 @@ public class TestNoisyAggregationUtils
     public static final BiFunction<Object, Object, Boolean> equalDoubleAssertion =
             (actual, expected) -> Math.abs(new Double(actual.toString()) - new Double(expected.toString())) <= 1e-12;
 
+    public static final BiFunction<Object, Object, Boolean> equalLongAssertion = (actual, expected) -> new Long(actual.toString()).equals(new Long(expected.toString()));
+
     public static final double DEFAULT_TEST_STANDARD_DEVIATION = 1.0;
 
     public static final BiFunction<Object, Object, Boolean> withinSomeStdAssertion = (actual, expected) -> {
@@ -57,6 +59,9 @@ public class TestNoisyAggregationUtils
                 }
                 else if (value instanceof Long) {
                     values.add((T) Long.valueOf(i));
+                }
+                else if (value instanceof Boolean) {
+                    values.add((T) Boolean.valueOf(i % 2 == 0));
                 }
             }
         }
@@ -157,6 +162,9 @@ public class TestNoisyAggregationUtils
                     case StandardTypes.JSON:
                         sb.append("'{}'");
                         break;
+                    case StandardTypes.BOOLEAN:
+                        sb.append(index % 2 == 0 ? "true" : "false");
+                        break;
                 }
             }
         }
@@ -171,6 +179,11 @@ public class TestNoisyAggregationUtils
     public static double sumLong(List<Long> values)
     {
         return values.stream().mapToLong(v -> v == null ? 0 : v).sum();
+    }
+
+    public static double countTrue(List<Boolean> values)
+    {
+        return values.stream().mapToLong(v -> v == null || !v ? 0 : 1).sum();
     }
 
     public static double avg(List<Double> values)

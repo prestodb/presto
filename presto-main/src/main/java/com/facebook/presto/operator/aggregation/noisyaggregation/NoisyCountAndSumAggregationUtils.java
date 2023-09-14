@@ -16,10 +16,8 @@ package com.facebook.presto.operator.aggregation.noisyaggregation;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.spi.PrestoException;
 
-import java.security.SecureRandom;
-import java.util.Random;
-
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisyCountAggregationUtils.getNoise;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
 public class NoisyCountAndSumAggregationUtils
@@ -30,18 +28,7 @@ public class NoisyCountAndSumAggregationUtils
 
     public static void updateState(NoisyCountAndSumState state, double value, double noiseScale, Double lower, Double upper, Long randomSeed)
     {
-        state.setNoiseScale(noiseScale);
-        checkNoiseScale(state.getNoiseScale());
-
-        state.setCount(state.getCount() + 1);
-
-        if (randomSeed == null) {
-            state.setNullRandomSeed(true);
-        }
-        else {
-            state.setNullRandomSeed(false);
-            state.setRandomSeed(randomSeed);
-        }
+        NoisyCountAggregationUtils.updateState(state, noiseScale, randomSeed);
 
         checkLowerUpper(lower, upper);
         double clippedValue = value;
@@ -58,19 +45,12 @@ public class NoisyCountAndSumAggregationUtils
 
     public static void combineStates(NoisyCountAndSumState state, NoisyCountAndSumState otherState)
     {
-        state.setNoiseScale(state.getNoiseScale() > 0 ? state.getNoiseScale() : otherState.getNoiseScale()); // noise scale should be > 0
-        checkNoiseScale(state.getNoiseScale());
+        NoisyCountAggregationUtils.combineStates(state, otherState);
+
         if (state.isNullLowerUpper()) {
             state.setNullLowerUpper(otherState.isNullLowerUpper());
             state.setLower(otherState.getLower());
             state.setUpper(otherState.getUpper());
-        }
-
-        state.setCount(state.getCount() + otherState.getCount());
-
-        if (state.isNullRandomSeed()) {
-            state.setNullRandomSeed(otherState.isNullRandomSeed());
-            state.setRandomSeed(otherState.getRandomSeed());
         }
 
         state.setSum(state.getSum() + otherState.getSum());
@@ -104,17 +84,6 @@ public class NoisyCountAndSumAggregationUtils
         DOUBLE.writeDouble(out, noisyAvg);
     }
 
-    private static double getNoise(NoisyCountAndSumState state)
-    {
-        Random random = new SecureRandom();
-        if (!state.isNullRandomSeed()) {
-            random = new Random(state.getRandomSeed());
-        }
-        // add noise
-        double noiseSdv = state.getNoiseScale();
-        return random.nextGaussian() * noiseSdv;
-    }
-
     /**
      * Clip value to [lower, upper] range
      */
@@ -136,12 +105,5 @@ public class NoisyCountAndSumAggregationUtils
         }
 
         throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Lower and upper should either both null or both non-null");
-    }
-
-    public static void checkNoiseScale(double noiseScale)
-    {
-        if (noiseScale < 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Noise scale must be >= 0");
-        }
     }
 }
