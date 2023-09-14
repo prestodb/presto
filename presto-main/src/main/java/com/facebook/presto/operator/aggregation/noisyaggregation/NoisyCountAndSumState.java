@@ -45,11 +45,6 @@ public interface NoisyCountAndSumState
 
     void setUpper(double value);
 
-    @InitialBooleanValue(true)
-    boolean isNullRandomSeed();
-
-    void setNullRandomSeed(boolean value);
-
     double getSum();
 
     void setSum(double value);
@@ -60,7 +55,6 @@ public interface NoisyCountAndSumState
                 SIZE_OF_BYTE + // isNullLowerUpper
                 SIZE_OF_DOUBLE + // lower
                 SIZE_OF_DOUBLE + // upper
-                SIZE_OF_BYTE + // isNullRandomSeed
                 SIZE_OF_DOUBLE; // sum
     }
 
@@ -71,7 +65,6 @@ public interface NoisyCountAndSumState
         output.appendByte(state.isNullLowerUpper() ? 1 : 0);
         output.appendDouble(state.getLower());
         output.appendDouble(state.getUpper());
-        output.appendByte(state.isNullRandomSeed() ? 1 : 0);
 
         output.appendDouble(state.getSum());
     }
@@ -83,7 +76,6 @@ public interface NoisyCountAndSumState
         state.setNullLowerUpper(input.readByte() == 1);
         state.setLower(input.readDouble());
         state.setUpper(input.readDouble());
-        state.setNullRandomSeed(input.readByte() == 1);
 
         state.setSum(input.readDouble());
     }

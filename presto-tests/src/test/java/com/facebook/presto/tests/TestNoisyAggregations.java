@@ -66,6 +66,22 @@ public class TestNoisyAggregations
     }
 
     @Test
+    public void testNoisyCountIfGaussianZeroNoiseScaleVsNormalCount()
+    {
+        assertQuery("SELECT noisy_count_if_gaussian(true, 0) FROM lineitem", "SELECT count_if(true) FROM lineitem");
+        assertQuery("SELECT noisy_count_if_gaussian(orderkey > 1000, 0) FROM lineitem", "SELECT count_if(orderkey > 1000) FROM lineitem");
+        assertQuery("SELECT noisy_count_if_gaussian(orderkey > 1000, 0) FROM lineitem WHERE false  GROUP BY orderkey", "SELECT count_if(orderkey > 1000) FROM lineitem WHERE false  GROUP BY orderkey");
+    }
+
+    @Test
+    public void testNoisyCountIfGaussianZeroNoiseScaleRandomSeedVsNormalCount()
+    {
+        assertQuery("SELECT noisy_count_if_gaussian(true, 0, 10) FROM lineitem", "SELECT count_if(true) FROM lineitem");
+        assertQuery("SELECT noisy_count_if_gaussian(orderkey > 1000, 0, 10) FROM lineitem", "SELECT count_if(orderkey > 1000) FROM lineitem");
+        assertQuery("SELECT noisy_count_if_gaussian(orderkey > 1000, 0, 10) FROM lineitem WHERE false  GROUP BY orderkey", "SELECT count_if(orderkey > 1000) FROM lineitem WHERE false  GROUP BY orderkey");
+    }
+
+    @Test
     public void testNoisySumGaussianZeroNoiseScaleVsNormalSum()
     {
         assertQueryWithSingleDoubleRow("SELECT noisy_sum_gaussian(1, 0) FROM lineitem", "SELECT sum(1.0) FROM lineitem");
