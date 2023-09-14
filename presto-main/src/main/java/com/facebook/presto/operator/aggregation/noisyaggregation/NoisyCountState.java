@@ -13,13 +13,17 @@
  */
 package com.facebook.presto.operator.aggregation.noisyaggregation;
 
+import com.facebook.presto.operator.aggregation.state.InitialBooleanValue;
 import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
+import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
+@AccumulatorStateMetadata(stateSerializerClass = NoisyCountStateSerializer.class)
 public interface NoisyCountState
         extends AccumulatorState
 {
@@ -31,6 +35,11 @@ public interface NoisyCountState
 
     void setNoiseScale(double value);
 
+    @InitialBooleanValue(true)
+    boolean isNullRandomSeed();
+
+    void setNullRandomSeed(boolean value);
+
     long getRandomSeed();
 
     void setRandomSeed(long value);
@@ -39,6 +48,7 @@ public interface NoisyCountState
     {
         return SIZE_OF_LONG + // count
                 SIZE_OF_DOUBLE + // noiseScale
+                SIZE_OF_BYTE + // isNullRandomSeed
                 SIZE_OF_LONG; // randomSeed
     }
 
@@ -46,6 +56,7 @@ public interface NoisyCountState
     {
         output.appendLong(state.getCount());
         output.appendDouble(state.getNoiseScale());
+        output.appendByte(state.isNullRandomSeed() ? 1 : 0);
         output.appendLong(state.getRandomSeed());
     }
 
@@ -53,6 +64,7 @@ public interface NoisyCountState
     {
         state.setCount(input.readLong());
         state.setNoiseScale(input.readDouble());
+        state.setNullRandomSeed(input.readByte() == 1);
         state.setRandomSeed(input.readLong());
     }
 }
