@@ -68,6 +68,14 @@ class PeriodicTaskManager {
         func, std::chrono::microseconds{periodMicros}, taskName);
   }
 
+  /// Add a task to run once.
+  template <typename TFunc>
+  void
+  addTaskOnce(TFunc&& func, size_t periodMicros, const std::string& taskName) {
+    scheduler_.addFunctionOnce(
+        func, taskName, std::chrono::microseconds{periodMicros});
+  }
+
   /// Stops all periodic tasks. Returns only when everything is stopped.
   void stop();
 
