@@ -27,7 +27,10 @@
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/common/testutil/TestValue.h"
+#include "velox/connectors/hive/HiveDataSink.h"
+#include "velox/core/PlanNode.h"
 #include "velox/exec/HashBuild.h"
+#include "velox/exec/TableWriter.h"
 #include "velox/exec/Values.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
@@ -256,7 +259,7 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
   }
 
   void SetUp() override {
-    OperatorTestBase::SetUp();
+    HiveConnectorTestBase::SetUp();
 
     setupMemory();
     auto fakeOperatorFactory = std::make_unique<FakeMemoryOperatorFactory>();
@@ -277,7 +280,7 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
   }
 
   void TearDown() override {
-    OperatorTestBase::TearDown();
+    HiveConnectorTestBase::TearDown();
   }
 
   void setupMemory(
@@ -320,6 +323,37 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
         cache::AsyncDataCache::getInstance(),
         std::move(pool));
     return queryCtx;
+  }
+
+  // Generates the simple table writer plan.
+  core::PlanNodePtr createInsertPlan(
+      PlanBuilder& inputPlan,
+      const RowTypePtr& rowType,
+      const std::string& outputDirectoryPath) {
+    auto insertPlan = inputPlan.tableWrite(
+        rowType,
+        rowType->names(),
+        nullptr,
+        std::make_shared<core::InsertTableHandle>(
+            kHiveConnectorId,
+            makeHiveInsertTableHandle(
+                rowType->names(),
+                rowType->children(),
+                {},
+                nullptr,
+                makeLocationHandle(
+                    outputDirectoryPath,
+                    std::nullopt,
+                    connector::hive::LocationHandle::TableType::kNew),
+                dwio::common::FileFormat::DWRF,
+                common::CompressionKind::CompressionKind_NONE)),
+        false,
+        velox::connector::CommitStrategy::kNoCommit);
+    insertPlan.project({TableWriteTraits::rowCountColumnName()})
+        .singleAggregation(
+            {},
+            {fmt::format("sum({})", TableWriteTraits::rowCountColumnName())});
+    return insertPlan.planNode();
   }
 
   static inline FakeMemoryOperatorFactory* fakeOperatorFactory_;
@@ -2239,6 +2273,66 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, asyncArbitratonFromNonDriverContext) {
 
   task.reset();
   waitForAllTasksToBeDeleted();
+}
+
+DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrationFromTableWriter) {
+  setupMemory(kMemoryCapacity, 0);
+
+  VectorFuzzer::Options options;
+  const int batchSize = 1000;
+  options.vectorSize = batchSize;
+  VectorFuzzer fuzzer(options, pool());
+  const int numBatches = 10;
+  std::vector<RowVectorPtr> vectors;
+  int numRows{0};
+  for (int i = 0; i < numBatches; ++i) {
+    numRows += batchSize;
+    vectors.push_back(fuzzer.fuzzRow(rowType_));
+  }
+
+  createDuckDbTable(vectors);
+
+  std::shared_ptr<core::QueryCtx> queryCtx = newQueryCtx(kMemoryCapacity);
+  ASSERT_EQ(queryCtx->pool()->capacity(), 0);
+
+  std::atomic<bool> injectArbitrationOnce{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::memory::MemoryPoolImpl::reserveThreadSafe",
+      std::function<void(memory::MemoryPool*)>([&](memory::MemoryPool* pool) {
+        const std::string dictPoolRe(".*dictionary");
+        const std::string generalPoolRe(".*general");
+        const std::string compressionPoolRe(".*compression");
+        if (!RE2::FullMatch(pool->name(), dictPoolRe) &&
+            !RE2::FullMatch(pool->name(), generalPoolRe) &&
+            !RE2::FullMatch(pool->name(), compressionPoolRe)) {
+          return;
+        }
+        if (pool->currentBytes() == 0) {
+          return;
+        }
+        if (!injectArbitrationOnce.exchange(false)) {
+          return;
+        }
+        const auto fakeAllocationSize =
+            arbitrator_->stats().maxCapacityBytes - pool->currentBytes();
+        VELOX_ASSERT_THROW(
+            pool->allocate(fakeAllocationSize), "Exceeded memory pool");
+      }));
+
+  auto outputDirectory = TempDirectoryPath::create();
+  auto writerPlan = createInsertPlan(
+      PlanBuilder().values(vectors), rowType_, outputDirectory->path);
+
+  AssertQueryBuilder(duckDbQueryRunner_)
+      .queryCtx(queryCtx)
+      .spillDirectory(outputDirectory->path)
+      .config(core::QueryConfig::kSpillEnabled, "true")
+      .config(core::QueryConfig::kJoinSpillEnabled, "true")
+      .config(core::QueryConfig::kJoinSpillPartitionBits, "2")
+      .plan(std::move(writerPlan))
+      .assertResults(fmt::format("SELECT {}", numRows));
+
+  ASSERT_EQ(arbitrator_->stats().numFailures, 1);
 }
 
 TEST_F(SharedArbitrationTest, concurrentArbitration) {

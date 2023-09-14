@@ -226,6 +226,7 @@ class OperatorCtx {
       const std::string& connectorId,
       const std::string& planNodeId,
       memory::MemoryPool* connectorPool,
+      memory::SetMemoryReclaimer setMemoryReclaimer = nullptr,
       const common::SpillConfig* spillConfig = nullptr) const;
 
  private:
@@ -554,12 +555,13 @@ class Operator : public BaseRuntimeStatWriter {
     void abort(memory::MemoryPool* pool, const std::exception_ptr& /* error */)
         override;
 
-   private:
+   protected:
     MemoryReclaimer(const std::shared_ptr<Driver>& driver, Operator* op)
         : driver_(driver), op_(op) {
       VELOX_CHECK_NOT_NULL(op_);
     }
 
+   private:
     // Gets the shared pointer to the associated driver to ensure the liveness
     // of the operator during the memory reclaim operation.
     //

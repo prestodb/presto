@@ -44,6 +44,7 @@ TableWriter::TableWriter(
       insertTableHandle_(
           tableWriteNode->insertTableHandle()->connectorInsertTableHandle()),
       commitStrategy_(tableWriteNode->commitStrategy()) {
+  setConnectorOrWriterMemoryReclaimer(connectorPool_);
   if (tableWriteNode->outputType()->size() == 1) {
     VELOX_USER_CHECK_NULL(tableWriteNode->aggregationNode());
   } else {
@@ -61,6 +62,9 @@ TableWriter::TableWriter(
       connectorId,
       planNodeId(),
       connectorPool_,
+      [this](memory::MemoryPool* pool) {
+        setConnectorOrWriterMemoryReclaimer(pool);
+      },
       spillConfig_.has_value() ? &(spillConfig_.value()) : nullptr);
 
   auto names = tableWriteNode->columnNames();
@@ -247,6 +251,45 @@ void TableWriter::close() {
   if (aggregation_ != nullptr) {
     aggregation_->close();
   }
+}
+
+void TableWriter::setConnectorOrWriterMemoryReclaimer(
+    memory::MemoryPool* pool) {
+  VELOX_CHECK_NOT_NULL(pool);
+  if (operatorCtx_->pool()->reclaimer() != nullptr) {
+    pool->setReclaimer(
+        TableWriter::MemoryReclaimer::create(operatorCtx_->driverCtx(), this));
+  }
+}
+
+std::unique_ptr<memory::MemoryReclaimer> TableWriter::MemoryReclaimer::create(
+    DriverCtx* driverCtx,
+    Operator* op) {
+  return std::unique_ptr<memory::MemoryReclaimer>(
+      new TableWriter::MemoryReclaimer(
+          driverCtx->driver->shared_from_this(), op));
+}
+
+bool TableWriter::MemoryReclaimer::reclaimableBytes(
+    const memory::MemoryPool& pool,
+    uint64_t& reclaimableBytes) const {
+  VELOX_CHECK(!pool.isLeaf());
+  reclaimableBytes = 0;
+  return false;
+}
+
+uint64_t TableWriter::MemoryReclaimer::reclaim(
+    memory::MemoryPool* pool,
+    uint64_t /*unused*/) {
+  VELOX_CHECK(!pool->isLeaf());
+  return 0;
+}
+
+void TableWriter::MemoryReclaimer::abort(
+    memory::MemoryPool* pool,
+    const std::exception_ptr& /* error */) {
+  VELOX_CHECK(!pool->isLeaf());
+  return;
 }
 
 // static

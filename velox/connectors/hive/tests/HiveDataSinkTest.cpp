@@ -17,7 +17,6 @@
 #include <gtest/gtest.h>
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 
-#include <folly/Singleton.h>
 #include <folly/init/Init.h>
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
@@ -48,6 +47,7 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
     connectorQueryCtx_ = std::make_unique<connector::ConnectorQueryCtx>(
         opPool_.get(),
         connectorPool_.get(),
+        nullptr,
         connectorConfig_.get(),
         nullptr,
         nullptr,

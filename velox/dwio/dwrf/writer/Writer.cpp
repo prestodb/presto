@@ -65,13 +65,20 @@ Writer::Writer(
       !pool->isLeaf(),
       "Memory pool {} for DWRF writer can't be leaf",
       pool->name());
+  if (options.setMemoryReclaimer != nullptr) {
+    options.setMemoryReclaimer(pool.get());
+  }
   auto handler =
       (options.encryptionSpec ? encryption::EncryptionHandler::create(
                                     schema_,
                                     *options.encryptionSpec,
                                     options.encrypterFactory.get())
                               : nullptr);
-  writerBase_->initContext(options.config, std::move(pool), std::move(handler));
+  writerBase_->initContext(
+      options.config,
+      std::move(pool),
+      options.setMemoryReclaimer,
+      std::move(handler));
   auto& context = writerBase_->getContext();
   context.buildPhysicalSizeAggregators(*schema_);
   if (options.flushPolicyFactory == nullptr) {
@@ -543,6 +550,7 @@ dwrf::WriterOptions getDwrfOptions(const dwio::common::WriterOptions& options) {
   dwrfOptions.config = Config::fromMap(configs);
   dwrfOptions.schema = options.schema;
   dwrfOptions.memoryPool = options.memoryPool;
+  dwrfOptions.setMemoryReclaimer = options.setMemoryReclaimer;
   return dwrfOptions;
 }
 

@@ -41,46 +41,10 @@ class WriterContext : public CompressionBufferPool {
   WriterContext(
       const std::shared_ptr<const Config>& config,
       std::shared_ptr<memory::MemoryPool> pool,
+      const memory::SetMemoryReclaimer& setReclaimer = nullptr,
       const dwio::common::MetricsLogPtr& metricLogger =
           dwio::common::MetricsLog::voidLog(),
-      std::unique_ptr<encryption::EncryptionHandler> handler = nullptr)
-      : config_{config},
-        pool_{std::move(pool)},
-        dictionaryPool_{pool_->addLeafChild(".dictionary")},
-        outputStreamPool_{pool_->addLeafChild(".compression")},
-        generalPool_{pool_->addLeafChild(".general")},
-        indexEnabled_{getConfig(Config::CREATE_INDEX)},
-        indexStride_{getConfig(Config::ROW_INDEX_STRIDE)},
-        compression_{getConfig(Config::COMPRESSION)},
-        compressionBlockSize_{getConfig(Config::COMPRESSION_BLOCK_SIZE)},
-        shareFlatMapDictionaries_{getConfig(Config::MAP_FLAT_DICT_SHARE)},
-        stripeSizeFlushThreshold_{getConfig(Config::STRIPE_SIZE)},
-        dictionarySizeFlushThreshold_{getConfig(Config::MAX_DICTIONARY_SIZE)},
-        streamSizeAboveThresholdCheckEnabled_{
-            getConfig(Config::STREAM_SIZE_ABOVE_THRESHOLD_CHECK_ENABLED)},
-        rawDataSizePerBatch_{getConfig(Config::RAW_DATA_SIZE_PER_BATCH)},
-        // Currently logging with no metadata. Might consider populating
-        // metadata with dwio::common::request::AccessDescriptor upstream and
-        // pass down the metric log.
-        metricLogger_{metricLogger},
-        handler_{std::move(handler)} {
-    const bool forceLowMemoryMode{getConfig(Config::FORCE_LOW_MEMORY_MODE)};
-    const bool disableLowMemoryMode{getConfig(Config::DISABLE_LOW_MEMORY_MODE)};
-    VELOX_CHECK(!(forceLowMemoryMode && disableLowMemoryMode));
-    checkLowMemoryMode_ = !forceLowMemoryMode && !disableLowMemoryMode;
-    if (forceLowMemoryMode) {
-      setLowMemoryMode();
-    }
-    if (handler_ == nullptr) {
-      handler_ = std::make_unique<encryption::EncryptionHandler>();
-    }
-    validateConfigs();
-    VLOG(2) << fmt::format("Compression config: {}", compression_);
-    if (compression_ != common::CompressionKind_NONE) {
-      compressionBuffer_ = std::make_unique<dwio::common::DataBuffer<char>>(
-          *generalPool_, compressionBlockSize_ + PAGE_HEADER_SIZE);
-    }
-  }
+      std::unique_ptr<encryption::EncryptionHandler> handler = nullptr);
 
   bool hasStream(const DwrfStreamIdentifier& stream) const {
     return streams_.find(stream) != streams_.end();

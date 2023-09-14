@@ -56,6 +56,9 @@ class MemoryManager;
 
 constexpr int64_t kMaxMemory = std::numeric_limits<int64_t>::max();
 
+/// Sets the memory reclaimer to the provided memory pool.
+using SetMemoryReclaimer = std::function<void(MemoryPool*)>;
+
 /// This class provides the memory allocation interfaces for a query execution.
 /// Each query execution entity creates a dedicated memory pool object. The
 /// memory pool objects from a query are organized as a tree with four levels

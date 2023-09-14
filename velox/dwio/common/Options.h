@@ -623,7 +623,8 @@ class ReaderOptions {
 struct WriterOptions {
   TypePtr schema;
   velox::memory::MemoryPool* memoryPool;
-  std::optional<velox::common::CompressionKind> compressionKind = {};
+  velox::memory::SetMemoryReclaimer setMemoryReclaimer{nullptr};
+  std::optional<velox::common::CompressionKind> compressionKind;
 };
 
 } // namespace common

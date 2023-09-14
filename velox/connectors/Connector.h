@@ -227,6 +227,7 @@ class ConnectorQueryCtx {
   ConnectorQueryCtx(
       memory::MemoryPool* operatorPool,
       memory::MemoryPool* connectorPool,
+      memory::SetMemoryReclaimer setMemoryReclaimer,
       const Config* connectorConfig,
       const common::SpillConfig* spillConfig,
       std::unique_ptr<core::ExpressionEvaluator> expressionEvaluator,
@@ -237,6 +238,7 @@ class ConnectorQueryCtx {
       int driverId)
       : operatorPool_(operatorPool),
         connectorPool_(connectorPool),
+        setMemoryReclaimer_(std::move(setMemoryReclaimer)),
         config_(connectorConfig),
         spillConfig_(spillConfig),
         expressionEvaluator_(std::move(expressionEvaluator)),
@@ -262,7 +264,14 @@ class ConnectorQueryCtx {
     return connectorPool_;
   }
 
-  const Config* FOLLY_NONNULL config() const {
+  /// Returns the callback to set memory pool reclaimer if set. This is used by
+  /// file writer to set memory reclaimer for its internal used memory pools to
+  /// integrate with memory arbitration.
+  const memory::SetMemoryReclaimer& setMemoryReclaimer() const {
+    return setMemoryReclaimer_;
+  }
+
+  const Config* config() const {
     return config_;
   }
 
@@ -303,9 +312,10 @@ class ConnectorQueryCtx {
   }
 
  private:
-  memory::MemoryPool* operatorPool_;
-  memory::MemoryPool* connectorPool_;
-  const Config* FOLLY_NONNULL config_;
+  memory::MemoryPool* const operatorPool_;
+  memory::MemoryPool* const connectorPool_;
+  const memory::SetMemoryReclaimer setMemoryReclaimer_;
+  const Config* config_;
   const common::SpillConfig* const spillConfig_;
   std::unique_ptr<core::ExpressionEvaluator> expressionEvaluator_;
   cache::AsyncDataCache* cache_;
@@ -345,7 +355,7 @@ class Connector {
       const std::unordered_map<
           std::string,
           std::shared_ptr<connector::ColumnHandle>>& columnHandles,
-      ConnectorQueryCtx* FOLLY_NONNULL connectorQueryCtx) = 0;
+      ConnectorQueryCtx* connectorQueryCtx) = 0;
 
   // Returns true if addSplit of DataSource can use 'dataSource' from
   // ConnectorSplit in addSplit(). If so, TableScan can preload splits
@@ -374,7 +384,7 @@ class Connector {
   }
 
  private:
-  static void unregisterTracker(cache::ScanTracker* FOLLY_NONNULL tracker);
+  static void unregisterTracker(cache::ScanTracker* tracker);
 
   const std::string id_;
 
@@ -387,7 +397,7 @@ class Connector {
 
 class ConnectorFactory {
  public:
-  explicit ConnectorFactory(const char* FOLLY_NONNULL name) : name_(name) {}
+  explicit ConnectorFactory(const char* name) : name_(name) {}
 
   virtual ~ConnectorFactory() = default;
 
