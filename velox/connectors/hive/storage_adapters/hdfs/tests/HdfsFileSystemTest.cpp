@@ -126,7 +126,9 @@ void checkReadErrorMessages(
   }
 }
 
-void verifyFailures(ReadFile* readFile) {
+void verifyFailures(hdfsFS hdfs) {
+  HdfsReadFile readFile(hdfs, destinationPath);
+  HdfsReadFile readFile2(hdfs, destinationPath);
   auto startPoint = 10 + kOneMB;
   auto size = 15 + kOneMB;
   auto endpoint = 10 + 2 * kOneMB;
@@ -150,9 +152,9 @@ void verifyFailures(ReadFile* readFile) {
            "HdfsNetworkConnectException: Connect to \"%s\" failed") %
        serverAddress % serverAddress % serverAddress)
           .str();
-  checkReadErrorMessages(readFile, offsetErrorMessage, kOneMB);
+  checkReadErrorMessages(&readFile, offsetErrorMessage, kOneMB);
   HdfsFileSystemTest::miniCluster->stop();
-  checkReadErrorMessages(readFile, readFailErrorMessage, 1);
+  checkReadErrorMessages(&readFile2, readFailErrorMessage, 1);
   try {
     auto memConfig =
         std::make_shared<const core::MemConfig>(configurationValues);
@@ -432,6 +434,5 @@ TEST_F(HdfsFileSystemTest, readFailures) {
   hdfsBuilderSetNameNode(builder, localhost.c_str());
   hdfsBuilderSetNameNodePort(builder, stoi(hdfsPort));
   auto hdfs = hdfsBuilderConnect(builder);
-  HdfsReadFile readFile(hdfs, destinationPath);
-  verifyFailures(&readFile);
+  verifyFailures(hdfs);
 }
