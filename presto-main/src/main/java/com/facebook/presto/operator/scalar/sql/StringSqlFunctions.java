@@ -32,4 +32,13 @@ public class StringSqlFunctions
     {
         return "RETURN IF(replace IS NULL, NULL, IF(STRPOS(str, search) = 0, str, SUBSTR(str, 1, STRPOS(str, search) - 1) || replace || SUBSTR(str, STRPOS(str, search) + LENGTH(search))))";
     }
+
+    @SqlInvokedScalarFunction(value = "trail", deterministic = true, calledOnNullInput = true)
+    @Description("Returns the last N characters of the input string.")
+    @SqlParameters({@SqlParameter(name = "str", type = "varchar"), @SqlParameter(name = "N", type = "int")})
+    @SqlType("varchar")
+    public static String trail()
+    {
+        return "RETURN REVERSE(SUBSTR(REVERSE(str), 1, N))";
+    }
 }

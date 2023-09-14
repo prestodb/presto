@@ -208,6 +208,10 @@ String Functions
     position ``start``. Positions start with ``1``. A negative starting
     position is interpreted as being relative to the end of the string.
 
+.. function:: trail(string, N) -> varchar
+
+    Returns the last N characters of the input string.
+
 .. function:: trim(string) -> varchar
 
     Removes leading and trailing whitespace from ``string``.
@@ -277,4 +281,3 @@ Unicode Functions
 
     Generates a double value between 0.0 and 1.0 based on the hash of the given ``varchar``.
     This function is useful for deterministic sampling of data.
-
