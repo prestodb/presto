@@ -111,6 +111,8 @@ class VectorLoader {
 // top-level vector.
 class LazyVector : public BaseVector {
  public:
+  static constexpr const char* kCpuNanos = "dataSourceLazyCpuNanos";
+  static constexpr const char* kWallNanos = "dataSourceLazyWallNanos";
   LazyVector(
       velox::memory::MemoryPool* pool,
       TypePtr type,

@@ -329,6 +329,52 @@ void Driver::enqueueInternal() {
         e.what());                                                      \
   }
 
+CpuWallTiming Driver::processLazyTiming(
+    Operator& op,
+    const CpuWallTiming& timing) {
+  if (&op == operators_[0].get()) {
+    return timing;
+  }
+  auto lockStats = op.stats().wlock();
+  uint64_t cpuDelta = 0;
+  uint64_t wallDelta = 0;
+  auto it = lockStats->runtimeStats.find(LazyVector::kCpuNanos);
+  if (it != lockStats->runtimeStats.end()) {
+    auto cpu = it->second.sum;
+    cpuDelta = cpu >= lockStats->lastLazyCpuNanos
+        ? cpu - lockStats->lastLazyCpuNanos
+        : 0;
+    if (cpuDelta == 0) {
+      // return early if no change. Checking one counter is enough. If
+      // this did not change and the other did, the change would be
+      // insignificant and tracking would catch up when this counter next
+      // changed.
+      return timing;
+    }
+    lockStats->lastLazyCpuNanos = cpu;
+  } else {
+    // Return early if no lazy activity. Lazy CPU and wall times are recorded
+    // together, checking one is enough.
+    return timing;
+  }
+  it = lockStats->runtimeStats.find(LazyVector::kWallNanos);
+  if (it != lockStats->runtimeStats.end()) {
+    auto wall = it->second.sum;
+    wallDelta = wall >= lockStats->lastLazyWallNanos
+        ? wall - lockStats->lastLazyWallNanos
+        : 0;
+    if (wallDelta > 0) {
+      lockStats->lastLazyWallNanos = wall;
+    }
+  }
+  operators_[0]->stats().wlock()->getOutputTiming.add(
+      CpuWallTiming{1, wallDelta, cpuDelta});
+  return CpuWallTiming{
+      1,
+      timing.wallNanos >= wallDelta ? timing.wallNanos - wallDelta : 0,
+      timing.cpuNanos >= cpuDelta ? timing.cpuNanos - cpuDelta : 0};
+}
+
 StopReason Driver::runInternal(
     std::shared_ptr<Driver>& self,
     std::shared_ptr<BlockingState>& blockingState,
@@ -434,7 +480,8 @@ StopReason Driver::runInternal(
             RowVectorPtr result;
             {
               auto timer = createDeltaCpuWallTimer(
-                  [op](const CpuWallTiming& deltaTiming) {
+                  [op, this](const CpuWallTiming& deltaTiming) {
+                    processLazyTiming(*op, deltaTiming);
                     op->stats().wlock()->getOutputTiming.add(deltaTiming);
                   });
               RuntimeStatWriterScopeGuard statsWriterGuard(op);
@@ -455,8 +502,9 @@ StopReason Driver::runInternal(
             pushdownFilters(i);
             if (result) {
               auto timer = createDeltaCpuWallTimer(
-                  [nextOp](const CpuWallTiming& timing) {
-                    nextOp->stats().wlock()->addInputTiming.add(timing);
+                  [nextOp, this](const CpuWallTiming& timing) {
+                    auto selfDelta = processLazyTiming(*nextOp, timing);
+                    nextOp->stats().wlock()->addInputTiming.add(selfDelta);
                   });
               {
                 auto lockedStats = nextOp->stats().wlock();
@@ -495,8 +543,9 @@ StopReason Driver::runInternal(
               }
               RuntimeStatWriterScopeGuard statsWriterGuard(op);
               if (op->isFinished()) {
-                auto timer =
-                    createDeltaCpuWallTimer([op](const CpuWallTiming& timing) {
+                auto timer = createDeltaCpuWallTimer(
+                    [op, this](const CpuWallTiming& timing) {
+                      processLazyTiming(*op, timing);
                       op->stats().wlock()->finishTiming.add(timing);
                     });
                 RuntimeStatWriterScopeGuard statsWriterGuard(nextOp);
@@ -514,9 +563,10 @@ StopReason Driver::runInternal(
           // this will be detected when trying to add input, and we
           // will come back here after this is again on thread.
           {
-            auto timer =
-                createDeltaCpuWallTimer([op](const CpuWallTiming& timing) {
-                  op->stats().wlock()->getOutputTiming.add(timing);
+            auto timer = createDeltaCpuWallTimer(
+                [op, this](const CpuWallTiming& timing) {
+                  auto selfDelta = processLazyTiming(*op, timing);
+                  op->stats().wlock()->getOutputTiming.add(selfDelta);
                 });
             CALL_OPERATOR(result = op->getOutput(), op, "getOutput");
             if (result) {
