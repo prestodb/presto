@@ -80,6 +80,7 @@ add_executable(
   SplitTest.cpp
   SplitToMapTest.cpp
   StringFunctionsTest.cpp
+  TimestampWithTimeZoneCastTest.cpp
   TransformTest.cpp
   TransformKeysTest.cpp
   TransformValuesTest.cpp

@@ -15,10 +15,42 @@
  */
 #pragma once
 
+#include "velox/expression/CastExpr.h"
 #include "velox/type/Type.h"
 #include "velox/vector/VectorTypeUtils.h"
 
 namespace facebook::velox {
+
+class TimestampWithTimeZoneCastOperator : public exec::CastOperator {
+ public:
+  static const std::shared_ptr<const CastOperator>& get() {
+    static const std::shared_ptr<const CastOperator> instance{
+        new TimestampWithTimeZoneCastOperator()};
+
+    return instance;
+  }
+
+  bool isSupportedFromType(const TypePtr& other) const override;
+
+  bool isSupportedToType(const TypePtr& other) const override;
+
+  void castTo(
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const SelectivityVector& rows,
+      const TypePtr& resultType,
+      VectorPtr& result) const override;
+
+  void castFrom(
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const SelectivityVector& rows,
+      const TypePtr& resultType,
+      VectorPtr& result) const override;
+
+ private:
+  TimestampWithTimeZoneCastOperator() = default;
+};
 
 /// Represents timestamp with time zone as a number of milliseconds since epoch
 /// and time zone ID.
@@ -87,9 +119,7 @@ class TimestampWithTimeZoneTypeFactories : public CustomTypeFactories {
 
   // Type casting from and to TimestampWithTimezone is not supported yet.
   exec::CastOperatorPtr getCastOperator() const override {
-    VELOX_NYI(
-        "Casting of {} is not implemented yet.",
-        TIMESTAMP_WITH_TIME_ZONE()->toString());
+    return TimestampWithTimeZoneCastOperator::get();
   }
 };
 

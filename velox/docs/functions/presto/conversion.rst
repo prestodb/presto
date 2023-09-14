@@ -30,7 +30,7 @@ are supported if the conversion of their element types are supported. In additio
 supported conversions to/from JSON are listed in :doc:`json`.
 
 .. list-table::
-   :widths: 25 25 25 25 25 25 25 25 25 25 25 25
+   :widths: 25 25 25 25 25 25 25 25 25 25 25 25 25
    :header-rows: 1
 
    * -
@@ -43,6 +43,7 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - double
      - varchar
      - timestamp
+     - timestamp with time zone
      - date
      - decimal
    * - tinyint
@@ -54,6 +55,7 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - Y
      - Y
      - Y
+     -
      -
      -
      - Y
@@ -68,6 +70,7 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - Y
      -
      -
+     -
      - Y
    * - integer
      - Y
@@ -80,6 +83,7 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - Y
      -
      -
+     -
      - Y
    * - bigint
      - Y
@@ -90,6 +94,7 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - Y
      - Y
      - Y
+     -
      -
      -
      - Y
@@ -105,6 +110,7 @@ supported conversions to/from JSON are listed in :doc:`json`.
      -
      -
      -
+     -
    * - real
      - Y
      - Y
@@ -114,6 +120,7 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - Y
      - Y
      - Y
+     -
      -
      -
      -
@@ -129,6 +136,7 @@ supported conversions to/from JSON are listed in :doc:`json`.
      -
      -
      -
+     -
    * - varchar
      - Y
      - Y
@@ -139,6 +147,7 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - Y
      - Y
      - Y
+     -
      - Y
      -
    * - timestamp
@@ -150,8 +159,22 @@ supported conversions to/from JSON are listed in :doc:`json`.
      -
      -
      - Y
+     - Y
+     - Y
+     - Y
+     -
+   * - timestamp with time zone
+     -
+     -
+     -
+     -
+     -
+     -
+     -
      -
      - Y
+     - Y
+     -
      -
    * - date
      -
@@ -165,6 +188,7 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - Y
      -
      -
+     -
    * - decimal
      - Y
      - Y
@@ -173,6 +197,7 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - Y
      - Y
      - Y
+     -
      -
      -
      -
@@ -458,7 +483,7 @@ Valid examples
   SELECT cast(true as varchar); -- 'true'
   SELECT cast(timestamp '1970-01-01 00:00:00' as varchar); -- '1970-01-01T00:00:00.000'
 
-Cast to Timestamp
+Cast to TIMESTAMP
 -----------------
 
 From strings
@@ -495,6 +520,62 @@ Valid examples
   SELECT cast(date '1970-01-01' as timestamp); -- 1970-01-01 00:00:00
   SELECT cast(date '2012-03-09' as timestamp); -- 2012-03-09 00:00:00
 
+From TIMESTAMP WITH TIME ZONE
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The results depend on whether configuration property `adjust_timestamp_to_session_timezone` is set or not.
+
+If set to true, input timezone is ignored and timestamp is returned as is. For example,
+"1970-01-01 00:00:00.000 America/Los_Angeles" becomes "1970-01-01 00:00:00.000".
+
+Otherwise, timestamp is shifted by the offset of the timezone. For example,
+"1970-01-01 00:00:00.000 America/Los_Angeles" becomes "1969-12-31 16:00:00.000".
+
+Valid examples
+
+::
+
+  -- `adjust_timestamp_to_session_timezone` is true
+  SELECT cast(timestamp '1970-01-01 00:00:00 America/Los_Angeles' as timestamp); -- 1970-01-01 00:00:00.000
+  SELECT cast(timestamp '2012-03-09 10:00:00 Asia/Chongqing' as timestamp); -- 2012-03-09 10:00:00.000
+  SELECT cast(from_unixtime(0, '+06:00') as timestamp); -- 1970-01-01 00:00:00.000
+  SELECT cast(from_unixtime(0, '-02:00') as timestamp); -- 1970-01-01 00:00:00.000
+
+  -- `adjust_timestamp_to_session_timezone` is false
+  SELECT cast(timestamp '1970-01-01 00:00:00 America/Los_Angeles' as timestamp); -- 1969-12-31 16:00:00.000
+  SELECT cast(timestamp '2012-03-09 10:00:00 Asia/Chongqing' as timestamp); -- 2012-03-09 18:00:00.000
+  SELECT cast(from_unixtime(0, '+06:00') as timestamp); -- 1970-01-01 06:00:00.000
+  SELECT cast(from_unixtime(0, '-02:00') as timestamp); -- 1969-12-31 22:00:00.000
+
+Cast to TIMESTAMP WITH TIME ZONE
+--------------------------------
+
+From TIMESTAMP
+^^^^^^^^^^^^^^
+
+The results depend on whether configuration property `adjust_timestamp_to_session_timezone` is set or not.
+
+If set to true, the output is adjusted to be equivalent as the input timestamp in UTC
+based on the user provided `session_timezone` (if any). For example, when user supplies
+"America/Los_Angeles" "1970-01-01 00:00:00.000" becomes "1969-12-31 16:00:00.000 America/Los_Angeles".
+
+Otherwise, the user provided `session_timezone` (if any) is simply appended to the input
+timestamp. For example, "1970-01-01 00:00:00.000" becomes "1970-01-01 00:00:00.000 America/Los_Angeles".
+
+Valid examples
+
+::
+
+  -- `adjust_timestamp_to_session_timezone` is true
+  SELECT cast(timestamp '1970-01-01 00:00:00' as timestamp with time zone); -- 1969-12-31 16:00:00.000 America/Los_Angeles
+  SELECT cast(timestamp '2012-03-09 10:00:00' as timestamp with time zone); -- 2012-03-09 02:00:00.000 America/Los_Angeles
+  SELECT cast(from_unixtime(0) as timestamp with time zone); -- 1969-12-31 16:00:00.000 America/Los_Angeles
+
+  -- `adjust_timestamp_to_session_timezone` is false
+  SELECT cast(timestamp '1970-01-01 00:00:00' as timestamp with time zone); -- 1970-01-01 00:00:00.000 America/Los_Angeles
+  SELECT cast(timestamp '2012-03-09 10:00:00' as timestamp with time zone); -- 2012-03-09 10:00:00.000 America/Los_Angeles
+  SELECT cast(from_unixtime(0) as timestamp with time zone); -- 1970-01-01 00:00:00.000 America/Los_Angeles
+
 Cast to Date
 ------------
 
@@ -516,7 +597,7 @@ Invalid example
 
   SELECT cast('2012-Oct-23' as date); -- Invalid argument
 
-From timestamp
+From TIMESTAMP
 ^^^^^^^^^^^^^^
 
 Casting from timestamp to date is allowed. If present, the part of `hh:mm:ss`
