@@ -91,7 +91,9 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
   /// once it received enough data.
   virtual void close() = 0;
 
-  /// Returns runtime statistics.
+  // Returns runtime statistics. ExchangeSource is expected to report
+  // background CPU time by including a runtime metric named
+  // ExchangeClient::kBackgroundCpuTimeMs.
   virtual folly::F14FastMap<std::string, int64_t> stats() const = 0;
 
   virtual std::string toString() {

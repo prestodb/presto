@@ -158,6 +158,7 @@ class LocalExchangeSource : public exec::ExchangeSource {
     return {
         {"localExchangeSource.numPages", numPages_},
         {"localExchangeSource.totalBytes", totalBytes_},
+        {ExchangeClient::kBackgroundCpuTimeMs, 123},
     };
   }
 

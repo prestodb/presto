@@ -124,6 +124,11 @@ struct OperatorStats {
 
   CpuWallTiming finishTiming;
 
+  // CPU time spent on background activities (activities that are not
+  // running on driver threads). Operators are responsible to report background
+  // CPU time at a reasonable time granularity.
+  CpuWallTiming backgroundTiming;
+
   MemoryStats memoryStats;
 
   // Total bytes in memory for spilling

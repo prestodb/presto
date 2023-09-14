@@ -1074,6 +1074,7 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
     EXPECT_EQ(3 * i, operatorStats.outputPositions);
     EXPECT_EQ(i, operatorStats.outputVectors);
     EXPECT_EQ(0, operatorStats.finishTiming.count);
+    EXPECT_EQ(0, operatorStats.backgroundTiming.count);
 
     EXPECT_EQ(1, liveStats[i].numTotalDrivers);
     EXPECT_EQ(0, liveStats[i].numCompletedDrivers);
@@ -1094,6 +1095,8 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
   EXPECT_EQ(3 * numBatches, operatorStats.outputPositions);
   EXPECT_EQ(numBatches, operatorStats.outputVectors);
   EXPECT_EQ(1, operatorStats.finishTiming.count);
+  // No operators with background CPU time yet.
+  EXPECT_EQ(0, operatorStats.backgroundTiming.count);
 }
 
 TEST_F(TaskTest, outputBufferSize) {
