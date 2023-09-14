@@ -606,7 +606,12 @@ public abstract class IcebergAbstractMetadata
                 builder.setColumnStatistics(ch, colBuilder.build());
             });
         });
-        statsCache.put((IcebergTableHandle) tableHandle, builder.build());
+        if (useSampleForAnalyze) {
+            statsCache.put((IcebergTableHandle) getTableHandle(session, ((IcebergTableHandle) tableHandle).getSchemaTableName()), builder.build());
+        }
+        else {
+            statsCache.put((IcebergTableHandle) tableHandle, builder.build());
+        }
     }
 
     private static Optional<DoubleRange> createRange(com.facebook.presto.common.type.Type type, HiveColumnStatistics statistics)

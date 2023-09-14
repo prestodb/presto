@@ -393,7 +393,12 @@ public final class Statistics
                 Type ndvEstimatorOutputType = RowType.from(Arrays.asList(
                         new RowType.Field(Optional.of("ndv"), BIGINT), new RowType.Field(Optional.of("errorBound"), DOUBLE)));
                 Block ndvRowBlock = (Block) ndvEstimatorOutputType.getObject(ndvBlock, 0);
-                result.setDistinctValuesCount(ndvRowBlock.getLong(0));
+                if (ndvRowBlock.getLong(0) == -1) {
+                    result.setDistinctValuesCount(rowCount);
+                }
+                else {
+                    result.setDistinctValuesCount(ndvRowBlock.getLong(0));
+                }
             }
             else {
                 numberOfDistinctValues = BIGINT.getLong(ndvBlock, 0);

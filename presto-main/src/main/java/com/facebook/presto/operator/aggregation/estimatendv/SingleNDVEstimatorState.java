@@ -20,7 +20,6 @@ import com.facebook.presto.operator.aggregation.histogram.SingleTypedHistogram;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.LongStream;
 
 public class SingleNDVEstimatorState
         extends SingleHistogramState
@@ -63,17 +62,18 @@ public class SingleNDVEstimatorState
     private long computeBirthdayProblemProbability(long d)
     {
         long i = d;
-        long lowerBound;
-        while (true) {
-            lowerBound = d + i;
-            long finalLowerBound = lowerBound;
-            double multiplied = LongStream.range(0, d).mapToDouble(j -> (double) (finalLowerBound - j) / finalLowerBound).reduce(1, (x, y) -> x * y);
+        while (true) {  // try different lower bounds
+            long lowerBound = d + i;
+            double multiplied = 1;
+            for (int j = 0; j < d; j++) {
+                multiplied *= (double) (lowerBound - j) / lowerBound;
+            }
             if (multiplied > LOWER_BOUND_PROBABILITY) {
                 break;
             }
-            i += 1;
+            i++;
         }
-        return lowerBound;
+        return d + i;
     }
 
     /**
@@ -98,7 +98,7 @@ public class SingleNDVEstimatorState
             totalValues += key * freqDict.get(key);
         }
         if (distinctValues == totalValues) {
-            return new Object[] {computeBirthdayProblemProbability(distinctValues)};
+            return new Object[] {-1L};
         }
         // if 1 not in freqDict
         if (!freqDict.containsKey(1L)) {
