@@ -350,6 +350,11 @@ class DwrfReader : public dwio::common::Reader {
       const dwio::common::ReaderOptions& options);
 
  private:
+  // Ensures that files column names match the ones from the table schema using
+  // column indices.
+  void updateColumnNamesFromTableSchema();
+
+ private:
   std::shared_ptr<ReaderBase> readerBase_;
   const dwio::common::ReaderOptions options_;
 

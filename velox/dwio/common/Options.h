@@ -390,7 +390,8 @@ class ReaderOptions {
   std::shared_ptr<encryption::DecrypterFactory> decrypterFactory_;
   uint64_t directorySizeGuess{kDefaultDirectorySizeGuess};
   uint64_t filePreloadThreshold{kDefaultFilePreloadThreshold};
-  bool fileColumnNamesReadAsLowerCase = false;
+  bool fileColumnNamesReadAsLowerCase{false};
+  bool useColumnNamesForColumnMapping_{false};
 
  public:
   static constexpr int32_t kDefaultLoadQuantum = 8 << 20; // 8MB
@@ -406,10 +407,7 @@ class ReaderOptions {
         fileFormat(FileFormat::UNKNOWN),
         fileSchema(nullptr),
         autoPreloadLength(DEFAULT_AUTO_PRELOAD_SIZE),
-        prefetchMode(PrefetchMode::PREFETCH),
-        fileColumnNamesReadAsLowerCase(false) {
-    // PASS
-  }
+        prefetchMode(PrefetchMode::PREFETCH) {}
 
   ReaderOptions& operator=(const ReaderOptions& other) {
     tailLocation = other.tailLocation;
@@ -427,6 +425,7 @@ class ReaderOptions {
     directorySizeGuess = other.directorySizeGuess;
     filePreloadThreshold = other.filePreloadThreshold;
     fileColumnNamesReadAsLowerCase = other.fileColumnNamesReadAsLowerCase;
+    useColumnNamesForColumnMapping_ = other.useColumnNamesForColumnMapping_;
     maxCoalesceDistance_ = other.maxCoalesceDistance_;
     maxCoalesceBytes_ = other.maxCoalesceBytes_;
     return *this;
@@ -458,13 +457,8 @@ class ReaderOptions {
    * For "dwrf" format, a default schema is derived from the file.
    * For "rc" format, there is no default schema.
    */
-  ReaderOptions& setFileSchema(
-      const std::shared_ptr<const velox::RowType>& schema) {
-    if (schema != nullptr) {
-      fileSchema = schema;
-    } else {
-      fileSchema = nullptr;
-    }
+  ReaderOptions& setFileSchema(const RowTypePtr& schema) {
+    fileSchema = schema;
     return *this;
   }
 
@@ -539,9 +533,13 @@ class ReaderOptions {
     return *this;
   }
 
-  ReaderOptions& setFileColumnNamesReadAsLowerCase(
-      bool fileColumnNamesReadAsLowerCaseMode) {
-    fileColumnNamesReadAsLowerCase = fileColumnNamesReadAsLowerCaseMode;
+  ReaderOptions& setFileColumnNamesReadAsLowerCase(bool flag) {
+    fileColumnNamesReadAsLowerCase = flag;
+    return *this;
+  }
+
+  ReaderOptions& setUseColumnNamesForColumnMapping(bool flag) {
+    useColumnNamesForColumnMapping_ = flag;
     return *this;
   }
 
@@ -617,6 +615,10 @@ class ReaderOptions {
 
   bool isFileColumnNamesReadAsLowerCase() const {
     return fileColumnNamesReadAsLowerCase;
+  }
+
+  bool isUseColumnNamesForColumnMapping() const {
+    return useColumnNamesForColumnMapping_;
   }
 };
 

@@ -778,6 +778,11 @@ class ArrayType : public TypeBase<TypeKind::ARRAY> {
  public:
   explicit ArrayType(std::shared_ptr<const Type> child);
 
+  explicit ArrayType(
+      std::vector<std::string>&& /*names*/,
+      std::vector<std::shared_ptr<const Type>>&& types)
+      : ArrayType(types[0]) {}
+
   const std::shared_ptr<const Type>& elementType() const {
     return child_;
   }
@@ -786,7 +791,19 @@ class ArrayType : public TypeBase<TypeKind::ARRAY> {
     return 1;
   }
 
+  std::vector<std::shared_ptr<const Type>> children() const {
+    return {child_};
+  }
+
+  std::vector<std::string> names() const {
+    return {"element"};
+  }
+
   const std::shared_ptr<const Type>& childAt(uint32_t idx) const override;
+
+  const char* nameOf(uint32_t idx) const {
+    return idx == 0 ? "element" : "<invalid>";
+  }
 
   std::string toString() const override;
 
@@ -809,6 +826,11 @@ class MapType : public TypeBase<TypeKind::MAP> {
       std::shared_ptr<const Type> keyType,
       std::shared_ptr<const Type> valueType);
 
+  explicit MapType(
+      std::vector<std::string>&& /*names*/,
+      std::vector<std::shared_ptr<const Type>>&& types)
+      : MapType(types[0], types[1]) {}
+
   const std::shared_ptr<const Type>& keyType() const {
     return keyType_;
   }
@@ -821,9 +843,21 @@ class MapType : public TypeBase<TypeKind::MAP> {
     return 2;
   }
 
+  std::vector<std::shared_ptr<const Type>> children() const {
+    return {keyType_, valueType_};
+  }
+
+  std::vector<std::string> names() const {
+    return {"key", "value"};
+  }
+
   std::string toString() const override;
 
   const std::shared_ptr<const Type>& childAt(uint32_t idx) const override;
+
+  const char* nameOf(uint32_t idx) const {
+    return idx == 0 ? "key" : idx == 1 ? "value" : "<invalid>";
+  }
 
   bool equivalent(const Type& other) const override;
 

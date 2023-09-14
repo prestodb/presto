@@ -119,8 +119,12 @@ class ReaderBase {
     return *footer_;
   }
 
-  const std::shared_ptr<const RowType>& getSchema() const {
+  const RowTypePtr& getSchema() const {
     return schema_;
+  }
+
+  void setSchema(RowTypePtr& newSchema) {
+    schema_ = newSchema;
   }
 
   const std::shared_ptr<const dwio::common::TypeWithId>& getSchemaWithId()

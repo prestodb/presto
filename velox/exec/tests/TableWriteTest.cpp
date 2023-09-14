@@ -739,16 +739,16 @@ class TableWriteTest : public HiveConnectorTestBase {
   }
 
   // Gets the hash function used by the production code to build bucket id.
-  std::unique_ptr<core::PartitionFunction> getBucketFunction() {
+  std::unique_ptr<core::PartitionFunction> getBucketFunction(
+      const RowTypePtr& outputType) {
     const auto& bucketedBy = bucketProperty_->bucketedBy();
     std::vector<column_index_t> bucketedByChannels;
     bucketedByChannels.reserve(bucketedBy.size());
-    for (int32_t i = 0; i < bucketedBy.size(); ++i) {
+    for (auto i = 0; i < bucketedBy.size(); ++i) {
       const auto& bucketColumn = bucketedBy[i];
-      for (column_index_t columnChannel = 0;
-           columnChannel < tableSchema_->size();
+      for (column_index_t columnChannel = 0; columnChannel < outputType->size();
            ++columnChannel) {
-        if (tableSchema_->nameOf(columnChannel) == bucketColumn) {
+        if (outputType->nameOf(columnChannel) == bucketColumn) {
           bucketedByChannels.push_back(columnChannel);
           break;
         }
@@ -762,13 +762,15 @@ class TableWriteTest : public HiveConnectorTestBase {
 
   // Verifies the bucketed file data by checking if the bucket id of each read
   // row is the same as the one encoded in the corresponding bucketed file name.
-  void verifyBucketedFileData(const std::filesystem::path& filePath) {
+  void verifyBucketedFileData(
+      const std::filesystem::path& filePath,
+      const RowTypePtr& outputFileType) {
     const std::vector<std::filesystem::path> filePaths = {filePath};
 
     // Read data from bucketed file on disk into 'rowVector'.
     core::PlanNodeId scanNodeId;
     auto plan = PlanBuilder()
-                    .tableScan(tableSchema_, {}, "", tableSchema_)
+                    .tableScan(outputFileType, {}, "", outputFileType)
                     .capturePlanNodeId(scanNodeId)
                     .planNode();
     const auto resultVector =
@@ -783,7 +785,7 @@ class TableWriteTest : public HiveConnectorTestBase {
     // Compute the bucket id from read result by applying hash partition on
     // bucketed columns in read result, and we expect they all match the one
     // encoded in file name.
-    auto bucketFunction = getBucketFunction();
+    auto bucketFunction = getBucketFunction(outputFileType);
     std::vector<uint32_t> bucketIds;
     bucketIds.reserve(resultVector->size());
     bucketFunction->partition(*resultVector, bucketIds);
@@ -818,6 +820,7 @@ class TableWriteTest : public HiveConnectorTestBase {
   // Verifies the file layout and data produced by a table writer.
   void verifyTableWriterOutput(
       const std::string& targetDir,
+      const RowTypePtr& bucketCheckFileType,
       bool verifyPartitionedData = true,
       bool verifyBucketedData = true) {
     SCOPED_TRACE(testParam_.toString());
@@ -837,7 +840,7 @@ class TableWriteTest : public HiveConnectorTestBase {
       return;
     }
     ASSERT_EQ(numPartitionKeyValues_.size(), 2);
-    const int32_t totalPartitions =
+    const auto totalPartitions =
         numPartitionKeyValues_[0] * numPartitionKeyValues_[1];
     ASSERT_LE(dirPaths.size(), totalPartitions + numPartitionKeyValues_[0]);
     int32_t numLeafDir{0};
@@ -867,7 +870,7 @@ class TableWriteTest : public HiveConnectorTestBase {
           filePath);
       verifyBucketedFilePath(filePath, targetDir);
       if (verifyBucketedData) {
-        verifyBucketedFileData(filePath);
+        verifyBucketedFileData(filePath, bucketCheckFileType);
       }
     }
     if (verifyPartitionedData) {
@@ -1286,7 +1289,7 @@ TEST_P(AllTableWriterTest, scanFilterProjectWrite) {
       makeHiveConnectorSplits(outputDirectory),
       "SELECT c0, c1, c3, c5, c2 + c3, substr(c5, 1, 1) FROM tmp WHERE c2 <> 0");
 
-  verifyTableWriterOutput(outputDirectory->path, false);
+  verifyTableWriterOutput(outputDirectory->path, outputType, false);
 }
 
 TEST_P(AllTableWriterTest, renameAndReorderColumns) {
@@ -1340,7 +1343,7 @@ TEST_P(AllTableWriterTest, renameAndReorderColumns) {
       makeHiveConnectorSplits(outputDirectory),
       "SELECT c2, c5, c4, c1, c0, c3 FROM tmp");
 
-  verifyTableWriterOutput(outputDirectory->path, false);
+  verifyTableWriterOutput(outputDirectory->path, tableSchema_, false);
 }
 
 // Runs a pipeline with read + write.
@@ -1376,7 +1379,7 @@ TEST_P(AllTableWriterTest, directReadWrite) {
       makeHiveConnectorSplits(outputDirectory),
       "SELECT * FROM tmp");
 
-  verifyTableWriterOutput(outputDirectory->path);
+  verifyTableWriterOutput(outputDirectory->path, rowType_);
 }
 
 // Tests writing constant vectors.
@@ -1407,7 +1410,7 @@ TEST_P(AllTableWriterTest, constantVectors) {
       makeHiveConnectorSplits(outputDirectory),
       "SELECT * FROM tmp");
 
-  verifyTableWriterOutput(outputDirectory->path);
+  verifyTableWriterOutput(outputDirectory->path, rowType_);
 }
 
 TEST_P(AllTableWriterTest, emptyInput) {
@@ -1455,7 +1458,7 @@ TEST_P(AllTableWriterTest, commitStrategies) {
         PlanBuilder().tableScan(rowType_).planNode(),
         makeHiveConnectorSplits(outputDirectory),
         "SELECT * FROM tmp");
-    verifyTableWriterOutput(outputDirectory->path);
+    verifyTableWriterOutput(outputDirectory->path, rowType_);
   }
   // Test kNoCommit commit strategy writing to non-temporary files.
   {
@@ -1479,7 +1482,7 @@ TEST_P(AllTableWriterTest, commitStrategies) {
         PlanBuilder().tableScan(rowType_).planNode(),
         makeHiveConnectorSplits(outputDirectory),
         "SELECT * FROM tmp");
-    verifyTableWriterOutput(outputDirectory->path);
+    verifyTableWriterOutput(outputDirectory->path, rowType_);
   }
 }
 
@@ -2107,7 +2110,7 @@ TEST_P(BucketedTableOnlyWriteTest, bucketCountLimit) {
           PlanBuilder().tableScan(rowType_).planNode(),
           makeHiveConnectorSplits(outputDirectory),
           "SELECT * FROM tmp");
-      verifyTableWriterOutput(outputDirectory->path);
+      verifyTableWriterOutput(outputDirectory->path, rowType_);
     }
   }
 }

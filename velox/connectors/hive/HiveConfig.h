@@ -89,6 +89,9 @@ class HiveConfig {
   // The GCS service account configuration as json string
   static constexpr const char* kGCSCredentials = "hive.gcs.credentials";
 
+  // Map table field names to file field names using names, not indices.
+  static constexpr const char* kOrcUseColumnNames = "hive.orc.use-column-names";
+
   // Read the source file column name as lower case.
   static constexpr const char* kFileColumnNamesReadAsLowerCase =
       "file_column_names_read_as_lower_case";
@@ -133,6 +136,8 @@ class HiveConfig {
   static std::string gcsScheme(const Config* config);
 
   static std::string gcsCredentials(const Config* config);
+
+  static bool isOrcUseColumnNames(const Config* config);
 
   static bool isFileColumnNamesReadAsLowerCase(const Config* config);
 

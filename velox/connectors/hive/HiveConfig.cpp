@@ -141,6 +141,11 @@ std::string HiveConfig::gcsCredentials(const Config* config) {
 }
 
 // static.
+bool HiveConfig::isOrcUseColumnNames(const Config* config) {
+  return config->get<bool>(kOrcUseColumnNames, false);
+}
+
+// static.
 bool HiveConfig::isFileColumnNamesReadAsLowerCase(const Config* config) {
   return config->get<bool>(kFileColumnNamesReadAsLowerCase, false);
 }

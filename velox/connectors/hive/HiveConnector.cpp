@@ -83,6 +83,9 @@ std::unique_ptr<DataSource> HiveConnector::createDataSource(
   options.setFileColumnNamesReadAsLowerCase(
       HiveConfig::isFileColumnNamesReadAsLowerCase(
           connectorQueryCtx->config()));
+  options.setUseColumnNamesForColumnMapping(
+      HiveConfig::isOrcUseColumnNames(connectorQueryCtx->config()));
+
   return std::make_unique<HiveDataSource>(
       outputType,
       tableHandle,

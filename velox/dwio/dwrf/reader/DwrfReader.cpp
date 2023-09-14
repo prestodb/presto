@@ -730,7 +730,110 @@ DwrfReader::DwrfReader(
           options.getFileFormat() == FileFormat::ORC ? FileFormat::ORC
                                                      : FileFormat::DWRF,
           options.isFileColumnNamesReadAsLowerCase())),
-      options_(options) {}
+      options_(options) {
+  // If we are not using column names to map table columns to file columns, then
+  // we use indices. In that case we need to ensure the names completely match,
+  // because we are still mapping columns by names further down the code.
+  // So we rename column names in the file schema to match table schema.
+  // We test the options to have 'fileSchema' (actually table schema) as most of
+  // the unit tests fail to provide it.
+  if ((not options_.isUseColumnNamesForColumnMapping()) and
+      (options_.getFileSchema() != nullptr)) {
+    updateColumnNamesFromTableSchema();
+  }
+}
+
+namespace {
+void logTypeInequality(
+    const Type& fileType,
+    const Type& tableType,
+    const std::string& fileFieldName,
+    const std::string& tableFieldName) {
+  VLOG(1) << "Type of the File field '" << fileFieldName
+          << "' does not match the type of the Table field '" << tableFieldName
+          << "': [" << fileType.toString() << "] vs [" << tableType.toString()
+          << "]";
+}
+
+// Forward declaration for general type tree recursion function.
+TypePtr updateColumnNames(
+    const TypePtr& fileType,
+    const TypePtr& tableType,
+    const std::string& fileFieldName,
+    const std::string& tableFieldName);
+
+// Non-primitive type tree recursion function.
+template <typename T>
+TypePtr updateColumnNames(const TypePtr& fileType, const TypePtr& tableType) {
+  auto fileRowType = std::dynamic_pointer_cast<const T>(fileType);
+  auto tableRowType = std::dynamic_pointer_cast<const T>(tableType);
+
+  std::vector<std::string> newFileFieldNames{fileRowType->names()};
+  std::vector<TypePtr> newFileFieldTypes{fileRowType->children()};
+
+  for (auto childIdx = 0; childIdx < tableRowType->size(); ++childIdx) {
+    if (childIdx >= fileRowType->size()) {
+      break;
+    }
+
+    newFileFieldTypes[childIdx] = updateColumnNames(
+        fileRowType->childAt(childIdx),
+        tableRowType->childAt(childIdx),
+        fileRowType->nameOf(childIdx),
+        tableRowType->nameOf(childIdx));
+
+    newFileFieldNames[childIdx] = tableRowType->nameOf(childIdx);
+  }
+
+  return std::make_shared<const T>(
+      std::move(newFileFieldNames), std::move(newFileFieldTypes));
+}
+
+// General type tree recursion function.
+TypePtr updateColumnNames(
+    const TypePtr& fileType,
+    const TypePtr& tableType,
+    const std::string& fileFieldName,
+    const std::string& tableFieldName) {
+  // Check type equality.
+  if (fileType->kind() != tableType->kind()) {
+    logTypeInequality(*fileType, *tableType, fileFieldName, tableFieldName);
+  }
+
+  // For leaf types we return type as is.
+  if (fileType->isPrimitiveType()) {
+    return fileType;
+  }
+
+  std::vector<std::string> fileFieldNames{fileType->size()};
+  std::vector<TypePtr> fileFieldTypes{fileType->size()};
+
+  if (fileType->isRow()) {
+    return updateColumnNames<RowType>(fileType, tableType);
+  }
+
+  if (fileType->isMap()) {
+    return updateColumnNames<MapType>(fileType, tableType);
+  }
+
+  if (fileType->isArray()) {
+    return updateColumnNames<ArrayType>(fileType, tableType);
+  }
+
+  // We should not be here.
+  VLOG(1) << "Unexpected table type during column names update for File field '"
+          << fileFieldName << "': [" << fileType->toString() << "]";
+  return fileType;
+}
+} // namespace
+
+void DwrfReader::updateColumnNamesFromTableSchema() {
+  const auto& tableSchema = options_.getFileSchema();
+  const auto& fileSchema = readerBase_->getSchema();
+  auto newSchema = std::dynamic_pointer_cast<const RowType>(
+      updateColumnNames(fileSchema, tableSchema, "", ""));
+  readerBase_->setSchema(newSchema);
+}
 
 std::unique_ptr<StripeInformation> DwrfReader::getStripe(
     uint32_t stripeIndex) const {

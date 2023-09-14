@@ -17,6 +17,7 @@
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
+#include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/common/tests/utils/DataFiles.h"
@@ -3053,32 +3054,45 @@ TEST_F(TableScanTest, readMissingFieldsInArray) {
   }
 }
 
-// Tests queries that use that read more row fields than exist in the data in a
-// map.
+// Tests queries that read more row fields than exist in the data in a map and
+// array.
 TEST_F(TableScanTest, readMissingFieldsInMap) {
   vector_size_t size = 1'000;
-  auto rowVector = makeRowVector({
+  auto valuesVector = makeRowVector({
       makeFlatVector<int64_t>(size * 4, [](auto row) { return row; }),
-      makeFlatVector<int64_t>(size * 4, [](auto row) { return row; }),
+      makeFlatVector<int32_t>(size * 4, [](auto row) { return row; }),
   });
   auto keysVector =
       makeFlatVector<int64_t>(size * 4, [](auto row) { return row % 4; });
   std::vector<vector_size_t> offsets;
-  for (int i = 0; i < size; i++) {
+  for (auto i = 0; i < size; i++) {
     offsets.push_back(i * 4);
   }
-  auto mapVector = makeMapVector(offsets, keysVector, rowVector);
+  auto mapVector = makeMapVector(offsets, keysVector, valuesVector);
+  auto arrayVector = makeArrayVector(offsets, valuesVector);
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, {makeRowVector({mapVector})});
-  // Create a row type with additional fields not present in the file.
-  auto rowType = makeRowType(
-      {MAP(BIGINT(), makeRowType({BIGINT(), BIGINT(), BIGINT(), BIGINT()}))});
+  writeToFile(filePath->path, {makeRowVector({mapVector, arrayVector})});
 
-  // Query all the fields.
+  // Create a row type with additional fields in the structure not present in
+  // the file ('c' and 'd') and with all columns having different names than in
+  // the file.
+  auto structType =
+      ROW({"a", "b", "c", "d"}, {BIGINT(), INTEGER(), DOUBLE(), REAL()});
+  auto rowType =
+      ROW({"m1", "a2"}, {{MAP(BIGINT(), structType), ARRAY(structType)}});
+
   auto op = PlanBuilder()
-                .tableScan(rowType)
-                .project({"c0[0].c0", "c0[1].c1", "c0[2].c2", "c0[3].c3"})
+                .tableScan(rowType, {}, "", rowType)
+                .project(
+                    {"m1[0].a",
+                     "m1[1].b",
+                     "m1[2].c",
+                     "m1[3].d",
+                     "a2[1].a",
+                     "a2[2].b",
+                     "a2[3].c",
+                     "a2[4].d"})
                 .planNode();
 
   auto split = makeHiveConnectorSplit(filePath->path);
@@ -3087,23 +3101,88 @@ TEST_F(TableScanTest, readMissingFieldsInMap) {
   ASSERT_EQ(result->size(), size);
   auto rows = result->as<RowVector>();
   ASSERT_TRUE(rows);
-  ASSERT_EQ(rows->childrenSize(), 4);
+  ASSERT_EQ(rows->childrenSize(), 8);
   // The fields that exist in the data should be present and correct.
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < 8; i += 4) {
     auto val = rows->childAt(i)->as<SimpleVector<int64_t>>();
     ASSERT_TRUE(val);
     ASSERT_EQ(val->size(), size);
-    for (int j = 0; j < size; j++) {
+    for (auto j = 0; j < size; j++) {
       ASSERT_FALSE(val->isNullAt(j));
-      ASSERT_EQ(val->valueAt(j), j * 4 + i);
+      ASSERT_EQ(val->valueAt(j), j * 4);
+    }
+  }
+  for (int i = 1; i < 8; i += 4) {
+    auto val = rows->childAt(i)->as<SimpleVector<int32_t>>();
+    ASSERT_TRUE(val);
+    ASSERT_EQ(val->size(), size);
+    for (auto j = 0; j < size; j++) {
+      ASSERT_FALSE(val->isNullAt(j));
+      ASSERT_EQ(val->valueAt(j), j * 4 + 1);
     }
   }
   // The fields that don't exist in the data should be null.
-  for (int i = 2; i < 4; i++) {
-    auto val = rows->childAt(i)->as<SimpleVector<int64_t>>();
+  for (int i = 2; i < 8; i += 4) {
+    auto val = rows->childAt(i)->as<SimpleVector<double>>();
     ASSERT_TRUE(val);
     ASSERT_EQ(val->size(), size);
-    for (int j = 0; j < size; j++) {
+    for (auto j = 0; j < size; j++) {
+      ASSERT_TRUE(val->isNullAt(j));
+    }
+  }
+  for (int i = 3; i < 8; i += 4) {
+    auto val = rows->childAt(i)->as<SimpleVector<float>>();
+    ASSERT_TRUE(val);
+    ASSERT_EQ(val->size(), size);
+    for (auto j = 0; j < size; j++) {
+      ASSERT_TRUE(val->isNullAt(j));
+    }
+  }
+
+  // Now run query with column mapping using names - we should not be able to
+  // find any names.
+  result = AssertQueryBuilder(op)
+               .connectorConfig(
+                   kHiveConnectorId,
+                   connector::hive::HiveConfig::kOrcUseColumnNames,
+                   "true")
+               .split(split)
+               .copyResults(pool());
+
+  ASSERT_EQ(result->size(), size);
+  rows = result->as<RowVector>();
+  ASSERT_TRUE(rows);
+  ASSERT_EQ(rows->childrenSize(), 8);
+
+  for (int i = 0; i < 8; i += 4) {
+    auto val = rows->childAt(i)->as<SimpleVector<int64_t>>();
+    ASSERT_TRUE(val != nullptr);
+    ASSERT_EQ(val->size(), size);
+    for (auto j = 0; j < size; j++) {
+      ASSERT_TRUE(val->isNullAt(j));
+    }
+  }
+  for (int i = 1; i < 8; i += 4) {
+    auto val = rows->childAt(i)->as<SimpleVector<int32_t>>();
+    ASSERT_TRUE(val != nullptr);
+    ASSERT_EQ(val->size(), size);
+    for (auto j = 0; j < size; j++) {
+      ASSERT_TRUE(val->isNullAt(j));
+    }
+  }
+  for (int i = 2; i < 8; i += 4) {
+    auto val = rows->childAt(i)->as<SimpleVector<double>>();
+    ASSERT_TRUE(val != nullptr);
+    ASSERT_EQ(val->size(), size);
+    for (auto j = 0; j < size; j++) {
+      ASSERT_TRUE(val->isNullAt(j));
+    }
+  }
+  for (int i = 3; i < 8; i += 4) {
+    auto val = rows->childAt(i)->as<SimpleVector<float>>();
+    ASSERT_TRUE(val != nullptr);
+    ASSERT_EQ(val->size(), size);
+    for (auto j = 0; j < size; j++) {
       ASSERT_TRUE(val->isNullAt(j));
     }
   }
@@ -3175,7 +3254,7 @@ TEST_F(TableScanTest, tableScanProjections) {
   testQueryRow({3, 2});
 }
 
-// Tests queries that use that read more row fields than exist in the data, and
+// Tests queries that read more row fields than exist in the data, and
 // read additional columns besides just the row.
 TEST_F(TableScanTest, readMissingFieldsWithMoreColumns) {
   vector_size_t size = 1'000;
@@ -3194,18 +3273,20 @@ TEST_F(TableScanTest, readMissingFieldsWithMoreColumns) {
 
   auto filePath = TempFilePath::create();
   writeToFile(filePath->path, {rowVector});
-  // Create a row type with additional fields not present in the file.
-  auto rowType = makeRowType(
-      {makeRowType({BIGINT(), BIGINT(), BIGINT(), BIGINT()}),
-       INTEGER(),
-       DOUBLE(),
-       BOOLEAN(),
-       VARCHAR()});
+
+  // Create a row type with additional fields in the structure not present in
+  // the file ('c' and 'd') and with all columns having different names than in
+  // the file.
+  auto structType =
+      ROW({"a", "b", "c", "d"}, {BIGINT(), BIGINT(), BIGINT(), BIGINT()});
+  auto rowType =
+      ROW({"st1", "i2", "d3", "b4", "c4"},
+          {{structType, INTEGER(), DOUBLE(), BOOLEAN(), VARCHAR()}});
 
   auto op =
       PlanBuilder()
-          .tableScan(rowType)
-          .project({"c0.c0", "c0.c1", "c0.c2", "c0.c3", "c1", "c2", "c3", "c4"})
+          .tableScan(rowType, {}, "", rowType)
+          .project({"st1.a", "st1.b", "st1.c", "st1.d", "i2", "d3", "b4", "c4"})
           .planNode();
 
   auto split = makeHiveConnectorSplit(filePath->path);
@@ -3262,6 +3343,59 @@ TEST_F(TableScanTest, readMissingFieldsWithMoreColumns) {
   ASSERT_TRUE(stringCol);
   ASSERT_EQ(stringCol->size(), size);
   for (int j = 0; j < size; j++) {
+    ASSERT_FALSE(stringCol->isNullAt(j));
+    ASSERT_EQ(stringCol->valueAt(j), fruitViews[j % fruitViews.size()]);
+  }
+
+  // Now run query with column mapping using names - we should not be able to
+  // find any names, except for the last string column.
+  result = AssertQueryBuilder(op)
+               .connectorConfig(
+                   kHiveConnectorId,
+                   connector::hive::HiveConfig::kOrcUseColumnNames,
+                   "true")
+               .split(split)
+               .copyResults(pool());
+
+  ASSERT_EQ(result->size(), size);
+  rows = result->as<RowVector>();
+  ASSERT_TRUE(rows);
+  ASSERT_EQ(rows->childrenSize(), 8);
+
+  for (int i = 0; i < 4; i++) {
+    auto val = rows->childAt(i)->as<SimpleVector<int64_t>>();
+    ASSERT_TRUE(val != nullptr);
+    ASSERT_EQ(val->size(), size);
+    for (auto j = 0; j < size; j++) {
+      ASSERT_TRUE(val->isNullAt(j));
+    }
+  }
+
+  intCol = rows->childAt(4)->as<SimpleVector<int32_t>>();
+  ASSERT_TRUE(intCol != nullptr);
+  ASSERT_EQ(intCol->size(), size);
+  for (auto j = 0; j < size; j++) {
+    ASSERT_TRUE(intCol->isNullAt(j));
+  }
+
+  doubleCol = rows->childAt(5)->as<SimpleVector<double>>();
+  ASSERT_TRUE(doubleCol != nullptr);
+  ASSERT_EQ(doubleCol->size(), size);
+  for (auto j = 0; j < size; j++) {
+    ASSERT_TRUE(doubleCol->isNullAt(j));
+  }
+
+  boolCol = rows->childAt(6)->as<SimpleVector<bool>>();
+  ASSERT_TRUE(boolCol != nullptr);
+  ASSERT_EQ(boolCol->size(), size);
+  for (auto j = 0; j < size; j++) {
+    ASSERT_TRUE(boolCol->isNullAt(j));
+  }
+
+  stringCol = rows->childAt(7)->as<SimpleVector<StringView>>();
+  ASSERT_TRUE(stringCol != nullptr);
+  ASSERT_EQ(stringCol->size(), size);
+  for (auto j = 0; j < size; j++) {
     ASSERT_FALSE(stringCol->isNullAt(j));
     ASSERT_EQ(stringCol->valueAt(j), fruitViews[j % fruitViews.size()]);
   }
