@@ -351,7 +351,7 @@ void FlatVector<T>::resize(vector_size_t newSize, bool setNotNull) {
 template <typename T>
 void FlatVector<T>::ensureWritable(const SelectivityVector& rows) {
   auto newSize = std::max<vector_size_t>(rows.end(), BaseVector::length_);
-  if (values_ && !(values_->unique() && values_->isMutable())) {
+  if (values_ && !values_->isMutable()) {
     BufferPtr newValues;
     if constexpr (std::is_same_v<T, StringView>) {
       // Make sure to initialize StringView values so they can be safely
@@ -394,7 +394,7 @@ void FlatVector<T>::prepareForReuse() {
 
   // Check values buffer. Keep the buffer if singly-referenced and mutable.
   // Reset otherwise.
-  if (values_ && !(values_->unique() && values_->isMutable())) {
+  if (values_ && !values_->isMutable()) {
     values_ = nullptr;
     rawValues_ = nullptr;
   }
@@ -404,7 +404,9 @@ template <typename T>
 void FlatVector<T>::resizeValues(
     vector_size_t newSize,
     const std::optional<T>& initialValue) {
-  if (values_ && values_->isMutable()) {
+  // TODO: change this to isMutable(). See
+  // https://github.com/facebookincubator/velox/issues/6562.
+  if (values_ && !values_->isView()) {
     const uint64_t newByteSize = BaseVector::byteSize<T>(newSize);
     if (values_->capacity() < newByteSize) {
       AlignedBuffer::reallocate<T>(&values_, newSize, initialValue);
@@ -441,7 +443,9 @@ template <>
 inline void FlatVector<bool>::resizeValues(
     vector_size_t newSize,
     const std::optional<bool>& initialValue) {
-  if (values_ && values_->isMutable()) {
+  // TODO: change this to isMutable(). See
+  // https://github.com/facebookincubator/velox/issues/6562.
+  if (values_ && !values_->isView()) {
     const uint64_t newByteSize = BaseVector::byteSize<bool>(newSize);
     if (values_->size() < newByteSize) {
       AlignedBuffer::reallocate<bool>(&values_, newSize, initialValue);

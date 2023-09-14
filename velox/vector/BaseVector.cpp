@@ -105,7 +105,7 @@ uint64_t BaseVector::byteSize<bool>(vector_size_t count) {
 void BaseVector::resize(vector_size_t size, bool setNotNull) {
   if (nulls_) {
     auto bytes = byteSize<bool>(size);
-    if (length_ < size || !nulls_->isMutable()) {
+    if (length_ < size || nulls_->isView()) {
       ensureNullsCapacity(size, setNotNull);
     }
     nulls_->setSize(bytes);
@@ -417,7 +417,7 @@ void BaseVector::resizeIndices(
     BufferPtr* indices,
     const vector_size_t** raw,
     std::optional<vector_size_t> initialValue) {
-  if (indices->get() && indices->get()->isMutable()) {
+  if (indices->get() && !indices->get()->isView()) {
     auto newByteSize = byteSize<vector_size_t>(size);
     if (indices->get()->size() < newByteSize) {
       AlignedBuffer::reallocate<vector_size_t>(indices, size, initialValue);
@@ -506,7 +506,7 @@ std::string BaseVector::toString(
 
 void BaseVector::ensureWritable(const SelectivityVector& rows) {
   auto newSize = std::max<vector_size_t>(rows.end(), length_);
-  if (nulls_ && !(nulls_->unique() && nulls_->isMutable())) {
+  if (nulls_ && !nulls_->isMutable()) {
     BufferPtr newNulls = AlignedBuffer::allocate<bool>(newSize, pool_);
     auto rawNewNulls = newNulls->asMutable<uint64_t>();
     memcpy(rawNewNulls, rawNulls_, bits::nbytes(length_));
@@ -834,7 +834,7 @@ void BaseVector::reuseNulls() {
   // Check nulls buffer. Keep the buffer if singly-referenced and mutable and
   // there is at least one null bit set. Reset otherwise.
   if (nulls_) {
-    if (nulls_->unique() && nulls_->isMutable()) {
+    if (nulls_->isMutable()) {
       if (0 == BaseVector::countNulls(nulls_, length_)) {
         nulls_ = nullptr;
         rawNulls_ = nullptr;

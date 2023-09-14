@@ -384,7 +384,7 @@ class BaseVector {
   // This does not guarantee the existence of the nulls buffer, if using this
   // within BaseVector you still may need to call ensureNulls.
   virtual bool isNullsWritable() const {
-    return !nulls_ || (nulls_->unique() && nulls_->isMutable());
+    return !nulls_ || (nulls_->isMutable());
   }
 
   // Sets null when 'nulls' has null value for a row in 'rows'

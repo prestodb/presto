@@ -66,14 +66,13 @@ TEST_F(BufferTest, testAlignedBuffer) {
         buffer->asMutable<uint8_t>() + buffer->capacity() - testStringLength,
         testString,
         testStringLength);
-    buffer->setIsMutable(false);
     other = buffer;
     EXPECT_EQ(pool_->currentBytes(), pool_->preferredSize(sizeWithHeader));
-    EXPECT_THROW(other->setIsMutable(true), VeloxException);
+
     AlignedBuffer::reallocate<char>(&other, size * 3, 'e');
     EXPECT_NE(other, buffer);
+
     // No longer multiply referenced.
-    other->setIsMutable(true);
     EXPECT_GE(other->capacity(), 3 * size);
     EXPECT_EQ(other->size(), 3 * size);
     EXPECT_EQ(
@@ -204,7 +203,6 @@ TEST_F(BufferTest, testBufferView) {
   EXPECT_EQ(buffer->capacity(), sizeof(data));
   EXPECT_EQ(pin.pinCount, 1);
   EXPECT_FALSE(buffer->isMutable());
-  EXPECT_THROW(buffer->setIsMutable(true), VeloxException);
   {
     BufferPtr other = buffer;
     EXPECT_EQ(pin.pinCount, 1);

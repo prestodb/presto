@@ -141,7 +141,9 @@ class FlatVector final : public SimpleVector<T> {
   }
 
   BufferPtr mutableValues(vector_size_t size) {
-    if (values_ && values_->isMutable() &&
+    // TODO: change this to isMutable(). See
+    // https://github.com/facebookincubator/velox/issues/6562.
+    if (values_ && !values_->isView() &&
         values_->capacity() >= BaseVector::byteSize<T>(size)) {
       return values_;
     }
@@ -175,7 +177,7 @@ class FlatVector final : public SimpleVector<T> {
   // Bool uses compact representation, use mutableRawValues<uint64_t> and
   // bits::setBit instead.
   T* mutableRawValues() {
-    if (!(values_ && values_->unique() && values_->isMutable())) {
+    if (!(values_ && values_->isMutable())) {
       BufferPtr newValues =
           AlignedBuffer::allocate<T>(BaseVector::length_, BaseVector::pool());
       if (values_) {
@@ -199,7 +201,7 @@ class FlatVector final : public SimpleVector<T> {
 
   void set(vector_size_t idx, T value) {
     VELOX_DCHECK(idx < BaseVector::length_);
-    VELOX_DCHECK(values_->isMutable());
+    VELOX_DCHECK(!values_->isView());
     rawValues_[idx] = value;
     if (BaseVector::nulls_) {
       BaseVector::setNull(idx, false);
@@ -424,8 +426,7 @@ class FlatVector final : public SimpleVector<T> {
   void ensureWritable(const SelectivityVector& rows) override;
 
   bool isWritable() const override {
-    return this->isNullsWritable() &&
-        (!values_ || (values_->unique() && values_->isMutable()));
+    return this->isNullsWritable() && (!values_ || values_->isMutable());
   }
 
   /// Calls BaseVector::prapareForReuse() to check and reset nulls buffer if

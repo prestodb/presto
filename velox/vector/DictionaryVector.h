@@ -131,7 +131,9 @@ class DictionaryVector : public SimpleVector<T> {
   }
 
   BufferPtr mutableIndices(vector_size_t size) {
-    if (indices_ && indices_->isMutable() &&
+    // TODO: change this to isMutable(). See
+    // https://github.com/facebookincubator/velox/issues/6562.
+    if (indices_ && !indices_->isView() &&
         indices_->capacity() >= size * sizeof(vector_size_t)) {
       return indices_;
     }

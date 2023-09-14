@@ -328,7 +328,9 @@ struct ArrayVectorBase : BaseVector {
  private:
   BufferPtr
   ensureIndices(BufferPtr& buf, const vector_size_t*& raw, vector_size_t size) {
-    if (buf && buf->isMutable() &&
+    // TODO: change this to isMutable(). See
+    // https://github.com/facebookincubator/velox/issues/6562.
+    if (buf && !buf->isView() &&
         buf->capacity() >= size * sizeof(vector_size_t)) {
       return buf;
     }

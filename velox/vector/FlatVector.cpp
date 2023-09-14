@@ -233,7 +233,7 @@ void FlatVector<StringView>::prepareForReuse() {
 
   // Check values buffer. Keep the buffer if singly-referenced and mutable.
   // Reset otherwise.
-  if (values_ && !(values_->unique() && values_->isMutable())) {
+  if (values_ && !values_->isMutable()) {
     values_ = nullptr;
     rawValues_ = nullptr;
   }
@@ -242,7 +242,7 @@ void FlatVector<StringView>::prepareForReuse() {
   // not too large.
   if (!stringBuffers_.empty()) {
     auto& firstBuffer = stringBuffers_.front();
-    if (firstBuffer->unique() && firstBuffer->isMutable() &&
+    if (firstBuffer->isMutable() &&
         firstBuffer->capacity() <= kMaxStringSizeForReuse) {
       firstBuffer->setSize(0);
       setStringBuffers({firstBuffer});
@@ -285,7 +285,7 @@ void FlatVector<StringView>::setNoCopy(
     const vector_size_t idx,
     const StringView& value) {
   VELOX_DCHECK(idx < BaseVector::length_);
-  VELOX_DCHECK(values_->isMutable());
+  VELOX_DCHECK(!values_->isView());
   rawValues_[idx] = value;
   if (BaseVector::nulls_) {
     BaseVector::setNull(idx, false);

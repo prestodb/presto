@@ -813,11 +813,11 @@ void ArrayVector::ensureWritable(const SelectivityVector& rows) {
 }
 
 bool ArrayVector::isWritable() const {
-  if (offsets_ && !(offsets_->unique() && offsets_->isMutable())) {
+  if (offsets_ && !offsets_->isMutable()) {
     return false;
   }
 
-  if (sizes_ && !(sizes_->unique() && sizes_->isMutable())) {
+  if (sizes_ && !sizes_->isMutable()) {
     return false;
   }
 
@@ -838,13 +838,13 @@ void zeroOutBuffer(BufferPtr buffer) {
 void ArrayVector::prepareForReuse() {
   BaseVector::prepareForReuse();
 
-  if (!(offsets_->unique() && offsets_->isMutable())) {
+  if (!offsets_->isMutable()) {
     offsets_ = nullptr;
   } else {
     zeroOutBuffer(offsets_);
   }
 
-  if (!(sizes_->unique() && sizes_->isMutable())) {
+  if (!sizes_->isMutable()) {
     sizes_ = nullptr;
   } else {
     zeroOutBuffer(sizes_);
@@ -1102,11 +1102,11 @@ void MapVector::ensureWritable(const SelectivityVector& rows) {
 }
 
 bool MapVector::isWritable() const {
-  if (offsets_ && !(offsets_->unique() && offsets_->isMutable())) {
+  if (offsets_ && !offsets_->isMutable()) {
     return false;
   }
 
-  if (sizes_ && !(sizes_->unique() && sizes_->isMutable())) {
+  if (sizes_ && !sizes_->isMutable()) {
     return false;
   }
 
@@ -1123,13 +1123,13 @@ uint64_t MapVector::estimateFlatSize() const {
 void MapVector::prepareForReuse() {
   BaseVector::prepareForReuse();
 
-  if (!(offsets_->unique() && offsets_->isMutable())) {
+  if (!offsets_->isMutable()) {
     offsets_ = nullptr;
   } else {
     zeroOutBuffer(offsets_);
   }
 
-  if (!(sizes_->unique() && sizes_->isMutable())) {
+  if (!sizes_->isMutable()) {
     sizes_ = nullptr;
   } else {
     zeroOutBuffer(sizes_);
