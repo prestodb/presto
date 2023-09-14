@@ -57,7 +57,7 @@ class PeriodicTaskManager {
   /// the background.
   ///
   /// NOTE: start() shall be called after everything in PrestoServer is
-  /// initialized because PeriodicTaskManager replies on proper initializations
+  /// initialized because PeriodicTaskManager relies on proper initializations
   /// of various entities in the system to work as expected.
   void start();
 
