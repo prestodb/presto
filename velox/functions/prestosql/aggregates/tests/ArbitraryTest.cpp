@@ -87,34 +87,34 @@ TEST_F(ArbitraryTest, noNulls) {
 
 TEST_F(ArbitraryTest, nulls) {
   auto vectors = {
-      makeRowVector({
-          makeNullableFlatVector<int32_t>({1, 1, 2, 2, 3, 3}),
-          makeNullableFlatVector<int64_t>(
-              {std::nullopt, std::nullopt, std::nullopt, 4, std::nullopt, 5}),
-          makeNullableFlatVector<double>({
-              std::nullopt,
-              0.50,
-              std::nullopt,
-              std::nullopt,
-              0.25,
-              std::nullopt,
-          }),
-      }),
+      makeRowVector(
+          {makeNullableFlatVector<int32_t>({1, 1, 2, 2, 3, 3}),
+           makeNullableFlatVector<int64_t>(
+               {std::nullopt, std::nullopt, std::nullopt, 4, std::nullopt, 5}),
+           makeNullableFlatVector<double>({
+               std::nullopt,
+               0.50,
+               std::nullopt,
+               std::nullopt,
+               0.25,
+               std::nullopt,
+           }),
+           makeNullConstant(TypeKind::UNKNOWN, 6)}),
   };
 
   // Global aggregation.
   testAggregations(
       vectors,
       {},
-      {"arbitrary(c1)", "arbitrary(c2)"},
-      "SELECT * FROM( VALUES (4, 0.50)) AS t");
+      {"arbitrary(c1)", "arbitrary(c2)", "arbitrary(c3)"},
+      "SELECT * FROM( VALUES (4, 0.50, NULL)) AS t");
 
   // Group by aggregation.
   testAggregations(
       vectors,
       {"c0"},
-      {"arbitrary(c1)", "arbitrary(c2)"},
-      "SELECT * FROM(VALUES (1, NULL, 0.50), (2, 4, NULL), (3, 5, 0.25)) AS t");
+      {"arbitrary(c1)", "arbitrary(c2)", "arbitrary(c3)"},
+      "SELECT * FROM(VALUES (1, NULL, 0.50, NULL), (2, 4, NULL, NULL), (3, 5, 0.25, NULL)) AS t");
 }
 
 TEST_F(ArbitraryTest, varchar) {

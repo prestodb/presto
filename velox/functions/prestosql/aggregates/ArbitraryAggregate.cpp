@@ -300,6 +300,8 @@ exec::AggregateRegistrationResult registerArbitrary(const std::string& name) {
           case TypeKind::MAP:
             [[fallthrough]];
           case TypeKind::ROW:
+            [[fallthrough]];
+          case TypeKind::UNKNOWN:
             return std::make_unique<NonNumericArbitrary>(inputType);
           default:
             VELOX_FAIL(
