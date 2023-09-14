@@ -2350,6 +2350,20 @@ TEST_F(TableScanTest, remainingFilterSkippedStrides) {
   EXPECT_EQ(skippedStrides.sum, 1);
 }
 
+TEST_F(TableScanTest, skipStridesForParentNulls) {
+  auto b = makeFlatVector<int64_t>(10'000, folly::identity);
+  auto a = makeRowVector({"b"}, {b}, [](auto i) { return i % 2 == 0; });
+  auto vector = makeRowVector({"a"}, {a});
+  auto file = TempFilePath::create();
+  writeToFile(file->path, {vector});
+  auto plan = PlanBuilder()
+                  .tableScan(asRowType(vector->type()), {"a.b IS NULL"})
+                  .planNode();
+  auto split = makeHiveConnectorSplit(file->path);
+  auto result = AssertQueryBuilder(plan).split(split).copyResults(pool());
+  ASSERT_EQ(result->size(), 5000);
+}
+
 /// Test the handling of constant remaining filter results which occur when
 /// filter input is a dictionary vector with all indices being the same (i.e.
 /// DictionaryVector::isConstant() == true).

@@ -313,8 +313,7 @@ bool testFilter(
     dwio::common::ColumnStatistics* stats,
     uint64_t totalRows,
     const TypePtr& type) {
-  bool mayHaveNull =
-      stats->hasNull().has_value() ? stats->hasNull().value() : true;
+  bool mayHaveNull = true;
 
   // Has-null statistics is often not set. Hence, we supplement it with
   // number-of-values statistic to detect no-null columns more often.
@@ -325,11 +324,7 @@ bool testFilter(
       // Column is all null.
       return filter->testNull();
     }
-
-    if (stats->getNumberOfValues().value() == totalRows) {
-      // Column has no nulls.
-      mayHaveNull = false;
-    }
+    mayHaveNull = stats->getNumberOfValues().value() < totalRows;
   }
 
   if (!mayHaveNull && filter->kind() == common::FilterKind::kIsNull) {

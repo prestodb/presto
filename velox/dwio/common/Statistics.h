@@ -98,7 +98,12 @@ class ColumnStatistics {
   }
 
   /**
-   * Get whether column has null value
+   * Get whether column has null value.
+   *
+   * WARNING: Some writer implementation does not take ancestor nulls into
+   * account, so this value should not be trusted.  Check whether
+   * `getNumberOfValues()' is smaller than the row group size is a more accurate
+   * way.
    */
   std::optional<bool> hasNull() const {
     return hasNull_;
