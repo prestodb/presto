@@ -198,6 +198,7 @@ public class HistoryBasedPlanStatisticsTracker
     {
         Session session = queryInfo.getSession().toSession(sessionPropertyManager);
         if (!trackHistoryBasedPlanStatisticsEnabled(session)) {
+            historyBasedStatisticsCacheManager.invalidate(queryInfo.getQueryId());
             return;
         }
         Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> planStatistics = getQueryStats(queryInfo);
