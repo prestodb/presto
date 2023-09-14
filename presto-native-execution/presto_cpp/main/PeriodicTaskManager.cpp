@@ -83,21 +83,28 @@ void PeriodicTaskManager::start() {
   if ((driverCPUExecutor_ != nullptr) || (httpExecutor_ != nullptr)) {
     addExecutorStatsTask();
   }
+
   if (taskManager_ != nullptr) {
     addTaskStatsTask();
     addOldTaskCleanupTask();
   }
+
   if (memoryAllocator_ != nullptr) {
     addMemoryAllocatorStatsTask();
   }
+
   addPrestoExchangeSourceMemoryStatsTask();
+
   if (asyncDataCache_ != nullptr) {
     addCacheStatsUpdateTask();
   }
+
   addConnectorStatsTask();
+
   addOperatingSystemStatsUpdateTask();
 
   addSpillStatsUpdateTask();
+
   if (SystemConfig::instance()->enableHttpEndpointLatencyFilter()) {
     addHttpEndpointLatencyStatsTask();
   }
@@ -142,9 +149,9 @@ void PeriodicTaskManager::updateExecutorStats() {
 }
 
 void PeriodicTaskManager::addExecutorStatsTask() {
-  scheduler_.addFunction(
+  addTask(
       [this]() { updateExecutorStats(); },
-      std::chrono::microseconds{kTaskPeriodGlobalCounters},
+      kTaskPeriodGlobalCounters,
       "executor_counters");
 }
 
@@ -178,9 +185,9 @@ void PeriodicTaskManager::updateTaskStats() {
 }
 
 void PeriodicTaskManager::addTaskStatsTask() {
-  scheduler_.addFunction(
+  addTask(
       [this]() { updateTaskStats(); },
-      std::chrono::microseconds{kTaskPeriodGlobalCounters},
+      kTaskPeriodGlobalCounters,
       "task_counters");
 }
 
@@ -192,9 +199,9 @@ void PeriodicTaskManager::cleanupOldTask() {
 }
 
 void PeriodicTaskManager::addOldTaskCleanupTask() {
-  scheduler_.addFunction(
+  addTask(
       [this]() { cleanupOldTask(); },
-      std::chrono::microseconds{kTaskPeriodCleanOldTasks},
+      kTaskPeriodCleanOldTasks,
       "clean_old_tasks");
 }
 
@@ -221,9 +228,9 @@ void PeriodicTaskManager::updateMemoryAllocatorStats() {
 }
 
 void PeriodicTaskManager::addMemoryAllocatorStatsTask() {
-  scheduler_.addFunction(
+  addTask(
       [this]() { updateMemoryAllocatorStats(); },
-      std::chrono::microseconds{kMemoryPeriodGlobalCounters},
+      kMemoryPeriodGlobalCounters,
       "mmap_memory_counters");
 }
 
@@ -238,9 +245,9 @@ void PeriodicTaskManager::updatePrestoExchangeSourceMemoryStats() {
 }
 
 void PeriodicTaskManager::addPrestoExchangeSourceMemoryStatsTask() {
-  scheduler_.addFunction(
+  addTask(
       [this]() { updatePrestoExchangeSourceMemoryStats(); },
-      std::chrono::microseconds{kExchangeSourcePeriodGlobalCounters},
+      kExchangeSourcePeriodGlobalCounters,
       "exchange_source_counters");
 }
 
@@ -370,9 +377,9 @@ void PeriodicTaskManager::updateCacheStats() {
 }
 
 void PeriodicTaskManager::addCacheStatsUpdateTask() {
-  scheduler_.addFunction(
+  addTask(
       [this]() { updateCacheStats(); },
-      std::chrono::microseconds{kCachePeriodGlobalCounters},
+      kCachePeriodGlobalCounters,
       "cache_counters");
 }
 
@@ -418,7 +425,7 @@ void PeriodicTaskManager::addConnectorStatsTask() {
       REPORT_ADD_STAT_EXPORT_TYPE(
           kNumLookupsMetricName, facebook::velox::StatType::AVG);
 
-      scheduler_.addFunction(
+      addTask(
           [hiveConnector,
            connectorId,
            kNumElementsMetricName,
@@ -450,7 +457,7 @@ void PeriodicTaskManager::addConnectorStatsTask() {
                     oldValues[kNumLookupsMetricName]);
             oldValues[kNumLookupsMetricName] = fileHandleCacheStats.numLookups;
           },
-          std::chrono::microseconds{kConnectorPeriodGlobalCounters},
+          kConnectorPeriodGlobalCounters,
           fmt::format("{}.hive_connector_counters", connectorId));
     }
   }
@@ -499,16 +506,16 @@ void PeriodicTaskManager::updateOperatingSystemStats() {
 }
 
 void PeriodicTaskManager::addOperatingSystemStatsUpdateTask() {
-  scheduler_.addFunction(
+  addTask(
       [this]() { updateOperatingSystemStats(); },
-      std::chrono::microseconds{kOsPeriodGlobalCounters},
+      kOsPeriodGlobalCounters,
       "os_counters");
 }
 
 void PeriodicTaskManager::addArbitratorStatsTask() {
-  scheduler_.addFunction(
+  addTask(
       [this]() { updateArbitratorStatsTask(); },
-      std::chrono::microseconds{kArbitratorStatsUpdateIntervalUs},
+      kArbitratorStatsUpdateIntervalUs,
       "arbitrator_stats");
 }
 
@@ -542,9 +549,9 @@ void PeriodicTaskManager::updateArbitratorStatsTask() {
 }
 
 void PeriodicTaskManager::addSpillStatsUpdateTask() {
-  scheduler_.addFunction(
+  addTask(
       [this]() { updateSpillStatsTask(); },
-      std::chrono::microseconds{kSpillStatsUpdateIntervalUs},
+      kSpillStatsUpdateIntervalUs,
       "spill_stats");
 }
 
@@ -585,9 +592,9 @@ void PeriodicTaskManager::printHttpEndpointLatencyStats() {
 }
 
 void PeriodicTaskManager::addHttpEndpointLatencyStatsTask() {
-  scheduler_.addFunction(
+  addTask(
       [this]() { printHttpEndpointLatencyStats(); },
-      std::chrono::microseconds{kHttpEndpointLatencyPeriodGlobalCounters},
+      kHttpEndpointLatencyPeriodGlobalCounters,
       "http_endpoint_counters");
 }
 } // namespace facebook::presto
