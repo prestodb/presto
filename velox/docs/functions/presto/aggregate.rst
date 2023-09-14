@@ -127,7 +127,9 @@ General Aggregate Functions
     takes the current state, initially ``initialState``, and returns the new state.
     ``combineFunction`` will be invoked to combine two states into a new state.
     The final state is returned. Throws an error if ``initialState`` is NULL or
-    ``inputFunction`` or ``combineFunction`` returns a NULL.::
+    ``inputFunction`` or ``combineFunction`` returns a NULL.
+
+    Note that reduce_agg doesn't support evaluation over sorted inputs.::
 
         -- Compute sum (for illustration purposes only; use SUM aggregate function in production queries).
         SELECT id, reduce_agg(value, 0, (a, b) -> a + b, (a, b) -> a + b)

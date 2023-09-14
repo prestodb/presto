@@ -34,7 +34,7 @@ class ReduceAggTest : public functions::aggregate::test::AggregationTestBase {
 
   std::vector<RowVectorPtr> fuzzData() {
     VectorFuzzer::Options opts;
-    opts.vectorSize = 1'000;
+    opts.vectorSize = 10'000;
     opts.nullRatio = 0.1;
     VectorFuzzer fuzzer(opts, pool());
 
