@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HiveWrittenPartitions;
 import com.facebook.presto.spi.ColumnHandle;
@@ -37,6 +38,7 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -47,6 +49,7 @@ import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
@@ -63,6 +66,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.FORMAT_VERSION;
 import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
@@ -70,13 +74,19 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PR
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
+import static com.facebook.presto.iceberg.IcebergUtil.validateTableMode;
 import static com.facebook.presto.iceberg.PartitionFields.toPartitionFields;
+import static com.facebook.presto.iceberg.TableType.DATA;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public abstract class IcebergAbstractMetadata
         implements ConnectorMetadata
@@ -96,6 +106,10 @@ public abstract class IcebergAbstractMetadata
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
     }
 
+    protected abstract Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName);
+
+    protected abstract boolean tableExists(ConnectorSession session, SchemaTableName schemaTableName);
+
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
@@ -110,7 +124,7 @@ public abstract class IcebergAbstractMetadata
         return new ConnectorTableLayout(handle);
     }
 
-    protected Optional<SystemTable> getIcebergSystemTable(SchemaTableName tableName, org.apache.iceberg.Table table)
+    protected Optional<SystemTable> getIcebergSystemTable(SchemaTableName tableName, Table table)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
         SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
@@ -197,7 +211,7 @@ public abstract class IcebergAbstractMetadata
         return finishInsert(session, (IcebergWritableTableHandle) tableHandle, fragments, computedStatistics);
     }
 
-    protected ConnectorInsertTableHandle beginIcebergTableInsert(IcebergTableHandle table, org.apache.iceberg.Table icebergTable)
+    protected ConnectorInsertTableHandle beginIcebergTableInsert(IcebergTableHandle table, Table icebergTable)
     {
         transaction = icebergTable.newTransaction();
 
@@ -221,7 +235,7 @@ public abstract class IcebergAbstractMetadata
         }
 
         IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
-        org.apache.iceberg.Table icebergTable = transaction.table();
+        Table icebergTable = transaction.table();
 
         List<CommitTaskData> commitTasks = fragments.stream()
                 .map(slice -> commitTaskCodec.fromJson(slice.getBytes()))
@@ -269,7 +283,7 @@ public abstract class IcebergAbstractMetadata
         throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely");
     }
 
-    protected List<ColumnMetadata> getColumnMetadatas(org.apache.iceberg.Table table)
+    protected List<ColumnMetadata> getColumnMetadatas(Table table)
     {
         return table.schema().columns().stream()
                 .map(column -> ColumnMetadata.builder()
@@ -281,7 +295,7 @@ public abstract class IcebergAbstractMetadata
                 .collect(toImmutableList());
     }
 
-    protected ImmutableMap<String, Object> createMetadataProperties(org.apache.iceberg.Table icebergTable)
+    protected ImmutableMap<String, Object> createMetadataProperties(Table icebergTable)
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         properties.put(FILE_FORMAT_PROPERTY, getFileFormat(icebergTable));
@@ -321,5 +335,103 @@ public abstract class IcebergAbstractMetadata
     public void rollback()
     {
         // TODO: cleanup open transaction
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    {
+        if (!column.isNullable()) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support add column with non null");
+        }
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        icebergTable.updateSchema().addColumn(column.getName(), toIcebergType(column.getType()), column.getComment()).commit();
+    }
+
+    @Override
+    public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
+        IcebergColumnHandle handle = (IcebergColumnHandle) column;
+        Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
+        icebergTable.updateSchema().deleteColumn(handle.getName()).commit();
+    }
+
+    @Override
+    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
+    {
+        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
+        IcebergColumnHandle columnHandle = (IcebergColumnHandle) source;
+        Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
+        icebergTable.updateSchema().renameColumn(columnHandle.getName(), target).commit();
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+
+        return beginIcebergTableInsert(table, icebergTable);
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+        return getColumns(icebergTable.schema(), typeManager).stream()
+                .collect(toImmutableMap(IcebergColumnHandle::getName, identity()));
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> tableLayoutHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
+    {
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable);
+    }
+
+    @Override
+    public IcebergTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    {
+        IcebergTableName name = IcebergTableName.from(tableName.getTableName());
+        verify(name.getTableType() == DATA, "Wrong table type: " + name.getTableType());
+
+        if (!tableExists(session, tableName)) {
+            return null;
+        }
+
+        // use a new schema table name that omits the table type
+        Table table = getIcebergTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
+        validateTableMode(session, table);
+
+        return new IcebergTableHandle(
+                tableName.getSchemaName(),
+                name.getTableName(),
+                name.getTableType(),
+                resolveSnapshotIdByName(table, name),
+                TupleDomain.all());
+    }
+
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        IcebergTableName name = IcebergTableName.from(tableName.getTableName());
+        if (name.getTableType() == DATA) {
+            return Optional.empty();
+        }
+        SchemaTableName icebergTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableName());
+        if (!tableExists(session, icebergTableName)) {
+            return Optional.empty();
+        }
+
+        Table icebergTable = getIcebergTable(session, icebergTableName);
+
+        if (name.getSnapshotId().isPresent() && icebergTable.snapshot(name.getSnapshotId().get()) == null) {
+            throw new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID, format("Invalid snapshot [%s] for table: %s", name.getSnapshotId().get(), icebergTable));
+        }
+
+        return getIcebergSystemTable(tableName, icebergTable);
     }
 }
