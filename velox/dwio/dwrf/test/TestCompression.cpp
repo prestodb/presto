@@ -451,3 +451,19 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
         std::make_tuple(CompressionKind_ZSTD, nullptr),
         std::make_tuple(CompressionKind_ZSTD, &testEncrypter),
         std::make_tuple(CompressionKind_NONE, &testEncrypter)));
+
+TEST(CompressionOptionsTest, testCompressionOptions) {
+  auto options = getDwrfOrcCompressionOptions(
+      facebook::velox::common::CompressionKind_ZLIB, 256, 4, 7);
+
+  EXPECT_EQ(
+      options.format.zlib.windowBits, Compressor::DWRF_ORC_ZLIB_WINDOW_BITS);
+  EXPECT_EQ(options.format.zlib.compressionLevel, 4);
+  EXPECT_EQ(options.compressionThreshold, 256);
+
+  options = getDwrfOrcCompressionOptions(
+      facebook::velox::common::CompressionKind_ZSTD, 256, 4, 7);
+
+  EXPECT_EQ(options.format.zstd.compressionLevel, 7);
+  EXPECT_EQ(options.compressionThreshold, 256);
+}

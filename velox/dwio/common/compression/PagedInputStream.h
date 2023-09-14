@@ -28,7 +28,9 @@ class PagedInputStream : public dwio::common::SeekableInputStream {
       memory::MemoryPool& memPool,
       std::unique_ptr<Decompressor> decompressor,
       const dwio::common::encryption::Decrypter* decrypter,
-      const std::string& streamDebugInfo)
+      const std::string& streamDebugInfo,
+      bool useRawDecompression = false,
+      size_t compressedLength = 0)
       : input_(std::move(inStream)),
         pool_(memPool),
         inputBuffer_(pool_),
@@ -38,6 +40,14 @@ class PagedInputStream : public dwio::common::SeekableInputStream {
     DWIO_ENSURE(
         decompressor_ || decrypter_,
         "one of decompressor or decryptor is required");
+    DWIO_ENSURE(
+        !useRawDecompression || compressedLength > 0,
+        "For raw decompression, compressedLength should be greater than zero");
+
+    if (useRawDecompression) {
+      state_ = State::START;
+      remainingLength_ = compressedLength;
+    }
   }
 
   bool Next(const void** data, int32_t* size) override;
@@ -71,13 +81,24 @@ class PagedInputStream : public dwio::common::SeekableInputStream {
   PagedInputStream(
       std::unique_ptr<SeekableInputStream> inStream,
       memory::MemoryPool& memPool,
-      const std::string& streamDebugInfo)
+      const std::string& streamDebugInfo,
+      bool useRawDecompression = false,
+      size_t compressedLength = 0)
       : input_(std::move(inStream)),
         pool_(memPool),
         inputBuffer_(pool_),
         decompressor_{nullptr},
         decrypter_{nullptr},
-        streamDebugInfo_{streamDebugInfo} {}
+        streamDebugInfo_{streamDebugInfo} {
+    DWIO_ENSURE(
+        !useRawDecompression || compressedLength > 0,
+        "For raw decompression, compressedLength should be greater than zero");
+
+    if (useRawDecompression) {
+      state_ = State::START;
+      remainingLength_ = compressedLength;
+    }
+  }
 
   void prepareOutputBuffer(uint64_t uncompressedLength);
 

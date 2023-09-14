@@ -20,7 +20,7 @@
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/common/TypeWithId.h"
-#include "velox/dwio/common/compression/Compression.h"
+#include "velox/dwio/dwrf/common/Compression.h"
 #include "velox/dwio/dwrf/common/Decryption.h"
 #include "velox/dwio/dwrf/common/FileMetadata.h"
 #include "velox/dwio/dwrf/common/Statistics.h"
@@ -28,8 +28,6 @@
 #include "velox/dwio/dwrf/utils/ProtoUtils.h"
 
 namespace facebook::velox::dwrf {
-
-using dwio::common::compression::createDecompressor;
 
 class ReaderBase;
 

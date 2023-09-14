@@ -106,3 +106,10 @@ TEST_F(ParquetPageReaderTest, corruptedPageHeader) {
 
   EXPECT_THROW(pageReader->readPageHeader(), VeloxException);
 }
+
+TEST(CompressionOptionsTest, testCompressionOptions) {
+  auto options = PageReader::getParquetDecompressionOptions();
+  EXPECT_EQ(
+      options.format.zlib.windowBits,
+      dwio::common::compression::Compressor::PARQUET_ZLIB_WINDOW_BITS);
+}

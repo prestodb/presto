@@ -113,7 +113,9 @@ class ZlibDecompressor : public Decompressor {
  public:
   explicit ZlibDecompressor(
       uint64_t blockSize,
-      const std::string& streamDebugInfo);
+      int windowBits,
+      const std::string& streamDebugInfo,
+      bool izGzip = false);
   ~ZlibDecompressor() override;
 
   uint64_t decompress(
@@ -137,7 +139,9 @@ class ZlibDecompressor : public Decompressor {
 
 ZlibDecompressor::ZlibDecompressor(
     uint64_t blockSize,
-    const std::string& streamDebugInfo)
+    int windowBits,
+    const std::string& streamDebugInfo,
+    bool isGzip)
     : Decompressor{blockSize, streamDebugInfo} {
   zstream_.next_in = Z_NULL;
   zstream_.avail_in = 0;
@@ -146,7 +150,12 @@ ZlibDecompressor::ZlibDecompressor(
   zstream_.opaque = Z_NULL;
   zstream_.next_out = Z_NULL;
   zstream_.avail_out = folly::to<uInt>(blockSize);
-  auto result = inflateInit2(&zstream_, -15);
+  int zlibWindowBits = windowBits;
+  constexpr int GZIP_DETECT_CODE = 32;
+  if (isGzip) {
+    zlibWindowBits = zlibWindowBits | GZIP_DETECT_CODE;
+  }
+  const auto result = inflateInit2(&zstream_, zlibWindowBits);
   DWIO_ENSURE_EQ(
       result,
       Z_OK,
@@ -337,9 +346,13 @@ class ZlibDecompressionStream : public PagedInputStream,
       std::unique_ptr<dwio::common::SeekableInputStream> inStream,
       uint64_t blockSize,
       MemoryPool& pool,
-      const std::string& streamDebugInfo)
-      : PagedInputStream{std::move(inStream), pool, streamDebugInfo},
-        ZlibDecompressor{blockSize, streamDebugInfo} {}
+      int windowBits,
+      const std::string& streamDebugInfo,
+      bool isGzip = false,
+      bool useRawDecompression = false,
+      size_t compressedLength = 0)
+      : PagedInputStream{std::move(inStream), pool, streamDebugInfo, useRawDecompression, compressedLength},
+        ZlibDecompressor{blockSize, windowBits, streamDebugInfo, isGzip} {}
   ~ZlibDecompressionStream() override = default;
 
   bool Next(const void** data, int32_t* size) override;
@@ -436,10 +449,8 @@ std::unique_ptr<BufferedOutputStream> createCompressor(
     CompressionKind kind,
     CompressionBufferPool& bufferPool,
     DataBufferHolder& bufferHolder,
-    uint32_t compressionThreshold,
-    int32_t zlibCompressionLevel,
-    int32_t zstdCompressionLevel,
     uint8_t pageHeaderSize,
+    const CompressionOptions& options,
     const Encrypter* encrypter) {
   std::unique_ptr<Compressor> compressor;
   switch (kind) {
@@ -450,17 +461,19 @@ std::unique_ptr<BufferedOutputStream> createCompressor(
       // compressor remain as nullptr
       break;
     case CompressionKind::CompressionKind_ZLIB: {
-      compressor = std::make_unique<ZlibCompressor>(zlibCompressionLevel);
+      compressor = std::make_unique<ZlibCompressor>(
+          options.format.zlib.compressionLevel);
       XLOG_FIRST_N(INFO, 1) << fmt::format(
           "Initialized zlib compressor with compression level {}",
-          zlibCompressionLevel);
+          options.format.zlib.compressionLevel);
       break;
     }
     case CompressionKind::CompressionKind_ZSTD: {
-      compressor = std::make_unique<ZstdCompressor>(zstdCompressionLevel);
+      compressor = std::make_unique<ZstdCompressor>(
+          options.format.zstd.compressionLevel);
       XLOG_FIRST_N(INFO, 1) << fmt::format(
           "Initialized zstd compressor with compression level {}",
-          zstdCompressionLevel);
+          options.format.zstd.compressionLevel);
       break;
     }
     case CompressionKind::CompressionKind_SNAPPY:
@@ -473,7 +486,7 @@ std::unique_ptr<BufferedOutputStream> createCompressor(
   return std::make_unique<PagedOutputStream>(
       bufferPool,
       bufferHolder,
-      compressionThreshold,
+      options.compressionThreshold,
       pageHeaderSize,
       std::move(compressor),
       encrypter);
@@ -484,8 +497,11 @@ std::unique_ptr<dwio::common::SeekableInputStream> createDecompressor(
     std::unique_ptr<dwio::common::SeekableInputStream> input,
     uint64_t blockSize,
     MemoryPool& pool,
+    const CompressionOptions& options,
     const std::string& streamDebugInfo,
-    const Decrypter* decrypter) {
+    const Decrypter* decrypter,
+    bool useRawDecompression,
+    size_t compressedLength) {
   std::unique_ptr<Decompressor> decompressor;
   switch (static_cast<int64_t>(kind)) {
     case CompressionKind::CompressionKind_NONE:
@@ -499,10 +515,34 @@ std::unique_ptr<dwio::common::SeekableInputStream> createDecompressor(
         // When file is not encrypted, we can use zlib streaming codec to avoid
         // copying data
         return std::make_unique<ZlibDecompressionStream>(
-            std::move(input), blockSize, pool, streamDebugInfo);
+            std::move(input),
+            blockSize,
+            pool,
+            options.format.zlib.windowBits,
+            streamDebugInfo,
+            false,
+            useRawDecompression,
+            compressedLength);
       }
-      decompressor =
-          std::make_unique<ZlibDecompressor>(blockSize, streamDebugInfo);
+      decompressor = std::make_unique<ZlibDecompressor>(
+          blockSize, options.format.zlib.windowBits, streamDebugInfo, false);
+      break;
+    case CompressionKind::CompressionKind_GZIP:
+      if (!decrypter) {
+        // When file is not encrypted, we can use zlib streaming codec to avoid
+        // copying data
+        return std::make_unique<ZlibDecompressionStream>(
+            std::move(input),
+            blockSize,
+            pool,
+            options.format.zlib.windowBits,
+            streamDebugInfo,
+            true,
+            useRawDecompression,
+            compressedLength);
+      }
+      decompressor = std::make_unique<ZlibDecompressor>(
+          blockSize, options.format.zlib.windowBits, streamDebugInfo, true);
       break;
     case CompressionKind::CompressionKind_SNAPPY:
       decompressor =
@@ -528,7 +568,9 @@ std::unique_ptr<dwio::common::SeekableInputStream> createDecompressor(
       pool,
       std::move(decompressor),
       decrypter,
-      streamDebugInfo);
+      streamDebugInfo,
+      useRawDecompression,
+      compressedLength);
 }
 
 } // namespace facebook::velox::dwio::common::compression
