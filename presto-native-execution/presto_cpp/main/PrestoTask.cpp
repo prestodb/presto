@@ -510,8 +510,11 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
           opOut.getOutputCalls,
           opOut.getOutputWall,
           opOut.getOutputCpu);
+      CpuWallTiming finishAndBackgroundTiming;
+      finishAndBackgroundTiming.add(op.finishTiming);
+      finishAndBackgroundTiming.add(op.backgroundTiming);
       setTiming(
-          op.finishTiming,
+          finishAndBackgroundTiming,
           opOut.finishCalls,
           opOut.finishWall,
           opOut.finishCpu);
