@@ -23,6 +23,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/exec/Exchange.h"
+#include "velox/exec/ExchangeClient.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -39,6 +40,8 @@ using namespace ::testing;
 namespace facebook::presto::operators::test {
 
 namespace {
+
+static const uint64_t kFakeBackgroundCpuTimeMs = 123;
 
 struct TestShuffleInfo {
   uint32_t numPartitions;
@@ -125,7 +128,9 @@ class TestShuffleWriter : public ShuffleWriter {
   }
 
   folly::F14FastMap<std::string, int64_t> stats() const override {
-    return {{"test-shuffle.write", 1002}};
+    return {
+        {"test-shuffle.write", 1002},
+        {exec::ExchangeClient::kBackgroundCpuTimeMs, kFakeBackgroundCpuTimeMs}};
   }
 
   std::shared_ptr<std::vector<std::vector<BufferPtr>>>& readyPartitions() {
@@ -202,7 +207,9 @@ class TestShuffleReader : public ShuffleReader {
   }
 
   folly::F14FastMap<std::string, int64_t> stats() const override {
-    return {{"test-shuffle.read", 1032}};
+    return {
+        {"test-shuffle.read", 1032},
+        {exec::ExchangeClient::kBackgroundCpuTimeMs, kFakeBackgroundCpuTimeMs}};
   }
 
  private:
@@ -439,7 +446,8 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
       bool replicateNullsAndAny,
       size_t numPartitions,
       size_t numMapDrivers,
-      const std::vector<RowVectorPtr>& data) {
+      const std::vector<RowVectorPtr>& data,
+      uint64_t backgroundCpuTimeNanos = 0) {
     // Register new shuffle related operators.
     exec::Operator::registerOperator(
         std::make_unique<PartitionAndSerializeTranslator>());
@@ -468,11 +476,19 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     ASSERT_TRUE(exec::test::waitForTaskCompletion(writerTask.get(), 5'000'000));
 
     // Verify that shuffle stats got propagated to the ShuffleWrite operator.
-    auto shuffleStats = writerTask->taskStats()
-                            .pipelineStats[0]
-                            .operatorStats.back()
-                            .runtimeStats;
-    ASSERT_EQ(1, shuffleStats.count(fmt::format("{}.write", shuffleName)));
+    const auto shuffleWriteOperatorStats =
+        writerTask->taskStats().pipelineStats[0].operatorStats.back();
+    // Test if background CPU stats have been folded into finishTiming for
+    // ShuffleWrite
+    ASSERT_EQ(
+        backgroundCpuTimeNanos > 0 ? 1 : 0,
+        shuffleWriteOperatorStats.backgroundTiming.count);
+    ASSERT_EQ(
+        backgroundCpuTimeNanos,
+        shuffleWriteOperatorStats.backgroundTiming.cpuNanos);
+    const auto shuffleRuntimeStats = shuffleWriteOperatorStats.runtimeStats;
+    ASSERT_EQ(
+        1, shuffleRuntimeStats.count(fmt::format("{}.write", shuffleName)));
 
     // NOTE: each map driver processes the input once.
     std::vector<RowVectorPtr> expectedOutputVectors;
@@ -500,11 +516,17 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
           runShuffleReadTask(params, serializedShuffleReadInfo(partition));
 
       // Verify that shuffle stats got propagated to the Exchange operator.
-      auto exchangeStats = taskCursor->task()
-                               ->taskStats()
-                               .pipelineStats[0]
-                               .operatorStats[0]
-                               .runtimeStats;
+      const auto shuffleReadOperatorStats =
+          taskCursor->task()->taskStats().pipelineStats[0].operatorStats[0];
+      // Test if background CPU stats have been folded into finishTiming for
+      // ShuffleRead
+      ASSERT_EQ(
+          backgroundCpuTimeNanos > 0 ? 1 : 0,
+          shuffleReadOperatorStats.backgroundTiming.count);
+      ASSERT_EQ(
+          backgroundCpuTimeNanos,
+          shuffleReadOperatorStats.backgroundTiming.cpuNanos);
+      const auto exchangeStats = shuffleReadOperatorStats.runtimeStats;
       ASSERT_EQ(1, exchangeStats.count(fmt::format("{}.read", shuffleName)));
 
       vector_size_t numResults = 0;
@@ -777,7 +799,8 @@ TEST_F(UnsafeRowShuffleTest, endToEnd) {
       false,
       numPartitions,
       numMapDrivers,
-      {data});
+      {data},
+      kFakeBackgroundCpuTimeMs * Timestamp::kNanosecondsInMillisecond);
   TestShuffleWriter::reset();
 }
 
@@ -802,7 +825,8 @@ TEST_F(UnsafeRowShuffleTest, endToEndWithReplicateNullAndAny) {
       true,
       numPartitions,
       numMapDrivers,
-      {data});
+      {data},
+      kFakeBackgroundCpuTimeMs * Timestamp::kNanosecondsInMillisecond);
   TestShuffleWriter::reset();
 }
 

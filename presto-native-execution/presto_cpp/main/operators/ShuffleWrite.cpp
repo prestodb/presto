@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/operators/ShuffleWrite.h"
+#include "velox/exec/ExchangeClient.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox;
@@ -92,11 +93,26 @@ class ShuffleWriteOperator : public Operator {
     checkCreateShuffleWriter();
     CALL_SHUFFLE(shuffle_->noMoreData(true), "noMoreData");
 
-    {
-      auto lockedStats = stats_.wlock();
-      for (const auto& [name, value] : shuffle_->stats()) {
-        lockedStats->runtimeStats[name] = RuntimeMetric(value);
-      }
+    recordShuffleWriteClientStats();
+  }
+
+  void recordShuffleWriteClientStats() {
+    auto lockedStats = stats_.wlock();
+    const auto shuffleStats = shuffle_->stats();
+    for (const auto& [name, value] : shuffleStats) {
+      lockedStats->runtimeStats[name] = RuntimeMetric(value);
+    }
+
+    auto backgroundCpuTimeMs =
+        shuffleStats.find(ExchangeClient::kBackgroundCpuTimeMs);
+    if (backgroundCpuTimeMs != shuffleStats.end()) {
+      const CpuWallTiming backgroundTiming{
+          static_cast<uint64_t>(1),
+          0,
+          static_cast<uint64_t>(backgroundCpuTimeMs->second) *
+              Timestamp::kNanosecondsInMillisecond};
+      lockedStats->backgroundTiming.clear();
+      lockedStats->backgroundTiming.add(backgroundTiming);
     }
   }
 
