@@ -260,6 +260,7 @@ public class PrestoNativeQueryRunnerUtils
     public static String startRemoteFunctionServer(String remoteFunctionServerBinaryPath)
     {
         try {
+            log.info("remoteFunctionServerBinaryPath=%s", remoteFunctionServerBinaryPath);
             Path tempDirectoryPath = Files.createTempDirectory("RemoteFunctionServer");
             Path remoteFunctionServerUdsPath = tempDirectoryPath.resolve(REMOTE_FUNCTION_UDS);
             log.info("Temp directory for Remote Function Server: %s", tempDirectoryPath.toString());

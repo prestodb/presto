@@ -154,14 +154,16 @@ jobs:
             # "-Ppresto-native-execution-remote-functions" once
             # > https://github.com/facebookincubator/velox/discussions/6163
             # is fixed.
+            echo $REMOTE_FUNCTION_SERVER_PATH
+            echo ${REMOTE_FUNCTION_SERVER_PATH}
+            echo "-DREMOTE_FUNCTION_SERVER=${REMOTE_FUNCTION_SERVER_PATH}"
             if [ ! -z $TESTCLASSES ]; then
-              mvn test \
-                ${MAVEN_TEST} \
+              ./mvnw test \
                 -pl 'presto-native-execution' \
                 -Ppresto-native-execution-remote-functions
-                -Dtest="${TESTCLASSES}" \
-                -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
+                -Dtest="TestPrestoNativeRemoteFunctions" \
                 -DREMOTE_FUNCTION_SERVER=${REMOTE_FUNCTION_SERVER_PATH} \
+                -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
                 -DDATA_DIR=${TEMP_PATH} \
                 -Duser.timezone=America/Bahia_Banderas \
                 -T1C
