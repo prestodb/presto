@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/lib/aggregates/tests/AggregationTestBase.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
@@ -278,6 +279,100 @@ TEST_F(MinMaxTest, maxLongDecimal) {
 
 TEST_F(MinMaxTest, minLongDecimal) {
   doTest(min, DECIMAL(38, 19));
+}
+
+TEST_F(MinMaxTest, array) {
+  auto data = makeRowVector({
+      makeNullableArrayVector<int64_t>({
+          {1, 2, 3},
+          {std::nullopt, 2},
+          {6, 7, 8},
+      }),
+  });
+
+  auto expected = makeRowVector({
+      makeArrayVector<int64_t>({
+          {1, 2, 3},
+      }),
+      makeArrayVector<int64_t>({
+          {6, 7, 8},
+      }),
+  });
+
+  VELOX_ASSERT_THROW(
+      testAggregations({data}, {}, {"min(c0)", "max(c0)"}, {expected}),
+      "ARRAY comparison not supported for values that contain nulls");
+
+  data = makeRowVector({
+      makeNullableArrayVector<int64_t>({
+          {1, 2, 3},
+          {3, 2},
+          {6, 7, 8},
+      }),
+  });
+  testAggregations({data}, {}, {"min(c0)", "max(c0)"}, {expected});
+}
+
+TEST_F(MinMaxTest, map) {
+  auto data = makeRowVector({
+      makeNullableMapVector<int64_t, int64_t>({
+          {{{1, 1}, {2, 2}}},
+          {{{1, 1}, {2, std::nullopt}}},
+          {{{4, 50}}},
+      }),
+  });
+
+  auto expected = makeRowVector({
+      makeMapVector<int64_t, int64_t>({{{1, 1}, {2, 2}}}),
+      makeMapVector<int64_t, int64_t>({{{4, 50}}}),
+  });
+
+  VELOX_ASSERT_THROW(
+      testAggregations({data}, {}, {"min(c0)", "max(c0)"}, {expected}),
+      "MAP comparison not supported for values that contain nulls");
+
+  data = makeRowVector({
+      makeNullableMapVector<int64_t, int64_t>({
+          {{{1, 1}, {2, 2}}},
+          {{{1, 1}, {2, 3}}},
+          {{{4, 50}}},
+      }),
+  });
+
+  testAggregations({data}, {}, {"min(c0)", "max(c0)"}, {expected});
+}
+
+TEST_F(MinMaxTest, row) {
+  auto data = makeRowVector({
+      makeRowVector({
+          makeNullableFlatVector<StringView>({
+              "abc"_sv,
+              std::nullopt,
+              "efg"_sv,
+          }),
+      }),
+  });
+
+  auto expected = makeRowVector({
+      makeRowVector({makeFlatVector<StringView>({"abc"_sv})}),
+      makeRowVector({makeFlatVector<StringView>({"efg"_sv})}),
+  });
+
+  VELOX_ASSERT_THROW(
+      testAggregations({data}, {}, {"min(c0)", "max(c0)"}, {expected}),
+      "ROW comparison not supported for values that contain nulls");
+
+  data = makeRowVector({
+      makeRowVector({
+          makeNullableFlatVector<StringView>({
+              "abc"_sv,
+              "ef"_sv,
+              "efg"_sv,
+          }),
+      }),
+  });
+
+  testAggregations({data}, {}, {"min(c0)", "max(c0)"}, {expected});
 }
 
 class MinMaxNTest : public functions::aggregate::test::AggregationTestBase {

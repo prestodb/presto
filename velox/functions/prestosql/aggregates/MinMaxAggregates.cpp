@@ -17,7 +17,6 @@
 #include <limits>
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/AggregationHook.h"
-#include "velox/expression/FunctionSignature.h"
 #include "velox/functions/lib/aggregates/SimpleNumericAggregate.h"
 #include "velox/functions/lib/aggregates/SingleValueAccumulator.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
@@ -382,7 +381,7 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
       }
       auto accumulator = value<SingleValueAccumulator>(groups[i]);
       if (!accumulator->hasValue() ||
-          compareTest(accumulator->compare(decoded, i))) {
+          compareTest(compare(accumulator, decoded, i))) {
         accumulator->write(baseVector, indices[i], allocator_);
       }
     });
@@ -406,7 +405,7 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
 
       auto accumulator = value<SingleValueAccumulator>(group);
       if (!accumulator->hasValue() ||
-          compareTest(accumulator->compare(decoded, 0))) {
+          compareTest(compare(accumulator, decoded, 0))) {
         accumulator->write(baseVector, indices[0], allocator_);
       }
       return;
@@ -418,10 +417,29 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
         return;
       }
       if (!accumulator->hasValue() ||
-          compareTest(accumulator->compare(decoded, i))) {
+          compareTest(compare(accumulator, decoded, i))) {
         accumulator->write(baseVector, indices[i], allocator_);
       }
     });
+  }
+
+ private:
+  FOLLY_ALWAYS_INLINE static int32_t compare(
+      SingleValueAccumulator* accumulator,
+      DecodedVector& decoded,
+      vector_size_t index) {
+    static const CompareFlags kCompareFlags{
+        true, // nullsFirst
+        true, // ascending
+        false, // equalsOnly
+        CompareFlags::NullHandlingMode::StopAtNull};
+    auto result = accumulator->compare(decoded, index, kCompareFlags);
+    VELOX_USER_CHECK(
+        result.has_value(),
+        fmt::format(
+            "{} comparison not supported for values that contain nulls",
+            mapTypeKindToName(decoded.base()->typeKind())));
+    return result.value();
   }
 };
 
