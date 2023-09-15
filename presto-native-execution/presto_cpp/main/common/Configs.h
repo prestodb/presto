@@ -229,12 +229,10 @@ class SystemConfig : public ConfigBase {
   /// NOTE: this config only applies if the memory arbitration has been enabled.
   static constexpr std::string_view kMemoryPoolTransferCapacity{
       "memory-pool-transfer-capacity"};
-  /// The percentage of memory pool capacity reserved for system usage such as
-  /// the disk spilling memory usage.
-  ///
-  /// NOTE: this config only applies if the memory arbitration has been enabled.
-  static constexpr std::string_view kReservedMemoryPoolCapacityPct{
-      "reserved-memory-pool-capacity-pct"};
+  /// Enables the memory usage tracking for the system memory pool used for
+  /// cases such as disk spilling.
+  static constexpr std::string_view kEnableSystemMemoryPoolUsageTracking{
+      "enable_system_memory_pool_usage_tracking"};
   static constexpr std::string_view kEnableVeloxTaskLogging{
       "enable_velox_task_logging"};
   static constexpr std::string_view kEnableVeloxExprSetLogging{
@@ -426,7 +424,7 @@ class SystemConfig : public ConfigBase {
 
   uint64_t memoryPoolTransferCapacity() const;
 
-  uint32_t reservedMemoryPoolCapacityPct() const;
+  bool enableSystemMemoryPoolUsageTracking() const;
 
   bool enableHttpAccessLog() const;
 

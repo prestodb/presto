@@ -216,6 +216,14 @@ void registerPrestoCppCounters() {
       kCounterSpillFlushTimeUs, facebook::velox::StatType::SUM);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterSpillWriteTimeUs, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSpillMemoryBytes, facebook::velox::StatType::AVG);
+  REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE(
+      kCounterSpillPeakMemoryBytes,
+      1l * 512 * 1024 * 1024,
+      0,
+      20l * 1024 * 1024 * 1024, // max bucket value: 20GB
+      100);
   // Memory arbitrator stats.
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterArbitratorNumRequests, facebook::velox::StatType::SUM);

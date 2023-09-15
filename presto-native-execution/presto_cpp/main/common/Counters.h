@@ -196,6 +196,12 @@ constexpr folly::StringPiece kCounterSpillFlushTimeUs{
 /// The time spent on writing spilled rows to disk.
 constexpr folly::StringPiece kCounterSpillWriteTimeUs{
     "presto_cpp.spill_write_time_us"};
+/// The current spilling memory usage in bytes.
+constexpr folly::StringPiece kCounterSpillMemoryBytes{
+    "presto_cpp.spill_memory_bytes"};
+/// The peak spilling memory usage in bytes.
+constexpr folly::StringPiece kCounterSpillPeakMemoryBytes{
+    "presto_cpp.spill_peak_memory_bytes"};
 
 /// ================== Cache Counters ==================
 

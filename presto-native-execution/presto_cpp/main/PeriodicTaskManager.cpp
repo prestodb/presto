@@ -543,8 +543,12 @@ void PeriodicTaskManager::updateArbitratorStatsTask() {
   REPORT_IF_NOT_ZERO(
       kCounterArbitratorFreeCapacityBytes,
       deltaArbitratorStats.freeCapacityBytes);
-  LOG(INFO) << "Memory arbitrator stats update: "
-            << deltaArbitratorStats.toString();
+  if (!deltaArbitratorStats.empty()) {
+    LOG(INFO) << "Updated memory arbitrator stats: "
+              << updatedArbitratorStats.toString();
+    LOG(INFO) << "Memory arbitrator stats change: "
+              << deltaArbitratorStats.toString();
+  }
   lastArbitratorStats_ = updatedArbitratorStats;
 }
 
@@ -573,9 +577,20 @@ void PeriodicTaskManager::updateSpillStatsTask() {
       kCounterSpillFlushTimeUs, deltaSpillStats.spillFlushTimeUs);
   REPORT_IF_NOT_ZERO(
       kCounterSpillWriteTimeUs, deltaSpillStats.spillWriteTimeUs);
-  if (deltaSpillStats.spilledBytes > 0) {
-    LOG(INFO) << "Spill Stats:" << deltaSpillStats.toString();
+  if (!deltaSpillStats.empty()) {
+    LOG(INFO) << "Updated spill stats: " << updatedSpillStats.toString();
+    LOG(INFO) << "Spill stats change:" << deltaSpillStats.toString();
   }
+
+  const auto spillMemoryStats = velox::exec::Spiller::pool()->stats();
+  LOG(INFO) << "Spill memory usage: current["
+            << velox::succinctBytes(spillMemoryStats.currentBytes) << " peak[{"
+            << velox::succinctBytes(spillMemoryStats.peakBytes) << "}]";
+  REPORT_ADD_STAT_VALUE(
+      kCounterSpillMemoryBytes, spillMemoryStats.currentBytes);
+  REPORT_ADD_STAT_VALUE(
+      kCounterSpillPeakMemoryBytes, spillMemoryStats.peakBytes);
+
   lastSpillStats_ = updatedSpillStats;
 }
 
