@@ -22,6 +22,9 @@
 #include "velox/functions/lib/RowsTranslationUtil.h"
 namespace facebook::velox::functions {
 namespace {
+static const char* kNullKeyErrorMessage = "map key cannot be null";
+static const char* kIndeterminateKeyErrorMessage =
+    "map key cannot be indeterminate";
 // See documentation at https://prestodb.io/docs/current/functions/map.html
 class MapFromEntriesFunction : public exec::VectorFunction {
  public:
@@ -80,22 +83,25 @@ class MapFromEntriesFunction : public exec::VectorFunction {
       const TypePtr& outputType,
       exec::EvalCtx& context) const {
     auto& inputValueVector = inputArray->elements();
-    exec::LocalDecodedVector decodedValueVector(context);
-    decodedValueVector.get()->decode(*inputValueVector);
-    auto valueRowVector = decodedValueVector->base()->as<RowVector>();
-    auto keyValueVector = valueRowVector->childAt(0);
+    exec::LocalDecodedVector decodedRowVector(context);
+    decodedRowVector.get()->decode(*inputValueVector);
+    auto rowVector = decodedRowVector->base()->as<RowVector>();
+    auto keyVector = rowVector->childAt(0);
 
     exec::LocalSelectivityVector remianingRows(context, rows);
     BufferPtr changedSizes = nullptr;
     vector_size_t* mutableSizes = nullptr;
 
     // Validate all map entries and map keys are not null.
-    if (decodedValueVector->mayHaveNulls() || keyValueVector->mayHaveNulls()) {
+    if (decodedRowVector->mayHaveNulls() || keyVector->mayHaveNulls() ||
+        keyVector->mayHaveNullsRecursive()) {
       context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
         const auto size = inputArray->sizeAt(row);
         const auto offset = inputArray->offsetAt(row);
+
         for (auto i = 0; i < size; ++i) {
-          const bool isMapEntryNull = decodedValueVector->isNullAt(offset + i);
+          // Check nulls in the top level row vector.
+          const bool isMapEntryNull = decodedRowVector->isNullAt(offset + i);
           if (isMapEntryNull) {
             if (!mutableSizes) {
               changedSizes = allocateSizes(rows.end(), context.pool());
@@ -107,15 +113,24 @@ class MapFromEntriesFunction : public exec::VectorFunction {
 
             // Set the sizes to 0 so that the final map vector generated is
             // valid in case we are inside a try. The map vector needs to be
-            // valid because its consumed by checkDuplicateKeys before try sets
-            // invalid rows to null.
+            // valid because its consumed by checkDuplicateKeys before try
+            // sets invalid rows to null.
             mutableSizes[row] = 0;
             VELOX_USER_FAIL("map entry cannot be null");
           }
 
-          const bool isMapKeyNull =
-              keyValueVector->isNullAt(decodedValueVector->index(offset + i));
-          VELOX_USER_CHECK(!isMapKeyNull, "map key cannot be null");
+          // Check null keys.
+          auto keyIndex = decodedRowVector->index(offset + i);
+          VELOX_USER_CHECK(
+              !keyVector->isNullAt(keyIndex), kNullKeyErrorMessage);
+
+          // Check nested null in keys.
+          VELOX_USER_CHECK(
+              !keyVector->containsNullAt(keyIndex),
+              fmt::format(
+                  "{}: {}",
+                  kIndeterminateKeyErrorMessage,
+                  keyVector->toString(keyIndex)));
         }
       });
     }
@@ -124,58 +139,51 @@ class MapFromEntriesFunction : public exec::VectorFunction {
 
     VectorPtr wrappedKeys;
     VectorPtr wrappedValues;
-    if (decodedValueVector->isIdentityMapping()) {
-      wrappedKeys = valueRowVector->childAt(0);
-      wrappedValues = valueRowVector->childAt(1);
-    } else if (decodedValueVector->isConstantMapping()) {
-      if (decodedValueVector->isNullAt(0)) {
+    if (decodedRowVector->isIdentityMapping()) {
+      wrappedKeys = rowVector->childAt(0);
+      wrappedValues = rowVector->childAt(1);
+    } else if (decodedRowVector->isConstantMapping()) {
+      if (decodedRowVector->isNullAt(0)) {
         // If top level row is null, child might not be addressable at index 0
         // so we do not try to read it.
         wrappedKeys = BaseVector::createNullConstant(
-            valueRowVector->childAt(0)->type(),
-            decodedValueVector->size(),
+            rowVector->childAt(0)->type(),
+            decodedRowVector->size(),
             context.pool());
         wrappedValues = BaseVector::createNullConstant(
-            valueRowVector->childAt(1)->type(),
-            decodedValueVector->size(),
+            rowVector->childAt(1)->type(),
+            decodedRowVector->size(),
             context.pool());
       } else {
         wrappedKeys = BaseVector::wrapInConstant(
-            decodedValueVector->size(),
-            decodedValueVector->index(0),
-            valueRowVector->childAt(0));
+            decodedRowVector->size(),
+            decodedRowVector->index(0),
+            rowVector->childAt(0));
         wrappedValues = BaseVector::wrapInConstant(
-            decodedValueVector->size(),
-            decodedValueVector->index(0),
-            valueRowVector->childAt(1));
+            decodedRowVector->size(),
+            decodedRowVector->index(0),
+            rowVector->childAt(1));
       }
     } else {
       // Dictionary.
-      auto indices =
-          allocateIndices(decodedValueVector->size(), context.pool());
-      auto nulls = allocateNulls(decodedValueVector->size(), context.pool());
+      auto indices = allocateIndices(decodedRowVector->size(), context.pool());
+      auto nulls = allocateNulls(decodedRowVector->size(), context.pool());
       auto* mutableNulls = nulls->asMutable<uint64_t>();
       memcpy(
           indices->asMutable<vector_size_t>(),
-          decodedValueVector->indices(),
-          BaseVector::byteSize<vector_size_t>(decodedValueVector->size()));
+          decodedRowVector->indices(),
+          BaseVector::byteSize<vector_size_t>(decodedRowVector->size()));
       // Any null in the top row(X, Y) should be marked as null since its
       // not guranteed to be addressable at X or Y.
-      for (auto i = 0; i < decodedValueVector->size(); i++) {
-        if (decodedValueVector->isNullAt(i)) {
+      for (auto i = 0; i < decodedRowVector->size(); i++) {
+        if (decodedRowVector->isNullAt(i)) {
           bits::setNull(mutableNulls, i);
         }
       }
       wrappedKeys = BaseVector::wrapInDictionary(
-          nulls,
-          indices,
-          decodedValueVector->size(),
-          valueRowVector->childAt(0));
+          nulls, indices, decodedRowVector->size(), rowVector->childAt(0));
       wrappedValues = BaseVector::wrapInDictionary(
-          nulls,
-          indices,
-          decodedValueVector->size(),
-          valueRowVector->childAt(1));
+          nulls, indices, decodedRowVector->size(), rowVector->childAt(1));
     }
 
     // To avoid creating new buffers, we try to reuse the input's buffers

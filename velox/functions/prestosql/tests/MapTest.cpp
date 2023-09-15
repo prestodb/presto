@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <optional>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
@@ -374,6 +375,19 @@ TEST_F(MapTest, rowsWithNullsNotPassedToCheckDuplicateKey) {
   auto values = makeNullableArrayVector<int32_t>({{1, 2}, {1, 2}});
 
   ASSERT_NO_THROW(evaluate("try(map(c0, c1))", makeRowVector({keys, values})));
+}
+
+TEST_F(MapTest, nestedNullInKeys) {
+  auto inputWithNestedNulls = makeNullableNestedArrayVector<int32_t>(
+      {{{{{1, std::nullopt}}, {{5, 6}}, std::nullopt}},
+       {{{{
+             3,
+         }},
+         {{7, 8}},
+         std::nullopt}}});
+  VELOX_ASSERT_THROW(
+      evaluate("map(c0, c0)", makeRowVector({inputWithNestedNulls})),
+      "map key cannot be indeterminate");
 }
 
 } // namespace

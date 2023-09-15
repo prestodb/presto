@@ -396,3 +396,11 @@ TEST_F(MapFromEntriesTest, arrayOfConstantNotNulls) {
         {{{1, 2}}, {{1, 2}}, {{1, 2}}, {{1, 2}}});
   }
 }
+
+TEST_F(MapFromEntriesTest, nestedNullInKeys) {
+  VELOX_ASSERT_THROW(
+      evaluate(
+          "map_from_entries(array_constructor(row_constructor(array_constructor(null), null)))",
+          makeRowVector({makeFlatVector<int32_t>(1)})),
+      "map key cannot be indeterminate");
+}

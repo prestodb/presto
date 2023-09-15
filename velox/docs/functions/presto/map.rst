@@ -21,7 +21,7 @@ Map Functions
 .. function:: map(array(K), array(V)) -> map(K,V)
    :noindex:
 
-    Returns a map created using the given key/value arrays. ::
+    Returns a map created using the given key/value arrays. Keys are not allowed to be null or to contain nulls. ::
 
         SELECT map(ARRAY[1,3], ARRAY[2,4]); -- {1 -> 2, 3 -> 4}
 
@@ -48,7 +48,7 @@ Map Functions
 
 .. function:: map_from_entries(array(row(K, V))) -> map(K, V)
 
-    Returns a map created from the given array of entries. ::
+    Returns a map created from the given array of entries. Keys are not allowed to be null or to contain nulls. ::
 
         SELECT map_from_entries(ARRAY[(1, 'x'), (2, 'y')]); -- {1 -> 'x', 2 -> 'y'}
 
@@ -104,4 +104,3 @@ Map Functions
         SELECT transform_values(MAP(ARRAY ['a', 'b'], ARRAY [1, 2]), (k, v) -> k || CAST(v as VARCHAR)); -- {a -> a1, b -> b2}
         SELECT transform_values(MAP(ARRAY [1, 2], ARRAY [1.0, 1.4]), -- {1 -> one_1.0, 2 -> two_1.4}
                                 (k, v) -> MAP(ARRAY[1, 2], ARRAY['one', 'two'])[k] || '_' || CAST(v AS VARCHAR));
-
