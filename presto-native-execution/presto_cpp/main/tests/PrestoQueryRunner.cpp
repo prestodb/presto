@@ -18,7 +18,7 @@
 #include "velox/common/base/Fs.h"
 #include "velox/common/encode/Base64.h"
 #include "velox/common/file/FileSystems.h"
-#include "velox/dwio/common/WriterFactory.h"
+#include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/serializers/PrestoSerializer.h"
 
@@ -50,19 +50,17 @@ void writeToFile(
     memory::MemoryPool* pool) {
   VELOX_CHECK_GT(data.size(), 0);
 
-  dwio::common::WriterOptions options;
+  dwrf::WriterOptions options;
   options.schema = data[0]->type();
   options.memoryPool = pool;
-
   auto writeFile = std::make_unique<LocalWriteFile>(path, true, false);
   auto sink =
       std::make_unique<dwio::common::WriteFileSink>(std::move(writeFile), path);
-  auto writer = dwio::common::getWriterFactory(dwio::common::FileFormat::DWRF)
-                    ->createWriter(std::move(sink), options);
+  dwrf::Writer writer(std::move(sink), options);
   for (const auto& vector : data) {
-    writer->write(vector);
+    writer.write(vector);
   }
-  writer->close();
+  writer.close();
 }
 
 ByteInputStream toByteStream(const std::string& input) {

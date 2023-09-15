@@ -112,7 +112,7 @@ public final class HiveQueryRunner
     public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tpchTables, List<String> tpcdsTableNames, Map<String, String> extraProperties, Optional<Path> dataDirectory)
             throws Exception
     {
-        return createQueryRunner(tpchTables, tpcdsTableNames, extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), dataDirectory, Optional.empty());
+        return createQueryRunner(tpchTables, tpcdsTableNames, extraProperties, ImmutableMap.of(), "legacy", ImmutableMap.of("hive.allow-drop-table", "true"), Optional.empty(), dataDirectory, Optional.empty());
     }
 
     public static DistributedQueryRunner createQueryRunner(
