@@ -14,43 +14,30 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.spi.relation.CallExpression;
-import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
-import com.facebook.presto.sql.relational.FunctionResolution;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.google.common.collect.ImmutableList;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.SystemSessionProperties.getEliminateJoinSkewByShardingStrategy;
-import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
-import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.EliminateJoinSkewByShardingStrategy.DISABLED;
-import static com.facebook.presto.sql.planner.PlannerUtils.addProjections;
+import static com.facebook.presto.SystemSessionProperties.getRandomizeProbeSideStrategy;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeProbeSideStrategy.DISABLED;
 import static com.facebook.presto.sql.planner.PlannerUtils.concatVariableLists;
+import static com.facebook.presto.sql.planner.PlannerUtils.getPlanString;
 import static com.facebook.presto.sql.planner.PlannerUtils.restrictOutput;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.roundRobinExchange;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static com.facebook.presto.sql.relational.Expressions.call;
-import static com.facebook.presto.sql.relational.Expressions.constant;
-import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -70,14 +57,14 @@ import static java.util.Objects.requireNonNull;
  *
  */
 
-public class ShardedJoin
+public class RandomShuffleProbeSide
         implements PlanOptimizer
 {
     private final FunctionAndTypeManager functionAndTypeManager;
     private final Metadata metadata;
     private boolean isEnabledForTesting;
 
-    public ShardedJoin(Metadata metadata, FunctionAndTypeManager functionAndTypeManager)
+    public RandomShuffleProbeSide(Metadata metadata, FunctionAndTypeManager functionAndTypeManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
@@ -92,7 +79,7 @@ public class ShardedJoin
     @Override
     public boolean isEnabled(Session session)
     {
-        return isEnabledForTesting || !getEliminateJoinSkewByShardingStrategy(session).equals(DISABLED);
+        return isEnabledForTesting || !getRandomizeProbeSideStrategy(session).equals(DISABLED);
     }
 
     @Override
@@ -113,7 +100,7 @@ public class ShardedJoin
         private final FunctionAndTypeManager functionAndTypeManager;
         private final PlanNodeIdAllocator planNodeIdAllocator;
         private final VariableAllocator planVariableAllocator;
-        private final FeaturesConfig.EliminateJoinSkewByShardingStrategy strategy;
+        private final FeaturesConfig.RandomizeProbeSideStrategy strategy;
 
         private Rewriter(Session session, Metadata metadata,
                 FunctionAndTypeManager functionAndTypeManager, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator planVariableAllocator)
@@ -123,7 +110,7 @@ public class ShardedJoin
             this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
             this.planNodeIdAllocator = requireNonNull(planNodeIdAllocator, "planNodeIdAllocator is null");
             this.planVariableAllocator = requireNonNull(planVariableAllocator, "planVariableAllocator is null");
-            this.strategy = getEliminateJoinSkewByShardingStrategy(session);
+            this.strategy = getRandomizeProbeSideStrategy(session);
         }
 
         private static boolean isBroadcastJoin(JoinNode joinNode)
@@ -131,11 +118,11 @@ public class ShardedJoin
             return joinNode.getDistributionType().isPresent() && joinNode.getDistributionType().get() == REPLICATED;
         }
 
-        private static boolean isApplicable(JoinNode joinNode, FeaturesConfig.EliminateJoinSkewByShardingStrategy strategy)
+        private static boolean isApplicable(JoinNode joinNode, FeaturesConfig.RandomizeProbeSideStrategy strategy)
         {
             return isBroadcastJoin(joinNode) &&
-                    (strategy == FeaturesConfig.EliminateJoinSkewByShardingStrategy.ALWAYS ||
-                            strategy == FeaturesConfig.EliminateJoinSkewByShardingStrategy.COST_BASED && isLeftSideSkewed(joinNode));
+                    (strategy == FeaturesConfig.RandomizeProbeSideStrategy.ALWAYS ||
+                            strategy == FeaturesConfig.RandomizeProbeSideStrategy.COST_BASED && isLeftSideSkewed(joinNode));
         }
 
         private static boolean isLeftSideSkewed(JoinNode joinNode)
@@ -152,54 +139,35 @@ public class ShardedJoin
             }
 
             PlanNode leftChild = joinNode.getLeft();
-            int partitionCount = getHashPartitionCount(session);
-            // TODO: tune number of shards based on stats
-            RowExpression randomNumber = call(
-                    functionAndTypeManager,
-                    "random",
-                    BIGINT,
-                    constant((long) partitionCount, BIGINT));
-            VariableReferenceExpression randomVariable = planVariableAllocator.newVariable(randomNumber);
-            PlanNode projectRandom = addProjections(leftChild, planNodeIdAllocator, planVariableAllocator, ImmutableList.of(randomNumber), ImmutableList.of(randomVariable));
 
-            VariableReferenceExpression rowNumberVariable = planVariableAllocator.newVariable("row_number", BIGINT);
+            PlanNode newLeftChild = addRandomShuffle(leftChild);
 
-            RowNumberNode rowNumberNode = new RowNumberNode(
-                    joinNode.getSourceLocation(),
-                    planNodeIdAllocator.getNextId(),
-                    projectRandom,
-                    ImmutableList.of(randomVariable),
-                    rowNumberVariable,
-                    Optional.empty(),
-                    false,
-                    Optional.empty());
-
-            FunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
-
-            RowExpression shardPredicate =
-                new CallExpression(GREATER_THAN_OR_EQUAL.name(),
-                    functionResolution.comparisonFunction(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL, BIGINT, BIGINT),
-                    BOOLEAN,
-                    asList(rowNumberVariable, constant((long) 1, BIGINT)));
-            Optional<RowExpression> filter = joinNode.getFilter();
-            RowExpression newFilter = filter.isPresent() ? LogicalRowExpressions.and(filter.get(), shardPredicate) : shardPredicate;
             List<VariableReferenceExpression> outputVariables = joinNode.getOutputVariables();
-            List<VariableReferenceExpression> newOutputVariables = concatVariableLists(rowNumberNode.getOutputVariables(), joinNode.getRight().getOutputVariables());
+            List<VariableReferenceExpression> newOutputVariables = concatVariableLists(newLeftChild.getOutputVariables(), joinNode.getRight().getOutputVariables());
             JoinNode newJoinNode = new JoinNode(
-                joinNode.getSourceLocation(),
-                joinNode.getId(),
-                joinNode.getStatsEquivalentPlanNode(),
-                joinNode.getType(),
-                rowNumberNode,
-                joinNode.getRight(),
-                joinNode.getCriteria(),
-                newOutputVariables,
-                Optional.of(newFilter),
-                joinNode.getLeftHashVariable(),
-                joinNode.getRightHashVariable(),
-                joinNode.getDistributionType(),
-                joinNode.getDynamicFilters());
-            return restrictOutput(newJoinNode, planNodeIdAllocator, outputVariables);
+                    joinNode.getSourceLocation(),
+                    joinNode.getId(),
+                    joinNode.getStatsEquivalentPlanNode(),
+                    joinNode.getType(),
+                    newLeftChild,
+                    joinNode.getRight(),
+                    joinNode.getCriteria(),
+                    newOutputVariables,
+                    joinNode.getFilter(),
+                    joinNode.getLeftHashVariable(),
+                    joinNode.getRightHashVariable(),
+                    joinNode.getDistributionType(),
+                    joinNode.getDynamicFilters());
+            PlanNode p = restrictOutput(newJoinNode, planNodeIdAllocator, outputVariables);
+            TypeProvider types = TypeProvider.viewOf(planVariableAllocator.getVariables());
+            System.out.println("New plan: " + getPlanString(p, session, types, metadata, false));
+            // TODO: someone changes the distribution of the RHS to partitioned, causing wrong results
+            return p;
+        }
+
+        private PlanNode addRandomShuffle(PlanNode plan)
+        {
+            return roundRobinExchange(planNodeIdAllocator.getNextId(), REMOTE_STREAMING, plan);
         }
     }
 }

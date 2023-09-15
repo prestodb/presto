@@ -15,27 +15,31 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.ELIMINATE_JOIN_SKEW_BY_SHARDING;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_PROBE_SIDE_STRATEGY;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 
-public class TestShardedJoins
+public class TestRandomShuffleProbeSide
         extends BasePlanTest
 {
     private Session getSessionAlwaysEnabled()
     {
         return Session.builder(this.getQueryRunner().getDefaultSession())
-                .setSystemProperty(ELIMINATE_JOIN_SKEW_BY_SHARDING, "ALWAYS")
+                .setSystemProperty(RANDOMIZE_PROBE_SIDE_STRATEGY, "ALWAYS")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "BROADCAST")
                 .build();
     }
@@ -49,9 +53,8 @@ public class TestShardedJoins
                         join(
                                 INNER,
                                 ImmutableList.of(equiJoinClause("leftOrderKey", "rightOrderKey")),
-                                anyTree(
-                                        project(ImmutableMap.of("random", expression("random(100)")),
-                                            tableScan("lineitem", ImmutableMap.of("leftOrderKey", "orderkey")))),
+                                exchange(REMOTE_STREAMING, REPARTITION,
+                                        tableScan("lineitem", ImmutableMap.of("leftOrderKey", "orderkey"))),
                                 anyTree(tableScan("orders", ImmutableMap.of("rightOrderKey", "orderkey"))))),
                 false);
     }

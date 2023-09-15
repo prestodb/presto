@@ -51,7 +51,6 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT;
-import static com.facebook.presto.SystemSessionProperties.ELIMINATE_JOIN_SKEW_BY_SHARDING;
 import static com.facebook.presto.SystemSessionProperties.ENABLE_INTERMEDIATE_AGGREGATIONS;
 import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
@@ -73,6 +72,7 @@ import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_T
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_PROBE_SIDE_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CASE_TO_MAP_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN;
@@ -7134,7 +7134,7 @@ public abstract class AbstractTestQueries
     {
         Session defaultSession = getSession();
         Session session = Session.builder(getSession())
-                .setSystemProperty(ELIMINATE_JOIN_SKEW_BY_SHARDING, "ALWAYS")
+                .setSystemProperty(RANDOMIZE_PROBE_SIDE_STRATEGY, "ALWAYS")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "BROADCAST")
                 .build();
 
@@ -7146,7 +7146,7 @@ public abstract class AbstractTestQueries
 
         for (String query : queries) {
             MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
-            assert(((String) resultExplainQuery.getOnlyValue()).contains("random"));
+            assert(((String) resultExplainQuery.getOnlyValue()).contains("REPARTITION"));
 
             assertQueryWithSameQueryRunner(session, query, defaultSession);
         }

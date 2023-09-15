@@ -254,7 +254,7 @@ public class FeaturesConfig
     private boolean nativeExecutionProcessReuseEnabled = true;
     private boolean randomizeOuterJoinNullKey;
     private RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy = RandomizeOuterJoinNullKeyStrategy.DISABLED;
-    private EliminateJoinSkewByShardingStrategy eliminateJoinSkewByShardingStrategy = EliminateJoinSkewByShardingStrategy.DISABLED;
+    private RandomizeProbeSideStrategy randomizeProbeSideStrategy = RandomizeProbeSideStrategy.DISABLED;
     private boolean isOptimizeConditionalAggregationEnabled;
     private boolean isRemoveRedundantDistinctAggregationEnabled = true;
     private boolean inPredicatesAsInnerJoinsEnabled;
@@ -370,7 +370,7 @@ public class FeaturesConfig
         ALWAYS
     }
 
-    public enum EliminateJoinSkewByShardingStrategy
+    public enum RandomizeProbeSideStrategy
     {
         DISABLED,
         ALWAYS,
@@ -2500,16 +2500,16 @@ public class FeaturesConfig
         return this;
     }
 
-    public EliminateJoinSkewByShardingStrategy getEliminateJoinSkewByShardingStrategy()
+    public RandomizeProbeSideStrategy getRandomizeProbeSideStrategy()
     {
-        return eliminateJoinSkewByShardingStrategy;
+        return randomizeProbeSideStrategy;
     }
 
-    @Config("optimizer.eliminate-join-skew-by-sharding-strategy")
-    @ConfigDescription("When to apply sharding to join keys to eliminate skew")
-    public FeaturesConfig setEliminateJoinSkewByShardingStrategy(EliminateJoinSkewByShardingStrategy eliminateJoinSkewByShardingStrategy)
+    @Config("optimizer.randomize-probe-side-strategy")
+    @ConfigDescription("When to randomize the probe side of a join to eliminate skew")
+    public FeaturesConfig setRandomizeProbeSideStrategy(RandomizeProbeSideStrategy randomizeProbeSideStrategy)
     {
-        this.eliminateJoinSkewByShardingStrategy = eliminateJoinSkewByShardingStrategy;
+        this.randomizeProbeSideStrategy = randomizeProbeSideStrategy;
         return this;
     }
 
