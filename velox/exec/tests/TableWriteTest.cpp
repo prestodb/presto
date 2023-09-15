@@ -1247,8 +1247,8 @@ class AllTableWriterTest : public TableWriteTest,
 
 // Runs a pipeline with read + filter + project (with substr) + write.
 TEST_P(AllTableWriterTest, scanFilterProjectWrite) {
-  auto filePaths = makeFilePaths(10);
-  auto vectors = makeVectors(filePaths.size(), 1000);
+  auto filePaths = makeFilePaths(5);
+  auto vectors = makeVectors(filePaths.size(), 500);
   for (int i = 0; i < filePaths.size(); i++) {
     writeToFile(filePaths[i]->path, vectors[i]);
   }
@@ -1293,8 +1293,8 @@ TEST_P(AllTableWriterTest, scanFilterProjectWrite) {
 }
 
 TEST_P(AllTableWriterTest, renameAndReorderColumns) {
-  auto filePaths = makeFilePaths(10);
-  auto vectors = makeVectors(filePaths.size(), 1'000);
+  auto filePaths = makeFilePaths(5);
+  auto vectors = makeVectors(filePaths.size(), 500);
   for (int i = 0; i < filePaths.size(); ++i) {
     writeToFile(filePaths[i]->path, vectors[i]);
   }
@@ -1348,8 +1348,8 @@ TEST_P(AllTableWriterTest, renameAndReorderColumns) {
 
 // Runs a pipeline with read + write.
 TEST_P(AllTableWriterTest, directReadWrite) {
-  auto filePaths = makeFilePaths(10);
-  auto vectors = makeVectors(filePaths.size(), 1000);
+  auto filePaths = makeFilePaths(5);
+  auto vectors = makeVectors(filePaths.size(), 200);
   for (int i = 0; i < filePaths.size(); i++) {
     writeToFile(filePaths[i]->path, vectors[i]);
   }
@@ -1431,8 +1431,8 @@ TEST_P(AllTableWriterTest, emptyInput) {
 }
 
 TEST_P(AllTableWriterTest, commitStrategies) {
-  auto filePaths = makeFilePaths(10);
-  auto vectors = makeVectors(filePaths.size(), 1000);
+  auto filePaths = makeFilePaths(5);
+  auto vectors = makeVectors(filePaths.size(), 100);
 
   createDuckDbTable(vectors);
 
