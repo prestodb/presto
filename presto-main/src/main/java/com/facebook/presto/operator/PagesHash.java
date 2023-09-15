@@ -78,7 +78,7 @@ public final class PagesHash
         long hashCollisionsLocal = 0;
         long positionIsNullCountLocal = 0;
 
-        for (int step = 0; step * positionsInStep <= positionCount; step++) {
+        for (int step = 0; step * positionsInStep < positionCount; step++) {
             int stepBeginPosition = step * positionsInStep;
             int stepEndPosition = Math.min((step + 1) * positionsInStep, positionCount);
             int stepSize = stepEndPosition - stepBeginPosition;
