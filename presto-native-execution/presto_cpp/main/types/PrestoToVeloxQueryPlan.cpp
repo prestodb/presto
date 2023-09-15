@@ -1175,10 +1175,6 @@ std::shared_ptr<HiveBucketProperty> toHiveBucketProperty(
   if (bucketProperty == nullptr) {
     return nullptr;
   }
-  VELOX_USER_CHECK(
-      bucketProperty->sortedBy.empty(),
-      "Bucketed sorted table is not supported: {}",
-      toJsonString(*bucketProperty));
 
   VELOX_USER_CHECK_GT(
       bucketProperty->bucketCount, 0, "Bucket count must be a positive value");

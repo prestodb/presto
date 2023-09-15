@@ -1130,18 +1130,20 @@ public abstract class AbstractTestNativeGeneralQueries
         // Generate temporary table name.
         String badBucketTableName = generateRandomTableName();
 
-        // TODO: update this test condition after bucket sort write is supported by native worker.
-        try {
-            this.assertQueryFails(session, String.format(
-                    "CREATE TABLE %s WITH (" +
-                            "partitioned_by = ARRAY[ 'orderstatus' ], " +
-                            "bucketed_by=array['orderkey'], " +
-                            "bucket_count=11, " +
-                            "sorted_by=array['orderkey']) " +
-                            "AS SELECT orderkey, orderstatus FROM orders", badBucketTableName), ".*Bucketed sorted table is not supported.*");
-        }
-        finally {
-            dropTableIfExists(badBucketTableName);
+        for (String tableFormat : TABLE_FORMATS) {
+            try {
+                getQueryRunner().execute(session, String.format(
+                        "CREATE TABLE %s WITH (format = '%s', " +
+                                "partitioned_by = ARRAY[ 'orderstatus' ], " +
+                                "bucketed_by=array['custkey'], " +
+                                "bucket_count=1, " +
+                                "sorted_by=array['orderkey']) " +
+                                "AS SELECT custkey, orderkey, orderstatus FROM orders", badBucketTableName, tableFormat));
+                assertQueryOrdered(String.format("SELECT custkey, orderkey, orderstatus FROM %s where orderstatus = '0'", badBucketTableName), "SELECT custkey, orderkey, orderstatus FROM orders where orderstatus = '0'");
+            }
+            finally {
+                dropTableIfExists(badBucketTableName);
+            }
         }
     }
 
