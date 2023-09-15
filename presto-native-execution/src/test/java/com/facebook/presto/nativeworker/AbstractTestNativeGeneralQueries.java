@@ -387,10 +387,10 @@ public abstract class AbstractTestNativeGeneralQueries
 
         // Cast from date to timestamp
         assertQuery("SELECT CAST(date(shipdate) AS timestamp) FROM lineitem");
-        Session session = Session.builder(getSession())
+        Session legacyTimestampDisabled = Session.builder(getSession())
                 .setSystemProperty("legacy_timestamp", "false")
                 .build();
-        assertQuery(session, "SELECT CAST(date(shipdate) AS timestamp) FROM lineitem");
+        assertQuery(legacyTimestampDisabled, "SELECT CAST(date(shipdate) AS timestamp) FROM lineitem");
 
         // Cast all integer types to short decimal
         assertQuery("SELECT CAST(linenumber_as_tinyint as DECIMAL(2, 0)) FROM lineitem");
@@ -434,6 +434,15 @@ public abstract class AbstractTestNativeGeneralQueries
 
         // Cast to ROW.
         assertQuery("SELECT cast(row(orderkey, comment) as row(\"123\" varchar, \"456\" varchar)) FROM orders");
+
+        // Cast timestamp with time zone
+        assertQuery("SELECT cast(from_unixtime(orderkey) as timestamp with time zone) from orders");
+        assertQuery(legacyTimestampDisabled, "SELECT cast(from_unixtime(orderkey) as timestamp with time zone) from orders");
+        // Cast timestamp with time zone to timestamp
+        assertQuery("SELECT cast(from_unixtime(orderkey, '+01:00') as timestamp), " +
+                "cast(from_unixtime(orderkey, 'America/Los_Angeles') as timestamp) from orders");
+        assertQuery(legacyTimestampDisabled, "SELECT cast(from_unixtime(orderkey, '+01:00') as timestamp), " +
+                "cast(from_unixtime(orderkey, 'America/Los_Angeles') as timestamp) from orders");
     }
 
     @Test
