@@ -216,7 +216,12 @@ class VectorFuzzer {
 
   // Returns a "fuzzed" row vector with randomized data and nulls.
   RowVectorPtr fuzzRow(const RowTypePtr& rowType);
-  RowVectorPtr fuzzRow(const RowTypePtr& rowType, vector_size_t size);
+
+  // If allowTopLevelNulls is false, the top level row wont have nulls.
+  RowVectorPtr fuzzRow(
+      const RowTypePtr& rowType,
+      vector_size_t size,
+      bool allowTopLevelNulls = true);
 
   // Returns a RowVector based on the provided vectors, fuzzing its top-level
   // null buffer.

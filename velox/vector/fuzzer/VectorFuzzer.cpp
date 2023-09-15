@@ -678,9 +678,7 @@ MapVectorPtr VectorFuzzer::fuzzMap(
 }
 
 RowVectorPtr VectorFuzzer::fuzzInputRow(const RowTypePtr& rowType) {
-  ScopedOptions restorer(this);
-  opts_.containerHasNulls = false;
-  return fuzzRow(rowType, opts_.vectorSize);
+  return fuzzRow(rowType, opts_.vectorSize, false);
 }
 
 RowVectorPtr VectorFuzzer::fuzzRow(
@@ -728,13 +726,15 @@ RowVectorPtr VectorFuzzer::fuzzRow(const RowTypePtr& rowType) {
 
 RowVectorPtr VectorFuzzer::fuzzRow(
     const RowTypePtr& rowType,
-    vector_size_t size) {
+    vector_size_t size,
+    bool allowTopLevelNulls) {
   std::vector<VectorPtr> children;
   for (auto i = 0; i < rowType->size(); ++i) {
     children.push_back(fuzz(rowType->childAt(i), size));
   }
 
-  auto nulls = opts_.containerHasNulls ? fuzzNulls(size) : nullptr;
+  auto nulls =
+      allowTopLevelNulls && opts_.containerHasNulls ? fuzzNulls(size) : nullptr;
   return std::make_shared<RowVector>(
       pool_, rowType, nulls, size, std::move(children));
 }
