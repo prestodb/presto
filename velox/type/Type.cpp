@@ -223,7 +223,7 @@ std::string ArrayType::toString() const {
 }
 
 const TypePtr& ArrayType::childAt(uint32_t idx) const {
-  VELOX_USER_CHECK_EQ(idx, 0, "List type should have only one child");
+  VELOX_USER_CHECK_EQ(idx, 0, "Array type should have only one child");
   return elementType();
 }
 
@@ -261,6 +261,17 @@ const TypePtr& MapType::childAt(uint32_t idx) const {
   }
   VELOX_USER_FAIL(
       "Map type should have only two children. Tried to access child '{}'",
+      idx);
+}
+
+const char* MapType::nameOf(uint32_t idx) const {
+  if (idx == 0) {
+    return "key";
+  } else if (idx == 1) {
+    return "value";
+  }
+  VELOX_USER_FAIL(
+      "Map type should have only two children. Tried to get name of child '{}'",
       idx);
 }
 

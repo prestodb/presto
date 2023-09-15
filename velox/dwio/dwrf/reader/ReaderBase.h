@@ -123,7 +123,7 @@ class ReaderBase {
     return schema_;
   }
 
-  void setSchema(RowTypePtr& newSchema) {
+  void setSchema(const RowTypePtr& newSchema) {
     schema_ = newSchema;
   }
 
