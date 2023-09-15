@@ -484,10 +484,9 @@ uint64_t SystemConfig::memoryPoolTransferCapacity() const {
       .value_or(kMemoryPoolTransferCapacityDefault);
 }
 
-uint32_t SystemConfig::reservedMemoryPoolCapacityPct() const {
-  static constexpr uint64_t kReservedMemoryPoolCapacityPctDefault = 10;
-  return optionalProperty<uint32_t>(kReservedMemoryPoolCapacityPct)
-      .value_or(kReservedMemoryPoolCapacityPctDefault);
+bool SystemConfig::enableSystemMemoryPoolUsageTracking() const {
+  return optionalProperty<bool>(kEnableSystemMemoryPoolUsageTracking)
+      .value_or(true);
 }
 
 bool SystemConfig::enableHttpAccessLog() const {
