@@ -22,6 +22,7 @@
 #include "velox/common/memory/Memory.h"
 
 DECLARE_int32(velox_memory_num_shared_leaf_pools);
+DECLARE_bool(velox_enable_memory_usage_track_in_default_memory_pool);
 
 using namespace ::testing;
 
@@ -113,13 +114,13 @@ TEST_F(MemoryManagerTest, Ctor) {
 namespace {
 class FakeTestArbitrator : public MemoryArbitrator {
  public:
-  FakeTestArbitrator(const Config& config)
+  explicit FakeTestArbitrator(const Config& config)
       : MemoryArbitrator(
             {.kind = config.kind,
              .capacity = config.capacity,
              .memoryPoolInitCapacity = config.memoryPoolInitCapacity,
-             .memoryPoolTransferCapacity = config.memoryPoolTransferCapacity,
-             .retryArbitrationFailure = config.retryArbitrationFailure}) {}
+             .memoryPoolTransferCapacity = config.memoryPoolTransferCapacity}) {
+  }
 
   void reserveMemory(MemoryPool* pool, uint64_t bytes) override {
     VELOX_NYI();
@@ -325,6 +326,24 @@ TEST(MemoryHeaderTest, addDefaultLeafMemoryPool) {
 
   auto namedPool = addDefaultLeafMemoryPool("namedPool");
   ASSERT_EQ(namedPool->name(), "namedPool");
+}
+
+TEST_F(MemoryManagerTest, defaultMemoryUsageTracking) {
+  for (bool trackDefaultMemoryUsage : {false, true}) {
+    MemoryManagerOptions options;
+    options.trackDefaultUsage = trackDefaultMemoryUsage;
+    MemoryManager manager{options};
+    auto defaultPool = manager.addLeafPool("defaultMemoryUsageTracking");
+    ASSERT_EQ(defaultPool->trackUsage(), trackDefaultMemoryUsage);
+  }
+
+  for (bool trackDefaultMemoryUsage : {false, true}) {
+    FLAGS_velox_enable_memory_usage_track_in_default_memory_pool =
+        trackDefaultMemoryUsage;
+    MemoryManager manager{};
+    auto defaultPool = manager.addLeafPool("defaultMemoryUsageTracking");
+    ASSERT_EQ(defaultPool->trackUsage(), trackDefaultMemoryUsage);
+  }
 }
 
 TEST_F(MemoryManagerTest, memoryPoolManagement) {

@@ -16,7 +16,6 @@
 
 #include "velox/common/memory/Memory.h"
 
-DECLARE_bool(velox_enable_memory_usage_track_in_default_memory_pool);
 DECLARE_int32(velox_memory_num_shared_leaf_pools);
 
 namespace facebook::velox::memory {
@@ -35,8 +34,7 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
           {.kind = options.arbitratorKind,
            .capacity = std::min(options.queryMemoryCapacity, options.capacity),
            .memoryPoolInitCapacity = options.memoryPoolInitCapacity,
-           .memoryPoolTransferCapacity = options.memoryPoolTransferCapacity,
-           .retryArbitrationFailure = options.retryArbitrationFailure})),
+           .memoryPoolTransferCapacity = options.memoryPoolTransferCapacity})),
       alignment_(std::max(MemoryAllocator::kMinAlignment, options.alignment)),
       checkUsageLeak_(options.checkUsageLeak),
       debugEnabled_(options.debugEnabled),
@@ -53,8 +51,7 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
           MemoryPool::Options{
               .alignment = alignment_,
               .maxCapacity = kMaxMemory,
-              .trackUsage =
-                  FLAGS_velox_enable_memory_usage_track_in_default_memory_pool,
+              .trackUsage = options.trackDefaultUsage,
               .checkUsageLeak = options.checkUsageLeak,
               .debugEnabled = options.debugEnabled})} {
   VELOX_CHECK_NOT_NULL(allocator_);
@@ -87,16 +84,6 @@ MemoryManager::~MemoryManager() {
         toString());
   }
 }
-
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-// static
-MemoryManager& MemoryManager::getInstance(
-    const MemoryManagerOptions& options,
-    bool ensureCapacity) {
-  static MemoryManager manager{options};
-  return manager;
-}
-#endif
 
 // static
 MemoryManager& MemoryManager::getInstance(const MemoryManagerOptions& options) {

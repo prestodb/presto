@@ -119,8 +119,12 @@ TEST_F(MemoryArbitrationTest, queryMemoryCapacity) {
 }
 
 TEST_F(MemoryArbitrationTest, arbitratorStats) {
+  const MemoryArbitrator::Stats emptyStats;
+  ASSERT_TRUE(emptyStats.empty());
   const MemoryArbitrator::Stats anchorStats(5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5);
+  ASSERT_FALSE(anchorStats.empty());
   const MemoryArbitrator::Stats largeStats(8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8);
+  ASSERT_FALSE(largeStats.empty());
   ASSERT_TRUE(!(anchorStats == largeStats));
   ASSERT_TRUE(anchorStats != largeStats);
   ASSERT_TRUE(anchorStats < largeStats);
@@ -155,8 +159,8 @@ class FakeTestArbitrator : public MemoryArbitrator {
             {.kind = config.kind,
              .capacity = config.capacity,
              .memoryPoolInitCapacity = config.memoryPoolInitCapacity,
-             .memoryPoolTransferCapacity = config.memoryPoolTransferCapacity,
-             .retryArbitrationFailure = config.retryArbitrationFailure}) {}
+             .memoryPoolTransferCapacity = config.memoryPoolTransferCapacity}) {
+  }
 
   void reserveMemory(MemoryPool* pool, uint64_t bytes) override {
     VELOX_NYI();

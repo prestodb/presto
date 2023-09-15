@@ -59,14 +59,6 @@ class MemoryArbitrator {
     /// The minimal memory capacity to transfer out of or into a memory pool
     /// during the memory arbitration.
     uint64_t memoryPoolTransferCapacity{32 << 20};
-
-    /// If true, handle the memory arbitration failure by aborting the memory
-    /// pool with most capacity and retry the memory arbitration, otherwise we
-    /// simply fails the memory arbitration requestor itself. This helps the
-    /// distributed query execution use case such as Prestissimo that fail the
-    /// same query on all the workers instead of a random victim query which
-    /// happens to trigger the failed memory arbitration.
-    bool retryArbitrationFailure{true};
   };
 
   using Factory = std::function<std::unique_ptr<MemoryArbitrator>(
@@ -197,6 +189,10 @@ class MemoryArbitrator {
     bool operator>(const Stats& other) const;
     bool operator>=(const Stats& other) const;
     bool operator<=(const Stats& other) const;
+
+    bool empty() const {
+      return numRequests == 0;
+    }
 
     /// Returns the debug string of this stats.
     std::string toString() const;
