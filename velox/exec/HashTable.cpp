@@ -838,7 +838,8 @@ template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::parallelJoinBuild() {
   TestValue::adjust(
       "facebook::velox::exec::HashTable::parallelJoinBuild", rows_->pool());
-  int32_t numPartitions = 1 + otherTables_.size();
+  VELOX_CHECK_LE(1 + otherTables_.size(), std::numeric_limits<uint8_t>::max());
+  uint8_t numPartitions = 1 + otherTables_.size();
   VELOX_CHECK_GT(
       capacity_ / numPartitions,
       minTableSizeForParallelJoinBuild_,
