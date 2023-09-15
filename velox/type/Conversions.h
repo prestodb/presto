@@ -151,38 +151,26 @@ struct Converter<
   }
 
   static T cast(folly::StringPiece v) {
-    try {
-      if constexpr (TRUNCATE) {
-        return convertStringToInt(v);
-      } else {
-        return folly::to<T>(v);
-      }
-    } catch (const std::exception& e) {
-      VELOX_USER_FAIL(e.what());
+    if constexpr (TRUNCATE) {
+      return convertStringToInt(v);
+    } else {
+      return folly::to<T>(v);
     }
   }
 
   static T cast(const StringView& v) {
-    try {
-      if constexpr (TRUNCATE) {
-        return convertStringToInt(folly::StringPiece(v));
-      } else {
-        return folly::to<T>(folly::StringPiece(v));
-      }
-    } catch (const std::exception& e) {
-      VELOX_USER_FAIL(e.what());
+    if constexpr (TRUNCATE) {
+      return convertStringToInt(folly::StringPiece(v));
+    } else {
+      return folly::to<T>(folly::StringPiece(v));
     }
   }
 
   static T cast(const std::string& v) {
-    try {
-      if constexpr (TRUNCATE) {
-        return convertStringToInt(v);
-      } else {
-        return folly::to<T>(v);
-      }
-    } catch (const std::exception& e) {
-      VELOX_USER_FAIL(e.what());
+    if constexpr (TRUNCATE) {
+      return convertStringToInt(v);
+    } else {
+      return folly::to<T>(v);
     }
   }
 
@@ -322,11 +310,7 @@ struct Converter<
 
   template <typename From>
   static T cast(const From& v) {
-    try {
-      return folly::to<T>(v);
-    } catch (const std::exception& e) {
-      VELOX_USER_FAIL(e.what());
-    }
+    return folly::to<T>(v);
   }
 
   static T cast(folly::StringPiece v) {
