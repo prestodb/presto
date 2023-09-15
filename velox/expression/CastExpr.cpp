@@ -103,14 +103,14 @@ VectorPtr CastExpr::castToDate(
   switch (fromType->kind()) {
     case TypeKind::VARCHAR: {
       auto* inputVector = input.as<SimpleVector<StringView>>();
+      const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
+      auto isIso8601 = queryConfig.isIso8601();
       applyToSelectedNoThrowLocal(context, rows, castResult, [&](int row) {
         try {
           auto inputString = inputVector->valueAt(row);
-          resultFlatVector->set(row, DATE()->toDays(inputString));
-        } catch (const VeloxException& ue) {
-          if (!ue.isUserError()) {
-            throw;
-          }
+          resultFlatVector->set(
+              row, util::castFromDateString(inputString, isIso8601));
+        } catch (const VeloxUserError& ue) {
           VELOX_USER_FAIL(
               makeErrorMessage(input, row, DATE()) + " " + ue.message());
         } catch (const std::exception& e) {

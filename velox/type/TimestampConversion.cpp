@@ -268,7 +268,6 @@ bool tryParseDateString(
     return false;
   }
 
-  // In standard-cast mode, no more trailing characters.
   if (mode == ParseMode::kStandardCast) {
     daysSinceEpoch = daysSinceEpochFromDate(year, month, day);
 
@@ -278,7 +277,7 @@ bool tryParseDateString(
     return false;
   }
 
-  // In non-standard cast mode, any optional trailing 'T' or spaces followed
+  // In non-standard cast mode, an optional trailing 'T' or space followed
   // by any optional characters are valid patterns.
   if (mode == ParseMode::kNonStandardCast) {
     daysSinceEpoch = daysSinceEpochFromDate(year, month, day);
@@ -586,26 +585,26 @@ int64_t fromDateString(const char* str, size_t len) {
   return daysSinceEpoch;
 }
 
-int32_t
-castFromDateString(const char* str, size_t len, bool isNonStandardCast) {
+int32_t castFromDateString(const char* str, size_t len, bool isIso8601) {
   int64_t daysSinceEpoch;
   size_t pos = 0;
 
-  auto mode = isNonStandardCast ? ParseMode::kNonStandardCast
-                                : ParseMode::kStandardCast;
+  auto mode =
+      isIso8601 ? ParseMode::kStandardCast : ParseMode::kNonStandardCast;
   if (!tryParseDateString(str, len, pos, daysSinceEpoch, mode)) {
-    if (isNonStandardCast) {
-      VELOX_USER_FAIL(
-          "Unable to parse date value: \"{}\"."
-          "Valid date string patterns include "
-          "(YYYY, YYYY-MM, YYYY-MM-DD), and any pattern prefixed with [+-]",
-          std::string(str, len));
-
-    } else {
+    if (isIso8601) {
       VELOX_USER_FAIL(
           "Unable to parse date value: \"{}\"."
           "Valid date string pattern is (YYYY-MM-DD), "
           "and can be prefixed with [+-]",
+          std::string(str, len));
+    } else {
+      VELOX_USER_FAIL(
+          "Unable to parse date value: \"{}\"."
+          "Valid date string patterns include "
+          "(yyyy*, yyyy*-[m]m, yyyy*-[m]m-[d]d, "
+          "yyyy*-[m]m-[d]d *, yyyy*-[m]m-[d]dT*), "
+          "and any pattern prefixed with [+-]",
           std::string(str, len));
     }
   }

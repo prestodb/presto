@@ -80,6 +80,21 @@ class QueryConfig {
   /// decimal part, otherwise rounds.
   static constexpr const char* kCastToIntByTruncate = "cast_to_int_by_truncate";
 
+  /// If set, cast from string to date allows only ISO 8601 formatted strings:
+  /// [+-](YYYY-MM-DD). Otherwise, allows all patterns supported by Spark:
+  /// `[+-]yyyy*`
+  /// `[+-]yyyy*-[m]m`
+  /// `[+-]yyyy*-[m]m-[d]d`
+  /// `[+-]yyyy*-[m]m-[d]d *`
+  /// `[+-]yyyy*-[m]m-[d]dT*`
+  /// The asterisk `*` in `yyyy*` stands for any numbers.
+  /// For the last two patterns, the trailing `*` can represent none or any
+  /// sequence of characters, e.g:
+  ///   "1970-01-01 123"
+  ///   "1970-01-01 (BC)"
+  static constexpr const char* kCastStringToDateIsIso8601 =
+      "cast_string_to_date_is_iso_8601";
+
   /// Used for backpressure to block local exchange producers when the local
   /// exchange buffer reaches or exceeds this size.
   static constexpr const char* kMaxLocalExchangeBufferSize =
@@ -334,6 +349,10 @@ class QueryConfig {
 
   bool isCastToIntByTruncate() const {
     return get<bool>(kCastToIntByTruncate, false);
+  }
+
+  bool isIso8601() const {
+    return get<bool>(kCastStringToDateIsIso8601, true);
   }
 
   bool codegenEnabled() const {

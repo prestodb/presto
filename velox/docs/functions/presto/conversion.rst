@@ -582,20 +582,55 @@ Cast to Date
 From strings
 ^^^^^^^^^^^^
 
-Casting from a string to date is allowed if the string represents a date in the
-format `YYYY-MM-DD`. Casting from invalid input values throws.
+By default, only ISO 8601 strings are supported: `[+-]YYYY-MM-DD`.
 
-Valid example
+If cast_string_to_date_is_iso_8601 is set to false, all Spark supported patterns are allowed.
+See the documentation for cast_string_to_date_is_iso_8601 in :ref:`Expression Evaluation Configuration<expression-evaluation-conf>`
+for the full list of supported patterns.
+
+Casting from invalid input values throws.
+
+Valid examples
+
+**cast_string_to_date_is_iso_8601=true**
 
 ::
 
   SELECT cast('1970-01-01' as date); -- 1970-01-01
 
-Invalid example
+**cast_string_to_date_is_iso_8601=false**
+
+::
+
+  SELECT cast('1970' as date); -- 1970-01-01
+  SELECT cast('1970-01' as date); -- 1970-01-01
+  SELECT cast('1970-01-01' as date); -- 1970-01-01
+  SELECT cast('1970-01-01T123' as date); -- 1970-01-01
+  SELECT cast('1970-01-01 ' as date); -- 1970-01-01
+  SELECT cast('1970-01-01 (BC)' as date); -- 1970-01-01
+
+Invalid examples
+
+**cast_string_to_date_is_iso_8601=true**
+
+::
+
+  SELECT cast('2012' as date); -- Invalid argument
+  SELECT cast('2012-10' as date); -- Invalid argument
+  SELECT cast('2012-10-23T123' as date); -- Invalid argument
+  SELECT cast('2012-10-23 (BC)' as date); -- Invalid argument
+  SELECT cast('2012-Oct-23' as date); -- Invalid argument
+  SELECT cast('2012/10/23' as date); -- Invalid argument
+  SELECT cast('2012.10.23' as date); -- Invalid argument
+  SELECT cast('2012-10-23 ' as date); -- Invalid argument
+
+**cast_string_to_date_is_iso_8601=false**
 
 ::
 
   SELECT cast('2012-Oct-23' as date); -- Invalid argument
+  SELECT cast('2012/10/23' as date); -- Invalid argument
+  SELECT cast('2012.10.23' as date); -- Invalid argument
 
 From TIMESTAMP
 ^^^^^^^^^^^^^^
