@@ -125,6 +125,8 @@ void SelectiveStructColumnReaderBase::read(
         activeRows, kind == velox::common::FilterKind::kIsNull, false);
     if (outputRows_.empty()) {
       recordParentNullsInChildren(offset, rows);
+      lazyVectorReadOffset_ = offset;
+      readOffset_ = offset + rows.back() + 1;
       return;
     }
     activeRows = outputRows_;

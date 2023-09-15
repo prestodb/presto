@@ -2489,3 +2489,68 @@ TEST(TestReader, readFlatMapsWithNullMaps) {
     }
   }
 }
+
+TEST(TestReader, readStructWithWholeBatchFiltered) {
+  // Test reading a struct with a pushdown filter that filters out all rows for
+  // a certain batch.
+  auto* pool = defaultPool.get();
+  VectorMaker maker(pool);
+
+  auto rowType = ROW({"a"}, {BIGINT()});
+  const vector_size_t vectorSize = 20;
+  const vector_size_t batchSize = 10;
+  std::vector<VectorPtr> children{maker.flatVector<int64_t>(
+      vectorSize,
+      folly::identity,
+      // In the first batch, the parent Rows will all be null.
+      [&](auto i) { return i < batchSize; })};
+
+  BufferPtr nulls = AlignedBuffer::allocate<bool>(vectorSize, pool);
+  uint64_t* rawNulls = nulls->asMutable<uint64_t>();
+  memset(rawNulls, bits::kNotNullByte, nulls->capacity());
+  // Mark the Row as null in the first batch.
+  for (int i = 0; i < batchSize; ++i) {
+    bits::setNull(rawNulls, i, true);
+  }
+
+  auto c0 =
+      std::make_shared<RowVector>(pool, rowType, nulls, vectorSize, children);
+  auto row = maker.rowVector({"c0"}, {c0});
+
+  auto [writer, reader] = createWriterReader({row}, *pool);
+
+  auto schema = asRowType(row->type());
+  auto spec = std::make_shared<common::ScanSpec>("<root>");
+  spec->addAllChildFields(*schema);
+  // Create a filter that will filter out all rows in the first batch.
+  spec->childByName("c0")->setFilter(std::make_unique<common::IsNotNull>());
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setScanSpec(spec);
+
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+  VectorPtr batch = BaseVector::create(schema, 0, pool);
+
+  ASSERT_TRUE(rowReader->next(batchSize, batch));
+  // Confirm that all rows were filtered out.
+  ASSERT_EQ(batch->size(), 0);
+  ASSERT_TRUE(rowReader->next(batchSize, batch));
+  // None of the rows should be filtered out in the second batch.
+  ASSERT_EQ(batch->size(), 10);
+  // Validate that we successfully read the batch.
+  auto rowVector = batch->as<RowVector>();
+  auto resultRows = rowVector->childAt(0)->loadedVector()->as<RowVector>();
+  ASSERT_EQ(resultRows->size(), batchSize);
+
+  for (int i = 0; i < batchSize; ++i) {
+    ASSERT_FALSE(resultRows->isNullAt(i));
+  }
+
+  auto resultValues =
+      resultRows->childAt(0)->loadedVector()->as<FlatVector<int64_t>>();
+  ASSERT_EQ(resultValues->size(), batchSize);
+
+  for (int i = 0; i < batchSize; ++i) {
+    ASSERT_FALSE(resultValues->isNullAt(i));
+    ASSERT_EQ(resultValues->valueAt(i), i + 10);
+  }
+}
