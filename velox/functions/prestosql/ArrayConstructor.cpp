@@ -55,24 +55,56 @@ class ArrayConstructor : public exec::VectorFunction {
     } else {
       elementsResult->resize(baseOffset + numArgs * rows.countSelected());
 
-      std::vector<BaseVector::CopyRange> ranges;
-      ranges.reserve(rows.end());
+      if (shouldCopyRanges(elementsResult->type())) {
+        std::vector<BaseVector::CopyRange> ranges;
+        ranges.reserve(rows.end());
 
-      vector_size_t offset = baseOffset;
-      rows.applyToSelected([&](vector_size_t row) {
-        rawSizes[row] = numArgs;
-        rawOffsets[row] = offset;
-        ranges.push_back({row, offset, 1});
-        offset += numArgs;
-      });
+        vector_size_t offset = baseOffset;
+        rows.applyToSelected([&](vector_size_t row) {
+          rawSizes[row] = numArgs;
+          rawOffsets[row] = offset;
+          ranges.push_back({row, offset, 1});
+          offset += numArgs;
+        });
 
-      elementsResult->copyRanges(args[0].get(), ranges);
+        elementsResult->copyRanges(args[0].get(), ranges);
 
-      for (int i = 1; i < numArgs; i++) {
-        for (auto& range : ranges) {
-          ++range.targetIndex;
+        for (int i = 1; i < numArgs; i++) {
+          for (auto& range : ranges) {
+            ++range.targetIndex;
+          }
+          elementsResult->copyRanges(args[i].get(), ranges);
         }
-        elementsResult->copyRanges(args[i].get(), ranges);
+      } else {
+        SelectivityVector targetRows(elementsResult->size(), false);
+        std::vector<vector_size_t> toSourceRow(elementsResult->size());
+
+        vector_size_t offset = baseOffset;
+        rows.applyToSelected([&](vector_size_t row) {
+          rawSizes[row] = numArgs;
+          rawOffsets[row] = offset;
+
+          targetRows.setValid(offset, true);
+          toSourceRow[offset] = row;
+
+          offset += numArgs;
+        });
+        targetRows.updateBounds();
+        elementsResult->copy(args[0].get(), targetRows, toSourceRow.data());
+
+        for (int i = 1; i < numArgs; i++) {
+          targetRows.clearAll();
+
+          vector_size_t offset = baseOffset;
+          rows.applyToSelected([&](vector_size_t row) {
+            targetRows.setValid(offset + i, true);
+            toSourceRow[offset + i] = row;
+            offset += numArgs;
+          });
+
+          targetRows.updateBounds();
+          elementsResult->copy(args[i].get(), targetRows, toSourceRow.data());
+        }
       }
     }
   }
@@ -89,6 +121,28 @@ class ArrayConstructor : public exec::VectorFunction {
             .variableArity()
             .build(),
     };
+  }
+
+ private:
+  // BaseVector::copyRange is faster for arrays and maps and slower for
+  // primitive types. Check if 'type' is an array or map or contains an array or
+  // map. If so, return true, otherwise, false.
+  static bool shouldCopyRanges(const TypePtr& type) {
+    if (type->isPrimitiveType()) {
+      return false;
+    }
+
+    if (!type->isRow()) {
+      return true;
+    }
+
+    const auto& rowType = type->asRow();
+    for (const auto& child : rowType.children()) {
+      if (shouldCopyRanges(child)) {
+        return true;
+      }
+    }
+    return false;
   }
 };
 } // namespace
