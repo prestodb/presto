@@ -327,6 +327,14 @@ public abstract class AbstractTestNativeAggregations
                 ".*Aggregations over sorted unique values are not supported yet");
     }
 
+    @Test
+    public void testReduceAgg()
+    {
+        assertQuery("SELECT reduce_agg(orderkey, 0, (x, y) -> x + y, (x, y) -> x + y) FROM orders");
+        assertQuery("SELECT orderkey, reduce_agg(linenumber, 0, (x, y) -> x + y, (x, y) -> x + y) FROM lineitem GROUP BY orderkey");
+        assertQuery("SELECT orderkey, array_sort(reduce_agg(linenumber, array[], (s, x) -> s || x, (s, s2) -> s || s2)) FROM lineitem GROUP BY orderkey");
+    }
+
     private void assertQueryResultCount(String sql, int expectedResultCount)
     {
         assertEquals(getQueryRunner().execute(sql).getRowCount(), expectedResultCount);
