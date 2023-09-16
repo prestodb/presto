@@ -4187,6 +4187,25 @@ TEST_F(ExprTest, extractSubfieldsWithDereference) {
   ASSERT_EQ(subfields[0].toString(), "c0");
 }
 
+TEST_F(ExprTest, lazyHandlingByDereference) {
+  // Ensure FieldReference handles an input which has an encoding over a lazy
+  // vector. Trying to access the inner flat vector of an input in the form
+  // Row(Dict(Lazy(Row(Flat)))) will ensure an intermediate FieldReference
+  // expression in the tree recieves an input of the form Dict(Lazy(Row(Flat))).
+  auto base = makeRowVector(
+      {makeNullableFlatVector<int32_t>({1, std::nullopt, 3, 4, 5})});
+  VectorPtr col1 = std::make_shared<LazyVector>(
+      execCtx_->pool(),
+      base->type(),
+      5,
+      std::make_unique<test::SimpleVectorLoader>(
+          [base](auto /*size*/) { return base; }));
+  auto indices = makeIndicesInReverse(5);
+  col1 = wrapInDictionary(indices, 5, col1);
+  col1 = makeRowVector({col1});
+  auto result = evaluate("(c0).c0.c0", makeRowVector({col1}));
+}
+
 TEST_F(ExprTest, switchRowInputTypesAreTheSame) {
   assertErrorSimplified(
       fmt::format("switch(c0, {},  {})", makeRow("f1"), makeRow("f2")),

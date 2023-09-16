@@ -69,6 +69,10 @@ void FieldReference::evalSpecialForm(
       peeledEncoding = PeeledEncoding::peel(
           {input}, *nonNullRows, localDecoded, true, peeledVectors);
       VELOX_CHECK_NOT_NULL(peeledEncoding);
+      if (peeledVectors[0]->isLazy()) {
+        peeledVectors[0] =
+            peeledVectors[0]->as<LazyVector>()->loadedVectorShared();
+      }
       VELOX_CHECK(peeledVectors[0]->encoding() == VectorEncoding::Simple::ROW);
       row = peeledVectors[0]->as<const RowVector>();
     } else {
