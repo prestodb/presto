@@ -433,7 +433,7 @@ void Window::callApplyForPartitionRows(
   partitionOffset_ += numRows;
 }
 
-void Window::callApplyLoop(
+vector_size_t Window::callApplyLoop(
     vector_size_t numOutputRows,
     const RowVectorPtr& result) {
   // Compute outputs by traversing as many partitions as possible. This
@@ -475,6 +475,9 @@ void Window::callApplyLoop(
       break;
     }
   }
+
+  // Return the number of processed rows.
+  return numOutputRows - numOutputRowsLeft;
 }
 
 RowVectorPtr Window::getOutput() {
@@ -506,8 +509,10 @@ RowVectorPtr Window::getOutput() {
   }
 
   // Compute the output values of window functions.
-  callApplyLoop(numOutputRows, result);
-  return result;
+  auto numResultRows = callApplyLoop(numOutputRows, result);
+  return numResultRows < numOutputRows
+      ? std::dynamic_pointer_cast<RowVector>(result->slice(0, numResultRows))
+      : result;
 }
 
 } // namespace facebook::velox::exec

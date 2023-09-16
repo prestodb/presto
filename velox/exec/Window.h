@@ -122,7 +122,10 @@ class Window : public Operator {
   // Computes the result vector for a single output block. The result
   // consists of all the input columns followed by the results of the
   // window function.
-  void callApplyLoop(vector_size_t numOutputRows, const RowVectorPtr& result);
+  // @return The number of rows processed in the loop.
+  vector_size_t callApplyLoop(
+      vector_size_t numOutputRows,
+      const RowVectorPtr& result);
 
   // Converts WindowNode::Frame to Window::WindowFrame.
   WindowFrame createWindowFrame(
