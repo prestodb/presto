@@ -56,12 +56,8 @@ FilterProject::FilterProject(
       project_(project),
       filter_(filter) {}
 
-void FilterProject::ensureInitialized() {
-  if (initialized_) {
-    VELOX_CHECK_NULL(filter_);
-    VELOX_CHECK_NULL(project_);
-    return;
-  }
+void FilterProject::initialize() {
+  Operator::initialize();
   std::vector<core::TypedExprPtr> allExprs;
   if (hasFilter_) {
     VELOX_CHECK_NOT_NULL(filter_);
@@ -102,13 +98,11 @@ void FilterProject::ensureInitialized() {
       }
     }
   }
-  initialized_ = true;
   filter_.reset();
   project_.reset();
 }
 
 void FilterProject::addInput(RowVectorPtr input) {
-  ensureInitialized();
   input_ = std::move(input);
   numProcessedInputRows_ = 0;
   if (!resultProjections_.empty()) {
@@ -139,7 +133,6 @@ bool FilterProject::isFinished() {
 }
 
 RowVectorPtr FilterProject::getOutput() {
-  ensureInitialized();
   if (allInputProcessed()) {
     return nullptr;
   }

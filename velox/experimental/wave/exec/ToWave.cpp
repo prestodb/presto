@@ -355,10 +355,6 @@ bool CompileState::compile() {
   // them during the transformation.
   driver_.initializeOperators();
   for (; operatorIndex < operators.size(); ++operatorIndex) {
-    if (auto filterProject = dynamic_cast<velox::exec::FilterProject*>(
-            operators[operatorIndex])) {
-      filterProject->ensureInitialized();
-    }
     if (!addOperator(operators[operatorIndex], nodeIndex, outputType)) {
       break;
     }

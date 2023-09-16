@@ -71,7 +71,7 @@ class FilterProject : public Operator {
     return Export{exprs_.get(), hasFilter_, &resultProjections_};
   }
 
-  void ensureInitialized();
+  void initialize() override;
 
  private:
   // Tests if 'numProcessedRows_' equals to the length of input_ and clears
