@@ -807,6 +807,14 @@ public abstract class AbstractTestNativeGeneralQueries
 
         // from_base64url, to_base64url
         assertQuery("SELECT from_base64url(to_base64url(cast(comment as varbinary))) FROM orders");
+
+        //to_ieee754_64
+        assertQuery("SELECT to_ieee754_64(null)");
+        assertQuery("SELECT to_ieee754_64(0.0)");
+        assertQuery("SELECT to_ieee754_64(3.14158999999999988261834005243E0)");
+        assertQuery("SELECT to_ieee754_64(-3.14158999999999988261834005243E0)");
+        assertQuery("SELECT to_ieee754_64(totalprice) FROM orders");
+        assertQuery("SELECT to_ieee754_64(acctbal) FROM customer");
     }
 
     @Test
