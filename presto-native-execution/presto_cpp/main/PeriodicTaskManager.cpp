@@ -84,10 +84,9 @@ void PeriodicTaskManager::start() {
     addExecutorStatsTask();
   }
 
-  if (taskManager_ != nullptr) {
-    addTaskStatsTask();
-    addOldTaskCleanupTask();
-  }
+  VELOX_CHECK_NOT_NULL(taskManager_);
+  addTaskStatsTask();
+  addOldTaskCleanupTask();
 
   if (memoryAllocator_ != nullptr) {
     addMemoryAllocatorStatsTask();
