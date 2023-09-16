@@ -97,10 +97,6 @@ bool isChecksumBitSet(int8_t codec) {
 }
 
 std::string typeToEncodingName(const TypePtr& type) {
-  if (type->isDate()) {
-    return "INT_ARRAY";
-  }
-
   switch (type->kind()) {
     case TypeKind::BOOLEAN:
       return "BYTE_ARRAY";

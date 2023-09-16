@@ -20,10 +20,6 @@
 namespace facebook::velox::substrait {
 
 std::string VeloxSubstraitSignature::toSubstraitSignature(const TypePtr& type) {
-  if (type->isDate()) {
-    return "date";
-  }
-
   switch (type->kind()) {
     case TypeKind::BOOLEAN:
       return "bool";
@@ -32,6 +28,9 @@ std::string VeloxSubstraitSignature::toSubstraitSignature(const TypePtr& type) {
     case TypeKind::SMALLINT:
       return "i16";
     case TypeKind::INTEGER:
+      if (type->isDate()) {
+        return "date";
+      }
       return "i32";
     case TypeKind::BIGINT:
       return "i64";

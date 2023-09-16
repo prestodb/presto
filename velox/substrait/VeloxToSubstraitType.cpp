@@ -26,15 +26,6 @@ const ::substrait::Type& VeloxToSubstraitTypeConvertor::toSubstraitType(
   ::substrait::Type* substraitType =
       google::protobuf::Arena::CreateMessage<::substrait::Type>(&arena);
 
-  if (type->isDate()) {
-    auto substraitDate =
-        google::protobuf::Arena::CreateMessage<::substrait::Type_Date>(&arena);
-    substraitDate->set_nullability(
-        ::substrait::Type_Nullability_NULLABILITY_NULLABLE);
-    substraitType->set_allocated_date(substraitDate);
-    return *substraitType;
-  }
-
   switch (type->kind()) {
     case velox::TypeKind::BOOLEAN: {
       auto substraitBool =
@@ -63,6 +54,16 @@ const ::substrait::Type& VeloxToSubstraitTypeConvertor::toSubstraitType(
       break;
     }
     case velox::TypeKind::INTEGER: {
+      if (type->isDate()) {
+        auto substraitDate =
+            google::protobuf::Arena::CreateMessage<::substrait::Type_Date>(
+                &arena);
+        substraitDate->set_nullability(
+            ::substrait::Type_Nullability_NULLABILITY_NULLABLE);
+        substraitType->set_allocated_date(substraitDate);
+        return *substraitType;
+      }
+
       auto substraitI32 =
           google::protobuf::Arena::CreateMessage<::substrait::Type_I32>(&arena);
       substraitI32->set_nullability(

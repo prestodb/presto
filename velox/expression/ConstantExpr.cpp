@@ -141,23 +141,26 @@ void appendSqlLiteral(
     return;
   }
 
-  if (vector.type()->isDate()) {
-    auto dateVector = vector.wrappedVector()->as<SimpleVector<int32_t>>();
-    out << "'"
-        << DATE()->toString(dateVector->valueAt(vector.wrappedIndex(row)))
-        << "'::" << vector.type()->toString();
-    return;
-  }
-
   switch (vector.typeKind()) {
     case TypeKind::BOOLEAN: {
       auto value = vector.as<SimpleVector<bool>>()->valueAt(row);
       out << (value ? "TRUE" : "FALSE");
       break;
     }
+    case TypeKind::INTEGER: {
+      if (vector.type()->isDate()) {
+        auto dateVector = vector.wrappedVector()->as<SimpleVector<int32_t>>();
+        out << "'"
+            << DATE()->toString(dateVector->valueAt(vector.wrappedIndex(row)))
+            << "'::" << vector.type()->toString();
+      } else {
+        out << "'" << vector.wrappedVector()->toString(vector.wrappedIndex(row))
+            << "'::" << vector.type()->toString();
+      }
+      break;
+    }
     case TypeKind::TINYINT:
     case TypeKind::SMALLINT:
-    case TypeKind::INTEGER:
     case TypeKind::BIGINT:
     case TypeKind::TIMESTAMP:
     case TypeKind::REAL:

@@ -183,10 +183,6 @@ std::string variant::toJson(const TypePtr& type) const {
     return "null";
   }
 
-  if (type->isDate()) {
-    return '"' + DATE()->toString(value<TypeKind::INTEGER>()) + '"';
-  }
-
   switch (kind_) {
     case TypeKind::MAP: {
       auto& map = value<TypeKind::MAP>();
@@ -256,6 +252,9 @@ std::string variant::toJson(const TypePtr& type) const {
     case TypeKind::SMALLINT:
       [[fallthrough]];
     case TypeKind::INTEGER:
+      if (type->isDate()) {
+        return '"' + DATE()->toString(value<TypeKind::INTEGER>()) + '"';
+      }
       [[fallthrough]];
     case TypeKind::BIGINT:
       if (type && type->isShortDecimal()) {

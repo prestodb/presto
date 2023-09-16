@@ -217,10 +217,6 @@ const char* exportArrowFormatStr(
     return formatBuffer.c_str();
   }
 
-  if (type->isDate()) {
-    return "tdD";
-  }
-
   switch (type->kind()) {
     // Scalar types.
     case TypeKind::BOOLEAN:
@@ -230,6 +226,9 @@ const char* exportArrowFormatStr(
     case TypeKind::SMALLINT:
       return "s"; // int16
     case TypeKind::INTEGER:
+      if (type->isDate()) {
+        return "tdD";
+      }
       return "i"; // int32
     case TypeKind::BIGINT:
       return "l"; // int64
