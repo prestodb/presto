@@ -681,6 +681,9 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   configureRowReaderOptions(
       rowReaderOpts_,
       ROW(std::vector<std::string>(fileType->names()), std::move(columnTypes)));
+  // NOTE: we firstly reset the finished 'rowReader_' of previous split before
+  // setting up for the next one to avoid doubling the peak memory usage.
+  rowReader_.reset();
   rowReader_ = createRowReader(rowReaderOpts_);
 }
 
