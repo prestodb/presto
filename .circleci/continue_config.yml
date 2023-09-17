@@ -120,6 +120,7 @@ jobs:
           root: presto-native-execution
           paths:
             - _build/debug/presto_cpp/main/presto_server
+            - _build/debug/velox/velox/functions/remote/server/velox_functions_remote_server_main
 
   linux-presto-e2e-tests:
     executor: build
@@ -136,6 +137,7 @@ jobs:
           name: 'Run presto-native e2e tests'
           command: |
             export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
+            export REMOTE_FUNCTION_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/velox/velox/functions/remote/server/velox_functions_remote_server_main"
             export TEMP_PATH="/tmp"
             TESTFILES=$(circleci tests glob "presto-native-execution/src/test/**/TestPrestoNative*.java" | circleci tests split --split-by=timings)
             # Convert file paths to comma separated class names
@@ -147,8 +149,24 @@ jobs:
               export TESTCLASSES="${TESTCLASSES},$test_class"
             done
             export TESTCLASSES=${TESTCLASSES#,}
+
+            # TODO: neeed to enable remote function tests with
+            # "-Ppresto-native-execution-remote-functions" once
+            # > https://github.com/facebookincubator/velox/discussions/6163
+            # is fixed.
+            echo $REMOTE_FUNCTION_SERVER_PATH
+            echo ${REMOTE_FUNCTION_SERVER_PATH}
+            echo "-DREMOTE_FUNCTION_SERVER=${REMOTE_FUNCTION_SERVER_PATH}"
             if [ ! -z $TESTCLASSES ]; then
-              mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -Dtest="${TESTCLASSES}" -DPRESTO_SERVER=${PRESTO_SERVER_PATH} -DDATA_DIR=${TEMP_PATH} -Duser.timezone=America/Bahia_Banderas -T1C
+              ./mvnw test \
+                -pl 'presto-native-execution' \
+                -Ppresto-native-execution-remote-functions
+                -Dtest="TestPrestoNativeRemoteFunctions" \
+                -DREMOTE_FUNCTION_SERVER=${REMOTE_FUNCTION_SERVER_PATH} \
+                -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
+                -DDATA_DIR=${TEMP_PATH} \
+                -Duser.timezone=America/Bahia_Banderas \
+                -T1C
             fi
 
   linux-spark-e2e-tests:
@@ -177,7 +195,14 @@ jobs:
             done
             export TESTCLASSES=${TESTCLASSES#,}
             if [ ! -z $TESTCLASSES ]; then
-              mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -Dtest="${TESTCLASSES}" -DPRESTO_SERVER=${PRESTO_SERVER_PATH} -DDATA_DIR=${TEMP_PATH} -Duser.timezone=America/Bahia_Banderas -T1C
+              mvn test \
+                ${MAVEN_TEST} \
+                -pl 'presto-native-execution' \
+                -Dtest="${TESTCLASSES}" \
+                -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
+                -DDATA_DIR=${TEMP_PATH} \
+                -Duser.timezone=America/Bahia_Banderas \
+                -T1C
             fi
 
   linux-build-all:
