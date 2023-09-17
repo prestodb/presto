@@ -44,11 +44,7 @@ if(VELOX_ENABLE_ARROW)
   add_library(thrift STATIC IMPORTED GLOBAL)
   if(NOT Thrift_FOUND)
     set(THRIFT_ROOT ${ARROW_PREFIX}/src/arrow_ep-build/thrift_ep-install)
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-      set(THRIFT_LIB ${THRIFT_ROOT}/lib/libthriftd.a)
-    else()
-      set(THRIFT_LIB ${THRIFT_ROOT}/lib/libthrift.a)
-    endif()
+    set(THRIFT_LIB ${THRIFT_ROOT}/lib/libthrift.a)
 
     file(MAKE_DIRECTORY ${THRIFT_ROOT}/include)
     set(THRIFT_INCLUDE_DIR ${THRIFT_ROOT}/include)
@@ -58,9 +54,9 @@ if(VELOX_ENABLE_ARROW)
                                       ${THRIFT_INCLUDE_DIR})
   set_property(TARGET thrift PROPERTY IMPORTED_LOCATION ${THRIFT_LIB})
 
-  set(VELOX_ARROW_BUILD_VERSION 8.0.0)
+  set(VELOX_ARROW_BUILD_VERSION 13.0.0)
   set(VELOX_ARROW_BUILD_SHA256_CHECKSUM
-      ad9a05705117c989c116bae9ac70492fe015050e1b80fb0e38fde4b5d863aaa3)
+      35dfda191262a756be934eef8afee8d09762cad25021daa626eb249e251ac9e6)
   set(VELOX_ARROW_SOURCE_URL
       "https://archive.apache.org/dist/arrow/arrow-${VELOX_ARROW_BUILD_VERSION}/apache-arrow-${VELOX_ARROW_BUILD_VERSION}.tar.gz"
   )
