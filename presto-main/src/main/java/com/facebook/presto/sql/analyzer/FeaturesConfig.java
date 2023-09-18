@@ -254,6 +254,8 @@ public class FeaturesConfig
     private boolean nativeExecutionProcessReuseEnabled = true;
     private boolean randomizeOuterJoinNullKey;
     private RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy = RandomizeOuterJoinNullKeyStrategy.DISABLED;
+    private ShardedJoinStrategy shardedJoinStrategy = ShardedJoinStrategy.DISABLED;
+    private int joinShardCount = 100;
     private boolean isOptimizeConditionalAggregationEnabled;
     private boolean isRemoveRedundantDistinctAggregationEnabled = true;
     private boolean inPredicatesAsInnerJoinsEnabled;
@@ -366,6 +368,13 @@ public class FeaturesConfig
     {
         DISABLED,
         KEY_FROM_OUTER_JOIN, // Enabled only when join keys are from output of outer joins
+        COST_BASED,
+        ALWAYS
+    }
+
+    public enum ShardedJoinStrategy
+    {
+        DISABLED,
         COST_BASED,
         ALWAYS
     }
@@ -2491,6 +2500,32 @@ public class FeaturesConfig
     public FeaturesConfig setRandomizeOuterJoinNullKeyStrategy(RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy)
     {
         this.randomizeOuterJoinNullKeyStrategy = randomizeOuterJoinNullKeyStrategy;
+        return this;
+    }
+
+    public ShardedJoinStrategy getShardedJoinStrategy()
+    {
+        return shardedJoinStrategy;
+    }
+
+    @Config("optimizer.sharded-join-strategy")
+    @ConfigDescription("When to apply sharding to mitigate skew in joins")
+    public FeaturesConfig setShardedJoinStrategy(ShardedJoinStrategy shardedJoinStrategy)
+    {
+        this.shardedJoinStrategy = shardedJoinStrategy;
+        return this;
+    }
+
+    public int getJoinShardCount()
+    {
+        return joinShardCount;
+    }
+
+    @Config("optimizer.join-shard-count")
+    @ConfigDescription("Number of shards to use for sharded join optimization")
+    public FeaturesConfig setJoinShardCount(int joinShardCount)
+    {
+        this.joinShardCount = joinShardCount;
         return this;
     }
 
