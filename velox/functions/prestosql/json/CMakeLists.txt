@@ -15,7 +15,7 @@ add_library(velox_functions_json JsonExtractor.cpp JsonPathTokenizer.cpp
                                  SIMDJsonExtractor.cpp)
 
 target_link_libraries(velox_functions_json velox_exception Folly::folly
-                      simdjson)
+                      simdjson::simdjson)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
