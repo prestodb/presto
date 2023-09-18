@@ -36,14 +36,24 @@ public interface ConnectorNodePartitioningProvider
      * This method must be implemented for connectors that support addressable split discovery.
      * The partitions return here will be used as address for the purpose of split discovery.
      */
-    default List<ConnectorPartitionHandle> listPartitionHandles(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    default List<ConnectorPartitionHandle> listPartitionHandles(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorPartitioningHandle partitioningHandle)
     {
         return singletonList(NOT_PARTITIONED);
     }
 
-    ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, List<Node> sortedNodes);
+    ConnectorBucketNodeMap getBucketNodeMap(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorPartitioningHandle partitioningHandle,
+            List<Node> sortedNodes);
 
-    ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle);
+    ToIntFunction<ConnectorSplit> getSplitBucketFunction(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorPartitioningHandle partitioningHandle);
 
     BucketFunction getBucketFunction(
             ConnectorTransactionHandle transactionHandle,
