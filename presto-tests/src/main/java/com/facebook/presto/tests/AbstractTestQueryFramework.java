@@ -505,6 +505,13 @@ public abstract class AbstractTestQueryFramework
         return queryRunner;
     }
 
+    protected DistributedQueryRunner getDistributedQueryRunner()
+    {
+        checkState(queryRunner != null, "queryRunner not set");
+        checkState(queryRunner instanceof DistributedQueryRunner, "queryRunner is not an instance of DistributedQueryRunner");
+        return (DistributedQueryRunner) queryRunner;
+    }
+
     protected ExpectedQueryRunner getExpectedQueryRunner()
     {
         checkState(expectedQueryRunner != null, "expectedQueryRunner not set");
