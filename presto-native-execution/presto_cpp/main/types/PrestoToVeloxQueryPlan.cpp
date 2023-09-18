@@ -194,6 +194,8 @@ dwio::common::FileFormat toFileFormat(
       return dwio::common::FileFormat::DWRF;
     case protocol::HiveStorageFormat::PARQUET:
       return dwio::common::FileFormat::PARQUET;
+    case protocol::HiveStorageFormat::ALPHA:
+      return dwio::common::FileFormat::ALPHA;
     default:
       VELOX_UNSUPPORTED(
           "Unsupported file format in {}: {}.",
