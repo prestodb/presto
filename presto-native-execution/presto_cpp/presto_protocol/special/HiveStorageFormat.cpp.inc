@@ -17,6 +17,7 @@ static const std::pair<HiveStorageFormat, json> HiveStorageFormat_enum_table[] =
     { // NOLINT: cert-err58-cpp
         {HiveStorageFormat::ORC, "ORC"},
         {HiveStorageFormat::DWRF, "DWRF"},
+        {HiveStorageFormat::ALPHA, "ALPHA"},
         {HiveStorageFormat::PARQUET, "PARQUET"},
         {HiveStorageFormat::AVRO, "AVRO"},
         {HiveStorageFormat::RCBINARY, "RCBINARY"},
