@@ -127,10 +127,10 @@ public class TestSphericalGeoFunctions
     @Test
     public void testGreatCircleDistance()
     {
-        assertFunction("great_circle_distance(36.12, -86.67, 33.94, -118.40)", DOUBLE, 2886.448973436703);
-        assertFunction("great_circle_distance(33.94, -118.40, 36.12, -86.67)", DOUBLE, 2886.448973436703);
-        assertFunction("great_circle_distance(42.3601, -71.0589, 42.4430, -71.2290)", DOUBLE, 16.73469743457461);
-        assertFunction("great_circle_distance(36.12, -86.67, 36.12, -86.67)", DOUBLE, 0.0);
+        assertFunctionWithError("great_circle_distance(36.12, -86.67, 33.94, -118.40)", DOUBLE, 2886.448973436703);
+        assertFunctionWithError("great_circle_distance(33.94, -118.40, 36.12, -86.67)", DOUBLE, 2886.448973436703);
+        assertFunctionWithError("great_circle_distance(42.3601, -71.0589, 42.4430, -71.2290)", DOUBLE, 16.73469743457461);
+        assertFunctionWithError("great_circle_distance(36.12, -86.67, 36.12, -86.67)", DOUBLE, 0.0);
 
         assertInvalidFunction("great_circle_distance(100, 20, 30, 40)", "Latitude must be between -90 and 90");
         assertInvalidFunction("great_circle_distance(10, 20, 300, 40)", "Latitude must be between -90 and 90");
@@ -162,7 +162,7 @@ public class TestSphericalGeoFunctions
 
     private void assertDistance(String wkt, String otherWkt, Double expectedDistance)
     {
-        assertFunction(format("ST_Distance(to_spherical_geography(ST_GeometryFromText('%s')), to_spherical_geography(ST_GeometryFromText('%s')))", wkt, otherWkt), DOUBLE, expectedDistance);
+        assertFunctionWithError(format("ST_Distance(to_spherical_geography(ST_GeometryFromText('%s')), to_spherical_geography(ST_GeometryFromText('%s')))", wkt, otherWkt), DOUBLE, expectedDistance);
     }
 
     @Test

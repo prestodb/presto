@@ -318,7 +318,7 @@ public final class FunctionAssertions
         MaterializedResult result = runner.execute("SELECT " + projection);
     }
 
-    protected <T> T selectSingleValue(String projection, Type expectedType, Class<T> clazz)
+    public <T> T selectSingleValue(String projection, Type expectedType, Class<T> clazz)
     {
         Object object = selectSingleValue(projection, expectedType, compiler);
         assertEquals(object.getClass(), clazz);
