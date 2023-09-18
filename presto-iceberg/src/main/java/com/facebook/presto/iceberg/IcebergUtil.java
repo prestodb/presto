@@ -30,6 +30,7 @@ import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.MetadataTableType;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
@@ -42,11 +43,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveMetadata.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -63,6 +67,9 @@ import static org.apache.iceberg.LocationProviders.locationsFor;
 import static org.apache.iceberg.MetadataTableUtils.createMetadataTableInstance;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
+import static org.apache.iceberg.TableProperties.DELETE_MODE;
+import static org.apache.iceberg.TableProperties.MERGE_MODE;
+import static org.apache.iceberg.TableProperties.UPDATE_MODE;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 
 public final class IcebergUtil
@@ -197,5 +204,19 @@ public final class IcebergUtil
         return mapWithIndex(schema.columns().stream(),
                 (column, position) -> immutableEntry(column.name(), toIntExact(position)))
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+    }
+
+    public static void validateTableMode(ConnectorSession session, org.apache.iceberg.Table table)
+    {
+        if (isMergeOnReadModeEnabled(session)) {
+            return;
+        }
+
+        String deleteMode = table.properties().get(DELETE_MODE);
+        String mergeMode = table.properties().get(MERGE_MODE);
+        String updateMode = table.properties().get(UPDATE_MODE);
+        if (Stream.of(deleteMode, mergeMode, updateMode).anyMatch(s -> Objects.equals(s, RowLevelOperationMode.MERGE_ON_READ.modeName()))) {
+            throw new PrestoException(NOT_SUPPORTED, "merge-on-read table mode not supported yet");
+        }
     }
 }

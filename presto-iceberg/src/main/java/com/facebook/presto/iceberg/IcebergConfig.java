@@ -42,6 +42,7 @@ public class IcebergConfig
     private List<String> hadoopConfigResources = ImmutableList.of();
     private double minimumAssignedSplitWeight = 0.05;
     private boolean parquetDereferencePushdownEnabled = true;
+    private boolean mergeOnReadModeEnabled;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -165,5 +166,18 @@ public class IcebergConfig
     public boolean isParquetDereferencePushdownEnabled()
     {
         return parquetDereferencePushdownEnabled;
+    }
+
+    @Config("iceberg.enable-merge-on-read-mode")
+    @ConfigDescription("enable merge-on-read mode")
+    public IcebergConfig setMergeOnReadModeEnabled(boolean mergeOnReadModeEnabled)
+    {
+        this.mergeOnReadModeEnabled = mergeOnReadModeEnabled;
+        return this;
+    }
+
+    public boolean isMergeOnReadModeEnabled()
+    {
+        return mergeOnReadModeEnabled;
     }
 }
