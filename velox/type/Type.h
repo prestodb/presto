@@ -1129,7 +1129,7 @@ class IntervalDayTimeType : public BigintType {
   }
 };
 
-FOLLY_ALWAYS_INLINE std::shared_ptr<const IntervalDayTimeType>
+FOLLY_ALWAYS_INLINE const std::shared_ptr<const IntervalDayTimeType>&
 INTERVAL_DAY_TIME() {
   return IntervalDayTimeType::get();
 }
@@ -1182,7 +1182,7 @@ class IntervalYearMonthType : public IntegerType {
   }
 };
 
-FOLLY_ALWAYS_INLINE std::shared_ptr<const IntervalYearMonthType>
+FOLLY_ALWAYS_INLINE const std::shared_ptr<const IntervalYearMonthType>&
 INTERVAL_YEAR_MONTH() {
   return IntervalYearMonthType::get();
 }
@@ -1233,7 +1233,7 @@ class DateType : public IntegerType {
   }
 };
 
-FOLLY_ALWAYS_INLINE std::shared_ptr<const DateType> DATE() {
+FOLLY_ALWAYS_INLINE const std::shared_ptr<const DateType>& DATE() {
   return DateType::get();
 }
 
