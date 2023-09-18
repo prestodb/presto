@@ -795,9 +795,10 @@ TypePtr updateColumnNames(
     const TypePtr& tableType,
     const std::string& fileFieldName,
     const std::string& tableFieldName) {
-  // Check type equality.
+  // Check type kind equality. If not equal, no point to continue down the tree.
   if (fileType->kind() != tableType->kind()) {
     logTypeInequality(*fileType, *tableType, fileFieldName, tableFieldName);
+    return fileType;
   }
 
   // For leaf types we return type as is.

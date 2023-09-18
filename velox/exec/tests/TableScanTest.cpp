@@ -3186,6 +3186,17 @@ TEST_F(TableScanTest, readMissingFieldsInMap) {
       ASSERT_TRUE(val->isNullAt(j));
     }
   }
+
+  // Scan with type mismatch in the 1st item (map vs integer). We should throw.
+  rowType = ROW({"i1", "a2"}, {{INTEGER(), ARRAY(structType)}});
+
+  op = PlanBuilder()
+           .tableScan(rowType, {}, "", rowType)
+           .project({"i1"})
+           .planNode();
+
+  EXPECT_THROW(
+      AssertQueryBuilder(op).split(split).copyResults(pool()), VeloxUserError);
 }
 
 // Tests various projections of top level columns using the output type passed
