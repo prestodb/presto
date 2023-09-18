@@ -25,14 +25,15 @@ class BooleanColumnReader : public dwio::common::SelectiveByteRleColumnReader {
  public:
   using ValueType = bool;
   BooleanColumnReader(
-      const std::shared_ptr<const dwio::common::TypeWithId>& nodeType,
+      const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+      std::shared_ptr<const dwio::common::TypeWithId> dataType,
       ParquetParams& params,
       common::ScanSpec& scanSpec)
       : SelectiveByteRleColumnReader(
-            nodeType->type(),
+            requestedType->type(),
             params,
             scanSpec,
-            nodeType) {}
+            std::move(dataType)) {}
 
   void seekToRowGroup(uint32_t index) override {
     SelectiveByteRleColumnReader::seekToRowGroup(index);

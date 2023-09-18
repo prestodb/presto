@@ -56,7 +56,8 @@ class RepeatedLengths {
 class MapColumnReader : public dwio::common::SelectiveMapColumnReader {
  public:
   MapColumnReader(
-      std::shared_ptr<const dwio::common::TypeWithId> requestedType,
+      const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+      const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       ParquetParams& params,
       common::ScanSpec& scanSpec);
 
@@ -111,7 +112,8 @@ class MapColumnReader : public dwio::common::SelectiveMapColumnReader {
 class ListColumnReader : public dwio::common::SelectiveListColumnReader {
  public:
   ListColumnReader(
-      std::shared_ptr<const dwio::common::TypeWithId> requestedType,
+      const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+      const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       ParquetParams& params,
       common::ScanSpec& scanSpec);
 

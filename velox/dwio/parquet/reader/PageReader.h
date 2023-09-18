@@ -115,7 +115,7 @@ class PageReader {
   /// levels.
   void decodeRepDefs(int32_t numTopLevelRows);
 
-  /// Returns lengths and/or nulls   from 'begin' to 'end' for the level of
+  /// Returns lengths and/or nulls from 'begin' to 'end' for the level of
   /// 'info' using 'mode'. 'maxItems' is the maximum number of nulls and lengths
   /// to produce. 'lengths' is only filled for mode kList. 'nulls' is filled
   /// from bit position 'nullsStartIndex'. Returns the number of lengths/nulls

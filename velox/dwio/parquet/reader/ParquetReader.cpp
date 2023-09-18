@@ -30,6 +30,8 @@ DEFINE_int32(
 
 namespace facebook::velox::parquet {
 
+using dwio::common::ColumnSelector;
+
 /// Metadata and options for reading Parquet.
 class ReaderBase {
  public:
@@ -636,8 +638,10 @@ ParquetRowReader::ParquetRowReader(
     return; // TODO
   }
   ParquetParams params(pool_, readerBase_->fileMetaData());
-
+  auto columnSelector = std::make_shared<ColumnSelector>(
+      ColumnSelector::apply(options_.getSelector(), readerBase_->schema()));
   columnReader_ = ParquetColumnReader::build(
+      columnSelector->getSchemaWithId(),
       readerBase_->schemaWithId(), // Id is schema id
       params,
       *options_.getScanSpec());

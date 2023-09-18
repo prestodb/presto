@@ -34,6 +34,7 @@ namespace facebook::velox::parquet {
 
 // static
 std::unique_ptr<dwio::common::SelectiveColumnReader> ParquetColumnReader::build(
+    const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
     ParquetParams& params,
     common::ScanSpec& scanSpec) {
@@ -46,30 +47,34 @@ std::unique_ptr<dwio::common::SelectiveColumnReader> ParquetColumnReader::build(
     case TypeKind::TINYINT:
     case TypeKind::HUGEINT:
       return std::make_unique<IntegerColumnReader>(
-          dataType, dataType, params, scanSpec);
+          requestedType, dataType, params, scanSpec);
 
     case TypeKind::REAL:
       return std::make_unique<FloatingPointColumnReader<float, float>>(
-          dataType->type(), dataType, params, scanSpec);
+          requestedType->type(), dataType, params, scanSpec);
     case TypeKind::DOUBLE:
       return std::make_unique<FloatingPointColumnReader<double, double>>(
-          dataType->type(), dataType, params, scanSpec);
+          requestedType->type(), dataType, params, scanSpec);
 
     case TypeKind::ROW:
-      return std::make_unique<StructColumnReader>(dataType, params, scanSpec);
+      return std::make_unique<StructColumnReader>(
+          requestedType, dataType, params, scanSpec);
 
     case TypeKind::VARBINARY:
     case TypeKind::VARCHAR:
       return std::make_unique<StringColumnReader>(dataType, params, scanSpec);
 
     case TypeKind::ARRAY:
-      return std::make_unique<ListColumnReader>(dataType, params, scanSpec);
+      return std::make_unique<ListColumnReader>(
+          requestedType, dataType, params, scanSpec);
 
     case TypeKind::MAP:
-      return std::make_unique<MapColumnReader>(dataType, params, scanSpec);
+      return std::make_unique<MapColumnReader>(
+          requestedType, dataType, params, scanSpec);
 
     case TypeKind::BOOLEAN:
-      return std::make_unique<BooleanColumnReader>(dataType, params, scanSpec);
+      return std::make_unique<BooleanColumnReader>(
+          requestedType, dataType, params, scanSpec);
 
     default:
       VELOX_FAIL(
