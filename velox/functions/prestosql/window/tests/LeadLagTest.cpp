@@ -51,6 +51,9 @@ class LeadLagTest : public WindowTestBase,
 };
 
 TEST_P(LeadLagTest, offset) {
+  // largeOffset is larger than std::numeric_limits<int32_t>::max()
+  // and is a negative number when cast to int32.
+  int64_t largeOffset = (int64_t)std::numeric_limits<int32_t>::max() * 2;
   auto data = makeRowVector({
       // Values.
       makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
@@ -58,6 +61,9 @@ TEST_P(LeadLagTest, offset) {
       makeFlatVector<int64_t>({1, 2, 3, 1, 2}),
       // Offsets with nulls.
       makeNullableFlatVector<int64_t>({1, 2, 3, std::nullopt, 2}),
+      // Large offsets.
+      makeFlatVector<int64_t>(
+          {largeOffset, largeOffset, largeOffset, largeOffset, largeOffset}),
   });
 
   createDuckDbTable({data});
@@ -74,6 +80,12 @@ TEST_P(LeadLagTest, offset) {
 
   // Constant offset.
   assertResults(fn("c0, 2"));
+
+  // Large offset.
+  assertResults(fn("c0, c3"));
+
+  // Large && CONSTANT offset.
+  assertResults(fn(fmt::format("c0, {}", largeOffset)));
 
   // Constant null offset. DuckDB returns incorrect results for this case. It
   // treats null offset as 0.
@@ -102,6 +114,34 @@ TEST_P(LeadLagTest, offset) {
       appendColumn(data, makeNullableFlatVector<int64_t>(expectedWindow));
 
   assertQuery(queryInfo.planNode, expected);
+}
+
+TEST_P(LeadLagTest, ignoreNullsInt64Offset) {
+  // The offset is bigger than int32:max() and it is also a positive number
+  // if cast to int32. With only such a special number we can trigger
+  // some tricky bug.
+  int64_t largeOffset = (int64_t)std::numeric_limits<uint32_t>::max() + 2;
+  auto data = makeRowVector(
+      {// Values.
+       makeNullableFlatVector<int64_t>({1, std::nullopt, 3, 4, 5}),
+       // Offsets.
+       makeFlatVector<int64_t>(
+           {largeOffset, largeOffset, largeOffset, largeOffset, largeOffset})});
+
+  createDuckDbTable({data});
+
+  auto assertResults = [&](const std::string& functionSql) {
+    auto queryInfo = buildWindowQuery({data}, functionSql, "order by c0", "");
+
+    SCOPED_TRACE(queryInfo.functionSql);
+    assertQuery(queryInfo.planNode, queryInfo.querySql);
+  };
+
+  // Test the large offset which is a column reference.
+  assertResults(fn("c0, c1 IGNORE NULLS"));
+
+  // Test the large offset which is a CONSTANT.
+  assertResults(fn(fmt::format("c0, {} IGNORE NULLS", largeOffset)));
 }
 
 TEST_P(LeadLagTest, defaultValue) {
