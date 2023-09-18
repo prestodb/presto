@@ -260,7 +260,7 @@ public class TestFeaturesConfig
                 .put("dynamic-filtering-max-per-driver-row-count", "256")
                 .put("dynamic-filtering-max-per-driver-size", "64kB")
                 .put("dynamic-filtering-range-row-limit-per-driver", "1000")
-                .put("experimental.fragment-result-caching-enabled", "true")
+                .put("fragment-result-cache.enabled", "true")
                 .put("experimental.enable-stats-calculator", "false")
                 .put("experimental.enable-stats-collection-for-temporary-table", "true")
                 .put("optimizer.ignore-stats-calculator-failures", "false")
