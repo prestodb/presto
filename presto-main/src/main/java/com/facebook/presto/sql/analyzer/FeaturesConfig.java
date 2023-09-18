@@ -1564,7 +1564,8 @@ public class FeaturesConfig
         return fragmentResultCachingEnabled;
     }
 
-    @Config("experimental.fragment-result-caching-enabled")
+    @Config("fragment-result-cache.enabled")
+    @LegacyConfig("experimental.fragment-result-caching-enabled")
     @ConfigDescription("Enable fragment result caching and read/write leaf fragment result pages from/to cache when applicable")
     public FeaturesConfig setFragmentResultCachingEnabled(boolean fragmentResultCachingEnabled)
     {
