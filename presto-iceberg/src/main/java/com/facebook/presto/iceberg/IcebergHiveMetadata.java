@@ -67,6 +67,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
 import static com.facebook.presto.iceberg.IcebergUtil.isIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.validateTableMode;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
 import static com.facebook.presto.iceberg.TableType.DATA;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
@@ -128,6 +129,8 @@ public class IcebergHiveMetadata
 
         org.apache.iceberg.Table table = getHiveIcebergTable(metastore, hdfsEnvironment, session, tableName);
         Optional<Long> snapshotId = getSnapshotId(table, name.getSnapshotId());
+
+        validateTableMode(session, table);
 
         return new IcebergTableHandle(
                 tableName.getSchemaName(),
