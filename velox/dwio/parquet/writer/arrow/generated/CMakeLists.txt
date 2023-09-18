@@ -12,16 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(arrow)
+add_library(velox_dwio_arrow_parquet_writer_thrift_lib parquet_types.cpp)
 
-add_library(velox_dwio_arrow_parquet_writer Writer.cpp)
-
-target_link_libraries(
-  velox_dwio_arrow_parquet_writer
-  velox_dwio_arrow_parquet_writer_lib
-  velox_dwio_arrow_parquet_writer_util_lib
-  velox_dwio_common
-  velox_arrow_bridge
-  parquet
-  arrow
-  fmt::fmt)
+target_link_libraries(velox_dwio_arrow_parquet_writer_thrift_lib arrow)

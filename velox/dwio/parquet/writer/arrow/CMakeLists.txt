@@ -12,14 +12,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(arrow)
+add_subdirectory(util)
+add_subdirectory(generated)
 
-add_library(velox_dwio_arrow_parquet_writer Writer.cpp)
+add_library(
+  velox_dwio_arrow_parquet_writer_lib
+  ArrowSchema.cpp
+  ArrowSchemaInternal.cpp
+  ColumnWriter.cpp
+  Encoding.cpp
+  Encryption.cpp
+  EncryptionInternal.cpp
+  FileEncryptorInternal.cpp
+  FileDecryptorInternal.cpp
+  FileWriter.cpp
+  LevelComparison.cpp
+  LevelComparisonAvx2.cpp
+  LevelConversion.cpp
+  Metadata.cpp
+  PageIndex.cpp
+  PathInternal.cpp
+  Platform.cpp
+  Properties.cpp
+  Schema.cpp
+  Statistics.cpp
+  Types.cpp
+  Writer.cpp)
 
 target_link_libraries(
-  velox_dwio_arrow_parquet_writer
   velox_dwio_arrow_parquet_writer_lib
   velox_dwio_arrow_parquet_writer_util_lib
+  velox_dwio_arrow_parquet_writer_thrift_lib
   velox_dwio_common
   velox_arrow_bridge
   parquet

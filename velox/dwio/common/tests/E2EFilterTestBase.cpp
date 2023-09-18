@@ -150,7 +150,8 @@ void E2EFilterTestBase::readWithFilter(
   auto input = std::make_unique<BufferedInput>(
       std::make_shared<InMemoryReadFile>(data), readerOpts.getMemoryPool());
   auto reader = makeReader(readerOpts, std::move(input));
-  // The  spec must stay live over the lifetime of the reader.
+
+  // The spec must stay live over the lifetime of the reader.
   setUpRowReaderOptions(rowReaderOpts, spec);
   OwnershipChecker ownershipChecker;
   auto rowReader = reader->createRowReader(rowReaderOpts);

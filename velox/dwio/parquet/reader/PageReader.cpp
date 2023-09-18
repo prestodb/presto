@@ -751,7 +751,7 @@ void PageReader::makeDecoder() {
       break;
     case Encoding::DELTA_BINARY_PACKED:
     default:
-      VELOX_UNSUPPORTED("Encoding not supported yet");
+      VELOX_UNSUPPORTED("Encoding not supported yet: {}", encoding_);
   }
 }
 
