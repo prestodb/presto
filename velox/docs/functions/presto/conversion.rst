@@ -197,7 +197,7 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - Y
      - Y
      - Y
-     -
+     - Y
      -
      -
      -
@@ -482,6 +482,10 @@ Valid examples
   SELECT cast(infinity() as varchar); -- 'Infinity'
   SELECT cast(true as varchar); -- 'true'
   SELECT cast(timestamp '1970-01-01 00:00:00' as varchar); -- '1970-01-01T00:00:00.000'
+  SELECT cast(cast(22.51 as DECIMAL(5, 3)) as varchar); -- '22.510'
+  SELECT cast(cast(-22.51 as DECIMAL(4, 2)) as varchar); -- '-22.51'
+  SELECT cast(cast(0.123 as DECIMAL(3, 3)) as varchar); -- '0.123'
+  SELECT cast(cast(1 as DECIMAL(6, 2)) as varchar); -- '1.00'
 
 Cast to TIMESTAMP
 -----------------
