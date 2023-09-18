@@ -37,6 +37,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrat
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PushDownFilterThroughCrossJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.ShardedJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.tracing.TracingConfig;
@@ -259,6 +260,8 @@ public final class SystemSessionProperties
     public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY = "randomize_outer_join_null_key";
     public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY = "randomize_outer_join_null_key_strategy";
     public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY_NULL_RATIO_THRESHOLD = "randomize_outer_join_null_key_null_ratio_threshold";
+    public static final String SHARDED_JOINS_STRATEGY = "sharded_joins_strategy";
+    public static final String JOIN_SHARD_COUNT = "join_shard_count";
     public static final String IN_PREDICATES_AS_INNER_JOINS_ENABLED = "in_predicates_as_inner_joins_enabled";
     public static final String PUSH_AGGREGATION_BELOW_JOIN_BYTE_REDUCTION_THRESHOLD = "push_aggregation_below_join_byte_reduction_threshold";
     public static final String KEY_BASED_SAMPLING_ENABLED = "key_based_sampling_enabled";
@@ -1547,6 +1550,23 @@ public final class SystemSessionProperties
                         "Enable randomizing null join key for outer join when ratio of null join keys exceed the threshold",
                         0.02,
                         false),
+                new PropertyMetadata<>(
+                        SHARDED_JOINS_STRATEGY,
+                        format("When to shard joins to mitigate skew",
+                                Stream.of(ShardedJoinStrategy.values())
+                                        .map(ShardedJoinStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        ShardedJoinStrategy.class,
+                        featuresConfig.getShardedJoinStrategy(),
+                        false,
+                        value -> ShardedJoinStrategy.valueOf(((String) value).toUpperCase()),
+                        ShardedJoinStrategy::name),
+                integerProperty(
+                        JOIN_SHARD_COUNT,
+                        "Number of shards to use in sharded joins optimization",
+                        featuresConfig.getJoinShardCount(),
+                        true),
                 booleanProperty(
                         OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED,
                         "Enable rewriting IF(condition, AGG(x)) to AGG(x) with condition included in mask",
@@ -2722,7 +2742,15 @@ public final class SystemSessionProperties
     {
         return session.getSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY_NULL_RATIO_THRESHOLD, Double.class);
     }
+    public static ShardedJoinStrategy getShardedJoinStrategy(Session session)
+    {
+        return session.getSystemProperty(SHARDED_JOINS_STRATEGY, ShardedJoinStrategy.class);
+    }
 
+    public static int getJoinShardCount(Session session)
+    {
+        return session.getSystemProperty(JOIN_SHARD_COUNT, Integer.class);
+    }
     public static boolean isOptimizeConditionalAggregationEnabled(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED, Boolean.class);
