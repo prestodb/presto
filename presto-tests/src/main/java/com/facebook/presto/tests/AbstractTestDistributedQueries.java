@@ -38,9 +38,12 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_PAYLOAD_JOINS;
 import static com.facebook.presto.SystemSessionProperties.PULL_EXPRESSION_FROM_LAMBDA_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static com.facebook.presto.SystemSessionProperties.SHARDED_JOINS_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
@@ -1379,6 +1382,43 @@ public abstract class AbstractTestDistributedQueries
         // view "catalog.schema.v" is referenced once, and the cte "v" twice in the above query
         checkCTEInfo(explainString, "v", 2, false);
         checkCTEInfo(explainString, viewName, 1, true);
+    }
+
+    @Test
+    public void testShardedJoinOptimization()
+    {
+        Session defaultSession = getSession();
+
+        Session session = Session.builder(defaultSession)
+                .setSystemProperty(SHARDED_JOINS_STRATEGY, "ALWAYS")
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
+                .build();
+
+        String[] queries = {
+                "select * from lineitem l join orders o on (l.orderkey=o.orderkey)",
+                "select * from lineitem l join orders o on (l.orderkey=o.orderkey) join part p on (l.partkey=p.partkey)",
+                "select * from lineitem l LEFT JOIN orders o on (l.orderkey=o.orderkey)"
+        };
+
+        for (String query : queries) {
+            MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
+            assert (((String) resultExplainQuery.getOnlyValue()).contains("random"));
+
+            assertQuery(session, query);
+        }
+
+        String[] notSupportedQueries = {
+                "select * from lineitem l right join orders o on (l.orderkey=o.orderkey)",
+                "select * from lineitem l full join orders o on (l.orderkey=o.orderkey)"
+        };
+
+        for (String query : notSupportedQueries) {
+            MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
+            assert (!((String) resultExplainQuery.getOnlyValue()).contains("random"));
+
+            assertQueryWithSameQueryRunner(session, query, defaultSession);
+        }
     }
 
     private void checkCTEInfo(String explain, String name, int frequency, boolean isView)
