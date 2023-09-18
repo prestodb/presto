@@ -41,7 +41,7 @@ DriverCtx::DriverCtx(
       splitGroupId(_splitGroupId),
       partitionId(_partitionId),
       task(_task),
-      threadDebugInfo({task->queryCtx()->queryId(), task->taskId()}) {}
+      threadDebugInfo({task->queryCtx()->queryId(), task->taskId(), nullptr}) {}
 
 const core::QueryConfig& DriverCtx::queryConfig() const {
   return task->queryCtx()->queryConfig();

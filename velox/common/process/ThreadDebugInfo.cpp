@@ -22,6 +22,12 @@
 namespace facebook::velox::process {
 thread_local const ThreadDebugInfo* threadDebugInfo = nullptr;
 
+// Flag to ensure that printCurrentQueryId() only invokes the callback in
+// ThreadDebugInfo once. This is to prevent callback from being recursively
+// called in case it induces a fatal signal which ends up calling
+// printCurrentQueryId() again.
+thread_local bool fatalSignalProcessed = false;
+
 static void printCurrentQueryId() {
   const ThreadDebugInfo* info = GetThreadDebugInfo();
   if (info == nullptr) {
@@ -38,6 +44,11 @@ static void printCurrentQueryId() {
     write(STDERR_FILENO, info->taskId_.c_str(), info->taskId_.length());
   }
   write(STDERR_FILENO, "\n", 1);
+
+  if (!fatalSignalProcessed && info->callback_) {
+    fatalSignalProcessed = true;
+    info->callback_();
+  }
 }
 
 const ThreadDebugInfo* GetThreadDebugInfo() {

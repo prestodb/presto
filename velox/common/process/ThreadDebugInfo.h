@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <functional>
 #include <string>
 
 namespace facebook::velox::process {
@@ -25,6 +26,8 @@ namespace facebook::velox::process {
 struct ThreadDebugInfo {
   std::string queryId_;
   std::string taskId_;
+  // Callback to invoke when the debug info is to be dumped. Can be empty.
+  std::function<void()> callback_;
 };
 
 // A RAII class to store thread local debug information.

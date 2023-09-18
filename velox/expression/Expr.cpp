@@ -21,6 +21,7 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/SuccinctPrinter.h"
+#include "velox/common/process/ThreadDebugInfo.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/core/Expressions.h"
 #include "velox/expression/CastExpr.h"
@@ -39,6 +40,19 @@ DEFINE_bool(
     false,
     "Whether to overwrite queryCtx and force the "
     "use of simplified expression evaluation path.");
+
+DEFINE_bool(
+    velox_experimental_save_input_on_fatal_signal,
+    false,
+    "This is an experimental flag only to be used for debugging "
+    "purposes. If set to true, serializes the input vector data and "
+    "all the SQL expressions in the ExprSet that is currently "
+    "executing, whenever a fatal signal is encountered. Enabling "
+    "this flag makes the signal handler async signal unsafe, so it "
+    "should only be used for debugging purposes. The vector and SQLs "
+    "are serialized to files in directories specified by either "
+    "'velox_save_input_on_expression_any_failure_path' or "
+    "'velox_save_input_on_expression_system_failure_path'");
 
 namespace facebook::velox::exec {
 
@@ -1816,6 +1830,50 @@ std::string ExprSet::toString(bool compact) const {
   return out.str();
 }
 
+namespace {
+void printInputAndExprs(
+    const BaseVector* vector,
+    const std::vector<std::shared_ptr<Expr>>& exprs) {
+  const char* basePath =
+      FLAGS_velox_save_input_on_expression_any_failure_path.c_str();
+  if (strlen(basePath) == 0) {
+    basePath = FLAGS_velox_save_input_on_expression_system_failure_path.c_str();
+  }
+  if (strlen(basePath) == 0) {
+    return;
+  }
+  // Persist vector to disk
+  try {
+    auto dataPathOpt = common::generateTempFilePath(basePath, "vector");
+    if (!dataPathOpt.has_value()) {
+      return;
+    }
+    saveVectorToFile(vector, dataPathOpt.value().c_str());
+    LOG(ERROR) << "Input vector data: " << dataPathOpt.value();
+  } catch (std::exception& e) {
+    LOG(ERROR) << "Error serializing Input vector data: " << e.what();
+  }
+
+  try {
+    std::stringstream allSql;
+    for (int i = 0; i < exprs.size(); ++i) {
+      if (i > 0) {
+        allSql << ", ";
+      }
+      allSql << exprs[i]->toSql();
+    }
+    auto sqlPathOpt = common::generateTempFilePath(basePath, "allExprSql");
+    if (!sqlPathOpt.has_value()) {
+      return;
+    }
+    saveStringToFile(allSql.str(), sqlPathOpt.value().c_str());
+    LOG(ERROR) << "SQL expression: " << sqlPathOpt.value();
+  } catch (std::exception& e) {
+    LOG(ERROR) << "Error serializing SQL expression: " << e.what();
+  }
+}
+} // namespace
+
 void ExprSet::eval(
     int32_t begin,
     int32_t end,
@@ -1837,6 +1895,24 @@ void ExprSet::eval(
   // needs all rows for "b".
   for (const auto& field : multiplyReferencedFields_) {
     context.ensureFieldLoaded(field->index(context), rows);
+  }
+
+  if (FLAGS_velox_experimental_save_input_on_fatal_signal) {
+    auto other = process::GetThreadDebugInfo();
+    process::ThreadDebugInfo debugInfo;
+    if (other) {
+      debugInfo.queryId_ = other->queryId_;
+      debugInfo.taskId_ = other->taskId_;
+    }
+    debugInfo.callback_ = [&]() {
+      printInputAndExprs(context.row(), this->exprs());
+    };
+    process::ScopedThreadDebugInfo scopedDebugInfo(debugInfo);
+
+    for (int32_t i = begin; i < end; ++i) {
+      exprs_[i]->eval(rows, context, result[i], this);
+    }
+    return;
   }
 
   for (int32_t i = begin; i < end; ++i) {
