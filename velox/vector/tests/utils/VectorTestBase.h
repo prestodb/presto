@@ -153,7 +153,7 @@ class VectorTestBase {
   }
 
   template <typename T>
-  FlatVectorPtr<T> makeFlatVector(
+  FlatVectorPtr<EvalType<T>> makeFlatVector(
       vector_size_t size,
       std::function<T(vector_size_t /*row*/)> valueAt,
       std::function<bool(vector_size_t /*row*/)> isNullAt = nullptr,

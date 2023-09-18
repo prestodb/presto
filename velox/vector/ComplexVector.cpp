@@ -180,6 +180,11 @@ void RowVector::copy(
     const BaseVector* source,
     const SelectivityVector& rows,
     const vector_size_t* toSourceRow) {
+  if (source->typeKind() == TypeKind::UNKNOWN) {
+    rows.applyToSelected([&](auto row) { setNull(row, true); });
+    return;
+  }
+
   // Copy non-null values.
   SelectivityVector nonNullRows = rows;
 
@@ -261,10 +266,44 @@ void RowVector::copy(
   }
 }
 
+namespace {
+
+// Runs quick checks to determine whether input vector has only null values.
+// @return true if vector has only null values; false if vector may have
+// non-null values.
+bool isAllNullVector(const BaseVector& vector) {
+  if (vector.typeKind() == TypeKind::UNKNOWN) {
+    return true;
+  }
+
+  if (vector.isConstantEncoding()) {
+    return vector.isNullAt(0);
+  }
+
+  auto leafVector = vector.wrappedVector();
+  if (leafVector->isConstantEncoding()) {
+    // A null constant does not have a value vector, so wrappedVector
+    // returns the constant.
+    VELOX_CHECK(leafVector->isNullAt(0));
+    return true;
+  }
+  return false;
+}
+} // namespace
+
 void RowVector::copyRanges(
     const BaseVector* source,
     const folly::Range<const CopyRange*>& ranges) {
   if (ranges.empty()) {
+    return;
+  }
+
+  if (isAllNullVector(*source)) {
+    for (const auto& range : ranges) {
+      for (auto i = 0; i < range.count; ++i) {
+        setNull(range.targetIndex + i, true);
+      }
+    }
     return;
   }
 
@@ -422,23 +461,29 @@ void ArrayVectorBase::copyRangesImpl(
     const BaseVector* source,
     const folly::Range<const BaseVector::CopyRange*>& ranges,
     VectorPtr* targetValues,
-    const BaseVector* sourceValues,
-    VectorPtr* targetKeys,
-    const BaseVector* sourceKeys) {
-  auto sourceValue = source->wrappedVector();
-  if (sourceValue->isConstantEncoding()) {
-    // A null constant does not have a value vector, so wrappedVector
-    // returns the constant.
-    VELOX_CHECK(sourceValue->isNullAt(0));
-    for (auto& r : ranges) {
-      for (auto i = 0; i < r.count; ++i) {
-        setNull(r.targetIndex + i, true);
+    VectorPtr* targetKeys) {
+  if (isAllNullVector(*source)) {
+    for (const auto& range : ranges) {
+      for (auto i = 0; i < range.count; ++i) {
+        setNull(range.targetIndex + i, true);
       }
     }
     return;
   }
-  VELOX_CHECK_EQ(sourceValue->encoding(), encoding());
-  auto sourceArray = sourceValue->asUnchecked<ArrayVectorBase>();
+
+  const BaseVector* sourceValues;
+  const BaseVector* sourceKeys = nullptr;
+
+  auto leafSource = source->wrappedVector();
+  VELOX_CHECK_EQ(leafSource->encoding(), encoding());
+
+  if (typeKind_ == TypeKind::ARRAY) {
+    sourceValues = leafSource->as<ArrayVector>()->elements().get();
+  } else {
+    sourceValues = leafSource->as<MapVector>()->mapValues().get();
+    sourceKeys = leafSource->as<MapVector>()->mapKeys().get();
+  }
+
   if (targetKeys) {
     BaseVector::ensureWritable(
         SelectivityVector::empty(),
@@ -452,6 +497,8 @@ void ArrayVectorBase::copyRangesImpl(
         pool(),
         *targetValues);
   }
+
+  auto sourceArray = leafSource->asUnchecked<ArrayVectorBase>();
   auto setNotNulls = mayHaveNulls() || source->mayHaveNulls();
   auto* mutableOffsets = offsets_->asMutable<vector_size_t>();
   auto* mutableSizes = sizes_->asMutable<vector_size_t>();
@@ -869,6 +916,12 @@ void ArrayVector::validate(const VectorValidateOptions& options) const {
   elements_->validate(options);
 }
 
+void ArrayVector::copyRanges(
+    const BaseVector* source,
+    const folly::Range<const CopyRange*>& ranges) {
+  copyRangesImpl(source, ranges, &elements_, nullptr);
+}
+
 bool MapVector::containsNullAt(vector_size_t idx) const {
   if (BaseVector::isNullAt(idx)) {
     return true;
@@ -1156,6 +1209,12 @@ void MapVector::validate(const VectorValidateOptions& options) const {
       options, std::min(keys_->size(), values_->size()));
   keys_->validate(options);
   values_->validate(options);
+}
+
+void MapVector::copyRanges(
+    const BaseVector* source,
+    const folly::Range<const CopyRange*>& ranges) {
+  copyRangesImpl(source, ranges, &values_, &keys_);
 }
 
 } // namespace velox

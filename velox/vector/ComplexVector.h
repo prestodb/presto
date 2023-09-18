@@ -317,9 +317,7 @@ struct ArrayVectorBase : BaseVector {
       const BaseVector* source,
       const folly::Range<const CopyRange*>& ranges,
       VectorPtr* targetValues,
-      const BaseVector* sourceValues,
-      VectorPtr* targetKeys,
-      const BaseVector* sourceKeys);
+      VectorPtr* targetKeys);
 
   void validateArrayVectorBase(
       const VectorValidateOptions& options,
@@ -407,20 +405,7 @@ class ArrayVector : public ArrayVectorBase {
 
   void copyRanges(
       const BaseVector* source,
-      const folly::Range<const CopyRange*>& ranges) override {
-    const ArrayVector* sourceArray{};
-    if (auto wrapped = source->wrappedVector();
-        !wrapped->isConstantEncoding()) {
-      sourceArray = wrapped->asUnchecked<ArrayVector>();
-    }
-    copyRangesImpl(
-        source,
-        ranges,
-        &elements_,
-        sourceArray ? sourceArray->elements_.get() : nullptr,
-        nullptr,
-        nullptr);
-  }
+      const folly::Range<const CopyRange*>& ranges) override;
 
   uint64_t retainedSize() const override {
     return BaseVector::retainedSize() + offsets_->capacity() +
@@ -547,20 +532,7 @@ class MapVector : public ArrayVectorBase {
 
   void copyRanges(
       const BaseVector* source,
-      const folly::Range<const CopyRange*>& ranges) override {
-    const MapVector* sourceMap{};
-    if (auto wrapped = source->wrappedVector();
-        !wrapped->isConstantEncoding()) {
-      sourceMap = wrapped->asUnchecked<MapVector>();
-    }
-    copyRangesImpl(
-        source,
-        ranges,
-        &values_,
-        sourceMap ? sourceMap->values_.get() : nullptr,
-        &keys_,
-        sourceMap ? sourceMap->keys_.get() : nullptr);
-  }
+      const folly::Range<const CopyRange*>& ranges) override;
 
   uint64_t retainedSize() const override {
     return BaseVector::retainedSize() + offsets_->capacity() +

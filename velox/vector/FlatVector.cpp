@@ -51,6 +51,11 @@ void FlatVector<bool>::copyValuesAndNulls(
     const BaseVector* source,
     const SelectivityVector& rows,
     const vector_size_t* toSourceRow) {
+  if (source->typeKind() == TypeKind::UNKNOWN) {
+    rows.applyToSelected([&](auto row) { setNull(row, true); });
+    return;
+  }
+
   source = source->loadedVector();
   VELOX_CHECK(
       BaseVector::compatibleKind(BaseVector::typeKind(), source->typeKind()));
@@ -477,6 +482,15 @@ template <>
 void FlatVector<StringView>::copyRanges(
     const BaseVector* source,
     const folly::Range<const CopyRange*>& ranges) {
+  if (source->typeKind() == TypeKind::UNKNOWN) {
+    for (const auto& range : ranges) {
+      for (auto i = 0; i < range.count; ++i) {
+        setNull(range.targetIndex + i, true);
+      }
+    }
+    return;
+  }
+
   auto leaf = source->wrappedVector()->asUnchecked<SimpleVector<StringView>>();
   if (pool_ == leaf->pool()) {
     // We copy referencing the storage of 'source'.

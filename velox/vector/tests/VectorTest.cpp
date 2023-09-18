@@ -565,6 +565,124 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     testCopy(lazy, level - 1);
   }
 
+  void testCopyFromUnknown(const VectorPtr& vector) {
+    SCOPED_TRACE(vector->toString());
+
+    const vector_size_t size = 1'000;
+
+    ASSERT_GE(vector->size(), size);
+
+    // Save a copy of the 'vector' to compare results after copy.
+    auto vectorCopy = BaseVector::copy(*vector);
+
+    auto unknown = makeAllNullFlatVector<UnknownValue>(size);
+
+    // Copy every 3-rd row.
+    SelectivityVector rowsToCopy(size, false);
+    for (auto i = 0; i < size; i += 3) {
+      rowsToCopy.setValid(i, true);
+    }
+    rowsToCopy.updateBounds();
+
+    SelectivityVector rowsToKeep(size);
+    rowsToKeep.deselect(rowsToCopy);
+
+    // Copy from row N to N - 10 for N >= 0 and from row N to N for N < 10;
+    std::vector<vector_size_t> toSourceRow(size);
+    for (auto i = 0; i < size; i += 3) {
+      if (i < 10) {
+        toSourceRow[i] = i;
+      } else {
+        toSourceRow[i] = i - 10;
+      }
+    }
+
+    vector->copy(unknown.get(), rowsToCopy, toSourceRow.data());
+
+    rowsToCopy.applyToSelected(
+        [&](auto row) { EXPECT_TRUE(vector->isNullAt(row)) << "at " << row; });
+
+    rowsToKeep.applyToSelected([&](vector_size_t row) {
+      EXPECT_FALSE(vector->isNullAt(row));
+      EXPECT_TRUE(vector->equalValueAt(vectorCopy.get(), row, row))
+          << "at " << row << ": " << vector->toString(row) << " vs. "
+          << vectorCopy->toString(row);
+    });
+  }
+
+  void testCopySingleRangeFromUnknown(const VectorPtr& vector) {
+    SCOPED_TRACE(vector->toString());
+
+    const vector_size_t size = 1'000;
+
+    ASSERT_GE(vector->size(), size);
+
+    // Save a copy of the 'vector' to compare results after copy.
+    auto vectorCopy = BaseVector::copy(*vector);
+
+    auto unknown = makeAllNullFlatVector<UnknownValue>(size);
+
+    vector->copy(unknown.get(), 40, 33, 78);
+
+    for (auto i = 0; i < size; ++i) {
+      if (i < 40 || i >= 40 + 78) {
+        EXPECT_FALSE(vector->isNullAt(i));
+        EXPECT_TRUE(vector->equalValueAt(vectorCopy.get(), i, i))
+            << "at " << i << ": " << vector->toString(i) << " vs. "
+            << vectorCopy->toString(i);
+      } else {
+        EXPECT_TRUE(vector->isNullAt(i)) << "at " << i;
+      }
+    }
+  }
+
+  void testCopyRangesFromUnknown(const VectorPtr& vector) {
+    SCOPED_TRACE(vector->toString());
+
+    const vector_size_t size = 1'000;
+
+    ASSERT_GE(vector->size(), size);
+
+    // Save a copy of the 'vector' to compare results after copy.
+    auto vectorCopy = BaseVector::copy(*vector);
+
+    auto unknown = makeAllNullFlatVector<UnknownValue>(size);
+
+    std::vector<BaseVector::CopyRange> rangesToCopy = {
+        {0, 0, 7},
+        {10, 12, 5},
+        {100, 500, 79},
+        {200, 601, 1},
+        {990, 950, 10},
+    };
+
+    std::vector<BaseVector::CopyRange> rangesToKeep = {
+        {0, 7, 5},
+        {0, 17, 500 - 17},
+        {0, 579, 601 - 579},
+        {0, 602, 950 - 602},
+        {0, 960, 40},
+    };
+
+    vector->copyRanges(unknown.get(), rangesToCopy);
+
+    for (const auto& range : rangesToCopy) {
+      for (auto i = 0; i < range.count; ++i) {
+        EXPECT_TRUE(vector->isNullAt(range.targetIndex + i));
+      }
+    }
+
+    for (const auto& range : rangesToKeep) {
+      for (auto i = 0; i < range.count; ++i) {
+        auto index = range.targetIndex + i;
+        EXPECT_FALSE(vector->isNullAt(index));
+        EXPECT_TRUE(vector->equalValueAt(vectorCopy.get(), index, index))
+            << "at " << index << ": " << vector->toString(index) << " vs. "
+            << vectorCopy->toString(index);
+      }
+    }
+  }
+
   static void testSlice(
       const VectorPtr& vec,
       int level,
@@ -1119,6 +1237,60 @@ TEST_F(VectorTest, copyToAllNullsFlatVector) {
   for (auto i = 4; i < size; ++i) {
     ASSERT_TRUE(allNulls->isNullAt(i));
   }
+}
+
+TEST_F(VectorTest, copyFromUnknown) {
+  vector_size_t size = 1'000;
+
+  auto test = [&](const auto& makeVectorFunc) {
+    auto vector = makeVectorFunc();
+    testCopyFromUnknown(vector);
+
+    vector = makeVectorFunc();
+    testCopySingleRangeFromUnknown(vector);
+
+    vector = makeVectorFunc();
+    testCopyRangesFromUnknown(vector);
+  };
+
+  // Copy to BIGINT.
+  test([&]() {
+    return makeFlatVector<int64_t>(size, [](auto row) { return row; });
+  });
+
+  // Copy to BOOLEAN.
+  test([&]() {
+    return makeFlatVector<bool>(size, [](auto row) { return row % 7 == 3; });
+  });
+
+  // Copy to VARCHAR.
+  test([&]() {
+    return makeFlatVector<std::string>(
+        size, [](auto row) { return std::string(row % 17, 'x'); });
+  });
+
+  // Copy to ARRAY.
+  test([&]() {
+    return makeArrayVector<int64_t>(
+        size, [](auto row) { return row % 7; }, [](auto row) { return row; });
+  });
+
+  // Copy to MAP.
+  test([&]() {
+    return makeMapVector<int64_t, double>(
+        size,
+        [](auto row) { return row % 7; },
+        [](auto row) { return row; },
+        [](auto row) { return row * 0.1; });
+  });
+
+  // Copy to ROW.
+  test([&]() {
+    return makeRowVector({
+        makeFlatVector<int64_t>(size, [](auto row) { return row; }),
+        makeFlatVector<double>(size, [](auto row) { return row * 0.1; }),
+    });
+  });
 }
 
 TEST_F(VectorTest, wrapInConstant) {
