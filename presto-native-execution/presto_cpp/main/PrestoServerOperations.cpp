@@ -190,10 +190,10 @@ std::string PrestoServerOperations::debugOperation(
     proxygen::HTTPMessage* message) {
   switch (op.action) {
     case ServerOperation::Action::kTask: {
-      const auto id = message->getQueryParam("id");
-      if (!taskManager_) {
+      if (taskManager_ == nullptr) {
         return "Task Manager not found";
       }
+      const auto id = message->getQueryParam("id");
       const auto& map = taskManager_->tasks();
       const auto& task = map.find(id);
       if (task == map.end()) {
