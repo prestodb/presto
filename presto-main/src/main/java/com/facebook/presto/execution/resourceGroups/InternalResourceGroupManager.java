@@ -153,6 +153,14 @@ public final class InternalResourceGroupManager<C>
     }
 
     @Override
+    public List<ResourceGroupInfo> getRootResourceGroups()
+    {
+        ImmutableList.Builder<ResourceGroupInfo> builder = ImmutableList.builder();
+        rootGroups.forEach(group -> builder.add(group.getInfo()));
+        return builder.build();
+    }
+
+    @Override
     public void submit(ManagedQueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor)
     {
         checkState(configurationManager.get() != null, "configurationManager not set");

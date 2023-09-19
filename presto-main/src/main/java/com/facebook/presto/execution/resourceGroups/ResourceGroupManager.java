@@ -40,6 +40,9 @@ public interface ResourceGroupManager<C>
 
     List<ResourceGroupInfo> getPathToRoot(ResourceGroupId id);
 
+    /** Get root groups */
+    List<ResourceGroupInfo> getRootResourceGroups();
+
     void addConfigurationManagerFactory(ResourceGroupConfigurationManagerFactory factory);
 
     void loadConfigurationManager()
