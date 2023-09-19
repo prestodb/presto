@@ -33,13 +33,13 @@ add_library(
 
 target_link_libraries(
   velox_memory
-  velox_flag_definitions
-  velox_common_base
-  velox_exception
-  velox_test_util
-  re2::re2
-  Folly::folly)
-
-if(NOT VELOX_DISABLE_GOOGLETEST)
-  target_link_libraries(velox_memory gtest)
-endif()
+  PUBLIC velox_common_base
+         velox_exception
+         velox_flag_definitions
+         velox_time
+         velox_type
+         Folly::folly
+         fmt::fmt
+         gflags::gflags
+         glog::glog
+  PRIVATE velox_test_util re2::re2)

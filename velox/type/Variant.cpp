@@ -16,8 +16,8 @@
 
 #include "velox/type/Variant.h"
 #include <cfloat>
-#include "common/encode/Base64.h"
 #include "folly/json.h"
+#include "velox/common/encode/Base64.h"
 #include "velox/type/DecimalUtil.h"
 #include "velox/type/HugeInt.h"
 

@@ -13,4 +13,4 @@
 # limitations under the License.
 
 add_library(velox_encode Base64.cpp)
-target_link_libraries(velox_encode Folly::folly)
+target_link_libraries(velox_encode PUBLIC Folly::folly)

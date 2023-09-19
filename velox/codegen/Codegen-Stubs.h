@@ -19,8 +19,8 @@
 #error "This files shouldn't be included when the codegen is enabled"
 #endif
 
+#include <glog/logging.h>
 #include <filesystem>
-#include "glog/logging.h"
 #include "velox/core/PlanNode.h"
 
 namespace facebook {

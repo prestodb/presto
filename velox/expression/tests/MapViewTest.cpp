@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include <glog/logging.h>
 #include <optional>
 #include "folly/container/F14Map.h"
-#include "glog/logging.h"
 #include "gtest/gtest.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/expression/VectorReaders.h"

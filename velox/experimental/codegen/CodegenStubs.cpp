@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "glog/logging.h"
+#include <glog/logging.h>
 #include "velox/experimental/codegen/Codegen.h"
 #include "velox/experimental/codegen/CodegenExceptions.h"
 #include "velox/experimental/codegen/CodegenLogger.h"

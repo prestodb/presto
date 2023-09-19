@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include "glog/logging.h"
+#include <glog/logging.h>
 #include "velox/common/base/Exceptions.h"
 #include "velox/experimental/codegen/compiler_utils/CompilerOptions.h"
 #include "velox/experimental/codegen/external_process/Command.h"

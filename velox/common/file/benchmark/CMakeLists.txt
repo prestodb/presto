@@ -14,9 +14,9 @@
 
 add_library(velox_read_benchmark_lib ReadBenchmark.cpp)
 
-target_link_libraries(velox_read_benchmark_lib velox_file velox_exception
-                      velox_exec_test_lib fmt::fmt Folly::folly)
+target_link_libraries(velox_read_benchmark_lib
+                      PUBLIC velox_file velox_time Folly::folly gflags::gflags)
 
 add_executable(velox_read_benchmark ReadBenchmarkMain.cpp)
 
-target_link_libraries(velox_read_benchmark velox_read_benchmark_lib)
+target_link_libraries(velox_read_benchmark PRIVATE velox_read_benchmark_lib)

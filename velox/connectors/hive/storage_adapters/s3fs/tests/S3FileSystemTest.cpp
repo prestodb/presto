@@ -17,7 +17,7 @@
 #include "velox/connectors/hive/storage_adapters/s3fs/S3WriteFile.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/tests/S3Test.h"
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 using namespace facebook::velox;
 

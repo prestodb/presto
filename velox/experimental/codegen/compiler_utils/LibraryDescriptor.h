@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <fmt/format.h>
 #include <google/protobuf/util/json_util.h>
 #include <filesystem>
 #include <fstream>
@@ -22,7 +23,6 @@
 #include <string>
 #include <variant>
 #include <vector>
-#include "fmt/format.h"
 #include "velox/experimental/codegen/proto/codegen_proto.pb.h"
 #include "velox/experimental/codegen/transform/utils/ranges_utils.h"
 

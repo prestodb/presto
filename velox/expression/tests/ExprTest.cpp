@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <glog/logging.h>
 #include <exception>
 #include <fstream>
 #include <stdexcept>

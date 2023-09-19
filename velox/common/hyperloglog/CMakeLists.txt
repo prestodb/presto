@@ -18,4 +18,7 @@ endif()
 add_library(velox_common_hyperloglog BiasCorrection.cpp DenseHll.cpp
                                      SparseHll.cpp)
 
-target_link_libraries(velox_common_hyperloglog velox_memory)
+target_link_libraries(
+  velox_common_hyperloglog
+  PUBLIC velox_memory
+  PRIVATE velox_exception)

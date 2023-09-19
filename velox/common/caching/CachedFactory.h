@@ -31,8 +31,8 @@
 #include <mutex>
 #include <utility>
 
+#include <glog/logging.h>
 #include "folly/container/F14Set.h"
-#include "glog/logging.h"
 
 #include "velox/common/caching/SimpleLRUCache.h"
 #include "velox/common/process/TraceContext.h"

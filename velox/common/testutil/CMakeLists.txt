@@ -13,7 +13,7 @@
 # limitations under the License.
 
 add_library(velox_test_util TestValue.cpp)
-target_link_libraries(velox_test_util velox_common_base)
+target_link_libraries(velox_test_util PUBLIC velox_exception)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

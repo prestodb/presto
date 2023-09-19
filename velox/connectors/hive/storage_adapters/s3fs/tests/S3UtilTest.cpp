@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "connectors/hive/storage_adapters/s3fs/S3Util.h"
+#include "velox/connectors/hive/storage_adapters/s3fs/S3Util.h"
 
 #include "gtest/gtest.h"
 

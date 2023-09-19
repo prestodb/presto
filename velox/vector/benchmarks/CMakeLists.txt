@@ -15,6 +15,8 @@ add_executable(velox_vector_hash_all_benchmark SimpleVectorHashAllBenchmark.cpp)
 
 target_link_libraries(velox_vector_hash_all_benchmark velox_vector Folly::folly
                       ${FOLLY_BENCHMARK} fmt::fmt)
+# This is a workaround for the use of VectorTestUtils.h which include gtest.h
+target_link_libraries(velox_vector_hash_all_benchmark gtest)
 
 add_executable(velox_vector_selectivity_vector_benchmark
                SelectivityVectorBenchmark.cpp)

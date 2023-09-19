@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "connectors/hive/storage_adapters/gcs/GCSUtil.h"
+#include "velox/connectors/hive/storage_adapters/gcs/GCSUtil.h"
 
 #include "gtest/gtest.h"
 

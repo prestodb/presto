@@ -30,43 +30,33 @@ add_executable(
 
 target_link_libraries(
   velox_memory_test
-  velox_memory
-  velox_caching
-  velox_exception
-  velox_exec_test_lib
-  velox_test_util
-  velox_vector_fuzzer
-  gtest
-  gtest_main
-  gflags::gflags
-  Folly::folly
-  gmock
-  glog::glog)
+  PRIVATE velox_caching
+          velox_common_base
+          velox_exception
+          velox_exec
+          velox_exec_test_lib
+          velox_memory
+          velox_temp_path
+          velox_test_util
+          velox_vector_fuzzer
+          Folly::folly
+          gflags::gflags
+          glog::glog
+          gmock
+          gtest
+          gtest_main
+          re2::re2)
 
 gtest_add_tests(velox_memory_test "" AUTO)
 
 add_executable(velox_fragmentation_benchmark FragmentationBenchmark.cpp)
 
 target_link_libraries(
-  velox_fragmentation_benchmark
-  velox_memory
-  glog::glog
-  gtest
-  gtest_main
-  gflags::gflags
-  Folly::folly
-  pthread)
+  velox_fragmentation_benchmark PRIVATE velox_memory Folly::folly
+                                        gflags::gflags glog::glog)
 
 add_executable(velox_concurrent_allocation_benchmark
                ConcurrentAllocationBenchmark.cpp)
 
-target_link_libraries(
-  velox_concurrent_allocation_benchmark
-  velox_memory
-  glog::glog
-  gtest
-  gtest_main
-  gflags::gflags
-  Folly::folly
-  fmt::fmt
-  pthread)
+target_link_libraries(velox_concurrent_allocation_benchmark PRIVATE velox_memory
+                                                                    velox_time)

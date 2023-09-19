@@ -17,5 +17,6 @@ add_executable(velox_common_hyperloglog_test DenseHllTest.cpp SparseHllTest.cpp)
 add_test(NAME velox_common_hyperloglog_test
          COMMAND velox_common_hyperloglog_test)
 
-target_link_libraries(velox_common_hyperloglog_test velox_common_hyperloglog
-                      velox_encode gflags::gflags gtest gtest_main)
+target_link_libraries(
+  velox_common_hyperloglog_test PRIVATE velox_common_hyperloglog velox_encode
+                                        gtest gtest_main)
