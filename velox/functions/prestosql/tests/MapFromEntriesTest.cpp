@@ -404,3 +404,15 @@ TEST_F(MapFromEntriesTest, nestedNullInKeys) {
           makeRowVector({makeFlatVector<int32_t>(1)})),
       "map key cannot be indeterminate");
 }
+
+TEST_F(MapFromEntriesTest, unknownInputs) {
+  auto expectedType = MAP(UNKNOWN(), UNKNOWN());
+  auto test = [&](const std::string& query) {
+    auto result = evaluate(query, makeRowVector({makeFlatVector<int32_t>(2)}));
+    ASSERT_TRUE(result->type()->equivalent(*expectedType));
+  };
+
+  test("try(map_from_entries(array_constructor(row_constructor(null, null))))");
+  test("try(map_from_entries(array_constructor(null)))");
+  test("try(map_from_entries(null))");
+}

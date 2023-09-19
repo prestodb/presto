@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <cstdint>
 #include "velox/expression/EvalCtx.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
@@ -25,6 +24,8 @@ namespace {
 static const char* kNullKeyErrorMessage = "map key cannot be null";
 static const char* kIndeterminateKeyErrorMessage =
     "map key cannot be indeterminate";
+static const char* kErrorMessageEntryNotNull = "map entry cannot be null";
+
 // See documentation at https://prestodb.io/docs/current/functions/map.html
 class MapFromEntriesFunction : public exec::VectorFunction {
  public:
@@ -62,14 +63,19 @@ class MapFromEntriesFunction : public exec::VectorFunction {
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
-    return {// array(unknown) -> map(unknown, unknown)
+    return {// unknown -> map(unknown, unknown)
+            exec::FunctionSignatureBuilder()
+                .returnType("map(unknown, unknown)")
+                .argumentType("unknown")
+                .build(),
+            // array(unknown) -> map(unknown, unknown)
             exec::FunctionSignatureBuilder()
                 .returnType("map(unknown, unknown)")
                 .argumentType("array(unknown)")
                 .build(),
             // array(row(K,V)) -> map(K,V)
             exec::FunctionSignatureBuilder()
-                .knownTypeVariable("K")
+                .typeVariable("K")
                 .typeVariable("V")
                 .returnType("map(K,V)")
                 .argumentType("array(row(K,V))")
@@ -85,10 +91,35 @@ class MapFromEntriesFunction : public exec::VectorFunction {
     auto& inputValueVector = inputArray->elements();
     exec::LocalDecodedVector decodedRowVector(context);
     decodedRowVector.get()->decode(*inputValueVector);
+
+    // If the input array(unknown) then all rows should have errors.
+    if (inputValueVector->typeKind() == TypeKind::UNKNOWN) {
+      try {
+        VELOX_USER_FAIL(kErrorMessageEntryNotNull);
+      } catch (...) {
+        context.setErrors(rows, std::current_exception());
+      }
+
+      auto sizes = allocateSizes(rows.end(), context.pool());
+      auto offsets = allocateSizes(rows.end(), context.pool());
+
+      // Output in this case is map(unknown, unknown), but all elements are
+      // nulls, all offsets and sizes are 0.
+      return std::make_shared<MapVector>(
+          context.pool(),
+          outputType,
+          inputArray->nulls(),
+          rows.end(),
+          sizes,
+          offsets,
+          BaseVector::create(UNKNOWN(), 0, context.pool()),
+          BaseVector::create(UNKNOWN(), 0, context.pool()));
+    }
+
+    exec::LocalSelectivityVector remianingRows(context, rows);
     auto rowVector = decodedRowVector->base()->as<RowVector>();
     auto keyVector = rowVector->childAt(0);
 
-    exec::LocalSelectivityVector remianingRows(context, rows);
     BufferPtr changedSizes = nullptr;
     vector_size_t* mutableSizes = nullptr;
 
@@ -116,7 +147,7 @@ class MapFromEntriesFunction : public exec::VectorFunction {
             // valid because its consumed by checkDuplicateKeys before try
             // sets invalid rows to null.
             mutableSizes[row] = 0;
-            VELOX_USER_FAIL("map entry cannot be null");
+            VELOX_USER_FAIL(kErrorMessageEntryNotNull);
           }
 
           // Check null keys.

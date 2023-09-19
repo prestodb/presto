@@ -21,6 +21,9 @@ void checkDuplicateKeys(
     const MapVectorPtr& mapVector,
     const SelectivityVector& rows,
     exec::EvalCtx& context) {
+  if (rows.end() == 0) {
+    return;
+  }
   static const char* kDuplicateKey = "Duplicate map keys ({}) are not allowed";
 
   MapVector::canonicalize(mapVector);
