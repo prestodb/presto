@@ -371,6 +371,25 @@ class BaseVector {
         nulls_->asMutable<uint64_t>(), idx, bits::kNull ? value : !value);
   }
 
+  struct CopyRange {
+    vector_size_t sourceIndex;
+    vector_size_t targetIndex;
+    vector_size_t count;
+  };
+
+  /// Sets null flags for each row in 'ranges' to 'isNull'.
+  static void setNulls(
+      uint64_t* rawNulls,
+      const folly::Range<const CopyRange*>& ranges,
+      bool isNull);
+
+  /// Copies null flags for each row in 'ranges' from 'sourceRawNulls' to
+  /// 'targetRawNulls'.
+  static void copyNulls(
+      uint64_t* targetRawNulls,
+      const uint64_t* sourceRawNulls,
+      const folly::Range<const CopyRange*>& ranges);
+
   static int32_t
   countNulls(const BufferPtr& nulls, vector_size_t begin, vector_size_t end) {
     return nulls ? bits::countNulls(nulls->as<uint64_t>(), begin, end) : 0;
@@ -436,12 +455,6 @@ class BaseVector {
     CopyRange range{sourceIndex, targetIndex, count};
     copyRanges(source, folly::Range(&range, 1));
   }
-
-  struct CopyRange {
-    vector_size_t sourceIndex;
-    vector_size_t targetIndex;
-    vector_size_t count;
-  };
 
   /// Converts SelectivityVetor into a list of CopyRanges having sourceIndex ==
   /// targetIndex. Aims to produce as few ranges as possible. If all rows are
@@ -905,6 +918,32 @@ class BaseVector {
   // don't need to reallocate the result for every batch.
   bool memoDisabled_{false};
 };
+
+/// Loops over rows in 'ranges' and invokes 'func' for each row.
+/// @param TFunc A void function taking two arguments: targetIndex and
+/// sourceIndex.
+template <typename TFunc>
+void applyToEachRow(
+    const folly::Range<const BaseVector::CopyRange*>& ranges,
+    const TFunc& func) {
+  for (const auto& range : ranges) {
+    for (auto i = 0; i < range.count; ++i) {
+      func(range.targetIndex + i, range.sourceIndex + i);
+    }
+  }
+}
+
+/// Loops over 'ranges' and invokes 'func' for each range.
+/// @param TFunc A void function taking 3 arguments: targetIndex, sourceIndex
+/// and count.
+template <typename TFunc>
+void applyToEachRange(
+    const folly::Range<const BaseVector::CopyRange*>& ranges,
+    const TFunc& func) {
+  for (const auto& range : ranges) {
+    func(range.targetIndex, range.sourceIndex, range.count);
+  }
+}
 
 template <>
 uint64_t BaseVector::byteSize<bool>(vector_size_t count);

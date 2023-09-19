@@ -308,52 +308,6 @@ void FlatVector<StringView>::copy(
   }
 }
 
-template <>
-void FlatVector<StringView>::copy(
-    const BaseVector* source,
-    vector_size_t targetIndex,
-    vector_size_t sourceIndex,
-    vector_size_t count) {
-  if (count == 0) {
-    return;
-  }
-  BaseVector::copy(source, targetIndex, sourceIndex, count);
-}
-
-template <>
-void FlatVector<StringView>::copyRanges(
-    const BaseVector* source,
-    const folly::Range<const CopyRange*>& ranges) {
-  if (source->typeKind() == TypeKind::UNKNOWN) {
-    for (const auto& range : ranges) {
-      for (auto i = 0; i < range.count; ++i) {
-        setNull(range.targetIndex + i, true);
-      }
-    }
-    return;
-  }
-
-  auto leaf = source->wrappedVector()->asUnchecked<SimpleVector<StringView>>();
-  if (pool_ == leaf->pool()) {
-    // We copy referencing the storage of 'source'.
-    for (auto& r : ranges) {
-      copyValuesAndNulls(source, r.targetIndex, r.sourceIndex, r.count);
-    }
-    acquireSharedStringBuffers(source);
-  } else {
-    for (auto& r : ranges) {
-      for (auto i = 0; i < r.count; ++i) {
-        if (source->isNullAt(r.sourceIndex + i)) {
-          setNull(r.targetIndex + i, true);
-        } else {
-          set(r.targetIndex + i,
-              leaf->valueAt(source->wrappedIndex(r.sourceIndex + i)));
-        }
-      }
-    }
-  }
-}
-
 // For strings, we also verify if they point to valid memory locations inside
 // the string buffers.
 template <>

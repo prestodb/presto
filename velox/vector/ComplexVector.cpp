@@ -299,20 +299,17 @@ void RowVector::copyRanges(
   }
 
   if (isAllNullVector(*source)) {
-    for (const auto& range : ranges) {
-      for (auto i = 0; i < range.count; ++i) {
-        setNull(range.targetIndex + i, true);
-      }
-    }
+    BaseVector::setNulls(mutableRawNulls(), ranges, true);
     return;
   }
 
   auto minTargetIndex = std::numeric_limits<vector_size_t>::max();
   auto maxTargetIndex = std::numeric_limits<vector_size_t>::min();
-  for (auto& r : ranges) {
-    minTargetIndex = std::min(minTargetIndex, r.targetIndex);
-    maxTargetIndex = std::max(maxTargetIndex, r.targetIndex + r.count);
-  }
+  applyToEachRange(ranges, [&](auto targetIndex, auto sourceIndex, auto count) {
+    minTargetIndex = std::min(minTargetIndex, targetIndex);
+    maxTargetIndex = std::max(maxTargetIndex, targetIndex + count);
+  });
+
   SelectivityVector rows(maxTargetIndex);
   rows.setValidRange(0, minTargetIndex, false);
   rows.updateBounds();
@@ -324,11 +321,7 @@ void RowVector::copyRanges(
   DecodedVector decoded(*source);
   if (decoded.isIdentityMapping() && !decoded.mayHaveNulls()) {
     if (rawNulls_) {
-      auto* rawNulls = mutableRawNulls();
-      for (auto& r : ranges) {
-        bits::fillBits(
-            rawNulls, r.targetIndex, r.targetIndex + r.count, bits::kNotNull);
-      }
+      setNulls(mutableRawNulls(), ranges, false);
     }
     auto* rowSource = source->loadedVector()->as<RowVector>();
     for (int i = 0; i < children_.size(); ++i) {
@@ -337,27 +330,26 @@ void RowVector::copyRanges(
   } else {
     std::vector<BaseVector::CopyRange> baseRanges;
     baseRanges.reserve(ranges.size());
-    for (auto& r : ranges) {
-      for (vector_size_t i = 0; i < r.count; ++i) {
-        bool isNull = decoded.isNullAt(r.sourceIndex + i);
-        setNull(r.targetIndex + i, isNull);
-        if (isNull) {
-          continue;
-        }
-        auto baseIndex = decoded.index(r.sourceIndex + i);
-        if (!baseRanges.empty() &&
-            baseRanges.back().sourceIndex + 1 == baseIndex &&
-            baseRanges.back().targetIndex + 1 == r.targetIndex + i) {
-          ++baseRanges.back().count;
-        } else {
-          baseRanges.push_back({
-              .sourceIndex = baseIndex,
-              .targetIndex = r.targetIndex + i,
-              .count = 1,
-          });
-        }
+    applyToEachRow(ranges, [&](auto targetIndex, auto sourceIndex) {
+      bool isNull = decoded.isNullAt(sourceIndex);
+      setNull(targetIndex, isNull);
+      if (isNull) {
+        return;
       }
-    }
+      auto baseIndex = decoded.index(sourceIndex);
+      if (!baseRanges.empty() &&
+          baseRanges.back().sourceIndex + 1 == baseIndex &&
+          baseRanges.back().targetIndex + 1 == targetIndex) {
+        ++baseRanges.back().count;
+      } else {
+        baseRanges.push_back({
+            .sourceIndex = baseIndex,
+            .targetIndex = targetIndex,
+            .count = 1,
+        });
+      }
+    });
+
     auto* rowSource = decoded.base()->as<RowVector>();
     for (int i = 0; i < children_.size(); ++i) {
       children_[i]->copyRanges(
@@ -463,11 +455,7 @@ void ArrayVectorBase::copyRangesImpl(
     VectorPtr* targetValues,
     VectorPtr* targetKeys) {
   if (isAllNullVector(*source)) {
-    for (const auto& range : ranges) {
-      for (auto i = 0; i < range.count; ++i) {
-        setNull(range.targetIndex + i, true);
-      }
-    }
+    BaseVector::setNulls(mutableRawNulls(), ranges, true);
     return;
   }
 
@@ -537,46 +525,43 @@ void ArrayVectorBase::copyRangesImpl(
   } else {
     std::vector<CopyRange> outRanges;
     vector_size_t totalCount = 0;
-    for (auto& range : ranges) {
-      if (range.count == 0) {
-        continue;
-      }
-      VELOX_DCHECK(BaseVector::length_ >= range.targetIndex + range.count);
-      totalCount += range.count;
-    }
+    applyToEachRange(
+        ranges, [&](auto targetIndex, auto sourceIndex, auto count) {
+          if (count > 0) {
+            VELOX_DCHECK(BaseVector::length_ >= targetIndex + count);
+            totalCount += count;
+          }
+        });
     outRanges.reserve(totalCount);
-    for (auto& range : ranges) {
-      for (vector_size_t i = 0; i < range.count; ++i) {
-        if (source->isNullAt(range.sourceIndex + i)) {
-          setNull(range.targetIndex + i, true);
-        } else {
-          if (setNotNulls) {
-            setNull(range.targetIndex + i, false);
-          }
-          vector_size_t wrappedIndex =
-              source->wrappedIndex(range.sourceIndex + i);
-          vector_size_t copySize = sourceArray->sizeAt(wrappedIndex);
-
-          if (copySize > 0) {
-            auto copyOffset = sourceArray->offsetAt(wrappedIndex);
-
-            // If we're copying two adjacent ranges, merge them.  This only
-            // works if they're consecutive.
-            if (!outRanges.empty() &&
-                (outRanges.back().sourceIndex + outRanges.back().count ==
-                 copyOffset)) {
-              outRanges.back().count += copySize;
-            } else {
-              outRanges.push_back({copyOffset, childSize, copySize});
-            }
-          }
-
-          mutableOffsets[range.targetIndex + i] = childSize;
-          mutableSizes[range.targetIndex + i] = copySize;
-          childSize += copySize;
+    applyToEachRow(ranges, [&](auto targetIndex, auto sourceIndex) {
+      if (source->isNullAt(sourceIndex)) {
+        setNull(targetIndex, true);
+      } else {
+        if (setNotNulls) {
+          setNull(targetIndex, false);
         }
+        auto wrappedIndex = source->wrappedIndex(sourceIndex);
+        auto copySize = sourceArray->sizeAt(wrappedIndex);
+
+        if (copySize > 0) {
+          auto copyOffset = sourceArray->offsetAt(wrappedIndex);
+
+          // If we're copying two adjacent ranges, merge them.  This only
+          // works if they're consecutive.
+          if (!outRanges.empty() &&
+              (outRanges.back().sourceIndex + outRanges.back().count ==
+               copyOffset)) {
+            outRanges.back().count += copySize;
+          } else {
+            outRanges.push_back({copyOffset, childSize, copySize});
+          }
+        }
+
+        mutableOffsets[targetIndex] = childSize;
+        mutableSizes[targetIndex] = copySize;
+        childSize += copySize;
       }
-    }
+    });
 
     targetValues->get()->resize(childSize);
     targetValues->get()->copyRanges(sourceValues, outRanges);

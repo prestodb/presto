@@ -259,29 +259,38 @@ void FlatVector<T>::copyValuesAndNulls(
 }
 
 template <typename T>
-void FlatVector<T>::copyValuesAndNulls(
+void FlatVector<T>::copyRanges(
     const BaseVector* source,
-    vector_size_t targetIndex,
-    vector_size_t sourceIndex,
-    vector_size_t count) {
+    const folly::Range<const BaseVector::CopyRange*>& ranges) {
   if (source->typeKind() == TypeKind::UNKNOWN) {
-    auto* rawNulls = BaseVector::mutableRawNulls();
-    for (auto i = 0; i < count; ++i) {
-      bits::setNull(rawNulls, targetIndex + i, true);
-    }
-    return;
-  }
-
-  if (count == 0) {
+    BaseVector::setNulls(BaseVector::mutableRawNulls(), ranges, true);
     return;
   }
 
   source = source->loadedVector();
   VELOX_CHECK(
       BaseVector::compatibleKind(BaseVector::typeKind(), source->typeKind()));
-  VELOX_CHECK_GE(source->size(), sourceIndex + count);
-  VELOX_CHECK_GE(BaseVector::length_, targetIndex + count);
-  const uint64_t* sourceNulls = source->rawNulls();
+
+  if constexpr (std::is_same_v<T, StringView>) {
+    auto leaf =
+        source->wrappedVector()->asUnchecked<SimpleVector<StringView>>();
+    if (BaseVector::pool_ != leaf->pool()) {
+      applyToEachRow(ranges, [&](auto targetIndex, auto sourceIndex) {
+        if (source->isNullAt(sourceIndex)) {
+          this->setNull(targetIndex, true);
+        } else {
+          this->set(
+              targetIndex, leaf->valueAt(source->wrappedIndex(sourceIndex)));
+        }
+      });
+      return;
+    }
+
+    // We copy referencing the storage of 'source'.
+    acquireSharedStringBuffers(source);
+  }
+
+  const uint64_t* sourceRawNulls = source->rawNulls();
   uint64_t* rawNulls = const_cast<uint64_t*>(BaseVector::rawNulls_);
   if (source->mayHaveNulls()) {
     rawNulls = BaseVector::mutableRawNulls();
@@ -297,81 +306,86 @@ void FlatVector<T>::copyValuesAndNulls(
     auto* flatSource = source->asUnchecked<FlatVector<T>>();
     if (flatSource->values() == nullptr) {
       // All source values are null.
-      for (auto i = 0; i < count; ++i) {
-        bits::setNull(rawNulls, targetIndex + i, true);
-      }
+      BaseVector::setNulls(BaseVector::mutableRawNulls(), ranges, true);
       return;
     }
 
     if constexpr (std::is_same_v<T, bool>) {
-      auto* rawValues = reinterpret_cast<uint64_t*>(rawValues_);
+      auto rawValues = reinterpret_cast<uint64_t*>(rawValues_);
       auto* sourceValues = flatSource->template rawValues<uint64_t>();
-      bits::copyBits(sourceValues, sourceIndex, rawValues, targetIndex, count);
+      applyToEachRange(
+          ranges, [&](auto targetIndex, auto sourceIndex, auto count) {
+            bits::copyBits(
+                sourceValues, sourceIndex, rawValues, targetIndex, count);
+          });
     } else {
-      const T* srcValues = flatSource->rawValues();
-      if (Buffer::is_pod_like_v<T>) {
-        memcpy(
-            &rawValues_[targetIndex],
-            &srcValues[sourceIndex],
-            count * sizeof(T));
-      } else {
-        std::copy(
-            srcValues + sourceIndex,
-            srcValues + sourceIndex + count,
-            rawValues_ + targetIndex);
-      }
+      const T* sourceValues = flatSource->rawValues();
+      applyToEachRange(
+          ranges, [&](auto targetIndex, auto sourceIndex, auto count) {
+            if (Buffer::is_pod_like_v<T>) {
+              memcpy(
+                  &rawValues_[targetIndex],
+                  &sourceValues[sourceIndex],
+                  count * sizeof(T));
+            } else {
+              std::copy(
+                  sourceValues + sourceIndex,
+                  sourceValues + sourceIndex + count,
+                  rawValues_ + targetIndex);
+            }
+          });
     }
 
     if (rawNulls) {
-      if (sourceNulls) {
-        bits::copyBits(sourceNulls, sourceIndex, rawNulls, targetIndex, count);
+      if (sourceRawNulls) {
+        BaseVector::copyNulls(rawNulls, sourceRawNulls, ranges);
       } else {
-        bits::fillBits(
-            rawNulls, targetIndex, targetIndex + count, bits::kNotNull);
+        BaseVector::setNulls(rawNulls, ranges, false);
       }
     }
   } else if (source->isConstantEncoding()) {
     if (source->isNullAt(0)) {
-      bits::fillBits(rawNulls, targetIndex, targetIndex + count, bits::kNull);
+      BaseVector::setNulls(rawNulls, ranges, true);
       return;
     }
     auto constant = source->asUnchecked<ConstantVector<T>>();
     T value = constant->valueAt(0);
-
     if constexpr (std::is_same_v<T, bool>) {
-      auto* rawValues = reinterpret_cast<uint64_t*>(rawValues_);
-      bits::fillBits(rawValues, targetIndex, targetIndex + count, value);
+      auto rawValues = reinterpret_cast<uint64_t*>(rawValues_);
+      applyToEachRange(
+          ranges, [&](auto targetIndex, auto /*sourceIndex*/, auto count) {
+            bits::fillBits(rawValues, targetIndex, targetIndex + count, value);
+          });
     } else {
-      for (auto row = targetIndex; row < targetIndex + count; ++row) {
-        rawValues_[row] = value;
-      }
+      applyToEachRow(ranges, [&](auto targetIndex, auto /*sourceIndex*/) {
+        rawValues_[targetIndex] = value;
+      });
     }
 
     if (rawNulls) {
-      bits::fillBits(
-          rawNulls, targetIndex, targetIndex + count, bits::kNotNull);
+      BaseVector::setNulls(rawNulls, ranges, false);
     }
   } else {
-    auto sourceVector = source->asUnchecked<SimpleVector<T>>();
-    for (int32_t i = 0; i < count; ++i) {
-      if (!source->isNullAt(sourceIndex + i)) {
+    auto* sourceVector = source->asUnchecked<SimpleVector<T>>();
+    uint64_t* rawBoolValues = nullptr;
+    if constexpr (std::is_same_v<T, bool>) {
+      rawBoolValues = reinterpret_cast<uint64_t*>(rawValues_);
+    }
+    applyToEachRow(ranges, [&](auto targetIndex, auto sourceIndex) {
+      if (!source->isNullAt(sourceIndex)) {
+        auto sourceValue = sourceVector->valueAt(sourceIndex);
         if constexpr (std::is_same_v<T, bool>) {
-          auto* rawValues = reinterpret_cast<uint64_t*>(rawValues_);
-          bits::setBit(
-              rawValues,
-              targetIndex + i,
-              sourceVector->valueAt(sourceIndex + i));
+          bits::setBit(rawBoolValues, targetIndex, sourceValue);
         } else {
-          rawValues_[targetIndex + i] = sourceVector->valueAt(sourceIndex + i);
+          rawValues_[targetIndex] = sourceValue;
         }
-
         if (rawNulls) {
-          bits::clearNull(rawNulls, targetIndex + i);
+          bits::clearNull(rawNulls, targetIndex);
         }
       } else {
-        bits::setNull(rawNulls, targetIndex + i);
+        bits::setNull(rawNulls, targetIndex);
       }
-    }
+    });
   }
 }
 

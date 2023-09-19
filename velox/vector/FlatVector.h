@@ -230,16 +230,13 @@ class FlatVector final : public SimpleVector<T> {
     if (count == 0) {
       return;
     }
-    copyValuesAndNulls(source, targetIndex, sourceIndex, count);
+    BaseVector::CopyRange range{sourceIndex, targetIndex, count};
+    copyRanges(source, folly::Range(&range, 1));
   }
 
   void copyRanges(
       const BaseVector* source,
-      const folly::Range<const BaseVector::CopyRange*>& ranges) override {
-    for (auto& range : ranges) {
-      copy(source, range.targetIndex, range.sourceIndex, range.count);
-    }
-  }
+      const folly::Range<const BaseVector::CopyRange*>& ranges) override;
 
   void resize(vector_size_t newSize, bool setNotNull = true) override;
 
@@ -450,12 +447,6 @@ class FlatVector final : public SimpleVector<T> {
       const SelectivityVector& rows,
       const vector_size_t* toSourceRow);
 
-  void copyValuesAndNulls(
-      const BaseVector* source,
-      vector_size_t targetIndex,
-      vector_size_t sourceIndex,
-      vector_size_t count);
-
   // Ensures that the values buffer has space for 'newSize' elements and is
   // mutable. Sets elements between the old and new sizes to 'initialValue' if
   // the new size > old size.
@@ -508,18 +499,6 @@ void FlatVector<StringView>::copy(
     const BaseVector* source,
     const SelectivityVector& rows,
     const vector_size_t* toSourceRow);
-
-template <>
-void FlatVector<StringView>::copy(
-    const BaseVector* source,
-    vector_size_t targetIndex,
-    vector_size_t sourceIndex,
-    vector_size_t count);
-
-template <>
-void FlatVector<StringView>::copyRanges(
-    const BaseVector* source,
-    const folly::Range<const CopyRange*>& ranges);
 
 template <>
 void FlatVector<StringView>::validate(
