@@ -705,15 +705,6 @@ class BaseVector {
   /// set.
   virtual void prepareForReuse();
 
-  // True if left and right are the same or if right is
-  // TypeKind::UNKNOWN.  ArrayVector copying may come across unknown
-  // type data for null-only content. Nulls can be transferred between
-  // two unknowns but values cannot be assigned into an unknown 'left'
-  // from a not-unknown 'right'.
-  static bool compatibleKind(TypeKind left, TypeKind right) {
-    return left == right || right == TypeKind::UNKNOWN;
-  }
-
   /// Returns a brief summary of the vector. If 'recursive' is true, includes a
   /// summary of all the layers of encodings starting with the top layer.
   ///

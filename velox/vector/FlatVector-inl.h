@@ -148,8 +148,7 @@ void FlatVector<T>::copyValuesAndNulls(
   }
 
   source = source->loadedVector();
-  VELOX_CHECK(
-      BaseVector::compatibleKind(BaseVector::typeKind(), source->typeKind()));
+  VELOX_CHECK_EQ(BaseVector::typeKind(), source->typeKind());
   VELOX_CHECK_GE(BaseVector::length_, rows.end());
   const uint64_t* sourceNulls = source->rawNulls();
   uint64_t* rawNulls = const_cast<uint64_t*>(BaseVector::rawNulls_);
@@ -268,8 +267,7 @@ void FlatVector<T>::copyRanges(
   }
 
   source = source->loadedVector();
-  VELOX_CHECK(
-      BaseVector::compatibleKind(BaseVector::typeKind(), source->typeKind()));
+  VELOX_CHECK_EQ(BaseVector::typeKind(), source->typeKind());
 
   if constexpr (std::is_same_v<T, StringView>) {
     auto leaf =
