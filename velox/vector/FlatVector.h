@@ -526,19 +526,6 @@ void FlatVector<StringView>::validate(
     const VectorValidateOptions& options) const;
 
 template <>
-void FlatVector<bool>::copyValuesAndNulls(
-    const BaseVector* source,
-    const SelectivityVector& rows,
-    const vector_size_t* toSourceRow);
-
-template <>
-void FlatVector<bool>::copyValuesAndNulls(
-    const BaseVector* source,
-    vector_size_t targetIndex,
-    vector_size_t sourceIndex,
-    vector_size_t count);
-
-template <>
 Buffer* FlatVector<StringView>::getBufferWithSpace(vector_size_t size);
 
 template <>

@@ -31,8 +31,8 @@
 #include "velox/vector/VectorTypeUtils.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
-using namespace facebook::velox;
-using facebook::velox::ComplexType;
+namespace facebook::velox {
+namespace {
 
 // LazyVector loader for testing. Minimal implementation that documents the API
 // contract.
@@ -121,47 +121,6 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
       }
     }
     return base;
-  }
-
-  template <TypeKind Kind, TypeKind BiasKind>
-  VectorPtr createBias(vector_size_t size, bool withNulls) {
-    using T = typename TypeTraits<Kind>::NativeType;
-    using TBias = typename TypeTraits<BiasKind>::NativeType;
-    BufferPtr buffer;
-    BufferPtr values = AlignedBuffer::allocate<TBias>(size, pool_.get());
-    values->setSize(size * sizeof(TBias));
-    BufferPtr nulls;
-    uint64_t* rawNulls = nullptr;
-    if (withNulls) {
-      int32_t bytes = BaseVector::byteSize<bool>(size);
-      nulls = AlignedBuffer::allocate<char>(bytes, pool_.get());
-      rawNulls = nulls->asMutable<uint64_t>();
-      memset(rawNulls, bits::kNotNullByte, bytes);
-      nulls->setSize(bytes);
-    }
-    auto rawValues = values->asMutable<TBias>();
-    int32_t numNulls = 0;
-    constexpr int32_t kBias = 100;
-    for (int32_t i = 0; i < size; ++i) {
-      if (withNulls && i % 3 == 0) {
-        ++numNulls;
-        bits::setNull(rawNulls, i);
-      } else {
-        rawValues[i] = testValue<TBias>(i, buffer) - kBias;
-      }
-    }
-    return std::make_shared<BiasVector<T>>(
-        pool_.get(),
-        nulls,
-        size,
-        BiasKind,
-        std::move(values),
-        kBias,
-        SimpleVectorStats<T>{},
-        std::nullopt,
-        numNulls,
-        false,
-        size * sizeof(T));
   }
 
   VectorPtr createRow(int32_t numRows, bool withNulls) {
@@ -565,7 +524,9 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     testCopy(lazy, level - 1);
   }
 
-  void testCopyFromUnknown(const VectorPtr& vector) {
+  void testCopyFromAllNulls(
+      const VectorPtr& vector,
+      const VectorPtr& allNullSource) {
     SCOPED_TRACE(vector->toString());
 
     const vector_size_t size = 1'000;
@@ -574,8 +535,6 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
 
     // Save a copy of the 'vector' to compare results after copy.
     auto vectorCopy = BaseVector::copy(*vector);
-
-    auto unknown = makeAllNullFlatVector<UnknownValue>(size);
 
     // Copy every 3-rd row.
     SelectivityVector rowsToCopy(size, false);
@@ -597,7 +556,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
       }
     }
 
-    vector->copy(unknown.get(), rowsToCopy, toSourceRow.data());
+    vector->copy(allNullSource.get(), rowsToCopy, toSourceRow.data());
 
     rowsToCopy.applyToSelected(
         [&](auto row) { EXPECT_TRUE(vector->isNullAt(row)) << "at " << row; });
@@ -610,7 +569,9 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     });
   }
 
-  void testCopySingleRangeFromUnknown(const VectorPtr& vector) {
+  void testCopySingleRangeFromAllNulls(
+      const VectorPtr& vector,
+      const VectorPtr& allNullSource) {
     SCOPED_TRACE(vector->toString());
 
     const vector_size_t size = 1'000;
@@ -620,9 +581,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     // Save a copy of the 'vector' to compare results after copy.
     auto vectorCopy = BaseVector::copy(*vector);
 
-    auto unknown = makeAllNullFlatVector<UnknownValue>(size);
-
-    vector->copy(unknown.get(), 40, 33, 78);
+    vector->copy(allNullSource.get(), 40, 33, 78);
 
     for (auto i = 0; i < size; ++i) {
       if (i < 40 || i >= 40 + 78) {
@@ -636,7 +595,9 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     }
   }
 
-  void testCopyRangesFromUnknown(const VectorPtr& vector) {
+  void testCopyRangesFromAllNulls(
+      const VectorPtr& vector,
+      const VectorPtr& allNullSource) {
     SCOPED_TRACE(vector->toString());
 
     const vector_size_t size = 1'000;
@@ -645,8 +606,6 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
 
     // Save a copy of the 'vector' to compare results after copy.
     auto vectorCopy = BaseVector::copy(*vector);
-
-    auto unknown = makeAllNullFlatVector<UnknownValue>(size);
 
     std::vector<BaseVector::CopyRange> rangesToCopy = {
         {0, 0, 7},
@@ -664,7 +623,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
         {0, 960, 40},
     };
 
-    vector->copyRanges(unknown.get(), rangesToCopy);
+    vector->copyRanges(allNullSource.get(), rangesToCopy);
 
     for (const auto& range : rangesToCopy) {
       for (auto i = 0; i < range.count; ++i) {
@@ -1239,18 +1198,130 @@ TEST_F(VectorTest, copyToAllNullsFlatVector) {
   }
 }
 
-TEST_F(VectorTest, copyFromUnknown) {
+template <TypeKind kind>
+static VectorPtr createAllNullsFlatVector(
+    vector_size_t size,
+    memory::MemoryPool* pool,
+    const TypePtr& type) {
+  using T = typename TypeTraits<kind>::NativeType;
+
+  return std::make_shared<FlatVector<T>>(
+      pool,
+      type,
+      allocateNulls(size, pool, bits::kNull),
+      size,
+      nullptr,
+      std::vector<BufferPtr>());
+}
+
+VectorPtr createAllNullsVector(
+    const TypePtr& type,
+    vector_size_t size,
+    memory::MemoryPool* pool) {
+  auto kind = type->kind();
+  switch (kind) {
+    case TypeKind::ROW: {
+      std::vector<VectorPtr> children(type->size(), nullptr);
+      return std::make_shared<RowVector>(
+          pool, type, allocateNulls(size, pool, bits::kNull), size, children);
+    }
+    case TypeKind::ARRAY:
+      return std::make_shared<ArrayVector>(
+          pool,
+          type,
+          allocateNulls(size, pool, bits::kNull),
+          size,
+          allocateSizes(size, pool),
+          allocateSizes(size, pool),
+          nullptr);
+    case TypeKind::MAP:
+      return std::make_shared<MapVector>(
+          pool,
+          type,
+          allocateNulls(size, pool, bits::kNull),
+          size,
+          allocateSizes(size, pool),
+          allocateSizes(size, pool),
+          nullptr,
+          nullptr);
+    default:
+      return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+          createAllNullsFlatVector, kind, size, pool, type);
+  }
+}
+
+TEST_F(VectorTest, copyFromAllNulls) {
   vector_size_t size = 1'000;
 
   auto test = [&](const auto& makeVectorFunc) {
     auto vector = makeVectorFunc();
-    testCopyFromUnknown(vector);
+    auto allNullSource =
+        createAllNullsVector(vector->type(), vector->size(), pool());
+
+    testCopyFromAllNulls(vector, allNullSource);
 
     vector = makeVectorFunc();
-    testCopySingleRangeFromUnknown(vector);
+    testCopySingleRangeFromAllNulls(vector, allNullSource);
 
     vector = makeVectorFunc();
-    testCopyRangesFromUnknown(vector);
+    testCopyRangesFromAllNulls(vector, allNullSource);
+  };
+
+  // Copy to BIGINT.
+  test([&]() {
+    return makeFlatVector<int64_t>(size, [](auto row) { return row; });
+  });
+
+  // Copy to BOOLEAN.
+  test([&]() {
+    return makeFlatVector<bool>(size, [](auto row) { return row % 7 == 3; });
+  });
+
+  // Copy to VARCHAR.
+  test([&]() {
+    return makeFlatVector<std::string>(
+        size, [](auto row) { return std::string(row % 17, 'x'); });
+  });
+
+  // Copy to ARRAY.
+  test([&]() {
+    return makeArrayVector<int64_t>(
+        size, [](auto row) { return row % 7; }, [](auto row) { return row; });
+  });
+
+  // Copy to MAP.
+  test([&]() {
+    return makeMapVector<int64_t, double>(
+        size,
+        [](auto row) { return row % 7; },
+        [](auto row) { return row; },
+        [](auto row) { return row * 0.1; });
+  });
+
+  // TODO Enable after fixing
+  // https://github.com/facebookincubator/velox/issues/6612
+  //  // Copy to ROW.
+  //  test([&]() {
+  //    return makeRowVector({
+  //        makeFlatVector<int64_t>(size, [](auto row) { return row; }),
+  //        makeFlatVector<double>(size, [](auto row) { return row * 0.1; }),
+  //    });
+  //  });
+}
+
+TEST_F(VectorTest, copyFromUnknown) {
+  vector_size_t size = 1'000;
+  auto unknown = makeAllNullFlatVector<UnknownValue>(size);
+
+  auto test = [&](const auto& makeVectorFunc) {
+    auto vector = makeVectorFunc();
+    testCopyFromAllNulls(vector, unknown);
+
+    vector = makeVectorFunc();
+    testCopySingleRangeFromAllNulls(vector, unknown);
+
+    vector = makeVectorFunc();
+    testCopyRangesFromAllNulls(vector, unknown);
   };
 
   // Copy to BIGINT.
@@ -2910,3 +2981,6 @@ TEST_F(VectorTest, containsNullAtStructs) {
   EXPECT_TRUE(data->containsNullAt(4));
   EXPECT_FALSE(data->containsNullAt(5));
 }
+
+} // namespace
+} // namespace facebook::velox

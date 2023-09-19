@@ -141,6 +141,12 @@ void FlatVector<T>::copyValuesAndNulls(
     const BaseVector* source,
     const SelectivityVector& rows,
     const vector_size_t* toSourceRow) {
+  if (source->typeKind() == TypeKind::UNKNOWN) {
+    auto* rawNulls = BaseVector::mutableRawNulls();
+    rows.applyToSelected([&](auto row) { bits::setNull(rawNulls, row, true); });
+    return;
+  }
+
   source = source->loadedVector();
   VELOX_CHECK(
       BaseVector::compatibleKind(BaseVector::typeKind(), source->typeKind()));
@@ -158,35 +164,56 @@ void FlatVector<T>::copyValuesAndNulls(
   }
 
   if (source->isFlatEncoding()) {
-    auto* sourceValues = source->typeKind() != TypeKind::UNKNOWN
-        ? source->asUnchecked<FlatVector<T>>()->rawValues()
-        : nullptr;
-    if (toSourceRow) {
-      rows.applyToSelected([&](auto row) {
-        auto sourceRow = toSourceRow[row];
-        if (sourceValues) {
-          rawValues_[row] = sourceValues[sourceRow];
-        }
-        if (rawNulls) {
-          bits::setNull(
-              rawNulls,
-              row,
-              sourceNulls && bits::isBitNull(sourceNulls, sourceRow));
-        }
-      });
+    auto* flatSource = source->asUnchecked<FlatVector<T>>();
+    if (flatSource->values() == nullptr) {
+      // All source values are null.
+      rows.applyToSelected(
+          [&](auto row) { bits::setNull(rawNulls, row, true); });
+      return;
+    }
+
+    if constexpr (std::is_same_v<T, bool>) {
+      auto* rawValues = reinterpret_cast<uint64_t*>(rawValues_);
+      auto* sourceValues = flatSource->template rawValues<uint64_t>();
+      if (toSourceRow) {
+        rows.applyToSelected([&](auto row) {
+          int32_t sourceRow = toSourceRow[row];
+          bits::setBit(rawValues, row, bits::isBitSet(sourceValues, sourceRow));
+        });
+      } else {
+        rows.applyToSelected([&](auto row) {
+          bits::setBit(rawValues, row, bits::isBitSet(sourceValues, row));
+        });
+      }
     } else {
-      rows.applyToSelected([&](vector_size_t row) {
-        if (row >= source->size()) {
-          return;
+      auto* sourceValues = flatSource->rawValues();
+      if (toSourceRow) {
+        rows.applyToSelected([&](auto row) {
+          rawValues_[row] = sourceValues[toSourceRow[row]];
+        });
+      } else {
+        rows.applyToSelected(
+            [&](auto row) { rawValues_[row] = sourceValues[row]; });
+      }
+    }
+
+    if (rawNulls) {
+      if (!sourceNulls) {
+        rows.applyToSelected(
+            [&](vector_size_t row) { bits::setNull(rawNulls, row, false); });
+      } else {
+        if (toSourceRow) {
+          rows.applyToSelected([&](auto row) {
+            auto sourceRow = toSourceRow[row];
+            bits::setNull(
+                rawNulls, row, bits::isBitNull(sourceNulls, sourceRow));
+          });
+        } else {
+          rows.applyToSelected([&](vector_size_t row) {
+            bits::setNull(rawNulls, row, bits::isBitNull(sourceNulls, row));
+          });
         }
-        if (sourceValues) {
-          rawValues_[row] = sourceValues[row];
-        }
-        if (rawNulls) {
-          bits::setNull(
-              rawNulls, row, sourceNulls && bits::isBitNull(sourceNulls, row));
-        }
-      });
+      }
     }
   } else if (source->isConstantEncoding()) {
     if (source->isNullAt(0)) {
@@ -195,18 +222,32 @@ void FlatVector<T>::copyValuesAndNulls(
     }
     auto constant = source->asUnchecked<ConstantVector<T>>();
     T value = constant->valueAt(0);
-    rows.applyToSelected([&](int32_t row) { rawValues_[row] = value; });
+    if constexpr (std::is_same_v<T, bool>) {
+      auto range = rows.asRange();
+      auto* rawValues = reinterpret_cast<uint64_t*>(rawValues_);
+      if (value) {
+        bits::orBits(rawValues, range.bits(), range.begin(), range.end());
+      } else {
+        bits::andWithNegatedBits(
+            rawValues, range.bits(), range.begin(), range.end());
+      }
+    } else {
+      rows.applyToSelected([&](int32_t row) { rawValues_[row] = value; });
+    }
+
     rows.clearNulls(rawNulls);
   } else {
-    auto sourceVector = source->typeKind() != TypeKind::UNKNOWN
-        ? source->asUnchecked<SimpleVector<T>>()
-        : nullptr;
+    auto sourceVector = source->asUnchecked<SimpleVector<T>>();
     rows.applyToSelected([&](auto row) {
       auto sourceRow = toSourceRow ? toSourceRow[row] : row;
       if (!source->isNullAt(sourceRow)) {
-        if (sourceVector) {
+        if constexpr (std::is_same_v<T, bool>) {
+          auto* rawValues = reinterpret_cast<uint64_t*>(rawValues_);
+          bits::setBit(rawValues, row, sourceVector->valueAt(sourceRow));
+        } else {
           rawValues_[row] = sourceVector->valueAt(sourceRow);
         }
+
         if (rawNulls) {
           bits::clearNull(rawNulls, row);
         }
@@ -223,9 +264,18 @@ void FlatVector<T>::copyValuesAndNulls(
     vector_size_t targetIndex,
     vector_size_t sourceIndex,
     vector_size_t count) {
+  if (source->typeKind() == TypeKind::UNKNOWN) {
+    auto* rawNulls = BaseVector::mutableRawNulls();
+    for (auto i = 0; i < count; ++i) {
+      bits::setNull(rawNulls, targetIndex + i, true);
+    }
+    return;
+  }
+
   if (count == 0) {
     return;
   }
+
   source = source->loadedVector();
   VELOX_CHECK(
       BaseVector::compatibleKind(BaseVector::typeKind(), source->typeKind()));
@@ -244,26 +294,34 @@ void FlatVector<T>::copyValuesAndNulls(
   }
 
   if (source->isFlatEncoding()) {
-    if (!source->values() || source->values()->size() == 0) {
-      // The vector must have all-null values.
-      VELOX_CHECK_EQ(
-          BaseVector::countNulls(source->nulls(), 0, source->size()),
-          source->size());
-    } else if (source->typeKind() != TypeKind::UNKNOWN) {
-      auto flat = source->asUnchecked<FlatVector<T>>();
+    auto* flatSource = source->asUnchecked<FlatVector<T>>();
+    if (flatSource->values() == nullptr) {
+      // All source values are null.
+      for (auto i = 0; i < count; ++i) {
+        bits::setNull(rawNulls, targetIndex + i, true);
+      }
+      return;
+    }
+
+    if constexpr (std::is_same_v<T, bool>) {
+      auto* rawValues = reinterpret_cast<uint64_t*>(rawValues_);
+      auto* sourceValues = flatSource->template rawValues<uint64_t>();
+      bits::copyBits(sourceValues, sourceIndex, rawValues, targetIndex, count);
+    } else {
+      const T* srcValues = flatSource->rawValues();
       if (Buffer::is_pod_like_v<T>) {
         memcpy(
             &rawValues_[targetIndex],
-            &flat->rawValues()[sourceIndex],
+            &srcValues[sourceIndex],
             count * sizeof(T));
       } else {
-        const T* srcValues = flat->rawValues();
         std::copy(
             srcValues + sourceIndex,
             srcValues + sourceIndex + count,
             rawValues_ + targetIndex);
       }
     }
+
     if (rawNulls) {
       if (sourceNulls) {
         bits::copyBits(sourceNulls, sourceIndex, rawNulls, targetIndex, count);
@@ -279,9 +337,16 @@ void FlatVector<T>::copyValuesAndNulls(
     }
     auto constant = source->asUnchecked<ConstantVector<T>>();
     T value = constant->valueAt(0);
-    for (auto row = targetIndex; row < targetIndex + count; ++row) {
-      rawValues_[row] = value;
+
+    if constexpr (std::is_same_v<T, bool>) {
+      auto* rawValues = reinterpret_cast<uint64_t*>(rawValues_);
+      bits::fillBits(rawValues, targetIndex, targetIndex + count, value);
+    } else {
+      for (auto row = targetIndex; row < targetIndex + count; ++row) {
+        rawValues_[row] = value;
+      }
     }
+
     if (rawNulls) {
       bits::fillBits(
           rawNulls, targetIndex, targetIndex + count, bits::kNotNull);
@@ -290,7 +355,16 @@ void FlatVector<T>::copyValuesAndNulls(
     auto sourceVector = source->asUnchecked<SimpleVector<T>>();
     for (int32_t i = 0; i < count; ++i) {
       if (!source->isNullAt(sourceIndex + i)) {
-        rawValues_[targetIndex + i] = sourceVector->valueAt(sourceIndex + i);
+        if constexpr (std::is_same_v<T, bool>) {
+          auto* rawValues = reinterpret_cast<uint64_t*>(rawValues_);
+          bits::setBit(
+              rawValues,
+              targetIndex + i,
+              sourceVector->valueAt(sourceIndex + i));
+        } else {
+          rawValues_[targetIndex + i] = sourceVector->valueAt(sourceIndex + i);
+        }
+
         if (rawNulls) {
           bits::clearNull(rawNulls, targetIndex + i);
         }
