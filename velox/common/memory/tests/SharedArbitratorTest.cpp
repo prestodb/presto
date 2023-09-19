@@ -2335,6 +2335,95 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrationFromTableWriter) {
   ASSERT_EQ(arbitrator_->stats().numFailures, 1);
 }
 
+DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrateMemoryFromOtherOperator) {
+  setupMemory(kMemoryCapacity, 0);
+  const int numVectors = 10;
+  std::vector<RowVectorPtr> vectors;
+  for (int i = 0; i < numVectors; ++i) {
+    vectors.push_back(newVector());
+  }
+  createDuckDbTable(vectors);
+
+  for (bool sameDriver : {false, true}) {
+    SCOPED_TRACE(fmt::format("sameDriver {}", sameDriver));
+    std::shared_ptr<core::QueryCtx> queryCtx = newQueryCtx(kMemoryCapacity);
+    ASSERT_EQ(queryCtx->pool()->capacity(), 0);
+
+    std::atomic<bool> injectAllocationOnce{true};
+    const int initialBufferLen = 1 << 20;
+    std::atomic<void*> buffer{nullptr};
+    std::atomic<MemoryPool*> bufferPool{nullptr};
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::exec::Values::getOutput",
+        std::function<void(const exec::Values*)>(
+            [&](const exec::Values* values) {
+              if (!injectAllocationOnce.exchange(false)) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                return;
+              }
+              buffer = values->pool()->allocate(initialBufferLen);
+              bufferPool = values->pool();
+            }));
+    std::atomic<bool> injectReallocateOnce{true};
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::common::memory::MemoryPoolImpl::allocateNonContiguous",
+        std::function<void(memory::MemoryPoolImpl*)>(
+            ([&](memory::MemoryPoolImpl* pool) {
+              const std::string re(".*Aggregation");
+              if (!RE2::FullMatch(pool->name(), re)) {
+                return;
+              }
+              if (pool->root()->currentBytes() == 0) {
+                return;
+              }
+              if (!injectReallocateOnce.exchange(false)) {
+                return;
+              }
+              ASSERT_TRUE(buffer != nullptr);
+              ASSERT_TRUE(bufferPool != nullptr);
+              const int newLength =
+                  kMemoryCapacity - bufferPool.load()->capacity() + 1;
+              VELOX_ASSERT_THROW(
+                  bufferPool.load()->reallocate(
+                      buffer, initialBufferLen, newLength),
+                  "Exceeded memory pool cap");
+            })));
+
+    std::shared_ptr<Task> task;
+    std::thread queryThread([&]() {
+      if (sameDriver) {
+        task = AssertQueryBuilder(duckDbQueryRunner_)
+                   .queryCtx(queryCtx)
+                   .plan(PlanBuilder()
+                             .values(vectors)
+                             .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                             .localPartition(std::vector<std::string>{})
+                             .planNode())
+                   .assertResults(
+                       "SELECT c0, c1, array_agg(c2) FROM tmp GROUP BY c0, c1");
+      } else {
+        task = AssertQueryBuilder(duckDbQueryRunner_)
+                   .queryCtx(queryCtx)
+                   .plan(PlanBuilder()
+                             .values(vectors)
+                             .localPartition({"c0", "c1"})
+                             .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                             .planNode())
+                   .assertResults(
+                       "SELECT c0, c1, array_agg(c2) FROM tmp GROUP BY c0, c1");
+      }
+    });
+
+    queryThread.join();
+    ASSERT_TRUE(buffer != nullptr);
+    ASSERT_TRUE(bufferPool != nullptr);
+    bufferPool.load()->free(buffer, initialBufferLen);
+
+    task.reset();
+    waitForAllTasksToBeDeleted();
+  }
+}
+
 TEST_F(SharedArbitrationTest, concurrentArbitration) {
   FLAGS_velox_suppress_memory_capacity_exceeding_error_message = true;
   const int numVectors = 8;

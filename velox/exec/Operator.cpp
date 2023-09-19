@@ -499,26 +499,28 @@ std::unique_ptr<memory::MemoryReclaimer> Operator::MemoryReclaimer::create(
 }
 
 void Operator::MemoryReclaimer::enterArbitration() {
-  std::shared_ptr<Driver> driver = ensureDriver();
-  // The driver must be alive as the operator is still under memory arbitration
-  // processing.
-  VELOX_CHECK_NOT_NULL(driver);
-  if (FOLLY_UNLIKELY(
-          !driver->state().isOnThread() ||
-          (std::this_thread::get_id() != driver->state().thread))) {
-    // NOTE: some memory arbitration are triggered from non-driver execution
-    // context such as async streaming shuffle, table scan prefetch etc. And
-    // those async operations might execute in parallel with the driver threads.
-    // Therefore, it is possible that driver is not on the thread or the
-    // arbitration thread is not the current running driver thread. If memory
-    // arbitration is triggered in non-driver context, then we can't and also
-    // don't need to enter driver suspension state which only applies for driver
-    // thread so that the task pause operation can wait for all driver threads
-    // to stop. We only need to guarantee that such async operations won't
-    // mutate the operator state.g
+  DriverThreadContext* driverThreadCtx = driverThreadContext();
+  if (FOLLY_UNLIKELY(driverThreadCtx == nullptr)) {
+    // Skips the driver suspension handling if this memory arbitration request
+    // is not issued from a driver thread. For example, async streaming shuffle
+    // and table scan prefetch execution path might initiate memory arbitration
+    // request from non-driver thread.
     return;
   }
-  if (driver->task()->enterSuspended(driver->state()) != StopReason::kNone) {
+
+  Driver* const runningDriver = driverThreadCtx->driverCtx.driver;
+  if (auto opDriver = ensureDriver()) {
+    // NOTE: the current running driver might not be the driver of the operator
+    // that requests memory arbitration. The reason is that an operator might
+    // extend the buffer allocated from the other operator either from the same
+    // or different drivers. But they must be from the same task.
+    VELOX_CHECK_EQ(
+        runningDriver->task()->taskId(),
+        opDriver->task()->taskId(),
+        "The current running driver and the request driver must be from the same task");
+  }
+  if (runningDriver->task()->enterSuspended(runningDriver->state()) !=
+      StopReason::kNone) {
     // There is no need for arbitration if the associated task has already
     // terminated.
     VELOX_FAIL("Terminate detected when entering suspension");
@@ -526,17 +528,20 @@ void Operator::MemoryReclaimer::enterArbitration() {
 }
 
 void Operator::MemoryReclaimer::leaveArbitration() noexcept {
-  std::shared_ptr<Driver> driver = ensureDriver();
-  // The driver must be alive as the operator is still under memory arbitration
-  // processing.
-  VELOX_CHECK_NOT_NULL(driver);
-  if (FOLLY_UNLIKELY(
-          !driver->state().isOnThread() ||
-          (std::this_thread::get_id() != driver->state().thread))) {
-    // NOTE: see the comment in enterArbitration.
+  DriverThreadContext* driverThreadCtx = driverThreadContext();
+  if (FOLLY_UNLIKELY(driverThreadCtx == nullptr)) {
+    // Skips the driver suspension handling if this memory arbitration request
+    // is not issued from a driver thread.
     return;
   }
-  driver->task()->leaveSuspended(driver->state());
+  Driver* const runningDriver = driverThreadCtx->driverCtx.driver;
+  if (auto opDriver = ensureDriver()) {
+    VELOX_CHECK_EQ(
+        runningDriver->task()->taskId(),
+        opDriver->task()->taskId(),
+        "The current running driver and the request driver must be from the same task");
+  }
+  runningDriver->task()->leaveSuspended(runningDriver->state());
 }
 
 bool Operator::MemoryReclaimer::reclaimableBytes(

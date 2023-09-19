@@ -29,6 +29,54 @@
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
+namespace {
+
+// Ensures that the thread is removed from its Task's thread count on exit.
+class CancelGuard {
+ public:
+  CancelGuard(
+      Task* task,
+      ThreadState* state,
+      std::function<void(StopReason)> onTerminate)
+      : task_(task), state_(state), onTerminate_(std::move(onTerminate)) {}
+
+  void notThrown() {
+    isThrow_ = false;
+  }
+
+  ~CancelGuard() {
+    bool onTerminateCalled = false;
+    if (isThrow_) {
+      // Runtime error. Driver is on thread, hence safe.
+      state_->isTerminated = true;
+      onTerminate_(StopReason::kNone);
+      onTerminateCalled = true;
+    }
+    task_->leave(*state_, onTerminateCalled ? nullptr : onTerminate_);
+  }
+
+ private:
+  Task* task_;
+  ThreadState* state_;
+  std::function<void(StopReason reason)> onTerminate_;
+  bool isThrow_ = true;
+};
+
+// Checks if output channel is produced using identity projection and returns
+// input channel if so.
+std::optional<column_index_t> getIdentityProjection(
+    const std::vector<IdentityProjection>& projections,
+    column_index_t outputChannel) {
+  for (const auto& projection : projections) {
+    if (projection.outputChannel == outputChannel) {
+      return projection.inputChannel;
+    }
+  }
+  return std::nullopt;
+}
+
+thread_local DriverThreadContext* driverThreadCtx{nullptr};
+} // namespace
 
 DriverCtx::DriverCtx(
     std::shared_ptr<Task> _task,
@@ -135,40 +183,6 @@ void BlockingState::setResume(std::shared_ptr<BlockingState> state) {
           });
 }
 
-namespace {
-
-// Ensures that the thread is removed from its Task's thread count on exit.
-class CancelGuard {
- public:
-  CancelGuard(
-      Task* task,
-      ThreadState* state,
-      std::function<void(StopReason)> onTerminate)
-      : task_(task), state_(state), onTerminate_(std::move(onTerminate)) {}
-
-  void notThrown() {
-    isThrow_ = false;
-  }
-
-  ~CancelGuard() {
-    bool onTerminateCalled = false;
-    if (isThrow_) {
-      // Runtime error. Driver is on thread, hence safe.
-      state_->isTerminated = true;
-      onTerminate_(StopReason::kNone);
-      onTerminateCalled = true;
-    }
-    task_->leave(*state_, onTerminateCalled ? nullptr : onTerminate_);
-  }
-
- private:
-  Task* task_;
-  ThreadState* state_;
-  std::function<void(StopReason reason)> onTerminate_;
-  bool isThrow_ = true;
-};
-} // namespace
-
 std::string stopReasonString(StopReason reason) {
   switch (reason) {
     case StopReason::kNone:
@@ -217,21 +231,6 @@ void Driver::init(
   curOpIndex_ = operators_.size() - 1;
   trackOperatorCpuUsage_ = ctx_->queryConfig().operatorTrackCpuUsage();
 }
-
-namespace {
-// Checks if output channel is produced using identity projection and returns
-// input channel if so.
-std::optional<column_index_t> getIdentityProjection(
-    const std::vector<IdentityProjection>& projections,
-    column_index_t outputChannel) {
-  for (const auto& projection : projections) {
-    if (projection.outputChannel == outputChannel) {
-      return projection.inputChannel;
-    }
-  }
-  return std::nullopt;
-}
-} // namespace
 
 void Driver::initializeOperators() {
   if (operatorsInitialized_) {
@@ -295,6 +294,7 @@ RowVectorPtr Driver::next(std::shared_ptr<BlockingState>& blockingState) {
   auto self = shared_from_this();
   facebook::velox::process::ScopedThreadDebugInfo scopedInfo(
       self->driverCtx()->threadDebugInfo);
+  ScopedDriverThreadContext scopedDriverThreadContext(*self->driverCtx());
   RowVectorPtr result;
   auto stop = runInternal(self, blockingState, result);
 
@@ -615,6 +615,7 @@ void Driver::run(std::shared_ptr<Driver> self) {
   process::TraceContext trace("Driver::run");
   facebook::velox::process::ScopedThreadDebugInfo scopedInfo(
       self->driverCtx()->threadDebugInfo);
+  ScopedDriverThreadContext scopedDriverThreadContext(*self->driverCtx());
   std::shared_ptr<BlockingState> blockingState;
   RowVectorPtr nullResult;
   auto reason = self->runInternal(self, blockingState, nullResult);
@@ -868,6 +869,20 @@ std::string blockingReasonToString(BlockingReason reason) {
   }
   VELOX_UNREACHABLE();
   return "";
-};
+}
+
+DriverThreadContext* driverThreadContext() {
+  return driverThreadCtx;
+}
+
+ScopedDriverThreadContext::ScopedDriverThreadContext(const DriverCtx& driverCtx)
+    : savedDriverThreadCtx_(driverThreadCtx),
+      currentDriverThreadCtx_{.driverCtx = driverCtx} {
+  driverThreadCtx = &currentDriverThreadCtx_;
+}
+
+ScopedDriverThreadContext::~ScopedDriverThreadContext() {
+  driverThreadCtx = savedDriverThreadCtx_;
+}
 
 } // namespace facebook::velox::exec

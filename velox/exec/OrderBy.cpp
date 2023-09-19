@@ -14,12 +14,9 @@
  * limitations under the License.
  */
 #include "velox/exec/OrderBy.h"
-#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/Task.h"
 #include "velox/vector/FlatVector.h"
-
-using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
 

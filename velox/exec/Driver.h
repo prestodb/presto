@@ -523,16 +523,15 @@ struct DriverFactory {
   static std::vector<DriverAdapter> adapters;
 };
 
-// Begins and ends a section where a thread is running but not
-// counted in its Task. Using this, a Driver thread can for
-// example stop its own Task. For arbitrating memory overbooking,
-// the contending threads go suspended and each in turn enters a
-// global critical section. When running the arbitration strategy, a
-// thread can stop and restart Tasks, including its own. When a Task
-// is stopped, its drivers are blocked or suspended and the strategy thread
-// can alter the Task's memory including spilling or killing the whole Task.
-// Other threads waiting to run the arbitration, are in a suspended state
-// which also means that they are instantaneously killable or spillable.
+/// Begins and ends a section where a thread is running but not counted in its
+/// Task. Using this, a Driver thread can for example stop its own Task. For
+/// arbitrating memory overbooking, the contending threads go suspended and each
+/// in turn enters a global critical section. When running the arbitration
+/// strategy, a thread can stop and restart Tasks, including its own. When a
+/// Task is stopped, its drivers are blocked or suspended and the strategy
+/// thread can alter the Task's memory including spilling or killing the whole
+/// Task. Other threads waiting to run the arbitration, are in a suspended state
+/// which also means that they are instantaneously killable or spillable.
 class SuspendedSection {
  public:
   explicit SuspendedSection(Driver* driver);
@@ -541,5 +540,27 @@ class SuspendedSection {
  private:
   Driver* driver_;
 };
+
+/// Provides the execution context of a driver thread. This is set to a
+/// per-thread local variable if the running thread is a driver thread.
+struct DriverThreadContext {
+  const DriverCtx& driverCtx;
+};
+
+/// Object used to set/restore the driver thread context when driver execution
+/// starts/leaves the driver thread.
+class ScopedDriverThreadContext {
+ public:
+  explicit ScopedDriverThreadContext(const DriverCtx& driverCtx);
+  ~ScopedDriverThreadContext();
+
+ private:
+  DriverThreadContext* const savedDriverThreadCtx_{nullptr};
+  DriverThreadContext currentDriverThreadCtx_;
+};
+
+/// Returns the driver thread context set by a per-thread local variable if the
+/// current running thread is a driver thread.
+DriverThreadContext* driverThreadContext();
 
 } // namespace facebook::velox::exec
