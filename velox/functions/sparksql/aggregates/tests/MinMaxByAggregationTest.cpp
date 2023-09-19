@@ -59,5 +59,161 @@ TEST_F(MinMaxByAggregateTest, minBy) {
   testAggregations(vectors, {}, {"spark_min_by(c0, c1)"}, expected);
 }
 
+TEST_F(MinMaxByAggregateTest, arrayCompare) {
+  auto data = makeRowVector({
+      makeArrayVector<int64_t>({
+          {1, 2, 3},
+          {4, 5},
+          {6, 7, 8},
+      }),
+      makeNullableArrayVector<int64_t>({
+          {4, 5},
+          {std::nullopt, 2},
+          {6, 7, 8},
+      }),
+  });
+
+  auto expected = makeRowVector({
+      makeArrayVector<int64_t>({
+          {4, 5},
+      }),
+      makeArrayVector<int64_t>({
+          {6, 7, 8},
+      }),
+  });
+
+  testAggregations(
+      {data}, {}, {"spark_min_by(c0, c1)", "spark_max_by(c0, c1)"}, {expected});
+
+  data = makeRowVector({
+      makeArrayVector<int64_t>({
+          {1, 2, 3},
+          {4, 5},
+          {6, 7, 8},
+      }),
+      makeNullableArrayVector<int64_t>({
+          {1, 2, 3},
+          {3, std::nullopt, 4},
+          {6, 7, 8},
+      }),
+  });
+
+  expected = makeRowVector({
+      makeArrayVector<int64_t>({
+          {1, 2, 3},
+      }),
+      makeArrayVector<int64_t>({
+          {6, 7, 8},
+      }),
+  });
+
+  testAggregations(
+      {data}, {}, {"spark_min_by(c0, c1)", "spark_max_by(c0, c1)"}, {expected});
+}
+
+TEST_F(MinMaxByAggregateTest, mapCompare) {
+  auto data = makeRowVector({
+      makeArrayVector<int64_t>({
+          {1, 2, 3},
+          {4, 5},
+          {6, 7, 8},
+      }),
+      makeNullableMapVector<int64_t, int64_t>({
+          {{{1, 1}, {2, 2}}},
+          {{{1, 1}, {2, std::nullopt}}},
+          {{{4, 50}}},
+      }),
+  });
+
+  auto expected = makeRowVector({
+      makeArrayVector<int64_t>({
+          {4, 5},
+      }),
+      makeArrayVector<int64_t>({
+          {6, 7, 8},
+      }),
+  });
+
+  testAggregations(
+      {data}, {}, {"spark_min_by(c0, c1)", "spark_max_by(c0, c1)"}, {expected});
+
+  data = makeRowVector({
+      makeArrayVector<int64_t>({
+          {1, 2, 3},
+          {4, 5},
+          {6, 7, 8},
+      }),
+      makeNullableMapVector<int64_t, int64_t>({
+          {{{1, 1}, {2, 2}}},
+          {{{1, 1}, {2, 3}}},
+          {{{4, 50}}},
+      }),
+  });
+
+  expected = makeRowVector({
+      makeArrayVector<int64_t>({
+          {1, 2, 3},
+      }),
+      makeArrayVector<int64_t>({
+          {6, 7, 8},
+      }),
+  });
+
+  testAggregations(
+      {data}, {}, {"spark_min_by(c0, c1)", "spark_max_by(c0, c1)"}, {expected});
+}
+
+TEST_F(MinMaxByAggregateTest, rowCompare) {
+  auto data = makeRowVector({
+      makeArrayVector<int64_t>({
+          {1, 2, 3},
+          {4, 5},
+          {6, 7, 8},
+      }),
+      makeRowVector({makeNullableFlatVector<int32_t>({
+          1,
+          std::nullopt,
+          3,
+      })}),
+  });
+
+  auto expected = makeRowVector({
+      makeArrayVector<int64_t>({
+          {4, 5},
+      }),
+      makeArrayVector<int64_t>({
+          {6, 7, 8},
+      }),
+  });
+
+  testAggregations(
+      {data}, {}, {"spark_min_by(c0, c1)", "spark_max_by(c0, c1)"}, {expected});
+
+  data = makeRowVector({
+      makeArrayVector<int64_t>({
+          {1, 2, 3},
+          {4, 5},
+          {6, 7, 8},
+      }),
+      makeRowVector({makeNullableFlatVector<int32_t>({
+          1,
+          2,
+          3,
+      })}),
+  });
+
+  expected = makeRowVector({
+      makeArrayVector<int64_t>({
+          {1, 2, 3},
+      }),
+      makeArrayVector<int64_t>({
+          {6, 7, 8},
+      }),
+  });
+
+  testAggregations(
+      {data}, {}, {"spark_min_by(c0, c1)", "spark_max_by(c0, c1)"}, {expected});
+}
+
 } // namespace
 } // namespace facebook::velox::functions::aggregate::sparksql::test

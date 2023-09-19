@@ -17,6 +17,7 @@
 #include "velox/functions/lib/aggregates/MinMaxByAggregatesBase.h"
 #include "velox/functions/lib/aggregates/ValueSet.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
+#include "velox/functions/prestosql/aggregates/Compare.h"
 
 using namespace facebook::velox::functions::aggregate;
 
@@ -47,10 +48,10 @@ struct Comparator {
       // is less than vector value.
       if constexpr (greaterThan) {
         return !accumulator->hasValue() ||
-            (accumulator->compare(newComparisons, index) < 0);
+            prestosql::compare(accumulator, newComparisons, index) < 0;
       } else {
         return !accumulator->hasValue() ||
-            (accumulator->compare(newComparisons, index) > 0);
+            prestosql::compare(accumulator, newComparisons, index) > 0;
       }
     }
   }
@@ -1100,6 +1101,16 @@ template <
     template <typename U, typename V>
     class NAggregate>
 exec::AggregateRegistrationResult registerMinMaxBy(const std::string& name) {
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
+  // V, C -> row(V, C) -> V.
+  signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                           .typeVariable("V")
+                           .typeVariable("C")
+                           .returnType("V")
+                           .intermediateType("row(V,C)")
+                           .argumentType("V")
+                           .argumentType("C")
+                           .build());
   const std::vector<std::string> supportedCompareTypes = {
       "boolean",
       "tinyint",
@@ -1111,19 +1122,6 @@ exec::AggregateRegistrationResult registerMinMaxBy(const std::string& name) {
       "varchar",
       "date",
       "timestamp"};
-
-  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
-  for (const auto& compareType : supportedCompareTypes) {
-    // V, C -> row(V, C) -> V.
-    signatures.push_back(
-        exec::AggregateFunctionSignatureBuilder()
-            .typeVariable("T")
-            .returnType("T")
-            .intermediateType(fmt::format("row(T,{})", compareType))
-            .argumentType("T")
-            .argumentType(compareType)
-            .build());
-  }
 
   // Add support for all value types to 3-arg version of the aggregate.
   for (const auto& compareType : supportedCompareTypes) {

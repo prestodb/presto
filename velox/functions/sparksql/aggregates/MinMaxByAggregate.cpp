@@ -44,12 +44,25 @@ struct SparkComparator {
     } else {
       if constexpr (sparkGreaterThan) {
         return !accumulator->hasValue() ||
-            (accumulator->compare(newComparisons, index) <= 0);
+            compare(accumulator, newComparisons, index) <= 0;
       } else {
         return !accumulator->hasValue() ||
-            (accumulator->compare(newComparisons, index) >= 0);
+            compare(accumulator, newComparisons, index) >= 0;
       }
     }
+  }
+
+  FOLLY_ALWAYS_INLINE static int32_t compare(
+      const SingleValueAccumulator* accumulator,
+      const DecodedVector& decoded,
+      vector_size_t index) {
+    static const CompareFlags kCompareFlags{
+        true, // nullsFirst
+        true, // ascending
+        false, // equalsOnly
+        CompareFlags::NullHandlingMode::NoStop};
+    auto result = accumulator->compare(decoded, index, kCompareFlags);
+    return result.value();
   }
 };
 
@@ -74,6 +87,16 @@ template <
     class Aggregate,
     bool isMaxFunc>
 exec::AggregateRegistrationResult registerMinMaxBy(const std::string& name) {
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
+  // V, C -> row(V, C) -> V.
+  signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                           .typeVariable("V")
+                           .typeVariable("C")
+                           .returnType("V")
+                           .intermediateType("row(V,C)")
+                           .argumentType("V")
+                           .argumentType("C")
+                           .build());
   const std::vector<std::string> supportedCompareTypes = {
       "boolean",
       "tinyint",
@@ -85,19 +108,6 @@ exec::AggregateRegistrationResult registerMinMaxBy(const std::string& name) {
       "varchar",
       "date",
       "timestamp"};
-
-  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
-  for (const auto& compareType : supportedCompareTypes) {
-    // V, C -> row(V, C) -> V.
-    signatures.push_back(
-        exec::AggregateFunctionSignatureBuilder()
-            .typeVariable("T")
-            .returnType("T")
-            .intermediateType(fmt::format("row(T,{})", compareType))
-            .argumentType("T")
-            .argumentType(compareType)
-            .build());
-  }
 
   return exec::registerAggregateFunction(
       name,

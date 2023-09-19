@@ -43,13 +43,6 @@ struct SingleValueAccumulator {
       vector_size_t index,
       CompareFlags compareFlags) const;
 
-  /// Returns 0 if stored and new values are equal; <0 if stored value is less
-  /// then new value; >0 if stored value is greater than new value.
-  ///
-  /// The caller needs to ensure that hasValue() is true before calling this
-  /// method.
-  int32_t compare(const DecodedVector& decoded, vector_size_t index) const;
-
   /// Returns memory back to HashStringAllocator.
   void destroy(HashStringAllocator* allocator);
 

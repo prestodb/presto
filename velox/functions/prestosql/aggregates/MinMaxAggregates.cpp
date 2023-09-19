@@ -20,6 +20,7 @@
 #include "velox/functions/lib/aggregates/SimpleNumericAggregate.h"
 #include "velox/functions/lib/aggregates/SingleValueAccumulator.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
+#include "velox/functions/prestosql/aggregates/Compare.h"
 
 using namespace facebook::velox::functions::aggregate;
 
@@ -421,25 +422,6 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
         accumulator->write(baseVector, indices[i], allocator_);
       }
     });
-  }
-
- private:
-  FOLLY_ALWAYS_INLINE static int32_t compare(
-      SingleValueAccumulator* accumulator,
-      DecodedVector& decoded,
-      vector_size_t index) {
-    static const CompareFlags kCompareFlags{
-        true, // nullsFirst
-        true, // ascending
-        false, // equalsOnly
-        CompareFlags::NullHandlingMode::StopAtNull};
-    auto result = accumulator->compare(decoded, index, kCompareFlags);
-    VELOX_USER_CHECK(
-        result.has_value(),
-        fmt::format(
-            "{} comparison not supported for values that contain nulls",
-            mapTypeKindToName(decoded.base()->typeKind())));
-    return result.value();
   }
 };
 
