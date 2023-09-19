@@ -2161,17 +2161,22 @@ TEST_F(VectorTest, dictionaryResize) {
   // Check that resize clear indices even if no new allocation happens.
   {
     auto indicesLarge = makeIndices(20, [&](auto row) { return 3; });
+    auto* rawIndices = indicesLarge->as<vector_size_t>();
     auto dictVector = wrapInDictionary(indicesLarge, 10, flatVector);
+
+    // Release reference to 'indicesLarge' to make it single-referenced and
+    // allow reuse in dictVector->resize().
+    indicesLarge.reset();
     dictVector->resize(15);
-    auto* indicesData = indicesLarge->asMutable<vector_size_t>();
+
     for (int i = 0; i < 10; i++) {
-      EXPECT_EQ(indicesData[i], 3);
+      EXPECT_EQ(rawIndices[i], 3);
     }
     for (int i = 10; i < 15; i++) {
-      EXPECT_EQ(indicesData[i], 0);
+      EXPECT_EQ(rawIndices[i], 0);
     }
     for (int i = 15; i < 20; i++) {
-      EXPECT_EQ(indicesData[i], 3);
+      EXPECT_EQ(rawIndices[i], 3);
     }
   }
 }
@@ -2686,17 +2691,19 @@ TEST_F(VectorTest, findDuplicateValue) {
 }
 
 TEST_F(VectorTest, resizeArrayAndMapResetOffsets) {
-  auto checkIndices = [&](const auto& indices) {
-    auto* data = indices->template asMutable<vector_size_t>();
-    ASSERT_EQ(data[0], 1);
-    ASSERT_EQ(data[1], 1);
-    ASSERT_EQ(data[2], 0);
-    ASSERT_EQ(data[3], 0);
+  auto checkIndices = [&](const vector_size_t* indices) {
+    ASSERT_EQ(indices[0], 1);
+    ASSERT_EQ(indices[1], 1);
+    ASSERT_EQ(indices[2], 0);
+    ASSERT_EQ(indices[3], 0);
   };
-  // test array.
+
+  // Test array.
   {
     auto offsets = makeIndices({1, 1, 1, 1});
     auto sizes = makeIndices({1, 1, 1, 1});
+
+    auto* rawSizes = sizes->as<vector_size_t>();
 
     auto arrayVector = std::make_shared<ArrayVector>(
         pool(),
@@ -2707,14 +2714,21 @@ TEST_F(VectorTest, resizeArrayAndMapResetOffsets) {
         sizes,
         makeFlatVector<int64_t>({1, 2, 3, 4}));
 
+    // Release references to 'offsets' and 'sizes' to make them
+    // single-referenced and allow reuse in arrayVector->resize().
+    offsets.reset();
+    sizes.reset();
+
     arrayVector->resize(4);
-    checkIndices(sizes);
+    checkIndices(rawSizes);
   }
 
-  // test map.
+  // Test map.
   {
     auto offsets = makeIndices({1, 1, 1, 1});
     auto sizes = makeIndices({1, 1, 1, 1});
+
+    auto* rawSizes = sizes->as<vector_size_t>();
 
     auto mapVector = std::make_shared<MapVector>(
         pool(),
@@ -2725,8 +2739,14 @@ TEST_F(VectorTest, resizeArrayAndMapResetOffsets) {
         sizes,
         makeFlatVector<int64_t>({1, 2, 3, 4}),
         makeFlatVector<int64_t>({1, 2, 3, 4}));
+
+    // Release references to 'offsets' and 'sizes' to make them
+    // single-referenced and allow reuse in mapVector->resize().
+    offsets.reset();
+    sizes.reset();
+
     mapVector->resize(4);
-    checkIndices(sizes);
+    checkIndices(rawSizes);
   }
 }
 

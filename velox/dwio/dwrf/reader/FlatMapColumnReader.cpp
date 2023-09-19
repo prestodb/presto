@@ -308,9 +308,9 @@ void FlatMapColumnReader<T>::next(
   const auto* nullsPtr = nulls ? nulls->as<uint64_t>() : nullptr;
   uint64_t nullCount = nullsPtr ? bits::countNulls(nullsPtr, 0, numValues) : 0;
 
-  if (mapVector) {
-    detail::resetIfNotWritable(result, offsets, lengths);
-  }
+  // Release extra references of keys and values vectors as well as nulls,
+  // offsets and lengths buffers.
+  result.reset();
 
   if (!offsets) {
     offsets = AlignedBuffer::allocate<vector_size_t>(numValues, &memoryPool_);

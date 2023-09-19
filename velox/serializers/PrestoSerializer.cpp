@@ -607,8 +607,7 @@ void readRowVector(
             size,
             pool,
             &offsets,
-            const_cast<const vector_size_t**>(&rawOffsets),
-            0);
+            const_cast<const vector_size_t**>(&rawOffsets));
         for (int32_t child = 0; child < i; ++child) {
           rawOffsets[child] = child;
         }

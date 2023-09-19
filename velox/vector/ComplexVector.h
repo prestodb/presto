@@ -266,17 +266,19 @@ struct ArrayVectorBase : BaseVector {
   }
 
   BufferPtr mutableOffsets(size_t size) {
-    return ensureIndices(offsets_, rawOffsets_, size);
+    BaseVector::resizeIndices(size, pool_, &offsets_, &rawOffsets_);
+    return offsets_;
   }
 
   BufferPtr mutableSizes(size_t size) {
-    return ensureIndices(sizes_, rawSizes_, size);
+    BaseVector::resizeIndices(size, pool_, &sizes_, &rawSizes_);
+    return sizes_;
   }
 
   void resize(vector_size_t size, bool setNotNull = true) override {
     if (BaseVector::length_ < size) {
-      resizeIndices(size, &offsets_, &rawOffsets_);
-      resizeIndices(size, &sizes_, &rawSizes_);
+      BaseVector::resizeIndices(size, pool_, &offsets_, &rawOffsets_);
+      BaseVector::resizeIndices(size, pool_, &sizes_, &rawSizes_);
       clearIndices(sizes_, length_, size);
       // No need to clear offset indices since we set sizes to 0.
     }
@@ -333,19 +335,6 @@ struct ArrayVectorBase : BaseVector {
   void validateArrayVectorBase(
       const VectorValidateOptions& options,
       vector_size_t minChildVectorSize) const;
-
- private:
-  BufferPtr
-  ensureIndices(BufferPtr& buf, const vector_size_t*& raw, vector_size_t size) {
-    // TODO: change this to isMutable(). See
-    // https://github.com/facebookincubator/velox/issues/6562.
-    if (buf && !buf->isView() &&
-        buf->capacity() >= size * sizeof(vector_size_t)) {
-      return buf;
-    }
-    resizeIndices(size, &buf, &raw, 0);
-    return buf;
-  }
 
  protected:
   BufferPtr offsets_;

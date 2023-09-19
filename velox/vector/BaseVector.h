@@ -618,18 +618,6 @@ class BaseVector {
     setNulls(nullptr);
   }
 
-  // Ensures that '*indices' has space for 'size' elements. Sets
-  // elements between the old and new sizes to 'initialValue' if the
-  // new size > old size. If memory is moved, '*raw' is maintained to
-  // point to element 0 of (*indices)->as<vector_size_t>().
-  void resizeIndices(
-      vector_size_t size,
-      BufferPtr* indices,
-      const vector_size_t** raw,
-      std::optional<vector_size_t> initialValue = std::nullopt) {
-    resizeIndices(size, this->pool(), indices, raw, initialValue);
-  }
-
   void
   clearIndices(BufferPtr& indices, vector_size_t start, vector_size_t end) {
     if (start == end) {
@@ -639,12 +627,19 @@ class BaseVector {
     std::fill(data + start, data + end, 0);
   }
 
+  /// Ensures that '*indices' is singly-referenced and has space for 'size'
+  /// elements. Sets elements between the old and new sizes to 0 if
+  /// the new size > old size.
+  ///
+  /// If '*indices' is nullptr, read-only, not uniquely-referenced, or doesn't
+  /// have capacity for 'size' elements allocates new buffer and copies data to
+  /// it. Updates '*raw' to point to element 0 of
+  /// (*indices)->as<vector_size_t>().
   static void resizeIndices(
       vector_size_t size,
       velox::memory::MemoryPool* pool,
       BufferPtr* indices,
-      const vector_size_t** raw,
-      std::optional<vector_size_t> initialValue = std::nullopt);
+      const vector_size_t** raw);
 
   // Makes sure '*buffer' has space for 'size' items of T and is writable. Sets
   // 'raw' to point to the writable contents of '*buffer'.
