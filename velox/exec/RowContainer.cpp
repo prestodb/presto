@@ -587,6 +587,14 @@ void RowContainer::hash(
     folly::Range<char**> rows,
     bool mix,
     uint64_t* result) {
+  if (typeKinds_[column] == TypeKind::UNKNOWN) {
+    for (auto i = 0; i < rows.size(); ++i) {
+      result[i] = mix ? bits::hashMix(result[i], BaseVector::kNullHash)
+                      : BaseVector::kNullHash;
+    }
+    return;
+  }
+
   bool nullable = column >= keyTypes_.size() || nullableKeys_;
   VELOX_DYNAMIC_TYPE_DISPATCH(
       hashTyped,

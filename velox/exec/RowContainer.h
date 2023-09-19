@@ -1338,18 +1338,18 @@ inline bool RowContainer::equals(
     RowColumn column,
     const DecodedVector& decoded,
     vector_size_t index) {
+  auto typeKind = decoded.base()->typeKind();
+  if (typeKind == TypeKind::UNKNOWN) {
+    return isNullAt(row, column.nullByte(), column.nullMask());
+  }
+
   if (!mayHaveNulls) {
     return VELOX_DYNAMIC_TYPE_DISPATCH(
-        equalsNoNulls,
-        decoded.base()->typeKind(),
-        row,
-        column.offset(),
-        decoded,
-        index);
+        equalsNoNulls, typeKind, row, column.offset(), decoded, index);
   } else {
     return VELOX_DYNAMIC_TYPE_DISPATCH(
         equalsWithNulls,
-        decoded.base()->typeKind(),
+        typeKind,
         row,
         column.offset(),
         column.nullByte(),
