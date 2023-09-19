@@ -436,6 +436,7 @@ void RowVector::prepareForReuse() {
       BaseVector::prepareForReuse(child, 0);
     }
   }
+  updateContainsLazyNotLoaded();
 }
 
 VectorPtr RowVector::slice(vector_size_t offset, vector_size_t length) const {
@@ -447,6 +448,38 @@ VectorPtr RowVector::slice(vector_size_t offset, vector_size_t length) const {
   }
   return std::make_shared<RowVector>(
       pool_, type_, sliceNulls(offset, length), length, std::move(children));
+}
+
+BaseVector* RowVector::loadedVector() {
+  if (childrenLoaded_) {
+    return this;
+  }
+  containsLazyNotLoaded_ = false;
+  for (auto i = 0; i < childrenSize_; ++i) {
+    if (!children_[i]) {
+      continue;
+    }
+    auto newChild = BaseVector::loadedVectorShared(children_[i]);
+    if (children_[i].get() != newChild.get()) {
+      children_[i] = newChild;
+    }
+    if (isLazyNotLoaded(*children_[i])) {
+      containsLazyNotLoaded_ = true;
+    }
+  }
+  childrenLoaded_ = true;
+  return this;
+}
+
+void RowVector::updateContainsLazyNotLoaded() const {
+  childrenLoaded_ = false;
+  containsLazyNotLoaded_ = false;
+  for (auto& child : children_) {
+    if (child && isLazyNotLoaded(*child)) {
+      containsLazyNotLoaded_ = true;
+      break;
+    }
+  }
 }
 
 void ArrayVectorBase::copyRangesImpl(

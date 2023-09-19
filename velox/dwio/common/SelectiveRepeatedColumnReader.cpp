@@ -64,6 +64,8 @@ void prepareResult(
          (type->kind() == TypeKind::MAP &&
           result->encoding() == VectorEncoding::Simple::MAP)) &&
         result.unique())) {
+    VLOG(1) << "Reallocating result " << type->kind() << " vector of size "
+            << size;
     result = BaseVector::create(type, size, pool);
     return;
   }

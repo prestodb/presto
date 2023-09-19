@@ -77,6 +77,7 @@ class RowVector : public BaseVector {
             type->childAt(i)->toString());
       }
     }
+    updateContainsLazyNotLoaded();
   }
 
   static std::shared_ptr<RowVector> createEmpty(
@@ -95,18 +96,7 @@ class RowVector : public BaseVector {
 
   uint64_t hashValueAt(vector_size_t index) const override;
 
-  BaseVector* loadedVector() override {
-    for (auto i = 0; i < childrenSize_; ++i) {
-      if (!children_[i]) {
-        continue;
-      }
-      auto newChild = BaseVector::loadedVectorShared(children_[i]);
-      if (children_[i].get() != newChild.get()) {
-        children_[i] = newChild;
-      }
-    }
-    return this;
-  }
+  BaseVector* loadedVector() override;
 
   const BaseVector* loadedVector() const override {
     return const_cast<RowVector*>(this)->loadedVector();
@@ -194,6 +184,12 @@ class RowVector : public BaseVector {
 
   VectorPtr slice(vector_size_t offset, vector_size_t length) const override;
 
+  bool containsLazyNotLoaded() const {
+    return containsLazyNotLoaded_;
+  }
+
+  void updateContainsLazyNotLoaded() const;
+
   void validate(const VectorValidateOptions& options) const override;
 
  private:
@@ -224,6 +220,21 @@ class RowVector : public BaseVector {
 
   const size_t childrenSize_;
   mutable std::vector<VectorPtr> children_;
+
+  // Flag to indicate if any children of this vector contain lazy vector that
+  // has not been loaded.  Used to optimize recursive laziness check.  This will
+  // be initialized in the constructor, and should be updated by calling
+  // updateContainsLazyNotLoaded whenever a new lazy child is set (e.g. in table
+  // scan), or a lazy child is loaded (e.g. in LazyVector::ensureLoadedRows and
+  // loadedVector).
+  mutable bool containsLazyNotLoaded_;
+
+  // Flag to indicate all children has been loaded (non-recursively).  Used to
+  // optimize loadedVector calls.  If this is true, we don't recurse into
+  // children to check if they are loaded.  Will be set to true when
+  // loadedVector is called, and reset to false when updateContainsLazyNotLoaded
+  // is called (i.e. some children are likely updated to lazy).
+  mutable bool childrenLoaded_ = false;
 };
 
 // Common parent class for ARRAY and MAP vectors.  Contains 'offsets' and

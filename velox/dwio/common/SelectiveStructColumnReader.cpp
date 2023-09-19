@@ -309,6 +309,8 @@ void SelectiveStructColumnReaderBase::getValues(
   if (auto reused = tryReuseResult(*result)) {
     *result = std::move(reused);
   } else {
+    VLOG(1) << "Reallocating result row vector with " << rowType.size()
+            << " children";
     std::vector<VectorPtr> children(rowType.size());
     fillRowVectorChildren(*result->get()->pool(), rowType, children);
     *result = std::make_shared<RowVector>(
@@ -372,9 +374,11 @@ void SelectiveStructColumnReaderBase::getValues(
           &memoryPool_,
           resultRow->type()->childAt(channel),
           rows.size(),
-          std::move(loader));
+          std::move(loader),
+          std::move(childResult));
     }
   }
+  resultRow->updateContainsLazyNotLoaded();
 }
 
 } // namespace facebook::velox::dwio::common

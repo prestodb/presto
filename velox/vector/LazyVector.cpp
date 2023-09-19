@@ -117,13 +117,14 @@ void LazyVector::ensureLoadedRowsImpl(
     if (decoded.base()->encoding() == VectorEncoding::Simple::ROW &&
         isLazyNotLoaded(*decoded.base())) {
       decoded.unwrapRows(baseRows, rows);
-      auto children = decoded.base()->asUnchecked<RowVector>()->children();
+      auto* rowVector = decoded.base()->asUnchecked<RowVector>();
       DecodedVector decodedChild;
       SelectivityVector childRows;
-      for (auto& child : children) {
+      for (auto child : rowVector->children()) {
         decodedChild.decode(*child, baseRows, false);
         ensureLoadedRowsImpl(child, decodedChild, baseRows, childRows);
       }
+      rowVector->updateContainsLazyNotLoaded();
       vector->loadedVector();
     }
     return;

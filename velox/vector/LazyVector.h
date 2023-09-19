@@ -117,14 +117,16 @@ class LazyVector : public BaseVector {
       velox::memory::MemoryPool* pool,
       TypePtr type,
       vector_size_t size,
-      std::unique_ptr<VectorLoader>&& loader)
+      std::unique_ptr<VectorLoader>&& loader,
+      VectorPtr&& vector = nullptr)
       : BaseVector(
             pool,
             std::move(type),
             VectorEncoding::Simple::LAZY,
             BufferPtr(nullptr),
             size),
-        loader_(std::move(loader)) {}
+        loader_(std::move(loader)),
+        vector_(std::move(vector)) {}
 
   void reset(std::unique_ptr<VectorLoader>&& loader, vector_size_t size) {
     BaseVector::length_ = size;
