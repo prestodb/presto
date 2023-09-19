@@ -21,7 +21,6 @@
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/DateTimeFunctions.h"
 #include "velox/functions/prestosql/JsonFunctions.h"
-#include "velox/functions/prestosql/Rand.h"
 #include "velox/functions/prestosql/StringFunctions.h"
 #include "velox/functions/sparksql/ArraySort.h"
 #include "velox/functions/sparksql/Bitwise.h"
@@ -77,7 +76,6 @@ void registerAllSpecialFormGeneralFunctions() {
 
 void registerFunctions(const std::string& prefix) {
   registerAllSpecialFormGeneralFunctions();
-  registerFunction<RandFunction, double>({prefix + "rand"});
 
   // Register size functions
   registerSize(prefix + "size");

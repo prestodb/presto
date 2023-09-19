@@ -18,8 +18,31 @@
 #include "velox/functions/prestosql/Arithmetic.h"
 #include "velox/functions/prestosql/CheckedArithmetic.h"
 #include "velox/functions/sparksql/Arithmetic.h"
+#include "velox/functions/sparksql/Rand.h"
 
 namespace facebook::velox::functions::sparksql {
+
+void registerRandFunctions(const std::string& prefix) {
+  registerFunction<RandFunction, double>({prefix + "rand", prefix + "random"});
+  // Has seed & partition index as input.
+  registerFunction<
+      RandFunction,
+      double,
+      int32_t /*seed*/,
+      int32_t /*partition index*/>({prefix + "rand", prefix + "random"});
+  // Has seed & partition index as input.
+  registerFunction<
+      RandFunction,
+      double,
+      int64_t /*seed*/,
+      int32_t /*partition index*/>({prefix + "rand", prefix + "random"});
+  // NULL constant as seed of unknown type.
+  registerFunction<
+      RandFunction,
+      double,
+      UnknownValue /*seed*/,
+      int32_t /*partition index*/>({prefix + "rand", prefix + "random"});
+}
 
 void registerArithmeticFunctions(const std::string& prefix) {
   // Operators.
@@ -66,6 +89,7 @@ void registerArithmeticFunctions(const std::string& prefix) {
   registerFunction<HypotFunction, double, double, double>({prefix + "hypot"});
   registerFunction<sparksql::Log2Function, double, double>({prefix + "log2"});
   registerFunction<sparksql::Log10Function, double, double>({prefix + "log10"});
+  registerRandFunctions(prefix);
 }
 
 } // namespace facebook::velox::functions::sparksql
