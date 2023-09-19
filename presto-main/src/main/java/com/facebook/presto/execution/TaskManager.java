@@ -148,4 +148,6 @@ public interface TaskManager
      * Update the results of metadata requests sent
      */
     void updateMetadataResults(TaskId taskId, MetadataUpdates metadataUpdates);
+
+    long getTaskCount();
 }

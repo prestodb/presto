@@ -207,7 +207,8 @@ public class PrestoSparkHttpTaskClient
                 fragment,
                 sources,
                 outputBuffers,
-                writeInfo);
+                writeInfo,
+                Optional.empty());
         BatchTaskUpdateRequest batchTaskUpdateRequest = new BatchTaskUpdateRequest(updateRequest, shuffleWriteInfo, broadcastBasePath);
 
         URI batchTaskUri = uriBuilderFrom(taskUri)

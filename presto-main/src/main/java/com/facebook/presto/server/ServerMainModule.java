@@ -521,6 +521,7 @@ public class ServerMainModule
         newExporter(binder).export(OrderingCompiler.class).withGeneratedName();
         binder.bind(PagesIndex.Factory.class).to(PagesIndex.DefaultFactory.class);
         binder.bind(LookupJoinOperators.class).in(Scopes.SINGLETON);
+        binder.bind(TaskBackpressureCircuitBreaker.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
         jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);

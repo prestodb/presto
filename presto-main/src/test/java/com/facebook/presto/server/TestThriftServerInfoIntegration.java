@@ -245,6 +245,12 @@ public class TestThriftServerInfoIntegration
                 {
                     throw new UnsupportedOperationException();
                 }
+
+                @Override
+                public long getTaskCount()
+                {
+                    throw new UnsupportedOperationException();
+                }
             };
         }
     }
