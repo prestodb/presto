@@ -46,9 +46,15 @@ HttpClient::HttpClient(
 
 HttpClient::~HttpClient() {
   if (sessionPool_) {
-    // make sure to destroy SessionPool on the EventBase thread
-    eventBase_->runImmediatelyOrRunInEventBaseThreadAndWait(
-        [this] { sessionPool_.reset(); });
+    // Make sure to destroy SessionPool on the EventBase thread.
+    //
+    // NOTE: we can't run the destruction callback inline in EventBase thread
+    // and wait for it to complete. The reason is that the http dtor is executed
+    // by driver close, there might be some other concurrent activity such as
+    // memory arbitration running on the EventBase thread to wait for the driver
+    // to close.
+    eventBase_->runInEventBaseThread(
+        [sessionPool = std::move(sessionPool_)] {});
   }
 }
 
