@@ -937,11 +937,11 @@ TEST_F(TaskManagerTest, aggregationSpill) {
 
 TEST_F(TaskManagerTest, buildTaskSpillDirectoryPath) {
   EXPECT_EQ(
-      "fs::/base/192.168.10.2_19/2022-12-20/presto_native/20221220-Q/Task1/",
+      "fs::/base/presto_native/192.168.10.2_19/2022-12-20/20221220-Q/Task1/",
       TaskManager::buildTaskSpillDirectoryPath(
           "fs::/base", "192.168.10.2", "19", "20221220-Q", "Task1", true));
   EXPECT_EQ(
-      "fsx::/root/192.16.10.2_sample_node_id/1970-01-01/presto_native/Q100/Task22/",
+      "fsx::/root/presto_native/192.16.10.2_sample_node_id/1970-01-01/Q100/Task22/",
       TaskManager::buildTaskSpillDirectoryPath(
           "fsx::/root",
           "192.16.10.2",
@@ -950,11 +950,11 @@ TEST_F(TaskManagerTest, buildTaskSpillDirectoryPath) {
           "Task22",
           true));
   EXPECT_EQ(
-      "fs::/base/2022-12-20/presto_native/20221220-Q/Task1/",
+      "fs::/base/presto_native/2022-12-20/20221220-Q/Task1/",
       TaskManager::buildTaskSpillDirectoryPath(
           "fs::/base", "192.168.10.2", "19", "20221220-Q", "Task1", false));
   EXPECT_EQ(
-      "fsx::/root/1970-01-01/presto_native/Q100/Task22/",
+      "fsx::/root/presto_native/1970-01-01/Q100/Task22/",
       TaskManager::buildTaskSpillDirectoryPath(
           "fsx::/root",
           "192.16.10.2",
