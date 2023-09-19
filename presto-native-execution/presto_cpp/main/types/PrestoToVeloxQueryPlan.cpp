@@ -1995,8 +1995,8 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const protocol::TaskId& taskId) {
   auto joinType = toJoinType(node->type);
   if (node->criteria.empty()) {
-    auto isNestedJoinType = core::isInnerJoin(joinType) |
-        core::isLeftJoin(joinType) | core::isRightJoin(joinType) |
+    const bool isNestedJoinType = core::isInnerJoin(joinType) ||
+        core::isLeftJoin(joinType) || core::isRightJoin(joinType) ||
         core::isFullJoin(joinType);
     if (isNestedJoinType) {
       return std::make_shared<core::NestedLoopJoinNode>(
