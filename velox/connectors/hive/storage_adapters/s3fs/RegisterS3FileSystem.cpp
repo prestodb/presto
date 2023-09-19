@@ -18,6 +18,7 @@
 #include "velox/connectors/hive/storage_adapters/s3fs/S3FileSystem.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/S3Util.h"
 #include "velox/core/Config.h"
+#include "velox/dwio/common/FileSink.h"
 #endif
 
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
@@ -52,12 +53,36 @@ fileSystemGenerator() {
   };
   return filesystemGenerator;
 }
+
+std::function<std::unique_ptr<velox::dwio::common::FileSink>(
+    const std::string&,
+    const velox::dwio::common::FileSink::Options& options)>
+s3WriteFileSinkGenerator() {
+  static auto s3WriteFileSink =
+      [](const std::string& fileURI,
+         const velox::dwio::common::FileSink::Options& options)
+      -> std::unique_ptr<dwio::common::WriteFileSink> {
+    if (isS3File(fileURI)) {
+      auto fileSystem =
+          filesystems::getFileSystem(fileURI, options.connectorProperties);
+      return std::make_unique<dwio::common::WriteFileSink>(
+          fileSystem->openFileForWrite(fileURI),
+          fileURI,
+          options.metricLogger,
+          options.stats);
+    }
+    return nullptr;
+  };
+
+  return s3WriteFileSink;
+}
 #endif
 
 void registerS3FileSystem() {
 #ifdef VELOX_ENABLE_S3
   if (!s3fs) {
     registerFileSystem(isS3File, fileSystemGenerator());
+    dwio::common::FileSink::registerFactory(s3WriteFileSinkGenerator());
   }
 #endif
 }
