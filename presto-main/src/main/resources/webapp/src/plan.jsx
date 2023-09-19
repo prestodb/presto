@@ -5,7 +5,7 @@ import {PageTitle} from "./components/PageTitle";
 import {getFirstParameter} from "./utils";
 
 ReactDOM.render(
-    <PageTitle title="Query Details" />,
+    <PageTitle titles={["Query Details"]} />,
     document.getElementById('title')
 );
 
