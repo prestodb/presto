@@ -285,7 +285,7 @@ class ArrowStreamNode : public PlanNode {
       : PlanNode(id),
         outputType_(std::move(outputType)),
         arrowStream_(std::move(arrowStream)) {
-    VELOX_CHECK_NOT_NULL(arrowStream_);
+    VELOX_USER_CHECK_NOT_NULL(arrowStream_);
   }
 
   const RowTypePtr& outputType() const override {
@@ -317,7 +317,7 @@ class FilterNode : public PlanNode {
  public:
   FilterNode(const PlanNodeId& id, TypedExprPtr filter, PlanNodePtr source)
       : PlanNode(id), sources_{std::move(source)}, filter_(std::move(filter)) {
-    VELOX_CHECK(
+    VELOX_USER_CHECK(
         filter_->type()->isBoolean(),
         "Filter expression must be of type BOOLEAN. Got {}.",
         filter_->type()->toString());
@@ -640,9 +640,13 @@ class TableWriteNode : public PlanNode {
         hasPartitioningScheme_(hasPartitioningScheme),
         outputType_(std::move(outputType)),
         commitStrategy_(commitStrategy) {
-    VELOX_CHECK_EQ(columns->size(), columnNames.size());
+    VELOX_USER_CHECK_EQ(columns->size(), columnNames.size());
     for (const auto& column : columns->names()) {
-      VELOX_CHECK(source->outputType()->containsChild(column));
+      VELOX_USER_CHECK(
+          source->outputType()->containsChild(column),
+          "Column {} not found in TableWriter input: {}",
+          column,
+          source->outputType()->toString());
     }
   }
 
@@ -1121,14 +1125,14 @@ class PartitionedOutputNode : public PlanNode {
         replicateNullsAndAny_(replicateNullsAndAny),
         partitionFunctionSpec_(std::move(partitionFunctionSpec)),
         outputType_(std::move(outputType)) {
-    VELOX_CHECK_GT(numPartitions, 0);
+    VELOX_USER_CHECK_GT(numPartitions, 0);
     if (numPartitions == 1) {
-      VELOX_CHECK(
+      VELOX_USER_CHECK(
           keys_.empty(),
           "Non-empty partitioning keys require more than one partition");
     }
     if (!isPartitioned()) {
-      VELOX_CHECK(
+      VELOX_USER_CHECK(
           keys_.empty(),
           "{} partitioning doesn't allow for partitioning keys",
           kindString(kind_));
@@ -1638,8 +1642,8 @@ class OrderByNode : public PlanNode {
         sortingOrders_(sortingOrders),
         isPartial_(isPartial),
         sources_{source} {
-    VELOX_CHECK(!sortingKeys.empty(), "OrderBy must specify sorting keys");
-    VELOX_CHECK_EQ(
+    VELOX_USER_CHECK(!sortingKeys.empty(), "OrderBy must specify sorting keys");
+    VELOX_USER_CHECK_EQ(
         sortingKeys.size(),
         sortingOrders.size(),
         "Number of sorting keys and sorting orders in OrderBy must be the same");
@@ -1704,13 +1708,13 @@ class TopNNode : public PlanNode {
         count_(count),
         isPartial_(isPartial),
         sources_{source} {
-    VELOX_CHECK(!sortingKeys.empty(), "TopN must specify sorting keys");
-    VELOX_CHECK(
-        sortingKeys.size() == sortingOrders.size(),
+    VELOX_USER_CHECK(!sortingKeys.empty(), "TopN must specify sorting keys");
+    VELOX_USER_CHECK_EQ(
+        sortingKeys.size(),
+        sortingOrders.size(),
         "Number of sorting keys and sorting orders in TopN must be the same");
-    VELOX_CHECK(
-        count > 0,
-        "TopN must specify greater than zero number of rows to keep");
+    VELOX_USER_CHECK_GT(
+        count, 0, "TopN must specify greater than zero number of rows to keep");
   }
 
   const std::vector<FieldAccessTypedExprPtr>& sortingKeys() const {
@@ -1771,8 +1775,9 @@ class LimitNode : public PlanNode {
         count_(count),
         isPartial_(isPartial),
         sources_{source} {
-    VELOX_CHECK(
-        count > 0,
+    VELOX_CHECK_GT(
+        count,
+        0,
         "Limit must specify greater than zero number of rows to keep");
   }
 

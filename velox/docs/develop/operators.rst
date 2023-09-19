@@ -411,7 +411,7 @@ the written file paths on storage and the collected column stats.
    * - columnNames
      - Column names to use when writing to storage. These can be different from the input column names.
    * - aggregationNode
-     - Aggregation plan node used to collect the column stats of the data written to storage.
+     - Optional Aggregation plan node used to collect column stats for the data written to storage.
    * - insertTableHandle
      - Connector-specific description of the destination table.
    * - outputType
