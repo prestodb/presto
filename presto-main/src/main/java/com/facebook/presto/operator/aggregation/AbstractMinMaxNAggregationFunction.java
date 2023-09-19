@@ -131,6 +131,9 @@ public abstract class AbstractMinMaxNAggregationFunction
             heap = new TypedHeap(comparator, type, toIntExact(n));
             state.setTypedHeap(heap);
         }
+        else {
+            checkCondition(n == heap.getCapacity(), INVALID_FUNCTION_ARGUMENT, "Count argument is not constant: found multiple values [%s, %s]", n, heap.getCapacity());
+        }
         long startSize = heap.getEstimatedSize();
         heap.add(block, blockIndex);
         state.addMemoryUsage(heap.getEstimatedSize() - startSize);
@@ -147,6 +150,9 @@ public abstract class AbstractMinMaxNAggregationFunction
             state.setTypedHeap(otherHeap);
             return;
         }
+
+        checkCondition(otherHeap.getCapacity() == heap.getCapacity(), INVALID_FUNCTION_ARGUMENT, "Count argument is not constant: found multiple values [%s, %s]: %s", otherHeap.getCapacity(), heap.getCapacity());
+
         long startSize = heap.getEstimatedSize();
         heap.addAll(otherHeap);
         state.addMemoryUsage(heap.getEstimatedSize() - startSize);
