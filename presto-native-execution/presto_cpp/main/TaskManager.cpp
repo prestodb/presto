@@ -356,13 +356,11 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
       : "1970-01-01";
 
   std::string path;
-  folly::toAppend(fmt::format("{}/", baseSpillPath), &path);
+  folly::toAppend(fmt::format("{}/presto_native/", baseSpillPath), &path);
   if (includeNodeInSpillPath) {
     folly::toAppend(fmt::format("{}_{}/", nodeIp, nodeId), &path);
   }
-  folly::toAppend(
-      fmt::format("{}/presto_native/{}/{}/", dateString, queryId, taskId),
-      &path);
+  folly::toAppend(fmt::format("{}/{}/{}/", dateString, queryId, taskId), &path);
   return path;
 }
 
