@@ -242,6 +242,13 @@ class PlanBuilder {
   /// function will skip creating a FilterNode in that case.
   PlanBuilder& optionalFilter(const std::string& optionalFilter);
 
+  /// Adds a TableWriteNode to write all input columns into an unpartitioned
+  /// unbucketed Hive table without collecting statistics using DWRF file format
+  /// without compression.
+  ///
+  /// @param outputDirectoryPath Path to a directory to write data to.
+  PlanBuilder& tableWrite(const std::string& outputDirectoryPath);
+
   /// Adds a TableWriteNode.
   ///
   /// @param inputColumns A subset of input columns to write.

@@ -917,6 +917,63 @@ class TableWriteTest : public HiveConnectorTestBase {
   core::PlanNodeId tableWriteNodeId_;
 };
 
+class BasicTableWriteTest : public HiveConnectorTestBase {};
+
+TEST_F(BasicTableWriteTest, roundTrip) {
+  vector_size_t size = 1'000;
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>(size, [](auto row) { return row; }),
+      makeFlatVector<int32_t>(
+          size, [](auto row) { return row * 2; }, nullEvery(7)),
+  });
+
+  auto sourceFilePath = TempFilePath::create();
+  writeToFile(sourceFilePath->path, data);
+
+  auto targetDirectoryPath = TempDirectoryPath::create();
+
+  auto rowType = asRowType(data->type());
+  auto plan = PlanBuilder()
+                  .tableScan(rowType)
+                  .tableWrite(targetDirectoryPath->path)
+                  .planNode();
+
+  auto results = AssertQueryBuilder(plan)
+                     .split(makeHiveConnectorSplit(sourceFilePath->path))
+                     .copyResults(pool());
+  ASSERT_EQ(2, results->size());
+
+  // First column has number of rows written in the first row and nulls in other
+  // rows.
+  auto rowCount = results->childAt(TableWriteTraits::kRowCountChannel)
+                      ->as<FlatVector<int64_t>>();
+  ASSERT_FALSE(rowCount->isNullAt(0));
+  ASSERT_EQ(size, rowCount->valueAt(0));
+  ASSERT_TRUE(rowCount->isNullAt(1));
+
+  // Second column contains details about written files.
+  auto details = results->childAt(TableWriteTraits::kFragmentChannel)
+                     ->as<FlatVector<StringView>>();
+  ASSERT_TRUE(details->isNullAt(0));
+  ASSERT_FALSE(details->isNullAt(1));
+  folly::dynamic obj = folly::parseJson(details->valueAt(1));
+
+  ASSERT_EQ(size, obj["rowCount"].asInt());
+  auto fileWriteInfos = obj["fileWriteInfos"];
+  ASSERT_EQ(1, fileWriteInfos.size());
+
+  auto writeFileName = fileWriteInfos[0]["writeFileName"].asString();
+
+  // Read from 'writeFileName' and verify the data matches the original.
+  plan = PlanBuilder().tableScan(rowType).planNode();
+
+  auto copy = AssertQueryBuilder(plan)
+                  .split(makeHiveConnectorSplit(fmt::format(
+                      "{}/{}", targetDirectoryPath->path, writeFileName)))
+                  .copyResults(pool());
+  assertEqualResults({data}, {copy});
+}
+
 class PartitionedTableWriterTest
     : public TableWriteTest,
       public testing::WithParamInterface<uint64_t> {

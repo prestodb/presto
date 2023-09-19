@@ -293,6 +293,42 @@ PlanBuilder& PlanBuilder::filter(const std::string& filter) {
   return *this;
 }
 
+PlanBuilder& PlanBuilder::tableWrite(const std::string& outputDirectoryPath) {
+  auto rowType = planNode_->outputType();
+
+  std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>
+      columnHandles;
+  for (auto i = 0; i < rowType->size(); ++i) {
+    columnHandles.push_back(std::make_shared<connector::hive::HiveColumnHandle>(
+        rowType->nameOf(i),
+        connector::hive::HiveColumnHandle::ColumnType::kRegular,
+        rowType->childAt(i),
+        rowType->childAt(i)));
+  }
+
+  auto locationHandle = std::make_shared<connector::hive::LocationHandle>(
+      outputDirectoryPath,
+      outputDirectoryPath,
+      connector::hive::LocationHandle::TableType::kNew);
+  auto hiveHandle = std::make_shared<connector::hive::HiveInsertTableHandle>(
+      columnHandles,
+      locationHandle,
+      dwio::common::FileFormat::DWRF,
+      nullptr, // bucketProperty,
+      common::CompressionKind_NONE);
+
+  auto insertHandle =
+      std::make_shared<core::InsertTableHandle>(kHiveConnectorId, hiveHandle);
+
+  return tableWrite(
+      rowType,
+      rowType->names(),
+      nullptr, // aggregationNode
+      insertHandle,
+      false, // hasPartitioningScheme,
+      connector::CommitStrategy::kNoCommit);
+}
+
 PlanBuilder& PlanBuilder::tableWrite(
     const std::vector<std::string>& tableColumnNames,
     const std::shared_ptr<core::AggregationNode>& aggregationNode,
