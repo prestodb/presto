@@ -59,7 +59,7 @@ public class TestAtopSmoke
     @Test
     public void testReboots()
     {
-        assertThatQueryReturnsValue("SELECT count(*) FROM reboots WHERE CAST(power_on_time AS date) = current_date", 2L);
+        assertThatQueryReturnsValue("SELECT count(*) FROM reboots WHERE date_diff('hour', current_timestamp, power_on_time) < 24", 2L);
     }
 
     private void assertThatQueryReturnsValue(@Language("SQL") String sql, Object expected)

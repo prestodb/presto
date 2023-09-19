@@ -13,13 +13,25 @@
  */
 package com.facebook.presto.iceberg.hadoop;
 
+import com.facebook.presto.hive.s3.HiveS3Config;
+import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
+import com.facebook.presto.iceberg.IcebergCatalogName;
+import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergDistributedSmokeTestBase;
+import com.facebook.presto.iceberg.IcebergResourceFactory;
+import com.facebook.presto.iceberg.IcebergUtil;
+import com.facebook.presto.iceberg.nessie.NessieConfig;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import org.apache.iceberg.Table;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.nio.file.Path;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static java.lang.String.format;
 
 @Test
@@ -36,5 +48,28 @@ public class TestIcebergSmokeHadoop
     {
         File tempLocation = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getDataDirectory().toFile();
         return format("%s%s/%s", tempLocation.toURI(), schema, table);
+    }
+
+    @Override
+    protected Path getCatalogDirectory()
+    {
+        return getDistributedQueryRunner().getCoordinator().getDataDirectory();
+    }
+
+    @Override
+    protected Table getIcebergTable(ConnectorSession session, String schema, String tableName)
+    {
+        IcebergConfig icebergConfig = new IcebergConfig();
+        icebergConfig.setCatalogType(HADOOP);
+        icebergConfig.setCatalogWarehouse(getCatalogDirectory().toFile().getPath());
+
+        IcebergResourceFactory resourceFactory = new IcebergResourceFactory(icebergConfig,
+                new IcebergCatalogName(ICEBERG_CATALOG),
+                new NessieConfig(),
+                new PrestoS3ConfigurationUpdater(new HiveS3Config()));
+
+        return IcebergUtil.getNativeIcebergTable(resourceFactory,
+                session,
+                SchemaTableName.valueOf(schema + "." + tableName));
     }
 }

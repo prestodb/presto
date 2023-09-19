@@ -303,6 +303,31 @@ KHyperLogLog
     A KHyperLogLog is a data sketch that can be used to compactly represents the association of two
     columns. See :doc:`/functions/khyperloglog`.
 
+SetDigest
+---------
+
+.. _setdigest_type:
+
+``SetDigest``
+^^^^^^^^^^^^^
+
+A SetDigest (setdigest) is a data sketch structure used
+in calculating `Jaccard similarity coefficient <https://wikipedia.org/wiki/Jaccard_index>`_
+between two sets.
+
+SetDigest encapsulates the following components:
+
+- `HyperLogLog <https://wikipedia.org/wiki/HyperLogLog>`_
+- `MinHash with a single hash function <http://wikipedia.org/wiki/MinHash#Variant_with_a_single_hash_function>`_
+
+The HyperLogLog structure is used for the approximation of the distinct elements
+in the original set.
+
+The MinHash structure is used to store a low memory footprint signature of the original set.
+The similarity of any two sets is estimated by comparing their signatures.
+
+SetDigests are additive, meaning they can be merged together.
+
 Quantile Digest
 ---------------
 

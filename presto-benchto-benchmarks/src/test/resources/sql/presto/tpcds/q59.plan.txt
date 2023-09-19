@@ -1,7 +1,7 @@
 local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         join (INNER, PARTITIONED):
-            remote exchange (REPARTITION, HASH, [d_week_seq, s_store_id])
+            remote exchange (REPARTITION, HASH, [d_week_seq, d_week_seq_267, s_store_id])
                 join (INNER, REPLICATED):
                     join (INNER, REPLICATED):
                         final aggregation over (d_week_seq, ss_store_sk)
@@ -20,7 +20,7 @@ local exchange (GATHER, SINGLE, [])
                         remote exchange (REPLICATE, BROADCAST, [])
                             scan store
             local exchange (GATHER, SINGLE, [])
-                remote exchange (REPARTITION, HASH, [s_store_id_235, subtract])
+                remote exchange (REPARTITION, HASH, [d_week_seq_147, d_week_seq_63, s_store_id_235])
                     join (INNER, REPLICATED):
                         join (INNER, REPLICATED):
                             final aggregation over (d_week_seq_147, ss_store_sk_127)

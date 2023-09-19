@@ -213,6 +213,11 @@ Property Name                                      Description                  
                                                    performance on tables with small files. A higher value may
                                                    improve performance for queries with highly skewed
                                                    aggregations or joins.
+
+``iceberg.enable-merge-on-read-mode``              Enable reading base tables that use merge-on-read for          ``false``
+                                                   updates. The Iceberg connector currently does not read
+                                                   delete lists, which means any updates will not be
+                                                   reflected in the table.
 ================================================== ============================================================= ============
 
 Table Properties

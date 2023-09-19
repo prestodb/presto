@@ -39,7 +39,15 @@ import static org.testng.Assert.assertNotNull;
 
 public class PrestoNativeQueryRunnerUtils
 {
+    private static final Logger log = Logger.get(PrestoNativeQueryRunnerUtils.class);
+
     private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
+
+    // The unix domain socket (UDS) used to communicate with the remote function server.
+    public static final String REMOTE_FUNCTION_UDS = "remote_function_server.socket";
+    public static final String REMOTE_FUNCTION_JSON_SIGNATURES = "remote_function_server.json";
+    public static final String REMOTE_FUNCTION_CATALOG_NAME = "remote";
+
     private PrestoNativeQueryRunnerUtils() {}
 
     public static QueryRunner createQueryRunner()
@@ -81,7 +89,7 @@ public class PrestoNativeQueryRunnerUtils
 
         defaultQueryRunner.close();
 
-        return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, storageFormat);
+        return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, Optional.empty(), storageFormat);
     }
 
     public static QueryRunner createJavaQueryRunner() throws Exception
@@ -133,6 +141,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<Integer> workerCount,
             int cacheMaxSize,
             boolean useThrift,
+            Optional<String> remoteFunctionServerUds,
             String storageFormat)
             throws Exception
     {
@@ -154,18 +163,25 @@ public class PrestoNativeQueryRunnerUtils
                 Optional.of((workerIndex, discoveryUri) -> {
                     try {
                         Path tempDirectoryPath = Files.createTempDirectory(PrestoNativeQueryRunnerUtils.class.getSimpleName());
-                        Logger log = Logger.get(PrestoNativeQueryRunnerUtils.class);
                         log.info("Temp directory for Worker #%d: %s", workerIndex, tempDirectoryPath.toString());
                         int port = 1234 + workerIndex;
 
                         // Write config files
                         Files.write(tempDirectoryPath.resolve("velox.properties"), "".getBytes());
-                        Files.write(tempDirectoryPath.resolve("config.properties"),
-                                format("discovery.uri=%s%n" +
-                                        "presto.version=testversion%n" +
-                                        "http_exec_threads=8%n" +
-                                        "system-memory-gb=4%n" +
-                                        "http-server.http.port=%d", discoveryUri, port).getBytes());
+                        String configProperties = format("discovery.uri=%s%n" +
+                                "presto.version=testversion%n" +
+                                "http_exec_threads=8%n" +
+                                "system-memory-gb=4%n" +
+                                "http-server.http.port=%d", discoveryUri, port);
+
+                        if (remoteFunctionServerUds.isPresent()) {
+                            String jsonSignaturesPath = Resources.getResource(REMOTE_FUNCTION_JSON_SIGNATURES).getFile();
+                            configProperties = format("%s%n" +
+                                    "remote-function-server.catalog-name=%s%n" +
+                                    "remote-function-server.thrift.uds-path=%s%n" +
+                                    "remote-function-server.signature.files.directory.path=%s%n", configProperties, REMOTE_FUNCTION_CATALOG_NAME, remoteFunctionServerUds.get(), jsonSignaturesPath);
+                        }
+                        Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
                         Files.write(tempDirectoryPath.resolve("node.properties"),
                                 format("node.id=%s%n" +
                                         "node.ip=127.0.0.1%n" +
@@ -208,6 +224,12 @@ public class PrestoNativeQueryRunnerUtils
                 }));
     }
 
+    public static QueryRunner createNativeQueryRunner(String remoteFunctionServerUds)
+            throws Exception
+    {
+        return createNativeQueryRunner(false, DEFAULT_STORAGE_FORMAT, Optional.ofNullable(remoteFunctionServerUds));
+    }
+
     public static QueryRunner createNativeQueryRunner(boolean useThrift)
             throws Exception
     {
@@ -215,6 +237,12 @@ public class PrestoNativeQueryRunnerUtils
     }
 
     public static QueryRunner createNativeQueryRunner(boolean useThrift, String storageFormat)
+            throws Exception
+    {
+        return createNativeQueryRunner(useThrift, storageFormat, Optional.empty());
+    }
+
+    public static QueryRunner createNativeQueryRunner(boolean useThrift, String storageFormat, Optional<String> remoteFunctionServerUds)
             throws Exception
     {
         String prestoServerPath = System.getProperty("PRESTO_SERVER");
@@ -225,7 +253,28 @@ public class PrestoNativeQueryRunnerUtils
         assertNotNull(prestoServerPath, "Native worker binary path is missing. Add -DPRESTO_SERVER=<path/to/presto_server> to your JVM arguments.");
         assertNotNull(dataDirectory, "Data directory path is missing. Add -DDATA_DIR=<path/to/data> to your JVM arguments.");
 
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(dataDirectory, prestoServerPath, Optional.ofNullable(workerCount).map(Integer::parseInt), cacheMaxSize, useThrift, storageFormat);
+        return createNativeQueryRunner(dataDirectory, prestoServerPath, Optional.ofNullable(workerCount).map(Integer::parseInt), cacheMaxSize, useThrift, remoteFunctionServerUds, storageFormat);
+    }
+
+    // Start the remote function server. Return the UDS path used to communicate with it.
+    public static String startRemoteFunctionServer(String remoteFunctionServerBinaryPath)
+    {
+        try {
+            Path tempDirectoryPath = Files.createTempDirectory("RemoteFunctionServer");
+            Path remoteFunctionServerUdsPath = tempDirectoryPath.resolve(REMOTE_FUNCTION_UDS);
+            log.info("Temp directory for Remote Function Server: %s", tempDirectoryPath.toString());
+
+            Process p = new ProcessBuilder(Paths.get(remoteFunctionServerBinaryPath).toAbsolutePath().toString(), "--uds_path", remoteFunctionServerUdsPath.toString(), "--function_prefix", REMOTE_FUNCTION_CATALOG_NAME + ".schema.")
+                                .directory(tempDirectoryPath.toFile())
+                                .redirectErrorStream(true)
+                                .redirectOutput(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("thrift_server.out").toFile()))
+                                .redirectError(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("thrift_server.err").toFile()))
+                                .start();
+            return remoteFunctionServerUdsPath.toString();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     public static void setupJsonFunctionNamespaceManager(QueryRunner queryRunner, String jsonFileName, String catalogName)
