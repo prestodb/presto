@@ -43,8 +43,7 @@ TEST_F(TimestampWithTimeZoneCastTest, fromTimestamp) {
       makeFlatVector<int16_t>({0, 0, 0}));
   expected->setNull(1, true);
 
-  testCast<ComplexType>(
-      TIMESTAMP(), TIMESTAMP_WITH_TIME_ZONE(), tsVector, expected);
+  testCast(TIMESTAMP(), TIMESTAMP_WITH_TIME_ZONE(), tsVector, expected);
 }
 
 TEST_F(TimestampWithTimeZoneCastTest, toTimestamp) {
@@ -56,6 +55,5 @@ TEST_F(TimestampWithTimeZoneCastTest, toTimestamp) {
   const auto expected = makeNullableFlatVector<Timestamp>(
       {Timestamp(1996, 0), std::nullopt, Timestamp(19920 - 8 * 3600, 0)});
 
-  testCast<ComplexType>(
-      TIMESTAMP_WITH_TIME_ZONE(), TIMESTAMP(), tsWithTZVector, expected);
+  testCast(TIMESTAMP_WITH_TIME_ZONE(), TIMESTAMP(), tsWithTZVector, expected);
 }

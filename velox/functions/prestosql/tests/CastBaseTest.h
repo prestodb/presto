@@ -48,31 +48,31 @@ class CastBaseTest : public FunctionBaseTest {
   }
 
   // Evaluate cast(fromType as toType) and return the result vector.
-  template <typename TTo>
   VectorPtr evaluateCast(
       const TypePtr& fromType,
       const TypePtr& toType,
       const RowVectorPtr& input,
       bool isTryCast = false) {
     auto castExpr = buildCastExpr(fromType, toType, isTryCast);
+    exec::ExprSet exprSet({castExpr}, &execCtx_);
+    exec::EvalCtx context(&execCtx_, &exprSet, input.get());
 
-    if constexpr (std::is_same_v<TTo, ComplexType>) {
-      return evaluate(castExpr, input);
-    } else {
-      return evaluate<SimpleVector<EvalType<TTo>>>(castExpr, input);
-    }
+    std::vector<VectorPtr> result(1);
+    SelectivityVector rows(input->size());
+    exprSet.eval(rows, context, result);
+    EXPECT_FALSE(context.errors());
+    return result[0];
   }
 
   // Evaluate cast(fromType as toType) and verify the result matches the
   // expected one.
-  template <typename TTo>
   void evaluateAndVerify(
       const TypePtr& fromType,
       const TypePtr& toType,
       const RowVectorPtr& input,
       const VectorPtr& expected,
       bool isTryCast = false) {
-    auto result = evaluateCast<TTo>(fromType, toType, input, isTryCast);
+    auto result = evaluateCast(fromType, toType, input, isTryCast);
     assertEqualVectors(expected, result);
   }
 
@@ -94,7 +94,6 @@ class CastBaseTest : public FunctionBaseTest {
   // Evaluate cast(testing_dictionary(fromType) as toType) and verify the result
   // matches the expected one. Values in expected should correspond to values in
   // input at the same rows.
-  template <typename TTo>
   void evaluateAndVerifyDictEncoding(
       const TypePtr& fromType,
       const TypePtr& toType,
@@ -105,11 +104,7 @@ class CastBaseTest : public FunctionBaseTest {
         buildCastExprWithDictionaryInput(fromType, toType, isTryCast);
 
     VectorPtr result;
-    if constexpr (std::is_same_v<TTo, ComplexType>) {
-      result = evaluate(castExpr, input);
-    } else {
-      result = evaluate<SimpleVector<EvalType<TTo>>>(castExpr, input);
-    }
+    result = evaluate(castExpr, input);
 
     auto indices = test::makeIndicesInReverse(expected->size(), pool());
     assertEqualVectors(wrapInDictionary(indices, expected), result);
@@ -132,7 +127,6 @@ class CastBaseTest : public FunctionBaseTest {
     assertEqualVectors(wrapInDictionary(indices, expected), result);
   }
 
-  template <typename TTo>
   void testCast(
       const TypePtr& fromType,
       const TypePtr& toType,
@@ -143,9 +137,8 @@ class CastBaseTest : public FunctionBaseTest {
     // Test with flat encoding.
     {
       SCOPED_TRACE("Flat encoding");
-      evaluateAndVerify<TTo>(
-          fromType, toType, makeRowVector({input}), expected);
-      evaluateAndVerify<TTo>(
+      evaluateAndVerify(fromType, toType, makeRowVector({input}), expected);
+      evaluateAndVerify(
           fromType, toType, makeRowVector({input}), expected, true);
     }
 
@@ -155,18 +148,18 @@ class CastBaseTest : public FunctionBaseTest {
       auto constInput = BaseVector::wrapInConstant(5, 0, input);
       auto constExpected = BaseVector::wrapInConstant(5, 0, expected);
 
-      evaluateAndVerify<TTo>(
+      evaluateAndVerify(
           fromType, toType, makeRowVector({constInput}), constExpected);
-      evaluateAndVerify<TTo>(
+      evaluateAndVerify(
           fromType, toType, makeRowVector({constInput}), constExpected, true);
     }
 
     // Test with dictionary encoding that reverses the indices.
     {
       SCOPED_TRACE("Dictionary encoding");
-      evaluateAndVerifyDictEncoding<TTo>(
+      evaluateAndVerifyDictEncoding(
           fromType, toType, makeRowVector({input}), expected);
-      evaluateAndVerifyDictEncoding<TTo>(
+      evaluateAndVerifyDictEncoding(
           fromType, toType, makeRowVector({input}), expected, true);
     }
   }
@@ -180,7 +173,7 @@ class CastBaseTest : public FunctionBaseTest {
     auto inputVector = makeNullableFlatVector<TFrom>(input, fromType);
     auto expectedVector = makeNullableFlatVector<TTo>(expected, toType);
 
-    testCast<TTo>(fromType, toType, inputVector, expectedVector);
+    testCast(fromType, toType, inputVector, expectedVector);
   }
 
   template <typename TFrom, typename TTo>
@@ -190,7 +183,7 @@ class CastBaseTest : public FunctionBaseTest {
       const std::vector<std::optional<TFrom>>& input,
       const std::string& expectedErrorMessage) {
     VELOX_ASSERT_THROW(
-        evaluateCast<TTo>(
+        evaluateCast(
             fromType,
             toType,
             makeRowVector({makeNullableFlatVector<TFrom>(input, fromType)})),
