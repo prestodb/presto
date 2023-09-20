@@ -661,7 +661,6 @@ TEST(TestRowReaderPrefetch, testFirstStripeNotLoadedWithEagerLoadingOff) {
   // batch size is set as 1000 in reading
   std::array<int32_t, 5> seeks;
   seeks.fill(0);
-  const std::array<int32_t, 4> expectedBatchSize{300, 300, 300, 100};
   ReaderOptions readerOpts{defaultPool.get()};
   RowReaderOptions rowReaderOpts;
   rowReaderOpts.setEagerFirstStripeLoad(false);
