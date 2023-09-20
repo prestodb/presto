@@ -311,6 +311,10 @@ class VectorHasher {
 
   std::string toString() const;
 
+  size_t numUniqueValues() const {
+    return uniqueValues_.size();
+  }
+
  private:
   static constexpr uint32_t kStringASRangeMaxSize = 7;
   static constexpr uint32_t kStringBufferUnitSize = 1024;
@@ -415,7 +419,7 @@ class VectorHasher {
       unique.setId(uniqueValues_.size() + 1);
       if (uniqueValues_.insert(unique).second) {
         if (uniqueValues_.size() > kMaxDistinct) {
-          distinctOverflow_ = true;
+          setDistinctOverflow();
         }
       }
     }
@@ -515,6 +519,10 @@ class VectorHasher {
 
   void copyStringToLocal(const UniqueValue* unique);
 
+  void setDistinctOverflow();
+
+  void setRangeOverflow();
+
   static inline bool
   isNullAt(const char* group, int32_t nullByte, uint8_t nullMask) {
     return (group[nullByte] & nullMask) != 0;
@@ -613,7 +621,7 @@ inline uint64_t VectorHasher::valueId(StringView value) {
   copyStringToLocal(&*pair.first);
   if (!rangeOverflow_) {
     if (size > kStringASRangeMaxSize) {
-      rangeOverflow_ = true;
+      setRangeOverflow();
     } else {
       updateRange(stringAsNumber(data, size));
     }

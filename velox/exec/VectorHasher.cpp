@@ -573,7 +573,7 @@ void VectorHasher::analyzeValue(StringView value) {
   auto data = value.data();
   if (!rangeOverflow_) {
     if (size > kStringASRangeMaxSize) {
-      rangeOverflow_ = true;
+      setRangeOverflow();
     } else {
       int64_t number = stringAsNumber(data, size);
       updateRange(number);
@@ -585,7 +585,7 @@ void VectorHasher::analyzeValue(StringView value) {
     auto pair = uniqueValues_.insert(unique);
     if (pair.second) {
       if (uniqueValues_.size() > kMaxDistinct) {
-        distinctOverflow_ = true;
+        setDistinctOverflow();
         return;
       }
       copyStringToLocal(&*pair.first);
@@ -599,7 +599,7 @@ void VectorHasher::copyStringToLocal(const UniqueValue* unique) {
     return;
   }
   if (distinctStringsBytes_ > kMaxDistinctStringsBytes) {
-    distinctOverflow_ = true;
+    setDistinctOverflow();
     return;
   }
   if (uniqueValuesStorage_.empty()) {
@@ -619,6 +619,18 @@ void VectorHasher::copyStringToLocal(const UniqueValue* unique) {
   memcpy(str->data() + start, reinterpret_cast<char*>(unique->data()), size);
   const_cast<UniqueValue*>(unique)->setData(
       reinterpret_cast<int64_t>(str->data() + start));
+}
+
+void VectorHasher::setDistinctOverflow() {
+  distinctOverflow_ = true;
+  uniqueValues_.clear();
+  uniqueValuesStorage_.clear();
+  distinctStringsBytes_ = 0;
+}
+
+void VectorHasher::setRangeOverflow() {
+  rangeOverflow_ = true;
+  hasRange_ = false;
 }
 
 std::unique_ptr<common::Filter> VectorHasher::getFilter(
@@ -731,7 +743,7 @@ void VectorHasher::cardinality(
   if (!hasRange_ || rangeOverflow_) {
     asRange = kRangeTooLarge;
   } else if (__builtin_sub_overflow(max_, min_, &signedRange)) {
-    rangeOverflow_ = true;
+    setRangeOverflow();
     asRange = kRangeTooLarge;
   } else if (signedRange < kMaxRange) {
     // We check that after the extension by reservePct the range of max - min
@@ -746,7 +758,7 @@ void VectorHasher::cardinality(
     extendRange(type_->kind(), reservePct, min, max);
     asRange = (max - min) + 2;
   } else {
-    rangeOverflow_ = true;
+    setRangeOverflow();
     asRange = kRangeTooLarge;
   }
   if (distinctOverflow_) {
@@ -819,8 +831,7 @@ void VectorHasher::merge(const VectorHasher& other) {
     min_ = std::min(min_, other.min_);
     max_ = std::max(max_, other.max_);
   } else {
-    hasRange_ = false;
-    rangeOverflow_ = true;
+    setRangeOverflow();
   }
   if (!distinctOverflow_ && !other.distinctOverflow_) {
     // Unique values can be merged without dispatch on type. All the
@@ -833,7 +844,7 @@ void VectorHasher::merge(const VectorHasher& other) {
       uniqueValues_.insert(value);
     }
   } else {
-    distinctOverflow_ = true;
+    setDistinctOverflow();
   }
 }
 
