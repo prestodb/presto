@@ -866,8 +866,6 @@ TEST(TestReader, testStatsCallbackFiredWithFiltering) {
 
   do {
     bool result = rowReader->next(1000, batch);
-    LOG(INFO) << "In loop: total key streams is " << totalKeyStreamsAggregate
-              << " selected key streams is " << selectedKeyStreamsAggregate;
     if (!result) {
       break;
     }
@@ -956,8 +954,6 @@ TEST(TestReader, testStatsCallbackFiredWithoutFiltering) {
 
   do {
     bool result = rowReader->next(1000, batch);
-    LOG(INFO) << "In loop: total key streams is " << totalKeyStreamsAggregate
-              << " selected key streams is " << selectedKeyStreamsAggregate;
     if (!result) {
       break;
     }
