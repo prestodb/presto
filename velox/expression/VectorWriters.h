@@ -277,8 +277,10 @@ struct VectorWriter<Row<T...>> : public VectorWriterBase {
 
   void ensureSize(size_t size) override {
     if (size > rowVector_->size()) {
+      // Note order is important here, we resize children first to ensure
+      // data_ is cached and are not reset when rowVector resizes them.
+      resizeVectorWriters<0>(size);
       rowVector_->resize(size, /*setNotNull*/ false);
-      resizeVectorWriters<0>(rowVector_->size());
     }
   }
 
@@ -706,10 +708,10 @@ struct VectorWriter<DynamicRow, void> : public VectorWriterBase {
 
   void ensureSize(size_t size) override {
     if (size > rowVector_->size()) {
-      rowVector_->resize(size, /*setNotNull*/ false);
       for (int i = 0; i < writer_.childrenCount_; ++i) {
         writer_.childrenWriters_[i]->ensureSize(size);
       }
+      rowVector_->resize(size, /*setNotNull*/ false);
     }
   }
 
