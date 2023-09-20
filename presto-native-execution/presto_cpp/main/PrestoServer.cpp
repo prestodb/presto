@@ -567,6 +567,7 @@ void PrestoServer::initializeVeloxMemory() {
     options.memoryPoolInitCapacity = systemConfig->memoryPoolInitCapacity();
     options.memoryPoolTransferCapacity =
         systemConfig->memoryPoolTransferCapacity();
+    options.arbitrationStateCheckCb = velox::exec::driverArbitrationStateCheck;
   }
   const auto& manager = memory::MemoryManager::getInstance(options);
   PRESTO_STARTUP_LOG(INFO) << "Memory manager has been setup: "
