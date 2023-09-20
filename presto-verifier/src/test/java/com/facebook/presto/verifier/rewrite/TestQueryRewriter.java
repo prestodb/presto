@@ -72,6 +72,7 @@ public class TestQueryRewriter
     private static final QueryRewriteConfig QUERY_REWRITE_CONFIG = new QueryRewriteConfig()
             .setTablePrefix("local.tmp")
             .setTableProperties("{\"p_int\": 30, \"p_long\": 4294967297, \"p_double\": 1.5, \"p_varchar\": \"test\", \"p_bool\": true}");
+    private static final VerifierConfig VERIFIER_CONFIG = new VerifierConfig();
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
 
     private static StandaloneQueryRunner queryRunner;
@@ -205,9 +206,9 @@ public class TestQueryRewriter
     @Test
     public void testTemporaryTableName()
     {
-        QueryRewriter tableNameRewriter = getQueryRewriter(new QueryRewriteConfig().setTablePrefix("tmp"));
-        QueryRewriter schemaRewriter = getQueryRewriter(new QueryRewriteConfig().setTablePrefix("local.tmp"));
-        QueryRewriter catalogRewriter = getQueryRewriter(new QueryRewriteConfig().setTablePrefix("verifier_batch.local.tmp"));
+        QueryRewriter tableNameRewriter = getQueryRewriter(new QueryRewriteConfig().setTablePrefix("tmp"), VERIFIER_CONFIG);
+        QueryRewriter schemaRewriter = getQueryRewriter(new QueryRewriteConfig().setTablePrefix("local.tmp"), VERIFIER_CONFIG);
+        QueryRewriter catalogRewriter = getQueryRewriter(new QueryRewriteConfig().setTablePrefix("verifier_batch.local.tmp"), VERIFIER_CONFIG);
 
         @Language("SQL") String query = "INSERT INTO dest_table SELECT * FROM test_table";
         assertTableName(tableNameRewriter, query, "tmp_");
@@ -320,12 +321,14 @@ public class TestQueryRewriter
     @Test
     public void testRewriteFunctionCalls()
     {
-        QueryRewriter queryRewriter = getQueryRewriter(Optional.of("/approx_distinct(x)/count(x)/," +
-                "/approx_percentile(x,_)/avg(x)/," +
-                "/arbitrary(x)/min(x)/," +
-                "/first_value(x)/min(x)/," +
-                "/max_by(x,_)/max(x)/," +
-                "/min_by(x,_)/min(x)/"));
+        VerifierConfig verifierConfig = new VerifierConfig().setNonDeterministicFunctionSubstitutes(
+                "/approx_distinct(x)/count(x)/," +
+                        "/approx_percentile(x,_)/avg(x)/," +
+                        "/arbitrary(x)/min(x)/," +
+                        "/first_value(x)/min(x)/," +
+                        "/max_by(x,_)/max(x)/," +
+                        "/min_by(x,_)/min(x)/");
+        QueryRewriter queryRewriter = getQueryRewriter(new QueryRewriteConfig(), verifierConfig);
 
         // Test rewriting window functions
         assertCreateTableAs(
@@ -346,11 +349,11 @@ public class TestQueryRewriter
         assertCreateTableAs(
                 queryRewriter.rewriteQuery(
                         "SELECT\n" +
-                                "    IF(APPROX_DISTINCT(a) > 10, TRUE, FALSE)\n" +
+                                "    TRIM(ARBITRARY(b))\n" +
                                 "FROM test_table",
                         CONTROL).getQuery(),
                 "SELECT\n" +
-                        "    IF(COUNT(a) > 10, TRUE, FALSE)\n" +
+                        "    TRIM(MIN(b))\n" +
                         "FROM test_table");
 
         // Test rewriting columns in Join
@@ -402,17 +405,17 @@ public class TestQueryRewriter
         // Test rewriting columns in TableSubquery
         assertCreateTableAs(
                 queryRewriter.rewriteQuery(
-                        "SELECT one\n" +
+                        "SELECT num\n" +
                                 "FROM (\n" +
                                 "    SELECT\n" +
-                                "        ARBITRARY(b) AS one\n" +
+                                "        APPROX_DISTINCT(b) AS num\n" +
                                 "    FROM test_table\n" +
                                 ") x",
                         CONTROL).getQuery(),
-                "SELECT one\n" +
+                "SELECT num\n" +
                         "FROM (\n" +
                         "    SELECT\n" +
-                        "        MIN(b) AS one\n" +
+                        "        COUNT(b) AS num\n" +
                         "    FROM test_table\n" +
                         ") x");
 
@@ -522,12 +525,12 @@ public class TestQueryRewriter
 
     private QueryRewriter getQueryRewriter()
     {
-        return getQueryRewriter(QUERY_REWRITE_CONFIG);
+        return getQueryRewriter(QUERY_REWRITE_CONFIG, VERIFIER_CONFIG);
     }
 
-    private QueryRewriter getQueryRewriter(QueryRewriteConfig config)
+    private QueryRewriter getQueryRewriter(QueryRewriteConfig rewriteConfig, VerifierConfig verifierConfig)
     {
-        return new VerificationQueryRewriterFactory(sqlParser, createTypeManager(), config, config).create(prestoAction);
+        return new VerificationQueryRewriterFactory(sqlParser, createTypeManager(), rewriteConfig, rewriteConfig, verifierConfig).create(prestoAction);
     }
 
     private QueryRewriter getQueryRewriter(Optional<String> nonDeterministicFunctionSubstitutes)
