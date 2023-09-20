@@ -130,6 +130,10 @@ class ConfigBase {
     return config_->valuesCopy();
   }
 
+  std::shared_ptr<velox::Config> config() const {
+    return config_;
+  }
+
  protected:
   ConfigBase();
 
@@ -137,7 +141,7 @@ class ConfigBase {
   void checkRegisteredProperties(
       const std::unordered_map<std::string, std::string>& values);
 
-  std::unique_ptr<velox::Config> config_;
+  std::shared_ptr<velox::Config> config_;
   std::string filePath_;
   // Map of registered properties with their default values.
   std::unordered_map<std::string, folly::Optional<std::string>>
@@ -459,6 +463,21 @@ class SystemConfig : public ConfigBase {
   bool includeNodeInSpillPath() const;
 
   int32_t oldTaskCleanUpMs() const;
+};
+
+/// Provides access to connector properties defined in
+/// catalog/$connector_name.properties file.
+class ConnectorConfig : public ConfigBase {
+ public:
+  static constexpr std::string_view kConnectorName{"connector.name"};
+  static constexpr std::string_view kHiveImmutablePartitions{
+      "hive.immutable-partitions"};
+
+  ConnectorConfig();
+
+  std::string connectorName() const;
+
+  bool hiveImmutablePartitions() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

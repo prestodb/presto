@@ -567,6 +567,22 @@ int32_t SystemConfig::oldTaskCleanUpMs() const {
   return optionalProperty<int32_t>(kOldTaskCleanUpMs).value();
 }
 
+ConnectorConfig::ConnectorConfig() {
+  registeredProps_ =
+      std::unordered_map<std::string, folly::Optional<std::string>>{
+          NONE_PROP(kConnectorName),
+          BOOL_PROP(kHiveImmutablePartitions, false),
+      };
+}
+
+std::string ConnectorConfig::connectorName() const {
+  return requiredProperty(kConnectorName);
+}
+
+bool ConnectorConfig::hiveImmutablePartitions() const {
+  return optionalProperty<bool>(kHiveImmutablePartitions).value();
+}
+
 NodeConfig::NodeConfig() {
   registeredProps_ =
       std::unordered_map<std::string, folly::Optional<std::string>>{

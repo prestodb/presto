@@ -151,6 +151,16 @@ TEST_F(ConfigTest, optionalSystemConfigsWithDefault) {
   ASSERT_EQ(config.maxDriversPerTask(), 1024);
 }
 
+TEST_F(ConfigTest, defaultConnectorConfig) {
+  ConnectorConfig config;
+  init(config, {});
+  ASSERT_EQ(config.hiveImmutablePartitions(), false);
+  init(
+      config,
+      {{std::string(ConnectorConfig::kHiveImmutablePartitions), "true"}});
+  ASSERT_EQ(config.hiveImmutablePartitions(), true);
+}
+
 TEST_F(ConfigTest, remoteFunctionServer) {
   SystemConfig config;
   init(config, {});

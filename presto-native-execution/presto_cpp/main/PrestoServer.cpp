@@ -684,27 +684,25 @@ std::vector<std::string> PrestoServer::registerConnectors(
       auto catalogName =
           fileName.substr(0, fileName.size() - kPropertiesExtension.size());
 
-      auto connectorConf = util::readConfig(entry.path());
+      ConnectorConfig connectorConfig;
+      connectorConfig.initialize(entry.path());
+
       PRESTO_STARTUP_LOG(INFO)
           << "Registered properties from " << entry.path() << ":\n"
-          << stringifyConnectorConfig(connectorConf);
-
-      std::shared_ptr<const velox::Config> properties =
-          std::make_shared<const velox::core::MemConfig>(
-              std::move(connectorConf));
-
-      auto connectorName = util::requiredProperty(*properties, kConnectorName);
+          << stringifyConnectorConfig(connectorConfig.values());
 
       catalogNames.emplace_back(catalogName);
 
-      PRESTO_STARTUP_LOG(INFO) << "Registering catalog " << catalogName
-                               << " using connector " << connectorName;
+      PRESTO_STARTUP_LOG(INFO)
+          << "Registering catalog " << catalogName << " using connector "
+          << connectorConfig.connectorName();
 
       std::shared_ptr<velox::connector::Connector> connector =
-          facebook::velox::connector::getConnectorFactory(connectorName)
+          facebook::velox::connector::getConnectorFactory(
+              connectorConfig.connectorName())
               ->newConnector(
                   catalogName,
-                  std::move(properties),
+                  std::move(connectorConfig.config()),
                   connectorIoExecutor_.get());
       velox::connector::registerConnector(connector);
     }
