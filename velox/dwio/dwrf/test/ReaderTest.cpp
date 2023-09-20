@@ -61,6 +61,19 @@ const std::string& getFMLargeFile() {
   static const std::string fmLargeFile_ = getExampleFilePath("fm_large.orc");
   return fmLargeFile_;
 }
+
+// RowType for fmSmallFile and fmLargeFile
+const std::shared_ptr<const RowType>& getFlatmapSchema() {
+  static const std::shared_ptr<const RowType> schema_ =
+      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
+          id:int,\
+      map1:map<int, array<float>>,\
+      map2:map<string, map<smallint,bigint>>,\
+      map3:map<int,int>,\
+      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
+      memo:string>"));
+  return schema_;
+}
 } // namespace
 
 TEST(TestReader, testWriterVersions) {
@@ -234,15 +247,7 @@ void verifyFlatMapReading(
 
   RowReaderOptions rowReaderOpts;
   rowReaderOpts.setReturnFlatVector(returnFlatVector);
-  std::shared_ptr<const RowType> requestedType =
-      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
-          id:int,\
-      map1:map<int, array<float>>,\
-      map2:map<string, map<smallint,bigint>>,\
-      map3:map<int,int>,\
-      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
-      memo:string>"));
-  rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
+  rowReaderOpts.select(std::make_shared<ColumnSelector>(getFlatmapSchema()));
   auto reader = DwrfReader::create(
       createFileBufferedInput(file, readerOpts.getMemoryPool()), readerOpts);
   auto rowReaderOwner = reader->createRowReader(rowReaderOpts);
@@ -432,15 +437,7 @@ TEST(TestRowReaderPfetch, testSeekBeforePrefetch) {
 
   ReaderOptions readerOpts{defaultPool.get()};
   RowReaderOptions rowReaderOpts;
-  std::shared_ptr<const RowType> requestedType =
-      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
-          id:int,\
-      map1:map<int, array<float>>,\
-      map2:map<string, map<smallint,bigint>>,\
-      map3:map<int,int>,\
-      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
-      memo:string>"));
-  rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
+  rowReaderOpts.select(std::make_shared<ColumnSelector>(getFlatmapSchema()));
   auto reader = DwrfReader::create(
       createFileBufferedInput(getFMSmallFile(), readerOpts.getMemoryPool()),
       readerOpts);
@@ -471,15 +468,7 @@ TEST(TestRowReaderPrefetch, testPrefetchAndStartNextStripeInterleaved) {
   ReaderOptions readerOpts{defaultPool.get()};
   readerOpts.setFilePreloadThreshold(0);
   RowReaderOptions rowReaderOpts;
-  std::shared_ptr<const RowType> requestedType =
-      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
-          id:int,\
-      map1:map<int, array<float>>,\
-      map2:map<string, map<smallint,bigint>>,\
-      map3:map<int,int>,\
-      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
-      memo:string>"));
-  rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
+  rowReaderOpts.select(std::make_shared<ColumnSelector>(getFlatmapSchema()));
   auto reader = DwrfReader::create(
       createFileBufferedInput(getFMSmallFile(), readerOpts.getMemoryPool()),
       readerOpts);
@@ -543,15 +532,7 @@ TEST(TestRowReaderPrefetch, testParallelPrefetch) {
   const std::array<int32_t, 4> expectedBatchSize{300, 300, 300, 100};
   ReaderOptions readerOpts{defaultPool.get()};
   RowReaderOptions rowReaderOpts;
-  std::shared_ptr<const RowType> requestedType =
-      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
-          id:int,\
-      map1:map<int, array<float>>,\
-      map2:map<string, map<smallint,bigint>>,\
-      map3:map<int,int>,\
-      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
-      memo:string>"));
-  rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
+  rowReaderOpts.select(std::make_shared<ColumnSelector>(getFlatmapSchema()));
   auto reader = DwrfReader::create(
       createFileBufferedInput(getFMSmallFile(), readerOpts.getMemoryPool()),
       readerOpts);
@@ -585,15 +566,7 @@ TEST(TestRowReaderPrefetch, testParallelPrefetchNoPreload) {
   readerOpts.setFilePreloadThreshold(0);
   readerOpts.setDirectorySizeGuess(4);
   RowReaderOptions rowReaderOpts;
-  std::shared_ptr<const RowType> requestedType =
-      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
-          id:int,\
-      map1:map<int, array<float>>,\
-      map2:map<string, map<smallint,bigint>>,\
-      map3:map<int,int>,\
-      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
-      memo:string>"));
-  rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
+  rowReaderOpts.select(std::make_shared<ColumnSelector>(getFlatmapSchema()));
   auto reader = DwrfReader::create(
       createFileBufferedInput(getFMLargeFile(), readerOpts.getMemoryPool()),
       readerOpts);
@@ -630,15 +603,7 @@ TEST(TestRowReaderPrefetch, testNoEagerFirstStripeLoad) {
   // tests in this file accordingly.
   ASSERT_TRUE(rowReaderOpts.getEagerFirstStripeLoad());
   rowReaderOpts.setEagerFirstStripeLoad(false);
-  std::shared_ptr<const RowType> requestedType =
-      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
-          id:int,\
-      map1:map<int, array<float>>,\
-      map2:map<string, map<smallint,bigint>>,\
-      map3:map<int,int>,\
-      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
-      memo:string>"));
-  rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
+  rowReaderOpts.select(std::make_shared<ColumnSelector>(getFlatmapSchema()));
   auto reader = DwrfReader::create(
       createFileBufferedInput(getFMSmallFile(), readerOpts.getMemoryPool()),
       readerOpts);
@@ -663,15 +628,7 @@ TEST(TestRowReaderPrefetch, testFirstStripeNotLoadedWithEagerLoadingOff) {
   ReaderOptions readerOpts{defaultPool.get()};
   RowReaderOptions rowReaderOpts;
   rowReaderOpts.setEagerFirstStripeLoad(false);
-  std::shared_ptr<const RowType> requestedType =
-      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
-          id:int,\
-      map1:map<int, array<float>>,\
-      map2:map<string, map<smallint,bigint>>,\
-      map3:map<int,int>,\
-      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
-      memo:string>"));
-  rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
+  rowReaderOpts.select(std::make_shared<ColumnSelector>(getFlatmapSchema()));
   auto reader = DwrfReader::create(
       createFileBufferedInput(getFMSmallFile(), readerOpts.getMemoryPool()),
       readerOpts);
@@ -721,17 +678,10 @@ TEST(TestReader, testReadFlatMapWithKeyFilters) {
   // file has schema: a int, b struct<a:int, b:float, c:string>, c float
   ReaderOptions readerOpts{defaultPool.get()};
   RowReaderOptions rowReaderOpts;
-  std::shared_ptr<const RowType> requestedType =
-      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
-          id:int,\
-      map1:map<int, array<float>>,\
-      map2:map<string, map<smallint,bigint>>,\
-      map3:map<int,int>,\
-      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
-      memo:string>"));
   // set map key filter for map1 we only need key=1, and map2 only key-1
   auto cs = std::make_shared<ColumnSelector>(
-      requestedType, std::vector<std::string>{"map1#[1]", "map2#[\"key-1\"]"});
+      getFlatmapSchema(),
+      std::vector<std::string>{"map1#[1]", "map2#[\"key-1\"]"});
   rowReaderOpts.select(cs);
   auto reader = DwrfReader::create(
       createFileBufferedInput(getFMSmallFile(), readerOpts.getMemoryPool()),
@@ -781,16 +731,8 @@ TEST(TestReader, testReadFlatMapWithKeyRejectList) {
   // file has schema: a int, b struct<a:int, b:float, c:string>, c float
   ReaderOptions readerOpts{defaultPool.get()};
   RowReaderOptions rowReaderOpts;
-  std::shared_ptr<const RowType> requestedType =
-      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
-          id:int,\
-      map1:map<int, array<float>>,\
-      map2:map<string, map<smallint,bigint>>,\
-      map3:map<int,int>,\
-      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
-      memo:string>"));
   auto cs = std::make_shared<ColumnSelector>(
-      requestedType, std::vector<std::string>{"map1#[\"!2\",\"!3\"]"});
+      getFlatmapSchema(), std::vector<std::string>{"map1#[\"!2\",\"!3\"]"});
   rowReaderOpts.select(cs);
   auto reader = DwrfReader::create(
       createFileBufferedInput(getFMSmallFile(), readerOpts.getMemoryPool()),
@@ -826,18 +768,9 @@ TEST(TestReader, testReadFlatMapWithKeyRejectList) {
 
 TEST(TestReader, testStatsCallbackFiredWithFiltering) {
   RowReaderOptions rowReaderOpts;
-  std::shared_ptr<const RowType> requestedType =
-      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
-          id:int,\
-      map1:map<int, array<float>>,\
-      map2:map<string, map<smallint,bigint>>,\
-      map3:map<int,int>,\
-      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
-      memo:string>"));
-
   // Apply feature projection
   auto cs = std::make_shared<ColumnSelector>(
-      requestedType, std::vector<std::string>{"map2#[\"key-1\"]"});
+      getFlatmapSchema(), std::vector<std::string>{"map2#[\"key-1\"]"});
   rowReaderOpts.select(cs);
 
   uint64_t totalKeyStreamsAggregate = 0;
@@ -872,25 +805,13 @@ TEST(TestReader, testStatsCallbackFiredWithFiltering) {
 }
 
 TEST(TestReader, testEstimatedSize) {
-  const std::string fmSmall(getExampleFilePath("fm_small.orc"));
-
-  auto requestedType =
-      asRowType(HiveTypeParser().parse("struct<\
-          id:int,\
-      map1:map<int, array<float>>,\
-      map2:map<string, map<smallint,bigint>>,\
-      map3:map<int,int>,\
-      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
-      memo:string>"));
-
   ReaderOptions readerOpts{defaultPool.get()};
-
   {
     auto reader = DwrfReader::create(
         createFileBufferedInput(getFMSmallFile(), readerOpts.getMemoryPool()),
         readerOpts);
     auto cs = std::make_shared<ColumnSelector>(
-        requestedType, std::vector<std::string>{"map2"});
+        getFlatmapSchema(), std::vector<std::string>{"map2"});
     RowReaderOptions rowReaderOpts;
     rowReaderOpts.select(cs);
 
@@ -903,7 +824,7 @@ TEST(TestReader, testEstimatedSize) {
         createFileBufferedInput(getFMSmallFile(), readerOpts.getMemoryPool()),
         readerOpts);
     auto cs = std::make_shared<ColumnSelector>(
-        requestedType, std::vector<std::string>{"id"});
+        getFlatmapSchema(), std::vector<std::string>{"id"});
     RowReaderOptions rowReaderOpts;
     rowReaderOpts.select(cs);
     auto rowReader = reader->createRowReader(rowReaderOpts);
@@ -913,18 +834,9 @@ TEST(TestReader, testEstimatedSize) {
 
 TEST(TestReader, testStatsCallbackFiredWithoutFiltering) {
   RowReaderOptions rowReaderOpts;
-  std::shared_ptr<const RowType> requestedType =
-      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
-          id:int,\
-      map1:map<int, array<float>>,\
-      map2:map<string, map<smallint,bigint>>,\
-      map3:map<int,int>,\
-      map4:map<int,struct<field1:int,field2:float,field3:string>>,\
-      memo:string>"));
-
   // Don't apply feature projection here
   auto cs = std::make_shared<ColumnSelector>(
-      requestedType, std::vector<std::string>{"map2"});
+      getFlatmapSchema(), std::vector<std::string>{"map2"});
   rowReaderOpts.select(cs);
 
   uint64_t totalKeyStreamsAggregate = 0;
