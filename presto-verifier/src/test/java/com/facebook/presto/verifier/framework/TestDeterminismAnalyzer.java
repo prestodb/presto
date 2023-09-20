@@ -87,7 +87,8 @@ public class TestDeterminismAnalyzer
                 typeManager,
                 prestoAction,
                 ImmutableMap.of(CONTROL, QualifiedName.of("tmp_verifier_c"), TEST, QualifiedName.of("tmp_verifier_t")),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
         ChecksumValidator checksumValidator = createChecksumValidator(verifierConfig);
         SourceQuery sourceQuery = new SourceQuery("test", "", "", "", configuration, configuration);
 

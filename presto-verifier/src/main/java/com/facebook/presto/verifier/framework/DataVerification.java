@@ -82,15 +82,17 @@ public class DataVerification
     }
 
     @Override
-    protected QueryObjectBundle getQueryRewrite(ClusterType clusterType)
+    protected QueryObjectBundle getQueryRewrite(ClusterType clusterType, QueryContext queryContext)
     {
-        return queryRewriter.rewriteQuery(getSourceQuery().getQuery(clusterType), clusterType);
+        QueryObjectBundle queryBundle = queryRewriter.rewriteQuery(getSourceQuery().getQuery(clusterType), clusterType);
+        queryRewriter.getRewrittenFunctionCalls().ifPresent(queryContext::setRewrittenFunctionCalls);
+        return queryBundle;
     }
 
     @Override
-    protected void updateQueryInfoWithQueryBundle(QueryInfo.Builder queryInfo, Optional<QueryObjectBundle> queryBundle)
+    protected void updateQueryInfoWithQueryBundle(QueryInfo.Builder queryInfo, Optional<QueryObjectBundle> queryBundle, QueryContext queryContext)
     {
-        super.updateQueryInfoWithQueryBundle(queryInfo, queryBundle);
+        super.updateQueryInfoWithQueryBundle(queryInfo, queryBundle, queryContext);
         queryInfo.setOutputTableName(queryBundle.map(QueryObjectBundle::getObjectName).map(QualifiedName::toString));
     }
 
