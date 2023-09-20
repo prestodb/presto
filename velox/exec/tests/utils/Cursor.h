@@ -52,6 +52,8 @@ struct CursorParameters {
   /// Spilling directory, if not empty, then the task's spilling directory would
   /// be built from it.
   std::string spillDirectory;
+
+  bool copyResult = true;
 };
 
 class TaskQueue {

@@ -254,17 +254,17 @@ PlanBuilder& PlanBuilder::optionalProject(
   return project(optionalProjections);
 }
 
-PlanBuilder& PlanBuilder::project(const std::vector<std::string>& projections) {
+PlanBuilder& PlanBuilder::projectExpressions(
+    const std::vector<std::shared_ptr<const core::IExpr>>& projections) {
   std::vector<core::TypedExprPtr> expressions;
   std::vector<std::string> projectNames;
   for (auto i = 0; i < projections.size(); ++i) {
-    auto untypedExpr = parse::parseExpr(projections[i], options_);
-    expressions.push_back(inferTypes(untypedExpr));
-    if (untypedExpr->alias().has_value()) {
-      projectNames.push_back(untypedExpr->alias().value());
+    expressions.push_back(inferTypes(projections[i]));
+    if (projections[i]->alias().has_value()) {
+      projectNames.push_back(projections[i]->alias().value());
     } else if (
         auto fieldExpr =
-            dynamic_cast<const core::FieldAccessExpr*>(untypedExpr.get())) {
+            dynamic_cast<const core::FieldAccessExpr*>(projections[i].get())) {
       projectNames.push_back(fieldExpr->getFieldName());
     } else {
       projectNames.push_back(fmt::format("p{}", i));
@@ -276,6 +276,14 @@ PlanBuilder& PlanBuilder::project(const std::vector<std::string>& projections) {
       std::move(expressions),
       planNode_);
   return *this;
+}
+
+PlanBuilder& PlanBuilder::project(const std::vector<std::string>& projections) {
+  std::vector<std::shared_ptr<const core::IExpr>> expressions;
+  for (auto i = 0; i < projections.size(); ++i) {
+    expressions.push_back(parse::parseExpr(projections[i], options_));
+  }
+  return projectExpressions(expressions);
 }
 
 PlanBuilder& PlanBuilder::optionalFilter(const std::string& optionalFilter) {

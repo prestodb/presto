@@ -20,6 +20,31 @@
 
 namespace facebook::velox::exec {
 
+// Fast path to avoid copying result.  An alternative way to do this is to
+// ensure that children has null if parent has nulls on corresponding rows,
+// whenever the RowVector is constructed or mutated (eager propagation of
+// nulls).  The current lazy propagation might still be better (more efficient)
+// when adding extra nulls.
+bool FieldReference::addNullsFast(
+    const SelectivityVector& rows,
+    EvalCtx& context,
+    VectorPtr& result,
+    const RowVector* row) {
+  if (result) {
+    return false;
+  }
+  auto& child =
+      inputs_.empty() ? context.getField(index_) : row->childAt(index_);
+  if (row->mayHaveNulls()) {
+    if (!child.unique()) {
+      return false;
+    }
+    addNulls(rows, row->rawNulls(), context, const_cast<VectorPtr&>(child));
+  }
+  result = child;
+  return true;
+}
+
 void FieldReference::apply(
     const SelectivityVector& rows,
     EvalCtx& context,
@@ -28,7 +53,6 @@ void FieldReference::apply(
   DecodedVector decoded;
   VectorPtr input;
   std::shared_ptr<PeeledEncoding> peeledEncoding;
-  VectorRecycler inputRecycler(input, context.vectorPool());
   bool useDecode = false;
   LocalSelectivityVector nonNullRowsHolder(*context.execCtx());
   const SelectivityVector* nonNullRows = &rows;
@@ -82,6 +106,9 @@ void FieldReference::apply(
     VELOX_CHECK(rowType);
     index_ = rowType->getChildIdx(field_);
   }
+  if (!useDecode && addNullsFast(rows, context, result, row)) {
+    return;
+  }
   VectorPtr child =
       inputs_.empty() ? context.getField(index_) : row->childAt(index_);
   if (child->encoding() == VectorEncoding::Simple::LAZY) {
@@ -103,6 +130,7 @@ void FieldReference::apply(
                              type_, context.pool(), child, *nonNullRows))
                        : std::move(child);
   }
+  child.reset();
 
   // Check for nulls in the input struct. Propagate these nulls to 'result'.
   if (!inputs_.empty() && decoded.mayHaveNulls()) {

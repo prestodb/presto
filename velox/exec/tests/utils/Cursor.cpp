@@ -147,9 +147,10 @@ TaskCursor::TaskCursor(const CursorParameters& params)
       params.destination,
       std::move(queryCtx),
       // consumer
-      [queue](RowVectorPtr vector, velox::ContinueFuture* future) {
-        if (!vector) {
-          return queue->enqueue(nullptr, future);
+      [queue, copyResult = params.copyResult](
+          RowVectorPtr vector, velox::ContinueFuture* future) {
+        if (!vector || !copyResult) {
+          return queue->enqueue(vector, future);
         }
         // Make sure to load lazy vector if not loaded already.
         for (auto& child : vector->children()) {

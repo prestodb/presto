@@ -228,6 +228,12 @@ class PlanBuilder {
   /// will produce projected columns named sum_ab, c and p2.
   PlanBuilder& project(const std::vector<std::string>& projections);
 
+  /// Variation of project that takes untyped expressions.  Used for access
+  /// deeply nested types, in which case Duck DB often fails to parse or infer
+  /// the type.
+  PlanBuilder& projectExpressions(
+      const std::vector<std::shared_ptr<const core::IExpr>>& projections);
+
   /// Similar to project() except 'optionalProjections' could be empty and the
   /// function will skip creating a ProjectNode in that case.
   PlanBuilder& optionalProject(
