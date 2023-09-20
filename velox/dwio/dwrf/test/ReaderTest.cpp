@@ -66,6 +66,8 @@ std::unique_ptr<BufferedInput> createFileBufferedInput(
       std::make_shared<LocalReadFile>(path), pool);
 }
 
+// This relies on schema and data inside of our fm_small and fm_large orc files,
+// and is not composeable with other schema/datas
 void verifyFlatMapReading(
     DwrfRowReader* rowReader,
     const int32_t seeks[],
