@@ -32,6 +32,17 @@ public class TestNoisyAggregations
         return TpchQueryRunnerBuilder.builder().build();
     }
 
+    // There is a type issue with the default expectedQueryRunner H2QueryRunner
+    // doing averages as ints instead of floats,
+    // e.g., it returns 3.0 for `SELECT avg(linenumber) FROM lineitem` which should be 3.004270876609888
+    // This override is to make sure that both queryRunner and expectedQueryRunner are the same type of query runner.
+    @Override
+    protected QueryRunner createExpectedQueryRunner()
+            throws Exception
+    {
+        return TpchQueryRunnerBuilder.builder().build();
+    }
+
     @Test
     public void testNoisyCountGaussianZeroNoiseScaleVsNormalCount()
     {
@@ -70,6 +81,24 @@ public class TestNoisyAggregations
         assertQueryWithSingleDoubleRow("SELECT noisy_sum_gaussian(linenumber, 0, 10) FROM lineitem", "SELECT sum(linenumber) FROM lineitem"); // BIGINT
         assertQueryWithSingleDoubleRow("SELECT noisy_sum_gaussian(quantity, 0, 10) FROM lineitem", "SELECT sum(quantity) FROM lineitem"); // DOUBLE
         assertQueryWithSingleDoubleRow("SELECT noisy_sum_gaussian(nationkey, 0, 10) FROM nation", "SELECT sum(nationkey) FROM nation"); // INTEGER
+    }
+
+    @Test
+    public void testNoisyAvgGaussianZeroNoiseScaleVsNormalAvg()
+    {
+        assertQueryWithSingleDoubleRow("SELECT noisy_avg_gaussian(1, 0) FROM lineitem", "SELECT avg(1) FROM lineitem");
+        assertQueryWithSingleDoubleRow("SELECT noisy_avg_gaussian(linenumber, 0) FROM lineitem", "SELECT avg(linenumber) FROM lineitem"); // BIGINT
+        assertQueryWithSingleDoubleRow("SELECT noisy_avg_gaussian(quantity, 0) FROM lineitem", "SELECT avg(quantity) FROM lineitem"); // DOUBLE
+        assertQueryWithSingleDoubleRow("SELECT noisy_avg_gaussian(nationkey, 0) FROM nation", "SELECT avg(nationkey) FROM nation"); // INTEGER
+    }
+
+    @Test
+    public void testNoisyAvgGaussianZeroNoiseScaleRandomSeedVsNormalCount()
+    {
+        assertQueryWithSingleDoubleRow("SELECT noisy_avg_gaussian(1, 0, 10) FROM lineitem", "SELECT avg(1) FROM lineitem");
+        assertQueryWithSingleDoubleRow("SELECT noisy_avg_gaussian(linenumber, 0, 10) FROM lineitem", "SELECT avg(linenumber) FROM lineitem"); // BIGINT
+        assertQueryWithSingleDoubleRow("SELECT noisy_avg_gaussian(quantity, 0, 10) FROM lineitem", "SELECT avg(quantity) FROM lineitem"); // DOUBLE
+        assertQueryWithSingleDoubleRow("SELECT noisy_avg_gaussian(nationkey, 0, 10) FROM nation", "SELECT avg(nationkey) FROM nation"); // INTEGER
     }
 
     private void assertQueryWithSingleDoubleRow(@Language("SQL") String actual, @Language("SQL") String expected)

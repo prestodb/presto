@@ -62,13 +62,24 @@ class BroadcastTest : public exec::test::OperatorTestBase {
         taskId, std::move(planFragment), destination, std::move(queryCtx));
   }
 
-  std::vector<std::string> executeBroadcastWrite(
+  std::pair<RowTypePtr, std::vector<std::string>> executeBroadcastWrite(
       const std::vector<RowVectorPtr>& data,
       const std::string& basePath) {
+    return executeBroadcastWrite(data, basePath, std::nullopt);
+  }
+
+  std::pair<RowTypePtr, std::vector<std::string>> executeBroadcastWrite(
+      const std::vector<RowVectorPtr>& data,
+      const std::string& basePath,
+      const std::optional<std::vector<std::string>>& serdeLayout) {
     auto writerPlan = exec::test::PlanBuilder()
                           .values(data, true)
-                          .addNode(addBroadcastWriteNode(basePath))
+                          .addNode(addBroadcastWriteNode(basePath, serdeLayout))
                           .planNode();
+
+    auto serdeRowType =
+        std::dynamic_pointer_cast<const BroadcastWriteNode>(writerPlan)
+            ->serdeRowType();
 
     exec::test::CursorParameters params;
     params.planNode = writerPlan;
@@ -79,7 +90,8 @@ class BroadcastTest : public exec::test::OperatorTestBase {
       broadcastFilePaths.emplace_back(
           result->childAt(0)->as<SimpleVector<StringView>>()->valueAt(0));
     }
-    return broadcastFilePaths;
+
+    return {serdeRowType, broadcastFilePaths};
   }
 
   std::pair<
@@ -119,14 +131,40 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     });
   }
 
+  std::vector<RowVectorPtr> reorderColumns(
+      const std::vector<RowVectorPtr>& data,
+      const std::optional<std::vector<std::string>>& newLayout,
+      const RowTypePtr& newRowType) {
+    std::vector<RowVectorPtr> reordered;
+    if (!newLayout.has_value()) {
+      return data;
+    }
+
+    for (const auto& vector : data) {
+      auto rowType = asRowType(vector->type());
+      std::vector<VectorPtr> columns;
+      for (const auto& name : newLayout.value()) {
+        columns.push_back(vector->childAt(rowType->getChildIdx(name)));
+      }
+      reordered.push_back(std::make_shared<RowVector>(
+          pool(), newRowType, nullptr /*nulls*/, vector->size(), columns));
+    }
+    return reordered;
+  }
+
   void runBroadcastTest(const std::vector<RowVectorPtr>& data) {
+    runBroadcastTest(data, std::nullopt);
+  }
+
+  void runBroadcastTest(
+      const std::vector<RowVectorPtr>& data,
+      const std::optional<std ::vector<std::string>>& serdeLayout) {
     exec::Operator::registerOperator(
         std::make_unique<BroadcastWriteTranslator>());
 
-    auto dataType = asRowType(data[0]->type());
     auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
-    auto broadcastFilePaths =
-        executeBroadcastWrite(data, tempDirectoryPath->path);
+    auto [serdeRowType, broadcastFilePaths] =
+        executeBroadcastWrite(data, tempDirectoryPath->path, serdeLayout);
 
     // Expect one file for each request.
     ASSERT_EQ(broadcastFilePaths.size(), 1);
@@ -135,24 +173,26 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     ASSERT_EQ(broadcastFilePaths.back().find(tempDirectoryPath->path), 0);
 
     // Read back broadcast data from broadcast file.
-    auto result = getRowVectorFromFile(broadcastFilePaths.back(), dataType);
+    auto result = readFromFile(broadcastFilePaths.back(), serdeRowType);
+
+    auto expected = reorderColumns(data, serdeLayout, serdeRowType);
 
     // Assert data from broadcast file matches input.
-    velox::exec::test::assertEqualResults(data, {result});
+    velox::exec::test::assertEqualResults(expected, {result});
 
     std::vector<RowVectorPtr> actualOutputVectors;
 
     // Read back result.
     auto [broadcastReadCursor, broadcastReadResults] = executeBroadcastRead(
-        dataType, tempDirectoryPath->path, broadcastFilePaths);
+        serdeRowType, tempDirectoryPath->path, broadcastFilePaths);
 
     // Assert its same as data.
-    velox::exec::test::assertEqualResults(data, broadcastReadResults);
+    velox::exec::test::assertEqualResults(expected, broadcastReadResults);
   }
 
-  RowVectorPtr getRowVectorFromFile(
+  RowVectorPtr readFromFile(
       const std::string& filePath,
-      RowTypePtr dataType) {
+      const RowTypePtr& dataType) {
     auto fs = filesystems::getFileSystem(filePath, nullptr);
     auto readFile = fs->openFileForRead(filePath);
     auto buffer =
@@ -199,6 +239,29 @@ TEST_F(BroadcastTest, endToEnd) {
   runBroadcastTest({data});
 }
 
+TEST_F(BroadcastTest, endToEndSerdeLayout) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
+      makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60}),
+      makeFlatVector<std::string>({"1", "2", "3", "4", "abc", "xyz"}),
+  });
+
+  // Serialize columns in reverse order.
+  runBroadcastTest({data}, {{"c2", "c1", "c0"}});
+
+  // Serialize some columns twice.
+  runBroadcastTest({data}, {{"c2", "c1", "c0", "c2"}});
+
+  // Skip some columns.
+  runBroadcastTest({data}, {{"c0", "c2"}});
+
+  // Skip some, duplicate other.
+  runBroadcastTest({data}, {{"c1", "c1", "c2"}});
+
+  // Skip all.
+  runBroadcastTest({data}, {{}});
+}
+
 TEST_F(BroadcastTest, endToEndWithNoRows) {
   std::vector<RowVectorPtr> data = {makeRowVector(
       {makeFlatVector<double>({}), makeArrayVector<int32_t>({})})};
@@ -234,7 +297,8 @@ TEST_F(BroadcastTest, endToEndWithMultipleWriteNodes) {
 
   // Execute write.
   for (auto data : dataVector) {
-    auto results = executeBroadcastWrite({data}, tempDirectoryPath->path);
+    auto [serdeRowType, results] =
+        executeBroadcastWrite({data}, tempDirectoryPath->path);
     broadcastFilePaths.emplace_back(results[0]);
   }
 

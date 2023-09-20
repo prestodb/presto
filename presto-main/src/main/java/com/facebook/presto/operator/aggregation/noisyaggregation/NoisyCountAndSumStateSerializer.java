@@ -23,8 +23,8 @@ import io.airlift.slice.Slices;
 
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 
-public class NoisySumStateSerializer
-        implements AccumulatorStateSerializer<NoisySumState>
+public class NoisyCountAndSumStateSerializer
+        implements AccumulatorStateSerializer<NoisyCountAndSumState>
 {
     @Override
     public Type getSerializedType()
@@ -33,19 +33,19 @@ public class NoisySumStateSerializer
     }
 
     @Override
-    public void serialize(NoisySumState state, BlockBuilder out)
+    public void serialize(NoisyCountAndSumState state, BlockBuilder out)
     {
-        SliceOutput output = Slices.allocate(NoisySumState.calculateSerializationCapacity())
+        SliceOutput output = Slices.allocate(NoisyCountAndSumState.calculateSerializationCapacity())
                 .getOutput();
-        NoisySumState.writeToSerializer(state, output);
+        NoisyCountAndSumState.writeToSerializer(state, output);
 
         VARBINARY.writeSlice(out, output.slice());
     }
 
     @Override
-    public void deserialize(Block block, int index, NoisySumState state)
+    public void deserialize(Block block, int index, NoisyCountAndSumState state)
     {
         SliceInput input = VARBINARY.getSlice(block, index).getInput();
-        NoisySumState.readFromSerializer(state, input);
+        NoisyCountAndSumState.readFromSerializer(state, input);
     }
 }

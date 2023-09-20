@@ -194,6 +194,8 @@ dwio::common::FileFormat toFileFormat(
       return dwio::common::FileFormat::DWRF;
     case protocol::HiveStorageFormat::PARQUET:
       return dwio::common::FileFormat::PARQUET;
+    case protocol::HiveStorageFormat::ALPHA:
+      return dwio::common::FileFormat::ALPHA;
     default:
       VELOX_UNSUPPORTED(
           "Unsupported file format in {}: {}.",
@@ -1992,13 +1994,22 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
   auto joinType = toJoinType(node->type);
-
-  if (node->criteria.empty() && core::isInnerJoin(joinType) && !node->filter) {
-    return std::make_shared<core::NestedLoopJoinNode>(
-        node->id,
-        toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
-        toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
-        toRowType(node->outputVariables));
+  if (node->criteria.empty()) {
+    const bool isNestedJoinType = core::isInnerJoin(joinType) ||
+        core::isLeftJoin(joinType) || core::isRightJoin(joinType) ||
+        core::isFullJoin(joinType);
+    if (isNestedJoinType) {
+      return std::make_shared<core::NestedLoopJoinNode>(
+          node->id,
+          joinType,
+          node->filter ? exprConverter_.toVeloxExpr(*node->filter) : nullptr,
+          toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
+          toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
+          toRowType(node->outputVariables));
+    }
+    VELOX_UNSUPPORTED(
+        "JoinNode has empty criteria that cannot be "
+        "satisfied by NestedJoinNode or HashJoinNode");
   }
 
   std::vector<core::FieldAccessTypedExprPtr> leftKeys;
@@ -2845,6 +2856,7 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
     auto broadcastWriteNode = std::make_shared<operators::BroadcastWriteNode>(
         fmt::format("{}.bw", partitionedOutputNode->id()),
         *broadcastBasePath_,
+        partitionedOutputNode->outputType(),
         core::LocalPartitionNode::gather(
             "broadcast-write-gather",
             std::vector<core::PlanNodePtr>{partitionedOutputNode->sources()}));

@@ -22,12 +22,14 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 
 /**
- * State class for noisy sum aggregation.
- * This class extends noisy count state to store the number of input rows explicitly
- * so that NULL can be returned if there is no input rows.
+ * State class for noisy sum and noisy avg aggregations.
+ * This class extends noisy count state to store the number of input rows explicitly.
+ * That count is used to compute noisy average.
+ * In the case of noisy sum, if there is no input rows, NULL should be returned
+ * and that count is used to check that condition.
  */
-@AccumulatorStateMetadata(stateSerializerClass = NoisySumStateSerializer.class)
-public interface NoisySumState
+@AccumulatorStateMetadata(stateSerializerClass = NoisyCountAndSumStateSerializer.class)
+public interface NoisyCountAndSumState
         extends NoisyCountState
 {
     @InitialBooleanValue(true)
@@ -62,7 +64,7 @@ public interface NoisySumState
                 SIZE_OF_DOUBLE; // sum
     }
 
-    static void writeToSerializer(NoisySumState state, SliceOutput output)
+    static void writeToSerializer(NoisyCountAndSumState state, SliceOutput output)
     {
         NoisyCountState.writeToSerializer(state, output);
 
@@ -74,7 +76,7 @@ public interface NoisySumState
         output.appendDouble(state.getSum());
     }
 
-    static void readFromSerializer(NoisySumState state, SliceInput input)
+    static void readFromSerializer(NoisyCountAndSumState state, SliceInput input)
     {
         NoisyCountState.readFromSerializer(state, input);
 
