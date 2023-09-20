@@ -20,13 +20,10 @@
 
 namespace facebook::velox::exec {
 
-void FieldReference::evalSpecialForm(
+void FieldReference::apply(
     const SelectivityVector& rows,
     EvalCtx& context,
     VectorPtr& result) {
-  if (result) {
-    context.ensureWritable(rows, type_, result);
-  }
   const RowVector* row;
   DecodedVector decoded;
   VectorPtr input;
@@ -111,6 +108,15 @@ void FieldReference::evalSpecialForm(
   if (!inputs_.empty() && decoded.mayHaveNulls()) {
     addNulls(rows, decoded.nulls(), context, result);
   }
+}
+
+void FieldReference::evalSpecialForm(
+    const SelectivityVector& rows,
+    EvalCtx& context,
+    VectorPtr& result) {
+  VectorPtr localResult;
+  apply(rows, context, localResult);
+  context.moveOrCopyResult(localResult, rows, result);
 }
 
 void FieldReference::evalSpecialFormSimplified(

@@ -245,6 +245,12 @@ class EvalCtx {
     peeledEncoding_ = std::move(peel);
   }
 
+  bool resultShouldBePreserved(
+      const VectorPtr& result,
+      const SelectivityVector& rows) const {
+    return result && !isFinalSelection() && *finalSelection() != rows;
+  }
+
   // Copy "rows" of localResult into results if "result" is partially populated
   // and must be preserved. Copy localResult pointer into result otherwise.
   void moveOrCopyResult(
@@ -257,7 +263,7 @@ class EvalCtx {
       localResult->validate();
     }
 #endif
-    if (result && !isFinalSelection() && *finalSelection() != rows) {
+    if (resultShouldBePreserved(result, rows)) {
       BaseVector::ensureWritable(rows, result->type(), result->pool(), result);
       result->copy(localResult.get(), rows, nullptr);
     } else {
