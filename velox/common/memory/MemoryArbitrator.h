@@ -26,6 +26,8 @@ namespace facebook::velox::memory {
 
 class MemoryPool;
 
+using MemoryArbitrationStateCheckCB = std::function<void(MemoryPool&)>;
+
 /// The memory arbitrator interface. There is one memory arbitrator object per
 /// memory manager which is responsible for arbitrating memory usage among the
 /// query memory pools for query memory isolation. When a memory pool exceeds
@@ -59,6 +61,14 @@ class MemoryArbitrator {
     /// The minimal memory capacity to transfer out of or into a memory pool
     /// during the memory arbitration.
     uint64_t memoryPoolTransferCapacity{32 << 20};
+
+    /// Provided by the query system to validate the state after a memory pool
+    /// enters arbitration if not null. For instance, Prestissimo provides
+    /// callback to check if a memory arbitration request is issued from a
+    /// driver thread, then the driver should be put in suspended state to avoid
+    /// the potential deadlock when reclaim memory from the task of the request
+    /// memory pool.
+    MemoryArbitrationStateCheckCB arbitrationStateCheckCb{nullptr};
   };
 
   using Factory = std::function<std::unique_ptr<MemoryArbitrator>(
@@ -207,11 +217,13 @@ class MemoryArbitrator {
   explicit MemoryArbitrator(const Config& config)
       : capacity_(config.capacity),
         memoryPoolInitCapacity_(config.memoryPoolInitCapacity),
-        memoryPoolTransferCapacity_(config.memoryPoolTransferCapacity) {}
+        memoryPoolTransferCapacity_(config.memoryPoolTransferCapacity),
+        arbitrationStateCheckCb_(config.arbitrationStateCheckCb) {}
 
   const uint64_t capacity_;
   const uint64_t memoryPoolInitCapacity_;
   const uint64_t memoryPoolTransferCapacity_;
+  const MemoryArbitrationStateCheckCB arbitrationStateCheckCb_;
 };
 
 FOLLY_ALWAYS_INLINE std::ostream& operator<<(

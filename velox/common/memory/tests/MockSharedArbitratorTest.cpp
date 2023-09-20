@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 
+#include <re2/re2.h>
 #include <deque>
-
 #include "folly/experimental/EventCount.h"
 #include "folly/futures/Barrier.h"
 #include "velox/common/base/tests/GTestUtils.h"
@@ -362,7 +362,7 @@ MockMemoryOperator* MockTask::addMemoryOp(
     ArbitrationInjectionCallback arbitrationInjectCb) {
   ops_.push_back(std::make_shared<MockMemoryOperator>());
   pools_.push_back(root_->addLeafChild(
-      std::to_string(poolId_++),
+      fmt::format("MockTask{}", poolId_++),
       true,
       std::make_unique<MockMemoryOperator::MemoryReclaimer>(
           ops_.back(),
@@ -398,7 +398,8 @@ class MockSharedArbitrationTest : public testing::Test {
   void setupMemory(
       int64_t memoryCapacity = 0,
       uint64_t memoryPoolInitCapacity = kMaxMemory,
-      uint64_t memoryPoolTransferCapacity = 0) {
+      uint64_t memoryPoolTransferCapacity = 0,
+      std::function<void(MemoryPool&)> arbitrationStateCheckCb = nullptr) {
     if (memoryPoolInitCapacity == kMaxMemory) {
       memoryPoolInitCapacity = kMemoryPoolInitCapacity;
     }
@@ -415,6 +416,7 @@ class MockSharedArbitrationTest : public testing::Test {
     options.capacity = options.capacity;
     options.memoryPoolInitCapacity = memoryPoolInitCapacity;
     options.memoryPoolTransferCapacity = memoryPoolTransferCapacity;
+    options.arbitrationStateCheckCb = std::move(arbitrationStateCheckCb);
     options.checkUsageLeak = true;
     manager_ = std::make_unique<MemoryManager>(options);
     ASSERT_EQ(manager_->arbitrator()->kind(), arbitratorKind);
@@ -514,6 +516,47 @@ TEST_F(MockSharedArbitrationTest, constructor) {
   tasks.clear();
   stats = arbitrator_->stats();
   verifyArbitratorStats(stats, kMemoryCapacity, kMemoryCapacity);
+}
+
+TEST_F(MockSharedArbitrationTest, arbitrationStateCheck) {
+  const int memCapacity = 256 * MB;
+  const int minPoolCapacity = 32 * MB;
+  std::atomic<int> checkCount{0};
+  MemoryArbitrationStateCheckCB checkCountCb = [&](MemoryPool& pool) {
+    const std::string re("MockTask.*");
+    ASSERT_TRUE(RE2::FullMatch(pool.name(), re));
+    ++checkCount;
+  };
+  setupMemory(memCapacity, 0, 0, checkCountCb);
+
+  const int numTasks{5};
+  std::vector<std::shared_ptr<MockTask>> tasks;
+  for (int i = 0; i < numTasks; ++i) {
+    auto task = addTask(kMemoryCapacity);
+    ASSERT_EQ(task->capacity(), 0);
+    tasks.push_back(std::move(task));
+  }
+  std::vector<void*> buffers;
+  std::vector<MockMemoryOperator*> memOps;
+  for (int i = 0; i < numTasks; ++i) {
+    memOps.push_back(tasks[i]->addMemoryOp());
+    buffers.push_back(memOps.back()->allocate(128));
+  }
+  ASSERT_EQ(numTasks, checkCount);
+  for (int i = 0; i < numTasks; ++i) {
+    memOps[i]->freeAll();
+  }
+  tasks.clear();
+
+  // Check throw in arbitration state callback.
+  MemoryArbitrationStateCheckCB badCheckCb = [&](MemoryPool& /*unused*/) {
+    VELOX_FAIL("bad check");
+  };
+  setupMemory(memCapacity, 0, 0, badCheckCb);
+  std::shared_ptr<MockTask> task = addTask(kMemoryCapacity);
+  ASSERT_EQ(task->capacity(), 0);
+  MockMemoryOperator* memOp = task->addMemoryOp();
+  VELOX_ASSERT_THROW(memOp->allocate(128), "bad check");
 }
 
 TEST_F(MockSharedArbitrationTest, arbitrationFailsTask) {

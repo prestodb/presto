@@ -29,6 +29,7 @@
 #include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/core/PlanNode.h"
+#include "velox/exec/Driver.h"
 #include "velox/exec/HashBuild.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/Values.h"
@@ -249,6 +250,39 @@ class FakeMemoryOperatorFactory : public Operator::PlanNodeTranslator {
   uint32_t maxDrivers_{1};
 };
 
+class FakeMemoryReclaimer : public MemoryReclaimer {
+ public:
+  FakeMemoryReclaimer() = default;
+
+  static std::unique_ptr<MemoryReclaimer> create() {
+    return std::make_unique<FakeMemoryReclaimer>();
+  }
+
+  void enterArbitration() override {
+    auto* driverThreadCtx = driverThreadContext();
+    if (driverThreadCtx == nullptr) {
+      return;
+    }
+    auto* driver = driverThreadCtx->driverCtx.driver;
+    ASSERT_TRUE(driver != nullptr);
+    if (driver->task()->enterSuspended(driver->state()) != StopReason::kNone) {
+      // There is no need for arbitration if the associated task has already
+      // terminated.
+      VELOX_FAIL("Terminate detected when entering suspension");
+    }
+  }
+
+  void leaveArbitration() noexcept override {
+    auto* driverThreadCtx = driverThreadContext();
+    if (driverThreadCtx == nullptr) {
+      return;
+    }
+    auto* driver = driverThreadCtx->driverCtx.driver;
+    ASSERT_TRUE(driver != nullptr);
+    driver->task()->leaveSuspended(driver->state());
+  }
+};
+
 class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
  protected:
   static void SetUpTestCase() {
@@ -297,6 +331,17 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
     options.memoryPoolInitCapacity = memoryPoolInitCapacity;
     options.memoryPoolTransferCapacity = memoryPoolTransferCapacity;
     options.checkUsageLeak = true;
+    options.arbitrationStateCheckCb = [](MemoryPool& pool) {
+      const auto* driverThreadCtx = driverThreadContext();
+      if (driverThreadCtx != nullptr) {
+        if (!driverThreadCtx->driverCtx.driver->state().isSuspended) {
+          LOG(ERROR)
+              << "false "
+              << driverThreadCtx->driverCtx.driver->state().toJsonString();
+        }
+        ASSERT_TRUE(driverThreadCtx->driverCtx.driver->state().isSuspended);
+      }
+    };
     memoryManager_ = std::make_unique<MemoryManager>(options);
     ASSERT_EQ(memoryManager_->arbitrator()->kind(), "SHARED");
     arbitrator_ = static_cast<SharedArbitrator*>(memoryManager_->arbitrator());
@@ -1844,7 +1889,8 @@ DEBUG_ONLY_TEST_F(
 
   std::shared_ptr<core::QueryCtx> queryCtx = newQueryCtx(kMemoryCapacity);
   std::shared_ptr<core::QueryCtx> fakeCtx = newQueryCtx(kMemoryCapacity);
-  auto fakePool = fakeCtx->pool()->addLeafChild("fakePool");
+  auto fakePool = fakeCtx->pool()->addLeafChild(
+      "fakePool", true, FakeMemoryReclaimer::create());
   std::vector<std::unique_ptr<TestAllocation>> injectAllocations;
   std::atomic<bool> injectAllocationOnce{true};
   SCOPED_TESTVALUE_SET(
@@ -2149,7 +2195,8 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenMaybeReserveAndTaskAbort) {
 
   // Create a fake query to hold some memory to trigger memory arbitration.
   auto fakeQueryCtx = newQueryCtx(kMemoryCapacity);
-  auto fakeLeafPool = fakeQueryCtx->pool()->addLeafChild("fakeLeaf");
+  auto fakeLeafPool = fakeQueryCtx->pool()->addLeafChild(
+      "fakeLeaf", true, FakeMemoryReclaimer::create());
   TestAllocation fakeAllocation{
       fakeLeafPool.get(),
       fakeLeafPool->allocate(kMemoryCapacity / 3),

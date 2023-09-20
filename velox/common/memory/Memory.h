@@ -110,6 +110,14 @@ struct MemoryManagerOptions {
   /// The minimal memory capacity to transfer out of or into a memory pool
   /// during the memory arbitration.
   uint64_t memoryPoolTransferCapacity{32 << 20};
+
+  /// Provided by the query system to validate the state after a memory pool
+  /// enters arbitration if not null. For instance, Prestissimo provides
+  /// callback to check if a memory arbitration request is issued from a driver
+  /// thread, then the driver should be put in suspended state to avoid the
+  /// potential deadlock when reclaim memory from the task of the request memory
+  /// pool.
+  MemoryArbitrationStateCheckCB arbitrationStateCheckCb{nullptr};
 };
 
 /// 'MemoryManager' is responsible for managing the memory pools. For now, users

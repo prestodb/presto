@@ -517,6 +517,9 @@ SharedArbitrator::ScopedArbitration::ScopedArbitration(
   VELOX_CHECK_NOT_NULL(requestor_);
   VELOX_CHECK_NOT_NULL(arbitrator_);
   arbitrator_->startArbitration(requestor);
+  if (arbitrator_->arbitrationStateCheckCb_ != nullptr) {
+    arbitrator_->arbitrationStateCheckCb_(*requestor);
+  }
 }
 
 SharedArbitrator::ScopedArbitration::~ScopedArbitration() {
