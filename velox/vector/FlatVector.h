@@ -140,15 +140,43 @@ class FlatVector final : public SimpleVector<T> {
     return values_;
   }
 
+  /// Ensures that 'values_' is singly-referenced and has space for 'size'
+  /// elements. Sets elements between the old and new sizes to T() if
+  /// the new size > old size.
+  ///
+  /// If 'values_' is nullptr, read-only, not uniquely-referenced, or doesn't
+  /// have capacity for 'size' elements allocates new buffer and copies data to
+  /// it. Updates 'rawValues_' to point to element 0 of
+  /// values_->as<T>().
   BufferPtr mutableValues(vector_size_t size) {
-    // TODO: change this to isMutable(). See
-    // https://github.com/facebookincubator/velox/issues/6562.
-    if (values_ && !values_->isView() &&
-        values_->capacity() >= BaseVector::byteSize<T>(size)) {
-      return values_;
+    const auto numNewBytes = BaseVector::byteSize<T>(size);
+    if (values_ && !values_->isView() && values_->unique()) {
+      if (values_->size() < numNewBytes) {
+        AlignedBuffer::reallocate<T>(&values_, size, T());
+      }
+    } else {
+      BufferPtr newValues =
+          AlignedBuffer::allocate<T>(size, BaseVector::pool(), T());
+      if (values_) {
+        const auto numCopyBytes =
+            std::min<vector_size_t>(values_->size(), numNewBytes);
+        if constexpr (!std::is_same_v<T, bool>) {
+          auto dst = newValues->asMutable<char>();
+          auto src = values_->as<char>();
+          memcpy(dst, src, numCopyBytes);
+        } else {
+          auto dst = newValues->asMutable<T>();
+          auto src = values_->as<T>();
+          if (Buffer::is_pod_like_v<T>) {
+            memcpy(dst, src, numCopyBytes);
+          } else {
+            std::copy(src, src + numCopyBytes / sizeof(T), dst);
+          }
+        }
+      }
+      values_ = newValues;
     }
 
-    values_ = AlignedBuffer::allocate<T>(size, BaseVector::pool_);
     rawValues_ = values_->asMutable<T>();
     return values_;
   }
