@@ -18,6 +18,7 @@
 
 #include "velox/dwio/parquet/writer/arrow/ColumnWriter.h"
 
+#include <glog/logging.h>
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
