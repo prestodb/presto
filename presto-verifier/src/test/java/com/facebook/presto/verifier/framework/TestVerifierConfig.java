@@ -50,7 +50,8 @@ public class TestVerifierConfig
                 .setExplain(false)
                 .setConcurrentControlAndTest(false)
                 .setRunningMode("control-test")
-                .setSaveSnapshot(false));
+                .setSaveSnapshot(false)
+                .setNonDeterministicFunctionSubstitutes(null));
     }
 
     @Test
@@ -80,6 +81,7 @@ public class TestVerifierConfig
                 .put("concurrent-control-and-test", "true")
                 .put("running-mode", "query-bank")
                 .put("save-snapshot", "true")
+                .put("nondeterministic-function-substitutes", "/approx_distinct(c)/count(c)/")
                 .build();
         VerifierConfig expected = new VerifierConfig()
                 .setWhitelist("a,b,c")
@@ -104,7 +106,8 @@ public class TestVerifierConfig
                 .setExplain(true)
                 .setConcurrentControlAndTest(true)
                 .setRunningMode("query-bank")
-                .setSaveSnapshot(true);
+                .setSaveSnapshot(true)
+                .setNonDeterministicFunctionSubstitutes("/approx_distinct(c)/count(c)/");
 
         assertFullMapping(properties, expected);
     }

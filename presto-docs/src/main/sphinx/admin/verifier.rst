@@ -114,6 +114,8 @@ The following steps summarize the workflow of Verifier.
        * Artificial names are used for unnamed columns.
     * Rewrites ``Insert`` and ``CreateTableAsSelect`` queries to have their table names replaced.
        * Constructs a setup query to create the table necessary for an ``Insert`` query.
+    * Rewrites nondeterministic function calls according to ``nondeterministic-function-substitutes``
+      if the configuration is set.
 
 * **Query Execution**
     * Conceptually, Verifier is configured with a control cluster and a test cluster. However, they
@@ -286,6 +288,16 @@ Name                                        Description
 ``running-mode``                            Set to ``query-bank`` to make the Verifier run in ``query-bank`` mode. Supports
                                             ``query-bank`` and ``control-test``. Defaults to ``control-test``.
 ``save-snapshot``                           Set to ``true`` to save checksums to ``mysql`` database.
+``nondeterministic-function-substitutes``   Specification of substituting nondeterministic functions with deterministic functions,
+                                            in the format of ```/foo(c0,c1)/bar(c0)/,/fred(c0,c1)/baz(qux(c1,c0))/,...``,
+                                            where ``foo`` would be substituted by ``bar`` with arguments applied
+                                            to the corresponding positions. For example,
+                                            ```/approx_percentile(x,y)/avg(x)/,/array_agg(z)/array_sort(array_agg(z))/```.
+
+                                            Make sure to select a deterministic function that has the return type and
+                                            argument types compatible with those of the nondeterministic function.
+                                            Declare nondeterministic function arguments as identifiers if they need to be
+                                            applied to the deterministic function.
 =========================================== ===============================================================================
 
 

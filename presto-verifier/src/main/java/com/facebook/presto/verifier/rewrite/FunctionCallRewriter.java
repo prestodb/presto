@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.rewrite;
 
 import com.facebook.presto.sql.ExpressionFormatter;
+import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -102,14 +103,16 @@ public class FunctionCallRewriter
         return functionCallSubstituteMap.isEmpty() ? null : new FunctionCallRewriter(functionCallSubstituteMap);
     }
 
-    public static boolean validateFunctionCallSubstitutes(String functionCallSubstitutes)
+    public static void validateFunctionCallSubstitutes(String functionCallSubstitutes)
     {
         if (functionCallSubstitutes == null) {
-            return false;
+            return;
         }
 
         Matcher matcher = FUNCTION_CALL_SUBSTITUTION_PATTERN.matcher(functionCallSubstitutes);
-        return matcher.find();
+        if (!matcher.find()) {
+            throw new ParsingException(String.format("Function call substitutes %s is not in a valid format.", functionCallSubstitutes));
+        }
     }
 
     public static Map<QualifiedName, FunctionCallSubstitute> constructFunctionCallSubstituteMap(String functionCallSubstitutes)
@@ -149,7 +152,7 @@ public class FunctionCallRewriter
         return processedFunctionCallSubstitutes.stream().map(functionCallSubstitute -> {
                     String formattedOriginal = ExpressionFormatter.formatExpression(functionCallSubstitute.get(0), Optional.empty());
                     String formattedSubstitute = ExpressionFormatter.formatExpression(functionCallSubstitute.get(1), Optional.empty());
-                    return String.format("% is substituted with %s", formattedOriginal, formattedSubstitute);
+                    return String.format("%s is substituted with %s", formattedOriginal, formattedSubstitute);
                 }
         ).collect(Collectors.joining(", "));
     }
@@ -164,11 +167,11 @@ public class FunctionCallRewriter
             @Override
             public Expression rewriteFunctionCall(FunctionCall expression, Void voidContext, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                if (!functionCallSubstituteMap.containsKey(expression.getName())) {
-                    return expression;
-                }
-
                 FunctionCall defaultRewrite = treeRewriter.defaultRewrite(expression, voidContext);
+
+                if (!functionCallSubstituteMap.containsKey(expression.getName())) {
+                    return defaultRewrite;
+                }
 
                 FunctionCallSubstitute substitute = functionCallSubstituteMap.get(expression.getName());
                 List<Expression> originalArguments = expression.getArguments();
