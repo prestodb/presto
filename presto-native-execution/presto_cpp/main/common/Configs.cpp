@@ -142,21 +142,32 @@ ConfigBase::ConfigBase()
     : config_(std::make_unique<velox::core::MemConfig>()) {}
 
 void ConfigBase::initialize(const std::string& filePath) {
-  // See if we want to create a mutable config.
-  auto values = util::readConfig(fs::path(filePath));
+  auto propMapFromFile = util::readConfig(fs::path(filePath));
   filePath_ = filePath;
-  checkRegisteredProperties(values);
+  checkRegisteredProperties(propMapFromFile);
 
+  // See if we want to create a mutable config.
   bool mutableConfig{false};
-  auto it = values.find(std::string(kMutableConfig));
-  if (it != values.end()) {
+  auto it = propMapFromFile.find(std::string(kMutableConfig));
+  if (it != propMapFromFile.end()) {
     mutableConfig = folly::to<bool>(it->second);
   }
 
+  std::unordered_map<std::string, std::string> configMap;
+  for (const auto& prop : registeredProps_) {
+    if (prop.second.hasValue()) {
+      configMap[prop.first] = prop.second.value();
+    }
+  }
+  // Config from file would overwrite the value from registeredProps_.
+  for (const auto& prop : propMapFromFile) {
+    configMap[prop.first] = prop.second;
+  }
+
   if (mutableConfig) {
-    config_ = std::make_unique<velox::core::MemConfigMutable>(values);
+    config_ = std::make_unique<velox::core::MemConfigMutable>(configMap);
   } else {
-    config_ = std::make_unique<velox::core::MemConfig>(values);
+    config_ = std::make_unique<velox::core::MemConfig>(configMap);
   };
 }
 
@@ -256,6 +267,9 @@ SystemConfig::SystemConfig() {
           STR_PROP(kUseMmapAllocator, "true"),
           STR_PROP(kMemoryArbitratorKind, ""),
           NUM_PROP(kQueryMemoryGb, 38),
+          NUM_PROP(kMemoryPoolInitCapacity, 128 << 20),
+          NUM_PROP(kMemoryPoolTransferCapacity, 32 << 20),
+          BOOL_PROP(kEnableSystemMemoryPoolUsageTracking, true),
           STR_PROP(kEnableVeloxTaskLogging, "false"),
           STR_PROP(kEnableVeloxExprSetLogging, "false"),
           NUM_PROP(kLocalShuffleMaxPartitionBytes, 268435456),
@@ -473,20 +487,15 @@ int32_t SystemConfig::queryMemoryGb() const {
 }
 
 uint64_t SystemConfig::memoryPoolInitCapacity() const {
-  static constexpr uint64_t kMemoryPoolInitCapacityDefault = 128 << 20;
-  return optionalProperty<uint64_t>(kMemoryPoolInitCapacity)
-      .value_or(kMemoryPoolInitCapacityDefault);
+  return optionalProperty<uint64_t>(kMemoryPoolInitCapacity).value();
 }
 
 uint64_t SystemConfig::memoryPoolTransferCapacity() const {
-  static constexpr uint64_t kMemoryPoolTransferCapacityDefault = 32 << 20;
-  return optionalProperty<uint64_t>(kMemoryPoolTransferCapacity)
-      .value_or(kMemoryPoolTransferCapacityDefault);
+  return optionalProperty<uint64_t>(kMemoryPoolTransferCapacity).value();
 }
 
 bool SystemConfig::enableSystemMemoryPoolUsageTracking() const {
-  return optionalProperty<bool>(kEnableSystemMemoryPoolUsageTracking)
-      .value_or(true);
+  return optionalProperty<bool>(kEnableSystemMemoryPoolUsageTracking).value();
 }
 
 bool SystemConfig::enableHttpAccessLog() const {
