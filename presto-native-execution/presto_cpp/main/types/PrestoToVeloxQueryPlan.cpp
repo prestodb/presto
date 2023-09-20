@@ -2856,6 +2856,7 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
     auto broadcastWriteNode = std::make_shared<operators::BroadcastWriteNode>(
         fmt::format("{}.bw", partitionedOutputNode->id()),
         *broadcastBasePath_,
+        partitionedOutputNode->outputType(),
         core::LocalPartitionNode::gather(
             "broadcast-write-gather",
             std::vector<core::PlanNodePtr>{partitionedOutputNode->sources()}));

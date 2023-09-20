@@ -35,10 +35,15 @@ class BroadcastWriteOperator : public Operator {
             planNode->outputType(),
             operatorId,
             planNode->id(),
-            "BroadcastWrite") {
+            "BroadcastWrite"),
+        serdeRowType_{planNode->serdeRowType()},
+        serdeChannels_(calculateOutputChannels(
+            planNode->inputType(),
+            planNode->serdeRowType(),
+            planNode->serdeRowType())) {
     auto fileBroadcast = BroadcastFactory(planNode->basePath());
     fileBroadcastWriter_ = fileBroadcast.createWriter(
-        operatorCtx_->pool(), planNode->sources().back()->outputType());
+        operatorCtx_->pool(), planNode->serdeRowType());
   }
 
   bool needsInput() const override {
@@ -46,7 +51,25 @@ class BroadcastWriteOperator : public Operator {
   }
 
   void addInput(RowVectorPtr input) override {
-    fileBroadcastWriter_->collect(input);
+    RowVectorPtr reorderedInput = nullptr;
+    if (serdeRowType_->size() > 0 && serdeChannels_.empty()) {
+      reorderedInput = std::move(input);
+    } else {
+      std::vector<VectorPtr> outputColumns;
+      outputColumns.reserve(serdeChannels_.size());
+      for (auto i : serdeChannels_) {
+        outputColumns.push_back(input->childAt(i));
+      }
+
+      reorderedInput = std::make_shared<RowVector>(
+          input->pool(),
+          serdeRowType_,
+          nullptr /*nulls*/,
+          input->size(),
+          outputColumns);
+    }
+
+    fileBroadcastWriter_->collect(reorderedInput);
   }
 
   void noMoreInput() override {
@@ -72,6 +95,11 @@ class BroadcastWriteOperator : public Operator {
   }
 
  private:
+  // May be empty.
+  const RowTypePtr serdeRowType_;
+  // Empty if column order in the serdeRowType_ is exactly the same as in input
+  // or serdeRowType_ has no columns.
+  const std::vector<column_index_t> serdeChannels_;
   std::unique_ptr<BroadcastFileWriter> fileBroadcastWriter_;
   bool finished_{false};
 };
@@ -81,6 +109,7 @@ folly::dynamic BroadcastWriteNode::serialize() const {
   auto obj = PlanNode::serialize();
   obj["broadcastWriteBasePath"] =
       ISerializable::serialize<std::string>(basePath_);
+  obj["rowType"] = serdeRowType_->serialize();
   obj["sources"] = ISerializable::serialize(sources_);
   return obj;
 }
@@ -92,6 +121,7 @@ velox::core::PlanNodePtr BroadcastWriteNode::create(
       deserializePlanNodeId(obj),
       ISerializable::deserialize<std::string>(
           obj["broadcastWriteBasePath"], context),
+      ISerializable::deserialize<RowType>(obj["rowType"]),
       ISerializable::deserialize<std::vector<velox::core::PlanNode>>(
           obj["sources"], context)[0]);
 }
