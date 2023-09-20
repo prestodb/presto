@@ -31,6 +31,11 @@ public class CreateMaterializedView
     private final List<Property> properties;
     private final Optional<String> comment;
 
+    public CreateMaterializedView(QualifiedName name, Query query, boolean notExists, List<Property> properties, Optional<String> comment)
+    {
+        this(Optional.empty(), name, query, notExists, properties, comment);
+    }
+
     public CreateMaterializedView(Optional<NodeLocation> location, QualifiedName name, Query query, boolean notExists, List<Property> properties, Optional<String> comment)
     {
         super(location);
