@@ -110,17 +110,18 @@ StripeInformationWrapper StripeReaderBase::loadStripe(
   auto stripe = footer.stripes(index);
 
   fetchStripe(index, preload);
-  prefetchedStripes_.withWLock([&](auto& prefetchedStripes) {
-    auto prefetchedStatesIt = prefetchedStripes.find(index);
-    DWIO_ENSURE(prefetchedStatesIt != prefetchedStripes.end());
-    auto prefetchedStripeBase = prefetchedStatesIt->second;
-    footer_ = prefetchedStripeBase->footer;
-    stripeInput_ = std::move(prefetchedStripeBase->stripeInput);
-    // refresh stripe encryption key if necessary
-    loadEncryptionKeys(index);
-    lastStripeIndex_ = index;
-  });
+  auto prefetchedStripeBase =
+      prefetchedStripes_.withRLock([&](auto& prefetchedStripes) {
+        auto prefetchedStatesIt = prefetchedStripes.find(index);
+        DWIO_ENSURE(prefetchedStatesIt != prefetchedStripes.end());
+        return prefetchedStatesIt->second;
+      });
 
+  footer_ = prefetchedStripeBase->footer;
+  stripeInput_ = std::move(prefetchedStripeBase->stripeInput);
+  // refresh stripe encryption key if necessary
+  loadEncryptionKeys(index);
+  lastStripeIndex_ = index;
   return stripe;
 }
 

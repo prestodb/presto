@@ -151,40 +151,25 @@ class DwrfRowReader : public StrideIndexProvider,
     std::shared_ptr<StripeDictionaryCache> stripeDictionaryCache;
   };
 
-  /*
-  Lock hierarchy is as such:
-  - Any synchronized member can be read to or written from when
-  prefetchAndSeekMutex_ is held, through the client calling other functions
-  asynchronously during a call to seekToRow or prefetch.
-  - loadRequestIssued_ is locked for write, prefetchedStripeStates_ is locked
-  for read and write, and a baton is posted when startNextStripeMutex_ is held.
-  - Any of the synchronized members can be acquired while another synchronized
-  member has been acquired, via asynchronous calls to startNextStripe() or
-  prefetch()
-  */
-
+  // stripeLoadStatuses_ and prefetchedStripeStates_ will never be acquired
+  // simultaneously on the same thread.
   // Key is stripe index
   folly::Synchronized<folly::F14FastMap<uint32_t, PrefetchedStripeState>>
       prefetchedStripeStates_;
-
-  // Currently, seek logic relies on reloading the stripe every time the row is
-  // seeked to, even if the row was present in the already loaded stripe. This
-  // is a temporary flag to disable seek on a reader which has already
-  // prefetched, until we implement a good way to support both.
-  bool prefetchHasOccurred_{false};
-
-  // Used to indicate which stripes are finished loading. If stripeLoadBatons[i]
-  // is posted, it means the ith stripe has finished loading
-  std::vector<std::unique_ptr<folly::Baton<>>> stripeLoadBatons_;
 
   // Indicates the status of load requests. The ith element in
   // stripeLoadStatuses_ represents the status of the ith stripe.
   folly::Synchronized<std::vector<FetchStatus>> stripeLoadStatuses_;
 
-  // Used to lock when altering state in startNextStripe
-  std::mutex startNextStripeMutex_;
-  // Used to ensure we do not issue a prefetch during a seek, or vice versa
-  std::mutex prefetchAndSeekMutex_;
+  // Currently, seek logic relies on reloading the stripe every time the row is
+  // seeked to, even if the row was present in the already loaded stripe. This
+  // is a temporary flag to disable seek on a reader which has already
+  // prefetched, until we implement a good way to support both.
+  std::atomic<bool> prefetchHasOccurred_{false};
+
+  // Used to indicate which stripes are finished loading. If stripeLoadBatons[i]
+  // is posted, it means the ith stripe has finished loading
+  std::vector<std::unique_ptr<folly::Baton<>>> stripeLoadBatons_;
 
   // column selector
   std::shared_ptr<dwio::common::ColumnSelector> columnSelector_;
