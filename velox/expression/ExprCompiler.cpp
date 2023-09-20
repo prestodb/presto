@@ -83,6 +83,8 @@ struct Scope {
   // Deduplicatable ITypedExprs. Only applies within the one scope.
   ExprDedupMap visited;
 
+  std::vector<TypedExprPtr> rewrittenExpressions;
+
   Scope(std::vector<std::string>&& _locals, Scope* _parent, ExprSet* _exprSet)
       : locals(_locals), parent(_parent), exprSet(_exprSet) {}
 
@@ -521,6 +523,9 @@ ExprPtr compileExpression(
     const std::unordered_set<std::string>& flatteningCandidates,
     bool enableConstantFolding) {
   auto rewritten = rewriteExpression(expr);
+  if (rewritten.get() != expr.get()) {
+    scope->rewrittenExpressions.push_back(rewritten);
+  }
   return compileRewrittenExpression(
       rewritten == nullptr ? expr : rewritten,
       scope,

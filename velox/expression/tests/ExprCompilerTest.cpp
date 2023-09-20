@@ -18,6 +18,8 @@
 #include "velox/expression/Expr.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/types/JsonType.h"
+#include "velox/parse/Expressions.h"
+#include "velox/parse/ExpressionsParser.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -28,6 +30,18 @@ class ExprCompilerTest : public testing::Test,
  protected:
   void SetUp() override {
     functions::prestosql::registerAllScalarFunctions();
+  }
+
+  static void SetUpTestCase() {
+    parse::registerTypeResolver();
+    functions::prestosql::registerAllScalarFunctions();
+  }
+
+  core::TypedExprPtr makeTypedExpr(
+      const std::string& text,
+      const RowTypePtr& rowType) {
+    auto untyped = parse::parseExpr(text, {});
+    return core::Expressions::inferTypes(untyped, rowType, execCtx_->pool());
   }
 
   core::TypedExprPtr andCall(
@@ -273,6 +287,19 @@ TEST_F(ExprCompilerTest, customTypeConstant) {
 
   auto exprSet = compile(expression);
   ASSERT_EQ("[1, 2, 3]:JSON", compile(expression)->toString());
+}
+
+TEST_F(ExprCompilerTest, rewrites) {
+  auto rowType = ROW({"c0", "c1"}, {ARRAY(VARCHAR()), BIGINT()});
+  auto arraySortSql =
+      "array_sort(c0, (x, y) -> if(length(x) < length(y), -1, if(length(x) > length(y), 1, 0)))";
+
+  ASSERT_NO_THROW(std::make_unique<ExprSet>(
+      std::vector<core::TypedExprPtr>{
+          makeTypedExpr(arraySortSql, rowType),
+          makeTypedExpr("c1 + 5", rowType),
+      },
+      execCtx_.get()));
 }
 
 } // namespace facebook::velox::exec::test
