@@ -65,9 +65,6 @@ void SwitchExpr::evalSpecialForm(
 
   LocalSelectivityVector thenRows(context);
 
-  VectorPtr condition;
-  const uint64_t* values;
-
   // SWITCH: fix finalSelection at "rows" unless already fixed
   ScopedFinalSelectionSetter scopedFinalSelectionSetter(context, &rows);
   if (propagatesNulls_) {
@@ -86,17 +83,23 @@ void SwitchExpr::evalSpecialForm(
       }
     }
   }
+
+  VectorPtr condition;
+  const uint64_t* values;
+
   for (auto i = 0; i < numCases_; i++) {
+    context.releaseVector(condition);
+
     if (!remainingRows.get()->hasSelections()) {
       break;
     }
+
     // evaluate the case condition
     inputs_[2 * i]->eval(*remainingRows.get(), context, condition);
 
     if (context.errors()) {
       context.deselectErrors(*remainingRows);
       if (!remainingRows->hasSelections()) {
-        context.releaseVector(condition);
         break;
       }
     }
@@ -134,7 +137,6 @@ void SwitchExpr::evalSpecialForm(
         }
       }
     }
-    context.releaseVector(condition);
   }
 
   // Evaluate the "else" clause.

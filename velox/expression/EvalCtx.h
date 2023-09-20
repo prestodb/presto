@@ -273,7 +273,11 @@ class EvalCtx {
     return execCtx_->getVector(type, size);
   }
 
+  // Return true if the vector was moved to the pool.
   bool releaseVector(VectorPtr& vector) {
+    if (!vector) {
+      return false;
+    }
     return execCtx_->releaseVector(vector);
   }
 
