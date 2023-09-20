@@ -48,7 +48,7 @@ class ArbitraryBuffer {
  public:
   /// Returns true if this arbitrary buffer has no buffered pages.
   bool empty() const {
-    return pages_.empty() || hasNoMoreData();
+    return pages_.empty() || (pages_.size() == 1 && pages_.back() == nullptr);
   }
 
   /// Returns true if this arbitrary buffer will not receive any new pages from

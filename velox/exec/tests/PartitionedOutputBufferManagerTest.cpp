@@ -422,6 +422,8 @@ TEST_F(PartitionedOutputBufferManagerTest, arbitrayBuffer) {
     ASSERT_EQ(
         buffer.toString(), "[ARBITRARY_BUFFER PAGES[2] NO MORE DATA[false]]");
     buffer.noMoreData();
+    ASSERT_FALSE(buffer.empty());
+    ASSERT_TRUE(buffer.hasNoMoreData());
     ASSERT_EQ(
         buffer.toString(), "[ARBITRARY_BUFFER PAGES[2] NO MORE DATA[true]]");
     pages = buffer.getPages(1'000'000'000);
