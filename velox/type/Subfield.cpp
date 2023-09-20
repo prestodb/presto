@@ -18,8 +18,10 @@
 
 namespace facebook::velox::common {
 
-Subfield::Subfield(const std::string& path) {
-  Tokenizer tokenizer(path);
+Subfield::Subfield(
+    const std::string& path,
+    const std::shared_ptr<Separators>& separators) {
+  Tokenizer tokenizer(path, separators);
   VELOX_CHECK(tokenizer.hasNext(), "Column name is missing: {}", path);
 
   auto firstElement = tokenizer.next();

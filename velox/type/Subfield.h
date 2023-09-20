@@ -29,6 +29,29 @@ enum SubfieldKind {
   kLongSubscript
 };
 
+// Contains field name separators to be used in Tokenizer.
+struct Separators {
+  static const std::shared_ptr<Separators>& get() {
+    static const std::shared_ptr<Separators> instance =
+        std::make_shared<Separators>();
+    return instance;
+  }
+
+  bool isSeparator(char c) const {
+    return (
+        c == closeBracket || c == dot || c == openBracket || c == quote ||
+        c == wildCard);
+  }
+
+  char backSlash = '\\';
+  char closeBracket = ']';
+  char dot = '.';
+  char openBracket = '[';
+  char quote = '\"';
+  char wildCard = '*';
+  char unicodeCaret = '^';
+};
+
 class Subfield {
  public:
   class PathElement {
@@ -195,7 +218,10 @@ class Subfield {
   };
 
  public:
-  explicit Subfield(const std::string& path);
+  // Separators: the customized separators to tokenize field name.
+  explicit Subfield(
+      const std::string& path,
+      const std::shared_ptr<Separators>& separators = Separators::get());
 
   explicit Subfield(std::vector<std::unique_ptr<PathElement>>&& path);
 

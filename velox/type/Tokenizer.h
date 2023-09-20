@@ -35,22 +35,20 @@ class Tokenizer {
     kFailed,
   };
 
-  explicit Tokenizer(const std::string& path);
+  // Separators: the customized separators to tokenize field name.
+  explicit Tokenizer(
+      const std::string& path,
+      const std::shared_ptr<Separators>& separators);
 
   bool hasNext();
 
   std::unique_ptr<Subfield::PathElement> next();
 
  private:
-  const char DOT = '.';
-  const char QUOTE = '\"';
-  const char BACKSLASH = '\\';
-  const char WILDCARD = '*';
-  const char OPEN_BRACKET = '[';
-  const char CLOSE_BRACKET = ']';
-  const char UNICODE_CARET = '^';
-
   const std::string path_;
+  // Customized separators to tokenize field name.
+  std::shared_ptr<Separators> separators_;
+
   int index_;
   State state;
   bool firstSegment = true;
@@ -59,6 +57,10 @@ class Tokenizer {
   bool hasNextCharacter();
 
   std::unique_ptr<Subfield::PathElement> computeNext();
+
+  // Returns whether the expected char is a separator and
+  // can be found.
+  bool tryMatchSeparator(char expected);
 
   void match(char expected);
 
