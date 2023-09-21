@@ -63,13 +63,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
-import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.FORMAT_VERSION;
 import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
@@ -80,6 +78,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
 import static com.facebook.presto.iceberg.IcebergUtil.validateTableMode;
 import static com.facebook.presto.iceberg.PartitionFields.toPartitionFields;
 import static com.facebook.presto.iceberg.TableType.DATA;
+import static com.facebook.presto.iceberg.TableType.SAMPLES;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -99,14 +98,15 @@ public abstract class IcebergAbstractMetadata
     protected final TypeManager typeManager;
     protected final JsonCodec<CommitTaskData> commitTaskCodec;
 
-    protected final Map<String, Optional<Long>> snapshotIds = new ConcurrentHashMap<>();
+    protected final HdfsEnvironment hdfsEnvironment;
 
     protected Transaction transaction;
 
-    public IcebergAbstractMetadata(TypeManager typeManager, JsonCodec<CommitTaskData> commitTaskCodec)
+    public IcebergAbstractMetadata(TypeManager typeManager, JsonCodec<CommitTaskData> commitTaskCodec, HdfsEnvironment hdfsEnvironment)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     protected abstract Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName);
@@ -224,7 +224,7 @@ public abstract class IcebergAbstractMetadata
                 insertTable = icebergTable;
                 break;
             case SAMPLES:
-                    insertTable = SampleUtil.getSampleTableFromActual(icebergTable, table.getSchemaName(), env, session);
+                insertTable = SampleUtil.getSampleTableFromActual(icebergTable, table.getSchemaName(), env, session);
                 break;
             default:
                 throw new PrestoException(NOT_SUPPORTED, "can only write to data or samples table");
@@ -422,12 +422,7 @@ public abstract class IcebergAbstractMetadata
         Table table = getIcebergTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
         validateTableMode(session, table);
         if (name.getTableType() == SAMPLES) {
-            try {
-                table = SampleUtil.getSampleTableFromActual(table, tableName.getSchemaName(), hdfsEnvironment, session);
-            }
-            catch (IOException e) {
-                LOG.warn("Failed to get sample table", e);
-            }
+            table = SampleUtil.getSampleTableFromActual(table, tableName.getSchemaName(), hdfsEnvironment, session);
         }
 
         return new IcebergTableHandle(
@@ -457,14 +452,5 @@ public abstract class IcebergAbstractMetadata
         }
 
         return getIcebergSystemTable(tableName, icebergTable);
-    }
-
-    @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
-
-        return beginIcebergTableInsert(session, table, icebergTable, hdfsEnvironment);
     }
 }

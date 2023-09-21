@@ -15,15 +15,12 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.TableAlreadyExistsException;
-import com.facebook.presto.iceberg.samples.SampleUtil;
 import com.facebook.presto.iceberg.util.IcebergPrestoModelConverters;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -52,15 +49,10 @@ import java.util.Optional;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFormatVersion;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
-import static com.facebook.presto.iceberg.IcebergUtil.createMetadataProperties;
-import static com.facebook.presto.iceberg.IcebergUtil.getColumnMetadatas;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
-import static com.facebook.presto.iceberg.TableType.DATA;
-import static com.facebook.presto.iceberg.TableType.SAMPLES;
-import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergNamespace;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -83,7 +75,6 @@ public class IcebergNativeMetadata
 
     private final IcebergResourceFactory resourceFactory;
     private final CatalogType catalogType;
-    private final HdfsEnvironment hdfsEnvironment;
 
     public IcebergNativeMetadata(
             IcebergResourceFactory resourceFactory,
@@ -92,10 +83,9 @@ public class IcebergNativeMetadata
             JsonCodec<CommitTaskData> commitTaskCodec,
             CatalogType catalogType)
     {
-        super(typeManager, commitTaskCodec);
+        super(typeManager, commitTaskCodec, hdfsEnvironment);
         this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
         this.catalogType = requireNonNull(catalogType, "catalogType is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     @Override
@@ -259,7 +249,7 @@ public class IcebergNativeMetadata
             throw new TableNotFoundException(table);
         }
 
-        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable, typeManager);
+        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable);
 
         return new ConnectorTableMetadata(table, columns, createMetadataProperties(icebergTable), getTableComment(icebergTable));
     }
