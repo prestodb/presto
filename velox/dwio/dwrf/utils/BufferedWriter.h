@@ -49,7 +49,7 @@ class BufferedWriter {
   }
 
   ~BufferedWriter() {
-    VELOX_CHECK(empty() && closed_, toString());
+    VELOX_CHECK(empty(), toString());
   }
 
   void add(T t) {
