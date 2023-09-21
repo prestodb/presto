@@ -15,7 +15,6 @@ package com.facebook.presto.server.security;
 
 import com.facebook.airlift.http.server.AuthenticationException;
 import com.facebook.airlift.http.server.Authenticator;
-import com.facebook.presto.server.InternalAuthenticationManager;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
@@ -47,13 +46,11 @@ public class AuthenticationFilter
         implements Filter
 {
     private final List<Authenticator> authenticators;
-    private final InternalAuthenticationManager internalAuthenticationManager;
 
     @Inject
-    public AuthenticationFilter(List<Authenticator> authenticators, InternalAuthenticationManager internalAuthenticationManager)
+    public AuthenticationFilter(List<Authenticator> authenticators)
     {
         this.authenticators = ImmutableList.copyOf(requireNonNull(authenticators, "authenticators is null"));
-        this.internalAuthenticationManager = requireNonNull(internalAuthenticationManager, "internalAuthenticationManager is null");
     }
 
     @Override
@@ -68,16 +65,6 @@ public class AuthenticationFilter
     {
         HttpServletRequest request = (HttpServletRequest) servletRequest;
         HttpServletResponse response = (HttpServletResponse) servletResponse;
-
-        if (internalAuthenticationManager.isInternalRequest(request)) {
-            Principal principal = internalAuthenticationManager.authenticateInternalRequest(request);
-            if (principal == null) {
-                response.sendError(SC_UNAUTHORIZED);
-                return;
-            }
-            nextFilter.doFilter(withPrincipal(request, principal), response);
-            return;
-        }
 
         // skip authentication if non-secure or not configured
         if (!doesRequestSupportAuthentication(request)) {
