@@ -39,7 +39,7 @@ String Functions
     are replaced with the Unicode replacement character ``U+FFFD``.
 
 .. function:: from_utf8(binary, replace) -> varchar
-   :noindex:
+    :noindex:
 
     Decodes a UTF-8 encoded string from ``binary``. Invalid UTF-8 sequences are
     replaced with `replace`. The `replace` argument can be either Unicode code
@@ -72,6 +72,7 @@ String Functions
     recognized whitespace characters.
 
 .. function:: ltrim(string, chars) -> varchar
+    :noindex:
 
     Removes the longest substring containing only characters in ``chars`` from the beginning of the ``string``. ::
 
@@ -83,7 +84,7 @@ String Functions
     Removes all instances of ``search`` from ``string``.
 
 .. function:: replace(string, search, replace) -> varchar
-   :noindex:
+    :noindex:
 
     Replaces all instances of ``search`` with ``replace`` in ``string``.
 
@@ -91,7 +92,7 @@ String Functions
     character and at the end of the ``string``.
 
 .. function:: reverse(string) -> varchar
-   :noindex:
+    :noindex:
 
     Reverses ``string``.
 
@@ -108,6 +109,7 @@ String Functions
     recognized whitespace characters.
 
 .. function:: rtrim(string, chars) -> varchar
+    :noindex:
 
     Removes the longest substring containing only characters in ``chars`` from the end of the ``string``. ::
 
@@ -119,7 +121,7 @@ String Functions
     Splits ``string`` on ``delimiter`` and returns an array.
 
 .. function:: split(string, delimiter, limit) -> array(string)
-   :noindex:
+    :noindex:
 
     Splits ``string`` on ``delimiter`` and returns an array of size at most ``limit``.
 
@@ -150,7 +152,7 @@ String Functions
     ``string``. Positions start with ``1``. If not found, ``0`` is returned.
 
 .. function:: strpos(string, substring, instance) -> bigint
-   :noindex:
+    :noindex:
 
     Returns the position of the N-th ``instance`` of ``substring`` in ``string``.
     ``instance`` must be a positive number.
@@ -162,7 +164,7 @@ String Functions
     ``string``. Positions start with ``1``. If not found, ``0`` is returned.
 
 .. function:: strrpos(string, substring, instance) -> bigint
-   :noindex:
+    :noindex:
 
     Returns the position of the N-th ``instance`` of ``substring`` in ``string`` starting from the end of the string.
     ``instance`` must be a positive number.
@@ -176,7 +178,7 @@ String Functions
     value of ``start`` is greater then length of the ``string``.
 
 .. function:: substr(string, start, length) -> varchar
-   :noindex:
+    :noindex:
 
     Returns a substring from ``string`` of length ``length`` from the starting
     position ``start``. Positions start with ``1``. A negative starting
@@ -188,37 +190,28 @@ String Functions
 
     Removes starting and ending whitespaces from ``string``.
 
-    The set of recognized whitespace characters is:
+    Recognized whitespace characters:
 
-    ======  ===========================
-    Code    Description
-    ======  ===========================
-    9       TAB (horizontal tab)
-    10      LF (NL line feed, new line)
-    11      VT (vertical tab)
-    12      FF (NP form feed, new page)
-    13      CR (carriage return)
-    28      FS (file separator)
-    29      GS (group separator)
-    30      RS (record separator)
-    31      US (unit separator)
-    32      Space
-    U+1680  Ogham Space Mark
-    U+2000  En Quad
-    U+2001  Em Quad
-    U+2002  En Space
-    U+2003  Em Space
-    U+2004  Three-Per-Em Space
-    U+2005  Four-Per-Em Space
-    U+2006  Four-Per-Em Space
-    U+2008  Punctuation Space
-    U+2009  Thin Space
-    U+200a  Hair Space
-    U+2028  Line Separator
-    U+2029  Paragraph Separator
-    U+205f  Medium Mathematical Space
-    U+3000  Ideographic Space
-    ======  ===========================
+    ======  =========================== ======  ===========================
+    Code    Description                 Code    Description
+    ======  =========================== ======  ===========================
+    9       TAB (horizontal tab)        U+1680  Ogham Space Mark
+    10      LF (NL line feed, new line) U+2000  En Quad
+    11      VT (vertical tab)           U+2001  Em Quad
+    12      FF (NP form feed, new page) U+2002  En Space
+    13      CR (carriage return)        U+2003  Em Space
+    28      FS (file separator)         U+2004  Three-Per-Em Space
+    29      GS (group separator)        U+2005  Four-Per-Em Space
+    30      RS (record separator)       U+2006  Four-Per-Em Space
+    31      US (unit separator)         U+2008  Punctuation Space
+    32      Space                       U+2009  Thin Space
+    _       _                           U+200a  Hair Space
+    _       _                           U+200a  Hair Space
+    _       _                           U+2028  Line Separator
+    _       _                           U+2029  Paragraph Separator
+    _       _                           U+205f  Medium Mathematical Space
+    _       _                           U+3000  Ideographic Space
+    ======  =========================== ======  ===========================
 
 .. function:: trim(string, chars) -> varchar
     :noindex:
