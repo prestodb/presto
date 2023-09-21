@@ -36,7 +36,7 @@
   try {                                                              \
     (expression);                                                    \
     FAIL() << "Expected an exception";                               \
-  } catch (const VeloxException& e) {                                \
+  } catch (const facebook::velox::VeloxException& e) {               \
     ASSERT_TRUE(e.message().find(errorMessage) != std::string::npos) \
         << "Expected error message to contain '" << errorMessage     \
         << "', but received '" << e.message() << "'.";               \
