@@ -337,9 +337,15 @@ class SystemConfig : public ConfigBase {
           "remote-function-server.signature.files.directory.path"};
 
   /// Optional catalog name to be added as a prefix to the function names
-  /// registered. The patter registered is `catalog.schema.function_name`.
+  /// registered. The pattern registered is `catalog.schema.function_name`.
   static constexpr std::string_view kRemoteFunctionServerCatalogName{
       "remote-function-server.catalog-name"};
+
+  /// Optional string containing the serialization/deserialization format to be
+  /// used when communicating with the remote server. Supported types are
+  /// "spark_unsafe_row" or "presto_page" ("presto_page" by default).
+  static constexpr std::string_view kRemoteFunctionServerSerde{
+      "remote-function-server.serde"};
 
   /// Options to configure the internal (in-cluster) JWT authentication.
   static constexpr std::string_view kInternalCommunicationJwtEnabled{
@@ -402,6 +408,8 @@ class SystemConfig : public ConfigBase {
       const;
 
   std::string remoteFunctionServerCatalogName() const;
+
+  std::string remoteFunctionServerSerde() const;
 
   int32_t maxDriversPerTask() const;
 
