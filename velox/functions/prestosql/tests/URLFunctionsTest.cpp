@@ -16,27 +16,26 @@
 #include <gmock/gmock.h>
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
-using string_t = std::string;
-
 namespace facebook::velox {
 
 namespace {
 class URLFunctionsTest : public functions::test::FunctionBaseTest {
  protected:
   void validate(
-      const string_t& url,
-      const string_t& expectedProtocol,
-      const string_t& expectedHost,
-      const string_t& expectedPath,
-      const string_t& expectedFragment,
-      const string_t& expectedQuery,
+      const std::string& url,
+      const std::string& expectedProtocol,
+      const std::string& expectedHost,
+      const std::string& expectedPath,
+      const std::string& expectedFragment,
+      const std::string& expectedQuery,
       const std::optional<int32_t> expectedPort) {
-    const auto extractFn = [&](const string_t& fn,
-                               const std::optional<string_t>& a) {
-      return evaluateOnce<string_t>(fmt::format("url_extract_{}(c0)", fn), a);
+    const auto extractFn = [&](const std::string& fn,
+                               const std::optional<std::string>& a) {
+      return evaluateOnce<std::string>(
+          fmt::format("url_extract_{}(c0)", fn), a);
     };
 
-    const auto extractPort = [&](const std::optional<string_t>& a) {
+    const auto extractPort = [&](const std::optional<std::string>& a) {
       return evaluateOnce<int64_t>("url_extract_port(c0)", a);
     };
 
@@ -99,6 +98,17 @@ TEST_F(URLFunctionsTest, validateURL) {
       "",
       std::nullopt);
   validate("foo", "", "", "", "", "", std::nullopt);
+}
+
+TEST_F(URLFunctionsTest, extractPath) {
+  const auto extractPath = [&](const std::optional<std::string>& url) {
+    return evaluateOnce<std::string>("url_extract_path(c0)", url);
+  };
+
+  ASSERT_EQ(
+      "/media/set/Books and Magazines.php",
+      extractPath(
+          "https://www.cnn.com/media/set/Books%20and%20Magazines.php?foo=bar"));
 }
 
 TEST_F(URLFunctionsTest, extractParameter) {
