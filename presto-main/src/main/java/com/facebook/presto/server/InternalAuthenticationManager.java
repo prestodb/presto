@@ -18,14 +18,13 @@ import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.server.BasicPrincipal;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
-import com.facebook.presto.server.security.SecurityConfig;
 import com.google.common.hash.Hashing;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 
 import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.container.ContainerRequestContext;
 
 import java.security.Principal;
 import java.time.ZonedDateTime;
@@ -39,16 +38,15 @@ import static java.util.Objects.requireNonNull;
 public class InternalAuthenticationManager
         implements HttpRequestFilter
 {
+    public static final String PRESTO_INTERNAL_BEARER = "X-Presto-Internal-Bearer";
     private static final Logger log = Logger.get(InternalAuthenticationManager.class);
-
-    private static final String PRESTO_INTERNAL_BEARER = "X-Presto-Internal-Bearer";
 
     private final boolean internalJwtEnabled;
     private final byte[] hmac;
     private final String nodeId;
 
     @Inject
-    public InternalAuthenticationManager(InternalCommunicationConfig internalCommunicationConfig, SecurityConfig securityConfig, NodeInfo nodeInfo)
+    public InternalAuthenticationManager(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo)
     {
         this(internalCommunicationConfig.getSharedSecret(), nodeInfo.getNodeId(), internalCommunicationConfig.isInternalJwtEnabled());
     }
@@ -65,6 +63,11 @@ public class InternalAuthenticationManager
             this.hmac = null;
         }
         this.nodeId = nodeId;
+    }
+
+    public boolean isInternalJwtEnabled()
+    {
+        return internalJwtEnabled;
     }
 
     private String generateJwt()
@@ -85,19 +88,25 @@ public class InternalAuthenticationManager
                 .getSubject();
     }
 
-    public boolean isInternalRequest(HttpServletRequest request)
+    public boolean isInternalRequest(ContainerRequestContext context)
     {
-        return request.getHeader(PRESTO_INTERNAL_BEARER) != null;
+        return context.getHeaderString(PRESTO_INTERNAL_BEARER) != null;
     }
 
-    public Principal authenticateInternalRequest(HttpServletRequest request)
+    public Principal authenticateInternalRequest(ContainerRequestContext context)
     {
         if (!internalJwtEnabled) {
             log.error("Internal authentication in not enabled");
             return null;
         }
 
-        String internalBearer = request.getHeader(PRESTO_INTERNAL_BEARER);
+        String internalBearer = context.getHeaderString(PRESTO_INTERNAL_BEARER);
+
+        if (internalBearer == null) {
+            log.error("Internal authentication failed");
+            return null;
+        }
+
         try {
             String subject = parseJwt(internalBearer);
             return new BasicPrincipal(subject);
