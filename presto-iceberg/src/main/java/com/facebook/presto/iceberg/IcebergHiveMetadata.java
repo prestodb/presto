@@ -24,7 +24,7 @@ import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.iceberg.samples.SampleUtil;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -33,7 +33,6 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.Path;
@@ -58,9 +57,11 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning
 import static com.facebook.presto.iceberg.IcebergTableProperties.getTableLocation;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
-import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
 import static com.facebook.presto.iceberg.IcebergUtil.isIcebergTable;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
+import static com.facebook.presto.iceberg.samples.SampleUtil.SAMPLE_TABLE_ID;
+import static com.facebook.presto.iceberg.samples.SampleUtil.getCatalogForSampleTable;
+import static com.facebook.presto.iceberg.samples.SampleUtil.sampleTableExists;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
@@ -261,8 +262,8 @@ public class IcebergHiveMetadata
         }
         MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
         metastore.dropTable(metastoreContext, handle.getSchemaName(), handle.getTableName(), true);
-        if (SampleUtil.sampleTableExists(table, handle.getSchemaName(), hdfsEnvironment, session)) {
-            try (SampleUtil.AutoCloseableCatalog c = SampleUtil.getCatalogForSampleTable(table, handle.getSchemaName(), hdfsEnvironment, session)) {
+        if (sampleTableExists(table, handle.getSchemaName(), hdfsEnvironment, session)) {
+            try (SampleUtil.AutoCloseableCatalog c = getCatalogForSampleTable(table, handle.getSchemaName(), hdfsEnvironment, session)) {
                 c.dropTable(SAMPLE_TABLE_ID, true);
             }
         }
@@ -274,20 +275,6 @@ public class IcebergHiveMetadata
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
         metastore.renameTable(metastoreContext, handle.getSchemaName(), handle.getTableName(), newTable.getSchemaName(), newTable.getTableName());
-    }
-
-    @Override
-    protected ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table)
-    {
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
-        if (!metastore.getTable(metastoreContext, table.getSchemaName(), table.getTableName()).isPresent()) {
-            throw new TableNotFoundException(table);
-        }
-
-        org.apache.iceberg.Table icebergTable = getHiveIcebergTable(metastore, hdfsEnvironment, session, table);
-        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable);
-
-        return new ConnectorTableMetadata(table, columns, createMetadataProperties(icebergTable), getTableComment(icebergTable));
     }
 
     public ExtendedHiveMetastore getMetastore()

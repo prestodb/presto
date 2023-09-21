@@ -11,10 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+package com.facebook.presto.iceberg.sample;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.iceberg.IcebergSessionProperties;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -70,6 +71,62 @@ public class TestIcebergTableSampling
         assertUpdate("INSERT INTO \"lineitem$samples\" SELECT * FROM tpch.lineitem LIMIT 3", 3);
         assertQuerySucceeds("SELECT * FROM \"lineitem$samples\"");
         assertQuerySucceeds("SELECT count(*) FROM \"lineitem$samples\"");
+    }
+
+    @Test
+    public void testSampleSchemaEqual()
+    {
+        assertQuerySucceeds("CALL iceberg.system.create_sample_table('tpch', 'lineitem')");
+        MaterializedResult result = getQueryRunner().execute("DESC lineitem");
+        MaterializedResult sampleResult = getQueryRunner().execute("DESC \"lineitem$samples\"");
+        assertEquals(result, sampleResult);
+    }
+
+    @Test
+    public void testAddColumnSampleTable()
+    {
+        assertQuerySucceeds("CALL iceberg.system.create_sample_table('tpch', 'lineitem')");
+        int prevRowCount = getQueryRunner().execute("DESC lineitem").getRowCount();
+        assertUpdate("ALTER TABLE lineitem ADD COLUMN sample_test varchar");
+        MaterializedResult sampleResult = getQueryRunner().execute("DESC \"lineitem$samples\"");
+        assertEquals(sampleResult.getRowCount(), prevRowCount + 1);
+        MaterializedResult result = getQueryRunner().execute("DESC lineitem");
+        assertEquals(sampleResult, result);
+    }
+
+    @Test
+    public void testDropColumnSampleTable()
+    {
+        assertQuerySucceeds("CALL iceberg.system.create_sample_table('tpch', 'lineitem')");
+        int prevRowCount = getQueryRunner().execute("DESC lineitem").getRowCount();
+        assertUpdate("ALTER TABLE lineitem ADD COLUMN sample_test varchar");
+        MaterializedResult sampleResult = getQueryRunner().execute("DESC \"lineitem$samples\"");
+        assertEquals(sampleResult.getRowCount(), prevRowCount + 1);
+        MaterializedResult result = getQueryRunner().execute("DESC lineitem");
+        assertEquals(sampleResult, result);
+
+        assertUpdate("ALTER TABLE lineitem DROP COLUMN sample_test");
+        sampleResult = getQueryRunner().execute("DESC \"lineitem$samples\"");
+        assertEquals(sampleResult.getRowCount(), prevRowCount);
+        result = getQueryRunner().execute("DESC lineitem");
+        assertEquals(sampleResult, result);
+    }
+
+    @Test
+    public void testRenameColumnSampleTable()
+    {
+        assertQuerySucceeds("CALL iceberg.system.create_sample_table('tpch', 'orders')");
+        int prevRowCount = getQueryRunner().execute("DESC orders").getRowCount();
+        assertUpdate("ALTER TABLE orders RENAME COLUMN orderkey TO sample_test");
+        MaterializedResult sampleResult = getQueryRunner().execute("DESC \"orders$samples\"");
+        assertEquals(sampleResult.getRowCount(), prevRowCount);
+        MaterializedResult result = getQueryRunner().execute("DESC orders");
+        assertEquals(sampleResult, result);
+        assertUpdate("ALTER TABLE orders RENAME COLUMN sample_test TO orderkey");
+        sampleResult = getQueryRunner().execute("DESC \"orders$samples\"");
+        assertEquals(sampleResult.getRowCount(), prevRowCount);
+        result = getQueryRunner().execute("DESC orders");
+        assertEquals(sampleResult, result);
     }
 
     @Test
