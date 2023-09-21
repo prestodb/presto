@@ -398,7 +398,7 @@ between(const Timestamp& min, const Timestamp& max, bool nullAllowed = false) {
 }
 
 inline std::unique_ptr<common::TimestampRange> lessThan(
-    Timestamp& max,
+    Timestamp max,
     bool nullAllowed = false) {
   --max;
   return std::make_unique<common::TimestampRange>(
@@ -413,7 +413,7 @@ inline std::unique_ptr<common::TimestampRange> lessThanOrEqual(
 }
 
 inline std::unique_ptr<common::TimestampRange> greaterThan(
-    Timestamp& min,
+    Timestamp min,
     bool nullAllowed = false) {
   ++min;
   return std::make_unique<common::TimestampRange>(
