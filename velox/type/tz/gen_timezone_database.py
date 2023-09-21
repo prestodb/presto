@@ -42,11 +42,12 @@ cpp_template = Template(
 //       > velox/type/tz/TimeZoneDatabase.cpp
 //
 // The zone-index.properties file should be the same one used in Presto,
-// Available here : https://github.com/prestodb/presto/blob/master/presto-common/src/main/resources/com/facebook/presto/common/type/zone-index.properties.
+// Available here :
+// https://github.com/prestodb/presto/blob/master/presto-common/src/main/resources/com/facebook/presto/common/type/zone-index.properties.
 // @generated
 
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
 
 namespace facebook::velox::util {
 

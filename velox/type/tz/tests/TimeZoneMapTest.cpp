@@ -24,10 +24,16 @@ namespace {
 TEST(TimeZoneMapTest, simple) {
   EXPECT_EQ("America/Los_Angeles", getTimeZoneName(1825));
   EXPECT_EQ("Europe/Moscow", getTimeZoneName(2079));
+  EXPECT_EQ("Pacific/Kanton", getTimeZoneName(2231));
+  EXPECT_EQ("Europe/Kyiv", getTimeZoneName(2232));
+  EXPECT_EQ("America/Ciudad_Juarez", getTimeZoneName(2233));
   EXPECT_EQ("-00:01", getTimeZoneName(840));
 
   EXPECT_EQ(1825, getTimeZoneID("America/Los_Angeles"));
   EXPECT_EQ(2079, getTimeZoneID("Europe/Moscow"));
+  EXPECT_EQ(2231, getTimeZoneID("Pacific/Kanton"));
+  EXPECT_EQ(2232, getTimeZoneID("Europe/Kyiv"));
+  EXPECT_EQ(2233, getTimeZoneID("America/Ciudad_Juarez"));
   EXPECT_EQ(840, getTimeZoneID("-00:01"));
   EXPECT_EQ(0, getTimeZoneID("+00:00"));
 }

@@ -2257,6 +2257,9 @@ const std::unordered_map<int64_t, std::string>& getTimeZoneDB() {
       {2228, "Europe/Saratov"},
       {2229, "Asia/Qostanay"},
       {2230, "America/Nuuk"},
+      {2231, "Pacific/Kanton"},
+      {2232, "Europe/Kyiv"},
+      {2233, "America/Ciudad_Juarez"},
   };
   return tzDB;
 }
