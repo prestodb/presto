@@ -813,9 +813,11 @@ void PrestoServer::registerRemoteFunctions() {
     PRESTO_STARTUP_LOG(INFO)
         << "Registering remote functions from path: " << *dirPath;
     if (auto remoteLocation = systemConfig->remoteFunctionServerLocation()) {
-      auto catalogName = systemConfig->remoteFunctionServerCatalogName();
+      const auto catalogName = systemConfig->remoteFunctionServerCatalogName();
+      const auto serdeName = systemConfig->remoteFunctionServerSerde();
       size_t registeredCount = presto::registerRemoteFunctions(
-          *dirPath, *remoteLocation, catalogName);
+          *dirPath, *remoteLocation, catalogName, serdeName);
+
       PRESTO_STARTUP_LOG(INFO)
           << registeredCount << " remote functions registered in the '"
           << catalogName << "' catalog.";
