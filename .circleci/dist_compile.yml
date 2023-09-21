@@ -388,6 +388,7 @@ jobs:
               "-DVELOX_ENABLE_HDFS=ON"
               "-DVELOX_ENABLE_S3=ON"
               "-DVELOX_ENABLE_GCS=ON"
+              "-DVELOX_ENABLE_ABFS=ON"
               "-DVELOX_ENABLE_SUBSTRAIT=ON"
               "-DVELOX_ENABLE_REMOTE_FUNCTIONS=ON"
             )
