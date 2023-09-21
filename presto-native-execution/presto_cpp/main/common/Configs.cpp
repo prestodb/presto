@@ -170,6 +170,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kLocalShuffleMaxPartitionBytes, 268435456),
           STR_PROP(kShuffleName, ""),
           STR_PROP(kRemoteFunctionServerCatalogName, ""),
+          STR_PROP(kRemoteFunctionServerSerde, "presto_page"),
           STR_PROP(kHttpEnableAccessLog, "false"),
           STR_PROP(kHttpEnableStatsFilter, "false"),
           STR_PROP(kHttpEnableEndpointLatencyFilter, "false"),
@@ -286,6 +287,10 @@ SystemConfig::remoteFunctionServerSignatureFilesDirectoryPath() const {
 
 std::string SystemConfig::remoteFunctionServerCatalogName() const {
   return optionalProperty(kRemoteFunctionServerCatalogName).value();
+}
+
+std::string SystemConfig::remoteFunctionServerSerde() const {
+  return optionalProperty(kRemoteFunctionServerSerde).value();
 }
 
 int32_t SystemConfig::maxDriversPerTask() const {
