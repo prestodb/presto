@@ -158,6 +158,7 @@ public final class QueryResourceUtil
                 prependUri(queryResults.getNextUri(), xPrestoPrefixUri),
                 queryResults.getColumns(),
                 prepareJsonData(queryResults.getColumns(), queryResults.getData()),
+                queryResults.getBinaryData(),
                 queryResults.getStats(),
                 queryResults.getError(),
                 queryResults.getWarnings(),

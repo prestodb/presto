@@ -35,6 +35,11 @@ the columns returned by the query.  Most of the response headers should be treat
 browser cookies by the client, and echoed back as request headers in subsequent client requests,
 as documented below.
 
+To request the results in binary format, include binaryResults=true query parameter in the initial
+``/v1/statement`` ``POST`` request. The response JSON document will contain ``binaryData`` field
+with a list of base64-encoded pages in :doc:`SerializedPage </develop/serialized-page>` format. The
+``data`` field will not be present.
+
 If the JSON document returned by the ``POST`` to ``/v1/statement`` does not contain a ``nextUri`` link, the query has completed,
 either successfully or unsuccessfully, and no additional requests need to be made.  If the ``nextUri`` link is present in
 the document, there are more query results to be fetched.  The client should loop executing a ``GET`` request

@@ -29,6 +29,7 @@ import org.weakref.jmx.Nested;
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.Path;
@@ -99,6 +100,7 @@ public class ExecutingStatementResource
             @QueryParam("slug") String slug,
             @QueryParam("maxWait") Duration maxWait,
             @QueryParam("targetResultSize") DataSize targetResultSize,
+            @DefaultValue("false") @QueryParam("binaryResults") boolean binaryResults,
             @HeaderParam(X_FORWARDED_PROTO) String proto,
             @HeaderParam(PRESTO_PREFIX_URL) String xPrestoPrefixUrl,
             @Context UriInfo uriInfo,
@@ -125,7 +127,7 @@ public class ExecutingStatementResource
                 acquirePermitAsync,
                 acquirePermitTimeSeconds -> {
                     queryRateLimiter.addRateLimiterBlockTime(new Duration(acquirePermitTimeSeconds, SECONDS));
-                    return query.waitForResults(token, uriInfo, effectiveFinalProto, wait, effectiveFinalTargetResultSize);
+                    return query.waitForResults(token, uriInfo, effectiveFinalProto, wait, effectiveFinalTargetResultSize, binaryResults);
                 },
                 responseExecutor);
         ListenableFuture<Response> queryResultsFuture = transform(
