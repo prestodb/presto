@@ -283,15 +283,88 @@ FOLLY_ALWAYS_INLINE bool md5_radix(
   return true;
 }
 
-// Presto supports both ascii whitespace and unicode line separator \u2028.
+namespace {
+FOLLY_ALWAYS_INLINE int64_t asciiWhitespaces() {
+  std::vector<int32_t> codes = {9, 10, 11, 12, 13, 28, 29, 30, 31, 32};
+  int64_t bitMask = 0;
+  for (auto code : codes) {
+    bits::setBit(&bitMask, code, true);
+  }
+  return bitMask;
+}
+
+FOLLY_ALWAYS_INLINE int64_t asciiWhitespaceCodes() {
+  std::vector<int32_t> codes = {9, 10, 11, 12, 13, 28, 29, 30, 31, 32};
+  int64_t bitMask = 0;
+  for (auto code : codes) {
+    bits::setBit(&bitMask, code, true);
+  }
+  return bitMask;
+}
+
+FOLLY_ALWAYS_INLINE std::array<int64_t, 2> unicodeWhitespaceCodes() {
+  std::vector<int32_t> codes = {
+      8192,
+      8193,
+      8194,
+      8195,
+      8196,
+      8197,
+      8198,
+      8200,
+      8201,
+      8202,
+      8232,
+      8233,
+      8287};
+  std::array<int64_t, 2> bitMask{0, 0};
+  for (auto code : codes) {
+    bits::setBit(&bitMask, code - 8192, true);
+  }
+  return bitMask;
+}
+} // namespace
+
+/// Unicode codepoints recognized as whitespace in Presto:
+// clang-format off
+/// [9, 10, 11, 12, 13, 28, 29, 30, 31, 32,
+///  5760,
+///  8192, 8193, 8194, 8195, 8196, 8197, 8198, 8200, 8201, 8202, 8232, 8233, 8287,
+///  12288]
+// clang-format on
 FOLLY_ALWAYS_INLINE bool isUnicodeWhiteSpace(utf8proc_int32_t codePoint) {
-  // 9 -> \t, 10 -> \n, 13 -> \r, 32 -> ' ', 8232 -> \u2028
-  return codePoint == 9 || codePoint == 10 || codePoint == 13 ||
-      codePoint == 8232 || codePoint == 32;
+  static const auto kAsciiCodes = asciiWhitespaceCodes();
+  static const auto kUnicodeCodes = unicodeWhitespaceCodes();
+
+  if (codePoint < 5'000) {
+    if (codePoint > 32) {
+      return false; // Most common path. Uses 2 comparisons.
+    }
+
+    return bits::isBitSet(&kAsciiCodes, codePoint);
+  }
+
+  if (codePoint >= 8192) {
+    if (codePoint <= 8287) {
+      return bits::isBitSet(kUnicodeCodes.data(), codePoint - 8192);
+    }
+
+    return codePoint == 12288;
+  }
+
+  return codePoint == 5760;
 }
 
 FOLLY_ALWAYS_INLINE bool isAsciiWhiteSpace(char ch) {
-  return ch == '\t' || ch == '\n' || ch == '\r' || ch == ' ';
+  static const auto kAsciiCodes = asciiWhitespaceCodes();
+
+  const uint32_t code = ch;
+
+  if (code <= 32) {
+    return bits::isBitSet(&kAsciiCodes, code);
+  }
+
+  return false;
 }
 
 FOLLY_ALWAYS_INLINE bool isAsciiSpace(char ch) {
@@ -305,18 +378,20 @@ FOLLY_ALWAYS_INLINE int endsWithUnicodeWhiteSpace(
     const char* data,
     size_t size) {
   if (size >= 1) {
-    // check 1 byte characters.
-    // codepoints: 9, 10, 13, 32.
+    // Check ASCII whitespaces.
     auto& lastChar = data[size - 1];
     if (isAsciiWhiteSpace(lastChar)) {
       return 1;
     }
   }
 
+  // All Unicode whitespaces are 3-byte characters.
   if (size >= 3) {
-    // Check if the last character is \u2028.
-    if (data[size - 3] == '\xe2' && data[size - 2] == '\x80' &&
-        data[size - 1] == '\xa8') {
+    int32_t codePointSize;
+    auto codePoint =
+        utf8proc_codepoint(data + size - 3, data + size, codePointSize);
+    if (codePoint != -1 && codePointSize == 3 &&
+        isUnicodeWhiteSpace(codePoint)) {
       return 3;
     }
   }

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <boost/random/uniform_int_distribution.hpp>
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using namespace std::string_literals;
@@ -63,7 +64,84 @@ class TrimFunctionsTest : public test::FunctionBaseTest {
     str.append("\u2028 ");
     return str;
   }
+
+  int32_t rand(int32_t maxExclusive) {
+    return boost::random::uniform_int_distribution<int32_t>()(rng_) %
+        maxExclusive;
+  }
+
+  std::mt19937 rng_;
 };
+
+TEST_F(TrimFunctionsTest, whitespaces) {
+  const auto trim = [&](std::optional<std::string> input) {
+    return evaluateOnce<std::string>("trim(c0)", input).value();
+  };
+
+  const auto ltrim = [&](std::optional<std::string> input) {
+    return evaluateOnce<std::string>("ltrim(c0)", input).value();
+  };
+
+  const auto rtrim = [&](std::optional<std::string> input) {
+    return evaluateOnce<std::string>("rtrim(c0)", input).value();
+  };
+
+  const std::vector<std::string> whitespaceCharacters = {
+      "\u0009",
+      "\u000a",
+      "\u000b",
+      "\u000c",
+      "\u000d",
+      "\u001c",
+      "\u001d",
+      "\u001e",
+      "\u001f",
+      "\u0020"
+      "\u1680",
+      "\u2000",
+      "\u2001",
+      "\u2002",
+      "\u2003",
+      "\u2004",
+      "\u2005",
+      "\u2006",
+      "\u2008",
+      "\u2009"
+      "\u200a",
+      "\u2028",
+      "\u2029",
+      "\u205f",
+      "\u3000"};
+
+  std::mt19937 rng;
+  std::vector<std::string> allSpaces;
+  for (auto i = 0; i < 10; ++i) {
+    auto numCharacters = 1 + rand(30);
+    std::stringstream s;
+    for (auto j = 0; j < numCharacters; ++j) {
+      s << whitespaceCharacters[rand(whitespaceCharacters.size())];
+    }
+    allSpaces.push_back(s.str());
+  }
+
+  for (const auto& s : allSpaces) {
+    EXPECT_EQ("", trim(s));
+    EXPECT_EQ("", ltrim(s));
+    EXPECT_EQ("", rtrim(s));
+
+    auto withSuffix = fmt::format("{}suffix", s);
+
+    EXPECT_EQ("suffix", trim(withSuffix));
+    EXPECT_EQ("suffix", ltrim(withSuffix));
+    EXPECT_EQ(withSuffix, rtrim(withSuffix));
+
+    auto withPrefix = fmt::format("prefix{}", s);
+
+    EXPECT_EQ("prefix", trim(withPrefix));
+    EXPECT_EQ(withPrefix, ltrim(withPrefix));
+    EXPECT_EQ("prefix", rtrim(withPrefix));
+  }
+}
 
 TEST_F(TrimFunctionsTest, trim) {
   // Making input vector

@@ -68,7 +68,8 @@ String Functions
 
 .. function:: ltrim(string) -> varchar
 
-    Removes leading whitespace from string.
+    Removes leading whitespace from string. See :func:`trim` for the set of
+    recognized whitespace characters.
 
 .. function:: ltrim(string, chars) -> varchar
 
@@ -103,7 +104,8 @@ String Functions
 
 .. function:: rtrim(string) -> varchar
 
-    Removes trailing whitespace from string.
+    Removes trailing whitespace from string. See :func:`trim` for the set of
+    recognized whitespace characters.
 
 .. function:: rtrim(string, chars) -> varchar
 
@@ -186,7 +188,40 @@ String Functions
 
     Removes starting and ending whitespaces from ``string``.
 
+    The set of recognized whitespace characters is:
+
+    ======  ===========================
+    Code    Description
+    ======  ===========================
+    9       TAB (horizontal tab)
+    10      LF (NL line feed, new line)
+    11      VT (vertical tab)
+    12      FF (NP form feed, new page)
+    13      CR (carriage return)
+    28      FS (file separator)
+    29      GS (group separator)
+    30      RS (record separator)
+    31      US (unit separator)
+    32      Space
+    U+1680  Ogham Space Mark
+    U+2000  En Quad
+    U+2001  Em Quad
+    U+2002  En Space
+    U+2003  Em Space
+    U+2004  Three-Per-Em Space
+    U+2005  Four-Per-Em Space
+    U+2006  Four-Per-Em Space
+    U+2008  Punctuation Space
+    U+2009  Thin Space
+    U+200a  Hair Space
+    U+2028  Line Separator
+    U+2029  Paragraph Separator
+    U+205f  Medium Mathematical Space
+    U+3000  Ideographic Space
+    ======  ===========================
+
 .. function:: trim(string, chars) -> varchar
+    :noindex:
 
     Removes the longest substring containing only characters in ``chars`` from the beginning and end of the ``string``. ::
 
