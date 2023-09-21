@@ -39,7 +39,7 @@ class S3FileSystem : public FileSystem {
 
   std::unique_ptr<WriteFile> openFileForWrite(
       std::string_view path,
-      const FileOptions& options = {}) override;
+      const FileOptions& options) override;
 
   void remove(std::string_view path) override {
     VELOX_UNSUPPORTED("remove for S3 not implemented");

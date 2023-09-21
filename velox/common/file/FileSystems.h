@@ -16,6 +16,7 @@
 #pragma once
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/memory/MemoryPool.h"
 
 #include <functional>
 #include <memory>
@@ -31,8 +32,11 @@ namespace facebook::velox::filesystems {
 
 /// Defines the options for per-file operations. It contains a key-value pairs
 /// which can be easily extended to different storage systems.
+/// MemoryPool to allocate buffers needed to read/write files on FileSystems
+/// such as S3.
 struct FileOptions {
   std::unordered_map<std::string, std::string> values;
+  memory::MemoryPool* pool{nullptr};
 };
 
 /// An abstract FileSystem

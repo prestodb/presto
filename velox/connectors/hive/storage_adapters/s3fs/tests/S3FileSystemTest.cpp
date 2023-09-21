@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/S3WriteFile.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/tests/S3Test.h"
 
@@ -186,7 +187,8 @@ TEST_F(S3FileSystemTest, writeFileAndRead) {
 
   auto hiveConfig = minioServer_->hiveConfig();
   filesystems::S3FileSystem s3fs(hiveConfig);
-  auto writeFile = s3fs.openFileForWrite(s3File);
+  auto pool = memory::defaultMemoryManager().addLeafPool("S3FileSystemTest");
+  auto writeFile = s3fs.openFileForWrite(s3File, {{}, pool.get()});
   auto s3WriteFile = dynamic_cast<filesystems::S3WriteFile*>(writeFile.get());
   std::string dataContent =
       "Dance me to your beauty with a burning violin"

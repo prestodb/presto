@@ -177,6 +177,13 @@ class DataBuffer {
     size_ = (offset + items);
   }
 
+  void unsafeAppend(const T* src, uint64_t items) {
+    if (FOLLY_LIKELY(items > 0)) {
+      std::memcpy(data() + size_, src, sizeInBytes(items));
+      size_ += items;
+    }
+  }
+
   void unsafeAppend(T value) {
     buf_[size_++] = value;
   }

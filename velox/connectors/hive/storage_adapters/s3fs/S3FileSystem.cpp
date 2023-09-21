@@ -20,6 +20,7 @@
 #include "velox/connectors/hive/storage_adapters/s3fs/S3Util.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/S3WriteFile.h"
 #include "velox/core/Config.h"
+#include "velox/dwio/common/DataBuffer.h"
 
 #include <fmt/format.h>
 #include <glog/logging.h>
@@ -210,10 +211,16 @@ namespace filesystems {
 
 class S3WriteFile::Impl {
  public:
-  explicit Impl(const std::string& path, Aws::S3::S3Client* client)
-      : client_(client) {
+  explicit Impl(
+      const std::string& path,
+      Aws::S3::S3Client* client,
+      memory::MemoryPool* pool)
+      : client_(client), pool_(pool) {
+    VELOX_CHECK_NOT_NULL(client);
+    VELOX_CHECK_NOT_NULL(pool);
     getBucketAndKeyFromS3Path(path, bucket_, key_);
-
+    currentPart_ = std::make_unique<dwio::common::DataBuffer<char>>(*pool_);
+    currentPart_->reserve(kPartUploadSize);
     // Check that the object doesn't exist, if it does throw an error.
     {
       Aws::S3::Model::HeadObjectRequest request;
@@ -255,39 +262,35 @@ class S3WriteFile::Impl {
       uploadState_.id = outcome.GetResult().GetUploadId();
     }
 
-    currentPart_.resize(kPartUploadSize);
-    closed_ = false;
     fileSize_ = 0;
   }
 
   // Appends data to the end of the file.
   void append(std::string_view data) {
-    VELOX_CHECK(!closed_, "File is closed");
-    if (data.size() + currentPartSize_ >= kPartUploadSize) {
+    VELOX_CHECK(!closed(), "File is closed");
+    if (data.size() + currentPart_->size() >= kPartUploadSize) {
       upload(data);
     } else {
       // Append to current part.
-      memcpy(currentPartBuffer() + currentPartSize_, data.data(), data.size());
-      currentPartSize_ += data.size();
+      currentPart_->unsafeAppend(data.data(), data.size());
     }
     fileSize_ += data.size();
   }
 
   // No-op.
   void flush() {
-    VELOX_CHECK(!closed_, "File is closed");
+    VELOX_CHECK(!closed(), "File is closed");
     /// currentPartSize must be less than kPartUploadSize since
     /// append() would have already flushed after reaching kUploadPartSize.
-    VELOX_CHECK_LE(currentPartSize_, kPartUploadSize);
+    VELOX_CHECK_LT(currentPart_->size(), kPartUploadSize);
   }
 
   // Complete the multipart upload and close the file.
   void close() {
-    if (closed_) {
+    if (closed()) {
       return;
     }
-    uploadPart({currentPartBuffer(), currentPartSize_}, true);
-    currentPartSize_ = 0;
+    uploadPart({currentPart_->data(), currentPart_->size()}, true);
     VELOX_CHECK_EQ(uploadState_.partNumber, uploadState_.completedParts.size());
     // Complete the multipart upload.
     {
@@ -303,7 +306,7 @@ class S3WriteFile::Impl {
       VELOX_CHECK_AWS_OUTCOME(
           outcome, "Failed to complete multiple part upload", bucket_, key_);
     }
-    closed_ = true;
+    currentPart_->clear();
   }
 
   // Current file size, i.e. the sum of all previous appends.
@@ -320,6 +323,10 @@ class S3WriteFile::Impl {
   static constexpr const char* kApplicationOctetStream =
       "application/octet-stream";
 
+  bool closed() const {
+    return (currentPart_->capacity() == 0);
+  }
+
   // Holds state for the multipart upload.
   struct UploadState {
     Aws::Vector<Aws::S3::Model::CompletedPart> completedParts;
@@ -329,16 +336,15 @@ class S3WriteFile::Impl {
   UploadState uploadState_;
 
   // Data can be smaller or larger than the kPartUploadSize.
-  // Complete the currentPart_ and chunk the remaining data.
-  // Stash the remaining in the current part.
+  // Complete the currentPart_ and upload kPartUploadSize chunks of data.
+  // Save the remaining into currentPart_.
   void upload(const std::string_view data) {
     auto dataPtr = data.data();
     auto dataSize = data.size();
     // Fill-up the remaining currentPart_.
-    auto remainingBufferSize = kPartUploadSize - currentPartSize_;
-    memcpy(
-        currentPartBuffer() + currentPartSize_, dataPtr, remainingBufferSize);
-    uploadPart({currentPartBuffer(), kPartUploadSize});
+    auto remainingBufferSize = currentPart_->capacity() - currentPart_->size();
+    currentPart_->unsafeAppend(dataPtr, remainingBufferSize);
+    uploadPart({currentPart_->data(), currentPart_->size()});
     dataPtr += remainingBufferSize;
     dataSize -= remainingBufferSize;
     while (dataSize > kPartUploadSize) {
@@ -346,9 +352,8 @@ class S3WriteFile::Impl {
       dataPtr += kPartUploadSize;
       dataSize -= kPartUploadSize;
     }
-    // stash the remaining in currentPart;
-    memcpy(currentPartBuffer(), dataPtr, dataSize);
-    currentPartSize_ = dataSize;
+    // Stash the remaining at the beginning of currentPart.
+    currentPart_->unsafeAppend(0, dataPtr, dataSize);
   }
 
   void uploadPart(const std::string_view part, bool isLast = false) {
@@ -377,22 +382,19 @@ class S3WriteFile::Impl {
     }
   }
 
-  char* currentPartBuffer() {
-    return currentPart_.data();
-  }
-
-  // TODO: Pass a MemoryPool to S3WriteFile use a MemorySink.
-  std::vector<char> currentPart_;
   Aws::S3::S3Client* client_;
+  memory::MemoryPool* pool_;
+  std::unique_ptr<dwio::common::DataBuffer<char>> currentPart_;
   std::string bucket_;
   std::string key_;
   size_t fileSize_ = -1;
-  uint32_t currentPartSize_ = 0;
-  bool closed_ = true;
 };
 
-S3WriteFile::S3WriteFile(const std::string& path, Aws::S3::S3Client* client) {
-  impl_ = std::make_shared<Impl>(path, client);
+S3WriteFile::S3WriteFile(
+    const std::string& path,
+    Aws::S3::S3Client* client,
+    memory::MemoryPool* pool) {
+  impl_ = std::make_shared<Impl>(path, client, pool);
 }
 
 void S3WriteFile::append(std::string_view data) {
@@ -629,9 +631,10 @@ std::unique_ptr<ReadFile> S3FileSystem::openFileForRead(
 
 std::unique_ptr<WriteFile> S3FileSystem::openFileForWrite(
     std::string_view path,
-    const FileOptions& /*unused*/) {
+    const FileOptions& options) {
   const auto file = s3Path(path);
-  auto s3file = std::make_unique<S3WriteFile>(file, impl_->s3Client());
+  auto s3file =
+      std::make_unique<S3WriteFile>(file, impl_->s3Client(), options.pool);
   return s3file;
 }
 
