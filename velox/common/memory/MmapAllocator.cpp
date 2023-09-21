@@ -78,7 +78,7 @@ bool MmapAllocator::allocateNonContiguousWithoutRetry(
   if (numAllocated_ + mix.totalPages > capacity_) {
     VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
         << "Exceeding memory allocator limit when allocate " << mix.totalPages
-        << " pages with capacity of " << capacity_;
+        << " pages with capacity of " << capacity_ << " pages";
     if ((bytesFreed != 0) && (reservationCB != nullptr)) {
       reservationCB(bytesFreed, false);
     }
@@ -87,7 +87,7 @@ bool MmapAllocator::allocateNonContiguousWithoutRetry(
   if (numAllocated_.fetch_add(mix.totalPages) + mix.totalPages > capacity_) {
     VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
         << "Exceeded memory allocator limit when allocate " << mix.totalPages
-        << " pages with capacity of " << capacity_;
+        << " pages with capacity of " << capacity_ << " pages";
     numAllocated_.fetch_sub(mix.totalPages);
     if ((bytesFreed != 0) && (reservationCB != nullptr)) {
       reservationCB(bytesFreed, false);
@@ -332,7 +332,7 @@ bool MmapAllocator::allocateContiguousImpl(
     VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
         << "Exceeded memory allocator limit when allocate " << newPages
         << " new pages for total allocation of " << numPages
-        << " pages, the memory allocator capacity is " << capacity_;
+        << " pages, the memory allocator capacity is " << capacity_ << " pages";
     rollbackAllocation(0);
     return false;
   }
@@ -429,7 +429,7 @@ bool MmapAllocator::growContiguousWithoutRetry(
     VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
         << "Exceeded memory allocator limit when adding " << increment
         << " new pages for total allocation of " << allocation.numPages()
-        << " pages, the memory allocator capacity is " << capacity_;
+        << " pages, the memory allocator capacity is " << capacity_ << " pages";
     numAllocated_ -= increment;
     if (reservationCB != nullptr) {
       reservationCB(AllocationTraits::pageBytes(increment), false);

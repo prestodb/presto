@@ -700,3 +700,58 @@ TEST_F(AsyncDataCacheTest, invalidSsdPath) {
           "Ssd path '{}' does not start with '/' that points to local file system.",
           testPath));
 }
+
+TEST_F(AsyncDataCacheTest, cacheStats) {
+  CacheStats stats;
+  stats.tinySize = 234;
+  stats.largeSize = 1024;
+  stats.tinyPadding = 23;
+  stats.largePadding = 1344;
+  stats.numEntries = 100;
+  stats.numExclusive = 20;
+  stats.numShared = 30;
+  stats.numEmptyEntries = 20;
+  stats.numPrefetch = 30;
+  stats.prefetchBytes = 100;
+  stats.numHit = 46;
+  stats.hitBytes = 1374;
+  stats.numNew = 2041;
+  stats.numEvict = 463;
+  stats.numEvictChecks = 348;
+  stats.numWaitExclusive = 244;
+  stats.allocClocks = 1320;
+  stats.sumEvictScore = 123;
+  ASSERT_EQ(
+      stats.toString(),
+      "Cache size: 2.56KB tinySize: 257B large size: 2.31KB\n"
+      "Cache entries: 100 read pins: 30 write pins: 20 num write wait: 244 empty entries: 20\n"
+      "Cache access miss: 2041 hit: 46 hit bytes: 1.34KB eviction: 463 eviction checks: 348\n"
+      "Prefetch entries: 30 bytes: 100B\n"
+      "Alloc Megaclocks 0");
+
+  constexpr uint64_t kRamBytes = 32 << 20;
+  constexpr uint64_t kSsdBytes = 512UL << 20;
+  initializeCache(kRamBytes, kSsdBytes);
+  ASSERT_EQ(
+      cache_->toString(),
+      "AsyncDataCache:\n"
+      "Cache size: 0B tinySize: 0B large size: 0B\n"
+      "Cache entries: 0 read pins: 0 write pins: 0 num write wait: 0 empty entries: 0\n"
+      "Cache access miss: 0 hit: 0 hit bytes: 0B eviction: 0 eviction checks: 0\n"
+      "Prefetch entries: 0 bytes: 0B\n"
+      "Alloc Megaclocks 0\n"
+      "Allocated pages: 0 cached pages: 0\n"
+      "Backing: Memory Allocator[MMAP capacity 16.00KB allocated pages 0 mapped pages 0 external mapped pages 0\n"
+      "[size 1: 0(0MB) allocated 0 mapped]\n"
+      "[size 2: 0(0MB) allocated 0 mapped]\n"
+      "[size 4: 0(0MB) allocated 0 mapped]\n"
+      "[size 8: 0(0MB) allocated 0 mapped]\n"
+      "[size 16: 0(0MB) allocated 0 mapped]\n"
+      "[size 32: 0(0MB) allocated 0 mapped]\n"
+      "[size 64: 0(0MB) allocated 0 mapped]\n"
+      "[size 128: 0(0MB) allocated 0 mapped]\n"
+      "[size 256: 0(0MB) allocated 0 mapped]\n"
+      "]\n"
+      "SSD: Ssd cache IO: Write 0MB read 0MB Size 0GB Occupied 0GB0K entries.\n"
+      "GroupStats: <dummy FileGroupStats>");
+}

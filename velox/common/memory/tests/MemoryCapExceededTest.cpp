@@ -192,7 +192,7 @@ TEST_P(MemoryCapExceededTest, allocatorCapacityExceededError) {
       std::make_shared<memory::MallocAllocator>(64LL << 20),
       std::vector<std::string>{
           "allocateContiguous failed with .* pages",
-          "unlimited max capacity unlimited capacity used .* available .*",
+          "max capacity 128.00MB unlimited capacity used .* available .*",
           ".* reservation .used .*MB, reserved .*MB, min 0B. counters",
           "allocs .*, frees .*, reserves .*, releases .*, collisions .*"}});
   const memory::MmapAllocator::Options options = {.capacity = 64LL << 20};
@@ -200,7 +200,7 @@ TEST_P(MemoryCapExceededTest, allocatorCapacityExceededError) {
       std::make_shared<memory::MmapAllocator>(options),
       std::vector<std::string>{
           "allocateContiguous failed with .* pages",
-          "unlimited max capacity unlimited capacity used .* available .*",
+          "max capacity 128.00MB unlimited capacity used .* available .*",
           ".* reservation .used .*MB, reserved .*MB, min .*B. counters",
           ".*, frees .*, reserves .*, releases .*, collisions .*"}});
   for (auto& allocExp : allocatorExpectations) {

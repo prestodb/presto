@@ -588,10 +588,10 @@ TEST_P(MemoryPoolTest, MemoryCapExceptions) {
         if (useMmap_) {
           ASSERT_EQ(
               fmt::format(
-                  "allocate failed with 134217729 bytes from Memory Pool["
+                  "allocate failed with 128.00MB from Memory Pool["
                   "static_quota LEAF root[MemoryCapExceptions] "
-                  "parent[MemoryCapExceptions] MMAP track-usage {}]<unlimited "
-                  "max capacity capacity 256.00MB used 0B available 0B "
+                  "parent[MemoryCapExceptions] MMAP track-usage {}]<max "
+                  "capacity 256.00MB capacity 256.00MB used 0B available 0B "
                   "reservation [used 0B, reserved 0B, min 0B] counters [allocs "
                   "1, frees 0, reserves 0, releases 0, collisions 0])>",
                   isLeafThreadSafe_ ? "thread-safe" : "non-thread-safe"),
@@ -599,10 +599,10 @@ TEST_P(MemoryPoolTest, MemoryCapExceptions) {
         } else {
           ASSERT_EQ(
               fmt::format(
-                  "allocate failed with 134217729 bytes from Memory Pool"
+                  "allocate failed with 128.00MB from Memory Pool"
                   "[static_quota LEAF root[MemoryCapExceptions] "
                   "parent[MemoryCapExceptions] MALLOC track-usage {}]"
-                  "<unlimited max capacity capacity 256.00MB used 0B available "
+                  "<max capacity 256.00MB capacity 256.00MB used 0B available "
                   "0B reservation [used 0B, reserved 0B, min 0B] counters "
                   "[allocs 1, frees 0, reserves 0, releases 0, collisions 0])>",
                   isLeafThreadSafe_ ? "thread-safe" : "non-thread-safe"),
@@ -2827,7 +2827,7 @@ TEST_P(MemoryPoolTest, statsAndToString) {
   ASSERT_EQ(
       leafChild1->toString(),
       fmt::format(
-          "Memory Pool[leaf-child1 LEAF root[stats] parent[stats] {} track-usage {}]<unlimited max capacity capacity 4.00GB used 1.00KB available 1023.00KB reservation [used 1.00KB, reserved 1.00MB, min 0B] counters [allocs 1, frees 0, reserves 0, releases 0, collisions 0])>",
+          "Memory Pool[leaf-child1 LEAF root[stats] parent[stats] {} track-usage {}]<max capacity 4.00GB capacity 4.00GB used 1.00KB available 1023.00KB reservation [used 1.00KB, reserved 1.00MB, min 0B] counters [allocs 1, frees 0, reserves 0, releases 0, collisions 0])>",
           useMmap_ ? "MMAP" : "MALLOC",
           isLeafThreadSafe_ ? "thread-safe" : "non-thread-safe"));
   ASSERT_EQ(
@@ -2836,7 +2836,7 @@ TEST_P(MemoryPoolTest, statsAndToString) {
   ASSERT_EQ(
       leafChild1->toString(),
       fmt::format(
-          "Memory Pool[leaf-child1 LEAF root[stats] parent[stats] {} track-usage {}]<unlimited max capacity capacity 4.00GB used 1.00KB available 1023.00KB reservation [used 1.00KB, reserved 1.00MB, min 0B] counters [allocs 1, frees 0, reserves 0, releases 0, collisions 0])>",
+          "Memory Pool[leaf-child1 LEAF root[stats] parent[stats] {} track-usage {}]<max capacity 4.00GB capacity 4.00GB used 1.00KB available 1023.00KB reservation [used 1.00KB, reserved 1.00MB, min 0B] counters [allocs 1, frees 0, reserves 0, releases 0, collisions 0])>",
           useMmap_ ? "MMAP" : "MALLOC",
           isLeafThreadSafe_ ? "thread-safe" : "non-thread-safe"));
   ASSERT_EQ(

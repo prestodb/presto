@@ -880,8 +880,8 @@ class MemoryPoolImpl : public MemoryPool {
         << MemoryAllocator::kindString(allocator_->kind())
         << (trackUsage_ ? " track-usage" : " no-usage-track")
         << (threadSafe_ ? " thread-safe" : " non-thread-safe") << "]<";
-    if (maxCapacity_ != kMaxMemory) {
-      out << "max capacity " << succinctBytes(maxCapacity_) << " ";
+    if (maxCapacity() != kMaxMemory) {
+      out << "max capacity " << succinctBytes(maxCapacity()) << " ";
     } else {
       out << "unlimited max capacity ";
     }

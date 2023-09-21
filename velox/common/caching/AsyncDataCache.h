@@ -511,6 +511,8 @@ struct CacheStats {
   int64_t sumEvictScore{};
 
   std::shared_ptr<SsdCacheStats> ssdStats = nullptr;
+
+  std::string toString() const;
 };
 
 /// Collection of cache entries whose key hashes to the same shard of

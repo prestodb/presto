@@ -15,11 +15,11 @@
  */
 
 #include "velox/common/caching/AsyncDataCache.h"
-#include <velox/common/base/BitUtil.h>
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/caching/SsdCache.h"
 
 #include <folly/executors/QueuedImmediateExecutor.h>
+#include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/caching/FileIds.h"
 
 namespace facebook::velox::cache {
@@ -654,7 +654,7 @@ void AsyncDataCache::backoff(int32_t counter) {
   size_t seed = folly::hasher<uint16_t>()(++backoffCounter_);
   const auto usec = (seed & 0xfff) * (counter & 0x1f);
   VELOX_CACHE_LOG_EVERY_MS(INFO, 1'000)
-      << "Backoff in allocation contention for " << usec << " us.";
+      << "Backoff in allocation contention for " << succinctMicros(usec);
 
   std::this_thread::sleep_for(std::chrono::microseconds(usec)); // NOLINT
 }
@@ -720,21 +720,42 @@ void AsyncDataCache::clear() {
 std::string AsyncDataCache::toString() const {
   auto stats = refreshStats();
   std::stringstream out;
-  out << "AsyncDataCache: "
-      << stats.tinySize + stats.largeSize + stats.tinyPadding +
-          stats.largePadding
-      << " bytes\n"
-      << "Miss: " << stats.numNew << " Hit " << stats.numHit << " evict "
-      << stats.numEvict << "\n"
-      << " read pins " << stats.numShared << " write pins "
-      << stats.numExclusive << " unused prefetch " << stats.numPrefetch
-      << " Alloc Megaclocks " << (stats.allocClocks >> 20)
-      << " allocated pages " << allocator_->numAllocated() << " cached pages "
-      << cachedPages_;
-  out << "\nBacking: " << allocator_->toString();
+  out << "AsyncDataCache:\n"
+      << stats.toString() << "\n"
+      << "Allocated pages: " << allocator_->numAllocated()
+      << " cached pages: " << cachedPages_ << "\n";
+  out << "Backing: " << allocator_->toString();
   if (ssdCache_) {
     out << "\nSSD: " << ssdCache_->toString();
   }
+  return out.str();
+}
+
+std::string CacheStats::toString() const {
+  std::stringstream out;
+  // Cache size stats.
+  out << "Cache size: "
+      << succinctBytes(tinySize + largeSize + tinyPadding + largePadding)
+      << " tinySize: " << succinctBytes(tinySize + tinyPadding)
+      << " large size: " << succinctBytes(largeSize + largePadding)
+      << "\n"
+      // Cache entries
+      << "Cache entries: " << numEntries << " read pins: " << numShared
+      << " write pins: " << numExclusive
+      << " num write wait: " << numWaitExclusive
+      << " empty entries: " << numEmptyEntries
+      << "\n"
+      // Cache access stats.
+      << "Cache access miss: " << numNew << " hit: " << numHit
+      << " hit bytes: " << succinctBytes(hitBytes) << " eviction: " << numEvict
+      << " eviction checks: " << numEvictChecks
+      << "\n"
+      // Cache prefetch stats.
+      << "Prefetch entries: " << numPrefetch
+      << " bytes: " << succinctBytes(prefetchBytes)
+      << "\n"
+      // Cache timing stats.
+      << "Alloc Megaclocks " << (allocClocks >> 20);
   return out.str();
 }
 
