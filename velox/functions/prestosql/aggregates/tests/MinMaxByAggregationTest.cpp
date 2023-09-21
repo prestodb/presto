@@ -1466,6 +1466,42 @@ TEST_F(MinMaxByNTest, globalWithNullCompare) {
       {data}, {}, {"min_by(c0, c1, 3)", "max_by(c0, c1, 4)"}, {expected});
 }
 
+TEST_F(MinMaxByNTest, globalWithNullN) {
+  // Rows with null 'compare' should be ignored.
+  auto data = makeRowVector(
+      {makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7}),
+       makeFlatVector<int64_t>({77, 66, 55, 44, 33, 22, 11}),
+       makeNullableFlatVector<int64_t>(
+           {3, std::nullopt, 3, 3, 3, std::nullopt, 3})});
+
+  auto expected = makeRowVector({
+      makeArrayVector<int32_t>({
+          {7, 5, 4},
+      }),
+      makeArrayVector<int32_t>({
+          {1, 3, 4},
+      }),
+  });
+
+  testAggregations(
+      {data}, {}, {"min_by(c0, c1, c2)", "max_by(c0, c1, c2)"}, {expected});
+
+  // All 'N' are null.
+  data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7}),
+      makeFlatVector<int64_t>({77, 66, 55, 44, 33, 22, 11}),
+      makeNullConstant(TypeKind::BIGINT, 7),
+  });
+
+  expected = makeRowVector({
+      makeAllNullArrayVector(1, INTEGER()),
+      makeAllNullArrayVector(1, INTEGER()),
+  });
+
+  testAggregations(
+      {data}, {}, {"min_by(c0, c1, c2)", "max_by(c0, c1, c2)"}, {expected});
+}
+
 TEST_F(MinMaxByNTest, sortedGlobal) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7}),
@@ -1627,6 +1663,56 @@ TEST_F(MinMaxByNTest, groupByWithNullCompare) {
 
   testAggregations(
       {data}, {"c0"}, {"min_by(c1, c2, 3)", "max_by(c1, c2, 4)"}, {expected});
+}
+
+TEST_F(MinMaxByNTest, groupByWithNullN) {
+  // Rows with null 'N' should be ignored.
+  auto data = makeRowVector({
+      makeFlatVector<int16_t>({1, 2, 1, 2, 1, 2, 1}),
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7}),
+      makeFlatVector<int64_t>({77, 66, 55, 44, 33, 22, 11}),
+      makeNullableFlatVector<int64_t>(
+          {3, std::nullopt, 3, 3, std::nullopt, 3, 3}),
+  });
+
+  auto expected = makeRowVector({
+      makeFlatVector<int16_t>({1, 2}),
+      makeArrayVector<int32_t>({
+          {7, 3, 1},
+          {6, 4},
+      }),
+      makeArrayVector<int32_t>({
+          {1, 3, 7},
+          {4, 6},
+      }),
+  });
+
+  testAggregations(
+      {data}, {"c0"}, {"min_by(c1, c2, c3)", "max_by(c1, c2, c3)"}, {expected});
+
+  // All 'N' values are null for one group.
+  data = makeRowVector({
+      makeFlatVector<int16_t>({1, 2, 1, 2, 1, 2, 1}),
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7}),
+      makeFlatVector<int64_t>({77, 66, 55, 44, 33, 22, 11}),
+      makeNullableFlatVector<int64_t>(
+          {3, std::nullopt, 3, std::nullopt, std::nullopt, std::nullopt, 3}),
+  });
+
+  expected = makeRowVector({
+      makeFlatVector<int16_t>({1, 2}),
+      makeNullableArrayVector<int32_t>({
+          {{7, 3, 1}},
+          std::nullopt,
+      }),
+      makeNullableArrayVector<int32_t>({
+          {{1, 3, 7}},
+          std::nullopt,
+      }),
+  });
+
+  testAggregations(
+      {data}, {"c0"}, {"min_by(c1, c2, c3)", "max_by(c1, c2, c3)"}, {expected});
 }
 
 TEST_F(MinMaxByNTest, sortedGroupBy) {

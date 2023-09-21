@@ -384,9 +384,8 @@ class MinMaxNTest : public functions::aggregate::test::AggregationTestBase {
 
   template <typename T>
   void testNumericGlobal() {
-    auto data = makeRowVector({
-        makeFlatVector<T>({1, 10, 2, 9, 3, 8, 4, 7, 6, 5}),
-    });
+    auto data =
+        makeRowVector({makeFlatVector<T>({1, 10, 2, 9, 3, 8, 4, 7, 6, 5})});
 
     // DuckDB doesn't support min(x, n) or max(x, n) functions.
 
@@ -451,6 +450,39 @@ class MinMaxNTest : public functions::aggregate::test::AggregationTestBase {
         {data},
         {},
         {"min(c0, 2)", "min(c0, 5)", "max(c0, 3)", "max(c0, 7)"},
+        {expected});
+
+    // Test the NULL handling in `N` param.
+    data = makeRowVector({
+        makeFlatVector<T>({1, 10, 2, 9, 3, 8, 4, 7, 6, 5}),
+        // c1, used as the N of minN, with NULL in it.
+        makeNullableFlatVector<int64_t>(
+            {2, 2, std::nullopt, 2, 2, 2, 2, 2, 2, 2}),
+        // c2, used as the N of maxN, with NULL in it.
+        makeNullableFlatVector<int64_t>(
+            {3, 3, 3, 3, 3, std::nullopt, 3, 3, 3, 3}),
+        // c3, used as the N of minN/maxN, all NULL.
+        makeAllNullFlatVector<int64_t>(10),
+    });
+
+    expected = makeRowVector(
+        // min(c0, c1): Because of NULL N, 2 is ignored.
+        {makeArrayVector<T>({
+             {1, 3},
+         }),
+         // min(c0, c3): Since all N are NULL, the result is NULL.
+         makeNullableArrayVector<T>({std::nullopt}),
+         // max(c0, c2): Because of NULL N, 8 is ignored.
+         makeArrayVector<T>({
+             {10, 9, 7},
+         }),
+         // max(c0, c3): Since all N are NULL, the result is NULL.
+         makeNullableArrayVector<T>({std::nullopt})});
+
+    testAggregations(
+        {data},
+        {},
+        {"min(c0, c1)", "min(c0, c3)", "max(c0, c2)", "max(c0, c3)"},
         {expected});
   }
 
@@ -540,6 +572,46 @@ class MinMaxNTest : public functions::aggregate::test::AggregationTestBase {
         {data},
         {"c0"},
         {"min(c1, 2)", "min(c1, 5)", "max(c1, 3)", "max(c1, 7)"},
+        {expected});
+
+    // Test the NULL handling in `N` param.
+    data = makeRowVector({
+        // Group by column.
+        makeFlatVector<int16_t>({1, 2, 1, 1, 2, 2, 1, 2}),
+        // Values.
+        makeFlatVector<T>({1, 2, 4, 3, 6, 5, 7, 8}),
+        // c2: used as the N of min, with NULL in it.
+        makeNullableFlatVector<int64_t>(
+            {2, 2, 2, std::nullopt, 2, std::nullopt, 2, 2}),
+        // c3: used as the N of max, with NULL in it.
+        makeNullableFlatVector<int64_t>(
+            {3, 3, 3, 3, 3, 3, std::nullopt, std::nullopt}),
+        // c4: used as the N of minN/maxN, all NULL.
+        makeAllNullFlatVector<int64_t>(8),
+    });
+
+    expected = makeRowVector({
+        makeFlatVector<int16_t>({1, 2}),
+        // min(c1, c2): 3, 5 are ignored because of NULL N.
+        makeArrayVector<T>({
+            {1, 4},
+            {2, 6},
+        }),
+        // min(c1, c4): Since all N are NULL, the result is NULL.
+        makeNullableArrayVector<T>({std::nullopt, std::nullopt}),
+        // max(c1, c3): 7, 8 are ignored because of NULL N.
+        makeArrayVector<T>({
+            {4, 3, 1},
+            {6, 5, 2},
+        }),
+        // max(c1, c4): Since all N are NULL, the result is NULL.
+        makeNullableArrayVector<T>({std::nullopt, std::nullopt}),
+    });
+
+    testAggregations(
+        {data},
+        {"c0"},
+        {"min(c1, c2)", "min(c1, c4)", "max(c1, c3)", "max(c1, c4)"},
         {expected});
   }
 };

@@ -535,9 +535,11 @@ struct MinMaxNAccumulator {
   }
 
   void checkAndSetN(DecodedVector& decodedN, vector_size_t row) {
-    VELOX_USER_CHECK(
-        !decodedN.isNullAt(row),
-        "second argument of max/min must be a positive integer");
+    // Skip null N.
+    if (decodedN.isNullAt(row)) {
+      return;
+    }
+
     const auto newN = decodedN.valueAt<int64_t>(row);
     VELOX_USER_CHECK_GT(
         newN, 0, "second argument of max/min must be a positive integer");
@@ -610,7 +612,7 @@ class MinMaxNAggregateBase : public exec::Aggregate {
     decodedN_.decode(*args[1], rows);
 
     rows.applyToSelected([&](vector_size_t i) {
-      if (decodedValue_.isNullAt(i)) {
+      if (decodedValue_.isNullAt(i) || decodedN_.isNullAt(i)) {
         return;
       }
 
@@ -650,7 +652,8 @@ class MinMaxNAggregateBase : public exec::Aggregate {
 
     auto tracker = trackRowSize(group);
     rows.applyToSelected([&](vector_size_t i) {
-      if (!decodedValue_.isNullAt(i)) {
+      // Skip null value or N.
+      if (!decodedValue_.isNullAt(i) && !decodedN_.isNullAt(i)) {
         addRawInput(group, i);
       }
     });
