@@ -828,6 +828,19 @@ std::string Driver::toJsonString() const {
   return folly::toPrettyJson(obj);
 }
 
+void driverArbitrationStateCheck(memory::MemoryPool& pool) {
+  const auto* driverThreadCtx = driverThreadContext();
+  if (driverThreadCtx != nullptr) {
+    Driver* driver = driverThreadCtx->driverCtx.driver;
+    if (!driver->state().isSuspended) {
+      VELOX_FAIL(
+          "Driver thread is not suspended under memory arbitration processing: {}, request memory pool: {}",
+          driver->toString(),
+          pool.name());
+    }
+  }
+}
+
 SuspendedSection::SuspendedSection(Driver* driver) : driver_(driver) {
   if (driver->task()->enterSuspended(driver->state()) != StopReason::kNone) {
     VELOX_FAIL("Terminate detected when entering suspended section");

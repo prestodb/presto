@@ -266,8 +266,6 @@ class FakeMemoryReclaimer : public MemoryReclaimer {
     auto* driver = driverThreadCtx->driverCtx.driver;
     ASSERT_TRUE(driver != nullptr);
     if (driver->task()->enterSuspended(driver->state()) != StopReason::kNone) {
-      // There is no need for arbitration if the associated task has already
-      // terminated.
       VELOX_FAIL("Terminate detected when entering suspension");
     }
   }
@@ -331,17 +329,7 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
     options.memoryPoolInitCapacity = memoryPoolInitCapacity;
     options.memoryPoolTransferCapacity = memoryPoolTransferCapacity;
     options.checkUsageLeak = true;
-    options.arbitrationStateCheckCb = [](MemoryPool& pool) {
-      const auto* driverThreadCtx = driverThreadContext();
-      if (driverThreadCtx != nullptr) {
-        if (!driverThreadCtx->driverCtx.driver->state().isSuspended) {
-          LOG(ERROR)
-              << "false "
-              << driverThreadCtx->driverCtx.driver->state().toJsonString();
-        }
-        ASSERT_TRUE(driverThreadCtx->driverCtx.driver->state().isSuspended);
-      }
-    };
+    options.arbitrationStateCheckCb = driverArbitrationStateCheck;
     memoryManager_ = std::make_unique<MemoryManager>(options);
     ASSERT_EQ(memoryManager_->arbitrator()->kind(), "SHARED");
     arbitrator_ = static_cast<SharedArbitrator*>(memoryManager_->arbitrator());
