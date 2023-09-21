@@ -41,6 +41,7 @@ public class QueryResults
     private final URI nextUri;
     private final List<Column> columns;
     private final Iterable<List<Object>> data;
+    private final Iterable<String> binaryData;
     private final StatementStats stats;
     private final QueryError error;
     private final List<PrestoWarning> warnings;
@@ -55,6 +56,7 @@ public class QueryResults
             @JsonProperty("nextUri") URI nextUri,
             @JsonProperty("columns") List<Column> columns,
             @JsonProperty("data") List<List<Object>> data,
+            @JsonProperty("binaryData") List<String> binaryData,
             @JsonProperty("stats") StatementStats stats,
             @JsonProperty("error") QueryError error,
             @JsonProperty("warnings") List<PrestoWarning> warnings,
@@ -68,6 +70,7 @@ public class QueryResults
                 nextUri,
                 columns,
                 fixData(columns, data),
+                binaryData,
                 stats,
                 error,
                 firstNonNull(warnings, ImmutableList.of()),
@@ -82,6 +85,7 @@ public class QueryResults
             URI nextUri,
             List<Column> columns,
             Iterable<List<Object>> data,
+            Iterable<String> binaryData,
             StatementStats stats,
             QueryError error,
             List<PrestoWarning> warnings,
@@ -94,7 +98,8 @@ public class QueryResults
         this.nextUri = nextUri;
         this.columns = (columns != null) ? ImmutableList.copyOf(columns) : null;
         this.data = (data != null) ? unmodifiableIterable(data) : null;
-        checkArgument(data == null || columns != null, "data present without columns");
+        this.binaryData = (binaryData != null) ? unmodifiableIterable(binaryData) : null;
+        checkArgument((data == null && binaryData == null) || columns != null, "data present without columns");
         this.stats = requireNonNull(stats, "stats is null");
         this.error = error;
         this.warnings = ImmutableList.copyOf(requireNonNull(warnings, "warnings is null"));
@@ -170,6 +175,16 @@ public class QueryResults
     }
 
     /**
+     * Returns an iterator to the payload (results) in binary format
+     */
+    @Nullable
+    @JsonProperty
+    public Iterable<String> getBinaryData()
+    {
+        return binaryData;
+    }
+
+    /**
      * Returns cumulative statistics on the query being executed
      * @return {@link com.facebook.presto.client.StatementStats}
      */
@@ -237,6 +252,7 @@ public class QueryResults
                 .add("nextUri", nextUri)
                 .add("columns", columns)
                 .add("hasData", data != null)
+                .add("hasBinaryData", binaryData != null)
                 .add("stats", stats)
                 .add("error", error)
                 .add("updateType", updateType)

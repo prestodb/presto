@@ -96,6 +96,7 @@ public abstract class AbstractCliTest
                 null,
                 ImmutableList.of(new Column("_col0", BigintType.BIGINT)),
                 ImmutableList.of(ImmutableList.of(123)),
+                null,
                 StatementStats.builder().setState("FINISHED").build(),
                 null,
                 ImmutableList.of(),

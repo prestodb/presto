@@ -90,6 +90,7 @@ public class TestProgressMonitor
                 nextUriId == null ? null : server.url(format("/v1/statement/%s/%s", queryId, nextUriId)).uri(),
                 responseColumns,
                 data,
+                null,
                 StatementStats.builder()
                         .setState(state)
                         .setWaitingForPrerequisites(state.equals("WAITING_FOR_PREREQUISITES"))
