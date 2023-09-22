@@ -157,6 +157,9 @@ String Functions
     Returns the position of the N-th ``instance`` of ``substring`` in ``string``.
     ``instance`` must be a positive number.
     Positions start with ``1``. If not found, ``0`` is returned.
+    It takes into account overlapping strings when counting occurrences. ::
+
+        SELECT strpos('aaa', 'aa', 2); -- 2
 
 .. function:: strrpos(string, substring) -> bigint
 
@@ -169,6 +172,9 @@ String Functions
     Returns the position of the N-th ``instance`` of ``substring`` in ``string`` starting from the end of the string.
     ``instance`` must be a positive number.
     Positions start with ``1``. If not found, ``0`` is returned.
+    It takes into account overlapping strings when counting occurrences. ::
+        
+        SELECT strrpos('aaa', 'aa', 2); -- 1
 
 .. function:: substr(string, start) -> varchar
 

@@ -232,11 +232,8 @@ lengthUnicode(const char* inputBuffer, size_t bufferLength) {
 
 /// Returns the start byte index of the Nth instance of subString in
 /// string. Search starts from startPosition. Positions start with 0. If not
-/// found, -1 is returned.
-/// stringPosition for Unicode uses this by first finding the byte index of
-/// substring and then computing the length of substring[0, byteIndex). This is
-/// safe because in UTF8 a char can not be a subset of another char (in bytes
-/// representation).
+/// found, -1 is returned. To facilitate finding overlapping strings, the
+/// nextStartPosition is incremented by 1
 static int64_t findNthInstanceByteIndexFromStart(
     const std::string_view& string,
     const std::string_view subString,
@@ -261,12 +258,13 @@ static int64_t findNthInstanceByteIndexFromStart(
 
   // Find next occurrence
   return findNthInstanceByteIndexFromStart(
-      string, subString, instance - 1, byteIndex + subString.size());
+      string, subString, instance - 1, byteIndex + 1);
 }
 
 /// Returns the start byte index of the Nth instance of subString in
 /// string from the end. Search starts from endPosition. Positions start with 0.
-/// If not found, -1 is returned.
+/// If not found, -1 is returned. To facilitate finding overlapping strings, the
+/// nextStartPosition is incremented by 1
 inline int64_t findNthInstanceByteIndexFromEnd(
     const std::string_view string,
     const std::string_view subString,

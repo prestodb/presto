@@ -282,6 +282,55 @@ TEST_F(StringImplTest, stringToCodePoints) {
       "Invalid UTF-8 encoding in characters");
 }
 
+TEST_F(StringImplTest, overlappedStringPosition) {
+  auto testValidInputAsciiLpos = [](const std::string& string,
+                                    const std::string& substr,
+                                    const int64_t instance,
+                                    const int64_t expectedPosition) {
+    auto result = stringPosition</*isAscii*/ true, true>(
+        StringView(string), StringView(substr), instance);
+    ASSERT_EQ(result, expectedPosition);
+  };
+  auto testValidInputAsciiRpos = [](const std::string& string,
+                                    const std::string& substr,
+                                    const int64_t instance,
+                                    const int64_t expectedPosition) {
+    auto result = stringPosition</*isAscii*/ true, false>(
+        StringView(string), StringView(substr), instance);
+    ASSERT_EQ(result, expectedPosition);
+  };
+
+  auto testValidInputUnicodeLpos = [](const std::string& string,
+                                      const std::string& substr,
+                                      const int64_t instance,
+                                      const int64_t expectedPosition) {
+    auto result = stringPosition</*isAscii*/ false, true>(
+        StringView(string), StringView(substr), instance);
+    ASSERT_EQ(result, expectedPosition);
+  };
+
+  auto testValidInputUnicodeRpos = [](const std::string& string,
+                                      const std::string& substr,
+                                      const int64_t instance,
+                                      const int64_t expectedPosition) {
+    auto result = stringPosition</*isAscii*/ false, false>(
+        StringView(string), StringView(substr), instance);
+    ASSERT_EQ(result, expectedPosition);
+  };
+
+  testValidInputAsciiLpos("aaa", "aa", 2, 2L);
+  testValidInputAsciiRpos("aaa", "aa", 2, 1L);
+
+  testValidInputAsciiLpos("|||", "||", 2, 2L);
+  testValidInputAsciiRpos("|||", "||", 2, 1L);
+
+  testValidInputUnicodeLpos("😋😋😋", "😋😋", 2, 2L);
+  testValidInputUnicodeRpos("😋😋😋", "😋😋", 2, 1L);
+
+  testValidInputUnicodeLpos("你你你", "你你", 2, 2L);
+  testValidInputUnicodeRpos("你你你", "你你", 2, 1L);
+}
+
 TEST_F(StringImplTest, stringPosition) {
   auto testValidInputAscii = [](const std::string& string,
                                 const std::string& substr,
