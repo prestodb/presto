@@ -268,6 +268,7 @@ public final class SystemSessionProperties
     public static final String SEGMENTED_AGGREGATION_ENABLED = "segmented_aggregation_enabled";
     public static final String USE_HISTORY_BASED_PLAN_STATISTICS = "use_history_based_plan_statistics";
     public static final String TRACK_HISTORY_BASED_PLAN_STATISTICS = "track_history_based_plan_statistics";
+    public static final String TRACK_HISTORY_STATS_FROM_FAILED_QUERIES = "track_history_stats_from_failed_queries";
     public static final String USE_PERFECTLY_CONSISTENT_HISTORIES = "use_perfectly_consistent_histories";
     public static final String HISTORY_CANONICAL_PLAN_NODE_LIMIT = "history_canonical_plan_node_limit";
     public static final String HISTORY_BASED_OPTIMIZER_TIMEOUT_LIMIT = "history_based_optimizer_timeout_limit";
@@ -1521,6 +1522,11 @@ public final class SystemSessionProperties
                         TRACK_HISTORY_BASED_PLAN_STATISTICS,
                         "Track history based plan statistics service in query optimizer",
                         featuresConfig.isTrackHistoryBasedPlanStatistics(),
+                        false),
+                booleanProperty(
+                        TRACK_HISTORY_STATS_FROM_FAILED_QUERIES,
+                        "Track history based plan statistics from complete plan fragments in failed queries",
+                        featuresConfig.isTrackHistoryStatsFromFailedQuery(),
                         false),
                 booleanProperty(
                         USE_PERFECTLY_CONSISTENT_HISTORIES,
@@ -2984,6 +2990,11 @@ public final class SystemSessionProperties
     public static boolean trackHistoryBasedPlanStatisticsEnabled(Session session)
     {
         return session.getSystemProperty(TRACK_HISTORY_BASED_PLAN_STATISTICS, Boolean.class);
+    }
+
+    public static boolean trackHistoryStatsFromFailedQuery(Session session)
+    {
+        return session.getSystemProperty(TRACK_HISTORY_STATS_FROM_FAILED_QUERIES, Boolean.class);
     }
 
     public static boolean usePerfectlyConsistentHistories(Session session)

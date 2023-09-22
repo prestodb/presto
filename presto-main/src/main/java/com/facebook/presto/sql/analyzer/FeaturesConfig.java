@@ -99,6 +99,7 @@ public class FeaturesConfig
     private int maxReorderedJoins = 9;
     private boolean useHistoryBasedPlanStatistics;
     private boolean trackHistoryBasedPlanStatistics;
+    private boolean trackHistoryStatsFromFailedQuery = true;
     private boolean usePerfectlyConsistentHistories;
     private int historyCanonicalPlanNodeLimit = 1000;
     private Duration historyBasedOptimizerTimeout = new Duration(10, SECONDS);
@@ -916,6 +917,18 @@ public class FeaturesConfig
     public FeaturesConfig setTrackHistoryBasedPlanStatistics(boolean trackHistoryBasedPlanStatistics)
     {
         this.trackHistoryBasedPlanStatistics = trackHistoryBasedPlanStatistics;
+        return this;
+    }
+
+    public boolean isTrackHistoryStatsFromFailedQuery()
+    {
+        return trackHistoryStatsFromFailedQuery;
+    }
+
+    @Config("optimizer.track-history-stats-from-failed-queries")
+    public FeaturesConfig setTrackHistoryStatsFromFailedQuery(boolean trackHistoryStatsFromFailedQuery)
+    {
+        this.trackHistoryStatsFromFailedQuery = trackHistoryStatsFromFailedQuery;
         return this;
     }
 

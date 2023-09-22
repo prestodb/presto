@@ -48,8 +48,11 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.HISTORY_CANONICAL_PLAN_NODE_LIMIT;
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY;
 import static com.facebook.presto.SystemSessionProperties.TRACK_HISTORY_BASED_PLAN_STATISTICS;
+import static com.facebook.presto.SystemSessionProperties.TRACK_HISTORY_STATS_FROM_FAILED_QUERIES;
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.SystemSessionProperties.USE_PERFECTLY_CONSISTENT_HISTORIES;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
@@ -119,6 +122,29 @@ public class TestHistoryBasedStatsTracking
         assertPlan(
                 "SELECT max(nationkey) FROM nation where name < 'D' group by regionkey",
                 anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(3).withOutputSize(54)));
+    }
+
+    @Test
+    public void testFailedQuery()
+    {
+        String sql = "select o.orderkey, l.partkey, l.mapcol[o.orderkey] from (select orderkey, partkey, mapcol from (select *, map(array[1], array[2]) mapcol from lineitem)) l " +
+                "join orders o on l.partkey=o.custkey where length(comment)>10";
+        Session session = Session.builder(createSession())
+                .setSystemProperty(TRACK_HISTORY_STATS_FROM_FAILED_QUERIES, "true")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
+                .build();
+        // CBO Statistics
+        assertPlan(session, sql, anyTree(anyTree(any()), anyTree(node(ProjectNode.class, node(FilterNode.class, any())).withOutputRowCount(Double.NaN))));
+
+        // HBO Statistics
+        try {
+            getQueryRunner().execute(session, sql);
+        }
+        catch (Exception e) {
+            getHistoryProvider().waitProcessQueryEvents();
+        }
+        assertPlan(session, sql, anyTree(anyTree(any()), anyTree(node(ProjectNode.class, node(FilterNode.class, any())).withOutputRowCount(15000))));
     }
 
     @Test

@@ -20,6 +20,7 @@ import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -42,6 +43,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanNodeStats;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -54,6 +56,7 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
 import static com.facebook.presto.SystemSessionProperties.trackHistoryBasedPlanStatisticsEnabled;
+import static com.facebook.presto.SystemSessionProperties.trackHistoryStatsFromFailedQuery;
 import static com.facebook.presto.SystemSessionProperties.trackPartialAggregationHistory;
 import static com.facebook.presto.common.resourceGroups.QueryType.INSERT;
 import static com.facebook.presto.common.resourceGroups.QueryType.SELECT;
@@ -106,10 +109,10 @@ public class HistoryBasedPlanStatisticsTracker
             return ImmutableMap.of();
         }
 
-        // Only update statistics for successful queries
-        if (queryInfo.getFailureInfo() != null ||
-                !queryInfo.getOutputStage().isPresent() ||
-                !queryInfo.getOutputStage().get().getPlan().isPresent()) {
+        // If track_history_stats_from_failed_queries is set to true, we do not require that the query is successful
+        boolean trackStatsForFailedQueries = trackHistoryStatsFromFailedQuery(session);
+        boolean querySucceed = queryInfo.getFailureInfo() == null;
+        if ((!querySucceed && !trackStatsForFailedQueries) || !queryInfo.getOutputStage().isPresent() || !queryInfo.getOutputStage().get().getPlan().isPresent()) {
             return ImmutableMap.of();
         }
 
@@ -124,7 +127,17 @@ public class HistoryBasedPlanStatisticsTracker
         }
 
         StageInfo outputStage = queryInfo.getOutputStage().get();
-        List<StageInfo> allStages = outputStage.getAllStages();
+        List<StageInfo> allStages = ImmutableList.of();
+        if (querySucceed) {
+            allStages = outputStage.getAllStages();
+        }
+        else if (trackStatsForFailedQueries) {
+            allStages = outputStage.getAllStages().stream().filter(x -> x.getLatestAttemptExecutionInfo().getState().equals(StageExecutionState.FINISHED)).collect(toImmutableList());
+        }
+
+        if (allStages.isEmpty()) {
+            return ImmutableMap.of();
+        }
 
         Map<PlanNodeId, PlanNodeStats> planNodeStatsMap = aggregateStageStats(allStages);
         Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> planStatisticsMap = new HashMap<>();
