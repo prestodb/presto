@@ -46,15 +46,19 @@ import io.airlift.slice.Slice;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.DeleteFiles;
+import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -63,6 +67,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
@@ -79,6 +84,7 @@ import static com.facebook.presto.iceberg.PartitionFields.toPartitionFields;
 import static com.facebook.presto.iceberg.TableType.DATA;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -277,12 +283,6 @@ public abstract class IcebergAbstractMetadata
         return primitiveIcebergColumnHandle(0, "$row_id", BIGINT, Optional.empty());
     }
 
-    @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely");
-    }
-
     protected List<ColumnMetadata> getColumnMetadatas(Table table)
     {
         return table.schema().columns().stream()
@@ -433,5 +433,37 @@ public abstract class IcebergAbstractMetadata
         }
 
         return getIcebergSystemTable(tableName, icebergTable);
+    }
+
+    /**
+     * Deletes all the files within a particular scan
+     *
+     * @return the number of rows deleted from all files
+     */
+    private long removeScanFiles(Table icebergTable, Iterable<FileScanTask> scan)
+    {
+        transaction = icebergTable.newTransaction();
+        DeleteFiles deletes = transaction.newDelete();
+        AtomicLong rowsDeleted = new AtomicLong(0L);
+        scan.forEach(t -> {
+            deletes.deleteFile(t.file());
+            rowsDeleted.addAndGet(t.estimatedRowsCount());
+        });
+        deletes.commit();
+        transaction.commitTransaction();
+        return rowsDeleted.get();
+    }
+
+    @Override
+    public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        try (CloseableIterable<FileScanTask> files = icebergTable.newScan().planFiles()) {
+            removeScanFiles(icebergTable, files);
+        }
+        catch (IOException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "failed to scan files for delete", e);
+        }
     }
 }
