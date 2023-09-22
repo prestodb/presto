@@ -180,6 +180,10 @@ class DataSetBuilder {
 
   DataSetBuilder& makeUniformMapKeys(const common::Subfield& field);
 
+  // Ensures that there are non-inlined various string sizes in map keys/values
+  // if either key or value is a string.
+  DataSetBuilder& makeMapStringValues(const common::Subfield& field);
+
   std::unique_ptr<std::vector<RowVectorPtr>> build();
 
  private:

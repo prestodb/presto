@@ -22,6 +22,8 @@
 
 namespace facebook::velox::dwrf {
 
+bool noFastPath = false;
+
 namespace {
 
 template <typename T>
@@ -287,10 +289,14 @@ class SelectiveFlatMapReader : public SelectiveStructColumnReaderBase {
         AlignedBuffer::allocate<vector_size_t>(rows.size(), &memoryPool_);
     auto sizes =
         AlignedBuffer::allocate<vector_size_t>(rows.size(), &memoryPool_);
-    auto* rawOffsets = offsets->template asMutable<vector_size_t>();
-    auto* rawSizes = sizes->template asMutable<vector_size_t>();
     auto* nulls =
         nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
+
+    if (!noFastPath && fastPath(offsets, sizes, rows, nulls, result)) {
+      return;
+    }
+    auto* rawOffsets = offsets->template asMutable<vector_size_t>();
+    auto* rawSizes = sizes->template asMutable<vector_size_t>();
     vector_size_t totalSize = 0;
     for (vector_size_t i = 0; i < rows.size(); ++i) {
       if (nulls && bits::isBitNull(nulls, rows[i])) {
@@ -386,10 +392,306 @@ class SelectiveFlatMapReader : public SelectiveStructColumnReaderBase {
   }
 
  private:
+  // Sets the bits for present and selected positions in 'rowColumnBits_' for
+  // 'columnIdx' for the 64 rows selected by the inMap and selected bitmaps.
+  // 'baseRow' is the number of selectd rows below the range covered by 'inMap'
+  // and 'selected'
+  void setRowBits(
+      uint64_t inMap,
+      uint64_t selected,
+      int32_t baseRow,
+      int32_t columnIdx) {
+    auto pitch = children_.size();
+    auto rowColumns = rowColumnBits_.data();
+    auto selectedPresent = selected & inMap;
+    while (selectedPresent) {
+      int32_t row = __builtin_ctzll(selectedPresent);
+      auto nthRow = __builtin_popcountll(selected & bits::lowMask(row));
+      bits::setBit(rowColumns, (nthRow + baseRow) * pitch + columnIdx, true);
+      selectedPresent &= selectedPresent - 1;
+    }
+  }
+
+  // Returns the count of selected rows that have a value in inMap. Sets the
+  // corresponding bits in 'rowColumnBits_'.
+  int32_t countInMap(
+      const uint64_t* inMap,
+      const uint64_t* selected,
+      int32_t numRows,
+      int32_t columnIdx) {
+    int32_t numSelected = 0;
+    int32_t count = 0;
+    bits::forEachWord(
+        0,
+        numRows,
+        [&](int32_t idx, uint64_t mask) {
+          count += __builtin_popcountll(inMap[idx] & selected[idx] & mask);
+          setRowBits(inMap[idx], selected[idx] & mask, numSelected, columnIdx);
+          numSelected += __builtin_popcountll(selected[idx] & mask);
+        },
+        [&](int32_t idx) {
+          count += __builtin_popcountll(inMap[idx] & selected[idx]);
+          setRowBits(inMap[idx], selected[idx], numSelected, columnIdx);
+          numSelected += __builtin_popcountll(selected[idx]);
+        });
+    return count;
+  }
+
+  template <TypeKind kind>
+  void fillValues(
+      const BufferPtr& offsets,
+      const BufferPtr& sizes,
+      const uint64_t* mapNulls,
+      RowSet rows,
+      int32_t totalChildValues,
+      T* rawKeys) {
+    using V = typename TypeTraits<kind>::NativeType;
+    auto rawOffsets = offsets->asMutable<int32_t>();
+    auto rawSizes = sizes->asMutable<int32_t>();
+    int32_t pitch = children_.size();
+    auto values = AlignedBuffer::allocate<V>(totalChildValues, &memoryPool_);
+    auto rawValues = values->template asMutable<V>();
+    BufferPtr valueNulls;
+    uint64_t* valueRawNulls = nullptr;
+    if (nullsInChildValues_) {
+      valueNulls = AlignedBuffer::allocate<bool>(
+          totalChildValues, &memoryPool_, bits::kNotNull);
+      valueRawNulls = valueNulls->asMutable<uint64_t>();
+    }
+    bool mayHaveDict = !childIndices_.empty();
+    int32_t startBit = 0;
+    int32_t fill = 0;
+    for (int32_t rowIndex = 0; rowIndex < rows.size(); ++rowIndex) {
+      int32_t row = rows[rowIndex];
+      if (mapNulls && bits::isBitNull(mapNulls, row)) {
+        rawSizes[rowIndex] = 0;
+        rawOffsets[rowIndex] = 0;
+        if (!returnReaderNulls_) {
+          if (!rawResultNulls_) {
+            mutableNulls(rows.size());
+          }
+          bits::setNull(rawResultNulls_, rowIndex);
+          anyNulls_ = true;
+        }
+        // A row which is null for the whole map will only have not presents in
+        // inMap.
+        startBit += pitch;
+        continue;
+      }
+      rawOffsets[rowIndex] = fill;
+      bits::forEachSetBit(
+          rowColumnBits_.data(),
+          startBit,
+          startBit + pitch,
+          [&](int32_t index) {
+            auto column = index - startBit;
+            rawKeys[fill] = keyValues_[column];
+            if (childRawNulls_[column] &&
+                bits::isBitNull(childRawNulls_[column], rowIndex)) {
+              bits::setNull(valueRawNulls, fill);
+            } else {
+              auto valueIndex = rowIndex;
+              if (mayHaveDict && childIndices_[column]) {
+                valueIndex = childIndices_[column][rowIndex];
+              }
+              rawValues[fill] = reinterpret_cast<const V*>(
+                  childRawValues_[column])[valueIndex];
+            }
+            ++fill;
+          });
+      rawSizes[rowIndex] = fill - rawOffsets[rowIndex];
+      startBit += pitch;
+    }
+    VELOX_CHECK_EQ(fill, totalChildValues);
+    std::vector<BufferPtr> allStrings;
+    if constexpr (std::is_same_v<V, StringView>) {
+      for (auto i = 0; i < childValues_.size(); ++i) {
+        std::vector<BufferPtr> strings = vectorStrings(*childValues_[i]);
+        allStrings.insert(allStrings.end(), strings.begin(), strings.end());
+      }
+    }
+
+    valueVector_ = std::make_shared<FlatVector<V>>(
+        &memoryPool_,
+        requestedType_->type()->childAt(1),
+        std::move(valueNulls),
+        totalChildValues,
+        std::move(values),
+        std::move(allStrings));
+  }
+
+  static std::vector<BufferPtr> vectorStrings(BaseVector& vector) {
+    if (vector.encoding() == VectorEncoding::Simple::CONSTANT) {
+      auto buffer =
+          vector.asUnchecked<ConstantVector<StringView>>()->getStringBuffer();
+      if (!buffer) {
+        return {};
+      }
+      return {buffer};
+    } else if (vector.encoding() == VectorEncoding::Simple::FLAT) {
+      return vector.asUnchecked<FlatVector<StringView>>()->stringBuffers();
+    } else if (vector.encoding() == VectorEncoding::Simple::DICTIONARY) {
+      return vector.valueVector()
+          ->asUnchecked<FlatVector<StringView>>()
+          ->stringBuffers();
+    } else {
+      VELOX_FAIL("String value is is neither flat, dictionary  nor constant");
+    }
+  }
+
+  bool fastPath(
+      BufferPtr& offsets,
+      BufferPtr& sizes,
+      RowSet rows,
+      const uint64_t* nulls,
+      VectorPtr* result) {
+    auto& valueType = requestedType_->type()->childAt(1);
+    auto valueKind = valueType->kind();
+    if (valueKind == TypeKind::MAP || valueKind == TypeKind::ROW ||
+        valueKind == TypeKind::ARRAY) {
+      return false;
+    }
+    initKeyValues();
+    assert(!children_.empty());
+    childRawNulls_.resize(children_.size());
+    childRawValues_.resize(children_.size());
+    inMap_.resize(children_.size());
+    if (!childIndices_.empty()) {
+      std::fill(childIndices_.begin(), childIndices_.end(), nullptr);
+    }
+    SelectivityVector selectedInMap(rows.back() + 1, false);
+    for (auto row : rows) {
+      selectedInMap.setValid(row, true);
+    }
+    int32_t totalChildValues = 0;
+    rowColumnBits_.resize(bits::nwords(rows.size() * children_.size()));
+    std::fill(rowColumnBits_.begin(), rowColumnBits_.end(), 0);
+    nullsInChildValues_ = false;
+    for (auto i = 0; i < children_.size(); ++i) {
+      auto& data = static_cast<const DwrfData&>(children_[i]->formatData());
+      inMap_[i] = data.inMap();
+      auto& child = childValues_[i];
+      childRawNulls_[i] = child->rawNulls();
+      if (childRawNulls_[i]) {
+        nullsInChildValues_ = true;
+      }
+      if (child->encoding() == VectorEncoding::Simple::DICTIONARY) {
+        childIndices_.resize(children_.size());
+        childIndices_[i] = child->wrapInfo()->template as<int32_t>();
+        childRawValues_[i] = child->valueVector()->valuesAsVoid();
+      } else if (child->encoding() == VectorEncoding::Simple::FLAT) {
+        childRawValues_[i] = childValues_[i]->valuesAsVoid();
+      } else if (child->encoding() == VectorEncoding::Simple::CONSTANT) {
+        if (zeros_.size() < rows.size()) {
+          zeros_.resize(rows.size());
+        }
+        childRawValues_[i] = child->valuesAsVoid();
+        if (childValues_[i]->isNullAt(0)) {
+          // There are at least rows worth of zero words, so this can serve as
+          // an all null bitmap.
+          childRawNulls_[i] = reinterpret_cast<const uint64_t*>(zeros_.data());
+        } else {
+          childRawNulls_[i] = nullptr;
+        }
+        childIndices_.resize(children_.size());
+        // Every null is redirected to row 0, which is valuesAsVoid of constant
+        // vector.
+        childIndices_[i] = zeros_.data();
+      } else {
+        VELOX_FAIL(
+            "Flat map columns must be flat or single level dictionaries");
+      }
+      totalChildValues += countInMap(
+          inMap_[i], selectedInMap.asRange().bits(), selectedInMap.size(), i);
+    }
+    BufferPtr keyBuffer =
+        AlignedBuffer::allocate<T>(totalChildValues, &memoryPool_);
+    VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(
+        fillValues,
+        valueKind,
+        offsets,
+        sizes,
+        nulls,
+        rows,
+        totalChildValues,
+        keyBuffer->template asMutable<T>());
+
+    std::vector<BufferPtr> keyStrings;
+    if constexpr (std::is_same_v<T, StringView>) {
+      keyStrings.push_back(keyStrings_);
+    }
+    auto keyVector = std::make_shared<FlatVector<T>>(
+        &memoryPool_,
+        requestedType_->type()->childAt(0),
+        BufferPtr(nullptr),
+        totalChildValues,
+        std::move(keyBuffer),
+        std::move(keyStrings));
+    *result = std::make_shared<MapVector>(
+        &memoryPool_,
+        requestedType_->type(),
+        anyNulls_ ? (returnReaderNulls_ ? nullsInReadRange_ : resultNulls_)
+                  : nullptr,
+        rows.size(),
+        std::move(offsets),
+        std::move(sizes),
+        std::move(keyVector),
+        std::move(valueVector_));
+    return true;
+  }
+
+  void initKeyValues() {
+    if (!keyValues_.empty()) {
+      return;
+    }
+    assert(!children_.empty());
+    keyValues_.resize(children_.size());
+    if constexpr (std::is_same_v<T, StringView>) {
+      int32_t strKeySize = 0;
+      for (int k = 0; k < children_.size(); ++k) {
+        if (!keyNodes_[k].key.get().isInline()) {
+          strKeySize += keyNodes_[k].key.get().size();
+        }
+      }
+      char* rawStrKeyBuffer = nullptr;
+      if (strKeySize > 0) {
+        keyStrings_ = AlignedBuffer::allocate<char>(strKeySize, &memoryPool_);
+        rawStrKeyBuffer = keyStrings_->template asMutable<char>();
+        strKeySize = 0;
+      }
+      for (int k = 0; k < children_.size(); ++k) {
+        auto& s = keyNodes_[k].key.get();
+        if (!s.isInline()) {
+          memcpy(&rawStrKeyBuffer[strKeySize], s.data(), s.size());
+          *reinterpret_cast<StringView*>(&keyValues_[k]) =
+              StringView(&rawStrKeyBuffer[strKeySize], s.size());
+          strKeySize += s.size();
+        } else {
+          keyValues_[k] = s;
+        }
+      }
+    } else {
+      for (auto i = 0; i < children_.size(); ++i) {
+        keyValues_[i] = keyNodes_[i].key.get();
+      }
+    }
+  }
+
   common::ScanSpec structScanSpec_;
   std::vector<KeyNode<T>> keyNodes_;
   std::vector<VectorPtr> childValues_;
   std::vector<std::vector<BaseVector::CopyRange>> copyRanges_;
+  std::vector<const uint64_t*> inMap_;
+  std::vector<const uint64_t*> childRawNulls_;
+  // if a child is dictionary encoded, these are indices of non-null values.
+  std::vector<const int32_t*> childIndices_;
+  std::vector<const void*> childRawValues_;
+  std::vector<uint64_t> rowColumnBits_;
+  std::vector<T> keyValues_;
+  BufferPtr keyStrings_;
+  bool nullsInChildValues_{false};
+  VectorPtr valueVector_;
+  std::vector<int32_t> zeros_;
 };
 
 template <typename T>

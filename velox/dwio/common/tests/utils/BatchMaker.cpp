@@ -482,8 +482,16 @@ VectorPtr createBinaryMapKeys(
     }
   }
 
-  return std::make_shared<FlatVector<StringView>>(
+  auto temp = std::make_shared<FlatVector<StringView>>(
       &pool, type, BufferPtr(nullptr), totalKeys, values, std::move(buffers));
+  // Copy the data to defragment the buffers created above. Having 25K buffers
+  // times out tests due to consistency checks.
+  auto result = std::static_pointer_cast<FlatVector<StringView>>(
+      BaseVector::create(type, temp->size(), &pool));
+  for (auto i = 0; i < temp->size(); ++i) {
+    result->set(i, temp->valueAt(i));
+  }
+  return result;
 }
 
 VectorPtr createMapKeys(
