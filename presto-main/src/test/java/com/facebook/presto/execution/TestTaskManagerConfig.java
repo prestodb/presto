@@ -70,7 +70,8 @@ public class TestTaskManagerConfig
                 .setStatisticsCpuTimerEnabled(true)
                 .setLegacyLifespanCompletionCondition(false)
                 .setTaskPriorityTracking(TASK_FAIR)
-                .setInterruptRunawaySplitsTimeout(new Duration(600, SECONDS)));
+                .setInterruptRunawaySplitsTimeout(new Duration(600, SECONDS))
+                .setMemoryBasedSlowDownThreshold(1.0));
     }
 
     @Test
@@ -112,6 +113,7 @@ public class TestTaskManagerConfig
                 .put("task.legacy-lifespan-completion-condition", "true")
                 .put("task.task-priority-tracking", "QUERY_FAIR")
                 .put("task.interrupt-runaway-splits-timeout", "599s")
+                .put("task.memory-based-slowdown-threshold", "0.9")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -149,7 +151,8 @@ public class TestTaskManagerConfig
                 .setStatisticsCpuTimerEnabled(false)
                 .setLegacyLifespanCompletionCondition(true)
                 .setTaskPriorityTracking(QUERY_FAIR)
-                .setInterruptRunawaySplitsTimeout(new Duration(599, SECONDS));
+                .setInterruptRunawaySplitsTimeout(new Duration(599, SECONDS))
+                .setMemoryBasedSlowDownThreshold(0.9);
 
         assertFullMapping(properties, expected);
     }

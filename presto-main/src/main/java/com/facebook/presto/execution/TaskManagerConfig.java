@@ -24,6 +24,8 @@ import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
 
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -87,6 +89,8 @@ public class TaskManagerConfig
     private TaskPriorityTracking taskPriorityTracking = TaskPriorityTracking.TASK_FAIR;
 
     private Duration interruptRunawaySplitsTimeout = new Duration(600, SECONDS);
+
+    private double memoryBasedSlowDownThreshold = 1.0;
 
     @MinDuration("1ms")
     @MaxDuration("10s")
@@ -573,6 +577,22 @@ public class TaskManagerConfig
     public TaskManagerConfig setInterruptRunawaySplitsTimeout(Duration interruptRunawaySplitsTimeout)
     {
         this.interruptRunawaySplitsTimeout = interruptRunawaySplitsTimeout;
+        return this;
+    }
+
+    //Allowing low value to be 70 percent to avoid slowing down overall cluster by setting it too low
+    @DecimalMin("0.7")
+    @DecimalMax("1.0")
+    public double getMemoryBasedSlowDownThreshold()
+    {
+        return memoryBasedSlowDownThreshold;
+    }
+
+    @Config("task.memory-based-slowdown-threshold")
+    @ConfigDescription("Pause processing new leaf split if heap memory usage crosses the threshold")
+    public TaskManagerConfig setMemoryBasedSlowDownThreshold(double memoryBasedSlowDownThreshold)
+    {
+        this.memoryBasedSlowDownThreshold = memoryBasedSlowDownThreshold;
         return this;
     }
 }
