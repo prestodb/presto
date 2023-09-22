@@ -39,7 +39,7 @@ public interface RemoteTask
 
     void start();
 
-    void addSplits(Multimap<PlanNodeId, Split> splits);
+    boolean addSplits(Multimap<PlanNodeId, Split> splits);
 
     void noMoreSplits(PlanNodeId sourceId);
 

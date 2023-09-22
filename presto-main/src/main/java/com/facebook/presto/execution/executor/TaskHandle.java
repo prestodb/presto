@@ -130,10 +130,10 @@ public class TaskHandle
         destroyed = true;
 
         ImmutableList.Builder<PrioritizedSplitRunner> builder = ImmutableList.builderWithExpectedSize(runningIntermediateSplits.size() + runningLeafSplits.size() + queuedLeafSplits.size());
-        builder.addAll(runningIntermediateSplits);
-        builder.addAll(runningLeafSplits);
-        //FIXME hack to avoid queued split marked as completed splits to pollute the retryable splits
+        //To avoid queued split marked as completed splits to pollute the retryable splits
         if (isShuttingDown.get()) {
+            builder.addAll(runningIntermediateSplits);
+            builder.addAll(runningLeafSplits);
             builder.addAll(queuedLeafSplits);
         }
         runningIntermediateSplits.clear();
@@ -171,6 +171,11 @@ public class TaskHandle
         return runningLeafSplits.size();
     }
 
+    synchronized int getRunningIntermediateSplits()
+    {
+        return runningIntermediateSplits.size();
+    }
+
     public synchronized long getScheduledNanos()
     {
         return priorityTracker.getScheduledNanos();
@@ -183,7 +188,7 @@ public class TaskHandle
         }
         if (isShuttingDown.get()) {
             boolean isAnyQueuedSplitStarted = isAnySplitStarted(queuedLeafSplits);
-            checkState(!isAnyQueuedSplitStarted, "queued split contains started splits");
+            checkState(!isAnyQueuedSplitStarted, String.format("queued split contains started splits for task %s", taskId));
             return null;
         }
 

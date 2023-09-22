@@ -372,8 +372,8 @@ public class SectionExecutionFactory
                             for (int i = 0; i < activeRemoteTasks.size() && splits.hasNext(); i++) {
                                 HttpRemoteTask httpRemoteTask = activeRemoteTasks.get(i);
                                 List<ScheduledSplit> scheduledSplit = splits.next();
-                                log.warn("Going to retry splits %s of failed task %s on active task %s", scheduledSplit.stream().map(ScheduledSplit::getSequenceId).collect(toImmutableList()), failedTask, httpRemoteTask.getTaskId());
-                                log.warn("Retrying splits %s of failed task %s on active task %s", scheduledSplit.stream().map(split -> split.getSplit().getInfoMap()).collect(toImmutableList()), failedTask, httpRemoteTask.getTaskId());
+                                List<Long> splitIds = scheduledSplit.stream().map(ScheduledSplit::getSequenceId).collect(toImmutableList());
+                                log.warn("Going to retry splits %s of failed task %s on active task %s", splitIds, failedTask, httpRemoteTask.getTaskId());
                                 Multimap<PlanNodeId, Split> splitsToAdd = HashMultimap.create();
                                 splitsToAdd.putAll(planNodeId, scheduledSplit.stream().map(ScheduledSplit::getSplit).collect(toImmutableList()));
                                 //FIXME metric to get the retried split information, add time element to it (how long its taking for coordinator to detect the failure)
@@ -387,7 +387,10 @@ public class SectionExecutionFactory
                                 //track how many splits we are retrying from the source task
                                 splitRetryStats.addMetricValue(retryMetricName, RuntimeUnit.NONE, scheduledSplit.size());
                                 session.getRuntimeStats().update(splitRetryStats);
-                                httpRemoteTask.addSplits(splitsToAdd);
+                                boolean isSplitAdded = httpRemoteTask.addSplits(splitsToAdd);
+                                if (!isSplitAdded) {
+                                    throw new RuntimeException(String.format("Error adding split %s for retry to task %s", splitIds, httpRemoteTask.getTaskId()));
+                                }
                             }
                         }
                     }

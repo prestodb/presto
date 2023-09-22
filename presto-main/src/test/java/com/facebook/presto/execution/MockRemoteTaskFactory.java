@@ -430,13 +430,14 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public void addSplits(Multimap<PlanNodeId, Split> splits)
+        public boolean addSplits(Multimap<PlanNodeId, Split> splits)
         {
             synchronized (this) {
                 this.splits.putAll(splits);
             }
             updateTaskStats();
             updateSplitQueueSpace();
+            return true;
         }
 
         @Override

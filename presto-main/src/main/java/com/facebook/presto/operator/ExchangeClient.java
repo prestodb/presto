@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.HttpUriBuilder;
+import com.facebook.airlift.log.Logger;
 import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -80,6 +81,7 @@ import static java.util.Objects.requireNonNull;
 public class ExchangeClient
         implements Closeable
 {
+    private static final Logger log = Logger.get(ExchangeClient.class);
     private static final SerializedPage NO_MORE_PAGES = new SerializedPage(EMPTY_SLICE, PageCodecMarker.none(), 0, 0, 0);
     private static final ListenableFuture<?> NOT_BLOCKED = immediateFuture(null);
 
@@ -492,7 +494,7 @@ public class ExchangeClient
         // TODO: properly handle the failed vs closed state
         // it is important not to treat failures as a successful close
         if (!isClosed()) {
-            //failure.compareAndSet(null, cause);
+            failure.compareAndSet(null, cause);
             notifyBlockedCallers();
         }
     }
@@ -540,9 +542,8 @@ public class ExchangeClient
         {
             requireNonNull(client, "client is null");
             requireNonNull(cause, "cause is null");
-
-            ExchangeClient.this.clientFinished(client);
-//            ExchangeClient.this.clientFailed(client, cause);
+            log.error(cause, "Exchange client failed");
+            ExchangeClient.this.clientFailed(client, cause);
         }
     }
 

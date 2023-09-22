@@ -461,13 +461,15 @@ public final class HttpRemoteTask
     }
 
     @Override
-    public synchronized void addSplits(Multimap<PlanNodeId, Split> splitsBySource)
+    public synchronized boolean addSplits(Multimap<PlanNodeId, Split> splitsBySource)
     {
         requireNonNull(splitsBySource, "splitsBySource is null");
 
         // only add pending split if not done
-        if (getTaskStatus().getState().isDone()) {
-            return;
+        TaskState state = getTaskStatus().getState();
+        if (state.isDone()) {
+            return false;
+            //throw new RuntimeException(String.format("Adding split to a task in terminal state, state= %s", state));
         }
 
         boolean needsUpdate = false;
@@ -504,6 +506,7 @@ public final class HttpRemoteTask
             this.needsUpdate.set(true);
             scheduleUpdate();
         }
+        return true;
     }
 
     @Override

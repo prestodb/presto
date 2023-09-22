@@ -1467,7 +1467,7 @@ public class TestSqlTaskExecution
                 taskExecutor.gracefulShutdown();
             }, 1, MILLISECONDS);
 
-            waitUntilEquals(taskExecutor::isShuttingDown, true, ASSERT_WAIT_TIMEOUT);
+            waitUntilEquals(taskExecutor::isShuttingDownStarted, true, ASSERT_WAIT_TIMEOUT);
 
             // resume operator execution
             testingScanOperatorFactory.getPauser().resume();
