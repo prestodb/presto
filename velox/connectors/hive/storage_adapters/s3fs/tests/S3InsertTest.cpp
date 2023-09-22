@@ -72,36 +72,6 @@ std::shared_ptr<MinioServer> S3InsertTest::minioServer_ = nullptr;
 std::unique_ptr<folly::IOThreadPoolExecutor> S3InsertTest::ioExecutor_ =
     nullptr;
 
-PlanNodePtr createInsertPlan(
-    PlanBuilder& inputPlan,
-    const RowTypePtr& outputRowType,
-    const std::string_view& outputDirectoryPath,
-    const std::vector<std::string>& partitionedBy = {},
-    const std::shared_ptr<HiveBucketProperty>& bucketProperty = {},
-    const connector::hive::LocationHandle::TableType& outputTableType =
-        connector::hive::LocationHandle::TableType::kNew,
-    const CommitStrategy& outputCommitStrategy = CommitStrategy::kNoCommit) {
-  auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
-      kHiveConnectorId,
-      HiveConnectorTestBase::makeHiveInsertTableHandle(
-          outputRowType->names(),
-          outputRowType->children(),
-          partitionedBy,
-          bucketProperty,
-          HiveConnectorTestBase::makeLocationHandle(
-              outputDirectoryPath.data(), std::nullopt, outputTableType),
-          FileFormat::PARQUET));
-
-  auto insertPlan = inputPlan.tableWrite(
-      inputPlan.planNode()->outputType(),
-      outputRowType->names(),
-      nullptr,
-      insertTableHandle,
-      bucketProperty != nullptr,
-      outputCommitStrategy);
-  return insertPlan.planNode();
-}
-
 TEST_F(S3InsertTest, s3InsertTest) {
   const int64_t kExpectedRows = 1'000;
   const std::string_view kOutputDirectory{"s3://writedata/"};
@@ -118,63 +88,46 @@ TEST_F(S3InsertTest, s3InsertTest) {
   minioServer_->addBucket("writedata");
 
   // Insert into s3 with one writer.
-  auto plan = createInsertPlan(
-      PlanBuilder().values({input}), rowType, kOutputDirectory);
+  auto plan =
+      PlanBuilder()
+          .values({input})
+          .tableWrite(
+              kOutputDirectory.data(), dwio::common::FileFormat::PARQUET)
+          .planNode();
 
   // Execute the write plan.
-  auto result = AssertQueryBuilder(plan).copyResults(pool());
+  auto results = AssertQueryBuilder(plan).copyResults(pool());
 
-  // Get the fragment from the TableWriter output.
-  auto fragmentVector = result->childAt(TableWriteTraits::kFragmentChannel)
-                            ->asFlatVector<StringView>();
+  // First column has number of rows written in the first row and nulls in other
+  // rows.
+  auto rowCount = results->childAt(TableWriteTraits::kRowCountChannel)
+                      ->as<FlatVector<int64_t>>();
+  ASSERT_FALSE(rowCount->isNullAt(0));
+  ASSERT_EQ(kExpectedRows, rowCount->valueAt(0));
+  ASSERT_TRUE(rowCount->isNullAt(1));
 
-  ASSERT(fragmentVector);
+  // Second column contains details about written files.
+  auto details = results->childAt(TableWriteTraits::kFragmentChannel)
+                     ->as<FlatVector<StringView>>();
+  ASSERT_TRUE(details->isNullAt(0));
+  ASSERT_FALSE(details->isNullAt(1));
+  folly::dynamic obj = folly::parseJson(details->valueAt(1));
 
-  // The fragment contains data provided by the DataSink#finish.
-  // This includes the target filename, rowCount, etc...
-  // Extract the filename, row counts, filesize.
-  std::vector<std::string> writeFiles;
-  int64_t numRows{0};
-  int64_t writeFileSize{0};
-  for (int i = 0; i < result->size(); ++i) {
-    if (!fragmentVector->isNullAt(i)) {
-      folly::dynamic obj = folly::parseJson(fragmentVector->valueAt(i));
-      ASSERT_EQ(obj["targetPath"], kOutputDirectory);
-      ASSERT_EQ(obj["writePath"], kOutputDirectory);
-      numRows += obj["rowCount"].asInt();
+  ASSERT_EQ(kExpectedRows, obj["rowCount"].asInt());
+  auto fileWriteInfos = obj["fileWriteInfos"];
+  ASSERT_EQ(1, fileWriteInfos.size());
 
-      folly::dynamic writerInfoObj = obj["fileWriteInfos"][0];
-      const std::string writeFileName =
-          writerInfoObj["writeFileName"].asString();
-      const std::string writeFileFullPath =
-          obj["writePath"].asString() + "/" + writeFileName;
-      writeFiles.push_back(writeFileFullPath);
-      writeFileSize += writerInfoObj["fileSize"].asInt();
-    }
-  }
+  auto writeFileName = fileWriteInfos[0]["writeFileName"].asString();
 
-  ASSERT_EQ(numRows, kExpectedRows);
-  ASSERT_EQ(writeFiles.size(), 1);
+  // Read from 'writeFileName' and verify the data matches the original.
+  plan = PlanBuilder().tableScan(rowType).planNode();
 
-  // Verify that the data is written to S3 correctly by scanning the file.
-  auto tableScan = PlanBuilder(pool_.get()).tableScan(rowType).planNode();
-  CursorParameters params;
-  params.planNode = tableScan;
-  const int numSplitsPerFile = 1;
-  bool noMoreSplits = false;
-  auto addSplits = [&](exec::Task* task) {
-    if (!noMoreSplits) {
-      auto const splits = HiveConnectorTestBase::makeHiveConnectorSplits(
-          writeFiles[0], numSplitsPerFile, dwio::common::FileFormat::PARQUET);
-      for (const auto& split : splits) {
-        task->addSplit("0", exec::Split(split));
-      }
-      task->noMoreSplits("0");
-    }
-    noMoreSplits = true;
-  };
-  auto scanResult = readCursor(params, addSplits);
-  assertEqualResults(scanResult.second, {input});
+  auto splits = HiveConnectorTestBase::makeHiveConnectorSplits(
+      fmt::format("{}/{}", kOutputDirectory, writeFileName),
+      1,
+      dwio::common::FileFormat::PARQUET);
+  auto copy = AssertQueryBuilder(plan).split(splits[0]).copyResults(pool());
+  assertEqualResults({input}, {copy});
 }
 
 int main(int argc, char** argv) {

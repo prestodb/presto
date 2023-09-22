@@ -301,7 +301,9 @@ PlanBuilder& PlanBuilder::filter(const std::string& filter) {
   return *this;
 }
 
-PlanBuilder& PlanBuilder::tableWrite(const std::string& outputDirectoryPath) {
+PlanBuilder& PlanBuilder::tableWrite(
+    const std::string& outputDirectoryPath,
+    dwio::common::FileFormat fileFormat) {
   auto rowType = planNode_->outputType();
 
   std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>
@@ -321,7 +323,7 @@ PlanBuilder& PlanBuilder::tableWrite(const std::string& outputDirectoryPath) {
   auto hiveHandle = std::make_shared<connector::hive::HiveInsertTableHandle>(
       columnHandles,
       locationHandle,
-      dwio::common::FileFormat::DWRF,
+      fileFormat,
       nullptr, // bucketProperty,
       common::CompressionKind_NONE);
 
