@@ -186,6 +186,10 @@ public class TestFilteredAggregations
         assertions.assertQuery(
                 "SELECT map_union_sum(IF(y > 1, x)) FROM (SELECT MAP(ARRAY[1], ARRAY[1]) x, 1 y UNION ALL SELECT NULL x, 1 y)",
                 "VALUES (CAST (NULL AS MAP<INTEGER, INTEGER>))");
+        assertions.assertQuery(
+                "select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,100] as array<tinyint>)) x union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<tinyint>))x) group by y",
+                ".*Value 222 exceeds MAX_BYTE.*");
+
     }
 
     @Test
