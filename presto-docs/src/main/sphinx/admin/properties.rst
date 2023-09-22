@@ -803,6 +803,14 @@ Optimizer Properties
 
     Plan canonicalization strategies used to canonicalize a query plan for history based optimization.
 
+``optimizer.track-history-stats-from-failed-queries``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Track history based plan statistics from complete plan fragments in failed queries.
+
 
 Planner Properties
 --------------------------------------
