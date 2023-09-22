@@ -614,24 +614,6 @@ void RowVector::validate(const VectorValidateOptions& options) const {
   }
 }
 
-void RowVector::resize(vector_size_t newSize, bool setNotNull) {
-  BaseVector::resize(newSize, setNotNull);
-
-  // Resize all the children.
-  for (auto& child : children_) {
-    if (child) {
-      if (child->isLazy()) {
-        VELOX_FAIL("Resize on a lazy vector is not allowed");
-      }
-      child->resize(newSize, setNotNull);
-    }
-  }
-}
-
-void RowVector::setSize(vector_size_t newSize) {
-  BaseVector::resize(newSize);
-}
-
 void ArrayVectorBase::checkRanges() const {
   std::unordered_map<vector_size_t, vector_size_t> seenElements;
   seenElements.reserve(size());

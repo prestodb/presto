@@ -61,12 +61,13 @@ void SelectiveStructColumnReaderBase::next(
       numValues -= bits::countBits(mutation->deletedRows, 0, numValues);
     }
 
-    auto resultRowVector = std::dynamic_pointer_cast<RowVector>(result);
     // no readers
     // This can be either count(*) query or a query that select only
     // constant columns (partition keys or columns missing from an old file
     // due to schema evolution)
-    resultRowVector->setSize(numValues);
+    result->resize(numValues);
+
+    auto resultRowVector = std::dynamic_pointer_cast<RowVector>(result);
     auto& childSpecs = scanSpec_->children();
     for (auto& childSpec : childSpecs) {
       VELOX_CHECK(childSpec->isConstant());
@@ -320,7 +321,7 @@ void SelectiveStructColumnReaderBase::getValues(
         std::move(children));
   }
   auto* resultRow = static_cast<RowVector*>(result->get());
-  resultRow->setSize(rows.size());
+  resultRow->resize(rows.size());
   if (!rows.size()) {
     return;
   }

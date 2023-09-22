@@ -192,15 +192,6 @@ class RowVector : public BaseVector {
 
   void validate(const VectorValidateOptions& options) const override;
 
-  void resize(vector_size_t newSize, bool setNotNull = true) override;
-
-  /// This is required for SelectiveStructReader,
-  /// which requires that the parent be resized, without
-  /// affecting the children. The Reader ensures that the
-  /// resultant rows will be copyable. Use resize()
-  /// unless you have very good reasons to use setSize().
-  void setSize(vector_size_t newSize);
-
  private:
   vector_size_t childSize() const {
     bool allConstant = false;
