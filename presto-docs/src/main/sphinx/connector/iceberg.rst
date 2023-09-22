@@ -479,6 +479,30 @@ Alter table operations are supported in the connector::
 
      ALTER TABLE iceberg.web.page_views DROP COLUMN location;
 
+TRUNCATE
+^^^^^^^^
+
+The iceberg connector can delete all of the data from tables without
+dropping the table from the metadata catalog using ``TRUNCATE TABLE``.
+
+.. code-block:: sql
+
+    TRUNCATE TABLE nation;
+
+.. code-block:: text
+
+    TRUNCATE TABLE;
+
+.. code-block:: sql
+
+    SELECT * FROM nation;
+
+.. code-block:: text
+
+     nationkey | name | regionkey | comment
+    -----------+------+-----------+---------
+    (0 rows)
+
 DROP TABLE
 ^^^^^^^^^^^
 
@@ -674,6 +698,5 @@ exists as we've rolled back to the previous state.
 Iceberg Connector Limitations
 -----------------------------
 
-* :doc:`/sql/delete` is only supported if the ``WHERE`` clause matches entire partitions.
 * The ``SELECT`` operations on Iceberg Tables with format version 2 do not read the delete files
   and remove the deleted rows as of now (:issue:`20492`).

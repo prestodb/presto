@@ -17,11 +17,15 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertTrue;
 
@@ -69,6 +73,38 @@ public class IcebergDistributedTestBase
     {
     }
 
+    @Test
+    public void testTruncate()
+    {
+        // Test truncate empty table
+        assertUpdate("CREATE TABLE test_truncate_empty (i int)");
+        assertQuerySucceeds("TRUNCATE TABLE test_truncate_empty");
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_truncate_empty").getOnlyValue(), 0L);
+        assertQuerySucceeds("DROP TABLE test_truncate_empty");
+
+        // Test truncate table with rows
+        assertUpdate("CREATE TABLE test_truncate AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+        assertQuerySucceeds("TRUNCATE TABLE test_truncate");
+        MaterializedResult result = getQueryRunner().execute("SELECT count(*) FROM test_truncate");
+        assertEquals(result.getOnlyValue(), 0L);
+        assertUpdate("DROP TABLE test_truncate");
+
+        // test truncate -> insert -> truncate
+        assertUpdate("CREATE TABLE test_truncate_empty (i int)");
+        assertQuerySucceeds("TRUNCATE TABLE test_truncate_empty");
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_truncate_empty").getOnlyValue(), 0L);
+        assertUpdate("INSERT INTO test_truncate_empty VALUES 1", 1);
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_truncate_empty").getOnlyValue(), 1L);
+        assertQuerySucceeds("TRUNCATE TABLE test_truncate_empty");
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_truncate_empty").getOnlyValue(), 0L);
+        assertQuerySucceeds("DROP TABLE test_truncate_empty");
+
+        // Test truncate access control
+        assertUpdate("CREATE TABLE test_truncate AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+        assertAccessAllowed("TRUNCATE TABLE test_truncate", privilege("orders", SELECT_COLUMN));
+        assertUpdate("DROP TABLE test_truncate");
+    }
+
     @Override
     public void testShowColumns()
     {
@@ -114,5 +150,12 @@ public class IcebergDistributedTestBase
         assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR       '", "VALUES (0)");
         assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR            '", "VALUES (0)");
         assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'NONEXIST'", "VALUES (0)");
+    }
+
+    private void assertExplainAnalyze(@Language("SQL") String query)
+    {
+        String value = (String) computeActual(query).getOnlyValue();
+
+        assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
     }
 }
