@@ -100,7 +100,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * RowExpression visitor which verifies if given expression (actual) is matching other RowExpression given as context (expected).
  */
-public final class RowExpressionVerifier
+final class RowExpressionVerifier
         extends AstVisitor<Boolean, RowExpression>
 {
     // either use variable or input reference for symbol mapping
@@ -110,7 +110,7 @@ public final class RowExpressionVerifier
     private final FunctionResolution functionResolution;
     private final Set<String> lambdaArguments;
 
-    public RowExpressionVerifier(SymbolAliases symbolAliases, Metadata metadata, Session session)
+    RowExpressionVerifier(SymbolAliases symbolAliases, Metadata metadata, Session session)
     {
         this.symbolAliases = requireNonNull(symbolAliases, "symbolLayout is null");
         this.metadata = requireNonNull(metadata, "metadata is null");

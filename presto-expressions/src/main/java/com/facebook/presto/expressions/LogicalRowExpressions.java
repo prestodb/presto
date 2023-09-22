@@ -26,7 +26,6 @@ import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -520,17 +519,6 @@ public final class LogicalRowExpressions
         public ConvertNormalFormVisitorContext childContext()
         {
             return new ConvertNormalFormVisitorContext(expectedClauseJoiner, depth + 1);
-        }
-    }
-
-    private static class VariableReferenceBuilderVisitor
-            extends DefaultRowExpressionTraversalVisitor<ImmutableSet.Builder<VariableReferenceExpression>>
-    {
-        @Override
-        public Void visitVariableReference(VariableReferenceExpression variable, ImmutableSet.Builder<VariableReferenceExpression> builder)
-        {
-            builder.add(variable);
-            return null;
         }
     }
 

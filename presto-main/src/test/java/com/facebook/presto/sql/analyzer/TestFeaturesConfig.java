@@ -242,8 +242,7 @@ public class TestFeaturesConfig
                 .setAddPartialNodeForRowNumberWithLimitEnabled(true)
                 .setInferInequalityPredicates(false)
                 .setPullUpExpressionFromLambdaEnabled(false)
-                .setRewriteConstantArrayContainsToInEnabled(false)
-                .setHandleComplexEquiJoins(true));
+                .setRewriteConstantArrayContainsToInEnabled(false));
     }
 
     @Test
@@ -434,7 +433,6 @@ public class TestFeaturesConfig
                 .put("optimizer.infer-inequality-predicates", "true")
                 .put("optimizer.pull-up-expression-from-lambda", "true")
                 .put("optimizer.rewrite-constant-array-contains-to-in", "true")
-                .put("optimizer.handle-complex-equi-joins", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -622,8 +620,7 @@ public class TestFeaturesConfig
                 .setAddPartialNodeForRowNumberWithLimitEnabled(false)
                 .setInferInequalityPredicates(true)
                 .setPullUpExpressionFromLambdaEnabled(true)
-                .setRewriteConstantArrayContainsToInEnabled(true)
-                .setHandleComplexEquiJoins(false);
+                .setRewriteConstantArrayContainsToInEnabled(true);
         assertFullMapping(properties, expected);
     }
 
