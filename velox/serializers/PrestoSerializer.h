@@ -38,6 +38,7 @@ class PrestoVectorSerde : public VectorSerde {
     bool useLosslessTimestamp{false};
     common::CompressionKind compressionKind{
         common::CompressionKind::CompressionKind_NONE};
+    std::vector<VectorEncoding::Simple> encodings;
   };
 
   void estimateSerializedSize(
@@ -46,13 +47,17 @@ class PrestoVectorSerde : public VectorSerde {
       vector_size_t** sizes) override;
 
   std::unique_ptr<VectorSerializer> createSerializer(
-      std::shared_ptr<const RowType> type,
+      RowTypePtr type,
       int32_t numRows,
       StreamArena* streamArena,
       const Options* options) override;
 
-  /// Serializes a RowVector with a constant children.
-  void serializeConstants(
+  /// Serializes a flat RowVector with possibly encoded children. Preserves
+  /// first level of encodings. Dictionary vectors must not have nulls added by
+  /// the dictionary.
+  ///
+  /// Used for testing.
+  void serializeEncoded(
       const RowVectorPtr& vector,
       StreamArena* streamArena,
       const Options* options,
@@ -61,7 +66,7 @@ class PrestoVectorSerde : public VectorSerde {
   void deserialize(
       ByteStream* source,
       velox::memory::MemoryPool* pool,
-      std::shared_ptr<const RowType> type,
+      RowTypePtr type,
       std::shared_ptr<RowVector>* result,
       const Options* options) override;
 
