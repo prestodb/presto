@@ -29,7 +29,7 @@ BlockingReason Destination::advance(
     const std::function<void()>& bufferReleaseFn,
     bool* atEnd,
     ContinueFuture* future) {
-  if (row_ >= rows_.size()) {
+  if (rangeIdx_ >= ranges_.size()) {
     *atEnd = true;
     return BlockingReason::kNotBlocked;
   }
@@ -39,24 +39,24 @@ BlockingReason Destination::advance(
     return flush(bufferManager, bufferReleaseFn, future);
   }
 
-  auto firstRow = row_;
-  for (; row_ < rows_.size(); ++row_) {
+  auto firstRangeIdx = rangeIdx_;
+  for (; rangeIdx_ < ranges_.size(); ++rangeIdx_) {
     // TODO: add support for serializing partial ranges if the full range is too
     // big.
-    for (vector_size_t i = 0; i < rows_[row_].size; i++) {
-      bytesInCurrent_ += sizes[rows_[row_].begin + i];
+    for (vector_size_t i = 0; i < ranges_[rangeIdx_].size; i++) {
+      bytesInCurrent_ += sizes[ranges_[rangeIdx_].begin + i];
     }
     if (bytesInCurrent_ >= adjustedMaxBytes ||
-        row_ - firstRow >= targetNumRows_) {
-      serialize(output, firstRow, row_ + 1);
-      if (row_ == rows_.size() - 1) {
+        rangeIdx_ - firstRangeIdx >= targetNumRows_) {
+      serialize(output, firstRangeIdx, rangeIdx_ + 1);
+      if (rangeIdx_ == ranges_.size() - 1) {
         *atEnd = true;
       }
-      ++row_;
+      ++rangeIdx_;
       return flush(bufferManager, bufferReleaseFn, future);
     }
   }
-  serialize(output, firstRow, row_);
+  serialize(output, firstRangeIdx, rangeIdx_);
   *atEnd = true;
   return BlockingReason::kNotBlocked;
 }
@@ -70,11 +70,11 @@ void Destination::serialize(
     auto rowType = asRowType(output->type());
     vector_size_t numRows = 0;
     for (vector_size_t i = begin; i < end; i++) {
-      numRows += rows_[i].size;
+      numRows += ranges_[i].size;
     }
     current_->createStreamTree(rowType, numRows);
   }
-  current_->append(output, folly::Range(&rows_[begin], end - begin));
+  current_->append(output, folly::Range(&ranges_[begin], end - begin));
 }
 
 BlockingReason Destination::flush(

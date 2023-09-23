@@ -35,16 +35,16 @@ class Destination {
 
   // Resets the destination before starting a new batch.
   void beginBatch() {
-    rows_.clear();
-    row_ = 0;
+    ranges_.clear();
+    rangeIdx_ = 0;
   }
 
   void addRow(vector_size_t row) {
-    rows_.push_back(IndexRange{row, 1});
+    ranges_.push_back(IndexRange{row, 1});
   }
 
   void addRows(const IndexRange& rows) {
-    rows_.push_back(rows);
+    ranges_.push_back(rows);
   }
 
   BlockingReason advance(
@@ -94,10 +94,10 @@ class Destination {
   const int destination_;
   memory::MemoryPool* const pool_;
   uint64_t bytesInCurrent_{0};
-  std::vector<IndexRange> rows_;
+  std::vector<IndexRange> ranges_;
 
-  // First row of 'rows_' that is not appended to 'current_'
-  vector_size_t row_{0};
+  // First range index of 'ranges_' that is not appended to 'current_'.
+  vector_size_t rangeIdx_{0};
   std::unique_ptr<VectorStreamGroup> current_;
   bool finished_{false};
 
