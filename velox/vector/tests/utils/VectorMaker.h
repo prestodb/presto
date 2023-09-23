@@ -115,7 +115,8 @@ class VectorMaker {
             };
           }
 
-          return flatVector<T>(size, selectiveValueAt, selectiveIsNullAt);
+          return flatVector<T>(
+              rowSet.back() + 1, selectiveValueAt, selectiveIsNullAt);
         }));
   }
 
