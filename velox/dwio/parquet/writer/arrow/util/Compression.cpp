@@ -171,9 +171,7 @@ Result<std::unique_ptr<Codec>> Codec::Create(
     case Compression::UNCOMPRESSED:
       return nullptr;
     case Compression::SNAPPY:
-#ifdef ARROW_WITH_SNAPPY
       codec = internal::MakeSnappyCodec();
-#endif
       break;
     case Compression::GZIP: {
 #ifdef ARROW_WITH_ZLIB
@@ -242,11 +240,7 @@ bool Codec::IsAvailable(Compression::type codec_type) {
     case Compression::UNCOMPRESSED:
       return true;
     case Compression::SNAPPY:
-#ifdef ARROW_WITH_SNAPPY
       return true;
-#else
-      return false;
-#endif
     case Compression::GZIP:
 #ifdef ARROW_WITH_ZLIB
       return true;

@@ -20,7 +20,7 @@
 
 #include <memory>
 
-#include "arrow/util/compression.h" // IWYU pragma: export
+#include "velox/dwio/parquet/writer/arrow/util/Compression.h"
 
 namespace facebook::velox::parquet::arrow::util {
 
