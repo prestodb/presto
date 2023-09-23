@@ -373,6 +373,7 @@ void PeriodicTaskManager::updateCacheStats() {
         kCounterSsdCacheCumulativeReadCheckpointErrors,
         memoryCacheStats.ssdStats->readCheckpointErrors);
   }
+  LOG(INFO) << "Cache stats:\n" << memoryCacheStats.toString();
 }
 
 void PeriodicTaskManager::addCacheStatsUpdateTask() {
