@@ -130,13 +130,26 @@ class ParquetWriters
             int fieldRepetitionLevel = type.getMaxRepetitionLevel(path);
             ColumnDescriptor columnDescriptor = new ColumnDescriptor(path, primitive, fieldRepetitionLevel, fieldDefinitionLevel);
             Type prestoType = requireNonNull(prestoTypes.get(ImmutableList.copyOf(path)), " presto type is null");
-            return new PrimitiveColumnWriter(prestoType,
-                    columnDescriptor,
-                    getValueWriter(parquetProperties.newValuesWriter(columnDescriptor), prestoType, columnDescriptor.getPrimitiveType()),
-                    parquetProperties.newDefinitionLevelEncoder(columnDescriptor),
-                    parquetProperties.newRepetitionLevelEncoder(columnDescriptor),
-                    compressionCodecName,
-                    parquetProperties.getPageSizeThreshold());
+            switch (parquetProperties.getWriterVersion()) {
+                case PARQUET_1_0:
+                    return new PrimitiveColumnWriterV1(prestoType,
+                            columnDescriptor,
+                            getValueWriter(parquetProperties.newValuesWriter(columnDescriptor), prestoType, columnDescriptor.getPrimitiveType()),
+                            parquetProperties.newDefinitionLevelWriter(columnDescriptor),
+                            parquetProperties.newRepetitionLevelWriter(columnDescriptor),
+                            compressionCodecName,
+                            parquetProperties.getPageSizeThreshold());
+                case PARQUET_2_0:
+                    return new PrimitiveColumnWriterV2(prestoType,
+                            columnDescriptor,
+                            getValueWriter(parquetProperties.newValuesWriter(columnDescriptor), prestoType, columnDescriptor.getPrimitiveType()),
+                            parquetProperties.newDefinitionLevelEncoder(columnDescriptor),
+                            parquetProperties.newRepetitionLevelEncoder(columnDescriptor),
+                            compressionCodecName,
+                            parquetProperties.getPageSizeThreshold());
+                default:
+                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported Parquet writer version: %s", parquetProperties.getWriterVersion()));
+            }
         }
 
         private String[] currentPath()
