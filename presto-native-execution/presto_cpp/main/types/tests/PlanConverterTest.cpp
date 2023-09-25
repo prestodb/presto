@@ -120,6 +120,13 @@ TEST_F(PlanConverterTest, scanAgg) {
       tableHandle->dataColumns()->toString(),
       "ROW<nationkey:BIGINT,name:VARCHAR,regionkey:BIGINT,complex_type:ARRAY<MAP<VARCHAR,ROW<id:BIGINT,description:VARCHAR>>>,comment:VARCHAR>");
 
+  auto tableParameters = tableHandle->tableParameters();
+  ASSERT_EQ(tableParameters.size(), 6);
+  ASSERT_EQ(tableParameters.find("presto_version")->second, "testversion");
+  ASSERT_EQ(tableParameters.find("numRows")->second, "25");
+  ASSERT_EQ(tableParameters.find("totalSize")->second, "1451");
+  ASSERT_EQ(tableParameters.find("foobar"), tableParameters.end());
+
   protocol::registerConnector("hive-plus", "hive");
   assertToVeloxQueryPlan("ScanAggCustomConnectorId.json");
 }
