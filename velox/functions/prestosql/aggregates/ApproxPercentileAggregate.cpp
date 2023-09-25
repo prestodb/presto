@@ -167,6 +167,14 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     finalize(groups, numGroups);
 
     VELOX_CHECK(result);
+    // When all inputs are nulls or masked out, percentiles_ can be
+    // uninitialized. The result should be nulls in this case.
+    if (!percentiles_.has_value()) {
+      *result = BaseVector::createNullConstant(
+          (*result)->type(), numGroups, (*result)->pool());
+      return;
+    }
+
     if (percentiles_ && percentiles_->isArray) {
       folly::Range percentiles(
           percentiles_->values.begin(), percentiles_->values.end());
@@ -218,32 +226,42 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     VELOX_CHECK(rowResult);
     auto pool = rowResult->pool();
 
-    if (percentiles_) {
-      auto& values = percentiles_->values;
-      auto size = values.size();
-      auto elements =
-          BaseVector::create<FlatVector<double>>(DOUBLE(), size, pool);
-      std::copy(values.begin(), values.end(), elements->mutableRawValues());
-      auto array = std::make_shared<ArrayVector>(
-          pool,
-          ARRAY(DOUBLE()),
-          nullptr,
-          1,
-          AlignedBuffer::allocate<vector_size_t>(1, pool, 0),
-          AlignedBuffer::allocate<vector_size_t>(1, pool, size),
-          std::move(elements));
-      rowResult->childAt(kPercentiles) =
-          BaseVector::wrapInConstant(numGroups, 0, std::move(array));
-      rowResult->childAt(kPercentilesIsArray) =
-          std::make_shared<ConstantVector<bool>>(
-              pool, numGroups, false, BOOLEAN(), bool(percentiles_->isArray));
-    } else {
+    // percentiles_ can be uninitialized during an intermediate aggregation step
+    // when all input intermediate states are nulls. Result should be nulls in
+    // this case.
+    if (!percentiles_) {
+      rowResult->ensureWritable(SelectivityVector{numGroups});
+      // rowResult->childAt(i) for i = kPercentiles, kPercentilesIsArray, and
+      // kAccuracy are expected to be constant in addIntermediateResults.
       rowResult->childAt(kPercentiles) =
           BaseVector::createNullConstant(ARRAY(DOUBLE()), numGroups, pool);
       rowResult->childAt(kPercentilesIsArray) =
-          std::make_shared<ConstantVector<bool>>(
-              pool, numGroups, true, BOOLEAN(), false);
+          BaseVector::createNullConstant(BOOLEAN(), numGroups, pool);
+      rowResult->childAt(kAccuracy) =
+          BaseVector::createNullConstant(DOUBLE(), numGroups, pool);
+      for (auto i = 0; i < numGroups; ++i) {
+        rowResult->setNull(i, true);
+      }
+      return;
     }
+    auto& values = percentiles_->values;
+    auto size = values.size();
+    auto elements =
+        BaseVector::create<FlatVector<double>>(DOUBLE(), size, pool);
+    std::copy(values.begin(), values.end(), elements->mutableRawValues());
+    auto array = std::make_shared<ArrayVector>(
+        pool,
+        ARRAY(DOUBLE()),
+        nullptr,
+        1,
+        AlignedBuffer::allocate<vector_size_t>(1, pool, 0),
+        AlignedBuffer::allocate<vector_size_t>(1, pool, size),
+        std::move(elements));
+    rowResult->childAt(kPercentiles) =
+        BaseVector::wrapInConstant(numGroups, 0, std::move(array));
+    rowResult->childAt(kPercentilesIsArray) =
+        std::make_shared<ConstantVector<bool>>(
+            pool, numGroups, false, BOOLEAN(), bool(percentiles_->isArray));
     rowResult->childAt(kAccuracy) = std::make_shared<ConstantVector<double>>(
         pool,
         numGroups,
@@ -583,10 +601,11 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     auto rowVec = decoded.base()->as<RowVector>();
     if constexpr (checkIntermediateInputs) {
       VELOX_USER_CHECK(rowVec);
-      for (int i = kPercentiles; i <= kMaxValue; ++i) {
-        VELOX_USER_CHECK(
-            rowVec->childAt(i)->isFlatEncoding() ||
-            rowVec->childAt(i)->isConstantEncoding());
+      for (int i = kPercentiles; i <= kAccuracy; ++i) {
+        VELOX_USER_CHECK(rowVec->childAt(i)->isConstantEncoding());
+      }
+      for (int i = kK; i <= kMaxValue; ++i) {
+        VELOX_USER_CHECK(rowVec->childAt(i)->isFlatEncoding());
       }
       for (int i = kItems; i <= kLevels; ++i) {
         VELOX_USER_CHECK(
