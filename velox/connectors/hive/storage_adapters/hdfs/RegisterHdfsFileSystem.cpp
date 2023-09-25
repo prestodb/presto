@@ -78,7 +78,8 @@ hdfsWriteFileSinkGenerator() {
         if (HdfsFileSystem::isHdfsFile(fileURI)) {
           std::string pathSuffix =
               getHdfsPath(fileURI, HdfsFileSystem::kScheme);
-          auto fileSystem = filesystems::getFileSystem(fileURI, nullptr);
+          auto fileSystem =
+              filesystems::getFileSystem(fileURI, options.connectorProperties);
           return std::make_unique<dwio::common::WriteFileSink>(
               fileSystem->openFileForWrite(pathSuffix),
               fileURI,
