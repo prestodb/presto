@@ -180,6 +180,11 @@ TEST_F(TrimFunctionsTest, trim) {
   EXPECT_EQ(expectedComplexStr, trim(complexStr));
   EXPECT_EQ(
       "Ψ\xFF\xFFΣΓΔA", trim("\u2028 \r \t \nΨ\xFF\xFFΣΓΔA \u2028 \r \t \n"));
+
+  EXPECT_EQ("\xFF\xFF", trim("\u2028 \r \t \n\xFF\xFF \u2028 \r \t \n"));
+
+  // Invalid unicode at the start and end of the string.
+  EXPECT_EQ("\xFF\xFF", trim("\xFF\xFF"));
 }
 
 TEST_F(TrimFunctionsTest, ltrim) {
@@ -219,6 +224,9 @@ TEST_F(TrimFunctionsTest, ltrim) {
 
   EXPECT_EQ(expectedComplexStr, ltrim(complexStr));
   EXPECT_EQ("Ψ\xFF\xFFΣΓΔA", ltrim("  \u2028 \r \t \n   Ψ\xFF\xFFΣΓΔA"));
+
+  // Invalid unicode at the start and end of the string.
+  EXPECT_EQ("\xFF\xFF", ltrim("\xFF\xFF"));
 }
 
 TEST_F(TrimFunctionsTest, rtrim) {
@@ -258,6 +266,9 @@ TEST_F(TrimFunctionsTest, rtrim) {
 
   EXPECT_EQ(expectedComplexStr, rtrim(complexStr));
   EXPECT_EQ("     Ψ\xFF\xFFΣΓΔA", rtrim("     Ψ\xFF\xFFΣΓΔA \u2028 \r \t \n"));
+
+  // Invalid unicode at the start and end of the string.
+  EXPECT_EQ("\xFF\xFF", rtrim("\xFF\xFF"));
 }
 
 TEST_F(TrimFunctionsTest, trimCustomCharacters) {

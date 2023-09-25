@@ -332,9 +332,13 @@ FOLLY_ALWAYS_INLINE std::array<int64_t, 2> unicodeWhitespaceCodes() {
 ///  8192, 8193, 8194, 8195, 8196, 8197, 8198, 8200, 8201, 8202, 8232, 8233, 8287,
 ///  12288]
 // clang-format on
+// This function need to handle invalid codepoints with out crashing.
 FOLLY_ALWAYS_INLINE bool isUnicodeWhiteSpace(utf8proc_int32_t codePoint) {
   static const auto kAsciiCodes = asciiWhitespaceCodes();
   static const auto kUnicodeCodes = unicodeWhitespaceCodes();
+  if (codePoint < 0) {
+    return false;
+  }
 
   if (codePoint < 5'000) {
     if (codePoint > 32) {
@@ -491,7 +495,7 @@ FOLLY_ALWAYS_INLINE void trimUnicodeWhiteSpace(
           input.data() + curStartPos,
           input.data() + input.size(),
           codePointSize);
-      if (!isUnicodeWhiteSpace(codePoint)) {
+      if (codePoint == -1 || !isUnicodeWhiteSpace(codePoint)) {
         break;
       }
       curStartPos += codePointSize;

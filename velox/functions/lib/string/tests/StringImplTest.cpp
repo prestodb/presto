@@ -639,3 +639,7 @@ TEST_F(StringImplTest, utf8proc_codepoint) {
       -1);
   EXPECT_EQ(size, 4);
 }
+
+TEST_F(StringImplTest, isUnicodeWhiteSpace) {
+  EXPECT_FALSE(isUnicodeWhiteSpace(-1));
+}
