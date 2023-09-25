@@ -22,6 +22,7 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.apache.parquet.column.ParquetProperties;
 
 import javax.inject.Inject;
 
@@ -85,6 +86,7 @@ public final class HiveSessionProperties
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "parquet_optimized_writer_enabled";
+    private static final String PARQUET_WRITER_VERSION = "parquet_writer_version";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
     private static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
     public static final String RCFILE_OPTIMIZED_WRITER_ENABLED = "rcfile_optimized_writer_enabled";
@@ -539,6 +541,15 @@ public final class HiveSessionProperties
                         "Experimental: Enable optimized writer",
                         parquetFileWriterConfig.isParquetOptimizedWriterEnabled(),
                         false),
+                new PropertyMetadata<>(
+                        PARQUET_WRITER_VERSION,
+                        "Parquet: Writer version",
+                        VARCHAR,
+                        ParquetProperties.WriterVersion.class,
+                        parquetFileWriterConfig.getWriterVersion(),
+                        false,
+                        value -> ParquetProperties.WriterVersion.valueOf(((String) value).toUpperCase()),
+                        ParquetProperties.WriterVersion::name),
                 booleanProperty(
                         PARQUET_BATCH_READ_OPTIMIZATION_ENABLED,
                         "Is Parquet batch read optimization enabled",
@@ -1110,6 +1121,11 @@ public final class HiveSessionProperties
     public static boolean isParquetOptimizedWriterEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_OPTIMIZED_WRITER_ENABLED, Boolean.class);
+    }
+
+    public static ParquetProperties.WriterVersion getParquetWriterVersion(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_WRITER_VERSION, ParquetProperties.WriterVersion.class);
     }
 
     public static BucketFunctionType getBucketFunctionTypeForExchange(ConnectorSession session)

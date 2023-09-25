@@ -45,6 +45,7 @@ import java.util.concurrent.Callable;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterPageSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterVersion;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetOptimizedWriterEnabled;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static java.util.Objects.requireNonNull;
@@ -103,6 +104,7 @@ public class ParquetFileWriterFactory
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                 .setMaxPageSize(getParquetWriterPageSize(session))
                 .setMaxBlockSize(getParquetWriterBlockSize(session))
+                .setWriterVersion(getParquetWriterVersion(session))
                 .build();
 
         CompressionCodecName compressionCodecName = getCompression(conf);
