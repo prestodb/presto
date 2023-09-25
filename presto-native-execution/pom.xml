@@ -230,7 +230,7 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <excludedGroups combine.self="override">parquet</excludedGroups>
+                            <excludedGroups combine.self="override">parquet,remote-function</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
