@@ -28,6 +28,7 @@ add_library(
   CovarianceAggregates.cpp
   ChecksumAggregate.cpp
   EntropyAggregates.cpp
+  GeometricMeanAggregate.cpp
   HistogramAggregate.cpp
   MapAggAggregate.cpp
   MapUnionAggregate.cpp

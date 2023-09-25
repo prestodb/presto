@@ -37,6 +37,7 @@ const char* const kCovarPop = "covar_pop";
 const char* const kCovarSamp = "covar_samp";
 const char* const kEntropy = "entropy";
 const char* const kEvery = "every";
+const char* const kGeometricMean = "geometric_mean";
 const char* const kHistogram = "histogram";
 const char* const kKurtosis = "kurtosis";
 const char* const kMapAgg = "map_agg";

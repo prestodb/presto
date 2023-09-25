@@ -29,6 +29,7 @@ add_executable(
   CountIfAggregationTest.cpp
   CovarianceAggregationTest.cpp
   EntropyAggregationTest.cpp
+  GeometricMeanTest.cpp
   HistogramTest.cpp
   Main.cpp
   MapAccumulatorTest.cpp
