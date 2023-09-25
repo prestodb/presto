@@ -93,6 +93,10 @@ class SerDeOptions {
   ~SerDeOptions() = default;
 };
 
+struct TableParameter {
+  static constexpr const char* kSkipHeaderLineCount = "skip.header.line.count";
+};
+
 /**
  * Options for creating a RowReader.
  */
@@ -124,6 +128,7 @@ class RowReaderOptions {
       facebook::velox::dwio::common::flatmap::FlatMapKeySelectionStats)>
       keySelectionCallback_;
   bool eagerFirstStripeLoad = true;
+  uint64_t skipRows_ = 0;
 
  public:
   RowReaderOptions() noexcept
@@ -328,6 +333,14 @@ class RowReaderOptions {
       void(facebook::velox::dwio::common::flatmap::FlatMapKeySelectionStats)>
   getKeySelectionCallback() const {
     return keySelectionCallback_;
+  }
+
+  void setSkipRows(uint64_t skipRows) {
+    skipRows_ = skipRows;
+  }
+
+  bool getSkipRows() const {
+    return skipRows_;
   }
 
   const std::shared_ptr<folly::Executor>& getDecodingExecutor() const {

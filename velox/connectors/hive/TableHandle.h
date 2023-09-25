@@ -120,7 +120,8 @@ class HiveTableHandle : public ConnectorTableHandle {
       bool filterPushdownEnabled,
       SubfieldFilters subfieldFilters,
       const core::TypedExprPtr& remainingFilter,
-      const RowTypePtr& dataColumns = nullptr);
+      const RowTypePtr& dataColumns = nullptr,
+      const std::unordered_map<std::string, std::string>& tableParameters = {});
 
   const std::string& tableName() const {
     return tableName_;
@@ -143,6 +144,10 @@ class HiveTableHandle : public ConnectorTableHandle {
     return dataColumns_;
   }
 
+  const std::unordered_map<std::string, std::string>& tableParameters() const {
+    return tableParameters_;
+  }
+
   std::string toString() const override;
 
   folly::dynamic serialize() const override;
@@ -159,6 +164,7 @@ class HiveTableHandle : public ConnectorTableHandle {
   const SubfieldFilters subfieldFilters_;
   const core::TypedExprPtr remainingFilter_;
   const RowTypePtr dataColumns_;
+  const std::unordered_map<std::string, std::string> tableParameters_;
 };
 
 } // namespace facebook::velox::connector::hive

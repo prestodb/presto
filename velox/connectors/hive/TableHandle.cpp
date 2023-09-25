@@ -108,13 +108,15 @@ HiveTableHandle::HiveTableHandle(
     bool filterPushdownEnabled,
     SubfieldFilters subfieldFilters,
     const core::TypedExprPtr& remainingFilter,
-    const RowTypePtr& dataColumns)
+    const RowTypePtr& dataColumns,
+    const std::unordered_map<std::string, std::string>& tableParameters)
     : ConnectorTableHandle(std::move(connectorId)),
       tableName_(tableName),
       filterPushdownEnabled_(filterPushdownEnabled),
       subfieldFilters_(std::move(subfieldFilters)),
       remainingFilter_(remainingFilter),
-      dataColumns_(dataColumns) {}
+      dataColumns_(dataColumns),
+      tableParameters_(tableParameters) {}
 
 std::string HiveTableHandle::toString() const {
   std::stringstream out;

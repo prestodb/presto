@@ -538,6 +538,12 @@ HiveDataSource::HiveDataSource(
   rowReaderOpts_.setScanSpec(scanSpec_);
   rowReaderOpts_.setMetadataFilter(metadataFilter_);
 
+  auto skipRowsIt = hiveTableHandle->tableParameters().find(
+      dwio::common::TableParameter::kSkipHeaderLineCount);
+  if (skipRowsIt != hiveTableHandle->tableParameters().end()) {
+    rowReaderOpts_.setSkipRows(folly::to<uint64_t>(skipRowsIt->second));
+  }
+
   ioStats_ = std::make_shared<dwio::common::IoStatistics>();
 }
 
