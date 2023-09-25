@@ -61,6 +61,7 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcMaxBuff
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcOptimizedWriterValidateMode;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcStreamBufferSize;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getParquetWriterVersion;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isOrcOptimizedWriterValidate;
 import static com.facebook.presto.iceberg.TypeConverter.toOrcType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
@@ -142,6 +143,7 @@ public class IcebergFileWriterFactory
             ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                     .setMaxPageSize(getParquetWriterPageSize(session))
                     .setMaxBlockSize(getParquetWriterBlockSize(session))
+                    .setWriterVersion(getParquetWriterVersion(session))
                     .build();
 
             return new IcebergParquetFileWriter(

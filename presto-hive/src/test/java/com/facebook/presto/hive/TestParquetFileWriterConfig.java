@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.testng.annotations.Test;
 
@@ -34,7 +35,8 @@ public class TestParquetFileWriterConfig
         assertRecordedDefaults(recordDefaults(ParquetFileWriterConfig.class)
                 .setParquetOptimizedWriterEnabled(false)
                 .setBlockSize(new DataSize(ParquetWriter.DEFAULT_BLOCK_SIZE, BYTE))
-                .setPageSize(new DataSize(ParquetWriter.DEFAULT_PAGE_SIZE, BYTE)));
+                .setPageSize(new DataSize(ParquetWriter.DEFAULT_PAGE_SIZE, BYTE))
+                .setWriterVersion(ParquetProperties.WriterVersion.PARQUET_2_0));
     }
 
     @Test
@@ -44,12 +46,14 @@ public class TestParquetFileWriterConfig
                 .put("hive.parquet.optimized-writer.enabled", "true")
                 .put("hive.parquet.writer.block-size", "234MB")
                 .put("hive.parquet.writer.page-size", "11MB")
+                .put("hive.parquet.writer.version", "PARQUET_1_0")
                 .build();
 
         ParquetFileWriterConfig expected = new ParquetFileWriterConfig()
                 .setParquetOptimizedWriterEnabled(true)
                 .setBlockSize(new DataSize(234, MEGABYTE))
-                .setPageSize(new DataSize(11, MEGABYTE));
+                .setPageSize(new DataSize(11, MEGABYTE))
+                .setWriterVersion(ParquetProperties.WriterVersion.PARQUET_1_0);
 
         assertFullMapping(properties, expected);
     }
