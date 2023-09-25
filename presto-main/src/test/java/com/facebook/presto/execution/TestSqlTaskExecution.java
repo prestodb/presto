@@ -78,6 +78,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Queue;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -1388,7 +1389,7 @@ public class TestSqlTaskExecution
         }
     }
 
-    @Test(invocationCount = 1)
+    @Test(invocationCount = 100)
     public void testGracefulShutdown()
             throws Exception
     {
@@ -1451,12 +1452,18 @@ public class TestSqlTaskExecution
             // * operatorFactory will be closed even though operator can't execute
             // * completedDriverGroups will NOT include the newly scheduled driver group while pause is in place
             testingScanOperatorFactory.getPauser().pause();
+            Random rand = new Random();
+            int upperBound = 500;
+            int lowerBound = 100;
+            int pageCountForSplit1 = rand.nextInt(upperBound - lowerBound) + lowerBound;
+            int pageCountForSplit2 = rand.nextInt(upperBound - lowerBound) + lowerBound;
+
             // add source for pipeline, mark as no more splits
             sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
                     TABLE_SCAN_NODE_ID,
                     ImmutableSet.of(
-                            newScheduledSplit(1, TABLE_SCAN_NODE_ID, Lifespan.taskWide(), 200000, 300),
-                            newScheduledSplit(2, TABLE_SCAN_NODE_ID, Lifespan.taskWide(), 300000, 200)),
+                            newScheduledSplit(1, TABLE_SCAN_NODE_ID, Lifespan.taskWide(), 200000, pageCountForSplit1),
+                            newScheduledSplit(2, TABLE_SCAN_NODE_ID, Lifespan.taskWide(), 300000, pageCountForSplit2)),
                     true)));
             // assert that pipeline will have no more drivers
             waitUntilEquals(testingScanOperatorFactory::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
@@ -1473,7 +1480,7 @@ public class TestSqlTaskExecution
             testingScanOperatorFactory.getPauser().resume();
 
             // assert that task result is produced
-            outputBufferConsumer.consume(300 + 200, ASSERT_WAIT_TIMEOUT);
+            outputBufferConsumer.consume(pageCountForSplit1 + pageCountForSplit2, ASSERT_WAIT_TIMEOUT);
             outputBufferConsumer.assertBufferComplete(ASSERT_WAIT_TIMEOUT);
 
             outputBufferConsumer.abort(); // complete the task by calling abort on it
