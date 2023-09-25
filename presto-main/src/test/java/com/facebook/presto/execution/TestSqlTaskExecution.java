@@ -1390,7 +1390,7 @@ public class TestSqlTaskExecution
     }
 
     @Test(invocationCount = 100)
-    public void testGracefulShutdown()
+    public void testGracefulShutdownForSimpleCase()
             throws Exception
     {
         PipelineExecutionStrategy executionStrategy = UNGROUPED_EXECUTION;
@@ -1483,6 +1483,220 @@ public class TestSqlTaskExecution
             outputBufferConsumer.consume(pageCountForSplit1 + pageCountForSplit2, ASSERT_WAIT_TIMEOUT);
             outputBufferConsumer.assertBufferComplete(ASSERT_WAIT_TIMEOUT);
 
+            outputBufferConsumer.abort(); // complete the task by calling abort on it
+
+            waitUntilEquals(taskExecutor::getIsGracefulShutdownFinished, true, ASSERT_WAIT_TIMEOUT);
+
+            TaskState taskState = taskStateMachine.getStateChange(TaskState.RUNNING).get(10, SECONDS);
+            assertEquals(taskState, TaskState.FAILED);
+        }
+        finally {
+            taskExecutor.stop();
+            taskNotificationExecutor.shutdownNow();
+            driverYieldExecutor.shutdown();
+        }
+    }
+
+    @Test(invocationCount = 100)
+    public void testGracefulShutdownForComplexCase()
+            throws Exception
+    {
+        ScheduledExecutorService shutdownHandler = newSingleThreadScheduledExecutor(threadsNamed("shutdown-handler-%s"));
+        PipelineExecutionStrategy executionStrategy = UNGROUPED_EXECUTION;
+        GracefulShutdownSplitTracker gracefulShutdownSplitTracker = new GracefulShutdownSplitTracker(new NodeInfo("test"));
+        ScheduledExecutorService taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
+        ScheduledExecutorService driverYieldExecutor = newScheduledThreadPool(2, threadsNamed("driver-yield-%s"));
+        TaskExecutor taskExecutor = new TaskExecutor(5, 10, 3, 4, TASK_FAIR, gracefulShutdownSplitTracker, Ticker.systemTicker());
+        taskExecutor.start();
+
+        try {
+            TaskStateMachine taskStateMachine = new TaskStateMachine(TASK_ID, taskNotificationExecutor);
+            PartitionedOutputBuffer outputBuffer = newTestingOutputBuffer(taskNotificationExecutor);
+            OutputBufferConsumer outputBufferConsumer = new OutputBufferConsumer(outputBuffer, OUTPUT_BUFFER_ID);
+
+            // test initialization: complex test with 4 pipelines
+            // Take a task with the following set of pipelines for example:
+            //
+            //   pipeline 0        pipeline 1       pipeline 2    pipeline 3    ... pipeline id
+            //   partitioned      unpartitioned     partitioned  unpartitioned  ... partitioned/unpartitioned pipeline
+            //     grouped           grouped          grouped      ungrouped    ... execution strategy (in grouped test)
+            //    ungrouped         ungrouped        ungrouped     ungrouped    ... execution strategy (in ungrouped test)
+            //
+            //   TaskOutput-0
+            //        |
+            //    CrossJoin-C  ................................... Build-C
+            //        |                                               |
+            //    CrossJoin-A  ..... Build-A                       Values-3
+            //        |                |
+            //      Scan-0         CrossJoin-B  ....  Build-B
+            //             (effectively ExchangeSink)    |
+            //                         |               Scan-2
+            //                      Values-1
+            //                      (1 row)
+            //
+            // CrossJoin operator here has the same lifecycle behavior as a real cross/hash-join, and produces
+            // the correct number of rows, but doesn't actually produce a cross-join for simplicity.
+            //
+            // A single task can never have all 4 combinations: partitioned/unpartitioned x grouped/ungrouped.
+            // * In the case of ungrouped test, this test covers driver with
+            //   1) split lifecycle (partitioned ungrouped)
+            //   2) task lifecycle (unpartitioned ungrouped)
+            //   These are the only 2 possible pipeline execution strategy a task can have if the task has ungrouped execution strategy.
+            // * In the case of grouped test, this covers:
+            //   1) split lifecycle (partitioned grouped)
+            //   2) driver group lifecycle (unpartitioned grouped)
+            //   3) task lifecycle (unpartitioned ungrouped)
+            //   These are the only 3 possible pipeline execution strategy a task can have if the task has grouped execution strategy.
+            //
+            // The following behaviors are tested:
+            // * DriverFactory are marked as noMoreDriver/Operator for particular lifespans as soon as they can be:
+            //   * immediately, if the pipeline has task lifecycle (ungrouped and unpartitioned).
+            //   * when TaskSource containing the lifespan is encountered, if the pipeline has driver group lifecycle (grouped and unpartitioned).
+            //   * when TaskSource indicate that no more splits will be produced for the plan node (and plan nodes that schedule before it
+            //     due to phased scheduling) and lifespan combination, if the pipeline has split lifecycle (partitioned).
+            // * DriverFactory are marked as noMoreDriver/Operator as soon as they can be:
+            //   * immediately, if the pipeline has task lifecycle (ungrouped and unpartitioned).
+            //   * when TaskSource indicate that will no more splits, otherwise.
+            // * Driver groups are marked as completed as soon as they should be:
+            //   * when there are no active driver, and all DriverFactory for the lifespan (across all pipelines) are marked as completed.
+            // * Rows are produced as soon as they should be:
+            //   * streams data through as soon as the build side is ready, for CrossJoin
+            //   * streams data through, otherwise.
+            PlanNodeId scan0NodeId = new PlanNodeId("scan-0");
+            PlanNodeId values1NodeId = new PlanNodeId("values-1");
+            PlanNodeId scan2NodeId = new PlanNodeId("scan-2");
+            PlanNodeId values3NodeId = new PlanNodeId("values-3");
+            PlanNodeId joinANodeId = new PlanNodeId("join-a");
+            PlanNodeId joinBNodeId = new PlanNodeId("join-b");
+            PlanNodeId joinCNodeId = new PlanNodeId("join-c");
+            BuildStates buildStatesA = new BuildStates(executionStrategy);
+            BuildStates buildStatesB = new BuildStates(executionStrategy);
+            BuildStates buildStatesC = new BuildStates(UNGROUPED_EXECUTION);
+            TestingScanOperatorFactory scanOperatorFactory0 = new TestingScanOperatorFactory(1, scan0NodeId, ImmutableList.of(VARCHAR));
+            ValuesOperatorFactory valuesOperatorFactory1 = new ValuesOperatorFactory(
+                    101,
+                    values1NodeId,
+                    ImmutableList.of(new Page(createStringsBlock("multiplier1"))));
+            TestingScanOperatorFactory scanOperatorFactory2 = new TestingScanOperatorFactory(201, scan2NodeId, ImmutableList.of(VARCHAR));
+            ValuesOperatorFactory valuesOperatorFactory3 = new ValuesOperatorFactory(
+                    301,
+                    values3NodeId,
+                    ImmutableList.of(new Page(createStringsBlock("x", "y", "multiplier3"))));
+            TaskOutputOperatorFactory taskOutputOperatorFactory = new TaskOutputOperatorFactory(
+                    4,
+                    joinCNodeId,
+                    outputBuffer,
+                    Function.identity(),
+                    new PagesSerdeFactory(new BlockEncodingManager(), false));
+            TestingCrossJoinOperatorFactory joinOperatorFactoryA = new TestingCrossJoinOperatorFactory(2, joinANodeId, buildStatesA);
+            TestingCrossJoinOperatorFactory joinOperatorFactoryB = new TestingCrossJoinOperatorFactory(102, joinBNodeId, buildStatesB);
+            TestingCrossJoinOperatorFactory joinOperatorFactoryC = new TestingCrossJoinOperatorFactory(3, joinCNodeId, buildStatesC);
+            TestingBuildOperatorFactory buildOperatorFactoryA = new TestingBuildOperatorFactory(103, joinANodeId, buildStatesA);
+            TestingBuildOperatorFactory buildOperatorFactoryB = new TestingBuildOperatorFactory(202, joinBNodeId, buildStatesB);
+            TestingBuildOperatorFactory buildOperatorFactoryC = new TestingBuildOperatorFactory(302, joinCNodeId, buildStatesC);
+
+            LocalExecutionPlan localExecutionPlan = new LocalExecutionPlan(
+                    ImmutableList.of(
+                            new DriverFactory(
+                                    0,
+                                    true,
+                                    true,
+                                    ImmutableList.of(scanOperatorFactory0, joinOperatorFactoryA, joinOperatorFactoryC, taskOutputOperatorFactory),
+                                    OptionalInt.empty(),
+                                    executionStrategy,
+                                    Optional.empty()),
+                            new DriverFactory(
+                                    1,
+                                    false,
+                                    false,
+                                    ImmutableList.of(valuesOperatorFactory1, joinOperatorFactoryB, buildOperatorFactoryA),
+                                    OptionalInt.empty(),
+                                    executionStrategy,
+                                    Optional.empty()),
+                            new DriverFactory(
+                                    2,
+                                    true,
+                                    false,
+                                    ImmutableList.of(scanOperatorFactory2, buildOperatorFactoryB),
+                                    OptionalInt.empty(),
+                                    executionStrategy,
+                                    Optional.empty()),
+                            new DriverFactory(
+                                    3,
+                                    false,
+                                    false,
+                                    ImmutableList.of(valuesOperatorFactory3, buildOperatorFactoryC),
+                                    OptionalInt.empty(),
+                                    UNGROUPED_EXECUTION,
+                                    Optional.empty())),
+                    ImmutableList.of(scan2NodeId, scan0NodeId),
+                    executionStrategy == GROUPED_EXECUTION
+                            ? StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(ImmutableList.of(scan0NodeId, scan2NodeId), 4)
+                            : StageExecutionDescriptor.ungroupedExecution());
+            TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, taskStateMachine);
+            SqlTaskExecution sqlTaskExecution = SqlTaskExecution.createSqlTaskExecution(
+                    taskStateMachine,
+                    taskContext,
+                    outputBuffer,
+                    ImmutableList.of(),
+                    localExecutionPlan,
+                    taskExecutor,
+                    taskNotificationExecutor,
+                    createTestSplitMonitor());
+
+            //
+            // test body
+            assertEquals(taskStateMachine.getState(), TaskState.RUNNING);
+
+            // assert that pipeline 1 and pipeline 3 will have no more drivers
+            // (Unpartitioned ungrouped pipelines can have all driver instance created up front.)
+            waitUntilEquals(joinOperatorFactoryB::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
+            waitUntilEquals(buildOperatorFactoryA::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
+            waitUntilEquals(buildOperatorFactoryC::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
+
+            // add source for pipeline 2, and mark as no more splits
+            sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    scan2NodeId,
+                    ImmutableSet.of(
+                            newScheduledSplit(0, scan2NodeId, Lifespan.taskWide(), 100000, 1),
+                            newScheduledSplit(1, scan2NodeId, Lifespan.taskWide(), 300000, 2)),
+                    false)));
+            sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    scan2NodeId,
+                    ImmutableSet.of(newScheduledSplit(2, scan2NodeId, Lifespan.taskWide(), 300000, 2)),
+                    true)));
+            // assert that pipeline 2 will have no more drivers
+            waitUntilEquals(scanOperatorFactory2::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
+            waitUntilEquals(buildOperatorFactoryB::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
+
+            // pause operator execution to make sure that
+            // * operatorFactory will be closed even though operator can't execute
+            // * completedDriverGroups will NOT include the newly scheduled driver group while pause is in place
+            scanOperatorFactory0.getPauser().pause();
+
+            // add source for pipeline 0, mark as no more splits
+            sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    scan0NodeId,
+                    ImmutableSet.of(newScheduledSplit(3, scan0NodeId, Lifespan.taskWide(), 400000, 100)),
+                    true)));
+            // assert that pipeline 0 will have no more drivers
+            waitUntilEquals(scanOperatorFactory0::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
+            waitUntilEquals(joinOperatorFactoryA::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
+            waitUntilEquals(joinOperatorFactoryC::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
+            // assert that no DriverGroup is fully completed
+            assertEquals(taskContext.getCompletedDriverGroups(), ImmutableSet.of());
+
+            shutdownHandler.schedule(() -> {
+                taskExecutor.gracefulShutdown();
+            }, 1, MILLISECONDS);
+
+            waitUntilEquals(taskExecutor::isShuttingDownStarted, true, ASSERT_WAIT_TIMEOUT);
+
+            // resume operator execution
+            scanOperatorFactory0.getPauser().resume();
+            // assert that task result is produced
+            outputBufferConsumer.consume(100 * 5 * 3, ASSERT_WAIT_TIMEOUT);
+            outputBufferConsumer.assertBufferComplete(ASSERT_WAIT_TIMEOUT);
             outputBufferConsumer.abort(); // complete the task by calling abort on it
 
             waitUntilEquals(taskExecutor::getIsGracefulShutdownFinished, true, ASSERT_WAIT_TIMEOUT);
