@@ -145,6 +145,18 @@ TEST_F(SequenceTest, dateArguments) {
   testExpression("sequence(C0, C1)", {startVector, stopVector}, expected);
 }
 
+TEST_F(SequenceTest, dateRange) {
+  const auto startVector = makeConstant<int32_t>(0, 1, DATE());
+  const auto stopVector =
+      makeConstant<int32_t>(std::numeric_limits<int32_t>::max(), 1, DATE());
+  const auto stepVector =
+      makeConstant<int32_t>(12 * 1'000'000, 1, INTERVAL_YEAR_MONTH());
+  const auto expected = makeArrayVector<int32_t>(
+      {{0, 365242500, 730485000, 1095727500, 1460970000, 1826212500}}, DATE());
+  testExpression(
+      "sequence(C0, C1, C2)", {startVector, stopVector, stepVector}, expected);
+}
+
 TEST_F(SequenceTest, dateArgumentsExceedMaxEntries) {
   const auto startVector = makeFlatVector<int32_t>({1991, 1992, 1992}, DATE());
   const auto stopVector = makeFlatVector<int32_t>({1996, 198800, 1992}, DATE());
@@ -211,16 +223,18 @@ TEST_F(SequenceTest, dateYearMonthStep) {
   const auto startVector = makeFlatVector<int32_t>(
       {parseDate("1975-01-31"),
        parseDate("1975-03-15"),
-       parseDate("2023-12-31")},
+       parseDate("2023-12-31"),
+       parseDate("3892314-06-02")},
       DATE());
   const auto stopVector = makeFlatVector<int32_t>(
       {parseDate("1975-06-20"),
        parseDate("1974-12-15"),
-       parseDate("2024-05-31")},
+       parseDate("2024-05-31"),
+       parseDate("4045127-11-23")},
       DATE());
 
   const auto stepVector =
-      makeFlatVector<int32_t>({1, -1, 2}, INTERVAL_YEAR_MONTH());
+      makeFlatVector<int32_t>({1, -1, 2, 162700}, INTERVAL_YEAR_MONTH());
   const auto expected = makeArrayVector<int32_t>(
       {// last day of Feb
        // result won't include 1975-06-20
@@ -237,7 +251,20 @@ TEST_F(SequenceTest, dateYearMonthStep) {
        // leap year
        {parseDate("2023-12-31"),
         parseDate("2024-02-29"),
-        parseDate("2024-04-30")}},
+        parseDate("2024-04-30")},
+       // range of date
+       {parseDate("3892314-06-02"),
+        parseDate("3905872-10-02"),
+        parseDate("3919431-02-02"),
+        parseDate("3932989-06-02"),
+        parseDate("3946547-10-02"),
+        parseDate("3960106-02-02"),
+        parseDate("3973664-06-02"),
+        parseDate("3987222-10-02"),
+        parseDate("4000781-02-02"),
+        parseDate("4014339-06-02"),
+        parseDate("4027897-10-02"),
+        parseDate("4041456-02-02")}},
       DATE());
   testExpression(
       "sequence(C0, C1, C2)", {startVector, stopVector, stepVector}, expected);

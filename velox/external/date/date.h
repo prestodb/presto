@@ -396,7 +396,7 @@ operator<<(std::basic_ostream<CharT, Traits>& os, const month& m);
 
 class year
 {
-    short y_;
+    int y_;
 
 public:
     year() = default;
@@ -2864,11 +2864,11 @@ year_month_day::from_days(days dp) NOEXCEPT
              "This algorithm has not been ported to a 16 bit unsigned integer");
     static_assert(std::numeric_limits<int>::digits >= 20,
              "This algorithm has not been ported to a 16 bit signed integer");
-    auto const z = dp.count() + 719468;
+    auto const z = dp.count() + 719468L; // For velox, use long to avoid overflow.
     auto const era = (z >= 0 ? z : z - 146096) / 146097;
     auto const doe = static_cast<unsigned>(z - era * 146097);          // [0, 146096]
     auto const yoe = (doe - doe/1460 + doe/36524 - doe/146096) / 365;  // [0, 399]
-    auto const y = static_cast<days::rep>(yoe) + era * 400;
+    auto const y = static_cast<days::rep>(yoe + era * 400);
     auto const doy = doe - (365*yoe + yoe/4 - yoe/100);                // [0, 365]
     auto const mp = (5*doy + 2)/153;                                   // [0, 11]
     auto const d = doy - (153*mp+2)/5 + 1;                             // [1, 31]
