@@ -39,6 +39,7 @@ public class ServerConfig
     private boolean queryResultsCompressionEnabled = true;
     private NodePoolType poolType = DEFAULT;
     private Duration clusterStatsExpirationDuration = new Duration(0, MILLISECONDS);
+    private boolean nestedDataSerializationEnabled = true;
 
     public boolean isResourceManager()
     {
@@ -199,6 +200,18 @@ public class ServerConfig
     public ServerConfig setClusterStatsExpirationDuration(Duration clusterStatsExpirationDuration)
     {
         this.clusterStatsExpirationDuration = clusterStatsExpirationDuration;
+        return this;
+    }
+
+    public boolean isNestedDataSerializationEnabled()
+    {
+        return nestedDataSerializationEnabled;
+    }
+
+    @Config("nested-data-serialization-enabled")
+    public ServerConfig setNestedDataSerializationEnabled(boolean nestedDataSerializationEnabled)
+    {
+        this.nestedDataSerializationEnabled = nestedDataSerializationEnabled;
         return this;
     }
 }

@@ -46,7 +46,8 @@ public class TestServerConfig
                 .setCatalogServer(false)
                 .setCatalogServerEnabled(false)
                 .setPoolType(DEFAULT)
-                .setClusterStatsExpirationDuration(new Duration(0, MILLISECONDS)));
+                .setClusterStatsExpirationDuration(new Duration(0, MILLISECONDS))
+                .setNestedDataSerializationEnabled(true));
     }
 
     @Test
@@ -66,6 +67,7 @@ public class TestServerConfig
                 .put("catalog-server", "true")
                 .put("pool-type", "LEAF")
                 .put("cluster-stats-expiration-duration", "10s")
+                .put("nested-data-serialization-enabled", "false")
                 .build();
 
         ServerConfig expected = new ServerConfig()
@@ -81,7 +83,8 @@ public class TestServerConfig
                 .setCatalogServer(true)
                 .setCatalogServerEnabled(true)
                 .setPoolType(LEAF)
-                .setClusterStatsExpirationDuration(new Duration(10, SECONDS));
+                .setClusterStatsExpirationDuration(new Duration(10, SECONDS))
+                .setNestedDataSerializationEnabled(false);
 
         assertFullMapping(properties, expected);
     }
