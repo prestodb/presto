@@ -287,7 +287,7 @@ bool isSupportedSignature(const exec::FunctionSignature& signature) {
   // Not supporting lambda functions, or functions using decimal and
   // timestamp with time zone types.
   return !(
-      useTypeName(signature, "function") ||
+      useTypeName(signature, "opaque") || useTypeName(signature, "function") ||
       useTypeName(signature, "long_decimal") ||
       useTypeName(signature, "short_decimal") ||
       useTypeName(signature, "decimal") ||
