@@ -277,6 +277,24 @@ TEST_F(VariantSerializationTest, opaqueToString) {
       "Opaque<type:OPAQUE<SerializableClass>,value:\"{\"name\":\"test_class\",\"value\":false}\">");
 }
 
+TEST(VariantFloatingToJsonTest, normalTest) {
+  // Zero
+  EXPECT_EQ(variant::create<float>(0).toJson(), "0");
+  EXPECT_EQ(variant::create<double>(0).toJson(), "0");
+
+  // Infinite
+  EXPECT_EQ(
+      variant::create<float>(std::numeric_limits<float>::infinity()).toJson(),
+      "\"Infinity\"");
+  EXPECT_EQ(
+      variant::create<double>(std::numeric_limits<double>::infinity()).toJson(),
+      "\"Infinity\"");
+
+  // NaN
+  EXPECT_EQ(variant::create<float>(0.0 / 0.0).toJson(), "\"NaN\"");
+  EXPECT_EQ(variant::create<double>(0.0 / 0.0).toJson(), "\"NaN\"");
+}
+
 TEST(VariantTest, opaqueSerializationNotRegistered) {
   struct opaqueSerializationTestStruct {};
   auto opaqueBeforeRegistration =

@@ -163,6 +163,23 @@ bool dispatchDynamicVariantEquality(
       VariantEquality, equals<false>, a.kind(), a, b);
 }
 
+std::string encloseWithQuote(std::string str) {
+  constexpr auto kDoubleQuote = '"';
+
+  std::stringstream ss;
+  ss << std::quoted(str, kDoubleQuote, kDoubleQuote);
+  return ss.str();
+}
+
+template <typename T>
+std::string stringifyFloatingPointerValue(T val) {
+  if (std::isinf(val) || std::isnan(val)) {
+    return encloseWithQuote(folly::to<std::string>(val));
+  } else {
+    return folly::to<std::string>(val);
+  }
+}
+
 void variant::throwCheckIsKindError(TypeKind kind) const {
   throw std::invalid_argument{fmt::format(
       "wrong kind! {} != {}",
@@ -270,20 +287,10 @@ std::string variant::toJson(const TypePtr& type) const {
       }
     }
     case TypeKind::REAL: {
-      auto val = value<TypeKind::REAL>();
-      if (std::isnormal(val)) {
-        return folly::to<std::string>(val);
-      } else {
-        return '"' + folly::to<std::string>(val) + '"';
-      }
+      return stringifyFloatingPointerValue<float>(value<TypeKind::REAL>());
     }
     case TypeKind::DOUBLE: {
-      auto val = value<TypeKind::DOUBLE>();
-      if (std::isnormal(val)) {
-        return folly::to<std::string>(val);
-      } else {
-        return '"' + folly::to<std::string>(val) + '"';
-      }
+      return stringifyFloatingPointerValue<double>(value<TypeKind::DOUBLE>());
     }
     case TypeKind::TIMESTAMP: {
       auto& timestamp = value<TypeKind::TIMESTAMP>();
