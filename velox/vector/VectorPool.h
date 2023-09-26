@@ -21,32 +21,48 @@
 namespace facebook::velox {
 
 /// A thread-level cache of pre-allocated flat vectors of different types.
-/// Keeps up to 10 recyclable vectors of each type. A vector is
-/// recyclable if it is flat and recursively singly-referenced.
-/// Only singleton built-in types are supported. Decimal types, fixed-size array
+/// Keeps up to 10 recyclable vectors of each type. If VectorPool is enabled, a
+/// vector is recyclable if it is flat and recursively singly-referenced. Only
+/// singleton built-in types are supported. Decimal types, fixed-size array
 /// type, complex and custom types are not supported. Calling 'get' for an
 /// unsupported type already returns a newly allocated vector. Calling 'release'
-/// for an unsupported type is a no-op.
+/// for an unsupported type is a no-op. Calling 'release' when VectorPool is not
+/// enabled is a no-op too.
 class VectorPool {
  public:
-  explicit VectorPool(memory::MemoryPool* pool) : pool_{pool} {}
+  explicit VectorPool(memory::MemoryPool* pool, bool enabled = true)
+      : enabled_{enabled}, pool_{pool} {}
 
   /// Gets a possibly recycled vector of 'type and 'size'. Allocates from
-  /// 'pool_' if no pre-allocated vector or type is a complex type.
+  /// 'pool_' if no pre-allocated vector, type is a complex type, or VectorPool
+  /// is not enabled.
   VectorPtr get(const TypePtr& type, vector_size_t size);
 
   /// Moves vector into 'this' if it is flat, recursively singly referenced and
-  /// there is space. The function returns true if 'vector' is not null and has
-  /// been returned back to this pool, otherwise returns false.
+  /// there is space. The function returns true if VectorPool is enabled,
+  /// 'vector' is not null, and has been returned back to this pool, otherwise
+  /// returns false.
   bool release(VectorPtr& vector);
 
   size_t release(std::vector<VectorPtr>& vectors);
+
+  bool enabled() const {
+    return enabled_;
+  }
 
  private:
   /// Max number of elements for a vector to be recyclable. The larger
   /// the batch the less the win from recycling.
   static constexpr vector_size_t kMaxRecycleSize = 64 * 1024;
+
   static constexpr int32_t kNumPerType = 10;
+
+  static constexpr int32_t kNumCachedVectorTypes =
+      static_cast<int32_t>(TypeKind::HUGEINT) + 1;
+
+  const bool enabled_;
+
+  memory::MemoryPool* const pool_;
 
   struct TypePool {
     int32_t size{0};
@@ -59,11 +75,6 @@ class VectorPool {
         vector_size_t vectorSize,
         memory::MemoryPool& pool);
   };
-
-  memory::MemoryPool* const pool_;
-
-  static constexpr int32_t kNumCachedVectorTypes =
-      static_cast<int32_t>(TypeKind::HUGEINT) + 1;
 
   /// Caches of pre-allocated vectors indexed by typeKind.
   std::array<TypePool, kNumCachedVectorTypes> vectors_;

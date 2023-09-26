@@ -146,4 +146,28 @@ TEST_F(VectorPoolTest, customTypes) {
   ASSERT_EQ(1'000, vector->size());
   ASSERT_TRUE(isJsonType(vector->type()));
 }
+
+TEST_F(VectorPoolTest, vectorPoolConfig) {
+  auto testConfig = [&](bool enableVectorPool) {
+    VectorPool vectorPool(pool(), enableVectorPool);
+    ASSERT_EQ(vectorPool.enabled(), enableVectorPool);
+
+    for (auto i = 0; i < 10; ++i) {
+      if (!enableVectorPool) {
+        ASSERT_EQ(pool()->currentBytes(), 0);
+      }
+      VectorPtr vector =
+          makeFlatVector<int64_t>(1000, [](auto row) { return row; });
+      ASSERT_EQ(vectorPool.release(vector), enableVectorPool);
+    }
+    if (enableVectorPool) {
+      ASSERT_GT(pool()->currentBytes(), 0);
+    } else {
+      ASSERT_EQ(pool()->currentBytes(), 0);
+    }
+  };
+
+  testConfig(true);
+  testConfig(false);
+}
 } // namespace facebook::velox::test

@@ -1305,4 +1305,43 @@ TEST_F(TaskTest, driverCreationMemoryAllocationCheck) {
     }
   }
 }
+
+TEST_F(TaskTest, vectorPoolConfig) {
+  auto testConfig = [&](bool enableVectorPool) {
+    std::unordered_map<std::string, std::string> configData(
+        {{core::QueryConfig::kVectorPoolEnabled,
+          enableVectorPool ? "true" : "false"}});
+    auto queryCtx =
+        std::make_shared<core::QueryCtx>(nullptr, std::move(configData));
+    const core::QueryConfig& config = queryCtx->queryConfig();
+    ASSERT_EQ(config.vectorPoolEnabled(), enableVectorPool);
+
+    auto planFragment =
+        PlanBuilder()
+            .values({makeRowVector(
+                {BaseVector::createNullConstant(BIGINT(), 5, pool())})})
+            .project({"c0 + 1"})
+            .planFragment();
+    auto task = exec::Task::create("", planFragment, 0, queryCtx);
+
+    task->next();
+    task->testingVisitDrivers([&enableVectorPool](Driver* driver) {
+      auto operators = driver->operators();
+      for (const auto op : operators) {
+        ASSERT_EQ(
+            op->testingOperatorCtx()->execCtx()->vectorPool().enabled(),
+            enableVectorPool);
+      }
+    });
+
+    RowVectorPtr result = nullptr;
+    do {
+      result = task->next();
+    } while (result != nullptr);
+    ASSERT_TRUE(waitForTaskCompletion(task.get()));
+  };
+
+  testConfig(true);
+  testConfig(false);
+}
 } // namespace facebook::velox::exec::test

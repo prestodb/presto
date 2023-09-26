@@ -51,13 +51,16 @@ FOLLY_ALWAYS_INLINE int32_t toCacheIndex(const TypePtr& type) {
 
 VectorPtr VectorPool::get(const TypePtr& type, vector_size_t size) {
   auto cacheIndex = toCacheIndex(type);
-  if (cacheIndex >= 0 && size <= kMaxRecycleSize) {
+  if (enabled_ && cacheIndex >= 0 && size <= kMaxRecycleSize) {
     return vectors_[cacheIndex].pop(type, size, *pool_);
   }
   return BaseVector::create(type, size, pool_);
 }
 
 bool VectorPool::release(VectorPtr& vector) {
+  if (!enabled_) {
+    return false;
+  }
   if (FOLLY_UNLIKELY(vector == nullptr)) {
     return false;
   }
