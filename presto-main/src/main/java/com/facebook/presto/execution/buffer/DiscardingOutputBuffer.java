@@ -28,6 +28,7 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.execution.buffer.BufferState.FAILED;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
+import static com.facebook.presto.execution.buffer.BufferState.FLUSHING;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
@@ -192,5 +193,11 @@ public class DiscardingOutputBuffer
     public boolean isAllPagesConsumed()
     {
         return true;
+    }
+
+    @Override
+    public boolean isDrainable()
+    {
+        return state.get() == FLUSHING;
     }
 }

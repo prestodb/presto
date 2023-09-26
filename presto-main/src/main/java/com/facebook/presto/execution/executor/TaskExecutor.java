@@ -248,6 +248,13 @@ public class TaskExecutor
             taskShutdownExecutor.execute(
                     () -> {
                         TaskId taskId = taskHandle.getTaskId();
+                        if (!taskHandle.getOutputBuffer().isPresent()) {
+                            log.info("No output buffer for task %s", taskId);
+                            taskHandle.handleShutDown();
+                            return;
+                        }
+
+                        OutputBuffer outputBuffer = taskHandle.getOutputBuffer().get();
                         try {
                             long logFrequencyMillis = 30_000;
                             long lastLogTime = System.currentTimeMillis();  // to track when we last logged
@@ -255,12 +262,12 @@ public class TaskExecutor
                             taskHandle.updateTaskShutdownState(TaskShutdownStats.builder(shuttingdownNode).build());
                             log.info("Output buffer for task %s= %s", taskId, taskHandle.getOutputBuffer().get().getInfo());
                             taskHandle.updateTaskShutdownState(
-                                    builderWithOutputBufferInfo("init", shuttingdownNode, taskHandle.getOutputBuffer())
+                                    builderWithOutputBufferInfo("init", shuttingdownNode, outputBuffer)
                                             .build());
 
                             while (taskHandle.getRunningLeafSplits() > 0 || taskHandle.getRunningIntermediateSplits() > 0) {
                                 try {
-                                    TaskShutdownStats waitingForSplitStats = builderWithOutputBufferInfo(SPLIT_WAIT, shuttingdownNode, taskHandle.getOutputBuffer())
+                                    TaskShutdownStats waitingForSplitStats = builderWithOutputBufferInfo(SPLIT_WAIT, shuttingdownNode, outputBuffer)
                                             .setPendingRunningSplitState(SPLIT_WAIT, System.nanoTime() - startTime)
                                             .build();
                                     taskHandle.updateTaskShutdownState(waitingForSplitStats);
@@ -276,25 +283,31 @@ public class TaskExecutor
                                 }
                             }
 
-                            TaskShutdownStats waitingForSplitStats = builderWithOutputBufferInfo(SPLIT_WAIT_OVER, shuttingdownNode, taskHandle.getOutputBuffer())
+                            TaskShutdownStats waitingForSplitStats = builderWithOutputBufferInfo(SPLIT_WAIT_OVER, shuttingdownNode, outputBuffer)
                                     .setPendingRunningSplitState(SPLIT_WAIT_OVER, System.nanoTime() - startTime)
                                     .build();
                             taskHandle.updateTaskShutdownState(waitingForSplitStats);
                             logRunningWaitingAndBlockedSplits(String.format("SplitView:state:%s for task %s", SPLIT_WAIT_OVER, taskId), taskId);
 
-                            Optional<OutputBuffer> taskHandleOutputBuffer = taskHandle.getOutputBuffer();
-                            if (taskHandleOutputBuffer.isPresent()) {
-                                log.info("Sending no more pages to output buffer for task %s= %s", taskId, taskHandleOutputBuffer.get().getInfo());
-                                taskHandleOutputBuffer.get().setNoMorePages();
-                                log.info("After Sending no more pages to output buffer for task %s= %s", taskId, taskHandleOutputBuffer.get().getInfo());
-                            }
                             waitForRunningSplitTime.add(Duration.nanosSince(startTime));
+
+                            log.info("Sending no more pages to output buffer for task %s= %s", taskId, outputBuffer.getInfo());
+                            outputBuffer.setNoMorePages();
+                            log.info("After Sending no more pages to output buffer for task %s= %s", taskId, outputBuffer.getInfo());
+
+                            if (!outputBuffer.isDrainable()) {
+                                log.info("The output buffer for task %s is not drainable, fail the output buffer to notify downstream.", taskId);
+                                outputBuffer.fail();
+                                taskHandle.handleShutDown();
+                                return;
+                            }
+
                             //wait for output buffer to be empty
                             startTime = System.nanoTime();
                             while (!taskHandle.isOutputBufferEmpty()) {
                                 try {
-                                    log.warn("GracefulShutdown:: Waiting for output buffer to be empty for task- %s, outputbuffer info = %s", taskId, taskHandle.getOutputBuffer().get().getInfo());
-                                    TaskShutdownStats waitingForOutputBufferStats = builderWithOutputBufferInfo(OB_WAIT, shuttingdownNode, taskHandle.getOutputBuffer())
+                                    log.warn("GracefulShutdown:: Waiting for output buffer to be empty for task- %s, outputbuffer info = %s", taskId, outputBuffer.getInfo());
+                                    TaskShutdownStats waitingForOutputBufferStats = builderWithOutputBufferInfo(OB_WAIT, shuttingdownNode, outputBuffer)
                                             .setOutputBufferStage(OB_WAIT, System.nanoTime() - startTime)
                                             .build();
                                     taskHandle.updateTaskShutdownState(waitingForOutputBufferStats);
@@ -306,6 +319,7 @@ public class TaskExecutor
                                 }
                             }
                             outputBufferEmptyWaitTime.add(Duration.nanosSince(startTime));
+
                             logRunningWaitingAndBlockedSplits("Shutdown task " + taskId, taskId);
                             Set<Long> pendingSplitSet = gracefulShutdownSplitTracker.getPendingSplits().get(taskId);
                             long pendingSplit = 0L;
@@ -314,13 +328,13 @@ public class TaskExecutor
                                 log.warn("Number of pending splits to be retried for task %s is %s", taskId, pendingSplit);
                                 log.warn("Pending splits to be retried for task %s are %s", taskId, pendingSplitSet);
                             }
-                            TaskShutdownStats shuttingDownStats = builderWithOutputBufferInfo(OB_WAIT_OVER, shuttingdownNode, taskHandle.getOutputBuffer())
+                            TaskShutdownStats shuttingDownStats = builderWithOutputBufferInfo(OB_WAIT_OVER, shuttingdownNode, outputBuffer)
                                     .setSplitsToBeRetried(pendingSplit)
                                     .setOutputBufferStage(OB_WAIT_OVER, System.nanoTime() - startTime)
                                     .build();
                             taskHandle.updateTaskShutdownState(shuttingDownStats);
                             logRunningWaitingAndBlockedSplits(String.format("SplitView:state:%s for task %s", OB_WAIT_OVER, taskId), taskId);
-                            log.warn("GracefulShutdown:: calling handleShutDown for task- %s, buffer info : %s", taskId, taskHandle.getOutputBuffer().get().getInfo());
+                            log.warn("GracefulShutdown:: calling handleShutDown for task- %s, buffer info : %s", taskId, outputBuffer.getInfo());
                             taskHandle.handleShutDown();
                         }
                         catch (Throwable ex) {
@@ -341,14 +355,14 @@ public class TaskExecutor
         }
     }
 
-    private TaskShutdownStats.Builder builderWithOutputBufferInfo(String stageName, String shuttingdownNode, Optional<OutputBuffer> outputBuffer)
+    private TaskShutdownStats.Builder builderWithOutputBufferInfo(String stageName, String shuttingdownNode, OutputBuffer outputBuffer)
     {
         return TaskShutdownStats.builder(shuttingdownNode)
-                .setOutputBufferInfo(String.format("%s:pages-sent", stageName), outputBuffer.get().getInfo().getTotalPagesSent())
-                .setOutputBufferInfo(String.format("%s:buffered-pages", stageName), outputBuffer.get().getInfo().getTotalBufferedPages())
-                .setOutputBufferInfo(String.format("%s:rows-sent", stageName), outputBuffer.get().getInfo().getTotalRowsSent())
-                .setOutputBufferInfo(String.format("%s:buffers", stageName), Long.valueOf(outputBuffer.get().getInfo().getBuffers().size()))
-                .setOutputBufferInfo(String.format("%s:state", stageName), Long.valueOf(outputBuffer.get().getInfo().getState().getValue()));
+                .setOutputBufferInfo(String.format("%s:pages-sent", stageName), outputBuffer.getInfo().getTotalPagesSent())
+                .setOutputBufferInfo(String.format("%s:buffered-pages", stageName), outputBuffer.getInfo().getTotalBufferedPages())
+                .setOutputBufferInfo(String.format("%s:rows-sent", stageName), outputBuffer.getInfo().getTotalRowsSent())
+                .setOutputBufferInfo(String.format("%s:buffers", stageName), Long.valueOf(outputBuffer.getInfo().getBuffers().size()))
+                .setOutputBufferInfo(String.format("%s:state", stageName), Long.valueOf(outputBuffer.getInfo().getState().getValue()));
     }
 
     private boolean isEligibleForGracefulShutdown(TaskId taskId)

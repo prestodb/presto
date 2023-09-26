@@ -139,4 +139,6 @@ public interface OutputBuffer
     long getPeakMemoryUsage();
 
     boolean isAllPagesConsumed();
+
+    boolean isDrainable();
 }

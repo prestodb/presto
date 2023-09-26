@@ -413,4 +413,10 @@ public class LazyOutputBuffer
     {
         return delegate.isAllPagesConsumed();
     }
+
+    @Override
+    public boolean isDrainable()
+    {
+        return delegate.isDrainable();
+    }
 }

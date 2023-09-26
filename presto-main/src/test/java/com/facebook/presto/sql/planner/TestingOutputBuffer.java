@@ -149,4 +149,10 @@ public class TestingOutputBuffer
     {
         return false;
     }
+
+    @Override
+    public boolean isDrainable()
+    {
+        throw new UnsupportedOperationException();
+    }
 }

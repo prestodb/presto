@@ -779,4 +779,10 @@ public class SpoolingOutputBuffer
     {
         return pages.isEmpty();
     }
+
+    @Override
+    public boolean isDrainable()
+    {
+        return state.get() == FLUSHING;
+    }
 }

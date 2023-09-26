@@ -548,4 +548,10 @@ public class ArbitraryOutputBuffer
         }
         return true;
     }
+
+    @Override
+    public boolean isDrainable()
+    {
+        return state.get() == FLUSHING;
+    }
 }

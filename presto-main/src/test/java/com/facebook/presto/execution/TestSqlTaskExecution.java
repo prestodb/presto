@@ -18,6 +18,8 @@ import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.execution.buffer.ArbitraryOutputBuffer;
+import com.facebook.presto.execution.buffer.BroadcastOutputBuffer;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.buffer.OutputBuffer;
@@ -98,6 +100,7 @@ import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracki
 import static com.facebook.presto.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static com.facebook.presto.execution.TaskTestUtils.createTestSplitMonitor;
+import static com.facebook.presto.execution.buffer.BufferState.FAILED;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
@@ -147,7 +150,7 @@ public class TestSqlTaskExecution
 
         try {
             TaskStateMachine taskStateMachine = new TaskStateMachine(TASK_ID, taskNotificationExecutor);
-            PartitionedOutputBuffer outputBuffer = newTestingOutputBuffer(taskNotificationExecutor);
+            PartitionedOutputBuffer outputBuffer = newTestingPartitionedOutputBuffer(taskNotificationExecutor);
             OutputBufferConsumer outputBufferConsumer = new OutputBufferConsumer(outputBuffer, OUTPUT_BUFFER_ID);
 
             //
@@ -323,7 +326,7 @@ public class TestSqlTaskExecution
 
         try {
             TaskStateMachine taskStateMachine = new TaskStateMachine(TASK_ID, taskNotificationExecutor);
-            PartitionedOutputBuffer outputBuffer = newTestingOutputBuffer(taskNotificationExecutor);
+            PartitionedOutputBuffer outputBuffer = newTestingPartitionedOutputBuffer(taskNotificationExecutor);
             OutputBufferConsumer outputBufferConsumer = new OutputBufferConsumer(outputBuffer, OUTPUT_BUFFER_ID);
 
             // test initialization: complex test with 4 pipelines
@@ -646,7 +649,7 @@ public class TestSqlTaskExecution
                 false);
     }
 
-    private PartitionedOutputBuffer newTestingOutputBuffer(ScheduledExecutorService taskNotificationExecutor)
+    private PartitionedOutputBuffer newTestingPartitionedOutputBuffer(ScheduledExecutorService taskNotificationExecutor)
     {
         return new PartitionedOutputBuffer(
                 new TaskId("20230919_034207_00289_rfsmw", 1, 1, 1, 1),
@@ -655,6 +658,28 @@ public class TestSqlTaskExecution
                 createInitialEmptyOutputBuffers(PARTITIONED)
                         .withBuffer(OUTPUT_BUFFER_ID, 0)
                         .withNoMoreBufferIds(),
+                new DataSize(1, MEGABYTE),
+                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                taskNotificationExecutor);
+    }
+
+    private ArbitraryOutputBuffer newTestingArbitraryOutputBuffer(ScheduledExecutorService taskNotificationExecutor)
+    {
+        return new ArbitraryOutputBuffer(
+                new TaskId("20230919_034207_00289_rfsmw", 1, 1, 1, 1),
+                "queryId.0.0",
+                new StateMachine<>("bufferState", taskNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
+                new DataSize(1, MEGABYTE),
+                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                taskNotificationExecutor);
+    }
+
+    private BroadcastOutputBuffer newTestingBroadcastOutputBuffer(ScheduledExecutorService taskNotificationExecutor)
+    {
+        return new BroadcastOutputBuffer(
+                new TaskId("20230919_034207_00289_rfsmw", 1, 1, 1, 1),
+                "queryId.0.0",
+                new StateMachine<>("bufferState", taskNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 new DataSize(1, MEGABYTE),
                 () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 taskNotificationExecutor);
@@ -721,6 +746,11 @@ public class TestSqlTaskExecution
                 }
                 sequenceId += results.getSerializedPages().size();
             }
+        }
+
+        public void assertBufferFail()
+        {
+            assertEquals(outputBuffer.getInfo().getState(), BufferState.FAILED);
         }
 
         public void abort()
@@ -1389,8 +1419,14 @@ public class TestSqlTaskExecution
         }
     }
 
-    @Test(invocationCount = 100)
-    public void testGracefulShutdownForSimpleCase()
+    @DataProvider
+    public static Object[][] outputBuffers()
+    {
+        return new Object[][] {{"PartitionedOutputBuffer"}, {"ArbitraryOutputBuffer"}, {"BroadcastOutputBuffer"}};
+    }
+
+    @Test(dataProvider = "outputBuffers", invocationCount = 10)
+    public void testGracefulShutdownForSimpleCase(String outputBufferType)
             throws Exception
     {
         PipelineExecutionStrategy executionStrategy = UNGROUPED_EXECUTION;
@@ -1404,7 +1440,18 @@ public class TestSqlTaskExecution
 
         try {
             TaskStateMachine taskStateMachine = new TaskStateMachine(TASK_ID, taskNotificationExecutor);
-            PartitionedOutputBuffer outputBuffer = newTestingOutputBuffer(taskNotificationExecutor);
+
+            OutputBuffer outputBuffer;
+            if (outputBufferType.equals("PartitionedOutputBuffer")) {
+                outputBuffer = newTestingPartitionedOutputBuffer(taskNotificationExecutor);
+            }
+            else if (outputBufferType.equals("ArbitraryOutputBuffer")) {
+                outputBuffer = newTestingArbitraryOutputBuffer(taskNotificationExecutor);
+            }
+            else {
+                outputBuffer = newTestingBroadcastOutputBuffer(taskNotificationExecutor);
+            }
+
             OutputBufferConsumer outputBufferConsumer = new OutputBufferConsumer(outputBuffer, OUTPUT_BUFFER_ID);
 
             TestingScanOperatorFactory testingScanOperatorFactory = new TestingScanOperatorFactory(0, TABLE_SCAN_NODE_ID, ImmutableList.of(VARCHAR));
@@ -1483,8 +1530,23 @@ public class TestSqlTaskExecution
             outputBufferConsumer.consume(pageCountForSplit1 + pageCountForSplit2, ASSERT_WAIT_TIMEOUT);
             outputBufferConsumer.assertBufferComplete(ASSERT_WAIT_TIMEOUT);
 
-            outputBufferConsumer.abort(); // complete the task by calling abort on it
-
+            if (outputBuffer.isDrainable()) {
+                outputBufferConsumer.abort(); // complete the task by calling abort on it
+            }
+            else {
+                while (true) {
+                    // wait for the outputBuffer to be failed
+                    if (outputBuffer.getInfo().getState().equals(FAILED)) {
+                        return;
+                    }
+                    try {
+                        Thread.sleep(10);
+                    }
+                    catch (InterruptedException e) {
+                        // do nothing
+                    }
+                }
+            }
             waitUntilEquals(taskExecutor::getIsGracefulShutdownFinished, true, ASSERT_WAIT_TIMEOUT);
 
             TaskState taskState = taskStateMachine.getStateChange(TaskState.RUNNING).get(10, SECONDS);
@@ -1497,8 +1559,8 @@ public class TestSqlTaskExecution
         }
     }
 
-    @Test(invocationCount = 100)
-    public void testGracefulShutdownForComplexCase()
+    @Test(dataProvider = "outputBuffers", invocationCount = 10)
+    public void testGracefulShutdownForComplexCase(String outputBufferType)
             throws Exception
     {
         ScheduledExecutorService shutdownHandler = newSingleThreadScheduledExecutor(threadsNamed("shutdown-handler-%s"));
@@ -1511,57 +1573,18 @@ public class TestSqlTaskExecution
 
         try {
             TaskStateMachine taskStateMachine = new TaskStateMachine(TASK_ID, taskNotificationExecutor);
-            PartitionedOutputBuffer outputBuffer = newTestingOutputBuffer(taskNotificationExecutor);
+            OutputBuffer outputBuffer;
+            if (outputBufferType.equals("PartitionedOutputBuffer")) {
+                outputBuffer = newTestingPartitionedOutputBuffer(taskNotificationExecutor);
+            }
+            else if (outputBufferType.equals("ArbitraryOutputBuffer")) {
+                outputBuffer = newTestingArbitraryOutputBuffer(taskNotificationExecutor);
+            }
+            else {
+                outputBuffer = newTestingBroadcastOutputBuffer(taskNotificationExecutor);
+            }
             OutputBufferConsumer outputBufferConsumer = new OutputBufferConsumer(outputBuffer, OUTPUT_BUFFER_ID);
 
-            // test initialization: complex test with 4 pipelines
-            // Take a task with the following set of pipelines for example:
-            //
-            //   pipeline 0        pipeline 1       pipeline 2    pipeline 3    ... pipeline id
-            //   partitioned      unpartitioned     partitioned  unpartitioned  ... partitioned/unpartitioned pipeline
-            //     grouped           grouped          grouped      ungrouped    ... execution strategy (in grouped test)
-            //    ungrouped         ungrouped        ungrouped     ungrouped    ... execution strategy (in ungrouped test)
-            //
-            //   TaskOutput-0
-            //        |
-            //    CrossJoin-C  ................................... Build-C
-            //        |                                               |
-            //    CrossJoin-A  ..... Build-A                       Values-3
-            //        |                |
-            //      Scan-0         CrossJoin-B  ....  Build-B
-            //             (effectively ExchangeSink)    |
-            //                         |               Scan-2
-            //                      Values-1
-            //                      (1 row)
-            //
-            // CrossJoin operator here has the same lifecycle behavior as a real cross/hash-join, and produces
-            // the correct number of rows, but doesn't actually produce a cross-join for simplicity.
-            //
-            // A single task can never have all 4 combinations: partitioned/unpartitioned x grouped/ungrouped.
-            // * In the case of ungrouped test, this test covers driver with
-            //   1) split lifecycle (partitioned ungrouped)
-            //   2) task lifecycle (unpartitioned ungrouped)
-            //   These are the only 2 possible pipeline execution strategy a task can have if the task has ungrouped execution strategy.
-            // * In the case of grouped test, this covers:
-            //   1) split lifecycle (partitioned grouped)
-            //   2) driver group lifecycle (unpartitioned grouped)
-            //   3) task lifecycle (unpartitioned ungrouped)
-            //   These are the only 3 possible pipeline execution strategy a task can have if the task has grouped execution strategy.
-            //
-            // The following behaviors are tested:
-            // * DriverFactory are marked as noMoreDriver/Operator for particular lifespans as soon as they can be:
-            //   * immediately, if the pipeline has task lifecycle (ungrouped and unpartitioned).
-            //   * when TaskSource containing the lifespan is encountered, if the pipeline has driver group lifecycle (grouped and unpartitioned).
-            //   * when TaskSource indicate that no more splits will be produced for the plan node (and plan nodes that schedule before it
-            //     due to phased scheduling) and lifespan combination, if the pipeline has split lifecycle (partitioned).
-            // * DriverFactory are marked as noMoreDriver/Operator as soon as they can be:
-            //   * immediately, if the pipeline has task lifecycle (ungrouped and unpartitioned).
-            //   * when TaskSource indicate that will no more splits, otherwise.
-            // * Driver groups are marked as completed as soon as they should be:
-            //   * when there are no active driver, and all DriverFactory for the lifespan (across all pipelines) are marked as completed.
-            // * Rows are produced as soon as they should be:
-            //   * streams data through as soon as the build side is ready, for CrossJoin
-            //   * streams data through, otherwise.
             PlanNodeId scan0NodeId = new PlanNodeId("scan-0");
             PlanNodeId values1NodeId = new PlanNodeId("values-1");
             PlanNodeId scan2NodeId = new PlanNodeId("scan-2");
@@ -1697,7 +1720,24 @@ public class TestSqlTaskExecution
             // assert that task result is produced
             outputBufferConsumer.consume(100 * 5 * 3, ASSERT_WAIT_TIMEOUT);
             outputBufferConsumer.assertBufferComplete(ASSERT_WAIT_TIMEOUT);
-            outputBufferConsumer.abort(); // complete the task by calling abort on it
+
+            if (outputBuffer.isDrainable()) {
+                outputBufferConsumer.abort(); // complete the task by calling abort on it
+            }
+            else {
+                while (true) {
+                    // wait for the outputBuffer to be failed
+                    if (outputBuffer.getInfo().getState().equals(FAILED)) {
+                        return;
+                    }
+                    try {
+                        Thread.sleep(10);
+                    }
+                    catch (InterruptedException e) {
+                        // do nothing
+                    }
+                }
+            }
 
             waitUntilEquals(taskExecutor::getIsGracefulShutdownFinished, true, ASSERT_WAIT_TIMEOUT);
 
