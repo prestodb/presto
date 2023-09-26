@@ -111,6 +111,7 @@ General Aggregate Functions
 .. function:: max(x, n) -> array<[same as x]>
 
     Returns ``n`` largest values of all input values of ``x``.
+    ``n`` must be a positive integer and not exceed 10'000.
 
 .. function:: min(x) -> [same as input]
 
@@ -119,6 +120,7 @@ General Aggregate Functions
 .. function:: min(x, n) -> array<[same as x]>
 
     Returns ``n`` smallest values of all input values of ``x``.
+    ``n`` must be a positive integer and not exceed 10'000.
 
 .. function:: multimap_agg(key, value) -> map(K,array(V))
 
