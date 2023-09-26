@@ -484,6 +484,14 @@ class MinMaxNTest : public functions::aggregate::test::AggregationTestBase {
         {},
         {"min(c0, c1)", "min(c0, c3)", "max(c0, c2)", "max(c0, c3)"},
         {expected});
+
+    // Second argument of max_n/min_n must be less than or equal to 10000.
+    VELOX_ASSERT_THROW(
+        testAggregations({data}, {}, {"min(c0, 10001)"}, {expected}),
+        "second argument of max/min must be less than or equal to 10000");
+    VELOX_ASSERT_THROW(
+        testAggregations({data}, {}, {"max(c0, 10001)"}, {expected}),
+        "second argument of max/min must be less than or equal to 10000");
   }
 
   template <typename T>

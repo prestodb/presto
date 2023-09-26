@@ -544,6 +544,11 @@ struct MinMaxNAccumulator {
     VELOX_USER_CHECK_GT(
         newN, 0, "second argument of max/min must be a positive integer");
 
+    VELOX_USER_CHECK_LE(
+        newN,
+        10'000,
+        "second argument of max/min must be less than or equal to 10000");
+
     if (n) {
       VELOX_USER_CHECK_EQ(
           newN,
