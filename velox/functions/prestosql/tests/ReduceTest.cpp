@@ -125,20 +125,22 @@ TEST_F(ReduceTest, finalSelection) {
       "reduce(c0, 10, (s, x) -> s + x, s -> row_constructor(s)))",
       input);
 
-  auto expectedResult = makeRowVector({makeFlatVector<int64_t>(
-      size,
-      [](auto row) -> int64_t {
-        if (row < 100) {
-          return row;
-        } else {
-          int64_t sum = 10;
-          for (auto i = 0; i < row % 5; i++) {
-            sum += row + i;
-          }
-          return sum;
-        }
-      },
-      nullEvery(11))});
+  auto expectedResult = makeRowVector(
+      {makeFlatVector<int64_t>(
+          size,
+          [](auto row) -> int64_t {
+            if (row < 100) {
+              return row;
+            } else {
+              int64_t sum = 10;
+              for (auto i = 0; i < row % 5; i++) {
+                sum += row + i;
+              }
+              return sum;
+            }
+          },
+          nullEvery(11))},
+      nullEvery(11));
   assertEqualVectors(expectedResult, result);
 }
 
@@ -204,4 +206,16 @@ TEST_F(ReduceTest, finalSelectionLargerThanInput) {
       input);
 
   assertEqualVectors(makeFlatVector<int64_t>({2, 1}), result);
+}
+
+TEST_F(ReduceTest, nullArray) {
+  // Verify that NULL array is not passed on to lambda as it should be handled
+  // differently from array with null element
+  auto arrayVector = makeNullableArrayVector<int64_t>(
+      {std::nullopt, {{1, std::nullopt}}, {{std::nullopt, 2}}, {{1, 2, 3}}});
+  auto data = makeRowVector({arrayVector});
+  auto result = evaluate(
+      "reduce(c0, 0, (s, x) -> s + x, s -> coalesce(s, 0) * 10)", data);
+  assertEqualVectors(
+      makeNullableFlatVector<int64_t>({std::nullopt, 0, 0, 60}), result);
 }
