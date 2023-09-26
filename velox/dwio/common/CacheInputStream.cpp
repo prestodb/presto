@@ -212,7 +212,7 @@ void CacheInputStream::loadSync(Region region) {
     } else {
       // Hit memory cache.
       if (!entry->getAndClearFirstUseFlag()) {
-        ioStats_->ramHit().increment(entry->size());
+        ioStats_->ramHit().increment(region.length);
       }
       return;
     }
@@ -269,7 +269,7 @@ bool CacheInputStream::loadFromSsd(
     throw;
   }
   pin_ = std::move(pins[0]);
-  ioStats_->ssdRead().increment(entry.size());
+  ioStats_->ssdRead().increment(region.length);
   ioStats_->queryThreadIoLatency().increment(usec);
   entry.setExclusiveToShared();
   return true;

@@ -365,16 +365,15 @@ void ByteRleDecoder::seekToRowGroup(
 }
 
 void ByteRleDecoder::skipBytes(size_t count) {
-  size_t consumedBytes = count;
-  while (consumedBytes > 0) {
-    if (bufferStart == bufferEnd) {
-      nextBuffer();
-    }
+  if (bufferStart < bufferEnd) {
     size_t skipSize = std::min(
-        static_cast<size_t>(consumedBytes),
+        static_cast<size_t>(count),
         static_cast<size_t>(bufferEnd - bufferStart));
     bufferStart += skipSize;
-    consumedBytes -= skipSize;
+    count -= skipSize;
+  }
+  if (count > 0) {
+    inputStream->Skip(count);
   }
 }
 
