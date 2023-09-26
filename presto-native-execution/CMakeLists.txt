@@ -15,6 +15,7 @@ cmake_minimum_required(VERSION 3.10)
 project(PrestoCpp)
 
 set(VELOX_ROOT ${CMAKE_BINARY_DIR}/velox)
+list(PREPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/velox/CMake")
 
 execute_process(
   COMMAND
@@ -164,7 +165,7 @@ find_path(OPT_OPENSSL_DIR NAMES opt/openssl@1.1)
 set(OPENSSL_ROOT_DIR "${OPT_OPENSSL_DIR}/opt/openssl@1.1")
 find_package(OpenSSL REQUIRED)
 
-find_library(LIBSODIUM_LIBRARY NAMES sodium)
+find_package(Sodium REQUIRED)
 find_library(PROXYGEN proxygen)
 find_library(PROXYGEN_HTTP_SERVER proxygenhttpserver)
 find_library(FIZZ fizz)
