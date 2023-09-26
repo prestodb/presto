@@ -40,7 +40,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HiveColumnHandle
-        implements ColumnHandle
+        implements BaseHiveColumnHandle
 {
     public static final int PATH_COLUMN_INDEX = -11;
     public static final String PATH_COLUMN_NAME = "$path";
