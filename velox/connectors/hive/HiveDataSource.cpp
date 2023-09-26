@@ -73,6 +73,57 @@ void deduplicate(std::vector<T>& values) {
   values.erase(std::unique(values.begin(), values.end()), values.end());
 }
 
+// Floating point map key subscripts are truncated toward 0 in Presto.  For
+// example given `a' as a map with floating point key, if user queries a[0.99],
+// Presto coordinator will generate a required subfield a[0]; for a[-1.99] it
+// will generate a[-1]; for anything larger than 9223372036854775807, it
+// generates a[9223372036854775807]; for anything smaller than
+// -9223372036854775808 it generates a[-9223372036854775808].
+template <typename T>
+std::unique_ptr<common::Filter> makeFloatingPointMapKeyFilter(
+    const std::vector<int64_t>& subscripts) {
+  std::vector<std::unique_ptr<common::Filter>> filters;
+  for (auto subscript : subscripts) {
+    T lower = subscript;
+    T upper = subscript;
+    bool lowerUnbounded = subscript == std::numeric_limits<int64_t>::min();
+    bool upperUnbounded = subscript == std::numeric_limits<int64_t>::max();
+    bool lowerExclusive = false;
+    bool upperExclusive = false;
+    if (lower <= 0 && !lowerUnbounded) {
+      if (lower > subscript - 1) {
+        lower = subscript - 1;
+      } else {
+        lower = std::nextafter(lower, -std::numeric_limits<T>::infinity());
+      }
+      lowerExclusive = true;
+    }
+    if (upper >= 0 && !upperUnbounded) {
+      if (upper < subscript + 1) {
+        upper = subscript + 1;
+      } else {
+        upper = std::nextafter(upper, std::numeric_limits<T>::infinity());
+      }
+      upperExclusive = true;
+    }
+    if (lowerUnbounded && upperUnbounded) {
+      continue;
+    }
+    filters.push_back(std::make_unique<common::FloatingPointRange<T>>(
+        lower,
+        lowerUnbounded,
+        lowerExclusive,
+        upper,
+        upperUnbounded,
+        upperExclusive,
+        false));
+  }
+  if (filters.size() == 1) {
+    return std::move(filters[0]);
+  }
+  return std::make_unique<common::MultiRange>(std::move(filters), false, false);
+}
+
 // Recursively add subfields to scan spec.
 void addSubfields(
     const Type& type,
@@ -162,7 +213,13 @@ void addSubfields(
         filter = std::make_unique<common::BytesValues>(stringSubscripts, false);
       } else {
         deduplicate(longSubscripts);
-        filter = common::createBigintValues(longSubscripts, false);
+        if (keyType->isReal()) {
+          filter = makeFloatingPointMapKeyFilter<float>(longSubscripts);
+        } else if (keyType->isDouble()) {
+          filter = makeFloatingPointMapKeyFilter<double>(longSubscripts);
+        } else {
+          filter = common::createBigintValues(longSubscripts, false);
+        }
       }
       keys->setFilter(std::move(filter));
       break;
