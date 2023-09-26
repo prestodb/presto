@@ -320,7 +320,7 @@ Hive Connector
        the update mode field of the table writer operator output. ``OVERWRITE``
        sets the update mode to indicate overwriting a partition if exists. ``ERROR`` sets the update mode to indicate
        error throwing if writing to an existing partition.
-   * - immutable_partitions
+   * - hive.immutable-partitions
      - bool
      - false
      - True if appending data to an existing unpartitioned table is allowed. Currently this configuration does not

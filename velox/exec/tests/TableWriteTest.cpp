@@ -1986,14 +1986,11 @@ TEST_P(UnpartitionedTableWriterTest, differentCompression) {
     if (compressionKind == CompressionKind_NONE ||
         compressionKind == CompressionKind_ZLIB ||
         compressionKind == CompressionKind_ZSTD) {
-      auto result =
-          AssertQueryBuilder(plan)
-              .config(
-                  QueryConfig::kTaskWriterCount,
-                  std::to_string(numTableWriterCount_))
-              .connectorConfig(
-                  kHiveConnectorId, HiveConfig::kImmutablePartitions, "true")
-              .copyResults(pool());
+      auto result = AssertQueryBuilder(plan)
+                        .config(
+                            QueryConfig::kTaskWriterCount,
+                            std::to_string(numTableWriterCount_))
+                        .copyResults(pool());
       assertEqualResults(
           {makeRowVector({makeConstant<int64_t>(100, 1)})}, {result});
     } else {
@@ -2002,19 +1999,40 @@ TEST_P(UnpartitionedTableWriterTest, differentCompression) {
               .config(
                   QueryConfig::kTaskWriterCount,
                   std::to_string(numTableWriterCount_))
-              .connectorConfig(
-                  kHiveConnectorId, HiveConfig::kImmutablePartitions, "true")
               .copyResults(pool()),
           "Unsupported compression type:");
     }
   }
 }
 
-TEST_P(UnpartitionedTableWriterTest, createAndInsertIntoUnpartitionedTable) {
-  // When table type is NEW, we always return UpdateMode::kNew. In this case
-  // no exception is expected because we are trying to insert rows into a new
-  // table.
-  for (auto immutablePartitionsEnabled : {"true", "false"}) {
+TEST_P(UnpartitionedTableWriterTest, immutableSettings) {
+  struct {
+    connector::hive::LocationHandle::TableType dataType;
+    bool immutablePartitionsEnabled;
+    bool expectedInsertSuccees;
+
+    std::string debugString() const {
+      return fmt::format(
+          "dataType:{}, immutablePartitionsEnabled:{}, operationSuccess:{}",
+          dataType,
+          immutablePartitionsEnabled,
+          expectedInsertSuccees);
+    }
+  } testSettings[] = {
+      {connector::hive::LocationHandle::TableType::kNew, true, true},
+      {connector::hive::LocationHandle::TableType::kNew, false, true},
+      {connector::hive::LocationHandle::TableType::kExisting, true, false},
+      {connector::hive::LocationHandle::TableType::kExisting, false, true}};
+
+  for (auto testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    std::unordered_map<std::string, std::string> propFromFile{
+        {"hive.immutable-partitions",
+         testData.immutablePartitionsEnabled ? "true" : "false"}};
+    std::shared_ptr<const Config> connectorProperties{
+        std::make_shared<core::MemConfig>(propFromFile)};
+    resetHiveConnector(connectorProperties);
+
     auto input = makeVectors(10, 10);
     auto outputDirectory = TempDirectoryPath::create();
     auto plan = createInsertPlan(
@@ -2025,92 +2043,21 @@ TEST_P(UnpartitionedTableWriterTest, createAndInsertIntoUnpartitionedTable) {
         nullptr,
         CompressionKind_NONE,
         numTableWriterCount_,
-        connector::hive::LocationHandle::TableType::kNew);
+        testData.dataType);
 
-    auto result = AssertQueryBuilder(plan)
-                      .config(
-                          QueryConfig::kTaskWriterCount,
-                          std::to_string(numTableWriterCount_))
-                      .connectorConfig(
-                          kHiveConnectorId,
-                          HiveConfig::kImmutablePartitions,
-                          immutablePartitionsEnabled)
-                      .copyResults(pool());
-    assertEqualResults(
-        {makeRowVector({makeConstant<int64_t>(100, 1)})}, {result});
-  }
-}
-
-TEST_P(
-    UnpartitionedTableWriterTest,
-    appendToAnExistingUnpartitionedTableNotAllowed) {
-  // When table type is EXISTING and "immutable_partitions" config is set to
-  // true, inserts into such unpartitioned tables are not allowed.
-  //
-  // We assert that an error is thrown in this case.
-
-  auto input = makeVectors(10, 10);
-  auto outputDirectory = TempDirectoryPath::create();
-  auto plan = createInsertPlan(
-      PlanBuilder().values(input),
-      rowType_,
-      outputDirectory->path,
-      {},
-      nullptr,
-      CompressionKind_NONE,
-      numTableWriterCount_,
-      connector::hive::LocationHandle::TableType::kExisting);
-
-  VELOX_ASSERT_THROW(
-      AssertQueryBuilder(plan)
-          .connectorConfig(
-              kHiveConnectorId, HiveConfig::kImmutablePartitions, "true")
-          .copyResults(pool()),
-      "Unpartitioned Hive tables are immutable.");
-}
-
-TEST_P(UnpartitionedTableWriterTest, appendToAnExistingUnpartitionedTable) {
-  // This test uses the default value "false" for the "immutable_partitions"
-  // config allowing writes to an existing unpartitioned table.
-  //
-  // The test inserts data vector by vector and checks the intermediate
-  // results as well as the final result.
-
-  auto kRowsPerVector = 100;
-  auto input = makeVectors(10, kRowsPerVector);
-
-  createDuckDbTable(input);
-
-  for (auto tableType : tableTypes_) {
-    auto outputDirectory = TempDirectoryPath::create();
-    auto numRows = 0;
-
-    for (auto rowVector : input) {
-      numRows += kRowsPerVector;
-      auto plan = createInsertPlan(
-          PlanBuilder().values({rowVector}),
-          rowType_,
-          outputDirectory->path,
-          {},
-          nullptr,
-          CompressionKind_NONE,
-          numTableWriterCount_,
-          tableType);
-      assertQueryWithWriterConfigs(
-          plan, fmt::format("SELECT {}", kRowsPerVector));
-      assertQuery(
-          PlanBuilder()
-              .tableScan(rowType_)
-              .singleAggregation({}, {"count(*)"})
-              .planNode(),
-          makeHiveConnectorSplits(outputDirectory),
-          fmt::format("SELECT {}", numRows));
+    if (!testData.expectedInsertSuccees) {
+      VELOX_ASSERT_THROW(
+          AssertQueryBuilder(plan).copyResults(pool()),
+          "Unpartitioned Hive tables are immutable.");
+    } else {
+      auto result = AssertQueryBuilder(plan)
+                        .config(
+                            QueryConfig::kTaskWriterCount,
+                            std::to_string(numTableWriterCount_))
+                        .copyResults(pool());
+      assertEqualResults(
+          {makeRowVector({makeConstant<int64_t>(100, 1)})}, {result});
     }
-
-    assertQuery(
-        PlanBuilder().tableScan(rowType_).planNode(),
-        makeHiveConnectorSplits(outputDirectory),
-        "SELECT * FROM tmp");
   }
 }
 

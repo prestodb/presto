@@ -46,7 +46,8 @@ class HiveConfig {
 
   /// Whether new data can be inserted into an unpartition table.
   /// Velox currently does not support appending data to existing partitions.
-  static constexpr const char* kImmutablePartitions = "immutable_partitions";
+  static constexpr const char* kImmutablePartitions =
+      "hive.immutable-partitions";
 
   /// Virtual addressing is used for AWS S3 and is the default
   /// (path-style-access is false). Path access style is used for some on-prem
