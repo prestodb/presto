@@ -584,6 +584,15 @@ void KllSketch<T, A, C>::mergeViews(const folly::Range<const View*>& others) {
     return;
   }
   // Merge bottom level.
+  items_.reserve(
+      items_.size() +
+      std::accumulate(
+          others.begin(),
+          others.end(),
+          0,
+          [](size_t resExtraSz, const auto& other) {
+            return resExtraSz + other.safeLevelSize(0);
+          }));
   for (auto& other : others) {
     if (other.n == 0) {
       continue;
