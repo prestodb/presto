@@ -59,6 +59,9 @@ public class NativeExecutionSystemConfig
     // TODO: others use "-" separator and this property use _ separator. Fix them.
     private static final String HTTP_EXEC_THREADS = "http_exec_threads";
     private static final String NUM_IO_THREADS = "num-io-threads";
+    private static final String ASYNC_DATA_CACHE_ENABLED = "async-data-cache-enabled";
+    private static final String ASYNC_CACHE_SSD_GB = "async-cache-ssd-gb";
+    private static final String NUM_CONNECTOR_IO_THREADS = "num-connector-io-threads";
     private static final String PRESTO_VERSION = "presto.version";
     private static final String SHUTDOWN_ONSET_SEC = "shutdown-onset-sec";
     // Memory related configurations.
@@ -104,6 +107,9 @@ public class NativeExecutionSystemConfig
     private String httpsCertPath = "";
     private String httpsKeyPath = "";
     private int numIoThreads = 30;
+    private boolean asyncDataCacheEnabled; // false
+    private int asyncCacheSsdGb; // 0
+    private int numConnectorIoThreads; // 0
     private int shutdownOnsetSec = 10;
     private int systemMemoryGb = 10;
     // Reserve 2GB from system memory for system operations such as disk
@@ -139,6 +145,9 @@ public class NativeExecutionSystemConfig
                 .put(HTTPS_KEY_PATH, String.valueOf(getHttpsKeyPath()))
                 .put(HTTP_EXEC_THREADS, String.valueOf(getHttpExecThreads()))
                 .put(NUM_IO_THREADS, String.valueOf(getNumIoThreads()))
+                .put(ASYNC_DATA_CACHE_ENABLED, String.valueOf(getAsyncDataCacheEnabled()))
+                .put(ASYNC_CACHE_SSD_GB, String.valueOf(getAsyncCacheSsdGb()))
+                .put(NUM_CONNECTOR_IO_THREADS, String.valueOf(getNumConnectorIoThreads()))
                 .put(PRESTO_VERSION, getPrestoVersion())
                 .put(SHUTDOWN_ONSET_SEC, String.valueOf(getShutdownOnsetSec()))
                 .put(SYSTEM_MEMORY_GB, String.valueOf(getSystemMemoryGb()))
@@ -321,6 +330,42 @@ public class NativeExecutionSystemConfig
     public int getNumIoThreads()
     {
         return numIoThreads;
+    }
+
+    @Config(ASYNC_DATA_CACHE_ENABLED)
+    public NativeExecutionSystemConfig setAsyncDataCacheEnabled(boolean asyncDataCacheEnabled)
+    {
+        this.asyncDataCacheEnabled = asyncDataCacheEnabled;
+        return this;
+    }
+
+    public boolean getAsyncDataCacheEnabled()
+    {
+        return asyncDataCacheEnabled;
+    }
+
+    @Config(ASYNC_CACHE_SSD_GB)
+    public NativeExecutionSystemConfig setAsyncCacheSsdGb(int asyncCacheSsdGb)
+    {
+        this.asyncCacheSsdGb = asyncCacheSsdGb;
+        return this;
+    }
+
+    public int getAsyncCacheSsdGb()
+    {
+        return asyncCacheSsdGb;
+    }
+
+    @Config(NUM_CONNECTOR_IO_THREADS)
+    public NativeExecutionSystemConfig setNumConnectorIoThreads(int numConnectorIoThreads)
+    {
+        this.numConnectorIoThreads = numConnectorIoThreads;
+        return this;
+    }
+
+    public int getNumConnectorIoThreads()
+    {
+        return numConnectorIoThreads;
     }
 
     @Config(SHUTDOWN_ONSET_SEC)

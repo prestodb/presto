@@ -127,3 +127,35 @@ There is also an additional parameter:
     is valid.
     If the time period exceeds the parameter value, the request is rejected as
     authentication failure (HTTP 401).
+
+Async Data Cache and Prefetching
+--------------------------------
+
+``num-connector-io-threads``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type** ``integer``
+    * **Default value:** ``30``
+    * **Presto on Spark default value:** ``0``
+
+    Size of IO executor for connectors to do preload/prefetch.  Prefetch is
+    disabled if ``num-connector-io-threads`` is set to zero.
+
+``async-data-cache-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type** ``bool``
+    * **Default value:** ``true``
+    * **Presto on Spark default value:** ``false``
+
+    Whether async data cache is enabled.  Setting ``async-data-cache-enabled``
+    to ``false`` disables split prefetching in table scan.
+
+``async-cache-ssd-gb``
+^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type** ``integer``
+    * **Default value:** ``0``
+
+    Size of the SSD cache when async data cache is enabled.  Must be zero if
+    ``async-data-cache-enabled`` is ``false``.
