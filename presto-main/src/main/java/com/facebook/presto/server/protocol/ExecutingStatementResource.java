@@ -69,6 +69,7 @@ public class ExecutingStatementResource
     private final BoundedExecutor responseExecutor;
     private final LocalQueryProvider queryProvider;
     private final boolean compressionEnabled;
+    private final boolean nestedDataSerializationEnabled;
     private final QueryBlockingRateLimiter queryRateLimiter;
 
     @Inject
@@ -81,6 +82,7 @@ public class ExecutingStatementResource
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.queryProvider = requireNonNull(queryProvider, "queryProvider is null");
         this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
+        this.nestedDataSerializationEnabled = requireNonNull(serverConfig, "serverConfig is null").isNestedDataSerializationEnabled();
         this.queryRateLimiter = requireNonNull(queryRateLimiter, "queryRateLimiter is null");
     }
 
@@ -132,7 +134,7 @@ public class ExecutingStatementResource
                 responseExecutor);
         ListenableFuture<Response> queryResultsFuture = transform(
                 waitForResultsAsync,
-                results -> toResponse(query, results, xPrestoPrefixUrl, compressionEnabled),
+                results -> toResponse(query, results, xPrestoPrefixUrl, compressionEnabled, nestedDataSerializationEnabled),
                 directExecutor());
         bindAsyncResponse(asyncResponse, queryResultsFuture, responseExecutor);
     }
