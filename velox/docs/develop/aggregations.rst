@@ -201,9 +201,9 @@ Initially, the array is filled with nulls: [null, null, … null]. As rows are p
 After adding the first row {1, 10}:             [10, null, null, null, null, null, null, null, null, null]
 After adding the second row {7, 12}:            [10, null, null, null, null, null, 12, null, null, null]
 After adding the third row {1, 4}:              [14, null, null, null, null, null, 12, null, null, null]
-After adding the 4th row {4, 128}               [10, null, null, 128, null, null, 12, null, null, null]
-After adding the 5th row {10, -29}:             [10, null, null, null, null, null, 12, null, null, -29]
-After adding the last row {7, 3}:               [10, null, null, null, null, null, 15, null, null, -29]
+After adding the 4th row {4, 128}               [14, null, null, 128, null, null, 12, null, null, null]
+After adding the 5th row {10, -29}:             [14, null, null, null, null, null, 12, null, null, -29]
+After adding the last row {7, 3}:               [14, null, null, null, null, null, 15, null, null, -29]
 ============================================    =========================================================
 
 Compared with hash mode, array mode is very efficient as it doesn’t require
