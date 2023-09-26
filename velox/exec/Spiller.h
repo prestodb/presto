@@ -232,6 +232,8 @@ class Spiller {
 
     void clear() {
       rows.clear();
+      // Clears the memory allocated in rows after a spill run finishes.
+      rows.shrink_to_fit();
       numBytes = 0;
       sorted = false;
     }
