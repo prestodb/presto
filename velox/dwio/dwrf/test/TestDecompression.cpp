@@ -627,10 +627,14 @@ class CompressBuffer {
     return buf.data();
   }
 
-  void writeHeader(size_t compressedSize) {
+  static void writeHeader(size_t compressedSize, char* buf) {
     buf[0] = static_cast<char>(compressedSize << 1);
     buf[1] = static_cast<char>(compressedSize >> 7);
     buf[2] = static_cast<char>(compressedSize >> 15);
+  }
+
+  void writeHeader(size_t compressedSize) {
+    writeHeader(compressedSize, buf.data());
   }
 
   void writeUncompressedHeader(size_t compressedSize) {
@@ -770,6 +774,58 @@ TEST(TestDecompression, testSkipSnappy) {
   for (int32_t i = N / 2; i < N; ++i) {
     EXPECT_EQ(i % 8, (reinterpret_cast<const int32_t*>(data))[i - N / 2]);
   }
+}
+
+TEST(TestDecompression, testDelayedSkip) {
+  constexpr int32_t N = 1024;
+  std::vector<int> buf(N);
+  for (int32_t i = 0; i < N; ++i) {
+    buf[i] = i % 8;
+  }
+  const auto bufByteSize = buf.size() * sizeof(int);
+  std::vector<char> compressed(2 * bufByteSize);
+  int totalCompressed = 0;
+  // Create 2 compressed frames, the first one is corrupted in data blocks and
+  // should be skipped without decompression.
+  for (int i = 0; i < 2; ++i) {
+    auto ioBuf = folly::IOBuf::wrapBuffer(buf.data(), bufByteSize);
+    auto cbuf = getCodec(CodecType::ZSTD)->compress(ioBuf.get());
+    ASSERT_LE(
+        totalCompressed + HEADER_SIZE + cbuf->length(), compressed.size());
+    CompressBuffer::writeHeader(cbuf->length(), &compressed[totalCompressed]);
+    totalCompressed += HEADER_SIZE;
+    if (i == 0) {
+      constexpr int kDataBlockOffset = 18;
+      memcpy(&compressed[totalCompressed], cbuf->data(), kDataBlockOffset);
+      memset(
+          &compressed[totalCompressed + kDataBlockOffset],
+          0xAA,
+          cbuf->length() - kDataBlockOffset);
+    } else {
+      memcpy(&compressed[totalCompressed], cbuf->data(), cbuf->length());
+    }
+    totalCompressed += cbuf->length();
+  }
+  constexpr long kBlockSize = 97;
+  auto result = createTestDecompressor(
+      CompressionKind_ZSTD,
+      std::make_unique<SeekableArrayInputStream>(
+          compressed.data(), totalCompressed, kBlockSize),
+      bufByteSize);
+  const void* data;
+  int32_t length;
+  ASSERT_TRUE(result->Skip(bufByteSize / 2));
+  ASSERT_TRUE(result->Skip(bufByteSize / 2));
+  ASSERT_TRUE(result->Next(&data, &length));
+  ASSERT_EQ(length, bufByteSize);
+  auto* dataAsInt = reinterpret_cast<const int*>(data);
+  for (int i = 0; i < N; ++i) {
+    ASSERT_EQ(dataAsInt[i], buf[i]);
+  }
+  std::vector<uint64_t> posVector(2, 0);
+  PositionProvider pos(posVector);
+  result->seekToPosition(pos);
+  ASSERT_THROW(result->Next(&data, &length), VeloxException);
 }
 
 void fillInput(char* buf, size_t size) {
