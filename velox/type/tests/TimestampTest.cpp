@@ -77,14 +77,44 @@ TEST(TimestampTest, arithmeticOverflow) {
   uint64_t nano = Timestamp::kMaxNanos;
 
   Timestamp ts1(positiveSecond, nano);
-  VELOX_ASSERT_THROW(ts1.toMillis(), "Could not convert Timestamp");
-  VELOX_ASSERT_THROW(ts1.toMicros(), "Could not convert Timestamp");
-  VELOX_ASSERT_THROW(ts1.toNanos(), "Could not convert Timestamp");
+  VELOX_ASSERT_THROW(
+      ts1.toMillis(),
+      fmt::format(
+          "Could not convert Timestamp({}, {}) to milliseconds",
+          positiveSecond,
+          nano));
+  VELOX_ASSERT_THROW(
+      ts1.toMicros(),
+      fmt::format(
+          "Could not convert Timestamp({}, {}) to microseconds",
+          positiveSecond,
+          nano));
+  VELOX_ASSERT_THROW(
+      ts1.toNanos(),
+      fmt::format(
+          "Could not convert Timestamp({}, {}) to nanoseconds",
+          positiveSecond,
+          nano));
 
   Timestamp ts2(negativeSecond, 0);
-  VELOX_ASSERT_THROW(ts2.toMillis(), "Could not convert Timestamp");
-  VELOX_ASSERT_THROW(ts2.toMicros(), "Could not convert Timestamp");
-  VELOX_ASSERT_THROW(ts2.toNanos(), "Could not convert Timestamp");
+  VELOX_ASSERT_THROW(
+      ts2.toMillis(),
+      fmt::format(
+          "Could not convert Timestamp({}, {}) to milliseconds",
+          negativeSecond,
+          0));
+  VELOX_ASSERT_THROW(
+      ts2.toMicros(),
+      fmt::format(
+          "Could not convert Timestamp({}, {}) to microseconds",
+          negativeSecond,
+          0));
+  VELOX_ASSERT_THROW(
+      ts2.toNanos(),
+      fmt::format(
+          "Could not convert Timestamp({}, {}) to nanoseconds",
+          negativeSecond,
+          0));
 }
 
 TEST(TimestampTest, toAppend) {

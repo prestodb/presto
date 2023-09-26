@@ -104,7 +104,7 @@ struct Timestamp {
           (int64_t)(nanos_ / 1'000'000));
     } catch (const std::exception& e) {
       VELOX_USER_FAIL(
-          "Could not convert Timestamp({}, {}) to microseconds, {}",
+          "Could not convert Timestamp({}, {}) to milliseconds, {}",
           seconds_,
           nanos_,
           e.what());
