@@ -1266,4 +1266,43 @@ TEST_F(RowContainerTest, unknown) {
     ASSERT_TRUE(rowContainer->equals<false>(
         rows[row], rowContainer->columnAt(0), decoded, row));
   }
+
+  {
+    // Verify compare method with two rows as input
+    std::sort(rows.begin(), rows.end(), [&](const char* l, const char* r) {
+      return rowContainer->compare(l, r, 0, {}) < 0;
+    });
+    VectorPtr result = BaseVector::create(UNKNOWN(), rows.size(), pool_.get());
+    rowContainer->extractColumn(rows.data(), rows.size(), 0, result);
+    // Since the Vector is just a null constant, it should be indistinguishable
+    // from the original.
+    assertEqualVectors(data->childAt(0), result);
+  }
+
+  std::vector<std::pair<int, char*>> indexedRows(rows.size());
+  for (size_t i = 0; i < rows.size(); ++i) {
+    indexedRows[i] = std::make_pair(i, rows[i]);
+  }
+
+  // Verify compare method with row and decoded vector as input
+  // Sorting a NULL constant Vector doesn't change the Vector, so we just
+  // validate that it runs without throwing an exception.
+  EXPECT_NO_THROW(std::sort(
+      indexedRows.begin(),
+      indexedRows.end(),
+      [&](const std::pair<int, char*>& l, const std::pair<int, char*>& r) {
+        return rowContainer->compare(
+                   l.second, rowContainer->columnAt(0), decoded, r.first, {}) <
+            0;
+      }));
+
+  // Verify compareRows method with row as input.
+  // Sorting a NULL constant Vector doesn't change the Vector, so we just
+  // validate that it runs without throwing an exception.
+  EXPECT_NO_THROW(std::sort(
+      indexedRows.begin(),
+      indexedRows.end(),
+      [&](const std::pair<int, char*>& l, const std::pair<int, char*>& r) {
+        return rowContainer->compareRows(l.second, r.second) < 0;
+      }));
 }

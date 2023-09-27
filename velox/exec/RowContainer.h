@@ -1359,13 +1359,34 @@ inline bool RowContainer::equals(
   }
 }
 
+template <>
+inline int RowContainer::compare<TypeKind::OPAQUE>(
+    const char* FOLLY_NONNULL /*row*/,
+    RowColumn /*column*/,
+    const DecodedVector& /*decoded*/,
+    vector_size_t /*index*/,
+    CompareFlags /*flags*/) {
+  VELOX_UNSUPPORTED("Comparing Opaque types is not supported.");
+}
+
+template <>
+inline int RowContainer::compare<TypeKind::OPAQUE>(
+    const char* FOLLY_NONNULL /*left*/,
+    const char* FOLLY_NONNULL /*right*/,
+    const Type* FOLLY_NONNULL /*type*/,
+    RowColumn /*leftColumn*/,
+    RowColumn /*rightColumn*/,
+    CompareFlags /*flags*/) {
+  VELOX_UNSUPPORTED("Comparing Opaque types is not supported.");
+}
+
 inline int RowContainer::compare(
     const char* FOLLY_NONNULL row,
     RowColumn column,
     const DecodedVector& decoded,
     vector_size_t index,
     CompareFlags flags) {
-  return VELOX_DYNAMIC_TYPE_DISPATCH(
+  return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
       compare, decoded.base()->typeKind(), row, column, decoded, index, flags);
 }
 
@@ -1375,7 +1396,7 @@ inline int RowContainer::compare(
     int columnIndex,
     CompareFlags flags) {
   auto type = types_[columnIndex].get();
-  return VELOX_DYNAMIC_TYPE_DISPATCH(
+  return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
       compare, type->kind(), left, right, type, columnAt(columnIndex), flags);
 }
 
@@ -1388,7 +1409,7 @@ inline int RowContainer::compare(
   auto leftType = types_[leftColumnIndex].get();
   auto rightType = types_[rightColumnIndex].get();
   VELOX_CHECK(leftType->equivalent(*rightType));
-  return VELOX_DYNAMIC_TYPE_DISPATCH(
+  return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
       compare,
       leftType->kind(),
       left,
